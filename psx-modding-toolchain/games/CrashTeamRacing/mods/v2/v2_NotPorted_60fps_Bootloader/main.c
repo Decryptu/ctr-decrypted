@@ -476,10 +476,8 @@ void PatchModel(struct Model* m, struct Thread* t)
 	int loopNum;
 	struct Thread* search;
 
-	// dont touch NDI box models (work fine)
-	if(m->id >= 0xb6)
-		if(m->id <= 0xcb)
-			return;
+	// ignore ND box, intro models, oxide intro, podiums, etc
+	if(LOAD_Callback_Overlay_233()) return;
 
 	// dont touch crash in main menu (regression)
 	if(m->id >= 0x66)
@@ -493,11 +491,6 @@ void PatchModel(struct Model* m, struct Thread* t)
 
 	// dont touch loadsave (regression)
 	if(m->id == 0x78) return;
-
-	// dont touch intro models (work fine)
-	if(m->id >= 0x96)
-		if(m->id <= 0xA5)
-			return;
 
 	// if this is a driver model
 	if(m->id == -1)
@@ -588,11 +581,11 @@ void INSTANCE_Birth_Hook(struct Instance* i, struct Model* m, char* name, struct
 	return;
 }
 
-void LoadAllInstancesInLEV_Hook(struct InstDef* instDef, int num)
+void INSTANCE_LEVEL_InitAll_Hook(struct InstDef* instDef, int num)
 {
 	int i;
 
-	LoadAllInstancesInLEV(instDef, num);
+	INSTANCE_LEVEL_InitAll(instDef, num);
 
 	for(i = 0; i < num; i++)
 	{
@@ -602,7 +595,7 @@ void LoadAllInstancesInLEV_Hook(struct InstDef* instDef, int num)
 
 // This executes one time, before the
 // Crash Team Racing exe boots
-void entry()
+void RunEntryHook()
 {
 	int i;
 
@@ -615,6 +608,7 @@ void entry()
 	// Mask Grab
 	*(unsigned int*)0x80067B58 = 0x2442FF00;
 
+#if 0
 	// Emulate 30fps on 60fps
 	// (temporary)
 	{
@@ -625,6 +619,7 @@ void entry()
 		// Replace particle update system
 		*(unsigned int*)0x80035248 = JAL(UpdateParticles30fps);
 	}
+#endif
 
 	// HUD objects
 	{
@@ -842,8 +837,8 @@ void entry()
 		*(unsigned int*)0x800308bc = JAL(INSTANCE_Birth_Hook);
 
 		// patch every time LEV instances are made
-		*(unsigned int*)0x80033234 = JAL(LoadAllInstancesInLEV_Hook);
-		*(unsigned int*)0x8003be50 = JAL(LoadAllInstancesInLEV_Hook);
+		*(unsigned int*)0x80033234 = JAL(INSTANCE_LEVEL_InitAll_Hook);
+		*(unsigned int*)0x8003be50 = JAL(INSTANCE_LEVEL_InitAll_Hook);
 	}
 
 	// Inject new hooks
