@@ -136,9 +136,9 @@ void DECOMP_TileView_UpdateFrustum(struct TileView* tileView)
     
 	// result of read_mt, plus cameraPos (x,y,z),
 	// over 4 loop iterations, this writes four corners,
-    *(int*)(corner1+0xc) = (char)tx + cameraPosX;
-    *(int*)(corner1+0xe) = (char)ty + cameraPosY;
-	*(int*)(corner1+0x10) = (char)tz + cameraPosZ;
+    *(short*)(corner1+0xc) = (char)tx + cameraPosX;
+    *(short*)(corner1+0xe) = (char)ty + cameraPosY;
+	*(short*)(corner1+0x10) = (char)tz + cameraPosZ;
 	
     *(int*)0x1f800000 = posX;
     *(int*)0x1f800004 = posY;
@@ -259,9 +259,9 @@ void DECOMP_TileView_UpdateFrustum(struct TileView* tileView)
   tileView->bbox.min[2] = (char)max_Z;
 
   // cameraPos (x,y,z)
-  *(int*)0x1f800024 = cameraPosX;
-  *(int*)0x1f800024 = cameraPosY;
-  *(int*)0x1f800028 = cameraPosZ;
+  *(short*)0x1f800024 = cameraPosX;
+  *(short*)0x1f800026 = cameraPosY;
+  *(short*)0x1f800028 = cameraPosZ;
 
   // Changing stuff here is what caused EuroAli's
   // discovery for widescreen, so that polygons aren't
