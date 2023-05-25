@@ -136,6 +136,7 @@ struct LevelFile
 	struct TextureLayout texlayout_ramp_low;
 	struct TextureLayout texlayout_ramp_low_flipV;
 	struct SpawnType1 ptrSpawnType1;
+	struct WarpballPathNode noderespawnsthing[NUM_BLOCKS]; // all empty, this is a battle map
 	struct QuadBlock quadBlock[NUM_BLOCKS];
 	struct LevVertex levVertex[NUM_BLOCKS*9];
 	struct BSP bsp[3];
@@ -152,7 +153,7 @@ struct LevelFile
 	int VisMem_bitIndex_DstMemcpyP4[8]; // leave empty
 	int VisMem_bspList_RenderListP4[3*2];
 	
-	int map[(30+NUM_BLOCKS*6)+1];
+	int map[(31+NUM_BLOCKS*6)+1];
 };
 
 struct LevelFile file =
@@ -183,13 +184,10 @@ struct LevelFile file =
 		.clearColor[0].rgb = {0x0, 0x0, 0x28},
 		.clearColor[0].enable = 1,
 		
-		// go to kernel memory,
-		// read all zeros so you dont get mask-grabbed,
-		// otherwise it reads nullptr and kills you on quadblock 40/64
-		// cause 0x0c*0x28 is random data interpreted as "illegal shortcut",
-		// and 0x0c*0x40 goes from 8000c400 to 8000c700,
-		// we should use a proper implementation of the 0xC-byte struct later
-		.ptr_restart_points = 0x8000c400,
+		// only non-zero for Race maps
+		// battle maps need array, but still set CNT to zero
+		.cnt_restart_points = 0,
+		.ptr_restart_points = OFFSETOF(struct LevelFile, noderespawnsthing[0])-4,
 	},
 	
 	.mInfo =
@@ -683,11 +681,12 @@ struct LevelFile file =
 	
 	.map =
 	{
-		(30+NUM_BLOCKS*6)<<2,
+		(31+NUM_BLOCKS*6)<<2,
 		
 		OFFSETOF(struct LevelFile, level.ptr_mesh_info)-4,
 		OFFSETOF(struct LevelFile, level.visMem)-4,
 		OFFSETOF(struct LevelFile, level.ptrSpawnType1)-4,
+		OFFSETOF(struct LevelFile, level.ptr_restart_points)-4,
 		OFFSETOF(struct LevelFile, mInfo.ptrQuadBlockArray)-4,
 		OFFSETOF(struct LevelFile, mInfo.ptrVertexArray)-4,
 		OFFSETOF(struct LevelFile, mInfo.bspRoot)-4,
