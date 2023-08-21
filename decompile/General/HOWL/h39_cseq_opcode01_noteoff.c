@@ -5,6 +5,7 @@ void DECOMP_cseq_opcode01_noteoff(struct SongSeq* seq)
 	struct ChannelStats* curr;
 	unsigned char* currNote = seq->currNote;
 	int soundID = seq->soundID;
+	u_int* flagPtr;
 	
 	for(
 			curr = sdata->channelTaken.first;
@@ -22,8 +23,9 @@ void DECOMP_cseq_opcode01_noteoff(struct SongSeq* seq)
 		if(curr->drumIndex_pitchIndex != currNote[1]) continue;
 		
 		// enable OFF(1) flag, disable ON(2) flag
-		sdata->ChannelUpdateFlags[curr->channelID] |= 1;
-		sdata->ChannelUpdateFlags[curr->channelID] &= ~(2);
+		flagPtr = &sdata->ChannelUpdateFlags[curr->channelID];
+		*flagPtr |= 1;
+		*flagPtr &= ~(2);
 		
 		// recycle: remove from taken, put on free
 		LIST_RemoveMember(&sdata->channelTaken.first, curr);
