@@ -67,7 +67,7 @@ struct RectMenu menu =
 	.posY_prev = 0,
 	
 	.rowSelected = 0,
-	.unk1a = 0,
+	.unk1c = 0,
 	.unk1e = 0,
 	.width = 0,
 	.height = 0,
