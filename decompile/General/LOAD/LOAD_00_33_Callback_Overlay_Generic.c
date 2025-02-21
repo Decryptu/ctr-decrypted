@@ -34,6 +34,9 @@
 #include "LOAD_31_DriverMPK.c"
 #include "LOAD_32_LangFile.c"
 #include "LOAD_33_GetBigfileIndex.c"
+#include "LOAD_34_AppendQueue.c"
+#include "LOAD_35_CDRequestCallback.c"
+#include "LOAD_36_NextQueuedFile.c"
 
 #if defined (USE_DEFRAG)
 #include "../AltMods/Mods4.c"
