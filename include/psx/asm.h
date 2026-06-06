@@ -13,6 +13,6 @@ This header must be empty
 
 */
 
-#define	NREGS		40
+#define NREGS 40
 
 #endif

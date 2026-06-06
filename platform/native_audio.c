@@ -9,47 +9,47 @@
 
 typedef s32 b32;
 
-#define NATIVE_AUDIO_SAMPLE_RATE        44100
-#define NATIVE_AUDIO_CHANNELS           2
-#define NATIVE_AUDIO_SPU_VOICE_COUNT    24
-#define NATIVE_AUDIO_SPU_MEMSIZE        (512 * 1024)
-#define NATIVE_AUDIO_FP_SHIFT           16
-#define NATIVE_AUDIO_FP_ONE             (1 << NATIVE_AUDIO_FP_SHIFT)
-#define NATIVE_AUDIO_GAUSS_INDEX_SHIFT  8
-#define NATIVE_AUDIO_DIRECT_VOL_MAX     0x4000
-#define NATIVE_AUDIO_VBLANK_FRAMES         (NATIVE_AUDIO_SAMPLE_RATE / 60)
+#define NATIVE_AUDIO_SAMPLE_RATE            44100
+#define NATIVE_AUDIO_CHANNELS               2
+#define NATIVE_AUDIO_SPU_VOICE_COUNT        24
+#define NATIVE_AUDIO_SPU_MEMSIZE            (512 * 1024)
+#define NATIVE_AUDIO_FP_SHIFT               16
+#define NATIVE_AUDIO_FP_ONE                 (1 << NATIVE_AUDIO_FP_SHIFT)
+#define NATIVE_AUDIO_GAUSS_INDEX_SHIFT      8
+#define NATIVE_AUDIO_DIRECT_VOL_MAX         0x4000
+#define NATIVE_AUDIO_VBLANK_FRAMES          (NATIVE_AUDIO_SAMPLE_RATE / 60)
 #define NATIVE_AUDIO_SCHEDULED_QUEUE_FRAMES (NATIVE_AUDIO_VBLANK_FRAMES * 16)
-#define NATIVE_AUDIO_XA_ZIGZAG_TAPS        29
-#define NATIVE_AUDIO_XA_ZIGZAG_PHASES      7
-#define NATIVE_AUDIO_XA_ZIGZAG_INPUTS      6
+#define NATIVE_AUDIO_XA_ZIGZAG_TAPS         29
+#define NATIVE_AUDIO_XA_ZIGZAG_PHASES       7
+#define NATIVE_AUDIO_XA_ZIGZAG_INPUTS       6
 // NOTE(aalhendi): Little-endian tag `CTRA` = CTR native Audio snapshot.
-#define NATIVE_AUDIO_STATE_MAGIC           0x41525443
-#define NATIVE_AUDIO_STATE_VERSION         1
-#define NATIVE_AUDIO_ARENA_ALIGN           16
-#define NATIVE_AUDIO_ADSR_MIN              (-0x8000)
-#define NATIVE_AUDIO_ADSR_MAX              0x7fff
-#define NATIVE_AUDIO_ADSR_STEP_BIT         0x8000u
-#define NATIVE_AUDIO_REVERB_MAX_BYTES      0x18040
-#define NATIVE_AUDIO_REVERB_MAX_SAMPLES    (NATIVE_AUDIO_REVERB_MAX_BYTES / (int)sizeof(s16))
-#define NATIVE_AUDIO_REVERB_FIR_TAPS       39
+#define NATIVE_AUDIO_STATE_MAGIC            0x41525443
+#define NATIVE_AUDIO_STATE_VERSION          1
+#define NATIVE_AUDIO_ARENA_ALIGN            16
+#define NATIVE_AUDIO_ADSR_MIN               (-0x8000)
+#define NATIVE_AUDIO_ADSR_MAX               0x7fff
+#define NATIVE_AUDIO_ADSR_STEP_BIT          0x8000u
+#define NATIVE_AUDIO_REVERB_MAX_BYTES       0x18040
+#define NATIVE_AUDIO_REVERB_MAX_SAMPLES     (NATIVE_AUDIO_REVERB_MAX_BYTES / (int)sizeof(s16))
+#define NATIVE_AUDIO_REVERB_FIR_TAPS        39
 
-#define XA_NUM_TYPES                    3
-#define XA_HEADER_SIZE                  0x44
-#define XA_NUM_XAS_TOTAL_OFFSET         0x0c
-#define XA_NUM_TRACKS_TOTAL_OFFSET      0x10
-#define XA_NUM_SONGS_OFFSET             0x2c
-#define XA_FIRST_SONG_INDEX_OFFSET      0x38
-#define XA_SIZE_ENTRY_BYTES             4
-#define XA_FORM2_SECTOR_SIZE            2336
-#define XA_FULL_SECTOR_SIZE             2352
-#define XA_FRAMES_PER_SECTOR            18
-#define XA_FRAME_SIZE                   128
-#define XA_SUBHEADER_SIZE               8
-#define XA_SAMPLES_PER_SOUND_UNIT       28
-#define XA_BLOCKS_PER_FRAME             4
-#define XA_SUBFRAMES_PER_FRAME          8
-#define XA_SAMPLE_RATE_37800            37800
-#define XA_SAMPLE_RATE_18900            18900
+#define XA_NUM_TYPES                        3
+#define XA_HEADER_SIZE                      0x44
+#define XA_NUM_XAS_TOTAL_OFFSET             0x0c
+#define XA_NUM_TRACKS_TOTAL_OFFSET          0x10
+#define XA_NUM_SONGS_OFFSET                 0x2c
+#define XA_FIRST_SONG_INDEX_OFFSET          0x38
+#define XA_SIZE_ENTRY_BYTES                 4
+#define XA_FORM2_SECTOR_SIZE                2336
+#define XA_FULL_SECTOR_SIZE                 2352
+#define XA_FRAMES_PER_SECTOR                18
+#define XA_FRAME_SIZE                       128
+#define XA_SUBHEADER_SIZE                   8
+#define XA_SAMPLES_PER_SOUND_UNIT           28
+#define XA_BLOCKS_PER_FRAME                 4
+#define XA_SUBFRAMES_PER_FRAME              8
+#define XA_SAMPLE_RATE_37800                37800
+#define XA_SAMPLE_RATE_18900                18900
 
 enum
 {
@@ -360,35 +360,35 @@ static const s16 s_gaussTable[512] = {
 // NOTE(aalhendi): PS1 CD-XA 37800Hz->44100Hz zig-zag interpolation table.
 // Source reference: PSX-SPX, "CDROM XA Audio ADPCM Compression".
 static const s16 s_xaZigZagTable[NATIVE_AUDIO_XA_ZIGZAG_TAPS][NATIVE_AUDIO_XA_ZIGZAG_PHASES] = {
-    {0,       0,       0,       0,      -0x0001,  0x0002, -0x0005},
-    {0,       0,       0,      -0x0001,  0x0003, -0x0008,  0x0011},
-    {0,       0,      -0x0001,  0x0003, -0x0008,  0x0010, -0x0023},
-    {0,      -0x0002,  0x0003, -0x0008,  0x0011, -0x0023,  0x0046},
-    {0,       0,      -0x0002,  0x0006, -0x0010,  0x002B, -0x0017},
-    {-0x0002, 0x0003, -0x0005,  0x0005,  0x000A,  0x001A, -0x0044},
-    {0x000A, -0x0013,  0x001F, -0x001B,  0x006B, -0x00EB,  0x015B},
-    {-0x0022, 0x003C, -0x004A,  0x00A6, -0x016D,  0x027B, -0x0347},
-    {0x0041, -0x004B,  0x00B3, -0x01A8,  0x0350, -0x0548,  0x080E},
-    {-0x0054, 0x00A2, -0x0192,  0x0372, -0x0623,  0x0AFA, -0x1249},
-    {0x0034, -0x00E3,  0x02B1, -0x05BF,  0x0BCD, -0x16FA,  0x3C07},
-    {0x0009,  0x0132, -0x039E,  0x09B8, -0x1780,  0x53E0,  0x53E0},
-    {-0x010A, -0x0043, 0x04F8, -0x11B4,  0x6794,  0x3C07, -0x16FA},
-    {0x0400, -0x0267, -0x05A6,  0x74BB,  0x234C, -0x1249,  0x0AFA},
-    {-0x0A78, 0x0C9D,  0x7939,  0x0C9D, -0x0A78,  0x080E, -0x0548},
-    {0x234C,  0x74BB, -0x05A6, -0x0267,  0x0400, -0x0347,  0x027B},
-    {0x6794, -0x11B4,  0x04F8, -0x0043, -0x010A,  0x015B, -0x00EB},
-    {-0x1780, 0x09B8, -0x039E,  0x0132,  0x0009, -0x0044,  0x001A},
-    {0x0BCD, -0x05BF,  0x02B1, -0x00E3,  0x0034, -0x0017,  0x002B},
-    {-0x0623, 0x0372, -0x0192,  0x00A2, -0x0054,  0x0046, -0x0023},
-    {0x0350, -0x01A8,  0x00B3, -0x004B,  0x0041, -0x0023,  0x0010},
-    {-0x016D, 0x00A6, -0x004A,  0x003C, -0x0022,  0x0011, -0x0008},
-    {0x006B, -0x001B,  0x001F, -0x0013,  0x000A, -0x0005,  0x0002},
-    {0x000A,  0x0005, -0x0005,  0x0003, -0x0001,  0,       0},
-    {-0x0010, 0x0006, -0x0002,  0,       0,       0,       0},
-    {0x0011, -0x0008,  0x0003, -0x0002,  0x0001,  0,       0},
-    {-0x0008, 0x0003, -0x0001,  0,       0,       0,       0},
-    {0x0003, -0x0001,  0,       0,       0,       0,       0},
-    {-0x0001, 0,       0,       0,       0,       0,       0},
+    {0, 0, 0, 0, -0x0001, 0x0002, -0x0005},
+    {0, 0, 0, -0x0001, 0x0003, -0x0008, 0x0011},
+    {0, 0, -0x0001, 0x0003, -0x0008, 0x0010, -0x0023},
+    {0, -0x0002, 0x0003, -0x0008, 0x0011, -0x0023, 0x0046},
+    {0, 0, -0x0002, 0x0006, -0x0010, 0x002B, -0x0017},
+    {-0x0002, 0x0003, -0x0005, 0x0005, 0x000A, 0x001A, -0x0044},
+    {0x000A, -0x0013, 0x001F, -0x001B, 0x006B, -0x00EB, 0x015B},
+    {-0x0022, 0x003C, -0x004A, 0x00A6, -0x016D, 0x027B, -0x0347},
+    {0x0041, -0x004B, 0x00B3, -0x01A8, 0x0350, -0x0548, 0x080E},
+    {-0x0054, 0x00A2, -0x0192, 0x0372, -0x0623, 0x0AFA, -0x1249},
+    {0x0034, -0x00E3, 0x02B1, -0x05BF, 0x0BCD, -0x16FA, 0x3C07},
+    {0x0009, 0x0132, -0x039E, 0x09B8, -0x1780, 0x53E0, 0x53E0},
+    {-0x010A, -0x0043, 0x04F8, -0x11B4, 0x6794, 0x3C07, -0x16FA},
+    {0x0400, -0x0267, -0x05A6, 0x74BB, 0x234C, -0x1249, 0x0AFA},
+    {-0x0A78, 0x0C9D, 0x7939, 0x0C9D, -0x0A78, 0x080E, -0x0548},
+    {0x234C, 0x74BB, -0x05A6, -0x0267, 0x0400, -0x0347, 0x027B},
+    {0x6794, -0x11B4, 0x04F8, -0x0043, -0x010A, 0x015B, -0x00EB},
+    {-0x1780, 0x09B8, -0x039E, 0x0132, 0x0009, -0x0044, 0x001A},
+    {0x0BCD, -0x05BF, 0x02B1, -0x00E3, 0x0034, -0x0017, 0x002B},
+    {-0x0623, 0x0372, -0x0192, 0x00A2, -0x0054, 0x0046, -0x0023},
+    {0x0350, -0x01A8, 0x00B3, -0x004B, 0x0041, -0x0023, 0x0010},
+    {-0x016D, 0x00A6, -0x004A, 0x003C, -0x0022, 0x0011, -0x0008},
+    {0x006B, -0x001B, 0x001F, -0x0013, 0x000A, -0x0005, 0x0002},
+    {0x000A, 0x0005, -0x0005, 0x0003, -0x0001, 0, 0},
+    {-0x0010, 0x0006, -0x0002, 0, 0, 0, 0},
+    {0x0011, -0x0008, 0x0003, -0x0002, 0x0001, 0, 0},
+    {-0x0008, 0x0003, -0x0001, 0, 0, 0, 0},
+    {0x0003, -0x0001, 0, 0, 0, 0, 0},
+    {-0x0001, 0, 0, 0, 0, 0, 0},
 };
 
 // NOTE(aalhendi): PS1 SPU reverb 44.1kHz<->22.05kHz FIR resampler.
@@ -2186,8 +2186,7 @@ static int NativeAudio_QueueRenderedFramesNoLock(const s16 *frames, int frameCou
 		if (chunkFrames > contiguous)
 			chunkFrames = contiguous;
 
-		memcpy(&s_audio.output.scheduledPcm[writeFrame * frameSamples], &frames[framesQueued * frameSamples],
-		       (size_t)chunkFrames * frameSamples * sizeof(s16));
+		memcpy(&s_audio.output.scheduledPcm[writeFrame * frameSamples], &frames[framesQueued * frameSamples], (size_t)chunkFrames * frameSamples * sizeof(s16));
 		s_audio.output.scheduledFrameCount += chunkFrames;
 		framesQueued += chunkFrames;
 	}
@@ -2694,8 +2693,8 @@ void NativeAudio_StepVBlank(void)
 #ifdef CTR_INTERNAL
 	if (shouldReportStats)
 	{
-		printf("[CTR Native] Audio output stats: underrunFrames=%d overflowFrames=%d queuedFrames=%d callbackMaxRequestFrames=%d\n", underrunFrames, overflowFrames,
-		       queuedFrames, s_audio.output.callbackMaxRequestFrames);
+		printf("[CTR Native] Audio output stats: underrunFrames=%d overflowFrames=%d queuedFrames=%d callbackMaxRequestFrames=%d\n", underrunFrames,
+		       overflowFrames, queuedFrames, s_audio.output.callbackMaxRequestFrames);
 	}
 #endif
 }
@@ -2745,15 +2744,16 @@ static int NativeAudio_OpenDevice(void)
 
 	if ((srcSpec.freq != want.freq) || (srcSpec.format != want.format) || (srcSpec.channels != want.channels))
 	{
-		fprintf(stderr, "[CTR Native] SDL audio rejected fixed PCM contract: got %d Hz format 0x%x channels %d\n", srcSpec.freq, srcSpec.format, srcSpec.channels);
+		fprintf(stderr, "[CTR Native] SDL audio rejected fixed PCM contract: got %d Hz format 0x%x channels %d\n", srcSpec.freq, srcSpec.format,
+		        srcSpec.channels);
 		SDL_DestroyAudioStream(s_audio.output.stream);
 		s_audio.output.stream = NULL;
 		s_audio.output.device = 0;
 		return 0;
 	}
 
-	printf("[CTR Native] SDL audio stream opened: driver=%s src=%d Hz/%d ch dst=%d Hz/%d ch device=%d Hz/%d ch sampleFrames=%d\n", SDL_GetCurrentAudioDriver(), srcSpec.freq,
-	       srcSpec.channels, dstSpec.freq, dstSpec.channels, deviceSpec.freq, deviceSpec.channels, deviceSampleFrames);
+	printf("[CTR Native] SDL audio stream opened: driver=%s src=%d Hz/%d ch dst=%d Hz/%d ch device=%d Hz/%d ch sampleFrames=%d\n", SDL_GetCurrentAudioDriver(),
+	       srcSpec.freq, srcSpec.channels, dstSpec.freq, dstSpec.channels, deviceSpec.freq, deviceSpec.channels, deviceSampleFrames);
 	NativeAudio_ClearOutputQueueNoLock();
 	if (!SDL_ResumeAudioStreamDevice(s_audio.output.stream))
 	{

@@ -49,12 +49,12 @@ extern int rename(char* unk00, char *);
 extern int cd(char* unk00);
 */
 
-extern int LoadTest(char*  unk00, struct EXEC *);
-extern int Load(char * unk00, struct EXEC *);
-extern int Exec(struct EXEC * unk00, int, char **);
-extern int LoadExec(char * unk00, unsigned int, unsigned int);
+extern int LoadTest(char *unk00, struct EXEC *);
+extern int Load(char *unk00, struct EXEC *);
+extern int Exec(struct EXEC *unk00, int, char **);
+extern int LoadExec(char *unk00, unsigned int, unsigned int);
 
-extern int InitPAD(char * unk00, int,char *, int);
+extern int InitPAD(char *unk00, int, char *, int);
 extern int StartPAD();
 extern void StopPAD();
 extern void EnablePAD();
@@ -77,17 +77,17 @@ extern unsigned long GetCr();
 extern unsigned long GetSr();
 extern unsigned long GetSysSp();
 
-extern int SetConf(unsigned int,unsigned int,unsigned int);
-extern void GetConf(unsigned int*,unsigned int*,unsigned int*);
+extern int SetConf(unsigned int, unsigned int, unsigned int);
+extern void GetConf(unsigned int *, unsigned int *, unsigned int *);
 
 /*
 extern int _get_errno(void);
 extern int _get_error(int);
 */
-extern void SystemError( char, int);
+extern void SystemError(char, int);
 extern void SetMem(int);
 
-extern int Krom2RawAdd( unsigned int);
+extern int Krom2RawAdd(unsigned int);
 extern int Krom2RawAdd2(unsigned short);
 
 extern void _96_init(void);
@@ -112,7 +112,6 @@ extern unsigned int _card_chan(void);
 extern int _card_write(int chan, int block, unsigned char *buf);
 extern int _card_read(int chan, int block, unsigned char *buf);
 extern int _card_format(int chan);
-
 
 
 #endif
