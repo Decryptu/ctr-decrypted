@@ -3,7 +3,7 @@
 
 #include <macros.h>
 
-#define PLATFORM_INPUT_PAD_COUNT 2
+#define PLATFORM_INPUT_PAD_COUNT 4
 
 struct PlatformInputPadSnapshot
 {

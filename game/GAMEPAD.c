@@ -201,13 +201,6 @@ int GAMEPAD_GetNumConnected(struct GamepadSystem *gGamepads)
 		numPortsPerSlot = 4;
 	}
 
-#ifdef CTR_NATIVE
-	// NOTE(aalhendi): Native keeps four local pad packets addressable without
-	// requiring a retail multitap packet in slot 0.
-	numSlots = 1;
-	numPortsPerSlot = 4;
-#endif
-
 	padIndex = 0;
 	bitwiseConnected = 0;
 	gGamepads->numGamepadsConnected = 0;

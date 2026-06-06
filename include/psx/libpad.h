@@ -29,7 +29,7 @@
 #define PadMaxCurr		60
 #define PadCurrCTP1		10
 
-#define MAX_CONTROLLERS 2		// TODO: multi-tap (2 ports * 5 taps (1st is Direct))
+#define MAX_CONTROLLERS 4
 
 typedef struct PADRAW
 {
