@@ -314,9 +314,6 @@ enum EngineClass
 	// polar, pura, roo (penta in ntsc)
 	TURN,
 
-	// penta
-	MAX,
-
 	NUM_CLASSES
 };
 
@@ -330,10 +327,7 @@ enum Actions
 
 struct MetaPhys
 {
-#if (BUILD >= JpnTrial)
-	char *unusedDebugStr;
-#endif
-
+	u32 unusedDebugStr;
 	int offset;
 	int size;
 	int value[NUM_CLASSES];
@@ -1687,11 +1681,7 @@ struct Driver
 	// 0x670 - size of pool object
 };
 
-#if BUILD >= JpnTrial
-_Static_assert(sizeof(struct MetaPhys) == 0x20);
-#else
 _Static_assert(sizeof(struct MetaPhys) == 0x1C);
-#endif
 
 #if 1 // idk this might be version dependant
 _Static_assert(sizeof(struct BotData) == 0x94);

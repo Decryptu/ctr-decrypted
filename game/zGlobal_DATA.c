@@ -2967,15 +2967,10 @@ struct Data
 
                      .output = BTN_L2_one},
 
-// remove ND duplicate
-#if 0
-		{
-			// RAW_BTN_L2 = 0x100
-			.input = {1, 0, 1, 0},
+                    {// RAW_BTN_L2 = 0x100
+                     .input = {1, 0, 1, 0},
 
-			.output = BTN_L2_two
-		},
-#endif
+                     .output = BTN_L2_two},
 
                     {// RAW_BTN_R2 = 0x200
                      .input = {2, 0, 0x80, 0},
@@ -2992,25 +2987,15 @@ struct Data
 
                      .output = BTN_SELECT},
 
-// remove ND duplicate
-#if 0
-		{
-			// RAW_BTN_CROSS = 0x4000
-			.input = {0x40, 0, 0x40, 0},
+                    {// RAW_BTN_CROSS = 0x4000
+                     .input = {0x40, 0, 0x40, 0},
 
-			.output = BTN_CROSS_two
-		},
-#endif
+                     .output = BTN_CROSS_two},
 
-// remove ND duplicate
-#if 0
-		{
-			// RAW_BTN_SQUARE = 0x8000
-			.input = {0x80, 0, 4, 0},
+                    {// RAW_BTN_SQUARE = 0x8000
+                     .input = {0x80, 0, 4, 0},
 
-			.output = BTN_SQUARE_two
-		},
-#endif
+                     .output = BTN_SQUARE_two},
 
                     {// RAW_BTN_L1 = 0x400
                      .input = {4, 0, 2, 0},
@@ -4701,9 +4686,9 @@ struct Data
 
             .memcardIcon_CrashHead =
                 {
-                    // 0x01014353:
-                    // S, C, 1 icon, 1 blocks
-                    0x01014353, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
+                    // 0x00114353:
+                    // S, C, 0x11 icons, 0 blocks
+                    0x00114353, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
                     0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
                     0x00000000, 0x00000000, 0xf4d9f819, 0xffddff2d, 0xfb99ffff, 0xec1698c6, 0x83ff8c63, 0xd812dcb4, 0xbc2dd193, 0xb00ade36, 0x34432100,
                     0x00000005, 0x43443200, 0x00000053, 0x63336520, 0x00000053, 0x86388627, 0x77777758, 0x98389827, 0x77777558, 0x4444432a, 0x7777a534,
@@ -4713,9 +4698,9 @@ struct Data
 
             .memcardIcon_Ghost =
                 {
-                    // 0x02014353:
-                    // S, C, 1 icon, 2 blocks
-                    0x02014353, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
+                    // 0x00114353:
+                    // S, C, 0x11 icons, 0 blocks
+                    0x00114353, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
                     0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
                     0x00000000, 0x00000000, 0x84b2fca0, 0x8959886c, 0xfbdf8422, 0x8525adad, 0xbe18ce9d, 0x9cf1e8a0, 0xbc61e2f8, 0xc881b596, 0x21110000,
                     0x30002112, 0x11111000, 0x33221121, 0x12200000, 0x21344411, 0x20000000, 0x02131442, 0x44400000, 0x02211543, 0x65233330, 0x08836753,
@@ -5287,15 +5272,7 @@ struct Data
 
             .cupPositionPerPlayer = {0, 1, 2, 3, 4, 5, 6, 7},
 
-            .cupPointsPerPosition =
-                {// more optimal version than
-                 // OG game, see usage for details
-
-                 // Arcade
-                 9, 6, 3, 1,
-
-                 // VS
-                 3, 2, 1, 0},
+            .cupPointsPerPosition = {9, 6, 3, 1, 0, 0, 0, 0},
 
             // By default, can NOT remove rdata name_Debug,
             // the strings are needed for model lookup
@@ -5409,12 +5386,7 @@ struct Data
                                            .name_LNG_long = 58,
                                            .name_LNG_short = 74,
                                            .iconID = 53,
-
-#if (BUILD >= JpnTrial) || defined(USE_PENTA)
-                                           .engineID = MAX,
-#else
                                            .engineID = TURN,
-#endif
                                        },
                                    [FAKE_CRASH] =
                                        {
@@ -7123,80 +7095,78 @@ struct Data
 // EurRetail and JpnRetail dont start
 // gravity at offset 0x416, it starts at 0x41a,
 // need to make the offets compatible later on
-#define PHYSWRAP(b, c, d, e, f, g, h) .offset = b, .size = c, .value[0] = d, .value[1] = e, .value[2] = f, .value[3] = g, .value[4] = h
+#define PHYSWRAP(b, c, d, e, f, g) .unusedDebugStr = 0, .offset = b, .size = c, .value[0] = d, .value[1] = e, .value[2] = f, .value[3] = g
 
 
-            // each line is an stat and each stat have a value per engine, usa retail have 4 engines (0-3)
-            // decomp, PAL and NTSC-J have 5 engines (0-4)
-            // stats starts on the 3rd param after size param e.g
-            // offset, size, stat(engine == 0), stat(engine == 1), stat(engine == 2) etc
+            // Each line is one stat with four NTSC-U retail engine-class values.
+            // Layout is: unused debug word, driver offset, size, BALANCED, ACCEL, SPEED, TURN.
             .metaPhys =
                 {
-                    {PHYSWRAP(GRAVITY_OFFSET, 2, 900, 900, 900, 900, 900)},
-                    {PHYSWRAP(JUMP_OFFSET, 2, 4596, 4596, 4596, 4596, 4596)},
-                    {PHYSWRAP(ACCEL_SLIDE_OFFSET, 2, 350, 350, 350, 350, 350)},
-                    {PHYSWRAP(ACCEL_FRICTION_OFFSET, 2, 120, 120, 120, 120, 120)},
-                    {PHYSWRAP(SLIDING_UNK41E_OFFSET, 2, 425, 425, 425, 425, 425)},
-                    {PHYSWRAP(FRICTION_UNK420_OFFSET, 2, 120, 120, 120, 120, 120)},
-                    {PHYSWRAP(BRAKING_FRICTION_OFFSET, 2, 260, 260, 260, 260, 260)},
-                    {PHYSWRAP(DRIFT_UNK424_OFFSET, 2, 120, 120, 120, 120, 120)},
-                    {PHYSWRAP(DRIFT_FRICTION_OFFSET, 2, 120, 120, 120, 120, 120)},
-                    {PHYSWRAP(ACCEL_NO_RESERVES_OFFSET, 2, 480, 544, 448, 512, 544)},
-                    {PHYSWRAP(ACCEL_WITH_RESERVES_OFFSET, 2, 1152, 1152, 1152, 1152, 1152)},
-                    {PHYSWRAP(CLASS_SPEED_OFFSET, 2, 13140, 13520, 13900, 12950, 13900)},
-                    {PHYSWRAP(SPEEDOMETER_UNK42E_OFFSET, 2, 14640, 15020, 15400, 14450, 15400)},
-                    {PHYSWRAP(MAX_SPEED_SINGLE_TURBO_OFFSET, 2, 2048, 2048, 2048, 2048, 2048)},
-                    {PHYSWRAP(MAX_SPEED_WITH_SACRED_OFFSET, 2, 4096, 4096, 4096, 4096, 4096)},
-                    {PHYSWRAP(RESERVE_SPEED_OFFSET, 2, 5120, 5120, 5120, 5120, 5120)},
-                    {PHYSWRAP(MASK_SPEED_OFFSET, 2, 3900, 3900, 3900, 3900, 3900)},
-                    {PHYSWRAP(TURN_SPEED_UNK438_OFFSET, 2, 4096, 4096, 4096, 4096, 4096)},
-                    {PHYSWRAP(TURNING_STAT_OFFSET, 1, 28, 26, 24, 30, 30)},
-                    {PHYSWRAP(REVERSE_TURNING_SPEED_OFFSET, 1, 48, 48, 48, 48, 48)},
-                    {PHYSWRAP(TURN_UNK43C_OFFSET, 2, 4080, 9080, 5666, 7252, 7252)},
-                    {PHYSWRAP(TURN_UNK43E_OFFSET, 2, 5000, 4500, 4000, 5500, 5500)},
-                    {PHYSWRAP(0x440, 2, 1000, 750, 500, 1250, 1250)},
-                    {PHYSWRAP(0x442, 2, 20480, 20480, 20480, 20480, 20480)},
-                    {PHYSWRAP(0x444, 2, 256, 256, 256, 256, 256)},
-                    {PHYSWRAP(0x446, 1, 64, 64, 64, 64, 64)},
-                    {PHYSWRAP(0x447, 1, 4, 4, 4, 4, 4)},
-                    {PHYSWRAP(0x448, 1, 8, 8, 8, 8, 8)},
-                    {PHYSWRAP(0x44a, 2, 3072, 3072, 3072, 3072, 3072)},
-                    {PHYSWRAP(0x44c, 2, 0, 0, 0, 0, 0)},
-                    {PHYSWRAP(0x44e, 2, 128, 128, 128, 128, 128)},
-                    {PHYSWRAP(0x450, 2, 0, 0, 0, 0, 0)},
-                    {PHYSWRAP(0x452, 2, 350, 350, 350, 350, 350)},
-                    {PHYSWRAP(0x454, 2, 450, 450, 450, 450, 450)},
-                    {PHYSWRAP(0x457, 1, 30, 30, 30, 30, 30)},
-                    {PHYSWRAP(0x458, 1, 20, 20, 20, 20, 20)},
-                    {PHYSWRAP(0x459, 1, 60, 60, 60, 60, 60)},
-                    {PHYSWRAP(0x45a, 1, 10, 10, 10, 10, 10)},
-                    {PHYSWRAP(0x45c, 1, 32, 32, 32, 32, 32)},
-                    {PHYSWRAP(0x45d, 1, 224, 224, 224, 224, 224)},
-                    {PHYSWRAP(0x45e, 1, -10, -10, -10, -10, -10)},
-                    {PHYSWRAP(0x45f, 1, 22, 22, 22, 22, 22)},
-                    {PHYSWRAP(0x460, 1, 14, 10, 5, 18, 18)},
-                    {PHYSWRAP(0x461, 1, 100, 100, 100, 100, 100)},
-                    {PHYSWRAP(0x462, 1, 60, 60, 60, 60, 60)},
-                    {PHYSWRAP(0x463, 1, 60, 60, 60, 60, 60)},
-                    {PHYSWRAP(0x464, 2, 3000, 3000, 3000, 3000, 3000)},
-                    {PHYSWRAP(0x466, 2, 500, 500, 500, 500, 500)},
-                    {PHYSWRAP(0x468, 2, 384, 384, 384, 384, 384)},
-                    {PHYSWRAP(0x46a, 1, 16, 16, 16, 16, 16)},
-                    {PHYSWRAP(0x46b, 1, 15, 15, 15, 15, 15)},
-                    {PHYSWRAP(0x46c, 2, 8192, 8192, 8192, 8192, 8192)},
-                    {PHYSWRAP(0x46e, 2, 8192, 8192, 8192, 8192, 8192)},
-                    {PHYSWRAP(0x470, 2, 300, 300, 300, 300, 300)},
-                    {PHYSWRAP(0x472, 2, -128, -128, -128, -128, -128)},
-                    {PHYSWRAP(0x474, 2, 768, 768, 768, 768, 768)},
-                    {PHYSWRAP(TURBO_METER_EMPTY_OFFSET, 1, 30, 30, 30, 30, 30)},
-                    {PHYSWRAP(TURBO_METER_FILLED_OFFSET, 1, 15, 15, 15, 15, 15)},
-                    {PHYSWRAP(0x478, 1, 60, 60, 60, 60, 60)},
-                    {PHYSWRAP(0x479, 1, 15, 15, 15, 15, 15)},
-                    {PHYSWRAP(0x47a, 1, 36, 36, 36, 36, 36)},
-                    {PHYSWRAP(0x47c, 2, 256, 256, 300, 200, 200)},
-                    {PHYSWRAP(0x47e, 2, 5120, 5120, 5120, 5120, 5120)},
-                    {PHYSWRAP(0x480, 2, 2560, 2560, 2560, 2560, 2560)},
-                    {PHYSWRAP(PROTOTYPE_KEY_OFFSET, 4, 15, 15, 15, 15, 15)},
+                    {PHYSWRAP(GRAVITY_OFFSET, 2, 900, 900, 900, 900)},
+                    {PHYSWRAP(JUMP_OFFSET, 2, 4596, 4596, 4596, 4596)},
+                    {PHYSWRAP(ACCEL_SLIDE_OFFSET, 2, 350, 350, 350, 350)},
+                    {PHYSWRAP(ACCEL_FRICTION_OFFSET, 2, 120, 120, 120, 120)},
+                    {PHYSWRAP(SLIDING_UNK41E_OFFSET, 2, 425, 425, 425, 425)},
+                    {PHYSWRAP(FRICTION_UNK420_OFFSET, 2, 120, 120, 120, 120)},
+                    {PHYSWRAP(BRAKING_FRICTION_OFFSET, 2, 260, 260, 260, 260)},
+                    {PHYSWRAP(DRIFT_UNK424_OFFSET, 2, 120, 120, 120, 120)},
+                    {PHYSWRAP(DRIFT_FRICTION_OFFSET, 2, 120, 120, 120, 120)},
+                    {PHYSWRAP(ACCEL_NO_RESERVES_OFFSET, 2, 480, 544, 448, 512)},
+                    {PHYSWRAP(ACCEL_WITH_RESERVES_OFFSET, 2, 1152, 1152, 1152, 1152)},
+                    {PHYSWRAP(CLASS_SPEED_OFFSET, 2, 13140, 13520, 13900, 12950)},
+                    {PHYSWRAP(SPEEDOMETER_UNK42E_OFFSET, 2, 14640, 15020, 15400, 14450)},
+                    {PHYSWRAP(MAX_SPEED_SINGLE_TURBO_OFFSET, 2, 2048, 2048, 2048, 2048)},
+                    {PHYSWRAP(MAX_SPEED_WITH_SACRED_OFFSET, 2, 4096, 4096, 4096, 4096)},
+                    {PHYSWRAP(RESERVE_SPEED_OFFSET, 2, 5120, 5120, 5120, 5120)},
+                    {PHYSWRAP(MASK_SPEED_OFFSET, 2, 3900, 3900, 3900, 3900)},
+                    {PHYSWRAP(TURN_SPEED_UNK438_OFFSET, 2, 4096, 4096, 4096, 4096)},
+                    {PHYSWRAP(TURNING_STAT_OFFSET, 1, 28, 26, 24, 30)},
+                    {PHYSWRAP(REVERSE_TURNING_SPEED_OFFSET, 1, 48, 48, 48, 48)},
+                    {PHYSWRAP(TURN_UNK43C_OFFSET, 2, 4080, 9080, 5666, 7252)},
+                    {PHYSWRAP(TURN_UNK43E_OFFSET, 2, 5000, 4500, 4000, 5500)},
+                    {PHYSWRAP(0x440, 2, 1000, 750, 500, 1250)},
+                    {PHYSWRAP(0x442, 2, 20480, 20480, 20480, 20480)},
+                    {PHYSWRAP(0x444, 2, 256, 256, 256, 256)},
+                    {PHYSWRAP(0x446, 1, 64, 64, 64, 64)},
+                    {PHYSWRAP(0x447, 1, 4, 4, 4, 4)},
+                    {PHYSWRAP(0x448, 1, 8, 8, 8, 8)},
+                    {PHYSWRAP(0x44a, 2, 3072, 3072, 3072, 3072)},
+                    {PHYSWRAP(0x44c, 2, 0, 0, 0, 0)},
+                    {PHYSWRAP(0x44e, 2, 128, 128, 128, 128)},
+                    {PHYSWRAP(0x450, 2, 0, 0, 0, 0)},
+                    {PHYSWRAP(0x452, 2, 350, 350, 350, 350)},
+                    {PHYSWRAP(0x454, 2, 450, 450, 450, 450)},
+                    {PHYSWRAP(0x457, 1, 30, 30, 30, 30)},
+                    {PHYSWRAP(0x458, 1, 20, 20, 20, 20)},
+                    {PHYSWRAP(0x459, 1, 60, 60, 60, 60)},
+                    {PHYSWRAP(0x45a, 1, 10, 10, 10, 10)},
+                    {PHYSWRAP(0x45c, 1, 32, 32, 32, 32)},
+                    {PHYSWRAP(0x45d, 1, 224, 224, 224, 224)},
+                    {PHYSWRAP(0x45e, 1, -10, -10, -10, -10)},
+                    {PHYSWRAP(0x45f, 1, 22, 22, 22, 22)},
+                    {PHYSWRAP(0x460, 1, 14, 10, 5, 18)},
+                    {PHYSWRAP(0x461, 1, 100, 100, 100, 100)},
+                    {PHYSWRAP(0x462, 1, 60, 60, 60, 60)},
+                    {PHYSWRAP(0x463, 1, 60, 60, 60, 60)},
+                    {PHYSWRAP(0x464, 2, 3000, 3000, 3000, 3000)},
+                    {PHYSWRAP(0x466, 2, 500, 500, 500, 500)},
+                    {PHYSWRAP(0x468, 2, 384, 384, 384, 384)},
+                    {PHYSWRAP(0x46a, 1, 16, 16, 16, 16)},
+                    {PHYSWRAP(0x46b, 1, 15, 15, 15, 15)},
+                    {PHYSWRAP(0x46c, 2, 8192, 8192, 8192, 8192)},
+                    {PHYSWRAP(0x46e, 2, 8192, 8192, 8192, 8192)},
+                    {PHYSWRAP(0x470, 2, 300, 300, 300, 300)},
+                    {PHYSWRAP(0x472, 2, -128, -128, -128, -128)},
+                    {PHYSWRAP(0x474, 2, 768, 768, 768, 768)},
+                    {PHYSWRAP(TURBO_METER_EMPTY_OFFSET, 1, 30, 30, 30, 30)},
+                    {PHYSWRAP(TURBO_METER_FILLED_OFFSET, 1, 15, 15, 15, 15)},
+                    {PHYSWRAP(0x478, 1, 60, 60, 60, 60)},
+                    {PHYSWRAP(0x479, 1, 15, 15, 15, 15)},
+                    {PHYSWRAP(0x47a, 1, 36, 36, 36, 36)},
+                    {PHYSWRAP(0x47c, 2, 256, 256, 300, 200)},
+                    {PHYSWRAP(0x47e, 2, 5120, 5120, 5120, 5120)},
+                    {PHYSWRAP(0x480, 2, 2560, 2560, 2560, 2560)},
+                    {PHYSWRAP(PROTOTYPE_KEY_OFFSET, 4, 15, 15, 15, 15)},
                 },
 
             .emSet_Exhaust_Water =

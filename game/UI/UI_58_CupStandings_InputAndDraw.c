@@ -159,18 +159,7 @@ void UI_CupStandings_InputAndDraw(void)
 	int rectX = 0;
 	int rectW = 0x200;
 
-	// OPTIMIZATION,
-	// better way of dealing with points
-
-	// Race with no AIs (9,6,3,1)
 	int *points = &data.cupPointsPerPosition[0];
-
-	// If VS cup (not purple gem, or adv/arcade)
-	if (numDrivers <= 4)
-	{
-		// 3,2,1,0
-		points = &points[4 + (4 - numDrivers)];
-	}
 
 	sVar18 = 0;
 	for (i = 0; i < sdata->numIconsEOR; i++)
@@ -299,7 +288,12 @@ void UI_CupStandings_InputAndDraw(void)
 			iVar12 = 0;
 
 			if (i < 4)
-				iVar12 = points[i];
+			{
+				if (gGT->numBotsNextGame == 0)
+					iVar12 = gGT->numPlyrCurrGame - (i + 1);
+				else
+					iVar12 = points[i];
+			}
 
 			*(int *)&text[0] = '+' + (('0' + iVar12) << 8);
 		}
@@ -404,7 +398,7 @@ void UI_CupStandings_InputAndDraw(void)
 
 				    // Incremented by
 				    // The amount of points that should be awarded to each position
-				    points[i];
+				    (gGT->numBotsNextGame == 0) ? (gGT->numPlyrCurrGame - (i + 1)) : points[i];
 			}
 
 			// update cup rank of all drivers
