@@ -653,16 +653,41 @@ internal void NativeReplayScheduler_WriteReportMetadata(s32 finalMetadata)
 	fclose(file);
 }
 
+internal s32 NativeReplayScheduler_MemcardActionBlocksRootSwitch(s16 action)
+{
+	// NOTE(aalhendi): Native GetInfo is synchronous read-only polling that menus keep queued;
+	// only wait on card actions that can touch save contents.
+	return (action != 0) && (action != MC_ACTION_GetInfo);
+}
+
 internal s32 NativeReplayScheduler_MemcardIdleForRootSwitch(void)
 {
 	if (sdata == NULL)
 		return 1;
 	if (sdata->memcard_stage != MC_STAGE_IDLE)
 		return 0;
-	if ((sdata->frame1_memcardAction != 0) || (sdata->frame2_memcardAction != 0))
+	if (NativeReplayScheduler_MemcardActionBlocksRootSwitch(sdata->frame1_memcardAction) ||
+	    NativeReplayScheduler_MemcardActionBlocksRootSwitch(sdata->frame2_memcardAction))
 		return 0;
 
 	return 1;
+}
+
+internal void NativeReplayScheduler_LogMemcardStartDeferred(void)
+{
+	if (s_recordStartDeferredLogged != 0)
+		return;
+
+	if (sdata != NULL)
+	{
+		Platform_Log("[CTR Replay] report start waiting for memcard activity to finish (stage=%d frame1=%d frame2=%d)\n",
+		             sdata->memcard_stage, sdata->frame1_memcardAction, sdata->frame2_memcardAction);
+	}
+	else
+	{
+		Platform_Log("[CTR Replay] report start waiting for memcard activity to finish\n");
+	}
+	s_recordStartDeferredLogged = 1;
 }
 
 internal void NativeReplayScheduler_ResetMemcardSandbox(void)
@@ -1053,11 +1078,7 @@ internal s32 NativeReplayScheduler_StartReportRecording(void)
 		return 0;
 	if (!NativeReplayScheduler_MemcardIdleForRootSwitch())
 	{
-		if (s_recordStartDeferredLogged == 0)
-		{
-			Platform_Log("[CTR Replay] report start waiting for memcard activity to finish\n");
-			s_recordStartDeferredLogged = 1;
-		}
+		NativeReplayScheduler_LogMemcardStartDeferred();
 		return 0;
 	}
 	if (s_reportCompleted != 0)
@@ -1286,11 +1307,7 @@ int NativeReplayScheduler_BeginFrame(const struct NativeReplaySchedulerFrameInfo
 
 		if (!NativeReplayScheduler_MemcardIdleForRootSwitch())
 		{
-			if (s_recordStartDeferredLogged == 0)
-			{
-				Platform_Log("[CTR Replay] report start waiting for memcard activity to finish\n");
-				s_recordStartDeferredLogged = 1;
-			}
+			NativeReplayScheduler_LogMemcardStartDeferred();
 			return 0;
 		}
 
