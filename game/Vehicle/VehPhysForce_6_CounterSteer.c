@@ -1,12 +1,23 @@
 #include <common.h>
 
+static u32 VehPhysForce_CounterSteer_PackS16Pair(s32 lo, s32 hi)
+{
+	return ((u32)(u16)lo) | ((u32)(u16)hi << 16);
+}
+
 static SVec3 VehPhysForce_CounterSteer_RotateVector(const MATRIX *m, s16 vx, s16 vy, s16 vz)
 {
 	SVec3 out;
+	(void)m;
 
-	out.x = (s16)(((int)m->m[0][0] * vx + (int)m->m[0][1] * vy + (int)m->m[0][2] * vz) >> 12);
-	out.y = (s16)(((int)m->m[1][0] * vx + (int)m->m[1][1] * vy + (int)m->m[1][2] * vz) >> 12);
-	out.z = (s16)(((int)m->m[2][0] * vx + (int)m->m[2][1] * vy + (int)m->m[2][2] * vz) >> 12);
+	// NOTE(aalhendi): PhysTerrainSlope already loaded matrixMovingDir into GTE
+	// rotation regs, matching retail before VehPhysForce_CounterSteer runs.
+	MTC2(VehPhysForce_CounterSteer_PackS16Pair(vx, vy), 0);
+	MTC2((u32)(u16)vz, 1);
+	gte_mvmva(1, 0, 0, 3, 0);
+	out.x = (s16)MFC2(25);
+	out.y = (s16)MFC2(26);
+	out.z = (s16)MFC2(27);
 
 	return out;
 }

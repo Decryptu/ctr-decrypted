@@ -20,15 +20,24 @@ static int VehPhysGeneral_Jump_Div4TowardZero(int value)
 	return value >> 2;
 }
 
-// NOTE(aalhendi): Native expression of retail gte_rtv0; retail reads MAC1-MAC3
-// after rotating V0 by matrixMovingDir.
+static u32 VehPhysGeneral_Jump_PackS16Pair(s32 lo, s32 hi)
+{
+	return ((u32)(u16)lo) | ((u32)(u16)hi << 16);
+}
+
 static Vec3 VehPhysGeneral_Jump_RotateVector(const MATRIX *m, s16 vx, s16 vy, s16 vz)
 {
 	Vec3 out;
 
-	out.x = ((int)m->m[0][0] * vx + (int)m->m[0][1] * vy + (int)m->m[0][2] * vz) >> 12;
-	out.y = ((int)m->m[1][0] * vx + (int)m->m[1][1] * vy + (int)m->m[1][2] * vz) >> 12;
-	out.z = ((int)m->m[2][0] * vx + (int)m->m[2][1] * vy + (int)m->m[2][2] * vz) >> 12;
+	// NOTE(aalhendi): Retail loads matrixMovingDir into CP2 rotation regs at
+	// function entry and uses opcode 0x486012 for jump/friction impulses.
+	gte_SetRotMatrix(m);
+	MTC2(VehPhysGeneral_Jump_PackS16Pair(vx, vy), 0);
+	MTC2((u32)(u16)vz, 1);
+	gte_mvmva(1, 0, 0, 3, 0);
+	out.x = MFC2_S(25);
+	out.y = MFC2_S(26);
+	out.z = MFC2_S(27);
 
 	return out;
 }

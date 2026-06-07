@@ -1,12 +1,23 @@
 #include <common.h>
 
+static u32 VehPhysForce_OnApplyForces_PackS16Pair(s32 lo, s32 hi)
+{
+	return ((u32)(u16)lo) | ((u32)(u16)hi << 16);
+}
+
 static Vec3 VehPhysForce_OnApplyForces_RotateVector(const MATRIX *m, s16 vx, s16 vy, s16 vz)
 {
 	Vec3 out;
 
-	out.x = ((int)m->m[0][0] * vx + (int)m->m[0][1] * vy + (int)m->m[0][2] * vz) >> 12;
-	out.y = ((int)m->m[1][0] * vx + (int)m->m[1][1] * vy + (int)m->m[1][2] * vz) >> 12;
-	out.z = ((int)m->m[2][0] * vx + (int)m->m[2][1] * vy + (int)m->m[2][2] * vz) >> 12;
+	// NOTE(aalhendi): Retail loads matrixFacingDir into CP2 color matrix regs
+	// and runs opcode 0x4c6012 for this center-offset calculation.
+	gte_SetColorMatrix(m);
+	MTC2(VehPhysForce_OnApplyForces_PackS16Pair(vx, vy), 0);
+	MTC2((u32)(u16)vz, 1);
+	gte_mvmva(1, 2, 0, 3, 0);
+	out.x = MFC2_S(25);
+	out.y = MFC2_S(26);
+	out.z = MFC2_S(27);
 
 	return out;
 }
