@@ -438,7 +438,7 @@ void Unknown_8006c600(u32 r0, u32 r1, u32 r2, u32 r3, u32 r4);
 int SquareRoot0_stub(int param_1);
 VECTOR *Unknown_8006c6c8(VECTOR *input, VECTOR *output, MATRIX *matrix);
 VECTOR *ApplyMatrixLV_stub(VECTOR *input, VECTOR *output);
-void MATH_MatrixMul(MATRIX *output, MATRIX *input, VECTOR *rotate);
+void MATH_MatrixMul(MATRIX *output, MATRIX *input, MATRIX *transform);
 s32 Unknown_8006ef98(s32 radicand);
 
 void MEMCARD_InitCard(void);

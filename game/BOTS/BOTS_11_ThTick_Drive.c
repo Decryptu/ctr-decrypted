@@ -1868,9 +1868,9 @@ LAB_8001686c:
 
 		ConvertRotToMatrix(&sdata->rotXZ, &rot[0]);
 
-		MATH_MatrixMul(&sdata->rotXYZ, &botInstance->matrix, (VECTOR *)&sdata->rotXZ);
+		MATH_MatrixMul(&sdata->rotXYZ, &botInstance->matrix, &sdata->rotXZ);
 
-		MATH_MatrixMul(&botInstance->matrix, &sdata->rotXYZ, (VECTOR *)&sdata->arcadeDiff);
+		MATH_MatrixMul(&botInstance->matrix, &sdata->rotXYZ, &data.identity);
 
 		// MATRIX is only 30 bytes, but is 32 because there's 2 bytes of padding (at the end?) this additional data is stored there?
 		(*(int *)(((char *)botInstance) + 0x48)) += 0x20;

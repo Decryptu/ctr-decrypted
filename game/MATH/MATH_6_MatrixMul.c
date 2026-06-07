@@ -1,12 +1,10 @@
 #include <common.h>
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003d460-0x8003d4e4.
-void MATH_MatrixMul(MATRIX *output, MATRIX *input, VECTOR *rotate)
+void MATH_MatrixMul(MATRIX *output, MATRIX *input, MATRIX *transform)
 {
-	MATRIX *rotateMatrix = (MATRIX *)rotate;
-
-	MatrixRotate(output, input, rotateMatrix);
-	ApplyMatrixLV_stub((VECTOR *)rotateMatrix->t, (VECTOR *)output->t);
+	MatrixRotate(output, input, transform);
+	ApplyMatrixLV_stub((VECTOR *)transform->t, (VECTOR *)output->t);
 
 	output->t[0] += input->t[0];
 	output->t[1] += input->t[1];
