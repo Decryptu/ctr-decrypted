@@ -115,6 +115,39 @@ typedef enum
 #endif
 #endif
 
+static int NativeConsole_ShouldPauseOnError(void)
+{
+#if defined(_WIN32)
+	DWORD consoleProcesses[2];
+	DWORD consoleProcessCount;
+
+	if (GetConsoleWindow() == NULL)
+		return 0;
+
+	consoleProcessCount = GetConsoleProcessList(consoleProcesses, (DWORD)(sizeof(consoleProcesses) / sizeof(consoleProcesses[0])));
+	return (consoleProcessCount == 1) && (consoleProcesses[0] == GetCurrentProcessId());
+#else
+	return 0;
+#endif
+}
+
+static int NativeConsole_Return(int result)
+{
+	if ((result != 0) && NativeConsole_ShouldPauseOnError())
+	{
+		fflush(stdout);
+		fflush(stderr);
+		fprintf(stderr, "\n[CTR Native] Press Enter to close this window...");
+		fflush(stderr);
+
+		while (getchar() != '\n' && !feof(stdin))
+		{
+		}
+	}
+
+	return result;
+}
+
 int main(int argc, char *argv[])
 {
 	printf("[CTR Native] Starting...\n");
@@ -127,7 +160,7 @@ int main(int argc, char *argv[])
 	if (!NativeAssets_Init(sdlBasePath))
 	{
 		fprintf(stderr, "[CTR Native] Failed to initialize asset paths.\n");
-		return 1;
+		return NativeConsole_Return(1);
 	}
 
 	printf("[CTR Native] Built with: " CC "\n");
@@ -138,15 +171,15 @@ int main(int argc, char *argv[])
 	if (chdir(NativeAssets_GetBaseDir()) != 0)
 	{
 		fprintf(stderr, "[CTR Native] Failed to enter base directory: %s\n", NativeAssets_GetBaseDir());
-		return 1;
+		return NativeConsole_Return(1);
 	}
 
 	if (!NativeAssets_Validate())
-		return 1;
+		return NativeConsole_Return(1);
 
 #if defined(CTR_INTERNAL)
 	if (NativeReplayScheduler_PrepareReportFromArgs(argc, argv) != 0)
-		return 1;
+		return NativeConsole_Return(1);
 #endif
 
 #ifdef USE_16BY9
@@ -162,7 +195,7 @@ int main(int argc, char *argv[])
 	{
 		Platform_LogFlush();
 		Platform_Shutdown();
-		return 1;
+		return NativeConsole_Return(1);
 	}
 #endif
 
@@ -174,7 +207,7 @@ int main(int argc, char *argv[])
 	{
 		Platform_LogFlush();
 		Platform_Shutdown();
-		return 1;
+		return NativeConsole_Return(1);
 	}
 #else
 	(void)argc;
@@ -184,5 +217,5 @@ int main(int argc, char *argv[])
 	int result = CTR_Main();
 
 	Platform_Shutdown();
-	return result;
+	return NativeConsole_Return(result);
 }
