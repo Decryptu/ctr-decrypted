@@ -243,7 +243,7 @@ force_inline void DISPLAYRECTMENU_MainFreeze_MenuPtrOptions(struct RectMenu *men
 
 	int volumeSliderWidth = 380 - (30 + volumeSliderTriangleLeftMargin);
 
-	int *ot = &gGT->backBuffer->otMem.startPlusFour;
+	u_long *ot = gGT->backBuffer->otMem.startPlusFour;
 	struct PrimMem *primMem = &gGT->backBuffer->primMem;
 	Color color;
 
