@@ -432,7 +432,6 @@ void Torch_Main(void *particleList_heatWarp, struct PushBuffer *pb, struct PrimM
 				CTC2(Torch_ScratchReadWord(0x4c), 25);
 				MTC2(Torch_PackXY((u16)MFC2(25), MFC2(26)), 0);
 
-				Torch_LoadRadiusVectors(radius0);
 				gte_rtps_b();
 
 				centerSxy = MFC2(14);
@@ -449,6 +448,7 @@ void Torch_Main(void *particleList_heatWarp, struct PushBuffer *pb, struct PrimM
 					CTC2(0x0a00, 2);
 					CTC2(0, 24);
 					CTC2(0, 25);
+					Torch_LoadRadiusVectors(radius0);
 					gte_rtpt_b();
 
 					sxy0 = MFC2(12);
