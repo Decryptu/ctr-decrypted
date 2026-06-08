@@ -45,10 +45,6 @@
 #define NATIVE_REPLAY_REPORT_METADATA_NAME       "metadata.txt"
 #define NATIVE_REPLAY_REPORT_LOG_NAME            "ctr-native.log"
 
-#ifndef CTR_NATIVE_BUILD_ID
-#define CTR_NATIVE_BUILD_ID "unknown"
-#endif
-
 enum NativeReplaySchedulerMode
 {
 	NATIVE_REPLAY_MODE_NONE = 0,
@@ -637,6 +633,7 @@ internal void NativeReplayScheduler_WriteReportMetadata(s32 finalMetadata)
 	fprintf(file, "manual_start=%d\n", s_reportManualStart != 0);
 	fprintf(file, "start_hotkey=F9\n");
 	fprintf(file, "stop_hotkey=F10\n");
+	fprintf(file, "ctr_native_version=%s\n", CTR_NATIVE_VERSION);
 	fprintf(file, "build_id=%s\n", s_header.buildId);
 	fprintf(file, "platform=%s\n", s_header.platformId);
 	fprintf(file, "replay_version=%u\n", (unsigned int)s_header.version);

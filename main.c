@@ -115,6 +115,14 @@ typedef enum
 #endif
 #endif
 
+#ifndef CTR_NATIVE_VERSION
+#define CTR_NATIVE_VERSION "0.0.0-dev"
+#endif
+
+#ifndef CTR_NATIVE_BUILD_ID
+#define CTR_NATIVE_BUILD_ID "unknown"
+#endif
+
 static int NativeConsole_ShouldPauseOnError(void)
 {
 #if defined(_WIN32)
@@ -148,8 +156,24 @@ static int NativeConsole_Return(int result)
 	return result;
 }
 
+// TODO(aalhendi): just make an argparser?
+static int NativeArg_IsVersion(const char *arg)
+{
+	return (arg != NULL) && ((strcmp(arg, "--version") == 0) || (strcmp(arg, "-v") == 0));
+}
+
+
 int main(int argc, char *argv[])
 {
+	for (int argIndex = 1; argIndex < argc; argIndex++)
+	{
+		if (NativeArg_IsVersion(argv[argIndex]))
+		{
+			printf("CTR Native %s (%s)\n", CTR_NATIVE_VERSION, CTR_NATIVE_BUILD_ID);
+			return 0;
+		}
+	}
+
 	printf("[CTR Native] Starting...\n");
 	fflush(stdout);
 
@@ -163,6 +187,7 @@ int main(int argc, char *argv[])
 		return NativeConsole_Return(1);
 	}
 
+	printf("[CTR Native] Version: %s (%s)\n", CTR_NATIVE_VERSION, CTR_NATIVE_BUILD_ID);
 	printf("[CTR Native] Built with: " CC "\n");
 	printf("[CTR Native] Base: %s\n", NativeAssets_GetBaseDir());
 	printf("[CTR Native] Assets: %s\n", NativeAssets_GetAssetDir());

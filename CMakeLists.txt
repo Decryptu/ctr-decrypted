@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 project(CTR-Native C)
 
 set(CMAKE_C_STANDARD 99)
+set(CTR_NATIVE_VERSION "0.1.0-beta.1")
 
 if(NOT CMAKE_C_COMPILER_TARGET MATCHES "i.86" AND NOT CMAKE_SYSTEM_PROCESSOR MATCHES "i.86")
     set(CMAKE_C_FLAGS "-m32 ${CMAKE_C_FLAGS}")
@@ -73,6 +74,7 @@ target_compile_definitions(ctr_native PRIVATE
     CTR_NATIVE
     BUILD=926
     CTR_INTERNAL
+    CTR_NATIVE_VERSION=\"${CTR_NATIVE_VERSION}\"
     CTR_NATIVE_BUILD_ID=\"${CTR_NATIVE_BUILD_ID}\"
 )
 target_compile_options(ctr_native PRIVATE -O2)
