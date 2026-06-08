@@ -46,6 +46,25 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+## PSn00bSDK
+
+Source: <https://github.com/Lameguy64/PSn00bSDK>
+
+Path: `include/psn00bsdk`
+
+CTR Native vendors a small PSn00bSDK header subset for PS1/Psy-Q-compatible
+types, constants, and inline helpers used by the shared source. CTR Native does
+not vendor or link `libpsn00b` into the native PC executable.
+
+This notice applies to PSn00bSDK core files only. `mkpsxiso` and `dumpsxiso`
+are separate GPLv2-or-later tools and are not distributed as part of CTR Native.
+
+License: Mozilla Public License 2.0
+
+The vendored header files retain their original copyright and license notices.
+A copy of the MPL 2.0 license can be obtained at:
+<https://mozilla.org/MPL/2.0/>
+
 ## SDL3
 
 Path: `externals/SDL`
