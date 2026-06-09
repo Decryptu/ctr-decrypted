@@ -3,6 +3,13 @@
 void (*mainMenuInit[6])() = {MM_JumpTo_Title_FirstTime, MM_JumpTo_Characters, MM_JumpTo_TrackSelect,
                              MM_JumpTo_BattleSetup,     CS_Garage_Init,       MM_JumpTo_Scrapbook};
 
+#ifdef CTR_NATIVE
+enum
+{
+	LOAD_NATIVE_NDBOX_INTRO_SONG_SYNC_TIME = 0x11c0,
+};
+#endif
+
 int LOAD_TenStages(struct GameTracker *gGT, int loadingStage, struct BigHeader *bigfile)
 {
 	s16 sVar4;
@@ -49,11 +56,17 @@ int LOAD_TenStages(struct GameTracker *gGT, int loadingStage, struct BigHeader *
 			MainInit_VRAMDisplay();
 
 #ifdef CTR_NATIVE
-			// NOTE(aalhendi): Retail naturally keeps this TIM visible while disc
-			// and VRAM loading advances. Native can expose transient loading
-			// frames immediately, so pin the copied VRAM display briefly while
-			// the normal loader continues.
-			Platform_PinVRAMDisplayFrames(8);
+			// NOTE(aalhendi): SCEA is already held by XA playback in MainMain. The copyright
+			// TIM has no XA, so keep it visible until the intro CSEQ reaches
+			// the point retail normally reaches while loading the ND crate.
+			// Present every wait tick so both host swapchain images are
+			// overwritten with copyright instead of briefly revealing SCEA.
+			while (((sdata->songPool[0].flags & 3) == 1) &&
+			       (sdata->songPool[0].timeSpentPlaying < LOAD_NATIVE_NDBOX_INTRO_SONG_SYNC_TIME))
+			{
+				VSync(0);
+				Platform_PresentVRAMDisplay();
+			}
 #endif
 
 			gGT->db[0].drawEnv.isbg = 0;
