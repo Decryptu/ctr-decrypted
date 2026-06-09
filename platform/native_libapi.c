@@ -6,16 +6,21 @@
 
 #include <macros.h>
 
-#include <SDL3/SDL.h>
 #include <psx/libapi.h>
 
 // CTR's retail timer reads root counter 1 once per VSync and converts units
 // through divisor 0x147e before MainFrame_GameLogic scales to elapsedTimeMS.
-// Native emits VSync at 60 Hz, so feed that retail path 263 scanline ticks per
-// VBlank; two VBlanks then land on the normal 0x20 gameplay frame step.
-#define CTR_NATIVE_RCNT1_HZ (263u * 60u)
+// Native owns VBlank emission, so advance RCNT1 from emitted VBlanks instead
+// of SDL wall time. Host wait jitter otherwise leaks into vehicle physics.
+#define CTR_NATIVE_RCNT1_TICKS_PER_VBLANK 263u
 
+global_variable u64 s_rootCounterValue = 0;
 global_variable u64 s_rootCounterBase = 0;
+
+void NativeRCnt_EmitVBlank(void)
+{
+	s_rootCounterValue += CTR_NATIVE_RCNT1_TICKS_PER_VBLANK;
+}
 
 int SetRCnt(int spec, unsigned short target, int mode)
 {
@@ -30,18 +35,11 @@ int SetRCnt(int spec, unsigned short target, int mode)
 
 int GetRCnt(int spec)
 {
-	const u64 freq = SDL_GetPerformanceFrequency();
-	const u64 now = SDL_GetPerformanceCounter();
-	u64 elapsed;
 	u64 counts;
 
 	(void)spec;
 
-	if (s_rootCounterBase == 0)
-		s_rootCounterBase = now;
-
-	elapsed = now - s_rootCounterBase;
-	counts = ((elapsed / freq) * CTR_NATIVE_RCNT1_HZ) + (((elapsed % freq) * CTR_NATIVE_RCNT1_HZ) / freq);
+	counts = s_rootCounterValue - s_rootCounterBase;
 	if (counts > 0x7fffffff)
 		return 0x7fffffff;
 
@@ -67,7 +65,7 @@ int ResetRCnt(int spec)
 {
 	(void)spec;
 
-	s_rootCounterBase = SDL_GetPerformanceCounter();
+	s_rootCounterBase = s_rootCounterValue;
 	return 0;
 }
 

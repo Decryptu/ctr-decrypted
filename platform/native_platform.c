@@ -474,6 +474,8 @@ internal void Native_WaitUntilVBlankTarget(void)
 
 internal void Native_EmitVBlank(void)
 {
+	NativeRCnt_EmitVBlank();
+
 	if (vsync_callback != NULL)
 		vsync_callback();
 
