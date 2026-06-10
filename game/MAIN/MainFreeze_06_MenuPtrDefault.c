@@ -236,6 +236,7 @@ void MainFreeze_MenuPtrDefault(struct RectMenu *menu)
 			// Level ID
 			gGT->levelID = gGT->cup.cupID + ADV_CUP;
 		}
+		break;
 	default:
 		return;
 	}
