@@ -28,6 +28,7 @@ char EngineAudio_InitOnce(u32 soundID, u32 flags)
 
 	// make ChannelAttr from howl pointer somehow
 	howl_InitChannelAttr_EngineFX(ptrEngineFX, &channelAttr, volume, LR, distortion);
+	channelAttr.reverb = echo;
 
 	Smart_EnterCriticalSection();
 

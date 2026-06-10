@@ -3116,26 +3116,30 @@ s32 NativeAudio_SpuSetReverb(s32 on_off)
 
 s32 NativeAudio_SpuSetReverbModeParam(SpuReverbAttr *attr)
 {
+	u32 mask;
+
 	if (attr == NULL)
 		return SPU_INVALID_ARGS;
 
+	mask = attr->mask != 0 ? attr->mask : (SPU_REV_MODE | SPU_REV_DEPTHL | SPU_REV_DEPTHR | SPU_REV_DELAYTIME | SPU_REV_FEEDBACK);
+
 	NativeAudio_LockOutput();
 
-	if (attr->mask & SPU_REV_MODE)
+	if (mask & SPU_REV_MODE)
 	{
 		s_audio.reverbAttr.mode = attr->mode;
 		if (attr->mode != SPU_REV_MODE_CHECK)
 			NativeAudio_ReverbConfigureModeNoLock(attr->mode);
 	}
-	if (attr->mask & SPU_REV_DEPTHL)
+	if (mask & SPU_REV_DEPTHL)
 		s_audio.reverbAttr.depth.left = attr->depth.left;
-	if (attr->mask & SPU_REV_DEPTHR)
+	if (mask & SPU_REV_DEPTHR)
 		s_audio.reverbAttr.depth.right = attr->depth.right;
-	if (attr->mask & SPU_REV_DELAYTIME)
+	if (mask & SPU_REV_DELAYTIME)
 		s_audio.reverbAttr.delay = attr->delay;
-	if (attr->mask & SPU_REV_FEEDBACK)
+	if (mask & SPU_REV_FEEDBACK)
 		s_audio.reverbAttr.feedback = attr->feedback;
-	s_audio.reverbAttr.mask |= attr->mask;
+	s_audio.reverbAttr.mask |= mask;
 
 	NativeAudio_UnlockOutput();
 
