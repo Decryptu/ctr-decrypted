@@ -580,7 +580,7 @@ static void SelectProfile_DrawAll(struct RectMenu *menu, int rowCount, int saved
 		if ((*SelectProfile_AllProfiles_ActionActive() != 0) && (*(s16 *)&sdata->unk8008d964 != 0) && (*SelectProfile_AllProfiles_ExitToPrevious() == 0) &&
 		    (*SelectProfile_AllProfiles_ActionDone() == 0) && (*SelectProfile_AllProfiles_TimerSaveComplete() != 0))
 		{
-			int saveColor = ((sdata->frameCounter & 4) == 0) ? (JUSTIFY_CENTER | ORANGE) : (JUSTIFY_CENTER | LIGHT_GREEN);
+			int saveColor = ((sdata->frameCounter & 4) == 0) ? (JUSTIFY_CENTER | ORANGE) : (JUSTIFY_CENTER | WHITE);
 			DecalFont_DrawLine(sdata->lngStrings[0x13d], 0x108, 0x64, FONT_BIG, saveColor);
 		}
 		else
@@ -721,7 +721,7 @@ static void SelectProfile_FinalizeAdventure(struct RectMenu *menu)
 // NOTE(aalhendi): Partial retail audit only; this large structured rewrite is not fully ASM-stamped.
 void SelectProfile_AllProfiles_MenuProc(struct RectMenu *menu)
 {
-	int color = ((menu->drawStyle & 0x10) != 0) ? DARK_RED : ORANGE;
+	int color = ((menu->drawStyle & 0x10) != 0) ? LIGHT_GREEN : ORANGE;
 	int savedGhostCount = sdata->numGhostProfilesSaved;
 	int canChooseEmptySlot = 0;
 	int rowCount = SelectProfile_IsGhostMode() ? SelectProfile_GhostRowCount(&savedGhostCount, &canChooseEmptySlot) : 4;
