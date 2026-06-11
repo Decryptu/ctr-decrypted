@@ -252,15 +252,7 @@
 #include "game/HOWL/h142_Garage_MoveLR.c"
 #include "game/HOWL/h143_Garage_Leave.c"
 
-#include "game/INSTANCE/INSTANCE_00_Birth.c"
-#include "game/INSTANCE/INSTANCE_01_Birth3D.c"
-#include "game/INSTANCE/INSTANCE_02_Birth2D.c"
-#include "game/INSTANCE/INSTANCE_03_BirthWithThread.c"
-#include "game/INSTANCE/INSTANCE_04_BirthWithThread_Stack.c"
-#include "game/INSTANCE/INSTANCE_05_Death.c"
-#include "game/INSTANCE/INSTANCE_06_LevInitAll.c"
-#include "game/INSTANCE/INSTANCE_07_LevDelayedLInBs.c"
-#include "game/INSTANCE/INSTANCE_08_GetNumAnimFrames.c"
+#include "game/INSTANCE.c"
 
 #include "game/LHMatrix.c"
 
