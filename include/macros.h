@@ -13,6 +13,7 @@ typedef uint64_t u64;
 typedef int64_t s64;
 typedef uint32_t u32;
 typedef int32_t s32;
+typedef s32 b32;
 typedef uint16_t u16;
 typedef int16_t s16;
 typedef uint8_t u8;
@@ -37,16 +38,19 @@ typedef double f64;
 #define FPS           30
 #define ELAPSED_MS    32
 #endif
-#define SCREEN_WIDTH 512
-#define SECOND       (FPS * ELAPSED_MS)
-#define MINUTE       (SECOND * 60)
-#define HOUR         (MINUTE * 60)
+#define SCREEN_WIDTH               512
+#define SECOND                     (FPS * ELAPSED_MS)
+#define MINUTE                     (SECOND * 60)
+#define HOUR                       (MINUTE * 60)
 
-#define SECONDS(x)   ((s32)(((f32)(x)) * SECOND))
-#define MINUTES(x)   ((s32)(((f32)(x)) * MINUTE))
-#define HOURS(x)     ((s32)(((f32)(x)) * HOUR))
+#define CTR_FRAMES_PER_SECOND      30
+#define CTR_SECONDS_TO_FRAMES(sec) ((s32)((sec) * CTR_FRAMES_PER_SECOND))
 
-#define nullptr      ((void *)0)
+#define SECONDS(x)                 ((s32)(((f32)(x)) * SECOND))
+#define MINUTES(x)                 ((s32)(((f32)(x)) * MINUTE))
+#define HOURS(x)                   ((s32)(((f32)(x)) * HOUR))
+
+#define nullptr                    ((void *)0)
 
 #ifndef CTR_NATIVE
 #define force_inline static inline __attribute__((always_inline))
