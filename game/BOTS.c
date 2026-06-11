@@ -1,5 +1,745 @@
 #include <common.h>
 
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80012568-0x80012598.
+int BOTS_Adv_NumTimesLostEvent(int numLost)
+{
+	// if you lost more than 10 times
+	// the difficulty will not get lower.
+	if ((u16)numLost > 10)
+	{
+		// the array apparently has 12, not sure why it stopped at 11.
+		numLost = 10;
+	}
+
+	return data.advDifficulty[numLost];
+}
+
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800123e0-0x80012440
+void BOTS_SetGlobalNavData(u16 index)
+{
+	sdata->lastPathIndex = index;
+
+	sdata->nav_NumPointsOnPath = sdata->NavPath_ptrHeader[index]->numPoints;
+
+	sdata->nav_ptrFirstPoint = sdata->NavPath_ptrNavFrameArray[index];
+
+	sdata->nav_ptrLastPoint = &sdata->nav_ptrFirstPoint[sdata->nav_NumPointsOnPath];
+
+	return;
+}
+
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80012440-0x80012560
+void BOTS_InitNavPath(struct GameTracker *gGT, s16 index)
+{
+	struct NavHeader *nh = 0;
+	struct NavHeader **LevNavTable = sdata->gGT->level1->LevNavTable;
+
+	if (LevNavTable != 0)
+	{
+		// nullptr on Nitro Court
+		nh = LevNavTable[index];
+	}
+
+	// if path exists
+	if (nh != 0)
+	{
+		// grab the data
+		sdata->NavPath_ptrHeader[index] = nh;
+
+		sdata->NavPath_ptrNavFrameArray[index] = NAVHEADER_GETFRAME(sdata->NavPath_ptrHeader[index]);
+
+		// if data is outdated
+		if (sdata->NavPath_ptrHeader[index]->magicNumber != -0x1303)
+		{
+			// never mind then
+			sdata->NavPath_ptrHeader[index]->numPoints = 0;
+		}
+	}
+
+	// if no path data is found
+	else
+	{
+		// use a template, which cancels AIs
+		sdata->NavPath_ptrHeader[index] = &sdata->blank_NavHeader;
+
+		sdata->NavPath_ptrNavFrameArray[index] = NAVHEADER_GETFRAME(&sdata->blank_NavHeader);
+
+		sdata->NavPath_ptrHeader[index]->numPoints = 0;
+	}
+
+	// save number of points
+	sdata->nav_NumPointsOnPath = sdata->NavPath_ptrHeader[index]->numPoints;
+
+	// global last point
+	sdata->nav_ptrLastPoint = &sdata->NavPath_ptrNavFrameArray[index][sdata->nav_NumPointsOnPath];
+
+	// header last point
+	sdata->NavPath_ptrHeader[index]->last = sdata->nav_ptrLastPoint;
+
+	// global first point
+	sdata->nav_ptrFirstPoint = sdata->NavPath_ptrNavFrameArray[index];
+
+	return;
+}
+
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80012560-0x80012568.
+void BOTS_EmptyFunc(void)
+{
+}
+
+static void BOTS_Adv_LerpDifficulty(s16 *dst, s16 factor)
+{
+	s16 *lo = sdata->difficultyParams[1];
+	s16 *hi = sdata->difficultyParams[0];
+
+	for (s32 i = 0; i < 14; i++)
+	{
+		dst[i] = lo[i] + (s16)((factor * (hi[i] - lo[i])) / 0xf0);
+	}
+}
+
+static void BOTS_Adv_CopySpawnOrder(s32 first, s32 second)
+{
+	*(s32 *)&sdata->kartSpawnOrderArray[0] = first;
+	*(s32 *)&sdata->kartSpawnOrderArray[4] = second;
+}
+
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80012598-0x80013374.
+void BOTS_Adv_AdjustDifficulty(void)
+{
+	struct GameTracker *gGT = sdata->gGT;
+	u32 gameMode1 = gGT->gameMode1;
+	u32 gameMode2 = gGT->gameMode2;
+	s32 currDifficulty;
+	s16 cupDifficulty = 0;
+
+	// NOTE(aalhendi): Retail stores params1 in slot 1 and params2 in slot 0.
+	if ((gameMode1 & ADVENTURE_BOSS) != 0)
+	{
+		sdata->difficultyParams[1] = data.BossDifficulty[gGT->bossID].params1;
+		sdata->difficultyParams[0] = data.BossDifficulty[gGT->bossID].params2;
+	}
+	else
+	{
+		sdata->difficultyParams[1] = data.ArcadeDifficulty[gGT->levelID].params1;
+		sdata->difficultyParams[0] = data.ArcadeDifficulty[gGT->levelID].params2;
+	}
+
+	if ((gameMode1 & ARCADE_MODE) != 0)
+	{
+		currDifficulty = (u16)gGT->arcadeDifficulty;
+
+		if ((gameMode2 & CHEAT_SUPERHARD) != 0)
+		{
+			currDifficulty = 0x140;
+		}
+
+		cupDifficulty = (s16)((u16)gGT->arcadeDifficulty + 0x50);
+	}
+	else if ((gameMode1 & ADVENTURE_CUP) != 0)
+	{
+		s32 track = gGT->cup.trackIndex;
+		s32 lostModifier = BOTS_Adv_NumTimesLostEvent(sdata->advProgress.timesLostCupRace[track]);
+		s32 maxDifficulty = track * 5;
+
+		if (gGT->cup.cupID == 4)
+		{
+			lostModifier -= 0xe1;
+
+			if ((gameMode2 & CHEAT_ADV) != 0)
+			{
+				maxDifficulty = track * 7;
+				lostModifier = BOTS_Adv_NumTimesLostEvent(sdata->advProgress.timesLostCupRace[track]) - 0x141;
+			}
+		}
+		else
+		{
+			lostModifier -= 0xcd;
+
+			if ((gameMode2 & CHEAT_ADV) != 0)
+			{
+				maxDifficulty = track * 7;
+				lostModifier = BOTS_Adv_NumTimesLostEvent(sdata->advProgress.timesLostCupRace[track]) - 300;
+			}
+		}
+
+		currDifficulty = maxDifficulty - lostModifier;
+		cupDifficulty = (s16)(currDifficulty + 0x50);
+	}
+	else if ((gameMode1 & ADVENTURE_BOSS) != 0)
+	{
+		s32 bossID = gGT->bossID;
+		s32 lostModifier = BOTS_Adv_NumTimesLostEvent(sdata->advProgress.timesLostBossRace[bossID]) - 0xe1;
+		s32 maxDifficulty = bossID * 5;
+
+		if ((gameMode2 & CHEAT_ADV) != 0)
+		{
+			maxDifficulty = bossID * 7;
+			lostModifier = BOTS_Adv_NumTimesLostEvent(sdata->advProgress.timesLostBossRace[bossID]) - 0x141;
+		}
+
+		currDifficulty = maxDifficulty - lostModifier;
+	}
+	else
+	{
+		s16 numTrophies = (s16)gGT->currAdvProfile.numTrophies + 1;
+		s32 lostModifier = BOTS_Adv_NumTimesLostEvent(sdata->advProgress.timesLostRacePerLev[gGT->levelID]) - 0x3c;
+		s32 maxDifficulty = numTrophies * 0x23;
+
+		if (maxDifficulty < 0)
+		{
+			maxDifficulty += 3;
+		}
+
+		maxDifficulty >>= 2;
+
+		if ((gameMode2 & CHEAT_ADV) != 0)
+		{
+			maxDifficulty = numTrophies * 0xc;
+			lostModifier = BOTS_Adv_NumTimesLostEvent(sdata->advProgress.timesLostRacePerLev[gGT->levelID]) - 100;
+		}
+
+		currDifficulty = maxDifficulty - lostModifier;
+	}
+
+	if ((s16)currDifficulty < 0)
+	{
+		currDifficulty = 0;
+	}
+
+	BOTS_Adv_LerpDifficulty(sdata->arcade_difficultyParams, (s16)currDifficulty);
+
+	if (((gameMode1 & ADVENTURE_CUP) != 0) || ((gameMode2 & CUP_ANY_KIND) != 0))
+	{
+		BOTS_Adv_LerpDifficulty(sdata->cup_difficultyParams, cupDifficulty);
+	}
+
+	sdata->unk_counter_upTo450 = 0;
+
+	if ((sdata->const_0x30215400 == 0) && (sdata->const_0x493583fe == 0))
+	{
+		sdata->const_0x30215400 = 0x30215400;
+		sdata->const_0x493583fe = 0x493583fe;
+	}
+
+	for (s16 i = 0; i < 3; i++)
+	{
+		LIST_Clear(&sdata->navBotList[i]);
+
+		if ((gameMode1 & (GAME_CUTSCENE | MAIN_MENU)) == 0)
+		{
+			BOTS_InitNavPath(gGT, i);
+		}
+	}
+
+	BOTS_SetGlobalNavData(0);
+
+	gGT->numBotsNextGame = 0;
+
+	if (((gameMode2 & CUP_ANY_KIND) == 0) || (gGT->cup.trackIndex == 0))
+	{
+		if (gGT->numPlyrCurrGame == 2)
+		{
+			BOTS_Adv_CopySpawnOrder(data.kartSpawnOrder.VS_2P_1, data.kartSpawnOrder.VS_2P_2);
+		}
+		else if ((u8)gGT->numPlyrCurrGame > 2)
+		{
+			BOTS_Adv_CopySpawnOrder(data.kartSpawnOrder.VS_3P_4P_1, data.kartSpawnOrder.VS_3P_4P_2);
+		}
+
+		if ((gameMode1 & (RELIC_RACE | TIME_TRIAL)) != 0)
+		{
+			BOTS_Adv_CopySpawnOrder(data.kartSpawnOrder.time_trial_1, data.kartSpawnOrder.time_trial_2);
+		}
+		else if ((gameMode1 & CRYSTAL_CHALLENGE) != 0)
+		{
+			BOTS_Adv_CopySpawnOrder(data.kartSpawnOrder.crystal_challenge_1, data.kartSpawnOrder.crystal_challenge_2);
+		}
+		else if ((gameMode1 & ADVENTURE_BOSS) != 0)
+		{
+			BOTS_Adv_CopySpawnOrder(data.kartSpawnOrder.boss_challenge_1, data.kartSpawnOrder.boss_challenge_2);
+		}
+		else if (((gameMode1 & ADVENTURE_CUP) != 0) && (gGT->cup.cupID == 4))
+		{
+			BOTS_Adv_CopySpawnOrder(data.kartSpawnOrder.purple_cup_1, data.kartSpawnOrder.purple_cup_2);
+		}
+		else if ((gameMode1 & ADVENTURE_MODE) == 0)
+		{
+			BOTS_Adv_CopySpawnOrder(data.kartSpawnOrder.arcade_1, data.kartSpawnOrder.arcade_2);
+		}
+	}
+
+	u8 pathOrder[8];
+	pathOrder[0] = 0;
+	pathOrder[4] = 0;
+	pathOrder[3] = 2;
+	pathOrder[7] = 2;
+
+	u8 firstPath = (RngDeadCoed((u32 *)&sdata->const_0x30215400) >> 8) & 1;
+	pathOrder[1] = firstPath;
+	pathOrder[5] = firstPath ^ 1;
+
+	u8 secondPath = (RngDeadCoed((u32 *)&sdata->const_0x30215400) >> 8) & 1;
+	pathOrder[2] = secondPath + 1;
+	pathOrder[6] = (secondPath ^ 1) + 1;
+
+	for (s16 i = 0; i < 8; i++)
+	{
+		sdata->driver_pathIndexIDs[i] = pathOrder[(u8)sdata->kartSpawnOrderArray[i]];
+	}
+
+	if ((gameMode1 & ADVENTURE_BOSS) != 0)
+	{
+		sdata->driver_pathIndexIDs[0] = 0;
+		sdata->driver_pathIndexIDs[1] = 1;
+	}
+
+	if ((gameMode1 & BATTLE_MODE) != 0)
+	{
+		for (s16 i = 0; i < 4; i++)
+		{
+			sdata->driver_pathIndexIDs[i] = (RngDeadCoed((u32 *)&sdata->const_0x30215400) & 0xfff) / 0x555;
+		}
+	}
+
+	if ((((gameMode1 & ADVENTURE_CUP) == 0) && ((gameMode2 & CUP_ANY_KIND) == 0)) || (gGT->cup.trackIndex == 0))
+	{
+		u8 accelOrder[8];
+		u32 accel = (RngDeadCoed((u32 *)&sdata->const_0x30215400) >> 8) & 3;
+		u32 rearAccel = (RngDeadCoed((u32 *)&sdata->const_0x30215400) >> 8) & 3;
+
+		for (s16 i = 0; i < 4; i++)
+		{
+			accelOrder[i] = accel;
+			accel = (accel + 1) & 3;
+
+			accelOrder[i + 4] = rearAccel + 4;
+			rearAccel = (rearAccel - 1) & 3;
+		}
+
+		for (s16 i = 0; i < 8; i++)
+		{
+			sdata->accelerateOrder[i] = accelOrder[(u8)sdata->kartSpawnOrderArray[i]];
+		}
+	}
+
+	if ((((gameMode1 & ADVENTURE_CUP) != 0) || ((gameMode2 & CUP_ANY_KIND) != 0)) && (gGT->cup.trackIndex > 0))
+	{
+		s16 bestPoints = -1;
+		s16 bestDriverIndex = 0;
+		s16 topAccelIndex = 0;
+
+		for (s16 i = 0; i < 8; i++)
+		{
+			if (((u8)gGT->numPlyrCurrGame <= i) && (bestPoints < gGT->cup.points[i]))
+			{
+				bestPoints = (s16)gGT->cup.points[i];
+				bestDriverIndex = i;
+			}
+
+			if (sdata->accelerateOrder[i] == 0)
+			{
+				topAccelIndex = i;
+			}
+		}
+
+		char topAccel = sdata->accelerateOrder[topAccelIndex];
+		sdata->accelerateOrder[topAccelIndex] = sdata->accelerateOrder[bestDriverIndex];
+		sdata->accelerateOrder[bestDriverIndex] = topAccel;
+	}
+}
+
+#define MAX_KARTS 8
+
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80013374-0x80013444.
+void BOTS_UpdateGlobals(void)
+{
+	struct GameTracker *gGT = sdata->gGT;
+
+	if (gGT->numBotsNextGame != 0)
+	{
+		EngineSound_NearestAIs();
+	}
+
+	sdata->bestHumanRank = NULL;
+	sdata->bestRobotRank = NULL;
+	struct Driver *worstRobotDriver = NULL;
+
+	for (int i = MAX_KARTS - 1; i >= 0; i--)
+	{
+		struct Driver *d = gGT->driversInRaceOrder[i];
+
+		if (d == NULL)
+			continue;
+
+		if ((d->actionsFlagSet & 0x100000) != 0)
+		{
+			if (sdata->bestRobotRank == 0)
+				worstRobotDriver = d;
+
+			sdata->bestRobotRank = d;
+		}
+		else
+		{
+			sdata->bestHumanRank = d;
+		}
+	}
+
+	if (sdata->bestHumanRank == NULL)
+	{
+		sdata->bestHumanRank = worstRobotDriver;
+	}
+
+	sdata->unk_counter_upTo450++;
+}
+
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80013444-0x800135d8
+void BOTS_SetRotation(struct Driver *bot, int param_2)
+{
+	struct NavFrame *nf = bot->botData.botNavFrame;
+
+	bot->botData.unk5bc.ai_velAxis[0] = 0;
+	bot->botData.unk5bc.ai_velAxis[1] = 0;
+	bot->botData.unk5bc.ai_velAxis[2] = 0;
+
+	// ======== Get Driver Position =============
+
+	bot->botData.estimatePos[0] = (s16)(bot->posCurr.x >> 8);
+	bot->botData.estimatePos[1] = (s16)(bot->posCurr.y >> 8);
+	bot->botData.estimatePos[2] = (s16)(bot->posCurr.z >> 8);
+
+	// ======== Compare to Nav Position =============
+
+	int dx = nf->pos[0] - bot->botData.estimatePos[0];
+	int dy = nf->pos[1] - bot->botData.estimatePos[1];
+	int dz = nf->pos[2] - bot->botData.estimatePos[2];
+
+	// ======== Calculate Distance =============
+
+	// xz dist from driver to nav
+	int xzDist = SquareRoot0_stub(dx * dx + dz * dz);
+	bot->botData.distToNextNavXZ = xzDist;
+	// xyz distance from driver to nav
+	int xyzDist = SquareRoot0_stub(dx * dx + dy * dy + dz * dz);
+	bot->botData.distToNextNavXYZ = xyzDist;
+
+	// ======== Calculate Rotation =============
+
+	int rot = ratan2(dy * 0x1000, bot->botData.distToNextNavXZ * 0x1000);
+	bot->botData.estimateRotCurrY = rot >> 4;
+	bot->botData.unk5a8 = 0;
+
+	// "if BOTS_ThTick_Drive or BOTS_Driver_Convert"
+	if (param_2 == 0)
+	{
+		bot->botData.estimateRotNav[0] = nf->rot[0];
+		rot = ratan2(-dx, -dz);
+		bot->botData.estimateRotNav[1] = ((rot + 0x800) >> 4);
+		bot->botData.estimateRotNav[2] = nf->rot[1];
+	}
+	else
+	{
+		bot->botData.estimateRotNav[1] = (char)((sdata->gGT->level1->DriverSpawn[0].rot[1] + 0x400) >> 4);
+	}
+
+	s16 v = bot->botData.estimateRotNav[1] << 4;
+
+	// why does the Driver class have so many ways to store y rotation >:(
+	bot->botData.ai_rotY_608 = v;
+	bot->angle = v;
+	bot->rotCurr.y = v;
+	bot->rotPrev.y = v;
+	bot->botData.ai_rot4[1] = v;
+
+	bot->botData.botFlags |= 1;
+}
+
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800135d8-0x8001372c.
+void BOTS_LevInstColl(struct Thread *param_1)
+{
+	s16 currPos[6];
+	s16 prevPos[3];
+	struct Driver *d = (struct Driver *)param_1->object;
+	struct ScratchpadStruct *sps = (struct ScratchpadStruct *)0x1f800108;
+
+	// scratchpad stuff
+	sps->ptr_mesh_info = sdata->gGT->level1->ptr_mesh_info;
+	sps->Union.QuadBlockColl.searchFlags = 1;
+	sps->Input1.modelID = DYNAMIC_ROBOT_CAR;
+	sps->Union.QuadBlockColl.qbFlagsWanted = 0;
+	sps->Union.QuadBlockColl.qbFlagsIgnored = 0;
+	sps->Input1.hitRadius = 0x19;
+
+	// grab driver stuff
+	currPos[0] = (s16)(d->posCurr.x >> 8);
+	currPos[1] = ((s16)(d->posCurr.y >> 8)) + 0x19;
+	currPos[2] = (s16)(d->posCurr.z >> 8);
+	prevPos[0] = (s16)(d->posPrev.x >> 8);
+	prevPos[1] = ((s16)(d->posPrev.y >> 8)) + 0x19;
+	prevPos[2] = (s16)(d->posPrev.z >> 8);
+
+	COLL_FIXED_BotsSearch(currPos, prevPos, (s16 *)sps);
+
+	if (sps->boolDidTouchHitbox)
+	{
+		sps->Union.QuadBlockColl.searchFlags &= 0xfff7;
+
+		if ((sps->bspHitbox->flag & 0x80) != 0)
+		{
+			struct InstDef *instDef = sps->bspHitbox->data.hitbox.instDef;
+			struct Instance *inst = instDef->ptrInstance;
+			if (inst != NULL)
+			{
+				struct MetaDataMODEL *mdm = COLL_LevModelMeta(instDef->modelID);
+				if (mdm != NULL)
+				{
+					if (mdm->LInC != NULL)
+					{
+						mdm->LInC(inst, param_1, sps);
+					}
+				}
+			}
+		}
+	}
+}
+
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8001372c-0x80013838.
+void BOTS_ThTick_RevEngine(struct Thread *botThread)
+{
+	struct Driver *botDriver = (struct Driver *)botThread->object;
+	struct MaskHeadWeapon *mask = botDriver->botData.maskObj;
+
+	if (botDriver->botData.ai_posBackup[1] < botDriver->posCurr.y)
+	{ // mask grabbed
+		botDriver->posCurr.y -= ((sdata->gGT->elapsedTimeMS << 9) >> 5);
+
+		if (mask != NULL)
+		{
+			mask->pos[0] = (s16)(botDriver->posCurr.x >> 8);
+			mask->pos[1] = (s16)(botDriver->posCurr.y >> 8);
+			mask->pos[2] = (s16)(botDriver->posCurr.z >> 8);
+		}
+
+		VehPhysForce_TranslateMatrix(botThread, botDriver);
+		VehFrameProc_Driving(botThread, botDriver);
+		VehEmitter_DriverMain(botThread, botDriver);
+	}
+	else
+	{ // not a mask grab
+		if (mask != NULL)
+		{
+			mask->scale = 0x1000;
+			mask->duration = 0;
+			mask->rot[2] &= 0xfffe;
+		}
+
+		botDriver->botData.maskObj = NULL;
+		botDriver->kartState = KS_ENGINE_REVVING;
+		botDriver->clockReceive = 0;
+		botDriver->squishTimer = 0;
+
+		ThTick_SetAndExec(botThread, BOTS_ThTick_Drive);
+	}
+}
+
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80013838-0x80013a70.
+void BOTS_MaskGrab(struct Thread *botThread)
+{
+	int midpoint;
+	struct NavFrame *frame;
+	struct NavFrame *nextframe;
+	struct Driver *bot;
+	struct MaskHeadWeapon *mask;
+
+
+	bot = botThread->object;          // get object from thread
+	frame = bot->botData.botNavFrame; // pointer to nav point
+	nextframe = frame + 1;            // pointer to next nav point after this
+
+	// if the next nav point is a farther address than last point
+	if (sdata->NavPath_ptrHeader[bot->botData.botPath]->last <= nextframe)
+	{
+		// set next nav point to first nav point
+		nextframe = sdata->NavPath_ptrNavFrameArray[bot->botData.botPath];
+	}
+
+	bot->kartState = KS_MASK_GRABBED;
+
+	bot->botData.unk5a8 = (frame->unk[1] / 2) << 8;
+
+	// midpointX between nav frames
+	midpoint = (frame->pos[0] + (nextframe->pos[0] - frame->pos[0]) / 2) * 0x100;
+	bot->botData.ai_posBackup[0] = midpoint;
+	bot->posPrev.x = midpoint;
+
+	// midpointY between nav frames
+	midpoint = (frame->pos[1] + (nextframe->pos[1] - frame->pos[1]) / 2) * 0x100;
+	bot->botData.ai_posBackup[1] = midpoint;
+	bot->posPrev.y = midpoint;
+	bot->quadBlockHeight = midpoint;
+
+	// midpointZ between nav frames
+	midpoint = (frame->pos[2] + (nextframe->pos[2] - frame->pos[2]) / 2) * 0x100;
+	bot->botData.ai_posBackup[2] = midpoint;
+	bot->posPrev.z = midpoint;
+
+	bot->botData.unk5bc.ai_mulDrift = 0;
+	bot->botData.unk5bc.ai_squishCooldown = 0;
+	bot->botData.unk5bc.unk5cc = 0;
+	bot->botData.unk5bc.ai_speedY = 0;
+	bot->botData.unk5bc.ai_speedLinear = 0;
+	bot->botData.unk5bc.ai_velAxis[0] = 0;
+	bot->botData.unk5bc.ai_velAxis[1] = 0;
+	bot->botData.unk5bc.ai_velAxis[2] = 0;
+
+	// turn on 1st flag of actions flag set (means racer is on the ground)
+	bot->actionsFlagSet |= 1;
+
+	bot->botData.botFlags &= 0xffffffb0;
+
+	bot->rotCurr.x = frame->rot[0] << 4;
+	bot->rotCurr.y = frame->rot[1] << 4;
+	bot->rotCurr.z = frame->rot[2] << 4;
+
+	bot->turbo_MeterRoomLeft = 0;
+	bot->reserves = 0;
+	bot->clockReceive = 0;
+	bot->squishTimer = 0;
+	bot->turbo_outsideTimer = 0;
+	bot->matrixArray = 0;
+	bot->matrixIndex = 0;
+
+	// turn off 7th and 20th flags of actions flag set (means ghost? racer is not in the air (20) and ? (7))
+	bot->actionsFlagSet &= 0xfff7ffbf;
+
+	// if driver is not ghost
+	if (botThread->modelIndex != DYNAMIC_GHOST)
+	{
+		// enable collision for this thread
+		botThread->flags &= 0xffffefff;
+	}
+
+	// posY, plus height to be dropped from
+	bot->posCurr.x = bot->botData.ai_posBackup[0];
+	bot->posCurr.y = bot->botData.ai_posBackup[1] + 0x10000;
+	bot->posCurr.z = bot->botData.ai_posBackup[2];
+
+	mask = VehPickupItem_MaskUseWeapon(bot, 1);
+	bot->botData.maskObj = mask;
+
+	if (mask != 0)
+	{
+		mask->duration = 0x1e00;
+		mask->rot[2] |= 1;
+	}
+
+	// execute, then assign per-frame to BOTS_ThTick_RevEngine
+	ThTick_SetAndExec(botThread, BOTS_ThTick_RevEngine);
+
+	return;
+}
+
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80013a70-0x80013c18.
+void BOTS_Killplane(struct Thread *botThread)
+{
+	s16 i;
+	char boolOverride;
+	u8 currNav;
+	u8 backCount;
+	u8 override;
+	struct NavFrame *frame;
+	struct Driver *bot;
+
+	// get object from thread
+	bot = botThread->object;
+
+	boolOverride = false;
+
+	// check for Tiny Arena
+	if (strcmp(sdata->gGT->levelName, rdata.s_asphalt2_thisAppearsTwice) == 0)
+	{
+		// edge-case override?
+		switch (bot->unknown_lap_related[1])
+		{
+		case 0x94:
+			override = 0x84;
+			break;
+		case 0xa0:
+			override = 0x80;
+			break;
+		default:
+			override = 0xff;
+		}
+
+		if (override != 0xff)
+		{
+			// pointer to nav point
+			frame = bot->botData.botNavFrame;
+
+			// goBackCount
+			backCount = frame->goBackCount;
+			boolOverride = (backCount < (override - 1));
+
+			while ((boolOverride || (override + 1 < backCount)))
+			{
+				// nav path index
+				i = bot->botData.botPath;
+
+				// go back to previous point
+				frame -= 1;
+
+				// if this is less than address of first nav point
+				if (frame < sdata->NavPath_ptrNavFrameArray[i])
+				{
+					// go to last nav point
+					frame = &sdata->NavPath_ptrHeader[i]->last[-1];
+				}
+
+				backCount = frame->goBackCount;
+				boolOverride = (backCount < (override - 1));
+			}
+			bot->botData.botNavFrame = frame;
+			boolOverride = true;
+		}
+	}
+
+	// if not Tiny Arena, or goBackCount didn't happen
+	if (!boolOverride)
+	{
+		// pointer to navFrame
+		frame = bot->botData.botNavFrame;
+
+		// current nav point (player turned AI)
+		currNav = bot->unknown_lap_related[1];
+
+		// goBackCount
+		backCount = frame->goBackCount;
+
+		while ((backCount == currNav || ((frame->flags & 0x4000) != 0)))
+		{
+			// nav path index
+			i = bot->botData.botPath;
+
+			// go back one navFrame
+			frame -= 1;
+
+			// if you go back to far
+			if (frame < sdata->NavPath_ptrNavFrameArray[i])
+			{
+				// loop back to last navFrame
+				frame = &sdata->NavPath_ptrHeader[i]->last[-1];
+			}
+			backCount = frame->goBackCount;
+			currNav = bot->unknown_lap_related[1];
+		}
+		// save ptr to nav frame
+		bot->botData.botNavFrame = frame;
+	}
+
+	BOTS_MaskGrab(botThread);
+	return;
+}
+
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80013c18-0x80016b00.
 
 // NOTE(aalhendi): Keep bucket typed; native O2 can drop punned stack writes.
@@ -1923,4 +2663,456 @@ LAB_8001686c:
 			botDriver->underDriver = sps->Set2.ptrQuadblock;
 		}
 	}
+}
+
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80016b00-0x80016ec8
+u32 BOTS_ChangeState(struct Driver *driverVictim, int damageType, struct Driver *driverAttacker, int reason)
+{
+	driverVictim->ChangeState_param2 = 0;
+
+	if (driverVictim->kartState == KS_MASK_GRABBED)
+	{
+		return 0;
+	}
+
+	driverVictim->kartState = KS_NORMAL;
+
+	switch (damageType)
+	{
+	case 0:
+		if ((driverVictim->botData.botFlags & 2) != 0)
+		{
+			return 0;
+		}
+		break;
+	case 1:
+	case 4:
+		if ((driverVictim->botData.botFlags & 2) == 0)
+		{
+			driverVictim->botData.unk5ba = 1;
+			driverVictim->botData.unk5bc.ai_turboMeter = 0;
+
+			if ((data.characterIDs[driverVictim->driverID] != NITROS_OXIDE) || ((driverVictim->actionsFlagSet & 1) != 0))
+			{
+				driverVictim->reserves = 0;
+				driverVictim->turbo_outsideTimer = 0;
+				driverVictim->botData.unk5bc.unk5cc = 0;
+
+				int newSpeed;
+
+				if (data.characterIDs[driverVictim->driverID] == NITROS_OXIDE)
+				{
+					newSpeed = driverVictim->botData.unk5bc.ai_speedLinear >> 1;
+				}
+				else
+				{
+					newSpeed = driverVictim->botData.unk5bc.ai_speedLinear >> 2;
+				}
+
+				driverVictim->botData.unk5bc.ai_speedLinear = newSpeed;
+			}
+
+			driverVictim->botData.unk5bc.ai_squishCooldown = 0x300;
+			driverVictim->botData.ai_progress_cooldown = 0;
+
+			driverVictim->botData.botFlags |= 2;
+		}
+
+		if (damageType == 4)
+		{
+			if (driverVictim->instSelf->thread->modelIndex == DYNAMIC_PLAYER && driverVictim->burnTimer == 0)
+			{
+				OtherFX_Play(0x69, 1);
+			}
+
+			driverVictim->burnTimer = 0xf00;
+		}
+		break;
+	case 2:
+		driverVictim->botData.unk626 = 0; // OG code just assigns 0 to 1 byte at +0x626, not 2 bytes
+		driverVictim->botData.unk5bc.ai_turboMeter = 0;
+		driverVictim->botData.unk5ba = 2;
+		driverVictim->reserves = 0;
+		driverVictim->turbo_outsideTimer = 0;
+		driverVictim->botData.unk5bc.unk5cc = 0;
+		driverVictim->botData.unk5bc.ai_speedY = sdata->AI_VelY_WhenBlasted_0x3000;
+
+		if ((driverVictim->botData.botFlags & 2) == 0)
+		{
+			driverVictim->botData.unk5bc.ai_speedLinear >>= 3;
+			driverVictim->botData.ai_posBackup[1] += 0x4000;
+		}
+
+		driverVictim->botData.ai_progress_cooldown = 0;
+		driverVictim->matrixArray = 0;
+		driverVictim->botData.botFlags |= 2;
+
+		if (driverAttacker == NULL)
+		{
+			return 1;
+		}
+
+		if ((driverAttacker->actionsFlagSet & 0x100000) == 0)
+		{
+			Voiceline_RequestPlay(1, data.characterIDs[driverVictim->driverID], 0x10);
+		}
+		break;
+	case 3:
+		driverVictim->botData.unk5bc.ai_turboMeter = 0;
+
+		if (driverVictim->instSelf->thread->modelIndex == DYNAMIC_PLAYER && driverVictim->botData.unk5bc.ai_squishCooldown == 0)
+		{
+			OtherFX_Play(0x5a, 1);
+		}
+
+		driverVictim->botData.unk5ba = 3;
+		driverVictim->botData.unk5bc.ai_squishCooldown = 0x300;
+		driverVictim->botData.unk5bc.rotXZ = 0xf00;
+		driverVictim->squishTimer = 0xf00;
+		driverVictim->reserves = 0;
+		driverVictim->turbo_outsideTimer = 0;
+		driverVictim->botData.unk5bc.unk5cc = 0;
+		driverVictim->botData.unk5bc.ai_speedY = 0;
+		driverVictim->botData.ai_progress_cooldown = 0;
+		driverVictim->botData.unk5bc.ai_speedLinear >>= 1;
+		driverVictim->botData.botFlags |= 6;
+		break;
+	case 5:
+		driverVictim->botData.unk5bc.ai_turboMeter = 0;
+		driverVictim->botData.unk5bc.ai_speedLinear = 0;
+		driverVictim->botData.unk5bc.ai_speedY = 0;
+		driverVictim->botData.unk5bc.unk5cc = 0;
+		driverVictim->instSelf->flags |= 0x80;
+		driverVictim->botData.unk5bc.rotXZ = 0xd20;
+		driverVictim->botData.unk5ba = 5;
+		driverVictim->kartState = KS_MASK_GRABBED;
+		driverVictim->botData.botFlags |= 6;
+		driverVictim->instSelf->thread->flags |= 0x1000;
+		break;
+	default:
+		driverVictim->botData.ai_progress_cooldown = 0x3c;
+	}
+
+	if (driverAttacker != NULL && damageType != 0)
+	{
+		driverAttacker->numTimesAttacked++;
+		switch (damageType)
+		{
+		case 1:
+			driverAttacker->numTimesBombsHitSomeone++;
+			break;
+		case 3:
+			driverAttacker->numTimesMissileHitSomeone++;
+			break;
+		case 4:
+			driverAttacker->numTimesMovingPotionHitSomeone++;
+			break;
+		}
+	}
+	return 1;
+}
+
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80016ec8-0x8001702c
+void BOTS_CollideWithOtherAI(struct Driver *robot_1, struct Driver *robot_2)
+{
+	struct NavFrame *nfCurr;
+	struct NavFrame *nfNext;
+
+	// first determine which driver bumps forward and which bumps backwards
+	if (robot_1->driverRank < robot_2->driverRank)
+	{
+		struct Driver *temp = robot_2;
+		robot_2 = robot_1;
+		robot_1 = temp;
+	}
+	// robot_1 = iVar2
+	// robot_2 = param_2
+
+	s16 *uVar3;
+	s16 *estimatePos;
+	if ((robot_1->botData.botFlags & 1) == 0)
+	{
+		// nav path index
+		s16 botPathIndex = robot_1->botData.botPath;
+
+		// pointer to navFrame
+		nfCurr = &robot_1->botData.botNavFrame;
+		nfNext = nfCurr + 1;
+
+		// iVar4
+		estimatePos = &nfCurr->pos[0];
+
+		// if you go out of bounds
+		if (sdata->NavPath_ptrHeader[botPathIndex]->last <= (struct NavFrame *)nfNext)
+		{
+			// loop back to first navFrame
+			nfNext = &sdata->NavPath_ptrNavFrameArray[botPathIndex];
+		}
+	}
+	else
+	{
+		// pointer to nav frame
+		nfNext = &robot_1->botData.botNavFrame;
+
+		// iVar4
+		estimatePos = robot_1->botData.estimatePos;
+	}
+
+	uVar3 = &nfNext->pos[0];
+
+	s16 pos[3];
+	// position of one driver
+	pos[0] = (s16)(robot_1->posCurr.x >> 8);
+	pos[1] = (s16)(robot_1->posCurr.y >> 8);
+	pos[2] = (s16)(robot_1->posCurr.z >> 8);
+
+	// two navFrame structs, and position pointer
+	int res1 = CAM_MapRange_PosPoints(uVar3, estimatePos, &pos[0]);
+
+	// position of other driver
+	pos[0] = (s16)(robot_2->posCurr.x >> 8);
+	pos[1] = (s16)(robot_2->posCurr.y >> 8);
+	pos[2] = (s16)(robot_2->posCurr.z >> 8);
+
+	// two navFrame structs, and position pointer
+	int res2 = CAM_MapRange_PosPoints(uVar3, estimatePos, &pos[0]);
+
+	// reduce speed of one AI,
+	// the AI that is closer to the previous nav point,
+	// who therefore is the driver in the back of the collision
+
+	if (res1 < res2)
+	{
+		int speed = robot_2->botData.unk5bc.ai_speedLinear - 3000;
+		speed = ((speed < 0) ? 0 : speed); // clamp to 0
+
+		robot_1->botData.unk5bc.ai_speedLinear = speed;
+	}
+	else
+	{
+		int speed = robot_1->botData.unk5bc.ai_speedLinear - 3000;
+		speed = ((speed < 0) ? 0 : speed); // clamp to 0
+
+		robot_2->botData.unk5bc.ai_speedLinear = speed;
+	}
+}
+
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8001702c-0x80017164.
+void BOTS_GotoStartingLine(struct Driver *d)
+{
+	int accelDuration;
+	s16 rotY;
+
+	sdata->unk_counter_upTo450 = 0;
+
+	VehBirth_TeleportSelf(d, 3, 0);
+
+	// get position where driver should spawn
+	u8 spawnPos = sdata->kartSpawnOrderArray[d->driverID];
+
+	// all within unk5bc
+	*(int *)((u32)d + 0x5ec) = 0;
+	*(int *)((u32)d + 0x5e8) = 0;
+	*(int *)((u32)d + 0x5e4) = 0;
+	*(int *)((u32)d + 0x5e0) = 0;
+	*(int *)((u32)d + 0x5dc) = 0;
+	*(int *)((u32)d + 0x5d8) = 0;
+	*(int *)((u32)d + 0x5d4) = 0;
+	*(int *)((u32)d + 0x5d0) = 0;
+	*(int *)((u32)d + 0x5cc) = 0;
+
+	d->botData.ai_posBackup[0] = d->posCurr.x;
+	d->botData.ai_posBackup[1] = d->posCurr.y;
+	d->botData.ai_posBackup[2] = d->posCurr.z;
+
+	d->botData.unk5a8 = 0;
+
+	// current navFrame pointer, first navFrame on path
+	d->botData.botNavFrame = sdata->NavPath_ptrNavFrameArray[d->botData.botPath];
+
+	BOTS_SetRotation(d, 1);
+
+	// time until full acceleration from start
+	accelDuration = sdata->AI_AccelFrameCount;
+
+	// get acceleration order from spawn order
+	u8 accel = sdata->accelerateOrder[spawnPos];
+
+	d->rotCurr.z = 0;
+	d->rotPrev.z = 0;
+	d->botData.ai_rot4[2] = 0;
+	d->rotCurr.x = 0;
+	d->rotPrev.x = 0;
+	d->botData.ai_rot4[0] = 0;
+	d->turnAngleCurr = 0;
+
+	// turn on 21st flag of actions flag set, means driver is AI
+	d->actionsFlagSet |= 0x100000;
+
+	// calculate Y rotation
+	rotY = (u8)d->botData.estimateRotNav[1] << 4;
+
+	// every possible Y rotation
+	d->botData.ai_rotY_608 = rotY;
+	d->angle = rotY;
+	d->rotCurr.y = rotY;
+	d->rotPrev.y = rotY;
+	d->botData.ai_rot4[1] = rotY;
+
+	// acceleration from start-line to full speed
+	d->botData.botAccel = accelDuration * accel;
+
+	// cooldown before next weapon
+	int rng = RngDeadCoed(&sdata->const_0x30215400);
+	d->botData.weaponCooldown = ((rng >> 8) & 0xff) + 300;
+}
+
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80017164-0x80017318.
+struct Driver *BOTS_Driver_Init(int driverID)
+{
+	struct Thread *t;
+	struct Driver *d;
+
+	char initialNavPathIndex = sdata->driver_pathIndexIDs[driverID];
+	char navPathIndex;
+	s16 navPathPointsCount; // = sdata->NavPath_ptrHeader[navPathIndex]->numPoints;
+
+	navPathIndex = initialNavPathIndex;
+	while (1)
+	{
+		navPathPointsCount = sdata->NavPath_ptrHeader[navPathIndex]->numPoints;
+		if (1 < navPathPointsCount)
+			break; // success
+
+		navPathIndex--;
+
+		// If subtracted below zero,
+		// go back to highest index (2)
+		if (navPathIndex < 0)
+			navPathIndex = 2;
+
+		// If all 3 are checked, quit
+		if (navPathIndex == initialNavPathIndex)
+			return NULL;
+	}
+
+	// path data found
+	t = PROC_BirthWithObject(
+	    // creation flags
+	    SIZE_RELATIVE_POOL_BUCKET(0x62c, NONE, LARGE, ROBOT),
+
+	    BOTS_ThTick_Drive, // behavior
+	    0,                 //"robotcar",	// debug name
+	    0                  // thread relative
+	);
+
+	d = t->object;
+	memset(d, 0x0, 0x62c);
+	VehBirth_NonGhost(t, driverID);
+	sdata->gGT->drivers[driverID] = d;
+	t->modelIndex = DYNAMIC_ROBOT_CAR;
+
+	d->botData.botPath = navPathIndex;
+	d->botData.botNavFrame = sdata->NavPath_ptrNavFrameArray[navPathIndex];
+	d->actionsFlagSet |= 0x100000;
+	LIST_AddFront(&sdata->navBotList[navPathIndex], (struct Item *)(&d->botData));
+
+	sdata->gGT->numBotsNextGame++;
+	BOTS_GotoStartingLine(d);
+	return d;
+}
+
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80017318-0x800175cc.
+void BOTS_Driver_Convert(struct Driver *d)
+{
+	// if already AI, quit
+	if ((d->actionsFlagSet & 0x100000) != 0)
+		return;
+
+	UI_RaceEnd_GetDriverClock(d);
+
+	char initialNavPathIndex = sdata->driver_pathIndexIDs[d->driverID];
+	char navPathIndex;
+	s16 navPathPointsCount; // = sdata->NavPath_ptrHeader[navPathIndex]->numPoints;
+
+	navPathIndex = initialNavPathIndex;
+	while (1)
+	{
+		navPathPointsCount = sdata->NavPath_ptrHeader[navPathIndex]->numPoints;
+		if (1 < navPathPointsCount)
+			break; // success
+
+		navPathIndex--;
+
+		// If subtracted below zero,
+		// go back to highest index (2)
+		if (navPathIndex < 0)
+			navPathIndex = 2;
+
+		// If all 3 are checked, quit
+		if (navPathIndex == initialNavPathIndex)
+			return;
+	}
+
+	memset(&d->botData, 0, sizeof(struct BotData));
+
+	d->botData.unk5bc.ai_speedY = d->ySpeed;
+
+	s16 speedApprox = d->speedApprox;
+
+	d->botData.botPath = navPathIndex;
+
+	speedApprox = ((speedApprox < 0) ? -speedApprox : speedApprox);
+
+	d->botData.unk5bc.ai_speedLinear = speedApprox;
+
+	struct NavFrame *firstNavFrame = sdata->NavPath_ptrNavFrameArray[navPathIndex];
+
+	d->botData.unk5a8 = 0;
+	d->turnAngleCurr = 0;
+	d->multDrift = 0;
+	d->ampTurnState = 0;
+	d->set_0xF0_OnWallRub = 0;
+
+	d->botData.botNavFrame = firstNavFrame;
+
+	d->instSelf->thread->funcThTick = BOTS_ThTick_Drive;
+
+	if ((sdata->gGT->gameMode1 & 0x20) != 0)
+	{ // you are in battle mode
+		struct NavFrame *nf = NAVHEADER_GETFRAME(sdata->NavPath_ptrHeader[navPathIndex]);
+		d->posCurr.x = nf->pos[0] << 8;
+		d->posCurr.y = nf->pos[1] << 8;
+		d->posCurr.z = nf->pos[2] << 8;
+	}
+
+	LIST_AddFront(&sdata->navBotList[navPathIndex], (struct Item *)&d->botData);
+
+	BOTS_SetRotation(d, 0);
+
+	GAMEPAD_JogCon2(d, 0, 0);
+
+	u32 oldActionFlagsSet = d->actionsFlagSet;
+
+	d->actionsFlagSet = (oldActionFlagsSet & 0xfffffff3) | 0x100000;
+
+	if ((oldActionFlagsSet & 0x2000000) != 0)
+	{
+		CAM_EndOfRace(&sdata->gGT->cameraDC[d->driverID], d);
+	}
+
+	int damageType;
+	switch (d->kartState)
+	{
+	default:
+		return;
+	case KS_SPINNING:
+		damageType = 1;
+		break;
+	case KS_BLASTED:
+		damageType = 2;
+		break;
+	}
+
+	BOTS_ChangeState(d, damageType, NULL, 0);
 }
