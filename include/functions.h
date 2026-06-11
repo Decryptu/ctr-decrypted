@@ -588,6 +588,9 @@ void RaceFlag_DrawSelf(void);
 s16 SubmitName_DrawMenu(u16 string);
 void SubmitName_MenuProc(struct RectMenu *menu);
 void SubmitName_RestoreName(s16 param_1);
+#if defined(CTR_NATIVE)
+void SubmitName_UseKeyboard(int key);
+#endif
 
 void Timer_Init(void);
 void Timer_Destroy(void);

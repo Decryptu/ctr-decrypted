@@ -15,7 +15,6 @@ A native PC port of Crash Team Racing (PS1, 1999), built on top of the [CTR-ModS
 ```
 ctr_native/
   main.c              Entrypoint and unity include manifest
-  ctr_native.h        Platform state structs
   platform.h          Platform API the game calls through
   platform/           Native-owned audio, input, memcard, CD, and PSX facade glue
   game_includes.h     Ordered include chain for all game source files

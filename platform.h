@@ -27,4 +27,8 @@ void Platform_WaitUntilVBlank(int targetVBlank);
 void Platform_PollHostEvents(void);
 int Platform_PollInput(void);
 
+#if defined(CTR_NATIVE)
+int NikoGetEnterKey(void);
+#endif
+
 #endif

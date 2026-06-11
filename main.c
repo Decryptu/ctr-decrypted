@@ -55,7 +55,6 @@ typedef enum
 	PAD_ID_NONE = 0xf
 } PadTypeID;
 
-#include "ctr_native.h"
 #include "platform.h"
 
 #include "game_includes.h"
