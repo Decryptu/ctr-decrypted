@@ -39,16 +39,14 @@ global_variable int m_sf;
 global_variable s64 m_mac0;
 global_variable s64 m_mac3;
 
-unsigned int gte_leadingzerocount(unsigned int lzcs)
+u32 gte_leadingzerocount(u32 lzcs)
 {
-	if (!lzcs)
-		return 32;
-
-	// perform fast bit scan
-
-	u32 lzcr = lzcs;
+	u32 lzcr = ((s32)lzcs < 0) ? ~lzcs : lzcs;
 	local_persist const char debruijn32[32] = {0, 31, 9, 30, 3, 8,  13, 29, 2,  5,  7,  21, 12, 24, 28, 19,
 	                                           1, 10, 4, 14, 6, 22, 25, 20, 11, 15, 23, 26, 16, 27, 17, 18};
+
+	if (!lzcr)
+		return 32;
 
 	lzcr |= lzcr >> 1;
 	lzcr |= lzcr >> 2;
