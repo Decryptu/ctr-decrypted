@@ -459,13 +459,7 @@
 #include "game/Vehicle/VehPhysCrash_3_Attack.c"
 #include "game/Vehicle/VehPhysCrash_4_AnyTwoCars.c"
 
-#include "game/Vehicle/VehPhysForce_0_ConvertSpeedToVec.c"
-#include "game/Vehicle/VehPhysForce_1_OnGravity.c"
-#include "game/Vehicle/VehPhysForce_2_OnApplyForces.c"
-#include "game/Vehicle/VehPhysForce_3_CollideDrivers.c"
-#include "game/Vehicle/VehPhysForce_4_TranslateMatrix.c"
-#include "game/Vehicle/VehPhysForce_5_RotAxisAngle.c"
-#include "game/Vehicle/VehPhysForce_6_CounterSteer.c"
+#include "game/Vehicle/VehPhysForce.c"
 #include "game/Vehicle/VehGroundShadow_0_Subset1.c"
 #include "game/Vehicle/VehGroundShadow_1_Main.c"
 
