@@ -85,8 +85,6 @@ global_variable const struct NativePerfBucketInfo s_bucketInfo[NATIVE_PERF_BUCKE
     {"framebuffer_readback_ms", 1},
     {"framebuffer_pack_ms", 1},
     {"framebuffer_vram_upload_ms", 1},
-    {"pbo_issue_read_ms", 1},
-    {"pbo_map_copy_ms", 1},
     {"swap_window_ms", 1},
     {"vsync_wait_ms", 0},
     {"audio_vblank_ms", 1},

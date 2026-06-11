@@ -32,7 +32,6 @@ __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 extern SDL_Window *g_window;
 
 #define NATIVE_RENDERER_LOG(fmt, ...)   Platform_Log("[CTR Renderer] " fmt, ##__VA_ARGS__)
-#define NATIVE_RENDERER_WARN(fmt, ...)  Platform_LogWarn("[CTR Renderer] " fmt, ##__VA_ARGS__)
 #define NATIVE_RENDERER_ERROR(fmt, ...) Platform_LogError("[CTR Renderer] [%s] - " fmt, __func__, ##__VA_ARGS__)
 
 #define MAX_NUM_VERTEX_BUFFERS          (2)
@@ -84,23 +83,6 @@ int g_cfg_bilinearFiltering = 0;
 global_variable int s_vramNeedsUpdate = 1;
 global_variable int s_framebufferNeedsUpdate = 0;
 
-typedef struct
-{
-	GLenum fmt;
-	GLuint *pbos;
-	u64 num_pbos;
-	u64 dx;
-	u64 num_downloads;
-
-	int width;
-	int height;
-	int nbytes; /* number of bytes in the pbo buffer. */
-	u8 *pixels; /* the downloaded pixels. */
-} GrPBO;
-
-internal int PBO_Init(GrPBO *pbo, GLenum format, int w, int h, int num);
-internal void PBO_Destroy(GrPBO *pbo);
-internal void PBO_Download(GrPBO *pbo);
 internal int NativeRenderer_InitialiseGLContext(char *windowName, int fullscreen);
 internal int NativeRenderer_InitialiseGLExt(void);
 internal void NativeRenderer_DestroyTexture(TextureID texture);
@@ -113,135 +95,6 @@ internal void NativeRenderer_ClearPresentationBars(void);
 internal void NativeRenderer_SetWireframe(int enable);
 internal void NativeRenderer_BindVertexBuffer(void);
 
-internal int PBO_Init(GrPBO *pbo, GLenum format, int w, int h, int num)
-{
-	if (pbo->pbos)
-	{
-		NATIVE_RENDERER_ERROR("Already initialized. Not necessary to initialize again; or shutdown first.");
-		return -1;
-	}
-
-	if (0 >= num)
-	{
-		NATIVE_RENDERER_ERROR("Invalid number of PBOs: %d", num);
-		return -2;
-	}
-
-	pbo->fmt = format;
-	pbo->width = w;
-	pbo->height = h;
-	pbo->num_pbos = num;
-
-	if (GL_RED == pbo->fmt || GL_GREEN == pbo->fmt || GL_BLUE == pbo->fmt)
-	{
-		pbo->nbytes = pbo->width * pbo->height;
-	}
-	else if (GL_RGB == pbo->fmt || GL_BGR == pbo->fmt)
-	{
-		pbo->nbytes = pbo->width * pbo->height * 3;
-	}
-	else if (GL_RGBA == pbo->fmt || GL_BGRA == pbo->fmt)
-	{
-		pbo->nbytes = pbo->width * pbo->height * 4;
-	}
-	else
-	{
-		NATIVE_RENDERER_ERROR("Unhandled pixel format, use GL_R, GL_RG, GL_RGB or GL_RGBA.");
-		return -3;
-	}
-
-	if (pbo->nbytes == 0)
-	{
-		NATIVE_RENDERER_ERROR("Invalid width or height given: %d x %d", pbo->width, pbo->height);
-		return -4;
-	}
-
-	pbo->pbos = (GLuint *)malloc(sizeof(GLuint) * num);
-	pbo->pixels = (u8 *)malloc(pbo->nbytes);
-
-	glGenBuffers(num, pbo->pbos);
-	for (int i = 0; i < num; ++i)
-	{
-		glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo->pbos[i]);
-		glBufferData(GL_PIXEL_PACK_BUFFER, pbo->nbytes, NULL, GL_STREAM_READ);
-	}
-
-	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-	return 0;
-}
-
-internal void PBO_Destroy(GrPBO *pbo)
-{
-	if (pbo->pbos)
-	{
-		glDeleteBuffers(pbo->num_pbos, pbo->pbos);
-
-		free(pbo->pbos);
-		pbo->num_pbos = 0;
-		pbo->pbos = NULL;
-	}
-
-	if (pbo->pixels)
-	{
-		free(pbo->pixels);
-		pbo->pixels = NULL;
-	}
-
-	pbo->num_downloads = 0;
-	pbo->dx = 0;
-	pbo->fmt = 0;
-	pbo->nbytes = 0;
-}
-
-internal void PBO_Download(GrPBO *pbo)
-{
-	u8 *ptr;
-
-	if (pbo->num_downloads < pbo->num_pbos)
-	{
-		/*
-		   First we need to make sure all our pbos are bound, so glMap/Unmap will
-		   read from the oldest bound buffer first.
-		*/
-		glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo->pbos[pbo->dx]);
-
-		NativePerf_BeginScope(NATIVE_PERF_BUCKET_PBO_ISSUE_READ);
-		glGetTexImage(GL_TEXTURE_2D, 0, pbo->fmt, GL_UNSIGNED_BYTE, 0);
-		NativePerf_EndScope(NATIVE_PERF_BUCKET_PBO_ISSUE_READ);
-	}
-	else
-	{
-		/* Read from the oldest bound pbo */
-		glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo->pbos[pbo->dx]);
-
-		NativePerf_BeginScope(NATIVE_PERF_BUCKET_PBO_MAP_COPY);
-		ptr = (u8 *)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
-		if (NULL != ptr)
-		{
-			memcpy(pbo->pixels, ptr, pbo->nbytes);
-			glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
-		}
-		else
-			NATIVE_RENDERER_WARN("Failed to map the buffer\n");
-		NativePerf_EndScope(NATIVE_PERF_BUCKET_PBO_MAP_COPY);
-
-		/* Trigger the next read. */
-		NativePerf_BeginScope(NATIVE_PERF_BUCKET_PBO_ISSUE_READ);
-		glGetTexImage(GL_TEXTURE_2D, 0, pbo->fmt, GL_UNSIGNED_BYTE, 0);
-		NativePerf_EndScope(NATIVE_PERF_BUCKET_PBO_ISSUE_READ);
-	}
-
-	++pbo->dx;
-	pbo->dx = pbo->dx % pbo->num_pbos;
-
-	pbo->num_downloads++;
-
-	if (pbo->num_downloads == UINT64_MAX)
-		pbo->num_downloads = pbo->num_pbos;
-
-	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-}
-
 global_variable GLuint s_glVertexArray[2];
 global_variable GLuint s_glVertexBuffer[2];
 global_variable int s_curVertexBuffer = 0;
@@ -251,7 +104,6 @@ global_variable GLuint s_glBlitFramebuffer;
 global_variable GLuint s_glVramFramebuffer;
 
 global_variable GLuint s_glOffscreenFramebuffer;
-global_variable GrPBO s_glOffscreenPBO;
 
 
 internal int NativeRenderer_InitialiseGLContext(char *windowName, int fullscreen)
@@ -347,8 +199,6 @@ void NativeRenderer_Shutdown(void)
 {
 	glDeleteVertexArrays(2, s_glVertexArray);
 	glDeleteBuffers(2, s_glVertexBuffer);
-
-	PBO_Destroy(&s_glOffscreenPBO);
 
 	glDeleteFramebuffers(1, &s_glBlitFramebuffer);
 	glDeleteFramebuffers(1, &s_glOffscreenFramebuffer);
@@ -982,9 +832,6 @@ int NativeRenderer_InitialisePSX(void)
 
 	// gen offscreen RT
 	{
-		memset(&s_glOffscreenPBO, 0, sizeof(s_glOffscreenPBO));
-		PBO_Init(&s_glOffscreenPBO, GL_RGBA, VRAM_WIDTH, VRAM_HEIGHT, 2);
-
 		// offscreen texture render target
 		glGenTextures(1, &s_offscreenRenderTexture);
 		{
@@ -1472,7 +1319,7 @@ void NativeRenderer_ReadFramebufferDataToVRAM(void)
 	{
 		glBindTexture(GL_TEXTURE_2D, s_framebufferTexture);
 		// NOTE(aalhendi): DrawSync can be called immediately before screen-copy
-		// effects sample PS1 VRAM. A delayed PBO readback replays an older frame
+		// effects sample PS1 VRAM. A delayed readback replays an older frame
 		// into VRAM and turns clock/idle blur into flicker; use the latest
 		// framebuffer texture here.
 		glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
@@ -1491,6 +1338,48 @@ void NativeRenderer_DiscardFramebufferReadback(void)
 	s_framebufferNeedsUpdate = 0;
 }
 
+internal int NativeRenderer_RectEquals(const RECT16 *a, const RECT16 *b)
+{
+	return a->x == b->x && a->y == b->y && a->w == b->w && a->h == b->h;
+}
+
+internal void NativeRenderer_FlushOffscreenToVRAM(void)
+{
+	if (s_previousOffscreen.w <= 0 || s_previousOffscreen.h <= 0)
+		return;
+
+	glBindFramebuffer(GL_FRAMEBUFFER, s_glVramFramebuffer);
+
+	// rebind texture
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, s_vramTexture, 0);
+
+	// setup draw and read framebuffers
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, s_glOffscreenFramebuffer); // source is offscreen render target
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_glVramFramebuffer);
+
+	glBlitFramebuffer(0, 0, s_previousOffscreen.w, s_previousOffscreen.h, s_previousOffscreen.x, s_previousOffscreen.y + s_previousOffscreen.h,
+	                  s_previousOffscreen.x + s_previousOffscreen.w, s_previousOffscreen.y, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+	// done, unbind
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	// copy rendering results to the CPU-side PSX VRAM mirror
+	{
+		u32 *pixels = (u32 *)malloc((size_t)s_previousOffscreen.w * (size_t)s_previousOffscreen.h * sizeof(u32));
+		if (pixels == NULL)
+			return;
+
+		glBindTexture(GL_TEXTURE_2D, s_offscreenRenderTexture);
+		glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+		glBindTexture(GL_TEXTURE_2D, s_lastBoundTexture != (TextureID)-1 ? s_lastBoundTexture : 0);
+
+		NativeRenderer_CopyRGBAFramebufferToVRAM(pixels, s_previousOffscreen.x, s_previousOffscreen.y, s_previousOffscreen.w, s_previousOffscreen.h, 0, 1);
+		free(pixels);
+	}
+}
+
 internal void NativeRenderer_SetScissorState(int enable)
 {
 	if (s_previousScissorState == enable)
@@ -1505,6 +1394,8 @@ internal void NativeRenderer_SetScissorState(int enable)
 
 void NativeRenderer_SetOffscreenState(const RECT16 *offscreenRect, const DISPENV *displayEnv, int enable)
 {
+	const int sameOffscreenRect = NativeRenderer_RectEquals(&s_previousOffscreen, offscreenRect);
+
 	if (enable)
 	{
 		// setup render target viewport
@@ -1518,13 +1409,16 @@ void NativeRenderer_SetOffscreenState(const RECT16 *offscreenRect, const DISPENV
 		NativeRenderer_Ortho2D(0, displayW, displayH, 0, -1.0f, 1.0f);
 	}
 
-	if (s_previousOffscreenState == enable)
+	if (enable && s_previousOffscreenState && sameOffscreenRect)
 		return;
-
-	s_previousOffscreenState = enable;
 
 	if (enable)
 	{
+		if (s_previousOffscreenState)
+			NativeRenderer_FlushOffscreenToVRAM();
+
+		s_previousOffscreenState = 1;
+
 		// set storage size first
 		if (s_previousOffscreen.w != offscreenRect->w || s_previousOffscreen.h != offscreenRect->h)
 		{
@@ -1544,40 +1438,13 @@ void NativeRenderer_SetOffscreenState(const RECT16 *offscreenRect, const DISPENV
 	}
 	else
 	{
+		if (!s_previousOffscreenState)
+			return;
+
+		s_previousOffscreenState = 0;
+
+		NativeRenderer_FlushOffscreenToVRAM();
 		NativeRenderer_SetViewPort(s_presentViewport.x, s_presentViewport.y, s_presentViewport.w, s_presentViewport.h);
-
-		// before drawing set source and target
-		{
-			glBindFramebuffer(GL_FRAMEBUFFER, s_glVramFramebuffer);
-
-			// rebind texture
-			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, s_vramTexture, 0);
-
-			// setup draw and read framebuffers
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, s_glOffscreenFramebuffer); // source is backbuffer
-			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s_glVramFramebuffer);
-
-			glBlitFramebuffer(0, 0, s_previousOffscreen.w, s_previousOffscreen.h, s_previousOffscreen.x, s_previousOffscreen.y + s_previousOffscreen.h,
-			                  s_previousOffscreen.x + s_previousOffscreen.w, s_previousOffscreen.y, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-
-			// done, unbind
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-		}
-
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		// copy rendering results to VRAM texture
-		{
-			// read the texture
-			glBindTexture(GL_TEXTURE_2D, s_offscreenRenderTexture);
-			// glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-			PBO_Download(&s_glOffscreenPBO);
-			glBindTexture(GL_TEXTURE_2D, s_lastBoundTexture);
-
-			// Do not force a VRAM texture upload unless the blit path is off.
-			NativeRenderer_CopyRGBAFramebufferToVRAM((u32 *)s_glOffscreenPBO.pixels, s_previousOffscreen.x, s_previousOffscreen.y, s_previousOffscreen.w,
-			                                         s_previousOffscreen.h, 0, 1);
-		}
 	}
 }
 
@@ -1704,7 +1571,7 @@ int NativeRenderer_CaptureVRAMState(void *dst, int dstSize)
 		return 0;
 
 	// NOTE(aalhendi): Save-states own the CPU-side PSX VRAM mirror, not GL
-	// textures or PBOs. Pull pending framebuffer copies into the mirror first.
+	// textures. Pull pending framebuffer copies into the mirror first.
 	NativeRenderer_ReadFramebufferDataToVRAM();
 	SDL_memcpy(dst, vram, sizeof(vram));
 	return 1;

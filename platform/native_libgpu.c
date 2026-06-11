@@ -120,7 +120,7 @@ u_long *ClearOTag(u_long *ot, int n)
 	termPrim(&ptag_list[n - 1]);
 	setlen(&ptag_list[n - 1], 0);
 
-	for (int i = n - 1; i >= 0; --i)
+	for (int i = n - 2; i >= 0; --i)
 	{
 		setaddr(&ptag_list[i], &ptag_list[i + 1]);
 		setlen(&ptag_list[i], 0);
