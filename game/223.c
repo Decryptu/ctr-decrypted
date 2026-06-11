@@ -55,17 +55,6 @@ enum RelicRaceEndMenuConstants
 	RR_HIGH_SCORE_ICON_SCALE = 0x1000,
 };
 
-enum RelicRaceEndMenuStringIds
-{
-	RR_STRING_PRESS_TO_CONTINUE = 0xc9,
-	RR_STRING_YOUR_TIME = 0xc5,
-	RR_STRING_RELIC_AWARDED = 0x160,
-	RR_STRING_NEW_HIGH_SCORE = 0x161,
-	RR_STRING_PERFECT = 0x162,
-	RR_STRING_BEST_LAP = 0x170,
-	RR_STRING_BEST_TIMES = 0x171,
-};
-
 global_variable s32 s_rankString223 = 0x20; // " \0"
 
 // NOTE(aalhendi): Direct symbol for the retail 223 overlay entry at 0x8009f71c.
@@ -355,8 +344,7 @@ void RR_EndEvent_DrawMenu(void)
 
 			UI_Lerp2D_Linear(&pos[0], startX, 0, endX, 0, elapsedFrames, RR_LERP_FRAMES);
 
-			// "PERFECT"
-			DecalFont_DrawLine(sdata->lngStrings[RR_STRING_PERFECT], pos[0], 0x8a, 1, textColor);
+			DecalFont_DrawLine(sdata->lngStrings[LNG_PERFECT], pos[0], 0x8a, 1, textColor);
 		}
 
 		// copy to local frame counter
@@ -460,8 +448,7 @@ void RR_EndEvent_DrawMenu(void)
 		// interpolate fly-in
 		UI_Lerp2D_Linear(&pos[0], startX, 0x50, endX, 0x50, elapsedFrames, RR_LERP_FRAMES);
 
-		// "RELIC AWARDED!"
-		DecalFont_DrawLine(sdata->lngStrings[RR_STRING_RELIC_AWARDED], pos[0], pos[1], 1, textColor);
+		DecalFont_DrawLine(sdata->lngStrings[LNG_RELIC_AWARDED], pos[0], pos[1], 1, textColor);
 	}
 
 skipRelicAwarded:
@@ -492,7 +479,7 @@ skipRelicAwarded:
 		UI_Lerp2D_Linear(&pos[0], startX, 0x50, endX, 0x50, elapsedFrames, RR_LERP_FRAMES);
 
 		// "NEW HIGH SCORE!"
-		DecalFont_DrawLine(sdata->lngStrings[RR_STRING_NEW_HIGH_SCORE], pos[0], pos[1], 1, textColor);
+		DecalFont_DrawLine(sdata->lngStrings[LNG_NEW_HIGH_SCORE], pos[0], pos[1], 1, textColor);
 	}
 
 
@@ -530,8 +517,7 @@ skipRelicAwarded:
 	{
 		RR_EndEvent_DrawHighScore(0x100, 10, RR_SCORE_MODE_RELIC_RACE);
 
-		// PRESS * TO CONTINUE
-		DecalFont_DrawLine(sdata->lngStrings[RR_STRING_PRESS_TO_CONTINUE], 0x100, 0xbe, 1, 0xffff8000);
+		DecalFont_DrawLine(sdata->lngStrings[LNG_PRESS_TO_CONTINUE], 0x100, 0xbe, 1, 0xffff8000);
 
 		if ((sdata->AnyPlayerTap & RR_CONFIRM_BUTTON_MASK) != 0)
 		{
@@ -569,8 +555,7 @@ void RR_EndEvent_DrawHighScore(s16 startX, int startY, s16 scoreMode)
 	// interpolate fly-in
 	UI_Lerp2D_Linear(&pos[0], startX, startY, startX, startY, sdata->framesSinceRaceEnded, RR_LERP_FRAMES);
 
-	// "BEST TIMES"
-	DecalFont_DrawLine(sdata->lngStrings[RR_STRING_BEST_TIMES], pos[0], pos[1], 1, 0xffff8000);
+	DecalFont_DrawLine(sdata->lngStrings[LNG_BEST_TIMES], pos[0], pos[1], 1, 0xffff8000);
 
 	// Draw icon, name, and time of the
 	// 5 best times in Time Trial
@@ -640,8 +625,7 @@ void RR_EndEvent_DrawHighScore(s16 startX, int startY, s16 scoreMode)
 		// Change the way text flickers
 		timeColor = 0xffff8000;
 
-		// "BEST LAP"
-		DecalFont_DrawLine(sdata->lngStrings[RR_STRING_BEST_LAP], startX, startY + 0x95, 1, timeColor);
+		DecalFont_DrawLine(sdata->lngStrings[LNG_BEST_LAP], startX, startY + 0x95, 1, timeColor);
 
 		// If you got a new best lap
 		if (((gGT->gameModeEnd & NEW_BEST_LAP) != 0) && ((gGT->timer & RR_HIGH_SCORE_FLASH_TIMER_BIT) != 0))
@@ -654,8 +638,7 @@ void RR_EndEvent_DrawHighScore(s16 startX, int startY, s16 scoreMode)
 	}
 	else
 	{
-		// "YOUR TIME"
-		DecalFont_DrawLine(sdata->lngStrings[RR_STRING_YOUR_TIME], startX, startY + 0x95, 1, 0xffff8000);
+		DecalFont_DrawLine(sdata->lngStrings[LNG_YOUR_TIME], startX, startY + 0x95, 1, 0xffff8000);
 
 		// make a string for your current track time
 		timeString = RECTMENU_DrawTime(driver->timeElapsedInRace);

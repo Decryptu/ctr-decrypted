@@ -103,14 +103,9 @@ void CS_Garage_MenuProc(struct RectMenu *param_1)
 		statBarPosX = 393;
 	}
 
-	// "Speed"
-	DecalFont_DrawLine(sdata->lngStrings[0x245], statNamePosX, 30, FONT_BIG, JUSTIFY_RIGHT | ORANGE_RED);
-
-	// "Accel"
-	DecalFont_DrawLine(sdata->lngStrings[0x246], statNamePosX, 0x2d, 1, 0x4021);
-
-	// "Turn"
-	DecalFont_DrawLine(sdata->lngStrings[0x247], statNamePosX, 60, FONT_BIG, JUSTIFY_RIGHT | BLUE);
+	DecalFont_DrawLine(sdata->lngStrings[LNG_SPEED], statNamePosX, 30, FONT_BIG, JUSTIFY_RIGHT | ORANGE_RED);
+	DecalFont_DrawLine(sdata->lngStrings[LNG_ACCEL], statNamePosX, 0x2d, 1, 0x4021);
+	DecalFont_DrawLine(sdata->lngStrings[LNG_TURN], statNamePosX, 60, FONT_BIG, JUSTIFY_RIGHT | BLUE);
 
 	int engineID = MDC->engineID;
 
@@ -231,8 +226,7 @@ void CS_Garage_MenuProc(struct RectMenu *param_1)
 		statBarShadows_Y += 15;
 	}
 
-	// "Intermediate" (longest class name)
-	s16 classMaxLen = DecalFont_GetLineWidth(sdata->lngStrings[0x249], 1);
+	s16 classMaxLen = DecalFont_GetLineWidth(sdata->lngStrings[LNG_INTERMEDIATE], 1);
 
 	// Stats box
 	r.x = (classNamePosX - (classMaxLen >> 1)) - 6;

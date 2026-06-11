@@ -58,8 +58,7 @@ void CC_EndEvent_DrawMenu()
 
 	// fly in from left
 	UI_Lerp2D_Linear(&posXY[0], -0x64, 0x18, 0x100, 0x18, elapsedFrames, CC_FLY_IN_FRAMES);
-	// TIME REMAINING
-	DecalFont_DrawLine(sdata->lngStrings[0x16D], posXY[0], posXY[1], FONT_BIG, (JUSTIFY_CENTER | ORANGE));
+	DecalFont_DrawLine(sdata->lngStrings[LNG_TIME_REMAINING], posXY[0], posXY[1], FONT_BIG, (JUSTIFY_CENTER | ORANGE));
 	UI_DrawLimitClock(posXY[0] - 0x33, posXY[1] + 0x11, FONT_BIG);
 
 	// fly in from right
@@ -70,9 +69,9 @@ void CC_EndEvent_DrawMenu()
 	sdata->ptrMenuCrystal->matrix.t[1] = UI_ConvertY_2(posXY[1], CC_SCREEN_DEPTH);
 	UI_DrawNumCrystal(posXY[0] + 0xf, posXY[1] - 0x10, driver);
 
-	s32 resultStringIndex = 0x16b; // YOU WIN
+	s32 resultStringIndex = LNG_YOU_WIN;
 	if (didLose)
-		resultStringIndex = 0x16c; // TRY AGAIN
+		resultStringIndex = LNG_TRY_AGAIN;
 
 	// YOU WIN, or TRY AGAIN
 	DecalFont_DrawLine(sdata->lngStrings[resultStringIndex], posXY[0] + 0x33, posXY[1] + 8, FONT_BIG, (JUSTIFY_CENTER | ORANGE));
@@ -84,8 +83,7 @@ void CC_EndEvent_DrawMenu()
 		if ((sdata->menuReadyToPass & 1) != 0)
 			return;
 
-		// PRESS * TO CONTINUE
-		DecalFont_DrawLine(sdata->lngStrings[0xC9], 0x100, 0xbe, FONT_BIG, (JUSTIFY_CENTER | ORANGE));
+		DecalFont_DrawLine(sdata->lngStrings[LNG_PRESS_TO_CONTINUE], 0x100, 0xbe, FONT_BIG, (JUSTIFY_CENTER | ORANGE));
 
 		if ((sdata->AnyPlayerTap & (BTN_CROSS | BTN_CIRCLE)) == 0)
 			return;
@@ -105,8 +103,7 @@ void CC_EndEvent_DrawMenu()
 
 	UI_Lerp2D_Linear(&posXY[0], -0x64, 0xA2, 0x100, 0xA2, elapsedFrames, CC_FLY_IN_FRAMES);
 
-	// CTR TOKEN AWARDED
-	DecalFont_DrawLine(sdata->lngStrings[0x16F], posXY[0], posXY[1], FONT_BIG, color);
+	DecalFont_DrawLine(sdata->lngStrings[LNG_CTR_TOKEN_AWARDED], posXY[0], posXY[1], FONT_BIG, color);
 	token->flags &= ~(HIDE_MODEL);
 	token->matrix.t[0] = UI_ConvertX_2(posXY[0], CC_SCREEN_DEPTH);
 	token->matrix.t[1] = UI_ConvertY_2(0xA2 - 0x18, CC_SCREEN_DEPTH);
@@ -126,8 +123,7 @@ void CC_EndEvent_DrawMenu()
 		OtherFX_Play(0x67, 1);
 	}
 
-	// PRESS * TO CONTINUE
-	DecalFont_DrawLine(sdata->lngStrings[0xC9], 0x100, 0xbe, FONT_BIG, (JUSTIFY_CENTER | ORANGE));
+	DecalFont_DrawLine(sdata->lngStrings[LNG_PRESS_TO_CONTINUE], 0x100, 0xbe, FONT_BIG, (JUSTIFY_CENTER | ORANGE));
 
 	// if still waiting to press X/O, quit function
 	if ((sdata->AnyPlayerTap & (BTN_CROSS | BTN_CIRCLE)) == 0)
@@ -150,7 +146,7 @@ void CC_EndEvent_DrawMenu()
 struct MenuRow rows221[3] = {
     // Retry
     {
-        .stringIndex = 4,
+        .stringIndex = LNG_RETRY,
         .rowOnPressUp = 0,
         .rowOnPressDown = 1,
         .rowOnPressLeft = 0,
@@ -159,7 +155,7 @@ struct MenuRow rows221[3] = {
 
     // Exit to map
     {
-        .stringIndex = 0xd,
+        .stringIndex = LNG_EXIT_TO_MAP,
         .rowOnPressUp = 0,
         .rowOnPressDown = 1,
         .rowOnPressLeft = 1,

@@ -52,13 +52,6 @@ enum ArcadeAdventureEndMenuConstants
 	AA_TIME_BOX_HEIGHT_DEFAULT = 0x44,
 };
 
-enum ArcadeAdventureEndMenuStringIds
-{
-	AA_STRING_TOTAL = 0xc4,
-	AA_STRING_PRESS_TO_CONTINUE = 0xc9,
-	AA_STRING_CTR_TOKEN_AWARDED = 0x16f,
-};
-
 global_variable s32 s_driverRankString222 = 0x20; // " \0"
 extern struct RectMenu menu222;
 extern struct RectMenu menu222_2P;
@@ -244,7 +237,7 @@ void AA_EndEvent_DrawMenu(void)
 
 					s32 textColor = (gGT->timer & 1) ? (JUSTIFY_CENTER | RED) : (JUSTIFY_CENTER | WHITE);
 
-					DecalFont_DrawLine(sdata->lngStrings[AA_STRING_CTR_TOKEN_AWARDED], txtPos[0], txtPos[1], FONT_BIG, textColor);
+					DecalFont_DrawLine(sdata->lngStrings[LNG_CTR_TOKEN_AWARDED], txtPos[0], txtPos[1], FONT_BIG, textColor);
 				}
 			}
 		}
@@ -380,8 +373,7 @@ void AA_EndEvent_DrawMenu(void)
 		// but text near middle of screen
 		s16 pressContinueY = (numPlayers < 2) ? 0xbe : 100;
 
-		// PRESS * TO CONTINUE
-		DecalFont_DrawLine(sdata->lngStrings[AA_STRING_PRESS_TO_CONTINUE], 0x100, pressContinueY, FONT_BIG, (JUSTIFY_CENTER | ORANGE));
+		DecalFont_DrawLine(sdata->lngStrings[LNG_PRESS_TO_CONTINUE], 0x100, pressContinueY, FONT_BIG, (JUSTIFY_CENTER | ORANGE));
 
 		// If you do not "Press X to continue"
 		if ((sdata->AnyPlayerTap & AA_CONFIRM_BUTTON_MASK) == 0)
@@ -422,8 +414,7 @@ void AA_EndEvent_DrawMenu(void)
 	if ((gGT->gameMode1 & ADVENTURE_MODE) == 0)
 		return;
 
-	// PRESS * TO CONTINUE
-	DecalFont_DrawLine(sdata->lngStrings[AA_STRING_PRESS_TO_CONTINUE], 0x100, 0xbe, FONT_BIG, (JUSTIFY_CENTER | ORANGE));
+	DecalFont_DrawLine(sdata->lngStrings[LNG_PRESS_TO_CONTINUE], 0x100, 0xbe, FONT_BIG, (JUSTIFY_CENTER | ORANGE));
 
 	// If you have not pressed X
 	if ((sdata->AnyPlayerTap & AA_CONFIRM_BUTTON_MASK) == 0)
@@ -682,8 +673,7 @@ void AA_EndEvent_DisplayTime(s16 driverId, s16 timeOffsetFrames)
 
 	UI_DrawRaceClock(posXY[0], posXY[1], 1, driver);
 
-	// "TOTAL"
-	s16 totalTextWidth = DecalFont_GetLineWidth(sdata->lngStrings[AA_STRING_TOTAL], FONT_BIG);
+	s16 totalTextWidth = DecalFont_GetLineWidth(sdata->lngStrings[LNG_TOTAL], FONT_BIG);
 
 	timeBoxRect.x = (posXY[0] - totalTextWidth) + -6;
 	timeBoxRect.y = (posXY[1] - timeBoxRect.h) + 0xd;
@@ -698,7 +688,7 @@ void AA_EndEvent_DisplayTime(s16 driverId, s16 timeOffsetFrames)
 struct MenuRow rows222[5] = {
     // Retry
     {
-        .stringIndex = 4,
+        .stringIndex = LNG_RETRY,
         .rowOnPressUp = 0,
         .rowOnPressDown = 1,
         .rowOnPressLeft = 0,
@@ -706,7 +696,7 @@ struct MenuRow rows222[5] = {
     },
     // Change Level
     {
-        .stringIndex = 6,
+        .stringIndex = LNG_CHANGE_LEVEL,
         .rowOnPressUp = 0,
         .rowOnPressDown = 2,
         .rowOnPressLeft = 1,
@@ -714,7 +704,7 @@ struct MenuRow rows222[5] = {
     },
     // Change Character
     {
-        .stringIndex = 5,
+        .stringIndex = LNG_CHANGE_CHARACTER,
         .rowOnPressUp = 1,
         .rowOnPressDown = 3,
         .rowOnPressLeft = 2,
@@ -722,7 +712,7 @@ struct MenuRow rows222[5] = {
     },
     // Quit
     {
-        .stringIndex = 3,
+        .stringIndex = LNG_QUIT,
         .rowOnPressUp = 2,
         .rowOnPressDown = 3,
         .rowOnPressLeft = 3,
