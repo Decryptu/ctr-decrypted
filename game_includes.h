@@ -100,11 +100,7 @@
 
 #include "game/GhostReplay.c"
 
-#include "game/GHOST/GhostTape_00_Start.c"
-#include "game/GHOST/GhostTape_01_End.c"
-#include "game/GHOST/GhostTape_02_WriteMoves.c"
-#include "game/GHOST/GhostTape_03_WriteBoosts.c"
-#include "game/GHOST/GhostTape_04_Destroy.c"
+#include "game/GhostTape.c"
 
 #include "game/HOWL/h01_CountSounds.c"
 #include "game/HOWL/h02_OtherFX_Play.c"

@@ -1,5 +1,73 @@
 #include <common.h>
 
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80027df4-0x80027e90.
+void GhostTape_Start(void)
+{
+	struct GhostHeader *gh;
+	struct Driver *d;
+	struct GameTracker *gGT = sdata->gGT;
+
+	d = gGT->drivers[0];
+
+	// v1 - PizzaHut (June), Spyro2 (July)
+	// v4 - Aug5, Aug14, Sep3, Retail
+
+	gh = sdata->GhostRecording.ptrGhost;
+	gh->version = -4;
+	gh->levelID = gGT->levelID;
+	gh->characterID = data.characterIDs[d->driverID];
+
+	sdata->GhostRecording.VelX = 0;
+	sdata->GhostRecording.VelY = 0;
+	sdata->GhostRecording.VelZ = 0;
+
+	sdata->GhostRecording.timeElapsedInRace = 0;
+	sdata->boolGhostTooBigToSave = 0;
+	sdata->ghostOverflowTextTimer = 0;
+	sdata->boolCanSaveGhost = 1;
+
+	sdata->GhostRecording.ptrCurrOffset = sdata->GhostRecording.ptrStartOffset;
+
+	sdata->GhostRecording.countEightFrames = 0;
+	sdata->GhostRecording.countSixteenFrames = 0;
+	sdata->GhostRecording.timeOfLast80buffer = 0;
+	sdata->GhostRecording.boostCooldown1E = 0;
+
+	sdata->GhostRecording.animFrame = -1;
+	sdata->GhostRecording.animIndex = -1;
+	sdata->GhostRecording.instanceFlags = 0;
+
+	return;
+}
+
+
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80027e90-0x80027f20
+void GhostTape_End(void)
+{
+	struct Driver *d;
+	struct GhostHeader *gh;
+	struct GameTracker *gGT = sdata->gGT;
+
+	// quit, if ghost cant be saved
+	if (sdata->boolCanSaveGhost == 0)
+		return;
+
+	// dont save ghost twice
+	sdata->boolCanSaveGhost = 0;
+
+	// Write the last chunk of ghost data
+	GhostTape_WriteMoves(1);
+
+	d = gGT->drivers[0];
+	gh = sdata->GhostRecording.ptrGhost;
+
+	gh->ySpeed = d->ySpeed;
+	gh->speedApprox = d->speedApprox;
+	gh->timeElapsedInRace = d->timeElapsedInRace;
+	gh->size = (u32)sdata->GhostRecording.ptrCurrOffset - (u32)sdata->GhostRecording.ptrStartOffset;
+}
+
+
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80027f20-0x8002838c.
 void GhostTape_WriteMoves(s16 raceFinished)
 {
@@ -234,4 +302,55 @@ void GhostTape_WriteMoves(s16 raceFinished)
 	// Increment race timer by elapsed milliseconds per frame, ~32
 	sdata->GhostRecording.timeElapsedInRace += gGT->elapsedTimeMS;
 	return;
+}
+
+
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8002838c-0x80028410.
+void GhostTape_WriteBoosts(int addReserve, u8 type, int speedCap)
+{
+	char *puVar1;
+
+	// quit, if ghost cant be saved
+	if (sdata->boolCanSaveGhost == 0)
+		return;
+
+	puVar1 = sdata->GhostRecording.ptrCurrOffset;
+
+	if ((type & TURBO_PAD) != 0)
+	{
+		if (sdata->GhostRecording.boostCooldown1E != 0)
+		{
+			return;
+		}
+		sdata->GhostRecording.boostCooldown1E = 0x1e;
+	}
+
+	// 0x82-style chunks are 6 bytes long (including 0x82)
+
+	// Write to recording buffer
+	puVar1[0] = 0x82;
+
+	// big endian reserve
+	puVar1[1] = (char)((u32)addReserve >> 8);
+	puVar1[2] = (char)addReserve;
+
+	// char, add type (increment or set)
+	puVar1[3] = type;
+
+	// big endian speedCcap
+	puVar1[4] = (char)((u32)speedCap >> 8);
+	puVar1[5] = (char)speedCap;
+
+	sdata->GhostRecording.ptrCurrOffset += 6;
+}
+
+
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80028410-0x8002843c.
+void GhostTape_Destroy()
+{
+	if (sdata->ptrGhostTapePlaying != 0)
+	{
+		MEMPACK_ClearHighMem();
+		sdata->ptrGhostTapePlaying = 0;
+	}
 }
