@@ -169,6 +169,7 @@ static void SelectProfile_DrawGhostRows(struct RectMenu *menu, int rowCount, int
 	int i;
 	int lineGap;
 	int yBase;
+	int titleEndY;
 	int subtitleVisible;
 	int rowCountWithEmpty = sdata->numGhostProfilesSaved + canChooseEmptySlot;
 	struct GhostProfile *profile = &sdata->ghostProfile_memcard[0];
@@ -188,6 +189,8 @@ static void SelectProfile_DrawGhostRows(struct RectMenu *menu, int rowCount, int
 		yBase = subtitleVisible ? 0xc : 0x12;
 	}
 
+	titleEndY = yBase + lineGap;
+
 	DecalFont_DrawLine(sdata->lngStrings[data.lngIndex_LoadSave[sdata->memcardAction * 2]], 0x100, yBase, rowCount < 7 ? FONT_BIG : FONT_SMALL,
 	                   JUSTIFY_CENTER | color);
 
@@ -195,6 +198,7 @@ static void SelectProfile_DrawGhostRows(struct RectMenu *menu, int rowCount, int
 	{
 		DecalFont_DrawLine(sdata->lngStrings[data.lngIndex_LoadSave[(sdata->memcardAction * 2) + 1]], 0x100, yBase + lineGap,
 		                   rowCount < 7 ? FONT_BIG : FONT_SMALL, JUSTIFY_CENTER | color);
+		titleEndY += lineGap;
 	}
 
 	for (i = 0; i < rowCountWithEmpty; i++)
@@ -213,7 +217,7 @@ static void SelectProfile_DrawGhostRows(struct RectMenu *menu, int rowCount, int
 		else
 			x = 0x98;
 
-		y = yBase + lineGap + 6 + (pair * ((rowCount > 6) ? 0x2b : 0x2f));
+		y = titleEndY + 6 + (pair * ((rowCount > 6) ? 0x2b : 0x2f));
 
 		if (rowCount > 6)
 			drawStyle |= 0x40;
