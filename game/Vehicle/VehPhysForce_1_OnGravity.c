@@ -15,24 +15,65 @@ static int VehPhysForce_OnGravity_Abs(int value)
 	return value < 0 ? -value : value;
 }
 
-static Vec3 VehPhysForce_OnGravity_RotateVector(const MATRIX *m, s16 vx, s16 vy, s16 vz)
+static u32 VehPhysForce_OnGravity_ReadWord(const void *base, int offset)
+{
+	return *(const u32 *)(const void *)((const char *)base + offset);
+}
+
+static s16 VehPhysForce_OnGravity_ReadS16(const void *base, int offset)
+{
+	return *(const s16 *)(const void *)((const char *)base + offset);
+}
+
+static u32 VehPhysForce_OnGravity_PackS16Pair(s32 lo, s32 hi)
+{
+	return ((u32)(u16)lo) | ((u32)(u16)hi << 16);
+}
+
+static void VehPhysForce_OnGravity_SetLightMatrixTranspose(const MATRIX *m)
+{
+	u32 r0 = VehPhysForce_OnGravity_ReadWord(m, 0x0);
+	u32 r1 = VehPhysForce_OnGravity_ReadWord(m, 0x4);
+	u32 r2 = VehPhysForce_OnGravity_ReadWord(m, 0x8);
+	u32 r3 = VehPhysForce_OnGravity_ReadWord(m, 0xc);
+	s16 r4 = VehPhysForce_OnGravity_ReadS16(m, 0x10);
+	const u32 highMask = 0xffff0000u;
+
+	// NOTE(aalhendi): Retail constructs a transposed copy of matrixMovingDir in
+	// the light matrix regs before projecting velocity and gravity into local space.
+	CTC2((r0 & 0xffffu) | (r1 & highMask), 8);
+	CTC2((r3 & 0xffffu) | (r0 & highMask), 9);
+	CTC2((r2 & 0xffffu) | (r3 & highMask), 10);
+	CTC2((r1 & 0xffffu) | (r2 & highMask), 11);
+	CTC2((u32)(s32)r4, 12);
+}
+
+static Vec3 VehPhysForce_OnGravity_RotateVectorLocal(const MATRIX *m, s16 vx, s16 vy, s16 vz)
 {
 	Vec3 out;
 
-	out.x = ((int)m->m[0][0] * vx + (int)m->m[0][1] * vy + (int)m->m[0][2] * vz) >> 12;
-	out.y = ((int)m->m[1][0] * vx + (int)m->m[1][1] * vy + (int)m->m[1][2] * vz) >> 12;
-	out.z = ((int)m->m[2][0] * vx + (int)m->m[2][1] * vy + (int)m->m[2][2] * vz) >> 12;
+	(void)m;
+	MTC2(VehPhysForce_OnGravity_PackS16Pair(vx, vy), 0);
+	MTC2((u32)(u16)vz, 1);
+	gte_mvmva(1, 1, 0, 3, 0);
+	out.x = MFC2_S(25);
+	out.y = MFC2_S(26);
+	out.z = MFC2_S(27);
 
 	return out;
 }
 
-static Vec3 VehPhysForce_OnGravity_RotateVectorTranspose(const MATRIX *m, s16 vx, s16 vy, s16 vz)
+static Vec3 VehPhysForce_OnGravity_RotateVector(const MATRIX *m, s16 vx, s16 vy, s16 vz)
 {
 	Vec3 out;
 
-	out.x = ((int)m->m[0][0] * vx + (int)m->m[1][0] * vy + (int)m->m[2][0] * vz) >> 12;
-	out.y = ((int)m->m[0][1] * vx + (int)m->m[1][1] * vy + (int)m->m[2][1] * vz) >> 12;
-	out.z = ((int)m->m[0][2] * vx + (int)m->m[1][2] * vy + (int)m->m[2][2] * vz) >> 12;
+	(void)m;
+	MTC2(VehPhysForce_OnGravity_PackS16Pair(vx, vy), 0);
+	MTC2((u32)(u16)vz, 1);
+	gte_mvmva(1, 0, 0, 3, 0);
+	out.x = MFC2_S(25);
+	out.y = MFC2_S(26);
+	out.z = MFC2_S(27);
 
 	return out;
 }
@@ -41,7 +82,11 @@ static Vec3 VehPhysForce_OnGravity_RotateVectorTranspose(const MATRIX *m, s16 vx
 void VehPhysForce_OnGravity(struct Driver *driver, Vec3 *velocity)
 {
 	int elapsedTimeMS = sdata->gGT->elapsedTimeMS;
-	Vec3 localVelocity = VehPhysForce_OnGravity_RotateVectorTranspose(&driver->matrixMovingDir, (s16)velocity->x, (s16)velocity->y, (s16)velocity->z);
+
+	gte_SetRotMatrix(&driver->matrixMovingDir);
+	VehPhysForce_OnGravity_SetLightMatrixTranspose(&driver->matrixMovingDir);
+
+	Vec3 localVelocity = VehPhysForce_OnGravity_RotateVectorLocal(&driver->matrixMovingDir, (s16)velocity->x, (s16)velocity->y, (s16)velocity->z);
 	int originalLocalZ = localVelocity.z;
 	int gravityY = -driver->const_Gravity;
 	struct QuadBlock *underDriver = driver->underDriver;
@@ -56,7 +101,7 @@ void VehPhysForce_OnGravity(struct Driver *driver, Vec3 *velocity)
 	}
 
 	gravityY = (gravityY * elapsedTimeMS) >> 5;
-	Vec3 localGravity = VehPhysForce_OnGravity_RotateVectorTranspose(&driver->matrixMovingDir, 0, (s16)gravityY, 0);
+	Vec3 localGravity = VehPhysForce_OnGravity_RotateVectorLocal(&driver->matrixMovingDir, 0, (s16)gravityY, 0);
 
 	if (((localGravity.z < 0) && (driver->unk_offset3B2 > 0)) || ((localGravity.z > 0) && (driver->unk_offset3B2 < 0)))
 	{
