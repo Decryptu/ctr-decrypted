@@ -2836,7 +2836,7 @@ void BOTS_CollideWithOtherAI(struct Driver *robot_1, struct Driver *robot_2)
 		s16 botPathIndex = robot_1->botData.botPath;
 
 		// pointer to navFrame
-		nfCurr = &robot_1->botData.botNavFrame;
+		nfCurr = robot_1->botData.botNavFrame;
 		nfNext = nfCurr + 1;
 
 		// iVar4
@@ -2846,13 +2846,13 @@ void BOTS_CollideWithOtherAI(struct Driver *robot_1, struct Driver *robot_2)
 		if (sdata->NavPath_ptrHeader[botPathIndex]->last <= (struct NavFrame *)nfNext)
 		{
 			// loop back to first navFrame
-			nfNext = &sdata->NavPath_ptrNavFrameArray[botPathIndex];
+			nfNext = sdata->NavPath_ptrNavFrameArray[botPathIndex];
 		}
 	}
 	else
 	{
 		// pointer to nav frame
-		nfNext = &robot_1->botData.botNavFrame;
+		nfNext = robot_1->botData.botNavFrame;
 
 		// iVar4
 		estimatePos = robot_1->botData.estimatePos;
