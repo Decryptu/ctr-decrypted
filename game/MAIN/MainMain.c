@@ -411,24 +411,6 @@ u32 main(void)
 			gGT->vSync_between_drawSync = 0;
 
 
-// NOTE(aalhendi): Native-only XA/request shim. Camera ownership belongs to CAM_ThTick.
-#if defined(CTR_NATIVE)
-
-			if ((gGT->level1 != 0) && (gGT->levelID != MAIN_MENU_LEVEL) && (gGT->levelID != ADVENTURE_GARAGE) && (gGT->levelID != NAUGHTY_DOG_CRATE))
-			{
-				int held = gGS->gamepad[0].buttonsHeldCurrFrame;
-
-				if ((held & BTN_START) != 0)
-				{
-					if ((gGT->gameMode1 & GAME_CUTSCENE) != 0)
-					{
-						MainRaceTrack_RequestLoad(MAIN_MENU_LEVEL);
-					}
-				}
-			}
-#endif
-
-
 #ifdef CTR_NATIVE
 			Platform_BeginFrame();
 #endif
