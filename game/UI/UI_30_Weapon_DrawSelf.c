@@ -9,7 +9,7 @@ void UI_Weapon_DrawSelf(s16 posX, s16 posY, s16 scale, struct Driver *d)
 	int itemID;
 	int iconID;
 	struct GameTracker *gGT;
-	s16 posXY[2];
+	SVec2 pos;
 
 	// beat 7360
 
@@ -69,8 +69,8 @@ void UI_Weapon_DrawSelf(s16 posX, s16 posY, s16 scale, struct Driver *d)
 	else
 	{
 		itemID = 0;
-		posXY[0] = posX;
-		posXY[1] = posY;
+		pos.x = posX;
+		pos.y = posY;
 
 		// If game is not paused
 		if ((gGT->gameMode1 & PAUSE_ALL) == 0)
@@ -120,7 +120,7 @@ void UI_Weapon_DrawSelf(s16 posX, s16 posY, s16 scale, struct Driver *d)
 		// if timer is not finished
 		if (d->PickupTimeboxHUD.cooldown != 0)
 		{
-			UI_Lerp2D_HUD(&posXY[0], d->PickupTimeboxHUD.startX, d->PickupTimeboxHUD.startY, (int)posX, (int)posY, d->PickupTimeboxHUD.cooldown, 5);
+			UI_Lerp2D_HUD(pos.v, d->PickupTimeboxHUD.startX, d->PickupTimeboxHUD.startY, (int)posX, (int)posY, d->PickupTimeboxHUD.cooldown, 5);
 
 			// subtract one from timer
 			d->PickupTimeboxHUD.cooldown--;
@@ -128,8 +128,8 @@ void UI_Weapon_DrawSelf(s16 posX, s16 posY, s16 scale, struct Driver *d)
 
 		iconID = itemID + 5;
 
-		posX = posXY[0];
-		posY = posXY[1];
+		posX = pos.x;
+		posY = pos.y;
 	}
 
 	DecalHUD_DrawWeapon(

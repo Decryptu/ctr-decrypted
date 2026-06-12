@@ -7,7 +7,7 @@ void UI_RenderFrame_CrystChall(void)
 	struct Driver *player;
 	struct UiElement2D *hudStructPtr;
 	int iVar5;
-	s16 local_18[2];
+	SVec2 crystalPos;
 
 	player = gGT->drivers[0];
 	hudStructPtr = data.hudStructPtr[0];
@@ -55,8 +55,8 @@ void UI_RenderFrame_CrystChall(void)
 		sdata->ptrHudCrystal->flags |= 0x80;
 		goto LAB_800545e8;
 	}
-	local_18[0] = hudStructPtr[0x11].x;
-	local_18[1] = hudStructPtr[0x11].y;
+	crystalPos.x = hudStructPtr[0x11].x;
+	crystalPos.y = hudStructPtr[0x11].y;
 
 	// make visible
 	sdata->ptrHudCrystal->flags &= 0xffffff7f;
@@ -93,14 +93,8 @@ void UI_RenderFrame_CrystChall(void)
 	else
 	{
 		// interpolate position over course of 5 frames
-		UI_Lerp2D_HUD(&local_18[0], (int)player->PickupWumpaHUD.startX, (int)player->PickupWumpaHUD.startY, (int)hudStructPtr[0x11].x,
-		              (int)hudStructPtr[0x11].y,
-
-		              // cooldown (0-5)
-		              player->PickupWumpaHUD.cooldown,
-
-		              // 5 frames total
-		              5);
+		UI_Lerp2D_HUD(crystalPos.v, (int)player->PickupWumpaHUD.startX, (int)player->PickupWumpaHUD.startY, (int)hudStructPtr[0x11].x,
+		              (int)hudStructPtr[0x11].y, player->PickupWumpaHUD.cooldown, 5);
 
 		// reduce cooldown between getting each wumpa (or crystal)
 		player->PickupWumpaHUD.cooldown--;
@@ -111,7 +105,7 @@ void UI_RenderFrame_CrystChall(void)
 	// ======= This is UI_ConvertX_2 and Y_2, but inlined =======
 
 	// posX
-	iVar5 = (local_18[0] + -0x100) * hudStructPtr[0x11].z;
+	iVar5 = (crystalPos.x + -0x100) * hudStructPtr[0x11].z;
 	if (iVar5 < 0)
 	{
 		iVar5 = iVar5 + 0xff;
@@ -119,7 +113,7 @@ void UI_RenderFrame_CrystChall(void)
 	hudCrystal->matrix.t[0] = iVar5 >> 8;
 
 	// posY
-	iVar5 = (local_18[1] + -0x6c) * hudStructPtr[0x11].z;
+	iVar5 = (crystalPos.y + -0x6c) * hudStructPtr[0x11].z;
 	if (iVar5 < 0)
 	{
 		iVar5 = iVar5 + 0xff;

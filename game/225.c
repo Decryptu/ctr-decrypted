@@ -29,7 +29,7 @@ void VB_EndEvent_DrawMenu(void)
 	struct RectMenu *endMenu;
 	char numPlyr;
 	char text[24];
-	s16 pos[2];
+	SVec2 pos;
 	RECT box;
 
 	s16 sVar1;
@@ -121,14 +121,14 @@ void VB_EndEvent_DrawMenu(void)
 	}
 
 	// fly-in interpolation
-	UI_Lerp2D_Linear(&pos[0], 0x296, yCoord, uVar7, yCoord, iVar11, 5);
+	UI_Lerp2D_Linear(pos.v, 0x296, yCoord, uVar7, yCoord, iVar11, 5);
 
 	iVar14 = yCoord + 0x28;
 
 	// "Versus" or "Battle"
-	DecalFont_DrawLine(sdata->lngStrings[iVar10], pos[0], pos[1], 1, 0xffff8000);
+	DecalFont_DrawLine(sdata->lngStrings[iVar10], pos.x, pos.y, 1, 0xffff8000);
 
-	DecalFont_DrawLine(sdata->lngStrings[LNG_STANDINGS], pos[0], (pos[1] + 0x11), 1, 0xffff8000);
+	DecalFont_DrawLine(sdata->lngStrings[LNG_STANDINGS], pos.x, (pos.y + 0x11), 1, 0xffff8000);
 
 	iVar10 = uStack96;
 	iVar11 = 0;
@@ -159,7 +159,7 @@ void VB_EndEvent_DrawMenu(void)
 			}
 
 			// fly-in interpolation
-			UI_Lerp2D_Linear(&pos[0], 0x296, sVar5, uVar7, sVar5, iVar10, 5);
+			UI_Lerp2D_Linear(pos.v, 0x296, sVar5, uVar7, sVar5, iVar10, 5);
 
 			sVar9 = 0;
 
@@ -172,7 +172,7 @@ void VB_EndEvent_DrawMenu(void)
 				DecalHUD_DrawPolyFT4(gGT->ptrIcons[data.MetaDataCharacters[data.characterIDs[gGT->drivers[gGT->battleSetup.unk1dc8[iVar11]]->driverID]].iconID],
 
 				                     // Position X and Position Y
-				                     pos[0], uStack112,
+				                     pos.x, uStack112,
 
 				                     // pointer to PrimMem struct
 				                     &gGT->backBuffer->primMem,
@@ -198,7 +198,7 @@ void VB_EndEvent_DrawMenu(void)
 						iVar6 = sVar9;
 						sVar9 = sVar9 + 1;
 
-						DecalHUD_DrawPolyFT4(gGT->ptrIcons[data.MetaDataCharacters[data.characterIDs[gGT->drivers[iVar10]->driverID]].iconID], pos[0],
+						DecalHUD_DrawPolyFT4(gGT->ptrIcons[data.MetaDataCharacters[data.characterIDs[gGT->drivers[iVar10]->driverID]].iconID], pos.x,
 						                     sVar5 + iVar6 * 0x1b,
 
 						                     // pointer to PrimMem struct
@@ -253,7 +253,7 @@ void VB_EndEvent_DrawMenu(void)
 					        (gGT->standingsPoints[gGT->battleSetup.unk1dc8[iVar11] * 3 + iVar10]));
 
 					// Draw string
-					DecalFont_DrawLine(text, (pos[0] + 0x79), ((uStack112 - (iVar6 * 4 + -0xd)) + iVar10 * 8), 2, uVar7);
+					DecalFont_DrawLine(text, (pos.x + 0x79), ((uStack112 - (iVar6 * 4 + -0xd)) + iVar10 * 8), 2, uVar7);
 				}
 			}
 
@@ -278,7 +278,7 @@ void VB_EndEvent_DrawMenu(void)
 			sprintf(text, "%d%s", sVar1 + 1, sdata->lngStrings[0x19 + sVar1]);
 
 			// Draw String
-			DecalFont_DrawLine(text, (pos[0] - 0x24), (uStack112 + 5), 1, 0xffff8000);
+			DecalFont_DrawLine(text, (pos.x - 0x24), (uStack112 + 5), 1, 0xffff8000);
 		}
 	}
 
@@ -321,10 +321,10 @@ void VB_EndEvent_DrawMenu(void)
 			}
 
 			// fly-in interpolation
-			UI_Lerp2D_Linear(&pos[0], view->rect.x, view->rect.y, 0x14, 0xc, sdata->framesSinceRaceEnded, 25);
+			UI_Lerp2D_Linear(pos.v, view->rect.x, view->rect.y, 0x14, 0xc, sdata->framesSinceRaceEnded, 25);
 
-			box.x = pos[0] - 3;
-			box.y = pos[1] - 2;
+			box.x = pos.x - 3;
+			box.y = pos.y - 2;
 			box.w = view->rect.w + 6;
 			box.h = view->rect.h + 4;
 
@@ -332,8 +332,8 @@ void VB_EndEvent_DrawMenu(void)
 			color.self = sdata->battleSetup_Color_UI_1;
 			RECTMENU_DrawOuterRect_HighLevel(&box, color, 0, gGT->backBuffer->otMem.startPlusFour);
 
-			view->rect.x = pos[0];
-			view->rect.y = pos[1];
+			view->rect.x = pos.x;
+			view->rect.y = pos.y;
 		}
 
 		// === Winner already found ===

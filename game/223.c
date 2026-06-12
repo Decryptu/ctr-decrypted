@@ -123,7 +123,7 @@ void RR_EndEvent_UnlockAward(void)
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800a01d8-0x800a0cb8.
 void RR_EndEvent_DrawMenu(void)
 {
-	s16 pos[2];
+	SVec2 pos;
 	s32 elapsedFrames;
 	s32 rewardBit;
 	u32 textColor;
@@ -210,9 +210,9 @@ void RR_EndEvent_DrawMenu(void)
 
 
 	// interpolate fly-in
-	UI_Lerp2D_Linear(&pos[0], startX, 0x32, 0x100, endY, elapsedFrames, RR_LERP_FRAMES);
+	UI_Lerp2D_Linear(pos.v, startX, 0x32, 0x100, endY, elapsedFrames, RR_LERP_FRAMES);
 
-	UI_DrawRaceClock(pos[0], pos[1] - 8, 1, driver);
+	UI_DrawRaceClock(pos.x, pos.y - 8, 1, driver);
 
 
 	// Draw Relic,
@@ -225,7 +225,7 @@ void RR_EndEvent_DrawMenu(void)
 		{
 			elapsedFrames -= RR_FLYOUT_FRAME_OFFSET;
 
-			UI_Lerp2D_Linear(&pos[0], UI_ConvertX_2(0x100, RR_SCREEN_DEPTH), UI_ConvertY_2(0xa2, RR_SCREEN_DEPTH), UI_ConvertX_2(-0x64, RR_SCREEN_DEPTH),
+			UI_Lerp2D_Linear(pos.v, UI_ConvertX_2(0x100, RR_SCREEN_DEPTH), UI_ConvertY_2(0xa2, RR_SCREEN_DEPTH), UI_ConvertX_2(-0x64, RR_SCREEN_DEPTH),
 			                 UI_ConvertY_2(0xa2, RR_SCREEN_DEPTH), elapsedFrames, RR_LERP_FRAMES);
 		}
 
@@ -246,13 +246,13 @@ void RR_EndEvent_DrawMenu(void)
 				relic->scale[2] += RR_RELIC_GROW_STEP;
 			}
 
-			UI_Lerp2D_Linear(&pos[0], UI_ConvertX_2(0x100, RR_SCREEN_DEPTH), UI_ConvertY_2(0xa2, RR_SCREEN_DEPTH), UI_ConvertX_2(0x100, RR_SCREEN_DEPTH),
+			UI_Lerp2D_Linear(pos.v, UI_ConvertX_2(0x100, RR_SCREEN_DEPTH), UI_ConvertY_2(0xa2, RR_SCREEN_DEPTH), UI_ConvertX_2(0x100, RR_SCREEN_DEPTH),
 			                 UI_ConvertY_2(0xa2, RR_SCREEN_DEPTH), elapsedFrames - RR_RELIC_AWARD_START_FRAME, RR_LERP_FRAMES);
 		}
 	}
 
-	relic->matrix.t[0] = pos[0];
-	relic->matrix.t[1] = pos[1];
+	relic->matrix.t[0] = pos.x;
+	relic->matrix.t[1] = pos.y;
 
 	// Draw Time Crates
 	// Reset local frame counter
@@ -263,20 +263,20 @@ void RR_EndEvent_DrawMenu(void)
 			elapsedFrames -= RR_FLYOUT_FRAME_OFFSET;
 
 			// interpolate fly-in
-			UI_Lerp2D_Linear(&pos[0], 200, 0x79, 0x264, 0x79, elapsedFrames, RR_LERP_FRAMES);
+			UI_Lerp2D_Linear(pos.v, 200, 0x79, 0x264, 0x79, elapsedFrames, RR_LERP_FRAMES);
 		}
 
 		else
 		{
-			UI_Lerp2D_Linear(&pos[0], 200, 0x79, 200, 0x79, elapsedFrames, RR_LERP_FRAMES);
+			UI_Lerp2D_Linear(pos.v, 200, 0x79, 200, 0x79, elapsedFrames, RR_LERP_FRAMES);
 		}
 
-		sdata->ptrTimebox1->matrix.t[0] = UI_ConvertX_2(pos[0], RR_SCREEN_DEPTH);
-		sdata->ptrTimebox1->matrix.t[1] = UI_ConvertY_2(pos[1], RR_SCREEN_DEPTH);
+		sdata->ptrTimebox1->matrix.t[0] = UI_ConvertX_2(pos.x, RR_SCREEN_DEPTH);
+		sdata->ptrTimebox1->matrix.t[1] = UI_ConvertY_2(pos.y, RR_SCREEN_DEPTH);
 
-		DecalFont_DrawLine((char *)&s_timeCrateXString223, pos[0] + 0x14, pos[1] - 10, 2, 0);
+		DecalFont_DrawLine((char *)&s_timeCrateXString223, pos.x + 0x14, pos.y - 10, 2, 0);
 		sprintf(crateCountText, s_crateCountFormat223, driver->numTimeCrates, gGT->timeCratesInLEV);
-		DecalFont_DrawLine(crateCountText, pos[0] + 0x21, pos[1] - 0xe, 1, 0);
+		DecalFont_DrawLine(crateCountText, pos.x + 0x21, pos.y - 0xe, 1, 0);
 	}
 
 
@@ -313,9 +313,9 @@ void RR_EndEvent_DrawMenu(void)
 				}
 			}
 
-			UI_Lerp2D_Linear(&pos[0], startX, 0, endX, 0, elapsedFrames, RR_LERP_FRAMES);
+			UI_Lerp2D_Linear(pos.v, startX, 0, endX, 0, elapsedFrames, RR_LERP_FRAMES);
 
-			DecalFont_DrawLine(sdata->lngStrings[LNG_PERFECT], pos[0], 0x8a, 1, textColor);
+			DecalFont_DrawLine(sdata->lngStrings[LNG_PERFECT], pos.x, 0x8a, 1, textColor);
 		}
 
 		// copy to local frame counter
@@ -332,7 +332,7 @@ void RR_EndEvent_DrawMenu(void)
 			if (elapsedFrames >= RR_FLYOUT_FRAME_OFFSET)
 			{
 				// interpolate fly-out
-				UI_Lerp2D_Linear(&pos[0], 0x199, 0x32, 0x199, -0x32, elapsedFrames - RR_COUNTDOWN_START_FRAME, RR_LERP_FRAMES);
+				UI_Lerp2D_Linear(pos.v, 0x199, 0x32, 0x199, -0x32, elapsedFrames - RR_COUNTDOWN_START_FRAME, RR_LERP_FRAMES);
 				drawCountdown = 1;
 			}
 
@@ -365,14 +365,14 @@ void RR_EndEvent_DrawMenu(void)
 				}
 
 				// interpolate fly-in
-				UI_Lerp2D_Linear(&pos[0], 0x296, 0x2a, 0x199, 0x2a, elapsedFrames - RR_COUNTDOWN_START_FRAME, RR_LERP_FRAMES);
+				UI_Lerp2D_Linear(pos.v, 0x296, 0x2a, 0x199, 0x2a, elapsedFrames - RR_COUNTDOWN_START_FRAME, RR_LERP_FRAMES);
 				drawCountdown = 1;
 			}
 
 			// Draw String
 			if (drawCountdown)
 			{
-				DecalFont_DrawLine(str, pos[0], pos[1], 1, textColor);
+				DecalFont_DrawLine(str, pos.x, pos.y, 1, textColor);
 			}
 		}
 	}
@@ -413,9 +413,9 @@ void RR_EndEvent_DrawMenu(void)
 		}
 
 		// interpolate fly-in
-		UI_Lerp2D_Linear(&pos[0], startX, 0x50, endX, 0x50, elapsedFrames, RR_LERP_FRAMES);
+		UI_Lerp2D_Linear(pos.v, startX, 0x50, endX, 0x50, elapsedFrames, RR_LERP_FRAMES);
 
-		DecalFont_DrawLine(sdata->lngStrings[LNG_RELIC_AWARDED], pos[0], pos[1], 1, textColor);
+		DecalFont_DrawLine(sdata->lngStrings[LNG_RELIC_AWARDED], pos.x, pos.y, 1, textColor);
 	}
 
 skipRelicAwarded:
@@ -443,16 +443,16 @@ skipRelicAwarded:
 		}
 
 		// Interpolate fly-in
-		UI_Lerp2D_Linear(&pos[0], startX, 0x50, endX, 0x50, elapsedFrames, RR_LERP_FRAMES);
+		UI_Lerp2D_Linear(pos.v, startX, 0x50, endX, 0x50, elapsedFrames, RR_LERP_FRAMES);
 
-		DecalFont_DrawLine(sdata->lngStrings[LNG_NEW_HIGH_SCORE], pos[0], pos[1], 1, textColor);
+		DecalFont_DrawLine(sdata->lngStrings[LNG_NEW_HIGH_SCORE], pos.x, pos.y, 1, textColor);
 	}
 
 
 	// copy to local frame counter
 	elapsedFrames = sdata->framesSinceRaceEnded;
 
-	pos[1] = 0xc;
+	pos.y = 0xc;
 
 	// if race ended more than 490 frames ago
 	if (elapsedFrames >= RR_FLYOUT_START_FRAME)
@@ -460,13 +460,13 @@ skipRelicAwarded:
 		elapsedFrames -= RR_FLYOUT_FRAME_OFFSET;
 
 		// Interpolate, vertical fly-out
-		UI_Lerp2D_Linear(&pos[0], -0xa, 0xc, -0xa, -0x58, elapsedFrames, RR_LERP_FRAMES);
+		UI_Lerp2D_Linear(pos.v, -0xa, 0xc, -0xa, -0x58, elapsedFrames, RR_LERP_FRAMES);
 	}
 
 
 	// This is actually a RECT on the stack
 	box.x = -0xa;
-	box.y = pos[1];
+	box.y = pos.y;
 	box.w = 0x214;
 	box.h = 0x3b;
 
@@ -504,7 +504,7 @@ void RR_EndEvent_DrawHighScore(s16 startX, int startY, s16 scoreMode)
 	// does not show the rank icons '1', '2', '3', '4', '5'
 	char *timeString;
 	u32 timeColor;
-	s16 pos[2];
+	SVec2 pos;
 	RECT box;
 
 	struct GameTracker *gGT = sdata->gGT;
@@ -519,9 +519,9 @@ void RR_EndEvent_DrawHighScore(s16 startX, int startY, s16 scoreMode)
 	// Start and End are the same
 
 	// interpolate fly-in
-	UI_Lerp2D_Linear(&pos[0], startX, startY, startX, startY, sdata->framesSinceRaceEnded, RR_LERP_FRAMES);
+	UI_Lerp2D_Linear(pos.v, startX, startY, startX, startY, sdata->framesSinceRaceEnded, RR_LERP_FRAMES);
 
-	DecalFont_DrawLine(sdata->lngStrings[LNG_BEST_TIMES], pos[0], pos[1], 1, 0xffff8000);
+	DecalFont_DrawLine(sdata->lngStrings[LNG_BEST_TIMES], pos.x, pos.y, 1, 0xffff8000);
 
 	// Draw icon, name, and time of the
 	// 5 best times in Time Trial
@@ -616,8 +616,8 @@ void RR_EndEvent_DrawHighScore(s16 startX, int startY, s16 scoreMode)
 	// Print amount of time, for whichever purpose
 	DecalFont_DrawLine(timeString, startX, startY + 0xa6, 2, timeColor);
 
-	box.x = pos[0] - 0x60;
-	box.y = pos[1] - 4;
+	box.x = pos.x - 0x60;
+	box.y = pos.y - 4;
 	box.w = 0xc0;
 	box.h = 0xb4;
 

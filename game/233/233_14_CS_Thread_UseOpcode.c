@@ -779,8 +779,8 @@ processOpcode:
 		break;
 
 	case 0x2d:
-		cs->Subtitles.textPos[0] = opcodeMeta->animIndex;
-		cs->Subtitles.textPos[1] = opcodeMeta->frameStart;
+		cs->Subtitles.textPos.x = opcodeMeta->animIndex;
+		cs->Subtitles.textPos.y = opcodeMeta->frameStart;
 		cs->Subtitles.lngIndex = opcodeMeta->frameEnd;
 		cs->Subtitles.font = opcodeMeta->rotStart;
 		cs->Subtitles.colors = opcodeMeta->rotEnd;

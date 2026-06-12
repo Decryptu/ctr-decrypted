@@ -53,8 +53,8 @@ extern struct RectMenu menu222_2P;
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x8009f704-0x800a06f8.
 void AA_EndEvent_DrawMenu(void)
 {
-	s16 letterPos[2];
-	s16 txtPos[2];
+	SVec2 letterPos;
+	SVec2 textPos;
 
 	s16 lerpStartX;
 	s16 txtStartX;
@@ -113,8 +113,8 @@ void AA_EndEvent_DrawMenu(void)
 
 			// If you have not unlocked this CTR Token
 			rewardBit = gGT->levelID + ADV_REWARD_FIRST_CTR_TOKEN;
-			letterPos[0] = hudCTR->x;
-			letterPos[1] = hudCTR->y;
+			letterPos.x = hudCTR->x;
+			letterPos.y = hudCTR->y;
 			s32 letterScaleOffset;
 			b32 shouldDrawToken = false;
 			b32 shouldScaleLetters = false;
@@ -157,7 +157,7 @@ void AA_EndEvent_DrawMenu(void)
 					lerpEndY = hudCTR->y + 0x50;
 				}
 
-				UI_Lerp2D_Linear(&letterPos[0], lerpStartX, lerpStartY, lerpEndX, lerpEndY, elapsedFrames, lerpFrames);
+				UI_Lerp2D_Linear(letterPos.v, lerpStartX, lerpStartY, lerpEndX, lerpEndY, elapsedFrames, lerpFrames);
 
 				if (shouldScaleLetters)
 				{
@@ -166,7 +166,7 @@ void AA_EndEvent_DrawMenu(void)
 						OtherFX_Play(0x67, 1);
 
 					// NOTE(aalhendi): Retail scales until X reaches target, with no separate scale cap.
-					if (letterPos[0] != hudCTR->x - 0x10)
+					if (letterPos.x != hudCTR->x - 0x10)
 					{
 						for (s32 i = 0; i < 3; i++)
 						{
@@ -196,7 +196,7 @@ void AA_EndEvent_DrawMenu(void)
 					lerpFrames = AA_CTR_LETTER_FLYOUT_FRAMES;
 				}
 
-				UI_Lerp2D_Linear(&letterPos[0], lerpStartX, lerpStartY, lerpEndX, lerpEndY, elapsedFrames, lerpFrames);
+				UI_Lerp2D_Linear(letterPos.v, lerpStartX, lerpStartY, lerpEndX, lerpEndY, elapsedFrames, lerpFrames);
 
 				// variable reuse, frame timers
 				lerpStartY = 0;
@@ -207,8 +207,8 @@ void AA_EndEvent_DrawMenu(void)
 
 			for (s32 i = 0; i < 3; i++)
 			{
-				hudLetters[i]->matrix.t[0] = UI_ConvertX_2(letterPos[0] + (letterScaleOffset * (i * 12)) + (i * 29), AA_SCREEN_DEPTH);
-				hudLetters[i]->matrix.t[1] = UI_ConvertY_2(letterPos[1] - (i & 1), AA_SCREEN_DEPTH);
+				hudLetters[i]->matrix.t[0] = UI_ConvertX_2(letterPos.x + (letterScaleOffset * (i * 12)) + (i * 29), AA_SCREEN_DEPTH);
+				hudLetters[i]->matrix.t[1] = UI_ConvertY_2(letterPos.y - (i & 1), AA_SCREEN_DEPTH);
 			}
 
 			if (shouldDrawToken)
@@ -216,7 +216,7 @@ void AA_EndEvent_DrawMenu(void)
 				hudR->unk50 = 1;
 				hudToken->flags &= ~HIDE_MODEL;
 				hudToken->matrix.t[0] = hudT->matrix.t[0];
-				hudToken->matrix.t[1] = UI_ConvertY_2(letterPos[1] + 0x18, AA_SCREEN_DEPTH);
+				hudToken->matrix.t[1] = UI_ConvertY_2(letterPos.y + 0x18, AA_SCREEN_DEPTH);
 
 				if ((tokenAwardTextFrame >= 0) && (hudToken->scale[0] < AA_TOKEN_GROW_LIMIT))
 				{
@@ -227,11 +227,11 @@ void AA_EndEvent_DrawMenu(void)
 
 				if (tokenAwardTextFrame >= 0)
 				{
-					UI_Lerp2D_Linear(&txtPos[0], txtStartX, 0xa6, txtEndX, 0xa6, tokenAwardTextFrame, AA_TOKEN_AWARD_TEXT_FLY_FRAMES);
+					UI_Lerp2D_Linear(textPos.v, txtStartX, 0xa6, txtEndX, 0xa6, tokenAwardTextFrame, AA_TOKEN_AWARD_TEXT_FLY_FRAMES);
 
 					s32 textColor = (gGT->timer & 1) ? (JUSTIFY_CENTER | RED) : (JUSTIFY_CENTER | WHITE);
 
-					DecalFont_DrawLine(sdata->lngStrings[LNG_CTR_TOKEN_AWARDED], txtPos[0], txtPos[1], FONT_BIG, textColor);
+					DecalFont_DrawLine(sdata->lngStrings[LNG_CTR_TOKEN_AWARDED], textPos.x, textPos.y, FONT_BIG, textColor);
 				}
 			}
 		}
@@ -333,19 +333,19 @@ void AA_EndEvent_DrawMenu(void)
 			driverIconFrame -= AA_DRIVER_ICON_STAGGER_FRAMES;
 
 			// interpolate fly-in
-			UI_Lerp2D_Linear(&letterPos[0], lerpStartX, 0x60, lerpEndX, 0x60, currFrame, AA_DRIVER_ICON_STAGGER_FRAMES);
+			UI_Lerp2D_Linear(letterPos.v, lerpStartX, 0x60, lerpEndX, 0x60, currFrame, AA_DRIVER_ICON_STAGGER_FRAMES);
 
 			s_driverRankString222 = (char)i + '1';
 
 			// print a single character, a number 1-8,
-			DecalFont_DrawLine((char *)&s_driverRankString222, letterPos[0] + 0x20, 0x5f, FONT_SMALL, WHITE);
+			DecalFont_DrawLine((char *)&s_driverRankString222, letterPos.x + 0x20, 0x5f, FONT_SMALL, WHITE);
 
 			// Draw the driver's character icon
 			UI_DrawDriverIcon(
 
 			    gGT->ptrIcons[data.MetaDataCharacters[data.characterIDs[gGT->driversInRaceOrder[i]->driverID]].iconID],
 
-			    letterPos[0], 0x60, &gGT->backBuffer->primMem,
+			    letterPos.x, 0x60, &gGT->backBuffer->primMem,
 
 			    // pointer to OT mem
 			    gGT->pushBuffer_UI.ptrOT,
@@ -519,7 +519,7 @@ void AA_EndEvent_DisplayTime(s16 driverId, s16 timeOffsetFrames)
 	s16 lerpEndX;
 	s32 currFrame;
 	s32 endFrame;
-	s16 posXY[2];
+	SVec2 pos;
 
 	struct GameTracker *gGT = sdata->gGT;
 	struct Driver *driver = gGT->drivers[driverId];
@@ -604,14 +604,14 @@ void AA_EndEvent_DisplayTime(s16 driverId, s16 timeOffsetFrames)
 	}
 
 	// interpolate fly-in positionXY
-	UI_Lerp2D_Linear(&posXY[0], lerpStartX, lerpStartY, lerpEndX, lerpEndY, currFrame, endFrame);
+	UI_Lerp2D_Linear(pos.v, lerpStartX, lerpStartY, lerpEndX, lerpEndY, currFrame, endFrame);
 
-	bigNum->matrix.t[0] = posXY[0];
-	bigNum->matrix.t[1] = posXY[1];
+	bigNum->matrix.t[0] = pos.x;
+	bigNum->matrix.t[1] = pos.y;
 
 	// interpolate scale to the target big-number size
-	UI_Lerp2D_Linear(&posXY[0], hud[AA_TIME_DISPLAY_BIG_NUM_SLOT].scale, 0, AA_BIG_NUM_TARGET_SCALE, 0, framesElapsed, AA_TIME_DISPLAY_FLYIN_FRAMES);
-	s16 bigNumScale = posXY[0];
+	UI_Lerp2D_Linear(pos.v, hud[AA_TIME_DISPLAY_BIG_NUM_SLOT].scale, 0, AA_BIG_NUM_TARGET_SCALE, 0, framesElapsed, AA_TIME_DISPLAY_FLYIN_FRAMES);
+	s16 bigNumScale = pos.x;
 
 	CTR_SET_VEC3(bigNum->scale, bigNumScale, bigNumScale, bigNumScale);
 
@@ -636,9 +636,9 @@ void AA_EndEvent_DisplayTime(s16 driverId, s16 timeOffsetFrames)
 		lerpEndX = 0x78;
 	}
 
-	UI_Lerp2D_Linear(&posXY[0], lerpStartX, lerpStartY, lerpEndX, lerpEndY, currFrame, endFrame);
+	UI_Lerp2D_Linear(pos.v, lerpStartX, lerpStartY, lerpEndX, lerpEndY, currFrame, endFrame);
 
-	UI_DrawPosSuffix(posXY[0], posXY[1], driver, 0);
+	UI_DrawPosSuffix(pos.x, pos.y, driver, 0);
 
 	// === DrawRaceClock ===
 
@@ -658,14 +658,14 @@ void AA_EndEvent_DisplayTime(s16 driverId, s16 timeOffsetFrames)
 		lerpEndX = 0x150;
 	}
 
-	UI_Lerp2D_Linear(&posXY[0], lerpStartX, lerpEndY, lerpEndX, lerpEndY, currFrame, endFrame);
+	UI_Lerp2D_Linear(pos.v, lerpStartX, lerpEndY, lerpEndX, lerpEndY, currFrame, endFrame);
 
-	UI_DrawRaceClock(posXY[0], posXY[1], 1, driver);
+	UI_DrawRaceClock(pos.x, pos.y, 1, driver);
 
 	s16 totalTextWidth = DecalFont_GetLineWidth(sdata->lngStrings[LNG_TOTAL], FONT_BIG);
 
-	timeBoxRect.x = (posXY[0] - totalTextWidth) + -6;
-	timeBoxRect.y = (posXY[1] - timeBoxRect.h) + 0xd;
+	timeBoxRect.x = (pos.x - totalTextWidth) + -6;
+	timeBoxRect.y = (pos.y - timeBoxRect.h) + 0xd;
 	timeBoxRect.w = totalTextWidth + 0x94;
 	timeBoxRect.h += 6;
 

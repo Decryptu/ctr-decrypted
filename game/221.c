@@ -27,7 +27,7 @@ void CC_EndEvent_DrawMenu()
 	struct GameTracker *gGT = sdata->gGT;
 	s32 levelID = gGT->levelID;
 	struct Driver *driver = gGT->drivers[0];
-	s16 posXY[2];
+	SVec2 pos;
 	s32 tokenRewardOffset;
 
 	// "Dingo Bingo" $sp exploit, for 101% speedruns.
@@ -57,24 +57,24 @@ void CC_EndEvent_DrawMenu()
 	sdata->ptrHudCrystal->flags |= HIDE_MODEL;
 
 	// fly in from left
-	UI_Lerp2D_Linear(&posXY[0], -0x64, 0x18, 0x100, 0x18, elapsedFrames, CC_FLY_IN_FRAMES);
-	DecalFont_DrawLine(sdata->lngStrings[LNG_TIME_REMAINING], posXY[0], posXY[1], FONT_BIG, (JUSTIFY_CENTER | ORANGE));
-	UI_DrawLimitClock(posXY[0] - 0x33, posXY[1] + 0x11, FONT_BIG);
+	UI_Lerp2D_Linear(pos.v, -0x64, 0x18, 0x100, 0x18, elapsedFrames, CC_FLY_IN_FRAMES);
+	DecalFont_DrawLine(sdata->lngStrings[LNG_TIME_REMAINING], pos.x, pos.y, FONT_BIG, (JUSTIFY_CENTER | ORANGE));
+	UI_DrawLimitClock(pos.x - 0x33, pos.y + 0x11, FONT_BIG);
 
 	// fly in from right
-	UI_Lerp2D_Linear(&posXY[0], 0x264, 0x56, 0xcd, 0x56, elapsedFrames, CC_FLY_IN_FRAMES);
+	UI_Lerp2D_Linear(pos.v, 0x264, 0x56, 0xcd, 0x56, elapsedFrames, CC_FLY_IN_FRAMES);
 
 	// Crystal count
-	sdata->ptrMenuCrystal->matrix.t[0] = UI_ConvertX_2(posXY[0], CC_SCREEN_DEPTH);
-	sdata->ptrMenuCrystal->matrix.t[1] = UI_ConvertY_2(posXY[1], CC_SCREEN_DEPTH);
-	UI_DrawNumCrystal(posXY[0] + 0xf, posXY[1] - 0x10, driver);
+	sdata->ptrMenuCrystal->matrix.t[0] = UI_ConvertX_2(pos.x, CC_SCREEN_DEPTH);
+	sdata->ptrMenuCrystal->matrix.t[1] = UI_ConvertY_2(pos.y, CC_SCREEN_DEPTH);
+	UI_DrawNumCrystal(pos.x + 0xf, pos.y - 0x10, driver);
 
 	s32 resultStringIndex = LNG_YOU_WIN;
 	if (didLose)
 		resultStringIndex = LNG_TRY_AGAIN;
 
 	// YOU WIN, or TRY AGAIN
-	DecalFont_DrawLine(sdata->lngStrings[resultStringIndex], posXY[0] + 0x33, posXY[1] + 8, FONT_BIG, (JUSTIFY_CENTER | ORANGE));
+	DecalFont_DrawLine(sdata->lngStrings[resultStringIndex], pos.x + 0x33, pos.y + 8, FONT_BIG, (JUSTIFY_CENTER | ORANGE));
 
 	// if a token is not newly-unlocked
 	if (didLose || (CHECK_ADV_BIT(adv->rewards, tokenRewardBit) != 0))
@@ -101,11 +101,11 @@ void CC_EndEvent_DrawMenu()
 	if (gGT->timer == 0)
 		color = (JUSTIFY_CENTER | WHITE);
 
-	UI_Lerp2D_Linear(&posXY[0], -0x64, 0xA2, 0x100, 0xA2, elapsedFrames, CC_FLY_IN_FRAMES);
+	UI_Lerp2D_Linear(pos.v, -0x64, 0xA2, 0x100, 0xA2, elapsedFrames, CC_FLY_IN_FRAMES);
 
-	DecalFont_DrawLine(sdata->lngStrings[LNG_CTR_TOKEN_AWARDED], posXY[0], posXY[1], FONT_BIG, color);
+	DecalFont_DrawLine(sdata->lngStrings[LNG_CTR_TOKEN_AWARDED], pos.x, pos.y, FONT_BIG, color);
 	token->flags &= ~(HIDE_MODEL);
-	token->matrix.t[0] = UI_ConvertX_2(posXY[0], CC_SCREEN_DEPTH);
+	token->matrix.t[0] = UI_ConvertX_2(pos.x, CC_SCREEN_DEPTH);
 	token->matrix.t[1] = UI_ConvertY_2(0xA2 - 0x18, CC_SCREEN_DEPTH);
 
 	if (elapsedFrames > CTR_SECONDS_TO_FRAMES(1))

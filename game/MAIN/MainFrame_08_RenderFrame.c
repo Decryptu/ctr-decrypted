@@ -283,7 +283,7 @@ void DrawFinalLap(struct GameTracker *gGT)
 	int endX;
 	int posY;
 
-	s16 resultPos[2];
+	SVec2 resultPos;
 
 	// number of players
 	for (i = 0; i < 4; i++)
@@ -333,11 +333,11 @@ void DrawFinalLap(struct GameTracker *gGT)
 
 	DrawFinalLapString:
 
-		UI_Lerp2D_Linear(&resultPos[0], (s16)startX, (s16)posY, (s16)endX, (s16)posY, textTimer, 10);
+		UI_Lerp2D_Linear(resultPos.v, (s16)startX, (s16)posY, (s16)endX, (s16)posY, textTimer, 10);
 
 		// need to specify OT, or else "FINAL LAP" will draw on top of character icons,
 		// and by doing this, "FINAL LAP" draws under the character icons instead
-		DecalFont_DrawLineOT(sdata->lngStrings[LNG_FINAL_LAP], resultPos[0], resultPos[1], FONT_BIG, (JUSTIFY_CENTER | ORANGE), pb->ptrOT);
+		DecalFont_DrawLineOT(sdata->lngStrings[LNG_FINAL_LAP], resultPos.x, resultPos.y, FONT_BIG, (JUSTIFY_CENTER | ORANGE), pb->ptrOT);
 
 		sdata->finalLapTextTimer[i]--;
 	}

@@ -146,7 +146,7 @@ struct CutsceneObj
 	struct
 	{
 		// 0x2e
-		s16 textPos[2];
+		SVec2 textPos;
 
 		// 0x32
 		// index to subtitle text in LNG

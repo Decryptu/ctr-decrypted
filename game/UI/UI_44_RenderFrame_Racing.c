@@ -28,10 +28,10 @@ void UI_RenderFrame_Racing()
 	struct UiElement2D *hudStructPtr;
 	void *levPtrMap;
 	char cVar22;
-	s16 wumpaModel_Pos[2];
-	s16 LetterCTR_Pos[2];
+	SVec2 wumpaModelPos;
+	SVec2 letterCtrPos;
 	char string[24];
-	s16 turboCount_Pos[2];
+	SVec2 turboCountPos;
 	u16 local_30[2];
 	struct Thread *playerThread;
 	u_long *ptrOT;
@@ -56,10 +56,10 @@ void UI_RenderFrame_Racing()
 	levPtrMap = 0;
 
 	// adding this here so the compiler doesn't complain
-	wumpaModel_Pos[0] = 0;
-	wumpaModel_Pos[1] = 0;
-	turboCount_Pos[0] = 0;
-	turboCount_Pos[1] = 0;
+	wumpaModelPos.x = 0;
+	wumpaModelPos.y = 0;
+	turboCountPos.x = 0;
+	turboCountPos.y = 0;
 
 	UI_WeaponBG_AnimateShine();
 
@@ -167,16 +167,15 @@ void UI_RenderFrame_Racing()
 					// if "Time on clock" last 0xXX u8 is greater than 0x80 and less than 0xFF
 					if ((gGT->elapsedEventTime & 0x80) != 0)
 					{
-						DecalFont_DrawLine(
-						    sdata->lngStrings[LNG_WRONG_WAY],
+						DecalFont_DrawLine(sdata->lngStrings[LNG_WRONG_WAY],
 
-						    // midpointX
-						    pb->rect.x + (pb->rect.w >> 1),
+						                   // midpointX
+						                   pb->rect.x + (pb->rect.w >> 1),
 
-						    // midpointY, 0x1e higher
-						    pb->rect.y + (pb->rect.h >> 1) - 0x1e,
+						                   // midpointY, 0x1e higher
+						                   pb->rect.y + (pb->rect.h >> 1) - 0x1e,
 
-						    FONT_BIG, (JUSTIFY_CENTER | ORANGE));
+						                   FONT_BIG, (JUSTIFY_CENTER | ORANGE));
 					}
 
 					// The text will not show if the last u8 is more than 0x00 and less than 0x7F.
@@ -227,8 +226,8 @@ void UI_RenderFrame_Racing()
 			{
 				if (playerStruct->PickupWumpaHUD.numCollected != 0)
 				{
-					wumpaModel_Pos[0] = hudStructPtr[3].x;
-					wumpaModel_Pos[1] = hudStructPtr[3].y;
+					wumpaModelPos.x = hudStructPtr[3].x;
+					wumpaModelPos.y = hudStructPtr[3].y;
 
 					// if cooldown between items is over
 					if (playerStruct->PickupWumpaHUD.cooldown == 0)
@@ -258,7 +257,7 @@ void UI_RenderFrame_Racing()
 					}
 					else
 					{
-						UI_Lerp2D_HUD(&wumpaModel_Pos[0], (int)playerStruct->PickupWumpaHUD.startX, (int)playerStruct->PickupWumpaHUD.startY, hudStructPtr[3].x,
+						UI_Lerp2D_HUD(wumpaModelPos.v, (int)playerStruct->PickupWumpaHUD.startX, (int)playerStruct->PickupWumpaHUD.startY, hudStructPtr[3].x,
 						              hudStructPtr[3].y, playerStruct->PickupWumpaHUD.cooldown, 5);
 
 						// subtract one from timer
@@ -273,7 +272,7 @@ void UI_RenderFrame_Racing()
 					struct Icon **iconPtrArray = ICONGROUP_GETICONS(gGT->iconGroup[0xB]);
 
 					// "wumpaposter" icon group
-					DecalHUD_DrawPolyFT4(iconPtrArray[0], (int)wumpaModel_Pos[0], (int)wumpaModel_Pos[1],
+					DecalHUD_DrawPolyFT4(iconPtrArray[0], (int)wumpaModelPos.x, (int)wumpaModelPos.y,
 
 					                     // pointer to PrimMem struct
 					                     &gGT->backBuffer->primMem,
@@ -287,8 +286,8 @@ void UI_RenderFrame_Racing()
 				if (playerStruct->PickupLetterHUD.cooldown != 0)
 				{
 					struct Instance *curr;
-					LetterCTR_Pos[0] = hudStructPtr[0x12].x;
-					LetterCTR_Pos[1] = hudStructPtr[0x12].y;
+					letterCtrPos.x = hudStructPtr[0x12].x;
+					letterCtrPos.y = hudStructPtr[0x12].y;
 
 					// C-Letter
 					if (playerStruct->PickupLetterHUD.modelID == STATIC_C)
@@ -299,15 +298,15 @@ void UI_RenderFrame_Racing()
 					// T-letter
 					else if (playerStruct->PickupLetterHUD.modelID == STATIC_T)
 					{
-						LetterCTR_Pos[0] += 0x1d;
-						LetterCTR_Pos[1] -= 1;
+						letterCtrPos.x += 0x1d;
+						letterCtrPos.y -= 1;
 						curr = sdata->ptrHudT;
 					}
 
 					// R-Letter
 					else
 					{
-						LetterCTR_Pos[0] += 0x3a;
+						letterCtrPos.x += 0x3a;
 						curr = sdata->ptrHudR;
 					}
 
@@ -320,11 +319,11 @@ void UI_RenderFrame_Racing()
 					// PickupLetterHUD.startX and PickupLetterHUD.startY are start position of animation
 
 					// Interpolate from start pos to end pos
-					UI_Lerp2D_HUD(&LetterCTR_Pos[0], playerStruct->PickupLetterHUD.startX, playerStruct->PickupLetterHUD.startY, (int)LetterCTR_Pos[0],
-					              (int)LetterCTR_Pos[1], (int)playerStruct->PickupLetterHUD.cooldown, 10);
+					UI_Lerp2D_HUD(letterCtrPos.v, playerStruct->PickupLetterHUD.startX, playerStruct->PickupLetterHUD.startY, (int)letterCtrPos.x,
+					              (int)letterCtrPos.y, (int)playerStruct->PickupLetterHUD.cooldown, 10);
 
-					curr->matrix.t[0] = UI_ConvertX_2((int)LetterCTR_Pos[0], 0x200);
-					curr->matrix.t[1] = UI_ConvertY_2((int)LetterCTR_Pos[1], 0x200);
+					curr->matrix.t[0] = UI_ConvertX_2((int)letterCtrPos.x, 0x200);
+					curr->matrix.t[1] = UI_ConvertY_2((int)letterCtrPos.y, 0x200);
 					curr->matrix.t[2] = 0x200;
 				}
 			}
@@ -354,7 +353,7 @@ void UI_RenderFrame_Racing()
 					sprintf(&string[0], &sdata->s_subtractLongInt[0], gGT->timeCrateTypeSmashed);
 
 					// 4b4 and 4b6 are WindowStartPos(x,y) from PushBuffer, inside Driver
-					UI_Lerp2D_HUD(&wumpaModel_Pos[0], playerStruct->PickupTimeboxHUD.startX, playerStruct->PickupTimeboxHUD.startY, 0x14, 8,
+					UI_Lerp2D_HUD(wumpaModelPos.v, playerStruct->PickupTimeboxHUD.startX, playerStruct->PickupTimeboxHUD.startY, 0x14, 8,
 					              playerStruct->PickupTimeboxHUD.cooldown, 10);
 
 					// Decrease remaining number of frames for this to be on screen
@@ -362,7 +361,7 @@ void UI_RenderFrame_Racing()
 
 					// Put string on the screen
 					// This happens for 10 frames
-					DecalFont_DrawLine(&string[0], (int)wumpaModel_Pos[0], (int)wumpaModel_Pos[1], FONT_BIG, PERIWINKLE);
+					DecalFont_DrawLine(&string[0], (int)wumpaModelPos.x, (int)wumpaModelPos.y, FONT_BIG, PERIWINKLE);
 				}
 			}
 
@@ -385,8 +384,8 @@ void UI_RenderFrame_Racing()
 				// if the animation is not done
 				else
 				{
-					wumpaModel_Pos[0] = hudStructPtr[0xD].x + 0x20;
-					wumpaModel_Pos[1] = hudStructPtr[0xD].y;
+					wumpaModelPos.x = hudStructPtr[0xD].x + 0x20;
+					wumpaModelPos.y = hudStructPtr[0xD].y;
 
 					partTimeVariable1 = playerStruct->BattleHUD.scoreDelta;
 
@@ -411,14 +410,14 @@ void UI_RenderFrame_Racing()
 
 					sprintf((char *)&string[0], fmt, partTimeVariable1);
 
-					UI_Lerp2D_HUD(&wumpaModel_Pos[0], (int)playerStruct->BattleHUD.startX, (int)playerStruct->BattleHUD.startY,
-					              (int)(hudStructPtr[0xD].x + 0x20), (int)(hudStructPtr[0xD].y + 8), playerStruct->BattleHUD.cooldown, 5);
+					UI_Lerp2D_HUD(wumpaModelPos.v, (int)playerStruct->BattleHUD.startX, (int)playerStruct->BattleHUD.startY, (int)(hudStructPtr[0xD].x + 0x20),
+					              (int)(hudStructPtr[0xD].y + 8), playerStruct->BattleHUD.cooldown, 5);
 
 					// subtract one from the number of frames that the animation lasts
 					playerStruct->BattleHUD.cooldown--;
 
 					// print the string that shows the change in your score
-					DecalFont_DrawLine((char *)&string[0], (int)wumpaModel_Pos[0], (int)wumpaModel_Pos[1], FONT_SMALL, RED);
+					DecalFont_DrawLine((char *)&string[0], (int)wumpaModelPos.x, (int)wumpaModelPos.y, FONT_SMALL, RED);
 				}
 			}
 
@@ -676,7 +675,7 @@ void UI_RenderFrame_Racing()
 			if (sdata->TurboDisplayPos_Only1P != 0)
 			{
 				// Interpolate the turbo counter slide in from the right
-				UI_Lerp2D_Linear(&turboCount_Pos[0], 0x2c8, 0x20, 500, 0x20, sdata->TurboDisplayPos_Only1P, 10);
+				UI_Lerp2D_Linear(turboCountPos.v, 0x2c8, 0x20, 500, 0x20, sdata->TurboDisplayPos_Only1P, 10);
 
 				// The actual counter number will continue to
 				// increase past 1000, but the on-screen text
@@ -705,14 +704,14 @@ void UI_RenderFrame_Racing()
 				i = DecalFont_GetLineWidth(sdata->lngStrings[LNG_TURBOS], 1);
 
 				// Draw the string
-				DecalFont_DrawLine((char *)&string[0], (int)(((u32)turboCount_Pos[0] - i) * 0x10000) >> 0x10, (int)turboCount_Pos[1], FONT_BIG,
+				DecalFont_DrawLine((char *)&string[0], (int)(((u32)turboCountPos.x - i) * 0x10000) >> 0x10, (int)turboCountPos.y, FONT_BIG,
 				                   (JUSTIFY_RIGHT | ORANGE_RED));
 
 
 				sprintf((char *)&string[0], &sdata->s_str[0], sdata->lngStrings[LNG_TURBOS]);
 
 				// Draw the string
-				DecalFont_DrawLine((char *)&string[0], (int)(s16)turboCount_Pos[0], (int)turboCount_Pos[1], FONT_BIG, (JUSTIFY_RIGHT | ORANGE));
+				DecalFont_DrawLine((char *)&string[0], (int)(s16)turboCountPos.x, (int)turboCountPos.y, FONT_BIG, (JUSTIFY_RIGHT | ORANGE));
 
 				backBuffer = gGT->backBuffer;
 				primMemCurr = backBuffer->primMem.curr;
@@ -733,14 +732,14 @@ void UI_RenderFrame_Racing()
 				*(u32 *)&TurboCounterBar->r1 = 0x3800c8ff;
 				*(u32 *)&TurboCounterBar->r2 = 0x380000ff;
 				*(u32 *)&TurboCounterBar->r3 = 0x380000ff;
-				TurboCounterBar->x0 = turboCount_Pos[0] - 0xaa;
-				TurboCounterBar->y0 = turboCount_Pos[1] + 9;
-				TurboCounterBar->x1 = turboCount_Pos[0] + 0x32;
-				TurboCounterBar->y1 = turboCount_Pos[1] + 9;
-				TurboCounterBar->x2 = turboCount_Pos[0] - 0x96;
-				TurboCounterBar->y2 = turboCount_Pos[1] + 0x12;
-				TurboCounterBar->x3 = turboCount_Pos[0] + 0x32;
-				TurboCounterBar->y3 = turboCount_Pos[1] + 0x12;
+				TurboCounterBar->x0 = turboCountPos.x - 0xaa;
+				TurboCounterBar->y0 = turboCountPos.y + 9;
+				TurboCounterBar->x1 = turboCountPos.x + 0x32;
+				TurboCounterBar->y1 = turboCountPos.y + 9;
+				TurboCounterBar->x2 = turboCountPos.x - 0x96;
+				TurboCounterBar->y2 = turboCountPos.y + 0x12;
+				TurboCounterBar->x3 = turboCountPos.x + 0x32;
+				TurboCounterBar->y3 = turboCountPos.y + 0x12;
 
 				// pointer to OT memory
 				primMemCurr = gGT->pushBuffer_UI.ptrOT;

@@ -87,11 +87,11 @@ thTick_subtitles:
 		int textWidth;
 		u16 textRect[4];
 
-		textWidth = DecalFont_DrawMultiLine(sdata->lngStrings[cs->Subtitles.lngIndex], cs->Subtitles.textPos[0], cs->Subtitles.textPos[1], 460,
+		textWidth = DecalFont_DrawMultiLine(sdata->lngStrings[cs->Subtitles.lngIndex], cs->Subtitles.textPos.x, cs->Subtitles.textPos.y, 460,
 		                                    cs->Subtitles.font, cs->Subtitles.colors);
 
-		textRect[0] = (u16)((u16)cs->Subtitles.textPos[0] - 236);
-		textRect[1] = (u16)((u16)cs->Subtitles.textPos[1] - 4);
+		textRect[0] = (u16)((u16)cs->Subtitles.textPos.x - 236);
+		textRect[1] = (u16)((u16)cs->Subtitles.textPos.y - 4);
 		textRect[2] = 472;
 		textRect[3] = (u16)((s16)textWidth + 8);
 
