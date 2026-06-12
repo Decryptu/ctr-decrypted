@@ -421,8 +421,7 @@ struct sData sdata_static = {.langBufferSize = 0x3F04,
                                  {
                                      .boolPressX = {0},
 
-                                     .textFlags1_2P = 0x350100,
-                                     .textFlags2_2P = 0x430100,
+                                     .textPos2P = {{0x100, 0x35}, {0x100, 0x43}},
                                  },
 
                              .numIconsEOR = 1,

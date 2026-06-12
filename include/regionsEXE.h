@@ -3444,10 +3444,9 @@ struct sData
 		char boolPressX[4];
 
 		// 8008d568
-		// Normal flags are in registers,
-		// while 2P flags are from RAM
-		u32 textFlags1_2P;
-		u32 textFlags2_2P;
+		// Normal 3P/4P positions are copied from retail data,
+		// while 2P positions are stored in RAM.
+		SVec2 textPos2P[2];
 
 	} Battle_EndOfRace;
 

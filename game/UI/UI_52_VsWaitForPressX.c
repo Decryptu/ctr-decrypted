@@ -1,5 +1,13 @@
 #include <common.h>
 
+// Retail 0x800116ec: Battle end stat positions for 3P/4P.
+static const SVec2 s_battleStatsPos3P4P[4] = {
+    {0x55, 0x35},
+    {0xaa, 0x35},
+    {0x55, 0x43},
+    {0xaa, 0x43},
+};
+
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800552a4-0x8005572c.
 void UI_VsWaitForPressX(void)
 {
@@ -11,12 +19,6 @@ void UI_VsWaitForPressX(void)
 	char statText[8];
 	Color clearColor;
 	RECT clearRect;
-	s16 shortArr3P4P[2 * 4];
-
-	*(int *)&shortArr3P4P[0] = 0x350055;
-	*(int *)&shortArr3P4P[2] = 0x3500aa;
-	*(int *)&shortArr3P4P[4] = 0x430055;
-	*(int *)&shortArr3P4P[6] = 0x4300aa;
 
 	RECT *r;
 	struct Driver *currDriver;
@@ -80,16 +82,14 @@ void UI_VsWaitForPressX(void)
 				// print a hit b
 				// print b hit a
 
+				const SVec2 *battleStatsPos = s_battleStatsPos3P4P;
+				if (numPlyr == 2)
+				{
+					battleStatsPos = sdata->Battle_EndOfRace.textPos2P;
+				}
+
 				for (j = 0; j < numPlyr; j++)
 				{
-					// 3P4P
-					s16 *shortArr = &shortArr3P4P[0];
-
-					if (numPlyr == 2)
-					{
-						shortArr = (s16 *)&sdata->Battle_EndOfRace.textFlags1_2P;
-					}
-
 					// YOU HIT THEM
 					if ((*pressedX & 1) == 0)
 					{
@@ -121,10 +121,10 @@ void UI_VsWaitForPressX(void)
 					DecalFont_DrawLine(statText,
 
 					                   // midpoint between Start X and Size X
-					                   (r->x + shortArr[j * 2 + 0]),
+					                   (r->x + battleStatsPos[j].x),
 
 					                   // midpoint between Start Y and Size Y
-					                   (r->y + shortArr[j * 2 + 1]),
+					                   (r->y + battleStatsPos[j].y),
 
 					                   2, local_78);
 				}
