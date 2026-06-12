@@ -844,6 +844,19 @@ void DrawSplit(const GPUDrawSplit *split)
 	if (split->debugText)
 		NativeRenderer_PushDebugLabel(split->debugText);
 
+	const bool drawOnScreen = split->drawenv.dfe;
+	if ((split->drawenv.clip.w <= 0) || (split->drawenv.clip.h <= 0))
+	{
+		// NOTE(aalhendi): VS/Battle end previews can shrink a losing viewport
+		// into an empty retail draw area. Empty clips should consume no pixels,
+		// and must not leak stale native offscreen/scissor state.
+		NativeRenderer_SetupClipMode(&split->drawenv.clip, &split->dispenv, drawOnScreen);
+		NativeRenderer_SetOffscreenState(&split->drawenv.clip, &split->dispenv, 0);
+		if (split->debugText)
+			NativeRenderer_PopDebugLabel();
+		return;
+	}
+
 	NativeRenderer_SetStencilMode(split->drawPrimMode); // draw with mask 0x16
 
 	NativeRenderer_SetTexture(split->textureId, split->texFormat);
@@ -854,7 +867,6 @@ void DrawSplit(const GPUDrawSplit *split)
 	NativeRenderer_SetPSXDrawMaskSet(split->psxDrawMaskSet);
 	NativeRenderer_SetPSXTextureOutputSTP(split->psxTextureOutputSTP);
 
-	const bool drawOnScreen = split->drawenv.dfe;
 	NativeRenderer_SetupClipMode(&split->drawenv.clip, &split->dispenv, drawOnScreen);
 	NativeRenderer_SetOffscreenState(&split->drawenv.clip, &split->dispenv, !drawOnScreen);
 

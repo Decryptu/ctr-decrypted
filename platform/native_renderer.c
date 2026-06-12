@@ -943,6 +943,16 @@ void NativeRenderer_SetupClipMode(const RECT16 *rect, const DISPENV *displayEnv,
 		return;
 	}
 
+	if ((rect->w <= 0) || (rect->h <= 0))
+	{
+		// NOTE(aalhendi): Retail draw-area commands define inclusive corners.
+		// Collapsed areas clip all pixels; GL scissor rejects negative sizes.
+		NativeRenderer_SetScissorState(enable != 0);
+		if (enable)
+			glScissor(0, 0, 0, 0);
+		return;
+	}
+
 	// [A] isinterlaced dirty hack for widescreen
 	const bool scissorOn = enable && (displayEnv->isinter || (rect->x - displayEnv->disp.x > 0 || rect->y - displayEnv->disp.y > 0 ||
 	                                                         rect->w < displayEnv->disp.w || rect->h < displayEnv->disp.h));
