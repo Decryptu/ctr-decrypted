@@ -380,6 +380,20 @@ void CDSYS_SpuDisableIRQ()
 
 
 #if defined(CTR_NATIVE)
+internal s32 CDSYS_NativeGetXAFadeAmount(s32 fadeSteps)
+{
+	if (fadeSteps <= 0)
+		fadeSteps = 1;
+
+	if (sdata->XA_VolumeDeduct <= 0)
+		return sdata->XA_VolumeBitshift;
+
+	if (fadeSteps >= (sdata->XA_VolumeBitshift + sdata->XA_VolumeDeduct - 1) / sdata->XA_VolumeDeduct)
+		return sdata->XA_VolumeBitshift;
+
+	return sdata->XA_VolumeDeduct * fadeSteps;
+}
+
 static void CDSYS_SaveMaxSample(int max)
 {
 	// save max for this block
@@ -737,6 +751,7 @@ void CDSYS_XAPauseAtEnd()
 	{
 #if defined(CTR_NATIVE)
 		int xaPlaying = NativeAudio_IsXAPlaying();
+		int fadeSteps = 0;
 
 		if (xaPlaying != 0)
 		{
@@ -747,11 +762,14 @@ void CDSYS_XAPauseAtEnd()
 			if (currOffset < prevOffset)
 				prevOffset = currOffset;
 
+			if (currOffset > prevOffset)
+				fadeSteps = currOffset - prevOffset;
+
 			if (sdata->XA_MaxSampleNumSaved == 0)
 			{
 				firstOffset = currOffset;
 			}
-			else if (currOffset > prevOffset)
+			else if (fadeSteps > 0)
 			{
 				firstOffset = currOffset - 2;
 				if (firstOffset < prevOffset + 1)
@@ -768,7 +786,7 @@ void CDSYS_XAPauseAtEnd()
 
 		if (sdata->XA_State == 4)
 		{
-			sdata->XA_VolumeBitshift -= sdata->XA_VolumeDeduct;
+			sdata->XA_VolumeBitshift -= CDSYS_NativeGetXAFadeAmount(fadeSteps);
 			if (sdata->XA_VolumeBitshift <= 0)
 			{
 				sdata->XA_VolumeBitshift = 0;
@@ -782,7 +800,6 @@ void CDSYS_XAPauseAtEnd()
 			else
 			{
 				NativeAudio_SetXAVolume((s16)sdata->XA_VolumeBitshift, (s16)sdata->XA_VolumeBitshift);
-				sdata->XA_CurrOffset = NativeAudio_GetXACurrOffset();
 			}
 		}
 		else if (xaPlaying == 0)
