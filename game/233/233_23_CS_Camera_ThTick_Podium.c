@@ -157,7 +157,7 @@ void CS_Camera_ThTick_Podium(struct Thread *th)
 				return;
 			}
 
-			D233.bossCutsceneIndex = gGT->levelID - GEM_STONE_VALLEY;
+			D233.bossCutsceneIndex = gGT->levelID - GEM_STONE_VALLEY + OXIDE_RELICS_GEMSTONE;
 			return;
 		}
 
