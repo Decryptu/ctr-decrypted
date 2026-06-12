@@ -3,19 +3,19 @@
 static char AH_Door_IsOpenByRewards(s16 levelID, s16 doorID)
 {
 	if ((levelID == N_SANITY_BEACH) && (doorID == 4))
-		return (sdata->advProgress.rewards[3] & 0x40) != 0;
+		return (sdata->advProgress.storyFlags & ADV_REWARD_DOOR_BEACH_TO_GLACIER_PARK_MASK) != 0;
 
 	if ((levelID == N_SANITY_BEACH) && (doorID == 5))
-		return (sdata->advProgress.rewards[3] & 0x10) != 0;
+		return (sdata->advProgress.storyFlags & ADV_REWARD_DOOR_BEACH_TO_GEMSTONE_VALLEY_MASK) != 0;
 
 	if (levelID == GEM_STONE_VALLEY)
-		return (sdata->advProgress.rewards[3] & 0x20) != 0;
+		return (sdata->advProgress.storyFlags & ADV_REWARD_DOOR_GEMSTONE_VALLEY_TO_CUPS_MASK) != 0;
 
 	if (levelID == THE_LOST_RUINS)
-		return (sdata->advProgress.rewards[3] & 0x80) != 0;
+		return (sdata->advProgress.storyFlags & ADV_REWARD_DOOR_LOST_RUINS_TO_GLACIER_PARK_MASK) != 0;
 
 	if (levelID == GLACIER_PARK)
-		return (sdata->advProgress.rewards[3] & 0x100) != 0;
+		return (sdata->advProgress.storyFlags & ADV_REWARD_DOOR_GLACIER_PARK_TO_CITADEL_CITY_MASK) != 0;
 
 	return false;
 }
@@ -128,10 +128,10 @@ void AH_Door_ThTick(struct Thread *t)
 		}
 
 		// check if hint is unlocked
-		chkRewards = sdata->advProgress.rewards[3] & 0x20000000;
+		chkRewards = CHECK_ADV_BIT(sdata->advProgress.rewards, ADV_REWARD_HINT_NEW_WORLD_GREETING);
 
 		// "Congrats on opening this new area..."
-		hintId = 7;
+		hintId = ADV_MASK_HINT_ID_NEW_WORLD_GREETING;
 
 	joined_r0x800b06ec:
 
@@ -161,10 +161,10 @@ void AH_Door_ThTick(struct Thread *t)
 		if (numKeys == 1)
 		{
 			// check if hint is unlocked
-			chkRewards = sdata->advProgress.rewards[3] & 0x8000000;
+			chkRewards = CHECK_ADV_BIT(sdata->advProgress.rewards, ADV_REWARD_HINT_MUST_HAVE_ONE_BOSS_KEY);
 
 			// Aku Hint "You must have a boss key"
-			hintId = 5;
+			hintId = ADV_MASK_HINT_ID_MUST_HAVE_ONE_BOSS_KEY;
 		}
 
 		// not one...
@@ -180,10 +180,10 @@ void AH_Door_ThTick(struct Thread *t)
 			// if 2 keys are needed to enter
 
 			// check if hint is unlocked
-			chkRewards = sdata->advProgress.rewards[4] & 0x100;
+			chkRewards = CHECK_ADV_BIT(sdata->advProgress.rewards, ADV_REWARD_HINT_MUST_HAVE_TWO_BOSS_KEYS);
 
 			// Aku Hint "You must have two boss keys"
-			hintId = 0x12;
+			hintId = ADV_MASK_HINT_ID_MUST_HAVE_TWO_BOSS_KEYS;
 		}
 
 		// request hint and quit
@@ -482,7 +482,7 @@ void AH_Door_ThTick(struct Thread *t)
 	    (lev == THE_LOST_RUINS))
 	{
 		// open all doors to glacier
-		sdata->advProgress.rewards[3] |= 0xc0;
+		sdata->advProgress.storyFlags |= ADV_REWARD_DOORS_TO_GLACIER_PARK_MASK;
 	}
 
 	else if (
@@ -493,21 +493,21 @@ void AH_Door_ThTick(struct Thread *t)
 	    (doorID == 5))
 	{
 		// record that door is open
-		sdata->advProgress.rewards[3] |= 0x10;
+		sdata->advProgress.storyFlags |= ADV_REWARD_DOOR_BEACH_TO_GEMSTONE_VALLEY_MASK;
 	}
 
 	// Gemstone valley (cup door)
 	else if (lev == GEM_STONE_VALLEY)
 	{
 		// record that door is open
-		sdata->advProgress.rewards[3] |= 0x20;
+		sdata->advProgress.storyFlags |= ADV_REWARD_DOOR_GEMSTONE_VALLEY_TO_CUPS_MASK;
 	}
 
 	// Glacier Park (glacier -> citadel)
 	else
 	{
 		// record that door is open
-		sdata->advProgress.rewards[3] |= 0x100;
+		sdata->advProgress.storyFlags |= ADV_REWARD_DOOR_GLACIER_PARK_TO_CITADEL_CITY_MASK;
 	}
 
 	cDC->flags |= 0x400;

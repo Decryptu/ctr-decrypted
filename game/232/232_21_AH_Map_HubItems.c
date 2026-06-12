@@ -80,7 +80,7 @@ void AH_Map_HubItems(void *hubPtrs, s16 *param_2)
 						// check 4 boss keys
 						for (iVar3 = 0; iVar3 < 4; iVar3++)
 						{
-							bit = iVar3 + 0x5e;
+							bit = iVar3 + ADV_REWARD_FIRST_BOSS_KEY;
 
 							if (CHECK_ADV_BIT(adv->rewards, bit) == 0)
 							{
@@ -94,7 +94,7 @@ void AH_Map_HubItems(void *hubPtrs, s16 *param_2)
 							sVar8 = 0;
 							goto LAB_800b17e8;
 						}
-						sVar7 = sdata->advProgress.rewards[3] & 4;
+						sVar7 = sdata->advProgress.storyFlags & ADV_REWARD_BEAT_OXIDE_FIRST_BOSS_MASK;
 					}
 
 					// not gemstone valley
@@ -131,7 +131,7 @@ void AH_Map_HubItems(void *hubPtrs, s16 *param_2)
 						{
 							trophies = &data.advHubTrackIDs[base * 4];
 
-							if (CHECK_ADV_BIT(adv->rewards, (trophies[iVar3] + 6)) == 0)
+							if (CHECK_ADV_BIT(adv->rewards, trophies[iVar3] + ADV_REWARD_FIRST_TROPHY) == 0)
 							{
 								open = false;
 								break;
@@ -141,7 +141,7 @@ void AH_Map_HubItems(void *hubPtrs, s16 *param_2)
 							goto LAB_800b17e4;
 
 						// check if key is unlocked
-						sVar7 = CHECK_ADV_BIT(adv->rewards, (base + 0x5e));
+						sVar7 = CHECK_ADV_BIT(adv->rewards, base + ADV_REWARD_FIRST_BOSS_KEY);
 					}
 
 					// open, not beaten

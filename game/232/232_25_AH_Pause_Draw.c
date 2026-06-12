@@ -113,7 +113,7 @@ void AH_Pause_Draw(int pageID, int posX)
 				}
 
 				ptrPauseObject->PauseMember[pauseIndex].indexAdvPauseInst = 14;
-				ptrPauseObject->PauseMember[pauseIndex].unlockFlag |= CHECK_ADV_BIT(adv->rewards, trackID + 6);
+				ptrPauseObject->PauseMember[pauseIndex].unlockFlag |= CHECK_ADV_BIT(adv->rewards, trackID + ADV_REWARD_FIRST_TROPHY);
 				pauseIndex++;
 			}
 			else
@@ -126,12 +126,12 @@ void AH_Pause_Draw(int pageID, int posX)
 				inst->matrix.t[1] = UI_ConvertY_2(rowY + 0x2f, 0x100);
 			}
 
-			if (CHECK_ADV_BIT(adv->rewards, trackID + 0x3a) != 0)
+			if (CHECK_ADV_BIT(adv->rewards, trackID + ADV_REWARD_FIRST_PLATINUM_RELIC) != 0)
 			{
 				ptrPauseObject->PauseMember[pauseIndex].unlockFlag |= 1;
 				ptrPauseObject->PauseMember[pauseIndex].indexAdvPauseInst = 8;
 			}
-			else if (CHECK_ADV_BIT(adv->rewards, trackID + 0x28) != 0)
+			else if (CHECK_ADV_BIT(adv->rewards, trackID + ADV_REWARD_FIRST_GOLD_RELIC) != 0)
 			{
 				ptrPauseObject->PauseMember[pauseIndex].unlockFlag |= 1;
 				ptrPauseObject->PauseMember[pauseIndex].indexAdvPauseInst = 7;
@@ -139,7 +139,7 @@ void AH_Pause_Draw(int pageID, int posX)
 			else
 			{
 				ptrPauseObject->PauseMember[pauseIndex].indexAdvPauseInst = 6;
-				ptrPauseObject->PauseMember[pauseIndex].unlockFlag |= CHECK_ADV_BIT(adv->rewards, trackID + 0x16);
+				ptrPauseObject->PauseMember[pauseIndex].unlockFlag |= CHECK_ADV_BIT(adv->rewards, trackID + ADV_REWARD_FIRST_SAPPHIRE_RELIC);
 			}
 
 			pauseIndex++;
@@ -147,7 +147,7 @@ void AH_Pause_Draw(int pageID, int posX)
 			if (hubID != 0)
 			{
 				ptrPauseObject->PauseMember[pauseIndex].indexAdvPauseInst = 9 + mdLev->ctrTokenGroupID;
-				ptrPauseObject->PauseMember[pauseIndex].unlockFlag |= CHECK_ADV_BIT(adv->rewards, trackID + 0x4c);
+				ptrPauseObject->PauseMember[pauseIndex].unlockFlag |= CHECK_ADV_BIT(adv->rewards, trackID + ADV_REWARD_FIRST_CTR_TOKEN);
 				pauseIndex++;
 			}
 		}
@@ -198,7 +198,7 @@ void AH_Pause_Draw(int pageID, int posX)
 				ptrPauseObject->PauseMember[pauseIndex + i].indexAdvPauseInst = i;
 
 				// unlock gem
-				ptrPauseObject->PauseMember[pauseIndex + i].unlockFlag |= CHECK_ADV_BIT(adv->rewards, i + 0x6a);
+				ptrPauseObject->PauseMember[pauseIndex + i].unlockFlag |= CHECK_ADV_BIT(adv->rewards, i + ADV_REWARD_FIRST_GEM);
 			}
 		}
 		else
@@ -229,7 +229,7 @@ void AH_Pause_Draw(int pageID, int posX)
 				inst->matrix.t[1] = UI_ConvertY_2(crystalRowY + 0x2f, 0x100);
 
 				ptrPauseObject->PauseMember[pauseIndex].indexAdvPauseInst = 9 + mdLev->ctrTokenGroupID;
-				ptrPauseObject->PauseMember[pauseIndex].unlockFlag |= CHECK_ADV_BIT(adv->rewards, hubID + 0x6e);
+				ptrPauseObject->PauseMember[pauseIndex].unlockFlag |= CHECK_ADV_BIT(adv->rewards, hubID + ADV_REWARD_PURPLE_TOKEN_HUB_ID_BASE);
 			}
 		}
 	}
@@ -240,7 +240,7 @@ void AH_Pause_Draw(int pageID, int posX)
 
 		for (int i = 0; i < 0x10; i++)
 		{
-			if (CHECK_ADV_BIT(adv->rewards, (i + 0x4c)) != 0)
+			if (CHECK_ADV_BIT(adv->rewards, i + ADV_REWARD_FIRST_CTR_TOKEN) != 0)
 				tokenCount[data.metaDataLEV[i].ctrTokenGroupID]++;
 		}
 
@@ -276,15 +276,15 @@ void AH_Pause_Draw(int pageID, int posX)
 		for (int i = 0; i < 0x12; i++)
 		{
 			// platinum
-			if (CHECK_ADV_BIT(adv->rewards, (i + 0x3a)) != 0)
+			if (CHECK_ADV_BIT(adv->rewards, i + ADV_REWARD_FIRST_PLATINUM_RELIC) != 0)
 				count[2]++;
 
 			// gold
-			else if (CHECK_ADV_BIT(adv->rewards, (i + 0x28)) != 0)
+			else if (CHECK_ADV_BIT(adv->rewards, i + ADV_REWARD_FIRST_GOLD_RELIC) != 0)
 				count[1]++;
 
 			// sapphire
-			else if (CHECK_ADV_BIT(adv->rewards, (i + 0x16)) != 0)
+			else if (CHECK_ADV_BIT(adv->rewards, i + ADV_REWARD_FIRST_SAPPHIRE_RELIC) != 0)
 				count[0]++;
 		}
 

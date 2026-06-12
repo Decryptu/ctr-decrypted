@@ -30,7 +30,7 @@ void GAMEPROG_AdvPercent(struct AdvProgress *adv)
 	for (i = 0; i < 18; i++)
 	{
 		// first bit of blue relic
-		bitIndex = 0x16 + i;
+		bitIndex = ADV_REWARD_FIRST_SAPPHIRE_RELIC + i;
 		if (CHECK_ADV_BIT(adv->rewards, bitIndex) != 0)
 		{
 			gGT->currAdvProfile.numRelics++;
@@ -40,14 +40,14 @@ void GAMEPROG_AdvPercent(struct AdvProgress *adv)
 		if (i < 0x10)
 		{
 			// first bit of trophy
-			bitIndex = 6 + i;
+			bitIndex = ADV_REWARD_FIRST_TROPHY + i;
 			if (CHECK_ADV_BIT(adv->rewards, bitIndex) != 0)
 			{
 				gGT->currAdvProfile.numTrophies++;
 			}
 
 			// first bit of token
-			bitIndex = 0x4c + i;
+			bitIndex = ADV_REWARD_FIRST_CTR_TOKEN + i;
 			if (CHECK_ADV_BIT(adv->rewards, bitIndex) != 0)
 			{
 				// increment number of tokens, based on
@@ -63,14 +63,14 @@ void GAMEPROG_AdvPercent(struct AdvProgress *adv)
 		if (i < 4)
 		{
 			// first bit of key
-			bitIndex = 0x5e + i;
+			bitIndex = ADV_REWARD_FIRST_BOSS_KEY + i;
 			if (CHECK_ADV_BIT(adv->rewards, bitIndex) != 0)
 			{
 				gGT->currAdvProfile.numKeys++;
 			}
 
 			// first bit of purple tokens
-			bitIndex = 0x6f + i;
+			bitIndex = ADV_REWARD_FIRST_PURPLE_TOKEN + i;
 			if (CHECK_ADV_BIT(adv->rewards, bitIndex) != 0)
 			{
 				gGT->currAdvProfile.numCtrTokens.purple++;
@@ -81,7 +81,7 @@ void GAMEPROG_AdvPercent(struct AdvProgress *adv)
 		if (i < 5)
 		{
 			// first bit of gem
-			bitIndex = 0x6a + i;
+			bitIndex = ADV_REWARD_FIRST_GEM + i;
 			if (CHECK_ADV_BIT(adv->rewards, bitIndex) != 0)
 			{
 				numGems++;
@@ -92,7 +92,7 @@ void GAMEPROG_AdvPercent(struct AdvProgress *adv)
 		if (i < 2)
 		{
 			// first bit of beating oxide
-			bitIndex = 0x73 + i;
+			bitIndex = ADV_REWARD_BEAT_OXIDE_FIRST + i;
 			if (CHECK_ADV_BIT(adv->rewards, bitIndex) != 0)
 			{
 				oxidePercent = (i == 0) ? 2 : 3;
@@ -104,7 +104,7 @@ void GAMEPROG_AdvPercent(struct AdvProgress *adv)
 	for (i = 0; i < 18; i++)
 	{
 		// first bit of gold relic
-		bitIndex = 0x28 + i;
+		bitIndex = ADV_REWARD_FIRST_GOLD_RELIC + i;
 		if ((allGoldOrPlatinumRelics != 0) && (CHECK_ADV_BIT(adv->rewards, bitIndex) != 0))
 		{
 			// check next relic

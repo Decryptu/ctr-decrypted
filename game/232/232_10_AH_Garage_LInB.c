@@ -82,7 +82,7 @@ void AH_Garage_LInB(struct Instance *inst)
 	if (levelID == GEM_STONE_VALLEY)
 	{
 		// ripper roo boss key
-		bitIndex = STATIC_KEY;
+		bitIndex = ADV_REWARD_FIRST_BOSS_KEY;
 		// check four boss keys
 		for (i = 0; i < 4; i++)
 		{
@@ -101,7 +101,7 @@ void AH_Garage_LInB(struct Instance *inst)
 		for (i = 0; i < 4; i++)
 		{
 			// if any trophy on this hub is not unlocked
-			if (CHECK_ADV_BIT(adv->rewards, check[i] + 6) == 0)
+			if (CHECK_ADV_BIT(adv->rewards, check[i] + ADV_REWARD_FIRST_TROPHY) == 0)
 				// boss is not open
 				goto GarageLocked;
 		}

@@ -14,15 +14,15 @@ void AH_MaskHint_Start(s16 hintId, u16 bool_interruptWarppad)
 	sdata->boolDraw3D_AdvMask = 1;
 
 	struct AdvProgress *adv = &sdata->advProgress;
-	bitIndex = (int)hintId + 0x76;
+	bitIndex = (int)hintId + ADV_REWARD_FIRST_HINT;
 	UNLOCK_ADV_BIT(adv->rewards, bitIndex);
 
 	// If this is "welcome to adventure arena"
-	if (hintId == 0)
+	if (hintId == ADV_MASK_HINT_ID_WELCOME_TO_ARENA)
 	{
 		// "Using a Warppad" and "Map Information"
-		adv->rewards[3] |= 0x800000;
-		adv->rewards[4] |= 0x4000;
+		UNLOCK_ADV_BIT(adv->rewards, ADV_REWARD_HINT_USING_WARP_PAD);
+		UNLOCK_ADV_BIT(adv->rewards, ADV_REWARD_HINT_MAP_INFORMATION);
 	}
 
 	d = sdata->gGT->drivers[0];

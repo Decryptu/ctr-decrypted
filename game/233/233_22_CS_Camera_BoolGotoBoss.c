@@ -9,7 +9,7 @@ u8 CS_Camera_BoolGotoBoss(void)
 	if ((gGT->podiumRewardID == STATIC_RELIC) && (gGT->currAdvProfile.numRelics >= 18))
 	{
 		// If Oxide was not beaten twice yet
-		if ((sdata->advProgress.rewards[3] & 0x100000) == 0)
+		if (CHECK_ADV_BIT(sdata->advProgress.rewards, ADV_REWARD_BEAT_OXIDE_SECOND) == 0)
 			return 1;
 	}
 

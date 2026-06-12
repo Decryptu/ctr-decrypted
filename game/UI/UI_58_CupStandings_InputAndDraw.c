@@ -352,11 +352,10 @@ void UI_CupStandings_InputAndDraw(void)
 
 		        // If you are not in overall Cup standings
 		        ((sdata->menuReadyToPass & 8) == 0)) &&
-		    (
-		        DecalFont_DrawLine(sdata->lngStrings[LNG_PRESS_TO_CONTINUE], 0x100, 0xbe, 1, 0xffff8000),
+		    (DecalFont_DrawLine(sdata->lngStrings[LNG_PRESS_TO_CONTINUE], 0x100, 0xbe, 1, 0xffff8000),
 
-		        // If you press Cross or Circle
-		        (sdata->AnyPlayerTap & 0x50) != 0))
+		     // If you press Cross or Circle
+		     (sdata->AnyPlayerTap & 0x50) != 0))
 		{
 			// Timer
 			sdata->framesSinceRaceEnded = 0xf0;
@@ -483,7 +482,7 @@ void UI_CupStandings_InputAndDraw(void)
 					// If player 1 won the cup
 					if (data.cupPositionPerPlayer[0] == gGT->drivers[0]->driverID)
 					{
-						int bitIndex = 0x6a + i;
+						int bitIndex = ADV_REWARD_FIRST_GEM + i;
 						u32 *rewardsSet = sdata->advProgress.rewards;
 
 						if (CHECK_ADV_BIT(rewardsSet, bitIndex) == 0)
@@ -491,7 +490,7 @@ void UI_CupStandings_InputAndDraw(void)
 							UNLOCK_ADV_BIT(rewardsSet, bitIndex);
 
 							// unlock Roo, Papu, Joe, Pinstripe, FCrash
-							bitIndex = 7 + i;
+							bitIndex = GAME_UNLOCK_BIT_BOSS_CHARACTER_FIRST + i;
 							UNLOCK_ADV_BIT(sdata->gameProgress.unlocks, bitIndex);
 
 							// Set podium reward model to Gem
@@ -527,7 +526,7 @@ void UI_CupStandings_InputAndDraw(void)
 						if (difficulty > 2)
 							difficulty = 2;
 
-						int *rewardsSet = &sdata->gameProgress.unlocks[0];
+						u32 *rewardsSet = &sdata->gameProgress.unlockFlags;
 
 						int baseIndex = sdata->UnlockBitIndex.CupCompletion_prev[difficulty];
 

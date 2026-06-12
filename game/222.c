@@ -2,9 +2,6 @@
 
 enum ArcadeAdventureEndMenuConstants
 {
-	AA_FIRST_CTR_TOKEN_BIT = 0x4c,
-	AA_FIRST_BOSS_REWARD_BIT = 0x5e,
-	AA_TROPHY_REWARD_BIT_OFFSET = 6,
 	AA_SCREEN_DEPTH = 0x200,
 	AA_BIG_NUM_TARGET_SCALE = 0x1e00,
 	AA_CTR_HUD_SLOT = 0x12,
@@ -19,7 +16,7 @@ enum ArcadeAdventureEndMenuConstants
 	AA_CTR_TEXT_FLYIN_START_FRAME = 140,
 	AA_CTR_TEXT_FLYOUT_START_FRAME = 230,
 	AA_CTR_TEXT_FLYOUT_AWARD_OFFSET = 50,
-	AA_CTR_ALREADY_UNLOCKED_FLYOUT_FRAME = 300,
+	AA_CTR_ALREADY_UNLOCKED_FLYOUT_FRAME = CTR_SECONDS_TO_FRAMES(10),
 	AA_CONFIRM_BUTTON_MASK = BTN_CROSS_one | BTN_CIRCLE,
 	AA_MENU_READY_FLAG = 1,
 	AA_RACE_HUD_FLAG = 1,
@@ -28,7 +25,7 @@ enum ArcadeAdventureEndMenuConstants
 	AA_RESULT_MAX_FRAMES = CTR_SECONDS_TO_FRAMES(30),
 	AA_DRIVER_ICON_STAGGER_FRAMES = 10,
 	AA_DRIVER_ICON_SPACING = 56,
-	AA_DRIVER_ICON_EXIT_FRAME = 300,
+	AA_DRIVER_ICON_EXIT_FRAME = CTR_SECONDS_TO_FRAMES(10),
 	AA_DRIVER_ICON_SCALE = 0x1000,
 	AA_DRIVER_ICON_GRAY_CHANNEL = 0x80,
 	AA_CONTINUE_DELAY_FRAMES = 110,
@@ -37,9 +34,6 @@ enum ArcadeAdventureEndMenuConstants
 	AA_CTR_LETTER_FALL_MIN_VEL_Y = -0x14,
 	AA_KEY_BOSS_COUNT = 4,
 	AA_OXIDE_SECOND_WIN_BOSS_ID = 5,
-	AA_OXIDE_REWARD_WORD = 3,
-	AA_OXIDE_FIRST_WIN_REWARD_BITS = 0x80004,
-	AA_OXIDE_SECOND_WIN_REWARD_BITS = 0x100008,
 	AA_HUD_ELEMENTS_PER_DRIVER = 0x14,
 	AA_TIME_DISPLAY_BIG_NUM_SLOT = 2,
 	AA_TIME_DISPLAY_SUFFIX_SLOT = 5,
@@ -118,7 +112,7 @@ void AA_EndEvent_DrawMenu(void)
 			lerpFrames = AA_CTR_LETTER_FLYIN_FRAMES;
 
 			// If you have not unlocked this CTR Token
-			rewardBit = gGT->levelID + AA_FIRST_CTR_TOKEN_BIT;
+			rewardBit = gGT->levelID + ADV_REWARD_FIRST_CTR_TOKEN;
 			letterPos[0] = hudCTR->x;
 			letterPos[1] = hudCTR->y;
 			s32 letterScaleOffset;
@@ -371,7 +365,7 @@ void AA_EndEvent_DrawMenu(void)
 	    ((gGT->gameMode2 & CUP_ANY_KIND) != 0))
 	{
 		// but text near middle of screen
-		s16 pressContinueY = (numPlayers < 2) ? 0xbe : 100;
+		s16 pressContinueY = (numPlayers == 2) ? 100 : 0xbe;
 
 		DecalFont_DrawLine(sdata->lngStrings[LNG_PRESS_TO_CONTINUE], 0x100, pressContinueY, FONT_BIG, (JUSTIFY_CENTER | ORANGE));
 
@@ -453,7 +447,7 @@ void AA_EndEvent_DrawMenu(void)
 	if (gGT->gameMode1 < 0)
 	{
 		// Reward bit of key unlocked, and boss beaten.
-		rewardBit = gGT->bossID + AA_FIRST_BOSS_REWARD_BIT;
+		rewardBit = gGT->bossID + ADV_REWARD_FIRST_BOSS_KEY;
 
 		// If this is one of the four key-awarding bosses.
 		if (gGT->bossID < AA_KEY_BOSS_COUNT)
@@ -481,15 +475,10 @@ void AA_EndEvent_DrawMenu(void)
 			// with no key (0x38 = empty)
 			gGT->podiumRewardID = STATIC_BIG1;
 
-			// assume oxide beaten 1st time
-			adv->rewards[AA_OXIDE_REWARD_WORD] |= AA_OXIDE_FIRST_WIN_REWARD_BITS;
+			adv->storyFlags |= ADV_REWARD_OXIDE_FIRST_WIN_FLAGS;
 
-			// if beaten oxide 2nd time
 			if (gGT->bossID == AA_OXIDE_SECOND_WIN_BOSS_ID)
-			{
-				// beat 2nd time
-				adv->rewards[AA_OXIDE_REWARD_WORD] |= AA_OXIDE_SECOND_WIN_REWARD_BITS;
-			}
+				adv->storyFlags |= ADV_REWARD_OXIDE_SECOND_WIN_FLAGS;
 		}
 	}
 
@@ -508,7 +497,7 @@ void AA_EndEvent_DrawMenu(void)
 
 	// if trophy is not won,
 	// Dingo Bingo needs to win trophy and token in the same race
-	rewardBit = gGT->levelID + AA_TROPHY_REWARD_BIT_OFFSET;
+	rewardBit = gGT->levelID + ADV_REWARD_FIRST_TROPHY;
 	if (CHECK_ADV_BIT(adv->rewards, rewardBit) == 0)
 	{
 		// unlock tropy

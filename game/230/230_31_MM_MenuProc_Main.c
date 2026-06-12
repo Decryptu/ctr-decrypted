@@ -7,7 +7,7 @@ void MM_MenuProc_Main(struct RectMenu *mainMenu)
 	struct GameTracker *gGT = sdata->gGT;
 
 	// if scrapbook is unlocked, change "rows" to extended array
-	if ((sdata->gameProgress.unlocks[1] & 0x10) != 0)
+	if (CHECK_ADV_BIT(sdata->gameProgress.unlocks, GAME_UNLOCK_BIT_SCRAPBOOK) != 0)
 		mainMenu->rows = &D230.rowsMainMenuWithScrapbook[0];
 
 	MM_ParseCheatCodes();

@@ -100,7 +100,7 @@ void AH_WarpPad_LInB(struct Instance *inst)
 		// can we just do gGT->levelID-0x19?
 
 		// if trophy owned
-		if (CHECK_ADV_BIT(sdata->advProgress.rewards, (levelID + 6)) != 0)
+		if (CHECK_ADV_BIT(sdata->advProgress.rewards, levelID + ADV_REWARD_FIRST_TROPHY) != 0)
 		{
 		GetKeysRequirement:
 
@@ -139,7 +139,7 @@ void AH_WarpPad_LInB(struct Instance *inst)
 		// count number of gems owned
 		unlockItem_numOwned = 0;
 		for (i = 0; i < 5; i++)
-			if (CHECK_ADV_BIT(sdata->advProgress.rewards, (i + 0x6a)) != 0)
+			if (CHECK_ADV_BIT(sdata->advProgress.rewards, ADV_REWARD_FIRST_GEM + i) != 0)
 				unlockItem_numOwned++;
 	}
 
@@ -233,7 +233,7 @@ void AH_WarpPad_LInB(struct Instance *inst)
 			t->modelIndex = 2;
 
 			// if trophy not owned
-			if (CHECK_ADV_BIT(sdata->advProgress.rewards, (levelID + 6)) == 0)
+			if (CHECK_ADV_BIT(sdata->advProgress.rewards, levelID + ADV_REWARD_FIRST_TROPHY) == 0)
 			{
 				// open for trophy
 				t->modelIndex = 1;
@@ -298,7 +298,7 @@ void AH_WarpPad_LInB(struct Instance *inst)
 			}
 
 			// if relic not owned
-			if (CHECK_ADV_BIT(sdata->advProgress.rewards, (levelID + 0x16)) == 0)
+			if (CHECK_ADV_BIT(sdata->advProgress.rewards, levelID + ADV_REWARD_FIRST_SAPPHIRE_RELIC) == 0)
 			{
 				// open for relic/token
 				t->modelIndex = 3;
@@ -333,7 +333,7 @@ void AH_WarpPad_LInB(struct Instance *inst)
 			}
 
 			// if token owned
-			if (CHECK_ADV_BIT(sdata->advProgress.rewards, (levelID + 0x4c)) != 0)
+			if (CHECK_ADV_BIT(sdata->advProgress.rewards, levelID + ADV_REWARD_FIRST_CTR_TOKEN) != 0)
 				return;
 
 			tokenGroupID = data.metaDataLEV[levelID].ctrTokenGroupID;
@@ -376,7 +376,7 @@ void AH_WarpPad_LInB(struct Instance *inst)
 
 			// if relic not owned
 			if (levelID < AH_WP_NITRO_COURT)
-				if (CHECK_ADV_BIT(sdata->advProgress.rewards, (levelID + 0x16)) == 0)
+				if (CHECK_ADV_BIT(sdata->advProgress.rewards, levelID + ADV_REWARD_FIRST_SAPPHIRE_RELIC) == 0)
 				{
 					// SlideCol/TurboTrack
 					if (levelID >= AH_WP_SLIDE_COLISEUM)
@@ -436,7 +436,7 @@ void AH_WarpPad_LInB(struct Instance *inst)
 		// battle tracks
 		else if ((((u16)(levelID - AH_WP_NITRO_COURT)) < 2) || (levelID == 21) || (levelID == 23))
 		{
-			i = R232.battleTrackArr[levelID - AH_WP_NITRO_COURT] + 0x6f;
+			i = R232.battleTrackArr[levelID - AH_WP_NITRO_COURT] + ADV_REWARD_FIRST_PURPLE_TOKEN;
 
 			// already unlocked
 			t->modelIndex = 2;
@@ -476,7 +476,7 @@ void AH_WarpPad_LInB(struct Instance *inst)
 		else if (((u16)(levelID - AH_WP_ADV_CUP)) < 5)
 		{
 			// bit index of gem
-			i = (levelID - AH_WP_ADV_CUP) + 0x6a;
+			i = (levelID - AH_WP_ADV_CUP) + ADV_REWARD_FIRST_GEM;
 
 			// if gem is already unlocked, quit
 			if (CHECK_ADV_BIT(sdata->advProgress.rewards, i) != 0)

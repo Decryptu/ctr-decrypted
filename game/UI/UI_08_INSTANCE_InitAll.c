@@ -97,11 +97,12 @@ void UI_INSTANCE_InitAll(void)
 		// Get Relic Time to put in HUD
 		if (
 		    // no platinum and no gold
-		    (CHECK_ADV_BIT(sdata->advProgress.rewards, (gGT->levelID + 0x3a)) == 0) && (CHECK_ADV_BIT(sdata->advProgress.rewards, (gGT->levelID + 0x28)) == 0))
+		    (CHECK_ADV_BIT(sdata->advProgress.rewards, gGT->levelID + ADV_REWARD_FIRST_PLATINUM_RELIC) == 0) &&
+		    (CHECK_ADV_BIT(sdata->advProgress.rewards, gGT->levelID + ADV_REWARD_FIRST_GOLD_RELIC) == 0))
 		{
 			// 0 if sapphire not unlocked, (show sapphire)
 			// 1 if sapphire is unlocked (show gold)
-			relicType = CHECK_ADV_BIT(sdata->advProgress.rewards, (gGT->levelID + 0x16));
+			relicType = CHECK_ADV_BIT(sdata->advProgress.rewards, gGT->levelID + ADV_REWARD_FIRST_SAPPHIRE_RELIC);
 		}
 
 		// if unlocked gold or unlocked platinum

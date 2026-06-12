@@ -4,16 +4,11 @@ enum RelicRaceEndMenuConstants
 {
 	RR_RELIC_TIERS = 3,
 	RR_SAPPHIRE_RELIC_INDEX = 0,
-	RR_FIRST_RELIC_REWARD_BIT = 0x16,
-	RR_RELIC_REWARD_BIT_STRIDE = 0x12,
-	RR_GOLD_RELIC_REWARD_BIT = RR_FIRST_RELIC_REWARD_BIT + RR_RELIC_REWARD_BIT_STRIDE,
-	RR_PLATINUM_RELIC_REWARD_BIT = RR_FIRST_RELIC_REWARD_BIT + (RR_RELIC_REWARD_BIT_STRIDE * 2),
-	RR_TURBO_TRACK_UNLOCK_BIT = 2,
 	RR_RACE_TIME_ONE_SECOND = 0x3c0,
 	RR_RACE_TIME_TEN_SECONDS = 0x2580,
 	RR_RACE_TIME_ONE_MINUTE = 0xe100,
 	RR_RESULT_MAX_FRAMES = CTR_SECONDS_TO_FRAMES(30),
-	RR_HIGH_SCORE_REVEAL_FRAME = 510,
+	RR_HIGH_SCORE_REVEAL_FRAME = CTR_SECONDS_TO_FRAMES(17),
 	RR_MISSED_CRATE_SKIP_BASE = 21,
 	RR_MISSED_CRATE_SKIP_PERFECT_WINDOW = 59,
 	RR_MISSED_CRATE_SKIP_RELIC_WINDOW = 229,
@@ -31,7 +26,7 @@ enum RelicRaceEndMenuConstants
 	RR_COUNTDOWN_WINDOW_FRAMES = 110,
 	RR_COUNTDOWN_STEP_FRAMES = 5,
 	RR_HIGH_SCORE_BANNER_START_FRAME = 370,
-	RR_HIGH_SCORE_BANNER_HOLD_FRAMES = 120,
+	RR_HIGH_SCORE_BANNER_HOLD_FRAMES = CTR_SECONDS_TO_FRAMES(4),
 	RR_TIMEBOX_SCALE = 0x300,
 	RR_RELIC_FULL_SCALE = 0xc00,
 	RR_RELIC_GROW_STEP = 0x80,
@@ -55,19 +50,12 @@ enum RelicRaceEndMenuConstants
 	RR_HIGH_SCORE_ICON_SCALE = 0x1000,
 };
 
-global_variable s32 s_rankString223 = 0x20; // " \0"
+global_variable s32 s_rankString223 = 0x20;      // " \0"
+global_variable s32 s_timeCrateXString223 = 'x'; // "x\0"
+global_variable char s_crateCountFormat223[12] = "%2.02d/%ld";
+global_variable char s_countdownStartFormat223[4] = "-10";
+global_variable char s_countdownFormat223[4] = "-%d";
 
-// NOTE(aalhendi): Direct symbol for the retail 223 overlay entry at 0x8009f71c.
-void JunkPadding223()
-{
-	asm("nop");
-	asm("nop");
-	asm("nop");
-	asm("nop");
-	asm("nop");
-	asm("nop");
-	asm("nop");
-}
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x8009f71c-0x8009fcd0.
 void RR_EndEvent_UnlockAward(void)
 {
@@ -89,7 +77,7 @@ void RR_EndEvent_UnlockAward(void)
 		if (raceTime > relicTime)
 			continue;
 
-		s32 rewardBit = RR_FIRST_RELIC_REWARD_BIT + RR_RELIC_REWARD_BIT_STRIDE * relicIndex + levelID;
+		s32 rewardBit = ADV_REWARD_FIRST_SAPPHIRE_RELIC + ADV_REWARD_RELIC_TIER_STRIDE * relicIndex + levelID;
 
 		// if relic already unlocked, check next relic
 		if (CHECK_ADV_BIT(adv->rewards, rewardBit) != 0)
@@ -113,7 +101,7 @@ void RR_EndEvent_UnlockAward(void)
 			if (gGT->levelID == TURBO_TRACK)
 			{
 				// unlock turbo track
-				sdata->gameProgress.unlocks[0] |= RR_TURBO_TRACK_UNLOCK_BIT;
+				sdata->gameProgress.unlockFlags |= GAME_UNLOCK_TURBO_TRACK_MASK;
 			}
 
 			continue;
@@ -159,7 +147,7 @@ void RR_EndEvent_DrawMenu(void)
 	// change color
 	textColor = (gGT->timer & 1) ? 0xffff8000 : 0xffff8004;
 
-	rewardBit = gGT->levelID + RR_PLATINUM_RELIC_REWARD_BIT;
+	rewardBit = gGT->levelID + ADV_REWARD_FIRST_PLATINUM_RELIC;
 
 	// check if platinum is unlocked, set platinum color
 	if (CHECK_ADV_BIT(adv->rewards, rewardBit))
@@ -168,7 +156,7 @@ void RR_EndEvent_DrawMenu(void)
 	}
 
 	// check if gold is unlocked, set gold color
-	else if (CHECK_ADV_BIT(adv->rewards, gGT->levelID + RR_GOLD_RELIC_REWARD_BIT))
+	else if (CHECK_ADV_BIT(adv->rewards, gGT->levelID + ADV_REWARD_FIRST_GOLD_RELIC))
 	{
 		relic->colorRGBA = RR_GOLD_RELIC_COLOR;
 	}
@@ -176,16 +164,10 @@ void RR_EndEvent_DrawMenu(void)
 	CTR_SET_VEC3(sdata->ptrTimebox1->scale, RR_TIMEBOX_SCALE, RR_TIMEBOX_SCALE, RR_TIMEBOX_SCALE);
 
 	if (sdata->framesSinceRaceEnded < RR_RESULT_MAX_FRAMES)
-	{
-		// increment frame counter
 		sdata->framesSinceRaceEnded++;
-	}
 
 	if (sdata->framesSinceRaceEnded >= RR_HIGH_SCORE_REVEAL_FRAME)
-	{
-		// start drawing the high score menu that shows the top 5 best times
 		gGT->gameModeEnd |= DRAW_HIGH_SCORES;
-	}
 
 
 	// Did not get all crates, prepare skips in the menus
@@ -213,28 +195,24 @@ void RR_EndEvent_DrawMenu(void)
 	// Draw Race Clock,
 	// Reset local frame counter
 	elapsedFrames = sdata->framesSinceRaceEnded;
+	if (elapsedFrames >= RR_FLYOUT_START_FRAME)
 	{
-		if (elapsedFrames >= RR_FLYOUT_START_FRAME)
-		{
-			elapsedFrames -= RR_FLYOUT_FRAME_OFFSET;
+		elapsedFrames -= RR_FLYOUT_FRAME_OFFSET;
 
-			startX = 0x100;
-			endY = -0x32;
-		}
-
-		// 0 - 489
-		else
-		{
-			startX = -0x96;
-			endY = 0x32;
-		}
-
-
-		// interpolate fly-in
-		UI_Lerp2D_Linear(&pos[0], startX, 0x32, 0x100, endY, elapsedFrames, RR_LERP_FRAMES);
-
-		UI_DrawRaceClock(pos[0], pos[1] - 8, 1, driver);
+		startX = 0x100;
+		endY = -0x32;
 	}
+	else // 0 - 489
+	{
+		startX = -0x96;
+		endY = 0x32;
+	}
+
+
+	// interpolate fly-in
+	UI_Lerp2D_Linear(&pos[0], startX, 0x32, 0x100, endY, elapsedFrames, RR_LERP_FRAMES);
+
+	UI_DrawRaceClock(pos[0], pos[1] - 8, 1, driver);
 
 
 	// Draw Relic,
@@ -261,10 +239,8 @@ void RR_EndEvent_DrawMenu(void)
 				OtherFX_Play(RR_RELIC_AWARD_SFX, 1);
 			}
 
-			// if relic has not fully grown
 			if (relic->scale[0] < RR_RELIC_FULL_SCALE)
 			{
-				// make relic grow on x axis, y axis, and z axis
 				relic->scale[0] += RR_RELIC_GROW_STEP;
 				relic->scale[1] += RR_RELIC_GROW_STEP;
 				relic->scale[2] += RR_RELIC_GROW_STEP;
@@ -298,13 +274,8 @@ void RR_EndEvent_DrawMenu(void)
 		sdata->ptrTimebox1->matrix.t[0] = UI_ConvertX_2(pos[0], RR_SCREEN_DEPTH);
 		sdata->ptrTimebox1->matrix.t[1] = UI_ConvertY_2(pos[1], RR_SCREEN_DEPTH);
 
-		// Draw 'x' before number of crates
-		DecalFont_DrawLine("x", pos[0] + 0x14, pos[1] - 10, 2, 0);
-
-		// %2.02d/%ld: Amount of crates you collected / Total number of crates
-		sprintf(crateCountText, "%2.02d/%ld", driver->numTimeCrates, gGT->timeCratesInLEV);
-
-		// Draw amount of crates collected
+		DecalFont_DrawLine((char *)&s_timeCrateXString223, pos[0] + 0x14, pos[1] - 10, 2, 0);
+		sprintf(crateCountText, s_crateCountFormat223, driver->numTimeCrates, gGT->timeCratesInLEV);
 		DecalFont_DrawLine(crateCountText, pos[0] + 0x21, pos[1] - 0xe, 1, 0);
 	}
 
@@ -353,12 +324,8 @@ void RR_EndEvent_DrawMenu(void)
 		// fade-in COUNTDOWN (-10, -9, -8...)
 		if (elapsedFrames >= RR_COUNTDOWN_START_FRAME)
 		{
-			// -10
 			char *str = countdownText;
-			str[0] = '-';
-			str[1] = '1';
-			str[2] = '0';
-			str[3] = 0;
+			sprintf(str, s_countdownStartFormat223);
 
 			drawCountdown = 0;
 
@@ -394,7 +361,7 @@ void RR_EndEvent_DrawMenu(void)
 						OtherFX_Play(RR_COUNTDOWN_TICK_SFX, 1);
 					}
 
-					sprintf(str, "-%d", minusSeconds);
+					sprintf(str, s_countdownFormat223, minusSeconds);
 				}
 
 				// interpolate fly-in
@@ -460,7 +427,7 @@ skipRelicAwarded:
 	{
 		elapsedFrames -= RR_HIGH_SCORE_BANNER_START_FRAME;
 
-		// 120 frames after the 370 initial frames
+		// 4 seconds after the 370 initial frames
 		if (elapsedFrames >= RR_HIGH_SCORE_BANNER_HOLD_FRAMES)
 		{
 			elapsedFrames -= RR_HIGH_SCORE_BANNER_HOLD_FRAMES;
@@ -478,7 +445,6 @@ skipRelicAwarded:
 		// Interpolate fly-in
 		UI_Lerp2D_Linear(&pos[0], startX, 0x50, endX, 0x50, elapsedFrames, RR_LERP_FRAMES);
 
-		// "NEW HIGH SCORE!"
 		DecalFont_DrawLine(sdata->lngStrings[LNG_NEW_HIGH_SCORE], pos[0], pos[1], 1, textColor);
 	}
 

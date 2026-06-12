@@ -76,7 +76,7 @@ void CS_Podium_Prize_Init(u32 prizeModel, const char *prizeName, s16 *posOnScree
 	case STATIC_RELIC:
 	{
 		struct UiElement2D *hud = data.hudStructPtr[0];
-		u32 bitIndex = gGT->prevLEV + 0x3a;
+		u32 bitIndex = gGT->prevLEV + ADV_REWARD_FIRST_PLATINUM_RELIC;
 		u32 relicColor;
 
 		prize[8] = hud[0xe].x;
@@ -84,7 +84,7 @@ void CS_Podium_Prize_Init(u32 prizeModel, const char *prizeName, s16 *posOnScree
 
 		if (CHECK_ADV_BIT(sdata->advProgress.rewards, bitIndex) == 0)
 		{
-			bitIndex = gGT->prevLEV + 0x28;
+			bitIndex = gGT->prevLEV + ADV_REWARD_FIRST_GOLD_RELIC;
 
 			if (CHECK_ADV_BIT(sdata->advProgress.rewards, bitIndex) == 0)
 				relicColor = 0x20a5ff0;

@@ -26,13 +26,13 @@ void AH_Map_Main(void)
 
 	if (
 	    // if Aku Hint is not unlocked
-	    ((sdata->advProgress.rewards[3] & 0x400000) == 0) &&
+	    (CHECK_ADV_BIT(sdata->advProgress.rewards, ADV_REWARD_HINT_WELCOME_TO_ARENA) == 0) &&
 
 	    (iVar1 = RaceFlag_IsFullyOffScreen(), iVar1 != 0))
 	{
 		// Trigger Aku Hint:
 		// Welcome to Adventure Arena
-		MainFrame_RequestMaskHint(0, 0);
+		MainFrame_RequestMaskHint(ADV_MASK_HINT_ID_WELCOME_TO_ARENA, 0);
 	}
 
 

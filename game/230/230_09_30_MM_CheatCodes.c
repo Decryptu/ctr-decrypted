@@ -10,63 +10,63 @@ void MM_Cheat_MaxWumpa(void)
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800aca34-0x800aca6c.
 void MM_Cheat_UnlockRoo(void)
 {
-	sdata->gameProgress.unlocks[0] |= 0x80;
+	sdata->gameProgress.unlockFlags |= UNLOCK_ROO;
 	OtherFX_Play(0x67, 1);
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800aca6c-0x800acaa4.
 void MM_Cheat_UnlockPapu(void)
 {
-	sdata->gameProgress.unlocks[0] |= 0x100;
+	sdata->gameProgress.unlockFlags |= UNLOCK_PAPU;
 	OtherFX_Play(0x67, 1);
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800acaa4-0x800acadc.
 void MM_Cheat_UnlockJoe(void)
 {
-	sdata->gameProgress.unlocks[0] |= 0x200;
+	sdata->gameProgress.unlockFlags |= UNLOCK_JOE;
 	OtherFX_Play(0x67, 1);
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800acadc-0x800acb14.
 void MM_Cheat_UnlockPinstripe(void)
 {
-	sdata->gameProgress.unlocks[0] |= 0x400;
+	sdata->gameProgress.unlockFlags |= UNLOCK_PINSTRIPE;
 	OtherFX_Play(0x67, 1);
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800acb14-0x800acb4c.
 void MM_Cheat_UnlockFakeCrash(void)
 {
-	sdata->gameProgress.unlocks[0] |= 0x800;
+	sdata->gameProgress.unlockFlags |= UNLOCK_FAKE_CRASH;
 	OtherFX_Play(0x67, 1);
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800acb4c-0x800acb84.
 void MM_Cheat_UnlockPenta(void)
 {
-	sdata->gameProgress.unlocks[0] |= 0x40;
+	sdata->gameProgress.unlockFlags |= UNLOCK_PENTA;
 	OtherFX_Play(0x67, 1);
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800acb84-0x800acbbc.
 void MM_Cheat_UnlockTropy(void)
 {
-	sdata->gameProgress.unlocks[0] |= 0x20;
+	sdata->gameProgress.unlockFlags |= UNLOCK_TROPY;
 	OtherFX_Play(0x67, 1);
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800acbbc-0x800acbf4.
 void MM_Cheat_UnlockScrapbook(void)
 {
-	sdata->gameProgress.unlocks[1] |= 0x10;
+	UNLOCK_ADV_BIT(sdata->gameProgress.unlocks, GAME_UNLOCK_BIT_SCRAPBOOK);
 	OtherFX_Play(0x67, 1);
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800acbf4-0x800acc2c.
 void MM_Cheat_UnlockTracks(void)
 {
-	sdata->gameProgress.unlocks[0] |= 0x1e;
+	sdata->gameProgress.unlockFlags |= GAME_UNLOCK_TRACKS_MASK;
 	OtherFX_Play(0x67, 1);
 }
 

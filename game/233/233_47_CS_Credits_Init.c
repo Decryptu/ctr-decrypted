@@ -44,13 +44,13 @@ void CS_Credits_Init(void)
 	{
 		if (creditsBSS.boolAllBlue != 0)
 		{
-			bitIndex = i + 0x16;
+			bitIndex = i + ADV_REWARD_FIRST_SAPPHIRE_RELIC;
 			creditsBSS.boolAllBlue = CHECK_ADV_BIT(advProg->rewards, bitIndex);
 		}
 
 		if (boolAllGold != 0)
 		{
-			bitIndex = i + 0x28;
+			bitIndex = i + ADV_REWARD_FIRST_GOLD_RELIC;
 			boolAllGold = CHECK_ADV_BIT(advProg->rewards, bitIndex);
 		}
 	}

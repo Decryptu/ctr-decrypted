@@ -354,12 +354,9 @@ void UI_DrawRaceClock(u16 paramX, u16 paramY, u32 flags, struct Driver *driver)
 		// Level ID
 		levID = gGT->levelID;
 
-		// 3a is bit index for unlocking plat relics
-		// 28 is bit index for unlocking gold relics
-		// 16 is bit index for unlocking blue relics
-
 		// if you have gold or platinum, draw platinum
-		if ((CHECK_ADV_BIT(rewardsSet, (gGT->levelID + 0x3a)) != 0) || (CHECK_ADV_BIT(rewardsSet, (gGT->levelID + 0x28)) != 0))
+		if ((CHECK_ADV_BIT(rewardsSet, gGT->levelID + ADV_REWARD_FIRST_PLATINUM_RELIC) != 0) ||
+		    (CHECK_ADV_BIT(rewardsSet, gGT->levelID + ADV_REWARD_FIRST_GOLD_RELIC) != 0))
 		{
 		DrawPlatinum:
 			str = 200;
@@ -371,19 +368,19 @@ void UI_DrawRaceClock(u16 paramX, u16 paramY, u32 flags, struct Driver *driver)
 
 		// if no blue relic, draw blue,
 		// if owned blue relic, draw gold
-		lapIndex = CHECK_ADV_BIT(rewardsSet, (gGT->levelID + 0x16));
+		lapIndex = CHECK_ADV_BIT(rewardsSet, gGT->levelID + ADV_REWARD_FIRST_SAPPHIRE_RELIC);
 	}
 
 	// Draw (blue,gold,plat) based on which you have unlocked
 	else
 	{
 		// if owned plat, draw plat
-		if (CHECK_ADV_BIT(rewardsSet, (gGT->levelID + 0x3a)) != 0)
+		if (CHECK_ADV_BIT(rewardsSet, gGT->levelID + ADV_REWARD_FIRST_PLATINUM_RELIC) != 0)
 			goto DrawPlatinum;
 
 		// if own gold, draw gold,
 		// if own blue, draw blue
-		lapIndex = CHECK_ADV_BIT(rewardsSet, (gGT->levelID + 0x28));
+		lapIndex = CHECK_ADV_BIT(rewardsSet, gGT->levelID + ADV_REWARD_FIRST_GOLD_RELIC);
 	}
 
 	if ((lapIndex & 1) == 0)

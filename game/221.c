@@ -2,14 +2,14 @@
 
 enum CrystalChallengeEndMenuConstants
 {
-	CC_FIRST_PURPLE_TOKEN_BIT = 0x6f,
 	CC_FLY_IN_FRAMES = 0x14,
 	CC_SCREEN_DEPTH = 0x200,
 	CC_TOKEN_GROW_LIMIT = 0x2001,
 	CC_TOKEN_GROW_STEP = 0x200,
+	CC_CONFIRM_BUTTON_MASK = BTN_CROSS_one | BTN_CIRCLE,
 };
 
-global_variable const s16 s_battleTrackRewardOffset[LAB_BASEMENT - NITRO_COURT + 1] = {
+global_variable const s16 s_battleTrackPurpleTokenOffset[LAB_BASEMENT - NITRO_COURT + 1] = {
     [NITRO_COURT - NITRO_COURT] = 3,     // Citadel City
     [RAMPAGE_RUINS - NITRO_COURT] = 1,   // Lost Ruins
     [PARKING_LOT - NITRO_COURT] = -1,    // not used in any hub
@@ -43,9 +43,9 @@ void CC_EndEvent_DrawMenu()
 
 	// default logic
 	else
-		tokenRewardOffset = s_battleTrackRewardOffset[levelID - NITRO_COURT];
+		tokenRewardOffset = s_battleTrackPurpleTokenOffset[levelID - NITRO_COURT];
 
-	s32 tokenRewardBit = tokenRewardOffset + CC_FIRST_PURPLE_TOKEN_BIT;
+	s32 tokenRewardBit = tokenRewardOffset + ADV_REWARD_FIRST_PURPLE_TOKEN;
 	struct AdvProgress *adv = &sdata->advProgress;
 	b32 didLose = driver->numCrystals < gGT->numCrystalsInLEV;
 	s32 elapsedFrames = sdata->framesSinceRaceEnded;
@@ -85,7 +85,7 @@ void CC_EndEvent_DrawMenu()
 
 		DecalFont_DrawLine(sdata->lngStrings[LNG_PRESS_TO_CONTINUE], 0x100, 0xbe, FONT_BIG, (JUSTIFY_CENTER | ORANGE));
 
-		if ((sdata->AnyPlayerTap & (BTN_CROSS | BTN_CIRCLE)) == 0)
+		if ((sdata->AnyPlayerTap & CC_CONFIRM_BUTTON_MASK) == 0)
 			return;
 
 		RECTMENU_ClearInput();
@@ -126,7 +126,7 @@ void CC_EndEvent_DrawMenu()
 	DecalFont_DrawLine(sdata->lngStrings[LNG_PRESS_TO_CONTINUE], 0x100, 0xbe, FONT_BIG, (JUSTIFY_CENTER | ORANGE));
 
 	// if still waiting to press X/O, quit function
-	if ((sdata->AnyPlayerTap & (BTN_CROSS | BTN_CIRCLE)) == 0)
+	if ((sdata->AnyPlayerTap & CC_CONFIRM_BUTTON_MASK) == 0)
 		return;
 
 	// if pressed X/O,

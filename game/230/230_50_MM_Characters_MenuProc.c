@@ -146,7 +146,7 @@ void MM_Characters_MenuProc(struct RectMenu *unused)
 	case 3:
 
 		// If Fake Crash is unlocked, do not draw "Select Character"
-		if (sdata->gameProgress.unlocks[0] & 0x800)
+		if (sdata->gameProgress.unlockFlags & UNLOCK_FAKE_CRASH)
 			goto dontDrawSelectCharacter;
 
 		DecalFont_DrawLine(sdata->lngStrings[LNG_SELECT_CHARACTER_SELECT], posX + 0xfc, posY + 8, FONT_CREDITS, (JUSTIFY_CENTER | ORANGE));

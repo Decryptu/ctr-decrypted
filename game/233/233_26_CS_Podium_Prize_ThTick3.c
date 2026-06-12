@@ -46,23 +46,23 @@ void CS_Podium_Prize_ThTick3(struct Thread *th)
 
 	if (CS_Camera_BoolGotoBoss() == 0)
 	{
-		u32 rewards = sdata->advProgress.rewards[4];
+		u32 rewards = sdata->advProgress.hintFlags;
 		s16 hintID = 0;
 
-		if ((rewards & 0x4000) == 0)
-			hintID = 0x18;
-		else if ((rewards & 0x1000) == 0)
-			hintID = 0x16;
-		else if ((rewards & 0x2000) == 0)
-			hintID = 0x17;
-		else if ((rewards & 0x10) == 0)
-			hintID = 0xe;
-		else if ((rewards & 0x20) == 0)
-			hintID = 0xf;
-		else if ((rewards & 0x40) == 0)
-			hintID = 0x10;
-		else if ((rewards & 0x80) == 0)
-			hintID = 0x11;
+		if ((rewards & ADV_REWARD_HINT_MAP_INFORMATION_MASK) == 0)
+			hintID = ADV_MASK_HINT_ID_MAP_INFORMATION;
+		else if ((rewards & ADV_REWARD_HINT_WUMPA_FRUIT_MASK) == 0)
+			hintID = ADV_MASK_HINT_ID_WUMPA_FRUIT;
+		else if ((rewards & ADV_REWARD_HINT_TNT_MASK) == 0)
+			hintID = ADV_MASK_HINT_ID_TNT;
+		else if ((rewards & ADV_REWARD_HINT_HANG_TIME_TURBO_MASK) == 0)
+			hintID = ADV_MASK_HINT_ID_HANG_TIME_TURBO;
+		else if ((rewards & ADV_REWARD_HINT_POWER_SLIDE_MASK) == 0)
+			hintID = ADV_MASK_HINT_ID_POWER_SLIDE;
+		else if ((rewards & ADV_REWARD_HINT_TURBO_BOOST_MASK) == 0)
+			hintID = ADV_MASK_HINT_ID_TURBO_BOOST;
+		else if ((rewards & ADV_REWARD_HINT_BRAKE_SLIDE_MASK) == 0)
+			hintID = ADV_MASK_HINT_ID_BRAKE_SLIDE;
 
 		if (hintID != 0)
 			MainFrame_RequestMaskHint(hintID, 0);

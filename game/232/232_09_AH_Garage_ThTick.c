@@ -125,7 +125,7 @@ LAB_800aeb6c:
 	if (levelID == GEM_STONE_VALLEY)
 	{
 		// ripper roo boss key
-		bitIndex = 0x5e;
+		bitIndex = ADV_REWARD_FIRST_BOSS_KEY;
 
 		// check four boss keys
 		for (i = 0; i < 4; i++)
@@ -143,7 +143,7 @@ LAB_800aeb6c:
 		for (i = 0; i < 4; i++)
 		{
 			// if any trophy on this hub is not unlocked
-			if (CHECK_ADV_BIT(adv->rewards, check[i] + 6) == 0)
+			if (CHECK_ADV_BIT(adv->rewards, check[i] + ADV_REWARD_FIRST_TROPHY) == 0)
 				// boss is not open
 				goto LAB_800aebd0;
 		}
@@ -189,17 +189,17 @@ LAB_800aec34:
 	if (levelID == GEM_STONE_VALLEY)
 	{
 		// if hint is not unlocked "need 4 keys for oxide"
-		if ((sdata->advProgress.rewards[3] & 0x4000000) == 0)
+		if (CHECK_ADV_BIT(sdata->advProgress.rewards, ADV_REWARD_HINT_NEED_FOUR_KEYS_FOR_OXIDE) == 0)
 			// HintID: need four keys to race oxide
-			uVar8 = 4;
+			uVar8 = ADV_MASK_HINT_ID_NEED_FOUR_KEYS_FOR_OXIDE;
 	}
 	// not gemstone valley
 	else
 	{
 		//  if hint is not unlocked "to access this boss garage..."
-		if ((sdata->advProgress.rewards[3] & 0x2000000) == 0)
+		if (CHECK_ADV_BIT(sdata->advProgress.rewards, ADV_REWARD_HINT_NEED_FOUR_TROPHIES_FOR_BOSS) == 0)
 			// HintID: need four trophies to enter boss
-			uVar8 = 3;
+			uVar8 = ADV_MASK_HINT_ID_NEED_FOUR_TROPHIES_FOR_BOSS;
 	}
 
 	if (uVar8 != 0)

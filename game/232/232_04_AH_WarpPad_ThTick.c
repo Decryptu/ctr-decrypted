@@ -159,12 +159,12 @@ void AH_WarpPad_ThTick(struct Thread *t)
 			    (levelID >= AH_WP_ADV_CUP) &&
 
 			    // Dont have hint "you must have 4 tokens for a gem"
-			    ((sdata->advProgress.rewards[4] & 0x20000) == 0)
+			    (CHECK_ADV_BIT(sdata->advProgress.rewards, ADV_REWARD_HINT_GEM_CUPS_CHALLENGE) == 0)
 
 			)
 			{
 				// give hint "you must have 4 tokens for a gem"
-				MainFrame_RequestMaskHint(0x1b, 0);
+				MainFrame_RequestMaskHint(ADV_MASK_HINT_ID_GEM_CUPS_CHALLENGE, 0);
 			}
 
 			else if (
@@ -173,13 +173,13 @@ void AH_WarpPad_ThTick(struct Thread *t)
 			    (levelID < AH_WP_SLIDE_COLISEUM) &&
 
 			    // Dont have hint "you must have more trophies"
-			    ((sdata->advProgress.rewards[3] & 0x1000000) == 0) &&
+			    (CHECK_ADV_BIT(sdata->advProgress.rewards, ADV_REWARD_HINT_NEED_MORE_TROPHIES) == 0) &&
 
 			    // required item is not KEY
 			    (instArr[WPIS_CLOSED_ITEM]->model->id != STATIC_KEY))
 			{
 				// give hint for "need more trophies"
-				MainFrame_RequestMaskHint(2, 0);
+				MainFrame_RequestMaskHint(ADV_MASK_HINT_ID_NEED_MORE_TROPHIES, 0);
 			}
 
 			else if (
@@ -188,10 +188,10 @@ void AH_WarpPad_ThTick(struct Thread *t)
 			    (levelID == AH_WP_SLIDE_COLISEUM) &&
 
 			    // Dont have hint "you must have 10 relics"
-			    ((sdata->advProgress.rewards[4] & 0x40000) == 0))
+			    (CHECK_ADV_BIT(sdata->advProgress.rewards, ADV_REWARD_HINT_MUST_GET_10_RELICS) == 0))
 			{
 				// give hint for "need more trophies"
-				MainFrame_RequestMaskHint(0x1C, 0);
+				MainFrame_RequestMaskHint(ADV_MASK_HINT_ID_MUST_GET_10_RELICS, 0);
 			}
 		}
 	}
@@ -406,8 +406,8 @@ void AH_WarpPad_ThTick(struct Thread *t)
 		sdata->Loading.OnBegin.AddBitsConfig0 |= CRYSTAL_CHALLENGE;
 
 		// Dont have hint "collect every crystal"
-		if ((sdata->advProgress.rewards[4] & 0x8000) == 0)
-			MainFrame_RequestMaskHint(0x19, 1);
+		if (CHECK_ADV_BIT(sdata->advProgress.rewards, ADV_REWARD_HINT_COLLECT_EVERY_CRYSTAL) == 0)
+			MainFrame_RequestMaskHint(ADV_MASK_HINT_ID_COLLECT_EVERY_CRYSTAL, 1);
 
 		// if can't spawn aku cause he's already here,
 		// quit function, wait till he's done to start race
@@ -421,7 +421,7 @@ void AH_WarpPad_ThTick(struct Thread *t)
 
 	if (levelID < AH_WP_SLIDE_COLISEUM)
 	{
-		if (CHECK_ADV_BIT(sdata->advProgress.rewards, (levelID + 6)) != 0)
+		if (CHECK_ADV_BIT(sdata->advProgress.rewards, levelID + ADV_REWARD_FIRST_TROPHY) != 0)
 		{
 			if (gGT->currAdvProfile.numTrophies >= data.metaDataLEV[levelID].numTrophiesToOpen)
 			{
@@ -433,7 +433,7 @@ void AH_WarpPad_ThTick(struct Thread *t)
 				{
 					if ((gGT->gameMode1 & ADVENTURE_ARENA) != 0)
 					{
-						D232.menuTokenRelic.rowSelected = (CHECK_ADV_BIT(sdata->advProgress.rewards, (levelID + 0x4c)) != 0);
+						D232.menuTokenRelic.rowSelected = (CHECK_ADV_BIT(sdata->advProgress.rewards, levelID + ADV_REWARD_FIRST_CTR_TOKEN) != 0);
 
 						RECTMENU_Show(&D232.menuTokenRelic);
 
@@ -447,14 +447,14 @@ void AH_WarpPad_ThTick(struct Thread *t)
 					goto WarpPad_TrophyAnimateOnly;
 
 				// Relic Hint
-				i = 0x1d;
+				i = ADV_MASK_HINT_ID_RELIC_CHALLENGE;
 
 				// CTR Token Hint
 				if ((gGT->gameMode2 & 8) != 0)
-					i = 0x1a;
+					i = ADV_MASK_HINT_ID_CTR_TOKEN_CHALLENGE;
 
 				// if hint is locked
-				if (CHECK_ADV_BIT(sdata->advProgress.rewards, (i + 0x76)) == 0)
+				if (CHECK_ADV_BIT(sdata->advProgress.rewards, ADV_REWARD_FIRST_HINT + i) == 0)
 					MainFrame_RequestMaskHint(i, 1);
 
 				// if can't spawn aku cause he's already here,
@@ -476,9 +476,9 @@ void AH_WarpPad_ThTick(struct Thread *t)
 		}
 	}
 
-	if (CHECK_ADV_BIT(sdata->advProgress.rewards, (levelID + 6)) != 0)
+	if (CHECK_ADV_BIT(sdata->advProgress.rewards, levelID + ADV_REWARD_FIRST_TROPHY) != 0)
 	{
-		i = data.metaDataLEV[levelID].hubID + 0x5d;
+		i = data.metaDataLEV[levelID].hubID + ADV_REWARD_BOSS_KEY_HUB_ID_BASE;
 
 		if (CHECK_ADV_BIT(sdata->advProgress.rewards, i) == 0)
 			goto WarpPad_AnimateOpen;

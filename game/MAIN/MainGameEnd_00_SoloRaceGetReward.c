@@ -83,6 +83,6 @@ void MainGameEnd_SoloRaceGetReward(int subtractTimeCrateBonus)
 CheckOxideAllTracks:
 	if ((GAMEPROG_CheckGhostsBeaten(2) & 0xffff) != 0)
 	{
-		sdata->gameProgress.unlocks[1] |= 0x10;
+		UNLOCK_ADV_BIT(sdata->gameProgress.unlocks, GAME_UNLOCK_BIT_SCRAPBOOK);
 	}
 }

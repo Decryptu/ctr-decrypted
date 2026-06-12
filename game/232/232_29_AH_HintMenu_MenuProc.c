@@ -27,7 +27,7 @@ void AH_HintMenu_MenuProc(struct RectMenu *menu)
 	MainFreeze_SafeAdvDestroy();
 
 	iVar10 = 0;
-	sdata->advProgress.rewards[3] |= 0x400000;
+	UNLOCK_ADV_BIT(sdata->advProgress.rewards, ADV_REWARD_HINT_WELCOME_TO_ARENA);
 
 	int numHintsFound = 0;
 
@@ -37,7 +37,7 @@ void AH_HintMenu_MenuProc(struct RectMenu *menu)
 	for (/**/; *ptrLngID > -1; ptrLngID++, i++)
 	{
 		int hintID = (ptrLngID[0] - 0x17b) / 2;
-		int bitIndex = hintID + 0x76;
+		int bitIndex = hintID + ADV_REWARD_FIRST_HINT;
 
 		if (CHECK_ADV_BIT(sdata->advProgress.rewards, bitIndex) != 0)
 		{

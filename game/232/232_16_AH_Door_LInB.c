@@ -139,20 +139,20 @@ void AH_Door_LInB(struct Instance *inst)
 	headers->flags |= 2;
 
 	if (
-	    // Level ID is N Sanity Beach, check door to Gemstone Valley
-	    (levelID == N_SANITY_BEACH && woodDoor->doorID == 4 && ((sdata->advProgress.rewards[3] & 0x40) != 0)) ||
-
 	    // Level ID is N Sanity Beach, check door to Glacier Park
-	    (levelID == N_SANITY_BEACH && woodDoor->doorID == 5 && ((sdata->advProgress.rewards[3] & 0x10) != 0)) ||
+	    (levelID == N_SANITY_BEACH && woodDoor->doorID == 4 && ((sdata->advProgress.storyFlags & ADV_REWARD_DOOR_BEACH_TO_GLACIER_PARK_MASK) != 0)) ||
+
+	    // Level ID is N Sanity Beach, check door to Gemstone Valley
+	    (levelID == N_SANITY_BEACH && woodDoor->doorID == 5 && ((sdata->advProgress.storyFlags & ADV_REWARD_DOOR_BEACH_TO_GEMSTONE_VALLEY_MASK) != 0)) ||
 
 	    // Level ID is Gemstone Valley, check door to Cup room
-	    (levelID == GEM_STONE_VALLEY && ((sdata->advProgress.rewards[3] & 0x20) != 0)) ||
+	    (levelID == GEM_STONE_VALLEY && ((sdata->advProgress.storyFlags & ADV_REWARD_DOOR_GEMSTONE_VALLEY_TO_CUPS_MASK) != 0)) ||
 
 	    // Level ID is Lost Ruins, check door to Glacier Park
-	    (levelID == THE_LOST_RUINS && ((sdata->advProgress.rewards[3] & 0x80) != 0)) ||
+	    (levelID == THE_LOST_RUINS && ((sdata->advProgress.storyFlags & ADV_REWARD_DOOR_LOST_RUINS_TO_GLACIER_PARK_MASK) != 0)) ||
 
 	    // Level ID is Glacier Park, check door to Citadel City
-	    (levelID == GLACIER_PARK) && ((sdata->advProgress.rewards[3] & 0x100) != 0))
+	    (levelID == GLACIER_PARK) && ((sdata->advProgress.storyFlags & ADV_REWARD_DOOR_GLACIER_PARK_TO_CITADEL_CITY_MASK) != 0))
 	{
 		// rotation = 90 degrees
 		woodDoor->doorRot[1] = 0x400;

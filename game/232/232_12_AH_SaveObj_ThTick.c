@@ -52,10 +52,10 @@ void AH_SaveObj_ThTick(struct Thread *t)
 		}
 
 		// If hint is not unlocked
-		if ((sdata->advProgress.rewards[3] & 0x10000000) == 0)
+		if (CHECK_ADV_BIT(sdata->advProgress.rewards, ADV_REWARD_HINT_SAVE_LOAD_SCREEN) == 0)
 		{
 			// Aku Hint "This is the load/save screen..."
-			MainFrame_RequestMaskHint(6, 0);
+			MainFrame_RequestMaskHint(ADV_MASK_HINT_ID_SAVE_LOAD_SCREEN, 0);
 		}
 
 		if ((driver->speed < 0x80) &&

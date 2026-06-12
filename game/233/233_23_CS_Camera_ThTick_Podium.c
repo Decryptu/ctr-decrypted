@@ -165,7 +165,7 @@ void CS_Camera_ThTick_Podium(struct Thread *th)
 		gGT->gameMode1 &= ~ADVENTURE_ARENA;
 		gGT->gameMode2 &= ~VEH_FREEZE_PODIUM;
 
-		MainRaceTrack_RequestLoad((sdata->advProgress.rewards[2] & 0x100000) ? OXIDE_TRUE_ENDING : OXIDE_ENDING);
+		MainRaceTrack_RequestLoad(CHECK_ADV_BIT(sdata->advProgress.rewards, ADV_REWARD_BEAT_OXIDE_SECOND) ? OXIDE_TRUE_ENDING : OXIDE_ENDING);
 		return;
 	}
 

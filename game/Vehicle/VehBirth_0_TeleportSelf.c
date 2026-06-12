@@ -46,11 +46,11 @@ static int VehBirth_ShouldSpawnOutsideBoss(struct GameTracker *gGT)
 	{
 		int trackID = data.advHubTrackIDs[base + i];
 
-		if (CHECK_ADV_BIT(sdata->advProgress.rewards, trackID + 6) == 0)
+		if (CHECK_ADV_BIT(sdata->advProgress.rewards, trackID + ADV_REWARD_FIRST_TROPHY) == 0)
 			return 0;
 	}
 
-	if (CHECK_ADV_BIT(sdata->advProgress.rewards, gGT->levelID + 0x44) != 0)
+	if (CHECK_ADV_BIT(sdata->advProgress.rewards, gGT->levelID - N_SANITY_BEACH + ADV_REWARD_FIRST_BOSS_KEY) != 0)
 		return 0;
 
 	return 1;
