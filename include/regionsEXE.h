@@ -7,6 +7,14 @@ struct MatrixND
 	int t[3];
 };
 
+typedef enum ScrubFlags : u32
+{
+	SCRUB_FLAG_APPLY_IMPACT = 0x1,
+	SCRUB_FLAG_SLAM_ON_HARD_IMPACT = 0x2,
+	SCRUB_FLAG_SKIP_WALL_RUB_TIMER = 0x4,
+	SCRUB_FLAG_KEEP_RESERVES = 0x8,
+} ScrubFlags;
+
 struct Scrub
 {
 	// see FUN_80020c58
@@ -15,18 +23,14 @@ struct Scrub
 	char *name;
 
 	// 0x4
-	// & 1
-	// & 2
-	// & 4 - dont count time rubbing on wall
-	// & 8 - dont reset reserves
-	u32 flags;
+	ScrubFlags flags;
 
 	// 0x8
-	int unk_0x8;
+	int speedLimit;
 
 	// 0xC
 	// given to trig table
-	int unk_angle;
+	int impactAngle;
 
 	// last valid index is 6, so 7 elements
 };
@@ -5059,6 +5063,15 @@ struct sData *sdata = &sdata_static;
 // 801ff800 - 80200000
 
 _Static_assert(sizeof(struct Terrain) == 0x40);
+_Static_assert(sizeof(struct Scrub) == 0x10);
+_Static_assert(sizeof(ScrubFlags) == 0x4);
+_Static_assert(SCRUB_FLAG_APPLY_IMPACT == 0x1);
+_Static_assert(SCRUB_FLAG_SLAM_ON_HARD_IMPACT == 0x2);
+_Static_assert(SCRUB_FLAG_SKIP_WALL_RUB_TIMER == 0x4);
+_Static_assert(SCRUB_FLAG_KEEP_RESERVES == 0x8);
+_Static_assert(offsetof(struct Scrub, flags) == 0x4);
+_Static_assert(offsetof(struct Scrub, speedLimit) == 0x8);
+_Static_assert(offsetof(struct Scrub, impactAngle) == 0xC);
 _Static_assert(sizeof(struct MetaDataLEV) == 0x18);
 _Static_assert(sizeof(struct MetaDataMODEL) == 0xC);
 

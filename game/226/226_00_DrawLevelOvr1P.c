@@ -9258,7 +9258,7 @@ static int DrawLevelOvr1P_DrawWaterListQuadBlock(struct PushBuffer *pb, struct P
 	struct LevVertex *vertices = mesh->ptrVertexArray;
 	struct DrawLevelOvr1PScratchVertex *projected = DrawLevelOvr1P_GetScratchVertices();
 
-	if ((block->quadFlags & 0x8000) != 0)
+	if ((block->quadFlags & QUADBLOCK_FLAG_SKIP_WATER_LIST) != 0)
 		return 1;
 
 	if (DrawLevelOvr1P_ProjectQuadBlockGrid(vertices, block, projected, DRAW_LEVEL_OVR1P_CLIP_BYTES_LIST))

@@ -136,11 +136,11 @@ void VehBirth_TeleportSelf(struct Driver *d, u8 spawnFlag, int spawnPosY)
 
 	dInst = d->instSelf;
 
-	sps->Union.QuadBlockColl.qbFlagsWanted = 0x3000;
-	sps->Union.QuadBlockColl.qbFlagsIgnored = 0;
+	sps->Union.QuadBlockColl.quadFlagsWanted = QUADBLOCK_FLAG_GROUND | QUADBLOCK_FLAG_COLLISION_SURFACE;
+	sps->Union.QuadBlockColl.quadFlagsIgnored = 0;
 	sps->Union.QuadBlockColl.searchFlags = 0;
 	if (gGT->numPlyrCurrGame < 3)
-		sps->Union.QuadBlockColl.searchFlags = 2;
+		sps->Union.QuadBlockColl.searchFlags = COLL_SEARCH_HIGH_LOD;
 	sps->ptr_mesh_info = level1->ptr_mesh_info;
 
 	gGT->gameMode2 &= ~VEH_FREEZE_DOOR;
@@ -208,45 +208,35 @@ void VehBirth_TeleportSelf(struct Driver *d, u8 spawnFlag, int spawnPosY)
 		// search for ground and wall flags,
 		// exclude no flags (take 'any' ground/wall)
 		// collision triangles, 2 (low-LOD), 8 (hi-LOD)
-		COLL_SearchBSP_CallbackQUADBLK(&posTop[0], &posBottom[0], sps, 0);
+		COLL_SearchBSP_CallbackQUADBLK(posTop, posBottom, sps, 0);
 
 		// if collision was not found
 		if (sps->boolDidTouchQuadblock == 0)
 		{
-			d->AxisAngle3_normalVec[0] = 0;
-			d->AxisAngle3_normalVec[1] = 0x1000;
-			d->AxisAngle3_normalVec[2] = 0;
+			d->AxisAngle3_normalVec = (SVec3){.x = 0, .y = FP_ONE, .z = 0};
 		}
 		// if it was found
 		else
 		{
-			d->AxisAngle3_normalVec[0] = sps->Set2.normalVec[0];
-			d->AxisAngle3_normalVec[1] = sps->Set2.normalVec[1];
-			d->AxisAngle3_normalVec[2] = sps->Set2.normalVec[2];
-			d->lastValid = sps->Set2.ptrQuadblock;
+			d->AxisAngle3_normalVec = sps->hit.plane.normal;
+			d->lastValid = sps->hit.ptrQuadblock;
 		}
 
 		// set all normal vectors to spawn
-		d->AxisAngle1_normalVec.x = d->AxisAngle3_normalVec[0];
-		d->AxisAngle2_normalVec[0] = d->AxisAngle3_normalVec[0];
-		d->AxisAngle1_normalVec.y = d->AxisAngle3_normalVec[1];
-		d->AxisAngle2_normalVec[1] = d->AxisAngle3_normalVec[1];
-		d->AxisAngle1_normalVec.z = d->AxisAngle3_normalVec[2];
-		d->AxisAngle2_normalVec[2] = d->AxisAngle3_normalVec[2];
+		d->AxisAngle1_normalVec = d->AxisAngle3_normalVec;
+		d->AxisAngle2_normalVec = d->AxisAngle3_normalVec;
 
 		// for (int i = 0; i < 1; i++) // maybe this is done two times, because it was a do-while?
 		{
 			// set normal vector to spawn
-			d->AxisAngle4_normalVec[0] = d->AxisAngle2_normalVec[0];
-			d->AxisAngle4_normalVec[1] = d->AxisAngle2_normalVec[1];
-			d->AxisAngle4_normalVec[2] = d->AxisAngle2_normalVec[2];
+			d->AxisAngle4_normalVec = d->AxisAngle2_normalVec;
 			// iVar9 = iVar9 + 8;
 		}
 
 		// player structure X, Y, Z
-		d->posCurr.x = (int)(sps->Union.QuadBlockColl.hitPos[0]) << 8;
-		d->posCurr.y = (int)(sps->Union.QuadBlockColl.hitPos[1] + spawnPosY) * 0x100;
-		d->posCurr.z = (int)(sps->Union.QuadBlockColl.hitPos[2]) << 8;
+		d->posCurr.x = (int)(sps->Union.QuadBlockColl.hitPos.x) << 8;
+		d->posCurr.y = (int)(sps->Union.QuadBlockColl.hitPos.y + spawnPosY) * 0x100;
+		d->posCurr.z = (int)(sps->Union.QuadBlockColl.hitPos.z) << 8;
 
 		// duplicate of coordinate variables
 		d->posPrev.x = d->posCurr.x;
@@ -254,7 +244,7 @@ void VehBirth_TeleportSelf(struct Driver *d, u8 spawnFlag, int spawnPosY)
 		d->posPrev.z = d->posCurr.z;
 
 		// save quadblock height
-		d->quadBlockHeight = (int)sps->Union.QuadBlockColl.hitPos[1] << 8;
+		d->quadBlockHeight = (int)sps->Union.QuadBlockColl.hitPos.y << 8;
 	}
 
 	if ((spawnFlag & 1) != 0)
@@ -594,7 +584,7 @@ void VehBirth_TireSprites(struct Thread *t)
 	d->unk47B = 2;
 
 	d->AxisAngle1_normalVec.y = 0x1000;
-	d->AxisAngle2_normalVec[1] = 0x1000;
+	d->AxisAngle2_normalVec.y = 0x1000;
 	d->unk412 = 0x600;
 	d->numFramesSpentSteering = 10000;
 

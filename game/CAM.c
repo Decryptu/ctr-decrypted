@@ -722,7 +722,7 @@ void CAM_FindClosestQuadblock(s16 *scratchpad, struct CameraDC *cDC, struct Driv
 
 static void CAM_StartLine_FlyIn_FixY_SetPoint(u32 point[2], s16 x, s16 y, s16 z)
 {
-	point[0] = (u16)x | ((u32)(u16)y << 0x10);
+	point[0] = CTR_PackS16Pair(x, y);
 	point[1] = (u16)z;
 }
 
@@ -735,9 +735,9 @@ void CAM_StartLine_FlyIn_FixY(s16 *posRot)
 	u32 posBottom[2];
 	int i;
 
-	sps->Union.QuadBlockColl.qbFlagsWanted = 0x3000;
-	sps->Union.QuadBlockColl.qbFlagsIgnored = 0;
-	sps->Union.QuadBlockColl.searchFlags = 2;
+	sps->Union.QuadBlockColl.quadFlagsWanted = QUADBLOCK_FLAG_GROUND | QUADBLOCK_FLAG_COLLISION_SURFACE;
+	sps->Union.QuadBlockColl.quadFlagsIgnored = 0;
+	sps->Union.QuadBlockColl.searchFlags = COLL_SEARCH_HIGH_LOD;
 	sps->ptr_mesh_info = sdata->gGT->level1->ptr_mesh_info;
 
 	pos[0] = posRot[0];
@@ -755,9 +755,7 @@ void CAM_StartLine_FlyIn_FixY(s16 *posRot)
 
 		if (sps->boolDidTouchQuadblock != 0)
 		{
-			pos[0] = sps->Union.QuadBlockColl.hitPos[0];
-			pos[1] = sps->Union.QuadBlockColl.hitPos[1];
-			pos[2] = sps->Union.QuadBlockColl.hitPos[2];
+			CTR_COPY_VEC3(pos, sps->Union.QuadBlockColl.hitPos.v);
 			break;
 		}
 	}
@@ -801,9 +799,9 @@ void CAM_FollowDriver_AngleAxis(struct CameraDC *cDC, struct Driver *d, int scra
 
 	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80019128-0x800194c8.
 	if (cDC->cameraMode == 0xe)
-		VehPhysForce_RotAxisAngle(axisMatrix, d->AxisAngle2_normalVec, d->angle);
+		VehPhysForce_RotAxisAngle(axisMatrix, d->AxisAngle2_normalVec.v, d->angle);
 	else
-		VehPhysForce_RotAxisAngle(axisMatrix, d->AxisAngle2_normalVec, d->rotCurr.y);
+		VehPhysForce_RotAxisAngle(axisMatrix, d->AxisAngle2_normalVec.v, d->rotCurr.y);
 
 	CAM_FollowDriver_AngleAxis_LoadGteMatrix(axisMatrix, d);
 	CAM_FollowDriver_AngleAxis_TransformOffset(cDC->driverOffset_CamEyePos, eye);
@@ -1785,11 +1783,6 @@ LAB_8001ab04:
 	return;
 }
 
-static u32 CAM_MapRange_PackS16Pair(s32 lo, s32 hi)
-{
-	return (u16)lo | ((u32)(u16)hi << 16);
-}
-
 int CAM_MapRange_PosPoints(s16 *pos1, s16 *pos2, s16 *currPos)
 {
 	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8001b254-0x8001b334.
@@ -1805,7 +1798,7 @@ int CAM_MapRange_PosPoints(s16 *pos1, s16 *pos2, s16 *currPos)
 	currDelta.y = currPos[1] - pos1[1];
 	currDelta.z = currPos[2] - pos1[2];
 
-	CTC2(CAM_MapRange_PackS16Pair(pathDelta.x, pathDelta.y), 0);
+	CTC2(CTR_PackS16Pair(pathDelta.x, pathDelta.y), 0);
 	CTC2((s32)pathDelta.z, 1);
 	gte_ldv0(&currDelta);
 	gte_mvmva(0, 0, 0, 3, 0);

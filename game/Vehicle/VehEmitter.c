@@ -301,9 +301,9 @@ void VehEmitter_Sparks_Wall(struct Driver *d, struct ParticleEmitter *emSet)
 	gte_SetLightMatrix3x2(&matrix[0]);
 
 	// dist4 is actual distance
-	distIn4[0] = (d->posWallColl[0] * 0x100) - d->posCurr.x;
-	distIn4[1] = (d->posWallColl[1] * 0x100) - d->posCurr.y;
-	distIn4[2] = (d->posWallColl[2] * 0x100) - d->posCurr.z;
+	distIn4[0] = (d->posWallColl.x * 0x100) - d->posCurr.x;
+	distIn4[1] = (d->posWallColl.y * 0x100) - d->posCurr.y;
+	distIn4[2] = (d->posWallColl.z * 0x100) - d->posCurr.z;
 
 	gte_ldv0(&distIn4[0]);
 	gte_llv0();
@@ -518,7 +518,7 @@ static void VehEmitter_TerrainEffects(struct Thread *thread, struct Driver *d, s
 	int wallSound = 0x14;
 	s32 engineVol = (s16)d->engineVol;
 
-	if ((d->set_0xF0_OnWallRub == 0xf0) && (d->kartState != KS_MASK_GRABBED))
+	if ((d->wallRubTimer == 0xf0) && (d->kartState != KS_MASK_GRABBED))
 	{
 		VehEmitter_SetRotTransMatrix(m);
 		VehEmitter_Sparks_Wall(d, &data.emSet_WallSparks[0]);
@@ -529,7 +529,7 @@ static void VehEmitter_TerrainEffects(struct Thread *thread, struct Driver *d, s
 	}
 	else
 	{
-		if (d->set_0xF0_OnWallRub == 0)
+		if (d->wallRubTimer == 0)
 			d->frameAgainstWall = 0;
 
 		engineVol -= 0x14;

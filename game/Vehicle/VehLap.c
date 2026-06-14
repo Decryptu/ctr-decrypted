@@ -1,10 +1,5 @@
 #include <common.h>
 
-static u32 VehLap_UpdateProgress_PackS16Pair(s32 lo, s32 hi)
-{
-	return (u16)lo | ((u32)(u16)hi << 16);
-}
-
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005ca24-0x8005cd1c
 void VehLap_UpdateProgress(struct Driver *driver)
 {
@@ -50,9 +45,9 @@ void VehLap_UpdateProgress(struct Driver *driver)
 	s16 deltaY = (driver->posCurr.y >> 8) - progressNode->pos[1];
 	s16 deltaZ = (driver->posCurr.z >> 8) - progressNode->pos[2];
 
-	CTC2(VehLap_UpdateProgress_PackS16Pair(deltaX, deltaY), 0);
-	CTC2(VehLap_UpdateProgress_PackS16Pair(deltaZ, driver->matrixMovingDir.m[0][2] >> 5), 1);
-	CTC2(VehLap_UpdateProgress_PackS16Pair(driver->matrixMovingDir.m[1][2] >> 5, driver->matrixMovingDir.m[2][2] >> 5), 2);
+	CTC2(CTR_PackS16Pair(deltaX, deltaY), 0);
+	CTC2(CTR_PackS16Pair(deltaZ, driver->matrixMovingDir.m[0][2] >> 5), 1);
+	CTC2(CTR_PackS16Pair(driver->matrixMovingDir.m[1][2] >> 5, driver->matrixMovingDir.m[2][2] >> 5), 2);
 
 	gte_ldv0(&nodeDelta);
 	gte_mvmva(0, 0, 0, 3, 0);

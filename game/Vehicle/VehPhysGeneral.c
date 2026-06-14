@@ -409,7 +409,7 @@ int VehPhysGeneral_LerpToForwards(struct Driver *d, int param_2, int param_3, in
 	}
 	iVar3 = 0;
 
-	if (d->set_0xF0_OnWallRub != 0xf0)
+	if (d->wallRubTimer != 0xf0)
 	{
 		if (param_4 < param_2)
 		{
@@ -491,16 +491,11 @@ static int VehPhysGeneral_Jump_Div4TowardZero(int value)
 	return CTR_MipsSra(value, 2);
 }
 
-static u32 VehPhysGeneral_Jump_PackS16Pair(s32 lo, s32 hi)
-{
-	return ((u32)(u16)lo) | ((u32)(u16)hi << 16);
-}
-
 static Vec3 VehPhysGeneral_Jump_RotateLoadedVector(s16 vx, s16 vy, s16 vz)
 {
 	Vec3 out;
 
-	MTC2(VehPhysGeneral_Jump_PackS16Pair(vx, vy), 0);
+	MTC2(CTR_PackS16Pair(vx, vy), 0);
 	MTC2((u32)(u16)vz, 1);
 	gte_mvmva(1, 0, 0, 3, 0);
 	out.x = MFC2_S(25);
@@ -542,16 +537,16 @@ void VehPhysGeneral_JumpAndFriction(struct Thread *t, struct Driver *d)
 		}
 	}
 
-	if (d->set_0xF0_OnWallRub != 0)
+	if (d->wallRubTimer != 0)
 	{
-		if (d->scrubMeta8 < d->baseSpeed)
+		if (d->wallRubSpeedLimit < d->baseSpeed)
 		{
-			d->baseSpeed = d->scrubMeta8;
+			d->baseSpeed = d->wallRubSpeedLimit;
 		}
 
-		if (d->baseSpeed < CTR_MipsNegLo(d->scrubMeta8))
+		if (d->baseSpeed < CTR_MipsNegLo(d->wallRubSpeedLimit))
 		{
-			d->baseSpeed = (s16)CTR_MipsNegLo(d->scrubMeta8);
+			d->baseSpeed = (s16)CTR_MipsNegLo(d->wallRubSpeedLimit);
 		}
 	}
 
@@ -749,7 +744,7 @@ PROCESS_JUMP:
 	d->actionsFlagSet |= 0x480;
 
 	int bestJumpVelY = 0;
-	int jumpVelY = VehPhysGeneral_JumpGetVelY(d->AxisAngle4_normalVec, &movement);
+	int jumpVelY = VehPhysGeneral_JumpGetVelY(d->AxisAngle4_normalVec.v, &movement);
 	if (VehPhysGeneral_Jump_Abs(bestJumpVelY) < VehPhysGeneral_Jump_Abs(jumpVelY))
 	{
 		bestJumpVelY = jumpVelY;
@@ -758,7 +753,7 @@ PROCESS_JUMP:
 	s16 *normalVec = d->AxisAngle1_normalVec.v;
 	if ((d->actionsFlagSet & ACTION_TOUCH_GROUND) == 0)
 	{
-		normalVec = d->AxisAngle2_normalVec;
+		normalVec = d->AxisAngle2_normalVec.v;
 	}
 
 	jumpVelY = VehPhysGeneral_JumpGetVelY(normalVec, &movement);

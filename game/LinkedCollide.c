@@ -77,8 +77,8 @@ struct Instance *LinkedCollide_Hitbox(struct Instance *objInst, struct Thread *_
 
 		RotTrans(&thInstPos, &outVec, (long *)flags);
 
-		if ((bbox.min[0] < outVec.vx) && (outVec.vx < bbox.max[0]) && (bbox.min[2] < outVec.vz) && (outVec.vz < bbox.max[2]) && (bbox.min[1] <= diff_y) &&
-		    (diff_y < bbox.max[1]))
+		if ((bbox.min.x < outVec.vx) && (outVec.vx < bbox.max.x) && (bbox.min.z < outVec.vz) && (outVec.vz < bbox.max.z) && (bbox.min.y <= diff_y) &&
+		    (diff_y < bbox.max.y))
 		{
 			return thInst; // collision thread instance
 		}

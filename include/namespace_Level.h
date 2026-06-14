@@ -155,13 +155,45 @@ struct PVS
 	int *visExtraSrc;
 };
 
+typedef s16 BspChildId;
+
+typedef enum QuadBlockFlags : u16
+{
+	QUADBLOCK_FLAG_REFLECT_SPLIT_LINE_1 = 0x0001,
+	QUADBLOCK_FLAG_LOW_GRAVITY = 0x0002,
+	QUADBLOCK_FLAG_REFLECT_SPLIT_LINE_0 = 0x0004,
+	QUADBLOCK_FLAG_NO_COLLISION_RESPONSE = 0x0010,
+	QUADBLOCK_FLAG_TRIGGER = 0x0040,
+	QUADBLOCK_FLAG_ENGINE_ECHO = 0x0080,
+	QUADBLOCK_FLAG_KILL_PLANE = 0x0200,
+	QUADBLOCK_FLAG_DOOR = 0x0400,
+	QUADBLOCK_FLAG_GROUND = 0x1000,
+	QUADBLOCK_FLAG_COLLISION_SURFACE = 0x2000,
+	QUADBLOCK_FLAG_NO_CAMERA_RESPAWN_PROBE = 0x4000,
+	QUADBLOCK_FLAG_SKIP_WATER_LIST = 0x8000,
+} QuadBlockFlags;
+
+enum QuadBlockTriNormalDividendIndex
+{
+	QUADBLOCK_TRI_NORMAL_DIVIDEND_HI_0 = 0,
+	QUADBLOCK_TRI_NORMAL_DIVIDEND_HI_1 = 1,
+	QUADBLOCK_TRI_NORMAL_DIVIDEND_HI_2 = 2,
+	QUADBLOCK_TRI_NORMAL_DIVIDEND_HI_3 = 3,
+	QUADBLOCK_TRI_NORMAL_DIVIDEND_HI_4 = 4,
+	QUADBLOCK_TRI_NORMAL_DIVIDEND_HI_5 = 5,
+	QUADBLOCK_TRI_NORMAL_DIVIDEND_HI_6 = 6,
+	QUADBLOCK_TRI_NORMAL_DIVIDEND_HI_7 = 7,
+	QUADBLOCK_TRI_NORMAL_DIVIDEND_LO_0 = 8,
+	QUADBLOCK_TRI_NORMAL_DIVIDEND_LO_1 = 9,
+};
+
 struct QuadBlock
 {
 	// 0x0
 	s16 index[9];
 
 	// 0x12
-	u16 quadFlags;
+	QuadBlockFlags quadFlags;
 
 	// 0x14
 	// todo: this is a packed bit value
@@ -227,9 +259,28 @@ struct QuadBlock
 };
 
 _Static_assert(sizeof(struct QuadBlock) == 0x5c);
+_Static_assert(sizeof(QuadBlockFlags) == 0x2);
+_Static_assert(QUADBLOCK_FLAG_REFLECT_SPLIT_LINE_1 == 0x0001);
+_Static_assert(QUADBLOCK_FLAG_LOW_GRAVITY == 0x0002);
+_Static_assert(QUADBLOCK_FLAG_REFLECT_SPLIT_LINE_0 == 0x0004);
+_Static_assert(QUADBLOCK_FLAG_NO_COLLISION_RESPONSE == 0x0010);
+_Static_assert(QUADBLOCK_FLAG_TRIGGER == 0x0040);
+_Static_assert(QUADBLOCK_FLAG_ENGINE_ECHO == 0x0080);
+_Static_assert(QUADBLOCK_FLAG_KILL_PLANE == 0x0200);
+_Static_assert(QUADBLOCK_FLAG_DOOR == 0x0400);
+_Static_assert(QUADBLOCK_FLAG_GROUND == 0x1000);
+_Static_assert(QUADBLOCK_FLAG_COLLISION_SURFACE == 0x2000);
+_Static_assert(QUADBLOCK_FLAG_NO_CAMERA_RESPAWN_PROBE == 0x4000);
+_Static_assert(QUADBLOCK_FLAG_SKIP_WATER_LIST == 0x8000);
+_Static_assert(offsetof(struct QuadBlock, quadFlags) == 0x12);
 _Static_assert(offsetof(struct QuadBlock, checkpointIndex) == 0x3e);
 _Static_assert(offsetof(struct QuadBlock, ptr_texture_low) == 0x40);
 _Static_assert(offsetof(struct QuadBlock, pvs) == 0x44);
+_Static_assert(offsetof(struct QuadBlock, triNormalVecDividend) == 0x48);
+_Static_assert(QUADBLOCK_TRI_NORMAL_DIVIDEND_HI_0 == 0);
+_Static_assert(QUADBLOCK_TRI_NORMAL_DIVIDEND_HI_7 == 7);
+_Static_assert(QUADBLOCK_TRI_NORMAL_DIVIDEND_LO_0 == 8);
+_Static_assert(QUADBLOCK_TRI_NORMAL_DIVIDEND_LO_1 == 9);
 
 // BSP box that contains geometry
 struct BSP
@@ -259,7 +310,7 @@ struct BSP
 
 			// 0x18
 			// leftChildID, rightChildID, [?], [?]
-			s16 childID[4];
+			BspChildId childID[4];
 
 		} branch;
 
@@ -286,8 +337,16 @@ struct BSP
 		struct
 		{
 			// 0x10
-			s16 unkShort[6];
-			// see FUN_8001d0c4
+			SVec3 center;
+
+			// 0x16
+			s16 radius;
+
+			// 0x18
+			s16 unk18;
+
+			// 0x1A
+			s16 unk1A;
 
 			// 0x1C
 			// These are always InstDef, not converted to Instance
@@ -298,6 +357,72 @@ struct BSP
 
 	// 0x20 bytes large
 };
+
+typedef enum BspChildIdEncoding : u16
+{
+	BSP_CHILD_ID_INDEX_MASK = 0x3fff,
+	BSP_CHILD_ID_LEAF_FLAG = 0x4000,
+	BSP_CHILD_ID_NONE = 0xffff,
+} BspChildIdEncoding;
+
+typedef enum BspNodeFlag : u16
+{
+	BSP_NODE_FLAG_LEAF = 0x0001,
+} BspNodeFlag;
+
+typedef enum BspRenderLeafFlag : u16
+{
+	BSP_RENDER_LEAF_FLAG_4X1 = 0x0008,
+	BSP_RENDER_LEAF_FLAG_4X2 = 0x0010,
+	BSP_RENDER_LEAF_FLAG_DYNAMIC_SUBDIV = 0x0020,
+	BSP_RENDER_LEAF_FLAG_4X4 = 0x0080,
+} BspRenderLeafFlag;
+
+typedef enum BspHitboxFlag : u16
+{
+	BSP_HITBOX_LINC_USES_INSTDEF = 0x10,
+	BSP_HITBOX_CHECK_Y_RANGE = 0x20,
+	BSP_HITBOX_USE_Y_AXIS = 0x40,
+	BSP_HITBOX_COLLIDABLE = 0x80,
+} BspHitboxFlag;
+
+typedef enum BspLeafFlag : u16
+{
+	BSP_LEAF_FLAG_WATER = 0x2,
+} BspLeafFlag;
+
+enum BspHitboxClass
+{
+	BSP_HITBOX_CLASS_TOUCH = 4,
+};
+
+_Static_assert(sizeof(struct BSP) == 0x20);
+_Static_assert(sizeof(BspChildId) == 0x2);
+_Static_assert(sizeof(BspChildIdEncoding) == 0x2);
+_Static_assert(BSP_CHILD_ID_INDEX_MASK == 0x3fff);
+_Static_assert(BSP_CHILD_ID_LEAF_FLAG == 0x4000);
+_Static_assert(BSP_CHILD_ID_NONE == 0xffff);
+_Static_assert(sizeof(BspNodeFlag) == 0x2);
+_Static_assert(BSP_NODE_FLAG_LEAF == 0x0001);
+_Static_assert(sizeof(BspRenderLeafFlag) == 0x2);
+_Static_assert(BSP_RENDER_LEAF_FLAG_4X1 == 0x0008);
+_Static_assert(BSP_RENDER_LEAF_FLAG_4X2 == 0x0010);
+_Static_assert(BSP_RENDER_LEAF_FLAG_DYNAMIC_SUBDIV == 0x0020);
+_Static_assert(BSP_RENDER_LEAF_FLAG_4X4 == 0x0080);
+_Static_assert(sizeof(BspHitboxFlag) == 0x2);
+_Static_assert(BSP_HITBOX_LINC_USES_INSTDEF == 0x10);
+_Static_assert(BSP_HITBOX_CHECK_Y_RANGE == 0x20);
+_Static_assert(BSP_HITBOX_USE_Y_AXIS == 0x40);
+_Static_assert(BSP_HITBOX_COLLIDABLE == 0x80);
+_Static_assert(sizeof(BspLeafFlag) == 0x2);
+_Static_assert(BSP_LEAF_FLAG_WATER == 0x2);
+_Static_assert(offsetof(struct BSP, flag) == 0x0);
+_Static_assert(offsetof(struct BSP, id) == 0x2);
+_Static_assert(offsetof(struct BSP, box) == 0x4);
+_Static_assert(offsetof(struct BSP, data.branch.childID) == 0x18);
+_Static_assert(offsetof(struct BSP, data.hitbox.center) == 0x10);
+_Static_assert(offsetof(struct BSP, data.hitbox.radius) == 0x16);
+_Static_assert(offsetof(struct BSP, data.hitbox.instDef) == 0x1C);
 
 struct VisMemBspListNode
 {

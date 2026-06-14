@@ -52,8 +52,6 @@ void VehPhysProc_Driving_PhysLinear(struct Thread *thread, struct Driver *driver
 	u32 cross;
 	u32 square;
 
-	s16 *normSrc;
-	s16 *normDst;
 	int msPerFrame;
 	s16 driverRankItemValue;
 	u32 itemSound;
@@ -99,7 +97,7 @@ void VehPhysProc_Driving_PhysLinear(struct Thread *thread, struct Driver *driver
 	VehPhysProc_Driving_DecrementTimerCounter(&driver->reserves, msPerFrame, &driver->timeSpentUsingReserves);
 	VehPhysProc_Driving_DecrementTimer(&driver->turbo_outsideTimer, msPerFrame);
 	VehPhysProc_Driving_DecrementTimer(&driver->VehFire_AudioCooldown, msPerFrame);
-	VehPhysProc_Driving_DecrementTimerCounter(&driver->set_0xF0_OnWallRub, msPerFrame, &driver->timeSpentAgainstWall);
+	VehPhysProc_Driving_DecrementTimerCounter(&driver->wallRubTimer, msPerFrame, &driver->timeSpentAgainstWall);
 	VehPhysProc_Driving_DecrementTimer(&driver->jump_ForcedMS, msPerFrame);
 	VehPhysProc_Driving_DecrementTimer(&driver->jump_CooldownMS, msPerFrame);
 	VehPhysProc_Driving_DecrementTimer(&driver->jump_unknown, msPerFrame);
@@ -374,19 +372,12 @@ void VehPhysProc_Driving_PhysLinear(struct Thread *thread, struct Driver *driver
 		return;
 	}
 
-	// destination
-	normDst = &driver->AxisAngle4_normalVec[0];
 	driver->normalVecID = 0;
 
-	// source
-	normSrc = &driver->AxisAngle2_normalVec[0];
 	if ((actionsFlagSetCopy & 1) != 0)
-		normSrc = &driver->AxisAngle1_normalVec.x;
-
-	// copy
-	normDst[0] = normSrc[0];
-	normDst[1] = normSrc[1];
-	normDst[2] = normSrc[2];
+		driver->AxisAngle4_normalVec = driver->AxisAngle1_normalVec;
+	else
+		driver->AxisAngle4_normalVec = driver->AxisAngle2_normalVec;
 
 
 	// === Check Mask Weapon ===
@@ -915,7 +906,7 @@ CheckJumpButtons:
 	}
 
 	// rubbing on wall now, or recently
-	if (driver->set_0xF0_OnWallRub != 0)
+	if (driver->wallRubTimer != 0)
 	{
 		// restrict turn
 		iVar14 = 0x30;
@@ -1716,7 +1707,7 @@ void PhysLerpRot(struct Driver *driver, int iVar13)
 
 void PhysTerrainSlope(struct Driver *driver)
 {
-	VehPhysForce_RotAxisAngle(&driver->matrixMovingDir, &driver->AxisAngle1_normalVec.x, (int)driver->angle);
+	VehPhysForce_RotAxisAngle(&driver->matrixMovingDir, driver->AxisAngle1_normalVec.v, (int)driver->angle);
 	gte_SetRotMatrix(&driver->matrixMovingDir);
 	VehPhysForce_CounterSteer(driver);
 }
@@ -1981,7 +1972,7 @@ void VehPhysProc_SlamWall_PhysAngular(struct Thread *t, struct Driver *d)
 
 	d->turnAngleCurr = VehCalc_InterpBySpeed(d->turnAngleCurr, CTR_MipsSra(CTR_MipsSll(elapsedTimeMS, 7), 5), 0);
 
-	VehPhysForce_RotAxisAngle(&d->matrixMovingDir, &d->AxisAngle1_normalVec.x, d->angle);
+	VehPhysForce_RotAxisAngle(&d->matrixMovingDir, d->AxisAngle1_normalVec.v, d->angle);
 }
 
 
@@ -2161,7 +2152,7 @@ void VehPhysProc_SpinFirst_PhysAngular(struct Thread *t, struct Driver *d)
 
 	d->rotCurr.w = VehCalc_InterpBySpeed(d->rotCurr.w, CTR_MipsSra(CTR_MipsSll(elapsedTimeMS, 5), 5), 0);
 
-	VehPhysForce_RotAxisAngle(&d->matrixMovingDir, &d->AxisAngle1_normalVec.x, d->angle);
+	VehPhysForce_RotAxisAngle(&d->matrixMovingDir, d->AxisAngle1_normalVec.v, d->angle);
 }
 
 
@@ -2323,7 +2314,7 @@ void VehPhysProc_SpinLast_PhysAngular(struct Thread *t, struct Driver *d)
 
 	d->rotCurr.w = VehCalc_InterpBySpeed(d->rotCurr.w, CTR_MipsSra(CTR_MipsSll(elapsedTimeMS, 5), 5), 0);
 
-	VehPhysForce_RotAxisAngle(&d->matrixMovingDir, &d->AxisAngle1_normalVec.x, d->angle);
+	VehPhysForce_RotAxisAngle(&d->matrixMovingDir, d->AxisAngle1_normalVec.v, d->angle);
 }
 
 
@@ -2380,7 +2371,7 @@ void VehPhysProc_SpinStop_PhysAngular(struct Thread *t, struct Driver *d)
 	d->rotCurr.w = VehCalc_InterpBySpeed(d->rotCurr.w, CTR_MipsSra(CTR_MipsSll(elapsedTimeMS, 5), 5), 0);
 	d->turnAngleCurr = VehCalc_InterpBySpeed(d->turnAngleCurr, CTR_MipsSra(CTR_MipsSll(elapsedTimeMS, 7), 5), 0);
 
-	VehPhysForce_RotAxisAngle(&d->matrixMovingDir, &d->AxisAngle1_normalVec.x, d->angle);
+	VehPhysForce_RotAxisAngle(&d->matrixMovingDir, d->AxisAngle1_normalVec.v, d->angle);
 }
 
 

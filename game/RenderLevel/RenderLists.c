@@ -12,14 +12,14 @@ enum RenderListsSlot1P2P
 
 struct RenderListsScratchRecord
 {
-	s16 childID;
+	BspChildId childID;
 	s16 unused;
 	struct BoundingBox box;
 };
 
 _Static_assert(sizeof(struct RenderListsScratchRecord) == 0x10);
 
-static int RenderLists_IsVisible(const int *visLeafList, s16 childID)
+static int RenderLists_IsVisible(const int *visLeafList, BspChildId childID)
 {
 	u32 rawChildID = (u16)childID;
 
@@ -31,21 +31,16 @@ static int RenderLists_IsVisible(const int *visLeafList, s16 childID)
 
 static int RenderLists_BoxOverlapsPushBuffer(const struct BoundingBox *box, const struct BoundingBox *pbBox)
 {
-	return (box->min[0] <= pbBox->max[0]) && (pbBox->min[0] <= box->max[0]) && (box->min[1] <= pbBox->max[1]) && (pbBox->min[1] <= box->max[1]) &&
-	       (box->min[2] <= pbBox->max[2]) && (pbBox->min[2] <= box->max[2]);
+	return (box->min.x <= pbBox->max.x) && (pbBox->min.x <= box->max.x) && (box->min.y <= pbBox->max.y) && (pbBox->min.y <= box->max.y) &&
+	       (box->min.z <= pbBox->max.z) && (pbBox->min.z <= box->max.z);
 }
 
 static void RenderLists_SelectBoxCorner(const struct BoundingBox *box, int cornerIndex, s16 *point)
 {
 	// NOTE(aalhendi): This is the exact corner order produced by retail helpers 0x80070310..0x8007037c: max/max/max through min/min/min by bit index.
-	point[0] = (cornerIndex & 1) ? box->min[0] : box->max[0];
-	point[1] = (cornerIndex & 2) ? box->min[1] : box->max[1];
-	point[2] = (cornerIndex & 4) ? box->min[2] : box->max[2];
-}
-
-static u32 RenderLists_PackS16Pair(s16 lo, s16 hi)
-{
-	return (u32)(u16)lo | ((u32)(u16)hi << 16);
+	point[0] = (cornerIndex & 1) ? box->min.x : box->max.x;
+	point[1] = (cornerIndex & 2) ? box->min.y : box->max.y;
+	point[2] = (cornerIndex & 4) ? box->min.z : box->max.z;
 }
 
 static void RenderLists_Load1P2PGteState(struct PushBuffer *pb)
@@ -63,7 +58,7 @@ static void RenderLists_Load1P2PGteState(struct PushBuffer *pb)
 static int RenderLists_FrustumRejectsCorner(s16 *plane, const s16 *point)
 {
 	// NOTE(aalhendi): Retail 0x80070290 tests the selected BSP corner with llv0bk and rejects when IR1 is positive.
-	MTC2(RenderLists_PackS16Pair(point[0], point[1]), 0);
+	MTC2(CTR_PackS16Pair(point[0], point[1]), 0);
 	MTC2((u32)(s32)point[2], 1);
 	CTC2(*(u32 *)&plane[0], 8);
 	CTC2(*(u32 *)&plane[2], 9);
@@ -113,22 +108,22 @@ static int RenderLists_ProjectDistance(struct PushBuffer *pb, const struct Bound
 
 static int RenderLists_Select1P2PSlot(const struct BSP *bsp, struct PushBuffer *pb, int lodDistanceThreshold)
 {
-	if ((bsp->flag & 2) != 0)
+	if ((bsp->flag & BSP_LEAF_FLAG_WATER) != 0)
 		return RENDER_LIST_SLOT_WATER;
 
-	if ((bsp->flag & 0x20) != 0)
+	if ((bsp->flag & BSP_RENDER_LEAF_FLAG_DYNAMIC_SUBDIV) != 0)
 		return RENDER_LIST_SLOT_DYNAMIC_SUBDIV;
 
 	if (RenderLists_ProjectDistance(pb, &bsp->box) > lodDistanceThreshold)
 		return RENDER_LIST_SLOT_FULL_DYNAMIC;
 
-	if ((bsp->flag & 0x80) != 0)
+	if ((bsp->flag & BSP_RENDER_LEAF_FLAG_4X4) != 0)
 		return RENDER_LIST_SLOT_4X4;
 
-	if ((bsp->flag & 8) != 0)
+	if ((bsp->flag & BSP_RENDER_LEAF_FLAG_4X1) != 0)
 		return RENDER_LIST_SLOT_4X1;
 
-	if ((bsp->flag & 0x10) != 0)
+	if ((bsp->flag & BSP_RENDER_LEAF_FLAG_4X2) != 0)
 		return RENDER_LIST_SLOT_4X2;
 
 	return RENDER_LIST_SLOT_DYNAMIC_SUBDIV;
@@ -144,13 +139,13 @@ static struct VisMemBspListNode **RenderLists_Get1P2PHead(void *LevRenderList, i
 
 static int RenderLists_Select3P4PSlot(const struct BSP *bsp)
 {
-	if ((bsp->flag & 2) != 0)
+	if ((bsp->flag & BSP_LEAF_FLAG_WATER) != 0)
 		return 2;
 
-	if ((bsp->flag & 0x20) != 0)
+	if ((bsp->flag & BSP_RENDER_LEAF_FLAG_DYNAMIC_SUBDIV) != 0)
 		return 3;
 
-	if ((bsp->flag & 0x80) != 0)
+	if ((bsp->flag & BSP_RENDER_LEAF_FLAG_4X4) != 0)
 		return 0;
 
 	return 1;
@@ -167,8 +162,8 @@ static void RenderLists_LinkBsp(struct BSP *bspRoot, struct BSP *bsp, struct Vis
 	*head = node;
 }
 
-static void RenderLists_PushChild(struct BSP *bspRoot, const int *visLeafList, struct PushBuffer *pb, s16 childID, struct RenderListsScratchRecord **stack,
-                                  struct RenderListsScratchRecord *stackEnd)
+static void RenderLists_PushChild(struct BSP *bspRoot, const int *visLeafList, struct PushBuffer *pb, BspChildId childID,
+                                  struct RenderListsScratchRecord **stack, struct RenderListsScratchRecord *stackEnd)
 {
 	struct BSP *child;
 	struct RenderListsScratchRecord *record;
@@ -179,7 +174,7 @@ static void RenderLists_PushChild(struct BSP *bspRoot, const int *visLeafList, s
 	if (!RenderLists_IsVisible(visLeafList, childID))
 		return;
 
-	child = &bspRoot[((u16)childID) & 0x3fff];
+	child = &bspRoot[((u16)childID) & BSP_CHILD_ID_INDEX_MASK];
 	if (!RenderLists_BoxOverlapsPushBuffer(&child->box, &pb->bbox))
 		return;
 
@@ -206,7 +201,7 @@ static int RenderLists_Walk1P2P(struct BSP *bspRoot, const int *visLeafList, str
 	if (bspRoot == 0 || pb == 0)
 		return 0;
 
-	if ((bspRoot->flag & 1) != 0)
+	if ((bspRoot->flag & BSP_NODE_FLAG_LEAF) != 0)
 	{
 		int slotIndex = RenderLists_Select1P2PSlot(bspRoot, pb, lodDistanceThreshold);
 
@@ -222,9 +217,9 @@ static int RenderLists_Walk1P2P(struct BSP *bspRoot, const int *visLeafList, str
 		while (stack != stackBase)
 		{
 			struct RenderListsScratchRecord record = *--stack;
-			struct BSP *bsp = &bspRoot[((u16)record.childID) & 0x3fff];
+			struct BSP *bsp = &bspRoot[((u16)record.childID) & BSP_CHILD_ID_INDEX_MASK];
 
-			if (((u16)record.childID & 0x4000) == 0)
+			if (((u16)record.childID & BSP_CHILD_ID_LEAF_FLAG) == 0)
 			{
 				branch = bsp;
 				goto nextBranch;
@@ -256,7 +251,7 @@ static int RenderLists_Walk3P4P(struct BSP *bspRoot, const int *visLeafList, str
 	if (bspRoot == 0 || pb == 0)
 		return 0;
 
-	if ((bspRoot->flag & 1) != 0)
+	if ((bspRoot->flag & BSP_NODE_FLAG_LEAF) != 0)
 	{
 		int slotIndex = RenderLists_Select3P4PSlot(bspRoot);
 		struct VisMemBspListNode **head = (struct VisMemBspListNode **)((char *)LevRenderList + slotIndex * 8 + 4);
@@ -273,9 +268,9 @@ static int RenderLists_Walk3P4P(struct BSP *bspRoot, const int *visLeafList, str
 		while (stack != stackBase)
 		{
 			struct RenderListsScratchRecord record = *--stack;
-			struct BSP *bsp = &bspRoot[((u16)record.childID) & 0x3fff];
+			struct BSP *bsp = &bspRoot[((u16)record.childID) & BSP_CHILD_ID_INDEX_MASK];
 
-			if (((u16)record.childID & 0x4000) == 0)
+			if (((u16)record.childID & BSP_CHILD_ID_LEAF_FLAG) == 0)
 			{
 				branch = bsp;
 				goto nextBranch;

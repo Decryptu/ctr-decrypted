@@ -26,7 +26,7 @@ void RB_Default_LInB(struct Instance *inst)
 	*(s16 *)&scratch[0x10a] = var - 0x180;
 	*(s16 *)&scratch[0x112] = var + 0x80;
 
-	COLL_SearchBSP_CallbackQUADBLK((u32 *)&scratch[0x108], (u32 *)&scratch[0x110], (struct ScratchpadStruct *)&scratch[0x118], 0);
+	COLL_SearchBSP_CallbackQUADBLK(&scratch[0x108], &scratch[0x110], (struct ScratchpadStruct *)&scratch[0x118], 0);
 
 	RB_MakeInstanceReflective((struct ScratchpadStruct *)&scratch[0x118], inst);
 }

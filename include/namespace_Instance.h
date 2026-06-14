@@ -573,4 +573,14 @@ struct Instance
 	// struct InstDrawPerPlayer idpp[0];
 };
 
+static inline u32 INST_CompressNormalVector(s32 normalX, s32 normalY, s32 normalZ)
+{
+	return (((u32)(u16)normalX >> 6) & 0xff) | ((((u32)(u16)normalY >> 6) & 0xff) << 8) | ((((u32)(u16)normalZ >> 6) & 0xff) << 16);
+}
+
+static inline u32 INST_CompressNormalVectorAndDriverIndex(s32 normalX, s32 normalY, s32 normalZ, u8 driverID)
+{
+	return INST_CompressNormalVector(normalX, normalY, normalZ) | (((u32)driverID + 1u) << 24);
+}
+
 #define INST_GETIDPP(x) (struct InstDrawPerPlayer *)((u32)x + sizeof(struct Instance))

@@ -3,8 +3,9 @@
 typedef int (*BurstThreadCollideFunc)(struct Thread *, struct Thread *, void *, int);
 
 // NOTE(aalhendi): ASM-verified against NTSC-U 926 overlay 231 0x800b1e90-0x800b20a4.
-void RB_Burst_CollThBucket(struct ScratchpadStruct *sps, struct Thread *t)
+void RB_Burst_CollThBucket(struct ScratchpadStruct *sps, void *hitObject)
 {
+	struct Thread *t = hitObject;
 	struct GameTracker *gGT;
 	struct TrackerWeapon *tw;
 	s16 model;

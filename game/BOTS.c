@@ -501,32 +501,32 @@ void BOTS_SetRotation(struct Driver *bot, int useSpawnYaw)
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800135d8-0x8001372c.
 void BOTS_LevInstColl(struct Thread *botThread)
 {
-	s16 currPos[6];
-	s16 prevPos[3];
+	SVec3 currPos;
+	SVec3 prevPos;
 	struct Driver *driver = (struct Driver *)botThread->object;
 	struct ScratchpadStruct *sps = CTR_SCRATCHPAD_PTR(struct ScratchpadStruct, 0x108);
 
 	// scratchpad stuff
 	sps->ptr_mesh_info = sdata->gGT->level1->ptr_mesh_info;
-	sps->Union.QuadBlockColl.searchFlags = 1;
+	sps->Union.QuadBlockColl.searchFlags = COLL_SEARCH_TEST_INSTANCES;
 	sps->Input1.modelID = DYNAMIC_ROBOT_CAR;
-	sps->Union.QuadBlockColl.qbFlagsWanted = 0;
-	sps->Union.QuadBlockColl.qbFlagsIgnored = 0;
+	sps->Union.QuadBlockColl.quadFlagsWanted = 0;
+	sps->Union.QuadBlockColl.quadFlagsIgnored = 0;
 	sps->Input1.hitRadius = BOTS_LEVEL_INST_COLL_RADIUS;
 
 	// grab driver stuff
-	currPos[0] = (s16)CTR_MipsSra(driver->posCurr.x, 8);
-	currPos[1] = (s16)CTR_MipsAddLo(CTR_MipsSra(driver->posCurr.y, 8), BOTS_LEVEL_INST_COLL_RADIUS);
-	currPos[2] = (s16)CTR_MipsSra(driver->posCurr.z, 8);
-	prevPos[0] = (s16)CTR_MipsSra(driver->posPrev.x, 8);
-	prevPos[1] = (s16)CTR_MipsAddLo(CTR_MipsSra(driver->posPrev.y, 8), BOTS_LEVEL_INST_COLL_RADIUS);
-	prevPos[2] = (s16)CTR_MipsSra(driver->posPrev.z, 8);
+	currPos.x = (s16)CTR_MipsSra(driver->posCurr.x, 8);
+	currPos.y = (s16)CTR_MipsAddLo(CTR_MipsSra(driver->posCurr.y, 8), BOTS_LEVEL_INST_COLL_RADIUS);
+	currPos.z = (s16)CTR_MipsSra(driver->posCurr.z, 8);
+	prevPos.x = (s16)CTR_MipsSra(driver->posPrev.x, 8);
+	prevPos.y = (s16)CTR_MipsAddLo(CTR_MipsSra(driver->posPrev.y, 8), BOTS_LEVEL_INST_COLL_RADIUS);
+	prevPos.z = (s16)CTR_MipsSra(driver->posPrev.z, 8);
 
-	COLL_FIXED_BotsSearch(currPos, prevPos, (s16 *)sps);
+	COLL_FIXED_BotsSearch(&currPos, &prevPos, sps);
 
 	if (sps->boolDidTouchHitbox)
 	{
-		sps->Union.QuadBlockColl.searchFlags &= 0xfff7;
+		sps->Union.QuadBlockColl.searchFlags &= ~COLL_SEARCH_REUSE_NORMALS;
 
 		if ((sps->bspHitbox->flag & 0x80) != 0)
 		{
@@ -1865,50 +1865,38 @@ give_this_label_a_better_name2:
 
 		botDriver->botData.ai_rot4[1] = CTR_MipsAddLo(CTR_MipsSll(navFrameCurr->rot[1], 4), CTR_MipsSra(CTR_MipsMulLo(deltaRotY, percentage), 0xc)) & 0xfff;
 
-		s16 sVar7;
-		s16 top[3];
-		top[0] = (s16)CTR_MipsSra(CTR_MipsAddLo(botDriver->botData.ai_posBackup[0], botDriver->botData.unk5bc.ai_velAxis[0]), 8);
-		sVar7 = (s16)CTR_MipsSra(CTR_MipsAddLo(botDriver->botData.ai_posBackup[1], botDriver->botData.unk5bc.ai_velAxis[1]), 8);
-		top[1] = (s16)CTR_MipsSubLo(sVar7, 0x100);
-		top[2] = (s16)CTR_MipsSra(CTR_MipsAddLo(botDriver->botData.ai_posBackup[2], botDriver->botData.unk5bc.ai_velAxis[2]), 8);
+		SVec3 probeTop;
+		probeTop.x = (s16)CTR_MipsSra(CTR_MipsAddLo(botDriver->botData.ai_posBackup[0], botDriver->botData.unk5bc.ai_velAxis[0]), 8);
+		s16 probeY = (s16)CTR_MipsSra(CTR_MipsAddLo(botDriver->botData.ai_posBackup[1], botDriver->botData.unk5bc.ai_velAxis[1]), 8);
+		probeTop.y = (s16)CTR_MipsSubLo(probeY, 0x100);
+		probeTop.z = (s16)CTR_MipsSra(CTR_MipsAddLo(botDriver->botData.ai_posBackup[2], botDriver->botData.unk5bc.ai_velAxis[2]), 8);
 
-		s16 bot[3];
-		bot[0] = top[0];
-		bot[1] = (s16)CTR_MipsAddLo(sVar7, 0x80);
-		bot[2] = top[2];
-
-
-		/*
-		    from my understanding:
-		    first param: 98 is x, 96 is y, 94 is z
-		    second param: 92 is padding, 90 is x, 8e is y, 8c is z
-		*/
+		SVec3 probeBottom;
+		probeBottom.x = probeTop.x;
+		probeBottom.y = (s16)CTR_MipsAddLo(probeY, 0x80);
+		probeBottom.z = probeTop.z;
 
 		sps->ptr_mesh_info = gGT->level1->ptr_mesh_info;
-		sps->Union.QuadBlockColl.qbFlagsWanted = 0x1000;
-		sps->Union.QuadBlockColl.qbFlagsIgnored = 0x10;
-		sps->Union.QuadBlockColl.searchFlags = 2;
+		sps->Union.QuadBlockColl.quadFlagsWanted = QUADBLOCK_FLAG_GROUND;
+		sps->Union.QuadBlockColl.quadFlagsIgnored = QUADBLOCK_FLAG_NO_COLLISION_RESPONSE;
+		sps->Union.QuadBlockColl.searchFlags = COLL_SEARCH_HIGH_LOD;
 
-		COLL_SearchBSP_CallbackQUADBLK((u_int *)&top[0], (u_int *)&bot[0], sps, 0);
+		COLL_SearchBSP_CallbackQUADBLK(&probeTop, &probeBottom, sps, 0);
 
 		if (sps->boolDidTouchQuadblock != 0)
 		{
-			botDriver->quadBlockHeight = CTR_MipsSll(sps->Union.QuadBlockColl.hitPos[1], 8);
+			botDriver->quadBlockHeight = CTR_MipsSll(sps->Union.QuadBlockColl.hitPos.y, 8);
 
-			botDriver->botData.ai_quadblock_checkpointIndex = sps->Set2.ptrQuadblock->checkpointIndex;
+			botDriver->botData.ai_quadblock_checkpointIndex = sps->hit.ptrQuadblock->checkpointIndex;
 
-			VehPhysForce_RotAxisAngle(&botInstance->matrix, &sps->Set2.normalVec[0], botDriver->botData.ai_rot4[1]);
+			VehPhysForce_RotAxisAngle(&botInstance->matrix, sps->hit.plane.normal.v, botDriver->botData.ai_rot4[1]);
 
-			botDriver->AxisAngle3_normalVec[0] = sps->Set2.normalVec[0];
-			botDriver->AxisAngle3_normalVec[1] = sps->Set2.normalVec[1];
-			botDriver->AxisAngle3_normalVec[2] = sps->Set2.normalVec[2];
+			botDriver->AxisAngle3_normalVec = sps->hit.plane.normal;
 
-			// this line is cringe.
 			botInstance->bitCompressed_NormalVector_AndDriverIndex =
-			    (((u16)sps->Set2.normalVec[0] >> 6) & 0xff) | (((u16)sps->Set2.normalVec[1] & 0x3fc0) << 2) |
-			    ((((u16)sps->Set2.normalVec[2] >> 6) & 0xff) << 0x10) | CTR_MipsSll(CTR_MipsAddLo(botDriver->driverID, 1), 0x18);
+			    INST_CompressNormalVectorAndDriverIndex(sps->hit.plane.normal.x, sps->hit.plane.normal.y, sps->hit.plane.normal.z, botDriver->driverID);
 
-			if ((sps->Set2.ptrQuadblock->quadFlags & 0x200) != 0)
+			if ((sps->hit.ptrQuadblock->quadFlags & QUADBLOCK_FLAG_KILL_PLANE) != 0)
 			{
 				BOTS_Killplane(botThread);
 			}
@@ -2467,22 +2455,19 @@ give_this_label_a_better_name2:
 
 		ConvertRotToMatrix(&m, rot);
 
-		botDriver->AxisAngle3_normalVec[0] = m.m[0][1];
-		botDriver->AxisAngle3_normalVec[1] = m.m[1][1];
-		botDriver->AxisAngle3_normalVec[2] = m.m[2][1];
+		botDriver->AxisAngle3_normalVec.x = m.m[0][1];
+		botDriver->AxisAngle3_normalVec.y = m.m[1][1];
+		botDriver->AxisAngle3_normalVec.z = m.m[2][1];
 
-		botInstance->bitCompressed_NormalVector_AndDriverIndex = (((u16)m.m[0][1] >> 6) & 0xff) | (((u16)m.m[1][1] & 0x3fc0) << 2) |
-		                                                         ((((u16)m.m[2][1] >> 6) & 0xff) << 0x10) |
-		                                                         CTR_MipsSll(CTR_MipsAddLo(botDriver->driverID, 1), 0x18);
+		botInstance->bitCompressed_NormalVector_AndDriverIndex = INST_CompressNormalVectorAndDriverIndex(m.m[0][1], m.m[1][1], m.m[2][1], botDriver->driverID);
 	}
 
 	ConvertRotToMatrix(&botInstance->matrix, &botDriver->rotCurr.x);
 
 	// c is row-major (i.e., ticking the rightmost indeces has smaller memory address delta vs ticking the leftmost indeces)
-	botDriver->AxisAngle2_normalVec[0] = botInstance->matrix.m[0][1];
-	botDriver->AxisAngle2_normalVec[1] = botInstance->matrix.m[1][1];
-	int uVar6 = botInstance->matrix.m[2][1];
-	botDriver->AxisAngle2_normalVec[2] = uVar6;
+	botDriver->AxisAngle2_normalVec.x = botInstance->matrix.m[0][1];
+	botDriver->AxisAngle2_normalVec.y = botInstance->matrix.m[1][1];
+	botDriver->AxisAngle2_normalVec.z = botInstance->matrix.m[2][1];
 
 	botDriver->angle = botDriver->rotCurr.y;
 
@@ -2610,7 +2595,7 @@ LAB_8001686c:
 
 	VehPhysForce_TranslateMatrix(botThread, botDriver);
 
-	VehPhysForce_RotAxisAngle(&botDriver->matrixMovingDir, &botDriver->AxisAngle2_normalVec[0], botDriver->angle);
+	VehPhysForce_RotAxisAngle(&botDriver->matrixMovingDir, botDriver->AxisAngle2_normalVec.v, botDriver->angle);
 
 	VehFrameProc_Driving(botThread, botDriver);
 
@@ -2654,27 +2639,27 @@ LAB_8001686c:
 
 	if (botThread->modelIndex == DYNAMIC_PLAYER)
 	{
-		s16 posTop[3];
-		s16 posBot[3];
+		SVec3 probeTop;
+		SVec3 probeBottom;
 
-		posTop[0] = (s16)CTR_MipsSra(CTR_MipsAddLo(botDriver->botData.ai_posBackup[0], botDriver->botData.unk5bc.ai_velAxis[0]), 8);
-		posBot[1] = (s16)CTR_MipsSra(CTR_MipsAddLo(botDriver->botData.ai_posBackup[1], botDriver->botData.unk5bc.ai_velAxis[1]), 8);
-		posTop[1] = (s16)CTR_MipsSubLo(posBot[1], 0x100);
-		posBot[1] = (s16)CTR_MipsAddLo(posBot[1], 0x40);
-		posTop[2] = (s16)CTR_MipsSra(CTR_MipsAddLo(botDriver->botData.ai_posBackup[2], botDriver->botData.unk5bc.ai_velAxis[2]), 8);
-		posBot[0] = posTop[0];
-		posBot[2] = posTop[2];
+		probeTop.x = (s16)CTR_MipsSra(CTR_MipsAddLo(botDriver->botData.ai_posBackup[0], botDriver->botData.unk5bc.ai_velAxis[0]), 8);
+		probeBottom.y = (s16)CTR_MipsSra(CTR_MipsAddLo(botDriver->botData.ai_posBackup[1], botDriver->botData.unk5bc.ai_velAxis[1]), 8);
+		probeTop.y = (s16)CTR_MipsSubLo(probeBottom.y, 0x100);
+		probeBottom.y = (s16)CTR_MipsAddLo(probeBottom.y, 0x40);
+		probeTop.z = (s16)CTR_MipsSra(CTR_MipsAddLo(botDriver->botData.ai_posBackup[2], botDriver->botData.unk5bc.ai_velAxis[2]), 8);
+		probeBottom.x = probeTop.x;
+		probeBottom.z = probeTop.z;
 
 		sps->ptr_mesh_info = gGT->level1->ptr_mesh_info;
-		sps->Union.QuadBlockColl.qbFlagsWanted = 0x1000;
-		sps->Union.QuadBlockColl.qbFlagsIgnored = 0;
-		sps->Union.QuadBlockColl.searchFlags = 2;
+		sps->Union.QuadBlockColl.quadFlagsWanted = QUADBLOCK_FLAG_GROUND;
+		sps->Union.QuadBlockColl.quadFlagsIgnored = 0;
+		sps->Union.QuadBlockColl.searchFlags = COLL_SEARCH_HIGH_LOD;
 
-		COLL_SearchBSP_CallbackQUADBLK((u_int *)&posTop[0], (u_int *)&posBot[0], sps, 0);
+		COLL_SearchBSP_CallbackQUADBLK(&probeTop, &probeBottom, sps, 0);
 
 		if (sps->boolDidTouchQuadblock != 0)
 		{
-			botDriver->underDriver = sps->Set2.ptrQuadblock;
+			botDriver->underDriver = sps->hit.ptrQuadblock;
 		}
 	}
 }
@@ -3066,7 +3051,7 @@ void BOTS_Driver_Convert(struct Driver *d)
 	d->turnAngleCurr = 0;
 	d->multDrift = 0;
 	d->ampTurnState = 0;
-	d->set_0xF0_OnWallRub = 0;
+	d->wallRubTimer = 0;
 
 	d->botData.botNavFrame = firstNavFrame;
 

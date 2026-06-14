@@ -317,13 +317,26 @@ enum EngineClass
 	NUM_CLASSES
 };
 
-enum Actions
+typedef enum Actions : u32
 {
 	ACTION_TOUCH_GROUND = 0x1,
+	ACTION_STARTED_TOUCH_GROUND = 0x2,
+	ACTION_DRIVING_AGAINST_WALL = 0x2000,
 	ACTION_WARP = 0x4000,
+	ACTION_ENGINE_ECHO = 0x10000,
+	ACTION_AIRBORNE = 0x80000,
 	ACTION_BOT = 0x100000,
+	ACTION_BEHIND_START_LINE = 0x1000000,
 	ACTION_RACE_FINISHED = 0x2000000,
-};
+} Actions;
+
+typedef enum DriverCollisionFlags : s16
+{
+	DRIVER_COLL_FLAG_MASK_GRAB_REQUEST = 0x1,
+	DRIVER_COLL_FLAG_SURFACE_PUSHBACK = 0x2,
+	DRIVER_COLL_FLAG_TOUCHED_QUADBLOCK = 0x4,
+	DRIVER_COLL_FLAG_GROUNDED = 0x8,
+} DriverCollisionFlags;
 
 enum BotFlags
 {
@@ -667,7 +680,7 @@ struct Driver
 
 	// 0xA4
 	SVec3 normalVecUP;
-	s16 unkAA;
+	DriverCollisionFlags collisionFlags;
 
 	// 0xac
 	s16 spsHitPos[4];
@@ -734,10 +747,10 @@ struct Driver
 
 
 	// 0x2C8
-	u32 actionsFlagSet;
+	Actions actionsFlagSet;
 
 	// 0x2CC
-	u32 actionsFlagSetPrevFrame;
+	Actions actionsFlagSetPrevFrame;
 
 	// 0x2D0
 	int quadBlockHeight;
@@ -823,7 +836,7 @@ struct Driver
 	char clockFlash;
 
 	// 0x368
-	s16 AxisAngle2_normalVec[3];
+	SVec3 AxisAngle2_normalVec;
 
 	// 0x36e
 	// Seems to control the speedometer needle to show base current speed
@@ -831,7 +844,7 @@ struct Driver
 	s16 unk36E;
 
 	// 0x370
-	s16 AxisAngle3_normalVec[3];
+	SVec3 AxisAngle3_normalVec;
 
 	// 0x376
 	u8 kartState;
@@ -840,7 +853,7 @@ struct Driver
 	s8 Screen_OffsetY;
 
 	// 0x378
-	s16 AxisAngle4_normalVec[3];
+	SVec3 AxisAngle4_normalVec;
 
 	// 0x37e
 	s16 unk37e;
@@ -853,10 +866,10 @@ struct Driver
 	s16 buttonUsedToStartDrift;
 
 	// 0x384
-	s16 posWallColl[3];
+	SVec3 posWallColl;
 
 	// 0x38A
-	s16 scrubMeta8;
+	s16 wallRubSpeedLimit;
 
 	// 0x38C
 	s16 speed;
@@ -1026,7 +1039,7 @@ struct Driver
 	s16 jump_LandingBoost;
 
 	// 0x3FE
-	s16 set_0xF0_OnWallRub;
+	s16 wallRubTimer;
 
 	// 0x400
 	s16 NoInputTimer;
@@ -1600,7 +1613,7 @@ struct Driver
 			struct MaskHeadWeapon *maskObj;
 
 			// 0x584
-			s16 AngleAxis_NormalVec[3];
+			SVec3 AngleAxis_NormalVec;
 
 			// 0x58a
 			s16 animFrame;
@@ -1694,8 +1707,32 @@ enum
 _Static_assert(sizeof(struct MetaPhys) == 0x1C);
 
 _Static_assert(sizeof(struct BotData) == 0x94);
+_Static_assert(sizeof(Actions) == 0x4);
+_Static_assert(ACTION_TOUCH_GROUND == 0x1);
+_Static_assert(ACTION_STARTED_TOUCH_GROUND == 0x2);
+_Static_assert(ACTION_DRIVING_AGAINST_WALL == 0x2000);
+_Static_assert(ACTION_WARP == 0x4000);
+_Static_assert(ACTION_ENGINE_ECHO == 0x10000);
+_Static_assert(ACTION_AIRBORNE == 0x80000);
+_Static_assert(ACTION_BOT == 0x100000);
+_Static_assert(ACTION_BEHIND_START_LINE == 0x1000000);
+_Static_assert(ACTION_RACE_FINISHED == 0x2000000);
+_Static_assert(sizeof(DriverCollisionFlags) == 0x2);
+_Static_assert(DRIVER_COLL_FLAG_MASK_GRAB_REQUEST == 0x1);
+_Static_assert(DRIVER_COLL_FLAG_SURFACE_PUSHBACK == 0x2);
+_Static_assert(DRIVER_COLL_FLAG_TOUCHED_QUADBLOCK == 0x4);
+_Static_assert(DRIVER_COLL_FLAG_GROUNDED == 0x8);
 
 _Static_assert(offsetof(struct Driver, ghostTape) == DRIVER_NTSC_RETAIL_SIZE);
+_Static_assert(offsetof(struct Driver, collisionFlags) == 0xaa);
+_Static_assert(offsetof(struct Driver, actionsFlagSet) == 0x2c8);
+_Static_assert(offsetof(struct Driver, actionsFlagSetPrevFrame) == 0x2cc);
+_Static_assert(offsetof(struct Driver, AxisAngle2_normalVec) == 0x368);
+_Static_assert(offsetof(struct Driver, AxisAngle3_normalVec) == 0x370);
+_Static_assert(offsetof(struct Driver, AxisAngle4_normalVec) == 0x378);
+_Static_assert(offsetof(struct Driver, posWallColl) == 0x384);
+_Static_assert(offsetof(struct Driver, wallRubSpeedLimit) == 0x38a);
+_Static_assert(offsetof(struct Driver, wallRubTimer) == 0x3fe);
 _Static_assert(offsetof(struct Driver, rotCurr.x) == 0x2ec);
 _Static_assert(offsetof(struct Driver, rotCurr.y) == 0x2ee);
-_Static_assert(offsetof(struct Driver, AxisAngle3_normalVec) == 0x370);
+_Static_assert(offsetof(struct Driver, KartStates.MaskGrab.AngleAxis_NormalVec) == 0x584);

@@ -8,38 +8,33 @@ static void VehStuckProc_MaskGrab_SearchBsp(struct Driver *d, struct ScratchpadS
 	s16 topZ = (s16)CTR_MipsSra(d->posCurr.z, 8);
 	s16 bottomY = (s16)CTR_MipsSubLo(topY, 0x100);
 
-	sps->Input1.pos[0] = topX;
-	sps->Input1.pos[1] = bottomY;
-	sps->Input1.pos[2] = topZ;
+	sps->Input1.pos.x = topX;
+	sps->Input1.pos.y = bottomY;
+	sps->Input1.pos.z = topZ;
 
-	sps->Union.QuadBlockColl.pos[0] = topX;
-	sps->Union.QuadBlockColl.pos[1] = topY;
-	sps->Union.QuadBlockColl.pos[2] = topZ;
+	sps->Union.QuadBlockColl.pos.x = topX;
+	sps->Union.QuadBlockColl.pos.y = topY;
+	sps->Union.QuadBlockColl.pos.z = topZ;
 
 	sps->Union.QuadBlockColl.searchFlags = 0;
 	if (gGT->numPlyrCurrGame < 3)
 	{
-		sps->Union.QuadBlockColl.searchFlags = 2;
+		sps->Union.QuadBlockColl.searchFlags = COLL_SEARCH_HIGH_LOD;
 	}
 
 	sps->boolDidTouchQuadblock = 0;
-	sps->unk3C = 0;
-	sps->countByOne_ForWhatReason = 0x1000;
-	sps->dataOutput[0] = 0;
-	sps->dataOutput[1] = 0;
-	sps->dataOutput[2] = 0;
-	sps->dataOutput[3] = 0;
+	sps->numTrianglesTested = 0;
+	sps->hitFraction = 0x1000;
+	sps->collision.stepFlags = 0;
 
-	sps->bbox.min[0] = topX;
-	sps->bbox.max[0] = topX;
-	sps->bbox.min[1] = (bottomY < topY) ? bottomY : topY;
-	sps->bbox.max[1] = (topY < bottomY) ? bottomY : topY;
-	sps->bbox.min[2] = topZ;
-	sps->bbox.max[2] = topZ;
+	sps->bbox.min.x = topX;
+	sps->bbox.max.x = topX;
+	sps->bbox.min.y = (bottomY < topY) ? bottomY : topY;
+	sps->bbox.max.y = (topY < bottomY) ? bottomY : topY;
+	sps->bbox.min.z = topZ;
+	sps->bbox.max.z = topZ;
 
-	sps->Union.QuadBlockColl.hitPos[0] = sps->Input1.pos[0];
-	sps->Union.QuadBlockColl.hitPos[1] = sps->Input1.pos[1];
-	sps->Union.QuadBlockColl.hitPos[2] = sps->Input1.pos[2];
+	sps->Union.QuadBlockColl.hitPos = sps->Input1.pos;
 
 	COLL_SearchBSP_CallbackPARAM(sps->ptr_mesh_info->bspRoot, &sps->bbox, COLL_FIXED_BSPLEAF_TestQuadblocks, sps);
 }
@@ -73,14 +68,12 @@ void VehStuckProc_MaskGrab_FindDestPos(struct Driver *d, struct QuadBlock *quad)
 		sps->Union.QuadBlockColl.hitRadius = driverThread->driver_HitRadius;
 		sps->Union.QuadBlockColl.hitRadiusSquared = driverThread->driver_unk1;
 		sps->ptr_mesh_info = mesh;
-		sps->Union.QuadBlockColl.qbFlagsIgnored = 0x4010;
-		sps->Union.QuadBlockColl.qbFlagsWanted = 0x1000;
+		sps->Union.QuadBlockColl.quadFlagsIgnored = QUADBLOCK_FLAG_NO_CAMERA_RESPAWN_PROBE | QUADBLOCK_FLAG_NO_COLLISION_RESPONSE;
+		sps->Union.QuadBlockColl.quadFlagsWanted = QUADBLOCK_FLAG_GROUND;
 		d->distanceDrivenBackwards = 0;
 
 		do
 		{
-			u32 dataOutputFlags;
-
 			do
 			{
 				nextRespawn = &level->ptr_restart_points[respawn->nextIndex_forward];
@@ -95,9 +88,7 @@ void VehStuckProc_MaskGrab_FindDestPos(struct Driver *d, struct QuadBlock *quad)
 
 				VehStuckProc_MaskGrab_SearchBsp(d, sps);
 				respawn = nextRespawn;
-				dataOutputFlags = ((u32)(u8)sps->dataOutput[0]) | ((u32)(u8)sps->dataOutput[1] << 8) | ((u32)(u8)sps->dataOutput[2] << 16) |
-				                  ((u32)(u8)sps->dataOutput[3] << 24);
-			} while ((sps->boolDidTouchQuadblock == 0) || ((dataOutputFlags & 0x4000) != 0));
+			} while ((sps->boolDidTouchQuadblock == 0) || ((sps->collision.stepFlags & 0x4000) != 0));
 
 			struct Thread *playerThread = gGT->threadBuckets[PLAYER].thread;
 			while (playerThread != NULL)
@@ -232,9 +223,7 @@ void VehStuckProc_MaskGrab_Animate(struct Thread *t, struct Driver *d)
 
 		inst->animFrame = VehFrameInst_GetStartFrame(0, numFrames);
 
-		d->AxisAngle2_normalVec[0] = d->KartStates.MaskGrab.AngleAxis_NormalVec[0];
-		d->AxisAngle2_normalVec[1] = d->KartStates.MaskGrab.AngleAxis_NormalVec[1];
-		d->AxisAngle2_normalVec[2] = d->KartStates.MaskGrab.AngleAxis_NormalVec[2];
+		d->AxisAngle2_normalVec = d->KartStates.MaskGrab.AngleAxis_NormalVec;
 	}
 
 	// if driver did not touch ground (and is falling)
@@ -443,9 +432,7 @@ void VehStuckProc_MaskGrab_Init(struct Thread *t, struct Driver *d)
 
 		if ((d->posCurr.y < -0x8000) && ((gGT->level1->configFlags & 2) != 0))
 		{
-			d->KartStates.MaskGrab.AngleAxis_NormalVec[0] = d->AxisAngle2_normalVec[0];
-			d->KartStates.MaskGrab.AngleAxis_NormalVec[1] = d->AxisAngle2_normalVec[1];
-			d->KartStates.MaskGrab.AngleAxis_NormalVec[2] = d->AxisAngle2_normalVec[2];
+			d->KartStates.MaskGrab.AngleAxis_NormalVec = d->AxisAngle2_normalVec;
 
 			for (int i = 10; i > 0; i--)
 			{
@@ -465,9 +452,7 @@ void VehStuckProc_MaskGrab_Init(struct Thread *t, struct Driver *d)
 	}
 	else
 	{
-		d->KartStates.MaskGrab.AngleAxis_NormalVec[0] = d->AxisAngle2_normalVec[0];
-		d->KartStates.MaskGrab.AngleAxis_NormalVec[1] = d->AxisAngle2_normalVec[1];
-		d->KartStates.MaskGrab.AngleAxis_NormalVec[2] = d->AxisAngle2_normalVec[2];
+		d->KartStates.MaskGrab.AngleAxis_NormalVec = d->AxisAngle2_normalVec;
 	}
 
 	d->posCurr.x = CTR_MipsSll(inst->matrix.t[0], 8);
@@ -1160,7 +1145,7 @@ void VehStuckProc_Tumble_PhysAngular(struct Thread *thread, struct Driver *drive
 
 	(driver->rotCurr).w = VehCalc_InterpBySpeed((int)(driver->rotCurr).w, CTR_MipsSra(CTR_MipsSll(elapsedTimeMS, 5), 5), 0);
 
-	VehPhysForce_RotAxisAngle(&driver->matrixMovingDir, (s16 *)&driver->AxisAngle1_normalVec, driver->angle);
+	VehPhysForce_RotAxisAngle(&driver->matrixMovingDir, driver->AxisAngle1_normalVec.v, driver->angle);
 }
 
 
@@ -1299,7 +1284,7 @@ void VehStuckProc_Warp_AddDustPuff1(struct ScratchpadStruct *sps)
 
 	// position variables
 	for (char i = 0; i < 3; i++)
-		p->axis[i].startVal = CTR_MipsAddLo(p->axis[i].startVal, CTR_MipsSll(sps->Input1.pos[i], 8));
+		p->axis[i].startVal = CTR_MipsAddLo(p->axis[i].startVal, CTR_MipsSll(sps->Input1.pos.v[i], 8));
 }
 
 

@@ -427,12 +427,12 @@ void RB_FlameJet_LInB(struct Instance *inst)
 	fjObj->dirZ = inst->matrix.m[2][2] * 0x4b >> 5;
 	fjObj->audioPtr = 0;
 
-	fjBoxDesc.bbox.min[0] = -0x40;
-	fjBoxDesc.bbox.min[1] = -0x40;
-	fjBoxDesc.bbox.min[2] = 0;
-	fjBoxDesc.bbox.max[0] = 0x40;
-	fjBoxDesc.bbox.max[1] = 0x80;
-	fjBoxDesc.bbox.max[2] = 0x140;
+	fjBoxDesc.bbox.min.x = -0x40;
+	fjBoxDesc.bbox.min.y = -0x40;
+	fjBoxDesc.bbox.min.z = 0;
+	fjBoxDesc.bbox.max.x = 0x40;
+	fjBoxDesc.bbox.max.y = 0x80;
+	fjBoxDesc.bbox.max.z = 0x140;
 
 	if (sdata->gGT->level1->ptrSpawnType1->count > 0)
 	{

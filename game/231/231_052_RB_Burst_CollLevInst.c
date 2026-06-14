@@ -1,8 +1,9 @@
 #include <common.h>
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b20a4-0x800b2154.
-void RB_Burst_CollLevInst(struct ScratchpadStruct *sps, struct BSP *bspHitbox)
+void RB_Burst_CollLevInst(struct ScratchpadStruct *sps, void *hitObject)
 {
+	struct BSP *bspHitbox = hitObject;
 	s16 model;
 	struct Instance *inst;
 	struct InstDef *instdef;

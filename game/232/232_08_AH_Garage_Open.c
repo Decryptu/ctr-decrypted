@@ -1,8 +1,9 @@
 #include <common.h>
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800ae8e0-0x800ae988.
-void AH_Garage_Open(struct ScratchpadStruct *sps, struct Thread *otherTh)
+void AH_Garage_Open(struct ScratchpadStruct *sps, void *hitObject)
 {
+	struct Thread *otherTh = hitObject;
 	s16 sound;
 	struct Instance *garageInst;
 	struct BossGarageDoor *garage;

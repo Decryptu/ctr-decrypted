@@ -257,22 +257,22 @@ LAB_800adc08:;
 
 	struct ScratchpadStruct *sps = (struct ScratchpadStruct *)0x1f800108;
 
-	sps->Union.QuadBlockColl.searchFlags = 0x41;
-	sps->Union.QuadBlockColl.qbFlagsWanted = 0x1040;
-	sps->Union.QuadBlockColl.qbFlagsIgnored = 0;
+	sps->Union.QuadBlockColl.searchFlags = COLL_SEARCH_TEST_INSTANCES | COLL_SEARCH_FORCE_INSTANCE_HIT;
+	sps->Union.QuadBlockColl.quadFlagsWanted = QUADBLOCK_FLAG_GROUND | QUADBLOCK_FLAG_TRIGGER;
+	sps->Union.QuadBlockColl.quadFlagsIgnored = 0;
 
 	if (gGT->numPlyrCurrGame < 3)
 	{
-		sps->Union.QuadBlockColl.searchFlags = 0x43;
+		sps->Union.QuadBlockColl.searchFlags = COLL_SEARCH_TEST_INSTANCES | COLL_SEARCH_HIGH_LOD | COLL_SEARCH_FORCE_INSTANCE_HIT;
 	}
 
 	sps->ptr_mesh_info = gGT->level1->ptr_mesh_info;
 
-	COLL_SearchBSP_CallbackQUADBLK((u32 *)&posA, (u32 *)&posB, sps, 0);
+	COLL_SearchBSP_CallbackQUADBLK(posA, posB, sps, 0);
 
 	RB_MakeInstanceReflective(sps, inst);
 
-	if ((*(int *)&sps->dataOutput[0] & 4) != 0)
+	if ((sps->collision.stepFlags & 4) != 0)
 	{
 		// move backward one frame
 		tw->vel[0] = -tw->vel[0];
@@ -299,7 +299,7 @@ LAB_800adc08:;
 			posA[1] = inst->matrix.t[1] - 0x900;
 			posA[2] = inst->matrix.t[2];
 
-			COLL_SearchBSP_CallbackQUADBLK((u32 *)&posA, (u32 *)&posB, sps, 0);
+			COLL_SearchBSP_CallbackQUADBLK(posA, posB, sps, 0);
 
 			// if still nothing, then explode
 			if (sps->boolDidTouchQuadblock == 0)
@@ -332,13 +332,13 @@ LAB_800adc08:;
 			// missile model
 			if (modelID == DYNAMIC_ROCKET)
 			{
-				VehPhysForce_RotAxisAngle(&inst->matrix, &sps->Set2.normalVec[0], tw->rotY);
+				VehPhysForce_RotAxisAngle(&inst->matrix, sps->hit.plane.normal.v, tw->rotY);
 			}
 
 			// position
-			inst->matrix.t[0] = sps->Union.QuadBlockColl.hitPos[0];
-			inst->matrix.t[1] = sps->Union.QuadBlockColl.hitPos[1] + 0x30;
-			inst->matrix.t[2] = sps->Union.QuadBlockColl.hitPos[2];
+			inst->matrix.t[0] = sps->Union.QuadBlockColl.hitPos.x;
+			inst->matrix.t[1] = sps->Union.QuadBlockColl.hitPos.y + 0x30;
+			inst->matrix.t[2] = sps->Union.QuadBlockColl.hitPos.z;
 		}
 	}
 	else

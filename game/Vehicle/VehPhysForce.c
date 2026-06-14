@@ -38,17 +38,12 @@ static int VehPhysForce_OnGravity_Abs(int value)
 	return value < 0 ? CTR_MipsNegLo(value) : value;
 }
 
-static u32 VehPhysForce_OnGravity_PackS16Pair(s32 lo, s32 hi)
-{
-	return ((u32)(u16)lo) | ((u32)(u16)hi << 16);
-}
-
 static void VehPhysForce_OnGravity_SetLightMatrixTranspose(const MATRIX *m)
 {
-	u32 r0 = VehPhysForce_OnGravity_PackS16Pair(m->m[0][0], m->m[0][1]);
-	u32 r1 = VehPhysForce_OnGravity_PackS16Pair(m->m[0][2], m->m[1][0]);
-	u32 r2 = VehPhysForce_OnGravity_PackS16Pair(m->m[1][1], m->m[1][2]);
-	u32 r3 = VehPhysForce_OnGravity_PackS16Pair(m->m[2][0], m->m[2][1]);
+	u32 r0 = CTR_PackS16Pair(m->m[0][0], m->m[0][1]);
+	u32 r1 = CTR_PackS16Pair(m->m[0][2], m->m[1][0]);
+	u32 r2 = CTR_PackS16Pair(m->m[1][1], m->m[1][2]);
+	u32 r3 = CTR_PackS16Pair(m->m[2][0], m->m[2][1]);
 	s16 r4 = m->m[2][2];
 	const u32 highMask = 0xffff0000u;
 
@@ -66,7 +61,7 @@ static Vec3 VehPhysForce_OnGravity_RotateVectorLocal(const MATRIX *m, s16 vx, s1
 	Vec3 out;
 
 	(void)m;
-	MTC2(VehPhysForce_OnGravity_PackS16Pair(vx, vy), 0);
+	MTC2(CTR_PackS16Pair(vx, vy), 0);
 	MTC2((u32)(u16)vz, 1);
 	gte_mvmva(1, 1, 0, 3, 0);
 	out.x = MFC2_S(25);
@@ -81,7 +76,7 @@ static Vec3 VehPhysForce_OnGravity_RotateVector(const MATRIX *m, s16 vx, s16 vy,
 	Vec3 out;
 
 	(void)m;
-	MTC2(VehPhysForce_OnGravity_PackS16Pair(vx, vy), 0);
+	MTC2(CTR_PackS16Pair(vx, vy), 0);
 	MTC2((u32)(u16)vz, 1);
 	gte_mvmva(1, 0, 0, 3, 0);
 	out.x = MFC2_S(25);
@@ -457,11 +452,6 @@ START_ROLLBACK:
 	driver->StartRollback_0x280 = 0x280;
 }
 
-static u32 VehPhysForce_OnApplyForces_PackS16Pair(s32 lo, s32 hi)
-{
-	return ((u32)(u16)lo) | ((u32)(u16)hi << 16);
-}
-
 static Vec3 VehPhysForce_OnApplyForces_RotateVector(const MATRIX *m, s16 vx, s16 vy, s16 vz)
 {
 	Vec3 out;
@@ -469,7 +459,7 @@ static Vec3 VehPhysForce_OnApplyForces_RotateVector(const MATRIX *m, s16 vx, s16
 	// NOTE(aalhendi): Retail loads matrixFacingDir into CP2 color matrix regs
 	// and runs opcode 0x4c6012 for this center-offset calculation.
 	gte_SetColorMatrix(m);
-	MTC2(VehPhysForce_OnApplyForces_PackS16Pair(vx, vy), 0);
+	MTC2(CTR_PackS16Pair(vx, vy), 0);
 	MTC2((u32)(u16)vz, 1);
 	gte_mvmva(1, 2, 0, 3, 0);
 	out.x = MFC2_S(25);
@@ -510,7 +500,7 @@ void VehPhysForce_OnApplyForces(struct Thread *thread, struct Driver *driver)
 	const SVec3 up = {.x = FP(0), .y = FP(1), .z = FP(0)};
 	driver->normalVecUP = up;
 	driver->AxisAngle1_normalVec = up;
-	driver->unkAA = 0; // driver quadblock flags?
+	driver->collisionFlags = 0;
 	driver->currBlockTouching = nullptr;
 
 	driver->velocity.x = CTR_MipsAddLo(driver->velocity.x, driver->accel.x);
@@ -527,9 +517,9 @@ void VehPhysForce_CollideDrivers(struct Thread *thread, struct Driver *driver)
 	driver->velocity.y = CTR_MipsSubLo(driver->velocity.y, driver->accel.y);
 	driver->velocity.z = CTR_MipsSubLo(driver->velocity.z, driver->accel.z);
 
-	if ((stepFlagSet & 0x4000) != 0)
+	if ((stepFlagSet & COLL_STEP_FLAG_KILL_PLANE) != 0)
 	{
-		driver->unkAA |= 1;
+		driver->collisionFlags |= DRIVER_COLL_FLAG_MASK_GRAB_REQUEST;
 	}
 
 	if ((stepFlagSet & 2) != 0)
@@ -548,14 +538,14 @@ void VehPhysForce_CollideDrivers(struct Thread *thread, struct Driver *driver)
 		}
 	}
 
-	if ((stepFlagSet & 0x8000) != 0)
+	if ((stepFlagSet & COLL_STEP_FLAG_WATER_BSP) != 0)
 	{
 		thread->inst->vertSplit = 0;
-		thread->inst->flags |= 0x2000;
+		thread->inst->flags |= SPLIT_LINE;
 	}
 	else
 	{
-		thread->inst->flags &= ~0x2000;
+		thread->inst->flags &= ~SPLIT_LINE;
 	}
 
 	if ((thread->flags & 0x1000) == 0)
@@ -582,7 +572,7 @@ void VehPhysForce_CollideDrivers(struct Thread *thread, struct Driver *driver)
 		}
 	}
 
-	if ((driver->unkAA & 2) != 0)
+	if ((driver->collisionFlags & DRIVER_COLL_FLAG_SURFACE_PUSHBACK) != 0)
 	{
 		int diffX = CTR_MipsSubLo(CTR_MipsSra(driver->posCurr.x, 8), driver->spsHitPos[0]);
 		int diffZ = CTR_MipsSubLo(CTR_MipsSra(driver->posCurr.z, 8), driver->spsHitPos[2]);
@@ -615,11 +605,6 @@ static int VehPhysForce_TranslateMatrix_Div256TowardZero(int value)
 	return CTR_MipsSra(value, 8);
 }
 
-static u32 VehPhysForce_TranslateMatrix_PackS16Pair(s32 lo, s32 hi)
-{
-	return ((u32)(u16)lo) | ((u32)(u16)hi << 16);
-}
-
 static Vec3 VehPhysForce_TranslateMatrix_RotateVector(const MATRIX *m, s16 vx, s16 vy, s16 vz)
 {
 	Vec3 out;
@@ -628,7 +613,7 @@ static Vec3 VehPhysForce_TranslateMatrix_RotateVector(const MATRIX *m, s16 vx, s
 	// rotates the baked animation offset with opcode 0x486012. The GTE side
 	// effects are observable by later vehicle wobble paths.
 	gte_SetRotMatrix(m);
-	MTC2(VehPhysForce_TranslateMatrix_PackS16Pair(vx, vy), 0);
+	MTC2(CTR_PackS16Pair(vx, vy), 0);
 	MTC2((u32)(u16)vz, 1);
 	gte_mvmva(1, 0, 0, 3, 0);
 	out.x = MFC2_S(25);
@@ -876,9 +861,9 @@ static void VehPhysForce_TranslateMatrix_UpdateInstanceMatrix(struct Instance *i
 
 	if (d->squishTimer != 0)
 	{
-		inst->matrix.t[0] = CTR_MipsAddLo(inst->matrix.t[0], CTR_MipsSra(CTR_MipsMulLo(d->AxisAngle2_normalVec[0], 0x13), 12));
-		inst->matrix.t[1] = CTR_MipsAddLo(inst->matrix.t[1], CTR_MipsSra(CTR_MipsMulLo(d->AxisAngle2_normalVec[1], 0x13), 12));
-		inst->matrix.t[2] = CTR_MipsAddLo(inst->matrix.t[2], CTR_MipsSra(CTR_MipsMulLo(d->AxisAngle2_normalVec[2], 0x13), 12));
+		inst->matrix.t[0] = CTR_MipsAddLo(inst->matrix.t[0], CTR_MipsSra(CTR_MipsMulLo(d->AxisAngle2_normalVec.x, 0x13), 12));
+		inst->matrix.t[1] = CTR_MipsAddLo(inst->matrix.t[1], CTR_MipsSra(CTR_MipsMulLo(d->AxisAngle2_normalVec.y, 0x13), 12));
+		inst->matrix.t[2] = CTR_MipsAddLo(inst->matrix.t[2], CTR_MipsSra(CTR_MipsMulLo(d->AxisAngle2_normalVec.z, 0x13), 12));
 	}
 }
 
@@ -997,7 +982,7 @@ void VehPhysForce_TranslateMatrix(struct Thread *thread, struct Driver *driver)
 	struct Instance *inst = thread->inst;
 
 	VehPhysForce_TranslateMatrix_UpdateSquashStretch(inst, driver);
-	VehPhysForce_RotAxisAngle(&driver->matrixFacingDir, driver->AxisAngle2_normalVec, driver->rotCurr.y);
+	VehPhysForce_RotAxisAngle(&driver->matrixFacingDir, driver->AxisAngle2_normalVec.v, driver->rotCurr.y);
 	VehPhysForce_TranslateMatrix_UpdateMatrixAnimation(driver);
 	VehPhysForce_TranslateMatrix_UpdateInstanceMatrix(inst, driver);
 	VehPhysForce_TranslateMatrix_UpdateWake(inst, driver);
@@ -1129,11 +1114,6 @@ void VehPhysForce_RotAxisAngle(MATRIX *m, s16 *normVec, s16 angle)
 	m->m[2][0] = (s16)MFC2_S(27);
 }
 
-static u32 VehPhysForce_CounterSteer_PackS16Pair(s32 lo, s32 hi)
-{
-	return ((u32)(u16)lo) | ((u32)(u16)hi << 16);
-}
-
 static SVec3 VehPhysForce_CounterSteer_RotateVector(const MATRIX *m, s16 vx, s16 vy, s16 vz)
 {
 	SVec3 out;
@@ -1141,7 +1121,7 @@ static SVec3 VehPhysForce_CounterSteer_RotateVector(const MATRIX *m, s16 vx, s16
 
 	// NOTE(aalhendi): PhysTerrainSlope already loaded matrixMovingDir into GTE
 	// rotation regs, matching retail before VehPhysForce_CounterSteer runs.
-	MTC2(VehPhysForce_CounterSteer_PackS16Pair(vx, vy), 0);
+	MTC2(CTR_PackS16Pair(vx, vy), 0);
 	MTC2((u32)(u16)vz, 1);
 	gte_mvmva(1, 0, 0, 3, 0);
 	out.x = (s16)MFC2(25);
@@ -1164,7 +1144,7 @@ void VehPhysForce_CounterSteer(struct Driver *driver)
 		speedApprox = CTR_MipsNegLo(speedApprox);
 	}
 
-	if (speedApprox <= FP8(3) || driver->actionsFlagSet & ACTION_WARP || driver->kartState == KS_CRASHING || driver->set_0xF0_OnWallRub ||
+	if (speedApprox <= FP8(3) || driver->actionsFlagSet & ACTION_WARP || driver->kartState == KS_CRASHING || driver->wallRubTimer ||
 	    !(driver->actionsFlagSet & ACTION_TOUCH_GROUND) || driver->terrainMeta1->counterSteerRatio == 0)
 	{
 		return;

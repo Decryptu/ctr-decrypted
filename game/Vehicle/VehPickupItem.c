@@ -409,7 +409,7 @@ void VehPickupItem_ShootNow(struct Driver *d, int weaponID, int flags)
 		weaponInst->matrix.t[1] = dInst->matrix.t[1];
 		weaponInst->matrix.t[2] = dInst->matrix.t[2];
 
-		VehPhysForce_RotAxisAngle(&weaponInst->matrix, (s16 *)&d->AxisAngle1_normalVec, d->rotCurr.y);
+		VehPhysForce_RotAxisAngle(&weaponInst->matrix, d->AxisAngle1_normalVec.v, d->rotCurr.y);
 
 		weaponTh = weaponInst->thread;
 		weaponTh->funcThDestroy = PROC_DestroyTracker;
@@ -565,7 +565,7 @@ void VehPickupItem_ShootNow(struct Driver *d, int weaponID, int flags)
 
 		RB_MinePool_Add(mw);
 		VehPickupItem_PotionThrow(mw, weaponInst, flags);
-		mineHitModel = weaponInst->model->id | 0x8000;
+		mineHitModel = weaponInst->model->id | COLL_MODELID_BLOCKAGE_FLAG;
 		mineShouldInitFollower = (flags == 0);
 
 	RunMineCOLL:
@@ -583,16 +583,16 @@ void VehPickupItem_ShootNow(struct Driver *d, int weaponID, int flags)
 
 		struct ScratchpadStruct *sps = (struct ScratchpadStruct *)0x1f800108;
 
-		sps->Union.QuadBlockColl.qbFlagsWanted = 0x1000;
-		sps->Union.QuadBlockColl.qbFlagsIgnored = 0;
+		sps->Union.QuadBlockColl.quadFlagsWanted = QUADBLOCK_FLAG_GROUND;
+		sps->Union.QuadBlockColl.quadFlagsIgnored = 0;
 
-		sps->Union.QuadBlockColl.searchFlags = 1;
+		sps->Union.QuadBlockColl.searchFlags = COLL_SEARCH_TEST_INSTANCES;
 		if (gGT->numPlyrCurrGame < 3)
-			sps->Union.QuadBlockColl.searchFlags = 3;
+			sps->Union.QuadBlockColl.searchFlags = COLL_SEARCH_TEST_INSTANCES | COLL_SEARCH_HIGH_LOD;
 
 		sps->ptr_mesh_info = gGT->level1->ptr_mesh_info;
 
-		COLL_SearchBSP_CallbackQUADBLK((u32 *)pos1, (u32 *)pos2, sps, 0x40);
+		COLL_SearchBSP_CallbackQUADBLK(pos1, pos2, sps, 0x40);
 
 		if (sps->boolDidTouchHitbox != 0)
 		{
@@ -616,7 +616,7 @@ void VehPickupItem_ShootNow(struct Driver *d, int weaponID, int flags)
 			}
 
 			sps->Union.QuadBlockColl.searchFlags = 0;
-			COLL_SearchBSP_CallbackQUADBLK((u32 *)pos1, (u32 *)pos2, sps, 0);
+			COLL_SearchBSP_CallbackQUADBLK(pos1, pos2, sps, 0);
 		}
 
 		RB_MakeInstanceReflective(sps, weaponInst);
@@ -635,7 +635,7 @@ void VehPickupItem_ShootNow(struct Driver *d, int weaponID, int flags)
 
 		else
 		{
-			mw->stopFallAtY = sps->Union.QuadBlockColl.hitPos[1];
+			mw->stopFallAtY = sps->Union.QuadBlockColl.hitPos.y;
 		}
 
 		VehPhysForce_RotAxisAngle(&weaponInst->matrix, rotPtr, d->angle);

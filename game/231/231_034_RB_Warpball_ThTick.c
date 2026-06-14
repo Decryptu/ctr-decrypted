@@ -20,9 +20,9 @@ static int RB_Warpball_NodeDeltaLength(struct CheckpointNode *curr, struct Check
 
 static void RB_Warpball_SetQuadblockIndex(struct TrackerWeapon *tw, struct ScratchpadStruct *sps)
 {
-	if (sps->Set2.ptrQuadblock->checkpointIndex != 0xff)
+	if (sps->hit.ptrQuadblock->checkpointIndex != 0xff)
 	{
-		tw->nodeNextIndex = sps->Set2.ptrQuadblock->checkpointIndex;
+		tw->nodeNextIndex = sps->hit.ptrQuadblock->checkpointIndex;
 	}
 }
 
@@ -242,20 +242,20 @@ void RB_Warpball_ThTick(struct Thread *t)
 	posBottom[2] = (s16)inst->matrix.t[2];
 
 	sps = CTR_SCRATCHPAD_PTR(struct ScratchpadStruct, 0x108);
-	sps->Union.QuadBlockColl.qbFlagsWanted = 0x1040;
-	sps->Union.QuadBlockColl.qbFlagsIgnored = 0;
-	sps->Union.QuadBlockColl.searchFlags = 0x41;
+	sps->Union.QuadBlockColl.quadFlagsWanted = QUADBLOCK_FLAG_GROUND | QUADBLOCK_FLAG_TRIGGER;
+	sps->Union.QuadBlockColl.quadFlagsIgnored = 0;
+	sps->Union.QuadBlockColl.searchFlags = COLL_SEARCH_TEST_INSTANCES | COLL_SEARCH_FORCE_INSTANCE_HIT;
 
 	if (gGT->numPlyrCurrGame < 3)
 	{
-		sps->Union.QuadBlockColl.searchFlags = 0x43;
+		sps->Union.QuadBlockColl.searchFlags = COLL_SEARCH_TEST_INSTANCES | COLL_SEARCH_HIGH_LOD | COLL_SEARCH_FORCE_INSTANCE_HIT;
 	}
 
 	sps->ptr_mesh_info = gGT->level1->ptr_mesh_info;
-	COLL_SearchBSP_CallbackQUADBLK((u32 *)&posTop[0], (u32 *)&posBottom[0], sps, 0);
+	COLL_SearchBSP_CallbackQUADBLK(posTop, posBottom, sps, 0);
 	RB_MakeInstanceReflective(sps, inst);
 
-	if ((*(int *)&sps->dataOutput[0] & 4) != 0)
+	if ((sps->collision.stepFlags & 4) != 0)
 	{
 		RB_Warpball_TurnAround(t);
 	}
@@ -276,10 +276,10 @@ void RB_Warpball_ThTick(struct Thread *t)
 		RB_Warpball_SetQuadblockIndex(tw, sps);
 		tw->vel[1] = 0;
 
-		if (((tw->flags & 0xc) != 0) && (inst->matrix.t[1] < sps->Set2.hitPos[1]))
+		if (((tw->flags & 0xc) != 0) && (inst->matrix.t[1] < sps->hit.hitPos.y))
 		{
-			inst->matrix.t[1] = sps->Set2.hitPos[1];
-			inst->unk50 = sps->Set2.ptrQuadblock->draw_order_low - 1;
+			inst->matrix.t[1] = sps->hit.hitPos.y;
+			inst->unk50 = sps->hit.ptrQuadblock->draw_order_low - 1;
 		}
 	}
 	else
@@ -287,7 +287,7 @@ void RB_Warpball_ThTick(struct Thread *t)
 		posTop[0] = (s16)inst->matrix.t[0];
 		posTop[1] = (s16)(inst->matrix.t[1] - 0x900);
 		posTop[2] = (s16)inst->matrix.t[2];
-		COLL_SearchBSP_CallbackQUADBLK((u32 *)&posTop[0], (u32 *)&posBottom[0], sps, 0);
+		COLL_SearchBSP_CallbackQUADBLK(posTop, posBottom, sps, 0);
 
 		if (sps->boolDidTouchQuadblock != 0)
 		{

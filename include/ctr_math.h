@@ -153,6 +153,11 @@ static inline s32 CTR_MipsNegLo(s32 value)
 	return CTR_MipsSubLo(0, value);
 }
 
+static inline u32 CTR_PackS16Pair(s32 lo, s32 hi)
+{
+	return (u32)(u16)lo | ((u32)(u16)hi << 16);
+}
+
 static inline s32 CTR_MipsDiv(s32 dividend, s32 divisor)
 {
 	const s32 minS32 = (-2147483647 - 1);

@@ -436,12 +436,12 @@ void RB_Plant_LInB(struct Instance *inst)
 	plantObj->cooldown = 0;
 	plantObj->boolEatingPlayer = 0;
 
-	plantBoxDesc.bbox.min[0] = 0xffc0;
-	plantBoxDesc.bbox.min[1] = 0xffc0;
-	plantBoxDesc.bbox.min[2] = 0;
-	plantBoxDesc.bbox.max[0] = 0x40;
-	plantBoxDesc.bbox.max[1] = 0x80;
-	plantBoxDesc.bbox.max[2] = 0x1e0;
+	plantBoxDesc.bbox.min.x = 0xffc0;
+	plantBoxDesc.bbox.min.y = 0xffc0;
+	plantBoxDesc.bbox.min.z = 0;
+	plantBoxDesc.bbox.max.x = 0x40;
+	plantBoxDesc.bbox.max.y = 0x80;
+	plantBoxDesc.bbox.max.z = 0x1e0;
 
 	ptrSpawnType1 = sdata->gGT->level1->ptrSpawnType1;
 	if (ptrSpawnType1->count > 0)

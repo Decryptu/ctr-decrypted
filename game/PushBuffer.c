@@ -771,13 +771,13 @@ void PushBuffer_UpdateFrustum(struct PushBuffer *pb)
 		fcOUT--;
 	}
 
-	pb->bbox.min[0] = (s16)min_X;
-	pb->bbox.min[1] = (s16)min_Y;
-	pb->bbox.min[2] = (s16)min_Z;
+	pb->bbox.min.x = (s16)min_X;
+	pb->bbox.min.y = (s16)min_Y;
+	pb->bbox.min.z = (s16)min_Z;
 
-	pb->bbox.max[0] = (s16)max_X;
-	pb->bbox.max[1] = (s16)max_Y;
-	pb->bbox.max[2] = (s16)max_Z;
+	pb->bbox.max.x = (s16)max_X;
+	pb->bbox.max.y = (s16)max_Y;
+	pb->bbox.max.z = (s16)max_Z;
 
 	// cameraPos (x,y,z)
 	spf->camPos[0] = cameraPosX;
