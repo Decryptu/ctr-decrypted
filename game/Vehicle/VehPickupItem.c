@@ -973,7 +973,7 @@ void VehPickupItem_ShootOnCirclePress(struct Driver *d)
 
 	if (d->pendingDamageType != 0)
 	{
-		VehPickState_NewState(d, d->pendingDamageType, d->pendingDamageAttacker, d->pendingDamageReason);
+		VehPickState_NewState(d, d->pendingDamageType, d->pendingDamageAttacker, d->pendingDamageReasonByte);
 	}
 
 	// If you want to fire a weapon

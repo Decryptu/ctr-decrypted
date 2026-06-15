@@ -1603,11 +1603,8 @@ struct Driver
 	struct Driver *pendingDamageAttacker;
 
 	// 0x504
-	union
-	{
-		int pendingDamageReason;
-		u8 pendingDamageReasonByte;
-	};
+	u8 pendingDamageReasonByte;
+	u8 pendingDamageReasonPadding[3];
 
 	// 0x508
 	// backup of alpha, used for turbo fire
@@ -2099,8 +2096,8 @@ _Static_assert(offsetof(struct Driver, checkpoint.currentIndex) == 0x495);
 _Static_assert(offsetof(struct Driver, BattleHUD.reserved_0x4d8) == 0x4d8);
 _Static_assert(offsetof(struct Driver, pendingDamageType) == 0x4ff);
 _Static_assert(offsetof(struct Driver, pendingDamageAttacker) == 0x500);
-_Static_assert(offsetof(struct Driver, pendingDamageReason) == 0x504);
 _Static_assert(offsetof(struct Driver, pendingDamageReasonByte) == 0x504);
+_Static_assert(sizeof(((struct Driver *)0)->pendingDamageReasonPadding) == 0x3);
 _Static_assert(offsetof(struct Driver, rainCloudEffect) == 0x50a);
 _Static_assert(offsetof(struct Driver, numTimesWumpa) == 0x569);
 _Static_assert(offsetof(struct Driver, ghostPadding_0x636) == 0x636);

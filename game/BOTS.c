@@ -804,7 +804,7 @@ void BOTS_ThTick_Drive(struct Thread *botThread)
 	}
 	else
 	{
-		BOTS_ChangeState(botDriver, botDriver->pendingDamageType, botDriver->pendingDamageAttacker, botDriver->pendingDamageReason);
+		BOTS_ChangeState(botDriver, botDriver->pendingDamageType, botDriver->pendingDamageAttacker, botDriver->pendingDamageReasonByte);
 	}
 
 	int elapsedMilliseconds = gGT->elapsedTimeMS; // local_34
