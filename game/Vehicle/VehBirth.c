@@ -345,7 +345,7 @@ void VehBirth_TeleportSelf(struct Driver *d, u8 spawnFlag, int spawnPosY)
 	d->lapTime = 0;
 	d->distanceToFinish_curr = 0;
 
-	d->actionsFlagSet &= ~(ACTION_RACE_FINISHED | ACTION_BEHIND_START_LINE);
+	d->actionsFlagSet &= ~(ACTION_RACE_FINISHED | ACTION_BOT);
 
 	if ((gGT->gameMode2 & CHEAT_WUMPA) != 0)
 		d->numWumpas = 99;
