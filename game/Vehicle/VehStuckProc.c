@@ -1381,8 +1381,8 @@ void VehStuckProc_Warp_AddDustPuff2(struct Driver *d, int *warp)
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80068be8-0x80068e04.
 void VehStuckProc_Warp_PhysAngular(struct Thread *th, struct Driver *d)
 {
-	int timer;
-	s16 pos[4];
+	int warpTimer;
+	s16 flarePos[4];
 
 	// get instance from driver object
 	struct Instance *inst = d->instSelf;
@@ -1404,10 +1404,10 @@ void VehStuckProc_Warp_PhysAngular(struct Thread *th, struct Driver *d)
 		VehStuckProc_Warp_AddDustPuff2(d, &d->KartStates.Warp.timer);
 	}
 
-	timer = d->KartStates.Warp.timer;
-	timer = CTR_MipsAddLo(timer, 26);
+	warpTimer = d->KartStates.Warp.timer;
+	warpTimer = CTR_MipsAddLo(warpTimer, 26);
 
-	if (timer <= 800)
+	if (warpTimer <= 800)
 	{
 		// interpolate until scale is [0x12c0, 0x960, 0x12c0],
 		// car is wide and s16
@@ -1421,7 +1421,7 @@ void VehStuckProc_Warp_PhysAngular(struct Thread *th, struct Driver *d)
 	else
 	{
 		// cap to 800
-		timer = 800;
+		warpTimer = 800;
 
 		d->revEngineState = 2;
 
@@ -1438,11 +1438,11 @@ void VehStuckProc_Warp_PhysAngular(struct Thread *th, struct Driver *d)
 			if ((inst->flags & HIDE_MODEL) == 0)
 			{
 				// position above kart
-				pos[0] = (s16)CTR_MipsSra(d->posCurr.x, 8);
-				pos[1] = (s16)CTR_MipsAddLo(CTR_MipsSra(d->KartStates.Warp.quadHeight, 8), 0x40);
-				pos[2] = (s16)CTR_MipsSra(d->posCurr.z, 8);
+				flarePos[0] = (s16)CTR_MipsSra(d->posCurr.x, 8);
+				flarePos[1] = (s16)CTR_MipsAddLo(CTR_MipsSra(d->KartStates.Warp.quadHeight, 8), 0x40);
+				flarePos[2] = (s16)CTR_MipsSra(d->posCurr.z, 8);
 
-				FLARE_Init((s16 *)&pos);
+				FLARE_Init(flarePos);
 			}
 
 			// make invisible
@@ -1457,16 +1457,16 @@ void VehStuckProc_Warp_PhysAngular(struct Thread *th, struct Driver *d)
 	}
 
 	// drift angle = ((drift angle + warp timer + 0x800) & 0xfff) - 0x800
-	s16 wrappedTurnAngle = (s16)CTR_MipsSubLo(CTR_MipsAddLo(CTR_MipsAddLo((u16)d->turnAngleCurr, (u16)timer), 0x800) & 0xfff, 0x800);
+	s16 wrappedTurnAngle = (s16)CTR_MipsSubLo(CTR_MipsAddLo(CTR_MipsAddLo((u16)d->turnAngleCurr, (u16)warpTimer), 0x800) & 0xfff, 0x800);
 	d->turnAngleCurr = wrappedTurnAngle;
 
-	// cameraRotY = ??? + kart angle + drift angle
+	// cameraRotY = wobble angle + kart angle + wrapped warp turn angle
 	d->rotCurr.y = (s16)CTR_MipsAddLo(CTR_MipsAddLo((u16)d->turnWobbleAngle, (u16)d->angle), (u16)wrappedTurnAngle);
 
 	// driver is warping
 	d->actionsFlagSet |= ACTION_WARP;
 
-	d->KartStates.Warp.timer = timer;
+	d->KartStates.Warp.timer = warpTimer;
 }
 
 

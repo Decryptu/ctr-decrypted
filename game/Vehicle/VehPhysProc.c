@@ -58,7 +58,7 @@ void VehPhysProc_Driving_PhysLinear(struct Thread *thread, struct Driver *driver
 	int timerHazard;
 	int approximateSpeed2;
 	u32 actionsFlagSetCopy;
-	int driverSpeedSmth2;
+	int targetBaseSpeed;
 	struct GamepadBuffer *ptrgamepad;
 	u32 cross;
 	u32 square;
@@ -70,12 +70,12 @@ void VehPhysProc_Driving_PhysLinear(struct Thread *thread, struct Driver *driver
 	u32 buttonsHeld;
 	int stickLY;
 	int stickRY;
-	int driverSpeedOrSmth = 0;
+	int scratchValue = 0;
 	struct Thread *driverItemThread;
 	struct Shield *shield;
 	struct TrackerWeapon *bomb;
 	u32 superEngineFireLevel;
-	int unk0x80;
+	int centeredStick;
 	int driverSpeedCopy;
 
 	gGT = sdata->gGT;
@@ -605,9 +605,9 @@ CheckJumpButtons:
 		// If you are not holding Cross
 		if (cross == 0)
 		{
-			unk0x80 = VehPhysJoystick_ReturnToRest(stickRY, 0x80, 0);
+			centeredStick = VehPhysJoystick_ReturnToRest(stickRY, 0x80, 0);
 
-			if (unk0x80 > -1)
+			if (centeredStick > -1)
 			{
 				actionsFlagSetCopy |= ACTION_ACCEL_RELEASED_WITH_RESERVES;
 			}
@@ -671,8 +671,8 @@ CheckJumpButtons:
 	// If you are not holding Square
 	if (square == 0)
 	{
-		// driverSpeedSmth2 = Racer's Base Speed
-		driverSpeedSmth2 = driverBaseSpeed;
+		// targetBaseSpeed = Racer's Base Speed
+		targetBaseSpeed = driverBaseSpeed;
 
 		// If you are holding Cross, or if you have Reserves
 		if (cross != 0)
@@ -683,39 +683,39 @@ CheckJumpButtons:
 		}
 
 		// if you are not holding cross, or have no Reserves...
-		// driverSpeedSmth2 is replaced
+		// targetBaseSpeed is replaced
 
-		driverSpeedSmth2 = VehPhysJoystick_ReturnToRest(stickRY, 0x80, 0);
+		targetBaseSpeed = VehPhysJoystick_ReturnToRest(stickRY, 0x80, 0);
 
-		driverSpeedOrSmth = CTR_MipsNegLo(driverSpeedSmth2);
-		if (driverSpeedSmth2 < 1)
+		scratchValue = CTR_MipsNegLo(targetBaseSpeed);
+		if (targetBaseSpeed < 1)
 		{
-			if ((driverSpeedOrSmth == 0) && ((unk0x80 = VehPhysJoystick_ReturnToRest(stickLY, 0x80, 0),
+			if ((scratchValue == 0) && ((centeredStick = VehPhysJoystick_ReturnToRest(stickLY, 0x80, 0),
 
-			                                  (unk0x80 > 99) ||
+			                             (centeredStick > 99) ||
 
-			                                      ((unk0x80 > 0) && ((actionsFlagSetCopy & ACTION_REVERSING_ENGINE) != 0)))))
+			                                 ((centeredStick > 0) && ((actionsFlagSetCopy & ACTION_REVERSING_ENGINE) != 0)))))
 			{
 				actionsFlagSetCopy |= ACTION_REVERSING_ENGINE;
 
-				driverSpeedSmth2 = CTR_MipsNegLo(driver->const_BackwardSpeed);
+				targetBaseSpeed = CTR_MipsNegLo(driver->const_BackwardSpeed);
 				goto LAB_80062548;
 			}
 
-			driverSpeedOrSmth = CTR_MipsMulLo(driverBaseSpeed, driverSpeedOrSmth);
-			driverSpeedSmth2 = CTR_MipsSra(driverSpeedOrSmth, 7);
-			if (driverSpeedOrSmth < 0)
-				driverSpeedSmth2 = CTR_MipsSra(CTR_MipsAddLo(driverSpeedOrSmth, 0x7f), 7);
+			scratchValue = CTR_MipsMulLo(driverBaseSpeed, scratchValue);
+			targetBaseSpeed = CTR_MipsSra(scratchValue, 7);
+			if (scratchValue < 0)
+				targetBaseSpeed = CTR_MipsSra(CTR_MipsAddLo(scratchValue, 0x7f), 7);
 
 			// remove flag for reversing
 			goto LAB_8006253c;
 		}
 		if ((driver->speedApprox < 0x301) && ((actionsFlagSetCopy & (ACTION_REVERSE_STEER_LEFT | ACTION_REVERSE_STEER_RIGHT)) == 0))
 		{
-			driverSpeedOrSmth = CTR_MipsMulLo(driver->const_BackwardSpeed, driverSpeedOrSmth);
-			if (driverSpeedOrSmth < 0)
-				driverSpeedOrSmth = CTR_MipsAddLo(driverSpeedOrSmth, 0x7f);
-			approximateSpeed2 = CTR_MipsSra(driverSpeedOrSmth, 7);
+			scratchValue = CTR_MipsMulLo(driver->const_BackwardSpeed, scratchValue);
+			if (scratchValue < 0)
+				scratchValue = CTR_MipsAddLo(scratchValue, 0x7f);
+			approximateSpeed2 = CTR_MipsSra(scratchValue, 7);
 			buttonsTapped = ACTION_REVERSING_ENGINE;
 		LAB_800625c4:
 			actionsFlagSetNext = actionsFlagSetCopy | buttonsTapped;
@@ -736,21 +736,21 @@ CheckJumpButtons:
 	// If you are holding Square
 	else
 	{
-		unk0x80 = VehPhysJoystick_ReturnToRest(stickLY, 0x80, 0);
+		centeredStick = VehPhysJoystick_ReturnToRest(stickLY, 0x80, 0);
 
-		if ((unk0x80 < 100) && ((unk0x80 < 1 || ((actionsFlagSetCopy & ACTION_REVERSING_ENGINE) == 0))))
+		if ((centeredStick < 100) && ((centeredStick < 1 || ((actionsFlagSetCopy & ACTION_REVERSING_ENGINE) == 0))))
 		{
 			// if you are not holding cross, and you have no Reserves
 			if (cross == 0)
 			{
-				driverSpeedOrSmth = VehPhysJoystick_ReturnToRest(stickRY, 0x80, 0);
+				scratchValue = VehPhysJoystick_ReturnToRest(stickRY, 0x80, 0);
 
-				if (driverSpeedOrSmth < 0)
+				if (scratchValue < 0)
 				{
-					driverSpeedOrSmth = CTR_MipsMulLo(driverBaseSpeed, CTR_MipsNegLo(driverSpeedOrSmth));
-					if (driverSpeedOrSmth < 0)
-						driverSpeedOrSmth = CTR_MipsAddLo(driverSpeedOrSmth, 0xff);
-					driverSpeedSmth2 = CTR_MipsSra(driverSpeedOrSmth, 8);
+					scratchValue = CTR_MipsMulLo(driverBaseSpeed, CTR_MipsNegLo(scratchValue));
+					if (scratchValue < 0)
+						scratchValue = CTR_MipsAddLo(scratchValue, 0xff);
+					targetBaseSpeed = CTR_MipsSra(scratchValue, 8);
 
 					// gas and brake together
 					actionsFlagSetCopy |= ACTION_BRAKE_WITH_ACCEL;
@@ -758,24 +758,24 @@ CheckJumpButtons:
 					goto LAB_80062548;
 				}
 
-				if (0 < driverSpeedOrSmth)
+				if (0 < scratchValue)
 				{
-					driverSpeedOrSmth = CTR_MipsMulLo(driver->const_BackwardSpeed, CTR_MipsNegLo(driverSpeedOrSmth));
-					if (driverSpeedOrSmth < 0)
-						driverSpeedOrSmth = CTR_MipsAddLo(driverSpeedOrSmth, 0xff);
-					driverSpeedSmth2 = CTR_MipsSra(driverSpeedOrSmth, 8);
+					scratchValue = CTR_MipsMulLo(driver->const_BackwardSpeed, CTR_MipsNegLo(scratchValue));
+					if (scratchValue < 0)
+						scratchValue = CTR_MipsAddLo(scratchValue, 0xff);
+					targetBaseSpeed = CTR_MipsSra(scratchValue, 8);
 
 					// reversing, and gas+brake
 					goto LAB_8006248c;
 				}
 
-				// driverSpeedOrSmth == 0,
+				// scratchValue == 0,
 				// no gas, only brake
 
 				// using the brake
 				actionsFlagSetCopy |= ACTION_ACCEL_PREVENTION;
 
-				driverSpeedSmth2 = approximateSpeed2;
+				targetBaseSpeed = approximateSpeed2;
 			}
 			// If you are holding cross, or you have Reserves
 			else
@@ -783,14 +783,14 @@ CheckJumpButtons:
 				// gas and brake together
 				actionsFlagSetCopy |= ACTION_BRAKE_WITH_ACCEL;
 
-				driverSpeedSmth2 = CTR_MipsSra(CTR_MipsAddLo(driverBaseSpeed, (u32)driverBaseSpeed >> 31), 1);
+				targetBaseSpeed = CTR_MipsSra(CTR_MipsAddLo(driverBaseSpeed, (u32)driverBaseSpeed >> 31), 1);
 			}
 			goto LAB_8006253c;
 		}
-		driverSpeedOrSmth = CTR_MipsMulLo(driver->const_BackwardSpeed, -3);
-		driverSpeedSmth2 = CTR_MipsSra(driverSpeedOrSmth, 2);
-		if (driverSpeedOrSmth < 0)
-			driverSpeedSmth2 = CTR_MipsSra(CTR_MipsAddLo(driverSpeedOrSmth, 3), 2);
+		scratchValue = CTR_MipsMulLo(driver->const_BackwardSpeed, -3);
+		targetBaseSpeed = CTR_MipsSra(scratchValue, 2);
+		if (scratchValue < 0)
+			targetBaseSpeed = CTR_MipsSra(CTR_MipsAddLo(scratchValue, 3), 2);
 
 	LAB_8006248c:
 		// reversing engine, and brakes
@@ -798,7 +798,7 @@ CheckJumpButtons:
 
 	LAB_80062548:
 		actionsFlagSetNext = actionsFlagSetCopy & ~(ACTION_REVERSE_STEER_LEFT | ACTION_REVERSE_STEER_RIGHT);
-		approximateSpeed2 = driverSpeedSmth2;
+		approximateSpeed2 = targetBaseSpeed;
 	}
 
 	// driving backwards
@@ -880,13 +880,13 @@ CheckJumpButtons:
 	// brakes
 	if ((actionsFlagSetNext & (ACTION_MASK_WEAPON | ACTION_BRAKE_WITH_ACCEL)) == 0)
 	{
-		driverSpeedOrSmth = driver->terrainMeta2->speedMultiplier;
+		scratchValue = driver->terrainMeta2->speedMultiplier;
 
-		if (driverSpeedOrSmth != 0x100)
+		if (scratchValue != 0x100)
 		{
 			// Base Speed = 0xB4 (at Cove water) * Base Speed >> 8
-			approximateSpeed2 = CTR_MipsSra(CTR_MipsMulLo(driverSpeedOrSmth, approximateSpeed2), 8);
-			driverBaseSpeedUshort = (u16)CTR_MipsSra(CTR_MipsMulLo(driverSpeedOrSmth, driverBaseSpeed), 8);
+			approximateSpeed2 = CTR_MipsSra(CTR_MipsMulLo(scratchValue, approximateSpeed2), 8);
+			driverBaseSpeedUshort = (u16)CTR_MipsSra(CTR_MipsMulLo(scratchValue, driverBaseSpeed), 8);
 		}
 	}
 	driver->terrainScaledBaseSpeed = (s16)driverBaseSpeedUshort;
@@ -897,13 +897,13 @@ CheckJumpButtons:
 
 
 	// assume neutral steer (drive straight)
-	driverSpeedOrSmth = 0x80;
+	scratchValue = 0x80;
 
 	// If you're not in End-Of-Race menu
 	if ((gGT->gameMode1 & END_OF_RACE) == 0)
 	{
 		// gamepadBuffer -> stickLX
-		driverSpeedOrSmth = (int)ptrgamepad->stickLX;
+		scratchValue = (int)ptrgamepad->stickLX;
 	}
 
 	// default steer strength from class stats
@@ -956,7 +956,7 @@ CheckJumpButtons:
 UseTurnRate:
 
 	// Steer, based on strength, and LeftStickX
-	steerStrength = VehPhysJoystick_GetStrengthAbsolute(driverSpeedOrSmth, steerStrength, ptrgamepad->rwd);
+	steerStrength = VehPhysJoystick_GetStrengthAbsolute(scratchValue, steerStrength, ptrgamepad->rwd);
 
 	// no desired steer
 	if (CTR_MipsNegLo(steerStrength) == 0)
@@ -994,24 +994,24 @@ SkipSetSteer:
 	driver->simpTurnState = (s8)CTR_MipsNegLo(steerStrength);
 
 	// Change wheel rotation based on StickLX
-	driverSpeedOrSmth = VehPhysJoystick_GetStrengthAbsolute(driverSpeedOrSmth, 0x40, ptrgamepad->rwd);
-	driverBaseSpeedUshort = VehCalc_InterpBySpeed((int)driver->wheelRotation, 0x18, CTR_MipsNegLo(driverSpeedOrSmth));
+	scratchValue = VehPhysJoystick_GetStrengthAbsolute(scratchValue, 0x40, ptrgamepad->rwd);
+	driverBaseSpeedUshort = VehCalc_InterpBySpeed((int)driver->wheelRotation, 0x18, CTR_MipsNegLo(scratchValue));
 	driver->wheelRotation = (s16)driverBaseSpeedUshort;
 
-	driverSpeedOrSmth = (int)driver->fireSpeed;
-	if (driverSpeedOrSmth < 0)
-		driverSpeedOrSmth = CTR_MipsNegLo(driverSpeedOrSmth);
+	scratchValue = (int)driver->fireSpeed;
+	if (scratchValue < 0)
+		scratchValue = CTR_MipsNegLo(scratchValue);
 
 	if (((driver->actionsFlagSetPrevFrame & ACTION_TOUCH_GROUND) == 0) || (kartState == KS_DRIFTING))
 	{
-		driverSpeedOrSmth = CTR_MipsAddLo(driverSpeedOrSmth, 0xf00);
+		scratchValue = CTR_MipsAddLo(scratchValue, 0xf00);
 	}
 	else
 	{
-		driverSpeedOrSmth = CTR_MipsSra(CTR_MipsAddLo(driverSpeedOrSmth, approximateSpeed), 1);
+		scratchValue = CTR_MipsSra(CTR_MipsAddLo(scratchValue, approximateSpeed), 1);
 	}
 
-	tireColorStep = CTR_MipsSra(CTR_MipsSll(CTR_MipsAddLo(CTR_MipsMulLo(driverSpeedOrSmth, 0x89), CTR_MipsMulLo(driver->unkSpeedValue2, 0x177)), 3), 0xc);
+	tireColorStep = CTR_MipsSra(CTR_MipsSll(CTR_MipsAddLo(CTR_MipsMulLo(scratchValue, 0x89), CTR_MipsMulLo(driver->unkSpeedValue2, 0x177)), 3), 0xc);
 	driver->unkSpeedValue2 = tireColorStep;
 
 	if ((driver->actionsFlagSetPrevFrame & ACTION_ACCEL_PREVENTION) == 0)
