@@ -188,6 +188,11 @@ enum QuadBlockTriNormalDividendIndex
 	QUADBLOCK_TRI_NORMAL_DIVIDEND_LO_1 = 9,
 };
 
+enum QuadBlockDrawOrderLow
+{
+	QUADBLOCK_DRAW_ORDER_LOW_DOUBLE_SIDED = 0x80000000u,
+};
+
 struct QuadBlock
 {
 	// 0x0
@@ -197,8 +202,7 @@ struct QuadBlock
 	QuadBlockFlags quadFlags;
 
 	// 0x14
-	// todo: this is a packed bit value
-	// refactor to a usable struct somehow
+	// Packed draw-order byte, four 5-bit face-mode fields, and a double-sided bit.
 	/*
 	    drawOrderLow |
 	    faceFlags[0].packedValue << (8 + 0 * 5) |
@@ -285,6 +289,7 @@ _Static_assert(QUADBLOCK_TRI_NORMAL_DIVIDEND_HI_0 == 0);
 _Static_assert(QUADBLOCK_TRI_NORMAL_DIVIDEND_HI_7 == 7);
 _Static_assert(QUADBLOCK_TRI_NORMAL_DIVIDEND_LO_0 == 8);
 _Static_assert(QUADBLOCK_TRI_NORMAL_DIVIDEND_LO_1 == 9);
+_Static_assert(QUADBLOCK_DRAW_ORDER_LOW_DOUBLE_SIDED == 0x80000000u);
 
 // BSP box that contains geometry
 struct BSP
@@ -442,7 +447,7 @@ struct LevVertex
 	s16 pos[3];
 
 	// 0x6
-	// FUN_8001ef50
+	// COLL copies this into BspSearchVertex.normalAxis before recomputing triangle planes.
 	u16 flags;
 
 	// 0x8

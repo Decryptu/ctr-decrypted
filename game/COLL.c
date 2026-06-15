@@ -75,33 +75,31 @@ void COLL_SearchBSP_CallbackQUADBLK(const SVec3 *top, const SVec3 *bottom, struc
 }
 
 
-internal b32 COLL_SearchBSP_CallbackPARAM_Overlaps(struct BSP *node, s16 minX, s16 minY, s16 minZ, s16 maxX, s16 maxY, s16 maxZ)
+internal b32 COLL_SearchBSP_CallbackPARAM_Overlaps(struct BSP *node, const struct BoundingBox *bounds)
 {
-	return ((node->box.min.y <= maxY) && (node->box.min.x <= maxX) && (minX <= node->box.max.x) && (node->box.min.z <= maxZ) && (minZ <= node->box.max.z) &&
-	        (minY <= node->box.max.y));
+	return ((node->box.min.y <= bounds->max.y) && (node->box.min.x <= bounds->max.x) && (bounds->min.x <= node->box.max.x) &&
+	        (node->box.min.z <= bounds->max.z) && (bounds->min.z <= node->box.max.z) && (bounds->min.y <= node->box.max.y));
 }
 
-internal void COLL_SearchBSP_CallbackPARAM_PushChild(struct BSP *root, BspChildId childID, s16 minX, s16 minY, s16 minZ, s16 maxX, s16 maxY, s16 maxZ,
-                                                     BspChildId **stackTop)
+internal void COLL_SearchBSP_CallbackPARAM_PushChild(struct BSP *root, BspChildId childID, const struct BoundingBox *bounds, BspChildId **stackTop)
 {
 	u16 rawChildID = (u16)childID;
 	if (rawChildID == BSP_CHILD_ID_NONE)
 		return;
 
 	struct BSP *child = &root[rawChildID & BSP_CHILD_ID_INDEX_MASK];
-	if (!COLL_SearchBSP_CallbackPARAM_Overlaps(child, minX, minY, minZ, maxX, maxY, maxZ))
+	if (!COLL_SearchBSP_CallbackPARAM_Overlaps(child, bounds))
 		return;
 
 	**stackTop = childID;
 	(*stackTop)++;
 }
 
-internal void COLL_SearchBSP_CallbackPARAM_PushChildren(struct BSP *root, struct BSP *node, s16 minX, s16 minY, s16 minZ, s16 maxX, s16 maxY, s16 maxZ,
-                                                        BspChildId **stackTop)
+internal void COLL_SearchBSP_CallbackPARAM_PushChildren(struct BSP *root, struct BSP *node, const struct BoundingBox *bounds, BspChildId **stackTop)
 {
 	// Retail pushes child 0 then child 1; the scratchpad stack pops child 1 first.
-	COLL_SearchBSP_CallbackPARAM_PushChild(root, node->data.branch.childID[0], minX, minY, minZ, maxX, maxY, maxZ, stackTop);
-	COLL_SearchBSP_CallbackPARAM_PushChild(root, node->data.branch.childID[1], minX, minY, minZ, maxX, maxY, maxZ, stackTop);
+	COLL_SearchBSP_CallbackPARAM_PushChild(root, node->data.branch.childID[0], bounds, stackTop);
+	COLL_SearchBSP_CallbackPARAM_PushChild(root, node->data.branch.childID[1], bounds, stackTop);
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x8001ebec-0x8001ede4
@@ -110,19 +108,14 @@ void COLL_SearchBSP_CallbackPARAM(struct BSP *root, struct BoundingBox *bbox, Co
 	if (root == NULL)
 		return;
 
-	s16 minX = bbox->min.x;
-	s16 minY = bbox->min.y;
-	s16 minZ = bbox->min.z;
-	s16 maxX = bbox->max.x;
-	s16 maxY = bbox->max.y;
-	s16 maxZ = bbox->max.z;
+	struct BoundingBox bounds = *bbox;
 
 	// Retail stores pending child IDs at scratchpad 0x1f800070 and pops them
 	// LIFO, preserving the original BSP traversal order without host recursion.
 	BspChildId *stackBase = CTR_SCRATCHPAD_PTR(BspChildId, 0x70);
 	BspChildId *stackTop = stackBase;
 
-	COLL_SearchBSP_CallbackPARAM_PushChildren(root, root, minX, minY, minZ, maxX, maxY, maxZ, &stackTop);
+	COLL_SearchBSP_CallbackPARAM_PushChildren(root, root, &bounds, &stackTop);
 
 	while (stackTop != stackBase)
 	{
@@ -137,7 +130,7 @@ void COLL_SearchBSP_CallbackPARAM(struct BSP *root, struct BoundingBox *bbox, Co
 			continue;
 		}
 
-		COLL_SearchBSP_CallbackPARAM_PushChildren(root, child, minX, minY, minZ, maxX, maxY, maxZ, &stackTop);
+		COLL_SearchBSP_CallbackPARAM_PushChildren(root, child, &bounds, &stackTop);
 	}
 }
 
@@ -1856,7 +1849,7 @@ void COLL_MOVED_TRIANGL_TestPoint(struct ScratchpadStruct *sps, struct BspSearch
 
 	if (planeFar < 0)
 	{
-		if (((quad->quadFlags & QUADBLOCK_FLAG_TRIGGER) == 0) && ((s32)quad->draw_order_low >= 0))
+		if (((quad->quadFlags & QUADBLOCK_FLAG_TRIGGER) == 0) && ((quad->draw_order_low & QUADBLOCK_DRAW_ORDER_LOW_DOUBLE_SIDED) == 0))
 			goto KeepNormal;
 
 		planeNear = CTR_MipsNegLo(planeNear);

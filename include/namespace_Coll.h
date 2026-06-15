@@ -187,6 +187,7 @@ struct BSP;
 struct Thread;
 struct ScratchpadStruct;
 typedef void (*CollBspLeafCallback)(struct BSP *bspLeaf, struct ScratchpadStruct *sps);
+// Thread-bucket searches pass `struct Thread *`; level-instance searches pass `struct BSP *`.
 typedef void (*CollThBuckCallback)(struct ScratchpadStruct *sps, void *hitObject);
 
 // can be stored in normal RAM,
