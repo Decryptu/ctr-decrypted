@@ -842,7 +842,7 @@ void BOTS_ThTick_Drive(struct Thread *botThread)
 
 	if ((botDriver->actionsFlagSet & ACTION_TOUCH_GROUND) == 0)
 	{
-		speedApprox = CTR_MipsAddLo(speedApprox, 0xf00);
+		speedApprox = CTR_MipsAddLo(speedApprox, DRIVER_TIRE_COLOR_SPEED_AIRBORNE_BONUS);
 	}
 	else
 	{
@@ -851,9 +851,11 @@ void BOTS_ThTick_Drive(struct Thread *botThread)
 
 	// NOTE(aalhendi): Retail initializes this boost scale before catch-up can overwrite it.
 	u32 local_38 = 1;
-	s16 unkSpeedThing =
-	    (s16)CTR_MipsSra(CTR_MipsSll(CTR_MipsAddLo(CTR_MipsMulLo(speedApprox, 0x89), CTR_MipsMulLo(botDriver->unkSpeedValue2, 0x177)), 3), 0xC); // sVar7
-	botDriver->unkSpeedValue2 = unkSpeedThing;
+	s16 tireColorStep = (s16)CTR_MipsSra(CTR_MipsSll(CTR_MipsAddLo(CTR_MipsMulLo(speedApprox, DRIVER_TIRE_COLOR_SPEED_WEIGHT),
+	                                                               CTR_MipsMulLo(botDriver->tireColorCycleStep, DRIVER_TIRE_COLOR_STEP_WEIGHT)),
+	                                                 3),
+	                                     0xC);
+	botDriver->tireColorCycleStep = tireColorStep;
 
 	if ((botDriver->actionsFlagSetPrevFrame & ACTION_ACCEL_PREVENTION) == 0)
 	{
@@ -861,28 +863,28 @@ void BOTS_ThTick_Drive(struct Thread *botThread)
 		if (baseSpeed < 0)
 			baseSpeed = CTR_MipsNegLo(baseSpeed);
 
-		if (baseSpeed < 0x201)
+		if (baseSpeed <= DRIVER_TIRE_COLOR_LOW_SPEED_THRESHOLD)
 		{
 			baseSpeed = botDriver->speedApprox;
 			if (baseSpeed < 0)
 				baseSpeed = CTR_MipsNegLo(baseSpeed);
 
-			if (baseSpeed < 0x201)
+			if (baseSpeed <= DRIVER_TIRE_COLOR_LOW_SPEED_THRESHOLD)
 				goto UpdateTireColorTimer;
 		}
 
-		botDriver->unkSpeedValue1 = (s16)CTR_MipsSubLo((u16)botDriver->unkSpeedValue1, unkSpeedThing);
+		botDriver->tireColorCycleTimer = (s16)CTR_MipsSubLo((u16)botDriver->tireColorCycleTimer, tireColorStep);
 	}
 UpdateTireColorTimer:
 
-	if ((botDriver->unkSpeedValue1 < 1) && ((botDriver->tireColor & 1) == 0))
+	if ((botDriver->tireColorCycleTimer < 1) && ((botDriver->tireColor & 1) == 0))
 	{
-		botDriver->unkSpeedValue1 = 0x1e00;
-		botDriver->tireColor = 0x2e606061;
+		botDriver->tireColorCycleTimer = DRIVER_TIRE_COLOR_TIMER_RESET;
+		botDriver->tireColor = DRIVER_TIRE_COLOR_DARK;
 	}
 	else
 	{
-		botDriver->tireColor = 0x2e808080;
+		botDriver->tireColor = DRIVER_TIRE_COLOR_DEFAULT;
 	}
 
 	struct NavFrame *navFrameCurr = &botDriver->botData.estimateNavFrame; // psVar19
@@ -925,7 +927,7 @@ UpdateTireColorTimer:
 	struct Thread *hitThread = driverSearch.bucket.th;
 	if (hitThread != NULL)
 	{
-		int combinedRadius = CTR_MipsAddLo(botThread->driver_HitRadius, hitThread->driver_HitRadius);
+		int combinedRadius = CTR_MipsAddLo(botThread->driverHitRadius, hitThread->driverHitRadius);
 		if (driverSearch.bucket.bestDistSq < CTR_MipsMulLo(combinedRadius, combinedRadius))
 		{
 			Vec3 selfVelocity = {

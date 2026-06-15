@@ -558,8 +558,8 @@ void VehBirth_TireSprites(struct Thread *t)
 		d->wheelSize = 0;
 	}
 
-	d->tireColor = 0x2e808080;
-	d->unkSpeedValue1 = 0xa00;
+	d->tireColor = DRIVER_TIRE_COLOR_DEFAULT;
+	d->tireColorCycleTimer = DRIVER_TIRE_COLOR_TIMER_INITIAL;
 
 	d->engineSoundMode = ENGINE_SOUND_DYNAMIC;
 
@@ -584,11 +584,11 @@ void VehBirth_NonGhost(struct Thread *t, int index)
 	// the end of the function
 	t->modelIndex = DYNAMIC_PLAYER;
 
-	t->driver_HitRadius = 0x40;
-	t->driver_unk1 = 0x1000;
-	t->driver_unk3E = 0x40;
-	t->driver_unk2 = 0;
-	t->driver_unk3 = 0;
+	t->driverHitRadius = THREAD_DRIVER_HIT_RADIUS;
+	t->driverHitRadiusSquared = THREAD_DRIVER_HIT_RADIUS_SQUARED;
+	t->driverCollisionReserved_0x3e = THREAD_DRIVER_HIT_RADIUS;
+	t->driverCollisionReserved_0x3c = 0;
+	t->driverCollisionReserved_0x40 = 0;
 
 	struct Driver *d = t->object;
 	struct GameTracker *gGT = sdata->gGT;

@@ -560,7 +560,7 @@ void VehPhysForce_CollideDrivers(struct Thread *thread, struct Driver *driver)
 
 		if (search.bucket.th != NULL)
 		{
-			int radiusSum = CTR_MipsAddLo(thread->driver_HitRadius, search.bucket.th->driver_HitRadius);
+			int radiusSum = CTR_MipsAddLo(thread->driverHitRadius, search.bucket.th->driverHitRadius);
 
 			if (search.bucket.bestDistSq < CTR_MipsMulLo(radiusSum, radiusSum))
 			{

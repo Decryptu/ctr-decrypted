@@ -49,6 +49,12 @@ typedef enum ThreadFlags : u32
 	THREAD_FLAG_DISABLE_COLLISION = 0x1000,
 } ThreadFlags;
 
+enum
+{
+	THREAD_DRIVER_HIT_RADIUS = 0x40,
+	THREAD_DRIVER_HIT_RADIUS_SQUARED = THREAD_DRIVER_HIT_RADIUS * THREAD_DRIVER_HIT_RADIUS,
+};
+
 struct Thread
 {
 	// 0x0
@@ -118,25 +124,24 @@ struct Thread
 	// 0x34
 	struct Instance *inst;
 
-	// FUN_80058d2c uses 0x38 - 0x44
+	// Driver collision/model fields initialized by VehBirth_NonGhost.
 
 	// 0x38
-	int driver_unk1;
+	s32 driverHitRadiusSquared;
 
 	// 0x3c
-	s16 driver_unk2;
-	s16 driver_unk3E;
+	s16 driverCollisionReserved_0x3c;
+	s16 driverCollisionReserved_0x3e;
 
 	// 0x40
-	s16 driver_unk3;
+	s16 driverCollisionReserved_0x40;
 
 	// 0x42
-	// only for driver collisions
-	s16 driver_HitRadius;
+	s16 driverHitRadius;
 
 	// 0x44
 	s16 modelIndex;
-	s16 padding;
+	s16 padding_0x46;
 
 	// this struct is 0x48 bytes large
 };
@@ -168,6 +173,13 @@ struct DriverCollisionSearch
 
 _Static_assert(offsetof(struct DriverCollisionSearch, bucket) == 0);
 _Static_assert(offsetof(struct DriverCollisionSearch, hitDir) == sizeof(struct BucketSearchParams));
+_Static_assert(offsetof(struct Thread, driverHitRadiusSquared) == 0x38);
+_Static_assert(offsetof(struct Thread, driverCollisionReserved_0x3c) == 0x3c);
+_Static_assert(offsetof(struct Thread, driverCollisionReserved_0x3e) == 0x3e);
+_Static_assert(offsetof(struct Thread, driverCollisionReserved_0x40) == 0x40);
+_Static_assert(offsetof(struct Thread, driverHitRadius) == 0x42);
+_Static_assert(offsetof(struct Thread, modelIndex) == 0x44);
+_Static_assert(sizeof(struct Thread) == 0x48);
 _Static_assert(offsetof(struct BucketSearchParams, th) == 0x8);
 _Static_assert(offsetof(struct BucketSearchParams, bestDistSq) == 0xc);
 _Static_assert(offsetof(struct BucketSearchParams, dist) == 0x10);

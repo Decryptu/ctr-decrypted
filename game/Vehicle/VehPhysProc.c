@@ -125,7 +125,7 @@ void VehPhysProc_Driving_PhysLinear(struct Thread *thread, struct Driver *driver
 	}
 
 	VehPhysProc_Driving_DecrementTimer(&driver->clockReceive, msPerFrame);
-	VehPhysProc_Driving_DecrementTimer(&driver->mashingXMakesItBig, msPerFrame);
+	VehPhysProc_Driving_DecrementTimer(&driver->accelTapWindowTimer, msPerFrame);
 
 	// If invisible, without Permanent Invisibility cheat,
 	// dont remove invisibleTimer check, or an invalid
@@ -846,11 +846,11 @@ CheckJumpButtons:
 		}
 	}
 
-	if ((driver->mashingXMakesItBig == 0) ||
+	if ((driver->accelTapWindowTimer == 0) ||
 
 	    ((driver->kartState != KS_NORMAL) && (driver->kartState != KS_ANTIVSHIFT)))
 	{
-		driver->mashXUnknown = 0;
+		driver->accelTapCount = 0;
 	}
 
 	if (driver->fireSpeed < 1)
@@ -868,9 +868,9 @@ CheckJumpButtons:
 		if (approximateSpeed2 < 1)
 		{
 		LAB_800626d4:
-			if (driver->mashingXMakesItBig != 0)
-				driver->mashXUnknown = (s16)CTR_MipsAddLo((u16)driver->mashXUnknown, 1);
-			driver->mashingXMakesItBig = 0x100;
+			if (driver->accelTapWindowTimer != 0)
+				driver->accelTapCount = (s16)CTR_MipsAddLo((u16)driver->accelTapCount, 1);
+			driver->accelTapWindowTimer = DRIVER_ACCEL_TAP_WINDOW_MS;
 			goto LAB_800626fc;
 		}
 		// Racer struct + 0x39E = Racer's Base Speed
@@ -910,7 +910,7 @@ CheckJumpButtons:
 	steerStrength = CTR_MipsAddLo(driver->const_TurnRate, CTR_MipsSll((s8)driver->turnConst, 1) / 5);
 
 	// if mashing X button
-	if ((driver->mashXUnknown > 6) && (approximateSpeed < 0x2600))
+	if ((driver->accelTapCount >= DRIVER_ACCEL_TAP_STEER_COUNT) && (approximateSpeed < 0x2600))
 	{
 		// sharp turn
 		steerStrength = 0x5a;
@@ -1004,15 +1004,18 @@ SkipSetSteer:
 
 	if (((driver->actionsFlagSetPrevFrame & ACTION_TOUCH_GROUND) == 0) || (kartState == KS_DRIFTING))
 	{
-		scratchValue = CTR_MipsAddLo(scratchValue, 0xf00);
+		scratchValue = CTR_MipsAddLo(scratchValue, DRIVER_TIRE_COLOR_SPEED_AIRBORNE_BONUS);
 	}
 	else
 	{
 		scratchValue = CTR_MipsSra(CTR_MipsAddLo(scratchValue, approximateSpeed), 1);
 	}
 
-	tireColorStep = CTR_MipsSra(CTR_MipsSll(CTR_MipsAddLo(CTR_MipsMulLo(scratchValue, 0x89), CTR_MipsMulLo(driver->unkSpeedValue2, 0x177)), 3), 0xc);
-	driver->unkSpeedValue2 = tireColorStep;
+	tireColorStep = CTR_MipsSra(CTR_MipsSll(CTR_MipsAddLo(CTR_MipsMulLo(scratchValue, DRIVER_TIRE_COLOR_SPEED_WEIGHT),
+	                                                      CTR_MipsMulLo(driver->tireColorCycleStep, DRIVER_TIRE_COLOR_STEP_WEIGHT)),
+	                                        3),
+	                            0xc);
+	driver->tireColorCycleStep = tireColorStep;
 
 	if ((driver->actionsFlagSetPrevFrame & ACTION_ACCEL_PREVENTION) == 0)
 	{
@@ -1021,27 +1024,26 @@ SkipSetSteer:
 			approximateSpeed2 = CTR_MipsNegLo(approximateSpeed2);
 
 		// If base or approximate speed is above the low-speed threshold.
-		if ((approximateSpeed2 > 0x200) || (approximateSpeed > 0x200))
+		if ((approximateSpeed2 > DRIVER_TIRE_COLOR_LOW_SPEED_THRESHOLD) || (approximateSpeed > DRIVER_TIRE_COLOR_LOW_SPEED_THRESHOLD))
 		{
-			driver->unkSpeedValue1 = (s16)CTR_MipsSubLo(driver->unkSpeedValue1, tireColorStep);
+			driver->tireColorCycleTimer = (s16)CTR_MipsSubLo(driver->tireColorCycleTimer, tireColorStep);
 		}
 	}
 
 	// alternate tire colors each frame,
 	// if 2e808080 is detected (&1==0),
-	// if not RevEngine, and if unkSpeedVal
-	if ((driver->unkSpeedValue1 < 1) && ((driver->tireColor & 1) == 0) && (kartState != KS_ENGINE_REVVING))
+	// if not RevEngine, and if tire color timer expired
+	if ((driver->tireColorCycleTimer < 1) && ((driver->tireColor & 1) == 0) && (kartState != KS_ENGINE_REVVING))
 	{
-		// reset 0x3BC
-		driver->unkSpeedValue1 = 0x1e00;
+		driver->tireColorCycleTimer = DRIVER_TIRE_COLOR_TIMER_RESET;
 
-		driver->tireColor = 0x2e606061;
+		driver->tireColor = DRIVER_TIRE_COLOR_DARK;
 	}
 
 	// default tire color
 	else
 	{
-		driver->tireColor = 0x2e808080;
+		driver->tireColor = DRIVER_TIRE_COLOR_DEFAULT;
 	}
 
 	driver->actionsFlagSet = actionsFlagSetNext;

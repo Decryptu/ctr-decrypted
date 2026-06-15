@@ -354,7 +354,7 @@ LAB_80060284:
 
 	(driver->rotCurr).y = (s16)CTR_MipsAddLo(CTR_MipsAddLo(angle, (s16)driftAngleCurr_Final), forwardDir);
 
-	if (((actionsFlagSet & ACTION_ACCEL_PREVENTION) == 0) && (driver->mashXUnknown < 7))
+	if (((actionsFlagSet & ACTION_ACCEL_PREVENTION) == 0) && (driver->accelTapCount < DRIVER_ACCEL_TAP_STEER_COUNT))
 	{
 		if (terrain->turnLeanScale != 0x100)
 		{
@@ -612,9 +612,9 @@ PROCESS_ACCEL:
 		movement.y = CTR_MipsSubLo(movement.y, rotated.y);
 		movement.z = CTR_MipsSubLo(movement.z, rotated.z);
 
-		d->unkVectorX = (s16)CTR_MipsNegLo(rotated.x);
-		d->unkVectorY = (s16)CTR_MipsNegLo(rotated.y);
-		d->unkVectorZ = (s16)CTR_MipsNegLo(rotated.z);
+		d->forwardAccelVector.x = (s16)CTR_MipsNegLo(rotated.x);
+		d->forwardAccelVector.y = (s16)CTR_MipsNegLo(rotated.y);
+		d->forwardAccelVector.z = (s16)CTR_MipsNegLo(rotated.z);
 	}
 	else
 	{
@@ -624,9 +624,9 @@ PROCESS_ACCEL:
 		movement.y = CTR_MipsAddLo(movement.y, rotated.y);
 		movement.z = CTR_MipsAddLo(movement.z, rotated.z);
 
-		d->unkVectorX = (s16)rotated.x;
-		d->unkVectorY = (s16)rotated.y;
-		d->unkVectorZ = (s16)rotated.z;
+		d->forwardAccelVector.x = (s16)rotated.x;
+		d->forwardAccelVector.y = (s16)rotated.y;
+		d->forwardAccelVector.z = (s16)rotated.z;
 	}
 
 	u32 movementLengthSq =

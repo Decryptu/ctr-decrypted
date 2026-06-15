@@ -63,10 +63,10 @@ void VehStuckProc_MaskGrab_FindDestPos(struct Driver *d, struct QuadBlock *quad)
 		struct CheckpointNode *respawn = &level->ptr_restart_points[quad->checkpointIndex];
 		struct CheckpointNode *nextRespawn;
 
-		sps->Input1.hitRadius = driverThread->driver_HitRadius;
-		sps->Input1.hitRadiusSquared = driverThread->driver_unk1;
-		sps->Union.QuadBlockColl.hitRadius = driverThread->driver_HitRadius;
-		sps->Union.QuadBlockColl.hitRadiusSquared = driverThread->driver_unk1;
+		sps->Input1.hitRadius = driverThread->driverHitRadius;
+		sps->Input1.hitRadiusSquared = driverThread->driverHitRadiusSquared;
+		sps->Union.QuadBlockColl.hitRadius = driverThread->driverHitRadius;
+		sps->Union.QuadBlockColl.hitRadiusSquared = driverThread->driverHitRadiusSquared;
 		sps->ptr_mesh_info = mesh;
 		sps->Union.QuadBlockColl.quadFlagsIgnored = QUADBLOCK_FLAG_NO_CAMERA_RESPAWN_PROBE | QUADBLOCK_FLAG_NO_COLLISION_RESPONSE;
 		sps->Union.QuadBlockColl.quadFlagsWanted = QUADBLOCK_FLAG_GROUND;

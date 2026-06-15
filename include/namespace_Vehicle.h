@@ -82,6 +82,24 @@ enum RevEnginePackedStatusMask
 	REV_ENGINE_PACKED_BUSY_MASK = 0x0200ffff,
 };
 
+enum DriverAccelTap
+{
+	DRIVER_ACCEL_TAP_WINDOW_MS = 0x100,
+	DRIVER_ACCEL_TAP_STEER_COUNT = 7,
+};
+
+enum DriverTireColorCycle
+{
+	DRIVER_TIRE_COLOR_DEFAULT = 0x2e808080,
+	DRIVER_TIRE_COLOR_DARK = 0x2e606061,
+	DRIVER_TIRE_COLOR_TIMER_INITIAL = 0xa00,
+	DRIVER_TIRE_COLOR_TIMER_RESET = 0x1e00,
+	DRIVER_TIRE_COLOR_SPEED_AIRBORNE_BONUS = 0xf00,
+	DRIVER_TIRE_COLOR_LOW_SPEED_THRESHOLD = 0x200,
+	DRIVER_TIRE_COLOR_SPEED_WEIGHT = 0x89,
+	DRIVER_TIRE_COLOR_STEP_WEIGHT = 0x177,
+};
+
 struct DriverCheckpointState
 {
 	// 0x0 - checkpoint chosen after a split, used by warpball pathing
@@ -1082,11 +1100,7 @@ struct Driver
 	int zSpeed;
 
 	// 0x3AC
-	s16 unkVectorX;
-	// 0x3AE
-	s16 unkVectorY;
-	// 0x3B0
-	s16 unkVectorZ;
+	SVec3 forwardAccelVector;
 	// 0x3B2
 	s16 forwardAccelImpulse;
 
@@ -1106,20 +1120,18 @@ struct Driver
 	s16 japanTurboUnknown;
 
 	// 0x3BC
-	// in VehPhysProc_Driving_PhysLinear
-	s16 unkSpeedValue1;
+	s16 tireColorCycleTimer;
 
 	// 0x3BE
-	// in VehPhysProc_Driving_PhysLinear
-	s16 unkSpeedValue2;
+	s16 tireColorCycleStep;
 
 	// 0x3C0
-	// in VehPhysProc_Driving_PhysLinear
-	s16 mashingXMakesItBig;
+	// Repeated accel taps count only while this window is active.
+	s16 accelTapWindowTimer;
 
 	// 0x3C2
-	// in VehPhysProc_Driving_PhysLinear
-	s16 mashXUnknown;
+	// Repeated accel taps sharpen steering and reduce turn lean.
+	s16 accelTapCount;
 
 	// 0x3C4
 	// base speed after terrain speed multiplier
@@ -2014,6 +2026,12 @@ _Static_assert(offsetof(struct Driver, AxisAngle3_normalVec) == 0x370);
 _Static_assert(offsetof(struct Driver, AxisAngle4_normalVec) == 0x378);
 _Static_assert(offsetof(struct Driver, padding_0x37e) == 0x37e);
 _Static_assert(offsetof(struct Driver, failedBoostExhaustTimer) == 0x381);
+_Static_assert(offsetof(struct Driver, forwardAccelVector) == 0x3ac);
+_Static_assert(offsetof(struct Driver, forwardAccelImpulse) == 0x3b2);
+_Static_assert(offsetof(struct Driver, tireColorCycleTimer) == 0x3bc);
+_Static_assert(offsetof(struct Driver, tireColorCycleStep) == 0x3be);
+_Static_assert(offsetof(struct Driver, accelTapWindowTimer) == 0x3c0);
+_Static_assert(offsetof(struct Driver, accelTapCount) == 0x3c2);
 _Static_assert(offsetof(struct Driver, terrainScaledBaseSpeed) == 0x3c4);
 _Static_assert(offsetof(struct Driver, turnWobbleAngle) == 0x3d4);
 _Static_assert(offsetof(struct Driver, turnWobbleVelocity) == 0x3d6);

@@ -300,7 +300,7 @@ void VehPhysCrash_AnyTwoCars(struct Thread *thread, struct DriverCollisionSearch
 	struct Driver *otherDriver = otherThread->object;
 	struct Driver *selfDriver = thread->object;
 
-	int hitStrength = CTR_MipsSubLo(CTR_MipsAddLo(thread->driver_HitRadius, otherThread->driver_HitRadius), distance);
+	int hitStrength = CTR_MipsSubLo(CTR_MipsAddLo(thread->driverHitRadius, otherThread->driverHitRadius), distance);
 	if (hitStrength <= 0)
 	{
 		return;
