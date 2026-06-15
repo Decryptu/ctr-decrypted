@@ -1459,7 +1459,7 @@ void COLL_FIXED_PlayerSearch(struct Thread *t, struct Driver *d)
 
 		if ((terrainType != TERRAIN_ICE) && (d->currentTerrain == TERRAIN_ICE))
 		{
-			d->filler_short = 0xfec0;
+			d->terrainFrictionTimer = 0xfec0;
 		}
 
 		d->currentTerrain = terrainType;
@@ -1479,7 +1479,7 @@ void COLL_FIXED_PlayerSearch(struct Thread *t, struct Driver *d)
 			s32 absLanding = Coll_MipsAbsS32(landingDelta);
 
 			d->actionsFlagSet = actions | ACTION_TOUCH_GROUND | ACTION_STARTED_TOUCH_GROUND | ACTION_TURBO_INPUT_LATCH;
-			d->filler_short = 0x140;
+			d->terrainFrictionTimer = 0x140;
 
 			u32 volume = VehCalc_MapToRange(absLanding, 0x100, 0x3c00, 0x78, 0xfa);
 

@@ -608,7 +608,7 @@ PROCESS_ACCEL:
 
 	if (d->baseSpeed < 0)
 	{
-		d->unk_offset3B2 = (s16)CTR_MipsNegLo(forwardImpulse);
+		d->forwardAccelImpulse = (s16)CTR_MipsNegLo(forwardImpulse);
 
 		movement.x = CTR_MipsSubLo(movement.x, rotated.x);
 		movement.y = CTR_MipsSubLo(movement.y, rotated.y);
@@ -620,7 +620,7 @@ PROCESS_ACCEL:
 	}
 	else
 	{
-		d->unk_offset3B2 = (s16)forwardImpulse;
+		d->forwardAccelImpulse = (s16)forwardImpulse;
 
 		movement.x = CTR_MipsAddLo(movement.x, rotated.x);
 		movement.y = CTR_MipsAddLo(movement.y, rotated.y);

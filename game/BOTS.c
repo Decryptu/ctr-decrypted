@@ -885,8 +885,8 @@ UpdateTireColorTimer:
 		botDriver->tireColor = 0x2e808080;
 	}
 
-	struct NavFrame *navFrameCurr = (struct NavFrame *)&botDriver->botData.estimatePos[0]; // psVar19
-	struct NavFrame *navFrameNext;                                                         // psVar21
+	struct NavFrame *navFrameCurr = &botDriver->botData.estimateNavFrame; // psVar19
+	struct NavFrame *navFrameNext;                                        // psVar21
 
 	if ((botDriver->botData.botFlags & BOT_FLAG_ESTIMATE_NAV) == 0)
 	{
@@ -1007,7 +1007,7 @@ UpdateTireColorTimer:
 				BOTS_SetRotation(botDriver, 0);
 
 				navFrameNext = botDriver->botData.botNavFrame;
-				navFrameCurr = (struct NavFrame *)&botDriver->botData.estimatePos[0];
+				navFrameCurr = &botDriver->botData.estimateNavFrame;
 			}
 		}
 		else
@@ -1086,7 +1086,7 @@ UpdateTireColorTimer:
 								BOTS_SetRotation(botDriver, 0);
 
 								navFrameNext = botDriver->botData.botNavFrame;
-								navFrameCurr = (struct NavFrame *)&botDriver->botData.estimatePos[0];
+								navFrameCurr = &botDriver->botData.estimateNavFrame;
 							}
 						}
 					}
@@ -1440,7 +1440,7 @@ UpdateTireColorTimer:
 
 			if ((unsigned char)0x80u < navFrameCurr->rot[3])
 			{
-				velocityAccountingForTerrain = CTR_MipsAddLo(velocityAccountingForTerrain, botDriver->unk47E);
+				velocityAccountingForTerrain = CTR_MipsAddLo(velocityAccountingForTerrain, botDriver->const_SlopeForwardSpeedBonus);
 
 				if (botDriver->botData.aiPhysics.speedLinear < velocityAccountingForTerrain)
 				{

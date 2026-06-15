@@ -286,7 +286,7 @@ void VehBirth_TeleportSelf(struct Driver *d, u8 spawnFlag, int spawnPosY)
 	d->speedApprox = 0;
 	d->jumpHeightCurr = 0;
 	d->jumpHeightPrev = 0;
-	d->unk_offset3B2 = 0;
+	d->forwardAccelImpulse = 0;
 	d->matrixArray = 0;
 	d->matrixIndex = 0;
 	d->jump_LandingBoost = 0;

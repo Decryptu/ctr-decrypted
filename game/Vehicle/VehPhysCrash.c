@@ -207,9 +207,9 @@ static s32 VehPhysCrash_WeightedAverage(s32 lhs, s16 lhsWeight, s32 rhs, s16 rhs
 
 static void VehPhysCrash_WeightedVelocity(Vec3 *out, Vec3 *lhs, struct Driver *lhsDriver, Vec3 *rhs, struct Driver *rhsDriver)
 {
-	out->x = VehPhysCrash_WeightedAverage(lhs->x, lhsDriver->unk47C, rhs->x, rhsDriver->unk47C);
-	out->y = VehPhysCrash_WeightedAverage(lhs->y, lhsDriver->unk47C, rhs->y, rhsDriver->unk47C);
-	out->z = VehPhysCrash_WeightedAverage(lhs->z, lhsDriver->unk47C, rhs->z, rhsDriver->unk47C);
+	out->x = VehPhysCrash_WeightedAverage(lhs->x, lhsDriver->const_CollisionWeight, rhs->x, rhsDriver->const_CollisionWeight);
+	out->y = VehPhysCrash_WeightedAverage(lhs->y, lhsDriver->const_CollisionWeight, rhs->y, rhsDriver->const_CollisionWeight);
+	out->z = VehPhysCrash_WeightedAverage(lhs->z, lhsDriver->const_CollisionWeight, rhs->z, rhsDriver->const_CollisionWeight);
 }
 
 static void VehPhysCrash_AddImpulse(Vec3 *vel, const SVec3 *hitDir, s32 strength)

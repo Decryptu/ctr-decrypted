@@ -108,7 +108,7 @@ void VehPhysForce_OnGravity(struct Driver *driver, Vec3 *velocity)
 	gravityY = CTR_MipsSra(CTR_MipsMulLo(gravityY, elapsedTimeMS), 5);
 	Vec3 localGravity = VehPhysForce_OnGravity_RotateVectorLocal(&driver->matrixMovingDir, 0, (s16)gravityY, 0);
 
-	if (((localGravity.z < 0) && (driver->unk_offset3B2 > 0)) || ((localGravity.z > 0) && (driver->unk_offset3B2 < 0)))
+	if (((localGravity.z < 0) && (driver->forwardAccelImpulse > 0)) || ((localGravity.z > 0) && (driver->forwardAccelImpulse < 0)))
 	{
 		localGravity.z = 0;
 	}
@@ -129,19 +129,19 @@ void VehPhysForce_OnGravity(struct Driver *driver, Vec3 *velocity)
 	int localY = CTR_MipsAddLo(originalLocalY, localGravity.y);
 	int localZ = CTR_MipsAddLo(originalLocalZ, localGravity.z);
 
-	int maxForwardSpeed = CTR_MipsAddLo(driver->fireSpeed, driver->unk47E);
+	int maxForwardSpeed = CTR_MipsAddLo(driver->fireSpeed, driver->const_SlopeForwardSpeedBonus);
 	if ((localZ > maxForwardSpeed) && (originalLocalZ < maxForwardSpeed))
 	{
 		localZ = maxForwardSpeed;
 	}
 
-	int minForwardSpeed = CTR_MipsSubLo(driver->fireSpeed, CTR_MipsSra(driver->unk47E, 1));
+	int minForwardSpeed = CTR_MipsSubLo(driver->fireSpeed, CTR_MipsSra(driver->const_SlopeForwardSpeedBonus, 1));
 	if ((localZ < minForwardSpeed) && (originalLocalZ > minForwardSpeed))
 	{
 		localZ = minForwardSpeed;
 	}
 
-	int maxPerpendicularSpeed = driver->unk480;
+	int maxPerpendicularSpeed = driver->const_SideSpeedClamp;
 	if ((localX > maxPerpendicularSpeed) && (originalLocalX < maxPerpendicularSpeed))
 	{
 		localX = maxPerpendicularSpeed;
@@ -284,7 +284,7 @@ void VehPhysForce_OnGravity(struct Driver *driver, Vec3 *velocity)
 			forwardFriction = CTR_MipsSra(CTR_MipsMulLo(terrainFrictionScale, forwardFriction), 8);
 		}
 
-		int terrainTimer = driver->filler_short;
+		int terrainTimer = driver->terrainFrictionTimer;
 		if (terrainTimer < 0)
 		{
 			int absLocalX = localX;
@@ -295,7 +295,8 @@ void VehPhysForce_OnGravity(struct Driver *driver, Vec3 *velocity)
 			}
 			else
 			{
-				perpendicularFriction = CTR_MipsAddLo(perpendicularFriction, CTR_MipsSra(CTR_MipsMulLo(perpendicularFriction, driver->const_unk444), 8));
+				perpendicularFriction =
+				    CTR_MipsAddLo(perpendicularFriction, CTR_MipsSra(CTR_MipsMulLo(perpendicularFriction, driver->const_TerrainFrictionBoost), 8));
 				if (perpendicularFriction < 0)
 				{
 					perpendicularFriction = 0;
@@ -316,7 +317,7 @@ void VehPhysForce_OnGravity(struct Driver *driver, Vec3 *velocity)
 			{
 				terrainTimer = 0;
 			}
-			driver->filler_short = (s16)terrainTimer;
+			driver->terrainFrictionTimer = (s16)terrainTimer;
 		}
 		else if (terrainTimer > 0)
 		{
@@ -326,8 +327,9 @@ void VehPhysForce_OnGravity(struct Driver *driver, Vec3 *velocity)
 				terrainTimer = 0;
 			}
 
-			perpendicularFriction = CTR_MipsAddLo(perpendicularFriction, CTR_MipsSra(CTR_MipsMulLo(perpendicularFriction, driver->const_unk444), 8));
-			driver->filler_short = (s16)terrainTimer;
+			perpendicularFriction =
+			    CTR_MipsAddLo(perpendicularFriction, CTR_MipsSra(CTR_MipsMulLo(perpendicularFriction, driver->const_TerrainFrictionBoost), 8));
+			driver->terrainFrictionTimer = (s16)terrainTimer;
 			if (perpendicularFriction < 0)
 			{
 				perpendicularFriction = 0;

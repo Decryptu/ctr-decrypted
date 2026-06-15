@@ -20,8 +20,7 @@ void VehLap_UpdateProgress(struct Driver *driver)
 	}
 	else
 	{
-		// Retail reads only byte 0x60a even though the local struct field is s16.
-		checkpointIndex = *(u8 *)&driver->botData.ai_quadblock_checkpointIndex;
+		checkpointIndex = driver->botData.ai_quadblock_checkpointIndex;
 	}
 
 	struct Level *level = gGT->level1;
