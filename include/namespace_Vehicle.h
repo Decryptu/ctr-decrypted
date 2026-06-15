@@ -56,6 +56,25 @@ enum KartState
 	KS_FREEZE = 11
 };
 
+typedef enum RevEngineChargeState : u8
+{
+	REV_ENGINE_CHARGE_IDLE = 0,
+	REV_ENGINE_CHARGE_RELEASED_ABOVE_ACCEL = 1,
+	REV_ENGINE_CHARGE_ACTIVE = 2,
+} RevEngineChargeState;
+
+typedef enum RevEngineLockoutFlags : u8
+{
+	REV_ENGINE_LOCKOUT_PEDAL_HELD = 0x1,
+	REV_ENGINE_LOCKOUT_REV_DECAY = 0x2,
+	REV_ENGINE_LOCKOUT_ALL = REV_ENGINE_LOCKOUT_PEDAL_HELD | REV_ENGINE_LOCKOUT_REV_DECAY,
+} RevEngineLockoutFlags;
+
+enum RevEnginePackedStatusMask
+{
+	REV_ENGINE_PACKED_BUSY_MASK = 0x0200ffff,
+};
+
 struct DriverCheckpointState
 {
 	// 0x0 - checkpoint chosen after a split, used by warpball pathing
@@ -1673,16 +1692,17 @@ struct Driver
 			int fireLevel;
 
 			// 0x58c
-			s16 timeMS;
+			s16 overRevTimerMS;
 
 			// 0x58e
-			s16 unk58e;
+			s16 releaseCooldownTimerMS;
 
 			// 0x590
-			s16 unk590;
+			s16 emptyCooldownTimerMS;
 
 			// 0x592
-			u8 unk[2];
+			RevEngineChargeState chargeState;
+			RevEngineLockoutFlags lockoutFlags;
 
 			// 0x594
 			int boolMaskGrab;
@@ -1882,6 +1902,8 @@ _Static_assert(sizeof(ForcedJumpType) == 0x1);
 _Static_assert(FORCED_JUMP_NONE == 0);
 _Static_assert(FORCED_JUMP_LOW == 1);
 _Static_assert(FORCED_JUMP_HIGH == 2);
+_Static_assert(sizeof(RevEngineChargeState) == 0x1);
+_Static_assert(sizeof(RevEngineLockoutFlags) == 0x1);
 
 _Static_assert(offsetof(struct Driver, ghostTape) == DRIVER_NTSC_RETAIL_SIZE);
 _Static_assert(sizeof(((struct Driver *)0)->funcPtrs) == DRIVER_FUNC_COUNT * sizeof(DriverFunc));
@@ -1920,6 +1942,11 @@ _Static_assert(offsetof(struct Driver, checkpoint) == 0x494);
 _Static_assert(offsetof(struct Driver, checkpoint.branchChoiceIndex) == 0x494);
 _Static_assert(offsetof(struct Driver, checkpoint.currentIndex) == 0x495);
 _Static_assert(offsetof(struct Driver, numTimesWumpa) == 0x569);
+_Static_assert(offsetof(struct Driver, KartStates.RevEngine.overRevTimerMS) == 0x58c);
+_Static_assert(offsetof(struct Driver, KartStates.RevEngine.releaseCooldownTimerMS) == 0x58e);
+_Static_assert(offsetof(struct Driver, KartStates.RevEngine.emptyCooldownTimerMS) == 0x590);
+_Static_assert(offsetof(struct Driver, KartStates.RevEngine.chargeState) == 0x592);
+_Static_assert(offsetof(struct Driver, KartStates.RevEngine.lockoutFlags) == 0x593);
 _Static_assert(offsetof(struct Driver, rotCurr.x) == 0x2ec);
 _Static_assert(offsetof(struct Driver, rotCurr.y) == 0x2ee);
 _Static_assert(offsetof(struct Driver, KartStates.MaskGrab.AngleAxis_NormalVec) == 0x584);

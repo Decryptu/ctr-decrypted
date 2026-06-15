@@ -727,7 +727,7 @@ void VehStuckProc_RevEngine_Update(struct Thread *t, struct Driver *d)
 	if ((d->KartStates.RevEngine.boolMaskGrab == true) && (d->KartStates.RevEngine.maskObj != NULL))
 		d->KartStates.RevEngine.maskObj->duration = 0;
 
-	if ((d->const_AccelSpeed_ClassStat < d->KartStates.RevEngine.fireLevel) && (d->KartStates.RevEngine.unk[1] & 3) == 0)
+	if ((d->const_AccelSpeed_ClassStat < d->KartStates.RevEngine.fireLevel) && (d->KartStates.RevEngine.lockoutFlags & REV_ENGINE_LOCKOUT_ALL) == 0)
 	{
 		// While not moving, if you rev'd your engine less than...
 		if (d->KartStates.RevEngine.boostMeter < CTR_MipsAddLo(d->const_AccelSpeed_ClassStat, d->const_SacredFireSpeed))
@@ -758,21 +758,21 @@ void VehStuckProc_RevEngine_Update(struct Thread *t, struct Driver *d)
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80067a74-0x80067b7c.
 void VehStuckProc_RevEngine_PhysLinear(struct Thread *t, struct Driver *d)
 {
-	u32 unkTimer;
+	u32 cooldownTimer;
 
 	struct GameTracker *gGT = sdata->gGT;
 
-	unkTimer = (u16)d->KartStates.RevEngine.unk58e;
-	unkTimer = CTR_MipsSubLo(unkTimer, (u16)gGT->elapsedTimeMS);
-	if ((unkTimer & 0x8000) != 0)
-		unkTimer = 0;
-	d->KartStates.RevEngine.unk58e = (s16)unkTimer;
+	cooldownTimer = (u16)d->KartStates.RevEngine.releaseCooldownTimerMS;
+	cooldownTimer = CTR_MipsSubLo(cooldownTimer, (u16)gGT->elapsedTimeMS);
+	if ((cooldownTimer & 0x8000) != 0)
+		cooldownTimer = 0;
+	d->KartStates.RevEngine.releaseCooldownTimerMS = (s16)cooldownTimer;
 
-	unkTimer = (u16)d->KartStates.RevEngine.unk590;
-	unkTimer = CTR_MipsSubLo(unkTimer, (u16)gGT->elapsedTimeMS);
-	if ((unkTimer & 0x8000) != 0)
-		unkTimer = 0;
-	d->KartStates.RevEngine.unk590 = (s16)unkTimer;
+	cooldownTimer = (u16)d->KartStates.RevEngine.emptyCooldownTimerMS;
+	cooldownTimer = CTR_MipsSubLo(cooldownTimer, (u16)gGT->elapsedTimeMS);
+	if ((cooldownTimer & 0x8000) != 0)
+		cooldownTimer = 0;
+	d->KartStates.RevEngine.emptyCooldownTimerMS = (s16)cooldownTimer;
 
 	VehPhysProc_Driving_PhysLinear(t, d);
 
@@ -794,251 +794,194 @@ void VehStuckProc_RevEngine_PhysLinear(struct Thread *t, struct Driver *d)
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80067b7c-0x80067f4c.
 void VehStuckProc_RevEngine_Animate(struct Thread *t, struct Driver *d)
 {
-	u8 bVar1;
-	u8 bVar2;
-	s16 uVar3;
-	int iVar4;
-	int local_18;
-	s16 sVar5;
-	int uVar6;
-	int iVar7;
-	u32 uVar8;
-	int iVar9;
-
 	struct Instance *inst = t->inst;
 
-	if ((d->fireSpeed > 0) && (d->KartStates.RevEngine.unk58e == 0) && ((d->KartStates.RevEngine.unk[1] & 3) == 0))
+	if ((d->fireSpeed > 0) && (d->KartStates.RevEngine.releaseCooldownTimerMS == 0) && ((d->KartStates.RevEngine.lockoutFlags & REV_ENGINE_LOCKOUT_ALL) == 0))
 	{
-		// Curr revving meter - Max revving meter
-		iVar4 = CTR_MipsSubLo(d->KartStates.RevEngine.fireLevel, d->KartStates.RevEngine.boostMeter);
+		int revDelta = CTR_MipsSubLo(d->KartStates.RevEngine.fireLevel, d->KartStates.RevEngine.boostMeter);
+		if (revDelta < 0)
+			revDelta = CTR_MipsNegLo(revDelta);
 
-		// absolute value
-		if (iVar4 < 0)
-		{
-			iVar4 = CTR_MipsNegLo(iVar4);
-		}
+		revDelta = CTR_MipsSra(revDelta, 1);
 
-		iVar4 = CTR_MipsSra(iVar4, 1);
-
-		iVar7 = iVar4;
+		int fillStep = revDelta;
 
 		// Speed of filling the meter changes
 		// depending on how full the meter is,
 		// there are two speeds
+		if (5000 < revDelta)
+			fillStep = 5000;
 
-		if (5000 < iVar4)
+		if (revDelta < 0x100)
+			fillStep = 0x100;
+
+		int revLevel = VehCalc_InterpBySpeed(d->KartStates.RevEngine.fireLevel, fillStep, d->KartStates.RevEngine.boostMeter);
+
+		d->KartStates.RevEngine.fireLevel = revLevel;
+		d->KartStates.RevEngine.chargeState = REV_ENGINE_CHARGE_ACTIVE;
+
+		if (revLevel < d->KartStates.RevEngine.boostMeter)
 		{
-			iVar7 = 5000;
+			d->KartStates.RevEngine.overRevTimerMS = 0;
 		}
-
-		if (iVar4 < 0x100)
-		{
-			iVar7 = 0x100;
-		}
-
-		iVar4 = VehCalc_InterpBySpeed(d->KartStates.RevEngine.fireLevel, iVar7, d->KartStates.RevEngine.boostMeter);
-
-		// Set new curr rev
-		d->KartStates.RevEngine.fireLevel = iVar4;
-		d->KartStates.RevEngine.unk[0] = 2;
-
-		// if max revv > filling speed
-		if (iVar4 < d->KartStates.RevEngine.boostMeter)
-		{
-			d->KartStates.RevEngine.timeMS = 0;
-		}
-
 		else
 		{
-			// elapsed milliseconds per frame, ~32
-			sVar5 = (s16)CTR_MipsAddLo((u16)d->KartStates.RevEngine.timeMS, (u16)sdata->gGT->elapsedTimeMS);
-			d->KartStates.RevEngine.timeMS = sVar5;
+			s16 overRevTimerMS = (s16)CTR_MipsAddLo((u16)d->KartStates.RevEngine.overRevTimerMS, (u16)sdata->gGT->elapsedTimeMS);
+			d->KartStates.RevEngine.overRevTimerMS = overRevTimerMS;
 
-			// if more than 0.192s
-			if (192 < sVar5)
+			if (192 < overRevTimerMS)
 			{
-				d->KartStates.RevEngine.unk[0] = 0;
-				d->KartStates.RevEngine.unk[1] |= 3;
+				d->KartStates.RevEngine.chargeState = REV_ENGINE_CHARGE_IDLE;
+				d->KartStates.RevEngine.lockoutFlags |= REV_ENGINE_LOCKOUT_ALL;
 
 				OtherFX_Play_Echo(0xf, 1, d->actionsFlagSet & ACTION_ENGINE_ECHO);
 			}
 		}
 		goto LAB_80067dec;
 	}
-	d->KartStates.RevEngine.timeMS = 0;
-	if (d->KartStates.RevEngine.unk[0] == 2)
-	{
-		d->KartStates.RevEngine.unk58e = 0x100;
-		d->KartStates.RevEngine.unk[0] = 0;
+	d->KartStates.RevEngine.overRevTimerMS = 0;
 
-		// if curr rev > ???
+	if (d->KartStates.RevEngine.chargeState == REV_ENGINE_CHARGE_ACTIVE)
+	{
+		d->KartStates.RevEngine.releaseCooldownTimerMS = 0x100;
+		d->KartStates.RevEngine.chargeState = REV_ENGINE_CHARGE_IDLE;
+
 		if (d->const_AccelSpeed_ClassStat < d->KartStates.RevEngine.fireLevel)
-		{
-			d->KartStates.RevEngine.unk[0] = 1;
-		}
+			d->KartStates.RevEngine.chargeState = REV_ENGINE_CHARGE_RELEASED_ABOVE_ACCEL;
 	}
-	if ((d->KartStates.RevEngine.unk[0] != 0) &&
 
-	    // curr rev < ???
-	    (d->KartStates.RevEngine.fireLevel < d->const_AccelSpeed_ClassStat))
+	if ((d->KartStates.RevEngine.chargeState != REV_ENGINE_CHARGE_IDLE) && (d->KartStates.RevEngine.fireLevel < d->const_AccelSpeed_ClassStat))
 	{
-		d->KartStates.RevEngine.unk[0] = 0;
+		d->KartStates.RevEngine.chargeState = REV_ENGINE_CHARGE_IDLE;
 
-		uVar6 = VehCalc_InterpBySpeed(d->KartStates.RevEngine.boostMeter, CTR_MipsAddLo(d->const_SacredFireSpeed / 3, 3),
-		                              CTR_MipsAddLo(d->const_SacredFireSpeed, d->const_AccelSpeed_ClassStat));
-
-		d->KartStates.RevEngine.boostMeter = uVar6;
+		int boostMeter = VehCalc_InterpBySpeed(d->KartStates.RevEngine.boostMeter, CTR_MipsAddLo(d->const_SacredFireSpeed / 3, 3),
+		                                       CTR_MipsAddLo(d->const_SacredFireSpeed, d->const_AccelSpeed_ClassStat));
+		d->KartStates.RevEngine.boostMeter = boostMeter;
 	}
 
-	// if curr rev < 1
 	if (d->KartStates.RevEngine.fireLevel < 1)
 	{
-		d->KartStates.RevEngine.unk[1] &= ~(2);
-
-		// max rev = ???
+		d->KartStates.RevEngine.lockoutFlags &= ~REV_ENGINE_LOCKOUT_REV_DECAY;
 		d->KartStates.RevEngine.boostMeter = CTR_MipsAddLo(d->const_AccelSpeed_ClassStat, d->const_SacredFireSpeed / 3);
 	}
-
-	// if curr rev >= 1
 	else
 	{
-		// rev deacceleration rate = curr rev / 2
-		uVar8 = CTR_MipsSra(d->KartStates.RevEngine.fireLevel, 1);
+		u32 decayStep = CTR_MipsSra(d->KartStates.RevEngine.fireLevel, 1);
+		u8 decayBelowMinimum;
 
-		if ((d->KartStates.RevEngine.unk[1] & 2) == 0)
+		if ((d->KartStates.RevEngine.lockoutFlags & REV_ENGINE_LOCKOUT_REV_DECAY) == 0)
 		{
-			bVar2 = (int)uVar8 < 0x100;
+			decayBelowMinimum = (int)decayStep < 0x100;
 
-			// if rev deacceleration rate > 1000
-			if (1000 < (int)uVar8)
+			if (1000 < (int)decayStep)
 			{
-				// rev deacceleration rate = 1000
-				uVar8 = 1000;
-				goto LAB_80067d64;
+				decayStep = 1000;
+				decayBelowMinimum = decayStep < 0x100;
 			}
 		}
-
 		else
 		{
-			bVar2 = (int)uVar8 < 0x100;
+			decayBelowMinimum = (int)decayStep < 0x100;
 
-			// if rev deacceleration rate > 3000
-			if (3000 < (int)uVar8)
+			if (3000 < (int)decayStep)
 			{
-				// rev deacceleration rate = 3000
-				uVar8 = 3000;
-			LAB_80067d64:
-				bVar2 = uVar8 < 0x100;
+				decayStep = 3000;
+				decayBelowMinimum = decayStep < 0x100;
 			}
 		}
-		if (bVar2)
+
+		if (decayBelowMinimum)
+			decayStep = 0x100;
+
+		int revLevel = CTR_MipsSubLo(d->KartStates.RevEngine.fireLevel, decayStep);
+		d->KartStates.RevEngine.fireLevel = revLevel;
+
+		if (revLevel < 1)
 		{
-			// rev deacceleration rate = 0x100
-			uVar8 = 0x100;
-		}
-
-		// new rev = curr rev - rev deacceleration rate
-		iVar4 = CTR_MipsSubLo(d->KartStates.RevEngine.fireLevel, uVar8);
-
-		// curr rev = new rev
-		d->KartStates.RevEngine.fireLevel = iVar4;
-
-		// if new rev < 1
-		if (iVar4 < 1)
-		{
-			d->KartStates.RevEngine.unk590 = 0xc0;
-
-			// curr rev = 0
+			d->KartStates.RevEngine.emptyCooldownTimerMS = 0xc0;
 			d->KartStates.RevEngine.fireLevel = 0;
 		}
 	}
+
 	if (d->fireSpeed < 1)
-	{
-		d->KartStates.RevEngine.unk[1] &= ~(1);
-	}
+		d->KartStates.RevEngine.lockoutFlags &= ~REV_ENGINE_LOCKOUT_PEDAL_HELD;
 
 LAB_80067dec:
 
-	u32 revEngineFlags = ((u32)(u16)d->KartStates.RevEngine.unk590) | ((u32)d->KartStates.RevEngine.unk[0] << 16) | ((u32)d->KartStates.RevEngine.unk[1] << 24);
-	if ((revEngineFlags & 0x200ffff) == 0)
+	u32 packedStatus = ((u32)(u16)d->KartStates.RevEngine.emptyCooldownTimerMS) | ((u32)d->KartStates.RevEngine.chargeState << 16) |
+	                   ((u32)d->KartStates.RevEngine.lockoutFlags << 24);
+	if ((packedStatus & REV_ENGINE_PACKED_BUSY_MASK) == 0)
 	{
-		// if curr rev < ???
 		if (d->KartStates.RevEngine.fireLevel < d->const_AccelSpeed_ClassStat)
-		{
 			d->revEngineState = 0;
-		}
 		else
-		{
 			d->revEngineState = 1;
-		}
 	}
 	else
 	{
 		d->revEngineState = 2;
 	}
 
-	iVar4 = d->const_AccelSpeed_ClassStat;
+	int accelClassStat = d->const_AccelSpeed_ClassStat;
 
-	// ??? = curr rev
 	d->unk36E = d->KartStates.RevEngine.fireLevel;
 
-	// if curr rev < ???
-	if (d->KartStates.RevEngine.fireLevel < iVar4)
+	u8 meterRoomStart;
+	int meterRoomEnd;
+	int meterMin;
+	int meterMax;
+
+	if (d->KartStates.RevEngine.fireLevel < accelClassStat)
 	{
 		// 476 and 447 can be absolutely any value,
 		// by default they are 15 and 30, but as long as
 		// they are proportional (1 and 2, 4 and 8), they
 		// behave the same as 15 and 30
 
-		bVar1 = d->const_turboMaxRoom;
+		meterRoomStart = d->const_turboMaxRoom;
 
 		// 477 changes when meter turns red
-		local_18 = CTR_MipsAddLo(CTR_MipsSll((u8)d->const_turboLowRoomWarning, 5), 1);
+		meterRoomEnd = CTR_MipsAddLo(CTR_MipsSll((u8)d->const_turboLowRoomWarning, 5), 1);
 
-		// min, max
-		iVar7 = 0;
-		iVar9 = iVar4;
+		meterMin = 0;
+		meterMax = accelClassStat;
 	}
 	else
 	{
 		// 477 changes when meter turns red
-		bVar1 = d->const_turboLowRoomWarning;
+		meterRoomStart = d->const_turboLowRoomWarning;
 
-		local_18 = 1;
+		meterRoomEnd = 1;
 
-		// min, max
-		iVar7 = iVar4;
-		iVar9 = CTR_MipsAddLo(iVar4, d->const_SacredFireSpeed);
+		meterMin = accelClassStat;
+		meterMax = CTR_MipsAddLo(accelClassStat, d->const_SacredFireSpeed);
 	}
 
-	uVar3 = VehCalc_MapToRange(d->KartStates.RevEngine.fireLevel, iVar7, iVar9, CTR_MipsSll(bVar1, 5), local_18);
-
-	d->turbo_MeterRoomLeft = uVar3;
+	s16 meterRoomLeft = VehCalc_MapToRange(d->KartStates.RevEngine.fireLevel, meterMin, meterMax, CTR_MipsSll(meterRoomStart, 5), meterRoomEnd);
+	d->turbo_MeterRoomLeft = meterRoomLeft;
 
 	d->distanceDrivenBackwards = 0;
-	iVar4 = CTR_MipsSra((s16)d->unk36E, 6);
+	int squishScale = CTR_MipsSra((s16)d->unk36E, 6);
 
-	if (iVar4 < 0x401)
+	if (squishScale < 0x401)
 	{
-		if (iVar4 < 0)
-		{
-			iVar4 = 0;
-		}
+		if (squishScale < 0)
+			squishScale = 0;
 	}
 	else
 	{
-		iVar4 = 0x400;
+		squishScale = 0x400;
 	}
 
 	// Set the scale of the car while revving the engine,
 	// this is a basic "squash and stretch" concept of animation, before motion
 
 	// Reduce height a little
-	inst->scale[1] = (s16)CTR_MipsSubLo(3276, iVar4);
-	inst->scale[0] = (s16)CTR_MipsAddLo(CTR_MipsMulLo(iVar4, 6) / 10, 3276);
-	inst->scale[2] = (s16)CTR_MipsAddLo(CTR_MipsMulLo(iVar4, 6) / 10, 3276);
+	inst->scale[1] = (s16)CTR_MipsSubLo(3276, squishScale);
+	inst->scale[0] = (s16)CTR_MipsAddLo(CTR_MipsMulLo(squishScale, 6) / 10, 3276);
+	inst->scale[2] = (s16)CTR_MipsAddLo(CTR_MipsMulLo(squishScale, 6) / 10, 3276);
 
-	d->jumpSquishStretch = iVar4;
+	d->jumpSquishStretch = squishScale;
 }
 
 
@@ -1078,11 +1021,11 @@ void VehStuckProc_RevEngine_Init(struct Thread *t, struct Driver *d)
 
 	d->boolFirstFrameSinceRevEngine = true;
 
-	d->KartStates.RevEngine.timeMS = 0;
-	d->KartStates.RevEngine.unk58e = 0;
-	d->KartStates.RevEngine.unk590 = 0;
-	d->KartStates.RevEngine.unk[0] = 0;
-	d->KartStates.RevEngine.unk[1] = 0;
+	d->KartStates.RevEngine.overRevTimerMS = 0;
+	d->KartStates.RevEngine.releaseCooldownTimerMS = 0;
+	d->KartStates.RevEngine.emptyCooldownTimerMS = 0;
+	d->KartStates.RevEngine.chargeState = REV_ENGINE_CHARGE_IDLE;
+	d->KartStates.RevEngine.lockoutFlags = 0;
 
 	d->KartStates.RevEngine.boostMeter = CTR_MipsAddLo(d->const_AccelSpeed_ClassStat, d->const_AccelSpeed_ClassStat / 3);
 }
