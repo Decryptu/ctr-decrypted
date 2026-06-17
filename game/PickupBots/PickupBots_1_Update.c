@@ -14,6 +14,13 @@ enum
 
 static int PickupBots_IsBotWeaponReady(struct Driver *driver)
 {
+#if defined(CTR_NATIVE)
+	// NOTE(aalhendi): Retail can read PS1 low memory when a boss-race
+	// end-of-race rank slot is empty. Native treats that slot as no bot.
+	if (driver == NULL)
+		return 0;
+#endif
+
 	return ((driver->actionsFlagSet & 0x100000) != 0) && ((driver->botData.botFlags & BOT_FLAG_DAMAGE_ACTIVE) == 0) &&
 	       ((driver->actionsFlagSet & 0x2000000) == 0) && (driver->botData.weaponCooldown == 0) && (driver->instTntRecv == NULL) && (driver->clockReceive == 0);
 }
