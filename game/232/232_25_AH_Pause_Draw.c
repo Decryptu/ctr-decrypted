@@ -236,12 +236,19 @@ void AH_Pause_Draw(int pageID, int posX)
 
 	else if (type == 1)
 	{
-		int tokenCount[5] = {0, 0, 0, 0, 0};
+		s16 tokenCount[5] = {0, 0, 0, 0, 0};
 
 		for (int i = 0; i < 0x10; i++)
 		{
 			if (CHECK_ADV_BIT(adv->rewards, i + ADV_REWARD_FIRST_CTR_TOKEN) != 0)
 				tokenCount[data.metaDataLEV[i].ctrTokenGroupID]++;
+		}
+
+		// NOTE(aalhendi): Purple tokens are stored in a separate reward bit range not in ctrTokenGroupID.
+		for (int i = 0; i < 4; i++)
+		{
+			if (CHECK_ADV_BIT(adv->rewards, i + ADV_REWARD_FIRST_PURPLE_TOKEN) != 0)
+				tokenCount[4]++;
 		}
 
 		for (int i = 0; i < 5; i++)
@@ -268,7 +275,7 @@ void AH_Pause_Draw(int pageID, int posX)
 
 	else if (type == 2)
 	{
-		int count[3];
+		s16 count[3];
 		count[0] = 0;
 		count[1] = 0;
 		count[2] = 0;
