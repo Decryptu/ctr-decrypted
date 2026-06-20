@@ -1,6 +1,7 @@
 // & 0x1 = draw instance
 // & 0x2, 0x4, 0x8 -- FUN_80030ad4 -- collision?
-// & 0xX0 = X=0 freezes animation, X=8 hides model, x=1-7 plays animations
+// & 0x10 = animation: loop
+// & 0x20 = animation: stop at end (combined with 0x10 = play once)
 // & 0x80 = make invisible
 // & 0x100 = pushBuffer exists
 // & 0x200 = pixel LOD?
@@ -11,6 +12,7 @@
 // & 0x10000 = draw transparent (not for ghosts)
 // & 0x20000 = disable vertex color, specular lighting, use instance color
 // & 0x60000 = draw transparent (used by ghosts)
+// & 0x4000000 = only render for owning pushbuffer
 // & 0x8000000 = draw huge
 // & 0x10000000 = invisible before pause
 // & 0x20000000 = invisible only during pause
@@ -20,8 +22,8 @@ enum InstanceFlags
 	//
 	//
 	//
-	//
-	//
+	ANIM_LOOP = 0x10,
+	ANIM_STOP_AT_END = 0x20,
 	DRAW_SUCCESSFUL = 0x40,
 	HIDE_MODEL = 0x80,
 	PUSHBUFFER_EXISTS = 0x100,
@@ -44,6 +46,7 @@ enum InstanceFlags
 	//
 	//
 	VISIBLE_DURING_GAMEPLAY = 0x2000000,
+	OWNER_PUSHBUFFER_GATE = 0x4000000,
 	DRAW_HUGE = 0x8000000,
 	INVISIBLE_BEFORE_PAUSE = 0x10000000,
 	INVISIBLE_DURING_PAUSE = 0x20000000

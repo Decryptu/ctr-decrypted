@@ -632,7 +632,6 @@ static const u8 sRenderBucketKeyRelicBrightness8008a2c4[0x80] = {
 #define RB_INSTANCE_SPLIT_STATE_MASK         0x7000U
 #define RB_INSTANCE_DEPTH_FADE               0x1000000U
 #define RB_INSTANCE_SKIP_OT_RANGE            0x2000000U
-#define RB_INSTANCE_OWNER_PB_GATE            0x4000000U
 #define RB_INSTANCE_REFLECTION_FUNC23        0x100000U
 #define RB_MODEL_ALWAYS_POINT_NORTH          0x1U
 _Static_assert(DRAW_SUCCESSFUL == 0x40);
@@ -648,7 +647,7 @@ _Static_assert(RB_INSTANCE_CUSTOM_MATRIX == 0x800);
 _Static_assert(RB_INSTANCE_SPLIT_SPECIAL == 0x1000);
 _Static_assert(RB_INSTANCE_SPLIT_STATE_MASK == 0x7000);
 _Static_assert(RB_INSTANCE_DEPTH_FADE == 0x1000000);
-_Static_assert(RB_INSTANCE_OWNER_PB_GATE == 0x4000000);
+_Static_assert(OWNER_PUSHBUFFER_GATE == 0x4000000);
 _Static_assert(RB_INSTANCE_REFLECTION_FUNC23 == 0x100000);
 _Static_assert(RB_MODEL_ALWAYS_POINT_NORTH == 0x1);
 
@@ -840,7 +839,7 @@ static void RenderBucket_ApplyOwnerPushBufferGate(struct Instance *inst, int pla
 	struct Thread *thread;
 	struct Driver *driver;
 
-	if ((*instFlags & RB_INSTANCE_OWNER_PB_GATE) == 0)
+	if ((*instFlags & OWNER_PUSHBUFFER_GATE) == 0)
 		return;
 
 	thread = inst->thread;

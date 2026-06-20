@@ -104,9 +104,10 @@ struct HighScoreTrack
 	// Relic Race Best Race (5)
 	struct HighScoreEntry scoreEntry[12];
 
-	// 1 - N Tropy Open
-	// 2 - N Tropy Beaten, Oxide Open
-	// 4 - Oxide Beaten
+#define TT_NTROPY_OPEN   0x1
+#define TT_NTROPY_BEATEN 0x2
+#define TT_NOXIDE_BEATEN 0x4
+
 	u32 timeTrialFlags;
 };
 

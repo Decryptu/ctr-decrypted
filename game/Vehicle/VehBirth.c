@@ -613,10 +613,7 @@ void VehBirth_NonGhost(struct Thread *t, int index)
 		d->wakeInst = inst;
 
 		if (inst != 0)
-		{
-			// invisible, anim #1
-			inst->flags |= 0x90;
-		}
+			inst->flags |= HIDE_MODEL | ANIM_LOOP;
 
 		// sep 3
 		// else
@@ -631,7 +628,7 @@ void VehBirth_NonGhost(struct Thread *t, int index)
 
 	inst = t->inst;
 	if (index < gGT->numPlyrCurrGame)
-		inst->flags |= 0x4000000;
+		inst->flags |= OWNER_PUSHBUFFER_GATE;
 
 	d->driverID = index;
 	d->instSelf = inst;

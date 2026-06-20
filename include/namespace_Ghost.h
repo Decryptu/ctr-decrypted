@@ -36,10 +36,10 @@ struct GhostTape
 
 	// 0x24
 	// all in GhostReplay_Init2, unused?
-	s16 unk1[3];
-	s16 unk2[3];
-	s16 unk3[3];
-	s16 unk4[3];
+	SVec3 unk1;
+	SVec3 unk2;
+	SVec3 unk3;
+	SVec3 unk4;
 
 	// 0x3C
 	int timeInPacket01;

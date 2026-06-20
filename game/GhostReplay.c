@@ -1,47 +1,54 @@
 #include <common.h>
 
+typedef enum GhostOpcode : u8
+{
+	GHOST_OP_POSITION = 0x80,
+	GHOST_OP_ANIMATION,
+	GHOST_OP_BOOST,
+	GHOST_OP_INSTANCE,
+	GHOST_OP_IDLE,
+} GhostOpcode;
+
+static const u8 GHOST_SIZE_POSITION = 11;
+static const u8 GHOST_SIZE_ANIMATION = 3;
+static const u8 GHOST_SIZE_BOOST = 6;
+static const u8 GHOST_SIZE_INSTANCE = 2;
+static const u8 GHOST_SIZE_IDLE = 1;
+static const u8 GHOST_SIZE_VELOCITY = 5;
+
+#define GHOST_IS_OPCODE(b) ((u8)((b) + 0x80) < 5)
+#define Ghost_ReadBE16(p)  ((u16)((p)[0] << 8 | (p)[1]))
+
+internal s16 Ghost_LerpRot12(s16 curr, s16 next, u16 t)
+{
+	s32 delta = ((s32)next - (s32)curr) & 0xFFF;
+	if (delta > 0x7FF)
+		delta -= 0x1000;
+	return curr + ((delta * t) >> 0xC) & 0xFFF;
+}
+
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80026ed8-0x80027838.
 void GhostReplay_ThTick(struct Thread *t)
 {
-	struct GhostTape *tape;
-	struct GameTracker *gGT;
-	struct GhostHeader *gh;
-	s16 opcodePos;
-	int packetIdx;
-	u32 scaledPacketIdx;
-	u16 lerp4096;
-	u32 delta;
-	u8 *packetPtr;
-	struct Instance *inst;
-	struct Driver *d;
-	struct GhostPacket *packet;
-	SVec3 local_rot; // ushort?
-	int timeInRace;
-	int scaledNum;
-	int color;
+	struct GameTracker *gGT = sdata->gGT;
+	struct Driver *d = t->object;
+	struct GhostTape *tape = d->ghostTape;
+	struct Instance *inst = d->instSelf;
 
-	d = t->object;
-	tape = d->ghostTape;
-	inst = d->instSelf;
-
-	inst->scale = (SVec3){{0xccc, 0xccc, 0xccc}};
+	inst->scale = (SVec3){.x = 0xccc, .y = 0xccc, .z = 0xccc};
 
 	// 6-second timer != 0, and ghost made by human
 	if ((sdata->ghostOverflowTextTimer != 0) && (d->ghostID == 0))
 	{
-		color = 0xFFFF8004;
+		s32 color = 0xFFFF8004;
 		if (sdata->ghostOverflowTextTimer & 1)
-		{
 			color = 0xFFFF8003;
-		}
 
 		DecalFont_DrawLine(sdata->lngStrings[LNG_GHOST_DATA_OVERFLOW], 0x100, 0x28, 2, color);
 		DecalFont_DrawLine(sdata->lngStrings[LNG_CAN_NOT_SAVE_GHOST_DATA], 0x100, 0x32, 2, color);
 
 		sdata->ghostOverflowTextTimer--;
 	}
-
-	gGT = sdata->gGT;
 
 	if ((sdata->boolGhostsDrawing == 0) || ((gGT->gameMode1 & DEBUG_MENU) != 0) || (tape->ptrEnd == tape->ptrStart) || (d->ghostBoolInit == 0))
 	{
@@ -64,118 +71,99 @@ void GhostReplay_ThTick(struct Thread *t)
 
 	inst->alphaScale = 0xa00;
 
-	// remove flags + add transparency
-	inst->flags = (inst->flags & 0xfff8ff7f) | GHOST_DRAW_TRANSPARENT;
+	inst->flags &= ~(HIDE_MODEL | DRAW_TRANSPARENT);
+	inst->flags |= GHOST_DRAW_TRANSPARENT;
 
-	timeInRace = tape->timeElapsedInRace >= 0 ? tape->timeElapsedInRace : 0;
+	s32 timeInRace = tape->timeElapsedInRace >= 0 ? tape->timeElapsedInRace : 0;
 
-	packet = &tape->packets[0];
+	struct GhostPacket *packet = &tape->packets[0];
 
 	// flush and rewrite cached GhostPackets array
 	if (tape->timeInPacket32 <= timeInRace)
 	{
-		opcodePos = 0;
-		packetPtr = tape->ptrCurr;
-		SVec3 tmpPos = {0};
-
+		s16 opcodePos = 0;
+		u8 *packetPtr = tape->ptrCurr;
 		u8 *packetEndChain = tape->ptrCurr;
+		SVec3 tmpPos = {0};
 
 		tape->packetID = -1;
 		tape->timeInPacket01 = tape->timeInPacket32_backup;
 
-		// move two POSITION(0x80) opcodes in advance,
-		// combine with velocity to make GhostPackets cache
+		// advance two POSITION opcodes, combining
+		// with velocity data to build the packet cache
 		while (opcodePos < 2)
 		{
 			// reached end of tape
 			if (tape->ptrEnd <= (void *)packetPtr)
 			{
-				gh = tape->gh;
+				struct GhostHeader *gh = tape->gh;
 
 				d->ySpeed = gh->ySpeed;
-				d->actionsFlagSet &= 0xffefffff; // driver is not AI anymore
+				d->actionsFlagSet &= ~ACTION_BOT;
 				d->speedApprox = gh->speedApprox;
 
 				BOTS_Driver_Convert(d);
 				BOTS_ThTick_Drive(t);
 
-				// 26th bit -> (on) := racer finished race
-				d->actionsFlagSet |= 0x2000000;
-
-				// allow this thread to ignore all collisions
-				t->flags |= 0x1000;
+				d->actionsFlagSet |= ACTION_RACE_FINISHED;
+				t->flags |= THREAD_FLAG_DISABLE_COLLISION;
 				return;
 			}
 
-			// if opcode is seen
-			u32 opcode = (u32)packetPtr[0];
-			if ((opcode + 0x80 & 0xff) < 5)
+			u8 opcode = packetPtr[0];
+			if (GHOST_IS_OPCODE(opcode))
 			{
 				switch (opcode)
 				{
-				case 0x80: // position data
-					for (int i = 0; i < 3; ++i)
+				case GHOST_OP_POSITION:
+					for (s32 i = 0; i < 3; ++i)
 					{
-						// Little Endian to Big Endian
-						u16 rawValue = (u16)((packetPtr[1 + i * 2] << 8) | packetPtr[2 + i * 2]);
-
-						tmpPos.v[i] = (s16)(((int)((u32)rawValue << 0x10)) >> 0xd);
-						packet->pos.v[i] = tmpPos.v[i];
+						u16 rawValue = Ghost_ReadBE16(&packetPtr[1 + i * 2]);
+						tmpPos.v[i] = (s16)(((s32)((u32)rawValue << 0x10)) >> 0xd);
 					}
+					packet->pos = tmpPos;
 
 					packet->rot.x = 0;
-
-					// yes, this is correct
 					packet->rot.y = (u16)packetPtr[9] << 4;
 					packet->rot.z = (u16)packetPtr[10] << 4;
 
-					// if 2nd position opcode
 					if (opcodePos == 1)
 					{
-						// Get time (big endian) from position message
-						int bigEndianTime = (packetPtr[7] << 8) | packetPtr[8];
+						s32 bigEndianTime = Ghost_ReadBE16(&packetPtr[7]);
 						tape->ptrCurr = packetPtr;
 
-						// casting required, or only half register is
-						// written to bigEndianTime, which breaks timeInPacket
 						tape->timeInPacket32_backup += bigEndianTime;
 						tape->timeInPacket32 += bigEndianTime;
 					}
 
-					// count position opcodes
 					opcodePos++;
 
 					packet->bufferPacket = packetEndChain;
-					packetPtr += 11;
-
-					// the end of the chain represents the last byte
-					// that can be checked in the 32 packets, can be
-					// used to search for animation opcodes between
-					// position packets
+					packetPtr += GHOST_SIZE_POSITION;
 					packetEndChain = packetPtr;
 
 					packet++;
 
 					break;
 
-				case 0x81: // animation flags
-					packetPtr += 3;
+				case GHOST_OP_ANIMATION:
+					packetPtr += GHOST_SIZE_ANIMATION;
 					break;
 
-				case 0x82: // boost flags
-					packetPtr += 6;
+				case GHOST_OP_BOOST:
+					packetPtr += GHOST_SIZE_BOOST;
 					break;
 
-				case 0x83: // instance flags
-					packetPtr += 2;
+				case GHOST_OP_INSTANCE:
+					packetPtr += GHOST_SIZE_INSTANCE;
 					break;
 
-				case 0x84: // driver does nothing
+				case GHOST_OP_IDLE:
 					packet->pos = tmpPos;
 					packet[0].rot = packet[-1].rot;
 
 					packet->bufferPacket = packetEndChain;
-					packetPtr += 1;
+					packetPtr += GHOST_SIZE_IDLE;
 					packetEndChain = packetPtr;
 
 					packet++;
@@ -183,23 +171,19 @@ void GhostReplay_ThTick(struct Thread *t)
 				}
 			}
 
-			// if no opcode, assume 5 bytes of velocity
+			// velocity data (no opcode byte)
 			else
 			{
-				for (int i = 0; i < 3; ++i)
-				{
-					tmpPos.v[i] += (s16)((char)packetPtr[i]) * 8;
-					packet->pos.v[i] = tmpPos.v[i];
-				}
+				for (s32 i = 0; i < 3; ++i)
+					tmpPos.v[i] += (s16)((s8)packetPtr[i]) * 8;
+				packet->pos = tmpPos;
 
 				packet->rot.x = 0;
-
-				// yes, this is right
 				packet->rot.y = packetPtr[3] << 4;
 				packet->rot.z = packetPtr[4] << 4;
 
 				packet->bufferPacket = packetEndChain;
-				packetPtr += 5;
+				packetPtr += GHOST_SIZE_VELOCITY;
 				packetEndChain = packetPtr;
 
 				packet++;
@@ -222,22 +206,12 @@ void GhostReplay_ThTick(struct Thread *t)
 		}
 	}
 
-	scaledNum = (timeInRace - tape->timeInPacket01) * tape->numPacketsInArray * 0x1000;
+	u32 scaledNum = (u32)(timeInRace - tape->timeInPacket01) * tape->numPacketsInArray * 0x1000;
 
-#if 0
-  if (tape->timeBetweenPackets == 0) {
-    trap(0x1c00);
-  }
-  if ((tape->timeBetweenPackets == -1) && (scaledNum == -0x80000000)) {
-    trap(0x1800);
-  }
-#endif
-
-	// 0% = 0,
-	// 100% = 0x1000 (4096)
-	scaledPacketIdx = scaledNum / tape->timeBetweenPackets;
-	packetIdx = (int)scaledPacketIdx >> 0xc;
-	lerp4096 = scaledPacketIdx & 0xfff;
+	// 0% = 0, 100% = 0x1000
+	u32 scaledPacketIdx = scaledNum / tape->timeBetweenPackets;
+	s32 packetIdx = (s32)(scaledPacketIdx >> 0xc);
+	u16 lerp4096 = scaledPacketIdx & 0xfff;
 
 	if (tape->numPacketsInArray <= packetIdx)
 	{
@@ -249,32 +223,21 @@ void GhostReplay_ThTick(struct Thread *t)
 	struct GhostPacket *currPacket = &tape->packets[packetIdx];
 	struct GhostPacket *nextPacket = &tape->packets[packetIdx + 1];
 
-	int vel[3];
-	vel[0] = (int)nextPacket->pos.x - (int)currPacket->pos.x;
-	vel[1] = (int)nextPacket->pos.y - (int)currPacket->pos.y;
-	vel[2] = (int)nextPacket->pos.z - (int)currPacket->pos.z;
+	s32 vel[3];
+	vel[0] = (s32)nextPacket->pos.x - (s32)currPacket->pos.x;
+	vel[1] = (s32)nextPacket->pos.y - (s32)currPacket->pos.y;
+	vel[2] = (s32)nextPacket->pos.z - (s32)currPacket->pos.z;
 
 	inst->matrix.t[0] = currPacket->pos.x + ((vel[0] * lerp4096) >> 0xC);
 	inst->matrix.t[1] = currPacket->pos.y + ((vel[1] * lerp4096) >> 0xC);
 	inst->matrix.t[2] = currPacket->pos.z + ((vel[2] * lerp4096) >> 0xC);
 
-	// Calculate delta + perform 12-bit wrapping and lerp
-	delta = ((int)nextPacket->rot.x - (int)currPacket->rot.x) & 0xFFF;
-	if (delta > 0x7FF)
-		delta -= 0x1000;
-	local_rot.x = currPacket->rot.x + ((delta * lerp4096) >> 0xC) & 0xFFF;
+	SVec3 local_rot = {
+	    .x = Ghost_LerpRot12(currPacket->rot.x, nextPacket->rot.x, lerp4096),
+	    .y = Ghost_LerpRot12(currPacket->rot.y, nextPacket->rot.y, lerp4096),
+	    .z = Ghost_LerpRot12(currPacket->rot.z, nextPacket->rot.z, lerp4096),
+	};
 
-	delta = ((int)nextPacket->rot.y - (int)currPacket->rot.y) & 0xFFF;
-	if (delta > 0x7FF)
-		delta -= 0x1000;
-	local_rot.y = currPacket->rot.y + ((delta * lerp4096) >> 0xC) & 0xFFF;
-
-	delta = ((int)nextPacket->rot.z - (int)currPacket->rot.z) & 0xFFF;
-	if (delta > 0x7FF)
-		delta -= 0x1000;
-	local_rot.z = currPacket->rot.z + ((delta * lerp4096) >> 0xC) & 0xFFF;
-
-	// Retail converts the interpolated rotation into the instance matrix.
 	ConvertRotToMatrix(&inst->matrix, &local_rot);
 
 	d->posCurr.x = inst->matrix.t[0] << 8;
@@ -294,9 +257,9 @@ void GhostReplay_ThTick(struct Thread *t)
 
 		u8 opcode = buffer[0];
 
-		if (4 < (opcode + 0x80 & 0xFF))
+		if (!GHOST_IS_OPCODE(opcode))
 		{
-			buffer += 5; // Skip velocity data, assumed to be 5 bytes
+			buffer += GHOST_SIZE_VELOCITY;
 			tape->packetID++;
 		}
 
@@ -304,18 +267,17 @@ void GhostReplay_ThTick(struct Thread *t)
 		{
 			switch (opcode)
 			{
-			case 0x80:         // Position and Rotation
-				buffer += 0xB; // Skip 11 bytes of position and rotation data
+			case GHOST_OP_POSITION:
+				buffer += GHOST_SIZE_POSITION;
 				tape->packetID++;
 				break;
 
-			case 0x81:
-			{ // Animation
-
-				int numAnimFrames = INSTANCE_GetNumAnimFrames(inst, buffer[1]);
+			case GHOST_OP_ANIMATION:
+			{
+				s32 numAnimFrames = INSTANCE_GetNumAnimFrames(inst, buffer[1]);
 				inst->animIndex = (numAnimFrames < 1) ? 0 : buffer[1];
 
-				int maxFrame = INSTANCE_GetNumAnimFrames(inst, inst->animIndex) - 1;
+				s32 maxFrame = INSTANCE_GetNumAnimFrames(inst, inst->animIndex) - 1;
 				if (buffer[2] != 0)
 				{
 					if (buffer[2] < maxFrame)
@@ -332,33 +294,27 @@ void GhostReplay_ThTick(struct Thread *t)
 					inst->animFrame = 0;
 				}
 
-				buffer += 3;
+				buffer += GHOST_SIZE_ANIMATION;
 			}
 			break;
 
-			case 0x82: // Boost
+			case GHOST_OP_BOOST:
 				if (gGT->trafficLightsTimer < 1 && ((gGT->gameMode1 & START_OF_RACE) == 0) && (RaceFlag_IsFullyOnScreen() == 0))
 				{
-					VehFire_Increment(d,
-					                  (int)(buffer[1] << 8 | buffer[2]), // endian flip
-					                  buffer[3],
-					                  (int)(buffer[4] << 8 | buffer[5]) // endian flip
-					);
+					VehFire_Increment(d, Ghost_ReadBE16(&buffer[1]), buffer[3], Ghost_ReadBE16(&buffer[4]));
 				}
-				buffer += 6;
+				buffer += GHOST_SIZE_BOOST;
 				break;
 
-			case 0x83:                     // Instance Flags
-				inst->flags &= 0xFFFFDFFF; // Reset flag
+			case GHOST_OP_INSTANCE:
+				inst->flags &= ~SPLIT_LINE;
 				if (buffer[1] != 0)
-				{
 					inst->flags |= SPLIT_LINE;
-				}
-				buffer += 2;
+				buffer += GHOST_SIZE_INSTANCE;
 				break;
 
-			case 0x84: // No-Op
-				buffer += 1;
+			case GHOST_OP_IDLE:
+				buffer += GHOST_SIZE_IDLE;
 				tape->packetID++;
 				break;
 			}
@@ -366,33 +322,15 @@ void GhostReplay_ThTick(struct Thread *t)
 	}
 
 	if (gGT->trafficLightsTimer < 1)
-	{
 		tape->timeElapsedInRace += gGT->elapsedTimeMS;
-	}
-	return;
 }
 
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80027838-0x80027b88.
 void GhostReplay_Init1(void)
 {
-	int i;
-	struct Thread *t;
-	struct Instance *inst;
-	struct Instance *wakeInst;
-	struct Driver *ghostDriver;
-	struct Model *model;
-	struct Model *wake;
-	int timeTrialFlags;
-
-	struct GhostHeader *gh;
-	struct GhostTape *tape;
-	int charID;
-	char *recordBuffer;
-
 	struct GameTracker *gGT = sdata->gGT;
 
-	// This has to run from MainInit_Drivers
 	sdata->boolCanSaveGhost = 0;
 	sdata->boolGhostsDrawing = 0;
 
@@ -400,55 +338,30 @@ void GhostReplay_Init1(void)
 	if ((gGT->gameMode1 & 0x20022000) != 0x20000)
 		return;
 
-	// === Record Buffer ===
-
-	// In the future, this can move to GhostTape_Start, when byte budget allows
-
-	gh = MEMPACK_AllocMem(0x3e00 /*, "ghost record buffer"*/);
-	recordBuffer = GHOSTHEADER_GETRECORDBUFFER(gh);
+	struct GhostHeader *gh = MEMPACK_AllocMem(0x3e00);
+	char *recordBuffer = GHOSTHEADER_GETRECORDBUFFER(gh);
 	sdata->GhostRecording.ptrGhost = gh;
 	sdata->GhostRecording.ptrStartOffset = &recordBuffer[0];
 	sdata->GhostRecording.ptrEndOffset = &recordBuffer[0x3DD4];
 
-	// === Replay Buffer ===
-	// 0: human ghost
-	// 1: N Tropy / Oxide ghost
-
-	// ALWAYS initialize ghost threads
-	// even if gh == 0, or else the text
-	// for "Ghost Too Big" will never play
-	for (i = 0; i < 2; i++)
+	// ALWAYS initialize ghost threads, even if gh == 0,
+	// or else the "Ghost Too Big" text will never play.
+	// 0: human ghost, 1: N Tropy / Oxide ghost
+	for (s32 i = 0; i < 2; i++)
 	{
-		tape = MEMPACK_AllocMem(0x268 /*, "ghost tape"*/);
+		struct GhostTape *tape = MEMPACK_AllocMem(0x268);
 		sdata->ptrGhostTape[i] = tape;
 
-		// first ghost pointer is a ghost loaded by player
 		if (i == 0)
 		{
-			// assign the ghost you loaded
 			gh = sdata->ptrGhostTapePlaying;
 		}
-
-		// second ghost pointer is n tropy or oxide
 		else
 		{
-			// Bitwise ORs
-			// 0|0|0 (0) - No Ghost Unlocked
-			// 1|0|0 (1) - NTropy Ghost Open
-			// 1|2|0 (3) - NTropy Ghost Beaten, Oxide Ghost Open
-			// 1|2|4 (7) - NOxide Ghost Beaten
-			timeTrialFlags = sdata->gameProgress.highScoreTracks[gGT->levelID].timeTrialFlags;
-
+			s32 timeTrialFlags = sdata->gameProgress.highScoreTracks[gGT->levelID].timeTrialFlags;
 			void **pointers = ST1_GETPOINTERS(gGT->level1->ptrSpawnType1);
 
-			if ((timeTrialFlags & 2) != 0)
-			{
-				gh = pointers[ST1_NOXIDE];
-			}
-			else
-			{
-				gh = pointers[ST1_NTROPY];
-			}
+			gh = ((timeTrialFlags & TT_NTROPY_BEATEN) != 0) ? pointers[ST1_NOXIDE] : pointers[ST1_NTROPY];
 		}
 
 		recordBuffer = GHOSTHEADER_GETRECORDBUFFER(gh);
@@ -459,72 +372,50 @@ void GhostReplay_Init1(void)
 		tape->constDEADC0ED = 0xDEADC0ED;
 		tape->ptrEnd = &recordBuffer[gh->size];
 
-		// if n tropy / oxide
 		if (i == 1)
-		{
-			// guaranteed gh != 0, so dont nullptr check
 			gGT->timeToBeatInTimeTrial_ForCurrentEvent = gh->timeElapsedInRace;
-		}
 	}
 
-	for (i = 0; i < 2; i++)
+	for (s32 i = 0; i < 2; i++)
 	{
-		t = PROC_BirthWithObject(
+		struct Thread *t = PROC_BirthWithObject(SIZE_RELATIVE_POOL_BUCKET(4, NONE, LARGE, GHOST), GhostReplay_ThTick, sdata->s_ghost, 0);
 
-		    // creation flags
-		    SIZE_RELATIVE_POOL_BUCKET(4, NONE, LARGE, GHOST),
+		t->modelIndex = DYNAMIC_GHOST;
+		t->flags |= THREAD_FLAG_DISABLE_COLLISION;
 
-		    GhostReplay_ThTick, sdata->s_ghost, 0);
-
-		t->modelIndex = DYNAMIC_GHOST; // ghost
-		t->flags |= 0x1000;            // ignore collisions
-
-		// ghost drivers are 0x638 bytes large
-		ghostDriver = t->object;
+		struct Driver *ghostDriver = t->object;
 		memset(ghostDriver, 0, 0x638);
 		ghostDriver->ghostID = i;
 		ghostDriver->driverID = i + 1;
 		ghostDriver->ghostBoolInit = 0;
 		ghostDriver->ghostTape = sdata->ptrGhostTape[i];
 
-		// characterID and model
-		charID = data.characterIDs[i + 1];
-		model = VehBirth_GetModelByName(data.MetaDataCharacters[charID].name_Debug);
-
-		inst = INSTANCE_Birth3D(model, model->name, t);
+		s32 charID = data.characterIDs[i + 1];
+		struct Model *model = VehBirth_GetModelByName(data.MetaDataCharacters[charID].name_Debug);
+		struct Instance *inst = INSTANCE_Birth3D(model, model->name, t);
 		t->inst = inst;
 
-		// Ptr Model "Wake"
-		wake = gGT->modelPtr[STATIC_WAKE];
-
-		// if "Wake" model exists
+		struct Model *wake = gGT->modelPtr[STATIC_WAKE];
 		if (wake)
 		{
-			wakeInst = INSTANCE_Birth3D(wake, wake->name, 0);
+			struct Instance *wakeInst = INSTANCE_Birth3D(wake, wake->name, 0);
 			ghostDriver->wakeInst = wakeInst;
 
 			if (wakeInst != 0)
-			{
-				// make invisible, set to anim 1
-				wakeInst->flags |= 0x90;
-			}
+				wakeInst->flags |= HIDE_MODEL | ANIM_LOOP;
 		}
 
 		inst->depthBiasSecondary = 0xc;
-		inst->flags |= 0x4000000;
+		inst->flags |= OWNER_PUSHBUFFER_GATE;
 		ghostDriver->instSelf = inst;
 		VehBirth_TireSprites(t);
 		VehBirth_SetConsts(ghostDriver);
 
-		ghostDriver->actionsFlagSet |= 0x100000; // AI driver
-
-		// pointer to TrTire, for transparent tires
+		ghostDriver->actionsFlagSet |= ACTION_BOT; // AI driver
 		ghostDriver->wheelSprites = ICONGROUP_GETICONS(gGT->iconGroup[0xc]);
 
 		// NOTE(aalhendi): GhostReplay_Init2 owns retail activation/tick.
 	}
-
-	return;
 }
 
 
@@ -532,28 +423,18 @@ void GhostReplay_Init1(void)
 void GhostReplay_Init2(void)
 {
 	struct GameTracker *gGT = sdata->gGT;
-	struct Thread *thread = gGT->threadBuckets[GHOST].thread;
-	struct Driver *driver;
-	struct GhostTape *tape;
-	int ghostID;
-	int characterIndex;
-	int characterID;
-	int timeTrialFlags;
-	struct Instance *inst;
-	struct Model *model;
-	char *name;
 
-	for (; thread != NULL; thread = thread->siblingThread)
+	for (struct Thread *thread = gGT->threadBuckets[GHOST].thread; thread != NULL; thread = thread->siblingThread)
 	{
-		driver = thread->object;
+		struct Driver *driver = thread->object;
 		if (driver == NULL)
 			continue;
 
-		tape = driver->ghostTape;
+		struct GhostTape *tape = driver->ghostTape;
 		if (tape->ptrEnd == tape->ptrStart)
 			continue;
 
-		ghostID = driver->ghostID;
+		s32 ghostID = driver->ghostID;
 		if (ghostID == 0)
 		{
 			if (sdata->boolReplayHumanGhost == 0)
@@ -564,8 +445,8 @@ void GhostReplay_Init2(void)
 			if (ghostID != 1)
 				continue;
 
-			timeTrialFlags = sdata->gameProgress.highScoreTracks[gGT->levelID].timeTrialFlags;
-			if ((timeTrialFlags & 1) == 0)
+			s32 timeTrialFlags = sdata->gameProgress.highScoreTracks[gGT->levelID].timeTrialFlags;
+			if ((timeTrialFlags & TT_NTROPY_OPEN) == 0)
 				continue;
 		}
 
@@ -580,35 +461,28 @@ void GhostReplay_Init2(void)
 		driver->ghostBoolInit = 1;
 		driver->ghostBoolStarted = 0;
 
-		characterIndex = ghostID + 1;
+		s32 characterIndex = ghostID + 1;
 		if (ghostID != 0)
 		{
-			timeTrialFlags = sdata->gameProgress.highScoreTracks[gGT->levelID].timeTrialFlags;
-			if ((timeTrialFlags & 2) != 0)
+			s32 timeTrialFlags = sdata->gameProgress.highScoreTracks[gGT->levelID].timeTrialFlags;
+			if ((timeTrialFlags & TT_NTROPY_BEATEN) != 0)
 				characterIndex = ghostID + 2;
 		}
 
-		characterID = data.characterIDs[characterIndex];
-		model = VehBirth_GetModelByName(data.MetaDataCharacters[characterID].name_Debug);
+		s32 characterID = data.characterIDs[characterIndex];
+		struct Model *model = VehBirth_GetModelByName(data.MetaDataCharacters[characterID].name_Debug);
 
-		driver->wheelSize = 0;
-		if (characterID != NITROS_OXIDE)
-			driver->wheelSize = 0xccc;
+		driver->wheelSize = (characterID != NITROS_OXIDE) ? 0xccc : 0;
 
-		inst = driver->instSelf;
-		name = sdata->s_ghost0;
-		if (ghostID != 0)
-			name = sdata->s_ghost1;
+		struct Instance *inst = driver->instSelf;
+		char *name = (ghostID != 0) ? sdata->s_ghost1 : sdata->s_ghost0;
 
 		INSTANCE_Birth(inst, model, name, inst->thread, 7);
 		GhostReplay_ThTick(thread);
 
-		tape->unk2[0] = tape->unk1[0];
-		tape->unk2[1] = tape->unk1[1];
-		tape->unk2[2] = tape->unk1[2];
-		tape->unk4[0] = tape->unk3[0];
-		tape->unk4[1] = tape->unk3[1];
-		tape->unk4[2] = tape->unk3[2];
+		// NOTE(aalhendi): written in retail. never read?
+		tape->unk2 = tape->unk1;
+		tape->unk4 = tape->unk3;
 		tape->unk20 = 0;
 	}
 }
