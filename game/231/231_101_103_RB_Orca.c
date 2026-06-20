@@ -115,7 +115,7 @@ void RB_Orca_ThTick(struct Thread *t)
 		if ((u16)orcaObj->cooldown != 0)
 			return;
 
-		orcaInst->flags &= ~0x80;
+		orcaInst->flags &= ~HIDE_MODEL;
 		return;
 	}
 
@@ -164,7 +164,7 @@ void RB_Orca_ThTick(struct Thread *t)
 		return;
 	}
 
-	orcaInst->flags |= 0x80;
+	orcaInst->flags |= HIDE_MODEL;
 	orcaObj->cooldown = 0x5A;
 	orcaInst->animFrame = 0;
 	orcaObj->direction = direction ^ 1;

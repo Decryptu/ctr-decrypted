@@ -149,8 +149,8 @@ struct MaskHeadWeapon *VehPickupItem_MaskUseWeapon(struct Driver *driver, int bo
 	t->funcThDestroy = PROC_DestroyInstance;
 
 	t->flags |= THREAD_FLAG_DISABLE_COLLISION;
-	instance->flags |= 0x80;              // make mask head invisible
-	maskObj->maskBeamInst->flags |= 0x80; // make mask beam invisible
+	instance->flags |= HIDE_MODEL;
+	maskObj->maskBeamInst->flags |= HIDE_MODEL;
 	maskObj->duration = (driver->numWumpas > 9) ? 0x2d00 : 0x1e00;
 	maskObj->rot.x = 0x40;
 	maskObj->rot.y = 0;
@@ -940,7 +940,7 @@ void VehPickupItem_ShootNow(struct Driver *d, int weaponID, int flags)
 		{
 			d->instFlagsBackup = d->instSelf->flags;
 
-			d->instSelf->flags = (d->instSelf->flags & 0xfff8ffff) | 0x60000;
+			d->instSelf->flags = (d->instSelf->flags & 0xfff8ffff) | GHOST_DRAW_TRANSPARENT;
 
 			OtherFX_Play(0x61, 1);
 		}

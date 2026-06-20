@@ -367,12 +367,12 @@ void AH_Pause_Draw(int pageID, int posX)
 		}
 		else
 		{
-			inst->flags &= 0xfff8ff7f;
+			inst->flags &= ~(HIDE_MODEL | DRAW_TRANSPARENT | USE_SPECULAR_LIGHT | DRAW_BILLBOARD);
 			inst->flags |= D232.advPauseInst[index].instFlags;
 
 			if (ptrPauseObject->PauseMember[i].unlockFlag == 0)
 			{
-				inst->flags &= 0xfff8ff7f;
+				inst->flags &= ~(HIDE_MODEL | DRAW_TRANSPARENT | USE_SPECULAR_LIGHT | DRAW_BILLBOARD);
 				inst->colorRGBA = 0;
 				inst->alphaScale = 0x1000;
 			}
@@ -402,8 +402,7 @@ void AH_Pause_Draw(int pageID, int posX)
 
 			ConvertRotToMatrix(&inst->matrix, rotArr);
 
-			// if using specular light
-			if ((inst->flags & 0x70000) == 0x20000)
+			if ((inst->flags & 0x70000) == USE_SPECULAR_LIGHT)
 			{
 				SVec3 *specArr = &D232.advPauseInst[index].lightDir;
 

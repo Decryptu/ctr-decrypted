@@ -6,12 +6,14 @@
 // & 0x100 = pushBuffer exists
 // & 0x200 = pixel LOD?
 // & 0x400 = creditghost, screenspace instance
-// & 0x2000 = split-line
-// & 0x4000 = reflective
-// & 0x8000 = reverse cull direction
+// & 0x800 = custom matrix (billboard)
+// & 0x7000 = split-line state sub-field (bits 12-14)
 // & 0x10000 = draw transparent (not for ghosts)
 // & 0x20000 = disable vertex color, specular lighting, use instance color
 // & 0x60000 = draw transparent (used by ghosts)
+// & 0x100000 = reflection func23 selector
+// & 0x1000000 = depth fade
+// & 0x2000000 = visible during gameplay (skip OT range)
 // & 0x4000000 = only render for owning pushbuffer
 // & 0x8000000 = draw huge
 // & 0x10000000 = invisible before pause
@@ -19,6 +21,7 @@
 enum InstanceFlags
 {
 	DRAW_INSTANCE = 1,
+	DRAW_COLLISION_MASK = 0xf,
 	//
 	//
 	//
@@ -29,22 +32,19 @@ enum InstanceFlags
 	PUSHBUFFER_EXISTS = 0x100,
 	PIXEL_LOD = 0x200,
 	SCREENSPACE_INSTANCE = 0x400,
-	//
-	//
+	CUSTOM_MATRIX = 0x800,
+	SPLIT_SPECIAL = 0x1000,
 	SPLIT_LINE = 0x2000,
 	REFLECTIVE = 0x4000,
 	REVERSE_CULL_DIRECTION = 0x8000,
 	DRAW_TRANSPARENT = 0x10000,
 	USE_SPECULAR_LIGHT = 0x20000,
+	DRAW_BILLBOARD = 0x40000,
 	GHOST_DRAW_TRANSPARENT = 0x60000,
-	//
-	//
-	//
-	//
-	//
-	//
-	//
-	//
+	SPLIT_STATE_MASK = 0x7000,
+	REFLECTION_FUNC23 = 0x100000,
+	WATER_SPLIT_WHITE = 0x200000,
+	DEPTH_FADE = 0x1000000,
 	VISIBLE_DURING_GAMEPLAY = 0x2000000,
 	OWNER_PUSHBUFFER_GATE = 0x4000000,
 	DRAW_HUGE = 0x8000000,

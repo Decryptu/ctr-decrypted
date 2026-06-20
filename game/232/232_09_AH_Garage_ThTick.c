@@ -39,8 +39,8 @@ void AH_Garage_ThTick(struct Thread *t)
 		// if door is fully closed
 		if (garage->cooldown == 0)
 		{
-			inst->flags |= 0x1000;
-			inst->flags &= 0xffcfdfff;
+			inst->flags |= SPLIT_SPECIAL;
+			inst->flags &= ~(SPLIT_LINE | REFLECTION_FUNC23 | WATER_SPLIT_WHITE);
 		}
 
 		// if door is not fully closed
@@ -116,8 +116,8 @@ void AH_Garage_ThTick(struct Thread *t)
 			ConvertRotToMatrix(&garage->garageTopInst->matrix, &garage->rot[0]);
 		}
 
-		inst->flags &= 0xffffefff;
-		inst->flags |= 0x302000;
+		inst->flags &= ~SPLIT_SPECIAL;
+		inst->flags |= (SPLIT_LINE | REFLECTION_FUNC23 | WATER_SPLIT_WHITE);
 	}
 
 LAB_800aeb6c:

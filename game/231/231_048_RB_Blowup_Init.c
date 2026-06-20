@@ -14,7 +14,7 @@ void RB_Blowup_Init(struct Instance *weaponInst)
 	// initialize thread for blowup
 	explosionInst = INSTANCE_BirthWithThread(0x26, 0, SMALL, BLOWUP, RB_Blowup_ThTick, 0xc, 0);
 
-	explosionInst->flags |= 0x2040000;
+	explosionInst->flags |= (VISIBLE_DURING_GAMEPLAY | DRAW_BILLBOARD);
 
 	explosionTh = explosionInst->thread;
 	blowup = explosionTh->object;
@@ -61,8 +61,7 @@ void RB_Blowup_Init(struct Instance *weaponInst)
 	// set shockwave instance
 	blowup[0] = shockwaveInst;
 
-	// instane flags
-	shockwaveInst->flags |= 0x200;
+	shockwaveInst->flags |= PIXEL_LOD;
 
 	*(int *)&shockwaveInst->matrix.m[0][0] = 0x1000;
 	*(int *)&shockwaveInst->matrix.m[0][2] = 0;

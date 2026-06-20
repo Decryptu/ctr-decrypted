@@ -92,10 +92,7 @@ void AH_WarpPad_ThTick(struct Thread *t)
 				instArr[i]->flags |= 0x80;
 	}
 
-	// This is the red triangle in DCxDemo's
-	// level viewer, make it invisible.
-	// Instance only exists for debugging
-	warppadInst->flags |= 0x80;
+	warppadInst->flags |= HIDE_MODEL;
 
 	driver = gGT->drivers[0];
 	driverInst = driver->instSelf;

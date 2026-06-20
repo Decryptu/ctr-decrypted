@@ -89,8 +89,7 @@ void MM_Title_ThTick(struct Thread *title)
 		// current instance
 		titleInst = ptrTitle->i[i];
 
-		// make visible
-		titleInst->flags &= 0xffffff7f;
+		titleInst->flags &= ~HIDE_MODEL;
 
 		// the frame of title screen that each instance should start animation
 		animFram = D230.titleInstances[i].frameIndex_startMoving;
@@ -107,8 +106,7 @@ void MM_Title_ThTick(struct Thread *title)
 			// skip the trophy instance
 			if (i != 2)
 			{
-				// make invisible
-				titleInst->flags |= 0x80;
+				titleInst->flags |= HIDE_MODEL;
 			}
 
 			// set animFrame to zero
@@ -121,8 +119,7 @@ void MM_Title_ThTick(struct Thread *title)
 			// that the trophy is in the air
 			if ((u32)(timer - 138) < 62)
 			{
-				// make invisible
-				titleInst->flags |= 0x80;
+				titleInst->flags |= HIDE_MODEL;
 			}
 
 			// otherwise

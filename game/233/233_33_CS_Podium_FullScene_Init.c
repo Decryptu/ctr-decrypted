@@ -43,8 +43,7 @@ void CS_Podium_FullScene_Init(void)
 
 	D233.PodiumInitUnk2 = 0;
 
-	// Make kart model invisible
-	driverInstSelf->flags |= 0x80;
+	driverInstSelf->flags |= HIDE_MODEL;
 
 	VehPhysProc_FreezeEndEvent_Init(driverInstSelf->thread, gGT->drivers[0]);
 

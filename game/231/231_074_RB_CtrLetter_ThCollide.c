@@ -28,7 +28,7 @@ int RB_CtrLetter_ThCollide(struct Thread *letterTh, struct Thread *driverTh, voi
 	letterInst->scale.y = 0;
 	letterInst->scale.z = 0;
 	letterInst->thread = 0;
-	letterInst->flags |= 0x80;
+	letterInst->flags |= HIDE_MODEL;
 
 	OtherFX_Play(100, 1);
 	letterTh->flags |= THREAD_FLAG_DEAD;

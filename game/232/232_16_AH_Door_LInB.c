@@ -44,7 +44,7 @@ void AH_Door_LInB(struct Instance *inst)
 
 	// this instance is always the left-hand door,
 	// and every left-hand door has one key hole
-	inst->flags |= 0x1000;
+	inst->flags |= SPLIT_SPECIAL;
 
 	// 4 keys, all next to each other
 	instPtrArr = &woodDoor->keyInst[0];
@@ -109,8 +109,7 @@ void AH_Door_LInB(struct Instance *inst)
 	// generated right-door instance before any null fallback; keep unpatched
 	// until a valid hub/door repro proves the allocation can fail.
 
-	// | 0x8000 - reverse culling direction
-	otherDoorInst->flags |= 0x9000;
+	otherDoorInst->flags |= (SPLIT_SPECIAL | REVERSE_CULL_DIRECTION);
 
 	// copy full matrix (position and rotation)
 	// from left-hand door to right-hand door

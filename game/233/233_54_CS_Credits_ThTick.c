@@ -10,7 +10,7 @@ void CS_Credits_ThTick(void)
 
 	if (danceInst != NULL)
 	{
-		danceInst->flags |= 0x80;
+		danceInst->flags |= HIDE_MODEL;
 
 		danceInst->matrix.t[0] = (int)creditsBSS.creditGhost_Pos[0];
 		danceInst->matrix.t[1] = (int)creditsBSS.creditGhost_Pos[1];

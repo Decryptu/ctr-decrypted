@@ -552,7 +552,7 @@ void COLL_FIXED_BSPLEAF_TestInstance(struct BSP *node, struct ScratchpadStruct *
 		        // if data is valid
 
 		        // allows drawing flag is enabled
-		        ((bspArray->data.hitbox.instDef->ptrInstance->flags & 0xf) != 0)) &&
+		        ((bspArray->data.hitbox.instDef->ptrInstance->flags & DRAW_COLLISION_MASK) != 0)) &&
 
 		    // compare bsp boundingbox to scratchpad boundingbox
 		    ((sps->bbox.min.x <= bbox->max.x) &&
@@ -2163,7 +2163,7 @@ internal int CollMoved_PlayerSearch_RunHitboxLInC(struct ScratchpadStruct *sps, 
 		if (linCInstance == NULL)
 			return 1;
 
-		if ((linCInstance->flags & 0xf) == 0)
+		if ((linCInstance->flags & DRAW_COLLISION_MASK) == 0)
 			return 1;
 
 		modelID = instDef->modelID;

@@ -34,8 +34,7 @@ void AH_SaveObj_LInB(struct Instance *savInst)
 
 			save->scanlineFrame = 0;
 
-			// make invisible
-			savInst->flags |= 0x80;
+			savInst->flags |= HIDE_MODEL;
 
 			spawn = gGT->level1->ptrSpawnType2_PosRot;
 

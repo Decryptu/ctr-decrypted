@@ -28,7 +28,7 @@ void RB_Explosion_InitPotion(struct Instance *inst)
 	// create thread for shatter
 	shatterInst = INSTANCE_BirthWithThread(shatterColor, 0, SMALL, OTHER, RB_Explosion_ThTick, 0, 0);
 
-	shatterInst->flags |= 0xa00;
+	shatterInst->flags |= (PIXEL_LOD | CUSTOM_MATRIX);
 
 	// set funcThDestroy to remove instance from instance pool
 	shatterInst->thread->funcThDestroy = PROC_DestroyInstance;

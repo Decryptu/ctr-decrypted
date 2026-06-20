@@ -53,25 +53,16 @@ void RB_MaskWeapon_ThTick(struct Thread *maskTh)
 		}
 	}
 
-	// if driverInst is not reflective
-	if ((driverInst->flags & 0x4000) == 0)
+	if ((driverInst->flags & REFLECTIVE) == 0)
 	{
-		// mask is not reflective
-		maskInst->flags &= 0xffffbfff;
+		maskInst->flags &= ~REFLECTIVE;
 	}
-	// if driverInst is reflective
 	else
 	{
-		// mask is reflective
-		maskInst->flags |= 0x4000;
+		maskInst->flags |= REFLECTIVE;
 
-		// copy split line
 		maskInst->vertSplit = driverInst->vertSplit;
-
-		// mask beam is reflective
-		maskBeamInst->flags |= 0x4000;
-
-		// copy split line
+		maskBeamInst->flags |= REFLECTIVE;
 		maskBeamInst->vertSplit = driverInst->vertSplit;
 	}
 
@@ -163,8 +154,7 @@ void RB_MaskWeapon_ThTick(struct Thread *maskTh)
 
 	for (int i = 0; i < 2; i++)
 	{
-		// make visible
-		instCurr->flags &= 0xffffff7f;
+		instCurr->flags &= ~HIDE_MODEL;
 
 		instCurr->scale.x = mask->scale;
 		instCurr->scale.y = mask->scale;

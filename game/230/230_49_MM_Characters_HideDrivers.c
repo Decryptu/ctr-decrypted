@@ -10,8 +10,7 @@ void MM_Characters_HideDrivers(void)
 	{
 		PushBuffer_Init(&gGT->pushBuffer[i], 0, 1);
 
-		// player structure's instane flags, make invisible
-		gGT->drivers[i]->instSelf->flags |= 0x80;
+		gGT->drivers[i]->instSelf->flags |= HIDE_MODEL;
 	}
 
 	return;

@@ -181,16 +181,14 @@ LAB_800ba084:
 	// (opening, closing, or full closed)
 	if (teeth->timeOpen == 0)
 	{
-		// make visible
-		flags = inst->flags & 0xffffff7f;
+		flags = inst->flags & ~HIDE_MODEL;
 	}
 
 	// if a timer is active
 	// (fully open)
 	else
 	{
-		// make invisible
-		flags = inst->flags | 0x80;
+		flags = inst->flags | HIDE_MODEL;
 	}
 
 	inst->flags = flags;

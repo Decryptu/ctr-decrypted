@@ -253,8 +253,7 @@ void AH_Door_ThTick(struct Thread *t)
 							// Set Key Color
 							keyInst->colorRGBA = 0xdca6000;
 
-							// specular lighting
-							keyInst->flags |= 0x20000;
+							keyInst->flags |= USE_SPECULAR_LIGHT;
 							door->frameCount_unused++;
 
 							driverInst = driver->instSelf;

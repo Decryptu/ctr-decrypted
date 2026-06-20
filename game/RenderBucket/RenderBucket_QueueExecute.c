@@ -627,12 +627,7 @@ static const u8 sRenderBucketKeyRelicBrightness8008a2c4[0x80] = {
 #define RB_RETAIL_UNCOMPRESS_NEXTFRAME       ((int)0x8006b24cU)
 #define RB_RETAIL_UNCOMPRESS_SPLIT           ((int)0x8006bf30U)
 #define RB_RETAIL_UNCOMPRESS_REFLECT         ((int)0x8006cdecU)
-#define RB_INSTANCE_CUSTOM_MATRIX            0x800U
-#define RB_INSTANCE_SPLIT_SPECIAL            0x1000U
-#define RB_INSTANCE_SPLIT_STATE_MASK         0x7000U
-#define RB_INSTANCE_DEPTH_FADE               0x1000000U
 #define RB_INSTANCE_SKIP_OT_RANGE            0x2000000U
-#define RB_INSTANCE_REFLECTION_FUNC23        0x100000U
 #define RB_MODEL_ALWAYS_POINT_NORTH          0x1U
 _Static_assert(DRAW_SUCCESSFUL == 0x40);
 _Static_assert(PUSHBUFFER_EXISTS == 0x100);
@@ -643,12 +638,12 @@ _Static_assert(REFLECTIVE == 0x4000);
 _Static_assert(REVERSE_CULL_DIRECTION == 0x8000);
 _Static_assert(VISIBLE_DURING_GAMEPLAY == RB_INSTANCE_SKIP_OT_RANGE);
 _Static_assert(DRAW_HUGE == 0x8000000);
-_Static_assert(RB_INSTANCE_CUSTOM_MATRIX == 0x800);
-_Static_assert(RB_INSTANCE_SPLIT_SPECIAL == 0x1000);
-_Static_assert(RB_INSTANCE_SPLIT_STATE_MASK == 0x7000);
-_Static_assert(RB_INSTANCE_DEPTH_FADE == 0x1000000);
+_Static_assert(CUSTOM_MATRIX == 0x800);
+_Static_assert(SPLIT_SPECIAL == 0x1000);
+_Static_assert(SPLIT_STATE_MASK == 0x7000);
+_Static_assert(DEPTH_FADE == 0x1000000);
 _Static_assert(OWNER_PUSHBUFFER_GATE == 0x4000000);
-_Static_assert(RB_INSTANCE_REFLECTION_FUNC23 == 0x100000);
+_Static_assert(REFLECTION_FUNC23 == 0x100000);
 _Static_assert(RB_MODEL_ALWAYS_POINT_NORTH == 0x1);
 
 static void RenderBucket_CopyDispatchTables(void)
@@ -749,7 +744,7 @@ static void RenderBucket_SelectRetailHandlers(u32 *instFlags, const struct Rende
 			{
 				drawFunc = ((*instFlags & REFLECTIVE) != 0) ? RB_RETAIL_DRAWFUNC_REFLECTION : RB_RETAIL_DRAWFUNC_SPLIT;
 				if ((*instFlags & REFLECTIVE) != 0)
-					*instFlags |= RB_INSTANCE_REFLECTION_FUNC23;
+					*instFlags |= REFLECTION_FUNC23;
 				uncompressFunc = (split->hasNextFrame != 0) ? RB_RETAIL_UNCOMPRESS_REFLECT : RB_RETAIL_UNCOMPRESS_SPLIT;
 			}
 			else if (split->scratch68 < 0)
@@ -768,7 +763,7 @@ static void RenderBucket_SelectRetailHandlers(u32 *instFlags, const struct Rende
 			{
 				drawFunc = ((*instFlags & REFLECTIVE) != 0) ? RB_RETAIL_DRAWFUNC_REFLECTION : RB_RETAIL_DRAWFUNC_SPLIT;
 				if ((*instFlags & REFLECTIVE) != 0)
-					*instFlags |= RB_INSTANCE_REFLECTION_FUNC23;
+					*instFlags |= REFLECTION_FUNC23;
 				uncompressFunc = (split->hasNextFrame != 0) ? RB_RETAIL_UNCOMPRESS_NEXTFRAME : RB_RETAIL_UNCOMPRESS_NORMAL;
 			}
 		}
@@ -808,7 +803,7 @@ static int RenderBucket_WriteAlphaScale(struct Instance *inst, struct InstDrawPe
 	int alpha = (u16)inst->alphaScale;
 
 	// NOTE(aalhendi): Source-backs QueueDraw's 0x80070a5c depth-fade alpha gate.
-	if ((instFlags & RB_INSTANCE_DEPTH_FADE) != 0)
+	if ((instFlags & DEPTH_FADE) != 0)
 	{
 		int depthFade = RenderBucket_MipsSll(viewDepth, 1);
 		int firstReject = RenderBucket_MipsSub(depthFade, 0x1000);
@@ -1307,7 +1302,7 @@ static void RenderBucket_StoreViewMatrixForSplit(struct InstDrawPerPlayer *idpp)
 
 static int RenderBucket_NeedsCustomMatrix(u32 instFlags, const struct ModelHeader *mh)
 {
-	return ((instFlags & RB_INSTANCE_CUSTOM_MATRIX) != 0) || ((mh->flags & RB_MODEL_ALWAYS_POINT_NORTH) != 0);
+	return ((instFlags & CUSTOM_MATRIX) != 0) || ((mh->flags & RB_MODEL_ALWAYS_POINT_NORTH) != 0);
 }
 
 static void RenderBucket_BuildCustomMatrix(struct InstDrawPerPlayer *idpp, u32 instFlags, const struct RenderBucketMatrixState *matrixState,
@@ -1366,7 +1361,7 @@ static struct RenderBucketSplitState RenderBucket_BuildSplitState(struct Instanc
 	int rawSplit;
 	int splitLine;
 
-	if ((*instFlags & RB_INSTANCE_SPLIT_STATE_MASK) == 0)
+	if ((*instFlags & SPLIT_STATE_MASK) == 0)
 	{
 		if (RenderBucket_NeedsCustomMatrix(*instFlags, mh) != 0)
 			RenderBucket_BuildCustomMatrix(idpp, *instFlags, matrixState, projectionMvp);
@@ -1375,7 +1370,7 @@ static struct RenderBucketSplitState RenderBucket_BuildSplitState(struct Instanc
 		return split;
 	}
 
-	if ((*instFlags & RB_INSTANCE_SPLIT_SPECIAL) != 0)
+	if ((*instFlags & SPLIT_SPECIAL) != 0)
 	{
 		int specialDepth = RenderBucket_MipsSub(RenderBucket_MipsSub(viewDepth, RenderBucket_MipsSll(pb->distanceToScreen_PREV, 2)),
 		                                        RenderBucket_MipsMulLoSra12(matrixState->scratch78, 1448));
@@ -4743,7 +4738,7 @@ static int RenderBucket_PrepareDrawContext(struct RenderBucketDrawContext *ctx, 
 	gte_SetTransMatrix(&idpp->mvp);
 	*CTR_SCRATCHPAD_PTR(u32, 0x24) = idpp->instFlags;
 	*CTR_SCRATCHPAD_PTR(s16, 0x120) = idpp->alphaScale;
-	if ((idpp->instFlags & RB_INSTANCE_SPLIT_STATE_MASK) != 0)
+	if ((idpp->instFlags & SPLIT_STATE_MASK) != 0)
 	{
 		RenderBucket_GteLoadLightMatrixWords(&idpp->m3x3);
 		// NOTE(aalhendi): Retail Execute owns these split scratch words before

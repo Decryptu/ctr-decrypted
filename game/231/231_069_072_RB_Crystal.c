@@ -151,8 +151,7 @@ void RB_Crystal_LInB(struct Instance *inst)
 
 		inst->colorRGBA = 0xd22fff0;
 
-		// specular light
-		inst->flags |= 0x20000;
+		inst->flags |= USE_SPECULAR_LIGHT;
 	}
 
 	RB_Default_LInB(inst);

@@ -78,8 +78,7 @@ struct Instance *UI_INSTANCE_BirthWithThread(int param_1, int param_2, int param
 		LAB_8004cc58:
 			inst->colorRGBA = color;
 
-			// specular lighting
-			inst->flags |= 0x20000;
+			inst->flags |= USE_SPECULAR_LIGHT;
 		}
 
 		// crystal
@@ -137,7 +136,7 @@ struct Instance *UI_INSTANCE_BirthWithThread(int param_1, int param_2, int param
 			ui3D->lightDir.y = 0x99f;
 			ui3D->lightDir.z = 0x232;
 
-			inst->flags |= 0x30000;
+			inst->flags |= (DRAW_TRANSPARENT | USE_SPECULAR_LIGHT);
 		}
 
 		// if pushBuffer is not supplied,
@@ -159,8 +158,7 @@ struct Instance *UI_INSTANCE_BirthWithThread(int param_1, int param_2, int param
 			struct InstDrawPerPlayer *idpp = INST_GETIDPP(inst);
 			idpp[0].pushBuffer = (struct PushBuffer *)param_5;
 
-			// record that pushBuffer is present
-			inst->flags |= 0x100;
+			inst->flags |= PUSHBUFFER_EXISTS;
 
 			inst->matrix.t[0] = 0;
 			inst->matrix.t[1] = 0;

@@ -34,10 +34,7 @@ void AH_Pause_Update()
 			ptrPauseObject->PauseMember[i].rot[1] = 0;
 			ptrPauseObject->PauseMember[i].rot[2] = 0;
 
-			// make invisible (0x80)
-			// creditghost (0x400)
-			// specular light (0x20000)
-			inst->flags |= 0x20480;
+			inst->flags |= (USE_SPECULAR_LIGHT | SCREENSPACE_INSTANCE | HIDE_MODEL);
 
 			struct InstDrawPerPlayer *idpp = INST_GETIDPP(inst);
 

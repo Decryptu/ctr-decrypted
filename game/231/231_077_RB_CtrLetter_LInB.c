@@ -36,8 +36,7 @@ void RB_CtrLetter_LInB(struct Instance *inst)
 
 		inst->colorRGBA = 0xffc8000;
 
-		// specular light, plus another
-		inst->flags |= 0x30000;
+		inst->flags |= (DRAW_TRANSPARENT | USE_SPECULAR_LIGHT);
 	}
 
 	RB_Default_LInB(inst);

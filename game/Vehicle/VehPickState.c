@@ -253,11 +253,8 @@ int VehPickState_NewState(struct Driver *victimDriver, int damageType, struct Dr
 		}
 	}
 
-	// enable collision (remove flag that prevents collision)
 	victimDriver->instSelf->thread->flags &= ~THREAD_FLAG_DISABLE_COLLISION;
-
-	// make driver visible, if invisible
-	victimDriver->instSelf->flags &= ~(0x80);
+	victimDriver->instSelf->flags &= ~HIDE_MODEL;
 
 	return 1;
 }

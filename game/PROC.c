@@ -372,7 +372,7 @@ void PROC_PerBspLeaf_CheckInstances(struct BSP *bspLeaf, struct ScratchpadStruct
 			continue;
 
 		instDef = bspHitbox->data.hitbox.instDef;
-		if ((instDef != NULL) && ((instDef->ptrInstance->flags & 0xf) == 0))
+		if ((instDef != NULL) && ((instDef->ptrInstance->flags & DRAW_COLLISION_MASK) == 0))
 			continue;
 
 		distX = (int)sps->Input1.pos.x - (int)bspHitbox->data.hitbox.center.x;

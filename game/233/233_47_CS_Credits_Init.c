@@ -94,7 +94,7 @@ void CS_Credits_Init(void)
 		inst->matrix.m[2][1] = 0;
 		inst->matrix.m[2][2] = 0x1000;
 
-		inst->flags |= 0x400;
+		inst->flags |= SCREENSPACE_INSTANCE;
 
 		struct InstDrawPerPlayer *idpp = INST_GETIDPP(inst);
 		idpp[0].pushBuffer = &gGT->pushBuffer_UI;

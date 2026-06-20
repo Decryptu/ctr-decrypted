@@ -200,8 +200,7 @@ void RB_GenericMine_ThTick(struct Thread *t)
 			d->instTntRecv->scale.y = 0;
 			d->instTntRecv->scale.z = 0;
 
-			// make invisible
-			d->instTntRecv->flags |= 0x80;
+			d->instTntRecv->flags |= HIDE_MODEL;
 
 			// this thread is now dead
 			d->instTntRecv->thread->flags |= THREAD_FLAG_DEAD;
@@ -263,7 +262,7 @@ void RB_GenericMine_ThTick(struct Thread *t)
 				PlaySound3D(0x50, inst);
 
 				inst->bitCompressed_NormalVector_AndDriverIndex = 0;
-				inst->flags |= 0x200;
+				inst->flags |= PIXEL_LOD;
 				mw->velocity.y = 0x30;
 				mw->velocity.x = 0;
 				mw->velocity.z = 0;
@@ -316,7 +315,7 @@ void RB_GenericMine_ThTick(struct Thread *t)
 				PlaySound3D(0x50, instCrate);
 
 				instCrate->bitCompressed_NormalVector_AndDriverIndex = 0;
-				instCrate->flags |= 0x200;
+				instCrate->flags |= PIXEL_LOD;
 				tnt->velocity.x = 0;
 				tnt->velocity.y = 0x30;
 				tnt->velocity.z = 0;

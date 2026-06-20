@@ -154,7 +154,7 @@ void RB_Fireball_ThTick(struct Thread *t)
 		return;
 	}
 
-	fireInst->flags |= 0x80;
+	fireInst->flags |= HIDE_MODEL;
 
 	oldVelY = 0;
 	resetPosY = fireInst->instDef->pos.y - 0x440;

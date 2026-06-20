@@ -788,7 +788,7 @@ void BOTS_ThTick_Drive(struct Thread *botThread)
 	botDriver->turbo_MeterRoomLeft = 0;
 	botDriver->forwardDir = 0;
 
-	botInstance->flags &= 0xffff9fff;
+	botInstance->flags &= ~(SPLIT_LINE | REFLECTIVE);
 
 	if (botDriver->botData.weaponCooldown != 0)
 	{
@@ -1636,7 +1636,7 @@ UpdateTireColorTimer:
 
 		botInstance->vertSplit = vertSplit;
 
-		botInstance->flags |= 0x4000;
+		botInstance->flags |= REFLECTIVE;
 	}
 
 	if (((navFrameCurr->specialBits & (BOTS_NAV_SPECIAL_RAMP_PHYS | BOTS_NAV_SPECIAL_REFLECTIVE)) == 0) && (botThread->modelIndex != DYNAMIC_GHOST))
@@ -2246,7 +2246,7 @@ UpdateTireColorTimer:
 						if (iVar4 < 1)
 						{
 							botDriver->botData.botFlags &= ~(BOT_FLAG_DAMAGE_ACTIVE | BOT_FLAG_DAMAGE_SUPPRESS_EMITTER);
-							botInstance->flags &= 0xffffff7f;
+							botInstance->flags &= ~HIDE_MODEL;
 							botDriver->botData.ai_progress_cooldown = 1;
 							BOTS_MaskGrab(botThread);
 							newKartState = 5;
@@ -2589,7 +2589,7 @@ FinishHazardTimerUpdate:
 
 	if ((navFrameFlags & BOTS_NAV_FLAG_SPLIT_LINE) != 0)
 	{
-		botInstance->flags |= 0x2000;
+		botInstance->flags |= SPLIT_LINE;
 	}
 
 	VehPhysForce_TranslateMatrix(botThread, botDriver);
@@ -2783,7 +2783,7 @@ u32 BOTS_ChangeState(struct Driver *driverVictim, int damageType, struct Driver 
 		driverVictim->botData.aiPhysics.speedLinear = 0;
 		driverVictim->botData.aiPhysics.speedY = 0;
 		driverVictim->botData.aiPhysics.reserved_0x5cc = 0;
-		driverVictim->instSelf->flags |= 0x80;
+		driverVictim->instSelf->flags |= HIDE_MODEL;
 		driverVictim->botData.aiPhysics.rotXZ = 0xd20;
 		driverVictim->botData.aiDamageState = BOTS_DAMAGE_STATE_MASK_GRAB;
 		driverVictim->kartState = KS_MASK_GRABBED;

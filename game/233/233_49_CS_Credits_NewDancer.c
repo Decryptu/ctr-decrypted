@@ -16,7 +16,7 @@ void CS_Credits_NewDancer(struct Thread *dancerTh, int dancerModelID)
 	// store globally, make instance invisible
 	creditsBSS.DancerThread = dancerTh;
 	creditsBSS.dancerInst_invisible = dancerTh->inst;
-	creditsBSS.dancerInst_invisible->flags |= 0x80;
+	creditsBSS.dancerInst_invisible->flags |= HIDE_MODEL;
 
 	creditsObj->countdown = 360;
 

@@ -45,8 +45,7 @@ void RB_Burst_Init(struct Instance *weaponInst)
 	burst[2] = (int)currInst;
 	currInst->depthBiasNormal += -2;
 
-	// instance flags
-	currInst->flags |= 0x2000000;
+	currInst->flags |= VISIBLE_DURING_GAMEPLAY;
 
 	// rotate 90 degrees
 	currInst->matrix.m[0][0] = 0;
@@ -69,7 +68,7 @@ void RB_Burst_Init(struct Instance *weaponInst)
 	currInst->depthBiasNormal += -2;
 
 	// instance flags
-	currInst->flags |= 0x2040000;
+	currInst->flags |= (VISIBLE_DURING_GAMEPLAY | DRAW_BILLBOARD);
 
 	// set flag to always point to camera
 	headers = currInst->model->headers;

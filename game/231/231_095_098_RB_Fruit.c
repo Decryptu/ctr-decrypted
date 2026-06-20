@@ -81,7 +81,7 @@ void RB_Fruit_LInB(struct Instance *inst)
 {
 	RB_Default_LInB(inst);
 	inst->animIndex = 0;
-	inst->flags |= 0x10;
+	inst->flags |= ANIM_LOOP;
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b7260-0x800b7338.

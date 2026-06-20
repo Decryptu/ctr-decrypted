@@ -403,7 +403,7 @@ void RB_FlameJet_LInB(struct Instance *inst)
 	inst->colorRGBA = 0xdca6000;
 
 	// yellow
-	inst->flags |= 0x30000;
+	inst->flags |= (DRAW_TRANSPARENT | USE_SPECULAR_LIGHT);
 
 	if (inst->thread != 0)
 		return;

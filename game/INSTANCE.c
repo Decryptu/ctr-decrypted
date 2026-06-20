@@ -67,7 +67,7 @@ struct Instance *INSTANCE_Birth3D(struct Model *model, const char *name, struct 
 
 	if (inst != 0)
 	{
-		INSTANCE_Birth(inst, model, name, th, 0xf);
+		INSTANCE_Birth(inst, model, name, th, DRAW_COLLISION_MASK);
 	}
 
 	return inst;
@@ -307,14 +307,14 @@ void INSTANCE_LevInitAll(struct InstDef *levInstDef, int numInst)
 		{
 			if (boolArcadeOnly || boolRelicOnly)
 			{
-				inst->flags &= ~(0xf);
+				inst->flags &= ~DRAW_COLLISION_MASK;
 			}
 		}
 
 		else if ((gGT->gameMode1 & RELIC_RACE) != 0)
 		{
 			if (boolArcadeOnly)
-				inst->flags &= ~(0xf);
+				inst->flags &= ~DRAW_COLLISION_MASK;
 
 			if (boolRelicOnly)
 			{
@@ -331,7 +331,7 @@ void INSTANCE_LevInitAll(struct InstDef *levInstDef, int numInst)
 				gGT->numCrystalsInLEV++;
 
 			else if (modelID == PU_FRUIT_CRATE)
-				inst->flags &= ~(0xf);
+				inst->flags &= ~DRAW_COLLISION_MASK;
 		}
 
 		// If NOT crystal challenge
@@ -340,7 +340,7 @@ void INSTANCE_LevInitAll(struct InstDef *levInstDef, int numInst)
 			// Disable LevInst for Crystal, TNT, Nitro
 			if ((modelID == STATIC_CRYSTAL) || (modelID == STATIC_CRATE_TNT) || (modelID == PU_EXPLOSIVE_CRATE))
 			{
-				inst->flags &= ~(0xf);
+				inst->flags &= ~DRAW_COLLISION_MASK;
 			}
 		}
 
@@ -350,7 +350,7 @@ void INSTANCE_LevInitAll(struct InstDef *levInstDef, int numInst)
 		{
 			// disable C-T-R letters
 			if ((u32)(modelID - STATIC_C) < 3)
-				inst->flags &= ~(0xf);
+				inst->flags &= ~DRAW_COLLISION_MASK;
 		}
 
 		// next InstDef

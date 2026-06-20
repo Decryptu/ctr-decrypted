@@ -258,7 +258,7 @@ void AH_WarpPad_LInB(struct Instance *inst)
 					if (rewardModelID == STATIC_RELIC)
 					{
 						newInst->colorRGBA = 0x20a5ff0;
-						newInst->flags |= 0x20000;
+						newInst->flags |= USE_SPECULAR_LIGHT;
 						newInst->scale.x = 0x1800;
 						newInst->scale.y = 0x1800;
 						newInst->scale.z = 0x1800;
@@ -272,8 +272,7 @@ void AH_WarpPad_LInB(struct Instance *inst)
 						newInst->colorRGBA = ((u32)data.AdvCups[tokenGroupID].color[0] << 0x14) | ((u32)data.AdvCups[tokenGroupID].color[1] << 0xc) |
 						                     ((u32)data.AdvCups[tokenGroupID].color[2] << 0x4);
 
-						// specular lighting
-						newInst->flags |= 0x30000;
+						newInst->flags |= (DRAW_TRANSPARENT | USE_SPECULAR_LIGHT);
 
 						warppadObj->lightDirToken = D232.lightDirToken[tokenGroupID];
 
@@ -306,8 +305,7 @@ void AH_WarpPad_LInB(struct Instance *inst)
 				// relic blue
 				newInst->colorRGBA = 0x20a5ff0;
 
-				// specular lighting
-				newInst->flags |= 0x20000;
+				newInst->flags |= USE_SPECULAR_LIGHT;
 
 				warppadObj->lightDirRelic = D232.lightDirRelic[0];
 
@@ -343,8 +341,7 @@ void AH_WarpPad_LInB(struct Instance *inst)
 			newInst->colorRGBA = ((u32)data.AdvCups[tokenGroupID].color[0] << 0x14) | ((u32)data.AdvCups[tokenGroupID].color[1] << 0xc) |
 			                     ((u32)data.AdvCups[tokenGroupID].color[2] << 0x4);
 
-			// specular lighting
-			newInst->flags |= 0x30000;
+			newInst->flags |= (DRAW_TRANSPARENT | USE_SPECULAR_LIGHT);
 
 			warppadObj->lightDirToken = D232.lightDirToken[tokenGroupID];
 
@@ -385,8 +382,7 @@ void AH_WarpPad_LInB(struct Instance *inst)
 					// relic blue
 					newInst->colorRGBA = 0x20a5ff0;
 
-					// specular lighting
-					newInst->flags |= 0x20000;
+					newInst->flags |= USE_SPECULAR_LIGHT;
 
 					warppadObj->lightDirRelic = D232.lightDirRelic[0];
 
@@ -440,8 +436,7 @@ void AH_WarpPad_LInB(struct Instance *inst)
 
 				newInst = INSTANCE_Birth3D(gGT->modelPtr[STATIC_TOKEN], "prize2", t);
 
-				// specular lighting
-				newInst->flags |= 0x20000;
+				newInst->flags |= USE_SPECULAR_LIGHT;
 
 				tokenGroupID = 4;
 
@@ -482,8 +477,7 @@ void AH_WarpPad_LInB(struct Instance *inst)
 
 			newInst = INSTANCE_Birth3D(gGT->modelPtr[STATIC_GEM], "prize2", t);
 
-			// specular lighting
-			newInst->flags |= 0x20000;
+			newInst->flags |= USE_SPECULAR_LIGHT;
 
 			i = levelID - AH_WP_ADV_CUP;
 
@@ -542,8 +536,7 @@ void AH_WarpPad_LInB(struct Instance *inst)
 	// no specular for trophy
 	if (unlockItem_modelID != STATIC_TROPHY)
 	{
-		// specular lighting
-		newInst->flags |= 0x20000;
+		newInst->flags |= USE_SPECULAR_LIGHT;
 
 		// relic
 		if (unlockItem_modelID == STATIC_RELIC)

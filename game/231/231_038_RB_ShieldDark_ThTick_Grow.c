@@ -34,8 +34,7 @@ void RB_ShieldDark_ThTick_Grow(struct Thread *th)
 	{
 		shield->highlightRot.y += 0x100;
 
-		// highlight is now visible
-		highlightInst->flags &= ~(0x80);
+		highlightInst->flags &= ~HIDE_MODEL;
 
 		rotY = shield->highlightRot.y;
 
@@ -51,8 +50,7 @@ void RB_ShieldDark_ThTick_Grow(struct Thread *th)
 
 			shield->highlightRot.y = 0xc00;
 
-			// make highlight invisible
-			highlightInst->flags |= 0x80;
+			highlightInst->flags |= HIDE_MODEL;
 		}
 	}
 
@@ -62,14 +60,12 @@ void RB_ShieldDark_ThTick_Grow(struct Thread *th)
 		// decrease counter, make invisible when this is zero
 		shield->highlightTimer--;
 
-		// make invisible
-		highlightInst->flags |= 0x80;
+		highlightInst->flags |= HIDE_MODEL;
 
 		// if timer runs out (last frame)
 		if (shield->highlightTimer == 0)
 		{
-			// make visible
-			highlightInst->flags &= ~(0x80);
+			highlightInst->flags &= ~HIDE_MODEL;
 		}
 	}
 

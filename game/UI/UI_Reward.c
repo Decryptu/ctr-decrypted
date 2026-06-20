@@ -112,14 +112,12 @@ LAB_8004c7d4:
 	// if hud is enabled, and this is not demo mode
 	if ((*(int *)&gGT->bool_DrawOTag_InProgress & 0xff0100) == 0x100)
 	{
-		// make visible
-		flags = inst->flags & 0xffffff7f;
+		flags = inst->flags & ~HIDE_MODEL;
 	}
 
 	else
 	{
-		// make invisible
-		flags = inst->flags | 0x80;
+		flags = inst->flags | HIDE_MODEL;
 	}
 
 	inst->flags = flags;
@@ -165,13 +163,11 @@ void UI_ThTick_Reward(struct Thread *bucket)
 	    // if any fade-in-from-black transition is over
 	    (0xfff < gGT->pushBuffer_UI.fadeFromBlack_currentValue))
 	{
-		// make visible
-		flags = inst->flags & 0xffffff7f;
+		flags = inst->flags & ~HIDE_MODEL;
 	}
 	else
 	{
-		// make invisible
-		flags = inst->flags | 0x80;
+		flags = inst->flags | HIDE_MODEL;
 	}
 	inst->flags = flags;
 	return;
@@ -265,14 +261,12 @@ void UI_ThTick_big1(struct Thread *bucket)
 	// if hud is enabled, and this is not demo mode
 	if ((*(int *)&sdata->gGT->bool_DrawOTag_InProgress & 0xff0100) == 0x100)
 	{
-		// make visible
-		flags = inst->flags & 0xffffff7f;
+		flags = inst->flags & ~HIDE_MODEL;
 	}
 
 	else
 	{
-		// make invisible
-		flags = inst->flags | 0x80;
+		flags = inst->flags | HIDE_MODEL;
 	}
 
 	inst->flags = flags;
