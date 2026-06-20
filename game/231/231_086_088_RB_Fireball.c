@@ -277,9 +277,9 @@ void RB_Fireball_LInB(struct Instance *inst)
 	t->inst = inst;
 	t->funcThCollide = (void (*)(struct Thread *))RB_Fireball_ThCollide;
 
-	inst->scale[0] = 0x4000;
-	inst->scale[1] = 0x4000;
-	inst->scale[2] = 0x4000;
+	inst->scale.x = 0x4000;
+	inst->scale.y = 0x4000;
+	inst->scale.z = 0x4000;
 
 	inst->animFrame = 0;
 	inst->animIndex = 0;

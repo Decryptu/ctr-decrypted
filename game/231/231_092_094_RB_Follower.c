@@ -65,11 +65,11 @@ void RB_Follower_ThTick(struct Thread *t)
 
 	    (d->speedApprox > -1))
 	{
-		if (inst->scale[0] < 0x800)
+		if (inst->scale.x < 0x800)
 		{
-			inst->scale[0] = inst->scale[0] << 1;
-			inst->scale[1] = inst->scale[1] << 1;
-			inst->scale[2] = inst->scale[2] << 1;
+			inst->scale.x = inst->scale.x << 1;
+			inst->scale.y = inst->scale.y << 1;
+			inst->scale.z = inst->scale.z << 1;
 		}
 
 		// midpoint between real mine position, and driver position
@@ -111,9 +111,9 @@ void RB_Follower_Init(struct Driver *d, struct Thread *mineTh)
 		return;
 
 	// followerInst scale
-	iVar1->scale[0] = 0x200;
-	iVar1->scale[1] = 0x200;
-	iVar1->scale[2] = 0x200;
+	iVar1->scale.x = 0x200;
+	iVar1->scale.y = 0x200;
+	iVar1->scale.z = 0x200;
 
 	// mineInst
 	iVar3 = mineTh->inst;

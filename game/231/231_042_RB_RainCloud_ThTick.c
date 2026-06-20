@@ -44,12 +44,12 @@ void RB_RainCloud_ThTick(struct Thread *t)
 	for (int i = 0; i < 3; i++)
 	{
 		// get average between instance and driver
-		inst->scale[i] += dInst->scale[i];
-		inst->scale[i] = inst->scale[i] >> 1;
+		inst->scale.v[i] += dInst->scale.v[i];
+		inst->scale.v[i] = inst->scale.v[i] >> 1;
 	}
 
 	// offset upward before averaging
-	inst->matrix.t[1] += (inst->scale[1] * 5 >> 7);
+	inst->matrix.t[1] += (inst->scale.y * 5 >> 7);
 
 	// X, Y, Z
 	for (int i = 0; i < 3; i++)

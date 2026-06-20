@@ -30,9 +30,9 @@ void RB_CtrLetter_LInB(struct Instance *inst)
 		letterObj->rot[1] = 0;
 		letterObj->rot[2] = 0;
 
-		inst->scale[0] = 0x1800;
-		inst->scale[1] = 0x1800;
-		inst->scale[2] = 0x1800;
+		inst->scale.x = 0x1800;
+		inst->scale.y = 0x1800;
+		inst->scale.z = 0x1800;
 
 		inst->colorRGBA = 0xffc8000;
 

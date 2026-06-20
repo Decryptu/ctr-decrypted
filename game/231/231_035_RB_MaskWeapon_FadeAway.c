@@ -35,9 +35,9 @@ void RB_MaskWeapon_FadeAway(struct Thread *t)
 	{
 		LHMatrix_Parent(instCurr, driverInst, (SVECTOR *)&mhs->posOffset[0]);
 
-		instCurr->scale[0] += -0x100;
-		instCurr->scale[1] += -0x100;
-		instCurr->scale[2] += -0x100;
+		instCurr->scale.x += -0x100;
+		instCurr->scale.y += -0x100;
+		instCurr->scale.z += -0x100;
 
 		// position offset
 		mhs->posOffset[0] = 0;

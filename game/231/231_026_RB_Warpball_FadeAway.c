@@ -44,9 +44,9 @@ void RB_Warpball_FadeAway(struct Thread *t)
 	}
 
 	// set scale (x, y, z)
-	inst->scale[0] = s_warpballFadeScale[(frameId * 3) + 0];
-	inst->scale[1] = s_warpballFadeScale[(frameId * 3) + 1];
-	inst->scale[2] = s_warpballFadeScale[(frameId * 3) + 2];
+	inst->scale.x = s_warpballFadeScale[(frameId * 3) + 0];
+	inst->scale.y = s_warpballFadeScale[(frameId * 3) + 1];
+	inst->scale.z = s_warpballFadeScale[(frameId * 3) + 2];
 
 	inst->matrix.t[1] = tw->distFromGround + s_warpballFadeY[frameId];
 

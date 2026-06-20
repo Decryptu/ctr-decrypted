@@ -334,7 +334,8 @@ struct ModelHeader
 	u16 flags;
 
 	// 0x18
-	s16 scale[4];
+	SVec3 scale;
+	s16 _pad_scale;
 
 	// 0x20
 	u32 ptrCommandList;
@@ -391,7 +392,8 @@ struct InstDef
 	struct Model *model;
 
 	// 0x14 (0x1c - 8)
-	s16 scale[4];
+	SVec3 scale;
+	s16 _pad_scale;
 
 	// 0x1c (0x24 - 8)
 	u32 colorRGBA;
@@ -499,7 +501,7 @@ struct Instance
 	struct Model *model;
 
 	// 0x1c
-	s16 scale[3];
+	SVec3 scale;
 
 	// 0x22
 	s16 alphaScale;

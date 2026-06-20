@@ -425,9 +425,9 @@ void RB_Plant_LInB(struct Instance *inst)
 
 	t->inst = inst;
 
-	inst->scale[0] = 0x2800;
-	inst->scale[1] = 0x2800;
-	inst->scale[2] = 0x2800;
+	inst->scale.x = 0x2800;
+	inst->scale.y = 0x2800;
+	inst->scale.z = 0x2800;
 	inst->animFrame = 0;
 	inst->animIndex = PlantAnim_Rest;
 

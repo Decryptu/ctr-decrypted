@@ -84,9 +84,9 @@ void RB_Snowball_LInB(struct Instance *inst)
 
 	snowObj->numPoints = sdata->gGT->level1->ptrSpawnType2_PosRot[snowObj->snowID].numCoords - 1;
 
-	inst->scale[0] = 0x1000;
-	inst->scale[1] = 0x1000;
-	inst->scale[2] = 0x1000;
+	inst->scale.x = 0x1000;
+	inst->scale.y = 0x1000;
+	inst->scale.z = 0x1000;
 
 	snowObj->rot_unused[1] = inst->matrix.m[0][2] >> 2;
 	snowObj->rot_unused[2] = inst->matrix.m[2][2] >> 2;

@@ -696,13 +696,13 @@ static void VehEmitter_ExhaustPair(struct Thread *thread, struct Driver *d)
 	local.pad = 0;
 	VehEmitter_RotVec(&local, &exhaustVel);
 
-	local.vx = (s16)((inst->scale[0] * 9) >> 3);
-	local.vy = (s16)((inst->scale[1] * 7) >> 1);
-	local.vz = (s16)((inst->scale[2] * -0x38) >> 4);
+	local.vx = (s16)((inst->scale.x * 9) >> 3);
+	local.vy = (s16)((inst->scale.y * 7) >> 1);
+	local.vz = (s16)((inst->scale.z * -0x38) >> 4);
 	VehEmitter_RotVec(&local, &exhaustPos);
 	VehEmitter_Exhaust(d, &exhaustPos, &exhaustVel);
 
-	local.vx = (s16)((inst->scale[0] * -0x12) >> 4);
+	local.vx = (s16)((inst->scale.x * -0x12) >> 4);
 	VehEmitter_RotVec(&local, &exhaustPos);
 	VehEmitter_Exhaust(d, &exhaustPos, &exhaustVel);
 }

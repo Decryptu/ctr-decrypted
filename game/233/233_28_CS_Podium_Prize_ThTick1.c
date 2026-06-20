@@ -36,9 +36,9 @@ void CS_Podium_Prize_ThTick1(struct Thread *th)
 	inst->depthBiasNormal = 0x80;
 	inst->depthBiasSecondary = 0x80;
 
-	inst->scale[0] = 0x1000;
-	inst->scale[1] = 0x1000;
-	inst->scale[2] = 0x1000;
+	inst->scale.x = 0x1000;
+	inst->scale.y = 0x1000;
+	inst->scale.z = 0x1000;
 
 	inst->matrix.t[0] = 0;
 	inst->matrix.t[1] = 0;

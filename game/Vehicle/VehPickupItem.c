@@ -542,9 +542,9 @@ void VehPickupItem_ShootNow(struct Driver *d, int weaponID, int flags)
 
 		VehPickupItem_CopyMatrix(&weaponInst->matrix, &dInst->matrix);
 
-		weaponInst->scale[0] = 0;
-		weaponInst->scale[1] = 0;
-		weaponInst->scale[2] = 0;
+		weaponInst->scale.x = 0;
+		weaponInst->scale.y = 0;
+		weaponInst->scale.z = 0;
 
 		weaponTh = weaponInst->thread;
 		weaponTh->funcThDestroy = PROC_DestroyInstance;
@@ -712,9 +712,9 @@ void VehPickupItem_ShootNow(struct Driver *d, int weaponID, int flags)
 
 		if (ret == 0)
 		{
-			weaponInst->scale[0] = 0;
-			weaponInst->scale[1] = 0;
-			weaponInst->scale[2] = 0;
+			weaponInst->scale.x = 0;
+			weaponInst->scale.y = 0;
+			weaponInst->scale.z = 0;
 
 			VehPickupItem_ClearMineMotion(mw);
 
@@ -733,9 +733,9 @@ void VehPickupItem_ShootNow(struct Driver *d, int weaponID, int flags)
 		weaponInst = INSTANCE_BirthWithThread(0x5a, shieldDarkName, MEDIUM, OTHER, RB_ShieldDark_ThTick_Grow, sizeof(struct Shield), d->instSelf->thread);
 
 		weaponTh = weaponInst->thread;
-		weaponInst->scale[0] = 0x700;
-		weaponInst->scale[1] = 0x700;
-		weaponInst->scale[2] = 0x700;
+		weaponInst->scale.x = 0x700;
+		weaponInst->scale.y = 0x700;
+		weaponInst->scale.z = 0x700;
 		weaponTh->funcThDestroy = PROC_DestroyInstance;
 		OtherFX_Play(0x57, 1);
 
@@ -747,13 +747,13 @@ void VehPickupItem_ShootNow(struct Driver *d, int weaponID, int flags)
 
 		struct Instance *instHighlight = INSTANCE_Birth3D(gGT->modelPtr[DYNAMIC_HIGHLIGHT], highlightName, weaponTh);
 
-		instColor->scale[0] = 0x700;
-		instColor->scale[1] = 0x700;
-		instColor->scale[2] = 0x700;
+		instColor->scale.x = 0x700;
+		instColor->scale.y = 0x700;
+		instColor->scale.z = 0x700;
 
-		instHighlight->scale[0] = 0x700;
-		instHighlight->scale[1] = 0x700;
-		instHighlight->scale[2] = 0x700;
+		instHighlight->scale.x = 0x700;
+		instHighlight->scale.y = 0x700;
+		instHighlight->scale.z = 0x700;
 
 		struct Shield *shieldObj = weaponTh->object;
 		shieldObj->animFrame = 0;

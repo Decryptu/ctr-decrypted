@@ -45,9 +45,9 @@ void RB_TNT_ThTick_SitOnHead(struct Thread *t)
 	LAB_800ad4ec:
 
 		// reset TNT-related pointers
-		inst->scale[0] = 0;
-		inst->scale[1] = 0;
-		inst->scale[2] = 0;
+		inst->scale.x = 0;
+		inst->scale.y = 0;
+		inst->scale.z = 0;
 
 		// make invisible
 		inst->flags |= HIDE_MODEL;
@@ -95,9 +95,9 @@ void RB_TNT_ThTick_SitOnHead(struct Thread *t)
 	}
 
 	// set scale (x, y, z)
-	inst->scale[0] = 0x800;
-	inst->scale[1] = 0x800;
-	inst->scale[2] = 0x800;
+	inst->scale.x = 0x800;
+	inst->scale.y = 0x800;
+	inst->scale.z = 0x800;
 
 	mw->driverTarget->instTntRecv = 0;
 
@@ -157,7 +157,7 @@ LAB_800ad5f8:
 
 	// set scale of TNT, given frame of animation
 	uVar3 = s_tntSitScale[numFrames * 2 + 0];
-	inst->scale[0] = uVar3;
-	inst->scale[2] = uVar3;
-	inst->scale[1] = s_tntSitScale[numFrames * 2 + 1];
+	inst->scale.x = uVar3;
+	inst->scale.z = uVar3;
+	inst->scale.y = s_tntSitScale[numFrames * 2 + 1];
 }

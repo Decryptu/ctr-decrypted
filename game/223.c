@@ -161,7 +161,7 @@ void RR_EndEvent_DrawMenu(void)
 		relic->colorRGBA = RR_GOLD_RELIC_COLOR;
 	}
 
-	CTR_SET_VEC3(sdata->ptrTimebox1->scale, RR_TIMEBOX_SCALE, RR_TIMEBOX_SCALE, RR_TIMEBOX_SCALE);
+	sdata->ptrTimebox1->scale = (SVec3){{RR_TIMEBOX_SCALE, RR_TIMEBOX_SCALE, RR_TIMEBOX_SCALE}};
 
 	if (sdata->framesSinceRaceEnded < RR_RESULT_MAX_FRAMES)
 		sdata->framesSinceRaceEnded++;
@@ -239,11 +239,11 @@ void RR_EndEvent_DrawMenu(void)
 				OtherFX_Play(RR_RELIC_AWARD_SFX, 1);
 			}
 
-			if (relic->scale[0] < RR_RELIC_FULL_SCALE)
+			if (relic->scale.x < RR_RELIC_FULL_SCALE)
 			{
-				relic->scale[0] += RR_RELIC_GROW_STEP;
-				relic->scale[1] += RR_RELIC_GROW_STEP;
-				relic->scale[2] += RR_RELIC_GROW_STEP;
+				relic->scale.x += RR_RELIC_GROW_STEP;
+				relic->scale.y += RR_RELIC_GROW_STEP;
+				relic->scale.z += RR_RELIC_GROW_STEP;
 			}
 
 			UI_Lerp2D_Linear(pos.v, UI_ConvertX_2(0x100, RR_SCREEN_DEPTH), UI_ConvertY_2(0xa2, RR_SCREEN_DEPTH), UI_ConvertX_2(0x100, RR_SCREEN_DEPTH),

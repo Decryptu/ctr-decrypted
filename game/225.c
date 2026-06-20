@@ -243,7 +243,7 @@ void VB_EndEvent_DrawMenu(void)
 
 		if (bigNum != NULL)
 		{
-			CTR_SET_VEC3(bigNum->scale, 0, 0, 0);
+			bigNum->scale = (SVec3){{0, 0, 0}};
 		}
 
 		s32 winnerDriverID = isBattleMode ? gGT->winnerIndex[0] : gGT->driversInRaceOrder[0]->driverID;

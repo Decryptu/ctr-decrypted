@@ -259,9 +259,9 @@ void AH_WarpPad_LInB(struct Instance *inst)
 					{
 						newInst->colorRGBA = 0x20a5ff0;
 						newInst->flags |= 0x20000;
-						newInst->scale[0] = 0x1800;
-						newInst->scale[1] = 0x1800;
-						newInst->scale[2] = 0x1800;
+						newInst->scale.x = 0x1800;
+						newInst->scale.y = 0x1800;
+						newInst->scale.z = 0x1800;
 					}
 
 					else if (rewardModelID == STATIC_TOKEN)
@@ -277,16 +277,16 @@ void AH_WarpPad_LInB(struct Instance *inst)
 
 						warppadObj->lightDirToken = D232.lightDirToken[tokenGroupID];
 
-						newInst->scale[0] = 0x2000;
-						newInst->scale[1] = 0x2000;
-						newInst->scale[2] = 0x2000;
+						newInst->scale.x = 0x2000;
+						newInst->scale.y = 0x2000;
+						newInst->scale.z = 0x2000;
 					}
 
 					else
 					{
-						newInst->scale[0] = 0x2800;
-						newInst->scale[1] = 0x2800;
-						newInst->scale[2] = 0x2800;
+						newInst->scale.x = 0x2800;
+						newInst->scale.y = 0x2800;
+						newInst->scale.z = 0x2800;
 					}
 
 					rewardAngle += 0x555;
@@ -321,9 +321,9 @@ void AH_WarpPad_LInB(struct Instance *inst)
 				newInst->matrix.t[1] = inst->matrix.t[1] + 0x100;
 				newInst->matrix.t[2] = inst->matrix.t[2];
 
-				newInst->scale[0] = 0x1800;
-				newInst->scale[1] = 0x1800;
-				newInst->scale[2] = 0x1800;
+				newInst->scale.x = 0x1800;
+				newInst->scale.y = 0x1800;
+				newInst->scale.z = 0x1800;
 
 				warppadObj->inst[WPIS_OPEN_PRIZE1] = newInst;
 			}
@@ -358,9 +358,9 @@ void AH_WarpPad_LInB(struct Instance *inst)
 			newInst->matrix.t[1] = inst->matrix.t[1] + 0x100;
 			newInst->matrix.t[2] = inst->matrix.t[2];
 
-			newInst->scale[0] = 0x2000;
-			newInst->scale[1] = 0x2000;
-			newInst->scale[2] = 0x2000;
+			newInst->scale.x = 0x2000;
+			newInst->scale.y = 0x2000;
+			newInst->scale.z = 0x2000;
 
 			warppadObj->inst[WPIS_OPEN_PRIZE2] = newInst;
 
@@ -390,9 +390,9 @@ void AH_WarpPad_LInB(struct Instance *inst)
 
 					warppadObj->lightDirRelic = D232.lightDirRelic[0];
 
-					newInst->scale[0] = 0x1800;
-					newInst->scale[1] = 0x1800;
-					newInst->scale[2] = 0x1800;
+					newInst->scale.x = 0x1800;
+					newInst->scale.y = 0x1800;
+					newInst->scale.z = 0x1800;
 
 					warppadObj->inst[WPIS_OPEN_PRIZE1] = newInst;
 				}
@@ -451,9 +451,9 @@ void AH_WarpPad_LInB(struct Instance *inst)
 
 				warppadObj->lightDirToken = D232.lightDirToken[tokenGroupID];
 
-				newInst->scale[0] = 0x2000;
-				newInst->scale[1] = 0x2000;
-				newInst->scale[2] = 0x2000;
+				newInst->scale.x = 0x2000;
+				newInst->scale.y = 0x2000;
+				newInst->scale.z = 0x2000;
 
 				warppadObj->inst[WPIS_OPEN_PRIZE1] = newInst;
 
@@ -495,9 +495,9 @@ void AH_WarpPad_LInB(struct Instance *inst)
 			// store in Gem array
 			warppadObj->lightDirGem = D232.lightDirGem[i];
 
-			newInst->scale[0] = 0x2000;
-			newInst->scale[1] = 0x2000;
-			newInst->scale[2] = 0x2000;
+			newInst->scale.x = 0x2000;
+			newInst->scale.y = 0x2000;
+			newInst->scale.z = 0x2000;
 
 			// for matrix copy
 			goto SlideColTurboTrack;
@@ -535,9 +535,9 @@ void AH_WarpPad_LInB(struct Instance *inst)
 	newInst->matrix.t[1] = inst->matrix.t[1] + 0x100;
 	newInst->matrix.t[2] = inst->matrix.t[2];
 
-	newInst->scale[0] = 0x2000;
-	newInst->scale[1] = 0x2000;
-	newInst->scale[2] = 0x2000;
+	newInst->scale.x = 0x2000;
+	newInst->scale.y = 0x2000;
+	newInst->scale.z = 0x2000;
 
 	// no specular for trophy
 	if (unlockItem_modelID != STATIC_TROPHY)
@@ -602,9 +602,9 @@ void AH_WarpPad_LInB(struct Instance *inst)
 	newInst->matrix.t[1] = inst->matrix.t[1] + 0x100;
 	newInst->matrix.t[2] = inst->matrix.t[2];
 
-	newInst->scale[0] = 0x2000;
-	newInst->scale[1] = 0x2000;
-	newInst->scale[2] = 0x2000;
+	newInst->scale.x = 0x2000;
+	newInst->scale.y = 0x2000;
+	newInst->scale.z = 0x2000;
 
 	// always face camera
 	newInst->model->headers[0].flags |= 1;
@@ -628,9 +628,9 @@ void AH_WarpPad_LInB(struct Instance *inst)
 		newInst->matrix.t[1] = inst->matrix.t[1] + 0x100;
 		newInst->matrix.t[2] = inst->matrix.t[2];
 
-		newInst->scale[0] = 0x2000;
-		newInst->scale[1] = 0x2000;
-		newInst->scale[2] = 0x2000;
+		newInst->scale.x = 0x2000;
+		newInst->scale.y = 0x2000;
+		newInst->scale.z = 0x2000;
 
 		// always face camera
 		for (i = 0; i < newInst->model->numHeaders; i++)
@@ -661,9 +661,9 @@ void AH_WarpPad_LInB(struct Instance *inst)
 	newInst->matrix.t[1] = inst->matrix.t[1] + 0x100;
 	newInst->matrix.t[2] = inst->matrix.t[2];
 
-	newInst->scale[0] = 0x2000;
-	newInst->scale[1] = 0x2000;
-	newInst->scale[2] = 0x2000;
+	newInst->scale.x = 0x2000;
+	newInst->scale.y = 0x2000;
+	newInst->scale.z = 0x2000;
 
 	// always face camera
 	for (i = 0; i < newInst->model->numHeaders; i++)

@@ -90,9 +90,9 @@ void RB_Burst_Init(struct Instance *weaponInst)
 		if (2 < gGT->numPlyrCurrGame)
 		{
 			// set scale (x, y, z)
-			currInst->scale[0] = currInst->scale[0] >> 1;
-			currInst->scale[1] = currInst->scale[1] >> 1;
-			currInst->scale[2] = currInst->scale[2] >> 1;
+			currInst->scale.x = currInst->scale.x >> 1;
+			currInst->scale.y = currInst->scale.y >> 1;
+			currInst->scale.z = currInst->scale.z >> 1;
 		}
 
 		// identity matrix (z)

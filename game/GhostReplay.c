@@ -24,7 +24,7 @@ void GhostReplay_ThTick(struct Thread *t)
 	tape = d->ghostTape;
 	inst = d->instSelf;
 
-	CTR_SET_VEC3(inst->scale, 0xccc, 0xccc, 0xccc);
+	inst->scale = (SVec3){{0xccc, 0xccc, 0xccc}};
 
 	// 6-second timer != 0, and ghost made by human
 	if ((sdata->ghostOverflowTextTimer != 0) && (d->ghostID == 0))

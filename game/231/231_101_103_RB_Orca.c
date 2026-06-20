@@ -209,9 +209,9 @@ void RB_Orca_LInB(struct Instance *inst)
 	t->funcThCollide = (void (*)(struct Thread *))RB_Orca_ThCollide;
 	t->inst = inst;
 
-	inst->scale[0] = 0xC00;
-	inst->scale[1] = 0xC00;
-	inst->scale[2] = 0xC00;
+	inst->scale.x = 0xC00;
+	inst->scale.y = 0xC00;
+	inst->scale.z = 0xC00;
 	inst->flags |= DRAW_HUGE;
 
 	orcaObj = (struct Orca *)t->object;

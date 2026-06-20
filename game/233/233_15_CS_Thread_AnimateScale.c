@@ -12,7 +12,7 @@ void CS_Thread_AnimateScale(struct Thread *t)
 	if (cs->scaleSpeed == 0)
 		return;
 
-	int newScale = (int)inst->scale[0] + (int)cs->scaleSpeed;
+	int newScale = (int)inst->scale.x + (int)cs->scaleSpeed;
 	int desiredScale = (int)cs->desiredScale;
 
 	if (cs->scaleSpeed > 0)
@@ -32,7 +32,7 @@ void CS_Thread_AnimateScale(struct Thread *t)
 		}
 	}
 
-	inst->scale[0] = (s16)newScale;
-	inst->scale[1] = (s16)newScale;
-	inst->scale[2] = (s16)newScale;
+	inst->scale.x = (s16)newScale;
+	inst->scale.y = (s16)newScale;
+	inst->scale.z = (s16)newScale;
 }

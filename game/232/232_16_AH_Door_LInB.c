@@ -117,7 +117,7 @@ void AH_Door_LInB(struct Instance *inst)
 	otherDoorInst->matrix = inst->matrix;
 
 	// set scaleX to -0x1000
-	otherDoorInst->scale[0] = -0x1000;
+	otherDoorInst->scale.x = -0x1000;
 
 	ratio = MATH_Cos((int)inst->instDef->rot[1]);
 

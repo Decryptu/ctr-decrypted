@@ -150,7 +150,7 @@ void VehTurbo_ThTick(struct Thread *turboThread)
 	instance->matrix.m[2][1] = (s16)(instanceDriver->matrix.m[2][1] * fireSize >> 3);
 	instance->matrix.m[2][2] = (s16)(instanceDriver->matrix.m[2][2] * fireSize >> 3);
 
-	VehTurbo_TransformOffset(instanceDriver, instanceDriver->scale[0] * 9 >> 0xb, instanceDriver->scale[1] * 3 >> 8, instanceDriver->scale[2] * -0x34 >> 0xc,
+	VehTurbo_TransformOffset(instanceDriver, instanceDriver->scale.x * 9 >> 0xb, instanceDriver->scale.y * 3 >> 8, instanceDriver->scale.z * -0x34 >> 0xc,
 	                         (VECTOR *)&instance->matrix.t[0]);
 
 	// matrix of second turbo instance, negate X axis
@@ -164,8 +164,8 @@ void VehTurbo_ThTick(struct Thread *turboThread)
 	turbo->inst->matrix.m[2][1] = (s16)(instanceDriver->matrix.m[2][1] * fireSize >> 3);
 	turbo->inst->matrix.m[2][2] = (s16)(instanceDriver->matrix.m[2][2] * fireSize >> 3);
 
-	VehTurbo_TransformOffset(instanceDriver, instanceDriver->scale[0] * -0x12 >> 0xc, instanceDriver->scale[1] * 3 >> 8,
-	                         instanceDriver->scale[2] * -0x34 >> 0xc, (VECTOR *)&turbo->inst->matrix.t[0]);
+	VehTurbo_TransformOffset(instanceDriver, instanceDriver->scale.x * -0x12 >> 0xc, instanceDriver->scale.y * 3 >> 8, instanceDriver->scale.z * -0x34 >> 0xc,
+	                         (VECTOR *)&turbo->inst->matrix.t[0]);
 
 	// decrease turbo visibility cooldown by elapsed milliseconds per frame, ~32
 	s16 elapsedTime = turbo->fireVisibilityCooldown - gGT->elapsedTimeMS;

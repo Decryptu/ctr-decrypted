@@ -110,11 +110,11 @@ void CC_EndEvent_DrawMenu()
 
 	if (elapsedFrames > CTR_SECONDS_TO_FRAMES(1))
 	{
-		if (token->scale[0] < CC_TOKEN_GROW_LIMIT)
+		if (token->scale.x < CC_TOKEN_GROW_LIMIT)
 		{
-			token->scale[0] += CC_TOKEN_GROW_STEP;
-			token->scale[1] += CC_TOKEN_GROW_STEP;
-			token->scale[2] += CC_TOKEN_GROW_STEP;
+			token->scale.x += CC_TOKEN_GROW_STEP;
+			token->scale.y += CC_TOKEN_GROW_STEP;
+			token->scale.z += CC_TOKEN_GROW_STEP;
 		}
 	}
 	else if (elapsedFrames == CTR_SECONDS_TO_FRAMES(1))

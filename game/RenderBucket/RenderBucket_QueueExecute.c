@@ -79,9 +79,9 @@ _Static_assert(sizeof(struct ModelFrame) == 0x1c);
 _Static_assert(offsetof(struct Instance, next) == 0x0);
 _Static_assert(offsetof(struct Instance, prev) == 0x4);
 _Static_assert(offsetof(struct Instance, model) == 0x18);
-_Static_assert(offsetof(struct Instance, scale[0]) == 0x1c);
-_Static_assert(offsetof(struct Instance, scale[1]) == 0x1e);
-_Static_assert(offsetof(struct Instance, scale[2]) == 0x20);
+_Static_assert(offsetof(struct Instance, scale.x) == 0x1c);
+_Static_assert(offsetof(struct Instance, scale.y) == 0x1e);
+_Static_assert(offsetof(struct Instance, scale.z) == 0x20);
 _Static_assert(offsetof(struct Instance, alphaScale) == 0x22);
 _Static_assert(offsetof(struct Instance, flags) == 0x28);
 _Static_assert(offsetof(struct Instance, matrix) == 0x30);
@@ -1217,17 +1217,17 @@ static void RenderBucket_BuildM3x3(struct Instance *inst, struct ModelHeader *mh
 	depthShift = (RenderBucket_MipsSub(viewDepth, 0x1000) < 0) ? 2 : 0;
 	scaleXYShift = 0x12 - depthShift;
 	scaleZShift = 2 - depthShift;
-	packedScaleXY = *(u32 *)&mh->scale[0];
+	packedScaleXY = *(u32 *)&mh->scale.x;
 
 	CTC2((packedScaleXY << 16) >> scaleXYShift, 16);
 	CTC2(0, 17);
 	CTC2(packedScaleXY >> scaleXYShift, 18);
 	CTC2(0, 19);
-	CTC2((u16)mh->scale[2] >> scaleZShift, 20);
+	CTC2((u16)mh->scale.z >> scaleZShift, 20);
 
-	scaleX = inst->scale[0];
-	scaleY = inst->scale[1];
-	scaleZ = inst->scale[2];
+	scaleX = inst->scale.x;
+	scaleY = inst->scale.y;
+	scaleZ = inst->scale.z;
 	if ((inst->flags & PIXEL_LOD) != 0)
 	{
 		int pixelScale = RenderBucket_MipsAdd(viewDepth >> 1, 0x1000);

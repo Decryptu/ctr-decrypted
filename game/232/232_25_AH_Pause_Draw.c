@@ -392,9 +392,9 @@ void AH_Pause_Draw(int pageID, int posX)
 			else if (type != 0)
 				scale = scale << 2;
 
-			inst->scale[0] = scale;
-			inst->scale[1] = scale;
-			inst->scale[2] = scale;
+			inst->scale.x = scale;
+			inst->scale.y = scale;
+			inst->scale.z = scale;
 
 			int modelID = D232.advPauseInst[index].modelID;
 

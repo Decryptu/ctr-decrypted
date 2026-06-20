@@ -168,9 +168,9 @@ struct Instance *UI_INSTANCE_BirthWithThread(int param_1, int param_2, int param
 		}
 
 		uVar5 = hudStruct[param_3].scale;
-		inst->scale[0] = uVar5;
-		inst->scale[1] = uVar5;
-		inst->scale[2] = uVar5;
+		inst->scale.x = uVar5;
+		inst->scale.y = uVar5;
+		inst->scale.z = uVar5;
 
 		inst->depthBiasNormal = 0x80;
 		inst->depthBiasSecondary = 0x80;
@@ -236,9 +236,9 @@ void UI_INSTANCE_InitAll(void)
 		token = sdata->ptrToken;
 
 		// set Token scale (x, y, z) to zero
-		token->scale[0] = 0;
-		token->scale[1] = 0;
-		token->scale[2] = 0;
+		token->scale.x = 0;
+		token->scale.y = 0;
+		token->scale.z = 0;
 
 		// make Token invisible
 		token->flags |= 0x80;
@@ -293,9 +293,9 @@ void UI_INSTANCE_InitAll(void)
 		if (sdata->ptrRelic != 0)
 		{
 			// set scale to zero
-			sdata->ptrRelic->scale[2] = 0;
-			sdata->ptrRelic->scale[1] = 0;
-			sdata->ptrRelic->scale[0] = 0;
+			sdata->ptrRelic->scale.z = 0;
+			sdata->ptrRelic->scale.y = 0;
+			sdata->ptrRelic->scale.x = 0;
 		}
 
 		// Get Relic Time to put in HUD
@@ -385,9 +385,9 @@ void UI_INSTANCE_InitAll(void)
 	token = sdata->ptrToken;
 
 	// set Token scale (x, y, z) to zero
-	token->scale[0] = 0;
-	token->scale[1] = 0;
-	token->scale[2] = 0;
+	token->scale.x = 0;
+	token->scale.y = 0;
+	token->scale.z = 0;
 
 	// make Token invisible
 	token->flags |= 0x80;

@@ -25,11 +25,11 @@ void RB_RainCloud_FadeAway(struct Thread *t)
 	struct RainLocal *rainLocal = rcloud->rainLocal;
 	rainLocal->frameCount -= 2;
 
-	inst->scale[2] += -0x100;
-	inst->scale[1] += -0x100;
-	inst->scale[0] += -0x100;
+	inst->scale.z += -0x100;
+	inst->scale.y += -0x100;
+	inst->scale.x += -0x100;
 
-	if (inst->scale[0] < 0)
+	if (inst->scale.x < 0)
 	{
 		JitPool_Remove(&sdata->gGT->JitPools.rain, (struct Item *)rainLocal);
 

@@ -32,13 +32,13 @@ void CS_Podium_Prize_ThTick3(struct Thread *th)
 
 		inst->matrix.t[1] = y >> 8;
 
-		scale = inst->scale[0] - 0x4b0;
+		scale = inst->scale.x - 0x4b0;
 		if (scale < 0x1001)
 			scale = 0x1000;
 
-		inst->scale[0] = scale;
-		inst->scale[1] = scale;
-		inst->scale[2] = scale;
+		inst->scale.x = scale;
+		inst->scale.y = scale;
+		inst->scale.z = scale;
 
 		CS_Podium_Prize_Spin(inst, prize);
 		return;

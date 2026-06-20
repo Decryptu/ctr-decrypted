@@ -35,7 +35,7 @@ void INSTANCE_Birth(struct Instance *inst, struct Model *model, const char *name
 
 	inst->model = model;
 
-	CTR_SET_VEC3(inst->scale, 0x1000, 0x1000, 0x1000);
+	inst->scale = (SVec3){{0x1000, 0x1000, 0x1000}};
 
 	inst->alphaScale = 0;
 	inst->colorRGBA = 0;

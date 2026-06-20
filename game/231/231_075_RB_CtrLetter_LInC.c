@@ -24,7 +24,7 @@ int RB_CtrLetter_LInC(struct Instance *letterInst, struct Thread *driverTh, stru
 	if ((letterTh == NULL) || (letterTh->funcThCollide == NULL))
 		return 0;
 
-	if (letterInst->scale[0] == 0)
+	if (letterInst->scale.x == 0)
 		return 0;
 
 	return ((CtrLetterCollideFunc)letterTh->funcThCollide)(letterTh, driverTh, letterTh->funcThCollide, sps);

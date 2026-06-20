@@ -44,14 +44,14 @@ void RB_ShieldDark_ThTick_Pop(struct Thread *t)
 	if (animFrame < 0xb)
 	{
 		// set scale
-		instDark->scale[0] = s_shieldPopScale[animFrame][0];
-		instDark->scale[1] = s_shieldPopScale[animFrame][1];
-		instDark->scale[2] = s_shieldPopScale[animFrame][0];
+		instDark->scale.x = s_shieldPopScale[animFrame][0];
+		instDark->scale.y = s_shieldPopScale[animFrame][1];
+		instDark->scale.z = s_shieldPopScale[animFrame][0];
 
 		// set scale
-		instColor->scale[0] = s_shieldPopScale[animFrame][0];
-		instColor->scale[1] = s_shieldPopScale[animFrame][1];
-		instColor->scale[2] = s_shieldPopScale[animFrame][0];
+		instColor->scale.x = s_shieldPopScale[animFrame][0];
+		instColor->scale.y = s_shieldPopScale[animFrame][1];
+		instColor->scale.z = s_shieldPopScale[animFrame][0];
 
 		// next frame
 		sh->animFrame += 1;

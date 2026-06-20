@@ -36,7 +36,7 @@ void RB_TNT_ThTick_ThrowOnHead(struct Thread *t)
 		distHead = array[data.characterIDs[mw->driverTarget->driverID]];
 
 		// if TNT landed on head
-		if ((mw->deltaPos[1] < distHead) && (mw->deltaPos[1] = distHead, inst->scale[0] == 0x800))
+		if ((mw->deltaPos[1] < distHead) && (mw->deltaPos[1] = distHead, inst->scale.x == 0x800))
 		{
 			// Set TNT timer to 0, it blows up at 0x5a
 			mw->numFramesOnHead = 0;
@@ -80,21 +80,21 @@ void RB_TNT_ThTick_ThrowOnHead(struct Thread *t)
 	mw->tntSpinY += 0x100;
 
 	// if scale is small
-	if (inst->scale[0] < 0x801)
+	if (inst->scale.x < 0x801)
 	{
 		// set min scale
-		inst->scale[0] = 0x800;
-		inst->scale[1] = 0x800;
-		inst->scale[2] = 0x800;
+		inst->scale.x = 0x800;
+		inst->scale.y = 0x800;
+		inst->scale.z = 0x800;
 	}
 
 	// if scale is large
 	else
 	{
 		// reduce scale
-		inst->scale[0] -= 0x100;
-		inst->scale[1] -= 0x100;
-		inst->scale[2] -= 0x100;
+		inst->scale.x -= 0x100;
+		inst->scale.y -= 0x100;
+		inst->scale.z -= 0x100;
 	}
 	return;
 }

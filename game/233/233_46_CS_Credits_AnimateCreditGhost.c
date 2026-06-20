@@ -12,9 +12,9 @@ void CS_Credits_AnimateCreditGhost(struct Instance *dst, struct Instance *src, i
 
 	s16 scale = 0x1000 + (index + 1) * 300;
 
-	dst->scale[0] = scale;
-	dst->scale[1] = scale;
-	dst->scale[2] = scale;
+	dst->scale.x = scale;
+	dst->scale.y = scale;
+	dst->scale.z = scale;
 
 	dst->flags &= ~0x80;
 	if ((int)dst->model == 0)

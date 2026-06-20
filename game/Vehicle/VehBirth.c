@@ -318,9 +318,9 @@ void VehBirth_TeleportSelf(struct Driver *d, u8 spawnFlag, int spawnPosY)
 	dInst->animFrame = VehFrameInst_GetStartFrame(0, VehFrameInst_GetNumAnimFrames(dInst, 0));
 
 	// Set Scale (x, y, z)
-	dInst->scale[0] = 0xCCC;
-	dInst->scale[1] = 0xCCC;
-	dInst->scale[2] = 0xCCC;
+	dInst->scale.x = 0xCCC;
+	dInst->scale.y = 0xCCC;
+	dInst->scale.z = 0xCCC;
 
 	d->actionsFlagSet &= ~(ACTION_AIRBORNE | ACTION_HIGH_JUMP);
 

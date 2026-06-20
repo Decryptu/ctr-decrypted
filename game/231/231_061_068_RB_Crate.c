@@ -91,9 +91,9 @@ static void RB_CrateAny_ExplodeInit(struct Instance *crateInst, int color, b32 r
 	s16 rot[3];
 
 	// hide crate
-	crateInst->scale[0] = 0;
-	crateInst->scale[1] = 0;
-	crateInst->scale[2] = 0;
+	crateInst->scale.x = 0;
+	crateInst->scale.y = 0;
+	crateInst->scale.z = 0;
 
 	// birth explosion thread
 	explosionInst = INSTANCE_BirthWithThread(
@@ -169,17 +169,17 @@ void RB_CrateAny_ThTick_Grow(struct Thread *t)
 
 	// == ready to regrow ==
 
-	if (crateInst->scale[0] < 0x1000)
+	if (crateInst->scale.x < 0x1000)
 	{
-		crateInst->scale[0] += 0x100;
-		crateInst->scale[1] += 0x100;
-		crateInst->scale[2] += 0x100;
+		crateInst->scale.x += 0x100;
+		crateInst->scale.y += 0x100;
+		crateInst->scale.z += 0x100;
 	}
 	else
 	{
-		crateInst->scale[0] = 0x1000;
-		crateInst->scale[1] = 0x1000;
-		crateInst->scale[2] = 0x1000;
+		crateInst->scale.x = 0x1000;
+		crateInst->scale.y = 0x1000;
+		crateInst->scale.z = 0x1000;
 
 		// kill thread
 		crateInst->thread = 0;
@@ -234,12 +234,12 @@ int RB_CrateWeapon_ThCollide(struct Thread *crateThread, struct Thread *collidin
 
 	if (crateObj->cooldown == 0)
 	{
-		if ((crateInst->scale[0] != 0) && (crateInst->scale[0] != 0x1000))
+		if ((crateInst->scale.x != 0) && (crateInst->scale.x != 0x1000))
 			return 0;
 
 		crateObj->cooldown = 0x1e;
 
-		if (crateInst->scale[0] == 0x1000)
+		if (crateInst->scale.x == 0x1000)
 		{
 			RB_CrateAny_ExplodeInit(crateInst, 0xfafafa0, true);
 
@@ -339,12 +339,12 @@ int RB_CrateFruit_ThCollide(struct Thread *crateThread, struct Thread *colliding
 
 	if (crateObj->cooldown == 0)
 	{
-		if ((crateInst->scale[0] != 0) && (crateInst->scale[0] != 0x1000))
+		if ((crateInst->scale.x != 0) && (crateInst->scale.x != 0x1000))
 			return 0;
 
 		crateObj->cooldown = 0x1e;
 
-		if (crateInst->scale[0] == 0x1000)
+		if (crateInst->scale.x == 0x1000)
 		{
 			RB_CrateAny_ExplodeInit(crateInst, 0xf2953a0, false);
 
@@ -419,12 +419,12 @@ int RB_CrateTime_ThCollide(struct Thread *crateThread, struct Thread *driverTh, 
 
 	if (crateObj->cooldown == 0)
 	{
-		if ((crateInst->scale[0] != 0) && (crateInst->scale[0] != 0x1000))
+		if ((crateInst->scale.x != 0) && (crateInst->scale.x != 0x1000))
 			return 0;
 
 		crateObj->cooldown = 0x1e;
 
-		if (crateInst->scale[0] == 0x1000)
+		if (crateInst->scale.x == 0x1000)
 		{
 			RB_CrateAny_ExplodeInit(crateInst, 0x80ff000, true);
 

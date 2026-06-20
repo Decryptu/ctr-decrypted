@@ -639,9 +639,9 @@ WarpPad_AnimateOpen:
 				}
 
 				rewardScale2 = (u32)(rewardScale2 * rewardScale) >> 8;
-				instArr[WPIS_OPEN_PRIZE1 + i]->scale[0] = (s16)rewardScale2;
-				instArr[WPIS_OPEN_PRIZE1 + i]->scale[1] = (s16)rewardScale2;
-				instArr[WPIS_OPEN_PRIZE1 + i]->scale[2] = (s16)rewardScale2;
+				instArr[WPIS_OPEN_PRIZE1 + i]->scale.x = (s16)rewardScale2;
+				instArr[WPIS_OPEN_PRIZE1 + i]->scale.y = (s16)rewardScale2;
+				instArr[WPIS_OPEN_PRIZE1 + i]->scale.z = (s16)rewardScale2;
 			}
 		}
 

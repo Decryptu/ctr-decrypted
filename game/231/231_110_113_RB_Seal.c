@@ -254,9 +254,9 @@ void RB_Seal_LInB(struct Instance *inst)
 	t->inst = inst;
 	t->funcThCollide = (void (*)(struct Thread *))RB_Seal_ThCollide;
 
-	inst->scale[0] = 0x2000;
-	inst->scale[1] = 0x2000;
-	inst->scale[2] = 0x2000;
+	inst->scale.x = 0x2000;
+	inst->scale.y = 0x2000;
+	inst->scale.z = 0x2000;
 
 	sealObj = ((struct Seal *)t->object);
 	sealObj->distFromSpawn = 0;

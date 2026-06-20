@@ -976,9 +976,9 @@ LAB_80067dec:
 	// this is a basic "squash and stretch" concept of animation, before motion
 
 	// Reduce height a little
-	inst->scale[1] = (s16)CTR_MipsSubLo(3276, squishScale);
-	inst->scale[0] = (s16)CTR_MipsAddLo(CTR_MipsMulLo(squishScale, 6) / 10, 3276);
-	inst->scale[2] = (s16)CTR_MipsAddLo(CTR_MipsMulLo(squishScale, 6) / 10, 3276);
+	inst->scale.y = (s16)CTR_MipsSubLo(3276, squishScale);
+	inst->scale.x = (s16)CTR_MipsAddLo(CTR_MipsMulLo(squishScale, 6) / 10, 3276);
+	inst->scale.z = (s16)CTR_MipsAddLo(CTR_MipsMulLo(squishScale, 6) / 10, 3276);
 
 	d->jumpSquishStretch = squishScale;
 }
@@ -1451,7 +1451,7 @@ void VehStuckProc_Warp_PhysAngular(struct Thread *th, struct Driver *d)
 		// car is wide and s16
 
 		for (char i = 0; i < 3; i++)
-			inst->scale[i] = VehCalc_InterpBySpeed(inst->scale[i], 120, 4800 >> (i & 1));
+			inst->scale.v[i] = VehCalc_InterpBySpeed(inst->scale.v[i], 120, 4800 >> (i & 1));
 
 		if (d->posCurr.y < CTR_MipsAddLo(d->quadBlockHeight, 0x8000))
 			d->posCurr.y = CTR_MipsAddLo(d->posCurr.y, 0x800);
@@ -1467,10 +1467,10 @@ void VehStuckProc_Warp_PhysAngular(struct Thread *th, struct Driver *d)
 		// car is tall and thin
 
 		for (char i = 0; i < 3; i++)
-			inst->scale[i] = VehCalc_InterpBySpeed(inst->scale[i], (i == 1) ? 3200 : 600, 24000 * (i & 1));
+			inst->scale.v[i] = VehCalc_InterpBySpeed(inst->scale.v[i], (i == 1) ? 3200 : 600, 24000 * (i & 1));
 
 		// if scale shrinks to zero
-		if (inst->scale[0] == 0)
+		if (inst->scale.x == 0)
 		{
 			// if car is visible
 			if ((inst->flags & HIDE_MODEL) == 0)

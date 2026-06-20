@@ -21,9 +21,9 @@ void CS_Podium_Prize_Init(u32 prizeModel, const char *prizeName, s16 *posOnScree
 		return;
 	}
 
-	inst->scale[0] = 0x2000;
-	inst->scale[1] = 0x2000;
-	inst->scale[2] = 0x2000;
+	inst->scale.x = 0x2000;
+	inst->scale.y = 0x2000;
+	inst->scale.z = 0x2000;
 	inst->flags |= HIDE_MODEL;
 
 	prize = inst->thread->object;
@@ -115,9 +115,9 @@ void CS_Podium_Prize_Init(u32 prizeModel, const char *prizeName, s16 *posOnScree
 		prize[9] = hud[0x10].y - 0x3c;
 		prize[10] = -200;
 
-		inst->scale[0] = 0x4000;
-		inst->scale[1] = 0x4000;
-		inst->scale[2] = 0x4000;
+		inst->scale.x = 0x4000;
+		inst->scale.y = 0x4000;
+		inst->scale.z = 0x4000;
 
 		gGT->gameMode2 |= INC_TROPHY;
 		return;

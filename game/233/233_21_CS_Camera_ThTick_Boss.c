@@ -128,9 +128,9 @@ void CS_Camera_ThTick_Boss(struct Thread *t)
 			}
 
 			// body
-			inst->scale[0] = 0x1000;
-			inst->scale[1] = 0x1000;
-			inst->scale[2] = 0x1000;
+			inst->scale.x = 0x1000;
+			inst->scale.y = 0x1000;
+			inst->scale.z = 0x1000;
 			cs->desiredScale = 0x1000;
 		}
 

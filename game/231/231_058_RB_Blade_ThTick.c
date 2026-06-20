@@ -19,9 +19,9 @@ void RB_Blade_ThTick(struct Thread *t)
 	// converted to TEST in rebuildPS1
 	ConvertRotToMatrix(&bladeInst->matrix, &rot[0]);
 
-	bladeInst->scale[0] = 0x1000;
-	bladeInst->scale[1] = 0x1000;
-	bladeInst->scale[2] = 0x1000;
+	bladeInst->scale.x = 0x1000;
+	bladeInst->scale.y = 0x1000;
+	bladeInst->scale.z = 0x1000;
 
 	ThTick_FastRET(t);
 }

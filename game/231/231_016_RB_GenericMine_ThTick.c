@@ -32,9 +32,9 @@ void RB_GenericMine_ThTick(struct Thread *t)
 			func = RB_TNT_ThTick_ThrowOffHead;
 
 			// set scale (x, y, z)
-			inst->scale[0] = 0x800;
-			inst->scale[1] = 0x800;
-			inst->scale[2] = 0x800;
+			inst->scale.x = 0x800;
+			inst->scale.y = 0x800;
+			inst->scale.z = 0x800;
 		}
 		else
 		{
@@ -89,18 +89,18 @@ void RB_GenericMine_ThTick(struct Thread *t)
 		mw->velocity[1] = -0x60;
 
 	// If scale is not big enough
-	if (inst->scale[0] < 0x1000)
+	if (inst->scale.x < 0x1000)
 	{
 		// make scale larger each frame
-		inst->scale[0] += 0x200;
-		inst->scale[1] += 0x200;
-		inst->scale[2] += 0x200;
+		inst->scale.x += 0x200;
+		inst->scale.y += 0x200;
+		inst->scale.z += 0x200;
 	}
 	else
 	{
-		inst->scale[0] = 0x1000;
-		inst->scale[1] = 0x1000;
-		inst->scale[2] = 0x1000;
+		inst->scale.x = 0x1000;
+		inst->scale.y = 0x1000;
+		inst->scale.z = 0x1000;
 	}
 
 	param = 0x3840;
@@ -196,9 +196,9 @@ void RB_GenericMine_ThTick(struct Thread *t)
 			d->damageColorTimer = 0x1e;
 
 			// set scale (x, y, z) to zero
-			d->instTntRecv->scale[0] = 0;
-			d->instTntRecv->scale[1] = 0;
-			d->instTntRecv->scale[2] = 0;
+			d->instTntRecv->scale.x = 0;
+			d->instTntRecv->scale.y = 0;
+			d->instTntRecv->scale.z = 0;
 
 			// make invisible
 			d->instTntRecv->flags |= 0x80;
@@ -328,9 +328,9 @@ void RB_GenericMine_ThTick(struct Thread *t)
 				RB_MinePool_Remove(mw);
 
 				// set scale (x, y, z) to zero
-				inst->scale[0] = 0;
-				inst->scale[1] = 0;
-				inst->scale[2] = 0;
+				inst->scale.x = 0;
+				inst->scale.y = 0;
+				inst->scale.z = 0;
 
 				// make invisible
 				inst->flags |= HIDE_MODEL;

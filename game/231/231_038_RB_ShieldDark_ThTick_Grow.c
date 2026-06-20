@@ -142,14 +142,14 @@ void RB_ShieldDark_ThTick_Grow(struct Thread *th)
 		scaleY = s_shieldGrowScale[shield->animFrame][1];
 
 		// set scale
-		shieldInst->scale[0] = scaleXZ;
-		shieldInst->scale[1] = scaleY;
-		shieldInst->scale[2] = scaleXZ;
+		shieldInst->scale.x = scaleXZ;
+		shieldInst->scale.y = scaleY;
+		shieldInst->scale.z = scaleXZ;
 
 		// set scale
-		colorInst->scale[0] = scaleXZ;
-		colorInst->scale[1] = scaleY;
-		colorInst->scale[2] = scaleXZ;
+		colorInst->scale.x = scaleXZ;
+		colorInst->scale.y = scaleY;
+		colorInst->scale.z = scaleXZ;
 
 		// next frame
 		shield->animFrame++;
@@ -164,19 +164,19 @@ void RB_ShieldDark_ThTick_Grow(struct Thread *th)
 		scaleY = s_shieldPulseScale[timerIndex][1];
 
 		// set scale
-		shieldInst->scale[0] = scaleXZ;
-		shieldInst->scale[1] = scaleY;
-		shieldInst->scale[2] = scaleXZ;
+		shieldInst->scale.x = scaleXZ;
+		shieldInst->scale.y = scaleY;
+		shieldInst->scale.z = scaleXZ;
 
 		// set scale
-		colorInst->scale[0] = scaleXZ;
-		colorInst->scale[1] = scaleY;
-		colorInst->scale[2] = scaleXZ;
+		colorInst->scale.x = scaleXZ;
+		colorInst->scale.y = scaleY;
+		colorInst->scale.z = scaleXZ;
 
 		// set scale
-		highlightInst->scale[0] = scaleXZ;
-		highlightInst->scale[1] = scaleY;
-		highlightInst->scale[2] = scaleXZ;
+		highlightInst->scale.x = scaleXZ;
+		highlightInst->scale.y = scaleY;
+		highlightInst->scale.z = scaleXZ;
 	}
 
 	// if this is not a blue shield,
@@ -280,9 +280,9 @@ void RB_ShieldDark_ThTick_Grow(struct Thread *th)
 	bombInst->matrix.t[2] = shieldInst->matrix.t[2];
 
 	// set scale (x, y, z) and transparency
-	bombInst->scale[0] = 0x400;
-	bombInst->scale[1] = 0x400;
-	bombInst->scale[2] = 0x400;
+	bombInst->scale.x = 0x400;
+	bombInst->scale.y = 0x400;
+	bombInst->scale.z = 0x400;
 	bombInst->alphaScale = 0x400;
 
 	// get object from thread

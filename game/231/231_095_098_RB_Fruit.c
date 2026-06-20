@@ -66,8 +66,8 @@ int RB_Fruit_ThCollide(struct Thread *fruitTh, struct Thread *driverTh, void *fu
 
 	fruitObj->driver = driver;
 
-	*(int *)&fruitInst->scale[0] = 0;
-	fruitInst->scale[2] = 0;
+	*(int *)&fruitInst->scale.x = 0;
+	fruitInst->scale.z = 0;
 	fruitInst->thread = NULL;
 
 	PlaySound3D(0x43, fruitInst);
@@ -114,7 +114,7 @@ int RB_Fruit_LInC(struct Instance *fruitInst, struct Thread *driverTh, struct Sc
 	if ((fruitTh == NULL) || (fruitTh->funcThCollide == NULL))
 		return 0;
 
-	if (fruitInst->scale[0] == 0)
+	if (fruitInst->scale.x == 0)
 		return 0;
 
 	return ((FruitCollideFunc)fruitTh->funcThCollide)(fruitTh, driverTh, fruitTh->funcThCollide, sps);

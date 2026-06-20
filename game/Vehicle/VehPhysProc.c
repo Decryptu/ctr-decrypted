@@ -2039,8 +2039,8 @@ void VehPhysProc_SlamWall_Init(struct Thread *t, struct Driver *d)
 	inst = d->instSelf;
 
 	// NOTE(aalhendi): Retail only writes X/Y scale here.
-	inst->scale[0] = 0xccc;
-	inst->scale[1] = 0xccc;
+	inst->scale.x = 0xccc;
+	inst->scale.y = 0xccc;
 
 	d->kartState = KS_CRASHING;
 

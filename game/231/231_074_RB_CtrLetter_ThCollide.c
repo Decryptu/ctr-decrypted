@@ -24,9 +24,9 @@ int RB_CtrLetter_ThCollide(struct Thread *letterTh, struct Thread *driverTh, voi
 	driver->PickupLetterHUD.numCollected++;
 	driver->PickupLetterHUD.modelID = letterInst->model->id;
 
-	letterInst->scale[0] = 0;
-	letterInst->scale[1] = 0;
-	letterInst->scale[2] = 0;
+	letterInst->scale.x = 0;
+	letterInst->scale.y = 0;
+	letterInst->scale.z = 0;
 	letterInst->thread = 0;
 	letterInst->flags |= 0x80;
 

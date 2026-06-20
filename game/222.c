@@ -84,10 +84,10 @@ void AA_EndEvent_DrawMenu(void)
 
 	sdata->framesSinceRaceEnded = elapsedFrames;
 
-	if (driver->instBigNum->scale[0] != AA_BIG_NUM_TARGET_SCALE)
+	if (driver->instBigNum->scale.x != AA_BIG_NUM_TARGET_SCALE)
 	{
 		struct Instance *instFruitDisp = driver->instFruitDisp;
-		CTR_SET_VEC3(instFruitDisp->scale, 0, 0, 0);
+		instFruitDisp->scale = (SVec3){{0, 0, 0}};
 	}
 
 	// if not in Token mode, these won't be used until later;
@@ -121,7 +121,7 @@ void AA_EndEvent_DrawMenu(void)
 			s32 tokenAwardTextFrame = -1;
 			if (CHECK_ADV_BIT(adv->rewards, rewardBit) == 0)
 			{
-				letterScaleOffset = hudC->scale[0];
+				letterScaleOffset = hudC->scale.x;
 				letterScaleOffset -= (letterScaleOffset < AA_CTR_LETTER_BASE_SCALE) ? AA_CTR_LETTER_SCALE_BIAS_LOW : AA_CTR_LETTER_BASE_SCALE;
 				letterScaleOffset >>= 10;
 				shouldDrawToken = true;
@@ -162,7 +162,7 @@ void AA_EndEvent_DrawMenu(void)
 				if (shouldScaleLetters)
 				{
 					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8009fc48-0x8009fc50 for CTR token unlock SFX.
-					if (hudC->scale[0] == AA_CTR_LETTER_BASE_SCALE)
+					if (hudC->scale.x == AA_CTR_LETTER_BASE_SCALE)
 						OtherFX_Play(0x67, 1);
 
 					// NOTE(aalhendi): Retail scales until X reaches target, with no separate scale cap.
@@ -170,9 +170,9 @@ void AA_EndEvent_DrawMenu(void)
 					{
 						for (s32 i = 0; i < 3; i++)
 						{
-							hudLetters[i]->scale[0] += AA_CTR_LETTER_GROW_STEP;
-							hudLetters[i]->scale[1] += AA_CTR_LETTER_GROW_STEP;
-							hudLetters[i]->scale[2] += AA_CTR_LETTER_GROW_STEP;
+							hudLetters[i]->scale.x += AA_CTR_LETTER_GROW_STEP;
+							hudLetters[i]->scale.y += AA_CTR_LETTER_GROW_STEP;
+							hudLetters[i]->scale.z += AA_CTR_LETTER_GROW_STEP;
 						}
 					}
 				}
@@ -218,11 +218,11 @@ void AA_EndEvent_DrawMenu(void)
 				hudToken->matrix.t[0] = hudT->matrix.t[0];
 				hudToken->matrix.t[1] = UI_ConvertY_2(letterPos.y + 0x18, AA_SCREEN_DEPTH);
 
-				if ((tokenAwardTextFrame >= 0) && (hudToken->scale[0] < AA_TOKEN_GROW_LIMIT))
+				if ((tokenAwardTextFrame >= 0) && (hudToken->scale.x < AA_TOKEN_GROW_LIMIT))
 				{
-					hudToken->scale[0] += AA_TOKEN_GROW_STEP;
-					hudToken->scale[1] += AA_TOKEN_GROW_STEP;
-					hudToken->scale[2] += AA_TOKEN_GROW_STEP;
+					hudToken->scale.x += AA_TOKEN_GROW_STEP;
+					hudToken->scale.y += AA_TOKEN_GROW_STEP;
+					hudToken->scale.z += AA_TOKEN_GROW_STEP;
 				}
 
 				if (tokenAwardTextFrame >= 0)
@@ -611,7 +611,7 @@ void AA_EndEvent_DisplayTime(s16 driverId, s16 timeOffsetFrames)
 	UI_Lerp2D_Linear(pos.v, hud[AA_TIME_DISPLAY_BIG_NUM_SLOT].scale, 0, AA_BIG_NUM_TARGET_SCALE, 0, framesElapsed, AA_TIME_DISPLAY_FLYIN_FRAMES);
 	s16 bigNumScale = pos.x;
 
-	CTR_SET_VEC3(bigNum->scale, bigNumScale, bigNumScale, bigNumScale);
+	bigNum->scale = (SVec3){{bigNumScale, bigNumScale, bigNumScale}};
 
 	// === Draw Suffix ===
 

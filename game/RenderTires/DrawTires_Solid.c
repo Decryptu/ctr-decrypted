@@ -233,7 +233,7 @@ s32 Unknown_8006ef98(s32 radicand)
 static void DrawTiresSolid_BuildWheelLocalPairs(struct DrawTiresSolidScratch *scratch, struct Driver *driver, struct Instance *inst,
                                                 struct InstDrawPerPlayer *idpp)
 {
-	int wheelX = (inst->scale[0] * 0x90) >> 12;
+	int wheelX = (inst->scale.x * 0x90) >> 12;
 	int negWheelX = -wheelX;
 	int wheelY;
 	int wheelFrontZ;
@@ -251,7 +251,7 @@ static void DrawTiresSolid_BuildWheelLocalPairs(struct DrawTiresSolidScratch *sc
 	DrawTiresSolid_WriteS16(scratch, 0x70, negWheelX + 0x1000);
 	DrawTiresSolid_WriteS16(scratch, 0x90, negWheelX + 0x1000);
 
-	wheelY = (inst->scale[1] * 0x40) >> 12;
+	wheelY = (inst->scale.y * 0x40) >> 12;
 	DrawTiresSolid_WriteS16(scratch, 0x5a, wheelY);
 	DrawTiresSolid_WriteS16(scratch, 0x62, 0);
 	DrawTiresSolid_WriteS16(scratch, 0x6a, wheelY);
@@ -261,11 +261,11 @@ static void DrawTiresSolid_BuildWheelLocalPairs(struct DrawTiresSolidScratch *sc
 	DrawTiresSolid_WriteS16(scratch, 0x8a, wheelY);
 	DrawTiresSolid_WriteS16(scratch, 0x92, 0);
 
-	wheelFrontZ = (inst->scale[2] * 0xc7) >> 12;
+	wheelFrontZ = (inst->scale.z * 0xc7) >> 12;
 	DrawTiresSolid_WriteS32(scratch, 0x5c, wheelFrontZ);
 	DrawTiresSolid_WriteS32(scratch, 0x6c, wheelFrontZ);
 
-	wheelRearZ = (inst->scale[2] * -0x60) >> 12;
+	wheelRearZ = (inst->scale.z * -0x60) >> 12;
 	DrawTiresSolid_WriteS32(scratch, 0x7c, wheelRearZ);
 	DrawTiresSolid_WriteS32(scratch, 0x84, wheelRearZ);
 	DrawTiresSolid_WriteS32(scratch, 0x8c, wheelRearZ);

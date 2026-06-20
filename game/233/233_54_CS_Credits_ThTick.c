@@ -36,9 +36,9 @@ void CS_Credits_ThTick(void)
 			for (int i = 1; i < 5; i++)
 			{
 				struct Instance *ghost = co->creditGhostInst[i];
-				ghost->scale[0] += 0x4b;
-				ghost->scale[1] += 0x4b;
-				ghost->scale[2] += 0x4b;
+				ghost->scale.x += 0x4b;
+				ghost->scale.y += 0x4b;
+				ghost->scale.z += 0x4b;
 				ghost->alphaScale += 0x9d;
 			}
 		}

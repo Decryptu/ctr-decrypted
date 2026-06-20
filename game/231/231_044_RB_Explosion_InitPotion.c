@@ -42,7 +42,7 @@ void RB_Explosion_InitPotion(struct Instance *inst)
 
 	for (int i = 0; i < 3; i++)
 	{
-		shatterInst->scale[i] = 0x800;
+		shatterInst->scale.v[i] = 0x800;
 		shatterInst->matrix.t[i] = inst->matrix.t[i];
 	}
 

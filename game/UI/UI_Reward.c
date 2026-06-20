@@ -210,21 +210,21 @@ void UI_ThTick_CtrLetters(struct Thread *bucket)
 	{
 		// Set Scale to zero, basically stop
 		// drawing letters in the HUD
-		inst->scale[0] = 0;
-		inst->scale[1] = 0;
-		inst->scale[2] = 0;
+		inst->scale.x = 0;
+		inst->scale.y = 0;
+		inst->scale.z = 0;
 	}
 
-	if (inst->scale[0] == 0x800)
+	if (inst->scale.x == 0x800)
 	{
 		rot[1] = 0;
 	}
 	else
 	{
-		endOfRaceTransition = (int)inst->scale[0] + -0x800;
+		endOfRaceTransition = (int)inst->scale.x + -0x800;
 		if (endOfRaceTransition < 0)
 		{
-			endOfRaceTransition = (int)inst->scale[0] + -0x401;
+			endOfRaceTransition = (int)inst->scale.x + -0x401;
 		}
 		rot[1] = ((s16)(endOfRaceTransition >> 10) + 1) * 0x200;
 	}

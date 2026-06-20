@@ -258,9 +258,9 @@ after_opcode:
 
 		if (gGT->levelID != NAUGHTY_DOG_CRATE)
 		{
-			inst->scale[0] = 0x2800;
-			inst->scale[1] = 0x2800;
-			inst->scale[2] = 0x2800;
+			inst->scale.x = 0x2800;
+			inst->scale.y = 0x2800;
+			inst->scale.z = 0x2800;
 		}
 
 		if ((u32)(gGT->levelID - GEM_STONE_VALLEY) < 5)

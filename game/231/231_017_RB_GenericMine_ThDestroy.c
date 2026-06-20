@@ -35,9 +35,9 @@ void RB_GenericMine_ThDestroy(struct Thread *t, struct Instance *inst, struct Mi
 	}
 
 	// Set scale (x, y, z) to zero
-	inst->scale[0] = 0;
-	inst->scale[1] = 0;
-	inst->scale[2] = 0;
+	inst->scale.x = 0;
+	inst->scale.y = 0;
+	inst->scale.z = 0;
 
 	// make invisible
 	inst->flags |= HIDE_MODEL;

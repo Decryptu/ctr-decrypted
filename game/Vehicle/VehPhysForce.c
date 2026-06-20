@@ -667,7 +667,7 @@ static void VehPhysForce_TranslateMatrix_UpdateSquashStretch(struct Instance *in
 	{
 		int scaleXZ;
 
-		inst->scale[1] = (s16)CTR_MipsAddLo((u16)d->jumpSquishStretch, 0xccc);
+		inst->scale.y = (s16)CTR_MipsAddLo((u16)d->jumpSquishStretch, 0xccc);
 
 		scaleXZ = CTR_MipsSubLo(0xccc, VehPhysForce_TranslateMatrix_Div256TowardZero(CTR_MipsMulLo(d->jumpSquishStretch, 0x28)));
 		if (scaleXZ < 0x400)
@@ -675,8 +675,8 @@ static void VehPhysForce_TranslateMatrix_UpdateSquashStretch(struct Instance *in
 			scaleXZ = 0x400;
 		}
 
-		inst->scale[0] = scaleXZ;
-		inst->scale[2] = scaleXZ;
+		inst->scale.x = scaleXZ;
+		inst->scale.z = scaleXZ;
 		return;
 	}
 
@@ -730,9 +730,9 @@ static void VehPhysForce_TranslateMatrix_UpdateSquashStretch(struct Instance *in
 		d->jumpSquishStretch2 = jumpHeightCurr;
 	}
 
-	if ((d->instTntRecv != NULL) && (d->instTntRecv->scale[1] < 2500))
+	if ((d->instTntRecv != NULL) && (d->instTntRecv->scale.y < 2500))
 	{
-		targetSquish = CTR_MipsAddLo(targetSquish, CTR_MipsSll(CTR_MipsSubLo(d->instTntRecv->scale[1], 0x800), 1));
+		targetSquish = CTR_MipsAddLo(targetSquish, CTR_MipsSll(CTR_MipsSubLo(d->instTntRecv->scale.y, 0x800), 1));
 	}
 
 	if (VehPhysForce_TranslateMatrix_Abs(d->jumpSquishStretch) < VehPhysForce_TranslateMatrix_Abs(targetSquish))
@@ -745,27 +745,27 @@ static void VehPhysForce_TranslateMatrix_UpdateSquashStretch(struct Instance *in
 
 	if (d->squishTimer != 0)
 	{
-		inst->scale[1] = 0;
+		inst->scale.y = 0;
 	}
-	else if (inst->scale[1] == 0)
+	else if (inst->scale.y == 0)
 	{
 		if (d->instSelf->thread->modelIndex == 0x18)
 		{
 			OtherFX_Play_Echo(0x5b, 1, (d->actionsFlagSet & ACTION_ENGINE_ECHO) != 0);
 		}
 
-		inst->scale[1] = (s16)CTR_MipsAddLo((u16)d->jumpSquishStretch, 0xccc);
+		inst->scale.y = (s16)CTR_MipsAddLo((u16)d->jumpSquishStretch, 0xccc);
 		d->matrixArray = 5;
 		d->matrixIndex = 0;
 	}
 	else
 	{
-		inst->scale[1] = VehCalc_InterpBySpeed(inst->scale[1], 0xa0, CTR_MipsAddLo(d->jumpSquishStretch, 0xccc));
+		inst->scale.y = VehCalc_InterpBySpeed(inst->scale.y, 0xa0, CTR_MipsAddLo(d->jumpSquishStretch, 0xccc));
 	}
 
 	int scaleXZ = CTR_MipsSubLo(0xccc, VehPhysForce_TranslateMatrix_Div256TowardZero(CTR_MipsMulLo(d->jumpSquishStretch, 0xa0)));
-	inst->scale[0] = VehCalc_InterpBySpeed(inst->scale[0], 0xa0, scaleXZ);
-	inst->scale[2] = VehCalc_InterpBySpeed(inst->scale[2], 0xa0, scaleXZ);
+	inst->scale.x = VehCalc_InterpBySpeed(inst->scale.x, 0xa0, scaleXZ);
+	inst->scale.z = VehCalc_InterpBySpeed(inst->scale.z, 0xa0, scaleXZ);
 }
 
 static void VehPhysForce_TranslateMatrix_UpdateMatrixAnimation(struct Driver *d)
@@ -885,8 +885,8 @@ static void VehPhysForce_TranslateMatrix_HideWake(struct Instance *inst, struct 
 	{
 		wake->flags |= HIDE_MODEL;
 		d->wakeScale = 0;
-		wake->scale[0] = 0;
-		wake->scale[2] = d->wakeScale;
+		wake->scale.x = 0;
+		wake->scale.z = d->wakeScale;
 	}
 }
 
@@ -977,8 +977,8 @@ static void VehPhysForce_TranslateMatrix_UpdateWake(struct Instance *inst, struc
 		}
 	}
 
-	wake->scale[0] = d->wakeScale;
-	wake->scale[2] = d->wakeScale;
+	wake->scale.x = d->wakeScale;
+	wake->scale.z = d->wakeScale;
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005ee34-0x8005f89c

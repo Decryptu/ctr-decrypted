@@ -29,9 +29,9 @@ void VehTalkMask_ThTick(struct Thread *t)
 	}
 
 	scale = (mhObj->scale * scale) >> 0xc;
-	mhInst->scale[0] = scale;
-	mhInst->scale[1] = scale;
-	mhInst->scale[2] = scale;
+	mhInst->scale.x = scale;
+	mhInst->scale.y = scale;
+	mhInst->scale.z = scale;
 
 	u32 lastFrame = VehFrameInst_GetNumAnimFrames(mhInst, 0) - 1;
 

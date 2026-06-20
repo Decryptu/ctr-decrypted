@@ -261,9 +261,9 @@ void AH_Door_ThTick(struct Thread *t)
 							keyInst->matrix = driverInst->matrix;
 
 							// set scale to zero
-							keyInst->scale[0] = 0;
-							keyInst->scale[1] = 0;
-							keyInst->scale[2] = 0;
+							keyInst->scale.x = 0;
+							keyInst->scale.y = 0;
+							keyInst->scale.z = 0;
 
 							door->keyInst[i] = keyInst;
 						}
@@ -288,12 +288,12 @@ void AH_Door_ThTick(struct Thread *t)
 						if (keyInst != NULL)
 						{
 							// if scale < 0xa00
-							if (keyInst->scale[0] < 0xa00)
+							if (keyInst->scale.x < 0xa00)
 							{
 								// increase scale on X, Y, Z
-								keyInst->scale[0] += 0x40;
-								keyInst->scale[1] += 0x40;
-								keyInst->scale[2] += 0x40;
+								keyInst->scale.x += 0x40;
+								keyInst->scale.y += 0x40;
+								keyInst->scale.z += 0x40;
 							}
 
 							// if key posY is less than (player posY + 0xa0)
@@ -306,7 +306,7 @@ void AH_Door_ThTick(struct Thread *t)
 							if (1 < numKeys)
 							{
 								iVar18 = i * (0x1000 / numKeys);
-								iVar17 = (int)keyInst->scale[0];
+								iVar17 = (int)keyInst->scale.x;
 
 								if (iVar17 < 0)
 								{
@@ -447,9 +447,9 @@ void AH_Door_ThTick(struct Thread *t)
 				if (keyInst != NULL)
 				{
 					// decrease scale of key
-					keyInst->scale[0] = scaler[door->keyShrinkFrame];
-					keyInst->scale[1] = scaler[door->keyShrinkFrame];
-					keyInst->scale[2] = scaler[door->keyShrinkFrame];
+					keyInst->scale.x = scaler[door->keyShrinkFrame];
+					keyInst->scale.y = scaler[door->keyShrinkFrame];
+					keyInst->scale.z = scaler[door->keyShrinkFrame];
 				}
 			}
 

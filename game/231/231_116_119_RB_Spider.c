@@ -236,8 +236,8 @@ void RB_Spider_ThTick(struct Thread *t)
 
 			if (spiderInst->animFrame < 0xb)
 			{
-				spider->shadowInst->scale[0] = (s16)((spiderInst->animFrame << 0xc) / 10) + 0x1800;
-				spider->shadowInst->scale[2] = (s16)((spiderInst->animFrame << 0xc) / 10) + 0x1800;
+				spider->shadowInst->scale.x = (s16)((spiderInst->animFrame << 0xc) / 10) + 0x1800;
+				spider->shadowInst->scale.z = (s16)((spiderInst->animFrame << 0xc) / 10) + 0x1800;
 			}
 
 			goto checkCollision;
@@ -330,9 +330,9 @@ void RB_Spider_LInB(struct Instance *inst)
 	t->funcThCollide = (void (*)(struct Thread *))RB_Spider_ThCollide;
 	t->inst = inst;
 
-	inst->scale[0] = 0x1c00;
-	inst->scale[1] = 0x1c00;
-	inst->scale[2] = 0x1c00;
+	inst->scale.x = 0x1c00;
+	inst->scale.y = 0x1c00;
+	inst->scale.z = 0x1c00;
 	inst->animIndex = 1;
 
 	spiderID = inst->name[strlen(inst->name) - 1] - '0';
@@ -368,9 +368,9 @@ void RB_Spider_LInB(struct Instance *inst)
 	shadowInst->matrix.t[2] = inst->matrix.t[2];
 	inst->matrix.t[1] += 0x4c0;
 
-	shadowInst->scale[0] = 0x2000;
-	shadowInst->scale[1] = 0x2000;
-	shadowInst->scale[2] = 0x2000;
+	shadowInst->scale.x = 0x2000;
+	shadowInst->scale.y = 0x2000;
+	shadowInst->scale.z = 0x2000;
 
 	rot[0] = 0;
 	rot[1] = 0x200;

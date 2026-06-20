@@ -296,9 +296,9 @@ void SelectProfile_Init(u16 flags)
 					}
 
 					inst->colorRGBA = SelectProfile_LoadSave_Color(i, flags);
-					inst->scale[0] = data.MetaDataLoadSave[i].scale;
-					inst->scale[1] = data.MetaDataLoadSave[i].scale;
-					inst->scale[2] = data.MetaDataLoadSave[i].scale;
+					inst->scale.x = data.MetaDataLoadSave[i].scale;
+					inst->scale.y = data.MetaDataLoadSave[i].scale;
+					inst->scale.z = data.MetaDataLoadSave[i].scale;
 
 					icon->rot[0] = 0;
 					icon->rot[1] = 0;

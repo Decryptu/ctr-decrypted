@@ -166,9 +166,9 @@ void RB_MaskWeapon_ThTick(struct Thread *maskTh)
 		// make visible
 		instCurr->flags &= 0xffffff7f;
 
-		instCurr->scale[0] = mask->scale;
-		instCurr->scale[1] = mask->scale;
-		instCurr->scale[2] = mask->scale;
+		instCurr->scale.x = mask->scale;
+		instCurr->scale.y = mask->scale;
+		instCurr->scale.z = mask->scale;
 
 		// second pass
 		instCurr = maskInst;

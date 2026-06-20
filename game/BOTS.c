@@ -1473,9 +1473,9 @@ UpdateTireColorTimer:
 	else
 	{
 	HoldBotBeforeRaceOrCooldown:
-		botInstance->scale[0] = 0xccc;
-		botInstance->scale[1] = 0xccc;
-		botInstance->scale[2] = 0xccc;
+		botInstance->scale.x = 0xccc;
+		botInstance->scale.y = 0xccc;
+		botInstance->scale.z = 0xccc;
 
 		botDriver->botData.aiPhysics.speedLinear = 0;
 

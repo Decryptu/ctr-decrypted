@@ -23,7 +23,7 @@ void CS_Podium_Prize_ThTick2(struct Thread *th)
 		if ((frameIndex & 1) == 0)
 		{
 			// scaleX
-			currScale = inst->scale[0] + 800 + frameIndex * 400;
+			currScale = inst->scale.x + 800 + frameIndex * 400;
 
 			if ((frameIndex + 1) * 0x28a + 0x2000 < currScale)
 			{
@@ -34,7 +34,7 @@ void CS_Podium_Prize_ThTick2(struct Thread *th)
 		else
 		{
 			// scaleX
-			currScale = inst->scale[0] - 800;
+			currScale = inst->scale.x - 800;
 
 			if (currScale < 0x1001)
 			{
@@ -46,9 +46,9 @@ void CS_Podium_Prize_ThTick2(struct Thread *th)
 		prize[0x15] = frameIndex;
 
 		// scaleY and scaleZ
-		inst->scale[0] = currScale;
-		inst->scale[1] = currScale;
-		inst->scale[2] = currScale;
+		inst->scale.x = currScale;
+		inst->scale.y = currScale;
+		inst->scale.z = currScale;
 
 		CS_Podium_Prize_Spin(inst, prize);
 	}

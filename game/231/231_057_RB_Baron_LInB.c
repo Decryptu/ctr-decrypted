@@ -25,9 +25,9 @@ void RB_Baron_LInB(struct Instance *inst)
 	inst->thread = t;
 	t->inst = inst;
 
-	inst->scale[0] = 0x1000;
-	inst->scale[1] = 0x1000;
-	inst->scale[2] = 0x1000;
+	inst->scale.x = 0x1000;
+	inst->scale.y = 0x1000;
+	inst->scale.z = 0x1000;
 
 	baronObj = ((struct Baron *)t->object);
 	pointIndex = 1;

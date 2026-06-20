@@ -76,11 +76,11 @@ void CS_Instance_GetFrameData(struct Instance *inst, int animIndex, u32 animFram
 	deltaDX = (int)boneValX - (int)boneDX;
 
 	{
-		s16 instScale = inst->scale[0];
+		s16 instScale = inst->scale.x;
 
-		scaleX = ((((int)boneValX + (int)framePos[0]) * instScale) >> 0xc) * (int)headers->scale[0] >> 0xc;
-		scaleY = ((((int)boneValY + (int)framePos[1]) * instScale) >> 0xc) * (int)headers->scale[1] >> 0xc;
-		scaleZ = ((((int)boneValZ + (int)framePos[2]) * instScale) >> 0xc) * (int)headers->scale[2] >> 0xc;
+		scaleX = ((((int)boneValX + (int)framePos[0]) * instScale) >> 0xc) * (int)headers->scale.x >> 0xc;
+		scaleY = ((((int)boneValY + (int)framePos[1]) * instScale) >> 0xc) * (int)headers->scale.y >> 0xc;
+		scaleZ = ((((int)boneValZ + (int)framePos[2]) * instScale) >> 0xc) * (int)headers->scale.z >> 0xc;
 	}
 
 	deltaDY = (int)boneValY - (int)boneDZ;

@@ -179,24 +179,24 @@ void RB_Minecart_LInB(struct Instance *inst)
 	minecartObj->betweenPoints_numFrames = 8;
 	minecartObj->rotSpeed = 0x20;
 
-	inst->scale[0] = 0x1000;
-	inst->scale[1] = 0x1000;
-	inst->scale[2] = 0x1000;
+	inst->scale.x = 0x1000;
+	inst->scale.y = 0x1000;
+	inst->scale.z = 0x1000;
 
 	if (inst->model->id == DYNAMIC_SKUNK)
 	{
-		inst->scale[0] = 0x2000;
-		inst->scale[1] = 0x2000;
-		inst->scale[2] = 0x2000;
+		inst->scale.x = 0x2000;
+		inst->scale.y = 0x2000;
+		inst->scale.z = 0x2000;
 		minecartObj->betweenPoints_numFrames = 4;
 		minecartObj->rotSpeed = 0x18;
 	}
 
 	else if (inst->model->id == DYNAMIC_VONLABASS)
 	{
-		inst->scale[0] = 0x800;
-		inst->scale[1] = 0x800;
-		inst->scale[2] = 0x800;
+		inst->scale.x = 0x800;
+		inst->scale.y = 0x800;
+		inst->scale.z = 0x800;
 		minecartObj->betweenPoints_numFrames = 4;
 		minecartObj->rotSpeed = 0x18;
 	}

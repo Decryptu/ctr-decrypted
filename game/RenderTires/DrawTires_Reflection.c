@@ -185,7 +185,7 @@ static void DrawTiresReflection_BuildWheelLocalPairs(struct DrawTiresReflectionS
 	DrawTiresReflection_WriteS16(scratch, 0x70, negWheelX + 0x1000);
 	DrawTiresReflection_WriteS16(scratch, 0x90, negWheelX + 0x1000);
 
-	wheelY = (inst->scale[1] * 0x40) >> 12;
+	wheelY = (inst->scale.y * 0x40) >> 12;
 	DrawTiresReflection_WriteS16(scratch, 0x5a, wheelY);
 	DrawTiresReflection_WriteS16(scratch, 0x62, 0);
 	DrawTiresReflection_WriteS16(scratch, 0x6a, wheelY);
@@ -195,11 +195,11 @@ static void DrawTiresReflection_BuildWheelLocalPairs(struct DrawTiresReflectionS
 	DrawTiresReflection_WriteS16(scratch, 0x8a, wheelY);
 	DrawTiresReflection_WriteS16(scratch, 0x92, 0);
 
-	wheelFrontZ = (inst->scale[2] * 0xc7) >> 12;
+	wheelFrontZ = (inst->scale.z * 0xc7) >> 12;
 	DrawTiresReflection_WriteS32(scratch, 0x5c, wheelFrontZ);
 	DrawTiresReflection_WriteS32(scratch, 0x6c, wheelFrontZ);
 
-	wheelRearZ = (inst->scale[2] * -0x60) >> 12;
+	wheelRearZ = (inst->scale.z * -0x60) >> 12;
 	DrawTiresReflection_WriteS32(scratch, 0x7c, wheelRearZ);
 	DrawTiresReflection_WriteS32(scratch, 0x84, wheelRearZ);
 	DrawTiresReflection_WriteS32(scratch, 0x8c, wheelRearZ);

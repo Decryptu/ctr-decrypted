@@ -49,8 +49,8 @@ int RB_Crystal_ThCollide(struct Thread *crystalTh, struct Thread *driverTh, void
 		driver->PickupWumpaHUD.numCollected++;
 	}
 
-	*(int *)&crystalInst->scale[0] = 0;
-	crystalInst->scale[2] = 0;
+	*(int *)&crystalInst->scale.x = 0;
+	crystalInst->scale.z = 0;
 	crystalInst->thread = 0;
 
 	// play sound
@@ -114,7 +114,7 @@ int RB_Crystal_LInC(struct Instance *crystalInst, struct Thread *driverTh, struc
 	if ((crystalTh == NULL) || (crystalTh->funcThCollide == NULL))
 		return 0;
 
-	if (crystalInst->scale[0] == 0)
+	if (crystalInst->scale.x == 0)
 		return 0;
 
 	return ((CrystalCollideFunc)crystalTh->funcThCollide)(crystalTh, driverTh, crystalTh->funcThCollide, sps);
