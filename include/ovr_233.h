@@ -11,17 +11,14 @@ typedef enum CutscenePhase : s32
 
 struct CsThreadInitData
 {
-	// podium position
-	// X Y Z and ?
-	s16 podiumPos[4];
+	SVec3 podiumPos;
+	s16 _pad_podiumPos;
 
-	// character position
-	// X Y Z and ?
-	s16 characterPos[4];
+	SVec3 characterPos;
+	s16 _pad_characterPos;
 
-	// rotation (for both)
-	// X Y Z and ?
-	s16 rot[4];
+	SVec3 rot;
+	s16 _pad_rot;
 
 	// matrix
 	u32 local_30;
@@ -34,19 +31,22 @@ struct CsThreadInitData
 struct Prize
 {
 	// 0x0
-	s16 posStart[4];
+	SVec3 posStart;
+	s16 _pad_posStart;
 
 	// 0x8
-	s16 rot[4];
+	SVec3 rot;
+	s16 _pad_rot;
 
 	// 0x10
-	s16 posEnd[4];
+	SVec3 posEnd;
+	s16 _pad_posEnd;
 
 	// 0x18
 	s16 unk[4];
 
 	// 0x20
-	s16 vel[3];
+	SVec3 vel;
 
 	// 0x26
 	s16 frameMax; // set in ThTick1

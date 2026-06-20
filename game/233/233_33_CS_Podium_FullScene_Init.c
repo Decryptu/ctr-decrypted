@@ -10,8 +10,8 @@ void CS_Podium_FullScene_Init(void)
 
 	struct PosRot
 	{
-		s16 pos[3];
-		s16 rot[3];
+		SVec3 pos;
+		SVec3 rot;
 	};
 
 	struct PosRot *posRot;
@@ -66,17 +66,17 @@ void CS_Podium_FullScene_Init(void)
 	gGT->gameMode2 |= VEH_FREEZE_PODIUM;
 
 	// position and rotation of podium scene
-	// Y coordinate (podiumPos[1]) has added height
+	// Y coordinate (podiumPos.y) has added height
 	posRot = (struct PosRot *)gGT->level1->ptrSpawnType2_PosRot[1].posCoords;
-	InitData.podiumPos[0] = posRot->pos[0];
-	InitData.podiumPos[1] = posRot->pos[1] + 0x80;
-	InitData.podiumPos[2] = posRot->pos[2];
-	InitData.rot[0] = posRot->rot[0];
-	InitData.rot[1] = posRot->rot[1];
-	InitData.rot[2] = posRot->rot[2];
+	InitData.podiumPos.x = posRot->pos.x;
+	InitData.podiumPos.y = posRot->pos.y + 0x80;
+	InitData.podiumPos.z = posRot->pos.z;
+	InitData.rot.x = posRot->rot.x;
+	InitData.rot.y = posRot->rot.y;
+	InitData.rot.z = posRot->rot.z;
 
 	// convert 3 rotation shorts into rotation matrix
-	ConvertRotToMatrix((MATRIX *)&InitData.local_30, &InitData.rot[0]);
+	ConvertRotToMatrix((MATRIX *)&InitData.local_30, &InitData.rot.x);
 	// Move position of trophy girl
 	gte_SetLightMatrix(&InitData.local_30);
 
@@ -86,9 +86,9 @@ void CS_Podium_FullScene_Init(void)
 	// if someone placed third
 	if (gGT->podium_modelIndex_Third != '\0')
 	{
-		InitData.characterPos[0] = 299;
-		InitData.characterPos[1] = 0xffab;
-		InitData.characterPos[2] = 0;
+		InitData.characterPos.x = 299;
+		InitData.characterPos.y = 0xffab;
+		InitData.characterPos.z = 0;
 
 		// create thread for "third"
 		CS_Thread_Init(gGT->podium_modelIndex_Third, &R233.s_third[0], (void *)&InitData, 0x600, 0);
@@ -97,24 +97,24 @@ void CS_Podium_FullScene_Init(void)
 	// if someone placed second
 	if (gGT->podium_modelIndex_Second != '\0')
 	{
-		InitData.characterPos[0] = 0xfed5;
-		InitData.characterPos[1] = 0xffd6;
-		InitData.characterPos[2] = 0;
+		InitData.characterPos.x = 0xfed5;
+		InitData.characterPos.y = 0xffd6;
+		InitData.characterPos.z = 0;
 
 		// create thread for "second"
 		CS_Thread_Init(gGT->podium_modelIndex_Second, &R233.s_second[0], (void *)&InitData, 0x200, 0);
 	}
 
-	InitData.characterPos[0] = 0;
-	InitData.characterPos[1] = 0;
-	InitData.characterPos[2] = 0;
+	InitData.characterPos.x = 0;
+	InitData.characterPos.y = 0;
+	InitData.characterPos.z = 0;
 
 	// create thread for "first"
 	CS_Thread_Init(gGT->podium_modelIndex_First, &R233.s_first[0], (void *)&InitData, 0, 0);
 
-	InitData.characterPos[0] = 0x1a8;
-	InitData.characterPos[1] = 0xff80;
-	InitData.characterPos[2] = 0x140;
+	InitData.characterPos.x = 0x1a8;
+	InitData.characterPos.y = 0xff80;
+	InitData.characterPos.z = 0x140;
 
 	// create thread for trophy girl (internally called "tawna")
 	CS_Thread_Init(gGT->podium_modelIndex_tawna, &R233.s_tawna[0], (void *)&InitData, -0x2aa, 0);

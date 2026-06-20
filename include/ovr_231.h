@@ -20,7 +20,8 @@ struct MaskHeadScratch
 	MATRIX m;
 
 	// 0x1f800128
-	s16 rot[4];
+	SVec3 rot;
+	s16 _pad_rot;
 
 	// 0x1f800130
 	s16 posOffset[4];
@@ -351,13 +352,13 @@ struct StartBanner
 struct Armadillo
 {
 	// 0x0
-	s16 rotCurr[3];
+	SVec3 rotCurr;
 
 	// 0x6
 	s16 velX;
 
 	// 0x8
-	s16 rotDesired[3];
+	SVec3 rotDesired;
 
 	// 0xe
 	s16 velZ;
@@ -461,14 +462,14 @@ struct Minecart
 {
 	// 0x0
 	// removed in decomp optimizations
-	s16 posStart[3];
+	SVec3 posStart;
 
 	// 0x6
 	s16 betweenPoints_currFrame;
 
 	// 0x8
 	// removed in decomp optimizations
-	s16 posEnd[3];
+	SVec3 posEnd;
 
 	// 0xe
 	SVec3 dir;
@@ -477,13 +478,13 @@ struct Minecart
 	int posIndex;
 
 	// 0x18
-	s16 rotCurr[3];
+	SVec3 rotCurr;
 
 	// 0x1e
 	s16 betweenPoints_numFrames;
 
 	// 0x20
-	s16 rotDesired[3];
+	SVec3 rotDesired;
 
 	// 0x26
 	s16 rotSpeed;
@@ -497,19 +498,19 @@ struct Minecart
 struct Orca
 {
 	// 0x0
-	s16 startPos[3];
+	SVec3 startPos;
 
 	// 0x6
 	s16 orcaID;
 
 	// 0x8
-	s16 endPos[3];
+	SVec3 endPos;
 
 	// 0xE
 	s16 cooldown;
 
 	// 0x10
-	s16 instDefRot[3];
+	SVec3 instDefRot;
 
 	// 0x16
 	s16 animIndex;
@@ -551,31 +552,31 @@ struct Plant
 struct Seal
 {
 	// 0x0
-	s16 spawnPos[3];
+	SVec3 spawnPos;
 
 	// 0x6
 	s16 sealID;
 
 	// 0x8
 	// unused, should erase
-	s16 endPos[3];
+	SVec3 endPos;
 
 	// 0xe
 	s16 distFromSpawn;
 
 	// 0x10
-	s16 rotCurr[3];
+	SVec3 rotCurr;
 	s16 padding16;
 
 	// 0x18
-	s16 rotDesired[3];
+	SVec3 rotDesired;
 
 	// 0x1e
 	s16 direction;
 
 	// 0x20
 	// unused, should erase
-	s16 rotDesiredAlt[3];
+	SVec3 rotDesiredAlt;
 
 	// 0x26
 	s16 numFramesSpinning;

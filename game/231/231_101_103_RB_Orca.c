@@ -141,9 +141,9 @@ void RB_Orca_ThTick(struct Thread *t)
 	if ((s16)pathFrame < 0)
 		pathFrame = 0;
 
-	orcaInst->matrix.t[0] = orcaObj->startPos[0] - ((pathFrame * orcaObj->midpoint[0]) / denominator);
-	orcaInst->matrix.t[1] = orcaObj->startPos[1] - ((pathFrame * orcaObj->midpoint[1]) / denominator);
-	orcaInst->matrix.t[2] = orcaObj->startPos[2] - ((pathFrame * orcaObj->midpoint[2]) / denominator);
+	orcaInst->matrix.t[0] = orcaObj->startPos.x - ((pathFrame * orcaObj->midpoint[0]) / denominator);
+	orcaInst->matrix.t[1] = orcaObj->startPos.y - ((pathFrame * orcaObj->midpoint[1]) / denominator);
+	orcaInst->matrix.t[2] = orcaObj->startPos.z - ((pathFrame * orcaObj->midpoint[2]) / denominator);
 
 	nextFrame = orcaInst->animFrame + 1;
 
@@ -168,8 +168,8 @@ void RB_Orca_ThTick(struct Thread *t)
 	orcaObj->cooldown = 0x5A;
 	orcaInst->animFrame = 0;
 	orcaObj->direction = direction ^ 1;
-	orcaObj->instDefRot[1] += 0x800;
-	ConvertRotToMatrix(&orcaInst->matrix, &orcaObj->instDefRot[0]);
+	orcaObj->instDefRot.y += 0x800;
+	ConvertRotToMatrix(&orcaInst->matrix, &orcaObj->instDefRot.x);
 }
 
 int RB_Orca_ThCollide(struct Thread *orcaThread, struct Thread *driverTh, void *funcThCollide, struct ScratchpadStruct *sps)
@@ -217,9 +217,9 @@ void RB_Orca_LInB(struct Instance *inst)
 	orcaObj = (struct Orca *)t->object;
 	orcaObj->animIndex = -10;
 	orcaObj->direction = 1;
-	orcaObj->instDefRot[0] = inst->instDef->rot.x;
-	orcaObj->instDefRot[1] = inst->instDef->rot.y;
-	orcaObj->instDefRot[2] = inst->instDef->rot.z;
+	orcaObj->instDefRot.x = inst->instDef->rot.x;
+	orcaObj->instDefRot.y = inst->instDef->rot.y;
+	orcaObj->instDefRot.z = inst->instDef->rot.z;
 
 	orcaID = inst->name[strlen(inst->name) - 1] - '0';
 	orcaObj->orcaID = orcaID;
@@ -228,16 +228,16 @@ void RB_Orca_LInB(struct Instance *inst)
 	{
 		spawnType2 = &sdata->gGT->level1->ptrSpawnType2[orcaID + 4];
 
-		*(int *)&orcaObj->startPos[0] = *(int *)&spawnType2->posCoords[0];
-		orcaObj->startPos[2] = spawnType2->posCoords[2];
+		*(int *)&orcaObj->startPos.x = *(int *)&spawnType2->posCoords[0];
+		orcaObj->startPos.z = spawnType2->posCoords[2];
 
-		*(int *)&orcaObj->endPos[0] = *(int *)&spawnType2->posCoords[3];
-		orcaObj->endPos[2] = spawnType2->posCoords[5];
+		*(int *)&orcaObj->endPos.x = *(int *)&spawnType2->posCoords[3];
+		orcaObj->endPos.z = spawnType2->posCoords[5];
 	}
 
-	orcaObj->midpoint[0] = orcaObj->startPos[0] - orcaObj->endPos[0];
-	orcaObj->midpoint[1] = orcaObj->startPos[1] - orcaObj->endPos[1];
-	orcaObj->midpoint[2] = orcaObj->startPos[2] - orcaObj->endPos[2];
+	orcaObj->midpoint[0] = orcaObj->startPos.x - orcaObj->endPos.x;
+	orcaObj->midpoint[1] = orcaObj->startPos.y - orcaObj->endPos.y;
+	orcaObj->midpoint[2] = orcaObj->startPos.z - orcaObj->endPos.z;
 
 	orcaObj->numFrames = INSTANCE_GetNumAnimFrames(inst, 0);
 

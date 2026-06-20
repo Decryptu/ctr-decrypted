@@ -21,7 +21,7 @@ void RB_Armadillo_ThTick_TurnAround(struct Thread *t)
 	armInst = t->inst;
 	armObj = (struct Armadillo *)t->object;
 
-	if (armObj->rotCurr[1] == armObj->rotDesired[1])
+	if (armObj->rotCurr.y == armObj->rotDesired.y)
 	{
 		// if animation is not over
 		if ((armInst->animFrame + 1) < INSTANCE_GetNumAnimFrames(armInst, 0))
@@ -52,10 +52,10 @@ void RB_Armadillo_ThTick_TurnAround(struct Thread *t)
 	else
 	{
 		// spin rotCurrY 180 degrees (turn around)
-		armObj->rotCurr[1] = RB_Hazard_InterpolateValue(armObj->rotCurr[1], armObj->rotDesired[1], 0x100);
+		armObj->rotCurr.y = RB_Hazard_InterpolateValue(armObj->rotCurr.y, armObj->rotDesired.y, 0x100);
 
 		// converted to TEST in rebuildPS1
-		ConvertRotToMatrix(&armInst->matrix, &armObj->rotCurr[0]);
+		ConvertRotToMatrix(&armInst->matrix, &armObj->rotCurr.x);
 
 		// increment frame
 		armInst->animFrame = armInst->animFrame + 1;
@@ -117,16 +117,16 @@ void RB_Armadillo_ThTick_Rolling(struct Thread *t)
 	CTR_MatrixToRot(&rot, &armInst->matrix, 0x11);
 
 	// reset
-	armObj->rotCurr[0] = rot.vy;
-	armObj->rotCurr[1] = rot.vx;
-	armObj->rotCurr[2] = rot.vz;
+	armObj->rotCurr.x = rot.vy;
+	armObj->rotCurr.y = rot.vx;
+	armObj->rotCurr.z = rot.vz;
 	armObj->timeRolling = 0;
 
 	// jumping animation
 	armInst->animIndex = 0;
 	armInst->animFrame = 0;
 
-	armObj->rotDesired[1] = (armObj->rotCurr[1] + 0x800) & 0xfff;
+	armObj->rotDesired.y = (armObj->rotCurr.y + 0x800) & 0xfff;
 
 	ThTick_SetAndExec(t, RB_Armadillo_ThTick_TurnAround);
 }
@@ -166,11 +166,11 @@ void RB_Armadillo_LInB(struct Instance *inst)
 	armObj->timeAtEdge = 0;
 
 	CTR_MatrixToRot(&rot, &inst->matrix, 0x11);
-	armObj->rotCurr[0] = rot.vy;
-	armObj->rotCurr[1] = rot.vx;
-	armObj->rotCurr[2] = rot.vz;
+	armObj->rotCurr.x = rot.vy;
+	armObj->rotCurr.y = rot.vx;
+	armObj->rotCurr.z = rot.vz;
 
-	armObj->rotDesired[1] = (armObj->rotCurr[1] + 0x800) & 0xfff;
+	armObj->rotDesired.y = (armObj->rotCurr.y + 0x800) & 0xfff;
 
 	armObj->distFromSpawn = 0;
 	armObj->spawnPosX = inst->matrix.t[0];

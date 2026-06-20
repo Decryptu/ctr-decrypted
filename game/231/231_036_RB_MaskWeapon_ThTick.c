@@ -89,9 +89,9 @@ void RB_MaskWeapon_ThTick(struct Thread *maskTh)
 
 	mhs->posOffset[1] = R231.maskPosArr[(int)maskBeamInst->animFrame >> 0] + 0x40;
 
-	mhs->rot[0] = 0;
-	mhs->rot[1] = rot;
-	mhs->rot[2] = 0;
+	mhs->rot.x = 0;
+	mhs->rot.y = rot;
+	mhs->rot.z = 0;
 
 	instCurr = maskInst;
 
@@ -102,7 +102,7 @@ void RB_MaskWeapon_ThTick(struct Thread *maskTh)
 		if ((mask->rot.z & 1) == 0)
 		{
 			LHMatrix_Parent(instCurr, driverInst, (SVECTOR *)&mhs->posOffset[0]);
-			ConvertRotToMatrix(&mhs->m, &mhs->rot[0]);
+			ConvertRotToMatrix(&mhs->m, &mhs->rot.x);
 			MatrixRotate(&instCurr->matrix, &instCurr->matrix, &mhs->m);
 		}
 		else
@@ -110,7 +110,7 @@ void RB_MaskWeapon_ThTick(struct Thread *maskTh)
 			instCurr->matrix.t[0] = (int)mask->pos.x + mhs->posOffset[0];
 			instCurr->matrix.t[1] = (int)mask->pos.y + mhs->posOffset[1];
 			instCurr->matrix.t[2] = (int)mask->pos.z + mhs->posOffset[2];
-			ConvertRotToMatrix(&instCurr->matrix, &mhs->rot[0]);
+			ConvertRotToMatrix(&instCurr->matrix, &mhs->rot.x);
 		}
 
 		// Set up the Second pass (BeamInst)

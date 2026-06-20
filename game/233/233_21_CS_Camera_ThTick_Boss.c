@@ -93,15 +93,15 @@ void CS_Camera_ThTick_Boss(struct Thread *t)
 		MEMPACK_SwapPacks(gGT->activeMempackIndex);
 
 		struct CsThreadInitData initData;
-		initData.podiumPos[0] = bcd->bossPos.x;
-		initData.podiumPos[1] = bcd->bossPos.y;
-		initData.podiumPos[2] = bcd->bossPos.z;
-		initData.rot[0] = bcd->bossRot.x;
-		initData.rot[1] = bcd->bossRot.y;
-		initData.rot[2] = bcd->bossRot.z;
-		initData.characterPos[0] = 0;
-		initData.characterPos[1] = 0;
-		initData.characterPos[2] = 0;
+		initData.podiumPos.x = bcd->bossPos.x;
+		initData.podiumPos.y = bcd->bossPos.y;
+		initData.podiumPos.z = bcd->bossPos.z;
+		initData.rot.x = bcd->bossRot.x;
+		initData.rot.y = bcd->bossRot.y;
+		initData.rot.z = bcd->bossRot.z;
+		initData.characterPos.x = 0;
+		initData.characterPos.y = 0;
+		initData.characterPos.z = 0;
 
 		// MUST go backwards,
 		// Body first, sibling = 0

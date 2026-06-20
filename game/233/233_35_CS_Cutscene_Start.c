@@ -25,15 +25,15 @@ void CS_Cutscene_Start(void)
 
 	CS_Instance_InitMatrix();
 
-	initData.podiumPos[0] = 0;
-	initData.podiumPos[1] = 0;
-	initData.podiumPos[2] = 0;
-	initData.characterPos[0] = 0;
-	initData.characterPos[1] = 0;
-	initData.characterPos[2] = 0;
-	initData.rot[0] = 0;
-	initData.rot[1] = 0;
-	initData.rot[2] = 0;
+	initData.podiumPos.x = 0;
+	initData.podiumPos.y = 0;
+	initData.podiumPos.z = 0;
+	initData.characterPos.x = 0;
+	initData.characterPos.y = 0;
+	initData.characterPos.z = 0;
+	initData.rot.x = 0;
+	initData.rot.y = 0;
+	initData.rot.z = 0;
 
 	CS_Thread_Init(NDI_BOX_BOX_01, R233.s_box1, (s16 *)&initData, 0, 0);
 	CS_Thread_Init(NDI_BOX_BOX_02, R233.s_box2, (s16 *)&initData, 0, 0);

@@ -390,20 +390,20 @@ processOpcode:
 			struct CsThreadInitData *initData = CTR_SCRATCHPAD_PTR(struct CsThreadInitData, 0x108);
 			int spawnModelID = opcodeMeta->arg1.i;
 
-			CS_Instance_GetFrameData(instance, (int)opcodeMeta->animIndex, opcodeMeta->arg0.i, (u16 *)initData->podiumPos, (u16 *)initData->rot, 0);
+			CS_Instance_GetFrameData(instance, (int)opcodeMeta->animIndex, opcodeMeta->arg0.i, (u16 *)initData->podiumPos.v, (u16 *)initData->rot.v, 0);
 
-			initData->podiumPos[0] += (s16)instance->matrix.t[0];
-			initData->podiumPos[1] += (s16)instance->matrix.t[1];
-			initData->podiumPos[2] += (s16)instance->matrix.t[2];
-			initData->characterPos[0] = 0;
-			initData->characterPos[1] = 0;
-			initData->characterPos[2] = 0;
+			initData->podiumPos.x += (s16)instance->matrix.t[0];
+			initData->podiumPos.y += (s16)instance->matrix.t[1];
+			initData->podiumPos.z += (s16)instance->matrix.t[2];
+			initData->characterPos.x = 0;
+			initData->characterPos.y = 0;
+			initData->characterPos.z = 0;
 
 			if (spawnModelID == NDI_BOX_PARTICLES_01)
 			{
-				initData->rot[0] = 0;
-				initData->rot[1] = 0;
-				initData->rot[2] = 0;
+				initData->rot.x = 0;
+				initData->rot.y = 0;
+				initData->rot.z = 0;
 			}
 
 			CS_Thread_Init(spawnModelID, R233.s_spawn, (s16 *)initData, 0, instance->thread);
@@ -679,15 +679,15 @@ processOpcode:
 		struct CsThreadInitData *initData = CTR_SCRATCHPAD_PTR(struct CsThreadInitData, 0x108);
 		int dancerModelID = opcodeMeta->arg1.i;
 
-		initData->podiumPos[0] = 0;
-		initData->podiumPos[1] = 0;
-		initData->podiumPos[2] = 0;
-		initData->rot[0] = 0;
-		initData->rot[1] = 0;
-		initData->rot[2] = 0;
-		initData->characterPos[0] = 0;
-		initData->characterPos[1] = 0;
-		initData->characterPos[2] = 0;
+		initData->podiumPos.x = 0;
+		initData->podiumPos.y = 0;
+		initData->podiumPos.z = 0;
+		initData->rot.x = 0;
+		initData->rot.y = 0;
+		initData->rot.z = 0;
+		initData->characterPos.x = 0;
+		initData->characterPos.y = 0;
+		initData->characterPos.z = 0;
 
 		gGT->podium_modelIndex_First = (u8)dancerModelID;
 		gGT->podium_modelIndex_Second = 0;
@@ -699,11 +699,11 @@ processOpcode:
 			gGT->podium_modelIndex_Second = STATIC_OXIDEDANCE;
 		}
 		if (dancerModelID == STATIC_CRASHDANCE)
-			initData->rot[1] += 0x800;
+			initData->rot.y += 0x800;
 
-		initData->rot[0] += R233.creditsDancerRotOffset[0];
-		initData->rot[1] += R233.creditsDancerRotOffset[1];
-		initData->rot[2] += R233.creditsDancerRotOffset[2];
+		initData->rot.x += R233.creditsDancerRotOffset[0];
+		initData->rot.y += R233.creditsDancerRotOffset[1];
+		initData->rot.z += R233.creditsDancerRotOffset[2];
 
 		dancerThread = (struct Thread *)CS_Thread_Init(dancerModelID, R233.s_g_dancer, (s16 *)initData, 0, 0);
 		CS_Credits_NewDancer(dancerThread, (int)opcodeMetaShorts[6]);

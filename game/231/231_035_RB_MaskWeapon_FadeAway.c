@@ -46,10 +46,10 @@ void RB_MaskWeapon_FadeAway(struct Thread *t)
 		instCurr = maskBeamInst;
 	}
 
-	mhs->rot[0] = 0;
-	mhs->rot[1] = mask->rot.y;
-	mhs->rot[2] = 0;
-	ConvertRotToMatrix(&mhs->m, &mhs->rot[0]);
+	mhs->rot.x = 0;
+	mhs->rot.y = mask->rot.y;
+	mhs->rot.z = 0;
+	ConvertRotToMatrix(&mhs->m, &mhs->rot.x);
 
 	m = &maskBeamInst->matrix;
 	MatrixRotate(m, m, &mhs->m);

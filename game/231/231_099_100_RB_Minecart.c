@@ -39,18 +39,17 @@ void RB_Minecart_NewPoint(struct Instance *minecartInst, struct Minecart *mineca
 		int start = spawnType2->posCoords[pointIndex + i - 3];
 		int end = spawnType2->posCoords[pointIndex + i];
 
-		minecartObj->posStart[i] = start;
-		minecartObj->posEnd[i] = end;
+		minecartObj->posStart.v[i] = start;
+		minecartObj->posEnd.v[i] = end;
 		minecartInst->matrix.t[i] = start;
 		minecartObj->dir.v[i] = start - end;
 	}
 
 #if defined(CTR_NATIVE)
-	minecartObj->rotDesired[0] =
-	    ratan2(minecartObj->dir.y, SquareRoot0_stub(minecartObj->dir.x * minecartObj->dir.x + minecartObj->dir.z * minecartObj->dir.z));
+	minecartObj->rotDesired.x = ratan2(minecartObj->dir.y, SquareRoot0_stub(minecartObj->dir.x * minecartObj->dir.x + minecartObj->dir.z * minecartObj->dir.z));
 #endif
 
-	minecartObj->rotDesired[1] = ratan2(minecartObj->dir.x, minecartObj->dir.z) - 0x800;
+	minecartObj->rotDesired.y = ratan2(minecartObj->dir.x, minecartObj->dir.z) - 0x800;
 }
 
 void RB_Minecart_ThTick(struct Thread *t)
@@ -117,7 +116,7 @@ void RB_Minecart_ThTick(struct Thread *t)
 		{
 			for (i = 0; i < 3; i++)
 			{
-				minecartObj->rotCurr[i] = minecartObj->rotDesired[i];
+				minecartObj->rotCurr.v[i] = minecartObj->rotDesired.v[i];
 			}
 		}
 	}
@@ -129,14 +128,14 @@ void RB_Minecart_ThTick(struct Thread *t)
 	for (i = 0; i < 3; i++)
 	{
 		minecartInst->matrix.t[i] =
-		    minecartObj->posStart[i] - ((minecartObj->betweenPoints_currFrame * minecartObj->dir.v[i]) / minecartObj->betweenPoints_numFrames);
+		    minecartObj->posStart.v[i] - ((minecartObj->betweenPoints_currFrame * minecartObj->dir.v[i]) / minecartObj->betweenPoints_numFrames);
 	}
 
-	minecartObj->rotCurr[1] = RB_Hazard_InterpolateValue(minecartObj->rotCurr[1], minecartObj->rotDesired[1], minecartObj->rotSpeed);
-	minecartObj->rotCurr[0] = RB_Hazard_InterpolateValue(minecartObj->rotCurr[0], minecartObj->rotDesired[0], minecartObj->rotSpeed);
+	minecartObj->rotCurr.y = RB_Hazard_InterpolateValue(minecartObj->rotCurr.y, minecartObj->rotDesired.y, minecartObj->rotSpeed);
+	minecartObj->rotCurr.x = RB_Hazard_InterpolateValue(minecartObj->rotCurr.x, minecartObj->rotDesired.x, minecartObj->rotSpeed);
 
 	// converted to TEST in rebuildPS1
-	ConvertRotToMatrix(&minecartInst->matrix, &minecartObj->rotCurr[0]);
+	ConvertRotToMatrix(&minecartInst->matrix, &minecartObj->rotCurr.x);
 
 	PlaySound3D_Flags(&minecartObj->audioPtr,
 	                  0x72, // minecart sound
