@@ -206,12 +206,12 @@ void GhostReplay_ThTick(struct Thread *t)
 		}
 	}
 
-	u32 scaledNum = (u32)(timeInRace - tape->timeInPacket01) * tape->numPacketsInArray * 0x1000;
+	s32 scaledNum = (timeInRace - tape->timeInPacket01) * tape->numPacketsInArray * 0x1000;
 
 	// 0% = 0, 100% = 0x1000
-	u32 scaledPacketIdx = scaledNum / tape->timeBetweenPackets;
-	s32 packetIdx = (s32)(scaledPacketIdx >> 0xc);
-	u16 lerp4096 = scaledPacketIdx & 0xfff;
+	s32 scaledPacketIdx = scaledNum / tape->timeBetweenPackets;
+	s32 packetIdx = scaledPacketIdx >> 0xc;
+	u16 lerp4096 = (u16)(scaledPacketIdx & 0xfff);
 
 	if (tape->numPacketsInArray <= packetIdx)
 	{
