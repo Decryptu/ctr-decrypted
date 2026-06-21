@@ -36,7 +36,7 @@ static u8 *MEMCARD_NativePrepareIcon(char *iconHeader, int memcardFileSize, u32 
 }
 
 // NOTE(aalhendi): ctr-native adapts host-backed card operations here; the
-// retail implementations stay in their numbered MEMCARD files for non-native
+// retail implementations stay in the retail MEMCARD domain files for non-native
 // builds.
 void MEMCARD_GetFreeBytes(int slotIdx)
 {

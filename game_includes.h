@@ -141,40 +141,20 @@
 #include "game/MATH/MATH_MatrixRotate.c"
 #include "game/MATH/MATH_6_MatrixMul.c"
 
-#include "game/MEMCARD/MEMCARD_00_SetIcon.c"
-#include "game/MEMCARD/MEMCARD_01_CRC16.c"
+#include "game/MEMCARD/MEMCARD_Icon.c"
+#include "game/MEMCARD/MEMCARD_Checksum.c"
+#include "game/MEMCARD/MEMCARD_String.c"
+#include "game/MEMCARD/MEMCARD_Card.c"
+#include "game/MEMCARD/MEMCARD_Events.c"
+#include "game/MEMCARD/MEMCARD_FileIO.c"
+
 // NOTE(aalhendi): CTR_NATIVE routes host-backed card operations through MEMCARD_NativeAdapter; non-native builds use the retail card functions below.
 #if defined(CTR_NATIVE)
 #include "game/MEMCARD/MEMCARD_NativeAdapter.c"
 #else
-#include "game/MEMCARD/MEMCARD_16_GetFreeBytes.c"
-#include "game/MEMCARD/MEMCARD_18_GetInfo.c"
-#include "game/MEMCARD/MEMCARD_21_Format.c"
-#include "game/MEMCARD/MEMCARD_22_IsFile.c"
-#include "game/MEMCARD/MEMCARD_23_FindFirstGhost.c"
-#include "game/MEMCARD/MEMCARD_24_FindNextGhost.c"
-#include "game/MEMCARD/MEMCARD_25_EraseFile.c"
-#endif
-#include "game/MEMCARD/MEMCARD_02_ChecksumSave.c"
-#include "game/MEMCARD/MEMCARD_03_ChecksumLoad.c"
-#include "game/MEMCARD/MEMCARD_04_StringInit.c"
-#include "game/MEMCARD/MEMCARD_05_StringSet.c"
-#include "game/MEMCARD/MEMCARD_06_InitCard.c"
-#include "game/MEMCARD/MEMCARD_07_CloseCard.c"
-#include "game/MEMCARD/MEMCARD_08_GetNextSwEvent.c"
-#include "game/MEMCARD/MEMCARD_09_GetNextHwEvent.c"
-#include "game/MEMCARD/MEMCARD_10_WaitForHwEvent.c"
-#include "game/MEMCARD/MEMCARD_11_SkipEvents.c"
-#include "game/MEMCARD/MEMCARD_12_NewTask.c"
-#include "game/MEMCARD/MEMCARD_13_CloseFile.c"
-#include "game/MEMCARD/MEMCARD_14_ReadFile.c"
-#include "game/MEMCARD/MEMCARD_15_WriteFile.c"
-#if !defined(CTR_NATIVE)
-#include "game/MEMCARD/MEMCARD_17_HandleEvent.c"
-#endif
-#if !defined(CTR_NATIVE)
-#include "game/MEMCARD/MEMCARD_19_Load.c"
-#include "game/MEMCARD/MEMCARD_20_Save.c"
+#include "game/MEMCARD/MEMCARD_RetailCard.c"
+#include "game/MEMCARD/MEMCARD_RetailEvents.c"
+#include "game/MEMCARD/MEMCARD_RetailTransfer.c"
 #endif
 
 #include "game/MEMPACK.c"
