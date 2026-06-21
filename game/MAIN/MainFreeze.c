@@ -1078,51 +1078,38 @@ void MainFreeze_MenuPtrDefault(struct RectMenu *menu)
 	return;
 }
 
-extern int mainFreezeFlags[5];
-extern struct RectMenu *mainFreezeMenuArr[5];
-
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80039dcc-0x80039e98.
 struct RectMenu *MainFreeze_GetMenuPtr(void)
 {
 	struct GameTracker *gGT = sdata->gGT;
+	u32 gameMode = gGT->gameMode1;
 
-	// Set string to "Uka Uka Hints",
-	// or if boolGoodGuy, then set "Aku Aku Hints"
-	int var1 = 0xc;
-	if (VehPickupItem_MaskBoolGoodGuy(gGT->drivers[0]) != 0)
-		var1 = 0xb;
+	if ((gameMode & ADVENTURE_ARENA) != 0)
+	{
+		s32 hintString = LNG_UKA_UKA_HINTS;
+		if (VehPickupItem_MaskBoolGoodGuy(gGT->drivers[0]) != 0)
+			hintString = LNG_AKU_AKU_HINTS;
 
-	data.rowsAdvHub[1].stringIndex = var1;
+		data.rowsAdvHub[1].stringIndex = hintString;
+		return &data.menuAdvHub;
+	}
+
+	if ((gameMode & ADVENTURE_MODE) != 0)
+	{
+		if ((gameMode & ADVENTURE_CUP) != 0)
+			return &data.menuAdvCup;
+
+		return &data.menuAdvRace;
+	}
+
+	if ((gameMode & BATTLE_MODE) != 0)
+		return &data.menuBattle;
 
 	if ((gGT->gameMode2 & CUP_ANY_KIND) != 0)
-	{
 		return &data.menuArcadeCup;
-	}
 
-	u32 gameMode = gGT->gameMode1;
-	int *flagPtr = &mainFreezeFlags[0];
-	struct RectMenu **menuPtrToPtr = &mainFreezeMenuArr[0];
-
-	for (
-	    /**/; *flagPtr != 0;
-
-	    flagPtr++, menuPtrToPtr++)
-	{
-		if ((gameMode & (*flagPtr)) != 0)
-			break;
-	}
-
-	// if nothing else,
-	// then menuArcadeRace
-	return (*menuPtrToPtr);
+	return &data.menuArcadeRace;
 }
-
-int mainFreezeFlags[5] = {
-    BATTLE_MODE, ADVENTURE_ARENA, ADVENTURE_CUP, ADVENTURE_MODE,
-    0 // null terminator
-};
-
-struct RectMenu *mainFreezeMenuArr[5] = {&data.menuBattle, &data.menuAdvHub, &data.menuAdvCup, &data.menuAdvRace, &data.menuArcadeRace};
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80039e98-0x80039fa8.
 void MainFreeze_IfPressStart(void)

@@ -162,6 +162,19 @@ internal void BOTS_Adv_CopySpawnOrder(s32 first, s32 second)
 	*(s32 *)&sdata->kartSpawnOrderArray[4] = second;
 }
 
+internal s32 BOTS_GetTrackDistanceToFinish(struct GameTracker *gGT)
+{
+#if defined(CTR_NATIVE)
+	// NOTE(aalhendi): Menu-storage/wrong-warp can leave stale bot threads in
+	// levels without restart points. Retail blind-loads from low PSX memory;
+	// native uses zero so only stale AI spacing/rubberband math is affected.
+	if ((gGT->level1 == NULL) || (gGT->level1->ptr_restart_points == NULL))
+		return 0;
+#endif
+
+	return CTR_MipsSll(gGT->level1->ptr_restart_points->distToFinish, 3);
+}
+
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80012598-0x80013374.
 void BOTS_Adv_AdjustDifficulty(void)
 {
@@ -769,7 +782,7 @@ void BOTS_Killplane(struct Thread *botThread)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80013c18-0x80016b00.
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80013c18-0x80016b00 for the retail path.
 
 void BOTS_ThTick_Drive(struct Thread *botThread)
 {
@@ -1062,7 +1075,7 @@ UpdateTireColorTimer:
 						// because "diff" will be incremented largely and fail the <0x200 check
 						if (diff < 0)
 						{
-							diff = CTR_MipsAddLo(diff, CTR_MipsSll(gGT->level1->ptr_restart_points->distToFinish, 3));
+							diff = CTR_MipsAddLo(diff, BOTS_GetTrackDistanceToFinish(gGT));
 						}
 
 						// if "this" bot driver is behind "other" driver, and very close to them,
@@ -1202,7 +1215,7 @@ UpdateTireColorTimer:
 					}
 				}
 
-				int distToFinish = CTR_MipsSll(gGT->level1->ptr_restart_points->distToFinish, 3); // iVar3
+				int distToFinish = BOTS_GetTrackDistanceToFinish(gGT); // iVar3
 
 				int lapIndex = bestDriverRank->lapIndex; // uVar20
 

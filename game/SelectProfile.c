@@ -31,7 +31,7 @@ struct SelectProfileLoadSaveObj
 _Static_assert(sizeof(struct SelectProfileLoadSaveIcon) == 0xc);
 _Static_assert(sizeof(struct SelectProfileLoadSaveObj) == 0x8);
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80047dfc-0x80047f20.
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80047dfc-0x80047f20 for the retail path.
 void SelectProfile_ThTick(struct Thread *t)
 {
 	struct SelectProfileLoadSaveObj *obj;
@@ -44,13 +44,22 @@ void SelectProfile_ThTick(struct Thread *t)
 	for (i = 0; i < 12; i++, icon++)
 	{
 		int slot = i % 3;
+		struct Instance *inst = icon->inst;
 
 		icon->rot.y = (s16)(icon->rot.y + sdata->LoadSave_SpinRateY[slot]);
-		ConvertRotToMatrix(&icon->inst->matrix, &icon->rot);
+
+#if defined(CTR_NATIVE)
+		// NOTE(aalhendi): Menu-storage can keep this thread alive when the
+		// load/save icon models were not published for the current level.
+		if (inst == NULL)
+			continue;
+#endif
+
+		ConvertRotToMatrix(&inst->matrix, &icon->rot);
 
 		if (slot != 1)
 		{
-			Vector_SpecLightSpin3D(icon->inst, &icon->rot.x, &data.MetaDataLoadSave[i].vec3_specular_inverted);
+			Vector_SpecLightSpin3D(inst, &icon->rot.x, &data.MetaDataLoadSave[i].vec3_specular_inverted);
 		}
 	}
 }
@@ -99,6 +108,11 @@ int SelectProfile_UI_ConvertY(int param_1, int param_2)
 static void SelectProfile_DrawAdvProfile_UpdateIcon(struct SelectProfileLoadSaveObj *obj, int index, int posX, int posY)
 {
 	struct Instance *inst = obj->icons[index].inst;
+
+#if defined(CTR_NATIVE)
+	if (inst == NULL)
+		return;
+#endif
 
 	inst->matrix.t[0] = SelectProfile_UI_ConvertX(posX, 0x100);
 	inst->matrix.t[1] = SelectProfile_UI_ConvertY(posY, 0x100);
@@ -322,7 +336,7 @@ void SelectProfile_Init(u16 flags)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800488e0-0x80048960.
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800488e0-0x80048960 for the retail path.
 void SelectProfile_Destroy(void)
 {
 	struct SelectProfileLoadSaveObj *obj;
@@ -338,9 +352,15 @@ void SelectProfile_Destroy(void)
 			if (icon->inst != NULL)
 			{
 				INSTANCE_Death(icon->inst);
+#if defined(CTR_NATIVE)
+				icon->inst = NULL;
+#endif
 			}
 		}
 
+#if defined(CTR_NATIVE)
+		obj->thread->funcThTick = NULL;
+#endif
 		obj->thread->flags |= THREAD_FLAG_DEAD;
 		sdata->ptrLoadSaveObj = 0;
 	}

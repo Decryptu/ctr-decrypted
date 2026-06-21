@@ -21,7 +21,7 @@ global_variable const s16 s_battleTrackPurpleTokenOffset[LAB_BASEMENT - NITRO_CO
 
 extern struct RectMenu menu221;
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8009f710-0x8009fbec.
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8009f710-0x8009fbec for the retail path.
 void CC_EndEvent_DrawMenu()
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -54,7 +54,12 @@ void CC_EndEvent_DrawMenu()
 		elapsedFrames++;
 
 	sdata->framesSinceRaceEnded = elapsedFrames;
-	sdata->ptrHudCrystal->flags |= HIDE_MODEL;
+#if defined(CTR_NATIVE)
+	// NOTE(aalhendi): Menu-storage can enter this flow in tracks without
+	// crystal HUD instances; keep reward/menu logic and skip missing models.
+	if (sdata->ptrHudCrystal != NULL)
+#endif
+		sdata->ptrHudCrystal->flags |= HIDE_MODEL;
 
 	// fly in from left
 	UI_Lerp2D_Linear(pos.v, -0x64, 0x18, 0x100, 0x18, elapsedFrames, CC_FLY_IN_FRAMES);
@@ -65,8 +70,13 @@ void CC_EndEvent_DrawMenu()
 	UI_Lerp2D_Linear(pos.v, 0x264, 0x56, 0xcd, 0x56, elapsedFrames, CC_FLY_IN_FRAMES);
 
 	// Crystal count
-	sdata->ptrMenuCrystal->matrix.t[0] = UI_ConvertX_2(pos.x, CC_SCREEN_DEPTH);
-	sdata->ptrMenuCrystal->matrix.t[1] = UI_ConvertY_2(pos.y, CC_SCREEN_DEPTH);
+#if defined(CTR_NATIVE)
+	if (sdata->ptrMenuCrystal != NULL)
+#endif
+	{
+		sdata->ptrMenuCrystal->matrix.t[0] = UI_ConvertX_2(pos.x, CC_SCREEN_DEPTH);
+		sdata->ptrMenuCrystal->matrix.t[1] = UI_ConvertY_2(pos.y, CC_SCREEN_DEPTH);
+	}
 	UI_DrawNumCrystal(pos.x + 0xf, pos.y - 0x10, driver);
 
 	s32 resultStringIndex = LNG_YOU_WIN;
@@ -104,17 +114,27 @@ void CC_EndEvent_DrawMenu()
 	UI_Lerp2D_Linear(pos.v, -0x64, 0xA2, 0x100, 0xA2, elapsedFrames, CC_FLY_IN_FRAMES);
 
 	DecalFont_DrawLine(sdata->lngStrings[LNG_CTR_TOKEN_AWARDED], pos.x, pos.y, FONT_BIG, color);
-	token->flags &= ~(HIDE_MODEL);
-	token->matrix.t[0] = UI_ConvertX_2(pos.x, CC_SCREEN_DEPTH);
-	token->matrix.t[1] = UI_ConvertY_2(0xA2 - 0x18, CC_SCREEN_DEPTH);
+#if defined(CTR_NATIVE)
+	if (token != NULL)
+#endif
+	{
+		token->flags &= ~(HIDE_MODEL);
+		token->matrix.t[0] = UI_ConvertX_2(pos.x, CC_SCREEN_DEPTH);
+		token->matrix.t[1] = UI_ConvertY_2(0xA2 - 0x18, CC_SCREEN_DEPTH);
+	}
 
 	if (elapsedFrames > CTR_SECONDS_TO_FRAMES(1))
 	{
-		if (token->scale.x < CC_TOKEN_GROW_LIMIT)
+#if defined(CTR_NATIVE)
+		if (token != NULL)
+#endif
 		{
-			token->scale.x += CC_TOKEN_GROW_STEP;
-			token->scale.y += CC_TOKEN_GROW_STEP;
-			token->scale.z += CC_TOKEN_GROW_STEP;
+			if (token->scale.x < CC_TOKEN_GROW_LIMIT)
+			{
+				token->scale.x += CC_TOKEN_GROW_STEP;
+				token->scale.y += CC_TOKEN_GROW_STEP;
+				token->scale.z += CC_TOKEN_GROW_STEP;
+			}
 		}
 	}
 	else if (elapsedFrames == CTR_SECONDS_TO_FRAMES(1))

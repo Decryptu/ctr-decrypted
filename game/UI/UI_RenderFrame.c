@@ -897,17 +897,19 @@ void UI_RenderFrame_AdvHub(void)
 	UI_DrawNumTrophy(hudStructPtr[0x10].x + 0x10, hudStructPtr[0x10].y - 10);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005435c-0x8005465c.
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005435c-0x8005465c for the retail path.
 void UI_RenderFrame_CrystChall(void)
 {
 	struct GameTracker *gGT = sdata->gGT;
 	struct Driver *player;
 	struct UiElement2D *hudStructPtr;
+	struct Instance *hudCrystal;
 	int iVar5;
 	SVec2 crystalPos;
 
 	player = gGT->drivers[0];
 	hudStructPtr = data.hudStructPtr[0];
+	hudCrystal = sdata->ptrHudCrystal;
 
 	// If game is not paused
 	if ((gGT->gameMode1 & PAUSE_ALL) == 0)
@@ -948,15 +950,25 @@ void UI_RenderFrame_CrystChall(void)
 
 	if ((player->PickupWumpaHUD.numCollected) == 0)
 	{
+#if defined(CTR_NATIVE)
+		// NOTE(aalhendi): Menu-storage can enter crystal HUD flow without
+		// a published crystal HUD model.
+		if (hudCrystal == NULL)
+			goto LAB_800545e8;
+#endif
+
 		// make invisible
-		sdata->ptrHudCrystal->flags |= 0x80;
+		hudCrystal->flags |= 0x80;
 		goto LAB_800545e8;
 	}
 	crystalPos.x = hudStructPtr[0x11].x;
 	crystalPos.y = hudStructPtr[0x11].y;
 
 	// make visible
-	sdata->ptrHudCrystal->flags &= 0xffffff7f;
+#if defined(CTR_NATIVE)
+	if (hudCrystal != NULL)
+#endif
+		hudCrystal->flags &= 0xffffff7f;
 
 	// if cooldown between grabbing items is over,
 	// which also means item has moved to the hud icon
@@ -996,8 +1008,6 @@ void UI_RenderFrame_CrystChall(void)
 		player->PickupWumpaHUD.cooldown--;
 	}
 
-	struct Instance *hudCrystal = sdata->ptrHudCrystal;
-
 	// ======= This is UI_ConvertX_2 and Y_2, but inlined =======
 
 	// posX
@@ -1006,18 +1016,23 @@ void UI_RenderFrame_CrystChall(void)
 	{
 		iVar5 = iVar5 + 0xff;
 	}
-	hudCrystal->matrix.t[0] = iVar5 >> 8;
-
-	// posY
-	iVar5 = (crystalPos.y + -0x6c) * hudStructPtr[0x11].z;
-	if (iVar5 < 0)
+#if defined(CTR_NATIVE)
+	if (hudCrystal != NULL)
+#endif
 	{
-		iVar5 = iVar5 + 0xff;
-	}
-	hudCrystal->matrix.t[1] = iVar5 >> 8;
+		hudCrystal->matrix.t[0] = iVar5 >> 8;
 
-	// posZ
-	hudCrystal->matrix.t[2] = hudStructPtr[0x11].z;
+		// posY
+		iVar5 = (crystalPos.y + -0x6c) * hudStructPtr[0x11].z;
+		if (iVar5 < 0)
+		{
+			iVar5 = iVar5 + 0xff;
+		}
+		hudCrystal->matrix.t[1] = iVar5 >> 8;
+
+		// posZ
+		hudCrystal->matrix.t[2] = hudStructPtr[0x11].z;
+	}
 
 LAB_800545e8:
 

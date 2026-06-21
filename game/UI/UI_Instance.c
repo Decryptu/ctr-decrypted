@@ -202,7 +202,7 @@ struct Instance *UI_INSTANCE_BirthWithThread(int param_1, int param_2, int param
 	return inst;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004cec4-0x8004d614.
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004cec4-0x8004d614 for the retail path.
 void UI_INSTANCE_InitAll(void)
 {
 	struct GameTracker *gGT;
@@ -228,10 +228,20 @@ void UI_INSTANCE_InitAll(void)
 		sdata->ptrToken = UI_INSTANCE_BirthWithThread(0x7d, (int)UI_ThTick_Reward, 0x12, 0, 0, (int)sdata->s_token);
 
 		// make Crystal invisible
-		sdata->ptrHudCrystal->flags |= 0x80;
+#if defined(CTR_NATIVE)
+		// NOTE(aalhendi): Menu-storage can carry CRYSTAL_CHALLENGE into tracks
+		// that did not publish crystal HUD models.
+		if (sdata->ptrHudCrystal != NULL)
+#endif
+			sdata->ptrHudCrystal->flags |= 0x80;
 
 		// make copy of Token pointer
 		token = sdata->ptrToken;
+
+#if defined(CTR_NATIVE)
+		if (token == NULL)
+			return;
+#endif
 
 		// set Token scale (x, y, z) to zero
 		token->scale.x = 0;
