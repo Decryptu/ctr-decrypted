@@ -414,6 +414,32 @@ void VehBirth_TeleportAll(struct GameTracker *gGT, u32 spawnFlags)
 	}
 }
 
+enum
+{
+	VEH_MODEL_NAME_WORD_COUNT = 4,
+	VEH_EXTRA_DRIVER_MODEL_COUNT = 3,
+};
+
+_Static_assert(sizeof(((struct Model *)0)->name) == VEH_MODEL_NAME_WORD_COUNT * sizeof(u32));
+
+internal u32 VehBirth_ReadModelNameWord(const char *name, int wordIndex)
+{
+	u32 word;
+	memcpy(&word, &name[wordIndex * (int)sizeof(word)], sizeof(word));
+	return word;
+}
+
+internal b32 VehBirth_ModelNameEquals(const struct Model *model, const char *name)
+{
+	for (int wordIndex = 0; wordIndex < VEH_MODEL_NAME_WORD_COUNT; wordIndex++)
+	{
+		if (VehBirth_ReadModelNameWord(model->name, wordIndex) != VehBirth_ReadModelNameWord(name, wordIndex))
+			return false;
+	}
+
+	return true;
+}
+
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80058948-0x80058a60.
 struct Model *VehBirth_GetModelByName(char *searchName)
 {
@@ -425,15 +451,11 @@ struct Model *VehBirth_GetModelByName(char *searchName)
 	// maximum of 4, used in VS mode
 	models = (struct Model **)&data.driverModelExtras[0];
 
-#define NUM_CHECK 3 // OG game: 3 drivers in VS mode
-
-	for (i = 0; i < NUM_CHECK; i++)
+	for (i = 0; i < VEH_EXTRA_DRIVER_MODEL_COUNT; i++)
 	{
 		m = models[i];
 
-		// 12/16 bytes is enough
-		if ((m != NULL) && (*(u32 *)&m->name[0] == *(u32 *)&searchName[0]) && (*(u32 *)&m->name[4] == *(u32 *)&searchName[4]) &&
-		    (*(u32 *)&m->name[8] == *(u32 *)&searchName[8]) && (*(u32 *)&m->name[12] == *(u32 *)&searchName[12]))
+		if ((m != NULL) && VehBirth_ModelNameEquals(m, searchName))
 		{
 			// character found, return pointer
 			return m;
@@ -449,9 +471,7 @@ struct Model *VehBirth_GetModelByName(char *searchName)
 		// loop until all strings are checked (until current is not nullptr)
 		for (i = 0, m = models[i]; m != NULL; i++, m = models[i])
 		{
-			// 12/16 bytes is enough
-			if ((*(u32 *)&m->name[0] == *(u32 *)&searchName[0]) && (*(u32 *)&m->name[4] == *(u32 *)&searchName[4]) &&
-			    (*(u32 *)&m->name[8] == *(u32 *)&searchName[8]) && (*(u32 *)&m->name[12] == *(u32 *)&searchName[12]))
+			if (VehBirth_ModelNameEquals(m, searchName))
 			{
 				// character found, return pointer
 				return m;

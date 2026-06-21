@@ -46,7 +46,16 @@ static u32 VehGroundShadow_Ptr24(const void *ptr)
 
 static u32 VehGroundShadow_ReadWord(const void *base, int offset)
 {
-	return *(const u32 *)(const void *)((const char *)base + offset);
+	u32 value;
+	memcpy(&value, (const char *)base + offset, sizeof(value));
+	return value;
+}
+
+static u16 VehGroundShadow_ReadHalf(const void *base, int offset)
+{
+	u16 value;
+	memcpy(&value, (const char *)base + offset, sizeof(value));
+	return value;
 }
 
 static u32 VehGroundShadow_PackXY(s32 x, s32 y)
@@ -232,8 +241,8 @@ static void VehGroundShadow_WriteUv(POLY_FT4 *poly, const struct TextureLayout *
 {
 	CtrGpu_WritePackedUVWord(&poly->u0, VehGroundShadow_ReadWord(tex, 0x00));
 	CtrGpu_WritePackedUVWord(&poly->u1, VehGroundShadow_ReadWord(tex, 0x04));
-	CtrGpu_WritePackedUV(&poly->u2, *(const u16 *)(const void *)((const char *)tex + 0x08));
-	CtrGpu_WritePackedUV(&poly->u3, *(const u16 *)(const void *)((const char *)tex + 0x0a));
+	CtrGpu_WritePackedUV(&poly->u2, VehGroundShadow_ReadHalf(tex, 0x08));
+	CtrGpu_WritePackedUV(&poly->u3, VehGroundShadow_ReadHalf(tex, 0x0a));
 }
 
 static void VehGroundShadow_EmitQuad(u32 **primCursor, u_long *otBase, const struct TextureLayout *texture, u32 color, u32 sxy[VEH_GROUND_SHADOW_NUM_POINTS],

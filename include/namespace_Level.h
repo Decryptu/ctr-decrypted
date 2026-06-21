@@ -898,8 +898,17 @@ struct Level
 	struct NavHeader **LevNavTable;
 
 	// 0x18C
-	// used in FUN_80060630
-	int unk_18C;
+	union
+	{
+		int unk_18C;
+		struct
+		{
+			u8 jumpVerticalSpeedCap;
+			u8 unk_18D;
+			u8 unk_18E;
+			u8 unk_18F;
+		};
+	};
 
 	// 0x190
 	struct VisMem *visMem;
@@ -908,3 +917,4 @@ struct Level
 };
 
 _Static_assert(sizeof(struct RainBuffer) == 0x30);
+_Static_assert(offsetof(struct Level, jumpVerticalSpeedCap) == 0x18C);
