@@ -21,6 +21,7 @@ void Platform_InputUpdate(void);
 void Platform_InputControllerAdded(int deviceIndex);
 void Platform_InputControllerRemoved(int instanceId);
 int Platform_InputCycleKeyboardController(void);
+int Platform_InputCycleGamepadController(void);
 
 void Platform_InputPadInit(int slot, unsigned char *padData);
 int Platform_InputPadGetState(int port);

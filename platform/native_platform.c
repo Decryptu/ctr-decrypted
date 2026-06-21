@@ -286,13 +286,13 @@ void Platform_EndScene(void)
 
 	if (s_pinnedVramDisplayFrames > 0)
 	{
-			// NOTE(aalhendi): Direct VRAM presentation skips StoreFrameBuffer.
-			// Do not let the next DrawSync read stale framebuffer texture data back
-			// into PSX VRAM after a movie/frame upload.
-			NativeRenderer_DiscardFramebufferReadback();
-			if (s_pinnedVramDisplayCustomRect)
-				NativeRenderer_PresentVRAMRect(s_pinnedVramDisplayX, s_pinnedVramDisplayY, s_pinnedVramDisplayW, s_pinnedVramDisplayH);
-			else
+		// NOTE(aalhendi): Direct VRAM presentation skips StoreFrameBuffer.
+		// Do not let the next DrawSync read stale framebuffer texture data back
+		// into PSX VRAM after a movie/frame upload.
+		NativeRenderer_DiscardFramebufferReadback();
+		if (s_pinnedVramDisplayCustomRect)
+			NativeRenderer_PresentVRAMRect(s_pinnedVramDisplayX, s_pinnedVramDisplayY, s_pinnedVramDisplayW, s_pinnedVramDisplayH);
+		else
 			NativeRenderer_PresentVRAMDisplay();
 		NativeRenderer_SwapWindow();
 		s_pinnedVramDisplayFrames--;
@@ -397,7 +397,19 @@ void Platform_PollHostEvents(void)
 			if ((key == SDL_SCANCODE_F4) && (down == 0))
 			{
 #ifdef CTR_INTERNAL
-				Platform_LogWarn("[CTR Native] Active keyboard controller: %d\n", Platform_InputCycleKeyboardController());
+				Platform_LogWarn("[CTR Native] Keyboard assigned to player %d\n", Platform_InputCycleKeyboardController());
+#endif
+				break;
+			}
+
+			if ((key == SDL_SCANCODE_F6) && (down == 0))
+			{
+#ifdef CTR_INTERNAL
+				int player = Platform_InputCycleGamepadController();
+				if (player == 0)
+					Platform_LogWarn("[CTR Native] No gamepad connected\n");
+				else
+					Platform_LogWarn("[CTR Native] Gamepad assigned to player %d\n", player);
 #endif
 				break;
 			}
