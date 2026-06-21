@@ -1,5 +1,48 @@
 #include <common.h>
 
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b344c-0x800b351c.
+void AH_HintMenu_FiveArrows(int param_1, s16 rotation)
+{
+	int *ptrColor;
+	char i;
+
+	ptrColor = &D232.fiveArrow_col1[0];
+	if ((sdata->frameCounter & 2) != 0)
+		ptrColor = &D232.fiveArrow_col2[0];
+
+	for (i = 0; i < 5; i++)
+	{
+		AH_Map_HubArrow(
+		    // posX
+		    (i * 0x32 + 0x95),
+
+		    // posY
+		    (param_1 + 4),
+
+		    &D232.fiveArrow_pos[0],
+
+		    (char *)ptrColor, 0x800, (int)rotation);
+	}
+}
+
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b351c-0x800b3594.
+void AH_HintMenu_MaskPosRot(void)
+{
+	struct Instance *mask = sdata->instMaskHints3D;
+
+	ConvertRotToMatrix(&mask->matrix, &D232.maskRot);
+
+	// Set position
+	mask->matrix.t[0] = D232.maskPos.x;
+	mask->matrix.t[1] = D232.maskPos.y;
+	mask->matrix.t[2] = D232.maskPos.z;
+
+	// always 0x1000 ???
+	((struct MaskHint *)mask->thread->object)->scale = D232.maskScale;
+
+	return;
+}
+
 // NOTE(aalhendi): ASM-verified NTSC-U 926 overlay 232 0x800b3594-0x800b3dd8.
 void AH_HintMenu_MenuProc(struct RectMenu *menu)
 {

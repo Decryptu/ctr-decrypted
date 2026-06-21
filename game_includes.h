@@ -334,7 +334,15 @@
 #include "game/232/R232.c"
 #include "game/232/D232.c"
 
-#include "game/232/232_Full.c"
+#include "game/232/AH_WarpPad.c"
+#include "game/232/AH_Garage.c"
+#include "game/232/AH_SaveObj.c"
+#include "game/232/AH_Door.c"
+#include "game/232/AH_Map.c"
+#include "game/232/AH_Pause.c"
+#include "game/232/AH_HintMenu.c"
+#include "game/232/AH_MaskHint.c"
+#include "game/232/AH_Sign.c"
 
 #include "game/233/233_Full.c"
 

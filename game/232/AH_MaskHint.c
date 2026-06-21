@@ -1,5 +1,206 @@
 #include <common.h>
 
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b3dd8-0x800b3f88.
+void AH_MaskHint_Start(s16 hintId, u16 bool_interruptWarppad)
+{
+	int iVar3;
+	int bitIndex;
+	struct Driver *d;
+
+	// copy parameters
+	D232.maskWarppadBoolInterrupt = bool_interruptWarppad;
+	D232.maskHintID = hintId;
+
+	sdata->boolDraw3D_AdvMask = 1;
+
+	struct AdvProgress *adv = &sdata->advProgress;
+	bitIndex = (int)hintId + ADV_REWARD_FIRST_HINT;
+	UNLOCK_ADV_BIT(adv->rewards, bitIndex);
+
+	// If this is "welcome to adventure arena"
+	if (hintId == ADV_MASK_HINT_ID_WELCOME_TO_ARENA)
+	{
+		// "Using a Warppad" and "Map Information"
+		UNLOCK_ADV_BIT(adv->rewards, ADV_REWARD_HINT_USING_WARP_PAD);
+		UNLOCK_ADV_BIT(adv->rewards, ADV_REWARD_HINT_MAP_INFORMATION);
+	}
+
+	d = sdata->gGT->drivers[0];
+	d->funcPtrs[DRIVER_FUNC_INIT] = VehPhysProc_FreezeEndEvent_Init;
+
+	// If Aku / Uka model pointer is nullptr
+	if (sdata->modelMaskHints3D == NULL)
+	{
+		LOAD_TalkingMask(LOAD_GetAdvPackIndex(), (VehPickupItem_MaskBoolGoodGuy(d) & 0xffff) == 0);
+
+		// 3.0s to spawn mask
+		D232.maskSpawnFrame = 90;
+	}
+
+	// if model is not nullptr
+	else
+	{
+		// 0.667s to spawn mask
+		D232.maskSpawnFrame = 20;
+	}
+
+	iVar3 = (bool_interruptWarppad & 1) * 3;
+
+	s16 *input = &D232.maskVars[0];
+
+	D232.maskOffsetPos.x = input[iVar3 + 0];
+	D232.maskOffsetPos.y = input[iVar3 + 1];
+	D232.maskOffsetPos.z = input[iVar3 + 2];
+
+	D232.maskOffsetRot.x = input[iVar3 + 6];
+	D232.maskOffsetRot.y = input[iVar3 + 7];
+	D232.maskOffsetRot.z = input[iVar3 + 8];
+
+	for (int i = 0; i < 3; i++)
+	{
+		// 4 bytes for 4 volumes
+		// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b3f3c-0x800b3f54 for mask-hint volume backup.
+		D232.audioBackup[i] = howl_VolumeGet(i);
+	}
+
+	return;
+}
+
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b3f88-0x800b3f98.
+int AH_MaskHint_boolCanSpawn()
+{
+	// 0 - aku is gone,
+	// 1 - aku is speaking
+
+	// return 0, if aku is speaking -- can't spawn
+	// return 1, if aku is gone -- can spawn
+
+	return sdata->AkuAkuHintState == 0;
+}
+
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b3f98-0x800b42b4.
+void AH_MaskHint_SetAnim(int scale)
+{
+	MATRIX *m;
+	struct GameTracker *gGT = sdata->gGT;
+	struct PushBuffer *pb = &gGT->pushBuffer[0];
+
+	m = &pb->matrix_Camera;
+	gte_SetRotMatrix(m);
+	gte_SetTransMatrix(m);
+
+	gte_ldv0(&D232.maskOffsetPos);
+	gte_rt();
+
+	int posEndINT[3];
+	SVec3 posEnd;
+
+	gte_stlvnl(&posEndINT[0]);
+
+	posEnd.x = posEndINT[0];
+	posEnd.y = posEndINT[1];
+	posEnd.z = posEndINT[2];
+
+	SVec3 rotEnd;
+	rotEnd.x = pb->rot.x - D232.maskOffsetRot.x;
+	rotEnd.y = pb->rot.y + D232.maskOffsetRot.y;
+	rotEnd.z = pb->rot.z - D232.maskOffsetRot.z;
+
+	SVec3 posCurr;
+	SVec3 rotCurr;
+	CAM_ProcessTransition(&posCurr, &rotCurr, &D232.maskCamPosStart, &D232.maskCamRotStart, &posEnd, &rotEnd, scale);
+
+	int rot = 0x1000;
+	if (D232.maskSpawnFrame - 20 < D232.maskFrameCurr)
+	{
+		rot = ((D232.maskSpawnFrame - D232.maskFrameCurr) * rot) / 20;
+	}
+
+	// 4096->50
+	rot = (rot * 50) >> 0xc;
+
+	int angle = (scale << 0xf) >> 0xc;
+	D232.maskAngle = angle;
+
+	int sin = MATH_Sin(angle);
+	int cos = MATH_Cos(angle);
+
+	struct Instance *mhInst = sdata->instMaskHints3D;
+	posCurr.x += (s16)((sin * rot) >> 0xc);
+	posCurr.z += (s16)((cos * rot) >> 0xc);
+
+	rotCurr.y += angle;
+	ConvertRotToMatrix(&mhInst->matrix, &rotCurr);
+
+	((struct MaskHint *)mhInst->thread->object)->scale = scale * 4 - 1;
+
+	angle = (sdata->frameCounter + gGT->timer) * 0x20;
+	sin = MATH_Sin(angle);
+	posCurr.y += (s16)(((sin << 4) >> 0xc) * scale >> 0xc);
+
+	mhInst->matrix.t[0] = posCurr.x;
+	mhInst->matrix.t[1] = posCurr.y;
+	mhInst->matrix.t[2] = posCurr.z;
+}
+
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b42b4-0x800b43cc.
+void AH_MaskHint_SpawnParticles(s16 numParticles, struct ParticleEmitter *emSet, int maskAnim)
+
+{
+	struct Particle *particle;
+	struct Instance *maskInst;
+	int i, j;
+
+	maskAnim = maskAnim + 0x1000;
+	if (maskAnim > 0x3fff)
+	{
+		maskAnim = 0x3fff;
+	}
+
+	// "hubdustpuff"
+	struct IconGroup *ig = sdata->gGT->iconGroup[0x10];
+
+	// talking mask instance
+	maskInst = sdata->instMaskHints3D;
+
+	for (i = 0; i < numParticles; i++)
+	{
+		particle = Particle_Init(0, ig, emSet);
+		if (particle == NULL)
+			continue;
+
+		for (j = 0; j < 3; j++)
+			particle->axis[j].startVal += maskInst->matrix.t[j] * 0x100;
+
+		particle->axis[5].startVal = (particle->axis[5].startVal * maskAnim) >> 0xc;
+		particle->axis[5].velocity = (particle->axis[5].velocity * maskAnim) >> 0xc;
+
+		particle->otIndexOffset -= 5;
+	}
+
+	return;
+}
+
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b43cc-0x800b4470.
+void AH_MaskHint_LerpVol(int param_1)
+{
+	int diff;
+	int volume;
+	u8 backup;
+
+	for (char i = 0; i < 3; i++)
+	{
+		backup = D232.audioBackup[i];
+
+		diff = D232.maskAudioSettings[i] - backup;
+		volume = backup + ((diff * param_1) >> 12);
+
+		// restore backups of Volume settings,
+		// that were originally saved in AH_MaskHint_Start
+		howl_VolumeSet(i, volume & 0xFF);
+	}
+}
+
 force_inline void AH_MaskHint_DrawRepeatPrompt(void)
 {
 	int lngIndex = 0;
