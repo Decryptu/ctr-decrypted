@@ -1152,8 +1152,8 @@ int VehCalc_SteerAccel(int steeringFrameCount, int stage2FirstFrame, int stage2F
 void VehFrameProc_Driving(struct Thread *t, struct Driver *d);
 void VehFrameProc_Spinning(struct Thread *t, struct Driver *d);
 void VehFrameProc_LastSpin(struct Thread *t, struct Driver *d);
-void VehGroundSkids_Subset1(u32 *currXY, u32 *prevXY, int depth, u8 *scratch);
-void VehGroundSkids_Subset2(SVECTOR *scratch, SVECTOR *v1, SVECTOR *v2, SVECTOR *v3);
+void VehGroundSkids_Subset1(u32 *currXY, u32 *prevXY, int depth, struct VehGroundSkidsScratch *scratch);
+void VehGroundSkids_Subset2(struct VehGroundSkidsScratch *scratch, const SVECTOR *v1, const SVECTOR *v2, const SVECTOR *v3);
 void GAMEPAD_ShockForce1(struct Driver *d, int frame, int val);
 u32 *RaceFlag_GetOT(void);
 void RaceFlag_DrawLoadingString(void);
