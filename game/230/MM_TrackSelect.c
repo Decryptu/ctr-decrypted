@@ -1,5 +1,321 @@
 #include <common.h>
 
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800afa44-0x800afa94.
+void MM_TrackSelect_Video_SetDefaults(void)
+{
+	// clear RECT
+	sdata->videoSTR_src_vramRect.x = 0;
+	sdata->videoSTR_src_vramRect.y = 0;
+	sdata->videoSTR_src_vramRect.w = 0;
+	sdata->videoSTR_src_vramRect.h = 0;
+
+	// VRAM destination
+	sdata->videoSTR_dst_vramX = 0;
+	sdata->videoSTR_dst_vramY = 0;
+
+	// track icon has been viewed for zero frames
+	D230.trackSel_video_frameCount = 0;
+
+	// Data is not allocated for TrackSel videos
+	D230.trackSel_video_boolAllocated = 0;
+
+	D230.trackSel_videoStateCurr = 1;
+	D230.trackSel_videoStatePrev = 1;
+}
+
+// NOTE(aalhendi): ASM-verified against NTSC-U 926 overlay 230 0x800afa94-0x800afaf0.
+void MM_TrackSelect_Video_State(int state)
+{
+	// if viewing new icon this frame
+	if (state == 1)
+	{
+		// icon has been viewed for zero frames
+		D230.trackSel_video_frameCount = 0;
+
+		// player sees a track icon (not video)
+		D230.trackSel_videoStateCurr = 1;
+
+		return;
+	}
+
+	// if player sees a track icon
+	if (D230.trackSel_videoStateCurr == 1)
+	{
+		// wait 20 frames
+		if (D230.trackSel_video_frameCount < 21)
+		{
+			D230.trackSel_video_frameCount++;
+		}
+		else
+		{
+			// allocate video memory, prepare to play video
+			D230.trackSel_videoStateCurr = 2;
+		}
+	}
+}
+
+#ifdef CTR_NATIVE
+#include <platform/native_str.h>
+
+static void MM_TrackSelect_Video_DrawNativePreview(RECT *r, int srcX, int srcY)
+{
+	struct GameTracker *gGT = sdata->gGT;
+	u32 *prim = (u32 *)gGT->backBuffer->primMem.cursor;
+	u_long *ot = gGT->pushBuffer_UI.ptrOT;
+	u32 oldTag = (u32)*ot;
+	u32 *nextPrim;
+	s16 tile[16] = {
+	    (s16)srcX, (s16)srcY, 0xaa, 0x47, (s16)(r->x + 3), (s16)(r->y + 2), 0xaa, 0x47,
+	};
+
+	// NOTE(aalhendi): Retail copies decoded MDEC output with MoveImage. Native
+	// presents menus from queued primitives, so draw the same VRAM rectangle as
+	// a 16-bit textured quad instead of relying on a CPU-side VRAM copy.
+	*ot = (u_long)CtrGpu_PrimToOTLink24(prim);
+	nextPrim = DISPLAY_Blur_SubFunc(prim, tile);
+	((POLY_FT4 *)nextPrim - 1)->tag = oldTag | 0x09000000;
+	gGT->backBuffer->primMem.cursor = nextPrim;
+}
+#endif
+
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800afaf0-0x800aff58 PSX path.
+void MM_TrackSelect_Video_Draw(RECT *r, struct MainMenu_LevelRow *selectMenu, int trackIndex, int param_4, u16 param_5)
+{
+	u8 u0;
+	u8 v0;
+	u16 tpage;
+	int srcX;
+	int srcY;
+	struct GameTracker *gGT = sdata->gGT;
+	struct BigHeader *bh = sdata->ptrBigfileCdPos_2;
+	struct BigEntry *entry = BIG_GETENTRY(bh);
+	int videoID;
+
+	selectMenu = &selectMenu[trackIndex];
+	videoID = selectMenu->videoID;
+
+	if ((entry[videoID].size == 0) ||
+
+	    // Video off-screen
+	    (r->x < 0) || (r->y < 0) || ((r->x + r->w) > 0x200) || ((r->y + r->h) > 0xd8))
+	{
+		// draw icon
+		D230.trackSel_videoStateCurr = 1;
+	}
+#ifdef CTR_NATIVE
+	else
+	{
+		if ((D230.trackSel_videoStateCurr == 2) && (D230.trackSel_videoStatePrev == 1))
+		{
+			if (NativeSTR_StartTrackPreview(videoID, selectMenu->videoLength) != 0)
+				D230.trackSel_video_boolAllocated = D230.trackSel_videoStatePrev;
+		}
+
+		if (((D230.trackSel_videoStatePrev == 3) || (D230.trackSel_videoStateCurr == 3)) || (D230.trackSel_videoStateCurr == 2))
+		{
+			int uploaded;
+
+			tpage = gGT->ptrIcons[0x3f]->texLayout.tpage;
+			u0 = gGT->ptrIcons[0x3f]->texLayout.u0;
+			v0 = gGT->ptrIcons[0x3f]->texLayout.v0;
+			srcX = (u16)u0 + (tpage & 0xf) * 0x40;
+			srcY = (u16)v0 + (tpage & 0x10) * 0x10 + (s16)(((u32)tpage & 0x800) >> 2);
+			uploaded = NativeSTR_UploadNextFrame(srcX, srcY);
+
+			if ((uploaded == 1) && (D230.trackSel_videoStateCurr == 2))
+				D230.trackSel_videoStateCurr = 3;
+
+			if (D230.trackSel_videoStateCurr == 3)
+				MM_TrackSelect_Video_DrawNativePreview(r, srcX + 3, srcY + 2);
+		}
+	}
+#else
+	else
+	{
+		if ((D230.trackSel_videoStateCurr == 2) && (D230.trackSel_videoStatePrev == 1))
+		{
+			// If you have not allocated memory for video yet
+			if (D230.trackSel_video_boolAllocated == 0)
+			{
+				// Allocate memory for video in Track Selection
+				MM_Video_AllocMem(0xb0, 0x4b, 4, 0, 0);
+
+				// You have now allocated the memory
+				D230.trackSel_video_boolAllocated = D230.trackSel_videoStatePrev;
+			}
+
+			// CD position of video, and numFrames
+			MM_Video_StartStream(bh->cdpos + entry[videoID].offset, selectMenu->videoLength);
+		}
+
+		if (((D230.trackSel_videoStatePrev == 3) || (D230.trackSel_videoStateCurr == 3)) || (D230.trackSel_videoStateCurr == 2))
+		{
+			tpage = gGT->ptrIcons[0x3f]->texLayout.tpage;
+			u0 = gGT->ptrIcons[0x3f]->texLayout.u0;
+			v0 = gGT->ptrIcons[0x3f]->texLayout.v0;
+			srcX = (u16)u0 + (tpage & 0xf) * 0x40;
+			srcY = (u16)v0 + (tpage & 0x10) * 0x10 + (s16)(((u32)tpage & 0x800) >> 2);
+
+			// Decode into the icon's VRAM page; the copied rectangle starts inside it.
+			int ret = MM_Video_DecodeFrame(srcX, srcY);
+
+			if ((ret == 1) && (D230.trackSel_videoStateCurr == 2))
+			{
+				D230.trackSel_videoStateCurr = 3;
+			}
+			if (D230.trackSel_videoStatePrev == 3)
+			{
+				// RECT position (x,y)
+				sdata->videoSTR_src_vramRect.x = srcX + 3;
+				sdata->videoSTR_src_vramRect.y = srcY + 2;
+
+				// RECT size (w,h)
+				sdata->videoSTR_src_vramRect.w = 0xaa;
+				sdata->videoSTR_src_vramRect.h = 0x47;
+
+				// VRAM destination (x,y) on swapchain image
+				sdata->videoSTR_dst_vramX = gGT->db[gGT->swapchainIndex].dispEnv.disp.x + (r->x + 3);
+				sdata->videoSTR_dst_vramY = gGT->db[gGT->swapchainIndex].dispEnv.disp.y + (r->y + 2);
+
+				// enable video copy, give src and dst
+				MainFrame_InitVideoSTR(1, &sdata->videoSTR_src_vramRect, sdata->videoSTR_dst_vramX, sdata->videoSTR_dst_vramY);
+			}
+		}
+	}
+#endif
+
+	// if not playing video, draw icon
+	if (D230.trackSel_videoStateCurr != 3)
+	{
+		// Draw Video icon
+		RECTMENU_DrawPolyGT4(gGT->ptrIcons[selectMenu->videoThumbnail], (r->x + 3), (r->y + 2), &gGT->backBuffer->primMem, gGT->pushBuffer_UI.ptrOT,
+		                     D230.videoCol, D230.videoCol, D230.videoCol, D230.videoCol, 0, FP(1.0));
+	}
+
+#ifndef CTR_NATIVE
+	if (D230.trackSel_videoStatePrev == 1)
+	{
+		// disable video copy
+		MainFrame_InitVideoSTR(0, 0, 0, 0);
+	}
+
+	// First frame to start video
+	if ((param_4 == 1) && (D230.trackSel_video_boolAllocated == 1))
+	{
+		D230.trackSel_videoStateCurr = 1;
+	}
+
+	// First frame to stop video
+	if ((D230.trackSel_videoStateCurr == 1) && (D230.trackSel_videoStatePrev != 1))
+	{
+		MM_Video_StopStream();
+	}
+
+	// First frame to start video,
+	// but this time after stopping video safely
+	if ((param_4 == 1) && (D230.trackSel_video_boolAllocated == 1))
+	{
+		MM_Video_ClearMem();
+
+		D230.trackSel_video_boolAllocated = 0;
+	}
+#else
+	if (D230.trackSel_videoStatePrev == 1)
+	{
+		MainFrame_InitVideoSTR(0, 0, 0, 0);
+	}
+
+	if ((param_4 == 1) && (D230.trackSel_video_boolAllocated == 1))
+	{
+		D230.trackSel_videoStateCurr = 1;
+	}
+
+	if ((D230.trackSel_videoStateCurr == 1) && (D230.trackSel_videoStatePrev != 1))
+	{
+		NativeSTR_Stop();
+	}
+
+	if ((param_4 == 1) && (D230.trackSel_video_boolAllocated == 1))
+	{
+		NativeSTR_Stop();
+		D230.trackSel_video_boolAllocated = 0;
+	}
+#endif
+
+	D230.trackSel_videoStatePrev = D230.trackSel_videoStateCurr;
+
+	// Draw 2D Menu rectangle background
+	RECTMENU_DrawInnerRect(r, (s16)(param_5 | 1), gGT->backBuffer->otMem.uiOT);
+}
+
+// NOTE(aalhendi): ASM-verified against NTSC-U 926 overlay 230 0x800aff58-0x800affd0.
+char MM_TrackSelect_boolTrackOpen(struct MainMenu_LevelRow *menuSelect)
+{
+	s16 flag = menuSelect->unlock;
+
+	if (flag == -1)
+		return true;
+
+	if (flag == -2)
+		return sdata->gGT->numPlyrNextGame == 1;
+
+	if (flag < 0)
+		return false;
+
+	return (sdata->gameProgress.unlocks[flag >> 5] >> (flag & 0x1f)) & 1;
+}
+
+// NOTE(aalhendi): ASM-verified against NTSC-U 926 overlay 230 0x800affd0-0x800b00d4.
+void MM_TrackSelect_Init()
+{
+	struct MainMenu_LevelRow *selectMenu;
+	s16 numTracks;
+
+	// lap selection menu is closed by default
+	D230.trackSel_boolOpenLapBox = false;
+	D230.trackSel_transitionState = 0;
+
+	// set track index to the index selected in track selection menu, starts at 0 for both Arcade and Battle
+	D230.menuTrackSelect.rowSelected = sdata->trackSelBackup;
+
+	// 12 frames when moving between selection
+	D230.trackSel_transitionFrames = 12;
+
+	// Set menu and num of tracks based on game mode
+	if ((sdata->gGT->gameMode1 & BATTLE_MODE) != 0)
+	{
+		selectMenu = D230.battleTracks;
+		numTracks = 7;
+	}
+	else
+	{
+		selectMenu = D230.arcadeTracks;
+		numTracks = 18;
+	}
+
+	// If you scroll past the max number of tracks, go back to the first track
+	if (numTracks <= sdata->trackSelBackup)
+	{
+		D230.menuTrackSelect.rowSelected = 0;
+	}
+
+	// Loop through all tracks until an unlocked track is found
+	while (!MM_TrackSelect_boolTrackOpen(&selectMenu[D230.menuTrackSelect.rowSelected]))
+	{
+		D230.menuTrackSelect.rowSelected++;
+
+		// If track index goes too high, reset to zero
+		if (numTracks <= D230.menuTrackSelect.rowSelected)
+		{
+			D230.menuTrackSelect.rowSelected = 0;
+		}
+	}
+
+	D230.trackSel_currTrack = D230.menuTrackSelect.rowSelected;
+
+	MM_TrackSelect_Video_SetDefaults();
+}
+
 void MM_TrackSelect_MenuProc(struct RectMenu *menu)
 {
 	char bVar1;
@@ -592,4 +908,10 @@ void MM_TrackSelect_MenuProc(struct RectMenu *menu)
 			return;
 		}
 	} while (true);
+}
+
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b0eac-0x800b0eb8.
+struct RectMenu *MM_TrackSelect_GetMenuPtr(void)
+{
+	return &D230.menuTrackSelect;
 }

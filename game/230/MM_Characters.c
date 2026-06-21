@@ -1,5 +1,578 @@
 #include <common.h>
 
+// NOTE(aalhendi): ASM-verified NTSC-U 926 overlay 230 0x800ad98c-0x800ada4c.
+void MM_Characters_AnimateColors(u8 *colorData, s16 playerID, s16 flag)
+{
+	u8 colorAdjustmentValue;
+	u32 trigApproximationIndex;
+	u32 trigApprox;
+
+	// access int RGBA as a char array,
+	// for editing components of color
+	u8 *ptrColor;
+	ptrColor = (u8 *)data.ptrColor[playerID + PLAYER_BLUE];
+
+	trigApprox = 0;
+
+	// if player has not selected character yet
+	// see MM_Characters_MenuProc
+	if (flag == 0)
+	{
+		trigApproximationIndex = sdata->frameCounter * 0x100 + playerID * 0x400;
+
+		// approximate trigonometry
+		trigApprox = *(u32 *)&data.trigApprox[trigApproximationIndex & 0x3ff];
+
+		if ((trigApproximationIndex & 0x400) == 0)
+		{
+			trigApprox = trigApprox << 0x10;
+		}
+		trigApprox = trigApprox >> 0x10;
+
+		if ((trigApproximationIndex & 0x800) != 0)
+			trigApprox = -(int)trigApprox;
+	}
+
+	colorAdjustmentValue = 0;
+	if (0xc00 < (int)trigApprox)
+	{
+		colorAdjustmentValue = ((trigApprox << 7) >> 0xc);
+	}
+
+	colorData[0] = ptrColor[0] | colorAdjustmentValue;
+	colorData[1] = ptrColor[1] | colorAdjustmentValue;
+	colorData[2] = ptrColor[2] | colorAdjustmentValue;
+	colorData[3] = 0;
+
+	return;
+}
+
+// NOTE(aalhendi): ASM-verified against NTSC-U 926 overlay 230 0x800ada4c-0x800adae4.
+int MM_Characters_GetNextDriver(s16 dpad, char characterID)
+{
+	char nextDriver;
+	s16 unlocked;
+	char newDriver;
+
+	nextDriver = D230.csm_Active[characterID].indexNext[dpad];
+	unlocked = D230.csm_Active[nextDriver].unlockFlags;
+
+	// set new driver to the driver
+	// you'd get when pressing Up button
+	newDriver = nextDriver;
+
+	if (
+	    // if desired driver is not unlocked by default
+	    (unlocked != -1) &&
+
+	    (((sdata->gameProgress.unlocks[unlocked >> 5] >> (unlocked & 0x1f)) & 1) == 0))
+	{
+		// set new driver to the driver you already have
+		newDriver = characterID;
+	}
+
+	// return new driver
+	return newDriver;
+}
+
+// used for preventing players highlighting the same character
+// also for when you go left of komodo joe's icon
+// NOTE(aalhendi): ASM-verified against NTSC-U 926 overlay 230 0x800adae4-0x800adb64.
+u32 MM_Characters_boolIsInvalid(s16 *globalIconPerPlayer, s16 characterID, s16 player)
+{
+	s16 i = 0;
+
+	// if there are players
+	if (sdata->gGT->numPlyrNextGame)
+	{
+		// loop through players
+		for (i = 0; i < sdata->gGT->numPlyrNextGame; i++)
+		{
+			// if driver is taken
+			if ((i != player) && (characterID == globalIconPerPlayer[i]))
+			{
+				return 1;
+			}
+		}
+	}
+
+	// if driver is not taken
+	return 0;
+}
+
+// NOTE(aalhendi): ASM-verified NTSC-U 926 overlay 230 0x800adb64-0x800adc0c.
+// Search for character model by string,
+// specific to main menu lev, altered in oxide mod
+struct Model *MM_Characters_GetModelByName(int *name)
+{
+	struct Model **models;
+	struct Model *model;
+	struct Level *level1 = sdata->gGT->level1;
+
+	// if LEV is invalid
+	if (level1 == NULL)
+		return NULL;
+
+	models = level1->ptrModelsPtrArray;
+	if (models == NULL)
+		return NULL;
+
+	// loop through all models in array
+	// of model pointers, until nullptr
+	for (model = models[0]; model != NULL; models++, model = models[0])
+	{
+		int *modelName = (int *)model;
+
+		if ((modelName[0] == name[0]) && (modelName[1] == name[1]) && (modelName[2] == name[2]) && (modelName[3] == name[3]))
+		{
+			// found it
+			return model;
+		}
+	}
+	return NULL;
+}
+
+// NOTE(aalhendi): ASM-verified NTSC-U 926 overlay 230 0x800adc0c-0x800ae0bc PSX path.
+void MM_Characters_DrawWindows(int boolShowDrivers)
+{
+	struct GameTracker *gGT;
+	s16 uVar2;
+	s16 uVar3;
+	struct Model *uVar4;
+	int iVar5;
+	u32 iVar6;
+	u32 uVar7;
+	int iVar8;
+	s16 sVar9;
+	struct Instance *iVar10;
+	s16 *psVar11;
+	struct PushBuffer *pb;
+	s16 *ptrCurr;
+	int iVar14;
+	struct TransitionMeta *tMeta;
+	SVec3 rot;
+
+	gGT = sdata->gGT;
+
+	if (boolShowDrivers != 0)
+	{
+		// enable drawing wheels
+		gGT->renderFlags |= 0x80;
+	}
+
+	for (iVar14 = 0; iVar14 < gGT->numPlyrNextGame; iVar14++)
+	{
+		psVar11 = &D230.characterSelect_ptrWindowXY[iVar14 * 2];
+		tMeta = &D230.ptrTransitionMeta[iVar14];
+
+		pb = &gGT->pushBuffer[iVar14];
+		pb->rect.x = psVar11[0] + tMeta[0x10].currX;
+		pb->rect.y = psVar11[1] + tMeta[0x10].currY;
+		pb->rect.w = D230.characterSelect_sizeX;
+		pb->rect.h = D230.characterSelect_sizeY;
+
+		// negative StartX
+		if ((s16)pb->rect.x < 0)
+		{
+			pb->rect.w -= pb->rect.x;
+			pb->rect.x = 0;
+			if ((s16)pb->rect.w < 0)
+			{
+				pb->rect.w = 0;
+			}
+		}
+
+		// negative StartY
+		if ((s16)pb->rect.y < 0)
+		{
+			pb->rect.h -= pb->rect.y;
+			pb->rect.y = 0;
+			if ((s16)pb->rect.h < 0)
+			{
+				pb->rect.h = 0;
+			}
+		}
+
+		// startX + sizeX out of bounds
+		if ((0x200 < pb->rect.x + pb->rect.w) && (pb->rect.w = 0x200 - pb->rect.x, pb->rect.w < 0))
+		{
+			pb->rect.x = 0x200;
+			pb->rect.w = 0;
+
+#ifdef CTR_NATIVE
+			// NOTE(aalhendi): Native renderer guard; retail leaves w at zero.
+			pb->rect.w = 1;
+#endif
+		}
+
+		// startY + sizeY out of bounds
+		if ((0xd8 < pb->rect.y + pb->rect.h) && (pb->rect.h = 0xd8 - pb->rect.y, pb->rect.h < 0))
+		{
+			pb->rect.y = 0xd8;
+			pb->rect.h = 0;
+
+#ifdef CTR_NATIVE
+			// NOTE(aalhendi): Native renderer guard; retail leaves h at zero.
+			pb->rect.h = 1;
+#endif
+		}
+
+		// distanceToScreen
+		pb->distanceToScreen_CURR = 0x100;
+		pb->distanceToScreen_PREV = 0x100;
+
+		// pushBuffer pos and rot to all zero
+		pb->pos.x = 0;
+		pb->pos.y = 0;
+		pb->pos.z = 0;
+		pb->rot.x = 0;
+		pb->rot.y = 0;
+		pb->rot.z = 0;
+
+		// player -> instance
+		iVar10 = gGT->drivers[iVar14]->instSelf;
+
+		// Make Visible
+		iVar10->flags &= 0xffffff7f;
+
+		// if driver is off-screen
+		if ((gGT->numPlyrNextGame <= iVar14) || (boolShowDrivers == 0))
+		{
+			// invisible
+			iVar10->flags |= 0x80;
+		}
+
+		iVar6 = iVar14;
+
+		struct InstDrawPerPlayer *idpp = INST_GETIDPP(iVar10);
+
+		// clear pushBuffer in every InstDrawPerPlayer
+		idpp[0].pushBuffer = 0;
+		idpp[1].pushBuffer = 0;
+		idpp[2].pushBuffer = 0;
+		idpp[3].pushBuffer = 0;
+
+		// set pushBuffer in InstDrawPerPlayer,
+		// so that each camera can only see one driver
+		idpp[iVar6].pushBuffer = pb;
+
+		ptrCurr = &D230.characterSelect_charIDs_curr[iVar6];
+
+		iVar10->animFrame = 0;
+		iVar10->vertSplit = 0;
+
+		uVar4 = MM_Characters_GetModelByName((int *)data.MetaDataCharacters[(int)*ptrCurr].name_Debug);
+
+		// set modelPtr in Instance
+		iVar10->model = uVar4;
+
+		// CameraDC, freecam mode
+		gGT->cameraDC[iVar6].cameraMode = 3;
+
+		// Set position of player
+		iVar10->matrix.t[0] = D230.csm_instPos.x;
+		iVar10->matrix.t[1] = D230.csm_instPos.y;
+		iVar10->matrix.t[2] = D230.csm_instPos.z;
+
+		psVar11 = &D230.timerPerPlayer[iVar6];
+		sVar9 = *psVar11 + -1;
+
+		// If no transition between players
+		if (*psVar11 == 0)
+		{
+			// compare to character ID
+			if (*ptrCurr != data.characterIDs[iVar6])
+			{
+				*psVar11 = D230.moveModels << 1;
+				D230.characterSelect_charIDs_desired[iVar6] = data.characterIDs[iVar6];
+			}
+		}
+
+		// if transition between players
+		else
+		{
+			// get timer
+			*psVar11 = sVar9;
+
+			// if timer is before midpoint
+			if ((int)sVar9 < (int)D230.moveModels)
+			{
+				// make driver fly off screen
+				*ptrCurr = D230.characterSelect_charIDs_desired[iVar6];
+				iVar5 = RaceFlag_MoveModels((int)sVar9, (int)D230.moveModels);
+
+				// direction moving
+				iVar6 = -D230.characterSelect_MoveDir[iVar6];
+				iVar8 = iVar5 * D230.unkCharacterWindows >> 0xc;
+			}
+
+			// if timer is after midpoint
+			else
+			{
+				// make new driver fly on screen
+				iVar5 = RaceFlag_MoveModels((int)sVar9 - (int)D230.moveModels, (int)D230.moveModels);
+
+				// direction moving
+				iVar8 = D230.characterSelect_MoveDir[iVar6];
+				iVar6 = (0x1000 - iVar5) * (int)D230.unkCharacterWindows >> 0xc;
+			}
+
+			iVar10->matrix.t[0] += iVar6 * iVar8;
+		}
+
+		// driver rotation
+		rot.x = D230.csm_instRot.x;
+		rot.y = D230.csm_instRot.y + D230.characterSelect_angle[iVar14];
+		rot.z = D230.csm_instRot.z;
+
+		ConvertRotToMatrix(&iVar10->matrix, &rot);
+	}
+	return;
+}
+
+// NOTE(aalhendi): ASM-verified NTSC-U 926 overlay 230 0x800ae0bc-0x800ae274.
+void MM_Characters_SetMenuLayout(void)
+{
+	u16 unlocked;
+	char expand;
+	int iVar3;
+	int i;
+	int numPlyrNextGame;
+
+	expand = 0;
+
+	// By default, draw "Select character" in 3P menu
+	D230.isRosterExpanded = 0;
+
+	numPlyrNextGame = sdata->gGT->numPlyrNextGame;
+
+	iVar3 = numPlyrNextGame - 1;
+
+	// original game
+#define NUM_ICONS 0xF
+
+	// Loop through bottom characters,
+	// if any are unlocked, use expanded
+	for (i = 0xc; i < NUM_ICONS; i++)
+	{
+		// OG game code
+		unlocked = D230.csm_1P2P[i].unlockFlags;
+
+		if (((sdata->gameProgress.unlocks[unlocked >> 5] >> (unlocked & 0x1f)) & 1) != 0)
+		{
+			expand = 1;
+			break;
+		}
+	}
+
+	if (
+	    // if 1P2P (0 or 1)
+	    (iVar3 < 2) &&
+
+	    // if very few characters are unlocked
+	    (!expand))
+	{
+		// layout [4] and [5] for 1P2P without expansion
+		iVar3 += 4;
+	}
+
+	D230.isRosterExpanded = expand;
+
+	D230.characterSelectIconLayout = iVar3;
+
+	D230.csm_instPos.y = D230.driverPosY[iVar3];
+	D230.csm_instPos.z = D230.driverPosZ[iVar3];
+
+	D230.characterSelect_sizeX = D230.windowW[iVar3];
+	D230.characterSelect_sizeY = D230.windowH[iVar3];
+
+	D230.characterSelect_ptrWindowXY = D230.ptrSelectWindowPos[iVar3];
+
+	D230.csm_Active = D230.ptrCsmArr[iVar3];
+
+	D230.textPos = D230.textPosArr[iVar3];
+
+	D230.ptrTransitionMeta = D230.ptr_transitionMeta_csm[numPlyrNextGame - 1];
+
+	return;
+}
+
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800ae274-0x800ae2c0.
+void MM_Characters_BackupIDs(void)
+{
+	char i;
+
+	for (i = 0; i < 8; i++)
+	{
+		// make a backup when you leave character selection,
+		// backup is restored when you go back to selection
+		sdata->characterIDs_backup[i] = data.characterIDs[i];
+	}
+	return;
+}
+
+// NOTE(aalhendi): ASM-verified NTSC-U 926 overlay 230 0x800ae2c0-0x800ae464.
+void MM_Characters_PreventOverlap(void)
+{
+	struct GameTracker *gGT = sdata->gGT;
+	char cVar1;
+	int iVar2;
+	char *pcVar3;
+	int iVar4;
+	int iVar5;
+	int iVar6;
+	int iVar7;
+
+	char local_8[8];
+
+	// default 0,1,2,3,4,5,6,7
+	*(int *)&local_8[0] = R230.characterID_default[0];
+	*(int *)&local_8[4] = R230.characterID_default[1];
+
+	iVar2 = 0;
+
+	for (iVar7 = 0; iVar7 < gGT->numPlyrNextGame; iVar7++)
+	{
+		// get character ID
+		iVar2 = data.characterIDs[iVar7];
+
+		// if not a secret character
+		if (iVar2 < 8)
+		{
+			// character is taken
+			local_8[iVar2] = 0xff;
+		}
+	}
+
+	for (iVar7 = 1; iVar7 < gGT->numPlyrNextGame; iVar7++)
+	{
+		for (iVar6 = 0; iVar6 < iVar7; iVar6++)
+		{
+			// if two characters are the same
+			if (data.characterIDs[iVar7] == data.characterIDs[iVar6])
+			{
+				// look for a new character
+				for (iVar5 = 0; iVar5 < 8; iVar5++)
+				{
+					// get default character
+					pcVar3 = &local_8[iVar5];
+					cVar1 = *pcVar3;
+
+					// if character is not taken
+					if (-1 < cVar1)
+					{
+						// assign free character
+						data.characterIDs[iVar7] = (s16)cVar1;
+
+						// character is now taken
+						*pcVar3 = -1;
+
+						break;
+					}
+				}
+			}
+		}
+	}
+	return;
+}
+
+// NOTE(aalhendi): ASM-verified NTSC-U 926 overlay 230 0x800ae464-0x800ae6b0.
+void MM_Characters_RestoreIDs(void)
+{
+	struct GameTracker *gGT = sdata->gGT;
+	s16 *currID;
+	int iVar3;
+	int iVar4;
+	char i;
+	s16 uVar1;
+
+	// erase select bits
+	sdata->characterSelectFlags = 0;
+	D230.transitionFrames = 0xc;
+	D230.isMenuTransitioning = 0;
+
+	// This uses 80086e84, which controls character IDs
+	// loop 8 times
+	// shouldn't it only need to loop a maximum of 4 times?
+	for (i = 0; i < 8; i++)
+	{
+		// set character ID to the last ID you entered
+		data.characterIDs[i] = sdata->characterIDs_backup[i];
+	}
+
+	MM_Characters_SetMenuLayout();
+
+#define NUM_ICONS 0xF
+
+	for (i = 0; i < NUM_ICONS; i++)
+	{
+		// would not need this if CSM was sorted
+		// by order of character ID
+
+		// Basically sets them to 0, 1, 2, 3, 4... up to 0xE,
+		// setting Oxide's manually to 0xF is needed to make his icon appear
+
+		D230.characterMenuID[D230.csm_Active[i].characterID] = i;
+	}
+
+	for (i = 0; i < gGT->numPlyrNextGame; i++)
+	{
+		// Determine if this icon is unlocked (and drawing)
+
+		// get character ID
+		currID = &data.characterIDs[i];
+
+		// get unlock requirement for this character
+		uVar1 = D230.csm_Active[*currID].unlockFlags;
+
+		if (
+		    // If Icon has an unlock requirement
+		    (uVar1 != -1) &&
+
+		    // If Character is Locked
+		    (((sdata->gameProgress.unlocks[uVar1 >> 5] >> (uVar1 & 0x1f)) & 1) == 0))
+		{
+			// change character to Crash
+			*currID = 0;
+		}
+	}
+
+	MM_Characters_PreventOverlap();
+
+	for (i = 0; i < gGT->numPlyrNextGame; i++)
+	{
+		// set name string ID to the character ID of each player.
+		// The string will only draw if both these variables match
+		D230.characterSelect_charIDs_curr[i] = data.characterIDs[i];
+		D230.characterSelect_charIDs_desired[i] = data.characterIDs[i];
+
+		// something to do with transitioning between icons
+		D230.timerPerPlayer[i] = 0;
+
+		// rotation of each driver, 90 degrees difference
+		D230.characterSelect_angle[i] = (i * 0x400) + 400;
+	}
+
+	MM_Characters_DrawWindows(0);
+	return;
+}
+
+// NOTE(aalhendi): ASM-verified against NTSC-U 926 overlay 230 0x800ae6b0-0x800ae74c.
+void MM_Characters_HideDrivers(void)
+{
+	char i;
+	struct GameTracker *gGT = sdata->gGT;
+
+	for (i = 0; i < 4; i++)
+	{
+		PushBuffer_Init(&gGT->pushBuffer[i], 0, 1);
+
+		gGT->drivers[i]->instSelf->flags |= HIDE_MODEL;
+	}
+
+	return;
+}
+
 void MM_Characters_MenuProc(struct RectMenu *unused)
 {
 	u8 numPlyrNextGame;

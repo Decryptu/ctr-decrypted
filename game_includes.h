@@ -281,7 +281,16 @@
 
 #include "game/230/R230.c"
 #include "game/230/D230.c"
-#include "game/230/230_Full.c"
+#include "game/230/MM_Battle.c"
+#include "game/230/MM_MenuFlow.c"
+#include "game/230/MM_Title.c"
+#include "game/230/MM_CheatCodes.c"
+#include "game/230/MM_Characters.c"
+#include "game/230/MM_TrackSelect.c"
+#include "game/230/MM_CupSelect.c"
+#include "game/230/MM_HighScore.c"
+#include "game/230/MM_Scrapbook.c"
+#include "game/230/MM_Video.c"
 
 #include "game/231/R231.c"
 #include "game/231/D231.c"
