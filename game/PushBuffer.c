@@ -310,7 +310,7 @@ void PushBuffer_SetMatrixVP(struct PushBuffer *pb)
 	gte_ldVXY0(*(int *)&negPos.v[0]);
 	gte_ldVZ0(negPos.z);
 #else
-	gte_ldv0(&negPos);
+	CTR_GteLoadSVec3V0(&negPos);
 #endif
 
 #ifndef CTR_NATIVE
@@ -367,8 +367,8 @@ void PushBuffer_SetMatrixVP(struct PushBuffer *pb)
 	// by transpose camera matrix
 	gte_llv0();
 
-	gte_stlvnl(&pb->matrix_CameraTranspose.t[0]);
-	gte_stlvnl(&pb->matrix_ViewProj.t[0]);
+	CTR_GteStoreMAC(&pb->matrix_CameraTranspose.t[0]);
+	CTR_GteStoreMAC(&pb->matrix_ViewProj.t[0]);
 
 	// start with transpose camera matrix
 	*(int *)((int)&pb->matrix_ViewProj + 0x0) = view0;

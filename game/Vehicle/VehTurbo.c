@@ -63,9 +63,9 @@ static void VehTurbo_TransformOffset(struct Instance *driverInst, s16 x, s16 y, 
 	// NOTE(aalhendi): Native expression of retail VXY0/VZ0 loads before gte_rt.
 	gte_SetRotMatrix(&driverInst->matrix.m[0][0]);
 	gte_SetTransMatrix(&driverInst->matrix.m[0][0]);
-	gte_ldv0(&offset);
+	CTR_GteLoadSV0(&offset);
 	gte_rt();
-	gte_stlvl(out);
+	CTR_GteStoreIR(out);
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800693c8-0x80069bb0.
