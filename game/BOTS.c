@@ -2228,7 +2228,7 @@ UpdateTireColorTimer:
 							SetTransMatrix(&plantInst->matrix);
 
 							VECTOR v2;
-							long l3;
+							s32 l3;
 
 							RotTrans(&v, &v2, &l3);
 

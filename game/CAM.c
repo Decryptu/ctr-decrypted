@@ -837,12 +837,12 @@ void CAM_StartLine_FlyIn(struct FlyInData *flyInData, s16 maxFrames, s32 frame, 
 	SetRotMatrix(&matrix);
 	SetTransMatrix(&matrix);
 
-	RotTrans(&local_78, &transformed, (long *)flags);
+	RotTrans(&local_78, &transformed, flags);
 	desiredPos->x = (s16)transformed.vx;
 	desiredPos->y = (s16)transformed.vy;
 	desiredPos->z = (s16)transformed.vz;
 
-	RotTrans(&local_70, &transformed, (long *)flags);
+	RotTrans(&local_70, &transformed, flags);
 
 	s16 deltaX = desiredPos->x - (s16)transformed.vx;
 	s16 deltaY = desiredPos->y - (s16)transformed.vy;

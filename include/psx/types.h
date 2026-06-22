@@ -48,6 +48,7 @@ typedef unsigned long u_long;
 #endif
 #endif
 typedef char psx_u_long_must_be_32_bits[(sizeof(u_long) == 4) ? 1 : -1];
+
 #ifndef _SYSIII_USHORT
 #define _SYSIII_USHORT
 typedef unsigned short ushort; /* sys III compat */

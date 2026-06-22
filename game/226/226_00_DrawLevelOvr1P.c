@@ -909,7 +909,7 @@ static u32 DrawLevelOvr1P_GetDefaultGridFaceSlotWord(u32 handlerAddress, int fac
 
 static int DrawLevelOvr1P_ProjectVertex(struct LevVertex *vertices, const struct QuadBlock *block, int vertexIndex, s16 *posScreen)
 {
-	long gteFlag;
+	s32 gteFlag;
 
 	CTR_GteLoadSVec3V0(&vertices[block->index[vertexIndex]].pos);
 	gte_rtps();
@@ -1011,7 +1011,7 @@ static int DrawLevelOvr1P_ProjectVertexTriple(struct LevVertex *vertices, const 
 	u32 depth0;
 	u32 depth1;
 	u32 depth2;
-	long gteFlag;
+	s32 gteFlag;
 
 	*(u32 *)&projected[index0].pos[0] = *(u32 *)&vertex0->pos;
 	*(u32 *)&projected[index0].pos[2] = *(u32 *)&vertex0->pos.z;
@@ -1157,7 +1157,7 @@ static int Ovr226_800a1ee0_ProjectWaterListVertexTriple(struct LevVertex *vertic
 	u32 depth0;
 	u32 depth1;
 	u32 depth2;
-	long gteFlag;
+	s32 gteFlag;
 
 	CTR_GteLoadSVec3V3(&vertex0->pos, &vertex1->pos, &vertex2->pos);
 	gte_rtpt();
@@ -1213,7 +1213,7 @@ static int Ovr226_800a3738_ProjectGround4x1ListVertexTriple(struct LevVertex *ve
 	u32 depth0;
 	u32 depth1;
 	u32 depth2;
-	long gteFlag;
+	s32 gteFlag;
 
 	CTR_GteLoadSVec3V3(&vertex0->pos, &vertex1->pos, &vertex2->pos);
 	gte_rtpt();
@@ -1269,7 +1269,7 @@ static int Ovr226_800a5030_ProjectGround4x2ListVertexTriple(struct LevVertex *ve
 	u32 depth0;
 	u32 depth1;
 	u32 depth2;
-	long gteFlag;
+	s32 gteFlag;
 
 	CTR_GteLoadSVec3V3(&vertex0->pos, &vertex1->pos, &vertex2->pos);
 	gte_rtpt();
@@ -1325,7 +1325,7 @@ static int Ovr226_800a6fd0_ProjectDynamicListVertexTriple(struct LevVertex *vert
 	u32 depth0;
 	u32 depth1;
 	u32 depth2;
-	long gteFlag;
+	s32 gteFlag;
 
 	CTR_GteLoadSVec3V3(&vertex0->pos, &vertex1->pos, &vertex2->pos);
 	gte_rtpt();
@@ -1381,7 +1381,7 @@ static int Ovr226_800a8bf0_ProjectWideDynamicVertexTriple(struct LevVertex *vert
 	u32 depth0;
 	u32 depth1;
 	u32 depth2;
-	long gteFlag;
+	s32 gteFlag;
 
 	CTR_GteLoadSVec3V3(&vertex0->pos, &vertex1->pos, &vertex2->pos);
 	gte_rtpt();
