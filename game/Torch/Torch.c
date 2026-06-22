@@ -18,11 +18,6 @@ struct TorchPointSource
 	int point;
 };
 
-static u32 Torch_Ptr24(const void *ptr)
-{
-	return CtrGpu_PrimToOTLink24(ptr);
-}
-
 static u32 Torch_ReadWord(const void *base, int offset)
 {
 	return *(const u32 *)(const void *)((const char *)base + offset);
@@ -157,8 +152,7 @@ static void Torch_WriteUvPair(int uvOffset, int pointOffset)
 
 static void Torch_LinkPrimitive(u32 *tagWord, const void *packet, u_long *ot, u32 tag)
 {
-	*tagWord = CtrGpu_PackOTTag(*ot, tag);
-	*ot = (u_long)Torch_Ptr24(packet);
+	CtrGpu_LinkPacket24(ot, tagWord, packet, tag);
 }
 
 static u32 *Torch_EmitFT3(u32 *prim, u_long *ot, struct TorchPointSource uv0, struct TorchPointSource uv1, struct TorchPointSource uv2,

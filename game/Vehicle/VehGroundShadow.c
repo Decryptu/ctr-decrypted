@@ -39,11 +39,6 @@ struct VehGroundShadowEntry
 	u16 instFlags;
 };
 
-static u32 VehGroundShadow_Ptr24(const void *ptr)
-{
-	return CtrGpu_PrimToOTLink24(ptr);
-}
-
 static u32 VehGroundShadow_ReadWord(const void *base, int offset)
 {
 	u32 value;
@@ -271,8 +266,7 @@ static void VehGroundShadow_EmitQuad(u32 **primCursor, u_long *otBase, const str
 	VehGroundShadow_WriteUv(poly, texture);
 
 	ot = &otBase[depthIndex];
-	poly->tag = CtrGpu_PackOTTag(*ot, 0x09000000);
-	*ot = (u_long)VehGroundShadow_Ptr24(poly);
+	CtrGpu_LinkPacket24(ot, &poly->tag, poly, 0x09000000);
 
 	*primCursor = (u32 *)(poly + 1);
 }

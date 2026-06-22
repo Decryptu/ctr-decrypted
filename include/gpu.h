@@ -15,14 +15,9 @@ force_inline u32 CtrGpu_PrimToOTLink24(const void *prim)
 #endif
 }
 
-force_inline u32 CtrGpu_OTLinkPayload(u_long ot)
-{
-	return (u32)ot & 0xffffffu;
-}
-
 force_inline u32 CtrGpu_PackOTTag(u_long ot, u32 tag)
 {
-	return CtrGpu_OTLinkPayload(ot) | tag;
+	return ((u32)ot & 0xffffffu) | tag;
 }
 
 #ifdef CTR_NATIVE

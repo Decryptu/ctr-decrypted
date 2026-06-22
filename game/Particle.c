@@ -483,11 +483,6 @@ static u8 Particle_RenderList_ReadByte(const void *base, int offset)
 	return *(const u8 *)(const void *)((const char *)base + offset);
 }
 
-static u32 Particle_RenderList_Ptr24(const void *ptr)
-{
-	return CtrGpu_PrimToOTLink24(ptr);
-}
-
 static s32 Particle_RenderList_MulLo(s32 left, s32 right)
 {
 	return (s32)(u32)((s64)left * (s64)right);
@@ -595,8 +590,7 @@ static struct ParticleRenderListTrig Particle_RenderList_ReadTrig(s32 angle)
 
 static void Particle_RenderList_LinkPrimitive(u32 *tagWord, const void *packet, u_long *ot, u32 tag)
 {
-	*tagWord = CtrGpu_PackOTTag(*ot, tag);
-	*ot = (u_long)Particle_RenderList_Ptr24(packet);
+	CtrGpu_LinkPacket24(ot, tagWord, packet, tag);
 }
 
 static void Particle_RenderList_LinkAndAdvance(u32 **primCursor, u32 **payloadCursor, struct Particle *particle, struct InstDrawPerPlayer *idpp,

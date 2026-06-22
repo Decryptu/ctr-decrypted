@@ -12,7 +12,7 @@
 #endif
 
 // TODO(aalhendi): Re-audit LOAD_ReadFile_ex, LOAD_DramFileCallback, LEV/PTR
-// callbacks, and hub swapping before removing the expanded arena escape hatch.
+// callbacks, hub swapping, MEMPACK size arithmetic + PSX shaped ptr storage before removing the expanded arena escape hatch
 #if CTR_NATIVE_MEMPACK_RETAIL_PRESSURE
 // NOTE(aalhendi): Retail pressure mode exposes the NTSC-U 926 mempack window
 // inside a 2 MiB backing store.
@@ -53,12 +53,6 @@ internal void Platform_ConfigureMempackArena(void)
 	s_mempackArena.endOfMemory = &s_mempackMemory[CTR_NATIVE_MEMPACK_BUFFER_SIZE];
 	s_mempackArena.size = CTR_NATIVE_MEMPACK_SIZE;
 	s_mempackArena.backingSize = CTR_NATIVE_MEMPACK_BUFFER_SIZE;
-
-	// NOTE(aalhendi): Native still uses PS1-shaped OT links for many render
-	// paths. MEMPACK must stay below 0x01000000 so CtrGpu_PrimToOTLink24 can
-	// pack linked primitive pointers without losing address bits.
-	s_mempackArena.lowAddressValid =
-	    ((u32)s_mempackArena.base < 0x01000000) && ((u32)s_mempackArena.start < 0x01000000) && ((u32)s_mempackArena.endOfMemory <= 0x01000000);
 }
 
 const struct PlatformMempackArena *Platform_InitMempackArena(void)

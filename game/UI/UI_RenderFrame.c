@@ -721,8 +721,7 @@ void UI_RenderFrame_Racing()
 				// pointer to OT memory
 				primMemCurr = gGT->pushBuffer_UI.ptrOT;
 
-				*(int *)TurboCounterBar = CtrGpu_PackOTTag(*primMemCurr, 0x8000000);
-				*primMemCurr = (u32)TurboCounterBar & 0xffffff;
+				addPolyG4(primMemCurr, TurboCounterBar);
 			}
 		}
 	}

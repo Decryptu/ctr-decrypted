@@ -8,7 +8,6 @@ struct PlatformMempackArena
 	void *endOfMemory;
 	int size;
 	int backingSize;
-	int lowAddressValid;
 };
 
 void Platform_Init(const char *title, int width, int height);

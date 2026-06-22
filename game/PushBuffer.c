@@ -166,8 +166,8 @@ void PushBuffer_SetDrawEnv_DecalMP(void *ot, struct DB *backBuffer, RECT *viewpo
 
 #ifdef CTR_NATIVE
 	// NOTE(aalhendi): Retail receives PS1 RAM OT slots here. Native translates
-	// low-24 links back to host pointers, so stale DecalMP range metadata must
-	// not splice a DR_ENV packet into unrelated current-frame memory.
+	// 24-bit OT tokens back to host pointers, so stale DecalMP range metadata
+	// must not splice a DR_ENV packet into unrelated current-frame memory.
 	if (!CtrGpu_IsCurrentOTRange(backBuffer, ot, ot))
 		return;
 #endif

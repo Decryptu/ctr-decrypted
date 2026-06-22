@@ -12,11 +12,6 @@ static u32 DrawSky_ReadWord(const void *base, int offset)
 	return *(const u32 *)(const void *)((const char *)base + offset);
 }
 
-static u32 DrawSky_Ptr24(const void *ptr)
-{
-	return CtrGpu_PrimToOTLink24(ptr);
-}
-
 static int DrawSky_IsVisible(u32 gteFlag, u32 sxy0, u32 sxy1, u32 sxy2, u32 screenBounds)
 {
 	u32 overlap;
@@ -63,8 +58,7 @@ static void DrawSky_EmitPrimitive(u32 **primCursor, u_long *ot)
 	CtrGpu_WritePackedXY(&poly->x1, MFC2(13));
 	CtrGpu_WriteColorCode(&poly->r2, MFC2(22));
 	CtrGpu_WritePackedXY(&poly->x2, MFC2(14));
-	poly->tag = CtrGpu_PackOTTag(*ot, 0x06000000);
-	*ot = (u_long)DrawSky_Ptr24(poly);
+	CtrGpu_LinkPacket24(ot, &poly->tag, poly, 0x06000000);
 
 	*primCursor = (u32 *)(poly + 1);
 }

@@ -950,14 +950,10 @@ int ParseTaglessPrimitive(u32 *command);
 
 internal bool NativeGpu_IsValidOTLink(uintptr_t link)
 {
-	const struct PlatformMempackArena *arena = Platform_GetMempackArena();
-	const uintptr_t base = (uintptr_t)arena->base;
-	const uintptr_t end = (uintptr_t)arena->endOfMemory;
-
 	if (NativeGpuLinks_IsRegisteredHostPointer((const void *)link))
 		return (link & (sizeof(u32) - 1)) == 0;
 
-	return (link >= base) && (link < end) && ((link & (sizeof(u32) - 1)) == 0);
+	return false;
 }
 
 internal u32 NativeGpu_ReadPacketWordForLog(uintptr_t packet, int wordIndex)
@@ -1035,6 +1031,20 @@ void ParsePrimitivesLinkedList(u32 *p, int singlePrimitive)
 		return;
 
 	NativePerf_BeginScope(NATIVE_PERF_BUCKET_DRAW_OTAG_PARSE);
+
+#ifdef CTR_NATIVE
+	if (!singlePrimitive && !NativeGpuLinks_IsRegisteredHostPointer(p) && !isendprim(p))
+	{
+		char packetRegion[64];
+		NativeGpu_FormatPointerRegion(packetRegion, sizeof(packetRegion), (uintptr_t)p);
+		NATIVE_GPU_ERROR("unregistered linked DrawOTag packet: packet=%p region=%s addr=%06x len=%d code=%02x words=%08x %08x %08x %08x\n", (void *)p,
+		                 packetRegion, getaddr(p), getlen(p), getcode(p), NativeGpu_ReadPacketWordForLog((uintptr_t)p, 0),
+		                 NativeGpu_ReadPacketWordForLog((uintptr_t)p, 1), NativeGpu_ReadPacketWordForLog((uintptr_t)p, 2),
+		                 NativeGpu_ReadPacketWordForLog((uintptr_t)p, 3));
+		NativePerf_EndScope(NATIVE_PERF_BUCKET_DRAW_OTAG_PARSE);
+		return;
+	}
+#endif
 
 	// setup single primitive flag (needed for AddSplits)
 	s_gpu.drawPrimMode = singlePrimitive;

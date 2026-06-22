@@ -33,11 +33,6 @@ static void DrawConfetti_WriteWord(void *base, int offset, u32 value)
 	*(u32 *)(void *)((char *)base + offset) = value;
 }
 
-static u32 DrawConfetti_Ptr24(const void *ptr)
-{
-	return CtrGpu_PrimToOTLink24(ptr);
-}
-
 static struct DrawConfettiTrigPair DrawConfetti_TrigAngleSinCos(int angle)
 {
 	u32 packed = DrawConfetti_ReadWord(&data.trigApprox[angle & 0x3ff], 0);
@@ -131,8 +126,7 @@ static int DrawConfetti_BoundsVisible(u32 sxy0, u32 sxy1, u32 sxy2, u32 sxy3, u3
 
 static void DrawConfetti_LinkPrimitive(POLY_F4 *poly, u_long *ot)
 {
-	poly->tag = CtrGpu_PackOTTag(*ot, 0x05000000);
-	*ot = (u_long)DrawConfetti_Ptr24(poly);
+	CtrGpu_LinkPacket24(ot, &poly->tag, poly, 0x05000000);
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80069ffc-0x8006a4c4

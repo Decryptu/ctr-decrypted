@@ -123,9 +123,6 @@ uint32_t NativeGpuLinks_FromHostPointer(const void *hostPtr)
 	if (range != NULL)
 		return range->tokenStart + (uint32_t)(host - range->hostStart);
 
-	if ((host & ~(uintptr_t)0x00ffffffu) == 0)
-		return (uint32_t)host;
-
 	fprintf(stderr, "[CTR Native] GPU link bridge has no token for host pointer %p\n", hostPtr);
 	abort();
 }
@@ -142,7 +139,7 @@ void *NativeGpuLinks_ToHostPointer(uint32_t token)
 	if (range != NULL)
 		return (void *)(range->hostStart + (uintptr_t)(token - range->tokenStart));
 
-	return (void *)(uintptr_t)token;
+	return NULL;
 }
 
 int NativeGpuLinks_IsRegisteredHostPointer(const void *hostPtr)

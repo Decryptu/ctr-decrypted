@@ -1,10 +1,5 @@
 #include <common.h>
 
-static u32 VehGroundSkids_Ptr24(const void *ptr)
-{
-	return CtrGpu_PrimToOTLink24(ptr);
-}
-
 static u32 VehGroundSkids_ReadTexWord(const struct TextureLayout *layout, int offset)
 {
 	u32 word;
@@ -57,8 +52,7 @@ void VehGroundSkids_Subset1(u32 *currXY, u32 *prevXY, int depth, struct VehGroun
 
 	struct PushBuffer *pb = scratch->pushBuffer;
 	u_long *ot = pb->ptrOT + ((s32)depth >> 6);
-	poly->tag = CtrGpu_PackOTTag(*ot, 0x0c000000);
-	*ot = (u_long)VehGroundSkids_Ptr24(poly);
+	CtrGpu_LinkPacket24(ot, &poly->tag, poly, 0x0c000000);
 }
 
 static s16 VehGroundSkids_ScaleRelative(u16 value, u16 origin)

@@ -26,11 +26,6 @@ _Static_assert(offsetof(struct DisplayBlurFlatPacket, xy3) == 0x1C);
 _Static_assert(offsetof(struct DisplayBlurFlatPacket, drawModeEnd) == 0x20);
 _Static_assert(offsetof(struct DisplayBlurFlatPacket, maskBitDisable) == 0x24);
 
-static u32 DISPLAY_Blur_Ptr24(const void *ptr)
-{
-	return CtrGpu_PrimToOTLink24(ptr);
-}
-
 static u32 DISPLAY_Blur_PackS16Pair(int x, int y)
 {
 	return ((u32)(u16)x) | ((u32)(u16)y << 16);
@@ -115,7 +110,7 @@ u32 *DISPLAY_Blur_SubFunc(u32 *prim, s16 *tile)
 	CtrGpu_WritePackedUV(&poly->u2, (u16)(u0 | v1));
 	CtrGpu_WritePackedUV(&poly->u3, (u16)(u1 | v1));
 	poly->code = 0x2f;
-	poly->tag = CtrGpu_PackOTTag(DISPLAY_Blur_Ptr24(poly + 1), 0x09000000);
+	poly->tag = CtrGpu_PackOTTag(CtrGpu_PrimToOTLink24(poly + 1), 0x09000000);
 	CtrGpu_WritePackedUVWord(&poly->u1, u1 | v0 | (tpage << 16));
 
 	return (u32 *)(poly + 1);
@@ -153,8 +148,7 @@ void DISPLAY_Blur_Main(struct PushBuffer *pb, int strength)
 		packet->colorAndCode = (strength < 0) ? 0x2affffff : 0x2a000000;
 
 		ot = gGT->otSwapchainDB[gGT->swapchainIndex];
-		packet->tag = CtrGpu_PackOTTag(*ot, 0x09000000);
-		*ot = (u_long)DISPLAY_Blur_Ptr24(packet);
+		CtrGpu_LinkPacket24(ot, &packet->tag, packet, 0x09000000);
 		nextPrim = (u32 *)(packet + 1);
 	}
 	else
@@ -179,7 +173,7 @@ void DISPLAY_Blur_Main(struct PushBuffer *pb, int strength)
 
 		ot = gGT->otSwapchainDB[gGT->swapchainIndex];
 		oldTag = *ot;
-		*ot = (u_long)DISPLAY_Blur_Ptr24(prim);
+		*ot = (u_long)CtrGpu_PrimToOTLink24(prim);
 
 		scratch[4] = pb->rect.x;
 		scratch[5] = pb->rect.y;

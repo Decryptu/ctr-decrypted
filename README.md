@@ -136,13 +136,13 @@ main.c (entrypoint)
 ```
 
 - `CTR_NATIVE` is defined for native host/platform-specific code
-- The build currently uses 32-bit mode because some native paths still pack host pointers into retail-shaped 24-bit GPU primitive links. See `docs/MEMORY_MODEL.md` for the roadmap to replace that with an explicit native GPU link bridge.
+- The default build uses 32-bit mode while remaining PSX address-shaped data and host-pointer contracts are audited. GPU primitive links are bridged through 24-bit native tokens; see `docs/MEMORY_MODEL.md`.
 - Struct field widths match PSX hardware layouts. Enums that back struct fields use GCC/Clang fixed-underlying syntax (`typedef enum Name : s16`, `: u8`, etc.) so `sizeof` matches the retail field width without relying on default enum size.
 
 ## Roadmap
 
 - Clean up `game/` copies strip byte budget hacks and route platform-specific code through `CTR_NATIVE`
-- Replace low-address primitive-link assumptions with an explicit native GPU link bridge, remove the 32-bit constraint, and keep pruning inherited compatibility code now owned in `include/` and `platform/`.
+- Keep reducing 32-bit host-pointer assumptions in PSX-shaped data, and keep pruning inherited compatibility code now owned in `include/` and `platform/`.
 
 ## Credits
 

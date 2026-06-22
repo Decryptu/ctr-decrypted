@@ -1272,11 +1272,6 @@ static s16 VehWarpDust_AddHalf(s16 value, int delta)
 	return (s16)CTR_MipsAddLo((u16)value, delta);
 }
 
-static u32 VehWarpDust_Ptr24(const void *ptr)
-{
-	return CtrGpu_PrimToOTLink24(ptr);
-}
-
 static void VehWarpDust_Project(SVECTOR *point, int offsetX, int offsetY, int offsetZ, struct VehWarpDustProjected *out)
 {
 	SVECTOR *left = CTR_SCRATCHPAD_PTR(SVECTOR, 0x190);
@@ -1324,8 +1319,7 @@ static void VehWarpDust_EmitSegment(u32 **primCursor, struct PushBuffer *pb, con
 	packet->rightStrip.color3 = 0x007f1f3f;
 	packet->rightStrip.xy3 = prev->sxy1;
 
-	packet->tag = CtrGpu_PackOTTag(*ot, 0x11000000);
-	*ot = (u_long)VehWarpDust_Ptr24(packet);
+	CtrGpu_LinkPacket24(ot, &packet->tag, packet, 0x11000000);
 	*primCursor = (u32 *)(packet + 1);
 }
 
