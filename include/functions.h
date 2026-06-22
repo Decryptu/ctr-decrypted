@@ -28,7 +28,7 @@ void CAM_SetDesiredPosRot(struct CameraDC *cDC, const SVec3 *pos, const SVec3 *r
 
 void BOTS_Adv_AdjustDifficulty(void);
 
-int CDSYS_Init(int boolUseDisc);
+int CDSYS_Init(b32 boolUseDisc);
 u32 CDSYS_GetFilePosInt(char *fileString, int *filePos);
 void CDSYS_SetMode_StreamData(void);
 void CDSYS_SetMode_StreamAudio(void);
@@ -196,9 +196,9 @@ void cseq_opcode0a(struct SongSeq *seq);
 struct SongSeq *SongPool_FindFreeChannel(void);
 u32 SongPool_CalculateTempo(s16 const60, s16 tpqn, s16 bpm);
 void SongPool_ChangeTempo(struct Song *song, s16 deltaBPM);
-void SongPool_Start(struct Song *song, u16 songID, s16 deltaBPM, int boolLoopAtEnd, struct SongSet *songSet, int songSetActiveBits);
-void SongPool_Volume(struct Song *song, int newVol, int newStep, int boolImm);
-void SongPool_AdvHub1(struct Song *song, int seqID, int vol, int boolImm);
+void SongPool_Start(struct Song *song, u16 songID, s16 deltaBPM, b32 boolLoopAtEnd, struct SongSet *songSet, int songSetActiveBits);
+void SongPool_Volume(struct Song *song, int newVol, int newStep, b32 boolImm);
+void SongPool_AdvHub1(struct Song *song, int seqID, int vol, b32 boolImm);
 void SongPool_AdvHub2(struct Song *song, struct SongSet *songSet, int songSetActiveBits);
 void SongPool_StopCseq(struct SongSeq *seq);
 void SongPool_StopAllCseq(struct Song *song);
@@ -222,7 +222,7 @@ struct ChannelStats *Channel_AllocSlot_AntiSpam(s16 soundID, char boolUseAntiSpa
 struct ChannelStats *Channel_AllocSlot(int flags, struct ChannelAttr *attr);
 struct ChannelStats *Channel_SearchFX_EditAttr(int type, int soundID, int updateFlags, struct ChannelAttr *attr);
 struct ChannelStats *Channel_SearchFX_Destroy(int type, int soundID, int flags);
-void Channel_DestroyAll_LowLevel(int opt1, int boolKeepMusic, char type);
+void Channel_DestroyAll_LowLevel(int opt1, b32 boolKeepMusic, char type);
 void Channel_ParseSongToChannels(void);
 void Channel_UpdateChannels(void);
 void Cutscene_VolumeBackup(void);
@@ -233,7 +233,7 @@ void howl_InitChannelAttr_OtherFX(struct OtherFX *otherFX, struct ChannelAttr *a
 void howl_PauseAudio(void);
 void howl_UnPauseChannel(struct ChannelStats *stats);
 void howl_UnPauseAudio(void);
-void howl_StopAudio(int boolErasePauseBackup, int boolEraseMusic, int boolDestroyAllFX);
+void howl_StopAudio(b32 boolErasePauseBackup, b32 boolEraseMusic, b32 boolDestroyAllFX);
 void Voiceline_PoolInit(void);
 void Voiceline_ClearTimeStamp(void);
 void Voiceline_PoolClear(void);
@@ -300,7 +300,7 @@ void JitPool_Remove(struct JitPool *AP, struct Item *item);
 
 // LevInstDef
 void LevInstDef_UnPack(struct mesh_info *ptr_mesh_info);
-void LevInstDef_RePack(struct mesh_info *ptr_mesh_info, int boolAdvHub);
+void LevInstDef_RePack(struct mesh_info *ptr_mesh_info, b32 boolAdvHub);
 
 struct Instance *LinkedCollide_Hitbox_Desc(struct HitboxDesc *objBoxDesc);
 struct Instance *LinkedCollide_Hitbox(struct Instance *objInst, struct Thread *_objTh, struct Thread *thBucket, struct BoundingBox bbox);
@@ -399,7 +399,7 @@ void MainFrame_ResetDB(struct GameTracker *gGT);
 void MainFrame_InitVideoSTR(u32 boolPlayVideoStr, RECT *r, s16 posX, s16 posY);
 void MainFrame_VisMemFullFrame(struct GameTracker *gGT, struct Level *level);
 void MainFrame_RequestMaskHint(s16 hintId, char interruptWarpPad);
-void MainFrame_TogglePauseAudio(int bool_pause);
+void MainFrame_TogglePauseAudio(b32 bool_pause);
 
 void StateZero(void);
 void startSP(void);
@@ -503,7 +503,7 @@ void RefreshCard_Unknown4(void);
 void SelectProfile_MuteCursors(void);
 void SelectProfile_UnMuteCursors(void);
 void SelectProfile_ThTick(struct Thread *t);
-void SelectProfile_PrintInteger(int value, int posX, int posY, int usePaddedFormat, int color);
+void SelectProfile_PrintInteger(int value, int posX, int posY, b32 usePaddedFormat, int color);
 int SelectProfile_UI_ConvertX(int param_1, int param_2);
 int SelectProfile_UI_ConvertY(int param_1, int param_2);
 void SelectProfile_DrawAdvProfile(struct AdvProgress *adv, int posX, int posY, s16 isHighlighted, s16 slotIndex, u16 menuFlag);
@@ -545,8 +545,8 @@ u8 *RECTMENU_DrawTime(int milliseconds);
 void RECTMENU_DrawRwdBlueRect_Subset(s16 *pos, int *color, u_long *ot, struct PrimMem *primMem);
 void RECTMENU_DrawRwdBlueRect(RECT *rect, char *metas, u_long *ot, struct PrimMem *primMem);
 void RECTMENU_DrawRwdTriangle(s16 *position, char *color, u_long *otMem, struct PrimMem *primMem);
-void RECTMENU_GetHeight(struct RectMenu *m, s16 *height, int boolCheckSubmenu);
-void RECTMENU_GetWidth(struct RectMenu *m, s16 *width, int boolCheckSubmenu);
+void RECTMENU_GetHeight(struct RectMenu *m, s16 *height, b32 boolCheckSubmenu);
+void RECTMENU_GetWidth(struct RectMenu *m, s16 *width, b32 boolCheckSubmenu);
 void RECTMENU_Hide(struct RectMenu *m);
 void RECTMENU_Show(struct RectMenu *m);
 
@@ -683,7 +683,7 @@ void VehEmitter_Sparks_Wall(struct Driver *driver, struct ParticleEmitter *emSet
 void VehEmitter_DriverMain(struct Thread *thread, struct Driver *driver);
 int VehFrameInst_GetStartFrame(int animIndex, int numFrames);
 u32 VehFrameInst_GetNumAnimFrames(struct Instance *inst, int animIndex);
-struct MaskHeadWeapon *VehPickupItem_MaskUseWeapon(struct Driver *driver, int boolPlaySound);
+struct MaskHeadWeapon *VehPickupItem_MaskUseWeapon(struct Driver *driver, b32 boolPlaySound);
 
 void VehPhysGeneral_PhysAngular(struct Thread *t, struct Driver *d);
 
@@ -801,7 +801,7 @@ void MM_Characters_AnimateColors(u8 *colorData, s16 playerID, s16 flag);
 int MM_Characters_GetNextDriver(s16 dpad, char characterID);
 u32 MM_Characters_boolIsInvalid(s16 *globalIconPerPlayer, s16 characterID, s16 player);
 struct Model *MM_Characters_GetModelByName(int *name);
-void MM_Characters_DrawWindows(int boolShowDrivers);
+void MM_Characters_DrawWindows(b32 boolShowDrivers);
 void MM_Characters_SetMenuLayout(void);
 void MM_Characters_BackupIDs(void);
 void MM_Characters_PreventOverlap(void);
@@ -1186,7 +1186,7 @@ void GAMEPROG_ResetHighScores(struct GameProgress *gameProg);
 void GAMEPROG_NewProfile_OutsideAdv(struct GameProgress *gameProg);
 int LOAD_FindFile(char *filename, CdlFILE *cdlFile);
 int LOAD_HowlHeaderSectors(CdlFILE *cdlFileHWL, void *ptrDestination, int firstSector, int numSector);
-int CDSYS_XASeek(int boolCdControl, int categoryID, int xaID);
+int CDSYS_XASeek(b32 boolCdControl, int categoryID, int xaID);
 void LibraryOfModels_Store(struct GameTracker *gGT, u32 numModels, struct Model **ptrModelArray);
 void LOAD_DramFileCallback(struct LoadQueueSlot *lqs);
 int LOAD_GetBigfileIndex(u32 levelID, int lod, int fileIndexInGroup);
@@ -1219,7 +1219,7 @@ void LOAD_VramFileCallback(struct LoadQueueSlot *lqs);
 void VehBirth_NullThread(struct Thread *t);
 void ElimBG_SaveScreenshot_Chunk(u16 *param_1, u16 *param_2, int param_3);
 void ElimBG_ToggleInstance(struct Instance *inst, char boolGameIsPaused);
-void ElimBG_ToggleAllInstances(struct GameTracker *gGT, int boolGameIsPaused);
+void ElimBG_ToggleAllInstances(struct GameTracker *gGT, b32 boolGameIsPaused);
 void INSTANCE_LevDelayedLInBs(struct InstDef *instDef, int numInstances);
 void CAM_ThTick(struct Thread *t);
 void FLARE_ThTick(struct Thread *th);
@@ -1276,9 +1276,9 @@ struct Scrub *VehAfterColl_GetSurface(u32 scrubId);
 void BOTS_CollideWithOtherAI(struct Driver *robot_1, struct Driver *robot_2);
 void OtherFX_DriverCrashing(u32 boolEcho, u32 volume);
 void VehPhysCrash_ConvertVecToSpeed(struct Driver *d, Vec3 *v);
-int VehPhysCrash_BounceSelf(const SVec3 *normal, const Vec3 *origin, Vec3 *vel, int boolOtherDriver);
+int VehPhysCrash_BounceSelf(const SVec3 *normal, const Vec3 *origin, Vec3 *vel, b32 boolOtherDriver);
 void VehPhysCrash_AI(struct Driver *bot, Vec3 *vel);
-int VehPhysCrash_Attack(struct Driver *driver1, struct Driver *driver2, int canPlayFeedback, int boolPlayBubblePop);
+int VehPhysCrash_Attack(struct Driver *driver1, struct Driver *driver2, b32 canPlayFeedback, b32 boolPlayBubblePop);
 void VehPhysCrash_AnyTwoCars(struct Thread *thread, struct DriverCollisionSearch *search, Vec3 *selfVel);
 void VehPhysForce_ConvertSpeedToVecOut(struct Driver *d, Vec3 *vel);
 void VehPhysForce_CollideDrivers(struct Thread *thread, struct Driver *driver);

@@ -130,7 +130,7 @@ void DecalFont_DrawLineStrlen(u8 *str, s16 len, int posX, s16 posY, s16 fontType
 #if BUILD == EurRetail
 
 		int numCharacters = 1;
-		int upsideDownCharacter = false;
+		b32 upsideDownCharacter = false;
 
 #endif
 

@@ -400,7 +400,7 @@ force_inline void IDENTIFYGAMEPADS_MainFreeze_MenuPtrOptions(struct RectMenu *me
 
 	// the menu buttons for configuring dualshocks and analog controllers are accompanied by labels each
 	// these labels can appear at once
-	int areBothControllerLabelsNecessary = false;
+	b32 areBothControllerLabelsNecessary = false;
 	if (gamepad->numGamepads != 0)
 		areBothControllerLabelsNecessary = (gamepad->numAnalogs != 0);
 
@@ -420,10 +420,10 @@ force_inline void IDENTIFYGAMEPADS_MainFreeze_MenuPtrOptions(struct RectMenu *me
 	gamepad->menuRowsToRemove = (4 - areBothControllerLabelsNecessary) - gGT->numPlyrCurrGame;
 }
 
-force_inline int PROCESSINPUTS_MainFreeze_MenuPtrOptions(struct RectMenu *menu, GAMEPAD_MainFreeze_MenuPtrOptions *gamepad)
+force_inline b32 PROCESSINPUTS_MainFreeze_MenuPtrOptions(struct RectMenu *menu, GAMEPAD_MainFreeze_MenuPtrOptions *gamepad)
 {
 	struct GameTracker *gGT = sdata->gGT;
-	int exitMenu = false;
+	b32 exitMenu = false;
 
 	if (sdata->AnyPlayerTap & (BTN_UP | BTN_DOWN))
 	{
@@ -570,7 +570,7 @@ force_inline void DISPLAYRECTMENU_MainFreeze_MenuPtrOptions(struct RectMenu *men
 	{
 		for (int i = 0; i < gamepad->numAnalogs; i++)
 		{
-			int areBothControllerLabelsNecessary = false;
+			b32 areBothControllerLabelsNecessary = false;
 			if (gamepad->numGamepads != 0)
 				areBothControllerLabelsNecessary = (gamepad->numAnalogs != 0);
 
@@ -686,7 +686,7 @@ force_inline void DISPLAYRECTMENU_MainFreeze_MenuPtrOptions(struct RectMenu *men
 			DecalFont_DrawLine(sdata->lngStrings[data.Options_StringIDs_Gamepads[currPad + multitapStringOffset]], lineWidth_vibrateOn, rowY, FONT_SMALL,
 			                   dualShockRowColor);
 
-			int boolDisabled = (gGT->gameMode1 & data.gGT_gameMode1_VibPerPlayer[currPad]) != 0;
+			b32 boolDisabled = (gGT->gameMode1 & data.gGT_gameMode1_VibPerPlayer[currPad]) != 0;
 
 			if (dualShockRowColor != GRAY)
 			{
@@ -755,7 +755,7 @@ void MainFreeze_MenuPtrOptions(struct RectMenu *menu)
 	};
 
 	IDENTIFYGAMEPADS_MainFreeze_MenuPtrOptions(menu, &gamepad);
-	int exitMenu = PROCESSINPUTS_MainFreeze_MenuPtrOptions(menu, &gamepad);
+	b32 exitMenu = PROCESSINPUTS_MainFreeze_MenuPtrOptions(menu, &gamepad);
 	DISPLAYRECTMENU_MainFreeze_MenuPtrOptions(menu, &gamepad);
 
 	if (exitMenu || (sdata->AnyPlayerTap & (BTN_TRIANGLE | BTN_START | BTN_SQUARE_one)))

@@ -28,7 +28,7 @@ static void MainFrame_RegisterGpuLinkRanges(struct GameTracker *gGT)
 #endif
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80034b48-0x80034bbc.
-void MainFrame_TogglePauseAudio(int bool_pause)
+void MainFrame_TogglePauseAudio(b32 bool_pause)
 {
 	if (bool_pause == 0)
 	{

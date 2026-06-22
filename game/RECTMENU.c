@@ -349,7 +349,7 @@ void RECTMENU_DrawFullRect(struct RectMenu *menu, RECT *inner)
 
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80045b1c-0x80045c50.
-void RECTMENU_GetHeight(struct RectMenu *m, s16 *height, int boolCheckSubmenu)
+void RECTMENU_GetHeight(struct RectMenu *m, s16 *height, b32 boolCheckSubmenu)
 {
 	int lineHeight;
 	struct MenuRow *row;
@@ -420,7 +420,7 @@ void RECTMENU_GetHeight(struct RectMenu *m, s16 *height, int boolCheckSubmenu)
 
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80045c50-0x80045db0.
-void RECTMENU_GetWidth(struct RectMenu *m, s16 *width, int boolCheckSubmenu)
+void RECTMENU_GetWidth(struct RectMenu *m, s16 *width, b32 boolCheckSubmenu)
 {
 	int fontType;
 	struct MenuRow *row;
