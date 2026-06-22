@@ -242,7 +242,7 @@ void VehEmitter_Sparks_Wall(struct Driver *d, struct ParticleEmitter *emSet)
 	if (speedAbs <= 0x200)
 		return;
 
-	union VehEmitterWallScratch *scratch = CTR_SCRATCHPAD_ADDR_PTR(union VehEmitterWallScratch, CTR_SCRATCHPAD_ADDR);
+	union VehEmitterWallScratch *scratch = CTR_SCRATCHPAD_PTR(union VehEmitterWallScratch, 0);
 	s32 *tireLeftOutWord = &scratch->word[0];
 	s32 *tireRightOutWord = &scratch->word[3];
 	s16 *tireLeftOutHalf = &scratch->half[0];
