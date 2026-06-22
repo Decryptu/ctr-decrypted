@@ -129,8 +129,9 @@ The PS1 scratchpad is 1 KiB:
 0x1f800000 - 0x1f8003ff
 ```
 
-Native maps an OS page at `0x1f800000` in `Platform_InitScratchpad`, but only the first `0x400` bytes are retail scratchpad.
-The page is `0x1000` bytes because that is the usual minimum virtual-memory mapping unit.
+Native uses a process-local scratchpad buffer and routes `CTR_SCRATCHPAD_PTR`
+through that runtime base. Retail absolute scratchpad addresses are translated
+back to offsets from this buffer.
 
 Scratchpad-heavy areas include:
 

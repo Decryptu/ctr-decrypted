@@ -7,16 +7,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if defined(_WIN32)
-#include "platform/native_win32.h"
-#elif defined(__GNUC__)
-#include <errno.h>
-#include <sys/mman.h>
-#ifndef MAP_ANONYMOUS
-#define MAP_ANONYMOUS MAP_ANON
-#endif
-#endif
-
 #ifndef CTR_NATIVE_MEMPACK_RETAIL_PRESSURE
 #define CTR_NATIVE_MEMPACK_RETAIL_PRESSURE 1
 #endif
@@ -37,44 +27,14 @@
 
 global_variable char s_mempackMemory[CTR_NATIVE_MEMPACK_BUFFER_SIZE];
 global_variable struct PlatformMempackArena s_mempackArena;
+global_variable u8 s_scratchpadMemory[CTR_SCRATCHPAD_SIZE];
+u8 *gCTRNativeScratchpadBase;
 
 void Platform_InitScratchpad(void)
 {
 #if defined(CTR_NATIVE)
-	void *scratchpad = (void *)CTR_SCRATCHPAD_ADDR;
-	size_t scratchpadSize = CTR_SCRATCHPAD_MAP_SIZE;
-
-#if defined(_WIN32)
-	void *mapped = VirtualAlloc(scratchpad, scratchpadSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-	if (mapped == NULL)
-	{
-		fprintf(stderr, "[CTR Native] Failed to map PS1 scratchpad at %p: GetLastError=%lu\n", scratchpad, GetLastError());
-		abort();
-	}
-#elif defined(__GNUC__)
-#ifdef MAP_FIXED_NOREPLACE
-	int fixedFlag = MAP_FIXED_NOREPLACE;
-#else
-	int fixedFlag = MAP_FIXED;
-#endif
-
-	void *mapped = mmap(scratchpad, scratchpadSize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | fixedFlag, -1, 0);
-	if (mapped == MAP_FAILED)
-	{
-		fprintf(stderr, "[CTR Native] Failed to map PS1 scratchpad at %p: %s\n", scratchpad, strerror(errno));
-		abort();
-	}
-#else
-#error "Platform_InitScratchpad needs a fixed-address virtual-memory mapper for this platform"
-#endif
-
-	if (mapped != scratchpad)
-	{
-		fprintf(stderr, "[CTR Native] PS1 scratchpad mapped at %p, expected %p\n", mapped, scratchpad);
-		abort();
-	}
-
-	memset(mapped, 0, scratchpadSize);
+	gCTRNativeScratchpadBase = &s_scratchpadMemory[0];
+	memset(s_scratchpadMemory, 0, sizeof(s_scratchpadMemory));
 #endif
 }
 
