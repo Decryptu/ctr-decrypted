@@ -25,16 +25,24 @@
 #define CTR_NATIVE_MEMPACK_SIZE         CTR_NATIVE_MEMPACK_BUFFER_SIZE
 #endif
 
+union NativeScratchpadStorage
+{
+	u8 bytes[CTR_SCRATCHPAD_SIZE];
+	u32 words[CTR_SCRATCHPAD_SIZE / sizeof(u32)];
+};
+
+_Static_assert(sizeof(union NativeScratchpadStorage) == CTR_SCRATCHPAD_SIZE);
+
 global_variable char s_mempackMemory[CTR_NATIVE_MEMPACK_BUFFER_SIZE];
 global_variable struct PlatformMempackArena s_mempackArena;
-global_variable u8 s_scratchpadMemory[CTR_SCRATCHPAD_SIZE];
+global_variable union NativeScratchpadStorage s_scratchpadMemory;
 u8 *gCTRNativeScratchpadBase;
 
 void Platform_InitScratchpad(void)
 {
 #if defined(CTR_NATIVE)
-	gCTRNativeScratchpadBase = &s_scratchpadMemory[0];
-	memset(s_scratchpadMemory, 0, sizeof(s_scratchpadMemory));
+	gCTRNativeScratchpadBase = &s_scratchpadMemory.bytes[0];
+	memset(&s_scratchpadMemory, 0, sizeof(s_scratchpadMemory));
 #endif
 }
 

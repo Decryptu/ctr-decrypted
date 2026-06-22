@@ -457,6 +457,18 @@ force_inline int MathSinInline(u32 param_1)
 	return iVar1;
 }
 
+force_inline void RaceFlag_LoadPosToGte(const SVECTOR *pos)
+{
+	// NOTE(aalhendi): Retail uses lwc2 from stack SVECTORs here. Packing the
+	// fields explicitly avoids native aliasing-sensitive uint loads from stack.
+	MTC2(CTR_PackS16Pair(pos[0].vx, pos[0].vy), 0);
+	MTC2(CTR_PackS16Pair(pos[0].vz, pos[0].pad), 1);
+	MTC2(CTR_PackS16Pair(pos[1].vx, pos[1].vy), 2);
+	MTC2(CTR_PackS16Pair(pos[1].vz, pos[1].pad), 3);
+	MTC2(CTR_PackS16Pair(pos[2].vx, pos[2].vy), 4);
+	MTC2(CTR_PackS16Pair(pos[2].vz, pos[2].pad), 5);
+}
+
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800444e8-0x80044ef8.
 void RaceFlag_DrawSelf()
 {
@@ -481,7 +493,7 @@ void RaceFlag_DrawSelf()
 	int lightR;
 
 	struct RaceFlagScratch *scratch;
-	int local[5];
+	s32 local[5];
 	SVECTOR pos[3] = {0};
 
 	if (sdata->RaceFlag_CanDraw == 0)
@@ -600,7 +612,7 @@ SKIP_LOADING_TEXT:
 				vect->vz = (s16)var2 + (s16)(var3 * 0x20 >> 0xd);
 			}
 
-			gte_ldv3(&pos[0], &pos[1], &pos[2]);
+			RaceFlag_LoadPosToGte(pos);
 			gte_rtpt();
 
 			pos[0].vy += 0x11a;
@@ -682,7 +694,7 @@ SKIP_LOADING_TEXT:
 				vect->vz = (s16)var2 + (s16)(var3 * 0x20 >> 0xd);
 			}
 
-			gte_ldv3(&pos[0], &pos[1], &pos[2]);
+			RaceFlag_LoadPosToGte(pos);
 			gte_rtpt();
 
 			pos[0].vy += 0x11a;
