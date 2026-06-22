@@ -954,6 +954,9 @@ internal bool NativeGpu_IsValidOTLink(uintptr_t link)
 	const uintptr_t base = (uintptr_t)arena->base;
 	const uintptr_t end = (uintptr_t)arena->endOfMemory;
 
+	if (NativeGpuLinks_IsRegisteredHostPointer((const void *)link))
+		return (link & (sizeof(u32) - 1)) == 0;
+
 	return (link >= base) && (link < end) && ((link & (sizeof(u32) - 1)) == 0);
 }
 
@@ -962,6 +965,9 @@ internal u32 NativeGpu_ReadPacketWordForLog(uintptr_t packet, int wordIndex)
 	const struct PlatformMempackArena *arena = Platform_GetMempackArena();
 	const uintptr_t word = packet + (uintptr_t)wordIndex * sizeof(u32);
 	const uintptr_t end = word + sizeof(u32);
+
+	if ((NativeGpuLinks_IsRegisteredHostRange((const void *)word, sizeof(u32))) && ((word & (sizeof(u32) - 1)) == 0))
+		return *(const u32 *)word;
 
 	if ((word < (uintptr_t)arena->base) || (end > (uintptr_t)arena->endOfMemory) || ((word & (sizeof(u32) - 1)) != 0))
 		return 0xffffffffu;

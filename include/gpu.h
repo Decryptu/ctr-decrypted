@@ -1,25 +1,18 @@
 #pragma once
 
 #ifdef CTR_NATIVE
-#include <stdio.h>
-#include <stdlib.h>
+#include <platform/native_gpu_links.h>
 #endif
 
-// PS1 primitive tags store the next OT link as 24 bits. Native code that uses
-// this path must keep linked primitive memory in the low 16 MiB address range.
+// PS1 primitive tags store the next OT link as 24 bits. Native routes this
+// through a GPU link-token bridge so the packet layout stays retail-shaped.
 force_inline u32 CtrGpu_PrimToOTLink24(const void *prim)
 {
-	uintptr_t addr = (uintptr_t)prim;
-
 #ifdef CTR_NATIVE
-	if ((addr & ~(uintptr_t)0xffffffu) != 0)
-	{
-		fprintf(stderr, "[CTR Native] GPU OT 24-bit link overflow: prim=%p truncated=%06x\n", (void *)prim, (u32)(addr & 0xffffffu));
-		abort();
-	}
+	return NativeGpuLinks_FromHostPointer(prim);
+#else
+	return (u32)((uintptr_t)prim & 0xffffffu);
 #endif
-
-	return (u32)(addr & 0xffffffu);
 }
 
 force_inline u32 CtrGpu_OTLinkPayload(u_long ot)

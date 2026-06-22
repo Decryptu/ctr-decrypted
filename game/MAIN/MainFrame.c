@@ -1,5 +1,32 @@
 #include <common.h>
 
+#if defined(CTR_NATIVE)
+static void MainFrame_RegisterGpuLinkRanges(struct GameTracker *gGT)
+{
+	static const char *const primLabels[2] = {"db0 prim", "db1 prim"};
+	static const char *const otLabels[2] = {"db0 OT", "db1 OT"};
+	static const char *const swapchainLabels[2] = {"swapchain OT0", "swapchain OT1"};
+
+	NativeGpuLinks_Reset();
+
+	// NOTE(aalhendi): Retail links PS1 RAM addresses directly in 24-bit GPU
+	// tags. Native keeps the same packet shape, but maps the double-buffered
+	// host draw arenas to stable 24-bit tokens before any OT/tag writer runs.
+	for (int i = 0; i < 2; i++)
+	{
+		struct DB *db = &gGT->db[i];
+		NativeGpuLinks_RegisterRangeChecked(primLabels[i], db->primMem.start, db->primMem.capacityBytes);
+		NativeGpuLinks_RegisterRangeChecked(otLabels[i], db->otMem.start, db->otMem.capacityBytes);
+	}
+
+	u32 swapchainOTBytes = ((u32)gGT->numPlyrCurrGame << 12) | 0x18u;
+	for (int i = 0; i < 2; i++)
+	{
+		NativeGpuLinks_RegisterRangeChecked(swapchainLabels[i], gGT->otSwapchainDB[i], swapchainOTBytes);
+	}
+}
+#endif
+
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80034b48-0x80034bbc.
 void MainFrame_TogglePauseAudio(int bool_pause)
 {
@@ -45,6 +72,10 @@ void MainFrame_ResetDB(struct GameTracker *gGT)
 	db->primMem.cursor = db->primMem.start;
 	db->primMem.primitiveCount = 0;
 	db->otMem.cursor = db->otMem.start;
+
+#if defined(CTR_NATIVE)
+	MainFrame_RegisterGpuLinkRanges(gGT);
+#endif
 
 	CTR_EmptyFunc_MainFrame_ResetDB();
 	DecalGlobal_EmptyFunc_MainFrame_ResetDB();
