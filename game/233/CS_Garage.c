@@ -484,10 +484,10 @@ SKIP_CONTROLS:
 	// pointer to position,
 	// pointer to rotation
 
-	int getPath;
+	s16 getPath;
 	SVec3 camPos;
 	SVec3 camRot;
-	CAM_Path_Move((int)garageFrames, &camPos.x, &camRot.x, &getPath);
+	CAM_Path_Move((int)garageFrames, camPos.v, camRot.v, &getPath);
 
 	// set position and rotation to pushBuffer
 	gGT->pushBuffer[0].pos = camPos;

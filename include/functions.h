@@ -1025,7 +1025,8 @@ void AH_MaskHint_Update(void);
 struct Particle *Particle_Init(u32 param_1, struct IconGroup *ig, struct ParticleEmitter *emSet);
 void Particle_FuncPtr_PotionShatter(struct Particle *p);
 void Particle_FuncPtr_ExhaustUnderwater(struct Particle *p);
-void Vector_SpecLightSpin3D(struct Instance *inst, s16 *rot, const SVec3 *lightDir);
+void Vector_SpecLightSpin3D(struct Instance *inst, const SVec3 *rot, const SVec3 *lightDir);
+void Vector_SpecLightNoSpin3D(struct Instance *inst, const SVec3 *rot, const SVec3 *lightDir);
 
 // 233
 void CS_Garage_ZoomOut(char zoomState);
@@ -1049,7 +1050,7 @@ void CS_Thread_MoveOnPath(struct Thread *t);
 void CS_Thread_Particles(struct Thread *t);
 void CS_Thread_InterpolateFramesMS(struct Thread *t);
 void CS_Thread_ThTick(struct Thread *t);
-struct Thread *CS_Thread_Init(s16 modelID, const char *name, s16 *param_3, s16 param_4, struct Thread *parent);
+struct Thread *CS_Thread_Init(s16 modelID, const char *name, struct CsThreadInitData *initData, s16 param_4, struct Thread *parent);
 void CS_Podium_Prize_ThDestroy(struct Thread *t);
 void CS_Podium_Prize_Spin(struct Instance *inst, s16 *prize);
 void CS_Podium_Prize_ThTick1(struct Thread *th);
@@ -1179,7 +1180,7 @@ int LOAD_GetAdvPackIndex(void);
 void CAM_ProcessTransition(SVec3 *currPos, SVec3 *currRot, SVec3 *startPos, SVec3 *startRot, SVec3 *endPos, SVec3 *endRot, s32 frame);
 void CAM_LookAtPosition(struct CameraScratchWork *scratchWork, Vec3 *positions, SVec3 *desiredPos, SVec3 *desiredRot);
 void CAM_FollowDriver_Spin360(struct CameraDC *cDC, struct CameraScratchWork *scratchWork, struct Driver *d, SVec3 *desiredPos, SVec3 *desiredRot);
-void CAM_FollowDriver_AngleAxis(struct CameraDC *cDC, struct Driver *d, struct CameraScratchWork *scratchWork, SVec3 *pushBufferPos, SVec3 *pushBufferRot);
+void CAM_FollowDriver_AngleAxis(struct CameraDC *cDC, struct Driver *d, struct CameraAngleAxisScratch *scratchWork, SVec3 *pushBufferPos, SVec3 *pushBufferRot);
 int MainDB_GetClipSize(u32 levelID, int numPlyrCurrGame);
 void MainFreeze_ConfigDrawArrows(s16 offsetX, s16 offsetY, char *str);
 void CAM_StartOfRace(struct CameraDC *cDC);

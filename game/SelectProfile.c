@@ -59,7 +59,7 @@ void SelectProfile_ThTick(struct Thread *t)
 
 		if (slot != 1)
 		{
-			Vector_SpecLightSpin3D(inst, &icon->rot.x, &data.MetaDataLoadSave[i].vec3_specular_inverted);
+			Vector_SpecLightSpin3D(inst, &icon->rot, &data.MetaDataLoadSave[i].vec3_specular_inverted);
 		}
 	}
 }

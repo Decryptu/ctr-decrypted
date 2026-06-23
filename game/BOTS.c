@@ -2473,7 +2473,7 @@ UpdateTireColorTimer:
 		botInstance->bitCompressed_NormalVector_AndDriverIndex = INST_CompressNormalVectorAndDriverIndex(m.m[0][1], m.m[1][1], m.m[2][1], botDriver->driverID);
 	}
 
-	ConvertRotToMatrix(&botInstance->matrix, &botDriver->rotCurr);
+	ConvertRotToMatrix(&botInstance->matrix, &botDriver->rotCurr.vec);
 
 	// c is row-major (i.e., ticking the rightmost indeces has smaller memory address delta vs ticking the leftmost indeces)
 	botDriver->AxisAngle2_normalVec.x = botInstance->matrix.m[0][1];

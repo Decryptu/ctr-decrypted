@@ -61,14 +61,14 @@ static void RenderLists_Load1P2PGteState(struct PushBuffer *pb)
 	gte_SetGeomScreen(pb->distanceToScreen_PREV);
 }
 
-static int RenderLists_FrustumRejectsCorner(s16 *plane, const s16 *point)
+static int RenderLists_FrustumRejectsCorner(const struct PushBufferFrustumPlane *plane, const s16 *point)
 {
 	// NOTE(aalhendi): Retail 0x80070290 tests the selected BSP corner with llv0bk and rejects when IR1 is positive.
 	MTC2(CTR_PackS16Pair(point[0], point[1]), 0);
 	MTC2((u32)(s32)point[2], 1);
-	CTC2(*(u32 *)&plane[0], 8);
-	CTC2(*(u32 *)&plane[2], 9);
-	CTC2((u32)(s32)(-2 * plane[3]), 13);
+	CTC2(CTR_PackS16Pair(plane->normal.x, plane->normal.y), 8);
+	CTC2(CTR_PackS16Pair(plane->normal.z, plane->halfDistance), 9);
+	CTC2((u32)(s32)(-2 * plane->halfDistance), 13);
 	doCOP2(0x04a2012);
 
 	return MFC2_S(9) > 0;
@@ -77,7 +77,7 @@ static int RenderLists_FrustumRejectsCorner(s16 *plane, const s16 *point)
 static int RenderLists_BoxPassesFrustum(struct PushBuffer *pb, const struct BoundingBox *box)
 {
 	s16 point[3];
-	s16 *plane;
+	const struct PushBufferFrustumPlane *plane;
 
 	if (pb == 0)
 		return 1;
@@ -85,7 +85,7 @@ static int RenderLists_BoxPassesFrustum(struct PushBuffer *pb, const struct Boun
 	for (int planeIndex = 0; planeIndex < 4; planeIndex++)
 	{
 		// NOTE(aalhendi): Retail tests planes in 1,3,0,2 order; each test is independent, so native preserves the plane/corner pairing in a simple loop.
-		plane = (s16 *)&pb->frustumData[planeIndex * 8];
+		plane = &pb->frustumPlanes[planeIndex];
 		RenderLists_SelectBoxCorner(box, pb->RenderListJmpIndex[planeIndex] & 7, point);
 
 		if (RenderLists_FrustumRejectsCorner(plane, point))

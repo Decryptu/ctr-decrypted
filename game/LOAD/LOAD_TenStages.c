@@ -299,11 +299,10 @@ int LOAD_TenStages(struct GameTracker *gGT, int loadingStage, struct BigHeader *
 		// will break the character animations
 		sdata->ptrMPK = 0;
 
-		// Clear driver extras, and podium models
-		int *ptrArray = &data.driverModelExtras[0];
-		for (int i = 0; i < 11; i++)
+		// Clear driver extras
+		for (int i = 0; i < 3; i++)
 		{
-			ptrArray[i] = 0;
+			data.driverModelExtras[i].fileBase = NULL;
 		}
 
 		// NOTE(aalhendi): Retail gates stage advancement until the driver MPK callback sets ptrMPK.
@@ -361,8 +360,8 @@ int LOAD_TenStages(struct GameTracker *gGT, int loadingStage, struct BigHeader *
 		// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80033f1c-0x80033f44; retail converts driver DRAM file headers to model payload pointers here.
 		for (int i = 0; i < 3; i++)
 		{
-			if (data.driverModelExtras[i] != 0)
-				data.driverModelExtras[i] += 4;
+			if (data.driverModelExtras[i].fileBase != NULL)
+				data.driverModelExtras[i].model = (struct Model *)((u8 *)data.driverModelExtras[i].fileBase + 4);
 		}
 
 		// == banks are done parsing ===
@@ -519,6 +518,12 @@ int LOAD_TenStages(struct GameTracker *gGT, int loadingStage, struct BigHeader *
 		// that does NOT overwrite the hub VRAM
 		iVar9 = LOAD_GetAdvPackIndex() - 1;
 
+		struct Model **podiumModels = &data.podiumModel_firstPlace;
+		for (int i = 7; i >= 0; i--)
+		{
+			podiumModels[i] = NULL;
+		}
+
 		// NOTE(aalhendi): Retail gates stage advancement until
 		// LOAD_Callback_Podiums runs after the final podium file.
 		sdata->load_inProgress = 1;
@@ -528,7 +533,7 @@ int LOAD_TenStages(struct GameTracker *gGT, int loadingStage, struct BigHeader *
 
 		int fileIndex;
 		u8 *ptrIndexArr = &gGT->podium_modelIndex_First;
-		int *ptrModelPtrArr = &data.podiumModel_firstPlace;
+		struct Model **ptrModelPtrArr = podiumModels;
 		void (*setPtrCb)(struct LoadQueueSlot *) = (void (*)(struct LoadQueueSlot *))-2;
 
 		// podium first place

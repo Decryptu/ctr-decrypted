@@ -412,7 +412,7 @@ processOpcode:
 				initData->rot.z = 0;
 			}
 
-			CS_Thread_Init(spawnModelID, R233.s_spawn, (s16 *)initData, 0, instance->thread);
+			CS_Thread_Init(spawnModelID, R233.s_spawn, initData, 0, instance->thread);
 		}
 		break;
 
@@ -711,7 +711,7 @@ processOpcode:
 		initData->rot.y += R233.creditsDancerRotOffset.y;
 		initData->rot.z += R233.creditsDancerRotOffset.z;
 
-		dancerThread = (struct Thread *)CS_Thread_Init(dancerModelID, R233.s_g_dancer, (s16 *)initData, 0, 0);
+		dancerThread = (struct Thread *)CS_Thread_Init(dancerModelID, R233.s_g_dancer, initData, 0, 0);
 		CS_Credits_NewDancer(dancerThread, (int)opcodeMetaShorts[6]);
 	}
 	break;
@@ -1386,7 +1386,7 @@ thTick_epilogue:
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800af328-0x800af7c0
-struct Thread *CS_Thread_Init(s16 modelID, const char *name, s16 *param_3, s16 param_4, struct Thread *parent)
+struct Thread *CS_Thread_Init(s16 modelID, const char *name, struct CsThreadInitData *initData, s16 param_4, struct Thread *parent)
 {
 	struct GameTracker *gGT = sdata->gGT;
 	struct CutsceneObj *cs;
@@ -1523,17 +1523,17 @@ after_opcode:
 
 	if (inst != NULL)
 	{
-		MTC2(*(int *)(param_3 + 4), 0);
-		MTC2(*(int *)(param_3 + 6), 1);
+		MTC2(CTR_PackS16Pair(initData->characterPos.x, initData->characterPos.y), 0);
+		MTC2(CTR_PackS16Pair(initData->characterPos.z, initData->characterPos.w), 1);
 		gte_llv0();
 
 		int rx = MFC2(25);
 		int ry = MFC2(26);
 		int rz = MFC2(27);
 
-		inst->matrix.t[0] = rx + param_3[0];
-		inst->matrix.t[1] = ry + param_3[1];
-		inst->matrix.t[2] = rz + param_3[2];
+		inst->matrix.t[0] = rx + initData->podiumPos.x;
+		inst->matrix.t[1] = ry + initData->podiumPos.y;
+		inst->matrix.t[2] = rz + initData->podiumPos.z;
 
 		if (gGT->levelID != NAUGHTY_DOG_CRATE)
 		{
@@ -1548,16 +1548,16 @@ after_opcode:
 			inst->depthBiasSecondary -= 4;
 		}
 
-		param_3[0xc] = param_3[8];
-		param_3[0xe] = param_3[10];
-		param_3[0xd] = param_3[9] + param_4;
+		initData->derivedRot.x = initData->rot.x;
+		initData->derivedRot.z = initData->rot.z;
+		initData->derivedRot.y = initData->rot.y + param_4;
 
-		ConvertRotToMatrix(&inst->matrix, param_3 + 0xc);
+		ConvertRotToMatrix(&inst->matrix, &initData->derivedRot.vec);
 
-		cs->unk1c = param_3[0xd] & 0xfff;
-		cs->rot.x = param_3[0xc] & 0xfff;
-		cs->rot.y = param_3[0xd] & 0xfff;
-		cs->rot.z = param_3[0xe] & 0xfff;
+		cs->unk1c = initData->derivedRot.y & 0xfff;
+		cs->rot.x = initData->derivedRot.x & 0xfff;
+		cs->rot.y = initData->derivedRot.y & 0xfff;
+		cs->rot.z = initData->derivedRot.z & 0xfff;
 	}
 
 	cs->particleID = 0xff;

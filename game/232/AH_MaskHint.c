@@ -246,7 +246,7 @@ void AH_MaskHint_Update()
 {
 	struct GameTracker *gGT = sdata->gGT;
 	struct Driver *d = gGT->drivers[0];
-	u32 angleAxisWork[CAM_FOLLOW_DRIVER_ANGLE_AXIS_WORK_SIZE / sizeof(u32)];
+	struct CameraAngleAxisScratch angleAxisWork;
 	SVec3 pos;
 	SVec3 rot;
 
@@ -278,7 +278,7 @@ void AH_MaskHint_Update()
 			cdc->flags |= 8;
 
 			// NOTE(aalhendi): Retail passes a stack work buffer here, not 0x1f800108.
-			CAM_FollowDriver_AngleAxis(cdc, d, (u8 *)(void *)angleAxisWork, &pos, &rot);
+			CAM_FollowDriver_AngleAxis(cdc, d, &angleAxisWork, &pos, &rot);
 			CAM_SetDesiredPosRot(cdc, &pos, &rot);
 		}
 

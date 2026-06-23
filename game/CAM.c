@@ -709,7 +709,7 @@ static void CAM_FollowDriver_AngleAxis_TransformOffset(const SVec3 *offset, VECT
 	CTR_GteStoreMAC(&out->vx);
 }
 
-void CAM_FollowDriver_AngleAxis(struct CameraDC *cDC, struct Driver *d, struct CameraScratchWork *scratchWork, SVec3 *pushBufferPos, SVec3 *pushBufferRot)
+void CAM_FollowDriver_AngleAxis(struct CameraDC *cDC, struct Driver *d, struct CameraAngleAxisScratch *scratchWork, SVec3 *pushBufferPos, SVec3 *pushBufferRot)
 {
 	MATRIX *axisMatrix = &scratchWork->camera.matrix;
 	VECTOR *eye = (VECTOR *)&scratchWork->camera.pos;
@@ -777,7 +777,7 @@ void CAM_StartLine_FlyIn(struct FlyInData *flyInData, s16 maxFrames, s32 frame, 
 	s16 count = flyInData->frameCount2;
 	SVECTOR local_78;
 	SVECTOR local_70;
-	SVECTOR rot;
+	SVec3 rot;
 	MATRIX matrix;
 	VECTOR transformed;
 	s32 flags[2];
@@ -820,11 +820,11 @@ void CAM_StartLine_FlyIn(struct FlyInData *flyInData, s16 maxFrames, s32 frame, 
 	local_70.vy = pathStart[1] + (s16)(((pathStart[4] - pathStart[1]) * ratio) >> 0xc) - 0x60;
 	local_70.vz = pathStart[2] + (s16)(((pathStart[5] - pathStart[2]) * ratio) >> 0xc);
 
-	rot.vx = lev->DriverSpawn[0].rot.x;
-	rot.vy = lev->DriverSpawn[0].rot.y + 0x400;
-	rot.vz = lev->DriverSpawn[0].rot.z;
+	rot.x = lev->DriverSpawn[0].rot.x;
+	rot.y = lev->DriverSpawn[0].rot.y + 0x400;
+	rot.z = lev->DriverSpawn[0].rot.z;
 
-	ConvertRotToMatrix(&matrix, (s16 *)&rot);
+	ConvertRotToMatrix(&matrix, &rot);
 
 	CAM_StartLine_FlyIn_FixY(&lev->DriverSpawn[1].pos);
 	CAM_StartLine_FlyIn_FixY(&lev->DriverSpawn[2].pos);
@@ -1557,7 +1557,7 @@ LAB_8001ab04:
 				if ((s16)x > 0x96)
 					x = 0x96;
 
-				CAM_StartLine_FlyIn(&flyInData, 0x96, x, local_40.v, local_38.v);
+				CAM_StartLine_FlyIn(&flyInData, 0x96, x, &local_40, &local_38);
 
 				x = (s32)cDC->transitionBlend;
 			}
@@ -2110,7 +2110,7 @@ SkipNewCameraEOR:
 								{
 									cDC->flags = cDC->flags | CAMERA_FLAG_RESET_RAIN_POS | CAMERA_FLAG_DIRECTION_CHANGED;
 								}
-								CAM_FollowDriver_AngleAxis(cDC, d, scratchWork, &pb->pos, &pb->rot);
+								CAM_FollowDriver_AngleAxis(cDC, d, &scratchWork->angleAxis, &pb->pos, &pb->rot);
 							}
 							else
 							{
@@ -2216,7 +2216,7 @@ SkipNewCameraEOR:
 		}
 	}
 
-	CAM_FollowDriver_Normal(cDC, d, &pb->pos.x, scratchWork, ptrZoomData);
+	CAM_FollowDriver_Normal(cDC, d, &pb->pos, scratchWork, ptrZoomData);
 
 LAB_8001c150:
 	cDC->cameraModePrev = cDC->cameraMode;

@@ -239,7 +239,7 @@ void CS_Instance_InitMatrix(void)
 		{
 			char *entry = data + j * 0x20;
 
-			ConvertRotToMatrix(&mat, (s16 *)(entry + 8));
+			ConvertRotToMatrix(&mat, (const SVec3 *)(entry + 8));
 
 			scale.m[0][0] = *(s16 *)(entry + 0x10);
 			scale.m[1][1] = *(s16 *)(entry + 0x12);

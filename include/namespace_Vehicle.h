@@ -1030,23 +1030,11 @@ struct Driver
 	// This is render rotation, not velocity direction,
 	// these are the variables that get turned into
 	// instance matrix
-	struct
-	{
-		s16 x;
-		s16 y;
-		s16 z;
-		s16 w;
-	} rotCurr;
+	SVec3Slot rotCurr;
 
 	// 0x2F4
 	// used for velocity in 231
-	struct
-	{
-		s16 x;
-		s16 y;
-		s16 z;
-		s16 w;
-	} rotPrev;
+	SVec3Slot rotPrev;
 
 	// 0x2FC
 	int sfxDistortOffset;
@@ -2192,4 +2180,10 @@ _Static_assert(offsetof(struct Driver, KartStates.RevEngine.chargeState) == 0x59
 _Static_assert(offsetof(struct Driver, KartStates.RevEngine.lockoutFlags) == 0x593);
 _Static_assert(offsetof(struct Driver, rotCurr.x) == 0x2ec);
 _Static_assert(offsetof(struct Driver, rotCurr.y) == 0x2ee);
+_Static_assert(offsetof(struct Driver, rotCurr.z) == 0x2f0);
+_Static_assert(offsetof(struct Driver, rotCurr.w) == 0x2f2);
+_Static_assert(offsetof(struct Driver, rotPrev.x) == 0x2f4);
+_Static_assert(offsetof(struct Driver, rotPrev.y) == 0x2f6);
+_Static_assert(offsetof(struct Driver, rotPrev.z) == 0x2f8);
+_Static_assert(offsetof(struct Driver, rotPrev.w) == 0x2fa);
 _Static_assert(offsetof(struct Driver, KartStates.MaskGrab.AngleAxis_NormalVec) == 0x584);

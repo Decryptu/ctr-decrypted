@@ -7,7 +7,7 @@ void LOAD_GlobalModelPtrs_MPK()
 
 	for (int i = 0; i < 3; i++)
 	{
-		struct Model *m = (struct Model *)data.driverModelExtras[i];
+		struct Model *m = data.driverModelExtras[i].model;
 
 		if (m == NULL)
 			continue;

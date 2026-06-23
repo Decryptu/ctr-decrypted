@@ -341,7 +341,7 @@ void AH_Door_ThTick(struct Thread *t)
 								keyInst->matrix.t[2] = driver->instSelf->matrix.t[2] + ((iVar17 >> 5) * ratio >> 0xc);
 							}
 
-							Vector_SpecLightSpin3D(keyInst, door->keyRot.v, &keyLightDir);
+							Vector_SpecLightSpin3D(keyInst, &door->keyRot, &keyLightDir);
 
 							// convert 3 rotation shorts into rotation matrix
 							ConvertRotToMatrix(&keyInst->matrix, &door->keyRot);

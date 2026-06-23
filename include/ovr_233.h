@@ -11,22 +11,38 @@ typedef enum CutscenePhase : s32
 
 struct CsThreadInitData
 {
-	SVec3 podiumPos;
-	s16 _pad_podiumPos;
+	SVec3Slot podiumPos;
 
-	SVec3 characterPos;
-	s16 _pad_characterPos;
+	SVec3Slot characterPos;
 
-	SVec3 rot;
-	s16 _pad_rot;
+	SVec3Slot rot;
 
-	// matrix
-	u32 local_30;
-	u32 local_2c;
-	u32 local_28;
-	u32 local_24;
-	u32 local_20;
+	union
+	{
+		struct
+		{
+			u32 local_30;
+			u32 local_2c;
+			u32 local_28;
+			u32 local_24;
+			u32 local_20;
+		};
+		struct
+		{
+			SVec3Slot derivedRot;
+			u32 local_28_alias;
+			u32 local_24_alias;
+			u32 local_20_alias;
+		};
+	};
 };
+
+_Static_assert(sizeof(struct CsThreadInitData) == 0x2c);
+_Static_assert(offsetof(struct CsThreadInitData, podiumPos) == 0x0);
+_Static_assert(offsetof(struct CsThreadInitData, characterPos) == 0x8);
+_Static_assert(offsetof(struct CsThreadInitData, rot) == 0x10);
+_Static_assert(offsetof(struct CsThreadInitData, local_30) == 0x18);
+_Static_assert(offsetof(struct CsThreadInitData, derivedRot) == 0x18);
 
 struct Prize
 {

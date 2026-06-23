@@ -17,6 +17,16 @@ struct MatrixND
 _Static_assert(sizeof(struct MatrixND) == 0x20);
 _Static_assert(MATRIX_ND_BAKED_MATRIX_OFFSET == offsetof(struct MatrixND, m[1][1]));
 
+typedef union DriverModelExtraSlot
+{
+	void *fileBase;
+	struct Model *model;
+} DriverModelExtraSlot;
+
+_Static_assert(sizeof(DriverModelExtraSlot) == sizeof(void *));
+_Static_assert(offsetof(DriverModelExtraSlot, fileBase) == 0x0);
+_Static_assert(offsetof(DriverModelExtraSlot, model) == 0x0);
+
 typedef enum ScrubFlags : u32
 {
 	SCRUB_FLAG_APPLY_IMPACT = 0x1,
@@ -1725,25 +1735,25 @@ struct Data
 	// 80082910 -- JpnTrial
 	// 80083ce8 -- EurRetail
 	// 80086ca4 -- JpnRetail
-	int driverModelExtras[3]; // maybe should be `struct Model**[3]`
+	DriverModelExtraSlot driverModelExtras[3];
 
 	// 80083a1c
-	int podiumModel_firstPlace;
-	int podiumModel_secondPlace;
-	int podiumModel_thirdPlace;
-	int podiumModel_tawna;
+	struct Model *podiumModel_firstPlace;
+	struct Model *podiumModel_secondPlace;
+	struct Model *podiumModel_thirdPlace;
+	struct Model *podiumModel_tawna;
 
 	// 80083a2c
-	int podiumModel_unk1;
+	struct Model *podiumModel_unk1;
 
 	// 80083a30
-	int podiumModel_dingoFire;
+	struct Model *podiumModel_dingoFire;
 
 	// 80083a34
-	int podiumModel_unk2;
+	struct Model *podiumModel_unk2;
 
 	// 80083a38
-	int podiumModel_podiumStands; // maybe should be a ptr of some sort instead of `int`
+	struct Model *podiumModel_podiumStands;
 
 	// 80083a3c
 	struct LoadQueueSlot currSlot;
@@ -2708,6 +2718,9 @@ struct Data
 	// 8008c05c -- pointer to first exe function
 	// 8008cf6b -- end of Data
 };
+
+_Static_assert(offsetof(struct Data, podiumModel_firstPlace) == offsetof(struct Data, driverModelExtras) + sizeof(((struct Data *)0)->driverModelExtras));
+_Static_assert(offsetof(struct Data, currSlot) == offsetof(struct Data, driverModelExtras) + 11 * sizeof(void *));
 
 // 0x8008D218 -- Early June? PizzaHut USA
 // 0x8008b3d0 -- SepReview

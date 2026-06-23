@@ -83,7 +83,7 @@ void RB_CtrLetter_ThTick(struct Thread *t)
 	letterObj->rot.y += 0x40;
 	ConvertRotToMatrix(&letterInst->matrix, &letterObj->rot);
 
-	Vector_SpecLightSpin3D(letterInst, &letterObj->rot.x, &letterLightDir);
+	Vector_SpecLightSpin3D(letterInst, &letterObj->rot, &letterLightDir);
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b5334-0x800b53e0.

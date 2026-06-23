@@ -116,7 +116,7 @@ void CS_Camera_ThTick_Boss(struct Thread *t)
 
 		MEMPACK_SwapPacks(gGT->activeMempackIndex);
 
-		struct CsThreadInitData initData;
+		struct CsThreadInitData initData = {0};
 		initData.podiumPos.x = bcd->bossPos.x;
 		initData.podiumPos.y = bcd->bossPos.y;
 		initData.podiumPos.z = bcd->bossPos.z;
@@ -136,7 +136,7 @@ void CS_Camera_ThTick_Boss(struct Thread *t)
 			if (mArr[i] == NULL)
 				continue;
 
-			t = CS_Thread_Init(mArr[i]->id, mArr[i], &initData, 0, t);
+			t = CS_Thread_Init(mArr[i]->id, mArr[i]->name, &initData, 0, t);
 			if (t == NULL)
 				continue;
 

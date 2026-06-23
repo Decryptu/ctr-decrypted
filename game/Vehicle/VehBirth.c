@@ -443,11 +443,9 @@ struct Model *VehBirth_GetModelByName(char *searchName)
 
 	// array to character models loaded,
 	// maximum of 4, used in VS mode
-	models = (struct Model **)&data.driverModelExtras[0];
-
 	for (i = 0; i < VEH_EXTRA_DRIVER_MODEL_COUNT; i++)
 	{
-		m = models[i];
+		m = data.driverModelExtras[i].model;
 
 		if ((m != NULL) && VehBirth_ModelNameEquals(m, searchName))
 		{

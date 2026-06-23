@@ -61,7 +61,7 @@ static void Vector_LightMatrixMul(MATRIX *matrix, const SVec3 *input, SVec3 *out
 	output->z = (s16)mac.vz;
 }
 
-void Vector_SpecLightSpin3D(struct Instance *inst, s16 *rot, const SVec3 *lightDir)
+void Vector_SpecLightSpin3D(struct Instance *inst, const SVec3 *rot, const SVec3 *lightDir)
 {
 	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005741c-0x800576b8.
 	MATRIX rotMatrix;
@@ -102,7 +102,7 @@ void Vector_SpecLightSpin3D(struct Instance *inst, s16 *rot, const SVec3 *lightD
 }
 
 
-void Vector_SpecLightNoSpin3D(struct Instance *inst, s16 *rot, const SVec3 *lightDir)
+void Vector_SpecLightNoSpin3D(struct Instance *inst, const SVec3 *rot, const SVec3 *lightDir)
 {
 	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800576b8-0x80057884.
 	MATRIX lightMatrix;
@@ -188,7 +188,7 @@ static void Vector_BakeMatrixTable_BakeRotScaleEntries(void)
 		{
 			char *entry = entries + (j * 0x20);
 
-			ConvertRotToMatrix(&rot, (s16 *)(entry + 8));
+			ConvertRotToMatrix(&rot, (const SVec3 *)(entry + 8));
 
 			scale.m[0][0] = *(s16 *)(entry + 0x10);
 			scale.m[1][1] = *(s16 *)(entry + 0x12);

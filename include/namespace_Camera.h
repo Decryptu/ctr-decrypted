@@ -1,25 +1,6 @@
 // Camera scratchpad overlay rooted at retail scratchpad 0x1f800108.
 // Camera-owned fields begin at work+0x20c, absolute scratchpad 0x1f800314.
-struct CameraScratch
-{
-	SVec3 rot;     // +0x00 (abs 0x314)
-	s16 _pad0;     // +0x06
-	Vec3 posCopy;  // +0x08 (abs 0x31C) s32 copies of pos below
-	MATRIX matrix; // +0x14 (abs 0x328)
-	Vec3 pos;      // +0x34 (abs 0x348)
-	Vec3 dir;      // +0x40 (abs 0x354) written by CAM_LookAtPosition
-	Vec3 delta;    // +0x4C (abs 0x360)
-};
-
-_Static_assert(offsetof(struct CameraScratch, rot) == 0x00);
-_Static_assert(offsetof(struct CameraScratch, posCopy) == 0x08);
-_Static_assert(offsetof(struct CameraScratch, matrix) == 0x14);
-_Static_assert(offsetof(struct CameraScratch, pos) == 0x34);
-_Static_assert(offsetof(struct CameraScratch, dir) == 0x40);
-_Static_assert(offsetof(struct CameraScratch, delta) == 0x4C);
-_Static_assert(sizeof(struct CameraScratch) == 0x58);
-
-struct CameraScratchWork
+struct CameraCollisionScratch
 {
 	union
 	{
@@ -30,8 +11,89 @@ struct CameraScratchWork
 			s16 terrainHeightFloor;
 		};
 	};
+};
 
-	struct CameraScratch camera;
+_Static_assert(offsetof(struct CameraCollisionScratch, terrainHeightFloor) == 0x01e);
+_Static_assert(sizeof(struct CameraCollisionScratch) == 0x20c);
+
+struct CameraAngleAxisScratchCamera
+{
+	SVec3 rot;     // +0x00 (abs 0x314)
+	s16 _pad0;     // +0x06
+	Vec3 posCopy;  // +0x08 (abs 0x31C) s32 copies of pos below
+	MATRIX matrix; // +0x14 (abs 0x328)
+	Vec3 pos;      // +0x34 (abs 0x348)
+	Vec3 dir;      // +0x40 (abs 0x354) written by CAM_LookAtPosition
+};
+
+_Static_assert(offsetof(struct CameraAngleAxisScratchCamera, rot) == 0x00);
+_Static_assert(offsetof(struct CameraAngleAxisScratchCamera, posCopy) == 0x08);
+_Static_assert(offsetof(struct CameraAngleAxisScratchCamera, matrix) == 0x14);
+_Static_assert(offsetof(struct CameraAngleAxisScratchCamera, pos) == 0x34);
+_Static_assert(offsetof(struct CameraAngleAxisScratchCamera, dir) == 0x40);
+_Static_assert(sizeof(struct CameraAngleAxisScratchCamera) == 0x4c);
+
+struct CameraScratch
+{
+	union
+	{
+		struct CameraAngleAxisScratchCamera angleAxis;
+		struct
+		{
+			SVec3 rot;
+			s16 _pad0;
+			Vec3 posCopy;
+			MATRIX matrix;
+			Vec3 pos;
+			Vec3 dir;
+		};
+	};
+
+	Vec3 delta; // +0x4C (abs 0x360)
+};
+
+_Static_assert(offsetof(struct CameraScratch, angleAxis) == 0x00);
+_Static_assert(offsetof(struct CameraScratch, angleAxis.rot) == 0x00);
+_Static_assert(offsetof(struct CameraScratch, angleAxis.posCopy) == 0x08);
+_Static_assert(offsetof(struct CameraScratch, angleAxis.matrix) == 0x14);
+_Static_assert(offsetof(struct CameraScratch, angleAxis.pos) == 0x34);
+_Static_assert(offsetof(struct CameraScratch, angleAxis.dir) == 0x40);
+_Static_assert(offsetof(struct CameraScratch, delta) == 0x4C);
+_Static_assert(sizeof(struct CameraScratch) == 0x58);
+
+struct CameraAngleAxisScratch
+{
+	struct CameraCollisionScratch collision;
+	struct CameraAngleAxisScratchCamera camera;
+};
+
+_Static_assert(offsetof(struct CameraAngleAxisScratch, collision) == 0x0);
+_Static_assert(offsetof(struct CameraAngleAxisScratch, collision.terrainHeightFloor) == 0x01e);
+_Static_assert(offsetof(struct CameraAngleAxisScratch, camera) == 0x20c);
+_Static_assert(sizeof(struct CameraAngleAxisScratch) == 0x258);
+
+struct CameraScratchWork
+{
+	union
+	{
+		struct CameraAngleAxisScratch angleAxis;
+		struct
+		{
+			union
+			{
+				struct CameraCollisionScratch collision;
+				u8 collisionScratch[0x20c];
+				struct
+				{
+					u8 pad_000[0x1e];
+					s16 terrainHeightFloor;
+				};
+			};
+
+			struct CameraScratch camera;
+		};
+	};
+
 	u8 pad_264[0x18];
 	Vec3 sideOffset;
 	SVec3 trackPathPos;
@@ -39,8 +101,11 @@ struct CameraScratchWork
 	SVec3 trackPathLookaheadPos;
 };
 
-_Static_assert(offsetof(struct CameraScratchWork, terrainHeightFloor) == 0x01e);
+_Static_assert(offsetof(struct CameraScratchWork, collision) == 0x0);
+_Static_assert(offsetof(struct CameraScratchWork, collision.terrainHeightFloor) == 0x01e);
+_Static_assert(offsetof(struct CameraScratchWork, angleAxis) == 0x0);
 _Static_assert(offsetof(struct CameraScratchWork, camera) == 0x20c);
+_Static_assert(offsetof(struct CameraScratchWork, camera.angleAxis) == 0x20c);
 _Static_assert(offsetof(struct CameraScratchWork, sideOffset) == 0x27c);
 _Static_assert(offsetof(struct CameraScratchWork, trackPathPos) == 0x288);
 _Static_assert(offsetof(struct CameraScratchWork, trackPathLookaheadPos) == 0x290);
@@ -75,11 +140,6 @@ struct FlyInData
 	u8 *ptrStart;
 	s16 frameCount1;
 	s16 frameCount2;
-};
-
-enum
-{
-	CAM_FOLLOW_DRIVER_ANGLE_AXIS_WORK_SIZE = 0x258,
 };
 
 struct CameraFireSpeedZoom

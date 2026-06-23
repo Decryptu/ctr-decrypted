@@ -64,15 +64,24 @@ static void MM_TrackSelect_Video_DrawNativePreview(RECT *r, int srcX, int srcY)
 	uint32_t *ot = gGT->pushBuffer_UI.ptrOT;
 	u32 oldTag = (u32)*ot;
 	u32 *nextPrim;
-	s16 tile[16] = {
-	    (s16)srcX, (s16)srcY, 0xaa, 0x47, (s16)(r->x + 3), (s16)(r->y + 2), 0xaa, 0x47,
+	struct DisplayBlurTile tile[2] = {
+	    {
+	        .srcX = (s16)srcX,
+	        .srcY = (s16)srcY,
+	        .srcW = 0xaa,
+	        .srcH = 0x47,
+	        .dstX = (s16)(r->x + 3),
+	        .dstY = (s16)(r->y + 2),
+	        .dstW = 0xaa,
+	        .dstH = 0x47,
+	    },
 	};
 
 	// NOTE(aalhendi): Retail copies decoded MDEC output with MoveImage. Native
 	// presents menus from queued primitives, so draw the same VRAM rectangle as
 	// a 16-bit textured quad instead of relying on a CPU-side VRAM copy.
 	*ot = (uint32_t)CtrGpu_PrimToOTLink24(prim);
-	nextPrim = DISPLAY_Blur_SubFunc(prim, tile);
+	nextPrim = DISPLAY_Blur_SubFunc(prim, &tile[0]);
 	((POLY_FT4 *)nextPrim - 1)->tag = CtrGpu_PackOTTag(oldTag, 0x09000000);
 	gGT->backBuffer->primMem.cursor = nextPrim;
 }

@@ -3,6 +3,16 @@ struct FrustumCornerOUT
 	SVec3 pos;
 };
 
+struct PushBufferFrustumPlane
+{
+	SVec3 normal;
+	s16 halfDistance;
+};
+
+_Static_assert(sizeof(struct PushBufferFrustumPlane) == 0x8);
+_Static_assert(offsetof(struct PushBufferFrustumPlane, normal) == 0x0);
+_Static_assert(offsetof(struct PushBufferFrustumPlane, halfDistance) == 0x6);
+
 struct ScratchpadFrustum
 {
 	// 1f800000
@@ -116,7 +126,7 @@ struct PushBuffer
 	// 0xC0 - plane4
 
 	// 0xA8
-	char frustumData[0x28];
+	struct PushBufferFrustumPlane frustumPlanes[5];
 
 	// 0xD0
 	int RenderListJmpIndex[6];
@@ -158,6 +168,9 @@ _Static_assert(offsetof(RECT, w) == 0x4);
 _Static_assert(offsetof(RECT, h) == 0x6);
 _Static_assert(offsetof(struct PushBuffer, matrix_ViewProj) == 0x28);
 _Static_assert(offsetof(struct PushBuffer, matrix_Camera) == 0x68);
+_Static_assert(offsetof(struct PushBuffer, frustumPlanes) == 0xa8);
+_Static_assert(offsetof(struct PushBuffer, RenderListJmpIndex) == 0xd0);
+_Static_assert(offsetof(struct PushBuffer, bbox) == 0xe8);
 _Static_assert(offsetof(struct PushBuffer, ptrOT) == 0xf4);
 _Static_assert(offsetof(struct PushBuffer, renderBucketOTRangeEnd) == 0xf8);
 _Static_assert(offsetof(struct PushBuffer, renderBucketOTByteOffset) == 0xfc);
