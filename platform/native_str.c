@@ -572,7 +572,7 @@ internal s32 NativeSTR_ResolveBigfilePath(s32 bigfileIndex, char *dst, s32 dstCo
 				lineText.len--;
 
 			written = snprintf(relativePath, sizeof(relativePath), "bigfile/%.*s", (int)lineText.len, (const char *)lineText.ptr);
-			if ((written <= 0) || ((size_t)written >= sizeof(relativePath)) || !NativeAssets_BuildPath(relativePath, dst, (size_t)dstCount))
+			if ((written <= 0) || ((size_t)written >= sizeof(relativePath)) || !NativeAssets_ResolvePath(relativePath, dst, (size_t)dstCount))
 			{
 				fclose(file);
 				return 0;
