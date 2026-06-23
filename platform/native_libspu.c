@@ -149,9 +149,14 @@ SpuTransferCallbackProc SpuSetTransferCallback(SpuTransferCallbackProc func)
 
 int SpuReadDecodedData(SpuDecodedData *d_data, int flag)
 {
-	(void)flag;
+	size_t byteCount = sizeof(*d_data);
+
+	if (flag == SPU_CDONLY)
+		byteCount = sizeof(d_data->cd_left) + sizeof(d_data->cd_right);
+
 	if (d_data != NULL)
-		memset(d_data, 0, sizeof(*d_data));
+		memset(d_data, 0, byteCount);
+
 	return SPU_DECODED_FIRSTHALF;
 }
 

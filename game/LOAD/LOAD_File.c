@@ -86,7 +86,7 @@ void *LOAD_ReadDirectory(char *filename)
 	// Set Cd laser to file position
 	// Read the bigfile header
 	// Wait for read to end
-	CdControl(CdlSetloc, &cdlFile, buf);
+	CdControl(CdlSetloc, (u8 *)&cdlFile, buf);
 	if (CdRead(8, (u32 *)bh, 0x80) == 0)
 		return NULL;
 
@@ -267,7 +267,7 @@ void *LOAD_VramFile(void *bigfilePtr, int subfileIndex, void *ptrDestination, in
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80032110-0x800321b4.
-void LOAD_ReadFileASyncCallback(CdlIntrResult result, u8 *unk)
+void LOAD_ReadFileASyncCallback(u8 result, u8 *unk)
 {
 	CdReadCallback(0);
 	result &= 0xff;
@@ -377,7 +377,7 @@ void *LOAD_ReadFile_ex(struct BigHeader *bigfile, u32 loadType, int subfileIndex
 
 	while (1)
 	{
-		uVar5 = CdControl(CdlSetloc, &cdLoc, &paramOutput[0]);
+		uVar5 = CdControl(CdlSetloc, (u8 *)&cdLoc, &paramOutput[0]);
 
 		if (callback != NULL)
 		{
@@ -437,7 +437,7 @@ void *LOAD_XnfFile(char *filename, void *ptrDestination, int *size)
 	}
 
 	char buf[8];
-	CdControl(CdlSetloc, &cdlFile, buf);
+	CdControl(CdlSetloc, (u8 *)&cdlFile, buf);
 
 	if (CdRead((cdlFile.size + 0x7ff) >> 0xb, ptrDestination, 0x80) == 0)
 		return 0;

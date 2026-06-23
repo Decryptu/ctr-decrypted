@@ -7,7 +7,7 @@ void GAMEPAD_Init(struct GamepadSystem *gGamepads)
 	int i;
 	struct GamepadBuffer *pad;
 
-	PadInitMtap(&gGamepads->slotBuffer[0], &gGamepads->slotBuffer[1]);
+	PadInitMtap((u8 *)&gGamepads->slotBuffer[0], (u8 *)&gGamepads->slotBuffer[1]);
 	PadStartCom();
 
 	for (i = 0; i < 8; i++)

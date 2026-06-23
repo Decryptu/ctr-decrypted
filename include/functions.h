@@ -1,16 +1,3 @@
-#if defined(CTR_NATIVE)
-typedef enum _CdlIntrResult
-{
-	_CdlNoIntr = 0,
-	_CdlDataReady = 1,
-	_CdlComplete = 2,
-	_CdlAcknowledge = 3,
-	_CdlDataEnd = 4,
-	_CdlDiskError = 5
-} CdlIntrResult;
-#endif
-// typedef void (*CdlCB)(CdlIntrResult, u8*);
-
 // Retail overlay address labels; declared as functions to preserve existing address-taking call sites.
 void OVR_Region1(void);
 void OVR_Region2(void);
@@ -33,8 +20,8 @@ u32 CDSYS_GetFilePosInt(char *fileString, int *filePos);
 void CDSYS_SetMode_StreamData(void);
 void CDSYS_SetMode_StreamAudio(void);
 int CDSYS_SetXAToLang(int lang);
-void CDSYS_XaCallbackCdSync(CdlIntrResult result, u8 *unk);  //+unk to adhere to *CdlCB
-void CDSYS_XaCallbackCdReady(CdlIntrResult result, u8 *unk); //+unk to adhere to *CdlCB
+void CDSYS_XaCallbackCdSync(u8 result, u8 *unk);  //+unk to adhere to *CdlCB
+void CDSYS_XaCallbackCdReady(u8 result, u8 *unk); //+unk to adhere to *CdlCB
 void CDSYS_SpuCallbackIRQ(void);
 void CDSYS_SpuCallbackTransfer(void);
 void CDSYS_SpuEnableIRQ(void);
@@ -334,7 +321,7 @@ void OVR233_RebuildInitMatrixTable(void);
 void OVR233_ResetRuntimeState(void);
 void OVR233_InitData(void);
 #endif
-void LOAD_ReadFileASyncCallback(CdlIntrResult result, u8 *unk);
+void LOAD_ReadFileASyncCallback(u8 result, u8 *unk);
 
 // same hack as AppendQueue, see notes there
 #define LOAD_ReadFile(a, b, c, d) LOAD_ReadFile_ex(a, b, c, d, &data.currSlot.size_UNUSED, NULL)
@@ -349,7 +336,7 @@ void *LOAD_XnfFile(char *filename, void *ptrDestination, int *size);
 int LOAD_TenStages(struct GameTracker *gGT, int loadingStage, struct BigHeader *bigfile);
 void LOAD_LevelFile(int levelID);
 
-void LOAD_HowlCallback(CdlIntrResult result, u8 *unk);
+void LOAD_HowlCallback(u8 result, u8 *unk);
 int LOAD_HowlSectorChainStart(CdlFILE *cdlFileHWL, void *ptrDestination, int firstSector,
                               int numSector); // 2nd param might be `struct SampleBlockHeader*`
 int LOAD_HowlSectorChainEnd(void);

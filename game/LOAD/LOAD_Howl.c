@@ -15,7 +15,7 @@ int LOAD_HowlHeaderSectors(CdlFILE *cdlFileHWL, void *ptrDestination, int firstS
 	CdIntToPos(CdPosToInt(&cdlFileHWL->pos) + firstSector, &loc);
 
 	char buf[8];
-	CdControl(CdlSetloc, &loc, buf);
+	CdControl(CdlSetloc, (u8 *)&loc, buf);
 
 	if (CdRead(numSector, ptrDestination, 0x80) == 0)
 		return 0;
@@ -27,7 +27,7 @@ int LOAD_HowlHeaderSectors(CdlFILE *cdlFileHWL, void *ptrDestination, int firstS
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003254c-0x80032594.
-void LOAD_HowlCallback(CdlIntrResult result, u8 *unk)
+void LOAD_HowlCallback(u8 result, u8 *unk)
 {
 	// disable callback
 	CdReadCallback(0);
@@ -62,7 +62,7 @@ int LOAD_HowlSectorChainStart(CdlFILE *cdlFileHWL, void *ptrDestination, int fir
 	CdIntToPos(CdPosToInt(&cdlFileHWL->pos) + firstSector, &loc);
 
 	char buf[8];
-	CdControl(CdlSetloc, &loc, buf);
+	CdControl(CdlSetloc, (u8 *)&loc, buf);
 
 	sdata->howlChainState = 1;
 

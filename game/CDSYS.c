@@ -238,7 +238,7 @@ int CDSYS_SetXAToLang(int lang)
 
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x8001c7a4-0x8001c7fc.
-void CDSYS_XaCallbackCdSync(CdlIntrResult result, u8 *unk) //+unk to adhere to *CdlCB
+void CDSYS_XaCallbackCdSync(u8 result, u8 *unk) //+unk to adhere to *CdlCB
 {
 	u8 com;
 
@@ -260,7 +260,7 @@ void CDSYS_XaCallbackCdSync(CdlIntrResult result, u8 *unk) //+unk to adhere to *
 
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x8001c7fc-0x8001c8e4.
-void CDSYS_XaCallbackCdReady(CdlIntrResult result, u8 *unk) //+unk to adhere to *CdlCB
+void CDSYS_XaCallbackCdReady(u8 result, u8 *unk) //+unk to adhere to *CdlCB
 {
 	if (result == CdlDataReady)
 	{
@@ -314,7 +314,7 @@ half.
 // from TOMB5
 // https://github.com/TOMB5/TOMB5/blob/master/EMULATOR/LIBSPU.H
 #define SPU_CDONLY 5
-	SpuReadDecodedData(&sdata->SpuDecodedBuf[0], SPU_CDONLY);
+	SpuReadDecodedData((SpuDecodedData *)sdata->SpuDecodedBuf, SPU_CDONLY);
 
 	if ((sdata->XA_boolFinished == 0) &&
 
@@ -476,7 +476,7 @@ void CDSYS_SpuGetMaxSample(void)
 		end = 0x100;
 	}
 
-	s16 *ptrSpuBuf = &sdata->SpuDecodedBuf[start];
+	s16 *ptrSpuBuf = (s16 *)&sdata->SpuDecodedBuf[start];
 
 	// absolute value, find max in block
 	for (int i = start; i < end; i++)
@@ -564,7 +564,7 @@ int CDSYS_XASeek(b32 boolCdControl, int categoryID, int xaID)
 	if (boolCdControl != 0)
 		com = CdlSeekL;
 
-	CdControl(com, &loc, 0);
+	CdControl(com, (u8 *)&loc, 0);
 
 	return 1;
 }

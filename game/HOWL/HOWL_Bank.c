@@ -187,7 +187,7 @@ int Bank_AssignSpuAddrs()
 			// start transfer
 			SpuSetTransferStartAddr(spuAddrStart);
 
-			SpuWrite((u32 *)((int)sdata->ptrSampleBlock2 + 0x800), (size_t)sdata->audioAllocSize);
+			SpuWrite((u8 *)((int)sdata->ptrSampleBlock2 + 0x800), (size_t)sdata->audioAllocSize);
 		}
 
 		sdata->bankLoadStage++;

@@ -143,6 +143,9 @@ struct __attribute__((packed)) MultitapPacket
 	// 34 bytes
 };
 
+_Static_assert(sizeof(struct ControllerPacket) == 8);
+_Static_assert(sizeof(struct MultitapPacket) == 34);
+
 struct GamepadBuffer
 {
 	// 0
