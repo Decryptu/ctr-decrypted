@@ -84,6 +84,38 @@ static u32 sDrawLevelOvr1P_PrimReserveBias;
 static u32 sDrawLevelOvr1P_MosaicReloadSpanOverride;
 static int sDrawLevelOvr1P_ListHandlersSeedRenderedCursor;
 
+static u32 DrawLevelOvr1P_ReadPackedWord(const void *src)
+{
+	const u8 *bytes = (const u8 *)src;
+
+	return (u32)bytes[0] | ((u32)bytes[1] << 8) | ((u32)bytes[2] << 16) | ((u32)bytes[3] << 24);
+}
+
+static u16 DrawLevelOvr1P_ReadPackedHalf(const void *src)
+{
+	const u8 *bytes = (const u8 *)src;
+
+	return (u16)((u16)bytes[0] | ((u16)bytes[1] << 8));
+}
+
+static void DrawLevelOvr1P_WritePackedWord(void *dst, u32 value)
+{
+	u8 *bytes = (u8 *)dst;
+
+	bytes[0] = (u8)value;
+	bytes[1] = (u8)(value >> 8);
+	bytes[2] = (u8)(value >> 16);
+	bytes[3] = (u8)(value >> 24);
+}
+
+static void DrawLevelOvr1P_WritePackedHalf(void *dst, u16 value)
+{
+	u8 *bytes = (u8 *)dst;
+
+	bytes[0] = (u8)value;
+	bytes[1] = (u8)(value >> 8);
+}
+
 struct DrawLevelOvr1PFullDynamicRecursiveGate
 {
 	u32 directMask;
@@ -317,7 +349,7 @@ static int DrawLevelOvr1P_IsFaceVisible(const int *visFaceList, const struct Qua
 
 static u32 DrawLevelOvr1P_GetGridFaceSlotWord(const struct DrawLevelOvr1PScratchVertex *projected)
 {
-	return *(const u32 *)((const u8 *)projected + 0xb4);
+	return DrawLevelOvr1P_ReadPackedWord((const u8 *)projected + 0xb4);
 }
 
 static struct TextureLayout *DrawLevelOvr1P_ResolveTexturePointer(uintptr_t texturePtr)
@@ -530,7 +562,7 @@ static s8 DrawLevelOvr1P_ReadRetailQuadBlockByte(const struct QuadBlock *block, 
 	if (byteOffset >= 0x1c && byteOffset < 0x2c)
 	{
 		u32 pointerWordOffset = byteOffset & ~3u;
-		u32 hostWord = *(const u32 *)((const u8 *)block + pointerWordOffset);
+		u32 hostWord = DrawLevelOvr1P_ReadPackedWord((const u8 *)block + pointerWordOffset);
 		u32 psxWord;
 
 		// NOTE(aalhendi): Retail reads raw post-ptrmap PSX pointer bytes here;
@@ -589,7 +621,7 @@ static struct TextureLayout *DrawLevelOvr1P_GetProjectedMidTexture(const struct 
 	if (texture == NULL)
 		return NULL;
 
-	mosaicWord = *(u32 *)((u8 *)texture + 0x24);
+	mosaicWord = DrawLevelOvr1P_ReadPackedWord((const u8 *)texture + 0x24);
 
 	// NOTE(aalhendi): Retail stores texture+0x24 at scratch 0x84 for the
 	// deepest-frame UV reload path.
@@ -856,8 +888,8 @@ static void DrawLevelOvr1P_PrepareDeepestMosaicUv(const struct DrawLevelOvr1PScr
 	sourceOffset += *CTR_SCRATCHPAD_PTR(u32, DRAW_LEVEL_OVR1P_MOSAIC_SOURCE_BIAS_OFFSET);
 
 	source = (const u8 *)(uintptr_t)(mosaicBase + sourceOffset);
-	uv0 = *(const u32 *)(const void *)(source + 0);
-	uv1 = *(const u32 *)(const void *)(source + 4);
+	uv0 = DrawLevelOvr1P_ReadPackedWord(source + 0);
+	uv1 = DrawLevelOvr1P_ReadPackedWord(source + 4);
 
 	// NOTE(aalhendi): Retail deepest fallthrough rewrites selected scratch-record
 	// UV halfwords before jumping through the direct table.
@@ -866,19 +898,19 @@ static void DrawLevelOvr1P_PrepareDeepestMosaicUv(const struct DrawLevelOvr1PScr
 	DrawLevelOvr1P_Scratch()->uv.uv1 = uv1;
 	mutableProjected[indices[0]].flags = (u16)uv0;
 	mutableProjected[indices[1]].flags = (u16)uv1;
-	mutableProjected[indices[2]].flags = *(const u16 *)(const void *)(source + 8);
-	mutableProjected[indices[3]].flags = *(const u16 *)(const void *)(source + 10);
+	mutableProjected[indices[2]].flags = DrawLevelOvr1P_ReadPackedHalf(source + 8);
+	mutableProjected[indices[3]].flags = DrawLevelOvr1P_ReadPackedHalf(source + 10);
 }
 
 static void DrawLevelOvr1P_SetGridFaceSlot(const struct DrawLevelOvr1PScratchVertex *projected, int faceIndex)
 {
 	// NOTE(aalhendi): Retail 3x3 helper frames use frame+0xb4 for face slot*4.
-	*(u32 *)((u8 *)projected + 0xb4) = (u32)(faceIndex * 4);
+	DrawLevelOvr1P_WritePackedWord((u8 *)projected + 0xb4, (u32)(faceIndex * 4));
 }
 
 static void DrawLevelOvr1P_SetGridFaceSlotWord(const struct DrawLevelOvr1PScratchVertex *projected, u32 slotWord)
 {
-	*(u32 *)((u8 *)projected + 0xb4) = slotWord;
+	DrawLevelOvr1P_WritePackedWord((u8 *)projected + 0xb4, slotWord);
 }
 
 static u32 DrawLevelOvr1P_GetDefaultGridFaceSlotWord(u32 handlerAddress, int faceIndex)
@@ -983,6 +1015,31 @@ static u8 DrawLevelOvr1P_MipsSubuSignBit(u32 lhs, u32 rhs)
 	return (u8)((lhs - rhs) >> 31);
 }
 
+static void DrawLevelOvr1P_CopyColorWord(u8 *dst, const u8 *src)
+{
+	DrawLevelOvr1P_WritePackedWord(dst, DrawLevelOvr1P_ReadPackedWord(src));
+}
+
+static void DrawLevelOvr1P_CopySourcePosFlags(struct DrawLevelOvr1PScratchVertex *projected, const struct LevVertex *vertex)
+{
+	projected->posVec = vertex->pos;
+	projected->flags = vertex->flags;
+}
+
+static void DrawLevelOvr1P_CopySourceVertex(struct DrawLevelOvr1PScratchVertex *projected, const struct LevVertex *vertex)
+{
+	DrawLevelOvr1P_CopySourcePosFlags(projected, vertex);
+	DrawLevelOvr1P_CopyColorWord(projected->color_hi, vertex->color_hi);
+}
+
+static void DrawLevelOvr1P_CopyProjectedScreenDepth(struct DrawLevelOvr1PScratchVertex *dst, const struct DrawLevelOvr1PScratchVertex *src)
+{
+	dst->posScreenVec = src->posScreenVec;
+	dst->depth = src->depth;
+	dst->clipNear = src->clipNear;
+	dst->clipHalfNear = src->clipHalfNear;
+}
+
 static void DrawLevelOvr1P_SetProjectedDepth(struct DrawLevelOvr1PScratchVertex *projected, u32 depth, int writeClipBytes)
 {
 	u32 threshold = (u32)DrawLevelOvr1P_GetDepthClipThreshold();
@@ -1013,15 +1070,9 @@ static int DrawLevelOvr1P_ProjectVertexTriple(struct LevVertex *vertices, const 
 	u32 depth2;
 	s32 gteFlag;
 
-	*(u32 *)&projected[index0].pos[0] = *(u32 *)&vertex0->pos;
-	*(u32 *)&projected[index0].pos[2] = *(u32 *)&vertex0->pos.z;
-	*(u32 *)&projected[index0].color_hi[0] = *(u32 *)&vertex0->color_hi[0];
-	*(u32 *)&projected[index1].pos[0] = *(u32 *)&vertex1->pos;
-	*(u32 *)&projected[index1].pos[2] = *(u32 *)&vertex1->pos.z;
-	*(u32 *)&projected[index1].color_hi[0] = *(u32 *)&vertex1->color_hi[0];
-	*(u32 *)&projected[index2].pos[0] = *(u32 *)&vertex2->pos;
-	*(u32 *)&projected[index2].pos[2] = *(u32 *)&vertex2->pos.z;
-	*(u32 *)&projected[index2].color_hi[0] = *(u32 *)&vertex2->color_hi[0];
+	DrawLevelOvr1P_CopySourceVertex(&projected[index0], vertex0);
+	DrawLevelOvr1P_CopySourceVertex(&projected[index1], vertex1);
+	DrawLevelOvr1P_CopySourceVertex(&projected[index2], vertex2);
 
 	CTR_GteLoadSVec3V3(&vertex0->pos, &vertex1->pos, &vertex2->pos);
 	gte_rtpt();
@@ -1044,9 +1095,7 @@ static void DrawLevelOvr1P_CopyVertexToProjected(struct LevVertex *vertices, con
 {
 	struct LevVertex *vertex = &vertices[block->index[index]];
 
-	*(u32 *)&projected[index].pos[0] = *(u32 *)&vertex->pos;
-	*(u32 *)&projected[index].pos[2] = *(u32 *)&vertex->pos.z;
-	*(u32 *)&projected[index].color_hi[0] = *(u32 *)&vertex->color_hi[0];
+	DrawLevelOvr1P_CopySourceVertex(&projected[index], vertex);
 }
 
 static void DrawLevelOvr1P_ProjectFullDynamicLowQuad(struct LevVertex *vertices, const struct QuadBlock *block, struct DrawLevelOvr1PScratchVertex *projected)
@@ -1068,15 +1117,9 @@ static void Ovr226_800a0f78_ProjectVertexTripleFullDepth(struct LevVertex *verti
 	u32 depth1;
 	u32 depth2;
 
-	*(u32 *)&projected[index0].pos[0] = *(u32 *)&vertex0->pos;
-	*(u32 *)&projected[index0].pos[2] = *(u32 *)&vertex0->pos.z;
-	*(u32 *)&projected[index0].color_hi[0] = *(u32 *)&vertex0->color_hi[0];
-	*(u32 *)&projected[index1].pos[0] = *(u32 *)&vertex1->pos;
-	*(u32 *)&projected[index1].pos[2] = *(u32 *)&vertex1->pos.z;
-	*(u32 *)&projected[index1].color_hi[0] = *(u32 *)&vertex1->color_hi[0];
-	*(u32 *)&projected[index2].pos[0] = *(u32 *)&vertex2->pos;
-	*(u32 *)&projected[index2].pos[2] = *(u32 *)&vertex2->pos.z;
-	*(u32 *)&projected[index2].color_hi[0] = *(u32 *)&vertex2->color_hi[0];
+	DrawLevelOvr1P_CopySourceVertex(&projected[index0], vertex0);
+	DrawLevelOvr1P_CopySourceVertex(&projected[index1], vertex1);
+	DrawLevelOvr1P_CopySourceVertex(&projected[index2], vertex2);
 
 	CTR_GteLoadSVec3V3(&vertex0->pos, &vertex1->pos, &vertex2->pos);
 	gte_rtpt();
@@ -1094,9 +1137,7 @@ static void Ovr226_800a1024_ProjectFullDynamicLowFourth(struct LevVertex *vertic
 	struct LevVertex *vertex = &vertices[block->index[3]];
 	u32 depth;
 
-	*(u32 *)&projected[3].pos[0] = *(u32 *)&vertex->pos;
-	*(u32 *)&projected[3].pos[2] = *(u32 *)&vertex->pos.z;
-	*(u32 *)&projected[3].color_hi[0] = *(u32 *)&vertex->color_hi[0];
+	DrawLevelOvr1P_CopySourceVertex(&projected[3], vertex);
 
 	CTR_GteLoadSVec3V0(&vertex->pos);
 	gte_rtps();
@@ -1143,8 +1184,7 @@ static int DrawLevelOvr1P_ProjectQuadBlockGrid(struct LevVertex *vertices, const
 
 static void Ovr226_800a1ee0_StoreWaterListProjectedVertex(struct LevVertex *vertex, struct DrawLevelOvr1PScratchVertex *projected)
 {
-	*(u32 *)&projected->pos[0] = *(u32 *)&vertex->pos;
-	*(u32 *)&projected->pos[2] = *(u32 *)&vertex->pos.z;
+	projected->posVec = vertex->pos;
 	projected->flags = (u16)vertex->color_lo[0] | ((u16)vertex->color_lo[1] << 8);
 }
 
@@ -1162,9 +1202,9 @@ static int Ovr226_800a1ee0_ProjectWaterListVertexTriple(struct LevVertex *vertic
 	CTR_GteLoadSVec3V3(&vertex0->pos, &vertex1->pos, &vertex2->pos);
 	gte_rtpt();
 
-	*(u32 *)&projected[index0].color_hi[0] = *(u32 *)&vertex0->color_hi[0];
-	*(u32 *)&projected[index1].color_hi[0] = *(u32 *)&vertex1->color_hi[0];
-	*(u32 *)&projected[index2].color_hi[0] = *(u32 *)&vertex2->color_hi[0];
+	DrawLevelOvr1P_CopyColorWord(projected[index0].color_hi, vertex0->color_hi);
+	DrawLevelOvr1P_CopyColorWord(projected[index1].color_hi, vertex1->color_hi);
+	DrawLevelOvr1P_CopyColorWord(projected[index2].color_hi, vertex2->color_hi);
 	CTR_GteStoreSXY0(&projected[index0].posScreen[0]);
 	gte_stflg(&gteFlag);
 	depth0 = MFC2(17);
@@ -1200,8 +1240,7 @@ static int Ovr226_800a1ee0_ProjectWaterListGrid(struct LevVertex *vertices, cons
 
 static void Ovr226_800a3738_CopyGround4x1ListProjectedSource(struct LevVertex *vertex, struct DrawLevelOvr1PScratchVertex *projected)
 {
-	*(u32 *)&projected->pos[0] = *(u32 *)&vertex->pos;
-	*(u32 *)&projected->pos[2] = *(u32 *)&vertex->pos.z;
+	DrawLevelOvr1P_CopySourcePosFlags(projected, vertex);
 }
 
 static int Ovr226_800a3738_ProjectGround4x1ListVertexTriple(struct LevVertex *vertices, const struct QuadBlock *block,
@@ -1218,9 +1257,9 @@ static int Ovr226_800a3738_ProjectGround4x1ListVertexTriple(struct LevVertex *ve
 	CTR_GteLoadSVec3V3(&vertex0->pos, &vertex1->pos, &vertex2->pos);
 	gte_rtpt();
 
-	*(u32 *)&projected[index0].color_hi[0] = *(u32 *)&vertex0->color_hi[0];
-	*(u32 *)&projected[index1].color_hi[0] = *(u32 *)&vertex1->color_hi[0];
-	*(u32 *)&projected[index2].color_hi[0] = *(u32 *)&vertex2->color_hi[0];
+	DrawLevelOvr1P_CopyColorWord(projected[index0].color_hi, vertex0->color_hi);
+	DrawLevelOvr1P_CopyColorWord(projected[index1].color_hi, vertex1->color_hi);
+	DrawLevelOvr1P_CopyColorWord(projected[index2].color_hi, vertex2->color_hi);
 	CTR_GteStoreSXY0(&projected[index0].posScreen[0]);
 	gte_stflg(&gteFlag);
 	depth0 = MFC2(17);
@@ -1256,8 +1295,7 @@ static int Ovr226_800a3738_ProjectGround4x1ListGrid(struct LevVertex *vertices, 
 
 static void Ovr226_800a5030_CopyGround4x2ListProjectedSource(struct LevVertex *vertex, struct DrawLevelOvr1PScratchVertex *projected)
 {
-	*(u32 *)&projected->pos[0] = *(u32 *)&vertex->pos;
-	*(u32 *)&projected->pos[2] = *(u32 *)&vertex->pos.z;
+	DrawLevelOvr1P_CopySourcePosFlags(projected, vertex);
 }
 
 static int Ovr226_800a5030_ProjectGround4x2ListVertexTriple(struct LevVertex *vertices, const struct QuadBlock *block,
@@ -1274,9 +1312,9 @@ static int Ovr226_800a5030_ProjectGround4x2ListVertexTriple(struct LevVertex *ve
 	CTR_GteLoadSVec3V3(&vertex0->pos, &vertex1->pos, &vertex2->pos);
 	gte_rtpt();
 
-	*(u32 *)&projected[index0].color_hi[0] = *(u32 *)&vertex0->color_hi[0];
-	*(u32 *)&projected[index1].color_hi[0] = *(u32 *)&vertex1->color_hi[0];
-	*(u32 *)&projected[index2].color_hi[0] = *(u32 *)&vertex2->color_hi[0];
+	DrawLevelOvr1P_CopyColorWord(projected[index0].color_hi, vertex0->color_hi);
+	DrawLevelOvr1P_CopyColorWord(projected[index1].color_hi, vertex1->color_hi);
+	DrawLevelOvr1P_CopyColorWord(projected[index2].color_hi, vertex2->color_hi);
 	CTR_GteStoreSXY0(&projected[index0].posScreen[0]);
 	gte_stflg(&gteFlag);
 	depth0 = MFC2(17);
@@ -1312,8 +1350,7 @@ static int Ovr226_800a5030_ProjectGround4x2ListGrid(struct LevVertex *vertices, 
 
 static void Ovr226_800a6fd0_CopyDynamicListProjectedSource(struct LevVertex *vertex, struct DrawLevelOvr1PScratchVertex *projected)
 {
-	*(u32 *)&projected->pos[0] = *(u32 *)&vertex->pos;
-	*(u32 *)&projected->pos[2] = *(u32 *)&vertex->pos.z;
+	DrawLevelOvr1P_CopySourcePosFlags(projected, vertex);
 }
 
 static int Ovr226_800a6fd0_ProjectDynamicListVertexTriple(struct LevVertex *vertices, const struct QuadBlock *block,
@@ -1330,9 +1367,9 @@ static int Ovr226_800a6fd0_ProjectDynamicListVertexTriple(struct LevVertex *vert
 	CTR_GteLoadSVec3V3(&vertex0->pos, &vertex1->pos, &vertex2->pos);
 	gte_rtpt();
 
-	*(u32 *)&projected[index0].color_hi[0] = *(u32 *)&vertex0->color_hi[0];
-	*(u32 *)&projected[index1].color_hi[0] = *(u32 *)&vertex1->color_hi[0];
-	*(u32 *)&projected[index2].color_hi[0] = *(u32 *)&vertex2->color_hi[0];
+	DrawLevelOvr1P_CopyColorWord(projected[index0].color_hi, vertex0->color_hi);
+	DrawLevelOvr1P_CopyColorWord(projected[index1].color_hi, vertex1->color_hi);
+	DrawLevelOvr1P_CopyColorWord(projected[index2].color_hi, vertex2->color_hi);
 	CTR_GteStoreSXY0(&projected[index0].posScreen[0]);
 	gte_stflg(&gteFlag);
 	depth0 = MFC2(17);
@@ -1368,8 +1405,7 @@ static int Ovr226_800a6fd0_ProjectDynamicListGrid(struct LevVertex *vertices, co
 
 static void Ovr226_800a8bf0_CopyWideDynamicProjectedSource(struct LevVertex *vertex, struct DrawLevelOvr1PScratchVertex *projected)
 {
-	*(u32 *)&projected->pos[0] = *(u32 *)&vertex->pos;
-	*(u32 *)&projected->pos[2] = *(u32 *)&vertex->pos.z;
+	DrawLevelOvr1P_CopySourcePosFlags(projected, vertex);
 }
 
 static int Ovr226_800a8bf0_ProjectWideDynamicVertexTriple(struct LevVertex *vertices, const struct QuadBlock *block,
@@ -1386,9 +1422,9 @@ static int Ovr226_800a8bf0_ProjectWideDynamicVertexTriple(struct LevVertex *vert
 	CTR_GteLoadSVec3V3(&vertex0->pos, &vertex1->pos, &vertex2->pos);
 	gte_rtpt();
 
-	*(u32 *)&projected[index0].color_hi[0] = *(u32 *)&vertex0->color_hi[0];
-	*(u32 *)&projected[index1].color_hi[0] = *(u32 *)&vertex1->color_hi[0];
-	*(u32 *)&projected[index2].color_hi[0] = *(u32 *)&vertex2->color_hi[0];
+	DrawLevelOvr1P_CopyColorWord(projected[index0].color_hi, vertex0->color_hi);
+	DrawLevelOvr1P_CopyColorWord(projected[index1].color_hi, vertex1->color_hi);
+	DrawLevelOvr1P_CopyColorWord(projected[index2].color_hi, vertex2->color_hi);
 	CTR_GteStoreSXY0(&projected[index0].posScreen[0]);
 	gte_stflg(&gteFlag);
 	depth0 = MFC2(17);
@@ -1424,9 +1460,7 @@ static int Ovr226_800a8bf0_ProjectWideDynamicGrid(struct LevVertex *vertices, co
 
 static void Ovr226_800a5e5c_StoreGround4x2RenderedProjectedVertex(struct LevVertex *vertex, struct DrawLevelOvr1PScratchVertex *projected)
 {
-	*(u32 *)&projected->pos[0] = *(u32 *)&vertex->pos;
-	*(u32 *)&projected->pos[2] = *(u32 *)&vertex->pos.z;
-	*(u32 *)&projected->color_hi[0] = *(u32 *)&vertex->color_hi[0];
+	DrawLevelOvr1P_CopySourceVertex(projected, vertex);
 }
 
 static void Ovr226_800a5e5c_ProjectGround4x2RenderedVertexTriple(struct LevVertex *vertices, const struct QuadBlock *block,
@@ -1465,9 +1499,7 @@ static void Ovr226_800a5e5c_ProjectGround4x2RenderedGrid(struct LevVertex *verti
 
 static void Ovr226_800a7ba8_StoreDynamicRenderedProjectedVertex(struct LevVertex *vertex, struct DrawLevelOvr1PScratchVertex *projected)
 {
-	*(u32 *)&projected->pos[0] = *(u32 *)&vertex->pos;
-	*(u32 *)&projected->pos[2] = *(u32 *)&vertex->pos.z;
-	*(u32 *)&projected->color_hi[0] = *(u32 *)&vertex->color_hi[0];
+	DrawLevelOvr1P_CopySourceVertex(projected, vertex);
 }
 
 static void Ovr226_800a7ba8_ProjectDynamicRenderedVertexTriple(struct LevVertex *vertices, const struct QuadBlock *block,
@@ -1505,9 +1537,7 @@ static void Ovr226_800a7ba8_ProjectDynamicRenderedGrid(struct LevVertex *vertice
 
 static void Ovr226_800a97c8_StoreQuad4x4RenderedProjectedVertex(struct LevVertex *vertex, struct DrawLevelOvr1PScratchVertex *projected)
 {
-	*(u32 *)&projected->pos[0] = *(u32 *)&vertex->pos;
-	*(u32 *)&projected->pos[2] = *(u32 *)&vertex->pos.z;
-	*(u32 *)&projected->color_hi[0] = *(u32 *)&vertex->color_hi[0];
+	DrawLevelOvr1P_CopySourceVertex(projected, vertex);
 }
 
 static void Ovr226_800a97c8_ProjectQuad4x4RenderedVertexTriple(struct LevVertex *vertices, const struct QuadBlock *block,
@@ -1545,9 +1575,7 @@ static void Ovr226_800a97c8_ProjectQuad4x4RenderedGrid(struct LevVertex *vertice
 
 static void Ovr226_800a417c_StoreGround4x1RenderedProjectedVertex(struct LevVertex *vertex, struct DrawLevelOvr1PScratchVertex *projected)
 {
-	*(u32 *)&projected->pos[0] = *(u32 *)&vertex->pos;
-	*(u32 *)&projected->pos[2] = *(u32 *)&vertex->pos.z;
-	*(u32 *)&projected->color_hi[0] = *(u32 *)&vertex->color_hi[0];
+	DrawLevelOvr1P_CopySourceVertex(projected, vertex);
 }
 
 static void Ovr226_800a417c_ProjectGround4x1RenderedVertexTriple(struct LevVertex *vertices, const struct QuadBlock *block,
@@ -1586,10 +1614,9 @@ static void Ovr226_800a417c_ProjectGround4x1RenderedGrid(struct LevVertex *verti
 
 static void Ovr226_800a2924_StoreWaterRenderedProjectedVertex(struct LevVertex *vertex, struct DrawLevelOvr1PScratchVertex *projected)
 {
-	*(u32 *)&projected->pos[0] = *(u32 *)&vertex->pos;
-	projected->pos[2] = vertex->pos.z;
+	projected->posVec = vertex->pos;
 	projected->flags = (u16)vertex->color_lo[0] | ((u16)vertex->color_lo[1] << 8);
-	*(u32 *)&projected->color_hi[0] = *(u32 *)&vertex->color_hi[0];
+	DrawLevelOvr1P_CopyColorWord(projected->color_hi, vertex->color_hi);
 }
 
 static void Ovr226_800a2924_ProjectWaterRenderedVertexTriple(struct LevVertex *vertices, const struct QuadBlock *block,
@@ -1707,15 +1734,15 @@ static u32 Ovr226_800a2d30_ApplyWaterRenderedColorFade(u32 color, s16 x, s16 z)
 static void Ovr226_800a211c_ApplyWaterListColorFades(struct DrawLevelOvr1PScratchVertex *projected)
 {
 	for (int i = 0; i < 9; i++)
-		*(u32 *)&projected[i].color_hi[0] =
-		    Ovr226_800a2234_ApplyWaterListColorFade(DrawLevelOvr1P_GetProjectedColorWord(&projected[i]), projected[i].pos[0], projected[i].pos[2]);
+		DrawLevelOvr1P_WritePackedWord(projected[i].color_hi, Ovr226_800a2234_ApplyWaterListColorFade(DrawLevelOvr1P_GetProjectedColorWord(&projected[i]),
+		                                                                                              projected[i].pos[0], projected[i].pos[2]));
 }
 
 static void Ovr226_800a2c4c_ApplyWaterRenderedColorFades(struct DrawLevelOvr1PScratchVertex *projected)
 {
 	for (int i = 0; i < 9; i++)
-		*(u32 *)&projected[i].color_hi[0] =
-		    Ovr226_800a2d30_ApplyWaterRenderedColorFade(DrawLevelOvr1P_GetProjectedColorWord(&projected[i]), projected[i].pos[0], projected[i].pos[2]);
+		DrawLevelOvr1P_WritePackedWord(projected[i].color_hi, Ovr226_800a2d30_ApplyWaterRenderedColorFade(DrawLevelOvr1P_GetProjectedColorWord(&projected[i]),
+		                                                                                                  projected[i].pos[0], projected[i].pos[2]));
 }
 
 static int DrawLevelOvr1P_NclipProjected(const struct DrawLevelOvr1PScratchVertex *projected, const int *indices)
@@ -2023,10 +2050,8 @@ static void Ovr226_800a3a78_BuildGround4x1ListMidpointPair(struct DrawLevelOvr1P
 		dstMidBytes[offset] = (u8)(((u32)srcABytes[offset] + (u32)srcBBytes[offset]) >> 1);
 	}
 
-	*(u32 *)&dstA->posScreen[0] = *(const u32 *)&srcA->posScreen[0];
-	*(u32 *)&dstA->depth = *(const u32 *)&srcA->depth;
-	*(u32 *)&dstB->posScreen[0] = *(const u32 *)&srcB->posScreen[0];
-	*(u32 *)&dstB->depth = *(const u32 *)&srcB->depth;
+	DrawLevelOvr1P_CopyProjectedScreenDepth(dstA, srcA);
+	DrawLevelOvr1P_CopyProjectedScreenDepth(dstB, srcB);
 	CTR_GteStoreSXY(&dstMid->posScreen[0]);
 	gte_stsz(&depth);
 	DrawLevelOvr1P_StoreProjectedDepthWord(dstMid, depth);
@@ -2069,8 +2094,7 @@ static void Ovr226_800a560c_BuildGround4x2ListEdgeMidpoint(struct DrawLevelOvr1P
 		dstMidBytes[offset] = (u8)(((u32)srcABytes[offset] + (u32)srcBBytes[offset]) >> 1);
 	}
 
-	*(u32 *)&dstA->posScreen[0] = *(const u32 *)&srcA->posScreen[0];
-	*(u32 *)&dstA->depth = *(const u32 *)&srcA->depth;
+	DrawLevelOvr1P_CopyProjectedScreenDepth(dstA, srcA);
 	CTR_GteStoreSXY(&dstMid->posScreen[0]);
 	gte_stsz(&depth);
 	DrawLevelOvr1P_StoreProjectedDepthWord(dstMid, depth);
@@ -2111,10 +2135,8 @@ static void Ovr226_800a56f4_BuildGround4x2ListPairMidpoint(struct DrawLevelOvr1P
 		dstMidBytes[offset] = (u8)(((u32)srcABytes[offset] + (u32)srcBBytes[offset]) >> 1);
 	}
 
-	*(u32 *)&dstA->posScreen[0] = *(const u32 *)&srcA->posScreen[0];
-	*(u32 *)&dstA->depth = *(const u32 *)&srcA->depth;
-	*(u32 *)&dstB->posScreen[0] = *(const u32 *)&srcB->posScreen[0];
-	*(u32 *)&dstB->depth = *(const u32 *)&srcB->depth;
+	DrawLevelOvr1P_CopyProjectedScreenDepth(dstA, srcA);
+	DrawLevelOvr1P_CopyProjectedScreenDepth(dstB, srcB);
 	CTR_GteStoreSXY(&dstMid->posScreen[0]);
 	gte_stsz(&depth);
 	DrawLevelOvr1P_StoreProjectedDepthWord(dstMid, depth);
@@ -2164,8 +2186,7 @@ static void Ovr226_800a6510_BuildGround4x2RenderedEdgeMidpoint(struct DrawLevelO
 		dstMidBytes[offset] = (u8)(((u32)srcABytes[offset] + (u32)srcBBytes[offset]) >> 1);
 	}
 
-	*(u32 *)&dstA->posScreen[0] = *(const u32 *)&srcA->posScreen[0];
-	*(u32 *)&dstA->depth = *(const u32 *)&srcA->depth;
+	DrawLevelOvr1P_CopyProjectedScreenDepth(dstA, srcA);
 	CTR_GteStoreSXY(&dstMid->posScreen[0]);
 	gte_stsz(&depth);
 	DrawLevelOvr1P_SetProjectedDepth(dstMid, depth, DRAW_LEVEL_OVR1P_CLIP_BYTES_RENDERED);
@@ -2211,8 +2232,7 @@ static void Ovr226_800a74a0_BuildDynamicListSubdivideMidpoint(struct DrawLevelOv
 		dstMidUv[i] = (u8)(((u32)srcAUv[i] + (u32)srcBUv[i]) >> 1);
 	}
 
-	*(u32 *)&dstA->posScreen[0] = *(const u32 *)&srcA->posScreen[0];
-	*(u32 *)&dstA->depth = *(const u32 *)&srcA->depth;
+	DrawLevelOvr1P_CopyProjectedScreenDepth(dstA, srcA);
 	CTR_GteStoreSXY(&dstMid->posScreen[0]);
 	gte_stsz(&depth);
 	DrawLevelOvr1P_StoreProjectedDepthWord(dstMid, depth);
@@ -2275,8 +2295,7 @@ static void Ovr226_800a8150_BuildDynamicRenderedSubdivideMidpoint(struct DrawLev
 		dstMidUv[i] = (u8)(((u32)srcAUv[i] + (u32)srcBUv[i]) >> 1);
 	}
 
-	*(u32 *)&dstA->posScreen[0] = *(const u32 *)&srcA->posScreen[0];
-	*(u32 *)&dstA->depth = *(const u32 *)&srcA->depth;
+	DrawLevelOvr1P_CopyProjectedScreenDepth(dstA, srcA);
 	CTR_GteStoreSXY(&dstMid->posScreen[0]);
 	gte_stsz(&depth);
 	DrawLevelOvr1P_SetProjectedDepth(dstMid, depth, DRAW_LEVEL_OVR1P_CLIP_BYTES_RENDERED);
@@ -2344,10 +2363,8 @@ static void Ovr226_800a4594_BuildGround4x1RenderedMidpointPair(struct DrawLevelO
 		dstMidBytes[offset] = (u8)(((u32)srcABytes[offset] + (u32)srcBBytes[offset]) >> 1);
 	}
 
-	*(u32 *)&dstA->posScreen[0] = *(const u32 *)&srcA->posScreen[0];
-	*(u32 *)&dstA->depth = *(const u32 *)&srcA->depth;
-	*(u32 *)&dstB->posScreen[0] = *(const u32 *)&srcB->posScreen[0];
-	*(u32 *)&dstB->depth = *(const u32 *)&srcB->depth;
+	DrawLevelOvr1P_CopyProjectedScreenDepth(dstA, srcA);
+	DrawLevelOvr1P_CopyProjectedScreenDepth(dstB, srcB);
 	CTR_GteStoreSXY(&dstMid->posScreen[0]);
 	gte_stsz(&depth);
 	DrawLevelOvr1P_SetProjectedDepth(dstMid, depth, DRAW_LEVEL_OVR1P_CLIP_BYTES_RENDERED);
@@ -2399,8 +2416,7 @@ static void Ovr226_800a17d8_BuildFullDynamicSubdivideMidpoint(struct DrawLevelOv
 		dstMidBytes[i] = (u8)(((u32)srcABytes[i] + (u32)srcBBytes[i]) >> 1);
 	}
 
-	*(u32 *)&dstA->posScreen[0] = *(const u32 *)&srcA->posScreen[0];
-	*(u32 *)&dstA->depth = *(const u32 *)&srcA->depth;
+	DrawLevelOvr1P_CopyProjectedScreenDepth(dstA, srcA);
 	CTR_GteStoreSXY(&dstMid->posScreen[0]);
 	gte_stsz(&depth);
 	DrawLevelOvr1P_StoreProjectedDepthWord(dstMid, depth);
@@ -2571,12 +2587,12 @@ static void DrawLevelOvr1P_AddRawPrimToOt(struct PrimMem *primMem, void *packet,
 
 static u32 DrawLevelOvr1P_GetProjectedColorCode(const struct DrawLevelOvr1PScratchVertex *projected, u32 code)
 {
-	return *(const u32 *)&projected->color_hi[0] | (code << 24);
+	return DrawLevelOvr1P_ReadPackedWord(projected->color_hi) | (code << 24);
 }
 
 static u32 DrawLevelOvr1P_GetProjectedColorWord(const struct DrawLevelOvr1PScratchVertex *projected)
 {
-	return *(const u32 *)&projected->color_hi[0];
+	return DrawLevelOvr1P_ReadPackedWord(projected->color_hi);
 }
 
 static void DrawLevelOvr1P_WriteProjectedGT3(POLY_GT3 *poly, const struct DrawLevelOvr1PScratchVertex *projected, const int *indices, u32 code, u32 uv0,
@@ -2778,7 +2794,7 @@ static s16 DrawLevelOvr1P_ShiftLeft1S16Wrap(s16 value)
 
 static u32 DrawLevelOvr1P_ReadWord(const void *base, u32 offset)
 {
-	return *(const u32 *)((const u8 *)base + offset);
+	return DrawLevelOvr1P_ReadPackedWord((const u8 *)base + offset);
 }
 
 static void Ovr226_800a1408_AdjustFullDynamicMidVertex(struct DrawLevelOvr1PScratchVertex *projected, struct LevVertex *vertices, const struct QuadBlock *block,
@@ -2832,7 +2848,7 @@ static void Ovr226_800a1408_AdjustFullDynamicMidVertex(struct DrawLevelOvr1PScra
 	mid->pos[0] = midpoint[0];
 	mid->pos[1] = midpoint[1];
 	mid->pos[2] = midpoint[2];
-	*(u32 *)&mid->color_hi[0] = color;
+	DrawLevelOvr1P_WritePackedWord(mid->color_hi, color);
 
 	MTC2(DrawLevelOvr1P_ReadWord(&mid->pos[0], 0), 0);
 	MTC2((u32)(s32)mid->pos[2], 1);
@@ -2901,9 +2917,9 @@ static int DrawLevelOvr1P_ShouldWriteRenderedClippedRecord(const struct DrawLeve
 
 static void DrawLevelOvr1P_CopyClipRecordVertex(struct DrawLevelOvr1PClipRecordVertex *dst, const struct DrawLevelOvr1PScratchVertex *src)
 {
-	*(u32 *)&dst->pos[0] = *(const u32 *)&src->pos[0];
-	*(u32 *)&dst->pos[2] = *(const u32 *)&src->pos[2];
-	*(u32 *)&dst->color_hi[0] = *(const u32 *)&src->color_hi[0];
+	dst->posVec = src->posVec;
+	dst->flags = src->flags;
+	DrawLevelOvr1P_CopyColorWord(dst->color_hi, src->color_hi);
 
 	// NOTE(aalhendi): Retail 0x800a4f78/0x800a3680 OR scratch byte 0x13 into
 	// the record color/code word; the 0x800aa790 consumer uses it for near masks.
@@ -3075,7 +3091,7 @@ static int DrawLevelOvr1P_ShouldEmitClipRecordNclip(s32 nclip, const struct Draw
 
 static u32 DrawLevelOvr1P_GetClipRecordColorCode(const struct DrawLevelOvr1PScratchVertex *projected, u32 code)
 {
-	return (*(const u32 *)&projected->color_hi[0] & 0x00ffffff) | (code << 24);
+	return (DrawLevelOvr1P_ReadPackedWord(projected->color_hi) & 0x00ffffff) | (code << 24);
 }
 
 static u32 DrawLevelOvr1P_GetClipRecordUvWord(const struct DrawLevelOvr1PScratchVertex *projected, u16 page)
@@ -3143,12 +3159,12 @@ static void DrawLevelOvr1P_WriteClipRecordGT4(POLY_GT4 *poly, const struct DrawL
 
 static void DrawLevelOvr1P_SetClipRecordSourceDelta(struct DrawLevelOvr1PScratchVertex *projected, s16 delta)
 {
-	*(s16 *)&projected->clipNear = delta;
+	DrawLevelOvr1P_WritePackedHalf(&projected->clipNear, (u16)delta);
 }
 
 static s16 DrawLevelOvr1P_GetClipRecordSourceDelta(const struct DrawLevelOvr1PScratchVertex *projected)
 {
-	return *(const s16 *)&projected->clipNear;
+	return (s16)DrawLevelOvr1P_ReadPackedHalf(&projected->clipNear);
 }
 
 static void DrawLevelOvr1P_GetClipRecordSourceVector(const struct DrawLevelOvr1PScratchVertex *projected, SVECTOR *source)
@@ -3329,9 +3345,9 @@ static void Ovr226_800aa858_ProjectClipRecordRawVertex(struct DrawLevelOvr1PScra
 {
 	s16 ir[3];
 
-	*(u32 *)&projected->pos[0] = *(const u32 *)&src->pos[0];
-	*(u32 *)&projected->pos[2] = *(const u32 *)&src->pos[2];
-	*(u32 *)&projected->color_hi[0] = *(const u32 *)&src->color_hi[0];
+	projected->posVec = src->posVec;
+	projected->flags = src->flags;
+	DrawLevelOvr1P_CopyColorWord(projected->color_hi, src->color_hi);
 
 	CTR_GteLoadS16TripletV0(&projected->pos[0]);
 	// NOTE(aalhendi): Retail 0x800aa86c/0x800aa8b0/0x800aa8e8/0x800aaee4
@@ -4987,7 +5003,7 @@ static struct TextureLayout *Ovr226_800a3e00_SelectGround4x1SelectorTexture(cons
 	if (texture == NULL)
 		return NULL;
 
-	mosaicWord = *(u32 *)((u8 *)texture + 0x24);
+	mosaicWord = DrawLevelOvr1P_ReadPackedWord((const u8 *)texture + 0x24);
 	DrawLevelOvr1P_Scratch()->mosaicTextureWord = mosaicWord;
 
 	if ((s32)maxDepth < DrawLevelOvr1P_RenderScratch()->textureLodDepthThreshold0)
@@ -5069,16 +5085,16 @@ static void Ovr226_800a3f74_PrepareGround4x1DeepestUv(const struct DrawLevelOvr1
 	sourceOffset += *CTR_SCRATCHPAD_PTR(u32, DRAW_LEVEL_OVR1P_MOSAIC_SOURCE_BIAS_OFFSET);
 
 	source = (const u8 *)(uintptr_t)(mosaicBase + sourceOffset);
-	uv0 = *(const u32 *)(const void *)(source + 0);
-	uv1 = *(const u32 *)(const void *)(source + 4);
+	uv0 = DrawLevelOvr1P_ReadPackedWord(source + 0);
+	uv1 = DrawLevelOvr1P_ReadPackedWord(source + 4);
 
 	mutableProjected = (struct DrawLevelOvr1PScratchVertex *)projected;
 	DrawLevelOvr1P_Scratch()->uv.uv0 = uv0;
 	mutableProjected[indices[0]].flags = (u16)uv0;
 	DrawLevelOvr1P_Scratch()->uv.uv1 = uv1;
 	mutableProjected[indices[1]].flags = (u16)uv1;
-	mutableProjected[indices[2]].flags = *(const u16 *)(const void *)(source + 8);
-	mutableProjected[indices[3]].flags = *(const u16 *)(const void *)(source + 10);
+	mutableProjected[indices[2]].flags = DrawLevelOvr1P_ReadPackedHalf(source + 8);
+	mutableProjected[indices[3]].flags = DrawLevelOvr1P_ReadPackedHalf(source + 10);
 }
 
 static int Ovr226_800a3f74_DispatchGround4x1Deepest(struct PushBuffer *pb, struct PrimMem *primMem, const struct QuadBlock *block,
@@ -5392,16 +5408,16 @@ static void Ovr226_800a4b54_PrepareGround4x1RenderedDeepestUv(const struct DrawL
 	sourceOffset += *CTR_SCRATCHPAD_PTR(u32, DRAW_LEVEL_OVR1P_MOSAIC_SOURCE_BIAS_OFFSET);
 
 	source = (const u8 *)(uintptr_t)(mosaicBase + sourceOffset);
-	uv0 = *(const u32 *)(const void *)(source + 0);
-	uv1 = *(const u32 *)(const void *)(source + 4);
+	uv0 = DrawLevelOvr1P_ReadPackedWord(source + 0);
+	uv1 = DrawLevelOvr1P_ReadPackedWord(source + 4);
 
 	mutableProjected = (struct DrawLevelOvr1PScratchVertex *)projected;
 	DrawLevelOvr1P_Scratch()->uv.uv0 = uv0;
 	mutableProjected[indices[0]].flags = (u16)uv0;
 	DrawLevelOvr1P_Scratch()->uv.uv1 = uv1;
 	mutableProjected[indices[1]].flags = (u16)uv1;
-	mutableProjected[indices[2]].flags = *(const u16 *)(const void *)(source + 8);
-	mutableProjected[indices[3]].flags = *(const u16 *)(const void *)(source + 10);
+	mutableProjected[indices[2]].flags = DrawLevelOvr1P_ReadPackedHalf(source + 8);
+	mutableProjected[indices[3]].flags = DrawLevelOvr1P_ReadPackedHalf(source + 10);
 }
 
 static int Ovr226_800a4b54_DispatchGround4x1RenderedDeepest(struct PushBuffer *pb, struct PrimMem *primMem, const struct QuadBlock *block,
@@ -8036,18 +8052,14 @@ static void Ovr226_800a11e0_ProjectFullDynamicLastPair(struct LevVertex *vertice
 	u32 depth8;
 	u32 unusedDepth;
 
-	*(u32 *)&projected[7].pos[0] = *(u32 *)&vertex7->pos.x;
-	*(u32 *)&projected[7].pos[2] = *(u32 *)&vertex7->pos.z;
-	*(u32 *)&projected[7].color_hi[0] = *(u32 *)&vertex7->color_hi[0];
-	*(u32 *)&projected[8].pos[0] = *(u32 *)&vertex8->pos.x;
-	*(u32 *)&projected[8].pos[2] = *(u32 *)&vertex8->pos.z;
-	*(u32 *)&projected[8].color_hi[0] = *(u32 *)&vertex8->color_hi[0];
+	DrawLevelOvr1P_CopySourceVertex(&projected[7], vertex7);
+	DrawLevelOvr1P_CopySourceVertex(&projected[8], vertex8);
 
 	// NOTE(aalhendi): Retail 0x800a11e0 uses ldv01, preserving V2 from vertex 6.
-	MTC2(*(u32 *)&vertex7->pos.x, 0);
-	MTC2(*(u32 *)&vertex7->pos.z, 1);
-	MTC2(*(u32 *)&vertex8->pos.x, 2);
-	MTC2(*(u32 *)&vertex8->pos.z, 3);
+	MTC2(DrawLevelOvr1P_ReadPackedWord(&vertex7->pos.x), 0);
+	MTC2(DrawLevelOvr1P_ReadPackedWord(&vertex7->pos.z), 1);
+	MTC2(DrawLevelOvr1P_ReadPackedWord(&vertex8->pos.x), 2);
+	MTC2(DrawLevelOvr1P_ReadPackedWord(&vertex8->pos.z), 3);
 	gte_rtpt();
 	CTR_GteStoreSXY3(&projected[7].posScreen[0], &projected[8].posScreen[0], &unusedSxy[0]);
 	gte_stsz3(&depth7, &depth8, &unusedDepth);
@@ -8745,8 +8757,7 @@ static void Ovr226_800a24e8_BuildWaterListSubdivideMidpoint(struct DrawLevelOvr1
 		dstMidUv[i] = (u8)(((u32)srcAUv[i] + (u32)srcBUv[i]) >> 1);
 	}
 
-	*(u32 *)&dstA->posScreen[0] = *(const u32 *)&srcA->posScreen[0];
-	*(u32 *)&dstA->depth = *(const u32 *)&srcA->depth;
+	DrawLevelOvr1P_CopyProjectedScreenDepth(dstA, srcA);
 	CTR_GteStoreSXY(&dstMid->posScreen[0]);
 	gte_stsz(&depth);
 	DrawLevelOvr1P_StoreProjectedDepthWord(dstMid, depth);
@@ -8792,8 +8803,7 @@ static void Ovr226_800a2fe4_BuildWaterRenderedSubdivideMidpoint(struct DrawLevel
 		dstMidUv[i] = (u8)(((u32)srcAUv[i] + (u32)srcBUv[i]) >> 1);
 	}
 
-	*(u32 *)&dstA->posScreen[0] = *(const u32 *)&srcA->posScreen[0];
-	*(u32 *)&dstA->depth = *(const u32 *)&srcA->depth;
+	DrawLevelOvr1P_CopyProjectedScreenDepth(dstA, srcA);
 	CTR_GteStoreSXY(&dstMid->posScreen[0]);
 	gte_stsz(&depth);
 	DrawLevelOvr1P_SetProjectedDepth(dstMid, depth, DRAW_LEVEL_OVR1P_CLIP_BYTES_RENDERED);
