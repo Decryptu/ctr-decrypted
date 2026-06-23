@@ -9,8 +9,6 @@ if(NOT CMAKE_C_COMPILER_TARGET MATCHES "i.86" AND NOT CMAKE_SYSTEM_PROCESSOR MAT
     set(CMAKE_EXE_LINKER_FLAGS "-m32 ${CMAKE_EXE_LINKER_FLAGS}")
 endif()
 
-set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc ${CMAKE_EXE_LINKER_FLAGS}")
-
 set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE NEVER)
@@ -39,10 +37,6 @@ else()
     set(CTR_NATIVE_BUILD_ID "${CTR_NATIVE_GIT_HASH}-dirty-${CTR_NATIVE_BUILD_TIMESTAMP}")
 endif()
 
-set(GAME_INCLUDES
-    ${CMAKE_SOURCE_DIR}/include
-)
-
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -msse -Wno-error -g")
 
 # SDL3
@@ -69,7 +63,7 @@ add_subdirectory(externals/SDL)
 
 # CTR Native
 add_executable(ctr_native main.c)
-target_include_directories(ctr_native PRIVATE ${GAME_INCLUDES})
+target_include_directories(ctr_native PRIVATE ${CMAKE_SOURCE_DIR}/include)
 target_compile_definitions(ctr_native PRIVATE
     CTR_NATIVE
     BUILD=926
@@ -79,8 +73,7 @@ target_compile_definitions(ctr_native PRIVATE
 )
 target_compile_options(ctr_native PRIVATE -O2)
 target_link_libraries(ctr_native SDL3::SDL3)
+target_link_options(ctr_native PRIVATE -static-libgcc)
 if(WIN32)
-    target_link_options(ctr_native PRIVATE -static -static-libgcc)
-else()
-    target_link_options(ctr_native PRIVATE -static-libgcc -Wl,--allow-multiple-definition)
+    target_link_options(ctr_native PRIVATE -static)
 endif()
