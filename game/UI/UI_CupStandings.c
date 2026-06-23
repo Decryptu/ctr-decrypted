@@ -237,7 +237,7 @@ void UI_CupStandings_InputAndDraw(void)
 	        sdata->lngStrings[LNG_TRACK],
 
 	        // Track Index (0, 1, 2, 3) + 1
-	        gGT->cup.trackIndex + 1);
+	        CTR_PRINTF_PSX_LONG(gGT->cup.trackIndex + 1));
 
 	DecalFont_DrawLine(text, local_58[0], local_58[1] + 0x11, 2, 0xffff8000);
 
@@ -609,10 +609,10 @@ void UI_CupStandings_InputAndDraw(void)
 					// then you still get completion credit
 
 					// If Player 1 or Player 2 won the cup
-					if (((gGT->drivers[0]->driverRank) == 0) || (((gGT->drivers[1]->driverRank) == 0)) &&
+					if ((gGT->drivers[0]->driverRank == 0) || ((gGT->drivers[1]->driverRank == 0) &&
 
-					                                                // If you're in Arcade Mode
-					                                                ((gGT->gameMode1 & ARCADE_MODE) != 0))
+					                                           // If you're in Arcade Mode
+					                                           ((gGT->gameMode1 & ARCADE_MODE) != 0)))
 					{
 						int difficulty = (gGT->arcadeDifficulty / 0x50) - 1;
 						if (difficulty > 2)

@@ -308,7 +308,7 @@ force_inline void addFill(uint32_t *ot, FILL *p)
 // clear blending mode bits of the texpage using AND, then set them using OR
 // then set image to use semi-transparent mode using the setSemiTrans macro
 // (which enables the 2 bit on the primitive's code field)
-#define setTransparency(p, transparency)                p->tpage = p->tpage & 0xff9f | (transparency - 1) << 5, p->code |= 2
+#define setTransparency(p, transparency)                p->tpage = (p->tpage & 0xff9f) | ((transparency - 1) << 5), p->code |= 2
 
 // version of psn00bsdk's setColor macro that simultaneously accepts 4 colors
 #define setColor4(p, rgb0, rgb1, rgb2, rgb3)                                                                                         \

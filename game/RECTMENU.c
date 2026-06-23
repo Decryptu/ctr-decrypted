@@ -44,11 +44,11 @@ u8 *RECTMENU_DrawTime(int milliseconds)
 	    // Minute:Seconds:Milliseconds
 	    RECTMENU_TIME_FORMAT,
 
-	    milliseconds / 0xe100,              // minutes
-	    (milliseconds / 0x2580) % 6,        // seconds / 10
-	    (milliseconds / 0x3c0) % 10,        // seconds
-	    ((milliseconds * 10) / 0x3c0) % 10, // milliseconds / 10
-	    ((milliseconds * 100) / 0x3c0) % 10 // milliseconds
+	    CTR_PRINTF_PSX_LONG(milliseconds / 0xe100),              // minutes
+	    CTR_PRINTF_PSX_LONG((milliseconds / 0x2580) % 6),        // seconds / 10
+	    CTR_PRINTF_PSX_LONG((milliseconds / 0x3c0) % 10),        // seconds
+	    CTR_PRINTF_PSX_LONG(((milliseconds * 10) / 0x3c0) % 10), // milliseconds / 10
+	    CTR_PRINTF_PSX_LONG(((milliseconds * 100) / 0x3c0) % 10) // milliseconds
 	);
 
 	return (u8 *)str;

@@ -217,7 +217,7 @@ LAB_80055930:
 			        sdata->lngStrings[LNG_TRACK],
 
 			        // Track Index (0, 1, 2, 3) + 1
-			        (gGT->cup.trackIndex) + 1);
+			        CTR_PRINTF_PSX_LONG((gGT->cup.trackIndex) + 1));
 
 			// string of top title bar
 			pcVar6 = trackText;

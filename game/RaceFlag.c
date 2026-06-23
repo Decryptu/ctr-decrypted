@@ -705,7 +705,7 @@ SKIP_LOADING_TEXT:
 				    (((dimensions - read0) & (dimensions - read1) & (dimensions - write0) & (dimensions - write1) & screenlimit) == 0))
 				{
 					// TRUE for gray, FALSE for white
-					u8 boolDark = (((column >> 2) + (i >> 2) & 1U) != 0);
+					u8 boolDark = ((((column >> 2) + (i >> 2)) & 1U) != 0);
 
 					u8 colorR = RaceFlag_CalculateBrightness(lightR, boolDark);
 					setRGB0(p, colorR, colorR, colorR);

@@ -29,7 +29,7 @@ internal s16 Ghost_LerpRot12(s16 curr, s16 next, u16 t)
 	s32 delta = ((s32)next - (s32)curr) & 0xFFF;
 	if (delta > 0x7FF)
 		delta -= 0x1000;
-	return curr + ((delta * t) >> 0xC) & 0xFFF;
+	return (curr + ((delta * t) >> 0xC)) & 0xFFF;
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80026ed8-0x80027838.

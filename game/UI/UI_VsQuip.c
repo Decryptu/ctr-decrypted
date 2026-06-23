@@ -590,7 +590,7 @@ void UI_VsWaitForPressX(void)
 
 					// Get font color based on battle team
 					sVar4 = (s16)gGT->drivers[j]->BattleHUD.teamID;
-					local_78 = (sVar4 + 0x18U | 0x8000);
+					local_78 = ((sVar4 + 0x18U) | 0x8000);
 
 
 					DecalFont_DrawLine(statText,

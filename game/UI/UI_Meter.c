@@ -109,7 +109,7 @@ void UI_JumpMeter_Draw(s16 posX, s16 posY, struct Driver *driver)
 
 	iVar5 = ((int)driver->jumpMeter / 0x3c0) * 0x10000 >> 0x10;
 	whateverThisIs = (int)driver->jumpMeter + iVar5 * -0x3c0;
-	iVar10 = ((whateverThisIs / 6 + (whateverThisIs >> 0x1f) >> 4) - (whateverThisIs >> 0x1f)) * 0x10000 >> 0x10;
+	iVar10 = (((whateverThisIs / 6 + (whateverThisIs >> 0x1f)) >> 4) - (whateverThisIs >> 0x1f)) * 0x10000 >> 0x10;
 	iVar11 = (int)posX;
 	iVar8 = (int)posY + numbersYOffset + 2;
 

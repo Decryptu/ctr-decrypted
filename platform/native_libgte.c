@@ -927,5 +927,5 @@ int SquareRoot0(int a)
 	else
 		idx = a << (lzcs - 24);
 
-	return SQRT[idx - 64] << (31 - lzcs >> 1) >> 12;
+	return SQRT[idx - 64] << ((31 - lzcs) >> 1) >> 12;
 }

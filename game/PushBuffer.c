@@ -347,10 +347,10 @@ void PushBuffer_SetMatrixVP(struct PushBuffer *pb)
 	*(s16 *)((int)&pb->matrix_Camera + 0x10) = sVar7;
 
 	// transpose the camera matrix
-	view0 = uVar3 & 0xffff | uVar4 & 0xffff0000;
-	view4 = uVar6 & 0xffff | uVar3 & 0xffff0000;
-	view8 = uVar5 & 0xffff | uVar6 & 0xffff0000;
-	viewC = uVar4 & 0xffff | uVar5 & 0xffff0000;
+	view0 = (uVar3 & 0xffff) | (uVar4 & 0xffff0000);
+	view4 = (uVar6 & 0xffff) | (uVar3 & 0xffff0000);
+	view8 = (uVar5 & 0xffff) | (uVar6 & 0xffff0000);
+	viewC = (uVar4 & 0xffff) | (uVar5 & 0xffff0000);
 
 	// CameraTranspose, for lightning during Driver Warping effect
 	*(int *)((int)&pb->matrix_CameraTranspose + 0x0) = view0;

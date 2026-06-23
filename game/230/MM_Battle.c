@@ -934,7 +934,7 @@ LAB_800b25f0:
 		j = (u32)local_40.y + 2 + j * 0x20;
 
 		// If the icon is bowling bomb or missile on the 2nd row
-		if ((i - 7U & 0xffff) < 2)
+		if (((i - 7U) & 0xffff) < 2)
 		{
 			// draw the "3" over the icons
 			DecalFont_DrawLine(&R230.s_3[0], iVar13, j, 2, uVar17);

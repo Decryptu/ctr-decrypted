@@ -17,7 +17,7 @@ b32 VehGroundShadow_Subset1(struct TextureLayout *pDst, int iconIndex)
 	memcpy(pDst, &(pIcon->texLayout), sizeof(pIcon->texLayout));
 
 	// fix blending mode
-	pDst->tpage = pDst->tpage & 0xff9f | 0x40;
+	pDst->tpage = (pDst->tpage & 0xff9f) | 0x40;
 
 	return true;
 }

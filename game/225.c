@@ -213,7 +213,7 @@ void VB_EndEvent_DrawMenu(void)
 				placeTextColor = (gGT->timer & 1) ? (JUSTIFY_RIGHT | RED) : (JUSTIFY_RIGHT | WHITE);
 
 			sprintf(text, "%d%s-%2.02ld", place + 1, sdata->lngStrings[VB_STANDINGS_SUFFIX_FIRST + place],
-			        gGT->standingsPoints[entityID * VB_STANDINGS_POINTS_PER_ENTRY + place]);
+			        CTR_PRINTF_PSX_LONG(gGT->standingsPoints[entityID * VB_STANDINGS_POINTS_PER_ENTRY + place]));
 
 			DecalFont_DrawLine(text, pos.x + VB_STANDINGS_TEXT_X_OFFSET,
 			                   rankTextY - (visiblePlaces * VB_STANDINGS_ROW_HALF_HEIGHT - VB_STANDINGS_ROW_BASELINE_BIAS) + place * 8, FONT_SMALL,

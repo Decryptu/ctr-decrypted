@@ -275,7 +275,7 @@ void RR_EndEvent_DrawMenu(void)
 		sdata->ptrTimebox1->matrix.t[1] = UI_ConvertY_2(pos.y, RR_SCREEN_DEPTH);
 
 		DecalFont_DrawLine((char *)&s_timeCrateXString223, pos.x + 0x14, pos.y - 10, 2, 0);
-		sprintf(crateCountText, s_crateCountFormat223, driver->numTimeCrates, gGT->timeCratesInLEV);
+		sprintf(crateCountText, s_crateCountFormat223, driver->numTimeCrates, CTR_PRINTF_PSX_LONG(gGT->timeCratesInLEV));
 		DecalFont_DrawLine(crateCountText, pos.x + 0x21, pos.y - 0xe, 1, 0);
 	}
 

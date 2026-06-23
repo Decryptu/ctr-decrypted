@@ -241,7 +241,7 @@ LAB_800aec34:
 
 		    sdata->lngStrings[data.lng_challenge[R232.bossIDs[hubID]]],
 
-		    (view.x + view.w >> 1), ((view.y + view.h) - 0x1e), 1, 0xffff8000);
+		    ((view.x + view.w) >> 1), ((view.y + view.h) - 0x1e), 1, 0xffff8000);
 	}
 
 	if (bossIsOpen)

@@ -55,8 +55,8 @@ void RB_Bubbles_RoosTubes()
 		}
 
 		// speed approximation (what on earth is this logic?)
-		velX = ((d->posCurr.x - d->posPrev.x >> 4) + (d->posCurr.x >> 8)) - spawnPos->x;
-		velZ = ((d->posCurr.z - d->posPrev.z >> 4) + (d->posCurr.z >> 8)) - spawnPos->z;
+		velX = (((d->posCurr.x - d->posPrev.x) >> 4) + (d->posCurr.x >> 8)) - spawnPos->x;
+		velZ = (((d->posCurr.z - d->posPrev.z) >> 4) + (d->posCurr.z >> 8)) - spawnPos->z;
 		if (velX < 0)
 			velX = -velX;
 		if (velZ < 0)

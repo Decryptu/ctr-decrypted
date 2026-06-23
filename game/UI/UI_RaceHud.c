@@ -104,7 +104,7 @@ void UI_BattleDrawHeadArrows(struct Driver *player)
 
 		sVar4 = outXY[0];
 		sVar5 = outXY[1] + sVar1;
-		iVar6 = (0x1000 - ((playerDistance / 6 + (playerDistance >> 0x1f) >> 0xd) - (playerDistance >> 0x1f)));
+		iVar6 = (0x1000 - (((playerDistance / 6 + (playerDistance >> 0x1f)) >> 0xd) - (playerDistance >> 0x1f)));
 		sVar1 = (s16)(iVar6 * 3 >> 10);
 		sVar3 = (s16)(iVar6 * 7 >> 12) + 12;
 

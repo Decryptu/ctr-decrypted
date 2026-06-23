@@ -172,7 +172,7 @@ int CS_Thread_UseOpcode(struct Instance *instance, struct CutsceneObj *cs)
 			clockEffectFlags = gGT->clockEffectEnabled;
 			gGT->clockEffectEnabled = clockEffectFlags & 0xfffe;
 			if ((camPathFlags[0] & 1) != 0)
-				gGT->clockEffectEnabled = clockEffectFlags & 0xfffe | 1;
+				gGT->clockEffectEnabled = (clockEffectFlags & 0xfffe) | 1;
 
 			if ((cs->flags & 0x20) == 0)
 			{
@@ -253,7 +253,7 @@ afterCameraAndSkipChecks:
 			rotInterpStartFrame = opcodeMeta->arg0.i;
 			if (opcodeMeta->arg1.i != rotInterpStartFrame)
 			{
-				rotInterpNumerator = ((((int)opcodeMeta->rotEnd - iVar10) + 0x800U & 0xfff) - 0x800) * (iVar12 - rotInterpStartFrame);
+				rotInterpNumerator = (((((int)opcodeMeta->rotEnd - iVar10) + 0x800U) & 0xfff) - 0x800) * (iVar12 - rotInterpStartFrame);
 				rotInterpFrameRange = opcodeMeta->arg1.i - rotInterpStartFrame;
 				if (rotInterpFrameRange < 0)
 					rotInterpFrameRange = -rotInterpFrameRange;
@@ -570,7 +570,7 @@ processOpcode:
 	case 0x12:
 		CDSYS_XAPlay(opcodeMeta->arg0.i, opcodeMeta->arg1.i);
 		if (sdata->XA_State != 0)
-			cs->flags = cs->flags & 0xfbff | 0x200;
+			cs->flags = (cs->flags & 0xfbff) | 0x200;
 		break;
 
 	case 0x13:

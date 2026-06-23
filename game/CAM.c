@@ -295,7 +295,7 @@ void CAM_ClearScreen(struct GameTracker *gGT)
 
 		// cam up/down changes where the line splits.
 		// At 0x800, camera looks straight, and line is perfectly midpoint
-		s32 splitLine = ((s32)pb->rot.x - 0x800 >> 3) + (h >> 1);
+		s32 splitLine = (((s32)pb->rot.x - 0x800) >> 3) + (h >> 1);
 
 		if (splitLine < 0)
 			splitLine = 0;
@@ -440,7 +440,7 @@ u8 CAM_Path_Move(s32 frameIndex, s16 *position, s16 *rotation, s16 *getPath)
 	position[2] = move[2];
 
 	// rotation of frame
-	rotation[0] = ((s16)move[3] >> 4) + 0x800U & 0xfff;
+	rotation[0] = (((s16)move[3] >> 4) + 0x800U) & 0xfff;
 	rotation[1] = (u16)move[4] >> 4;
 	rotation[2] = (u16)move[5] >> 4;
 	return 1;
@@ -545,25 +545,25 @@ void CAM_ProcessTransition(SVec3 *currPos, SVec3 *currRot, SVec3 *startPos, SVec
 	currPos->y = startPos->y + (s16)(CAM_MulLo((s32)endPos->y - (s32)startPos->y, frame) >> 0xc);
 	currPos->z = startPos->z + (s16)(CAM_MulLo((s32)endPos->z - (s32)startPos->z, frame) >> 0xc);
 
-	deltaRot = (s32)endRot->x - (s32)startRot->x & 0xfff;
+	deltaRot = ((s32)endRot->x - (s32)startRot->x) & 0xfff;
 	if (0x7ff < deltaRot)
 	{
 		deltaRot -= 0x1000;
 	}
 
-	currRot->x = startRot->x + (s16)(CAM_MulLo(deltaRot, frame) >> 0xc) & 0xfff;
-	deltaRot = (s32)endRot->y - (s32)startRot->y & 0xfff;
+	currRot->x = (startRot->x + (s16)(CAM_MulLo(deltaRot, frame) >> 0xc)) & 0xfff;
+	deltaRot = ((s32)endRot->y - (s32)startRot->y) & 0xfff;
 	if (0x7ff < deltaRot)
 	{
 		deltaRot -= 0x1000;
 	}
-	currRot->y = startRot->y + (s16)(CAM_MulLo(deltaRot, frame) >> 0xc) & 0xfff;
-	deltaRot = (s32)endRot->z - (s32)startRot->z & 0xfff;
+	currRot->y = (startRot->y + (s16)(CAM_MulLo(deltaRot, frame) >> 0xc)) & 0xfff;
+	deltaRot = ((s32)endRot->z - (s32)startRot->z) & 0xfff;
 	if (0x7ff < deltaRot)
 	{
 		deltaRot -= 0x1000;
 	}
-	currRot->z = startRot->z + (s16)(CAM_MulLo(deltaRot, frame) >> 0xc) & 0xfff;
+	currRot->z = (startRot->z + (s16)(CAM_MulLo(deltaRot, frame) >> 0xc)) & 0xfff;
 }
 
 
@@ -1386,7 +1386,7 @@ void CAM_FollowDriver_Normal(struct CameraDC *cDC, struct Driver *d, SVec3 *push
 		{
 			cam->pos.y =
 
-			    (8 - x) * cam->pos.y + x * ((s32)cDC->heightSmoothing.startOffset + CTR_MipsSra(d->posCurr.y, 8)) >> 3;
+			    ((8 - x) * cam->pos.y + x * ((s32)cDC->heightSmoothing.startOffset + CTR_MipsSra(d->posCurr.y, 8))) >> 3;
 
 			cDC->heightSmoothing.framesRemaining += -1;
 		}
@@ -2141,7 +2141,7 @@ SkipNewCameraEOR:
 
 								// interpolate two rotations
 
-								iVar8 = ((s32)(((uVar10 - uVar9) + 0x800U & 0xfff) - 0x800) >> 1);
+								iVar8 = ((s32)((((uVar10 - uVar9) + 0x800U) & 0xfff) - 0x800) >> 1);
 								camThTick->rot.x = 0x800;
 								camThTick->rot.y = (s16)uVar9 + (s16)iVar8;
 								camThTick->rot.z = 0;

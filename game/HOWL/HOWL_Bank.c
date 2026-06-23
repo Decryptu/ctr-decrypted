@@ -117,9 +117,9 @@ int Bank_AssignSpuAddrs()
 
 		// === more banks needed ===
 
-		sdata->numAudioSectors = sdata->audioAllocSize + 0x7ff >> 0xb;
+		sdata->numAudioSectors = (sdata->audioAllocSize + 0x7ff) >> 0xb;
 
-		MEMPACK_ReallocMem((sdata->audioAllocSize + 0x7ff & 0xfffff800) + 0x800);
+		MEMPACK_ReallocMem(((sdata->audioAllocSize + 0x7ff) & 0xfffff800) + 0x800);
 
 		ret = LOAD_HowlSectorChainStart(&sdata->KartHWL_CdFile,                        // CdLoc of HOWL
 		                                (void *)((int)sdata->ptrSampleBlock2 + 0x800), // destination

@@ -93,6 +93,10 @@ typedef double f64;
 #define CTR_PRINTF_FORMAT(fmtArg, firstVararg)
 #endif
 
+// Retail format strings use PsyQ `%ld` for 32-bit values. Keep call sites on
+// project-width types while satisfying host printf varargs for the literal.
+#define CTR_PRINTF_PSX_LONG(value) ((long)(s32)(value))
+
 #define RGBtoBGR(color)            ((color & 0xFF0000) >> 16) | (color & 0xFF00) | ((color & 0xFF) << 16)
 
 #define GetRed(color)              (color & 0xFF)
