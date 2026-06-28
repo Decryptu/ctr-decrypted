@@ -23,6 +23,7 @@
 #include <namespace_Proc.h>
 #include <namespace_PushBuffer.h>
 #include <namespace_RectMenu.h>
+#include <namespace_RenderTires.h>
 #include <namespace_SelectProfile.h>
 #include <namespace_Main.h>
 #include <namespace_DrawLevel.h>
