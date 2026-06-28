@@ -160,9 +160,7 @@
 
 #include "game/MixRNG/PSX_BIOS_Rand.c"
 #include "game/MixRNG/RngDeadCoed.c"
-#include "game/MixRNG/MixRNG_0_Scramble.c"
-#include "game/MixRNG/MixRNG_1_Particles.c"
-#include "game/MixRNG/MixRNG_2_GetValue.c"
+#include "game/MixRNG/MixRNG.c"
 
 #include "game/Particle.c"
 
