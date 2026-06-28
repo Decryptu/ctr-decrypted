@@ -1,5 +1,5 @@
-#ifndef GAME_INCLUDES_H
-#define GAME_INCLUDES_H
+#ifndef GAME_UNITY_H
+#define GAME_UNITY_H
 
 #include <common.h>
 

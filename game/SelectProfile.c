@@ -15,22 +15,6 @@ void SelectProfile_QueueLoadHub_MenuProc(struct RectMenu *menu)
 }
 
 
-struct SelectProfileLoadSaveIcon
-{
-	struct Instance *inst;
-	SVec3 rot;
-	s16 padding;
-};
-
-struct SelectProfileLoadSaveObj
-{
-	struct Thread *thread;
-	struct SelectProfileLoadSaveIcon *icons;
-};
-
-CTR_STATIC_ASSERT(sizeof(struct SelectProfileLoadSaveIcon) == 0xc);
-CTR_STATIC_ASSERT(sizeof(struct SelectProfileLoadSaveObj) == 0x8);
-
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80047dfc-0x80047f20 for the retail path.
 void SelectProfile_ThTick(struct Thread *t)
 {

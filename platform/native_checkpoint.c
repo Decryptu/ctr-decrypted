@@ -1,9 +1,11 @@
 #include "platform/native_checkpoint.h"
 
+#include <common.h>
 #include <macros.h>
 
 #include "../platform.h"
 #include "ctr_scratchpad.h"
+#include "platform/native_memory.h"
 #include "platform/native_state.h"
 
 #include <string.h>
@@ -222,7 +224,7 @@ internal int NativeCheckpoint_GetRegionSize(u32 kind)
 	case NATIVE_CHECKPOINT_REGION_CRD3:
 		return (int)sizeof(creditsBSS) - OFFSETOF(struct Ovr233_Credits_BSS, CreditThread);
 	case NATIVE_CHECKPOINT_REGION_MPAK:
-		return (int)sizeof(s_mempackMemory);
+		return Platform_GetMempackBackingSize();
 	case NATIVE_CHECKPOINT_REGION_SCRP:
 		return (int)CTR_SCRATCHPAD_SIZE;
 	case NATIVE_CHECKPOINT_REGION_PMAP:
@@ -267,7 +269,7 @@ internal void *NativeCheckpoint_GetRegionPtr(u32 kind)
 	case NATIVE_CHECKPOINT_REGION_CRD3:
 		return &creditsBSS.CreditThread;
 	case NATIVE_CHECKPOINT_REGION_MPAK:
-		return &s_mempackMemory[0];
+		return Platform_GetMempackBacking();
 	case NATIVE_CHECKPOINT_REGION_SCRP:
 		return CTR_SCRATCHPAD_BASE;
 	}
@@ -2139,8 +2141,8 @@ int NativeCheckpoint_Capture(void *dst, int dstSize)
 		return 0;
 	}
 
-	header.mempackArena = s_mempackArena;
-	header.psxRandSeed = psxRandSeed;
+	header.mempackArena = *Platform_GetMempackArena();
+	header.psxRandSeed = PSX_BIOS_GetRandSeed();
 	header.activeMempackIndex = NativeCheckpoint_GetActiveMempackIndex();
 
 	memset(dst, 0, header.size);
@@ -2203,7 +2205,7 @@ int NativeCheckpoint_Restore(const void *src, int srcSize)
 		}
 	}
 
-	psxRandSeed = header->psxRandSeed;
+	PSX_BIOS_SetRandSeed(header->psxRandSeed);
 	Platform_ConfigureMempackArena();
 	NativeCheckpoint_RelocateMempackPointers(header, &liveHeader);
 	NativeCheckpoint_RelocateRuntimePointers(header, &liveHeader);

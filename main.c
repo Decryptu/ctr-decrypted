@@ -21,6 +21,7 @@
 
 #include "platform/native_assets.h"
 #include "platform/native_log.h"
+#include "platform/native_memory.h"
 #include "platform/native_perf.h"
 #include "platform/native_replay_scheduler.h"
 #include "platform/native_savestate.h"
@@ -31,7 +32,7 @@
 
 #include "platform.h"
 
-#include "game_includes.h"
+#include "game_unity.h"
 
 #include "game/zGlobal_RDATA.c"
 #include "game/zGlobal_DATA.c"

@@ -2,19 +2,18 @@
 #define COMMON_H
 
 #if defined(CTR_NATIVE)
+#include <stdio.h>
 #include <string.h>
 #endif
 
-// Not native host
 #ifndef CTR_NATIVE
 #include <gccHeaders.h>
 #endif
 
-
-// headers we wrote to simplify the code
+// Project base types and helpers.
 #include <macros.h>
 
-// NOTE(aalhendi): PSX SDK-shaped headers used by game code.
+// PSX SDK-shaped headers used by game code.
 #include <psx/libapi.h>
 #include <psx/libcd.h>
 #include <psx/libetc.h>
@@ -25,28 +24,21 @@
 #include <psx/strings.h>
 #include <psx/inline_c.h>
 
+// Supplemental SDK definitions used by game-owned pad state.
 #include <psn00bsdk/include/psxpad.h>
+#include <psn00bsdk/include/sys/fcntl.h>
 
 #ifndef RECT
 #define RECT RECT16
 #endif
 
+// Project-owned helpers layered on top of the PSX-shaped SDK headers.
 #include <ctr_math.h>
 #include <ctr_gte.h>
 #include <ctr_scratchpad.h>
 #include <prim.h>
 
-#include <psn00bsdk/include/sys/fcntl.h>
-
-// =============================
-
-// Alphabetical order was rearranged
-// so that the PCH file can be built
-// properly. In the end this should
-// be fixed so they can be alphabetical
-
-// =============================
-
+// Game layout and namespace headers.
 #include <namespace_Bots.h>
 #include <namespace_Camera.h>
 #include <namespace_Cdsys.h>
@@ -57,35 +49,24 @@
 #include <namespace_Ghost.h>
 #include <namespace_Howl.h>
 #include <namespace_Instance.h>
-
-// jitpool should be here
-
 #include <namespace_Level.h>
 #include <namespace_List.h>
 #include <namespace_Lng.h>
-
-// should not be here
 #include <namespace_JitPool.h>
-
 #include <namespace_Load.h>
-
-// main should be here
-
 #include <namespace_Memcard.h>
 #include <namespace_Mempack.h>
-
 #include <namespace_Particle.h>
 #include <namespace_Proc.h>
 #include <namespace_PushBuffer.h>
 #include <namespace_RectMenu.h>
-
-// should not be here
+#include <namespace_SelectProfile.h>
 #include <namespace_Main.h>
-
 #include <namespace_DrawLevel.h>
-
 #include <namespace_UI.h>
 #include <namespace_Vehicle.h>
+
+// Overlay and global region layout headers.
 #include <ovr_226.h>
 #include <ovr_227.h>
 #include <ovr_228.h>
@@ -96,6 +77,7 @@
 #include <ovr_233.h>
 #include <regionsEXE.h>
 
+// Game declarations and GPU helpers that depend on the layout headers above.
 #include <functions.h>
 #include <gpu.h>
 

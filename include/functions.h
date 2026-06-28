@@ -54,6 +54,8 @@ void CTR_ScrambleGhostString(char *dst, const char *src);
 void CTR_unknownMaybeThunk1(void *dst, void *src);
 void CTR_unknownMaybeThunk2(void *dst, void *src);
 void CTR_unknownMaybeThunk3(void *dst, void *src, int byteCount);
+u32 PSX_BIOS_GetRandSeed(void);
+void PSX_BIOS_SetRandSeed(u32 seed);
 
 void CTR_Box_DrawWirePrims(Point p1, Point p2, Color color, void *ot);
 void CTR_Box_DrawWireBox(RECT *r, const Color *color, void *ot, struct PrimMem *primMem);
@@ -111,9 +113,11 @@ int GAMEPAD_ProcessAnyoneVars(struct GamepadSystem *gGamepads);
 void GAMEPAD_ProcessState(struct GamepadBuffer *pad, int padState, s16 id);
 
 int GAMEPROG_CheckGhostsBeaten(int ghostID);
+void GAMEPROG_AdvPercent(struct AdvProgress *adv);
 void GAMEPROG_NewGame_OnBoot(void);
 void GAMEPROG_GetPtrHighScoreTrack(void);
 void GAMEPROG_InitFullMemcard(struct MemcardProfile *mcp);
+void GAMEPROG_SaveCupProgress(void);
 void GAMEPROG_SyncGameAndCard(struct GameProgress *memcardProg, struct GameProgress *currentProg);
 
 // ghost
@@ -500,6 +504,8 @@ void SelectProfile_Init(u16 flags);
 void SelectProfile_Destroy(void);
 void SelectProfile_InitAndDestroy(void);
 u32 SelectProfile_InputLogic(struct RectMenu *menu, s16 numRows, u32 confirmFlags);
+void SelectProfile_QueueLoadHub_MenuProc(struct RectMenu *menu);
+void SelectProfile_AdvPickMode_MenuProc(struct RectMenu *menu);
 void SelectProfile_AllProfiles_MenuProc(struct RectMenu *menu);
 void SelectProfile_ToggleMode(u32 mode);
 
@@ -583,6 +589,8 @@ void PushBuffer_FadeAllWindows(void);
 
 void QueueLoadTrack_MenuProc(struct RectMenu *menu);
 struct RectMenu *QueueLoadTrack_GetMenuPtr(void);
+
+void TakeCupProgress_MenuProc(struct RectMenu *menu);
 
 void RaceFlag_SetCanDraw(s16 param_1);
 void RaceFlag_BeginTransition(int direction);
@@ -875,12 +883,14 @@ void RB_Burst_CollThBucket(struct ScratchpadStruct *sps, void *hitObject);
 void RB_Burst_CollLevInst(struct ScratchpadStruct *sps, void *hitObject);
 void RB_Burst_ThTick(struct Thread *t);
 void RB_Burst_DrawAll(struct GameTracker *gGT);
+void RB_Fruit_ThTick(struct Thread *fruitTh);
 void RB_Fruit_GetScreenCoords(struct PushBuffer *pb, struct Instance *inst, s16 *output);
 void RB_Default_LInB(struct Instance *inst);
 void RB_Fruit_LInB(struct Instance *inst);
 int RB_Fruit_LInC(struct Instance *fruitInst, struct Thread *driverTh, struct ScratchpadStruct *sps);
 
 struct Thread *RB_GetThread_ClosestTracker(struct Driver *d);
+void RB_Baron_ThTick(struct Thread *t);
 void RB_Baron_LInB(struct Instance *inst);
 
 void RB_Blade_ThTick(struct Thread *t);
@@ -906,6 +916,7 @@ void RB_Minecart_ThTick(struct Thread *t);
 void RB_Minecart_CheckColl(struct Instance *minecartInst, struct Thread *minecartTh);
 void RB_Minecart_LInB(struct Instance *inst);
 
+void RB_Potion_ThTick_InAir(struct Thread *t);
 void RB_Potion_OnShatter_TeethCallback(struct ScratchpadStruct *sps, void *hitObject);
 
 int RB_CrateWeapon_LInC(struct Instance *crateInst, struct Thread *collidingTh, struct ScratchpadStruct *sps);
@@ -934,6 +945,7 @@ void RB_Seal_LInB(struct Instance *inst);
 void RB_Snowball_ThTick(struct Thread *t);
 void RB_Snowball_LInB(struct Instance *inst);
 
+void RB_Spider_ThTick(struct Thread *t);
 void RB_Spider_LInB(struct Instance *inst);
 
 void RB_StartText_ProcessBucket(struct Thread *thread);
@@ -953,11 +965,13 @@ struct Driver *RB_Warpball_GetDriverTarget(struct TrackerWeapon *tw, struct Inst
 void RB_Warpball_SetTargetDriver(struct TrackerWeapon *tw);
 void RB_Warpball_SeekDriver(struct TrackerWeapon *tw, u32 param_2, struct Driver *d);
 void RB_Warpball_ThTick(struct Thread *t);
+void RB_Warpball_TurnAround(struct Thread *t);
 
 void RB_Player_ToggleInvisible(void);
 void RB_Player_ToggleFlicker(void);
 void RB_Burst_ProcessBucket(struct Thread *thread);
 void RB_Blowup_ProcessBucket(struct Thread *thread);
+void RB_Follower_ThTick(struct Thread *t);
 void RB_Follower_ProcessBucket(struct Thread *thread);
 
 // 232
