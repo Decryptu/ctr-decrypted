@@ -8959,6 +8959,10 @@ static struct QuadBlock **DrawLevelOvr1P_GetRenderedListForRole(struct DrawLevel
 {
 	switch (role)
 	{
+	case DRAW_LEVEL_OVR1P_BUCKET_FULL_DYNAMIC_LIST:
+		// NOTE(aalhendi): Retail 0x800a0e7c clears 0x80096404 for every
+		// empty bucket, including full-dynamic which has no rendered slot.
+		return DrawLevelOvr1P_GetRenderedOverflowBase();
 	case DRAW_LEVEL_OVR1P_BUCKET_4X4_LIST:
 	case DRAW_LEVEL_OVR1P_BUCKET_4X4_RENDERED:
 		return renderList->list[0].ptrQuadBlocksRendered;
