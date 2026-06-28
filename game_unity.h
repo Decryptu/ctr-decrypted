@@ -190,9 +190,7 @@
 
 #include "game/TakeCupProgress.c"
 
-#include "game/SubmitName/SubmitName_0_RestoreName.c"
-#include "game/SubmitName/SubmitName_1_DrawMenu.c"
-#include "game/SubmitName/SubmitName_2_MenuProc.c"
+#include "game/SubmitName/SubmitName.c"
 
 #include "game/Timer/Timer_0_Init.c"
 #include "game/Timer/Timer_1_Destroy.c"
