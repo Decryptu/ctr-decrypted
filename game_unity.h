@@ -166,8 +166,7 @@
 
 #include "game/Particle.c"
 
-#include "game/PickupBots/PickupBots_0_Init.c"
-#include "game/PickupBots/PickupBots_1_Update.c"
+#include "game/PickupBots/PickupBots.c"
 
 #include "game/PROC.c"
 
