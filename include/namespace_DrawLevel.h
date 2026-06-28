@@ -50,6 +50,11 @@ enum DrawLevelOvr1PUvScratchSlot
 	DRAW_LEVEL_OVR1P_UV_SCRATCH_SLOT_2,
 };
 
+enum DrawLevelOvr1PSharedConstant
+{
+	DRAW_LEVEL_OVR1P_SPLIT_GROUND_MOSAIC_RELOAD_SPAN = 0xc0,
+};
+
 enum DrawLevelOvr1PScratchOffset
 {
 	DRAW_LEVEL_OVR1P_SCRATCH_INIT_TABLE_OFFSET = 0x0ec,

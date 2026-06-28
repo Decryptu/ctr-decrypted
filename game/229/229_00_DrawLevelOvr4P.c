@@ -1,4 +1,5 @@
 #include <common.h>
+#include "../RenderLevel/DrawLevelOvr1P_shared.h"
 
 typedef int (*Ovr229BucketDispatch)(u32 handlerAddress, void *bucketValue, struct PushBuffer *pb, struct mesh_info *mesh, struct PrimMem *primMem,
                                     const int *visFaceList);

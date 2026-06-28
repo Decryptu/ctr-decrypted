@@ -1,5 +1,7 @@
-#include <stddef.h>
-#include <stdint.h>
+#include <common.h>
+
+static struct TrigPair DrawTiresSolid_TrigAngleSinCos(int angle);
+static int DrawTiresSolid_SelectSpriteIndex(int angleValue);
 
 struct DrawTiresReflectionScratch
 {

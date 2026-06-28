@@ -14,9 +14,12 @@ void CAM_ClearScreen(struct GameTracker *gGT);
 void CAM_Init(struct CameraDC *cDC, s32 cameraID, struct Driver *d, struct PushBuffer *pb);
 int CAM_Path_GetNumPoints(void);
 u8 CAM_Path_Move(int frameIndex, s16 *position, s16 *rotation, s16 *getPath);
+int CAM_MapRange_PosPoints(SVec3 *pos1, SVec3 *pos2, SVec3 *currPos);
 void CAM_SetDesiredPosRot(struct CameraDC *cDC, const SVec3 *pos, const SVec3 *rot);
 
 void BOTS_Adv_AdjustDifficulty(void);
+void BOTS_UpdateGlobals(void);
+void BOTS_GotoStartingLine(struct Driver *d);
 
 int CDSYS_Init(b32 boolUseDisc);
 u32 CDSYS_GetFilePosInt(char *fileString, int *filePos);
@@ -59,6 +62,8 @@ void CTR_unknownMaybeThunk2(void *dst, void *src);
 void CTR_unknownMaybeThunk3(void *dst, void *src, int byteCount);
 u32 PSX_BIOS_GetRandSeed(void);
 void PSX_BIOS_SetRandSeed(u32 seed);
+int rand(void);
+void srand(unsigned int seed);
 
 void CTR_Box_DrawWirePrims(Point p1, Point p2, Color color, void *ot);
 void CTR_Box_DrawWireBox(RECT *r, const Color *color, void *ot, struct PrimMem *primMem);
@@ -70,7 +75,11 @@ u32 DecalFont_boolRacingWheel(void);
 void DecalFont_DrawLine(char *str, int posX, int posY, s16 fontType, int flags);
 void DecalFont_DrawLineStrlen(u8 *str, s16 len, int posX, s16 posY, s16 fontType, int flags);
 int DecalFont_DrawMultiLine(char *str, int posX, int posY, int maxPixLen, s16 fontType, int flags);
+void DecalGlobal_EmptyFunc_MainFrame_ResetDB(void);
 void DecalGlobal_Clear(struct GameTracker *gGT);
+void DecalGlobal_Store(struct GameTracker *gGT, struct LevTexLookup *LTL);
+int *DecalGlobal_FindInLEV(struct Level *level, char *str);
+int *DecalGlobal_FindInMPK(u32 *icons, char *str);
 void DecalHUD_DrawPolyFT4(struct Icon *icon, s16 posX, s16 posY, struct PrimMem *primMem, uint32_t *ot, char transparency, s16 scale);
 void DecalHUD_DrawPolyGT4(struct Icon *icon, s16 posX, s16 posY, struct PrimMem *primMem, uint32_t *ot, u32 color0, u32 color1, u32 color2, u32 color3,
                           char transparency, s16 scale);
@@ -114,6 +123,7 @@ int GAMEPAD_ProcessTapRelease(struct GamepadSystem *gGamepads);
 void GAMEPAD_ProcessMotors(struct GamepadSystem *gGamepads);
 int GAMEPAD_ProcessAnyoneVars(struct GamepadSystem *gGamepads);
 void GAMEPAD_ProcessState(struct GamepadBuffer *pad, int padState, s16 id);
+void GAMEPAD_ShockForce2(struct Driver *d, int frame, int val);
 
 int GAMEPROG_CheckGhostsBeaten(int ghostID);
 void GAMEPROG_AdvPercent(struct AdvProgress *adv);
@@ -298,6 +308,8 @@ void LevInstDef_RePack(struct mesh_info *ptr_mesh_info, b32 boolAdvHub);
 
 struct Instance *LinkedCollide_Hitbox_Desc(struct HitboxDesc *objBoxDesc);
 struct Instance *LinkedCollide_Hitbox(struct Instance *objInst, struct Thread *_objTh, struct Thread *thBucket, struct BoundingBox bbox);
+struct Instance *LinkedCollide_Radius(struct Instance *objInst, struct Thread *_objTh, struct Thread *thBucket, u32 hitRadius);
+void LHMatrix_Parent(struct Instance *pDst, struct Instance *pSrc, SVECTOR *transVec);
 
 // LIST
 void LIST_AddBack(struct LinkedList *L, struct Item *I);
@@ -307,6 +319,9 @@ void *LIST_GetFirstItem(struct LinkedList *L);
 void *LIST_GetNextItem(struct Item *I);
 
 void LOAD_AppendQueue(struct BigHeader *bigfile, int type, int fileIndex, void *destinationPtr, void (*callback)(struct LoadQueueSlot *));
+int LOAD_DriverMPK(struct BigHeader *bigfile, int levelLOD, void (*callback)(struct LoadQueueSlot *));
+void LOAD_Hub_Main(struct BigHeader *bigfilePtr);
+void LOAD_Hub_ReadFile(struct BigHeader *bigfile, int levID, int packID);
 void LIST_Init(struct LinkedList *L, struct Item *item, int itemSize, int numItems);
 struct Item *LIST_RemoveBack(struct LinkedList *L);
 struct Item *LIST_RemoveFront(struct LinkedList *L);
@@ -383,6 +398,20 @@ void RenderAllTires(struct GameTracker *gGT);
 void RenderAllShadows(struct GameTracker *gGT);
 void RenderAllHeatParticles(struct GameTracker *gGT);
 void RenderAllLevelGeometry(struct GameTracker *gGT, struct Level *level1, struct mesh_info *ptr_mesh_info);
+void RenderStars(struct PushBuffer *pb, struct PrimMem *primMem, struct Stars *stars, char numPlyr);
+void RenderWeather(struct PushBuffer *pb, struct PrimMem *primMem, struct RainBuffer *rainBuffer, char numPlyr, int gameMode1);
+void DrawConfetti(struct PushBuffer *pb, struct PrimMem *primMem, void *confetti, int frameTimer, int gameMode1);
+void RedBeaker_RenderRain(struct PushBuffer *pb, struct PrimMem *primMem, struct JitPool *rain, char numPlyr, int gameMode1);
+void *RenderBucket_QueueLevInstances(struct CameraDC *cDC, uint32_t *otMem, void *rbi, char *lod, char numPlyr, int gameMode1);
+void *RenderBucket_QueueNonLevInstances(struct Item *item, uint32_t *otMem, void *rbi, char *lod, char numPlyr, int gameMode1);
+void RenderBucket_Execute(void *param_1, struct PrimMem *param_2);
+void DrawTires_Solid(struct Thread *thread, struct PrimMem *primMem, char numPlyr);
+void DrawTires_Reflection(struct Thread *thread, struct PrimMem *primMem, char numPlyr);
+void Torch_Main(void *particleList_heatWarp, struct PushBuffer *pb, struct PrimMem *primMem, char numPlyr, int swapchainIndex);
+void AnimateWater1P(int timer, int numWaterVertices, struct WaterVert *waterVert, const struct TextureLayout *waterEnvMap, int *param_5);
+void AnimateQuad(int timer, int numSCVert, void *ptrSCVert, int *visSCVertList);
+void RenderLists_PreInit(void);
+void RenderBucket_InitDepthGTE(void);
 void WindowBoxLines(struct GameTracker *gGT);
 void WindowDivsionLines(struct GameTracker *gGT);
 void RenderDispEnv_UI(struct GameTracker *gGT);
@@ -472,6 +501,7 @@ char *MEMCARD_FindFirstGhost(int slotIdx, char *srcString);
 char *MEMCARD_FindNextGhost(void);
 u8 MEMCARD_EraseFile(int slotIdx, char *srcString);
 int MEMCARD_HandleEvent(void);
+u8 MEMCARD_WaitForHwEvent(void);
 u8 MEMCARD_Load(int slotIdx, char *name, u8 *ptrMemcard, int memcardFileSize, u32 loadFlags);
 u8 MEMCARD_Save(int slotIdx, char *name, char *icon, u8 *ptrMemcard, int memcardFileSize, u32 saveFlags);
 
@@ -548,6 +578,8 @@ void RECTMENU_Hide(struct RectMenu *m);
 void RECTMENU_Show(struct RectMenu *m);
 
 int MixRNG_Scramble(void);
+int MixRNG_Particles(int param_1);
+u32 MixRNG_GetValue(int param_1);
 int RngDeadCoed(u32 *state);
 
 void MainStats_ClearBattleVS(void);
@@ -594,6 +626,7 @@ void QueueLoadTrack_MenuProc(struct RectMenu *menu);
 struct RectMenu *QueueLoadTrack_GetMenuPtr(void);
 
 void TakeCupProgress_MenuProc(struct RectMenu *menu);
+void TakeCupProgress_Activate(s16 stringIndex);
 
 void RaceFlag_SetCanDraw(s16 param_1);
 void RaceFlag_BeginTransition(int direction);
@@ -627,8 +660,16 @@ void UI_INSTANCE_InitAll(void);
 struct Instance *UI_INSTANCE_BirthWithThread(int param_1, int param_2, int param_3, int param_4, int param_5, int param_6);
 
 void UI_DrawBattleScores(int posX, int posY, struct Driver *d);
+void UI_BattleDrawHeadArrows(struct Driver *player);
+void UI_TrackerSelf(struct Driver *d);
+void UI_DrawLapCount(s16 posX, int posY, int param_3, struct Driver *d);
 void UI_Weapon_DrawSelf(s16 posX, s16 posY, s16 scale, struct Driver *d);
 void UI_Weapon_DrawBG(s16 param_1, s16 param_2, s16 param_3, struct Driver *d);
+void UI_WeaponBG_AnimateShine(void);
+void UI_WeaponBG_DrawShine(struct Icon *icon, s16 posX, s16 posY, struct PrimMem *primMem, uint32_t *ot, char transparency, s16 angleX, s16 angleY,
+                           int unusedColor);
+void UI_TrackerBG(struct Icon *targetIcon, s16 centerX, s16 centerY, struct PrimMem *primMem, uint32_t *ot, char transparency, s16 angleX, s16 angleY,
+                  int color);
 void UI_DrawNumWumpa(s16 param_1, s16 param_2, struct Driver *d);
 void UI_DrawNumKey(s16 posX, s16 posY);
 void UI_DrawNumRelic(s16 posX, s16 posY);
@@ -660,7 +701,9 @@ void UI_SaveLapTime(int numLaps, int lapTime, s16 driverID);
 void UI_Map_GetIconPos(s16 *m, int *posX, int *posY);
 void UI_Map_DrawMap(struct Icon *mapTop, struct Icon *mapBottom, s16 posX, s16 posY, struct PrimMem *primMem, uint32_t *otMem, u32 colorID);
 
+void UI_Lerp2D_Angular(s16 *ptrPos, s16 drawnPosition, s16 absolutePosition, s16 frameCounter);
 void UI_Lerp2D_Linear(s16 *ptrPos, s16 startX, s16 startY, s16 endX, s16 endY, int curFrame, s16 endFrame);
+void UI_Lerp2D_HUD(s16 *ptrPos, s16 startX, s16 startY, s16 endX, s16 endY, int curFrame, s16 endFrame);
 
 void UI_RaceEnd_MenuProc(struct RectMenu *);
 
@@ -757,6 +800,7 @@ void VehPhysForce_ConvertSpeedToVec(struct Driver *driver);
 void VehPhysForce_AccelTerrainSlope(struct Driver *driver);
 void VehPhysForce_RotAxisAngle(MATRIX *m, s16 *normVec, s16 angle);
 void VehPhysForce_OnApplyForces(struct Thread *t, struct Driver *d);
+int VehPhysGeneral_GetBaseSpeed(struct Driver *driver);
 void VehPhysGeneral_SetHeldItem(struct Driver *driver);
 void VehPickupItem_ShootOnCirclePress(struct Driver *d);
 void VehFire_Audio(struct Driver *driver, int speed_cap);
@@ -854,6 +898,7 @@ void RB_Player_KillPlayer(struct Driver *attacker, struct Driver *victim);
 void RB_MinePool_Init(void);
 void RB_MinePool_Remove(struct MineWeapon *mw);
 void RB_MinePool_Add(struct MineWeapon *mw);
+void RB_Potion_OnShatter_TeethSearch(struct Instance *inst);
 
 void RB_MaskWeapon_FadeAway(struct Thread *t);
 void RB_MaskWeapon_ThTick(struct Thread *maskTh);
@@ -1028,6 +1073,7 @@ void AH_MaskHint_Update(void);
 
 struct Particle *Particle_Init(u32 param_1, struct IconGroup *ig, struct ParticleEmitter *emSet);
 void Particle_FuncPtr_PotionShatter(struct Particle *p);
+void Particle_FuncPtr_SpitTire(struct Particle *p);
 void Particle_FuncPtr_ExhaustUnderwater(struct Particle *p);
 void Vector_SpecLightSpin3D(struct Instance *inst, const SVec3 *rot, const SVec3 *lightDir);
 void Vector_SpecLightNoSpin3D(struct Instance *inst, const SVec3 *rot, const SVec3 *lightDir);
@@ -1048,6 +1094,12 @@ u8 CS_Camera_BoolGotoBoss(void);
 void CS_Camera_ThTick_Podium(struct Thread *th);
 void CS_OVR233_InitData(void);
 char *CS_OVR233_TranslateRetailOpcodePointer(char *opCodeAt);
+void CS_ScriptCmd_OpcodeNext(struct CutsceneObj *cs);
+void CS_ScriptCmd_OpcodeAt(struct CutsceneObj *cs, char *opCodeAt);
+void CS_Instance_GetFrameData(struct Instance *inst, int animIndex, u32 animFrame, u16 *pos, u16 *param_5, int offset);
+int CS_Instance_SafeCheckAnimFrame(struct Instance *inst, int animIndex, int LOD, int desiredFrame);
+char CS_Instance_BoolPlaySound(struct CutsceneObj *cs, struct Instance *desiredInst);
+void CS_Instance_InitMatrix(void);
 int CS_Thread_UseOpcode(struct Instance *instance, struct CutsceneObj *cs);
 void CS_Thread_AnimateScale(struct Thread *t);
 void CS_Thread_MoveOnPath(struct Thread *t);
@@ -1064,6 +1116,7 @@ void CS_Podium_Prize_Init(u32 prizeModel, const char *prizeName, s16 *posOnScree
 void CS_Podium_Stand_ThTick(struct Thread *t);
 void CS_Podium_Stand_Init(s16 *podiumData);
 void CS_Podium_FullScene_Init(void);
+void CS_DestroyPodium_StartDriving(void);
 void CS_Credits_Init(void);
 char *CS_Credits_GetNextString(char *str);
 void CS_Credits_DestroyCreditGhost(void);
@@ -1188,6 +1241,7 @@ void CAM_FollowDriver_AngleAxis(struct CameraDC *cDC, struct Driver *d, struct C
 int MainDB_GetClipSize(u32 levelID, int numPlyrCurrGame);
 void MainFreeze_ConfigDrawArrows(s16 offsetX, s16 offsetY, char *str);
 void CAM_StartOfRace(struct CameraDC *cDC);
+void CAM_SkyboxGlow(struct SkyboxGlowGradient *grad, struct PushBuffer *pb, struct PrimMem *primMem, uint32_t *ptrOT);
 int DecalFont_DrawMultiLineStrlen(char *str, s16 len, s16 posX, s16 posY, s16 maxPixLen, s16 fontType, s16 flags);
 void GAMEPROG_ResetHighScores(struct GameProgress *gameProg);
 void GAMEPROG_NewProfile_OutsideAdv(struct GameProgress *gameProg);
@@ -1203,7 +1257,6 @@ void LOAD_OvrEndRace(u32 param_1);
 void LOAD_OvrLOD(u32 param_1);
 void LOAD_OvrThreads(u32 param_1);
 void LibraryOfModels_Clear(struct GameTracker *gGT);
-void DecalGlobal_Store(struct GameTracker *gGT, struct LevTexLookup *LTL);
 void DebugFont_Init(struct GameTracker *gGT);
 void RB_Bubbles_RoosTubes(void);
 int LOAD_IsOpen_Podiums(void);
@@ -1236,8 +1289,23 @@ void LOAD_HubCallback(struct LoadQueueSlot *lqs);
 void LOAD_Callback_MaskHints3D(struct LoadQueueSlot *lqs);
 void LOAD_CDRequestCallback(struct LoadQueueSlot *lqs);
 void LOAD_StringToUpper(char *path);
-// void LHMatrix_Parent(struct Instance* inst, struct Instance* driverInst, SVECTOR* param_3);
 
+void DrawSky_Full(void *skybox, struct PushBuffer *pb, struct PrimMem *primMem);
+void DrawLevelOvr1P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, void *VisMem10,
+                    const struct TextureLayout *waterEnvMap);
+void DrawLevelOvr2P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, void *VisMem10, void *VisMem14,
+                    const struct TextureLayout *waterEnvMap);
+void DrawLevelOvr3P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, void *VisMem10, void *VisMem14, void *VisMem18,
+                    const struct TextureLayout *waterEnvMap);
+void DrawLevelOvr4P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, void *VisMem10, void *VisMem14, void *VisMem18,
+                    void *VisMem1C, const struct TextureLayout *waterEnvMap);
+void AnimateWater2P(int timer, int numWaterVertices, struct WaterVert *waterVert, const struct TextureLayout *waterEnvMap, int *param_5, int *param_6);
+void AnimateWater3P(int timer, int numWaterVertices, struct WaterVert *waterVert, const struct TextureLayout *waterEnvMap, int *param_5, int *param_6,
+                    int *param_7);
+void AnimateWater4P(int timer, int numWaterVertices, struct WaterVert *waterVert, const struct TextureLayout *waterEnvMap, int *param_5, int *param_6,
+                    int *param_7, int *param_8);
+int RenderLists_Init1P2P(struct BSP *bspRoot, int *visLeafList, struct PushBuffer *pb, u32 LevRenderList, void *bspList, char numPlyr);
+int RenderLists_Init3P4P(struct BSP *bspRoot, int *visLeafList, struct PushBuffer *pb, u32 LevRenderList, void *bspList);
 // TODO:
 // CTR_Box_DrawWirePrims change void* ot to uint32_t* ot
 

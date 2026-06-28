@@ -13,6 +13,10 @@
 
 #include <game_layouts.h>
 
+#if defined(CTR_NATIVE)
+#include <platform.h>
+#endif
+
 // Game declarations and GPU helpers that depend on the layout headers above.
 #include <functions.h>
 #include <gpu.h>

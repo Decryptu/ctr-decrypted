@@ -1,4 +1,5 @@
 #include <common.h>
+#include "../RenderLevel/DrawLevelOvr1P_shared.h"
 
 static void Ovr227_800ab45c_CopyClipRecordJumpTable(void);
 
