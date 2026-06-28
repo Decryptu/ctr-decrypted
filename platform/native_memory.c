@@ -1,4 +1,4 @@
-#include "../platform.h"
+#include <platform.h>
 #include "ctr_scratchpad.h"
 #include "platform/native_memory.h"
 #if defined(CTR_INTERNAL)

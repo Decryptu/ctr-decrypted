@@ -30,7 +30,7 @@
 #define __attribute__(x)
 #endif
 
-#include "platform.h"
+#include <platform.h>
 
 #include "game_unity.h"
 

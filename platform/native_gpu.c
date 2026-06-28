@@ -7,7 +7,7 @@
 #include <macros.h>
 #include "platform/native_gpu.h"
 
-#include "../platform.h"
+#include <platform.h>
 
 #include <SDL3/SDL.h>
 

@@ -3,7 +3,7 @@
 #include <common.h>
 #include <macros.h>
 
-#include "../platform.h"
+#include <platform.h>
 #include "ctr_scratchpad.h"
 #include "platform/native_memory.h"
 #include "platform/native_state.h"

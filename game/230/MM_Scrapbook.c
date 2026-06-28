@@ -13,7 +13,7 @@ void MM_Scrapbook_Init(void)
 }
 
 #ifdef CTR_NATIVE
-#include "../../platform.h"
+#include <platform.h>
 #include <platform/native_audio.h>
 #include <platform/native_renderer.h>
 #include <platform/native_str.h>

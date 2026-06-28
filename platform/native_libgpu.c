@@ -12,7 +12,7 @@
 #include <platform/native_gpu.h>
 #include <platform/native_perf.h>
 #include <gpu.h>
-#include "../platform.h"
+#include <platform.h>
 
 #include <string.h>
 
