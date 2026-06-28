@@ -192,10 +192,7 @@
 
 #include "game/SubmitName/SubmitName.c"
 
-#include "game/Timer/Timer_0_Init.c"
-#include "game/Timer/Timer_1_Destroy.c"
-#include "game/Timer/Timer_2_GetTime_Total.c"
-#include "game/Timer/Timer_3_GetTime_Elapsed.c"
+#include "game/Timer/Timer.c"
 
 #include "game/prim.c"
 #include "game/math.c"
