@@ -12,12 +12,6 @@ struct DrawConfettiRng
 	u32 z;
 };
 
-struct DrawConfettiTrigPair
-{
-	s32 sin;
-	s32 cos;
-};
-
 struct DrawConfettiScratch
 {
 	u32 remainingParticles;
@@ -45,10 +39,10 @@ static void DrawConfetti_WriteWord(void *base, int offset, u32 value)
 	*(u32 *)(void *)((char *)base + offset) = value;
 }
 
-static struct DrawConfettiTrigPair DrawConfetti_TrigAngleSinCos(int angle)
+static struct TrigPair DrawConfetti_TrigAngleSinCos(int angle)
 {
 	u32 packed = DrawConfetti_ReadWord(&data.trigApprox[angle & 0x3ff], 0);
-	struct DrawConfettiTrigPair pair;
+	struct TrigPair pair;
 
 	// NOTE(aalhendi): PSX-backfeed blocker: retail calls TRIG_AngleSinCos_r15r16r17 with angle in t7 and returns sine/cosine in s0/s1.
 	// Native C uses an explicit helper; restore the register ABI before PSX backfeed.
@@ -158,7 +152,7 @@ void DrawConfetti(struct PushBuffer *pb, struct PrimMem *primMem, void *confetti
 {
 	POLY_F4 *prim = primMem->cursor;
 	struct DrawConfettiScratch *scratch = CTR_SCRATCHPAD_PTR(struct DrawConfettiScratch, 0x30);
-	struct DrawConfettiTrigPair cameraTrig;
+	struct TrigPair cameraTrig;
 	u32 screenBounds;
 	uint32_t *otBase;
 	u32 currentParticles;
@@ -250,8 +244,8 @@ void DrawConfetti(struct PushBuffer *pb, struct PrimMem *primMem, void *confetti
 		s32 y;
 		s32 z;
 		s32 angle;
-		struct DrawConfettiTrigPair spinA;
-		struct DrawConfettiTrigPair spinB;
+		struct TrigPair spinA;
+		struct TrigPair spinB;
 		u8 shade;
 		s32 halfY;
 		s32 skewX;

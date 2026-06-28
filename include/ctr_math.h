@@ -104,6 +104,12 @@ struct TrigTable
 	s16 cos;
 };
 
+struct TrigPair
+{
+	s32 sin;
+	s32 cos;
+};
+
 #define ANG_TWO_PI                         0x1000           // 360
 #define ANG_PI                             (ANG_TWO_PI / 2) // 180
 #define ANG_HALF_PI                        (ANG_PI / 2)     // 90

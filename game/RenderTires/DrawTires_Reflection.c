@@ -150,7 +150,7 @@ static void DrawTiresReflection_InitScratch(struct DrawTiresReflectionScratch *s
 
 static void DrawTiresReflection_AddHazardOffset(struct DrawTiresReflectionScratch *scratch, int angle, int shift, int offsetY, int offsetZ)
 {
-	struct DrawTiresSolidTrigPair spin = DrawTiresSolid_TrigAngleSinCos(angle);
+	struct TrigPair spin = DrawTiresSolid_TrigAngleSinCos(angle);
 
 	DrawTiresReflection_WriteS16(scratch, offsetY, DrawTiresReflection_ReadS16(scratch, offsetY) + (spin.cos >> shift));
 	DrawTiresReflection_WriteS16(scratch, offsetZ, DrawTiresReflection_ReadS16(scratch, offsetZ) + (spin.sin >> shift));
@@ -166,7 +166,7 @@ static void DrawTiresReflection_BuildWheelLocalPairs(struct DrawTiresReflectionS
 	int wheelRearZ;
 	int hazardAngle;
 	int hazardShift = 9;
-	struct DrawTiresSolidTrigPair steering;
+	struct TrigPair steering;
 
 	// NOTE(aalhendi): PSX-backfeed blocker: retail DrawTires_Reflection loads
 	// Instance.scale[0] at 0x8006f0e0, then the push-buffer branch delay slot at

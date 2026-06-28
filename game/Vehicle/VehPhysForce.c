@@ -1001,12 +1001,6 @@ void VehPhysForce_TranslateMatrix(struct Thread *thread, struct Driver *driver)
 	VehPhysForce_TranslateMatrix_UpdateWake(inst, driver);
 }
 
-struct VehPhysForceTrigPair
-{
-	s32 sin;
-	s32 cos;
-};
-
 static int VehPhysForce_CountLeadingSignBits(s32 value)
 {
 	u32 bits = (u32)value;
@@ -1021,11 +1015,11 @@ static int VehPhysForce_CountLeadingSignBits(s32 value)
 	return count;
 }
 
-static struct VehPhysForceTrigPair VehPhysForce_TrigAngleSinCos(int angle)
+static struct TrigPair VehPhysForce_TrigAngleSinCos(int angle)
 {
 	struct TrigTable trig = data.trigApprox[angle & 0x3ff];
 	u32 packed = ((u32)(u16)trig.sin) | ((u32)(u16)trig.cos << 16);
-	struct VehPhysForceTrigPair pair;
+	struct TrigPair pair;
 
 	if ((angle & 0x400) == 0)
 	{
@@ -1062,7 +1056,7 @@ void VehPhysForce_RotAxisAngle(MATRIX *m, s16 *normVec, s16 angle)
 	s32 normalX = normVec[0];
 	s32 normalY = normVec[1];
 	s32 normalZ = normVec[2];
-	struct VehPhysForceTrigPair trig = VehPhysForce_TrigAngleSinCos(angle);
+	struct TrigPair trig = VehPhysForce_TrigAngleSinCos(angle);
 	s32 normalXSq = CTR_MipsMulLo(normalX, normalX);
 	s32 normalZSq = CTR_MipsMulLo(normalZ, normalZ);
 	s32 crossXZ = CTR_MipsMulLo(normalX, CTR_MipsNegLo(normalZ));

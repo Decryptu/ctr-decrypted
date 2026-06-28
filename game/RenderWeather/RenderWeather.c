@@ -3,12 +3,6 @@
 #define RENDER_WEATHER_XY_MASK   0xfffeffffu
 #define RENDER_WEATHER_WRAP_MASK 0x07fe07ffu
 
-struct RenderWeatherTrigPair
-{
-	s32 sin;
-	s32 cos;
-};
-
 struct RenderWeatherScratch
 {
 	u32 colorTop;
@@ -35,10 +29,10 @@ static u32 RenderWeather_ReadWord(const void *base, int offset)
 	return *(const u32 *)(const void *)((const char *)base + offset);
 }
 
-static struct RenderWeatherTrigPair RenderWeather_TrigAngleSinCos(int angle)
+static struct TrigPair RenderWeather_TrigAngleSinCos(int angle)
 {
 	u32 packed = RenderWeather_ReadWord(&data.trigApprox[angle & 0x3ff], 0);
-	struct RenderWeatherTrigPair pair;
+	struct TrigPair pair;
 
 	// NOTE(aalhendi): PSX-backfeed blocker: retail calls
 	// TRIG_AngleSinCos_r16r17r18 with angle in s0 and returns sine/cosine in
@@ -125,7 +119,7 @@ void RenderWeather(struct PushBuffer *pb, struct PrimMem *primMem, struct RainBu
 	// registers in scratchpad 0x00-0x2c. Native C relies on the host ABI; restore
 	// the scratchpad register-save prologue/epilogue before PSX backfeed.
 	struct RenderWeatherScratch *scratch = CTR_SCRATCHPAD_PTR(struct RenderWeatherScratch, 0x30);
-	struct RenderWeatherTrigPair trig;
+	struct TrigPair trig;
 	u32 screenBounds;
 	uint32_t *ot;
 	s32 currentParticles;

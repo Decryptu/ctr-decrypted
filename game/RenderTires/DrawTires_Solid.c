@@ -93,12 +93,6 @@ static const u8 sDrawTiresSpriteIndexTable[0x81] = {
     0x0a, 0x0a, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0c, 0x0c, 0x0c, 0x0c, 0x0c, 0x0d, 0x0d, 0x0d, 0x0d, 0x0e, 0x0e, 0x0e, 0x0f, 0x0f, 0x10, 0x10,
 };
 
-struct DrawTiresSolidTrigPair
-{
-	int sin;
-	int cos;
-};
-
 struct DrawTiresSolidProjectedWheel
 {
 	struct Icon *wheelSprite;
@@ -151,9 +145,9 @@ static u32 DrawTiresSolid_PackXY(int x, int y)
 	return ((u32)(u16)x) | ((u32)(u16)y << 16);
 }
 
-static struct DrawTiresSolidTrigPair DrawTiresSolid_TrigAngleSinCos(int angle)
+static struct TrigPair DrawTiresSolid_TrigAngleSinCos(int angle)
 {
-	struct DrawTiresSolidTrigPair pair;
+	struct TrigPair pair;
 
 	TRIG_AngleSinCos_r9r8r10(angle, &pair.sin, &pair.cos);
 
@@ -187,7 +181,7 @@ static void DrawTiresSolid_InitScratch(struct DrawTiresSolidScratch *scratch, ch
 
 static void DrawTiresSolid_AddHazardOffset(struct DrawTiresSolidScratch *scratch, int angle, int shift, int offsetY, int offsetZ)
 {
-	struct DrawTiresSolidTrigPair spin = DrawTiresSolid_TrigAngleSinCos(angle);
+	struct TrigPair spin = DrawTiresSolid_TrigAngleSinCos(angle);
 
 	DrawTiresSolid_WriteS16(scratch, offsetY, DrawTiresSolid_ReadS16(scratch, offsetY) + (spin.cos >> shift));
 	DrawTiresSolid_WriteS16(scratch, offsetZ, DrawTiresSolid_ReadS16(scratch, offsetZ) + (spin.sin >> shift));
@@ -242,7 +236,7 @@ static void DrawTiresSolid_BuildWheelLocalPairs(struct DrawTiresSolidScratch *sc
 	int wheelRearZ;
 	int hazardAngle;
 	int hazardShift = 9;
-	struct DrawTiresSolidTrigPair steering;
+	struct TrigPair steering;
 
 	DrawTiresSolid_WriteS16(scratch, 0x58, wheelX);
 	DrawTiresSolid_WriteS16(scratch, 0x78, wheelX);
