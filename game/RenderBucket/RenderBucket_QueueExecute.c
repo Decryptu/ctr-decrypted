@@ -1,51 +1,5 @@
 #include <common.h>
 
-#ifdef CTR_INTERNAL
-volatile int gCtrDebugTires = 0;
-volatile int gCtrDebugTireBudget = 0;
-volatile int gCtrDebugTireLevel = -1;
-
-enum
-{
-	CTR_TIREDBG_RENDERBUCKET = 1 << 0,
-	CTR_TIREDBG_SOLID_STAGE = 1 << 1,
-	CTR_TIREDBG_SOLID_PRIM = 1 << 2,
-	CTR_TIREDBG_REFLECT_STAGE = 1 << 3,
-	CTR_TIREDBG_REFLECT_PRIM = 1 << 4,
-	CTR_TIREDBG_RENDERBUCKET_PRIM = 1 << 5,
-	CTR_TIREDBG_RENDERBUCKET_REJECT = 1 << 6,
-	CTR_TIREDBG_RENDERBUCKET_UNHANDLED = 1 << 7,
-};
-
-static int CtrTireDebug_ShouldLog(int mask)
-{
-	if ((gCtrDebugTires & mask) == 0)
-	{
-		return 0;
-	}
-
-	if (gCtrDebugTireBudget == 0)
-	{
-		return 0;
-	}
-
-	if (gCtrDebugTireLevel >= 0)
-	{
-		struct GameTracker *gGT = sdata->gGT;
-		if ((gGT == 0) || (gGT->levelID != gCtrDebugTireLevel))
-		{
-			return 0;
-		}
-	}
-
-	if (gCtrDebugTireBudget > 0)
-	{
-		gCtrDebugTireBudget--;
-	}
-
-	return 1;
-}
-#endif
 
 struct RenderBucketEntry
 {
@@ -650,12 +604,6 @@ static inline void RenderBucket_WaterSplitInterpolateVertex(struct RenderBucketD
 	}
 	else
 	{
-#ifdef CTR_INTERNAL
-		if ((colorHelper != RB_RETAIL_INST_FUNC3_SPLIT_INTERP) && (CtrTireDebug_ShouldLog(CTR_TIREDBG_RENDERBUCKET_UNHANDLED) != 0))
-		{
-			fprintf(stderr, "[TIREDBG][rb-split-unhandled-color-helper] inst=%p func=%08x\n", (void *)ctx->inst, colorHelper);
-		}
-#endif
 		// NOTE(aalhendi): ASM-verified helper 0x8006d428-0x8006d4a4 for the
 		// retail table's non-white generated-vertex color path.
 		dst->color = (u32)RenderBucket_InterpU8((u8)from->color, (u8)to->color, factor) |
@@ -1877,14 +1825,6 @@ static void RenderBucket_UpdatePushBufferMetadata(struct PushBuffer *pb, const s
 	{
 		*instFlags &= ~PUSHBUFFER_EXISTS;
 	}
-
-#ifdef CTR_INTERNAL
-	if (CtrTireDebug_ShouldLog(CTR_TIREDBG_RENDERBUCKET) != 0)
-	{
-		fprintf(stderr, "[TIREDBG][rb-pb] flags=%08x->%08x min=(%d,%d) max=(%d,%d) size=%dx%d rect=%dx%d pb=%p\n", beforeFlags, *instFlags, bounds->minX,
-		        bounds->minY, bounds->maxX, bounds->maxY, width, height, pb->rect.w, pb->rect.h, (void *)pb);
-	}
-#endif
 }
 
 static int RenderBucket_ShouldAllocateSecondaryRange(u32 instFlags, const struct RenderBucketSplitState *split)
@@ -2982,16 +2922,6 @@ static int RenderBucket_DrawInstPrim_NormalAtOTEntry(struct RenderBucketDrawCont
 		CtrGpu_WriteColorCode(&p->r1, (u32)MFC2(21));
 		CtrGpu_WriteColorCode(&p->r2, (u32)MFC2(22));
 		CTR_GteStoreSXY3(&p->x0, &p->x1, &p->x2);
-#ifdef CTR_INTERNAL
-		if (CtrTireDebug_ShouldLog(CTR_TIREDBG_RENDERBUCKET_PRIM) != 0)
-		{
-			fprintf(stderr,
-			        "[TIREDBG][rb-prim] kind=G3 frame=%d level=%d inst=%p flags=%08x cmd=%08x code=%02x rgb0=%02x,%02x,%02x "
-			        "xy=(%d,%d)(%d,%d)(%d,%d) ot=%p\n",
-			        sdata->gGT != 0 ? sdata->gGT->framesInThisLEV : -1, sdata->gGT != 0 ? sdata->gGT->levelID : -1, (void *)ctx->inst, ctx->idpp->instFlags,
-			        command, p->code, p->r0, p->g0, p->b0, p->x0, p->y0, p->x1, p->y1, p->x2, p->y2, (void *)otEntry);
-		}
-#endif
 		RenderBucket_LinkPrimRaw(otEntry, p, 0x06000000);
 		ctx->primMem->cursor = (char *)p + 0x1c;
 	}
@@ -3012,17 +2942,6 @@ static int RenderBucket_DrawInstPrim_NormalAtOTEntry(struct RenderBucketDrawCont
 		CtrGpu_WritePackedUVWord(&p->u1, texWord1);
 		CtrGpu_WritePackedUVWord(&p->u2, RenderBucket_ReadTextureWord(tex, RENDER_BUCKET_TEX_WORD2_OFFSET));
 		CTR_GteStoreSXY3(&p->x0, &p->x1, &p->x2);
-#ifdef CTR_INTERNAL
-		if (CtrTireDebug_ShouldLog(CTR_TIREDBG_RENDERBUCKET_PRIM) != 0)
-		{
-			fprintf(stderr,
-			        "[TIREDBG][rb-prim] kind=GT3 frame=%d level=%d inst=%p flags=%08x cmd=%08x code=%02x rgb0=%02x,%02x,%02x rgb1=%02x,%02x,%02x "
-			        "rgb2=%02x,%02x,%02x xy=(%d,%d)(%d,%d)(%d,%d) tpage=%04x blend=%d clut=%04x tex=%u ot=%p\n",
-			        sdata->gGT != 0 ? sdata->gGT->framesInThisLEV : -1, sdata->gGT != 0 ? sdata->gGT->levelID : -1, (void *)ctx->inst, ctx->idpp->instFlags,
-			        command, p->code, p->r0, p->g0, p->b0, p->r1, p->g1, p->b1, p->r2, p->g2, p->b2, p->x0, p->y0, p->x1, p->y1, p->x2, p->y2, p->tpage,
-			        (p->tpage >> 5) & 3, p->clut, texIndex, (void *)otEntry);
-		}
-#endif
 		RenderBucket_LinkPrimRaw(otEntry, p, 0x09000000);
 		ctx->primMem->cursor = (char *)p + 0x28;
 	}
@@ -3500,13 +3419,6 @@ static int RenderBucket_DispatchDrawInstPrimAtRange(struct RenderBucketDrawConte
 	default:
 		// TODO(aalhendi): Port any newly observed Instance+0x60 primitive writers.
 		// Do not draw through the normal writer here; that masks live retail rows.
-#ifdef CTR_INTERNAL
-		if (CtrTireDebug_ShouldLog(CTR_TIREDBG_RENDERBUCKET_UNHANDLED) != 0)
-		{
-			fprintf(stderr, "[TIREDBG][rb-unhandled-prim-writer] inst=%p func=%p handler=%08x cmd=%08x depth=%d\n", (void *)ctx->inst, ctx->inst->funcPtr[1],
-			        (u32)ctx->idpp->unkEC, command, depthMac0);
-		}
-#endif
 		return 0;
 	}
 }
@@ -3619,16 +3531,6 @@ static int RenderBucket_DrawSplitPrimitiveNormalAtOTEntry(struct RenderBucketDra
 		p->y2 = (s16)(v2->sxy >> 16);
 		p->u2 = (u8)v2->uv;
 		p->v2 = (u8)(v2->uv >> 8);
-#ifdef CTR_INTERNAL
-		if (CtrTireDebug_ShouldLog(CTR_TIREDBG_RENDERBUCKET_PRIM) != 0)
-		{
-			fprintf(stderr,
-			        "[TIREDBG][rb-split-prim] frame=%d level=%d inst=%p flags=%08x cmd=%08x tex=%u ot=%p sxy=(%08x,%08x,%08x) "
-			        "dist=(%d,%d,%d)\n",
-			        sdata->gGT != 0 ? sdata->gGT->framesInThisLEV : -1, sdata->gGT != 0 ? sdata->gGT->levelID : -1, (void *)ctx->inst, ctx->idpp->instFlags,
-			        command, texIndex, (void *)otEntry, v0->sxy, v1->sxy, v2->sxy, v0->splitDist, v1->splitDist, v2->splitDist);
-		}
-#endif
 		RenderBucket_LinkPrimRaw(otEntry, p, 0x09000000);
 		ctx->primMem->cursor = (char *)p + 0x28;
 	}
@@ -4007,13 +3909,6 @@ static int RenderBucket_DrawSplitPrimitiveAtRange(struct RenderBucketDrawContext
 	// helpers. Native only claims the labels whose generated-UV ABI is modeled.
 	if (RenderBucket_SplitPrimitiveWriterSupported(ctx) == 0)
 	{
-#ifdef CTR_INTERNAL
-		if (CtrTireDebug_ShouldLog(CTR_TIREDBG_RENDERBUCKET_UNHANDLED) != 0)
-		{
-			fprintf(stderr, "[TIREDBG][rb-split-unhandled-prim-writer] inst=%p func=%p handler=%08x cmd=%08x depth=%d\n", (void *)ctx->inst,
-			        ctx->inst->funcPtr[1], (u32)ctx->idpp->unkEC, command, depthMac0);
-		}
-#endif
 		return 0;
 	}
 
@@ -5263,13 +5158,6 @@ static int RenderBucket_RunInstanceSetupCallback(struct RenderBucketDrawContext 
 		// TODO(aalhendi): Port the remaining Instance+0x5c setup callbacks when
 		// their selector rows become live. Do not substitute the common-color path;
 		// that hides missing retail setup callbacks.
-#ifdef CTR_INTERNAL
-		if (CtrTireDebug_ShouldLog(CTR_TIREDBG_RENDERBUCKET_UNHANDLED) != 0)
-		{
-			fprintf(stderr, "[TIREDBG][rb-unhandled-setup] inst=%p func=%p handler=%08x prim=%p\n", (void *)ctx->inst, ctx->inst->funcPtr[0],
-			        (u32)ctx->idpp->unkEC, ctx->inst->funcPtr[1]);
-		}
-#endif
 		return 0;
 	}
 }
@@ -5310,13 +5198,6 @@ static void RenderBucket_DispatchDrawFunc(struct RenderBucketDrawContext *ctx)
 	default:
 		// TODO(aalhendi): Port any newly observed draw handlers.
 		// Do not fall through to normal draw; that masks live retail handler rows.
-#ifdef CTR_INTERNAL
-		if (CtrTireDebug_ShouldLog(CTR_TIREDBG_RENDERBUCKET_UNHANDLED) != 0)
-		{
-			fprintf(stderr, "[TIREDBG][rb-unhandled-drawfunc] inst=%p handler=%08x uncompress=%08x flags=%08x prim=%p\n", (void *)ctx->inst,
-			        (u32)ctx->idpp->unkEC, (u32)ctx->idpp->unkF0, ctx->idpp->instFlags, ctx->inst->funcPtr[1]);
-		}
-#endif
 		return;
 	}
 }

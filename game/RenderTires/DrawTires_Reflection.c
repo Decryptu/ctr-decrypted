@@ -562,14 +562,6 @@ static void DrawTiresReflection_EmitProjectedWheel(struct DrawTiresReflectionScr
 
 	DrawTiresReflection_CopyIconUV(p, selected->wheelSprite);
 
-#ifdef CTR_INTERNAL
-	if (CtrTireDebug_ShouldLog(CTR_TIREDBG_REFLECT_PRIM) != 0)
-	{
-		fprintf(stderr, "[TIREDBG][reflect-prim] color=%08x code=%02x rgb=%02x,%02x,%02x tpage=%04x blend=%d clut=%04x jump=%d ot=%08x flags=%08x\n",
-		        scratch->tireColor, p->code, p->r0, p->g0, p->b0, p->tpage, (p->tpage >> 5) & 3, p->clut, selected->jumpIndex, selected->selectedOTSlot,
-		        scratch->instFlags);
-	}
-#endif
 
 	if (DrawTiresReflection_ApplyCornerOrder(scratch, selected->jumpIndex, &selectedOTSlot, sxy) == 0)
 	{
@@ -654,18 +646,6 @@ static int DrawTiresReflection_StagePlayer(struct DrawTiresReflectionScratch *sc
 	scratch->wheelSprites = driver->wheelSprites;
 	scratch->tireColor = ((flags & PUSHBUFFER_EXISTS) != 0) ? 0x2e808080 : driver->tireColor;
 
-#ifdef CTR_INTERNAL
-	if (CtrTireDebug_ShouldLog(CTR_TIREDBG_REFLECT_STAGE) != 0)
-	{
-		struct GameTracker *gGT = sdata->gGT;
-		fprintf(stderr,
-		        "[TIREDBG][reflect-stage] frame=%d level=%d mode=%08x player=%d inst=%p driver=%p flags=%08x push=%d refl=%d "
-		        "lod=%d/%d tire=%08x driverTire=%08x wheelSize=%d pb=%p pbSize=%dx%d\n",
-		        gGT != 0 ? gGT->framesInThisLEV : -1, gGT != 0 ? gGT->levelID : -1, gGT != 0 ? gGT->gameMode1 : 0, playerIndex, (void *)inst, (void *)driver,
-		        flags, (flags & PUSHBUFFER_EXISTS) != 0, (flags & REFLECTIVE) != 0, idpp->lodIndex, scratch->lodThreshold, scratch->tireColor,
-		        driver->tireColor, driver->wheelSize, (void *)pb, pb->rect.w, pb->rect.h);
-	}
-#endif
 
 	DrawTiresReflection_BuildWheelLocalPairs(scratch, driver, inst, idpp);
 	DrawTiresReflection_SetupGteState(scratch, inst, idpp, pb);
