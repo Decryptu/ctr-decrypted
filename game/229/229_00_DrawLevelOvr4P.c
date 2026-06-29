@@ -21,7 +21,7 @@ enum Ovr229DrawLevelConstants
 static int DrawLevelOvr4P_DispatchBucketHandler(u32 handlerAddress, void *bucketValue, struct PushBuffer *pb, struct mesh_info *mesh, struct PrimMem *primMem,
                                                 const int *visFaceList);
 
-static const struct OverlayRDATA_229_BucketSetupRecord *Ovr229_800a106c_FindBucketSetupRecord(u32 setupAddress, int *setupIndex)
+static const struct OverlayRDATA_229_BucketSetupRecord *DrawLevelOvr4P_FindBucketSetupRecord(u32 setupAddress, int *setupIndex)
 {
 	for (int i = 0; i < OVR229_BUCKET_COUNT; i++)
 	{
@@ -41,8 +41,8 @@ static const struct OverlayRDATA_229_BucketSetupRecord *Ovr229_800a106c_FindBuck
 	return NULL;
 }
 
-static const u32 *Ovr229_800a106c_GetCopySource(const struct OverlayRDATA_229_BucketSetupRecord *setup, int setupIndex,
-                                                const struct OverlayRDATA_229_BucketSetupCopy *copy)
+static const u32 *DrawLevelOvr4P_GetBucketSetupCopySource(const struct OverlayRDATA_229_BucketSetupRecord *setup, int setupIndex,
+                                                          const struct OverlayRDATA_229_BucketSetupCopy *copy)
 {
 	u32 recordAddress = OVR229_RDATA_BUCKET_SETUP_BASE + (u32)(setupIndex * sizeof(R229.bucketSetups[0]));
 	u32 copy0Address = recordAddress + OFFSETOF(struct OverlayRDATA_229_BucketSetupRecord, copy0);
@@ -61,7 +61,7 @@ static const u32 *Ovr229_800a106c_GetCopySource(const struct OverlayRDATA_229_Bu
 	return NULL;
 }
 
-static u32 Ovr229_800a106c_TranslateCopiedWord(int setupIndex, const struct OverlayRDATA_229_BucketSetupCopy *copy, u32 wordIndex, u32 value)
+static u32 DrawLevelOvr4P_TranslateCopiedWord(int setupIndex, const struct OverlayRDATA_229_BucketSetupCopy *copy, u32 wordIndex, u32 value)
 {
 	int canonicalSetupIndex = -1;
 
@@ -106,7 +106,7 @@ static u32 Ovr229_800a106c_TranslateCopiedWord(int setupIndex, const struct Over
 	return value;
 }
 
-static u32 Ovr229_800a8ebc_TranslateClipRecordLabel(u32 address)
+static u32 DrawLevelOvr4P_TranslateClipRecordLabel(u32 address)
 {
 	for (int i = 0; i < OVR229_CLIP_RECORD_JUMP_WORD_COUNT; i++)
 	{
@@ -119,10 +119,10 @@ static u32 Ovr229_800a8ebc_TranslateClipRecordLabel(u32 address)
 	return address;
 }
 
-static void Ovr229_800a106c_CopyScratchWords(const struct OverlayRDATA_229_BucketSetupRecord *setup, int setupIndex,
-                                             const struct OverlayRDATA_229_BucketSetupCopy *copy)
+static void DrawLevelOvr4P_CopyScratchWords(const struct OverlayRDATA_229_BucketSetupRecord *setup, int setupIndex,
+                                            const struct OverlayRDATA_229_BucketSetupCopy *copy)
 {
-	const u32 *source = Ovr229_800a106c_GetCopySource(setup, setupIndex, copy);
+	const u32 *source = DrawLevelOvr4P_GetBucketSetupCopySource(setup, setupIndex, copy);
 	u32 *scratch = CTR_SCRATCHPAD_PTR(u32, copy->scratchOffset);
 
 	if (source == NULL)
@@ -132,14 +132,14 @@ static void Ovr229_800a106c_CopyScratchWords(const struct OverlayRDATA_229_Bucke
 
 	for (u32 i = 0; i <= copy->loopCounter; i++)
 	{
-		scratch[i] = Ovr229_800a106c_TranslateCopiedWord(setupIndex, copy, i, source[i]);
+		scratch[i] = DrawLevelOvr4P_TranslateCopiedWord(setupIndex, copy, i, source[i]);
 	}
 }
 
-static void Ovr229_800a106c_ApplyBucketSetup(u32 setupAddress, u32 handlerAddress)
+static void DrawLevelOvr4P_ApplyBucketSetup(u32 setupAddress, u32 handlerAddress)
 {
 	int setupIndex = -1;
-	const struct OverlayRDATA_229_BucketSetupRecord *setup = Ovr229_800a106c_FindBucketSetupRecord(setupAddress, &setupIndex);
+	const struct OverlayRDATA_229_BucketSetupRecord *setup = DrawLevelOvr4P_FindBucketSetupRecord(setupAddress, &setupIndex);
 
 	if (setup != NULL)
 	{
@@ -152,14 +152,14 @@ static void Ovr229_800a106c_ApplyBucketSetup(u32 setupAddress, u32 handlerAddres
 				break;
 			}
 
-			Ovr229_800a106c_CopyScratchWords(setup, setupIndex, copy);
+			DrawLevelOvr4P_CopyScratchWords(setup, setupIndex, copy);
 		}
 	}
 
 	DrawLevelOvr1P_Scratch()->currentHandlerAddress = handlerAddress;
 }
 
-static void Ovr229_800a0da0_CopyScratchInitTable(void)
+static void DrawLevelOvr4P_CopyScratchInitTable(void)
 {
 	u32 *scratch = CTR_SCRATCHPAD_PTR(u32, DRAW_LEVEL_OVR1P_SCRATCH_INIT_TABLE_OFFSET);
 
@@ -169,18 +169,19 @@ static void Ovr229_800a0da0_CopyScratchInitTable(void)
 	}
 }
 
-static void Ovr229_800a8ebc_CopyClipRecordJumpTable(void)
+static void DrawLevelOvr4P_CopyClipRecordJumpTable(void)
 {
 	u32 *clipRecordJumpTable = CTR_SCRATCHPAD_PTR(u32, DRAW_LEVEL_OVR1P_GT3_CLIP_RECORD_JUMP_TABLE_OFFSET);
 
 	for (int i = 0; i < OVR229_CLIP_RECORD_JUMP_WORD_COUNT; i++)
 	{
-		clipRecordJumpTable[i] = Ovr229_800a8ebc_TranslateClipRecordLabel(R229.clipRecordJumpTable[i]);
+		clipRecordJumpTable[i] = DrawLevelOvr4P_TranslateClipRecordLabel(R229.clipRecordJumpTable[i]);
 	}
 }
 
-static int Ovr229_DrawViewportBucket(struct DrawLevelOvr1PRenderList *renderList, s32 renderListOffset, struct PushBuffer *pb, struct mesh_info *mesh,
-                                     struct PrimMem *primMem, const int *visFaceList, u8 **clipCursor, int playerIndex, int applySetup, int *didDispatch)
+static int DrawLevelOvr4P_DrawViewportBucket(struct DrawLevelOvr1PRenderList *renderList, s32 renderListOffset, struct PushBuffer *pb, struct mesh_info *mesh,
+                                             struct PrimMem *primMem, const int *visFaceList, u8 **clipCursor, int playerIndex, int applySetup,
+                                             int *didDispatch)
 {
 	u32 bucketIndex = (u32)renderListOffset / sizeof(u32);
 	const struct DrawLevelOvr1PBucket *bucket = &sDrawLevelOvr1PBuckets[bucketIndex];
@@ -199,7 +200,7 @@ static int Ovr229_DrawViewportBucket(struct DrawLevelOvr1PRenderList *renderList
 
 	if (applySetup)
 	{
-		Ovr229_800a106c_ApplyBucketSetup(setupAddress, handlerAddress);
+		DrawLevelOvr4P_ApplyBucketSetup(setupAddress, handlerAddress);
 	}
 
 	DrawLevelOvr1P_SetViewportScratchContext(pb, visFaceList, data.PtrClipBuffer[playerIndex], *clipCursor, renderedOverflowBase);
@@ -213,9 +214,9 @@ static int Ovr229_DrawViewportBucket(struct DrawLevelOvr1PRenderList *renderList
 	return 1;
 }
 
-static int Ovr229_800a0dd0_DispatchBucketTable(struct DrawLevelOvr1PRenderList *renderLists, struct PushBuffer *pushBuffers, struct mesh_info *mesh,
-                                               struct PrimMem *primMem, const int *visFaceList0, const int *visFaceList1, const int *visFaceList2,
-                                               const int *visFaceList3, u8 **clipCursors)
+static int DrawLevelOvr4P_DispatchBucketTable(struct DrawLevelOvr1PRenderList *renderLists, struct PushBuffer *pushBuffers, struct mesh_info *mesh,
+                                              struct PrimMem *primMem, const int *visFaceList0, const int *visFaceList1, const int *visFaceList2,
+                                              const int *visFaceList3, u8 **clipCursors)
 {
 	for (s32 renderListOffset = 0x1c; renderListOffset >= 0; renderListOffset -= (s32)sizeof(u32))
 	{
@@ -224,28 +225,29 @@ static int Ovr229_800a0dd0_DispatchBucketTable(struct DrawLevelOvr1PRenderList *
 
 		DrawLevelOvr1P_Scratch()->currentBucketOffset = (u32)renderListOffset;
 
-		if (!Ovr229_DrawViewportBucket(&renderLists[0], renderListOffset, &pushBuffers[0], mesh, primMem, visFaceList0, &clipCursors[0], 0, 1, &didDispatch))
+		if (!DrawLevelOvr4P_DrawViewportBucket(&renderLists[0], renderListOffset, &pushBuffers[0], mesh, primMem, visFaceList0, &clipCursors[0], 0, 1,
+		                                       &didDispatch))
 		{
 			return 0;
 		}
 		setupApplied |= didDispatch;
 
-		if (!Ovr229_DrawViewportBucket(&renderLists[1], renderListOffset, &pushBuffers[1], mesh, primMem, visFaceList1, &clipCursors[1], 1, !setupApplied,
-		                               &didDispatch))
+		if (!DrawLevelOvr4P_DrawViewportBucket(&renderLists[1], renderListOffset, &pushBuffers[1], mesh, primMem, visFaceList1, &clipCursors[1], 1,
+		                                       !setupApplied, &didDispatch))
 		{
 			return 0;
 		}
 		setupApplied |= didDispatch;
 
-		if (!Ovr229_DrawViewportBucket(&renderLists[2], renderListOffset, &pushBuffers[2], mesh, primMem, visFaceList2, &clipCursors[2], 2, !setupApplied,
-		                               &didDispatch))
+		if (!DrawLevelOvr4P_DrawViewportBucket(&renderLists[2], renderListOffset, &pushBuffers[2], mesh, primMem, visFaceList2, &clipCursors[2], 2,
+		                                       !setupApplied, &didDispatch))
 		{
 			return 0;
 		}
 		setupApplied |= didDispatch;
 
-		if (!Ovr229_DrawViewportBucket(&renderLists[3], renderListOffset, &pushBuffers[3], mesh, primMem, visFaceList3, &clipCursors[3], 3, !setupApplied,
-		                               &didDispatch))
+		if (!DrawLevelOvr4P_DrawViewportBucket(&renderLists[3], renderListOffset, &pushBuffers[3], mesh, primMem, visFaceList3, &clipCursors[3], 3,
+		                                       !setupApplied, &didDispatch))
 		{
 			return 0;
 		}
@@ -327,7 +329,7 @@ static int DrawLevelOvr4P_DispatchBucketHandler(u32 handlerAddress, void *bucket
 	return 0;
 }
 
-static int Ovr229_800a8270_ConsumeClipRecords(struct PushBuffer *pb, struct PrimMem *primMem, u8 *clipCursor, int playerIndex)
+static int DrawLevelOvr4P_ConsumeClipRecords(struct PushBuffer *pb, struct PrimMem *primMem, u8 *clipCursor, int playerIndex)
 {
 	(void)clipCursor;
 	(void)playerIndex;
@@ -397,10 +399,10 @@ void DrawLevelOvr4P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspL
 	DrawLevelOvr1P_SetPrimReserveBias(0);
 	DrawLevelOvr1P_SetListHandlersSeedRenderedCursor(0);
 	Ovr226_800a0dc4_ClearProjectedScratch();
-	Ovr229_800a0da0_CopyScratchInitTable();
+	DrawLevelOvr4P_CopyScratchInitTable();
 	DrawLevelOvr1P_Scratch()->renderListPtr32 = (u32)(uintptr_t)LevRenderList;
 
-	if (!Ovr229_800a0dd0_DispatchBucketTable(renderLists, pb, mesh, primMem, visFaceList0, visFaceList1, visFaceList2, visFaceList3, clipCursors))
+	if (!DrawLevelOvr4P_DispatchBucketTable(renderLists, pb, mesh, primMem, visFaceList0, visFaceList1, visFaceList2, visFaceList3, clipCursors))
 	{
 		return;
 	}
@@ -410,23 +412,23 @@ void DrawLevelOvr4P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspL
 	DrawLevelOvr1P_Scratch()->playerClipCursorPtr32[2] = (u32)(uintptr_t)clipCursors[2];
 	DrawLevelOvr1P_Scratch()->playerClipCursorPtr32[3] = (u32)(uintptr_t)clipCursors[3];
 
-	Ovr229_800a8ebc_CopyClipRecordJumpTable();
-	if (!DrawLevelOvr_ConsumeClipRecordsForViewport(&pb[0], primMem, clipCursors[0], 0, Ovr229_800a8270_ConsumeClipRecords))
+	DrawLevelOvr4P_CopyClipRecordJumpTable();
+	if (!DrawLevelOvr_ConsumeClipRecordsForViewport(&pb[0], primMem, clipCursors[0], 0, DrawLevelOvr4P_ConsumeClipRecords))
 	{
 		return;
 	}
 
-	if (!DrawLevelOvr_ConsumeClipRecordsForViewport(&pb[1], primMem, clipCursors[1], 1, Ovr229_800a8270_ConsumeClipRecords))
+	if (!DrawLevelOvr_ConsumeClipRecordsForViewport(&pb[1], primMem, clipCursors[1], 1, DrawLevelOvr4P_ConsumeClipRecords))
 	{
 		return;
 	}
 
-	if (!DrawLevelOvr_ConsumeClipRecordsForViewport(&pb[2], primMem, clipCursors[2], 2, Ovr229_800a8270_ConsumeClipRecords))
+	if (!DrawLevelOvr_ConsumeClipRecordsForViewport(&pb[2], primMem, clipCursors[2], 2, DrawLevelOvr4P_ConsumeClipRecords))
 	{
 		return;
 	}
 
-	if (!DrawLevelOvr_ConsumeClipRecordsForViewport(&pb[3], primMem, clipCursors[3], 3, Ovr229_800a8270_ConsumeClipRecords))
+	if (!DrawLevelOvr_ConsumeClipRecordsForViewport(&pb[3], primMem, clipCursors[3], 3, DrawLevelOvr4P_ConsumeClipRecords))
 	{
 		return;
 	}
