@@ -8217,48 +8217,19 @@ static int Ovr226_800a3738_EmitGround4x1ListQuadBlock(struct PushBuffer *pb, str
 	return 1;
 }
 
-static int Ovr226_800a36a8_DrawGround4x1BspList(struct VisMemBspListNode *slot, struct PushBuffer *pb, struct mesh_info *mesh, struct PrimMem *primMem,
-                                                const int *visFaceList)
+static u32 DrawLevelOvr1P_GetBspListReserve(int role)
 {
-	if (sDrawLevelOvr1P_ListHandlersSeedRenderedCursor)
+	switch (role)
 	{
-		DrawLevelOvr1P_SetRenderedListCursor(DrawLevelOvr1P_GetRenderedOverflowBase());
+	case DRAW_LEVEL_OVR1P_BUCKET_4X1_LIST:
+		return DRAW_LEVEL_OVR1P_BUCKET_RESERVE_4X1;
+
+	case DRAW_LEVEL_OVR1P_BUCKET_4X2_LIST:
+		return DRAW_LEVEL_OVR1P_BUCKET_RESERVE_4X2;
+
+	default:
+		return DRAW_LEVEL_OVR1P_BUCKET_RESERVE_DEFAULT;
 	}
-
-	while (slot != NULL)
-	{
-		struct BSP *bsp = slot->bsp;
-		struct QuadBlock *block = bsp->data.leaf.ptrQuadBlockArray;
-		s32 quadCount = bsp->data.leaf.numQuads;
-
-		DrawLevelOvr1P_Scratch()->quadCount = quadCount;
-		Ovr226_800a0f0c_SeedFullDynamicVisibilityScratch(visFaceList, block);
-
-		while (quadCount > 0)
-		{
-			if (!DrawLevelOvr1P_HasBucketPrimReserve(primMem, DRAW_LEVEL_OVR1P_BUCKET_RESERVE_4X1))
-			{
-				return 0;
-			}
-
-			if (Ovr226_800a0f34_ConsumeFullDynamicVisibilityBit())
-			{
-				if (!Ovr226_800a3738_EmitGround4x1ListQuadBlock(pb, primMem, mesh, block))
-				{
-					return 0;
-				}
-			}
-
-			block++;
-			quadCount--;
-			DrawLevelOvr1P_Scratch()->quadCount = quadCount;
-		}
-
-		slot = slot->next;
-	}
-
-	DrawLevelOvr1P_TerminateRenderedListCursor();
-	return 1;
 }
 
 static u32 DrawLevelOvr1P_GetNonWaterRenderedListReserve(int role)
@@ -8372,50 +8343,6 @@ static int Ovr226_800a5030_EmitGround4x2ListQuadBlock(struct PushBuffer *pb, str
 	return 1;
 }
 
-static int Ovr226_800a4fa0_DrawGround4x2BspList(struct VisMemBspListNode *slot, struct PushBuffer *pb, struct mesh_info *mesh, struct PrimMem *primMem,
-                                                const int *visFaceList)
-{
-	if (sDrawLevelOvr1P_ListHandlersSeedRenderedCursor)
-	{
-		DrawLevelOvr1P_SetRenderedListCursor(DrawLevelOvr1P_GetRenderedOverflowBase());
-	}
-
-	while (slot != NULL)
-	{
-		struct BSP *bsp = slot->bsp;
-		struct QuadBlock *block = bsp->data.leaf.ptrQuadBlockArray;
-		s32 quadCount = bsp->data.leaf.numQuads;
-
-		DrawLevelOvr1P_Scratch()->quadCount = quadCount;
-		Ovr226_800a0f0c_SeedFullDynamicVisibilityScratch(visFaceList, block);
-
-		while (quadCount > 0)
-		{
-			if (!DrawLevelOvr1P_HasBucketPrimReserve(primMem, DRAW_LEVEL_OVR1P_BUCKET_RESERVE_4X2))
-			{
-				return 0;
-			}
-
-			if (Ovr226_800a0f34_ConsumeFullDynamicVisibilityBit())
-			{
-				if (!Ovr226_800a5030_EmitGround4x2ListQuadBlock(pb, primMem, mesh, block))
-				{
-					return 0;
-				}
-			}
-
-			block++;
-			quadCount--;
-			DrawLevelOvr1P_Scratch()->quadCount = quadCount;
-		}
-
-		slot = slot->next;
-	}
-
-	DrawLevelOvr1P_TerminateRenderedListCursor();
-	return 1;
-}
-
 static int Ovr226_800a6fd0_EmitDynamicListQuadBlock(struct PushBuffer *pb, struct PrimMem *primMem, struct mesh_info *mesh, struct QuadBlock *block)
 {
 	struct LevVertex *vertices = mesh->ptrVertexArray;
@@ -8435,50 +8362,6 @@ static int Ovr226_800a6fd0_EmitDynamicListQuadBlock(struct PushBuffer *pb, struc
 		}
 	}
 
-	return 1;
-}
-
-static int Ovr226_800a6f40_DrawDynamicBspList(struct VisMemBspListNode *slot, struct PushBuffer *pb, struct mesh_info *mesh, struct PrimMem *primMem,
-                                              const int *visFaceList)
-{
-	if (sDrawLevelOvr1P_ListHandlersSeedRenderedCursor)
-	{
-		DrawLevelOvr1P_SetRenderedListCursor(DrawLevelOvr1P_GetRenderedOverflowBase());
-	}
-
-	while (slot != NULL)
-	{
-		struct BSP *bsp = slot->bsp;
-		struct QuadBlock *block = bsp->data.leaf.ptrQuadBlockArray;
-		s32 quadCount = bsp->data.leaf.numQuads;
-
-		DrawLevelOvr1P_Scratch()->quadCount = quadCount;
-		Ovr226_800a0f0c_SeedFullDynamicVisibilityScratch(visFaceList, block);
-
-		while (quadCount > 0)
-		{
-			if (!DrawLevelOvr1P_HasBucketPrimReserve(primMem, DRAW_LEVEL_OVR1P_BUCKET_RESERVE_DEFAULT))
-			{
-				return 0;
-			}
-
-			if (Ovr226_800a0f34_ConsumeFullDynamicVisibilityBit())
-			{
-				if (!Ovr226_800a6fd0_EmitDynamicListQuadBlock(pb, primMem, mesh, block))
-				{
-					return 0;
-				}
-			}
-
-			block++;
-			quadCount--;
-			DrawLevelOvr1P_Scratch()->quadCount = quadCount;
-		}
-
-		slot = slot->next;
-	}
-
-	DrawLevelOvr1P_TerminateRenderedListCursor();
 	return 1;
 }
 
@@ -8504,13 +8387,33 @@ static int Ovr226_800a8bf0_EmitWideDynamicQuadBlock(struct PushBuffer *pb, struc
 	return 1;
 }
 
-static int Ovr226_800a8b60_DrawWideDynamicBspList(struct VisMemBspListNode *slot, struct PushBuffer *pb, struct mesh_info *mesh, struct PrimMem *primMem,
-                                                  const int *visFaceList)
+static int DrawLevelOvr1P_EmitBspListQuadBlock(struct PushBuffer *pb, struct PrimMem *primMem, struct mesh_info *mesh, struct QuadBlock *block, int role)
+{
+	switch (role)
+	{
+	case DRAW_LEVEL_OVR1P_BUCKET_4X1_LIST:
+		return Ovr226_800a3738_EmitGround4x1ListQuadBlock(pb, primMem, mesh, block);
+
+	case DRAW_LEVEL_OVR1P_BUCKET_4X2_LIST:
+		return Ovr226_800a5030_EmitGround4x2ListQuadBlock(pb, primMem, mesh, block);
+
+	case DRAW_LEVEL_OVR1P_BUCKET_DYNAMIC_LIST:
+		return Ovr226_800a6fd0_EmitDynamicListQuadBlock(pb, primMem, mesh, block);
+
+	default:
+		return Ovr226_800a8bf0_EmitWideDynamicQuadBlock(pb, primMem, mesh, block);
+	}
+}
+
+static int DrawLevelOvr1P_DrawBspListQuadBlocks(struct VisMemBspListNode *slot, struct PushBuffer *pb, struct mesh_info *mesh, struct PrimMem *primMem,
+                                                const int *visFaceList, int role)
 {
 	if (sDrawLevelOvr1P_ListHandlersSeedRenderedCursor)
 	{
 		DrawLevelOvr1P_SetRenderedListCursor(DrawLevelOvr1P_GetRenderedOverflowBase());
 	}
+
+	u32 reserve = DrawLevelOvr1P_GetBspListReserve(role);
 
 	while (slot != NULL)
 	{
@@ -8523,14 +8426,14 @@ static int Ovr226_800a8b60_DrawWideDynamicBspList(struct VisMemBspListNode *slot
 
 		while (quadCount > 0)
 		{
-			if (!DrawLevelOvr1P_HasBucketPrimReserve(primMem, DRAW_LEVEL_OVR1P_BUCKET_RESERVE_DEFAULT))
+			if (!DrawLevelOvr1P_HasBucketPrimReserve(primMem, reserve))
 			{
 				return 0;
 			}
 
 			if (Ovr226_800a0f34_ConsumeFullDynamicVisibilityBit())
 			{
-				if (!Ovr226_800a8bf0_EmitWideDynamicQuadBlock(pb, primMem, mesh, block))
+				if (!DrawLevelOvr1P_EmitBspListQuadBlock(pb, primMem, mesh, block, role))
 				{
 					return 0;
 				}
@@ -9815,27 +9718,17 @@ static int Ovr226_800a0e78_DispatchBucketHandler(u32 handlerAddress, void *bucke
 
 	// NOTE(aalhendi): Overlay 226 consumes VisMem BSP-list nodes: word zero is
 	// next, word one is the BSP pointer preserved by VisMem initialization.
-	if (bucket->role == DRAW_LEVEL_OVR1P_BUCKET_4X1_LIST)
+	switch (bucket->role)
 	{
-		return Ovr226_800a36a8_DrawGround4x1BspList((struct VisMemBspListNode *)bucketValue, pb, mesh, primMem, visFaceList);
-	}
+	case DRAW_LEVEL_OVR1P_BUCKET_4X1_LIST:
+	case DRAW_LEVEL_OVR1P_BUCKET_4X2_LIST:
+	case DRAW_LEVEL_OVR1P_BUCKET_DYNAMIC_LIST:
+	case DRAW_LEVEL_OVR1P_BUCKET_4X4_LIST:
+		return DrawLevelOvr1P_DrawBspListQuadBlocks((struct VisMemBspListNode *)bucketValue, pb, mesh, primMem, visFaceList, bucket->role);
 
-	if (bucket->role == DRAW_LEVEL_OVR1P_BUCKET_4X2_LIST)
-	{
-		return Ovr226_800a4fa0_DrawGround4x2BspList((struct VisMemBspListNode *)bucketValue, pb, mesh, primMem, visFaceList);
+	default:
+		return 0;
 	}
-
-	if (bucket->role == DRAW_LEVEL_OVR1P_BUCKET_DYNAMIC_LIST)
-	{
-		return Ovr226_800a6f40_DrawDynamicBspList((struct VisMemBspListNode *)bucketValue, pb, mesh, primMem, visFaceList);
-	}
-
-	if (bucket->role == DRAW_LEVEL_OVR1P_BUCKET_4X4_LIST)
-	{
-		return Ovr226_800a8b60_DrawWideDynamicBspList((struct VisMemBspListNode *)bucketValue, pb, mesh, primMem, visFaceList);
-	}
-
-	return 0;
 }
 
 static int Ovr226_800a0e10_DispatchBucketTable(struct DrawLevelOvr1PRenderList *renderList, struct PushBuffer *pb, struct mesh_info *mesh,

@@ -292,7 +292,8 @@ static int Ovr228_800a10c4_800a81bc_BucketDispatch(u32 handlerAddress, void *buc
 		DrawLevelOvr1P_SetPrimReserveBias(OVR228_SPLIT_GROUND_LIST_B_PRIM_RESERVE_BIAS);
 		DrawLevelOvr1P_SetSplitGroundThresholdScratch();
 		DrawLevelOvr1P_SetMosaicReloadSpanOverride(DRAW_LEVEL_OVR1P_SPLIT_GROUND_MOSAIC_RELOAD_SPAN);
-		result = Ovr226_800a4fa0_DrawGround4x2BspList((struct VisMemBspListNode *)bucketValue, pb, mesh, primMem, visFaceList);
+		result =
+		    DrawLevelOvr1P_DrawBspListQuadBlocks((struct VisMemBspListNode *)bucketValue, pb, mesh, primMem, visFaceList, DRAW_LEVEL_OVR1P_BUCKET_4X2_LIST);
 		DrawLevelOvr1P_SetMosaicReloadSpanOverride(0);
 		return result;
 	}
@@ -313,7 +314,7 @@ static int Ovr228_800a10c4_800a81bc_BucketDispatch(u32 handlerAddress, void *buc
 	{
 		DrawLevelOvr1P_SetPrimReserveBias(OVR228_WATER_BSP_LIST_PRIM_RESERVE_BIAS);
 		DrawLevelOvr1P_SetSplitGroundThresholdScratch();
-		return Ovr226_800a8b60_DrawWideDynamicBspList((struct VisMemBspListNode *)bucketValue, pb, mesh, primMem, visFaceList);
+		return DrawLevelOvr1P_DrawBspListQuadBlocks((struct VisMemBspListNode *)bucketValue, pb, mesh, primMem, visFaceList, DRAW_LEVEL_OVR1P_BUCKET_4X4_LIST);
 	}
 
 	if (handlerAddress == OVR228_QUAD_4X4_RENDERED_HANDLER)

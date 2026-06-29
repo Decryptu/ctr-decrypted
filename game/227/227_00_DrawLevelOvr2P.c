@@ -140,27 +140,17 @@ static int Ovr227_800a0ddc_DispatchBucketHandler(u32 handlerAddress, void *bucke
 		return Ovr226_800a1e30_DrawWaterBspList((struct VisMemBspListNode *)bucketValue, pb, mesh, primMem, visFaceList);
 	}
 
-	if (bucket->role == DRAW_LEVEL_OVR1P_BUCKET_4X1_LIST)
+	switch (bucket->role)
 	{
-		return Ovr226_800a36a8_DrawGround4x1BspList((struct VisMemBspListNode *)bucketValue, pb, mesh, primMem, visFaceList);
-	}
+	case DRAW_LEVEL_OVR1P_BUCKET_4X1_LIST:
+	case DRAW_LEVEL_OVR1P_BUCKET_4X2_LIST:
+	case DRAW_LEVEL_OVR1P_BUCKET_DYNAMIC_LIST:
+	case DRAW_LEVEL_OVR1P_BUCKET_4X4_LIST:
+		return DrawLevelOvr1P_DrawBspListQuadBlocks((struct VisMemBspListNode *)bucketValue, pb, mesh, primMem, visFaceList, bucket->role);
 
-	if (bucket->role == DRAW_LEVEL_OVR1P_BUCKET_4X2_LIST)
-	{
-		return Ovr226_800a4fa0_DrawGround4x2BspList((struct VisMemBspListNode *)bucketValue, pb, mesh, primMem, visFaceList);
+	default:
+		return 0;
 	}
-
-	if (bucket->role == DRAW_LEVEL_OVR1P_BUCKET_DYNAMIC_LIST)
-	{
-		return Ovr226_800a6f40_DrawDynamicBspList((struct VisMemBspListNode *)bucketValue, pb, mesh, primMem, visFaceList);
-	}
-
-	if (bucket->role == DRAW_LEVEL_OVR1P_BUCKET_4X4_LIST)
-	{
-		return Ovr226_800a8b60_DrawWideDynamicBspList((struct VisMemBspListNode *)bucketValue, pb, mesh, primMem, visFaceList);
-	}
-
-	return 0;
 }
 
 static int Ovr227_DrawViewportBucket(struct DrawLevelOvr1PRenderList *renderList, s32 renderListOffset, struct PushBuffer *pb, struct mesh_info *mesh,
