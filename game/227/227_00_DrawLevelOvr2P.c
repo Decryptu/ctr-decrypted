@@ -230,8 +230,8 @@ static int Ovr227_ConsumeClipRecordsForViewport(struct PushBuffer *pb, struct Pr
 	return DrawLevelOvr1P_ConsumeClipRecords(pb, primMem);
 }
 
-static int Ovr227_800a0cbc_Entry(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, const int *visFaceList0,
-                                 const int *visFaceList1, const struct TextureLayout *waterEnvMap)
+void DrawLevelOvr2P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, const int *visFaceList0, const int *visFaceList1,
+                    const struct TextureLayout *waterEnvMap)
 {
 	struct DrawLevelOvr1PRenderList *renderLists = LevRenderList;
 	struct mesh_info *mesh = (struct mesh_info *)bspList;
@@ -248,7 +248,7 @@ static int Ovr227_800a0cbc_Entry(void *LevRenderList, struct PushBuffer *pb, str
 
 	if ((visFaceList0 == NULL) || (visFaceList1 == NULL))
 	{
-		return 1;
+		return;
 	}
 
 	DrawLevelOvr1P_Scratch()->waterEnvMapPtr32 = (u32)(uintptr_t)waterEnvMap;
@@ -259,7 +259,7 @@ static int Ovr227_800a0cbc_Entry(void *LevRenderList, struct PushBuffer *pb, str
 
 	if (mesh->ptrQuadBlockArray == NULL)
 	{
-		return 1;
+		return;
 	}
 
 	DrawLevelOvr1P_SetPrimReserveBias(0xd00);
@@ -270,7 +270,7 @@ static int Ovr227_800a0cbc_Entry(void *LevRenderList, struct PushBuffer *pb, str
 
 	if (!Ovr227_800a0d9c_DispatchBucketTable(renderLists, pb, mesh, primMem, visFaceList0, visFaceList1, clipCursors))
 	{
-		return 0;
+		return;
 	}
 
 	DrawLevelOvr1P_Scratch()->playerClipCursorPtr32[0] = (u32)(uintptr_t)clipCursors[0];
@@ -278,15 +278,13 @@ static int Ovr227_800a0cbc_Entry(void *LevRenderList, struct PushBuffer *pb, str
 
 	if (!Ovr227_ConsumeClipRecordsForViewport(&pb[0], primMem, clipCursors[0], 0))
 	{
-		return 0;
+		return;
 	}
 
 	if (!Ovr227_ConsumeClipRecordsForViewport(&pb[1], primMem, clipCursors[1], 1))
 	{
-		return 0;
+		return;
 	}
-
-	return 1;
 }
 
 static void Ovr227_800ab45c_CopyClipRecordJumpTable(void)
@@ -297,10 +295,4 @@ static void Ovr227_800ab45c_CopyClipRecordJumpTable(void)
 	{
 		clipRecordJumpTable[i] = Ovr227_TranslateCopiedLabel(R227.clipRecordJumpTable[i]);
 	}
-}
-
-void DrawLevelOvr2P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, const int *visFaceList0, const int *visFaceList1,
-                    const struct TextureLayout *waterEnvMap)
-{
-	(void)Ovr227_800a0cbc_Entry(LevRenderList, pb, bspList, primMem, visFaceList0, visFaceList1, waterEnvMap);
 }

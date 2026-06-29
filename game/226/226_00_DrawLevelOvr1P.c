@@ -10321,8 +10321,9 @@ static int Ovr226_800a0e10_DispatchBucketTable(struct DrawLevelOvr1PRenderList *
 	return 1;
 }
 
-static int Ovr226_800a0cbc_Entry(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, const int *visFaceList,
-                                 const struct TextureLayout *waterEnvMap)
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800a0cbc-0x800ab970
+void DrawLevelOvr1P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, const int *visFaceList,
+                    const struct TextureLayout *waterEnvMap)
 {
 	struct DrawLevelOvr1PRenderList *renderList = LevRenderList;
 	struct mesh_info *mesh = (struct mesh_info *)bspList;
@@ -10338,14 +10339,14 @@ static int Ovr226_800a0cbc_Entry(void *LevRenderList, struct PushBuffer *pb, str
 
 	if (visFaceList == NULL)
 	{
-		return 1;
+		return;
 	}
 
 	DrawLevelOvr1P_Scratch()->waterEnvMapPtr32 = (u32)(uintptr_t)waterEnvMap;
 
 	if (mesh->ptrQuadBlockArray == NULL)
 	{
-		return 1;
+		return;
 	}
 
 	DrawLevelOvr1P_SetClipRecordStart(data.PtrClipBuffer[0]);
@@ -10359,7 +10360,7 @@ static int Ovr226_800a0cbc_Entry(void *LevRenderList, struct PushBuffer *pb, str
 
 	if (!Ovr226_800a0e10_DispatchBucketTable(renderList, pb, mesh, primMem, visFaceList))
 	{
-		return 0;
+		return;
 	}
 
 	// NOTE(aalhendi): Retail 0x800a0e98 reloads 0x800ab910 into scratch
@@ -10367,15 +10368,6 @@ static int Ovr226_800a0cbc_Entry(void *LevRenderList, struct PushBuffer *pb, str
 	Ovr226_800ab3dc_CopyClipRecordJumpTable();
 	if (!DrawLevelOvr1P_ConsumeClipRecords(pb, primMem))
 	{
-		return 0;
+		return;
 	}
-
-	return 1;
-}
-
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800a0cbc-0x800ab970
-void DrawLevelOvr1P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, const int *visFaceList,
-                    const struct TextureLayout *waterEnvMap)
-{
-	(void)Ovr226_800a0cbc_Entry(LevRenderList, pb, bspList, primMem, visFaceList, waterEnvMap);
 }

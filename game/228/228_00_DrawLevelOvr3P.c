@@ -337,8 +337,8 @@ static int Ovr228_800a81bc_ConsumeClipRecords(struct PushBuffer *pb, struct Prim
 	return DrawLevelOvr1P_ConsumeClipRecords(pb, primMem);
 }
 
-static int Ovr228_800a0cbc_Entry(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, const int *visFaceList0,
-                                 const int *visFaceList1, const int *visFaceList2, const struct TextureLayout *waterEnvMap)
+void DrawLevelOvr3P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, const int *visFaceList0, const int *visFaceList1,
+                    const int *visFaceList2, const struct TextureLayout *waterEnvMap)
 {
 	struct DrawLevelOvr1PRenderList *renderLists = LevRenderList;
 	struct mesh_info *mesh = (struct mesh_info *)bspList;
@@ -352,19 +352,19 @@ static int Ovr228_800a0cbc_Entry(void *LevRenderList, struct PushBuffer *pb, str
 	DrawLevelOvr1P_Scratch()->visFaceListArgPtr32[0] = (u32)(uintptr_t)visFaceList0;
 	if (visFaceList0 == NULL)
 	{
-		return 1;
+		return;
 	}
 
 	DrawLevelOvr1P_Scratch()->visFaceListArgPtr32[1] = (u32)(uintptr_t)visFaceList1;
 	if (visFaceList1 == NULL)
 	{
-		return 1;
+		return;
 	}
 
 	DrawLevelOvr1P_Scratch()->visFaceListArgPtr32[2] = (u32)(uintptr_t)visFaceList2;
 	if (visFaceList2 == NULL)
 	{
-		return 1;
+		return;
 	}
 
 	DrawLevelOvr1P_Scratch()->waterEnvMapPtr32 = (u32)(uintptr_t)waterEnvMap;
@@ -372,7 +372,7 @@ static int Ovr228_800a0cbc_Entry(void *LevRenderList, struct PushBuffer *pb, str
 
 	if (mesh->ptrQuadBlockArray == NULL)
 	{
-		return 1;
+		return;
 	}
 
 	clipCursors[0] = data.PtrClipBuffer[0];
@@ -394,7 +394,7 @@ static int Ovr228_800a0cbc_Entry(void *LevRenderList, struct PushBuffer *pb, str
 
 	if (!Ovr228_800a0d9c_DispatchBucketTable(renderLists, pb, mesh, primMem, visFaceList0, visFaceList1, visFaceList2, clipCursors))
 	{
-		return 0;
+		return;
 	}
 
 	DrawLevelOvr1P_Scratch()->playerClipCursorPtr32[0] = (u32)(uintptr_t)clipCursors[0];
@@ -404,24 +404,16 @@ static int Ovr228_800a0cbc_Entry(void *LevRenderList, struct PushBuffer *pb, str
 	Ovr228_800a8e08_CopyClipRecordJumpTable();
 	if (!DrawLevelOvr_ConsumeClipRecordsForViewport(&pb[0], primMem, clipCursors[0], 0, Ovr228_800a81bc_ConsumeClipRecords))
 	{
-		return 0;
+		return;
 	}
 
 	if (!DrawLevelOvr_ConsumeClipRecordsForViewport(&pb[1], primMem, clipCursors[1], 1, Ovr228_800a81bc_ConsumeClipRecords))
 	{
-		return 0;
+		return;
 	}
 
 	if (!DrawLevelOvr_ConsumeClipRecordsForViewport(&pb[2], primMem, clipCursors[2], 2, Ovr228_800a81bc_ConsumeClipRecords))
 	{
-		return 0;
+		return;
 	}
-
-	return 1;
-}
-
-void DrawLevelOvr3P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, const int *visFaceList0, const int *visFaceList1,
-                    const int *visFaceList2, const struct TextureLayout *waterEnvMap)
-{
-	(void)Ovr228_800a0cbc_Entry(LevRenderList, pb, bspList, primMem, visFaceList0, visFaceList1, visFaceList2, waterEnvMap);
 }
