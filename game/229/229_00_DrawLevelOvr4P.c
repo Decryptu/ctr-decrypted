@@ -18,8 +18,8 @@ enum Ovr229DrawLevelConstants
 	OVR229_CANONICAL_QUAD_4X4_RENDERED_SETUP_INDEX = 10,
 };
 
-static int Ovr229_800a1178_800a8270_BucketDispatch(u32 handlerAddress, void *bucketValue, struct PushBuffer *pb, struct mesh_info *mesh,
-                                                   struct PrimMem *primMem, const int *visFaceList);
+static int DrawLevelOvr4P_DispatchBucketHandler(u32 handlerAddress, void *bucketValue, struct PushBuffer *pb, struct mesh_info *mesh, struct PrimMem *primMem,
+                                                const int *visFaceList);
 
 static const struct OverlayRDATA_229_BucketSetupRecord *Ovr229_800a106c_FindBucketSetupRecord(u32 setupAddress, int *setupIndex)
 {
@@ -203,7 +203,7 @@ static int Ovr229_DrawViewportBucket(struct DrawLevelOvr1PRenderList *renderList
 	}
 
 	DrawLevelOvr1P_SetViewportScratchContext(pb, visFaceList, data.PtrClipBuffer[playerIndex], *clipCursor, renderedOverflowBase);
-	if (!Ovr229_800a1178_800a8270_BucketDispatch(handlerAddress, bucketValue, pb, mesh, primMem, visFaceList))
+	if (!DrawLevelOvr4P_DispatchBucketHandler(handlerAddress, bucketValue, pb, mesh, primMem, visFaceList))
 	{
 		return 0;
 	}
@@ -254,8 +254,8 @@ static int Ovr229_800a0dd0_DispatchBucketTable(struct DrawLevelOvr1PRenderList *
 	return 1;
 }
 
-static int Ovr229_800a1178_800a8270_BucketDispatch(u32 handlerAddress, void *bucketValue, struct PushBuffer *pb, struct mesh_info *mesh,
-                                                   struct PrimMem *primMem, const int *visFaceList)
+static int DrawLevelOvr4P_DispatchBucketHandler(u32 handlerAddress, void *bucketValue, struct PushBuffer *pb, struct mesh_info *mesh, struct PrimMem *primMem,
+                                                const int *visFaceList)
 {
 	if (handlerAddress == OVR229_RETAIL_LABEL_WATER_BSP_LIST_HANDLER)
 	{
