@@ -230,13 +230,11 @@ static int Ovr227_ConsumeClipRecordsForViewport(struct PushBuffer *pb, struct Pr
 	return DrawLevelOvr1P_ConsumeClipRecords(pb, primMem);
 }
 
-static int Ovr227_800a0cbc_Entry(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, void *VisMem10, void *VisMem14,
-                                 const struct TextureLayout *waterEnvMap)
+static int Ovr227_800a0cbc_Entry(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, const int *visFaceList0,
+                                 const int *visFaceList1, const struct TextureLayout *waterEnvMap)
 {
 	struct DrawLevelOvr1PRenderList *renderLists = LevRenderList;
 	struct mesh_info *mesh = (struct mesh_info *)bspList;
-	const int *visFaceList0 = VisMem10;
-	const int *visFaceList1 = VisMem14;
 	u8 *clipCursors[2] = {data.PtrClipBuffer[0], data.PtrClipBuffer[1]};
 	u32 hostStackAnchor;
 
@@ -245,10 +243,10 @@ static int Ovr227_800a0cbc_Entry(void *LevRenderList, struct PushBuffer *pb, str
 	// preserving the retail scratch ownership and two-viewport ordering.
 	DrawLevelOvr1P_Scratch()->savedStackPtr32 = (u32)(uintptr_t)&hostStackAnchor;
 	DrawLevelOvr1P_Scratch()->primMemEndPtr32 = (u32)(uintptr_t)primMem->end;
-	DrawLevelOvr1P_Scratch()->visFaceListArgPtr32[0] = (u32)(uintptr_t)VisMem10;
-	DrawLevelOvr1P_Scratch()->visFaceListArgPtr32[1] = (u32)(uintptr_t)VisMem14;
+	DrawLevelOvr1P_Scratch()->visFaceListArgPtr32[0] = (u32)(uintptr_t)visFaceList0;
+	DrawLevelOvr1P_Scratch()->visFaceListArgPtr32[1] = (u32)(uintptr_t)visFaceList1;
 
-	if ((VisMem10 == NULL) || (VisMem14 == NULL))
+	if ((visFaceList0 == NULL) || (visFaceList1 == NULL))
 	{
 		return 1;
 	}
@@ -301,8 +299,8 @@ static void Ovr227_800ab45c_CopyClipRecordJumpTable(void)
 	}
 }
 
-void DrawLevelOvr2P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, void *VisMem10, void *VisMem14,
+void DrawLevelOvr2P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, const int *visFaceList0, const int *visFaceList1,
                     const struct TextureLayout *waterEnvMap)
 {
-	(void)Ovr227_800a0cbc_Entry(LevRenderList, pb, bspList, primMem, VisMem10, VisMem14, waterEnvMap);
+	(void)Ovr227_800a0cbc_Entry(LevRenderList, pb, bspList, primMem, visFaceList0, visFaceList1, waterEnvMap);
 }

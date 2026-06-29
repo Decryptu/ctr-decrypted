@@ -6,8 +6,6 @@
 // the canonical 226 C helpers to the 227/228/229 overlay slices.
 
 // Bucket metadata and scratch views.
-typedef int (*DrawLevelOvrBucketDispatch)(u32 handlerAddress, void *bucketValue, struct PushBuffer *pb, struct mesh_info *mesh, struct PrimMem *primMem,
-                                          const int *visFaceList);
 typedef int (*DrawLevelOvrClipConsumer)(struct PushBuffer *pb, struct PrimMem *primMem, u8 *clipCursor, int playerIndex);
 
 extern const struct DrawLevelOvr1PBucket sDrawLevelOvr1PBuckets[];

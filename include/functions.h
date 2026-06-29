@@ -97,11 +97,6 @@ void DotLights_Video(struct GameTracker *gGT, int red1, int red2, int red3, int 
 void DropRain_MakeSound(struct GameTracker *gGT);
 void DropRain_Reset(struct GameTracker *gGT);
 
-int Ovr228_800a0cbc_Entry(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, void *VisMem10, void *VisMem14,
-                          void *VisMem18, const struct TextureLayout *waterEnvMap);
-int Ovr229_800a0cbc_Entry(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, void *VisMem10, void *VisMem14,
-                          void *VisMem18, void *VisMem1C, const struct TextureLayout *waterEnvMap);
-
 void EngineSound_Player(struct Driver *driver);
 int EngineSound_VolumeAdjust(int desired, int current, int step);
 void EngineSound_AI(struct Driver *ai, struct Driver *cameraDriver, int slotIndex, int distance, int distanceDelta, u32 lr);
@@ -1291,14 +1286,14 @@ void LOAD_CDRequestCallback(struct LoadQueueSlot *lqs);
 void LOAD_StringToUpper(char *path);
 
 void DrawSky_Full(void *skybox, struct PushBuffer *pb, struct PrimMem *primMem);
-void DrawLevelOvr1P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, void *VisMem10,
+void DrawLevelOvr1P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, const int *visFaceList,
                     const struct TextureLayout *waterEnvMap);
-void DrawLevelOvr2P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, void *VisMem10, void *VisMem14,
+void DrawLevelOvr2P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, const int *visFaceList0, const int *visFaceList1,
                     const struct TextureLayout *waterEnvMap);
-void DrawLevelOvr3P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, void *VisMem10, void *VisMem14, void *VisMem18,
-                    const struct TextureLayout *waterEnvMap);
-void DrawLevelOvr4P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, void *VisMem10, void *VisMem14, void *VisMem18,
-                    void *VisMem1C, const struct TextureLayout *waterEnvMap);
+void DrawLevelOvr3P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, const int *visFaceList0, const int *visFaceList1,
+                    const int *visFaceList2, const struct TextureLayout *waterEnvMap);
+void DrawLevelOvr4P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, const int *visFaceList0, const int *visFaceList1,
+                    const int *visFaceList2, const int *visFaceList3, const struct TextureLayout *waterEnvMap);
 void AnimateWater2P(int timer, int numWaterVertices, struct WaterVert *waterVert, const struct TextureLayout *waterEnvMap, int *param_5, int *param_6);
 void AnimateWater3P(int timer, int numWaterVertices, struct WaterVert *waterVert, const struct TextureLayout *waterEnvMap, int *param_5, int *param_6,
                     int *param_7);

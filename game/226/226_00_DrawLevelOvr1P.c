@@ -10321,12 +10321,11 @@ static int Ovr226_800a0e10_DispatchBucketTable(struct DrawLevelOvr1PRenderList *
 	return 1;
 }
 
-static int Ovr226_800a0cbc_Entry(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, void *VisMem10,
+static int Ovr226_800a0cbc_Entry(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, const int *visFaceList,
                                  const struct TextureLayout *waterEnvMap)
 {
 	struct DrawLevelOvr1PRenderList *renderList = LevRenderList;
 	struct mesh_info *mesh = (struct mesh_info *)bspList;
-	const int *visFaceList = VisMem10;
 	u32 hostStackAnchor;
 
 	// NOTE(aalhendi): Retail 0x800a0cf0 saves `sp` in scratch 0x38 and
@@ -10335,9 +10334,9 @@ static int Ovr226_800a0cbc_Entry(void *LevRenderList, struct PushBuffer *pb, str
 	DrawLevelOvr1P_Scratch()->savedStackPtr32 = (u32)(uintptr_t)&hostStackAnchor;
 
 	DrawLevelOvr1P_Scratch()->primMemEndPtr32 = (u32)(uintptr_t)primMem->end;
-	DrawLevelOvr1P_Scratch()->visFaceListPtr32 = (u32)(uintptr_t)VisMem10;
+	DrawLevelOvr1P_Scratch()->visFaceListPtr32 = (u32)(uintptr_t)visFaceList;
 
-	if (VisMem10 == NULL)
+	if (visFaceList == NULL)
 	{
 		return 1;
 	}
@@ -10375,20 +10374,8 @@ static int Ovr226_800a0cbc_Entry(void *LevRenderList, struct PushBuffer *pb, str
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800a0cbc-0x800ab970
-void DrawLevelOvr1P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, void *VisMem10,
+void DrawLevelOvr1P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, const int *visFaceList,
                     const struct TextureLayout *waterEnvMap)
 {
-	(void)Ovr226_800a0cbc_Entry(LevRenderList, pb, bspList, primMem, VisMem10, waterEnvMap);
-}
-
-void DrawLevelOvr3P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, void *VisMem10, void *VisMem14, void *VisMem18,
-                    const struct TextureLayout *waterEnvMap)
-{
-	(void)Ovr228_800a0cbc_Entry(LevRenderList, pb, bspList, primMem, VisMem10, VisMem14, VisMem18, waterEnvMap);
-}
-
-void DrawLevelOvr4P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspList, struct PrimMem *primMem, void *VisMem10, void *VisMem14, void *VisMem18,
-                    void *VisMem1C, const struct TextureLayout *waterEnvMap)
-{
-	(void)Ovr229_800a0cbc_Entry(LevRenderList, pb, bspList, primMem, VisMem10, VisMem14, VisMem18, VisMem1C, waterEnvMap);
+	(void)Ovr226_800a0cbc_Entry(LevRenderList, pb, bspList, primMem, visFaceList, waterEnvMap);
 }
