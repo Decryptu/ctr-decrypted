@@ -58,14 +58,15 @@ enum DrawLevelOvr1PPrimCode
 	DRAW_LEVEL_OVR1P_PRIM_CODE_AUTO = -1,
 };
 
-enum DrawLevelOvr1PListSource
+enum DrawLevelOvr1PProjectedSource
 {
-	DRAW_LEVEL_OVR1P_LIST_SOURCE_POS_FLAGS,
-	DRAW_LEVEL_OVR1P_LIST_SOURCE_WATER_COLOR_LO_FLAGS,
+	DRAW_LEVEL_OVR1P_PROJECTED_SOURCE_POS_FLAGS,
+	DRAW_LEVEL_OVR1P_PROJECTED_SOURCE_WATER_COLOR_LO_FLAGS,
 };
 
 enum DrawLevelOvr1PGridSlotMode
 {
+	DRAW_LEVEL_OVR1P_GRID_SLOT_NONE,
 	DRAW_LEVEL_OVR1P_GRID_SLOT_FACE,
 	DRAW_LEVEL_OVR1P_GRID_SLOT_WORD,
 };
@@ -1115,23 +1116,28 @@ static int DrawLevelOvr1P_ProjectQuadBlockGrid(struct LevVertex *vertices, const
 	return gteOverflow;
 }
 
-static void DrawLevelOvr1P_CopyListProjectedSource(struct LevVertex *vertex, struct DrawLevelOvr1PScratchVertex *projected,
-                                                   enum DrawLevelOvr1PListSource source)
+static void DrawLevelOvr1P_CopyProjectedSource(struct LevVertex *vertex, struct DrawLevelOvr1PScratchVertex *projected,
+                                               enum DrawLevelOvr1PProjectedSource source, int copyColorHi)
 {
 	switch (source)
 	{
-	case DRAW_LEVEL_OVR1P_LIST_SOURCE_POS_FLAGS:
+	case DRAW_LEVEL_OVR1P_PROJECTED_SOURCE_POS_FLAGS:
 		DrawLevelOvr1P_CopySourcePosFlags(projected, vertex);
 		break;
-	case DRAW_LEVEL_OVR1P_LIST_SOURCE_WATER_COLOR_LO_FLAGS:
+	case DRAW_LEVEL_OVR1P_PROJECTED_SOURCE_WATER_COLOR_LO_FLAGS:
 		projected->posVec = vertex->pos;
 		projected->flags = (u16)vertex->color_lo[0] | ((u16)vertex->color_lo[1] << 8);
 		break;
 	}
+
+	if (copyColorHi)
+	{
+		DrawLevelOvr1P_CopyColorWord(projected->color_hi, vertex->color_hi);
+	}
 }
 
 static int DrawLevelOvr1P_ProjectListVertexTriple(struct LevVertex *vertices, const struct QuadBlock *block, struct DrawLevelOvr1PScratchVertex *projected,
-                                                  int index0, int index1, int index2, enum DrawLevelOvr1PListSource source)
+                                                  int index0, int index1, int index2, enum DrawLevelOvr1PProjectedSource source)
 {
 	struct LevVertex *vertex0 = &vertices[block->index[index0]];
 	struct LevVertex *vertex1 = &vertices[block->index[index1]];
@@ -1160,20 +1166,21 @@ static int DrawLevelOvr1P_ProjectListVertexTriple(struct LevVertex *vertices, co
 	depth1 = MFC2(18);
 	CTR_GteStoreSXY2(&projected[index2].posScreen[0]);
 	depth2 = MFC2(19);
-	DrawLevelOvr1P_CopyListProjectedSource(vertex0, &projected[index0], source);
-	DrawLevelOvr1P_CopyListProjectedSource(vertex1, &projected[index1], source);
-	DrawLevelOvr1P_CopyListProjectedSource(vertex2, &projected[index2], source);
+	DrawLevelOvr1P_CopyProjectedSource(vertex0, &projected[index0], source, 0);
+	DrawLevelOvr1P_CopyProjectedSource(vertex1, &projected[index1], source, 0);
+	DrawLevelOvr1P_CopyProjectedSource(vertex2, &projected[index2], source, 0);
 	DrawLevelOvr1P_StoreProjectedDepthWord(&projected[index1], depth1);
 	DrawLevelOvr1P_StoreProjectedDepthWord(&projected[index2], depth2);
 
 	return 0;
 }
 
-static int DrawLevelOvr1P_ProjectListGrid(struct LevVertex *vertices, const struct QuadBlock *block, struct DrawLevelOvr1PScratchVertex *projected,
-                                          enum DrawLevelOvr1PListSource source, enum DrawLevelOvr1PGridSlotMode slotMode)
+static void DrawLevelOvr1P_SetGridSlotMode(const struct DrawLevelOvr1PScratchVertex *projected, enum DrawLevelOvr1PGridSlotMode slotMode)
 {
 	switch (slotMode)
 	{
+	case DRAW_LEVEL_OVR1P_GRID_SLOT_NONE:
+		break;
 	case DRAW_LEVEL_OVR1P_GRID_SLOT_FACE:
 		DrawLevelOvr1P_SetGridFaceSlot(projected, 0);
 		break;
@@ -1181,6 +1188,12 @@ static int DrawLevelOvr1P_ProjectListGrid(struct LevVertex *vertices, const stru
 		DrawLevelOvr1P_SetGridFaceSlotWord(projected, 0);
 		break;
 	}
+}
+
+static int DrawLevelOvr1P_ProjectListGrid(struct LevVertex *vertices, const struct QuadBlock *block, struct DrawLevelOvr1PScratchVertex *projected,
+                                          enum DrawLevelOvr1PProjectedSource source, enum DrawLevelOvr1PGridSlotMode slotMode)
+{
+	DrawLevelOvr1P_SetGridSlotMode(projected, slotMode);
 
 	if (DrawLevelOvr1P_ProjectListVertexTriple(vertices, block, projected, 0, 1, 2, source))
 	{
@@ -1196,13 +1209,8 @@ static int DrawLevelOvr1P_ProjectListGrid(struct LevVertex *vertices, const stru
 	return DrawLevelOvr1P_ProjectListVertexTriple(vertices, block, projected, 6, 7, 8, source);
 }
 
-static void Ovr226_800a5e5c_StoreGround4x2RenderedProjectedVertex(struct LevVertex *vertex, struct DrawLevelOvr1PScratchVertex *projected)
-{
-	DrawLevelOvr1P_CopySourceVertex(projected, vertex);
-}
-
-static void Ovr226_800a5e5c_ProjectGround4x2RenderedVertexTriple(struct LevVertex *vertices, const struct QuadBlock *block,
-                                                                 struct DrawLevelOvr1PScratchVertex *projected, int index0, int index1, int index2)
+static void DrawLevelOvr1P_ProjectRenderedVertexTriple(struct LevVertex *vertices, const struct QuadBlock *block, struct DrawLevelOvr1PScratchVertex *projected,
+                                                       int index0, int index1, int index2, enum DrawLevelOvr1PProjectedSource source)
 {
 	struct LevVertex *vertex0 = &vertices[block->index[index0]];
 	struct LevVertex *vertex1 = &vertices[block->index[index1]];
@@ -1211,9 +1219,9 @@ static void Ovr226_800a5e5c_ProjectGround4x2RenderedVertexTriple(struct LevVerte
 	u32 depth1;
 	u32 depth2;
 
-	Ovr226_800a5e5c_StoreGround4x2RenderedProjectedVertex(vertex0, &projected[index0]);
-	Ovr226_800a5e5c_StoreGround4x2RenderedProjectedVertex(vertex1, &projected[index1]);
-	Ovr226_800a5e5c_StoreGround4x2RenderedProjectedVertex(vertex2, &projected[index2]);
+	DrawLevelOvr1P_CopyProjectedSource(vertex0, &projected[index0], source, 1);
+	DrawLevelOvr1P_CopyProjectedSource(vertex1, &projected[index1], source, 1);
+	DrawLevelOvr1P_CopyProjectedSource(vertex2, &projected[index2], source, 1);
 
 	CTR_GteLoadSVec3V3(&vertex0->pos, &vertex1->pos, &vertex2->pos);
 	gte_rtpt();
@@ -1225,168 +1233,14 @@ static void Ovr226_800a5e5c_ProjectGround4x2RenderedVertexTriple(struct LevVerte
 	DrawLevelOvr1P_SetProjectedDepth(&projected[index2], depth2, DRAW_LEVEL_OVR1P_CLIP_BYTES_RENDERED);
 }
 
-static void Ovr226_800a5e5c_ProjectGround4x2RenderedGrid(struct LevVertex *vertices, const struct QuadBlock *block,
-                                                         struct DrawLevelOvr1PScratchVertex *projected)
+static void DrawLevelOvr1P_ProjectRenderedGrid(struct LevVertex *vertices, const struct QuadBlock *block, struct DrawLevelOvr1PScratchVertex *projected,
+                                               enum DrawLevelOvr1PProjectedSource source, enum DrawLevelOvr1PGridSlotMode slotMode)
 {
-	DrawLevelOvr1P_SetGridFaceSlot(projected, 0);
-	Ovr226_800a5e5c_ProjectGround4x2RenderedVertexTriple(vertices, block, projected, 0, 1, 2);
-	Ovr226_800a5e5c_ProjectGround4x2RenderedVertexTriple(vertices, block, projected, 3, 4, 5);
+	DrawLevelOvr1P_SetGridSlotMode(projected, slotMode);
+	DrawLevelOvr1P_ProjectRenderedVertexTriple(vertices, block, projected, 0, 1, 2, source);
+	DrawLevelOvr1P_ProjectRenderedVertexTriple(vertices, block, projected, 3, 4, 5, source);
 	DrawLevelOvr1P_SetActiveDrawOrderLow(block);
-	Ovr226_800a5e5c_ProjectGround4x2RenderedVertexTriple(vertices, block, projected, 6, 7, 8);
-}
-
-static void Ovr226_800a7ba8_StoreDynamicRenderedProjectedVertex(struct LevVertex *vertex, struct DrawLevelOvr1PScratchVertex *projected)
-{
-	DrawLevelOvr1P_CopySourceVertex(projected, vertex);
-}
-
-static void Ovr226_800a7ba8_ProjectDynamicRenderedVertexTriple(struct LevVertex *vertices, const struct QuadBlock *block,
-                                                               struct DrawLevelOvr1PScratchVertex *projected, int index0, int index1, int index2)
-{
-	struct LevVertex *vertex0 = &vertices[block->index[index0]];
-	struct LevVertex *vertex1 = &vertices[block->index[index1]];
-	struct LevVertex *vertex2 = &vertices[block->index[index2]];
-	u32 depth0;
-	u32 depth1;
-	u32 depth2;
-
-	Ovr226_800a7ba8_StoreDynamicRenderedProjectedVertex(vertex0, &projected[index0]);
-	Ovr226_800a7ba8_StoreDynamicRenderedProjectedVertex(vertex1, &projected[index1]);
-	Ovr226_800a7ba8_StoreDynamicRenderedProjectedVertex(vertex2, &projected[index2]);
-
-	CTR_GteLoadSVec3V3(&vertex0->pos, &vertex1->pos, &vertex2->pos);
-	gte_rtpt();
-	CTR_GteStoreSXY3(&projected[index0].posScreen[0], &projected[index1].posScreen[0], &projected[index2].posScreen[0]);
-	gte_stsz3(&depth0, &depth1, &depth2);
-
-	DrawLevelOvr1P_SetProjectedDepth(&projected[index0], depth0, DRAW_LEVEL_OVR1P_CLIP_BYTES_RENDERED);
-	DrawLevelOvr1P_SetProjectedDepth(&projected[index1], depth1, DRAW_LEVEL_OVR1P_CLIP_BYTES_RENDERED);
-	DrawLevelOvr1P_SetProjectedDepth(&projected[index2], depth2, DRAW_LEVEL_OVR1P_CLIP_BYTES_RENDERED);
-}
-
-static void Ovr226_800a7ba8_ProjectDynamicRenderedGrid(struct LevVertex *vertices, const struct QuadBlock *block, struct DrawLevelOvr1PScratchVertex *projected)
-{
-	DrawLevelOvr1P_SetGridFaceSlotWord(projected, 0);
-	Ovr226_800a7ba8_ProjectDynamicRenderedVertexTriple(vertices, block, projected, 0, 1, 2);
-	Ovr226_800a7ba8_ProjectDynamicRenderedVertexTriple(vertices, block, projected, 3, 4, 5);
-	DrawLevelOvr1P_SetActiveDrawOrderLow(block);
-	Ovr226_800a7ba8_ProjectDynamicRenderedVertexTriple(vertices, block, projected, 6, 7, 8);
-}
-
-static void Ovr226_800a97c8_StoreQuad4x4RenderedProjectedVertex(struct LevVertex *vertex, struct DrawLevelOvr1PScratchVertex *projected)
-{
-	DrawLevelOvr1P_CopySourceVertex(projected, vertex);
-}
-
-static void Ovr226_800a97c8_ProjectQuad4x4RenderedVertexTriple(struct LevVertex *vertices, const struct QuadBlock *block,
-                                                               struct DrawLevelOvr1PScratchVertex *projected, int index0, int index1, int index2)
-{
-	struct LevVertex *vertex0 = &vertices[block->index[index0]];
-	struct LevVertex *vertex1 = &vertices[block->index[index1]];
-	struct LevVertex *vertex2 = &vertices[block->index[index2]];
-	u32 depth0;
-	u32 depth1;
-	u32 depth2;
-
-	Ovr226_800a97c8_StoreQuad4x4RenderedProjectedVertex(vertex0, &projected[index0]);
-	Ovr226_800a97c8_StoreQuad4x4RenderedProjectedVertex(vertex1, &projected[index1]);
-	Ovr226_800a97c8_StoreQuad4x4RenderedProjectedVertex(vertex2, &projected[index2]);
-
-	CTR_GteLoadSVec3V3(&vertex0->pos, &vertex1->pos, &vertex2->pos);
-	gte_rtpt();
-	CTR_GteStoreSXY3(&projected[index0].posScreen[0], &projected[index1].posScreen[0], &projected[index2].posScreen[0]);
-	gte_stsz3(&depth0, &depth1, &depth2);
-
-	DrawLevelOvr1P_SetProjectedDepth(&projected[index0], depth0, DRAW_LEVEL_OVR1P_CLIP_BYTES_RENDERED);
-	DrawLevelOvr1P_SetProjectedDepth(&projected[index1], depth1, DRAW_LEVEL_OVR1P_CLIP_BYTES_RENDERED);
-	DrawLevelOvr1P_SetProjectedDepth(&projected[index2], depth2, DRAW_LEVEL_OVR1P_CLIP_BYTES_RENDERED);
-}
-
-static void Ovr226_800a97c8_ProjectQuad4x4RenderedGrid(struct LevVertex *vertices, const struct QuadBlock *block, struct DrawLevelOvr1PScratchVertex *projected)
-{
-	DrawLevelOvr1P_SetGridFaceSlotWord(projected, 0);
-	Ovr226_800a97c8_ProjectQuad4x4RenderedVertexTriple(vertices, block, projected, 0, 1, 2);
-	Ovr226_800a97c8_ProjectQuad4x4RenderedVertexTriple(vertices, block, projected, 3, 4, 5);
-	DrawLevelOvr1P_SetActiveDrawOrderLow(block);
-	Ovr226_800a97c8_ProjectQuad4x4RenderedVertexTriple(vertices, block, projected, 6, 7, 8);
-}
-
-static void Ovr226_800a417c_StoreGround4x1RenderedProjectedVertex(struct LevVertex *vertex, struct DrawLevelOvr1PScratchVertex *projected)
-{
-	DrawLevelOvr1P_CopySourceVertex(projected, vertex);
-}
-
-static void Ovr226_800a417c_ProjectGround4x1RenderedVertexTriple(struct LevVertex *vertices, const struct QuadBlock *block,
-                                                                 struct DrawLevelOvr1PScratchVertex *projected, int index0, int index1, int index2)
-{
-	struct LevVertex *vertex0 = &vertices[block->index[index0]];
-	struct LevVertex *vertex1 = &vertices[block->index[index1]];
-	struct LevVertex *vertex2 = &vertices[block->index[index2]];
-	u32 depth0;
-	u32 depth1;
-	u32 depth2;
-
-	Ovr226_800a417c_StoreGround4x1RenderedProjectedVertex(vertex0, &projected[index0]);
-	Ovr226_800a417c_StoreGround4x1RenderedProjectedVertex(vertex1, &projected[index1]);
-	Ovr226_800a417c_StoreGround4x1RenderedProjectedVertex(vertex2, &projected[index2]);
-
-	CTR_GteLoadSVec3V3(&vertex0->pos, &vertex1->pos, &vertex2->pos);
-	gte_rtpt();
-	CTR_GteStoreSXY3(&projected[index0].posScreen[0], &projected[index1].posScreen[0], &projected[index2].posScreen[0]);
-	gte_stsz3(&depth0, &depth1, &depth2);
-
-	DrawLevelOvr1P_SetProjectedDepth(&projected[index0], depth0, DRAW_LEVEL_OVR1P_CLIP_BYTES_RENDERED);
-	DrawLevelOvr1P_SetProjectedDepth(&projected[index1], depth1, DRAW_LEVEL_OVR1P_CLIP_BYTES_RENDERED);
-	DrawLevelOvr1P_SetProjectedDepth(&projected[index2], depth2, DRAW_LEVEL_OVR1P_CLIP_BYTES_RENDERED);
-}
-
-static void Ovr226_800a417c_ProjectGround4x1RenderedGrid(struct LevVertex *vertices, const struct QuadBlock *block,
-                                                         struct DrawLevelOvr1PScratchVertex *projected)
-{
-	DrawLevelOvr1P_SetGridFaceSlot(projected, 0);
-	Ovr226_800a417c_ProjectGround4x1RenderedVertexTriple(vertices, block, projected, 0, 1, 2);
-	Ovr226_800a417c_ProjectGround4x1RenderedVertexTriple(vertices, block, projected, 3, 4, 5);
-	DrawLevelOvr1P_SetActiveDrawOrderLow(block);
-	Ovr226_800a417c_ProjectGround4x1RenderedVertexTriple(vertices, block, projected, 6, 7, 8);
-}
-
-static void Ovr226_800a2924_StoreWaterRenderedProjectedVertex(struct LevVertex *vertex, struct DrawLevelOvr1PScratchVertex *projected)
-{
-	projected->posVec = vertex->pos;
-	projected->flags = (u16)vertex->color_lo[0] | ((u16)vertex->color_lo[1] << 8);
-	DrawLevelOvr1P_CopyColorWord(projected->color_hi, vertex->color_hi);
-}
-
-static void Ovr226_800a2924_ProjectWaterRenderedVertexTriple(struct LevVertex *vertices, const struct QuadBlock *block,
-                                                             struct DrawLevelOvr1PScratchVertex *projected, int index0, int index1, int index2)
-{
-	struct LevVertex *vertex0 = &vertices[block->index[index0]];
-	struct LevVertex *vertex1 = &vertices[block->index[index1]];
-	struct LevVertex *vertex2 = &vertices[block->index[index2]];
-	u32 depth0;
-	u32 depth1;
-	u32 depth2;
-
-	Ovr226_800a2924_StoreWaterRenderedProjectedVertex(vertex0, &projected[index0]);
-	Ovr226_800a2924_StoreWaterRenderedProjectedVertex(vertex1, &projected[index1]);
-	Ovr226_800a2924_StoreWaterRenderedProjectedVertex(vertex2, &projected[index2]);
-
-	CTR_GteLoadSVec3V3(&vertex0->pos, &vertex1->pos, &vertex2->pos);
-	gte_rtpt();
-	CTR_GteStoreSXY3(&projected[index0].posScreen[0], &projected[index1].posScreen[0], &projected[index2].posScreen[0]);
-	gte_stsz3(&depth0, &depth1, &depth2);
-
-	DrawLevelOvr1P_SetProjectedDepth(&projected[index0], depth0, DRAW_LEVEL_OVR1P_CLIP_BYTES_RENDERED);
-	DrawLevelOvr1P_SetProjectedDepth(&projected[index1], depth1, DRAW_LEVEL_OVR1P_CLIP_BYTES_RENDERED);
-	DrawLevelOvr1P_SetProjectedDepth(&projected[index2], depth2, DRAW_LEVEL_OVR1P_CLIP_BYTES_RENDERED);
-}
-
-static void Ovr226_800a2924_ProjectWaterRenderedGrid(struct LevVertex *vertices, const struct QuadBlock *block, struct DrawLevelOvr1PScratchVertex *projected)
-{
-	Ovr226_800a2924_ProjectWaterRenderedVertexTriple(vertices, block, projected, 0, 1, 2);
-	Ovr226_800a2924_ProjectWaterRenderedVertexTriple(vertices, block, projected, 3, 4, 5);
-	DrawLevelOvr1P_SetActiveDrawOrderLow(block);
-	Ovr226_800a2924_ProjectWaterRenderedVertexTriple(vertices, block, projected, 6, 7, 8);
+	DrawLevelOvr1P_ProjectRenderedVertexTriple(vertices, block, projected, 6, 7, 8, source);
 }
 
 static u32 DrawLevelOvr1P_GetProjectedColorWord(const struct DrawLevelOvr1PScratchVertex *projected);
@@ -8262,19 +8116,19 @@ static int DrawLevelOvr1P_ProjectSplitGroundListALowGrid(struct LevVertex *verti
                                                          struct DrawLevelOvr1PScratchVertex *projected)
 {
 	DrawLevelOvr1P_SetGridFaceSlot(projected, 0);
-	if (DrawLevelOvr1P_ProjectListVertexTriple(vertices, block, projected, 0, 1, 2, DRAW_LEVEL_OVR1P_LIST_SOURCE_POS_FLAGS))
+	if (DrawLevelOvr1P_ProjectListVertexTriple(vertices, block, projected, 0, 1, 2, DRAW_LEVEL_OVR1P_PROJECTED_SOURCE_POS_FLAGS))
 	{
 		return 1;
 	}
 
 	DrawLevelOvr1P_SetActiveDrawOrderLow(block);
-	return DrawLevelOvr1P_ProjectListVertexTriple(vertices, block, projected, 3, 4, 5, DRAW_LEVEL_OVR1P_LIST_SOURCE_POS_FLAGS);
+	return DrawLevelOvr1P_ProjectListVertexTriple(vertices, block, projected, 3, 4, 5, DRAW_LEVEL_OVR1P_PROJECTED_SOURCE_POS_FLAGS);
 }
 
 static int DrawLevelOvr1P_ProjectSplitGroundListATransitionGrid(struct LevVertex *vertices, const struct QuadBlock *block,
                                                                 struct DrawLevelOvr1PScratchVertex *projected)
 {
-	if (DrawLevelOvr1P_ProjectListVertexTriple(vertices, block, projected, 6, 7, 8, DRAW_LEVEL_OVR1P_LIST_SOURCE_POS_FLAGS))
+	if (DrawLevelOvr1P_ProjectListVertexTriple(vertices, block, projected, 6, 7, 8, DRAW_LEVEL_OVR1P_PROJECTED_SOURCE_POS_FLAGS))
 	{
 		return 1;
 	}
@@ -8359,7 +8213,7 @@ static int Ovr226_800a3738_EmitGround4x1ListQuadBlock(struct PushBuffer *pb, str
 	struct LevVertex *vertices = mesh->ptrVertexArray;
 	struct DrawLevelOvr1PScratchVertex *projected = DrawLevelOvr1P_GetScratchVertices();
 
-	if (DrawLevelOvr1P_ProjectListGrid(vertices, block, projected, DRAW_LEVEL_OVR1P_LIST_SOURCE_POS_FLAGS, DRAW_LEVEL_OVR1P_GRID_SLOT_FACE))
+	if (DrawLevelOvr1P_ProjectListGrid(vertices, block, projected, DRAW_LEVEL_OVR1P_PROJECTED_SOURCE_POS_FLAGS, DRAW_LEVEL_OVR1P_GRID_SLOT_FACE))
 	{
 		DrawLevelOvr1P_AppendRenderedQuadBlock(block);
 		return 1;
@@ -8445,7 +8299,7 @@ static int Ovr226_800a417c_DrawGround4x1RenderedList(struct QuadBlock **rendered
 			return 1;
 		}
 
-		Ovr226_800a417c_ProjectGround4x1RenderedGrid(vertices, block, projected);
+		DrawLevelOvr1P_ProjectRenderedGrid(vertices, block, projected, DRAW_LEVEL_OVR1P_PROJECTED_SOURCE_POS_FLAGS, DRAW_LEVEL_OVR1P_GRID_SLOT_FACE);
 
 		for (int faceIndex = 0; faceIndex < 4; faceIndex++)
 		{
@@ -8484,7 +8338,7 @@ static int Ovr226_800a5e5c_DrawGround4x2RenderedList(struct QuadBlock **rendered
 			return 1;
 		}
 
-		Ovr226_800a5e5c_ProjectGround4x2RenderedGrid(vertices, block, projected);
+		DrawLevelOvr1P_ProjectRenderedGrid(vertices, block, projected, DRAW_LEVEL_OVR1P_PROJECTED_SOURCE_POS_FLAGS, DRAW_LEVEL_OVR1P_GRID_SLOT_FACE);
 
 		for (int faceIndex = 0; faceIndex < 4; faceIndex++)
 		{
@@ -8523,7 +8377,7 @@ static int Ovr226_800a7ba8_DrawDynamicRenderedList(struct QuadBlock **renderedLi
 			return 1;
 		}
 
-		Ovr226_800a7ba8_ProjectDynamicRenderedGrid(vertices, block, projected);
+		DrawLevelOvr1P_ProjectRenderedGrid(vertices, block, projected, DRAW_LEVEL_OVR1P_PROJECTED_SOURCE_POS_FLAGS, DRAW_LEVEL_OVR1P_GRID_SLOT_WORD);
 
 		for (int faceIndex = 0; faceIndex < 4; faceIndex++)
 		{
@@ -8562,7 +8416,7 @@ static int Ovr226_800a97c8_DrawQuad4x4RenderedList(struct QuadBlock **renderedLi
 			return 1;
 		}
 
-		Ovr226_800a97c8_ProjectQuad4x4RenderedGrid(vertices, block, projected);
+		DrawLevelOvr1P_ProjectRenderedGrid(vertices, block, projected, DRAW_LEVEL_OVR1P_PROJECTED_SOURCE_POS_FLAGS, DRAW_LEVEL_OVR1P_GRID_SLOT_WORD);
 
 		for (int faceIndex = 0; faceIndex < 4; faceIndex++)
 		{
@@ -8581,7 +8435,7 @@ static int Ovr226_800a5030_EmitGround4x2ListQuadBlock(struct PushBuffer *pb, str
 	struct LevVertex *vertices = mesh->ptrVertexArray;
 	struct DrawLevelOvr1PScratchVertex *projected = DrawLevelOvr1P_GetScratchVertices();
 
-	if (DrawLevelOvr1P_ProjectListGrid(vertices, block, projected, DRAW_LEVEL_OVR1P_LIST_SOURCE_POS_FLAGS, DRAW_LEVEL_OVR1P_GRID_SLOT_FACE))
+	if (DrawLevelOvr1P_ProjectListGrid(vertices, block, projected, DRAW_LEVEL_OVR1P_PROJECTED_SOURCE_POS_FLAGS, DRAW_LEVEL_OVR1P_GRID_SLOT_FACE))
 	{
 		DrawLevelOvr1P_AppendRenderedQuadBlock(block);
 		return 1;
@@ -8647,7 +8501,7 @@ static int Ovr226_800a6fd0_EmitDynamicListQuadBlock(struct PushBuffer *pb, struc
 	struct LevVertex *vertices = mesh->ptrVertexArray;
 	struct DrawLevelOvr1PScratchVertex *projected = DrawLevelOvr1P_GetScratchVertices();
 
-	if (DrawLevelOvr1P_ProjectListGrid(vertices, block, projected, DRAW_LEVEL_OVR1P_LIST_SOURCE_POS_FLAGS, DRAW_LEVEL_OVR1P_GRID_SLOT_WORD))
+	if (DrawLevelOvr1P_ProjectListGrid(vertices, block, projected, DRAW_LEVEL_OVR1P_PROJECTED_SOURCE_POS_FLAGS, DRAW_LEVEL_OVR1P_GRID_SLOT_WORD))
 	{
 		DrawLevelOvr1P_AppendRenderedQuadBlock(block);
 		return 1;
@@ -8713,7 +8567,7 @@ static int Ovr226_800a8bf0_EmitWideDynamicQuadBlock(struct PushBuffer *pb, struc
 	struct LevVertex *vertices = mesh->ptrVertexArray;
 	struct DrawLevelOvr1PScratchVertex *projected = DrawLevelOvr1P_GetScratchVertices();
 
-	if (DrawLevelOvr1P_ProjectListGrid(vertices, block, projected, DRAW_LEVEL_OVR1P_LIST_SOURCE_POS_FLAGS, DRAW_LEVEL_OVR1P_GRID_SLOT_WORD))
+	if (DrawLevelOvr1P_ProjectListGrid(vertices, block, projected, DRAW_LEVEL_OVR1P_PROJECTED_SOURCE_POS_FLAGS, DRAW_LEVEL_OVR1P_GRID_SLOT_WORD))
 	{
 		DrawLevelOvr1P_AppendRenderedQuadBlock(block);
 		return 1;
@@ -9422,7 +9276,7 @@ static int Ovr226_800a1ee0_EmitWaterListQuadBlock(struct PushBuffer *pb, struct 
 	struct LevVertex *vertices = mesh->ptrVertexArray;
 	struct DrawLevelOvr1PScratchVertex *projected = DrawLevelOvr1P_GetScratchVertices();
 
-	if (DrawLevelOvr1P_ProjectListGrid(vertices, block, projected, DRAW_LEVEL_OVR1P_LIST_SOURCE_WATER_COLOR_LO_FLAGS, DRAW_LEVEL_OVR1P_GRID_SLOT_FACE))
+	if (DrawLevelOvr1P_ProjectListGrid(vertices, block, projected, DRAW_LEVEL_OVR1P_PROJECTED_SOURCE_WATER_COLOR_LO_FLAGS, DRAW_LEVEL_OVR1P_GRID_SLOT_FACE))
 	{
 		DrawLevelOvr1P_AppendRenderedQuadBlock(block);
 		return 1;
@@ -9879,7 +9733,7 @@ static int DrawLevelOvr1P_DrawRenderedWaterQuadBlockWithDefaultHandler(struct Pu
 	struct LevVertex *vertices = mesh->ptrVertexArray;
 	struct DrawLevelOvr1PScratchVertex *projected = DrawLevelOvr1P_GetScratchVertices();
 
-	Ovr226_800a2924_ProjectWaterRenderedGrid(vertices, block, projected);
+	DrawLevelOvr1P_ProjectRenderedGrid(vertices, block, projected, DRAW_LEVEL_OVR1P_PROJECTED_SOURCE_WATER_COLOR_LO_FLAGS, DRAW_LEVEL_OVR1P_GRID_SLOT_NONE);
 	Ovr226_800a2c4c_ApplyWaterRenderedColorFades(projected);
 
 	// NOTE(aalhendi): Retail water-rendered helper dispatch enters the current
