@@ -260,113 +260,71 @@ static int Ovr228_800a0d9c_DispatchBucketTable(struct DrawLevelOvr1PRenderList *
 	return 1;
 }
 
-static int Ovr228_800a10c4_DrawWaterBspList(void *bucketValue, struct PushBuffer *pb, struct mesh_info *mesh, struct PrimMem *primMem, const int *visFaceList)
-{
-	DrawLevelOvr1P_SetPrimReserveBias(OVR228_WATER_BSP_LIST_PRIM_RESERVE_BIAS);
-	return Ovr226_800a1e30_DrawWaterBspList((struct VisMemBspListNode *)bucketValue, pb, mesh, primMem, visFaceList);
-}
-
-static int Ovr228_800a1b88_DrawWaterRenderedList(void *bucketValue, struct PushBuffer *pb, struct mesh_info *mesh, struct PrimMem *primMem)
-{
-	DrawLevelOvr1P_SetPrimReserveBias(OVR228_WATER_BSP_LIST_PRIM_RESERVE_BIAS);
-	return Ovr226_800a2904_DrawWaterRenderedListWithDefaultHandler((struct QuadBlock **)bucketValue, pb, mesh, primMem, OVR228_WATER_RENDERED_DEFAULT_WRAPPER);
-}
-
-static int Ovr228_800a2928_DrawSplitGroundListA(void *bucketValue, struct PushBuffer *pb, struct mesh_info *mesh, struct PrimMem *primMem,
-                                                const int *visFaceList)
-{
-	DrawLevelOvr1P_SetPrimReserveBias(OVR228_WATER_BSP_LIST_PRIM_RESERVE_BIAS);
-	return DrawLevelOvr1P_DrawSplitGroundListABspList((struct VisMemBspListNode *)bucketValue, pb, mesh, primMem, visFaceList);
-}
-
-static int Ovr228_800a37b8_DrawSplitGroundRenderedA(void *bucketValue, struct PushBuffer *pb, struct mesh_info *mesh, struct PrimMem *primMem)
-{
-	DrawLevelOvr1P_SetPrimReserveBias(OVR228_WATER_BSP_LIST_PRIM_RESERVE_BIAS);
-	DrawLevelOvr1P_SetSplitGroundThresholdScratch();
-	return Ovr226_800a7ba8_DrawDynamicRenderedList((struct QuadBlock **)bucketValue, pb, mesh, primMem);
-}
-
-static int Ovr228_800a4768_DrawSplitGroundListB(void *bucketValue, struct PushBuffer *pb, struct mesh_info *mesh, struct PrimMem *primMem,
-                                                const int *visFaceList)
-{
-	int result;
-
-	DrawLevelOvr1P_SetPrimReserveBias(OVR228_SPLIT_GROUND_LIST_B_PRIM_RESERVE_BIAS);
-	DrawLevelOvr1P_SetSplitGroundThresholdScratch();
-	DrawLevelOvr1P_SetMosaicReloadSpanOverride(DRAW_LEVEL_OVR1P_SPLIT_GROUND_MOSAIC_RELOAD_SPAN);
-	result = Ovr226_800a4fa0_DrawGround4x2BspList((struct VisMemBspListNode *)bucketValue, pb, mesh, primMem, visFaceList);
-	DrawLevelOvr1P_SetMosaicReloadSpanOverride(0);
-	return result;
-}
-
-static int Ovr228_800a55f8_DrawSplitGroundRenderedB(void *bucketValue, struct PushBuffer *pb, struct mesh_info *mesh, struct PrimMem *primMem)
-{
-	int result;
-
-	DrawLevelOvr1P_SetPrimReserveBias(OVR228_SPLIT_GROUND_LIST_B_PRIM_RESERVE_BIAS);
-	DrawLevelOvr1P_SetSplitGroundThresholdScratch();
-	DrawLevelOvr1P_SetMosaicReloadSpanOverride(DRAW_LEVEL_OVR1P_SPLIT_GROUND_MOSAIC_RELOAD_SPAN);
-	result = Ovr226_800a5e5c_DrawGround4x2RenderedList((struct QuadBlock **)bucketValue, pb, mesh, primMem);
-	DrawLevelOvr1P_SetMosaicReloadSpanOverride(0);
-	return result;
-}
-
-static int Ovr228_800a65a8_DrawWideDynamicList(void *bucketValue, struct PushBuffer *pb, struct mesh_info *mesh, struct PrimMem *primMem,
-                                               const int *visFaceList)
-{
-	DrawLevelOvr1P_SetPrimReserveBias(OVR228_WATER_BSP_LIST_PRIM_RESERVE_BIAS);
-	DrawLevelOvr1P_SetSplitGroundThresholdScratch();
-	return Ovr226_800a8b60_DrawWideDynamicBspList((struct VisMemBspListNode *)bucketValue, pb, mesh, primMem, visFaceList);
-}
-
-static int Ovr228_800a71fc_DrawQuad4x4RenderedList(void *bucketValue, struct PushBuffer *pb, struct mesh_info *mesh, struct PrimMem *primMem)
-{
-	DrawLevelOvr1P_SetPrimReserveBias(OVR228_WATER_BSP_LIST_PRIM_RESERVE_BIAS);
-	DrawLevelOvr1P_SetSplitGroundThresholdScratch();
-	return Ovr226_800a97c8_DrawQuad4x4RenderedList((struct QuadBlock **)bucketValue, pb, mesh, primMem);
-}
-
 static int Ovr228_800a10c4_800a81bc_BucketDispatch(u32 handlerAddress, void *bucketValue, struct PushBuffer *pb, struct mesh_info *mesh,
                                                    struct PrimMem *primMem, const int *visFaceList)
 {
 	if (handlerAddress == OVR228_WATER_BSP_LIST_HANDLER)
 	{
-		return Ovr228_800a10c4_DrawWaterBspList(bucketValue, pb, mesh, primMem, visFaceList);
+		DrawLevelOvr1P_SetPrimReserveBias(OVR228_WATER_BSP_LIST_PRIM_RESERVE_BIAS);
+		return Ovr226_800a1e30_DrawWaterBspList((struct VisMemBspListNode *)bucketValue, pb, mesh, primMem, visFaceList);
 	}
 
 	if (handlerAddress == OVR228_WATER_RENDERED_HANDLER)
 	{
-		return Ovr228_800a1b88_DrawWaterRenderedList(bucketValue, pb, mesh, primMem);
+		DrawLevelOvr1P_SetPrimReserveBias(OVR228_WATER_BSP_LIST_PRIM_RESERVE_BIAS);
+		return Ovr226_800a2904_DrawWaterRenderedListWithDefaultHandler((struct QuadBlock **)bucketValue, pb, mesh, primMem,
+		                                                               OVR228_WATER_RENDERED_DEFAULT_WRAPPER);
 	}
 
 	if (handlerAddress == OVR228_SPLIT_GROUND_LIST_A_HANDLER)
 	{
-		return Ovr228_800a2928_DrawSplitGroundListA(bucketValue, pb, mesh, primMem, visFaceList);
+		DrawLevelOvr1P_SetPrimReserveBias(OVR228_WATER_BSP_LIST_PRIM_RESERVE_BIAS);
+		return DrawLevelOvr1P_DrawSplitGroundListABspList((struct VisMemBspListNode *)bucketValue, pb, mesh, primMem, visFaceList);
 	}
 
 	if (handlerAddress == OVR228_SPLIT_GROUND_RENDERED_A_HANDLER)
 	{
-		return Ovr228_800a37b8_DrawSplitGroundRenderedA(bucketValue, pb, mesh, primMem);
+		DrawLevelOvr1P_SetPrimReserveBias(OVR228_WATER_BSP_LIST_PRIM_RESERVE_BIAS);
+		DrawLevelOvr1P_SetSplitGroundThresholdScratch();
+		return Ovr226_800a7ba8_DrawDynamicRenderedList((struct QuadBlock **)bucketValue, pb, mesh, primMem);
 	}
 
 	if (handlerAddress == OVR228_SPLIT_GROUND_LIST_B_HANDLER)
 	{
-		return Ovr228_800a4768_DrawSplitGroundListB(bucketValue, pb, mesh, primMem, visFaceList);
+		int result;
+
+		DrawLevelOvr1P_SetPrimReserveBias(OVR228_SPLIT_GROUND_LIST_B_PRIM_RESERVE_BIAS);
+		DrawLevelOvr1P_SetSplitGroundThresholdScratch();
+		DrawLevelOvr1P_SetMosaicReloadSpanOverride(DRAW_LEVEL_OVR1P_SPLIT_GROUND_MOSAIC_RELOAD_SPAN);
+		result = Ovr226_800a4fa0_DrawGround4x2BspList((struct VisMemBspListNode *)bucketValue, pb, mesh, primMem, visFaceList);
+		DrawLevelOvr1P_SetMosaicReloadSpanOverride(0);
+		return result;
 	}
 
 	if (handlerAddress == OVR228_SPLIT_GROUND_RENDERED_B_HANDLER)
 	{
-		return Ovr228_800a55f8_DrawSplitGroundRenderedB(bucketValue, pb, mesh, primMem);
+		int result;
+
+		DrawLevelOvr1P_SetPrimReserveBias(OVR228_SPLIT_GROUND_LIST_B_PRIM_RESERVE_BIAS);
+		DrawLevelOvr1P_SetSplitGroundThresholdScratch();
+		DrawLevelOvr1P_SetMosaicReloadSpanOverride(DRAW_LEVEL_OVR1P_SPLIT_GROUND_MOSAIC_RELOAD_SPAN);
+		result = Ovr226_800a5e5c_DrawGround4x2RenderedList((struct QuadBlock **)bucketValue, pb, mesh, primMem);
+		DrawLevelOvr1P_SetMosaicReloadSpanOverride(0);
+		return result;
 	}
 
 	if (handlerAddress == OVR228_WIDE_DYNAMIC_HANDLER)
 	{
-		return Ovr228_800a65a8_DrawWideDynamicList(bucketValue, pb, mesh, primMem, visFaceList);
+		DrawLevelOvr1P_SetPrimReserveBias(OVR228_WATER_BSP_LIST_PRIM_RESERVE_BIAS);
+		DrawLevelOvr1P_SetSplitGroundThresholdScratch();
+		return Ovr226_800a8b60_DrawWideDynamicBspList((struct VisMemBspListNode *)bucketValue, pb, mesh, primMem, visFaceList);
 	}
 
 	if (handlerAddress == OVR228_QUAD_4X4_RENDERED_HANDLER)
 	{
-		return Ovr228_800a71fc_DrawQuad4x4RenderedList(bucketValue, pb, mesh, primMem);
+		DrawLevelOvr1P_SetPrimReserveBias(OVR228_WATER_BSP_LIST_PRIM_RESERVE_BIAS);
+		DrawLevelOvr1P_SetSplitGroundThresholdScratch();
+		return Ovr226_800a97c8_DrawQuad4x4RenderedList((struct QuadBlock **)bucketValue, pb, mesh, primMem);
 	}
 
 	// NOTE(aalhendi): Reject handler addresses that are not present in the
