@@ -1,5 +1,6 @@
 #include <macros.h>
 #include <platform/native_assets.h>
+#include <platform/native_disc_image.h>
 #include <platform/native_renderer.h>
 #include <platform/native_str.h>
 #include <psx/libgpu.h>
@@ -32,14 +33,25 @@ enum NativeSTRFormat
 	NATIVE_STR_FORMAT_CD_STREAM,
 };
 
+enum NativeSTRSource
+{
+	NATIVE_STR_SOURCE_NONE,
+	NATIVE_STR_SOURCE_HOST_FILE,
+	NATIVE_STR_SOURCE_DISC,
+};
+
 struct NativeSTRState
 {
 	FILE *file;
+	struct NativeDiscImageFile discFile;
 	s32 active;
 	s32 format;
+	s32 source;
 	s32 loop;
 	s32 bigfileSector;
 	u32 fileBaseOffset;
+	u32 fileBaseSector;
+	u32 currentSector;
 	s32 frameIndex;
 	s32 frameLimit;
 	s32 frameSize;
@@ -456,6 +468,48 @@ internal void NativeSTR_CopySectorPayload(const u8 *sector, s32 headerOffset, co
 	*copied += copyBytes;
 }
 
+internal s32 NativeSTR_ReadExtractedSector(u8 *sector)
+{
+	if (s_str.source == NATIVE_STR_SOURCE_HOST_FILE)
+	{
+		return fread(sector, 1, NATIVE_STR_EXTRACTED_SECTOR_SIZE, s_str.file) == NATIVE_STR_EXTRACTED_SECTOR_SIZE;
+	}
+
+	if (s_str.source == NATIVE_STR_SOURCE_DISC)
+	{
+		if (!NativeDiscImage_ReadDataSectors(&s_str.discFile, s_str.currentSector, 1, sector))
+		{
+			return 0;
+		}
+
+		s_str.currentSector++;
+		return 1;
+	}
+
+	return 0;
+}
+
+internal s32 NativeSTR_ReadCdRecord(u8 *sector)
+{
+	if (s_str.source == NATIVE_STR_SOURCE_HOST_FILE)
+	{
+		return fread(sector, 1, NATIVE_STR_CD_SECTOR_SIZE, s_str.file) == NATIVE_STR_CD_SECTOR_SIZE;
+	}
+
+	if (s_str.source == NATIVE_STR_SOURCE_DISC)
+	{
+		if (!NativeDiscImage_ReadRawSectors(&s_str.discFile, s_str.currentSector, 1, sector))
+		{
+			return 0;
+		}
+
+		s_str.currentSector++;
+		return 1;
+	}
+
+	return 0;
+}
+
 internal s32 NativeSTR_ReadNextFrameFromFile(void)
 {
 	u8 sector[NATIVE_STR_EXTRACTED_SECTOR_SIZE];
@@ -463,7 +517,7 @@ internal s32 NativeSTR_ReadNextFrameFromFile(void)
 	s32 copied = 0;
 	s32 chunk;
 
-	if (fread(sector, 1, sizeof(sector), s_str.file) != sizeof(sector))
+	if (!NativeSTR_ReadExtractedSector(sector))
 	{
 		return 0;
 	}
@@ -482,7 +536,7 @@ internal s32 NativeSTR_ReadNextFrameFromFile(void)
 		struct NativeSTRSectorHeader header;
 		if (chunk != 0)
 		{
-			if (fread(sector, 1, sizeof(sector), s_str.file) != sizeof(sector))
+			if (!NativeSTR_ReadExtractedSector(sector))
 			{
 				return 0;
 			}
@@ -502,7 +556,7 @@ internal s32 NativeSTR_ReadNextFrameFromFile(void)
 
 internal s32 NativeSTR_ReadNextCdRecord(u8 *sector, struct NativeSTRSectorHeader *header)
 {
-	while (fread(sector, 1, NATIVE_STR_CD_SECTOR_SIZE, s_str.file) == NATIVE_STR_CD_SECTOR_SIZE)
+	while (NativeSTR_ReadCdRecord(sector))
 	{
 		// NOTE(aalhendi): TEST.STR is the raw CD/XA scrapbook stream. Each
 		// 0x920-byte record has an XA subheader before the STR chunk header,
@@ -567,7 +621,14 @@ internal s32 NativeSTR_ReadNextFrameFromCdStream(void)
 
 internal s32 NativeSTR_RewindFrameSource(void)
 {
-	if (fseek(s_str.file, (long)s_str.fileBaseOffset, SEEK_SET) != 0)
+	if (s_str.source == NATIVE_STR_SOURCE_DISC)
+	{
+		s_str.currentSector = s_str.fileBaseSector;
+		s_str.frameIndex = 0;
+		return 1;
+	}
+
+	if ((s_str.file == NULL) || (fseek(s_str.file, (long)s_str.fileBaseOffset, SEEK_SET) != 0))
 	{
 		return 0;
 	}
@@ -618,6 +679,8 @@ internal s32 NativeSTR_ReadNextFrame(void)
 
 s32 NativeSTR_StartTrackPreviewFromBigfileSector(s32 bigfileSector, s32 frameCount)
 {
+	struct NativeDiscImageFile discFile;
+
 	if (bigfileSector < 0)
 	{
 		return 0;
@@ -630,13 +693,23 @@ s32 NativeSTR_StartTrackPreviewFromBigfileSector(s32 bigfileSector, s32 frameCou
 
 	NativeSTR_Stop();
 
-	s_str.file = NativeAssets_OpenBigfile("rb");
-	if (s_str.file == NULL)
+	s_str.file = NativeAssets_OpenHostBigfile("rb");
+	if (s_str.file != NULL)
+	{
+		s_str.source = NATIVE_STR_SOURCE_HOST_FILE;
+		s_str.fileBaseOffset = (u32)bigfileSector * NATIVE_STR_EXTRACTED_SECTOR_SIZE;
+	}
+	else if (NativeDiscImage_FindFile("BIGFILE.BIG", &discFile))
+	{
+		s_str.source = NATIVE_STR_SOURCE_DISC;
+		s_str.discFile = discFile;
+		s_str.fileBaseSector = (u32)bigfileSector;
+	}
+	else
 	{
 		return 0;
 	}
 
-	s_str.fileBaseOffset = (u32)bigfileSector * NATIVE_STR_EXTRACTED_SECTOR_SIZE;
 	if (NativeSTR_RewindFrameSource() == 0)
 	{
 		NativeSTR_Stop();
@@ -654,6 +727,8 @@ s32 NativeSTR_StartTrackPreviewFromBigfileSector(s32 bigfileSector, s32 frameCou
 
 s32 NativeSTR_StartScrapbook(void)
 {
+	struct NativeDiscImageFile discFile;
+
 	if ((s_str.active != 0) && (s_str.format == NATIVE_STR_FORMAT_CD_STREAM))
 	{
 		return 1;
@@ -661,8 +736,17 @@ s32 NativeSTR_StartScrapbook(void)
 
 	NativeSTR_Stop();
 
-	s_str.file = NativeAssets_Open(NATIVE_STR_SCRAPBOOK_PATH, "rb");
-	if (s_str.file == NULL)
+	s_str.file = NativeAssets_OpenHost(NATIVE_STR_SCRAPBOOK_PATH, "rb");
+	if (s_str.file != NULL)
+	{
+		s_str.source = NATIVE_STR_SOURCE_HOST_FILE;
+	}
+	else if (NativeDiscImage_FindFile(NATIVE_STR_SCRAPBOOK_PATH, &discFile))
+	{
+		s_str.source = NATIVE_STR_SOURCE_DISC;
+		s_str.discFile = discFile;
+	}
+	else
 	{
 		return 0;
 	}
@@ -674,6 +758,8 @@ s32 NativeSTR_StartScrapbook(void)
 	s_str.frameIndex = 0;
 	s_str.frameLimit = NATIVE_STR_SCRAPBOOK_FRAME_COUNT;
 	s_str.fileBaseOffset = 0;
+	s_str.fileBaseSector = 0;
+	s_str.currentSector = 0;
 	return 1;
 }
 
@@ -687,9 +773,12 @@ void NativeSTR_Stop(void)
 
 	s_str.active = 0;
 	s_str.format = NATIVE_STR_FORMAT_EXTRACTED;
+	s_str.source = NATIVE_STR_SOURCE_NONE;
 	s_str.loop = 0;
 	s_str.bigfileSector = -1;
 	s_str.fileBaseOffset = 0;
+	s_str.fileBaseSector = 0;
+	s_str.currentSector = 0;
 	s_str.frameIndex = 0;
 	s_str.frameLimit = 0;
 	s_str.width = 0;
@@ -701,7 +790,7 @@ s32 NativeSTR_UploadNextFrame(s32 dstX, s32 dstY)
 {
 	RECT16 rect;
 
-	if ((s_str.active == 0) || (s_str.file == NULL))
+	if ((s_str.active == 0) || (s_str.source == NATIVE_STR_SOURCE_NONE))
 	{
 		return 0;
 	}

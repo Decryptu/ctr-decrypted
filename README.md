@@ -73,19 +73,47 @@ rm -rf build/        # Linux: delete cached libraries
 
 ## Running
 
-1. Create an `assets/` directory next to the executable for packaged builds, or
-   next to the source files for development builds run from `build/`
-2. Extract the following from a CTR NTSC-U retail disc image:
-   - `BIGFILE.BIG`
-   - `SOUNDS/KART.HWL`
-   - `TEST.STR`
-   - `XA/ENG.XNF`
-   - `XA/ENG/EXTRA/S00.XA` through `S05.XA`
-   - `XA/ENG/GAME/S00.XA` through `S20.XA`
-   - `XA/MUSIC/S00.XA` through `S01.XA`
-3. Run `build/ctr_native.exe`
+### Normal Setup
 
-Packaged directory structure:
+If you downloaded a release build, you only need two things for normal play:
+
+1. The game executable:
+   - `ctr_native.exe` on Windows
+   - `ctr_native` on Linux
+2. Your own NTSC-U retail CTR disc image, named (put in directory called `assets`):
+   - `assets/ctr-u.bin`
+
+Example:
+
+```
+CTR-Native/
+  ctr_native.exe
+  assets/
+    ctr-u.bin
+```
+
+Then run `ctr_native.exe`.
+
+The disc image must be the common single-track raw PSX BIN layout: MODE2/2352 sectors, with the data track starting at byte 0. A cooked 2048-byte `.iso` does not preserve the XA/STR sector data needed for audio and video playback.
+
+For development builds run from `build/`, put the same `assets/ctr-u.bin` next to the source tree:
+
+```
+ctr-native/
+  build/
+    ctr_native.exe
+  assets/
+    ctr-u.bin
+```
+
+### Extracted Asset Override
+
+You do not need extracted assets for normal play.
+
+Extracted files are still supported for development, modding, and debugging. If present, they override files from `ctr-u.bin`.
+
+Extracted-asset override structure:
+
 ```
 CTR-Native/
   ctr_native.exe
@@ -100,21 +128,15 @@ CTR-Native/
       MUSIC/S00.XA ... S01.XA
 ```
 
-Development directory structure:
-```
-ctr_native/
-  build/
-    ctr_native.exe
-  assets/
-    BIGFILE.BIG
-    SOUNDS/KART.HWL
-    TEST.STR
-    XA/
-      ENG.XNF
-      ENG/EXTRA/S00.XA ... S05.XA
-      ENG/GAME/S00.XA ... S20.XA
-      MUSIC/S00.XA ... S01.XA
-```
+The full extracted asset list is:
+
+- `BIGFILE.BIG`
+- `SOUNDS/KART.HWL`
+- `TEST.STR`
+- `XA/ENG.XNF`
+- `XA/ENG/EXTRA/S00.XA` through `S05.XA`
+- `XA/ENG/GAME/S00.XA` through `S20.XA`
+- `XA/MUSIC/S00.XA` through `S01.XA`
 
 ## Bug Replays
 

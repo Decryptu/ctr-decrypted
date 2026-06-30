@@ -40,6 +40,7 @@
 
 #undef RECT
 
+#include "platform/native_disc_image.c"
 #include "platform/native_assets.c"
 #include "platform/native_audio.c"
 #include "platform/native_memory.c"
