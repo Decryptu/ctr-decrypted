@@ -55,7 +55,7 @@ void AH_Pause_Draw(int pageID, int posX)
 		colorIndex = 3;
 	}
 
-	int *ptrColor = data.ptrColor[colorIndex];
+	u32 *ptrColor = data.ptrColor[colorIndex];
 
 	struct GameTracker *gGT = sdata->gGT;
 	struct PrimMem *primMem = &gGT->backBuffer->primMem;

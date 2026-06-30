@@ -615,7 +615,7 @@ void RB_ShieldDark_ThTick_Grow(struct Thread *th)
 	tw->flags = 0;
 	tw->driverTarget = 0;
 	tw->timeAlive = 0;
-	tw->audioPtr = 0;
+	tw->soundIDCount = 0;
 	tw->frameCount_Blind = 0;
 
 	tw->driverParent = player;

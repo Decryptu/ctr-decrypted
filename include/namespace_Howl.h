@@ -226,7 +226,7 @@ struct GarageFX
 	int LR;
 
 	// 0x8
-	void *audioPtr;
+	u32 soundIDCount;
 
 	// 0xC - size of each member
 };

@@ -56,7 +56,7 @@ void RB_MovingExplosive_ThTick(struct Thread *t)
 			sound = 0x59;
 		}
 	LAB_800adc00:
-		PlaySound3D_Flags(&tw->audioPtr, sound, inst);
+		PlaySound3D_Flags(&tw->soundIDCount, sound, inst);
 	}
 
 LAB_800adc08:;
@@ -488,7 +488,7 @@ void RB_MovingExplosive_Explode(struct Thread *t, struct Instance *inst, struct 
 	PlaySound3D(soundId, inst);
 
 	// stop audio of rolling
-	OtherFX_RecycleMute(&tw->audioPtr);
+	OtherFX_RecycleMute(&tw->soundIDCount);
 
 	RB_Burst_Init(inst);
 

@@ -266,7 +266,8 @@ force_inline void addLineG3(uint32_t *ot, LINE_G3 *p)
 	CtrGpu_LinkPrimToOT(ot, p);
 	p->code = 0x58;
 	p->pad = 0x55555555;
-	p->p1, p->p2 = 0;
+	p->p1 = 0;
+	p->p2 = 0;
 }
 
 force_inline void addLineF4(uint32_t *ot, LINE_F4 *p)
@@ -283,7 +284,8 @@ force_inline void addLineG4(uint32_t *ot, LINE_G4 *p)
 	CtrGpu_LinkPrimToOT(ot, p);
 	p->code = 0x5c;
 	p->pad = 0x55555555;
-	p->p1, p->p2 = 0;
+	p->p1 = 0;
+	p->p2 = 0;
 }
 
 #ifndef CTR_NATIVE

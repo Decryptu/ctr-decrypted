@@ -10,8 +10,8 @@ void UI_RenderFrame_Racing()
 	s16 sVar2;
 	u8 bVar3;
 	int partTimeVariable1;
-	int *ptrColor;
-	u8 *pbVar6;
+	u32 *ptrColor;
+	char *pbVar6;
 	int i;
 	struct PushBuffer *pb;
 	u32 partTimeVariable5;
@@ -32,7 +32,7 @@ void UI_RenderFrame_Racing()
 	SVec2 letterCtrPos;
 	char string[24];
 	SVec2 turboCountPos;
-	u16 local_30[2];
+	s16 local_30[2];
 	struct Thread *playerThread;
 	uint32_t *ptrOT;
 	struct DB *backBuffer;

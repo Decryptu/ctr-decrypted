@@ -128,7 +128,7 @@ void UI_CupStandings_InputAndDraw(void)
 	int numDrivers;
 	s16 sVar18;
 
-	u16 local_58[2];
+	s16 local_58[2];
 
 	gGT = sdata->gGT;
 

@@ -30,7 +30,7 @@ static const char s_rectMenuTimeFormat[] = "%ld:%ld%ld:%ld%ld";
 #endif
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80044ff8-0x80045134.
-u8 *RECTMENU_DrawTime(int milliseconds)
+char *RECTMENU_DrawTime(int milliseconds)
 {
 	// 32 is added to milliseconds every frame,
 	// 960 per second, the rest is basic math
@@ -53,7 +53,7 @@ u8 *RECTMENU_DrawTime(int milliseconds)
 	    CTR_PRINTF_PSX_LONG(((milliseconds * 100) / 0x3c0) % 10) // milliseconds
 	);
 
-	return (u8 *)str;
+	return str;
 }
 
 #undef RECTMENU_TIME_FORMAT
@@ -239,8 +239,8 @@ void RECTMENU_DrawQuip(char *comment, s16 startX, int startY, u32 sizeX, s16 fon
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800457b0-0x800459ec.
 void RECTMENU_DrawInnerRect(RECT *r, int type, uint32_t *ot)
 {
-	int *colorDataNormal;
-	int *colorDataSpecial;
+	u32 *colorDataNormal;
+	u32 *colorDataSpecial;
 	int drawMode;
 	RECT adjustedRect;
 
@@ -296,7 +296,7 @@ void RECTMENU_DrawInnerRect(RECT *r, int type, uint32_t *ot)
 		adjustedRect.w = horizontalOffset;
 		adjustedRect.h = r->h;
 
-		int *color = &sdata->DrawSolidBoxData[0];
+		u32 *color = &sdata->DrawSolidBoxData[0];
 		CTR_Box_DrawClearBox(&adjustedRect, (Color *)color, 0, ot);
 
 		adjustedRect.x = r->x + horizontalOffset;

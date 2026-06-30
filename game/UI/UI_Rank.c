@@ -66,7 +66,7 @@ void UI_DrawRankedDrivers(void)
 	struct Thread *warpballThread;
 	struct Instance *warpballInst;
 	int iVar15;
-	u16 *puVar16;
+	s16 *puVar16;
 	s16 *psVar17;
 	u16 uVar18;
 	Point pos;

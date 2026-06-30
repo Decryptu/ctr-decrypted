@@ -216,7 +216,7 @@ struct ParticleEmitter emSet_TubeBubbles[7] = {[0] =
                                                    },
 
                                                // null terminator
-                                               [6] = {}
+                                               [6] = {0}
 
 #if 0
 	// original had [6], [7], [8], and [9]

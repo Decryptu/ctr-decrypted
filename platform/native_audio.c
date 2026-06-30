@@ -513,7 +513,7 @@ internal int NativeAudio_Clamp16(int value)
 	return value;
 }
 
-internal int NativeAudio_VolumeScale(s16 volume)
+internal int NativeAudio_VolumeScale(int volume)
 {
 	if (volume < 0)
 	{

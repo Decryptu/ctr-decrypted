@@ -212,13 +212,13 @@ struct GamepadBuffer
 	// if power is above the 60-unit hardware budget
 
 	// 0x2A
-	char motorDesired[2];
+	u8 motorDesired[2];
 
 	// 0x2C
-	char motorPower[2];
+	u8 motorPower[2];
 
 	// 0x2E
-	char motorSubmit[2];
+	u8 motorSubmit[2];
 
 	// === DualShock ===
 

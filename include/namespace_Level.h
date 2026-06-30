@@ -192,10 +192,7 @@ enum QuadBlockTriNormalDividendIndex
 	QUADBLOCK_TRI_NORMAL_DIVIDEND_LO_1 = 9,
 };
 
-enum QuadBlockDrawOrderLow
-{
-	QUADBLOCK_DRAW_ORDER_LOW_DOUBLE_SIDED = 0x80000000u,
-};
+#define QUADBLOCK_DRAW_ORDER_LOW_DOUBLE_SIDED 0x80000000u
 
 struct QuadBlock
 {

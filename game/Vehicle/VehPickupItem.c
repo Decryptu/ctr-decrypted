@@ -472,7 +472,7 @@ void VehPickupItem_ShootNow(struct Driver *d, int weaponID, int flags)
 		tw = weaponTh->object;
 		tw->flags = 0;
 		tw->framesSeekMine = 0;
-		tw->audioPtr = 0;
+		tw->soundIDCount = 0;
 		tw->timeAlive = 0;
 		tw->driverParent = d;
 		tw->driverTarget = victim;
@@ -928,7 +928,7 @@ void VehPickupItem_ShootNow(struct Driver *d, int weaponID, int flags)
 
 		tw = weaponTh->object;
 		tw->flags = 8;
-		tw->audioPtr = 0;
+		tw->soundIDCount = 0;
 		tw->ptrNodeNext = 0;
 		tw->respawnPointIndex = 0;
 		tw->turnAround = 0;
@@ -989,7 +989,7 @@ void VehPickupItem_ShootNow(struct Driver *d, int weaponID, int flags)
 
 		if (p != 0)
 		{
-			p->otIndexOffset = 250;
+			p->otIndexOffset = (s8)0xfa;
 		}
 
 		break;

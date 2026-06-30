@@ -17,7 +17,7 @@ void MM_HighScore_Draw(u16 trackIndex, u32 rowIndex, u32 posX, u32 posY)
 	s16 numColor;
 	s16 sVar1;
 	s16 lineWidth;
-	int *colorPtr;
+	u32 *colorPtr;
 	s16 levelID;
 	struct HighScoreEntry *entry;
 	RECT videoBox;

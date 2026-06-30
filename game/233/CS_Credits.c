@@ -472,7 +472,7 @@ void CS_Credits_DrawNames(struct CreditsObj *co)
 
 		if (colorSlot >= 0)
 		{
-			DecalFont_DrawLineStrlen((u8 *)str, strLen, creditsBSS.creditText_PosX, posY, 3, colorSlot | textFlags);
+			DecalFont_DrawLineStrlen(str, strLen, creditsBSS.creditText_PosX, posY, 3, colorSlot | textFlags);
 		}
 
 		posY += 20;

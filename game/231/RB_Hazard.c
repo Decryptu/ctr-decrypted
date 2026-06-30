@@ -163,7 +163,7 @@ void RB_Hazard_ThCollide_Missile(struct Thread *thread)
 		PlaySound3D(0x4c, inst);
 
 		// stop audio of moving
-		OtherFX_RecycleMute(&tw->audioPtr);
+		OtherFX_RecycleMute(&tw->soundIDCount);
 
 		// kill thread
 		thread->flags |= THREAD_FLAG_DEAD;

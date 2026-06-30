@@ -35,8 +35,9 @@ enum GameMode1
 	ADVENTURE_CUP = 0x10000000,
 	GAME_CUTSCENE = 0x20000000,
 	LOADING = 0x40000000,
-	ADVENTURE_BOSS = 0x80000000
 };
+
+#define ADVENTURE_BOSS 0x80000000u
 
 enum GameMode1Masks
 {
@@ -1281,10 +1282,10 @@ struct GameTracker
 	struct
 	{
 		// 252c
-		int unk1;
+		u32 unk1;
 
 		// 2530
-		int unk2;
+		u32 unk2;
 	} deadcoed_struct;
 
 	// 0x2534

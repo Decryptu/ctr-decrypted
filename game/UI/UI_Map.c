@@ -225,7 +225,7 @@ void UI_Map_DrawRawIcon(int ptrMap, int *param_2, int iconID, int colorID, int u
 {
 	int posX;
 	int posY;
-	int *ptrColor;
+	u32 *ptrColor;
 	struct GameTracker *gGT = sdata->gGT;
 
 	(void)unused;

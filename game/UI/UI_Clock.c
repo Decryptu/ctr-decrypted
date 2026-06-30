@@ -17,7 +17,7 @@ void UI_DrawRaceClock(u16 paramX, u16 paramY, u32 flags, struct Driver *driver)
 	int stringColor;
 	u32 lapIndex;
 	u32 uVar3;
-	u8 *totalTimeString;
+	char *totalTimeString;
 	int iVar5;
 	int numParamY;
 	int iVar7;

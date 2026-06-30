@@ -245,8 +245,8 @@ int GAMEPAD_GetNumConnected(struct GamepadSystem *gGamepads)
 	}
 
 	// this name is way too long
-	int *ptrToSet = &gGamepads->gamepadsConnectedByFlag;
-	int oldVal = *ptrToSet;
+	u32 *ptrToSet = &gGamepads->gamepadsConnectedByFlag;
+	u32 oldVal = *ptrToSet;
 	*ptrToSet = bitwiseConnected;
 
 	if (oldVal == -1)

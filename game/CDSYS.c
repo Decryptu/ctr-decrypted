@@ -85,7 +85,7 @@ u32 CDSYS_GetFilePosInt(char *fileString, int *filePos)
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x8001c470-0x8001c4f4.
 void CDSYS_SetMode_StreamData()
 {
-	char buf[8];
+	u8 buf[8];
 
 #if defined(CTR_NATIVE)
 	// NOTE(aalhendi): Native has no disc-mode switch, but retail force-stops
@@ -143,7 +143,7 @@ void CDSYS_SetMode_StreamData()
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x8001c4f4-0x8001c56c.
 void CDSYS_SetMode_StreamAudio()
 {
-	char buf[8];
+	u8 buf[8];
 
 	if (sdata->boolUseDisc == 0)
 	{
@@ -673,8 +673,8 @@ int CDSYS_XAGetTrackLength(int categoryID, int xaID)
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x8001cdb4-0x8001cf98
 int CDSYS_XAPlay(int categoryID, int xaID)
 {
-	char buf1[8];
-	char buf2[8];
+	u8 buf1[8];
+	u8 buf2[8];
 
 	if (sdata->boolUseDisc == 0)
 	{

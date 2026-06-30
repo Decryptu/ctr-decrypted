@@ -16,7 +16,7 @@ void Garage_Init(void)
 		garageSounds->gsp_prev = GSP_GONE;
 		garageSounds->volume = 0;
 		garageSounds->LR = 0;
-		garageSounds->audioPtr = 0;
+		garageSounds->soundIDCount = 0;
 	}
 	return;
 }
@@ -84,7 +84,7 @@ void Garage_Enter(char charId)
 		{
 			garageSounds->gsp_curr = GSP_GONE;
 			garageSounds->LR = 0x80;
-			garageSounds->audioPtr = 0;
+			garageSounds->soundIDCount = 0;
 			continue;
 		}
 
@@ -94,11 +94,11 @@ void Garage_Enter(char charId)
 
 		if (soundIDs[i] == 0)
 		{
-			garageSounds->audioPtr = 0;
+			garageSounds->soundIDCount = 0;
 			continue;
 		}
 
-		OtherFX_RecycleNew((u32 *)&garageSounds->audioPtr, (int)soundIDs[i], HowlSfx_Pack(LR, HOWL_SFX_DISTORTION_NONE, 0, 0));
+		OtherFX_RecycleNew(&garageSounds->soundIDCount, (int)soundIDs[i], HowlSfx_Pack(LR, HOWL_SFX_DISTORTION_NONE, 0, 0));
 	}
 }
 
@@ -123,7 +123,7 @@ void Garage_PlayFX(u32 soundId, char charId)
 void Garage_LerpFX(void)
 {
 	struct GarageFX *garageSounds = sdata->garageSoundPool;
-	u32 *audioPtrRef;
+	u32 *soundIDCountRef;
 
 	for (int i = 0; i < 8; ++i, ++garageSounds)
 	{
@@ -176,10 +176,10 @@ void Garage_LerpFX(void)
 			}
 		}
 
-		audioPtrRef = (u32 *)&garageSounds->audioPtr;
+		soundIDCountRef = &garageSounds->soundIDCount;
 		if (sdata->garageSoundIDs[i] != 0)
 		{
-			OtherFX_RecycleNew(audioPtrRef, sdata->garageSoundIDs[i], HowlSfx_Pack(garageSounds->LR, HOWL_SFX_DISTORTION_NONE, garageSounds->volume, 0));
+			OtherFX_RecycleNew(soundIDCountRef, sdata->garageSoundIDs[i], HowlSfx_Pack(garageSounds->LR, HOWL_SFX_DISTORTION_NONE, garageSounds->volume, 0));
 		}
 
 		if (targetLR == garageSounds->LR && targetVolume == garageSounds->volume)
@@ -188,7 +188,7 @@ void Garage_LerpFX(void)
 
 			if (garageSounds->gsp_curr == GSP_GONE)
 			{
-				OtherFX_RecycleMute((int *)audioPtrRef);
+				OtherFX_RecycleMute(soundIDCountRef);
 			}
 		}
 	}

@@ -496,7 +496,7 @@ u32 main(void)
 void StateZero()
 {
 	u16 *clockEffect;
-	int vramSize;
+	u32 vramSize;
 
 	struct GameTracker *gGT;
 	gGT = sdata->gGT;

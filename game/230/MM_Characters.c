@@ -601,7 +601,7 @@ void MM_Characters_MenuProc(struct RectMenu *unused)
 	s16 globalIconPerPlayerCopy4;
 	s16 globalIconPerPlayerCopy;
 	s16 globalIconPerPlayerCopy2;
-	u16 *globalIconPerPlayerPtr2;
+	s16 *globalIconPerPlayerPtr2;
 	int iVar24;
 	u32 k;
 	u16 *puVar26;

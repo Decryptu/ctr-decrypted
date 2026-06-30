@@ -652,7 +652,7 @@ struct OVR233_Garage
 	int unusedArr_Colors[3];
 
 	// 800b861c
-	int barColors[7];
+	u32 barColors[7];
 
 	// 800b8638
 	s16 numFramesCurr_GarageMove;

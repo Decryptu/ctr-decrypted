@@ -66,7 +66,7 @@ int LOAD_TenStages(struct GameTracker *gGT, int loadingStage, struct BigHeader *
 		// if first boot (SCEA + Copyright + ND Box)
 		if (sdata->boolFirstBoot != 0)
 		{
-			int vramSize;
+			u32 vramSize;
 
 			sdata->boolFirstBoot = 0;
 

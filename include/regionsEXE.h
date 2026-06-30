@@ -1472,7 +1472,7 @@ struct Data
 	// 80080dd4 -- JpnTrial		0x23
 	// 800822a4 -- EurRetail	0x23
 	// 800850e4 -- JpnRetail	0x23
-	int *ptrColor[NUM_COLORS];
+	u32 *ptrColor[NUM_COLORS];
 
 // 8007FF80 -- SepReview
 // 80081dfc -- UsaRetail
@@ -2845,7 +2845,7 @@ struct sData
 
 	// 8008d038 -- UsaRetail
 	// 8008d3c0 -- EurRetail
-	char unkPadSetActAlign[8];
+	u8 unkPadSetActAlign[8];
 
 // ==========================================================
 
@@ -2853,7 +2853,7 @@ struct sData
 #if BUILD >= EurRetail
 	// 8008d3c8 -- EurRetail
 	// calls padSetAct on slot 2, after realizing a multitap is in slot 1
-	char unkPadSetAct[0x4];
+	u8 unkPadSetAct[0x4];
 #endif
 
 	// 8008b4a8 -- SepReview
@@ -3285,8 +3285,8 @@ struct sData
 	int battleSetupWeaponHighlighted;
 
 	// 8008d438 UI color data
-	int battleSetup_Color_UI_1;
-	int battleSetup_Color_UI_2;
+	u32 battleSetup_Color_UI_1;
+	u32 battleSetup_Color_UI_2;
 
 	// 8008b8a0 Sep3
 	// 8008d440 UsaRetail
@@ -3344,7 +3344,7 @@ struct sData
 	// 8008c3c0 JpnTrial
 	// 8008d800 EurRetail
 	// 80090874 JpnRetail
-	int DrawSolidBoxData[3];
+	u32 DrawSolidBoxData[3];
 
 	char strcatData1_colon[4];
 #if BUILD == EurRetail
@@ -3623,8 +3623,8 @@ struct sData
 	// 8008d668 - UsaRetail
 	// 8008da1c - EurRetail
 	// used for RNG
-	int const_0x30215400;
-	int const_0x493583fe;
+	u32 const_0x30215400;
+	u32 const_0x493583fe;
 
 	// 8008d670
 	// once used to load path files (Spyro 2 demo),

@@ -351,7 +351,7 @@ void MM_TrackSelect_MenuProc(struct RectMenu *menu)
 	int iVar9;
 	int iVar10;
 	int iVar11;
-	int *starColor;
+	u32 *starColor;
 	u32 uVar14;
 	u32 uVar15;
 	int iVar17;

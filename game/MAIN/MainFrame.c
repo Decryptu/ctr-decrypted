@@ -87,7 +87,7 @@ void MainFrame_ResetDB(struct GameTracker *gGT)
 		gGT->pushBuffer[iVar4].ptrOT = (uint32_t *)((int)otSwapchainDB + (sdata->gGT->numPlyrCurrGame - iVar4 - 1) * 0x1000 + 0x18);
 	}
 
-	for (iVar4; iVar4 < 4; iVar4++)
+	for (; iVar4 < 4; iVar4++)
 	{
 		// but why?
 		gGT->pushBuffer[iVar4].ptrOT = (uint32_t *)((int)otSwapchainDB + 3 * 0x1000 + 0x18);

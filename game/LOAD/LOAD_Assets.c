@@ -208,7 +208,7 @@ struct LngFile
 void LOAD_LangFile(int bigfilePtr, int lang)
 {
 	struct LngFile *lngFile;
-	int size;
+	u32 size;
 
 	int i;
 	int numStrings;

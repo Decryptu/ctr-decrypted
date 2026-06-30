@@ -93,6 +93,12 @@ typedef double f64;
 #define CTR_PRINTF_FORMAT(fmtArg, firstVararg)
 #endif
 
+#if defined(__GNUC__) && !defined(__clang__)
+#define CTR_GCC_OPTIMIZE_O0 __attribute__((optimize("O0")))
+#else
+#define CTR_GCC_OPTIMIZE_O0
+#endif
+
 // Retail format strings use PsyQ `%ld` for 32-bit values. Keep call sites on
 // project-width types while satisfying host printf varargs for the literal.
 #define CTR_PRINTF_PSX_LONG(value) ((long)(s32)(value))

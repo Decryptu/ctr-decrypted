@@ -1202,7 +1202,7 @@ void RenderDispEnv_UI(struct GameTracker *gGT)
 	PushBuffer_SetDrawEnv_Normal(&pb->ptrOT[4], pb, gGT->backBuffer, 0, 0);
 }
 
-__attribute__((optimize("O0"))) int ReadyToFlip(struct GameTracker *gGT)
+CTR_GCC_OPTIMIZE_O0 int ReadyToFlip(struct GameTracker *gGT)
 {
 	return
 	    // two VSYNCs passed, 30fps lock
@@ -1212,7 +1212,7 @@ __attribute__((optimize("O0"))) int ReadyToFlip(struct GameTracker *gGT)
 	    (gGT->bool_DrawOTag_InProgress == 0);
 }
 
-__attribute__((optimize("O0"))) int ReadyToBreak(struct GameTracker *gGT)
+CTR_GCC_OPTIMIZE_O0 int ReadyToBreak(struct GameTracker *gGT)
 {
 	return
 

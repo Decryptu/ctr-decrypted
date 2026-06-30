@@ -86,7 +86,7 @@ struct TrackerWeapon
 	s16 frameCount_Blind;
 
 	// 0x24
-	int audioPtr;
+	u32 soundIDCount;
 
 	// 0x28
 	u32 distanceToTarget;
@@ -444,7 +444,7 @@ struct FlameJet
 	s16 cooldown;
 
 	// 0x10
-	int audioPtr;
+	u32 soundIDCount;
 
 	// 0x14 bytes large
 };
@@ -497,7 +497,7 @@ struct Minecart
 	s16 rotSpeed;
 
 	// 0x28
-	int audioPtr;
+	u32 soundIDCount;
 
 	// 0x2c bytes large
 };
@@ -610,7 +610,7 @@ struct Snowball
 	s16 snowID;
 
 	// 0xC
-	int audioPtr;
+	u32 soundIDCount;
 
 	// 0x10 bytes large
 };

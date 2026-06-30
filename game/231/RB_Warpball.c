@@ -70,7 +70,7 @@ void RB_Warpball_Death(struct Thread *t)
 	PlaySound3D(0x4f, inst);
 
 	// stop audio of moving
-	OtherFX_RecycleMute(&tw->audioPtr);
+	OtherFX_RecycleMute(&tw->soundIDCount);
 
 	ThTick_SetAndExec(t, &RB_Warpball_FadeAway);
 	return;
@@ -621,7 +621,7 @@ void RB_Warpball_ThTick(struct Thread *t)
 		RB_Warpball_AdvanceStraight(tw, inst, elapsedTime);
 	}
 
-	PlaySound3D_Flags((u32 *)&tw->audioPtr, 0x4e, inst);
+	PlaySound3D_Flags(&tw->soundIDCount, 0x4e, inst);
 
 	posTop.x = (s16)inst->matrix.t[0];
 	posTop.y = (s16)(inst->matrix.t[1] - 0x80);

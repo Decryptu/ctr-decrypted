@@ -73,7 +73,7 @@ void LOAD_InitCD()
 void *LOAD_ReadDirectory(char *filename)
 {
 	CdlFILE cdlFile;
-	char buf[8];
+	u8 buf[8];
 
 	CDSYS_SetMode_StreamData();
 
@@ -158,7 +158,7 @@ void LOAD_DramFileCallback(struct LoadQueueSlot *lqs)
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80031e00-0x80031ee4.
-void *LOAD_DramFile(void *bigfilePtr, int subfileIndex, void *ptrDestination, int *sizePtr, int callbackOrFlags)
+void *LOAD_DramFile(void *bigfilePtr, int subfileIndex, void *ptrDestination, u32 *sizePtr, int callbackOrFlags)
 {
 	struct LoadQueueSlot lqs;
 	void *loadedFile;
@@ -230,7 +230,7 @@ void LOAD_VramFileCallback(struct LoadQueueSlot *lqs)
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80031fdc-0x80032110.
-void *LOAD_VramFile(void *bigfilePtr, int subfileIndex, void *ptrDestination, int *sizePtr, int callbackOrFlags)
+void *LOAD_VramFile(void *bigfilePtr, int subfileIndex, void *ptrDestination, u32 *sizePtr, int callbackOrFlags)
 {
 	struct LoadQueueSlot lqs;
 	void *loadedFile;
@@ -318,7 +318,7 @@ void LOAD_ReadFileASyncCallback(u8 result, u8 *unk)
 	}
 }
 
-void *LOAD_ReadFile_ex(struct BigHeader *bigfile, u32 loadType, int subfileIndex, void *ptrDst, int *sizePtr, void (*callback)(struct LoadQueueSlot *))
+void *LOAD_ReadFile_ex(struct BigHeader *bigfile, u32 loadType, int subfileIndex, void *ptrDst, u32 *sizePtr, void (*callback)(struct LoadQueueSlot *))
 {
 	int uVar5;
 	CdlLOC cdLoc;
@@ -456,7 +456,7 @@ void *LOAD_XnfFile(char *filename, void *ptrDestination, int *size)
 		}
 	}
 
-	char buf[8];
+	u8 buf[8];
 	CdControl(CdlSetloc, (u8 *)&cdlFile, buf);
 
 	if (CdRead((cdlFile.size + 0x7ff) >> 0xb, ptrDestination, 0x80) == 0)

@@ -60,7 +60,7 @@ int CS_Thread_UseOpcode(struct Instance *instance, struct CutsceneObj *cs)
 	int metadataBackup[5];
 	SVec3 camRot;
 	SVec3 camPos;
-	u16 camPathFlags[2];
+	s16 camPathFlags[2];
 	int animIndex;
 	int opcodeDuration;
 	int opcodeChanged;

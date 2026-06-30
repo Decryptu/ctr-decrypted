@@ -57,7 +57,7 @@ void AH_WarpPad_AllWarppadNum()
 
 	struct Thread *t = sdata->gGT->threadBuckets[WARPPAD].thread;
 
-	for (t; t != 0; t = t->siblingThread)
+	for (; t != 0; t = t->siblingThread)
 	{
 		wp = t->object;
 

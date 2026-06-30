@@ -16,7 +16,7 @@ int LOAD_HowlHeaderSectors(CdlFILE *cdlFileHWL, void *ptrDestination, int firstS
 
 	CdIntToPos(CdPosToInt(&cdlFileHWL->pos) + firstSector, &loc);
 
-	char buf[8];
+	u8 buf[8];
 	CdControl(CdlSetloc, (u8 *)&loc, buf);
 
 	if (CdRead(numSector, ptrDestination, 0x80) == 0)
@@ -75,7 +75,7 @@ int LOAD_HowlSectorChainStart(CdlFILE *cdlFileHWL, void *ptrDestination, int fir
 
 	CdIntToPos(CdPosToInt(&cdlFileHWL->pos) + firstSector, &loc);
 
-	char buf[8];
+	u8 buf[8];
 	CdControl(CdlSetloc, (u8 *)&loc, buf);
 
 	sdata->howlChainState = 1;

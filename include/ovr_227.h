@@ -10,12 +10,9 @@ enum OverlayRDATA_227_Counts
 	OVR227_CLIP_RECORD_JUMP_WORD_COUNT = 24,
 };
 
-enum OverlayRDATA_227_Addresses
-{
-	OVR227_RDATA_START = 0x800ab48c,
-	OVR227_RDATA_BUCKET_SETUP_BASE = 0x800ab544,
-	OVR227_RDATA_STOP = 0x800ab9f0,
-};
+#define OVR227_RDATA_START             0x800ab48cu
+#define OVR227_RDATA_BUCKET_SETUP_BASE 0x800ab544u
+#define OVR227_RDATA_STOP              0x800ab9f0u
 
 enum OverlayRDATA_227_BucketSetupLayout
 {

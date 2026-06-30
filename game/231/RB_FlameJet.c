@@ -126,7 +126,7 @@ struct ParticleEmitter emSet_fjHeat[0xb] = {[0] =
                                                 },
 
                                             // null terminator
-                                            {}};
+                                            {0}};
 
 struct ParticleEmitter emSet_fjFire[0x8] = {[0] =
                                                 {
@@ -222,7 +222,7 @@ struct ParticleEmitter emSet_fjFire[0x8] = {[0] =
                                                 },
 
                                             // null terminator
-                                            {}};
+                                            {0}};
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b64c0-0x800b6728.
 void RB_FlameJet_Particles(struct Instance *inst, struct FlameJet *fjObj)
@@ -326,7 +326,7 @@ void RB_FlameJet_ThTick(struct Thread *t)
 	// in first 45 frames (1.5s)
 	if (fjObj->cycleTimer < 0x2d)
 	{
-		PlaySound3D_Flags((u32 *)&fjObj->audioPtr, 0x68, fjInst);
+		PlaySound3D_Flags(&fjObj->soundIDCount, 0x68, fjInst);
 
 		// [unused variable?]
 		fjObj->unk += 0x100;
@@ -381,9 +381,9 @@ void RB_FlameJet_ThTick(struct Thread *t)
 	// on 45th frame (1.5s)
 	else if (fjObj->cycleTimer == 0x2d)
 	{
-		if (fjObj->audioPtr != 0)
+		if (fjObj->soundIDCount != 0)
 		{
-			OtherFX_RecycleMute(&fjObj->audioPtr);
+			OtherFX_RecycleMute(&fjObj->soundIDCount);
 		}
 	}
 
@@ -439,7 +439,7 @@ void RB_FlameJet_LInB(struct Instance *inst)
 	fjObj->cooldown = 0;
 	fjObj->dirX = inst->matrix.m[0][2] * -0x4b >> 5;
 	fjObj->dirZ = inst->matrix.m[2][2] * 0x4b >> 5;
-	fjObj->audioPtr = 0;
+	fjObj->soundIDCount = 0;
 
 	fjBoxDesc.bbox.min.x = -0x40;
 	fjBoxDesc.bbox.min.y = -0x40;

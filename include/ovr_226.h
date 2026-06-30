@@ -10,10 +10,7 @@ enum OverlayRDATA_226_Counts
 	OVR226_CLIP_RECORD_JUMP_WORD_COUNT = 24,
 };
 
-enum OverlayRDATA_226_Addresses
-{
-	OVR226_RDATA_BUCKET_SETUP_BASE = 0x800ab4c4,
-};
+#define OVR226_RDATA_BUCKET_SETUP_BASE 0x800ab4c4u
 
 enum OverlayRDATA_226_BucketSetupLayout
 {
