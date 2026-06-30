@@ -216,7 +216,7 @@ void AH_Map_HubArrowOutter(void *hubPtrs, int arrowIndex, int posX, int posY, in
 
 			if (!bVar1)
 			{
-				CTR_Box_DrawWirePrims((Point){iVar9, iVar6}, (Point){sin, cos}, MakeColor(var14, var15, 0xff), (void *)gGT->pushBuffer_UI.ptrOT);
+				CTR_Box_DrawWirePrims((Point){{iVar9, iVar6}}, (Point){{sin, cos}}, MakeColor(var14, var15, 0xff), (void *)gGT->pushBuffer_UI.ptrOT);
 			}
 
 			bVar1 = 0;

@@ -17,7 +17,7 @@ enum PlantAnim
 struct HitboxDesc plantBoxDesc = {.inst = (struct Instance *)0,
                                   .thread = (struct Thread *)0,
                                   .bucket = (struct Thread *)0,
-                                  .bbox = {.min = {0xFFC0, 0xFFC0, 0}, .max = {0x40, 0x80, 0x1E0}},
+                                  .bbox = {.min = {{0xFFC0, 0xFFC0, 0}}, .max = {{0x40, 0x80, 0x1E0}}},
                                   .threadHit = (struct Thread *)0,
                                   .funcThCollide = (void *)0};
 

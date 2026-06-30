@@ -1,6 +1,6 @@
 #include <common.h>
 
-SVec3 crystalLightDir = {0x94F, 0x94F, 0x94F};
+SVec3 crystalLightDir = {{0x94F, 0x94F, 0x94F}};
 
 static void RB_Crystal_RotateStep(struct Instance *crystalInst, struct Crystal *crystalObj)
 {

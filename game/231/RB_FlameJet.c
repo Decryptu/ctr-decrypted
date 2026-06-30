@@ -3,11 +3,11 @@
 struct HitboxDesc fjBoxDesc = {.inst = (struct Instance *)0,
                                .thread = (struct Thread *)0,
                                .bucket = (struct Thread *)0,
-                               .bbox = {.min = {0xFFC0, 0xFFC0, 0}, .max = {0x40, 0x80, 0x140}},
+                               .bbox = {.min = {{0xFFC0, 0xFFC0, 0}}, .max = {{0x40, 0x80, 0x140}}},
                                .threadHit = (struct Thread *)0,
                                .funcThCollide = (void *)0};
 
-SVec3 fjLightDir = {0x8B8, 0xD6A, 0};
+SVec3 fjLightDir = {{0x8B8, 0xD6A, 0}};
 
 struct ParticleEmitter emSet_fjHeat[0xb] = {[0] =
                                                 {

@@ -74,7 +74,7 @@ int RB_CtrLetter_LInC(struct Instance *letterInst, struct Thread *driverTh, stru
 	return ((CtrLetterCollideFunc)letterTh->funcThCollide)(letterTh, driverTh, letterTh->funcThCollide, sps);
 }
 
-SVec3 letterLightDir = {0x94F, 0x94F, -0x94F};
+SVec3 letterLightDir = {{0x94F, 0x94F, -0x94F}};
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b52dc-0x800b5334.
 

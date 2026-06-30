@@ -986,9 +986,7 @@ struct Data
                            .speedMax = 0x1400,
                            .percentage1 = 0xF0, // 90%
                            .percentage2 = 0xFF, // 99%
-                           .angle[0] = 0x80,
-                           .angle[1] = 0xE0,
-                           .angle[2] = 0x70,
+                           .angle = {0x80, 0xE0, 0x70},
                            .vertDistance = 0x40},
 
             .NearCam8x3 = {.distMin = 0x133,
@@ -997,9 +995,7 @@ struct Data
                            .speedMax = 0x1400,
                            .percentage1 = 0xF0, // 90%
                            .percentage2 = 0xFF, // 99%
-                           .angle[0] = 0x80,
-                           .angle[1] = 0xE0,
-                           .angle[2] = 0x60,
+                           .angle = {0x80, 0xE0, 0x60},
                            .vertDistance = 0x60},
 
             .FarCam4x3 = {.distMin = 0xE0,
@@ -1008,9 +1004,7 @@ struct Data
                           .speedMax = 0x1400,
                           .percentage1 = 0xF0, // 90%
                           .percentage2 = 0xFF, // 99%
-                          .angle[0] = 0x80,
-                          .angle[1] = 0xE0,
-                          .angle[2] = 0x60,
+                          .angle = {0x80, 0xE0, 0x60},
                           .vertDistance = 0x60},
 
             .FarCam8x3 = {.distMin = 0x180,
@@ -1019,9 +1013,7 @@ struct Data
                           .speedMax = 0x1400,
                           .percentage1 = 0xF0, // 90%
                           .percentage2 = 0xFF, // 99%
-                          .angle[0] = 0x80,
-                          .angle[1] = 0xE0,
-                          .angle[2] = 0x60,
+                          .angle = {0x80, 0xE0, 0x60},
                           .vertDistance = 0xA0},
 
             .EndOfRace_Camera_Size =
@@ -4201,43 +4193,42 @@ struct Data
             .lng_challenge = {0x163, 0x164, 0x165, 0x166, 0x167, 0x168},
 
             .ArcadeCups =
-                {
-                    // Wumpa Cup
-                    {.lngIndex_CupName = 0xC0,
-                     .CupTrack =
-                         {
-                             0x3, 0x51, // Crash Cove
-                             0x4, 0x59, // Tiger Temple
-                             0x2, 0x4F, // Blizzard Bluff
-                             0xE, 0x43  // Coco Park
-                         }},
+                {// Wumpa Cup
+                 {.lngIndex_CupName = 0xC0,
+                  .CupTrack =
+                      {
+                          {0x3, 0x51}, // Crash Cove
+                          {0x4, 0x59}, // Tiger Temple
+                          {0x2, 0x4F}, // Blizzard Bluff
+                          {0xE, 0x43}  // Coco Park
+                      }},
 
-                    {.lngIndex_CupName = 0xC1,
-                     .CupTrack =
-                         {
-                             0x6, 0x5B, // Roo Tubes
-                             0x0, 0x53, // Dingo Canyon
-                             0x1, 0x54, // Dragon Mines
-                             0x8, 0x57  // Sewer Speedway
-                         }},
+                 {.lngIndex_CupName = 0xC1,
+                  .CupTrack =
+                      {
+                          {0x6, 0x5B}, // Roo Tubes
+                          {0x0, 0x53}, // Dingo Canyon
+                          {0x1, 0x54}, // Dragon Mines
+                          {0x8, 0x57}  // Sewer Speedway
+                      }},
 
-                    {.lngIndex_CupName = 0xC2,
-                     .CupTrack =
-                         {
-                             0x9, 0x4e, // Mystery Caves
-                             0x5, 0x5A, // Papu Pyramid
-                             0xA, 0x4D, // Cortex Castle
-                             0xF, 0x44  // Tiny Arena
-                         }},
+                 {.lngIndex_CupName = 0xC2,
+                  .CupTrack =
+                      {
+                          {0x9, 0x4e}, // Mystery Caves
+                          {0x5, 0x5A}, // Papu Pyramid
+                          {0xA, 0x4D}, // Cortex Castle
+                          {0xF, 0x44}  // Tiny Arena
+                      }},
 
-                    {.lngIndex_CupName = 0xC3,
-                     .CupTrack =
-                         {
-                             0xC, 0x50, // Polar Pass
-                             0xB, 0x52, // N Gin Labs
-                             0x7, 0x4C, // Hot Air Skyway
-                             0x10, 0x55 // Slide Col
-                         }}},
+                 {.lngIndex_CupName = 0xC3,
+                  .CupTrack =
+                      {
+                          {0xC, 0x50}, // Polar Pass
+                          {0xB, 0x52}, // N Gin Labs
+                          {0x7, 0x4C}, // Hot Air Skyway
+                          {0x10, 0x55} // Slide Col
+                      }}},
 
             .menuRacingWheelConfig =
                 {
@@ -4913,21 +4904,21 @@ struct Data
 
             .MetaDataLoadSave =
                 {
-                    {0x61, 0x400, 0xF368, 0x99F, 0x232, 0x60, 0xA5, 0xFF},
+                    {0x61, 0x400, {{0xF368, 0x99F, 0x232}}, 0x60, 0xA5, 0xFF},
                     {0x62, 0x600},
-                    {0x63, 0x400, 0xF368, 0x99F, -0x2d8, 0xDC, 0xA6, 0x0},
+                    {0x63, 0x400, {{0xF368, 0x99F, -0x2d8}}, 0xDC, 0xA6, 0x0},
 
-                    {0x61, 0x400, 0xF368, 0x99F, 0x232, 0x60, 0xA5, 0xFF},
+                    {0x61, 0x400, {{0xF368, 0x99F, 0x232}}, 0x60, 0xA5, 0xFF},
                     {0x62, 0x600},
-                    {0x63, 0x400, 0xF368, 0x99F, -0x2d8, 0xDC, 0xA6, 0x0},
+                    {0x63, 0x400, {{0xF368, 0x99F, -0x2d8}}, 0xDC, 0xA6, 0x0},
 
-                    {0x61, 0x400, 0xF368, 0x99F, 0x232, 0x60, 0xA5, 0xFF},
+                    {0x61, 0x400, {{0xF368, 0x99F, 0x232}}, 0x60, 0xA5, 0xFF},
                     {0x62, 0x600},
-                    {0x63, 0x400, 0xF368, 0x99F, -0x2d8, 0xDC, 0xA6, 0x0},
+                    {0x63, 0x400, {{0xF368, 0x99F, -0x2d8}}, 0xDC, 0xA6, 0x0},
 
-                    {0x61, 0x400, 0xF368, 0x99F, 0x232, 0x60, 0xA5, 0xFF},
+                    {0x61, 0x400, {{0xF368, 0x99F, 0x232}}, 0x60, 0xA5, 0xFF},
                     {0x62, 0x600},
-                    {0x63, 0x400, 0xF368, 0x99F, -0x2d8, 0xDC, 0xA6, 0x0},
+                    {0x63, 0x400, {{0xF368, 0x99F, -0x2d8}}, 0xDC, 0xA6, 0x0},
                 },
 
             .spinOffset_LoadSave = {0x155, 0xF55, 0, 0},
@@ -7024,74 +7015,142 @@ struct Data
             .MetaDataTerrain =
                 {
                     // asphalt
-                    [TERRAIN_ASPHALT] = {0, 64, 256, 256, 256, 256, 0, 0, 256, 256, 256, 0, 0, 0, 0, 17, -1, 0xffff, 0x0040, 0x0100, 0x0100, 0x0100},
+                    [TERRAIN_ASPHALT] = {0, 64, 256, 256, 256, 256, 0, 0, 256, 256, 256, {0, 0, 0, 0}, 17, -1, {{0xffff, 0x0040, 0x0100, 0x0100}}, 0x0100},
 
                     // dirt
-                    [TERRAIN_DIRT] = {0,  0,      140,    180,    256,    256,   &data.emSet_DirtLR[0], &data.emSet_DirtLR[0], 256, 256, 256, 4, 5, 4, 64, 18,
-                                      24, 0xffff, 0x0000, 0x008c, 0x00b4, 0x0100},
+                    [TERRAIN_DIRT] = {0,
+                                      0,
+                                      140,
+                                      180,
+                                      256,
+                                      256,
+                                      &data.emSet_DirtLR[0],
+                                      &data.emSet_DirtLR[0],
+                                      256,
+                                      256,
+                                      256,
+                                      {4, 5, 4, 64},
+                                      18,
+                                      24,
+                                      {{0xffff, 0x0000, 0x008c, 0x00b4}},
+                                      0x0100},
 
                     // grass
-                    [TERRAIN_GRASS] = {0,  0,      140,    180,    256,    256,   &data.emSet_GrassL[0], &data.emSet_GrassR[0], 256, 256, 256, 4, 4, 4, 56, 18,
-                                       24, 0xffff, 0x0000, 0x008c, 0x00b4, 0x0100},
+                    [TERRAIN_GRASS] = {0,
+                                       0,
+                                       140,
+                                       180,
+                                       256,
+                                       256,
+                                       &data.emSet_GrassL[0],
+                                       &data.emSet_GrassR[0],
+                                       256,
+                                       256,
+                                       256,
+                                       {4, 4, 4, 56},
+                                       18,
+                                       24,
+                                       {{0xffff, 0x0000, 0x008c, 0x00b4}},
+                                       0x0100},
 
                     // wood
-                    [TERRAIN_WOOD] = {0, 33, 256, 256, 256, 256, 0, 0, 256, 256, 256, 0, 0, 4, 64, 17, 21, 0xffff, 0x0021, 0x0100, 0x0100, 0x0100},
+                    [TERRAIN_WOOD] = {0, 33, 256, 256, 256, 256, 0, 0, 256, 256, 256, {0, 0, 4, 64}, 17, 21, {{0xffff, 0x0021, 0x0100, 0x0100}}, 0x0100},
 
                     // water
-                    [TERRAIN_WATER] = {0, 0, 180, 200, 256, 256, 0, 0, 256, 256, 256, 4, 3, 4, 56, -1, 25, 0xffff, 0x0000, 0x00b4, 0x00c8, 0x0100},
+                    [TERRAIN_WATER] = {0, 0, 180, 200, 256, 256, 0, 0, 256, 256, 256, {4, 3, 4, 56}, -1, 25, {{0xffff, 0x0000, 0x00b4, 0x00c8}}, 0x0100},
 
                     // stone
-                    [TERRAIN_STONE] = {0, 64, 256, 256, 256, 256, 0, 0, 256, 256, 256, 0, 0, 0, 0, 17, -1, 0xffff, 0x0040, 0x0100, 0x0100, 0x0100},
+                    [TERRAIN_STONE] = {0, 64, 256, 256, 256, 256, 0, 0, 256, 256, 256, {0, 0, 0, 0}, 17, -1, {{0xffff, 0x0040, 0x0100, 0x0100}}, 0x0100},
 
                     // ice
-                    [TERRAIN_ICE] = {0, 28, 256, 100, 0, 0, 0, 0, 32, 128, 32, 0, 0, 0, 0, -1, 22, 0xffff, 0x001c, 0x0100, 0x0064, 0x0020},
+                    [TERRAIN_ICE] = {0, 28, 256, 100, 0, 0, 0, 0, 32, 128, 32, {0, 0, 0, 0}, -1, 22, {{0xffff, 0x001c, 0x0100, 0x0064}}, 0x0020},
 
                     // track
-                    [TERRAIN_TRACK] = {0, 33, 140, 180, 256, 256, 0, 0, 256, 256, 256, 0, 0, 4, 64, 17, 21, 0xffff, 0x0021, 0x008c, 0x00b4, 0x0100},
+                    [TERRAIN_TRACK] = {0, 33, 140, 180, 256, 256, 0, 0, 256, 256, 256, {0, 0, 4, 64}, 17, 21, {{0xffff, 0x0021, 0x008c, 0x00b4}}, 0x0100},
 
                     // icy road
-                    [TERRAIN_ICY_ROAD] = {0, 64, 256, 256, 256, 256, 0, 0, 128, 256, 256, 0, 0, 0, 0, 19, -1, 0xffff, 0x0040, 0x0100, 0x0100, 0x0080},
+                    [TERRAIN_ICY_ROAD] = {0, 64, 256, 256, 256, 256, 0, 0, 128, 256, 256, {0, 0, 0, 0}, 19, -1, {{0xffff, 0x0040, 0x0100, 0x0100}}, 0x0080},
 
                     // snow
-                    [TERRAIN_SNOW] = {0,  0,      140,    180,    256,    256,   &data.emSet_SnowLR[0], &data.emSet_SnowLR[0], 128, 256, 256, 0, 0, 4, 56, 19,
-                                      23, 0xffff, 0x0000, 0x008c, 0x00b4, 0x0080},
+                    [TERRAIN_SNOW] = {0,
+                                      0,
+                                      140,
+                                      180,
+                                      256,
+                                      256,
+                                      &data.emSet_SnowLR[0],
+                                      &data.emSet_SnowLR[0],
+                                      128,
+                                      256,
+                                      256,
+                                      {0, 0, 4, 56},
+                                      19,
+                                      23,
+                                      {{0xffff, 0x0000, 0x008c, 0x00b4}},
+                                      0x0080},
 
                     // none
-                    [TERRAIN_NONE] = {0, 0, 256, 256, 0, 256, 0, 0, 256, 256, 256, 0, 0, 0, 0, -1, -1, 0xffff, 0x0000, 0x0100, 0x0100, 0x0100},
+                    [TERRAIN_NONE] = {0, 0, 256, 256, 0, 256, 0, 0, 256, 256, 256, {0, 0, 0, 0}, -1, -1, {{0xffff, 0x0000, 0x0100, 0x0100}}, 0x0100},
 
                     // hardpack
-                    [TERRAIN_HARDPACK] = {0, 0, 256, 256, 256, 256, 0, 0, 256, 256, 256, 0, 0, 0, 0, 18, -1, 0xffff, 0x0000, 0x0100, 0x0100, 0x0100},
+                    [TERRAIN_HARDPACK] = {0, 0, 256, 256, 256, 256, 0, 0, 256, 256, 256, {0, 0, 0, 0}, 18, -1, {{0xffff, 0x0000, 0x0100, 0x0100}}, 0x0100},
 
                     // metal
-                    [TERRAIN_METAL] = {0, 64, 256, 256, 256, 256, 0, 0, 256, 256, 256, 4, 10, 0, 0, 17, 26, 0xffff, 0x0040, 0x0100, 0x0100, 0x0100},
+                    [TERRAIN_METAL] = {0, 64, 256, 256, 256, 256, 0, 0, 256, 256, 256, {4, 10, 0, 0}, 17, 26, {{0xffff, 0x0040, 0x0100, 0x0100}}, 0x0100},
 
                     // fastwater
-                    [TERRAIN_FASTWATER] = {0, 0, 256, 256, 256, 256, 0, 0, 256, 256, 256, 4, 3, 4, 56, -1, 25, 0xffff, 0x0000, 0x0100, 0x0100, 0x0100},
+                    [TERRAIN_FASTWATER] = {0, 0, 256, 256, 256, 256, 0, 0, 256, 256, 256, {4, 3, 4, 56}, -1, 25, {{0xffff, 0x0000, 0x0100, 0x0100}}, 0x0100},
 
                     // mud
-                    [TERRAIN_MUD] = {0, 128, 140, 180, 256, 256, 0, 0, 512, 256, 256, 4, 5, 4, 64, -1, 27, 0xffff, 0x0080, 0x008c, 0x00b4, 0x0200},
+                    [TERRAIN_MUD] = {0, 128, 140, 180, 256, 256, 0, 0, 512, 256, 256, {4, 5, 4, 64}, -1, 27, {{0xffff, 0x0080, 0x008c, 0x00b4}}, 0x0200},
 
                     // sideslip
-                    [TERRAIN_SIDESLIP] = {0, 320, 256, 256, 256, 256, 0, 0, 256, 256, 256, 0, 0, 0, 0, 17, -1, 0xffff, 0x0140, 0x0100, 0x0100, 0x0100},
+                    [TERRAIN_SIDESLIP] = {0, 320, 256, 256, 256, 256, 0, 0, 256, 256, 256, {0, 0, 0, 0}, 17, -1, {{0xffff, 0x0140, 0x0100, 0x0100}}, 0x0100},
 
                     // riverasphalt
-                    [TERRAIN_RIVERASPHALT] = {0, 64, 256, 256, 256, 256, 0, 0, 256, 256, 256, 0, 0, 0, 0, 17, -1, 0x0088, 0x0040, 0x0100, 0x0100, 0x0100},
+                    [TERRAIN_RIVERASPHALT] = {0, 64, 256, 256, 256, 256, 0, 0, 256, 256, 256, {0, 0, 0, 0}, 17, -1, {{0x0088, 0x0040, 0x0100, 0x0100}}, 0x0100},
 
                     // steamasphalt
-                    [TERRAIN_STEAMASPHALT] = {0, 64, 256, 256, 256, 256, 0, 0, 256, 256, 256, 0, 0, 0, 0, 17, -1, 0x008b, 0x0040, 0x0100, 0x0100, 0x0100},
+                    [TERRAIN_STEAMASPHALT] = {0, 64, 256, 256, 256, 256, 0, 0, 256, 256, 256, {0, 0, 0, 0}, 17, -1, {{0x008b, 0x0040, 0x0100, 0x0100}}, 0x0100},
 
                     // oceanasphalt
-                    [TERRAIN_OCEANASPHALT] = {0, 64, 256, 256, 256, 256, 0, 0, 256, 256, 256, 0, 0, 0, 0, 17, -1, 0x0087, 0x0040, 0x0100, 0x0100, 0x0100},
+                    [TERRAIN_OCEANASPHALT] = {0, 64, 256, 256, 256, 256, 0, 0, 256, 256, 256, {0, 0, 0, 0}, 17, -1, {{0x0087, 0x0040, 0x0100, 0x0100}}, 0x0100},
 
                     // slowgrass
-                    [TERRAIN_SLOWGRASS] =
-                        {0,  0,      100,    180,    256,    256,   &data.emSet_GrassL[0], &data.emSet_GrassR[0], 256, 256, 256, 4, 4, 4, 56, 18,
-                         24, 0xffff, 0x0000, 0x0064, 0x00b4, 0x0100},
+                    [TERRAIN_SLOWGRASS] = {0,
+                                           0,
+                                           100,
+                                           180,
+                                           256,
+                                           256,
+                                           &data.emSet_GrassL[0],
+                                           &data.emSet_GrassR[0],
+                                           256,
+                                           256,
+                                           256,
+                                           {4, 4, 4, 56},
+                                           18,
+                                           24,
+                                           {{0xffff, 0x0000, 0x0064, 0x00b4}},
+                                           0x0100},
 
                     // slowdirt
-                    [TERRAIN_SLOWDIRT] =
-                        {0,  0,      100,    180,    256,    256,   &data.emSet_DirtLR[0], &data.emSet_DirtLR[0], 256, 256, 256, 4, 5, 4, 64, 18,
-                         24, 0xffff, 0x0000, 0x0064, 0x00b4, 0x0100},
+                    [TERRAIN_SLOWDIRT] = {0,
+                                          0,
+                                          100,
+                                          180,
+                                          256,
+                                          256,
+                                          &data.emSet_DirtLR[0],
+                                          &data.emSet_DirtLR[0],
+                                          256,
+                                          256,
+                                          256,
+                                          {4, 5, 4, 64},
+                                          18,
+                                          24,
+                                          {{0xffff, 0x0000, 0x0064, 0x00b4}},
+                                          0x0100},
                 },
 
 // one way for this to fail,
