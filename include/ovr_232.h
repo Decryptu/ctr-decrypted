@@ -65,6 +65,18 @@ CTR_STATIC_ASSERT(WdCam_FlyingIn == 4);
 CTR_STATIC_ASSERT(WdCam_CutscenePlaying == 0x10);
 CTR_STATIC_ASSERT(sizeof(WoodDoorCamFlagSet) == 0x2);
 
+enum AdventureHubDoorID
+{
+	AH_DOOR_BEACH_TO_GLACIER_PARK = 4,
+	AH_DOOR_BEACH_TO_GEMSTONE_VALLEY = 5,
+};
+
+typedef s16 AdventureHubDoorID;
+
+CTR_STATIC_ASSERT(AH_DOOR_BEACH_TO_GLACIER_PARK == 4);
+CTR_STATIC_ASSERT(AH_DOOR_BEACH_TO_GEMSTONE_VALLEY == 5);
+CTR_STATIC_ASSERT(sizeof(AdventureHubDoorID) == 0x2);
+
 struct WoodDoor
 {
 	struct Instance *otherDoor;
@@ -94,7 +106,7 @@ struct WoodDoor
 	s16 keyShrinkFrame;
 
 	// 0x34
-	s16 doorID;
+	AdventureHubDoorID doorID;
 	s16 padding_0x36;
 
 	// 0x38 bytes large
@@ -254,19 +266,42 @@ struct WarpPad
 	// 0x78 -- size
 };
 
+enum AHSaveObjFlags
+{
+	AH_SAVEOBJ_FLAG_NONE = 0,
+	AH_SAVEOBJ_FLAG_INTERACTION_ACTIVE = 1,
+	AH_SAVEOBJ_FLAG_MENU_SHOWN = 2,
+	AH_SAVEOBJ_FLAG_HUD_RESTORED = 4,
+};
+
+typedef u16 AHSaveObjFlagSet;
+
+enum AHSaveObjConstants
+{
+	AH_SAVEOBJ_SCANLINE_START_FRAME = 0xf,
+};
+
 struct SaveObj
 {
 	// 0x0
 	struct Instance *inst;
 	// 0x4
-	u16 flags;
+	AHSaveObjFlagSet flags;
 	// 0x6
 	s16 scanlineFrame;
 	// 0x8
-	u8 hudFlagBackup;
+	// Retail writes a word here and restores the low byte.
+	u32 hudFlagBackup;
 
-	// total size unk
+	// 0xc bytes large
 };
+
+CTR_STATIC_ASSERT(AH_SAVEOBJ_FLAG_NONE == 0);
+CTR_STATIC_ASSERT(AH_SAVEOBJ_FLAG_INTERACTION_ACTIVE == 1);
+CTR_STATIC_ASSERT(AH_SAVEOBJ_FLAG_MENU_SHOWN == 2);
+CTR_STATIC_ASSERT(AH_SAVEOBJ_FLAG_HUD_RESTORED == 4);
+CTR_STATIC_ASSERT(sizeof(AHSaveObjFlagSet) == 0x2);
+CTR_STATIC_ASSERT(sizeof(struct SaveObj) == 0xc);
 
 struct OverlayRDATA_232
 {

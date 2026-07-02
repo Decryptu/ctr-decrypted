@@ -52,7 +52,7 @@ void AH_SaveObj_ThTick(struct Thread *t)
 	// get distance from player instance and thread object instance
 	dist = distX * distX + distY * distY + distZ * distZ;
 
-	if ((save->flags & 1) == 0)
+	if ((save->flags & AH_SAVEOBJ_FLAG_INTERACTION_ACTIVE) == 0)
 	{
 		if ( // If game is not paused
 		    ((gGT->gameMode1 & PAUSE_ALL) != 0) ||
@@ -111,7 +111,7 @@ void AH_SaveObj_ThTick(struct Thread *t)
 
 				GAMEPAD_JogCon2(driver, 0, 0);
 
-				save->flags |= 1;
+				save->flags |= AH_SAVEOBJ_FLAG_INTERACTION_ACTIVE;
 
 				// backup HUD flags while driver sees Save/Load screen
 				save->hudFlagBackup = gGT->hudFlags;
@@ -129,11 +129,11 @@ void AH_SaveObj_ThTick(struct Thread *t)
 			// if camera is not transitioning
 			if (((gGT->cameraDC->flags & 0x200) == 0) &&
 
-			    ((save->flags & 4) == 0))
+			    ((save->flags & AH_SAVEOBJ_FLAG_HUD_RESTORED) == 0))
 			{
 				driverInst->thread->funcThTick = NULL;
 
-				save->flags |= 4;
+				save->flags |= AH_SAVEOBJ_FLAG_HUD_RESTORED;
 #if defined(CTR_NATIVE)
 				// NOTE(aalhendi): Retail hides the HUD before queueing a hub
 				// load while levelID is temporarily MAIN_MENU_LEVEL. Native can
@@ -142,7 +142,7 @@ void AH_SaveObj_ThTick(struct Thread *t)
 				if (sdata->Loading.stage == LOAD_IDLE)
 				{
 #endif
-					gGT->hudFlags = save->hudFlagBackup;
+					gGT->hudFlags = (u8)save->hudFlagBackup;
 #if defined(CTR_NATIVE)
 				}
 #endif
@@ -158,9 +158,9 @@ void AH_SaveObj_ThTick(struct Thread *t)
 				if ((uVar6 & 0x800) != 0)
 				{
 					// if it is not time to return to player
-					if ((save->flags & 2) == 0)
+					if ((save->flags & AH_SAVEOBJ_FLAG_MENU_SHOWN) == 0)
 					{
-						save->flags |= 2;
+						save->flags |= AH_SAVEOBJ_FLAG_MENU_SHOWN;
 
 						SelectProfile_GetTrackID();
 
@@ -187,10 +187,10 @@ void AH_SaveObj_ThTick(struct Thread *t)
 			}
 			goto LAB_800af72c;
 		}
-		save->flags = 0;
+		save->flags = AH_SAVEOBJ_FLAG_NONE;
 	}
 
-	save->scanlineFrame = 0xf;
+	save->scanlineFrame = AH_SAVEOBJ_SCANLINE_START_FRAME;
 
 LAB_800af72c:
 
@@ -275,7 +275,7 @@ void AH_SaveObj_LInB(struct Instance *savInst)
 			t->funcThDestroy = AH_SaveObj_ThDestroy;
 
 			// initialize object
-			save->flags = 0;
+			save->flags = AH_SAVEOBJ_FLAG_NONE;
 
 			save->scanlineFrame = 0;
 

@@ -1,5 +1,32 @@
 #include <common.h>
 
+enum AHDoorConstants
+{
+	AH_DOOR_ACCESS_FLAG = 2,
+	AH_DOOR_INTERACTION_FORWARD_OFFSET = 0x300,
+	AH_DOOR_NEAR_DIST_SQ = 0x90000,
+	AH_DOOR_NEAR_DIST_MAX_SQ = AH_DOOR_NEAR_DIST_SQ - 1,
+	AH_DOOR_CAMERA_HOLD_FRAMES = CTR_SECONDS_TO_FRAMES(2),
+	AH_DOOR_KEY_SPIN_FRAMES = CTR_SECONDS_TO_FRAMES(4),
+	AH_DOOR_KEY_LIGHT_X = -0xc98,
+	AH_DOOR_KEY_LIGHT_Y = 0x99f,
+	AH_DOOR_KEY_LIGHT_Z = 0x232,
+	AH_DOOR_KEY_TARGET_SCALE = 0xa00,
+	AH_DOOR_KEY_SCALE_STEP = 0x40,
+	AH_DOOR_KEY_ROT_STEP = 0x40,
+	AH_DOOR_KEY_RAISE_HEIGHT = 0xa0,
+	AH_DOOR_KEY_RAISE_STEP = 4,
+	AH_DOOR_KEY_ORBIT_STEP = 0x10,
+	AH_DOOR_KEY_SHRINK_FRAME_COUNT = 0xb,
+	AH_DOOR_OPEN_ROTATION = 0x400,
+	AH_DOOR_OPEN_ROTATION_STEP = 0x10,
+	AH_DOOR_PAIR_OFFSET = 0x600,
+	AH_DOOR_CAMERA_FORWARD_OFFSET = 0x312,
+	AH_DOOR_CAMERA_SIDE_OFFSET = 0x600,
+	AH_DOOR_CAMERA_HEIGHT_OFFSET = 0x17a,
+	AH_DOOR_CAMERA_PITCH_OFFSET = 0x800,
+};
+
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800af9f8-0x800afa60.
 void AH_Door_ThDestroy(struct Thread *t)
 {
@@ -20,14 +47,14 @@ void AH_Door_ThDestroy(struct Thread *t)
 	return;
 }
 
-static char AH_Door_IsOpenByRewards(s16 levelID, s16 doorID)
+static char AH_Door_IsOpenByRewards(s16 levelID, AdventureHubDoorID doorID)
 {
-	if ((levelID == N_SANITY_BEACH) && (doorID == 4))
+	if ((levelID == N_SANITY_BEACH) && (doorID == AH_DOOR_BEACH_TO_GLACIER_PARK))
 	{
 		return (sdata->advProgress.storyFlags & ADV_REWARD_DOOR_BEACH_TO_GLACIER_PARK_MASK) != 0;
 	}
 
-	if ((levelID == N_SANITY_BEACH) && (doorID == 5))
+	if ((levelID == N_SANITY_BEACH) && (doorID == AH_DOOR_BEACH_TO_GEMSTONE_VALLEY))
 	{
 		return (sdata->advProgress.storyFlags & ADV_REWARD_DOOR_BEACH_TO_GEMSTONE_VALLEY_MASK) != 0;
 	}
@@ -54,7 +81,7 @@ static char AH_Door_IsOpenByRewards(s16 levelID, s16 doorID)
 void AH_Door_ThTick(struct Thread *t)
 {
 	char doorIsOpen;
-	s16 doorID;
+	AdventureHubDoorID doorID;
 	s16 lev;
 	s16 numKeys;
 	u16 hintId;
@@ -62,6 +89,7 @@ void AH_Door_ThTick(struct Thread *t)
 	int i;
 	int ratio;
 	int distX;
+	int distY;
 	int distZ;
 	int dist;
 	int iVar17;
@@ -93,32 +121,35 @@ void AH_Door_ThTick(struct Thread *t)
 	ratio = MATH_Cos((int)doorInst->instDef->rot.y);
 
 	// X distance of player and door
-	distX = doorInst->matrix.t[0] + (ratio * 0x300 >> 0xc) - driver->instSelf->matrix.t[0];
+	distX = doorInst->matrix.t[0] + (ratio * AH_DOOR_INTERACTION_FORWARD_OFFSET >> 0xc) - driver->instSelf->matrix.t[0];
+
+	// Y distance of player and door
+	distY = doorInst->matrix.t[1] - driver->instSelf->matrix.t[1];
 
 	// Sine(angle)
 	ratio = MATH_Sin((int)doorInst->instDef->rot.y);
 
 	// Z distance of player and door
-	distZ = doorInst->matrix.t[2] + (ratio * 0x300 >> 0xc) - driver->instSelf->matrix.t[2];
+	distZ = doorInst->matrix.t[2] + (ratio * AH_DOOR_INTERACTION_FORWARD_OFFSET >> 0xc) - driver->instSelf->matrix.t[2];
 
 	// distance from player and door
-	dist = distX * distX + distZ * distZ;
+	dist = distX * distX + distY * distY + distZ * distZ;
 
 	// If player is close to a door
-	if (dist < 0x90000)
+	if (dist < AH_DOOR_NEAR_DIST_SQ)
 	{
 		// if door is open
 		if (doorIsOpen)
 		{
 			// enable access through a door (disable collision)
-			sdata->doorAccessFlags |= 2;
+			sdata->doorAccessFlags |= AH_DOOR_ACCESS_FLAG;
 		}
 
 		// if door is locked
 		else
 		{
 			// remove access (enable collision)
-			sdata->doorAccessFlags &= 0xfffffffd;
+			sdata->doorAccessFlags &= ~AH_DOOR_ACCESS_FLAG;
 		}
 	}
 
@@ -130,7 +161,7 @@ void AH_Door_ThTick(struct Thread *t)
 		numKeys = 1;
 
 		// If this is door from beach -> glacier
-		if (doorID == 4)
+		if (doorID == AH_DOOR_BEACH_TO_GLACIER_PARK)
 		{
 			// must have 2 keys
 			numKeys = 2;
@@ -180,7 +211,7 @@ void AH_Door_ThTick(struct Thread *t)
 
 	if (
 	    // if player is far from the door
-	    (0x8ffff < dist) &&
+	    (AH_DOOR_NEAR_DIST_MAX_SQ < dist) &&
 	    // flags
 	    ((door->camFlags & WdCam_CutscenePlaying) == 0))
 	{
@@ -227,7 +258,7 @@ void AH_Door_ThTick(struct Thread *t)
 
 	if ((door->camFlags & WdCam_FlyingOut) != 0)
 	{
-		door->camTimer_unused = 0x3c;
+		door->camTimer_unused = AH_DOOR_CAMERA_HOLD_FRAMES;
 
 		if (((cDC->flags & CAMERA_FLAG_TRANSITION_AWAY) == 0) && ((door->camFlags & WdCam_FlyingIn) == 0))
 		{
@@ -260,13 +291,13 @@ void AH_Door_ThTick(struct Thread *t)
 		door->camFlags |= WdCam_CutscenePlaying;
 
 		// if timer is less than four full seconds
-		if (door->frameCount_doorOpenAnim < 0x78)
+		if (door->frameCount_doorOpenAnim < AH_DOOR_KEY_SPIN_FRAMES)
 		{
 			if (driver->speedApprox < 0x80)
 			{
-				keyLightDir.x = -0xc98;
-				keyLightDir.y = 0x99f;
-				keyLightDir.z = 0x232;
+				keyLightDir.x = AH_DOOR_KEY_LIGHT_X;
+				keyLightDir.y = AH_DOOR_KEY_LIGHT_Y;
+				keyLightDir.z = AH_DOOR_KEY_LIGHT_Z;
 
 				// if keys are not spawned, create them
 				if (door->keyInst[0] == NULL)
@@ -318,20 +349,20 @@ void AH_Door_ThTick(struct Thread *t)
 						keyInst = door->keyInst[i];
 						if (keyInst != NULL)
 						{
-							// if scale < 0xa00
-							if (keyInst->scale.x < 0xa00)
+							// if key is still growing to full display scale
+							if (keyInst->scale.x < AH_DOOR_KEY_TARGET_SCALE)
 							{
 								// increase scale on X, Y, Z
-								keyInst->scale.x += 0x40;
-								keyInst->scale.y += 0x40;
-								keyInst->scale.z += 0x40;
+								keyInst->scale.x += AH_DOOR_KEY_SCALE_STEP;
+								keyInst->scale.y += AH_DOOR_KEY_SCALE_STEP;
+								keyInst->scale.z += AH_DOOR_KEY_SCALE_STEP;
 							}
 
-							// if key posY is less than (player posY + 0xa0)
-							if (keyInst->matrix.t[1] < (driver->instSelf->matrix.t[1] + 0xa0))
+							// if key posY is below its hover height over the player
+							if (keyInst->matrix.t[1] < (driver->instSelf->matrix.t[1] + AH_DOOR_KEY_RAISE_HEIGHT))
 							{
 								// increase key posY
-								keyInst->matrix.t[1] += 4;
+								keyInst->matrix.t[1] += AH_DOOR_KEY_RAISE_STEP;
 							}
 
 							if (1 < numKeys)
@@ -363,10 +394,10 @@ void AH_Door_ThTick(struct Thread *t)
 				}
 
 				door->keyRot.x = 0;
-				door->keyRot.y += 0x40;
+				door->keyRot.y += AH_DOOR_KEY_ROT_STEP;
 				door->keyRot.z = 0;
 
-				door->keyOrbit += 0x10;
+				door->keyOrbit += AH_DOOR_KEY_ORBIT_STEP;
 
 				door->frameCount_doorOpenAnim++;
 
@@ -395,7 +426,7 @@ void AH_Door_ThTick(struct Thread *t)
 					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b0298-0x800b02ac for door unlock SFX.
 					OtherFX_Play(0x93, 1);
 					break;
-				case 0x78:
+				case AH_DOOR_KEY_SPIN_FRAMES:
 					// on last frame, doors "creek" open
 					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b02a0-0x800b02ac for door creak SFX.
 					OtherFX_Play(0x94, 1);
@@ -412,22 +443,22 @@ void AH_Door_ThTick(struct Thread *t)
 
 		ratio = MATH_Cos((int)doorInst->instDef->rot.y);
 
-		i = MATH_Cos((int)doorInst->instDef->rot.y + 0x400);
+		i = MATH_Cos((int)doorInst->instDef->rot.y + AH_DOOR_OPEN_ROTATION);
 
 		// desired posX for transition
-		desiredPos.x = doorInst->matrix.t[0] + (s16)(ratio * 0x312 >> 0xc) + (s16)(i * 0x600 >> 0xc);
+		desiredPos.x = doorInst->matrix.t[0] + (s16)(ratio * AH_DOOR_CAMERA_FORWARD_OFFSET >> 0xc) + (s16)(i * AH_DOOR_CAMERA_SIDE_OFFSET >> 0xc);
 		// desired posY for transition
-		desiredPos.y = doorInst->matrix.t[1] + 0x17a;
+		desiredPos.y = doorInst->matrix.t[1] + AH_DOOR_CAMERA_HEIGHT_OFFSET;
 
 		ratio = MATH_Sin((int)doorInst->instDef->rot.y);
 
-		i = MATH_Sin((int)doorInst->instDef->rot.y + 0x400);
+		i = MATH_Sin((int)doorInst->instDef->rot.y + AH_DOOR_OPEN_ROTATION);
 
 		// desired posZ for transition
-		desiredPos.z = doorInst->matrix.t[2] + (s16)(ratio * 0x312 >> 0xc) + (s16)(i * 0x600 >> 0xc);
+		desiredPos.z = doorInst->matrix.t[2] + (s16)(ratio * AH_DOOR_CAMERA_FORWARD_OFFSET >> 0xc) + (s16)(i * AH_DOOR_CAMERA_SIDE_OFFSET >> 0xc);
 
 		// desired rotation for transition
-		desiredRot.x = doorInst->instDef->rot.x + 0x800;
+		desiredRot.x = doorInst->instDef->rot.x + AH_DOOR_CAMERA_PITCH_OFFSET;
 		desiredRot.y = doorInst->instDef->rot.y;
 		desiredRot.z = doorInst->instDef->rot.z;
 
@@ -444,9 +475,9 @@ void AH_Door_ThTick(struct Thread *t)
 
 	// == door is opening ==
 
-	if (door->doorRot.y < 0x400)
+	if (door->doorRot.y < AH_DOOR_OPEN_ROTATION)
 	{
-		door->doorRot.y += 0x10;
+		door->doorRot.y += AH_DOOR_OPEN_ROTATION_STEP;
 
 		// right-hand door rot[x,y,z]
 		desiredRot.x = door->doorRot.x;
@@ -464,7 +495,7 @@ void AH_Door_ThTick(struct Thread *t)
 
 		// if less than 11 frames have passed,
 		// decrease key scale, then quit function
-		if (door->keyShrinkFrame < 0xb)
+		if (door->keyShrinkFrame < AH_DOOR_KEY_SHRINK_FRAME_COUNT)
 		{
 			scaler = (s16 *)R232.keyFrame;
 
@@ -504,7 +535,7 @@ void AH_Door_ThTick(struct Thread *t)
 	    ((lev == N_SANITY_BEACH) &&
 
 	     // if this is door #4 (beach -> glacier)
-	     (doorID == 4)) ||
+	     (doorID == AH_DOOR_BEACH_TO_GLACIER_PARK)) ||
 
 	    // if this is lost ruins (ruins -> glacier)
 	    (lev == THE_LOST_RUINS))
@@ -517,8 +548,8 @@ void AH_Door_ThTick(struct Thread *t)
 	    // if this is N Sane Beach
 	    (lev == N_SANITY_BEACH) &&
 
-	    // Door #5 (beach -> ruins)
-	    (doorID == 5))
+	    // Door #5 (beach -> gemstone)
+	    (doorID == AH_DOOR_BEACH_TO_GEMSTONE_VALLEY))
 	{
 		// record that door is open
 		sdata->advProgress.storyFlags |= ADV_REWARD_DOOR_BEACH_TO_GEMSTONE_VALLEY_MASK;
@@ -634,8 +665,8 @@ void AH_Door_LInB(struct Instance *inst)
 	    // Level ID is N Sanity Beach
 	    (levelID == N_SANITY_BEACH) &&
 
-	    // doorID == 5
-	    (woodDoor->doorID == 5))
+	    // beach -> gemstone door
+	    (woodDoor->doorID == AH_DOOR_BEACH_TO_GEMSTONE_VALLEY))
 	{
 		// door with no key holes
 		m = gGT->modelPtr[STATIC_DOOR2];
@@ -673,13 +704,13 @@ void AH_Door_LInB(struct Instance *inst)
 
 	ratio = MATH_Cos((int)inst->instDef->rot.y);
 
-	otherDoorInst->matrix.t[0] += (ratio * 0x600 >> 0xc);
+	otherDoorInst->matrix.t[0] += (ratio * AH_DOOR_PAIR_OFFSET >> 0xc);
 
 	otherDoorInst->matrix.t[1] = inst->matrix.t[1];
 
 	ratio = MATH_Sin((int)(int)inst->instDef->rot.y);
 
-	otherDoorInst->matrix.t[2] += (ratio * 0x600 >> 0xc);
+	otherDoorInst->matrix.t[2] += (ratio * AH_DOOR_PAIR_OFFSET >> 0xc);
 
 	// both doors always face camera
 	headers = inst->model->headers;
@@ -692,10 +723,12 @@ void AH_Door_LInB(struct Instance *inst)
 
 	if (
 	    // Level ID is N Sanity Beach, check door to Glacier Park
-	    (levelID == N_SANITY_BEACH && woodDoor->doorID == 4 && ((sdata->advProgress.storyFlags & ADV_REWARD_DOOR_BEACH_TO_GLACIER_PARK_MASK) != 0)) ||
+	    (levelID == N_SANITY_BEACH && woodDoor->doorID == AH_DOOR_BEACH_TO_GLACIER_PARK &&
+	     ((sdata->advProgress.storyFlags & ADV_REWARD_DOOR_BEACH_TO_GLACIER_PARK_MASK) != 0)) ||
 
 	    // Level ID is N Sanity Beach, check door to Gemstone Valley
-	    (levelID == N_SANITY_BEACH && woodDoor->doorID == 5 && ((sdata->advProgress.storyFlags & ADV_REWARD_DOOR_BEACH_TO_GEMSTONE_VALLEY_MASK) != 0)) ||
+	    (levelID == N_SANITY_BEACH && woodDoor->doorID == AH_DOOR_BEACH_TO_GEMSTONE_VALLEY &&
+	     ((sdata->advProgress.storyFlags & ADV_REWARD_DOOR_BEACH_TO_GEMSTONE_VALLEY_MASK) != 0)) ||
 
 	    // Level ID is Gemstone Valley, check door to Cup room
 	    (levelID == GEM_STONE_VALLEY && ((sdata->advProgress.storyFlags & ADV_REWARD_DOOR_GEMSTONE_VALLEY_TO_CUPS_MASK) != 0)) ||
@@ -707,7 +740,7 @@ void AH_Door_LInB(struct Instance *inst)
 	    ((levelID == GLACIER_PARK) && ((sdata->advProgress.storyFlags & ADV_REWARD_DOOR_GLACIER_PARK_TO_CITADEL_CITY_MASK) != 0)))
 	{
 		// rotation = 90 degrees
-		woodDoor->doorRot.y = 0x400;
+		woodDoor->doorRot.y = AH_DOOR_OPEN_ROTATION;
 
 		leftRot.x = woodDoor->doorRot.x;
 		leftRot.y = inst->instDef->rot.y + woodDoor->doorRot.y;
