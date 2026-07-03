@@ -19,6 +19,22 @@ struct DrawLevelOvr1PRenderList
 	struct QuadBlock **ptrQuadBlocksRendered_FullDynamic;
 };
 
+enum DrawLevelOvr1PRenderListOffset
+{
+	DRAW_LEVEL_OVR1P_RENDER_LIST_OFFSET_4X4_RENDERED = offsetof(struct DrawLevelOvr1PRenderList, list[0].ptrQuadBlocksRendered),
+	DRAW_LEVEL_OVR1P_RENDER_LIST_OFFSET_4X4_LIST = offsetof(struct DrawLevelOvr1PRenderList, list[0].bspListStart),
+	DRAW_LEVEL_OVR1P_RENDER_LIST_OFFSET_DYNAMIC_RENDERED = offsetof(struct DrawLevelOvr1PRenderList, list[1].ptrQuadBlocksRendered),
+	DRAW_LEVEL_OVR1P_RENDER_LIST_OFFSET_DYNAMIC_LIST = offsetof(struct DrawLevelOvr1PRenderList, list[1].bspListStart),
+	DRAW_LEVEL_OVR1P_RENDER_LIST_OFFSET_4X2_RENDERED = offsetof(struct DrawLevelOvr1PRenderList, list[2].ptrQuadBlocksRendered),
+	DRAW_LEVEL_OVR1P_RENDER_LIST_OFFSET_4X2_LIST = offsetof(struct DrawLevelOvr1PRenderList, list[2].bspListStart),
+	DRAW_LEVEL_OVR1P_RENDER_LIST_OFFSET_4X1_RENDERED = offsetof(struct DrawLevelOvr1PRenderList, list[3].ptrQuadBlocksRendered),
+	DRAW_LEVEL_OVR1P_RENDER_LIST_OFFSET_4X1_LIST = offsetof(struct DrawLevelOvr1PRenderList, list[3].bspListStart),
+	DRAW_LEVEL_OVR1P_RENDER_LIST_OFFSET_WATER_RENDERED = offsetof(struct DrawLevelOvr1PRenderList, list[4].ptrQuadBlocksRendered),
+	DRAW_LEVEL_OVR1P_RENDER_LIST_OFFSET_WATER_LIST = offsetof(struct DrawLevelOvr1PRenderList, list[4].bspListStart),
+	DRAW_LEVEL_OVR1P_RENDER_LIST_OFFSET_FULL_DYNAMIC_LIST = offsetof(struct DrawLevelOvr1PRenderList, bspListStart_FullDynamic),
+	DRAW_LEVEL_OVR1P_RENDER_LIST_OFFSET_FULL_DYNAMIC_RENDERED = offsetof(struct DrawLevelOvr1PRenderList, ptrQuadBlocksRendered_FullDynamic),
+};
+
 enum DrawLevelOvr1PBucketKind
 {
 	DRAW_LEVEL_OVR1P_BUCKET_QUADBLOCKS_RENDERED,
@@ -67,6 +83,48 @@ enum DrawLevelOvr1PSharedConstant
 {
 	DRAW_LEVEL_OVR1P_SPLIT_GROUND_MOSAIC_RELOAD_SPAN = 0xc0,
 };
+
+enum DrawLevelOvrCopiedSetupConstant
+{
+	DRAW_LEVEL_OVR_COPIED_SETUP0_WORD_COUNT = 15,
+	DRAW_LEVEL_OVR_COPIED_SETUP1_WORD_COUNT = 3,
+	DRAW_LEVEL_OVR_COPIED_SETUP0_LAST_WORD_INDEX = DRAW_LEVEL_OVR_COPIED_SETUP0_WORD_COUNT - 1,
+	DRAW_LEVEL_OVR_COPIED_SETUP1_LAST_WORD_INDEX = DRAW_LEVEL_OVR_COPIED_SETUP1_WORD_COUNT - 1,
+	DRAW_LEVEL_OVR_COPIED_SETUP0_SCRATCH_OFFSET = 0x14c,
+	DRAW_LEVEL_OVR_COPIED_SETUP1_SCRATCH_OFFSET = 0x188,
+};
+
+struct DrawLevelOvrBucketSetupCopy
+{
+	u32 lastWordIndex;
+	u32 sourceAddress;
+	u32 scratchOffset;
+};
+
+struct DrawLevelOvrBucketSetupRecord
+{
+	struct DrawLevelOvrBucketSetupCopy copies[2];
+	u32 padding;
+	u32 copy0[DRAW_LEVEL_OVR_COPIED_SETUP0_WORD_COUNT];
+	u32 copy1[DRAW_LEVEL_OVR_COPIED_SETUP1_WORD_COUNT];
+};
+
+CTR_STATIC_ASSERT(DRAW_LEVEL_OVR_COPIED_SETUP0_WORD_COUNT == 15);
+CTR_STATIC_ASSERT(DRAW_LEVEL_OVR_COPIED_SETUP1_WORD_COUNT == 3);
+CTR_STATIC_ASSERT(DRAW_LEVEL_OVR_COPIED_SETUP0_LAST_WORD_INDEX == 0xe);
+CTR_STATIC_ASSERT(DRAW_LEVEL_OVR_COPIED_SETUP1_LAST_WORD_INDEX == 0x2);
+CTR_STATIC_ASSERT(DRAW_LEVEL_OVR_COPIED_SETUP0_SCRATCH_OFFSET == 0x14c);
+CTR_STATIC_ASSERT(DRAW_LEVEL_OVR_COPIED_SETUP1_SCRATCH_OFFSET == 0x188);
+CTR_STATIC_ASSERT(sizeof(struct DrawLevelOvrBucketSetupCopy) == 0xc);
+CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvrBucketSetupCopy, lastWordIndex) == 0x0);
+CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvrBucketSetupCopy, sourceAddress) == 0x4);
+CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvrBucketSetupCopy, scratchOffset) == 0x8);
+CTR_STATIC_ASSERT(sizeof(struct DrawLevelOvrBucketSetupRecord) == 0x64);
+CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvrBucketSetupRecord, copies) == 0x0);
+CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvrBucketSetupRecord, padding) == 0x18);
+CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvrBucketSetupRecord, copy0) == 0x1c);
+CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvrBucketSetupRecord, copy1) == 0x58);
+
 
 enum DrawLevelOvr1PScratchOffset
 {

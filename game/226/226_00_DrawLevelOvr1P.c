@@ -180,25 +180,31 @@ static const struct DrawLevelOvr1PNearSubdivisionCase sDrawLevelOvr1PDeepestGrid
     {0, 0, {{0, 4, 2, 8}, {4, 1, 8, 3}}, {DRAW_LEVEL_OVR1P_DIRECT_QUAD, DRAW_LEVEL_OVR1P_DIRECT_QUAD}, {0x0, 0xc}},
 };
 
-// NOTE(aalhendi): Retail overlay 226 dispatches these offsets from 0x28 down
-// to 0x00 through tables at 0x800ab40c/0x800ab438.
+// NOTE(aalhendi): Retail overlay 226 dispatches the render-list offsets from
+// FULL_DYNAMIC_LIST down to 4X4_RENDERED through tables at 0x800ab40c/0x800ab438.
 static const struct DrawLevelOvr1PBucket sDrawLevelOvr1PBuckets[] = {
-    {0x00, DRAW_LEVEL_OVR1P_BUCKET_QUADBLOCKS_RENDERED, DRAW_LEVEL_OVR1P_BUCKET_4X4_RENDERED, DRAW_LEVEL_OVR1P_LOD_HIGH},
-    {0x04, DRAW_LEVEL_OVR1P_BUCKET_BSP_LIST, DRAW_LEVEL_OVR1P_BUCKET_4X4_LIST, DRAW_LEVEL_OVR1P_LOD_HIGH},
-    {0x08, DRAW_LEVEL_OVR1P_BUCKET_QUADBLOCKS_RENDERED, DRAW_LEVEL_OVR1P_BUCKET_DYNAMIC_RENDERED, DRAW_LEVEL_OVR1P_LOD_HIGH},
-    {0x0c, DRAW_LEVEL_OVR1P_BUCKET_BSP_LIST, DRAW_LEVEL_OVR1P_BUCKET_DYNAMIC_LIST, DRAW_LEVEL_OVR1P_LOD_HIGH},
-    {0x10, DRAW_LEVEL_OVR1P_BUCKET_QUADBLOCKS_RENDERED, DRAW_LEVEL_OVR1P_BUCKET_4X2_RENDERED, DRAW_LEVEL_OVR1P_LOD_HIGH},
-    {0x14, DRAW_LEVEL_OVR1P_BUCKET_BSP_LIST, DRAW_LEVEL_OVR1P_BUCKET_4X2_LIST, DRAW_LEVEL_OVR1P_LOD_HIGH},
-    {0x18, DRAW_LEVEL_OVR1P_BUCKET_QUADBLOCKS_RENDERED, DRAW_LEVEL_OVR1P_BUCKET_4X1_RENDERED, DRAW_LEVEL_OVR1P_LOD_LOW},
-    {0x1c, DRAW_LEVEL_OVR1P_BUCKET_BSP_LIST, DRAW_LEVEL_OVR1P_BUCKET_4X1_LIST, DRAW_LEVEL_OVR1P_LOD_LOW},
-    {0x20, DRAW_LEVEL_OVR1P_BUCKET_QUADBLOCKS_RENDERED, DRAW_LEVEL_OVR1P_BUCKET_WATER_RENDERED, DRAW_LEVEL_OVR1P_LOD_HIGH},
-    {0x24, DRAW_LEVEL_OVR1P_BUCKET_BSP_LIST, DRAW_LEVEL_OVR1P_BUCKET_WATER_LIST, DRAW_LEVEL_OVR1P_LOD_HIGH},
-    {0x28, DRAW_LEVEL_OVR1P_BUCKET_BSP_LIST, DRAW_LEVEL_OVR1P_BUCKET_FULL_DYNAMIC_LIST, DRAW_LEVEL_OVR1P_LOD_LOW},
+    {DRAW_LEVEL_OVR1P_RENDER_LIST_OFFSET_4X4_RENDERED, DRAW_LEVEL_OVR1P_BUCKET_QUADBLOCKS_RENDERED, DRAW_LEVEL_OVR1P_BUCKET_4X4_RENDERED,
+     DRAW_LEVEL_OVR1P_LOD_HIGH},
+    {DRAW_LEVEL_OVR1P_RENDER_LIST_OFFSET_4X4_LIST, DRAW_LEVEL_OVR1P_BUCKET_BSP_LIST, DRAW_LEVEL_OVR1P_BUCKET_4X4_LIST, DRAW_LEVEL_OVR1P_LOD_HIGH},
+    {DRAW_LEVEL_OVR1P_RENDER_LIST_OFFSET_DYNAMIC_RENDERED, DRAW_LEVEL_OVR1P_BUCKET_QUADBLOCKS_RENDERED, DRAW_LEVEL_OVR1P_BUCKET_DYNAMIC_RENDERED,
+     DRAW_LEVEL_OVR1P_LOD_HIGH},
+    {DRAW_LEVEL_OVR1P_RENDER_LIST_OFFSET_DYNAMIC_LIST, DRAW_LEVEL_OVR1P_BUCKET_BSP_LIST, DRAW_LEVEL_OVR1P_BUCKET_DYNAMIC_LIST, DRAW_LEVEL_OVR1P_LOD_HIGH},
+    {DRAW_LEVEL_OVR1P_RENDER_LIST_OFFSET_4X2_RENDERED, DRAW_LEVEL_OVR1P_BUCKET_QUADBLOCKS_RENDERED, DRAW_LEVEL_OVR1P_BUCKET_4X2_RENDERED,
+     DRAW_LEVEL_OVR1P_LOD_HIGH},
+    {DRAW_LEVEL_OVR1P_RENDER_LIST_OFFSET_4X2_LIST, DRAW_LEVEL_OVR1P_BUCKET_BSP_LIST, DRAW_LEVEL_OVR1P_BUCKET_4X2_LIST, DRAW_LEVEL_OVR1P_LOD_HIGH},
+    {DRAW_LEVEL_OVR1P_RENDER_LIST_OFFSET_4X1_RENDERED, DRAW_LEVEL_OVR1P_BUCKET_QUADBLOCKS_RENDERED, DRAW_LEVEL_OVR1P_BUCKET_4X1_RENDERED,
+     DRAW_LEVEL_OVR1P_LOD_LOW},
+    {DRAW_LEVEL_OVR1P_RENDER_LIST_OFFSET_4X1_LIST, DRAW_LEVEL_OVR1P_BUCKET_BSP_LIST, DRAW_LEVEL_OVR1P_BUCKET_4X1_LIST, DRAW_LEVEL_OVR1P_LOD_LOW},
+    {DRAW_LEVEL_OVR1P_RENDER_LIST_OFFSET_WATER_RENDERED, DRAW_LEVEL_OVR1P_BUCKET_QUADBLOCKS_RENDERED, DRAW_LEVEL_OVR1P_BUCKET_WATER_RENDERED,
+     DRAW_LEVEL_OVR1P_LOD_HIGH},
+    {DRAW_LEVEL_OVR1P_RENDER_LIST_OFFSET_WATER_LIST, DRAW_LEVEL_OVR1P_BUCKET_BSP_LIST, DRAW_LEVEL_OVR1P_BUCKET_WATER_LIST, DRAW_LEVEL_OVR1P_LOD_HIGH},
+    {DRAW_LEVEL_OVR1P_RENDER_LIST_OFFSET_FULL_DYNAMIC_LIST, DRAW_LEVEL_OVR1P_BUCKET_BSP_LIST, DRAW_LEVEL_OVR1P_BUCKET_FULL_DYNAMIC_LIST,
+     DRAW_LEVEL_OVR1P_LOD_LOW},
 };
 
 CTR_STATIC_ASSERT(sizeof(sDrawLevelOvr1PBuckets) / sizeof(sDrawLevelOvr1PBuckets[0]) == OVR226_BUCKET_COUNT);
 CTR_STATIC_ASSERT(sizeof(struct OverlayRDATA_226) == 0x564);
-CTR_STATIC_ASSERT(sizeof(struct OverlayRDATA_226_BucketSetupRecord) == 0x64);
+CTR_STATIC_ASSERT(sizeof(struct DrawLevelOvrBucketSetupRecord) == 0x64);
 CTR_STATIC_ASSERT(sizeof(((struct OverlayRDATA_226 *)0)->scratchInitTable) == 0x60);
 CTR_STATIC_ASSERT(sizeof(((struct OverlayRDATA_226 *)0)->clipRecordJumpTable) == 0x60);
 
@@ -237,11 +243,11 @@ static u32 DrawLevelOvr1P_GetActiveDrawOrderLow(void)
 	return DrawLevelOvr1P_Scratch()->drawOrderOrHeader;
 }
 
-static void DrawLevelOvr1P_CopyScratchWords(const u32 *source, const struct OverlayRDATA_226_BucketSetupCopy *copy)
+static void DrawLevelOvr1P_CopyScratchWords(const u32 *source, const struct DrawLevelOvrBucketSetupCopy *copy)
 {
 	u32 *scratch = CTR_SCRATCHPAD_PTR(u32, copy->scratchOffset);
 
-	for (u32 i = 0; i <= copy->loopCounter; i++)
+	for (u32 i = 0; i <= copy->lastWordIndex; i++)
 	{
 		scratch[i] = source[i];
 	}
@@ -262,7 +268,7 @@ static int Ovr226_800ab3d4_EmptyGT4ClipRecordLabel(void)
 	return 1;
 }
 
-static const struct OverlayRDATA_226_BucketSetupRecord *DrawLevelOvr1P_FindBucketSetupRecord(u32 setupAddress)
+static const struct DrawLevelOvrBucketSetupRecord *DrawLevelOvr1P_FindBucketSetupRecord(u32 setupAddress)
 {
 	for (int i = 0; i < OVR226_BUCKET_COUNT; i++)
 	{
@@ -289,7 +295,7 @@ static void Ovr226_800a0ddc_CopyScratchInitTable(void)
 
 static void Ovr226_800a0e44_ApplyBucketSetup(u32 setupAddress)
 {
-	const struct OverlayRDATA_226_BucketSetupRecord *setup = DrawLevelOvr1P_FindBucketSetupRecord(setupAddress);
+	const struct DrawLevelOvrBucketSetupRecord *setup = DrawLevelOvr1P_FindBucketSetupRecord(setupAddress);
 
 	if (setup == NULL)
 	{
@@ -376,9 +382,14 @@ static int DrawLevelOvr1P_IsPlausibleTextureLayout(const struct TextureLayout *t
 static int DrawLevelOvr1P_MempackContains(const struct Mempack *pack, uintptr_t ptr, uintptr_t *span)
 {
 	uintptr_t start = (uintptr_t)pack->start;
-	uintptr_t end = (uintptr_t)pack->endOfAllocator;
+	if ((start == 0) || (pack->packSize <= 0))
+	{
+		return 0;
+	}
 
-	if ((start == 0) || (start >= end) || (ptr < start) || (ptr >= end))
+	uintptr_t end = start + (uintptr_t)pack->packSize;
+
+	if ((end < start) || (ptr < start) || (ptr >= end))
 	{
 		return 0;
 	}
@@ -442,7 +453,13 @@ static int DrawLevelOvr1P_IsNativeLevelSpan(uintptr_t ptr, uintptr_t size)
 		return 0;
 	}
 
-	return end <= (uintptr_t)pack->endOfAllocator;
+	uintptr_t span;
+	if (!DrawLevelOvr1P_MempackContains(pack, ptr, &span))
+	{
+		return 0;
+	}
+
+	return end <= (uintptr_t)pack->start + span;
 }
 
 #endif
@@ -3475,7 +3492,7 @@ static int DrawLevelOvr1P_EmitPreparedProjectedDirectMaskAtOt(struct PushBuffer 
 	}
 
 	// NOTE(aalhendi): Retail direct table offsets 4/8/12 map to GT3 primary,
-	// GT3 secondary, and GT4 handlers through scratch 0x188.
+	// GT3 secondary, and GT4 handlers through the copied setup1 scratch slot.
 	switch (handlerAddress)
 	{
 	case DRAW_LEVEL_OVR_RETAIL_LABEL_FULL_DYNAMIC_DIRECT_GT3_PRIMARY_226:
@@ -3782,8 +3799,8 @@ static int DrawLevelOvr1P_GetNearSubdivisionTableSlot(u32 nearMask)
 
 static void DrawLevelOvr1P_SetPreviousRecursiveHandler(u32 handlerAddress)
 {
-	// NOTE(aalhendi): Retail stores the active recursive handler at scratch
-	// 0x9c immediately before jumping through the copied table at scratch 0x14c.
+	// NOTE(aalhendi): Retail stores the active recursive handler immediately
+	// before jumping through the copied setup0 scratch table.
 	DrawLevelOvr1P_Scratch()->previousDirectHandlerAddress = handlerAddress;
 }
 
@@ -8685,8 +8702,8 @@ static int Ovr226_800a22a4_DispatchWaterListHelperWrappers(struct PushBuffer *pb
 	}
 
 	// NOTE(aalhendi): Retail 0x800a22a4..0x800a24a4 wrappers are selected by
-	// copied scratch 0x14c addresses and pass their own t2 direct-mask constants
-	// into shared face helper 0x800a25d0.
+	// copied setup0 scratch addresses and pass their own t2 direct-mask
+	// constants into shared face helper 0x800a25d0.
 	switch (slot)
 	{
 	case 0:
@@ -9707,7 +9724,7 @@ static int Ovr226_800a0e78_DispatchBucketHandler(u32 handlerAddress, void *bucke
 static int Ovr226_800a0e10_DispatchBucketTable(struct DrawLevelOvr1PRenderList *renderList, struct PushBuffer *pb, struct mesh_info *mesh,
                                                struct PrimMem *primMem, const int *visFaceList)
 {
-	for (s32 renderListOffset = 0x28; renderListOffset >= 0; renderListOffset -= (s32)sizeof(u32))
+	for (s32 renderListOffset = DRAW_LEVEL_OVR1P_RENDER_LIST_OFFSET_FULL_DYNAMIC_LIST; renderListOffset >= 0; renderListOffset -= (s32)sizeof(u32))
 	{
 		u32 bucketIndex = (u32)renderListOffset / sizeof(u32);
 		const struct DrawLevelOvr1PBucket *bucket = &sDrawLevelOvr1PBuckets[bucketIndex];

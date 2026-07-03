@@ -1,10 +1,20 @@
 #include <common.h>
 #include "../RenderLevel/DrawLevelOvr_shared.h"
 
+enum Ovr227DrawLevelConstants
+{
+	OVR227_PRIM_RESERVE_BIAS = 0xd00,
+	OVR227_DEPTH_SCALE = 0x19c0,
+	OVR227_TEXTURE_LOD_DEPTH_THRESHOLD0 = 0x1000,
+	OVR227_TEXTURE_LOD_DEPTH_THRESHOLD1 = 0x800,
+	OVR227_TOP_LEVEL_NEAR_DEPTH_THRESHOLD = 0x600,
+	OVR227_RECURSIVE_NEAR_DEPTH_THRESHOLD = 0x300,
+};
+
 static void DrawLevelOvr2P_CopyClipRecordJumpTable(void);
 
 CTR_STATIC_ASSERT(sizeof(struct OverlayRDATA_227) == 0x564);
-CTR_STATIC_ASSERT(sizeof(struct OverlayRDATA_227_BucketSetupRecord) == 0x64);
+CTR_STATIC_ASSERT(sizeof(struct DrawLevelOvrBucketSetupRecord) == 0x64);
 CTR_STATIC_ASSERT(sizeof(((struct OverlayRDATA_227 *)0)->scratchInitTable) == 0x60);
 CTR_STATIC_ASSERT(sizeof(((struct OverlayRDATA_227 *)0)->clipRecordJumpTable) == 0x60);
 
@@ -40,17 +50,17 @@ static u32 DrawLevelOvr2P_TranslateCopiedLabel(u32 address)
 	return address;
 }
 
-static void DrawLevelOvr2P_CopyScratchWordsTranslated(const u32 *source, const struct OverlayRDATA_227_BucketSetupCopy *copy)
+static void DrawLevelOvr2P_CopyScratchWordsTranslated(const u32 *source, const struct DrawLevelOvrBucketSetupCopy *copy)
 {
 	u32 *scratch = CTR_SCRATCHPAD_PTR(u32, copy->scratchOffset);
 
-	for (u32 i = 0; i <= copy->loopCounter; i++)
+	for (u32 i = 0; i <= copy->lastWordIndex; i++)
 	{
 		scratch[i] = DrawLevelOvr2P_TranslateCopiedLabel(source[i]);
 	}
 }
 
-static const struct OverlayRDATA_227_BucketSetupRecord *DrawLevelOvr2P_FindBucketSetupRecord(u32 setupAddress)
+static const struct DrawLevelOvrBucketSetupRecord *DrawLevelOvr2P_FindBucketSetupRecord(u32 setupAddress)
 {
 	for (int i = 0; i < OVR227_BUCKET_COUNT; i++)
 	{
@@ -67,7 +77,7 @@ static const struct OverlayRDATA_227_BucketSetupRecord *DrawLevelOvr2P_FindBucke
 
 static void DrawLevelOvr2P_ApplyBucketSetup(u32 setupAddress, u32 handlerAddress)
 {
-	const struct OverlayRDATA_227_BucketSetupRecord *setup = DrawLevelOvr2P_FindBucketSetupRecord(setupAddress);
+	const struct DrawLevelOvrBucketSetupRecord *setup = DrawLevelOvr2P_FindBucketSetupRecord(setupAddress);
 
 	if (setup == NULL)
 	{
@@ -95,11 +105,11 @@ static void DrawLevelOvr2P_SeedSharedHelperThresholdScratch(void)
 	// NOTE(aalhendi): Retail 227 bakes these thresholds as immediates in
 	// copied BSP handler bodies. Native reuses 226 C helpers that still read
 	// the equivalent thresholds from scratch, so seed the shared-helper view.
-	DrawLevelOvr1P_RenderScratch()->depthScale = 0x19c0;
-	DrawLevelOvr1P_RenderScratch()->textureLodDepthThreshold0 = 0x1000;
-	DrawLevelOvr1P_RenderScratch()->textureLodDepthThreshold1 = 0x800;
-	DrawLevelOvr1P_RenderScratch()->topLevelNearDepthThreshold = 0x600;
-	DrawLevelOvr1P_RenderScratch()->recursiveNearDepthThreshold = 0x300;
+	DrawLevelOvr1P_RenderScratch()->depthScale = OVR227_DEPTH_SCALE;
+	DrawLevelOvr1P_RenderScratch()->textureLodDepthThreshold0 = OVR227_TEXTURE_LOD_DEPTH_THRESHOLD0;
+	DrawLevelOvr1P_RenderScratch()->textureLodDepthThreshold1 = OVR227_TEXTURE_LOD_DEPTH_THRESHOLD1;
+	DrawLevelOvr1P_RenderScratch()->topLevelNearDepthThreshold = OVR227_TOP_LEVEL_NEAR_DEPTH_THRESHOLD;
+	DrawLevelOvr1P_RenderScratch()->recursiveNearDepthThreshold = OVR227_RECURSIVE_NEAR_DEPTH_THRESHOLD;
 }
 
 static const struct DrawLevelOvr1PBucket *DrawLevelOvr2P_FindBucketByHandler(u32 handlerAddress)
@@ -187,7 +197,7 @@ static int DrawLevelOvr2P_DrawViewportBucket(struct DrawLevelOvr1PRenderList *re
 static int DrawLevelOvr2P_DispatchBucketTable(struct DrawLevelOvr1PRenderList *renderLists, struct PushBuffer *pushBuffers, struct mesh_info *mesh,
                                               struct PrimMem *primMem, const int *visFaceList0, const int *visFaceList1, u8 **clipCursors)
 {
-	for (s32 renderListOffset = 0x28; renderListOffset >= 0; renderListOffset -= (s32)sizeof(u32))
+	for (s32 renderListOffset = DRAW_LEVEL_OVR1P_RENDER_LIST_OFFSET_FULL_DYNAMIC_LIST; renderListOffset >= 0; renderListOffset -= (s32)sizeof(u32))
 	{
 		u32 bucketIndex = (u32)renderListOffset / sizeof(u32);
 		const struct DrawLevelOvr1PBucket *bucket = &sDrawLevelOvr1PBuckets[bucketIndex];
@@ -252,7 +262,7 @@ void DrawLevelOvr2P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspL
 		return;
 	}
 
-	DrawLevelOvr1P_SetPrimReserveBias(0xd00);
+	DrawLevelOvr1P_SetPrimReserveBias(OVR227_PRIM_RESERVE_BIAS);
 	DrawLevelOvr1P_SetListHandlersSeedRenderedCursor(0);
 	Ovr226_800a0dc4_ClearProjectedScratch();
 	DrawLevelOvr2P_CopyScratchInitTable();
