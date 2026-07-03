@@ -151,9 +151,9 @@ void RB_Orca_ThTick(struct Thread *t)
 		pathFrame = 0;
 	}
 
-	orcaInst->matrix.t[0] = orcaObj->startPos.x - ((pathFrame * orcaObj->midpoint[0]) / denominator);
-	orcaInst->matrix.t[1] = orcaObj->startPos.y - ((pathFrame * orcaObj->midpoint[1]) / denominator);
-	orcaInst->matrix.t[2] = orcaObj->startPos.z - ((pathFrame * orcaObj->midpoint[2]) / denominator);
+	orcaInst->matrix.t[0] = orcaObj->startPos.x - ((pathFrame * orcaObj->pathDelta.x) / denominator);
+	orcaInst->matrix.t[1] = orcaObj->startPos.y - ((pathFrame * orcaObj->pathDelta.y) / denominator);
+	orcaInst->matrix.t[2] = orcaObj->startPos.z - ((pathFrame * orcaObj->pathDelta.z) / denominator);
 
 	nextFrame = orcaInst->animFrame + 1;
 
@@ -252,9 +252,9 @@ void RB_Orca_LInB(struct Instance *inst)
 		orcaObj->endPos = spawnType2->positions[1];
 	}
 
-	orcaObj->midpoint[0] = orcaObj->startPos.x - orcaObj->endPos.x;
-	orcaObj->midpoint[1] = orcaObj->startPos.y - orcaObj->endPos.y;
-	orcaObj->midpoint[2] = orcaObj->startPos.z - orcaObj->endPos.z;
+	orcaObj->pathDelta.x = orcaObj->startPos.x - orcaObj->endPos.x;
+	orcaObj->pathDelta.y = orcaObj->startPos.y - orcaObj->endPos.y;
+	orcaObj->pathDelta.z = orcaObj->startPos.z - orcaObj->endPos.z;
 
 	orcaObj->numFrames = INSTANCE_GetNumAnimFrames(inst, 0);
 

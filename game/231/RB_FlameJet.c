@@ -328,8 +328,8 @@ void RB_FlameJet_ThTick(struct Thread *t)
 	{
 		PlaySound3D_Flags(&fjObj->soundIDCount, 0x68, fjInst);
 
-		// [unused variable?]
-		fjObj->unk += 0x100;
+		// Retail increments this object slot, but no known reader uses it.
+		fjObj->unusedPhase += 0x100;
 
 		RB_FlameJet_Particles(fjInst, fjObj);
 

@@ -124,7 +124,7 @@ void RB_Minecart_ThTick(struct Thread *t)
 		}
 	}
 
-	// what is this?
+	// per-path depth bias
 	minecartInst->depthBiasNormal = minecartArr[minecartObj->posIndex];
 	minecartInst->depthBiasSecondary = minecartArr[minecartObj->posIndex];
 

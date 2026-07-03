@@ -112,7 +112,7 @@ void RB_Explosion_InitGeneric(struct Instance *inst)
 	u32 color;
 
 	// create thread for explosion
-	explosion = INSTANCE_BirthWithThread(0x26, s_explosion1, SMALL, OTHER, RB_Explosion_ThTick, 0, 0);
+	explosion = INSTANCE_BirthWithThread(STATIC_CRATE_EXPLOSION, s_explosion1, SMALL, OTHER, RB_Explosion_ThTick, 0, 0);
 
 	// copy position and rotation from one instance to the other
 	CTR_MatrixCopyRot(&explosion->matrix, &inst->matrix);

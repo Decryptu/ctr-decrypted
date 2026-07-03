@@ -82,7 +82,7 @@ void RB_TNT_ThTick_SitOnHead(struct Thread *t)
 	struct MineWeapon *mw;
 	char state;
 	s16 numFrames;
-	u16 uVar3;
+	u16 scaleXZ;
 	int rng;
 
 	inst = t->inst;
@@ -126,7 +126,7 @@ void RB_TNT_ThTick_SitOnHead(struct Thread *t)
 	else
 	{
 		// If you are already blasted
-		if (state == 6)
+		if (state == KS_BLASTED)
 		{
 			// Play explosion sound
 			PlaySound3D(0x3d, inst);
@@ -224,9 +224,9 @@ LAB_800ad5f8:
 	}
 
 	// set scale of TNT, given frame of animation
-	uVar3 = s_tntSitScale[numFrames * 2 + 0];
-	inst->scale.x = uVar3;
-	inst->scale.z = uVar3;
+	scaleXZ = s_tntSitScale[numFrames * 2 + 0];
+	inst->scale.x = scaleXZ;
+	inst->scale.z = scaleXZ;
 	inst->scale.y = s_tntSitScale[numFrames * 2 + 1];
 }
 
@@ -244,7 +244,7 @@ void RB_TNT_ThTick_ThrowOnHead(struct Thread *t)
 	SVec3 rot;
 	s16 distHead;
 
-	// matrix?
+	// temporary rotation matrix
 	MATRIX localMatrix;
 
 	gGT = sdata->gGT;

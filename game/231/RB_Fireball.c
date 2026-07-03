@@ -71,7 +71,7 @@ struct ParticleEmitter emSet_Fireball[10] = {[0] =
 
                                              [4] = {.flags = 9,
 
-                                                    // rotX ??
+                                                    // rotY
                                                     .initOffset = 4,
 
                                                     .InitTypes.AxisInit = {.baseValue = {.startVal = 1, .velocity = 0, .accel = 0},
@@ -299,7 +299,7 @@ void RB_Fireball_LInB(struct Instance *inst)
 	fireObj = ((struct Fireball *)t->object);
 	fireObj->cycleTimer = 0;
 	fireObj->cooldown = 0;
-	fireObj->unused[0] = 0;
+	fireObj->rot_unused.x = 0;
 	fireObj->velY = 96;
 	fireObj->direction = 0;
 

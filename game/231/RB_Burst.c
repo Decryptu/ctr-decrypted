@@ -117,7 +117,7 @@ void RB_Burst_CollThBucket(struct ScratchpadStruct *sps, void *hitObject)
 		{
 			attacker = ((struct MineWeapon *)weaponObj)->instParent->thread->object;
 
-			// blasted anyone?
+			// blast driver
 			RB_Hazard_HurtDriver(victim, 2, attacker, 2);
 		}
 		else
@@ -134,7 +134,7 @@ void RB_Burst_CollThBucket(struct ScratchpadStruct *sps, void *hitObject)
 
 			attacker = ((struct TrackerWeapon *)weaponObj)->instParent->thread->object;
 
-			// blasted anyone?
+			// blast driver
 			RB_Hazard_HurtDriver(victim, 2, attacker, reason);
 
 			if (attacker->longestShot < tw->timeAlive)
@@ -258,7 +258,7 @@ void RB_Burst_Init(struct Instance *weaponInst)
 	int *burst;
 
 	// initialize thread for burst
-	currInst = INSTANCE_BirthWithThread(0x2b, s_burst_explosion1, SMALL, BURST, RB_Burst_ThTick, 0xc, 0);
+	currInst = INSTANCE_BirthWithThread(STATIC_WARPEDBURST, s_burst_explosion1, SMALL, BURST, RB_Burst_ThTick, 0xc, 0);
 
 	// get thread from instance
 	t = currInst->thread;
@@ -382,7 +382,7 @@ void RB_Burst_Init(struct Instance *weaponInst)
 	}
 	else
 	{
-		if ((tw->flags & 1) == 0)
+		if ((tw->flags & TRACKER_FLAG_POWERED_UP) == 0)
 		{
 			// hitRadius and hitRadiusSquared
 			sps->Input1.hitRadius = 0x140;

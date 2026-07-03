@@ -91,7 +91,7 @@ void RB_Blowup_Init(struct Instance *weaponInst)
 	int *blowup;
 
 	// initialize thread for blowup
-	explosionInst = INSTANCE_BirthWithThread(0x26, 0, SMALL, BLOWUP, RB_Blowup_ThTick, 0xc, 0);
+	explosionInst = INSTANCE_BirthWithThread(STATIC_CRATE_EXPLOSION, 0, SMALL, BLOWUP, RB_Blowup_ThTick, 0xc, 0);
 
 	explosionInst->flags |= (VISIBLE_DURING_GAMEPLAY | DRAW_BILLBOARD);
 

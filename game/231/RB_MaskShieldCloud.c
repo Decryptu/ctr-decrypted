@@ -86,7 +86,7 @@ void RB_MaskWeapon_ThTick(struct Thread *maskTh)
 {
 	char i;
 	char numPlyr;
-	s16 sVar1;
+	s16 numAnimFrames;
 	struct GameTracker *gGT;
 	struct PushBuffer *pb;
 	int rot;
@@ -198,10 +198,10 @@ void RB_MaskWeapon_ThTick(struct Thread *maskTh)
 	// === Animation ===
 
 	// get animFrame
-	sVar1 = INSTANCE_GetNumAnimFrames(maskBeamInst, 0);
+	numAnimFrames = INSTANCE_GetNumAnimFrames(maskBeamInst, 0);
 
 	// if animation is not finished
-	if ((int)maskBeamInst->animFrame < sVar1 - 1)
+	if ((int)maskBeamInst->animFrame < numAnimFrames - 1)
 	{
 		// increment animation frame
 		maskBeamInst->animFrame += 1;
@@ -326,8 +326,8 @@ static const s16 s_shieldPulseScale[6][2] = {
 // NOTE(aalhendi): Native uses extracted shield scale tables from RDATA 0x800b2cf4 and 0x800b2d40.
 void RB_ShieldDark_ThTick_Grow(struct Thread *th)
 {
-	u16 shieldFlags;
-	s16 sVar4;
+	ShieldFlags shieldFlags;
+	s16 fadeAlphaScale;
 	int i;
 	int rotY;
 	struct TrackerWeapon *tw;
@@ -352,14 +352,14 @@ void RB_ShieldDark_ThTick_Grow(struct Thread *th)
 
 		rotY = shield->highlightRot.y;
 
-		int iVar8 = rotY;
+		int rotYShiftInput = rotY;
 		if (rotY < 0)
 		{
-			iVar8 = rotY + 0xfff;
+			rotYShiftInput = rotY + 0xfff;
 		}
 
 		// if highlight is finished
-		if ((rotY + (iVar8 >> 12) * -0x1000) == 0x400)
+		if ((rotY + (rotYShiftInput >> 12) * -0x1000) == 0x400)
 		{
 			// cooldown is 30 frames (one second)
 			shield->highlightTimer = 30;
@@ -487,7 +487,7 @@ void RB_ShieldDark_ThTick_Grow(struct Thread *th)
 
 	// if this is not a blue shield,
 	// meaning it must fade eventually
-	if ((shield->flags & 4) == 0)
+	if ((shield->flags & SHIELD_FLAG_BLUE) == 0)
 	{
 		// duration
 		s16 duration = shield->duration;
@@ -508,18 +508,18 @@ void RB_ShieldDark_ThTick_Grow(struct Thread *th)
 		// 2.0 seconds
 		if (duration < 1920)
 		{
-			sVar4 = (s16)(((60 - (duration >> 5)) * 3072) / 60) + 0x400;
+			fadeAlphaScale = (s16)(((60 - (duration >> 5)) * 3072) / 60) + 0x400;
 
 			// transparency
-			shieldInst->alphaScale = sVar4;
-			colorInst->alphaScale = sVar4;
-			highlightInst->alphaScale = sVar4;
+			shieldInst->alphaScale = fadeAlphaScale;
+			colorInst->alphaScale = fadeAlphaScale;
+			highlightInst->alphaScale = fadeAlphaScale;
 		}
 	}
 
 	shieldFlags = shield->flags;
 
-	if (((shieldFlags & 1) != 0) || ((shieldFlags & 8) != 0) ||
+	if (((shieldFlags & SHIELD_FLAG_POP_ON_DAMAGE) != 0) || ((shieldFlags & SHIELD_FLAG_CRASH_ATTACK) != 0) ||
 
 	    // if race ended for this driver
 	    ((player->actionsFlagSet & ACTION_RACE_FINISHED) != 0) ||
@@ -527,7 +527,7 @@ void RB_ShieldDark_ThTick_Grow(struct Thread *th)
 	    // if driver is being mask grabbed
 	    (player->kartState == KS_MASK_GRABBED))
 	{
-		if ((shieldFlags & 8) != 0)
+		if ((shieldFlags & SHIELD_FLAG_CRASH_ATTACK) != 0)
 		{
 			pb = &gGT->pushBuffer[player->driverID];
 
@@ -544,7 +544,7 @@ void RB_ShieldDark_ThTick_Grow(struct Thread *th)
 		return;
 	}
 
-	if ((shieldFlags & 2) == 0)
+	if ((shieldFlags & SHIELD_FLAG_SHOOT) == 0)
 	{
 		return;
 	}
@@ -556,12 +556,12 @@ void RB_ShieldDark_ThTick_Grow(struct Thread *th)
 	GAMEPAD_ShockForce1(player, 8, 0x7f);
 
 	// green shield
-	u8 model = 0x5e;
+	u8 model = DYNAMIC_SHIELD_GREEN;
 
-	if ((shieldFlags & 4) != 0)
+	if ((shieldFlags & SHIELD_FLAG_BLUE) != 0)
 	{
 		// blue shield
-		model = 0x56;
+		model = DYNAMIC_SHIELD;
 	}
 
 	// create a thread, get an instance
@@ -596,7 +596,7 @@ void RB_ShieldDark_ThTick_Grow(struct Thread *th)
 	tw->driverTarget = 0;
 	tw->timeAlive = 0;
 	tw->soundIDCount = 0;
-	tw->frameCount_Blind = 0;
+	tw->blindFrames = 0;
 
 	tw->driverParent = player;
 	tw->instParent = driverInst;
@@ -608,7 +608,7 @@ void RB_ShieldDark_ThTick_Grow(struct Thread *th)
 	tw->vel.z = (driverInst->matrix.m[2][2] * 3) >> 7;
 
 	tw->rotY = player->angle;
-	tw->frameCount_DontHurtParent = 10;
+	tw->parentSafetyFrames = 10;
 
 LAB_800b0d6c:
 
@@ -793,7 +793,7 @@ void RB_RainCloud_Init(struct Driver *d)
 	// if driver -> cloudTh is invalid
 	if (d->thCloud == NULL)
 	{
-		cloudInst = INSTANCE_BirthWithThread(0x42, s_cloud1, SMALL, OTHER, RB_RainCloud_ThTick, sizeof(struct RainCloud), d->instSelf->thread);
+		cloudInst = INSTANCE_BirthWithThread(STATIC_CLOUD, s_cloud1, SMALL, OTHER, RB_RainCloud_ThTick, sizeof(struct RainCloud), d->instSelf->thread);
 
 		cloudInst->thread->funcThDestroy = PROC_DestroyInstance;
 
@@ -816,9 +816,9 @@ void RB_RainCloud_Init(struct Driver *d)
 		{
 			rlocal->frameCount = 0x1e;
 
-			rlocal->unk1[0] = 0;
-			rlocal->unk1[1] = 0;
-			rlocal->unk1[2] = 0;
+			rlocal->scroll.x = 0;
+			rlocal->scroll.y = 0;
+			rlocal->scroll.z = 0;
 
 			rlocal->vel.x = 0;
 			rlocal->vel.y = -0x28;
