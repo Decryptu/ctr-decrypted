@@ -8,7 +8,7 @@
 	}
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800ac320-0x800ac5a4
-void CS_Instance_GetFrameData(struct Instance *inst, int animIndex, u32 animFrame, u16 *pos, u16 *param_5, int offset)
+void CS_Instance_GetFrameData(struct Instance *inst, int animIndex, u32 animFrame, SVec3 *pos, SVec3 *rotOut, int offset)
 {
 	int isOdd;
 	int numFrames;
@@ -98,12 +98,12 @@ void CS_Instance_GetFrameData(struct Instance *inst, int animIndex, u32 animFram
 		int rx, ry, rz;
 		read_mt(rx, ry, rz);
 
-		pos[0] = (s16)rx;
-		pos[1] = (s16)ry;
-		pos[2] = (s16)rz;
+		pos->x = (s16)rx;
+		pos->y = (s16)ry;
+		pos->z = (s16)rz;
 	}
 
-	if (param_5 != NULL)
+	if (rotOut != NULL)
 	{
 		MTC2((deltaDX & 0xffff) | ((u32)deltaDY << 0x10), 0);
 		MTC2(deltaDZ, 1);
@@ -114,11 +114,11 @@ void CS_Instance_GetFrameData(struct Instance *inst, int animIndex, u32 animFram
 			read_mt(dvx, dvy, dvz);
 
 			int pitch = ratan2(-dvy, SquareRoot0_stub(dvx * dvx + dvz * dvz));
-			param_5[0] = (s16)pitch;
+			rotOut->x = (s16)pitch;
 
 			int yaw = ratan2(dvx, dvz);
-			param_5[1] = (s16)yaw;
-			param_5[2] = 0;
+			rotOut->y = (s16)yaw;
+			rotOut->z = 0;
 		}
 	}
 }
@@ -211,7 +211,7 @@ char CS_Instance_BoolPlaySound(struct CutsceneObj *cs, struct Instance *desiredI
 	struct Instance **visInstSrc;
 	struct InstDrawPerPlayer *idpp;
 
-	if ((desiredInst == NULL) || ((cs->flags & 0x1000) == 0))
+	if ((desiredInst == NULL) || ((cs->flags & CS_FLAG_SOUND_ONSCREEN_ONLY) == 0))
 	{
 		return 1;
 	}

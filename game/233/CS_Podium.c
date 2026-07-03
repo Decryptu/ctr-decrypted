@@ -1,5 +1,22 @@
 #include <common.h>
 
+enum PodiumDanceModelOffset
+{
+	PODIUM_DANCE_CRASH = STATIC_CRASHDANCE - STATIC_CRASHDANCE,
+	PODIUM_DANCE_CORTEX = STATIC_CORTEXDANCE - STATIC_CRASHDANCE,
+	PODIUM_DANCE_COCO = STATIC_COCODANCE - STATIC_CRASHDANCE,
+	PODIUM_DANCE_NGIN = STATIC_NGINDANCE - STATIC_CRASHDANCE,
+	PODIUM_DANCE_POLAR = STATIC_POLARDANCE - STATIC_CRASHDANCE,
+	PODIUM_DANCE_PURA = STATIC_PURADANCE - STATIC_CRASHDANCE,
+	PODIUM_DANCE_PINSTRIPE = STATIC_PINSTRIPEDANCE - STATIC_CRASHDANCE,
+	PODIUM_DANCE_PAPU = STATIC_PAPUDANCE - STATIC_CRASHDANCE,
+	PODIUM_DANCE_ROO = STATIC_ROODANCE - STATIC_CRASHDANCE,
+	PODIUM_DANCE_JOE = STATIC_JOEDANCE - STATIC_CRASHDANCE,
+	PODIUM_DANCE_NTROPY = STATIC_NTROPYDANCE - STATIC_CRASHDANCE,
+	PODIUM_DANCE_PENTA = STATIC_PENDANCE - STATIC_CRASHDANCE,
+	PODIUM_DANCE_FAKE_CRASH = STATIC_FAKEDANCE - STATIC_CRASHDANCE,
+};
+
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800ac714-0x800ac840
 void CS_DestroyPodium_StartDriving(void)
 {
@@ -9,7 +26,7 @@ void CS_DestroyPodium_StartDriving(void)
 	struct Thread *t = gGT->threadBuckets[OTHER].thread;
 
 	// enable HUD
-	gGT->hudFlags |= 1;
+	gGT->hudFlags |= HUD_FLAG_RACE_HUD;
 
 	// loop through all threads
 	while (t != NULL)
@@ -58,7 +75,7 @@ void CS_Podium_Stand_ThTick(struct Thread *t)
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b0248-0x800b0300
-void CS_Podium_Stand_Init(s16 *podiumData)
+void CS_Podium_Stand_Init(struct CsThreadInitData *podiumData)
 {
 	struct Instance *inst = INSTANCE_BirthWithThread(STATIC_PODIUM, R233.s_podium, SMALL, OTHER, CS_Podium_Stand_ThTick, 0, 0);
 
@@ -71,22 +88,22 @@ void CS_Podium_Stand_Init(s16 *podiumData)
 	// set funcThDestroy to remove instance from instance pool
 	inst->thread->funcThDestroy = PROC_DestroyInstance;
 
-	inst->matrix.t[0] = podiumData[0];
-	inst->matrix.t[1] = podiumData[1];
-	inst->matrix.t[2] = podiumData[2];
+	inst->matrix.t[0] = podiumData->podiumPos.x;
+	inst->matrix.t[1] = podiumData->podiumPos.y;
+	inst->matrix.t[2] = podiumData->podiumPos.z;
 
 	inst->depthBiasSecondary += 2;
 	inst->depthBiasNormal += 2;
 
-	podiumData[12] = podiumData[8];
-	podiumData[13] = podiumData[9];
-	podiumData[14] = podiumData[10];
+	podiumData->derivedRot.x = podiumData->rot.x;
+	podiumData->derivedRot.y = podiumData->rot.y;
+	podiumData->derivedRot.z = podiumData->rot.z;
 
-	ConvertRotToMatrix(&inst->matrix, (const SVec3 *)&podiumData[12]);
+	ConvertRotToMatrix(&inst->matrix, &podiumData->derivedRot.vec);
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800af7c0-0x800af994
-void CS_Podium_Prize_Spin(struct Instance *inst, s16 *prize)
+void CS_Podium_Prize_Spin(struct Instance *inst, struct Prize *prize)
 {
 	struct GamepadSystem *gGS;
 	u32 trigApprox;
@@ -95,8 +112,8 @@ void CS_Podium_Prize_Spin(struct Instance *inst, s16 *prize)
 	u32 angle;
 	SVec3 lightDir;
 
-	prize[5] += 100;
-	const SVec3 *prizeRot = (const SVec3 *)&prize[4];
+	prize->rot.y += 100;
+	const SVec3 *prizeRot = &prize->rot;
 	ConvertRotToMatrix(&inst->matrix, prizeRot);
 
 	gGS = sdata->gGamepads;
@@ -106,21 +123,21 @@ void CS_Podium_Prize_Spin(struct Instance *inst, s16 *prize)
 		return;
 	}
 
-	prevAngle = prize[0x10];
-	prize[0x10] = prevAngle + 0x3f;
+	prevAngle = prize->specLightPhase;
+	prize->specLightPhase = prevAngle + 0x3f;
 
 	if ((gGS->gamepad[1].buttonsHeldCurrFrame & BTN_L1) != 0)
 	{
-		prize[0x10] = prevAngle;
+		prize->specLightPhase = prevAngle;
 	}
 
-	ratio = (prize[0x10] & 0xfff) - 0x800;
+	ratio = (prize->specLightPhase & 0xfff) - 0x800;
 	if (ratio < 0)
 	{
 		ratio = -ratio;
 	}
 
-	angle = prize[0xc] + (((prize[0xe] - prize[0xc]) * ratio) >> 11);
+	angle = prize->specLightVerticalStart + (((prize->specLightVerticalEnd - prize->specLightVerticalStart) * ratio) >> 11);
 
 	{
 		s16 sine1;
@@ -144,13 +161,13 @@ void CS_Podium_Prize_Spin(struct Instance *inst, s16 *prize)
 		}
 		lightDir.y = cos1;
 
-		ratio = (prize[0x10] & 0xfff) - 0x800;
+		ratio = (prize->specLightPhase & 0xfff) - 0x800;
 		if (ratio < 0)
 		{
 			ratio = -ratio;
 		}
 
-		angle = prize[0xd] + (((prize[0xf] - prize[0xd]) * ratio) >> 11);
+		angle = prize->specLightHorizontalStart + (((prize->specLightHorizontalEnd - prize->specLightHorizontalStart) * ratio) >> 11);
 
 		s16 sine2;
 		s16 cos2;
@@ -183,22 +200,22 @@ void CS_Podium_Prize_ThTick3(struct Thread *th)
 {
 	struct GameTracker *gGT;
 	struct Instance *inst = th->inst;
-	s16 *prize = th->object;
+	struct Prize *prize = th->object;
 	s16 framesLeft;
 
-	framesLeft = prize[0x13] - 1;
-	prize[0x13] = framesLeft;
+	framesLeft = prize->flyToHudFramesLeft - 1;
+	prize->flyToHudFramesLeft = framesLeft;
 
 	if (framesLeft != 0)
 	{
-		int frameMax = prize[0x14];
-		int xInterp = framesLeft * (0x100 - prize[8]);
-		int yInterp = framesLeft * (0x6c - prize[9]);
+		int frameMax = prize->flyToHudFramesTotal;
+		int xInterp = framesLeft * (0x100 - prize->targetScreenPos.x);
+		int yInterp = framesLeft * (0x6c - prize->targetScreenPos.y);
 		int x;
 		int y;
 		s16 scale;
 
-		x = (prize[8] + xInterp / frameMax - 0x100) * -inst->matrix.t[2];
+		x = (prize->targetScreenPos.x + xInterp / frameMax - 0x100) * -inst->matrix.t[2];
 		if (x < 0)
 		{
 			x += 0xff;
@@ -206,7 +223,7 @@ void CS_Podium_Prize_ThTick3(struct Thread *th)
 
 		inst->matrix.t[0] = x >> 8;
 
-		y = (prize[9] + yInterp / frameMax - 0x6c) * inst->matrix.t[2];
+		y = (prize->targetScreenPos.y + yInterp / frameMax - 0x6c) * inst->matrix.t[2];
 		if (y < 0)
 		{
 			y += 0xff;
@@ -284,14 +301,12 @@ void CS_Podium_Prize_ThTick2(struct Thread *th)
 {
 	int currScale;
 
-	// get object from thread
-	// should replace with struct Prize in 233
-	s16 *prize = th->object;
+	struct Prize *prize = th->object;
 
 	// get instance from thread
 	struct Instance *inst = th->inst;
 
-	s16 frameIndex = prize[0x15];
+	s16 frameIndex = prize->bounceFrameIndex;
 
 	// bouncing scale animation
 	if (frameIndex < 5)
@@ -320,7 +335,7 @@ void CS_Podium_Prize_ThTick2(struct Thread *th)
 			}
 		}
 
-		prize[0x15] = frameIndex;
+		prize->bounceFrameIndex = frameIndex;
 
 		// scaleY and scaleZ
 		inst->scale.x = currScale;
@@ -339,26 +354,26 @@ void CS_Podium_Prize_ThTick2(struct Thread *th)
 void CS_Podium_Prize_ThTick1(struct Thread *th)
 {
 	struct Instance *inst = th->inst;
-	s16 *prize = th->object;
+	struct Prize *prize = th->object;
 	int trig;
 
-	if (D233.PodiumInitUnk3 != 0)
+	if (D233.podiumPrizeDropReady != 0)
 	{
 		if (th->modelIndex != STATIC_BIG1)
 		{
 			inst->flags &= ~HIDE_MODEL;
 		}
 
-		prize[0x12] = VehCalc_InterpBySpeed(prize[0x12], 0x14, 0);
-		prize[0x11] = VehCalc_InterpBySpeed(prize[0x11], 1, 0);
+		prize->heightOffset = VehCalc_InterpBySpeed(prize->heightOffset, 0x14, 0);
+		prize->orbitRadius = VehCalc_InterpBySpeed(prize->orbitRadius, 1, 0);
 	}
 
-	trig = MATH_Sin(prize[5]);
-	inst->matrix.t[0] = prize[0] + ((prize[0x11] * trig) >> 12);
-	inst->matrix.t[1] = prize[1] + prize[0x12];
+	trig = MATH_Sin(prize->rot.y);
+	inst->matrix.t[0] = prize->posStart.x + ((prize->orbitRadius * trig) >> 12);
+	inst->matrix.t[1] = prize->posStart.y + prize->heightOffset;
 
-	trig = MATH_Cos(prize[5]);
-	inst->matrix.t[2] = prize[2] + ((prize[0x11] * trig) >> 12);
+	trig = MATH_Cos(prize->rot.y);
+	inst->matrix.t[2] = prize->posStart.z + ((prize->orbitRadius * trig) >> 12);
 
 	if (D233.isCutsceneOver == 0)
 	{
@@ -366,9 +381,9 @@ void CS_Podium_Prize_ThTick1(struct Thread *th)
 		return;
 	}
 
-	prize[0x14] = 0xf;
-	prize[0x13] = 0xf;
-	prize[0x15] = 0;
+	prize->flyToHudFramesTotal = 0xf;
+	prize->flyToHudFramesLeft = 0xf;
+	prize->bounceFrameIndex = 0;
 
 	inst->depthBiasNormal = 0x80;
 	inst->depthBiasSecondary = 0x80;
@@ -379,7 +394,7 @@ void CS_Podium_Prize_ThTick1(struct Thread *th)
 
 	inst->matrix.t[0] = 0;
 	inst->matrix.t[1] = 0;
-	inst->matrix.t[2] = prize[10];
+	inst->matrix.t[2] = prize->targetScreenPos.z;
 
 	{
 		struct InstDrawPerPlayer *idpp = INST_GETIDPP(inst);
@@ -402,16 +417,16 @@ void CS_Podium_Prize_ThDestroy(struct Thread *t)
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800afe90-0x800b021c
-void CS_Podium_Prize_Init(u32 prizeModel, const char *prizeName, s16 *posOnScreen)
+void CS_Podium_Prize_Init(u32 prizeModel, const char *prizeName, const SVec3Slot *podiumPos)
 {
 	struct GameTracker *gGT = sdata->gGT;
 	struct Instance *inst;
-	s16 *prize;
+	struct Prize *prize;
 	int tx;
 	int ty;
 	int tz;
 
-	inst = INSTANCE_BirthWithThread(prizeModel, prizeName, MEDIUM, OTHER, CS_Podium_Prize_ThTick1, 0x2c, NULL);
+	inst = INSTANCE_BirthWithThread(prizeModel, prizeName, MEDIUM, OTHER, CS_Podium_Prize_ThTick1, sizeof(struct Prize), NULL);
 
 	if (inst == NULL)
 	{
@@ -432,11 +447,11 @@ void CS_Podium_Prize_Init(u32 prizeModel, const char *prizeName, s16 *posOnScree
 	prize = inst->thread->object;
 	inst->thread->funcThDestroy = CS_Podium_Prize_ThDestroy;
 
-	prize[0x11] = 0x40;
-	prize[0x12] = 0x200;
-	prize[4] = 0;
-	prize[5] = 0;
-	prize[6] = 0;
+	prize->orbitRadius = 0x40;
+	prize->heightOffset = 0x200;
+	prize->rot.x = 0;
+	prize->rot.y = 0;
+	prize->rot.z = 0;
 
 	MTC2(0, 0);
 	MTC2(0x40, 1);
@@ -446,10 +461,10 @@ void CS_Podium_Prize_Init(u32 prizeModel, const char *prizeName, s16 *posOnScree
 	ty = MFC2(26);
 	tz = MFC2(27);
 
-	prize[0] = posOnScreen[0] + (s16)tx;
-	prize[1] = posOnScreen[1] + (s16)ty + 0x1c0;
-	prize[2] = posOnScreen[2] + (s16)tz;
-	prize[10] = -0x200;
+	prize->posStart.x = podiumPos->x + (s16)tx;
+	prize->posStart.y = podiumPos->y + (s16)ty + 0x1c0;
+	prize->posStart.z = podiumPos->z + (s16)tz;
+	prize->targetScreenPos.z = -0x200;
 
 	switch (prizeModel)
 	{
@@ -462,18 +477,18 @@ void CS_Podium_Prize_Init(u32 prizeModel, const char *prizeName, s16 *posOnScree
 		s16 *gemColor = data.AdvCups[gGT->cup.cupID].color;
 
 		inst->colorRGBA = (gemColor[0] << 20) | (gemColor[1] << 12) | (gemColor[2] << 4);
-		prize[0xc] = 0x5d3;
-		prize[0xd] = 0x718;
-		prize[0xe] = 0x590;
-		prize[0xf] = 0x609;
+		prize->specLightVerticalStart = 0x5d3;
+		prize->specLightHorizontalStart = 0x718;
+		prize->specLightVerticalEnd = 0x590;
+		prize->specLightHorizontalEnd = 0x609;
 		inst->flags |= USE_SPECULAR_LIGHT;
 		goto center_target;
 	}
 
 	default:
 	center_target:
-		prize[8] = 0x100;
-		prize[9] = 0x6c;
+		prize->targetScreenPos.x = 0x100;
+		prize->targetScreenPos.y = 0x6c;
 		return;
 
 	case STATIC_RELIC:
@@ -482,8 +497,8 @@ void CS_Podium_Prize_Init(u32 prizeModel, const char *prizeName, s16 *posOnScree
 		u32 bitIndex = gGT->prevLEV + ADV_REWARD_FIRST_PLATINUM_RELIC;
 		u32 relicColor;
 
-		prize[8] = hud[0xe].x;
-		prize[9] = hud[0xe].y - 0x3c;
+		prize->targetScreenPos.x = hud[0xe].x;
+		prize->targetScreenPos.y = hud[0xe].y - 0x3c;
 
 		if (CHECK_ADV_BIT(sdata->advProgress.rewards, bitIndex) == 0)
 		{
@@ -504,10 +519,10 @@ void CS_Podium_Prize_Init(u32 prizeModel, const char *prizeName, s16 *posOnScree
 		}
 
 		inst->colorRGBA = relicColor;
-		prize[0xc] = 0x2ab;
-		prize[0xd] = 0x436;
-		prize[0xe] = 0x1eb;
-		prize[0xf] = 0x670;
+		prize->specLightVerticalStart = 0x2ab;
+		prize->specLightHorizontalStart = 0x436;
+		prize->specLightVerticalEnd = 0x1eb;
+		prize->specLightHorizontalEnd = 0x670;
 		inst->flags |= USE_SPECULAR_LIGHT;
 
 		gGT->gameMode2 |= INC_RELIC;
@@ -518,9 +533,9 @@ void CS_Podium_Prize_Init(u32 prizeModel, const char *prizeName, s16 *posOnScree
 	{
 		struct UiElement2D *hud = data.hudStructPtr[0];
 
-		prize[8] = hud[0x10].x;
-		prize[9] = hud[0x10].y - 0x3c;
-		prize[10] = -200;
+		prize->targetScreenPos.x = hud[0x10].x;
+		prize->targetScreenPos.y = hud[0x10].y - 0x3c;
+		prize->targetScreenPos.z = -200;
 
 		inst->scale.x = 0x4000;
 		inst->scale.y = 0x4000;
@@ -535,14 +550,14 @@ void CS_Podium_Prize_Init(u32 prizeModel, const char *prizeName, s16 *posOnScree
 		struct UiElement2D *hud = data.hudStructPtr[0];
 
 		inst->colorRGBA = 0xdca6000;
-		prize[0xc] = 0x1d9;
-		prize[0xd] = 0x5db;
-		prize[0xe] = 0x2da;
-		prize[0xf] = 0x54b;
+		prize->specLightVerticalStart = 0x1d9;
+		prize->specLightHorizontalStart = 0x5db;
+		prize->specLightVerticalEnd = 0x2da;
+		prize->specLightHorizontalEnd = 0x54b;
 		inst->flags |= USE_SPECULAR_LIGHT;
 
-		prize[8] = hud[0xf].x;
-		prize[9] = hud[0xf].y - 0x3c;
+		prize->targetScreenPos.x = hud[0xf].x;
+		prize->targetScreenPos.y = hud[0xf].y - 0x3c;
 
 		gGT->gameMode2 |= INC_KEY;
 		return;
@@ -582,11 +597,11 @@ void CS_Podium_FullScene_Init(void)
 	D233.isCutsceneOver = 0;
 	D233.cutsceneState = CS_CAMERA_PAN;
 
-	D233.PodiumInitUnk3 = 0;
+	D233.podiumPrizeDropReady = 0;
 
 	driverInstSelf = gGT->drivers[0]->instSelf;
 
-	D233.PodiumInitUnk2 = 0;
+	D233.podiumCameraFrame = 0;
 
 	driverInstSelf->flags |= HIDE_MODEL;
 
@@ -602,10 +617,10 @@ void CS_Podium_FullScene_Init(void)
 
 	gGT->confetti.numParticles_max = 200;
 	gGT->confetti.unk2 = 200;
-	gGT->hudFlags &= 0xfe;
+	gGT->hudFlags &= HUD_FLAG_CLEAR_RACE_HUD_MASK;
 
 	// Draw Confetti
-	gGT->renderFlags |= 4;
+	gGT->renderFlags |= RENDER_FLAG_CONFETTI;
 
 	gGT->gameMode2 |= VEH_FREEZE_PODIUM;
 
@@ -663,9 +678,9 @@ void CS_Podium_FullScene_Init(void)
 	// create thread for trophy girl (internally called "tawna")
 	CS_Thread_Init(gGT->podium_modelIndex_tawna, &R233.s_tawna[0], &InitData, -0x2aa, 0);
 
-	CS_Podium_Prize_Init(gGT->podiumRewardID, &R233.s_prize[0], (void *)&InitData);
+	CS_Podium_Prize_Init(gGT->podiumRewardID, &R233.s_prize[0], &InitData.podiumPos);
 
-	CS_Podium_Stand_Init((void *)&InitData);
+	CS_Podium_Stand_Init(&InitData);
 
 	// PROC_BirthWithObject
 	// 0x4 = size
@@ -677,47 +692,47 @@ void CS_Podium_FullScene_Init(void)
 	// if it allocated correctly
 	if (victoryCamThread != 0)
 	{
-		// initialize first "s16" of the object to zero
-		*(s16 *)victoryCamThread->object = 0;
+		struct CsPodiumCameraThreadObj *podiumCamera = victoryCamThread->object;
+		podiumCamera->pathFrame32 = 0;
 	}
 
 	// change victory music based on who is first in the podium
-	switch (gGT->podium_modelIndex_First - 0x7e)
+	switch (gGT->podium_modelIndex_First - STATIC_CRASHDANCE)
 	{
 	// Crash, Coco, Fake Crash
-	case 0:
-	case 3:
-	case 0xE:
+	case PODIUM_DANCE_CRASH:
+	case PODIUM_DANCE_COCO:
+	case PODIUM_DANCE_FAKE_CRASH:
 		// Crash's music
 		podiumMusic = 10;
 		break;
 
 	// Cortex, NGin, NTrophy
-	case 1:
-	case 4:
-	case 0xC:
+	case PODIUM_DANCE_CORTEX:
+	case PODIUM_DANCE_NGIN:
+	case PODIUM_DANCE_NTROPY:
 		// Cortex's music
 		podiumMusic = 8;
 		break;
 
 	// Polar Pura
-	case 6:
-	case 7:
+	case PODIUM_DANCE_POLAR:
+	case PODIUM_DANCE_PURA:
 		// Polar and Pura's music
 		podiumMusic = 7;
 		break;
 
 	// pinstripe kjoe
-	case 8:
-	case 0xb:
+	case PODIUM_DANCE_PINSTRIPE:
+	case PODIUM_DANCE_JOE:
 		// Pinstripe's music
 		podiumMusic = 0xb;
 		break;
 
 	// papu, roo, penta
-	case 9:
-	case 10:
-	case 0xD:
+	case PODIUM_DANCE_PAPU:
+	case PODIUM_DANCE_ROO:
+	case PODIUM_DANCE_PENTA:
 		// Ripper Roo's music
 		podiumMusic = 9;
 		break;

@@ -12,7 +12,6 @@ void CS_LoadBossCallback(struct LoadQueueSlot *lqs)
 void CS_LoadBoss(const struct BossCutsceneData *bcd)
 {
 	struct GameTracker *gGT = sdata->gGT;
-	void (*const loadSentinel)(struct LoadQueueSlot *) = (void (*)(struct LoadQueueSlot *))-2;
 	int index;
 
 	index = 3 - gGT->activeMempackIndex;
@@ -42,7 +41,7 @@ void CS_LoadBoss(const struct BossCutsceneData *bcd)
 	// CTR Model File (body)
 	if (bcd->bodyFile != 0)
 	{
-		LOAD_AppendQueue(0, LT_DRAM, bcd->bodyFile - 1 + index, &D233.ptrModelBossBody, loadSentinel);
+		LOAD_AppendQueue(0, LT_DRAM, bcd->bodyFile - 1 + index, &D233.ptrModelBossBody, LOAD_QUEUE_CALLBACK_SET_POINTER);
 	}
 
 	// CTR Model File (head)

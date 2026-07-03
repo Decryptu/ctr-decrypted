@@ -219,9 +219,9 @@ void CS_Camera_ThTick_Boss(struct Thread *t)
 void CS_Camera_ThTick_Podium(struct Thread *th)
 {
 	struct GameTracker *gGT = sdata->gGT;
-	u16 *podium = th->object;
+	struct CsPodiumCameraThreadObj *podium = th->object;
 
-	if (podium[0] == 0)
+	if (podium->pathFrame32 == 0)
 	{
 		gGT->drivers[0]->funcPtrs[DRIVER_FUNC_INIT] = VehStuckProc_RIP_Init;
 	}
@@ -233,7 +233,7 @@ void CS_Camera_ThTick_Podium(struct Thread *th)
 			D233.cutsceneState = CS_WAIT_INPUT;
 		}
 
-		D233.PodiumInitUnk3 = 1;
+		D233.podiumPrizeDropReady = 1;
 	}
 
 	if (((D233.cutsceneState != CS_CAMERA_PAN || D233.boolStartToSkip != 0) && ((gGT->gameMode2 & CUP_NEW_WIN) != 0)) && sdata->ptrActiveMenu == NULL)
@@ -256,7 +256,7 @@ void CS_Camera_ThTick_Podium(struct Thread *th)
 
 		if (maxFrame != 0)
 		{
-			u16 frameTime = podium[0] + gGT->elapsedTimeMS;
+			u16 frameTime = podium->pathFrame32 + gGT->elapsedTimeMS;
 			int frameTimeSigned = (s16)frameTime;
 			SVec3 pos;
 			SVec3 rot;
@@ -265,7 +265,7 @@ void CS_Camera_ThTick_Podium(struct Thread *th)
 
 			if (maxFrame - 0x12c0 < frameTimeSigned)
 			{
-				D233.PodiumInitUnk3 = 1;
+				D233.podiumPrizeDropReady = 1;
 			}
 
 			if (maxFrame <= frameTimeSigned)
@@ -279,8 +279,8 @@ void CS_Camera_ThTick_Podium(struct Thread *th)
 			}
 
 			frame = ((int)frameTime << 16) >> 21;
-			D233.PodiumInitUnk2 = frame;
-			podium[0] = frameTime;
+			D233.podiumCameraFrame = frame;
+			podium->pathFrame32 = frameTime;
 
 			CAM_Path_Move(frame, pos.v, rot.v, camPath);
 
@@ -321,10 +321,10 @@ void CS_Camera_ThTick_Podium(struct Thread *th)
 			return;
 		}
 
-		D233.PodiumInitUnk3 = 1;
+		D233.podiumPrizeDropReady = 1;
 		rewardId = gGT->podiumRewardID;
 		gGT->numWinners = 0;
-		gGT->renderFlags &= ~4;
+		gGT->renderFlags &= ~RENDER_FLAG_CONFETTI;
 
 		if (rewardId != STATIC_BIG1)
 		{
@@ -340,19 +340,19 @@ void CS_Camera_ThTick_Podium(struct Thread *th)
 				switch (rewardId)
 				{
 				case STATIC_TROPHY:
-					hintID = 0xc;
+					hintID = ADV_MASK_HINT_ID_TROPHY_AWARDED;
 					break;
 				case STATIC_RELIC:
-					hintID = 0x13;
+					hintID = ADV_MASK_HINT_ID_RELIC_AWARDED;
 					break;
 				case STATIC_KEY:
-					hintID = 0xd;
+					hintID = ADV_MASK_HINT_ID_KEY_AWARDED;
 					break;
 				case STATIC_TOKEN:
-					hintID = 0x14;
+					hintID = ADV_MASK_HINT_ID_CTR_TOKEN_AWARDED;
 					break;
 				default:
-					hintID = 0x15;
+					hintID = ADV_MASK_HINT_ID_GEM_AWARDED;
 					break;
 				}
 

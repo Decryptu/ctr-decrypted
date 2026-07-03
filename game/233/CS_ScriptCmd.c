@@ -14,27 +14,27 @@ static const u8 cs_opcodeMeta[256] = {
 };
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800abf70-0x800abf9c
-static s16 CS_ScriptCmd_ReadOpcode_GetShort(char **Opcodes)
+static s16 CS_ScriptCmd_ReadOpcode_GetShort(char **cursor)
 {
-	char *bytes = *Opcodes;
+	char *bytes = *cursor;
 	s16 result = (s16)((u8)bytes[0] | ((u8)bytes[1] << 8));
-	*Opcodes = bytes + 2;
+	*cursor = bytes + 2;
 	return result;
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800abf9c-0x800abfd8
-static u32 CS_ScriptCmd_ReadOpcode_GetInt(char **Opcodes)
+static u32 CS_ScriptCmd_ReadOpcode_GetInt(char **cursor)
 {
-	char *bytes = *Opcodes;
-	*Opcodes = bytes + 4;
+	char *bytes = *cursor;
+	*cursor = bytes + 4;
 	return (u8)bytes[3] << 24 | (u8)bytes[2] << 16 | (u8)bytes[1] << 8 | (u8)bytes[0];
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800abfd8-0x800ac014
-static u32 CS_ScriptCmd_ReadOpcode_GetInt_dup(char **Opcodes)
+static u32 CS_ScriptCmd_ReadOpcode_GetInt_dup(char **cursor)
 {
-	char *bytes = *Opcodes;
-	*Opcodes = bytes + 4;
+	char *bytes = *cursor;
+	*cursor = bytes + 4;
 	return (u8)bytes[3] << 24 | (u8)bytes[2] << 16 | (u8)bytes[1] << 8 | (u8)bytes[0];
 }
 
@@ -44,8 +44,8 @@ static void CS_ScriptCmd_ReadOpcode_Main(struct CutsceneObj *cs)
 	char *opcodes;
 	union CsOpcodeMeta *decoded;
 	s16 *offsets;
-	char meta;
-	char *local_cursor;
+	u8 metaFlags;
+	char *cursor;
 
 	opcodes = cs->currOpcode[0];
 
@@ -54,90 +54,90 @@ static void CS_ScriptCmd_ReadOpcode_Main(struct CutsceneObj *cs)
 		return;
 	}
 
-	local_cursor = opcodes + 1;
+	cursor = opcodes + 1;
 	decoded = &cs->decodedOpcode;
 	offsets = (s16 *)decoded;
 
 	cs->prevOpcode = opcodes;
 	offsets[0] = opcodes[0];
 
-	meta = cs_opcodeMeta[(u8)offsets[0]];
+	metaFlags = cs_opcodeMeta[(u8)offsets[0]];
 
-	if (meta & 1)
+	if (metaFlags & CS_OPCODE_META_HAS_ANIM_INDEX)
 	{
-		offsets[1] = CS_ScriptCmd_ReadOpcode_GetShort(&local_cursor);
+		offsets[1] = CS_ScriptCmd_ReadOpcode_GetShort(&cursor);
 	}
 	else
 	{
 		offsets[1] = 0;
 	}
 
-	if (meta & 2)
+	if (metaFlags & CS_OPCODE_META_HAS_FRAME_START)
 	{
-		offsets[2] = CS_ScriptCmd_ReadOpcode_GetShort(&local_cursor);
+		offsets[2] = CS_ScriptCmd_ReadOpcode_GetShort(&cursor);
 	}
 	else
 	{
 		offsets[2] = 0;
 	}
 
-	if (meta & 4)
+	if (metaFlags & CS_OPCODE_META_HAS_FRAME_END)
 	{
-		offsets[3] = CS_ScriptCmd_ReadOpcode_GetShort(&local_cursor);
+		offsets[3] = CS_ScriptCmd_ReadOpcode_GetShort(&cursor);
 	}
 	else
 	{
 		offsets[3] = 0;
 	}
 
-	if (meta & 8)
+	if (metaFlags & CS_OPCODE_META_HAS_ARG0)
 	{
-		decoded->arg0.u = CS_ScriptCmd_ReadOpcode_GetInt(&local_cursor);
+		decoded->arg0.u = CS_ScriptCmd_ReadOpcode_GetInt(&cursor);
 	}
 	else
 	{
 		decoded->arg0.u = 0;
 	}
 
-	if (meta & 0x10)
+	if (metaFlags & CS_OPCODE_META_HAS_ARG1)
 	{
-		decoded->arg1.u = CS_ScriptCmd_ReadOpcode_GetInt(&local_cursor);
+		decoded->arg1.u = CS_ScriptCmd_ReadOpcode_GetInt(&cursor);
 	}
 	else
 	{
 		decoded->arg1.u = 0;
 	}
 
-	if (meta & 0x20)
+	if (metaFlags & CS_OPCODE_META_HAS_ALIGNED_ARG1)
 	{
-		while ((uintptr_t)local_cursor & 3)
+		while ((uintptr_t)cursor & 3)
 		{
-			local_cursor++;
+			cursor++;
 		}
 
-		decoded->arg1.u = CS_ScriptCmd_ReadOpcode_GetInt_dup(&local_cursor);
-		local_cursor += 1;
+		decoded->arg1.u = CS_ScriptCmd_ReadOpcode_GetInt_dup(&cursor);
+		cursor += 1;
 	}
 
-	if (meta & 0x40)
+	if (metaFlags & CS_OPCODE_META_HAS_ROT_START)
 	{
-		offsets[8] = CS_ScriptCmd_ReadOpcode_GetShort(&local_cursor);
+		offsets[8] = CS_ScriptCmd_ReadOpcode_GetShort(&cursor);
 	}
 	else
 	{
 		offsets[8] = 0;
 	}
 
-	if (meta & 0x80)
+	if (metaFlags & CS_OPCODE_META_HAS_ROT_END)
 	{
-		offsets[9] = CS_ScriptCmd_ReadOpcode_GetShort(&local_cursor);
+		offsets[9] = CS_ScriptCmd_ReadOpcode_GetShort(&cursor);
 	}
 	else
 	{
 		offsets[9] = 0;
 	}
 
-	cs->prevOpcode = local_cursor;
+	cs->prevOpcode = cursor;
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800ac1c0-0x800ac1ec

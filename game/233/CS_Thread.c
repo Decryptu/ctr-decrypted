@@ -7,8 +7,21 @@ struct CSThreadParentFrameScratch
 	SVec3Slot parentRot;
 };
 
+enum CsPathModelKind
+{
+	CS_PATH_MODEL_PPOINT_THING_INTRO = STATIC_PPOINTTHINGINTRO - STATIC_PPOINTTHINGINTRO,
+	CS_PATH_MODEL_PR_THING_INTRO = STATIC_PRTHINGINTRO - STATIC_PPOINTTHINGINTRO,
+	CS_PATH_MODEL_OXIDE_LIL_SHIP = STATIC_OXIDELILSHIP - STATIC_PPOINTTHINGINTRO,
+	CS_PATH_MODEL_COCO_SELECT = STATIC_COCOSELECT - STATIC_PPOINTTHINGINTRO,
+	CS_PATH_MODEL_END_OXIDE_BIG_SHIP = STATIC_ENDOXIDEBIGSHIP - STATIC_PPOINTTHINGINTRO,
+	CS_PATH_MODEL_END_OXIDE_LIL_SHIP = STATIC_ENDOXIDELILSHIP - STATIC_PPOINTTHINGINTRO,
+	CS_PATH_MODEL_OXIDE_SPEAKER = STATIC_OXIDESPEAKER - STATIC_PPOINTTHINGINTRO,
+	CS_PATH_MODEL_KIND_COUNT = STATIC_OXIDESPEAKER - STATIC_PPOINTTHINGINTRO + 1,
+};
+
 CTR_STATIC_ASSERT(offsetof(struct CSThreadParentFrameScratch, parentPos) == 0x00);
 CTR_STATIC_ASSERT(offsetof(struct CSThreadParentFrameScratch, parentRot) == 0x10);
+CTR_STATIC_ASSERT(CS_PATH_MODEL_KIND_COUNT == 63);
 
 static void CS_SaveDecodedOpcode(const struct CutsceneObj *cs, int out[5])
 {
@@ -76,7 +89,7 @@ int CS_Thread_UseOpcode(struct Instance *instance, struct CutsceneObj *cs)
 
 		if ((int)instance->model->id == (int)(u8)gGT->podium_modelIndex_Second)
 		{
-			if (D233.PodiumInitUnk2 - 0x65U < 0x87)
+			if (D233.podiumCameraFrame - 0x65U < 0x87)
 			{
 				instance->flags |= HIDE_MODEL;
 			}
@@ -95,7 +108,7 @@ int CS_Thread_UseOpcode(struct Instance *instance, struct CutsceneObj *cs)
 
 		if ((int)instance->model->id == (int)(u8)gGT->podium_modelIndex_First)
 		{
-			if (D233.PodiumInitUnk2 - 0x83U < 0x69)
+			if (D233.podiumCameraFrame - 0x83U < 0x69)
 			{
 				instance->flags |= HIDE_MODEL;
 			}
@@ -112,20 +125,20 @@ int CS_Thread_UseOpcode(struct Instance *instance, struct CutsceneObj *cs)
 		}
 	afterPodiumFirstModelCheck:
 
-		if ((cs->flags & 0x80) != 0)
+		if ((cs->flags & CS_FLAG_ADV_CHAR_SELECT_LOGIC) != 0)
 		{
-			if (((int)instance->model->id + -0xce == (int)gGarage.unusedArr_garageChars[sdata->advCharSelectIndex_curr]) && (gGarage.boolSelected == 1))
+			if (((int)instance->model->id + -0xce == (int)gGarage.garageCharacterIDs[sdata->advCharSelectIndex_curr]) && (gGarage.boolSelected == 1))
 			{
-				if ((cs->flags & 0x100) == 0)
+				if ((cs->flags & CS_FLAG_ADV_CHAR_SELECT_SELECTED) == 0)
 				{
 					gGT->pushBuffer[0].fadeFromBlack_currentValue = 0x1fff;
 					gGT->pushBuffer[0].fadeFromBlack_desiredResult = 0x1000;
 					gGT->pushBuffer[0].fade_step = 0xfd56;
-					cs->flags |= 0x100;
+					cs->flags |= CS_FLAG_ADV_CHAR_SELECT_SELECTED;
 					CS_ScriptCmd_OpcodeAt(cs, R233.advCharSelectSelectOpcodes[(int)instance->model->id - STATIC_CRASHSELECT]);
 					CS_SaveDecodedOpcode(cs, metadataBackup);
 				reloadAdvCharSelectOpcodeState:
-					cs->unk18 = cs->decodedOpcode.words[2];
+					cs->animFrame32 = cs->decodedOpcode.words[2];
 					iVar8 = MixRNG_Scramble();
 					opcodeMeta = cs->metadataMeta;
 					opcodeMetaShorts = (s16 *)opcodeMeta;
@@ -135,9 +148,9 @@ int CS_Thread_UseOpcode(struct Instance *instance, struct CutsceneObj *cs)
 			}
 			else
 			{
-				if ((cs->flags & 0x100) != 0)
+				if ((cs->flags & CS_FLAG_ADV_CHAR_SELECT_SELECTED) != 0)
 				{
-					cs->flags &= 0xfeff;
+					cs->flags &= ~CS_FLAG_ADV_CHAR_SELECT_SELECTED;
 					CS_ScriptCmd_OpcodeAt(cs, R233.advCharSelectDeselectOpcodes[(int)instance->model->id - STATIC_CRASHSELECT]);
 					CS_SaveDecodedOpcode(cs, metadataBackup);
 					goto reloadAdvCharSelectOpcodeState;
@@ -147,8 +160,8 @@ int CS_Thread_UseOpcode(struct Instance *instance, struct CutsceneObj *cs)
 	}
 
 	opcodeDuration = (int)cs->opcodeDuration;
-	iVar12 = cs->unk18;
-	iVar8 = (int)cs->unk1e;
+	iVar12 = cs->animFrame32;
+	iVar8 = (int)cs->lodIndex;
 	elapsedTimeRemaining = gGT->elapsedTimeMS;
 	opcodeMeta = cs->metadataMeta;
 	opcodeMetaShorts = (s16 *)opcodeMeta;
@@ -177,33 +190,33 @@ int CS_Thread_UseOpcode(struct Instance *instance, struct CutsceneObj *cs)
 
 			clockEffectFlags = gGT->clockEffectEnabled;
 			gGT->clockEffectEnabled = clockEffectFlags & 0xfffe;
-			if ((camPathFlags[0] & 1) != 0)
+			if ((camPathFlags[0] & CAM_PATH_FLAG_CLOCK_EFFECT) != 0)
 			{
-				gGT->clockEffectEnabled = (clockEffectFlags & 0xfffe) | 1;
+				gGT->clockEffectEnabled = (clockEffectFlags & 0xfffe) | CAM_PATH_FLAG_CLOCK_EFFECT;
 			}
 
-			if ((cs->flags & 0x20) == 0)
+			if ((cs->flags & CS_FLAG_CAMERA_DISTANCE_OVERRIDE) == 0)
 			{
 				gGT->pushBuffer[0].distanceToScreen_PREV = 0x100;
-				if ((camPathFlags[0] & 2) != 0)
+				if ((camPathFlags[0] & CAM_PATH_FLAG_DISTANCE_TO_SCREEN_0x50) != 0)
 				{
 					gGT->pushBuffer[0].distanceToScreen_PREV = 0x50;
 				}
-				if ((camPathFlags[0] & 4) != 0)
+				if ((camPathFlags[0] & CAM_PATH_FLAG_DISTANCE_TO_SCREEN_0x278) != 0)
 				{
 					gGT->pushBuffer[0].distanceToScreen_PREV = 0x278;
 				}
-				if ((camPathFlags[0] & 0x20) != 0)
+				if ((camPathFlags[0] & CAM_PATH_FLAG_DISTANCE_TO_SCREEN_0x1EB) != 0)
 				{
 					gGT->pushBuffer[0].distanceToScreen_PREV = 0x1eb;
 				}
-				if ((camPathFlags[0] & 0x40) != 0)
+				if ((camPathFlags[0] & CAM_PATH_FLAG_DISTANCE_TO_SCREEN_0x14D) != 0)
 				{
 					gGT->pushBuffer[0].distanceToScreen_PREV = 0x14d;
 				}
 			}
 
-			if (((camPathFlags[0] & 0x10) != 0) && ((MixRNG_Scramble() & 0xf) == 0))
+			if (((camPathFlags[0] & CAM_PATH_FLAG_RANDOM_CLEAR_BOX) != 0) && ((MixRNG_Scramble() & 0xf) == 0))
 			{
 				CTR_Box_DrawClearBox(&R233.introClearBoxRect, &R233.introClearBoxColor, 1, gGT->backBuffer->otMem.uiOT);
 			}
@@ -268,9 +281,9 @@ afterCameraAndSkipChecks:
 	if (elapsedTimeRemaining == 0)
 	{
 	updateInstanceAndReturn:
-		cs->unk18 = iVar12;
+		cs->animFrame32 = iVar12;
 		cs->animIndex = (char)animIndex;
-		cs->unk1e = (s16)iVar8;
+		cs->lodIndex = (s16)iVar8;
 		cs->opcodeDuration = (s16)opcodeDuration;
 		iVar10 = (int)opcodeMeta->rotStart;
 		iVar12 = iVar12 >> 5;
@@ -288,7 +301,7 @@ afterCameraAndSkipChecks:
 				iVar10 = iVar10 + rotInterpNumerator / rotInterpFrameRange;
 			}
 		}
-		iVar10 = iVar10 + cs->unk1c;
+		iVar10 = iVar10 + cs->baseRotY;
 		if ((iVar10 != (int)cs->rot.y) && (cs->rot.y = (s16)iVar10, instance != 0))
 		{
 			ConvertRotToMatrix(&instance->matrix, &cs->rot);
@@ -328,15 +341,15 @@ processOpcode:
 		if (instance != 0)
 		{
 			cutsceneFlags = cs->flags;
-			if ((cutsceneFlags & 0x200) != 0)
+			if ((cutsceneFlags & CS_FLAG_XA_SYNC_ANIMATION) != 0)
 			{
-				if (((cutsceneFlags & 0x400) == 0) && (sdata->XA_State == 3))
+				if (((cutsceneFlags & CS_FLAG_XA_PLAYBACK_STARTED) == 0) && (sdata->XA_State == 3))
 				{
-					cs->flags = cutsceneFlags | 0x400;
+					cs->flags = cutsceneFlags | CS_FLAG_XA_PLAYBACK_STARTED;
 				}
 				if (sdata->XA_State != 0)
 				{
-					if ((cs->flags & 0x400) == 0)
+					if ((cs->flags & CS_FLAG_XA_PLAYBACK_STARTED) == 0)
 					{
 						iVar12 = 0;
 					}
@@ -432,7 +445,7 @@ processOpcode:
 			struct CsThreadInitData *initData = CTR_SCRATCHPAD_PTR(struct CsThreadInitData, 0x108);
 			int spawnModelID = opcodeMeta->arg1.i;
 
-			CS_Instance_GetFrameData(instance, (int)opcodeMeta->animIndex, opcodeMeta->arg0.i, (u16 *)initData->podiumPos.v, (u16 *)initData->rot.v, 0);
+			CS_Instance_GetFrameData(instance, (int)opcodeMeta->animIndex, opcodeMeta->arg0.i, &initData->podiumPos.vec, &initData->rot.vec, 0);
 
 			initData->podiumPos.x += (s16)instance->matrix.t[0];
 			initData->podiumPos.y += (s16)instance->matrix.t[1];
@@ -621,14 +634,14 @@ processOpcode:
 		CDSYS_XAPlay(opcodeMeta->arg0.i, opcodeMeta->arg1.i);
 		if (sdata->XA_State != 0)
 		{
-			cs->flags = (cs->flags & 0xfbff) | 0x200;
+			cs->flags = (cs->flags & ~CS_FLAG_XA_PLAYBACK_STARTED) | CS_FLAG_XA_SYNC_ANIMATION;
 		}
 		break;
 
 	case 0x13:
 		if (sdata->XA_State == 0)
 		{
-			cutsceneFlags = cs->flags & 0xfdff;
+			cutsceneFlags = cs->flags & ~CS_FLAG_XA_SYNC_ANIMATION;
 			goto setFlagsAndAdvanceOpcode;
 		}
 
@@ -733,7 +746,7 @@ processOpcode:
 		distanceToScreen = opcodeMeta->arg1.i;
 		gGT->pushBuffer[0].distanceToScreen_PREV = distanceToScreen;
 		gGT->pushBuffer[0].distanceToScreen_CURR = distanceToScreen;
-		cutsceneFlags = cs->flags | 0x20;
+		cutsceneFlags = cs->flags | CS_FLAG_CAMERA_DISTANCE_OVERRIDE;
 	setFlagsAndAdvanceOpcode:
 		cs->flags = cutsceneFlags;
 		CS_ScriptCmd_OpcodeNext(cs);
@@ -795,7 +808,7 @@ processOpcode:
 	case 0x26:
 		if (opcodeMeta->frameEnd == 0)
 		{
-			if ((opcodeMeta->arg0.i != (int)gGarage.unusedArr_garageChars[sdata->advCharSelectIndex_curr]) || (gGarage.boolSelected == 0))
+			if ((opcodeMeta->arg0.i != (int)gGarage.garageCharacterIDs[sdata->advCharSelectIndex_curr]) || (gGarage.boolSelected == 0))
 			{
 				opcodeAt = opcodeMeta->arg1.ptr;
 			branchToGarageOpcode:
@@ -805,7 +818,7 @@ processOpcode:
 		}
 		else
 		{
-			if ((opcodeMeta->arg0.i == (int)gGarage.unusedArr_garageChars[sdata->advCharSelectIndex_curr]) && (gGarage.boolSelected == 1))
+			if ((opcodeMeta->arg0.i == (int)gGarage.garageCharacterIDs[sdata->advCharSelectIndex_curr]) && (gGarage.boolSelected == 1))
 			{
 				opcodeAt = opcodeMeta->arg1.ptr;
 				goto branchToGarageOpcode;
@@ -955,16 +968,16 @@ void CS_Thread_MoveOnPath(struct Thread *t)
 	struct Level *level;
 	struct GameTracker *gGT;
 	s16 modelID;
-	int switchVal;
-	int digit;
+	int pathModelKind;
+	int pathIndex;
 	struct SpawnType2 *spawnEntry;
-	SVec3 *positions;
-	SVec3 *curr;
-	SVec3 *next;
+	SVec3 *pathPoints;
+	SVec3 *currPoint;
+	SVec3 *nextPoint;
 	struct SpawnPosRot *posRot;
-	u16 progress;
-	int idx;
-	u16 frac;
+	u16 pathFrame32;
+	int segmentIndex;
+	u16 segmentFrac32;
 	SVec3 rot;
 
 	if ((cs->flags & CS_FLAG_PATH_MOTION_DISABLED) != 0)
@@ -978,9 +991,9 @@ void CS_Thread_MoveOnPath(struct Thread *t)
 	}
 
 	modelID = inst->model->id;
-	switchVal = (s16)(modelID - 0xA1);
+	pathModelKind = (s16)(modelID - STATIC_PPOINTTHINGINTRO);
 
-	if ((u32)switchVal >= 63)
+	if ((u32)pathModelKind >= CS_PATH_MODEL_KIND_COUNT)
 	{
 		return;
 	}
@@ -988,39 +1001,39 @@ void CS_Thread_MoveOnPath(struct Thread *t)
 	gGT = sdata->gGT;
 	level = gGT->level1;
 
-	switch (switchVal)
+	switch (pathModelKind)
 	{
-	case 0x00:
-	case 0x3E:
+	case CS_PATH_MODEL_PPOINT_THING_INTRO:
+	case CS_PATH_MODEL_OXIDE_SPEAKER:
 
-		digit = (u8)inst->name[strlen(inst->name) - 1] - '0';
+		pathIndex = (u8)inst->name[strlen(inst->name) - 1] - '0';
 
-		if (level->numSpawnType2 <= digit)
+		if (level->numSpawnType2 <= pathIndex)
 		{
 			return;
 		}
 
-		spawnEntry = &level->ptrSpawnType2[digit];
-		positions = spawnEntry->positions;
+		spawnEntry = &level->ptrSpawnType2[pathIndex];
+		pathPoints = spawnEntry->positions;
 
-		if (positions == 0)
+		if (pathPoints == 0)
 		{
 			return;
 		}
 
-		progress = cs->pathProgress32;
-		idx = (s16)progress >> 5;
-		cs->pathProgress32 = (u16)(progress + (u16)gGT->elapsedTimeMS);
-		frac = progress & 0x1f;
+		pathFrame32 = cs->pathProgress32;
+		segmentIndex = (s16)pathFrame32 >> 5;
+		cs->pathProgress32 = (u16)(pathFrame32 + (u16)gGT->elapsedTimeMS);
+		segmentFrac32 = pathFrame32 & 0x1f;
 
-		if (idx >= spawnEntry->numCoords - 1)
+		if (segmentIndex >= spawnEntry->numCoords - 1)
 		{
-			idx = 0;
+			segmentIndex = 0;
 
-			if (modelID == 0xDF)
+			if (modelID == STATIC_OXIDESPEAKER)
 			{
-				idx = spawnEntry->numCoords - 2;
-				cs->pathProgress32 = idx << 5;
+				segmentIndex = spawnEntry->numCoords - 2;
+				cs->pathProgress32 = segmentIndex << 5;
 			}
 			else
 			{
@@ -1028,43 +1041,43 @@ void CS_Thread_MoveOnPath(struct Thread *t)
 			}
 		}
 
-		curr = &positions[idx];
-		next = &curr[1];
+		currPoint = &pathPoints[segmentIndex];
+		nextPoint = &currPoint[1];
 
-		inst->matrix.t[0] = curr->x + ((frac * (next->x - curr->x)) >> 5);
-		inst->matrix.t[1] = curr->y + ((frac * (next->y - curr->y)) >> 5);
-		inst->matrix.t[2] = curr->z + ((frac * (next->z - curr->z)) >> 5);
+		inst->matrix.t[0] = currPoint->x + ((segmentFrac32 * (nextPoint->x - currPoint->x)) >> 5);
+		inst->matrix.t[1] = currPoint->y + ((segmentFrac32 * (nextPoint->y - currPoint->y)) >> 5);
+		inst->matrix.t[2] = currPoint->z + ((segmentFrac32 * (nextPoint->z - currPoint->z)) >> 5);
 
-		if (idx >= spawnEntry->numCoords - 1)
+		if (segmentIndex >= spawnEntry->numCoords - 1)
 		{
 			return;
 		}
 
-		if (modelID == 0xDF)
+		if (modelID == STATIC_OXIDESPEAKER)
 		{
 			return;
 		}
 
 		rot.x = cs->rot.x;
-		rot.y = cs->rot.y + ratan2(next->x - curr->x, next->z - curr->z);
+		rot.y = cs->rot.y + ratan2(nextPoint->x - currPoint->x, nextPoint->z - currPoint->z);
 		rot.z = cs->rot.z;
 
 		ConvertRotToMatrix(&inst->matrix, &rot);
 		return;
 
-	case 0x01:
-	case 0x02:
-	case 0x39:
-	case 0x3A:
+	case CS_PATH_MODEL_PR_THING_INTRO:
+	case CS_PATH_MODEL_OXIDE_LIL_SHIP:
+	case CS_PATH_MODEL_END_OXIDE_BIG_SHIP:
+	case CS_PATH_MODEL_END_OXIDE_LIL_SHIP:
 
-		digit = (u8)inst->name[strlen(inst->name) - 1] - '0';
+		pathIndex = (u8)inst->name[strlen(inst->name) - 1] - '0';
 
-		if (level->numSpawnType2_PosRot <= digit)
+		if (level->numSpawnType2_PosRot <= pathIndex)
 		{
 			return;
 		}
 
-		spawnEntry = &level->ptrSpawnType2_PosRot[digit];
+		spawnEntry = &level->ptrSpawnType2_PosRot[pathIndex];
 		posRot = spawnEntry->posRot;
 
 		if (posRot == 0)
@@ -1072,18 +1085,18 @@ void CS_Thread_MoveOnPath(struct Thread *t)
 			return;
 		}
 
-		progress = cs->pathProgress32;
-		cs->pathProgress32 = (u16)(progress + (u16)gGT->elapsedTimeMS);
-		idx = (s16)progress >> 5;
+		pathFrame32 = cs->pathProgress32;
+		cs->pathProgress32 = (u16)(pathFrame32 + (u16)gGT->elapsedTimeMS);
+		segmentIndex = (s16)pathFrame32 >> 5;
 
-		if (idx >= spawnEntry->numCoords - 1)
+		if (segmentIndex >= spawnEntry->numCoords - 1)
 		{
-			idx = 0;
+			segmentIndex = 0;
 			cs->pathProgress32 = 0;
 		}
 
 		{
-			struct SpawnPosRot *frame = &posRot[idx];
+			struct SpawnPosRot *frame = &posRot[segmentIndex];
 
 			inst->matrix.t[0] = frame->pos.x;
 			inst->matrix.t[1] = frame->pos.y;
@@ -1094,7 +1107,7 @@ void CS_Thread_MoveOnPath(struct Thread *t)
 
 		break;
 
-	case 0x30:
+	case CS_PATH_MODEL_COCO_SELECT:
 
 		if (level->numSpawnType2 <= 0)
 		{
@@ -1102,9 +1115,9 @@ void CS_Thread_MoveOnPath(struct Thread *t)
 		}
 
 		spawnEntry = level->ptrSpawnType2;
-		positions = spawnEntry->positions;
+		pathPoints = spawnEntry->positions;
 
-		if (positions == 0)
+		if (pathPoints == 0)
 		{
 			return;
 		}
@@ -1114,35 +1127,35 @@ void CS_Thread_MoveOnPath(struct Thread *t)
 
 			if (cs->animIndex == 3)
 			{
-				prog = cs->unk18;
+				prog = cs->animFrame32;
 			}
 
-			frac = prog & 0x1f;
+			segmentFrac32 = prog & 0x1f;
 			int numCoords = spawnEntry->numCoords;
-			idx = prog >> 5;
+			segmentIndex = prog >> 5;
 
-			if (idx < numCoords - 1)
+			if (segmentIndex < numCoords - 1)
 			{
-				if (idx >= 0)
+				if (segmentIndex >= 0)
 				{
-					curr = &positions[idx];
-					next = &curr[1];
+					currPoint = &pathPoints[segmentIndex];
+					nextPoint = &currPoint[1];
 				}
 				else
 				{
-					curr = &positions[0];
-					next = curr;
+					currPoint = &pathPoints[0];
+					nextPoint = currPoint;
 				}
 			}
 			else
 			{
-				curr = &positions[numCoords - 1];
-				next = curr;
+				currPoint = &pathPoints[numCoords - 1];
+				nextPoint = currPoint;
 			}
 
-			inst->matrix.t[0] = curr->x + ((frac * (next->x - curr->x)) >> 5);
-			inst->matrix.t[1] = curr->y + ((frac * (next->y - curr->y)) >> 5);
-			inst->matrix.t[2] = curr->z + ((frac * (next->z - curr->z)) >> 5);
+			inst->matrix.t[0] = currPoint->x + ((segmentFrac32 * (nextPoint->x - currPoint->x)) >> 5);
+			inst->matrix.t[1] = currPoint->y + ((segmentFrac32 * (nextPoint->y - currPoint->y)) >> 5);
+			inst->matrix.t[2] = currPoint->z + ((segmentFrac32 * (nextPoint->z - currPoint->z)) >> 5);
 		}
 
 		return;
@@ -1196,7 +1209,7 @@ void CS_Thread_Particles(struct Thread *t)
 			{
 				SVec3 pos;
 
-				CS_Instance_GetFrameData(inst, inst->animIndex, inst->animFrame, (u16 *)pos.v, NULL, frameOffset);
+				CS_Instance_GetFrameData(inst, inst->animIndex, inst->animFrame, &pos, NULL, frameOffset);
 
 				p->axis[0].startVal += (pos.x + inst->matrix.t[0]) << 8;
 				p->axis[1].startVal += (pos.y + inst->matrix.t[1]) << 8;
@@ -1240,20 +1253,20 @@ void CS_Thread_InterpolateFramesMS(struct Thread *t)
 	struct PrimMem *primMem;
 	struct CSInterpolateLinePacket *packet;
 	void *end;
-	u16 curr[3];
-	u16 next[3];
+	SVec3 curr;
+	SVec3 next;
 	int depth;
 
-	CS_Instance_GetFrameData(inst, inst->animIndex, inst->animFrame, curr, NULL, 0);
-	CS_Instance_GetFrameData(inst, inst->animIndex, inst->animFrame, next, NULL, 1);
+	CS_Instance_GetFrameData(inst, inst->animIndex, inst->animFrame, &curr, NULL, 0);
+	CS_Instance_GetFrameData(inst, inst->animIndex, inst->animFrame, &next, NULL, 1);
 
-	curr[0] = (u16)(curr[0] + (u16)inst->matrix.t[0]);
-	curr[1] = (u16)(curr[1] + (u16)inst->matrix.t[1]);
-	curr[2] = (u16)(curr[2] + (u16)inst->matrix.t[2]);
+	curr.x = (s16)((u16)curr.x + (u16)inst->matrix.t[0]);
+	curr.y = (s16)((u16)curr.y + (u16)inst->matrix.t[1]);
+	curr.z = (s16)((u16)curr.z + (u16)inst->matrix.t[2]);
 
-	next[0] = (u16)(next[0] + (u16)inst->matrix.t[0]);
-	next[1] = (u16)(next[1] + (u16)inst->matrix.t[1]);
-	next[2] = (u16)(next[2] + (u16)inst->matrix.t[2]);
+	next.x = (s16)((u16)next.x + (u16)inst->matrix.t[0]);
+	next.y = (s16)((u16)next.y + (u16)inst->matrix.t[1]);
+	next.z = (s16)((u16)next.z + (u16)inst->matrix.t[2]);
 
 	primMem = &gGT->backBuffer->primMem;
 	packet = primMem->cursor;
@@ -1267,10 +1280,10 @@ void CS_Thread_InterpolateFramesMS(struct Thread *t)
 	gte_SetRotMatrix(&gGT->pushBuffer[0].matrix_ViewProj);
 	gte_SetTransMatrix(&gGT->pushBuffer[0].matrix_ViewProj);
 
-	MTC2((u32)curr[0] | ((u32)curr[1] << 16), 0);
-	MTC2((u32)curr[2], 1);
-	MTC2((u32)next[0] | ((u32)next[1] << 16), 2);
-	MTC2((u32)next[2], 3);
+	MTC2((u32)(u16)curr.x | ((u32)(u16)curr.y << 16), 0);
+	MTC2((u32)(u16)curr.z, 1);
+	MTC2((u32)(u16)next.x | ((u32)(u16)next.y << 16), 2);
+	MTC2((u32)(u16)next.z, 3);
 	gte_rtpt();
 
 	packet->xy0 = MFC2(12);
@@ -1366,7 +1379,7 @@ void CS_Thread_LInB(struct Instance *inst)
 
 	CS_ScriptCmd_OpcodeAt(cs, scriptPtr);
 
-	cs->unk18 = cs->metadata[2];
+	cs->animFrame32 = cs->metadata[2];
 
 	{
 		int rng = MixRNG_Scramble();
@@ -1374,12 +1387,12 @@ void CS_Thread_LInB(struct Instance *inst)
 		s16 frameStart = meta[2];
 		s16 frameEnd = meta[3];
 
-		cs->unk1c = 0;
+		cs->baseRotY = 0;
 		cs->rot.x = 0;
 		cs->rot.y = 0;
 		cs->rot.z = 0;
 		cs->pathProgress32 = 0;
-		cs->unk1e = 0;
+		cs->lodIndex = 0;
 		cs->flags = 0;
 		cs->scaleSpeed = 0;
 		cs->frameOverrideRoot = 0;
@@ -1432,7 +1445,7 @@ void CS_Thread_ThTick(struct Thread *t)
 	CS_Thread_AnimateScale(t);
 	CS_Thread_Particles(t);
 
-	if ((cs->flags & 0x40) != 0)
+	if ((cs->flags & CS_FLAG_INTERPOLATE_FRAMES_MS) != 0)
 	{
 		CS_Thread_InterpolateFramesMS(t);
 	}
@@ -1444,18 +1457,17 @@ void CS_Thread_ThTick(struct Thread *t)
 
 		if (parentThread != 0)
 		{
-			if ((cs->flags & 0x4) == 0)
+			if ((cs->flags & CS_FLAG_SKIP_PARENT_FRAME_TRANSFORM) == 0)
 			{
 				parentInst = parentThread->inst;
 
-				CS_Instance_GetFrameData(parentInst, parentInst->animIndex, parentInst->animFrame, (u16 *)parentFrame->parentPos.vec.v,
-				                         (u16 *)parentFrame->parentRot.vec.v, 0);
+				CS_Instance_GetFrameData(parentInst, parentInst->animIndex, parentInst->animFrame, &parentFrame->parentPos.vec, &parentFrame->parentRot.vec, 0);
 
 				inst->matrix.t[0] = parentInst->matrix.t[0] + parentFrame->parentPos.x;
 				inst->matrix.t[1] = parentInst->matrix.t[1] + parentFrame->parentPos.y;
 				inst->matrix.t[2] = parentInst->matrix.t[2] + parentFrame->parentPos.z;
 
-				if ((cs->flags & 0x10) == 0)
+				if ((cs->flags & CS_FLAG_SKIP_PARENT_ROTATION) == 0)
 				{
 					ConvertRotToMatrix(&inst->matrix, &parentFrame->parentRot.vec);
 				}
@@ -1469,9 +1481,9 @@ void CS_Thread_ThTick(struct Thread *t)
 		}
 
 		// ASM: 0x800ae6b4 - flag 0x8 writes bone Y to overlay-233 mutable state.
-		if ((cs->flags & 0x8) != 0)
+		if ((cs->flags & CS_FLAG_WRITE_VERT_SPLIT_LINE) != 0)
 		{
-			CS_Instance_GetFrameData(inst, inst->animIndex, inst->animFrame, (u16 *)bonePos.v, 0, 0);
+			CS_Instance_GetFrameData(inst, inst->animIndex, inst->animFrame, &bonePos, 0, 0);
 
 			D233.VertSplitLine = bonePos.y;
 
@@ -1483,7 +1495,7 @@ void CS_Thread_ThTick(struct Thread *t)
 		}
 
 		// ASM: 0x800ae6fc - flag 0x2: random alphaScale for fade effect
-		if ((cs->flags & 0x2) != 0)
+		if ((cs->flags & CS_FLAG_RANDOM_ALPHA_SCALE) != 0)
 		{
 			inst->alphaScale = 0;
 
@@ -1521,7 +1533,7 @@ thTick_subtitles:
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800af328-0x800af7c0
-struct Thread *CS_Thread_Init(s16 modelID, const char *name, struct CsThreadInitData *initData, s16 param_4, struct Thread *parent)
+struct Thread *CS_Thread_Init(s16 modelID, const char *name, struct CsThreadInitData *initData, s16 yawOffset, struct Thread *parent)
 {
 	struct GameTracker *gGT = sdata->gGT;
 	struct CutsceneObj *cs;
@@ -1667,7 +1679,7 @@ struct Thread *CS_Thread_Init(s16 modelID, const char *name, struct CsThreadInit
 
 after_opcode:
 
-	cs->unk18 = cs->metadata[2];
+	cs->animFrame32 = cs->metadata[2];
 
 	meta = cs->metadataShorts;
 	cs->opcodeDuration = meta[2] + (s16)(((MixRNG_Scramble() >> 2 & 0xfff) * ((meta[3] - meta[2]) + 1)) >> 0xc);
@@ -1701,11 +1713,11 @@ after_opcode:
 
 		initData->derivedRot.x = initData->rot.x;
 		initData->derivedRot.z = initData->rot.z;
-		initData->derivedRot.y = initData->rot.y + param_4;
+		initData->derivedRot.y = initData->rot.y + yawOffset;
 
 		ConvertRotToMatrix(&inst->matrix, &initData->derivedRot.vec);
 
-		cs->unk1c = initData->derivedRot.y & 0xfff;
+		cs->baseRotY = initData->derivedRot.y & 0xfff;
 		cs->rot.x = initData->derivedRot.x & 0xfff;
 		cs->rot.y = initData->derivedRot.y & 0xfff;
 		cs->rot.z = initData->derivedRot.z & 0xfff;
@@ -1713,7 +1725,7 @@ after_opcode:
 
 	cs->particleID = 0xff;
 	cs->pathProgress32 = 0;
-	cs->unk1e = 0;
+	cs->lodIndex = 0;
 	cs->flags = 0;
 	cs->scaleSpeed = 0;
 	cs->desiredScale = 0x2800;

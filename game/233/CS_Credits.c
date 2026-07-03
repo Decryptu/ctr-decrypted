@@ -65,7 +65,7 @@ void CS_Credits_AnimateCreditGhost(struct Instance *dst, struct Instance *src, i
 
 	dst->alphaScale = (index + 1) * 630;
 
-	struct Model *localModel = (struct Model *)co->data_0x18_0x5[index].data;
+	struct Model *localModel = &co->creditGhostModelCopies[index];
 	dst->model = localModel;
 
 	struct Model *srcModel = src->model;
@@ -78,7 +78,7 @@ void CS_Credits_AnimateCreditGhost(struct Instance *dst, struct Instance *src, i
 	dstModelInts[4] = srcModelInts[4];
 	dstModelInts[5] = srcModelInts[5];
 
-	localModel->headers = (struct ModelHeader *)co->data_0x80_0x5[index].data;
+	localModel->headers = co->creditGhostHeaders[index];
 
 	s16 srcNumHeaders = srcModel->numHeaders;
 	if (srcNumHeaders > 0)
@@ -145,7 +145,7 @@ void CS_Credits_Init(void)
 	void **pointers = ST1_GETPOINTERS(gGT->level1->ptrSpawnType1);
 	CLH = pointers[ST1_CREDITS];
 
-	creditsBSS.DancerThread = 0;
+	creditsBSS.dancerThread = 0;
 
 	creditsBSS.boolAllBlue = 1;
 	boolAllGold = true;
@@ -171,7 +171,7 @@ void CS_Credits_Init(void)
 		gGT->winnerIndex[0] = 0;
 		gGT->confetti.numParticles_max = 250;
 		gGT->confetti.unk2 = 250;
-		gGT->renderFlags |= 4;
+		gGT->renderFlags |= RENDER_FLAG_CONFETTI;
 	}
 
 	// 0 = size
@@ -180,7 +180,7 @@ void CS_Credits_Init(void)
 	// 0xd = "other" thread bucket
 	creditThread = PROC_BirthWithObject(0x30d, CS_Credits_ThTick, cs_creditsThreadName, NULL);
 	creditThread->funcThDestroy = CS_Credits_ThDestroy_NoOp;
-	creditsBSS.CreditThread = creditThread;
+	creditsBSS.creditThread = creditThread;
 
 	memset(creditsObj, 0, sizeof(struct CreditsObj));
 	creditsObj->countdown = 360;
@@ -231,8 +231,8 @@ void CS_Credits_Init(void)
 		ptrStrings[i] = (char *)((u32)ptrStrings[i] + (u32)creditsDst);
 	}
 
-	creditsObj->credits_posY = 340;
-	creditsObj->credits_topString = ptrStrings[0x14];
+	creditsObj->creditsPosY = 340;
+	creditsObj->creditsTopString = ptrStrings[0x14];
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b92a0-0x800b92cc
@@ -240,7 +240,7 @@ int CS_Credits_IsTextValid(void)
 {
 	struct CreditsObj *creditsObj = &creditsBSS.creditsObj;
 
-	if (creditsObj->epilogue_topString != 0)
+	if (creditsObj->epilogueTopString != 0)
 	{
 		return 0;
 	}
@@ -255,15 +255,15 @@ void CS_Credits_NewDancer(struct Thread *dancerTh, int dancerModelID)
 	struct CreditsObj *creditsObj = &creditsBSS.creditsObj;
 
 	// kill any living thread
-	struct Thread *oldDancerThread = creditsBSS.DancerThread;
+	struct Thread *oldDancerThread = creditsBSS.dancerThread;
 	if (oldDancerThread != 0)
 	{
-		creditsBSS.DancerThread = 0;
+		creditsBSS.dancerThread = 0;
 		oldDancerThread->flags |= 0x800;
 	}
 
 	// store globally, make instance invisible
-	creditsBSS.DancerThread = dancerTh;
+	creditsBSS.dancerThread = dancerTh;
 	creditsBSS.dancerInst_invisible = dancerTh->inst;
 	creditsBSS.dancerInst_invisible->flags |= HIDE_MODEL;
 
@@ -275,21 +275,21 @@ void CS_Credits_NewDancer(struct Thread *dancerTh, int dancerModelID)
 	if (dancerModelID < STATIC_TAWNA1)
 	{
 		// subtract CRASHDANCE
-		creditsObj->epilogue_topString = ptrStrings[dancerModelID - STATIC_CRASHDANCE];
+		creditsObj->epilogueTopString = ptrStrings[dancerModelID - STATIC_CRASHDANCE];
 	}
 
 	// TAWNA
 	else
 	{
 		// subtract an extra cause of GARAGE_TOP
-		creditsObj->epilogue_topString = ptrStrings[(dancerModelID - STATIC_CRASHDANCE) - 1];
+		creditsObj->epilogueTopString = ptrStrings[(dancerModelID - STATIC_CRASHDANCE) - 1];
 	}
 
-	creditsObj->epilogueCount200 = 200;
+	creditsObj->epilogueFramesLeft = 200;
 
-	creditsObj->epilogue_nextString = CS_Credits_GetNextString(creditsObj->epilogue_topString);
+	creditsObj->epilogueNextString = CS_Credits_GetNextString(creditsObj->epilogueTopString);
 
-	creditsObj->epiloguePosX = 0x200;
+	creditsObj->epiloguePosX_unused = 0x200;
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b9398-0x800b93f4
@@ -339,7 +339,7 @@ void CS_Credits_End(void)
 	CS_Credits_DestroyCreditGhost();
 
 	// kill thread
-	creditsBSS.CreditThread->flags |= 0x800;
+	creditsBSS.creditThread->flags |= 0x800;
 
 #if defined(CTR_NATIVE)
 	CS_Credits_RestorePodiumAudioForNativeHandoff();
@@ -363,27 +363,27 @@ void CS_Credits_End(void)
 
 	MainRaceTrack_RequestLoad(levID);
 
-	gGT->renderFlags &= 0xfffffffb;
+	gGT->renderFlags &= ~RENDER_FLAG_CONFETTI;
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b88c8-0x800b8bd0
 void CS_Credits_DrawNames(struct CreditsObj *co)
 {
-	if (co->credits_topString == 0)
+	if (co->creditsTopString == 0)
 	{
 		return;
 	}
 
-	co->credits_posY--;
+	co->creditsPosY--;
 
-	if (co->credits_posY < -20)
+	if (co->creditsPosY < -20)
 	{
-		co->credits_topString = CS_Credits_GetNextString(co->credits_topString);
-		co->credits_posY += 20;
+		co->creditsTopString = CS_Credits_GetNextString(co->creditsTopString);
+		co->creditsPosY += 20;
 	}
 
-	int posY = co->credits_posY;
-	char *str = co->credits_topString;
+	int posY = co->creditsPosY;
+	char *str = co->creditsTopString;
 	int charId = 0;
 
 	while (posY < 0x114)
@@ -472,7 +472,7 @@ void CS_Credits_DrawNames(struct CreditsObj *co)
 
 		if (colorSlot >= 0)
 		{
-			DecalFont_DrawLineStrlen(str, strLen, creditsBSS.creditText_PosX, posY, 3, colorSlot | textFlags);
+			DecalFont_DrawLineStrlen(str, strLen, creditsBSS.creditTextPosX, posY, 3, colorSlot | textFlags);
 		}
 
 		posY += 20;
@@ -489,26 +489,26 @@ void CS_Credits_DrawNames(struct CreditsObj *co)
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b8bd0-0x800b8dc8
 void CS_Credits_DrawEpilogue(struct CreditsObj *co)
 {
-	if (co->epilogue_topString == 0)
+	if (co->epilogueTopString == 0)
 	{
 		return;
 	}
 
-	co->epilogueCount200--;
+	co->epilogueFramesLeft--;
 
-	if (co->epilogueCount200 <= 0)
+	if (co->epilogueFramesLeft <= 0)
 	{
-		co->epilogueCount200 = 200;
-		co->epilogue_topString = co->epilogue_nextString;
-		co->epilogue_nextString = CS_Credits_GetNextString(co->epilogue_nextString);
+		co->epilogueFramesLeft = 200;
+		co->epilogueTopString = co->epilogueNextString;
+		co->epilogueNextString = CS_Credits_GetNextString(co->epilogueNextString);
 	}
 
-	if (co->epilogue_topString == 0)
+	if (co->epilogueTopString == 0)
 	{
 		return;
 	}
 
-	s16 timeRemaining = co->epilogueCount200;
+	s16 timeRemaining = co->epilogueFramesLeft;
 	s16 fadeAmount = 20;
 
 	if (timeRemaining < 0xb5)
@@ -553,12 +553,12 @@ void CS_Credits_DrawEpilogue(struct CreditsObj *co)
 	{
 		s16 strLen = -1;
 
-		if (co->epilogue_nextString != 0)
+		if (co->epilogueNextString != 0)
 		{
-			strLen = (s16)(co->epilogue_nextString - co->epilogue_topString) - 1;
+			strLen = (s16)(co->epilogueNextString - co->epilogueTopString) - 1;
 		}
 
-		DecalFont_DrawMultiLineStrlen(co->epilogue_topString, strLen, 0x100, 0xaf, 0x1cc, 2, colorSlot | 0x8000);
+		DecalFont_DrawMultiLineStrlen(co->epilogueTopString, strLen, 0x100, 0xaf, 0x1cc, 2, colorSlot | 0x8000);
 	}
 }
 
@@ -574,9 +574,9 @@ void CS_Credits_ThTick(void)
 	{
 		danceInst->flags |= HIDE_MODEL;
 
-		danceInst->matrix.t[0] = (int)creditsBSS.creditGhost_Pos.x;
-		danceInst->matrix.t[1] = (int)creditsBSS.creditGhost_Pos.y;
-		danceInst->matrix.t[2] = (int)creditsBSS.creditGhost_Pos.z;
+		danceInst->matrix.t[0] = (int)creditsBSS.creditGhostPos.x;
+		danceInst->matrix.t[1] = (int)creditsBSS.creditGhostPos.y;
+		danceInst->matrix.t[2] = (int)creditsBSS.creditGhostPos.z;
 
 		struct GameTracker *gGT = sdata->gGT;
 
