@@ -10,13 +10,6 @@ struct MaskHint
 	// end of struct
 };
 
-enum AdventureHubHudFlags
-{
-	AH_HUD_FLAG_HIDE_MAP = 0x10,
-};
-
-CTR_STATIC_ASSERT(AH_HUD_FLAG_HIDE_MAP == 0x10);
-
 enum AdventureHubCounts
 {
 	AH_BOSS_KEY_COUNT = 4,

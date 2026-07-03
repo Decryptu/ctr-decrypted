@@ -225,13 +225,13 @@ struct OverlayDATA_232
 
             .menuHintMenu =
                 {
-                    .stringIndexTitle = 0xFFFF,
+                    .stringIndexTitle = RECTMENU_STRING_NONE,
                     .posX_curr = 0x100,
                     .posY_curr = 0x6c,
 
                     .unk1 = 0,
 
-                    .state = 0x8A3,
+                    .state = RECTMENU_STATE_SMALL_CALLBACK_CENTERED,
                     .rows = 0,
                     .funcPtr = AH_HintMenu_MenuProc,
                     .drawStyle = 4,

@@ -233,12 +233,12 @@ void AH_Map_HubArrow(int posX, int posY, s16 *vertPos, char *vertCol, int scale,
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b1150-0x800b14f4.
-void AH_Map_HubArrowOuter(s16 *mapData, int arrowIndex, int posX, int posY, int inputAngle, int type)
+void AH_Map_HubArrowOuter(struct UIMap *map, int arrowIndex, int posX, int posY, int inputAngle, int type)
 {
 	struct GameTracker *gGT;
 	gGT = sdata->gGT;
 
-	(void)mapData;
+	(void)map;
 
 	arrowIndex = (s16)arrowIndex;
 	type = (s16)type;
@@ -334,13 +334,13 @@ void AH_Map_HubArrowOuter(s16 *mapData, int arrowIndex, int posX, int posY, int 
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b14f4-0x800b1a18.
-void AH_Map_HubItems(s16 *mapData, s16 *arrowCounter)
+void AH_Map_HubItems(struct UIMap *map, s16 *arrowCounter)
 {
 	struct GameTracker *gGT = sdata->gGT;
 	struct AdvProgress *adv = &sdata->advProgress;
 	s16 levelID = gGT->levelID;
 	struct HubItem *item = D232.hubItemsXY_ptrArray[levelID - GEM_STONE_VALLEY];
-	int pos3D[3];
+	Vec3 pos3D;
 
 	if (item->posX != -1)
 	{
@@ -397,7 +397,7 @@ void AH_Map_HubItems(s16 *mapData, s16 *arrowCounter)
 						int saveLoadPosX = (int)item->posX - 0x200;
 						int saveLoadPosY = (int)item->posY - 0x100;
 
-						UI_Map_GetIconPos(mapData, &saveLoadPosX, &saveLoadPosY);
+						UI_Map_GetIconPos(map, &saveLoadPosX, &saveLoadPosY);
 
 						AH_Map_LoadSave_Full(saveLoadPosX, saveLoadPosY, &D232.loadSave_pos[0], (char *)&D232.loadSave_col[0], 0x800, (int)item->angle);
 					}
@@ -453,10 +453,10 @@ void AH_Map_HubItems(s16 *mapData, s16 *arrowCounter)
 				int routePosX = (int)item->posX - 0x200;
 				int routePosY = (int)item->posY - 0x100;
 
-				UI_Map_GetIconPos(mapData, &routePosX, &routePosY);
+				UI_Map_GetIconPos(map, &routePosX, &routePosY);
 				if ((routeLockState == 0) && (D232.mapPriorityArrowDrawn == 0))
 				{
-					AH_Map_HubArrowOuter(mapData, (int)*arrowCounter, routePosX, routePosY, (0x1000 - (u16)item->angle), AH_MAP_ARROW_HUB_ROUTE);
+					AH_Map_HubArrowOuter(map, (int)*arrowCounter, routePosX, routePosY, (0x1000 - (u16)item->angle), AH_MAP_ARROW_HUB_ROUTE);
 					*arrowCounter = *arrowCounter + 1;
 				}
 
@@ -477,9 +477,9 @@ void AH_Map_HubItems(s16 *mapData, s16 *arrowCounter)
 
 			if (bossState >= AH_MAP_BOSS_ITEM_LOCKED)
 			{
-				pos3D[0] = (int)item->posX;
-				pos3D[1] = 0;
-				pos3D[2] = (int)item->posY;
+				pos3D.x = (int)item->posX;
+				pos3D.y = 0;
+				pos3D.z = (int)item->posY;
 
 				// if beat boss race
 				int bossIconColor;
@@ -515,18 +515,18 @@ void AH_Map_HubItems(s16 *mapData, s16 *arrowCounter)
 				{
 					D232.mapPriorityArrowDrawn = bossState;
 
-					int bossArrowPosX = pos3D[0];
-					int bossArrowPosY = pos3D[2];
+					int bossArrowPosX = pos3D.x;
+					int bossArrowPosY = pos3D.z;
 
-					UI_Map_GetIconPos(mapData, &bossArrowPosX, &bossArrowPosY);
+					UI_Map_GetIconPos(map, &bossArrowPosX, &bossArrowPosY);
 
-					AH_Map_HubArrowOuter(mapData, (int)*arrowCounter, bossArrowPosX, bossArrowPosY, 0, AH_MAP_ARROW_BOSS);
+					AH_Map_HubArrowOuter(map, (int)*arrowCounter, bossArrowPosX, bossArrowPosY, 0, AH_MAP_ARROW_BOSS);
 
 					*arrowCounter = *arrowCounter + 1;
 				}
 
 				// draw star icon for boss
-				UI_Map_DrawRawIcon((int)mapData, &pos3D[0], AH_MAP_ICON_BOSS_STAR, bossIconColor, 0, 0x1000);
+				UI_Map_DrawRawIcon(map, pos3D.v, AH_MAP_ICON_BOSS_STAR, bossIconColor, 0, 0x1000);
 			}
 			item++;
 		} while (item->posX != -1);
@@ -534,7 +534,7 @@ void AH_Map_HubItems(s16 *mapData, s16 *arrowCounter)
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b1a18-0x800b1c90.
-void AH_Map_Warppads(s16 *mapData, struct Thread *warppadThread, s16 *arrowCounter)
+void AH_Map_Warppads(struct UIMap *map, struct Thread *warppadThread, s16 *arrowCounter)
 {
 	struct GameTracker *gGT = sdata->gGT;
 
@@ -593,14 +593,14 @@ void AH_Map_Warppads(s16 *mapData, struct Thread *warppadThread, s16 *arrowCount
 			D232.mapPriorityArrowDrawn = 1;
 
 			// Get Icon Dimensions
-			UI_Map_GetIconPos(mapData, &arrowPosX, &arrowPosY);
+			UI_Map_GetIconPos(map, &arrowPosX, &arrowPosY);
 
-			AH_Map_HubArrowOuter(mapData, (int)*arrowCounter, arrowPosX, arrowPosY, 0, AH_MAP_ARROW_WARPPAD_TROPHY);
+			AH_Map_HubArrowOuter(map, (int)*arrowCounter, arrowPosX, arrowPosY, 0, AH_MAP_ARROW_WARPPAD_TROPHY);
 
 			*arrowCounter = *arrowCounter + 1;
 		}
 
-		UI_Map_DrawRawIcon((int)mapData, (int *)&warppadInst->matrix.t[0], AH_MAP_ICON_WARPPAD, color, 0, 0x1000);
+		UI_Map_DrawRawIcon(map, &warppadInst->matrix.t[0], AH_MAP_ICON_WARPPAD, color, 0, 0x1000);
 
 		if (!includeInSoundDistance)
 		{
@@ -645,7 +645,7 @@ void AH_Map_Main(void)
 	s16 arrowCounter = 0;
 	struct Driver *advDriver = gGT->drivers[0];
 	struct UiElement2D *hud = data.hudStructPtr[gGT->numPlyrCurrGame - 1];
-	s16 *mapData = NULL;
+	struct UIMap *map = NULL;
 
 	int raceFlagState = RaceFlag_GetCanDraw();
 	if (raceFlagState == 0)
@@ -674,7 +674,7 @@ void AH_Map_Main(void)
 	if (gGT->level1->ptrSpawnType1->count != 0)
 	{
 		void **pointers = ST1_GETPOINTERS(gGT->level1->ptrSpawnType1);
-		mapData = (s16 *)pointers[ST1_MAP];
+		map = pointers[ST1_MAP];
 	}
 
 	// if game is not paused
@@ -684,17 +684,17 @@ void AH_Map_Main(void)
 		UI_JumpMeter_Update(advDriver);
 	}
 
-	if ((gGT->hudFlags & AH_HUD_FLAG_HIDE_MAP) == 0)
+	if ((gGT->hudFlags & HUD_FLAG_HIDE_ADVENTURE_MAP) == 0)
 	{
 		arrowCounter = 0;
 
 		D232.mapPriorityArrowDrawn = 0;
 
-		UI_Map_DrawDrivers((int)mapData, gGT->threadBuckets[PLAYER].thread, &driverIconCounter);
+		UI_Map_DrawDrivers(map, gGT->threadBuckets[PLAYER].thread, &driverIconCounter);
 
-		AH_Map_Warppads(mapData, gGT->threadBuckets[WARPPAD].thread, &arrowCounter);
+		AH_Map_Warppads(map, gGT->threadBuckets[WARPPAD].thread, &arrowCounter);
 
-		AH_Map_HubItems(mapData, &arrowCounter);
+		AH_Map_HubItems(map, &arrowCounter);
 
 		UI_Map_DrawMap(gGT->ptrIcons[AH_MAP_ICON_TOP_HALF], gGT->ptrIcons[AH_MAP_ICON_BOTTOM_HALF],
 
