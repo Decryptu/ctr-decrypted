@@ -82,14 +82,14 @@ void *LOAD_ReadDirectory(char *filename)
 		return NULL;
 	}
 
-	struct BigHeader *bh = MEMPACK_AllocMem(0x4000 /*, filename*/);
+	struct BigHeader *bh = MEMPACK_AllocMem(LOAD_BIGFILE_HEADER_ALLOC_BYTES /*, filename*/);
 
 	// Search for file on disc
 	// Set Cd laser to file position
 	// Read the bigfile header
 	// Wait for read to end
 	CdControl(CdlSetloc, (u8 *)&cdlFile, buf);
-	if (CdRead(8, (u32 *)bh, 0x80) == 0)
+	if (CdRead(LOAD_BIGFILE_HEADER_SECTORS, (u32 *)bh, CdlModeSpeed) == 0)
 	{
 		return NULL;
 	}
@@ -102,7 +102,7 @@ void *LOAD_ReadDirectory(char *filename)
 	// Save position
 	bh->cdpos = CdPosToInt(&cdlFile.pos);
 
-	// undo allocation of 0x4000, only use "needed" size
+	// undo header allocation, only use "needed" size
 	MEMPACK_ReallocMem(sizeof(struct BigHeader) + sizeof(struct BigEntry) * bh->numEntry);
 
 	sdata->ptrBigfileCdPos_2 = bh;
@@ -146,7 +146,7 @@ void LOAD_DramFileCallback(struct LoadQueueSlot *lqs)
 #if defined(CTR_NATIVE)
 	// NOTE(aalhendi): CTR_NATIVE keeps host callback pointers and queue sentinels.
 	if ((callback != NULL) && (callback != LOAD_DramFileCallback) && (callback != (void (*)(struct LoadQueueSlot *))-1) &&
-	    (callback != (void (*)(struct LoadQueueSlot *))-2))
+	    (callback != LOAD_QUEUE_CALLBACK_SET_POINTER))
 #else
 	if ((callback != NULL) && (((u32)(uintptr_t)callback & 0xff000000) == 0x80000000))
 #endif
@@ -353,7 +353,7 @@ void *LOAD_ReadFile_ex(struct BigHeader *bigfile, u32 loadType, int subfileIndex
 
 	struct LoadQueueSlot *lqs = &data.currSlot;
 	originalDst = ptrDst;
-	sectorCount = (eSize + 0x7ffU) >> 0xb;
+	sectorCount = (eSize + LOAD_CD_DATA_SECTOR_ROUND_MASK) >> LOAD_CD_DATA_SECTOR_SHIFT;
 	readComplete = 1;
 
 	// If no address given, then find one.
@@ -367,7 +367,7 @@ void *LOAD_ReadFile_ex(struct BigHeader *bigfile, u32 loadType, int subfileIndex
 
 		// allocate room for all sectors,
 		// remove alignment before next Read
-		sectorSize = sectorCount << 0xb;
+		sectorSize = sectorCount << LOAD_CD_DATA_SECTOR_SHIFT;
 		ptrDst = (void *)MEMPACK_AllocMem(sectorSize); // "FILE"
 		if (ptrDst == NULL)
 		{
@@ -405,7 +405,7 @@ void *LOAD_ReadFile_ex(struct BigHeader *bigfile, u32 loadType, int subfileIndex
 			CdReadCallback(NULL);
 		}
 
-		uVar5 &= CdRead(sectorCount, ptrDst, 0x80);
+		uVar5 &= CdRead(sectorCount, ptrDst, CdlModeSpeed);
 
 		if (callback == NULL)
 		{
@@ -449,7 +449,7 @@ void *LOAD_XnfFile(char *filename, void *ptrDestination, int *size)
 	{
 		// allocate room for all sectors,
 		// remove alignment before next Read
-		int sectorSize = (cdlFile.size + 0x7ffU) & 0xfffff800;
+		int sectorSize = (cdlFile.size + LOAD_CD_DATA_SECTOR_ROUND_MASK) & LOAD_CD_DATA_SECTOR_ALIGN_MASK;
 		ptrDestination = MEMPACK_AllocMem(sectorSize /*, fileName*/);
 		if (ptrDestination == NULL)
 		{
@@ -460,7 +460,7 @@ void *LOAD_XnfFile(char *filename, void *ptrDestination, int *size)
 	u8 buf[8];
 	CdControl(CdlSetloc, (u8 *)&cdlFile, buf);
 
-	if (CdRead((cdlFile.size + 0x7ff) >> 0xb, ptrDestination, 0x80) == 0)
+	if (CdRead((cdlFile.size + LOAD_CD_DATA_SECTOR_ROUND_MASK) >> LOAD_CD_DATA_SECTOR_SHIFT, ptrDestination, CdlModeSpeed) == 0)
 	{
 		return 0;
 	}

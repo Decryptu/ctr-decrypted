@@ -1781,7 +1781,7 @@ struct Data
 	// 80082910 -- JpnTrial
 	// 80083ce8 -- EurRetail
 	// 80086ca4 -- JpnRetail
-	DriverModelExtraSlot driverModelExtras[3];
+	DriverModelExtraSlot driverModelExtras[LOAD_DRIVER_MODEL_EXTRA_COUNT];
 
 	// 80083a1c
 	struct Model *podiumModel_firstPlace;
@@ -1806,7 +1806,7 @@ struct Data
 
 	// 80083a54
 	// see FUN_80032700
-	char characterIDs_2P_AIs[0x1C];
+	u8 characterIDs_2P_AIs[LOAD_2P_AI_SET_COUNT][LOAD_2P_AI_SET_RACER_COUNT];
 
 	// 80083A70
 	// funcptrs callback 230,231,232,233
@@ -2767,6 +2767,7 @@ struct Data
 
 CTR_STATIC_ASSERT(offsetof(struct Data, podiumModel_firstPlace) == offsetof(struct Data, driverModelExtras) + sizeof(((struct Data *)0)->driverModelExtras));
 CTR_STATIC_ASSERT(offsetof(struct Data, currSlot) == offsetof(struct Data, driverModelExtras) + 11 * sizeof(void *));
+CTR_STATIC_ASSERT(sizeof(((struct Data *)0)->characterIDs_2P_AIs) == 0x1c);
 
 // 0x8008D218 -- Early June? PizzaHut USA
 // 0x8008b3d0 -- SepReview
@@ -4876,7 +4877,7 @@ struct sData
 	// 800952f0 -- JpnTrial
 	// 800966f8 -- EurRetail
 	// 800997f8 -- JpnRetail
-	struct LoadQueueSlot queueSlots[8];
+	struct LoadQueueSlot queueSlots[LOAD_QUEUE_SLOT_COUNT];
 
 	// 80096404
 	// filler
