@@ -686,7 +686,7 @@ struct OverlayRDATA_230
 	s32 overlayTag;
 
 	// 800ab9f4
-	void *jmpPtrs_Title_MenuUpdate[6];
+	u32 jmpPtrs_Title_MenuUpdate[6];
 
 	// 800aba0c - UsaRetail
 	// 800abe20 - EurRetail
@@ -714,22 +714,25 @@ struct OverlayRDATA_230
 	// "1"
 	char s_1[4];
 
-	// 800aba28
-	char jmpPtrs_Characters_MenuProc[0x18];
+	// 800aba2c
+	u32 jmpPtrs_Characters_MenuProc[6];
 
 	// 800aba44 - UsaRetail
 	// 800abe58 - EurRetail
 	// 800aef80 - JpnRetail
 	char s_loaded_ghost_data[0x18];
 
-	// 800aba5c
-	char jmpPtrs_Battle_MenuProc[0x30];
+	// 800aba6c
+	u32 jmpPtrs_Battle_MenuProc[11];
 
 	// 800aba88 - UsaRetail
 	// 800abe9c - EurRetail
 	// 800aefc4 - JpnRetail
 	// " test.str 1"
 	char s_teststr1[12];
+
+	// 800aba94
+	u32 ptr_MM_TrackSelect_boolTrackOpen;
 };
 
 // 800b44e4 - UsaRetail
