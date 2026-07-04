@@ -15,7 +15,6 @@ enum AHGarageConstants
 	AH_GARAGE_INTERIOR_FORWARD_OFFSET = -0x280,
 	AH_GARAGE_INTERIOR_DIST_SQ = 0x40000,
 	AH_GARAGE_FADE_STEP = -0x2aa,
-	AH_GARAGE_OXIDE_FINAL_RELIC_COUNT = 18,
 	AH_GARAGE_OXIDE_FINAL_BOSS_ID = 5,
 	AH_GARAGE_TOP_FORWARD_OFFSET = 0x4c,
 	AH_GARAGE_TOP_DEPTH_BIAS = 0xfe,
@@ -258,7 +257,7 @@ LAB_800aec34:
 		// draw string, lng_challenge
 		DecalFont_DrawLine(
 
-		    sdata->lngStrings[data.lng_challenge[R232.bossIDs[hubID]]],
+		    sdata->lngStrings[data.lng_challenge[R232.bossCharacterIDs[hubID]]],
 
 		    ((view.x + view.w) >> 1), ((view.y + view.h) - 0x1e), 1, 0xffff8000);
 	}
@@ -344,7 +343,7 @@ LAB_800aede8:
 		sdata->Loading.OnBegin.RemBitsConfig0 |= ADVENTURE_ARENA;
 		sdata->Loading.OnBegin.AddBitsConfig0 |= ADVENTURE_BOSS;
 
-		if ((levelID == GEM_STONE_VALLEY) && (gGT->currAdvProfile.numRelics == AH_GARAGE_OXIDE_FINAL_RELIC_COUNT))
+		if ((levelID == GEM_STONE_VALLEY) && (gGT->currAdvProfile.numRelics == ADV_OXIDE_FINAL_RELIC_COUNT))
 		{
 			// set string index (0-5) to "N Oxide's Final Challenge"
 			gGT->bossID = AH_GARAGE_OXIDE_FINAL_BOSS_ID;
@@ -352,11 +351,11 @@ LAB_800aede8:
 
 		else
 		{
-			gGT->bossID = R232.bossIDs[hubID];
+			gGT->bossID = R232.bossCharacterIDs[hubID];
 		}
 
 		// new levelID
-		levelID = R232.bossTracks[hubID];
+		levelID = R232.bossRaceLevelIDs[hubID];
 
 		// Set the boss character (P2)
 		data.characterIDs[1] = data.metaDataLEV[levelID].characterID_Boss;
@@ -496,6 +495,6 @@ void AH_Garage_LInB(struct Instance *inst)
 
 	inst->depthBiasNormal = 1;
 	inst->depthBiasSecondary = inst->depthBiasNormal;
-	inst->unk53 = 0;
+	inst->specLightX = 0;
 	inst->vertSplit = inst->instDef->pos.y + AH_GARAGE_DOOR_HEIGHT;
 }

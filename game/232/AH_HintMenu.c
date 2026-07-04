@@ -18,7 +18,7 @@ void AH_HintMenu_FiveArrows(int posY, s16 rotation)
 		    // posY
 		    (posY + AH_HINTMENU_ARROW_Y_OFFSET),
 
-		    &D232.fiveArrow_pos[0],
+		    &D232.fiveArrowPos[0],
 
 		    (char *)ptrColor, 0x800, (int)rotation);
 	}
@@ -58,7 +58,7 @@ void AH_HintMenu_MenuProc(struct RectMenu *menu)
 	int numHintsFound = 0;
 
 	int i = 0;
-	s16 *ptrLngID = &D232.hintMenu_lngIndexArr[0];
+	const s16 *ptrLngID = &D232.hintMenuLngIndex[0];
 
 	for (/**/; *ptrLngID > -1; ptrLngID++, i++)
 	{
@@ -85,7 +85,7 @@ void AH_HintMenu_MenuProc(struct RectMenu *menu)
 		D232.hintMenu_scrollIndex = 0;
 	}
 
-	int lngIndex = D232.hintMenu_lngIndexArr[(s32)hintsFound[menu->rowSelected]];
+	int lngIndex = D232.hintMenuLngIndex[(s32)hintsFound[menu->rowSelected]];
 
 	// if viewing a hint
 	if (D232.hintMenu_boolViewHint != 0)
@@ -289,7 +289,7 @@ LAB_800b38cc:
 			u32 rowLngIndex;
 			if (hintListIndex < numHintsFound)
 			{
-				rowLngIndex = D232.hintMenu_lngIndexArr[(s32)hintsFound[hintListIndex]];
+				rowLngIndex = D232.hintMenuLngIndex[(s32)hintsFound[hintListIndex]];
 			}
 			else
 			{

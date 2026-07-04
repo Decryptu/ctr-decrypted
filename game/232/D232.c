@@ -49,13 +49,13 @@ struct OverlayDATA_232
                 },
 
             // 800b4e7c
-            .arrKeysNeeded = {2, 1, 2, 3, 4},
+            .keysNeededByHub = {2, 1, 2, 3, 4},
 
             // 800b4e86
             .levelID = -1,
 
             // 800b4e88
-            .battleCrystalChallengeTime =
+            .battleCrystalEventTime =
                 {
                     0x1c200, // NITRO_COURT
                     0x13ec0, // RAMPAGE_RUINS
@@ -67,13 +67,13 @@ struct OverlayDATA_232
                 },
 
             // 800b4ea4
-            .saveObjCameraOffset = {0x800, 0, 0},
+            .saveObjCameraOffset = {{0x800, 0, 0}},
 
             // 800b4eac
-            .primOffsetXY_LoadSave = {0, 0, -2, 0, 2, 0, 0, -1, 0, 1},
+            .loadSavePrimOffset = {{{0, 0}}, {{-2, 0}}, {{2, 0}}, {{0, -1}}, {{0, 1}}},
 
             // 800b4ec0
-            .primOffsetXY_HubArrow = {0, 0, -2, 0, 2, 0, 0, -1, 0, 1},
+            .hubArrowPrimOffset = {{{0, 0}}, {{-2, 0}}, {{2, 0}}, {{0, -1}}, {{0, 1}}},
 
             // 800b4ed4
             .hubItems_hub1 = {{0xB780, 0x3D00, 0, AH_HUB_ITEM_OXIDE_WARPPAD},
@@ -119,30 +119,22 @@ struct OverlayDATA_232
                     &D232.hubItems_hub5[0],
                 },
 
-            .hubArrowXY_Inner = {3, 4, 6, 2, 5, 4},
+            .hubArrowInnerOffset = {{{3, 4}}, {{6, 2}}, {{5, 4}}},
 
-            .hubArrowXY_Outer =
+            .hubArrowOuterOffset =
                 {
-                    0,
-                    3,
-                    -2,
-                    1,
-                    0,
-                    0,
-                    2,
-                    1,
+                    {{0, 3}},
+                    {{-2, 1}},
+                    {{0, 0}},
+                    {{2, 1}},
                 },
 
-            .loadSave_pos =
+            .loadSavePos =
                 {
-                    -4,
-                    -2,
-                    4,
-                    -2,
-                    -4,
-                    2,
-                    4,
-                    2,
+                    {{-4, -2}},
+                    {{4, -2}},
+                    {{-4, 2}},
+                    {{4, 2}},
                 },
 
             .loadSave_col =
@@ -153,7 +145,7 @@ struct OverlayDATA_232
                     0xBEFFBE,
                 },
 
-            .hubArrow_pos = {0, 0xFFF8, 0xFFF8, 8, 8, 8},
+            .hubArrowPos = {{{0, 0xFFF8}}, {{0xFFF8, 8}}, {{8, 8}}},
 
             .hubArrow_col1 =
                 {
@@ -186,15 +178,15 @@ struct OverlayDATA_232
             .advPausePages =
                 {
                     // hubs and bosses
-                    {0x19, -1, AH_PAUSE_PAGE_HUB, 0xF},
-                    {0x1A, -1, AH_PAUSE_PAGE_HUB, 0xA},
-                    {0x1B, -1, AH_PAUSE_PAGE_HUB, 0x9},
-                    {0x1C, -1, AH_PAUSE_PAGE_HUB, 0xB},
-                    {0x1D, -1, AH_PAUSE_PAGE_HUB, 0x8},
+                    {GEM_STONE_VALLEY, -1, AH_PAUSE_PAGE_HUB, 0xF},
+                    {N_SANITY_BEACH, -1, AH_PAUSE_PAGE_HUB, 0xA},
+                    {THE_LOST_RUINS, -1, AH_PAUSE_PAGE_HUB, 0x9},
+                    {GLACIER_PARK, -1, AH_PAUSE_PAGE_HUB, 0xB},
+                    {CITADEL_CITY, -1, AH_PAUSE_PAGE_HUB, 0x8},
 
                     // gems and relics
-                    {-1, 0x10, AH_PAUSE_PAGE_TOKEN_TOTALS, 0},
-                    {-1, 0x11, AH_PAUSE_PAGE_RELIC_TOTALS, 0},
+                    {-1, LNG_CTR_TOKENS, AH_PAUSE_PAGE_TOKEN_TOTALS, 0},
+                    {-1, LNG_RELICS, AH_PAUSE_PAGE_RELIC_TOTALS, 0},
                 },
 
             .advPauseInst =
@@ -239,7 +231,7 @@ struct OverlayDATA_232
                     // rest of variables all default zero
                 },
 
-            .fiveArrow_pos = {0, -5, -0x18, 6, 0x18, 6},
+            .fiveArrowPos = {{{0, -5}}, {{-0x18, 6}}, {{0x18, 6}}},
 
             .fiveArrow_col1 = {0xC8FF, 0xFF, 0xFF},
 
@@ -255,18 +247,11 @@ struct OverlayDATA_232
 
             .maskOffsetRot = {{0x7AF, 0x258, 0x78}},
 
-            .maskVars =
-                {// pos1
-                 -0x46, 0, 0x140,
-
-                 // pos2
-                 -0x3C, 0, 0x118,
-
-                 // rot1
-                 0x7af, 0x258, 0x78,
-
-                 // rot2
-                 0x800, 0x64, 0},
+            .maskHintOffsets =
+                {
+                    .pos = {{{-0x46, 0, 0x140}}, {{-0x3C, 0, 0x118}}},
+                    .rot = {{{0x7af, 0x258, 0x78}}, {{0x800, 0x64, 0}}},
+                },
 
             .maskFrameCurr = 0,
 
@@ -572,10 +557,10 @@ struct OverlayDATA_232
                                 // null terminator
                                 [9] = {0}},
 
-            .maskAudioSettings = {0x0, 0x28, 0xFF},
+            .maskAudioTargetVolume = {0x0, 0x28, 0xFF},
 
-            .hintMenu_lngIndexArr = {0x17d, 0x17f, 0x181, 0x183, 0x185, 0x189, 0x19f, 0x187, 0x197, 0x199, 0x19b,
-                                     0x19d, 0x1a7, 0x1a9, 0x1ab, 0x1ad, 0x1af, 0x1b1, 0x1b3, 0x1b5, -1,    0},
+            .hintMenuLngIndex = {0x17d, 0x17f, 0x181, 0x183, 0x185, 0x189, 0x19f, 0x187, 0x197, 0x199, 0x19b,
+                                 0x19d, 0x1a7, 0x1a9, 0x1ab, 0x1ad, 0x1af, 0x1b1, 0x1b3, 0x1b5, -1,    0},
 
             .eyePos = {{0x6d, 0x84, 0x85}},
 

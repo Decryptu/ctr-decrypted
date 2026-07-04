@@ -510,16 +510,39 @@ CTR_STATIC_ASSERT(AH_SAVEOBJ_SCAN_DEPTH_BIAS == 0xf8);
 CTR_STATIC_ASSERT(sizeof(AHSaveObjFlagSet) == 0x2);
 CTR_STATIC_ASSERT(sizeof(struct SaveObj) == 0xc);
 
+enum AHMaskHintOffsetSlot
+{
+	AH_MASKHINT_OFFSET_DEFAULT = 0,
+	AH_MASKHINT_OFFSET_WARPPAD_INTERRUPT = 1,
+	AH_MASKHINT_OFFSET_COUNT = 2,
+};
+
+struct AHMaskHintOffsets
+{
+	// 0x0
+	SVec3 pos[AH_MASKHINT_OFFSET_COUNT];
+
+	// 0xc
+	SVec3 rot[AH_MASKHINT_OFFSET_COUNT];
+};
+
+CTR_STATIC_ASSERT(AH_MASKHINT_OFFSET_DEFAULT == 0);
+CTR_STATIC_ASSERT(AH_MASKHINT_OFFSET_WARPPAD_INTERRUPT == 1);
+CTR_STATIC_ASSERT(AH_MASKHINT_OFFSET_COUNT == 2);
+CTR_STATIC_ASSERT(sizeof(struct AHMaskHintOffsets) == 0x18);
+CTR_STATIC_ASSERT(offsetof(struct AHMaskHintOffsets, pos) == 0x0);
+CTR_STATIC_ASSERT(offsetof(struct AHMaskHintOffsets, rot) == 0xc);
+
 struct OverlayRDATA_232
 {
 	// 0x800aba3c
 	s16 battleTrackPurpleTokenOffset[8];
 
 	// 0x800aba4c
-	s16 bossTracks[6];
+	s16 bossRaceLevelIDs[6];
 
 	// 0x800aba58
-	s16 bossIDs[6];
+	s16 bossCharacterIDs[6];
 
 	// 0x800aba64
 	char s_garage[8];
@@ -529,7 +552,7 @@ struct OverlayRDATA_232
 	char s_key[4];
 
 	// 0x800aba8c
-	s16 keyFrame[0xc];
+	s16 doorKeyShrinkScale[0xc];
 
 	// 0x800abaa4
 	char s_door[8];
@@ -571,22 +594,23 @@ struct OverlayDATA_232
 	struct RectMenu menuTokenRelic;
 
 	// 800b4e7c
-	s16 arrKeysNeeded[5];
+	s16 keysNeededByHub[5];
 
 	// 800b4e86
 	s16 levelID;
 
 	// 800b4e88
-	int battleCrystalChallengeTime[7];
+	int battleCrystalEventTime[7];
 
 	// 800b4ea4
-	s16 saveObjCameraOffset[4];
+	SVec3 saveObjCameraOffset;
+	s16 _pad_saveObjCameraOffset;
 
 	// 800b4eac
-	s16 primOffsetXY_LoadSave[5 * 2];
+	SVec2 loadSavePrimOffset[5];
 
 	// 800b4ec0
-	s16 primOffsetXY_HubArrow[5 * 2];
+	SVec2 hubArrowPrimOffset[5];
 
 	// 800b4ed4
 	// 2 arrows, boss, save/load, null(0xFFFF)
@@ -606,19 +630,19 @@ struct OverlayDATA_232
 	struct HubItem *hubItemsXY_ptrArray[5];
 
 	// 800b4fb0
-	s16 hubArrowXY_Inner[2 * 3];
+	SVec2 hubArrowInnerOffset[3];
 
 	// 800b4fbc
-	s16 hubArrowXY_Outer[2 * 4];
+	SVec2 hubArrowOuterOffset[4];
 
 	// 800b4fcc
-	s16 loadSave_pos[2 * 4];
+	SVec2 loadSavePos[4];
 
 	// 800b4fdc
 	u32 loadSave_col[4];
 
 	// 800b4fec
-	s16 hubArrow_pos[2 * 3];
+	SVec2 hubArrowPos[3];
 
 	// 800B4FF8
 	u32 hubArrow_col1[3];
@@ -645,7 +669,7 @@ struct OverlayDATA_232
 	struct RectMenu menuHintMenu;
 
 	// 0x800B51B8
-	s16 fiveArrow_pos[2 * 3];
+	SVec2 fiveArrowPos[3];
 
 	// 0x800b51c4
 	u32 fiveArrow_col1[3];
@@ -676,7 +700,7 @@ struct OverlayDATA_232
 	s16 _pad_maskOffsetRot;
 
 	// 0x800b5200
-	s16 maskVars[12];
+	struct AHMaskHintOffsets maskHintOffsets;
 
 	// 0x800b5218
 	int maskFrameCurr;
@@ -688,11 +712,11 @@ struct OverlayDATA_232
 	struct ParticleEmitter emSet_maskLeave[0xA];
 
 	// 0x800b54ec
-	s16 maskAudioSettings[4];
+	s16 maskAudioTargetVolume[4];
 
 	// 800b54f4
 	// 20 hints, last two entries are null
-	s16 hintMenu_lngIndexArr[22];
+	s16 hintMenuLngIndex[22];
 
 	// 800b5520
 	SVec3 eyePos;
@@ -773,6 +797,15 @@ struct OverlayDATA_232
 
 #define OFFSETOF_D232(ELEMENT) ((u32)0x800b4ddc + OFFSETOF(struct OverlayDATA_232, ELEMENT))
 
+CTR_STATIC_ASSERT(OFFSETOF_D232(saveObjCameraOffset) == 0x800b4ea4);
+CTR_STATIC_ASSERT(OFFSETOF_D232(loadSavePrimOffset) == 0x800b4eac);
+CTR_STATIC_ASSERT(OFFSETOF_D232(hubArrowPrimOffset) == 0x800b4ec0);
+CTR_STATIC_ASSERT(OFFSETOF_D232(hubArrowInnerOffset) == 0x800b4fb0);
+CTR_STATIC_ASSERT(OFFSETOF_D232(hubArrowOuterOffset) == 0x800b4fbc);
+CTR_STATIC_ASSERT(OFFSETOF_D232(loadSavePos) == 0x800b4fcc);
+CTR_STATIC_ASSERT(OFFSETOF_D232(hubArrowPos) == 0x800b4fec);
+CTR_STATIC_ASSERT(OFFSETOF_D232(fiveArrowPos) == 0x800b51b8);
+CTR_STATIC_ASSERT(OFFSETOF_D232(maskHintOffsets) == 0x800b5200);
 CTR_STATIC_ASSERT(OFFSETOF_D232(maskWarppadDelayFrames) == 0x800b5570);
 CTR_STATIC_ASSERT(OFFSETOF_D232(maskWarppadBoolInterrupt) == 0x800b5574);
 CTR_STATIC_ASSERT(OFFSETOF_D232(ptrPauseObject) == 0x800b5578);

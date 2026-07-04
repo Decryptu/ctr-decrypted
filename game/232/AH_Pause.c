@@ -393,13 +393,13 @@ void AH_Pause_Draw(s32 pageID, s32 posX)
 
 	else if (type == AH_PAUSE_PAGE_TOKEN_TOTALS)
 	{
-		s16 tokenCount[AH_PAUSE_TOKEN_ICON_COUNT] = {0, 0, 0, 0, 0};
+		s16 tokenTotals[AH_PAUSE_TOKEN_ICON_COUNT] = {0, 0, 0, 0, 0};
 
 		for (s32 i = 0; i < AH_PAUSE_CTR_TOKEN_TRACK_COUNT; i++)
 		{
 			if (CHECK_ADV_BIT(adv->rewards, i + ADV_REWARD_FIRST_CTR_TOKEN) != 0)
 			{
-				tokenCount[data.metaDataLEV[i].ctrTokenGroupID]++;
+				tokenTotals[data.metaDataLEV[i].ctrTokenGroupID]++;
 			}
 		}
 
@@ -408,7 +408,7 @@ void AH_Pause_Draw(s32 pageID, s32 posX)
 		{
 			if (CHECK_ADV_BIT(adv->rewards, i + ADV_REWARD_FIRST_PURPLE_TOKEN) != 0)
 			{
-				tokenCount[AH_PAUSE_PURPLE_TOKEN_INDEX]++;
+				tokenTotals[AH_PAUSE_PURPLE_TOKEN_INDEX]++;
 			}
 		}
 
@@ -428,7 +428,7 @@ void AH_Pause_Draw(s32 pageID, s32 posX)
 
 			inst->matrix.t[1] = UI_ConvertY_2(instPosY + AH_PAUSE_TOKEN_TOTAL_ICON_Y, AH_PAUSE_UI_COORD_SCALE);
 
-			SelectProfile_PrintInteger(tokenCount[i], instPosX + AH_PAUSE_TOKEN_TOTAL_NUMBER_X, instPosY + AH_PAUSE_TOKEN_TOTAL_NUMBER_Y, 0, 0);
+			SelectProfile_PrintInteger(tokenTotals[i], instPosX + AH_PAUSE_TOKEN_TOTAL_NUMBER_X, instPosY + AH_PAUSE_TOKEN_TOTAL_NUMBER_Y, 0, 0);
 
 			s32 strX = AH_PAUSE_X_GLYPH; //"X\0\0" + nullterm
 			DecalFont_DrawLine((char *)&strX, instPosX + AH_PAUSE_TOKEN_TOTAL_X_GLYPH_X, instPosY + AH_PAUSE_TOKEN_TOTAL_X_GLYPH_Y, FONT_SMALL, 0);
@@ -438,24 +438,24 @@ void AH_Pause_Draw(s32 pageID, s32 posX)
 	else if (type == AH_PAUSE_PAGE_RELIC_TOTALS)
 	{
 		char totalString[32];
-		s16 count[AH_PAUSE_RELIC_ICON_COUNT] = {0, 0, 0};
+		s16 relicTotals[AH_PAUSE_RELIC_ICON_COUNT] = {0, 0, 0};
 
 		for (s32 i = 0; i < AH_PAUSE_RELIC_TRACK_COUNT; i++)
 		{
 			// platinum
 			if (CHECK_ADV_BIT(adv->rewards, i + ADV_REWARD_FIRST_PLATINUM_RELIC) != 0)
 			{
-				count[2]++;
+				relicTotals[2]++;
 			}
 			// gold
 			else if (CHECK_ADV_BIT(adv->rewards, i + ADV_REWARD_FIRST_GOLD_RELIC) != 0)
 			{
-				count[1]++;
+				relicTotals[1]++;
 			}
 			// sapphire
 			else if (CHECK_ADV_BIT(adv->rewards, i + ADV_REWARD_FIRST_SAPPHIRE_RELIC) != 0)
 			{
-				count[0]++;
+				relicTotals[0]++;
 			}
 		}
 
@@ -474,13 +474,13 @@ void AH_Pause_Draw(s32 pageID, s32 posX)
 
 			inst->matrix.t[1] = UI_ConvertY_2(AH_PAUSE_RELIC_TOTAL_Y, AH_PAUSE_UI_COORD_SCALE);
 
-			SelectProfile_PrintInteger(count[i], instPosX + AH_PAUSE_RELIC_TOTAL_NUMBER_X, AH_PAUSE_RELIC_TOTAL_Y, 0, 0);
+			SelectProfile_PrintInteger(relicTotals[i], instPosX + AH_PAUSE_RELIC_TOTAL_NUMBER_X, AH_PAUSE_RELIC_TOTAL_Y, 0, 0);
 
 			s32 strX = AH_PAUSE_X_GLYPH; //"X\0\0" + nullterm
 			DecalFont_DrawLine((char *)&strX, instPosX + AH_PAUSE_RELIC_TOTAL_X_GLYPH_X, AH_PAUSE_RELIC_TOTAL_X_GLYPH_Y, FONT_SMALL, 0);
 		}
 
-		relicTotal = count[0] + count[1] + count[2];
+		relicTotal = relicTotals[0] + relicTotals[1] + relicTotals[2];
 
 		sprintf(totalString, "%s %d", sdata->lngStrings[LNG_TOTAL], relicTotal);
 

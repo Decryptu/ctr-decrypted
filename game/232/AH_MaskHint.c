@@ -40,17 +40,10 @@ void AH_MaskHint_Start(s16 hintId, u16 bool_interruptWarppad)
 		D232.maskSpawnFrame = AH_MASKHINT_SHORT_SPAWN_FRAMES;
 	}
 
-	int offsetIndex = (bool_interruptWarppad & 1) * 3;
+	int offsetSlot = bool_interruptWarppad & AH_MASKHINT_OFFSET_WARPPAD_INTERRUPT;
 
-	s16 *input = &D232.maskVars[0];
-
-	D232.maskOffsetPos.x = input[offsetIndex + 0];
-	D232.maskOffsetPos.y = input[offsetIndex + 1];
-	D232.maskOffsetPos.z = input[offsetIndex + 2];
-
-	D232.maskOffsetRot.x = input[offsetIndex + 6];
-	D232.maskOffsetRot.y = input[offsetIndex + 7];
-	D232.maskOffsetRot.z = input[offsetIndex + 8];
+	CTR_COPY_VEC3(D232.maskOffsetPos.v, D232.maskHintOffsets.pos[offsetSlot].v);
+	CTR_COPY_VEC3(D232.maskOffsetRot.v, D232.maskHintOffsets.rot[offsetSlot].v);
 
 	for (int i = 0; i < 3; i++)
 	{
@@ -88,14 +81,14 @@ void AH_MaskHint_SetAnim(int scale)
 	CTR_GteLoadSVec3V0(&D232.maskOffsetPos);
 	gte_rt();
 
-	int posEndINT[3];
+	Vec3 posEndInt;
 	SVec3 posEnd;
 
-	CTR_GteStoreMAC(&posEndINT[0]);
+	CTR_GteStoreMAC(posEndInt.v);
 
-	posEnd.x = posEndINT[0];
-	posEnd.y = posEndINT[1];
-	posEnd.z = posEndINT[2];
+	posEnd.x = posEndInt.x;
+	posEnd.y = posEndInt.y;
+	posEnd.z = posEndInt.z;
 
 	SVec3 rotEnd;
 	rotEnd.x = pb->rot.x - D232.maskOffsetRot.x;
@@ -192,7 +185,7 @@ void AH_MaskHint_LerpVol(int blend)
 	{
 		backup = D232.audioBackup[i];
 
-		diff = D232.maskAudioSettings[i] - backup;
+		diff = D232.maskAudioTargetVolume[i] - backup;
 		volume = backup + ((diff * blend) >> 12);
 
 		// restore backups of Volume settings,
@@ -211,7 +204,7 @@ force_inline void AH_MaskHint_DrawRepeatPrompt(void)
 		return;
 	}
 
-	s16 *ptrLngID = &D232.hintMenu_lngIndexArr[0];
+	const s16 *ptrLngID = &D232.hintMenuLngIndex[0];
 	struct GameTracker *gGT = sdata->gGT;
 	struct Driver *d = gGT->drivers[0];
 

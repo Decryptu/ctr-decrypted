@@ -104,7 +104,7 @@ void AH_Door_ThTick(struct Thread *t)
 	SVec3 desiredPos;
 	SVec3 desiredRot;
 	SVec3 keyLightDir;
-	s16 *scaler;
+	const s16 *scaler;
 
 	struct GameTracker *gGT = sdata->gGT;
 	struct WoodDoor *door = t->object;
@@ -178,7 +178,7 @@ void AH_Door_ThTick(struct Thread *t)
 	else
 	{
 		// get number of keys for whichever door is on the hub
-		numKeys = D232.arrKeysNeeded[(lev + -0x19)];
+		numKeys = D232.keysNeededByHub[(lev + -0x19)];
 	}
 
 	// if in a state where you're seeing the boss key open an adv door,
@@ -506,7 +506,7 @@ void AH_Door_ThTick(struct Thread *t)
 		// decrease key scale, then quit function
 		if (door->keyShrinkFrame < AH_DOOR_KEY_SHRINK_FRAME_COUNT)
 		{
-			scaler = (s16 *)R232.keyFrame;
+			scaler = R232.doorKeyShrinkScale;
 
 			// loop through door key slots
 			for (i = 0; i < AH_WOOD_DOOR_KEY_COUNT; i++)

@@ -71,9 +71,9 @@ void AH_SaveObj_ThTick(struct Thread *t)
 				desiredPos.z = saveSpawn->pos.z + (s16)((int)saveInst->matrix.m[2][0] * AH_SAVEOBJ_CAMERA_FORWARD_OFFSET >> 7);
 
 				// desired transition rotation (x,y,z)
-				desiredRot.x = saveSpawn->rot.x + D232.saveObjCameraOffset[0];
-				desiredRot.y = saveSpawn->rot.y + D232.saveObjCameraOffset[1];
-				desiredRot.z = saveSpawn->rot.z + D232.saveObjCameraOffset[2];
+				desiredRot.x = saveSpawn->rot.x + D232.saveObjCameraOffset.x;
+				desiredRot.y = saveSpawn->rot.y + D232.saveObjCameraOffset.y;
+				desiredRot.z = saveSpawn->rot.z + D232.saveObjCameraOffset.z;
 
 				// VehBirth_NullThread is an empty function that does nothing
 				driver->instSelf->thread->funcThTick = VehBirth_NullThread;

@@ -630,7 +630,7 @@ void AH_WarpPad_ThTick(struct Thread *t)
 			goto WarpPad_AnimateOpen;
 		}
 
-		gGT->originalEventTime = D232.battleCrystalChallengeTime[levelID - AH_WP_ID_FIRST_BATTLE_TRACK];
+		gGT->originalEventTime = D232.battleCrystalEventTime[levelID - AH_WP_ID_FIRST_BATTLE_TRACK];
 		goto WarpPad_RequestLoad;
 	}
 
@@ -1040,7 +1040,7 @@ void AH_WarpPad_LInB(struct Instance *inst)
 			// keys needed to unlock track again
 			unlockItem_modelID = STATIC_KEY;
 			unlockItem_numOwned = gGT->currAdvProfile.numKeys;
-			unlockItem_numNeeded = D232.arrKeysNeeded[data.metaDataLEV[levelID].hubID];
+			unlockItem_numNeeded = D232.keysNeededByHub[data.metaDataLEV[levelID].hubID];
 		}
 
 		// if trophy not owned

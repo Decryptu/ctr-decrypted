@@ -102,7 +102,7 @@ CTR_STATIC_ASSERT(AH_MAP_ARROW_OUTLINE_ROUTE_STEP == 0x555);
 CTR_STATIC_ASSERT(AH_MAP_ARROW_OUTLINE_BOSS_STEP == 0x199);
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b0b98-0x800b0ce0.
-void AH_Map_LoadSave_Prim(s16 *vertPos, char *vertCol, void *ot, struct PrimMem *primMem)
+void AH_Map_LoadSave_Prim(const SVec2 *vertPos, char *vertCol, void *ot, struct PrimMem *primMem)
 {
 	POLY_G4 *p = primMem->cursor;
 
@@ -131,26 +131,26 @@ void AH_Map_LoadSave_Prim(s16 *vertPos, char *vertCol, void *ot, struct PrimMem 
 	p->g3 = vertCol[13];
 	p->b3 = vertCol[14];
 
-	p->x0 = vertPos[0x0];
-	p->y0 = vertPos[0x1];
+	p->x0 = vertPos[0].x;
+	p->y0 = vertPos[0].y;
 
-	p->x1 = vertPos[0x2];
-	p->y1 = vertPos[0x3];
+	p->x1 = vertPos[1].x;
+	p->y1 = vertPos[1].y;
 
-	p->x2 = vertPos[0x4];
-	p->y2 = vertPos[0x5];
+	p->x2 = vertPos[2].x;
+	p->y2 = vertPos[2].y;
 
-	p->x3 = vertPos[0x6];
-	p->y3 = vertPos[0x7];
+	p->x3 = vertPos[3].x;
+	p->y3 = vertPos[3].y;
 
 	AddPrim(ot, p);
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b0ce0-0x800b0f18.
-void AH_Map_LoadSave_Full(int posX, int posY, s16 *vertPos, char *vertCol, int scale, int angle)
+void AH_Map_LoadSave_Full(int posX, int posY, const SVec2 *vertPos, char *vertCol, int scale, int angle)
 {
-	s16 local_30[8];
-	s16 local_20[8];
+	SVec2 basePos[4];
+	SVec2 drawPos[4];
 
 	struct GameTracker *gGT = sdata->gGT;
 
@@ -159,41 +159,41 @@ void AH_Map_LoadSave_Full(int posX, int posY, s16 *vertPos, char *vertCol, int s
 
 	for (int i = 0; i < 4; i++)
 	{
-		local_30[i * 2 + 0] = posX + 6 +
-		                      (s16)(((((vertPos[2 * i + 0] * cos) >> 0xc) + ((vertPos[2 * i + 1] * sin) >> 0xc)) * ((scale * 8) / 5)
+		basePos[i].x = posX + 6 +
+		               (s16)(((((vertPos[i].x * cos) >> 0xc) + ((vertPos[i].y * sin) >> 0xc)) * ((scale * 8) / 5)
 
-		                                 ) >>
-		                            0xc);
+		                          ) >>
+		                     0xc);
 
-		local_30[i * 2 + 1] = posY + 4 +
-		                      (s16)(((((vertPos[2 * i + 1] * cos) >> 0xc) - ((vertPos[2 * i + 0] * sin) >> 0xc)) * scale
+		basePos[i].y = posY + 4 +
+		               (s16)(((((vertPos[i].y * cos) >> 0xc) - ((vertPos[i].x * sin) >> 0xc)) * scale
 
-		                             ) >>
-		                            0xc);
+		                      ) >>
+		                     0xc);
 	}
 
-	s16 *offset = &D232.primOffsetXY_LoadSave[0];
+	const SVec2 *offset = &D232.loadSavePrimOffset[0];
 
 	for (int i = 0; i < 5; i++)
 	{
 		for (int j = 0; j < 4; j++)
 		{
-			local_20[j * 2 + 0] = local_30[j * 2 + 0] + offset[i * 2 + 0];
+			drawPos[j].x = basePos[j].x + offset[i].x;
 
-			local_20[j * 2 + 1] = local_30[j * 2 + 1] + offset[i * 2 + 1];
+			drawPos[j].y = basePos[j].y + offset[i].y;
 		}
 
-		AH_Map_LoadSave_Prim(&local_20[0], vertCol, gGT->pushBuffer_UI.ptrOT, &gGT->backBuffer->primMem);
+		AH_Map_LoadSave_Prim(&drawPos[0], vertCol, gGT->pushBuffer_UI.ptrOT, &gGT->backBuffer->primMem);
 
 		vertCol = (char *)&D232.colorQuad[0];
 	}
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b0f18-0x800b1150.
-void AH_Map_HubArrow(int posX, int posY, s16 *vertPos, char *vertCol, int scale, int angle)
+void AH_Map_HubArrow(int posX, int posY, const SVec2 *vertPos, char *vertCol, int scale, int angle)
 {
-	s16 local_30[6];
-	s16 local_20[6];
+	SVec2 basePos[3];
+	SVec2 drawPos[3];
 
 	struct GameTracker *gGT = sdata->gGT;
 
@@ -202,31 +202,31 @@ void AH_Map_HubArrow(int posX, int posY, s16 *vertPos, char *vertCol, int scale,
 
 	for (int i = 0; i < 3; i++)
 	{
-		local_30[i * 2 + 0] = posX + 6 +
-		                      (s16)(((((vertPos[2 * i + 0] * cos) >> 0xc) + ((vertPos[2 * i + 1] * sin) >> 0xc)) * ((scale * 8) / 5)
+		basePos[i].x = posX + 6 +
+		               (s16)(((((vertPos[i].x * cos) >> 0xc) + ((vertPos[i].y * sin) >> 0xc)) * ((scale * 8) / 5)
 
-		                                 ) >>
-		                            0xc);
+		                          ) >>
+		                     0xc);
 
-		local_30[i * 2 + 1] = posY + 4 +
-		                      (s16)(((((vertPos[2 * i + 1] * cos) >> 0xc) - ((vertPos[2 * i + 0] * sin) >> 0xc)) * scale
+		basePos[i].y = posY + 4 +
+		               (s16)(((((vertPos[i].y * cos) >> 0xc) - ((vertPos[i].x * sin) >> 0xc)) * scale
 
-		                             ) >>
-		                            0xc);
+		                      ) >>
+		                     0xc);
 	}
 
-	s16 *offset = &D232.primOffsetXY_HubArrow[0];
+	const SVec2 *offset = &D232.hubArrowPrimOffset[0];
 
 	for (int i = 0; i < 5; i++)
 	{
 		for (int j = 0; j < 3; j++)
 		{
-			local_20[j * 2 + 0] = local_30[j * 2 + 0] + offset[i * 2 + 0];
+			drawPos[j].x = basePos[j].x + offset[i].x;
 
-			local_20[j * 2 + 1] = local_30[j * 2 + 1] + offset[i * 2 + 1];
+			drawPos[j].y = basePos[j].y + offset[i].y;
 		}
 
-		RECTMENU_DrawRwdTriangle(&local_20[0], vertCol, gGT->pushBuffer_UI.ptrOT, &gGT->backBuffer->primMem);
+		RECTMENU_DrawRwdTriangle(drawPos[0].v, vertCol, gGT->pushBuffer_UI.ptrOT, &gGT->backBuffer->primMem);
 
 		vertCol = (char *)&D232.colorTri[0];
 	}
@@ -243,8 +243,8 @@ void AH_Map_HubArrowOuter(struct UIMap *map, int arrowIndex, int posX, int posY,
 	arrowIndex = (s16)arrowIndex;
 	type = (s16)type;
 
-	posX += D232.hubArrowXY_Inner[2 * type + 0];
-	posY += D232.hubArrowXY_Inner[2 * type + 1];
+	posX += D232.hubArrowInnerOffset[type].x;
+	posY += D232.hubArrowInnerOffset[type].y;
 
 	int timer = gGT->timer >> 0;
 
@@ -269,8 +269,9 @@ void AH_Map_HubArrowOuter(struct UIMap *map, int arrowIndex, int posX, int posY,
 		outlineColorR = 0xff;
 		outlineAngleStep = AH_MAP_ARROW_OUTLINE_ROUTE_STEP;
 
-		posX += D232.hubArrowXY_Outer[2 * (((inputAngle >> 0x8) & 0xc) >> 2) + 0];
-		posY += D232.hubArrowXY_Outer[2 * (((inputAngle >> 0x8) & 0xc) >> 2) + 1];
+		int directionIndex = ((inputAngle >> 0x8) & 0xc) >> 2;
+		posX += D232.hubArrowOuterOffset[directionIndex].x;
+		posY += D232.hubArrowOuterOffset[directionIndex].y;
 	}
 
 	else
@@ -399,7 +400,7 @@ void AH_Map_HubItems(struct UIMap *map, s16 *arrowCounter)
 
 						UI_Map_GetIconPos(map, &saveLoadPosX, &saveLoadPosY);
 
-						AH_Map_LoadSave_Full(saveLoadPosX, saveLoadPosY, &D232.loadSave_pos[0], (char *)&D232.loadSave_col[0], 0x800, (int)item->angle);
+						AH_Map_LoadSave_Full(saveLoadPosX, saveLoadPosY, &D232.loadSavePos[0], (char *)&D232.loadSave_col[0], 0x800, (int)item->angle);
 					}
 				}
 				else
@@ -472,7 +473,7 @@ void AH_Map_HubItems(struct UIMap *map, s16 *arrowCounter)
 					colorOffset = ((int)routeLockState * 2 + 1) * 3;
 				}
 
-				AH_Map_HubArrow(routePosX, routePosY, &D232.hubArrow_pos[0], (char *)&D232.hubArrow_col1[colorOffset], 0x800, (int)item->angle);
+				AH_Map_HubArrow(routePosX, routePosY, &D232.hubArrowPos[0], (char *)&D232.hubArrow_col1[colorOffset], 0x800, (int)item->angle);
 			}
 
 			if (bossState >= AH_MAP_BOSS_ITEM_LOCKED)
