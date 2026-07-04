@@ -4308,10 +4308,10 @@ struct sData
 
 	// ---
 	// 8008d904 - timerSaveComplete
-	// 8008d906 - oskSaveNameType
+	// 8008d906 - submitNameMode
 	// --
 
-	char data10_bbb[0x10];
+	struct SelectProfileRuntimeState selectProfileState;
 #elif BUILD == JpnRetail
 	char data14_bbb[0x14];
 #endif

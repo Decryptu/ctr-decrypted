@@ -52,7 +52,7 @@ void SubmitName_RestoreName(s16 submitNameMode)
 	struct GameTracker *gGT = sdata->gGT;
 
 	// Time Trial or Adventure
-	sdata->data10_bbb[0xd] = submitNameMode;
+	sdata->selectProfileState.submitNameMode = submitNameMode;
 
 	// copy the last string you typed the last time you were in
 	// the OSK menu, back into the menu, avoid typing a second time
@@ -480,7 +480,7 @@ void SubmitName_MenuProc(struct RectMenu *menu)
 	}
 
 	// if name entered for Time Trial
-	if (sdata->data10_bbb[0xd] == SUBMIT_NAME_MODE_TIME_TRIAL)
+	if (sdata->selectProfileState.submitNameMode == SUBMIT_NAME_MODE_TIME_TRIAL)
 	{
 		// if hit CANCEL
 		if (selection < 0)
@@ -500,7 +500,7 @@ void SubmitName_MenuProc(struct RectMenu *menu)
 	}
 
 	// if name entered for Adventure
-	else if (sdata->data10_bbb[0xd] == SUBMIT_NAME_MODE_ADVENTURE)
+	else if (sdata->selectProfileState.submitNameMode == SUBMIT_NAME_MODE_ADVENTURE)
 	{
 		// if hit CANCEL
 		if (selection < 0)

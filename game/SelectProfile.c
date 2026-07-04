@@ -458,12 +458,12 @@ void SelectProfile_UnMuteCursors(void)
 
 static s16 *SelectProfile_Mode(void)
 {
-	return (s16 *)&sdata->data10_bbb[0];
+	return &sdata->selectProfileState.mode;
 }
 
 static s16 *SelectProfile_TimerSaveComplete(void)
 {
-	return (s16 *)&sdata->data10_bbb[12];
+	return &sdata->selectProfileState.timerSaveComplete;
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80048e2c-0x80048edc.
@@ -473,10 +473,10 @@ void SelectProfile_ToggleMode(u32 mode)
 
 	// High nibble selects the profile screen, low nibble selects the action.
 	*SelectProfile_Mode() = mode & SELECT_PROFILE_SCREEN_MASK;
-	*(s16 *)&sdata->data10_bbb[4] = 0;
-	*(s16 *)&sdata->data10_bbb[6] = 0;
-	*(s16 *)&sdata->data10_bbb[8] = 0;
-	*(s16 *)&sdata->data10_bbb[10] = 0;
+	sdata->selectProfileState.exitToPrevious = 0;
+	sdata->selectProfileState.actionDone = 0;
+	sdata->selectProfileState.overwritePrompt = 0;
+	sdata->selectProfileState.timeoutPrompt = 0;
 	*SelectProfile_TimerSaveComplete() = 0;
 
 	SelectProfile_UnMuteCursors();
@@ -492,7 +492,7 @@ void SelectProfile_ToggleMode(u32 mode)
 	SelectProfile_Init(data.menuFourAdvProfiles.drawStyle);
 
 	data.menuFourAdvProfiles.rowSelected = sdata->unk_8008d73C_relatedToRowHighlighted;
-	*(s16 *)&sdata->data10_bbb[2] = 0;
+	sdata->selectProfileState.actionActive = 0;
 }
 
 
@@ -603,37 +603,37 @@ extern struct RectMenu menu224NoSave;
 
 static s16 *SelectProfile_AllProfiles_Mode(void)
 {
-	return (s16 *)&sdata->data10_bbb[0];
+	return &sdata->selectProfileState.mode;
 }
 
 static s16 *SelectProfile_AllProfiles_ActionActive(void)
 {
-	return (s16 *)&sdata->data10_bbb[2];
+	return &sdata->selectProfileState.actionActive;
 }
 
 static s16 *SelectProfile_AllProfiles_ExitToPrevious(void)
 {
-	return (s16 *)&sdata->data10_bbb[4];
+	return &sdata->selectProfileState.exitToPrevious;
 }
 
 static s16 *SelectProfile_AllProfiles_ActionDone(void)
 {
-	return (s16 *)&sdata->data10_bbb[6];
+	return &sdata->selectProfileState.actionDone;
 }
 
 static s16 *SelectProfile_AllProfiles_OverwritePrompt(void)
 {
-	return (s16 *)&sdata->data10_bbb[8];
+	return &sdata->selectProfileState.overwritePrompt;
 }
 
 static s16 *SelectProfile_AllProfiles_TimeoutPrompt(void)
 {
-	return (s16 *)&sdata->data10_bbb[10];
+	return &sdata->selectProfileState.timeoutPrompt;
 }
 
 static s16 *SelectProfile_AllProfiles_TimerSaveComplete(void)
 {
-	return (s16 *)&sdata->data10_bbb[12];
+	return &sdata->selectProfileState.timerSaveComplete;
 }
 
 static struct MemcardProfile *SelectProfile_MemcardProfile(void)

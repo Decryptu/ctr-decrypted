@@ -63,7 +63,43 @@ struct SelectProfileLoadSaveObj
 	struct SelectProfileLoadSaveIcon *icons;
 };
 
+struct SelectProfileRuntimeState
+{
+	// 0x00
+	s16 mode;
+
+	// 0x02
+	s16 actionActive;
+
+	// 0x04
+	s16 exitToPrevious;
+
+	// 0x06
+	s16 actionDone;
+
+	// 0x08
+	s16 overwritePrompt;
+
+	// 0x0a
+	s16 timeoutPrompt;
+
+	// 0x0c
+	s16 timerSaveComplete;
+
+	// 0x0e
+	s16 submitNameMode;
+};
+
 CTR_STATIC_ASSERT(sizeof(struct SelectProfileLoadSaveIcon) == 0xc);
 CTR_STATIC_ASSERT(sizeof(struct SelectProfileLoadSaveObj) == 0x8);
+CTR_STATIC_ASSERT(sizeof(struct SelectProfileRuntimeState) == 0x10);
+CTR_STATIC_ASSERT(OFFSETOF(struct SelectProfileRuntimeState, mode) == 0x00);
+CTR_STATIC_ASSERT(OFFSETOF(struct SelectProfileRuntimeState, actionActive) == 0x02);
+CTR_STATIC_ASSERT(OFFSETOF(struct SelectProfileRuntimeState, exitToPrevious) == 0x04);
+CTR_STATIC_ASSERT(OFFSETOF(struct SelectProfileRuntimeState, actionDone) == 0x06);
+CTR_STATIC_ASSERT(OFFSETOF(struct SelectProfileRuntimeState, overwritePrompt) == 0x08);
+CTR_STATIC_ASSERT(OFFSETOF(struct SelectProfileRuntimeState, timeoutPrompt) == 0x0a);
+CTR_STATIC_ASSERT(OFFSETOF(struct SelectProfileRuntimeState, timerSaveComplete) == 0x0c);
+CTR_STATIC_ASSERT(OFFSETOF(struct SelectProfileRuntimeState, submitNameMode) == 0x0e);
 
 #endif
