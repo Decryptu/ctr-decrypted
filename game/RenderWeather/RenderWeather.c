@@ -111,7 +111,7 @@ static int RenderWeather_IsVisible(u32 gteFlag, u32 sxy0, u32 sxy1, u32 screenBo
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x8006f9a8-0x8006fe08
-void RenderWeather(struct PushBuffer *pb, struct PrimMem *primMem, struct RainBuffer *rainBuffer, char numPlyr, int gameMode1)
+void RenderWeather(struct PushBuffer *pb, struct PrimMem *primMem, struct RainBuffer *rainBuffer, u8 numPlyr, int gameMode1)
 {
 	u32 *prim = (u32 *)primMem->cursor;
 	u32 *rainWords = (u32 *)(void *)rainBuffer;

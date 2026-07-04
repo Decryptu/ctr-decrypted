@@ -129,7 +129,7 @@ int RaceFlag_MoveModels(int frameIndex, int numFrames)
 
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80043f1c-0x80043f28.
-int RaceFlag_IsFullyOnScreen(void)
+b32 RaceFlag_IsFullyOnScreen(void)
 {
 	// return true if flag is fully on screen
 	// return false if flag is not fully on screen
@@ -138,7 +138,7 @@ int RaceFlag_IsFullyOnScreen(void)
 
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80043f28-0x80043f44.
-int RaceFlag_IsFullyOffScreen(void)
+b32 RaceFlag_IsFullyOffScreen(void)
 {
 	// return false, "not true", if flag is < 5000, partially on-screen
 	// return true, "not false", if flag is >= 5000, fully off-screen
@@ -147,7 +147,7 @@ int RaceFlag_IsFullyOffScreen(void)
 
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80043f44-0x80043f8c.
-int RaceFlag_IsTransitioning()
+b32 RaceFlag_IsTransitioning(void)
 {
 	int pos = sdata->RaceFlag_Position;
 
@@ -161,9 +161,9 @@ int RaceFlag_IsTransitioning()
 
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80043f8c-0x80043fb0.
-void RaceFlag_SetDrawOrder(int drawOrder)
+void RaceFlag_SetDrawOrder(b32 drawAfterFlag)
 {
-	sdata->RaceFlag_DrawOrder = (drawOrder != 0) ? RACE_FLAG_DRAW_ORDER_AFTER_FLAG : RACE_FLAG_DRAW_ORDER_BEFORE_FLAG;
+	sdata->RaceFlag_DrawOrder = (drawAfterFlag != 0) ? RACE_FLAG_DRAW_ORDER_AFTER_FLAG : RACE_FLAG_DRAW_ORDER_BEFORE_FLAG;
 }
 
 
@@ -231,7 +231,7 @@ void RaceFlag_SetCanDraw(s16 canDraw)
 
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80044094-0x800440a0.
-int RaceFlag_GetCanDraw(void)
+s16 RaceFlag_GetCanDraw(void)
 {
 	return sdata->RaceFlag_CanDraw;
 }

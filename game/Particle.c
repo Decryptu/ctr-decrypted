@@ -1123,7 +1123,7 @@ void Particle_RenderList(struct PushBuffer *pb, void *particleList)
 	struct ParticleRenderListScratch *scratch = CTR_SCRATCHPAD_PTR(struct ParticleRenderListScratch, 0x00);
 	u32 *prim = (u32 *)primMem->cursor;
 	u32 *primPayload = prim + 8;
-	char cameraID;
+	s8 cameraID;
 
 	PushBuffer_SetPsyqGeom(pb);
 
@@ -1140,7 +1140,7 @@ void Particle_RenderList(struct PushBuffer *pb, void *particleList)
 	CTC2(scratch->viewProjWords[4], 12);
 
 	scratch->ot = pb->ptrOT;
-	cameraID = (char)pb->cameraID;
+	cameraID = (s8)pb->cameraID;
 	scratch->cameraOffset[0] = CTR_MipsSll(pb->matrix_Camera.t[0], 2);
 	scratch->cameraOffset[1] = CTR_MipsSll(pb->matrix_Camera.t[1], 2);
 	scratch->cameraOffset[2] = CTR_MipsSll(pb->matrix_Camera.t[2], 2);

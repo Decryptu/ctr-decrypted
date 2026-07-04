@@ -54,7 +54,7 @@ static int RenderStars_IsVisible(u32 gteFlag, u32 sxy)
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x8006e26c-0x8006e588
-void RenderStars(struct PushBuffer *pb, struct PrimMem *primMem, struct Stars *stars, char numPlyr)
+void RenderStars(struct PushBuffer *pb, struct PrimMem *primMem, struct Stars *stars, u8 numPlyr)
 {
 	u32 *prim = (u32 *)primMem->cursor;
 	int playerCount = numPlyr;

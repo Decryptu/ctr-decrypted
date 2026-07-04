@@ -48,7 +48,7 @@ static struct TrigPair DrawTiresSolid_TrigAngleSinCos(int angle)
 	return pair;
 }
 
-static int DrawTiresSolid_GetLodThreshold(char numPlyr)
+static int DrawTiresSolid_GetLodThreshold(u8 numPlyr)
 {
 	return (((int)numPlyr - 2) > 0) ? 0 : 2;
 }
@@ -58,7 +58,7 @@ static struct InstDrawPerPlayer *DrawTiresSolid_GetIdpp(struct Instance *inst, i
 	return (struct InstDrawPerPlayer *)((char *)INST_GETIDPP(inst) + (playerIndex * sizeof(struct InstDrawPerPlayer)));
 }
 
-static void DrawTiresSolid_InitScratch(struct DrawTiresScratch *scratch, char numPlyr)
+static void DrawTiresSolid_InitScratch(struct DrawTiresScratch *scratch, u8 numPlyr)
 {
 	scratch->numPlyr = numPlyr;
 	scratch->lodThreshold = DrawTiresSolid_GetLodThreshold(numPlyr);
@@ -609,7 +609,7 @@ static int DrawTiresSolid_StagePlayer(struct DrawTiresScratch *scratch, struct D
 	return 1;
 }
 
-void DrawTires_Solid(struct Thread *thread, struct PrimMem *primMem, char numPlyr)
+void DrawTires_Solid(struct Thread *thread, struct PrimMem *primMem, u8 numPlyr)
 {
 	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8006e588-0x8006ef30;
 	// native uses the accepted explicit DrawTiresScratch stack/scratch ABI.
@@ -660,7 +660,7 @@ struct DrawTiresReflectionProjectedWheel
 	int jumpIndex;
 };
 
-static int DrawTiresReflection_GetLodThreshold(char numPlyr)
+static int DrawTiresReflection_GetLodThreshold(u8 numPlyr)
 {
 	return (((int)numPlyr - 2) > 0) ? 0 : 2;
 }
@@ -675,7 +675,7 @@ static int DrawTiresReflection_ReadMatrixWord(MATRIX *matrix, int offset)
 	return *(int *)((char *)matrix + offset);
 }
 
-static void DrawTiresReflection_InitScratch(struct DrawTiresScratch *scratch, char numPlyr)
+static void DrawTiresReflection_InitScratch(struct DrawTiresScratch *scratch, u8 numPlyr)
 {
 	scratch->numPlyr = numPlyr;
 	scratch->lodThreshold = DrawTiresReflection_GetLodThreshold(numPlyr);
@@ -1166,7 +1166,7 @@ static int DrawTiresReflection_StagePlayer(struct DrawTiresScratch *scratch, str
 	return 1;
 }
 
-void DrawTires_Reflection(struct Thread *thread, struct PrimMem *primMem, char numPlyr)
+void DrawTires_Reflection(struct Thread *thread, struct PrimMem *primMem, u8 numPlyr)
 {
 	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8006f004-0x8006f9a8;
 	// native uses the accepted explicit DrawTiresScratch stack/scratch ABI.
