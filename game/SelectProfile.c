@@ -1343,7 +1343,7 @@ static void SelectProfile_FinalizeAdventure(struct RectMenu *menu)
 
 		sdata->advProfileIndex = menu->rowSelected;
 		// NOTE(aalhendi): Retail 0x8004a75c-0x8004a778 queues new Adventure through currLEV.
-		gGT->currLEV = GEM_STONE_VALLEY;
+		gGT->currLEV = N_SANITY_BEACH;
 		Garage_Leave();
 		sdata->ptrDesiredMenu = QueueLoadTrack_GetMenuPtr();
 		return;
@@ -1369,7 +1369,7 @@ static void SelectProfile_FinalizeAdventure(struct RectMenu *menu)
 		}
 		else
 		{
-			gGT->currLEV = GEM_STONE_VALLEY;
+			gGT->currLEV = N_SANITY_BEACH;
 		}
 		memmove(gGT->prevNameEntered, sdata->advProgress.name, sizeof(gGT->prevNameEntered));
 		memmove(gGT->currNameEntered, sdata->advProgress.name, sizeof(gGT->currNameEntered));
