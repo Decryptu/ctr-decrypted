@@ -135,7 +135,7 @@ struct RenderBucketExecuteScratch
 	u8 pad_038[0x0c];
 	s16 splitLinePrimary;
 	u8 pad_046[0x02];
-	u8 splitInstanceUnk53;
+	u8 splitInstanceSpecLightX;
 	u8 pad_049[0x03];
 	u32 splitFunc3Ptr32;
 	u8 pad_050[0x08];
@@ -172,7 +172,7 @@ CTR_STATIC_ASSERT(offsetof(struct RenderBucketExecuteScratch, geomH) == 0x1e);
 CTR_STATIC_ASSERT(offsetof(struct RenderBucketExecuteScratch, instFlags) == 0x24);
 CTR_STATIC_ASSERT(offsetof(struct RenderBucketExecuteScratch, frameOrigin) == 0x30);
 CTR_STATIC_ASSERT(offsetof(struct RenderBucketExecuteScratch, splitLinePrimary) == 0x44);
-CTR_STATIC_ASSERT(offsetof(struct RenderBucketExecuteScratch, splitInstanceUnk53) == 0x48);
+CTR_STATIC_ASSERT(offsetof(struct RenderBucketExecuteScratch, splitInstanceSpecLightX) == 0x48);
 CTR_STATIC_ASSERT(offsetof(struct RenderBucketExecuteScratch, splitFunc3Ptr32) == 0x4c);
 CTR_STATIC_ASSERT(offsetof(struct RenderBucketExecuteScratch, setupDrawClear) == 0x58);
 CTR_STATIC_ASSERT(offsetof(struct RenderBucketExecuteScratch, setupDispatch) == 0x94);
@@ -624,7 +624,7 @@ static void RenderBucket_StoreRawViewScratch(const VECTOR *rawViewPos)
 static void RenderBucket_AdjustDepthBiasForNormal(struct Instance *inst, int playerIndex, int *normalBias, int *reflectBias)
 {
 	SVec3Slot *rawView;
-	u32 compressed = inst->bitCompressed_NormalVector_AndDriverIndex;
+	u32 compressed = inst->compressedNormalAndDriverIndex;
 	int driverIndex;
 	int normalX;
 	int normalY;
@@ -4113,7 +4113,7 @@ static int RenderBucket_SelectWaterSplitHelperRange(struct RenderBucketDrawConte
 
 static u32 RenderBucket_WaterSplitShiftMaskColor(struct RenderBucketDrawContext *ctx, u32 color)
 {
-	return (color >> (((s8)ctx->inst->unk53) & 31)) & ctx->inst->reflectionRGBA;
+	return (color >> (ctx->inst->specLightX & 31)) & ctx->inst->reflectionRGBA;
 }
 
 static u32 RenderBucket_WaterSplitDimColor(u32 color)
@@ -4163,10 +4163,10 @@ static int RenderBucket_ApplyWaterSplitSideSelector(struct RenderBucketDrawConte
 		return 1;
 
 	case RB_RETAIL_INST_FUNC2_SPLIT_XOR:
-		return (guardDist ^ (s8)ctx->inst->unk53) >= 0;
+		return (guardDist ^ ctx->inst->specLightX) >= 0;
 
 	case RB_RETAIL_INST_FUNC2_SPLIT_DIM_XOR:
-		selector = guardDist ^ (s8)ctx->inst->unk53;
+		selector = guardDist ^ ctx->inst->specLightX;
 		if (selector >= 0)
 		{
 			v0->color = RenderBucket_WaterSplitDimColor(v0->color);
@@ -4503,7 +4503,7 @@ static int RenderBucket_DrawSpecialMirroredPass(struct RenderBucketDrawContext *
 	int savedColor2 = ctx->tempColor[2];
 	int savedColor3 = ctx->tempColor[3];
 	u32 mask = ctx->inst->reflectionRGBA;
-	int shift = ((s8)ctx->inst->unk53) & 31;
+	int shift = ctx->inst->specLightX & 31;
 	int ret;
 
 	// NOTE(aalhendi): Source-backs the 0x8006bbc0 mirrored-side color path:
@@ -5075,7 +5075,7 @@ static int RenderBucket_RunInstanceSetupCallback(struct RenderBucketDrawContext 
 	switch ((u32)(uintptr_t)ctx->inst->funcPtr[0])
 	{
 	case RB_RETAIL_INST_SETUP_LIGHT_COLOR:
-		CTC2((s8)ctx->inst->unk53, 16);
+		CTC2(ctx->inst->specLightX, 16);
 		CTC2((u16)ctx->inst->reflectionRGBA, 17);
 		CTC2(RenderBucket_ReadPackedWord(&ctx->idpp->halfVector.x), 19);
 		CTC2((u16)ctx->idpp->halfVector.z, 20);
@@ -5258,7 +5258,7 @@ static int RenderBucket_PrepareDrawContext(struct RenderBucketDrawContext *ctx, 
 		scratch->splitLinePrimary = idpp->splitLine;
 		scratch->split.splitLineSecondary = idpp->splitLine;
 		scratch->split.splitLineTertiary = idpp->splitLine;
-		scratch->splitInstanceUnk53 = (u8)inst->unk53;
+		scratch->splitInstanceSpecLightX = (u8)inst->specLightX;
 		scratch->splitFunc3Ptr32 = (u32)(uintptr_t)inst->funcPtr[3];
 		scratch->split.splitFixedLine = ((u32)(s32)idpp->splitLine) << 17;
 		scratch->split.splitCounterPrimary = 0;

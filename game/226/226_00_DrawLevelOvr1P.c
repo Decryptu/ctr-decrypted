@@ -247,9 +247,9 @@ static void DrawLevelOvr1P_CopyScratchWords(const u32 *source, const struct Draw
 {
 	u32 *scratch = CTR_SCRATCHPAD_PTR(u32, copy->scratchOffset);
 
-	for (u32 i = 0; i <= copy->lastWordIndex; i++)
+	for (u32 scratchWordIndex = 0; scratchWordIndex <= copy->lastWordIndex; scratchWordIndex++)
 	{
-		scratch[i] = source[i];
+		scratch[scratchWordIndex] = source[scratchWordIndex];
 	}
 }
 
@@ -257,9 +257,9 @@ static void Ovr226_800ab3dc_CopyClipRecordJumpTable(void)
 {
 	u32 *clipRecordJumpTable = CTR_SCRATCHPAD_PTR(u32, DRAW_LEVEL_OVR1P_GT3_CLIP_RECORD_JUMP_TABLE_OFFSET);
 
-	for (int i = 0; i < OVR226_CLIP_RECORD_JUMP_WORD_COUNT; i++)
+	for (s32 jumpWordIndex = 0; jumpWordIndex < OVR226_CLIP_RECORD_JUMP_WORD_COUNT; jumpWordIndex++)
 	{
-		clipRecordJumpTable[i] = R226.clipRecordJumpTable[i];
+		clipRecordJumpTable[jumpWordIndex] = R226.clipRecordJumpTable[jumpWordIndex];
 	}
 }
 
@@ -270,13 +270,13 @@ static int Ovr226_800ab3d4_EmptyGT4ClipRecordLabel(void)
 
 static const struct DrawLevelOvrBucketSetupRecord *DrawLevelOvr1P_FindBucketSetupRecord(u32 setupAddress)
 {
-	for (int i = 0; i < OVR226_BUCKET_COUNT; i++)
+	for (s32 bucketIndex = 0; bucketIndex < OVR226_BUCKET_COUNT; bucketIndex++)
 	{
-		u32 recordAddress = OVR226_RDATA_BUCKET_SETUP_BASE + (u32)(i * sizeof(R226.bucketSetups[0]));
+		u32 recordAddress = OVR226_RDATA_BUCKET_SETUP_BASE + (u32)(bucketIndex * sizeof(R226.bucketSetups[0]));
 
 		if (recordAddress == setupAddress)
 		{
-			return &R226.bucketSetups[i];
+			return &R226.bucketSetups[bucketIndex];
 		}
 	}
 
@@ -287,9 +287,9 @@ static void Ovr226_800a0ddc_CopyScratchInitTable(void)
 {
 	u32 *scratch = CTR_SCRATCHPAD_PTR(u32, DRAW_LEVEL_OVR1P_SCRATCH_INIT_TABLE_OFFSET);
 
-	for (int i = 0; i < OVR226_SCRATCH_INIT_WORD_COUNT; i++)
+	for (s32 scratchWordIndex = 0; scratchWordIndex < OVR226_SCRATCH_INIT_WORD_COUNT; scratchWordIndex++)
 	{
-		scratch[i] = R226.scratchInitTable[i];
+		scratch[scratchWordIndex] = R226.scratchInitTable[scratchWordIndex];
 	}
 }
 
@@ -321,12 +321,12 @@ static u32 DrawLevelOvr1P_Select4x1ProjectedIndices(const struct QuadBlock *bloc
 
 	DrawLevelOvr1P_Scratch()->selected4x1TableWord = tableWord;
 
-	for (int i = 0; i < 4; i++)
+	for (s32 vertexIndex = 0; vertexIndex < 4; vertexIndex++)
 	{
-		u32 tableShift = (tableWord >> ((3 - i) * 8)) & 0x1f;
+		u32 tableShift = (tableWord >> ((3 - vertexIndex) * 8)) & 0x1f;
 		u32 recordOffset = (selector->selector >> tableShift) & 0xff;
 
-		indices[i] = recordOffset / (int)sizeof(struct DrawLevelOvr1PScratchVertex);
+		indices[vertexIndex] = recordOffset / (int)sizeof(struct DrawLevelOvr1PScratchVertex);
 	}
 
 	return tableWord;
@@ -416,9 +416,9 @@ static const struct Mempack *DrawLevelOvr1P_FindMempackContaining(uintptr_t ptr)
 		return DrawLevelOvr1P_MempackContains(mainPack, ptr, NULL) ? mainPack : NULL;
 	}
 
-	for (int i = 0; i < 4; i++)
+	for (s32 packIndex = 0; packIndex < 4; packIndex++)
 	{
-		const struct Mempack *pack = &sdata->mempack[i];
+		const struct Mempack *pack = &sdata->mempack[packIndex];
 		uintptr_t span;
 
 		if (DrawLevelOvr1P_MempackContains(pack, ptr, &span))
@@ -1310,19 +1310,21 @@ static u32 Ovr226_800a2d30_ApplyWaterRenderedColorFade(u32 color, s16 x, s16 z)
 
 static void Ovr226_800a211c_ApplyWaterListColorFades(struct DrawLevelOvr1PScratchVertex *projected)
 {
-	for (int i = 0; i < 9; i++)
+	for (s32 waterVertexIndex = 0; waterVertexIndex < 9; waterVertexIndex++)
 	{
-		DrawLevelOvr1P_WritePackedWord(projected[i].color_hi, Ovr226_800a2234_ApplyWaterListColorFade(DrawLevelOvr1P_GetProjectedColorWord(&projected[i]),
-		                                                                                              projected[i].pos[0], projected[i].pos[2]));
+		DrawLevelOvr1P_WritePackedWord(projected[waterVertexIndex].color_hi,
+		                               Ovr226_800a2234_ApplyWaterListColorFade(DrawLevelOvr1P_GetProjectedColorWord(&projected[waterVertexIndex]),
+		                                                                       projected[waterVertexIndex].pos[0], projected[waterVertexIndex].pos[2]));
 	}
 }
 
 static void Ovr226_800a2c4c_ApplyWaterRenderedColorFades(struct DrawLevelOvr1PScratchVertex *projected)
 {
-	for (int i = 0; i < 9; i++)
+	for (s32 waterVertexIndex = 0; waterVertexIndex < 9; waterVertexIndex++)
 	{
-		DrawLevelOvr1P_WritePackedWord(projected[i].color_hi, Ovr226_800a2d30_ApplyWaterRenderedColorFade(DrawLevelOvr1P_GetProjectedColorWord(&projected[i]),
-		                                                                                                  projected[i].pos[0], projected[i].pos[2]));
+		DrawLevelOvr1P_WritePackedWord(projected[waterVertexIndex].color_hi,
+		                               Ovr226_800a2d30_ApplyWaterRenderedColorFade(DrawLevelOvr1P_GetProjectedColorWord(&projected[waterVertexIndex]),
+		                                                                           projected[waterVertexIndex].pos[0], projected[waterVertexIndex].pos[2]));
 	}
 }
 
@@ -1360,9 +1362,9 @@ static int DrawLevelOvr1P_IsProjectedPolyOffscreenPacked(const struct DrawLevelO
 	u32 packedAnd = 0xffffffff;
 	u32 packedSubOr = 0;
 
-	for (int i = 0; i < count; i++)
+	for (s32 vertexIndex = 0; vertexIndex < count; vertexIndex++)
 	{
-		u32 packedSxy = DrawLevelOvr1P_PackProjectedSxy(&projected[indices[i]]);
+		u32 packedSxy = DrawLevelOvr1P_PackProjectedSxy(&projected[indices[vertexIndex]]);
 
 		packedAnd &= packedSxy;
 		packedSubOr |= packedSxy - packedWindow;
@@ -1399,11 +1401,11 @@ static u32 DrawLevelOvr1P_GetProjectedNearMaskAtScratchOffset(const struct DrawL
 	u32 threshold = *CTR_SCRATCHPAD_PTR(u32, scratchOffset);
 	u32 mask = 0;
 
-	for (int i = 0; i < 4; i++)
+	for (s32 bitIndex = 0; bitIndex < 4; bitIndex++)
 	{
-		if (DrawLevelOvr1P_MipsSubuSignBit(projected[indices[i]].depth, threshold))
+		if (DrawLevelOvr1P_MipsSubuSignBit(projected[indices[bitIndex]].depth, threshold))
 		{
-			mask |= bits[i];
+			mask |= bits[bitIndex];
 		}
 	}
 
@@ -1480,9 +1482,9 @@ static void DrawLevelOvr1P_ProjectCopiedGridRenderedMidpoint(struct DrawLevelOvr
 static void DrawLevelOvr1P_BuildMidpointValue(struct DrawLevelOvr1PScratchVertex *dstMid, const struct DrawLevelOvr1PScratchVertex *srcA,
                                               const struct DrawLevelOvr1PScratchVertex *srcB, int writeClipBytes)
 {
-	for (int i = 0; i < 3; i++)
+	for (s32 axisIndex = 0; axisIndex < 3; axisIndex++)
 	{
-		dstMid->pos[i] = (s16)(((s32)srcA->pos[i] + (s32)srcB->pos[i]) >> 1);
+		dstMid->pos[axisIndex] = (s16)(((s32)srcA->pos[axisIndex] + (s32)srcB->pos[axisIndex]) >> 1);
 	}
 
 	u8 *dstUv = (u8 *)&dstMid->flags;
@@ -1491,9 +1493,9 @@ static void DrawLevelOvr1P_BuildMidpointValue(struct DrawLevelOvr1PScratchVertex
 	dstUv[0] = (u8)(((u32)srcAUv[0] + (u32)srcBUv[0]) >> 1);
 	dstUv[1] = (u8)(((u32)srcAUv[1] + (u32)srcBUv[1]) >> 1);
 
-	for (int i = 0; i < 3; i++)
+	for (s32 colorChannel = 0; colorChannel < 3; colorChannel++)
 	{
-		dstMid->color_hi[i] = (u8)(((u32)srcA->color_hi[i] + (u32)srcB->color_hi[i]) >> 1);
+		dstMid->color_hi[colorChannel] = (u8)(((u32)srcA->color_hi[colorChannel] + (u32)srcB->color_hi[colorChannel]) >> 1);
 	}
 
 	// NOTE(aalhendi): Retail midpoint helpers only write RGB at 0x8..0xa; model
@@ -1520,11 +1522,11 @@ static void Ovr226_800a3a78_BuildGround4x1ListMidpointPair(struct DrawLevelOvr1P
 	const u8 *srcBBytes = (const u8 *)srcB;
 	u32 depth;
 
-	for (int i = 0; i < 3; i++)
+	for (s32 axisIndex = 0; axisIndex < 3; axisIndex++)
 	{
-		dstA->pos[i] = srcA->pos[i];
-		dstB->pos[i] = srcB->pos[i];
-		dstMid->pos[i] = (s16)(((s32)srcA->pos[i] + (s32)srcB->pos[i]) >> 1);
+		dstA->pos[axisIndex] = srcA->pos[axisIndex];
+		dstB->pos[axisIndex] = srcB->pos[axisIndex];
+		dstMid->pos[axisIndex] = (s16)(((s32)srcA->pos[axisIndex] + (s32)srcB->pos[axisIndex]) >> 1);
 	}
 
 	CTR_GteLoadS16TripletV0(&dstMid->pos[0]);
@@ -1567,10 +1569,10 @@ static void Ovr226_800a560c_BuildGround4x2ListEdgeMidpoint(struct DrawLevelOvr1P
 	const u8 *srcBBytes = (const u8 *)srcB;
 	u32 depth;
 
-	for (int i = 0; i < 3; i++)
+	for (s32 axisIndex = 0; axisIndex < 3; axisIndex++)
 	{
-		dstA->pos[i] = srcA->pos[i];
-		dstMid->pos[i] = (s16)(((s32)srcA->pos[i] + (s32)srcB->pos[i]) >> 1);
+		dstA->pos[axisIndex] = srcA->pos[axisIndex];
+		dstMid->pos[axisIndex] = (s16)(((s32)srcA->pos[axisIndex] + (s32)srcB->pos[axisIndex]) >> 1);
 	}
 
 	CTR_GteLoadS16TripletV0(&dstMid->pos[0]);
@@ -1605,11 +1607,11 @@ static void Ovr226_800a56f4_BuildGround4x2ListPairMidpoint(struct DrawLevelOvr1P
 	const u8 *srcBBytes = (const u8 *)srcB;
 	u32 depth;
 
-	for (int i = 0; i < 3; i++)
+	for (s32 axisIndex = 0; axisIndex < 3; axisIndex++)
 	{
-		dstA->pos[i] = srcA->pos[i];
-		dstB->pos[i] = srcB->pos[i];
-		dstMid->pos[i] = (s16)(((s32)srcA->pos[i] + (s32)srcB->pos[i]) >> 1);
+		dstA->pos[axisIndex] = srcA->pos[axisIndex];
+		dstB->pos[axisIndex] = srcB->pos[axisIndex];
+		dstMid->pos[axisIndex] = (s16)(((s32)srcA->pos[axisIndex] + (s32)srcB->pos[axisIndex]) >> 1);
 	}
 
 	CTR_GteLoadS16TripletV0(&dstMid->pos[0]);
@@ -1661,10 +1663,10 @@ static void Ovr226_800a6510_BuildGround4x2RenderedEdgeMidpoint(struct DrawLevelO
 	const u8 *srcBBytes = (const u8 *)srcB;
 	u32 depth;
 
-	for (int i = 0; i < 3; i++)
+	for (s32 axisIndex = 0; axisIndex < 3; axisIndex++)
 	{
-		dstA->pos[i] = srcA->pos[i];
-		dstMid->pos[i] = (s16)(((s32)srcA->pos[i] + (s32)srcB->pos[i]) >> 1);
+		dstA->pos[axisIndex] = srcA->pos[axisIndex];
+		dstMid->pos[axisIndex] = (s16)(((s32)srcA->pos[axisIndex] + (s32)srcB->pos[axisIndex]) >> 1);
 	}
 
 	CTR_GteLoadS16TripletV0(&dstMid->pos[0]);
@@ -1707,25 +1709,25 @@ static void Ovr226_800a74a0_BuildDynamicListSubdivideMidpoint(struct DrawLevelOv
 	u8 *dstMidUv = (u8 *)&dstMid->flags;
 	u32 depth;
 
-	for (int i = 0; i < 3; i++)
+	for (s32 axisIndex = 0; axisIndex < 3; axisIndex++)
 	{
-		dstA->pos[i] = srcA->pos[i];
-		dstMid->pos[i] = (s16)(((s32)srcA->pos[i] + (s32)srcB->pos[i]) >> 1);
+		dstA->pos[axisIndex] = srcA->pos[axisIndex];
+		dstMid->pos[axisIndex] = (s16)(((s32)srcA->pos[axisIndex] + (s32)srcB->pos[axisIndex]) >> 1);
 	}
 
 	CTR_GteLoadS16TripletV0(&dstMid->pos[0]);
 	gte_rtps();
 
-	for (int i = 0; i < 3; i++)
+	for (s32 colorChannel = 0; colorChannel < 3; colorChannel++)
 	{
-		dstA->color_hi[i] = srcA->color_hi[i];
-		dstMid->color_hi[i] = (u8)(((u32)srcA->color_hi[i] + (u32)srcB->color_hi[i]) >> 1);
+		dstA->color_hi[colorChannel] = srcA->color_hi[colorChannel];
+		dstMid->color_hi[colorChannel] = (u8)(((u32)srcA->color_hi[colorChannel] + (u32)srcB->color_hi[colorChannel]) >> 1);
 	}
 
-	for (int i = 0; i < 2; i++)
+	for (s32 uvByte = 0; uvByte < 2; uvByte++)
 	{
-		dstAUv[i] = srcAUv[i];
-		dstMidUv[i] = (u8)(((u32)srcAUv[i] + (u32)srcBUv[i]) >> 1);
+		dstAUv[uvByte] = srcAUv[uvByte];
+		dstMidUv[uvByte] = (u8)(((u32)srcAUv[uvByte] + (u32)srcBUv[uvByte]) >> 1);
 	}
 
 	DrawLevelOvr1P_CopyProjectedScreenDepth(dstA, srcA);
@@ -1764,25 +1766,25 @@ static void Ovr226_800a8150_BuildDynamicRenderedSubdivideMidpoint(struct DrawLev
 	u8 *dstMidUv = (u8 *)&dstMid->flags;
 	u32 depth;
 
-	for (int i = 0; i < 3; i++)
+	for (s32 axisIndex = 0; axisIndex < 3; axisIndex++)
 	{
-		dstA->pos[i] = srcA->pos[i];
-		dstMid->pos[i] = (s16)(((s32)srcA->pos[i] + (s32)srcB->pos[i]) >> 1);
+		dstA->pos[axisIndex] = srcA->pos[axisIndex];
+		dstMid->pos[axisIndex] = (s16)(((s32)srcA->pos[axisIndex] + (s32)srcB->pos[axisIndex]) >> 1);
 	}
 
 	CTR_GteLoadS16TripletV0(&dstMid->pos[0]);
 	gte_rtps();
 
-	for (int i = 0; i < 3; i++)
+	for (s32 colorChannel = 0; colorChannel < 3; colorChannel++)
 	{
-		dstA->color_hi[i] = srcA->color_hi[i];
-		dstMid->color_hi[i] = (u8)(((u32)srcA->color_hi[i] + (u32)srcB->color_hi[i]) >> 1);
+		dstA->color_hi[colorChannel] = srcA->color_hi[colorChannel];
+		dstMid->color_hi[colorChannel] = (u8)(((u32)srcA->color_hi[colorChannel] + (u32)srcB->color_hi[colorChannel]) >> 1);
 	}
 
-	for (int i = 0; i < 2; i++)
+	for (s32 uvByte = 0; uvByte < 2; uvByte++)
 	{
-		dstAUv[i] = srcAUv[i];
-		dstMidUv[i] = (u8)(((u32)srcAUv[i] + (u32)srcBUv[i]) >> 1);
+		dstAUv[uvByte] = srcAUv[uvByte];
+		dstMidUv[uvByte] = (u8)(((u32)srcAUv[uvByte] + (u32)srcBUv[uvByte]) >> 1);
 	}
 
 	DrawLevelOvr1P_CopyProjectedScreenDepth(dstA, srcA);
@@ -1822,11 +1824,11 @@ static void Ovr226_800a4594_BuildGround4x1RenderedMidpointPair(struct DrawLevelO
 	const u8 *srcBBytes = (const u8 *)srcB;
 	u32 depth;
 
-	for (int i = 0; i < 3; i++)
+	for (s32 axisIndex = 0; axisIndex < 3; axisIndex++)
 	{
-		dstA->pos[i] = srcA->pos[i];
-		dstB->pos[i] = srcB->pos[i];
-		dstMid->pos[i] = (s16)(((s32)srcA->pos[i] + (s32)srcB->pos[i]) >> 1);
+		dstA->pos[axisIndex] = srcA->pos[axisIndex];
+		dstB->pos[axisIndex] = srcB->pos[axisIndex];
+		dstMid->pos[axisIndex] = (s16)(((s32)srcA->pos[axisIndex] + (s32)srcB->pos[axisIndex]) >> 1);
 	}
 
 	CTR_GteLoadS16TripletV0(&dstMid->pos[0]);
@@ -1878,25 +1880,25 @@ static void Ovr226_800a17d8_BuildFullDynamicSubdivideMidpoint(struct DrawLevelOv
 	u8 *dstMidBytes = (u8 *)&dstMid->flags;
 	u32 depth;
 
-	for (int i = 0; i < 3; i++)
+	for (s32 axisIndex = 0; axisIndex < 3; axisIndex++)
 	{
-		dstA->pos[i] = srcA->pos[i];
-		dstMid->pos[i] = (s16)(((s32)srcA->pos[i] + (s32)srcB->pos[i]) >> 1);
+		dstA->pos[axisIndex] = srcA->pos[axisIndex];
+		dstMid->pos[axisIndex] = (s16)(((s32)srcA->pos[axisIndex] + (s32)srcB->pos[axisIndex]) >> 1);
 	}
 
 	CTR_GteLoadS16TripletV0(&dstMid->pos[0]);
 	gte_rtps();
 
-	for (int i = 0; i < 3; i++)
+	for (s32 colorChannel = 0; colorChannel < 3; colorChannel++)
 	{
-		dstA->color_hi[i] = srcA->color_hi[i];
-		dstMid->color_hi[i] = (u8)(((u32)srcA->color_hi[i] + (u32)srcB->color_hi[i]) >> 1);
+		dstA->color_hi[colorChannel] = srcA->color_hi[colorChannel];
+		dstMid->color_hi[colorChannel] = (u8)(((u32)srcA->color_hi[colorChannel] + (u32)srcB->color_hi[colorChannel]) >> 1);
 	}
 
-	for (int i = 0; i < 2; i++)
+	for (s32 uvByte = 0; uvByte < 2; uvByte++)
 	{
-		dstABytes[i] = srcABytes[i];
-		dstMidBytes[i] = (u8)(((u32)srcABytes[i] + (u32)srcBBytes[i]) >> 1);
+		dstABytes[uvByte] = srcABytes[uvByte];
+		dstMidBytes[uvByte] = (u8)(((u32)srcABytes[uvByte] + (u32)srcBBytes[uvByte]) >> 1);
 	}
 
 	DrawLevelOvr1P_CopyProjectedScreenDepth(dstA, srcA);
@@ -1919,11 +1921,11 @@ static u32 DrawLevelOvr1P_GetProjectedMaxDepth(const struct DrawLevelOvr1PScratc
 {
 	u32 maxDepth = projected[indices[0]].depth;
 
-	for (int i = 1; i < 4; i++)
+	for (s32 vertexIndex = 1; vertexIndex < 4; vertexIndex++)
 	{
-		if (maxDepth < projected[indices[i]].depth)
+		if (maxDepth < projected[indices[vertexIndex]].depth)
 		{
-			maxDepth = projected[indices[i]].depth;
+			maxDepth = projected[indices[vertexIndex]].depth;
 		}
 	}
 
@@ -1934,11 +1936,11 @@ static u32 DrawLevelOvr1P_GetProjectedTriMaxDepth(const struct DrawLevelOvr1PScr
 {
 	u32 maxDepth = projected[indices[0]].depth;
 
-	for (int i = 1; i < 3; i++)
+	for (s32 vertexIndex = 1; vertexIndex < 3; vertexIndex++)
 	{
-		if (maxDepth < projected[indices[i]].depth)
+		if (maxDepth < projected[indices[vertexIndex]].depth)
 		{
-			maxDepth = projected[indices[i]].depth;
+			maxDepth = projected[indices[vertexIndex]].depth;
 		}
 	}
 
@@ -2182,9 +2184,9 @@ static int DrawLevelOvr1P_IsClipByteSet(u8 clipByte)
 
 static int DrawLevelOvr1P_AreProjectedVerticesHalfNear(const struct DrawLevelOvr1PScratchVertex *projected, const int *indices, int count)
 {
-	for (int i = 0; i < count; i++)
+	for (s32 vertexIndex = 0; vertexIndex < count; vertexIndex++)
 	{
-		if (!DrawLevelOvr1P_IsClipByteSet(projected[indices[i]].clipHalfNear))
+		if (!DrawLevelOvr1P_IsClipByteSet(projected[indices[vertexIndex]].clipHalfNear))
 		{
 			return 0;
 		}
@@ -2195,9 +2197,9 @@ static int DrawLevelOvr1P_AreProjectedVerticesHalfNear(const struct DrawLevelOvr
 
 static int DrawLevelOvr1P_HasProjectedVertexNear(const struct DrawLevelOvr1PScratchVertex *projected, const int *indices, int count)
 {
-	for (int i = 0; i < count; i++)
+	for (s32 vertexIndex = 0; vertexIndex < count; vertexIndex++)
 	{
-		if (DrawLevelOvr1P_IsClipByteSet(projected[indices[i]].clipNear))
+		if (DrawLevelOvr1P_IsClipByteSet(projected[indices[vertexIndex]].clipNear))
 		{
 			return 1;
 		}
@@ -2253,9 +2255,9 @@ static void Ovr226_800a1408_AdjustFullDynamicMidVertex(struct DrawLevelOvr1PScra
 		return;
 	}
 
-	for (int i = 0; i < 3; i++)
+	for (s32 axisIndex = 0; axisIndex < 3; axisIndex++)
 	{
-		midpoint[i] = (s16)(((s32)endpointA->pos[i] + (s32)endpointB->pos[i]) >> 1);
+		midpoint[axisIndex] = (s16)(((s32)endpointA->pos[axisIndex] + (s32)endpointB->pos[axisIndex]) >> 1);
 	}
 
 	u32 color = DrawLevelOvr1P_ReadWord(levMid, 0xc);
@@ -2315,11 +2317,11 @@ static u32 DrawLevelOvr1P_GetPreparedProjectedMaxDepthCount(const struct DrawLev
 {
 	u32 maxDepth = projected[indices[0]].depth;
 
-	for (int i = 1; i < count; i++)
+	for (s32 vertexIndex = 1; vertexIndex < count; vertexIndex++)
 	{
-		if (maxDepth < projected[indices[i]].depth)
+		if (maxDepth < projected[indices[vertexIndex]].depth)
 		{
-			maxDepth = projected[indices[i]].depth;
+			maxDepth = projected[indices[vertexIndex]].depth;
 		}
 	}
 
@@ -2356,9 +2358,9 @@ static int DrawLevelOvr1P_SourceInsideClipRecordWindow(const struct DrawLevelOvr
 
 static int DrawLevelOvr1P_ShouldWriteRenderedClippedRecord(const struct DrawLevelOvr1PScratchVertex *projected, const int *indices, int count)
 {
-	for (int i = 0; i < count; i++)
+	for (s32 vertexIndex = 0; vertexIndex < count; vertexIndex++)
 	{
-		if (DrawLevelOvr1P_SourceInsideClipRecordWindow(&projected[indices[i]]))
+		if (DrawLevelOvr1P_SourceInsideClipRecordWindow(&projected[indices[vertexIndex]]))
 		{
 			return 1;
 		}
@@ -2434,9 +2436,9 @@ static int DrawLevelOvr1P_WriteRenderedClippedRecordAtOt(struct PushBuffer *pb, 
 	record->tpage = DrawLevelOvr1P_Scratch()->uv.tpage;
 	record->clut = DrawLevelOvr1P_Scratch()->uv.clut;
 
-	for (int i = 0; i < count; i++)
+	for (s32 vertexIndex = 0; vertexIndex < count; vertexIndex++)
 	{
-		DrawLevelOvr1P_CopyClipRecordVertex(&record->vertex[i], &projected[indices[i]]);
+		DrawLevelOvr1P_CopyClipRecordVertex(&record->vertex[vertexIndex], &projected[indices[vertexIndex]]);
 	}
 
 	DrawLevelOvr1P_SetClipRecordCursor(cursor + recordSize);
@@ -2474,9 +2476,9 @@ static int DrawLevelOvr1P_WriteWaterRenderedClippedRecordAtOt(struct PushBuffer 
 	record->tpage = DrawLevelOvr1P_Scratch()->uv.tpage;
 	record->clut = DrawLevelOvr1P_Scratch()->uv.clut;
 
-	for (int i = 0; i < count; i++)
+	for (s32 vertexIndex = 0; vertexIndex < count; vertexIndex++)
 	{
-		DrawLevelOvr1P_CopyClipRecordVertex(&record->vertex[i], &projected[indices[i]]);
+		DrawLevelOvr1P_CopyClipRecordVertex(&record->vertex[vertexIndex], &projected[indices[vertexIndex]]);
 	}
 
 	DrawLevelOvr1P_SetClipRecordCursor(cursor + recordSize);
@@ -2505,9 +2507,9 @@ static int Ovr226_800a34d4_WriteWaterRenderedClippedRecordAtOtEntry(struct PushB
 	record->tpage = DrawLevelOvr1P_Scratch()->uv.tpage;
 	record->clut = DrawLevelOvr1P_Scratch()->uv.clut;
 
-	for (int i = 0; i < count; i++)
+	for (s32 vertexIndex = 0; vertexIndex < count; vertexIndex++)
 	{
-		DrawLevelOvr1P_CopyClipRecordVertex(&record->vertex[i], &projected[indices[i]]);
+		DrawLevelOvr1P_CopyClipRecordVertex(&record->vertex[vertexIndex], &projected[indices[vertexIndex]]);
 	}
 
 	DrawLevelOvr1P_SetClipRecordCursor(cursor + recordSize);
@@ -2628,10 +2630,10 @@ static s32 DrawLevelOvr1P_ProjectClipRecordEmitVertices(struct DrawLevelOvr1PScr
 	SVECTOR source[4];
 	s32 nclip;
 
-	for (int i = 0; i < count; i++)
+	for (s32 vertexIndex = 0; vertexIndex < count; vertexIndex++)
 	{
-		dst[i] = projected[indices[i]];
-		DrawLevelOvr1P_GetClipRecordSourceVector(&projected[indices[i]], &source[i]);
+		dst[vertexIndex] = projected[indices[vertexIndex]];
+		DrawLevelOvr1P_GetClipRecordSourceVector(&projected[indices[vertexIndex]], &source[vertexIndex]);
 	}
 
 	CTR_GteLoadSV3(&source[0], &source[1], &source[2]);
@@ -2795,9 +2797,9 @@ static void DrawLevelOvr1P_PrepareClipRecordDepthScratchRange(struct DrawLevelOv
 {
 	s32 threshold = DrawLevelOvr1P_GetDepthClipThreshold();
 
-	for (int i = 0; i < count; i++)
+	for (s32 vertexIndex = 0; vertexIndex < count; vertexIndex++)
 	{
-		Ovr226_800aaad0_PrepareClipRecordDepthScratch(&projected[i], threshold);
+		Ovr226_800aaad0_PrepareClipRecordDepthScratch(&projected[vertexIndex], threshold);
 	}
 }
 
@@ -2806,11 +2808,11 @@ static u32 DrawLevelOvr1P_GetClipRecordProjectedNearMask(const struct DrawLevelO
 	static const u32 bits[4] = {0x4, 0x8, 0x10, 0x20};
 	u32 mask = 0;
 
-	for (int i = 0; i < count; i++)
+	for (s32 bitIndex = 0; bitIndex < count; bitIndex++)
 	{
-		if (DrawLevelOvr1P_IsClipByteSet(projected[i].color_hi[3]))
+		if (DrawLevelOvr1P_IsClipByteSet(projected[bitIndex].color_hi[3]))
 		{
-			mask |= bits[i];
+			mask |= bits[bitIndex];
 		}
 	}
 
@@ -2819,9 +2821,9 @@ static u32 DrawLevelOvr1P_GetClipRecordProjectedNearMask(const struct DrawLevelO
 
 static void DrawLevelOvr1P_ClearClipRecordProjectedNearBytes(struct DrawLevelOvr1PScratchVertex *projected, int count)
 {
-	for (int i = 0; i < count; i++)
+	for (s32 vertexIndex = 0; vertexIndex < count; vertexIndex++)
 	{
-		projected[i].color_hi[3] = 0;
+		projected[vertexIndex].color_hi[3] = 0;
 	}
 }
 
@@ -2843,9 +2845,9 @@ static void Ovr226_800aab00_InterpolateClipRecordVertex(struct DrawLevelOvr1PScr
 	dstUv[0] = DrawLevelOvr1P_LerpU8_16(insideUv[0], outsideUv[0], factor);
 	dstUv[1] = DrawLevelOvr1P_LerpU8_16(insideUv[1], outsideUv[1], factor);
 
-	for (int i = 0; i < 3; i++)
+	for (s32 colorChannel = 0; colorChannel < 3; colorChannel++)
 	{
-		dst->color_hi[i] = DrawLevelOvr1P_LerpU8_16(inside->color_hi[i], outside->color_hi[i], factor);
+		dst->color_hi[colorChannel] = DrawLevelOvr1P_LerpU8_16(inside->color_hi[colorChannel], outside->color_hi[colorChannel], factor);
 	}
 }
 
@@ -3142,9 +3144,9 @@ static int Ovr226_800aa848_ProjectFirstThreeClipRecordsAndDispatch(struct PushBu
 
 	DrawLevelOvr1P_SetClipRecordPageScratch(record);
 
-	for (int i = 0; i < 3; i++)
+	for (s32 vertexIndex = 0; vertexIndex < 3; vertexIndex++)
 	{
-		Ovr226_800aa858_ProjectClipRecordRawVertex(&projected[i], &record->vertex[i]);
+		Ovr226_800aa858_ProjectClipRecordRawVertex(&projected[vertexIndex], &record->vertex[vertexIndex]);
 	}
 
 	// NOTE(aalhendi): Retail delay-slot stores the clipped-record header at
@@ -3176,9 +3178,9 @@ static int Ovr226_800aa790_TerminalPreamble(struct PushBuffer *pb, const u8 *cur
 		return 0;
 	}
 
-	for (int i = 0; i < 8; i++)
+	for (s32 controlWordIndex = 0; controlWordIndex < 8; controlWordIndex++)
 	{
-		CTC2(DrawLevelOvr1P_ReadWord(&pb->matrix_ViewProj, i * 4), 8 + i);
+		CTC2(DrawLevelOvr1P_ReadWord(&pb->matrix_ViewProj, controlWordIndex * 4), 8 + controlWordIndex);
 	}
 
 	CTC2((u32)(s32)pb->rect.w << 15, 24);
@@ -3187,9 +3189,9 @@ static int Ovr226_800aa790_TerminalPreamble(struct PushBuffer *pb, const u8 *cur
 
 	// NOTE(aalhendi): Retail 0x800aa7f8 mirrors the clip threshold into the
 	// temporary vertices used by the 0x800aab00 interpolation helper.
-	for (int i = 0; i < 3; i++)
+	for (s32 vertexIndex = 0; vertexIndex < 3; vertexIndex++)
 	{
-		struct DrawLevelOvr1PScratchVertex *vertex = DrawLevelOvr1P_TerminalClipVertex(i);
+		struct DrawLevelOvr1PScratchVertex *vertex = DrawLevelOvr1P_TerminalClipVertex(vertexIndex);
 
 		vertex->pos[2] = threshold;
 		vertex->clipNear = 0;
@@ -3665,9 +3667,9 @@ static int DrawLevelOvr1P_AreProjectedVerticesHalfNearSigned(const struct DrawLe
 {
 	int value = (s8)projected[indices[0]].clipHalfNear;
 
-	for (int i = 1; i < count; i++)
+	for (s32 vertexIndex = 1; vertexIndex < count; vertexIndex++)
 	{
-		value &= (s8)projected[indices[i]].clipHalfNear;
+		value &= (s8)projected[indices[vertexIndex]].clipHalfNear;
 	}
 
 	return value < 0;
@@ -3677,9 +3679,9 @@ static int DrawLevelOvr1P_HasProjectedVertexNearSigned(const struct DrawLevelOvr
 {
 	int value = 0;
 
-	for (int i = 0; i < count; i++)
+	for (s32 vertexIndex = 0; vertexIndex < count; vertexIndex++)
 	{
-		value |= (s8)projected[indices[i]].clipNear;
+		value |= (s8)projected[indices[vertexIndex]].clipNear;
 	}
 
 	return value < 0;
@@ -4043,24 +4045,24 @@ static int DrawLevelOvr1P_DispatchProjectedGridDeepestCompact(struct PushBuffer 
 
 	(void)allowedMask;
 
-	for (int i = 0; i < 2; i++)
+	for (s32 subdivisionIndex = 0; subdivisionIndex < 2; subdivisionIndex++)
 	{
 		int subIndices[4];
 
-		for (int j = 0; j < 4; j++)
+		for (s32 vertexIndex = 0; vertexIndex < 4; vertexIndex++)
 		{
-			subIndices[j] = subdivisionCase->subIndices[i][j];
+			subIndices[vertexIndex] = subdivisionCase->subIndices[subdivisionIndex][vertexIndex];
 		}
 
 		// NOTE(aalhendi): Retail deepest generic-grid handlers branch back to
 		// the compact topology labels, including the special +0xb4 writes.
-		if (subdivisionCase->slotWords[i] != DRAW_LEVEL_OVR1P_SLOT_WORD_PRESERVE)
+		if (subdivisionCase->slotWords[subdivisionIndex] != DRAW_LEVEL_OVR1P_SLOT_WORD_PRESERVE)
 		{
-			DrawLevelOvr1P_SetGridFaceSlotWord(projected, subdivisionCase->slotWords[i]);
+			DrawLevelOvr1P_SetGridFaceSlotWord(projected, subdivisionCase->slotWords[subdivisionIndex]);
 		}
 
 		if (!DrawLevelOvr1P_EmitProjectedGridFace(pb, primMem, block, projected, subIndices, faceIndex, texture, depth, writeClipBytes,
-		                                          subdivisionCase->directMasks[i], inheritedOtIndex))
+		                                          subdivisionCase->directMasks[subdivisionIndex], inheritedOtIndex))
 		{
 			return 0;
 		}
@@ -4728,9 +4730,9 @@ static int Ovr226_800a4dcc_WriteGround4x1RenderedClippedRecordAtOtEntry(struct P
 	record->tpage = DrawLevelOvr1P_Scratch()->uv.tpage;
 	record->clut = DrawLevelOvr1P_Scratch()->uv.clut;
 
-	for (int i = 0; i < count; i++)
+	for (s32 vertexIndex = 0; vertexIndex < count; vertexIndex++)
 	{
-		DrawLevelOvr1P_CopyClipRecordVertex(&record->vertex[i], &projected[indices[i]]);
+		DrawLevelOvr1P_CopyClipRecordVertex(&record->vertex[vertexIndex], &projected[indices[vertexIndex]]);
 	}
 
 	DrawLevelOvr1P_SetClipRecordCursor(cursor + recordSize);
@@ -5060,22 +5062,22 @@ static int Ovr226_800a52bc_DispatchGround4x2DeepestCompact(struct PushBuffer *pb
 {
 	const struct DrawLevelOvr1PNearSubdivisionCase *subdivisionCase = DrawLevelOvr1P_GetDeepestGridCompactCase(handlerSlot);
 
-	for (int i = 0; i < 2; i++)
+	for (s32 subdivisionIndex = 0; subdivisionIndex < 2; subdivisionIndex++)
 	{
 		int subIndices[4];
 
-		for (int j = 0; j < 4; j++)
+		for (s32 vertexIndex = 0; vertexIndex < 4; vertexIndex++)
 		{
-			subIndices[j] = subdivisionCase->subIndices[i][j];
+			subIndices[vertexIndex] = subdivisionCase->subIndices[subdivisionIndex][vertexIndex];
 		}
 
-		if (subdivisionCase->slotWords[i] != DRAW_LEVEL_OVR1P_SLOT_WORD_PRESERVE)
+		if (subdivisionCase->slotWords[subdivisionIndex] != DRAW_LEVEL_OVR1P_SLOT_WORD_PRESERVE)
 		{
-			DrawLevelOvr1P_SetGridFaceSlotWord(projected, subdivisionCase->slotWords[i]);
+			DrawLevelOvr1P_SetGridFaceSlotWord(projected, subdivisionCase->slotWords[subdivisionIndex]);
 		}
 
-		if (!Ovr226_800a580c_Ground4x2DirectPreflight(pb, primMem, block, projected, subIndices, faceIndex, texture, depth, subdivisionCase->directMasks[i],
-		                                              inheritedOtIndex))
+		if (!Ovr226_800a580c_Ground4x2DirectPreflight(pb, primMem, block, projected, subIndices, faceIndex, texture, depth,
+		                                              subdivisionCase->directMasks[subdivisionIndex], inheritedOtIndex))
 		{
 			return 0;
 		}
@@ -6054,9 +6056,9 @@ static int Ovr226_800a6d6c_WriteGround4x2RenderedClippedRecordAtOtEntry(struct P
 	record->tpage = DrawLevelOvr1P_Scratch()->uv.tpage;
 	record->clut = DrawLevelOvr1P_Scratch()->uv.clut;
 
-	for (int i = 0; i < count; i++)
+	for (s32 vertexIndex = 0; vertexIndex < count; vertexIndex++)
 	{
-		DrawLevelOvr1P_CopyClipRecordVertex(&record->vertex[i], &projected[indices[i]]);
+		DrawLevelOvr1P_CopyClipRecordVertex(&record->vertex[vertexIndex], &projected[indices[vertexIndex]]);
 	}
 
 	DrawLevelOvr1P_SetClipRecordCursor(cursor + recordSize);
@@ -6225,22 +6227,22 @@ static int Ovr226_800a6260_DispatchGround4x2RenderedDeepestCompact(struct PushBu
 {
 	const struct DrawLevelOvr1PNearSubdivisionCase *subdivisionCase = DrawLevelOvr1P_GetDeepestGridCompactCase(handlerSlot);
 
-	for (int i = 0; i < 2; i++)
+	for (s32 subdivisionIndex = 0; subdivisionIndex < 2; subdivisionIndex++)
 	{
 		int subIndices[4];
 
-		for (int j = 0; j < 4; j++)
+		for (s32 vertexIndex = 0; vertexIndex < 4; vertexIndex++)
 		{
-			subIndices[j] = subdivisionCase->subIndices[i][j];
+			subIndices[vertexIndex] = subdivisionCase->subIndices[subdivisionIndex][vertexIndex];
 		}
 
-		if (subdivisionCase->slotWords[i] != DRAW_LEVEL_OVR1P_SLOT_WORD_PRESERVE)
+		if (subdivisionCase->slotWords[subdivisionIndex] != DRAW_LEVEL_OVR1P_SLOT_WORD_PRESERVE)
 		{
-			DrawLevelOvr1P_SetGridFaceSlotWord(projected, subdivisionCase->slotWords[i]);
+			DrawLevelOvr1P_SetGridFaceSlotWord(projected, subdivisionCase->slotWords[subdivisionIndex]);
 		}
 
-		if (!Ovr226_800a661c_Ground4x2RenderedPreflight(pb, primMem, block, projected, subIndices, faceIndex, texture, depth, subdivisionCase->directMasks[i],
-		                                                inheritedOtEntry))
+		if (!Ovr226_800a661c_Ground4x2RenderedPreflight(pb, primMem, block, projected, subIndices, faceIndex, texture, depth,
+		                                                subdivisionCase->directMasks[subdivisionIndex], inheritedOtEntry))
 		{
 			return 0;
 		}
@@ -6516,9 +6518,9 @@ static int Ovr226_800a898c_WriteDynamicRenderedClippedRecordAtOtEntry(struct Pus
 	record->tpage = DrawLevelOvr1P_Scratch()->uv.tpage;
 	record->clut = DrawLevelOvr1P_Scratch()->uv.clut;
 
-	for (int i = 0; i < count; i++)
+	for (s32 vertexIndex = 0; vertexIndex < count; vertexIndex++)
 	{
-		DrawLevelOvr1P_CopyClipRecordVertex(&record->vertex[i], &projected[indices[i]]);
+		DrawLevelOvr1P_CopyClipRecordVertex(&record->vertex[vertexIndex], &projected[indices[vertexIndex]]);
 	}
 
 	DrawLevelOvr1P_SetClipRecordCursor(cursor + recordSize);
@@ -6944,9 +6946,9 @@ static int Ovr226_800aa5ac_WriteQuad4x4RenderedClippedRecordAtOtEntry(struct Pus
 	record->tpage = DrawLevelOvr1P_Scratch()->uv.tpage;
 	record->clut = DrawLevelOvr1P_Scratch()->uv.clut;
 
-	for (int i = 0; i < count; i++)
+	for (s32 vertexIndex = 0; vertexIndex < count; vertexIndex++)
 	{
-		DrawLevelOvr1P_CopyClipRecordVertex(&record->vertex[i], &projected[indices[i]]);
+		DrawLevelOvr1P_CopyClipRecordVertex(&record->vertex[vertexIndex], &projected[indices[vertexIndex]]);
 	}
 
 	DrawLevelOvr1P_SetClipRecordCursor(cursor + recordSize);
@@ -8516,25 +8518,25 @@ static void Ovr226_800a24e8_BuildWaterListSubdivideMidpoint(struct DrawLevelOvr1
 	u8 *dstMidUv = (u8 *)&dstMid->flags;
 	u32 depth;
 
-	for (int i = 0; i < 3; i++)
+	for (s32 axisIndex = 0; axisIndex < 3; axisIndex++)
 	{
-		dstA->pos[i] = srcA->pos[i];
-		dstMid->pos[i] = (s16)(((s32)srcA->pos[i] + (s32)srcB->pos[i]) >> 1);
+		dstA->pos[axisIndex] = srcA->pos[axisIndex];
+		dstMid->pos[axisIndex] = (s16)(((s32)srcA->pos[axisIndex] + (s32)srcB->pos[axisIndex]) >> 1);
 	}
 
 	CTR_GteLoadS16TripletV0(&dstMid->pos[0]);
 	gte_rtps();
 
-	for (int i = 0; i < 3; i++)
+	for (s32 colorChannel = 0; colorChannel < 3; colorChannel++)
 	{
-		dstA->color_hi[i] = srcA->color_hi[i];
-		dstMid->color_hi[i] = (u8)(((u32)srcA->color_hi[i] + (u32)srcB->color_hi[i]) >> 1);
+		dstA->color_hi[colorChannel] = srcA->color_hi[colorChannel];
+		dstMid->color_hi[colorChannel] = (u8)(((u32)srcA->color_hi[colorChannel] + (u32)srcB->color_hi[colorChannel]) >> 1);
 	}
 
-	for (int i = 0; i < 2; i++)
+	for (s32 uvByte = 0; uvByte < 2; uvByte++)
 	{
-		dstAUv[i] = srcAUv[i];
-		dstMidUv[i] = (u8)(((u32)srcAUv[i] + (u32)srcBUv[i]) >> 1);
+		dstAUv[uvByte] = srcAUv[uvByte];
+		dstMidUv[uvByte] = (u8)(((u32)srcAUv[uvByte] + (u32)srcBUv[uvByte]) >> 1);
 	}
 
 	DrawLevelOvr1P_CopyProjectedScreenDepth(dstA, srcA);
@@ -8562,25 +8564,25 @@ static void Ovr226_800a2fe4_BuildWaterRenderedSubdivideMidpoint(struct DrawLevel
 	u8 *dstMidUv = (u8 *)&dstMid->flags;
 	u32 depth;
 
-	for (int i = 0; i < 3; i++)
+	for (s32 axisIndex = 0; axisIndex < 3; axisIndex++)
 	{
-		dstA->pos[i] = srcA->pos[i];
-		dstMid->pos[i] = (s16)(((s32)srcA->pos[i] + (s32)srcB->pos[i]) >> 1);
+		dstA->pos[axisIndex] = srcA->pos[axisIndex];
+		dstMid->pos[axisIndex] = (s16)(((s32)srcA->pos[axisIndex] + (s32)srcB->pos[axisIndex]) >> 1);
 	}
 
 	CTR_GteLoadS16TripletV0(&dstMid->pos[0]);
 	gte_rtps();
 
-	for (int i = 0; i < 3; i++)
+	for (s32 colorChannel = 0; colorChannel < 3; colorChannel++)
 	{
-		dstA->color_hi[i] = srcA->color_hi[i];
-		dstMid->color_hi[i] = (u8)(((u32)srcA->color_hi[i] + (u32)srcB->color_hi[i]) >> 1);
+		dstA->color_hi[colorChannel] = srcA->color_hi[colorChannel];
+		dstMid->color_hi[colorChannel] = (u8)(((u32)srcA->color_hi[colorChannel] + (u32)srcB->color_hi[colorChannel]) >> 1);
 	}
 
-	for (int i = 0; i < 2; i++)
+	for (s32 uvByte = 0; uvByte < 2; uvByte++)
 	{
-		dstAUv[i] = srcAUv[i];
-		dstMidUv[i] = (u8)(((u32)srcAUv[i] + (u32)srcBUv[i]) >> 1);
+		dstAUv[uvByte] = srcAUv[uvByte];
+		dstMidUv[uvByte] = (u8)(((u32)srcAUv[uvByte] + (u32)srcBUv[uvByte]) >> 1);
 	}
 
 	DrawLevelOvr1P_CopyProjectedScreenDepth(dstA, srcA);
@@ -9649,14 +9651,14 @@ static void Ovr226_800a0d34_SetEntryGteAndCameraScratch(struct PushBuffer *pb)
 {
 	s16 *data6 = DrawLevelOvr1P_Scratch()->projectedCenter.v;
 
-	for (int i = 0; i < 8; i++)
+	for (s32 controlWordIndex = 0; controlWordIndex < 8; controlWordIndex++)
 	{
-		CTC2(DrawLevelOvr1P_ReadWord(&pb->matrix_ViewProj, (u32)(i * 4)), i);
+		CTC2(DrawLevelOvr1P_ReadWord(&pb->matrix_ViewProj, (u32)(controlWordIndex * 4)), controlWordIndex);
 	}
 
-	for (int i = 0; i < 3; i++)
+	for (s32 centerIndex = 0; centerIndex < 3; centerIndex++)
 	{
-		data6[i] = (s16)((u16)(u8)pb->data6[i * 2] | ((u16)(u8)pb->data6[i * 2 + 1] << 8));
+		data6[centerIndex] = (s16)((u16)(u8)pb->data6[centerIndex * 2] | ((u16)(u8)pb->data6[centerIndex * 2 + 1] << 8));
 	}
 
 	CTC2((u32)(s32)pb->rect.w << 15, 24);
@@ -9670,11 +9672,11 @@ static void Ovr226_800a0d34_SetEntryGteAndCameraScratch(struct PushBuffer *pb)
 
 static const struct DrawLevelOvr1PBucket *Ovr226_800a0e78_FindBucketByHandler(u32 handlerAddress)
 {
-	for (int i = 0; i < OVR226_BUCKET_COUNT; i++)
+	for (s32 bucketIndex = 0; bucketIndex < OVR226_BUCKET_COUNT; bucketIndex++)
 	{
-		if (R226.bucketHandlerAddresses[i] == handlerAddress)
+		if (R226.bucketHandlerAddresses[bucketIndex] == handlerAddress)
 		{
-			return &sDrawLevelOvr1PBuckets[i];
+			return &sDrawLevelOvr1PBuckets[bucketIndex];
 		}
 	}
 

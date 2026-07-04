@@ -20,30 +20,30 @@ CTR_STATIC_ASSERT(sizeof(((struct OverlayRDATA_227 *)0)->clipRecordJumpTable) ==
 
 static u32 DrawLevelOvr2P_TranslateCopiedLabel(u32 address)
 {
-	for (int i = 0; i < OVR227_BUCKET_COUNT; i++)
+	for (s32 bucketIndex = 0; bucketIndex < OVR227_BUCKET_COUNT; bucketIndex++)
 	{
-		for (int j = 0; j < OVR227_SETUP_COPY0_WORD_COUNT; j++)
+		for (s32 copyWordIndex = 0; copyWordIndex < OVR227_SETUP_COPY0_WORD_COUNT; copyWordIndex++)
 		{
-			if (R227.bucketSetups[i].copy0[j] == address)
+			if (R227.bucketSetups[bucketIndex].copy0[copyWordIndex] == address)
 			{
-				return R226.bucketSetups[i].copy0[j];
+				return R226.bucketSetups[bucketIndex].copy0[copyWordIndex];
 			}
 		}
 
-		for (int j = 0; j < OVR227_SETUP_COPY1_WORD_COUNT; j++)
+		for (s32 copyWordIndex = 0; copyWordIndex < OVR227_SETUP_COPY1_WORD_COUNT; copyWordIndex++)
 		{
-			if (R227.bucketSetups[i].copy1[j] == address)
+			if (R227.bucketSetups[bucketIndex].copy1[copyWordIndex] == address)
 			{
-				return R226.bucketSetups[i].copy1[j];
+				return R226.bucketSetups[bucketIndex].copy1[copyWordIndex];
 			}
 		}
 	}
 
-	for (int i = 0; i < OVR227_CLIP_RECORD_JUMP_WORD_COUNT; i++)
+	for (s32 jumpWordIndex = 0; jumpWordIndex < OVR227_CLIP_RECORD_JUMP_WORD_COUNT; jumpWordIndex++)
 	{
-		if (R227.clipRecordJumpTable[i] == address)
+		if (R227.clipRecordJumpTable[jumpWordIndex] == address)
 		{
-			return R226.clipRecordJumpTable[i];
+			return R226.clipRecordJumpTable[jumpWordIndex];
 		}
 	}
 
@@ -54,21 +54,21 @@ static void DrawLevelOvr2P_CopyScratchWordsTranslated(const u32 *source, const s
 {
 	u32 *scratch = CTR_SCRATCHPAD_PTR(u32, copy->scratchOffset);
 
-	for (u32 i = 0; i <= copy->lastWordIndex; i++)
+	for (u32 scratchWordIndex = 0; scratchWordIndex <= copy->lastWordIndex; scratchWordIndex++)
 	{
-		scratch[i] = DrawLevelOvr2P_TranslateCopiedLabel(source[i]);
+		scratch[scratchWordIndex] = DrawLevelOvr2P_TranslateCopiedLabel(source[scratchWordIndex]);
 	}
 }
 
 static const struct DrawLevelOvrBucketSetupRecord *DrawLevelOvr2P_FindBucketSetupRecord(u32 setupAddress)
 {
-	for (int i = 0; i < OVR227_BUCKET_COUNT; i++)
+	for (s32 bucketIndex = 0; bucketIndex < OVR227_BUCKET_COUNT; bucketIndex++)
 	{
-		u32 recordAddress = OVR227_RDATA_BUCKET_SETUP_BASE + (u32)(i * sizeof(R227.bucketSetups[0]));
+		u32 recordAddress = OVR227_RDATA_BUCKET_SETUP_BASE + (u32)(bucketIndex * sizeof(R227.bucketSetups[0]));
 
 		if (recordAddress == setupAddress)
 		{
-			return &R227.bucketSetups[i];
+			return &R227.bucketSetups[bucketIndex];
 		}
 	}
 
@@ -94,9 +94,9 @@ static void DrawLevelOvr2P_CopyScratchInitTable(void)
 {
 	u32 *scratch = CTR_SCRATCHPAD_PTR(u32, DRAW_LEVEL_OVR1P_SCRATCH_INIT_TABLE_OFFSET);
 
-	for (int i = 0; i < OVR227_SCRATCH_INIT_WORD_COUNT; i++)
+	for (s32 scratchWordIndex = 0; scratchWordIndex < OVR227_SCRATCH_INIT_WORD_COUNT; scratchWordIndex++)
 	{
-		scratch[i] = R227.scratchInitTable[i];
+		scratch[scratchWordIndex] = R227.scratchInitTable[scratchWordIndex];
 	}
 }
 
@@ -114,11 +114,11 @@ static void DrawLevelOvr2P_SeedSharedHelperThresholdScratch(void)
 
 static const struct DrawLevelOvr1PBucket *DrawLevelOvr2P_FindBucketByHandler(u32 handlerAddress)
 {
-	for (int i = 0; i < OVR227_BUCKET_COUNT; i++)
+	for (s32 bucketIndex = 0; bucketIndex < OVR227_BUCKET_COUNT; bucketIndex++)
 	{
-		if (R227.bucketHandlerAddresses[i] == handlerAddress)
+		if (R227.bucketHandlerAddresses[bucketIndex] == handlerAddress)
 		{
-			return &sDrawLevelOvr1PBuckets[i];
+			return &sDrawLevelOvr1PBuckets[bucketIndex];
 		}
 	}
 
@@ -291,8 +291,8 @@ static void DrawLevelOvr2P_CopyClipRecordJumpTable(void)
 {
 	u32 *clipRecordJumpTable = CTR_SCRATCHPAD_PTR(u32, DRAW_LEVEL_OVR1P_GT3_CLIP_RECORD_JUMP_TABLE_OFFSET);
 
-	for (int i = 0; i < OVR227_CLIP_RECORD_JUMP_WORD_COUNT; i++)
+	for (s32 jumpWordIndex = 0; jumpWordIndex < OVR227_CLIP_RECORD_JUMP_WORD_COUNT; jumpWordIndex++)
 	{
-		clipRecordJumpTable[i] = DrawLevelOvr2P_TranslateCopiedLabel(R227.clipRecordJumpTable[i]);
+		clipRecordJumpTable[jumpWordIndex] = DrawLevelOvr2P_TranslateCopiedLabel(R227.clipRecordJumpTable[jumpWordIndex]);
 	}
 }

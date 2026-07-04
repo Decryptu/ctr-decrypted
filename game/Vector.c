@@ -30,7 +30,7 @@ void Vector_SpecLightSpin2D(struct Instance *inst, const SVec3 *rot, const SVec3
 	ConvertRotToMatrix_Transpose(&rotMatrix, rot);
 	Vector_SpecLightSpin2D_RotMatrixMul(&rotMatrix, &light, &lightMac, &lightLocal);
 
-	inst->unk53 = (char)lightMac.vx;
+	inst->specLightX = (s8)lightMac.vx;
 	inst->reflectionRGBA = (u32)lightMac.vz;
 
 	Vector_SpecLightSpin2D_RotMatrixMul(&rotMatrix, &view, &viewMac, &viewLocal);
@@ -83,7 +83,7 @@ void Vector_SpecLightSpin3D(struct Instance *inst, const SVec3 *rot, const SVec3
 		Vector_LightMatrixMul(&pb->matrix_Camera, &light, &lightCamera);
 		Vector_LightMatrixMul(&rotMatrix, &lightCamera, &lightLocal);
 
-		inst->unk53 = (char)lightLocal.x;
+		inst->specLightX = (s8)lightLocal.x;
 		inst->reflectionRGBA = (u16)lightLocal.z;
 
 		view.x = inst->matrix.t[0] - pb->pos.x;
@@ -114,7 +114,7 @@ void Vector_SpecLightNoSpin3D(struct Instance *inst, const SVec3 *rot, const SVe
 	ConvertRotToMatrix(&lightMatrix, rot);
 	Vector_LightMatrixMul(&lightMatrix, &light, &lightLocal);
 
-	inst->unk53 = (char)lightLocal.x;
+	inst->specLightX = (s8)lightLocal.x;
 	inst->reflectionRGBA = (u16)lightLocal.z;
 
 	for (int i = 0; i < gGT->numPlyrCurrGame; i++)

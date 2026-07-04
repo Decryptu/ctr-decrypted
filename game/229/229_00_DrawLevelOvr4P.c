@@ -23,18 +23,18 @@ static int DrawLevelOvr4P_DispatchBucketHandler(u32 handlerAddress, void *bucket
 
 static const struct DrawLevelOvrBucketSetupRecord *DrawLevelOvr4P_FindBucketSetupRecord(u32 setupAddress, int *setupIndex)
 {
-	for (int i = 0; i < OVR229_BUCKET_COUNT; i++)
+	for (s32 bucketIndex = 0; bucketIndex < OVR229_BUCKET_COUNT; bucketIndex++)
 	{
-		u32 recordAddress = OVR229_RDATA_BUCKET_SETUP_BASE + (u32)(i * sizeof(R229.bucketSetups[0]));
+		u32 recordAddress = OVR229_RDATA_BUCKET_SETUP_BASE + (u32)(bucketIndex * sizeof(R229.bucketSetups[0]));
 
 		if (recordAddress == setupAddress)
 		{
 			if (setupIndex != NULL)
 			{
-				*setupIndex = i;
+				*setupIndex = bucketIndex;
 			}
 
-			return &R229.bucketSetups[i];
+			return &R229.bucketSetups[bucketIndex];
 		}
 	}
 
@@ -108,11 +108,11 @@ static u32 DrawLevelOvr4P_TranslateCopiedWord(int setupIndex, const struct DrawL
 
 static u32 DrawLevelOvr4P_TranslateClipRecordLabel(u32 address)
 {
-	for (int i = 0; i < OVR229_CLIP_RECORD_JUMP_WORD_COUNT; i++)
+	for (s32 jumpWordIndex = 0; jumpWordIndex < OVR229_CLIP_RECORD_JUMP_WORD_COUNT; jumpWordIndex++)
 	{
-		if (R229.clipRecordJumpTable[i] == address)
+		if (R229.clipRecordJumpTable[jumpWordIndex] == address)
 		{
-			return R226.clipRecordJumpTable[i];
+			return R226.clipRecordJumpTable[jumpWordIndex];
 		}
 	}
 
@@ -129,9 +129,9 @@ static void DrawLevelOvr4P_CopyScratchWords(const struct DrawLevelOvrBucketSetup
 		return;
 	}
 
-	for (u32 i = 0; i <= copy->lastWordIndex; i++)
+	for (u32 scratchWordIndex = 0; scratchWordIndex <= copy->lastWordIndex; scratchWordIndex++)
 	{
-		scratch[i] = DrawLevelOvr4P_TranslateCopiedWord(setupIndex, copy, i, source[i]);
+		scratch[scratchWordIndex] = DrawLevelOvr4P_TranslateCopiedWord(setupIndex, copy, scratchWordIndex, source[scratchWordIndex]);
 	}
 }
 
@@ -142,9 +142,9 @@ static void DrawLevelOvr4P_ApplyBucketSetup(u32 setupAddress, u32 handlerAddress
 
 	if (setup != NULL)
 	{
-		for (int i = 0; i < 2; i++)
+		for (s32 copyIndex = 0; copyIndex < 2; copyIndex++)
 		{
-			const struct DrawLevelOvrBucketSetupCopy *copy = &setup->copies[i];
+			const struct DrawLevelOvrBucketSetupCopy *copy = &setup->copies[copyIndex];
 
 			if (copy->lastWordIndex == 0)
 			{
@@ -162,9 +162,9 @@ static void DrawLevelOvr4P_CopyScratchInitTable(void)
 {
 	u32 *scratch = CTR_SCRATCHPAD_PTR(u32, DRAW_LEVEL_OVR1P_SCRATCH_INIT_TABLE_OFFSET);
 
-	for (int i = 0; i < OVR229_SCRATCH_INIT_WORD_COUNT; i++)
+	for (s32 scratchWordIndex = 0; scratchWordIndex < OVR229_SCRATCH_INIT_WORD_COUNT; scratchWordIndex++)
 	{
-		scratch[i] = R229.scratchInitTable[i];
+		scratch[scratchWordIndex] = R229.scratchInitTable[scratchWordIndex];
 	}
 }
 
@@ -172,9 +172,9 @@ static void DrawLevelOvr4P_CopyClipRecordJumpTable(void)
 {
 	u32 *clipRecordJumpTable = CTR_SCRATCHPAD_PTR(u32, DRAW_LEVEL_OVR1P_GT3_CLIP_RECORD_JUMP_TABLE_OFFSET);
 
-	for (int i = 0; i < OVR229_CLIP_RECORD_JUMP_WORD_COUNT; i++)
+	for (s32 jumpWordIndex = 0; jumpWordIndex < OVR229_CLIP_RECORD_JUMP_WORD_COUNT; jumpWordIndex++)
 	{
-		clipRecordJumpTable[i] = DrawLevelOvr4P_TranslateClipRecordLabel(R229.clipRecordJumpTable[i]);
+		clipRecordJumpTable[jumpWordIndex] = DrawLevelOvr4P_TranslateClipRecordLabel(R229.clipRecordJumpTable[jumpWordIndex]);
 	}
 }
 
