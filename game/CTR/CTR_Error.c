@@ -1,7 +1,7 @@
 #include <common.h>
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80021c94-0x80021da0.
-void CTR_ErrorScreen(char r, char g, char b)
+void CTR_ErrorScreen(u8 r, u8 g, u8 b)
 {
 	TILE p;
 	int i;

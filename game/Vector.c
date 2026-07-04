@@ -153,8 +153,8 @@ static s16 Vector_BakeMatrixTable_Div4TowardZero(s32 value)
 
 static void Vector_BakeMatrixTable_PrepareBlastedFrames(void)
 {
-	struct MatrixND *entries = data.bakedGteMath[6].physEntry;
-	int count = data.bakedGteMath[6].numEntries;
+	struct MatrixND *entries = data.bakedGteMath[BAKED_GTE_MATRIX_BLASTED].physEntry;
+	int count = data.bakedGteMath[BAKED_GTE_MATRIX_BLASTED].numEntries;
 
 	if ((entries == NULL) || (count <= 0))
 	{
@@ -180,7 +180,7 @@ static void Vector_BakeMatrixTable_BakeRotScaleEntries(void)
 	MATRIX rot;
 	MATRIX scale = {0};
 
-	for (int i = 0; i < 0x14; i++)
+	for (int i = 0; i < BAKED_GTE_MATRIX_COUNT; i++)
 	{
 		struct MatrixND *entries = data.bakedGteMath[i].physEntry;
 		int count = data.bakedGteMath[i].numEntries;
@@ -210,8 +210,8 @@ static void Vector_BakeMatrixTable_BakeRotScaleEntries(void)
 
 static void Vector_BakeMatrixTable_BakeBlastedOffsets(void)
 {
-	struct MatrixND *entries = data.bakedGteMath[6].physEntry;
-	int count = data.bakedGteMath[6].numEntries;
+	struct MatrixND *entries = data.bakedGteMath[BAKED_GTE_MATRIX_BLASTED].physEntry;
+	int count = data.bakedGteMath[BAKED_GTE_MATRIX_BLASTED].numEntries;
 
 	if ((entries == NULL) || (count <= 0))
 	{

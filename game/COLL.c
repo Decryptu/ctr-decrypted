@@ -2572,7 +2572,7 @@ u32 COLL_MOVED_ScrubImpact(struct Driver *d, struct Thread *t, struct Scratchpad
 
 		if (!((d->wallRubTimer == 0) ? (0x3e7ff < scrubSpeed) : (d->wallRubSpeedLimit < scrubSpeed)))
 		{
-			d->wallRubTimer = 0xf0;
+			d->wallRubTimer = DRIVER_WALL_RUB_TIMER_START;
 			d->wallRubSpeedLimit = scrubSpeed;
 			d->posWallColl = sps->hit.hitPos;
 		}
@@ -2669,7 +2669,7 @@ u32 COLL_MOVED_ScrubImpact(struct Driver *d, struct Thread *t, struct Scratchpad
 
 					d->instSelf->animIndex = 2;
 					d->instSelf->animFrame = 0;
-					d->matrixArray = 4;
+					d->matrixArray = BAKED_GTE_MATRIX_CRASH_FALL;
 					d->matrixIndex = 0;
 
 					VehPhysProc_SlamWall_Init(t, d);
