@@ -32,7 +32,6 @@ enum UIRaceFlowConstants
 	UI_RACE_END_ATTACK_RATIO_SHIFT = 0xc,
 	UI_RACE_END_ATTACK_RATIO_INVALID = -1,
 	UI_RACE_END_FIRST_PLACE_RANK = 0,
-	UI_RACE_END_MULTIPLAYER_DRAW_STYLE = 0x100,
 	UI_RACE_END_MIN_SPLITSCREEN_MENU_PLAYERS = 3,
 	UI_RACE_END_INITIAL_ICON_COUNT = 1,
 	UI_RACE_END_SAVE_GHOST_FRAME = 0x3f9,
@@ -67,7 +66,7 @@ void UI_RaceEnd_GetDriverClock(struct Driver *driver)
 		}
 
 		// if missiles launched is less than 4
-		if ((u8)driver->numTimesMissileLaunched < UI_RACE_END_MIN_MISSILES_FOR_RATIO)
+		if (driver->numTimesMissileLaunched < UI_RACE_END_MIN_MISSILES_FOR_RATIO)
 		{
 			driver->NumMissilesComparedToNumAttacks = UI_RACE_END_ATTACK_RATIO_INVALID;
 		}
@@ -79,7 +78,7 @@ void UI_RaceEnd_GetDriverClock(struct Driver *driver)
 			missilesLaunched = driver->numTimesMissileLaunched;
 
 			// compare number of missiles to number of attacks
-			driver->NumMissilesComparedToNumAttacks = (int)(((u8)driver->numTimesAttacking << UI_RACE_END_ATTACK_RATIO_SHIFT) / missilesLaunched);
+			driver->NumMissilesComparedToNumAttacks = (int)((driver->numTimesAttacking << UI_RACE_END_ATTACK_RATIO_SHIFT) / missilesLaunched);
 		}
 
 		attacksReceived = 0;
@@ -87,7 +86,7 @@ void UI_RaceEnd_GetDriverClock(struct Driver *driver)
 		// count number of times you were attacked in race
 		for (int i = 0; i < UI_RACE_END_DRIVER_COUNT; i++)
 		{
-			attacksReceived += (u8)driver->numTimesAttackedByPlayer[i];
+			attacksReceived += driver->numTimesAttackedByPlayer[i];
 		}
 
 		driver->numTimesAttacked = attacksReceived;
@@ -349,12 +348,12 @@ void UI_RaceEnd_MenuProc(struct RectMenu *menu)
 
 	if (menu->funcState != RECTMENU_FUNC_STATE_INPUT)
 	{
-		menu->drawStyle &= ~UI_RACE_END_MULTIPLAYER_DRAW_STYLE;
+		menu->drawStyle &= ~RECTMENU_DRAW_STYLE_3P4P_LAYOUT;
 
 		// if more than 2 screens
 		if (UI_RACE_END_MIN_SPLITSCREEN_MENU_PLAYERS <= gGT->numPlyrCurrGame)
 		{
-			menu->drawStyle |= UI_RACE_END_MULTIPLAYER_DRAW_STYLE;
+			menu->drawStyle |= RECTMENU_DRAW_STYLE_3P4P_LAYOUT;
 		}
 
 		return;
@@ -409,7 +408,7 @@ void UI_RaceEnd_MenuProc(struct RectMenu *menu)
 		// Turn off HUD
 		gGT->hudFlags &= HUD_FLAG_CLEAR_RACE_HUD_MASK;
 
-		if (RaceFlag_IsFullyOffScreen() == 1)
+		if (RaceFlag_IsFullyOffScreen())
 		{
 			RaceFlag_BeginTransition(1);
 		}

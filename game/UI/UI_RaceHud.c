@@ -442,7 +442,7 @@ UpdateTrackerState:
 		sideOuterX = trackerDistance + (x >> 8);
 		sideHalfHeight = (s16)((y * UI_TRACKER_SIDE_HEIGHT_SCALE) >> UI_TRACKER_SIDE_HEIGHT_SHIFT);
 
-		for (char side = 0; side < UI_TRACKER_SIDE_COUNT; side++)
+		for (int side = 0; side < UI_TRACKER_SIDE_COUNT; side++)
 		{
 			// if left side or right side
 			orientation = UI_TRACKER_RIGHT_ORIENTATION;
@@ -623,7 +623,7 @@ void UI_DrawLapCount(s16 posX, int posY, int unusedScale, struct Driver *d)
 	{
 		str = &sdata->s_printDividing[0];
 		str[0] = currLap + '0';
-		str[2] = numLaps + '0';
+		str[2] = (u8)numLaps + '0';
 
 		type = FONT_SMALL;
 		flags = PERIWINKLE;

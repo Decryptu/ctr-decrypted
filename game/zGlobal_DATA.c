@@ -4211,11 +4211,11 @@ struct Data
 
             .menuRacingWheelConfig =
                 {
-                    .stringIndexTitle = 0xFFFF,
+                    .stringIndexTitle = RECTMENU_STRING_NONE,
                     .posX_curr = 0x100,
                     .posY_curr = 0x6c,
                     .unk1 = 0,
-                    .state = 0x88A3,
+                    .state = ALL_PLAYERS_USE_MENU | RECTMENU_STATE_SMALL_CALLBACK_CENTERED,
                     .rows = 0,
                     .funcPtr = MainFreeze_MenuPtrOptions,
                     .drawStyle = 4,
@@ -4236,7 +4236,7 @@ struct Data
                     .posX_curr = 0x100,
                     .posY_curr = 0x6c,
                     .unk1 = 0,
-                    .state = 0x8C83,
+                    .state = ALL_PLAYERS_USE_MENU | RECTMENU_STATE_SMALL_EXEC_CENTERED,
                     .rows = &data.rowsQuit[0],
                     .funcPtr = MainFreeze_MenuPtrQuit,
                     .drawStyle = 4,
@@ -4364,11 +4364,11 @@ struct Data
 
             .menuAdvHub =
                 {
-                    .stringIndexTitle = 0xFFFF,
+                    .stringIndexTitle = RECTMENU_STRING_NONE,
                     .posX_curr = 0x100,
                     .posY_curr = 0xAF,
                     .unk1 = 0,
-                    .state = 0x8C83,
+                    .state = ALL_PLAYERS_USE_MENU | RECTMENU_STATE_SMALL_EXEC_CENTERED,
                     .rows = &data.rowsAdvHub[0],
                     .funcPtr = MainFreeze_MenuPtrDefault,
                     .drawStyle = 4,
@@ -4389,7 +4389,7 @@ struct Data
                     .posX_curr = 0x100,
                     .posY_curr = 0x6c,
                     .unk1 = 0,
-                    .state = 0xc883,
+                    .state = ALL_PLAYERS_USE_MENU | RECTMENU_STATE_SMALL_CENTERED | BIG_TEXT_IN_TITLE,
                     .rows = &data.rowsAdvRace[0],
                     .funcPtr = MainFreeze_MenuPtrDefault,
                     .drawStyle = 4,
@@ -4409,7 +4409,7 @@ struct Data
                     .posX_curr = 0x100,
                     .posY_curr = 0x6c,
                     .unk1 = 0,
-                    .state = 0xc883,
+                    .state = ALL_PLAYERS_USE_MENU | RECTMENU_STATE_SMALL_CENTERED | BIG_TEXT_IN_TITLE,
                     .rows = &data.rowsAdvCup[0],
                     .funcPtr = MainFreeze_MenuPtrDefault,
                     .drawStyle = 6,
@@ -4433,7 +4433,7 @@ struct Data
                     .posX_curr = 0x100,
                     .posY_curr = 0x6c,
                     .unk1 = 0,
-                    .state = 0xcc83,
+                    .state = ALL_PLAYERS_USE_MENU | RECTMENU_STATE_SMALL_EXEC_CENTERED | BIG_TEXT_IN_TITLE,
                     .rows = &data.rowsBattle[0],
                     .funcPtr = MainFreeze_MenuPtrDefault,
                     .drawStyle = 4,
@@ -4453,7 +4453,7 @@ struct Data
                     .posX_curr = 0x100,
                     .posY_curr = 0x6c,
                     .unk1 = 0,
-                    .state = 0xcc83,
+                    .state = ALL_PLAYERS_USE_MENU | RECTMENU_STATE_SMALL_EXEC_CENTERED | BIG_TEXT_IN_TITLE,
                     .rows = &data.rowsArcadeCup[0],
                     .funcPtr = MainFreeze_MenuPtrDefault,
                     .drawStyle = 4,
@@ -4476,7 +4476,7 @@ struct Data
                     .posX_curr = 0x100,
                     .posY_curr = 0x6c,
                     .unk1 = 0,
-                    .state = 0xcc83,
+                    .state = ALL_PLAYERS_USE_MENU | RECTMENU_STATE_SMALL_EXEC_CENTERED | BIG_TEXT_IN_TITLE,
                     .rows = &data.rowsArcadeRace[0],
                     .funcPtr = MainFreeze_MenuPtrDefault,
                     .drawStyle = 4,
@@ -4785,14 +4785,14 @@ struct Data
                     .posX_curr = 0x100,
                     .posY_curr = 0x96,
                     .unk1 = 0,
-                    .state = 0xC81,
+                    .state = RECTMENU_STATE_SMALL_EXEC_CENTER_X,
                     .rows = &data.rowsSaveGame[0],
                     .funcPtr = TakeCupProgress_MenuProc,
                     .drawStyle = 4,
                 },
 
-            .menuQueueLoadTrack = {.stringIndexTitle = 0xFFFF,
-                                   .state = 0x20, // no input, just funcPtr
+            .menuQueueLoadTrack = {.stringIndexTitle = RECTMENU_STRING_NONE,
+                                   .state = DISABLE_INPUT_ALLOW_FUNCPTRS, // no input, just funcPtr
                                    .funcPtr = QueueLoadTrack_MenuProc},
 
             .matrixTitleFlag = {.m =
@@ -4836,48 +4836,48 @@ struct Data
 
             .menuGreenLoadSave =
                 {
-                    .stringIndexTitle = -1,
+                    .stringIndexTitle = RECTMENU_STRING_NONE,
                     .posX_curr = 0x100,
                     .posY_curr = 0x7A,
                     .unk1 = 0,
-                    .state = 0xC81,
+                    .state = RECTMENU_STATE_SMALL_EXEC_CENTER_X,
                     .rows = &data.rowsGreenLoadSave[0],
                     .funcPtr = SelectProfile_AdvPickMode_MenuProc,
-                    .drawStyle = 0x10, // GREEN
+                    .drawStyle = SELECT_PROFILE_DRAW_STYLE_GREEN,
                 },
 
             .menuFourAdvProfiles =
                 {
-                    .stringIndexTitle = -1,
-                    .state = 0x2820,
+                    .stringIndexTitle = RECTMENU_STRING_NONE,
+                    .state = RECTMENU_STATE_INVISIBLE_CALLBACK,
                     .funcPtr = SelectProfile_AllProfiles_MenuProc,
                 },
 
             .menuGhostSelection =
                 {
-                    .stringIndexTitle = -1,
-                    .state = 0x2820,
+                    .stringIndexTitle = RECTMENU_STRING_NONE,
+                    .state = RECTMENU_STATE_INVISIBLE_CALLBACK,
                     .funcPtr = SelectProfile_AllProfiles_MenuProc,
                 },
 
             .menuWarning2 =
                 {
-                    .stringIndexTitle = -1,
-                    .state = 0x2820,
+                    .stringIndexTitle = RECTMENU_STRING_NONE,
+                    .state = RECTMENU_STATE_INVISIBLE_CALLBACK,
                     .funcPtr = SelectProfile_AllProfiles_MenuProc,
                 },
 
             .menuSubmitName =
                 {
-                    .stringIndexTitle = -1,
-                    .state = 0x820,
+                    .stringIndexTitle = RECTMENU_STRING_NONE,
+                    .state = RECTMENU_STATE_CALLBACK,
                     .funcPtr = SubmitName_MenuProc,
                 },
 
             .menuQueueLoadHub =
                 {
-                    .stringIndexTitle = -1,
-                    .state = 0x20,
+                    .stringIndexTitle = RECTMENU_STRING_NONE,
+                    .state = DISABLE_INPUT_ALLOW_FUNCPTRS,
                     .funcPtr = SelectProfile_QueueLoadHub_MenuProc,
                 },
 
@@ -4918,10 +4918,10 @@ struct Data
                     .posX_curr = 0x100,
                     .posY_curr = 0x86,
                     .unk1 = 0,
-                    .state = 0x8A1,
+                    .state = RECTMENU_STATE_SMALL_CALLBACK_CENTER_X,
                     .rows = &data.rowsOverwrite[0],
                     .funcPtr = 0,
-                    .drawStyle = 0x10, // GREEN
+                    .drawStyle = SELECT_PROFILE_DRAW_STYLE_GREEN,
                 },
 
             .menuOverwriteGhost =
@@ -4930,7 +4930,7 @@ struct Data
                     .posX_curr = 0x100,
                     .posY_curr = 0x82,
                     .unk1 = 0,
-                    .state = 0x8A1,
+                    .state = RECTMENU_STATE_SMALL_CALLBACK_CENTER_X,
                     .rows = &data.rowsOverwrite[0],
                     .funcPtr = 0,
                     .drawStyle = 0, // NORMAL
@@ -5054,11 +5054,11 @@ struct Data
 
             .menuRetryExit =
                 {
-                    .stringIndexTitle = -1,
+                    .stringIndexTitle = RECTMENU_STRING_NONE,
                     .posX_curr = 0x100,
                     .posY_curr = 0xB4,
                     .unk1 = 0,
-                    .state = 0x803,
+                    .state = RECTMENU_STATE_CENTERED,
                     .rows = &data.rowsRetryExit[0],
                     .funcPtr = UI_RaceEnd_MenuProc,
                     .drawStyle = 4,

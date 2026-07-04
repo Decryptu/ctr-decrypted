@@ -84,7 +84,7 @@ void RR_EndEvent_UnlockAward(void)
 		s32 rewardBit = ADV_REWARD_FIRST_SAPPHIRE_RELIC + ADV_REWARD_RELIC_TIER_STRIDE * relicIndex + levelID;
 
 		// if relic already unlocked, check next relic
-		if (CHECK_ADV_BIT(adv->rewards, rewardBit) != 0)
+		if (CHECK_ADV_BIT(adv->rewards, rewardBit))
 		{
 			continue;
 		}

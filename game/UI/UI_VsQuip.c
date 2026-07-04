@@ -227,7 +227,7 @@ void UI_VsQuipAssignAll(void)
 
 		if ((meta.flags & 1) != 0)
 		{
-			int numLaps = (s8)gGT->numLaps;
+			int numLaps = gGT->numLaps;
 
 			if (numLaps < 0)
 			{
@@ -295,7 +295,7 @@ void UI_VsQuipAssignAll(void)
 			{
 				for (int i = 0; i < 8; i++)
 				{
-					u32 value = (u8)driver->numTimesAttackedByPlayer[i];
+					u32 value = driver->numTimesAttackedByPlayer[i];
 					int delta = value - bestValue;
 
 					if (threshold < delta)
@@ -383,7 +383,7 @@ void UI_VsQuipAssignAll(void)
 			{
 				u32 value = UI_VsQuipReadDriver(driver, meta.driverOffset, meta.dataSize);
 
-				if (value == (u8)driver->numTimesAttacking)
+				if (value == driver->numTimesAttacking)
 				{
 					nextSelectedDriver = driver;
 				}
@@ -547,7 +547,7 @@ void UI_VsWaitForPressX(void)
 	RECT clearRect;
 
 	struct GameTracker *gGT = sdata->gGT;
-	char numPlayers = gGT->numPlyrCurrGame;
+	u8 numPlayers = gGT->numPlyrCurrGame;
 
 	int readyCount = 0;
 
@@ -613,13 +613,13 @@ void UI_VsWaitForPressX(void)
 					u8 numAttacked;
 					if ((*pressState & UI_VS_WAIT_STAT_MODE_HIT_YOU) == 0)
 					{
-						numAttacked = (u8)driver->numTimesAttackingPlayer[statPlayerIndex];
+						numAttacked = driver->numTimesAttackingPlayer[statPlayerIndex];
 					}
 
 					// HIT YOU
 					else
 					{
-						numAttacked = (u8)driver->numTimesAttackedByPlayer[statPlayerIndex];
+						numAttacked = driver->numTimesAttackedByPlayer[statPlayerIndex];
 					}
 
 					sprintf(statText, "p%d:%2.02d",

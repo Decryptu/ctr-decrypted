@@ -119,7 +119,7 @@ void AA_EndEvent_DrawMenu(void)
 			b32 shouldDrawToken = false;
 			b32 shouldScaleLetters = false;
 			s32 tokenAwardTextFrame = -1;
-			if (CHECK_ADV_BIT(adv->rewards, rewardBit) == 0)
+			if (!CHECK_ADV_BIT(adv->rewards, rewardBit))
 			{
 				letterScaleOffset = hudC->scale.x;
 				letterScaleOffset -= (letterScaleOffset < AA_CTR_LETTER_BASE_SCALE) ? AA_CTR_LETTER_SCALE_BIAS_LOW : AA_CTR_LETTER_BASE_SCALE;
@@ -468,7 +468,7 @@ void AA_EndEvent_DrawMenu(void)
 		if (gGT->bossID < AA_KEY_BOSS_COUNT)
 		{
 			// only if first time beating boss
-			if (CHECK_ADV_BIT(adv->rewards, rewardBit) == 0)
+			if (!CHECK_ADV_BIT(adv->rewards, rewardBit))
 			{
 				// Go to Podium after returning to Adventure Hub
 				gGT->podiumRewardID = STATIC_KEY; // key
@@ -515,7 +515,7 @@ void AA_EndEvent_DrawMenu(void)
 	// if trophy is not won,
 	// Dingo Bingo needs to win trophy and token in the same race
 	rewardBit = gGT->levelID + ADV_REWARD_FIRST_TROPHY;
-	if (CHECK_ADV_BIT(adv->rewards, rewardBit) == 0)
+	if (!CHECK_ADV_BIT(adv->rewards, rewardBit))
 	{
 		// unlock tropy
 		UNLOCK_ADV_BIT(adv->rewards, rewardBit);
@@ -744,7 +744,7 @@ struct RectMenu menu222 = {
     .posX_curr = 256,
     .posY_curr = 170,
     .unk1 = 0,
-    .state = RECTMENU_UNKNOWN_0x800 | USE_SMALL_FONT | CENTER_ON_COORDS,
+    .state = RECTMENU_STATE_SMALL_CENTERED,
     .rows = rows222,
     .funcPtr = UI_RaceEnd_MenuProc,
     .drawStyle = 4,
@@ -756,7 +756,7 @@ struct RectMenu menu222_2P = {
     .posX_curr = 256,
     .posY_curr = 108,
     .unk1 = 0,
-    .state = RECTMENU_UNKNOWN_0x800 | USE_SMALL_FONT | CENTER_ON_COORDS,
+    .state = RECTMENU_STATE_SMALL_CENTERED,
     .rows = rows222,
     .funcPtr = UI_RaceEnd_MenuProc,
     .drawStyle = 4,

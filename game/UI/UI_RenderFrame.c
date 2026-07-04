@@ -223,7 +223,7 @@ void UI_RenderFrame_Racing()
 						// deduct from number of queued items to pick up
 						playerStruct->PickupWumpaHUD.numCollected--;
 
-						if ((LOAD_IsOpen_RacingOrBattle() != 0) &&
+						if (LOAD_IsOpen_RacingOrBattle() &&
 
 						    // If you're not in Adventure Arena
 						    ((gameMode1 & ADVENTURE_ARENA) == 0))
@@ -525,14 +525,14 @@ void UI_RenderFrame_Racing()
 				UI_BattleDrawHeadArrows(playerStruct);
 			}
 
-			if ((playerStruct->numWumpas >= 10) && ((playerStruct->actionsFlagSet & ACTION_RACE_FINISHED) == 0))
+			if ((playerStruct->numWumpas >= DRIVER_WUMPA_JUICED_COUNT) && ((playerStruct->actionsFlagSet & ACTION_RACE_FINISHED) == 0))
 			{
 				// draw shining background behind wumpa fruit
 				UI_Weapon_DrawBG(hudStructPtr[UI_HUD_SLOT_RACING_WEAPON_BG].x, hudStructPtr[UI_HUD_SLOT_RACING_WEAPON_BG].y,
 				                 hudStructPtr[UI_HUD_SLOT_RACING_WEAPON_BG].scale, playerStruct);
 
 				// If your weapon is not "no weapon"
-				if (playerStruct->heldItemID != 0xF)
+				if (playerStruct->heldItemID != HELD_ITEM_NONE)
 				{
 					// draw shining background behind weapon
 					UI_Weapon_DrawBG(hudStructPtr[UI_HUD_SLOT_BATTLE_WEAPON_BG].x, hudStructPtr[UI_HUD_SLOT_BATTLE_WEAPON_BG].y,
@@ -1166,7 +1166,7 @@ void UI_RenderFrame_Wumpa3D_2P3P4P(struct GameTracker *gGT)
 		u16 tpage = (u16)getTPage(TEXPAGE_COLOR_15BIT, TRANS_50, (u32)viewport->x, (u32)viewport->y);
 		prim->tpage = tpage;
 
-		if (driver->numWumpas >= 10)
+		if (driver->numWumpas >= DRIVER_WUMPA_JUICED_COUNT)
 		{
 			u8 shineColor = sdata->wumpaShineColor1[0][0];
 			prim->r0 = shineColor;

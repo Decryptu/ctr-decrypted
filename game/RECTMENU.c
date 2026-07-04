@@ -517,7 +517,7 @@ void RECTMENU_DrawSelf(struct RectMenu *menu, int posX, s16 posY, s16 menuWidth)
 		uVar8 = 0x1d;
 	}
 	offsetY = posY;
-	if ((menu->state & 0x60000) == 0x60000)
+	if ((menu->state & RECTMENU_DRAW_CALLBACK_FLAGS) == RECTMENU_DRAW_CALLBACK_FLAGS)
 	{
 		menu->funcState = RECTMENU_FUNC_STATE_DRAW;
 		if (menu->funcPtr != NULL)
@@ -553,7 +553,7 @@ LAB_80045e94:
 	state = menu->state;
 
 	menu->width = menuWidth;
-	menu->state &= 0xfffffff7;
+	menu->state &= ~RECTMENU_CLOSE_TRANSIENT;
 	menu->height = local_60;
 
 	if ((state & CENTER_ON_Y) != 0)
@@ -771,8 +771,8 @@ int RECTMENU_ProcessInput(struct RectMenu *m)
 	    // therefore this is the bottom of hierarchy
 	    ((m->state & ONLY_DRAW_TITLE) == 0) &&
 
-	    // must be both 0x20000 and 0x40000
-	    ((m->state & 0x60000) != 0x60000) &&
+	    // draw callbacks suppress normal input
+	    ((m->state & RECTMENU_DRAW_CALLBACK_FLAGS) != RECTMENU_DRAW_CALLBACK_FLAGS) &&
 
 	    // D-pad or menu confirm/back buttons
 	    ((button & RECTMENU_INPUT_MENU) != 0) &&
@@ -1013,7 +1013,7 @@ void RECTMENU_Hide(struct RectMenu *m)
 
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800469dc-0x800469f0.
-int RECTMENU_BoolHidden(struct RectMenu *m)
+b32 RECTMENU_BoolHidden(struct RectMenu *m)
 {
 	return ((m->state & NEEDS_TO_CLOSE) != 0);
 }

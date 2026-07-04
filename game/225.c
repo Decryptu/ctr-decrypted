@@ -63,7 +63,6 @@ enum VersusBattleEndMenuConstants
 	VB_LOSER_RECT_STEP_H = 6,
 
 	VB_MENU_READY_SHOW_MENU = 1,
-	VB_RECTMENU_STATE = RECTMENU_UNKNOWN_0x800 | EXECUTE_FUNCPTR | USE_SMALL_FONT | CENTER_ON_COORDS,
 };
 
 // 2P, 3P, 4P
@@ -352,7 +351,7 @@ global_variable struct RectMenu menuVS = {
     .posX_curr = 143,
     .posY_curr = 162,
     .unk1 = 0,
-    .state = VB_RECTMENU_STATE,
+    .state = RECTMENU_STATE_SMALL_EXEC_CENTERED,
     .rows = rowsVS,
     .funcPtr = UI_RaceEnd_MenuProc,
     .drawStyle = 4,
@@ -414,7 +413,7 @@ global_variable struct RectMenu menuBattle = {
     .posX_curr = 143,
     .posY_curr = 166,
     .unk1 = 0,
-    .state = VB_RECTMENU_STATE,
+    .state = RECTMENU_STATE_SMALL_EXEC_CENTERED,
     .rows = rowsBattle,
     .funcPtr = UI_RaceEnd_MenuProc,
     .drawStyle = 4,

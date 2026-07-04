@@ -49,7 +49,7 @@ void TT_EndEvent_DrawMenu(void)
 	sdata->flags_timeTrialEndOfRace |= TT_CLOCK_DISPLAY_FLAG;
 
 	// If you just beat N Tropy && N Tropy was beaten on all tracks
-	if (((gameModeEnd & NTROPY_JUST_BEAT) != 0) && ((GAMEPROG_CheckGhostsBeaten(1) & 0xffff) != 0))
+	if (((gameModeEnd & NTROPY_JUST_BEAT) != 0) && GAMEPROG_CheckGhostsBeaten(1))
 	{
 		sdata->gameProgress.unlockFlags |= UNLOCK_TROPY;
 	}
@@ -528,7 +528,7 @@ struct RectMenu menu224 = {
 
     .unk1 = 0,
 
-    .state = RECTMENU_UNKNOWN_0x800 | EXECUTE_FUNCPTR | USE_SMALL_FONT | CENTER_ON_COORDS,
+    .state = RECTMENU_STATE_SMALL_EXEC_CENTERED,
     .rows = rowsWithSave,
     .funcPtr = UI_RaceEnd_MenuProc,
     .drawStyle = 4,
@@ -543,7 +543,7 @@ struct RectMenu menu224NoSave = {
 
     .unk1 = 0,
 
-    .state = RECTMENU_UNKNOWN_0x800 | EXECUTE_FUNCPTR | USE_SMALL_FONT | CENTER_ON_COORDS,
+    .state = RECTMENU_STATE_SMALL_EXEC_CENTERED,
     .rows = rowsNoSave,
     .funcPtr = UI_RaceEnd_MenuProc,
     .drawStyle = 4,

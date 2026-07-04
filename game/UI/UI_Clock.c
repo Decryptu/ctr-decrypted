@@ -255,7 +255,7 @@ void UI_DrawRaceClock(u16 labelPosX, u16 labelPosY, u32 flags, struct Driver *dr
 		unbitshiftTextPosX = bitshiftTextPosX >> 0x10;
 		do
 		{
-			if ((numLaps <= (int)lapIndex) && (numLaps < (char)gGT->numLaps))
+			if ((numLaps <= (int)lapIndex) && (numLaps < gGT->numLaps))
 			{
 				UI_SaveLapTime(lapIndex, gGT->elapsedEventTime - driver->lapTime, (u32)driver->driverID);
 
@@ -319,7 +319,7 @@ void UI_DrawRaceClock(u16 labelPosX, u16 labelPosY, u32 flags, struct Driver *dr
 					lapFontType = FONT_BIG;
 
 					// if number of laps is more than 3
-					if ('\x03' < (char)gGT->numLaps)
+					if ('\x03' < gGT->numLaps)
 					{
 						// draw small text for time in each lap
 						lapFontType = FONT_SMALL;
@@ -333,15 +333,15 @@ void UI_DrawRaceClock(u16 labelPosX, u16 labelPosY, u32 flags, struct Driver *dr
 
 					// draw string
 					DecalFont_DrawLine(lapNumberString, unbitshiftTextPosX,
-					                   (int)(((u32)textPosY - ((char)gGT->numLaps - numLaps) * (int)*lapTextHeight) * 0x10000) >> 0x10, lapFontType,
+					                   (int)(((u32)textPosY - (gGT->numLaps - numLaps) * (int)*lapTextHeight) * 0x10000) >> 0x10, lapFontType,
 					                   (JUSTIFY_RIGHT | RED));
 
 					DecalFont_DrawLine(sdata->lngStrings[LNG_LAP], (int)(((u32)textPosX - (u32)data.font_charPixWidth[lapFontType])),
-					                   (int)(((u32)textPosY - ((char)gGT->numLaps - numLaps) * (int)*lapTextHeight) * 0x10000) >> 0x10, lapFontType,
+					                   (int)(((u32)textPosY - (gGT->numLaps - numLaps) * (int)*lapTextHeight) * 0x10000) >> 0x10, lapFontType,
 					                   (JUSTIFY_RIGHT | RED));
 
 					stringColor = (int)(s16)lapOrRelicColor;
-					iVar7 = (int)(((u32)textPosY - ((char)gGT->numLaps - numLaps) * (int)*lapTextHeight) * 0x10000) >> 0x10;
+					iVar7 = (int)(((u32)textPosY - (gGT->numLaps - numLaps) * (int)*lapTextHeight) * 0x10000) >> 0x10;
 					iVar5 = unbitshiftTextPosX;
 				}
 
@@ -370,8 +370,7 @@ void UI_DrawRaceClock(u16 labelPosX, u16 labelPosY, u32 flags, struct Driver *dr
 	if ((gGT->gameModeEnd & NEW_RELIC) == 0)
 	{
 		// if you have gold or platinum, draw platinum
-		if ((CHECK_ADV_BIT(rewardsSet, gGT->levelID + ADV_REWARD_FIRST_PLATINUM_RELIC) != 0) ||
-		    (CHECK_ADV_BIT(rewardsSet, gGT->levelID + ADV_REWARD_FIRST_GOLD_RELIC) != 0))
+		if (CHECK_ADV_BIT(rewardsSet, gGT->levelID + ADV_REWARD_FIRST_PLATINUM_RELIC) || CHECK_ADV_BIT(rewardsSet, gGT->levelID + ADV_REWARD_FIRST_GOLD_RELIC))
 		{
 		DrawPlatinum:
 			lngIndex = LNG_PLATINUM;
@@ -390,7 +389,7 @@ void UI_DrawRaceClock(u16 labelPosX, u16 labelPosY, u32 flags, struct Driver *dr
 	else
 	{
 		// if owned plat, draw plat
-		if (CHECK_ADV_BIT(rewardsSet, gGT->levelID + ADV_REWARD_FIRST_PLATINUM_RELIC) != 0)
+		if (CHECK_ADV_BIT(rewardsSet, gGT->levelID + ADV_REWARD_FIRST_PLATINUM_RELIC))
 		{
 			goto DrawPlatinum;
 		}
@@ -474,7 +473,7 @@ void UI_DrawLimitClock(s16 posX, s16 posY, s16 fontType)
 			// when would that ever be false
 
 			// end race for all players
-			for (int i = 0; i < (u8)gGT->numPlyrCurrGame; i++)
+			for (int i = 0; i < gGT->numPlyrCurrGame; i++)
 			{
 				// pointer of each player (P1, P2, P3, P4)
 				struct Driver *d = gGT->drivers[i];

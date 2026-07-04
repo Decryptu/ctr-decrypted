@@ -11,7 +11,6 @@ enum
 	UI_LAP_TIME_DECIMAL_BASE = 10,
 	UI_LAP_TIME_CENTISECOND_SCALE = 100,
 
-	UI_REWARD_WUMPA_SHINE_MIN = 10,
 	UI_REWARD_WUMPA_SHINE_CENTER = 0x80,
 	UI_REWARD_WUMPA_SHINE_SHIFT = 4,
 	UI_REWARD_PICKUP_ROT_SLOW = 0x40,
@@ -63,7 +62,7 @@ void UI_ThTick_CountPickup(struct Thread *bucket)
 
 	if ((gGT->numPlyrCurrGame == 1) && !isTimeCrate)
 	{
-		inst->alphaScale = (gGT->drivers[0]->numWumpas < UI_REWARD_WUMPA_SHINE_MIN)
+		inst->alphaScale = (gGT->drivers[0]->numWumpas < DRIVER_WUMPA_JUICED_COUNT)
 		                       ? 0
 		                       : ((s16)sdata->wumpaShineResult - UI_REWARD_WUMPA_SHINE_CENTER) << UI_REWARD_WUMPA_SHINE_SHIFT;
 	}
@@ -126,7 +125,7 @@ void UI_ThTick_CtrLetters(struct Thread *bucket)
 
 	Vector_SpecLightSpin2D(inst, &obj->rot, &obj->lightDir);
 
-	if (((sdata->gGT->gameMode1 & END_OF_RACE) != 0) && (RaceFlag_IsTransitioning() != 0))
+	if (((sdata->gGT->gameMode1 & END_OF_RACE) != 0) && RaceFlag_IsTransitioning())
 	{
 		inst->scale.x = 0;
 		inst->scale.y = 0;

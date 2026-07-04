@@ -78,7 +78,7 @@ void UI_CupStandings_FinalizeCupRanks(void)
 	gGT = sdata->gGT;
 	selectedRankSlot = -1;
 
-	numDrivers = (u8)gGT->numPlyrCurrGame + (u8)gGT->numBotsNextGame;
+	numDrivers = gGT->numPlyrCurrGame + gGT->numBotsNextGame;
 	if (numDrivers >= 5)
 	{
 		numDrivers = 4;
@@ -136,7 +136,7 @@ void UI_CupStandings_UpdateCupRanks(void)
 	gGT = sdata->gGT;
 	assignedMask = 0;
 
-	numDrivers = (u8)gGT->numPlyrCurrGame + (u8)gGT->numBotsNextGame;
+	numDrivers = gGT->numPlyrCurrGame + gGT->numBotsNextGame;
 	if (numDrivers == 0)
 	{
 		return;
@@ -660,7 +660,7 @@ void UI_CupStandings_InputAndDraw(void)
 						int bitIndex = ADV_REWARD_FIRST_GEM + i;
 						u32 *rewardsSet = sdata->advProgress.rewards;
 
-						if (CHECK_ADV_BIT(rewardsSet, bitIndex) == 0)
+						if (!CHECK_ADV_BIT(rewardsSet, bitIndex))
 						{
 							UNLOCK_ADV_BIT(rewardsSet, bitIndex);
 
@@ -712,7 +712,7 @@ void UI_CupStandings_InputAndDraw(void)
 						// if track was not unlocked "previously",
 						// this writes when TakeCupProgress is saved
 						int bitIndex = baseIndex + gGT->cup.cupID;
-						if (CHECK_ADV_BIT(rewardsSet, bitIndex) == 0)
+						if (!CHECK_ADV_BIT(rewardsSet, bitIndex))
 						{
 							// lets 233 know to prompt the Save Game box
 							gGT->gameMode2 |= CUP_NEW_WIN;
@@ -727,7 +727,7 @@ void UI_CupStandings_InputAndDraw(void)
 							{
 								// if any of four cups on this difficulty was not won
 								bitIndex = baseIndex + i;
-								if (CHECK_ADV_BIT(rewardsSet, bitIndex) == 0)
+								if (!CHECK_ADV_BIT(rewardsSet, bitIndex))
 								{
 									// you dont deserve to unlock a battle map
 									boolUnlockMap = false;

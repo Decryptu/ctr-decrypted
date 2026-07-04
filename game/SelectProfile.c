@@ -1353,11 +1353,9 @@ static void SelectProfile_FinalizeAdventure(struct RectMenu *menu)
 	{
 		if (*SelectProfile_AllProfiles_ExitToPrevious() != 0)
 		{
-			struct RectMenu *advMenu;
-
 			MM_JumpTo_Title_Returning();
-			advMenu = MM_AdvNewLoad_GetMenuPtr();
-			advMenu->state &= ~4;
+			struct RectMenu *advMenu = MM_AdvNewLoad_GetMenuPtr();
+			advMenu->state &= ~ONLY_DRAW_TITLE;
 			return;
 		}
 
