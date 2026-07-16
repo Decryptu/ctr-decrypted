@@ -839,7 +839,7 @@ DriverFunc PlayerEatenFuncTable[DRIVER_FUNC_COUNT] = {
     NULL,
     NULL,
     NULL,
-    VehPhysForce_TranslateMatrix,
+    NULL,
     VehStuckProc_PlantEaten_Animate,
     NULL,
 };
@@ -1224,7 +1224,7 @@ void VehStuckProc_RevEngine_Init(struct Thread *t, struct Driver *d)
 	d->KartStates.RevEngine.chargeState = REV_ENGINE_CHARGE_IDLE;
 	d->KartStates.RevEngine.lockoutFlags = 0;
 
-	d->KartStates.RevEngine.boostMeter = CTR_MipsAddLo(d->const_AccelSpeed_ClassStat, d->const_AccelSpeed_ClassStat / 3);
+	d->KartStates.RevEngine.boostMeter = CTR_MipsAddLo(d->const_AccelSpeed_ClassStat, d->const_SacredFireSpeed / 3);
 }
 
 DriverFunc PlayerRevEngineFuncTable[DRIVER_FUNC_COUNT] = {
