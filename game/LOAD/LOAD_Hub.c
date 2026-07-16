@@ -19,7 +19,7 @@ void LOAD_Hub_ReadFile(struct BigHeader *bigfile, int levID, int packID)
 	MEMPACK_SwapPacks(packID);
 	MEMPACK_ClearLowMem();
 
-	sdata->PatchMem_Size = LOAD_HUB_PATCH_MEM_ACTIVE;
+	sdata->load_inProgress = 1;
 	gGT->level2 = 0;
 	gGT->levID_in_each_mempack[packID] = levID;
 
@@ -176,13 +176,11 @@ void LOAD_Hub_Main(struct BigHeader *bigfilePtr)
 			u32 currLevelID = gGT->levelID - GEM_STONE_VALLEY;
 
 			// ctr hubs are 0-4
-			if (currLevelID >= LOAD_ADV_HUB_COUNT)
+			if (currLevelID < LOAD_ADV_HUB_COUNT)
 			{
-				return;
+				LOAD_Hub_ReadFile(bigfilePtr, LOAD_HUB_CONNECTED_LEV(currLevelID, nextLevelID - LOAD_HUB_TRIGGER_ID_BIAS),
+				                  LOAD_HUB_MEMPACK_PAIR_INDEX_SUM - gGT->activeMempackIndex);
 			}
-
-			LOAD_Hub_ReadFile(bigfilePtr, LOAD_HUB_CONNECTED_LEV(currLevelID, nextLevelID - LOAD_HUB_TRIGGER_ID_BIAS),
-			                  LOAD_HUB_MEMPACK_PAIR_INDEX_SUM - gGT->activeMempackIndex);
 		}
 	}
 }

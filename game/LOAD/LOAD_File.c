@@ -218,7 +218,7 @@ void LOAD_VramFileCallback(struct LoadQueueSlot *lqs)
 			LoadImage(&vh->rect, VRAMHEADER_GETPIXLES(vh));
 
 			// goto next
-			vramBuf = (int *)((u8 *)vh + size);
+			vramBuf = (int *)((u8 *)vh + (size & ~3));
 
 			size = vramBuf[0];
 			vh = (struct VramHeader *)&vramBuf[1];
@@ -312,7 +312,7 @@ void LOAD_ReadFileASyncCallback(u8 result, u8 *unk)
 #endif
 		{
 			// undo allocation, try again
-			MEMPACK_ReallocMem(0);
+			MEMPACK_PopState();
 		}
 
 		sdata->queueRetry = 1;
@@ -410,7 +410,7 @@ void *LOAD_ReadFile_ex(struct BigHeader *bigfile, u32 loadType, int subfileIndex
 		if (callback == NULL)
 		{
 			// Wait for all sectors to finish
-			readComplete = CdReadSync(0, (u8 *)0x0) < 1;
+			readComplete = CdReadSync(0, (u8 *)0x0) == 0;
 		}
 
 		// If either command failed, or sync read did not finish, retry.
@@ -439,7 +439,7 @@ void *LOAD_XnfFile(char *filename, void *ptrDestination, int *size)
 
 	if (CdSearchFile(&cdlFile, filename) == 0)
 	{
-		return 0;
+		return ptrDestination;
 	}
 
 	*size = cdlFile.size;
