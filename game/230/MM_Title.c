@@ -191,7 +191,7 @@ void MM_Title_MenuUpdate(void)
 			gGT->boolDemoMode = 1;
 
 			// set number of players to 1
-			gGT->numPlyrCurrGame = 1;
+			gGT->numPlyrNextGame = 1;
 
 			gGT->demoCountdownTimer = TITLE_DEMO_RACE_FRAMES;
 

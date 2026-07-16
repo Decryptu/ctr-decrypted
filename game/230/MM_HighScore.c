@@ -37,7 +37,8 @@ enum
 	MM_HIGHSCORE_GHOST_STAR_SCALE = 0x1000,
 	MM_HIGHSCORE_TITLE_META_INDEX = 0,
 	MM_HIGHSCORE_BEST_TRACK_META_INDEX = 1,
-	MM_HIGHSCORE_BEST_LAP_META_INDEX = 7,
+	MM_HIGHSCORE_BEST_LAP_LABEL_META_INDEX = 7,
+	MM_HIGHSCORE_BEST_LAP_ENTRY_META_INDEX = 8,
 	MM_HIGHSCORE_BEST_LAP_LABEL_X_OFFSET = 0x124,
 	MM_HIGHSCORE_BEST_LAP_LABEL_Y_OFFSET = 0x2b,
 	MM_HIGHSCORE_BEST_LAP_TEXT_X_OFFSET = 0x160,
@@ -95,6 +96,8 @@ void MM_HighScore_Draw(u16 trackIndex, u32 rowIndex, u32 posX, u32 posY)
 	struct Icon **iconPtrArray = ICONGROUP_GETICONS(gGT->iconGroup[MM_HIGHSCORE_ARROW_ICON_GROUP]);
 	const struct TransitionMeta *titleMeta = &D230.transitionMeta_HighScores[MM_HIGHSCORE_TITLE_META_INDEX];
 	const struct TransitionMeta *bestTrackMeta = &D230.transitionMeta_HighScores[MM_HIGHSCORE_BEST_TRACK_META_INDEX];
+	const struct TransitionMeta *bestLapLabelMeta = &D230.transitionMeta_HighScores[MM_HIGHSCORE_BEST_LAP_LABEL_META_INDEX];
+	const struct TransitionMeta *bestLapEntryMeta = &D230.transitionMeta_HighScores[MM_HIGHSCORE_BEST_LAP_ENTRY_META_INDEX];
 
 	// Draw arrow pointing Left
 	DecalHUD_Arrow2D(iconPtrArray[MM_HIGHSCORE_ARROW_ICON_ID], titleMeta->currX + (offsetX - lineWidth) + MM_HIGHSCORE_ARROW_LEFT_X_OFFSET,
@@ -149,29 +152,24 @@ void MM_HighScore_Draw(u16 trackIndex, u32 rowIndex, u32 posX, u32 posY)
 		gGT->levelID = prevLevelID;
 		GAMEPROG_GetPtrHighScoreTrack();
 
-		MM_HighScore_Text3D(sdata->lngStrings[LNG_BEST_LAP_TIME],
-		                    D230.transitionMeta_HighScores[MM_HIGHSCORE_BEST_LAP_META_INDEX].currX + offsetX + MM_HIGHSCORE_BEST_LAP_LABEL_X_OFFSET,
-		                    D230.transitionMeta_HighScores[MM_HIGHSCORE_BEST_LAP_META_INDEX].currY + offsetY + MM_HIGHSCORE_BEST_LAP_LABEL_Y_OFFSET, FONT_SMALL,
-		                    0);
+		MM_HighScore_Text3D(sdata->lngStrings[LNG_BEST_LAP_TIME], bestLapLabelMeta->currX + offsetX + MM_HIGHSCORE_BEST_LAP_LABEL_X_OFFSET,
+		                    bestLapLabelMeta->currY + offsetY + MM_HIGHSCORE_BEST_LAP_LABEL_Y_OFFSET, FONT_SMALL, 0);
 
 		// Character Name
-		MM_HighScore_Text3D(entry[0].name,
-		                    D230.transitionMeta_HighScores[MM_HIGHSCORE_BEST_LAP_META_INDEX].currX + offsetX + MM_HIGHSCORE_BEST_LAP_TEXT_X_OFFSET,
-		                    D230.transitionMeta_HighScores[MM_HIGHSCORE_BEST_LAP_META_INDEX].currY + offsetY + MM_HIGHSCORE_BEST_LAP_NAME_Y_OFFSET, FONT_BIG,
+		MM_HighScore_Text3D(entry[0].name, bestLapEntryMeta->currX + offsetX + MM_HIGHSCORE_BEST_LAP_TEXT_X_OFFSET,
+		                    bestLapEntryMeta->currY + offsetY + MM_HIGHSCORE_BEST_LAP_NAME_Y_OFFSET, FONT_BIG,
 		                    entry[0].characterID + MM_HIGHSCORE_DRIVER_COLOR_OFFSET);
 
 		// Draw time string
-		MM_HighScore_Text3D(RECTMENU_DrawTime(entry[0].time),
-		                    D230.transitionMeta_HighScores[MM_HIGHSCORE_BEST_LAP_META_INDEX].currX + offsetX + MM_HIGHSCORE_BEST_LAP_TEXT_X_OFFSET,
-		                    D230.transitionMeta_HighScores[MM_HIGHSCORE_BEST_LAP_META_INDEX].currY + offsetY + MM_HIGHSCORE_BEST_LAP_TIME_Y_OFFSET, FONT_SMALL,
-		                    0);
+		// NOTE(aalhendi): Retail also uses currX as the Y transition base here.
+		MM_HighScore_Text3D(RECTMENU_DrawTime(entry[0].time), bestLapEntryMeta->currX + offsetX + MM_HIGHSCORE_BEST_LAP_TEXT_X_OFFSET,
+		                    bestLapEntryMeta->currX + offsetY + MM_HIGHSCORE_BEST_LAP_TIME_Y_OFFSET, FONT_SMALL, 0);
 
 		// Character Icon
 		RECTMENU_DrawPolyGT4(gGT->ptrIcons[data.MetaDataCharacters[entry[0].characterID].iconID],
-		                     D230.transitionMeta_HighScores[MM_HIGHSCORE_BEST_LAP_META_INDEX].currX + (offsetX + MM_HIGHSCORE_BEST_LAP_ICON_X_OFFSET),
-		                     D230.transitionMeta_HighScores[MM_HIGHSCORE_BEST_LAP_META_INDEX].currY + (offsetY + MM_HIGHSCORE_BEST_LAP_ICON_Y_OFFSET),
-		                     &gGT->backBuffer->primMem, (gGT->pushBuffer_UI).ptrOT, iconColor.self, iconColor.self, iconColor.self, iconColor.self,
-		                     MM_HIGHSCORE_ICON_TRANSPARENCY, MM_HIGHSCORE_ICON_SCALE);
+		                     bestLapEntryMeta->currX + offsetX + MM_HIGHSCORE_BEST_LAP_ICON_X_OFFSET,
+		                     bestLapEntryMeta->currY + offsetY + MM_HIGHSCORE_BEST_LAP_ICON_Y_OFFSET, &gGT->backBuffer->primMem, (gGT->pushBuffer_UI).ptrOT,
+		                     iconColor.self, iconColor.self, iconColor.self, iconColor.self, MM_HIGHSCORE_ICON_TRANSPARENCY, MM_HIGHSCORE_ICON_SCALE);
 	}
 
 	// Draw five "best track times"

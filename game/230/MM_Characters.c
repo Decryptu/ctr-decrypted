@@ -303,7 +303,7 @@ void MM_Characters_DrawWindows(b32 boolShowDrivers)
 		s16 *currCharacterID = &D230.characterSelectPlayerState.currentCharacterID[playerIndex];
 
 		driverInst->animFrame = 0;
-		driverInst->vertSplit = 0;
+		driverInst->animIndex = 0;
 
 		struct Model *model = MM_Characters_GetModelByName(data.MetaDataCharacters[(int)*currCharacterID].name_Debug);
 
