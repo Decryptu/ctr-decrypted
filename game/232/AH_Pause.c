@@ -533,7 +533,7 @@ void AH_Pause_Draw(s32 pageID, s32 posX)
 			inst->flags &= ~AH_PAUSE_INSTANCE_DYNAMIC_FLAGS;
 			inst->flags |= D232.advPauseInst[index].instFlags;
 
-			if (member->unlockFlags == 0)
+			if ((member->unlockFlags & AH_PAUSE_MEMBER_UNLOCKED) == 0)
 			{
 				inst->flags &= ~AH_PAUSE_INSTANCE_DYNAMIC_FLAGS;
 				inst->colorRGBA = 0;
