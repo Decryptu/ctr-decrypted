@@ -567,7 +567,9 @@ void StateZero()
 	gGT->trafficLightsTimer = 0xfffffc40;
 
 	Timer_Init();
-	DrawSyncCallback(&MainDrawCb_DrawSync);
+	EnterCriticalSection();
+	sdata->MainDrawCb_DrawSyncPtr = (void *)(uintptr_t)DrawSyncCallback(&MainDrawCb_DrawSync);
+	ExitCriticalSection();
 
 	MEMCARD_InitCard();
 	VSync(0);
@@ -610,6 +612,7 @@ void StateZero()
 	gGT->overlayIndex_null_notUsed = 0;
 
 	gGT->levelID = NAUGHTY_DOG_CRATE;
+	memcpy(gGT->levelName, sdata->s_ndi, sizeof(sdata->s_ndi));
 	// gGT->levelID = OXIDE_TRUE_ENDING;
 
 	InitGeom();
