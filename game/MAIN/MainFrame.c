@@ -747,15 +747,7 @@ void MainFrame_VisMemFullFrame(struct GameTracker *gGT, struct Level *level)
 			if (visMem->visOVertSrc[playerIndex] != camDC->visOVertSrc)
 			{
 				visMem->visOVertSrc[playerIndex] = camDC->visOVertSrc;
-
-				if (camDC->visOVertSrc != NULL)
-				{
-					MainFrame_ReplacePackedVisList(visMem->visOVertList[playerIndex], camDC->visOVertSrc, ((level->numWaterVertices + 0x1f) >> 5) << 2);
-				}
-				else
-				{
-					memcpy(visMem->visOVertList[playerIndex], level->visOVertSrc, ((level->numWaterVertices + 0x1f) >> 5) << 2);
-				}
+				MainFrame_ReplacePackedVisList(visMem->visOVertList[playerIndex], camDC->visOVertSrc, ((level->numWaterVertices + 0x1f) >> 5) << 2);
 			}
 			else if (visMem->visOVertSrc[playerIndex] == NULL)
 			{
@@ -767,15 +759,7 @@ void MainFrame_VisMemFullFrame(struct GameTracker *gGT, struct Level *level)
 			if (visMem->visSCVertSrc[playerIndex] != camDC->visSCVertSrc)
 			{
 				visMem->visSCVertSrc[playerIndex] = camDC->visSCVertSrc;
-
-				if (camDC->visSCVertSrc != NULL)
-				{
-					MainFrame_ReplacePackedVisList(visMem->visSCVertList[playerIndex], camDC->visSCVertSrc, ((level->numSCVert + 0x1f) >> 5) << 2);
-				}
-				else
-				{
-					memcpy(visMem->visSCVertList[playerIndex], level->visSCVertSrc, ((level->numSCVert + 0x1f) >> 5) << 2);
-				}
+				MainFrame_ReplacePackedVisList(visMem->visSCVertList[playerIndex], camDC->visSCVertSrc, ((level->numSCVert + 0x1f) >> 5) << 2);
 			}
 			else if (visMem->visSCVertSrc[playerIndex] == NULL)
 			{
