@@ -79,7 +79,8 @@ void RB_Blowup_ThTick(struct Thread *t)
 	ThTick_FastRET(t);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b18f8-0x800b1bd8.
+// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b18f8-0x800b1bd8;
+// CTR_NATIVE only adds allocation-failure handling.
 void RB_Blowup_Init(struct Instance *weaponInst)
 {
 	struct Thread *explosionTh;
@@ -92,6 +93,15 @@ void RB_Blowup_Init(struct Instance *weaponInst)
 
 	// initialize thread for blowup
 	explosionInst = INSTANCE_BirthWithThread(STATIC_CRATE_EXPLOSION, 0, SMALL, BLOWUP, RB_Blowup_ThTick, 0xc, 0);
+
+#if defined(CTR_NATIVE)
+	// NOTE(aalhendi): Retail assumes the thread and instance pools have capacity. Native
+	// preserves the explosion damage when either optional visual cannot spawn.
+	if (explosionInst == NULL)
+	{
+		goto ApplyDamage;
+	}
+#endif
 
 	explosionInst->flags |= (VISIBLE_DURING_GAMEPLAY | DRAW_BILLBOARD);
 
@@ -136,6 +146,13 @@ void RB_Blowup_Init(struct Instance *weaponInst)
 	// set shockwave instance
 	blowup[0] = (s32)(uintptr_t)shockwaveInst;
 
+#if defined(CTR_NATIVE)
+	if (shockwaveInst == NULL)
+	{
+		goto ApplyDamage;
+	}
+#endif
+
 	shockwaveInst->flags |= PIXEL_LOD;
 
 	CTR_MatrixSetRotIdentity(&shockwaveInst->matrix);
@@ -151,6 +168,9 @@ void RB_Blowup_Init(struct Instance *weaponInst)
 
 	// ======== End Of Instance ==========
 
+#if defined(CTR_NATIVE)
+ApplyDamage:;
+#endif
 	struct ScratchpadStruct *sps = CTR_SCRATCHPAD_PTR(struct ScratchpadStruct, 0x108);
 
 	// put weapon position on scratchpad
