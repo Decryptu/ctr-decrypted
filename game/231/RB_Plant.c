@@ -23,7 +23,6 @@ struct HitboxDesc plantBoxDesc = {.inst = (struct Instance *)0,
 
 extern struct ParticleEmitter emSet_PlantTires[8];
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b81e8-0x800b84f0.
 void RB_Plant_ThTick_Eat(struct Thread *t)
 {
 	int i;
@@ -154,7 +153,6 @@ void RB_Plant_ThTick_Eat(struct Thread *t)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b84f0-0x800b8650.
 void RB_Plant_ThTick_Grab(struct Thread *t)
 {
 	struct Instance *plantInst;
@@ -215,7 +213,6 @@ void RB_Plant_ThTick_Grab(struct Thread *t)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b8650-0x800b86b4.
 void RB_Plant_ThTick_Transition_HungryToRest(struct Thread *t)
 {
 	struct Instance *plantInst = t->inst;
@@ -238,7 +235,6 @@ void RB_Plant_ThTick_Transition_HungryToRest(struct Thread *t)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b86b4-0x800b88a8.
 void RB_Plant_ThTick_Hungry(struct Thread *t)
 {
 	struct Instance *plantInst;
@@ -344,7 +340,6 @@ void RB_Plant_ThTick_Hungry(struct Thread *t)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b88a8-0x800b89a4.
 void RB_Plant_ThTick_Rest(struct Thread *t)
 {
 	struct Instance *plantInst;
@@ -403,7 +398,6 @@ void RB_Plant_ThTick_Rest(struct Thread *t)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b89a4-0x800b8c00.
 void RB_Plant_LInB(struct Instance *inst)
 {
 	struct Plant *plantObj;

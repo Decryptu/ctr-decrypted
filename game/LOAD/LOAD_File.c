@@ -1,6 +1,5 @@
 #include <common.h>
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80031c1c-0x80031c58.
 void LOAD_StringToUpper(char *path)
 {
 	for (u8 *letter = (u8 *)path; *letter != 0; letter++)
@@ -18,7 +17,6 @@ void LOAD_StringToUpper(char *path)
 #include <platform/native_cd.h>
 #endif
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8007c118-0x8007c208.
 int LOAD_InitCDvol(void)
 {
 #ifndef CTR_NATIVE
@@ -53,7 +51,6 @@ int LOAD_InitCDvol(void)
 	return 0;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80031c58-0x80031c78 for the retail path.
 void LOAD_InitCD()
 {
 #ifdef CTR_NATIVE
@@ -69,7 +66,6 @@ void LOAD_InitCD()
 	CDSYS_Init(1);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80031c78-0x80031d30
 void *LOAD_ReadDirectory(char *filename)
 {
 	CdlFILE cdlFile;
@@ -109,7 +105,6 @@ void *LOAD_ReadDirectory(char *filename)
 	return bh;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 PS1 path 0x80031d30-0x80031e00.
 void LOAD_DramFileCallback(struct LoadQueueSlot *lqs)
 {
 	char *fileBuf = lqs->ptrDestination;
@@ -157,7 +152,6 @@ void LOAD_DramFileCallback(struct LoadQueueSlot *lqs)
 	sdata->queueReady = 1;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80031e00-0x80031ee4.
 void *LOAD_DramFile(void *bigfilePtr, int subfileIndex, void *ptrDestination, u32 *sizePtr, int callbackOrFlags)
 {
 	struct LoadQueueSlot lqs;
@@ -191,7 +185,6 @@ void *LOAD_DramFile(void *bigfilePtr, int subfileIndex, void *ptrDestination, u3
 	return LOAD_ReadFile_ex(bigfilePtr, LT_GETADDR, subfileIndex, ptrDestination, sizePtr, LOAD_DramFileCallback);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80031ee4-0x80031fdc.
 void LOAD_VramFileCallback(struct LoadQueueSlot *lqs)
 {
 	int *vramBuf = lqs->ptrDestination;
@@ -229,7 +222,6 @@ void LOAD_VramFileCallback(struct LoadQueueSlot *lqs)
 	sdata->frameFinishedVRAM = sdata->gGT->frameTimer_VsyncCallback;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80031fdc-0x80032110.
 void *LOAD_VramFile(void *bigfilePtr, int subfileIndex, void *ptrDestination, u32 *sizePtr, int callbackOrFlags)
 {
 	struct LoadQueueSlot lqs;
@@ -276,7 +268,6 @@ void *LOAD_VramFile(void *bigfilePtr, int subfileIndex, void *ptrDestination, u3
 	return LOAD_ReadFile_ex(bigfilePtr, LT_VRAM, subfileIndex, ptrDestination, sizePtr, LOAD_VramFileCallback);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80032110-0x800321b4.
 void LOAD_ReadFileASyncCallback(u8 result, u8 *unk)
 {
 	(void)unk;
@@ -329,7 +320,6 @@ void *LOAD_ReadFile_ex(struct BigHeader *bigfile, u32 loadType, int subfileIndex
 	int sectorCount;
 	int readComplete;
 
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 PS1 path 0x800321b4-0x80032344.
 	(void)loadType;
 	CDSYS_SetMode_StreamData();
 
@@ -429,7 +419,6 @@ void *LOAD_ReadFile_ex(struct BigHeader *bigfile, u32 loadType, int subfileIndex
 }
 
 // Used for XNF and only the XNF
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80032344-0x80032438
 void *LOAD_XnfFile(char *filename, void *ptrDestination, int *size)
 {
 	CdlFILE cdlFile;
@@ -478,7 +467,6 @@ void *LOAD_XnfFile(char *filename, void *ptrDestination, int *size)
 	return ptrDestination;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80032438-0x80032498
 int LOAD_FindFile(char *filename, CdlFILE *cdlFile)
 {
 	if (filename == 0)

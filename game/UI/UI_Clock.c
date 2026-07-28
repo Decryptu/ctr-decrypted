@@ -33,7 +33,6 @@ CTR_STATIC_ASSERT(UI_RACE_CLOCK_LAP_TIME_SLOTS_PER_PLAYER == 7);
 CTR_STATIC_ASSERT(UI_LIMIT_CLOCK_FLASH_THRESHOLD == 0x3840);
 
 // used for both finished lap time and current race time
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004edac-0x8004f894
 void UI_DrawRaceClock(u16 labelPosX, u16 labelPosY, u32 flags, struct Driver *driver)
 {
 	struct GameTracker *gGT;
@@ -449,7 +448,6 @@ LAB_8004f378:
 }
 
 // countdown clock, used for Battle Mode and Crystal Challenge
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004f894-0x8004f9d8.
 void UI_DrawLimitClock(s16 posX, s16 posY, s16 fontType)
 {
 	char *str;

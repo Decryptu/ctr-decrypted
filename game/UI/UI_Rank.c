@@ -59,7 +59,6 @@ CTR_STATIC_ASSERT(UI_RANK_TRACK_WARPBALL_SCALE == 0x8aa);
 CTR_STATIC_ASSERT(UI_RANK_TRACK_WARPBALL_PROGRESS_SHIFT == 0xc);
 CTR_STATIC_ASSERT(UI_RANK_TRACK_CHECKPOINT_COUNT_LIMIT == 0xff);
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800524c4-0x80052f98.
 // UI_Rank_GetDamageColor factors the duplicated inline color-timer logic.
 
 // Draw player icons on left side of screen

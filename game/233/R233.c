@@ -1,6 +1,5 @@
 // NOTE(aalhendi): Native source-owned RDATA/init image for overlay 233. Function
-// semantics come from ASM-verified interpreter/consumer bodies, while these
-// data streams are retail byte-verified, not ASM-verified.
+// semantics and data layout come from retail interpreter/consumer analysis.
 //
 // Cutscene opcode streams keep retail address words for branch targets; native
 // opcode dispatch translates them when scripts branch. Operands without proven

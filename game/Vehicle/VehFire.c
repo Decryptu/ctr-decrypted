@@ -54,7 +54,6 @@ CTR_STATIC_ASSERT(VEH_FIRE_RUMBLE_CHANNEL == 8);
 CTR_STATIC_ASSERT(VEH_FIRE_RUMBLE_FORCE == 0x7f);
 CTR_STATIC_ASSERT(VEH_FIRE_INITIAL_INSTANCE_FLAGS == 0x1040080);
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005ab24-0x8005abfc.
 void VehFire_Audio(struct Driver *driver, int speed_cap)
 {
 	// if turbo audio cooldown is not done
@@ -105,7 +104,6 @@ Skip:
 	driver->VehFire_AudioCooldown = VEH_FIRE_AUDIO_COOLDOWN;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005abfc-0x8005b0c4.
 
 // param1 - driver
 // param2 - reserves to add

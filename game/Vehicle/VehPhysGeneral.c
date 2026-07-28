@@ -92,7 +92,6 @@ CTR_STATIC_ASSERT(VEH_PHYS_JUMP_SPEEDOMETER_TIMER_SCALE == 0x300);
 CTR_STATIC_ASSERT(VEH_PHYS_JUMP_SPEEDOMETER_BLEND_SHIFT == 4);
 CTR_STATIC_ASSERT(VEH_PHYS_JUMP_SPEEDOMETER_BLEND_NEW == 3);
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005fc8c-0x80060458.
 void VehPhysGeneral_PhysAngular(struct Thread *thread, struct Driver *driver)
 {
 	(void)thread;
@@ -472,7 +471,6 @@ LAB_80060284:
 	PhysTerrainSlope(driver);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80060458-0x80060488.
 int VehPhysGeneral_LerpQuarterStrength(int current, int desired)
 {
 	if (desired != 0)
@@ -493,7 +491,6 @@ int VehPhysGeneral_LerpQuarterStrength(int current, int desired)
 	return current;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80060488-0x800605a0.
 int VehPhysGeneral_LerpToForwards(struct Driver *d, int currentAngle, int currentVelocity, int targetAngle)
 {
 	b32 mirrored = false;
@@ -552,7 +549,6 @@ int VehPhysGeneral_LerpToForwards(struct Driver *d, int currentAngle, int curren
 	return desiredVelocity;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800605a0-0x80060630.
 int VehPhysGeneral_JumpGetVelY(s16 *normalVec, Vec3 *speedXYZ)
 {
 	int normalY = normalVec[1];
@@ -607,7 +603,6 @@ static Vec3 VehPhysGeneral_Jump_RotateLoadedVector(s16 vx, s16 vy, s16 vz)
 	return out;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80060630-0x80060f0c
 void VehPhysGeneral_JumpAndFriction(struct Thread *t, struct Driver *d)
 {
 	(void)t;
@@ -986,7 +981,6 @@ CTR_STATIC_ASSERT(ITEMSET_THREE_MISSILES_HELD_LIMIT == 2);
 
 // Itemset infographic (outdated):
 // https://discord.com/channels/330945093416779787/550106151887568906/734368526294450267
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80060f0c-0x80061488.
 void VehPhysGeneral_SetHeldItem(struct Driver *driver)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -1296,7 +1290,6 @@ CTR_STATIC_ASSERT(VEH_BASE_SPEED_CLOCK_RANK_BASE == 0x14);
 CTR_STATIC_ASSERT(VEH_BASE_SPEED_CLOCK_DAMAGE_SHIFT == 4);
 CTR_STATIC_ASSERT(VEH_BASE_SPEED_NET_CAP == 0x6400);
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80061488-0x8006163c.
 int VehPhysGeneral_GetBaseSpeed(struct Driver *driver)
 {
 	int statAdditional = (int)driver->const_Speed_ClassStat;

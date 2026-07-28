@@ -13,7 +13,6 @@ enum CsInstanceConstants
 	CS_ANIM_BONE_TARGET_Y_OFFSET = 5,
 };
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800ac320-0x800ac5a4
 void CS_Instance_GetFrameData(struct Instance *inst, int animIndex, u32 animFrame, SVec3 *pos, SVec3 *rotOut, int offset)
 {
 	int isOdd;
@@ -132,7 +131,6 @@ void CS_Instance_GetFrameData(struct Instance *inst, int animIndex, u32 animFram
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800ac5a4-0x800ac638
 int CS_Instance_GetNumAnimFrames(struct Instance *modelInst, int animIndex, int LOD)
 {
 	struct Model *model;
@@ -180,7 +178,6 @@ int CS_Instance_GetNumAnimFrames(struct Instance *modelInst, int animIndex, int 
 	return (anim->numFrames & CS_ANIM_FRAME_COUNT_MASK);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800ac638-0x800ac694
 int CS_Instance_SafeCheckAnimFrame(struct Instance *inst, int animIndex, int LOD, int desiredFrame)
 {
 	// Default return value
@@ -214,7 +211,6 @@ int CS_Instance_SafeCheckAnimFrame(struct Instance *inst, int animIndex, int LOD
 	return animFrame;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800ac694-0x800ac714
 b32 CS_Instance_BoolPlaySound(struct CutsceneObj *cs, struct Instance *desiredInst)
 {
 	struct Instance **visInstSrc;
@@ -252,7 +248,6 @@ b32 CS_Instance_BoolPlaySound(struct CutsceneObj *cs, struct Instance *desiredIn
 	return 0;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800ac214-0x800ac320
 void CS_Instance_InitMatrix(void)
 {
 	if (D233.cs_initMatrixBool != 0)

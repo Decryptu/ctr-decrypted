@@ -1,6 +1,5 @@
 #include <common.h>
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800abaa8-0x800abaf0.
 void MM_Battle_DrawIcon_Character(struct Icon *icon, int posX, int posY, struct PrimMem *primMem, uint32_t *ot, char transparency, s16 scale)
 {
 	if (icon == 0)
@@ -10,7 +9,6 @@ void MM_Battle_DrawIcon_Character(struct Icon *icon, int posX, int posY, struct 
 	DecalHUD_DrawPolyFT4(icon, posX, posY, primMem, ot, transparency, scale);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b164c-0x800b1660.
 void MM_Battle_CloseSubMenu(struct RectMenu *menu)
 {
 	menu->state |= ONLY_DRAW_TITLE;
@@ -126,7 +124,6 @@ enum
 
 #define BATTLE_TITLE_TEXT_FLAGS 0xffff8000u
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 overlay 230 0x800b1660-0x800b1830.
 void MM_Battle_DrawIcon_Weapon(struct Icon *icon, u32 posX, int posY, struct PrimMem *primMem, u32 *ot, char transparency, s16 scale, u16 rotation,
                                const Color *color)
 {
@@ -203,7 +200,6 @@ void MM_Battle_DrawIcon_Weapon(struct Icon *icon, u32 posX, int posY, struct Pri
 	primMem->cursor = p + 1;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b1830-0x800b1848.
 void MM_Battle_Init(void)
 {
 	D230.battleTransition.frame = BATTLE_TRANSITION_FRAME_COUNT;
@@ -348,7 +344,6 @@ void MM_Battle_MenuProc(struct RectMenu *unused)
 				if (BATTLE_VALID_TEAM_MIN < gGT->battleSetup.teamOfEachPlayer[playerIndex])
 				{
 					// play sound
-					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b1b54-0x800b1b6c for battle team-left SFX.
 					OtherFX_Play(0, 1);
 
 					// Move your icon to the left
@@ -368,7 +363,6 @@ void MM_Battle_MenuProc(struct RectMenu *unused)
 				if (gGT->battleSetup.teamOfEachPlayer[playerIndex] < BATTLE_VALID_TEAM_MAX)
 				{
 					// play sound
-					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b1bc0-0x800b1bd8 for battle team-right SFX.
 					OtherFX_Play(0, 1);
 
 					// Move your icon to the right
@@ -414,7 +408,6 @@ void MM_Battle_MenuProc(struct RectMenu *unused)
 								if ((buttonTapP1 & BATTLE_BACK_INPUT) != 0)
 								{
 									// Play "Go Back" sound
-									// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b20f8-0x800b2110 for battle setup back SFX.
 									OtherFX_Play(2, 1);
 
 									// go back when transition is done, dont start race
@@ -429,7 +422,6 @@ void MM_Battle_MenuProc(struct RectMenu *unused)
 							else
 							{
 								// Play sound
-								// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b1de4-0x800b1df4 for battle setup confirm SFX.
 								OtherFX_Play(1, 1);
 
 								switch (sdata->battleSetupRowHighlighted)
@@ -647,7 +639,6 @@ void MM_Battle_MenuProc(struct RectMenu *unused)
 			if (sdata->battleSetupRowHighlighted != previousHighlightedRow)
 			{
 				// Play sound
-				// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b2178-0x800b2194 for battle row-change SFX.
 				OtherFX_Play(0, 1);
 			}
 		}

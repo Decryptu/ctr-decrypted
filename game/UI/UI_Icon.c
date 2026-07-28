@@ -27,7 +27,6 @@ enum
 	UI_DRIVER_ICON_FT4_CODE = 0x2c,
 };
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004e0e0-0x8004e37c.
 void UI_WeaponBG_AnimateShine(void)
 {
 	int sine;
@@ -65,7 +64,6 @@ void UI_WeaponBG_AnimateShine(void)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004e37c-0x8004e660.
 void UI_WeaponBG_DrawShine(struct Icon *icon, s16 posX, s16 posY, struct PrimMem *primMem, uint32_t *ot, char transparency, s16 angleX, s16 angleY,
                            int unusedColor)
 {
@@ -184,7 +182,6 @@ void UI_WeaponBG_DrawShine(struct Icon *icon, s16 posX, s16 posY, struct PrimMem
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004e660-0x8004e8d8.
 void UI_TrackerBG(struct Icon *targetIcon, s16 centerX, s16 centerY, struct PrimMem *primMem, uint32_t *ot, char transparency, s16 angleX, s16 angleY,
                   int color)
 {
@@ -271,7 +268,6 @@ void UI_TrackerBG(struct Icon *targetIcon, s16 centerX, s16 centerY, struct Prim
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004e8d8-0x8004eaa8.
 void UI_DrawDriverIcon(struct Icon *icon, s16 posX, s16 posY, struct PrimMem *primMem, uint32_t *ot, char transparency, s16 scale, u32 color)
 {
 	PolyFT4 *p = primMem->cursor;

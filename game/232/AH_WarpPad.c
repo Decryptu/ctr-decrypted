@@ -63,7 +63,6 @@ enum
 	AH_WP_DIGIT_MODEL_9 = 0x6e,
 };
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800abafc-0x800abbdc.
 s16 *AH_WarpPad_GetSpawnPosRot(s16 *posData)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -106,7 +105,6 @@ CTR_STATIC_ASSERT(offsetof(struct WarpPad, lightDirGem) == 0x50);
 CTR_STATIC_ASSERT(offsetof(struct WarpPad, digit10s) == 0x68);
 CTR_STATIC_ASSERT(offsetof(struct WarpPad, levelID) == 0x6c);
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800abbdc-0x800abd80.
 void AH_WarpPad_AllWarppadNum()
 {
 	struct Thread *t = sdata->gGT->threadBuckets[WARPPAD].thread;
@@ -144,7 +142,6 @@ void AH_WarpPad_SetNumModelData(struct Instance *inst, struct ModelHeader *mh)
 	idpp[0].ptrCurrFrame = mh->ptrFrameData;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800abd80-0x800abdfc.
 void AH_WarpPad_MenuProc(struct RectMenu *menu)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -162,7 +159,6 @@ void AH_WarpPad_MenuProc(struct RectMenu *menu)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800abdfc-0x800abf48.
 void AH_WarpPad_SpinRewards(struct Instance *prizeInst, struct WarpPad *warppadObj, int index, int x, int y, int z)
 {
 	SVec3 *lightDir;
@@ -217,7 +213,6 @@ SpinReward:;
 	prizeInst->matrix.t[2] = z + (trig * 0xA0 >> 0xc);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800abf48-0x800ad2c8.
 void AH_WarpPad_ThTick(struct Thread *t)
 {
 	int i;
@@ -889,7 +884,6 @@ WarpPad_AnimateOpen:
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800ad2c8-0x800ad3ec.
 void AH_WarpPad_ThDestroy(struct Thread *t)
 {
 	struct WarpPad *warppadObj = t->object;

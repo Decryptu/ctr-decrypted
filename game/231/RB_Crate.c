@@ -57,7 +57,6 @@ struct Driver *RB_CrateAny_GetDriver(struct Thread *t, struct ScratchpadStruct *
 	return (struct Driver *)1;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b3d04-0x800b3d7c.
 void RB_CrateAny_ThTick_Explode(struct Thread *t)
 {
 	// this is an "exploded" crate, with
@@ -129,7 +128,6 @@ static void RB_CrateAny_ExplodeInit(struct Instance *crateInst, int color, b32 r
 	PlaySound3D(0x3c, crateInst);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b3d7c-0x800b3e7c.
 void RB_CrateAny_ThTick_Grow(struct Thread *t)
 {
 	struct Instance *crateInst;
@@ -212,7 +210,6 @@ static struct Thread *RB_CrateAny_LInC_Birth(struct Instance *crateInst, void *f
 	return crateThread;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b3e7c-0x800b4278.
 int RB_CrateWeapon_ThCollide(struct Thread *crateThread, struct Thread *collidingTh, void *funcThCollide, struct ScratchpadStruct *sps)
 {
 	(void)funcThCollide;
@@ -314,7 +311,6 @@ int RB_CrateWeapon_ThCollide(struct Thread *crateThread, struct Thread *collidin
 	return 0;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b4278-0x800b432c.
 int RB_CrateWeapon_LInC(struct Instance *crateInst, struct Thread *collidingTh, struct ScratchpadStruct *sps)
 {
 	struct Thread *crateThread;
@@ -337,7 +333,6 @@ int RB_CrateWeapon_LInC(struct Instance *crateInst, struct Thread *collidingTh, 
 	return ((ThreadScratchCollideFunc)crateThread->funcThCollide)(crateThread, collidingTh, crateThread->funcThCollide, sps);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b432c-0x800b471c.
 int RB_CrateFruit_ThCollide(struct Thread *crateThread, struct Thread *collidingTh, void *funcThCollide, struct ScratchpadStruct *sps)
 {
 	(void)funcThCollide;
@@ -402,7 +397,6 @@ int RB_CrateFruit_ThCollide(struct Thread *crateThread, struct Thread *colliding
 	return 0;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b471c-0x800b47d0.
 int RB_CrateFruit_LInC(struct Instance *crateInst, struct Thread *collidingTh, struct ScratchpadStruct *sps)
 {
 	struct Thread *crateThread;
@@ -425,7 +419,6 @@ int RB_CrateFruit_LInC(struct Instance *crateInst, struct Thread *collidingTh, s
 	return ((ThreadScratchCollideFunc)crateThread->funcThCollide)(crateThread, collidingTh, crateThread->funcThCollide, sps);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b47d0-0x800b4ba8.
 int RB_CrateTime_ThCollide(struct Thread *crateThread, struct Thread *driverTh, void *funcThCollide, struct ScratchpadStruct *sps)
 {
 	(void)funcThCollide;
@@ -512,7 +505,6 @@ int RB_CrateTime_ThCollide(struct Thread *crateThread, struct Thread *driverTh, 
 	return 0;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b4ba8-0x800b4c5c.
 int RB_CrateTime_LInC(struct Instance *crateInst, struct Thread *driverTh, struct ScratchpadStruct *sps)
 {
 	struct Thread *crateThread;

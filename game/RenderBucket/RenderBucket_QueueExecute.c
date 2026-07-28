@@ -538,8 +538,7 @@ static inline void RenderBucket_WaterSplitInterpolateVertex(struct RenderBucketD
 	int factor = RenderBucket_MipsSllSigned(from->splitDist, 16) / denom;
 	u32 colorHelper = (u32)(uintptr_t)ctx->inst->funcPtr[3];
 
-	// NOTE(aalhendi): ASM-verified helper 0x8006d4a4-0x8006d55c. This split
-	// clips against model-space Y, not the depth plane used by 0x8006b4c8.
+	// This split clips against model-space Y, not the depth plane used by 0x8006b4c8.
 	if (hasTexture != 0)
 	{
 		u8 u = RenderBucket_InterpU8((u8)from->uv, (u8)to->uv, factor);
@@ -551,13 +550,11 @@ static inline void RenderBucket_WaterSplitInterpolateVertex(struct RenderBucketD
 	dst->z = (u32)(RenderBucket_MipsMulLoSra16((s32)to->z - (s32)from->z, factor) + (s32)from->z);
 	if (colorHelper == RB_RETAIL_INST_FUNC3_SPLIT_WHITE)
 	{
-		// NOTE(aalhendi): ASM-verified helper 0x8006d404-0x8006d428.
 		dst->color = 0x00ffffff;
 	}
 	else
 	{
-		// NOTE(aalhendi): ASM-verified helper 0x8006d428-0x8006d4a4 for the
-		// retail table's non-white generated-vertex color path.
+		// The retail table uses this non-white generated-vertex color path.
 		dst->color = (u32)RenderBucket_InterpU8((u8)from->color, (u8)to->color, factor) |
 		             ((u32)RenderBucket_InterpU8((u8)(from->color >> 8), (u8)(to->color >> 8), factor) << 8) |
 		             ((u32)RenderBucket_InterpU8((u8)(from->color >> 16), (u8)(to->color >> 16), factor) << 16);
@@ -762,8 +759,7 @@ static void RenderBucket_CopyDispatchTables(void)
 	u32 *dst0 = scratch->setupDispatch;
 	u32 *dst1 = scratch->primDispatch;
 
-	// NOTE(aalhendi): ASM-verified helper 0x80071590 copies two 8-word table
-	// windows from 0x8008a428/0x8008a444 into scratch 0x94/0xc4.
+	// Copy two eight-word windows from 0x8008a428/0x8008a444 into scratch 0x94/0xc4.
 	for (int i = 0; i < 8; i++)
 	{
 		dst0[i] = sRenderBucketDispatchTable8008a428[i];
@@ -1009,8 +1005,7 @@ static void RenderBucket_BoundsUpdate_80071524(struct RenderBucketBounds *bounds
 	int y;
 	s32 diff;
 
-	// NOTE(aalhendi): ASM-verified helper 0x80071524; native models retail's
-	// t1/t2 -> t3/t4/t5/t6/t7/s0 register tuple as an explicit bounds struct.
+	// Native models the retail t1/t2 -> t3/t4/t5/t6/t7/s0 tuple explicitly.
 	y = RenderBucket_PackedSxyY(sxy);
 	diff = RenderBucket_MipsSub(y, bounds->minY);
 	if (diff < 0)
@@ -1103,8 +1098,8 @@ static void RenderBucket_ProjectFrameBounds(struct ModelFrame *frame, struct Mod
 	u32 maxZ = RenderBucket_MipsAdd(minZ, 0x3fc);
 
 	// NOTE(aalhendi): Retail projects the bbox through packed GTE VXY/VZ
-	// registers at 0x80071054-0x80071164 and folds min/max through ASM-verified
-	// helper 0x80071524. Native keeps the register tuple as explicit bounds fields.
+	// registers at 0x80071054-0x80071164 and folds min/max through helper
+	// 0x80071524. Native keeps the register tuple as explicit bounds fields.
 	gte_SetRotMatrix(projectionMvp);
 	gte_SetTransMatrix(projectionMvp);
 	gte_SetGeomOffset(pb->rect.w >> 1, pb->rect.h >> 1);
@@ -1292,8 +1287,7 @@ static struct ModelHeader *RenderBucket_SelectModelHeader(struct Instance *inst,
 
 static void RenderBucket_GteLoadRotMatrixWords(u32 m0, u32 m1, u32 m2, u32 m3, u32 m4)
 {
-	// NOTE(aalhendi): ASM-verified helper 0x8006c540 loads the retail
-	// t3/t4/t5/t6/t7 tuple into GTE rotation registers 0-4.
+	// Load the retail t3/t4/t5/t6/t7 tuple into GTE rotation registers 0-4.
 	MATRIX_SET_r11r12r13r14r15(m0, m1, m2, m3, m4);
 }
 
@@ -1317,8 +1311,7 @@ static void RenderBucket_LoadMatrixWords(const MATRIX *m, u32 *m0, u32 *m1, u32 
 
 static void RenderBucket_GteLoadLightMatrixWords(const MATRIX *m)
 {
-	// NOTE(aalhendi): ASM-verified helper 0x8006c600 loads the retail
-	// t3/t4/t5/t6/t7 tuple into GTE light matrix registers 8-12.
+	// Load the retail t3/t4/t5/t6/t7 tuple into GTE light matrix registers 8-12.
 	Unknown_8006c600(RenderBucket_ReadMatrixWord(m, offsetof(MATRIX, m[0][0])), RenderBucket_ReadMatrixWord(m, offsetof(MATRIX, m[0][2])),
 	                 RenderBucket_ReadMatrixWord(m, offsetof(MATRIX, m[1][1])), RenderBucket_ReadMatrixWord(m, offsetof(MATRIX, m[2][0])),
 	                 RenderBucket_ReadMatrixWord(m, offsetof(MATRIX, m[2][2])));
@@ -1326,15 +1319,13 @@ static void RenderBucket_GteLoadLightMatrixWords(const MATRIX *m)
 
 static void RenderBucket_GteScaleMatrixColumns(u32 *m0, u32 *m1, u32 *m2, u32 *m3, u32 *m4)
 {
-	// NOTE(aalhendi): ASM-verified helper 0x8006c49c transforms the retail
-	// t3/t4/t5/t6/t7 tuple and falls through to 0x8006c540.
+	// Transform the retail t3/t4/t5/t6/t7 tuple and fall through to 0x8006c540.
 	Unknown_8006c49c(m0, m1, m2, m3, m4);
 }
 
 static void RenderBucket_GteMulLightMatrixColumns(u32 *m0, u32 *m1, u32 *m2, u32 *m3, u32 *m4)
 {
-	// NOTE(aalhendi): ASM-verified helper 0x8006c558 composes the retail
-	// t3/t4/t5/t6/t7 tuple through the current GTE light matrix.
+	// Compose the retail t3/t4/t5/t6/t7 tuple through the current GTE light matrix.
 	Unknown_8006c558(m0, m1, m2, m3, m4);
 }
 
@@ -2148,7 +2139,6 @@ void *RenderBucket_QueueLevInstances(struct CameraDC *cDC, struct OTMem *otState
 	struct RenderBucketQueueState queueState = {0};
 	int count = (int)(u8)numPlyr;
 
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80070720-0x8007084c.
 	// Retail enters QueueDraw through a scratch/register
 	// ABI; native passes the same state as explicit C parameters.
 	RenderBucket_CopyDispatchTables();
@@ -2192,7 +2182,6 @@ void *RenderBucket_QueueNonLevInstances(struct Item *item, struct OTMem *otState
 	struct RenderBucketQueueState queueState = {0};
 	int count = (int)(u8)numPlyr;
 
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8007084c-0x80070950.
 	// Retail enters QueueDraw through a scratch/register
 	// ABI; native passes the same state as explicit C parameters.
 	RenderBucket_CopyDispatchTables();
@@ -2374,7 +2363,6 @@ struct RenderBucketUncompressResult RenderBucket_UncompressAnimationFrame(struct
 	u32 *deltaArray = (u32 *)ctx->idpp->ptrDeltaArray;
 	u8 flags = (command >> 24) & 0xff;
 
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8006a8e0-0x8006aaa8.
 	if ((flags & 4) != 0)
 	{
 		struct RenderBucketPackedVertex *scratchVertex = RenderBucket_PackedVertexScratch(stackIndex);
@@ -2427,7 +2415,6 @@ static struct RenderBucketUncompressResult RenderBucket_UncompressAnimationFrame
 	u8 flags = (command >> 24) & 0xff;
 	RenderBucketVertex nextVertex;
 
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8006b24c-0x8006b4c8.
 	// Native carries retail register state in the explicit draw context.
 	if ((ctx->idpp->ptrNextFrame == 0) || (ctx->nextVertData == 0))
 	{
@@ -2456,8 +2443,7 @@ static struct RenderBucketUncompressResult RenderBucket_UncompressAnimationFrame
 		int bz = RenderBucket_SignExtendBits(temporal >> 17, 8);
 		int by = RenderBucket_SignExtendBits(temporal >> 9, 8);
 
-		// NOTE(aalhendi): ASM-verified retail 0x8006b294-0x8006b460. It consumes
-		// current and next compressed streams with the same temporal word.
+		// Current and next compressed streams use the same temporal word.
 		RenderBucket_ReadNextFrameDeltaComponent(ctx, xBits, bx, &ctx->x_alu, &ctx->x_next_alu);
 		RenderBucket_ReadNextFrameDeltaComponent(ctx, zBits, bz, &ctx->y_alu, &ctx->y_next_alu);
 		RenderBucket_ReadNextFrameDeltaComponent(ctx, yBits, by, &ctx->z_alu, &ctx->z_next_alu);
@@ -2474,8 +2460,7 @@ static struct RenderBucketUncompressResult RenderBucket_UncompressAnimationFrame
 		RenderBucketCompVertex *currVerts = (RenderBucketCompVertex *)ctx->vertData;
 		RenderBucketCompVertex *nextVerts = (RenderBucketCompVertex *)ctx->nextVertData;
 
-		// NOTE(aalhendi): ASM-verified retail 0x8006b26c-0x8006b290. Both frame
-		// vertex streams advance together before the interpolated pack.
+		// Both frame vertex streams advance together before the interpolated pack.
 		ctx->stack[stackIndex].x = currVerts[ctx->vertexIndex].x;
 		ctx->stack[stackIndex].y = currVerts[ctx->vertexIndex].y;
 		ctx->stack[stackIndex].z = currVerts[ctx->vertexIndex].z;
@@ -2500,9 +2485,8 @@ static struct RenderBucketUncompressResult RenderBucket_TransformSplitDecodedVer
 		return result;
 	}
 
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8006bf30-0x8006c124 and
-	// 0x8006cdec-0x8006d094 split
-	// transform tail: packed VXY/VZ through the split light matrix with MVMVA.
+	// The split transform tail at 0x8006bf30-0x8006c124 and
+	// 0x8006cdec-0x8006d094 sends packed VXY/VZ through MVMVA.
 	MTC2(result.packed.xy, 0);
 	MTC2(result.packed.z, 1);
 	doCOP2(0x04a6012);
@@ -2515,15 +2499,13 @@ static struct RenderBucketUncompressResult RenderBucket_TransformSplitDecodedVer
 
 static struct RenderBucketUncompressResult RenderBucket_UncompressAnimationFrame_Split(struct RenderBucketDrawContext *ctx, u32 command, u16 stackIndex)
 {
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8006bf30-0x8006c124.
 	return RenderBucket_TransformSplitDecodedVertex(ctx, command, stackIndex, RenderBucket_UncompressAnimationFrame(ctx, command, stackIndex));
 }
 
 static struct RenderBucketUncompressResult RenderBucket_UncompressAnimationFrame_ReflectNextFrame(struct RenderBucketDrawContext *ctx, u32 command,
                                                                                                   u16 stackIndex)
 {
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8006cdec-0x8006d094:
-	// decode through 0x8006b24c semantics, then apply the split transform.
+	// Decode through 0x8006b24c semantics, then apply the split transform.
 	return RenderBucket_TransformSplitDecodedVertex(ctx, command, stackIndex, RenderBucket_UncompressAnimationFrame_NextFrame(ctx, command, stackIndex));
 }
 
@@ -2887,8 +2869,7 @@ static int RenderBucket_DrawInstPrim_NormalAtOTEntry(struct RenderBucketDrawCont
 
 static int RenderBucket_DrawInstPrim_NormalAtRange(struct RenderBucketDrawContext *ctx, u32 command, struct TextureLayout *tex, int activeRange, int depthMac0)
 {
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8006ad88-0x8006ae74 body; native passes
-	// the retail scratch/register inputs as explicit context and depth state.
+	// Native passes the retail scratch/register inputs as explicit context and depth state.
 	return RenderBucket_DrawInstPrim_NormalAtOTEntry(ctx, command, tex, RenderBucket_GetNormalOTEntry(activeRange, depthMac0));
 }
 
@@ -2924,7 +2905,6 @@ static int RenderBucket_DrawInstPrim_KeyRelicTokenAtRange(struct RenderBucketDra
 		return 0;
 	}
 
-	// NOTE(aalhendi): ASM-verified against NTSC-U 926 0x8006ae90-0x8006b030.
 	// Retail inputs live in scratch/GTE registers; native passes the same state
 	// through RenderBucketDrawContext and the current projected GTE FIFO.
 	gte_nclip();
@@ -3012,7 +2992,6 @@ int RenderBucket_DrawInstPrim_Normal(struct RenderBucketDrawContext *ctx, u32 co
 
 static int RenderBucket_DrawInstPrim_SelectRange(struct RenderBucketDrawContext *ctx, u32 command, struct TextureLayout *tex, int depthMac0)
 {
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8006ad6c-0x8006ad88.
 	int activeRange = ((s32)(command << 6) > 0) ? ctx->idpp->otRangeNormal : ctx->idpp->otRangeSecondary;
 
 	return RenderBucket_DrawInstPrim_NormalAtRange(ctx, command, tex, activeRange, depthMac0);
@@ -3064,8 +3043,7 @@ static int RenderBucket_DrawInstPrim_DepthFadeAtRange(struct RenderBucketDrawCon
 		return 0;
 	}
 
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8006b968-0x8006bad0. It fades each
-	// rolling vertex color by SZ1/SZ2/SZ3, skips fully black triangles, then
+	// Fade each rolling vertex color by SZ1/SZ2/SZ3, skip black triangles, then
 	// emits a textured GT3 with the normal 0x09 OT tag length.
 	color0 = RenderBucket_DepthFadeColor((u32)ctx->tempColor[1], MFC2_S(17));
 	color1 = RenderBucket_DepthFadeColor((u32)ctx->tempColor[2], MFC2_S(18));
@@ -3103,8 +3081,7 @@ static int RenderBucket_DrawInstPrim_DepthFade(struct RenderBucketDrawContext *c
 static int RenderBucket_DrawInstPrim_ClampDepthAtRange(struct RenderBucketDrawContext *ctx, u32 command, struct TextureLayout *tex, int activeRange,
                                                        int depthMac0)
 {
-	// NOTE(aalhendi): ASM-verified retail 0x8006bad0-0x8006bbc0. Native passes
-	// the scratch active range and MAC0-derived depth as explicit arguments.
+	// Native passes the scratch active range and MAC0-derived depth as explicit arguments.
 	return RenderBucket_DrawInstPrim_NormalAtOTEntry(ctx, command, tex, RenderBucket_GetClampedOTEntry(ctx, activeRange, depthMac0));
 }
 
@@ -3257,7 +3234,6 @@ static int RenderBucket_DrawInstPrim_GhostAtRange(struct RenderBucketDrawContext
 		return 0;
 	}
 
-	// NOTE(aalhendi): ASM-verified against NTSC-U 926 0x8006d670-0x8006d79c.
 	// Alpha-zero ghosts tail-call the normal primitive writer at retail
 	// 0x8006adc8, which is represented by the shared native normal writer.
 	MTC2(ctx->tempColor[1], 20);
@@ -3981,8 +3957,8 @@ static int RenderBucket_DrawSplitClipped(struct RenderBucketDrawContext *ctx, u3
 		signMask |= 4;
 	}
 
-	// NOTE(aalhendi): ASM-verified retail 0x8006b4c8-0x8006b968 candidate
-	// order and scratch[0x3c]/scratch[0x40] range switching. Native carries the
+	// Preserve candidate order and scratch[0x3c]/scratch[0x40] range switching.
+	// Native carries the
 	// scratch vertices as explicit structs, then dispatches through the current
 	// Instance+0x60 primitive writer.
 	switch (signMask)
@@ -4234,9 +4210,8 @@ static int RenderBucket_DrawWaterSplitClipped(struct RenderBucketDrawContext *ct
 		signMask |= 4;
 	}
 
-	// NOTE(aalhendi): ASM-verified retail 0x8006d094-0x8006d258 candidate
-	// topology. Native uses explicit split vertices instead of scratch/GTE
-	// tail-call ABI, matching the accepted helper boundary in the audit.
+	// Preserve the retail candidate topology. Native uses explicit split vertices
+	// instead of the scratch/GTE tail-call ABI.
 	switch (signMask)
 	{
 	case 0:
@@ -4351,8 +4326,7 @@ void RenderBucket_DrawFunc_Normal(struct RenderBucketDrawContext *ctx)
 {
 	u32 *pCmd;
 
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8006a52c-0x8006a8e0;
-	// native uses the accepted explicit RenderBucketDrawContext command/FIFO ABI.
+	// Native uses the explicit RenderBucketDrawContext command/FIFO ABI.
 	pCmd = (u32 *)ctx->idpp->ptrCommandList;
 	pCmd++;
 
@@ -4642,8 +4616,7 @@ static void RenderBucket_DrawFunc_Special(struct RenderBucketDrawContext *ctx)
 {
 	u32 *pCmd = (u32 *)ctx->idpp->ptrCommandList;
 
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8006bbc0-0x8006bf30;
-	// native uses the accepted explicit RenderBucketDrawContext mirrored FIFO ABI.
+	// Native uses the explicit RenderBucketDrawContext mirrored FIFO ABI.
 	pCmd++;
 
 	while (*pCmd != 0xffffffff)
@@ -4739,8 +4712,7 @@ static void RenderBucket_DrawFunc_Reflection(struct RenderBucketDrawContext *ctx
 {
 	u32 *pCmd = (u32 *)ctx->idpp->ptrCommandList;
 
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8006c9c4-0x8006cdec;
-	// native uses the accepted explicit RenderBucketDrawContext split/FIFO ABI.
+	// Native uses the explicit RenderBucketDrawContext split/FIFO ABI.
 	pCmd++;
 
 	while (*pCmd != 0xffffffff)
@@ -4841,8 +4813,7 @@ static void RenderBucket_DrawFunc_Split(struct RenderBucketDrawContext *ctx)
 {
 	u32 *pCmd = (u32 *)ctx->idpp->ptrCommandList;
 
-	// NOTE(aalhendi): ASM-verified against NTSC-U 926 0x8006b030-0x8006b24c.
-	// The called water split helper at 0x8006d094 is audited separately.
+	// The called water split helper begins at 0x8006d094.
 	pCmd++;
 
 	while (*pCmd != 0xffffffff)
@@ -4952,9 +4923,8 @@ static void RenderBucket_DrawFunc_NormalAlt(struct RenderBucketDrawContext *ctx)
 {
 	u32 *pCmd = (u32 *)ctx->idpp->ptrCommandList;
 
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 alternate entry
-	// 0x8006a6b8-0x8006a8e0 inside RenderBucket_DrawFunc_Normal; native uses
-	// the accepted explicit RenderBucketSplitVertex ABI.
+	// This is the alternate 0x8006a6b8-0x8006a8e0 entry inside
+	// RenderBucket_DrawFunc_Normal; native uses the explicit split-vertex ABI.
 	pCmd++;
 
 	while (*pCmd != 0xffffffff)
@@ -5093,7 +5063,6 @@ static int RenderBucket_RunInstanceSetupCallback(struct RenderBucketDrawContext 
 		return 1;
 
 	case RB_RETAIL_INST_SETUP_FADE_COLOR:
-		// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8006c984-0x8006c9c4.
 		// The syms label calls this Draw_KartGhost, but this is the
 		// Instance+0x5c setup/fade callback.
 		if (ctx->inst->colorRGBA != 0)
@@ -5290,8 +5259,7 @@ void RenderBucket_Execute(void *param_1, struct PrimMem *param_2)
 	struct RenderBucketEntry *entry = (struct RenderBucketEntry *)param_1;
 	struct RenderBucketExecuteScratch *scratch = RenderBucket_Scratch();
 
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8006aaa8-0x8006ad6c;
-	// native uses the accepted explicit RenderBucketDrawContext scratch/register ABI.
+	// Native uses the explicit RenderBucketDrawContext scratch/register ABI.
 	scratch->primMemPtr32 = (u32)(uintptr_t)param_2;
 	scratch->pushBufferPtr32 = 0;
 	for (; entry->inst != 0; entry++)

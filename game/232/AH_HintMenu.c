@@ -1,6 +1,5 @@
 #include <common.h>
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b344c-0x800b351c.
 void AH_HintMenu_FiveArrows(int posY, s16 rotation)
 {
 	u32 *ptrColor = &D232.fiveArrow_col1[0];
@@ -24,7 +23,6 @@ void AH_HintMenu_FiveArrows(int posY, s16 rotation)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b351c-0x800b3594.
 void AH_HintMenu_MaskPosRot(void)
 {
 	struct Instance *mask = sdata->instMaskHints3D;
@@ -42,7 +40,6 @@ void AH_HintMenu_MaskPosRot(void)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 overlay 232 0x800b3594-0x800b3dd8.
 void AH_HintMenu_MenuProc(struct RectMenu *menu)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -166,7 +163,6 @@ void AH_HintMenu_MenuProc(struct RectMenu *menu)
 				if ((tapP1 & AH_HINTMENU_INPUT_BACK) != 0)
 				{
 					// Play sound
-					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b38b4-0x800b38bc for hint-menu back SFX.
 					OtherFX_Play(2, 1);
 					goto LAB_800b38c0;
 				}
@@ -176,7 +172,6 @@ void AH_HintMenu_MenuProc(struct RectMenu *menu)
 			else
 			{
 				// Play Sound
-				// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b3788-0x800b3790 for hint-menu confirm SFX.
 				OtherFX_Play(1, 1);
 
 				if (menu->rowSelected == numHintsFound)
@@ -223,7 +218,6 @@ void AH_HintMenu_MenuProc(struct RectMenu *menu)
 			if (menu->rowSelected < numHintsFound)
 			{
 				// Play Sound
-				// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b375c-0x800b3764 for hint-menu down SFX.
 				OtherFX_Play(0, 1);
 
 				// change which row is selected
@@ -239,7 +233,6 @@ void AH_HintMenu_MenuProc(struct RectMenu *menu)
 		if (0 < menu->rowSelected)
 		{
 			// Play Sound
-			// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b3724-0x800b372c for hint-menu up SFX.
 			OtherFX_Play(0, 1);
 
 			// change the row selected

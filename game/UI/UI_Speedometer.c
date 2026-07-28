@@ -1,6 +1,5 @@
 #include <common.h>
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800511c0-0x800516ac.
 void UI_DrawSpeedNeedle(s16 posX, s16 posY, struct Driver *driver)
 {
 	int minScale = 0;
@@ -122,7 +121,6 @@ const Color DrawSpeedBG_Colors[7] = {
     [6] = {.r = 0xdb, .g = 0x00, .b = 0x00},
 };
 
-// NOTE(aalhendi): PSX path ASM-verified NTSC-U 926 0x800516ac-0x80051c64.
 void UI_DrawSpeedBG(void)
 {
 	Point *vertexes = (Point *)&data.speedometerBG_vertData[0];

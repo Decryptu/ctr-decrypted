@@ -15,7 +15,6 @@ static void Vector_SpecLightSpin2D_RotMatrixMul(MATRIX *matrix, const SVec3 *inp
 
 void Vector_SpecLightSpin2D(struct Instance *inst, const SVec3 *rot, const SVec3 *lightDir)
 {
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800572d0-0x8005741c.
 	MATRIX rotMatrix;
 	VECTOR lightMac;
 	VECTOR viewMac;
@@ -63,7 +62,6 @@ static void Vector_LightMatrixMul(MATRIX *matrix, const SVec3 *input, SVec3 *out
 
 void Vector_SpecLightSpin3D(struct Instance *inst, const SVec3 *rot, const SVec3 *lightDir)
 {
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005741c-0x800576b8.
 	MATRIX rotMatrix;
 	SVec3 light = *lightDir;
 	struct GameTracker *gGT = sdata->gGT;
@@ -108,7 +106,6 @@ void Vector_SpecLightSpin3D(struct Instance *inst, const SVec3 *rot, const SVec3
 
 void Vector_SpecLightNoSpin3D(struct Instance *inst, const SVec3 *rot, const SVec3 *lightDir)
 {
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800576b8-0x80057884.
 	MATRIX lightMatrix;
 	SVec3 light = *lightDir;
 	SVec3 lightLocal;
@@ -238,7 +235,6 @@ static void Vector_BakeMatrixTable_BakeBlastedOffsets(void)
 
 void Vector_BakeMatrixTable(void)
 {
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80057884-0x80057c44.
 	// Retail bakes authored rot/scale vehicle-animation entries in-place before
 	// VehPhysForce_TranslateMatrix consumes entry+8 as a MATRIX.
 	if (sdata->matrixTableBaked != 0)

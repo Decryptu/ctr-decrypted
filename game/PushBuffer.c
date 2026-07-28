@@ -1,7 +1,6 @@
 #include <common.h>
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800426f8-0x80042910.
 void PushBuffer_Init(struct PushBuffer *pb, int id, int total)
 {
 #if BUILD == EurRetail
@@ -150,7 +149,6 @@ void PushBuffer_Init(struct PushBuffer *pb, int id, int total)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80042910-0x80042974.
 void PushBuffer_SetPsyqGeom(struct PushBuffer *pb)
 {
 	gte_SetGeomOffset(pb->rect.w / 2, pb->rect.h / 2);
@@ -159,7 +157,6 @@ void PushBuffer_SetPsyqGeom(struct PushBuffer *pb)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80042974-0x80042a8c for the retail path.
 void PushBuffer_SetDrawEnv_DecalMP(void *ot, struct DB *backBuffer, RECT *viewport, s16 offsetX, s16 offsetY, u8 dtd, u8 dfe, u8 isbg, u8 tpageUpper,
                                    u8 tpageLower)
 {
@@ -235,7 +232,6 @@ void PushBuffer_SetDrawEnv_DecalMP(void *ot, struct DB *backBuffer, RECT *viewpo
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80042a8c-0x80042c04.
 void PushBuffer_SetDrawEnv_Normal(void *ot, struct PushBuffer *pb, struct DB *backBuffer, s16 *copyDrawEnvNULL, int isbg)
 {
 	DRAWENV newDrawEnv;
@@ -283,7 +279,6 @@ void PushBuffer_SetDrawEnv_Normal(void *ot, struct PushBuffer *pb, struct DB *ba
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80042c04-0x80042e50.
 void PushBuffer_SetMatrixVP(struct PushBuffer *pb)
 {
 	// CameraMatrix
@@ -440,7 +435,6 @@ void PushBuffer_SetMatrixVP(struct PushBuffer *pb)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80042e50-0x800430f0.
 
 static void PushBuffer_SetFrustumPlane_LoadAxisVector(int x, int y, int z)
 {
@@ -538,7 +532,6 @@ int PushBuffer_SetFrustumPlane(struct PushBufferFrustumPlane *frustumPlane, stru
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800430f0-0x80043928.
 
 static void PushBuffer_UpdateFrustum_LoadV0(int xy, int z)
 {
@@ -866,7 +859,6 @@ void PushBuffer_UpdateFrustum(struct PushBuffer *pb)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80043928-0x80043ab8.
 void PushBuffer_FadeOneWindow(struct PushBuffer *pb)
 {
 	typedef struct
@@ -965,7 +957,6 @@ void PushBuffer_FadeOneWindow(struct PushBuffer *pb)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80043ab8-0x80043b30.
 void PushBuffer_FadeAllWindows()
 {
 	struct GameTracker *gGT = sdata->gGT;

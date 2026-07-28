@@ -1,6 +1,5 @@
 #include <common.h>
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80033474-0x800334f4.
 void LOAD_OvrLOD(u32 numPlyrCurrGame)
 {
 	// change {1-4} -> {0-3}
@@ -24,7 +23,6 @@ void LOAD_OvrLOD(u32 numPlyrCurrGame)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800334f4-0x80033570.
 void LOAD_OvrEndRace(u32 overlayIndex)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -67,7 +65,6 @@ static void LOAD_NativeResetThreadsOverlay(enum OverlayIndex overlayIndex)
 }
 #endif
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80033570-0x800335dc.
 void LOAD_OvrThreads(u32 overlayIndex)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -90,7 +87,6 @@ void LOAD_OvrThreads(u32 overlayIndex)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800335dc-0x80033610.
 int LOAD_GetAdvPackIndex(void)
 {
 	int levelID = sdata->gGT->levelID;

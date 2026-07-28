@@ -28,7 +28,6 @@ static inline struct InstDrawPerPlayer *DecalMP_GetIdpp(struct Instance *inst, i
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80023488-0x80023640.
 void DecalMP_01(struct GameTracker *gGT)
 {
 	if (gGT->numPlyrCurrGame == 0)
@@ -85,7 +84,6 @@ void DecalMP_01(struct GameTracker *gGT)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80023640-0x80023784.
 void DecalMP_02(struct GameTracker *gGT)
 {
 	for (int index = 0; index < 12; index++)
@@ -140,7 +138,6 @@ void DecalMP_02(struct GameTracker *gGT)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80023784-0x80023a40.
 void DecalMP_03(struct GameTracker *gGT)
 {
 	RECT viewport;

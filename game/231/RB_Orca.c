@@ -1,6 +1,5 @@
 #include <common.h>
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b7b8c-0x800b81e8.
 
 struct ParticleEmitter emSet_OrcaSplash[7] = {
     [0] =

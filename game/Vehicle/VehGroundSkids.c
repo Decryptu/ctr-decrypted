@@ -54,7 +54,6 @@ static u16 VehGroundSkids_ReadTexHalf(const struct TextureLayout *layout, size_t
 	return half;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005c120-0x8005c278.
 void VehGroundSkids_Subset1(u32 *currXY, u32 *prevXY, int depth, struct VehGroundSkidsScratch *scratch)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -107,7 +106,6 @@ static s16 VehGroundSkids_ScaleRelative(u16 value, u16 origin)
 	return (s16)(u16)(((u32)value - (u32)origin) << VEH_GROUND_SKIDS_PROJECT_SCALE_SHIFT);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005c278-0x8005c354.
 void VehGroundSkids_Subset2(struct VehGroundSkidsScratch *scratch, const SVECTOR *v1, const SVECTOR *v2, const SVECTOR *v3)
 {
 	u16 originX = (u16)scratch->origin.x;
@@ -230,7 +228,6 @@ static void VehGroundSkids_TryEmitSegment(struct VehGroundSkidsScratch *scratch,
 	VehGroundSkids_Subset1(&currXY[pointIndex], &prevXY[pointIndex], depth, scratch);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005c354-0x8005ca24.
 void VehGroundSkids_Main(struct Thread *thread, struct PushBuffer *pb)
 {
 	gte_SetGeomOffset(pb->rect.w >> 1, pb->rect.h >> 1);

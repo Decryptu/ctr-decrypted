@@ -138,7 +138,6 @@ static void CS_RestoreDecodedOpcode(struct CutsceneObj *cs, const int in[CS_DECO
 	cs->decodedOpcode.words[4] = in[4];
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800ac840-0x800ade8c
 int CS_Thread_UseOpcode(struct Instance *instance, struct CutsceneObj *cs)
 {
 	u8 numPlayers;
@@ -1029,7 +1028,6 @@ finishOpcodeStep:
 	goto updateInstanceAndReturn;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800ae2b8-0x800ae318
 void CS_Thread_AnimateScale(struct Thread *t)
 {
 	struct Instance *inst = t->inst;
@@ -1070,7 +1068,6 @@ void CS_Thread_AnimateScale(struct Thread *t)
 	inst->scale.z = (s16)newScale;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800ade8c-0x800ae2b8
 void CS_Thread_MoveOnPath(struct Thread *t)
 {
 	struct CutsceneObj *cs = t->object;
@@ -1277,7 +1274,6 @@ void CS_Thread_MoveOnPath(struct Thread *t)
 	ConvertRotToMatrix(&inst->matrix, &rot);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800abdd4-0x800abf70
 void CS_Thread_Particles(struct Thread *t)
 {
 	struct CutsceneObj *cs = t->object;
@@ -1355,7 +1351,6 @@ CTR_STATIC_ASSERT(offsetof(struct CSInterpolateLinePacket, colorAndCode) == 0x0C
 CTR_STATIC_ASSERT(offsetof(struct CSInterpolateLinePacket, xy0) == 0x10);
 CTR_STATIC_ASSERT(offsetof(struct CSInterpolateLinePacket, xy1) == 0x14);
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800ae318-0x800ae54c
 void CS_Thread_InterpolateFramesMS(struct Thread *t)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -1437,7 +1432,6 @@ void CS_Thread_InterpolateFramesMS(struct Thread *t)
 	primMem->cursor = packet;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b06ac-0x800b087c
 void CS_Thread_LInB(struct Instance *inst)
 {
 	struct Thread *t;
@@ -1531,7 +1525,6 @@ check_polar:
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800ae54c-0x800ae81c
 void CS_Thread_ThTick(struct Thread *t)
 {
 	// Retail uses scratchpad 0x1f800108/0x1f800118 for parent frame-data temporaries.
@@ -1643,7 +1636,6 @@ thTick_subtitles:
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800af328-0x800af7c0
 struct Thread *CS_Thread_Init(s16 modelID, const char *name, struct CsThreadInitData *initData, s16 yawOffset, struct Thread *parent)
 {
 	struct GameTracker *gGT = sdata->gGT;

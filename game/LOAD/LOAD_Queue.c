@@ -1,6 +1,5 @@
 #include <common.h>
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80032d30-0x80032d8c.
 void LOAD_AppendQueue(struct BigHeader *bigfile, int type, int fileIndex, void *destinationPtr, void (*callback)(struct LoadQueueSlot *))
 {
 	if (sdata->queueLength >= LOAD_QUEUE_SLOT_COUNT)
@@ -20,7 +19,6 @@ void LOAD_AppendQueue(struct BigHeader *bigfile, int type, int fileIndex, void *
 	sdata->queueLength++;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80032d8c-0x80032dc0.
 void LOAD_CDRequestCallback(struct LoadQueueSlot *lqs)
 {
 	if (lqs->callbackFuncPtr != NULL)
@@ -31,7 +29,6 @@ void LOAD_CDRequestCallback(struct LoadQueueSlot *lqs)
 	sdata->queueReady = 1;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 PS1 path 0x80032dc0-0x80032ffc.
 void LOAD_NextQueuedFile()
 {
 	struct LoadQueueSlot *curr = &data.currSlot;

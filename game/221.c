@@ -166,7 +166,6 @@ static void CC_EndEvent_UnlockRewardBit(struct AdvProgress *adv, s32 rewardBit)
 #endif
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8009f710-0x8009fbec for the retail path.
 void CC_EndEvent_DrawMenu()
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -280,7 +279,6 @@ void CC_EndEvent_DrawMenu()
 	}
 	else if (elapsedFrames == CTR_SECONDS_TO_FRAMES(1))
 	{
-		// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8009fa24-0x8009fa2c for crystal token unlock SFX.
 		OtherFX_Play(0x67, 1);
 	}
 

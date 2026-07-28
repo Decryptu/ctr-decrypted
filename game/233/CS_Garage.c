@@ -44,7 +44,6 @@ enum
 
 CTR_STATIC_ASSERT(GARAGE_STAT_BAR_POLY_G4_COLOR_CODE == 0x38000000);
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b7784-0x800b7834
 void CS_Garage_ZoomOut(s16 zoomState)
 {
 	if (zoomState != 0)
@@ -76,7 +75,6 @@ void CS_Garage_ZoomOut(s16 zoomState)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b7834-0x800b854c
 void CS_Garage_MenuProc(struct RectMenu *menu)
 {
 	(void)menu;
@@ -555,13 +553,11 @@ update_garage_camera:
 	gGT->pushBuffer[0].distanceToScreen_PREV = zoom;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b854c-0x800b8558
 struct RectMenu *CS_Garage_GetMenuPtr(void)
 {
 	return &gGarage.menuGarage;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b8558-0x800b8598
 void CS_Garage_Init(void)
 {
 	// go to 3D character selection

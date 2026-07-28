@@ -80,7 +80,6 @@ static s32 VehPhysCrash_Dot3(s32 ax, s32 ay, s32 az, s32 bx, s32 by, s32 bz)
 	return CTR_MipsAddLo(CTR_MipsAddLo(CTR_MipsMulLo(ax, bx), CTR_MipsMulLo(ay, by)), CTR_MipsMulLo(az, bz));
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005cd1c-0x8005cf64.
 void VehPhysCrash_ConvertVecToSpeed(struct Driver *d, Vec3 *vel)
 {
 	int speed2D = VehCalc_FastSqrt(VehPhysCrash_LengthSq2(vel->x, vel->z), VEH_PHYS_CRASH_FAST_SQRT_ITERATIONS);
@@ -129,7 +128,6 @@ static int VehPhysCrash_BounceSelf_Div6Shift9(int value)
 	return CTR_MipsSubLo(CTR_MipsSra(high, 9), CTR_MipsSra(value, 31));
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005cf64-0x8005d0d0.
 int VehPhysCrash_BounceSelf(const SVec3 *normal, const Vec3 *origin, Vec3 *vel, b32 boolOtherDriver)
 {
 	int diffX = CTR_MipsSubLo(vel->x, origin->x);
@@ -179,7 +177,6 @@ int VehPhysCrash_BounceSelf(const SVec3 *normal, const Vec3 *origin, Vec3 *vel, 
 	return 0;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005d0d0-0x8005d218.
 void VehPhysCrash_AI(struct Driver *bot, Vec3 *vel)
 {
 	sdata->botCrashNavRot.x = (s16)CTR_MipsSll(bot->botData.botNavFrame->rot[0], VEH_PHYS_CRASH_BOT_NAV_ROT_SHIFT);
@@ -210,7 +207,6 @@ static void VehPhysCrash_Attack_SetReason(struct Driver *driver, u8 reason)
 	driver->pendingDamageReasonByte = reason;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005d218-0x8005d404.
 int VehPhysCrash_Attack(struct Driver *driver1, struct Driver *driver2, b32 canPlayFeedback, b32 boolPlayBubblePop)
 {
 	if ((driver1->actionsFlagSet & ACTION_MASK_WEAPON) == 0)
@@ -348,7 +344,6 @@ static void VehPhysCrash_PlayHumanFeedback(struct Thread *selfThread, struct Thr
 	otherDriver->actionsFlagSet |= ACTION_HUMAN_HUMAN_COLLISION;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005d404-0x8005e104
 void VehPhysCrash_AnyTwoCars(struct Thread *thread, struct DriverCollisionSearch *search, Vec3 *selfVel)
 {
 	int distance = VehCalc_FastSqrt(search->bucket.bestDistSq, 0);

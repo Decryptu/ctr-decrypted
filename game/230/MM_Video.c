@@ -4,7 +4,6 @@
 
 void MM_Video_DecDCToutCallbackFunc(void)
 {
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b5a64-0x800b5b7c.
 #ifndef CTR_NATIVE
 // part of PSYQ BSS
 #define StCdIntrFlag *(u32 *)0x8009ebf8
@@ -45,7 +44,6 @@ void MM_Video_DecDCToutCallbackFunc(void)
 
 void MM_Video_KickCD(CdlLOC *location)
 {
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b5b7c-0x800b5c8c.
 	int result;
 	int cdlMode;
 	u8 mode[4];
@@ -103,7 +101,6 @@ void MM_Video_KickCD(CdlLOC *location)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 overlay 230 0x800b5c8c-0x800b615c.
 void MM_Video_VLC_Decode(void)
 {
 	s16 oldDecodeState;
@@ -316,7 +313,6 @@ LAB_800b5fec:
 
 void MM_Video_StartStream(int cdStartSector, int streamFrameCount)
 {
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b615c-0x800b6260.
 	V230.cdRetryState = 0;
 	V230.endOfStream = 0;
 	V230.decodeState = 1;
@@ -342,7 +338,6 @@ void MM_Video_StartStream(int cdStartSector, int streamFrameCount)
 	// next parameter (0) = START_FRAME
 	StSetStream((V230.flags & MM_VIDEO_FLAG_RGB24), 0, MM_VIDEO_STREAM_END_FRAME_NONE, 0, 0);
 
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b6210-0x800b621c for video CD stream mode.
 	CDSYS_SetMode_StreamData();
 
 	// 800b6814 = Ring_Buf (mempack)
@@ -357,7 +352,6 @@ void MM_Video_StartStream(int cdStartSector, int streamFrameCount)
 
 void MM_Video_StopStream(void)
 {
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b6260-0x800b62d8.
 	int cdReady = CdDiskReady(1);
 	if (cdReady == CdlComplete)
 	{
@@ -383,7 +377,6 @@ void MM_Video_StopStream(void)
 	V230.drawNextFrame = 0;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b62d8-0x800b64d4.
 void MM_Video_AllocMem(u32 width, u16 height, u32 flags, int ringSectorCount, int vlcBufferShift)
 {
 	MEMPACK_PushState();
@@ -437,7 +430,6 @@ void MM_Video_AllocMem(u32 width, u16 height, u32 flags, int ringSectorCount, in
 #endif
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b64d4-0x800b64f4.
 void MM_Video_ClearMem(void)
 {
 	MEMPACK_PopState();
@@ -445,7 +437,6 @@ void MM_Video_ClearMem(void)
 
 #ifndef CTR_NATIVE
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b64f4-0x800b6674.
 b32 MM_Video_DecodeFrame(s16 offsetX, s16 offsetY)
 {
 	int cdReady = CdDiskReady(1);
@@ -512,7 +503,6 @@ b32 MM_Video_DecodeFrame(s16 offsetX, s16 offsetY)
 	return canDrawFrame;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 PSX path 0x800b6674-0x800b67ac.
 b32 MM_Video_CheckIfFinished(b32 pollCdReady)
 {
 	b32 isFinished;

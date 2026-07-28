@@ -1,6 +1,5 @@
 #include <common.h>
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8002b4d0-0x8002b508
 void Smart_EnterCriticalSection(void)
 {
 	int count = sdata->criticalSectionCount;
@@ -13,7 +12,6 @@ void Smart_EnterCriticalSection(void)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8002b508-0x8002b540
 void Smart_ExitCriticalSection(void)
 {
 	int count = sdata->criticalSectionCount;
@@ -32,7 +30,6 @@ void Smart_ExitCriticalSection(void)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8002b540-0x8002b5b4
 void Channel_SetVolume(struct ChannelAttr *attr, int volume, int LR)
 {
 	if ((u32)volume >= 0x4000)
@@ -52,7 +49,6 @@ void Channel_SetVolume(struct ChannelAttr *attr, int volume, int LR)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8002b5b4-0x8002b608
 int Channel_FindSound(int soundID)
 {
 	struct ChannelStats *curr, *backupNext;
@@ -75,7 +71,6 @@ int Channel_FindSound(int soundID)
 	return 0;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8002b608-0x8002b7d0
 struct ChannelStats *Channel_AllocSlot_AntiSpam(s16 soundID, u8 boolUseAntiSpam, int flags, struct ChannelAttr *attr)
 {
 	struct ChannelStats *curr, *backupNext;
@@ -126,7 +121,6 @@ void Channel_DestroySelf(struct ChannelStats *stats)
 	LIST_AddBack(&sdata->channelFree, (struct Item *)stats);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8002b7d0-0x8002b898
 struct ChannelStats *Channel_AllocSlot(int flags, struct ChannelAttr *attr)
 {
 	struct ChannelAttr *newAttr;
@@ -160,7 +154,6 @@ struct ChannelStats *Channel_AllocSlot(int flags, struct ChannelAttr *attr)
 	return stats;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8002b898-0x8002b9b8
 struct ChannelStats *Channel_SearchFX_EditAttr(int type, int soundID, int updateFlags, struct ChannelAttr *attr)
 {
 	struct ChannelAttr *editAttr;
@@ -230,7 +223,6 @@ struct ChannelStats *Channel_SearchFX_EditAttr(int type, int soundID, int update
 // depending on flags, you might have:
 //	16-bit soundID, which destroys all of this type of sound
 //	32-bit soundID_count, which destroys specific instance of sound
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8002b9b8-0x8002ba90
 struct ChannelStats *Channel_SearchFX_Destroy(int type, int soundID, int flags)
 {
 	struct ChannelStats *curr, *backupNext;
@@ -265,7 +257,6 @@ struct ChannelStats *Channel_SearchFX_Destroy(int type, int soundID, int flags)
 
 // param_1 0: keep menu fx, 1: destroy all fx
 // param_2 0: destroy music, 1: keep music
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8002ba90-0x8002bbac
 void Channel_DestroyAll_LowLevel(int opt1, b32 boolKeepMusic, u8 type)
 {
 	struct ChannelStats *curr, *backupNext;
@@ -299,7 +290,6 @@ void Channel_DestroyAll_LowLevel(int opt1, b32 boolKeepMusic, u8 type)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8002bbac-0x8002be9c
 void Channel_ParseSongToChannels()
 {
 	struct Song *song;
@@ -469,7 +459,6 @@ void Channel_ParseSongToChannels()
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8002be9c-0x8002c18c
 void Channel_UpdateChannels()
 {
 	// int voice_bit;

@@ -13,7 +13,6 @@ CTR_STATIC_ASSERT(DEBUG_FONT_DIGIT_TILE_SIZE == 7);
 CTR_STATIC_ASSERT(DEBUG_FONT_DIGIT_ZERO_ATLAS_OFFSET == 5);
 CTR_STATIC_ASSERT(DEBUG_FONT_PRIM_WORD_COUNT == 9);
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800222e0-0x80022318.
 void DebugFont_Init(struct GameTracker *gGT)
 {
 	struct Icon *debugFontIcon = gGT->ptrIcons[DEBUG_FONT_ICON_INDEX];
@@ -34,7 +33,6 @@ void DebugFont_Init(struct GameTracker *gGT)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80022318-0x800223f4.
 void DebugFont_DrawNumbers(int index, int screenPosX, int screenPosY)
 {
 	POLY_FT4 *p;

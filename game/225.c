@@ -72,7 +72,6 @@ global_variable s16 s_vsStandingsYByPlayerCount[3][VB_POSY_NUM] = {
     {0xa, 0x35, 0x5b, 0x81, 0xa7} // 4P
 };
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8009f718-0x800a0208.
 void VB_EndEvent_DrawMenu(void)
 {
 	char text[24];

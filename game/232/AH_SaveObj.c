@@ -1,6 +1,5 @@
 #include <common.h>
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800af3a4-0x800af3e4.
 void AH_SaveObj_ThDestroy(struct Thread *t)
 {
 	struct SaveObj *save = t->object;
@@ -13,7 +12,6 @@ void AH_SaveObj_ThDestroy(struct Thread *t)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800af3e4-0x800af7f0.
 void AH_SaveObj_ThTick(struct Thread *t)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -207,7 +205,6 @@ LAB_800af72c:
 			}
 
 			// Play save/load screen sound
-			// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800af7a8-0x800af7c0 for save/load screen loop SFX.
 			OtherFX_Play_LowLevel(AH_SAVEOBJ_SCAN_SFX_ID, 1, HowlSfx_Pack(HOWL_SFX_LR_CENTER, HOWL_SFX_DISTORTION_NONE, volume, 0));
 
 			// reset animation
@@ -217,7 +214,6 @@ LAB_800af72c:
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800af7f0-0x800af9f8.
 void AH_SaveObj_LInB(struct Instance *savInst)
 {
 	struct GameTracker *gGT = sdata->gGT;

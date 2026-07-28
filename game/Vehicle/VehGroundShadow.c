@@ -53,7 +53,6 @@ enum
 /// @brief Copies texture layout data from icon to arbitrary mem address. Particularly used to copy kart shadow textures to scratchpad.
 /// @param dst - destination texture layout
 /// @param iconIndex - icon index to take data from
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005b6b8-0x8005b720.
 b32 VehGroundShadow_Subset1(struct TextureLayout *pDst, int iconIndex)
 {
 	// get pointer to icon
@@ -344,7 +343,6 @@ static void VehGroundShadow_EmitQuad(u32 **primCursor, u32 *otBase, const struct
 	*primCursor = (u32 *)(poly + 1);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005b720-0x8005c120.
 void VehGroundShadow_Main(void)
 {
 	struct GameTracker *gGT = sdata->gGT;

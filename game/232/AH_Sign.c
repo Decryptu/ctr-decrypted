@@ -13,7 +13,6 @@ CTR_STATIC_ASSERT(offsetof(struct AHSignScratch, probeBottom) == 0x08);
 CTR_STATIC_ASSERT(offsetof(struct AHSignScratch, normal) == 0x10);
 CTR_STATIC_ASSERT(offsetof(struct AHSignScratch, sps) == 0x18);
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 overlay 232 0x800b9290-0x800b93ec.
 void AH_Sign_LInB(struct Instance *inst)
 {
 	struct AHSignScratch *scratch = CTR_SCRATCHPAD_PTR(struct AHSignScratch, 0x108);

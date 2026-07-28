@@ -50,7 +50,6 @@ int LOAD_TenStages(struct GameTracker *gGT, int loadingStage, struct BigHeader *
 	{
 	case 0:
 	{
-		// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003368c-0x80033698 for loading-start volume backup/XA pause.
 		if (!boolPlayMusicDuringLoading)
 		{
 			Cutscene_VolumeBackup();
@@ -215,7 +214,6 @@ int LOAD_TenStages(struct GameTracker *gGT, int loadingStage, struct BigHeader *
 			return loadingStage;
 		}
 
-		// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80033b38-0x80033c00 for end-event overlay selection.
 		if ((gGT->gameMode1 & CRYSTAL_CHALLENGE) != 0)
 		{
 			ovrRegion1 = 0;
@@ -251,13 +249,11 @@ int LOAD_TenStages(struct GameTracker *gGT, int loadingStage, struct BigHeader *
 	}
 	case 2:
 	{
-		// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80033be8-0x80033c00 for LOD overlay selection.
 		LOAD_OvrLOD(gGT->numPlyrCurrGame);
 		break;
 	}
 	case 3:
 	{
-		// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80033c0c-0x80033cd4 for thread overlay routing.
 		if ((levelID != ADVENTURE_GARAGE) && ((gGT->gameMode1 & MAIN_MENU) != 0))
 		{
 			ovrRegion3 = 0;
@@ -291,7 +287,6 @@ int LOAD_TenStages(struct GameTracker *gGT, int loadingStage, struct BigHeader *
 	}
 	case 4:
 	{
-		// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80033cf4-0x80033d04 for post-overlay music restart gate.
 		if (!boolPlayMusicDuringLoading)
 		{
 			Music_Restart();
@@ -348,7 +343,6 @@ int LOAD_TenStages(struct GameTracker *gGT, int loadingStage, struct BigHeader *
 
 		if (!boolPlayMusicDuringLoading)
 		{
-			// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80033eb8-0x80033ed0 for music stop/CSEQ stop/bank reload.
 			Music_Stop();
 			CseqMusic_StopAll();
 			Music_LoadBanks();
@@ -360,7 +354,6 @@ int LOAD_TenStages(struct GameTracker *gGT, int loadingStage, struct BigHeader *
 	{
 		if (!boolPlayMusicDuringLoading)
 		{
-			// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80033ef8-0x80033f14 for async bank parse and volume restore.
 			int banksReady = Music_AsyncParseBanks();
 
 			if (banksReady == 0)
@@ -372,7 +365,6 @@ int LOAD_TenStages(struct GameTracker *gGT, int loadingStage, struct BigHeader *
 			Cutscene_VolumeRestore();
 		}
 
-		// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80033f1c-0x80033f44; retail converts driver DRAM file headers to model payload pointers here.
 		for (int i = 0; i < LOAD_DRIVER_MODEL_EXTRA_COUNT; i++)
 		{
 			if (data.driverModelExtras[i].fileBase != NULL)
@@ -459,7 +451,6 @@ int LOAD_TenStages(struct GameTracker *gGT, int loadingStage, struct BigHeader *
 		// add LEV to loading queue
 		LOAD_AppendQueue(bigfile, LT_GETADDR, LOAD_GetBigfileIndex(gGT->levelID, sdata->levelLOD, LVI_LEV), NULL, LOAD_Callback_LEV);
 
-		// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800340c0-0x80034180; retail queues PTR maps by level-ID ranges.
 		if (((u32)(levelID - GEM_STONE_VALLEY) < LOAD_PTR_MAP_ADV_LEVEL_COUNT) || ((u32)(levelID - CREDITS_CRASH) < LOAD_PTR_MAP_CREDIT_LEVEL_COUNT))
 		{
 			// add PTR file to loading queue
@@ -630,7 +621,6 @@ int LOAD_TenStages(struct GameTracker *gGT, int loadingStage, struct BigHeader *
 		{
 			audioState = AUDIO_GARAGE_ENTRY;
 		LAB_800346b0:
-			// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80034694-0x800346b8 for the retail post-load audio state call.
 #if defined(CTR_NATIVE)
 			LOAD_NativeAudio_SetStateAfterBankReload(audioState);
 #else

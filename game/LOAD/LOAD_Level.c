@@ -1,6 +1,5 @@
 #include <common.h>
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800347d0-0x80034874.
 // Dont get confused, packID is LOAD_GetAdvPackIndex(),
 // which gives the pack of the hub you're NOT on, because the
 // game does 3-GetAdvPackIndex to load the hub you ARE on
@@ -27,7 +26,6 @@ void LOAD_TalkingMask(int packID, int maskID)
 	LOAD_AppendQueue(sdata->ptrBigfileCdPos_2, LT_GETADDR, BI_UKAHEAD + offset + 1, NULL, LOAD_Callback_MaskHints3D);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80034874-0x800348e8.
 void LOAD_LevelFile(int levelID)
 {
 	struct GameTracker *gGT = sdata->gGT;

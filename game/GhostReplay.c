@@ -10,7 +10,6 @@ internal s16 Ghost_LerpRot12(s16 curr, s16 next, u16 t)
 	return (curr + ((delta * t) >> 0xC)) & 0xFFF;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80026ed8-0x80027838.
 void GhostReplay_ThTick(struct Thread *t)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -322,7 +321,6 @@ void GhostReplay_ThTick(struct Thread *t)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80027838-0x80027b88.
 void GhostReplay_Init1(void)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -421,7 +419,6 @@ void GhostReplay_Init1(void)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80027b88-0x80027df4.
 void GhostReplay_Init2(void)
 {
 	struct GameTracker *gGT = sdata->gGT;

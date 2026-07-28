@@ -48,7 +48,6 @@ global_variable s32 s_driverRankString222 = 0x20; // " \0"
 extern struct RectMenu menu222;
 extern struct RectMenu menu222_2P;
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8009f704-0x800a06f8.
 void AA_EndEvent_DrawMenu(void)
 {
 	SVec2 letterPos;
@@ -161,7 +160,6 @@ void AA_EndEvent_DrawMenu(void)
 
 				if (shouldScaleLetters)
 				{
-					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8009fc48-0x8009fc50 for CTR token unlock SFX.
 					if (hudC->scale.x == AA_CTR_LETTER_BASE_SCALE)
 					{
 						OtherFX_Play(0x67, 1);
@@ -523,7 +521,6 @@ void AA_EndEvent_DrawMenu(void)
 	MainRaceTrack_RequestLoad(levSpawn);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800a06f8-0x800a0b38.
 void AA_EndEvent_DisplayTime(s16 driverId, s16 timeOffsetFrames)
 {
 	s16 lerpStartY;

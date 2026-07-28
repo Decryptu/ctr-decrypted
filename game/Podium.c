@@ -13,7 +13,6 @@ CTR_STATIC_ASSERT(PODIUM_RANK_FIRST == 0);
 CTR_STATIC_ASSERT(PODIUM_RANK_SECOND == 1);
 CTR_STATIC_ASSERT(PODIUM_RANK_THIRD == 2);
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80041c84-0x80041dc0.
 void Podium_InitModels(struct GameTracker *gGT)
 {
 	gGT->podium_modelIndex_First = 0;

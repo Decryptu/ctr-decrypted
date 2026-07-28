@@ -174,7 +174,6 @@ static void VehStuckProc_MaskGrab_SearchBsp(struct Driver *d, struct ScratchpadS
 	COLL_SearchBSP_CallbackPARAM(sps->ptr_mesh_info->bspRoot, &sps->bbox, COLL_FIXED_BSPLEAF_TestQuadblocks, sps);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8006677c-0x80066cb0.
 void VehStuckProc_MaskGrab_FindDestPos(struct Driver *d, struct QuadBlock *quad)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -270,7 +269,6 @@ void VehStuckProc_MaskGrab_FindDestPos(struct Driver *d, struct QuadBlock *quad)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80066cb0-0x80066d4c.
 void VehStuckProc_MaskGrab_Particles(struct Driver *d)
 {
 	struct Particle *p;
@@ -293,7 +291,6 @@ void VehStuckProc_MaskGrab_Particles(struct Driver *d)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80066d4c-0x80066e3c.
 void VehStuckProc_MaskGrab_Update(struct Thread *t, struct Driver *d)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -337,7 +334,6 @@ void VehStuckProc_MaskGrab_Update(struct Thread *t, struct Driver *d)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80066e3c-0x80066e8c.
 void VehStuckProc_MaskGrab_PhysLinear(struct Thread *t, struct Driver *d)
 {
 	VehPhysProc_Driving_PhysLinear(t, d);
@@ -354,7 +350,6 @@ void VehStuckProc_MaskGrab_PhysLinear(struct Thread *t, struct Driver *d)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80066e8c-0x800671b0.
 void VehStuckProc_MaskGrab_Animate(struct Thread *t, struct Driver *d)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -554,7 +549,6 @@ void VehStuckProc_MaskGrab_Animate(struct Thread *t, struct Driver *d)
 
 extern DriverFunc PlayerMaskGrabFuncTable[DRIVER_FUNC_COUNT];
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800671b0-0x8006749c.
 void VehStuckProc_MaskGrab_Init(struct Thread *t, struct Driver *d)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -658,7 +652,6 @@ DriverFunc PlayerMaskGrabFuncTable[DRIVER_FUNC_COUNT] = {NULL,
                                                          VehEmitter_DriverMain};
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8006749c-0x80067554.
 void VehStuckProc_PlantEaten_Update(struct Thread *t, struct Driver *d)
 {
 	d->NoInputTimer = (s16)CTR_MipsSubLo((u16)d->NoInputTimer, (u16)sdata->gGT->elapsedTimeMS);
@@ -681,7 +674,6 @@ void VehStuckProc_PlantEaten_Update(struct Thread *t, struct Driver *d)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80067554-0x800675c0.
 void VehStuckProc_PlantEaten_PhysLinear(struct Thread *t, struct Driver *d)
 {
 	VehPhysProc_Driving_PhysLinear(t, d);
@@ -704,7 +696,6 @@ void VehStuckProc_PlantEaten_PhysLinear(struct Thread *t, struct Driver *d)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800675c0-0x800677d0.
 void VehStuckProc_PlantEaten_Animate(struct Thread *t, struct Driver *d)
 {
 	(void)t;
@@ -772,7 +763,6 @@ void VehStuckProc_PlantEaten_Animate(struct Thread *t, struct Driver *d)
 
 extern DriverFunc PlayerEatenFuncTable[DRIVER_FUNC_COUNT];
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800677d0-0x80067930.
 // when eaten by plant on papu pyramid
 void VehStuckProc_PlantEaten_Init(struct Thread *t, struct Driver *d)
 {
@@ -845,7 +835,6 @@ DriverFunc PlayerEatenFuncTable[DRIVER_FUNC_COUNT] = {
 };
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80067930-0x80067960.
 void VehStuckProc_RIP_Init(struct Thread *t, struct Driver *d)
 {
 	VehStuckProc_PlantEaten_Init(t, d);
@@ -855,7 +844,6 @@ void VehStuckProc_RIP_Init(struct Thread *t, struct Driver *d)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80067960-0x80067a74.
 void VehStuckProc_RevEngine_Update(struct Thread *t, struct Driver *d)
 {
 	int revFireLevel;
@@ -922,7 +910,6 @@ void VehStuckProc_RevEngine_Update(struct Thread *t, struct Driver *d)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80067a74-0x80067b7c.
 void VehStuckProc_RevEngine_PhysLinear(struct Thread *t, struct Driver *d)
 {
 	u32 cooldownTimer;
@@ -966,7 +953,6 @@ void VehStuckProc_RevEngine_PhysLinear(struct Thread *t, struct Driver *d)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80067b7c-0x80067f4c.
 void VehStuckProc_RevEngine_Animate(struct Thread *t, struct Driver *d)
 {
 	struct Instance *inst = t->inst;
@@ -1183,7 +1169,6 @@ LAB_80067dec:;
 
 extern DriverFunc PlayerRevEngineFuncTable[DRIVER_FUNC_COUNT];
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80067f4c-0x8006809c.
 void VehStuckProc_RevEngine_Init(struct Thread *t, struct Driver *d)
 {
 	(void)t;
@@ -1233,7 +1218,6 @@ DriverFunc PlayerRevEngineFuncTable[DRIVER_FUNC_COUNT] = {
 };
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8006809c-0x800680d0.
 void VehStuckProc_Tumble_Update(struct Thread *thread, struct Driver *driver)
 {
 	if (driver->NoInputTimer != 0)
@@ -1247,7 +1231,6 @@ void VehStuckProc_Tumble_Update(struct Thread *thread, struct Driver *driver)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800680d0-0x80068150.
 void VehStuckProc_Tumble_PhysLinear(struct Thread *thread, struct Driver *driver)
 {
 	driver->NoInputTimer = (s16)CTR_MipsSubLo((u16)driver->NoInputTimer, (u16)sdata->gGT->elapsedTimeMS);
@@ -1267,7 +1250,6 @@ void VehStuckProc_Tumble_PhysLinear(struct Thread *thread, struct Driver *driver
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80068150-0x80068244.
 void VehStuckProc_Tumble_PhysAngular(struct Thread *thread, struct Driver *driver)
 {
 	(void)thread;
@@ -1297,7 +1279,6 @@ void VehStuckProc_Tumble_PhysAngular(struct Thread *thread, struct Driver *drive
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80068244-0x800682a4.
 void VehStuckProc_Tumble_Animate(struct Thread *thread, struct Driver *driver)
 {
 	(void)thread;
@@ -1338,7 +1319,6 @@ DriverFunc PlayerBlastedFuncTable[DRIVER_FUNC_COUNT] = {NULL,
                                                         VehStuckProc_Tumble_Animate,
                                                         VehEmitter_DriverMain};
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800682a4-0x800683f4.
 void VehStuckProc_Tumble_Init(struct Thread *thread, struct Driver *driver)
 {
 	(void)thread;
@@ -1468,7 +1448,6 @@ static const u32 VEH_WARP_DUST_POLY_G4_CODE = 0x3a000000u;
 static const u32 VEH_WARP_DUST_EDGE_COLOR = 0x007f1f3fu;
 static const u32 VEH_WARP_DUST_PACKET_TAG = 0x11000000u;
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800683f4-0x800685b0.
 void VehStuckProc_Warp_MoveDustPuff(s16 *points, int span, int radius, s16 *jitterScale)
 {
 	int radiusHalf = CTR_MipsSra(radius, 1);
@@ -1511,7 +1490,6 @@ void VehStuckProc_Warp_MoveDustPuff(s16 *points, int span, int radius, s16 *jitt
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800685b0-0x80068644.
 void VehStuckProc_Warp_AddDustPuff1(struct ScratchpadStruct *sps)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -1654,7 +1632,6 @@ static void VehWarpDust_EmitSegment(u32 **primCursor, struct PushBuffer *pb, con
 	*primCursor = (u32 *)(packet + 1);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80068644-0x80068be8.
 void VehStuckProc_Warp_AddDustPuff2(struct Driver *d, struct DriverWarpState *warp)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -1743,7 +1720,6 @@ void VehStuckProc_Warp_AddDustPuff2(struct Driver *d, struct DriverWarpState *wa
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80068be8-0x80068e04.
 void VehStuckProc_Warp_PhysAngular(struct Thread *th, struct Driver *d)
 {
 	(void)th;
@@ -1840,7 +1816,6 @@ void VehStuckProc_Warp_PhysAngular(struct Thread *th, struct Driver *d)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80068e04-0x80068f90.
 void VehStuckProc_Warp_Init(struct Thread *th, struct Driver *d)
 {
 	(void)th;

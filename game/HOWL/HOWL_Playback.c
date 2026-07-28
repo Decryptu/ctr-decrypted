@@ -1,6 +1,5 @@
 #include <common.h>
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8002c18c-0x8002c1d0
 void Cutscene_VolumeBackup(void)
 {
 	// enter critical section
@@ -19,7 +18,6 @@ void Cutscene_VolumeBackup(void)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8002c1d0-0x8002c208
 void Cutscene_VolumeRestore(void)
 {
 	// enter critical section
@@ -37,7 +35,6 @@ void Cutscene_VolumeRestore(void)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8002c208-0x8002c34c
 void howl_PlayAudio_Update()
 {
 	u32 *ptrFlag;
@@ -94,7 +91,6 @@ void howl_PlayAudio_Update()
 	Channel_UpdateChannels();
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8002c34c-0x8002c424
 void howl_InitChannelAttr_EngineFX(struct EngineFX *engineFX, struct ChannelAttr *attr, int vol, int LR, int distort)
 {
 	Channel_SetVolume(attr, (sdata->vol_FX * engineFX->volume * vol) >> 10, LR);
@@ -115,7 +111,6 @@ void howl_InitChannelAttr_EngineFX(struct EngineFX *engineFX, struct ChannelAttr
 	attr->spuStartAddr = (void *)(sdata->howl_spuAddrs[engineFX->spuIndex].spuAddr << 3);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8002c424-0x8002c510
 void howl_InitChannelAttr_OtherFX(struct OtherFX *otherFX, struct ChannelAttr *attr, int vol, int LR, int distort)
 {
 	int otherVol;
@@ -145,7 +140,6 @@ void howl_InitChannelAttr_OtherFX(struct OtherFX *otherFX, struct ChannelAttr *a
 	attr->spuStartAddr = (void *)(sdata->howl_spuAddrs[otherFX->spuIndex].spuAddr << 3);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8002c510-0x8002c64c
 void howl_PauseAudio()
 {
 	u32 *ptrFlag;
@@ -194,7 +188,6 @@ void howl_PauseAudio()
 	Smart_ExitCriticalSection();
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8002c64c-0x8002c784
 void howl_UnPauseChannel(struct ChannelStats *stats)
 {
 	int type;
@@ -229,7 +222,6 @@ void howl_UnPauseChannel(struct ChannelStats *stats)
 	memcpy(&sdata->channelAttrNew[stats->channelID], &attr, sizeof(attr));
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8002c784-0x8002c8a8
 void howl_UnPauseAudio()
 {
 	int i;
@@ -287,7 +279,6 @@ void howl_UnPauseAudio()
 	sdata->numBackup_ChannelStats = 0;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8002c8a8-0x8002c918
 void howl_StopAudio(b32 boolErasePauseBackup, b32 boolEraseMusic, b32 boolDestroyAllFX)
 {
 	if (boolEraseMusic != 0)

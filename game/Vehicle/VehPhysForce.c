@@ -1,7 +1,6 @@
 #include <common.h>
 
 
-// NOTE(aalhendi): ASM-verified helper for NTSC-U 926 0x8005e104-0x8005e214.
 void VehPhysForce_ConvertSpeedToVecOut(struct Driver *driver, Vec3 *vel)
 {
 	int yAngle = driver->axisRotationY;
@@ -167,7 +166,6 @@ static Vec3 VehPhysForce_OnGravity_RotateVector(const MATRIX *m, s16 vx, s16 vy,
 	return out;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005e214-0x8005ea60
 void VehPhysForce_OnGravity(struct Driver *driver, Vec3 *velocity)
 {
 	int elapsedTimeMS = sdata->gGT->elapsedTimeMS;
@@ -571,7 +569,6 @@ static Vec3 VehPhysForce_OnApplyForces_RotateVector(const MATRIX *m, s16 vx, s16
 	return out;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005ea60-0x8005ebac.
 void VehPhysForce_OnApplyForces(struct Thread *thread, struct Driver *driver)
 {
 	(void)thread;
@@ -610,7 +607,6 @@ void VehPhysForce_OnApplyForces(struct Thread *thread, struct Driver *driver)
 	driver->velocity.y = CTR_MipsAddLo(driver->velocity.y, driver->accel.y);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005ebac-0x8005ee34.
 void VehPhysForce_CollideDrivers(struct Thread *thread, struct Driver *driver)
 {
 	CollStepFlags stepFlagSet = driver->stepFlagSet;
@@ -1088,7 +1084,6 @@ static void VehPhysForce_TranslateMatrix_UpdateWake(struct Instance *inst, struc
 	wake->scale.z = d->wakeScale;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005ee34-0x8005f89c
 void VehPhysForce_TranslateMatrix(struct Thread *thread, struct Driver *driver)
 {
 	struct Instance *inst = thread->inst;
@@ -1149,7 +1144,6 @@ static struct TrigPair VehPhysForce_TrigAngleSinCos(int angle)
 	return pair;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005f89c-0x8005fb4c.
 void VehPhysForce_RotAxisAngle(MATRIX *m, s16 *normVec, s16 angle)
 {
 	s32 normalX = normVec[0];
@@ -1245,7 +1239,6 @@ static SVec3 VehPhysForce_CounterSteer_RotateVector(const MATRIX *m, s16 vx, s16
 	return out;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005fb4c-0x8005fc8c.
 void VehPhysForce_CounterSteer(struct Driver *driver)
 {
 	driver->accel.x = 0;

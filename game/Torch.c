@@ -354,7 +354,6 @@ static u32 *Torch_EmitFT4(u32 *prim, uint32_t *ot, struct TorchPointSource uv0, 
 	return (u32 *)(poly + 1);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004b914-0x8004b94c
 static struct TorchCardRegs Torch_Subset1_BuildCard(s32 centerX, s32 centerY, u32 sxy0, u32 sxy1)
 {
 	struct TorchCardRegs regs;
@@ -370,7 +369,6 @@ static struct TorchCardRegs Torch_Subset1_BuildCard(s32 centerX, s32 centerY, u3
 	return regs;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004b94c-0x8004b9cc
 static void Torch_Subset2_StoreCard(const struct TorchCardRegs *regs, s32 centerX, s32 centerY, enum TorchRingIndex ringIndex)
 {
 	u32 sxy2 = MFC2(14);
@@ -389,7 +387,6 @@ static void Torch_Subset2_StoreCard(const struct TorchCardRegs *regs, s32 center
 	ring->bottomRight = Torch_PackXY(centerX + radiusX, centerY + radiusY);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004b9cc-0x8004ba4c
 static void Torch_Subset3_SetTpage(s32 x, s32 y)
 {
 	struct TorchScratch *scratch = Torch_Scratch();
@@ -408,28 +405,24 @@ static void Torch_Subset3_SetTpage(s32 x, s32 y)
 	scratch->uv1.tpage = (u16)(tile | (((u32)y & 0x100) >> 4) | 0x100);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004ba4c-0x8004bbe8
 static u32 *Torch_Subset4_EmitFT3(u32 *prim, uint32_t *ot, enum TorchRingPoint pointA, enum TorchRingPoint pointB)
 {
 	return Torch_EmitFT3(prim, ot, Torch_Point(TORCH_RING_0, TORCH_POINT_CENTER), Torch_Point(TORCH_RING_2, pointA), Torch_Point(TORCH_RING_2, pointB),
 	                     Torch_Point(TORCH_RING_0, TORCH_POINT_CENTER), Torch_Point(TORCH_RING_1, pointA), Torch_Point(TORCH_RING_1, pointB));
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004bbe8-0x8004bd84
 static u32 *Torch_Subset5_EmitFT3(u32 *prim, uint32_t *ot, enum TorchRingPoint pointA, enum TorchRingPoint pointB)
 {
 	return Torch_EmitFT3(prim, ot, Torch_Point(TORCH_RING_0, TORCH_POINT_CENTER), Torch_Point(TORCH_RING_2, pointA), Torch_Point(TORCH_RING_1, pointB),
 	                     Torch_Point(TORCH_RING_0, TORCH_POINT_CENTER), Torch_Point(TORCH_RING_1, pointA), Torch_Point(TORCH_RING_2, pointB));
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004bd84-0x8004bf20
 static u32 *Torch_Subset6_EmitFT3(u32 *prim, uint32_t *ot, enum TorchRingPoint pointA, enum TorchRingPoint pointB)
 {
 	return Torch_EmitFT3(prim, ot, Torch_Point(TORCH_RING_0, TORCH_POINT_CENTER), Torch_Point(TORCH_RING_1, pointA), Torch_Point(TORCH_RING_1, pointB),
 	                     Torch_Point(TORCH_RING_0, TORCH_POINT_CENTER), Torch_Point(TORCH_RING_2, pointA), Torch_Point(TORCH_RING_2, pointB));
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004bf20-0x8004c134
 static u32 *Torch_Subset7_EmitFT4(u32 *prim, uint32_t *ot, enum TorchRingPoint pointA, enum TorchRingPoint pointB)
 {
 	return Torch_EmitFT4(prim, ot, Torch_Point(TORCH_RING_0, pointA), Torch_Point(TORCH_RING_0, pointB), Torch_Point(TORCH_RING_2, pointA),
@@ -437,7 +430,6 @@ static u32 *Torch_Subset7_EmitFT4(u32 *prim, uint32_t *ot, enum TorchRingPoint p
 	                     Torch_Point(TORCH_RING_1, pointA), Torch_Point(TORCH_RING_1, pointB));
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004c134-0x8004c348
 static u32 *Torch_Subset8_EmitFT4(u32 *prim, uint32_t *ot, enum TorchRingPoint pointA, enum TorchRingPoint pointB)
 {
 	return Torch_EmitFT4(prim, ot, Torch_Point(TORCH_RING_0, pointA), Torch_Point(TORCH_RING_0, pointB), Torch_Point(TORCH_RING_2, pointA),
@@ -445,7 +437,6 @@ static u32 *Torch_Subset8_EmitFT4(u32 *prim, uint32_t *ot, enum TorchRingPoint p
 	                     Torch_Point(TORCH_RING_1, pointA), Torch_Point(TORCH_RING_2, pointB));
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004c348-0x8004c55c
 static u32 *Torch_Subset9_EmitFT4(u32 *prim, uint32_t *ot, enum TorchRingPoint pointA, enum TorchRingPoint pointB)
 {
 	return Torch_EmitFT4(prim, ot, Torch_Point(TORCH_RING_1, pointA), Torch_Point(TORCH_RING_1, pointB), Torch_Point(TORCH_RING_0, pointA),
@@ -508,7 +499,6 @@ static u32 *Torch_EmitParticle(u32 *prim, uint32_t *ot)
 	return prim;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004b470-0x8004b914
 void Torch_Main(void *particleList_heatWarp, struct PushBuffer *pb, struct PrimMem *primMem, u8 numPlyr, int swapchainIndex)
 {
 	struct Particle *firstParticle = particleList_heatWarp;

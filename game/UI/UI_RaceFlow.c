@@ -45,7 +45,6 @@ CTR_STATIC_ASSERT(UI_RACE_END_DRIVER_COUNT == 8);
 CTR_STATIC_ASSERT(UI_RACE_END_ATTACK_RATIO_SHIFT == 0xc);
 CTR_STATIC_ASSERT(UI_RACE_END_SAVE_GHOST_FRAME == 0x3f9);
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005572c-0x80055840.
 void UI_RaceEnd_GetDriverClock(struct Driver *driver)
 {
 	u8 missilesLaunched;
@@ -100,7 +99,6 @@ void UI_RaceEnd_GetDriverClock(struct Driver *driver)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80055840-0x80055c90.
 
 // You see this in 1P mode, right before traffic lights count down
 void UI_RaceStart_IntroText1P(void)
@@ -338,7 +336,6 @@ LAB_80055930:
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80055c90-0x8005607c.
 void UI_RaceEnd_MenuProc(struct RectMenu *menu)
 {
 	s16 option;
@@ -418,7 +415,6 @@ void UI_RaceEnd_MenuProc(struct RectMenu *menu)
 		// clear backup,
 		// keep music,
 		// destroy "most" fx, let menu fx play to end
-		// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80055df0-0x80055e04 for retry stop-audio args.
 		howl_StopAudio(1, 0, 0);
 
 		// if did not improve time, then dont

@@ -36,7 +36,6 @@ enum AHDoorConstants
 	AH_DOOR_CAMERA_PITCH_OFFSET = 0x800,
 };
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800af9f8-0x800afa60.
 void AH_Door_ThDestroy(struct Thread *t)
 {
 	int i;
@@ -86,7 +85,6 @@ static b32 AH_Door_IsOpenByRewards(s16 levelID, AdventureHubDoorID doorID)
 	return false;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 overlay 232 0x800afa60-0x800b072c.
 void AH_Door_ThTick(struct Thread *t)
 {
 	b32 doorIsOpen;
@@ -415,29 +413,23 @@ void AH_Door_ThTick(struct Thread *t)
 				switch (door->frameCount_doorOpenAnim)
 				{
 				case AH_DOOR_KEY_FLOAT_SFX_FRAME_0:
-					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b0208-0x800b0218 for first floating-key SFX.
 					OtherFX_Play_LowLevel(AH_DOOR_KEY_FLOAT_SFX_ID, 1, 0xff7680);
 					break;
 				case AH_DOOR_KEY_FLOAT_SFX_FRAME_1:
-					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b022c-0x800b023c for second floating-key SFX.
 					OtherFX_Play_LowLevel(AH_DOOR_KEY_FLOAT_SFX_ID, 1, 0xeb8080);
 					break;
 				case AH_DOOR_KEY_FLOAT_SFX_FRAME_2:
-					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b0250-0x800b0260 for third floating-key SFX.
 					OtherFX_Play_LowLevel(AH_DOOR_KEY_FLOAT_SFX_ID, 1, 0xd78a80);
 					break;
 				case AH_DOOR_KEY_FLOAT_SFX_FRAME_3:
-					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b0274-0x800b0284 for fourth floating-key SFX.
 					OtherFX_Play_LowLevel(AH_DOOR_KEY_FLOAT_SFX_ID, 1, 0xc39480);
 					break;
 				case AH_DOOR_UNLOCK_SFX_FRAME:
 					// unlock door sound
-					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b0298-0x800b02ac for door unlock SFX.
 					OtherFX_Play(AH_DOOR_UNLOCK_SFX_ID, 1);
 					break;
 				case AH_DOOR_KEY_SPIN_FRAMES:
 					// on last frame, doors creak open
-					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b02a0-0x800b02ac for door creak SFX.
 					OtherFX_Play(AH_DOOR_CREAK_SFX_ID, 1);
 					break;
 
@@ -589,7 +581,6 @@ void AH_Door_ThTick(struct Thread *t)
 	gGT->hudFlags = (u8)door->hudFlags;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b072c-0x800b0b98.
 void AH_Door_LInB(struct Instance *inst)
 {
 	int levelID;

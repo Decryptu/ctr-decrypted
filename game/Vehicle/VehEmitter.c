@@ -161,7 +161,6 @@ CTR_STATIC_ASSERT(VEH_EMITTER_JOG_AIR_TURN_NEGATIVE == 0x12);
 CTR_STATIC_ASSERT(VEH_EMITTER_JOG_AIR_TURN_POSITIVE == 0x22);
 CTR_STATIC_ASSERT(VEH_EMITTER_JOG_AIR_DURATION == 0x20);
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80059100-0x80059344.
 struct Particle *VehEmitter_Exhaust(struct Driver *d, VECTOR *exhaustPos, VECTOR *exhaustVel)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -260,7 +259,6 @@ static const SVECTOR sparkGround_inX = {0x1800, 0, 0, 0};
 static const SVECTOR sparkGround_inZ = {0, 0, -0x1800, 0};
 static const SVECTOR sparkGround_inZ2 = {0, 0, -0x200, 0};
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80059344-0x80059558.
 void VehEmitter_Sparks_Ground(struct Driver *d, struct ParticleEmitter *emSet)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -316,7 +314,6 @@ static const SVECTOR terrainEmitterPos[4] = {
     {VEH_EMITTER_TIRE_LEFT_X, VEH_EMITTER_TERRAIN_TIRE_Y, VEH_EMITTER_TIRE_FRONT_Z, 0},
 };
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80059558-0x80059780.
 void VehEmitter_Terrain_Ground(struct Driver *d, struct ParticleEmitter *emSet)
 {
 	int speed;
@@ -391,7 +388,6 @@ void VehEmitter_Terrain_Ground(struct Driver *d, struct ParticleEmitter *emSet)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80059780-0x80059a18.
 void VehEmitter_Sparks_Wall(struct Driver *d, struct ParticleEmitter *emSet)
 {
 	int speedAbs = d->speedApprox;
@@ -927,7 +923,6 @@ static void VehEmitter_ExhaustPair(struct Thread *thread, struct Driver *d)
 	VehEmitter_Exhaust(d, &exhaustPos, &exhaustVel);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80059a18-0x8005ab24
 void VehEmitter_DriverMain(struct Thread *thread, struct Driver *d)
 {
 	struct Terrain *terrain = d->terrainMeta1;

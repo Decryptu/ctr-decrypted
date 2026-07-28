@@ -101,7 +101,6 @@ CTR_STATIC_ASSERT(AH_MAP_ARROW_OUTLINE_TROPHY_STEP == 0x200);
 CTR_STATIC_ASSERT(AH_MAP_ARROW_OUTLINE_ROUTE_STEP == 0x555);
 CTR_STATIC_ASSERT(AH_MAP_ARROW_OUTLINE_BOSS_STEP == 0x199);
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b0b98-0x800b0ce0.
 void AH_Map_LoadSave_Prim(const SVec2 *vertPos, char *vertCol, void *ot, struct PrimMem *primMem)
 {
 	POLY_G4 *p = primMem->cursor;
@@ -146,7 +145,6 @@ void AH_Map_LoadSave_Prim(const SVec2 *vertPos, char *vertCol, void *ot, struct 
 	AddPrim(ot, p);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b0ce0-0x800b0f18.
 void AH_Map_LoadSave_Full(int posX, int posY, const SVec2 *vertPos, char *vertCol, int scale, int angle)
 {
 	SVec2 basePos[4];
@@ -189,7 +187,6 @@ void AH_Map_LoadSave_Full(int posX, int posY, const SVec2 *vertPos, char *vertCo
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b0f18-0x800b1150.
 void AH_Map_HubArrow(int posX, int posY, const SVec2 *vertPos, char *vertCol, int scale, int angle)
 {
 	SVec2 basePos[3];
@@ -232,7 +229,6 @@ void AH_Map_HubArrow(int posX, int posY, const SVec2 *vertPos, char *vertCol, in
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b1150-0x800b14f4.
 void AH_Map_HubArrowOuter(struct UIMap *map, int arrowIndex, int posX, int posY, int inputAngle, int type)
 {
 	struct GameTracker *gGT;
@@ -334,7 +330,6 @@ void AH_Map_HubArrowOuter(struct UIMap *map, int arrowIndex, int posX, int posY,
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b14f4-0x800b1a18.
 void AH_Map_HubItems(struct UIMap *map, s16 *arrowCounter)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -534,7 +529,6 @@ void AH_Map_HubItems(struct UIMap *map, s16 *arrowCounter)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b1a18-0x800b1c90.
 void AH_Map_Warppads(struct UIMap *map, struct Thread *warppadThread, s16 *arrowCounter)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -635,7 +629,6 @@ void AH_Map_Warppads(struct UIMap *map, struct Thread *warppadThread, s16 *arrow
 force_inline void AH_MaskHint_DrawRepeatPrompt(void);
 #endif
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b1c90-0x800b1ef8.
 void AH_Map_Main(void)
 {
 	struct GameTracker *gGT = sdata->gGT;

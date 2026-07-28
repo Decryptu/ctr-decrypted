@@ -28,7 +28,6 @@ void LOAD_Hub_ReadFile(struct BigHeader *bigfile, int levID, int packID)
 	LOAD_AppendQueue(bigfile, LT_SETADDR, LOAD_GetBigfileIndex(levID, LOAD_LEVEL_LOD_1P, LVI_PTR), sdata->PatchMem_Ptr, LOAD_HubCallback);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80033108-0x80033318.
 void LOAD_Hub_SwapNow()
 {
 	struct Level *level1;
@@ -139,7 +138,6 @@ static const int s_advHubConnectedLevID[LOAD_ADV_HUB_COUNT][LOAD_ADV_HUB_CONNECT
 #define LOAD_HUB_CONNECTED_LEV(hub, index) rdata.MetaDataHubs[(hub)].connectedHub_LevID[(index)]
 #endif
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80033318-0x80033474.
 void LOAD_Hub_Main(struct BigHeader *bigfilePtr)
 {
 	struct GameTracker *gGT;

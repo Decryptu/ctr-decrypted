@@ -55,7 +55,6 @@ enum
 	UI_SLIDE_METER_EMPTY_B = 0x80,
 };
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80051c64-0x80051e24.
 
 void UI_JumpMeter_Update(struct Driver *driver)
 {
@@ -123,7 +122,6 @@ void UI_JumpMeter_Update(struct Driver *driver)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80051e24-0x80052250.
 void UI_JumpMeter_Draw(s16 posX, s16 posY, struct Driver *driver)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -285,7 +283,6 @@ void UI_JumpMeter_Draw(s16 posX, s16 posY, struct Driver *driver)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80052250-0x800524c4.
 void UI_DrawSlideMeter(s16 posX, s16 posY, struct Driver *driver)
 {
 	const struct GameTracker *gGT = sdata->gGT;

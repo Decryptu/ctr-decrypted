@@ -80,7 +80,6 @@ force_inline s16 BOTS_PathChangeCap(void)
 	return (s16)CTR_MipsSll(BOTS_NAV_PATH_COUNT, BOTS_PATH_CHANGE_PATH_SHIFT);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80012568-0x80012598.
 int BOTS_Adv_NumTimesLostEvent(int numLost)
 {
 	// if you lost more than 10 times
@@ -94,7 +93,6 @@ int BOTS_Adv_NumTimesLostEvent(int numLost)
 	return data.advDifficulty[numLost];
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800123e0-0x80012440
 void BOTS_SetGlobalNavData(u16 index)
 {
 	sdata->lastPathIndex = index;
@@ -108,7 +106,6 @@ void BOTS_SetGlobalNavData(u16 index)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80012440-0x80012560
 void BOTS_InitNavPath(struct GameTracker *gGT, s16 index)
 {
 	(void)gGT;
@@ -163,7 +160,6 @@ void BOTS_InitNavPath(struct GameTracker *gGT, s16 index)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80012560-0x80012568.
 void BOTS_EmptyFunc(void)
 {
 }
@@ -200,7 +196,6 @@ internal s32 BOTS_GetTrackDistanceToFinish(struct GameTracker *gGT)
 	return CTR_MipsSll(gGT->level1->ptr_restart_points->distToFinish, 3);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80012598-0x80013374.
 void BOTS_Adv_AdjustDifficulty(void)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -445,7 +440,6 @@ void BOTS_Adv_AdjustDifficulty(void)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80013374-0x80013444.
 void BOTS_UpdateGlobals(void)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -491,7 +485,6 @@ void BOTS_UpdateGlobals(void)
 	sdata->aiCollisionDelayFrameCount++;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80013444-0x800135d8
 void BOTS_SetRotation(struct Driver *bot, int useSpawnYaw)
 {
 	struct NavFrame *nf = bot->botData.botNavFrame;
@@ -550,7 +543,6 @@ void BOTS_SetRotation(struct Driver *bot, int useSpawnYaw)
 	bot->botData.botFlags |= BOT_FLAG_ESTIMATE_NAV;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800135d8-0x8001372c.
 void BOTS_LevInstColl(struct Thread *botThread)
 {
 	struct Driver *driver = (struct Driver *)botThread->object;
@@ -602,7 +594,6 @@ void BOTS_LevInstColl(struct Thread *botThread)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8001372c-0x80013838.
 void BOTS_ThTick_RevEngine(struct Thread *botThread)
 {
 	struct Driver *botDriver = (struct Driver *)botThread->object;
@@ -641,7 +632,6 @@ void BOTS_ThTick_RevEngine(struct Thread *botThread)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80013838-0x80013a70.
 void BOTS_MaskGrab(struct Thread *botThread)
 {
 	struct Driver *bot = botThread->object;
@@ -731,7 +721,6 @@ void BOTS_MaskGrab(struct Thread *botThread)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80013a70-0x80013c18.
 void BOTS_Killplane(struct Thread *botThread)
 {
 	struct Driver *bot = botThread->object;
@@ -823,7 +812,6 @@ void BOTS_Killplane(struct Thread *botThread)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80013c18-0x80016b00 for the retail path.
 
 void BOTS_ThTick_Drive(struct Thread *botThread)
 {
@@ -2779,7 +2767,6 @@ FinishHazardTimerUpdate:
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80016b00-0x80016ec8
 u32 BOTS_ChangeState(struct Driver *driverVictim, int damageType, struct Driver *driverAttacker, int reason)
 {
 	driverVictim->pendingDamageType = 0;
@@ -2926,7 +2913,6 @@ u32 BOTS_ChangeState(struct Driver *driverVictim, int damageType, struct Driver 
 	return 1;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80016ec8-0x8001702c
 void BOTS_CollideWithOtherAI(struct Driver *robot_1, struct Driver *robot_2)
 {
 	// first determine which driver bumps forward and which bumps backwards
@@ -3007,7 +2993,6 @@ void BOTS_CollideWithOtherAI(struct Driver *robot_1, struct Driver *robot_2)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8001702c-0x80017164.
 void BOTS_GotoStartingLine(struct Driver *d)
 {
 	sdata->aiCollisionDelayFrameCount = 0;
@@ -3069,7 +3054,6 @@ void BOTS_GotoStartingLine(struct Driver *d)
 	d->botData.weaponCooldown = (s16)CTR_MipsAddLo(CTR_MipsSra(rng, 8) & 0xff, 300);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80017164-0x80017318.
 struct Driver *BOTS_Driver_Init(int driverID)
 {
 	s8 initialNavPathIndex = sdata->driver_pathIndexIDs[driverID];
@@ -3124,7 +3108,6 @@ struct Driver *BOTS_Driver_Init(int driverID)
 	return d;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80017318-0x800175cc.
 void BOTS_Driver_Convert(struct Driver *d)
 {
 	// if already AI, quit

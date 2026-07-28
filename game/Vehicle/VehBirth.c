@@ -168,7 +168,6 @@ static int VehBirth_ScaleTrig(int trig, int scale)
 	return CTR_MipsSra(CTR_MipsMulLo(trig, scale), FRACTIONAL_BITS);
 }
 
-// NOTE(aalhendi): PSX path ASM-verified NTSC-U 926 0x80057c8c-0x80058898.
 void VehBirth_TeleportSelf(struct Driver *d, u8 spawnFlag, int spawnPosY)
 {
 	SVec3 posTop;
@@ -475,7 +474,6 @@ void VehBirth_TeleportSelf(struct Driver *d, u8 spawnFlag, int spawnPosY)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80058898-0x80058948.
 void VehBirth_TeleportAll(struct GameTracker *gGT, u32 spawnFlags)
 {
 	// NOTE(aalhendi): Retail ignores this parameter and reloads gGT from globals.
@@ -523,7 +521,6 @@ internal b32 VehBirth_ModelNameEquals(const struct Model *model, const char *nam
 	return true;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80058948-0x80058a60.
 struct Model *VehBirth_GetModelByName(char *searchName)
 {
 	// array to character models loaded,
@@ -560,7 +557,6 @@ struct Model *VehBirth_GetModelByName(char *searchName)
 	return NULL;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80058a60-0x80058ba4.
 void VehBirth_SetConsts(struct Driver *driver)
 {
 	u8 *d = (u8 *)driver;
@@ -601,7 +597,6 @@ void VehBirth_SetConsts(struct Driver *driver)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80058ba4-0x80058c44.
 void VehBirth_EngineAudio_AllPlayers(void)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -618,13 +613,11 @@ void VehBirth_EngineAudio_AllPlayers(void)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80058c44-0x80058c4c.
 void VehBirth_NullThread(struct Thread *t)
 {
 	(void)t;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80058c4c-0x80058d2c.
 void VehBirth_TireSprites(struct Thread *t)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -669,7 +662,6 @@ void VehBirth_TireSprites(struct Thread *t)
 	d->quip3 = VEH_BIRTH_QUIP_NONE;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80058d2c-0x80058ec0.
 void VehBirth_NonGhost(struct Thread *t, int index)
 {
 	// model index = DYNAMIC_PLAYER,
@@ -747,7 +739,6 @@ void VehBirth_NonGhost(struct Thread *t, int index)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80058ec0-0x80058f54.
 struct Driver *VehBirth_Player(int index)
 {
 	struct Thread *t = PROC_BirthWithObject(VEH_BIRTH_PLAYER_THREAD_FLAGS, 0, sdata->s_player, 0);

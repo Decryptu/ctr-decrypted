@@ -1,6 +1,5 @@
 #include <common.h>
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b3dd8-0x800b3f88.
 void AH_MaskHint_Start(s16 hintId, u16 bool_interruptWarppad)
 {
 	// copy parameters
@@ -48,14 +47,12 @@ void AH_MaskHint_Start(s16 hintId, u16 bool_interruptWarppad)
 	for (int i = 0; i < 3; i++)
 	{
 		// 4 bytes for 4 volumes
-		// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b3f3c-0x800b3f54 for mask-hint volume backup.
 		D232.audioBackup[i] = howl_VolumeGet(i);
 	}
 
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b3f88-0x800b3f98.
 b32 AH_MaskHint_boolCanSpawn(void)
 {
 	// 0 - aku is gone,
@@ -67,7 +64,6 @@ b32 AH_MaskHint_boolCanSpawn(void)
 	return sdata->AkuAkuHintState == 0;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b3f98-0x800b42b4.
 void AH_MaskHint_SetAnim(int scale)
 {
 	MATRIX *m;
@@ -132,7 +128,6 @@ void AH_MaskHint_SetAnim(int scale)
 	mhInst->matrix.t[2] = posCurr.z;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b42b4-0x800b43cc.
 void AH_MaskHint_SpawnParticles(s16 numParticles, struct ParticleEmitter *emSet, int maskAnim)
 
 {
@@ -174,7 +169,6 @@ void AH_MaskHint_SpawnParticles(s16 numParticles, struct ParticleEmitter *emSet,
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b43cc-0x800b4470.
 void AH_MaskHint_LerpVol(int blend)
 {
 	int diff;
@@ -242,7 +236,6 @@ force_inline void AH_MaskHint_DrawRepeatPrompt(void)
 	RECTMENU_DrawInnerRect(&r, 4, gGT->backBuffer->otMem.uiOT);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 overlay 232 0x800b4470-0x800b4c80.
 void AH_MaskHint_Update()
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -331,7 +324,6 @@ void AH_MaskHint_Update()
 		// first frame "whoosh" sound
 		if (D232.maskFrameCurr == 0)
 		{
-			// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b46d4-0x800b46e4 for mask spawn-start SFX.
 			OtherFX_Play_LowLevel(AH_MASKHINT_SFX_SPAWN, 1, HOWL_SFX_DEFAULT_FLAGS);
 		}
 
@@ -340,22 +332,18 @@ void AH_MaskHint_Update()
 		{
 			if (D232.maskFrameCurr == 10)
 			{
-				// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b470c-0x800b4774 for mask spawn pulse 10 SFX.
 				OtherFX_Play_LowLevel(AH_MASKHINT_SFX_SPAWN, 0, 0xd78a80);
 			}
 			else if (D232.maskFrameCurr == 20)
 			{
-				// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b4728-0x800b4774 for mask spawn pulse 20 SFX.
 				OtherFX_Play_LowLevel(AH_MASKHINT_SFX_SPAWN, 1, 0xaf9480);
 			}
 			else if (D232.maskFrameCurr == 25)
 			{
-				// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b4744-0x800b4774 for mask spawn pulse 25 SFX.
 				OtherFX_Play_LowLevel(AH_MASKHINT_SFX_SPAWN, 0, 0x879e80);
 			}
 			else if (D232.maskFrameCurr == 30)
 			{
-				// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b4760-0x800b4774 for mask spawn pulse 30 SFX.
 				OtherFX_Play_LowLevel(AH_MASKHINT_SFX_SPAWN, 1, 0x5fa880);
 			}
 		}
@@ -441,7 +429,6 @@ void AH_MaskHint_Update()
 		AH_MaskHint_SpawnParticles(AH_MASKHINT_VANISH_PARTICLES, &D232.emSet_maskLeave[0], AH_MASKHINT_FULL_BLEND);
 
 		// vanish sound
-		// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b4b24-0x800b4b2c for mask vanish SFX.
 		OtherFX_Play(AH_MASKHINT_SFX_VANISH, 1);
 
 		VehTalkMask_End();

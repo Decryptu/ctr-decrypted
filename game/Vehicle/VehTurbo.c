@@ -67,7 +67,6 @@ CTR_STATIC_ASSERT(TURBO_FADE_FAST_STEP == 0x100);
 CTR_STATIC_ASSERT(TURBO_FADE_SLOW_STEP == 0x40);
 CTR_STATIC_ASSERT(TURBO_STOP_SFX_ID == -1);
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80069284-0x80069370.
 void VehTurbo_ProcessBucket(struct Thread *turboThread)
 {
 	while (turboThread != NULL)
@@ -110,7 +109,6 @@ void VehTurbo_ProcessBucket(struct Thread *turboThread)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80069370-0x800693c8.
 void VehTurbo_ThDestroy(struct Thread *t)
 {
 	struct Turbo *turboObj = t->object;
@@ -133,7 +131,6 @@ static void VehTurbo_TransformOffset(struct Instance *driverInst, s16 x, s16 y, 
 	CTR_GteStoreIR(out);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800693c8-0x80069bb0.
 void VehTurbo_ThTick(struct Thread *turboThread)
 {
 	struct GameTracker *gGT = sdata->gGT;

@@ -1,6 +1,5 @@
 #include <common.h>
 
-// NOTE(aalhendi): ASM-verified against NTSC-U 926 overlay 231 0x800ad92c-0x800ad9ac.
 void RB_Explosion_ThTick(struct Thread *t)
 {
 	struct Instance *inst = t->inst;
@@ -31,7 +30,6 @@ static const u32 s_potionShatterEmitter[] = {
     0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
 };
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b1458-0x800b1630.
 // NOTE(aalhendi): Native uses retail emitter bytes from 0x800b2d58.
 void RB_Explosion_InitPotion(struct Instance *inst)
 {
@@ -105,7 +103,6 @@ void RB_Explosion_InitPotion(struct Instance *inst)
 
 static char s_explosion1[] = "explosion1";
 
-// NOTE(aalhendi): ASM-verified against NTSC-U 926 overlay 231 0x800b1630-0x800b1714.
 void RB_Explosion_InitGeneric(struct Instance *inst)
 {
 	struct Instance *explosion;

@@ -137,7 +137,6 @@ static void DrawConfetti_LinkPrimitive(POLY_F4 *poly, uint32_t *ot)
 	CtrGpu_LinkPacket24(ot, &poly->tag, poly, 0x05000000);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80069ffc-0x8006a4c4
 void DrawConfetti(struct PushBuffer *pb, struct PrimMem *primMem, struct GameTrackerConfetti *confetti, int frameTimer, int gameMode1)
 {
 	POLY_F4 *prim = primMem->cursor;

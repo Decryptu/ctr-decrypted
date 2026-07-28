@@ -2,7 +2,6 @@
 
 extern struct ParticleEmitter emSet_TubeBubbles[7];
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b39dc-0x800b3bc0.
 void RB_Bubbles_RoosTubes()
 {
 	struct GameTracker *gGT;

@@ -1,6 +1,5 @@
 #include <common.h>
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80047da8-0x80047dfc.
 void SelectProfile_QueueLoadHub_MenuProc(struct RectMenu *menu)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -15,7 +14,6 @@ void SelectProfile_QueueLoadHub_MenuProc(struct RectMenu *menu)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80047dfc-0x80047f20 for the retail path.
 void SelectProfile_ThTick(struct Thread *t)
 {
 	struct SelectProfileLoadSaveObj *obj;
@@ -51,7 +49,6 @@ void SelectProfile_ThTick(struct Thread *t)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80047f20-0x80047fb8.
 void SelectProfile_PrintInteger(int value, int posX, int posY, b32 usePaddedFormat, int color)
 {
 	char text[64];
@@ -71,7 +68,6 @@ void SelectProfile_PrintInteger(int value, int posX, int posY, b32 usePaddedForm
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80047fb8-0x80047fd8.
 int SelectProfile_UI_ConvertX(int screenX, int scale)
 {
 	int projectedX = (screenX - SELECT_PROFILE_UI_CENTER_X) * scale;
@@ -83,7 +79,6 @@ int SelectProfile_UI_ConvertX(int screenX, int scale)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80047fd8-0x80047ff8.
 int SelectProfile_UI_ConvertY(int screenY, int scale)
 {
 	int projectedY = (screenY - SELECT_PROFILE_UI_CENTER_Y) * scale;
@@ -112,7 +107,6 @@ static void SelectProfile_DrawAdvProfile_UpdateIcon(struct SelectProfileLoadSave
 	inst->flags &= ~HIDE_MODEL;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80047ff8-0x800485a8.
 void SelectProfile_DrawAdvProfile(struct AdvProgress *adv, int posX, int posY, s16 isHighlighted, s16 slotIndex, u16 menuFlag)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -194,7 +188,6 @@ void SelectProfile_DrawAdvProfile(struct AdvProgress *adv, int posX, int posY, s
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800485a8-0x800485cc.
 void SelectProfile_GetTrackID()
 {
 	data.menuGreenLoadSave.rowSelected = 1;
@@ -224,7 +217,6 @@ static u32 SelectProfile_LoadSave_Color(int index, u32 flags)
 	return (red << 0x14) | (green << 0xc) | (blue << 4);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800485cc-0x800488e0.
 void SelectProfile_Init(u16 flags)
 {
 	struct GameTracker *gGT;
@@ -326,7 +318,6 @@ void SelectProfile_Init(u16 flags)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800488e0-0x80048960 for the retail path.
 void SelectProfile_Destroy(void)
 {
 	struct SelectProfileLoadSaveObj *obj;
@@ -357,7 +348,6 @@ void SelectProfile_Destroy(void)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80048960-0x80048a30.
 void SelectProfile_AdvPickMode_MenuProc(struct RectMenu *menu)
 {
 	if (menu->funcState != RECTMENU_FUNC_STATE_INPUT)
@@ -384,7 +374,6 @@ void SelectProfile_AdvPickMode_MenuProc(struct RectMenu *menu)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80048a30-0x80048da0.
 void SelectProfile_DrawGhostProfile(struct GhostProfile *profile, int posX, int posY, u32 isHighlighted, int unused, u16 menuFlag, s16 isLoading,
                                     s16 isUnavailable)
 {
@@ -439,7 +428,6 @@ void SelectProfile_DrawGhostProfile(struct GhostProfile *profile, int posX, int 
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80048da0-0x80048de4.
 void SelectProfile_MuteCursors(void)
 {
 	data.menuFourAdvProfiles.state |= MUTE_SOUND_OF_MOVING_CURSOR;
@@ -447,7 +435,6 @@ void SelectProfile_MuteCursors(void)
 	data.menuWarning2.state |= MUTE_SOUND_OF_MOVING_CURSOR;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80048de4-0x80048e2c.
 void SelectProfile_UnMuteCursors(void)
 {
 	data.menuFourAdvProfiles.state &= ~MUTE_SOUND_OF_MOVING_CURSOR;
@@ -466,7 +453,6 @@ static s16 *SelectProfile_TimerSaveComplete(void)
 	return &sdata->selectProfileState.timerSaveComplete;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80048e2c-0x80048edc.
 void SelectProfile_ToggleMode(u32 mode)
 {
 	sdata->memcardAction = mode & SELECT_PROFILE_ACTION_MASK;
@@ -496,7 +482,6 @@ void SelectProfile_ToggleMode(u32 mode)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80048f0c-0x800490c4
 u32 SelectProfile_InputLogic(struct RectMenu *menu, s16 numRows, u32 confirmFlags)
 {
 	u32 handled = 0;
@@ -1566,7 +1551,6 @@ draw_and_finish:
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80048edc-0x80048f0c.
 void SelectProfile_InitAndDestroy(void)
 {
 	SelectProfile_Init(data.menuFourAdvProfiles.drawStyle);

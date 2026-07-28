@@ -611,8 +611,7 @@ static int DrawTiresSolid_StagePlayer(struct DrawTiresScratch *scratch, struct D
 
 void DrawTires_Solid(struct Thread *thread, struct PrimMem *primMem, u8 numPlyr)
 {
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8006e588-0x8006ef30;
-	// native uses the accepted explicit DrawTiresScratch stack/scratch ABI.
+	// Native uses the explicit DrawTiresScratch stack/scratch ABI.
 	struct DrawTiresScratch scratch = {0};
 
 	// NOTE(aalhendi): PSX-backfeed blocker: retail DrawTires_Solid owns scratchpad
@@ -1168,8 +1167,7 @@ static int DrawTiresReflection_StagePlayer(struct DrawTiresScratch *scratch, str
 
 void DrawTires_Reflection(struct Thread *thread, struct PrimMem *primMem, u8 numPlyr)
 {
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8006f004-0x8006f9a8;
-	// native uses the accepted explicit DrawTiresScratch stack/scratch ABI.
+	// Native uses the explicit DrawTiresScratch stack/scratch ABI.
 	struct DrawTiresScratch scratch = {0};
 
 	// NOTE(aalhendi): PSX-backfeed blocker: retail DrawTires_Reflection owns

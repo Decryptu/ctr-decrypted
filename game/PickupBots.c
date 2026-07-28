@@ -2,7 +2,6 @@
 
 void PickupBots_Init(void)
 {
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80040850-0x800408b8.
 	int hub;
 	int lev = sdata->gGT->levelID;
 
@@ -539,7 +538,6 @@ static void PickupBots_UpdateBoss(void)
 
 void PickupBots_Update(void)
 {
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800408b8-0x800414f4.
 	struct GameTracker *gGT = sdata->gGT;
 
 	if ((gGT->numBotsNextGame == 0) || (gGT->elapsedEventTime < PICKUPBOTS_UPDATE_START_DELAY))

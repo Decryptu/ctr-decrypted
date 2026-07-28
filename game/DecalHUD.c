@@ -18,7 +18,6 @@ enum
 };
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80022db0-0x80022ec4.
 void DecalHUD_DrawPolyFT4(struct Icon *icon, s16 posX, s16 posY, struct PrimMem *primMem, uint32_t *ot, char transparency, s16 scale)
 {
 	if (!icon)
@@ -49,7 +48,6 @@ void DecalHUD_DrawPolyFT4(struct Icon *icon, s16 posX, s16 posY, struct PrimMem 
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80022ec4-0x80023054.
 void DecalHUD_DrawWeapon(struct Icon *icon, s16 posX, s16 posY, struct PrimMem *primMem, uint32_t *ot, char transparency, s16 scale, char rot)
 {
 #if BUILD > SepReview
@@ -108,7 +106,6 @@ void DecalHUD_DrawWeapon(struct Icon *icon, s16 posX, s16 posY, struct PrimMem *
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80023054-0x80023190.
 void DecalHUD_DrawPolyGT4(struct Icon *icon, s16 posX, s16 posY, struct PrimMem *primMem, uint32_t *ot, u32 color0, u32 color1, u32 color2, u32 color3,
                           char transparency, s16 scale)
 {
@@ -141,7 +138,6 @@ void DecalHUD_DrawPolyGT4(struct Icon *icon, s16 posX, s16 posY, struct PrimMem 
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80023190-0x80023488.
 void DecalHUD_Arrow2D(struct Icon *icon, s16 posX, s16 posY, struct PrimMem *primMem, uint32_t *otMemPtr, u32 color1, u32 color2, u32 color3, u32 color4,
                       char transparency, int scale, u16 rot)
 {

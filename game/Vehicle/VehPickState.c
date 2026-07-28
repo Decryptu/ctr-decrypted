@@ -79,7 +79,6 @@ CTR_STATIC_ASSERT(VEH_PICK_RUMBLE_FORCE == 0x7f);
 CTR_STATIC_ASSERT(VEH_PICK_BATTLE_HUD_OFFSET_Y == 0x14);
 CTR_STATIC_ASSERT(VEH_PICK_BATTLE_HUD_COOLDOWN == 5);
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80064568-0x80064be4.
 int VehPickState_NewState(struct Driver *victimDriver, int damageType, struct Driver *attackDriver, int reason)
 {
 	int voice;

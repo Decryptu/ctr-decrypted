@@ -17,7 +17,6 @@ CTR_STATIC_ASSERT(VEH_LAP_TRACK_DISTANCE_SCALE_SHIFT == 3);
 CTR_STATIC_ASSERT(VEH_LAP_PROJECTED_DISTANCE_SHIFT == 0xc);
 CTR_STATIC_ASSERT(VEH_LAP_WRONG_WAY_DOT_LIMIT == 0x5a801);
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005ca24-0x8005cd1c
 void VehLap_UpdateProgress(struct Driver *driver)
 {
 	struct GameTracker *gGT = sdata->gGT;

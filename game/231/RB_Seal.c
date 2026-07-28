@@ -1,6 +1,5 @@
 #include <common.h>
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b8c00-0x800b92ac.
 
 
 // one seal can not collide with more than one other thread,

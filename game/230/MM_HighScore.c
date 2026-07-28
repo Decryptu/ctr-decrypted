@@ -66,7 +66,6 @@ enum
 	MM_HIGHSCORE_MENU_WIDTH = 0xa4,
 };
 
-// NOTE(aalhendi): ASM-verified against NTSC-U 926 overlay 230 0x800b2f0c-0x800b2fbc.
 void MM_HighScore_Text3D(char *string, int posX, int posY, s16 font, u32 flags)
 {
 	// draw a string
@@ -76,7 +75,6 @@ void MM_HighScore_Text3D(char *string, int posX, int posY, s16 font, u32 flags)
 	DecalFont_DrawLine(string, posX + MM_HIGHSCORE_TEXT_SHADOW_X, posY + MM_HIGHSCORE_TEXT_SHADOW_Y, font, (flags & (JUSTIFY_CENTER | JUSTIFY_RIGHT)) | BLACK);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 overlay 230 0x800b2fbc-0x800b3914.
 void MM_HighScore_Draw(u16 trackIndex, u32 rowIndex, u32 posX, u32 posY)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -209,7 +207,6 @@ void MM_HighScore_Draw(u16 trackIndex, u32 rowIndex, u32 posX, u32 posY)
 	MM_TrackSelect_Video_Draw(&videoBox, &D230.arcadeTracks[0], trackIndex, (D230.highScoreTransition.state == EXITING_MENU), 0);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b3914-0x800b3954.
 void MM_HighScore_Init(void)
 {
 	D230.highScoreTransition.state = ENTERING_MENU;
@@ -221,7 +218,6 @@ void MM_HighScore_Init(void)
 	MM_TrackSelect_Video_SetDefaults();
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 overlay 230 0x800b3954-0x800b3fe4.
 void MM_HighScore_MenuProc(struct RectMenu *menu_unused)
 {
 	(void)menu_unused;
@@ -334,7 +330,6 @@ void MM_HighScore_MenuProc(struct RectMenu *menu_unused)
 	else
 	{
 		videoResetRequested = true;
-		// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b3ad8-0x800b3ae4 for high-score back SFX.
 		OtherFX_Play(2, 1);
 		D230.highScoreTransition.state = EXITING_MENU;
 	}

@@ -36,7 +36,6 @@ CTR_STATIC_ASSERT(DOT_LIGHT_TIMER_RED1 == 0xb40);
 CTR_STATIC_ASSERT(DOT_LIGHT_TIMER_HIDE == 0xf00);
 CTR_STATIC_ASSERT(DOT_LIGHT_TWEEN_RECIPROCAL_960 == -0x77777777);
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8002406c-0x800242b8.
 void DotLights_Video(struct GameTracker *gGT, s32 red1, s32 red2, s32 red3, s32 green, s32 posY)
 {
 	if (gGT->numPlyrCurrGame == 0)
@@ -85,7 +84,6 @@ static s32 DotLights_TweenPos(s32 value)
 	return ((quotient + value) >> DOT_LIGHT_TWEEN_SHIFT) - (value >> 0x1f);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800242b8-0x80024464.
 void DotLights_AudioAndVideo(struct GameTracker *gGT)
 {
 	s32 timer = gGT->trafficLightsTimer;

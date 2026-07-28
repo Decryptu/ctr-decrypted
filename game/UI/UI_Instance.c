@@ -46,7 +46,6 @@ CTR_STATIC_ASSERT(UI_INSTANCE_RELIC_TIME_UNITS_PER_10_SECONDS == 0x2580);
 CTR_STATIC_ASSERT(UI_INSTANCE_RELIC_TIME_UNITS_PER_SECOND == 0x3c0);
 CTR_STATIC_ASSERT(UI_INSTANCE_RELIC_TIME_UNITS_PER_TENTH_SECOND == 0x60);
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004cae8-0x8004cec4.
 struct Instance *UI_INSTANCE_BirthWithThread(int modelID, int tickFunc, int hudSlot, int rotateToHud, int pushBuffer, int threadName)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -236,7 +235,6 @@ struct Instance *UI_INSTANCE_BirthWithThread(int modelID, int tickFunc, int hudS
 	return inst;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004cec4-0x8004d614 for the retail path.
 void UI_INSTANCE_InitAll(void)
 {
 	struct GameTracker *gGT;

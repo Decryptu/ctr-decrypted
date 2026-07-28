@@ -144,7 +144,6 @@ static u32 CAM_SkyboxGlow_ClearGradientColor(void)
 	return *(u32 *)&sdata->gGT->level1->clearColor[2].rgb[0] & 0xffffff;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800175cc-0x8001861c
 void CAM_SkyboxGlow(struct SkyboxGlowGradient *grad, struct PushBuffer *pb, struct PrimMem *primMem, uint32_t *ptrOT)
 {
 	s32 tilt = CAM_SkyboxGlow_CalcTilt(pb);
@@ -297,7 +296,6 @@ void CAM_SkyboxGlow(struct SkyboxGlowGradient *grad, struct PushBuffer *pb, stru
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8001861c-0x80018818
 void CAM_ClearScreen(struct GameTracker *gGT)
 {
 	s8 numPlyr = gGT->numPlyrCurrGame;
@@ -369,7 +367,6 @@ void CAM_ClearScreen(struct GameTracker *gGT)
 	backDB->primMem.cursor = tile;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80018818-0x800188a8
 void CAM_Init(struct CameraDC *cDC, s32 cameraID, struct Driver *d, struct PushBuffer *pb)
 {
 // Naughty Dog debug printf
@@ -393,7 +390,6 @@ void CAM_Init(struct CameraDC *cDC, s32 cameraID, struct Driver *d, struct PushB
 	cDC->flags |= CAMERA_FLAG_DIRECTION_CHANGED;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80018b18-0x80018ba0
 s32 CAM_Path_GetNumPoints(void)
 {
 	struct GameTracker *gGT;
@@ -437,7 +433,6 @@ s32 CAM_Path_GetNumPoints(void)
 	return (s16)uVar4;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80018ba0-0x80018d20
 u8 CAM_Path_Move(s32 frameIndex, s16 *position, s16 *rotation, s16 *pathFlagsOut)
 {
 	s16 frame = (s16)frameIndex;
@@ -485,7 +480,6 @@ u8 CAM_Path_Move(s32 frameIndex, s16 *position, s16 *rotation, s16 *pathFlagsOut
 	return 1;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80018d20-0x80018d9c
 void CAM_StartOfRace(struct CameraDC *cDC)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -520,7 +514,6 @@ void CAM_StartOfRace(struct CameraDC *cDC)
 	cDC->flags &= ~(CAMERA_FLAG_BATTLE_END_OF_RACE | CAMERA_FLAG_ARCADE_END_OF_RACE_ACTIVE);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80018d9c-0x80018e38.
 void CAM_EndOfRace_Battle(struct CameraDC *cDC, struct Driver *d)
 {
 	s32 height = data.Spin360_heightOffset_cameraPos[(s32)sdata->gGT->numPlyrCurrGame];
@@ -540,7 +533,6 @@ void CAM_EndOfRace_Battle(struct CameraDC *cDC, struct Driver *d)
 	cDC->spin360Angle = ratan2(dx, dz);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80018e38-0x80018ec0.
 void CAM_EndOfRace(struct CameraDC *cDC, struct Driver *d)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -575,7 +567,6 @@ static s32 CAM_MulLo(s32 a, s32 b)
 	return (s32)(u32)((s64)a * (s64)b);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80018fec-0x80019128
 void CAM_ProcessTransition(SVec3 *currPos, SVec3 *currRot, SVec3 *startPos, SVec3 *startRot, SVec3 *endPos, SVec3 *endRot, s32 frame)
 {
 	s32 deltaRot;
@@ -606,7 +597,6 @@ void CAM_ProcessTransition(SVec3 *currPos, SVec3 *currRot, SVec3 *startPos, SVec
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800188a8-0x80018b18
 void CAM_FindClosestQuadblock(struct ScratchpadStruct *sps, struct CameraDC *cDC, struct Driver *d, const Vec3 *pos)
 {
 	struct GameTracker *gGT;
@@ -680,7 +670,6 @@ void CAM_FindClosestQuadblock(struct ScratchpadStruct *sps, struct CameraDC *cDC
 	gGT->unk1cac[0] = quad - meshInfo->ptrQuadBlockArray;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80018ec0-0x80018fec.
 void CAM_StartLine_FlyIn_FixY(SVec3 *posRot)
 {
 	struct ScratchpadStruct *sps = &sdata->scratchpadStruct;
@@ -759,7 +748,6 @@ void CAM_FollowDriver_AngleAxis(struct CameraDC *cDC, struct Driver *d, struct C
 	s32 dz;
 	s32 distanceXZ;
 
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80019128-0x800194c8.
 	if (cDC->cameraMode == 0xe)
 	{
 		VehPhysForce_RotAxisAngle(axisMatrix, d->AxisAngle2_normalVec.v, d->angle);
@@ -810,7 +798,6 @@ void CAM_FollowDriver_AngleAxis(struct CameraDC *cDC, struct Driver *d, struct C
 	pushBufferPos->z = (s16)eye->z;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800194c8-0x800198f8.
 void CAM_StartLine_FlyIn(struct FlyInData *flyInData, s16 maxFrames, s32 frame, SVec3 *desiredPos, SVec3 *desiredRot)
 {
 	struct Level *lev = sdata->gGT->level1;
@@ -938,7 +925,6 @@ static s32 CAM_FollowDriver_TrackPath_Length(struct CheckpointNode *from, struct
 	return SquareRoot0_stub(CTR_MipsAddLo(sum, CAM_FollowDriver_TrackPath_MulLo(*dz, *dz)));
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800198f8-0x80019e7c.
 u32 CAM_FollowDriver_TrackPath(struct CameraDC *cDC, SVec3 *pos, s32 speed, s32 update)
 {
 	struct CheckpointNode *curr = cDC->trackPathNode;
@@ -1009,7 +995,6 @@ u32 CAM_FollowDriver_TrackPath(struct CameraDC *cDC, SVec3 *pos, s32 speed, s32 
 	return (yaw + (CAM_FollowDriver_TrackPath_MulLo(yawDelta, ratio) >> 12)) & 0xfff;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80019e7c-0x80019f58
 void CAM_LookAtPosition(struct CameraScratchWork *scratchWork, Vec3 *positions, SVec3 *desiredPos, SVec3 *desiredRot)
 {
 	struct CameraScratch *cam = &scratchWork->camera;
@@ -1030,7 +1015,6 @@ void CAM_LookAtPosition(struct CameraScratchWork *scratchWork, Vec3 *positions, 
 	desiredRot->z = 0;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80019f58-0x8001a054
 void CAM_FollowDriver_Spin360(struct CameraDC *cDC, struct CameraScratchWork *scratchWork, struct Driver *d, SVec3 *desiredPos, SVec3 *desiredRot)
 {
 	s32 ratio;
@@ -1062,7 +1046,6 @@ void CAM_FollowDriver_Spin360(struct CameraDC *cDC, struct CameraScratchWork *sc
 	CAM_LookAtPosition(scratchWork, &d->posCurr, desiredPos, desiredRot);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8001a054-0x8001a0bc
 void CAM_SetDesiredPosRot(struct CameraDC *cDC, const SVec3 *pos, const SVec3 *rot)
 {
 	cDC->transitionTo.pos = *pos;
@@ -1077,7 +1060,6 @@ void CAM_SetDesiredPosRot(struct CameraDC *cDC, const SVec3 *pos, const SVec3 *r
 	cDC->flags |= CAMERA_FLAG_TRANSITION_AWAY;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8001a0bc-0x8001b254.
 void CAM_FollowDriver_Normal(struct CameraDC *cDC, struct Driver *d, SVec3 *pushBufferPos, struct CameraScratchWork *scratchWork, struct ZoomData *zoom)
 {
 	struct PushBuffer *pb = (struct PushBuffer *)pushBufferPos;
@@ -1781,7 +1763,6 @@ LAB_8001ab04:
 
 s32 CAM_MapRange_PosPoints(SVec3 *pos1, SVec3 *pos2, SVec3 *currPos)
 {
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8001b254-0x8001b334.
 	SVec3 pathDelta;
 	pathDelta.x = pos1->x - pos2->x;
 	pathDelta.y = pos1->y - pos2->y;
@@ -1802,7 +1783,6 @@ s32 CAM_MapRange_PosPoints(SVec3 *pos1, SVec3 *pos2, SVec3 *currPos)
 	return MFC2_S(25) >> 12;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8001b334-0x8001c360.
 void CAM_ThTick(struct Thread *t)
 {
 	s16 sVar1;

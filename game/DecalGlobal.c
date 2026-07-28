@@ -25,13 +25,11 @@ CTR_STATIC_ASSERT(sizeof(((struct Icon *)0)->name) == DECAL_NAME_BYTE_COUNT);
 CTR_STATIC_ASSERT(sizeof(((struct IconGroup *)0)->name) == DECAL_NAME_BYTE_COUNT);
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80022b94-0x80022b9c.
 void DecalGlobal_EmptyFunc_MainFrame_ResetDB(void)
 {
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80022b9c-0x80022bdc.
 void DecalGlobal_Clear(struct GameTracker *gGT)
 {
 	memset(&gGT->ptrIcons, 0, sizeof(gGT->ptrIcons));
@@ -39,7 +37,6 @@ void DecalGlobal_Clear(struct GameTracker *gGT)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80022bdc-0x80022c88.
 void DecalGlobal_Store(struct GameTracker *gGT, struct LevTexLookup *LTL)
 {
 	struct Icon *currIcon;
@@ -74,7 +71,6 @@ void DecalGlobal_Store(struct GameTracker *gGT, struct LevTexLookup *LTL)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80022c88-0x80022d2c.
 int *DecalGlobal_FindInLEV(struct Level *level, char *str)
 {
 	struct LevTexLookup *ltl = level->levTexLookup;
@@ -101,7 +97,6 @@ int *DecalGlobal_FindInLEV(struct Level *level, char *str)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80022d2c-0x80022db0.
 int *DecalGlobal_FindInMPK(u32 *icons, char *str)
 {
 	struct Icon *icon = (struct Icon *)icons;

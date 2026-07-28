@@ -49,7 +49,6 @@ CTR_STATIC_ASSERT(UI_MAP_ARROW_ROT_FLAG == 0x1000);
 CTR_STATIC_ASSERT(UI_MAP_ICON_SCALE == 0x1000);
 CTR_STATIC_ASSERT(UI_MAP_ADV_ARROW_SCALE == 0x800);
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004d614-0x8004d8b4.
 void UI_Map_DrawMap(struct Icon *mapTop, struct Icon *mapBottom, s16 posX, s16 posY, struct PrimMem *primMem, uint32_t *otMem, u32 colorID)
 {
 	s16 mapBottomHeight;
@@ -168,7 +167,6 @@ void UI_Map_DrawMap_ExtraFunc(struct Icon *icon, POLY_FT4 *p, s16 posX, s16 empt
 	AddPrim(otMem, p);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004d8b4-0x8004dbac.
 void UI_Map_GetIconPos(struct UIMap *map, int *posX, int *posY)
 {
 	s16 mode;
@@ -227,7 +225,6 @@ void UI_Map_GetIconPos(struct UIMap *map, int *posX, int *posY)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004dbac-0x8004dc44.
 // Draw dot for Player on 2D Adv Map
 void UI_Map_DrawAdvPlayer(struct UIMap *map, const s32 worldPos[3], int unused1, int unused2, s16 rot, s16 scale)
 {
@@ -253,7 +250,6 @@ void UI_Map_DrawAdvPlayer(struct UIMap *map, const s32 worldPos[3], int unused1,
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004dc44-0x8004dd5c.
 // Draw icon on map
 void UI_Map_DrawRawIcon(struct UIMap *map, const s32 worldPos[3], int iconID, int colorID, int unused, s16 scale)
 {
@@ -279,7 +275,6 @@ void UI_Map_DrawRawIcon(struct UIMap *map, const s32 worldPos[3], int iconID, in
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004dd5c-0x8004dee8.
 void UI_Map_DrawDrivers(struct UIMap *map, struct Thread *bucket, s16 *driverIconCounter)
 {
 	int kartColor;
@@ -336,7 +331,6 @@ void UI_Map_DrawDrivers(struct UIMap *map, struct Thread *bucket, s16 *driverIco
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004dee8-0x8004dffc.
 void UI_Map_DrawGhosts(struct UIMap *map, struct Thread *bucket)
 {
 	int color;
@@ -389,7 +383,6 @@ void UI_Map_DrawGhosts(struct UIMap *map, struct Thread *bucket)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004dffc-0x8004e0e0.
 void UI_Map_DrawTracking(struct UIMap *map, struct Thread *bucket)
 {
 	int targetColor;

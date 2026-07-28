@@ -1,7 +1,6 @@
 #include <common.h>
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800379f4-0x80037bc0.
 void MainFreeze_ConfigDrawNPC105(s16 startX, s16 startY, s16 radius, int angleStep, s16 angle, char *color, uint32_t *otMem, struct PrimMem *primMem)
 {
 	s16 pos[6];
@@ -45,7 +44,6 @@ void MainFreeze_ConfigDrawNPC105(s16 startX, s16 startY, s16 radius, int angleSt
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80037bc0-0x80037da0.
 void MainFreeze_ConfigDrawArrows(s16 offsetX, s16 offsetY, char *str)
 {
 	int lineWidth;
@@ -108,7 +106,6 @@ void MainFreeze_ConfigDrawArrows(s16 offsetX, s16 offsetY, char *str)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80037da0-0x80038b5c.
 static inline void MainFreeze_ConfigDrawWire(s16 x1, s16 y1, s16 x2, s16 y2, u8 r, u8 g, u8 b, void *ot)
 {
 	CTR_Box_DrawWirePrims(MakePoint(x1, y1), MakePoint(x2, y2), MakeColor(r, g, b), ot);
@@ -355,7 +352,6 @@ void MainFreeze_ConfigSetupEntry(void)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80038b5c-0x80039908.
 
 typedef struct
 {
@@ -789,7 +785,6 @@ void MainFreeze_MenuPtrOptions(struct RectMenu *menu)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80039908-0x800399fc.
 void MainFreeze_MenuPtrQuit(struct RectMenu *menu)
 {
 	s16 row;
@@ -840,7 +835,6 @@ void MainFreeze_MenuPtrQuit(struct RectMenu *menu)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800399fc-0x80039a44.
 void MainFreeze_SafeAdvDestroy(void)
 {
 	// If you're in Adventure Arena
@@ -859,7 +853,6 @@ void MainFreeze_SafeAdvDestroy(void)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80039a44-0x80039dcc.
 void MainFreeze_MenuPtrDefault(struct RectMenu *menu)
 {
 	int levID = 0; // dingo canyon
@@ -1112,7 +1105,6 @@ void MainFreeze_MenuPtrDefault(struct RectMenu *menu)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80039dcc-0x80039e98.
 struct RectMenu *MainFreeze_GetMenuPtr(void)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -1153,7 +1145,6 @@ struct RectMenu *MainFreeze_GetMenuPtr(void)
 	return &data.menuArcadeRace;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80039e98-0x80039fa8.
 void MainFreeze_IfPressStart(void)
 {
 	struct GameTracker *gGT = sdata->gGT;

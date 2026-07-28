@@ -59,7 +59,6 @@ CTR_STATIC_ASSERT(UI_WEAPON_BG_SHINE_TRANSPARENCY_BASE == 2);
 
 static const u32 UI_WEAPON_BG_SHINE_COLOR = 0xff0000u;
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800507e0-0x80050af8.
 // Draw weapon and wumpa fruit in HUD
 void UI_Weapon_DrawSelf(s16 posX, s16 posY, s16 scale, struct Driver *d)
 
@@ -209,7 +208,6 @@ void UI_Weapon_DrawSelf(s16 posX, s16 posY, s16 scale, struct Driver *d)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80050af8-0x80050c20.
 void UI_Weapon_DrawBG(s16 posX, s16 posY, s16 scale, struct Driver *d)
 {
 	struct GameTracker *gGT = sdata->gGT;

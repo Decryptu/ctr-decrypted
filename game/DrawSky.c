@@ -77,7 +77,6 @@ static void DrawSky_EmitPrimitive(u32 **primCursor, uint32_t *ot)
 	*primCursor = (u32 *)(poly + 1);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80069cc4-0x80069e70
 static u32 *DrawSky_Piece(struct Skybox *skybox, struct DrawSkyContext *ctx, int faceIndex, int countIndex, u32 *prim)
 {
 	u32 numFaces = (u16)skybox->numFaces[countIndex];
@@ -113,7 +112,6 @@ static u32 *DrawSky_Piece(struct Skybox *skybox, struct DrawSkyContext *ctx, int
 	return prim;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80069bb0-0x80069cc4
 void DrawSky_Full(void *skybox, struct PushBuffer *pb, struct PrimMem *primMem)
 {
 	struct Skybox *sky = skybox;

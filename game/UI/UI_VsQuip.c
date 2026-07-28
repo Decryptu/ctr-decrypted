@@ -1,6 +1,5 @@
 #include <common.h>
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80054a08-0x80054a78
 u32 UI_VsQuipReadDriver(struct Driver *d, int offset, int size)
 {
 	char *data = (char *)d + offset;
@@ -28,7 +27,6 @@ u32 UI_VsQuipReadDriver(struct Driver *d, int offset, int size)
 	return 0;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80054a78-0x80054bfc
 void UI_VsQuipAssign(struct Driver *driver, struct QuipMeta *meta, struct Driver *bestDriver, int characterID)
 {
 	if (driver == NULL)
@@ -141,7 +139,6 @@ static struct QuipMeta UI_VsQuipMetaFromRaw(struct QuipMetaRaw *raw)
 	return meta;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80054bfc-0x800550f4
 void UI_VsQuipAssignAll(void)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -441,7 +438,6 @@ void UI_VsQuipAssignAll(void)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800550f4-0x800552a4.
 void UI_VsQuipDrawAll(void)
 {
 	enum
@@ -539,7 +535,6 @@ enum
 CTR_STATIC_ASSERT(LNG_HIT_YOU == LNG_YOU_HIT + 1);
 CTR_STATIC_ASSERT(UI_VS_WAIT_TEAM_COLOR_BASE == 0x18);
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800552a4-0x8005572c.
 void UI_VsWaitForPressX(void)
 {
 	char statText[UI_VS_WAIT_STAT_TEXT_SIZE];

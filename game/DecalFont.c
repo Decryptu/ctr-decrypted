@@ -1,6 +1,5 @@
 #include <common.h>
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800223f4-0x800224d0.
 int DecalFont_GetLineWidthStrlen(char *character, int len, int fontType)
 {
 	s16 font_charPixWidth;
@@ -86,14 +85,12 @@ int DecalFont_GetLineWidthStrlen(char *character, int len, int fontType)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800224d0-0x800224fc.
 int DecalFont_GetLineWidth(char *str, s16 fontType)
 {
 	return (s16)DecalFont_GetLineWidthStrlen(str, -1, fontType);
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800224fc-0x80022878 for the retail path.
 void DecalFont_DrawLineStrlen(char *str, s16 len, int posX, s16 posY, s16 fontType, int flags)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -526,14 +523,12 @@ void DecalFont_DrawLineStrlen(char *str, s16 len, int posX, s16 posY, s16 fontTy
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80022878-0x800228c4.
 void DecalFont_DrawLine(char *str, int posX, int posY, s16 fontType, int flags)
 {
 	DecalFont_DrawLineStrlen(str, -1, (s16)posX, (s16)posY, fontType, (s16)flags);
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800228c4-0x80022930.
 void DecalFont_DrawLineOT(char *str, int posX, int posY, s16 fontType, int flags, uint32_t *ot)
 {
 	struct GameTracker *gGT;
@@ -555,7 +550,6 @@ void DecalFont_DrawLineOT(char *str, int posX, int posY, s16 fontType, int flags
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80022930-0x80022b34.
 int DecalFont_DrawMultiLineStrlen(char *str, s16 len, s16 posX, s16 posY, s16 maxPixLen, s16 fontType, s16 flags)
 {
 	char strCharacter;
@@ -708,7 +702,6 @@ int DecalFont_DrawMultiLineStrlen(char *str, s16 len, s16 posX, s16 posY, s16 ma
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80022b34-0x80022b94.
 int DecalFont_DrawMultiLine(char *str, int posX, int posY, int maxPixLen, s16 fontType, int flags)
 {
 	return (s16)DecalFont_DrawMultiLineStrlen(str, -1, (s16)posX, (s16)posY, (s16)maxPixLen, fontType, (s16)flags);

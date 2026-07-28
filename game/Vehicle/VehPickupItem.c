@@ -231,7 +231,6 @@ CTR_STATIC_ASSERT(VOICELINE_CLOCK == 0xe);
 CTR_STATIC_ASSERT(VOICELINE_WARPBALL == 0xc);
 CTR_STATIC_ASSERT(VOICELINE_WEAPON_PRIORITY == 0x10);
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80064be4-0x80064c38.
 b32 VehPickupItem_MaskBoolGoodGuy(struct Driver *d)
 {
 	s32 charID = data.characterIDs[d->driverID];
@@ -242,7 +241,6 @@ b32 VehPickupItem_MaskBoolGoodGuy(struct Driver *d)
 	return (maskBits >> charID) & 1;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80064c38-0x80064f94.
 // boolPlaySound only gates sound when refreshing an existing mask object.
 struct MaskHeadWeapon *VehPickupItem_MaskUseWeapon(struct Driver *driver, b32 boolPlaySound)
 
@@ -426,7 +424,6 @@ static b32 VehPickupItem_MissileCandidateVisible(struct PushBuffer *pb, struct D
 	return 1;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80064f94-0x800652c8.
 struct Driver *VehPickupItem_MissileGetTargetDriver(struct Driver *driver)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -488,7 +485,6 @@ struct Driver *VehPickupItem_MissileGetTargetDriver(struct Driver *driver)
 	return target;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800652c8-0x8006540c.
 b32 VehPickupItem_PotionThrow(struct MineWeapon *mine, struct Instance *inst, u32 flags)
 {
 	s32 throwVelocity;
@@ -525,7 +521,6 @@ b32 VehPickupItem_PotionThrow(struct MineWeapon *mine, struct Instance *inst, u3
 
 void VehPickupItem_ShootNow(struct Driver *d, s32 weaponID, s32 flags)
 {
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8006540c-0x800666e4.
 	struct Instance *dInst;
 	struct Thread *weaponTh;
 	struct Instance *weaponInst;
@@ -1227,7 +1222,6 @@ void VehPickupItem_ShootNow(struct Driver *d, s32 weaponID, s32 flags)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800666e4-0x8006677c.
 void VehPickupItem_ShootOnCirclePress(struct Driver *d)
 {
 	u8 weapon;

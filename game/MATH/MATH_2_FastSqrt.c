@@ -1,6 +1,5 @@
 #include <common.h>
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003d214-0x8003d264.
 s32 MATH_FastSqrt(u32 value, s32 shift)
 {
 	u32 remainder = 0;

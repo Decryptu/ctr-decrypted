@@ -67,7 +67,6 @@ void MainFrame_RenderFrame(struct GameTracker *gGT, struct GamepadSystem *gGamep
 	MAINFRAME_PERF_BEGIN(NATIVE_PERF_BUCKET_MAINFRAME_EFFECTS);
 	RenderAllWeather(gGT);
 	RenderAllConfetti(gGT);
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 subrange 0x800364f8-0x80036538.
 	if (((gGT->renderFlags & RENDER_FLAG_STARS) != 0) && (gGT->stars.numStars != 0))
 	{
 		RenderStars(&gGT->pushBuffer[0], &gGT->backBuffer->primMem, &gGT->stars, gGT->numPlyrCurrGame);
@@ -175,7 +174,7 @@ void MainFrame_RenderFrame(struct GameTracker *gGT, struct GamepadSystem *gGamep
 #if defined(CTR_NATIVE)
 			// NOTE(aalhendi): Native menu/adventure-hub LEVs may publish no
 			// restart table. Retail lap stats assume the table exists whenever
-			// this caller reaches them; keep the ASM-verified lap function intact.
+			// this caller reaches them; keep the retail lap path intact.
 			if ((gGT->level1 != NULL) && (gGT->level1->ptr_restart_points != NULL) && (gGT->level1->cnt_restart_points != 0))
 			{
 				PlayLevel_UpdateLapStats();

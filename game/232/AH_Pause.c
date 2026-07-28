@@ -113,7 +113,6 @@ enum AHPauseMemberFlags
 	AH_PAUSE_MEMBER_UNLOCKED = 1,
 };
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b1ef8-0x800b1f78.
 void AH_Pause_Destroy(void)
 {
 	s32 i;
@@ -589,7 +588,6 @@ void AH_Pause_Draw(s32 pageID, s32 posX)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b3144-0x800b344c.
 void AH_Pause_Update(void)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -664,7 +662,6 @@ void AH_Pause_Update(void)
 			}
 		}
 
-		// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b3340-0x800b3350 for adventure pause page-turn SFX.
 		OtherFX_Play(0, 1);
 	}
 

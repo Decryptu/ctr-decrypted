@@ -1,6 +1,5 @@
 #include <common.h>
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800abcac-0x800ac178.
 void MM_Title_MenuUpdate(void)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -259,7 +258,6 @@ END_FUNCTION:
 	D230.menuDifficulty.posY_curr = D230.titleDifficultyMenuPos.y + D230.titleDifficultyTransition.currY;
 }
 
-// NOTE(aalhendi): ASM-verified against NTSC-U 926 overlay 230 0x800ac94c-0x800ac9fc.
 void MM_Title_KillThread(void)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -284,7 +282,6 @@ void MM_Title_KillThread(void)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified against NTSC-U 926 overlay 230 0x800ac178-0x800ac1f0.
 void MM_Title_SetTrophyDPP(void)
 {
 	struct Title *title = D230.titleObj;
@@ -315,7 +312,6 @@ void MM_Title_SetTrophyDPP(void)
 	CTR_WriteU32LE(&idpp1->depthOffset[0], depthOffset);
 }
 
-// NOTE(aalhendi): ASM-verified against NTSC-U 926 overlay 230 0x800ac1f0-0x800ac350.
 void MM_Title_CameraMove(struct Title *title, s32 frameIndex)
 {
 	// after frame 0xe6, make the intro models transition from the center
@@ -381,7 +377,6 @@ static void MM_Title_UpdateTrophySpecLight(struct Instance *titleInst)
 	idpp[0].halfVector.z = (s16)((u16)lightMac.vz + (u16)viewMac.vz);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 overlay 230 0x800ac350-0x800ac6dc.
 void MM_Title_ThTick(struct Thread *title)
 {
 	// frame counters
@@ -408,7 +403,6 @@ void MM_Title_ThTick(struct Thread *title)
 	{
 		if (D230.titleSounds[soundIndex].frameToPlay == timer)
 		{
-			// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800ac3e8-0x800ac400 for title queued SFX.
 			OtherFX_Play(D230.titleSounds[soundIndex].soundID, 1);
 		}
 	}
@@ -488,7 +482,6 @@ void MM_Title_ThTick(struct Thread *title)
 	D230.titleIntroFrame = timer;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800ac6dc-0x800ac92c.
 void MM_Title_Init(void)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -565,7 +558,6 @@ void MM_Title_Init(void)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800ac92c-0x800ac94c.
 void MM_Title_CameraReset(void)
 {
 	struct Title *title = D230.titleObj;

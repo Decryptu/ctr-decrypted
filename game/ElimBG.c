@@ -49,7 +49,6 @@ CTR_STATIC_ASSERT(ELIM_BG_RAW_STRIP_OFFSET == 0x800);
 CTR_STATIC_ASSERT(ELIM_BG_TEXTURE_BACKUP_OFFSET == 0x4800);
 CTR_STATIC_ASSERT(ELIM_BG_CHUNK_SOURCE_PIXELS == 0x1000);
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80024524-0x8002459c.
 void ElimBG_SaveScreenshot_Chunk(u16 *packedStrip, u16 *rawStrip, int rawPixelCount)
 {
 	u16 packedPixel;
@@ -73,7 +72,6 @@ void ElimBG_SaveScreenshot_Chunk(u16 *packedStrip, u16 *rawStrip, int rawPixelCo
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8002459c-0x8002481c.
 void ElimBG_SaveScreenshot_Full(struct GameTracker *gGT)
 {
 	int bufferIndex;
@@ -164,7 +162,6 @@ void ElimBG_SaveScreenshot_Full(struct GameTracker *gGT)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8002481c-0x80024840.
 void ElimBG_Activate(struct GameTracker *gGT)
 {
 	sdata->pause_backup_renderFlags = gGT->renderFlags;
@@ -173,7 +170,6 @@ void ElimBG_Activate(struct GameTracker *gGT)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80024840-0x800248bc.
 void ElimBG_ToggleInstance(struct Instance *inst, b32 boolGameIsPaused)
 {
 	u32 flags;
@@ -205,7 +201,6 @@ void ElimBG_ToggleInstance(struct Instance *inst, b32 boolGameIsPaused)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800248bc-0x80024974.
 void ElimBG_ToggleAllInstances(struct GameTracker *gGT, b32 boolGameIsPaused)
 {
 	struct Level *lev;
@@ -233,7 +228,6 @@ void ElimBG_ToggleAllInstances(struct GameTracker *gGT, b32 boolGameIsPaused)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80024974-0x80024c08.
 void ElimBG_HandleState(struct GameTracker *gGT)
 {
 	s16 screenX;
@@ -393,7 +387,6 @@ void ElimBG_HandleState(struct GameTracker *gGT)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80024c08-0x80024c4c.
 void ElimBG_Deactivate(struct GameTracker *gGT)
 {
 	// it's written this way for bytebudget reasons.

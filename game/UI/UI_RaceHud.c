@@ -85,7 +85,6 @@ CTR_STATIC_ASSERT(UI_TRACKER_BEEP_SFX == 0x56);
 CTR_STATIC_ASSERT(UI_BATTLE_SCORE_LIFE_ICON == 0x84);
 CTR_STATIC_ASSERT(UI_BATTLE_SCORE_POINTS_ICON == 0x85);
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004f9d8-0x8004fd34.
 // Draw arrows over the heads of players
 void UI_BattleDrawHeadArrows(struct Driver *player)
 {
@@ -225,7 +224,6 @@ void UI_BattleDrawHeadArrows(struct Driver *player)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004fd34-0x8005045c.
 void UI_TrackerSelf(struct Driver *d)
 {
 	s16 y;
@@ -393,7 +391,6 @@ UpdateTrackerState:
 			if ((gGT->gameMode1 & PAUSE_ALL) == 0)
 			{
 				// "homing in" sound
-				// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80050014-0x8005001c for tracker beep SFX.
 				OtherFX_Play(UI_TRACKER_BEEP_SFX, 1);
 			}
 
@@ -548,7 +545,6 @@ UpdateTrackerState:
 	    &gGT->backBuffer->primMem, gGT->pushBuffer[driverID].ptrOT, UI_TRACKER_BG_TRANSPARENCY, x, y, bgColor);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005045c-0x80050528.
 void UI_DrawPosSuffix(s16 posX, s16 posY, struct Driver *d, s16 flags)
 {
 	int currRank;
@@ -578,7 +574,6 @@ void UI_DrawPosSuffix(s16 posX, s16 posY, struct Driver *d, s16 flags)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80050528-0x80050654
 void UI_DrawLapCount(s16 posX, int posY, int unusedScale, struct Driver *d)
 {
 	(void)unusedScale;
@@ -632,7 +627,6 @@ void UI_DrawLapCount(s16 posX, int posY, int unusedScale, struct Driver *d)
 }
 
 // Draw how many points or lifes the player has in battle
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80050654-0x800507e0.
 void UI_DrawBattleScores(int posX, int posY, struct Driver *d)
 {
 	struct Icon *icon;

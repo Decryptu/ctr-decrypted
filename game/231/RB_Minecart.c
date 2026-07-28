@@ -1,7 +1,6 @@
 #include <common.h>
 
 // budget: 2132 bytes
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b7338-0x800b7b8c.
 
 extern s16 minecartArr[50];
 

@@ -46,7 +46,6 @@ CTR_STATIC_ASSERT(SUBMIT_NAME_CURSOR_SAVE == 1001);
 CTR_STATIC_ASSERT(SUBMIT_NAME_CURSOR_MIDDLE_THRESHOLD == 500);
 CTR_STATIC_ASSERT(SUBMIT_NAME_ASCII_BYTE_MARKER == 0x1000);
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004aa08-0x8004aa60
 void SubmitName_RestoreName(s16 submitNameMode)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -68,8 +67,7 @@ void SubmitName_RestoreName(s16 submitNameMode)
 	gGT->typeCursorPosition = cursor;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004aa60-0x8004b144 for the
-// retail path. CTR_NATIVE adds host keyboard shortcuts before retail input.
+// CTR_NATIVE adds host keyboard shortcuts before the retail input path.
 
 #ifdef CTR_NATIVE
 int kbCurr = 0;
@@ -437,14 +435,12 @@ FinishInput:
 
 	if (soundID != 0)
 	{
-		// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004b0dc-0x8004b0f8 for keyboard SFX lookup/play.
 		OtherFX_Play(data.soundIndexArray[soundID], 1);
 	}
 	gGT->typeCursorPosition = cursorPosition;
 	return selectionResult;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004b144-0x8004b230.
 void SubmitName_MenuProc(struct RectMenu *menu)
 {
 	struct GameTracker *gGT = sdata->gGT;

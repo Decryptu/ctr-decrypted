@@ -4,7 +4,6 @@
 #include <platform/native_checkpoint.h>
 #endif
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800326b4-0x80032700.
 void LOAD_RunPtrMap(char *origin, int *patchArr, int numPtrs)
 {
 	int *ptrCurrOffset = patchArr;
@@ -19,7 +18,6 @@ void LOAD_RunPtrMap(char *origin, int *patchArr, int numPtrs)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80032700-0x800327dc.
 void LOAD_Robots2P(struct BigHeader *bigfile, int p1, int p2, void (*callback)(struct LoadQueueSlot *))
 {
 	int setIndex;
@@ -60,7 +58,6 @@ void LOAD_Robots2P(struct BigHeader *bigfile, int p1, int p2, void (*callback)(s
 	LOAD_AppendQueue(bigfile, LT_GETADDR, BI_2PARCADEPACK + setIndex, NULL, callback);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800327dc-0x8003282c.
 void LOAD_Robots1P(int characterID)
 {
 	int newCharacterID = 0;
@@ -80,7 +77,6 @@ void LOAD_Robots1P(int characterID)
 
 static void (*const LOAD_DriverMPK_SetPointer)(struct LoadQueueSlot *) = LOAD_QUEUE_CALLBACK_SET_POINTER;
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003282c-0x80032b50.
 int LOAD_DriverMPK(struct BigHeader *bigfile, int levelLOD, void (*callback)(struct LoadQueueSlot *))
 {
 	int i;
@@ -203,7 +199,6 @@ struct LngFile
 
 // param_1 - Pointer to "cd position of bigfile"
 // param_2 - language index - 0 ja, 1 en, 2 en2, 3 fr, 4 de, 5 it, 6 es, 7 ne
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80032b50-0x80032c24
 void LOAD_LangFile(int bigfilePtr, int lang)
 {
 	struct LngFile *lngFile;
@@ -248,7 +243,6 @@ void LOAD_LangFile(int bigfilePtr, int lang)
 #endif
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80032c24-0x80032d30.
 int LOAD_GetBigfileIndex(u32 levelID, int lod, int fileIndexInGroup)
 {
 	if (levelID < NITRO_COURT)

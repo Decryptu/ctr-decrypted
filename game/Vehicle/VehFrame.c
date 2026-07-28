@@ -53,7 +53,6 @@ CTR_STATIC_ASSERT(VEH_FRAME_LAST_SPIN_INTERP_SPEED == 3);
 CTR_STATIC_ASSERT(VEH_FRAME_AIRBORNE_MATRIX_BASE == 7);
 CTR_STATIC_ASSERT(VEH_FRAME_OXIDE_MATRIX_ARRAY == 7);
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005b0c4-0x8005b0f4.
 int VehFrameInst_GetStartFrame(int animIndex, int numFrames)
 {
 	switch (animIndex)
@@ -72,7 +71,6 @@ int VehFrameInst_GetStartFrame(int animIndex, int numFrames)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005b0f4-0x8005b178.
 u32 VehFrameInst_GetNumAnimFrames(struct Instance *inst, int animIndex)
 {
 	if (inst->model == NULL)
@@ -121,7 +119,6 @@ static void VehFrameProc_Driving_SpawnBurnSmoke(struct Driver *d)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005b178-0x8005b510
 void VehFrameProc_Driving(struct Thread *t, struct Driver *d)
 {
 	struct Instance *inst = t->inst;
@@ -276,7 +273,6 @@ void VehFrameProc_Driving(struct Thread *t, struct Driver *d)
 	inst->animFrame = VehCalc_InterpBySpeed(inst->animFrame, VEH_FRAME_INTERP_SPEED_NORMAL, numFrames - 1);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005b510-0x8005b5fc.
 void VehFrameProc_Spinning(struct Thread *t, struct Driver *d)
 {
 	struct Instance *inst = t->inst;
@@ -325,7 +321,6 @@ void VehFrameProc_Spinning(struct Thread *t, struct Driver *d)
 	inst->animFrame = VehCalc_InterpBySpeed(inst->animFrame, VEH_FRAME_SPIN_INTERP_SPEED, targetFrame);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005b5fc-0x8005b6b8.
 void VehFrameProc_LastSpin(struct Thread *t, struct Driver *d)
 {
 	struct Instance *inst = t->inst;

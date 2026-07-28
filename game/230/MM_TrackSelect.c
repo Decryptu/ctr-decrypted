@@ -72,7 +72,6 @@ CTR_STATIC_ASSERT(MM_TRACK_VIDEO_START_STREAM == 2);
 CTR_STATIC_ASSERT(MM_TRACK_VIDEO_PLAYING == 3);
 CTR_STATIC_ASSERT(MM_TRACK_SELECT_INPUT == 0x40073);
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800afa44-0x800afa94.
 void MM_TrackSelect_Video_SetDefaults(void)
 {
 	// clear RECT
@@ -95,7 +94,6 @@ void MM_TrackSelect_Video_SetDefaults(void)
 	D230.trackSelect.videoStatePrev = MM_TRACK_VIDEO_ICON;
 }
 
-// NOTE(aalhendi): ASM-verified against NTSC-U 926 overlay 230 0x800afa94-0x800afaf0.
 void MM_TrackSelect_Video_State(b32 resetPreview)
 {
 	// if viewing new icon this frame
@@ -158,7 +156,6 @@ static void MM_TrackSelect_Video_DrawNativePreview(RECT *r, int srcX, int srcY)
 }
 #endif
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800afaf0-0x800aff58 PSX path.
 void MM_TrackSelect_Video_Draw(RECT *r, struct MainMenu_LevelRow *selectMenu, int trackIndex, int stopVideo, u16 rectFlags)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -329,7 +326,6 @@ void MM_TrackSelect_Video_Draw(RECT *r, struct MainMenu_LevelRow *selectMenu, in
 	RECTMENU_DrawInnerRect(r, (s16)(rectFlags | 1), gGT->backBuffer->otMem.uiOT);
 }
 
-// NOTE(aalhendi): ASM-verified against NTSC-U 926 overlay 230 0x800aff58-0x800affd0.
 b32 MM_TrackSelect_boolTrackOpen(struct MainMenu_LevelRow *menuSelect)
 {
 	s16 flag = menuSelect->unlock;
@@ -352,7 +348,6 @@ b32 MM_TrackSelect_boolTrackOpen(struct MainMenu_LevelRow *menuSelect)
 	return CHECK_ADV_BIT(sdata->gameProgress.unlocks, flag);
 }
 
-// NOTE(aalhendi): ASM-verified against NTSC-U 926 overlay 230 0x800affd0-0x800b00d4.
 void MM_TrackSelect_Init(void)
 {
 	struct MainMenu_LevelRow *selectMenu = D230.arcadeTracks;
@@ -403,7 +398,6 @@ void MM_TrackSelect_MenuProc(struct RectMenu *menu)
 	struct GameTracker *gGT = sdata->gGT;
 	s16 elapsedFrames = D230.trackSelect.transition.frame;
 
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 overlay 230 0x800b00d4-0x800b02b0.
 	// if you are not in track selection menu
 	if (D230.trackSelect.transition.state != IN_MENU)
 	{
@@ -513,7 +507,6 @@ void MM_TrackSelect_MenuProc(struct RectMenu *menu)
 	s16 currTrack = menu->rowSelected;
 	sdata->trackSelBackup = currTrack;
 
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 overlay 230 0x800b02b0-0x800b04c8.
 	// if lap selection menu is closed
 	if (D230.trackSelect.lapBoxOpen == 0)
 	{
@@ -551,7 +544,6 @@ void MM_TrackSelect_MenuProc(struct RectMenu *menu)
 				D230.trackSelect.trackChangeFrames = MM_TRACK_SELECT_TRACK_CHANGE_FRAMES;
 				D230.trackSelect.trackChangeDirection = 1;
 
-				// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b034c-0x800b035c for track-select previous SFX.
 				OtherFX_Play(0, 1);
 				break;
 
@@ -575,7 +567,6 @@ void MM_TrackSelect_MenuProc(struct RectMenu *menu)
 				D230.trackSelect.trackChangeFrames = MM_TRACK_SELECT_TRACK_CHANGE_FRAMES;
 				D230.trackSelect.trackChangeDirection = -1;
 
-				// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b03bc-0x800b03cc for track-select next SFX.
 				OtherFX_Play(0, 1);
 				break;
 
@@ -583,7 +574,6 @@ void MM_TrackSelect_MenuProc(struct RectMenu *menu)
 			case BTN_CIRCLE:
 
 				// "enter/confirm" sound
-				// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b0434-0x800b0444 for track-select confirm SFX.
 				OtherFX_Play(1, 1);
 
 				// if not Battle or Time Trial, open LapSelectMenu
@@ -603,7 +593,6 @@ void MM_TrackSelect_MenuProc(struct RectMenu *menu)
 			case BTN_SQUARE_one:
 
 				// "go back" sound
-				// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b0490-0x800b04a4 for track-select back SFX.
 				OtherFX_Play(2, 1);
 
 				D230.trackSelect.transition.startAfterExit = 0;
@@ -950,7 +939,6 @@ void MM_TrackSelect_MenuProc(struct RectMenu *menu)
 	} while (true);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b0eac-0x800b0eb8.
 struct RectMenu *MM_TrackSelect_GetMenuPtr(void)
 {
 	return &D230.menuTrackSelect;

@@ -27,7 +27,6 @@ static void MainInit_InitVisMemBspListNodes(struct VisMem *visMem, struct mesh_i
 }
 #endif
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003af84-0x8003b008 for the retail path.
 void MainInit_VisMem(struct GameTracker *gGT)
 {
 	struct VisMem *visMem = gGT->level1->visMem;
@@ -51,7 +50,6 @@ void MainInit_VisMem(struct GameTracker *gGT)
 #endif
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003b008-0x8003b0f0
 void MainInit_RainBuffer(struct GameTracker *gGT)
 {
 	u8 numPlyr = gGT->numPlyrCurrGame;
@@ -143,7 +141,6 @@ static int MainInit_GetPrimMemSize(struct GameTracker *gGT)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003b0f0-0x8003b2d4.
 void MainInit_PrimMem(struct GameTracker *gGT)
 {
 	int size = MainInit_GetPrimMemSize(gGT);
@@ -157,7 +154,6 @@ void MainInit_PrimMem(struct GameTracker *gGT)
 	MainDB_PrimMem(&gGT->db[1].primMem, size);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003b2d4-0x8003b334.
 void MainInit_JitPoolsReset(struct GameTracker *gGT)
 {
 	JitPool_Clear(&gGT->JitPools.thread);
@@ -170,7 +166,6 @@ void MainInit_JitPoolsReset(struct GameTracker *gGT)
 	JitPool_Clear(&gGT->JitPools.rain);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003b334-0x8003b43c.
 void MainInit_OTMem(struct GameTracker *gGT)
 {
 	int size;
@@ -217,7 +212,6 @@ EndFunc:
 
 void MainInit_JitPoolsNew(struct GameTracker *gGT)
 {
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003b43c-0x8003b6d0 for the retail path.
 	u32 gameMode = gGT->gameMode1;
 	int poolScale = 0x800;
 	if ((gameMode & ADVENTURE_ARENA) == 0)
@@ -287,7 +281,6 @@ void MainInit_JitPoolsNew(struct GameTracker *gGT)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003b6d0-0x8003b934; CTR_NATIVE gates TT ghost model publication.
 void MainInit_Drivers(struct GameTracker *gGT)
 {
 	u8 numPlyrCurrGame = gGT->numPlyrCurrGame;
@@ -371,7 +364,6 @@ void MainInit_Drivers(struct GameTracker *gGT)
 	}
 
 	// If number of AIs is not zero
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003b868-0x8003b894 for AI engine-audio init side effects.
 	if (gGT->numBotsNextGame != 0)
 	{
 		// Init AI engine sounds
@@ -653,7 +645,6 @@ void MainInit_FinalizeInit(struct GameTracker *gGT)
 	PickupBots_Init();
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003c1d4-0x8003c248.
 int MainInit_StringToLevID(char *str)
 {
 	for (int levelID = 0; levelID < 0x41; levelID++)
@@ -669,7 +660,6 @@ int MainInit_StringToLevID(char *str)
 	return 0;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003c248-0x8003c310 for the retail path.
 void MainInit_VRAMClear()
 {
 	DRAWENV drawEnv;
@@ -698,8 +688,7 @@ void MainInit_VRAMClear()
 	DrawOTag(&commands);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003c310-0x8003c41c; native wraps
-// the VRAM page moves in a platform frame for presentation.
+// Native wraps the VRAM page moves in a platform frame for presentation.
 void MainInit_VRAMDisplay()
 {
 	RECT r;

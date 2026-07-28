@@ -1,6 +1,5 @@
 #include <common.h>
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800aca50-0x800acb60.
 void RB_GenericMine_LInB(struct Instance *inst)
 {
 	struct Thread *t;
@@ -63,7 +62,6 @@ void RB_GenericMine_LInB(struct Instance *inst)
 	RB_MinePool_Add(mw);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800acb60-0x800ad250.
 void RB_GenericMine_ThTick(struct Thread *t)
 {
 	struct GameTracker *gGT;
@@ -458,7 +456,6 @@ LAB_800ad17c:
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800ad250-0x800ad310.
 void RB_GenericMine_ThDestroy(struct Thread *t, struct Instance *inst, struct MineWeapon *mw)
 {
 	u32 model;

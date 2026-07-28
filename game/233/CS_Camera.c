@@ -13,7 +13,6 @@ enum CutsceneCameraConstants
 	CS_PODIUM_CONTINUE_TEXT_Y = 0xbe,
 };
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800aed48-0x800aedf8
 b32 CS_Camera_BoolGotoBoss(void)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -41,7 +40,6 @@ b32 CS_Camera_BoolGotoBoss(void)
 	return (inst->matrix.t[0] != podiumPos->x) || (inst->matrix.t[2] != podiumPos->z);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800ae9a8-0x800aed48
 void CS_Camera_ThTick_Boss(struct Thread *t)
 {
 	int cutsceneID;
@@ -226,7 +224,6 @@ void CS_Camera_ThTick_Boss(struct Thread *t)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800aedf8-0x800af328
 void CS_Camera_ThTick_Podium(struct Thread *th)
 {
 	struct GameTracker *gGT = sdata->gGT;

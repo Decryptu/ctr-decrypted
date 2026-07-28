@@ -2,7 +2,6 @@
 
 // To do: add a header
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80052f98-0x80054298.
 // CTR_NATIVE only adds an ST1 map-metadata null guard below.
 void UI_RenderFrame_Racing()
 {
@@ -233,7 +232,6 @@ void UI_RenderFrame_Racing()
 
 
 						// OtherFX_Play to get wumpa fruit
-						// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005347c-0x80053484 for wumpa pickup SFX.
 						OtherFX_Play(0x42, 1);
 
 						// initial timer value
@@ -875,7 +873,6 @@ void UI_RenderFrame_Racing()
 	    ((gameMode1 & ROLLING_ITEM) != 0))
 	{
 		// stop weapon shuffle sound
-		// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005423c-0x8005424c for roulette SFX stop.
 		OtherFX_Stop2(0x5d);
 
 		// disable the randomizing effect in the HUD
@@ -883,7 +880,6 @@ void UI_RenderFrame_Racing()
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80054298-0x8005435c.
 void UI_RenderFrame_AdvHub(void)
 {
 	struct UiElement2D *hudStructPtr;
@@ -897,7 +893,6 @@ void UI_RenderFrame_AdvHub(void)
 	UI_DrawNumTrophy(hudStructPtr[UI_HUD_SLOT_TROPHY].x + 0x10, hudStructPtr[UI_HUD_SLOT_TROPHY].y - 10);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005435c-0x8005465c for the retail path.
 void UI_RenderFrame_CrystChall(void)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -994,7 +989,6 @@ void UI_RenderFrame_CrystChall(void)
 			MainGameEnd_Initialize();
 		}
 
-		// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80054550-0x80054558 for crystal pickup SFX.
 		OtherFX_Play(0x42, 1);
 
 		if (player->PickupWumpaHUD.numCollected != 0)
@@ -1060,14 +1054,12 @@ LAB_800545e8:
 	// if not paused, item stopped rolling, and
 	// weapon roulette sound is playing, then
 	// stop the sound and remove flag
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80054618-0x80054628 for roulette SFX stop.
 	OtherFX_Stop2(0x5d);
 	gGT->gameMode1 &= ~(ROLLING_ITEM);
 
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005465c-0x80054a08 for the retail path.
 void UI_RenderFrame_Wumpa3D_2P3P4P(struct GameTracker *gGT)
 {
 	RECT viewport2P;

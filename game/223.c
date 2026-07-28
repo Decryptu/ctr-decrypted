@@ -56,7 +56,6 @@ global_variable char s_crateCountFormat223[12] = "%2.02d/%ld";
 global_variable char s_countdownStartFormat223[4] = "-10";
 global_variable char s_countdownFormat223[4] = "-%d";
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8009f71c-0x8009fcd0.
 void RR_EndEvent_UnlockAward(void)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -124,7 +123,6 @@ void RR_EndEvent_UnlockAward(void)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800a01d8-0x800a0cb8.
 void RR_EndEvent_DrawMenu(void)
 {
 	SVec2 pos;
@@ -242,7 +240,6 @@ void RR_EndEvent_DrawMenu(void)
 			if (elapsedFrames == RR_RELIC_GROW_START_FRAME)
 			{
 				// play sound of unlocking relic
-				// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800a04cc-0x800a04d4 for relic unlock SFX.
 				OtherFX_Play(RR_RELIC_AWARD_SFX, 1);
 			}
 
@@ -315,7 +312,6 @@ void RR_EndEvent_DrawMenu(void)
 				// 0 frames after the first 80
 				if (elapsedFrames == 0)
 				{
-					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800a07e8-0x800a07f0 for PERFECT fly-in SFX.
 					OtherFX_Play(RR_PERFECT_SFX, 1);
 				}
 			}
@@ -364,7 +360,6 @@ void RR_EndEvent_DrawMenu(void)
 					{
 						// subtract a second
 						driver->timeElapsedInRace -= RR_RACE_TIME_ONE_SECOND;
-						// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800a08e0-0x800a08f4 for relic countdown tick SFX.
 						OtherFX_Play(RR_COUNTDOWN_TICK_SFX, 1);
 					}
 
@@ -504,7 +499,6 @@ skipRelicAwarded:
 }
 
 // same in TT and RR, but not the same in Main Menu
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8009fcd0-0x800a01d8.
 void RR_EndEvent_DrawHighScore(s16 startX, int startY, s16 scoreMode)
 {
 	// This is different from High Score in Main Menu because Main Menu

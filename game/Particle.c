@@ -68,7 +68,6 @@ CTR_STATIC_ASSERT(PARTICLE_SPIT_TIRE_FRAME_3 == 0xffe);
 CTR_STATIC_ASSERT(PARTICLE_SPIT_TIRE_FRAME_3_VELOCITY == 0xf801);
 CTR_STATIC_ASSERT(PARTICLE_EXHAUST_BUBBLEPOP_ICON_GROUP == 8);
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003eae0-0x8003ec18.
 void Particle_FuncPtr_PotionShatter(struct Particle *p)
 {
 	s16 scaleRandomQuotient;
@@ -126,7 +125,6 @@ FadeShatterChannel:
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003ec18-0x8003ee20.
 void Particle_FuncPtr_SpitTire(struct Particle *p)
 {
 	int rng;
@@ -204,7 +202,6 @@ void Particle_FuncPtr_SpitTire(struct Particle *p)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003ee20-0x8003eeb0
 void Particle_FuncPtr_ExhaustUnderwater(struct Particle *p)
 {
 	struct IconGroup *icon;
@@ -231,7 +228,6 @@ void Particle_FuncPtr_ExhaustUnderwater(struct Particle *p)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003eeb0-0x8003eefc.
 void Particle_OnDestroy(struct Particle *p)
 {
 	struct ParticleOscillator *osc;
@@ -425,7 +421,6 @@ static void Particle_UpdateIconFrame(struct Particle *p, u16 flagsSetColor)
 	frameAxis->startVal = frame;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003eefc-0x8003f434
 void Particle_UpdateList(struct Particle **listHead, struct Particle *p)
 {
 	struct Particle **link = listHead;
@@ -527,7 +522,6 @@ void Particle_UpdateList(struct Particle **listHead, struct Particle *p)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003f434-0x8003f48c.
 void Particle_UpdateAllParticles(void)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -542,7 +536,6 @@ void Particle_UpdateAllParticles(void)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003f48c-0x8003f4c4.
 int Particle_BitwiseClampByte(int *value)
 {
 	if (*value < PARTICLE_COLOR_CHANNEL_MIN)
@@ -558,7 +551,6 @@ int Particle_BitwiseClampByte(int *value)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003f4c4-0x8003f590
 u32 Particle_SetColors(u32 flagColors, u32 flagAlpha, struct Particle *p)
 {
 	u32 color = 0;
@@ -1114,7 +1106,6 @@ static void Particle_RenderList_WriteNormalPrimitive(POLY_FT4 *poly, struct Icon
 	CtrGpu_WritePackedXY(&poly->x3, MFC2(14));
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003f590-0x80040308
 void Particle_RenderList(struct PushBuffer *pb, void *particleList)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -1485,7 +1476,6 @@ static void Particle_LinkOscillators(struct Particle *p, struct ParticleOscillat
 	*link = NULL;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80040308-0x80040850
 struct Particle *Particle_Init(u32 param_1, struct IconGroup *ig, struct ParticleEmitter *emSet)
 {
 	struct GameTracker *gGT = sdata->gGT;

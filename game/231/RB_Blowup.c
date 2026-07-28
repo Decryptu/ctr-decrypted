@@ -16,7 +16,6 @@ static void RB_Blowup_CopyDrawState(struct Instance *dstInst, struct Instance *s
 	dst->depthOffset[1] = src->depthOffset[1];
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b1714-0x800b17f0
 void RB_Blowup_ProcessBucket(struct Thread *thread)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -62,7 +61,6 @@ static void RB_Blowup_UpdateSlot(int *slot)
 	*slot = 0;
 }
 
-// NOTE(aalhendi): ASM-verified against NTSC-U 926 overlay 231 0x800b17f0-0x800b18f8.
 void RB_Blowup_ThTick(struct Thread *t)
 {
 	int *blowup;
@@ -79,7 +77,6 @@ void RB_Blowup_ThTick(struct Thread *t)
 	ThTick_FastRET(t);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b18f8-0x800b1bd8;
 // CTR_NATIVE only adds allocation-failure handling.
 void RB_Blowup_Init(struct Instance *weaponInst)
 {

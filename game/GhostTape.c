@@ -1,6 +1,5 @@
 #include <common.h>
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80027df4-0x80027e90.
 void GhostTape_Start(void)
 {
 	struct GhostHeader *gh;
@@ -41,7 +40,6 @@ void GhostTape_Start(void)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80027e90-0x80027f20
 void GhostTape_End(void)
 {
 	struct Driver *d;
@@ -70,7 +68,6 @@ void GhostTape_End(void)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80027f20-0x8002838c.
 void GhostTape_WriteMoves(s16 raceFinished)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -295,7 +292,6 @@ void GhostTape_WriteMoves(s16 raceFinished)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8002838c-0x80028410.
 void GhostTape_WriteBoosts(int addReserve, u8 type, int speedCap)
 {
 	char *writeCursor;
@@ -337,7 +333,6 @@ void GhostTape_WriteBoosts(int addReserve, u8 type, int speedCap)
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80028410-0x8002843c.
 void GhostTape_Destroy()
 {
 	if (sdata->ptrGhostTapePlaying != 0)

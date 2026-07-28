@@ -35,7 +35,6 @@ global_variable s32 s_rankString224 = 0x20; // " \0"
 extern struct RectMenu menu224;
 extern struct RectMenu menu224NoSave;
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8009fdc8-0x800a04d4.
 void TT_EndEvent_DrawMenu(void)
 {
 	s32 elapsedFrames;
@@ -270,7 +269,6 @@ void TT_EndEvent_DrawMenu(void)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8009f704-0x8009f8c0.
 void TT_EndEvent_DisplayTime(int paramX, s16 paramY, u32 raceClockFlags)
 {
 	SVec2 pos;
@@ -303,7 +301,6 @@ void TT_EndEvent_DisplayTime(int paramX, s16 paramY, u32 raceClockFlags)
 }
 
 // same in TT and RR, but not the same in Main Menu
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8009f8c0-0x8009fdc8.
 void TT_EndEvent_DrawHighScore(s16 startX, int startY, s16 scoreMode)
 {
 	// This is different from High Score in Main Menu because Main Menu

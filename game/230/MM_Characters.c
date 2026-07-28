@@ -64,7 +64,6 @@ enum
 	MM_CHARACTER_SELECT_COLOR_PULSE_FP_SHIFT = 0xc,
 };
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 overlay 230 0x800ad98c-0x800ada4c.
 void MM_Characters_AnimateColors(u8 *colorData, s16 playerID, s16 flag)
 {
 	u8 colorAdjustmentValue;
@@ -112,7 +111,6 @@ void MM_Characters_AnimateColors(u8 *colorData, s16 playerID, s16 flag)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified against NTSC-U 926 overlay 230 0x800ada4c-0x800adae4.
 int MM_Characters_GetNextDriver(s16 direction, s16 characterID)
 {
 	u8 nextIcon = D230.activeCharacterSelectMeta[(s32)characterID].nextIconByDirection[direction];
@@ -138,7 +136,6 @@ int MM_Characters_GetNextDriver(s16 direction, s16 characterID)
 
 // used for preventing players highlighting the same character
 // also for when you go left of komodo joe's icon
-// NOTE(aalhendi): ASM-verified against NTSC-U 926 overlay 230 0x800adae4-0x800adb64.
 b32 MM_Characters_boolIsInvalid(s16 *iconPerPlayer, s16 characterID, s16 player)
 {
 	// if there are players
@@ -159,7 +156,6 @@ b32 MM_Characters_boolIsInvalid(s16 *iconPerPlayer, s16 characterID, s16 player)
 	return 0;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 overlay 230 0x800adb64-0x800adc0c.
 // Search for character model by string,
 // specific to main menu lev, altered in oxide mod
 struct Model *MM_Characters_GetModelByName(const char *name)
@@ -194,7 +190,6 @@ struct Model *MM_Characters_GetModelByName(const char *name)
 	return NULL;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 overlay 230 0x800adc0c-0x800ae0bc PSX path.
 void MM_Characters_DrawWindows(b32 boolShowDrivers)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -379,7 +374,6 @@ void MM_Characters_DrawWindows(b32 boolShowDrivers)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 overlay 230 0x800ae0bc-0x800ae274.
 void MM_Characters_SetMenuLayout(void)
 {
 	b32 expandRoster = false;
@@ -436,7 +430,6 @@ void MM_Characters_SetMenuLayout(void)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800ae274-0x800ae2c0.
 void MM_Characters_BackupIDs(void)
 {
 	for (s32 driverIndex = 0; driverIndex < MM_CHARACTER_SELECT_DEFAULT_DRIVER_COUNT; driverIndex++)
@@ -448,7 +441,6 @@ void MM_Characters_BackupIDs(void)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 overlay 230 0x800ae2c0-0x800ae464.
 void MM_Characters_PreventOverlap(void)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -503,7 +495,6 @@ void MM_Characters_PreventOverlap(void)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 overlay 230 0x800ae464-0x800ae6b0.
 void MM_Characters_RestoreIDs(void)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -575,7 +566,6 @@ void MM_Characters_RestoreIDs(void)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified against NTSC-U 926 overlay 230 0x800ae6b0-0x800ae74c.
 void MM_Characters_HideDrivers(void)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -883,7 +873,6 @@ dontDrawSelectCharacter:
 						if (previousCandidateIcon << 0x10 != candidateIcon << 0x10)
 						{
 							// Play sound
-							// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800aeeb8-0x800aeecc for character cursor-change SFX.
 							OtherFX_Play(0, 1);
 						}
 						if (hitNavigationDeadEnd != 0)
@@ -919,7 +908,6 @@ dontDrawSelectCharacter:
 					u8 numPlyrNextGame = gGT->numPlyrNextGame;
 
 					// Play sound
-					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800aefa4-0x800aefe4 for character confirm SFX.
 					OtherFX_Play(1, 1);
 
 					// if all players have selected their characters
@@ -943,7 +931,6 @@ dontDrawSelectCharacter:
 					D230.characterSelectMenuState = EXITING_MENU;
 
 					// Play sound
-					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800af01c-0x800af054 for character-select back SFX.
 					OtherFX_Play(2, 1);
 				}
 			}
@@ -953,7 +940,6 @@ dontDrawSelectCharacter:
 				if ((button & MM_CHARACTER_SELECT_INPUT_BACK) != 0)
 				{
 					// Play sound
-					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800af060-0x800af074 for character deselect SFX.
 					OtherFX_Play(2, 1);
 
 					// this player has de-selected their character

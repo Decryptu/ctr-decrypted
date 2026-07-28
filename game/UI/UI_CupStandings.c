@@ -64,7 +64,6 @@ CTR_STATIC_ASSERT(UI_CUP_STANDINGS_TRACKS_PER_CUP == 4);
 CTR_STATIC_ASSERT(UI_CUP_STANDINGS_DRIVER_SLOTS == 8);
 CTR_STATIC_ASSERT(GEM_STONE_VALLEY == 0x19);
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005607c-0x80056220.
 void UI_CupStandings_FinalizeCupRanks(void)
 {
 	struct GameTracker *gGT;
@@ -122,7 +121,6 @@ void UI_CupStandings_FinalizeCupRanks(void)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80056220-0x800562fc.
 void UI_CupStandings_UpdateCupRanks(void)
 {
 	struct GameTracker *gGT;
@@ -168,7 +166,6 @@ void UI_CupStandings_UpdateCupRanks(void)
 
 void UI_CupStandings_InputAndDraw(void)
 {
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800562fc-0x800572d0.
 	struct GameTracker *gGT = sdata->gGT;
 	s16 iconColumnOffset;
 	int i;

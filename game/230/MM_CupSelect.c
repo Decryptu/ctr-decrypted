@@ -1,6 +1,5 @@
 #include <common.h>
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b0eb8-0x800b0eec.
 void MM_CupSelect_Init(void)
 {
 	// reset transition data
@@ -13,7 +12,6 @@ void MM_CupSelect_Init(void)
 	D230.menuCupSelect.state |= DISABLE_INPUT_ALLOW_FUNCPTRS;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 overlay 230 0x800b0eec-0x800b164c.
 void MM_CupSelect_MenuProc(struct RectMenu *menu)
 {
 	struct GameTracker *gGT = sdata->gGT;
