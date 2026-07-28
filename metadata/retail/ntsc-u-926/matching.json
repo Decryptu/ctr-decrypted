@@ -234,6 +234,27 @@
       "purpose": "Exercise arithmetic lowering, multiplication, a signed branch, delay-slot scheduling, and negative fixed-point rounding from production source."
     },
     {
+      "symbol": "MATH_FastSqrt",
+      "source": "game/MATH/MATH_2_FastSqrt.c",
+      "region": "exe",
+      "address": "0x8003d214",
+      "size": 80,
+      "compiler_flags": [
+        "-O2",
+        "-G8",
+        "-msoft-float",
+        "-Ds32=int",
+        "-Du32=unsigned int"
+      ],
+      "small_data_limit": 8,
+      "aspsx_versions": [
+        "2.67",
+        "2.77",
+        "2.81"
+      ],
+      "purpose": "Exercise a non-trivial loop, shifts, signed and unsigned comparisons, multiplication, induction-variable lowering, and register allocation."
+    },
+    {
       "symbol": "RaceFlag_GetCanDraw",
       "source": "game/RaceFlag.c",
       "region": "exe",
