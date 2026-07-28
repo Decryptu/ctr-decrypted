@@ -1,0 +1,284 @@
+{
+  "schema_version": 1,
+  "target": "ntsc-u-926",
+  "goal": "A byte-identical reconstruction of the complete NTSC-U 926 game disc from reviewed C, assembly, data, and packaging inputs.",
+  "reference_root": "assets",
+  "toolchain": {
+    "compiler": {
+      "version": "2.8.1",
+      "directory": "externals/old-gcc/prebuilt/linux-i386/2.8.1",
+      "executable": "gcc",
+      "sha256": {
+        "cc1": "1a48ec5ac87a146a074a9d66d7a67734a4d1ad56553d02d91e8b71c7fecc2d52",
+        "cc1plus": "93e7b36546532deec58cbc221df4d2c2894d444b5685b31a439c46cc597a9572",
+        "cpp": "8d7f4e90f995089a6c2d62214b607fc77acf43b61f60a871d130d713d9ac96bb",
+        "g++": "a2cf0a5f0a21fcd4836c6f7ac66f346ba5594c1e4d4ab9d88c48c73c77f876fd",
+        "gcc": "451e6521d860fc6ff49000567d94d983125263bb0ae2149f89d95eaed34b3a02"
+      }
+    },
+    "maspsx": {
+      "commit": "42b862c988fe7a13fe4e7ac0ebec90ed6b9fb763",
+      "directory": "externals/maspsx",
+      "entrypoint": "maspsx.py",
+      "sha256": {
+        "maspsx.py": "d170463b0c519a825db97d3f30ffbe0228e4cf642de2dc64fb30f90f118c2b0c",
+        "maspsx/__init__.py": "2cbdbc27537bf9f53413e29c558a869b39f671be4a72429618dca39b07e377fa"
+      },
+      "aspsx_version": "2.77"
+    },
+    "binutils": {
+      "version": "2.40",
+      "prefix": "externals/psx-binutils/prebuilt/linux-x86_64/bin/mipsel-none-elf-",
+      "sha256": {
+        "as": "8efe7b6109d13ee6e57abb208a48f6022428e5d7122c6b59135c563978e712e4",
+        "ld": "bc4c76abe09f82094fac2177047aaa20e094a4ab93690551d30ddb9b3b83922c",
+        "objcopy": "d807c80fd6184f224b62a898e49241141eb1f85b66beeeb08c68b2c3c38cdaee",
+        "objdump": "bf0d4a1dea99b9488978a18e82e355759e567e3565e118545fdb33033d78cc42"
+      }
+    }
+  },
+  "artifacts": [
+    {
+      "id": "disc",
+      "kind": "raw-disc",
+      "path": "ctr-u.bin",
+      "size": 605698800,
+      "sha256": "f780bf2331476aabfc00772fa758b12dd95ebfbc907968132cbd3cdd4e2c07c0"
+    },
+    {
+      "id": "exe",
+      "kind": "ps-x-exe",
+      "path": "SCUS_944.26",
+      "size": 516096,
+      "sha256": "7b4aac0bf2f6310984e599295df17b457da5a23b270c20200cefef6079efb838",
+      "load_address": "0x80010000",
+      "mapped_file_offset": "0x800",
+      "mapped_size": "0x7d800",
+      "header": {
+        "entrypoint": "0x8007793c",
+        "global_pointer": "0x00000000",
+        "stack_pointer": "0x801ffff0"
+      }
+    },
+    {
+      "id": "221",
+      "kind": "overlay",
+      "path": "bigfile/overlays/221_EndRaceMenu_CrystalChallenge.bin",
+      "size": 1328,
+      "sha256": "7f2289e91f68e8b31d926a6e5e381f4fe64e037b0ab1e7d6a30e00bc0d1e62ab",
+      "load_address": "0x8009f6fc",
+      "mapped_file_offset": "0x0",
+      "mapped_size": "0x530"
+    },
+    {
+      "id": "222",
+      "kind": "overlay",
+      "path": "bigfile/overlays/222_EndRaceMenu_ArcadeAdventure.bin",
+      "size": 5300,
+      "sha256": "fcac3e41c85cddc242e2917ba2e4c5b76381bce40210a5cfd986b2361a68f1bc",
+      "load_address": "0x8009f6fc",
+      "mapped_file_offset": "0x0",
+      "mapped_size": "0x14b4"
+    },
+    {
+      "id": "223",
+      "kind": "overlay",
+      "path": "bigfile/overlays/223_EndRaceMenu_Relic.bin",
+      "size": 5564,
+      "sha256": "3ef879943b76ce1b28492f44dfc84c78a8aefcec0381160ed37dbe2ea7d4e0f0",
+      "load_address": "0x8009f6fc",
+      "mapped_file_offset": "0x0",
+      "mapped_size": "0x15bc"
+    },
+    {
+      "id": "224",
+      "kind": "overlay",
+      "path": "bigfile/overlays/224_EndRaceMenu_TimeTrial.bin",
+      "size": 3544,
+      "sha256": "60465c8f1a821c6b48965d1a35ff54f9468f8cbcd928e0facd4f4228e5a6f3d2",
+      "load_address": "0x8009f6fc",
+      "mapped_file_offset": "0x0",
+      "mapped_size": "0xdd8"
+    },
+    {
+      "id": "225",
+      "kind": "overlay",
+      "path": "bigfile/overlays/225_EndRaceMenu_BattleVS.bin",
+      "size": 2828,
+      "sha256": "58b2d4c0305d0c646b156a7c39ffa681e574e1bfc3a0fa399cfd27e15e4065d8",
+      "load_address": "0x8009f6fc",
+      "mapped_file_offset": "0x0",
+      "mapped_size": "0xb0c"
+    },
+    {
+      "id": "226",
+      "kind": "overlay",
+      "path": "bigfile/overlays/226_Quadblock_1P.bin",
+      "size": 44216,
+      "sha256": "f7812596900cb9f745da85742f085f68be0f7339e77c84e901c938132adba9e0",
+      "load_address": "0x800a0cb8",
+      "mapped_file_offset": "0x0",
+      "mapped_size": "0xacb8"
+    },
+    {
+      "id": "227",
+      "kind": "overlay",
+      "path": "bigfile/overlays/227_Quadblock_2P.bin",
+      "size": 44344,
+      "sha256": "be355a050d97c022e90a429d61277a9474144e6580e9eb3b649b8583f529e176",
+      "load_address": "0x800a0cb8",
+      "mapped_file_offset": "0x0",
+      "mapped_size": "0xad38"
+    },
+    {
+      "id": "228",
+      "kind": "overlay",
+      "path": "bigfile/overlays/228_Quadblock_3P.bin",
+      "size": 34208,
+      "sha256": "951c200d941e401a0972cd1c8609d6f163f30f83973f4c600ed268809acb3633",
+      "load_address": "0x800a0cb8",
+      "mapped_file_offset": "0x0",
+      "mapped_size": "0x85a0"
+    },
+    {
+      "id": "229",
+      "kind": "overlay",
+      "path": "bigfile/overlays/229_Quadblock_4P.bin",
+      "size": 34388,
+      "sha256": "04df4ee7a429de972213e6477e161b37e8e0c1ac7fa143533868837f3d33397b",
+      "load_address": "0x800a0cb8",
+      "mapped_file_offset": "0x0",
+      "mapped_size": "0x8654"
+    },
+    {
+      "id": "230",
+      "kind": "overlay",
+      "path": "bigfile/overlays/230_Threads_MainMenu.bin",
+      "size": 44612,
+      "sha256": "2803a952b07822cd5094cd7aa8bbd4f03e9467ddf4011ee7fbf1bd3380f69c58",
+      "load_address": "0x800ab9f0",
+      "mapped_file_offset": "0x0",
+      "mapped_size": "0xae44"
+    },
+    {
+      "id": "231",
+      "kind": "overlay",
+      "path": "bigfile/overlays/231_Threads_Racing.bin",
+      "size": 60248,
+      "sha256": "3a6329b4058f28a9a47c531d8bc70d5d9fd25ec8ea8c88525b197d8770a50a5f",
+      "load_address": "0x800ab9f0",
+      "mapped_file_offset": "0x0",
+      "mapped_size": "0xeb58"
+    },
+    {
+      "id": "232",
+      "kind": "overlay",
+      "path": "bigfile/overlays/232_Threads_AdvHub.bin",
+      "size": 40068,
+      "sha256": "965db24718342ca8412267fdb3b5b772fad373081b46b1c903bee860b9bb889f",
+      "load_address": "0x800ab9f0",
+      "mapped_file_offset": "0x0",
+      "mapped_size": "0x9c84"
+    },
+    {
+      "id": "233",
+      "kind": "overlay",
+      "path": "bigfile/overlays/233_Threads_Cutscene.bin",
+      "size": 56844,
+      "sha256": "3c916b59c56844daaf0988f2298e478003a4f6042300a35d4b1e22775ead6388",
+      "load_address": "0x800ab9f0",
+      "mapped_file_offset": "0x0",
+      "mapped_size": "0xde0c"
+    }
+  ],
+  "compiler_probes": [
+    {
+      "symbol": "BOTS_EmptyFunc",
+      "source": "game/BOTS.c",
+      "region": "exe",
+      "address": "0x80012560",
+      "size": 8,
+      "compiler_flags": [
+        "-O2",
+        "-G8",
+        "-msoft-float"
+      ],
+      "small_data_limit": 8,
+      "aspsx_versions": [
+        "2.67",
+        "2.77",
+        "2.81"
+      ],
+      "purpose": "Smoke-test the source extraction, old GCC, maspsx, GNU assembler, object extraction, and retail-byte oracle. This trivial function cannot identify the original compiler."
+    },
+    {
+      "symbol": "UI_ConvertX_2",
+      "source": "game/UI/UI_Convert.c",
+      "region": "exe",
+      "address": "0x8004caa8",
+      "size": 32,
+      "compiler_flags": [
+        "-O2",
+        "-G8",
+        "-msoft-float",
+        "-DUI_CONVERT_CENTER_X=0x100",
+        "-DUI_CONVERT_NEGATIVE_ROUND_BIAS=0xff",
+        "-DUI_CONVERT_FIXED_SHIFT=8"
+      ],
+      "small_data_limit": 8,
+      "aspsx_versions": [
+        "2.67",
+        "2.77",
+        "2.81"
+      ],
+      "purpose": "Exercise arithmetic lowering, multiplication, a signed branch, delay-slot scheduling, and negative fixed-point rounding from production source."
+    },
+    {
+      "symbol": "RaceFlag_GetCanDraw",
+      "source": "game/RaceFlag.c",
+      "region": "exe",
+      "address": "0x80044094",
+      "size": 12,
+      "compile_prelude": "typedef short s16;\nstruct MatchSData { unsigned char before_RaceFlag_CanDraw[0x4dc]; s16 RaceFlag_CanDraw; };\nregister struct MatchSData *sdata asm(\"$28\");\n",
+      "compiler_flags": [
+        "-O2",
+        "-G8",
+        "-msoft-float"
+      ],
+      "small_data_limit": 8,
+      "aspsx_versions": [
+        "2.67",
+        "2.77",
+        "2.81"
+      ],
+      "purpose": "Exercise the retail global-pointer contract and a signed halfword load at the disassembly-verified sData offset 0x4dc."
+    },
+    {
+      "symbol": "AH_MaskHint_boolCanSpawn",
+      "source": "game/232/AH_MaskHint.c",
+      "region": "232",
+      "address": "0x800b3f88",
+      "size": 16,
+      "compile_prelude": "typedef int b32;\nstruct MatchSData { unsigned char before_AkuAkuHintState[0x908]; short AkuAkuHintState; };\nextern struct MatchSData sdata_static;\n#define sdata (&sdata_static)\n",
+      "compiler_flags": [
+        "-O2",
+        "-G8",
+        "-msoft-float"
+      ],
+      "small_data_limit": 8,
+      "aspsx_versions": [
+        "2.56",
+        "2.67",
+        "2.77",
+        "2.81"
+      ],
+      "link": {
+        "text_address": "0x800b3f88",
+        "symbols": {
+          "sdata_static": "0x8008cf6c"
+        }
+      },
+      "purpose": "Exercise an overlay's absolute relocation to sData, signed halfword load, branchless equality lowering, exact link address, and ASPSX compatibility behavior."
+    }
+  ]
+}
