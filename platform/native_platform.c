@@ -589,8 +589,6 @@ internal void Native_WaitUntilVBlankTarget(void)
 	while (1)
 	{
 		const u64 now = SDL_GetPerformanceCounter();
-		u64 remaining;
-		u64 sleepUs;
 
 		if (now >= s_nextVBlankCounter)
 		{
@@ -598,7 +596,7 @@ internal void Native_WaitUntilVBlankTarget(void)
 			return;
 		}
 
-		remaining = s_nextVBlankCounter - now;
+		u64 remaining = s_nextVBlankCounter - now;
 		if (remaining <= spinWindow)
 		{
 			// NOTE(penta3): OS sleeps can wake late. Sleep while safely far from
@@ -613,7 +611,7 @@ internal void Native_WaitUntilVBlankTarget(void)
 			return;
 		}
 
-		sleepUs = ((remaining - spinWindow) * 1000000) / freq;
+		u64 sleepUs = ((remaining - spinWindow) * 1000000) / freq;
 		if (sleepUs > 0)
 		{
 			// Cross-platform precise sleep: SDL_DelayPrecise uses the best per-OS
@@ -701,7 +699,6 @@ internal void Native_WaitAndEmitVBlank(void)
 
 int VSync(int mode)
 {
-	int requestedVBlanks;
 	int emittedVBlanks;
 
 	if (mode < 0)
@@ -709,7 +706,7 @@ int VSync(int mode)
 		return s_nativeVBlankCount;
 	}
 
-	requestedVBlanks = (mode == 0) ? 1 : mode;
+	int requestedVBlanks = (mode == 0) ? 1 : mode;
 	emittedVBlanks = 0;
 
 #if defined(CTR_INTERNAL)

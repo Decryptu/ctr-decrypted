@@ -449,9 +449,6 @@ internal void NativeRenderer_SetPresentationAspect(int width, int height)
 
 internal void NativeRenderer_UpdatePresentationViewport(void)
 {
-	int viewportW;
-	int viewportH;
-
 	if ((g_windowWidth <= 0) || (g_windowHeight <= 0) || (s_presentAspectW <= 0) || (s_presentAspectH <= 0))
 	{
 		s_presentViewport.x = 0;
@@ -461,8 +458,8 @@ internal void NativeRenderer_UpdatePresentationViewport(void)
 		return;
 	}
 
-	viewportW = g_windowWidth;
-	viewportH = (viewportW * s_presentAspectH) / s_presentAspectW;
+	int viewportW = g_windowWidth;
+	int viewportH = (viewportW * s_presentAspectH) / s_presentAspectW;
 
 	if (viewportH > g_windowHeight)
 	{
@@ -1227,12 +1224,10 @@ int NativeRenderer_InitialisePSX(void)
 
 	// gen vertex buffer and index buffer
 	{
-		int i;
-
 		glGenBuffers(MAX_NUM_VERTEX_BUFFERS, s_glVertexBuffer);
 		glGenVertexArrays(MAX_NUM_VERTEX_BUFFERS, s_glVertexArray);
 
-		for (i = 0; i < MAX_NUM_VERTEX_BUFFERS; i++)
+		for (int i = 0; i < MAX_NUM_VERTEX_BUFFERS; i++)
 		{
 			glBindVertexArray(s_glVertexArray[i]);
 
