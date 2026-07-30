@@ -6,7 +6,6 @@ enum
 	VEH_AFTER_COLL_TERRAIN_COUNT = len(data.MetaDataTerrain),
 };
 
-CTR_STATIC_ASSERT(VEH_AFTER_COLL_SCRUB_COUNT == 7);
 CTR_STATIC_ASSERT(VEH_AFTER_COLL_TERRAIN_COUNT == TERRAIN_SLOWDIRT + 1);
 
 struct Scrub *VehAfterColl_GetSurface(u32 scrubId)

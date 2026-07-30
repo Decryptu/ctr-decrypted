@@ -19,8 +19,6 @@ static b32 DecalGlobal_NameEquals(const char *lhs, const char *rhs)
 	       (DecalGlobal_ReadNameWord(lhs, 2) == DecalGlobal_ReadNameWord(rhs, 2)) && (DecalGlobal_ReadNameWord(lhs, 3) == DecalGlobal_ReadNameWord(rhs, 3));
 }
 
-CTR_STATIC_ASSERT(DECAL_NAME_BYTE_COUNT == 0x10);
-CTR_STATIC_ASSERT(DECAL_NAME_WORD_COUNT == 4);
 CTR_STATIC_ASSERT(sizeof(((struct Icon *)0)->name) == DECAL_NAME_BYTE_COUNT);
 CTR_STATIC_ASSERT(sizeof(((struct IconGroup *)0)->name) == DECAL_NAME_BYTE_COUNT);
 

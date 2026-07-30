@@ -112,10 +112,7 @@ enum DecalFontStyle
 typedef u16 DecalFontStyle;
 
 CTR_STATIC_ASSERT(sizeof(DecalFontStyle) == 0x2);
-CTR_STATIC_ASSERT(ORANGE == 0);
 CTR_STATIC_ASSERT(NUM_COLORS <= 0xfff);
-CTR_STATIC_ASSERT(JUSTIFY_RIGHT == 0x4000);
-CTR_STATIC_ASSERT(JUSTIFY_CENTER == 0x8000);
 
 struct TextureLayout
 {

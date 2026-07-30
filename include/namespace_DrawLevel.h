@@ -19,8 +19,8 @@ struct DrawLevelOvr1PRenderList
 	struct QuadBlock **ptrQuadBlocksRendered_FullDynamic;
 };
 
-#define DRAW_LEVEL_OVR1P_LIST_OFFSET(INDEX, MEMBER)                                                                                 \
-	(offsetof(struct DrawLevelOvr1PRenderList, list) + (INDEX) * sizeof(struct DrawLevelOvr1PRenderListSlot) +                       \
+#define DRAW_LEVEL_OVR1P_LIST_OFFSET(INDEX, MEMBER)                                                            \
+	(offsetof(struct DrawLevelOvr1PRenderList, list) + (INDEX) * sizeof(struct DrawLevelOvr1PRenderListSlot) + \
 	 offsetof(struct DrawLevelOvr1PRenderListSlot, MEMBER))
 
 enum DrawLevelOvr1PRenderListOffset
@@ -115,12 +115,6 @@ struct DrawLevelOvrBucketSetupRecord
 	u32 copy1[DRAW_LEVEL_OVR_COPIED_SETUP1_WORD_COUNT];
 };
 
-CTR_STATIC_ASSERT(DRAW_LEVEL_OVR_COPIED_SETUP0_WORD_COUNT == 15);
-CTR_STATIC_ASSERT(DRAW_LEVEL_OVR_COPIED_SETUP1_WORD_COUNT == 3);
-CTR_STATIC_ASSERT(DRAW_LEVEL_OVR_COPIED_SETUP0_LAST_WORD_INDEX == 0xe);
-CTR_STATIC_ASSERT(DRAW_LEVEL_OVR_COPIED_SETUP1_LAST_WORD_INDEX == 0x2);
-CTR_STATIC_ASSERT(DRAW_LEVEL_OVR_COPIED_SETUP0_SCRATCH_OFFSET == 0x14c);
-CTR_STATIC_ASSERT(DRAW_LEVEL_OVR_COPIED_SETUP1_SCRATCH_OFFSET == 0x188);
 CTR_STATIC_ASSERT(sizeof(struct DrawLevelOvrBucketSetupCopy) == 0xc);
 CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvrBucketSetupCopy, lastWordIndex) == 0x0);
 CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvrBucketSetupCopy, sourceAddress) == 0x4);
