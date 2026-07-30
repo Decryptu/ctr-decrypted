@@ -1015,6 +1015,27 @@ def cmd_compare(args: argparse.Namespace) -> int:
     return 0 if print_comparison(results) else 1
 
 
+def print_artifact_result(result: dict[str, Any]) -> bool:
+    status = "MATCH" if result["exact"] else "DIFF"
+    print(
+        f"{status:<7} {result['artifact']}: "
+        f"{result['candidate_size']}/{result['expected_size']} bytes; "
+        f"{result['matching_bytes']} bytes equal at the same offsets "
+        f"({result['matching_byte_percent']:.2f}%)"
+    )
+    if not result["exact"]:
+        print(f"        first difference: {result['first_mismatch_location']}")
+    for item in result["ranges"]:
+        detail = f"{item['matching_bytes']}/{item['size']} bytes"
+        if item["kind"] == "code":
+            detail += f", {item['matching_words']}/{item['total_words']} words"
+        if item["placement_delta"]:
+            detail += f", placement {item['placement_delta']:+#x}"
+        print(f"        {item['name']}: {detail}")
+    print(f"        objdump diff: {result['objdump_diff']}")
+    return bool(result["exact"])
+
+
 def cmd_check(args: argparse.Namespace) -> int:
     manifest = load_json(Path(args.manifest))
     toolchain = resolve_toolchain(manifest)
@@ -1046,7 +1067,20 @@ def cmd_check(args: argparse.Namespace) -> int:
         f"{exact}/{len(manifest['compiler_probes'])} probes matched with "
         f"GCC {compiler}, ASPSX {aspsx_version}"
     )
-    return 0 if exact == len(manifest["compiler_probes"]) else 1
+
+    artifact_builds = manifest.get("artifact_builds", [])
+    exact_artifacts = 0
+    if artifact_builds:
+        print("linked artifacts:")
+    for build in artifact_builds:
+        result = build_artifact(manifest, toolchain, build, references)
+        exact_artifacts += int(print_artifact_result(result))
+    if artifact_builds:
+        print(f"{exact_artifacts}/{len(artifact_builds)} linked artifacts matched")
+
+    all_probes_exact = exact == len(manifest["compiler_probes"])
+    all_artifacts_exact = exact_artifacts == len(artifact_builds)
+    return 0 if all_probes_exact and all_artifacts_exact else 1
 
 
 def cmd_probe(args: argparse.Namespace) -> int:
@@ -1085,24 +1119,7 @@ def cmd_artifact(args: argparse.Namespace) -> int:
         artifact_build_by_id(manifest, args.artifact),
         reference_root(manifest, args.reference_root),
     )
-    status = "MATCH" if result["exact"] else "DIFF"
-    print(
-        f"{status:<7} {result['artifact']}: "
-        f"{result['candidate_size']}/{result['expected_size']} bytes; "
-        f"{result['matching_bytes']} bytes equal at the same offsets "
-        f"({result['matching_byte_percent']:.2f}%)"
-    )
-    if not result["exact"]:
-        print(f"        first difference: {result['first_mismatch_location']}")
-    for item in result["ranges"]:
-        detail = f"{item['matching_bytes']}/{item['size']} bytes"
-        if item["kind"] == "code":
-            detail += f", {item['matching_words']}/{item['total_words']} words"
-        if item["placement_delta"]:
-            detail += f", placement {item['placement_delta']:+#x}"
-        print(f"        {item['name']}: {detail}")
-    print(f"        objdump diff: {result['objdump_diff']}")
-    return 0 if result["exact"] else 1
+    return 0 if print_artifact_result(result) else 1
 
 
 def cmd_matrix(args: argparse.Namespace) -> int:

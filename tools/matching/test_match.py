@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 import struct
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 
 
 MODULE_PATH = Path(__file__).with_name("match.py")
@@ -174,6 +178,65 @@ class ToolchainTests(unittest.TestCase):
                 build["linker_script"],
                 *build["forced_includes"],
             },
+        )
+
+
+class CheckTests(unittest.TestCase):
+    def test_check_rebuilds_linked_artifacts(self) -> None:
+        build = {"artifact": "221"}
+        manifest = {
+            "compiler_probes": [{"symbol": "probe"}],
+            "artifact_builds": [build],
+        }
+        toolchain = SimpleNamespace(
+            compiler_version="2.8.1",
+            default_aspsx_version="2.77",
+        )
+        args = SimpleNamespace(
+            manifest="matching.json",
+            reference_root=None,
+            aspsx_version=None,
+        )
+        references = Path("/retail")
+        probe_result = {
+            "exact": True,
+            "symbol": "probe",
+            "address": "0x80000000",
+            "candidate_size": 4,
+            "expected_size": 4,
+        }
+        artifact_result = {"exact": True}
+
+        with (
+            mock.patch.object(ctr_match, "load_json", return_value=manifest),
+            mock.patch.object(
+                ctr_match, "resolve_toolchain", return_value=toolchain
+            ),
+            mock.patch.object(ctr_match, "print_toolchain"),
+            mock.patch.object(
+                ctr_match, "reference_root", return_value=references
+            ),
+            mock.patch.object(
+                ctr_match, "verify_references", return_value=[]
+            ),
+            mock.patch.object(
+                ctr_match, "print_verification", return_value=True
+            ),
+            mock.patch.object(
+                ctr_match, "build_probe", return_value=probe_result
+            ),
+            mock.patch.object(
+                ctr_match, "build_artifact", return_value=artifact_result
+            ) as build_artifact,
+            mock.patch.object(
+                ctr_match, "print_artifact_result", return_value=True
+            ),
+        ):
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(ctr_match.cmd_check(args), 0)
+
+        build_artifact.assert_called_once_with(
+            manifest, toolchain, build, references
         )
 
 
