@@ -110,6 +110,7 @@ enum
 	BATTLE_WEAPON_PANEL_INSET_W_SHRINK = 6,
 	BATTLE_WEAPON_PANEL_INSET_H_SHRINK = 4,
 	BATTLE_LABEL_TEXT_FLAGS = 0x4000,
+	BATTLE_TITLE_TEXT_FLAGS = JUSTIFY_CENTER | ORANGE,
 };
 
 enum
@@ -121,8 +122,6 @@ enum
 	BATTLE_TPAGE_TRANSPARENCY_MASK = 0xff9fffffu,
 	BATTLE_TPAGE_TRANSPARENCY_SHIFT = 0x15,
 };
-
-#define BATTLE_TITLE_TEXT_FLAGS 0xffff8000u
 
 void MM_Battle_DrawIcon_Weapon(struct Icon *icon, u32 posX, int posY, struct PrimMem *primMem, u32 *ot, char transparency, s16 scale, u16 rotation,
                                const Color *color)

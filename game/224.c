@@ -110,7 +110,7 @@ void TT_EndEvent_DrawMenu(void)
 
 
 		// Blink Orange/White
-		s32 textColor = (gGT->timer & 1) ? 0xffff8000 : 0xffff8004;
+		s32 textColor = (gGT->timer & 1) ? (JUSTIFY_CENTER | ORANGE) : (JUSTIFY_CENTER | WHITE);
 
 
 		// "new high score" 1 second later
@@ -175,7 +175,7 @@ void TT_EndEvent_DrawMenu(void)
 			DecalFont_DrawLine(nTropyString, pos.x, pos.y, FONT_BIG, textColor);
 		}
 
-		DecalFont_DrawLine(lngStrings[LNG_PRESS_TO_CONTINUE], 0x100, 0xbe, FONT_BIG, 0xffff8000);
+		DecalFont_DrawLine(lngStrings[LNG_PRESS_TO_CONTINUE], 0x100, 0xbe, FONT_BIG, JUSTIFY_CENTER | ORANGE);
 
 		// If you press Cross or Circle
 		if ((sdata->AnyPlayerTap & TT_CONFIRM_BUTTON_MASK) != 0)
@@ -238,7 +238,7 @@ void TT_EndEvent_DrawMenu(void)
 
 			TT_EndEvent_DisplayTime(pos.x, pos.y, sdata->flags_timeTrialEndOfRace);
 
-			DecalFont_DrawLine(lngStrings[LNG_PRESS_TO_CONTINUE], 0x100, 0xbe, FONT_BIG, 0xffff8000);
+			DecalFont_DrawLine(lngStrings[LNG_PRESS_TO_CONTINUE], 0x100, 0xbe, FONT_BIG, JUSTIFY_CENTER | ORANGE);
 
 			// ==== Pause Timer until Press X =======
 			// Cross or Circle, or if timer drags on too long
@@ -324,7 +324,7 @@ void TT_EndEvent_DrawHighScore(s16 startX, int startY, s16 scoreMode)
 	// interpolate fly-in
 	UI_Lerp2D_Linear(pos.v, startX, startY, startX, startY, sdata->framesSinceRaceEnded, TT_LERP_FRAMES);
 
-	DecalFont_DrawLine(sdata->lngStrings[LNG_BEST_TIMES], pos.x, pos.y, FONT_BIG, 0xffff8000);
+	DecalFont_DrawLine(sdata->lngStrings[LNG_BEST_TIMES], pos.x, pos.y, FONT_BIG, JUSTIFY_CENTER | ORANGE);
 
 	// Draw icon, name, and time of the
 	// 5 best times in Time Trial
@@ -385,24 +385,24 @@ void TT_EndEvent_DrawHighScore(s16 startX, int startY, s16 scoreMode)
 	if (scoreMode == TT_SCORE_MODE_TIME_TRIAL)
 	{
 		// Change the way text flickers
-		timeColor = 0xffff8000;
+		timeColor = JUSTIFY_CENTER | ORANGE;
 
 		DecalFont_DrawLine(sdata->lngStrings[LNG_BEST_LAP], startX, startY + 0x95, FONT_BIG, timeColor);
 
 		// If you got a new best lap
 		if (((gGT->gameModeEnd & NEW_BEST_LAP) != 0) && ((gGT->timer & TT_HIGH_SCORE_FLASH_TIMER_BIT) != 0))
 		{
-			timeColor = 0xffff8004;
+			timeColor = JUSTIFY_CENTER | WHITE;
 		}
 		// make a string for best lap
 		timeString = RECTMENU_DrawTime(scoreEntries[0].time);
 	}
 	else
 	{
-		DecalFont_DrawLine(sdata->lngStrings[LNG_YOUR_TIME], startX, startY + 0x95, FONT_BIG, 0xffff8000);
+		DecalFont_DrawLine(sdata->lngStrings[LNG_YOUR_TIME], startX, startY + 0x95, FONT_BIG, JUSTIFY_CENTER | ORANGE);
 
 		timeString = RECTMENU_DrawTime(d->timeElapsedInRace);
-		timeColor = 0xffff8000;
+		timeColor = JUSTIFY_CENTER | ORANGE;
 	}
 
 	// Print amount of time, for whichever purpose
