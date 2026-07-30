@@ -427,8 +427,8 @@ void MenuHighlight()
 	trig = (trig << 6) >> 0xc;
 
 	// sine curve of green, plus base color
-	sdata->menuRowHighlight_Normal.self = ((trig + 0x40) * 0x100) | 0x80;
-	sdata->menuRowHighlight_Green.self = ((trig + 0xA0) * 0x100) | 0x400040;
+	ColorCode_SetPacked(&sdata->menuRowHighlight_Normal, ((trig + 0x40) * 0x100) | 0x80);
+	ColorCode_SetPacked(&sdata->menuRowHighlight_Green, ((trig + 0xA0) * 0x100) | 0x400040);
 }
 
 void RenderAllWeather(struct GameTracker *gGT)
@@ -1066,7 +1066,7 @@ void WindowBoxLines(struct GameTracker *gGT)
 	for (i = 0; i < gGT->numPlyrCurrGame; i++)
 	{
 		Color color;
-		color.self = *data.ptrColor[gGT->drivers[i]->BattleHUD.teamID + PLAYER_BLUE];
+		ColorCode_SetPacked(&color, *data.ptrColor[gGT->drivers[i]->BattleHUD.teamID + PLAYER_BLUE]);
 		RECTMENU_DrawOuterRect_LowLevel(
 
 		    // dimensions, thickness

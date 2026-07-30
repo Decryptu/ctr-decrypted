@@ -302,7 +302,7 @@ LAB_80055930:
 		rect.y = gGT->pushBuffer[0].rect.y - (barTransition - UI_RACE_START_DIVIDER_TOP_Y_OFFSET);
 
 		Color color;
-		color.self = colors[0];
+		ColorCode_SetPacked(&color, colors[0]);
 
 		u32 *ot = gGT->backBuffer->otMem.uiOT;
 
@@ -315,7 +315,7 @@ LAB_80055930:
 		// 30-pixel height
 		// clear RGB, keep alpha (which is zero anyway)
 		colors[0] = colors[0] & UI_RACE_START_BAR_ALPHA_MASK;
-		color.self = colors[0];
+		ColorCode_SetPacked(&color, colors[0]);
 		rect.h = UI_RACE_START_BAR_HEIGHT;
 
 		// draw big black title bar (first)

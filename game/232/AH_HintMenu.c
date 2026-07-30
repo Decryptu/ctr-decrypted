@@ -129,7 +129,7 @@ void AH_HintMenu_MenuProc(struct RectMenu *menu)
 		box.w = 0x21c;
 		box.h = 2;
 
-		color.self = sdata->battleSetup_Color_UI_1;
+		ColorCode_SetPacked(&color, sdata->battleSetup_Color_UI_1);
 		RECTMENU_DrawOuterRect_Edge(&box, color, 0x20, ot);
 
 		box.y = 0x28;
@@ -317,7 +317,7 @@ LAB_800b38cc:
 	box.x = -0x14;
 	box.w = 0x228;
 
-	color.self = sdata->battleSetup_Color_UI_1;
+	ColorCode_SetPacked(&color, sdata->battleSetup_Color_UI_1);
 	RECTMENU_DrawOuterRect_Edge(&box, color, 0x20, ot);
 
 	box.y = 0x28;

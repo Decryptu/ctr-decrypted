@@ -147,7 +147,7 @@ void MM_Battle_DrawIcon_Weapon(struct Icon *icon, u32 posX, int posY, struct Pri
 		uv1 = (uv1 & BATTLE_TPAGE_TRANSPARENCY_MASK) | ((((u32)(u8)transparency - 1) << BATTLE_TPAGE_TRANSPARENCY_SHIFT));
 	}
 
-	CtrGpu_WriteColorCode(&p->r0, (color->self & BATTLE_COLOR_RGB_MASK) | code);
+	CtrGpu_WriteColorCode(&p->r0, (ColorCode_GetPacked(color) & BATTLE_COLOR_RGB_MASK) | code);
 	CtrGpu_WritePackedUVWord(&p->u0, uv0);
 	CtrGpu_WritePackedUVWord(&p->u1, uv1);
 	CtrGpu_WritePackedUV(&p->u2, (u16)uv2);
@@ -908,7 +908,7 @@ LAB_800b25f0:
 		teamColorRect.w = teamSegmentWidth;
 
 		Color color;
-		color.self = *data.ptrColor[PLAYER_BLUE + teamIndex];
+		ColorCode_SetPacked(&color, *data.ptrColor[PLAYER_BLUE + teamIndex]);
 		CTR_Box_DrawSolidBox(&teamColorRect, color, ot);
 	}
 

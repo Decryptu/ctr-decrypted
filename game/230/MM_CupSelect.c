@@ -149,8 +149,8 @@ void MM_CupSelect_MenuProc(struct RectMenu *menu)
 
 			// Draw Icon of each track
 			RECTMENU_DrawPolyGT4(gGT->ptrIcons[data.ArcadeCups[cupIndex].CupTrack[trackIndex].iconID], posX, posY, &gGT->backBuffer->primMem,
-			                     gGT->pushBuffer_UI.ptrOT, D230.cupSel_Color.self, D230.cupSel_Color.self, D230.cupSel_Color.self, D230.cupSel_Color.self, 0,
-			                     FP(0.5));
+			                     gGT->pushBuffer_UI.ptrOT, ColorCode_GetPacked(&D230.cupSel_Color), ColorCode_GetPacked(&D230.cupSel_Color),
+			                     ColorCode_GetPacked(&D230.cupSel_Color), ColorCode_GetPacked(&D230.cupSel_Color), 0, FP(0.5));
 		}
 
 		RECT cupBox;

@@ -424,7 +424,7 @@ void UI_CupStandings_InputAndDraw(void)
 		                  drawPos.x, drawPos.y, &gGT->backBuffer->primMem,
 
 		                  gGT->pushBuffer_UI.ptrOT, TRANS_50_DECAL, UI_CUP_STANDINGS_ICON_SCALE,
-		                  MakeColor(UI_CUP_STANDINGS_ICON_NEUTRAL_CHANNEL, UI_CUP_STANDINGS_ICON_NEUTRAL_CHANNEL, UI_CUP_STANDINGS_ICON_NEUTRAL_CHANNEL).self);
+		                  MakeColorPacked(UI_CUP_STANDINGS_ICON_NEUTRAL_CHANNEL, UI_CUP_STANDINGS_ICON_NEUTRAL_CHANNEL, UI_CUP_STANDINGS_ICON_NEUTRAL_CHANNEL));
 
 		// If this is the first screen of cup standings,
 		// where you see just amount of points added

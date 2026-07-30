@@ -262,8 +262,8 @@ void MM_TrackSelect_Video_Draw(RECT *r, struct MainMenu_LevelRow *selectMenu, in
 	{
 		// Draw Video icon
 		RECTMENU_DrawPolyGT4(gGT->ptrIcons[selectMenu->videoThumbnail], (r->x + MM_TRACK_VIDEO_FRAME_SRC_OFFSET_X), (r->y + MM_TRACK_VIDEO_FRAME_SRC_OFFSET_Y),
-		                     &gGT->backBuffer->primMem, gGT->pushBuffer_UI.ptrOT, D230.videoCol.self, D230.videoCol.self, D230.videoCol.self,
-		                     D230.videoCol.self, 0, FP(1.0));
+		                     &gGT->backBuffer->primMem, gGT->pushBuffer_UI.ptrOT, ColorCode_GetPacked(&D230.videoCol), ColorCode_GetPacked(&D230.videoCol),
+		                     ColorCode_GetPacked(&D230.videoCol), ColorCode_GetPacked(&D230.videoCol), 0, FP(1.0));
 	}
 
 #ifndef CTR_NATIVE

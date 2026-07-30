@@ -241,7 +241,7 @@ void RECTMENU_DrawInnerRect(RECT *r, int type, u32 *ot)
 	if ((type & 2) == 0)
 	{
 		Color color;
-		color.self = *colorDataNormal;
+		ColorCode_SetPacked(&color, *colorDataNormal);
 		RECTMENU_DrawOuterRect_HighLevel(r, color, (int)(s16)(type | 0x20), ot);
 	}
 
@@ -269,7 +269,8 @@ void RECTMENU_DrawInnerRect(RECT *r, int type, u32 *ot)
 		}
 		else
 		{
-			Color color = {.self = sdata->DrawSolidBoxData[0]};
+			Color color;
+			ColorCode_SetPacked(&color, sdata->DrawSolidBoxData[0]);
 			CTR_Box_DrawSolidBox(&adjustedRect, color, ot);
 		}
 	}
@@ -330,7 +331,7 @@ void RECTMENU_DrawFullRect(struct RectMenu *menu, RECT *inner)
 		outer.w = inner->w - 6;
 
 		Color color;
-		color.self = *rgb;
+		ColorCode_SetPacked(&color, *rgb);
 		RECTMENU_DrawOuterRect_Edge(&outer, color, (menu->drawStyle | 0x20), gGT->backBuffer->otMem.uiOT);
 	}
 	RECTMENU_DrawInnerRect(inner, menu->drawStyle, gGT->backBuffer->otMem.uiOT);

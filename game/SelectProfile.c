@@ -396,7 +396,8 @@ void SelectProfile_DrawGhostProfile(struct GhostProfile *profile, int posX, int 
 	if (isUnavailable != 0)
 	{
 		DecalFont_DrawLine(sdata->lngStrings[LNG_NOT_AVAILABLE], posX + 0x64, posY + 0x11, FONT_SMALL, JUSTIFY_CENTER | SILVER);
-		Color redColor = {.self = (u32)sdata->redColor};
+		Color redColor;
+		ColorCode_SetPacked(&redColor, (u32)sdata->redColor);
 		CTR_Box_DrawClearBox(&innerRect, &redColor, ADD_DECAL, gGT->backBuffer->otMem.uiOT);
 	}
 

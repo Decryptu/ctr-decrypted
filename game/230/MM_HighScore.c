@@ -167,7 +167,8 @@ void MM_HighScore_Draw(u16 trackIndex, u32 rowIndex, u32 posX, u32 posY)
 		RECTMENU_DrawPolyGT4(gGT->ptrIcons[data.MetaDataCharacters[entry[0].characterID].iconID],
 		                     bestLapEntryMeta->currX + offsetX + MM_HIGHSCORE_BEST_LAP_ICON_X_OFFSET,
 		                     bestLapEntryMeta->currY + offsetY + MM_HIGHSCORE_BEST_LAP_ICON_Y_OFFSET, &gGT->backBuffer->primMem, (gGT->pushBuffer_UI).ptrOT,
-		                     iconColor.self, iconColor.self, iconColor.self, iconColor.self, MM_HIGHSCORE_ICON_TRANSPARENCY, MM_HIGHSCORE_ICON_SCALE);
+		                     ColorCode_GetPacked(&iconColor), ColorCode_GetPacked(&iconColor), ColorCode_GetPacked(&iconColor), ColorCode_GetPacked(&iconColor),
+		                     MM_HIGHSCORE_ICON_TRANSPARENCY, MM_HIGHSCORE_ICON_SCALE);
 	}
 
 	// Draw five "best track times"
@@ -182,8 +183,8 @@ void MM_HighScore_Draw(u16 trackIndex, u32 rowIndex, u32 posX, u32 posY)
 		                     D230.transitionMeta_HighScores[metaIndex].currX + offsetX + MM_HIGHSCORE_SCORE_ICON_X_OFFSET,
 		                     D230.transitionMeta_HighScores[metaIndex].currY + offsetY + (scoreRowIndex * MM_HIGHSCORE_SCORE_ROW_Y_STEP) +
 		                         MM_HIGHSCORE_SCORE_NAME_Y_OFFSET,
-		                     &gGT->backBuffer->primMem, gGT->pushBuffer_UI.ptrOT, iconColor.self, iconColor.self, iconColor.self, iconColor.self,
-		                     MM_HIGHSCORE_ICON_TRANSPARENCY, MM_HIGHSCORE_ICON_SCALE);
+		                     &gGT->backBuffer->primMem, gGT->pushBuffer_UI.ptrOT, ColorCode_GetPacked(&iconColor), ColorCode_GetPacked(&iconColor),
+		                     ColorCode_GetPacked(&iconColor), ColorCode_GetPacked(&iconColor), MM_HIGHSCORE_ICON_TRANSPARENCY, MM_HIGHSCORE_ICON_SCALE);
 
 		// draw the name string
 		MM_HighScore_Text3D(entry[entryIndex].name, D230.transitionMeta_HighScores[metaIndex].currX + offsetX + MM_HIGHSCORE_SCORE_NAME_X_OFFSET,

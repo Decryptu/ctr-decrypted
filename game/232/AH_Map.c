@@ -281,7 +281,7 @@ void AH_Map_HubArrowOuter(struct UIMap *map, int arrowIndex, int posX, int posY,
 
 			if (!isFirstPoint)
 			{
-				CTR_Box_DrawWirePrims((Point){{prevX, prevY}}, (Point){{sin, cos}}, MakeColor(outlineColorR, outlineColorG, 0xff),
+				CTR_Box_DrawWirePrims((Point){prevX, prevY}, (Point){sin, cos}, MakeColor(outlineColorR, outlineColorG, 0xff),
 				                      (void *)gGT->pushBuffer_UI.ptrOT);
 			}
 

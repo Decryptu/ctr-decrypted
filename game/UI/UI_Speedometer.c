@@ -35,7 +35,7 @@ void UI_DrawSpeedNeedle(s16 posX, s16 posY, struct Driver *driver)
 		return;
 	}
 
-	const PrimCode primCode = {.poly = {.gouraud = 1, .renderCode = RenderCode_Polygon}};
+	const PrimCode primCode = {.kind.poly = {.gouraud = 1, .renderCode = RenderCode_Polygon}};
 
 	p->v[0].color = MakeColorCode(91, 91, 0, primCode);
 	p->v[1].color = MakeColorCode(50, 43, 1, primCode);
@@ -160,7 +160,7 @@ void UI_DrawSpeedBG(void)
 			return;
 		}
 
-		const PrimCode primCode = {.poly = {.renderCode = RenderCode_Polygon, .gouraud = 1, .quad = 1}};
+		const PrimCode primCode = {.kind.poly = {.renderCode = RenderCode_Polygon, .gouraud = 1, .quad = 1}};
 		ColorCode colorBottom = DrawSpeedBG_Colors[colorIndex];
 		ColorCode colorTop = DrawSpeedBG_Colors[colorIndex + 1];
 		colorBottom.code = primCode;
@@ -195,11 +195,11 @@ void UI_DrawSpeedBG(void)
 			return;
 		}
 
-		p->t.texpage = (Texpage){.code = 0xE1, .dither = 1, .y_VRAM_EXP = 1};
+		p->t.texpage = (Texpage){.bits = {.code = 0xE1, .dither = 1, .y_VRAM_EXP = 1}};
 		p->p.tag.self = 0;
 
 		Color color = MakeColor(0, 0, 0);
-		const PrimCode primCode = {.poly = {.renderCode = RenderCode_Polygon, .gouraud = 1, .semiTransparency = 1}};
+		const PrimCode primCode = {.kind.poly = {.renderCode = RenderCode_Polygon, .gouraud = 1, .semiTransparency = 1}};
 
 		for (int j = 0; j < 3; j++)
 		{
@@ -216,7 +216,7 @@ void UI_DrawSpeedBG(void)
 
 // NOTE(aalhendi): CTR_NATIVE keeps PsyCross display-area drawing enabled.
 #ifdef CTR_NATIVE
-		((TPage *)p)->texpage.drawDisplayArea = 1;
+		((TPage *)p)->texpage.bits.drawDisplayArea = 1;
 #endif
 
 		AddPrimitive(p, sdata->gGT->pushBuffer_UI.ptrOT);

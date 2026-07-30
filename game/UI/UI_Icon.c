@@ -269,8 +269,8 @@ void UI_TrackerBG(struct Icon *targetIcon, s16 centerX, s16 centerY, struct Prim
 void UI_DrawDriverIcon(struct Icon *icon, s16 posX, s16 posY, struct PrimMem *primMem, u32 *ot, char transparency, s16 scale, u32 color)
 {
 	PolyFT4 *p = primMem->cursor;
-	const PrimCode primCode = {.poly = {.renderCode = RenderCode_Polygon, .quad = 1, .textured = 1}};
-	p->colorCode.self = color;
+	const PrimCode primCode = {.kind.poly = {.renderCode = RenderCode_Polygon, .quad = 1, .textured = 1}};
+	ColorCode_SetPacked(&p->colorCode, color);
 	p->colorCode.code = primCode;
 
 	int width = icon->texLayout.u1 - icon->texLayout.u0;
@@ -287,7 +287,7 @@ void UI_DrawDriverIcon(struct Icon *icon, s16 posX, s16 posY, struct PrimMem *pr
 	int bottomY = ((posY + scaledHeight) < UI_DRIVER_ICON_EUR_CLIP_LIMIT) ? (posY + scaledHeight) : UI_DRIVER_ICON_EUR_CLIP_MAX;
 #endif
 
-	p->tag.size = (sizeof(*p) - sizeof(p->tag)) / sizeof(u32);
+	p->tag.bits.size = (sizeof(*p) - sizeof(p->tag)) / sizeof(u32);
 	p->colorCode.code.code = UI_DRIVER_ICON_FT4_CODE;
 
 	p->v[0].pos.x = topX;
@@ -301,12 +301,12 @@ void UI_DrawDriverIcon(struct Icon *icon, s16 posX, s16 posY, struct PrimMem *pr
 
 	p->polyClut.self = icon->texLayout.clut;
 	p->polyTpage.self = icon->texLayout.tpage;
-	p->v[2].clut.self = (icon->texLayout.v3 << 8) | icon->texLayout.u3;
+	p->v[2].page.clut.self = (icon->texLayout.v3 << 8) | icon->texLayout.u3;
 
 	if (transparency)
 	{
-		p->polyTpage.semiTransparency = transparency - 1;
-		p->colorCode.code.poly.semiTransparency = 1;
+		p->polyTpage.bits.semiTransparency = transparency - 1;
+		p->colorCode.code.kind.poly.semiTransparency = 1;
 	}
 
 	u8 bottomV = (u8)((icon->texLayout.v0 + bottomY) - posY);

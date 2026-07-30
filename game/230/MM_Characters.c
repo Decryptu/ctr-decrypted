@@ -1019,7 +1019,8 @@ dontDrawSelectCharacter:
 
 			                     &gGT->backBuffer->primMem, gGT->pushBuffer_UI.ptrOT,
 
-			                     iconColor.self, iconColor.self, iconColor.self, iconColor.self, TRANS_50_DECAL, FP(1.0));
+			                     ColorCode_GetPacked(&iconColor), ColorCode_GetPacked(&iconColor), ColorCode_GetPacked(&iconColor),
+			                     ColorCode_GetPacked(&iconColor), TRANS_50_DECAL, FP(1.0));
 		}
 
 		iconDrawMeta++;

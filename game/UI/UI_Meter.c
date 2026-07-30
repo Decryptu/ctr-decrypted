@@ -164,7 +164,7 @@ void UI_JumpMeter_Draw(s16 posX, s16 posY, struct Driver *driver)
 	box.y = posY + UI_JUMP_METER_NUMBER_Y_OFFSET;
 
 	Color color;
-	color.self = data.colors[BLACK][0];
+	ColorCode_SetPacked(&color, data.colors[BLACK][0]);
 	CTR_Box_DrawWireBox(&box, &color, gGT->pushBuffer_UI.ptrOT, &gGT->backBuffer->primMem);
 
 	backDB = gGT->backBuffer;
@@ -307,7 +307,7 @@ void UI_DrawSlideMeter(s16 posX, s16 posY, struct Driver *driver)
 	Color black = MakeColor(0, 0, 0);
 	CTR_Box_DrawWireBox(&box, &black, gGT->pushBuffer_UI.ptrOT, &gGT->backBuffer->primMem);
 
-	const PrimCode primCode = {.poly = {.quad = 1, .renderCode = RenderCode_Polygon}};
+	const PrimCode primCode = {.kind.poly = {.quad = 1, .renderCode = RenderCode_Polygon}};
 	ColorCode colorCode = MakeColorCode(UI_SLIDE_METER_READY_R, UI_SLIDE_METER_READY_G, UI_SLIDE_METER_READY_B, primCode);
 
 	if (driver->const_turboLowRoomWarning * ELAPSED_MS < driver->turbo_MeterRoomLeft)

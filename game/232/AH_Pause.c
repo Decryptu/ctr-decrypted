@@ -502,7 +502,7 @@ void AH_Pause_Draw(s32 pageID, s32 posX)
 	r.h = AH_PAUSE_OUTER_RECT_H;
 
 	Color color;
-	color.self = sdata->battleSetup_Color_UI_1;
+	ColorCode_SetPacked(&color, sdata->battleSetup_Color_UI_1);
 	u32 *ot = gGT->backBuffer->otMem.uiOT;
 	RECTMENU_DrawOuterRect_Edge(&r, color, AH_PAUSE_OUTER_EDGE_ALPHA, ot);
 

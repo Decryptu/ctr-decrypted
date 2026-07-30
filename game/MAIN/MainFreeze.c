@@ -740,7 +740,7 @@ static void DISPLAYRECTMENU_MainFreeze_MenuPtrOptions(struct RectMenu *menu, GAM
 
 	RECT titleSeparatorLine = {.x = 66, .y = (menuRowsNegativePadding / 2) + 43, .w = 380, .h = 2};
 
-	color.self = sdata->battleSetup_Color_UI_1;
+	ColorCode_SetPacked(&color, sdata->battleSetup_Color_UI_1);
 	RECTMENU_DrawOuterRect_Edge(&titleSeparatorLine, color, 0x20, ot);
 
 	RECT menuBG = {.x = 56, .y = (menuRowsNegativePadding / 2) + 20, .w = 400, .h = 135 - menuRowsNegativePadding};

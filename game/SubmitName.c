@@ -187,7 +187,7 @@ s16 SubmitName_DrawMenu(u16 string)
 	r.y = SUBMIT_NAME_NAME_UNDERLINE_Y;
 	r.h = 2;
 	Color color;
-	color.self = sdata->battleSetup_Color_UI_1;
+	ColorCode_SetPacked(&color, sdata->battleSetup_Color_UI_1);
 	RECTMENU_DrawOuterRect_Edge(&r, color, 0x20, gGT->backBuffer->otMem.uiOT);
 
 	r.y = SUBMIT_NAME_PANEL_Y;

@@ -541,11 +541,11 @@ struct OverlayDATA_230 D230 =
 
         .characterSelectFallbackDirection2 = {3, 3, 0, 0},
 
-        .characterSelect_Outline = {.self = 0},
+        .characterSelect_Outline = COLOR_CODE_PACKED_INIT(0),
 
-        .characterSelect_NeutralColor = {.self = 0x808080},
+        .characterSelect_NeutralColor = COLOR_CODE_PACKED_INIT(0x808080),
 
-        .characterSelect_ChosenColor = {.self = 0},
+        .characterSelect_ChosenColor = COLOR_CODE_PACKED_INIT(0),
 
         .characterSelect_BlueRectColors = {0x1b, 0x6a, 0xcb, 0x00, 0x9b, 0xd2, 0xf2, 0x40, 0xb7, 0xe1, 0xed, 0x43,
                                            0x65, 0x4b, 0x03, 0x46, 0xa6, 0x83, 0x23, 0x50, 0xdf, 0xc8, 0x95, 0x64},
@@ -627,7 +627,7 @@ struct OverlayDATA_230 D230 =
                 .rows = &D230.rowsLapSel[0],
             },
 
-        .videoCol = {.self = 0x808080},
+        .videoCol = COLOR_CODE_PACKED_INIT(0x808080),
 
         .timeTrialStars =
             {
@@ -654,7 +654,7 @@ struct OverlayDATA_230 D230 =
                     },
             },
 
-        .cupSel_Color = {.self = 0xC0C0C0},
+        .cupSel_Color = COLOR_CODE_PACKED_INIT(0xC0C0C0),
 
         // BATTLE CONSTS
 
@@ -742,9 +742,9 @@ struct OverlayDATA_230 D230 =
                 .pointLimitValues = {5, 10, 15},
             },
 
-        .battleWeaponEnabledColor = {.self = 0x808080},
-        .battleWeaponDisabledColor = {.self = 0x101010},
-        .battleWeaponPanelColor = {.self = 0x806050},
+        .battleWeaponEnabledColor = COLOR_CODE_PACKED_INIT(0x808080),
+        .battleWeaponDisabledColor = COLOR_CODE_PACKED_INIT(0x101010),
+        .battleWeaponPanelColor = COLOR_CODE_PACKED_INIT(0x806050),
 
         // HIGH SCORE CONSTS
 
@@ -768,7 +768,7 @@ struct OverlayDATA_230 D230 =
                 .beatenFlagBit = {0x1, 0x2},
             },
 
-        .highscore_iconColor = {.self = 0x808080},
+        .highscore_iconColor = COLOR_CODE_PACKED_INIT(0x808080),
 
         .rowsHighScore = {{0xAF, 0, 1, 0, 0}, {0xB1, 0, 2, 0, 0}, {0xB2, 1, 2, 0, 0}, {RECTMENU_STRING_NONE}},
 
