@@ -89,7 +89,7 @@ void TT_EndEvent_DrawMenu(void)
 		}
 
 		// draw race clock in top-left corner
-		UI_Lerp2D_Linear(pos.v, 0x14, 8, endX, 8, elapsedFrames, TT_LERP_FRAMES);
+		UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(pos)), 0x14, 8, endX, 8, elapsedFrames, TT_LERP_FRAMES);
 
 		UI_DrawRaceClock(pos.x, pos.y, UI_RACE_CLOCK_SHOW_CURRENT_TIME, gGT->drivers[0]);
 
@@ -104,7 +104,7 @@ void TT_EndEvent_DrawMenu(void)
 		elapsedFrames -= TT_RACE_CLOCK_HOLD_FRAMES;
 
 		// race time
-		UI_Lerp2D_Linear(pos.v, -0x64, 90, 0x100, 90, elapsedFrames, TT_LERP_FRAMES);
+		UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(pos)), -0x64, 90, 0x100, 90, elapsedFrames, TT_LERP_FRAMES);
 
 		TT_EndEvent_DisplayTime(pos.x, pos.y, sdata->flags_timeTrialEndOfRace);
 
@@ -121,7 +121,7 @@ void TT_EndEvent_DrawMenu(void)
 		    // if there is a new high score
 		    gGT->newHighScoreIndex > -1)
 		{
-			UI_Lerp2D_Linear(pos.v, 0x264, 122, 0x100, 122, elapsedFrames, TT_LERP_FRAMES);
+			UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(pos)), 0x264, 122, 0x100, 122, elapsedFrames, TT_LERP_FRAMES);
 
 			DecalFont_DrawLine(lngStrings[LNG_NEW_HIGH_SCORE], pos.x, pos.y, FONT_BIG, textColor);
 
@@ -138,7 +138,7 @@ void TT_EndEvent_DrawMenu(void)
 		    // if got new best lap
 		    ((gameModeEnd & NEW_BEST_LAP) != 0))
 		{
-			UI_Lerp2D_Linear(pos.v, -0x64, 142, 0x100, 142, elapsedFrames, TT_LERP_FRAMES);
+			UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(pos)), -0x64, 142, 0x100, 142, elapsedFrames, TT_LERP_FRAMES);
 
 			DecalFont_DrawLine(lngStrings[LNG_NEW_BEST_LAP], pos.x, pos.y, FONT_BIG, textColor);
 
@@ -160,7 +160,7 @@ void TT_EndEvent_DrawMenu(void)
 		    // if just open, or beat, n tropy
 		    ((gameModeEnd & nTropyEventFlags) != 0))
 		{
-			UI_Lerp2D_Linear(pos.v, 0x264, 162, 0x100, 162, elapsedFrames, TT_LERP_FRAMES);
+			UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(pos)), 0x264, 162, 0x100, 162, elapsedFrames, TT_LERP_FRAMES);
 
 			char *nTropyString;
 			if ((gameModeEnd & NTROPY_JUST_OPENED) != 0)
@@ -214,7 +214,7 @@ void TT_EndEvent_DrawMenu(void)
 			}
 
 
-			UI_Lerp2D_Linear(pos.v, startX, 10, endX, 10, elapsedFrames, TT_LERP_FRAMES);
+			UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(pos)), startX, 10, endX, 10, elapsedFrames, TT_LERP_FRAMES);
 
 			TT_EndEvent_DrawHighScore(pos.x, pos.y, TT_SCORE_MODE_TIME_TRIAL);
 
@@ -234,7 +234,7 @@ void TT_EndEvent_DrawMenu(void)
 				endX = 0x296;
 			}
 
-			UI_Lerp2D_Linear(pos.v, startX, 0x82, endX, 0x82, elapsedFrames, TT_LERP_FRAMES);
+			UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(pos)), startX, 0x82, endX, 0x82, elapsedFrames, TT_LERP_FRAMES);
 
 			TT_EndEvent_DisplayTime(pos.x, pos.y, sdata->flags_timeTrialEndOfRace);
 
@@ -281,8 +281,8 @@ void TT_EndEvent_DisplayTime(int paramX, s16 paramY, u32 raceClockFlags)
 
 	// === Naughty Dog Bug ===
 	// Start and End is the same
-	UI_Lerp2D_Linear(pos.v, (paramX - (0x88 - startTextWidth) / 2), paramY, (paramX - (0x88 - endTextWidth) / 2), paramY, sdata->framesSinceRaceEnded,
-	                 TT_LERP_FRAMES);
+	UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(pos)), (paramX - (0x88 - startTextWidth) / 2), paramY, (paramX - (0x88 - endTextWidth) / 2), paramY,
+	                 sdata->framesSinceRaceEnded, TT_LERP_FRAMES);
 
 	DecalFont_DrawLine(sdata->lngStrings[LNG_YOUR_TIME], paramX, ((u32)pos.y - 0x4c), FONT_BIG, (JUSTIFY_CENTER | ORANGE));
 
@@ -322,7 +322,7 @@ void TT_EndEvent_DrawHighScore(s16 startX, int startY, s16 scoreMode)
 	// Start and End is the same
 
 	// interpolate fly-in
-	UI_Lerp2D_Linear(pos.v, startX, startY, startX, startY, sdata->framesSinceRaceEnded, TT_LERP_FRAMES);
+	UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(pos)), startX, startY, startX, startY, sdata->framesSinceRaceEnded, TT_LERP_FRAMES);
 
 	DecalFont_DrawLine(sdata->lngStrings[LNG_BEST_TIMES], pos.x, pos.y, FONT_BIG, JUSTIFY_CENTER | ORANGE);
 

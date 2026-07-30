@@ -52,7 +52,7 @@ void VehLap_UpdateProgress(struct Driver *driver)
 	nodeDelta.z = (s16)CTR_MipsSubLo((u16)progressNode->pos.z, (u16)nextNode->pos.z);
 	nodeDelta.w = 0;
 
-	MATH_VectorNormalize(&nodeDelta.vec);
+	MATH_VectorNormalize(SVec3Slot_AsVec3(&nodeDelta));
 
 	s16 deltaX = (s16)CTR_MipsSubLo((u16)CTR_MipsSra(driver->posCurr.x, VEH_LAP_WORLD_POS_SHIFT), (u16)progressNode->pos.x);
 	s16 deltaY = (s16)CTR_MipsSubLo((u16)CTR_MipsSra(driver->posCurr.y, VEH_LAP_WORLD_POS_SHIFT), (u16)progressNode->pos.y);

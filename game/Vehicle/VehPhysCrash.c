@@ -324,11 +324,11 @@ void VehPhysCrash_AnyTwoCars(struct Thread *thread, struct DriverCollisionSearch
 
 	if (distance == 0)
 	{
-		CTR_SET_VEC3(hitDir->v, 0, 0, VEH_PHYS_CRASH_UNIT_VECTOR_SCALE);
+		CTR_SET_VEC3(CTR_VECTOR_DATA(hitDir), 0, 0, VEH_PHYS_CRASH_UNIT_VECTOR_SCALE);
 	}
 	else
 	{
-		CTR_SET_VEC3(hitDir->v, (s16)CTR_MipsDiv(CTR_MipsSll(dist->x, VEH_PHYS_CRASH_MATRIX_FRAC_SHIFT), distance),
+		CTR_SET_VEC3(CTR_VECTOR_DATA(hitDir), (s16)CTR_MipsDiv(CTR_MipsSll(dist->x, VEH_PHYS_CRASH_MATRIX_FRAC_SHIFT), distance),
 		             (s16)CTR_MipsDiv(CTR_MipsSll(dist->y, VEH_PHYS_CRASH_MATRIX_FRAC_SHIFT), distance),
 		             (s16)CTR_MipsDiv(CTR_MipsSll(dist->z, VEH_PHYS_CRASH_MATRIX_FRAC_SHIFT), distance));
 	}

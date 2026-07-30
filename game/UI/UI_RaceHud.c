@@ -161,7 +161,7 @@ void UI_BattleDrawHeadArrows(struct Driver *player)
 		gte_rtps();
 
 		// get output
-		CTR_GteStoreSXY(screenPos.v);
+		CTR_GteStoreSXY(CTR_VECTOR_DATA(&(screenPos)));
 		gte_stflg(&gteFlags);
 
 		if ((gteFlags & UI_BATTLE_HEAD_ARROW_GTE_CLIP_FLAG) != 0)
@@ -340,7 +340,7 @@ UpdateTrackerState:
 
 	CTR_GteLoadSV0(&pos);
 	gte_rtps();
-	CTR_GteStoreSXY(screenPos.v);
+	CTR_GteStoreSXY(CTR_VECTOR_DATA(&(screenPos)));
 
 	// red?
 	bgColor = UI_TRACKER_BG_RED;

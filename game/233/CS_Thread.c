@@ -261,7 +261,7 @@ int CS_Thread_UseOpcode(struct Instance *instance, struct CutsceneObj *cs)
 			int cameraPathFrame = ((s32)((u32)gGT->msInThisLEV << CS_CAMERA_PATH_TIME_NUMERATOR_SHIFT)) >> CS_CAMERA_PATH_TIME_DENOMINATOR_SHIFT;
 			if (cameraPathFrame < (int)numCamPathPoints + -1)
 			{
-				CAM_Path_Move(cameraPathFrame, camPos.v, camRot.v, camPathFlags);
+				CAM_Path_Move(cameraPathFrame, CTR_VECTOR_DATA(&(camPos)), CTR_VECTOR_DATA(&(camRot)), camPathFlags);
 				gGT->pushBuffer[0].pos = camPos;
 				gGT->pushBuffer[0].rot = camRot;
 			}
@@ -271,7 +271,8 @@ int CS_Thread_UseOpcode(struct Instance *instance, struct CutsceneObj *cs)
 				{
 					CS_ScriptCmd_OpcodeNext(cs);
 				}
-				CAM_Path_Move((int)(s16)(numCamPathPoints + -1), gGT->pushBuffer[0].pos.v, gGT->pushBuffer[0].rot.v, camPathFlags);
+				CAM_Path_Move((int)(s16)(numCamPathPoints + -1), CTR_VECTOR_DATA(&(gGT->pushBuffer[0].pos)), CTR_VECTOR_DATA(&(gGT->pushBuffer[0].rot)),
+				              camPathFlags);
 			}
 
 			clockEffectFlags = gGT->clockEffectEnabled;
@@ -532,7 +533,8 @@ processOpcode:
 			struct CsThreadInitData *initData = CTR_SCRATCHPAD_PTR(struct CsThreadInitData, 0x108);
 			int spawnModelID = opcodeMeta->arg1.i;
 
-			CS_Instance_GetFrameData(instance, (int)opcodeMeta->animIndex, opcodeMeta->arg0.i, &initData->podiumPos.vec, &initData->rot.vec, 0);
+			CS_Instance_GetFrameData(instance, (int)opcodeMeta->animIndex, opcodeMeta->arg0.i, SVec3Slot_AsVec3(&initData->podiumPos),
+			                         SVec3Slot_AsVec3(&initData->rot), 0);
 
 			initData->podiumPos.x += (s16)instance->matrix.t[0];
 			initData->podiumPos.y += (s16)instance->matrix.t[1];
@@ -1557,7 +1559,8 @@ void CS_Thread_ThTick(struct Thread *t)
 			{
 				parentInst = parentThread->inst;
 
-				CS_Instance_GetFrameData(parentInst, parentInst->animIndex, parentInst->animFrame, &parentFrame->parentPos.vec, &parentFrame->parentRot.vec, 0);
+				CS_Instance_GetFrameData(parentInst, parentInst->animIndex, parentInst->animFrame, SVec3Slot_AsVec3(&parentFrame->parentPos),
+				                         SVec3Slot_AsVec3(&parentFrame->parentRot), 0);
 
 				inst->matrix.t[0] = parentInst->matrix.t[0] + parentFrame->parentPos.x;
 				inst->matrix.t[1] = parentInst->matrix.t[1] + parentFrame->parentPos.y;
@@ -1565,7 +1568,7 @@ void CS_Thread_ThTick(struct Thread *t)
 
 				if ((cs->flags & CS_FLAG_SKIP_PARENT_ROTATION) == 0)
 				{
-					ConvertRotToMatrix(&inst->matrix, &parentFrame->parentRot.vec);
+					ConvertRotToMatrix(&inst->matrix, SVec3Slot_AsVec3(&parentFrame->parentRot));
 				}
 			}
 		}
@@ -1811,7 +1814,7 @@ after_opcode:
 		initData->derivedRot.z = initData->rot.z;
 		initData->derivedRot.y = initData->rot.y + yawOffset;
 
-		ConvertRotToMatrix(&inst->matrix, &initData->derivedRot.vec);
+		ConvertRotToMatrix(&inst->matrix, SVec3Slot_AsVec3(&initData->derivedRot));
 
 		cs->baseRotY = ANG_MODULO_TWO_PI(initData->derivedRot.y);
 		cs->rot.x = ANG_MODULO_TWO_PI(initData->derivedRot.x);

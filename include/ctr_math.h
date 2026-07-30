@@ -5,96 +5,75 @@
 
 // vectors //
 
-typedef union SVec2
+typedef struct SVec2
 {
-	struct
-	{
-		s16 x;
-		s16 y;
-	};
-	s16 v[2];
+	s16 x;
+	s16 y;
 } SVec2;
 
-typedef union SVec3
+typedef struct SVec3
 {
-	struct
-	{
-		s16 x;
-		s16 y;
-		s16 z;
-	};
-	s16 v[3];
+	s16 x;
+	s16 y;
+	s16 z;
 } SVec3;
 
-typedef union SVec4
+typedef struct SVec4
 {
-	struct
-	{
-		s16 x;
-		s16 y;
-		s16 z;
-		s16 w;
-	};
-	s16 v[4];
+	s16 x;
+	s16 y;
+	s16 z;
+	s16 w;
 } SVec4;
 
-typedef union SVec3Slot
+typedef struct SVec3Slot
 {
-	struct
-	{
-		SVec3 vec;
-		s16 pad;
-	};
-	struct
-	{
-		s16 x;
-		s16 y;
-		s16 z;
-		s16 w;
-	};
-	s16 v[4];
+	s16 x;
+	s16 y;
+	s16 z;
+	s16 w;
 } SVec3Slot;
 
 CTR_STATIC_ASSERT(sizeof(SVec3Slot) == 0x8);
-CTR_STATIC_ASSERT(offsetof(SVec3Slot, vec) == 0x0);
-CTR_STATIC_ASSERT(offsetof(SVec3Slot, pad) == 0x6);
 CTR_STATIC_ASSERT(offsetof(SVec3Slot, x) == 0x0);
 CTR_STATIC_ASSERT(offsetof(SVec3Slot, y) == 0x2);
 CTR_STATIC_ASSERT(offsetof(SVec3Slot, z) == 0x4);
 CTR_STATIC_ASSERT(offsetof(SVec3Slot, w) == 0x6);
 
-typedef union Vec2
+static inline SVec3 *SVec3Slot_AsVec3(SVec3Slot *slot)
 {
-	struct
-	{
-		s32 x;
-		s32 y;
-	};
-	s32 v[2];
+	return (SVec3 *)slot;
+}
+
+static inline const SVec3 *SVec3Slot_AsConstVec3(const SVec3Slot *slot)
+{
+	return (const SVec3 *)slot;
+}
+
+typedef struct Vec2
+{
+	s32 x;
+	s32 y;
 } Vec2;
 
-typedef union Vec3
+typedef struct Vec3
 {
-	struct
-	{
-		s32 x;
-		s32 y;
-		s32 z;
-	};
-	s32 v[3];
+	s32 x;
+	s32 y;
+	s32 z;
 } Vec3;
 
-typedef union Vec4
+typedef struct Vec4
 {
-	struct
-	{
-		s32 x;
-		s32 y;
-		s32 z;
-		s32 w;
-	};
-	s32 v[4];
+	s32 x;
+	s32 y;
+	s32 z;
+	s32 w;
 } Vec4;
+
+typedef s32 VecElement CTR_MAY_ALIAS;
+
+#define CTR_VECTOR_DATA(VECTOR) (&(VECTOR)->x)
 
 // trigonometry //
 

@@ -800,16 +800,16 @@ PROCESS_JUMP:
 	d->actionsFlagSet |= ACTION_JUMP_STARTED | ACTION_TURBO_INPUT_LATCH;
 
 	int bestJumpVelY = 0;
-	int jumpVelY = VehPhysGeneral_JumpGetVelY(d->AxisAngle4_normalVec.v, &movement);
+	int jumpVelY = VehPhysGeneral_JumpGetVelY(CTR_VECTOR_DATA(&(d->AxisAngle4_normalVec)), &movement);
 	if (VehPhysGeneral_Jump_Abs(bestJumpVelY) < VehPhysGeneral_Jump_Abs(jumpVelY))
 	{
 		bestJumpVelY = jumpVelY;
 	}
 
-	s16 *normalVec = d->AxisAngle1_normalVec.v;
+	s16 *normalVec = CTR_VECTOR_DATA(&(d->AxisAngle1_normalVec));
 	if ((d->actionsFlagSet & ACTION_TOUCH_GROUND) == 0)
 	{
-		normalVec = d->AxisAngle2_normalVec.v;
+		normalVec = CTR_VECTOR_DATA(&(d->AxisAngle2_normalVec));
 	}
 
 	jumpVelY = VehPhysGeneral_JumpGetVelY(normalVec, &movement);

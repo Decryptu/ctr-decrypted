@@ -39,7 +39,7 @@ void AH_Sign_LInB(struct Instance *inst)
 	probeTop->z = inst->matrix.t[2] + normal->z * 2;
 	probeBottom->z = probeTop->z - normal->z * 4;
 
-	COLL_SearchBSP_CallbackQUADBLK(&probeTop->vec, &probeBottom->vec, sps, 0);
+	COLL_SearchBSP_CallbackQUADBLK(SVec3Slot_AsVec3(probeTop), SVec3Slot_AsVec3(probeBottom), sps, 0);
 
 	if (sps->boolDidTouchQuadblock != 0)
 	{

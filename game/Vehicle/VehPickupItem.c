@@ -563,7 +563,7 @@ void VehPickupItem_ShootNow(struct Driver *d, s32 weaponID, s32 flags)
 
 		VehPickupItem_CopyMatrix(&weaponInst->matrix, &dInst->matrix);
 
-		VehPhysForce_RotAxisAngle(&weaponInst->matrix, d->AxisAngle1_normalVec.v, d->rotCurr.y);
+		VehPhysForce_RotAxisAngle(&weaponInst->matrix, CTR_VECTOR_DATA(&(d->AxisAngle1_normalVec)), d->rotCurr.y);
 
 		weaponTh = weaponInst->thread;
 		weaponTh->funcThDestroy = PROC_DestroyTracker;
@@ -775,7 +775,7 @@ void VehPickupItem_ShootNow(struct Driver *d, s32 weaponID, s32 flags)
 		if (sps->boolDidTouchQuadblock == 0)
 		{
 			fallbackNormal = (SVec3){.x = 0, .y = COLL_FRACTION_ONE, .z = 0};
-			rotationNormal = fallbackNormal.v;
+			rotationNormal = CTR_VECTOR_DATA(&(fallbackNormal));
 
 			mw->stopFallAtY = weaponInst->matrix.t[1];
 		}
@@ -783,7 +783,7 @@ void VehPickupItem_ShootNow(struct Driver *d, s32 weaponID, s32 flags)
 		else
 		{
 			mw->stopFallAtY = sps->Union.QuadBlockColl.hitPos.y;
-			rotationNormal = sps->hit.plane.normal.v;
+			rotationNormal = CTR_VECTOR_DATA(&(sps->hit.plane.normal));
 		}
 
 		VehPhysForce_RotAxisAngle(&weaponInst->matrix, rotationNormal, d->angle);

@@ -529,7 +529,7 @@ update_garage_camera:
 	s16 pathFlags;
 	SVec3 camPos;
 	SVec3 camRot;
-	CAM_Path_Move((int)garageFrames, camPos.v, camRot.v, &pathFlags);
+	CAM_Path_Move((int)garageFrames, CTR_VECTOR_DATA(&(camPos)), CTR_VECTOR_DATA(&(camRot)), &pathFlags);
 
 	// set position and rotation to pushBuffer
 	gGT->pushBuffer[0].pos = camPos;

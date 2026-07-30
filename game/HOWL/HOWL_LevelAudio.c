@@ -263,7 +263,7 @@ void Level_AmbientSound(void)
 
 				for (int playerIndex = 0; playerIndex < gGT->numPlyrCurrGame; playerIndex++)
 				{
-					int distance = GTE_GetSquaredDistance(gGT->pushBuffer[playerIndex].pos.v, coord->v);
+					int distance = GTE_GetSquaredDistance(CTR_VECTOR_DATA(&(gGT->pushBuffer[playerIndex].pos)), CTR_VECTOR_DATA(coord));
 
 					if (distance < closestDistance[soundSlot])
 					{

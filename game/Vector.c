@@ -195,7 +195,7 @@ static void Vector_BakeMatrixTable_BakeRotScaleEntries(void)
 		{
 			struct MatrixND *entry = &entries[j];
 
-			ConvertRotToMatrix(&rot, &entry->authoredRot.vec);
+			ConvertRotToMatrix(&rot, SVec3Slot_AsVec3(&entry->authoredRot));
 
 			scale.m[0][0] = entry->authoredScale.x;
 			scale.m[1][1] = entry->authoredScale.y;

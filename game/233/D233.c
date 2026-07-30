@@ -63,10 +63,10 @@ static const struct OVR233_Garage s_gGarageInitialState = OVR233_GARAGE_INITIALI
 struct OVR233_Garage gGarage = OVR233_GARAGE_INITIALIZER;
 
 // NOTE(aalhendi): Retail overlay data at 0x800b9488-0x800b9498.
-#define OVR233_CREDITS_BSS_INITIALIZER           \
-	{                                            \
-	    .creditGhostPos = {{0x64, 0x3c, 0x12c}}, \
-	    .creditTextPosX = 0x14,                  \
+#define OVR233_CREDITS_BSS_INITIALIZER         \
+	{                                          \
+	    .creditGhostPos = {0x64, 0x3c, 0x12c}, \
+	    .creditTextPosX = 0x14,                \
 	}
 
 static const struct Ovr233_Credits_BSS s_creditsBSSInitialState = OVR233_CREDITS_BSS_INITIALIZER;

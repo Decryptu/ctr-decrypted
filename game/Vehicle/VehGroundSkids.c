@@ -242,7 +242,7 @@ void VehGroundSkids_Main(struct Thread *thread, struct PushBuffer *pb)
 			union VehEmitterSkidmark *frame = d->skidmarks[frameIndex];
 			SVECTOR *framePoints = &frame[0].edge[0];
 
-			if (VehGroundSkids_InitPoint(scratch->projected, &framePoints[0], scratch->origin.v))
+			if (VehGroundSkids_InitPoint(scratch->projected, &framePoints[0], CTR_VECTOR_DATA(&(scratch->origin))))
 			{
 				CTR_GteLoadSV0(&scratch->projected[0]);
 				gte_rtv0();

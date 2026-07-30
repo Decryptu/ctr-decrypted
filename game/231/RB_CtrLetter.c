@@ -72,7 +72,7 @@ int RB_CtrLetter_LInC(struct Instance *letterInst, struct Thread *driverTh, stru
 	return ((ThreadScratchCollideFunc)letterTh->funcThCollide)(letterTh, driverTh, letterTh->funcThCollide, sps);
 }
 
-SVec3 letterLightDir = {{0x94F, 0x94F, -0x94F}};
+SVec3 letterLightDir = {0x94F, 0x94F, -0x94F};
 
 
 void RB_CtrLetter_ThTick(struct Thread *t)

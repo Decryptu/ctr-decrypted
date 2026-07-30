@@ -1210,7 +1210,7 @@ void VehStuckProc_Tumble_PhysAngular(struct Thread *thread, struct Driver *drive
 	(driver->rotCurr).w = VehCalc_InterpBySpeed((int)(driver->rotCurr).w,
 	                                            CTR_MipsSra(CTR_MipsSll(elapsedTimeMS, VEH_TUMBLE_ROT_W_INTERP_SHIFT), VEH_TUMBLE_ROT_W_INTERP_SHIFT), 0);
 
-	VehPhysForce_RotAxisAngle(&driver->matrixMovingDir, driver->AxisAngle1_normalVec.v, driver->angle);
+	VehPhysForce_RotAxisAngle(&driver->matrixMovingDir, CTR_VECTOR_DATA(&(driver->AxisAngle1_normalVec)), driver->angle);
 }
 
 
@@ -1406,7 +1406,7 @@ void VehStuckProc_Warp_AddDustPuff1(struct ScratchpadStruct *sps)
 	// position variables
 	for (s32 i = 0; i < 3; i++)
 	{
-		p->axis[i].startVal = CTR_MipsAddLo(p->axis[i].startVal, CTR_MipsSll(sps->Input1.pos.v[i], FRACTIONAL_BITS_8));
+		p->axis[i].startVal = CTR_MipsAddLo(p->axis[i].startVal, CTR_MipsSll(CTR_VECTOR_DATA(&(sps->Input1.pos))[i], FRACTIONAL_BITS_8));
 	}
 }
 
@@ -1537,7 +1537,7 @@ void VehStuckProc_Warp_AddDustPuff2(struct Driver *d, struct DriverWarpState *wa
 	struct VehWarpDustScratch *scratch = CTR_SCRATCHPAD_PTR(struct VehWarpDustScratch, 0);
 	SVECTOR *points = scratch->points;
 	SVECTOR *endpoint = &points[VEH_WARP_DUST_SEGMENTS];
-	s16 *jitterScale = scratch->jitterScale.v;
+	s16 *jitterScale = CTR_VECTOR_DATA(&(scratch->jitterScale));
 	int offsetX;
 	int offsetY;
 	int offsetZ;
@@ -1651,7 +1651,8 @@ void VehStuckProc_Warp_PhysAngular(struct Thread *th, struct Driver *d)
 	{
 		for (s32 i = 0; i < 3; i++)
 		{
-			inst->scale.v[i] = VehCalc_InterpBySpeed(inst->scale.v[i], VEH_WARP_EXPAND_SCALE_SPEED, VEH_WARP_EXPAND_SCALE_TARGET_XZ >> (i & 1));
+			CTR_VECTOR_DATA(&(inst->scale))
+			[i] = VehCalc_InterpBySpeed(CTR_VECTOR_DATA(&(inst->scale))[i], VEH_WARP_EXPAND_SCALE_SPEED, VEH_WARP_EXPAND_SCALE_TARGET_XZ >> (i & 1));
 		}
 
 		if (d->posCurr.y < CTR_MipsAddLo(d->quadBlockHeight, VEH_WARP_LIFT_HEIGHT_LIMIT))
@@ -1668,8 +1669,9 @@ void VehStuckProc_Warp_PhysAngular(struct Thread *th, struct Driver *d)
 
 		for (s32 i = 0; i < 3; i++)
 		{
-			inst->scale.v[i] = VehCalc_InterpBySpeed(inst->scale.v[i], (i == 1) ? VEH_WARP_SHRINK_SCALE_SPEED_Y : VEH_WARP_SHRINK_SCALE_SPEED_XZ,
-			                                         VEH_WARP_SHRINK_SCALE_TARGET_Y * (i & 1));
+			CTR_VECTOR_DATA(&(inst->scale))
+			[i] = VehCalc_InterpBySpeed(CTR_VECTOR_DATA(&(inst->scale))[i], (i == 1) ? VEH_WARP_SHRINK_SCALE_SPEED_Y : VEH_WARP_SHRINK_SCALE_SPEED_XZ,
+			                            VEH_WARP_SHRINK_SCALE_TARGET_Y * (i & 1));
 		}
 
 		// if scale shrinks to zero
@@ -1683,7 +1685,7 @@ void VehStuckProc_Warp_PhysAngular(struct Thread *th, struct Driver *d)
 				flarePos.y = (s16)CTR_MipsAddLo(CTR_MipsSra(d->KartStates.Warp.quadHeight, VEH_WARP_POSITION_SHIFT), VEH_WARP_FLARE_HEIGHT_OFFSET);
 				flarePos.z = (s16)CTR_MipsSra(d->posCurr.z, VEH_WARP_POSITION_SHIFT);
 
-				FLARE_Init(flarePos.v);
+				FLARE_Init(CTR_VECTOR_DATA(&(flarePos)));
 			}
 
 			// make invisible

@@ -749,11 +749,11 @@ void CAM_FollowDriver_AngleAxis(struct CameraDC *cDC, struct Driver *d, struct C
 
 	if (cDC->cameraMode == 0xe)
 	{
-		VehPhysForce_RotAxisAngle(axisMatrix, d->AxisAngle2_normalVec.v, d->angle);
+		VehPhysForce_RotAxisAngle(axisMatrix, CTR_VECTOR_DATA(&(d->AxisAngle2_normalVec)), d->angle);
 	}
 	else
 	{
-		VehPhysForce_RotAxisAngle(axisMatrix, d->AxisAngle2_normalVec.v, d->rotCurr.y);
+		VehPhysForce_RotAxisAngle(axisMatrix, CTR_VECTOR_DATA(&(d->AxisAngle2_normalVec)), d->rotCurr.y);
 	}
 
 	CAM_FollowDriver_AngleAxis_LoadGteMatrix(axisMatrix, d);
@@ -1213,7 +1213,7 @@ void CAM_FollowDriver_Normal(struct CameraDC *cDC, struct Driver *d, SVec3 *push
 	gte_SetRotMatrix(&cam->matrix);
 	CTR_GteLoadSVec3V0(&cam->rot);
 	gte_rtv0();
-	CTR_GteStoreMAC(cam->pos.v);
+	CTR_GteStoreMAC(CTR_VECTOR_DATA(&(cam->pos)));
 
 	cam->rot.x = 0;
 	cam->rot.y = 0x40;
@@ -1221,7 +1221,7 @@ void CAM_FollowDriver_Normal(struct CameraDC *cDC, struct Driver *d, SVec3 *push
 
 	CTR_GteLoadSVec3V0(&cam->rot);
 	gte_rtv0();
-	CTR_GteStoreMAC(scratchWork->sideOffset.v);
+	CTR_GteStoreMAC(CTR_VECTOR_DATA(&(scratchWork->sideOffset)));
 
 	cam->delta.x = CTR_MipsSra(d->posCurr.x, 8);
 	cam->delta.y = CTR_MipsSra(d->posCurr.y, 8);
@@ -1294,7 +1294,7 @@ void CAM_FollowDriver_Normal(struct CameraDC *cDC, struct Driver *d, SVec3 *push
 
 	CTR_GteLoadSVec3V0(&cam->rot);
 	gte_rtv0();
-	CTR_GteStoreS16Triplet(cam->rot.v);
+	CTR_GteStoreS16Triplet(CTR_VECTOR_DATA(&(cam->rot)));
 
 	cam->delta.x += (s32)cam->rot.x;
 	cam->delta.z += (s32)cam->rot.z;
@@ -2145,10 +2145,10 @@ SkipNewCameraEOR:
 							cDC->trackPathProgress = 0;
 							cDC->transitionFrame = 0;
 						}
-						psVar21 = (cDC->transitionTo).rot.v;
+						psVar21 = CTR_VECTOR_DATA(&((cDC->transitionTo).rot));
 						if (iVar17 < 0)
 						{
-							psVar21 = cDC->eorModeData.pointPath.endPos.v;
+							psVar21 = CTR_VECTOR_DATA(&(cDC->eorModeData.pointPath.endPos));
 						}
 						pb->pos.x = psVar21[0] + (s16)((stackMemPos.x * iVar25) >> 0xc);
 						pb->pos.y = psVar21[1] + (s16)((stackMemPos.y * iVar25) >> 0xc);

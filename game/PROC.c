@@ -343,7 +343,7 @@ void PROC_CollidePointWithSelf(struct Thread *th, struct BucketSearchParams *buf
 	// save the thread collided with
 	buf->th = th;
 
-	CTR_SET_VEC3(buf->dist.v, (s16)distX, (s16)distY, (s16)distZ);
+	CTR_SET_VEC3(CTR_VECTOR_DATA(&(buf->dist)), (s16)distX, (s16)distY, (s16)distZ);
 }
 
 
@@ -455,7 +455,7 @@ void PROC_PerBspLeaf_CheckInstances(struct BSP *bspLeaf, struct ScratchpadStruct
 			continue;
 		}
 
-		CTR_SET_VEC3(sps->Union.ThBuckColl.centerDelta.v, (s16)distX, (s16)distY, (s16)distZ);
+		CTR_SET_VEC3(CTR_VECTOR_DATA(&(sps->Union.ThBuckColl.centerDelta)), (s16)distX, (s16)distY, (s16)distZ);
 
 		callback = sps->Union.ThBuckColl.funcCallback;
 		callback(sps, bspHitbox);
@@ -546,7 +546,7 @@ void PROC_CollideHitboxWithBucket(struct Thread *collThread, struct ScratchpadSt
 			continue;
 		}
 
-		CTR_SET_VEC3(sps->Union.ThBuckColl.centerDelta.v, (s16)distX, (s16)distY, (s16)distZ);
+		CTR_SET_VEC3(CTR_VECTOR_DATA(&(sps->Union.ThBuckColl.centerDelta)), (s16)distX, (s16)distY, (s16)distZ);
 
 		callback = sps->Union.ThBuckColl.funcCallback;
 		callback(sps, collThread);

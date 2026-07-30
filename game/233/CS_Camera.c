@@ -290,7 +290,7 @@ void CS_Camera_ThTick_Podium(struct Thread *th)
 			D233.podiumCameraFrame = frame;
 			podium->pathFrame32 = frameTime;
 
-			CAM_Path_Move(frame, pos.v, rot.v, camPath);
+			CAM_Path_Move(frame, CTR_VECTOR_DATA(&(pos)), CTR_VECTOR_DATA(&(rot)), camPath);
 
 			gGT->pushBuffer[0].pos = pos;
 			gGT->pushBuffer[0].rot = rot;

@@ -92,7 +92,7 @@ void RB_Bubbles_RoosTubes()
 
 		for (i = 0; i < 3; i++)
 		{
-			p->axis[i].startVal += spawnPos->v[i] * 0x100;
+			p->axis[i].startVal += CTR_VECTOR_DATA(spawnPos)[i] * 0x100;
 		}
 	}
 }

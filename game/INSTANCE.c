@@ -34,7 +34,7 @@ void INSTANCE_Birth(struct Instance *inst, struct Model *model, const char *name
 
 	inst->model = model;
 
-	inst->scale = (SVec3){{0x1000, 0x1000, 0x1000}};
+	inst->scale = (SVec3){0x1000, 0x1000, 0x1000};
 
 	inst->alphaScale = 0;
 	inst->colorRGBA = 0;
@@ -306,7 +306,7 @@ void INSTANCE_LevInitAll(struct InstDef *levInstDef, int numInst)
 		ConvertRotToMatrix(&inst->matrix, &levInstDef->rot);
 
 		// instance posX and posY
-		CTR_COPY_VEC3(inst->matrix.t, levInstDef->pos.v);
+		CTR_COPY_VEC3(inst->matrix.t, CTR_VECTOR_DATA(&(levInstDef->pos)));
 
 		inst->thread = NULL;
 		struct InstDrawPerPlayer *idpp = INST_GETIDPP(inst);

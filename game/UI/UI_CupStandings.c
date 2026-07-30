@@ -246,7 +246,7 @@ void UI_CupStandings_InputAndDraw(void)
 		animationFrame = sdata->framesSinceRaceEnded - UI_CUP_STANDINGS_PAGE_TRANSITION_FRAME;
 	}
 
-	UI_Lerp2D_Linear(drawPos.v, titleStartX, titleStartY, titleEndX, titleEndY, animationFrame, UI_CUP_STANDINGS_LERP_FRAMES);
+	UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(drawPos)), titleStartX, titleStartY, titleEndX, titleEndY, animationFrame, UI_CUP_STANDINGS_LERP_FRAMES);
 
 	// "FINAL"
 	int titleString = LNG_FINAL;
@@ -393,7 +393,7 @@ void UI_CupStandings_InputAndDraw(void)
 		}
 
 		// Interpolate fly-in variables over 0x14 frames
-		UI_Lerp2D_Linear(drawPos.v, iconStartX, iconTargetY, iconEndX, iconTargetY, animationFrame, UI_CUP_STANDINGS_LERP_FRAMES);
+		UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(drawPos)), iconStartX, iconTargetY, iconEndX, iconTargetY, animationFrame, UI_CUP_STANDINGS_LERP_FRAMES);
 
 		// %d
 		sprintf(text, (char *)&sdata->s_int, i + 1);
@@ -466,8 +466,8 @@ void UI_CupStandings_InputAndDraw(void)
 	if ((sdata->menuReadyToPass & UI_CUP_STANDINGS_PAGE_TRACK_POINTS) == 0)
 	{
 		// fly-in interpolation
-		UI_Lerp2D_Linear(drawPos.v, UI_CUP_STANDINGS_PANEL_X, pageEnterY, UI_CUP_STANDINGS_PANEL_X, UI_CUP_STANDINGS_PANEL_Y, sdata->framesSinceRaceEnded,
-		                 UI_CUP_STANDINGS_LERP_FRAMES);
+		UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(drawPos)), UI_CUP_STANDINGS_PANEL_X, pageEnterY, UI_CUP_STANDINGS_PANEL_X, UI_CUP_STANDINGS_PANEL_Y,
+		                 sdata->framesSinceRaceEnded, UI_CUP_STANDINGS_LERP_FRAMES);
 	}
 
 	// if it's not...
@@ -482,7 +482,7 @@ void UI_CupStandings_InputAndDraw(void)
 		else
 		{
 			// fly-in interpolation
-			UI_Lerp2D_Linear(drawPos.v, UI_CUP_STANDINGS_PANEL_X, UI_CUP_STANDINGS_PANEL_Y, UI_CUP_STANDINGS_PANEL_X, pageExitY,
+			UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(drawPos)), UI_CUP_STANDINGS_PANEL_X, UI_CUP_STANDINGS_PANEL_Y, UI_CUP_STANDINGS_PANEL_X, pageExitY,
 			                 sdata->framesSinceRaceEnded + -UI_CUP_STANDINGS_PAGE_TRANSITION_FRAME, UI_CUP_STANDINGS_LERP_FRAMES);
 		}
 	}

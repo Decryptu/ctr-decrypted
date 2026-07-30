@@ -34,7 +34,7 @@ void RB_Default_LInB(struct Instance *inst)
 	probeTop->y = inst->matrix.t[1] - 0x180;
 	probeBottom->y = inst->matrix.t[1] + 0x80;
 
-	COLL_SearchBSP_CallbackQUADBLK(&probeTop->vec, &probeBottom->vec, sps, 0);
+	COLL_SearchBSP_CallbackQUADBLK(SVec3Slot_AsVec3(probeTop), SVec3Slot_AsVec3(probeBottom), sps, 0);
 
 	RB_MakeInstanceReflective(sps, inst);
 }

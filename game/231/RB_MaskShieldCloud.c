@@ -697,8 +697,8 @@ void RB_RainCloud_ThTick(struct Thread *t)
 	for (int i = 0; i < 3; i++)
 	{
 		// get average between instance and driver
-		inst->scale.v[i] += dInst->scale.v[i];
-		inst->scale.v[i] = inst->scale.v[i] >> 1;
+		CTR_VECTOR_DATA(&(inst->scale))[i] += CTR_VECTOR_DATA(&(dInst->scale))[i];
+		CTR_VECTOR_DATA(&(inst->scale))[i] = CTR_VECTOR_DATA(&(inst->scale))[i] >> 1;
 	}
 
 	// offset upward before averaging

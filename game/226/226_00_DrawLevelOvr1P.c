@@ -1224,7 +1224,7 @@ static u32 DrawLevelOvr1P_GetProjectedColorWord(const struct DrawLevelOvr1PScrat
 
 static u32 Ovr226_800a2234_ApplyWaterListColorFade(u32 color, s16 x, s16 z)
 {
-	const s16 *center = DrawLevelOvr1P_Scratch()->projectedCenter.v;
+	const s16 *center = CTR_VECTOR_DATA(&(DrawLevelOvr1P_Scratch()->projectedCenter));
 	s32 deltaX = (s32)x - center[0];
 	s32 deltaZ = (s32)z - center[2];
 
@@ -1267,7 +1267,7 @@ static u32 Ovr226_800a2234_ApplyWaterListColorFade(u32 color, s16 x, s16 z)
 
 static u32 Ovr226_800a2d30_ApplyWaterRenderedColorFade(u32 color, s16 x, s16 z)
 {
-	const s16 *center = DrawLevelOvr1P_Scratch()->projectedCenter.v;
+	const s16 *center = CTR_VECTOR_DATA(&(DrawLevelOvr1P_Scratch()->projectedCenter));
 	s32 deltaX = (s32)x - center[0];
 	s32 deltaZ = (s32)z - center[2];
 
@@ -2330,7 +2330,7 @@ static u32 DrawLevelOvr1P_GetPreparedProjectedMaxDepthCount(const struct DrawLev
 
 static int DrawLevelOvr1P_SourceInsideClipRecordWindow(const struct DrawLevelOvr1PScratchVertex *src)
 {
-	const s16 *center = DrawLevelOvr1P_Scratch()->projectedCenter.v;
+	const s16 *center = CTR_VECTOR_DATA(&(DrawLevelOvr1P_Scratch()->projectedCenter));
 	s32 x = (s32)src->pos[0] - center[0];
 	s32 y = (s32)src->pos[1] - center[1];
 	s32 z = (s32)src->pos[2] - center[2];
@@ -9636,7 +9636,7 @@ static void *DrawLevelOvr1P_GetRenderListBucketValue(struct DrawLevelOvr1PRender
 
 static void Ovr226_800a0d34_SetEntryGteAndCameraScratch(struct PushBuffer *pb)
 {
-	s16 *data6 = DrawLevelOvr1P_Scratch()->projectedCenter.v;
+	s16 *data6 = CTR_VECTOR_DATA(&(DrawLevelOvr1P_Scratch()->projectedCenter));
 
 	for (s32 controlWordIndex = 0; controlWordIndex < 8; controlWordIndex++)
 	{

@@ -20,7 +20,7 @@ typedef unsigned int size_t;
 #if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L)
 #define CTR_STATIC_ASSERT(expr) _Static_assert((expr), #expr)
 #else
-#define CTR_STATIC_ASSERT(expr) extern char CTR_JOIN(ctr_static_assert_, __LINE__)[(expr) ? 1 : -1]
+#define CTR_STATIC_ASSERT(expr) extern char CTR_JOIN(ctr_static_assert_, __COUNTER__)[(expr) ? 1 : -1]
 #endif
 
 typedef unsigned long long u64;

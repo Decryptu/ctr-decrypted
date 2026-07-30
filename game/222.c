@@ -86,7 +86,7 @@ void AA_EndEvent_DrawMenu(void)
 	if (driver->instBigNum->scale.x != AA_BIG_NUM_TARGET_SCALE)
 	{
 		struct Instance *instFruitDisp = driver->instFruitDisp;
-		instFruitDisp->scale = (SVec3){{0, 0, 0}};
+		instFruitDisp->scale = (SVec3){0, 0, 0};
 	}
 
 	// if not in Token mode, these won't be used until later;
@@ -156,7 +156,7 @@ void AA_EndEvent_DrawMenu(void)
 					lerpEndY = hudCTR->y + 0x50;
 				}
 
-				UI_Lerp2D_Linear(letterPos.v, lerpStartX, lerpStartY, lerpEndX, lerpEndY, elapsedFrames, lerpFrames);
+				UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(letterPos)), lerpStartX, lerpStartY, lerpEndX, lerpEndY, elapsedFrames, lerpFrames);
 
 				if (shouldScaleLetters)
 				{
@@ -196,7 +196,7 @@ void AA_EndEvent_DrawMenu(void)
 					lerpFrames = AA_CTR_LETTER_FLYOUT_FRAMES;
 				}
 
-				UI_Lerp2D_Linear(letterPos.v, lerpStartX, lerpStartY, lerpEndX, lerpEndY, elapsedFrames, lerpFrames);
+				UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(letterPos)), lerpStartX, lerpStartY, lerpEndX, lerpEndY, elapsedFrames, lerpFrames);
 
 				// variable reuse, frame timers
 				lerpStartY = 0;
@@ -227,7 +227,7 @@ void AA_EndEvent_DrawMenu(void)
 
 				if (tokenAwardTextFrame >= 0)
 				{
-					UI_Lerp2D_Linear(textPos.v, txtStartX, 0xa6, txtEndX, 0xa6, tokenAwardTextFrame, AA_TOKEN_AWARD_TEXT_FLY_FRAMES);
+					UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(textPos)), txtStartX, 0xa6, txtEndX, 0xa6, tokenAwardTextFrame, AA_TOKEN_AWARD_TEXT_FLY_FRAMES);
 
 					s32 textColor = (gGT->timer & 1) ? (JUSTIFY_CENTER | RED) : (JUSTIFY_CENTER | WHITE);
 
@@ -337,7 +337,7 @@ void AA_EndEvent_DrawMenu(void)
 			driverIconFrame -= AA_DRIVER_ICON_STAGGER_FRAMES;
 
 			// interpolate fly-in
-			UI_Lerp2D_Linear(letterPos.v, lerpStartX, 0x60, lerpEndX, 0x60, currFrame, AA_DRIVER_ICON_STAGGER_FRAMES);
+			UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(letterPos)), lerpStartX, 0x60, lerpEndX, 0x60, currFrame, AA_DRIVER_ICON_STAGGER_FRAMES);
 
 			s_driverRankString222 = (char)i + '1';
 
@@ -616,16 +616,17 @@ void AA_EndEvent_DisplayTime(s16 driverId, s16 timeOffsetFrames)
 	}
 
 	// interpolate fly-in positionXY
-	UI_Lerp2D_Linear(pos.v, lerpStartX, lerpStartY, lerpEndX, lerpEndY, currFrame, endFrame);
+	UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(pos)), lerpStartX, lerpStartY, lerpEndX, lerpEndY, currFrame, endFrame);
 
 	bigNum->matrix.t[0] = pos.x;
 	bigNum->matrix.t[1] = pos.y;
 
 	// interpolate scale to the target big-number size
-	UI_Lerp2D_Linear(pos.v, hud[AA_TIME_DISPLAY_BIG_NUM_SLOT].scale, 0, AA_BIG_NUM_TARGET_SCALE, 0, framesElapsed, AA_TIME_DISPLAY_FLYIN_FRAMES);
+	UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(pos)), hud[AA_TIME_DISPLAY_BIG_NUM_SLOT].scale, 0, AA_BIG_NUM_TARGET_SCALE, 0, framesElapsed,
+	                 AA_TIME_DISPLAY_FLYIN_FRAMES);
 	s16 bigNumScale = pos.x;
 
-	bigNum->scale = (SVec3){{bigNumScale, bigNumScale, bigNumScale}};
+	bigNum->scale = (SVec3){bigNumScale, bigNumScale, bigNumScale};
 
 	// === Draw Suffix ===
 
@@ -650,7 +651,7 @@ void AA_EndEvent_DisplayTime(s16 driverId, s16 timeOffsetFrames)
 		lerpEndX = 0x78;
 	}
 
-	UI_Lerp2D_Linear(pos.v, lerpStartX, lerpStartY, lerpEndX, lerpEndY, currFrame, endFrame);
+	UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(pos)), lerpStartX, lerpStartY, lerpEndX, lerpEndY, currFrame, endFrame);
 
 	UI_DrawPosSuffix(pos.x, pos.y, driver, 0);
 
@@ -674,7 +675,7 @@ void AA_EndEvent_DisplayTime(s16 driverId, s16 timeOffsetFrames)
 		lerpEndX = 0x150;
 	}
 
-	UI_Lerp2D_Linear(pos.v, lerpStartX, lerpEndY, lerpEndX, lerpEndY, currFrame, endFrame);
+	UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(pos)), lerpStartX, lerpEndY, lerpEndX, lerpEndY, currFrame, endFrame);
 
 	UI_DrawRaceClock(pos.x, pos.y, UI_RACE_CLOCK_SHOW_RESULTS, driver);
 

@@ -143,6 +143,6 @@ void RB_Follower_Init(struct Driver *d, struct Thread *mineTh)
 	// backup original position
 	for (int i = 0; i < 3; i++)
 	{
-		fObj->realPos.v[i] = mineInst->matrix.t[i];
+		CTR_VECTOR_DATA(&(fObj->realPos))[i] = mineInst->matrix.t[i];
 	}
 }

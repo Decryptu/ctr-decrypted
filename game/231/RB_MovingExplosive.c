@@ -322,7 +322,7 @@ LAB_800adc08:;
 			// missile model
 			if (modelID == DYNAMIC_ROCKET)
 			{
-				VehPhysForce_RotAxisAngle(&inst->matrix, sps->hit.plane.normal.v, tw->rotY);
+				VehPhysForce_RotAxisAngle(&inst->matrix, CTR_VECTOR_DATA(&(sps->hit.plane.normal)), tw->rotY);
 			}
 
 			// position

@@ -186,7 +186,7 @@ void AH_Map_HubArrow(int posX, int posY, const SVec2 *vertPos, char *vertCol, in
 			drawPos[j].y = basePos[j].y + offset[i].y;
 		}
 
-		RECTMENU_DrawRwdTriangle(drawPos[0].v, vertCol, gGT->pushBuffer_UI.ptrOT, &gGT->backBuffer->primMem);
+		RECTMENU_DrawRwdTriangle(CTR_VECTOR_DATA(&(drawPos[0])), vertCol, gGT->pushBuffer_UI.ptrOT, &gGT->backBuffer->primMem);
 
 		vertCol = (char *)&D232.colorTri[0];
 	}
@@ -485,7 +485,7 @@ void AH_Map_HubItems(struct UIMap *map, s16 *arrowCounter)
 				}
 
 				// draw star icon for boss
-				UI_Map_DrawRawIcon(map, pos3D.v, AH_MAP_ICON_BOSS_STAR, bossIconColor, 0, 0x1000);
+				UI_Map_DrawRawIcon(map, (const VecElement *)&pos3D, AH_MAP_ICON_BOSS_STAR, bossIconColor, 0, 0x1000);
 			}
 			item++;
 		} while (item->posX != AH_HUB_ITEM_LIST_END_POS_X);

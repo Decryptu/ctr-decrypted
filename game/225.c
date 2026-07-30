@@ -130,7 +130,7 @@ void VB_EndEvent_DrawMenu(void)
 	}
 
 	// fly-in interpolation
-	UI_Lerp2D_Linear(pos.v, VB_TITLE_ENTRY_X, titleY, titleTargetX, titleY, titleFrame, VB_LERP_FRAMES);
+	UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(pos)), VB_TITLE_ENTRY_X, titleY, titleTargetX, titleY, titleFrame, VB_LERP_FRAMES);
 
 	s32 rowY = titleY + VB_TITLE_TO_ROWS_Y;
 
@@ -167,7 +167,7 @@ void VB_EndEvent_DrawMenu(void)
 		}
 
 		// fly-in interpolation
-		UI_Lerp2D_Linear(pos.v, VB_TITLE_ENTRY_X, currRowY, rowTargetX, currRowY, rowFrame, VB_LERP_FRAMES);
+		UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(pos)), VB_TITLE_ENTRY_X, currRowY, rowTargetX, currRowY, rowFrame, VB_LERP_FRAMES);
 
 		s16 rankTextY;
 		if (!isBattleMode)
@@ -248,7 +248,7 @@ void VB_EndEvent_DrawMenu(void)
 
 		if (bigNum != NULL)
 		{
-			bigNum->scale = (SVec3){{0, 0, 0}};
+			bigNum->scale = (SVec3){0, 0, 0};
 		}
 
 		s32 winnerDriverID = isBattleMode ? gGT->winnerIndex[0] : gGT->driversInRaceOrder[0]->driverID;
@@ -265,7 +265,8 @@ void VB_EndEvent_DrawMenu(void)
 			}
 
 			// fly-in interpolation
-			UI_Lerp2D_Linear(pos.v, view->rect.x, view->rect.y, VB_WINNER_TARGET_X, VB_WINNER_TARGET_Y, sdata->framesSinceRaceEnded, VB_WINNER_LERP_FRAMES);
+			UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(pos)), view->rect.x, view->rect.y, VB_WINNER_TARGET_X, VB_WINNER_TARGET_Y, sdata->framesSinceRaceEnded,
+			                 VB_WINNER_LERP_FRAMES);
 
 			RECT box;
 			box.x = pos.x - VB_WINNER_BOX_X_PAD;

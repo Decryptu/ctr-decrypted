@@ -1880,7 +1880,7 @@ void PhysLerpRot(struct Driver *driver, int targetRotW)
 
 void PhysTerrainSlope(struct Driver *driver)
 {
-	VehPhysForce_RotAxisAngle(&driver->matrixMovingDir, driver->AxisAngle1_normalVec.v, (int)driver->angle);
+	VehPhysForce_RotAxisAngle(&driver->matrixMovingDir, CTR_VECTOR_DATA(&(driver->AxisAngle1_normalVec)), (int)driver->angle);
 	gte_SetRotMatrix(&driver->matrixMovingDir);
 	VehPhysForce_CounterSteer(driver);
 }
@@ -2142,7 +2142,7 @@ void VehPhysProc_SlamWall_PhysAngular(struct Thread *t, struct Driver *d)
 
 	d->turnAngleCurr = VehCalc_InterpBySpeed(d->turnAngleCurr, CTR_MipsSra(CTR_MipsSll(elapsedTimeMS, 7), 5), 0);
 
-	VehPhysForce_RotAxisAngle(&d->matrixMovingDir, d->AxisAngle1_normalVec.v, d->angle);
+	VehPhysForce_RotAxisAngle(&d->matrixMovingDir, CTR_VECTOR_DATA(&(d->AxisAngle1_normalVec)), d->angle);
 }
 
 
@@ -2327,7 +2327,7 @@ void VehPhysProc_SpinFirst_PhysAngular(struct Thread *t, struct Driver *d)
 
 	d->rotCurr.w = VehCalc_InterpBySpeed(d->rotCurr.w, CTR_MipsSra(CTR_MipsSll(elapsedTimeMS, 5), 5), 0);
 
-	VehPhysForce_RotAxisAngle(&d->matrixMovingDir, d->AxisAngle1_normalVec.v, d->angle);
+	VehPhysForce_RotAxisAngle(&d->matrixMovingDir, CTR_VECTOR_DATA(&(d->AxisAngle1_normalVec)), d->angle);
 }
 
 
@@ -2494,7 +2494,7 @@ void VehPhysProc_SpinLast_PhysAngular(struct Thread *t, struct Driver *d)
 
 	d->rotCurr.w = VehCalc_InterpBySpeed(d->rotCurr.w, CTR_MipsSra(CTR_MipsSll(elapsedTimeMS, 5), 5), 0);
 
-	VehPhysForce_RotAxisAngle(&d->matrixMovingDir, d->AxisAngle1_normalVec.v, d->angle);
+	VehPhysForce_RotAxisAngle(&d->matrixMovingDir, CTR_VECTOR_DATA(&(d->AxisAngle1_normalVec)), d->angle);
 }
 
 
@@ -2552,7 +2552,7 @@ void VehPhysProc_SpinStop_PhysAngular(struct Thread *t, struct Driver *d)
 	d->rotCurr.w = VehCalc_InterpBySpeed(d->rotCurr.w, CTR_MipsSra(CTR_MipsSll(elapsedTimeMS, 5), 5), 0);
 	d->turnAngleCurr = VehCalc_InterpBySpeed(d->turnAngleCurr, CTR_MipsSra(CTR_MipsSll(elapsedTimeMS, 7), 5), 0);
 
-	VehPhysForce_RotAxisAngle(&d->matrixMovingDir, d->AxisAngle1_normalVec.v, d->angle);
+	VehPhysForce_RotAxisAngle(&d->matrixMovingDir, CTR_VECTOR_DATA(&(d->AxisAngle1_normalVec)), d->angle);
 }
 
 

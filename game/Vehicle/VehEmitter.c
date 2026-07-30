@@ -191,15 +191,15 @@ void VehEmitter_Sparks_Ground(struct Driver *d, struct ParticleEmitter *emSet)
 
 	CTR_GteLoadSV0(&sparkGround_inX);
 	gte_rtv0();
-	CTR_GteStoreMAC(outX.v);
+	CTR_GteStoreMAC(CTR_VECTOR_DATA(&(outX)));
 
 	CTR_GteLoadSV0(&sparkGround_inZ);
 	gte_rtv0();
-	CTR_GteStoreMAC(outZ.v);
+	CTR_GteStoreMAC(CTR_VECTOR_DATA(&(outZ)));
 
 	CTR_GteLoadSV0(&sparkGround_inZ2);
 	gte_rtv0();
-	CTR_GteStoreMAC(outZ2.v);
+	CTR_GteStoreMAC(CTR_VECTOR_DATA(&(outZ2)));
 
 	for (int i = 0; i < VEH_EMITTER_GROUND_SPARK_COUNT; i++)
 	{
@@ -220,8 +220,8 @@ void VehEmitter_Sparks_Ground(struct Driver *d, struct ParticleEmitter *emSet)
 
 		for (int j = 0; j < VEH_EMITTER_AXIS_COUNT; j++)
 		{
-			p->axis[j].velocity += (s16)outZ2.v[j] + (s16)((rng * outX.v[j]) >> FRACTIONAL_BITS);
-			p->axis[j].startVal += outZ.v[j] + p->axis[j].velocity;
+			p->axis[j].velocity += (s16)CTR_VECTOR_DATA(&(outZ2))[j] + (s16)((rng * CTR_VECTOR_DATA(&(outX))[j]) >> FRACTIONAL_BITS);
+			p->axis[j].startVal += CTR_VECTOR_DATA(&(outZ))[j] + p->axis[j].velocity;
 		}
 
 		p->driverInst = d->instSelf;
@@ -284,7 +284,7 @@ void VehEmitter_Terrain_Ground(struct Driver *d, struct ParticleEmitter *emSet)
 	{
 		CTR_GteLoadSV0(&terrainEmitterPos[numTires - 1]);
 		gte_rtv0();
-		CTR_GteStoreMAC(pos.v);
+		CTR_GteStoreMAC(CTR_VECTOR_DATA(&(pos)));
 
 		struct Particle *p = Particle_Init(0, ig, emSet);
 
@@ -297,12 +297,12 @@ void VehEmitter_Terrain_Ground(struct Driver *d, struct ParticleEmitter *emSet)
 
 		CTR_GteLoadSV0(&velInput);
 		gte_rtv0();
-		CTR_GteStoreMAC(vel.v);
+		CTR_GteStoreMAC(CTR_VECTOR_DATA(&(vel)));
 
 		for (int i = 0; i < VEH_EMITTER_AXIS_COUNT; i++)
 		{
-			p->axis[i].startVal += pos.v[i] * VEH_EMITTER_PARTICLE_WORLD_SCALE;
-			p->axis[i].velocity = (s16)vel.v[i];
+			p->axis[i].startVal += CTR_VECTOR_DATA(&(pos))[i] * VEH_EMITTER_PARTICLE_WORLD_SCALE;
+			p->axis[i].velocity = (s16)CTR_VECTOR_DATA(&(vel))[i];
 		}
 
 		p->driverInst = dInst;

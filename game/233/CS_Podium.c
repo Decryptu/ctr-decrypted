@@ -167,7 +167,7 @@ void CS_Podium_Stand_Init(struct CsThreadInitData *podiumData)
 	podiumData->derivedRot.y = podiumData->rot.y;
 	podiumData->derivedRot.z = podiumData->rot.z;
 
-	ConvertRotToMatrix(&inst->matrix, &podiumData->derivedRot.vec);
+	ConvertRotToMatrix(&inst->matrix, SVec3Slot_AsVec3(&podiumData->derivedRot));
 }
 
 void CS_Podium_Prize_Spin(struct Instance *inst, struct Prize *prize)
@@ -693,7 +693,7 @@ void CS_Podium_FullScene_Init(void)
 	InitData.rot.z = posRot->rot.z;
 
 	// convert 3 rotation shorts into rotation matrix
-	ConvertRotToMatrix(&podiumMatrix, &InitData.rot.vec);
+	ConvertRotToMatrix(&podiumMatrix, SVec3Slot_AsVec3(&InitData.rot));
 	// Move position of trophy girl
 	gte_SetLightMatrix(&podiumMatrix);
 

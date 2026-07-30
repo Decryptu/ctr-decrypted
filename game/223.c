@@ -163,7 +163,7 @@ void RR_EndEvent_DrawMenu(void)
 		relic->colorRGBA = RR_GOLD_RELIC_COLOR;
 	}
 
-	sdata->ptrTimebox1->scale = (SVec3){{RR_TIMEBOX_SCALE, RR_TIMEBOX_SCALE, RR_TIMEBOX_SCALE}};
+	sdata->ptrTimebox1->scale = (SVec3){RR_TIMEBOX_SCALE, RR_TIMEBOX_SCALE, RR_TIMEBOX_SCALE};
 
 	if (sdata->framesSinceRaceEnded < RR_RESULT_MAX_FRAMES)
 	{
@@ -215,7 +215,7 @@ void RR_EndEvent_DrawMenu(void)
 
 
 	// interpolate fly-in
-	UI_Lerp2D_Linear(pos.v, startX, 0x32, 0x100, endY, elapsedFrames, RR_LERP_FRAMES);
+	UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(pos)), startX, 0x32, 0x100, endY, elapsedFrames, RR_LERP_FRAMES);
 
 	UI_DrawRaceClock(pos.x, pos.y - 8, UI_RACE_CLOCK_SHOW_RESULTS, driver);
 
@@ -230,8 +230,8 @@ void RR_EndEvent_DrawMenu(void)
 		{
 			elapsedFrames -= RR_FLYOUT_FRAME_OFFSET;
 
-			UI_Lerp2D_Linear(pos.v, UI_ConvertX_2(0x100, RR_SCREEN_DEPTH), UI_ConvertY_2(0xa2, RR_SCREEN_DEPTH), UI_ConvertX_2(-0x64, RR_SCREEN_DEPTH),
-			                 UI_ConvertY_2(0xa2, RR_SCREEN_DEPTH), elapsedFrames, RR_LERP_FRAMES);
+			UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(pos)), UI_ConvertX_2(0x100, RR_SCREEN_DEPTH), UI_ConvertY_2(0xa2, RR_SCREEN_DEPTH),
+			                 UI_ConvertX_2(-0x64, RR_SCREEN_DEPTH), UI_ConvertY_2(0xa2, RR_SCREEN_DEPTH), elapsedFrames, RR_LERP_FRAMES);
 		}
 
 		else if (elapsedFrames >= RR_RELIC_GROW_START_FRAME)
@@ -250,8 +250,9 @@ void RR_EndEvent_DrawMenu(void)
 				relic->scale.z += RR_RELIC_GROW_STEP;
 			}
 
-			UI_Lerp2D_Linear(pos.v, UI_ConvertX_2(0x100, RR_SCREEN_DEPTH), UI_ConvertY_2(0xa2, RR_SCREEN_DEPTH), UI_ConvertX_2(0x100, RR_SCREEN_DEPTH),
-			                 UI_ConvertY_2(0xa2, RR_SCREEN_DEPTH), elapsedFrames - RR_RELIC_AWARD_START_FRAME, RR_LERP_FRAMES);
+			UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(pos)), UI_ConvertX_2(0x100, RR_SCREEN_DEPTH), UI_ConvertY_2(0xa2, RR_SCREEN_DEPTH),
+			                 UI_ConvertX_2(0x100, RR_SCREEN_DEPTH), UI_ConvertY_2(0xa2, RR_SCREEN_DEPTH), elapsedFrames - RR_RELIC_AWARD_START_FRAME,
+			                 RR_LERP_FRAMES);
 		}
 	}
 
@@ -267,12 +268,12 @@ void RR_EndEvent_DrawMenu(void)
 			elapsedFrames -= RR_FLYOUT_FRAME_OFFSET;
 
 			// interpolate fly-in
-			UI_Lerp2D_Linear(pos.v, 200, 0x79, 0x264, 0x79, elapsedFrames, RR_LERP_FRAMES);
+			UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(pos)), 200, 0x79, 0x264, 0x79, elapsedFrames, RR_LERP_FRAMES);
 		}
 
 		else
 		{
-			UI_Lerp2D_Linear(pos.v, 200, 0x79, 200, 0x79, elapsedFrames, RR_LERP_FRAMES);
+			UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(pos)), 200, 0x79, 200, 0x79, elapsedFrames, RR_LERP_FRAMES);
 		}
 
 		sdata->ptrTimebox1->matrix.t[0] = UI_ConvertX_2(pos.x, RR_SCREEN_DEPTH);
@@ -316,7 +317,7 @@ void RR_EndEvent_DrawMenu(void)
 				}
 			}
 
-			UI_Lerp2D_Linear(pos.v, startX, 0, endX, 0, elapsedFrames, RR_LERP_FRAMES);
+			UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(pos)), startX, 0, endX, 0, elapsedFrames, RR_LERP_FRAMES);
 
 			DecalFont_DrawLine(sdata->lngStrings[LNG_PERFECT], pos.x, 0x8a, 1, textColor);
 		}
@@ -335,7 +336,7 @@ void RR_EndEvent_DrawMenu(void)
 			if (elapsedFrames >= RR_FLYOUT_FRAME_OFFSET)
 			{
 				// interpolate fly-out
-				UI_Lerp2D_Linear(pos.v, 0x199, 0x32, 0x199, -0x32, elapsedFrames - RR_COUNTDOWN_START_FRAME, RR_LERP_FRAMES);
+				UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(pos)), 0x199, 0x32, 0x199, -0x32, elapsedFrames - RR_COUNTDOWN_START_FRAME, RR_LERP_FRAMES);
 				drawCountdown = 1;
 			}
 
@@ -367,7 +368,7 @@ void RR_EndEvent_DrawMenu(void)
 				}
 
 				// interpolate fly-in
-				UI_Lerp2D_Linear(pos.v, 0x296, 0x2a, 0x199, 0x2a, elapsedFrames - RR_COUNTDOWN_START_FRAME, RR_LERP_FRAMES);
+				UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(pos)), 0x296, 0x2a, 0x199, 0x2a, elapsedFrames - RR_COUNTDOWN_START_FRAME, RR_LERP_FRAMES);
 				drawCountdown = 1;
 			}
 
@@ -415,7 +416,7 @@ void RR_EndEvent_DrawMenu(void)
 		}
 
 		// interpolate fly-in
-		UI_Lerp2D_Linear(pos.v, startX, 0x50, endX, 0x50, elapsedFrames, RR_LERP_FRAMES);
+		UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(pos)), startX, 0x50, endX, 0x50, elapsedFrames, RR_LERP_FRAMES);
 
 		DecalFont_DrawLine(sdata->lngStrings[LNG_RELIC_AWARDED], pos.x, pos.y, 1, textColor);
 	}
@@ -445,7 +446,7 @@ skipRelicAwarded:
 		}
 
 		// Interpolate fly-in
-		UI_Lerp2D_Linear(pos.v, startX, 0x50, endX, 0x50, elapsedFrames, RR_LERP_FRAMES);
+		UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(pos)), startX, 0x50, endX, 0x50, elapsedFrames, RR_LERP_FRAMES);
 
 		DecalFont_DrawLine(sdata->lngStrings[LNG_NEW_HIGH_SCORE], pos.x, pos.y, 1, textColor);
 	}
@@ -462,7 +463,7 @@ skipRelicAwarded:
 		elapsedFrames -= RR_FLYOUT_FRAME_OFFSET;
 
 		// Interpolate, vertical fly-out
-		UI_Lerp2D_Linear(pos.v, -0xa, 0xc, -0xa, -0x58, elapsedFrames, RR_LERP_FRAMES);
+		UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(pos)), -0xa, 0xc, -0xa, -0x58, elapsedFrames, RR_LERP_FRAMES);
 	}
 
 
@@ -520,7 +521,7 @@ void RR_EndEvent_DrawHighScore(s16 startX, int startY, s16 scoreMode)
 	// Start and End are the same
 
 	// interpolate fly-in
-	UI_Lerp2D_Linear(pos.v, startX, startY, startX, startY, sdata->framesSinceRaceEnded, RR_LERP_FRAMES);
+	UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(pos)), startX, startY, startX, startY, sdata->framesSinceRaceEnded, RR_LERP_FRAMES);
 
 	DecalFont_DrawLine(sdata->lngStrings[LNG_BEST_TIMES], pos.x, pos.y, FONT_BIG, JUSTIFY_CENTER | ORANGE);
 

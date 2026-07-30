@@ -223,19 +223,19 @@ struct OverlayDATA_230 D230 =
                 {.modelID = 0x6b, .animStartFrame = 0xd7, .unusedMenuReadyFrame = TITLE_INTRO_MENU_READY_FRAME, .isTrophy = 0},
             },
 
-        .titleCameraPos = {{0x32, 0xFFE2, 0x64}},
-        .titleCameraRot = {{0, 0xFF9C, 0}},
+        .titleCameraPos = {0x32, 0xFFE2, 0x64},
+        .titleCameraRot = {0, 0xFF9C, 0},
 
         .titleMenuTransitionDurationFrames = 0xC,
         .titleMenuTransitionStep = 8,
 
-        .titleMainMenuPos = {{0x180, 0x6c}},
-        .titleAdventureMenuPos = {{0, 0}},
-        .titleRaceTypeMenuPos = {{0, 0}},
-        .titlePlayersMenuPos = {{0, 0}},
-        .titleDifficultyMenuPos = {{0, 0}},
+        .titleMainMenuPos = {0x180, 0x6c},
+        .titleAdventureMenuPos = {0, 0},
+        .titleRaceTypeMenuPos = {0, 0},
+        .titlePlayersMenuPos = {0, 0},
+        .titleDifficultyMenuPos = {0, 0},
 
-        .titleBaseCameraPos = {{0x32, 0xFFE2, 0x64}},
+        .titleBaseCameraPos = {0x32, 0xFFE2, 0x64},
 
         .transitionMeta_Menu =
             {
@@ -529,8 +529,8 @@ struct OverlayDATA_230 D230 =
 
         .characterSelectDriverModel =
             {
-                .pos = {{0, 0x28, 0xFA}},
-                .rot = {{0x800, 0, 0}},
+                .pos = {0, 0x28, 0xFA},
+                .rot = {0x800, 0, 0},
                 .moveFrames = 4,
                 .slideDistance = 0x8C,
             },

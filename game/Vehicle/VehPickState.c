@@ -268,7 +268,7 @@ int VehPickState_NewState(struct Driver *victimDriver, int damageType, struct Dr
 		struct PushBuffer *pb = &sdata->gGT->pushBuffer[attackDriver->driverID];
 
 		SVec2 posScreen;
-		RB_Fruit_GetScreenCoords(pb, attackDriver->instSelf, posScreen.v);
+		RB_Fruit_GetScreenCoords(pb, attackDriver->instSelf, CTR_VECTOR_DATA(&(posScreen)));
 
 		// screenPosXY
 		attackDriver->BattleHUD.startX = pb->rect.x + posScreen.x;

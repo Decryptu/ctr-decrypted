@@ -867,7 +867,7 @@ WarpPad_AnimateOpen:
 				}
 
 				rewardScale2 = (u32)(rewardScale2 * rewardScale) >> 8;
-				CTR_SET_VEC3(instArr[WPIS_OPEN_PRIZE1 + i]->scale.v, (s16)rewardScale2, (s16)rewardScale2, (s16)rewardScale2);
+				CTR_SET_VEC3(CTR_VECTOR_DATA(&(instArr[WPIS_OPEN_PRIZE1 + i]->scale)), (s16)rewardScale2, (s16)rewardScale2, (s16)rewardScale2);
 			}
 		}
 
@@ -1133,13 +1133,13 @@ void AH_WarpPad_LInB(struct Instance *inst)
 			warppadObj->thirds[i] = AH_WP_REWARD_SPACING_ANGLE * i;
 		}
 
-		CTR_SET_VEC3(warppadObj->spinRot_Prize.v, 0, 0, 0);
+		CTR_SET_VEC3(CTR_VECTOR_DATA(&(warppadObj->spinRot_Prize)), 0, 0, 0);
 
-		CTR_SET_VEC3(warppadObj->spinRot_Beam.v, 0, 0, 0);
+		CTR_SET_VEC3(CTR_VECTOR_DATA(&(warppadObj->spinRot_Beam)), 0, 0, 0);
 
 		for (i = 0; i < AH_WP_WISP_COUNT; i++)
 		{
-			CTR_SET_VEC3(warppadObj->spinRot_Wisp[i].v, 0, 0, 0);
+			CTR_SET_VEC3(CTR_VECTOR_DATA(&(warppadObj->spinRot_Wisp[i])), 0, 0, 0);
 		}
 
 		if (levelID < AH_WP_ID_SLIDE_COLISEUM)
@@ -1169,7 +1169,7 @@ void AH_WarpPad_LInB(struct Instance *inst)
 					{
 						newInst->colorRGBA = INST_COLOR_SAPPHIRE_RELIC;
 						newInst->flags |= USE_SPECULAR_LIGHT;
-						CTR_SET_VEC3(newInst->scale.v, AH_WP_RELIC_PRIZE_SCALE, AH_WP_RELIC_PRIZE_SCALE, AH_WP_RELIC_PRIZE_SCALE);
+						CTR_SET_VEC3(CTR_VECTOR_DATA(&(newInst->scale)), AH_WP_RELIC_PRIZE_SCALE, AH_WP_RELIC_PRIZE_SCALE, AH_WP_RELIC_PRIZE_SCALE);
 					}
 
 					else if (rewardModelID == STATIC_TOKEN)
@@ -1184,12 +1184,12 @@ void AH_WarpPad_LInB(struct Instance *inst)
 
 						warppadObj->lightDirToken = D232.lightDirToken[tokenGroupID];
 
-						CTR_SET_VEC3(newInst->scale.v, AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE);
+						CTR_SET_VEC3(CTR_VECTOR_DATA(&(newInst->scale)), AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE);
 					}
 
 					else
 					{
-						CTR_SET_VEC3(newInst->scale.v, AH_WP_TROPHY_PRIZE_SCALE, AH_WP_TROPHY_PRIZE_SCALE, AH_WP_TROPHY_PRIZE_SCALE);
+						CTR_SET_VEC3(CTR_VECTOR_DATA(&(newInst->scale)), AH_WP_TROPHY_PRIZE_SCALE, AH_WP_TROPHY_PRIZE_SCALE, AH_WP_TROPHY_PRIZE_SCALE);
 					}
 
 					rewardAngle += AH_WP_REWARD_SPACING_ANGLE;
@@ -1218,7 +1218,7 @@ void AH_WarpPad_LInB(struct Instance *inst)
 				newInst->matrix.t[1] = inst->matrix.t[1] + AH_WP_FLOATING_OBJECT_HEIGHT;
 				newInst->matrix.t[2] = inst->matrix.t[2];
 
-				CTR_SET_VEC3(newInst->scale.v, AH_WP_RELIC_PRIZE_SCALE, AH_WP_RELIC_PRIZE_SCALE, AH_WP_RELIC_PRIZE_SCALE);
+				CTR_SET_VEC3(CTR_VECTOR_DATA(&(newInst->scale)), AH_WP_RELIC_PRIZE_SCALE, AH_WP_RELIC_PRIZE_SCALE, AH_WP_RELIC_PRIZE_SCALE);
 
 				warppadObj->inst[WPIS_OPEN_PRIZE1] = newInst;
 			}
@@ -1249,7 +1249,7 @@ void AH_WarpPad_LInB(struct Instance *inst)
 			newInst->matrix.t[1] = inst->matrix.t[1] + AH_WP_FLOATING_OBJECT_HEIGHT;
 			newInst->matrix.t[2] = inst->matrix.t[2];
 
-			CTR_SET_VEC3(newInst->scale.v, AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE);
+			CTR_SET_VEC3(CTR_VECTOR_DATA(&(newInst->scale)), AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE);
 
 			warppadObj->inst[WPIS_OPEN_PRIZE2] = newInst;
 
@@ -1282,7 +1282,7 @@ void AH_WarpPad_LInB(struct Instance *inst)
 
 					warppadObj->lightDirRelic = D232.lightDirRelic[0];
 
-					CTR_SET_VEC3(newInst->scale.v, AH_WP_RELIC_PRIZE_SCALE, AH_WP_RELIC_PRIZE_SCALE, AH_WP_RELIC_PRIZE_SCALE);
+					CTR_SET_VEC3(CTR_VECTOR_DATA(&(newInst->scale)), AH_WP_RELIC_PRIZE_SCALE, AH_WP_RELIC_PRIZE_SCALE, AH_WP_RELIC_PRIZE_SCALE);
 
 					warppadObj->inst[WPIS_OPEN_PRIZE1] = newInst;
 				}
@@ -1338,7 +1338,7 @@ void AH_WarpPad_LInB(struct Instance *inst)
 
 				warppadObj->lightDirToken = D232.lightDirToken[tokenGroupID];
 
-				CTR_SET_VEC3(newInst->scale.v, AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE);
+				CTR_SET_VEC3(CTR_VECTOR_DATA(&(newInst->scale)), AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE);
 
 				warppadObj->inst[WPIS_OPEN_PRIZE1] = newInst;
 
@@ -1379,7 +1379,7 @@ void AH_WarpPad_LInB(struct Instance *inst)
 			// store in Gem array
 			warppadObj->lightDirGem = D232.lightDirGem[i];
 
-			CTR_SET_VEC3(newInst->scale.v, AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE);
+			CTR_SET_VEC3(CTR_VECTOR_DATA(&(newInst->scale)), AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE);
 
 			// for matrix copy
 			goto SlideColTurboTrack;
@@ -1412,7 +1412,7 @@ void AH_WarpPad_LInB(struct Instance *inst)
 	newInst->matrix.t[1] = inst->matrix.t[1] + AH_WP_FLOATING_OBJECT_HEIGHT;
 	newInst->matrix.t[2] = inst->matrix.t[2];
 
-	CTR_SET_VEC3(newInst->scale.v, AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE);
+	CTR_SET_VEC3(CTR_VECTOR_DATA(&(newInst->scale)), AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE);
 
 	// no specular for trophy
 	if (unlockItem_modelID != STATIC_TROPHY)
@@ -1471,7 +1471,7 @@ void AH_WarpPad_LInB(struct Instance *inst)
 	newInst->matrix.t[1] = inst->matrix.t[1] + AH_WP_FLOATING_OBJECT_HEIGHT;
 	newInst->matrix.t[2] = inst->matrix.t[2];
 
-	CTR_SET_VEC3(newInst->scale.v, AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE);
+	CTR_SET_VEC3(CTR_VECTOR_DATA(&(newInst->scale)), AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE);
 
 	// always face camera
 	newInst->model->headers[0].flags |= 1;
@@ -1490,7 +1490,7 @@ void AH_WarpPad_LInB(struct Instance *inst)
 		newInst->matrix.t[1] = inst->matrix.t[1] + AH_WP_FLOATING_OBJECT_HEIGHT;
 		newInst->matrix.t[2] = inst->matrix.t[2];
 
-		CTR_SET_VEC3(newInst->scale.v, AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE);
+		CTR_SET_VEC3(CTR_VECTOR_DATA(&(newInst->scale)), AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE);
 
 		// always face camera
 		for (i = 0; i < newInst->model->numHeaders; i++)
@@ -1522,7 +1522,7 @@ void AH_WarpPad_LInB(struct Instance *inst)
 	newInst->matrix.t[1] = inst->matrix.t[1] + AH_WP_FLOATING_OBJECT_HEIGHT;
 	newInst->matrix.t[2] = inst->matrix.t[2];
 
-	CTR_SET_VEC3(newInst->scale.v, AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE);
+	CTR_SET_VEC3(CTR_VECTOR_DATA(&(newInst->scale)), AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE, AH_WP_STANDARD_ITEM_SCALE);
 
 	// always face camera
 	for (i = 0; i < newInst->model->numHeaders; i++)

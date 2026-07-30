@@ -102,7 +102,7 @@ void GhostReplay_ThTick(struct Thread *t)
 					for (s32 i = 0; i < 3; ++i)
 					{
 						u16 rawValue = Ghost_ReadBE16(&packetPtr[1 + i * 2]);
-						tmpPos.v[i] = (s16)(((s32)((u32)rawValue << 0x10)) >> 0xd);
+						CTR_VECTOR_DATA(&(tmpPos))[i] = (s16)(((s32)((u32)rawValue << 0x10)) >> 0xd);
 					}
 					packet->pos = tmpPos;
 
@@ -159,7 +159,7 @@ void GhostReplay_ThTick(struct Thread *t)
 			{
 				for (s32 i = 0; i < 3; ++i)
 				{
-					tmpPos.v[i] += (s16)((s8)packetPtr[i]) * 8;
+					CTR_VECTOR_DATA(&(tmpPos))[i] += (s16)((s8)packetPtr[i]) * 8;
 				}
 				packet->pos = tmpPos;
 

@@ -335,7 +335,7 @@ u32 COLL_FIXED_INSTANC_TestPoint(struct ScratchpadStruct *sps, struct BSP *node)
 
 	if ((sps->Union.QuadBlockColl.searchFlags & COLL_SEARCH_FORCE_INSTANCE_HIT) != 0)
 	{
-		CTR_SET_VEC3(sps->hit.plane.normal.v, 0, COLL_FRACTION_ONE, 0);
+		CTR_SET_VEC3(CTR_VECTOR_DATA(&(sps->hit.plane.normal)), 0, COLL_FRACTION_ONE, 0);
 		sps->hit.reorderResult = COLL_TRIANGLE_CLIP_FACE;
 		sps->hitFraction = 0;
 		sps->bspHitbox = node;
@@ -509,7 +509,7 @@ u32 COLL_FIXED_INSTANC_TestPoint(struct ScratchpadStruct *sps, struct BSP *node)
 	scratch->normal.z = normalZ;
 
 	sps->Union.QuadBlockColl.hitPos.x = (s16)CTR_MipsAddLo((u16)sps->Union.QuadBlockColl.pos.x, hitX);
-	CTR_SET_VEC3(sps->hit.plane.normal.v, (s16)normalX, (s16)normalY, (s16)normalZ);
+	CTR_SET_VEC3(CTR_VECTOR_DATA(&(sps->hit.plane.normal)), (s16)normalX, (s16)normalY, (s16)normalZ);
 	sps->Union.QuadBlockColl.hitPos.z = (s16)CTR_MipsAddLo((u16)sps->Union.QuadBlockColl.pos.z, hitZ);
 	sps->Union.QuadBlockColl.hitPos.y = (s16)CTR_MipsAddLo((u16)sps->Union.QuadBlockColl.pos.y, hitY);
 	sps->hit.reorderResult = COLL_TRIANGLE_CLIP_FACE;
@@ -606,15 +606,15 @@ void COLL_FIXED_BotsSearch(const SVec3 *posCurr, const SVec3 *posPrev, struct Sc
 
 	for (s32 axis = 0; axis < 3; axis++)
 	{
-		s16 curr = posCurr->v[axis];
-		s16 prev = posPrev->v[axis];
+		s16 curr = CTR_VECTOR_DATA(posCurr)[axis];
+		s16 prev = CTR_VECTOR_DATA(posPrev)[axis];
 		s32 deltaCurr = CTR_MipsSubLo(curr, radius);
 		s32 deltaPrev = CTR_MipsSubLo(prev, radius);
-		sps->bbox.min.v[axis] = (deltaCurr < deltaPrev) ? deltaCurr : deltaPrev;
+		CTR_VECTOR_DATA(&(sps->bbox.min))[axis] = (deltaCurr < deltaPrev) ? deltaCurr : deltaPrev;
 
 		deltaCurr = CTR_MipsAddLo(curr, radius);
 		deltaPrev = CTR_MipsAddLo(prev, radius);
-		sps->bbox.max.v[axis] = (deltaCurr > deltaPrev) ? deltaCurr : deltaPrev;
+		CTR_VECTOR_DATA(&(sps->bbox.max))[axis] = (deltaCurr > deltaPrev) ? deltaCurr : deltaPrev;
 	}
 
 	sps->numTrianglesTested = 0;
@@ -685,7 +685,7 @@ internal void COLL_FIXED_TRIANGL_TestPoint_Body(struct ScratchpadStruct *sps, st
 	s32 hitY = CollFixed_GteReadMAC2();
 	s32 hitZ = CollFixed_GteReadMAC3();
 
-	CTR_SET_VEC3(sps->candidate.hitPos.v, (s16)hitX, (s16)hitY, (s16)hitZ);
+	CTR_SET_VEC3(CTR_VECTOR_DATA(&(sps->candidate.hitPos)), (s16)hitX, (s16)hitY, (s16)hitZ);
 
 	struct BspSearchVertex *baryVertex1 = v2;
 	struct BspSearchVertex *baryVertex2 = v3;
@@ -1921,7 +1921,7 @@ KeepNormal:;
 	s32 hitY = CollFixed_GteReadMAC2();
 	s32 hitZ = CollFixed_GteReadMAC3();
 
-	CTR_SET_VEC3(sps->candidate.pushOut.v, (s16)CTR_MipsSubLo(sps->Input1.pos.x, hitX), (s16)CTR_MipsSubLo(sps->Input1.pos.y, hitY),
+	CTR_SET_VEC3(CTR_VECTOR_DATA(&(sps->candidate.pushOut)), (s16)CTR_MipsSubLo(sps->Input1.pos.x, hitX), (s16)CTR_MipsSubLo(sps->Input1.pos.y, hitY),
 	             (s16)CTR_MipsSubLo(sps->Input1.pos.z, hitZ));
 
 	sps->hitBspSearchTriangle.v0 = v1;
@@ -2179,8 +2179,8 @@ internal void CollMoved_PlayerSearch_SetBBoxAxis(struct ScratchpadStruct *sps, s
 	s32 maxCurrent = CTR_MipsAddLo(current, radius);
 	s32 maxNext = CTR_MipsAddLo(next, radius);
 
-	sps->bbox.min.v[axis] = (minNext < minCurrent) ? minNext : minCurrent;
-	sps->bbox.max.v[axis] = (maxCurrent < maxNext) ? maxNext : maxCurrent;
+	CTR_VECTOR_DATA(&(sps->bbox.min))[axis] = (minNext < minCurrent) ? minNext : minCurrent;
+	CTR_VECTOR_DATA(&(sps->bbox.max))[axis] = (maxCurrent < maxNext) ? maxNext : maxCurrent;
 }
 
 internal int CollMoved_PlayerSearch_RunHitboxLInC(struct ScratchpadStruct *sps, struct Thread *t)

@@ -41,8 +41,8 @@ void AH_MaskHint_Start(s16 hintId, u16 bool_interruptWarppad)
 
 	int offsetSlot = bool_interruptWarppad & AH_MASKHINT_OFFSET_WARPPAD_INTERRUPT;
 
-	CTR_COPY_VEC3(D232.maskOffsetPos.v, D232.maskHintOffsets.pos[offsetSlot].v);
-	CTR_COPY_VEC3(D232.maskOffsetRot.v, D232.maskHintOffsets.rot[offsetSlot].v);
+	CTR_COPY_VEC3(CTR_VECTOR_DATA(&(D232.maskOffsetPos)), CTR_VECTOR_DATA(&(D232.maskHintOffsets.pos[offsetSlot])));
+	CTR_COPY_VEC3(CTR_VECTOR_DATA(&(D232.maskOffsetRot)), CTR_VECTOR_DATA(&(D232.maskHintOffsets.rot[offsetSlot])));
 
 	for (int i = 0; i < 3; i++)
 	{
@@ -80,7 +80,7 @@ void AH_MaskHint_SetAnim(int scale)
 	Vec3 posEndInt;
 	SVec3 posEnd;
 
-	CTR_GteStoreMAC(posEndInt.v);
+	CTR_GteStoreMAC(CTR_VECTOR_DATA(&(posEndInt)));
 
 	posEnd.x = posEndInt.x;
 	posEnd.y = posEndInt.y;
@@ -271,9 +271,9 @@ void AH_MaskHint_Update()
 		{
 			struct CameraDC *cdc = &gGT->cameraDC[0];
 
-			CTR_COPY_VEC3(cdc->driverOffset_CamEyePos.v, D232.eyePos.v);
+			CTR_COPY_VEC3(CTR_VECTOR_DATA(&(cdc->driverOffset_CamEyePos)), CTR_VECTOR_DATA(&(D232.eyePos)));
 
-			CTR_COPY_VEC3(cdc->driverOffset_CamLookAtPos.v, D232.lookAtPos.v);
+			CTR_COPY_VEC3(CTR_VECTOR_DATA(&(cdc->driverOffset_CamLookAtPos)), CTR_VECTOR_DATA(&(D232.lookAtPos)));
 
 			cdc->flags |= 8;
 
@@ -308,7 +308,7 @@ void AH_MaskHint_Update()
 		D232.maskCamRotStart.z = matrixRot.vz & 0xfff;
 		D232.maskCamRotStart.y = matrixRot.vx & 0xfff;
 
-		CTR_COPY_VEC3(D232.maskCamPosStart.v, dInst->matrix.t);
+		CTR_COPY_VEC3(CTR_VECTOR_DATA(&(D232.maskCamPosStart)), dInst->matrix.t);
 
 		((struct MaskHint *)mhInst->thread->object)->scale = 0;
 

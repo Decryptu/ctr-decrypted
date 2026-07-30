@@ -245,7 +245,7 @@ void UI_RenderFrame_Racing()
 					}
 					else
 					{
-						UI_Lerp2D_HUD(wumpaModelPos.v, (int)playerStruct->PickupWumpaHUD.startX, (int)playerStruct->PickupWumpaHUD.startY,
+						UI_Lerp2D_HUD(CTR_VECTOR_DATA(&(wumpaModelPos)), (int)playerStruct->PickupWumpaHUD.startX, (int)playerStruct->PickupWumpaHUD.startY,
 						              hudStructPtr[UI_HUD_SLOT_FRUIT_MODEL].x, hudStructPtr[UI_HUD_SLOT_FRUIT_MODEL].y, playerStruct->PickupWumpaHUD.cooldown,
 						              5);
 
@@ -308,8 +308,8 @@ void UI_RenderFrame_Racing()
 					// PickupLetterHUD.startX and PickupLetterHUD.startY are start position of animation
 
 					// Interpolate from start pos to end pos
-					UI_Lerp2D_HUD(letterCtrPos.v, playerStruct->PickupLetterHUD.startX, playerStruct->PickupLetterHUD.startY, (int)letterCtrPos.x,
-					              (int)letterCtrPos.y, (int)playerStruct->PickupLetterHUD.cooldown, 10);
+					UI_Lerp2D_HUD(CTR_VECTOR_DATA(&(letterCtrPos)), playerStruct->PickupLetterHUD.startX, playerStruct->PickupLetterHUD.startY,
+					              (int)letterCtrPos.x, (int)letterCtrPos.y, (int)playerStruct->PickupLetterHUD.cooldown, 10);
 
 					curr->matrix.t[0] = UI_ConvertX_2((int)letterCtrPos.x, 0x200);
 					curr->matrix.t[1] = UI_ConvertY_2((int)letterCtrPos.y, 0x200);
@@ -342,7 +342,7 @@ void UI_RenderFrame_Racing()
 					sprintf(&string[0], &sdata->s_subtractLongInt[0], gGT->timeCrateTypeSmashed);
 
 					// 4b4 and 4b6 are WindowStartPos(x,y) from PushBuffer, inside Driver
-					UI_Lerp2D_HUD(wumpaModelPos.v, playerStruct->PickupTimeboxHUD.startX, playerStruct->PickupTimeboxHUD.startY, 0x14, 8,
+					UI_Lerp2D_HUD(CTR_VECTOR_DATA(&(wumpaModelPos)), playerStruct->PickupTimeboxHUD.startX, playerStruct->PickupTimeboxHUD.startY, 0x14, 8,
 					              playerStruct->PickupTimeboxHUD.cooldown, 10);
 
 					// Decrease remaining number of frames for this to be on screen
@@ -401,7 +401,7 @@ void UI_RenderFrame_Racing()
 
 					sprintf((char *)&string[0], fmt, partTimeVariable1);
 
-					UI_Lerp2D_HUD(wumpaModelPos.v, (int)playerStruct->BattleHUD.startX, (int)playerStruct->BattleHUD.startY,
+					UI_Lerp2D_HUD(CTR_VECTOR_DATA(&(wumpaModelPos)), (int)playerStruct->BattleHUD.startX, (int)playerStruct->BattleHUD.startY,
 					              (int)(hudStructPtr[UI_HUD_SLOT_BATTLE_SCORE].x + 0x20), (int)(hudStructPtr[UI_HUD_SLOT_BATTLE_SCORE].y + 8),
 					              playerStruct->BattleHUD.cooldown, 5);
 
@@ -658,7 +658,7 @@ void UI_RenderFrame_Racing()
 			if (sdata->TurboDisplayPos_Only1P != 0)
 			{
 				// Interpolate the turbo counter slide in from the right
-				UI_Lerp2D_Linear(turboCountPos.v, 0x2c8, 0x20, 500, 0x20, sdata->TurboDisplayPos_Only1P, 10);
+				UI_Lerp2D_Linear(CTR_VECTOR_DATA(&(turboCountPos)), 0x2c8, 0x20, 500, 0x20, sdata->TurboDisplayPos_Only1P, 10);
 
 				// The actual counter number will continue to
 				// increase past 1000, but the on-screen text
@@ -1001,8 +1001,8 @@ void UI_RenderFrame_CrystChall(void)
 	else
 	{
 		// interpolate position over course of 5 frames
-		UI_Lerp2D_HUD(crystalPos.v, (int)player->PickupWumpaHUD.startX, (int)player->PickupWumpaHUD.startY, (int)hudStructPtr[UI_HUD_SLOT_CRYSTAL].x,
-		              (int)hudStructPtr[UI_HUD_SLOT_CRYSTAL].y, player->PickupWumpaHUD.cooldown, 5);
+		UI_Lerp2D_HUD(CTR_VECTOR_DATA(&(crystalPos)), (int)player->PickupWumpaHUD.startX, (int)player->PickupWumpaHUD.startY,
+		              (int)hudStructPtr[UI_HUD_SLOT_CRYSTAL].x, (int)hudStructPtr[UI_HUD_SLOT_CRYSTAL].y, player->PickupWumpaHUD.cooldown, 5);
 
 		// reduce cooldown between getting each wumpa (or crystal)
 		player->PickupWumpaHUD.cooldown--;

@@ -235,7 +235,7 @@ void VehBirth_TeleportSelf(struct Driver *d, u8 spawnFlag, int spawnPosY)
 			}
 			else
 			{
-				warppadRot = AH_WarpPad_GetSpawnPosRot(warppadPos.v);
+				warppadRot = AH_WarpPad_GetSpawnPosRot(CTR_VECTOR_DATA(&(warppadPos)));
 				VehBirth_SetBottomFromPos(&posBottom, &warppadPos);
 			}
 		}

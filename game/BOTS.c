@@ -489,7 +489,7 @@ void BOTS_SetRotation(struct Driver *bot, int useSpawnYaw)
 {
 	struct NavFrame *nf = bot->botData.botNavFrame;
 
-	CTR_SET_VEC3(bot->botData.aiPhysics.velocity.v, 0, 0, 0);
+	CTR_SET_VEC3(CTR_VECTOR_DATA(&(bot->botData.aiPhysics.velocity)), 0, 0, 0);
 
 	// ======== Get Driver Position =============
 
@@ -673,7 +673,7 @@ void BOTS_MaskGrab(struct Thread *botThread)
 	bot->botData.aiPhysics.reserved_0x5cc = 0;
 	bot->botData.aiPhysics.speedY = 0;
 	bot->botData.aiPhysics.speedLinear = 0;
-	CTR_SET_VEC3(bot->botData.aiPhysics.velocity.v, 0, 0, 0);
+	CTR_SET_VEC3(CTR_VECTOR_DATA(&(bot->botData.aiPhysics.velocity)), 0, 0, 0);
 
 	bot->actionsFlagSet |= ACTION_TOUCH_GROUND;
 
@@ -968,7 +968,7 @@ UpdateTireColorTimer:
 	}
 
 	struct DriverCollisionSearch driverSearch;
-	CTR_SET_VEC3(driverSearch.bucket.pos.v, (s16)CTR_MipsSra(botDriver->posCurr.x, FRACTIONAL_BITS_8),
+	CTR_SET_VEC3(CTR_VECTOR_DATA(&(driverSearch.bucket.pos)), (s16)CTR_MipsSra(botDriver->posCurr.x, FRACTIONAL_BITS_8),
 	             (s16)CTR_MipsSra(botDriver->posCurr.y, FRACTIONAL_BITS_8), (s16)CTR_MipsSra(botDriver->posCurr.z, FRACTIONAL_BITS_8));
 	driverSearch.bucket.th = NULL;
 	driverSearch.bucket.bestDistSq = 0x7fffffff;
@@ -1995,7 +1995,7 @@ UpdateTireColorTimer:
 
 			botDriver->botData.ai_quadblock_checkpointIndex = sps->hit.ptrQuadblock->checkpointIndex;
 
-			VehPhysForce_RotAxisAngle(&botInstance->matrix, sps->hit.plane.normal.v, botDriver->botData.aiRot.y);
+			VehPhysForce_RotAxisAngle(&botInstance->matrix, CTR_VECTOR_DATA(&(sps->hit.plane.normal)), botDriver->botData.aiRot.y);
 
 			botDriver->AxisAngle3_normalVec = sps->hit.plane.normal;
 
@@ -2561,7 +2561,7 @@ UpdateTireColorTimer:
 		botInstance->compressedNormalAndDriverIndex = INST_CompressNormalVectorAndDriverIndex(m.m[0][1], m.m[1][1], m.m[2][1], botDriver->driverID);
 	}
 
-	ConvertRotToMatrix(&botInstance->matrix, &botDriver->rotCurr.vec);
+	ConvertRotToMatrix(&botInstance->matrix, SVec3Slot_AsVec3(&botDriver->rotCurr));
 
 	// c is row-major (i.e., ticking the rightmost indeces has smaller memory address delta vs ticking the leftmost indeces)
 	botDriver->AxisAngle2_normalVec.x = botInstance->matrix.m[0][1];
@@ -2695,7 +2695,7 @@ FinishHazardTimerUpdate:
 
 	VehPhysForce_TranslateMatrix(botThread, botDriver);
 
-	VehPhysForce_RotAxisAngle(&botDriver->matrixMovingDir, botDriver->AxisAngle2_normalVec.v, botDriver->angle);
+	VehPhysForce_RotAxisAngle(&botDriver->matrixMovingDir, CTR_VECTOR_DATA(&(botDriver->AxisAngle2_normalVec)), botDriver->angle);
 
 	VehFrameProc_Driving(botThread, botDriver);
 
@@ -3005,8 +3005,8 @@ void BOTS_GotoStartingLine(struct Driver *d)
 	d->botData.aiPhysics.reserved_0x5cc = 0;
 	d->botData.aiPhysics.speedY = 0;
 	d->botData.aiPhysics.speedLinear = 0;
-	CTR_SET_VEC3(d->botData.aiPhysics.accel.v, 0, 0, 0);
-	CTR_SET_VEC3(d->botData.aiPhysics.velocity.v, 0, 0, 0);
+	CTR_SET_VEC3(CTR_VECTOR_DATA(&(d->botData.aiPhysics.accel)), 0, 0, 0);
+	CTR_SET_VEC3(CTR_VECTOR_DATA(&(d->botData.aiPhysics.velocity)), 0, 0, 0);
 
 	d->botData.positionBackup.x = d->posCurr.x;
 	d->botData.positionBackup.y = d->posCurr.y;

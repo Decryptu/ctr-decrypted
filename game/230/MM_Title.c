@@ -325,11 +325,13 @@ void MM_Title_CameraMove(struct Title *title, s32 frameIndex)
 	for (s32 axisIndex = 0; axisIndex < 3; axisIndex++)
 	{
 		// position XYZ
-		gGT->pushBuffer[0].pos.v[axisIndex] =
-		    title->cameraPosOffset.v[axisIndex] + cameraFrame->pos.v[axisIndex] + (s16)((D230.titleCameraPos.v[axisIndex] * result) >> 0xc);
+		CTR_VECTOR_DATA(&(gGT->pushBuffer[0].pos))
+		[axisIndex] = CTR_VECTOR_DATA(&(title->cameraPosOffset))[axisIndex] + CTR_VECTOR_DATA(&(cameraFrame->pos))[axisIndex] +
+		              (s16)((CTR_VECTOR_DATA(&(D230.titleCameraPos))[axisIndex] * result) >> 0xc);
 
 		// rotation XYZ
-		gGT->pushBuffer[0].rot.v[axisIndex] = cameraFrame->rot.v[axisIndex] + (s16)((D230.titleCameraRot.v[axisIndex] * result) >> 0xc);
+		CTR_VECTOR_DATA(&(gGT->pushBuffer[0].rot))
+		[axisIndex] = CTR_VECTOR_DATA(&(cameraFrame->rot))[axisIndex] + (s16)((CTR_VECTOR_DATA(&(D230.titleCameraRot))[axisIndex] * result) >> 0xc);
 	}
 }
 

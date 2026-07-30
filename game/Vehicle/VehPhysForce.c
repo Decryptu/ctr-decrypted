@@ -608,8 +608,8 @@ void VehPhysForce_CollideDrivers(struct Thread *thread, struct Driver *driver)
 	{
 		struct DriverCollisionSearch search;
 
-		CTR_SET_VEC3(search.bucket.pos.v, (s16)CTR_MipsSra(driver->posCurr.x, FRACTIONAL_BITS_8), (s16)CTR_MipsSra(driver->posCurr.y, FRACTIONAL_BITS_8),
-		             (s16)CTR_MipsSra(driver->posCurr.z, FRACTIONAL_BITS_8));
+		CTR_SET_VEC3(CTR_VECTOR_DATA(&(search.bucket.pos)), (s16)CTR_MipsSra(driver->posCurr.x, FRACTIONAL_BITS_8),
+		             (s16)CTR_MipsSra(driver->posCurr.y, FRACTIONAL_BITS_8), (s16)CTR_MipsSra(driver->posCurr.z, FRACTIONAL_BITS_8));
 		search.bucket.th = NULL;
 		search.bucket.bestDistSq = VEH_PHYS_FORCE_COLLISION_BEST_DIST_INIT;
 
@@ -1046,7 +1046,7 @@ void VehPhysForce_TranslateMatrix(struct Thread *thread, struct Driver *driver)
 	struct Instance *inst = thread->inst;
 
 	VehPhysForce_TranslateMatrix_UpdateSquashStretch(inst, driver);
-	VehPhysForce_RotAxisAngle(&driver->matrixFacingDir, driver->AxisAngle2_normalVec.v, driver->rotCurr.y);
+	VehPhysForce_RotAxisAngle(&driver->matrixFacingDir, CTR_VECTOR_DATA(&(driver->AxisAngle2_normalVec)), driver->rotCurr.y);
 	VehPhysForce_TranslateMatrix_UpdateMatrixAnimation(driver);
 	VehPhysForce_TranslateMatrix_UpdateInstanceMatrix(inst, driver);
 	VehPhysForce_TranslateMatrix_UpdateWake(inst, driver);

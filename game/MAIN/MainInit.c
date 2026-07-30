@@ -510,7 +510,7 @@ void MainInit_FinalizeInit(struct GameTracker *gGT)
 		inst = d->instSelf;
 		if (inst != 0)
 		{
-			inst->scale = (SVec3){{0xccc, 0xccc, 0xccc}};
+			inst->scale = (SVec3){0xccc, 0xccc, 0xccc};
 		}
 
 		if (i < gGT->numPlyrCurrGame)
