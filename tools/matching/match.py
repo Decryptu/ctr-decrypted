@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import difflib
 import hashlib
 import json
 import re
@@ -16,6 +17,7 @@ from typing import Any, Iterable
 
 
 ROOT = Path(__file__).resolve().parents[2]
+PIPELINE = Path(__file__).resolve()
 METADATA = ROOT / "metadata" / "retail" / "ntsc-u-926"
 DEFAULT_MANIFEST = METADATA / "matching.json"
 BUILD = ROOT / "build" / "matching" / "ntsc-u-926"
@@ -91,6 +93,18 @@ def probe_by_symbol(manifest: dict[str, Any], symbol: str) -> dict[str, Any]:
             return probe
     names = ", ".join(probe["symbol"] for probe in manifest["compiler_probes"])
     raise MatchError(f"unknown compiler probe {symbol!r}; available: {names}")
+
+
+def artifact_build_by_id(
+    manifest: dict[str, Any], artifact_id: str
+) -> dict[str, Any]:
+    for build in manifest.get("artifact_builds", []):
+        if build["artifact"] == artifact_id:
+            return build
+    names = ", ".join(
+        build["artifact"] for build in manifest.get("artifact_builds", [])
+    )
+    raise MatchError(f"artifact {artifact_id!r} is not buildable; available: {names}")
 
 
 def reference_root(manifest: dict[str, Any], override: str | None) -> Path:
@@ -319,7 +333,7 @@ def repository_path(value: str) -> Path:
     try:
         path.relative_to(ROOT)
     except ValueError as exc:
-        raise MatchError(f"toolchain path escapes the repository: {value}") from exc
+        raise MatchError(f"path escapes the repository: {value}") from exc
     return path
 
 
@@ -448,6 +462,76 @@ def run_checked(command: list[str], stdin_path: Path | None = None) -> None:
         raise MatchError(f"command failed ({result.returncode}): {rendered}{suffix}")
 
 
+def compile_c(
+    toolchain: Toolchain,
+    source: Path,
+    assembly: Path,
+    flags: Iterable[str],
+    include_directories: Iterable[Path] = (),
+    forced_includes: Iterable[Path] = (),
+    dependency_file: Path | None = None,
+) -> None:
+    command = [
+        str(toolchain.compiler),
+        f"-B{toolchain.compiler_directory}/",
+        "-x",
+        "c",
+        "-S",
+        "-o",
+        str(assembly),
+        *flags,
+    ]
+    if dependency_file is not None:
+        command.append(f"-Wp,-MD,{dependency_file}")
+    command.extend(f"-I{path}" for path in include_directories)
+    for path in forced_includes:
+        command.extend(["-include", str(path)])
+    command.append(str(source))
+    run_checked(command)
+
+
+def assemble_psx(
+    toolchain: Toolchain,
+    assembly: Path,
+    object_file: Path,
+    aspsx_version: str,
+    small_data_limit: int,
+) -> None:
+    run_checked(
+        [
+            sys.executable,
+            str(toolchain.maspsx),
+            f"--aspsx-version={aspsx_version}",
+            "--run-assembler",
+            f"--gnu-as-path={toolchain.binutils['as']}",
+            "--dont-force-G0",
+            f"-G{small_data_limit}",
+            "-o",
+            str(object_file),
+        ],
+        stdin_path=assembly,
+    )
+
+
+def extract_binary_section(
+    toolchain: Toolchain,
+    source: Path,
+    section: str,
+    output: Path,
+) -> None:
+    run_checked(
+        [
+            str(toolchain.binutils["objcopy"]),
+            "-O",
+            "binary",
+            "-j",
+            section,
+            str(source),
+            str(output),
+        ]
+    )
+
+
 def mismatch_offsets(expected: bytes, actual: bytes, limit: int = 16) -> list[int]:
     offsets = [
         index
@@ -459,6 +543,274 @@ def mismatch_offsets(expected: bytes, actual: bytes, limit: int = 16) -> list[in
             range(min(len(actual), len(expected)), max(len(actual), len(expected)))
         )
     return offsets[:limit]
+
+
+def range_comparison(
+    expected: bytes,
+    actual: bytes,
+    ranges: list[dict[str, Any]],
+    symbols: dict[str, dict[str, int]] | None = None,
+) -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
+    symbols = symbols or {}
+    for item in ranges:
+        offset = parse_int(item["offset"])
+        size = parse_int(item["size"])
+        candidate_offset = offset
+        candidate_size = size
+        if symbol_name := item.get("candidate_symbol"):
+            if symbol_name not in symbols:
+                raise MatchError(
+                    f"linked artifact has no symbol named {symbol_name!r}"
+                )
+            candidate_offset = symbols[symbol_name]["offset"]
+            symbol_size = symbols[symbol_name]["size"]
+            if symbol_size:
+                candidate_size = min(size, symbol_size)
+        expected_slice = expected[offset : offset + size]
+        actual_slice = actual[candidate_offset : candidate_offset + candidate_size]
+        matching_bytes = sum(
+            left == right for left, right in zip(expected_slice, actual_slice)
+        )
+        result = {
+            **item,
+            "offset": offset,
+            "size": size,
+            "candidate_offset": candidate_offset,
+            "candidate_size": len(actual_slice),
+            "placement_delta": candidate_offset - offset,
+            "matching_bytes": matching_bytes,
+            "expected_sha256": sha256_bytes(expected_slice),
+            "candidate_sha256": sha256_bytes(actual_slice),
+            "content_exact": actual_slice == expected_slice,
+            "placement_exact": candidate_offset == offset,
+            "exact": candidate_offset == offset and actual_slice == expected_slice,
+        }
+        if item["kind"] == "code":
+            matching_words = sum(
+                actual_slice[index : index + 4] == expected_slice[index : index + 4]
+                for index in range(0, len(expected_slice), 4)
+                if len(actual_slice[index : index + 4]) == 4
+            )
+            result["matching_words"] = matching_words
+            result["total_words"] = len(expected_slice) // 4
+        results.append(result)
+    return results
+
+
+def linked_symbols(
+    objdump: Path, linked_object: Path, load_address: int
+) -> dict[str, dict[str, int]]:
+    output = command_output([str(objdump), "-t", str(linked_object)])
+    symbols: dict[str, dict[str, int]] = {}
+    for line in output.splitlines():
+        parts = line.split()
+        if (
+            len(parts) >= 3
+            and re.fullmatch(r"[0-9a-fA-F]{8}", parts[0])
+            and re.fullmatch(r"[0-9a-fA-F]{8}", parts[-2])
+        ):
+            address = int(parts[0], 16)
+            symbols[parts[-1]] = {
+                "address": address,
+                "offset": address - load_address,
+                "size": int(parts[-2], 16),
+            }
+    return symbols
+
+
+def normalized_objdump(command: list[str]) -> str:
+    output = command_output(command)
+    instruction = re.compile(r"^[0-9a-f]+:\s")
+    lines = [line.rstrip() for line in output.splitlines() if instruction.match(line)]
+    return "\n".join(lines) + "\n"
+
+
+def dependency_inputs(path: Path) -> list[str]:
+    text = path.read_text().replace("\\\n", " ")
+    try:
+        _, values = text.split(":", 1)
+    except ValueError as exc:
+        raise MatchError(f"invalid dependency file: {path}") from exc
+    inputs: list[str] = []
+    for value in values.split():
+        dependency = repository_path(value)
+        inputs.append(str(dependency.relative_to(ROOT)))
+    return inputs
+
+
+def artifact_build_input_hashes(
+    build: dict[str, Any], dependency_file: Path | None = None
+) -> dict[str, str]:
+    inputs = [
+        build["source"],
+        build["linker_script"],
+        *build.get("forced_includes", []),
+    ]
+    if dependency_file is not None:
+        inputs.extend(dependency_inputs(dependency_file))
+    inputs = list(dict.fromkeys(inputs))
+    return {value: sha256_file(repository_path(value)) for value in inputs}
+
+
+def artifact_inputs_are_current(
+    build: dict[str, Any], recorded: Any
+) -> bool:
+    if not isinstance(recorded, dict):
+        return False
+    declared = set(artifact_build_input_hashes(build))
+    if not declared.issubset(recorded):
+        return False
+    try:
+        return all(
+            sha256_file(repository_path(path)) == expected
+            for path, expected in recorded.items()
+        )
+    except (FileNotFoundError, MatchError):
+        return False
+
+
+def build_artifact(
+    manifest: dict[str, Any],
+    toolchain: Toolchain,
+    build: dict[str, Any],
+    references: Path,
+) -> dict[str, Any]:
+    artifact = artifact_by_id(manifest, build["artifact"])
+    verification = verify_references(manifest, references, {artifact["id"]})[0]
+    if verification["errors"]:
+        raise MatchError(
+            f"reference artifact {artifact['id']} failed verification: "
+            f"{'; '.join(verification['errors'])}"
+        )
+
+    source = repository_path(build["source"])
+    linker_script = repository_path(build["linker_script"])
+    include_directories = [
+        repository_path(directory) for directory in build["include_directories"]
+    ]
+    forced_includes = [
+        repository_path(path) for path in build.get("forced_includes", [])
+    ]
+    output = BUILD / "artifacts" / artifact["id"]
+    output.mkdir(parents=True, exist_ok=True)
+    assembly = output / f"{artifact['id']}.s"
+    object_file = output / f"{artifact['id']}.o"
+    linked_object = output / f"{artifact['id']}.elf"
+    candidate_binary = output / f"{artifact['id']}.bin"
+    dependency_file = output / f"{artifact['id']}.d"
+
+    aspsx_version = build.get("aspsx_version", toolchain.default_aspsx_version)
+    compile_c(
+        toolchain,
+        source,
+        assembly,
+        build["compiler_flags"],
+        include_directories,
+        forced_includes,
+        dependency_file,
+    )
+    assemble_psx(
+        toolchain,
+        assembly,
+        object_file,
+        aspsx_version,
+        build["small_data_limit"],
+    )
+
+    link_command = [
+        str(toolchain.binutils["ld"]),
+        "-T",
+        str(linker_script),
+        "-o",
+        str(linked_object),
+        f"--defsym=__overlay_load_address={artifact['load_address']}",
+        f"--defsym=__overlay_id={build['overlay_id']}",
+    ]
+    for symbol, address in build["symbols"].items():
+        link_command.append(f"--defsym={symbol}={address}")
+    link_command.append(str(object_file))
+    run_checked(link_command)
+    extract_binary_section(
+        toolchain,
+        linked_object,
+        build["output_section"],
+        candidate_binary,
+    )
+
+    expected_path = references / artifact["path"]
+    expected = expected_path.read_bytes()
+    actual = candidate_binary.read_bytes()
+    reconstructed = BUILD / "reconstructed" / artifact["path"]
+    reconstructed.parent.mkdir(parents=True, exist_ok=True)
+    reconstructed.write_bytes(actual)
+
+    load_address = parse_int(artifact["load_address"])
+    symbols = linked_symbols(
+        toolchain.binutils["objdump"], linked_object, load_address
+    )
+    objdump_base = [
+        str(toolchain.binutils["objdump"]),
+        "-D",
+        "-b",
+        "binary",
+        "-m",
+        "mips:3000",
+        "-EL",
+        f"--adjust-vma=0x{load_address:08x}",
+    ]
+    expected_disassembly = normalized_objdump([*objdump_base, str(expected_path)])
+    candidate_disassembly = normalized_objdump([*objdump_base, str(candidate_binary)])
+    expected_objdump = output / "retail.objdump"
+    candidate_objdump = output / "candidate.objdump"
+    diff_path = output / "objdump.diff"
+    expected_objdump.write_text(expected_disassembly)
+    candidate_objdump.write_text(candidate_disassembly)
+    diff = difflib.unified_diff(
+        expected_disassembly.splitlines(keepends=True),
+        candidate_disassembly.splitlines(keepends=True),
+        fromfile=f"retail/{artifact['id']}",
+        tofile=f"candidate/{artifact['id']}",
+    )
+    diff_path.write_text("".join(diff))
+
+    matching_bytes = sum(left == right for left, right in zip(expected, actual))
+    first_mismatch = mismatch_offsets(expected, actual, limit=1)
+    result = {
+        "schema_version": 1,
+        "target": manifest["target"],
+        "artifact": artifact["id"],
+        "artifact_build_config_sha256": sha256_json(build),
+        "build_input_sha256": artifact_build_input_hashes(build, dependency_file),
+        "pipeline_sha256": sha256_file(PIPELINE),
+        "expected_size": len(expected),
+        "candidate_size": len(actual),
+        "expected_sha256": sha256_bytes(expected),
+        "candidate_sha256": sha256_bytes(actual),
+        "matching_bytes": matching_bytes,
+        "matching_byte_percent": matching_bytes * 100 / len(expected),
+        "first_mismatch_offset": first_mismatch[0] if first_mismatch else None,
+        "first_mismatch_location": (
+            mismatch_location(artifact, first_mismatch[0])
+            if first_mismatch
+            else None
+        ),
+        "ranges": range_comparison(expected, actual, build["ranges"], symbols),
+        "compiler_version": toolchain.compiler_banner,
+        "compiler_sha256": toolchain.compiler_hashes,
+        "compiler_flags": build["compiler_flags"],
+        "maspsx_commit": toolchain.maspsx_commit,
+        "maspsx_sha256": toolchain.maspsx_hashes,
+        "aspsx_version": aspsx_version,
+        "binutils_version": toolchain.assembler_banner,
+        "binutils_sha256": toolchain.binutils_hashes,
+        "toolchain_config_sha256": toolchain.config_hash,
+        "candidate": str(candidate_binary.relative_to(ROOT)),
+        "objdump_diff": str(diff_path.relative_to(ROOT)),
+        "exact": actual == expected,
+    }
+    (output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
+    return result
 
 
 def compiler_flags(probe: dict[str, Any], optimization: str | None) -> list[str]:
@@ -479,10 +831,7 @@ def build_probe(
     optimization: str | None = None,
 ) -> dict[str, Any]:
     compiler = toolchain.compiler_version
-    gcc = toolchain.compiler
-    assembler = toolchain.binutils["as"]
     linker = toolchain.binutils["ld"]
-    objcopy = toolchain.binutils["objcopy"]
 
     output = (
         BUILD
@@ -511,31 +860,14 @@ def build_probe(
     extracted_source.write_text(source_text)
 
     flags = compiler_flags(probe, optimization)
-    gcc_command = [
-        str(gcc),
-        f"-B{toolchain.compiler_directory}/",
-        "-x",
-        "c",
-        "-S",
-        "-o",
-        str(assembly),
-        *flags,
-        str(extracted_source),
-    ]
-    run_checked(gcc_command)
-
-    maspsx_command = [
-        sys.executable,
-        str(toolchain.maspsx),
-        f"--aspsx-version={aspsx_version}",
-        "--run-assembler",
-        f"--gnu-as-path={str(assembler)}",
-        "--dont-force-G0",
-        f"-G{probe['small_data_limit']}",
-        "-o",
-        str(object_file),
-    ]
-    run_checked(maspsx_command, stdin_path=assembly)
+    compile_c(toolchain, extracted_source, assembly, flags)
+    assemble_psx(
+        toolchain,
+        assembly,
+        object_file,
+        aspsx_version,
+        probe["small_data_limit"],
+    )
     binary_input = object_file
     if link := probe.get("link"):
         link_command = [
@@ -551,17 +883,7 @@ def build_probe(
         link_command.append(str(object_file))
         run_checked(link_command)
         binary_input = linked_object
-    run_checked(
-        [
-            objcopy,
-            "-O",
-            "binary",
-            "-j",
-            ".text",
-            str(binary_input),
-            str(candidate_binary),
-        ]
-    )
+    extract_binary_section(toolchain, binary_input, ".text", candidate_binary)
 
     expected = reference_bytes(manifest, references, probe)
     actual = candidate_binary.read_bytes()
@@ -570,6 +892,7 @@ def build_probe(
         "target": manifest["target"],
         "symbol": probe["symbol"],
         "probe_config_sha256": sha256_json(probe),
+        "pipeline_sha256": sha256_file(PIPELINE),
         "source": probe["source"],
         "source_sha256": sha256_file(source_path),
         "extracted_source_sha256": sha256_bytes(source_text.encode()),
@@ -753,6 +1076,35 @@ def cmd_probe(args: argparse.Namespace) -> int:
     return 0 if result["exact"] else 1
 
 
+def cmd_artifact(args: argparse.Namespace) -> int:
+    manifest = load_json(Path(args.manifest))
+    toolchain = resolve_toolchain(manifest)
+    result = build_artifact(
+        manifest,
+        toolchain,
+        artifact_build_by_id(manifest, args.artifact),
+        reference_root(manifest, args.reference_root),
+    )
+    status = "MATCH" if result["exact"] else "DIFF"
+    print(
+        f"{status:<7} {result['artifact']}: "
+        f"{result['candidate_size']}/{result['expected_size']} bytes; "
+        f"{result['matching_bytes']} bytes equal at the same offsets "
+        f"({result['matching_byte_percent']:.2f}%)"
+    )
+    if not result["exact"]:
+        print(f"        first difference: {result['first_mismatch_location']}")
+    for item in result["ranges"]:
+        detail = f"{item['matching_bytes']}/{item['size']} bytes"
+        if item["kind"] == "code":
+            detail += f", {item['matching_words']}/{item['total_words']} words"
+        if item["placement_delta"]:
+            detail += f", placement {item['placement_delta']:+#x}"
+        print(f"        {item['name']}: {detail}")
+    print(f"        objdump diff: {result['objdump_diff']}")
+    return 0 if result["exact"] else 1
+
+
 def cmd_matrix(args: argparse.Namespace) -> int:
     manifest = load_json(Path(args.manifest))
     toolchain = resolve_toolchain(manifest)
@@ -851,6 +1203,7 @@ def cmd_status(args: argparse.Namespace) -> int:
             not source.is_file()
             or result.get("source_sha256") != sha256_file(source)
             or result.get("probe_config_sha256") != expected_probe_hash
+            or result.get("pipeline_sha256") != sha256_file(PIPELINE)
             or result.get("toolchain_config_sha256") != expected_toolchain_hash
         ):
             stale_results += 1
@@ -865,7 +1218,34 @@ def cmd_status(args: argparse.Namespace) -> int:
         f"baseline results:   {exact_results}/{current_results} exact, "
         f"{stale_results} missing/stale"
     )
-    print("linked artifacts:   generated only by compare/build reports (none implied)")
+    artifact_builds = manifest.get("artifact_builds", [])
+    current_artifacts = 0
+    exact_artifacts = 0
+    for build in artifact_builds:
+        path = BUILD / "artifacts" / build["artifact"] / "result.json"
+        if not path.is_file():
+            continue
+        try:
+            result = load_json(path)
+            current = (
+                result.get("artifact_build_config_sha256") == sha256_json(build)
+                and artifact_inputs_are_current(
+                    build, result.get("build_input_sha256")
+                )
+                and result.get("pipeline_sha256") == sha256_file(PIPELINE)
+                and result.get("toolchain_config_sha256")
+                == expected_toolchain_hash
+            )
+        except (MatchError, FileNotFoundError):
+            current = False
+        if current:
+            current_artifacts += 1
+            exact_artifacts += int(result.get("exact", False))
+    stale_artifacts = len(artifact_builds) - current_artifacts
+    print(
+        f"linked artifacts:   {exact_artifacts}/{current_artifacts} exact, "
+        f"{stale_artifacts} missing/stale"
+    )
     print("disc reconstruction: not implied by possession of the retail oracle")
     return 0
 
@@ -911,6 +1291,13 @@ def build_parser() -> argparse.ArgumentParser:
     probe.add_argument("--reference-root")
     probe.add_argument("--optimization", choices=("0", "1", "2", "3"))
     probe.set_defaults(func=cmd_probe)
+
+    artifact = subparsers.add_parser(
+        "artifact", help="build and compare one complete linked artifact"
+    )
+    artifact.add_argument("artifact")
+    artifact.add_argument("--reference-root")
+    artifact.set_defaults(func=cmd_artifact)
 
     matrix = subparsers.add_parser(
         "matrix", help="run an ASPSX/optimization matrix with vendored GCC"

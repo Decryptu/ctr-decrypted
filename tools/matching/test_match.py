@@ -78,6 +78,40 @@ class ComparisonTests(unittest.TestCase):
             actual.write_bytes(b"same")
             self.assertIsNone(ctr_match.first_file_difference(expected, actual))
 
+    def test_range_comparison_counts_same_offset_words(self) -> None:
+        expected = bytes.fromhex("01020304 05060708 090a0b0c")
+        actual = bytes.fromhex("01020304 ffffffff")
+        result = ctr_match.range_comparison(
+            expected,
+            actual,
+            [{"name": "code", "kind": "code", "offset": "0", "size": "0xc"}],
+        )[0]
+        self.assertEqual(result["matching_bytes"], 4)
+        self.assertEqual(result["matching_words"], 1)
+        self.assertEqual(result["total_words"], 3)
+        self.assertFalse(result["exact"])
+
+    def test_range_comparison_can_align_a_candidate_symbol(self) -> None:
+        expected = bytes.fromhex("00000000 01020304")
+        actual = bytes.fromhex("01020304")
+        result = ctr_match.range_comparison(
+            expected,
+            actual,
+            [
+                {
+                    "name": "data",
+                    "kind": "data",
+                    "candidate_symbol": "data",
+                    "offset": "0x4",
+                    "size": "0x4",
+                }
+            ],
+            {"data": {"offset": 0, "size": 4}},
+        )[0]
+        self.assertTrue(result["content_exact"])
+        self.assertFalse(result["placement_exact"])
+        self.assertEqual(result["placement_delta"], -4)
+
 
 class ToolchainTests(unittest.TestCase):
     def test_manifest_pins_vendored_gcc(self) -> None:
@@ -96,6 +130,56 @@ class ToolchainTests(unittest.TestCase):
     def test_repository_path_rejects_escape(self) -> None:
         with self.assertRaises(ctr_match.MatchError):
             ctr_match.repository_path("../outside")
+
+    def test_manifest_has_production_overlay_221_build(self) -> None:
+        manifest = ctr_match.load_json(ctr_match.DEFAULT_MANIFEST)
+        build = ctr_match.artifact_build_by_id(manifest, "221")
+        self.assertEqual(build["source"], "game/221.c")
+        self.assertEqual(build["aspsx_version"], "2.77")
+        self.assertEqual(build["overlay_id"], 5)
+        self.assertTrue((ctr_match.ROOT / build["linker_script"]).is_file())
+        self.assertEqual(build["linker_script"], "tools/matching/overlay.ld")
+        self.assertEqual(
+            build["forced_includes"],
+            [
+                "tools/matching/overlays/221/bootstrap.h",
+                "tools/matching/overlays/221/abi.h",
+            ],
+        )
+        self.assertNotIn(
+            "tools/matching/overlays/221/include",
+            build["include_directories"],
+        )
+        self.assertIn("sdata_static", build["symbols"])
+
+        linker = (ctr_match.ROOT / build["linker_script"]).read_text()
+        self.assertIn("__overlay_load_address", linker)
+        self.assertIn("__overlay_id", linker)
+        self.assertNotIn("0x8009f6fc", linker)
+        self.assertNotIn("CC_EndEvent_DrawMenu", linker)
+
+        bootstrap = ctr_match.ROOT / build["forced_includes"][0]
+        bootstrap_text = bootstrap.read_text()
+        self.assertIn("TODO(aalhendi):", bootstrap_text)
+        self.assertIn("#define COMMON_H", bootstrap_text)
+
+        abi = ctr_match.ROOT / build["forced_includes"][1]
+        abi_text = abi.read_text()
+        self.assertIn("#include <common.h>", abi_text)
+        self.assertIn("extern struct GameTracker *cc_gameTracker", abi_text)
+        self.assertIn("#define CC_READ_GAME_TRACKER()", abi_text)
+        self.assertNotIn(
+            "extern struct GameTracker *cc_gameTracker",
+            (ctr_match.ROOT / build["source"]).read_text(),
+        )
+        self.assertEqual(
+            set(ctr_match.artifact_build_input_hashes(build)),
+            {
+                build["source"],
+                build["linker_script"],
+                *build["forced_includes"],
+            },
+        )
 
 
 class PsxHeaderTests(unittest.TestCase):
