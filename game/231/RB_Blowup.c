@@ -26,8 +26,8 @@ void RB_Blowup_ProcessBucket(struct Thread *thread)
 
 		for (int i = 0; i < gGT->numPlyrCurrGame; i++)
 		{
-			struct Instance *shockwaveInst = (struct Instance *)(uintptr_t)blowup[0];
-			struct Instance *explosionInst = (struct Instance *)(uintptr_t)blowup[1];
+			struct Instance *shockwaveInst = (struct Instance *)(u32)blowup[0];
+			struct Instance *explosionInst = (struct Instance *)(u32)blowup[1];
 
 			if (shockwaveInst == NULL || explosionInst == NULL)
 			{
@@ -106,7 +106,7 @@ void RB_Blowup_Init(struct Instance *weaponInst)
 	blowup = explosionTh->object;
 
 	// set explosion instance
-	blowup[1] = (s32)(uintptr_t)explosionInst;
+	blowup[1] = (s32)(u32)explosionInst;
 
 	// copy position and rotation from weapon to explosion
 	CTR_MatrixCopyRot(&explosionInst->matrix, &weaponInst->matrix);
@@ -141,7 +141,7 @@ void RB_Blowup_Init(struct Instance *weaponInst)
 	shockwaveInst = INSTANCE_Birth3D(gGT->modelPtr[modelID], 0, explosionTh);
 
 	// set shockwave instance
-	blowup[0] = (s32)(uintptr_t)shockwaveInst;
+	blowup[0] = (s32)(u32)shockwaveInst;
 
 #if defined(CTR_NATIVE)
 	if (shockwaveInst == NULL)

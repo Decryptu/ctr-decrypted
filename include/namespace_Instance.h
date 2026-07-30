@@ -63,7 +63,7 @@ enum InstanceColorRGBA
 	INST_COLOR_KEY = 0xdca6000,
 };
 
-force_inline u32 INST_PackColorRGB(s32 r, s32 g, s32 b)
+static inline u32 INST_PackColorRGB(s32 r, s32 g, s32 b)
 {
 	return ((u32)r << 0x14) | ((u32)g << 0xc) | ((u32)b << 0x4);
 }
@@ -390,7 +390,7 @@ enum
 	MODEL_NAME_WORD_COUNT = MODEL_NAME_BYTE_COUNT / (s32)sizeof(u32),
 };
 
-force_inline u32 ModelName_ReadWord(const char *name, s32 wordIndex)
+static inline u32 ModelName_ReadWord(const char *name, s32 wordIndex)
 {
 	u32 word;
 	memcpy(&word, &name[wordIndex * (s32)sizeof(word)], sizeof(word));

@@ -39,7 +39,7 @@ static void MM_Scrapbook_GetNativeSource(s16 *srcX, s16 *srcY, s16 *displayY)
 #endif
 
 #ifndef CTR_NATIVE
-CTR_GCC_OPTIMIZE_O0 int ScrapBookPlayMovie_DecodeFrame()
+int ScrapBookPlayMovie_DecodeFrame()
 {
 	struct GameTracker *gGT = sdata->gGT;
 	DRAWENV *ptrDrawEnv = &gGT->db[1 - gGT->swapchainIndex].drawEnv;

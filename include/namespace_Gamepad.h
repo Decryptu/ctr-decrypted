@@ -67,40 +67,22 @@ enum Plug
 	PLUGGED = 0
 };
 
-CTR_PACKED_BEGIN
-
 struct ControllerPacket
 {
 	// 0x0
 	u8 plugged;
 
 	// 0x1
-	// single byte that you can access as either a pair of nibbles or a whole integer
-	union
-	{
-		struct
-		{
-			u8 payloadLength : 4;  // Payload length / 2, 0 for multitap
-			u8 controllerType : 4; // Device type (PadTypeID)
-		};
-		u8 controllerData;
-	};
+	u8 controllerData;
 
 	// 0x2
-	// Button states, see RawInput enum
-	// set up us a union because like 1 function needs the s16 to be accessed as two separate bytes
-	union
+	struct
 	{
-		struct
-		{
-			u8 controllerInput1;
-			u8 controllerInput2;
-		};
-		u16 controllerInput;
-	};
+		u8 high;
+		u8 low;
+	} input;
 
 	// 0x4
-	// union size: 4 bytes
 	union
 	{
 		struct
@@ -128,43 +110,20 @@ struct ControllerPacket
 			u16 gun_x; // Gun X position in dotclocks
 			u16 gun_y; // Gun Y position in scanlines
 		} guncon;
-	};
-
-	// 8 bytes
+	} payload;
 };
 
 struct MultitapPacket
 {
-	union
-	{
-		struct
-		{
-			// 0x0
-			// see ControllerPacket
-			u8 plugged;
+	// 0x0
+	u8 plugged;
 
-			// 0x1
-			// ditto
-			union
-			{
-				struct
-				{
-					u8 payloadLength : 4;
-					u8 controllerType : 4;
-				};
-				u8 controllerData;
-			};
+	// 0x1
+	u8 controllerData;
 
-			// 0x2
-			struct ControllerPacket controllers[4];
-		};
-		struct ControllerPacket controller;
-	};
-
-	// 34 bytes
+	// 0x2
+	struct ControllerPacket controllers[4];
 };
-
-CTR_PACKED_END
 
 CTR_STATIC_ASSERT(sizeof(struct ControllerPacket) == 8);
 CTR_STATIC_ASSERT(sizeof(struct MultitapPacket) == 34);

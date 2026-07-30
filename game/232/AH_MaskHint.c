@@ -188,7 +188,7 @@ void AH_MaskHint_LerpVol(int blend)
 	}
 }
 
-force_inline void AH_MaskHint_DrawRepeatPrompt(void)
+static void AH_MaskHint_DrawRepeatPrompt(void)
 {
 	int lngIndex = 0;
 	b32 boolFound = false;

@@ -441,7 +441,7 @@ void RaceFlag_DrawLoadingString(void)
 	}
 
 	// pointer to OT mem
-	gGT->pushBuffer_UI.ptrOT = (uint32_t *)oldOT;
+	gGT->pushBuffer_UI.ptrOT = (u32 *)oldOT;
 
 	if (letterAnimFrame < RACE_FLAG_LOADING_ANIM_RESET_FRAME)
 	{
@@ -466,7 +466,7 @@ void RaceFlag_DrawLoadingString(void)
 	return;
 }
 
-force_inline char RaceFlag_CalculateBrightness(u32 sine, u8 darkTile)
+static char RaceFlag_CalculateBrightness(u32 sine, u8 darkTile)
 {
 	if (darkTile)
 	{
@@ -475,7 +475,7 @@ force_inline char RaceFlag_CalculateBrightness(u32 sine, u8 darkTile)
 	return ((sine * -125 + 0x1fe000) >> 0xD);
 }
 
-force_inline int RaceFlag_Sin(u32 angle)
+static int RaceFlag_Sin(u32 angle)
 {
 	int sine;
 
@@ -504,7 +504,7 @@ void RaceFlag_DrawSelf()
 	int toggle;
 
 	s16 flagPos;
-	uint32_t *ot;
+	u32 *ot;
 	u32 screenlimit;
 	u32 dimensions;
 
@@ -546,7 +546,7 @@ void RaceFlag_DrawSelf()
 SKIP_LOADING_TEXT:
 
 	sdata->RaceFlag_CopyLoadStage = sdata->Loading.stage;
-	ot = (uint32_t *)RaceFlag_GetOT();
+	ot = (u32 *)RaceFlag_GetOT();
 
 	gte_SetRotMatrix(&data.matrixTitleFlag);
 	gte_SetTransMatrix(&data.matrixTitleFlag);

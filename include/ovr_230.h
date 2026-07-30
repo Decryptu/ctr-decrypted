@@ -1452,14 +1452,14 @@ struct OVR_230_VideoBSS
 
 	// 30,31...
 	// 800b67fc
-	uint32_t *in_Buf[2];
+	u32 *in_Buf[2];
 
 	s32 dctOutSliceSize;
 
 	char pad800b6808[4];
 
 	// 800b680c
-	uint32_t *out_Buf[4];
+	u32 *out_Buf[4];
 
 	// 800b681c
 	RECT slice;

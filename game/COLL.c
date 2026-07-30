@@ -1114,19 +1114,19 @@ internal s32 COLL_FIXED_PlayerSearch_ClampByte(s32 value)
 	return value;
 }
 
-force_inline s32 COLL_FIXED_PlayerSearch_InterpolateColor(s32 baryA, s32 baryB, s32 c0, s32 c1, s32 c2)
+static s32 COLL_FIXED_PlayerSearch_InterpolateColor(s32 baryA, s32 baryB, s32 c0, s32 c1, s32 c2)
 {
 	s32 term1 = CTR_MipsSra(CTR_MipsMulLo(baryA, CTR_MipsSubLo(c1, c0)), 12);
 	s32 term2 = CTR_MipsSra(CTR_MipsMulLo(baryB, CTR_MipsSubLo(c2, c0)), 12);
 	return CTR_MipsAddLo(CTR_MipsAddLo(term1, term2), c0);
 }
 
-force_inline s32 COLL_FIXED_PlayerSearch_LumaTerm(s32 color, s32 weight)
+static s32 COLL_FIXED_PlayerSearch_LumaTerm(s32 color, s32 weight)
 {
 	return CTR_MipsSra(CTR_MipsMulLo(color, weight), 8);
 }
 
-force_inline s32 COLL_FIXED_PlayerSearch_AlphaBlend(s32 current, s32 light)
+static s32 COLL_FIXED_PlayerSearch_AlphaBlend(s32 current, s32 light)
 {
 	return CTR_MipsSra(CTR_MipsAddLo(CTR_MipsMulLo((u16)current, COLL_FIXED_PLAYER_SEARCH_ALPHA_BLEND_CURRENT_WEIGHT), light), 8);
 }

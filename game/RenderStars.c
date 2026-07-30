@@ -75,7 +75,7 @@ void RenderStars(struct PushBuffer *pb, struct PrimMem *primMem, struct Stars *s
 		u32 seedZ;
 		int seedShift;
 		int spread;
-		uint32_t *ot;
+		u32 *ot;
 
 		CTC2(CTR_ReadU32LE((char *)&pb->matrix_ViewProj + 0x00), 0);
 		CTC2(CTR_ReadU32LE((char *)&pb->matrix_ViewProj + 0x04), 1);

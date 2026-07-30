@@ -290,12 +290,12 @@ static void Torch_WriteUvPair(enum TorchUvSlot slot, struct TorchPointSource sou
 	}
 }
 
-static void Torch_LinkPrimitive(u32 *tagWord, const void *packet, uint32_t *ot, u32 tag)
+static void Torch_LinkPrimitive(u32 *tagWord, const void *packet, u32 *ot, u32 tag)
 {
 	CtrGpu_LinkPacket24(ot, tagWord, packet, tag);
 }
 
-static u32 *Torch_EmitFT3(u32 *prim, uint32_t *ot, struct TorchPointSource uv0, struct TorchPointSource uv1, struct TorchPointSource uv2,
+static u32 *Torch_EmitFT3(u32 *prim, u32 *ot, struct TorchPointSource uv0, struct TorchPointSource uv1, struct TorchPointSource uv2,
                           struct TorchPointSource xy0, struct TorchPointSource xy1, struct TorchPointSource xy2)
 {
 	POLY_FT3 *poly = (POLY_FT3 *)prim;
@@ -317,7 +317,7 @@ static u32 *Torch_EmitFT3(u32 *prim, uint32_t *ot, struct TorchPointSource uv0, 
 	return (u32 *)(poly + 1);
 }
 
-static u32 *Torch_EmitFT4(u32 *prim, uint32_t *ot, struct TorchPointSource uv0, struct TorchPointSource uv1, struct TorchPointSource uv2,
+static u32 *Torch_EmitFT4(u32 *prim, u32 *ot, struct TorchPointSource uv0, struct TorchPointSource uv1, struct TorchPointSource uv2,
                           struct TorchPointSource uv3, struct TorchPointSource xy0, struct TorchPointSource xy1, struct TorchPointSource xy2,
                           struct TorchPointSource xy3)
 {
@@ -396,39 +396,39 @@ static void Torch_Subset3_SetTpage(s32 x, s32 y)
 	scratch->uv1.tpage = (u16)(tile | (((u32)y & 0x100) >> 4) | 0x100);
 }
 
-static u32 *Torch_Subset4_EmitFT3(u32 *prim, uint32_t *ot, enum TorchRingPoint pointA, enum TorchRingPoint pointB)
+static u32 *Torch_Subset4_EmitFT3(u32 *prim, u32 *ot, enum TorchRingPoint pointA, enum TorchRingPoint pointB)
 {
 	return Torch_EmitFT3(prim, ot, Torch_Point(TORCH_RING_0, TORCH_POINT_CENTER), Torch_Point(TORCH_RING_2, pointA), Torch_Point(TORCH_RING_2, pointB),
 	                     Torch_Point(TORCH_RING_0, TORCH_POINT_CENTER), Torch_Point(TORCH_RING_1, pointA), Torch_Point(TORCH_RING_1, pointB));
 }
 
-static u32 *Torch_Subset5_EmitFT3(u32 *prim, uint32_t *ot, enum TorchRingPoint pointA, enum TorchRingPoint pointB)
+static u32 *Torch_Subset5_EmitFT3(u32 *prim, u32 *ot, enum TorchRingPoint pointA, enum TorchRingPoint pointB)
 {
 	return Torch_EmitFT3(prim, ot, Torch_Point(TORCH_RING_0, TORCH_POINT_CENTER), Torch_Point(TORCH_RING_2, pointA), Torch_Point(TORCH_RING_1, pointB),
 	                     Torch_Point(TORCH_RING_0, TORCH_POINT_CENTER), Torch_Point(TORCH_RING_1, pointA), Torch_Point(TORCH_RING_2, pointB));
 }
 
-static u32 *Torch_Subset6_EmitFT3(u32 *prim, uint32_t *ot, enum TorchRingPoint pointA, enum TorchRingPoint pointB)
+static u32 *Torch_Subset6_EmitFT3(u32 *prim, u32 *ot, enum TorchRingPoint pointA, enum TorchRingPoint pointB)
 {
 	return Torch_EmitFT3(prim, ot, Torch_Point(TORCH_RING_0, TORCH_POINT_CENTER), Torch_Point(TORCH_RING_1, pointA), Torch_Point(TORCH_RING_1, pointB),
 	                     Torch_Point(TORCH_RING_0, TORCH_POINT_CENTER), Torch_Point(TORCH_RING_2, pointA), Torch_Point(TORCH_RING_2, pointB));
 }
 
-static u32 *Torch_Subset7_EmitFT4(u32 *prim, uint32_t *ot, enum TorchRingPoint pointA, enum TorchRingPoint pointB)
+static u32 *Torch_Subset7_EmitFT4(u32 *prim, u32 *ot, enum TorchRingPoint pointA, enum TorchRingPoint pointB)
 {
 	return Torch_EmitFT4(prim, ot, Torch_Point(TORCH_RING_0, pointA), Torch_Point(TORCH_RING_0, pointB), Torch_Point(TORCH_RING_2, pointA),
 	                     Torch_Point(TORCH_RING_2, pointB), Torch_Point(TORCH_RING_0, pointA), Torch_Point(TORCH_RING_0, pointB),
 	                     Torch_Point(TORCH_RING_1, pointA), Torch_Point(TORCH_RING_1, pointB));
 }
 
-static u32 *Torch_Subset8_EmitFT4(u32 *prim, uint32_t *ot, enum TorchRingPoint pointA, enum TorchRingPoint pointB)
+static u32 *Torch_Subset8_EmitFT4(u32 *prim, u32 *ot, enum TorchRingPoint pointA, enum TorchRingPoint pointB)
 {
 	return Torch_EmitFT4(prim, ot, Torch_Point(TORCH_RING_0, pointA), Torch_Point(TORCH_RING_0, pointB), Torch_Point(TORCH_RING_2, pointA),
 	                     Torch_Point(TORCH_RING_1, pointB), Torch_Point(TORCH_RING_0, pointA), Torch_Point(TORCH_RING_0, pointB),
 	                     Torch_Point(TORCH_RING_1, pointA), Torch_Point(TORCH_RING_2, pointB));
 }
 
-static u32 *Torch_Subset9_EmitFT4(u32 *prim, uint32_t *ot, enum TorchRingPoint pointA, enum TorchRingPoint pointB)
+static u32 *Torch_Subset9_EmitFT4(u32 *prim, u32 *ot, enum TorchRingPoint pointA, enum TorchRingPoint pointB)
 {
 	return Torch_EmitFT4(prim, ot, Torch_Point(TORCH_RING_1, pointA), Torch_Point(TORCH_RING_1, pointB), Torch_Point(TORCH_RING_0, pointA),
 	                     Torch_Point(TORCH_RING_0, pointB), Torch_Point(TORCH_RING_2, pointA), Torch_Point(TORCH_RING_2, pointB),
@@ -455,7 +455,7 @@ static int Torch_IsCardVisible(const struct TorchCardRegs *regs, u32 screenSize)
 	return (s32)(bounds << 16) >= 0;
 }
 
-static u32 *Torch_EmitParticle(u32 *prim, uint32_t *ot)
+static u32 *Torch_EmitParticle(u32 *prim, u32 *ot)
 {
 	Torch_Subset3_SetTpage(Torch_ReadRingPointX(TORCH_RING_0, TORCH_POINT_TOP), Torch_ReadRingPointY(TORCH_RING_0, TORCH_POINT_TOP));
 	prim = Torch_Subset6_EmitFT3(prim, ot, TORCH_POINT_TOP_RIGHT, TORCH_POINT_TOP);
@@ -503,7 +503,7 @@ void Torch_Main(void *particleList_heatWarp, struct PushBuffer *pb, struct PrimM
 		int playerPassesLeft = (s32)(s8)numPlyr - 1;
 		int particlesLeft = 12;
 
-		scratch->firstParticlePtr32 = (u32)(uintptr_t)firstParticle;
+		scratch->firstParticlePtr32 = (u32)(u32)firstParticle;
 		scratch->swapchainIndex = (u32)swapchainIndex;
 		scratch->uv0.clut = 0;
 
@@ -511,7 +511,7 @@ void Torch_Main(void *particleList_heatWarp, struct PushBuffer *pb, struct PrimM
 		{
 			struct Particle *particle;
 			u32 screenSize;
-			uint32_t *otBase;
+			u32 *otBase;
 
 			Torch_LoadViewAsLightMatrix(pb);
 
@@ -593,7 +593,7 @@ void Torch_Main(void *particleList_heatWarp, struct PushBuffer *pb, struct PrimM
 						if (Torch_IsCardVisible(&card, screenSize))
 						{
 							s32 otIndex;
-							uint32_t *ot;
+							u32 *ot;
 
 							Torch_Subset2_StoreCard(&card, centerX, centerY, TORCH_RING_0);
 							gte_rtpt_b();
@@ -615,7 +615,7 @@ void Torch_Main(void *particleList_heatWarp, struct PushBuffer *pb, struct PrimM
 								otIndex = 0x3ff;
 							}
 
-							ot = (uint32_t *)(void *)((char *)otBase + (otIndex << 2));
+							ot = (u32 *)(void *)((char *)otBase + (otIndex << 2));
 							sxy0 = MFC2(12);
 							sxy1 = MFC2(13);
 							card = Torch_Subset1_BuildCard(centerX, centerY, sxy0, sxy1);

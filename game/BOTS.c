@@ -65,17 +65,17 @@ enum
 	BOTS_NAV_SPECIAL_INDEX_MASK = 0xf,
 };
 
-force_inline s16 BOTS_PathChangePathID(s16 changeOpcode)
+static s16 BOTS_PathChangePathID(s16 changeOpcode)
 {
 	return (s16)CTR_MipsSra(changeOpcode, BOTS_PATH_CHANGE_PATH_SHIFT);
 }
 
-force_inline s16 BOTS_PathChangeFrameIndex(s16 changeOpcode)
+static s16 BOTS_PathChangeFrameIndex(s16 changeOpcode)
 {
 	return changeOpcode & BOTS_PATH_CHANGE_FRAME_MASK;
 }
 
-force_inline s16 BOTS_PathChangeCap(void)
+static s16 BOTS_PathChangeCap(void)
 {
 	return (s16)CTR_MipsSll(BOTS_NAV_PATH_COUNT, BOTS_PATH_CHANGE_PATH_SHIFT);
 }
@@ -1720,7 +1720,7 @@ UpdateTireColorTimer:
 	botDriver->actionsFlagSet &= ~(ACTION_ENGINE_ECHO | ACTION_BACK_SKID | ACTION_FRONT_SKID);
 	botDriver->actionsFlagSet |= navActionFlags;
 
-	struct Terrain *terrain = VehAfterColl_GetTerrain(((uint8_t)navFrameCurr->flags) >> 3);
+	struct Terrain *terrain = VehAfterColl_GetTerrain(((u8)navFrameCurr->flags) >> 3);
 
 	botDriver->terrainMeta1 = terrain;
 

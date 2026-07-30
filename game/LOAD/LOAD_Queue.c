@@ -60,12 +60,12 @@ void LOAD_NextQueuedFile()
 
 		case LT_DRAM:
 			curr->ptrDestination =
-			    LOAD_DramFile(curr->ptrBigfileCdPos_UNUSED, curr->subfileIndex, curr->ptrDestination, &curr->size_UNUSED, (int)(intptr_t)curr->callbackFuncPtr);
+			    LOAD_DramFile(curr->ptrBigfileCdPos_UNUSED, curr->subfileIndex, curr->ptrDestination, &curr->size_UNUSED, (int)(s32)curr->callbackFuncPtr);
 			break;
 
 		case LT_VRAM:
 			curr->ptrDestination =
-			    LOAD_VramFile(curr->ptrBigfileCdPos_UNUSED, curr->subfileIndex, curr->ptrDestination, &curr->size_UNUSED, (int)(intptr_t)curr->callbackFuncPtr);
+			    LOAD_VramFile(curr->ptrBigfileCdPos_UNUSED, curr->subfileIndex, curr->ptrDestination, &curr->size_UNUSED, (int)(s32)curr->callbackFuncPtr);
 			break;
 		}
 

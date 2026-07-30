@@ -132,7 +132,7 @@ static int DrawConfetti_BoundsVisible(u32 sxy0, u32 sxy1, u32 sxy2, u32 sxy3, u3
 	return (s32)(bounds << 16) >= 0;
 }
 
-static void DrawConfetti_LinkPrimitive(POLY_F4 *poly, uint32_t *ot)
+static void DrawConfetti_LinkPrimitive(POLY_F4 *poly, u32 *ot)
 {
 	CtrGpu_LinkPacket24(ot, &poly->tag, poly, 0x05000000);
 }
@@ -143,7 +143,7 @@ void DrawConfetti(struct PushBuffer *pb, struct PrimMem *primMem, struct GameTra
 	struct DrawConfettiScratch *scratch = CTR_SCRATCHPAD_PTR(struct DrawConfettiScratch, 0x30);
 	struct TrigPair cameraTrig;
 	u32 screenBounds;
-	uint32_t *otBase;
+	u32 *otBase;
 	u32 currentParticles;
 	u32 particleCount;
 	s32 centerX;
@@ -337,14 +337,14 @@ void DrawConfetti(struct PushBuffer *pb, struct PrimMem *primMem, struct GameTra
 				if (DrawConfetti_BoundsVisible(sxy0, sxy1, sxy2, sxy3, screenBounds))
 				{
 					u32 depth;
-					uint32_t *ot;
+					u32 *ot;
 
 					CtrGpu_WritePackedXY(&prim->x1, MFC2(12));
 					CtrGpu_WritePackedXY(&prim->x2, MFC2(13));
 					CtrGpu_WritePackedXY(&prim->x3, MFC2(14));
 					depth = MFC2(24);
 					CtrGpu_WriteColorCode(&prim->r0, scratch->color);
-					ot = (uint32_t *)(void *)((char *)otBase + ((depth >> 18) << 2));
+					ot = (u32 *)(void *)((char *)otBase + ((depth >> 18) << 2));
 					DrawConfetti_LinkPrimitive(prim, ot);
 					particleCount = scratch->remainingParticles;
 					prim++;

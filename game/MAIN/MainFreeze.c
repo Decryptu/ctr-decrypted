@@ -1,7 +1,7 @@
 #include <common.h>
 
 
-void MainFreeze_ConfigDrawNPC105(s16 startX, s16 startY, s16 radius, int angleStep, s16 angle, char *color, uint32_t *otMem, struct PrimMem *primMem)
+void MainFreeze_ConfigDrawNPC105(s16 startX, s16 startY, s16 radius, int angleStep, s16 angle, char *color, u32 *otMem, struct PrimMem *primMem)
 {
 	s16 pos[6];
 	char colors[0xc];
@@ -123,7 +123,7 @@ static inline void MainFreeze_ConfigDrawRaceWheel(int value, struct GameTracker 
 
 		if ((i != 1) && (value == 0x600))
 		{
-			ot = (void *)((intptr_t)ot + 0xc);
+			ot = (void *)((s32)ot + 0xc);
 		}
 
 		s16 y = sdata->analogConfigY[0] + ((sin * (i - 1) * 0x20) >> 0xc) + 0x20;
@@ -294,7 +294,7 @@ void MainFreeze_ConfigSetupEntry(void)
 				sdata->raceWheelConfigPageIndex++;
 				if (!isNamco)
 				{
-					data.rwd[gamepadID].gamepadCenter = controller->analog.rightX;
+					data.rwd[gamepadID].gamepadCenter = controller->payload.analog.rightX;
 				}
 				else
 				{
@@ -363,7 +363,7 @@ typedef struct
 	int menuRowsToRemove;
 } GAMEPAD_MainFreeze_MenuPtrOptions;
 
-force_inline void IDENTIFYGAMEPADS_MainFreeze_MenuPtrOptions(struct RectMenu *menu, GAMEPAD_MainFreeze_MenuPtrOptions *gamepad)
+static void IDENTIFYGAMEPADS_MainFreeze_MenuPtrOptions(struct RectMenu *menu, GAMEPAD_MainFreeze_MenuPtrOptions *gamepad)
 {
 	(void)menu;
 	struct GameTracker *gGT = sdata->gGT;
@@ -419,7 +419,7 @@ force_inline void IDENTIFYGAMEPADS_MainFreeze_MenuPtrOptions(struct RectMenu *me
 	gamepad->menuRowsToRemove = (4 - areBothControllerLabelsNecessary) - gGT->numPlyrCurrGame;
 }
 
-force_inline b32 PROCESSINPUTS_MainFreeze_MenuPtrOptions(struct RectMenu *menu, GAMEPAD_MainFreeze_MenuPtrOptions *gamepad)
+static b32 PROCESSINPUTS_MainFreeze_MenuPtrOptions(struct RectMenu *menu, GAMEPAD_MainFreeze_MenuPtrOptions *gamepad)
 {
 	struct GameTracker *gGT = sdata->gGT;
 	b32 exitMenu = false;
@@ -546,7 +546,7 @@ force_inline b32 PROCESSINPUTS_MainFreeze_MenuPtrOptions(struct RectMenu *menu, 
 }
 
 // stuff is drawn last to first
-force_inline void DISPLAYRECTMENU_MainFreeze_MenuPtrOptions(struct RectMenu *menu, GAMEPAD_MainFreeze_MenuPtrOptions *gamepad)
+static void DISPLAYRECTMENU_MainFreeze_MenuPtrOptions(struct RectMenu *menu, GAMEPAD_MainFreeze_MenuPtrOptions *gamepad)
 {
 	struct GameTracker *gGT = sdata->gGT;
 
@@ -611,7 +611,7 @@ force_inline void DISPLAYRECTMENU_MainFreeze_MenuPtrOptions(struct RectMenu *men
 
 	int volumeSliderWidth = 380 - (30 + volumeSliderTriangleLeftMargin);
 
-	uint32_t *ot = gGT->backBuffer->otMem.uiOT;
+	u32 *ot = gGT->backBuffer->otMem.uiOT;
 	struct PrimMem *primMem = &gGT->backBuffer->primMem;
 	Color color;
 

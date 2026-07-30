@@ -1,7 +1,7 @@
 #include <common.h>
 
 
-void RECTMENU_DrawPolyGT4(struct Icon *icon, s16 posX, s16 posY, struct PrimMem *primMem, uint32_t *ot, u32 color0, u32 color1, u32 color2, u32 color3,
+void RECTMENU_DrawPolyGT4(struct Icon *icon, s16 posX, s16 posY, struct PrimMem *primMem, u32 *ot, u32 color0, u32 color1, u32 color2, u32 color3,
                           char transparency, s16 scale)
 {
 	if (!icon)
@@ -13,7 +13,7 @@ void RECTMENU_DrawPolyGT4(struct Icon *icon, s16 posX, s16 posY, struct PrimMem 
 }
 
 
-void RECTMENU_DrawOuterRect_Edge(RECT *r, Color color, u32 param_3, uint32_t *otMem)
+void RECTMENU_DrawOuterRect_Edge(RECT *r, Color color, u32 param_3, u32 *otMem)
 {
 	param_3 & 0x20 ? CTR_Box_DrawClearBox(r, &color, TRANS_50_DECAL, otMem) : CTR_Box_DrawSolidBox(r, color, otMem);
 }
@@ -56,7 +56,7 @@ char *RECTMENU_DrawTime(int milliseconds)
 #undef RECTMENU_TIME_FORMAT
 
 
-void RECTMENU_DrawRwdBlueRect_Subset(s16 *pos, int *color, uint32_t *ot, struct PrimMem *primMem)
+void RECTMENU_DrawRwdBlueRect_Subset(s16 *pos, int *color, u32 *ot, struct PrimMem *primMem)
 {
 	POLY_G4 *p = (POLY_G4 *)primMem->cursor;
 
@@ -80,7 +80,7 @@ void RECTMENU_DrawRwdBlueRect_Subset(s16 *pos, int *color, uint32_t *ot, struct 
 }
 
 
-void RECTMENU_DrawRwdBlueRect(RECT *rect, char *metas, uint32_t *ot, struct PrimMem *primMem)
+void RECTMENU_DrawRwdBlueRect(RECT *rect, char *metas, u32 *ot, struct PrimMem *primMem)
 {
 	s16 pos[4];
 	int gradient[2];
@@ -106,7 +106,7 @@ void RECTMENU_DrawRwdBlueRect(RECT *rect, char *metas, uint32_t *ot, struct Prim
 }
 
 
-void RECTMENU_DrawRwdTriangle(s16 *position, char *color, uint32_t *otMem, struct PrimMem *primMem)
+void RECTMENU_DrawRwdTriangle(s16 *position, char *color, u32 *otMem, struct PrimMem *primMem)
 {
 	POLY_G4 *p;
 	void *primmemCurr;
@@ -159,7 +159,7 @@ void RECTMENU_DrawRwdTriangle(s16 *position, char *color, uint32_t *otMem, struc
 }
 
 
-void RECTMENU_DrawOuterRect_LowLevel(RECT *p, s16 xOffset, u16 yOffset, Color color, s16 param_5, uint32_t *otMem)
+void RECTMENU_DrawOuterRect_LowLevel(RECT *p, s16 xOffset, u16 yOffset, Color color, s16 param_5, u32 *otMem)
 {
 	int iVar1;
 	RECT r;
@@ -185,7 +185,7 @@ void RECTMENU_DrawOuterRect_LowLevel(RECT *p, s16 xOffset, u16 yOffset, Color co
 }
 
 
-void RECTMENU_DrawOuterRect_HighLevel(RECT *r, Color color, s16 param_3, uint32_t *otMem)
+void RECTMENU_DrawOuterRect_HighLevel(RECT *r, Color color, s16 param_3, u32 *otMem)
 {
 	RECTMENU_DrawOuterRect_LowLevel(r, 3, 2, color, param_3, otMem);
 	return;
@@ -225,7 +225,7 @@ void RECTMENU_DrawQuip(char *comment, s16 startX, int startY, u32 sizeX, s16 fon
 }
 
 
-void RECTMENU_DrawInnerRect(RECT *r, int type, uint32_t *ot)
+void RECTMENU_DrawInnerRect(RECT *r, int type, u32 *ot)
 {
 	u32 *colorDataNormal;
 	u32 *colorDataSpecial;

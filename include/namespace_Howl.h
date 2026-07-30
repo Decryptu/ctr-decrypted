@@ -98,7 +98,7 @@ enum HowlChannelUpdateFlag
 };
 
 
-force_inline u32 HowlSfx_Pack(u32 lr, u32 distortion, u32 volume, u32 echo)
+static inline u32 HowlSfx_Pack(u32 lr, u32 distortion, u32 volume, u32 echo)
 {
 	// NOTE(aalhendi): echo is the raw high-byte field. Most callers use 0/1,
 	// but 3D quadblock audio passes QUADBLOCK_FLAG_ENGINE_ECHO (0x80).
@@ -106,22 +106,22 @@ force_inline u32 HowlSfx_Pack(u32 lr, u32 distortion, u32 volume, u32 echo)
 	       ((echo & 0xff) << HOWL_SFX_ECHO_SHIFT);
 }
 
-force_inline u32 HowlSfx_LR(u32 flags)
+static inline u32 HowlSfx_LR(u32 flags)
 {
 	return (flags >> HOWL_SFX_LR_SHIFT) & 0xff;
 }
 
-force_inline u32 HowlSfx_Distortion(u32 flags)
+static inline u32 HowlSfx_Distortion(u32 flags)
 {
 	return (flags >> HOWL_SFX_DISTORTION_SHIFT) & 0xff;
 }
 
-force_inline u32 HowlSfx_Volume(u32 flags)
+static inline u32 HowlSfx_Volume(u32 flags)
 {
 	return (flags >> HOWL_SFX_VOLUME_SHIFT) & 0xff;
 }
 
-force_inline u32 HowlSfx_Echo(u32 flags)
+static inline u32 HowlSfx_Echo(u32 flags)
 {
 	return (flags >> HOWL_SFX_ECHO_SHIFT) & 0xff;
 }

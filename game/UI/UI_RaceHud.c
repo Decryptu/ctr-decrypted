@@ -207,7 +207,7 @@ void UI_BattleDrawHeadArrows(struct Driver *player)
 		CtrGpu_WriteColorCode(&arrow->g3.r1, gradient[1] | UI_BATTLE_HEAD_ARROW_SEMITRANS_MASK);
 		CtrGpu_WriteColorCode(&arrow->g3.r2, gradient[2] | UI_BATTLE_HEAD_ARROW_SEMITRANS_MASK);
 
-		uint32_t *ot = gGT->pushBuffer[playerID].ptrOT;
+		u32 *ot = gGT->pushBuffer[playerID].ptrOT;
 
 		arrow->tag = CtrGpu_PackOTTag(*ot, UI_BATTLE_HEAD_ARROW_OT_TAG);
 		*ot = CtrGpu_PrimToOTLink24(arrow);
@@ -229,7 +229,7 @@ void UI_TrackerSelf(struct Driver *d)
 	int warpballDist;
 	int missileDist;
 	int beepRate;
-	uint32_t *ot;
+	u32 *ot;
 	POLY_G3 *poly;
 	SVECTOR pos;
 	struct PrimMem *primMem;

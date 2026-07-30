@@ -41,7 +41,7 @@ typedef struct CTR_MAY_ALIAS MatrixNDOverlapMatrix
 
 CTR_STATIC_ASSERT(sizeof(MatrixNDOverlapMatrix) == sizeof(MATRIX));
 
-force_inline MatrixNDOverlapMatrix *MatrixND_GetOverlapMatrix(struct MatrixND *matrix)
+static inline MatrixNDOverlapMatrix *MatrixND_GetOverlapMatrix(struct MatrixND *matrix)
 {
 	return (MatrixNDOverlapMatrix *)((u8 *)matrix + MATRIX_ND_BAKED_MATRIX_OFFSET);
 }

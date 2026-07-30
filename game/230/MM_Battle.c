@@ -1,6 +1,6 @@
 #include <common.h>
 
-void MM_Battle_DrawIcon_Character(struct Icon *icon, int posX, int posY, struct PrimMem *primMem, uint32_t *ot, char transparency, s16 scale)
+void MM_Battle_DrawIcon_Character(struct Icon *icon, int posX, int posY, struct PrimMem *primMem, u32 *ot, char transparency, s16 scale)
 {
 	if (icon == 0)
 	{
@@ -877,7 +877,7 @@ LAB_800b25f0:
 		}
 	}
 
-	uint32_t *ot = gGT->backBuffer->otMem.uiOT;
+	u32 *ot = gGT->backBuffer->otMem.uiOT;
 
 	for (s32 teamIndex = 0; teamIndex < BATTLE_TEAM_COUNT; teamIndex++)
 	{
@@ -920,7 +920,7 @@ LAB_800b25f0:
 		teamHighlightRect.x = tmbattle[BATTLE_ROW_TEAM_META_INDEX].currX + BATTLE_MENU_X_OFFSET;
 		teamHighlightRect.y = tmbattle[BATTLE_ROW_TEAM_META_INDEX].currY + afterLengthY + BATTLE_TEAM_HIGHLIGHT_Y_OFFSET;
 
-		CTR_Box_DrawClearBox(&teamHighlightRect, &sdata->menuRowHighlight_Normal, TRANS_50_DECAL, (uint32_t *)ot);
+		CTR_Box_DrawClearBox(&teamHighlightRect, &sdata->menuRowHighlight_Normal, TRANS_50_DECAL, (u32 *)ot);
 	}
 
 	RECT teamPanelRect;

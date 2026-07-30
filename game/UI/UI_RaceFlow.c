@@ -304,7 +304,7 @@ LAB_80055930:
 		Color color;
 		color.self = colors[0];
 
-		uint32_t *ot = gGT->backBuffer->otMem.uiOT;
+		u32 *ot = gGT->backBuffer->otMem.uiOT;
 
 		CTR_Box_DrawSolidBox(&rect, color, ot);
 

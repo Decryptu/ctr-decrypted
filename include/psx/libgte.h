@@ -15,7 +15,7 @@ typedef struct
 	s32 t[3];    /* transfer vector */
 } MATRIX;
 
-force_inline void CTR_MatrixCopyRot(MATRIX *dst, const MATRIX *src)
+static inline void CTR_MatrixCopyRot(MATRIX *dst, const MATRIX *src)
 {
 	CTR_WriteU32LE(&dst->m[0][0], CTR_ReadU32LE(&src->m[0][0]));
 	CTR_WriteU32LE(&dst->m[0][2], CTR_ReadU32LE(&src->m[0][2]));
@@ -24,7 +24,7 @@ force_inline void CTR_MatrixCopyRot(MATRIX *dst, const MATRIX *src)
 	dst->m[2][2] = src->m[2][2];
 }
 
-force_inline void CTR_MatrixSetRotIdentity(MATRIX *m)
+static inline void CTR_MatrixSetRotIdentity(MATRIX *m)
 {
 	CTR_WriteU32LE(&m->m[0][0], 0x1000);
 	CTR_WriteU32LE(&m->m[0][2], 0);

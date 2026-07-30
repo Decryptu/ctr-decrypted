@@ -110,8 +110,8 @@ static void OVR233_ResetD233(void)
 #ifdef CTR_NATIVE
 struct Ovr233RetailPointerRange
 {
-	uintptr_t retailStart;
-	uintptr_t retailEnd;
+	u32 retailStart;
+	u32 retailEnd;
 	char *nativeStart;
 };
 
@@ -127,7 +127,7 @@ struct Ovr233RetailPointerRange
 
 char *CS_OVR233_TranslateRetailOpcodePointer(char *opCodeAt)
 {
-	uintptr_t ptr = (uintptr_t)opCodeAt;
+	u32 ptr = (u32)opCodeAt;
 	static const struct Ovr233RetailPointerRange ranges[] = {
 	    OVR233_OPCODE_RANGE(bossOpcodeData, OVR233_BOSS_OPCODE_DATA, 0x2b4),
 	    OVR233_OPCODE_RANGE(script_tawnaNormal, OVR233_SCRIPT_TAWNA_NORMAL, 0x28),

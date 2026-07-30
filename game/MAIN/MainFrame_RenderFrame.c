@@ -699,8 +699,8 @@ void RenderBucket_QueueAllInstances(struct GameTracker *gGT)
 	// Aug prototype
 #if 0
 		// ptrEnd of otmem is less than ptrCurr otmem
-    if (*(uint32_t *)(*(int *)(PTR_DAT_8008d2ac + 0x10) + 0x98) <
-        *(uint32_t *)(*(int *)(PTR_DAT_8008d2ac + 0x10) + 0x9c)) {
+    if (*(u32 *)(*(int *)(PTR_DAT_8008d2ac + 0x10) + 0x98) <
+        *(u32 *)(*(int *)(PTR_DAT_8008d2ac + 0x10) + 0x9c)) {
       printf("OTMEM OVERFLOW!\n");
     }
 #endif
@@ -1199,7 +1199,7 @@ void RenderDispEnv_UI(struct GameTracker *gGT)
 	PushBuffer_SetDrawEnv_Normal(&pb->ptrOT[4], pb, gGT->backBuffer, 0, 0);
 }
 
-CTR_GCC_OPTIMIZE_O0 int ReadyToFlip(struct GameTracker *gGT)
+int ReadyToFlip(struct GameTracker *gGT)
 {
 	return
 	    // two VSYNCs passed, 30fps lock
@@ -1209,7 +1209,7 @@ CTR_GCC_OPTIMIZE_O0 int ReadyToFlip(struct GameTracker *gGT)
 	    (gGT->bool_DrawOTag_InProgress == 0);
 }
 
-CTR_GCC_OPTIMIZE_O0 int ReadyToBreak(struct GameTracker *gGT)
+int ReadyToBreak(struct GameTracker *gGT)
 {
 	return
 

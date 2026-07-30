@@ -24,14 +24,14 @@ static const u32 VEH_GROUND_SKIDS_TPAGE_BLEND_MASK = 0xff9fffff;
 static const u32 VEH_GROUND_SKIDS_COLOR_SENTINEL = 0xffffffffu;
 
 
-static u32 VehGroundSkids_ReadTexWord(const struct TextureLayout *layout, size_t offset)
+static u32 VehGroundSkids_ReadTexWord(const struct TextureLayout *layout, u32 offset)
 {
 	u32 word;
 	memcpy(&word, (const u8 *)layout + offset, sizeof(word));
 	return word;
 }
 
-static u16 VehGroundSkids_ReadTexHalf(const struct TextureLayout *layout, size_t offset)
+static u16 VehGroundSkids_ReadTexHalf(const struct TextureLayout *layout, u32 offset)
 {
 	u16 half;
 	memcpy(&half, (const u8 *)layout + offset, sizeof(half));
@@ -170,7 +170,7 @@ static int VehGroundSkids_IntensityFromDepth(int depth)
 	return intensity;
 }
 
-force_inline void VehGroundSkids_ProjectTriplet(struct VehGroundSkidsScratch *scratch, const SVECTOR *frame, u32 *sxy, s32 *depth)
+static void VehGroundSkids_ProjectTriplet(struct VehGroundSkidsScratch *scratch, const SVECTOR *frame, u32 *sxy, s32 *depth)
 {
 	VehGroundSkids_Subset2(scratch, &frame[0], &frame[1], &frame[2]);
 	CTR_GteLoadSV3(&scratch->projected[0], &scratch->projected[1], &scratch->projected[2]);

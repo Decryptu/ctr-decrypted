@@ -121,7 +121,7 @@ void RenderWeather(struct PushBuffer *pb, struct PrimMem *primMem, struct RainBu
 	struct TrigPair trig;
 	u32 centerX;
 	u32 screenBounds;
-	uint32_t *ot;
+	u32 *ot;
 	s32 currentParticles;
 	u32 particleCount;
 	u32 scrollXY;

@@ -109,14 +109,14 @@ CTR_STATIC_ASSERT(offsetof(struct VehGroundShadowScratch, sentinelDriver) == 0x1
 CTR_STATIC_ASSERT(CTR_OFFSET_OF_ARRAY(struct VehGroundShadowScratch, shadowTex, 0) == 0x224);
 CTR_STATIC_ASSERT(CTR_OFFSET_OF_ARRAY(struct VehGroundShadowScratch, shadowTex, 1) == 0x230);
 
-static u32 VehGroundShadow_ReadWord(const void *base, size_t offset)
+static u32 VehGroundShadow_ReadWord(const void *base, u32 offset)
 {
 	u32 value;
 	memcpy(&value, (const char *)base + offset, sizeof(value));
 	return value;
 }
 
-static u16 VehGroundShadow_ReadHalf(const void *base, size_t offset)
+static u16 VehGroundShadow_ReadHalf(const void *base, u32 offset)
 {
 	u16 value;
 	memcpy(&value, (const char *)base + offset, sizeof(value));

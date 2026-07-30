@@ -529,10 +529,10 @@ void DecalFont_DrawLine(char *str, s16 posX, s16 posY, s16 fontType, s16 flags)
 }
 
 
-void DecalFont_DrawLineOT(char *str, int posX, int posY, s16 fontType, int flags, uint32_t *ot)
+void DecalFont_DrawLineOT(char *str, int posX, int posY, s16 fontType, int flags, u32 *ot)
 {
 	struct GameTracker *gGT;
-	uint32_t *backupOT;
+	u32 *backupOT;
 
 	gGT = sdata->gGT;
 

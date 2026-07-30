@@ -290,7 +290,7 @@ typedef struct PolyFT4
 #define polyClut  v[0].clut
 #define polyTpage v[1].tpage
 
-void GetPrimitiveMem(void **ppPrim, size_t primSize);
+void GetPrimitiveMem(void **ppPrim, u32 primSize);
 void AddPrimitive(void *pPrim, void *pOt);
 
 #define GetPrimMem(p)                            \

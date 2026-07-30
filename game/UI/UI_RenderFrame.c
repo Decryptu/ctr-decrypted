@@ -15,7 +15,7 @@ void UI_RenderFrame_Racing()
 	struct PushBuffer *pb;
 	u32 partTimeVariable5;
 	struct Icon *iconPtr;
-	uint32_t *primMemCurr;
+	u32 *primMemCurr;
 	char *fmt;
 	POLY_G4 *TurboCounterBar;
 	s16 sVar17;
@@ -1091,12 +1091,12 @@ void UI_RenderFrame_Wumpa3D_2P3P4P(struct GameTracker *gGT)
 
 	// NOTE(aalhendi): Retail reads the gp slot populated by UI_INSTANCE_InitAll
 	// with ptrPushBufferUI, not the adjacent ptrFruitDisp instance slot.
-	wumpaPushBuffer = (struct PushBuffer *)(uintptr_t)sdata->ptrPushBufferUI;
+	wumpaPushBuffer = (struct PushBuffer *)(u32)sdata->ptrPushBufferUI;
 
 	if (wumpaPushBuffer != NULL)
 	{
-		uint32_t *textureStart = wumpaPushBuffer->ptrOT;
-		uint32_t *textureEnd = wumpaPushBuffer->renderBucketOTRangeEnd;
+		u32 *textureStart = wumpaPushBuffer->ptrOT;
+		u32 *textureEnd = wumpaPushBuffer->renderBucketOTRangeEnd;
 		b32 shouldCycleTexture = (textureStart != NULL) && (textureEnd != NULL);
 
 #ifdef CTR_NATIVE

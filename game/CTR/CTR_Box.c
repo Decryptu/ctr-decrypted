@@ -66,7 +66,7 @@ void CTR_Box_DrawWireBox(RECT *r, const Color *color, void *ot, struct PrimMem *
 	AddPrimitive(p, ot);
 }
 
-void CTR_Box_DrawClearBox(const RECT *r, const Color *color, int transparency, uint32_t *ot)
+void CTR_Box_DrawClearBox(const RECT *r, const Color *color, int transparency, u32 *ot)
 {
 	typedef struct TPage_PolyF4
 	{
@@ -110,7 +110,7 @@ void CTR_Box_DrawClearBox(const RECT *r, const Color *color, int transparency, u
 	AddPrimitive(p, ot);
 }
 
-void CTR_Box_DrawSolidBox(RECT *r, Color color, uint32_t *ot)
+void CTR_Box_DrawSolidBox(RECT *r, Color color, u32 *ot)
 {
 	PolyF4 *p;
 	GetPrimMem(p);

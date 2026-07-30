@@ -1369,7 +1369,7 @@ void CS_Thread_InterpolateFramesMS(struct Thread *t)
 	packet = primMem->cursor;
 	end = primMem->guardEnd;
 
-	if ((uintptr_t)(packet + 1) >= (uintptr_t)end)
+	if ((u32)(packet + 1) >= (u32)end)
 	{
 		return;
 	}

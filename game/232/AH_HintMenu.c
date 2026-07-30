@@ -121,7 +121,7 @@ void AH_HintMenu_MenuProc(struct RectMenu *menu)
 		box.y = (s16)textHeight + 0x4e;
 		box.h = 0x11;
 
-		uint32_t *ot = gGT->backBuffer->otMem.uiOT;
+		u32 *ot = gGT->backBuffer->otMem.uiOT;
 		CTR_Box_DrawClearBox(&box, &sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot);
 
 		box.y = 0x3c;
@@ -309,7 +309,7 @@ LAB_800b38cc:
 	box.y = (menu->rowSelected - D232.hintMenu_scrollIndex) * 0x10 + 0x4f;
 	box.h = 0x11;
 
-	uint32_t *ot = gGT->backBuffer->otMem.uiOT;
+	u32 *ot = gGT->backBuffer->otMem.uiOT;
 	CTR_Box_DrawClearBox(&box, &sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot);
 
 	box.y = 0x3c;

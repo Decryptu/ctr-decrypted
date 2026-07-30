@@ -589,7 +589,7 @@ void AH_Map_Warppads(struct UIMap *map, struct Thread *warppadThread, s16 *arrow
 }
 
 #if defined(CTR_NATIVE)
-force_inline void AH_MaskHint_DrawRepeatPrompt(void);
+static void AH_MaskHint_DrawRepeatPrompt(void);
 #endif
 
 void AH_Map_Main(void)

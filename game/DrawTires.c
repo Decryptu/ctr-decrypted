@@ -488,9 +488,9 @@ static void DrawTiresSolid_LinkPrimitive(struct DrawTiresScratch *scratch, POLY_
 		selectedOTSlot = otRangeEnd;
 	}
 
-	uint32_t *otSlot = (uint32_t *)(uintptr_t)selectedOTSlot;
+	u32 *otSlot = (u32 *)(u32)selectedOTSlot;
 	p->tag = CtrGpu_PackOTTag(*otSlot, 0x09000000);
-	*otSlot = (uint32_t)CtrGpu_PrimToOTLink24(p);
+	*otSlot = (u32)CtrGpu_PrimToOTLink24(p);
 }
 
 static int DrawTiresSolid_EmitProjectedWheel(struct DrawTiresScratch *scratch, struct DrawTiresSolidProjectedWheel *selected, struct PrimMem *primMem,
@@ -1053,9 +1053,9 @@ static void DrawTiresReflection_LinkPrimitive(struct DrawTiresScratch *scratch, 
 		selectedOTSlot = otRangeEnd;
 	}
 
-	uint32_t *otSlot = (uint32_t *)(uintptr_t)selectedOTSlot;
+	u32 *otSlot = (u32 *)(u32)selectedOTSlot;
 	p->tag = CtrGpu_PackOTTag(*otSlot, 0x09000000);
-	*otSlot = (uint32_t)CtrGpu_PrimToOTLink24(p);
+	*otSlot = (u32)CtrGpu_PrimToOTLink24(p);
 }
 
 static void DrawTiresReflection_EmitProjectedWheel(struct DrawTiresScratch *scratch, struct DrawTiresReflectionProjectedWheel *selected,

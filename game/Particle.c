@@ -645,7 +645,7 @@ struct ParticleRenderListScratch
 		};
 	};
 	u8 pad_14[0x0c];
-	uint32_t *ot;
+	u32 *ot;
 	s32 cameraOffset[3];
 	s32 depth;
 };
@@ -719,16 +719,16 @@ static struct ParticleRenderListTrig Particle_RenderList_ReadTrig(s32 angle)
 	return trig;
 }
 
-static void Particle_RenderList_LinkPrimitive(u32 *tagWord, const void *packet, uint32_t *ot, u32 tag)
+static void Particle_RenderList_LinkPrimitive(u32 *tagWord, const void *packet, u32 *ot, u32 tag)
 {
 	CtrGpu_LinkPacket24(ot, tagWord, packet, tag);
 }
 
 static void Particle_RenderList_LinkAndAdvance(u32 **primCursor, u32 **payloadCursor, struct Particle *particle, struct InstDrawPerPlayer *idpp,
-                                               u16 flagsSetColor, s32 depth, uint32_t *defaultOT)
+                                               u16 flagsSetColor, s32 depth, u32 *defaultOT)
 {
 	u32 *prim = *primCursor;
-	uint32_t *otBase;
+	u32 *otBase;
 	s32 otIndex;
 
 	if (idpp != NULL)
@@ -745,7 +745,7 @@ static void Particle_RenderList_LinkAndAdvance(u32 **primCursor, u32 **payloadCu
 			otIndex = (u16)idpp->depthOffset[1];
 		}
 
-		otBase = (uint32_t *)(uintptr_t)idpp->otRangeNormal;
+		otBase = (u32 *)(u32)idpp->otRangeNormal;
 	}
 	else
 	{

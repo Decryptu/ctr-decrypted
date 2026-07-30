@@ -18,7 +18,7 @@ void MM_Video_DecDCToutCallbackFunc(void)
 	// NOTE(aalhendi): Native PsyCross does not map PSYQ BSS at 0x8009ebf8.
 #endif
 
-	uint32_t *ot = BreakDraw();
+	u32 *ot = BreakDraw();
 
 	LoadImage(&V230.slice, V230.out_Buf[V230.dctOutBufferIndex]);
 
@@ -106,10 +106,10 @@ void MM_Video_VLC_Decode(void)
 	s16 oldDecodeState;
 	int backloc;
 	int result;
-	uint32_t size;
+	u32 size;
 	s16 freeSectors;
 	s16 overSectors;
-	uint32_t *sectorData;
+	u32 *sectorData;
 	StHEADER *sectorHeader[2];
 	int waitTime;
 	CdlLOC *sectorLoc;
@@ -407,10 +407,10 @@ void MM_Video_AllocMem(u32 width, u16 height, u32 flags, int ringSectorCount, in
 	V230.flags = flags;
 
 	V230.out_Buf[0] = MEMPACK_AllocMem(V230.dctOutSliceSize << 3); //, OVR_230.s_SliceBuf);
-	V230.out_Buf[1] = (uint32_t *)(((int)V230.out_Buf[0]) + V230.dctOutSliceSize * 4);
+	V230.out_Buf[1] = (u32 *)(((int)V230.out_Buf[0]) + V230.dctOutSliceSize * 4);
 
 	V230.in_Buf[0] = MEMPACK_AllocMem(V230.vlcBufferSize << 3); //, OVR_230.s_VlcBuf);
-	V230.in_Buf[1] = (uint32_t *)(((int)V230.in_Buf[0]) + V230.vlcBufferSize * 4);
+	V230.in_Buf[1] = (u32 *)(((int)V230.in_Buf[0]) + V230.vlcBufferSize * 4);
 
 	V230.out_Buf[2] = MEMPACK_AllocMem(V230.ringSectorCount << LOAD_CD_DATA_SECTOR_SHIFT); //, OVR_230.s_RingBuf);
 

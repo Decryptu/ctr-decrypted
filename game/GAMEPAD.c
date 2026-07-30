@@ -208,7 +208,7 @@ int GAMEPAD_GetNumConnected(struct GamepadSystem *gGamepads)
 		for (int Port = 0; Port < numPortsPerSlot; Port++)
 		{
 			slotPacket = &gGamepads->slotBuffer[Slot];
-			ptrControllerPacket = &slotPacket->controller;
+			ptrControllerPacket = (struct ControllerPacket *)slotPacket;
 			if (slotPacket->plugged == PLUGGED)
 			{
 				// if multitap plugged in
@@ -292,7 +292,7 @@ int GAMEPAD_ProcessHold(struct GamepadSystem *gGamepads)
 		else if (ptrControllerPacket->plugged == PLUGGED)
 		{
 			// endian flip
-			rawInput = (ptrControllerPacket->controllerInput1 << 8) | ptrControllerPacket->controllerInput2;
+			rawInput = (ptrControllerPacket->input.high << 8) | ptrControllerPacket->input.low;
 
 			rawInput = rawInput ^ 0xffff;
 			mappedButtons = 0;
@@ -300,15 +300,15 @@ int GAMEPAD_ProcessHold(struct GamepadSystem *gGamepads)
 			// If this is madcatz racing wheel
 			if (ptrControllerPacket->controllerData == ((PAD_ID_NEGCON << 4) | 3))
 			{
-				if (0x40 < ptrControllerPacket->neGcon.btn_1)
+				if (0x40 < ptrControllerPacket->payload.neGcon.btn_1)
 				{
 					rawInput |= 0x40;
 				}
-				if (0x40 < ptrControllerPacket->neGcon.btn_2)
+				if (0x40 < ptrControllerPacket->payload.neGcon.btn_2)
 				{
 					rawInput |= 0x80;
 				}
-				if (0x40 < ptrControllerPacket->neGcon.trg_l)
+				if (0x40 < ptrControllerPacket->payload.neGcon.trg_l)
 				{
 					rawInput |= 4;
 				}
@@ -517,20 +517,20 @@ void GAMEPAD_ProcessSticks(struct GamepadSystem *gGamepads)
 
 			if ((controllerData == ((PAD_ID_ANALOG_STICK << 4) | 3)) || (controllerData == ((PAD_ID_ANALOG << 4) | 3)))
 			{
-				pad->stickLX_dontUse1 = packet->analog.leftX;
+				pad->stickLX_dontUse1 = packet->payload.analog.leftX;
 
-				if (packet->analog.leftY == 0xff && pad->unk_1 != 0xff)
+				if (packet->payload.analog.leftY == 0xff && pad->unk_1 != 0xff)
 				{
 					pad->stickLY_dontUse1 = pad->unk_1;
 				}
 				else
 				{
-					pad->stickLY_dontUse1 = packet->analog.leftY;
+					pad->stickLY_dontUse1 = packet->payload.analog.leftY;
 				}
 
-				pad->unk_1 = packet->analog.leftY;
-				pad->stickRX = packet->analog.rightX;
-				pad->stickRY = packet->analog.rightY;
+				pad->unk_1 = packet->payload.analog.leftY;
+				pad->stickRX = packet->payload.analog.rightX;
+				pad->stickRY = packet->payload.analog.rightY;
 			}
 
 			else if (controllerData == ((PAD_ID_NEGCON << 4) | 3))
@@ -540,7 +540,7 @@ void GAMEPAD_ProcessSticks(struct GamepadSystem *gGamepads)
 					pad->rwd = rwd;
 				}
 
-				pad->stickLX_dontUse1 = packet->neGcon.twist;
+				pad->stickLX_dontUse1 = packet->payload.neGcon.twist;
 				pad->stickLY_dontUse1 = 0x80;
 				pad->stickRX = 0x80;
 				pad->stickRY = 0x80;
@@ -553,7 +553,7 @@ void GAMEPAD_ProcessSticks(struct GamepadSystem *gGamepads)
 					pad->rwd = rwd;
 				}
 
-				sVar8 = packet->jogcon.jog_rot;
+				sVar8 = packet->payload.jogcon.jog_rot;
 				iVar4 = (int)sVar8;
 
 				if (iVar4 < 0)

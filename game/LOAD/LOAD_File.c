@@ -143,7 +143,7 @@ void LOAD_DramFileCallback(struct LoadQueueSlot *lqs)
 	if ((callback != NULL) && (callback != LOAD_DramFileCallback) && (callback != (void (*)(struct LoadQueueSlot *))-1) &&
 	    (callback != LOAD_QUEUE_CALLBACK_SET_POINTER))
 #else
-	if ((callback != NULL) && (((u32)(uintptr_t)callback & 0xff000000) == 0x80000000))
+	if ((callback != NULL) && (((u32)(u32)callback & 0xff000000) == 0x80000000))
 #endif
 	{
 		callback(lqs);

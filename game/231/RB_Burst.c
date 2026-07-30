@@ -26,9 +26,9 @@ void RB_Burst_ProcessBucket(struct Thread *thread)
 
 		for (int i = 0; i < gGT->numPlyrCurrGame; i++)
 		{
-			struct Instance *shockwaveInst = (struct Instance *)(uintptr_t)burst[0];
-			struct Instance *burstInst = (struct Instance *)(uintptr_t)burst[1];
-			struct Instance *warpedBurstInst = (struct Instance *)(uintptr_t)burst[2];
+			struct Instance *shockwaveInst = (struct Instance *)(u32)burst[0];
+			struct Instance *burstInst = (struct Instance *)(u32)burst[1];
+			struct Instance *warpedBurstInst = (struct Instance *)(u32)burst[2];
 
 			if (burstInst == NULL)
 			{
@@ -432,7 +432,7 @@ static void RB_Burst_DrawAll_SetPushBuffer(struct Instance *inst, int playerInde
 static struct Instance *RB_Burst_DrawAll_GetSlot(u32 *burst, int index)
 {
 	// NOTE(aalhendi): burst thread object is retail-width instance slots.
-	return (struct Instance *)(uintptr_t)burst[index];
+	return (struct Instance *)(u32)burst[index];
 }
 
 void RB_Burst_DrawAll(struct GameTracker *gGT)

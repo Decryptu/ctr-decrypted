@@ -3,7 +3,7 @@
 
 void JitPool_Clear(struct JitPool *AP)
 {
-	uintptr_t currSlot = (uintptr_t)AP->ptrPoolData;
+	u32 currSlot = (u32)AP->ptrPoolData;
 
 	// clear list of free and taken
 	LIST_Clear(&AP->free);

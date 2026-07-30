@@ -107,11 +107,11 @@ void SongPool_Start(struct Song *song, u16 songID, s16 deltaBPM, b32 boolLoopAtE
 	cnhFirst = (char *)&seqOffsetArr[numSeqs];
 
 	// align up by 4
-	if (((uintptr_t)cnhFirst & 1) != 0)
+	if (((u32)cnhFirst & 1) != 0)
 	{
 		cnhFirst += 1;
 	}
-	if (((uintptr_t)cnhFirst & 2) != 0)
+	if (((u32)cnhFirst & 2) != 0)
 	{
 		cnhFirst += 2;
 	}

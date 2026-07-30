@@ -104,7 +104,7 @@ void DISPLAY_Blur_Main(struct PushBuffer *pb, int strength)
 	u32 *prim = backBuffer->primMem.cursor;
 	u32 *nextPrim;
 	s8 cameraID;
-	uint32_t *ot;
+	u32 *ot;
 
 	cameraID = *(s8 *)&pb->cameraID;
 
@@ -159,7 +159,7 @@ void DISPLAY_Blur_Main(struct PushBuffer *pb, int strength)
 
 		ot = gGT->otSwapchainDB[gGT->swapchainIndex];
 		oldTag = *ot;
-		*ot = (uint32_t)CtrGpu_PrimToOTLink24(prim);
+		*ot = (u32)CtrGpu_PrimToOTLink24(prim);
 
 		tile->dstX = pb->rect.x;
 		tile->dstY = pb->rect.y;
