@@ -142,10 +142,10 @@ class ToolchainTests(unittest.TestCase):
         self.assertEqual(
             build["forced_includes"],
             [
-                "tools/matching/overlays/221/bootstrap.h",
                 "tools/matching/overlays/221/abi.h",
             ],
         )
+        self.assertIn("-DBUILD=926", build["compiler_flags"])
         self.assertNotIn(
             "tools/matching/overlays/221/include",
             build["include_directories"],
@@ -158,12 +158,7 @@ class ToolchainTests(unittest.TestCase):
         self.assertNotIn("0x8009f6fc", linker)
         self.assertNotIn("CC_EndEvent_DrawMenu", linker)
 
-        bootstrap = ctr_match.ROOT / build["forced_includes"][0]
-        bootstrap_text = bootstrap.read_text()
-        self.assertIn("TODO(aalhendi):", bootstrap_text)
-        self.assertIn("#define COMMON_H", bootstrap_text)
-
-        abi = ctr_match.ROOT / build["forced_includes"][1]
+        abi = ctr_match.ROOT / build["forced_includes"][0]
         abi_text = abi.read_text()
         self.assertIn("#include <common.h>", abi_text)
         self.assertIn("extern struct GameTracker *cc_gameTracker", abi_text)

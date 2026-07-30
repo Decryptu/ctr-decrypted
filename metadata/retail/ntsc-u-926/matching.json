@@ -45,7 +45,6 @@
         "include"
       ],
       "forced_includes": [
-        "tools/matching/overlays/221/bootstrap.h",
         "tools/matching/overlays/221/abi.h"
       ],
       "linker_script": "tools/matching/overlay.ld",
@@ -54,7 +53,8 @@
       "compiler_flags": [
         "-O2",
         "-G8",
-        "-msoft-float"
+        "-msoft-float",
+        "-DBUILD=926"
       ],
       "small_data_limit": 8,
       "aspsx_version": "2.77",
