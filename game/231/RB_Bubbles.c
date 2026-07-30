@@ -42,7 +42,7 @@ void RB_Bubbles_RoosTubes()
 	for (
 	    // initializer, skip one cause level geometry
 	    // covers the particles (see #ctr-early-content)
-	    numSpawnPosCoords = spawnType2->numCoords - 1, spawnPos = &spawnType2->positions[1], numFreeParticles = gGT->JitPools.particle.free.count;
+	    numSpawnPosCoords = spawnType2->numCoords - 1, spawnPos = &spawnType2->coords.positions[1], numFreeParticles = gGT->JitPools.particle.free.count;
 
 	    // end condition
 	    (numSpawnPosCoords > 0) && (numFreeParticles >= 0x14);

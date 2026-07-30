@@ -59,27 +59,27 @@ static b32 AH_Door_IsOpenByRewards(s16 levelID, AdventureHubDoorID doorID)
 {
 	if ((levelID == N_SANITY_BEACH) && (doorID == AH_DOOR_BEACH_TO_GLACIER_PARK))
 	{
-		return (sdata->advProgress.storyFlags & ADV_REWARD_DOOR_BEACH_TO_GLACIER_PARK_MASK) != 0;
+		return (sdata->advProgress.rewards[ADV_PROGRESS_WORD_STORY] & ADV_REWARD_DOOR_BEACH_TO_GLACIER_PARK_MASK) != 0;
 	}
 
 	if ((levelID == N_SANITY_BEACH) && (doorID == AH_DOOR_BEACH_TO_GEMSTONE_VALLEY))
 	{
-		return (sdata->advProgress.storyFlags & ADV_REWARD_DOOR_BEACH_TO_GEMSTONE_VALLEY_MASK) != 0;
+		return (sdata->advProgress.rewards[ADV_PROGRESS_WORD_STORY] & ADV_REWARD_DOOR_BEACH_TO_GEMSTONE_VALLEY_MASK) != 0;
 	}
 
 	if (levelID == GEM_STONE_VALLEY)
 	{
-		return (sdata->advProgress.storyFlags & ADV_REWARD_DOOR_GEMSTONE_VALLEY_TO_CUPS_MASK) != 0;
+		return (sdata->advProgress.rewards[ADV_PROGRESS_WORD_STORY] & ADV_REWARD_DOOR_GEMSTONE_VALLEY_TO_CUPS_MASK) != 0;
 	}
 
 	if (levelID == THE_LOST_RUINS)
 	{
-		return (sdata->advProgress.storyFlags & ADV_REWARD_DOOR_LOST_RUINS_TO_GLACIER_PARK_MASK) != 0;
+		return (sdata->advProgress.rewards[ADV_PROGRESS_WORD_STORY] & ADV_REWARD_DOOR_LOST_RUINS_TO_GLACIER_PARK_MASK) != 0;
 	}
 
 	if (levelID == GLACIER_PARK)
 	{
-		return (sdata->advProgress.storyFlags & ADV_REWARD_DOOR_GLACIER_PARK_TO_CITADEL_CITY_MASK) != 0;
+		return (sdata->advProgress.rewards[ADV_PROGRESS_WORD_STORY] & ADV_REWARD_DOOR_GLACIER_PARK_TO_CITADEL_CITY_MASK) != 0;
 	}
 
 	return false;
@@ -542,7 +542,7 @@ void AH_Door_ThTick(struct Thread *t)
 	    (lev == THE_LOST_RUINS))
 	{
 		// open all doors to glacier
-		sdata->advProgress.storyFlags |= ADV_REWARD_DOORS_TO_GLACIER_PARK_MASK;
+		sdata->advProgress.rewards[ADV_PROGRESS_WORD_STORY] |= ADV_REWARD_DOORS_TO_GLACIER_PARK_MASK;
 	}
 
 	else if (
@@ -553,21 +553,21 @@ void AH_Door_ThTick(struct Thread *t)
 	    (doorID == AH_DOOR_BEACH_TO_GEMSTONE_VALLEY))
 	{
 		// record that door is open
-		sdata->advProgress.storyFlags |= ADV_REWARD_DOOR_BEACH_TO_GEMSTONE_VALLEY_MASK;
+		sdata->advProgress.rewards[ADV_PROGRESS_WORD_STORY] |= ADV_REWARD_DOOR_BEACH_TO_GEMSTONE_VALLEY_MASK;
 	}
 
 	// Gemstone valley (cup door)
 	else if (lev == GEM_STONE_VALLEY)
 	{
 		// record that door is open
-		sdata->advProgress.storyFlags |= ADV_REWARD_DOOR_GEMSTONE_VALLEY_TO_CUPS_MASK;
+		sdata->advProgress.rewards[ADV_PROGRESS_WORD_STORY] |= ADV_REWARD_DOOR_GEMSTONE_VALLEY_TO_CUPS_MASK;
 	}
 
 	// Glacier Park (glacier -> citadel)
 	else
 	{
 		// record that door is open
-		sdata->advProgress.storyFlags |= ADV_REWARD_DOOR_GLACIER_PARK_TO_CITADEL_CITY_MASK;
+		sdata->advProgress.rewards[ADV_PROGRESS_WORD_STORY] |= ADV_REWARD_DOOR_GLACIER_PARK_TO_CITADEL_CITY_MASK;
 	}
 
 	cDC->flags |= CAMERA_FLAG_TRANSITION_BACK;
@@ -723,20 +723,20 @@ void AH_Door_LInB(struct Instance *inst)
 	if (
 	    // Level ID is N Sanity Beach, check door to Glacier Park
 	    (levelID == N_SANITY_BEACH && woodDoor->doorID == AH_DOOR_BEACH_TO_GLACIER_PARK &&
-	     ((sdata->advProgress.storyFlags & ADV_REWARD_DOOR_BEACH_TO_GLACIER_PARK_MASK) != 0)) ||
+	     ((sdata->advProgress.rewards[ADV_PROGRESS_WORD_STORY] & ADV_REWARD_DOOR_BEACH_TO_GLACIER_PARK_MASK) != 0)) ||
 
 	    // Level ID is N Sanity Beach, check door to Gemstone Valley
 	    (levelID == N_SANITY_BEACH && woodDoor->doorID == AH_DOOR_BEACH_TO_GEMSTONE_VALLEY &&
-	     ((sdata->advProgress.storyFlags & ADV_REWARD_DOOR_BEACH_TO_GEMSTONE_VALLEY_MASK) != 0)) ||
+	     ((sdata->advProgress.rewards[ADV_PROGRESS_WORD_STORY] & ADV_REWARD_DOOR_BEACH_TO_GEMSTONE_VALLEY_MASK) != 0)) ||
 
 	    // Level ID is Gemstone Valley, check door to Cup room
-	    (levelID == GEM_STONE_VALLEY && ((sdata->advProgress.storyFlags & ADV_REWARD_DOOR_GEMSTONE_VALLEY_TO_CUPS_MASK) != 0)) ||
+	    (levelID == GEM_STONE_VALLEY && ((sdata->advProgress.rewards[ADV_PROGRESS_WORD_STORY] & ADV_REWARD_DOOR_GEMSTONE_VALLEY_TO_CUPS_MASK) != 0)) ||
 
 	    // Level ID is Lost Ruins, check door to Glacier Park
-	    (levelID == THE_LOST_RUINS && ((sdata->advProgress.storyFlags & ADV_REWARD_DOOR_LOST_RUINS_TO_GLACIER_PARK_MASK) != 0)) ||
+	    (levelID == THE_LOST_RUINS && ((sdata->advProgress.rewards[ADV_PROGRESS_WORD_STORY] & ADV_REWARD_DOOR_LOST_RUINS_TO_GLACIER_PARK_MASK) != 0)) ||
 
 	    // Level ID is Glacier Park, check door to Citadel City
-	    ((levelID == GLACIER_PARK) && ((sdata->advProgress.storyFlags & ADV_REWARD_DOOR_GLACIER_PARK_TO_CITADEL_CITY_MASK) != 0)))
+	    ((levelID == GLACIER_PARK) && ((sdata->advProgress.rewards[ADV_PROGRESS_WORD_STORY] & ADV_REWARD_DOOR_GLACIER_PARK_TO_CITADEL_CITY_MASK) != 0)))
 	{
 		// rotation = 90 degrees
 		woodDoor->doorRot.y = AH_DOOR_OPEN_ROTATION;

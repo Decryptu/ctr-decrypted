@@ -106,7 +106,7 @@ void RR_EndEvent_UnlockAward(void)
 			if (gGT->levelID == TURBO_TRACK)
 			{
 				// unlock turbo track
-				sdata->gameProgress.unlockFlags |= GAME_UNLOCK_TURBO_TRACK_MASK;
+				sdata->gameProgress.unlocks[0] |= GAME_UNLOCK_TURBO_TRACK_MASK;
 			}
 
 			continue;

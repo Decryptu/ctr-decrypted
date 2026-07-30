@@ -78,7 +78,7 @@ static void DrawTiresSolid_AddHazardOffset(struct DrawTiresPackedVec3 *rim, int 
 	struct TrigPair spin = DrawTiresSolid_TrigAngleSinCos(angle);
 
 	rim->y = (s16)(rim->y + (spin.cos >> shift));
-	rim->z.lo = (s16)(rim->z.lo + (spin.sin >> shift));
+	rim->z.halves.lo = (s16)(rim->z.halves.lo + (spin.sin >> shift));
 }
 
 s32 Unknown_8006ef98(s32 radicand)
@@ -320,7 +320,7 @@ static void DrawTiresSolid_LoadCorner(struct DrawTiresScratch *scratch, int vect
 	SVec3Slot *axisB = &scratch->tireAxisB[wheelIndex];
 	int x = wheelLocal->center.x + (axisSign * axisA->x) + (rimSign * axisB->x);
 	int y = wheelLocal->center.y + (axisSign * axisA->y) + (rimSign * axisB->y);
-	int z = wheelLocal->center.z.lo + (axisSign * axisA->z) + (rimSign * axisB->z);
+	int z = wheelLocal->center.z.halves.lo + (axisSign * axisA->z) + (rimSign * axisB->z);
 
 	MTC2(CTR_PackS16Pair(x, y), vectorIndex * 2);
 	MTC2(z, (vectorIndex * 2) + 1);
@@ -694,7 +694,7 @@ static void DrawTiresReflection_AddHazardOffset(struct DrawTiresPackedVec3 *rim,
 	struct TrigPair spin = DrawTiresSolid_TrigAngleSinCos(angle);
 
 	rim->y = (s16)(rim->y + (spin.cos >> shift));
-	rim->z.lo = (s16)(rim->z.lo + (spin.sin >> shift));
+	rim->z.halves.lo = (s16)(rim->z.halves.lo + (spin.sin >> shift));
 }
 
 static void DrawTiresReflection_BuildWheelLocalPairs(struct DrawTiresScratch *scratch, struct Driver *driver, struct Instance *inst,
@@ -910,7 +910,7 @@ static void DrawTiresReflection_LoadCorner(struct DrawTiresScratch *scratch, int
 	SVec3Slot *axisB = &scratch->tireAxisB[wheelIndex];
 	int x = wheelLocal->center.x + (axisSign * axisA->x) + (rimSign * axisB->x);
 	int y = wheelLocal->center.y + (axisSign * axisA->y) + (rimSign * axisB->y);
-	int z = wheelLocal->center.z.lo + (axisSign * axisA->z) + (rimSign * axisB->z);
+	int z = wheelLocal->center.z.halves.lo + (axisSign * axisA->z) + (rimSign * axisB->z);
 
 	MTC2(CTR_PackS16Pair(x, y), vectorIndex * 2);
 	MTC2(z, (vectorIndex * 2) + 1);

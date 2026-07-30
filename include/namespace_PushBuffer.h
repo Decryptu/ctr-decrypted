@@ -52,18 +52,10 @@ CTR_STATIC_ASSERT(sizeof(struct PushBufferSetMatrixVPScratch) == CTR_SCRATCHPAD_
 
 // Let the compiler figure it out,
 // the bitshifting annoys me
-union FrustumCornerIN
+struct FrustumCornerIN
 {
-	struct
-	{
-		s16 x;
-		s16 y;
-	};
-
-	struct
-	{
-		int self;
-	};
+	s16 x;
+	s16 y;
 };
 
 struct PushBuffer

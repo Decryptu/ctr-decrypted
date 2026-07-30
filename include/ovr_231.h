@@ -153,15 +153,7 @@ struct TrackerWeapon
 	int timeAlive;
 
 	// 0x4c
-	union
-	{
-		struct
-		{
-			s16 savedPosX;
-			s16 savedPosY;
-		};
-		u32 savedPosXY;
-	};
+	u32 savedPosXY;
 
 	// 0x50
 	s16 savedPosZ;
@@ -266,18 +258,8 @@ struct MineWeapon;
 
 struct WeaponSlot231
 {
-	union
-	{
-		// 0x0
-		struct Item item;
-
-		struct
-		{
-			// 0x0
-			struct WeaponSlot231 *next;
-			struct WeaponSlot231 *prev;
-		};
-	};
+	// 0x0
+	struct Item item;
 
 	// 0x8
 	struct MineWeapon *mineWeapon;

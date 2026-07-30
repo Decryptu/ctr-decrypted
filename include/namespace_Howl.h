@@ -147,22 +147,6 @@ enum CseqSong
 	CSEQ_SONG_UKA = 2,
 };
 
-#ifndef CTR_NATIVE
-// from TOMB5, not from psyq
-// https://github.com/TOMB5/TOMB5/blob/master/EMULATOR/LIBSPU.H
-typedef struct
-{
-	u32 mask;
-	s32 mode;
-
-	// SpuVolume from psn00b headers
-	SpuVolume depth; /* reverb depth */
-
-	s32 delay;    /* Delay Time  (ECHO, DELAY only)   */
-	s32 feedback; /* Feedback    (ECHO only)          */
-} SpuReverbAttr;
-#endif
-
 // similar to SndRegisterAttr in psyq libsnd.h
 struct ChannelAttr
 {
@@ -205,8 +189,8 @@ struct ChannelStats
 
 			// 0x4
 			struct ChannelStats *prev;
-		};
-	};
+		} links;
+	} link;
 
 	// 0x8
 	u8 flags;

@@ -446,39 +446,18 @@ struct HighScoreTransitionState
 	s16 state;
 
 	// 0x02
-	union
-	{
-		s16 frame[3];
-		struct
-		{
-			s16 mainFrame;
-			s16 trackFrame;
-			s16 rowFrame;
-		};
-	};
+	s16 mainFrame;
+	s16 trackFrame;
+	s16 rowFrame;
 
 	// 0x08
 	// -1 for negative direction and 1 for positive direction.
-	union
-	{
-		s16 horizontalMove[2];
-		struct
-		{
-			s16 activeHorizontalMove;
-			s16 pendingHorizontalMove;
-		};
-	};
+	s16 activeHorizontalMove;
+	s16 pendingHorizontalMove;
 
 	// 0x0c
-	union
-	{
-		s16 verticalMove[2];
-		struct
-		{
-			s16 activeVerticalMove;
-			s16 pendingVerticalMove;
-		};
-	};
+	s16 activeVerticalMove;
+	s16 pendingVerticalMove;
 };
 
 struct MenuExitTransitionState
@@ -879,8 +858,8 @@ struct OverlayDATA_230
 			struct TransitionMeta titleCameraXYTransition;
 			struct TransitionMeta titleCameraZTransition;
 			struct TransitionMeta titleTransitionEnd;
-		};
-	};
+		} named;
+	} titleTransitions;
 
 	// 800B48B4
 	char padding_afterTitleTransitions[0x10];
@@ -1043,8 +1022,8 @@ struct OverlayDATA_230
 			struct TransitionMeta trackSelect_lapMenuTransition;
 			struct TransitionMeta trackSelect_titleTransition;
 			struct TransitionMeta trackSelect_transitionEnd;
-		};
-	};
+		} named;
+	} trackTransitions;
 	s16 padding_800B5572;
 
 	// 800b5574
@@ -1559,14 +1538,11 @@ CTR_STATIC_ASSERT(offsetof(struct HighScoreSelectionState, currentTrack) == 0x4)
 CTR_STATIC_ASSERT(offsetof(struct HighScoreSelectionState, currentRow) == 0x6);
 CTR_STATIC_ASSERT(sizeof(struct HighScoreTransitionState) == 0x10);
 CTR_STATIC_ASSERT(offsetof(struct HighScoreTransitionState, state) == 0x0);
-CTR_STATIC_ASSERT(offsetof(struct HighScoreTransitionState, frame) == 0x2);
 CTR_STATIC_ASSERT(offsetof(struct HighScoreTransitionState, mainFrame) == 0x2);
 CTR_STATIC_ASSERT(offsetof(struct HighScoreTransitionState, trackFrame) == 0x4);
 CTR_STATIC_ASSERT(offsetof(struct HighScoreTransitionState, rowFrame) == 0x6);
-CTR_STATIC_ASSERT(offsetof(struct HighScoreTransitionState, horizontalMove) == 0x8);
 CTR_STATIC_ASSERT(offsetof(struct HighScoreTransitionState, activeHorizontalMove) == 0x8);
 CTR_STATIC_ASSERT(offsetof(struct HighScoreTransitionState, pendingHorizontalMove) == 0xa);
-CTR_STATIC_ASSERT(offsetof(struct HighScoreTransitionState, verticalMove) == 0xc);
 CTR_STATIC_ASSERT(offsetof(struct HighScoreTransitionState, activeVerticalMove) == 0xc);
 CTR_STATIC_ASSERT(offsetof(struct HighScoreTransitionState, pendingVerticalMove) == 0xe);
 CTR_STATIC_ASSERT(sizeof(struct MenuExitTransitionState) == 0x6);

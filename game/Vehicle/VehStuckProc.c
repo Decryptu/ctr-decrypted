@@ -533,7 +533,7 @@ void VehStuckProc_MaskGrab_Init(struct Thread *t, struct Driver *d)
 				}
 
 				p->otIndexOffset = d->instSelf->depthBiasNormal;
-				p->driverInst = d->instSelf;
+				p->owner.driverInst = d->instSelf;
 				p->driverID = d->driverID;
 			}
 		}

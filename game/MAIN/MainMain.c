@@ -44,8 +44,8 @@ static struct NativeReplaySchedulerFrameInfo MainReplayScheduler_FrameInfo(struc
 	info.audioRNG = sdata->audioRNG;
 	info.deadcoed0 = (u32)gGT->deadcoed_struct.state0;
 	info.deadcoed1 = (u32)gGT->deadcoed_struct.state1;
-	info.advRng0 = (u32)sdata->const_0x30215400;
-	info.advRng1 = (u32)sdata->const_0x493583fe;
+	info.advRng0 = sdata->advRng.state0;
+	info.advRng1 = sdata->advRng.state1;
 
 	return info;
 }

@@ -274,15 +274,15 @@ void CS_Instance_InitMatrix(void)
 		{
 			struct CsInitMatrixEntry *entry = &data[j];
 
-			ConvertRotToMatrix(&mat, &entry->rot);
+			ConvertRotToMatrix(&mat, &entry->matrix.fields.rot);
 
-			scale.m[0][0] = entry->scale.x;
-			scale.m[1][1] = entry->scale.y;
-			scale.m[2][2] = entry->scale.z;
+			scale.m[0][0] = entry->matrix.fields.scale.x;
+			scale.m[1][1] = entry->matrix.fields.scale.y;
+			scale.m[2][2] = entry->matrix.fields.scale.z;
 
 			// NOTE(aalhendi): Retail writes the 0x14-byte rotated payload
 			// directly into this entry, not a full MATRIX copy.
-			void *matrixDst = &entry->rotScaleOrMatrix[0];
+			void *matrixDst = &entry->matrix.fields.rot;
 			MatrixRotate(matrixDst, &scale, &mat);
 		}
 	}

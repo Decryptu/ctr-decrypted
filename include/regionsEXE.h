@@ -7,31 +7,22 @@ enum
 	MATRIX_ND_BAKED_MATRIX_OFFSET = 0x8,
 };
 
-// NOTE(aalhendi): Retail stores vehicle animation data as 0x20-byte packed
-// entries. VehPhysForce also reads a MATRIX at entry+0x8, intentionally
-// overlapping this entry and the next stride.
 struct MatrixND
 {
-	union
-	{
-		struct
-		{
-			SVec3Slot bakedOffset;
-			SVec3Slot authoredRot;
-			SVec3Slot authoredScale;
-			s32 authoredPad[2];
-		};
-
-		struct
-		{
-			s16 m[3][3];
-			s16 extraShort;
-			int t[3];
-		};
-
-		MATRIX matrix;
-	};
+	s16 m[3][3];
+	s16 extraShort;
+	int t[3];
 };
+
+// NOTE(aalhendi): Retail stores vehicle animation source values in the same
+// 0x20-byte words later consumed as overlapping matrices.
+typedef struct CTR_MAY_ALIAS MatrixNDAuthored
+{
+	SVec3Slot bakedOffset;
+	SVec3Slot authoredRot;
+	SVec3Slot authoredScale;
+	s32 authoredPad[2];
+} MatrixNDAuthored;
 
 typedef struct CTR_MAY_ALIAS MatrixNDOverlapMatrix
 {
@@ -44,6 +35,11 @@ CTR_STATIC_ASSERT(sizeof(MatrixNDOverlapMatrix) == sizeof(MATRIX));
 static inline MatrixNDOverlapMatrix *MatrixND_GetOverlapMatrix(struct MatrixND *matrix)
 {
 	return (MatrixNDOverlapMatrix *)((u8 *)matrix + MATRIX_ND_BAKED_MATRIX_OFFSET);
+}
+
+static inline MatrixNDAuthored *MatrixND_GetAuthored(struct MatrixND *matrix)
+{
+	return (MatrixNDAuthored *)matrix;
 }
 
 enum
@@ -61,12 +57,11 @@ enum
 };
 
 CTR_STATIC_ASSERT(sizeof(struct MatrixND) == 0x20);
-CTR_STATIC_ASSERT(offsetof(struct MatrixND, bakedOffset) == 0x0);
-CTR_STATIC_ASSERT(offsetof(struct MatrixND, authoredRot) == 0x8);
-CTR_STATIC_ASSERT(offsetof(struct MatrixND, authoredScale) == 0x10);
-CTR_STATIC_ASSERT(MATRIX_ND_BAKED_MATRIX_OFFSET == CTR_OFFSET_OF_2D_ARRAY(struct MatrixND, m, 1, 1));
-CTR_STATIC_ASSERT(MATRIX_ND_BAKED_MATRIX_OFFSET == offsetof(struct MatrixND, authoredRot));
-CTR_STATIC_ASSERT(offsetof(struct MatrixND, matrix) == 0x0);
+CTR_STATIC_ASSERT(sizeof(MatrixNDAuthored) == 0x20);
+CTR_STATIC_ASSERT(offsetof(MatrixNDAuthored, bakedOffset) == 0x0);
+CTR_STATIC_ASSERT(offsetof(MatrixNDAuthored, authoredRot) == 0x8);
+CTR_STATIC_ASSERT(offsetof(MatrixNDAuthored, authoredScale) == 0x10);
+CTR_STATIC_ASSERT(MATRIX_ND_BAKED_MATRIX_OFFSET == offsetof(MatrixNDAuthored, authoredRot));
 
 struct SoundFadeInput
 {
@@ -115,6 +110,18 @@ enum
 	TERRAIN_BOT_FLAG_DECEL_TO_TARGET_SPEED = 0x80,
 };
 typedef u16 TerrainBotFlags;
+
+union TerrainBotData
+{
+	u16 raw[4];
+	struct
+	{
+		u16 unk_0x34_0;
+		TerrainBotFlags speedFlags;
+		s16 targetSpeedScale;
+		s16 accelerationScale;
+	} fields;
+};
 
 struct Scrub
 {
@@ -188,17 +195,7 @@ struct Terrain
 	s16 sound;
 
 	// 0x34
-	union
-	{
-		u16 unk_0x34[4];
-		struct
-		{
-			u16 unk_0x34_0;
-			TerrainBotFlags botSpeedFlags;
-			s16 botTargetSpeedScale;
-			s16 botAccelerationScale;
-		};
-	};
+	union TerrainBotData bot;
 
 	// 0x3C
 	// BOTS-only speed decay scale; 0x100 is neutral.
@@ -3679,16 +3676,7 @@ struct sData
 	// 8008d668 - UsaRetail
 	// 8008da1c - EurRetail
 	// used for RNG
-	union
-	{
-		struct RngDeadCoedState advRng;
-
-		struct
-		{
-			u32 const_0x30215400;
-			u32 const_0x493583fe;
-		};
-	};
+	struct RngDeadCoedState advRng;
 
 	// 8008d670
 	// once used to load path files (Spyro 2 demo),
@@ -4562,27 +4550,13 @@ struct sData
 	int relicTime_1sec;
 
 	// 8008d9ec
-	union
-	{
-		s16 vehicleCrashRotScratchRaw[4];
-		struct
-		{
-			SVec3 botCrashNavRot;
-			s16 botCrashNavRotPadding;
-		};
-	};
+	SVec3 botCrashNavRot;
+	s16 botCrashNavRotPadding;
 
 	// 8008d9f4
-	union
-	{
-		int vehicleTalkMaskScratchRaw[3];
-		struct
-		{
-			int vehicleCollisionImpactStrength;
-			int talkMaskXASamplePeak;
-			int talkMaskMaxMouthFrame;
-		};
-	};
+	int vehicleCollisionImpactStrength;
+	int talkMaskXASamplePeak;
+	int talkMaskMaxMouthFrame;
 
 	// 8008da00
 	u8 talkMask_boolDead;
@@ -5151,7 +5125,7 @@ extern struct BSS bss;
 
 #ifndef CTR_NATIVE
 // optimal use for modding
-register struct sData *sdata asm("$gp");
+register struct sData *sdata asm("gp");
 #else
 struct sData *sdata = &sdata_static;
 #endif
@@ -5180,14 +5154,14 @@ CTR_STATIC_ASSERT(offsetof(struct Terrain, groundFrictionScale) == 0x20);
 CTR_STATIC_ASSERT(offsetof(struct Terrain, turnAngleScale) == 0x24);
 CTR_STATIC_ASSERT(offsetof(struct Terrain, turnResponseScale) == 0x28);
 CTR_STATIC_ASSERT(offsetof(struct Terrain, skidSound) == 0x30);
-CTR_STATIC_ASSERT(offsetof(struct Terrain, botSpeedFlags) == 0x36);
-CTR_STATIC_ASSERT(offsetof(struct Terrain, botTargetSpeedScale) == 0x38);
-CTR_STATIC_ASSERT(offsetof(struct Terrain, botAccelerationScale) == 0x3a);
+CTR_STATIC_ASSERT(offsetof(struct Terrain, bot.fields.speedFlags) == 0x36);
+CTR_STATIC_ASSERT(offsetof(struct Terrain, bot.fields.targetSpeedScale) == 0x38);
+CTR_STATIC_ASSERT(offsetof(struct Terrain, bot.fields.accelerationScale) == 0x3a);
 CTR_STATIC_ASSERT(offsetof(struct Terrain, botFrictionScale) == 0x3c);
 CTR_STATIC_ASSERT(offsetof(struct Terrain, padding_0x3e) == 0x3e);
-CTR_STATIC_ASSERT(sizeof(((struct Terrain *)0)->botSpeedFlags) == 0x2);
-CTR_STATIC_ASSERT(sizeof(((struct Terrain *)0)->botTargetSpeedScale) == 0x2);
-CTR_STATIC_ASSERT(sizeof(((struct Terrain *)0)->botAccelerationScale) == 0x2);
+CTR_STATIC_ASSERT(sizeof(((struct Terrain *)0)->bot.fields.speedFlags) == 0x2);
+CTR_STATIC_ASSERT(sizeof(((struct Terrain *)0)->bot.fields.targetSpeedScale) == 0x2);
+CTR_STATIC_ASSERT(sizeof(((struct Terrain *)0)->bot.fields.accelerationScale) == 0x2);
 CTR_STATIC_ASSERT(sizeof(((struct Terrain *)0)->botFrictionScale) == 0x2);
 CTR_STATIC_ASSERT(sizeof(struct Scrub) == 0x10);
 CTR_STATIC_ASSERT(sizeof(ScrubFlags) == 0x4);

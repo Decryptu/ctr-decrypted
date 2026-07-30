@@ -46,7 +46,7 @@ static u32 CS_ScriptCmd_ReadOpcode_GetInt_dup(char **cursor)
 static void CS_ScriptCmd_ReadOpcode_Main(struct CutsceneObj *cs)
 {
 	char *opcodes;
-	union CsOpcodeMeta *decoded;
+	struct CsOpcodeMeta *decoded;
 	s16 *decodedShorts;
 	u8 opcode;
 	u8 metaFlags;
@@ -61,7 +61,7 @@ static void CS_ScriptCmd_ReadOpcode_Main(struct CutsceneObj *cs)
 
 	cursor = opcodes + 1;
 	decoded = &cs->decodedOpcode;
-	decodedShorts = decoded->shorts;
+	decodedShorts = CsOpcodeMeta_Halves(decoded);
 
 	cs->prevOpcode = opcodes;
 	opcode = (u8)opcodes[0];

@@ -31,8 +31,8 @@ void RB_Minecart_CheckColl(struct Instance *minecartInst, struct Thread *minecar
 
 void RB_Minecart_NewPoint(struct Instance *minecartInst, struct Minecart *minecartObj, struct SpawnType2 *spawnType2)
 {
-	const SVec3 *start = &spawnType2->positions[minecartObj->posIndex - 1];
-	const SVec3 *end = &spawnType2->positions[minecartObj->posIndex];
+	const SVec3 *start = &spawnType2->coords.positions[minecartObj->posIndex - 1];
+	const SVec3 *end = &spawnType2->coords.positions[minecartObj->posIndex];
 
 	for (int i = 0; i < 3; i++)
 	{

@@ -22,31 +22,16 @@ struct CsThreadInitData
 
 	SVec3Slot rot;
 
-	union
-	{
-		struct
-		{
-			u32 local_30;
-			u32 local_2c;
-			u32 local_28;
-			u32 local_24;
-			u32 local_20;
-		};
-		struct
-		{
-			SVec3Slot derivedRot;
-			u32 local_28_alias;
-			u32 local_24_alias;
-			u32 local_20_alias;
-		};
-	};
+	SVec3Slot derivedRot;
+	u32 local_28_alias;
+	u32 local_24_alias;
+	u32 local_20_alias;
 };
 
 CTR_STATIC_ASSERT(sizeof(struct CsThreadInitData) == 0x2c);
 CTR_STATIC_ASSERT(offsetof(struct CsThreadInitData, podiumPos) == 0x0);
 CTR_STATIC_ASSERT(offsetof(struct CsThreadInitData, characterPos) == 0x8);
 CTR_STATIC_ASSERT(offsetof(struct CsThreadInitData, rot) == 0x10);
-CTR_STATIC_ASSERT(offsetof(struct CsThreadInitData, local_30) == 0x18);
 CTR_STATIC_ASSERT(offsetof(struct CsThreadInitData, derivedRot) == 0x18);
 
 struct CsPodiumCameraThreadObj
@@ -136,23 +121,36 @@ union CsOpcodeArg
 	char *ptr;
 };
 
-union CsOpcodeMeta
+struct CsOpcodeMeta
 {
-	struct
-	{
-		s16 opcode;
-		s16 animIndex;
-		s16 frameStart;
-		s16 frameEnd;
-		union CsOpcodeArg arg0; // shorts 4/5
-		union CsOpcodeArg arg1; // shorts 6/7
-		s16 rotStart;
-		s16 rotEnd;
-	};
-
-	int words[5];
-	s16 shorts[10];
+	s16 opcode;
+	s16 animIndex;
+	s16 frameStart;
+	s16 frameEnd;
+	union CsOpcodeArg arg0; // shorts 4/5
+	union CsOpcodeArg arg1; // shorts 6/7
+	s16 rotStart;
+	s16 rotEnd;
 };
+
+typedef int CsOpcodeWord CTR_MAY_ALIAS;
+typedef s16 CsOpcodeHalf CTR_MAY_ALIAS;
+typedef s16 CsInitMatrixHalf CTR_MAY_ALIAS;
+
+static inline CsOpcodeWord *CsOpcodeMeta_Words(struct CsOpcodeMeta *meta)
+{
+	return (CsOpcodeWord *)meta;
+}
+
+static inline const CsOpcodeWord *CsOpcodeMeta_ConstWords(const struct CsOpcodeMeta *meta)
+{
+	return (const CsOpcodeWord *)meta;
+}
+
+static inline CsOpcodeHalf *CsOpcodeMeta_Halves(struct CsOpcodeMeta *meta)
+{
+	return (CsOpcodeHalf *)meta;
+}
 
 enum CutsceneOpcode
 {
@@ -267,12 +265,7 @@ struct CutsceneObj
 	s16 unk_E;
 
 	// 0x10
-	union
-	{
-		int *metadata;
-		union CsOpcodeMeta *metadataMeta;
-		s16 *metadataShorts;
-	};
+	struct CsOpcodeMeta *metadataMeta;
 
 	// 0x14
 	s16 opcodeDuration;
@@ -330,11 +323,11 @@ struct CutsceneObj
 	struct Ovr233InitMatrixTableEntry *frameOverrideRoot;
 
 	// 0x4c
-	union CsOpcodeMeta decodedOpcode;
+	struct CsOpcodeMeta decodedOpcode;
 };
 
 #ifndef CTR_NATIVE
-CTR_STATIC_ASSERT(sizeof(union CsOpcodeMeta) == 0x14);
+CTR_STATIC_ASSERT(sizeof(struct CsOpcodeMeta) == 0x14);
 CTR_STATIC_ASSERT(OFFSETOF(struct CutsceneObj, rotPad) == 0x26);
 CTR_STATIC_ASSERT(OFFSETOF(struct CutsceneObj, pathProgress32) == 0x28);
 CTR_STATIC_ASSERT(OFFSETOF(struct CutsceneObj, particleID) == 0x44);
@@ -411,7 +404,7 @@ struct CsInitMatrixEntry
 	s16 offset[4];
 	union
 	{
-		s16 rotScaleOrMatrix[10];
+		s16 raw[10];
 		struct
 		{
 			SVec3 rot;
@@ -419,10 +412,15 @@ struct CsInitMatrixEntry
 			SVec3 scale;
 			s16 scalePad;
 			s16 matrixTail[2];
-		};
-	};
+		} fields;
+	} matrix;
 	s16 pad[2];
 };
+
+static inline const CsInitMatrixHalf *CsInitMatrixEntry_ConstHalves(const struct CsInitMatrixEntry *entry)
+{
+	return entry->matrix.raw;
+}
 
 CTR_STATIC_ASSERT(sizeof(struct CsInitMatrixEntry) == 0x20);
 

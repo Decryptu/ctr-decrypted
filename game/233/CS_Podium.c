@@ -314,7 +314,7 @@ void CS_Podium_Prize_ThTick3(struct Thread *th)
 
 	if (!CS_Camera_BoolGotoBoss())
 	{
-		u32 rewards = sdata->advProgress.hintFlags;
+		u32 rewards = sdata->advProgress.rewards[ADV_PROGRESS_WORD_HINT];
 		s16 hintID = 0;
 
 		if ((rewards & ADV_REWARD_HINT_MAP_INFORMATION_MASK) == 0)
@@ -684,7 +684,7 @@ void CS_Podium_FullScene_Init(void)
 
 	// position and rotation of podium scene
 	// Y coordinate (podiumPos.y) has added height
-	posRot = gGT->level1->ptrSpawnType2_PosRot[1].posRot;
+	posRot = gGT->level1->ptrSpawnType2_PosRot[1].coords.posRot;
 	InitData.podiumPos.x = posRot->pos.x;
 	InitData.podiumPos.y = posRot->pos.y + PODIUM_SCENE_SPAWN_Y_OFFSET;
 	InitData.podiumPos.z = posRot->pos.z;

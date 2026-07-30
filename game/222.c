@@ -483,11 +483,11 @@ void AA_EndEvent_DrawMenu(void)
 			// with no key (0x38 = empty)
 			gGT->podiumRewardID = STATIC_BIG1;
 
-			adv->storyFlags |= ADV_REWARD_OXIDE_FIRST_WIN_FLAGS;
+			adv->rewards[ADV_PROGRESS_WORD_STORY] |= ADV_REWARD_OXIDE_FIRST_WIN_FLAGS;
 
 			if (gGT->bossID == AA_OXIDE_SECOND_WIN_BOSS_ID)
 			{
-				adv->storyFlags |= ADV_REWARD_OXIDE_SECOND_WIN_FLAGS;
+				adv->rewards[ADV_PROGRESS_WORD_STORY] |= ADV_REWARD_OXIDE_SECOND_WIN_FLAGS;
 			}
 		}
 	}

@@ -59,7 +59,7 @@ void howl_PlayAudio_Update()
 
 		for (curr = (struct ChannelStats *)sdata->channelTaken.first; curr != NULL; curr = backupNext)
 		{
-			backupNext = curr->next;
+			backupNext = curr->link.links.next;
 
 			// if sound has no timer (plays inf)
 			statFlags = curr->flags;
@@ -161,7 +161,7 @@ void howl_PauseAudio()
 	Smart_EnterCriticalSection();
 	for (curr = (struct ChannelStats *)sdata->channelTaken.first; curr != NULL; curr = backupNext)
 	{
-		backupNext = curr->next;
+		backupNext = curr->link.links.next;
 
 		ptrFlag = &sdata->ChannelUpdateFlags[curr->channelID];
 		*ptrFlag |= 1;
@@ -247,8 +247,8 @@ void howl_UnPauseAudio()
 		}
 
 		backupID = curr->channelID;
-		backupPrev = curr->prev;
-		backupNext = curr->next;
+		backupPrev = curr->link.links.prev;
+		backupNext = curr->link.links.next;
 
 		int *src = (int *)pausedStats++;
 		int *dest = (int *)curr;
@@ -263,8 +263,8 @@ void howl_UnPauseAudio()
 		dest[6] = src[6];
 		dest[7] = src[7];
 
-		curr->next = backupNext;
-		curr->prev = backupPrev;
+		curr->link.links.next = backupNext;
+		curr->link.links.prev = backupPrev;
 		curr->channelID = backupID;
 
 		LIST_RemoveMember(&sdata->channelFree, (struct Item *)curr);

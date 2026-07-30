@@ -55,7 +55,7 @@ int Channel_FindSound(int soundID)
 
 	for (curr = (struct ChannelStats *)sdata->channelTaken.first; curr != NULL; curr = backupNext)
 	{
-		backupNext = curr->next;
+		backupNext = curr->link.links.next;
 
 		if ((curr->type == HOWL_CHANNEL_TYPE_OTHER_FX) &&
 
@@ -85,7 +85,7 @@ struct ChannelStats *Channel_AllocSlot_AntiSpam(s16 soundID, u8 boolUseAntiSpam,
 	{
 		for (curr = (struct ChannelStats *)sdata->channelTaken.first; curr != NULL; curr = backupNext)
 		{
-			backupNext = curr->next;
+			backupNext = curr->link.links.next;
 
 			if ((curr->type == HOWL_CHANNEL_TYPE_OTHER_FX) &&
 
@@ -162,7 +162,7 @@ struct ChannelStats *Channel_SearchFX_EditAttr(int type, int soundID, int update
 
 	for (curr = (struct ChannelStats *)sdata->channelTaken.first; curr != NULL; curr = backupNext)
 	{
-		backupNext = curr->next;
+		backupNext = curr->link.links.next;
 
 		if (
 		    // matching type
@@ -229,7 +229,7 @@ struct ChannelStats *Channel_SearchFX_Destroy(int type, int soundID, int flags)
 
 	for (curr = (struct ChannelStats *)sdata->channelTaken.first; curr != NULL; curr = backupNext)
 	{
-		backupNext = curr->next;
+		backupNext = curr->link.links.next;
 
 		if (
 		    // matching type
@@ -263,7 +263,7 @@ void Channel_DestroyAll_LowLevel(int opt1, b32 boolKeepMusic, u8 type)
 
 	for (curr = (struct ChannelStats *)sdata->channelTaken.first; curr != NULL; curr = backupNext)
 	{
-		backupNext = curr->next;
+		backupNext = curr->link.links.next;
 
 		if (
 		    // destroy if not music

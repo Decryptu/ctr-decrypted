@@ -61,7 +61,7 @@ void AH_SaveObj_ThTick(struct Thread *t)
 			{
 				SVec3 desiredPos;
 				SVec3 desiredRot;
-				struct SpawnPosRot *saveSpawn = gGT->level1->ptrSpawnType2_PosRot->posRot;
+				struct SpawnPosRot *saveSpawn = gGT->level1->ptrSpawnType2_PosRot->coords.posRot;
 
 				// desired transition position (x,y,z)
 				desiredPos.x = saveSpawn->pos.x + (s16)((int)saveInst->matrix.m[0][0] * AH_SAVEOBJ_CAMERA_FORWARD_OFFSET >> 7);
@@ -250,7 +250,7 @@ void AH_SaveObj_LInB(struct Instance *savInst)
 			else
 			{
 				struct SpawnType2 *spawn = gGT->level1->ptrSpawnType2_PosRot;
-				struct SpawnPosRot *saveSpawn = spawn->posRot;
+				struct SpawnPosRot *saveSpawn = spawn->coords.posRot;
 				struct Instance *inst = INSTANCE_Birth3D(gGT->modelPtr[STATIC_SCAN], R232.s_scan, t);
 				save->inst = inst;
 

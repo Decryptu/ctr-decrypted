@@ -106,28 +106,32 @@ CTR_STATIC_ASSERT(CS_DANCE_MODEL_SCRIPT_COUNT ==
 CTR_STATIC_ASSERT(CS_KART_FRAME_OVERRIDE_COUNT ==
                   sizeof(((struct OverlayDATA_233 *)0)->cs_initMatrixTable) / sizeof(((struct OverlayDATA_233 *)0)->cs_initMatrixTable[0]));
 CTR_STATIC_ASSERT(CS_INTERPOLATE_LINE_FADE_END_DEPTH - CS_INTERPOLATE_LINE_FADE_START_DEPTH == 0x800);
-CTR_STATIC_ASSERT(OFFSETOF(union CsOpcodeMeta, animIndex) == CS_AUDIO_VOLUME_FX_BYTE_OFFSET);
-CTR_STATIC_ASSERT(OFFSETOF(union CsOpcodeMeta, frameStart) == CS_AUDIO_VOLUME_MUSIC_BYTE_OFFSET);
-CTR_STATIC_ASSERT(OFFSETOF(union CsOpcodeMeta, frameEnd) == CS_AUDIO_VOLUME_VOICE_BYTE_OFFSET);
+CTR_STATIC_ASSERT(OFFSETOF(struct CsOpcodeMeta, animIndex) == CS_AUDIO_VOLUME_FX_BYTE_OFFSET);
+CTR_STATIC_ASSERT(OFFSETOF(struct CsOpcodeMeta, frameStart) == CS_AUDIO_VOLUME_MUSIC_BYTE_OFFSET);
+CTR_STATIC_ASSERT(OFFSETOF(struct CsOpcodeMeta, frameEnd) == CS_AUDIO_VOLUME_VOICE_BYTE_OFFSET);
 
 static const u32 CS_INTERPOLATE_LINE_DRAW_MODE = 0xe1000a20u;
 
 static void CS_SaveDecodedOpcode(const struct CutsceneObj *cs, int out[CS_DECODED_OPCODE_WORD_COUNT])
 {
-	out[0] = cs->decodedOpcode.words[0];
-	out[1] = cs->decodedOpcode.words[1];
-	out[2] = cs->decodedOpcode.words[2];
-	out[3] = cs->decodedOpcode.words[3];
-	out[4] = cs->decodedOpcode.words[4];
+	const CsOpcodeWord *decodedWords = CsOpcodeMeta_ConstWords(&cs->decodedOpcode);
+
+	out[0] = decodedWords[0];
+	out[1] = decodedWords[1];
+	out[2] = decodedWords[2];
+	out[3] = decodedWords[3];
+	out[4] = decodedWords[4];
 }
 
 static void CS_RestoreDecodedOpcode(struct CutsceneObj *cs, const int in[CS_DECODED_OPCODE_WORD_COUNT])
 {
-	cs->decodedOpcode.words[0] = in[0];
-	cs->decodedOpcode.words[1] = in[1];
-	cs->decodedOpcode.words[2] = in[2];
-	cs->decodedOpcode.words[3] = in[3];
-	cs->decodedOpcode.words[4] = in[4];
+	CsOpcodeWord *decodedWords = CsOpcodeMeta_Words(&cs->decodedOpcode);
+
+	decodedWords[0] = in[0];
+	decodedWords[1] = in[1];
+	decodedWords[2] = in[2];
+	decodedWords[3] = in[3];
+	decodedWords[4] = in[4];
 }
 
 int CS_Thread_UseOpcode(struct Instance *instance, struct CutsceneObj *cs)
@@ -146,7 +150,7 @@ int CS_Thread_UseOpcode(struct Instance *instance, struct CutsceneObj *cs)
 	struct Thread *dancerThread;
 	char *opcodeAt;
 	int animFrame32;
-	union CsOpcodeMeta *opcodeMeta;
+	struct CsOpcodeMeta *opcodeMeta;
 	s16 *opcodeMetaShorts;
 	struct CsInitMatrixEntry *frameData;
 	int nextFrameTime;
@@ -223,7 +227,7 @@ int CS_Thread_UseOpcode(struct Instance *instance, struct CutsceneObj *cs)
 					CS_ScriptCmd_OpcodeAt(cs, R233.advCharSelectSelectOpcodes[(int)instance->model->id - STATIC_CRASHSELECT]);
 					CS_SaveDecodedOpcode(cs, metadataBackup);
 				reloadAdvCharSelectOpcodeState:
-					cs->animFrame32 = cs->decodedOpcode.words[2];
+					cs->animFrame32 = CsOpcodeMeta_Words(&cs->decodedOpcode)[2];
 					int rng = MixRNG_Scramble();
 					opcodeMeta = cs->metadataMeta;
 					opcodeMetaShorts = (s16 *)opcodeMeta;
@@ -404,12 +408,15 @@ afterCameraAndSkipChecks:
 		}
 		if (cs->frameOverrideRoot != 0)
 		{
+			const CsInitMatrixHalf *frameHalves;
+
 			frameData = &cs->frameOverrideRoot->data[animFrame];
-			CTR_WriteU32LE((u8 *)&instance->matrix + 0x00, CTR_ReadU32LE(&frameData->rotScaleOrMatrix[0]));
-			CTR_WriteU32LE((u8 *)&instance->matrix + 0x04, CTR_ReadU32LE(&frameData->rotScaleOrMatrix[2]));
-			CTR_WriteU32LE((u8 *)&instance->matrix + 0x08, CTR_ReadU32LE(&frameData->rotScaleOrMatrix[4]));
-			CTR_WriteU32LE((u8 *)&instance->matrix + 0x0c, CTR_ReadU32LE(&frameData->rotScaleOrMatrix[6]));
-			CTR_WriteU32LE((u8 *)&instance->matrix + 0x10, CTR_ReadU32LE(&frameData->rotScaleOrMatrix[8]));
+			frameHalves = CsInitMatrixEntry_ConstHalves(frameData);
+			CTR_WriteU32LE((u8 *)&instance->matrix + 0x00, CTR_ReadU32LE(&frameHalves[0]));
+			CTR_WriteU32LE((u8 *)&instance->matrix + 0x04, CTR_ReadU32LE(&frameHalves[2]));
+			CTR_WriteU32LE((u8 *)&instance->matrix + 0x08, CTR_ReadU32LE(&frameHalves[4]));
+			CTR_WriteU32LE((u8 *)&instance->matrix + 0x0c, CTR_ReadU32LE(&frameHalves[6]));
+			CTR_WriteU32LE((u8 *)&instance->matrix + 0x10, CTR_ReadU32LE(&frameHalves[8]));
 			instance->matrix.t[0] = frameData->offset[0];
 			instance->matrix.t[1] = frameData->offset[1];
 			instance->matrix.t[2] = frameData->offset[2];
@@ -1115,7 +1122,7 @@ void CS_Thread_MoveOnPath(struct Thread *t)
 		}
 
 		spawnEntry = &level->ptrSpawnType2[pathIndex];
-		pathPoints = spawnEntry->positions;
+		pathPoints = spawnEntry->coords.positions;
 
 		if (pathPoints == 0)
 		{
@@ -1179,7 +1186,7 @@ void CS_Thread_MoveOnPath(struct Thread *t)
 		}
 
 		spawnEntry = &level->ptrSpawnType2_PosRot[pathIndex];
-		posRot = spawnEntry->posRot;
+		posRot = spawnEntry->coords.posRot;
 
 		if (posRot == 0)
 		{
@@ -1216,7 +1223,7 @@ void CS_Thread_MoveOnPath(struct Thread *t)
 		}
 
 		spawnEntry = level->ptrSpawnType2;
-		pathPoints = spawnEntry->positions;
+		pathPoints = spawnEntry->coords.positions;
 
 		if (pathPoints == 0)
 		{
@@ -1477,11 +1484,11 @@ void CS_Thread_LInB(struct Instance *inst)
 
 	CS_ScriptCmd_OpcodeAt(cs, scriptPtr);
 
-	cs->animFrame32 = cs->metadata[2];
+	cs->animFrame32 = CsOpcodeMeta_Words(cs->metadataMeta)[2];
 
 	{
 		int rng = MixRNG_Scramble();
-		s16 *meta = cs->metadataShorts;
+		s16 *meta = CsOpcodeMeta_Halves(cs->metadataMeta);
 		s16 frameStart = meta[2];
 		s16 frameEnd = meta[3];
 
@@ -1777,9 +1784,9 @@ struct Thread *CS_Thread_Init(s16 modelID, const char *name, struct CsThreadInit
 
 after_opcode:
 
-	cs->animFrame32 = cs->metadata[2];
+	cs->animFrame32 = CsOpcodeMeta_Words(cs->metadataMeta)[2];
 
-	meta = cs->metadataShorts;
+	meta = CsOpcodeMeta_Halves(cs->metadataMeta);
 	cs->opcodeDuration =
 	    meta[2] + (s16)((((MixRNG_Scramble() >> CS_RANDOM_DURATION_SHIFT) & CS_RANDOM_DURATION_MASK) * ((meta[3] - meta[2]) + 1)) >> FRACTIONAL_BITS);
 

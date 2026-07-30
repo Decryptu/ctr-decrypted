@@ -341,7 +341,8 @@ void AH_Map_HubItems(struct UIMap *map, s16 *arrowCounter)
 
 					if (open)
 					{
-						bossState = ((adv->storyFlags & ADV_REWARD_BEAT_OXIDE_FIRST_BOSS_MASK) != 0) ? AH_MAP_BOSS_ITEM_COMPLETE : AH_MAP_BOSS_ITEM_OPEN;
+						bossState = ((adv->rewards[ADV_PROGRESS_WORD_STORY] & ADV_REWARD_BEAT_OXIDE_FIRST_BOSS_MASK) != 0) ? AH_MAP_BOSS_ITEM_COMPLETE
+						                                                                                                   : AH_MAP_BOSS_ITEM_OPEN;
 					}
 					else
 					{

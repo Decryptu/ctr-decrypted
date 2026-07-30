@@ -1053,7 +1053,7 @@ internal void NativeCheckpoint_RelocateCutsceneObj(const struct NativeCheckpoint
 	}
 
 	NativeCheckpoint_RelocatePointerSlot(oldHeader, liveHeader, &cutscene->ptrIcons);
-	NativeCheckpoint_RelocatePointerSlot(oldHeader, liveHeader, &cutscene->metadata);
+	NativeCheckpoint_RelocatePointerSlot(oldHeader, liveHeader, &cutscene->metadataMeta);
 	for (u32 i = 0; i < len(cutscene->currOpcode); i++)
 	{
 		NativeCheckpoint_RelocatePointerSlot(oldHeader, liveHeader, &cutscene->currOpcode[i]);
@@ -1260,7 +1260,7 @@ internal void NativeCheckpoint_RelocateParticle(const struct NativeCheckpointHea
 	    NATIVE_CHECKPOINT_FIELD_PTR(struct Particle, ptrIconArray),
 	    NATIVE_CHECKPOINT_FIELD_PTR(struct Particle, ptrIconGroup),
 	    NATIVE_CHECKPOINT_FIELD_IMAGE(struct Particle, funcPtr),
-	    NATIVE_CHECKPOINT_FIELD_PTR(struct Particle, driverInst),
+	    NATIVE_CHECKPOINT_FIELD_PTR(struct Particle, owner.driverInst),
 	};
 
 	NativeCheckpoint_RelocateFields(oldHeader, liveHeader, particle, fields, len(fields));
@@ -1442,7 +1442,7 @@ internal void NativeCheckpoint_RelocateHowlLists(const struct NativeCheckpointHe
 	NativeCheckpoint_RelocateLinkedList(oldHeader, liveHeader, &sdata_static.channelFree);
 	for (u32 i = 0; i < len(sdata_static.channelStatsPrev); i++)
 	{
-		NativeCheckpoint_RelocateItemLinks(oldHeader, liveHeader, &sdata_static.channelStatsPrev[i].item);
+		NativeCheckpoint_RelocateItemLinks(oldHeader, liveHeader, &sdata_static.channelStatsPrev[i].link.item);
 	}
 
 	NativeCheckpoint_RelocateLinkedList(oldHeader, liveHeader, &sdata_static.Voiceline1);

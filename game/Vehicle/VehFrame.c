@@ -90,7 +90,7 @@ static void VehFrameProc_Driving_SpawnBurnSmoke(struct Driver *d)
 	if (p != NULL)
 	{
 		p->otIndexOffset = d->instSelf->depthBiasNormal;
-		p->driverInst = d->instSelf;
+		p->owner.driverInst = d->instSelf;
 		p->driverID = d->driverID;
 	}
 }

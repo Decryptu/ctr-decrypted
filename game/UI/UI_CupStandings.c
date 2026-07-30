@@ -691,7 +691,7 @@ void UI_CupStandings_InputAndDraw(void)
 							difficulty = UI_CUP_STANDINGS_MAX_ARCADE_DIFFICULTY;
 						}
 
-						u32 *rewardsSet = &sdata->gameProgress.unlockFlags;
+						u32 *rewardsSet = &sdata->gameProgress.unlocks[0];
 
 						int baseIndex = sdata->UnlockBitIndex.CupCompletion_prev[difficulty];
 

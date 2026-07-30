@@ -145,18 +145,10 @@ enum DrawLevelOvr1PScratchOffset
 
 struct DrawLevelOvr1PScratchVertex
 {
-	union
-	{
-		SVec3 posVec;
-		s16 pos[3];
-	};
+	s16 pos[3];
 	u16 flags;
 	u8 color_hi[4];
-	union
-	{
-		SVec2 posScreenVec;
-		s16 posScreen[2];
-	};
+	s16 posScreen[2];
 	u16 depth;
 	u8 clipNear;
 	u8 clipHalfNear;
@@ -164,11 +156,7 @@ struct DrawLevelOvr1PScratchVertex
 
 struct DrawLevelOvr1PClipRecordVertex
 {
-	union
-	{
-		SVec3 posVec;
-		s16 pos[3];
-	};
+	s16 pos[3];
 	u16 flags;
 	u8 color_hi[4];
 };
@@ -182,43 +170,21 @@ struct DrawLevelOvr1PClipRecord
 	struct DrawLevelOvr1PClipRecordVertex vertex[4];
 };
 
+union DrawLevelOvr1PUvWord
+{
+	u32 packed;
+	struct
+	{
+		s16 low;
+		s16 high;
+	} halves;
+};
+
 struct DrawLevelOvr1PUvScratch
 {
-	union
-	{
-		u32 uv0;
-		struct
-		{
-			union
-			{
-				u16 uv0Packed;
-				s16 flag0;
-			};
-			s16 clut;
-		};
-	};
-	union
-	{
-		u32 uv1;
-		struct
-		{
-			union
-			{
-				u16 uv1Packed;
-				s16 flag1;
-			};
-			s16 tpage;
-		};
-	};
-	union
-	{
-		u32 uv2;
-		struct
-		{
-			s16 flag2;
-			s16 flag3;
-		};
-	};
+	union DrawLevelOvr1PUvWord uv0;
+	union DrawLevelOvr1PUvWord uv1;
+	union DrawLevelOvr1PUvWord uv2;
 	u32 savedUv0;
 	u32 savedUv1;
 };
@@ -232,8 +198,8 @@ struct DrawLevelOvr1PStableScratch
 		{
 			u32 playerClipCursorPtr32[4];
 			u32 clipCursorPtr32;
-		};
-	};
+		} clip;
+	} entry;
 	u32 primMemEndPtr32;
 	u32 currentBucketOffset;
 	u32 savedStackPtr32;
@@ -267,35 +233,32 @@ struct DrawLevelOvr1PStableScratch
 };
 
 CTR_STATIC_ASSERT(sizeof(struct DrawLevelOvr1PScratchVertex) == 0x14);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PScratchVertex, posVec) == 0x00);
 CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PScratchVertex, pos) == 0x00);
 CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PScratchVertex, flags) == 0x06);
 CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PScratchVertex, color_hi) == 0x08);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PScratchVertex, posScreenVec) == 0x0c);
 CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PScratchVertex, posScreen) == 0x0c);
 CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PScratchVertex, depth) == 0x10);
 CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PScratchVertex, clipNear) == 0x12);
 CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PScratchVertex, clipHalfNear) == 0x13);
 CTR_STATIC_ASSERT(sizeof(struct DrawLevelOvr1PClipRecordVertex) == 0xc);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PClipRecordVertex, posVec) == 0x00);
 CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PClipRecordVertex, pos) == 0x00);
 CTR_STATIC_ASSERT(sizeof(struct DrawLevelOvr1PClipRecord) == 0x3c);
 CTR_STATIC_ASSERT(sizeof(struct DrawLevelOvr1PUvScratch) == 0x14);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PUvScratch, uv0) == 0x00);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PUvScratch, flag0) == 0x00);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PUvScratch, clut) == 0x02);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PUvScratch, uv1) == 0x04);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PUvScratch, flag1) == 0x04);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PUvScratch, tpage) == 0x06);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PUvScratch, uv2) == 0x08);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PUvScratch, flag2) == 0x08);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PUvScratch, flag3) == 0x0a);
+CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PUvScratch, uv0.packed) == 0x00);
+CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PUvScratch, uv0.halves.low) == 0x00);
+CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PUvScratch, uv0.halves.high) == 0x02);
+CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PUvScratch, uv1.packed) == 0x04);
+CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PUvScratch, uv1.halves.low) == 0x04);
+CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PUvScratch, uv1.halves.high) == 0x06);
+CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PUvScratch, uv2.packed) == 0x08);
+CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PUvScratch, uv2.halves.low) == 0x08);
+CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PUvScratch, uv2.halves.high) == 0x0a);
 CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PUvScratch, savedUv0) == 0x0c);
 CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PUvScratch, savedUv1) == 0x10);
 CTR_STATIC_ASSERT(sizeof(struct DrawLevelOvr1PStableScratch) == 0x1b4);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, render) == 0x00);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, playerClipCursorPtr32) == 0x00);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, clipCursorPtr32) == 0x10);
+CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, entry.render) == 0x00);
+CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, entry.clip.playerClipCursorPtr32) == 0x00);
+CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, entry.clip.clipCursorPtr32) == 0x10);
 CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, primMemEndPtr32) == 0x30);
 CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, currentBucketOffset) == 0x34);
 CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, savedStackPtr32) == 0x38);

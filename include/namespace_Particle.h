@@ -36,19 +36,7 @@ struct ParticleOscillatorConfig
 {
 	u16 flags;
 	s16 previousValue;
-	union
-	{
-		struct
-		{
-			u16 period;
-			s16 phase;
-			u16 scale;
-			s16 offset;
-			s16 min;
-			s16 max;
-		};
-		struct ParticleOscillatorRandomRange randomRange;
-	};
+	struct ParticleOscillatorRandomRange range;
 };
 
 enum ParticleOscillatorFlags
@@ -160,21 +148,13 @@ struct Particle
 	// 0x12 (s16)
 	u16 flagsSetColor;
 
-	union
-	{
-		// 0x14
-		u32 flagsAxisWord;
-		struct
-		{
-			// 0x14
-			// one bit per initialized axis
-			u16 flagsAxis;
+	// 0x14
+	// one bit per initialized axis
+	u16 flagsAxis;
 
-			// 0x16
-			// one bit per axis with an oscillator chain node
-			u16 flagsOscillatorAxis;
-		};
-	};
+	// 0x16
+	// one bit per axis with an oscillator chain node
+	u16 flagsOscillatorAxis;
 
 	// 0x18
 	// Signed OT/depth adjustment for non-IDPP render lists.
@@ -200,7 +180,7 @@ struct Particle
 
 		// used for potion shatter
 		int modelID;
-	};
+	} owner;
 
 	// 0x24
 	struct ParticleAxis axis[0xB];
@@ -265,7 +245,7 @@ struct ParticleEmitter
 		// 0x14
 		// Copied into ParticleOscillator::flags when PARTICLE_EMITTER_FLAG_OSCILLATOR is set.
 		struct ParticleOscillatorConfig oscillator;
-	};
+	} tail;
 
 	// 0x24 bytes each
 };
@@ -276,15 +256,13 @@ CTR_STATIC_ASSERT(sizeof(struct ParticleOscillatorRandomRange) == 0x0c);
 CTR_STATIC_ASSERT(sizeof(struct ParticleOscillatorConfig) == 0x10);
 CTR_STATIC_ASSERT(offsetof(struct ParticleOscillatorConfig, flags) == 0x0);
 CTR_STATIC_ASSERT(offsetof(struct ParticleOscillatorConfig, previousValue) == 0x2);
-CTR_STATIC_ASSERT(offsetof(struct ParticleOscillatorConfig, period) == 0x4);
-CTR_STATIC_ASSERT(offsetof(struct ParticleOscillatorConfig, phase) == 0x6);
-CTR_STATIC_ASSERT(offsetof(struct ParticleOscillatorConfig, scale) == 0x8);
-CTR_STATIC_ASSERT(offsetof(struct ParticleOscillatorConfig, offset) == 0xa);
-CTR_STATIC_ASSERT(offsetof(struct ParticleOscillatorConfig, min) == 0xc);
-CTR_STATIC_ASSERT(offsetof(struct ParticleOscillatorConfig, max) == 0xe);
-CTR_STATIC_ASSERT(offsetof(struct ParticleOscillatorConfig, randomRange) == 0x4);
+CTR_STATIC_ASSERT(offsetof(struct ParticleOscillatorConfig, range.period) == 0x4);
+CTR_STATIC_ASSERT(offsetof(struct ParticleOscillatorConfig, range.phase) == 0x6);
+CTR_STATIC_ASSERT(offsetof(struct ParticleOscillatorConfig, range.scale) == 0x8);
+CTR_STATIC_ASSERT(offsetof(struct ParticleOscillatorConfig, range.offset) == 0xa);
+CTR_STATIC_ASSERT(offsetof(struct ParticleOscillatorConfig, range.min) == 0xc);
+CTR_STATIC_ASSERT(offsetof(struct ParticleOscillatorConfig, range.max) == 0xe);
 CTR_STATIC_ASSERT(sizeof(struct Particle) == 0x7c);
-CTR_STATIC_ASSERT(offsetof(struct Particle, flagsAxisWord) == 0x14);
 CTR_STATIC_ASSERT(offsetof(struct Particle, flagsAxis) == 0x14);
 CTR_STATIC_ASSERT(offsetof(struct Particle, flagsOscillatorAxis) == 0x16);
 CTR_STATIC_ASSERT(offsetof(struct Particle, otIndexOffset) == 0x18);
@@ -294,7 +272,8 @@ CTR_STATIC_ASSERT(sizeof(struct ParticleEmitter) == 0x24);
 CTR_STATIC_ASSERT(offsetof(struct ParticleEmitter, flags) == 0x0);
 CTR_STATIC_ASSERT(offsetof(struct ParticleEmitter, initOffset) == 0x2);
 CTR_STATIC_ASSERT(offsetof(struct ParticleEmitter, InitTypes) == 0x4);
-CTR_STATIC_ASSERT(offsetof(struct ParticleEmitter, data) == 0x14);
-CTR_STATIC_ASSERT(offsetof(struct ParticleEmitter, oscillator) == 0x14);
+CTR_STATIC_ASSERT(offsetof(struct ParticleEmitter, tail) == 0x14);
+CTR_STATIC_ASSERT(offsetof(struct ParticleEmitter, tail.data) == 0x14);
+CTR_STATIC_ASSERT(offsetof(struct ParticleEmitter, tail.oscillator) == 0x14);
 
 #endif

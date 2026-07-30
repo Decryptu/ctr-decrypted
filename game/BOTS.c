@@ -307,10 +307,10 @@ void BOTS_Adv_AdjustDifficulty(void)
 
 	sdata->aiCollisionDelayFrameCount = 0;
 
-	if ((sdata->const_0x30215400 == 0) && (sdata->const_0x493583fe == 0))
+	if ((sdata->advRng.state0 == 0) && (sdata->advRng.state1 == 0))
 	{
-		sdata->const_0x30215400 = 0x30215400;
-		sdata->const_0x493583fe = 0x493583fe;
+		sdata->advRng.state0 = 0x30215400;
+		sdata->advRng.state1 = 0x493583fe;
 	}
 
 	for (s16 i = 0; i < BOTS_NAV_PATH_COUNT; i++)
@@ -493,45 +493,46 @@ void BOTS_SetRotation(struct Driver *bot, int useSpawnYaw)
 
 	// ======== Get Driver Position =============
 
-	bot->botData.estimatePosition.x = (s16)CTR_MipsSra(bot->posCurr.x, FRACTIONAL_BITS_8);
-	bot->botData.estimatePosition.y = (s16)CTR_MipsSra(bot->posCurr.y, FRACTIONAL_BITS_8);
-	bot->botData.estimatePosition.z = (s16)CTR_MipsSra(bot->posCurr.z, FRACTIONAL_BITS_8);
+	bot->botData.estimateNavFrame.pos.x = (s16)CTR_MipsSra(bot->posCurr.x, FRACTIONAL_BITS_8);
+	bot->botData.estimateNavFrame.pos.y = (s16)CTR_MipsSra(bot->posCurr.y, FRACTIONAL_BITS_8);
+	bot->botData.estimateNavFrame.pos.z = (s16)CTR_MipsSra(bot->posCurr.z, FRACTIONAL_BITS_8);
 
 	// ======== Compare to Nav Position =============
 
-	int deltaNavX = CTR_MipsSubLo(nf->pos.x, bot->botData.estimatePosition.x);
-	int deltaNavY = CTR_MipsSubLo(nf->pos.y, bot->botData.estimatePosition.y);
-	int deltaNavZ = CTR_MipsSubLo(nf->pos.z, bot->botData.estimatePosition.z);
+	int deltaNavX = CTR_MipsSubLo(nf->pos.x, bot->botData.estimateNavFrame.pos.x);
+	int deltaNavY = CTR_MipsSubLo(nf->pos.y, bot->botData.estimateNavFrame.pos.y);
+	int deltaNavZ = CTR_MipsSubLo(nf->pos.z, bot->botData.estimateNavFrame.pos.z);
 
 	// ======== Calculate Distance =============
 
 	// xz dist from driver to nav
 	int xzDist = SquareRoot0_stub(CTR_MipsAddLo(CTR_MipsMulLo(deltaNavX, deltaNavX), CTR_MipsMulLo(deltaNavZ, deltaNavZ)));
-	bot->botData.distToNextNavXZ = xzDist;
+	bot->botData.estimateNavFrame.distToNextNavXZ = xzDist;
 	// xyz distance from driver to nav
 	int xyzDist = SquareRoot0_stub(
 	    CTR_MipsAddLo(CTR_MipsAddLo(CTR_MipsMulLo(deltaNavX, deltaNavX), CTR_MipsMulLo(deltaNavY, deltaNavY)), CTR_MipsMulLo(deltaNavZ, deltaNavZ)));
-	bot->botData.distToNextNavXYZ = xyzDist;
+	bot->botData.estimateNavFrame.distToNextNavXYZ = xyzDist;
 
 	// ======== Calculate Rotation =============
 
-	int rot = ratan2(CTR_MipsSll(deltaNavY, BOTS_RATAN_ARG_SHIFT), CTR_MipsSll(bot->botData.distToNextNavXZ, BOTS_RATAN_ARG_SHIFT));
-	bot->botData.estimateRotCurrY = (u8)CTR_MipsSra(rot, BOTS_ROT_BYTE_SHIFT);
+	int rot = ratan2(CTR_MipsSll(deltaNavY, BOTS_RATAN_ARG_SHIFT), CTR_MipsSll(bot->botData.estimateNavFrame.distToNextNavXZ, BOTS_RATAN_ARG_SHIFT));
+	bot->botData.estimateNavFrame.rot[3] = (u8)CTR_MipsSra(rot, BOTS_ROT_BYTE_SHIFT);
 	bot->botData.navProgressRemainder = 0;
 
 	if (!useSpawnYaw)
 	{
-		bot->botData.estimateRotNav[0] = nf->rot[0];
+		bot->botData.estimateNavFrame.rot[0] = nf->rot[0];
 		rot = ratan2(CTR_MipsNegLo(deltaNavX), CTR_MipsNegLo(deltaNavZ));
-		bot->botData.estimateRotNav[1] = (u8)CTR_MipsSra(CTR_MipsAddLo(rot, BOTS_NAV_REVERSE_YAW_OFFSET), BOTS_ROT_BYTE_SHIFT);
-		bot->botData.estimateRotNav[2] = nf->rot[2];
+		bot->botData.estimateNavFrame.rot[1] = (u8)CTR_MipsSra(CTR_MipsAddLo(rot, BOTS_NAV_REVERSE_YAW_OFFSET), BOTS_ROT_BYTE_SHIFT);
+		bot->botData.estimateNavFrame.rot[2] = nf->rot[2];
 	}
 	else
 	{
-		bot->botData.estimateRotNav[1] = (u8)CTR_MipsSra(CTR_MipsAddLo(sdata->gGT->level1->DriverSpawn[0].rot.y, BOTS_SPAWN_YAW_OFFSET), BOTS_ROT_BYTE_SHIFT);
+		bot->botData.estimateNavFrame.rot[1] =
+		    (u8)CTR_MipsSra(CTR_MipsAddLo(sdata->gGT->level1->DriverSpawn[0].rot.y, BOTS_SPAWN_YAW_OFFSET), BOTS_ROT_BYTE_SHIFT);
 	}
 
-	s16 v = (s16)CTR_MipsSll(bot->botData.estimateRotNav[1], BOTS_ROT_BYTE_SHIFT);
+	s16 v = (s16)CTR_MipsSll(bot->botData.estimateNavFrame.rot[1], BOTS_ROT_BYTE_SHIFT);
 
 	// Keep every AI-facing yaw cache in sync with the nav estimate.
 	bot->botData.ai_rotY_608 = v;
@@ -1457,9 +1458,9 @@ UpdateTireColorTimer:
 				botVelocity = 0x6900;
 			}
 
-			int velocityAccountingForTerrain = CTR_MipsSra(CTR_MipsMulLo(botVelocity, botTerrain->botTargetSpeedScale), 8); // iVar4
+			int velocityAccountingForTerrain = CTR_MipsSra(CTR_MipsMulLo(botVelocity, botTerrain->bot.fields.targetSpeedScale), 8); // iVar4
 
-			if ((botTerrain->botSpeedFlags & TERRAIN_BOT_FLAG_DECEL_TO_TARGET_SPEED) == 0)
+			if ((botTerrain->bot.fields.speedFlags & TERRAIN_BOT_FLAG_DECEL_TO_TARGET_SPEED) == 0)
 			{
 			CheckAccelerationTowardTerrainTarget:
 				if (botDriver->botData.aiPhysics.speedLinear < velocityAccountingForTerrain)
@@ -1474,7 +1475,7 @@ UpdateTireColorTimer:
 					{
 						accel = botDriver->const_Accel_Reserves;
 					}
-					botVelocity = CTR_MipsSra(CTR_MipsMulLo(accel, botTerrain->botAccelerationScale), 8);
+					botVelocity = CTR_MipsSra(CTR_MipsMulLo(accel, botTerrain->bot.fields.accelerationScale), 8);
 
 					if (botDriver->botData.botAccel != 0)
 					{
@@ -2953,7 +2954,7 @@ void BOTS_CollideWithOtherAI(struct Driver *robot_1, struct Driver *robot_2)
 		struct NavFrame *navFrameNext = robot_1->botData.botNavFrame;
 
 		// iVar4
-		navSegmentStartPos = &robot_1->botData.estimatePosition;
+		navSegmentStartPos = &robot_1->botData.estimateNavFrame.pos;
 		navSegmentEndPos = &navFrameNext->pos;
 	}
 
@@ -3037,7 +3038,7 @@ void BOTS_GotoStartingLine(struct Driver *d)
 	d->actionsFlagSet |= ACTION_BOT;
 
 	// calculate Y rotation
-	s16 rotY = (s16)CTR_MipsSll((u8)d->botData.estimateRotNav[1], BOTS_ROT_BYTE_SHIFT);
+	s16 rotY = (s16)CTR_MipsSll((u8)d->botData.estimateNavFrame.rot[1], BOTS_ROT_BYTE_SHIFT);
 
 	// every possible Y rotation
 	d->botData.ai_rotY_608 = rotY;

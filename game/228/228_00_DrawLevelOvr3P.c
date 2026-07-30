@@ -375,9 +375,9 @@ void DrawLevelOvr3P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspL
 	DrawLevelOvr1P_Scratch()->pushBufferPtr32[0] = (u32)(u32)&pb[0];
 	DrawLevelOvr1P_Scratch()->pushBufferPtr32[1] = (u32)(u32)&pb[1];
 	DrawLevelOvr1P_Scratch()->pushBufferPtr32[2] = (u32)(u32)&pb[2];
-	DrawLevelOvr1P_Scratch()->playerClipCursorPtr32[0] = (u32)(u32)clipCursors[0];
-	DrawLevelOvr1P_Scratch()->playerClipCursorPtr32[1] = (u32)(u32)clipCursors[1];
-	DrawLevelOvr1P_Scratch()->playerClipCursorPtr32[2] = (u32)(u32)clipCursors[2];
+	DrawLevelOvr1P_Scratch()->entry.clip.playerClipCursorPtr32[0] = (u32)(u32)clipCursors[0];
+	DrawLevelOvr1P_Scratch()->entry.clip.playerClipCursorPtr32[1] = (u32)(u32)clipCursors[1];
+	DrawLevelOvr1P_Scratch()->entry.clip.playerClipCursorPtr32[2] = (u32)(u32)clipCursors[2];
 
 	DrawLevelOvr1P_SetPrimReserveBias(0);
 	DrawLevelOvr1P_SetListHandlersSeedRenderedCursor(0);
@@ -390,9 +390,9 @@ void DrawLevelOvr3P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspL
 		return;
 	}
 
-	DrawLevelOvr1P_Scratch()->playerClipCursorPtr32[0] = (u32)(u32)clipCursors[0];
-	DrawLevelOvr1P_Scratch()->playerClipCursorPtr32[1] = (u32)(u32)clipCursors[1];
-	DrawLevelOvr1P_Scratch()->playerClipCursorPtr32[2] = (u32)(u32)clipCursors[2];
+	DrawLevelOvr1P_Scratch()->entry.clip.playerClipCursorPtr32[0] = (u32)(u32)clipCursors[0];
+	DrawLevelOvr1P_Scratch()->entry.clip.playerClipCursorPtr32[1] = (u32)(u32)clipCursors[1];
+	DrawLevelOvr1P_Scratch()->entry.clip.playerClipCursorPtr32[2] = (u32)(u32)clipCursors[2];
 
 	DrawLevelOvr3P_CopyClipRecordJumpTable();
 	if (!DrawLevelOvr_ConsumeClipRecordsForViewport(&pb[0], primMem, clipCursors[0], 0, DrawLevelOvr3P_ConsumeClipRecords))

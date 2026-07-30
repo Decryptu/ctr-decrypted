@@ -412,7 +412,7 @@ void MM_TrackSelect_MenuProc(struct RectMenu *menu)
 				sdata->errorMessagePosIndex = 2;
 			}
 
-			MM_TransitionInOut(D230.transitionMeta_trackSel, elapsedFrames, MM_TRACK_SELECT_SLIDE_FRAMES);
+			MM_TransitionInOut(D230.trackTransitions.transitionMeta_trackSel, elapsedFrames, MM_TRACK_SELECT_SLIDE_FRAMES);
 
 			// ran out of frames
 			if (elapsedFrames == 0)
@@ -428,7 +428,7 @@ void MM_TrackSelect_MenuProc(struct RectMenu *menu)
 		// transitioning out
 		else if (D230.trackSelect.transition.state == EXITING_MENU)
 		{
-			MM_TransitionInOut(D230.transitionMeta_trackSel, elapsedFrames, MM_TRACK_SELECT_SLIDE_FRAMES);
+			MM_TransitionInOut(D230.trackTransitions.transitionMeta_trackSel, elapsedFrames, MM_TRACK_SELECT_SLIDE_FRAMES);
 			elapsedFrames++;
 
 			if (elapsedFrames > MM_TRACK_SELECT_TRANSITION_FRAMES)
@@ -617,7 +617,8 @@ void MM_TrackSelect_MenuProc(struct RectMenu *menu)
 			lapSelTransitionState = RECTMENU_ProcessInput(&D230.menuLapSel);
 		}
 
-		RECTMENU_DrawSelf(&D230.menuLapSel, D230.trackSelect_lapMenuTransition.currX, D230.trackSelect_lapMenuTransition.currY, MM_TRACK_SELECT_LAP_MENU_WIDTH);
+		RECTMENU_DrawSelf(&D230.menuLapSel, D230.trackTransitions.named.trackSelect_lapMenuTransition.currX,
+		                  D230.trackTransitions.named.trackSelect_lapMenuTransition.currY, MM_TRACK_SELECT_LAP_MENU_WIDTH);
 
 		// put LapRow back into 8d920
 		sdata->uselessLapRowCopy = D230.menuLapSel.rowSelected;
@@ -717,11 +718,12 @@ void MM_TrackSelect_MenuProc(struct RectMenu *menu)
 		rowRect.h = MM_TRACK_SELECT_ROW_H;
 
 		// posX of track list
-		s32 rowX = (u32)D230.trackSelect_rowListTransition.currX + (MATH_Cos(rowAngle) * MM_TRACK_SELECT_ROW_X_RADIUS >> MM_TRACK_SELECT_ROW_X_SHIFT) +
-		           MM_TRACK_SELECT_ROW_X_OFFSET;
+		s32 rowX = (u32)D230.trackTransitions.named.trackSelect_rowListTransition.currX +
+		           (MATH_Cos(rowAngle) * MM_TRACK_SELECT_ROW_X_RADIUS >> MM_TRACK_SELECT_ROW_X_SHIFT) + MM_TRACK_SELECT_ROW_X_OFFSET;
 
 		// posY of track list
-		s32 rowBaseY = (u32)D230.trackSelect_rowListTransition.currY + (MATH_Sin(rowAngle) * MM_TRACK_SELECT_ROW_Y_RADIUS >> MM_TRACK_SELECT_ROW_Y_SHIFT);
+		s32 rowBaseY = (u32)D230.trackTransitions.named.trackSelect_rowListTransition.currY +
+		               (MATH_Sin(rowAngle) * MM_TRACK_SELECT_ROW_Y_RADIUS >> MM_TRACK_SELECT_ROW_Y_SHIFT);
 
 		s16 rowY = (s16)rowBaseY + MM_TRACK_SELECT_ROW_Y_OFFSET;
 		rowRect.x = (s16)rowX;
@@ -842,15 +844,15 @@ void MM_TrackSelect_MenuProc(struct RectMenu *menu)
 			previewRect.h = MM_TRACK_VIDEO_HEIGHT;
 
 			// posX of "SELECT LEVEL"
-			previewRect.x = D230.trackSelect_previewTransition.currX + MM_TRACK_SELECT_PREVIEW_X;
+			previewRect.x = D230.trackTransitions.named.trackSelect_previewTransition.currX + MM_TRACK_SELECT_PREVIEW_X;
 
 			// posY of "SELECT LEVEL"
 			// near-top if map exists, near-mid if no map
-			previewRect.y = D230.trackSelect_previewTransition.currY + MM_TRACK_SELECT_PREVIEW_Y_NO_MAP;
+			previewRect.y = D230.trackTransitions.named.trackSelect_previewTransition.currY + MM_TRACK_SELECT_PREVIEW_Y_NO_MAP;
 
 			if (-1 < selectMenu[menu->rowSelected].mapTextureID)
 			{
-				previewRect.y = D230.trackSelect_previewTransition.currY + MM_TRACK_SELECT_PREVIEW_Y_WITH_MAP;
+				previewRect.y = D230.trackTransitions.named.trackSelect_previewTransition.currY + MM_TRACK_SELECT_PREVIEW_Y_WITH_MAP;
 			}
 
 			// D230.trackSelect.lapBoxOpen controls the 3/5/7 lap menu.
@@ -858,12 +860,13 @@ void MM_TrackSelect_MenuProc(struct RectMenu *menu)
 			// If the lap selection menu is closed
 			if (D230.trackSelect.lapBoxOpen == 0)
 			{
-				DecalFont_DrawLine(sdata->lngStrings[LNG_SELECT_LEVEL_SELECT], (D230.trackSelect_titleTransition.currX + MM_TRACK_SELECT_TITLE_X),
-				                   (D230.trackSelect_titleTransition.currY + (u32)previewRect.y), FONT_BIG, (JUSTIFY_CENTER | ORANGE));
+				DecalFont_DrawLine(sdata->lngStrings[LNG_SELECT_LEVEL_SELECT],
+				                   (D230.trackTransitions.named.trackSelect_titleTransition.currX + MM_TRACK_SELECT_TITLE_X),
+				                   (D230.trackTransitions.named.trackSelect_titleTransition.currY + (u32)previewRect.y), FONT_BIG, (JUSTIFY_CENTER | ORANGE));
 
-				DecalFont_DrawLine(sdata->lngStrings[LNG_LEVEL], (D230.trackSelect_titleTransition.currX + MM_TRACK_SELECT_TITLE_X),
-				                   (D230.trackSelect_titleTransition.currY + (u32)previewRect.y + MM_TRACK_SELECT_LEVEL_TEXT_Y_STEP), FONT_BIG,
-				                   (JUSTIFY_CENTER | ORANGE));
+				DecalFont_DrawLine(sdata->lngStrings[LNG_LEVEL], (D230.trackTransitions.named.trackSelect_titleTransition.currX + MM_TRACK_SELECT_TITLE_X),
+				                   (D230.trackTransitions.named.trackSelect_titleTransition.currY + (u32)previewRect.y + MM_TRACK_SELECT_LEVEL_TEXT_Y_STEP),
+				                   FONT_BIG, (JUSTIFY_CENTER | ORANGE));
 			}
 
 			// next, draw the map icon, below "SELECT LEVEL",
@@ -906,13 +909,15 @@ void MM_TrackSelect_MenuProc(struct RectMenu *menu)
 
 					    // X
 					    D230.drawMapOffset[mapLayer].offsetX + previewRect.x +
-					        (D230.trackSelect_lapMenuTransition.currX - D230.trackSelect_previewTransition.currX) + (MM_TRACK_VIDEO_WIDTH >> 1) +
-					        (mapWidth >> 1),
+					        (D230.trackTransitions.named.trackSelect_lapMenuTransition.currX -
+					         D230.trackTransitions.named.trackSelect_previewTransition.currX) +
+					        (MM_TRACK_VIDEO_WIDTH >> 1) + (mapWidth >> 1),
 
 					    // Y
 					    D230.drawMapOffset[mapLayer].offsetY + previewRect.y +
-					        (D230.trackSelect_lapMenuTransition.currY - D230.trackSelect_previewTransition.currY) + MM_TRACK_SELECT_MAP_CENTER_Y_OFFSET +
-					        (MM_TRACK_SELECT_MAP_BOX_H >> 1) + (mapHeight >> 1),
+					        (D230.trackTransitions.named.trackSelect_lapMenuTransition.currY -
+					         D230.trackTransitions.named.trackSelect_previewTransition.currY) +
+					        MM_TRACK_SELECT_MAP_CENTER_Y_OFFSET + (MM_TRACK_SELECT_MAP_BOX_H >> 1) + (mapHeight >> 1),
 
 					    // pointer to PrimMem struct
 					    &gGT->backBuffer->primMem,

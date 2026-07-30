@@ -237,7 +237,7 @@ struct OverlayDATA_230 D230 =
 
         .titleBaseCameraPos = {0x32, 0xFFE2, 0x64},
 
-        .transitionMeta_Menu =
+        .titleTransitions.transitionMeta_Menu =
             {
                 {512, 0, 0, 0, 0},
                 {0, 0, 1, 0, 0},
@@ -610,7 +610,7 @@ struct OverlayDATA_230 D230 =
                 {24, 0x4b, 0xFFFF, 0x4, 0x1f8, 0x19a},
             },
 
-        .transitionMeta_trackSel = {{-512, 0, 1, 0, 0}, {0, -200, 2, 0, 0}, {0, 200, 3, 0, 0}, {512, 0, 4, 0, 0}, {0, 0, -1, 0, 0}},
+        .trackTransitions.transitionMeta_trackSel = {{-512, 0, 1, 0, 0}, {0, -200, 2, 0, 0}, {0, 200, 3, 0, 0}, {512, 0, 4, 0, 0}, {0, 0, -1, 0, 0}},
 
         .lapCountByRow = {{3, 0}, {5, 0}, {7, 0}, {0, 0}},
 
@@ -857,9 +857,13 @@ struct OverlayDATA_230 D230 =
         .highScoreTransition =
             {
                 .state = ENTERING_MENU,
-                .frame = {0, 0, 0},
-                .horizontalMove = {0, 0},
-                .verticalMove = {0, 0},
+                .mainFrame = 0,
+                .trackFrame = 0,
+                .rowFrame = 0,
+                .activeHorizontalMove = 0,
+                .pendingHorizontalMove = 0,
+                .activeVerticalMove = 0,
+                .pendingVerticalMove = 0,
             },
 
         // SCRAPBOOK

@@ -1431,10 +1431,10 @@ void CAM_FollowDriver_Normal(struct CameraDC *cDC, struct Driver *d, SVec3 *push
 		// Mud, Water, or FastWater
 		if (((state == 0xe) || (state == 4)) || (state == 0xd))
 		{
-			scratchWork->terrainHeightFloor = 0;
+			scratchWork->collision.terrainHeightFloor = 0;
 		}
 
-		x = (s32)scratchWork->terrainHeightFloor + (s32)zoom->vertDistance;
+		x = (s32)scratchWork->collision.terrainHeightFloor + (s32)zoom->vertDistance;
 		if (cam->pos.y < x)
 		{
 			cam->pos.y = x;
@@ -2197,7 +2197,7 @@ SkipNewCameraEOR:
 								{
 									cDC->flags = cDC->flags | CAMERA_FLAG_RESET_RAIN_POS | CAMERA_FLAG_DIRECTION_CHANGED;
 								}
-								CAM_FollowDriver_AngleAxis(cDC, d, &scratchWork->angleAxis, &pb->pos, &pb->rot);
+								CAM_FollowDriver_AngleAxis(cDC, d, CameraScratchWork_AsAngleAxis(scratchWork), &pb->pos, &pb->rot);
 							}
 							else
 							{

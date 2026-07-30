@@ -956,7 +956,7 @@ static void VehPhysForce_TranslateMatrix_SpawnWakeParticle(struct Driver *d)
 	if (p != NULL)
 	{
 		p->otIndexOffset = d->instSelf->depthBiasNormal;
-		p->driverInst = d->instSelf;
+		p->owner.driverInst = d->instSelf;
 		p->driverID = d->driverID;
 	}
 }

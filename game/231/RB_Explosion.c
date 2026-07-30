@@ -78,7 +78,7 @@ void RB_Explosion_InitPotion(struct Instance *inst)
 		p->axis[1].startVal += shatterInst->matrix.t[1] * 0x100;
 		p->axis[2].startVal += shatterInst->matrix.t[2] * 0x100;
 
-		p->modelID = shatterColor;
+		p->owner.modelID = shatterColor;
 
 		if (shatterColor == STATIC_SHOCKWAVE_GREEN)
 		{

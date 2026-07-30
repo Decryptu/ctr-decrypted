@@ -145,7 +145,7 @@ union VehEmitterSkidmark
 		u8 flags;
 		SVec3 edge1;
 		s16 pad;
-	};
+	} fields;
 };
 
 struct DriverCheckpointState
@@ -196,8 +196,8 @@ struct VehGroundSkidsScratch
 		{
 			u8 segmentFlagsLow;
 			u8 segmentFlagsPadding[3];
-		};
-	};
+		} bytes;
+	} segment;
 	u32 currXY[9];
 	u32 prevXY[9];
 	s32 currDepth[9];
@@ -835,29 +835,7 @@ struct BotData
 	u8 padding_0x60b;
 
 	// 0x60c
-	union
-	{
-		struct NavFrame estimateNavFrame;
-		struct
-		{
-			SVec3 estimatePosition;
-			u8 estimateRotNav[3];
-			u8 estimateRotCurrY;
-			s16 distToNextNavXYZ;
-			s16 distToNextNavXZ;
-			s16 estimateFlags;
-			union
-			{
-				int estimateTail;
-				struct
-				{
-					s16 estimatePathChangeOpcode;
-					u8 estimateGoBackCount;
-					u8 estimateSpecialBits;
-				};
-			};
-		};
-	};
+	struct NavFrame estimateNavFrame;
 
 	// 0x620
 	struct MaskHeadWeapon *maskObj;
@@ -1016,26 +994,12 @@ struct Driver
 	DriverCollisionFlags collisionFlags;
 
 	// 0xac
-	union
-	{
-		s16 spsHitPosRaw[4];
-		struct
-		{
-			SVec3 spsHitPos;
-			s16 padding_0xb2;
-		};
-	};
+	SVec3 spsHitPos;
+	s16 padding_0xb2;
 
 	// 0xb4
-	union
-	{
-		s16 spsNormalVecRaw[4];
-		struct
-		{
-			SVec3 spsNormalVec;
-			s16 padding_0xba;
-		};
-	};
+	SVec3 spsNormalVec;
+	s16 padding_0xba;
 
 	// 0xBC
 	// 0xBD is waterFlag
@@ -1298,16 +1262,9 @@ struct Driver
 
 	// 0x3d4
 	// This is a UNION between kart states
-	union
-	{
-		s16 turnWobbleRaw[3];
-		struct
-		{
-			s16 turnWobbleAngle;
-			s16 turnWobbleVelocity;
-			s16 turnWobbleTimer;
-		};
-	};
+	s16 turnWobbleAngle;
+	s16 turnWobbleVelocity;
+	s16 turnWobbleTimer;
 
 	// 0x3DA
 	// also drift direction
@@ -2067,10 +2024,10 @@ CTR_STATIC_ASSERT(offsetof(struct BotData, positionBackup) == 0x58);
 CTR_STATIC_ASSERT(offsetof(struct BotData, ai_quadblock_checkpointIndex) == 0x72);
 CTR_STATIC_ASSERT(offsetof(struct BotData, reserved_0x628) == 0x90);
 CTR_STATIC_ASSERT(offsetof(struct BotData, estimateNavFrame) == 0x74);
-CTR_STATIC_ASSERT(offsetof(struct BotData, estimatePosition) == 0x74);
-CTR_STATIC_ASSERT(sizeof(((struct BotData *)0)->estimatePosition) == 0x6);
-CTR_STATIC_ASSERT(offsetof(struct BotData, estimateFlags) == 0x82);
-CTR_STATIC_ASSERT(offsetof(struct BotData, estimateTail) == 0x84);
+CTR_STATIC_ASSERT(offsetof(struct BotData, estimateNavFrame.pos) == 0x74);
+CTR_STATIC_ASSERT(sizeof(((struct BotData *)0)->estimateNavFrame.pos) == 0x6);
+CTR_STATIC_ASSERT(offsetof(struct BotData, estimateNavFrame.flags) == 0x82);
+CTR_STATIC_ASSERT(offsetof(struct BotData, estimateNavFrame.pathChangeOpcode) == 0x84);
 CTR_STATIC_ASSERT(sizeof(Actions) == 0x4);
 CTR_STATIC_ASSERT(sizeof(DriverCollisionFlags) == 0x2);
 CTR_STATIC_ASSERT(sizeof(RainCloudEffect) == 0x2);
@@ -2079,16 +2036,16 @@ CTR_STATIC_ASSERT(sizeof(((struct Driver *)0)->heldItemID) == 0x1);
 CTR_STATIC_ASSERT(sizeof(union VehEmitterSkidmark) == 0x10);
 CTR_STATIC_ASSERT(CTR_OFFSET_OF_ARRAY(union VehEmitterSkidmark, edge, 0) == 0x0);
 CTR_STATIC_ASSERT(CTR_OFFSET_OF_ARRAY(union VehEmitterSkidmark, edge, 1) == 0x8);
-CTR_STATIC_ASSERT(offsetof(union VehEmitterSkidmark, edge0) == 0x0);
-CTR_STATIC_ASSERT(offsetof(union VehEmitterSkidmark, color) == 0x6);
-CTR_STATIC_ASSERT(offsetof(union VehEmitterSkidmark, flags) == 0x7);
-CTR_STATIC_ASSERT(offsetof(union VehEmitterSkidmark, edge1) == 0x8);
+CTR_STATIC_ASSERT(offsetof(union VehEmitterSkidmark, fields.edge0) == 0x0);
+CTR_STATIC_ASSERT(offsetof(union VehEmitterSkidmark, fields.color) == 0x6);
+CTR_STATIC_ASSERT(offsetof(union VehEmitterSkidmark, fields.flags) == 0x7);
+CTR_STATIC_ASSERT(offsetof(union VehEmitterSkidmark, fields.edge1) == 0x8);
 CTR_STATIC_ASSERT(sizeof(union VehEmitterWallScratch) == 0x18);
 CTR_STATIC_ASSERT(offsetof(struct VehGroundSkidsScratch, projected) == 0x0);
 CTR_STATIC_ASSERT(offsetof(struct VehGroundSkidsScratch, pushBuffer) == 0x18);
 CTR_STATIC_ASSERT(offsetof(struct VehGroundSkidsScratch, colorNear) == 0x1c);
 CTR_STATIC_ASSERT(offsetof(struct VehGroundSkidsScratch, colorFar) == 0x20);
-CTR_STATIC_ASSERT(offsetof(struct VehGroundSkidsScratch, segmentFlags) == 0x24);
+CTR_STATIC_ASSERT(offsetof(struct VehGroundSkidsScratch, segment.segmentFlags) == 0x24);
 CTR_STATIC_ASSERT(offsetof(struct VehGroundSkidsScratch, currXY) == 0x28);
 CTR_STATIC_ASSERT(offsetof(struct VehGroundSkidsScratch, prevXY) == 0x4c);
 CTR_STATIC_ASSERT(offsetof(struct VehGroundSkidsScratch, currDepth) == 0x70);
@@ -2121,8 +2078,6 @@ CTR_STATIC_ASSERT(offsetof(struct Driver, stepFlagSet) == 0xbc);
 CTR_STATIC_ASSERT(offsetof(struct Driver, skidmarks) == 0xc4);
 CTR_STATIC_ASSERT(offsetof(struct Driver, skidmarkEnableFlags) == 0x2c4);
 CTR_STATIC_ASSERT(sizeof(((struct Driver *)0)->stepFlagSet) == 0x4);
-CTR_STATIC_ASSERT(sizeof(((struct Driver *)0)->spsHitPosRaw) == 0x8);
-CTR_STATIC_ASSERT(sizeof(((struct Driver *)0)->spsNormalVecRaw) == 0x8);
 CTR_STATIC_ASSERT(offsetof(struct Driver, padding_0x3e) == 0x3e);
 CTR_STATIC_ASSERT(offsetof(struct Driver, actionsFlagSet) == 0x2c8);
 CTR_STATIC_ASSERT(offsetof(struct Driver, actionsFlagSetPrevFrame) == 0x2cc);

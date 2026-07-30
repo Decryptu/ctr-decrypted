@@ -6,7 +6,7 @@ static void RB_Baron_SetPathFrame(struct Instance *inst, struct SpawnType2 *spaw
 	const struct SpawnPosRot *frame;
 	SVec3 rot;
 
-	frame = &spawn->posRot[pointIndex];
+	frame = &spawn->coords.posRot[pointIndex];
 
 	rot = frame->rot;
 

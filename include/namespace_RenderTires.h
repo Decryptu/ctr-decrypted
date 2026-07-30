@@ -11,7 +11,7 @@ union DrawTiresScratchWord
 	{
 		s16 lo;
 		s16 hi;
-	};
+	} halves;
 	s32 word;
 };
 
@@ -61,8 +61,8 @@ struct DrawTiresScratch
 };
 
 CTR_STATIC_ASSERT(sizeof(union DrawTiresScratchWord) == 0x4);
-CTR_STATIC_ASSERT(offsetof(union DrawTiresScratchWord, lo) == 0x0);
-CTR_STATIC_ASSERT(offsetof(union DrawTiresScratchWord, hi) == 0x2);
+CTR_STATIC_ASSERT(offsetof(union DrawTiresScratchWord, halves.lo) == 0x0);
+CTR_STATIC_ASSERT(offsetof(union DrawTiresScratchWord, halves.hi) == 0x2);
 CTR_STATIC_ASSERT(sizeof(struct DrawTiresPackedVec3) == 0x8);
 CTR_STATIC_ASSERT(offsetof(struct DrawTiresPackedVec3, x) == 0x0);
 CTR_STATIC_ASSERT(offsetof(struct DrawTiresPackedVec3, y) == 0x2);

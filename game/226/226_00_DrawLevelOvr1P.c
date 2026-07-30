@@ -219,7 +219,7 @@ static struct DrawLevelOvr1PStableScratch *DrawLevelOvr1P_Scratch(void)
 
 static struct MainRenderLevelGeometryScratch *DrawLevelOvr1P_RenderScratch(void)
 {
-	return &DrawLevelOvr1P_Scratch()->render;
+	return &DrawLevelOvr1P_Scratch()->entry.render;
 }
 
 static u32 *DrawLevelOvr1P_TerminalReturnPcScratch(void)
@@ -673,8 +673,8 @@ static void DrawLevelOvr1P_WriteProjectedUv(struct DrawLevelOvr1PScratchVertex *
 	uv[2] = DrawLevelOvr1P_PackUv(texture->u2, texture->v2);
 	uv[3] = DrawLevelOvr1P_PackUv(texture->u3, texture->v3);
 
-	DrawLevelOvr1P_Scratch()->uv.uv0 = uv[0] | ((u32)texture->clut << 16);
-	DrawLevelOvr1P_Scratch()->uv.uv1 = uv[1] | ((u32)texture->tpage << 16);
+	DrawLevelOvr1P_Scratch()->uv.uv0.packed = uv[0] | ((u32)texture->clut << 16);
+	DrawLevelOvr1P_Scratch()->uv.uv1.packed = uv[1] | ((u32)texture->tpage << 16);
 	DrawLevelOvr1P_Scratch()->uv.savedUv0 = uv[0] | ((u32)texture->clut << 16);
 	DrawLevelOvr1P_Scratch()->uv.savedUv1 = uv[1] | ((u32)texture->tpage << 16);
 
@@ -706,20 +706,20 @@ static void DrawLevelOvr1P_WriteProjectedUv(struct DrawLevelOvr1PScratchVertex *
 static void DrawLevelOvr1P_StoreProjectedDirectUvScratch(const struct DrawLevelOvr1PScratchVertex *projected, const int *indices, int count)
 {
 	// NOTE(aalhendi): Retail terminal direct helpers update UV scratch before packet emission.
-	DrawLevelOvr1P_Scratch()->uv.flag0 = (s16)projected[indices[0]].flags;
-	DrawLevelOvr1P_Scratch()->uv.flag1 = (s16)projected[indices[1]].flags;
-	DrawLevelOvr1P_Scratch()->uv.flag2 = (s16)projected[indices[2]].flags;
+	DrawLevelOvr1P_Scratch()->uv.uv0.halves.low = (s16)projected[indices[0]].flags;
+	DrawLevelOvr1P_Scratch()->uv.uv1.halves.low = (s16)projected[indices[1]].flags;
+	DrawLevelOvr1P_Scratch()->uv.uv2.halves.low = (s16)projected[indices[2]].flags;
 
 	if (count == 4)
 	{
-		DrawLevelOvr1P_Scratch()->uv.flag3 = (s16)projected[indices[3]].flags;
+		DrawLevelOvr1P_Scratch()->uv.uv2.halves.high = (s16)projected[indices[3]].flags;
 	}
 }
 
 static void DrawLevelOvr1P_RestoreProjectedUvScratch(void)
 {
-	DrawLevelOvr1P_Scratch()->uv.uv0 = DrawLevelOvr1P_Scratch()->uv.savedUv0;
-	DrawLevelOvr1P_Scratch()->uv.uv1 = DrawLevelOvr1P_Scratch()->uv.savedUv1;
+	DrawLevelOvr1P_Scratch()->uv.uv0.packed = DrawLevelOvr1P_Scratch()->uv.savedUv0;
+	DrawLevelOvr1P_Scratch()->uv.uv1.packed = DrawLevelOvr1P_Scratch()->uv.savedUv1;
 }
 
 static int DrawLevelOvr1P_GetDeepestMosaicReloadGate(u32 directHandlerAddress, u32 previousHandlerAddress, u32 *reloadSpan)
@@ -869,8 +869,8 @@ static void DrawLevelOvr1P_PrepareDeepestMosaicUv(const struct DrawLevelOvr1PScr
 	// NOTE(aalhendi): Retail deepest fallthrough rewrites selected scratch-record
 	// UV halfwords before jumping through the direct table.
 	struct DrawLevelOvr1PScratchVertex *mutableProjected = (struct DrawLevelOvr1PScratchVertex *)projected;
-	DrawLevelOvr1P_Scratch()->uv.uv0 = uv0;
-	DrawLevelOvr1P_Scratch()->uv.uv1 = uv1;
+	DrawLevelOvr1P_Scratch()->uv.uv0.packed = uv0;
+	DrawLevelOvr1P_Scratch()->uv.uv1.packed = uv1;
 	mutableProjected[indices[0]].flags = (u16)uv0;
 	mutableProjected[indices[1]].flags = (u16)uv1;
 	mutableProjected[indices[2]].flags = DrawLevelOvr1P_ReadPackedHalf(source + 8);
@@ -927,12 +927,12 @@ static s32 DrawLevelOvr1P_GetDepthClipThreshold(void)
 
 static u8 *DrawLevelOvr1P_GetClipRecordCursor(void)
 {
-	return (u8 *)(u32)DrawLevelOvr1P_Scratch()->clipCursorPtr32;
+	return (u8 *)(u32)DrawLevelOvr1P_Scratch()->entry.clip.clipCursorPtr32;
 }
 
 static void DrawLevelOvr1P_SetClipRecordCursor(u8 *cursor)
 {
-	DrawLevelOvr1P_Scratch()->clipCursorPtr32 = (u32)(u32)cursor;
+	DrawLevelOvr1P_Scratch()->entry.clip.clipCursorPtr32 = (u32)(u32)cursor;
 }
 
 static u8 *DrawLevelOvr1P_GetClipRecordStart(void)
@@ -989,7 +989,7 @@ static void DrawLevelOvr1P_CopyColorWord(u8 *dst, const u8 *src)
 
 static void DrawLevelOvr1P_CopySourcePosFlags(struct DrawLevelOvr1PScratchVertex *projected, const struct LevVertex *vertex)
 {
-	projected->posVec = vertex->pos;
+	CTR_COPY_VEC3(projected->pos, CTR_VECTOR_DATA(&vertex->pos));
 	projected->flags = vertex->flags;
 }
 
@@ -1001,7 +1001,8 @@ static void DrawLevelOvr1P_CopySourceVertex(struct DrawLevelOvr1PScratchVertex *
 
 static void DrawLevelOvr1P_CopyProjectedScreenDepth(struct DrawLevelOvr1PScratchVertex *dst, const struct DrawLevelOvr1PScratchVertex *src)
 {
-	dst->posScreenVec = src->posScreenVec;
+	dst->posScreen[0] = src->posScreen[0];
+	dst->posScreen[1] = src->posScreen[1];
 	dst->depth = src->depth;
 	dst->clipNear = src->clipNear;
 	dst->clipHalfNear = src->clipHalfNear;
@@ -1077,7 +1078,7 @@ static void Ovr226_800a0f78_ProjectFullDynamicLowQuad(struct LevVertex *vertices
 
 static void Ovr226_800a0d20_SeedEntryScratchPointers(struct DrawLevelOvr1PRenderList *renderList, struct PushBuffer *pb)
 {
-	DrawLevelOvr1P_Scratch()->clipCursorPtr32 = (u32)(u32)data.PtrClipBuffer[0];
+	DrawLevelOvr1P_Scratch()->entry.clip.clipCursorPtr32 = (u32)(u32)data.PtrClipBuffer[0];
 	DrawLevelOvr1P_Scratch()->pushBufferPtr32[0] = (u32)(u32)pb;
 	DrawLevelOvr1P_Scratch()->renderListPtr32 = (u32)(u32)renderList;
 }
@@ -1102,7 +1103,7 @@ static void DrawLevelOvr1P_CopyProjectedSource(struct LevVertex *vertex, struct 
 		DrawLevelOvr1P_CopySourcePosFlags(projected, vertex);
 		break;
 	case DRAW_LEVEL_OVR1P_PROJECTED_SOURCE_WATER_COLOR_LO_FLAGS:
-		projected->posVec = vertex->pos;
+		CTR_COPY_VEC3(projected->pos, CTR_VECTOR_DATA(&vertex->pos));
 		projected->flags = (u16)vertex->color_lo[0] | ((u16)vertex->color_lo[1] << 8);
 		break;
 	}
@@ -2118,9 +2119,9 @@ static int DrawLevelOvr1P_EmitPreparedProjectedQuadRawCodeAtOtEntry(struct PushB
 	POLY_GT4 *nextPrim = prim + 1;
 
 	DrawLevelOvr1P_StoreProjectedDirectUvScratch(projected, indices, 4);
-	u32 uv0 = DrawLevelOvr1P_Scratch()->uv.uv0;
-	u32 uv1 = DrawLevelOvr1P_Scratch()->uv.uv1;
-	u32 uv2 = DrawLevelOvr1P_Scratch()->uv.uv2;
+	u32 uv0 = DrawLevelOvr1P_Scratch()->uv.uv0.packed;
+	u32 uv1 = DrawLevelOvr1P_Scratch()->uv.uv1.packed;
+	u32 uv2 = DrawLevelOvr1P_Scratch()->uv.uv2.packed;
 
 	// NOTE(aalhendi): Generic retail raw GT4 writers select from scratch
 	// UV1/tpage; water terminal labels pass a fixed-code override.
@@ -2153,9 +2154,9 @@ static int DrawLevelOvr1P_EmitPreparedProjectedTriRawCodeAtOtEntry(struct PushBu
 	POLY_GT3 *nextPrim = prim + 1;
 
 	DrawLevelOvr1P_StoreProjectedDirectUvScratch(projected, indices, 3);
-	u32 uv0 = DrawLevelOvr1P_Scratch()->uv.uv0;
-	u32 uv1 = DrawLevelOvr1P_Scratch()->uv.uv1;
-	u32 uv2 = DrawLevelOvr1P_Scratch()->uv.uv2;
+	u32 uv0 = DrawLevelOvr1P_Scratch()->uv.uv0.packed;
+	u32 uv1 = DrawLevelOvr1P_Scratch()->uv.uv1.packed;
+	u32 uv2 = DrawLevelOvr1P_Scratch()->uv.uv2.packed;
 
 	// NOTE(aalhendi): Generic retail raw GT3 writers select from scratch
 	// UV1/tpage; water terminal labels pass a fixed-code override.
@@ -2371,7 +2372,7 @@ static int DrawLevelOvr1P_ShouldWriteRenderedClippedRecord(const struct DrawLeve
 
 static void DrawLevelOvr1P_CopyClipRecordVertex(struct DrawLevelOvr1PClipRecordVertex *dst, const struct DrawLevelOvr1PScratchVertex *src)
 {
-	dst->posVec = src->posVec;
+	CTR_COPY_VEC3(dst->pos, src->pos);
 	dst->flags = src->flags;
 	DrawLevelOvr1P_CopyColorWord(dst->color_hi, src->color_hi);
 
@@ -2433,8 +2434,8 @@ static int DrawLevelOvr1P_WriteRenderedClippedRecordAtOt(struct PushBuffer *pb, 
 	record->otEntry = (u32)(u32)&pb->ptrOT[otIndex];
 	// NOTE(aalhendi): Retail terminal near writers 0x800a89dc/0x800aa5fc
 	// store the freshly selected scratch UV metadata, not the caller texture.
-	record->tpage = DrawLevelOvr1P_Scratch()->uv.tpage;
-	record->clut = DrawLevelOvr1P_Scratch()->uv.clut;
+	record->tpage = DrawLevelOvr1P_Scratch()->uv.uv1.halves.high;
+	record->clut = DrawLevelOvr1P_Scratch()->uv.uv0.halves.high;
 
 	for (s32 vertexIndex = 0; vertexIndex < count; vertexIndex++)
 	{
@@ -2473,8 +2474,8 @@ static int DrawLevelOvr1P_WriteWaterRenderedClippedRecordAtOt(struct PushBuffer 
 	// bit 31 on clipped-record headers so the consumer keeps the NCLIP result.
 	record->header = count == 4 ? 0x80000001u : 0x80000000u;
 	record->otEntry = (u32)(u32)&pb->ptrOT[otIndex];
-	record->tpage = DrawLevelOvr1P_Scratch()->uv.tpage;
-	record->clut = DrawLevelOvr1P_Scratch()->uv.clut;
+	record->tpage = DrawLevelOvr1P_Scratch()->uv.uv1.halves.high;
+	record->clut = DrawLevelOvr1P_Scratch()->uv.uv0.halves.high;
 
 	for (s32 vertexIndex = 0; vertexIndex < count; vertexIndex++)
 	{
@@ -2504,8 +2505,8 @@ static int Ovr226_800a34d4_WriteWaterRenderedClippedRecordAtOtEntry(struct PushB
 	// 0x800a34d4/0x800a3578 store the inherited GP/OT pointer directly.
 	record->header = count == 4 ? 0x80000001u : 0x80000000u;
 	record->otEntry = (u32)(u32)otEntry;
-	record->tpage = DrawLevelOvr1P_Scratch()->uv.tpage;
-	record->clut = DrawLevelOvr1P_Scratch()->uv.clut;
+	record->tpage = DrawLevelOvr1P_Scratch()->uv.uv1.halves.high;
+	record->clut = DrawLevelOvr1P_Scratch()->uv.uv0.halves.high;
 
 	for (s32 vertexIndex = 0; vertexIndex < count; vertexIndex++)
 	{
@@ -2545,8 +2546,8 @@ static u32 DrawLevelOvr1P_GetClipRecordSignedUvWord(const struct DrawLevelOvr1PS
 
 static void DrawLevelOvr1P_SetClipRecordPageScratch(const struct DrawLevelOvr1PClipRecord *record)
 {
-	DrawLevelOvr1P_Scratch()->uv.tpage = record->tpage;
-	DrawLevelOvr1P_Scratch()->uv.clut = record->clut;
+	DrawLevelOvr1P_Scratch()->uv.uv1.halves.high = record->tpage;
+	DrawLevelOvr1P_Scratch()->uv.uv0.halves.high = record->clut;
 }
 
 static struct DrawLevelOvr1PScratchVertex *DrawLevelOvr1P_GetClipRecordWorkspace(void)
@@ -2561,17 +2562,17 @@ static u32 DrawLevelOvr1P_StoreClipRecordUvScratch(const struct DrawLevelOvr1PSc
 	switch (slot)
 	{
 	case DRAW_LEVEL_OVR1P_UV_SCRATCH_SLOT_0:
-		scratch->flag0 = (s16)projected->flags;
-		return scratch->uv0;
+		scratch->uv0.halves.low = (s16)projected->flags;
+		return scratch->uv0.packed;
 
 	case DRAW_LEVEL_OVR1P_UV_SCRATCH_SLOT_1:
-		scratch->flag1 = (s16)projected->flags;
-		return scratch->uv1;
+		scratch->uv1.halves.low = (s16)projected->flags;
+		return scratch->uv1.packed;
 
 	case DRAW_LEVEL_OVR1P_UV_SCRATCH_SLOT_2:
 	default:
-		scratch->flag2 = (s16)projected->flags;
-		return scratch->uv2;
+		scratch->uv2.halves.low = (s16)projected->flags;
+		return scratch->uv2.packed;
 	}
 }
 
@@ -2775,7 +2776,7 @@ static void Ovr226_800aa858_ProjectClipRecordRawVertex(struct DrawLevelOvr1PScra
 {
 	s16 ir[3];
 
-	projected->posVec = src->posVec;
+	CTR_COPY_VEC3(projected->pos, src->pos);
 	projected->flags = src->flags;
 	DrawLevelOvr1P_CopyColorWord(projected->color_hi, src->color_hi);
 
@@ -4525,9 +4526,9 @@ static void Ovr226_800a3f74_PrepareGround4x1DeepestUv(const struct DrawLevelOvr1
 	u32 uv1 = DrawLevelOvr1P_ReadPackedWord(source + 4);
 
 	struct DrawLevelOvr1PScratchVertex *mutableProjected = (struct DrawLevelOvr1PScratchVertex *)projected;
-	DrawLevelOvr1P_Scratch()->uv.uv0 = uv0;
+	DrawLevelOvr1P_Scratch()->uv.uv0.packed = uv0;
 	mutableProjected[indices[0]].flags = (u16)uv0;
-	DrawLevelOvr1P_Scratch()->uv.uv1 = uv1;
+	DrawLevelOvr1P_Scratch()->uv.uv1.packed = uv1;
 	mutableProjected[indices[1]].flags = (u16)uv1;
 	mutableProjected[indices[2]].flags = DrawLevelOvr1P_ReadPackedHalf(source + 8);
 	mutableProjected[indices[3]].flags = DrawLevelOvr1P_ReadPackedHalf(source + 10);
@@ -4586,9 +4587,9 @@ static int Ovr226_800a4034_EmitGround4x1GT3Raw(struct PushBuffer *pb, struct Pri
 	POLY_GT3 *nextPrim = prim + 1;
 
 	DrawLevelOvr1P_StoreProjectedDirectUvScratch(projected, triIndices, 3);
-	u32 uv0 = DrawLevelOvr1P_Scratch()->uv.uv0;
-	u32 uv1 = DrawLevelOvr1P_Scratch()->uv.uv1;
-	u32 uv2 = DrawLevelOvr1P_Scratch()->uv.uv2;
+	u32 uv0 = DrawLevelOvr1P_Scratch()->uv.uv0.packed;
+	u32 uv1 = DrawLevelOvr1P_Scratch()->uv.uv1.packed;
+	u32 uv2 = DrawLevelOvr1P_Scratch()->uv.uv2.packed;
 	u32 code = DrawLevelOvr1P_SelectRawPrimitiveCode(uv1, 0x36, 0x34);
 
 	DrawLevelOvr1P_WriteProjectedGT3(prim, projected, triIndices, code, uv0, uv1, uv2);
@@ -4615,9 +4616,9 @@ static int Ovr226_800a40b8_EmitGround4x1GT4Raw(struct PushBuffer *pb, struct Pri
 	POLY_GT4 *nextPrim = prim + 1;
 
 	DrawLevelOvr1P_StoreProjectedDirectUvScratch(projected, indices, 4);
-	u32 uv0 = DrawLevelOvr1P_Scratch()->uv.uv0;
-	u32 uv1 = DrawLevelOvr1P_Scratch()->uv.uv1;
-	u32 uv2 = DrawLevelOvr1P_Scratch()->uv.uv2;
+	u32 uv0 = DrawLevelOvr1P_Scratch()->uv.uv0.packed;
+	u32 uv1 = DrawLevelOvr1P_Scratch()->uv.uv1.packed;
+	u32 uv2 = DrawLevelOvr1P_Scratch()->uv.uv2.packed;
 	u32 code = DrawLevelOvr1P_SelectRawPrimitiveCode(uv1, 0x3e, 0x3c);
 
 	DrawLevelOvr1P_WriteProjectedGT4(prim, projected, indices, code, uv0, uv1, uv2);
@@ -4718,8 +4719,8 @@ static int Ovr226_800a4dcc_WriteGround4x1RenderedClippedRecordAtOtEntry(struct P
 	struct DrawLevelOvr1PClipRecord *record = (struct DrawLevelOvr1PClipRecord *)cursor;
 	record->header = DrawLevelOvr1P_GetRenderedClipRecordHeader(block, count);
 	record->otEntry = (u32)(u32)otEntry;
-	record->tpage = DrawLevelOvr1P_Scratch()->uv.tpage;
-	record->clut = DrawLevelOvr1P_Scratch()->uv.clut;
+	record->tpage = DrawLevelOvr1P_Scratch()->uv.uv1.halves.high;
+	record->clut = DrawLevelOvr1P_Scratch()->uv.uv0.halves.high;
 
 	for (s32 vertexIndex = 0; vertexIndex < count; vertexIndex++)
 	{
@@ -4854,9 +4855,9 @@ static void Ovr226_800a4b54_PrepareGround4x1RenderedDeepestUv(const struct DrawL
 	u32 uv1 = DrawLevelOvr1P_ReadPackedWord(source + 4);
 
 	struct DrawLevelOvr1PScratchVertex *mutableProjected = (struct DrawLevelOvr1PScratchVertex *)projected;
-	DrawLevelOvr1P_Scratch()->uv.uv0 = uv0;
+	DrawLevelOvr1P_Scratch()->uv.uv0.packed = uv0;
 	mutableProjected[indices[0]].flags = (u16)uv0;
-	DrawLevelOvr1P_Scratch()->uv.uv1 = uv1;
+	DrawLevelOvr1P_Scratch()->uv.uv1.packed = uv1;
 	mutableProjected[indices[1]].flags = (u16)uv1;
 	mutableProjected[indices[2]].flags = DrawLevelOvr1P_ReadPackedHalf(source + 8);
 	mutableProjected[indices[3]].flags = DrawLevelOvr1P_ReadPackedHalf(source + 10);
@@ -6042,8 +6043,8 @@ static int Ovr226_800a6d6c_WriteGround4x2RenderedClippedRecordAtOtEntry(struct P
 	struct DrawLevelOvr1PClipRecord *record = (struct DrawLevelOvr1PClipRecord *)cursor;
 	record->header = DrawLevelOvr1P_GetRenderedClipRecordHeader(block, count);
 	record->otEntry = (u32)(u32)otEntry;
-	record->tpage = DrawLevelOvr1P_Scratch()->uv.tpage;
-	record->clut = DrawLevelOvr1P_Scratch()->uv.clut;
+	record->tpage = DrawLevelOvr1P_Scratch()->uv.uv1.halves.high;
+	record->clut = DrawLevelOvr1P_Scratch()->uv.uv0.halves.high;
 
 	for (s32 vertexIndex = 0; vertexIndex < count; vertexIndex++)
 	{
@@ -6504,8 +6505,8 @@ static int Ovr226_800a898c_WriteDynamicRenderedClippedRecordAtOtEntry(struct Pus
 	record = (struct DrawLevelOvr1PClipRecord *)cursor;
 	record->header = DrawLevelOvr1P_GetRenderedClipRecordHeader(block, count);
 	record->otEntry = (u32)(u32)otEntry;
-	record->tpage = DrawLevelOvr1P_Scratch()->uv.tpage;
-	record->clut = DrawLevelOvr1P_Scratch()->uv.clut;
+	record->tpage = DrawLevelOvr1P_Scratch()->uv.uv1.halves.high;
+	record->clut = DrawLevelOvr1P_Scratch()->uv.uv0.halves.high;
 
 	for (s32 vertexIndex = 0; vertexIndex < count; vertexIndex++)
 	{
@@ -6932,8 +6933,8 @@ static int Ovr226_800aa5ac_WriteQuad4x4RenderedClippedRecordAtOtEntry(struct Pus
 	struct DrawLevelOvr1PClipRecord *record = (struct DrawLevelOvr1PClipRecord *)cursor;
 	record->header = DrawLevelOvr1P_GetRenderedClipRecordHeader(block, count);
 	record->otEntry = (u32)(u32)otEntry;
-	record->tpage = DrawLevelOvr1P_Scratch()->uv.tpage;
-	record->clut = DrawLevelOvr1P_Scratch()->uv.clut;
+	record->tpage = DrawLevelOvr1P_Scratch()->uv.uv1.halves.high;
+	record->clut = DrawLevelOvr1P_Scratch()->uv.uv0.halves.high;
 
 	for (s32 vertexIndex = 0; vertexIndex < count; vertexIndex++)
 	{
@@ -7398,9 +7399,9 @@ static struct TextureLayout *Ovr226_800a1058_PrepareFullDynamicLowUv(struct Quad
 	u32 uv0 = DrawLevelOvr1P_ReadWord(texture, 0);
 	u32 uv1 = DrawLevelOvr1P_ReadWord(texture, 4);
 	u32 uv2 = DrawLevelOvr1P_ReadWord(texture, 8);
-	DrawLevelOvr1P_Scratch()->uv.uv0 = uv0;
-	DrawLevelOvr1P_Scratch()->uv.uv1 = uv1;
-	DrawLevelOvr1P_Scratch()->uv.uv2 = uv2;
+	DrawLevelOvr1P_Scratch()->uv.uv0.packed = uv0;
+	DrawLevelOvr1P_Scratch()->uv.uv1.packed = uv1;
+	DrawLevelOvr1P_Scratch()->uv.uv2.packed = uv2;
 	projected[indices[0]].flags = (u16)uv0;
 	projected[indices[1]].flags = (u16)uv1;
 	projected[indices[2]].flags = (u16)uv2;
@@ -8890,9 +8891,9 @@ static int Ovr226_800a27dc_EmitWaterListGT3Raw(struct PushBuffer *pb, struct Pri
 	POLY_GT3 *prim = primMem->cursor;
 	POLY_GT3 *nextPrim = prim + 1;
 	DrawLevelOvr1P_StoreProjectedDirectUvScratch(projected, triIndices, 3);
-	u32 uv0 = DrawLevelOvr1P_Scratch()->uv.uv0;
-	u32 uv1 = DrawLevelOvr1P_Scratch()->uv.uv1;
-	u32 uv2 = DrawLevelOvr1P_Scratch()->uv.uv2;
+	u32 uv0 = DrawLevelOvr1P_Scratch()->uv.uv0.packed;
+	u32 uv1 = DrawLevelOvr1P_Scratch()->uv.uv1.packed;
+	u32 uv2 = DrawLevelOvr1P_Scratch()->uv.uv2.packed;
 
 	DrawLevelOvr1P_WriteProjectedGT3(prim, projected, triIndices, 0x36, uv0, uv1, uv2);
 	DrawLevelOvr1P_AddRawPrimToOt(primMem, prim, 9, inheritedOtEntry);
@@ -8915,9 +8916,9 @@ static int Ovr226_800a2850_EmitWaterListGT4Raw(struct PushBuffer *pb, struct Pri
 	POLY_GT4 *prim = primMem->cursor;
 	POLY_GT4 *nextPrim = prim + 1;
 	DrawLevelOvr1P_StoreProjectedDirectUvScratch(projected, indices, 4);
-	u32 uv0 = DrawLevelOvr1P_Scratch()->uv.uv0;
-	u32 uv1 = DrawLevelOvr1P_Scratch()->uv.uv1;
-	u32 uv2 = DrawLevelOvr1P_Scratch()->uv.uv2;
+	u32 uv0 = DrawLevelOvr1P_Scratch()->uv.uv0.packed;
+	u32 uv1 = DrawLevelOvr1P_Scratch()->uv.uv1.packed;
+	u32 uv2 = DrawLevelOvr1P_Scratch()->uv.uv2.packed;
 
 	DrawLevelOvr1P_WriteProjectedGT4(prim, projected, indices, 0x3e, uv0, uv1, uv2);
 	DrawLevelOvr1P_AddRawPrimToOt(primMem, prim, 12, inheritedOtEntry);
@@ -9029,8 +9030,8 @@ static void Ovr226_800a1e30_SeedWaterListState(void)
 	CTC2(0, 21);
 	CTC2(0, 22);
 	CTC2(0, 23);
-	DrawLevelOvr1P_Scratch()->uv.uv0 = DrawLevelOvr1P_ReadPackedWord((const u8 *)waterEnvMap + 0);
-	DrawLevelOvr1P_Scratch()->uv.uv1 = DrawLevelOvr1P_ReadPackedWord((const u8 *)waterEnvMap + 4);
+	DrawLevelOvr1P_Scratch()->uv.uv0.packed = DrawLevelOvr1P_ReadPackedWord((const u8 *)waterEnvMap + 0);
+	DrawLevelOvr1P_Scratch()->uv.uv1.packed = DrawLevelOvr1P_ReadPackedWord((const u8 *)waterEnvMap + 4);
 }
 
 static void Ovr226_800a1e74_SeedWaterVisibilityScratch(const int *visFaceList, const struct QuadBlock *block)

@@ -99,7 +99,7 @@ static int VehBirth_ShouldUseStartlineInAdv(struct GameTracker *gGT, s16 *warppa
 
 static struct SpawnPosRot *VehBirth_SpawnType2PosRot(struct Level *level)
 {
-	return level->ptrSpawnType2_PosRot[1].posRot;
+	return level->ptrSpawnType2_PosRot[1].coords.posRot;
 }
 
 static void VehBirth_SetBottomFromPos(SVec3 *posBottom, const SVec3 *pos)

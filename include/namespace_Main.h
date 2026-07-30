@@ -279,17 +279,8 @@ CTR_STATIC_ASSERT(sizeof(struct RngDeadCoedState) == 0x8);
 
 struct GameTrackerConfetti
 {
-	union
-	{
-		// Retail updates the current particle halfword through a 32-bit lw/sw.
-		u32 numParticles_currWord;
-		struct
-		{
-			// 0x00
-			s16 numParticles_curr;
-			s16 numParticlesPad;
-		};
-	};
+	// Retail updates the current particle halfword through a 32-bit lw/sw.
+	u32 numParticles_currWord;
 
 	// 0x04
 	s16 numParticles_max;

@@ -34,7 +34,7 @@ b32 CS_Camera_BoolGotoBoss(void)
 	}
 
 	struct Instance *inst = gGT->drivers[0]->instSelf;
-	const SVec3 *podiumPos = &gGT->level1->ptrSpawnType2_PosRot[1].posRot->pos;
+	const SVec3 *podiumPos = &gGT->level1->ptrSpawnType2_PosRot[1].coords.posRot->pos;
 
 	// TRUE if TeleportSelf did NOT spawn on podium (goto boss door)
 	return (inst->matrix.t[0] != podiumPos->x) || (inst->matrix.t[2] != podiumPos->z);

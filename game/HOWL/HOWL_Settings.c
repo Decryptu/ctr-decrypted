@@ -53,7 +53,7 @@ void UpdateChannelVol_EngineFX_All()
 {
 	struct ChannelStats *curr;
 
-	for (curr = (struct ChannelStats *)sdata->channelTaken.first; curr != NULL; curr = curr->next)
+	for (curr = (struct ChannelStats *)sdata->channelTaken.first; curr != NULL; curr = curr->link.links.next)
 	{
 		if (curr->type == HOWL_CHANNEL_TYPE_MUSIC)
 		{
@@ -85,7 +85,7 @@ void UpdateChannelVol_Music_All()
 
 	for (curr = (struct ChannelStats *)sdata->channelTaken.first; curr != NULL; curr = backupNext)
 	{
-		backupNext = curr->next;
+		backupNext = curr->link.links.next;
 
 		if (curr->type != HOWL_CHANNEL_TYPE_MUSIC)
 		{
@@ -105,7 +105,7 @@ void UpdateChannelVol_OtherFX_All()
 
 	for (curr = (struct ChannelStats *)sdata->channelTaken.first; curr != NULL; curr = backupNext)
 	{
-		backupNext = curr->next;
+		backupNext = curr->link.links.next;
 
 		if (curr->type != HOWL_CHANNEL_TYPE_OTHER_FX)
 		{

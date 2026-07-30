@@ -50,7 +50,7 @@ void TT_EndEvent_DrawMenu(void)
 	// If you just beat N Tropy && N Tropy was beaten on all tracks
 	if (((gameModeEnd & NTROPY_JUST_BEAT) != 0) && GAMEPROG_CheckGhostsBeaten(1))
 	{
-		sdata->gameProgress.unlockFlags |= UNLOCK_TROPY;
+		sdata->gameProgress.unlocks[0] |= UNLOCK_TROPY;
 	}
 
 	// copy the frame counter variable

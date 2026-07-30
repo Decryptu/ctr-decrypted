@@ -1,4 +1,5 @@
-#pragma once
+#ifndef CTR_NATIVE_GPU_H
+#define CTR_NATIVE_GPU_H
 
 #ifdef CTR_NATIVE
 #include <platform/native_gpu_links.h>
@@ -288,15 +289,6 @@ static inline void addLineG4(u32 *ot, LINE_G4 *p)
 	p->p2 = 0;
 }
 
-#ifndef CTR_NATIVE
-static inline void addFill(u32 *ot, FILL *p)
-{
-	p->tag = CtrGpu_PackOTTag(*ot, 0x3000000);
-	CtrGpu_LinkPrimToOT(ot, p);
-	p->code = 2;
-}
-#endif
-
 // version of psn00bsdk's setXY4 macro that compiles to a smaller bytesize
 // based on original compiled code for the game's primitive functions
 // this produces bugs if any of the X values are negative and not cast to u16
@@ -323,3 +315,5 @@ static inline void addFill(u32 *ot, FILL *p)
 #define setColor4(p, rgb0, rgb1, rgb2, rgb3)                                                                                         \
 	(((P_COLOR *)&((p)->r0))->color = (rgb0)), (((P_COLOR *)&((p)->r1))->color = (rgb1)), (((P_COLOR *)&((p)->r2))->color = (rgb2)), \
 	    (((P_COLOR *)&((p)->r3))->color = (rgb3))
+
+#endif

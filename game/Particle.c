@@ -100,7 +100,7 @@ void Particle_FuncPtr_PotionShatter(struct Particle *p)
 FadeShatterChannel:
 
 	// green shatter or red shatter
-	if (p->modelID == STATIC_SHOCKWAVE_GREEN)
+	if (p->owner.modelID == STATIC_SHOCKWAVE_GREEN)
 	{
 		if (0 < p->axis[PARTICLE_AXIS_COLOR_G].startVal)
 		{
@@ -126,7 +126,7 @@ void Particle_FuncPtr_SpitTire(struct Particle *p)
 	// Wait until tires are 0x10 units above
 	// the ground, which is where the plant
 	// actually "spits" tires from the mouth
-	targetY = p->plantInst->matrix.t[1] + PARTICLE_SPIT_TIRE_MOUTH_Y_OFFSET;
+	targetY = p->owner.plantInst->matrix.t[1] + PARTICLE_SPIT_TIRE_MOUTH_Y_OFFSET;
 
 	if ((p->axis[PARTICLE_AXIS_POS_Y].startVal >> 8) >= targetY)
 	{
@@ -198,7 +198,7 @@ void Particle_FuncPtr_ExhaustUnderwater(struct Particle *p)
 {
 	struct IconGroup *icon;
 
-	if ((PARTICLE_EXHAUST_WATER_HEIGHT_THRESHOLD < ((p->axis[PARTICLE_AXIS_POS_Y].startVal >> 8) + p->driverInst->matrix.t[1])) &&
+	if ((PARTICLE_EXHAUST_WATER_HEIGHT_THRESHOLD < ((p->axis[PARTICLE_AXIS_POS_Y].startVal >> 8) + p->owner.driverInst->matrix.t[1])) &&
 	    (p->framesLeftInLife < PARTICLE_EXHAUST_POP_LIFE_THRESHOLD))
 	{
 		// bubblepop
@@ -1205,9 +1205,9 @@ void Particle_RenderList(struct PushBuffer *pb, void *particleList)
 			posZ = particle->axis[PARTICLE_AXIS_POS_Z].startVal >> 6;
 			flagsSetColor = particle->flagsSetColor;
 
-			if ((flagsSetColor & PARTICLE_SET_COLOR_FLAG_DRIVER_LOCAL) != 0 && particle->driverInst != NULL)
+			if ((flagsSetColor & PARTICLE_SET_COLOR_FLAG_DRIVER_LOCAL) != 0 && particle->owner.driverInst != NULL)
 			{
-				struct Instance *inst = particle->driverInst;
+				struct Instance *inst = particle->owner.driverInst;
 				u32 idppFlags;
 
 				idpp = Particle_RenderList_GetIdpp(inst, cameraID);
@@ -1294,12 +1294,12 @@ void Particle_RenderList(struct PushBuffer *pb, void *particleList)
 
 static u32 Particle_Init_GetAxisFlags(const struct Particle *p)
 {
-	return p->flagsAxisWord;
+	return CTR_ReadU32LE(&p->flagsAxis);
 }
 
 static void Particle_Init_SetAxisFlags(struct Particle *p, u32 flags)
 {
-	p->flagsAxisWord = flags;
+	CTR_WriteU32LE(&p->flagsAxis, flags);
 }
 
 static u8 ParticleEmitter_GetInitOffset(const struct ParticleEmitter *emSet)
@@ -1309,12 +1309,12 @@ static u8 ParticleEmitter_GetInitOffset(const struct ParticleEmitter *emSet)
 
 static void ParticleEmitter_CopyOscillator(struct ParticleOscillator *osc, const struct ParticleEmitter *emSet)
 {
-	const struct ParticleOscillatorConfig *src = &emSet->oscillator;
+	const struct ParticleOscillatorConfig *src = &emSet->tail.oscillator;
 
 	CTR_WriteU32LE(&osc->flags, CTR_ReadU32LE(&src->flags));
-	CTR_WriteU32LE((u8 *)&osc->flags + 4, CTR_ReadU32LE(&src->period));
-	CTR_WriteU32LE((u8 *)&osc->flags + 8, CTR_ReadU32LE(&src->scale));
-	CTR_WriteU32LE((u8 *)&osc->flags + 12, CTR_ReadU32LE(&src->min));
+	CTR_WriteU32LE((u8 *)&osc->flags + 4, CTR_ReadU32LE(&src->range.period));
+	CTR_WriteU32LE((u8 *)&osc->flags + 8, CTR_ReadU32LE(&src->range.scale));
+	CTR_WriteU32LE((u8 *)&osc->flags + 12, CTR_ReadU32LE(&src->range.min));
 }
 
 static void Particle_InitAxis(struct Particle *p, const struct ParticleEmitter *emSet, u8 axisIndex, u32 *flagsAxis)
@@ -1419,7 +1419,7 @@ static void Particle_RandomizeOscillator(struct ParticleOscillator *localOsc[12]
 	}
 
 	osc = localOsc[axisIndex];
-	rng = &emSet->oscillator.randomRange;
+	rng = &emSet->tail.oscillator.range;
 
 	if (rng->period != 0)
 	{

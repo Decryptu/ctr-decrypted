@@ -259,7 +259,7 @@ void Level_AmbientSound(void)
 
 			for (int coordIndex = 0; coordIndex < spawn->numCoords; coordIndex++)
 			{
-				SVec3 *coord = &spawn->positions[coordIndex];
+				SVec3 *coord = &spawn->coords.positions[coordIndex];
 
 				for (int playerIndex = 0; playerIndex < gGT->numPlyrCurrGame; playerIndex++)
 				{

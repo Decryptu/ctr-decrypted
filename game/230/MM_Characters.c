@@ -699,7 +699,7 @@ void MM_Characters_MenuProc(struct RectMenu *unused)
 	case MM_CHARACTER_SELECT_LAYOUT_4P:
 
 		// If Fake Crash is unlocked, do not draw "Select Character"
-		if (sdata->gameProgress.unlockFlags & UNLOCK_FAKE_CRASH)
+		if (sdata->gameProgress.unlocks[0] & UNLOCK_FAKE_CRASH)
 		{
 			goto dontDrawSelectCharacter;
 		}

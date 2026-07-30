@@ -118,7 +118,7 @@ void RB_Plant_ThTick_Eat(struct Thread *t)
 					}
 
 					particle->funcPtr = Particle_FuncPtr_SpitTire;
-					particle->plantInst = plantInst;
+					particle->owner.plantInst = plantInst;
 
 					particle->axis[0].startVal += (plantInst->matrix.t[0] + (plantInst->matrix.m[0][2] * 9 >> 7)) * 0x100;
 

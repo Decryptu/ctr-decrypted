@@ -435,7 +435,6 @@ void PushBuffer_SetMatrixVP(struct PushBuffer *pb)
 }
 
 
-
 static void PushBuffer_SetFrustumPlane_LoadAxisVector(int x, int y, int z)
 {
 	CTC2((u32)(s32)x, 0);
@@ -532,7 +531,6 @@ int PushBuffer_SetFrustumPlane(struct PushBufferFrustumPlane *frustumPlane, stru
 }
 
 
-
 static void PushBuffer_UpdateFrustum_LoadV0(int xy, int z)
 {
 	MTC2((u32)xy, 0);
@@ -565,7 +563,7 @@ void PushBuffer_UpdateFrustum(struct PushBuffer *pb)
 	int val_Y;
 
 	// Retail packs screen-space corner x/y into a single GTE VXY word.
-	union FrustumCornerIN frustumCorner[4];
+	struct FrustumCornerIN frustumCorner[4];
 
 	int iVar19;
 
@@ -633,7 +631,7 @@ void PushBuffer_UpdateFrustum(struct PushBuffer *pb)
 		// multiply corner of screen,
 		// by view-projection matrix,
 		// to get frustum plane world-pos
-		PushBuffer_UpdateFrustum_LoadV0(frustumCorner[i].self, pb->distanceToScreen_PREV);
+		PushBuffer_UpdateFrustum_LoadV0(CTR_PackS16Pair(frustumCorner[i].x, frustumCorner[i].y), pb->distanceToScreen_PREV);
 		gte_llv0();
 
 		// this is ViewProj matrix, loaded into GTE

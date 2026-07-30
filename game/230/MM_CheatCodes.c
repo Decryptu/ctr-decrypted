@@ -8,43 +8,43 @@ void MM_Cheat_MaxWumpa(void)
 
 void MM_Cheat_UnlockRoo(void)
 {
-	sdata->gameProgress.unlockFlags |= UNLOCK_ROO;
+	sdata->gameProgress.unlocks[0] |= UNLOCK_ROO;
 	OtherFX_Play(MM_CHEAT_SUCCESS_SFX, 1);
 }
 
 void MM_Cheat_UnlockPapu(void)
 {
-	sdata->gameProgress.unlockFlags |= UNLOCK_PAPU;
+	sdata->gameProgress.unlocks[0] |= UNLOCK_PAPU;
 	OtherFX_Play(MM_CHEAT_SUCCESS_SFX, 1);
 }
 
 void MM_Cheat_UnlockJoe(void)
 {
-	sdata->gameProgress.unlockFlags |= UNLOCK_JOE;
+	sdata->gameProgress.unlocks[0] |= UNLOCK_JOE;
 	OtherFX_Play(MM_CHEAT_SUCCESS_SFX, 1);
 }
 
 void MM_Cheat_UnlockPinstripe(void)
 {
-	sdata->gameProgress.unlockFlags |= UNLOCK_PINSTRIPE;
+	sdata->gameProgress.unlocks[0] |= UNLOCK_PINSTRIPE;
 	OtherFX_Play(MM_CHEAT_SUCCESS_SFX, 1);
 }
 
 void MM_Cheat_UnlockFakeCrash(void)
 {
-	sdata->gameProgress.unlockFlags |= UNLOCK_FAKE_CRASH;
+	sdata->gameProgress.unlocks[0] |= UNLOCK_FAKE_CRASH;
 	OtherFX_Play(MM_CHEAT_SUCCESS_SFX, 1);
 }
 
 void MM_Cheat_UnlockPenta(void)
 {
-	sdata->gameProgress.unlockFlags |= UNLOCK_PENTA;
+	sdata->gameProgress.unlocks[0] |= UNLOCK_PENTA;
 	OtherFX_Play(MM_CHEAT_SUCCESS_SFX, 1);
 }
 
 void MM_Cheat_UnlockTropy(void)
 {
-	sdata->gameProgress.unlockFlags |= UNLOCK_TROPY;
+	sdata->gameProgress.unlocks[0] |= UNLOCK_TROPY;
 	OtherFX_Play(MM_CHEAT_SUCCESS_SFX, 1);
 }
 
@@ -56,7 +56,7 @@ void MM_Cheat_UnlockScrapbook(void)
 
 void MM_Cheat_UnlockTracks(void)
 {
-	sdata->gameProgress.unlockFlags |= GAME_UNLOCK_TRACKS_MASK;
+	sdata->gameProgress.unlocks[0] |= GAME_UNLOCK_TRACKS_MASK;
 	OtherFX_Play(MM_CHEAT_SUCCESS_SFX, 1);
 }
 

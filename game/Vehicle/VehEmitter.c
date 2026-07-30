@@ -143,7 +143,7 @@ struct Particle *VehEmitter_Exhaust(struct Driver *d, VECTOR *exhaustPos, VECTOR
 	p->axis[2].startVal += exhaustPos->vz - exhaustVel->vz;
 	p->axis[2].velocity = (s16)exhaustVel->vz;
 
-	p->driverInst = dInst;
+	p->owner.driverInst = dInst;
 	p->otIndexOffset = dInst->depthBiasNormal;
 
 	if (exhaustType == VEH_EMITTER_EXHAUST_ICON_WATER)
@@ -224,7 +224,7 @@ void VehEmitter_Sparks_Ground(struct Driver *d, struct ParticleEmitter *emSet)
 			p->axis[j].startVal += CTR_VECTOR_DATA(&(outZ))[j] + p->axis[j].velocity;
 		}
 
-		p->driverInst = d->instSelf;
+		p->owner.driverInst = d->instSelf;
 		p->otIndexOffset = d->instSelf->depthBiasNormal;
 	}
 }
@@ -305,7 +305,7 @@ void VehEmitter_Terrain_Ground(struct Driver *d, struct ParticleEmitter *emSet)
 			p->axis[i].velocity = (s16)CTR_VECTOR_DATA(&(vel))[i];
 		}
 
-		p->driverInst = dInst;
+		p->owner.driverInst = dInst;
 		p->otIndexOffset = dInst->depthBiasNormal;
 	}
 }
@@ -437,7 +437,7 @@ void VehEmitter_Sparks_Wall(struct Driver *d, struct ParticleEmitter *emSet)
 	p->axis[1].velocity = (s16)distOut4[1];
 	p->axis[2].velocity = (s16)distOut4[2];
 
-	p->driverInst = d->instSelf;
+	p->owner.driverInst = d->instSelf;
 }
 
 static void VehEmitter_SetRotTransMatrix(MATRIX *m)
@@ -469,14 +469,14 @@ static void VehEmitter_WriteSkidmark(struct Driver *d, u8 frameIndex, int tireIn
 {
 	union VehEmitterSkidmark *mark = VehEmitter_GetSkidmark(d, frameIndex, tireIndex);
 
-	mark->edge0.x = (s16)(x + widthX);
-	mark->edge0.y = (s16)y;
-	mark->edge0.z = (s16)(z + widthZ);
-	mark->color = color;
-	mark->flags = flags;
-	mark->edge1.x = (s16)(x - widthX);
-	mark->edge1.y = (s16)y;
-	mark->edge1.z = (s16)(z - widthZ);
+	mark->fields.edge0.x = (s16)(x + widthX);
+	mark->fields.edge0.y = (s16)y;
+	mark->fields.edge0.z = (s16)(z + widthZ);
+	mark->fields.color = color;
+	mark->fields.flags = flags;
+	mark->fields.edge1.x = (s16)(x - widthX);
+	mark->fields.edge1.y = (s16)y;
+	mark->fields.edge1.z = (s16)(z - widthZ);
 }
 
 static void VehEmitter_WriteSkidmarkPair(struct Driver *d, int tireIndex, int x, int y, int z, int lateralX, int lateralZ, int widthX, int widthZ, u8 color,
@@ -560,7 +560,7 @@ static void VehEmitter_MudSplash(struct Driver *d)
 		}
 
 		p->otIndexOffset = d->instSelf->depthBiasNormal;
-		p->driverInst = d->instSelf;
+		p->owner.driverInst = d->instSelf;
 		p->driverID = d->driverID;
 
 		p->axis[0].startVal += (int)p->axis[0].velocity * VEH_EMITTER_MUD_SPLASH_VELOCITY_SCALE;

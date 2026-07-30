@@ -6719,7 +6719,11 @@ struct Data
 
                     {.flags = 64,
                      .initOffset = 1,
-                     .oscillator = {.flags = PARTICLE_OSC_MODE_SQUARE, .period = 0x9600, .scale = 0x100, .offset = 0x1000, .min = 1, .max = 0x200}},
+                     .tail.oscillator =
+                         {
+                             .flags = PARTICLE_OSC_MODE_SQUARE,
+                             .range = {.period = 0x9600, .scale = 0x100, .offset = 0x1000, .min = 1, .max = 0x200},
+                         }},
 
                     {.flags = 1,
                      .initOffset = 5,
@@ -6844,7 +6848,11 @@ struct Data
 
                     {.flags = 64,
                      .initOffset = 1,
-                     .oscillator = {.flags = PARTICLE_OSC_MODE_SQUARE, .period = 0x9600, .scale = 0x100, .offset = 0x1000, .min = 1, .max = 0x200}},
+                     .tail.oscillator =
+                         {
+                             .flags = PARTICLE_OSC_MODE_SQUARE,
+                             .range = {.period = 0x9600, .scale = 0x100, .offset = 0x1000, .min = 1, .max = 0x200},
+                         }},
 
                     {.flags = 1,
                      .initOffset = 5,

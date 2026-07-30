@@ -614,7 +614,7 @@ struct SpawnType2
 		s16 *posCoords;
 		SVec3 *positions;
 		struct SpawnPosRot *posRot;
-	};
+	} coords;
 };
 
 // per-quadblock checkpoint node
@@ -889,17 +889,10 @@ struct Level
 	struct NavHeader **LevNavTable;
 
 	// 0x18C
-	union
-	{
-		int unk_18C;
-		struct
-		{
-			u8 jumpVerticalSpeedCap;
-			u8 unk_18D;
-			u8 unk_18E;
-			u8 unk_18F;
-		};
-	};
+	u8 jumpVerticalSpeedCap;
+	u8 unk_18D;
+	u8 unk_18E;
+	u8 unk_18F;
 
 	// 0x190
 	struct VisMem *visMem;
@@ -913,9 +906,9 @@ CTR_STATIC_ASSERT(offsetof(struct SpawnPosRot, pos) == 0x0);
 CTR_STATIC_ASSERT(offsetof(struct SpawnPosRot, rot) == 0x6);
 CTR_STATIC_ASSERT(sizeof(struct SpawnType2) == 0x8);
 CTR_STATIC_ASSERT(offsetof(struct SpawnType2, numCoords) == 0x0);
-CTR_STATIC_ASSERT(offsetof(struct SpawnType2, posCoords) == 0x4);
-CTR_STATIC_ASSERT(offsetof(struct SpawnType2, positions) == 0x4);
-CTR_STATIC_ASSERT(offsetof(struct SpawnType2, posRot) == 0x4);
+CTR_STATIC_ASSERT(offsetof(struct SpawnType2, coords.posCoords) == 0x4);
+CTR_STATIC_ASSERT(offsetof(struct SpawnType2, coords.positions) == 0x4);
+CTR_STATIC_ASSERT(offsetof(struct SpawnType2, coords.posRot) == 0x4);
 CTR_STATIC_ASSERT(sizeof(struct VisMem) == 0x90);
 CTR_STATIC_ASSERT(offsetof(struct VisMem, visSCVertList) == 0x30);
 CTR_STATIC_ASSERT(offsetof(struct VisMem, visLeafSrc) == 0x40);
