@@ -1172,7 +1172,7 @@ void Channel_DestroySelf(struct ChannelStats *stats);
 void UI_DrawLimitClock(s16 posX, s16 posY, s16 fontType);
 void AA_EndEvent_DisplayTime(s16 driverId, s16 timeOffsetFrames);
 void UI_DrawPosSuffix(s16 posX, s16 posY, struct Driver *d, s16 flags);
-void UI_DrawRaceClock(u16 labelPosX, u16 labelPosY, u32 flags, struct Driver *driver);
+void UI_DrawRaceClock(s16 labelPosX, s16 labelPosY, u32 flags, struct Driver *driver);
 int DecalFont_GetLineWidth(char *str, s16 fontType);
 void RR_EndEvent_UnlockAward(void);
 void RR_EndEvent_DrawHighScore(s16 startX, int startY, s16 scoreMode);

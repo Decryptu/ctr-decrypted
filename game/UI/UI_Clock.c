@@ -27,7 +27,7 @@ enum
 
 
 // used for both finished lap time and current race time
-void UI_DrawRaceClock(u16 labelPosX, u16 labelPosY, u32 flags, struct Driver *driver)
+void UI_DrawRaceClock(s16 labelPosX, s16 labelPosY, u32 flags, struct Driver *driver)
 {
 	struct GameTracker *gGT;
 	s16 relicLabelY;

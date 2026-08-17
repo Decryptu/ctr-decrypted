@@ -1401,7 +1401,7 @@ struct GameTracker
 	// all podium related?
 
 	// 2572
-	u16 podiumRewardID;
+	s16 podiumRewardID;
 
 	// 2574
 	u8 bool_AdvHub_NeedToSwapLEV;

@@ -118,6 +118,96 @@
           "size": "0x2c"
         }
       ]
+    },
+    {
+      "artifact": "222",
+      "source": "game/222.c",
+      "include_directories": [
+        "include"
+      ],
+      "forced_includes": [
+        "tools/matching/overlays/222/retail_symbols.h"
+      ],
+      "linker_script": "tools/matching/overlay.ld",
+      "output_section": ".overlay",
+      "overlay_id": 6,
+      "compiler_flags": [
+        "-O2",
+        "-fno-strength-reduce",
+        "-G0",
+        "-msoft-float",
+        "-DBUILD=926"
+      ],
+      "small_data_limit": 0,
+      "aspsx_version": "2.77",
+      "symbols": {
+        "sdata_static": "0x8008cf6c",
+        "data": "0x800809a0",
+        "DecalFont_GetLineWidth": "0x800224d0",
+        "DecalFont_DrawLine": "0x80022878",
+        "OtherFX_Play": "0x80028468",
+        "MainRaceTrack_RequestLoad": "0x8003cfc0",
+        "RECTMENU_DrawInnerRect": "0x800457b0",
+        "RECTMENU_ClearInput": "0x80046404",
+        "RECTMENU_Show": "0x80046990",
+        "UI_ConvertX_2": "0x8004caa8",
+        "UI_ConvertY_2": "0x8004cac8",
+        "UI_DrawDriverIcon": "0x8004e8d8",
+        "UI_Lerp2D_Linear": "0x8004ecd4",
+        "UI_DrawPosSuffix": "0x8005045c",
+        "UI_DrawRaceClock": "0x8004edac",
+        "UI_RaceEnd_MenuProc": "0x80055c90"
+      },
+      "ranges": [
+        {
+          "name": "overlay_id",
+          "kind": "data",
+          "offset": "0x0",
+          "size": "0x4"
+        },
+        {
+          "name": "s_driverRankString222",
+          "kind": "data",
+          "candidate_symbol": "s_driverRankString222",
+          "offset": "0x4",
+          "size": "0x4"
+        },
+        {
+          "name": "AA_EndEvent_DrawMenu",
+          "kind": "code",
+          "candidate_symbol": "AA_EndEvent_DrawMenu",
+          "offset": "0x8",
+          "size": "0xff4"
+        },
+        {
+          "name": "AA_EndEvent_DisplayTime",
+          "kind": "code",
+          "candidate_symbol": "AA_EndEvent_DisplayTime",
+          "offset": "0xffc",
+          "size": "0x440"
+        },
+        {
+          "name": "rows222",
+          "kind": "data",
+          "candidate_symbol": "rows222",
+          "offset": "0x143c",
+          "size": "0x1e"
+        },
+        {
+          "name": "menu222",
+          "kind": "data",
+          "candidate_symbol": "menu222",
+          "offset": "0x145c",
+          "size": "0x2c"
+        },
+        {
+          "name": "menu222_2P",
+          "kind": "data",
+          "candidate_symbol": "menu222_2P",
+          "offset": "0x1488",
+          "size": "0x2c"
+        }
+      ]
     }
   ],
   "artifacts": [

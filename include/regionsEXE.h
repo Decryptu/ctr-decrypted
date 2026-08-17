@@ -333,7 +333,10 @@ struct MetaDataCHAR
 
 	// 8
 	// index in ptrIcons
-	int iconID;
+	s16 iconID;
+
+	// 0xA
+	s16 padding_0xa;
 
 	// 0xC
 	// Can be 0,1,2,3,(4 for max, in pal)
@@ -3601,7 +3604,10 @@ struct sData
 	// 80090998 -- JpnRetail
 	// end of race Arcade Adventure
 	// counts 1 - 8 over a few seconds
-	int numIconsEOR;
+	s16 numIconsEOR;
+
+	// 8008d572
+	s16 unknown_8d572;
 
 	// 8d574
 	char s_additionInt[4];
@@ -5129,6 +5135,14 @@ register struct sData *sdata asm("gp");
 #else
 struct sData *sdata = &sdata_static;
 #endif
+
+CTR_STATIC_ASSERT(sizeof(struct MetaDataCHAR) == 0x10);
+CTR_STATIC_ASSERT(offsetof(struct MetaDataCHAR, iconID) == 0x8);
+CTR_STATIC_ASSERT(sizeof(((struct MetaDataCHAR *)0)->iconID) == 0x2);
+CTR_STATIC_ASSERT(offsetof(struct MetaDataCHAR, engineID) == 0xc);
+CTR_STATIC_ASSERT(offsetof(struct sData, numIconsEOR) == 0x604);
+CTR_STATIC_ASSERT(sizeof(((struct sData *)0)->numIconsEOR) == 0x2);
+CTR_STATIC_ASSERT(offsetof(struct sData, s_additionInt) == 0x608);
 
 // OVR1
 // 8009f6fc - 800a0cb8
