@@ -127,8 +127,8 @@ static inline int FP_Mult(int x, int y)
 	return (x * y) >> FRACTIONAL_BITS;
 }
 
-// MIPS R3000 integer operations used in ASM-audited code paths. These keep
-// overflow, shifts, multiply-low, divide traps, and truncation points explicit.
+// MIPS R3000 integer helpers keep overflow, shifts, multiply-low, divide traps,
+// and truncation points explicit.
 static inline s32 CTR_MipsSll(s32 value, u32 shift)
 {
 	return (s32)((u32)value << (shift & 0x1f));

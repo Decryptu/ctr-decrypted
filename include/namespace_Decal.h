@@ -19,7 +19,7 @@ enum BlendModeDecal
 
 enum Font
 {
-	// erased in final builds
+	// Debug font slot
 	FONT_DEBUG = 0,
 
 	// most gameplay
@@ -59,7 +59,7 @@ enum DecalFontStyle
 	DINGODILE_OLIVE,
 	POLAR_CYAN,
 	PURA_VIOLET,
-	PINSTRIPE_PALE_DARK_BLUE, // different in sep3
+	PINSTRIPE_PALE_DARK_BLUE,
 	PAPU_YELLOW,
 	ROO_ORANGE,
 	JOE_COLOR,
@@ -91,12 +91,9 @@ enum DecalFontStyle
 	FOREST_GREEN,
 	CREDITS_FADE, // written dynamically while credits are running, makes text fade to black bg
 
-// Only in USA, EUR, JPN, not Sep3
-#if BUILD >= UsaRetail
 	BLUE,
 	LIME_GREEN,
 	ORANGE_RED,
-#endif
 
 	// total amount of enum entries
 	NUM_COLORS,

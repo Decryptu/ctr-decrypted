@@ -23,8 +23,7 @@ enum BigIndex
 	// LNG for english, french, etc
 	BI_LANGUAGEFILE = BI_OVERLAYSECT3 + 4,
 
-	// 0x110 for sep3
-	// 0xf2 for all Retails
+	// 0xf2
 	BI_RACERMODELHI = BI_LANGUAGEFILE + 8,
 
 	BI_SHAREDMPKVRM = BI_RACERMODELHI + 16,

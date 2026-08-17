@@ -561,22 +561,8 @@ void MM_JumpTo_Title_FirstTime(void)
 
 	MainStats_ClearBattleVS();
 
-#if BUILD == EurRetail
-	// if you have not chose a language or skipped the language menu
-	if (sdata->boolLangChosen == 0)
-	{
-		sdata->ptrActiveMenu = &D230.menuLngBoot;
-		D230.langMenuTimer = MM_LANGUAGE_MENU_TIMEOUT_FRAMES;
-	}
-	else
-	{
-		// if not set to normal main menu
-		sdata->ptrActiveMenu = &D230.menuMainMenu;
-	}
-#else
 	// open Main Menu for the first time
 	sdata->ptrActiveMenu = &D230.menuMainMenu;
-#endif
 
 	D230.titleIntroFrame = 0;
 

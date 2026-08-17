@@ -21,9 +21,7 @@ CTR_STATIC_ASSERT(offsetof(struct Item, next) == 0x0);
 CTR_STATIC_ASSERT(offsetof(struct Item, prev) == 0x4);
 CTR_STATIC_ASSERT(sizeof(struct Item) == 0x8);
 CTR_STATIC_ASSERT(offsetof(struct CameraDC, visInstSrc) == 0x28);
-#if BUILD >= UsaRetail
 CTR_STATIC_ASSERT(sizeof(struct CameraDC) == 0xdc);
-#endif
 CTR_STATIC_ASSERT(CTR_OFFSET_OF_2D_ARRAY(MATRIX, m, 0, 0) == 0x0);
 CTR_STATIC_ASSERT(CTR_OFFSET_OF_2D_ARRAY(MATRIX, m, 0, 2) == 0x4);
 CTR_STATIC_ASSERT(CTR_OFFSET_OF_2D_ARRAY(MATRIX, m, 1, 1) == 0x8);

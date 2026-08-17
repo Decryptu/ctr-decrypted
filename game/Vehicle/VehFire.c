@@ -165,31 +165,8 @@ void VehFire_Increment(struct Driver *driver, int reserves, u32 type, int fireLe
 	// if no turbo exists, create one
 	if (turboThread == 0)
 	{
-#if BUILD < JpnRetail
-
 		driver->numTurbos = 1;
 
-#else
-
-		// Japan retail gates this through the extra turbo state byte.
-		if (driver->japanTurboUnknown == 0)
-		{
-			driver->numTurbos = 1;
-			if ((driver->numTurbosHighScore < 1) && ((gGT->gameMode1 & END_OF_RACE) == 0))
-			{
-				driver->numTurbosHighScore = 1;
-			}
-		}
-		else
-		{
-			driver->numTurbos = (s16)CTR_MipsAddLo((u16)driver->numTurbos, 1);
-			if ((driver->numTurbosHighScore < driver->numTurbos) && ((gGT->gameMode1 & END_OF_RACE) == 0))
-			{
-				driver->numTurbosHighScore = driver->numTurbos;
-			}
-		}
-
-#endif
 
 #if defined(CTR_NATIVE)
 		turboInst1 = INSTANCE_BirthWithThread(STATIC_TURBO_EFFECT, sdata->s_turbo1, SMALL, TURBO, VehTurbo_ThTick, sizeof(struct Turbo), 0);
@@ -282,12 +259,6 @@ void VehFire_Increment(struct Driver *driver, int reserves, u32 type, int fireLe
 			if ((driver->actionsFlagSetPrevFrame & ACTION_NEW_BOOST) == 0)
 			{
 				driver->numTurbos = (s16)CTR_MipsAddLo((u16)driver->numTurbos, 1);
-
-#if BUILD == JpnRetail
-				// the japanese version of the game keeps track of your highest turbo chain in a race
-				if (driver->numTurbosHighScore < driver->numTurbos && (gGT->gameMode1 & END_OF_RACE) == 0)
-					driver->numTurbosHighScore = driver->numTurbos;
-#endif
 			}
 		}
 
@@ -300,11 +271,6 @@ void VehFire_Increment(struct Driver *driver, int reserves, u32 type, int fireLe
 
 			turboObj->fireVisibilityCooldown = VEH_FIRE_VISIBILITY_COOLDOWN;
 			driver->numTurbos = (s16)CTR_MipsAddLo((u16)driver->numTurbos, 1);
-#if BUILD == JpnRetail
-			// the japanese version of the game keeps track of your highest turbo chain in a race
-			if (driver->numTurbosHighScore < driver->numTurbos && (gGT->gameMode1 & END_OF_RACE) == 0)
-				driver->numTurbosHighScore = driver->numTurbos;
-#endif
 		}
 
 		turboObj->fireDisappearCountdown = VEH_FIRE_NO_DISAPPEAR;

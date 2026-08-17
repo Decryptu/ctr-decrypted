@@ -145,8 +145,7 @@ struct GameProgress
 	// 8008e6e8
 	u32 unknown;
 
-	// 8008e6ec - UsaRetail
-	// 8008eaa0 - EurRetail
+	// 8008e6ec
 	// characters, tracks, cups, scrapbook
 	u32 unlocks[GAME_PROGRESS_UNLOCK_WORD_COUNT];
 
@@ -574,19 +573,12 @@ struct GameOptions
 	// 8008fb9A -- 2-byte padding
 
 
-	// one of these two ints are
-	// in 94426 and beyond, not in sep3
-	// idk which
-
-
 	// 8008fb9c
 	u32 gameMode1_vibrationFlags;
 
-#if BUILD >= UsaRetail
 	// 8008fba0
 	// audio mode (mono/stereo)
 	int audioMode;
-#endif
 };
 
 enum GameOptionsVolume
@@ -630,10 +622,6 @@ CTR_STATIC_ASSERT(sizeof(struct AdvProgress) == 0x50);
 CTR_STATIC_ASSERT(sizeof(struct GhostProfile) == 0x34);
 CTR_STATIC_ASSERT(OFFSETOF(struct GameOptions, volMusic) == OFFSETOF(struct GameOptions, volFx) + sizeof(s16));
 CTR_STATIC_ASSERT(OFFSETOF(struct GameOptions, volVoice) == OFFSETOF(struct GameOptions, volFx) + sizeof(s16) * 2);
-#if BUILD >= UsaRetail
 CTR_STATIC_ASSERT(sizeof(struct GameOptions) == 0x28);
-#else
-CTR_STATIC_ASSERT(sizeof(struct GameOptions) == 0x24);
-#endif
 
 #endif

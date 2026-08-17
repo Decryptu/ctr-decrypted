@@ -602,7 +602,6 @@ void StateZero()
 #endif
 
 	// English=1
-	// PAL SCES02105 calls it multiple times
 	LOAD_LangFile((int)sdata->ptrBigfile1, 1);
 	GAMEPROG_NewGame_OnBoot();
 	gGT->overlayIndex_null_notUsed = 0;

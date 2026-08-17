@@ -330,14 +330,6 @@ struct CameraDC
 	// 0xc0
 	struct CameraHeightSmoothing heightSmoothing;
 
-// Sep3
-#if BUILD < UsaRetail
-
-	// 0xc6
-	s16 paddingC6;
-
-#else // >= UsaRetail
-
 	// Store data on first frame of BLASTED,
 	// Use data on first frame of NOT BLASTED,
 	// 8-frame lerp to bring camera back to kart
@@ -361,11 +353,7 @@ struct CameraDC
 
 	} BlastedLerp;
 
-// 0xdc - end of struct
-#endif
-
-	// 0xC8 bytes large in sep3
-	// 0xDC bytes large in usaRetail
+	// 0xdc - end of struct
 };
 
 CTR_STATIC_ASSERT(sizeof(struct ZoomData) == 0x12);
@@ -404,10 +392,6 @@ CTR_STATIC_ASSERT(offsetof(struct CameraDC, eorModeData.pointPath.speed) == 0xb6
 CTR_STATIC_ASSERT(sizeof(((struct CameraDC *)0)->eorModeData) == 0x8);
 CTR_STATIC_ASSERT(offsetof(struct CameraDC, fireSpeedZoom) == 0xb8);
 CTR_STATIC_ASSERT(offsetof(struct CameraDC, heightSmoothing) == 0xc0);
-#if BUILD >= UsaRetail
 CTR_STATIC_ASSERT(sizeof(struct CameraDC) == 0xDC);
-#else
-CTR_STATIC_ASSERT(sizeof(struct CameraDC) == 0xC8);
-#endif
 
 #endif

@@ -279,13 +279,8 @@ void UI_DrawDriverIcon(struct Icon *icon, s16 posX, s16 posY, struct PrimMem *pr
 	int scaledHeight = FP_Mult(height, scale);
 	int topX = posX;
 	int bottomX = topX + scaledWidth;
-#if BUILD != EurRetail
 	int topY = (posY < UI_DRIVER_ICON_NTSC_CLIP_LIMIT) ? posY : UI_DRIVER_ICON_NTSC_CLIP_MAX;
 	int bottomY = ((posY + scaledHeight) < UI_DRIVER_ICON_NTSC_CLIP_LIMIT) ? (posY + scaledHeight) : UI_DRIVER_ICON_NTSC_CLIP_MAX;
-#else
-	int topY = (posY < UI_DRIVER_ICON_EUR_CLIP_LIMIT) ? posY : UI_DRIVER_ICON_EUR_CLIP_MAX;
-	int bottomY = ((posY + scaledHeight) < UI_DRIVER_ICON_EUR_CLIP_LIMIT) ? (posY + scaledHeight) : UI_DRIVER_ICON_EUR_CLIP_MAX;
-#endif
 
 	p->tag.bits.size = (sizeof(*p) - sizeof(p->tag)) / sizeof(u32);
 	p->colorCode.code.code = UI_DRIVER_ICON_FT4_CODE;

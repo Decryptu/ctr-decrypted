@@ -696,15 +696,6 @@ void RenderBucket_QueueAllInstances(struct GameTracker *gGT)
 	RBI = RenderBucket_QueueNonLevInstances(gGT->JitPools.instance.taken.first, &gGT->backBuffer->otMem, (void *)RBI, (u8)sdata->LOD[lod], numPlyrCurrGame,
 	                                        gGT->gameMode1 & PAUSE_ALL);
 
-	// Aug prototype
-#if 0
-		// ptrEnd of otmem is less than ptrCurr otmem
-    if (*(u32 *)(*(int *)(PTR_DAT_8008d2ac + 0x10) + 0x98) <
-        *(u32 *)(*(int *)(PTR_DAT_8008d2ac + 0x10) + 0x9c)) {
-      printf("OTMEM OVERFLOW!\n");
-    }
-#endif
-
 	// null terminator at end of list
 	*RBI = 0;
 }

@@ -1,6 +1,5 @@
 #include <common.h>
 
-// NOTE(aalhendi): ASM-audited NTSC-U 926 0x80032ffc-0x80033108.
 // packID will always be 3-gGT->activeMempackIndex
 void LOAD_Hub_ReadFile(struct BigHeader *bigfile, int levID, int packID)
 {
@@ -42,14 +41,7 @@ void LOAD_Hub_SwapNow()
 		VSync(0);
 	}
 
-	// Aug 5
-	// ptrintf("gGT->level2 = 0x%08x\n",gGT->level2);
-	// ptrintf("SWAPPING 1...\n");
-
 	LevInstDef_RePack(gGT->level1->ptr_mesh_info, 1);
-
-	// Aug 5
-	// ptrintf("SWAPPING 2...\n");
 
 	LOAD_HubSwapPtrs(gGT);
 
@@ -61,18 +53,7 @@ void LOAD_Hub_SwapNow()
 
 	Audio_AdvHub_SwapSong(gGT->levelID);
 
-	// Aug 5
-	// ptrintf("SWAPPING 3...\n");
-
 	LibraryOfModels_Clear(gGT);
-
-	/*
-	In Aug 5
-	if (sdata->PLYROBJECTLIST == 0)
-	{
-	    printf("ERROR: No PLYROBJECTLIST!\n");
-	}
-	*/
 
 	if (sdata->PLYROBJECTLIST != 0)
 	{
@@ -80,14 +61,6 @@ void LOAD_Hub_SwapNow()
 	}
 
 	level1 = gGT->level1;
-
-	/*
-	In Aug 5
-	if (level1 == 0)
-	{
-	    printf("ERROR: No LEVEL!\n");
-	}
-	*/
 
 	if (level1 != 0)
 	{

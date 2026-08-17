@@ -149,7 +149,6 @@ class ToolchainTests(unittest.TestCase):
                 "tools/matching/overlays/221/abi.h",
             ],
         )
-        self.assertIn("-DBUILD=926", build["compiler_flags"])
         self.assertNotIn(
             "tools/matching/overlays/221/include",
             build["include_directories"],

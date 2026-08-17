@@ -192,20 +192,10 @@ struct RectMenu
 	// 0x28
 	struct RectMenu *ptrPrevBox_InHierarchy;
 
-	// End of struct
-	// in UsaRetail, full struct
-	// size is 0x2C
-
-#if BUILD == SepReview
-	u8 theRest[8]; // extra size?
-#endif
+	// End of 0x2c-byte struct
 };
 
 CTR_STATIC_ASSERT(sizeof(struct MenuRow) == 6);
-#if BUILD != SepReview
 CTR_STATIC_ASSERT(sizeof(struct RectMenu) == 0x2C);
-#else
-CTR_STATIC_ASSERT(sizeof(struct RectMenu) == 0x34);
-#endif
 
 #endif

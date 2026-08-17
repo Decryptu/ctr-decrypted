@@ -9156,8 +9156,7 @@ static int Ovr226_800a2da0_DispatchWaterRenderedHelperWrappers(struct PushBuffer
 	// select four projected scratch records and tail-call 0x800a30f0, or call
 	// those leaf labels in a fixed sequence before branching to the final leaf.
 	// Native uses the C call stack for the retail t9/ra scratch return stack, but
-	// the label order, frame+0xb4 writes, and t2 direct-mask constants match the
-	// refreshed NTSC-U 926 objdump for this span.
+	// preserves the label order, frame+0xb4 writes, and t2 direct-mask constants.
 	// 228/229 water-rendered RDATA uses shifted copies of this wrapper table;
 	// those labels alias to the same owned helper sequences after target checks.
 	if (leafIndices != NULL)

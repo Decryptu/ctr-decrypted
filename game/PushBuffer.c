@@ -3,15 +3,9 @@
 
 void PushBuffer_Init(struct PushBuffer *pb, int id, int total)
 {
-#if BUILD == EurRetail
-#define SIZEY_TOP 0x74
-#define SIZEY_1P  0xEC
-#define STARTY_2P 0x78
-#else
 #define SIZEY_TOP 0x6a
 #define SIZEY_1P  0xD8
 #define STARTY_2P 0x6e
-#endif
 
 	pb->fade_step = 0x88;
 	pb->matrix_Proj.m[0][0] = 0x1c71;
@@ -384,24 +378,15 @@ void PushBuffer_SetMatrixVP(struct PushBuffer *pb)
 	*(int *)((int)&pb->matrix_ViewProj + 0xC) = viewC;
 	*(s16 *)((int)&pb->matrix_ViewProj + 0x10) = sVar7;
 
-	// NTSC:
 	// 0x360/0x600 = 9/16 aspect,
 	// 9/16 * 512/216 = 4/3
-
-	// PAL:
-	// 0x3B0/0x600 = 59/96 aspect,
-	// 59/96 * 512/236 = 4/3
 
 	// Do NOT set to 0x480
 	// to change 4/3 to 16/9,
 	// it will zoom "in" instead of "out"
 	// because of stretching Y instead of X
 
-#if BUILD == EurRetail
-#define r360 0x3B0
-#else
 #define r360 0x360
-#endif
 
 // constant denomenator
 #define r600 0x600

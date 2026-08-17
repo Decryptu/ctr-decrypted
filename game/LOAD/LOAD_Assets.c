@@ -208,11 +208,6 @@ void LOAD_LangFile(int bigfilePtr, int lang)
 	int numStrings;
 	char **strArray;
 
-#if BUILD == EurRetail
-	// This is to turn the screen black for a bit (optional)
-	CTR_ErrorScreen(0, 0, 0);
-	VSync(0);
-#endif
 
 	if (sdata->lngFile == 0)
 	{
@@ -237,10 +232,6 @@ void LOAD_LangFile(int bigfilePtr, int lang)
 	{
 		strArray[i] = (char *)((u32)strArray[i] + (u32)lngFile);
 	}
-#if BUILD == EurRetail
-	// set voicelines to new lang
-	CDSYS_SetXAToLang(lang);
-#endif
 }
 
 int LOAD_GetBigfileIndex(u32 levelID, int lod, int fileIndexInGroup)

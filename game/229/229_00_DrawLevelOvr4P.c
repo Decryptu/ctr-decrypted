@@ -345,9 +345,6 @@ void DrawLevelOvr4P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspL
 	u8 *clipCursors[4];
 	u32 hostStackAnchor;
 
-	// NOTE(aalhendi): ASM-audited against NTSC-U 926 229 entry/setup
-	// 0x800a0cbc-0x800a1178. Runtime proof is tracked separately from
-	// source ownership and public route promotion.
 	DrawLevelOvr1P_Scratch()->savedStackPtr32 = (u32)(u32)&hostStackAnchor;
 	DrawLevelOvr1P_Scratch()->visFaceListArgPtr32[0] = (u32)(u32)visFaceList0;
 	if (visFaceList0 == NULL)

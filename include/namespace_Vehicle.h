@@ -571,7 +571,7 @@ enum EngineClass
 	// tiny, dingo, papu, ntropy
 	SPEED,
 
-	// polar, pura, roo (penta in ntsc)
+	// polar, pura, roo, penta
 	TURN,
 
 	NUM_CLASSES
@@ -881,11 +881,8 @@ struct Driver
 	// 0x1C
 	struct Instance *instSelf;
 
-// Not in Aug Review
-#if BUILD >= SepReview
 	// 0x20
 	struct Instance *instTntSend; // on the ground
-#endif
 
 	// 0x24
 	int invincibleTimer;
@@ -940,31 +937,18 @@ struct Driver
 	// 0x4D
 	u8 matrixIndex;
 
-#if BUILD >= EurRetail
-	s16 compilerPadding_0x4E;
 
-	// 0x50
-	// highest amount of consecutive turbos in a race
-	// exclusive to Japan Retail
-	int numTurbosHighScore;
-#endif
-
-#if BUILD >= SepReview
-	// 0x4E -- UsaRetail
-	// 0x54 -- EurRetail, JpnRetail
+	// 0x4e
 	s16 numTurbos;
 	// 0x50
-	u16 frameAgainstWall; // allocated in Sep3, does not function
-#endif
+	u16 frameAgainstWall; // allocated but unused
 
-#if BUILD < EurRetail
 	// There is no "s16" on 0x52,
 	// there is padding for the next
 	// 4-byte void* that is unused
 	s16 funcPtrs_compilerpadding;
-#endif
 
-	// 0x54 (UsaRetail) / 0x58 (EurRetail, JpnRetail) - OnInit, First function for spawn, drifting, damage, etc
+	// 0x54 - OnInit, First function for spawn, drifting, damage, etc
 	// 0x58 - OnUpdate, updates per frame for any generic purpose
 	// 0x5C - OnPhysLinear
 	// 0x60 - OnAudio, engine sounds (always same)
@@ -1550,7 +1534,6 @@ struct Driver
 	s16 driverRank;
 
 	// 0x484 - MetaPhys stat no. 0x40
-	// Used in Aug4 and Aug14
 	int const_prototypeKey;
 
 	// 0x484 - last of constants
@@ -1953,8 +1936,7 @@ struct Driver
 
 	// ===========================================
 
-	// NTSC is 0x62C bytes large
-	// PAL is 0x630 bytes large
+	// 0x62c bytes
 
 	// ===========================================
 
@@ -2062,11 +2044,7 @@ CTR_STATIC_ASSERT(sizeof(EngineSoundMode) == 0x1);
 
 CTR_STATIC_ASSERT(offsetof(struct Driver, ghostTape) == DRIVER_NTSC_RETAIL_SIZE);
 CTR_STATIC_ASSERT(sizeof(((struct Driver *)0)->funcPtrs) == DRIVER_FUNC_COUNT * sizeof(DriverFunc));
-#if BUILD < EurRetail
 CTR_STATIC_ASSERT(offsetof(struct Driver, funcPtrs) == 0x54);
-#else
-CTR_STATIC_ASSERT(offsetof(struct Driver, funcPtrs) == 0x58);
-#endif
 CTR_STATIC_ASSERT(offsetof(struct Driver, velocity) == 0x88);
 CTR_STATIC_ASSERT(sizeof(((struct Driver *)0)->velocity) == 0xc);
 CTR_STATIC_ASSERT(offsetof(struct Driver, collisionFlags) == 0xaa);

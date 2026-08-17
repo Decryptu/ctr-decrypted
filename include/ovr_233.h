@@ -659,8 +659,7 @@ CTR_STATIC_ASSERT(sizeof(struct OverlayDATA_233) == 0x1818);
 
 extern struct OverlayDATA_233 D233;
 
-// NOTE(aalhendi): Layout-verified for overlay-233 references used by the audited cutscene thread path.
-// Retail base is NTSC-U 926 0x800ab9f0.
+// Overlay RDATA starts at 0x800ab9f0.
 #define OVR233_LAYOUT_ASSERT(ELEMENT, OFFSET, SIZE)                            \
 	CTR_STATIC_ASSERT(OFFSETOF(struct OverlayRDATA_233, ELEMENT) == (OFFSET)); \
 	CTR_STATIC_ASSERT(sizeof(((struct OverlayRDATA_233 *)0)->ELEMENT) == (SIZE))
@@ -808,8 +807,7 @@ struct OVR233_Garage
 	// Credits RDATA starts next byte
 };
 
-// NOTE(aalhendi): Layout-verified pass 3 for garage data. Retail base is
-// NTSC-U 926 0x800b8598.
+// Garage data starts at 0x800b8598.
 #define OVR233_GARAGE_ASSERT(ELEMENT, OFFSET, SIZE)                         \
 	CTR_STATIC_ASSERT(OFFSETOF(struct OVR233_Garage, ELEMENT) == (OFFSET)); \
 	CTR_STATIC_ASSERT(sizeof(((struct OVR233_Garage *)0)->ELEMENT) == (SIZE))
@@ -967,8 +965,7 @@ struct Ovr233_Credits_BSS
 	struct CreditsObj creditsObj;
 };
 
-// NOTE(aalhendi): Layout-verified pass 3 for credits BSS. Retail base is
-// NTSC-U 926 0x800b9488.
+// Credits BSS starts at 0x800b9488.
 #define OVR233_CREDITS_OBJ_ASSERT(ELEMENT, OFFSET, SIZE)                 \
 	CTR_STATIC_ASSERT(OFFSETOF(struct CreditsObj, ELEMENT) == (OFFSET)); \
 	CTR_STATIC_ASSERT(sizeof(((struct CreditsObj *)0)->ELEMENT) == (SIZE))

@@ -50,12 +50,10 @@ void DecalHUD_DrawPolyFT4(struct Icon *icon, s16 posX, s16 posY, struct PrimMem 
 
 void DecalHUD_DrawWeapon(struct Icon *icon, s16 posX, s16 posY, struct PrimMem *primMem, u32 *ot, char transparency, s16 scale, char rot)
 {
-#if BUILD > SepReview
 	if (!icon)
 	{
 		return;
 	}
-#endif
 
 	POLY_FT4 *p = (POLY_FT4 *)primMem->cursor;
 	addPolyFT4(ot, p);
@@ -109,12 +107,10 @@ void DecalHUD_DrawWeapon(struct Icon *icon, s16 posX, s16 posY, struct PrimMem *
 void DecalHUD_DrawPolyGT4(struct Icon *icon, s16 posX, s16 posY, struct PrimMem *primMem, u32 *ot, u32 color0, u32 color1, u32 color2, u32 color3,
                           char transparency, s16 scale)
 {
-#if BUILD > SepReview
 	if (!icon)
 	{
 		return;
 	}
-#endif
 
 	// setInt32RGB4 needs to go before addPolyGT4
 	// for more information check "include/gpu.h"

@@ -681,17 +681,7 @@ void VehBirth_NonGhost(struct Thread *t, int index)
 		{
 			inst->flags |= HIDE_MODEL | ANIM_LOOP;
 		}
-
-		// sep 3
-		// else
-		// player %d wake create failed
 	}
-
-	/*
-	sep 3
-	else
-	printf("wake not in level\n");
-	*/
 
 	inst = t->inst;
 	if (index < gGT->numPlyrCurrGame)

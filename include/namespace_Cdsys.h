@@ -7,9 +7,6 @@ enum XA_TYPE
 	CDSYS_XA_TYPE_EXTRA,
 	CDSYS_XA_TYPE_GAME,
 
-#if BUILD <= SepReview
-	CDSYS_XA_TYPE_WARP,
-#endif
 
 	CDSYS_XA_NUM_TYPES
 };

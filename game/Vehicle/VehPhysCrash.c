@@ -293,8 +293,8 @@ static void VehPhysCrash_PlayHumanFeedback(struct Thread *selfThread, struct Thr
 		{
 			OtherFX_DriverCrashing((selfDriver->actionsFlagSet & ACTION_ENGINE_ECHO) != 0, volume);
 
-			// NOTE(aalhendi): Retail uses DAT_8008d838. This field currently
-			// names the same USA address as the last audioDefaults slot.
+			// NOTE(aalhendi): Retail uses DAT_8008d838, which currently aliases
+			// the final audioDefaults slot.
 			sdata->audioDefaults[8] = sdata->gGT->frameTimer_MainFrame_ResetDB;
 
 			if ((u32)volume > VEH_PHYS_CRASH_HARD_CRASH_VOLUME)

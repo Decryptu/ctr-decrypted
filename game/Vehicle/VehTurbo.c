@@ -302,13 +302,11 @@ void VehTurbo_ThTick(struct Thread *turboThread)
 	    // if this is a ghost
 	    (instanceDriver->thread->modelIndex == DYNAMIC_GHOST) ||
 
-	    ((kartState != KS_MASK_GRABBED) && (kartState != KS_CRASHING)
+	    ((kartState != KS_MASK_GRABBED) &&
+	     (kartState != KS_CRASHING)
 
-// lol they found a glitch with this
-#if BUILD > SepReview
-	     && (kartState != KS_WARP_PAD)
-#endif
-	         ))
+	     // lol they found a glitch with this
+	     && (kartState != KS_WARP_PAD)))
 	{
 		// if reserves are nearing zero
 		if ((driver->reserves < TURBO_RESERVES_DISAPPEAR_THRESHOLD) || (turbo->fireDisappearCountdown == 0))

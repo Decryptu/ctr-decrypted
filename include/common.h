@@ -24,7 +24,7 @@
 #if defined(CTR_NATIVE)
 static inline void *CTR_PsyqMemmove(void *dest, const void *src, s32 count)
 {
-	// NOTE(aalhendi): Retail PSYQ memmove at NTSC-U 926 0x80077e38 returns
+	// NOTE(aalhendi): Retail PSYQ memmove at 0x80077e38 returns
 	// immediately for signed lengths <= 0. Host libc takes u32, so native
 	// must preserve the signed PSYQ contract for retail-shaped game code.
 	if (count <= 0)

@@ -942,7 +942,6 @@ void AH_WarpPad_ThDestroy(struct Thread *t)
 
 static const s16 s_warpPadRewardModelIDs[3] = {STATIC_TROPHY, STATIC_RELIC, STATIC_TOKEN};
 
-// NOTE(aalhendi): Source-backed for NTSC-U 926 0x800ad3ec-0x800ae870.
 void AH_WarpPad_LInB(struct Instance *inst)
 {
 	int i;

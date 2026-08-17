@@ -213,7 +213,6 @@ int CDSYS_SetXAToLang(int lang)
 		return 0;
 	}
 
-	// Aug5=100, Sep3=101, Retail=102
 	if (xnf->version != CDSYS_XNF_VERSION_RETAIL)
 	{
 		return 0;

@@ -112,11 +112,7 @@ CTR_STATIC_ASSERT(sizeof(struct QuipMetaRaw) == 0x18);
 
 static u8 *UI_VsQuipData(void)
 {
-#if BUILD >= JpnTrial
-	return data.data830;
-#else
 	return data.data850;
-#endif
 }
 
 static struct QuipStr *UI_VsQuipPtrFromPsx(u32 psxAddr)

@@ -368,11 +368,6 @@ void CAM_ClearScreen(struct GameTracker *gGT)
 
 void CAM_Init(struct CameraDC *cDC, s32 cameraID, struct Driver *d, struct PushBuffer *pb)
 {
-// Naughty Dog debug printf
-#if BUILD == SepReview
-	printf("camera init\n");
-#endif
-
 	PROC_BirthWithObject(0x30f, CAM_ThTick, sdata->s_camera, NULL)->inst = (struct Instance *)cDC;
 
 	memset(cDC, 0, sizeof(struct CameraDC));
@@ -536,7 +531,6 @@ void CAM_EndOfRace(struct CameraDC *cDC, struct Driver *d)
 {
 	struct GameTracker *gGT = sdata->gGT;
 
-#if BUILD > SepReview
 
 	// If not in Battle Mode and track path points exist and game is on 1P or 2P mode
 	if (((gGT->gameMode1 & BATTLE_MODE) == 0) && (1 < gGT->level1->ptrSpawnType1->count) && (gGT->numPlyrCurrGame < 3))
@@ -550,15 +544,6 @@ void CAM_EndOfRace(struct CameraDC *cDC, struct Driver *d)
 		CAM_EndOfRace_Battle(cDC, d);
 	}
 	return;
-
-#else
-
-	if (gGT->level1->ptrSpawnType1->count < 2 || gGT->numPlyrCurrGame > 2)
-		CAM_EndOfRace_Battle(cDC, d);
-	else
-		cDC->flags |= CAMERA_FLAG_ARCADE_END_OF_RACE_REQUESTED;
-
-#endif
 }
 
 static s32 CAM_MulLo(s32 a, s32 b)

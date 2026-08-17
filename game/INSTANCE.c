@@ -139,9 +139,6 @@ struct Instance *INSTANCE_BirthWithThread(int modelID, const char *name, int poo
 
 	if (m == NULL)
 	{
-		// June 1999
-		// printf("INSTANCE_BirthWithThread: object type %d not found!\n",param_1);
-
 		return NULL;
 	}
 
@@ -256,9 +253,6 @@ void INSTANCE_LevInitAll(struct InstDef *levInstDef, int numInst)
 		// if allocation failed
 		if (inst == NULL)
 		{
-			// June 1999
-			// printf("OOPS! more instdefs than instances");
-			// quit
 			return;
 		}
 
