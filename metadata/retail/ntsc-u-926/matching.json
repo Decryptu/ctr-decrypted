@@ -206,6 +206,85 @@
           "size": "0x2c"
         }
       ]
+    },
+    {
+      "artifact": "223",
+      "source": "game/223.c",
+      "include_directories": [
+        "include"
+      ],
+      "forced_includes": [
+        "tools/matching/overlays/223/retail_symbols.h"
+      ],
+      "linker_script": "tools/matching/overlay.ld",
+      "output_section": ".overlay",
+      "overlay_id": 7,
+      "compiler_flags": [
+        "-O2",
+        "-G0",
+        "-msoft-float"
+      ],
+      "small_data_limit": 0,
+      "aspsx_version": "2.77",
+      "symbols": {
+        "sdata_static": "0x8008cf6c",
+        "data": "0x800809a0",
+        "CTR_Box_DrawClearBox": "0x8002177c",
+        "DecalFont_DrawLine": "0x80022878",
+        "OtherFX_Play": "0x80028468",
+        "RECTMENU_DrawPolyGT4": "0x80044ef8",
+        "RECTMENU_DrawTime": "0x80044ff8",
+        "RECTMENU_DrawInnerRect": "0x800457b0",
+        "RECTMENU_ClearInput": "0x80046404",
+        "RECTMENU_Show": "0x80046990",
+        "UI_ConvertX_2": "0x8004caa8",
+        "UI_ConvertY_2": "0x8004cac8",
+        "UI_Lerp2D_Linear": "0x8004ecd4",
+        "UI_DrawRaceClock": "0x8004edac",
+        "sprintf": "0x80078348"
+      },
+      "ranges": [
+        {
+          "name": "overlay_id",
+          "kind": "data",
+          "offset": "0x0",
+          "size": "0x4"
+        },
+        {
+          "name": "format_strings",
+          "kind": "data",
+          "offset": "0x4",
+          "size": "0x1c"
+        },
+        {
+          "name": "RR_EndEvent_UnlockAward",
+          "kind": "code",
+          "candidate_symbol": "RR_EndEvent_UnlockAward",
+          "offset": "0x20",
+          "size": "0x5b4"
+        },
+        {
+          "name": "RR_EndEvent_DrawHighScore",
+          "kind": "code",
+          "candidate_symbol": "RR_EndEvent_DrawHighScore",
+          "offset": "0x5d4",
+          "size": "0x508"
+        },
+        {
+          "name": "RR_EndEvent_DrawMenu",
+          "kind": "code",
+          "candidate_symbol": "RR_EndEvent_DrawMenu",
+          "offset": "0xadc",
+          "size": "0xadc"
+        },
+        {
+          "name": "s_highScoreIconColor223",
+          "kind": "data",
+          "candidate_symbol": "s_highScoreIconColor223",
+          "offset": "0x15b8",
+          "size": "0x4"
+        }
+      ]
     }
   ],
   "artifacts": [
