@@ -1523,6 +1523,11 @@ void VehStuckProc_Warp_AddDustPuff2(struct Driver *d, int *warp)
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80068be8-0x80068e04.
 void VehStuckProc_Warp_PhysAngular(struct Thread *th, struct Driver *d)
 {
+	if (CTR_NATIVE_60FPS_ACTIVE && ((sdata->gGT->timer & 1) == 0))
+	{
+		d->actionsFlagSet |= ACTION_WARP;
+		return;
+	}
 	int warpTimer;
 	SVec4 flarePos;
 

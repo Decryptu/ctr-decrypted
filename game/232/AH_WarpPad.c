@@ -782,7 +782,7 @@ void AH_WarpPad_ThTick(struct Thread *t)
 		warppadObj->spinRot_Prize.x = 0;
 		warppadObj->spinRot_Prize.z = 0;
 
-		warppadObj->spinRot_Prize.y += 0x40;
+		warppadObj->spinRot_Prize.y += FPS_HALF(0x40);
 
 		// reuse variable,
 		// end of function anyway
@@ -862,7 +862,7 @@ void AH_WarpPad_ThTick(struct Thread *t)
 		// If Gem, change colors every 2 seconds
 		if (modelID == STATIC_GEM)
 		{
-			i = (gGT->timer / 0x3C) % 5;
+			i = (gGT->timer / FPS_DOUBLE(0x3C)) % 5;
 
 #ifdef CTR_AP
 			// AP: the gem icon here advertises this pad's gem REQUIREMENT. The
@@ -1078,7 +1078,7 @@ void AH_WarpPad_ThTick(struct Thread *t)
 		warppadObj->boolEnteredWarppad = 1;
 		warppadObj->framesWarping++;
 		gGT->drivers[0]->funcPtrs[DRIVER_FUNC_INIT] = VehStuckProc_Warp_Init;
-		if (warppadObj->framesWarping < 61)
+		if (warppadObj->framesWarping < FPS_DOUBLE(61))
 			goto WarpPad_AnimateOpen;
 
 		{
@@ -1146,7 +1146,7 @@ void AH_WarpPad_ThTick(struct Thread *t)
 		// seed requires verifies. The gate re-hashes at event entry, so even a
 		// same-size file swap after connect is refused before loading begins.
 		if (ctr_cfg_active() && ctr_cfg_cup_displaced(levelID - AH_WP_ADV_CUP) &&
-		    !AP_CustomContentGateEventEntry(warppadObj->framesWarping == 60))
+		    !AP_CustomContentGateEventEntry(warppadObj->framesWarping == FPS_DOUBLE(60)))
 			goto WarpPad_AnimateOpen;
 #endif
 #if defined(CTR_AP) && defined(CTR_CUSTOM_TRACKS)
@@ -1157,7 +1157,7 @@ void AH_WarpPad_ThTick(struct Thread *t)
 		warppadObj->boolEnteredWarppad = 1;
 		warppadObj->framesWarping++;
 		gGT->drivers[0]->funcPtrs[DRIVER_FUNC_INIT] = VehStuckProc_Warp_Init;
-		if (warppadObj->framesWarping < 61)
+		if (warppadObj->framesWarping < FPS_DOUBLE(61))
 		{
 			goto WarpPad_AnimateOpen;
 		}
@@ -1166,7 +1166,7 @@ void AH_WarpPad_ThTick(struct Thread *t)
 		if (ctr_cfg_active() && ctr_cfg.custom_ctr_enabled &&
 		    levelID == ctr_cfg.custom_track.replaces_cup_level_id)
 		{
-			if (warppadObj->framesWarping == 61)
+			if (warppadObj->framesWarping == FPS_DOUBLE(61))
 			{
 				apCustomRaceChoice = -2;
 				apCustomRaceMenu.rowSelected = AP_CustomTrackTrophyChecked() ? 1 : 0;
@@ -1309,7 +1309,7 @@ void AH_WarpPad_ThTick(struct Thread *t)
 		warppadObj->boolEnteredWarppad = 1;
 		warppadObj->framesWarping++;
 		gGT->drivers[0]->funcPtrs[DRIVER_FUNC_INIT] = VehStuckProc_Warp_Init;
-		if (warppadObj->framesWarping < 61)
+		if (warppadObj->framesWarping < FPS_DOUBLE(61))
 		{
 			goto WarpPad_AnimateOpen;
 		}
@@ -1485,7 +1485,7 @@ void AH_WarpPad_ThTick(struct Thread *t)
 		warppadObj->boolEnteredWarppad = 1;
 		warppadObj->framesWarping++;
 		gGT->drivers[0]->funcPtrs[DRIVER_FUNC_INIT] = VehStuckProc_Warp_Init;
-		if (warppadObj->framesWarping < 61)
+		if (warppadObj->framesWarping < FPS_DOUBLE(61))
 		{
 			goto WarpPad_AnimateOpen;
 		}
@@ -1601,7 +1601,7 @@ void AH_WarpPad_ThTick(struct Thread *t)
 				}
 #endif
 
-				if (warppadObj->framesWarping < 61)
+				if (warppadObj->framesWarping < FPS_DOUBLE(61))
 				{
 					goto WarpPad_TrophyAnimateOnly;
 				}
@@ -1907,7 +1907,7 @@ WarpPad_BoxReRace:
 	warppadObj->boolEnteredWarppad = 1;
 	warppadObj->framesWarping++;
 	gGT->drivers[0]->funcPtrs[DRIVER_FUNC_INIT] = VehStuckProc_Warp_Init;
-	if (warppadObj->framesWarping < 61)
+	if (warppadObj->framesWarping < FPS_DOUBLE(61))
 	{
 		goto WarpPad_AnimateOpen;
 	}
@@ -1959,7 +1959,7 @@ WarpPad_RefuseEntry:
 
 WarpPad_TrophyAnimateOnly:
 
-	if (warppadObj->framesWarping < 0x400)
+	if (warppadObj->framesWarping < FPS_DOUBLE(0x400))
 	{
 		warppadObj->framesWarping++;
 	}
@@ -1970,7 +1970,7 @@ WarpPad_TrophyAnimateOnly:
 
 WarpPad_AnimateOpen:
 
-	if ((instArr[WPIS_OPEN_BEAM] != 0) && ((gGT->timer & 1) != 0))
+	if ((instArr[WPIS_OPEN_BEAM] != 0) && ((!CTR_NATIVE_60FPS_ACTIVE && ((gGT->timer & 1) != 0)) || (CTR_NATIVE_60FPS_ACTIVE && ((gGT->timer & 3) == 3))))
 	{
 		warppadObj->spinRot_Beam.x = 0;
 		warppadObj->spinRot_Beam.z = 0;
@@ -1984,7 +1984,7 @@ WarpPad_AnimateOpen:
 		ConvertRotToMatrix(&instArr[WPIS_OPEN_BEAM]->matrix, &warppadObj->spinRot_Beam);
 	}
 
-	wispRiseRate = 0x20;
+	wispRiseRate = FPS_HALF(0x20);
 
 	wispMaxHeight = 0x600;
 
@@ -2001,7 +2001,7 @@ WarpPad_AnimateOpen:
 			warppadObj->spinRot_Wisp[i].x = 0;
 			warppadObj->spinRot_Wisp[i].z = 0;
 
-			warppadObj->spinRot_Wisp[i].y += 0x100;
+			warppadObj->spinRot_Wisp[i].y += FPS_HALF(0x100);
 
 			// converted to TEST in rebuildPS1
 			ConvertRotToMatrix(&instArr[WPIS_OPEN_RING1 + i]->matrix, &warppadObj->spinRot_Wisp[i]);
@@ -2013,10 +2013,10 @@ WarpPad_AnimateOpen:
 
 				// if height hasn't reached 4x RiseRate,
 				// first 4 frames of rising
-				if (instArr[WPIS_OPEN_RING1 + i]->matrix.t[1] < (warppadInst->matrix.t[1] + wispRiseRate * 4))
+				if (instArr[WPIS_OPEN_RING1 + i]->matrix.t[1] < (warppadInst->matrix.t[1] + wispRiseRate * FPS_DOUBLE(4)))
 				{
 					// reduce transparency
-					instArr[WPIS_OPEN_RING1 + i]->alphaScale -= 0x380;
+					instArr[WPIS_OPEN_RING1 + i]->alphaScale -= FPS_HALF(0x380);
 				}
 
 				// after first 4 frames
@@ -2048,10 +2048,10 @@ WarpPad_AnimateOpen:
 			}
 		}
 
-		wispRiseRate += 0x10;
+		wispRiseRate += FPS_HALF(0x10);
 	}
 
-	warppadObj->spinRot_Prize.y += 0x80;
+	warppadObj->spinRot_Prize.y += FPS_HALF(0x80);
 
 	rewardScale = 0x100;
 
@@ -2136,8 +2136,8 @@ WarpPad_AnimateOpen:
 					// Nothing to advertise in this slot -> force-hide and skip the
 					// spin/scale entirely so it neither renders nor mutates.
 					apPrize->flags |= HIDE_MODEL;
-					warppadObj->thirds[i] += 0x20;
-					warppadObj->spinRot_Rewards.y += 0x4;
+					warppadObj->thirds[i] += FPS_HALF(0x20);
+					warppadObj->spinRot_Rewards.y += FPS_HALF(0x4);
 					continue;
 				}
 
@@ -2410,8 +2410,8 @@ WarpPad_AnimateOpen:
 			}
 		}
 
-		warppadObj->thirds[i] += 0x20;
-		warppadObj->spinRot_Rewards.y += 0x4;
+		warppadObj->thirds[i] += FPS_HALF(0x20);
+		warppadObj->spinRot_Rewards.y += FPS_HALF(0x4);
 	}
 
 	if (instArr[WPIS_CLOSED_1S] != 0)

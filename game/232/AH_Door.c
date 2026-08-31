@@ -447,7 +447,7 @@ void AH_Door_ThTick(struct Thread *t)
 				door->keyRot.y += FPS_HALF(0x40);
 				door->keyRot.z = 0;
 
-				door->keyOrbit += 0x10;
+				door->keyOrbit += FPS_HALF(0x10);
 
 				door->frameCount_doorOpenAnim++;
 
@@ -545,7 +545,7 @@ void AH_Door_ThTick(struct Thread *t)
 
 		// if less than 11 frames have passed,
 		// decrease key scale, then quit function
-		if (door->keyShrinkFrame < 0xb)
+		if (door->keyShrinkFrame < FPS_DOUBLE(0xb))
 		{
 			scaler = (s16 *)R232.keyFrame;
 
@@ -557,9 +557,9 @@ void AH_Door_ThTick(struct Thread *t)
 				if (keyInst != NULL)
 				{
 					// decrease scale of key
-					keyInst->scale.x = scaler[door->keyShrinkFrame];
-					keyInst->scale.y = scaler[door->keyShrinkFrame];
-					keyInst->scale.z = scaler[door->keyShrinkFrame];
+					keyInst->scale.x = scaler[FPS_HALF(door->keyShrinkFrame)];
+					keyInst->scale.y = scaler[FPS_HALF(door->keyShrinkFrame)];
+					keyInst->scale.z = scaler[FPS_HALF(door->keyShrinkFrame)];
 				}
 			}
 
