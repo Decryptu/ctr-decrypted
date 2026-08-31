@@ -24,7 +24,7 @@ void RB_MaskWeapon_FadeAway(struct Thread *t)
 	mhs->posOffset.z = ((durationAdjusted * MATH_Cos(mask->rot.y)) >> 0xc);
 	mhs->posOffset.y = 0x40;
 
-	mask->rot.y += -0x100;
+	mask->rot.y += FPS_HALF(-0x100);
 
 	struct Instance *instCurr;
 	instCurr = inst;
@@ -48,9 +48,9 @@ void RB_MaskWeapon_FadeAway(struct Thread *t)
 
 		LHMatrix_Parent(instCurr, driverInst, &mhs->posOffset);
 
-		instCurr->scale.x += -0x100;
-		instCurr->scale.y += -0x100;
-		instCurr->scale.z += -0x100;
+		instCurr->scale.x += FPS_HALF(-0x100);
+		instCurr->scale.y += FPS_HALF(-0x100);
+		instCurr->scale.z += FPS_HALF(-0x100);
 
 		// position offset
 		mhs->posOffset.x = 0;
@@ -73,7 +73,7 @@ void RB_MaskWeapon_FadeAway(struct Thread *t)
 
 	if (maskBeamInst->alphaScale < 0x1000)
 	{
-		maskBeamInst->alphaScale += 0x200;
+		maskBeamInst->alphaScale += FPS_HALF(0x200);
 	}
 #if defined(CTR_NATIVE)
 	}
@@ -204,7 +204,7 @@ void RB_MaskWeapon_ThTick(struct Thread *maskTh)
 #if defined(CTR_NATIVE)
 	// with no beam there is no animFrame to read; frame 0 is the beam's own
 	// start-of-animation offset, so the mask sits where it does on the first frame.
-	mhs->posOffset.y = R231.maskPosArr[(maskBeamInst != NULL) ? ((int)maskBeamInst->animFrame >> 0) : 0] + 0x40;
+	mhs->posOffset.y = R231.maskPosArr[(maskBeamInst != NULL) ? ((int)maskBeamInst->animFrame >> FPS_RIGHTSHIFT(0)) : 0] + 0x40;
 #else
 	mhs->posOffset.y = R231.maskPosArr[(int)maskBeamInst->animFrame >> 0] + 0x40;
 #endif
@@ -278,7 +278,7 @@ void RB_MaskWeapon_ThTick(struct Thread *maskTh)
 #endif
 
 	// adjust rotation
-	mask->rot.y += -0x100;
+	mask->rot.y += FPS_HALF(-0x100);
 
 	// If duration is over
 	if (mask->duration == 0)
@@ -392,7 +392,14 @@ void RB_ShieldDark_ThTick_Pop(struct Thread *t)
 #endif
 
 		// next frame
+#if CTR_NATIVE_60FPS
+		if (!CTR_NATIVE_60FPS_ACTIVE || ((sdata->gGT->timer & 1) != 0))
+		{
+			sh->animFrame += 1;
+		}
+#else
 		sh->animFrame += 1;
+#endif
 
 		return;
 	}
@@ -607,7 +614,14 @@ void RB_ShieldDark_ThTick_Grow(struct Thread *th)
 #endif
 
 		// next frame
+#if CTR_NATIVE_60FPS
+		if (!CTR_NATIVE_60FPS_ACTIVE || ((sdata->gGT->timer & 1) != 0))
+		{
+			shield->animFrame++;
+		}
+#else
 		shield->animFrame++;
+#endif
 	}
 
 	// if animation is done

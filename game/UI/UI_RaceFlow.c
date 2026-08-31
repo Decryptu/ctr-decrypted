@@ -537,7 +537,7 @@ void UI_RaceEnd_MenuProc(struct RectMenu *menu)
 			break;
 		}
 #endif
-		sdata->framesSinceRaceEnded = 0x3f9;
+		sdata->framesSinceRaceEnded = FPS_DOUBLE(0x3f9);
 
 		// Set Load/Save to Ghost mode
 		SelectProfile_ToggleMode(0x31);

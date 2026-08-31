@@ -285,7 +285,14 @@ void VehTurbo_ThTick(struct Thread *turboThread)
 	}
 #endif
 
+#if CTR_NATIVE_60FPS
+	if (!CTR_NATIVE_60FPS_ACTIVE || ((gGT->timer & 1) != 0))
+	{
+		turbo->fireAnimIndex++;
+	}
+#else
 	turbo->fireAnimIndex++;
+#endif
 
 	// if higher than 7, back to zero
 	turbo->fireAnimIndex &= 7;

@@ -34,14 +34,14 @@ void AH_MaskHint_Start(s16 hintId, u16 bool_interruptWarppad)
 		LOAD_TalkingMask(LOAD_GetAdvPackIndex(), (VehPickupItem_MaskBoolGoodGuy(d) & 0xffff) == 0);
 
 		// 3.0s to spawn mask
-		D232.maskSpawnFrame = 90;
+		D232.maskSpawnFrame = FPS_DOUBLE(90);
 	}
 
 	// if model is not nullptr
 	else
 	{
 		// 0.667s to spawn mask
-		D232.maskSpawnFrame = 20;
+		D232.maskSpawnFrame = FPS_DOUBLE(20);
 	}
 
 	iVar3 = (bool_interruptWarppad & 1) * 3;
@@ -111,9 +111,9 @@ void AH_MaskHint_SetAnim(int scale)
 	CAM_ProcessTransition(&posCurr, &rotCurr, &D232.maskCamPosStart, &D232.maskCamRotStart, &posEnd, &rotEnd, scale);
 
 	int rot = 0x1000;
-	if (D232.maskSpawnFrame - 20 < D232.maskFrameCurr)
+	if (D232.maskSpawnFrame - FPS_DOUBLE(20) < D232.maskFrameCurr)
 	{
-		rot = ((D232.maskSpawnFrame - D232.maskFrameCurr) * rot) / 20;
+		rot = ((D232.maskSpawnFrame - D232.maskFrameCurr) * rot) / FPS_DOUBLE(20);
 	}
 
 	// 4096->50
@@ -134,7 +134,7 @@ void AH_MaskHint_SetAnim(int scale)
 
 	((struct MaskHint *)mhInst->thread->object)->scale = scale * 4 - 1;
 
-	angle = (sdata->frameCounter + gGT->timer) * 0x20;
+	angle = (sdata->frameCounter + gGT->timer) * FPS_HALF(0x20);
 	sin = MATH_Sin(angle);
 	posCurr.y += (s16)(((sin << 4) >> 0xc) * scale >> 0xc);
 
@@ -300,7 +300,7 @@ void AH_MaskHint_Update()
 			CAM_SetDesiredPosRot(cdc, &pos, &rot);
 		}
 
-		D232.maskWarppadDelayFrames = 60;
+		D232.maskWarppadDelayFrames = FPS_DOUBLE(60);
 
 		sdata->AkuAkuHintState++;
 	}
@@ -308,7 +308,7 @@ void AH_MaskHint_Update()
 
 	case 2:
 
-		if (((D232.maskWarppadBoolInterrupt & 1) == 0) && ((gGT->cameraDC[0].flags & CAMERA_FLAG_TRANSITION_HOLD) == 0) && (D232.maskSpawnFrame != 20))
+		if (((D232.maskWarppadBoolInterrupt & 1) == 0) && ((gGT->cameraDC[0].flags & CAMERA_FLAG_TRANSITION_HOLD) == 0) && (D232.maskSpawnFrame != FPS_DOUBLE(20)))
 		{
 			return;
 		}
@@ -355,24 +355,24 @@ void AH_MaskHint_Update()
 		}
 
 		// if 3-second spawn, play more sounds
-		if (D232.maskSpawnFrame == 0x5a)
+		if (D232.maskSpawnFrame == FPS_DOUBLE(0x5a))
 		{
-			if (D232.maskFrameCurr == 10)
+			if (D232.maskFrameCurr == FPS_DOUBLE(10))
 			{
 				// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b470c-0x800b4774 for mask spawn pulse 10 SFX.
 				OtherFX_Play_LowLevel(0x100, 0, 0xd78a80);
 			}
-			else if (D232.maskFrameCurr == 20)
+			else if (D232.maskFrameCurr == FPS_DOUBLE(20))
 			{
 				// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b4728-0x800b4774 for mask spawn pulse 20 SFX.
 				OtherFX_Play_LowLevel(0x100, 1, 0xaf9480);
 			}
-			else if (D232.maskFrameCurr == 25)
+			else if (D232.maskFrameCurr == FPS_DOUBLE(25))
 			{
 				// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b4744-0x800b4774 for mask spawn pulse 25 SFX.
 				OtherFX_Play_LowLevel(0x100, 0, 0x879e80);
 			}
-			else if (D232.maskFrameCurr == 30)
+			else if (D232.maskFrameCurr == FPS_DOUBLE(30))
 			{
 				// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b4760-0x800b4774 for mask spawn pulse 30 SFX.
 				OtherFX_Play_LowLevel(0x100, 1, 0x5fa880);
@@ -482,7 +482,7 @@ void AH_MaskHint_Update()
 			D232.maskWarppadDelayFrames = 0;
 			if ((D232.maskWarppadBoolInterrupt & 1) != 0)
 			{
-				D232.maskWarppadDelayFrames = 30;
+				D232.maskWarppadDelayFrames = FPS_DOUBLE(30);
 			}
 
 			sdata->AkuAkuHintState++;

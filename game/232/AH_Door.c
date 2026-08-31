@@ -308,7 +308,7 @@ void AH_Door_ThTick(struct Thread *t)
 
 	if ((door->camFlags & WdCam_FlyingOut) != 0)
 	{
-		door->camTimer_unused = 0x3c;
+		door->camTimer_unused = FPS_DOUBLE(0x3c);
 
 		if (((cDC->flags & CAMERA_FLAG_TRANSITION_AWAY) == 0) && ((door->camFlags & WdCam_FlyingIn) == 0))
 		{
@@ -341,7 +341,7 @@ void AH_Door_ThTick(struct Thread *t)
 		door->camFlags |= WdCam_CutscenePlaying;
 
 		// if timer is less than four full seconds
-		if (door->frameCount_doorOpenAnim < 0x78)
+		if (door->frameCount_doorOpenAnim < FPS_DOUBLE(0x78))
 		{
 			if (driver->speedApprox < 0x80)
 			{
@@ -403,16 +403,16 @@ void AH_Door_ThTick(struct Thread *t)
 							if (keyInst->scale.x < 0xa00)
 							{
 								// increase scale on X, Y, Z
-								keyInst->scale.x += 0x40;
-								keyInst->scale.y += 0x40;
-								keyInst->scale.z += 0x40;
+								keyInst->scale.x += FPS_HALF(0x40);
+								keyInst->scale.y += FPS_HALF(0x40);
+								keyInst->scale.z += FPS_HALF(0x40);
 							}
 
 							// if key posY is less than (player posY + 0xa0)
 							if (keyInst->matrix.t[1] < (driver->instSelf->matrix.t[1] + 0xa0))
 							{
 								// increase key posY
-								keyInst->matrix.t[1] += 4;
+								keyInst->matrix.t[1] += FPS_HALF(4);
 							}
 
 							if (1 < numKeys)
@@ -444,7 +444,7 @@ void AH_Door_ThTick(struct Thread *t)
 				}
 
 				door->keyRot.x = 0;
-				door->keyRot.y += 0x40;
+				door->keyRot.y += FPS_HALF(0x40);
 				door->keyRot.z = 0;
 
 				door->keyOrbit += 0x10;
@@ -453,37 +453,37 @@ void AH_Door_ThTick(struct Thread *t)
 
 				// Sound effects when keys float in air
 
-				switch (door->frameCount_doorOpenAnim)
+				if (door->frameCount_doorOpenAnim == FPS_DOUBLE(0x0A))
 				{
-				case 0x0A:
 					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b0208-0x800b0218 for first floating-key SFX.
 					OtherFX_Play_LowLevel(0x67, 1, 0xff7680);
-					break;
-				case 0x0F:
+				}
+				else if (door->frameCount_doorOpenAnim == FPS_DOUBLE(0x0F))
+				{
 					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b022c-0x800b023c for second floating-key SFX.
 					OtherFX_Play_LowLevel(0x67, 1, 0xeb8080);
-					break;
-				case 0x14:
+				}
+				else if (door->frameCount_doorOpenAnim == FPS_DOUBLE(0x14))
+				{
 					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b0250-0x800b0260 for third floating-key SFX.
 					OtherFX_Play_LowLevel(0x67, 1, 0xd78a80);
-					break;
-				case 0x19:
+				}
+				else if (door->frameCount_doorOpenAnim == FPS_DOUBLE(0x19))
+				{
 					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b0274-0x800b0284 for fourth floating-key SFX.
 					OtherFX_Play_LowLevel(0x67, 1, 0xc39480);
-					break;
-				case 0x50:
+				}
+				else if (door->frameCount_doorOpenAnim == FPS_DOUBLE(0x50))
+				{
 					// unlock door sound
 					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b0298-0x800b02ac for door unlock SFX.
 					OtherFX_Play(0x93, 1);
-					break;
-				case 0x78:
+				}
+				else if (door->frameCount_doorOpenAnim == FPS_DOUBLE(0x78))
+				{
 					// on last frame, doors "creek" open
 					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b02a0-0x800b02ac for door creak SFX.
 					OtherFX_Play(0x94, 1);
-					break;
-
-				default:
-					break;
 				}
 			}
 			return;
@@ -527,7 +527,7 @@ void AH_Door_ThTick(struct Thread *t)
 
 	if (door->doorRot.y < 0x400)
 	{
-		door->doorRot.y += 0x10;
+		door->doorRot.y += FPS_HALF(0x10);
 
 		// right-hand door rot[x,y,z]
 		desiredRot.x = door->doorRot.x;

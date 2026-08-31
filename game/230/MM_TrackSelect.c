@@ -134,7 +134,11 @@ void MM_TrackSelect_Video_Draw(RECT *r, struct MainMenu_LevelRow *selectMenu, in
 			v0 = gGT->ptrIcons[0x3f]->texLayout.v0;
 			srcX = (u16)u0 + (tpage & 0xf) * 0x40;
 			srcY = (u16)v0 + (tpage & 0x10) * 0x10 + (s16)(((u32)tpage & 0x800) >> 2);
-			uploaded = NativeSTR_UploadNextFrame(srcX, srcY);
+			uploaded = 0;
+			if (!CTR_NATIVE_60FPS_ACTIVE || ((gGT->timer & 1) != 0))
+			{
+				uploaded = NativeSTR_UploadNextFrame(srcX, srcY);
+			}
 
 			if ((uploaded == 1) && (D230.trackSel_videoStateCurr == 2))
 			{

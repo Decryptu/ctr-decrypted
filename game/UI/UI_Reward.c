@@ -91,14 +91,14 @@ void UI_ThTick_CountPickup(struct Thread *bucket)
 		if (inst->model->id != STATIC_TIME_CRATE_01)
 		{
 			// rotation speed 0x80
-			rotSpd = obj->rot.y + 0x80;
+			rotSpd = obj->rot.y + FPS_HALF(0x80);
 			goto LAB_8004c7d4;
 		}
 	}
 
 	// if wumpa or crystal,
 	// rotation speed 0x40
-	rotSpd = obj->rot.y + 0x40;
+	rotSpd = obj->rot.y + FPS_HALF(0x40);
 
 LAB_8004c7d4:
 
@@ -158,7 +158,7 @@ void UI_ThTick_Reward(struct Thread *bucket)
 #endif
 
 	// Spin on the Y axis
-	obj->rot.y += 0x40;
+	obj->rot.y += FPS_HALF(0x40);
 
 	Vector_SpecLightSpin2D(inst, &obj->rot, &obj->lightDir);
 
@@ -216,7 +216,7 @@ void UI_ThTick_CtrLetters(struct Thread *bucket)
 	// that's why the lighting changes in the HUD
 
 	// Rotate on the Y axis
-	obj->rot.y += 0x40;
+	obj->rot.y += FPS_HALF(0x40);
 
 	Vector_SpecLightSpin2D(inst, &obj->rot, &obj->lightDir);
 

@@ -118,12 +118,25 @@ void UI_Weapon_DrawSelf(s16 posX, s16 posY, s16 scale, struct Driver *d)
 
 			// only change icon once per 2 frames,
 			// take advantage of unused padding
+#if CTR_NATIVE_60FPS
+			if (CTR_NATIVE_60FPS_ACTIVE)
+			{
+				if ((gGT->timer & 1) != 0)
+				{
+					d->funcPtrs_compilerpadding = (s16)itemID;
+				}
+				else
+				{
+					itemID = d->funcPtrs_compilerpadding;
+				}
+			}
+#endif
 		}
 
 		// if timer is not finished
 		if (d->PickupTimeboxHUD.cooldown != 0)
 		{
-			UI_Lerp2D_HUD(pos.v, d->PickupTimeboxHUD.startX, d->PickupTimeboxHUD.startY, (int)posX, (int)posY, d->PickupTimeboxHUD.cooldown, 5);
+			UI_Lerp2D_HUD(pos.v, d->PickupTimeboxHUD.startX, d->PickupTimeboxHUD.startY, (int)posX, (int)posY, d->PickupTimeboxHUD.cooldown, FPS_DOUBLE(5));
 
 			// subtract one from timer
 			d->PickupTimeboxHUD.cooldown--;
@@ -169,7 +182,7 @@ void UI_Weapon_DrawBG(s16 param_1, s16 param_2, s16 param_3, struct Driver *d)
 	iVar2 = (int)param_3;
 
 	// wumpaShineTheta (given to sine)
-	sdata->wumpaShineTheta += 0x100;
+	sdata->wumpaShineTheta += FPS_HALF(0x100);
 
 	iVar1 = iVar2 * 0xd000 >> 0x10;
 

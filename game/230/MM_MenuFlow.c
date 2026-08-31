@@ -128,7 +128,7 @@ void MM_MenuProc_Main(struct RectMenu *mainMenu)
 			else
 			{
 				// 900 = 30 seconds at 30fps
-				gGT->demoCountdownTimer = 900;
+				gGT->demoCountdownTimer = FPS_DOUBLE(900);
 			}
 		}
 	}
@@ -658,7 +658,7 @@ void MM_JumpTo_Title_Returning(void)
 	// return to main menu
 	sdata->ptrDesiredMenu = &D230.menuMainMenu;
 
-	D230.countMeta0xD = D230.title_numFrameTotal;
+	D230.countMeta0xD = FPS_DOUBLE(D230.title_numFrameTotal);
 }
 
 // NOTE(aalhendi): ASM-verified against NTSC-U 926 overlay 230 0x800b4364-0x800b43f4.
@@ -675,7 +675,7 @@ void MM_JumpTo_Title_FirstTime(void)
 	if (sdata->boolLangChosen == 0)
 	{
 		sdata->ptrActiveMenu = &D230.menuLngBoot;
-		D230.langMenuTimer = 900;
+		D230.langMenuTimer = FPS_DOUBLE(900);
 	}
 	else
 	{

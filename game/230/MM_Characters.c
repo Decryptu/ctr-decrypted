@@ -1132,7 +1132,7 @@ dontDrawSelectCharacter:
 		}
 
 		// spin the character
-		D230.characterSelect_angle[i] += 0x40;
+		D230.characterSelect_angle[i] += FPS_HALF(0x40);
 	}
 
 	// reset

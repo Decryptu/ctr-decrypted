@@ -53,7 +53,12 @@ u32 VehFrameInst_GetNumAnimFrames(struct Instance *inst, int animIndex)
 		return 0;
 	}
 
-	return anim->numFrames & 0x7fff;
+	u32 frameCount = anim->numFrames & 0x7fff;
+	if (INSTANCE_Use60FpsAnimation(inst) && ((anim->numFrames & 0x8000) == 0) && (frameCount != 0))
+	{
+		frameCount = (frameCount << 1) - 1;
+	}
+	return frameCount;
 }
 
 static void VehFrameProc_Driving_SpawnBurnSmoke(struct Driver *d)
@@ -132,14 +137,14 @@ void VehFrameProc_Driving(struct Thread *t, struct Driver *d)
 			else if (currAnim == 2)
 			{
 				speed = 1;
-				d->matrixIndex = inst->animFrame;
+				d->matrixIndex = (u8)FPS_HALF(inst->animFrame);
 			}
 
 			inst->animFrame = VehCalc_InterpBySpeed(inst->animFrame, speed, startFrame);
 
 			if ((u32)(inst->animIndex - 2) < 2)
 			{
-				d->matrixIndex = (u8)inst->animFrame;
+				d->matrixIndex = (u8)FPS_HALF(inst->animFrame);
 				if (d->matrixIndex == 0)
 				{
 					d->matrixArray = 0;
@@ -215,7 +220,7 @@ void VehFrameProc_Driving(struct Thread *t, struct Driver *d)
 		}
 
 		d->matrixArray = matrixArray;
-		d->matrixIndex = (u8)inst->animFrame;
+		d->matrixIndex = (u8)FPS_HALF(inst->animFrame);
 		return;
 	}
 

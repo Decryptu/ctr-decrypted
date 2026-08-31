@@ -1177,7 +1177,7 @@ UpdateTireColorTimer:
 		}
 		else
 		{
-			if (BOTS_RACE_START_AI_COLLISION_DELAY_FRAMES < sdata->aiCollisionDelayFrameCount)
+			if (FPS_DOUBLE(BOTS_RACE_START_AI_COLLISION_DELAY_FRAMES) < sdata->aiCollisionDelayFrameCount)
 			{
 				struct Driver *otherDriver = NULL; // iVar4
 				if ((botFlags & BOT_FLAG_ESTIMATE_NAV) == 0)
@@ -3173,7 +3173,7 @@ void BOTS_GotoStartingLine(struct Driver *d)
 
 	// cooldown before next weapon
 	int rng = RngDeadCoed(&sdata->advRng);
-	d->botData.weaponCooldown = (s16)CTR_MipsAddLo(CTR_MipsSra(rng, 8) & 0xff, 300);
+	d->botData.weaponCooldown = (s16)FPS_DOUBLE(CTR_MipsAddLo(CTR_MipsSra(rng, 8) & 0xff, 300));
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80017164-0x80017318.

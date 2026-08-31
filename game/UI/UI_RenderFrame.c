@@ -252,7 +252,7 @@ void UI_RenderFrame_Racing()
 						OtherFX_Play(0x42, 1);
 
 						// initial timer value
-						partTimeVariable1 = 5;
+						partTimeVariable1 = FPS_DOUBLE(5);
 
 						// if timer is already running, set new timer value
 						if (playerStruct->PickupWumpaHUD.numCollected != 0)
@@ -263,7 +263,7 @@ void UI_RenderFrame_Racing()
 					else
 					{
 						UI_Lerp2D_HUD(wumpaModelPos.v, (int)playerStruct->PickupWumpaHUD.startX, (int)playerStruct->PickupWumpaHUD.startY, hudStructPtr[3].x,
-						              hudStructPtr[3].y, playerStruct->PickupWumpaHUD.cooldown, 5);
+						              hudStructPtr[3].y, playerStruct->PickupWumpaHUD.cooldown, FPS_DOUBLE(5));
 
 						// subtract one from timer
 						partTimeVariable1 = playerStruct->PickupWumpaHUD.cooldown - 1;
@@ -325,7 +325,7 @@ void UI_RenderFrame_Racing()
 
 					// Interpolate from start pos to end pos
 					UI_Lerp2D_HUD(letterCtrPos.v, playerStruct->PickupLetterHUD.startX, playerStruct->PickupLetterHUD.startY, (int)letterCtrPos.x,
-					              (int)letterCtrPos.y, (int)playerStruct->PickupLetterHUD.cooldown, 10);
+					              (int)letterCtrPos.y, (int)playerStruct->PickupLetterHUD.cooldown, FPS_DOUBLE(10));
 
 					curr->matrix.t[0] = UI_ConvertX_2((int)letterCtrPos.x, 0x200);
 					curr->matrix.t[1] = UI_ConvertY_2((int)letterCtrPos.y, 0x200);
@@ -358,7 +358,7 @@ void UI_RenderFrame_Racing()
 
 					// 4b4 and 4b6 are WindowStartPos(x,y) from PushBuffer, inside Driver
 					UI_Lerp2D_HUD(wumpaModelPos.v, playerStruct->PickupTimeboxHUD.startX, playerStruct->PickupTimeboxHUD.startY, 0x14, 8,
-					              playerStruct->PickupTimeboxHUD.cooldown, 10);
+					              playerStruct->PickupTimeboxHUD.cooldown, FPS_DOUBLE(10));
 
 					// Decrease remaining number of frames for this to be on screen
 					playerStruct->PickupTimeboxHUD.cooldown--;
@@ -417,7 +417,7 @@ void UI_RenderFrame_Racing()
 					sprintf((char *)&string[0], fmt, partTimeVariable1);
 
 					UI_Lerp2D_HUD(wumpaModelPos.v, (int)playerStruct->BattleHUD.startX, (int)playerStruct->BattleHUD.startY, (int)(hudStructPtr[0xD].x + 0x20),
-					              (int)(hudStructPtr[0xD].y + 8), playerStruct->BattleHUD.cooldown, 5);
+					              (int)(hudStructPtr[0xD].y + 8), playerStruct->BattleHUD.cooldown, FPS_DOUBLE(5));
 
 					// subtract one from the number of frames that the animation lasts
 					playerStruct->BattleHUD.cooldown--;
@@ -1090,7 +1090,7 @@ void UI_RenderFrame_CrystChall(void)
 
 		if (player->PickupWumpaHUD.numCollected != 0)
 		{
-			player->PickupWumpaHUD.cooldown = 5;
+			player->PickupWumpaHUD.cooldown = FPS_DOUBLE(5);
 		}
 	}
 
@@ -1099,7 +1099,7 @@ void UI_RenderFrame_CrystChall(void)
 	{
 		// interpolate position over course of 5 frames
 		UI_Lerp2D_HUD(crystalPos.v, (int)player->PickupWumpaHUD.startX, (int)player->PickupWumpaHUD.startY, (int)hudStructPtr[0x11].x,
-		              (int)hudStructPtr[0x11].y, player->PickupWumpaHUD.cooldown, 5);
+		              (int)hudStructPtr[0x11].y, player->PickupWumpaHUD.cooldown, FPS_DOUBLE(5));
 
 		// reduce cooldown between getting each wumpa (or crystal)
 		player->PickupWumpaHUD.cooldown--;

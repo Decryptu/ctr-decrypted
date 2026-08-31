@@ -77,7 +77,7 @@ void VehPhysGeneral_PhysAngular(struct Thread *thread, struct Driver *driver)
 		int rate =
 		    CTR_MipsSra(CTR_MipsMulLo(CTR_MipsAddLo(driver->const_TurnInputDelay, CTR_MipsMulLo((s8)driver->turnConst, 0x32)), terrain->turnResponseScale), 8);
 
-		rotCurrW_interp = VehCalc_InterpBySpeed(rotCurrW_original, rate, 0);
+		rotCurrW_interp = VehCalc_InterpBySpeed(rotCurrW_original, FPS_HALF(rate), 0);
 
 		forwardDir = (s16)rotCurrW_interp;
 	}
@@ -208,6 +208,9 @@ void VehPhysGeneral_PhysAngular(struct Thread *thread, struct Driver *driver)
 
 	// spins camera from side of driver, to back of driver,
 	// when the drifting ends. "LerpToForwards"
+#if CTR_NATIVE_60FPS
+	if (!CTR_NATIVE_60FPS_ACTIVE || ((sdata->gGT->timer & 1) != 0))
+#endif
 	driver->turnAngleLerpVel = VehPhysGeneral_LerpToForwards(driver, (int)driftAngleCurr_og, (int)forwardDir, classSpeed_halved);
 
 	classSpeed_halved = (int)(s16)driver->turnAngleLerpVel;
@@ -221,7 +224,7 @@ void VehPhysGeneral_PhysAngular(struct Thread *thread, struct Driver *driver)
 	turnResistMinBitshift = rotCurrW_original;
 	if ((0x2ff < speedApprox) && ((actionsFlagSet & ACTION_TOUCH_GROUND) != 0))
 	{
-		turnResistMaxBitshift = VehCalc_SteerAccel(driver->numFramesSpentSteering, (int)driver->const_SteerAccel_Stage2_FirstFrame,
+		turnResistMaxBitshift = VehCalc_SteerAccel(FPS_HALF(driver->numFramesSpentSteering), (int)driver->const_SteerAccel_Stage2_FirstFrame,
 		                                           (int)driver->const_SteerAccel_Stage2_FrameLength, (int)driver->const_SteerAccel_Stage4_FirstFrame,
 		                                           (int)driver->const_SteerAccel_Stage1_MinSteer, (int)driver->const_SteerAccel_Stage1_MaxSteer);
 		if (rotCurrW_original < 0)
@@ -325,7 +328,7 @@ LAB_80060284:
 		{
 			rotCurrW_interp = CTR_MipsNegLo(rotCurrW_original);
 		}
-		rotCurrW_interp = VehCalc_InterpBySpeed(turnResistMax, rotCurrW_interp, 0);
+		rotCurrW_interp = VehCalc_InterpBySpeed(turnResistMax, FPS_HALF(rotCurrW_interp), 0);
 		forwardDir = (s16)rotCurrW_interp;
 	}
 	else

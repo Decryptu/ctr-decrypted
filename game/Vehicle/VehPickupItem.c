@@ -667,7 +667,7 @@ void VehPickupItem_ShootNow(struct Driver *d, int weaponID, int flags)
 			}
 		}
 
-		tw->frameCount_DontHurtParent = 60;
+		tw->frameCount_DontHurtParent = FPS_DOUBLE(60);
 		tw->frameCount_Blind = 0;
 		break;
 
@@ -1021,11 +1021,11 @@ void VehPickupItem_ShootNow(struct Driver *d, int weaponID, int flags)
 				continue;
 			}
 
-			victim->clockFlash = 4;
+			victim->clockFlash = FPS_DOUBLE(4);
 
 			if (victim == d)
 			{
-				d->clockSend = 0x1e;
+				d->clockSend = FPS_DOUBLE(0x1e);
 				continue;
 			}
 
@@ -1146,7 +1146,19 @@ void VehPickupItem_ShootNow(struct Driver *d, int weaponID, int flags)
 		tw->vel.x = (dInst->matrix.m[0][2] * 7) >> 8;
 		tw->vel.z = (dInst->matrix.m[2][2] * 7) >> 8;
 
+#if CTR_NATIVE_60FPS
+		if (CTR_NATIVE_60FPS_ACTIVE)
+		{
+			sdata->UnusedPadding1 = 1;
+		}
+#endif
 		struct Particle *p = Particle_Init(0, gGT->iconGroup[0], &data.emSet_Warpball[0]);
+#if CTR_NATIVE_60FPS
+		if (CTR_NATIVE_60FPS_ACTIVE)
+		{
+			sdata->UnusedPadding1 = 0;
+		}
+#endif
 
 		tw->ptrParticle = p;
 

@@ -288,6 +288,7 @@ struct Instance *INSTANCE_Birth3D(struct Model *model, const char *name, struct 
 struct Instance *INSTANCE_BirthWithThread(int modelID, const char *name, int poolType, int bucket, void *funcThTick, int objSize, struct Thread *parent);
 struct Instance *INSTANCE_BirthWithThread_Stack(int *spArr);
 void INSTANCE_Death(struct Instance *inst);
+b32 INSTANCE_Use60FpsAnimation(struct Instance *inst);
 u16 INSTANCE_GetNumAnimFrames(struct Instance *pInstance, int animIndex);
 void INSTANCE_LevInitAll(struct InstDef *levInstDef, int numInst);
 

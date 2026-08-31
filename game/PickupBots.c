@@ -114,7 +114,7 @@ static int PickupBots_IsCloseToPlayer(struct Driver *player, struct Driver *bot)
 
 static void PickupBots_SetCooldown(struct Driver *bot)
 {
-	bot->botData.weaponCooldown = (MixRNG_Scramble() & 0xff) + 0xf0;
+	bot->botData.weaponCooldown = FPS_DOUBLE((MixRNG_Scramble() & 0xff) + 0xf0);
 }
 
 static void PickupBots_PlayVoice(u32 voiceID, struct Driver *attacker, struct Driver *victim)
@@ -246,7 +246,7 @@ static void PickupBots_SetBossCooldown(struct MetaDataBOSS *bossMeta)
 	struct GameTracker *gGT = sdata->gGT;
 
 	sdata->bossWeaponCooldown =
-	    (RngDeadCoed(&sdata->advRng) & 0x10) + bossMeta->weaponCooldown + 0xc + ((s8)sdata->advProgress.timesLostBossRace[gGT->bossID] * 4);
+	    FPS_DOUBLE((RngDeadCoed(&sdata->advRng) & 0x10) + bossMeta->weaponCooldown + 0xc + ((s8)sdata->advProgress.timesLostBossRace[gGT->bossID] * 4));
 }
 
 static struct MetaDataBOSS *PickupBots_GetInitialBossMeta(void)
