@@ -162,17 +162,17 @@ void UI_CupStandings_InputAndDraw(void)
 	}
 
 	// Conditions to increment frame counter
-	if ((sdata->framesSinceRaceEnded < 0xf0) || ((sdata->framesSinceRaceEnded < 400) && ((sdata->menuReadyToPass & 8) != 0)))
+	if ((sdata->framesSinceRaceEnded < FPS_DOUBLE(0xf0)) || ((sdata->framesSinceRaceEnded < FPS_DOUBLE(400)) && ((sdata->menuReadyToPass & 8) != 0)))
 	{
 		sdata->framesSinceRaceEnded++;
 	}
 
-	if ((sdata->framesSinceRaceEnded < 60) &&
+	if ((sdata->framesSinceRaceEnded < FPS_DOUBLE(60)) &&
 
 	    // If you press Cross or Circle
 	    ((sdata->AnyPlayerTap & 0x50) != 0))
 	{
-		sdata->framesSinceRaceEnded = 60;
+		sdata->framesSinceRaceEnded = FPS_DOUBLE(60);
 		sdata->numIconsEOR = numDrivers;
 		RECTMENU_ClearInput();
 	}
@@ -189,7 +189,7 @@ void UI_CupStandings_InputAndDraw(void)
 		local_30 = -0x32;
 	}
 
-	if (sdata->framesSinceRaceEnded <= 0xf0)
+	if (sdata->framesSinceRaceEnded <= FPS_DOUBLE(0xf0))
 	{
 		uVar9 = ((s16)0xffffff6a);
 		uVar14 = 0x100;
@@ -204,10 +204,10 @@ void UI_CupStandings_InputAndDraw(void)
 		iVar12 = 0x1e;
 		uVar14 = 0x296;
 		local_90 = (int)local_30;
-		framesPassed = sdata->framesSinceRaceEnded - 0xf0;
+		framesPassed = sdata->framesSinceRaceEnded - FPS_DOUBLE(0xf0);
 	}
 
-	UI_Lerp2D_Linear(&local_58[0], uVar9, iVar12, uVar14, local_90, framesPassed, 0x14);
+	UI_Lerp2D_Linear(&local_58[0], uVar9, iVar12, uVar14, local_90, framesPassed, FPS_DOUBLE(0x14));
 
 	// "FINAL"
 	int index = 0x22E;
@@ -287,7 +287,7 @@ void UI_CupStandings_InputAndDraw(void)
 
 	DecalFont_DrawLine(text, local_58[0], local_58[1] + 0x11, 2, 0xffff8000);
 
-	if ((sdata->framesSinceRaceEnded == (sdata->framesSinceRaceEnded / 10) * 10) && (sdata->numIconsEOR < numDrivers))
+	if ((sdata->framesSinceRaceEnded == (sdata->framesSinceRaceEnded / FPS_DOUBLE(10)) * FPS_DOUBLE(10)) && (sdata->numIconsEOR < numDrivers))
 	{
 		sdata->numIconsEOR++;
 	}
@@ -383,22 +383,22 @@ void UI_CupStandings_InputAndDraw(void)
 
 	LAB_800568d8:
 
-		if (sdata->framesSinceRaceEnded <= 0xf0)
+		if (sdata->framesSinceRaceEnded <= FPS_DOUBLE(0xf0))
 		{
 			iVar10 = 0x296;
 			iVar15 = (int)sVar7;
-			framesPassed = sdata->framesSinceRaceEnded - (i * 10);
+			framesPassed = sdata->framesSinceRaceEnded - (i * FPS_DOUBLE(10));
 		}
 
 		else
 		{
 			iVar10 = (int)sVar7;
 			iVar15 = -0x96;
-			framesPassed = sdata->framesSinceRaceEnded + -0xf0;
+			framesPassed = sdata->framesSinceRaceEnded - FPS_DOUBLE(0xf0);
 		}
 
 		// Interpolate fly-in variables over 0x14 frames
-		UI_Lerp2D_Linear(&local_58[0], iVar10, uVar9, iVar15, uVar9, framesPassed, 0x14);
+		UI_Lerp2D_Linear(&local_58[0], iVar10, uVar9, iVar15, uVar9, framesPassed, FPS_DOUBLE(0x14));
 
 		// %d
 		sprintf(text, (char *)&sdata->s_int, i + 1);
@@ -470,13 +470,13 @@ void UI_CupStandings_InputAndDraw(void)
 	if ((sdata->menuReadyToPass & 4) == 0)
 	{
 		// fly-in interpolation
-		UI_Lerp2D_Linear(&local_58[0], -10, (int)local_38, -10, 9, sdata->framesSinceRaceEnded, 0x14);
+		UI_Lerp2D_Linear(&local_58[0], -10, (int)local_38, -10, 9, sdata->framesSinceRaceEnded, FPS_DOUBLE(0x14));
 	}
 
 	// if it's not...
 	else
 	{
-		if (sdata->framesSinceRaceEnded <= 0xf0)
+		if (sdata->framesSinceRaceEnded <= FPS_DOUBLE(0xf0))
 		{
 			local_58[0] = -10;
 			local_58[1] = 9;
@@ -485,7 +485,7 @@ void UI_CupStandings_InputAndDraw(void)
 		else
 		{
 			// fly-in interpolation
-			UI_Lerp2D_Linear(&local_58[0], -10, 9, -10, (int)local_30, sdata->framesSinceRaceEnded + -0xf0, 0x14);
+			UI_Lerp2D_Linear(&local_58[0], -10, 9, -10, (int)local_30, sdata->framesSinceRaceEnded - FPS_DOUBLE(0xf0), FPS_DOUBLE(0x14));
 		}
 	}
 
@@ -499,11 +499,11 @@ void UI_CupStandings_InputAndDraw(void)
 	RECTMENU_DrawInnerRect(&r, 4, gGT->backBuffer->otMem.uiOT);
 
 	// Timer
-	if (sdata->framesSinceRaceEnded < 0x10f)
+	if (sdata->framesSinceRaceEnded < FPS_DOUBLE(0x10f))
 	{
 		if ((
 		        // Timer
-		        (0x3b < sdata->framesSinceRaceEnded) &&
+		        (FPS_DOUBLE(0x3b) < sdata->framesSinceRaceEnded) &&
 
 		        // If you are not in overall Cup standings
 		        ((sdata->menuReadyToPass & 8) == 0)) &&
@@ -513,7 +513,7 @@ void UI_CupStandings_InputAndDraw(void)
 		     (sdata->AnyPlayerTap & 0x50) != 0))
 		{
 			// Timer
-			sdata->framesSinceRaceEnded = 0xf0;
+			sdata->framesSinceRaceEnded = FPS_DOUBLE(0xf0);
 
 			// Proceed from Track standings to overall Cup standings,
 			// where you see how many points each driver has overall
