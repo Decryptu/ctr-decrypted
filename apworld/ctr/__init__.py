@@ -1007,7 +1007,14 @@ class ctrAPWorld(World):
         # branch below (a tier the player opted out of stays useful and the
         # forced_options supply guard raises instead). Kept in lockstep with
         # raise_if_full_accessibility_needs_more_sapphires_than_created.
-        if access_full:
+        # Issue #320 acceptance 4: with `oxide_goal: disabled` the Final
+        # Challenge LOCATION is never created, so accessibility 'full' has no
+        # relic gate here to make reachable and the configured unlock mode +
+        # count must not steer item classification. The Slide Coliseum
+        # sapphire gate above is a separate, still-live relic gate and is
+        # unaffected. Kept in lockstep with the matching skips in
+        # forced_options.py's two relic-supply guards.
+        if access_full and OxideGoal.oxide_content_present(o.oxide_goal.value):
             for tier in self._oxide_goal_tiers():
                 if self._ctr_relic_created.get(tier, 0) > 0:
                     prog[tier] = True
@@ -1200,7 +1207,12 @@ class ctrAPWorld(World):
             # location and stays a normal, fillable check (issue #152 C8).
             self._exclude_goal_location(
                 player, "N. Oxide Garage: N. Oxide's Final Challenge")
-        # option_none: no Oxide predicate, nothing to lay.
+        # option_none and option_disabled (issue #320): Oxide is not a
+        # completion condition, so no predicate and no event. Under
+        # `none` both races stay in the seed as ordinary optional
+        # checks; under `disabled` create_regions never created them.
+        # Either way the seed finishes on its remaining Boss/Gem arms
+        # and native rolls the credits from the hub (#244).
 
         if o.bosses_required_goal.value > 0:
             # Pair each real Boss Race location with a companion event of the same
@@ -1868,7 +1880,17 @@ class ctrAPWorld(World):
         # destination keys. Schema 8 is unconditional for the public Alpha6
         # pair, following the standing "always bump, never conditionally" rule.
         custom_tracks = resolved_custom_tracks(self)
-        schema = 8
+        # schema_version 9 (0.2.0 RC, issue #320): `goal_oxide` gains the value
+        # 3 (`disabled`). The bump is a native-version GATE, not bookkeeping: a
+        # schema-8 client reads 3 through AP_ComposedGoalMet's else-if chain,
+        # correctly contributes no Oxide completion arm -- and then leaves the
+        # garage WIDE OPEN, because its AP_OxideEntryReady only special-cased
+        # value 0. It would also still expect the two Oxide location checks
+        # this seed no longer contains. Reusing schema 8 would hide that
+        # mismatch from the player instead of raising the #8 newer-schema
+        # warning. Unconditional per the Q28 standing ruling ("ALWAYS BUMP...
+        # no conditional emission"), so every 0.2.0 RC seed declares 9.
+        schema = 9
         slot_data: Dict[str, object] = {
             "Seed": self.multiworld.seed_name,
             "Slot": self.multiworld.player_name[self.player],
@@ -1882,7 +1904,8 @@ class ctrAPWorld(World):
             # #8 newer-schema warn/refuse. (v5 = oxide-final relic-goal mode/count;
             # v4 = relic-tier colour + goal-rework; v3 = podium + stage-2 padgate;
             # v2 = two-stage contract; v7 = gem_cup_legs; v8 = custom_tracks
-            # support and the public Alpha6 pair gate, both unconditional.)
+            # support and the public Alpha6 pair gate; v9 = goal_oxide value 3
+            # (`disabled`), all unconditional.)
             "schema_version": schema,
             "ctr_options": {
                 "schema_version": schema,

@@ -190,15 +190,25 @@ def raise_if_composed_goal_is_empty(world):
     that."""
     o = world.options
     from .Options import OxideGoal
-    if o.oxide_goal.value == OxideGoal.option_none \
+    if not OxideGoal.oxide_is_goal(o.oxide_goal.value) \
             and o.bosses_required_goal.value == 0 \
             and o.gems_required_goal.value == 0:
+        # Issue #320 acceptance 3: `disabled` reaches this the same way `none`
+        # does, and needs the message to say so -- with both Oxide races gone
+        # from the seed there is not even an optional race left to fall back
+        # on, so "turn Oxide back on" is a real remedy for `disabled` in a way
+        # it is not for `none`.
+        disabled = o.oxide_goal.value == OxideGoal.option_disabled
         raise OptionError(
             "CTR: 'oxide_goal', 'bosses_required_goal' and "
-            "'gems_required_goal' are all off (none/0/0) -- the composed "
-            "goal (issue #152) has no active condition, so the seed would be "
-            "won the instant it connects. Set at least one of the three to a "
-            "non-off value.")
+            f"'gems_required_goal' are all off ({o.oxide_goal.current_key}/0/0)"
+            " -- the composed goal (issue #152) has no active condition, so "
+            "the seed would be won the instant it connects. Set "
+            "'bosses_required_goal' or 'gems_required_goal' to a non-zero "
+            "value"
+            + (", or choose an 'oxide_goal' that keeps Oxide in the seed."
+               if disabled else
+               ", or set 'oxide_goal' to 'any_percent' or '101_percent'."))
 
 
 def raise_if_gems_required_goal_needs_excluded_cups(world):
@@ -303,7 +313,13 @@ def raise_if_oxide_final_count_exceeds_mode_capacity(world):
     error. The final-Oxide location uses this gate even when it is not the
     selected goal, so the constraint is mode-based rather than goal-based.
     """
-    from .Options import FinalOxideUnlock
+    from .Options import FinalOxideUnlock, OxideGoal
+    # Issue #320 acceptance 4: with `disabled` the Final Challenge LOCATION is
+    # never created, so its unlock mode + count gate nothing at all. Rejecting
+    # a seed over a requirement that no location in it carries would be a
+    # generation failure with no in-seed cause.
+    if not OxideGoal.oxide_content_present(world.options.oxide_goal.value):
+        return
     count = world.options.oxide_final_challenge_relic_count.value
     mode = world.options.oxide_final_challenge_unlock
     if count > 18 and mode.value != FinalOxideUnlock.option_total_relics:
@@ -376,9 +392,15 @@ def raise_if_full_accessibility_needs_more_sapphires_than_created(world):
             f"'Gem Stone Valley -> Slide Coliseum Warp Pad' needs 10 Sapphire "
             f"Relics but only {sapphires} are created (vanilla warp-pad "
             f"unlock keeps this world.json gate; randomized unlock strips it)")
-    shortfall = _oxide_final_supply_shortfall(world)
-    if shortfall:
-        problems.append(shortfall)
+    # Issue #320 acceptance 4: the Final Challenge location does not exist in a
+    # `disabled` seed, so accessibility 'full' has nothing to make reachable
+    # there. The Slide Coliseum sapphire gate above is a separate, still-live
+    # relic gate and keeps its check.
+    from .Options import OxideGoal
+    if OxideGoal.oxide_content_present(world.options.oxide_goal.value):
+        shortfall = _oxide_final_supply_shortfall(world)
+        if shortfall:
+            problems.append(shortfall)
     if not problems:
         return
     raise OptionError(
@@ -608,9 +630,15 @@ def warn_relic_gates_may_be_permanently_unreachable(world):
         problems.append(
             f"'Gem Stone Valley -> Slide Coliseum Warp Pad' (needs 10 "
             f"Sapphire Relics, {sapphires} created)")
-    shortfall = _oxide_final_supply_shortfall(world)
-    if shortfall:
-        problems.append(shortfall)
+    # Issue #320 acceptance 4: a `disabled` seed never creates the Final
+    # Challenge location, so there is no gate here to be unreachable. The
+    # Slide Coliseum sapphire gate above is a separate, still-live relic gate
+    # and keeps its check.
+    from .Options import OxideGoal
+    if OxideGoal.oxide_content_present(world.options.oxide_goal.value):
+        shortfall = _oxide_final_supply_shortfall(world)
+        if shortfall:
+            problems.append(shortfall)
     if not problems:
         return
     logger.warning(

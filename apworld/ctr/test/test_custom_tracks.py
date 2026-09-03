@@ -7,7 +7,7 @@ frozen generic `Custom Track 1: Trophy Race` plus enabled podium rungs, not the
 retail `Purple Gem Cup: Gem` location and not the mutable package title. The cup
 keeps its four-Purple-CTR-Token pad rule but runs one 7-lap custom race instead
 of four retail legs. Option off leaves the block absent while Alpha6's
-unconditional schema 8 declaration remains.
+unconditional current-schema declaration remains.
 
 These tests lock in the apworld half:
 
@@ -20,7 +20,7 @@ These tests lock in the apworld half:
   entrances follow;
 - option-off neutrality and determinism: no RNG is consumed either way, and an
   option-off seed has no custom_tracks block or displaced destination;
-- the `custom_tracks` slot_data block: shape, the unconditional schema 8 gate,
+- the `custom_tracks` slot_data block: shape, the unconditional schema gate,
   and a round trip through AP's real wire pipeline;
 - Universal Tracker: an option-on seed's displacement is pinned from the wire
   rather than re-read from the tracking player's own YAML.
@@ -471,11 +471,11 @@ class TestOptionOffNeutrality(CTRTestBase):
         self.assertEqual(self.world.gem_cup_legs, load_vanilla_cup_legs())
         self.assertEqual(self.world.gem_cup_legs_table, load_vanilla_cup_legs())
 
-    def test_schema_is_8_and_no_block_is_emitted(self):
+    def test_schema_is_current_and_no_block_is_emitted(self):
         slot_data = json.loads(json.dumps(self.world.fill_slot_data()))
         self.assertNotIn("custom_tracks", slot_data)
-        self.assertEqual(slot_data["schema_version"], 8)
-        self.assertEqual(slot_data["ctr_options"]["schema_version"], 8)
+        self.assertEqual(slot_data["schema_version"], 9)
+        self.assertEqual(slot_data["ctr_options"]["schema_version"], 9)
 
     def test_purple_still_legs_its_four_retail_tracks(self):
         for track in PURPLE_LEGS:
@@ -650,10 +650,10 @@ class TestDisplacementIntegration(CTRTestBase):
                 self.assertEqual(
                     {e.parent_region.name for e in podium.entrances}, sources)
 
-    def test_schema_bumps_to_8_and_the_block_is_emitted(self):
+    def test_schema_is_current_and_the_block_is_emitted(self):
         slot_data = json.loads(json.dumps(self.world.fill_slot_data()))
-        self.assertEqual(slot_data["schema_version"], 8)
-        self.assertEqual(slot_data["ctr_options"]["schema_version"], 8)
+        self.assertEqual(slot_data["schema_version"], 9)
+        self.assertEqual(slot_data["ctr_options"]["schema_version"], 9)
         self.assertEqual(
             slot_data["custom_tracks"],
             json.loads(json.dumps(custom_tracks_to_wire(
@@ -801,7 +801,7 @@ class TestUTPinsTheDisplacement(CTRTestBase):
         ut_slot_data = json.loads(json.dumps(self.world.fill_slot_data()))
         self.assertEqual(ut_slot_data["custom_tracks"],
                          slot_data["custom_tracks"])
-        self.assertEqual(ut_slot_data["schema_version"], 8)
+        self.assertEqual(ut_slot_data["schema_version"], 9)
 
     def test_regen_pins_it_through_aps_real_wire_pipeline(self):
         self.world_setup(seed=SEED)
