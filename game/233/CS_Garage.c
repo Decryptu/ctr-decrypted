@@ -464,7 +464,7 @@ void CS_Garage_MenuProc(struct RectMenu *param_1)
 	char arrowColor = ORANGE;
 
 	// blink arrows
-	if ((sdata->frameCounter & 4) == 0)
+	if ((FPS_HALF(sdata->frameCounter) & 4) == 0)
 	{
 		arrowColor = RED;
 	}
