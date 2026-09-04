@@ -50,7 +50,7 @@ void AH_Pause_Draw(int pageID, int posX)
 
 	// orange/red
 	int colorIndex = 0;
-	if ((sdata->frameCounter & 4) == 0)
+	if ((FPS_HALF(sdata->frameCounter) & 4) == 0)
 	{
 		colorIndex = 3;
 	}
@@ -567,7 +567,7 @@ void AH_Pause_Draw(int pageID, int posX)
 			}
 		}
 
-		rot->y = inst->matrix.t[0] * 0x10 + inst->matrix.t[1] * 0x20 + sdata->frameCounter * 0x40;
+		rot->y = inst->matrix.t[0] * 0x10 + inst->matrix.t[1] * 0x20 + sdata->frameCounter * FPS_HALF(0x40);
 
 		rot->y &= 0xfff;
 	}
@@ -697,7 +697,7 @@ void AH_Pause_Update()
 		D232.pausePagePrev = D232.pausePageCurr;
 		D232.pausePageDir_dup = D232.pausePageDir;
 
-		D232.pausePageTimer = 8;
+		D232.pausePageTimer = FPS_DOUBLE(8);
 
 		D232.pausePageCurr = gGT->advPausePage;
 	}
@@ -706,17 +706,17 @@ void AH_Pause_Update()
 	int posX;
 
 	// second half
-	if (D232.pausePageTimer < 5)
+	if (D232.pausePageTimer < FPS_DOUBLE(5))
 	{
 		pageID = D232.pausePageCurr;
-		posX = D232.pausePageTimer * D232.pausePageDir * -0x80;
+		posX = D232.pausePageTimer * D232.pausePageDir * -FPS_HALF(0x80);
 	}
 
 	// first half
 	else
 	{
 		pageID = D232.pausePagePrev;
-		posX = (8 - D232.pausePageTimer) * D232.pausePageDir * 0x80;
+		posX = (FPS_DOUBLE(8) - D232.pausePageTimer) * D232.pausePageDir * FPS_HALF(0x80);
 	}
 
 	AH_Pause_Draw(pageID, posX);
