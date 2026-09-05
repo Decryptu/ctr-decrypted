@@ -823,7 +823,7 @@ void MM_TrackSelect_MenuProc(struct RectMenu *menu)
 				if ((uVar15 & 0xffff) != 0)
 				{
 					// Flash Colors
-					if ((sdata->frameCounter & 4) == 0)
+					if ((FPS_HALF(sdata->frameCounter) & 4) == 0)
 					{
 						uVar14 = (JUSTIFY_CENTER | WHITE);
 					}
