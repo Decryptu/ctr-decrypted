@@ -133,7 +133,7 @@ void UI_DrawRaceClock(u16 paramX, u16 paramY, u32 flags, struct Driver *driver)
 		// this particular snippet is for drawing the TOTAL text in the time trial lap results screen before it flashes, at which point it moves from the left
 		// to the center of the screen if global game timer is on an odd number (in which case this condition doesn't execute) then set string to end at posX of
 		// next DrawLine and use data.ptrColor[WHITE]
-		if (((flags & 4) == 0) || (strFlags_but_its_also_posY = (JUSTIFY_RIGHT | WHITE), (gGT->timer & 2) != 0))
+		if (((flags & 4) == 0) || (strFlags_but_its_also_posY = (JUSTIFY_RIGHT | WHITE), (FPS_HALF(gGT->timer) & 2) != 0))
 		{
 			strFlags_but_its_also_posY = (JUSTIFY_RIGHT | ORANGE);
 		}
@@ -163,7 +163,7 @@ void UI_DrawRaceClock(u16 paramX, u16 paramY, u32 flags, struct Driver *driver)
 	{
 		// use timer to change color on even and odd frames
 		// strFlags_but_its_also_posY equals either 4 (white) or 0 (orange)
-		strFlags_but_its_also_posY = (u16)((gGT->timer & 2) == 0) << 2;
+		strFlags_but_its_also_posY = (u16)((FPS_HALF(gGT->timer) & 2) == 0) << 2;
 	}
 
 	if (gGT->numLaps == 7)
@@ -270,7 +270,7 @@ void UI_DrawRaceClock(u16 paramX, u16 paramY, u32 flags, struct Driver *driver)
 				    ((numLaps == 2) && ((flags & 0x20) != 0)))
 				{
 					// Change color based on frame counter
-					stringColor_but_its_also_relicColor = ((u16)(gGT->timer >> 1) ^ 1) & 1;
+					stringColor_but_its_also_relicColor = ((u16)(FPS_HALF(gGT->timer) >> 1) ^ 1) & 1;
 				}
 
 				// Otherwise, color is white by default, you can see that in "stringColor_but_its_also_relicColor = 1" near lap 3 check
@@ -546,7 +546,7 @@ void UI_DrawLimitClock(s16 posX, s16 posY, s16 fontType)
 	    (timeRemaining < 0x3840) &&
 
 	    // if number of frames is an even number
-	    ((gGT->timer & 1) == 0))
+	    ((FPS_HALF(gGT->timer) & 1) == 0))
 	{
 		// set color to white
 		flags = WHITE;
