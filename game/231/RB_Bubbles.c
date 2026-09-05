@@ -115,6 +115,13 @@ void RB_Bubbles_RoosTubes()
 			return;
 		}
 
+#if CTR_NATIVE_60FPS
+		if (CTR_NATIVE_60FPS_ACTIVE)
+		{
+			p->axis[1].accel = (s16)(p->axis[1].accel / 2);
+		}
+#endif
+
 		numFreeParticles--;
 
 		p->unk1A = 0x7fff;
