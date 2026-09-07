@@ -205,6 +205,9 @@ class TestGoalCompletionTruthTable(unittest.TestCase):
         self.assertEqual(OxideGoal.option_none, 0)
         self.assertEqual(OxideGoal.option_any_percent, 1)
         self.assertEqual(OxideGoal.option_101_percent, 2)
+        # Issue #320 added `disabled` at 3 without disturbing 0-2, which is
+        # the whole reason it got its own integer instead of re-reading 0.
+        self.assertEqual(OxideGoal.option_disabled, 3)
 
     def test_old_value_spellings_still_load(self):
         """A YAML written before the rename keeps working, via the aliases."""
@@ -245,6 +248,16 @@ class TestGoalCompletionTruthTable(unittest.TestCase):
     def test_composed_goal_has_no_legacy_equivalent(self):
         mw = _build(oxide_goal="first", bosses_required_goal=1)
         self.assertEqual(mw.worlds[1]._legacy_goal_value(), -1)
+
+    def test_disabled_has_no_legacy_equivalent(self):
+        # Issue #320: no pre-#152 single-goal value ever meant "the Oxide
+        # races are not in the seed", so `disabled` must not borrow one of
+        # the four legacy ints -- an old client reading `goal` would then run
+        # a goal this seed cannot satisfy.
+        for extra in ({"bosses_required_goal": 4}, {"gems_required_goal": 5}):
+            with self.subTest(**extra):
+                mw = _build(oxide_goal="disabled", **extra)
+                self.assertEqual(mw.worlds[1]._legacy_goal_value(), -1)
 
 
 class TestComposedGoalGuards(unittest.TestCase):
@@ -331,6 +344,15 @@ class TestUTRestoreComposedGoal(unittest.TestCase):
             self._restored({"goal_oxide": 2, "goal_bosses": 1, "goal_gems": 3}),
             (2, 1, 3))
 
+    def test_restores_the_disabled_value(self):
+        # Issue #320: UT must reconstruct `disabled` as `disabled`, or its
+        # re-generated world would keep two Oxide checks the server does not
+        # have. The graph-level consequence is proved in
+        # test_oxide_access_contract.TestOxideAccessUniversalTrackerParity.
+        self.assertEqual(
+            self._restored({"goal_oxide": 3, "goal_bosses": 4, "goal_gems": 0}),
+            (OxideGoal.option_disabled, 4, 0))
+
     def test_restores_composed_keys_even_when_legacy_goal_also_present(self):
         # A #152 seed still emits a best-effort legacy `goal` (-1 for a
         # genuinely composed seed) alongside the real fields -- the composed
@@ -368,7 +390,7 @@ class TestUTRestoreComposedGoal(unittest.TestCase):
 
 class TestComposedGoalWire(CTRTestBase):
     """fill_slot_data emits the three composed fields plus the best-effort
-    legacy `goal` int, under the current unconditional schema 8 pair gate."""
+    legacy `goal` int, under the current unconditional schema pair gate."""
 
     run_default_tests = False
     options = {"oxide_goal": "first", "bosses_required_goal": 2,
@@ -381,8 +403,8 @@ class TestComposedGoalWire(CTRTestBase):
         self.assertEqual(co["goal_bosses"], 2)
         self.assertEqual(co["goal_gems"], 0)
         self.assertEqual(co["goal"], -1)  # no legacy analogue
-        self.assertEqual(co["schema_version"], 8)
-        self.assertEqual(sd["schema_version"], 8)
+        self.assertEqual(co["schema_version"], 9)
+        self.assertEqual(sd["schema_version"], 9)
 
 
 if __name__ == "__main__":

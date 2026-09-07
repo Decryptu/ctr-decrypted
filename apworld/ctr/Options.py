@@ -16,7 +16,11 @@ class OxideGoal(Choice):
     - **any_percent** (default): beat Oxide, the retail ending.
     - **101_percent**: beat Oxide's Final Challenge, the full-completion
       ending.
-    - **none**: Oxide is not part of the goal at all.
+    - **none**: Oxide is not part of the goal, but both Oxide races stay in
+      the seed as ordinary optional checks.
+    - **disabled**: Oxide's garage never opens and both Oxide races are
+      removed from the seed entirely. Needs at least one Boss or Gem
+      condition, because nothing else would be left to finish.
 
     Combine it with Bosses Required and Gems Required to build the goal you
     want; every condition you set must be met."""
@@ -24,6 +28,12 @@ class OxideGoal(Choice):
     option_none = 0
     option_any_percent = 1
     option_101_percent = 2
+    # Issue #320. `none` already means "optional Oxide": the garage still opens
+    # and both races remain checks. `disabled` is the separate, stronger value
+    # that closes the garage and removes both locations, so it needed its own
+    # integer rather than a re-reading of 0 -- every already-rolled `none` seed
+    # keeps its meaning on the wire and in every shipped client.
+    option_disabled = 3
     # The old spellings keep working, so a YAML written before the rename
     # loads unchanged. The integers are frozen: slot_data's goal_oxide and the
     # native parser (ap_verify.c, ap_hooks.c) read the number, never the name,
@@ -31,6 +41,24 @@ class OxideGoal(Choice):
     alias_first = 1
     alias_final = 2
     default = 1
+
+    @staticmethod
+    def oxide_content_present(value: int) -> bool:
+        """Does this seed contain the two Oxide race LOCATIONS at all?
+
+        True for every value except `disabled`. The one place that answer is
+        computed, so Regions (which skips creating them), Rules (which skips
+        their access rules), the relic classification and the forced-option
+        guards cannot drift about whether the content exists."""
+        return value != OxideGoal.option_disabled
+
+    @staticmethod
+    def oxide_is_goal(value: int) -> bool:
+        """Is an Oxide encounter this seed's finale? False for `none` and for
+        `disabled` -- the two values under which no non-Oxide goal arm may
+        gate either Oxide race (2026-09-03 RC ruling)."""
+        return value in (OxideGoal.option_any_percent,
+                         OxideGoal.option_101_percent)
 
 
 class BossesRequiredGoal(Range):

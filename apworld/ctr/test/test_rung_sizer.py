@@ -13,6 +13,7 @@ from test.general import setup_multiworld
 from .. import ctrAPWorld, podium, progressive_capability, rung_sizer, traps
 from ..elastic_bounds import (goal_excluded_location_reserve,
                                predicted_goal_excluded_reserve)
+from ..Options import OxideGoal
 
 
 class _Toggle:
@@ -172,6 +173,11 @@ class TestRungSizingGeneration(unittest.TestCase):
             {"oxide_goal": "final"},
             {"oxide_goal": "none", "bosses_required_goal": 4},
             {"oxide_goal": "none", "gems_required_goal": 3},
+            # Sonnet review, 2026-09-03: `disabled` (#320) was missing from
+            # this matrix, which is exactly how the elastic-bounds twin
+            # shipped untested against it.
+            {"oxide_goal": "disabled", "bosses_required_goal": 4},
+            {"oxide_goal": "disabled", "gems_required_goal": 3},
         )
         for seed, options in enumerate(matrices, start=730):
             with self.subTest(options=options):
@@ -179,6 +185,82 @@ class TestRungSizingGeneration(unittest.TestCase):
                 world = mw.worlds[1]
                 self.assertEqual(predicted_goal_excluded_reserve(world.options),
                                  goal_excluded_location_reserve(world))
+
+    def test_predicted_goal_excluded_reserve_zero_for_none_and_disabled(self):
+        # 2026-09-03 repair: `predicted_goal_excluded_reserve` used to test
+        # `oxide_goal.value != 0`, which happened to be right for `none` (0)
+        # and any Oxide finale (1/2 -> 1) but wrongly predicted 1 for
+        # `disabled` (3), which installs no goal-exclusion branch at all and
+        # must predict 0 like `none`. Assert the canonical
+        # `OxideGoal.oxide_is_goal` semantics directly, independent of any
+        # live world.
+        for value in (OxideGoal.option_none, OxideGoal.option_disabled):
+            with self.subTest(oxide_goal=value):
+                options = _Options.__new__(_Options)
+                options.oxide_goal = _Toggle(value)
+                self.assertEqual(predicted_goal_excluded_reserve(options), 0)
+        for value in (OxideGoal.option_any_percent, OxideGoal.option_101_percent):
+            with self.subTest(oxide_goal=value):
+                options = _Options.__new__(_Options)
+                options.oxide_goal = _Toggle(value)
+                self.assertEqual(predicted_goal_excluded_reserve(options), 1)
+
+    def test_disabled_goal_at_rung_ceiling_not_rejected_by_reserve_overestimate(self):
+        """Boundary regression for the Sonnet review's blocker.
+
+        Builds a real `disabled`-goal world, then uses the raw
+        `exclude_locations` YAML option (whose count feeds `required_categories`
+        unconditionally, regardless of whether the names exist -- see
+        `player_exclude_locations_reserve`) to pad demand until it sits exactly
+        on the five-category ceiling: `demand == base + len(TROPHY_TRACKS) * 5`.
+        At that exact boundary the fixed predictor (reserve 0 for `disabled`)
+        must still find a home (`required_categories(world) == 5`), while the
+        pre-repair predictor (reserve 1 for `disabled`) would have pushed
+        demand one location past every reachable category ceiling and forced
+        a spurious `OptionError`. A parallel `any_percent` seed at the same
+        margin proves a true Oxide goal still reserves its one location: an
+        identical pad there sits one location OVER the ceiling on purpose,
+        which the fixed predictor (correctly reserving 1) still rejects.
+        """
+        mw = setup_multiworld(
+            ctrAPWorld, seed=741,
+            options={"oxide_goal": "disabled", "bosses_required_goal": 4})
+        world = mw.worlds[1]
+        self.assertEqual(predicted_goal_excluded_reserve(world.options), 0)
+        base = rung_sizer._base_location_supply(world)
+        ceiling = base + len(podium.TROPHY_TRACKS) * 5
+        mandatory = rung_sizer.predicted_mandatory_pool(world)
+        pad_to_ceiling = ceiling - mandatory
+        self.assertGreater(pad_to_ceiling, 0)
+        world.options.exclude_locations.value = frozenset(
+            f"synthetic exclude {i}" for i in range(pad_to_ceiling))
+        # Exact boundary: demand == ceiling. The fixed reserve (0) fits.
+        self.assertEqual(rung_sizer.required_categories(world), 5)
+        # What the pre-repair reserve (1 for `disabled`) would have computed:
+        # one location past every reachable category, i.e. rejected.
+        buggy_demand = mandatory + 1 + pad_to_ceiling
+        self.assertGreater(buggy_demand, ceiling)
+
+        # A true Oxide goal (`any_percent`) genuinely does reserve one
+        # location. The identical pad there lands exactly where `disabled`'s
+        # buggy predictor incorrectly landed: one location over the ceiling,
+        # and the FIXED predictor for a real Oxide goal correctly rejects it.
+        mw_goal = setup_multiworld(
+            ctrAPWorld, seed=742,
+            options={"oxide_goal": "any_percent"})
+        world_goal = mw_goal.worlds[1]
+        self.assertEqual(predicted_goal_excluded_reserve(world_goal.options), 1)
+        base_goal = rung_sizer._base_location_supply(world_goal)
+        ceiling_goal = base_goal + len(podium.TROPHY_TRACKS) * 5
+        mandatory_goal = rung_sizer.predicted_mandatory_pool(world_goal)
+        pad_goal = ceiling_goal - mandatory_goal - 1
+        self.assertGreater(pad_goal, 0)
+        world_goal.options.exclude_locations.value = frozenset(
+            f"synthetic exclude {i}" for i in range(pad_goal))
+        self.assertEqual(rung_sizer.required_categories(world_goal), 5)
+        world_goal.options.exclude_locations.value = frozenset(
+            f"synthetic exclude {i}" for i in range(pad_goal + 1))
+        self.assertIsNone(rung_sizer.required_categories(world_goal))
 
     def test_supply_poor_per_character_gets_numeric_capability_error(self):
         with self.assertRaises(OptionError) as ctx:
