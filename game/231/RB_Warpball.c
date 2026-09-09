@@ -49,7 +49,12 @@ void RB_Warpball_FadeAway(struct Thread *t)
 
 	inst->matrix.t[1] = tw->distFromGround + s_warpballFadeY[frameId];
 
-	tw->fadeAway_frameCount5 += 1;
+#if CTR_NATIVE_60FPS
+	if (!CTR_NATIVE_60FPS_ACTIVE || ((gGT->timer & 1) != 0))
+#endif
+	{
+		tw->fadeAway_frameCount5 += 1;
+	}
 
 	return;
 }

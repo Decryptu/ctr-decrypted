@@ -143,7 +143,7 @@ void AH_Map_HubArrowOutter(void *hubPtrs, int arrowIndex, int posX, int posY, in
 	posX += D232.hubArrowXY_Inner[2 * type + 0];
 	posY += D232.hubArrowXY_Inner[2 * type + 1];
 
-	int timer = gGT->timer >> 0;
+	int timer = FPS_HALF(gGT->timer) >> 0;
 
 	int var14;
 	int var15;
@@ -492,7 +492,7 @@ void AH_Map_HubItems(void *hubPtrs, s16 *param_2)
 				}
 
 				// if even frame
-				if ((gGT->timer & 2) == 0)
+				if ((FPS_HALF(gGT->timer) & 2) == 0)
 				{
 					iVar5 = (int)sVar7 * 6;
 				}
@@ -530,7 +530,7 @@ void AH_Map_HubItems(void *hubPtrs, s16 *param_2)
 						// blue and white
 						// depending on frames
 						uVar6 = 5;
-						if ((gGT->timer & 2) != 0)
+						if ((FPS_HALF(gGT->timer) & 2) != 0)
 						{
 							uVar6 = 4;
 						}
@@ -599,7 +599,7 @@ void AH_Map_Warppads(s16 *ptrMap, struct Thread *warppadThread, s16 *param_3)
 			break;
 		case 1:
 			color = 5;
-			if ((gGT->timer & 2) != 0)
+			if ((FPS_HALF(gGT->timer) & 2) != 0)
 			{
 				color = 4;
 			}
@@ -613,7 +613,7 @@ void AH_Map_Warppads(s16 *ptrMap, struct Thread *warppadThread, s16 *param_3)
 			break;
 		case 4:
 			// Each Slide Coliseum/Turbo Track color lasts two frames.
-			color = ((gGT->timer >> 1) & 7) + 5;
+			color = ((FPS_HALF(gGT->timer) >> 1) & 7) + 5;
 			break;
 		default:
 			color = 0x15;

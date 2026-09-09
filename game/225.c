@@ -86,6 +86,10 @@ void VB_EndEvent_DrawMenu(void)
 	s32 numPlayers = gGT->numPlyrCurrGame;
 	s32 playerCountIndex = numPlayers - VB_MIN_PLAYERS;
 	b32 isBattleMode = (gGT->gameMode1 & BATTLE_MODE) != 0;
+	b32 use30HzStep = true;
+#if CTR_NATIVE_60FPS
+	use30HzStep = !CTR_NATIVE_60FPS_ACTIVE || ((gGT->timer & 1) != 0);
+#endif
 
 	if (sdata->framesSinceRaceEnded < FPS_DOUBLE(VB_RESULT_MAX_FRAMES))
 	{
@@ -123,7 +127,7 @@ void VB_EndEvent_DrawMenu(void)
 
 	s32 titleTargetX;
 	s32 titleFrame;
-	if (sdata->framesSinceRaceEnded <= VB_MENU_SHOW_DELAY_FRAMES)
+	if (sdata->framesSinceRaceEnded <= FPS_DOUBLE(VB_MENU_SHOW_DELAY_FRAMES))
 	{
 		titleTargetX = VB_TITLE_ENTRY_X;
 		titleFrame = sdata->framesSinceRaceEnded;
@@ -131,11 +135,11 @@ void VB_EndEvent_DrawMenu(void)
 	else
 	{
 		titleTargetX = VB_TITLE_TARGET_X;
-		titleFrame = sdata->framesSinceRaceEnded - VB_MENU_SHOW_DELAY_FRAMES;
+		titleFrame = sdata->framesSinceRaceEnded - FPS_DOUBLE(VB_MENU_SHOW_DELAY_FRAMES);
 	}
 
 	// fly-in interpolation
-	UI_Lerp2D_Linear(pos.v, VB_TITLE_ENTRY_X, titleY, titleTargetX, titleY, titleFrame, VB_LERP_FRAMES);
+	UI_Lerp2D_Linear(pos.v, VB_TITLE_ENTRY_X, titleY, titleTargetX, titleY, titleFrame, FPS_DOUBLE(VB_LERP_FRAMES));
 
 	s32 rowY = titleY + VB_TITLE_TO_ROWS_Y;
 
@@ -150,7 +154,7 @@ void VB_EndEvent_DrawMenu(void)
 		visiblePlaces = standingsEntryCount - 1;
 	}
 
-	s32 rowDelay = VB_ROW_INITIAL_DELAY_FRAMES;
+	s32 rowDelay = FPS_DOUBLE(VB_ROW_INITIAL_DELAY_FRAMES);
 	s16 displayedRankOffset = 0;
 	s16 previousStandingsScore = 0;
 	for (s32 standingsIndex = 0; standingsIndex < standingsEntryCount; standingsIndex++)
@@ -172,7 +176,7 @@ void VB_EndEvent_DrawMenu(void)
 		}
 
 		// fly-in interpolation
-		UI_Lerp2D_Linear(pos.v, VB_TITLE_ENTRY_X, currRowY, rowTargetX, currRowY, rowFrame, VB_LERP_FRAMES);
+		UI_Lerp2D_Linear(pos.v, VB_TITLE_ENTRY_X, currRowY, rowTargetX, currRowY, rowFrame, FPS_DOUBLE(VB_LERP_FRAMES));
 
 		s16 rankTextY;
 		if (!isBattleMode)
@@ -215,7 +219,7 @@ void VB_EndEvent_DrawMenu(void)
 			s32 placeTextColor = JUSTIFY_RIGHT | RED;
 			if (place == entityRank)
 			{
-				placeTextColor = (gGT->timer & 1) ? (JUSTIFY_RIGHT | RED) : (JUSTIFY_RIGHT | WHITE);
+					placeTextColor = (FPS_HALF(gGT->timer) & 1) ? (JUSTIFY_RIGHT | RED) : (JUSTIFY_RIGHT | WHITE);
 			}
 
 			sprintf(text, "%d%s-%2.02ld", place + 1, sdata->lngStrings[VB_STANDINGS_SUFFIX_FIRST + place],
@@ -237,7 +241,7 @@ void VB_EndEvent_DrawMenu(void)
 
 		s32 displayedRank = standingsIndex - displayedRankOffset;
 
-		rowDelay += VB_ROW_STAGGER_FRAMES;
+			rowDelay += FPS_DOUBLE(VB_ROW_STAGGER_FRAMES);
 
 		previousStandingsScore = (s16)gGT->battleSetup.standingsScore[entityID];
 		sprintf(text, "%d%s", displayedRank + 1, sdata->lngStrings[VB_STANDINGS_SUFFIX_FIRST + displayedRank]);
@@ -263,14 +267,15 @@ void VB_EndEvent_DrawMenu(void)
 		{
 			winnerViewportFound = true;
 
-			if ((numPlayers == 2) && (view->rect.w > VB_WINNER_2P_MIN_WIDE_RECT))
+				if (use30HzStep && (numPlayers == 2) && (view->rect.w > VB_WINNER_2P_MIN_WIDE_RECT))
 			{
 				view->rect.w -= VB_WINNER_2P_WIDTH_STEP;
 				view->distanceToScreen_CURR = VB_WINNER_DISTANCE_TO_SCREEN;
 			}
 
 			// fly-in interpolation
-			UI_Lerp2D_Linear(pos.v, view->rect.x, view->rect.y, VB_WINNER_TARGET_X, VB_WINNER_TARGET_Y, sdata->framesSinceRaceEnded, VB_WINNER_LERP_FRAMES);
+				UI_Lerp2D_Linear(pos.v, view->rect.x, view->rect.y, VB_WINNER_TARGET_X, VB_WINNER_TARGET_Y, sdata->framesSinceRaceEnded,
+				                 FPS_DOUBLE(VB_WINNER_LERP_FRAMES));
 
 			RECT box;
 			box.x = pos.x - VB_WINNER_BOX_X_PAD;
@@ -287,7 +292,7 @@ void VB_EndEvent_DrawMenu(void)
 		}
 		else
 		{
-			if (view->rect.w > 0)
+				if (use30HzStep && (view->rect.w > 0))
 			{
 				view->rect.x += VB_LOSER_RECT_STEP_X;
 				view->rect.y += VB_LOSER_RECT_STEP_Y;
@@ -297,7 +302,7 @@ void VB_EndEvent_DrawMenu(void)
 		}
 	}
 
-	if (((sdata->menuReadyToPass & VB_MENU_READY_SHOW_MENU) == 0) && (VB_MENU_SHOW_DELAY_FRAMES < sdata->framesSinceRaceEnded))
+		if (((sdata->menuReadyToPass & VB_MENU_READY_SHOW_MENU) == 0) && (FPS_DOUBLE(VB_MENU_SHOW_DELAY_FRAMES) < sdata->framesSinceRaceEnded))
 	{
 		struct RectMenu *endMenu = isBattleMode ? &menuBattle : &menuVS;
 

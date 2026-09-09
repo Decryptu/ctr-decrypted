@@ -83,7 +83,14 @@ s16 SubmitName_DrawMenu(u16 string)
 		cursorPosition = 38;
 	}
 
+#if CTR_NATIVE_60FPS
+	if (!CTR_NATIVE_60FPS_ACTIVE || ((gGT->timer & 1) != 0))
+	{
+		sdata->typeTimer++;
+	}
+#else
 	sdata->typeTimer++;
+#endif
 	blinkWhite = (sdata->typeTimer & 1) << 2;
 	letterID = 0;
 

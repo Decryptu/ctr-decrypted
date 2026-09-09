@@ -209,7 +209,7 @@ void UI_Map_DrawAdvPlayer(int ptrMap, int *matrix, int unused1, int unused2, s16
 	UI_Map_GetIconPos((s16 *)ptrMap, &posX, &posY);
 
 	arrowColor = &data.playerIconAdvMap.vertCol1[0];
-	if ((sdata->gGT->timer & 2) != 0)
+	if ((FPS_HALF(sdata->gGT->timer) & 2) != 0)
 	{
 		arrowColor = &data.playerIconAdvMap.vertCol2[0];
 	}
@@ -280,7 +280,7 @@ void UI_Map_DrawDrivers(int ptrMap, struct Thread *bucket, s16 *param_3)
 		{
 			// If this is an even numbered frame
 			// ptrColors white value
-			if ((gGT->timer & 2) == 0)
+			if ((FPS_HALF(gGT->timer) & 2) == 0)
 			{
 				kartColor = WHITE;
 			}
@@ -328,7 +328,7 @@ void UI_Map_DrawGhosts(int ptrMap, struct Thread *bucket)
 			// flash red and blue
 
 			color = CORTEX_RED;
-			if ((gGT->timer & 1) != 0)
+			if ((FPS_HALF(gGT->timer) & 1) != 0)
 			{
 				color = CRASH_BLUE;
 			}
@@ -350,7 +350,7 @@ void UI_Map_DrawGhosts(int ptrMap, struct Thread *bucket)
 				// oxide flickers
 
 				color = RED;
-				if ((gGT->timer & 1) != 0)
+				if ((FPS_HALF(gGT->timer) & 1) != 0)
 				{
 					color = WHITE;
 				}
@@ -401,7 +401,7 @@ void UI_Map_DrawTracking(int ptrMap, struct Thread *bucket)
 
 		// flicker
 		uVar1 = 4;
-		if ((sdata->gGT->timer & 1) != 0)
+		if ((FPS_HALF(sdata->gGT->timer) & 1) != 0)
 		{
 			uVar1 = 3;
 		}

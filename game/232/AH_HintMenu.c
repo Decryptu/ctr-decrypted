@@ -7,7 +7,7 @@ void AH_HintMenu_FiveArrows(int param_1, s16 rotation)
 	char i;
 
 	ptrColor = &D232.fiveArrow_col1[0];
-	if ((sdata->frameCounter & 2) != 0)
+	if ((FPS_HALF(sdata->frameCounter) & 2) != 0)
 	{
 		ptrColor = &D232.fiveArrow_col2[0];
 	}

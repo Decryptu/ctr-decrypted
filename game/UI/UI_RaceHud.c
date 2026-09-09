@@ -247,7 +247,8 @@ LAB_8004fe8c:
 	// set pointer of the missile or warpball chasing the player
 	d->thTrackingMe = trackerTh;
 
-	if (data.trackerTimer[driverid] != 0)
+	if ((data.trackerTimer[driverid] != 0) &&
+	    (!CTR_NATIVE_60FPS_ACTIVE || ((gGT->timer & 1) != 0)))
 	{
 		data.trackerTimer[driverid]--;
 	}
@@ -298,7 +299,7 @@ LAB_8004fe8c:
 		// red
 		bgColor = 0xff;
 
-		if ((gGT->timer % beep_rate) == 0)
+		if ((gGT->timer % FPS_DOUBLE(beep_rate)) == 0)
 		{
 			if ((gGT->gameMode1 & PAUSE_ALL) == 0)
 			{
