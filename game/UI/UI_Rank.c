@@ -224,7 +224,12 @@ void UI_DrawRankedDrivers(void)
 
 				if (isTransitioning)
 				{
-					psVar13[0]++;
+#if CTR_NATIVE_60FPS
+					if (!CTR_NATIVE_60FPS_ACTIVE || ((gGT->timer & 1) != 0))
+#endif
+					{
+						psVar13[0]++;
+					}
 
 					if (*psVar13 >= 5)
 					{
