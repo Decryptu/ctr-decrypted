@@ -79,6 +79,8 @@ from typing import ClassVar, List, Literal, Optional, Tuple
 import settings as ap_settings
 from Options import OptionError, Range
 
+from .Options import OxideGoal
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -287,10 +289,14 @@ def predicted_goal_excluded_reserve(options) -> int:
     ``goal_excluded_location_reserve`` intentionally reads the actual exclusion
     list and is therefore correct only after ``_install_goal``. The rung sizer
     runs before regions and items exist, so it needs this pure-options twin.
-    The composed goal model excludes exactly one real location when the Oxide
-    condition is ``first`` or ``final`` and none when it is ``none``.
+    The composed goal model excludes exactly one real location when Oxide is
+    this seed's finale (``oxide_is_goal``: ``any_percent``/``101_percent``)
+    and none otherwise -- ``none`` never excluded one, and ``disabled`` (#320)
+    removes both Oxide locations outright rather than excluding one, so it
+    must predict zero here too or the rung sizer overestimates category
+    demand by one and can spuriously reject a seed that actually fits.
     """
-    return int(options.oxide_goal.value != 0)
+    return int(OxideGoal.oxide_is_goal(options.oxide_goal.value))
 
 
 def player_exclude_locations_reserve(world) -> int:
