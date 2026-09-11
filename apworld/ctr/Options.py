@@ -684,6 +684,28 @@ class WarpPadItemDisplay(Choice):
     default = 0
 
 
+class TrialTrackRaces(Choice):
+    """Standalone Adventure race family for one trial track.
+
+    Trophy Race also restores that track's per-track Reach 10 Wumpa route.
+    CTR Challenge includes Trophy Race by construction, so a CTR-only seed
+    cannot be expressed.
+    """
+    display_name = "Trial Track Races"
+    option_off = 0
+    option_trophy_race = 1
+    option_trophy_and_ctr_challenge = 2
+    default = 0
+
+
+class SlideColiseumRaces(TrialTrackRaces):
+    display_name = "Slide Coliseum Races"
+
+
+class TurboTrackRaces(TrialTrackRaces):
+    display_name = "Turbo Track Races"
+
+
 class ApItemTypeColors(DefaultOnToggle):
     """Colour the Archipelago markers by what kind of item is behind them.
 
@@ -1129,6 +1151,8 @@ class ctrAPOptions(PerGameCommonOptions):
     # community custom tracks (Baby T Park event spike): a self-describing
     # descriptor that DISPLACES the cup destination it names
     custom_tracks: CustomTracks
+    slide_coliseum_races: SlideColiseumRaces
+    turbo_track_races: TurboTrackRaces
     shuffle_keys: ShuffleKeys
     trap_fill_percentage: TrapFillPercentage
     trap_weights: TrapWeights
@@ -1213,6 +1237,7 @@ ap_ctr_option_groups: Dict[str, List[Any]] = {
     # against each other rather than one at a time.
     "Extra Checks": [BoxLocations, ShortcutKnowledge, Itemsanity,
                      Lettersanity, LettersPerTrack,
+                     SlideColiseumRaces, TurboTrackRaces,
                      PodiumPlacementChecks, PodiumFinishRungs,
                      PodiumAnyPositionRung, PodiumHeldRungs,
                      PodiumHeldFifthRung],

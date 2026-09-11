@@ -629,6 +629,19 @@ def create_regions(world: "ctrAPWorld"):
         _region.locations.append(_loc)
         mw.regions.location_cache[player][_name] = _loc
 
+    # Standalone Trophy and CTR Challenge events on the two trial tracks.
+    # Both live in the destination track region, so destination shuffle keeps
+    # physical-pad access and logical race identity aligned automatically.
+    from .trial_trophy import TRIAL_TROPHY_CLASS
+    for _name, _code, _region_name in TRIAL_TROPHY_CLASS.created_locations(opts):
+        _region = region_lookup[_region_name]
+        _loc = create_location(player, _name, _region)
+        _loc.type = ("trial_ctr" if _name.endswith("CTR Token Challenge")
+                     else "trial_trophy")
+        _loc.logic_text = "True"
+        _region.locations.append(_loc)
+        mw.regions.location_cache[player][_name] = _loc
+
     # --- Podium placement checks (position-rung rework, shipped 0.1.x) --------
     # Per adventure trophy race, a 5-rung superset split into held-position rungs
     # (Held 1st / Held 3rd / optional Held 5th) and finish-line rungs (Finish on

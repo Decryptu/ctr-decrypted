@@ -57,7 +57,7 @@ EXPECTED_CLASSES = [
     # code, the 18 retail destination codes behind it, and the custom
     # destination-slot block. See wumpa_checks.py for the block layout.
     ("wumpa", 20, (35016100, 35016101, 35016120)),
-    ("trial_trophy", 2, (35016200,)),
+    ("trial_trophy", 4, (35016200, 35016210)),
     ("custom_track_race", 192, (35016300, 35016400, 35016500)),
 ]
 
@@ -123,7 +123,7 @@ class TestNameFreezeCensus(unittest.TestCase):
         # 574 through the trap rework, plus the 19 names the approved
         # 2026-08-29 Wumpa unfreeze appended, plus 32 frozen generic custom
         # race slots with one Trophy and five podium identities apiece.
-        self.assertEqual(len(world_type.location_name_to_id), 785)
+        self.assertEqual(len(world_type.location_name_to_id), 787)
 
     def test_each_class_codes_sit_inside_its_declared_blocks(self) -> None:
         for location_class in CTR_LOCATION_CLASSES:

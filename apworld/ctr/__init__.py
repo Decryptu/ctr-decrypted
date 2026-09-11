@@ -298,6 +298,8 @@ class ctrAPWorld(World):
         if "box_locations" in co:
             o.box_locations.value = int(bool(co["box_locations"]))
         _restore("shortcut_knowledge", "shortcut_knowledge")
+        _restore("slide_coliseum_races", "slide_coliseum_races")
+        _restore("turbo_track_races", "turbo_track_races")
         # Character phase (#54/#209). Two logic-relevant keys, both of which UT
         # gets wrong by default if it falls back to the tracking player's YAML:
         #   character_unlocks decides whether 15 unlock items exist AT ALL, so
@@ -1896,7 +1898,7 @@ class ctrAPWorld(World):
         # mismatch from the player instead of raising the #8 newer-schema
         # warning. Unconditional per the Q28 standing ruling ("ALWAYS BUMP...
         # no conditional emission"), so every 0.2.0 RC seed declares 9.
-        schema = 9
+        schema = 10
         slot_data: Dict[str, object] = {
             "Seed": self.multiworld.seed_name,
             "Slot": self.multiworld.player_name[self.player],
@@ -1946,6 +1948,8 @@ class ctrAPWorld(World):
                 "shuffle_gems": bool(o.shuffle_gems.value),
                 "shuffle_keys": bool(o.shuffle_keys.value),
                 "warppad_unlock_mode": o.warppad_unlock_requirements.value,
+                "slide_coliseum_races": int(o.slide_coliseum_races.value),
+                "turbo_track_races": int(o.turbo_track_races.value),
                 "bossgarage_mode": o.bossgarage_unlock_requirements.value,
                 # Warp-pad item display (issue #59): 0 one_pile / 1
                 # by_reward_type. ADDITIVE key, no schema bump -- the one_lap_cups
@@ -2111,6 +2115,21 @@ class ctrAPWorld(World):
             # docstring and Contract 7h. Always present, `pads` empty when off.
             "racer_locks": characters.racer_lock_slot_data(self),
         }
+        from .trial_trophy import TRIAL_TROPHY_CLASS, TRIAL_TRACKS
+        if TRIAL_TROPHY_CLASS.is_enabled(o):
+            trial_locations = {}
+            for track, level_id in zip(TRIAL_TRACKS, (16, 17)):
+                created = set(TRIAL_TROPHY_CLASS.created_location_names(o))
+                trophy = TRIAL_TROPHY_CLASS.location_name(track)
+                ctr = TRIAL_TROPHY_CLASS.ctr_location_name(track)
+                trial_locations[str(level_id)] = [
+                    TRIAL_TROPHY_CLASS.code_for(track) if trophy in created else -1,
+                    TRIAL_TROPHY_CLASS.name_to_code()[ctr] if ctr in created else -1,
+                ]
+            slot_data["trial_track_checks"] = {
+                "enabled": True,
+                "locations": trial_locations,
+            }
         if legs_randomized:
             # Issue #166: the five cups' leg tracks (see _resolve_gem_cup_legs).
             # Emitted only when randomized -- absent means vanilla legs to both
