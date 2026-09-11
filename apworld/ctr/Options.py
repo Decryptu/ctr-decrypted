@@ -134,6 +134,15 @@ class FinalOxideRelicCount(NamedRange):
     range_start = 1
     range_end = 54
     default = 18
+
+
+class OxideFinalTrack(Choice):
+    """Venue for N. Oxide's Final Challenge. The opponent and AP location
+    remain Nitros Oxide and 35011105 for both choices."""
+    display_name = "Oxide Final Challenge Track"
+    option_cortex_vortex = 0
+    option_oxide_station = 1
+    default = 0
     special_range_names = {"all": 18}
 
 
@@ -1144,6 +1153,7 @@ class ctrAPOptions(PerGameCommonOptions):
     gems_required_goal: GemsRequiredGoal
     oxide_final_challenge_unlock: FinalOxideUnlock
     oxide_final_challenge_relic_count: FinalOxideRelicCount
+    oxide_final_track: OxideFinalTrack
     # items & pool
     shuffle_gems: ShuffleGems
     include_gem_cups: ShuffleWarpPadsGemCups

@@ -56,7 +56,7 @@ EXPECTED_CLASSES = [
     # WIDENED by the approved 2026-08-29 unfreeze: the permanent global
     # code, the 18 retail destination codes behind it, and the custom
     # destination-slot block. See wumpa_checks.py for the block layout.
-    ("wumpa", 20, (35016100, 35016101, 35016120)),
+    ("wumpa", 21, (35016100, 35016101, 35016120, 35016121)),
     ("trial_trophy", 4, (35016200, 35016210)),
     ("custom_track_race", 192, (35016300, 35016400, 35016500)),
 ]
@@ -123,7 +123,7 @@ class TestNameFreezeCensus(unittest.TestCase):
         # 574 through the trap rework, plus the 19 names the approved
         # 2026-08-29 Wumpa unfreeze appended, plus 32 frozen generic custom
         # race slots with one Trophy and five podium identities apiece.
-        self.assertEqual(len(world_type.location_name_to_id), 787)
+        self.assertEqual(len(world_type.location_name_to_id), 788)
 
     def test_each_class_codes_sit_inside_its_declared_blocks(self) -> None:
         for location_class in CTR_LOCATION_CLASSES:
@@ -298,7 +298,7 @@ class TestNameFreezeCrossSideConsistency(unittest.TestCase):
         at a spaced base so a future role appends rather than collides.
         """
         entries = wumpa_checks.WUMPA_CLASS.all_locations()
-        self.assertEqual(len(entries), 20)
+        self.assertEqual(len(entries), 21)
 
         # The global check never moves, and it is still first.
         self.assertEqual(entries[0],
@@ -320,6 +320,11 @@ class TestNameFreezeCrossSideConsistency(unittest.TestCase):
             entries[19],
             ("Purple Gem Cup Custom Race: Reach 10 Wumpa", 35016120,
              "Purple Gem Cup"))
+
+        self.assertEqual(
+            entries[20],
+            ("Cortex Vortex: Reach 10 Wumpa", 35016121,
+             "N. Oxide Garage"))
 
         # The whole family stays clear of trial_trophy at 35016200.
         self.assertTrue(all(code < 35016200 for _n, code, _r in entries))

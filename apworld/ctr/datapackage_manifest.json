@@ -1,7 +1,7 @@
 {
   "game": "Crash Team Racing",
   "world_version": "0.2.0",
-  "checksum": "0eadfbfaa295a0d220fef5a98d301f47e41d762e",
+  "checksum": "b54880da40b82b16b624a9f0751a02ebb5d73d51",
   "item_name_to_id": {
     "Beaker": 35010099,
     "Big Wumpa Bundle": 35010121,
@@ -296,6 +296,7 @@
     "Cortex Castle: Relic Race Perfect": 35012413,
     "Cortex Castle: Sapphire Time Trial": 35012013,
     "Cortex Castle: Trophy Race": 35011013,
+    "Cortex Vortex: Reach 10 Wumpa": 35016121,
     "Crash Cove: CTR Token Challenge": 35012300,
     "Crash Cove: Finish (Any Position)": 35015002,
     "Crash Cove: Finish 1st": 35015000,
@@ -1338,6 +1339,7 @@
       "Cortex Castle: Relic Race Perfect",
       "Cortex Castle: Sapphire Time Trial",
       "Cortex Castle: Trophy Race",
+      "Cortex Vortex: Reach 10 Wumpa",
       "Crash Cove: CTR Token Challenge",
       "Crash Cove: Finish (Any Position)",
       "Crash Cove: Finish 1st",

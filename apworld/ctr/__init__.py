@@ -282,6 +282,7 @@ class ctrAPWorld(World):
         _restore("shuffle_keys", "shuffle_keys")
         _restore("oxide_final_challenge_unlock", "oxide_final_unlock")
         _restore("oxide_final_challenge_relic_count", "oxide_final_count")
+        _restore("oxide_final_track", "oxide_final_track")
         # #145 made the boost chain a reachability input (the Itemsanity Turbo
         # checks require one received Progressive Boost when the chain is
         # randomized), so the seed's mode must override the tracking player's
@@ -1898,7 +1899,10 @@ class ctrAPWorld(World):
         # mismatch from the player instead of raising the #8 newer-schema
         # warning. Unconditional per the Q28 standing ruling ("ALWAYS BUMP...
         # no conditional emission"), so every 0.2.0 RC seed declares 9.
-        schema = 10
+        # Schema 11 composes the schema-10 trial-track work with the independent
+        # Oxide Final venue descriptor below. A schema-10 client would otherwise
+        # load Oxide Station while the seed selected Cortex Vortex.
+        schema = 11
         slot_data: Dict[str, object] = {
             "Seed": self.multiworld.seed_name,
             "Slot": self.multiworld.player_name[self.player],
@@ -1942,6 +1946,7 @@ class ctrAPWorld(World):
                 # the shared 1-18 count. 0 (sapphire) stays frozen = the old 0.
                 "oxide_final_unlock": o.oxide_final_challenge_unlock.value,
                 "oxide_final_count": o.oxide_final_challenge_relic_count.value,
+                "oxide_final_track": int(o.oxide_final_track.value),
                 "shuffle_warp_pads": derived_shuffle,
                 "warp_pad_shuffle_categories": sorted(o.warp_pad_shuffle_categories.value),
                 "warp_pad_shuffle_grouping": o.warp_pad_shuffle_grouping.current_key,
@@ -2114,6 +2119,22 @@ class ctrAPWorld(World):
             # a `switch` default on an unevaluable type. See the characters.py
             # docstring and Contract 7h. Always present, `pads` empty when off.
             "racer_locks": characters.racer_lock_slot_data(self),
+            "oxide_final_venue": {
+                "version": 1,
+                "track": ("cortex_vortex" if int(o.oxide_final_track.value) == 0
+                          else "oxide_station"),
+                "opponent": "nitros_oxide",
+                "location": 35011105,
+                "wumpa_location": (35016121
+                                    if int(o.wumpa_check.value) == 2 and
+                                    int(o.oxide_final_track.value) == 0 and
+                                    int(o.oxide_goal.value) != 3 else -1),
+                "host_level_id": 13,
+                "lev_sha256": ("4e3a2daf56c67be3ac645d3bb5375e516"
+                               "c828a0bca24c35ac69b3366c466fe13"),
+                "vrm_sha256": ("4131444b9d1d53971befcfd11349efcea"
+                               "f887c20b795c8890fdcb2c36bdff07d"),
+            },
         }
         from .trial_trophy import TRIAL_TROPHY_CLASS, TRIAL_TRACKS
         if TRIAL_TROPHY_CLASS.is_enabled(o):
