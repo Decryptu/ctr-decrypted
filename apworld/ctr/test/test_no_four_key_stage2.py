@@ -369,16 +369,20 @@ class TestMutationBypassingTheGuard(_MutationBase):
     it. Four-Key rows must come back."""
 
     def test_removing_the_guard_reintroduces_four_key_rows(self):
+        # Stage-1 leaks only come from shuffle re-validation redraws, about 4%
+        # of seeds, so the window must be wide enough not to miss them after an
+        # unrelated change shifts the RNG stream (issue #342 moved the first
+        # one from inside 1-70 to seed 133).
         original = warp_pad_logic.deny_four_key_gate
         warp_pad_logic.deny_four_key_gate = lambda req, mode: req
         try:
-            found = self._scan_seeds(range(1, 71))
+            found = self._scan_seeds(range(1, 151))
         finally:
             warp_pad_logic.deny_four_key_gate = original
         self.assertTrue(
             found,
             "removing the mode-2 guard produced no four-Key requirement in "
-            "seeds 1-70: the guard is not load-bearing and these tests prove "
+            "seeds 1-150: the guard is not load-bearing and these tests prove "
             "nothing")
         stages = {"stage1" in where for _s, where, _r in found}
         self.assertIn(True, stages, "expected at least one stage-1 leak")
