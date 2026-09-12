@@ -163,7 +163,7 @@ _REQUIRED_ENTRY_KEYS: FrozenSet[str] = frozenset({
     "minimum_apworld_version", "lev_sha256", "vrm_sha256", "navigation",
     "laps", "replaces", "flags",
 })
-_OPTIONAL_ENTRY_KEYS: FrozenSet[str] = frozenset({"host_level_id", "boxes"})
+_OPTIONAL_ENTRY_KEYS: FrozenSet[str] = frozenset({"host_level_id", "boxes", "modes"})
 _ALL_ENTRY_KEYS: FrozenSet[str] = _REQUIRED_ENTRY_KEYS | _OPTIONAL_ENTRY_KEYS
 
 _SHA256_RE = re.compile(r"\A[0-9a-fA-F]{64}\Z")
@@ -209,6 +209,22 @@ BABY_T_PARK_EXAMPLE: Dict[str, object] = {
     },
     "boxes": False,
 }
+
+
+BABY_T_PARK_CURRENT = {
+    **BABY_T_PARK_EXAMPLE,
+    "package_uuid": "2c7c7846-2ead-5b8f-a218-beca5792106e",
+    "package_version": "1.0.2",
+    "minimum_client_version": "0.3.0-letters1",
+    "minimum_apworld_version": "0.3.0-letters1",
+    "lev_sha256": "be161e0b11aa03505c501b7db012d830405e69e171f84633c2e24ffe9cc3cbf8",
+    "vrm_sha256": "1a0ff56b51562292ecc30c14e7a2e6d315f641feaa00990d4242abe46434f692",
+    # UUID5(importer UUID, "embedded-navigation:" + exact LEV SHA-256).
+    # A new asset-bound identity, not reuse of the old revision's evidence.
+    "navigation": {"uuid": "07395277-d2c2-5544-9cde-5ad9976c06fd", "revision": 1},
+    "flags": dict(BABY_T_PARK_EXAMPLE["flags"]),
+}
+BABY_T_PARK_PROFILES = (BABY_T_PARK_EXAMPLE, BABY_T_PARK_CURRENT)
 
 
 def _is_int(value) -> bool:
@@ -273,6 +289,14 @@ def _validate_entry(track_id: str, entry) -> None:
                   f"apworld never reads the files -- it carries this digest to "
                   f"the game, which hashes the real bytes and refuses to load "
                   f"the track on any mismatch.")
+    if "modes" in entry:
+        modes = entry["modes"]
+        if (not isinstance(modes, Mapping) or set(modes) - {"ctr_challenge"}
+                or any(type(v) is not bool for v in modes.values())):
+            _fail(f"entry '{track_id}' modes must contain only Boolean ctr_challenge.")
+        if modes.get("ctr_challenge", False) and (not isinstance(entry["flags"], Mapping)
+                                                  or entry["flags"].get("ctr_letters") is not True):
+            _fail(f"entry '{track_id}' CTR mode requires measured CTR letters.")
     for key in ("package_uuid",):
         value = entry[key]
         if not isinstance(value, str) or not _UUID_RE.match(value):
@@ -326,7 +350,13 @@ def _validate_entry(track_id: str, entry) -> None:
 
     # Alpha6 ships one release-owned package registry entry. Generation must
     # never create a seed that a matching Alpha6 client will correctly refuse.
-    expected = BABY_T_PARK_EXAMPLE
+    expected = next((profile for profile in BABY_T_PARK_PROFILES
+                     if entry["package_uuid"] == profile["package_uuid"] and
+                     entry["package_version"] == profile["package_version"]), None)
+    if expected is None:
+        key = "package_version" if any(entry["package_uuid"] == p["package_uuid"]
+                                       for p in BABY_T_PARK_PROFILES) else "package_uuid"
+        _fail(f"entry '{track_id}' key '{key}' does not match the current release package registry.")
     for key in ("package_uuid", "package_version", "minimum_client_version",
                 "minimum_apworld_version", "lev_sha256", "vrm_sha256",
                 "navigation", "laps", "flags"):
@@ -420,6 +450,7 @@ def normalize_custom_tracks(mapping) -> Dict[str, Dict[str, object]]:
                 **{k: bool(entry["flags"][k]) for k in BOOLEAN_FLAGS},
                 **{k: int(entry["flags"][k]) for k in COUNT_FLAGS},
             },
+            **({"modes": dict(entry["modes"])} if "modes" in entry else {}),
         }
     return normalized
 
@@ -520,6 +551,7 @@ def custom_tracks_to_wire(tracks: Mapping[str, Mapping], options=None) -> Dict[s
     `warp_pad_map`, `warp_pad_unlock` and `gem_cup_legs` already use, rather
     than the YAML's human-facing `replaces` word.
     """
+    from .custom_check_namespace import custom_check_code
     from .custom_track_locations import CUSTOM_TRACK_LOCATION_CLASS
     from .podium import created_rung_keys_from_options
     created_rungs = (created_rung_keys_from_options(options)
@@ -544,11 +576,14 @@ def custom_tracks_to_wire(tracks: Mapping[str, Mapping], options=None) -> Dict[s
                     REPLACEABLE_DESTINATIONS[entry["replaces"]][1],
                 "boxes": entry["boxes"],
                 "flags": dict(entry["flags"]),
+                **({"modes": dict(entry["modes"])} if "modes" in entry else {}),
                 "locations": {
                     "trophy": CUSTOM_TRACK_LOCATION_CLASS.code_for(
                         entry["slot"], "trophy"),
                     "podium": CUSTOM_TRACK_LOCATION_CLASS.slot_codes(
                         entry["slot"], created_rungs),
+                    **({"ctr": custom_check_code("ctr_location", entry["slot"])}
+                       if entry.get("modes", {}).get("ctr_challenge", False) else {}),
                 },
             }
             for track_id, entry in sorted(tracks.items())
@@ -631,6 +666,7 @@ def reconstruct_custom_tracks_from_wire(
             "host_level_id": wire_entry.get("host_level_id"),
             "boxes": wire_entry.get("boxes"),
             "flags": dict(flags),
+            **({"modes": wire_entry["modes"]} if "modes" in wire_entry else {}),
         }
     try:
         # Re-run the option validator on the rebuilt descriptor. The wire and
@@ -638,10 +674,12 @@ def reconstruct_custom_tracks_from_wire(
         # tracker can never reconstruct a seed shape generation would have
         # refused.
         normalized = normalize_custom_tracks(rebuilt)
+        from .custom_lettersanity import admitted_custom_ctr_wire_slots
+        admitted_custom_ctr_wire_slots(passthrough)
         if any(normalized[k]["slot"] != next(
                 int(e["slot"]) for e in entries if e.get("id") == k)
                for k in normalized):
             return _give_up("does not use the canonical sorted generic-slot assignment")
         return normalized
-    except OptionError as exc:
+    except (OptionError, ValueError) as exc:
         return _give_up(f"fails descriptor validation ({exc})")

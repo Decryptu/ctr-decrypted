@@ -166,8 +166,8 @@ class TestPodiumClassIdentity(unittest.TestCase):
     def test_superset_is_16_tracks_x_7_entries(self) -> None:
         entries = PODIUM_CLASS.all_locations()
         self.assertEqual(len(TROPHY_TRACKS), 16)
-        self.assertEqual(len(entries), 16 * (len(SHIPPED_RUNGS) + len(NEW_RUNGS)))
-        self.assertEqual(len(entries), 112)
+        self.assertEqual(len(entries), 16 * (len(SHIPPED_RUNGS) + len(NEW_RUNGS)) + 10)
+        self.assertEqual(len(entries), 122)
 
     def test_module_facade_delegates_to_the_class(self) -> None:
         """Regions.py and Rules.py still call the module functions; they must be
@@ -195,7 +195,7 @@ class TestPodiumClassIdentity(unittest.TestCase):
         """The declared blocks are the freeze's documentation (#177); a code
         outside them means the docstring lies."""
         blocks = PODIUM_CLASS.code_blocks
-        self.assertEqual(len(blocks), 2)
+        self.assertEqual(len(blocks), 3)
         for _name, code, _region in PODIUM_CLASS.all_locations():
             self.assertTrue(
                 any(base <= code < base + 100 for base in blocks),
@@ -272,7 +272,7 @@ class TestActiveAndInactiveClasses(unittest.TestCase):
         for a seed that creates none of them."""
         opts = _StubOptions()
         self.assertEqual(PODIUM_CLASS.created_locations(opts), [])
-        self.assertEqual(len(PODIUM_CLASS.all_locations()), 112)
+        self.assertEqual(len(PODIUM_CLASS.all_locations()), 122)
         for name, _code, _region in PODIUM_CLASS.all_locations():
             self.assertIn(name, CTR_LOCATION_IDS)
 

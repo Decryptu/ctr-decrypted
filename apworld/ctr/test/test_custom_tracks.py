@@ -62,6 +62,41 @@ from . import CTRTestBase
 #: The event descriptor as a YAML would carry it.
 BABY_T_PARK = {"baby-t-park": copy.deepcopy(BABY_T_PARK_EXAMPLE)}
 
+
+class TestCustomModeDescriptor(unittest.TestCase):
+    def test_current_and_legacy_profiles_are_exact_and_roundtrip(self):
+        from ..custom_tracks import BABY_T_PARK_CURRENT
+        for profile in (BABY_T_PARK_EXAMPLE, BABY_T_PARK_CURRENT):
+            raw = {"baby-t-park": copy.deepcopy(profile)}
+            raw["baby-t-park"]["modes"] = {"ctr_challenge": True}
+            resolved = normalize_custom_tracks(raw)
+            wire = {"custom_tracks": custom_tracks_to_wire(resolved)}
+            self.assertEqual(reconstruct_custom_tracks_from_wire(wire), resolved)
+        for key in ("lev_sha256", "vrm_sha256", "navigation", "minimum_client_version"):
+            with self.subTest(key=key):
+                mixed = copy.deepcopy(BABY_T_PARK_CURRENT)
+                mixed[key] = copy.deepcopy(BABY_T_PARK_EXAMPLE[key])
+                with self.assertRaises(OptionError):
+                    validate_custom_tracks({"baby-t-park": mixed})
+
+    def test_mode_roundtrip_preserves_owned_ctr_address(self):
+        option = copy.deepcopy(BABY_T_PARK)
+        option["baby-t-park"]["modes"] = {"ctr_challenge": True}
+        normalized = normalize_custom_tracks(option)
+        wire = custom_tracks_to_wire(normalized)
+        self.assertEqual(wire["tracks"][0]["locations"]["ctr"], 35023000)
+        self.assertEqual(reconstruct_custom_tracks_from_wire({"custom_tracks": wire}), normalized)
+        wire["tracks"][0]["locations"]["ctr"] = 35012500
+        self.assertEqual(reconstruct_custom_tracks_from_wire({"custom_tracks": wire}), {})
+
+    def test_modes_are_strict_and_absent_is_unchanged(self):
+        self.assertNotIn("modes", normalize_custom_tracks(BABY_T_PARK)["baby-t-park"])
+        for modes in ({"ctr_challenge": 1}, {"relic": True}, [], True):
+            option = copy.deepcopy(BABY_T_PARK)
+            option["baby-t-park"]["modes"] = modes
+            with self.subTest(modes=modes), self.assertRaises(OptionError):
+                normalize_custom_tracks(option)
+
 #: The four tracks the retail Purple Gem Cup legs (data/gem_cup_legs.json).
 PURPLE_LEGS = ("Roo's Tubes", "Papu's Pyramid", "Dragon Mines", "Hot Air Skyway")
 
@@ -474,8 +509,8 @@ class TestOptionOffNeutrality(CTRTestBase):
     def test_schema_is_current_and_no_block_is_emitted(self):
         slot_data = json.loads(json.dumps(self.world.fill_slot_data()))
         self.assertNotIn("custom_tracks", slot_data)
-        self.assertEqual(slot_data["schema_version"], 11)
-        self.assertEqual(slot_data["ctr_options"]["schema_version"], 11)
+        self.assertEqual(slot_data["schema_version"], 13)
+        self.assertEqual(slot_data["ctr_options"]["schema_version"], 13)
 
     def test_purple_still_legs_its_four_retail_tracks(self):
         for track in PURPLE_LEGS:
@@ -578,6 +613,90 @@ class TestOptionOffIsIdenticalToNoDescriptor(unittest.TestCase):
         self.assertEqual(first, second)
 
 
+class TestCustomLetterGeneration(CTRTestBase):
+    run_default_tests = False
+    auto_construct = False
+    options = {"oxide_goal": "any_percent", "include_gem_cups": True,
+               "lettersanity": 2, "letters_per_track": 2,
+               "custom_tracks": {"baby-t-park": {
+                   **copy.deepcopy(BABY_T_PARK_EXAMPLE),
+                   "modes": {"ctr_challenge": True}}}}
+
+    def setUp(self):
+        self.world_setup(seed=SEED)
+
+    def test_generated_letters_are_slot_owned_and_item_gated(self):
+        names = self.world.multiworld.get_locations(self.world.player)
+        custom = [loc for loc in names if loc.name.startswith("Custom Track 1: Letter ")]
+        self.assertEqual(len(custom), 2)
+        state = CollectionState(self.world.multiworld)
+        for loc in custom:
+            self.assertFalse(loc.access_rule(state))
+            own = self.world.create_item(f"Letter {loc.name[-1]} (Custom Track 1)")
+            state.collect(own, True)
+            self.assertTrue(loc.access_rule(state))
+        wire = self.world.fill_slot_data()["custom_lettersanity_checks"]
+        self.assertEqual([row["slot"] for row in wire["tracks"]], [1])
+        self.assertEqual({c for c in wire["tracks"][0]["locations"] if c >= 0},
+                         {loc.address for loc in custom})
+        for loc in custom:
+            self.assertEqual(self.world.location_id_to_alias[loc.address],
+                             f"Baby T Park: Letter {loc.name[-1]}")
+        self.assertEqual(self.world.location_id_to_alias[35023000],
+                         "Baby T Park: CTR Token Challenge")
+        package = {"item_name_to_id": dict(self.world.item_name_to_id),
+                   "location_name_to_id": dict(self.world.location_name_to_id),
+                   "location_name_groups": {"All": list(self.world.location_name_to_id)},
+                   "checksum": "original"}
+        original = copy.deepcopy(package)
+        room = {"datapackage": {self.game: package}}
+        type(self.world).stage_modify_multidata(self.multiworld, room)
+        named = room["datapackage"][self.game]
+        self.assertEqual(named["location_name_to_id"]["Baby T Park: CTR Token Challenge"], 35023000)
+        self.assertEqual(package, original)
+        self.assertEqual(set(named["location_name_to_id"].values()),
+                         set(original["location_name_to_id"].values()))
+
+
+class TestCustomLetterModeMatrix(CTRTestBase):
+    run_default_tests = False
+    auto_construct = False
+    options = TestCustomLetterGeneration.options
+
+    def test_mode_count_creation_and_exact_wire(self):
+        for mode in range(4):
+            for count in (1, 2, 3):
+                with self.subTest(mode=mode, count=count):
+                    self.options = {**TestCustomLetterGeneration.options,
+                                    "lettersanity": mode, "letters_per_track": count}
+                    self.world_setup(seed=SEED)
+                    locations = [loc for loc in self.multiworld.get_locations(self.player)
+                                 if loc.name.startswith("Custom Track 1: Letter ")]
+                    self.assertEqual(len(locations), count if mode in (1, 2) else 0)
+                    items = [item for item in self.multiworld.itempool
+                             if item.name.endswith("(Custom Track 1)")]
+                    self.assertEqual(len(items), count if mode == 2 else 3 if mode == 3 else 0)
+                    challenge = self.multiworld.get_location("Custom Track 1: CTR Token Challenge", self.player)
+                    state = self.multiworld.get_all_state(False)
+                    for item in items:
+                        state.remove(item)
+                    self.assertEqual(challenge.access_rule(state), mode < 2)
+                    for item in items:
+                        state.collect(item, True)
+                    self.assertTrue(challenge.access_rule(state))
+                    wire = self.world.fill_slot_data().get("custom_lettersanity_checks")
+                    if mode == 0:
+                        self.assertIsNone(wire)
+                    else:
+                        self.assertEqual(wire["mode"], mode)
+                        self.assertEqual(wire["letters_per_track"], count)
+                        self.assertEqual({code for code in wire["tracks"][0]["items"] if code >= 0},
+                                         {item.code for item in items})
+                        self.assertEqual({code for code in wire["tracks"][0]["locations"] if code >= 0},
+                                         {loc.address for loc in locations})
+                    del state, challenge, locations, items
+
+
 class TestDisplacementIntegration(CTRTestBase):
     """Option on at full generation: the graph, the wire and the schema."""
 
@@ -652,8 +771,8 @@ class TestDisplacementIntegration(CTRTestBase):
 
     def test_schema_is_current_and_the_block_is_emitted(self):
         slot_data = json.loads(json.dumps(self.world.fill_slot_data()))
-        self.assertEqual(slot_data["schema_version"], 11)
-        self.assertEqual(slot_data["ctr_options"]["schema_version"], 11)
+        self.assertEqual(slot_data["schema_version"], 13)
+        self.assertEqual(slot_data["ctr_options"]["schema_version"], 13)
         self.assertEqual(
             slot_data["custom_tracks"],
             json.loads(json.dumps(custom_tracks_to_wire(
@@ -770,6 +889,21 @@ class TestUTPinsTheDisplacement(CTRTestBase):
     auto_construct = False
     options = TestDisplacementIntegration.options
 
+    def test_custom_letters_restore_exactly_despite_conflicting_tracker_options(self):
+        self.options = TestCustomLetterGeneration.options
+        self.world_setup(seed=SEED)
+        wire = copy.deepcopy(self.world.fill_slot_data())
+        selected = copy.deepcopy(self.world.options._custom_lettersanity_selected)
+        expected = {loc.name: loc.address for loc in self.multiworld.get_locations(self.player)
+                    if loc.name.startswith("Custom Track 1: Letter ")}
+        self._setup_with_passthrough(SEED + 1, wire, {
+            "lettersanity": 3, "letters_per_track": 1, "custom_tracks": {}})
+        self.assertEqual(self.world.options._custom_lettersanity_selected, selected)
+        self.assertEqual({loc.name: loc.address for loc in self.multiworld.get_locations(self.player)
+                          if loc.name.startswith("Custom Track 1: Letter ")}, expected)
+        self.assertEqual(self.world.fill_slot_data()["custom_lettersanity_checks"],
+                         wire["custom_lettersanity_checks"])
+
     def _setup_with_passthrough(self, seed, passthrough, options=None):
         self.multiworld = MultiWorld(1)
         self.multiworld.game[self.player] = self.game
@@ -801,7 +935,7 @@ class TestUTPinsTheDisplacement(CTRTestBase):
         ut_slot_data = json.loads(json.dumps(self.world.fill_slot_data()))
         self.assertEqual(ut_slot_data["custom_tracks"],
                          slot_data["custom_tracks"])
-        self.assertEqual(ut_slot_data["schema_version"], 11)
+        self.assertEqual(ut_slot_data["schema_version"], 13)
 
     def test_regen_pins_it_through_aps_real_wire_pipeline(self):
         self.world_setup(seed=SEED)

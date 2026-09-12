@@ -17,6 +17,7 @@ from .custom_tracks import (custom_tracks_to_wire,
                             resolved_custom_tracks)
 from .Locations import CTR_LOCATION_CLASSES, get_location_names, get_total_locations
 from .Items import load_item_table
+from .custom_lettersanity import CUSTOM_LETTER_ITEM_DATA, CUSTOM_LETTERSANITY_CLASS
 from . import item_supply
 from . import wumpa_family
 from .wumpa_checks import WUMPA_CLASS
@@ -132,7 +133,8 @@ class ctrAPWorld(World):
     ut_can_gen_without_yaml = True
 
     # Item + Location mapping
-    _item_data_by_name = {item["name"]: item for item in load_item_table()}
+    _item_data_by_name = {item["name"]: item for item in
+                          (*load_item_table(), *CUSTOM_LETTER_ITEM_DATA)}
     item_name_to_id = {
         name: item["code"] for name, item in _item_data_by_name.items()
     }
@@ -283,6 +285,15 @@ class ctrAPWorld(World):
         _restore("oxide_final_challenge_unlock", "oxide_final_unlock")
         _restore("oxide_final_challenge_relic_count", "oxide_final_count")
         _restore("oxide_final_track", "oxide_final_track")
+        # Missing on older rooms: preserve mandatory-first behavior even if
+        # the tracking player's own YAML enables the new option.
+        o.oxide_1_optional.value = (
+            co.get("oxide_1_optional", 0)
+            if type(co.get("schema_version", 0)) is int and
+            co.get("schema_version", 0) >= 13 and
+            type(co.get("oxide_1_optional", 0)) is int and
+            co.get("oxide_1_optional", 0) in (1, 2) and
+            o.oxide_goal.value == OxideGoal.option_101_percent else 0)
         # #145 made the boost chain a reachability input (the Itemsanity Turbo
         # checks require one received Progressive Boost when the chain is
         # randomized), so the seed's mode must override the tracking player's
@@ -353,6 +364,14 @@ class ctrAPWorld(World):
         # Recover the toggles from a sample track so create_regions / Rules /
         # _resolve_podium_checks rebuild the identical rung locations.
         pod = passthrough.get("podium_checks", {}) or {}
+        from .podium import TRIAL_TRACKS
+        o._trial_podium_wire = {}
+        for ti, track in enumerate(TRIAL_TRACKS):
+            row = (pod.get("locations", {}) or {}).get(str(16+ti))
+            if (pod.get("enabled", False) and isinstance(row, (list, tuple)) and len(row) == 5
+                    and all(type(code) is int and code in (-1, 35015200+ti*5+ri)
+                            for ri, code in enumerate(row))):
+                o._trial_podium_wire[track] = list(row)
         o.podium_placement_checks.value = int(bool(pod.get("enabled", False)))
         sample = next(iter((pod.get("locations", {}) or {}).values()), None)
         o.podium_held_rungs.value = int(bool(sample) and sample[0] != -1)
@@ -390,6 +409,7 @@ class ctrAPWorld(World):
                 "host_level_id": entry["host_level_id"],
                 "boxes": entry["boxes"],
                 "flags": dict(entry["flags"]),
+                **({"modes": dict(entry["modes"])} if "modes" in entry else {}),
             }
             for track_id, entry in
             reconstruct_custom_tracks_from_wire(passthrough).items()
@@ -424,12 +444,12 @@ class ctrAPWorld(World):
         # is any pre-#224 seed and correctly restores to off.
         o.turbo_grant.value = int(bool(co.get("turbo_grant", 0)))
         lb = passthrough.get("lettersanity_checks", {}) or {}
-        o.lettersanity.value = int(co.get("lettersanity", lb.get("mode", 0)))
-        o.letters_per_track.value = int(lb.get("letters_per_track", 3))
-        by_id = {v: k for k, v in lettersanity.TRACK_LEVEL_IDS.items()}
-        o._lettersanity_selected = {
-            by_id[int(lid)]: tuple(letter for letter, code in zip(lettersanity.LETTERS, codes) if code != -1)
-            for lid, codes in (lb.get("locations", {}) or {}).items() if int(lid) in by_id}
+        mode = co.get("lettersanity", lb.get("mode", 0))
+        count = lb.get("letters_per_track", 3)
+        selected = lettersanity.restore_letter_selection(o, lb, mode, count)
+        o.lettersanity.value = mode
+        o.letters_per_track.value = count
+        o._lettersanity_selected = selected
 
     def generate_early(self) -> None:
         """Universal Tracker restore, then the option interaction / constraint
@@ -452,10 +472,10 @@ class ctrAPWorld(World):
                 count = int(self.options.letters_per_track.value)
                 self.options._lettersanity_selected = {
                     track: tuple(self.random.sample(lettersanity.LETTERS, count))
-                    for track in lettersanity.LETTER_TRACKS}
+                    for track in lettersanity.eligible_letter_tracks(self.options)}
             else:
                 self.options._lettersanity_selected = {
-                    track: lettersanity.LETTERS for track in lettersanity.LETTER_TRACKS}
+                    track: lettersanity.LETTERS for track in lettersanity.eligible_letter_tracks(self.options)}
 
         # Comfort guard flags (Icebound force_vanilla_turbotrack): needed by
         # the relic draw below, ahead of when Regions.create_regions would
@@ -493,6 +513,13 @@ class ctrAPWorld(World):
 
     def create_regions(self):
         create_regions(self)
+        from .custom_track_presentation import location_aliases
+        self.location_id_to_alias = location_aliases(self)
+
+    @classmethod
+    def stage_modify_multidata(cls, multiworld, multidata):
+        from .custom_track_datapackage import embed_track_names
+        embed_track_names(multiworld, multidata, cls.game)
 
     def set_rules(self):
         set_rules(self)
@@ -1216,6 +1243,12 @@ class ctrAPWorld(World):
             # location and stays a normal, fillable check (issue #152 C8).
             self._exclude_goal_location(
                 player, "N. Oxide Garage: N. Oxide's Final Challenge")
+            if o.oxide_1_optional.value == 2:
+                # Lock the existing generic filler, not an EXCLUDED hint:
+                # fast filler placement/plando must not replace it with a trap,
+                # useful item or another world's progression.
+                mw.get_location("N. Oxide Garage: N. Oxide's Challenge", player).place_locked_item(
+                    self.create_item("Wumpa Fruit"))
         # option_none and option_disabled (issue #320): Oxide is not a
         # completion condition, so no predicate and no event. Under
         # `none` both races stay in the seed as ordinary optional
@@ -1446,6 +1479,10 @@ class ctrAPWorld(World):
                     and item["name"] in _GEMS:
                 continue
             count = item["count"]
+            if (item["name"] == "Wumpa Fruit" and
+                    self.options.oxide_goal.value == OxideGoal.option_101_percent and
+                    self.options.oxide_1_optional.value == 2):
+                count = max(0, count - 1)  # existing copy locked at Oxide 1
             if self.options.itemsanity.value and item["name"] in ITEM_NAMES:
                 count = 1
             # Tizi Helper (#223): exactly one copy, only when the option is on.
@@ -1474,11 +1511,12 @@ class ctrAPWorld(World):
             # frees a comfort slot for it rather than overflowing the pool.
             if item["name"] == TURBO_GRANT_ITEM:
                 count = turbo_grant.created_item_count(self)
-            if int(self.options.lettersanity.value) in (2, 3) and item["name"] in lettersanity.ITEM_NAMES:
+            if int(self.options.lettersanity.value) in (2, 3) and item["name"] in lettersanity.ALL_ITEM_NAMES:
                 track = item["name"].rsplit("(", 1)[1][:-1]
                 letter = item["name"].split(" ", 2)[1]
-                count = int(int(self.options.lettersanity.value) == 3 or
-                            letter in self.options._lettersanity_selected[track])
+                count = int(track in self.options._lettersanity_selected and
+                            (int(self.options.lettersanity.value) == 3 or
+                             letter in self.options._lettersanity_selected[track]))
             if item["name"] in _relic_locked:                         # slider-pinned relics
                 count = max(0, count - _relic_locked[item["name"]])
             if item["name"] in _gems_locked:                          # gems pinned vanilla
@@ -1492,6 +1530,11 @@ class ctrAPWorld(World):
             if count > 0:
                 for _ in range(count):
                     pool.append(self.create_item(item["name"]))
+
+        # Sparse custom letter items follow certified slot selection, not the
+        # positional retail item table. Include before capacity/overflow checks.
+        pool.extend(self.create_item(name) for name in
+                    CUSTOM_LETTERSANITY_CLASS.created_item_names(self.options))
 
         # --- Character unlocks (issues #54 / #209, R4). ALWAYS ON: the
         # character phase is core 0.2.0 content, not a toggle, so every seed
@@ -1523,8 +1566,21 @@ class ctrAPWorld(World):
         # it may still be LARGER, which the general capacity guard below
         # refuses.
         unfilled = len(mw.get_unfilled_locations(self.player))
+        shedding_supply = unfilled
+        if (self.options.oxide_goal.value == OxideGoal.option_101_percent and
+                self.options.oxide_1_optional.value == 2):
+            # The original generic filler is now locked at First. Excluded
+            # locations still need their own filler in the unfilled pool.
+            # Reserve those copies before overflow shedding so the comfort
+            # pack, not mandatory items or that reserve, yields tight slots.
+            floor = estimated_filler_reserve(self)
+            have = sum(item.classification == ItemClassification.filler for item in pool)
+            pool += [self.create_item("Wumpa Fruit") for _ in range(max(0, floor-have))]
+            # Capability packs are appended below. Account for them while
+            # deciding whether the optional comfort pack still fits.
+            shedding_supply -= sum(progressive_capability.created_item_counts(self).values())
         pool = item_supply.shed_overflow(
-            pool, unfilled, SURFACE_ITEM_NAMES,
+            pool, shedding_supply, SURFACE_ITEM_NAMES,
             filler_floor=estimated_filler_reserve(self))
 
         if int(self.options.lettersanity.value) == 3 and len(pool) > unfilled:
@@ -1833,7 +1889,7 @@ class ctrAPWorld(World):
         # (PodiumLocationClass.slot_codes), so the wire block and the created
         # locations resolve through the same frozen superset instead of this
         # method re-deriving the name -> code lookup.
-        from .podium import PODIUM_CLASS, TROPHY_TRACKS
+        from .podium import PODIUM_CLASS, enabled_trophy_tracks, track_rung_keys
         enabled = bool(self.options.podium_placement_checks.value)
         block: Dict[str, object] = {"enabled": enabled, "locations": {}}
         rung_keys = PODIUM_CLASS.created_rung_keys(self.options)
@@ -1846,11 +1902,11 @@ class ctrAPWorld(World):
             if pad_name.endswith(" Warp Pad")
         }
         locations: Dict[str, object] = {}
-        for track in TROPHY_TRACKS:
+        for track in enabled_trophy_tracks(self.options):
             lid = track_to_lid.get(track)
             if lid is None or not (0 <= lid < self.WARP_PAD_ID_RANGE):
                 continue
-            locations[str(lid)] = PODIUM_CLASS.slot_codes(track, rung_keys)
+            locations[str(lid)] = PODIUM_CLASS.slot_codes(track, track_rung_keys(self.options, track))
         block["locations"] = locations
         return block
 
@@ -1902,7 +1958,12 @@ class ctrAPWorld(World):
         # Schema 11 composes the schema-10 trial-track work with the independent
         # Oxide Final venue descriptor below. A schema-10 client would otherwise
         # load Oxide Station while the seed selected Cortex Vortex.
-        schema = 11
+        # Trial Lettersanity needs the paired 18-track native consumer and
+        # split item receipt mapping. Old clients must report a newer seed,
+        # not silently discard required trial letter items/checks.
+        # Schema 13: encounter priority can skip Oxide 1 and a final win
+        # collects both checks. Old clients cannot enforce that contract.
+        schema = 13
         slot_data: Dict[str, object] = {
             "Seed": self.multiworld.seed_name,
             "Slot": self.multiworld.player_name[self.player],
@@ -1935,6 +1996,8 @@ class ctrAPWorld(World):
                 # goal value by a schema-aware client).
                 "goal": self._legacy_goal_value(),
                 "goal_oxide": o.oxide_goal.value,
+                "oxide_1_optional": (int(o.oxide_1_optional.value)
+                                     if o.oxide_goal.value == OxideGoal.option_101_percent else 0),
                 "goal_bosses": o.bosses_required_goal.value,
                 "goal_gems": o.gems_required_goal.value,
                 # relic_min_time / relics_require_perfect were dropped with their
@@ -2165,6 +2228,9 @@ class ctrAPWorld(World):
             slot_data["itemsanity_checks"] = self._resolve_itemsanity_checks()
         if int(o.lettersanity.value) != 0:
             slot_data["lettersanity_checks"] = LETTERSANITY_CLASS.wire_block(o)
+        custom_letters = CUSTOM_LETTERSANITY_CLASS.wire_block(o)
+        if custom_letters is not None and custom_letters["tracks"]:
+            slot_data["custom_lettersanity_checks"] = custom_letters
         if int(o.wumpa_check.value) != 0:
             # Additive under schema 7, same off-parity convention as itemsanity:
             # omitted entirely when the mode is off, while the raw scalar above

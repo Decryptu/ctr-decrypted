@@ -61,6 +61,27 @@ class OxideGoal(Choice):
                          OxideGoal.option_101_percent)
 
 
+class Oxide1Optional(Choice):
+    """Only applies when Oxide Goal is 101_percent (Oxide 2).
+
+    Mandatory (false): beat Oxide 1 before Oxide 2.
+    Optional (true): Oxide 1 remains playable early and may hold progression,
+    but the garage offers Oxide 2 directly
+    once its door, relic, Boss and Gem requirements are met. Winning Oxide 2
+    also collects the item at Oxide 1. It never removes that randomized check
+    or bypasses Oxide 2's requirements.
+    Filler: the same skip, plus Oxide 1 always holds Wumpa Fruit, strictly
+    filler, never progression, useful items or traps. Other goals are unchanged."""
+    display_name = "Oxide 1 Optional"
+    option_mandatory = 0
+    option_optional = 1
+    option_filler = 2
+    alias_true_filler = 2
+    alias_false = 0
+    alias_true = 1
+    default = 0
+
+
 class BossesRequiredGoal(Range):
     """How many of the 4 boss races you must win for the goal.
 
@@ -1149,6 +1170,7 @@ class ctrAPOptions(PerGameCommonOptions):
 
     # goal & endgame (issue #152: composed conditions, ANDed)
     oxide_goal: OxideGoal
+    oxide_1_optional: Oxide1Optional
     bosses_required_goal: BossesRequiredGoal
     gems_required_goal: GemsRequiredGoal
     oxide_final_challenge_unlock: FinalOxideUnlock
@@ -1235,7 +1257,7 @@ ap_ctr_option_groups: Dict[str, List[Any]] = {
     # an unlabelled bucket at the bottom of the web page, which is where
     # box_locations, shortcut_knowledge, lettersanity, letters_per_track and
     # bossgarage_unlock_requirements used to end up.
-    "Goal": [OxideGoal, BossesRequiredGoal, GemsRequiredGoal,
+    "Goal": [OxideGoal, Oxide1Optional, BossesRequiredGoal, GemsRequiredGoal,
              FinalOxideUnlock, FinalOxideRelicCount],
     "Warp Pad Unlocking": [WarpPadUnlockRequirements, TwoStageDensity,
                            RequirementVariety, RequirementWeights,

@@ -23,7 +23,7 @@ from ..podium import (FINISH_RUNG_KEYS, HELD_RUNG_KEYS, TROPHY_TRACKS,
                       location_name)
 from ..progressive_capability import boost_item_name
 from ..usf_finish import (ALL_USF_FINISH_TRACKS, FIRST_BOOST_COUNT,
-                          USF_BOOST_COUNT, USF_FINISH_TRACKS,
+                          USF_BOOST_COUNT, USF_FINISH_TRACKS, UsfFinishGate,
                           USF_OR_HARD_SK_FINISH_TRACKS, cup_finish_term,
                           usf_finish_cups)
 from . import CTRTestBase
@@ -89,6 +89,64 @@ class _FakeState:
 
 class TestGatedCupSelection(unittest.TestCase):
     """Which cups the gate covers is a per-seed question about the leg map."""
+
+    def test_cup_pad_racer_owns_all_leg_boost_requirements(self):
+        mw = _build(progressive_boost="per_character", character_unlocks=False)
+        world = mw.worlds[PLAYER]
+        for cup, racer, legs in (
+                ("Yellow Gem Cup", "N. Gin", [HAS, OXIDE]),
+                ("Green Gem Cup", "Dingodile", ["Cortex Castle"]),
+                ("Red Gem Cup", "N. Gin", [HAS, "Cortex Castle", HAS])):
+            with self.subTest(cup=cup):
+                # Shuffled physical host; standalone leg pads belong to Coco.
+                world.ctr_pad_by_destination = {cup: "Polar Pass Warp Pad"}
+                world.ctr_racer_locks = {"Polar Pass Warp Pad": racer,
+                                        f"{HAS} Warp Pad": "Coco Bandicoot",
+                                        "Cortex Castle Warp Pad": "Coco Bandicoot"}
+                world.gem_cup_legs = {cup: legs}
+                rule = UsfFinishGate(world).cup_term(cup)
+                state = _state(mw)
+                state.add_item(boost_item_name("Coco Bandicoot"), PLAYER, 2)
+                state.add_item(boost_item_name(racer), PLAYER, 1)
+                self.assertFalse(rule(state, PLAYER))
+                state.add_item(boost_item_name(racer), PLAYER, 1)
+                self.assertTrue(rule(state, PLAYER))
+
+    def test_unlocked_cup_ignores_standalone_leg_locks(self):
+        mw = _build(progressive_boost="per_character", character_unlocks=False)
+        world = mw.worlds[PLAYER]
+        world.ctr_racer_locks = {f"{HAS} Warp Pad": "N. Gin"}
+        world.ctr_pad_by_destination = {}
+        world.gem_cup_legs = {"Yellow Gem Cup": [HAS, "Cortex Castle"]}
+        rule = UsfFinishGate(world).cup_term("Yellow Gem Cup")
+        state = _state(mw)
+        state.add_item(boost_item_name("N. Gin"), PLAYER, 1)
+        state.add_item(boost_item_name("Dingodile"), PLAYER, 1)
+        self.assertFalse(rule(state, PLAYER))
+        state.add_item(boost_item_name("Dingodile"), PLAYER, 1)
+        self.assertTrue(rule(state, PLAYER))
+
+    def test_unshuffled_cup_uses_physical_cup_pad_name(self):
+        mw = _build(progressive_boost="per_character", character_unlocks=False)
+        world = mw.worlds[PLAYER]
+        for cup, racer, legs in (
+                ("Yellow Gem Cup", "N. Gin", [HAS, OXIDE]),
+                ("Green Gem Cup", "Dingodile", ["Cortex Castle"])):
+            with self.subTest(cup=cup):
+                world.ctr_pad_by_destination = {}
+                world.ctr_racer_locks = {
+                    cup.replace(" Gem Cup", " Cup Warp Pad"): racer,
+                    f"{HAS} Warp Pad": "Coco Bandicoot",
+                    "Oxide Station Warp Pad": "Coco Bandicoot",
+                    "Cortex Castle Warp Pad": "Coco Bandicoot"}
+                world.gem_cup_legs = {cup: legs}
+                rule = UsfFinishGate(world).cup_term(cup)
+                state = _state(mw)
+                state.add_item(boost_item_name("Coco Bandicoot"), PLAYER, 2)
+                state.add_item(boost_item_name(racer), PLAYER, 1)
+                self.assertFalse(rule(state, PLAYER))
+                state.add_item(boost_item_name(racer), PLAYER, 1)
+                self.assertTrue(rule(state, PLAYER))
 
     def test_vanilla_legs_gate_exactly_confirmed_cups(self):
         legs = load_vanilla_cup_legs()

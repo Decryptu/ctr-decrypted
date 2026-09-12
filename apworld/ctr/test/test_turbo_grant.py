@@ -59,7 +59,10 @@ class TestTurboGrantName(unittest.TestCase):
         # Literal on purpose: importing the module under test's own list would
         # let any append that also updated the registry slip past this guard.
         self.assertEqual(after, ["Upside Down", "Mirror Mode", "Warpball Ambush",
-                                 "Demo Camera"])
+                                 "Demo Camera", "Letter C (Slide Coliseum)",
+                                 "Letter T (Slide Coliseum)", "Letter R (Slide Coliseum)",
+                                 "Letter C (Turbo Track)", "Letter T (Turbo Track)",
+                                 "Letter R (Turbo Track)"])
 
     def test_it_ships_inert_in_the_data_file(self) -> None:
         """count 0 in data/items.json: the option decides, not the table. The

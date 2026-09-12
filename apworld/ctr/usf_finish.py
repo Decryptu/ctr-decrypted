@@ -180,11 +180,21 @@ def usf_finish_cups(cup_legs: Dict[str, List[str]]) -> frozenset:
                      if ALL_USF_FINISH_TRACKS.intersection(legs))
 
 
-def cup_finish_term(legs, world):
-    """Compose the finish terms for every capability-gated leg in a cup."""
-    terms = [track_finish_term(track, world)
-             for track in legs if track in ALL_USF_FINISH_TRACKS]
-    return lambda state, player: all(term(state, player) for term in terms)
+def cup_finish_term(legs, world, cup=None):
+    """Require one cup-eligible racer to finish every leg.
+
+    A leg's standalone pad does not control the racer driving a cup. Resolve
+    the cup destination's physical pad instead, including destination shuffle.
+    """
+    from .item_boxes import SK_HARD
+    gated = [track for track in legs if track in ALL_USF_FINISH_TRACKS
+             and not (track in USF_OR_HARD_SK_FINISH_TRACKS
+                      and int(world.options.shortcut_knowledge.value) == SK_HARD)]
+    by_dest = getattr(world, "ctr_pad_by_destination", {}) or {}
+    cup_pad = (by_dest.get(cup, cup.replace(" Gem Cup", " Cup Warp Pad"))
+               if cup is not None else None)
+    racer = (getattr(world, "ctr_racer_locks", {}) or {}).get(cup_pad)
+    return boost_term(world, racer, USF_BOOST_COUNT if gated else 0)
 
 
 class UsfFinishGate:
@@ -209,7 +219,7 @@ class UsfFinishGate:
         self.cups = usf_finish_cups(legs)
         self._track_terms = {track: track_finish_term(track, world)
                              for track in ALL_USF_FINISH_TRACKS}
-        self._cup_terms = {cup: cup_finish_term(legs[cup], world)
+        self._cup_terms = {cup: cup_finish_term(legs[cup], world, cup)
                            for cup in self.cups}
         self._raceable = {}
 

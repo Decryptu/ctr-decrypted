@@ -421,6 +421,19 @@ def create_regions(world: "ctrAPWorld"):
     world.custom_tracks = (
         reconstruct_custom_tracks_from_wire(ut_passthrough)
         if ut_passthrough else resolve_custom_tracks(world))
+    from .custom_lettersanity import (admitted_custom_ctr_wire_slots,
+                                     select_custom_letters, restore_custom_letter_options)
+    from .custom_tracks import custom_tracks_to_wire
+    if ut_passthrough:
+        restore_custom_letter_options(opts, ut_passthrough,
+                                      [e["slot"] for e in world.custom_tracks.values()])
+    else:
+        opts._custom_ctr_admitted_slots = admitted_custom_ctr_wire_slots(
+            {"custom_tracks": custom_tracks_to_wire(world.custom_tracks, opts)}) if world.custom_tracks else ()
+        if not hasattr(opts, "_custom_lettersanity_selected"):
+            opts._custom_lettersanity_selected = select_custom_letters(
+                int(opts.lettersanity.value), int(opts.letters_per_track.value),
+                opts._custom_ctr_admitted_slots, world.random)
 
     # Two maps, deliberately: `gem_cup_legs_table` is the COMPLETE five-cup
     # table native's advCupTrackIDs holds and fill_slot_data serializes, and
@@ -525,11 +538,20 @@ def create_regions(world: "ctrAPWorld"):
             _custom_names = [CUSTOM_TRACK_LOCATION_CLASS.trophy_name(_slot)]
             _custom_names += [CUSTOM_TRACK_LOCATION_CLASS.location_name(_slot, rung)
                               for rung in _custom_rungs]
+            from .custom_lettersanity import CUSTOM_LETTERSANITY_CLASS
+            _letter_names = set(CUSTOM_LETTERSANITY_CLASS.created_location_names(opts))
+            _custom_names += [name for name in sorted(_letter_names)
+                              if name.startswith(f"Custom Track {_slot}: ")]
+            from .custom_lettersanity import CUSTOM_CTR_CHALLENGE_CLASS
+            _custom_names += [name for name in CUSTOM_CTR_CHALLENGE_CLASS.created_location_names(opts)
+                              if name.startswith(f"Custom Track {_slot}: ")]
             for _name in _custom_names:
                 _loc = create_location(player, _name, _custom)
                 _loc.type = ("custom_track_trophy" if _name.endswith(": Trophy Race")
                              else "custom_track_podium")
                 _loc.logic_text = "True"
+                if _name in _letter_names:
+                    _loc.type = "custom_lettersanity"
                 _custom.locations.append(_loc)
                 mw.regions.location_cache[player][_name] = _loc
 
@@ -655,7 +677,7 @@ def create_regions(world: "ctrAPWorld"):
     # win fires every rung, so any winnable race yields all of them -> no extra
     # solvability burden, and the extra unfilled locations pull matching filler in
     # create_items (item/location count stays balanced automatically).
-    from .podium import TROPHY_TRACKS, created_rung_keys_from_options, location_name
+    from .podium import enabled_trophy_tracks, track_rung_keys, created_rung_keys_from_options, location_name
     _rung_keys = created_rung_keys_from_options(opts)
     if _rung_keys:
         # Issue #86 -- JOINT PODIUM REGION. AP-core ANDs a Location's own rule
@@ -679,7 +701,7 @@ def create_regions(world: "ctrAPWorld"):
         # reachability) and the new "podium"-type regions are sphere-search
         # reward-neutral (podium locations resolve to reward None).
         _track_to_cups = track_to_cups(world.gem_cup_legs)
-        for _track in TROPHY_TRACKS:
+        for _track in enabled_trophy_tracks(opts):
             _track_region = region_lookup.get(_track)
             if _track_region is None:
                 continue
@@ -688,7 +710,7 @@ def create_regions(world: "ctrAPWorld"):
             mw.regions.append(_podium)
             regions.append(_podium)
             region_lookup[_podium.name] = _podium
-            for _rk in _rung_keys:
+            for _rk in track_rung_keys(opts, _track):
                 _name = location_name(_track, _rk)
                 _loc = create_location(player, _name, _podium)
                 _loc.type = "podium"

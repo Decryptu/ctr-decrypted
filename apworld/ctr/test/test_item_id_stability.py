@@ -67,7 +67,16 @@ class TestItemIdStability(unittest.TestCase):
             len(set(explicit.values())), len(table),
             "CTR item codes must be unique",
         )
-        self.assertEqual(world_type.item_name_to_id, explicit)
+        # Approved September 12 custom letters use a separate sparse block;
+        # literal formula intentionally does not import the registry helper.
+        custom = {f"Letter {letter} (Custom Track {slot})":
+                  35021000 + (slot - 1) * 3 + li
+                  for slot in range(1, 133)
+                  for li, letter in enumerate(("C", "T", "R"))}
+        self.assertEqual(len(custom), 396)
+        self.assertFalse(set(custom).intersection(explicit))
+        self.assertFalse(set(custom.values()).intersection(explicit.values()))
+        self.assertEqual(world_type.item_name_to_id, {**explicit, **custom})
 
     def test_existing_items_keep_their_frozen_id(self) -> None:
         frozen: dict = {}
