@@ -210,6 +210,20 @@ def add_lettersanity_rules(world, player):
     from .item_boxes import TIGER_TEMPLE_DOOR_OPENERS
     from .progressive_capability import gate_satisfied, track_required_character
     mode = int(world.options.lettersanity.value)
+    # Token completion needs physical R except when mode 2 excludes it.
+    # Install after the entry rule was shared with individual letters, so
+    # collecting C or T does not require opening R's shortcut door.
+    if (world.options.itemsanity.value
+            and (mode != 2 or "R" in world.options._lettersanity_selected.get(
+                "Tiger Temple", ()))):
+        token = world.multiworld.get_location(
+            "Tiger Temple: CTR Token Challenge", player)
+        previous = token.access_rule
+        token.access_rule = (
+            lambda state, previous=previous,
+                   openers=TIGER_TEMPLE_DOOR_OPENERS, p=player:
+            previous(state) and state.has_any(openers, p)
+        )
     if mode not in (1, 2, 3):
         return
     selected = world.options._lettersanity_selected
