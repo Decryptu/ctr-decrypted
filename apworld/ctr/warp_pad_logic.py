@@ -548,6 +548,24 @@ def _req_family(item):
     return item  # Trophy, Key
 
 
+_ANY_ITEMS = ("AnyCtrToken", "AnyRelic", "AnyGem")
+
+
+def stage2_met_by_stage1(s1, s2):
+    """True when owning stage 1 always satisfies stage 2 as well, so the stage 2
+    gate can never block a player who has opened the pad (issue #342). That is
+    the same item at an equal or lower count, or an Any* aggregate of stage 1's
+    own family at an equal or lower count ("6 Gold Relics" then "any 4 Relics").
+    A different colour or tier of the same family is a real gate."""
+    if s1 is None or s2 is None:
+        return False
+    (item1, count1), (item2, count2) = s1, s2
+    if item1 == item2 or (item2 in _ANY_ITEMS
+                          and _req_family(item1) == _req_family(item2)):
+        return count2 <= count1
+    return False
+
+
 def _note_assigned_requirement(req):
     """Record a KEPT requirement's family for the diversity discount. Called only
     at the two primary assignment sites in run_sphere_search (stage-1 pad reqs and
@@ -1208,6 +1226,9 @@ def _run_sphere_search_once(world, mode, reward_track_for=None,
     max_iter = len(HUB_STATIC) * 16 + 128
     s2_real_count = 0  # how many REAL (non-collapsed) stage-2 gates assigned so far
     s2_collapsed = set()  # dest tracks whose stage 2 collapsed to a stage-1 echo
+    # dest -> inventory counts at the moment its real stage 2 was drawn, so the
+    # issue #342 reroll (step 3a) draws from the same owned-before-the-gate set.
+    s2_inv_at_draw = {}
     while remaining_pads or _stage2_pending():
         guard += 1
         if guard > max_iter:
@@ -1249,6 +1270,7 @@ def _run_sphere_search_once(world, mode, reward_track_for=None,
                 else:
                     s2_real_count += 1
                     _note_assigned_requirement(s2)
+                    s2_inv_at_draw[dest] = dict(inv.items)
                 stage2_reqs[dest] = s2
         # re-collect: a just-opened stage 2 may add relics/tokens to inventory.
         open_unassigned = _reachable_pads_and_collect(
@@ -1284,17 +1306,47 @@ def _run_sphere_search_once(world, mode, reward_track_for=None,
     _post_process(rnd, pad_reqs, mode, count_ceiling=_STAGE1_COUNT_CEILING)
     _post_process(rnd, stage2_reqs, mode, count_ceiling=_STAGE2_COUNT_CEILING)
 
-    # 3b) RE-VALIDATION against the actual shuffled graph (only when the DAG was
-    # built on the identity view). First re-key every COLLAPSED stage 2 to its
-    # REAL host pad's final stage-1: a collapse means "no gate beyond the trophy
-    # race", and only the value of the pad that actually HOSTS the destination
-    # preserves that meaning post-shuffle. Then sweep the shuffled graph and
-    # relax only the requirements that fail there.
+    # 3a) Issue #342: a REAL stage 2 must add a gate beyond its own pad's stage 1.
+    # The two stages are drawn and lowered independently (and stage 2 has the
+    # lower count ceiling), so "8 trophies, then 4 trophies" used to come out
+    # regularly: a stage 2 already met the moment the pad opens. Same item type
+    # stays allowed when stage 2 ends up strictly higher; otherwise stage 2 is
+    # redrawn from another item family, from the inventory owned when it was
+    # first drawn (so it stays satisfiable by construction). With nothing else
+    # owned at that point it becomes a normal collapse.
+    s1_host = dest_to_phys_real if shuffle_active else dest_to_phys
+    for dest in sorted(stage2_reqs):
+        if dest in s2_collapsed:
+            continue
+        s1 = pad_reqs.get(s1_host.get(dest, dest))
+        if not stage2_met_by_stage1(s1, stage2_reqs[dest]):
+            continue
+        drawn_from = Inv()
+        drawn_from.items = dict(s2_inv_at_draw[dest])
+        family = _req_family(s1[0])
+        other = {it for it in allowed if _req_family(it) != family}
+        redrawn = _assign_stage2_from_inv(rnd, drawn_from, other)
+        if redrawn is None:
+            s2_collapsed.add(dest)
+            continue
+        one = {dest: redrawn}
+        _post_process(rnd, one, mode, count_ceiling=_STAGE2_COUNT_CEILING)
+        stage2_reqs[dest] = one[dest]
+
+    # 3b) Re-key every COLLAPSED stage 2 to its host pad's FINAL stage 1: a
+    # collapse means "no gate beyond the trophy race". The echo was copied before
+    # the post-pass lowered both stages independently, so without this it could
+    # show below stage 1 (issue #342) or above it (an unintended real gate).
+    # Under shuffle the host is the REAL host pad.
+    for _dest in s2_collapsed:
+        if _dest in stage2_reqs:
+            stage2_reqs[_dest] = deny_four_key_gate(
+                pad_reqs.get(s1_host.get(_dest, _dest)), mode)
+
+    # 3c) RE-VALIDATION against the actual shuffled graph (only when the DAG was
+    # built on the identity view): sweep the shuffled graph and relax only the
+    # requirements that fail there.
     if shuffle_active:
-        for _dest in s2_collapsed:
-            if _dest in stage2_reqs:
-                stage2_reqs[_dest] = deny_four_key_gate(
-                    pad_reqs.get(dest_to_phys_real.get(_dest, _dest)), mode)
         # Item types real fill CANNOT relocate this seed: their placement is
         # pinned to vanilla sources, so the synthetic sweep's model of them is
         # AUTHORITATIVE (a pinned-type requirement the sweep cannot validate may
@@ -1350,6 +1402,16 @@ def _run_sphere_search_once(world, mode, reward_track_for=None,
             frozenset(pinned_items), critical_regions, mode)
         world._ctr_s2_relaxed_s1 = relaxed_s1
         world._ctr_s2_relaxed_s2 = relaxed_s2
+        # A relaxed stage 1 is redrawn from the fixed-point inventory and can
+        # end up covering a real stage 2 that 3a had cleared. Redrawing that
+        # stage 2 here is not proven against the shuffled graph, so make it an
+        # explicit collapse instead: same gameplay, and it no longer reads as
+        # a second gate.
+        for _dest in sorted(stage2_reqs):
+            _s1 = pad_reqs.get(dest_to_phys_real.get(_dest, _dest))
+            if (stage2_reqs[_dest] != _s1
+                    and stage2_met_by_stage1(_s1, stage2_reqs[_dest])):
+                stage2_reqs[_dest] = _s1
 
     # 4) assemble {track: {1: stage1, 2: stage2}}. Stage-2 eligibility keys off the
     # DESTINATION (contract §2/§4, design §3): a physical pad carries a meaningful
