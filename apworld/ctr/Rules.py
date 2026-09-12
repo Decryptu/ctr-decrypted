@@ -147,6 +147,7 @@ def set_rules(world):
     add_itemsanity_rules(world, player)
     add_item_box_rules(world, player)
     add_lettersanity_rules(world, player)
+    add_custom_ctr_challenge_rules(world, player)
 
 
 def add_capability_difficulty_rules(world, player):
@@ -213,7 +214,7 @@ def add_lettersanity_rules(world, player):
         return
     selected = world.options._lettersanity_selected
     if mode in (2, 3):
-        for track in lettersanity.LETTER_TRACKS:
+        for track in lettersanity.eligible_letter_tracks(world.options):
             required = (lettersanity.LETTERS if mode == 3 else selected[track])
             names = tuple(lettersanity.item_name(track, letter) for letter in required)
             loc = world.multiworld.get_location(f"{track}: CTR Token Challenge", player)
@@ -278,7 +279,7 @@ def add_lettersanity_rules(world, player):
     # so they acquire no rule here; modes 0, 1 and 3 are untouched (mode 3 has
     # no letter locations at all, mode 1 has locations but no items).
     if mode == 2:
-        for track in lettersanity.LETTER_TRACKS:
+        for track in lettersanity.eligible_letter_tracks(world.options):
             for letter in selected[track]:
                 loc_name = lettersanity.LETTERSANITY_CLASS.location_name(track, letter)
                 own = lettersanity.item_name(track, letter)
@@ -286,6 +287,29 @@ def add_lettersanity_rules(world, player):
                 previous = loc.access_rule
                 loc.access_rule = lambda state, previous=previous, own=own, p=player: \
                     previous(state) and state.has(own, p)
+        from .custom_lettersanity import CUSTOM_LETTERSANITY_CLASS
+        from .custom_check_namespace import custom_check_name, LETTERS
+        for slot, chosen in getattr(world.options, "_custom_lettersanity_selected", {}).items():
+            for letter in chosen:
+                loc = world.multiworld.get_location(
+                    CUSTOM_LETTERSANITY_CLASS.location_name(slot, letter), player)
+                own = custom_check_name("letter_item", slot, LETTERS.index(letter))
+                previous = loc.access_rule
+                loc.access_rule = lambda state, previous=previous, own=own, p=player: \
+                    previous(state) and state.has(own, p)
+
+
+def add_custom_ctr_challenge_rules(world, player):
+    from .custom_check_namespace import custom_check_name, LETTERS
+    mode = int(world.options.lettersanity.value)
+    for slot in getattr(world.options, "_custom_ctr_admitted_slots", ()):
+        loc = world.multiworld.get_location(custom_check_name("ctr_location", slot), player)
+        chosen = getattr(world.options, "_custom_lettersanity_selected", {}).get(slot, ())
+        required = tuple(custom_check_name("letter_item", slot, LETTERS.index(letter))
+                         for letter in chosen) if mode in (2, 3) else ()
+        previous = loc.access_rule
+        loc.access_rule = lambda state, previous=previous, required=required, p=player: \
+            previous(state) and state.has_all(required, p)
 
 
 def add_racer_lock_rules(world, player):
@@ -694,6 +718,9 @@ def add_oxide_access_contract(world, player):
                    and o.oxide_goal.value == OxideGoal.option_101_percent)
 
     first_rule = companions if gates_first else (lambda state: True)
+    # oxide_1_optional changes encounter priority, not reward availability:
+    # with a Final goal the first reward is still reachable early, or jointly
+    # collected on a final win. Final still needs all relic/companion terms.
     relic_rule = world._oxide_final_relic_rule()
     if gates_final:
         final_rule = (lambda state, f=first_rule, r=relic_rule, c=companions:
@@ -807,7 +834,7 @@ def add_podium_placement_rules(world, player, usf_gate):
     No placement is ever logically required, so accessibility:full stays
     satisfiable whenever the trophy race is."""
     o = world.options
-    from .podium import (FINISH_RUNG_KEYS, TROPHY_TRACKS,
+    from .podium import (FINISH_RUNG_KEYS, enabled_trophy_tracks, track_rung_keys,
                          created_rung_keys_from_options, location_name)
     rung_keys = created_rung_keys_from_options(o)
     if not rung_keys:
@@ -820,7 +847,7 @@ def add_podium_placement_rules(world, player, usf_gate):
     # than silently falling back to vanilla if create_regions never ran --
     # a wrong-but-plausible seed is worse than a crash (N3, Opus review).
     track_cups = track_to_cups(resolved_gem_cup_legs(world))
-    for track in TROPHY_TRACKS:
+    for track in enabled_trophy_tracks(o):
         trophy_name = f"{track}: Trophy Race"
         if trophy_name not in all_names:
             continue
@@ -851,7 +878,7 @@ def add_podium_placement_rules(world, player, usf_gate):
             # set and the USF finish set are disjoint, so nothing here can pick
             # up a difficulty gate by that route.
             gate_finish_rungs = True
-        for rung_key in rung_keys:
+        for rung_key in track_rung_keys(o, track):
             name = location_name(track, rung_key)
             if name not in all_names:
                 continue

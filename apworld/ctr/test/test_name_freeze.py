@@ -48,17 +48,19 @@ from ..turbo_grant import TURBO_GRANT_CODE, TURBO_GRANT_ITEM
 #: (registry key, name count, code blocks) for every location class, in
 #: registration order. Registration order IS datapackage order.
 EXPECTED_CLASSES = [
-    ("podium", 112, (35015000, 35015100)),
+    ("podium", 122, (35015000, 35015100, 35015200)),
     ("relic_perfect", 18, (35012400,)),
-    ("lettersanity", 48, (35012500,)),
+    ("lettersanity", 54, (35012500,)),
     ("item_boxes", 270, (35014000,)),
     ("itemsanity", 22, (35016000,)),
     # WIDENED by the approved 2026-08-29 unfreeze: the permanent global
     # code, the 18 retail destination codes behind it, and the custom
     # destination-slot block. See wumpa_checks.py for the block layout.
-    ("wumpa", 20, (35016100, 35016101, 35016120)),
-    ("trial_trophy", 2, (35016200,)),
+    ("wumpa", 21, (35016100, 35016101, 35016120, 35016121)),
+    ("trial_trophy", 4, (35016200, 35016210)),
     ("custom_track_race", 192, (35016300, 35016400, 35016500)),
+    ("custom_lettersanity", 396, (35020000,)),
+    ("custom_ctr_challenge", 132, (35023000, 35023100)),
 ]
 
 #: (label, first item code, last item code, count) for each appended item block,
@@ -87,6 +89,7 @@ EXPECTED_ITEM_BLOCKS = [
     # rework also RENAMED 16 existing traps in place; renames move no id and so
     # add no block here -- test_trap_rework.py owns that half.
     ("280 trap rework identities", 35010190, 35010193, 4),
+    ("approved trial letters", 35010194, 35010199, 6),
 ]
 
 #: Every name the freeze appended to data/items.json, in append order.
@@ -104,6 +107,7 @@ FROZEN_ITEM_NAMES = (
     + [TIZI_HELPER_ITEM]   # #223 ruled amendment, appended after the freeze
     + [TURBO_GRANT_ITEM]   # #224 ruled amendment, appended after #223
     + REWORK_TRAP_ITEM_NAMES  # #280 trap rework, appended after #224
+    + list(lettersanity.ALL_ITEM_NAMES[len(lettersanity.ITEM_NAMES):])
 )
 
 
@@ -119,11 +123,11 @@ class TestNameFreezeCensus(unittest.TestCase):
         world_type = AutoWorldRegister.world_types["Crash Team Racing"]
         # 188 frozen by #177, plus the two ruled amendments (#223, #224), plus
         # the three trap identities the rework minted (#280).
-        self.assertEqual(len(world_type.item_name_to_id), 194)
+        self.assertEqual(len(world_type.item_name_to_id), 596)
         # 574 through the trap rework, plus the 19 names the approved
         # 2026-08-29 Wumpa unfreeze appended, plus 32 frozen generic custom
         # race slots with one Trophy and five podium identities apiece.
-        self.assertEqual(len(world_type.location_name_to_id), 785)
+        self.assertEqual(len(world_type.location_name_to_id), 1332)
 
     def test_each_class_codes_sit_inside_its_declared_blocks(self) -> None:
         for location_class in CTR_LOCATION_CLASSES:
@@ -166,7 +170,11 @@ class TestNameFreezeCensus(unittest.TestCase):
         self.assertEqual(
             [by_code[TURBO_GRANT_CODE + i] for i in (1, 2, 3, 4)],
             REWORK_TRAP_ITEM_NAMES)
-        self.assertEqual(max(by_code), TURBO_GRANT_CODE + 4)
+        # The September 12 approved trial amendment follows those historical
+        # identities; it does not change their names or positions.
+        self.assertEqual(max(by_code), 35010199)
+        self.assertEqual([by_code[code] for code in range(35010194, 35010200)],
+                         list(lettersanity.ALL_ITEM_NAMES[48:]))
 
     def test_the_three_families_the_sweep_recovered_are_registered(self) -> None:
         """Character unlocks (#54/#209), the gas pedal (R-I) and the trial-track
@@ -298,7 +306,7 @@ class TestNameFreezeCrossSideConsistency(unittest.TestCase):
         at a spaced base so a future role appends rather than collides.
         """
         entries = wumpa_checks.WUMPA_CLASS.all_locations()
-        self.assertEqual(len(entries), 20)
+        self.assertEqual(len(entries), 21)
 
         # The global check never moves, and it is still first.
         self.assertEqual(entries[0],
@@ -320,6 +328,11 @@ class TestNameFreezeCrossSideConsistency(unittest.TestCase):
             entries[19],
             ("Purple Gem Cup Custom Race: Reach 10 Wumpa", 35016120,
              "Purple Gem Cup"))
+
+        self.assertEqual(
+            entries[20],
+            ("Cortex Vortex: Reach 10 Wumpa", 35016121,
+             "N. Oxide Garage"))
 
         # The whole family stays clear of trial_trophy at 35016200.
         self.assertTrue(all(code < 35016200 for _n, code, _r in entries))

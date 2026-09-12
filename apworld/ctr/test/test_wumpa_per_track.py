@@ -82,8 +82,9 @@ def _registry_measuring_no_wumpa():
     fruit". That is the state a future package genuinely arrives in, and it is
     what this patch stands in for.
     """
-    return mock.patch.object(custom_tracks, "BABY_T_PARK_EXAMPLE",
-                             _no_wumpa_collectible()["baby-t-park"])
+    return mock.patch.object(custom_tracks, "BABY_T_PARK_PROFILES",
+                             (_no_wumpa_collectible()["baby-t-park"],
+                              custom_tracks.BABY_T_PARK_CURRENT))
 
 
 class _FakeOption:

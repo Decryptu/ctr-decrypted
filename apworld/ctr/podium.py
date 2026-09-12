@@ -100,6 +100,23 @@ def _trophy_tracks():
 
 # Canonical, stable track order (module import time). 16 entries.
 TROPHY_TRACKS = _trophy_tracks()
+TRIAL_TRACKS = ("Slide Coliseum", "Turbo Track")
+TRIAL_PODIUM_CODE_BASE = 35015200
+
+
+def enabled_trophy_tracks(options):
+    pinned = getattr(options, "_trial_podium_wire", None)
+    return TROPHY_TRACKS + [track for track, name in zip(
+        TRIAL_TRACKS, ("slide_coliseum_races", "turbo_track_races"))
+        if int(getattr(getattr(options, name, 0), "value", 0)) >= 1
+        and (pinned is None or any(code > 0 for code in pinned.get(track, [])))]
+
+
+def track_rung_keys(options, track):
+    pinned = getattr(options, "_trial_podium_wire", None)
+    if track in TRIAL_TRACKS and pinned is not None:
+        return [key for key, code in zip(SLOT_ORDER, pinned.get(track, [])) if code > 0]
+    return PODIUM_CLASS.created_rung_keys(options)
 
 
 def _rung_code(track_index: int, rung_key: str) -> int:
@@ -160,7 +177,7 @@ class PodiumLocationClass(LocationClass):
 
     key = "podium"
     display_name = "Podium Placement Rungs"
-    code_blocks = (PODIUM_CODE_BASE, HELD_CODE_BASE)
+    code_blocks = (PODIUM_CODE_BASE, HELD_CODE_BASE, TRIAL_PODIUM_CODE_BASE)
 
     def all_locations(self):
         """Every possible podium rung as (name, code, region) for the DATAPACKAGE
@@ -175,6 +192,10 @@ class PodiumLocationClass(LocationClass):
                 out.append((f"{track}: {suffix}", _rung_code(ti, rung_key), track))
             for rung_key, suffix in NEW_RUNGS:
                 out.append((f"{track}: {suffix}", _rung_code(ti, rung_key), track))
+        for ti, track in enumerate(TRIAL_TRACKS):
+            for ri, key in enumerate(SLOT_ORDER):
+                out.append((self.location_name(track, key),
+                            TRIAL_PODIUM_CODE_BASE + ti * 5 + ri, track))
         return out
 
     def location_name(self, track: str, rung_key: str) -> str:
@@ -198,9 +219,9 @@ class PodiumLocationClass(LocationClass):
     def created_location_names(self, options):
         """The family-shared per-seed surface: every rung name this seed creates,
         across all 16 trophy tracks."""
-        rung_keys = self.created_rung_keys(options)
         return [self.location_name(track, rung_key)
-                for track in TROPHY_TRACKS for rung_key in rung_keys]
+                for track in enabled_trophy_tracks(options)
+                for rung_key in track_rung_keys(options, track)]
 
     def slot_codes(self, track: str, created_keys) -> list:
         """The schema-6 5-slot code array for a track: SLOT_ORDER mapped to each

@@ -66,6 +66,21 @@ def _token_challenge_tracks():
 
 # Canonical, stable track order (module import time). 16 entries.
 LETTER_TRACKS = _token_challenge_tracks()
+from .trial_trophy import TRIAL_TRACKS
+ALL_LETTER_TRACKS = tuple(LETTER_TRACKS) + TRIAL_TRACKS
+
+
+def eligible_letter_tracks(options):
+    """Mode-admitted retail tracks, preserving the frozen 16-row prefix.
+
+    Used by the extension's selection/pool/rules/wire integration. Trial relic
+    and Trophy access alone never admit letter items or checks.
+    """
+    from .trial_trophy import TRIAL_TRACKS, TRIAL_TROPHY_CLASS
+    created = set(TRIAL_TROPHY_CLASS.created_location_names(options))
+    return tuple(LETTER_TRACKS) + tuple(
+        track for track in TRIAL_TRACKS
+        if TRIAL_TROPHY_CLASS.ctr_location_name(track) in created)
 
 
 def item_name(track: str, letter: str) -> str:
@@ -86,6 +101,8 @@ def item_name(track: str, letter: str) -> str:
 #: test_lettersanity so the two can never drift.
 ITEM_NAMES = tuple(item_name(track, letter)
                    for track in LETTER_TRACKS for letter in LETTERS)
+ALL_ITEM_NAMES = ITEM_NAMES + tuple(item_name(track, letter)
+                                  for track in TRIAL_TRACKS for letter in LETTERS)
 
 
 class LettersanityLocationClass(LocationClass):
@@ -97,7 +114,7 @@ class LettersanityLocationClass(LocationClass):
 
     def all_locations(self):
         out = []
-        for ti, track in enumerate(LETTER_TRACKS):
+        for ti, track in enumerate(ALL_LETTER_TRACKS):
             for li, letter in enumerate(LETTERS):
                 out.append((self.location_name(track, letter),
                             LETTERSANITY_CODE_BASE + ti * len(LETTERS) + li,
@@ -112,7 +129,7 @@ class LettersanityLocationClass(LocationClass):
         if options is None or not hasattr(options, "lettersanity") or int(options.lettersanity.value) not in (1, 2):
             return []
         selected = getattr(options, "_lettersanity_selected", {})
-        return [self.location_name(track, letter) for track in LETTER_TRACKS
+        return [self.location_name(track, letter) for track in eligible_letter_tracks(options)
                 for letter in LETTERS if letter in selected.get(track, ())]
 
     def wire_block(self, options):
@@ -121,7 +138,7 @@ class LettersanityLocationClass(LocationClass):
                 "letters_per_track": int(options.letters_per_track.value),
                 "locations": {str(TRACK_LEVEL_IDS[track]): [
                     self.code_for(track, letter) if self.location_name(track, letter) in live else -1
-                    for letter in LETTERS] for track in LETTER_TRACKS}}
+                    for letter in LETTERS] for track in eligible_letter_tracks(options)}}
 
 
 #: The registered lettersanity class. `Locations.py` registers this instance.
@@ -129,4 +146,42 @@ LETTERSANITY_CLASS = LettersanityLocationClass()
 
 _pads = json.loads(pkgutil.get_data(__package__, "data/warp_pad_ids.json").decode("utf-8"))["pads"]
 TRACK_LEVEL_IDS = {name[:-len(" Warp Pad")]: meta["level_id"] for name, meta in _pads.items()
-                   if name[:-len(" Warp Pad")] in set(LETTER_TRACKS)}
+                   if name[:-len(" Warp Pad")] in set(ALL_LETTER_TRACKS)}
+
+
+def restore_letter_selection(options, block, mode, count):
+    """Validate slot-owned retail/trial wire identities before restoring UT."""
+    from collections.abc import Mapping
+    if type(mode) is not int or mode not in range(4) or type(count) is not int or count not in (1, 2, 3):
+        raise ValueError("invalid lettersanity mode/count")
+    if not isinstance(block, Mapping) or type(block.get("mode", mode)) is not int or block.get("mode", mode) != mode:
+        raise ValueError("lettersanity block mode mismatch")
+    rows = block.get("locations", {})
+    if not isinstance(rows, Mapping):
+        raise ValueError("lettersanity locations must be a mapping")
+    admitted = eligible_letter_tracks(options)
+    by_id = {str(TRACK_LEVEL_IDS[track]): track for track in admitted}
+    if mode and set(rows) != set(by_id):
+        raise ValueError("lettersanity rows do not match admitted tracks")
+    selected = {}
+    known = {str(lid) for lid in TRACK_LEVEL_IDS.values()}
+    for lid, codes in rows.items():
+        if lid not in known or not isinstance(codes, (list, tuple)) or len(codes) != 3:
+            raise ValueError("invalid lettersanity row")
+        if any(type(code) is not int for code in codes):
+            raise ValueError("letter addresses must be integers")
+        track = by_id.get(lid)
+        if track is None:
+            if mode or any(code != -1 for code in codes):
+                raise ValueError("unadmitted letter track")
+            continue
+        letters = []
+        for letter, code in zip(LETTERS, codes):
+            if code != -1:
+                if mode not in (1, 2) or code != LETTERSANITY_CLASS.code_for(track, letter):
+                    raise ValueError("letter address does not belong to track")
+                letters.append(letter)
+        if mode in (1, 2) and len(letters) != count:
+            raise ValueError("letter selection count mismatch")
+        selected[track] = tuple(letters)
+    return selected

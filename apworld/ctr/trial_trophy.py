@@ -30,25 +30,16 @@ itemsanity's 35016000-021 and the wumpa 35016100 code.
 FROZEN-NAME WARNING. These names ride the single 0.2.0 datapackage bump (#177).
 After that bump they are permanent, and their ids can never move.
 
-STATUS: REQUESTED, NOT FORMALLY RULED. #203's own body item 4 asks for exactly
-this -- "Register two new location names in the apworld during the next
-`world_version` datapackage bump alongside the pending 0.2.0 name registrations,
-rather than using a separate bump" -- and #177's standing principle is that an
-unused registered name costs nothing while a missed one costs a second bump. But
-#203 is open with three unchecked claims (Turbo Track AI has never been
-smoke-tested, the trial-pad menu behaviour is undecided, and AI difficulty is
-unplaytested), and it was not on the freeze session's input list. The two names
-here are therefore a PROPOSAL for the freeze review to confirm or drop, not a
-ruling being implemented. Dropping them is a one-commit revert of this file plus
-its registration line.
-
-NAMES LAND INERT. `created_location_names` returns nothing, unconditionally,
-because no option creates these locations yet.
+The two Trophy identities shipped in 0.2.0. Issue #203 activates them through
+one independent three-state option per trial track. The third state also creates
+the paired CTR Challenge; because that state includes the Trophy Race, CTR-only
+configuration is unrepresentable.
 """
 from .location_class import LocationClass
 
 # Additive block for the two trial-track trophy races, stride 1.
 TRIAL_TROPHY_CODE_BASE = 35016200
+TRIAL_CTR_CODE_BASE = 35016210
 
 #: The two adventure trial tracks, in level-ID order (Slide Coliseum 16, Turbo
 #: Track 17) -- the same relative order they hold at the tail of the 18-track
@@ -61,11 +52,16 @@ class TrialTrophyLocationClass(LocationClass):
 
     key = "trial_trophy"
     display_name = "Trial Track Trophy Races"
-    code_blocks = (TRIAL_TROPHY_CODE_BASE,)
+    code_blocks = (TRIAL_TROPHY_CODE_BASE, TRIAL_CTR_CODE_BASE)
 
     def all_locations(self):
-        return [(self.location_name(track), TRIAL_TROPHY_CODE_BASE + ti, track)
-                for ti, track in enumerate(TRIAL_TRACKS)]
+        rows = []
+        for ti, track in enumerate(TRIAL_TRACKS):
+            rows.append((self.location_name(track),
+                         TRIAL_TROPHY_CODE_BASE + ti, track))
+            rows.append((self.ctr_location_name(track),
+                         TRIAL_CTR_CODE_BASE + ti, track))
+        return rows
 
     def location_name(self, track: str) -> str:
         """AP location name for a trial track's trophy race, e.g.
@@ -74,9 +70,20 @@ class TrialTrophyLocationClass(LocationClass):
         did not previously host it."""
         return f"{track}: Trophy Race"
 
+    def ctr_location_name(self, track: str) -> str:
+        return f"{track}: CTR Token Challenge"
+
     def created_location_names(self, options):
-        """Nothing, until #203's option exists. See the module docstring."""
-        return []
+        names = []
+        option_names = ("slide_coliseum_races", "turbo_track_races")
+        for track, option_name in zip(TRIAL_TRACKS, option_names):
+            mode = int(getattr(getattr(options, option_name, 0), "value",
+                               getattr(options, option_name, 0)))
+            if mode >= 1:
+                names.append(self.location_name(track))
+            if mode >= 2:
+                names.append(self.ctr_location_name(track))
+        return names
 
 
 #: The registered trial-trophy class. `Locations.py` registers this instance.

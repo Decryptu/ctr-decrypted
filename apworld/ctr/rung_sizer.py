@@ -26,7 +26,7 @@ from .Items import load_item_table
 from .Locations import CTR_LOCATION_CLASSES, _LOCATION_DATA
 from .elastic_bounds import predicted_goal_excluded_reserve
 from .itemsanity import ITEMSANITY_CLASS, ITEM_NAMES as ITEMSANITY_ITEM_NAMES
-from .podium import PODIUM_CLASS, TROPHY_TRACKS, created_rung_keys
+from .podium import PODIUM_CLASS, TROPHY_TRACKS, enabled_trophy_tracks, created_rung_keys
 from .relic_tiers import RELIC_TIERS
 from .tizi_helper import TIZI_HELPER_ITEM
 from . import tizi_helper
@@ -34,6 +34,13 @@ from . import turbo_grant
 from . import wumpa_family
 from . import characters
 from . import progressive_capability
+from . import lettersanity
+
+
+def _custom_ctr_slots(world):
+    from .custom_tracks import resolve_custom_tracks
+    return tuple(entry["slot"] for entry in resolve_custom_tracks(world).values()
+                 if entry.get("modes", {}).get("ctr_challenge", False))
 
 logger = logging.getLogger(__name__)
 
@@ -132,7 +139,17 @@ def _base_location_supply(world) -> int:
         len(location_class.created_locations(world.options))
         for location_class in CTR_LOCATION_CLASSES
         if location_class is not PODIUM_CLASS)
-    return static_without_trials + relics + other_classes
+    # Sparse custom classes are populated in create_regions, after sizing.
+    # Predict their admitted checks without drawing a selection or mutating RNG.
+    if not hasattr(world.options, "_custom_ctr_admitted_slots"):
+        slots = len(_custom_ctr_slots(world))
+        other_classes += slots
+        if int(world.options.lettersanity.value) in (1, 2):
+            other_classes += slots * int(world.options.letters_per_track.value)
+    # True-filler first Oxide consumes one real slot with its locked reward.
+    locked_first = int(world.options.oxide_goal.value == 2 and
+                       world.options.oxide_1_optional.value == 2)
+    return static_without_trials + relics + other_classes - locked_first
 
 
 def predicted_mandatory_pool(world) -> int:
@@ -145,6 +162,13 @@ def predicted_mandatory_pool(world) -> int:
     space is tight, while this function sizes only mandatory demand.
     """
     counts = {item["name"]: item["count"] for item in load_item_table()}
+    mode = int(world.options.lettersanity.value)
+    if mode in (2, 3):
+        selected = getattr(world.options, "_lettersanity_selected", {})
+        for track in lettersanity.eligible_letter_tracks(world.options):
+            for letter in lettersanity.LETTERS:
+                counts[lettersanity.item_name(track, letter)] = int(
+                    mode == 3 or letter in selected.get(track, ()))
     for _label, relic_name, _option_name in RELIC_TIERS:
         counts[relic_name] = world._ctr_relic_created.get(relic_name, 0)
 
@@ -212,6 +236,9 @@ def predicted_mandatory_pool(world) -> int:
     # which is the same failure direction DeepSeek review F1 caught for #145.
     mandatory += len(characters.created_unlock_names(world))
     mandatory += mandatory_extra_wumpa
+    if mode in (2, 3):
+        mandatory += len(_custom_ctr_slots(world)) * (
+            3 if mode == 3 else int(world.options.letters_per_track.value))
     return mandatory
 
 
@@ -240,7 +267,7 @@ def required_categories(world) -> Optional[int]:
     demand += len(world.options.exclude_locations.value)
     base = _base_location_supply(world)
     minimum = next((categories for categories in range(6)
-                    if demand <= base + len(TROPHY_TRACKS) * categories), None)
+                    if demand <= base + len(enabled_trophy_tracks(world.options)) * categories), None)
     if minimum is None:
         return None
     if _capability_packs_active(world):
@@ -293,7 +320,7 @@ def apply_rung_sizing(world) -> Optional[str]:
             total_demand = predicted_mandatory_pool(world)
             total_demand += predicted_goal_excluded_reserve(world.options)
             total_demand += len(world.options.exclude_locations.value)
-            maximum_supply = _base_location_supply(world) + len(TROPHY_TRACKS) * 5
+            maximum_supply = _base_location_supply(world) + len(enabled_trophy_tracks(world.options)) * 5
             progressive_capability.raise_if_capability_items_exceed_location_supply(
                 world, available_supply=max(
                     0, maximum_supply - (total_demand - capability_added)))

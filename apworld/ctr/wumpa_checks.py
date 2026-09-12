@@ -43,10 +43,11 @@ family and registers every name UNCONDITIONALLY:
                       out of `data/locations.json`, which is also the order the
                       item-box track mapping uses. Contiguous behind the global
                       code so the family reads as one block.
-  * 35016120+         the custom DESTINATION SLOTS, one per supported custom
-                      destination role. Alpha6 supports exactly one role,
-                      `purple_gem_cup`, at 35016120. Future roles take 35016121
-                      and up; a new PACKAGE in an already-supported role needs no
+  * 35016120          the Purple Gem Cup custom DESTINATION SLOT.
+  * 35016121          Cortex Vortex as the Final Challenge venue. This fixed
+                      encounter identity never aliases Oxide Station.
+                      Future custom roles take 35016122 and up; a new PACKAGE
+                      in an already-supported role needs no
                       code at all, which is the point of keying the identity to
                       the destination slot rather than to a package id or title.
 
@@ -91,6 +92,12 @@ WUMPA_RETAIL_CODE_BASE = 35016101
 
 #: The custom destination slots. One per supported destination role.
 WUMPA_CUSTOM_CODE_BASE = 35016120
+
+#: Cortex Vortex is a fixed Final Challenge venue rather than a replaceable
+#: custom-destination role. Its identity therefore owns the next permanent
+#: code directly and never aliases the Oxide Station retail check.
+WUMPA_CORTEX_VORTEX_CODE = 35016121
+WUMPA_CORTEX_VORTEX_LOCATION = "Cortex Vortex: Reach 10 Wumpa"
 
 #: The one global location name. Spelled out rather than clever: a player reading
 #: it in a tracker with itemsanity switched off has no "(Juiced)" vocabulary to
@@ -228,7 +235,7 @@ class WumpaLocationClass(LocationClass):
     key = "wumpa"
     display_name = "Wumpa Checks"
     code_blocks = (WUMPA_CODE_BASE, WUMPA_RETAIL_CODE_BASE,
-                   WUMPA_CUSTOM_CODE_BASE)
+                   WUMPA_CUSTOM_CODE_BASE, WUMPA_CORTEX_VORTEX_CODE)
 
     #: The global check hangs off the world's root region: wumpa are collected
     #: wherever you race, so it belongs to no track.
@@ -252,6 +259,8 @@ class WumpaLocationClass(LocationClass):
                      region)
                     for index, (_role, label, region)
                     in enumerate(CUSTOM_DESTINATION_ROLES)]
+        entries.append((WUMPA_CORTEX_VORTEX_LOCATION,
+                        WUMPA_CORTEX_VORTEX_CODE, "N. Oxide Garage"))
         return entries
 
     def location_name(self) -> str:
@@ -275,6 +284,11 @@ class WumpaLocationClass(LocationClass):
         names += [custom_location_name(label)
                   for _role, label, _region, _entry
                   in eligible_custom_roles(options)]
+        oxide_final = getattr(options, "oxide_final_track", None)
+        oxide_goal = getattr(options, "oxide_goal", None)
+        if (oxide_final is not None and int(oxide_final.value) == 0 and
+                (oxide_goal is None or int(oxide_goal.value) != 3)):
+            names.append(WUMPA_CORTEX_VORTEX_LOCATION)
         return names
 
     # ------------------------------------------------------------------- wire

@@ -1162,5 +1162,41 @@
     "code": 35010193,
     "count": 0,
     "classification": "trap"
+  },
+  {
+    "name": "Letter C (Slide Coliseum)",
+    "code": 35010194,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter T (Slide Coliseum)",
+    "code": 35010195,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter R (Slide Coliseum)",
+    "code": 35010196,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter C (Turbo Track)",
+    "code": 35010197,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter T (Turbo Track)",
+    "code": 35010198,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter R (Turbo Track)",
+    "code": 35010199,
+    "count": 0,
+    "classification": "progression"
   }
 ]

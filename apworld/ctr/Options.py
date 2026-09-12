@@ -61,6 +61,27 @@ class OxideGoal(Choice):
                          OxideGoal.option_101_percent)
 
 
+class Oxide1Optional(Choice):
+    """Only applies when Oxide Goal is 101_percent (Oxide 2).
+
+    Mandatory (false): beat Oxide 1 before Oxide 2.
+    Optional (true): Oxide 1 remains playable early and may hold progression,
+    but the garage offers Oxide 2 directly
+    once its door, relic, Boss and Gem requirements are met. Winning Oxide 2
+    also collects the item at Oxide 1. It never removes that randomized check
+    or bypasses Oxide 2's requirements.
+    Filler: the same skip, plus Oxide 1 always holds Wumpa Fruit, strictly
+    filler, never progression, useful items or traps. Other goals are unchanged."""
+    display_name = "Oxide 1 Optional"
+    option_mandatory = 0
+    option_optional = 1
+    option_filler = 2
+    alias_true_filler = 2
+    alias_false = 0
+    alias_true = 1
+    default = 0
+
+
 class BossesRequiredGoal(Range):
     """How many of the 4 boss races you must win for the goal.
 
@@ -134,6 +155,15 @@ class FinalOxideRelicCount(NamedRange):
     range_start = 1
     range_end = 54
     default = 18
+
+
+class OxideFinalTrack(Choice):
+    """Venue for N. Oxide's Final Challenge. The opponent and AP location
+    remain Nitros Oxide and 35011105 for both choices."""
+    display_name = "Oxide Final Challenge Track"
+    option_cortex_vortex = 0
+    option_oxide_station = 1
+    default = 0
     special_range_names = {"all": 18}
 
 
@@ -684,6 +714,28 @@ class WarpPadItemDisplay(Choice):
     default = 0
 
 
+class TrialTrackRaces(Choice):
+    """Standalone Adventure race family for one trial track.
+
+    Trophy Race also restores that track's per-track Reach 10 Wumpa route.
+    CTR Challenge includes Trophy Race by construction, so a CTR-only seed
+    cannot be expressed.
+    """
+    display_name = "Trial Track Races"
+    option_off = 0
+    option_trophy_race = 1
+    option_trophy_and_ctr_challenge = 2
+    default = 0
+
+
+class SlideColiseumRaces(TrialTrackRaces):
+    display_name = "Slide Coliseum Races"
+
+
+class TurboTrackRaces(TrialTrackRaces):
+    display_name = "Turbo Track Races"
+
+
 class ApItemTypeColors(DefaultOnToggle):
     """Colour the Archipelago markers by what kind of item is behind them.
 
@@ -1118,10 +1170,12 @@ class ctrAPOptions(PerGameCommonOptions):
 
     # goal & endgame (issue #152: composed conditions, ANDed)
     oxide_goal: OxideGoal
+    oxide_1_optional: Oxide1Optional
     bosses_required_goal: BossesRequiredGoal
     gems_required_goal: GemsRequiredGoal
     oxide_final_challenge_unlock: FinalOxideUnlock
     oxide_final_challenge_relic_count: FinalOxideRelicCount
+    oxide_final_track: OxideFinalTrack
     # items & pool
     shuffle_gems: ShuffleGems
     include_gem_cups: ShuffleWarpPadsGemCups
@@ -1129,6 +1183,8 @@ class ctrAPOptions(PerGameCommonOptions):
     # community custom tracks (Baby T Park event spike): a self-describing
     # descriptor that DISPLACES the cup destination it names
     custom_tracks: CustomTracks
+    slide_coliseum_races: SlideColiseumRaces
+    turbo_track_races: TurboTrackRaces
     shuffle_keys: ShuffleKeys
     trap_fill_percentage: TrapFillPercentage
     trap_weights: TrapWeights
@@ -1201,7 +1257,7 @@ ap_ctr_option_groups: Dict[str, List[Any]] = {
     # an unlabelled bucket at the bottom of the web page, which is where
     # box_locations, shortcut_knowledge, lettersanity, letters_per_track and
     # bossgarage_unlock_requirements used to end up.
-    "Goal": [OxideGoal, BossesRequiredGoal, GemsRequiredGoal,
+    "Goal": [OxideGoal, Oxide1Optional, BossesRequiredGoal, GemsRequiredGoal,
              FinalOxideUnlock, FinalOxideRelicCount],
     "Warp Pad Unlocking": [WarpPadUnlockRequirements, TwoStageDensity,
                            RequirementVariety, RequirementWeights,
@@ -1213,6 +1269,7 @@ ap_ctr_option_groups: Dict[str, List[Any]] = {
     # against each other rather than one at a time.
     "Extra Checks": [BoxLocations, ShortcutKnowledge, Itemsanity,
                      Lettersanity, LettersPerTrack,
+                     SlideColiseumRaces, TurboTrackRaces,
                      PodiumPlacementChecks, PodiumFinishRungs,
                      PodiumAnyPositionRung, PodiumHeldRungs,
                      PodiumHeldFifthRung],
