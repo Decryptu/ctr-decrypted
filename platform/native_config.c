@@ -20,6 +20,7 @@ NativeConfig g_config = {
 	false, // fullscreen (default windowed)
 	0,     // aspectRatio (0 = 4:3, vanilla)
 	true,  // dithering (default on: PSX-authentic)
+	2,     // pgxp (2 = Full: anti-wobble and perspective-correct textures)
 	1,     // renderScale (1 = original PSX raster, the shipped default)
 	true,  // smoothScaling (default on: linear presentation at scaled modes)
 	false, // textureFiltering (default off: PSX-authentic point sampling)
@@ -81,6 +82,11 @@ const ConfigEntry g_configEntries[] = {
 	// Persists as its raw int value, same as CFG_INT.
 	{"Video & QoL", "dithering",                "Dithering",                    CFG_BOOL, &g_config.dithering},
 	{"Video & QoL", "fullscreen",               "Fullscreen",                   CFG_BOOL, &g_config.fullscreen},
+	// PGXP ladder (CFG_ENUM), ported from High Octane: OFF / TEXTURES /
+	// GEOMETRY / FULL, stored as the raw NativePgxpMode value (0/3/1/2, the
+	// same numbers High Octane writes as pgxp_mode). Picked up by
+	// NativePgxp_SyncConfig at the next frame boundary; see docs/PGXP.md.
+	{"Video & QoL", "pgxp",                     "PGXP (Anti-Wobble)",           CFG_ENUM, &g_config.pgxp},
 	{"Video & QoL", "aspect_ratio",             "Aspect Ratio",                 CFG_ENUM, &g_config.aspectRatio},
 	// Render-scale ladder (CFG_ENUM): 1 = ORIGINAL (shipped raster + VRAM
 	// present, the default), 2/3/4 = fixed multiples, 0 = NATIVE (window-sized

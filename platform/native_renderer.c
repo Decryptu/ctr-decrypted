@@ -1074,10 +1074,15 @@ GLint u_disableDitherLoc;
 	    "		fragColor.a = (psxDrawMaskSet != 0 || (psxTextureOutputStp != 0 && sampledStp >= 0.5)) ? 1.0 : 0.0;\n"                                     \
 	    "	}\n"
 
+// PGXP: colour and dither coordinates stay screen-linear (affine, as on the
+// PS1) while v_texcoord is interpolated perspective-correct whenever the vertex
+// carries a depth in a_position.z. Vertices without a recovered depth have
+// a_position.z == 0, which keeps w at 1 and the result identical to the
+// affine path, so the PGXP mode can change at runtime without recompiling.
 global_variable const char *gpu_shader_common = "	varying vec4 v_texcoord;\n"
-                                                "	varying vec4 v_color;\n"
+                                                "	noperspective varying vec4 v_color;\n"
                                                 "	varying vec4 v_page_clut;\n"
-                                                "	varying vec2 v_ditherCoord;\n"
+                                                "	noperspective varying vec2 v_ditherCoord;\n"
                                                 "	varying float v_z;\n";
 
 const char *gte_shader_4 = GPU_FRAGMENT_SAMPLE_SHADER(4);
@@ -1094,9 +1099,14 @@ const char *gte_shader_32_rgba = "	uniform sampler2D s_texture;\n"
                                  "	}\n";
 
 #define GTE_PERSPECTIVE_CORRECTION "	gl_Position = Projection * vec4(a_position.xy, 0.0, 1.0);\n"
+// PGXP perspective-correct texturing: scaling the whole clip-space position by
+// the view depth leaves the screen position unchanged but makes the hardware
+// interpolate v_texcoord perspective-correct.
+#define GTE_PGXP_DEPTH "		gl_Position *= (a_position.z > 0.0) ? a_position.z : 1.0;\n"
 
 #define GTE_VERTEX_SHADER                                                                                          \
-	"	attribute vec4 a_position;\n"                                                                                \
+	"	attribute vec3 a_position; // x, y, PGXP depth (0 when unknown)\n"                                          \
+	"	attribute vec2 a_page_clut;\n"                                                                               \
 	"	attribute vec4 a_texcoord; // uv, color multiplier, dither\n"                                                \
 	"	attribute vec4 a_color;\n"                                                                                   \
 	"	attribute vec4 a_extra; // texcoord.xy ofs, unused.xy\n"                                                     \
@@ -1108,12 +1118,13 @@ const char *gte_shader_32_rgba = "	uniform sampler2D s_texture;\n"
 	"		v_texcoord.xy += a_extra.xy * 0.5;\n"                                                                       \
 	"		v_color = a_color;\n"                                                                                       \
 	"		v_color.xyz *= a_texcoord.z;\n"                                                                             \
-	"		v_page_clut.x = fract(a_position.z / 16.0) * 1024.0;\n"                                                     \
-	"		v_page_clut.y = floor(a_position.z / 16.0) * 256.0;\n"                                                      \
-	"		v_page_clut.z = fract(a_position.w / 64.0);\n"                                                              \
-	"		v_page_clut.w = floor(a_position.w / 64.0) / 512.0;\n"                                                      \
+	"		v_page_clut.x = fract(a_page_clut.x / 16.0) * 1024.0;\n"                                                    \
+	"		v_page_clut.y = floor(a_page_clut.x / 16.0) * 256.0;\n"                                                     \
+	"		v_page_clut.z = fract(a_page_clut.y / 64.0);\n"                                                             \
+	"		v_page_clut.w = floor(a_page_clut.y / 64.0) / 512.0;\n"                                                     \
 	"		v_page_clut.xy += c_UVFudge;\n"                                                                             \
 	"		v_page_clut.zw += c_UVFudge;\n" GTE_PERSPECTIVE_CORRECTION "		v_z = (gl_Position.z - 40.0) * 0.005;\n" \
+	GTE_PGXP_DEPTH                                                                                                 \
 	"	}\n"
 
 internal int NativeRenderer_Shader_CheckShaderStatus(GLuint shader)
@@ -1232,6 +1243,8 @@ internal ShaderID NativeRenderer_Shader_Compile(const char *source, bool isPsxSh
 	glBindAttribLocation(program, a_texcoord, "a_texcoord");
 	glBindAttribLocation(program, a_color, "a_color");
 	glBindAttribLocation(program, a_extra, "a_extra");
+	if (isPsxShader)
+		glBindAttribLocation(program, a_page_clut, "a_page_clut");
 
 	glLinkProgram(program);
 	if (NativeRenderer_Shader_CheckProgramStatus(program) == 0)
@@ -1504,8 +1517,10 @@ int NativeRenderer_InitialisePSX(void)
 			glEnableVertexAttribArray(a_texcoord);
 			glEnableVertexAttribArray(a_color);
 			glEnableVertexAttribArray(a_extra);
+			glEnableVertexAttribArray(a_page_clut);
 
-			glVertexAttribPointer(a_position, 4, GL_SHORT, GL_FALSE, sizeof(GrVertex), &((GrVertex *)NULL)->x);
+			glVertexAttribPointer(a_position, 3, GL_FLOAT, GL_FALSE, sizeof(GrVertex), &((GrVertex *)NULL)->x);
+			glVertexAttribPointer(a_page_clut, 2, GL_SHORT, GL_FALSE, sizeof(GrVertex), &((GrVertex *)NULL)->page);
 			glVertexAttribPointer(a_texcoord, 4, GL_UNSIGNED_BYTE, GL_FALSE, sizeof(GrVertex), &((GrVertex *)NULL)->u);
 			glVertexAttribPointer(a_color, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(GrVertex), &((GrVertex *)NULL)->r);
 			glVertexAttribPointer(a_extra, 4, GL_BYTE, GL_FALSE, sizeof(GrVertex), &((GrVertex *)NULL)->tcx);

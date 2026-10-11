@@ -120,7 +120,7 @@ int main(void)
 	{
 		static const char *const video[] = {
 			"fullscreen", "aspect_ratio", "render_scale", "vsync", "smooth_scaling",
-			"texture_filtering", "dithering", "increase_draw_distance",
+			"texture_filtering", "dithering", "pgxp", "increase_draw_distance",
 			"disable_split_screen_lod", NULL};
 		static const char *const gameplay[] = {
 			"skip_intro", "skip_hints", "skip_podium", "skip_cutscenes", "ai_difficulty",

@@ -3,6 +3,26 @@
 This project vendors third-party software and contains modified third-party
 derivatives. Keep this file with source and binary distributions of CTR Native.
 
+## CTR Turbocharged PGXP implementation (via High Octane)
+
+Source: https://github.com/CameronRedmore/Crash-Team-Racing-Turbocharged
+(branch turbocharged, upstream revision 07d0c49f), as adapted by High Octane
+(https://github.com/Rinnegatamante/Crash-Team-Racing-High-Octane, commit
+03014d84f "Added PGXP implementation.").
+
+The PGXP vertex tracking in `platform/native_pgxp.c`,
+`include/platform/native_pgxp.h` and `include/platform/native_pgxp_projection.h`,
+and the PGXP hooks in the GTE (`platform/native_gte_core.c`,
+`platform/native_inline_c.c`, `include/ctr_gte.h`), the GPU primitive path
+(`platform/native_gpu.c`), the renderer (`platform/native_renderer.c`) and the
+level renderer (`game/226/226_00_DrawLevelOvr1P.c`) are adapted from this GPLv3
+project, which credits DuckStation (Stenzek) and the original PGXP work by
+iCatButler. High Octane keeps GPLv3 licensing for these adapted files, and so
+does this project. The Vita-only code was removed; the integration with this
+project's renderer, primitive arenas and options menu is a local change.
+
+License: GPL-3.0
+
 ## PsyCross / Psy-X
 
 Source: <https://github.com/OpenDriver2/PsyCross>

@@ -90,6 +90,7 @@ static void TestConfigDefaults(void)
 	EXPECT_INT("default aspectRatio", g_config.aspectRatio, 0);
 	EXPECT_INT("default fullscreen", g_config.fullscreen, 0);
 	EXPECT_INT("default dithering", g_config.dithering, 1);
+	EXPECT_INT("default pgxp (2 = full)", g_config.pgxp, 2);
 
 	const ConfigEntry *ar = FindEntry("Video & QoL", "aspect_ratio");
 	const ConfigEntry *fs = FindEntry("Video & QoL", "fullscreen");
@@ -100,6 +101,9 @@ static void TestConfigDefaults(void)
 	if (ar) EXPECT_INT("aspect_ratio is CFG_ENUM", ar->type, CFG_ENUM);
 	if (fs) EXPECT_INT("fullscreen is CFG_BOOL", fs->type, CFG_BOOL);
 	if (di) EXPECT_INT("dithering is CFG_BOOL", di->type, CFG_BOOL);
+	const ConfigEntry *pg = FindEntry("Video & QoL", "pgxp");
+	EXPECT_TRUE("pgxp entry present", pg != NULL);
+	if (pg) EXPECT_INT("pgxp is CFG_ENUM", pg->type, CFG_ENUM);
 #ifdef CTR_AP
 	const ConfigEntry *td = FindEntry("Archipelago", "trap_duration");
 	EXPECT_INT("default trapDuration", g_config.trapDuration, 15);

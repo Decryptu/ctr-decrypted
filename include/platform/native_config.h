@@ -17,6 +17,13 @@ typedef struct
 	bool fullscreen;            // Video & QoL: borderless fullscreen window (default windowed)
 	int  aspectRatio;           // Video & QoL: 0 = 4:3 (vanilla), 1 = 16:9, 2 = 16:10, 3 = 21:9
 	bool dithering;             // Video & QoL: PSX-authentic dithering (default on)
+	int  pgxp;                  // Video & QoL: PGXP precision geometry, stored as the
+	                            // raw NativePgxpMode value (include/platform/
+	                            // native_pgxp.h): 0 = Off, 1 = Geometry (anti-wobble
+	                            // only), 2 = Full (anti-wobble + perspective-correct
+	                            // textures, default), 3 = Textures (perspective-
+	                            // correct textures only). Applied at the next frame
+	                            // boundary (Platform_EndFrame), so it switches live.
 	int  renderScale;           // Video & QoL: internal render scale. 1 = original PSX
 	                            // raster + shipped VRAM presentation (default),
 	                            // 2/3/4 = fixed multiples, 0 = native window.

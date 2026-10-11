@@ -35,7 +35,7 @@ typedef struct
 
 static const char *const s_ctrMenuPageVideo[] = {
 	"fullscreen", "aspect_ratio", "render_scale", "vsync", "smooth_scaling",
-	"texture_filtering", "dithering", "increase_draw_distance",
+	"texture_filtering", "dithering", "pgxp", "increase_draw_distance",
 	"disable_split_screen_lod", NULL,
 };
 static const char *const s_ctrMenuPageGameplay[] = {

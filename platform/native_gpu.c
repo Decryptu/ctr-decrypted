@@ -16,8 +16,10 @@
 #include "platform/native_log.h"
 #include "platform/native_perf.h"
 #include "platform/native_renderer.h"
+#include "platform/native_pgxp.h"
 
 #include <assert.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -328,7 +330,43 @@ void MakeLineArray(GrVertex *vertex, VERTTYPE *p0, VERTTYPE *p1)
 	} // TODO diagonal line alignment
 }
 
-void MakeVertexTriangle(GrVertex *vertex, VERTTYPE *p0, VERTTYPE *p1, VERTTYPE *p2)
+static void NativeGpu_ApplyPgxp(GrVertex *vertex, VERTTYPE *const *points, int count, float ofsX, float ofsY)
+{
+	if (!NATIVE_PGXP_ACTIVE())
+		return;
+	float depth[4];
+	int recovered = 0;
+	const int preciseGeometry = NATIVE_PGXP_GEOMETRY_ACTIVE();
+	int perspective = NATIVE_PGXP_TEXTURES_ACTIVE();
+	for (int i = 0; i < count; i++)
+	{
+		NativePgxpVertex precise;
+		const u32 sxy = (u16)points[i][0] | ((u32)(u16)points[i][1] << 16);
+		if (NativePgxp_Lookup(points[i], sxy, &precise))
+		{
+			if (preciseGeometry)
+			{
+				// Keep precise shared corners even on partially matched polygons.
+				vertex[i].x = precise.x + ofsX;
+				vertex[i].y = precise.y + ofsY;
+			}
+			depth[i] = precise.w;
+			recovered++;
+			perspective &= precise.w >= 64.0f && isfinite(precise.w);
+		}
+		else
+		{
+			perspective = 0;
+		}
+	}
+	if (perspective && recovered == count)
+	{
+		for (int i = 0; i < count; i++)
+			vertex[i].w = depth[i];
+	}
+}
+
+void MakeVertexTriangle(GrVertex *vertex, VERTTYPE *p0, VERTTYPE *p1, VERTTYPE *p2, bool textured)
 {
 	assert(p0);
 	assert(p1);
@@ -347,9 +385,14 @@ void MakeVertexTriangle(GrVertex *vertex, VERTTYPE *p0, VERTTYPE *p1, VERTTYPE *
 
 	vertex[2].x = p2[0] + ofsX;
 	vertex[2].y = p2[1] + ofsY;
+	if (NATIVE_PGXP_GEOMETRY_ACTIVE() || (textured && NATIVE_PGXP_TEXTURES_ACTIVE()))
+	{
+		VERTTYPE *points[3] = {p0, p1, p2};
+		NativeGpu_ApplyPgxp(vertex, points, 3, ofsX, ofsY);
+	}
 }
 
-void MakeVertexQuad(GrVertex *vertex, VERTTYPE *p0, VERTTYPE *p1, VERTTYPE *p2, VERTTYPE *p3)
+void MakeVertexQuad(GrVertex *vertex, VERTTYPE *p0, VERTTYPE *p1, VERTTYPE *p2, VERTTYPE *p3, bool textured)
 {
 	assert(p0);
 	assert(p1);
@@ -372,6 +415,11 @@ void MakeVertexQuad(GrVertex *vertex, VERTTYPE *p0, VERTTYPE *p1, VERTTYPE *p2, 
 
 	vertex[3].x = p3[0] + ofsX;
 	vertex[3].y = p3[1] + ofsY;
+	if (NATIVE_PGXP_GEOMETRY_ACTIVE() || (textured && NATIVE_PGXP_TEXTURES_ACTIVE()))
+	{
+		VERTTYPE *points[4] = {p0, p1, p2, p3};
+		NativeGpu_ApplyPgxp(vertex, points, 4, ofsX, ofsY);
+	}
 }
 
 void MakeVertexRect(GrVertex *vertex, VERTTYPE *p0, s16 w, s16 h)
@@ -1071,7 +1119,7 @@ internal void DrawPendingSplits(bool earlyFlush)
 
 			NATIVE_GPU_LOG("==========================================\n");
 			NATIVE_GPU_LOG("POLYGON: %d\n", g_dbg_polygonSelected);
-			NATIVE_GPU_LOG("X: %d Y: %d\n", vert->x, vert->y);
+			NATIVE_GPU_LOG("X: %.2f Y: %.2f W: %.2f\n", vert->x, vert->y, vert->w);
 			NATIVE_GPU_LOG("U: %d V: %d\n", vert->u, vert->v);
 			NATIVE_GPU_LOG("TP: %d CLT: %d\n", vert->page, vert->clut);
 
@@ -1512,7 +1560,7 @@ internal int ProcessFlatPoly(P_TAG *polyTag)
 		AddSplit(semiTrans, false, false);
 
 		GrVertex *firstVertex = &s_gpu.vertexBuffer[s_gpu.vertexIndex];
-		MakeVertexTriangle(firstVertex, &poly->x0, &poly->x1, &poly->x2);
+		MakeVertexTriangle(firstVertex, &poly->x0, &poly->x1, &poly->x2, false);
 		MakeTexcoordTriangleZero(firstVertex, 0);
 		MakeColourTriangle(firstVertex, shadeTexOn, &poly->r0, &poly->r0, &poly->r0);
 
@@ -1531,7 +1579,7 @@ internal int ProcessFlatPoly(P_TAG *polyTag)
 			AddSplit(semiTrans, true, NativeGpu_TPageOverlapsActiveDrawPage(poly->tpage));
 
 			GrVertex *firstVertex = &s_gpu.vertexBuffer[s_gpu.vertexIndex];
-			MakeVertexTriangle(firstVertex, &poly->x0, &poly->x1, &poly->x2);
+			MakeVertexTriangle(firstVertex, &poly->x0, &poly->x1, &poly->x2, true);
 			MakeTexcoordTriangle(firstVertex, &poly->u0, &poly->u1, &poly->u2, poly->tpage, poly->clut,
 			                     GET_TPAGE_DITHER(activeDrawEnv.tpage) || activeDrawEnv.dtd);
 			MakeColourTriangle(firstVertex, shadeTexOn, &poly->r0, &poly->r0, &poly->r0);
@@ -1547,7 +1595,7 @@ internal int ProcessFlatPoly(P_TAG *polyTag)
 		AddSplit(semiTrans, false, false);
 
 		GrVertex *firstVertex = &s_gpu.vertexBuffer[s_gpu.vertexIndex];
-		MakeVertexQuad(firstVertex, &poly->x0, &poly->x1, &poly->x3, &poly->x2);
+		MakeVertexQuad(firstVertex, &poly->x0, &poly->x1, &poly->x3, &poly->x2, false);
 		MakeTexcoordQuadZero(firstVertex, 0);
 		MakeColourQuad(firstVertex, shadeTexOn, &poly->r0, &poly->r0, &poly->r0, &poly->r0);
 
@@ -1564,7 +1612,7 @@ internal int ProcessFlatPoly(P_TAG *polyTag)
 		AddSplit(semiTrans, true, NativeGpu_TPageOverlapsActiveDrawPage(poly->tpage));
 
 		GrVertex *firstVertex = &s_gpu.vertexBuffer[s_gpu.vertexIndex];
-		MakeVertexQuad(firstVertex, &poly->x0, &poly->x1, &poly->x3, &poly->x2);
+		MakeVertexQuad(firstVertex, &poly->x0, &poly->x1, &poly->x3, &poly->x2, true);
 		MakeTexcoordQuad(firstVertex, &poly->u0, &poly->u1, &poly->u3, &poly->u2, poly->tpage, poly->clut,
 		                 GET_TPAGE_DITHER(activeDrawEnv.tpage) || activeDrawEnv.dtd);
 		MakeColourQuad(firstVertex, shadeTexOn, &poly->r0, &poly->r0, &poly->r0, &poly->r0);
@@ -1594,7 +1642,7 @@ internal int ProcessGouraudPoly(P_TAG *polyTag)
 		AddSplit(semiTrans, false, false);
 
 		GrVertex *firstVertex = &s_gpu.vertexBuffer[s_gpu.vertexIndex];
-		MakeVertexTriangle(firstVertex, &poly->x0, &poly->x1, &poly->x2);
+		MakeVertexTriangle(firstVertex, &poly->x0, &poly->x1, &poly->x2, false);
 		MakeTexcoordTriangleZero(firstVertex, 1);
 		MakeColourTriangle(firstVertex, shadeTexOn, &poly->r0, &poly->r1, &poly->r2);
 
@@ -1610,7 +1658,7 @@ internal int ProcessGouraudPoly(P_TAG *polyTag)
 		AddSplit(semiTrans, true, NativeGpu_TPageOverlapsActiveDrawPage(poly->tpage));
 
 		GrVertex *firstVertex = &s_gpu.vertexBuffer[s_gpu.vertexIndex];
-		MakeVertexTriangle(firstVertex, &poly->x0, &poly->x1, &poly->x2);
+		MakeVertexTriangle(firstVertex, &poly->x0, &poly->x1, &poly->x2, true);
 		MakeTexcoordTriangle(firstVertex, &poly->u0, &poly->u1, &poly->u2, poly->tpage, poly->clut, GET_TPAGE_DITHER(activeDrawEnv.tpage) || activeDrawEnv.dtd);
 		MakeColourTriangle(firstVertex, shadeTexOn, &poly->r0, &poly->r1, &poly->r2);
 
@@ -1625,7 +1673,7 @@ internal int ProcessGouraudPoly(P_TAG *polyTag)
 		AddSplit(semiTrans, false, false);
 
 		GrVertex *firstVertex = &s_gpu.vertexBuffer[s_gpu.vertexIndex];
-		MakeVertexQuad(firstVertex, &poly->x0, &poly->x1, &poly->x3, &poly->x2);
+		MakeVertexQuad(firstVertex, &poly->x0, &poly->x1, &poly->x3, &poly->x2, false);
 		MakeTexcoordQuadZero(firstVertex, 1);
 		MakeColourQuad(firstVertex, shadeTexOn, &poly->r0, &poly->r1, &poly->r3, &poly->r2);
 
@@ -1643,7 +1691,7 @@ internal int ProcessGouraudPoly(P_TAG *polyTag)
 		AddSplit(semiTrans, true, NativeGpu_TPageOverlapsActiveDrawPage(poly->tpage));
 
 		GrVertex *firstVertex = &s_gpu.vertexBuffer[s_gpu.vertexIndex];
-		MakeVertexQuad(firstVertex, &poly->x0, &poly->x1, &poly->x3, &poly->x2);
+		MakeVertexQuad(firstVertex, &poly->x0, &poly->x1, &poly->x3, &poly->x2, true);
 		MakeTexcoordQuad(firstVertex, &poly->u0, &poly->u1, &poly->u3, &poly->u2, poly->tpage, poly->clut,
 		                 GET_TPAGE_DITHER(activeDrawEnv.tpage) || activeDrawEnv.dtd);
 		MakeColourQuad(firstVertex, shadeTexOn, &poly->r0, &poly->r1, &poly->r3, &poly->r2);

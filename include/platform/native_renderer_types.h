@@ -10,6 +10,7 @@
 #include <macros.h>
 #include <psx/libgte.h>
 #include <psx/libgpu.h>
+#include <platform/native_pgxp.h>
 
 #define LUT_WIDTH              (256)
 #define LUT_HEIGHT             (256)
@@ -22,22 +23,25 @@
 
 // Vertices per frame batch. 1 << 16 overflowed on Saphi's Papu Cave (a custom
 // track, 1 MiB primitive arena per frame). 1 << 18 is what a full 1 MiB arena
-// of POLY_F4, the densest polygon (24 bytes, 6 vertices), produces. Cost: 5 MiB
-// for the CPU array plus 5 MiB for each of the two GL vertex buffers. Frames
+// of POLY_F4, the densest polygon (24 bytes, 6 vertices), produces. Cost: 8 MiB
+// for the CPU array plus 8 MiB for each of the two GL vertex buffers. Frames
 // that still do not fit drop whole primitives (native_gpu_vertex_budget_logic.h).
 #define MAX_VERTEX_BUFFER_SIZE (1u << 18)
 
 #pragma pack(push, 1)
 typedef struct
 {
-	s16 x, y, page, clut;
+	float x, y, w;
+	s16 page, clut;
 
 	u8 u, v, bright, dither;
 	u8 r, g, b, a;
 
 	s8 tcx, tcy, _p0, _p1;
+	u32 _align; // Pads the vertex to a 32-byte stride.
 } GrVertex;
 #pragma pack(pop)
+CTR_STATIC_ASSERT(sizeof(GrVertex) == 32);
 
 typedef enum
 {
@@ -45,6 +49,7 @@ typedef enum
 	a_texcoord,
 	a_color,
 	a_extra,
+	a_page_clut,
 } ShaderAttrib;
 
 typedef enum
