@@ -21,9 +21,7 @@ Status of CTR Decrypted, kept current with every change. **Status values:** Done
 | Developer tools for unattended runs | `CTR_DEV_*` switches: attract demo or race on any track, autopilot, traces, fast-forward, hidden window, frame capture, polygon dumps, all bit-exact. `devrun.ps1`, `fps-parity.ps1` and analysis scripts; `--perf` budget follows the frame rate. See [docs/DEV-TOOLS.md](docs/DEV-TOOLS.md) |
 | Archipelago: starting racer and hub picker | All eight vanilla starters unlocked → the garage picker runs at a new profile. 50% black backdrop behind the in-hub picker |
 | Boot splash centred when the window starts maximized | `NativeRenderer_UpdatePresentationViewport` reads the live window size |
-| Mystery Caves no longer crashes with 3–4 players | ctr-native #58. Untextured quadblocks are skipped in the 3P/4P low-detail renderer instead of read through a null texture |
-| Reconnect catch-up checked | ctr-native-ap #147. 29,700 items queued on a local server arrive at connect with no frame over 23 ms (watchdog threshold 250 ms), so network work stays on the game thread. `tools/decrypted/ap_backlog.py` |
-| Credits and scrapbook after the true ending checked | ctr-native #45 and #52 do not happen here; see [docs/UPSTREAM-ISSUES.md](docs/UPSTREAM-ISSUES.md) |
+| Upstream bug reports closed | Fixed: Mystery Caves crash with 3–4 players (ctr-native #58). Already fine here, checked unattended: credits and scrapbook (ctr-native #45, #52), reconnect catch-up (ctr-native-ap #147), stat bars (#466), vanilla-mode stage 2 keys (#499, via the apworld we ship). Details in [docs/UPSTREAM-ISSUES.md](docs/UPSTREAM-ISSUES.md) |
 
 ## In progress
 Nothing.
