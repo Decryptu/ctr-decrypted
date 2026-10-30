@@ -235,8 +235,20 @@ failed attempt exactly, eleven times. Matched jumps agree on every track.
   16.68 ms (5th to 95th percentile 16.49 to 16.85 ms, worst 17.25 ms).
   How that meets the display with VSync On or Adaptive cannot be measured
   in a hidden window, because the driver does not block the swap there;
-  `tools/decrypted/vsync-check.ps1` measures it with the window visible
-  (ROADMAP, Planned).
+  `tools/decrypted/vsync-check.ps1` measures it with the window visible.
+  On a 60 Hz laptop panel (Intel UHD, 60.01 Hz), every combination is even:
+  30 and 60 FPS, VSync Off, On and Adaptive, windowed and fullscreen, about
+  a minute of Crash Cove each. At 60 FPS every one of about 3655 frames
+  stayed on screen for exactly one refresh (median 16.68 to 16.69 ms, 99th
+  percentile at most 17.19 ms, worst 19.93 ms); at 30 FPS every one of about
+  1520 frames stayed for exactly two (median 33.40 ms). No run had an uneven
+  or long frame, so the game's 59.94 Hz clock does not drift visibly against
+  a 60 Hz display and VSync needs no pacing change.
+  Not measured: a 144 Hz display. 60 does not divide 144, so with a fixed
+  refresh rate frames there alternate between two and three refreshes
+  whatever the game does; only a variable-refresh display (G-Sync or
+  FreeSync) can show 60 FPS evenly at 144 Hz. To measure it, set the display
+  to 144 Hz and run the same script.
 
 ## Left to check by playing
 
