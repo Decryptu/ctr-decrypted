@@ -84,7 +84,9 @@ s16 SubmitName_DrawMenu(u16 string)
 	}
 
 #if CTR_NATIVE_60FPS
-	if (!CTR_NATIVE_60FPS_ACTIVE || ((gGT->timer & 1) != 0))
+	// sdata->frameCounter runs every frame; gGT->timer stops while
+	// PAUSE_ALL is set, which would let typeTimer step every frame.
+	if (!CTR_NATIVE_60FPS_ACTIVE || ((sdata->frameCounter & 1) != 0))
 	{
 		sdata->typeTimer++;
 	}
