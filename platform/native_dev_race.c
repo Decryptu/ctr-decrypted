@@ -195,8 +195,11 @@ int NativeDev_AutopilotPad(unsigned short *buttons, unsigned char *leftX)
 		steer = -127;
 
 	// Wedged (under 300 units travelled in a second and a half of race time):
-	// reverse out for a second, steering the other way. Distance rather than
-	// speed, because a kart pinned on a ledge can report speed and not move.
+	// reverse out for a second at full opposite lock. Distance rather than
+	// speed, because a kart pinned on a wall can report speed and not move.
+	// Full lock, because on a turbo pad against a wall the pad refills the
+	// reserves every frame, the boost overrides the brake, and only turning
+	// away breaks the contact.
 	int raceMS = d->timeElapsedInRace;
 	int dt = raceMS - dev->lastRaceMS;
 	dev->lastRaceMS = raceMS;
@@ -227,7 +230,7 @@ int NativeDev_AutopilotPad(unsigned short *buttons, unsigned char *leftX)
 		if (dt > 0)
 			dev->reverseMS -= dt;
 		held = RAW_BTN_SQUARE | RAW_BTN_DOWN;
-		steer = -steer;
+		steer = (steer > 0) ? -127 : 127;
 	}
 	if (steer < -48)
 		held |= RAW_BTN_LEFT;

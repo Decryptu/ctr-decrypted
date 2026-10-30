@@ -30,8 +30,7 @@ Roughly in this order.
 
 | Item | Source |
 |---|---|
-| Check frame pacing at 60 FPS with the existing VSync option (Off / On / Adaptive, from the base) on 60 Hz and high-refresh monitors | High Octane lacks VSync (#46). The game's own clock is steady at 60 (median 16.68 ms); how it meets the display needs a visible window, see [docs/60FPS.md](docs/60FPS.md#left-to-check-by-playing) |
-| Kart pinned on a turbo pad edge: at 60 FPS the autopilot left the road at Cortex Castle's first turn (about 5.1 s in) and stopped nose-first against a wall on a turbo pad's lip. The pad refills reserves every frame, so the boost overrides brake, reverse and steering for good. Find whether 30 FPS can reach the same pose, then make the kart able to leave | Found by `fps-parity.ps1 -Tracks 10`; the 60 FPS trace freezes at (-1609, 27, 9971) |
+| Frame pacing at 60 FPS with VSync (Off / On / Adaptive) on 60 Hz and 144 Hz | High Octane lacks VSync (#46). The game paces itself on a 59.94 Hz timer and VSync On adds the display's wait on top, so a 60 Hz panel drifts against it and a 144 Hz one cannot show 60 evenly. `tools/decrypted/vsync-check.ps1` measures it; it needs the screen on and nobody at the machine, so it runs overnight. Then fix what it shows |
 | 60 FPS: the last 1.4% of AI speed | Bots still leave the ground for a frame at kinks in the nav line more often than at 30 (9% of frames against 6%), mostly at the start |
 | Softlock or black screen on the credits and scrapbook after beating Oxide | ctr-native #45 and #52, High Octane #24 |
 | Mystery Caves left path crash with 3–4 players | ctr-native #58. Fixed in High Octane (#30); port it |

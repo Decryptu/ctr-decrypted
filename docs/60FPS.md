@@ -168,31 +168,33 @@ at 60 FPS with the autopilot (the AI's line through the normal kart physics)
 and compares the traces ([DEV-TOOLS.md](DEV-TOOLS.md#unattended-races)).
 Results on 2026-10-30:
 
-| Track | Finish 30 / 60 FPS | Matched jumps: count, mean airtime difference | Ghost drift, mean units: raced at 30 / at 60 |
-|---|---|---|---|
-| Dingo Canyon | 30: 159.2 s / 60: did not finish (wedged on an inside wall) | | 44.3 / 44.3 |
-| Dragon Mines | 141.02 / 138.18 s (-2.0%) | 12, +8 ms | 49.4 / 49.4 |
-| Blizzard Bluff | 121.66 / 121.78 s (+0.1%) | 32, +12 ms | 62.1 / 62.1 |
-| Crash Cove | 107.90 / 107.60 s (-0.3%) | 6, +29 ms | 53.0 / 52.7 |
-| Tiger Temple | 137.92 / 140.78 s (+2.1%) | 32, +13 ms | 54.7 / 54.7 |
-| Papu's Pyramid | 190.05 / 193.47 s (+1.8%) | 26, +13 ms | 46.0 / 45.9 |
-| Roo's Tubes | 115.26 / 114.21 s (-0.9%) | 9, +0 ms | 53.1 / 52.7 |
-| Hot Air Skyway | 330.43 / 518.94 s (+57%, see below) | 43, -182 ms | 62.6 / 62.0 |
-| Sewer Speedway | 173.73 / 173.84 s (+0.1%) | 17, +16 ms | 51.9 / 51.9 |
-| Mystery Caves | 154.98 / 155.58 s (+0.4%) | 29, -25 ms | 60.7 / 60.7 |
-| Cortex Castle | 30: 243.8 s / 60: did not finish (pinned on a turbo pad, ROADMAP) | | 66.4 / 65.9 |
-| N. Gin Labs | did not finish (falls into the same pit) | | |
-| Polar Pass | did not finish (falls into the same pit) | | |
-| Oxide Station | 279.97 / 279.21 s (-0.3%) | 22, +17 ms | 62.6 / 62.1 |
-| Coco Park | 111.94 / 111.97 s (+0.0%) | none | 60.6 / 60.6 |
-| Tiny Arena | 291.84 / 294.01 s (+0.7%) | 104, +7 ms | 48.0 / 48.0 |
-| Slide Coliseum | 178.88 / 178.11 s (-0.4%) | none | 48.8 / 48.5 |
-| Turbo Track | 160.54 / 160.96 s (+0.3%) | none | 63.9 / 63.9 |
+| Track | Finish 30 / 60 FPS | Autopilot falls 30 / 60 | Matched jumps: count, mean airtime difference | Ghost drift, mean units: raced at 30 / at 60 |
+|---|---|---|---|---|
+| Dingo Canyon | 145.54 / 147.02 s (+1.0%) | 0 / 0 | 8, +12 ms | 50.9 / 50.9 |
+| Dragon Mines | 151.14 / 144.27 s (-4.5%) | 5 / 4 | 12, +24 ms | 50.8 / 49.0 |
+| Blizzard Bluff | 121.66 / 121.78 s (+0.1%) | 0 / 0 | 32, +12 ms | 62.1 / 62.1 |
+| Crash Cove | 107.90 / 107.60 s (-0.3%) | 0 / 0 | 6, +29 ms | 53.0 / 52.7 |
+| Tiger Temple | 137.92 / 140.78 s (+2.1%) | 0 / 0 | 32, +13 ms | 54.7 / 54.7 |
+| Papu's Pyramid | 188.48 / 201.31 s (+6.8%) | 7 / 9 | 26, +16 ms | 45.7 / 45.6 |
+| Roo's Tubes | 115.26 / 114.21 s (-0.9%) | 0 / 0 | 9, +0 ms | 53.1 / 52.7 |
+| Hot Air Skyway | 330.81 / 518.94 s (+57%) | 19 / 52 | 43, -186 ms | 64.3 / 63.9 |
+| Sewer Speedway | 173.73 / 173.84 s (+0.1%) | 0 / 0 | 17, +16 ms | 51.9 / 51.9 |
+| Mystery Caves | 154.98 / 155.58 s (+0.4%) | 0 / 0 | 29, -25 ms | 60.7 / 60.7 |
+| Cortex Castle | 243.29 / 270.06 s (+11.0%) | 9 / 13 | 33, +5 ms | 66.4 / 65.9 |
+| N. Gin Labs | did not finish (falls into the same pit) | 223 / 132 | | |
+| Polar Pass | did not finish (falls into the same pit) | 211 / 78 | | |
+| Oxide Station | 279.30 / 280.91 s (+0.6%) | 3 / 3 | 22, +4 ms | 65.0 / 65.0 |
+| Coco Park | 111.94 / 111.97 s (+0.0%) | 0 / 0 | none | 60.6 / 60.6 |
+| Tiny Arena | 291.84 / 294.01 s (+0.7%) | 0 / 0 | 104, +7 ms | 48.0 / 48.0 |
+| Slide Coliseum | 178.88 / 178.11 s (-0.4%) | 0 / 0 | none | 48.8 / 48.5 |
+| Turbo Track | 160.54 / 160.96 s (+0.3%) | 0 / 0 | none | 63.9 / 63.9 |
 
-Hot Air Skyway: the autopilot never boosts, so it misses the first gap at
-both rates (takeoff speed 13133 and 12920, same distance short). At 60 each
-respawn repeats the same failed attempt exactly, eleven times; at 30 the
-retries differ and get across sooner. The jumps themselves match.
+The autopilot never boosts, so it misses some gaps and falls; each fall
+costs about six seconds, and the tracks with the largest finish differences
+are the ones where it fell a different number of times. Hot Air Skyway is
+the extreme case: it misses the first gap at both rates (takeoff speed 13133
+and 12920, the same distance short), and at 60 each respawn repeats the same
+failed attempt exactly, eleven times. Matched jumps agree on every track.
 
 - **Physics scale with frame time.** Finish times agree within about a
   percent; the autopilot steers once per frame, so it never drives exactly
@@ -222,16 +224,14 @@ retries differ and get across sooner. The jumps themselves match.
 - **Frame pacing.** Measured hidden with `--perf`: 60 FPS frames take a median
   16.68 ms (5th to 95th percentile 16.49 to 16.85 ms, worst 17.25 ms).
   How that meets the display with VSync On or Adaptive cannot be measured
-  in a hidden window, because the driver does not block the swap there.
+  in a hidden window, because the driver does not block the swap there;
+  `tools/decrypted/vsync-check.ps1` measures it with the window visible
+  (ROADMAP, Planned).
 
 ## Left to check by playing
 
 - Drifting and turbo feel, and the Hot Air Skyway CTR challenge "R" (fixed
   upstream by 9054bab51). The autopilot never drifts.
-- VSync On and Adaptive at 60 FPS on a 60 Hz and on a high-refresh monitor.
-  Run with `--perf` and look at `frames_over_1_5x_budget` in
-  `debug/perf/perf-latest/summary.txt`: each one is a frame that stayed on
-  screen at least one refresh too long.
 - Adventure hub: warp pads (vanilla, AP stage-2 gates, Cortex Vortex, custom
   cups), doors and keys, save points, garages, the pause menu, and podiums.
 - Results screens for every mode (arcade, cup standings, relic, CTR token,

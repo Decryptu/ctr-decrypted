@@ -24,7 +24,8 @@ param(
 	[switch]$Visible,                # show the window instead of hiding it
 	[switch]$RealTime,               # keep wall-clock pacing
 	[int]$TimeoutSec = 300,
-	[string]$RunDir = ""             # run folder (default %TEMP%\ctrdev\run); give parallel runs their own
+	[string]$RunDir = "",            # run folder (default %TEMP%\ctrdev\run); give parallel runs their own
+	[string[]]$GameArgs = @()        # command-line arguments for the game, e.g. '--perf-dir','C:\t\perf'
 )
 $ErrorActionPreference = 'Stop'
 
@@ -52,6 +53,7 @@ Set-Content (Join-Path $run 'config.ini') $lines
 $psi = New-Object System.Diagnostics.ProcessStartInfo
 $psi.FileName = Join-Path $run 'ctr_native.exe'
 $psi.WorkingDirectory = $run
+$psi.Arguments = ($GameArgs | ForEach-Object { '"' + $_ + '"' }) -join ' '
 $psi.UseShellExecute = $false
 $psi.RedirectStandardOutput = $true   # the game log goes to run\*.log, keep the pipeline clean
 $psi.RedirectStandardError = $true
