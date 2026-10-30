@@ -547,7 +547,9 @@ void MainFrame_GameLogic(struct GameTracker *gGT, struct GamepadSystem *gGamepad
 			UI_VsWaitForPressX();
 #endif
 		}
-		if (0x1e < gGT->timerEndOfRaceVS)
+		// count down in 30 FPS frames so FINISHED/LOSER and the quips
+		// stay on screen for the same time at 60 FPS
+		if ((0x1e < gGT->timerEndOfRaceVS) && (!CTR_NATIVE_60FPS_ACTIVE || ((sdata->frameCounter & 1) != 0)))
 		{
 			gGT->timerEndOfRaceVS--;
 		}
