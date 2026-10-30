@@ -79,7 +79,7 @@ For reproducible captures, before/after measurements and polygon dumps, use the 
 
 ## Needs in-game testing
 
-The owner confirmed anti-wobble in Adventure and reported the distant holes. The texture sampling fixes and precise culling remove them in the attract-mode demos (measured, see above). Still to check:
+The owner confirmed anti-wobble in Adventure and reported the distant holes. The texture sampling fixes and precise culling remove them in the attract-mode demos (measured, see above), and the owner confirmed the fix in game (build ffe21bf61). Still to check:
 
 - Each mode on a race track, in the Adventure hub and in the menus: no cracks or flicker on track, walls and water, no displaced HUD, text or sprites.
 - Switching the option live in the middle of a race.
