@@ -21,6 +21,11 @@ int NativeDev_Fast(void);
 // the main render target), so CTR_DEV_SHOT keeps working.
 int NativeDev_Hidden(void);
 
+// CTR_DEV_NO_ITEMS=1: weapon crates give nothing and bots are handed no
+// weapons, so races between runs differ only by driving (for comparing the AI
+// at 30 and 60 FPS).
+int NativeDev_NoItems(void);
+
 // Called once per presented frame, before the swap. Handles
 // CTR_DEV_SHOT_DIR / CTR_DEV_SHOT_EVERY / CTR_DEV_SHOT_FROM (frame capture)
 // and CTR_DEV_EXIT_FRAME (quit after that many frames).

@@ -14,6 +14,7 @@ typedef struct
 	int demoTrack;
 	int fast;
 	int hidden;
+	int noItems;
 	const char *shotDir;
 	int shotEvery;
 	int shotFrom;
@@ -40,6 +41,7 @@ static NativeDevState *NativeDev_State(void)
 		s_dev.demoTrack = NativeDev_EnvInt("CTR_DEV_DEMO", -1);
 		s_dev.fast = NativeDev_EnvInt("CTR_DEV_FAST", 0);
 		s_dev.hidden = NativeDev_EnvInt("CTR_DEV_HIDDEN", 0);
+		s_dev.noItems = NativeDev_EnvInt("CTR_DEV_NO_ITEMS", 0);
 		s_dev.shotDir = (dir != NULL && *dir != '\0') ? dir : NULL;
 		s_dev.shotEvery = NativeDev_EnvInt("CTR_DEV_SHOT_EVERY", 60);
 		if (s_dev.shotEvery < 1)
@@ -100,6 +102,7 @@ FILE *NativeDev_DumpFile(void)
 int NativeDev_DemoTrack(void) { return NativeDev_State()->demoTrack; }
 int NativeDev_Fast(void) { return NativeDev_State()->fast; }
 int NativeDev_Hidden(void) { return NativeDev_State()->hidden; }
+int NativeDev_NoItems(void) { return NativeDev_State()->noItems; }
 
 // 24-bit top-down BMP, readable by every image tool with no extra library.
 static void NativeDev_WriteBmp(const char *path, const unsigned char *rgba, int w, int h)

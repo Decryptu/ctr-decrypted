@@ -49,7 +49,8 @@ All of these are read once, by `platform/native_dev.c` (`include/platform/native
 | `CTR_DEV_GHOST_OUT=<file>` | Write the Time Trial ghost recorded in the race (`0x3e00` bytes, the memory card ghost layout) |
 | `CTR_DEV_GHOST_IN=<file>` | Race a ghost file from `CTR_DEV_GHOST_OUT` in the Time Trial |
 | `CTR_DEV_EXIT_AFTER_RACE=1` | Quit a second after the finish |
-| `CTR_DEV_RESULTS=<csv>` | Every racer's rank, lap and distance to the finish at `CTR_DEV_RESULTS_MS` of race time (default 30000, counted from the lights). Works in the attract demo too, to compare the AI |
+| `CTR_DEV_RESULTS=<csv>` | Every racer's rank, lap, distance to the finish and the track length at `CTR_DEV_RESULTS_MS` of race time (default 30000, counted from the lights). Distance driven since the start line is `lap × length + length − distance`. Works in the attract demo too, to compare the AI |
+| `CTR_DEV_NO_ITEMS=1` | Weapon crates give nothing and bots are handed no weapons, so two runs differ only by driving |
 
 Frame numbers count every presented frame, the boot splash included.
 

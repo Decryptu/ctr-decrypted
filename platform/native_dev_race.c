@@ -309,12 +309,15 @@ void NativeDev_RaceFrame(void)
 		dev->resultsWritten = 1;
 		if (f != NULL)
 		{
-			fprintf(f, "driver,raceMS,rank,lap,distanceToFinish\n");
+			// distanceToFinish counts down from trackLength after the start line.
+			struct Level *lev = gGT->level1;
+			int trackLength = ((lev != NULL) && (lev->ptr_restart_points != NULL)) ? (int)lev->ptr_restart_points[0].distToFinish << 3 : 0;
+			fprintf(f, "driver,raceMS,rank,lap,distanceToFinish,trackLength\n");
 			for (int i = 0; i < 8; i++)
 			{
 				struct Driver *r = gGT->drivers[i];
 				if (r != NULL)
-					fprintf(f, "%d,%d,%d,%d,%u\n", i, dev->raceClock, r->driverRank, r->lapIndex, r->distanceToFinish_curr);
+					fprintf(f, "%d,%d,%d,%d,%u,%d\n", i, dev->raceClock, r->driverRank, r->lapIndex, r->distanceToFinish_curr, trackLength);
 			}
 			fclose(f);
 		}

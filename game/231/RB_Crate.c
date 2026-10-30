@@ -1,4 +1,5 @@
 #include <common.h>
+#include <platform/native_dev.h>
 
 // add to buildList, overwrite original
 // RB_CrateAny_ThTick_Explode at 800b3d04,
@@ -265,6 +266,11 @@ int RB_CrateWeapon_ThCollide(struct Thread *crateThread, struct Thread *collidin
 				return 1;
 			}
 #endif
+
+			if (NativeDev_NoItems())
+			{
+				return 1;
+			}
 
 			if ((driver->heldItemID != 0xf) && (driver->noItemTimer == 0))
 			{

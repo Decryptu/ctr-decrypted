@@ -31,7 +31,6 @@ Roughly in this order.
 | Item | Source |
 |---|---|
 | Frame pacing at 60 FPS with VSync (Off / On / Adaptive) on 60 Hz and 144 Hz | High Octane lacks VSync (#46). The game paces itself on a 59.94 Hz timer and VSync On adds the display's wait on top, so a 60 Hz panel drifts against it and a 144 Hz one cannot show 60 evenly. `tools/decrypted/vsync-check.ps1` measures it; it needs the screen on and nobody at the machine, so it runs overnight. Then fix what it shows |
-| 60 FPS: the last 1.4% of AI speed | Bots still leave the ground for a frame at kinks in the nav line more often than at 30 (9% of frames against 6%), mostly at the start |
 | Softlock or black screen on the credits and scrapbook after beating Oxide | ctr-native #45 and #52, High Octane #24 |
 | Mystery Caves left path crash with 3–4 players | ctr-native #58. Fixed in High Octane (#30); port it |
 | Stage-2 key count ignored with vanilla unlock requirements | ctr-native-ap #499 |

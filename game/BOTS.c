@@ -2130,7 +2130,22 @@ UpdateTireColorTimer:
 		}
 	}
 	deltaPosThisFrame = CTR_MipsSra(deltaPosThisFrame, 8);
-	if (botDriver->botData.positionBackup.y < botDriver->quadBlockHeight)
+	int groundSnap = 0;
+#if CTR_NATIVE_60FPS
+	// A grounded bot keeps last frame's climb as its vertical speed, so where
+	// the nav line bends downhill it leaves the ground unless gravity pulls it
+	// below the new slope within one frame. A 30 FPS frame of gravity absorbs
+	// a bend twice as sharp as a 60 FPS frame does, so at 60 bots took off at
+	// every small crest and stopped accelerating. Accept the extra drop a
+	// 30 FPS frame would have had (equal to one 60 FPS frame's drop), which
+	// gives the same take-off threshold as 30 FPS.
+	if (CTR_NATIVE_60FPS_ACTIVE && ((botDriver->actionsFlagSet & ACTION_TOUCH_GROUND) != 0) &&
+	    ((botDriver->botData.botFlags & BOT_FLAG_DAMAGE_ACTIVE) == 0))
+	{
+		groundSnap = CTR_MipsSra(CTR_MipsMulLo(CTR_MipsSra(CTR_MipsMulLo(gravity, elapsedMilliseconds), 5), elapsedMilliseconds), 5);
+	}
+#endif
+	if (botDriver->botData.positionBackup.y < CTR_MipsAddLo(botDriver->quadBlockHeight, groundSnap))
 	{
 		u32 oldBotFlags = botDriver->botData.botFlags; // uVar8
 		botDriver->botData.botFlags &= ~BOT_FLAG_MOON_GRAVITY;

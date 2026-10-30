@@ -105,12 +105,22 @@ options menu entry.
     fraction is kept: a 60 FPS frame of gravity drops a bot only a quarter
     as far as a 30 FPS frame, less than one rounding step, so bots kept
     leaving the ground.
-  - A bot accelerates only while on the ground, so those two together made
-    bots airborne on 29% of frames (6% at 30) and slower. Distance driven in
-    the first 40 s of the Crash Cove demo by the same AI driver: 2.9% short
-    of 30 FPS before, 1.4% after. What is left comes from frames where a
-    bot crosses a kink in the nav line (9% airborne against 6%), mostly at
-    the start.
+  - A grounded bot keeps last frame's climb as its vertical speed, so where
+    the nav line bends downhill it takes off unless one frame of gravity
+    pulls it below the new slope. A 30 FPS frame of gravity absorbs a bend
+    twice as sharp as a 60 FPS frame, so at 60 bots took off at every small
+    crest. A bot that was on the ground last frame now also lands if it is
+    within one 60 FPS frame of gravity drop above the line, which gives the
+    30 FPS take-off threshold.
+  - A bot accelerates only while on the ground, so these made bots airborne
+    more often and slower. Measured with `CTR_DEV_NO_ITEMS=1` over the first
+    40 s of the attract demo on 11 tracks (88 drivers): the median driver
+    covered 0.54% less distance at 60 than at 30 before the crest fix, with
+    32 of 88 within 1%; after, 0.16% less, with 50 within 1%. On Crash
+    Cove, Hot Air Skyway, Sewer Speedway and Coco Park every driver but one
+    is within 1%. Elsewhere a few drivers are off by 2 to 30% in both
+    directions: bots bump into each other at different moments, which sends
+    them down different lines. 30 FPS traces are unchanged.
   - The speed steps (friction, acceleration, slope pull, throttle zones,
     deceleration to a target) run at 30 Hz, on every other frame, like the
     other `use30HzStep` code. They used to run every frame, which doubled

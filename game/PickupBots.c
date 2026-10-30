@@ -1,4 +1,5 @@
 #include <common.h>
+#include <platform/native_dev.h>
 
 #if defined(CTR_AP) && defined(CTR_CUSTOM_TRACKS)
 static struct MetaDataBOSS s_cortexVortexOxideWeapons[14];
@@ -556,7 +557,7 @@ void PickupBots_Update(void)
 
 	if ((gGT->gameMode1 & (ADVENTURE_BOSS | END_OF_RACE)) != ADVENTURE_BOSS)
 	{
-		if ((u8)gGT->numPlyrCurrGame == 0)
+		if (((u8)gGT->numPlyrCurrGame == 0) || NativeDev_NoItems())
 		{
 			return;
 		}
