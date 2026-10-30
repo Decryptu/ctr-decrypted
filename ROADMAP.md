@@ -22,6 +22,7 @@ Status of CTR Decrypted, kept current with every change. **Status values:** Done
 | Archipelago: starting racer and hub picker | All eight vanilla starters unlocked → the garage picker runs at a new profile. 50% black backdrop behind the in-hub picker |
 | Boot splash centred when the window starts maximized | `NativeRenderer_UpdatePresentationViewport` reads the live window size |
 | Mystery Caves no longer crashes with 3–4 players | ctr-native #58. Untextured quadblocks are skipped in the 3P/4P low-detail renderer instead of read through a null texture |
+| Reconnect catch-up checked | ctr-native-ap #147. 29,700 items queued on a local server arrive at connect with no frame over 23 ms (watchdog threshold 250 ms), so network work stays on the game thread. `tools/decrypted/ap_backlog.py` |
 | Credits and scrapbook after the true ending checked | ctr-native #45 and #52 do not happen here; see [docs/UPSTREAM-ISSUES.md](docs/UPSTREAM-ISSUES.md) |
 
 ## In progress
@@ -35,7 +36,6 @@ Roughly in this order.
 | Frame pacing at 60 FPS with VSync (Off / On / Adaptive) on 60 Hz and 144 Hz | High Octane lacks VSync (#46). The game paces itself on a 59.94 Hz timer and VSync On adds the display's wait on top, so a 60 Hz panel drifts against it and a 144 Hz one cannot show 60 evenly. `tools/decrypted/vsync-check.ps1` measures it; it needs the screen on and nobody at the machine, so it runs overnight. Then fix what it shows |
 | White noise in the hub after winning a race | ctr-native-ap #484. Not reproduced: after an Adventure win on Crash Cove, through the podium into N. Sanity Beach, `audio_noise.py` finds no noise in either build, fast-forwarded or real time. The report is from a connected session over several races, which the dev tools can't drive yet |
 | Invisible podium racers | ctr-native-ap #282. Oxide in 1st has no win-dance model in the original game. Crash, Papu Papu and Komodo Joe all show after an Adventure trophy race; still to try: a Gem Cup podium, and a relic race on a trial track hosted in another hub |
-| Reconnect catch-up stalls the game; move network work off the game thread | ctr-native-ap #147 |
 | Internal resolution scaling, FXAA | High Octane |
 | Post-processing filters (CRT, sharp bilinear, …) | High Octane |
 | Playable N. Oxide outside Archipelago restrictions | High Octane (Archipelago already has `remove_playable_oxide`) |

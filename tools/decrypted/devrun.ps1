@@ -49,7 +49,14 @@ if (-not (Test-Path $disc)) { Copy-Item $Bin $disc }
 # Fixed baseline config, then the caller's overrides.
 $cfg = [ordered]@{ fps60 = 'true'; pgxp = 2; aspect_ratio = 1; render_scale = 0 }
 foreach ($k in $Config.Keys) { $cfg[$k] = $Config[$k] }
-$lines = @('[Video & QoL]') + ($cfg.Keys | ForEach-Object { "$_ = $($cfg[$_])" })
+# A key named 'Section.key' goes in that section, e.g. 'Connection.uri'.
+$sections = [ordered]@{ 'Video & QoL' = @() }
+foreach ($k in $cfg.Keys) {
+	$sec, $key = if ($k -match '^(.+)\.([^.]+)$') { $Matches[1], $Matches[2] } else { 'Video & QoL', $k }
+	if (-not $sections.Contains($sec)) { $sections[$sec] = @() }
+	$sections[$sec] += "$key = $($cfg[$k])"
+}
+$lines = foreach ($sec in $sections.Keys) { "[$sec]"; $sections[$sec] }
 Set-Content (Join-Path $run 'config.ini') $lines
 
 $psi = New-Object System.Diagnostics.ProcessStartInfo

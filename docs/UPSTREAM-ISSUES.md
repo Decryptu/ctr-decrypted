@@ -115,7 +115,7 @@ All four are GPL-3.0. dowlle's `ctr.apworld` is MIT.
 - #466: the progressive stats bar doesn't match the items collected. Fixed in client `main` (PR #469), which we have.
 - #282: invisible podium racers.
 - #205: unguarded instance births. Fixed in #468; the issue is still open.
-- #147: a large reconnect catch-up stalls the game thread.
+- #147: a large reconnect catch-up stalls the game thread. Not here: with 29,700 items queued on a local server (`ap_backlog.py`), the connect catch-up keeps every frame under 23 ms. Moving the client to its own thread would mean routing every handler through a queue, for no measured gain.
 
 **Refactors:** #305 (done), #306, #307, #309, #310.
 

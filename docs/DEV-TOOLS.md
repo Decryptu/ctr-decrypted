@@ -18,7 +18,7 @@ The script prints the capture folder (`%TEMP%\ctrdev\shots-HHmmss` unless `-Out`
 | `-Track` | `LevelID` for the attract demo (`include/namespace_Level.h`: 0 Dingo Canyon, 3 Crash Cove, 4 Tiger Temple, 14 Coco Park...). `-1` for no demo |
 | `-Frames` | Quit after this many presented frames |
 | `-From`, `-Every` | First captured frame, and the capture interval |
-| `-Config` | `config.ini` keys to override, e.g. `@{pgxp=0; render_scale=2}` |
+| `-Config` | `config.ini` keys to override, e.g. `@{pgxp=0; render_scale=2}`. Keys outside `[Video & QoL]` are named `Section.key`, e.g. `@{"Connection.uri"="ws://localhost:38300"}` |
 | `-Env` | Extra environment variables, e.g. `@{CTR_PGXP_DEBUG=1}` |
 | `-Visible`, `-RealTime` | Show the window, or keep wall-clock pacing |
 | `-Exe` | Executable to run (default `build-vanilla\ctr_native.exe`) |
@@ -87,6 +87,21 @@ tools\decrypted\fps-parity.ps1 -Tracks 3
 - `ghost SOURCE.csv PLAY.csv`: how far the ghost in PLAY strays from the player of SOURCE, who recorded it.
 
 A Time Trial takes 10 to 20 seconds to run at 30 FPS, twice that at 60. The autopilot never boosts, hops or drifts, so it falls into the same pits again and again on N. Gin Labs and Polar Pass; those runs end at the frame cap. Results per track are in [60FPS.md](60FPS.md#automated-checks). Input replays (`--record`, `--replay`, [REPLAYS.md](REPLAYS.md)) work with these switches too. Set the same `CTR_DEV_RACE` and `CTR_DEV_MODE` when playing back, because they change the title menu's flow.
+
+## Archipelago server load
+
+`tools/decrypted/ap_backlog.py PORT SLOT COUNT [ITEM]` gives a slot a large item backlog on a local server, through the server's item cheat (`!getitem`, allowed by default in `host.yaml`), so the next connect receives it all in one packet. To measure a connect:
+
+```powershell
+# A throwaway seed: a copy of a player YAML with its own name, in its own folder.
+C:\ProgramData\Archipelago\ArchipelagoGenerate.exe --player_files_path C:\t\ap\players --outputpath C:\t\ap\out
+# Host it on this machine only, then queue the items:
+C:\ProgramData\Archipelago\ArchipelagoServer.exe --host 127.0.0.1 --port 38300 C:\t\ap\out\AP_<seed>.zip
+python tools\decrypted\ap_backlog.py 38300 Bench 20000
+tools\decrypted\devrun.ps1 -Exe build-ap\ctr_native_ap.exe -RealTime -Track -1 -Frames 2400 -From 100000000 -Config @{ mute_when_unfocused='true'; 'Connection.uri'='ws://localhost:38300'; 'Connection.slot'='Bench' } -GameArgs '--perf-dir','C:\t\ap\perf'
+```
+
+The client logs every frame over 250 ms as `[AP PERF] frame stall` in the run folder's log, and `frame_times.csv` has every frame.
 
 ## Frame timing
 
