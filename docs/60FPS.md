@@ -83,6 +83,49 @@ options menu entry.
 - `222.c`: the "already unlocked" CTR letter lerps are doubled too (High
   Octane left those two at 30 FPS lengths).
 
+## Blink and flash audit
+
+`game/` and `ap/` were searched for blinks, flashes, pulses and colour
+cycles taken from frame counters (`gGT->timer`, `sdata->frameCounter`,
+`framesInThisLEV`, menu and HUD countdowns, `& mask`, `% n`, `/ n`, sine
+phases). Most were already fixed by the High Octane picks or the fork
+changes above. These were not, and are fixed here:
+
+- `SelectProfile.c`: memory card message header flash (red/normal), the
+  SAVE COMPLETED flash and how long it stays up, and the spin of the 3D
+  load/save icons (odd spin rates add the remainder on alternate frames).
+- `SubmitName.c`: the name entry blink (letters, SAVE/CANCEL, cursor) now
+  steps off `sdata->frameCounter`. It used `gGT->timer`, which stops while
+  `PAUSE_ALL` is set; on an odd value it let the blink step every frame.
+- `MainFreeze.c`: pause menu option arrows, the analog calibration wheel
+  and neGcon wave.
+- `MM_Battle.c`: battle setup "THERE MUST BE AT LEAST ONE WEAPON" colour.
+- `MM_Characters.c`: colour pulse on players who have not picked yet.
+- `CS_Thread.c`: cutscene alpha flicker (cutscene flag 0x2, used on the
+  podium and other scripted scenes). Each state is held for two frames.
+- `UI_Weapon.c`: weapon icon flicker while an item is blocked.
+- `UI_DrawNum.c`, `UI_Reward.c` (AP): relic tier cycle on the HUD relic
+  count and icon, one tier per second like the warp pad glow.
+- `Display.c`: clock weapon blur wobble.
+- `FLARE.c`: the 20-frame lens flare after a mask respawn.
+- `MainFrame.c`: the VS/battle FINISHED/LOSER and quip countdown
+  (`timerEndOfRaceVS`) counts 30 FPS frames.
+
+Checked and left alone:
+
+- Counters already in milliseconds or on the vsync clock: wrong way text
+  (`elapsedEventTime`), tire hazard wobble, confetti
+  (`frameTimer_Confetti`), traffic lights.
+- Not visible as a blink: rumble pulse frequency (`GAMEPAD.c`), decal LOD
+  alternation (`DecalMP.c`), particle mirroring on odd frames
+  (`RB_FlameJet.c`, `VehEmitter.c`).
+- Short input or audio delays counted in frames: hint screen input
+  cooldown (`AH_HintMenu.c`, 30 frames), wrong way voice line delay
+  (`framesDrivingSameDirection`, 30 frames). They halve at 60 but nothing
+  blinks.
+- `221.c` CTR token text colour checks `gGT->timer == 0`, which is almost
+  never true at either frame rate.
+
 ## Known risks and untested areas
 
 None of this has been tested in game yet. Things to check:
@@ -97,9 +140,9 @@ None of this has been tested in game yet. Things to check:
 - Time Trial: confirm it drops to 30 and that ghosts record and play back
   correctly, then that the next menu is back at 60.
 - Changing the option in the menu, then entering a race.
-- Other screen blinks that High Octane also left at the raw frame counter
-  (vanilla pause menu arrows, memory card screens, battle setup error colour,
-  podium sparkle) flash twice as fast at 60.
+- Blinks and flashes: name entry, memory card and save screens, pause
+  arrows, hub map icons, results text, battle setup, podium. All are
+  expected to run at their 30 FPS speed now (see the audit above).
 - The internal replay scheduler (`CTR_INTERNAL`) and the AI lap recorder
   (`nav_record`) count frames; recordings made at one frame rate will not
   match the other. Record and play them back with the same `fps60` setting.
