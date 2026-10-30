@@ -21,7 +21,7 @@ Status of CTR Decrypted, kept current with every change. **Status values:** Done
 ## In progress
 | Item | Notes |
 |---|---|
-| 60 FPS mode | Branch `feature/60fps`. Port of High Octane's runtime option: commit 706f1819b and about 20 follow-ups fixing animation speed and jump height. Toggle in the options menu, on by default. Archipelago timers are adjusted so they keep real-time durations. See `docs/60FPS.md` once merged |
+| 60 FPS mode | Branch `feature/60fps`, builds (AP and vanilla) but not yet tested in game. Port of High Octane's runtime option: commit 706f1819b and its follow-ups fixing animation speed and jump height. `fps60` in `config.ini`, **OPTIONS → Video → 60 FPS (Next Load)**, on by default, applied at the next level load. Time Trial stays at 30 for ghosts. Archipelago timers keep real-time durations. Remaining: the in-game checklist in [docs/60FPS.md](docs/60FPS.md), then merge |
 
 ## Planned
 Roughly in this order.
@@ -29,6 +29,9 @@ Roughly in this order.
 | Item | Source |
 |---|---|
 | VSync / frame-pacing option | No build has one (High Octane #46) |
+| 60 FPS: remaining blinks at double speed (vanilla pause menu arrows, memory card screens, battle setup error colour, podium sparkle) | Left at the raw frame counter by High Octane too. See `docs/60FPS.md` |
+| 60 FPS: Time Trial at 60 (ghosts tagged with their frame rate) | Time Trial is pinned to 30 because ghosts store one sample per frame |
+| 60 FPS: internal replay scheduler and AI lap recorder count frames | Recordings only match at the frame rate they were made at |
 | Softlock or black screen on the credits and scrapbook after beating Oxide | ctr-native #45 and #52, High Octane #24 |
 | Mystery Caves left path crash with 3–4 players | ctr-native #58. Fixed in High Octane (#30); port it |
 | Stage-2 key count ignored with vanilla unlock requirements | ctr-native-ap #499 |

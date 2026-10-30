@@ -60,8 +60,9 @@ The script needs `python -m pip install git-filter-repo`. High Octane (`highocta
 - New third-party code gets an entry in `THIRD_PARTY_NOTICES.md`.
 - Keep the Archipelago client compatible with the shipped `ctr.apworld` version. If slot data or item/location IDs change, the apworld must change in the same release.
 - Update `ROADMAP.md` in the same commit that finishes or starts an item.
+- Frame counts assume 30 FPS. When code sets or compares a frame-counted timer, wrap the value in `FPS_DOUBLE`, and wrap per-frame steps or blink phases in `FPS_HALF` (`include/macros.h`), so it keeps the same real-time speed in 60 FPS mode. See [60FPS.md](60FPS.md).
 
 ## Testing
 - Build the AP and vanilla configurations.
-- In game, check at least: boot to the menu, one race, the Adventure hub, and connecting to a local Archipelago server. To host a test seed: `ArchipelagoServer.exe --port 38281 <seed.zip>` from an Archipelago 0.6.7+ install.
+- In game, check at least: boot to the menu, one race, the Adventure hub, and connecting to a local Archipelago server. Check timing changes with `fps60` both on and off (`config.ini`, `[Video & QoL]`, or **OPTIONS → Video → 60 FPS (Next Load)**). To host a test seed: `ArchipelagoServer.exe --port 38281 <seed.zip>` from an Archipelago 0.6.7+ install.
 - The upstream harnesses run in CI (`.github/workflows/ci.yml`). `tools/ci/` has the local runner.

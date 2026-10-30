@@ -258,6 +258,13 @@ to the player YAML before generating the room. Every player whose slot requires
 the track must install the same verified package. A missing or mismatched package
 fails closed instead of loading the displaced retail race.
 
+## 60 FPS
+
+The game runs at 60 FPS by default. To go back to the original 30 FPS, turn off
+**OPTIONS → Video → 60 FPS (Next Load)** (saved as `fps60` in `config.ini`).
+The change applies the next time a track or menu loads. Time Trial always runs
+at 30 FPS so ghosts stay correct.
+
 ## Optional: controllers and Steam Input
 
 Controllers work out of the box: the game uses SDL, so common gamepads (Xbox
