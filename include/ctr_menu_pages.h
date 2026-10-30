@@ -11,7 +11,8 @@
 // build) is simply absent from its page, and a page left empty is not shown.
 //
 // Grouping agreed 2026-09-22: Video holds rendering and display,
-// Gameplay holds skips and race feel, Archipelago holds the multiworld rows.
+// Gameplay holds skips and race feel, Extras holds the optional HUD and
+// effect mods, Archipelago holds the multiworld rows.
 // Controls (0.3.0) sits after Gameplay. It has no config rows: its screen
 // (game/230/MM_ControlsConfig.c) edits controls.ini, so it is a bespoke page
 // that is always shown even though no key lists it.
@@ -42,6 +43,9 @@ static const char *const s_ctrMenuPageGameplay[] = {
 	"skip_intro", "skip_hints", "skip_podium", "skip_cutscenes", "ai_difficulty",
 	"mute_when_unfocused", NULL,
 };
+static const char *const s_ctrMenuPageExtras[] = {
+	"reserves_meter", "reserve_fire", "blue_fire", "slide_meter_colours", NULL,
+};
 static const char *const s_ctrMenuPageControls[] = {
 	NULL,
 };
@@ -59,6 +63,7 @@ static const char *const s_ctrMenuPageAuthoring[] = {
 static const CtrMenuPage s_ctrMenuPages[] = {
 	{"Video", s_ctrMenuPageVideo, 0},
 	{"Gameplay", s_ctrMenuPageGameplay, 0},
+	{"Extras", s_ctrMenuPageExtras, 0},
 	{CTR_MENU_PAGE_CONTROLS, s_ctrMenuPageControls, 1},
 	{"Connection", s_ctrMenuPageConnection, 0},
 	{"Archipelago", s_ctrMenuPageArchipelago, 0},

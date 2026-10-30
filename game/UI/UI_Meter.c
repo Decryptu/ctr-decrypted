@@ -1,6 +1,7 @@
 #include <common.h>
-#ifdef CTR_AP
+#ifdef CTR_NATIVE
 #include "../../ap/ap_reserves_meter_logic.h" // #387 reserves meter display math
+#include <ctr_extras.h>
 #endif
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80051c64-0x80051e24.
@@ -285,6 +286,19 @@ void UI_DrawSlideMeter(s16 posX, s16 posY, struct Driver *driver)
 	const PrimCode primCode = {.poly = {.quad = 1, .renderCode = RenderCode_Polygon}};
 	ColorCode colorCode = MakeColorCode(0xFF, 0, 0, primCode); // red color, ready to boost
 
+#ifdef CTR_NATIVE
+	// Extras "Slide Meter Gradient" (High Octane): fade green to yellow while
+	// the bar fills, then yellow to red across the boost window, instead of
+	// retail's flat green then red. The boost timing itself is untouched.
+	if (g_config.slideMeterColours)
+	{
+		int red, green;
+		CtrExtras_SlideMeterColour(driver->turbo_MeterRoomLeft, driver->const_turboLowRoomWarning * ELAPSED_MS,
+		                           driver->const_turboMaxRoom * ELAPSED_MS, &red, &green);
+		colorCode = MakeColorCode(red, green, 0, primCode);
+	}
+	else
+#endif
 	if (driver->const_turboLowRoomWarning * ELAPSED_MS < driver->turbo_MeterRoomLeft)
 	{
 		colorCode = MakeColorCode(0, 0xFF, 0, primCode); // green color, no boost yet
@@ -317,10 +331,10 @@ void UI_DrawSlideMeter(s16 posX, s16 posY, struct Driver *driver)
 	}
 }
 
-#ifdef CTR_AP
-// AP HUD: turbo "reserves" meter -- the seconds of stacked exhaust fire a
-// player is holding. Ported from the CTR-ModSDK ReservesMeter module (GPL-3.0);
-// geometry, thresholds and colours are kept verbatim so it matches the modded
+#ifdef CTR_NATIVE
+// Extras "Reserves Meter": the turbo "reserves" meter -- the seconds of
+// stacked exhaust fire a player is holding. Ported from the CTR-ModSDK
+// ReservesMeter module (GPL-3.0); geometry, thresholds and colours are kept verbatim so it matches the modded
 // original. A 49x3 bar drawn right-anchored on the same x as the boost bar,
 // filling leftward. driver->reserves is milliseconds-of-fire in the game's
 // 960ms "second"; the bar caps (pegs) at 8400 units (~8.75s) and turns blue as

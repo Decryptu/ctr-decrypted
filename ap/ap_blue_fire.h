@@ -2,11 +2,12 @@
 #define AP_BLUE_FIRE_H
 
 #ifdef CTR_AP
-struct GameTracker;
+struct Driver;
 
-// Progressive Boost's final tier is presentation only. This swaps the retail
-// exhaust palettes while the local player is actively carrying USF speed.
-void AP_BlueFireTick(struct GameTracker *gGT);
+// Progressive Boost's final tier is presentation only: 1 while the local
+// player carries USF speed at that tier. VehBlueFire_Tick
+// (game/Vehicle/VehBlueFire.c) swaps the exhaust palettes.
+int AP_BlueFireWanted(const struct Driver *driver);
 #endif
 
 #endif

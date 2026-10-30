@@ -616,7 +616,6 @@ static void ap_onframe_body(struct GameTracker *gGT)
 	AP_ShortcutSkipTick(gGT); // layer-2 checkpoint-% gap-skip detector (Shortcutless)
 	AP_RelicTargetTick(gGT);  // issue #21: relic-race live target ladder (steps the
 	                          // shown tier down when its time passes; race window only)
-	AP_BlueFireTick(gGT);     // #12: presentation-only blue exhaust at the capstone
 
 	// DeathLink (issue #6): send-edge detection, inbound-death queue firing, and
 	// the no-loop guard. Runs every frame / all modes (it gates its own adventure-

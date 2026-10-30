@@ -371,6 +371,10 @@ u32 main(void)
 			// authoring modules in the same order (ap/ap_authoring_host.c).
 			Authoring_OnFrame(gGT);
 #endif
+#ifdef CTR_NATIVE
+			// Blue exhaust palette: Extras "Blue Fire At USF" and the AP capstone.
+			VehBlueFire_Tick(gGT);
+#endif
 
 			// Process all gamepad input
 #if defined(CTR_NATIVE) && defined(CTR_INTERNAL)

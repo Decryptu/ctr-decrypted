@@ -103,6 +103,9 @@ int NativeDev_StartRace(struct GameTracker *gGT)
 
 	gGT->boolDemoMode = 0;
 	gGT->numPlyrNextGame = 1;
+	// CTR_DEV_CHEATS: gameMode2 cheat bits for the race, as the title-screen
+	// codes set them (0x100000 = every turbo pad is a super turbo pad).
+	gGT->gameMode2 |= (u32)NativeDev_EnvInt("CTR_DEV_CHEATS", 0);
 	for (int i = 0; i < 8; i++)
 		data.characterIDs[i] = i;
 	// CTR_DEV_CHARACTER: player 1's racer; the bot that had it takes Crash.
@@ -438,7 +441,7 @@ void NativeDev_RaceFrame(void)
 	{
 		dev->trace = fopen(dev->tracePath, "w");
 		if (dev->trace != NULL)
-			fprintf(dev->trace, "frame,fps60,level,lights,end,raceMS,x,y,z,angle,speed,air,kart,lap,reserves,anim,animFrame,gx,gy,gz,gvis,nav,navTarget,want,steer,vx,vy,vz,coll,timer\n");
+			fprintf(dev->trace, "frame,fps60,level,lights,end,raceMS,x,y,z,angle,speed,air,kart,lap,reserves,anim,animFrame,gx,gy,gz,gvis,nav,navTarget,want,steer,vx,vy,vz,coll,timer,fireCap\n");
 	}
 
 	if (dev->trace != NULL)
@@ -456,12 +459,12 @@ void NativeDev_RaceFrame(void)
 				gvis = (g->instSelf->flags & HIDE_MODEL) == 0;
 			}
 		}
-		fprintf(dev->trace, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n", dev->raceFrame, CTR_NATIVE_60FPS_ACTIVE ? 1 : 0,
+		fprintf(dev->trace, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n", dev->raceFrame, CTR_NATIVE_60FPS_ACTIVE ? 1 : 0,
 		        gGT->levelID, gGT->trafficLightsTimer, (gGT->gameMode1 & END_OF_RACE) != 0, d->timeElapsedInRace, d->posCurr.x >> 8,
 		        d->posCurr.y >> 8, d->posCurr.z >> 8, d->angle & 0xfff, d->speedApprox, (d->actionsFlagSet & ACTION_TOUCH_GROUND) == 0,
 		        d->kartState, d->lapIndex, d->reserves, d->instSelf ? d->instSelf->animIndex : -1, d->instSelf ? d->instSelf->animFrame : -1, gx,
 		        gy, gz, gvis, dev->pilot[0].navIndex, dev->pilot[0].navTarget, dev->pilot[0].wantAngle, dev->pilot[0].steer, d->velocity.x,
-		        d->velocity.y, d->velocity.z, (int)d->collisionFlags, gGT->timer);
+		        d->velocity.y, d->velocity.z, (int)d->collisionFlags, gGT->timer, d->fireSpeedCap);
 	}
 	dev->raceFrame++;
 

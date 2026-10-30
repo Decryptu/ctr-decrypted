@@ -28,6 +28,14 @@ NativeConfig g_config = {
 	0,     // vsync (0 = Off, default: avoid double-throttling the retail draw-sync path)
 	false, // muteWhenUnfocused (default off: a single-game setup keeps today's behaviour)
 	true,  // fps60 (default on: 60 FPS mode)
+#ifdef CTR_AP
+	true,  // reservesMeter (on: the Archipelago build always drew it)
+#else
+	false, // reservesMeter (off: the retail HUD)
+#endif
+	false, // reserveFire (off: retail hides powerslide fire)
+	false, // blueFire (off: retail red fire)
+	false, // slideMeterColours (off: retail two-colour bar)
 	NATIVE_WINDOW_GEOMETRY_POS_UNSET, // windowX  (unset = never saved)
 	NATIVE_WINDOW_GEOMETRY_POS_UNSET, // windowY
 	0,     // windowWidth  (0 = never saved)
@@ -117,6 +125,13 @@ const ConfigEntry g_configEntries[] = {
 	// next level load, never mid-race (MainMain_ApplyFrameRateMode in
 	// game/MAIN/MainMain.c), which the label says.
 	{"Video & QoL", "fps60",                    "60 FPS (Next Load)",           CFG_BOOL, &g_config.fps60},
+	// Extras (CFG_BOOL): the CTR-ModSDK HUD and effect mods High Octane ships,
+	// each behind its own row so the retail look stays the default. See
+	// docs/EXTRAS.md.
+	{"Extras",      "reserves_meter",           "Reserves Meter",               CFG_BOOL, &g_config.reservesMeter},
+	{"Extras",      "reserve_fire",             "Keep Reserve Fire",            CFG_BOOL, &g_config.reserveFire},
+	{"Extras",      "blue_fire",                "Blue Fire At USF",             CFG_BOOL, &g_config.blueFire},
+	{"Extras",      "slide_meter_colours",      "Slide Meter Gradient",         CFG_BOOL, &g_config.slideMeterColours},
 #ifdef CTR_AP
 	// Skip Podium Ceremonies (issue #285, CFG_BOOL): a LOCAL client option, off
 	// by default, that drops the hub podium for an ordinary Trophy, CTR

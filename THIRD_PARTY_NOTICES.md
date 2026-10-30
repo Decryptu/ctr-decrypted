@@ -309,15 +309,17 @@ LEV SHA-256: `4e3a2daf56c67be3ac645d3bb5375e516c828a0bca24c35ac69b3366c466fe13`
 
 VRM SHA-256: `4131444b9d1d53971befcfd11349efceaf887c20b795c8890fdcb2c36bdff07d`
 
-## CTR ModSDK Retro-Fueled mechanics and Blue Fire palette (AP build only)
+## CTR ModSDK Retro-Fueled mechanics and Blue Fire palette
 
-Paths: `ap/ap_blue_fire.c`, `ap/ap_capability.c`,
+Paths: `ap/ap_blue_fire.c`, `ap/ap_capability.c`, `game/Vehicle/VehBlueFire.c`,
 `game/Vehicle/VehFire.c`, `game/Vehicle/VehPhysProc.c`
 
 The Progressive Boost capstone adapts Retro-Fueled's pad payload, USF stacking,
 U-turn reserve retention, flame and plume palette data, NTSC VRAM positions,
 and palette-swap technique. CTR Archipelago gates the package on the selected
-character owning the third Progressive Boost tier. Retro-Fueled's title, start
+character owning the third Progressive Boost tier; the blue palette swap is
+also the Extras option "Blue Fire At USF" in both builds (the BlueFire module,
+as High Octane ships it). Retro-Fueled's title, start
 flag and turbo-pad texture assets are not included.
 
 Original mod: TheRedhotbr
@@ -325,6 +327,22 @@ Original mod: TheRedhotbr
 Blue-fire colour swap: Avery (`@TheMagicJam`)
 
 Source: <https://github.com/CTR-tools/CTR-ModSDK>
+
+License: GPL-3.0, the same license as this project.
+
+## CTR ModSDK ReservesMeter and High Octane slide meter gradient
+
+Paths: `game/UI/UI_Meter.c`, `ap/ap_reserves_meter_logic.h`,
+`game/Vehicle/VehFire.c`, `include/ctr_extras.h`
+
+The Extras rows "Reserves Meter" and "Keep Reserve Fire" port the ReservesMeter
+module: the meter's geometry, colour thresholds and the exhaust-fire tweak.
+"Slide Meter Gradient" follows High Octane's progressive powerslide bar colours.
+
+ReservesMeter: Superstarxalien
+
+Source: <https://github.com/CTR-tools/CTR-ModSDK>,
+<https://github.com/Rinnegatamante/Crash-Team-Racing-High-Octane>
 
 License: GPL-3.0, the same license as this project.
 

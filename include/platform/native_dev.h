@@ -65,6 +65,7 @@ int NativeDev_PrimTag(const void *addr);
 // sets the lap count. -1 if unset.
 int NativeDev_RaceTrack(void);
 // CTR_DEV_PLAYERS=2..4 makes CTR_DEV_RACE a VS race for that many players.
+// CTR_DEV_CHEATS=<bits> turns on gameMode2 cheats for it (CHEAT_* values).
 int NativeDev_RacePlayers(void);
 
 // CTR_DEV_CHARACTER_SELECT=1: the title menu opens the Arcade character

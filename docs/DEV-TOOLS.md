@@ -49,10 +49,11 @@ All of these are read once, by `platform/native_dev.c` (`include/platform/native
 | `CTR_DEV_CHARACTER=<id>` | Player 1's racer (`include/namespace_Vehicle.h`: 9 Papu Papu, 11 Komodo Joe, 15 Oxide...). The bot that had it takes Crash |
 | `CTR_DEV_AUDIO=<file>` | The mixed game audio as raw 16-bit stereo PCM at 44100 Hz, fast-forwarded or real time. Add `-Config @{mute_when_unfocused='true'}` to a real-time run so it stays silent; the dump is taken before that gain |
 | `CTR_DEV_PLAYERS=2..4` | Make `CTR_DEV_RACE` a VS race for that many players. With the autopilot on, it drives every player, each on its own AI lane, so on tracks with forks some take the other branch |
+| `CTR_DEV_CHEATS=<bits>` | Turn on `gameMode2` cheats for `CTR_DEV_RACE`, as the title-screen codes would (`CHEAT_*` in `include/namespace_Main.h`, decimal). `1048576` makes every turbo pad a super turbo pad: on Turbo Track the autopilot reaches Ultimate Speed Fire on the first pad |
 | `CTR_DEV_ENDING=1` | Boot into Oxide's true ending, which runs into the credits, with every sapphire relic, so the credits end in the scrapbook. `=2` without the relics, so they end in the hub |
 | `CTR_DEV_AUTOPILOT=1` | During a race, player 1's pad holds the throttle and steers along the AI's nav line (aiming about half a second ahead), so the kart drives through the normal physics. When wedged (under 300 units travelled in 1.5 s of race time) it reverses for a second at full opposite lock. `=2` stands still on the grid instead |
 | `CTR_DEV_HOP_MS=<n>` | The autopilot hops every n ms of race time |
-| `CTR_DEV_TRACE=<csv>` | One row per frame of player 1 in a race: race time, position, angle, speed, velocity, airborne, kart state, lap, animation, the human ghost's position, and the autopilot's target |
+| `CTR_DEV_TRACE=<csv>` | One row per frame of player 1 in a race: race time, position, angle, speed, velocity, airborne, kart state, lap, reserves, fire speed cap (`fireCap`, 0x4800 at Ultimate Speed Fire), animation, the human ghost's position, and the autopilot's target |
 | `CTR_DEV_GHOST_OUT=<file>` | Write the Time Trial ghost recorded in the race (`0x3e00` bytes, the memory card ghost layout) |
 | `CTR_DEV_GHOST_IN=<file>` | Race a ghost file from `CTR_DEV_GHOST_OUT` in the Time Trial |
 | `CTR_DEV_EXIT_AFTER_RACE=1` | Quit a second after the finish |

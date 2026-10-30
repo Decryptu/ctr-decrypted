@@ -64,6 +64,19 @@ typedef struct
 	                            // game/MAIN/MainMain.c), so a change made in the
 	                            // menu takes effect on the next track or menu
 	                            // load.
+	// Extras: optional HUD and effect mods from the CTR-ModSDK modules, as
+	// High Octane ships them. All read live, so a change applies at once.
+	bool reservesMeter;         // Extras: reserves meter under the powerslide bar
+	                            // (UI_DrawReservesMeter, game/UI/UI_Meter.c).
+	                            // Default on in the Archipelago build, which
+	                            // always drew it, off in vanilla.
+	bool reserveFire;           // Extras: keep the exhaust fire visible while
+	                            // reserves last (VehFire_Increment).
+	bool blueFire;              // Extras: blue exhaust fire at Ultimate Speed
+	                            // Fire (game/Vehicle/VehBlueFire.c).
+	bool slideMeterColours;     // Extras: powerslide bar fades green to yellow
+	                            // to red instead of two flat colours
+	                            // (UI_DrawSlideMeter).
 	// Remembered window position/size (issue: "remember window position and size
 	// between sessions" -- streaming setups want the same window every launch).
 	// Config-file-only, [State] section, the update_last_seen precedent: this is

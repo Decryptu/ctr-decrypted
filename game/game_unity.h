@@ -264,6 +264,7 @@
 #include "Vehicle/VehAfterColl.c"
 #include "Vehicle/VehEmitter.c"
 #include "Vehicle/VehFire.c"
+#include "Vehicle/VehBlueFire.c"
 #include "Vehicle/VehFrame.c"
 #include "Vehicle/VehLap.c"
 #include "Vehicle/VehPhysCrash.c"

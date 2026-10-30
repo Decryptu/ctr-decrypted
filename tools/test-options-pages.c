@@ -11,8 +11,9 @@
 //     are on none
 //   * no page is longer than the rows the panel can draw (rc1 drew twelve rows on
 //     Video & QoL and the last one fell off the panel)
-//   * the page order and row order agreed on 2026-09-22, with the bespoke
-//     Controls page (0.3.0) after Gameplay: shown, and holding no config rows
+//   * the page order and row order agreed on 2026-09-22, with Extras after
+//     Gameplay and the bespoke Controls page (0.3.0) after Extras: shown, and
+//     holding no config rows
 //   * every key in the page table exists in the entry table, except the
 //     authoring-build-only box_author, so a renamed key cannot silently drop a
 //     row onto a fallback page
@@ -115,8 +116,8 @@ int main(void)
 			EXPECT_TRUE(label, CTR_MenuFindEntry(g_configEntries, g_numConfigEntries, *k) >= 0);
 		}
 
-	EXPECT_TRUE("six pages in the AP build", numPages == 6);
-	if (numPages == 6)
+	EXPECT_TRUE("seven pages in the AP build", numPages == 7);
+	if (numPages == 7)
 	{
 		static const char *const video[] = {
 			"fullscreen", "aspect_ratio", "render_scale", "vsync", "fps60", "screen_filter",
@@ -125,6 +126,8 @@ int main(void)
 		static const char *const gameplay[] = {
 			"skip_intro", "skip_hints", "skip_podium", "skip_cutscenes", "ai_difficulty",
 			"mute_when_unfocused", NULL};
+		static const char *const extras[] = {
+			"reserves_meter", "reserve_fire", "blue_fire", "slide_meter_colours", NULL};
 		static const char *const controls[] = {NULL};
 		static const char *const connection[] = {"uri", "slot", "password", NULL};
 		static const char *const archipelago[] = {
@@ -135,10 +138,11 @@ int main(void)
 
 		ExpectPage(0, "Video", video);
 		ExpectPage(1, "Gameplay", gameplay);
-		ExpectPage(2, "Controls", controls);
-		ExpectPage(3, "Connection", connection);
-		ExpectPage(4, "Archipelago", archipelago);
-		ExpectPage(5, "Authoring", authoring);
+		ExpectPage(2, "Extras", extras);
+		ExpectPage(3, "Controls", controls);
+		ExpectPage(4, "Connection", connection);
+		ExpectPage(5, "Archipelago", archipelago);
+		ExpectPage(6, "Authoring", authoring);
 	}
 
 	ExpectSection("skip_intro", "Video & QoL");
@@ -146,6 +150,7 @@ int main(void)
 	ExpectSection("fps60", "Video & QoL");
 	ExpectSection("skip_podium", "Video & QoL");
 	ExpectSection("skip_cutscenes", "Video & QoL");
+	ExpectSection("reserves_meter", "Extras");
 	ExpectSection("skip_hints", "Archipelago");
 	ExpectSection("ai_difficulty", "Archipelago");
 	ExpectSection("discord_status", "Archipelago");

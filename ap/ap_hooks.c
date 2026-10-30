@@ -284,6 +284,9 @@ int AP_MapFlashOn(void)
 static int ap_hud_reserves_fx = 0;
 int AP_HudReservesFx(void)
 {
+	// Extras "Keep Reserve Fire" in config.ini wins, as for AP_MapFlashOn.
+	if (NativeConfig_HasIni())
+		return g_config.reserveFire;
 	return ap_hud_reserves_fx;
 }
 

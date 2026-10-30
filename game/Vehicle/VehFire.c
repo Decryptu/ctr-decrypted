@@ -3,6 +3,22 @@
 #include "../../ap/ap_retro_fueled_logic.h"
 #endif
 
+#ifdef CTR_NATIVE
+// Extras "Keep Reserve Fire", the exhaust-fire tweak bundled with the CTR-ModSDK
+// ReservesMeter module: while a driver holds reserves, fire earned from a
+// powerslide stays visible instead of dying after two frames or hiding for the
+// visibility cooldown. Visual only. The Archipelago build also reads
+// ap-config.txt "hud_reserves_fx" when there is no config.ini (AP_HudReservesFx).
+static int VehFire_KeepReserveFire(const struct Driver *driver)
+{
+#ifdef CTR_AP
+	return AP_HudReservesFx() && driver->reserves != 0;
+#else
+	return g_config.reserveFire && driver->reserves != 0;
+#endif
+}
+#endif
+
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005ab24-0x8005abfc.
 void VehFire_Audio(struct Driver *driver, int speed_cap)
 {
@@ -212,7 +228,11 @@ void VehFire_Increment(struct Driver *driver, int reserves, u32 type, int fireLe
 			// make flame disappear after
 			// 	- powerslide: two frames (quick death)
 			//	- all others: -1 frames (255 = 'no' death)
-			if (type & 2)
+			if ((type & 2)
+#ifdef CTR_NATIVE
+			    && !VehFire_KeepReserveFire(driver)
+#endif
+			)
 			{
 				count = 2;
 			}
@@ -316,16 +336,9 @@ void VehFire_Increment(struct Driver *driver, int reserves, u32 type, int fireLe
 		// all other boosts
 		else
 		{
-#ifdef CTR_AP
-			// AP (optional, default OFF; enable with ap-config.txt
-			// "hud_reserves_fx=1"): exhaust-fire retention tweak bundled with the
-			// ReservesMeter module. When you already hold reserves, keep the fire
-			// earned from power slides visible instead of hiding it for the
-			// visibility cooldown. Visual only (instance HIDE flags + cooldown);
-			// the numTurbos counter below is untouched. Behind a toggle because it
-			// changes a familiar cue -- upstream disabled it on the EUR build.
-			// With the toggle off this reduces to the vanilla always-hide.
-			if (!(AP_HudReservesFx() && driver->reserves != 0))
+#ifdef CTR_NATIVE
+			// Extras "Keep Reserve Fire" (see VehFire_KeepReserveFire).
+			if (!VehFire_KeepReserveFire(driver))
 #endif
 			{
 				// make fire invisible for the sake of the visibility cooldown as explained in common.h

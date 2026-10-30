@@ -198,14 +198,20 @@ void UI_RenderFrame_Racing()
 					// Draw powerslide meter
 					UI_DrawSlideMeter(hudStructPtr[8].x + offset, hudStructPtr[8].y, playerStruct);
 
-#ifdef CTR_AP
-					// AP HUD: reserves bar 5px under the boost bar, plus a numeric
-					// speed readout below it (1P only). Sits inside the
-					// not-finished / not-battle gate so it inherits the boost
-					// bar's visibility (hidden after the finish line and in battle).
-					if (ctr_cfg_active() && numPlyr == 1)
+#ifdef CTR_NATIVE
+					// Extras "Reserves Meter": 5px under the boost bar, 1P only. Sits
+					// inside the not-finished / not-battle gate so it inherits the
+					// boost bar's visibility (hidden after the finish line and in
+					// battle).
+					if (g_config.reservesMeter && numPlyr == 1)
 					{
 						UI_DrawReservesMeter(hudStructPtr[8].x + offset, hudStructPtr[8].y + 5, playerStruct);
+					}
+#endif
+#ifdef CTR_AP
+					// AP HUD: a numeric speed readout under it in an AP session.
+					if (ctr_cfg_active() && numPlyr == 1)
+					{
 						UI_DrawSpeedNum(hudStructPtr[8].x + offset - 49, hudStructPtr[8].y + 9, playerStruct);
 					}
 #endif
@@ -999,14 +1005,15 @@ void UI_RenderFrame_CrystChall(void)
 
 	UI_DrawSlideMeter(hudStructPtr[8].x, hudStructPtr[8].y, player);
 
-#ifdef CTR_AP
-	// AP HUD: reserves bar in crystal arenas too (the ModSDK demo build hooked
-	// this render path as well). CrystChall is always 1P.
-	if (ctr_cfg_active())
+#ifdef CTR_NATIVE
+	// Extras "Reserves Meter" in crystal arenas too (the ModSDK demo build
+	// hooked this render path as well). CrystChall is always 1P.
+	if (g_config.reservesMeter)
 	{
 		UI_DrawReservesMeter(hudStructPtr[8].x, hudStructPtr[8].y + 5, player);
 	}
-
+#endif
+#ifdef CTR_AP
 	// AP item feed, in-race surface (issue #192) -- a crystal challenge is a race
 	// context for the feed's purposes. It sits HERE rather than at the end of the
 	// function because the tail returns early on pause / item roll / roulette, and
