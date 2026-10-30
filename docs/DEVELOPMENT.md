@@ -40,7 +40,8 @@ From PowerShell, set `MSYSTEM=MINGW32` and `CHERE_INVOKING=1` and call `C:\msys6
 
 ## Branches
 - `main`: stable, always builds.
-- `feature/<name>`: one feature or fix per branch, merged into `main` when it builds and has been tested in game.
+- `dev`: integration branch. Finished feature branches are merged here first, and test builds for in-game testing come from it. It goes into `main` once the in-game checklists pass.
+- `feature/<name>`: one feature or fix per branch, merged into `dev` when it builds, then to `main` with `dev` after in-game testing.
 
 ## Syncing upstream
 Never merge upstream remotes directly. Import them through the sync script, which rewrites commit messages to strip AI co-author trailers. The rewrite is deterministic, so repeated imports produce the same hashes and later merges stay clean.
