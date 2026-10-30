@@ -18,7 +18,7 @@ void MM_Characters_AnimateColors(u8 *colorData, s16 playerID, s16 flag)
 	// see MM_Characters_MenuProc
 	if (flag == 0)
 	{
-		trigApproximationIndex = sdata->frameCounter * 0x100 + playerID * 0x400;
+		trigApproximationIndex = sdata->frameCounter * FPS_HALF(0x100) + playerID * 0x400;
 
 		// approximate trigonometry
 		trigApprox = CTR_ReadU32LE(&data.trigApprox[trigApproximationIndex & 0x3ff]);

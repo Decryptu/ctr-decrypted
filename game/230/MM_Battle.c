@@ -848,7 +848,7 @@ LAB_800b25f0:
 	sVar6 = -0x7fff;
 
 	// if time on timer is odd
-	if ((sdata->frameCounter & 1) != 0)
+	if ((FPS_HALF(sdata->frameCounter) & 1) != 0)
 	{
 		// change color
 		sVar6 = -0x7ffd;
