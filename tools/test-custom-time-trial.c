@@ -148,6 +148,9 @@ void OtherFX_Stop2(int soundID_count) { (void)soundID_count; }
 void SubmitName_RestoreName(s16 param_1) { (void)param_1; }
 void UI_VsQuipAssignAll(void) {}
 void Podium_InitModels(struct GameTracker *gGT) { (void)gGT; }
+// The ghost recorder reads the 60 FPS mode; the harness races at 30 FPS.
+int gNative60FpsEnabled = 0;
+b32 INSTANCE_AnimHasDoubledFrames(struct Instance *inst, int animIndex) { (void)inst, (void)animIndex; return 0; }
 void BOTS_Driver_Convert(struct Driver *driver) { (void)driver; }
 void UI_RaceEnd_GetDriverClock(struct Driver *d) { (void)d; }
 void LOAD_LevelFile(int levelID)

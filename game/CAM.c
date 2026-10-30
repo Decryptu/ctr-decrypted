@@ -1,5 +1,9 @@
 #include <common.h>
 
+#ifdef CTR_AP
+#include "../ap/ap_democam.h" // AP_DemoCamOwnsCamera (#454)
+#endif
+
 #ifdef CTR_CUSTOM_TRACKS
 #include <platform/native_custom_tracks.h>
 #endif

@@ -12,6 +12,9 @@ tick = source[start:source.index("\n// NOTE", start)]
 fixture = r'''
 #include <assert.h>
 #define CTR_AP 1
+// The tick scales its spin through the 60 FPS helper; the fixture runs at
+// 30 FPS, where it is the identity (include/macros.h).
+#define FPS_HALF(x) (x)
 #define DRAW_TRANSPARENT 1
 #define GHOST_DRAW_TRANSPARENT 2
 #define USE_SPECULAR_LIGHT 4

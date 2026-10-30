@@ -11,6 +11,8 @@
 #include "../ap/ap_trial_letters.c"
 
 struct sData sdata_static;
+// The letter spin reads the 60 FPS mode; the harness runs at 30 FPS.
+int gNative60FpsEnabled = 0;
 ctr_seed_config ctr_cfg;
 static struct GameTracker gt;
 static struct Driver driver;

@@ -29,6 +29,10 @@ void ap_net_boss_won_record(unsigned bit) { assert(bit == AP_BOSS_WON_OXIDE_FIRS
 #define ADV_REWARD_OXIDE_SECOND_WIN_FLAGS 2
 static struct { int bossID; } game, *gGT=&game;
 static struct { int storyFlags; } progress, *adv=&progress;
+// Beating Oxide also unlocks him outside Adventure (include/namespace_Memcard.h).
+#define GAME_UNLOCK_BIT_OXIDE 37
+#define UNLOCK_ADV_BIT(words, bit) ((words)[(bit) >> 5] |= 1u << ((bit) & 0x1f))
+static struct { struct { unsigned unlocks[2]; } gameProgress; } sdataStore, *sdata=&sdataStore;
 int ctr_cfg_active(void) { return active; }
 void AP_GoalArmLiveEvent(void) { arm++; }
 void AP_NotifyAdvReward(int bit) {
@@ -57,8 +61,10 @@ int main(void) {
   assert(final==second && arm==1 && evaluate==1);
   assert(ap_oxide_first_beaten==!second && ap_oxide_final_beaten==second);
   first=final=arm=evaluate=ap_oxide_first_beaten=ap_oxide_final_beaten=0;
+  sdata->gameProgress.unlocks[1]=0;
   game.bossID=second ? 7 : 6;
   RewardOxide();
+  assert(sdata->gameProgress.unlocks[1]==(1u << (37 - 32)));
   int skip = active && goal==2 && enabled;
   assert(first==1 && final==second);
   assert(arm==(second && !skip ? 2 : 1) && evaluate==arm);

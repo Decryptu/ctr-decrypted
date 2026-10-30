@@ -21,8 +21,8 @@
 param(
 	[int]$Seconds = 60,                    # race time measured per run
 	[int]$Track = 3,                       # attract demo LevelID (3 = Crash Cove)
-	[int[]]$VSync = 0, 1, 2,               # Off, On, Adaptive
-	[int[]]$Fps = 30, 60,
+	[int[]]$VSync = @(0, 1, 2),             # Off, On, Adaptive
+	[int[]]$Fps = @(30, 60),
 	[switch]$WindowedOnly,
 	[string]$Out = "$env:TEMP\ctrdev\vsync",
 	[string]$Exe = "$PSScriptRoot\..\..\build-vanilla\ctr_native.exe"

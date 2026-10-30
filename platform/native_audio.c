@@ -2,6 +2,7 @@
 #include <platform/native_audio.h>
 #include <platform/native_assets.h>
 #include <platform/native_disc_image.h>
+#include <platform/native_dev.h> // CTR_DEV_FAST and CTR_DEV_AUDIO
 #include <platform/native_focus_mute.h>
 #include <platform/native_perf.h>
 #include <platform/native_spu_memory.h>

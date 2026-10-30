@@ -59,6 +59,10 @@ int NativeDiscImage_ReadRawSectors(const struct NativeDiscImageFile *file, u32 s
 	return 0;
 }
 
+// The dev switches (platform/native_dev.c): off, as in a normal run.
+int NativeDev_Fast(void) { return 0; }
+void NativeDev_AudioFrames(const short *frames, int frameCount) { (void)frames; (void)frameCount; }
+
 #include "platform/native_audio.c"
 
 unsigned int SpuSetTransferStartAddr(unsigned int addr) { return NativeAudio_SpuSetTransferStartAddr(addr); }

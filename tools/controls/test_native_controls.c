@@ -87,6 +87,15 @@ int NativeText_Active(void)
 	return s_testTextActive;
 }
 
+// The dev autopilot (platform/native_dev_race.c): off, as in a normal run.
+int NativeDev_AutopilotPad(int player, unsigned short *buttons, unsigned char *leftX)
+{
+	(void)player;
+	(void)buttons;
+	(void)leftX;
+	return 0;
+}
+
 // native_controls.c comes first: the input layer reads the assignment from it.
 #include <platform/native_controls.c>
 #include <platform/native_input.c>

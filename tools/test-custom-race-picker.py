@@ -17,6 +17,9 @@ fixture = r'''
 #include <assert.h>
 #include <stddef.h>
 typedef short s16;
+// The block counts warp frames through the 60 FPS scaler; the fixture runs at
+// 30 FPS, where it is the identity (include/macros.h).
+#define FPS_DOUBLE(x) (x)
 typedef struct { s16 x,y,z; } SVec3;
 #define REFLECTIVE 1
 #define HIDE_MODEL 2

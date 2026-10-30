@@ -99,6 +99,32 @@ int AP_TrapMirrorCullFlip(void)
 	return 0;
 }
 
+// The Demo Camera trap's hold on CAM_ThTick's L2 toggle (#454). No trap runs
+// here, so the camera is never held.
+int AP_DemoCamOwnsCamera(void)
+{
+	return 0;
+}
+
+// 30 FPS and PGXP off: the camera math is checked as retail runs it. With PGXP
+// off the GTE never calls into it, so its entry points only have to link.
+int gNative60FpsEnabled = 0;
+int gNativePgxpMode = NATIVE_PGXP_MODE_OFF;
+
+// The PGXP entry points the GTE code calls only while PGXP is on. Reaching one
+// fails the harness loudly rather than changing what it measures.
+#define HARNESS_UNREACHED(name) do { printf("FAIL: harness reached %s\n", name); exit(1); } while (0)
+void NativePgxp_StoreGteSXY(const void *dst, int reg, u32 value) { (void)dst, (void)reg, (void)value; HARNESS_UNREACHED("NativePgxp_StoreGteSXY"); }
+int NativePgxp_GteGetInput(int slot, s16 vx, s16 vy, s16 vz, double *out) { (void)slot, (void)vx, (void)vy, (void)vz, (void)out; HARNESS_UNREACHED("NativePgxp_GteGetInput"); }
+void NativePgxp_GteInvalidateInput(int reg) { (void)reg; HARNESS_UNREACHED("NativePgxp_GteInvalidateInput"); }
+void NativePgxp_GteWriteSXY(int reg, u32 value) { (void)reg, (void)value; HARNESS_UNREACHED("NativePgxp_GteWriteSXY"); }
+void NativePgxp_GteReadSXY(int reg, u32 value) { (void)reg, (void)value; HARNESS_UNREACHED("NativePgxp_GteReadSXY"); }
+void NativePgxp_GteProject(float x, float y, float w, u32 value) { (void)x, (void)y, (void)w, (void)value; HARNESS_UNREACHED("NativePgxp_GteProject"); }
+void NativePgxp_GteProjectTexture(u32 value, float w) { (void)value, (void)w; HARNESS_UNREACHED("NativePgxp_GteProjectTexture"); }
+int NativePgxp_GteNclip(u32 sxy0, u32 sxy1, u32 sxy2, s64 *out) { (void)sxy0, (void)sxy1, (void)sxy2, (void)out; HARNESS_UNREACHED("NativePgxp_GteNclip"); }
+void NativePgxp_GteSetMvmvaResult(const double *precise, s16 ir1, s16 ir2, s16 ir3) { (void)precise, (void)ir1, (void)ir2, (void)ir3; HARNESS_UNREACHED("NativePgxp_GteSetMvmvaResult"); }
+void NativePgxp_Transform(const double *rotation, const double *translation, const double *input, double *result) { (void)rotation, (void)translation, (void)input, (void)result; HARNESS_UNREACHED("NativePgxp_Transform"); }
+
 // Fixture: the two authored camera tables the fly-in reads, ptrStart at
 // path+0x0 and ptrEnd at path+0x354, exactly as CAM_ThTick hands them to
 // CAM_StartLine_FlyIn (game/CAM.c:1677-1680). CAM_StartLine_FlyIn treats a
