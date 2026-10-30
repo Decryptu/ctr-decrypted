@@ -7690,6 +7690,17 @@ static void DrawLevelOvr1P_TerminateRenderedListCursor(void)
 	}
 }
 
+// A quadblock with no low-LOD texture is an untextured surface (Mystery Caves
+// has invisible camera and collision walls like this). The other draw paths
+// already skip a quad whose texture is missing. Retail reads the low UVs
+// through the null pointer, which on a PS1 is kernel RAM; here it crashed, so
+// 3 and 4 player races on Mystery Caves closed the game on the left path
+// (ctr-native #58).
+static int DrawLevelOvr1P_HasLowTexture(const struct QuadBlock *block)
+{
+	return block->ptr_texture_low != NULL;
+}
+
 static struct TextureLayout *Ovr226_800a1058_PrepareFullDynamicLowUv(struct QuadBlock *block, struct DrawLevelOvr1PScratchVertex *projected)
 {
 	const int *indices = sDrawLevelOvr1PFullDynamicLowIndices;
@@ -8275,6 +8286,11 @@ static int Ovr226_800a0f78_EmitFullDynamicQuadBlock(struct PushBuffer *pb, struc
 {
 	struct DrawLevelOvr1PScratchVertex *projected = DrawLevelOvr1P_GetScratchVertices();
 
+	if (!DrawLevelOvr1P_HasLowTexture(block))
+	{
+		return 1;
+	}
+
 	Ovr226_800a0f78_ProjectFullDynamicLowQuad(vertices, block, projected);
 	struct TextureLayout *texture = Ovr226_800a1058_PrepareFullDynamicLowUv(block, projected);
 	u32 maxDepth = DrawLevelOvr1P_GetProjectedMaxDepth(projected, sDrawLevelOvr1PFullDynamicLowIndices);
@@ -8412,6 +8428,11 @@ static int DrawLevelOvr1P_EmitSplitGroundListAQuadBlock(struct PushBuffer *pb, s
 {
 	struct LevVertex *vertices = mesh->ptrVertexArray;
 	struct DrawLevelOvr1PScratchVertex *projected = DrawLevelOvr1P_GetScratchVertices();
+
+	if (!DrawLevelOvr1P_HasLowTexture(block))
+	{
+		return 1;
+	}
 
 	if (DrawLevelOvr1P_ProjectSplitGroundListALowGrid(vertices, block, projected))
 	{

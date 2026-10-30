@@ -10,11 +10,26 @@
 // Part of the main.c unity build, after the game code, so it reads game state
 // directly.
 
+// Autopilot state for one player.
+typedef struct
+{
+	int navIndex;
+	int navLevel;
+	int navTarget;
+	int lastRaceMS;
+	int stuckMS;
+	int stuckX, stuckZ;
+	int reverseMS;
+	int wantAngle;
+	int steer;
+} NativeDevPilot;
+
 typedef struct
 {
 	int loaded;
 	int raceTrack;
 	int timeTrial;
+	int players;
 	int laps;
 	int autopilot;
 	int hopEvery;
@@ -29,15 +44,7 @@ typedef struct
 	int raceClock;
 	FILE *trace;
 	int ghostWritten;
-	int navIndex;
-	int navLevel;
-	int navTarget;
-	int lastRaceMS;
-	int stuckMS;
-	int stuckX, stuckZ;
-	int reverseMS;
-	int wantAngle;
-	int steer;
+	NativeDevPilot pilot[4];
 	int raceFrame;
 } NativeDevRaceState;
 
@@ -60,12 +67,33 @@ static NativeDevRaceState *NativeDevRace_State(void)
 		s_devRace.tracePath = getenv("CTR_DEV_TRACE");
 		s_devRace.resultsPath = getenv("CTR_DEV_RESULTS");
 		s_devRace.resultsMS = NativeDev_EnvInt("CTR_DEV_RESULTS_MS", 30000);
-		s_devRace.navLevel = -1;
+		s_devRace.players = NativeDev_EnvInt("CTR_DEV_PLAYERS", 1);
+		if (s_devRace.players < 1)
+			s_devRace.players = 1;
+		if (s_devRace.players > 4)
+			s_devRace.players = 4;
+		for (int i = 0; i < 4; i++)
+			s_devRace.pilot[i].navLevel = -1;
 	}
 	return &s_devRace;
 }
 
 int NativeDev_RaceTrack(void) { return NativeDevRace_State()->raceTrack; }
+int NativeDev_RacePlayers(void) { return NativeDevRace_State()->players; }
+
+int NativeDev_BootLevel(void)
+{
+	int ending = NativeDev_EnvInt("CTR_DEV_ENDING", 0);
+	if (ending <= 0)
+		return -1;
+	UNLOCK_ADV_BIT(sdata->advProgress.rewards, ADV_REWARD_BEAT_OXIDE_SECOND);
+	if (ending == 1)
+	{
+		for (int i = 0; i < 18; i++)
+			UNLOCK_ADV_BIT(sdata->advProgress.rewards, ADV_REWARD_FIRST_SAPPHIRE_RELIC + i);
+	}
+	return OXIDE_TRUE_ENDING;
+}
 
 int NativeDev_StartRace(struct GameTracker *gGT)
 {
@@ -75,6 +103,15 @@ int NativeDev_StartRace(struct GameTracker *gGT)
 	gGT->numPlyrNextGame = 1;
 	for (int i = 0; i < 8; i++)
 		data.characterIDs[i] = i;
+
+	// VS: no Arcade flag, two to four players.
+	if (dev->players > 1)
+	{
+		gGT->numPlyrNextGame = (u8)dev->players;
+		if (dev->laps > 0)
+			gGT->numLaps = (char)dev->laps;
+		return dev->raceTrack;
+	}
 
 	if (!dev->timeTrial)
 	{
@@ -109,29 +146,36 @@ int NativeDev_StartRace(struct GameTracker *gGT)
 	return dev->raceTrack;
 }
 
-static struct Driver *NativeDevRace_Player(void)
+static struct Driver *NativeDevRace_Player(int player)
 {
 	struct GameTracker *gGT = sdata->gGT;
 	if ((gGT == NULL) || (sdata->Loading.stage != LOAD_IDLE) || (gGT->levelID == MAIN_MENU_LEVEL))
 		return NULL;
-	if ((gGT->gameMode1 & (ARCADE_MODE | TIME_TRIAL)) == 0)
+	const int vs = ((u8)gGT->numPlyrCurrGame > 1) && ((gGT->gameMode1 & (BATTLE_MODE | MAIN_MENU | GAME_CUTSCENE)) == 0);
+	if (((gGT->gameMode1 & (ARCADE_MODE | TIME_TRIAL)) == 0) && !vs)
 		return NULL;
-	return gGT->drivers[0];
+	if (player >= (u8)gGT->numPlyrCurrGame)
+		return NULL;
+	return gGT->drivers[player];
 }
 
-// Steer toward a nav point about one lane-width-and-a-half ahead on lane 0,
-// with the throttle held. Lane 0 is the line the AI drives, so the kart stays
-// on the road through the real driving physics.
-int NativeDev_AutopilotPad(unsigned short *buttons, unsigned char *leftX)
+// Steer toward a nav point ahead on one of the AI's lines, with the throttle
+// held, so the kart stays on the road through the real driving physics.
+// Player 1 follows lane 0; in VS each player takes the next lane, so on tracks
+// with forks some players take the other branch.
+int NativeDev_AutopilotPad(int player, unsigned short *buttons, unsigned char *leftX)
 {
 	NativeDevRaceState *dev = NativeDevRace_State();
 	struct GameTracker *gGT = sdata->gGT;
 	struct Driver *d;
 
-	if (!dev->autopilot || ((d = NativeDevRace_Player()) == NULL) || ((gGT->gameMode1 & END_OF_RACE) != 0))
+	if (!dev->autopilot || ((d = NativeDevRace_Player(player)) == NULL) || ((gGT->gameMode1 & END_OF_RACE) != 0))
 		return 0;
 
-	struct NavHeader *nh = sdata->NavPath_ptrHeader[0];
+	NativeDevPilot *p = &dev->pilot[player];
+	struct NavHeader *nh = sdata->NavPath_ptrHeader[player % 3];
+	if ((nh == NULL) || (nh->numPoints <= 0))
+		nh = sdata->NavPath_ptrHeader[0];
 	if ((nh == NULL) || (nh->numPoints <= 0))
 		return 0;
 
@@ -141,14 +185,14 @@ int NativeDev_AutopilotPad(unsigned short *buttons, unsigned char *leftX)
 
 	// Nearest node: a full search on a new level, then a window around the
 	// last one so a lap boundary or a crossing section cannot make it jump.
-	int from = dev->navIndex - 8, span = 40;
-	if (dev->navLevel != gGT->levelID)
+	int from = p->navIndex - 8, span = 40;
+	if (p->navLevel != gGT->levelID)
 	{
-		dev->navLevel = gGT->levelID;
+		p->navLevel = gGT->levelID;
 		from = 0;
 		span = count;
 	}
-	int best = dev->navIndex;
+	int best = p->navIndex;
 	long long bestDist = -1;
 	for (int k = 0; k < span; k++)
 	{
@@ -161,7 +205,7 @@ int NativeDev_AutopilotPad(unsigned short *buttons, unsigned char *leftX)
 			best = i;
 		}
 	}
-	dev->navIndex = best;
+	p->navIndex = best;
 
 	// Aim at the line about half a second ahead. A fixed far point cuts
 	// corners into the inside wall when the kart is slow, as it is after
@@ -201,23 +245,23 @@ int NativeDev_AutopilotPad(unsigned short *buttons, unsigned char *leftX)
 	// reserves every frame, the boost overrides the brake, and only turning
 	// away breaks the contact.
 	int raceMS = d->timeElapsedInRace;
-	int dt = raceMS - dev->lastRaceMS;
-	dev->lastRaceMS = raceMS;
-	if ((dt > 0) && (dt < 100) && (dev->reverseMS <= 0))
+	int dt = raceMS - p->lastRaceMS;
+	p->lastRaceMS = raceMS;
+	if ((dt > 0) && (dt < 100) && (p->reverseMS <= 0))
 	{
-		long long mx = x - dev->stuckX, mz = z - dev->stuckZ;
+		long long mx = x - p->stuckX, mz = z - p->stuckZ;
 		if (mx * mx + mz * mz > 300 * 300)
 		{
-			dev->stuckX = x;
-			dev->stuckZ = z;
-			dev->stuckMS = 0;
+			p->stuckX = x;
+			p->stuckZ = z;
+			p->stuckMS = 0;
 		}
 		else
-			dev->stuckMS += dt;
-		if (dev->stuckMS > 1500)
+			p->stuckMS += dt;
+		if (p->stuckMS > 1500)
 		{
-			dev->stuckMS = 0;
-			dev->reverseMS = 1000;
+			p->stuckMS = 0;
+			p->reverseMS = 1000;
 		}
 	}
 
@@ -225,10 +269,10 @@ int NativeDev_AutopilotPad(unsigned short *buttons, unsigned char *leftX)
 	unsigned short held = (dev->autopilot == 2) ? 0 : RAW_BTN_CROSS;
 	if (dev->autopilot == 2)
 		steer = 0;
-	else if (dev->reverseMS > 0)
+	else if (p->reverseMS > 0)
 	{
 		if (dt > 0)
-			dev->reverseMS -= dt;
+			p->reverseMS -= dt;
 		held = RAW_BTN_SQUARE | RAW_BTN_DOWN;
 		steer = (steer > 0) ? -127 : 127;
 	}
@@ -243,9 +287,9 @@ int NativeDev_AutopilotPad(unsigned short *buttons, unsigned char *leftX)
 			held |= RAW_BTN_R1;
 	}
 
-	dev->navTarget = target;
-	dev->wantAngle = want;
-	dev->steer = steer;
+	p->navTarget = target;
+	p->wantAngle = want;
+	p->steer = steer;
 	*buttons = (unsigned short)~held;
 	*leftX = (unsigned char)(0x80 + steer);
 	return 1;
@@ -256,7 +300,7 @@ void NativeDev_RaceFrame(void)
 {
 	NativeDevRaceState *dev = NativeDevRace_State();
 	struct GameTracker *gGT = sdata->gGT;
-	struct Driver *d = NativeDevRace_Player();
+	struct Driver *d = NativeDevRace_Player(0);
 
 	if (d == NULL)
 	{
@@ -296,7 +340,7 @@ void NativeDev_RaceFrame(void)
 		        gGT->levelID, gGT->trafficLightsTimer, (gGT->gameMode1 & END_OF_RACE) != 0, d->timeElapsedInRace, d->posCurr.x >> 8,
 		        d->posCurr.y >> 8, d->posCurr.z >> 8, d->angle & 0xfff, d->speedApprox, (d->actionsFlagSet & ACTION_TOUCH_GROUND) == 0,
 		        d->kartState, d->lapIndex, d->reserves, d->instSelf ? d->instSelf->animIndex : -1, d->instSelf ? d->instSelf->animFrame : -1, gx,
-		        gy, gz, gvis, dev->navIndex, dev->navTarget, dev->wantAngle, dev->steer, d->velocity.x,
+		        gy, gz, gvis, dev->pilot[0].navIndex, dev->pilot[0].navTarget, dev->pilot[0].wantAngle, dev->pilot[0].steer, d->velocity.x,
 		        d->velocity.y, d->velocity.z, (int)d->collisionFlags, gGT->timer);
 	}
 	dev->raceFrame++;

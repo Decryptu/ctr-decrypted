@@ -28,9 +28,9 @@ All four are GPL-3.0. dowlle's `ctr.apworld` is MIT.
 - No config file, settings menu, widescreen or 60 FPS in master.
 
 **Open issues:**
-- #58: Mystery Caves left path crashes with 3–4 players.
+- #58: Mystery Caves left path crashes with 3–4 players. Fixed here: the 3P/4P renderer read a quadblock's missing low-LOD texture through a null pointer (`226_00_DrawLevelOvr1P.c`). High Octane's own fix (ca43755cf, capping the rendered-quadblock lists) is not this crash: those lists peak at 59 of 64 entries here.
 - #12: black screen with a segfault on Manjaro Linux after the audio stream opens.
-- #45, #52: black screen and no scrapbook after the credits, after beating Oxide.
+- #45, #52: black screen and no scrapbook after the credits, after beating Oxide. Reported against Beta 7.1. Here the true ending, credits and scrapbook play through to the title at 30 and 60 FPS, in real time, at render scale 2 (`CTR_DEV_ENDING=1`). The Archipelago build still sends a connected game to the hub instead of the scrapbook.
 - #14: the pre-race camera flyover is wrong (suspected undefined behaviour or compiler-dependent).
 - #61: unlock all characters including Oxide.
 - #54: PAL support. Out of scope per #51.
@@ -83,7 +83,7 @@ All four are GPL-3.0. dowlle's `ctr.apworld` is MIT.
   - #43: the importer fails with a locked temp file.
 - #35: mirror mode isn't applied to the Adventure hub.
 - #34: Vita stick problems after AdHoc.
-- #24: softlock after beating Oxide; doesn't happen in ctr-native.
+- #24: softlock after beating Oxide; doesn't happen in ctr-native. High Octane-only; the same path works here.
 - #9: the all-super-turbopads cheat doesn't turn pads cyan.
 - #42: a Hot Air Skyway shortcut is harder than on emulator (physics).
 - #39: Penta should use the PAL engine sound.

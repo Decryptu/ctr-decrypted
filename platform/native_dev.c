@@ -7,6 +7,8 @@
 // Reads the main render target (the frame at render scale) as bottom-up RGBA.
 // Defined in platform/native_renderer.c. Returns a malloc'd buffer or NULL.
 unsigned char *NativeRenderer_ReadMainTarget(int *width, int *height);
+// Copies a VRAM rectangle (15-bit PSX pixels). Defined in native_renderer.c.
+void NativeRenderer_ReadVRAM(unsigned short *dst, int x, int y, int dst_w, int dst_h);
 
 typedef struct
 {
@@ -22,6 +24,8 @@ typedef struct
 	int dumpFrame;
 	FILE *dump;
 	int frame;
+	int vramShot; // this frame was presented straight from VRAM (vramX..vramH)
+	int vramX, vramY, vramW, vramH;
 } NativeDevState;
 
 static NativeDevState s_dev;
@@ -141,6 +145,49 @@ static void NativeDev_WriteBmp(const char *path, const unsigned char *rgba, int 
 	fclose(f);
 }
 
+// The VRAM rectangle as bottom-up RGBA, like NativeRenderer_ReadMainTarget.
+static unsigned char *NativeDev_ReadVRAMRect(NativeDevState *dev, int *width, int *height)
+{
+	const int w = dev->vramW, h = dev->vramH;
+	unsigned short *px = (unsigned short *)malloc((size_t)w * (size_t)h * 2);
+	unsigned char *rgba = (unsigned char *)malloc((size_t)w * (size_t)h * 4);
+	if (px == NULL || rgba == NULL)
+	{
+		free(px);
+		free(rgba);
+		return NULL;
+	}
+	NativeRenderer_ReadVRAM(px, dev->vramX, dev->vramY, w, h);
+	for (int y = 0; y < h; y++)
+	{
+		for (int x = 0; x < w; x++)
+		{
+			const unsigned short p = px[y * w + x];
+			unsigned char *o = &rgba[((size_t)(h - 1 - y) * w + x) * 4];
+			o[0] = (unsigned char)((p & 31) << 3);
+			o[1] = (unsigned char)(((p >> 5) & 31) << 3);
+			o[2] = (unsigned char)(((p >> 10) & 31) << 3);
+			o[3] = 255;
+		}
+	}
+	free(px);
+	*width = w;
+	*height = h;
+	return rgba;
+}
+
+void NativeDev_EndFrameFromVRAM(int x, int y, int w, int h)
+{
+	NativeDevState *dev = NativeDev_State();
+	dev->vramShot = 1;
+	dev->vramX = x;
+	dev->vramY = y;
+	dev->vramW = w;
+	dev->vramH = h;
+	NativeDev_EndFrame();
+	dev->vramShot = 0;
+}
+
 void NativeDev_EndFrame(void)
 {
 	NativeDevState *dev = NativeDev_State();
@@ -156,7 +203,7 @@ void NativeDev_EndFrame(void)
 	if (dev->shotDir != NULL && frame >= dev->shotFrom && ((frame - dev->shotFrom) % dev->shotEvery) == 0)
 	{
 		int w, h;
-		unsigned char *rgba = NativeRenderer_ReadMainTarget(&w, &h);
+		unsigned char *rgba = dev->vramShot ? NativeDev_ReadVRAMRect(dev, &w, &h) : NativeRenderer_ReadMainTarget(&w, &h);
 		if (rgba != NULL)
 		{
 			char path[1024];

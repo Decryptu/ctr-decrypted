@@ -21,6 +21,8 @@ Status of CTR Decrypted, kept current with every change. **Status values:** Done
 | Developer tools for unattended runs | `CTR_DEV_*` switches: attract demo or race on any track, autopilot, traces, fast-forward, hidden window, frame capture, polygon dumps, all bit-exact. `devrun.ps1`, `fps-parity.ps1` and analysis scripts; `--perf` budget follows the frame rate. See [docs/DEV-TOOLS.md](docs/DEV-TOOLS.md) |
 | Archipelago: starting racer and hub picker | All eight vanilla starters unlocked → the garage picker runs at a new profile. 50% black backdrop behind the in-hub picker |
 | Boot splash centred when the window starts maximized | `NativeRenderer_UpdatePresentationViewport` reads the live window size |
+| Mystery Caves no longer crashes with 3–4 players | ctr-native #58. Untextured quadblocks are skipped in the 3P/4P low-detail renderer instead of read through a null texture |
+| Credits and scrapbook after the true ending checked | ctr-native #45 and #52 do not happen here; see [docs/UPSTREAM-ISSUES.md](docs/UPSTREAM-ISSUES.md) |
 
 ## In progress
 Nothing.
@@ -31,8 +33,6 @@ Roughly in this order.
 | Item | Source |
 |---|---|
 | Frame pacing at 60 FPS with VSync (Off / On / Adaptive) on 60 Hz and 144 Hz | High Octane lacks VSync (#46). The game paces itself on a 59.94 Hz timer and VSync On adds the display's wait on top, so a 60 Hz panel drifts against it and a 144 Hz one cannot show 60 evenly. `tools/decrypted/vsync-check.ps1` measures it; it needs the screen on and nobody at the machine, so it runs overnight. Then fix what it shows |
-| Softlock or black screen on the credits and scrapbook after beating Oxide | ctr-native #45 and #52, High Octane #24 |
-| Mystery Caves left path crash with 3–4 players | ctr-native #58. Fixed in High Octane (#30); port it |
 | Stage-2 key count ignored with vanilla unlock requirements | ctr-native-ap #499 |
 | White noise in the hub after winning a race | ctr-native-ap #484 |
 | Progressive stats bar doesn't match the items received | ctr-native-ap #466 |

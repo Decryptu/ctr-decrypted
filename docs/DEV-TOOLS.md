@@ -43,6 +43,8 @@ All of these are read once, by `platform/native_dev.c` (`include/platform/native
 | `CTR_PGXP_DEBUG=1..4` | PGXP tints, see [PGXP.md](PGXP.md#debugging) |
 | `CTR_DEV_RACE=<LevelID>` | The title menu starts a one-player race on that track instead of the demo, with nobody at the controls unless the autopilot drives |
 | `CTR_DEV_MODE=tt` | Make `CTR_DEV_RACE` a Time Trial (default Arcade). `CTR_DEV_LAPS=n` sets the Arcade lap count |
+| `CTR_DEV_PLAYERS=2..4` | Make `CTR_DEV_RACE` a VS race for that many players. With the autopilot on, it drives every player, each on its own AI lane, so on tracks with forks some take the other branch |
+| `CTR_DEV_ENDING=1` | Boot into Oxide's true ending, which runs into the credits, with every sapphire relic, so the credits end in the scrapbook. `=2` without the relics, so they end in the hub |
 | `CTR_DEV_AUTOPILOT=1` | During a race, player 1's pad holds the throttle and steers along the AI's nav line (aiming about half a second ahead), so the kart drives through the normal physics. When wedged (under 300 units travelled in 1.5 s of race time) it reverses for a second at full opposite lock. `=2` stands still on the grid instead |
 | `CTR_DEV_HOP_MS=<n>` | The autopilot hops every n ms of race time |
 | `CTR_DEV_TRACE=<csv>` | One row per frame of player 1 in a race: race time, position, angle, speed, velocity, airborne, kart state, lap, animation, the human ghost's position, and the autopilot's target |
@@ -52,7 +54,9 @@ All of these are read once, by `platform/native_dev.c` (`include/platform/native
 | `CTR_DEV_RESULTS=<csv>` | Every racer's rank, lap, distance to the finish and the track length at `CTR_DEV_RESULTS_MS` of race time (default 30000, counted from the lights). Distance driven since the start line is `lap × length + length − distance`. Works in the attract demo too, to compare the AI |
 | `CTR_DEV_NO_ITEMS=1` | Weapon crates give nothing and bots are handed no weapons, so two runs differ only by driving |
 
-Frame numbers count every presented frame, the boot splash included.
+Frame numbers count every presented frame, the boot splash included. Frames shown straight from VRAM (the boot splash, the scrapbook and other movies) are captured from VRAM.
+
+`devrun.ps1` clears earlier captures from the output folder, and warns when the game exits with an error code before `-Frames` (a crash). For a stack, run the same switches on the Archipelago build (`-Exe build-ap\ctr_native_ap.exe`): its crash handler writes `ctr-ap-crash.txt` in the run folder, and `addr2line -f -e build-ap\ctr_native_ap.exe <0x400000 + offset>` names each frame. Release builds inline heavily, so check neighbouring symbols with `nm -n` too.
 
 ## Analysis scripts
 

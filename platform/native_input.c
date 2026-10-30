@@ -575,12 +575,13 @@ void Platform_InputUpdate(void)
 
 	NativeInput_ApplyKeyboard();
 
+	for (s32 slot = 0; slot < 4 && slot < NATIVE_INPUT_MAX_CONTROLLERS; slot++)
 	{
 		u16 buttons;
 		u8 leftX;
-		if (NativeDev_AutopilotPad(&buttons, &leftX))
+		if (NativeDev_AutopilotPad(slot, &buttons, &leftX))
 		{
-			struct PlatformInputPadSnapshot *snapshot = &s_controllers[0].snapshot;
+			struct PlatformInputPadSnapshot *snapshot = &s_controllers[slot].snapshot;
 			snapshot->connected = 1;
 			snapshot->status = 0;
 			snapshot->id = NATIVE_INPUT_PAD_ANALOG;

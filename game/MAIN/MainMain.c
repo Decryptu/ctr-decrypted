@@ -1,6 +1,7 @@
 #include <common.h>
 #ifdef CTR_CUSTOM_PACKAGES
 #include <platform/native_custom_offline.h>
+#include <platform/native_dev.h>
 #endif
 
 #if defined(CTR_NATIVE) && defined(CTR_INTERNAL)
@@ -683,7 +684,11 @@ void StateZero()
 		gGT->levelID = NAUGHTY_DOG_CRATE;
 		memcpy(gGT->levelName, sdata->s_ndi, sizeof(sdata->s_ndi));
 	}
-	// gGT->levelID = OXIDE_TRUE_ENDING;
+	int devBootLevel = NativeDev_BootLevel();
+	if (devBootLevel >= 0)
+	{
+		gGT->levelID = devBootLevel;
+	}
 
 	InitGeom();
 	SetGeomOffset(0x100, 0x78); // width/2, height/2

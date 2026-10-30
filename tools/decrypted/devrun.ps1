@@ -35,6 +35,8 @@ $run = if ($RunDir) { $RunDir } else { Join-Path $root 'run' }
 New-Item -ItemType Directory -Force $run | Out-Null
 if (-not $Out) { $Out = Join-Path $root ("shots-" + (Get-Date -Format 'HHmmss')) }
 New-Item -ItemType Directory -Force $Out | Out-Null
+# Captures from an earlier run would mix into this one's sheet.
+Get-ChildItem $Out -File | Where-Object { $_.Name -match '^(f\d{6}\.(bmp|png)|sheet\.png)$' } | Remove-Item
 
 # A run folder of its own, so the owner's install and saves are never touched.
 Copy-Item $exePath (Join-Path $run 'ctr_native.exe') -Force
@@ -68,6 +70,7 @@ foreach ($k in $vars.Keys) { $psi.EnvironmentVariables[$k] = "$($vars[$k])" }
 $p = [System.Diagnostics.Process]::Start($psi)
 $null = $p.StandardOutput.ReadToEndAsync(); $null = $p.StandardError.ReadToEndAsync()
 if (-not $p.WaitForExit($TimeoutSec * 1000)) { $p.Kill(); Write-Warning "timed out after $TimeoutSec s" }
+elseif ($p.ExitCode -ne 0) { Write-Warning ("game exited with code 0x{0:X8} before frame $Frames (a crash; see $run\*.log)" -f $p.ExitCode) }
 
 # Convert to PNG (smaller, and what image viewers and agents read best).
 Add-Type -AssemblyName System.Drawing

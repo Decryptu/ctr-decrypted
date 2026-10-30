@@ -457,16 +457,17 @@ void Platform_EndScene(void)
 
 	if (s_pinnedVramDisplayFrames > 0)
 	{
+		int shownX = activeDispEnv.disp.x, shownY = activeDispEnv.disp.y, shownW = activeDispEnv.disp.w, shownH = activeDispEnv.disp.h;
 		if (s_pinnedVramDisplayCustomRect)
 		{
-			NativeRenderer_PresentVRAMRect(s_pinnedVramDisplayX, s_pinnedVramDisplayY, s_pinnedVramDisplayW, s_pinnedVramDisplayH);
+			shownX = s_pinnedVramDisplayX;
+			shownY = s_pinnedVramDisplayY;
+			shownW = s_pinnedVramDisplayW;
+			shownH = s_pinnedVramDisplayH;
 		}
-		else
-		{
-			NativeRenderer_PresentVRAMDisplay();
-		}
+		NativeRenderer_PresentVRAMRect(shownX, shownY, shownW, shownH);
 		NativeRenderer_EndGpuFrame();
-		NativeDev_EndFrame();
+		NativeDev_EndFrameFromVRAM(shownX, shownY, shownW, shownH);
 		NativeRenderer_SwapWindow();
 		s_pinnedVramDisplayFrames--;
 		if (s_pinnedVramDisplayFrames <= 0)

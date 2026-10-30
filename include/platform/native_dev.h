@@ -30,6 +30,9 @@ int NativeDev_NoItems(void);
 // CTR_DEV_SHOT_DIR / CTR_DEV_SHOT_EVERY / CTR_DEV_SHOT_FROM (frame capture)
 // and CTR_DEV_EXIT_FRAME (quit after that many frames).
 void NativeDev_EndFrame(void);
+// The same for a frame presented straight from VRAM (boot splash, Scrapbook,
+// other movies): captures that VRAM rectangle instead of the render target.
+void NativeDev_EndFrameFromVRAM(int x, int y, int w, int h);
 
 // CTR_DEV_DUMP_FRAME=N: returns an open file (in CTR_DEV_SHOT_DIR, or the
 // working folder) while frame N is being drawn, else NULL. Draw code writes
@@ -47,6 +50,14 @@ int NativeDev_PrimTag(const void *addr);
 // track instead of the attract demo. CTR_DEV_MODE=tt makes it a Time Trial
 // (default Arcade), CTR_DEV_LAPS sets the Arcade lap count. -1 if unset.
 int NativeDev_RaceTrack(void);
+// CTR_DEV_PLAYERS=2..4 makes CTR_DEV_RACE a VS race for that many players.
+int NativeDev_RacePlayers(void);
+
+// CTR_DEV_ENDING=1: boot into Oxide's true ending, which runs into the
+// credits, with every sapphire relic so the credits end in the Scrapbook.
+// CTR_DEV_ENDING=2: the same without the relics, so they end in the hub.
+// Returns the level to boot, or -1.
+int NativeDev_BootLevel(void);
 
 // Sets up the mode for CTR_DEV_RACE (and loads CTR_DEV_GHOST_IN in Time
 // Trial) and returns the level to load.
@@ -57,8 +68,9 @@ int NativeDev_StartRace(struct GameTracker *gGT);
 // held and analog steering along the AI's nav line. CTR_DEV_AUTOPILOT=2 stands
 // still on the grid instead (for measuring hops on flat ground).
 // CTR_DEV_HOP_MS=n adds a hop every n ms of race time. Returns 1 when it wrote
-// the pad.
-int NativeDev_AutopilotPad(unsigned short *buttons, unsigned char *leftX);
+// the pad. With CTR_DEV_PLAYERS=2..4 (a VS race) it drives every player, each
+// on its own AI lane.
+int NativeDev_AutopilotPad(int player, unsigned short *buttons, unsigned char *leftX);
 
 // Per presented frame: CTR_DEV_TRACE=<csv> rows for player 1 (and the human
 // ghost), CTR_DEV_GHOST_OUT=<file> gets the recorded Time Trial ghost, and

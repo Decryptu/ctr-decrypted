@@ -107,6 +107,12 @@ void MM_MenuProc_Main(struct RectMenu *mainMenu)
 		if ((D230.menuMainMenu.state & DRAW_NEXT_MENU_IN_HIERARCHY) == 0)
 		{
 			gGT->numPlyrNextGame = 1;
+			// This runs every frame until the level loads, after the title has
+			// set up a CTR_DEV_RACE, so a VS race's player count goes here.
+			if (NativeDev_RaceTrack() >= 0)
+			{
+				gGT->numPlyrNextGame = (u8)NativeDev_RacePlayers();
+			}
 
 			// if no buttons pressed, check demo mode
 			if (sdata->gGamepads->anyoneHeldCurr == 0)
