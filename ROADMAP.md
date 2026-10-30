@@ -17,6 +17,7 @@ Status of CTR Decrypted, kept current with every change. **Status values:** Done
 | Repo set up on dowlle/ctr-native-ap `main` | Imported through `tools/decrypted/sync-upstream.ps1` |
 | Windows checkout fix | `*.patch` files are forced to LF so the vendor hash check passes with `core.autocrlf=true` |
 | Native Switch 2 Pro Controller | Vendored libusb 1.0.30 in `externals/libusb`, so SDL's Switch 2 driver works without Steam. Tested over USB. Steam must not be running, or it grabs the pad first |
+| PGXP: anti-wobble and perspective-correct textures | Branch `feature/pgxp`. Port of High Octane 03014d84f (from CTR Turbocharged). OPTIONS → Video → PGXP (Anti-Wobble): OFF / TEXTURES / GEOMETRY / FULL, default FULL, switches live. Builds; not yet tested in game. See [docs/PGXP.md](docs/PGXP.md) |
 
 ## In progress
 | Item | Notes |
@@ -28,7 +29,7 @@ Roughly in this order.
 
 | Item | Source |
 |---|---|
-| VSync / frame-pacing option | No build has one (High Octane #46) |
+| Check frame pacing at 60 FPS with the existing VSync option (Off / On / Adaptive, from the base) on 60 Hz and high-refresh monitors | High Octane lacks VSync (#46). Our base has it, but it was tuned for 30 FPS |
 | 60 FPS: Time Trial at 60 (ghosts tagged with their frame rate) | Time Trial is pinned to 30 because ghosts store one sample per frame |
 | 60 FPS: internal replay scheduler and AI lap recorder count frames | Recordings only match at the frame rate they were made at |
 | Softlock or black screen on the credits and scrapbook after beating Oxide | ctr-native #45 and #52, High Octane #24 |
@@ -38,7 +39,7 @@ Roughly in this order.
 | Progressive stats bar doesn't match the items received | ctr-native-ap #466 |
 | Invisible podium racers | ctr-native-ap #282 |
 | Reconnect catch-up stalls the game; move network work off the game thread | ctr-native-ap #147 |
-| Internal resolution scaling, FXAA, PGXP perspective correction (anti-wobble) | High Octane |
+| Internal resolution scaling, FXAA | High Octane |
 | Post-processing filters (CRT, sharp bilinear, …) | High Octane |
 | Playable N. Oxide outside Archipelago restrictions | High Octane (Archipelago already has `remove_playable_oxide`) |
 | Reserves meter, blue fire (USF), powerslide bar, cyan super turbo pads | ModSDK mods as ported by High Octane |

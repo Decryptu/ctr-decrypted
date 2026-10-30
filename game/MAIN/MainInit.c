@@ -266,6 +266,21 @@ void MainInit_PrimMem(struct GameTracker *gGT)
 
 	MainDB_PrimMem(&gGT->db[0].primMem, size);
 	MainDB_PrimMem(&gGT->db[1].primMem, size);
+#if defined(CTR_NATIVE)
+	// PGXP keeps one shadow slot per word of the two primitive arenas, so a
+	// primitive's precise vertices are found by address without hashing. The
+	// arenas are consecutive MEMPACK allocations; register their combined
+	// span. Allocated even while PGXP is off so the option can switch live.
+	{
+		const uintptr_t start0 = (uintptr_t)gGT->db[0].primMem.start;
+		const uintptr_t start1 = (uintptr_t)gGT->db[1].primMem.start;
+		const uintptr_t end0 = (uintptr_t)gGT->db[0].primMem.end;
+		const uintptr_t end1 = (uintptr_t)gGT->db[1].primMem.end;
+		const uintptr_t start = start0 < start1 ? start0 : start1;
+		const uintptr_t end = end0 > end1 ? end0 : end1;
+		NativePgxp_SetPrimRegion((const void *)start, (size_t)(end - start));
+	}
+#endif
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003b2d4-0x8003b334.

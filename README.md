@@ -55,6 +55,7 @@ GPL-3.0, inherited from CTR-native. See [LICENSE](LICENSE) and [THIRD_PARTY_NOTI
 - [dowlle/ctr-native-ap](https://github.com/dowlle/ctr-native-ap) and [ctr-archipelago-apworld](https://github.com/dowlle/ctr-archipelago-apworld): the Archipelago client and world this project is based on.
 - [Rinnegatamante/Crash-Team-Racing-High-Octane](https://github.com/Rinnegatamante/Crash-Team-Racing-High-Octane): the source of the 60 FPS mode and other enhancements ported here.
 - [thecodingbob/ctr-native](https://github.com/thecodingbob/ctr-native): the config menu, widescreen, borderless fullscreen and dithering options.
+- [CTR Turbocharged](https://github.com/CameronRedmore/Crash-Team-Racing-Turbocharged), DuckStation (Stenzek) and iCatButler: the PGXP precision geometry, via High Octane.
 - Icebound777 and Taor: the [CTR randomizer](https://github.com/icebound777/CTR-Randomizer-Standalone) whose design the Archipelago integration builds on.
 - [PsyCross](https://github.com/OpenDriver2/PsyCross), [SDL3](https://github.com/libsdl-org/SDL), [apclientpp](https://github.com/black-sliver/apclientpp).
 

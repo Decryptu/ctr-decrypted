@@ -240,6 +240,23 @@ static const int   s_vsyncValues[] = {0, 1, 2};
 static const char *s_vsyncNames[]  = {"OFF", "ON", "ADAPTIVE"};
 #define VSYNC_COUNT ((int)(sizeof(s_vsyncValues) / sizeof(s_vsyncValues[0])))
 
+// PGXP ladder (CFG_ENUM). Values are the raw NativePgxpMode numbers
+// (include/platform/native_pgxp.h), listed in High Octane's menu order:
+// OFF -> TEXTURES (perspective-correct texturing only) -> GEOMETRY (sub-pixel
+// vertices only, the anti-wobble part) -> FULL (both). An out-of-ladder hand
+// edit renders and steps as OFF, the same value NativePgxp_NormalizeMode uses.
+static const int   s_pgxpValues[] = {0, 3, 1, 2};
+static const char *s_pgxpNames[]  = {"OFF", "TEXTURES", "GEOMETRY", "FULL"};
+#define PGXP_COUNT ((int)(sizeof(s_pgxpValues) / sizeof(s_pgxpValues[0])))
+
+static int Pgxp_Index(int value)
+{
+	for (int i = 0; i < PGXP_COUNT; i++)
+		if (s_pgxpValues[i] == value)
+			return i;
+	return 0;
+}
+
 static int Vsync_Index(int value)
 {
 	for (int i = 0; i < VSYNC_COUNT; i++)
@@ -362,6 +379,8 @@ static const char *Enum_Label(const ConfigEntry *e)
 		return s_renderScaleNames[RenderScale_Index(*(int *)e->valuePtr)];
 	if (e->valuePtr == &g_config.vsync)
 		return s_vsyncNames[Vsync_Index(*(int *)e->valuePtr)];
+	if (e->valuePtr == &g_config.pgxp)
+		return s_pgxpNames[Pgxp_Index(*(int *)e->valuePtr)];
 #ifdef CTR_AP
 	if (e->valuePtr == &g_config.deathLink)
 		return s_dlinkNames[Dlink_Index(*(int *)e->valuePtr)];
@@ -403,6 +422,16 @@ static void Enum_Step(const ConfigEntry *e, int dir)
 		if (i > VSYNC_COUNT - 1)
 			i = VSYNC_COUNT - 1;
 		*(int *)e->valuePtr = s_vsyncValues[i];
+		return;
+	}
+	if (e->valuePtr == &g_config.pgxp)
+	{
+		int i = Pgxp_Index(*(int *)e->valuePtr) + dir;
+		if (i < 0)
+			i = 0;
+		if (i > PGXP_COUNT - 1)
+			i = PGXP_COUNT - 1;
+		*(int *)e->valuePtr = s_pgxpValues[i];
 		return;
 	}
 #ifdef CTR_AP
