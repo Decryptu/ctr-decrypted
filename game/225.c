@@ -241,7 +241,7 @@ void VB_EndEvent_DrawMenu(void)
 
 		s32 displayedRank = standingsIndex - displayedRankOffset;
 
-			rowDelay += FPS_DOUBLE(VB_ROW_STAGGER_FRAMES);
+		rowDelay += FPS_DOUBLE(VB_ROW_STAGGER_FRAMES);
 
 		previousStandingsScore = (s16)gGT->battleSetup.standingsScore[entityID];
 		sprintf(text, "%d%s", displayedRank + 1, sdata->lngStrings[VB_STANDINGS_SUFFIX_FIRST + displayedRank]);
@@ -267,15 +267,15 @@ void VB_EndEvent_DrawMenu(void)
 		{
 			winnerViewportFound = true;
 
-				if (use30HzStep && (numPlayers == 2) && (view->rect.w > VB_WINNER_2P_MIN_WIDE_RECT))
+			if (use30HzStep && (numPlayers == 2) && (view->rect.w > VB_WINNER_2P_MIN_WIDE_RECT))
 			{
 				view->rect.w -= VB_WINNER_2P_WIDTH_STEP;
 				view->distanceToScreen_CURR = VB_WINNER_DISTANCE_TO_SCREEN;
 			}
 
 			// fly-in interpolation
-				UI_Lerp2D_Linear(pos.v, view->rect.x, view->rect.y, VB_WINNER_TARGET_X, VB_WINNER_TARGET_Y, sdata->framesSinceRaceEnded,
-				                 FPS_DOUBLE(VB_WINNER_LERP_FRAMES));
+			UI_Lerp2D_Linear(pos.v, view->rect.x, view->rect.y, VB_WINNER_TARGET_X, VB_WINNER_TARGET_Y, sdata->framesSinceRaceEnded,
+			                 FPS_DOUBLE(VB_WINNER_LERP_FRAMES));
 
 			RECT box;
 			box.x = pos.x - VB_WINNER_BOX_X_PAD;

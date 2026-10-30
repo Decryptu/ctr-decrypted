@@ -155,14 +155,14 @@ void AA_EndEvent_DrawMenu(void)
 				shouldDrawToken = true;
 
 				// lerp letters off-screen
-					if (elapsedFrames > FPS_DOUBLE(AA_CTR_TEXT_FLYOUT_START_FRAME))
-					{
-						// NOTE(aalhendi): Retail uses frames-50 for the awarded text, skipping most of the fly-out.
-						tokenAwardTextFrame = elapsedFrames - FPS_DOUBLE(AA_CTR_TEXT_FLYOUT_AWARD_OFFSET);
-						txtStartX = 0x100;
-						txtEndX = -150;
-						elapsedFrames -= FPS_DOUBLE(AA_CTR_TEXT_FLYOUT_START_FRAME);
-						lerpFrames = FPS_DOUBLE(AA_CTR_LETTER_FLYOUT_FRAMES);
+				if (elapsedFrames > FPS_DOUBLE(AA_CTR_TEXT_FLYOUT_START_FRAME))
+				{
+					// NOTE(aalhendi): Retail uses frames-50 for the awarded text, skipping most of the fly-out.
+					tokenAwardTextFrame = elapsedFrames - FPS_DOUBLE(AA_CTR_TEXT_FLYOUT_AWARD_OFFSET);
+					txtStartX = 0x100;
+					txtEndX = -150;
+					elapsedFrames -= FPS_DOUBLE(AA_CTR_TEXT_FLYOUT_START_FRAME);
+					lerpFrames = FPS_DOUBLE(AA_CTR_LETTER_FLYOUT_FRAMES);
 
 					lerpStartX += 0x10;
 					lerpStartY += 0x50;
@@ -171,9 +171,9 @@ void AA_EndEvent_DrawMenu(void)
 				}
 
 				// lerp letters to center
-					else if (elapsedFrames > FPS_DOUBLE(AA_CTR_TEXT_FLYIN_START_FRAME))
-					{
-						elapsedFrames -= FPS_DOUBLE(AA_CTR_TEXT_FLYIN_START_FRAME);
+				else if (elapsedFrames > FPS_DOUBLE(AA_CTR_TEXT_FLYIN_START_FRAME))
+				{
+					elapsedFrames -= FPS_DOUBLE(AA_CTR_TEXT_FLYIN_START_FRAME);
 					tokenAwardTextFrame = elapsedFrames;
 					txtStartX = 0x264;
 					txtEndX = 0x100;
@@ -196,7 +196,7 @@ void AA_EndEvent_DrawMenu(void)
 					}
 
 					// NOTE(aalhendi): Retail scales until X reaches target, with no separate scale cap.
-						if (use30HzStep && (letterPos.x != hudCTR->x - 0x10))
+					if (use30HzStep && (letterPos.x != hudCTR->x - 0x10))
 					{
 						for (s32 i = 0; i < 3; i++)
 						{
@@ -252,7 +252,7 @@ void AA_EndEvent_DrawMenu(void)
 				hudToken->matrix.t[0] = hudT->matrix.t[0];
 				hudToken->matrix.t[1] = UI_ConvertY_2(letterPos.y + 0x18, AA_SCREEN_DEPTH);
 
-					if (use30HzStep && (tokenAwardTextFrame >= 0) && (hudToken->scale.x < AA_TOKEN_GROW_LIMIT))
+				if (use30HzStep && (tokenAwardTextFrame >= 0) && (hudToken->scale.x < AA_TOKEN_GROW_LIMIT))
 				{
 					hudToken->scale.x += AA_TOKEN_GROW_STEP;
 					hudToken->scale.y += AA_TOKEN_GROW_STEP;
@@ -269,9 +269,9 @@ void AA_EndEvent_DrawMenu(void)
 
 				if (tokenAwardTextFrame >= 0)
 				{
-						UI_Lerp2D_Linear(textPos.v, txtStartX, 0xa6, txtEndX, 0xa6, tokenAwardTextFrame, FPS_DOUBLE(AA_TOKEN_AWARD_TEXT_FLY_FRAMES));
+					UI_Lerp2D_Linear(textPos.v, txtStartX, 0xa6, txtEndX, 0xa6, tokenAwardTextFrame, FPS_DOUBLE(AA_TOKEN_AWARD_TEXT_FLY_FRAMES));
 
-						s32 textColor = (FPS_HALF(gGT->timer) & 1) ? (JUSTIFY_CENTER | RED) : (JUSTIFY_CENTER | WHITE);
+					s32 textColor = (FPS_HALF(gGT->timer) & 1) ? (JUSTIFY_CENTER | RED) : (JUSTIFY_CENTER | WHITE);
 
 #ifdef CTR_AP
 					// AP: show the CTR-token challenge location's scouted reward. The
