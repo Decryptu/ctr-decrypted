@@ -144,6 +144,33 @@ set(SDL_SNDIO OFF CACHE BOOL "" FORCE)
 set(SDL_SNDIO_SHARED OFF CACHE BOOL "" FORCE)
 set(SDL_X11_XSCRNSAVER OFF CACHE BOOL "" FORCE)
 set(SDL_X11_XTEST OFF CACHE BOOL "" FORCE)
+
+# libusb for SDL's raw-USB controller drivers (Switch 2 Pro Controller and other Switch 2 pads).
+# SDL probes libusb with a test compile at configure time, so the static library has to exist
+# before SDL is configured: build the vendored copy now with the same compiler.
+option(CTR_LIBUSB "Link SDL against the vendored libusb (Windows)" ON)
+if(WIN32 AND CTR_LIBUSB)
+    set(CTR_LIBUSB_BUILD_DIR ${CMAKE_BINARY_DIR}/libusb)
+    execute_process(
+        COMMAND ${CMAKE_COMMAND} -S ${CMAKE_SOURCE_DIR}/externals/libusb -B ${CTR_LIBUSB_BUILD_DIR}
+                -G ${CMAKE_GENERATOR}
+                -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+                -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS}
+                -DCMAKE_BUILD_TYPE=Release
+        RESULT_VARIABLE ctr_libusb_configure)
+    if(ctr_libusb_configure EQUAL 0)
+        execute_process(COMMAND ${CMAKE_COMMAND} --build ${CTR_LIBUSB_BUILD_DIR}
+            RESULT_VARIABLE ctr_libusb_build)
+    endif()
+    if(NOT ctr_libusb_configure EQUAL 0 OR NOT ctr_libusb_build EQUAL 0)
+        message(FATAL_ERROR "Building the vendored libusb failed (pass -DCTR_LIBUSB=OFF to build without it)")
+    endif()
+    set(LibUSB_INCLUDE_PATH ${CMAKE_SOURCE_DIR}/externals/libusb/libusb CACHE PATH "" FORCE)
+    set(LibUSB_LIBRARY ${CTR_LIBUSB_BUILD_DIR}/libusb-1.0.a CACHE FILEPATH "" FORCE)
+    set(SDL_HIDAPI_LIBUSB ON CACHE BOOL "" FORCE)
+    set(SDL_HIDAPI_LIBUSB_SHARED OFF CACHE BOOL "" FORCE)
+endif()
+
 add_subdirectory(externals/SDL)
 
 # CTR Native

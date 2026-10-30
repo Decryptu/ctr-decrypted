@@ -355,3 +355,16 @@ freely, subject to the following restrictions:
 2. Altered source versions must be plainly marked as such, and must not be
    misrepresented as being the original software.
 3. This notice may not be removed or altered from any source distribution.
+
+## libusb
+
+Source: <https://github.com/libusb/libusb> (v1.0.30, 87a55632db62c9bdc58cd31d3ccfa673f1bb017f)
+
+The Windows backend of libusb is vendored unmodified in `externals/libusb/`
+and linked statically into SDL, so SDL can drive controllers that need raw USB
+access, such as the Nintendo Switch 2 Pro Controller. `config.h` and
+`CMakeLists.txt` in that folder are this project's build files.
+
+License: GNU Lesser General Public License v2.1 or later. The full text is in
+`externals/libusb/COPYING`. To relink against a different libusb, rebuild
+from this source tree with a modified `externals/libusb`.
