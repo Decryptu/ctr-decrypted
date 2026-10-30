@@ -127,7 +127,8 @@ static int s_currentSection = -1; // -1 = section selector, 0+ = submenu
 // Visible rows on a scrolling Controls screen. One fewer than
 // CTR_MENU_PAGE_VISIBLE_ROWS, as in Expanded, so the last row clears the panel edge.
 #define CONFIG_MAX_VISIBLE_ROWS 10
-// Frames a held Left/Right waits before it steps again (Config_UpdateSlider's cadence).
+// Frames a held Left/Right waits before it steps again (Config_UpdateSlider's cadence),
+// counted at 30 FPS and doubled by FPS_DOUBLE in 60 FPS mode.
 #define CONFIG_STEP_REPEAT_FRAMES 3
 
 static void Config_DrawRowHighlight(uint32_t *ot, int y)
@@ -145,7 +146,7 @@ static bool Config_OptionStepDue(int held, int direction)
 	if ((held & button) == 0)
 		return false;
 
-	return (sdata->frameCounter % CONFIG_STEP_REPEAT_FRAMES) == 0;
+	return (sdata->frameCounter % FPS_DOUBLE(CONFIG_STEP_REPEAT_FRAMES)) == 0;
 }
 
 // Applies one clamped step. Reports whether the value moved, so a caller can commit only on
@@ -192,12 +193,12 @@ static void Config_UpdateSlider(const struct GamepadBuffer *pad, const int rowSe
 	if (rowSelected != localRow)
 		return;
 	const int held = pad->buttonsHeldCurrFrame;
-	if ((held & BTN_LEFT) != 0 && (sdata->frameCounter % 3) == 0)
+	if ((held & BTN_LEFT) != 0 && (sdata->frameCounter % FPS_DOUBLE(CONFIG_STEP_REPEAT_FRAMES)) == 0)
 	{
 		*value -= step;
 		if (*value < min) *value = min;
 	}
-	if ((held & BTN_RIGHT) != 0 && (sdata->frameCounter % 3) == 0)
+	if ((held & BTN_RIGHT) != 0 && (sdata->frameCounter % FPS_DOUBLE(CONFIG_STEP_REPEAT_FRAMES)) == 0)
 	{
 		*value += step;
 		if (*value > max) *value = max;
@@ -554,7 +555,7 @@ static void Config_DrawValue(const ConfigEntry *e, const int valueX, int y, uint
 			buf[n] = src[start + n];
 			n++;
 		}
-		if (editing && (sdata->frameCounter & 0x10)) // ~2 Hz blink
+		if (editing && (FPS_HALF(sdata->frameCounter) & 0x10)) // ~2 Hz blink
 			buf[n++] = '_';
 		if (n == 0 && !editing)
 			buf[n++] = '-';
@@ -639,7 +640,7 @@ static void Conn_FormatValue(const ConfigEntry *e, int masked, int editing, char
 		out[n] = masked ? '*' : src[n];
 		n++;
 	}
-	if (editing && (sdata->frameCounter & 0x10)) // ~2 Hz blink
+	if (editing && (FPS_HALF(sdata->frameCounter) & 0x10)) // ~2 Hz blink
 		out[n++] = '_';
 	out[n] = '\0';
 }
