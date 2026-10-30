@@ -78,7 +78,12 @@ static void CS_Garage_ApplyApRacerOverride(void)
 	int apRacer = AP_CharSwap_GarageRacer();
 
 	if (apRacer < 0)
-		return; // no character phase on this seed: retail behaviour, untouched
+	{
+		// Retail pick: either no character phase (a no-op) or every starter is
+		// unlocked and the choice is the player's, so store it.
+		AP_CharSwap_GarageChoice(data.characterIDs[0]);
+		return;
+	}
 	if (data.characterIDs[0] == (s16)apRacer)
 		return;
 

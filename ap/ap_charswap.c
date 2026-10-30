@@ -1588,6 +1588,15 @@ int AP_CharSwap_GarageRacer(void)
 	if (!AP_CharSwap_FeatureLive())
 		return -1;
 
+	// Every garage starter is unlocked: let the player pick in the garage.
+	for (i = 0; i < 8; i++)
+	{
+		if (!AP_CharacterUnlocked(i))
+			break;
+	}
+	if (i == 8)
+		return -1;
+
 	in.rev          = 0;
 	in.stored       = 0;
 	in.known        = ap_net_character_known(&in.stored);
@@ -1603,6 +1612,17 @@ int AP_CharSwap_GarageRacer(void)
 	}
 
 	return AP_SeatResolve(&in);
+}
+
+void AP_CharSwap_GarageChoice(int characterID)
+{
+	char msg[96];
+
+	if (!AP_CharSwap_FeatureLive() || characterID < 0 || characterID > NITROS_OXIDE)
+		return;
+	snprintf(msg, sizeof msg, "[AP CHARSWAP] garage pick %d stored\n", characterID);
+	AP_LogLine(msg);
+	ap_cs_persistCharacter(characterID);
 }
 
 void AP_CharSwap_SeatStartingCharacter(struct GameTracker *gGT)
@@ -2231,6 +2251,19 @@ void AP_CharPicker_Draw(void)
 	snprintf(line, sizeof line, "X CONFIRM   %s   TRIANGLE CLOSE",
 	         ap_cs_editorAvailable() ? "SQUARE EDIT" : "----");
 	DecalFont_DrawLine(line, 0x100, panelY + 76, FONT_SMALL, (JUSTIFY_CENTER | ORANGE));
+
+	// Dim the hub behind the whole picker so the portraits and text stand out.
+	// Added last, so it sits under everything above (see the plates comment).
+	// Semi-transparency mode 0 is B/2 + F/2, so black halves the scene.
+	r.x = 0;
+	r.y = 0;
+	r.w = 0x200;
+	r.h = 0xd8;
+	col.r = 0;
+	col.g = 0;
+	col.b = 0;
+	col.code.code = 0;
+	CTR_Box_DrawClearBox(&r, &col, 0, ot);
 }
 
 #endif // CTR_AP

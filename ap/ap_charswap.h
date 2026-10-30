@@ -121,11 +121,18 @@ void AP_CharSwap_SeatStartingCharacter(struct GameTracker *gGT);
 // seed (or the racer persisted from a previous session) decides who you start
 // as, and switching afterwards is the hub picker's job.
 //
-// The gate applies in all-unlocked mode too. The garage can only ever offer the
-// eight vanilla starters (gGarage.unusedArr_garageChars, game/233/D233.c:29),
-// so leaving it live there would not be "the comfortable way to choose" -- it
-// would be a second, narrower picker that silently overwrites the seated racer.
+// CTR Decrypted: when all eight vanilla starters (gGarage.unusedArr_garageChars,
+// game/233/D233.c:29) are unlocked, this returns -1 so the garage picker runs
+// and the player chooses. The pick is then persisted as the stored racer through
+// AP_CharSwap_GarageChoice, so the seat machine keeps it instead of reseating
+// the seed's starting racer. The other racers stay reachable through the hub
+// picker.
 int AP_CharSwap_GarageRacer(void);
+
+// The garage committed a racer the player picked (AP_CharSwap_GarageRacer
+// returned -1). Stores it like a hub-picker choice. No-op without a
+// character-phase seed.
+void AP_CharSwap_GarageChoice(int characterID);
 
 // Re-arm the one-shot seat above on a fresh connect, so a reconnect or a slot
 // switch re-applies the authoritative racer instead of keeping whatever the

@@ -17,7 +17,11 @@ Status of CTR Decrypted, kept current with every change. **Status values:** Done
 | Repo set up on dowlle/ctr-native-ap `main` | Imported through `tools/decrypted/sync-upstream.ps1` |
 | Windows checkout fix | `*.patch` files are forced to LF so the vendor hash check passes with `core.autocrlf=true` |
 | Native Switch 2 Pro Controller | Vendored libusb 1.0.30 in `externals/libusb`, so SDL's Switch 2 driver works without Steam. Tested over USB. Steam must not be running, or it grabs the pad first |
-| PGXP: anti-wobble and perspective-correct textures | Branch `feature/pgxp`. Port of High Octane 03014d84f (from CTR Turbocharged). OPTIONS → Video → PGXP (Anti-Wobble): OFF / TEXTURES / GEOMETRY / FULL, default FULL, switches live. Builds; not yet tested in game. See [docs/PGXP.md](docs/PGXP.md) |
+| PGXP: anti-wobble and perspective-correct textures | Branch `feature/pgxp`. Port of High Octane 03014d84f (from CTR Turbocharged). OPTIONS → Video → PGXP (Anti-Wobble): OFF / TEXTURES / GEOMETRY / FULL, default FULL, switches live. Anti-wobble confirmed in game. Distant-floor holes fixed with a per-polygon UV clamp and sampler fixes. See [docs/PGXP.md](docs/PGXP.md) |
+| Choose your starting racer in Adventure | Archipelago. When the seed unlocks all eight vanilla starters, the garage picker runs again at a new profile instead of being skipped, and the pick is stored like a hub-picker choice. Racers outside the garage's eight stay reachable through the hub picker |
+| Texture sampler rounding fix | A one-texel column of wrong colour through non-integer-scaled sprites, seen in the widescreen name-entry font. See the PGXP doc's texture sampling section |
+| Boot splash centred when the window starts maximized | The presentation viewport now reads the live window size; the SCEA and copyright screens drew before the first resize event and used the restored size (`NativeRenderer_UpdatePresentationViewport`) |
+| Darker backdrop behind the in-hub character picker | Archipelago. A 50% black layer behind the picker for contrast |
 
 ## In progress
 | Item | Notes |
