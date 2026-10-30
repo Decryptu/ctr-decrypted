@@ -33,6 +33,18 @@ High Octane also reads a config-file-only `pgxp_precise_nclip`, which makes back
 - **GPU (`platform/native_gpu.c`).** `MakeVertexTriangle` and `MakeVertexQuad` look up each vertex by address and packed value. A hit replaces x/y with the precise position (GEOMETRY/FULL). If every vertex of a textured polygon has a usable depth (at least 64), the depth is written to the new `w` field (TEXTURES/FULL). A miss keeps the retail position, so 2D elements, sprites and anything the game edits after projection draw exactly as before.
 - **Renderer (`platform/native_renderer.c`, `include/platform/native_renderer_types.h`).** `GrVertex` now stores float `x, y, w` (32 bytes, was 24), and texture page and CLUT moved to their own `a_page_clut` attribute. The vertex shader multiplies `gl_Position` by `w` when `w > 0`, which leaves the screen position unchanged but makes the GPU interpolate the texture coordinates perspective-correct. Colour and dither coordinates are declared `noperspective`, so Gouraud shading and dithering stay screen-linear as on the PS1. Vertices without a depth have `w = 0`, which the shader treats as 1, so the same shaders serve every mode. This is why the option switches live.
 
+## Texture sampling fixes
+
+The first in-game test showed thin horizontal holes in distant floors and walls, which disappeared up close. The geometry was fine: every vertex had its precise position. The holes came from texture sampling, which perspective-correct texturing exposed.
+
+- **Per-polygon UV clamp.** `GrVertex` carries the polygon's texel bounds (`uMin`, `vMin`, `uMax`, `vMax`, filled by `NativeGpu_SetUvLimits` in `platform/native_gpu.c`), and the fragment shader clamps the texture coordinate to them. At grazing angles the perspective-correct coordinate can land a fraction of a texel outside the polygon's own texels, often on the transparent colour, which shows as a hole. DuckStation solves the same problem the same way. All-zero bounds (rectangles, lines) mean no clamp.
+- **Flat page and CLUT.** `v_page_clut` and `v_uvLimits` are `flat`. They are constant per polygon, and interpolating a constant perspective-correctly drifts by float error when the vertex depths differ a lot.
+- **One rounding for word and index.** The 4- and 8-bit samplers used to compute the VRAM word and the index inside it with different rounding. Just below a word boundary they read the right word with the wrong index. This is not specific to PGXP: it also drew a one-texel column of wrong colour through the widescreen name-entry font. Each sampler now floors the coordinate once and fetches the word at its centre.
+
+## Debugging
+
+`CTR_PGXP_DEBUG=1` (environment variable) tints polygons by how many vertices PGXP recovered: red for some, blue for none, untinted for all. `CTR_PGXP_DEBUG=2` also switches the recovered polygons between precise and retail positions every 2.5 seconds, tinting them green in the retail phase, to compare both in one run. The game's attract-mode demo (leave the title screen idle) gives a repeatable race to look at.
+
 ## Differences from High Octane
 
 - High Octane's renderer is a multithreaded frontend/backend with Vita paths. Ours is dowlle/ctr-native-ap's single-threaded one. The shader changes were applied by hand: the PC path only, always compiled in instead of behind a `PGXP_PC_TEXTURES` define.
@@ -50,7 +62,7 @@ High Octane also reads a config-file-only `pgxp_precise_nclip`, which makes back
 
 ## Needs in-game testing
 
-Built for the AP and vanilla configurations. Not yet run in game. Check:
+The owner confirmed anti-wobble in Adventure and reported the distant holes, which no longer appear in the attract-mode demo (Crash Cove, FULL, 16:9) after the texture sampling fixes. Still to check:
 
 - Each mode on a race track, in the Adventure hub and in the menus: no cracks or flicker on track, walls and water, no displaced HUD, text or sprites.
 - Switching the option live in the middle of a race.

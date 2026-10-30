@@ -646,6 +646,21 @@ internal void NativeRenderer_UpdatePresentationViewport(void)
 	int effAspectW = s_presentAspectW;
 	int effAspectH = s_presentAspectH;
 
+	// Read the live window size rather than trusting the last resize event. The
+	// boot splash (SCEA, copyright) presents before the event loop ever runs, so
+	// a window that starts maximized still had its restored size here and the
+	// splash was drawn small in the bottom-left corner.
+	if (g_window != NULL)
+	{
+		int liveW = 0;
+		int liveH = 0;
+		if (SDL_GetWindowSize(g_window, &liveW, &liveH) && (liveW > 0) && (liveH > 0))
+		{
+			g_windowWidth = liveW;
+			g_windowHeight = liveH;
+		}
+	}
+
 	// Aspect-ratio override (ported from thecodingbob/ctr-native, branch
 	// widescreen-option): for a non-4:3 selection the presentation viewport is
 	// letterboxed to that ratio instead of the window's own aspect. 4:3 keeps
@@ -949,12 +964,19 @@ GLint u_psxDrawMaskSetLoc;
 GLint u_psxTextureOutputStpLoc;
 GLint u_disableDitherLoc;
 
+// Each sampler floors the texel coordinate once and derives both the VRAM word
+// (fetched at its centre) and the index inside it from that one value. Deriving
+// them separately let a coordinate just below a word boundary read the right
+// word with the wrong index, which drew single-texel columns of the wrong colour
+// through non-integer-scaled sprites (the widescreen name-entry font).
 #define GPU_SAMPLE_TEXTURE_4BIT_FUNC                                             \
 	"	// returns 16 bit colour\n"                                                \
 	"	vec2 samplePSX(vec2 tc) {\n"                                               \
-	"		vec2 uv = (tc * vec2(0.25, 1.0) + v_page_clut.xy) * c_VRAMTexel;\n"       \
+	"		vec2 t = floor(tc);\n"                                                    \
+	"		float word = floor(t.x / 4.0);\n"                                         \
+	"		vec2 uv = (vec2(word, t.y) + 0.5 + v_page_clut.xy) * c_VRAMTexel;\n"      \
 	"		vec2 comp = VRAM(uv);\n"                                                  \
-	"		int index = int(fract(tc.x / 4.0 + 0.0001) * 4.0);\n"                     \
+	"		int index = int(t.x - word * 4.0);\n"                                     \
 	"		float v = _idx2(comp, index / 2) * (255.0 / 16.0);\n"                     \
 	"		float f = floor(v + 0.001);\n"                                            \
 	"		vec2 c = vec2((v - f) * 16.0, f);\n"                                      \
@@ -966,17 +988,19 @@ GLint u_disableDitherLoc;
 #define GPU_SAMPLE_TEXTURE_8BIT_FUNC                                      \
 	"	// returns 16 bit colour\n"                                         \
 	"	vec2 samplePSX(vec2 tc) {\n"                                        \
-	"		vec2 uv = (tc * vec2(0.5, 1.0) + v_page_clut.xy) * c_VRAMTexel;\n" \
+	"		vec2 t = floor(tc);\n"                                             \
+	"		float word = floor(t.x / 2.0);\n"                                  \
+	"		vec2 uv = (vec2(word, t.y) + 0.5 + v_page_clut.xy) * c_VRAMTexel;\n" \
 	"		vec2 comp = VRAM(uv);\n"                                           \
 	"		vec2 clut_pos = v_page_clut.zw;\n"                                 \
-	"		int index = int(mod(tc.x, 2.0));\n"                                \
+	"		int index = int(t.x - word * 2.0);\n"                              \
 	"		clut_pos.x += _idx2(comp, index) * 255.0 * c_VRAMTexel.x;\n"       \
 	"		return VRAM(clut_pos);\n"                                          \
 	"	}\n"
 
 #define GPU_SAMPLE_TEXTURE_16BIT_FUNC                    \
 	"	vec2 samplePSX(vec2 tc) {\n"                       \
-	"		vec2 uv = (tc + v_page_clut.xy) * c_VRAMTexel;\n" \
+	"		vec2 uv = (floor(tc) + 0.5 + v_page_clut.xy) * c_VRAMTexel;\n" \
 	"		return VRAM(uv);\n"                               \
 	"	}\n"
 
@@ -1069,7 +1093,9 @@ GLint u_disableDitherLoc;
 	    "		return t;\n"                                                                                                                               \
 	    "	}\n"                                                                                                                                        \
 	    "	void main() {\n"                                                                                                                            \
-	    "		vec4 color = (bilinearFilter > 0) ? bilinearTextureSample(v_texcoord.xy) : nearestTextureSample(v_texcoord.xy);\n"                         \
+	    "		vec2 tc = v_texcoord.xy;\n"                                                                                                                \
+	    "		if (v_uvLimits.z + v_uvLimits.w > 0.0) tc = clamp(tc, v_uvLimits.xy, v_uvLimits.zw);\n"                                                    \
+	    "		vec4 color = (bilinearFilter > 0) ? bilinearTextureSample(tc) : nearestTextureSample(tc);\n"                                               \
 	    "		fragColor = dither(color * v_color);\n"                                                                                                    \
 	    "		fragColor.a = (psxDrawMaskSet != 0 || (psxTextureOutputStp != 0 && sampledStp >= 0.5)) ? 1.0 : 0.0;\n"                                     \
 	    "	}\n"
@@ -1079,9 +1105,13 @@ GLint u_disableDitherLoc;
 // carries a depth in a_position.z. Vertices without a recovered depth have
 // a_position.z == 0, which keeps w at 1 and the result identical to the
 // affine path, so the PGXP mode can change at runtime without recompiling.
+// v_page_clut and v_uvLimits are constant per polygon, so they are flat:
+// perspective-correct interpolation of a constant drifts by float error once
+// PGXP gives the vertices very different depths.
 global_variable const char *gpu_shader_common = "	varying vec4 v_texcoord;\n"
                                                 "	noperspective varying vec4 v_color;\n"
-                                                "	varying vec4 v_page_clut;\n"
+                                                "	flat varying vec4 v_page_clut;\n"
+                                                "	flat varying vec4 v_uvLimits;\n"
                                                 "	noperspective varying vec2 v_ditherCoord;\n"
                                                 "	varying float v_z;\n";
 
@@ -1110,9 +1140,11 @@ const char *gte_shader_32_rgba = "	uniform sampler2D s_texture;\n"
 	"	attribute vec4 a_texcoord; // uv, color multiplier, dither\n"                                                \
 	"	attribute vec4 a_color;\n"                                                                                   \
 	"	attribute vec4 a_extra; // texcoord.xy ofs, unused.xy\n"                                                     \
+	"	attribute vec4 a_uv_limits; // polygon min u, min v, max u, max v\n"                                         \
 	"	uniform mat4 Projection;\n"                                                                                  \
 	"	const vec2 c_UVFudge = vec2(0.00025, 0.00025);\n"                                                            \
 	"	void main() {\n"                                                                                             \
+	"		v_uvLimits = a_uv_limits;\n"                                                                                \
 	"		v_ditherCoord = a_position.xy;\n"                                                                           \
 	"		v_texcoord = a_texcoord;\n"                                                                                 \
 	"		v_texcoord.xy += a_extra.xy * 0.5;\n"                                                                       \
@@ -1244,7 +1276,10 @@ internal ShaderID NativeRenderer_Shader_Compile(const char *source, bool isPsxSh
 	glBindAttribLocation(program, a_color, "a_color");
 	glBindAttribLocation(program, a_extra, "a_extra");
 	if (isPsxShader)
+	{
 		glBindAttribLocation(program, a_page_clut, "a_page_clut");
+		glBindAttribLocation(program, a_uv_limits, "a_uv_limits");
+	}
 
 	glLinkProgram(program);
 	if (NativeRenderer_Shader_CheckProgramStatus(program) == 0)
@@ -1518,8 +1553,10 @@ int NativeRenderer_InitialisePSX(void)
 			glEnableVertexAttribArray(a_color);
 			glEnableVertexAttribArray(a_extra);
 			glEnableVertexAttribArray(a_page_clut);
+			glEnableVertexAttribArray(a_uv_limits);
 
 			glVertexAttribPointer(a_position, 3, GL_FLOAT, GL_FALSE, sizeof(GrVertex), &((GrVertex *)NULL)->x);
+			glVertexAttribPointer(a_uv_limits, 4, GL_UNSIGNED_BYTE, GL_FALSE, sizeof(GrVertex), &((GrVertex *)NULL)->uMin);
 			glVertexAttribPointer(a_page_clut, 2, GL_SHORT, GL_FALSE, sizeof(GrVertex), &((GrVertex *)NULL)->page);
 			glVertexAttribPointer(a_texcoord, 4, GL_UNSIGNED_BYTE, GL_FALSE, sizeof(GrVertex), &((GrVertex *)NULL)->u);
 			glVertexAttribPointer(a_color, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(GrVertex), &((GrVertex *)NULL)->r);

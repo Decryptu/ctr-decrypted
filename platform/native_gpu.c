@@ -330,14 +330,42 @@ void MakeLineArray(GrVertex *vertex, VERTTYPE *p0, VERTTYPE *p1)
 	} // TODO diagonal line alignment
 }
 
+// CTR_PGXP_DEBUG=1 tints polygons by how many vertices PGXP recovered:
+// red = some, blue = none, untinted = all (green = all, but drawn at retail
+// positions during the CTR_PGXP_DEBUG=2 comparison phase). See docs/PGXP.md.
+static int s_pgxpDebug = -1;
+static GrVertex *s_pgxpDebugVertex;
+static int s_pgxpDebugState;
+
+static void NativeGpu_PgxpDebugTint(GrVertex *vertex, int n)
+{
+	if (vertex != s_pgxpDebugVertex || s_pgxpDebugState == 0)
+		return;
+	for (int i = 0; i < n; i++)
+	{
+		vertex[i].r = (s_pgxpDebugState == 1) ? 255 : 0;
+		vertex[i].g = (s_pgxpDebugState == 3) ? 255 : 0;
+		vertex[i].b = (s_pgxpDebugState == 2) ? 255 : 0;
+	}
+	s_pgxpDebugVertex = NULL;
+}
+
 static void NativeGpu_ApplyPgxp(GrVertex *vertex, VERTTYPE *const *points, int count, float ofsX, float ofsY)
 {
 	if (!NATIVE_PGXP_ACTIVE())
 		return;
+	if (s_pgxpDebug < 0)
+	{
+		const char *env = getenv("CTR_PGXP_DEBUG");
+		s_pgxpDebug = (env != NULL) ? atoi(env) : 0;
+	}
+	// CTR_PGXP_DEBUG=2 also alternates with retail positions every 2.5 s
+	// (lookups still run, so the tint stays), to compare both in one run.
+	const int retailPhase = (s_pgxpDebug == 2) && ((SDL_GetTicks() / 2500) & 1);
 	float depth[4];
 	int recovered = 0;
-	const int preciseGeometry = NATIVE_PGXP_GEOMETRY_ACTIVE();
-	int perspective = NATIVE_PGXP_TEXTURES_ACTIVE();
+	const int preciseGeometry = NATIVE_PGXP_GEOMETRY_ACTIVE() && !retailPhase;
+	int perspective = NATIVE_PGXP_TEXTURES_ACTIVE() && !retailPhase;
 	for (int i = 0; i < count; i++)
 	{
 		NativePgxpVertex precise;
@@ -363,6 +391,11 @@ static void NativeGpu_ApplyPgxp(GrVertex *vertex, VERTTYPE *const *points, int c
 	{
 		for (int i = 0; i < count; i++)
 			vertex[i].w = depth[i];
+	}
+	if (s_pgxpDebug)
+	{
+		s_pgxpDebugVertex = vertex;
+		s_pgxpDebugState = (recovered == count) ? (retailPhase ? 3 : 0) : (recovered > 0 ? 1 : 2);
 	}
 }
 
@@ -444,6 +477,26 @@ void MakeVertexRect(GrVertex *vertex, VERTTYPE *p0, s16 w, s16 h)
 	vertex[3].y = vertex[0].y;
 }
 
+// Store the polygon's texel bounds on every vertex (see GrVertex::uMin).
+static void NativeGpu_SetUvLimits(GrVertex *vertex, int count)
+{
+	u8 uMin = vertex[0].u, vMin = vertex[0].v, uMax = vertex[0].u, vMax = vertex[0].v;
+	for (int i = 1; i < count; i++)
+	{
+		if (vertex[i].u < uMin) uMin = vertex[i].u;
+		if (vertex[i].u > uMax) uMax = vertex[i].u;
+		if (vertex[i].v < vMin) vMin = vertex[i].v;
+		if (vertex[i].v > vMax) vMax = vertex[i].v;
+	}
+	for (int i = 0; i < count; i++)
+	{
+		vertex[i].uMin = uMin;
+		vertex[i].vMin = vMin;
+		vertex[i].uMax = uMax;
+		vertex[i].vMax = vMax;
+	}
+}
+
 void MakeTexcoordQuad(GrVertex *vertex, u8 *uv0, u8 *uv1, u8 *uv2, u8 *uv3, s16 page, s16 clut, u8 dither)
 {
 	assert(uv0);
@@ -495,6 +548,7 @@ void MakeTexcoordQuad(GrVertex *vertex, u8 *uv0, u8 *uv1, u8 *uv2, u8 *uv3, s16 
 			vertex[i].tcy = 0;
 		}
 	}
+	NativeGpu_SetUvLimits(vertex, 4);
 	/*
 	if (g_cfg_bilinearFiltering)
 	{
@@ -553,6 +607,7 @@ void MakeTexcoordTriangle(GrVertex *vertex, u8 *uv0, u8 *uv1, u8 *uv2, s16 page,
 			vertex[i].tcy = 0;
 		}
 	}
+	NativeGpu_SetUvLimits(vertex, 3);
 	/*
 	if (g_cfg_bilinearFiltering)
 	{
@@ -773,6 +828,7 @@ void MakeColourTriangle(GrVertex *vertex, bool shadeTexOn, u8 *col0, u8 *col1, u
 	if (!shadeTexOn)
 	{
 		MakeColourNoShade(vertex, 3);
+		NativeGpu_PgxpDebugTint(vertex, 3);
 		return;
 	}
 
@@ -794,6 +850,7 @@ void MakeColourTriangle(GrVertex *vertex, bool shadeTexOn, u8 *col0, u8 *col1, u
 	vertex[2].g = col2[1];
 	vertex[2].b = col2[2];
 	vertex[2].a = 255;
+	NativeGpu_PgxpDebugTint(vertex, 3);
 }
 
 void MakeColourQuad(GrVertex *vertex, bool shadeTexOn, u8 *col0, u8 *col1, u8 *col2, u8 *col3)
@@ -801,6 +858,7 @@ void MakeColourQuad(GrVertex *vertex, bool shadeTexOn, u8 *col0, u8 *col1, u8 *c
 	if (!shadeTexOn)
 	{
 		MakeColourNoShade(vertex, 4);
+		NativeGpu_PgxpDebugTint(vertex, 4);
 		return;
 	}
 
@@ -828,6 +886,7 @@ void MakeColourQuad(GrVertex *vertex, bool shadeTexOn, u8 *col0, u8 *col1, u8 *c
 	vertex[3].g = col3[1];
 	vertex[3].b = col3[2];
 	vertex[3].a = 255;
+	NativeGpu_PgxpDebugTint(vertex, 4);
 }
 
 void TriangulateQuad()

@@ -38,7 +38,10 @@ typedef struct
 	u8 r, g, b, a;
 
 	s8 tcx, tcy, _p0, _p1;
-	u32 _align; // Pads the vertex to a 32-byte stride.
+	// Texel bounds of the whole polygon (min u, min v, max u, max v). The
+	// fragment shader clamps to them so perspective-correct (PGXP) texturing
+	// cannot sample past the polygon's own texels. All zero means no clamp.
+	u8 uMin, vMin, uMax, vMax;
 } GrVertex;
 #pragma pack(pop)
 CTR_STATIC_ASSERT(sizeof(GrVertex) == 32);
@@ -50,6 +53,7 @@ typedef enum
 	a_color,
 	a_extra,
 	a_page_clut,
+	a_uv_limits,
 } ShaderAttrib;
 
 typedef enum
