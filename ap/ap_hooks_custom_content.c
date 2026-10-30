@@ -266,7 +266,7 @@ int AP_CustomContentGateEventEntry(int forceVerify)
 	unsigned int now = (unsigned int)sdata->gGT->timer;
 	if (!ap_custom_content_seed_selected)
 		return !ap_custom_content_required;
-	if (!forceVerify && ap_custom_content_gate_cached && now - ap_custom_content_gate_timer < 120)
+	if (!forceVerify && ap_custom_content_gate_cached && now - ap_custom_content_gate_timer < (unsigned int)FPS_DOUBLE(120))
 		return 1;
 
 	AP_CustomContentPreflightSeed(0);

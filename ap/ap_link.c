@@ -369,7 +369,7 @@ int AP_LinkMenuFrame(void)
 		return 1;
 	case NATIVE_LINK_FRAME_PROMPT:
 		ap_link_prompting = 1;
-		gGT->demoCountdownTimer = 900; // no attract demo behind an open question
+		gGT->demoCountdownTimer = FPS_DOUBLE(900); // no attract demo behind an open question
 		AP_LinkDrawPrompt(&shown);
 		return 1;
 	case NATIVE_LINK_FRAME_EXPIRED:

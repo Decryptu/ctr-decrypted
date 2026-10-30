@@ -555,7 +555,7 @@ static void AP_TrapStartReroll(struct GameTracker *gGT, struct Driver *local)
 	local->heldItemID = AP_TRAP_ITEM_ROLLING;
 	local->numHeldItems = 0;
 	local->noItemTimer = 0;
-	local->itemRollTimer = AP_TRAP_ROLL_FRAMES;
+	local->itemRollTimer = FPS_DOUBLE(AP_TRAP_ROLL_FRAMES);
 	// Deliberately NOT touching PickupTimeboxHUD. A weapon box also seeds that
 	// HUD's start coordinates from the crate's screen position (RB_Crate.c:315-320)
 	// so the icon can fly in from the box that was broken. There is no box here,
@@ -1208,7 +1208,7 @@ void AP_TrapTick(struct GameTracker *gGT)
 	// genuinely unresolved copies.
 	AP_TrapPollReroll(local);
 	AP_TrapPollForcedUse(local);
-	AP_TrapPollFlatten(local, gGT->elapsedTimeMS > 0 ? gGT->elapsedTimeMS : 32);
+	AP_TrapPollFlatten(local, gGT->elapsedTimeMS > 0 ? gGT->elapsedTimeMS : CTR_NATIVE_FRAME_ELAPSED_MS);
 	AP_TrapPollSpawnedInstants(gGT, local);
 
 	// Map boundary. Clearing here, on the frame the load BEGINS and while the
@@ -1277,7 +1277,7 @@ void AP_TrapTick(struct GameTracker *gGT)
 	g_trap_paused = w.paused;
 	w.scripted = AP_TrapScripted(gGT, local);
 	w.finishOrPodium = AP_TrapFinishOrPodium(gGT, local);
-	w.elapsedMs = gGT->elapsedTimeMS > 0 ? gGT->elapsedTimeMS : 32;
+	w.elapsedMs = gGT->elapsedTimeMS > 0 ? gGT->elapsedTimeMS : CTR_NATIVE_FRAME_ELAPSED_MS;
 	w.conditions = AP_TrapConditions(gGT, local, g_epoch,
 	                                 w.controlUnlocked && !w.paused && !w.scripted &&
 	                                     !w.finishOrPodium,

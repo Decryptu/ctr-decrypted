@@ -71,6 +71,8 @@ void AP_DeathLinkSuppressSelfInflicted(int on)
 // swallow guard covers only the first -- the extra edges all sent, and with a
 // 91%-damage StS partner that closed a death ping-pong loop. Damping: no two
 // sends within 2s, and nothing sends for 5s after a received death lands.
+// Cooldowns are in 30 FPS frames; FPS_DOUBLE scales them where they are
+// armed so the real-time window is the same in 60 FPS mode.
 #define AP_DL_COOLDOWN_AFTER_SEND 60
 #define AP_DL_COOLDOWN_AFTER_RECV 150
 static int g_dl_send_cooldown = 0;
@@ -246,7 +248,7 @@ static void AP_DeathLinkFireLocal(struct GameTracker *gGT, const char *cause)
 	g_dl_amnesty_count = 0;
 
 	ap_net_deathlink_send(cause);
-	g_dl_send_cooldown = AP_DL_COOLDOWN_AFTER_SEND;
+	g_dl_send_cooldown = FPS_DOUBLE(AP_DL_COOLDOWN_AFTER_SEND);
 	snprintf(msg, sizeof msg, "[AP DEATH] sent: %s\n", cause);
 	AP_LogLine(msg);
 }
@@ -398,7 +400,7 @@ static void AP_DeathLinkConsumeForLoss(char *cause, size_t causeSize)
 	g_dl_pending_source[0] = '\0';
 	g_dl_defer_logged = 0;
 	g_dl_hold_logged = 0;
-	g_dl_send_cooldown = AP_DL_COOLDOWN_AFTER_RECV;
+	g_dl_send_cooldown = FPS_DOUBLE(AP_DL_COOLDOWN_AFTER_RECV);
 	AP_RaceAttempt_ArmForcedLoss(&g_dl_race_attempt);
 }
 
@@ -595,7 +597,7 @@ void AP_DeathLinkTick(struct GameTracker *gGT)
 	    AP_DeathLinkEffMode() != CTR_DL_OFF)
 	{
 		g_dl_pending_recv = 1;
-		g_dl_grace_left = AP_DL_GRACE_FRAMES;
+		g_dl_grace_left = FPS_DOUBLE(AP_DL_GRACE_FRAMES);
 		g_dl_defer_logged = 0; // a new death gets its own deferral line
 		g_dl_hold_logged = 0;
 		snprintf(g_dl_pending_cause, sizeof g_dl_pending_cause, "%s", cause);
@@ -715,7 +717,7 @@ int AP_DeathLinkForceReset(struct Driver *d)
 	g_dl_pending_recv = 0;
 	g_dl_grace_left = 0;
 	g_dl_swallow_edge = 1; // no-loop guard: the resulting mask-grab edge must not send
-	g_dl_send_cooldown = AP_DL_COOLDOWN_AFTER_RECV; // forced grab multi-edges: mute them all
+	g_dl_send_cooldown = FPS_DOUBLE(AP_DL_COOLDOWN_AFTER_RECV); // forced grab multi-edges: mute them all
 	snprintf(msg, sizeof msg, "[AP DEATH] received -> forced mask reset (%s)\n",
 	         g_dl_pending_cause[0] ? g_dl_pending_cause : "a death");
 	AP_LogLine(msg);

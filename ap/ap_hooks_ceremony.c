@@ -312,7 +312,7 @@ static void AP_CeremonyDrawEntry(int x, int y, long code, int bit, int rung)
 	int player_slot = -1;
 	long long itemId = 0;
 	int sp;
-	int flashOn = (sdata->gGT->timer & 1);
+	int flashOn = (FPS_HALF(sdata->gGT->timer) & 1);
 
 	if (ap_net_scout_text(code, itemRaw, (int)sizeof itemRaw, playerRaw, (int)sizeof playerRaw))
 	{
@@ -414,7 +414,7 @@ static int AP_CeremonyDrawInternal(int x, int y, int primaryBit,
 		idx = AP_CeremonyCycleIndex(n, elapsedFrames, visibleFrames);
 	else
 		idx = (n > 1)
-		          ? (int)((sdata->gGT->timer / AP_CEREMONY_CYCLE_FRAMES) % (unsigned)n)
+		          ? (int)((FPS_HALF(sdata->gGT->timer) / AP_CEREMONY_CYCLE_FRAMES) % (unsigned)n)
 		          : 0;
 	AP_CeremonyDrawEntry(x, y, codes[idx], bits[idx], rungs[idx]);
 	return 1;

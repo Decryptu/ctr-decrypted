@@ -2202,7 +2202,7 @@ void AP_CharPicker_Draw(void)
 		if (focused)
 		{
 			struct Icon **icons = ICONGROUP_GETICONS(gGT->iconGroup[4]);
-			u32 *arrowColors = data.ptrColor[((sdata->frameCounter & 4) == 0) ? RED : ORANGE];
+			u32 *arrowColors = data.ptrColor[((FPS_HALF(sdata->frameCounter) & 4) == 0) ? RED : ORANGE];
 			int arrowX[2] = {AP_CS_BAR_X - 22, AP_CS_BAR_X + AP_STATBAR_MAX_LEN + 22};
 			int arrowRot[2] = {0x800, 0};
 			int a;

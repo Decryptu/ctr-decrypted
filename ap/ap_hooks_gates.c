@@ -514,7 +514,7 @@ int AP_CortexTrackEntryReady(int forceVerify)
 	static unsigned int s_cvVerifiedAt = 0;
 	static int s_cvVerifiedOnce = 0;
 	unsigned int now = (sdata && sdata->gGT) ? (unsigned int)sdata->gGT->timer : 0;
-	if (forceVerify && s_cvVerifiedOnce && now - s_cvVerifiedAt < 120)
+	if (forceVerify && s_cvVerifiedOnce && now - s_cvVerifiedAt < (unsigned int)FPS_DOUBLE(120))
 		forceVerify = 0;
 	if (forceVerify && CustomTrack_ReverifyOxideFinalContent())
 	{

@@ -657,7 +657,7 @@ void AH_Map_Warppads(s16 *ptrMap, struct Thread *warppadThread, s16 *param_3)
 				// The map_flash option (ap-config.txt) turns the flicker off ->
 				// static GREEN. AP_MapFlashOn() defaults to 1 (flicker on).
 				color = LIGHT_GREEN;
-				if (AP_MapFlashOn() && (gGT->timer & 2) != 0)
+				if (AP_MapFlashOn() && (FPS_HALF(gGT->timer) & 2) != 0)
 					color = FOREST_GREEN;
 			}
 			else if (st == 3)
@@ -669,7 +669,7 @@ void AH_Map_Warppads(s16 *ptrMap, struct Thread *warppadThread, s16 *param_3)
 				// the cadence alone separates "race open" from "checks remain".
 				// Honours the map_flash opt-out exactly like GREEN.
 				color = PERIWINKLE;
-				if (AP_MapFlashOn() && (gGT->timer & 4) != 0)
+				if (AP_MapFlashOn() && (FPS_HALF(gGT->timer) & 4) != 0)
 					color = BLUE;
 			}
 			else if (st == 5)

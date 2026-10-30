@@ -525,7 +525,8 @@ void RR_EndEvent_DrawMenu(void)
 		// to the vanilla banner when AP is inactive or nothing is scouted.
 		if (!AP_CeremonyDrawTimed(
 		        pos.x, pos.y, -1, 1,
-		        sdata->framesSinceRaceEnded - RR_RELIC_AWARD_START_FRAME,
+		        // 30 FPS frames: the cycle windows below are retail constants
+		        FPS_HALF(sdata->framesSinceRaceEnded - FPS_DOUBLE(RR_RELIC_AWARD_START_FRAME)),
 		        ((gGT->gameModeEnd & NEW_HIGH_SCORE) != 0)
 		            ? RR_HIGH_SCORE_BANNER_START_FRAME - RR_RELIC_AWARD_START_FRAME
 		            : RR_FLYOUT_FRAME_OFFSET - RR_RELIC_AWARD_START_FRAME))

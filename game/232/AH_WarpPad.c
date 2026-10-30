@@ -824,7 +824,7 @@ void AH_WarpPad_ThTick(struct Thread *t)
 				if (relicTintTier >= 0)
 					InstArr0->colorRGBA = s_relicTierTint[relicTintTier]; // specific tier -> fixed
 				else
-					InstArr0->colorRGBA = s_relicTierTint[(gGT->timer / 0x3C) % 3]; // AnyRelic -> cycle
+					InstArr0->colorRGBA = s_relicTierTint[(gGT->timer / FPS_DOUBLE(0x3C)) % 3]; // AnyRelic -> cycle
 			}
 #endif
 			Vector_SpecLightSpin3D(InstArr0, &warppadObj->spinRot_Prize, &warppadObj->lightDirRelic);
@@ -848,7 +848,7 @@ void AH_WarpPad_ThTick(struct Thread *t)
 				int apReqTokC = AP_WarpReqTokenColour(ctr_cfg_warp_phys(warppadObj->levelID));
 				if (apReqTokC >= -1)
 				{
-					i = (apReqTokC >= 0) ? apReqTokC : (gGT->timer / 0x3C) % 5;
+					i = (apReqTokC >= 0) ? apReqTokC : (gGT->timer / FPS_DOUBLE(0x3C)) % 5;
 					InstArr0->colorRGBA = ((u32)data.AdvCups[i].color[0] << 0x14) |
 					                      ((u32)data.AdvCups[i].color[1] << 0xc) |
 					                      ((u32)data.AdvCups[i].color[2] << 0x4);
@@ -2115,7 +2115,7 @@ WarpPad_AnimateOpen:
 		apUncN = AP_PadUncollectedDisplayBits(warppadObj->levelID, apUncBits,
 		                                   (int)(sizeof apUncBits / sizeof apUncBits[0]));
 		if (apUncN > 0)
-			AP_PadGlowSlots(apUncBits, apUncN, (int)(gGT->timer / 0x3C), apSlotBit);
+			AP_PadGlowSlots(apUncBits, apUncN, (int)(gGT->timer / FPS_DOUBLE(0x3C)), apSlotBit);
 		// apUncN == 0 -> all apSlotBit stay -1 (hide everything: all checked).
 	}
 #endif

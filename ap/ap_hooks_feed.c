@@ -43,6 +43,8 @@
 // so a reconnect's replay (same indices) never re-toasts. All display-only and
 // gated on ctr_cfg_active(), so a clean / vanilla-config run is byte-identical.
 // ---------------------------------------------------------------------------
+// The *_FRAMES values below count 30 FPS frames; each use goes through
+// FPS_DOUBLE so the on-screen times are the same in 60 FPS mode.
 #define AP_FEED_LIFETIME_FRAMES    240 // per-line visible dwell (~4s), tunable
 #define AP_FEED_MAX_VISIBLE        5   // lines on screen at once
 #define AP_FEED_QUEUE_MAX          24  // pending (not-yet-visible) ring capacity
@@ -341,7 +343,7 @@ void AP_FeedEndDrain(int drainedThisFrame)
 		ap_feed_quiet = 0;
 		return;
 	}
-	if (++ap_feed_quiet >= AP_FEED_PRIME_QUIET_FRAMES)
+	if (++ap_feed_quiet >= FPS_DOUBLE(AP_FEED_PRIME_QUIET_FRAMES))
 		ap_feed_primed = 1;
 }
 
@@ -371,12 +373,12 @@ static void AP_FeedTickAndDraw(int x, int baseY, int playableRace)
 			AP_FeedLine *v = &ap_feed_vis[ap_feed_vcount];
 			snprintf(v->text, AP_FEED_TEXT_CAP, "%s", q->text);
 			v->color = q->color; // classification colour follows the line through the queue
-			v->framesLeft = AP_FEED_LIFETIME_FRAMES; // lifetime starts now (visible)
+			v->framesLeft = FPS_DOUBLE(AP_FEED_LIFETIME_FRAMES); // lifetime starts now (visible)
 			v->playCue = 0;
 			if (playableRace && q->playCue)
 				OtherFX_Play(0x41, 1); // retail 10-Wumpa / juiced-up pickup cue
 			ap_feed_vcount++;
-			ap_feed_stagger = AP_FEED_STAGGER_FRAMES;
+			ap_feed_stagger = FPS_DOUBLE(AP_FEED_STAGGER_FRAMES);
 		}
 	}
 

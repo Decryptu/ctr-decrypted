@@ -671,7 +671,7 @@ static void ap_onframe_body(struct GameTracker *gGT)
 
 	// Throttle: act ~twice a second, not every frame.
 	static int tick = 0;
-	if ((++tick % 30) != 0)
+	if ((++tick % FPS_DOUBLE(30)) != 0)
 		return;
 
 	AP_ApplyItems(&sdata->advProgress); // grant received items into game state
