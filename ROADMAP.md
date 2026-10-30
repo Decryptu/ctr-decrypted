@@ -22,7 +22,7 @@ Status of CTR Decrypted, kept current with every change. **Status values:** Done
 | Archipelago: starting racer and hub picker | All eight vanilla starters unlocked → the garage picker runs at a new profile. 50% black backdrop behind the in-hub picker |
 | Screen filters: Sharp Bilinear, FXAA, Scanlines, CRT | OPTIONS → Video → Screen Filter, replacing Smooth Scaling, at every render scale (internal resolution scaling was already in the base). Written for this renderer rather than ported from High Octane's Vita-tuned shaders. Measured from captures of the presented image. See [docs/SCREEN-FILTERS.md](docs/SCREEN-FILTERS.md) |
 | Boot splash centred when the window starts maximized | `NativeRenderer_UpdatePresentationViewport` reads the live window size |
-| Upstream bug reports closed | Fixed: Mystery Caves crash with 3–4 players (ctr-native #58). Already fine here, checked unattended: credits and scrapbook (ctr-native #45, #52), reconnect catch-up (ctr-native-ap #147), stat bars (#466), vanilla-mode stage 2 keys (#499, via the apworld we ship). Details in [docs/UPSTREAM-ISSUES.md](docs/UPSTREAM-ISSUES.md) |
+| Upstream bug reports closed | Fixed: Mystery Caves crash with 3–4 players (ctr-native #58); Oxide missing from first place on the podium (ctr-native-ap #282, report 1: his win-dance file is empty on the disc, so he wears his lose-dance model, as the ending cutscene does). Already fine here, checked unattended: credits and scrapbook (ctr-native #45, #52), reconnect catch-up (ctr-native-ap #147), stat bars (#466), vanilla-mode stage 2 keys (#499, via the apworld we ship). Details in [docs/UPSTREAM-ISSUES.md](docs/UPSTREAM-ISSUES.md) |
 
 ## In progress
 Nothing.
@@ -34,7 +34,7 @@ Roughly in this order.
 |---|---|
 | Frame pacing at 60 FPS with VSync (Off / On / Adaptive) on 60 Hz and 144 Hz | High Octane lacks VSync (#46). The game paces itself on a 59.94 Hz timer and VSync On adds the display's wait on top, so a 60 Hz panel drifts against it and a 144 Hz one cannot show 60 evenly. `tools/decrypted/vsync-check.ps1` measures it; it needs the screen on and nobody at the machine, so it runs overnight. Then fix what it shows |
 | White noise in the hub after winning a race | ctr-native-ap #484. Not reproduced: after an Adventure win on Crash Cove, through the podium into N. Sanity Beach, `audio_noise.py` finds no noise in either build, fast-forwarded or real time. The report is from a connected session over several races, which the dev tools can't drive yet |
-| Invisible podium racers | ctr-native-ap #282. Oxide in 1st has no win-dance model in the original game. Crash, Papu Papu and Komodo Joe all show after an Adventure trophy race; still to try: a Gem Cup podium, and a relic race on a trial track hosted in another hub |
+| Invisible podium racers after a Gem Cup | ctr-native-ap #282, report 2: Papu Papu missing in 2nd after a Purple Gem Cup. The report suspects stale `cupPositionPerPlayer` slots past the cup's driver count in `UI_CupStandings.c`. Needs a dev switch that runs a cup to reproduce |
 | Playable N. Oxide outside Archipelago restrictions | High Octane (Archipelago already has `remove_playable_oxide`) |
 | Reserves meter, blue fire (USF), powerslide bar, cyan super turbo pads | ModSDK mods as ported by High Octane |
 | Merge newer ctr-native upstream work (decomp matching, gameplay fixes since July 2026) | Both forks are 100+ commits behind. Expect ~460 conflict hunks |

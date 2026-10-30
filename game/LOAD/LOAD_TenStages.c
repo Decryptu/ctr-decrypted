@@ -613,9 +613,16 @@ int LOAD_TenStages(struct GameTracker *gGT, int loadingStage, struct BigHeader *
 		void (*setPtrCb)(struct LoadQueueSlot *) = (void (*)(struct LoadQueueSlot *))-2;
 
 		// podium first place
-		if ((ptrIndexArr[0] != 0) && (ptrIndexArr[0] != STATIC_OXIDEDANCE))
+		if (ptrIndexArr[0] != 0)
 		{
-			fileIndex = BI_DANCEMODELWIN + iVar9 + (ptrIndexArr[0] - STATIC_CRASHDANCE) * 2;
+			// Retail skipped Oxide here: his win-dance file is empty on the disc
+			// (0 bytes, both VRAM variants), because he never wins a podium
+			// race. Playable, he can, so he stands on first place in his
+			// lose-dance model (98 KB), the one the ending cutscene also
+			// uses; CS_Thread_Init gives it the matching script. Fork change
+			// (ctr-native-ap #282, first place empty after an Oxide win).
+			const int danceModels = (ptrIndexArr[0] == STATIC_OXIDEDANCE) ? BI_DANCEMODELLOSE : BI_DANCEMODELWIN;
+			fileIndex = danceModels + iVar9 + (ptrIndexArr[0] - STATIC_CRASHDANCE) * 2;
 			LOAD_AppendQueue(0, LT_GETADDR, fileIndex, &ptrModelPtrArr[0], setPtrCb);
 		}
 

@@ -1684,7 +1684,9 @@ struct Thread *CS_Thread_Init(s16 modelID, const char *name, struct CsThreadInit
 			char *const *base;
 			int off = (modelID - STATIC_CRASHDANCE);
 
-			if (modelID == gGT->podium_modelIndex_First)
+			// Oxide in first place wears his lose-dance model (see the podium
+			// stage in LOAD_TenStages), so he dances its script.
+			if ((modelID == gGT->podium_modelIndex_First) && (modelID != STATIC_OXIDEDANCE))
 			{
 				base = R233.danceFirstScripts;
 			}

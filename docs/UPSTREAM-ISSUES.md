@@ -114,6 +114,8 @@ All four are GPL-3.0. dowlle's `ctr.apworld` is MIT.
 - #484: white noise in the hub after winning a race.
 - #466: the progressive stats bar doesn't match the items collected. Fixed in client `main` (PR #469), which we have.
 - #282: invisible podium racers.
+  - Report 1, Oxide missing in 1st: fixed here. Oxide's win-dance file in the BIGFILE is empty (0 bytes in both VRAM variants) and retail skipped loading it. He now takes his lose-dance model (98 KB) and its script, as the retail ending cutscene does. Seen on the podium after an Adventure win as Oxide (`CTR_DEV_CHARACTER=15`). In 2nd or 3rd he already used that model.
+  - Report 2, Papu Papu missing in 2nd after a Purple Gem Cup: open. Not reproduced; the dev tools can't run a cup yet.
 - #205: unguarded instance births. Fixed in #468; the issue is still open.
 - #147: a large reconnect catch-up stalls the game thread. Not here: with 29,700 items queued on a local server (`ap_backlog.py`), the connect catch-up keeps every frame under 23 ms. Moving the client to its own thread would mean routing every handler through a queue, for no measured gain.
 
