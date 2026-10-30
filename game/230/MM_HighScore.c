@@ -34,7 +34,7 @@ void MM_HighScore_Draw(u16 trackIndex, u32 rowIndex, u32 posX, u32 posY)
 	lineWidth = lineWidth >> 1;
 
 	// get color data
-	numColor = ((sdata->frameCounter & 4) == 0) ? RED : ORANGE;
+	numColor = ((FPS_HALF(sdata->frameCounter) & 4) == 0) ? RED : ORANGE;
 	colorPtr = data.ptrColor[numColor];
 
 	struct Icon **iconPtrArray = ICONGROUP_GETICONS(gGT->iconGroup[4]);
