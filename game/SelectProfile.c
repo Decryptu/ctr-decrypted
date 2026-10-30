@@ -678,6 +678,12 @@ static void SelectProfile_LoadAdvProfile(int slot)
 	GAMEPROG_SyncGameAndCard(&memcard->gameProgress, &sdata->gameProgress);
 	sdata->advProgress = memcard->advProgress[slot];
 	data.characterIDs[0] = sdata->advProgress.characterID;
+	// Fork addition: a profile that beat Oxide before he was playable unlocks
+	// him too (the bit is set on the win since, game/222.c).
+	if ((sdata->advProgress.storyFlags & ADV_REWARD_BEAT_OXIDE_FIRST_MASK) != 0)
+	{
+		UNLOCK_ADV_BIT(sdata->gameProgress.unlocks, GAME_UNLOCK_BIT_OXIDE);
+	}
 	memmove(gGT->prevNameEntered, sdata->advProgress.name, sizeof(gGT->prevNameEntered));
 }
 

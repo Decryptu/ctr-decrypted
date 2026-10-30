@@ -568,6 +568,8 @@ void AA_EndEvent_DrawMenu(void)
 #endif
 
 			adv->storyFlags |= ADV_REWARD_OXIDE_FIRST_WIN_FLAGS;
+			// Fork addition: beating Oxide makes him playable outside Adventure.
+			UNLOCK_ADV_BIT(sdata->gameProgress.unlocks, GAME_UNLOCK_BIT_OXIDE);
 #ifdef CTR_AP
 			// Opt-in final wins collect both rewards in one notification;
 			// preserve the legacy first-then-final sequence in all other modes.

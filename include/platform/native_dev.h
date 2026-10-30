@@ -67,6 +67,13 @@ int NativeDev_RaceTrack(void);
 // CTR_DEV_PLAYERS=2..4 makes CTR_DEV_RACE a VS race for that many players.
 int NativeDev_RacePlayers(void);
 
+// CTR_DEV_CHARACTER_SELECT=1: the title menu opens the Arcade character
+// select for CTR_DEV_PLAYERS players. CTR_DEV_CHARACTER puts player 1's
+// cursor on that racer; CTR_DEV_UNLOCKS=1 unlocks the retail secret racers
+// first, =2 N. Oxide as well.
+// Returns 1 when set (called every idle title frame).
+int NativeDev_CharacterSelect(void);
+
 // CTR_DEV_ENDING=1: boot into Oxide's true ending, which runs into the
 // credits, with every sapphire relic so the credits end in the Scrapbook.
 // CTR_DEV_ENDING=2: the same without the relics, so they end in the hub.

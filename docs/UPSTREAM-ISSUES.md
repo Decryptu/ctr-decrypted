@@ -32,7 +32,7 @@ All four are GPL-3.0. dowlle's `ctr.apworld` is MIT.
 - #12: black screen with a segfault on Manjaro Linux after the audio stream opens.
 - #45, #52: black screen and no scrapbook after the credits, after beating Oxide. Reported against Beta 7.1. Here the true ending, credits and scrapbook play through to the title at 30 and 60 FPS, in real time, at render scale 2 (`CTR_DEV_ENDING=1`). The Archipelago build still sends a connected game to the hub instead of the scrapbook.
 - #14: the pre-race camera flyover is wrong (suspected undefined behaviour or compiler-dependent).
-- #61: unlock all characters including Oxide.
+- #61: unlock all characters including Oxide. Oxide is playable here (unlocked by beating him, or the Spyro 2 demo code); the other characters unlock as in retail.
 - #54: PAL support. Out of scope per #51.
 - #43: Steam Deck: needs Steam Linux Runtime 4.0, the cursor stays visible, 16:10 requested.
 - #25: Android. #20: Mac.
@@ -73,6 +73,7 @@ All four are GPL-3.0. dowlle's `ctr.apworld` is MIT.
   - Ghost replay tools, 7 ghosts per track
   - Online leaderboard
 - Characters: playable N. Oxide, Penta 6/6/6, custom racers (`.ctrr`), stats viewer.
+  - Playable Oxide is Vita-only there (every change is under `__vita__`) and embeds his menu model, copied from the disc, in the source. Ported here for PC with the model read from the player's disc at runtime, the same unlock bit (37), the podium fallback and the Spyro 2 code. Its static-pool change for player 1 as Oxide answers the PS1 memory budget; 1P, 2P, 4P, Time Trial and Adventure as Oxide run without it here.
 - Mods: reserves meter, custom cups, blue fire, OxideFix, cyan super turbo pads, powerslide bar.
 - Other: rebindable controls, 4-player splitscreen, cheats menu, Discord presence, multilanguage text, PAL voices.
 

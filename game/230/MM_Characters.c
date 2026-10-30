@@ -1,5 +1,177 @@
 #include <common.h>
 
+// Fork addition: N. Oxide on the character select, once unlocked
+// (GAME_UNLOCK_BIT_OXIDE: beat him in Adventure, or the Spyro 2 demo code).
+// High Octane has the same feature on Vita only.
+//
+// Retail draws 15 icons. Its transition table holds the 15 icons, then the
+// "Select Character" title, then one entry per player window, then a
+// terminator. Oxide's icon goes in slot 15, so the title and windows move up
+// one. The retail tables in D230 stay untouched: the 16-icon tables below
+// are rebuilt from them at every layout pass, and Oxide's icon and the links
+// into it are added only while he is unlocked, so a locked roster lays out
+// and navigates exactly as retail. Placement follows High Octane: the free
+// slot at the end of the 1P/2P bottom row, and the top row in 3P and 4P.
+enum
+{
+	CS_RETAIL_ICON_COUNT = 15,
+	CS_ICON_OXIDE = 15,
+	CS_ICON_COUNT = 16,
+	CS_TRANSITION_TITLE = CS_ICON_COUNT,
+	CS_TRANSITION_WINDOW_FIRST = CS_ICON_COUNT + 1,
+	CS_RETAIL_TRANSITION_COUNT = 0x15, // icons, title, 4 windows, terminator
+	CS_TRANSITION_COUNT = CS_RETAIL_TRANSITION_COUNT + 1,
+	CS_MENU_WHEEL_SIZE = 0xccc,
+	CS_NAV_UP = 0,
+	CS_NAV_DOWN = 1,
+	CS_NAV_LEFT = 2,
+	CS_NAV_RIGHT = 3,
+};
+
+static struct CharacterSelectMeta s_csm1P2P[CS_ICON_COUNT];
+static struct CharacterSelectMeta s_csm1P2PLimited[CS_ICON_COUNT];
+static struct CharacterSelectMeta s_csm3P[CS_ICON_COUNT];
+static struct CharacterSelectMeta s_csm4P[CS_ICON_COUNT];
+static struct TransitionMeta s_transition1P2P[CS_TRANSITION_COUNT];
+static struct TransitionMeta s_transition3P[CS_TRANSITION_COUNT];
+static struct TransitionMeta s_transition4P[CS_TRANSITION_COUNT];
+// Same order as D230.ptrCsmArr: 1P, 2P, 3P, 4P, then the unexpanded 1P and 2P.
+static struct CharacterSelectMeta *const s_csmByLayout[6] = {s_csm1P2P, s_csm1P2P, s_csm3P, s_csm4P, s_csm1P2PLimited, s_csm1P2PLimited};
+static struct TransitionMeta *const s_transitionByPlayers[4] = {s_transition1P2P, s_transition1P2P, s_transition3P, s_transition4P};
+
+static int MM_Characters_IsUnlocked(int unlockFlags)
+{
+	return ((s16)unlockFlags == -1) || (((sdata->gameProgress.unlocks[unlockFlags >> 5] >> (unlockFlags & 0x1f)) & 1) != 0);
+}
+
+static int MM_Characters_OxideUnlocked(void)
+{
+	return MM_Characters_IsUnlocked(GAME_UNLOCK_BIT_OXIDE);
+}
+
+static void MM_Characters_CopyRetailRoster(struct CharacterSelectMeta *dst, const struct CharacterSelectMeta *src, s16 oxideX, s16 oxideY)
+{
+	for (int i = 0; i < CS_RETAIL_ICON_COUNT; i++)
+	{
+		dst[i] = src[i];
+	}
+	dst[CS_ICON_OXIDE] = src[CS_RETAIL_ICON_COUNT - 1];
+	dst[CS_ICON_OXIDE].posX = oxideX;
+	dst[CS_ICON_OXIDE].posY = oxideY;
+	dst[CS_ICON_OXIDE].characterID = NITROS_OXIDE;
+	dst[CS_ICON_OXIDE].unlockFlags = GAME_UNLOCK_BIT_OXIDE;
+	for (int d = 0; d < 4; d++)
+	{
+		dst[CS_ICON_OXIDE].indexNext[d] = CS_ICON_OXIDE;
+	}
+}
+
+static void MM_Characters_CopyRetailTransitions(struct TransitionMeta *dst, const struct TransitionMeta *src, s16 oxideHeadStart)
+{
+	for (int i = 0; i < CS_RETAIL_ICON_COUNT; i++)
+	{
+		dst[i] = src[i];
+	}
+	// Oxide slides in with the icon before him, a little later.
+	dst[CS_ICON_OXIDE] = src[CS_RETAIL_ICON_COUNT - 1];
+	dst[CS_ICON_OXIDE].headStart = oxideHeadStart;
+	for (int i = CS_RETAIL_ICON_COUNT; i < CS_RETAIL_TRANSITION_COUNT; i++)
+	{
+		dst[i + 1] = src[i];
+	}
+}
+
+static void MM_Characters_BuildRoster(void)
+{
+	MM_Characters_CopyRetailRoster(s_csm1P2P, D230.csm_1P2P, 0x160, 0xAE);
+	MM_Characters_CopyRetailRoster(s_csm1P2PLimited, D230.csm_1P2P_limited, 0x160, 0xCE);
+	MM_Characters_CopyRetailRoster(s_csm3P, D230.csm_3P, 0xE0, 0x20);
+	MM_Characters_CopyRetailRoster(s_csm4P, D230.csm_4P, 0x100, 0x20);
+
+	// The transitions keep their positions whatever the unlock state, because
+	// the title and windows sit after the icons.
+	MM_Characters_CopyRetailTransitions(s_transition1P2P, D230.transitionMeta_csm_1P2P, 1);
+	MM_Characters_CopyRetailTransitions(s_transition3P, D230.transitionMeta_csm_3P, 5);
+	MM_Characters_CopyRetailTransitions(s_transition4P, D230.transitionMeta_csm_4P, 3);
+
+	if (!MM_Characters_OxideUnlocked())
+	{
+		return;
+	}
+
+	// 1P/2P: right of Fake Crash, under Pura; Papu Papu also steps down to him.
+	s_csm1P2P[7].indexNext[CS_NAV_DOWN] = CS_ICON_OXIDE;
+	s_csm1P2P[11].indexNext[CS_NAV_DOWN] = CS_ICON_OXIDE;
+	s_csm1P2P[14].indexNext[CS_NAV_RIGHT] = CS_ICON_OXIDE;
+	s_csm1P2P[CS_ICON_OXIDE].indexNext[CS_NAV_UP] = 7;
+	s_csm1P2P[CS_ICON_OXIDE].indexNext[CS_NAV_LEFT] = 14;
+	s_csm1P2P[CS_ICON_OXIDE].indexNext[CS_NAV_RIGHT] = 11;
+
+	// 3P: top row, right of Fake Crash and above Coco.
+	s_csm3P[3].indexNext[CS_NAV_UP] = CS_ICON_OXIDE;
+	s_csm3P[14].indexNext[CS_NAV_RIGHT] = CS_ICON_OXIDE;
+	s_csm3P[CS_ICON_OXIDE].indexNext[CS_NAV_DOWN] = 3;
+	s_csm3P[CS_ICON_OXIDE].indexNext[CS_NAV_LEFT] = 14;
+
+	// 4P: Penta moves one slot left on the top row to make room, above
+	// Cortex, and Oxide takes the slot above Tiny.
+	s_csm4P[14].posX = 0xC0;
+	s_csm4P[14].indexNext[CS_NAV_RIGHT] = CS_ICON_OXIDE;
+	s_csm4P[2].indexNext[CS_NAV_UP] = CS_ICON_OXIDE;
+	s_csm4P[CS_ICON_OXIDE].indexNext[CS_NAV_DOWN] = 2;
+	s_csm4P[CS_ICON_OXIDE].indexNext[CS_NAV_LEFT] = 14;
+}
+
+// Oxide's menu model. The main-menu level carries the 15 retail racers only,
+// so his racer model is read from the player's disc on first use (the
+// BIGFILE's high-detail model), relocated like any DRAM file, and kept.
+static u32 s_oxideMenuModelFile[0xC000 / sizeof(u32)];
+
+static struct Model *MM_Characters_GetOxideModel(void)
+{
+	static struct Model *s_model;
+	static int s_failed;
+	if ((s_model != NULL) || s_failed)
+	{
+		return s_model;
+	}
+
+	const int fileIndex = BI_RACERMODELHI + NITROS_OXIDE;
+	struct BigHeader *bigfile = sdata->ptrBigfile1;
+	struct BigEntry *entry = BIG_GETENTRY(bigfile);
+	u32 size = 0;
+	char *file = (char *)s_oxideMenuModelFile;
+	s_failed = 1;
+	if ((bigfile == NULL) || (((entry[fileIndex].size + 0x7ffu) & ~0x7ffu) > sizeof(s_oxideMenuModelFile)) ||
+	    (LOAD_ReadFile_ex(bigfile, LT_GETADDR, fileIndex, file, &size, NULL) == NULL))
+	{
+		return NULL;
+	}
+
+	const int ptrMapOffset = *(int *)&file[0];
+	char *model = &file[4];
+	if ((ptrMapOffset < 0) || ((u32)ptrMapOffset + 8 > size))
+	{
+		return NULL;
+	}
+	struct DramPointerMap *dpm = (struct DramPointerMap *)&model[ptrMapOffset];
+	LOAD_RunPtrMap(model, (int *)DRAM_GETOFFSETS(dpm), dpm->numBytes >> 2);
+	s_model = (struct Model *)model;
+	s_failed = 0;
+
+	// The racer model is larger than the menu's own models (those are
+	// separate meshes, so no factor carries over exactly). 5/8, High
+	// Octane's value, fits his hovercraft in the window like the others.
+	for (int i = 0; i < s_model->numHeaders; i++)
+	{
+		struct ModelHeader *header = &s_model->headers[i];
+		header->scale.x = (s16)((header->scale.x * 5) >> 3);
+		header->scale.y = (s16)((header->scale.y * 5) >> 3);
+		header->scale.z = (s16)((header->scale.z * 5) >> 3);
+	}
+	return s_model;
+}
+
 // NOTE(aalhendi): ASM-verified NTSC-U 926 overlay 230 0x800ad98c-0x800ada4c.
 void MM_Characters_AnimateColors(u8 *colorData, s16 playerID, s16 flag)
 {
@@ -135,6 +307,12 @@ struct Model *MM_Characters_GetModelByName(int *name)
 			return model;
 		}
 	}
+
+	// Fork addition: Oxide is not in the menu level.
+	if (name == (int *)data.MetaDataCharacters[NITROS_OXIDE].name_Debug)
+	{
+		return MM_Characters_GetOxideModel();
+	}
 	return NULL;
 }
 
@@ -169,8 +347,8 @@ void MM_Characters_DrawWindows(b32 boolShowDrivers)
 		tMeta = &D230.ptrTransitionMeta[iVar14];
 
 		pb = &gGT->pushBuffer[iVar14];
-		pb->rect.x = psVar11[0] + tMeta[0x10].currX;
-		pb->rect.y = psVar11[1] + tMeta[0x10].currY;
+		pb->rect.x = psVar11[0] + tMeta[CS_TRANSITION_WINDOW_FIRST].currX;
+		pb->rect.y = psVar11[1] + tMeta[CS_TRANSITION_WINDOW_FIRST].currY;
 		pb->rect.w = D230.characterSelect_sizeX;
 		pb->rect.h = D230.characterSelect_sizeY;
 
@@ -269,6 +447,9 @@ void MM_Characters_DrawWindows(b32 boolShowDrivers)
 		// set modelPtr in Instance
 		iVar10->model = uVar4;
 
+		// Fork addition: Oxide's hovercraft has no wheels.
+		gGT->drivers[iVar6]->wheelSize = (*ptrCurr == NITROS_OXIDE) ? 0 : CS_MENU_WHEEL_SIZE;
+
 		// CameraDC, freecam mode
 		gGT->cameraDC[iVar6].cameraMode = 3;
 
@@ -351,15 +532,14 @@ void MM_Characters_SetMenuLayout(void)
 
 	iVar3 = numPlyrNextGame - 1;
 
-	// original game
-#define NUM_ICONS 0xF
+	MM_Characters_BuildRoster();
 
-	// Loop through bottom characters,
+	// Loop through bottom characters (and Oxide, a fork addition),
 	// if any are unlocked, use expanded
-	for (i = 0xc; i < NUM_ICONS; i++)
+	for (i = 0xc; i < CS_ICON_COUNT; i++)
 	{
 		// OG game code
-		unlocked = D230.csm_1P2P[i].unlockFlags;
+		unlocked = s_csm1P2P[i].unlockFlags;
 
 		if (((sdata->gameProgress.unlocks[unlocked >> 5] >> (unlocked & 0x1f)) & 1) != 0)
 		{
@@ -391,11 +571,11 @@ void MM_Characters_SetMenuLayout(void)
 
 	D230.characterSelect_ptrWindowXY = D230.ptrSelectWindowPos[iVar3];
 
-	D230.csm_Active = D230.ptrCsmArr[iVar3];
+	D230.csm_Active = s_csmByLayout[iVar3];
 
 	D230.textPos = D230.textPosArr[iVar3];
 
-	D230.ptrTransitionMeta = D230.ptr_transitionMeta_csm[numPlyrNextGame - 1];
+	D230.ptrTransitionMeta = s_transitionByPlayers[numPlyrNextGame - 1];
 
 	return;
 }
@@ -502,9 +682,7 @@ void MM_Characters_RestoreIDs(void)
 
 	MM_Characters_SetMenuLayout();
 
-#define NUM_ICONS 0xF
-
-	for (i = 0; i < NUM_ICONS; i++)
+	for (i = 0; i < CS_ICON_COUNT; i++)
 	{
 		// would not need this if CSM was sorted
 		// by order of character ID
@@ -692,8 +870,8 @@ void MM_Characters_MenuProc(struct RectMenu *unused)
 		}
 	}
 
-	posX = D230.ptrTransitionMeta[15].currX;
-	posY = D230.ptrTransitionMeta[15].currY;
+	posX = D230.ptrTransitionMeta[CS_TRANSITION_TITLE].currX;
+	posY = D230.ptrTransitionMeta[CS_TRANSITION_TITLE].currY;
 
 	char *characterSelectString;
 	switch (D230.characterSelectIconLayout)
@@ -1018,10 +1196,8 @@ dontDrawSelectCharacter:
 
 	csm_Active = D230.csm_Active;
 
-#define NUM_ICONS 0xF
-
 	// loop through character icons
-	for (i = 0; i < NUM_ICONS; i++)
+	for (i = 0; i < CS_ICON_COUNT; i++)
 	{
 		iVar8 = csm_Active->unlockFlags;
 		if (
@@ -1111,7 +1287,7 @@ dontDrawSelectCharacter:
 				fontType = FONT_SMALL;
 			}
 
-			iVar8 = (int)&D230.ptrTransitionMeta[j + 0x10];
+			iVar8 = (int)&D230.ptrTransitionMeta[j + CS_TRANSITION_WINDOW_FIRST];
 			sVar10 = ((struct TransitionMeta *)iVar8)->currY + D230.characterSelect_ptrWindowXY[j * 2 + 1];
 			sVar6 = (s16)((((u32)(numPlyrNextGame < 3) ^ 1) << 0x12) >> 0x10);
 
@@ -1139,7 +1315,7 @@ dontDrawSelectCharacter:
 	csm_Active = D230.csm_Active;
 
 	// loop through all icons
-	for (i = 0; i < NUM_ICONS; i++)
+	for (i = 0; i < CS_ICON_COUNT; i++)
 	{
 		iVar8 = csm_Active[i].unlockFlags;
 
@@ -1169,11 +1345,11 @@ dontDrawSelectCharacter:
 	for (i = 0; i < gGT->numPlyrNextGame; i++)
 	{
 		j = i;
-		iVar8 = (int)&D230.ptrTransitionMeta[j];
+		struct TransitionMeta *windowMeta = &D230.ptrTransitionMeta[j + CS_TRANSITION_WINDOW_FIRST];
 
 		// store window width and height in one 4-byte variable
-		r->x = *(s16 *)(iVar8 + 0xa6) + *psVar22;
-		r->y = *(s16 *)(iVar8 + 0xa8) + psVar22[1];
+		r->x = windowMeta->currX + *psVar22;
+		r->y = windowMeta->currY + psVar22[1];
 		r->w = D230.characterSelect_sizeX;
 		r->h = D230.characterSelect_sizeY;
 

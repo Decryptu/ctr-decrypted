@@ -150,6 +150,10 @@ enum GameProgressUnlockBitIndex
 	GAME_UNLOCK_BIT_LAB_BASEMENT = 4,
 	GAME_UNLOCK_BIT_BOSS_CHARACTER_FIRST = 7,
 	GAME_UNLOCK_BIT_SCRAPBOOK = 36,
+	// Fork addition, unused by retail: N. Oxide playable outside Adventure.
+	// Set by beating him in Adventure or by the Spyro 2 demo code (the same
+	// bit High Octane uses). See game/230/MM_Characters.c.
+	GAME_UNLOCK_BIT_OXIDE = 37,
 };
 
 enum GameProgressUnlockMask

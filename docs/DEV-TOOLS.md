@@ -57,6 +57,8 @@ All of these are read once, by `platform/native_dev.c` (`include/platform/native
 | `CTR_DEV_GHOST_IN=<file>` | Race a ghost file from `CTR_DEV_GHOST_OUT` in the Time Trial |
 | `CTR_DEV_EXIT_AFTER_RACE=1` | Quit a second after the finish |
 | `CTR_DEV_RESULTS=<csv>` | Every racer's rank, lap, distance to the finish and the track length at `CTR_DEV_RESULTS_MS` of race time (default 30000, counted from the lights). Distance driven since the start line is `lap × length + length − distance`. Works in the attract demo too, to compare the AI |
+| `CTR_DEV_CHARACTER_SELECT=1` | The title menu opens the Arcade character select for `CTR_DEV_PLAYERS` players. `CTR_DEV_CHARACTER` puts player 1's cursor on that racer. `CTR_DEV_UNLOCKS=1` unlocks the retail secret racers in the run's save, `=2` N. Oxide as well |
+| `CTR_DEV_PAD=<frame>:<keys>,...` | Player 1 holds those buttons for two frames from each listed frame, to drive menus: `U D L R`, `X` Cross, `O` Circle, `S` Square, `T` Triangle, `Z` Start. Example: `500:D,560:L,620:X`. Between taps the autopilot, when on, drives |
 | `CTR_DEV_NO_ITEMS=1` | Weapon crates give nothing and bots are handed no weapons, so two runs differ only by driving |
 
 Frame numbers count every presented frame, the boot splash included. Frames shown straight from VRAM (the boot splash, the scrapbook and other movies) are captured from VRAM.

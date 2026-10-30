@@ -114,6 +114,20 @@ void MM_MenuProc_Main(struct RectMenu *mainMenu)
 				gGT->numPlyrNextGame = (u8)NativeDev_RacePlayers();
 			}
 
+			// CTR_DEV_CHARACTER_SELECT: leave the title for the Arcade
+			// character select, the way Time Trial does. The player count is
+			// set on every frame of the fade-out, like the one above.
+			if (NativeDev_CharacterSelect())
+			{
+				gGT->numPlyrNextGame = (u8)NativeDev_RacePlayers();
+				if (D230.MM_State != 2)
+				{
+					gGT->gameMode1 |= ARCADE_MODE;
+					D230.desiredMenuIndex = 2;
+					D230.MM_State = 2;
+				}
+			}
+
 			// if no buttons pressed, check demo mode
 			if (sdata->gGamepads->anyoneHeldCurr == 0)
 			{

@@ -184,11 +184,91 @@ static struct Driver *NativeDevRace_Player(int player)
 // held, so the kart stays on the road through the real driving physics.
 // Player 1 follows lane 0; in VS each player takes the next lane, so on tracks
 // with forks some players take the other branch.
+// CTR_DEV_PAD="<frame>:<keys>,...": player 1 holds those buttons for two
+// presented frames from that frame on, to drive menus. Keys: U D L R, X
+// (Cross), O (Circle), S (Square), T (Triangle), Z (Start). While the
+// script is set it owns player 1's pad, except between taps when the
+// autopilot is on.
+static int NativeDev_ScriptedPad(int autopilot, unsigned short *buttons, unsigned char *leftX)
+{
+	static const char *s_script;
+	static int s_loaded;
+	if (!s_loaded)
+	{
+		s_loaded = 1;
+		s_script = getenv("CTR_DEV_PAD");
+	}
+	if ((s_script == NULL) || (*s_script == '\0'))
+		return 0;
+
+	const int frame = NativeDev_State()->frame;
+	unsigned short held = 0;
+	const char *p = s_script;
+	while (*p != '\0')
+	{
+		char *end;
+		const long at = strtol(p, &end, 10);
+		if ((end == p) || (*end != ':'))
+			break;
+		unsigned short keys = 0;
+		for (p = end + 1; (*p != '\0') && (*p != ','); p++)
+		{
+			switch (*p)
+			{
+			case 'U': keys |= RAW_BTN_UP; break;
+			case 'D': keys |= RAW_BTN_DOWN; break;
+			case 'L': keys |= RAW_BTN_LEFT; break;
+			case 'R': keys |= RAW_BTN_RIGHT; break;
+			case 'X': keys |= RAW_BTN_CROSS; break;
+			case 'O': keys |= RAW_BTN_CIRCLE; break;
+			case 'S': keys |= RAW_BTN_SQUARE; break;
+			case 'T': keys |= RAW_BTN_TRIANGLE; break;
+			case 'Z': keys |= RAW_BTN_START; break;
+			default: break;
+			}
+		}
+		if ((frame >= at) && (frame < at + 2))
+			held |= keys;
+		if (*p == ',')
+			p++;
+	}
+	if ((held == 0) && autopilot)
+		return 0;
+	*buttons = (unsigned short)~held;
+	*leftX = 0x80;
+	return 1;
+}
+
+// CTR_DEV_CHARACTER_SELECT=1: the title menu opens the Arcade character
+// select (CTR_DEV_PLAYERS players) instead of idling. CTR_DEV_CHARACTER puts
+// player 1's cursor on that racer. CTR_DEV_UNLOCKS=1 unlocks the retail
+// secret racers in this run's save, =2 N. Oxide as well.
+int NativeDev_CharacterSelect(void)
+{
+	static int s_mode = -1;
+	if (s_mode < 0)
+		s_mode = NativeDev_EnvInt("CTR_DEV_CHARACTER_SELECT", 0);
+	if (s_mode <= 0)
+		return 0;
+	const int unlocks = NativeDev_EnvInt("CTR_DEV_UNLOCKS", 0);
+	for (int bit = 5; (unlocks >= 1) && (bit <= 11); bit++)
+		UNLOCK_ADV_BIT(sdata->gameProgress.unlocks, bit);
+	if (unlocks >= 2)
+		UNLOCK_ADV_BIT(sdata->gameProgress.unlocks, GAME_UNLOCK_BIT_OXIDE);
+	const int character = NativeDev_EnvInt("CTR_DEV_CHARACTER", -1);
+	if ((character >= 0) && (character < 16))
+		sdata->characterIDs_backup[0] = (s16)character;
+	return 1;
+}
+
 int NativeDev_AutopilotPad(int player, unsigned short *buttons, unsigned char *leftX)
 {
 	NativeDevRaceState *dev = NativeDevRace_State();
 	struct GameTracker *gGT = sdata->gGT;
 	struct Driver *d;
+
+	if ((player == 0) && NativeDev_ScriptedPad(dev->autopilot, buttons, leftX))
+		return 1;
 
 	if (!dev->autopilot)
 		return 0;
