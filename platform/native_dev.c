@@ -7,6 +7,8 @@
 // Reads the main render target (the frame at render scale) as bottom-up RGBA.
 // Defined in platform/native_renderer.c. Returns a malloc'd buffer or NULL.
 unsigned char *NativeRenderer_ReadMainTarget(int *width, int *height);
+unsigned char *NativeRenderer_ReadPresented(int *width, int *height);
+void NativeRenderer_EnablePresentCapture(int enable);
 // Copies a VRAM rectangle (15-bit PSX pixels). Defined in native_renderer.c.
 void NativeRenderer_ReadVRAM(unsigned short *dst, int x, int y, int dst_w, int dst_h);
 
@@ -25,6 +27,7 @@ typedef struct
 	int dumpFrame;
 	FILE *dump;
 	int frame;
+	int presentedShot; // capture what reaches the window, after the screen filter
 	int vramShot; // this frame was presented straight from VRAM (vramX..vramH)
 	int vramX, vramY, vramW, vramH;
 } NativeDevState;
@@ -55,6 +58,8 @@ static NativeDevState *NativeDev_State(void)
 		s_dev.shotFrom = NativeDev_EnvInt("CTR_DEV_SHOT_FROM", 0);
 		s_dev.exitFrame = NativeDev_EnvInt("CTR_DEV_EXIT_FRAME", 0);
 		s_dev.dumpFrame = NativeDev_EnvInt("CTR_DEV_DUMP_FRAME", -1);
+		s_dev.presentedShot = NativeDev_EnvInt("CTR_DEV_SHOT_PRESENTED", 0);
+		NativeRenderer_EnablePresentCapture(s_dev.presentedShot && s_dev.shotDir != NULL);
 	}
 	return &s_dev;
 }
@@ -224,7 +229,9 @@ void NativeDev_EndFrame(void)
 	if (dev->shotDir != NULL && frame >= dev->shotFrom && ((frame - dev->shotFrom) % dev->shotEvery) == 0)
 	{
 		int w, h;
-		unsigned char *rgba = dev->vramShot ? NativeDev_ReadVRAMRect(dev, &w, &h) : NativeRenderer_ReadMainTarget(&w, &h);
+		unsigned char *rgba = dev->presentedShot ? NativeRenderer_ReadPresented(&w, &h)
+		                     : dev->vramShot    ? NativeDev_ReadVRAMRect(dev, &w, &h)
+		                                        : NativeRenderer_ReadMainTarget(&w, &h);
 		if (rgba != NULL)
 		{
 			char path[1024];

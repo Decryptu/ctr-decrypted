@@ -34,7 +34,7 @@ typedef struct
 #define CTR_MENU_PAGE_CONTROLS "Controls"
 
 static const char *const s_ctrMenuPageVideo[] = {
-	"fullscreen", "aspect_ratio", "render_scale", "vsync", "fps60", "smooth_scaling",
+	"fullscreen", "aspect_ratio", "render_scale", "vsync", "fps60", "screen_filter",
 	"texture_filtering", "dithering", "pgxp", "increase_draw_distance",
 	"disable_split_screen_lod", NULL,
 };

@@ -39,7 +39,9 @@ void NativeDev_AudioFrames(const short *frames, int frameCount);
 
 // Called once per presented frame, before the swap. Handles
 // CTR_DEV_SHOT_DIR / CTR_DEV_SHOT_EVERY / CTR_DEV_SHOT_FROM (frame capture)
-// and CTR_DEV_EXIT_FRAME (quit after that many frames).
+// and CTR_DEV_EXIT_FRAME (quit after that many frames). With
+// CTR_DEV_SHOT_PRESENTED=1 the capture is the presented image (after the
+// screen filter) rather than the render target.
 void NativeDev_EndFrame(void);
 // The same for a frame presented straight from VRAM (boot splash, Scrapbook,
 // other movies): captures that VRAM rectangle instead of the render target.

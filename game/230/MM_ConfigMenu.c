@@ -4,6 +4,7 @@
 #include <ctr_menu_pages.h>
 #include <platform/native_renderer.h> // NativeRenderer_CaptureWindowGeometry, ahead of the NativeConfig_Save calls below
 #include <platform/native_controls.h> // the Controls page (MM_ControlsConfig.c)
+#include <platform/native_screen_filter.h> // the Screen Filter row
 #ifdef CTR_AP
 // Platform_InputRawGamepadButtons: physical-pad-only button mask, used by the
 // connection manager's controller commit / cancel (not in common.h's platform set).
@@ -232,6 +233,12 @@ static const int   s_renderScaleValues[] = {1, 2, 3, 4, 0};
 static const char *s_renderScaleNames[]  = {"ORIGINAL", "2X", "3X", "4X", "NATIVE"};
 #define RENDER_SCALE_COUNT ((int)(sizeof(s_renderScaleValues) / sizeof(s_renderScaleValues[0])))
 
+// Screen-filter ladder (CFG_ENUM). Values are the NATIVE_SCREEN_FILTER_*
+// numbers (include/platform/native_screen_filter.h), in that order. An
+// out-of-ladder hand edit renders and steps as SMOOTH, the default.
+static const char *s_screenFilterNames[] = {"SMOOTH", "SHARP", "SHARP BILINEAR", "FXAA", "SCANLINES", "CRT"};
+#define SCREEN_FILTER_COUNT ((int)(sizeof(s_screenFilterNames) / sizeof(s_screenFilterNames[0])))
+
 // VSync ladder (CFG_ENUM), see include/platform/native_vsync.h for the raw
 // values (NATIVE_VSYNC_OFF/ON/ADAPTIVE) and how they map to the SDL swap
 // interval. Stored as the raw option value; an out-of-ladder hand edit
@@ -377,6 +384,8 @@ static const char *Enum_Label(const ConfigEntry *e)
 		return s_aspectNames[Aspect_Index(*(int *)e->valuePtr)];
 	if (e->valuePtr == &g_config.renderScale)
 		return s_renderScaleNames[RenderScale_Index(*(int *)e->valuePtr)];
+	if (e->valuePtr == &g_config.screenFilter)
+		return s_screenFilterNames[NativeScreenFilter_Clamp(*(int *)e->valuePtr)];
 	if (e->valuePtr == &g_config.vsync)
 		return s_vsyncNames[Vsync_Index(*(int *)e->valuePtr)];
 	if (e->valuePtr == &g_config.pgxp)
@@ -412,6 +421,16 @@ static void Enum_Step(const ConfigEntry *e, int dir)
 		if (i > RENDER_SCALE_COUNT - 1)
 			i = RENDER_SCALE_COUNT - 1;
 		*(int *)e->valuePtr = s_renderScaleValues[i];
+		return;
+	}
+	if (e->valuePtr == &g_config.screenFilter)
+	{
+		int i = NativeScreenFilter_Clamp(*(int *)e->valuePtr) + dir;
+		if (i < 0)
+			i = 0;
+		if (i > SCREEN_FILTER_COUNT - 1)
+			i = SCREEN_FILTER_COUNT - 1;
+		*(int *)e->valuePtr = i;
 		return;
 	}
 	if (e->valuePtr == &g_config.vsync)

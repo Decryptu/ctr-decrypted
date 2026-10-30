@@ -28,9 +28,12 @@ typedef struct
 	                            // raster + shipped VRAM presentation (default),
 	                            // 2/3/4 = fixed multiples, 0 = native window.
 	                            // See include/platform/native_render_scale.h.
-	bool smoothScaling;         // Video & QoL: presentation filter for scaled render
-	                            // modes. true = smooth (linear, default),
-	                            // false = sharp (nearest). No effect at Original.
+	int  screenFilter;          // Video & QoL: how the frame reaches the window,
+	                            // a NATIVE_SCREEN_FILTER_* value (include/platform/
+	                            // native_screen_filter.h): 0 = Smooth (default),
+	                            // 1 = Sharp, 2 = Sharp Bilinear, 3 = FXAA,
+	                            // 4 = Scanlines, 5 = CRT. Replaces the old
+	                            // smooth_scaling switch, which still loads.
 	bool textureFiltering;      // Video & QoL: bilinear PSX texture sampling in the
 	                            // GTE shaders (default off: PSX-authentic point
 	                            // sampling). Also flipped by the F3 debug key.

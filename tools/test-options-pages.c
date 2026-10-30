@@ -119,7 +119,7 @@ int main(void)
 	if (numPages == 6)
 	{
 		static const char *const video[] = {
-			"fullscreen", "aspect_ratio", "render_scale", "vsync", "fps60", "smooth_scaling",
+			"fullscreen", "aspect_ratio", "render_scale", "vsync", "fps60", "screen_filter",
 			"texture_filtering", "dithering", "pgxp", "increase_draw_distance",
 			"disable_split_screen_lod", NULL};
 		static const char *const gameplay[] = {

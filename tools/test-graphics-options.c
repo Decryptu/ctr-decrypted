@@ -246,7 +246,7 @@ static void TestPersistenceRoundTrip(void)
 	SetEntry("Video & QoL", "fullscreen", 1);
 	SetEntry("Video & QoL", "dithering", 0);
 	SetEntry("Video & QoL", "render_scale", 0);
-	SetEntry("Video & QoL", "smooth_scaling", 0);
+	SetEntry("Video & QoL", "screen_filter", 5);
 	SetEntry("Video & QoL", "texture_filtering", 1);
 #ifdef CTR_AP
 	SetEntry("Archipelago", "trap_duration", 90);
@@ -258,7 +258,7 @@ static void TestPersistenceRoundTrip(void)
 	g_config.fullscreen = 0;
 	g_config.dithering = 1;
 	g_config.renderScale = 1;
-	g_config.smoothScaling = 1;
+	g_config.screenFilter = 0;
 	g_config.textureFiltering = 0;
 #ifdef CTR_AP
 	g_config.trapDuration = 15;
@@ -269,7 +269,7 @@ static void TestPersistenceRoundTrip(void)
 	EXPECT_INT("persisted fullscreen", g_config.fullscreen, 1);
 	EXPECT_INT("persisted dithering", g_config.dithering, 0);
 	EXPECT_INT("persisted renderScale (Native)", g_config.renderScale, 0);
-	EXPECT_INT("persisted smoothScaling", g_config.smoothScaling, 0);
+	EXPECT_INT("persisted screenFilter (CRT)", g_config.screenFilter, 5);
 	EXPECT_INT("persisted textureFiltering", g_config.textureFiltering, 1);
 
 	// A hand-edited out-of-ladder render_scale snaps onto the ladder at load,
@@ -287,6 +287,37 @@ static void TestPersistenceRoundTrip(void)
 	NativeConfig_Save();
 	NativeConfig_Load();
 	EXPECT_INT("Native render_scale survives the load clamp", g_config.renderScale, 0);
+
+	// An out-of-ladder screen_filter loads as Smooth.
+	SetEntry("Video & QoL", "screen_filter", 42);
+	NativeConfig_Save();
+	NativeConfig_Load();
+	EXPECT_INT("out-of-ladder screen_filter loads as Smooth", g_config.screenFilter, 0);
+
+	// A config.ini from before the Screen Filter row: smooth_scaling = false
+	// loads as Sharp, true as Smooth, and a saved screen_filter wins.
+	{
+		FILE *legacy = fopen("config.ini", "w");
+		fputs("[Video & QoL]\nsmooth_scaling = false\n", legacy);
+		fclose(legacy);
+		g_config.screenFilter = 0;
+		NativeConfig_Load();
+		EXPECT_INT("legacy smooth_scaling=false loads as Sharp", g_config.screenFilter, 1);
+		legacy = fopen("config.ini", "w");
+		fputs("[Video & QoL]\nsmooth_scaling = true\n", legacy);
+		fclose(legacy);
+		g_config.screenFilter = 0;
+		NativeConfig_Load();
+		EXPECT_INT("legacy smooth_scaling=true loads as Smooth", g_config.screenFilter, 0);
+		legacy = fopen("config.ini", "w");
+		fputs("[Video & QoL]\nsmooth_scaling = false\nscreen_filter = 3\n", legacy);
+		fclose(legacy);
+		NativeConfig_Load();
+		EXPECT_INT("saved screen_filter wins over legacy smooth_scaling", g_config.screenFilter, 3);
+		g_config.screenFilter = 0;
+		// Put the full state back on disk for the file checks below.
+		NativeConfig_Save();
+	}
 #ifdef CTR_AP
 	EXPECT_INT("persisted trap duration", g_config.trapDuration, 90);
 	EXPECT_INT("persisted trap duration milliseconds", NativeConfig_TrapDurationMs(), 90000);

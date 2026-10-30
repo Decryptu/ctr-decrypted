@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <platform/native_config.h>
 #include <platform/native_render_scale.h>
+#include <platform/native_screen_filter.h>
 #include <platform/native_window_geometry.h>
 
 // Options live in "config.ini" in the working directory -- the same place the AP
@@ -22,7 +23,7 @@ NativeConfig g_config = {
 	true,  // dithering (default on: PSX-authentic)
 	2,     // pgxp (2 = Full: anti-wobble and perspective-correct textures)
 	1,     // renderScale (1 = original PSX raster, the shipped default)
-	true,  // smoothScaling (default on: linear presentation at scaled modes)
+	0,     // screenFilter (0 = Smooth: linear presentation at scaled modes)
 	false, // textureFiltering (default off: PSX-authentic point sampling)
 	0,     // vsync (0 = Off, default: avoid double-throttling the retail draw-sync path)
 	false, // muteWhenUnfocused (default off: a single-game setup keeps today's behaviour)
@@ -95,7 +96,9 @@ const ConfigEntry g_configEntries[] = {
 	// hand edits (NativeRenderScale_ClampMode) and applies edits on the next
 	// frame boundary, so none of these rows needs a menu-exit hook.
 	{"Video & QoL", "render_scale",             "Render Scale",                 CFG_ENUM, &g_config.renderScale},
-	{"Video & QoL", "smooth_scaling",           "Smooth Scaling",               CFG_BOOL, &g_config.smoothScaling},
+	// Screen-filter ladder (CFG_ENUM), include/platform/native_screen_filter.h.
+	// Applied by the renderer at the next present, so it switches live.
+	{"Video & QoL", "screen_filter",            "Screen Filter",                CFG_ENUM, &g_config.screenFilter},
 	{"Video & QoL", "texture_filtering",        "Texture Filtering",            CFG_BOOL, &g_config.textureFiltering},
 	// VSync ladder (CFG_ENUM): 0 = Off (default), 1 = On, 2 = Adaptive. See
 	// include/platform/native_vsync.h for the option -> SDL swap-interval
@@ -279,6 +282,8 @@ void NativeConfig_Load(void)
 
 	char line[256];
 	char section[64] = "";
+	bool sawScreenFilter = false;
+	bool legacySharp = false;
 
 	while (fgets(line, sizeof(line), f))
 	{
@@ -306,6 +311,16 @@ void NativeConfig_Load(void)
 		*eq = '\0';
 		char *key = trimWhitespace(p);
 		char *value = trimWhitespace(eq + 1);
+
+		// A config.ini from before the Screen Filter row has smooth_scaling;
+		// false there meant nearest scaling, which is Sharp now.
+		if (strcmp(section, "Video & QoL") == 0)
+		{
+			if (strcmp(key, "smooth_scaling") == 0)
+				legacySharp = !ParseBool(value);
+			else if (strcmp(key, "screen_filter") == 0)
+				sawScreenFilter = true;
+		}
 
 		for (int i = 0; i < g_numConfigEntries; i++)
 		{
@@ -335,6 +350,9 @@ void NativeConfig_Load(void)
 	// the running renderer in agreement for out-of-ladder values (a persisted
 	// 9 would otherwise render at 4x while the row reads ORIGINAL).
 	g_config.renderScale = NativeRenderScale_ClampMode(g_config.renderScale);
+	if (!sawScreenFilter && legacySharp)
+		g_config.screenFilter = NATIVE_SCREEN_FILTER_SHARP;
+	g_config.screenFilter = NativeScreenFilter_Clamp(g_config.screenFilter);
 #ifdef CTR_AP
 	// Keep the in-memory/menu value inside the public ladder even when a player
 	// hand-edited an unsupported value. Zero is the intentional Full race token.

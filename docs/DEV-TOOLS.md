@@ -38,6 +38,7 @@ All of these are read once, by `platform/native_dev.c` (`include/platform/native
 | `CTR_DEV_HIDDEN=1` | The window is created hidden. Rendering still happens into the main render target |
 | `CTR_DEV_SHOT_DIR=<dir>` | Capture frames from the main render target (at render scale) as `fNNNNNN.bmp` |
 | `CTR_DEV_SHOT_EVERY=<n>`, `CTR_DEV_SHOT_FROM=<n>` | Capture interval (default 60) and first captured frame (default 0) |
+| `CTR_DEV_SHOT_PRESENTED=1` | Capture what reaches the window instead: the presentation viewport after the screen filter, at window size. Presents then go through a window-sized target that is copied to the window, so a hidden window still captures. The Archipelago tracker overlay is drawn after it and is not in the capture |
 | `CTR_DEV_EXIT_FRAME=<n>` | Quit after n presented frames |
 | `CTR_DEV_DUMP_FRAME=<n>` | Write every polygon drawn in frame n to `polys-NNNNNN.txt` in the capture folder: the level-renderer bucket tag, then for each vertex its retail screen position, its drawn position and its precise depth |
 | `CTR_PGXP_DEBUG=1..4` | PGXP tints, see [PGXP.md](PGXP.md#debugging) |
@@ -66,6 +67,7 @@ Frame numbers count every presented frame, the boot splash included. Frames show
 
 - `tools/decrypted/find_holes.py <dir> [--ignore-top N] [--max-run N]` finds see-through holes in a capture made with `CTR_PGXP_DEBUG=1`. In that mode the sky backdrop draws pure blue, so a short vertical run of blue with geometry above and below it is a hole. It prints a count per frame and a total, and writes `holes-*.png` with the holes painted magenta. Use `--ignore-top 110 --max-run 4` at 2x render scale to skip the HUD text. HUD text, boost flames and gaps between distant rocks also register, so compare totals against a baseline run (the same settings with `CTR_PGXP_DEBUG=3`) rather than reading them alone.
 - `tools/decrypted/audio_noise.py <audio.raw> [--flat F] [--wav out.wav]` finds white noise in a `CTR_DEV_AUDIO` dump: windows that are loud and spectrally flat (white noise scores about 0.58, game audio stays under 0.2). It prints the noisy spans with their VBlank number and can write a .wav to listen to.
+- `tools/decrypted/filter_check.py <baseline.png> <capture.png>... [--lines 216]` compares `CTR_DEV_SHOT_PRESENTED` captures of one frame against a baseline (normally SMOOTH): mean brightness, the 99th percentile of the step between neighbouring pixels (anti-aliasing lowers it), and the share of vertical variation at the 216-line frequency (scanlines raise it). See [SCREEN-FILTERS.md](SCREEN-FILTERS.md#measurements).
 - `tools/decrypted/pgxp_cracks.py <polys-NNNNNN.txt> [--level-only]` reads a polygon dump. It reports level vertices drawn at more than one position (a shared corner that disagrees with itself), then T-junction candidates: vertices that lie inside another polygon's edge in retail but not when drawn.
 
 ## Unattended races
