@@ -119,7 +119,7 @@ int main(void)
 	if (numPages == 6)
 	{
 		static const char *const video[] = {
-			"fullscreen", "aspect_ratio", "render_scale", "vsync", "smooth_scaling",
+			"fullscreen", "aspect_ratio", "render_scale", "vsync", "fps60", "smooth_scaling",
 			"texture_filtering", "dithering", "increase_draw_distance",
 			"disable_split_screen_lod", NULL};
 		static const char *const gameplay[] = {
@@ -143,6 +143,7 @@ int main(void)
 
 	ExpectSection("skip_intro", "Video & QoL");
 	ExpectSection("mute_when_unfocused", "Video & QoL");
+	ExpectSection("fps60", "Video & QoL");
 	ExpectSection("skip_podium", "Video & QoL");
 	ExpectSection("skip_cutscenes", "Video & QoL");
 	ExpectSection("skip_hints", "Archipelago");

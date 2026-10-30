@@ -48,6 +48,13 @@ typedef struct
 	                            // (platform/native_audio.c) -- no voice is stopped,
 	                            // so game state, timing and determinism are
 	                            // untouched and music resumes mid-note.
+	bool fps60;                 // Video & QoL: 60 FPS mode (default on), ported
+	                            // from Crash Team Racing: High Octane. Read at
+	                            // each level load (MainMain_ApplyFrameRateMode,
+	                            // game/MAIN/MainMain.c), so a change made in the
+	                            // menu takes effect on the next track or menu
+	                            // load. Time Trial always runs at 30 so ghosts
+	                            // record and play back correctly.
 	// Remembered window position/size (issue: "remember window position and size
 	// between sessions" -- streaming setups want the same window every launch).
 	// Config-file-only, [State] section, the update_last_seen precedent: this is
