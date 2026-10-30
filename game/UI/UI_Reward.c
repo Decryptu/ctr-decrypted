@@ -153,7 +153,7 @@ void UI_ThTick_Reward(struct Thread *bucket)
 	if (ctr_cfg_active() && inst->model->id == STATIC_RELIC)
 	{
 		static const u32 s_hudRelicTierTint[3] = {0x060a5ff0, 0x0ffc6290, 0x0ebebf50};
-		inst->colorRGBA = s_hudRelicTierTint[(gGT->timer / 0x3C) % 3];
+		inst->colorRGBA = s_hudRelicTierTint[(gGT->timer / FPS_DOUBLE(0x3C)) % 3];
 	}
 #endif
 

@@ -1507,11 +1507,15 @@ void CS_Thread_ThTick(struct Thread *t)
 		// ASM: 0x800ae6fc - flag 0x2: random alphaScale for fade effect
 		if ((cs->flags & 0x2) != 0)
 		{
-			inst->alphaScale = 0;
-
-			if ((sdata->gGT->timer & 0x1) != 0)
+			// At 60 FPS hold each flicker state for two frames
+			if (!CTR_NATIVE_60FPS_ACTIVE || ((sdata->gGT->timer & 1) == 0))
 			{
-				inst->alphaScale = (MixRNG_Scramble() & 0x7ff) + 1024;
+				inst->alphaScale = 0;
+
+				if ((FPS_HALF(sdata->gGT->timer) & 0x1) != 0)
+				{
+					inst->alphaScale = (MixRNG_Scramble() & 0x7ff) + 1024;
+				}
 			}
 		}
 	}

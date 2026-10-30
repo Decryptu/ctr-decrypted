@@ -53,7 +53,7 @@ void UI_Weapon_DrawSelf(s16 posX, s16 posY, s16 scale, struct Driver *d)
 		}
 
 		// make weapon flicker
-		if (((d->noItemTimer) != 0) && ((gGT->timer & 1) == 0))
+		if (((d->noItemTimer) != 0) && ((FPS_HALF(gGT->timer) & 1) == 0))
 		{
 			return;
 		}

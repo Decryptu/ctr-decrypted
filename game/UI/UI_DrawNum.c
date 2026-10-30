@@ -102,7 +102,7 @@ void UI_DrawNumRelic(s16 posX, s16 posY)
 	if (ctr_cfg_active())
 	{
 		static const int s_relicTierIdx[3] = {AP_IDX_SAPPHIRE, AP_IDX_GOLD, AP_IDX_PLATINUM};
-		num = AP_GateCount(s_relicTierIdx[(gGT->timer / 0x3C) % 3]);
+		num = AP_GateCount(s_relicTierIdx[(gGT->timer / FPS_DOUBLE(0x3C)) % 3]);
 	}
 	else
 #endif
