@@ -574,6 +574,24 @@ void Platform_InputUpdate(void)
 	}
 
 	NativeInput_ApplyKeyboard();
+
+	{
+		u16 buttons;
+		u8 leftX;
+		if (NativeDev_AutopilotPad(&buttons, &leftX))
+		{
+			struct PlatformInputPadSnapshot *snapshot = &s_controllers[0].snapshot;
+			snapshot->connected = 1;
+			snapshot->status = 0;
+			snapshot->id = NATIVE_INPUT_PAD_ANALOG;
+			NativeInput_SetSnapshotButtons(snapshot, buttons);
+			snapshot->analog[0] = 0x80;
+			snapshot->analog[1] = 0x80;
+			snapshot->analog[2] = leftX;
+			snapshot->analog[3] = 0x80;
+		}
+	}
+
 	NativeInput_WritePadBus();
 }
 

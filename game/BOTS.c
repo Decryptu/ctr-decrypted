@@ -1542,6 +1542,16 @@ UpdateTireColorTimer:
 
 			struct Terrain *botTerrain = botDriver->terrainMeta1; // iVar15
 
+			// The speed changes below (friction, acceleration, slopes, throttle
+			// zones) are steps per 30 FPS frame. At 60 FPS they run on every
+			// other frame, so bots keep retail speeds over time; the position
+			// still advances every frame by elapsed time.
+			b32 use30HzStep = true;
+#if CTR_NATIVE_60FPS
+			use30HzStep = !CTR_NATIVE_60FPS_ACTIVE || ((gGT->timer & 1) != 0);
+#endif
+			if (use30HzStep)
+			{
 			botDriver->botData.aiPhysics.speedLinear =
 			    CTR_MipsSubLo(botDriver->botData.aiPhysics.speedLinear,
 			                  CTR_MipsSra(CTR_MipsMulLo(botDriver->const_PedalFriction_Forward, botTerrain->botFrictionScale), 8)); // iVar4
@@ -1652,6 +1662,7 @@ UpdateTireColorTimer:
 				}
 
 				botDriver->fireSpeed = velocityAccountingForTerrain;
+			}
 			}
 		}
 
@@ -1961,6 +1972,17 @@ UpdateTireColorTimer:
 	    CTR_MipsAddLo(navFrameCurr->pos.x, CTR_MipsSra(CTR_MipsMulLo(CTR_MipsSubLo(navFrameNext->pos.x, navFrameCurr->pos.x), percentage), 0xc)), 8);
 	botDriver->quadBlockHeight = CTR_MipsSll(
 	    CTR_MipsAddLo(navFrameCurr->pos.y, CTR_MipsSra(CTR_MipsMulLo(CTR_MipsSubLo(navFrameNext->pos.y, navFrameCurr->pos.y), percentage), 0xc)), 8);
+#if CTR_NATIVE_60FPS
+	// The height above is rounded to whole units (256 here). A 30 FPS frame of
+	// gravity drops a bot further than that, so it stays on the ground; a 60 FPS
+	// frame drops it a quarter as far, and the rounding steps would lift it off
+	// the ground on most frames, where it cannot accelerate. Keep the fraction.
+	if (CTR_NATIVE_60FPS_ACTIVE)
+	{
+		botDriver->quadBlockHeight = CTR_MipsAddLo(
+		    CTR_MipsSll(navFrameCurr->pos.y, 8), CTR_MipsSra(CTR_MipsMulLo(CTR_MipsSubLo(navFrameNext->pos.y, navFrameCurr->pos.y), percentage), 4));
+	}
+#endif
 	botDriver->botData.positionBackup.z = CTR_MipsSll(
 	    CTR_MipsAddLo(navFrameCurr->pos.z, CTR_MipsSra(CTR_MipsMulLo(CTR_MipsSubLo(navFrameNext->pos.z, navFrameCurr->pos.z), percentage), 0xc)), 8);
 
@@ -2182,7 +2204,11 @@ UpdateTireColorTimer:
 
 					botDriver->actionsFlagSet |= ACTION_STARTED_TOUCH_GROUND;
 				}
-				deltaPosThisFrame = CTR_MipsSubLo(botDriver->quadBlockHeight, botDriver->posPrev.y);
+				// The height gained this frame becomes the vertical speed, which
+				// is applied per 32 ms (positionBackup.y above). A 60 FPS frame is
+				// half that, so the delta doubles; otherwise bots leave the ground
+				// on every downhill and stop accelerating while "airborne".
+				deltaPosThisFrame = FPS_DOUBLE(CTR_MipsSubLo(botDriver->quadBlockHeight, botDriver->posPrev.y));
 
 				botDriver->botData.positionBackup.y = botDriver->quadBlockHeight;
 
@@ -2267,7 +2293,7 @@ UpdateTireColorTimer:
 				{
 					if (botDriver->botData.aiDamageState == BOTS_DAMAGE_STATE_BLAST && (2 < bVar10))
 					{
-						botDriver->botData.ai_progress_cooldown = 10;
+						botDriver->botData.ai_progress_cooldown = FPS_DOUBLE(10);
 						botDriver->botData.aiPhysics.speedLinear = 0;
 						botDriver->botData.botFlags &= ~(BOT_FLAG_DAMAGE_ACTIVE | BOT_FLAG_DAMAGE_SUPPRESS_EMITTER);
 					}
@@ -2447,7 +2473,7 @@ UpdateTireColorTimer:
 						{
 							botDriver->botData.botFlags &= ~(BOT_FLAG_DAMAGE_ACTIVE | BOT_FLAG_DAMAGE_SUPPRESS_EMITTER);
 							botInstance->flags &= ~HIDE_MODEL;
-							botDriver->botData.ai_progress_cooldown = 1;
+							botDriver->botData.ai_progress_cooldown = FPS_DOUBLE(1);
 							BOTS_MaskGrab(botThread);
 							newKartState = 5;
 						}
@@ -3002,7 +3028,7 @@ u32 BOTS_ChangeState(struct Driver *driverVictim, int damageType, struct Driver 
 		driverVictim->instSelf->thread->flags |= THREAD_FLAG_DISABLE_COLLISION;
 		break;
 	default:
-		driverVictim->botData.ai_progress_cooldown = 0x3c;
+		driverVictim->botData.ai_progress_cooldown = FPS_DOUBLE(0x3c);
 	}
 
 	if (driverAttacker != NULL && damageType != 0)

@@ -52,6 +52,8 @@ build/ctr_native --replay "debug/reports/20260605/ctr-123456/input.ctrreplay"
 
 Playback creates a fresh writable `memcard.playback` from `memcard.seed` every run and does not touch your real saves.
 
+A replay plays back in the 60 FPS mode it was recorded in (`fps60` in `metadata.txt`), whatever `config.ini` says. Savestates restore the mode they were saved in.
+
 If a developer asks you to bypass header identity checks:
 
 ```sh

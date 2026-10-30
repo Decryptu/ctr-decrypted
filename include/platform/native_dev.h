@@ -37,4 +37,30 @@ FILE *NativeDev_DumpFile(void);
 void NativeDev_TagPrims(const void *start, const void *end, int tag);
 int NativeDev_PrimTag(const void *addr);
 
+// Unattended races (platform/native_dev_race.c).
+// CTR_DEV_RACE=<LevelID>: the title menu starts a one-player race on that
+// track instead of the attract demo. CTR_DEV_MODE=tt makes it a Time Trial
+// (default Arcade), CTR_DEV_LAPS sets the Arcade lap count. -1 if unset.
+int NativeDev_RaceTrack(void);
+
+// Sets up the mode for CTR_DEV_RACE (and loads CTR_DEV_GHOST_IN in Time
+// Trial) and returns the level to load.
+struct GameTracker;
+int NativeDev_StartRace(struct GameTracker *gGT);
+
+// CTR_DEV_AUTOPILOT=1: during a race, replaces player 1's pad with throttle
+// held and analog steering along the AI's nav line. CTR_DEV_AUTOPILOT=2 stands
+// still on the grid instead (for measuring hops on flat ground).
+// CTR_DEV_HOP_MS=n adds a hop every n ms of race time. Returns 1 when it wrote
+// the pad.
+int NativeDev_AutopilotPad(unsigned short *buttons, unsigned char *leftX);
+
+// Per presented frame: CTR_DEV_TRACE=<csv> rows for player 1 (and the human
+// ghost), CTR_DEV_GHOST_OUT=<file> gets the recorded Time Trial ghost, and
+// CTR_DEV_EXIT_AFTER_RACE=1 quits a second after the finish.
+// CTR_DEV_RESULTS=<csv> gets every racer's rank, lap and distance to the
+// finish at CTR_DEV_RESULTS_MS of race time (default 30000).
+void NativeDev_RaceFrame(void);
+void NativeDev_RaceShutdown(void);
+
 #endif

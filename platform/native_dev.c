@@ -148,6 +148,7 @@ void NativeDev_EndFrame(void)
 	}
 	const int frame = dev->frame++;
 	s_devTagCount = 0;
+	NativeDev_RaceFrame();
 
 	if (dev->shotDir != NULL && frame >= dev->shotFrom && ((frame - dev->shotFrom) % dev->shotEvery) == 0)
 	{
@@ -163,5 +164,8 @@ void NativeDev_EndFrame(void)
 	}
 
 	if (dev->exitFrame > 0 && frame + 1 >= dev->exitFrame)
+	{
+		NativeDev_RaceShutdown();
 		exit(0);
+	}
 }

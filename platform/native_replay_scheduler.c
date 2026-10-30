@@ -6,6 +6,7 @@
 #include "platform/native_audio.h"
 #include "platform/native_checkpoint.h"
 #include "platform/native_checkpoint_file.h"
+#include "platform/native_config.h"
 #include "platform/native_input.h"
 #include "platform/native_log.h"
 #include "platform/native_memcard.h"
@@ -29,7 +30,7 @@
 // NOTE(aalhendi): Little-endian tags `CTRR`/`RFRM` = CTR native Replay.
 #define NATIVE_REPLAY_FILE_MAGIC                 0x52525443u
 #define NATIVE_REPLAY_FRAME_MAGIC                0x4d524652u
-#define NATIVE_REPLAY_FILE_VERSION               1u
+#define NATIVE_REPLAY_FILE_VERSION               2u
 #define NATIVE_REPLAY_FNV_OFFSET                 2166136261u
 #define NATIVE_REPLAY_FNV_PRIME                  16777619u
 #define NATIVE_REPLAY_CHECKPOINT_INTERVAL_FRAMES 300u
@@ -73,7 +74,11 @@ struct NativeReplayFileHeader
 	u32 checkpointPolicy;
 	char buildId[NATIVE_REPLAY_BUILD_ID_BYTES];
 	char platformId[NATIVE_REPLAY_PLATFORM_ID_BYTES];
-	u32 reserved[3];
+	// The fps60 option at record time. The checkpoint restores the live frame
+	// rate mode, but every later level load re-reads the option, so playback
+	// uses the recorded one (NativeReplayScheduler_GetFps60Option).
+	u32 fps60Option;
+	u32 reserved[2];
 };
 
 struct NativeReplayFrameRecord
@@ -281,6 +286,7 @@ internal void NativeReplayScheduler_InitHeader(struct NativeReplayFileHeader *he
 	header->checkpointSize = (u32)NativeCheckpoint_GetSize();
 	header->nativeStateSize = (u32)NativeState_GetSize();
 	header->checkpointPolicy = (u32)s_checkpointPolicy;
+	header->fps60Option = g_config.fps60 ? 1u : 0u;
 	NativeReplayScheduler_CopyFixedString(header->buildId, sizeof(header->buildId), CTR_NATIVE_BUILD_ID);
 	NativeReplayScheduler_CopyFixedString(header->platformId, sizeof(header->platformId), NativeReplayScheduler_PlatformID());
 	header->identityChecksum = NativeReplayScheduler_IdentityChecksum(header);
@@ -726,6 +732,7 @@ internal void NativeReplayScheduler_WriteReportMetadata(s32 finalMetadata)
 	fprintf(file, "frame_record_size=%u\n", (unsigned int)s_header.frameRecordSize);
 	fprintf(file, "checkpoint_size=%u\n", (unsigned int)s_header.checkpointSize);
 	fprintf(file, "native_state_size=%u\n", (unsigned int)s_header.nativeStateSize);
+	fprintf(file, "fps60=%u\n", (unsigned int)s_header.fps60Option);
 	fprintf(file, "checkpoint_mode=%s\n", NativeReplayScheduler_CheckpointPolicyName((enum NativeReplayCheckpointPolicy)s_header.checkpointPolicy));
 	fprintf(file, "identity_checksum=0x%08x\n", (unsigned int)s_header.identityChecksum);
 	fprintf(file, "frame_count=%u\n", (unsigned int)s_header.frameCount);
@@ -1595,6 +1602,16 @@ int NativeReplayScheduler_ConsumeFrameElapsedTimeMS(int *elapsedTimeMS)
 	*elapsedTimeMS = s_pendingRecord.endInfo.elapsedTimeMS;
 	s_frameTimingConsumed = 1;
 	return 1;
+}
+
+int NativeReplayScheduler_GetFps60Option(void)
+{
+	if (s_mode != NATIVE_REPLAY_MODE_PLAYBACK)
+	{
+		return -1;
+	}
+
+	return s_header.fps60Option ? 1 : 0;
 }
 
 void NativeReplayScheduler_RecordVSyncPacket(int emittedVBlanks)

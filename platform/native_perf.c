@@ -28,9 +28,10 @@
 #define NATIVE_PERF_SUMMARY_NAME     "summary.txt"
 #define NATIVE_PERF_TOP_FRAME_COUNT  20
 #define NATIVE_PERF_FLUSH_INTERVAL   120
-#define NATIVE_PERF_FRAME_BUDGET_MS  (1000.0 / 30.0)
-#define NATIVE_PERF_FRAME_WARN_40_MS 40.0
-#define NATIVE_PERF_FRAME_WARN_50_MS 50.0
+// A frame's budget is the VBlanks it waits for (vsyncTillFlip: 2 at 30 FPS,
+// 1 at 60 FPS) times the NTSC VBlank period, so over-budget counts mean the
+// same thing in both frame-rate modes.
+#define NATIVE_PERF_VBLANK_MS        (1000.0 / 59.94)
 
 struct NativePerfBucketInfo
 {
@@ -93,8 +94,8 @@ global_variable s32 s_rowsSinceFlush;
 global_variable u32 s_frameIndex;
 global_variable u32 s_framesOverBudget;
 global_variable u32 s_workFramesOverBudget;
-global_variable u32 s_framesOver40;
-global_variable u32 s_framesOver50;
+global_variable u32 s_framesOverHalfAgain;
+global_variable u32 s_framesOverDouble;
 global_variable f64 s_totalFrameMs;
 global_variable f64 s_totalWorkMs;
 global_variable f64 s_maxFrameMs;
@@ -327,10 +328,10 @@ internal void NativePerf_WriteSummary(FILE *file)
 	fprintf(file, "gpu_frames=%u\n", s_gpuFrameCount);
 	fprintf(file, "average_gpu_ms=%.3f\n", (s_gpuFrameCount == 0) ? 0.0 : s_totalGpuFrameMs / (f64)s_gpuFrameCount);
 	fprintf(file, "max_gpu_ms=%.3f\n", s_maxGpuFrameMs);
-	fprintf(file, "frames_over_33_33ms=%u\n", s_framesOverBudget);
-	fprintf(file, "work_frames_over_33_33ms=%u\n", s_workFramesOverBudget);
-	fprintf(file, "frames_over_40ms=%u\n", s_framesOver40);
-	fprintf(file, "frames_over_50ms=%u\n", s_framesOver50);
+	fprintf(file, "frames_over_budget=%u\n", s_framesOverBudget);
+	fprintf(file, "work_frames_over_budget=%u\n", s_workFramesOverBudget);
+	fprintf(file, "frames_over_1_5x_budget=%u\n", s_framesOverHalfAgain);
+	fprintf(file, "frames_over_2x_budget=%u\n", s_framesOverDouble);
 	fprintf(file, "csv_path=%s\n", s_csvPath);
 	fprintf(file, "gpu_csv_path=%s\n", s_gpuCsvPath);
 
@@ -481,9 +482,9 @@ void NativePerf_Shutdown(void)
 		Platform_Log("[CTR Perf] failed to write summary: %s\n", s_summaryPath);
 	}
 
-	Platform_Log("[CTR Perf] frames=%u avg=%.3fms avgWork=%.3fms max=%.3fms maxWork=%.3fms over33.33=%u workOver33.33=%u over40=%u over50=%u\n", s_frameIndex,
+	Platform_Log("[CTR Perf] frames=%u avg=%.3fms avgWork=%.3fms max=%.3fms maxWork=%.3fms overBudget=%u workOverBudget=%u over1.5x=%u over2x=%u\n", s_frameIndex,
 	             (s_frameIndex == 0) ? 0.0 : s_totalFrameMs / (f64)s_frameIndex, (s_frameIndex == 0) ? 0.0 : s_totalWorkMs / (f64)s_frameIndex, s_maxFrameMs,
-	             s_maxWorkMs, s_framesOverBudget, s_workFramesOverBudget, s_framesOver40, s_framesOver50);
+	             s_maxWorkMs, s_framesOverBudget, s_workFramesOverBudget, s_framesOverHalfAgain, s_framesOverDouble);
 	Platform_Log("[CTR Perf] summary: %s\n", s_summaryPath);
 
 	s_enabled = 0;
@@ -531,6 +532,7 @@ void NativePerf_EndFrame(const struct NativePerfFrameInfo *info)
 {
 	f64 totalMs;
 	f64 workMs;
+	f64 budgetMs;
 	f64 overBudgetMs;
 	f64 workOverBudgetMs;
 	f64 dominantMs;
@@ -553,13 +555,14 @@ void NativePerf_EndFrame(const struct NativePerfFrameInfo *info)
 		workMs = 0.0;
 	}
 
-	overBudgetMs = (totalMs > NATIVE_PERF_FRAME_BUDGET_MS) ? (totalMs - NATIVE_PERF_FRAME_BUDGET_MS) : 0.0;
-	workOverBudgetMs = (workMs > NATIVE_PERF_FRAME_BUDGET_MS) ? (workMs - NATIVE_PERF_FRAME_BUDGET_MS) : 0.0;
+	rowInfo = (info != NULL) ? info : &s_frameBeginInfo;
+	budgetMs = NATIVE_PERF_VBLANK_MS * (f64)((rowInfo->vsyncTillFlip > 0) ? rowInfo->vsyncTillFlip : 2);
+
+	overBudgetMs = (totalMs > budgetMs) ? (totalMs - budgetMs) : 0.0;
+	workOverBudgetMs = (workMs > budgetMs) ? (workMs - budgetMs) : 0.0;
 	dominantBucket = NativePerf_FindDominantBucket(&dominantMs);
 
 	NativeAudio_GetOutputStats(&endUnderrunFrames, &endOverflowFrames, &endQueuedFrames);
-
-	rowInfo = (info != NULL) ? info : &s_frameBeginInfo;
 
 	fprintf(s_csvFile, "%u,%.3f,%.3f,%.3f,%.3f,%s,%.3f,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d", s_frameIndex, totalMs, workMs, overBudgetMs,
 	        workOverBudgetMs, NativePerf_BucketName(dominantBucket), dominantMs, rowInfo->frameCounter, rowInfo->timer, rowInfo->levelID, rowInfo->gameMode1,
@@ -591,21 +594,21 @@ void NativePerf_EndFrame(const struct NativePerfFrameInfo *info)
 	{
 		s_maxWorkMs = workMs;
 	}
-	if (totalMs > NATIVE_PERF_FRAME_BUDGET_MS)
+	if (totalMs > budgetMs)
 	{
 		s_framesOverBudget++;
 	}
-	if (workMs > NATIVE_PERF_FRAME_BUDGET_MS)
+	if (workMs > budgetMs)
 	{
 		s_workFramesOverBudget++;
 	}
-	if (totalMs > NATIVE_PERF_FRAME_WARN_40_MS)
+	if (totalMs > budgetMs * 1.5)
 	{
-		s_framesOver40++;
+		s_framesOverHalfAgain++;
 	}
-	if (totalMs > NATIVE_PERF_FRAME_WARN_50_MS)
+	if (totalMs > budgetMs * 2.0)
 	{
-		s_framesOver50++;
+		s_framesOverDouble++;
 	}
 
 	worstFrame.frameIndex = s_frameIndex;

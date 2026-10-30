@@ -60,8 +60,7 @@ typedef struct
 	                            // each level load (MainMain_ApplyFrameRateMode,
 	                            // game/MAIN/MainMain.c), so a change made in the
 	                            // menu takes effect on the next track or menu
-	                            // load. Time Trial always runs at 30 so ghosts
-	                            // record and play back correctly.
+	                            // load.
 	// Remembered window position/size (issue: "remember window position and size
 	// between sessions" -- streaming setups want the same window every launch).
 	// Config-file-only, [State] section, the update_last_seen precedent: this is

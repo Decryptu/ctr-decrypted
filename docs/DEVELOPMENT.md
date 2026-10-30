@@ -61,7 +61,7 @@ The script needs `python -m pip install git-filter-repo`. High Octane (`highocta
 - New third-party code gets an entry in `THIRD_PARTY_NOTICES.md`.
 - Keep the Archipelago client compatible with the shipped `ctr.apworld` version. If slot data or item/location IDs change, the apworld must change in the same release.
 - Update `ROADMAP.md` in the same commit that finishes or starts an item.
-- Frame counts assume 30 FPS. When code sets or compares a frame-counted timer, wrap the value in `FPS_DOUBLE`, and wrap per-frame steps or blink phases in `FPS_HALF` (`include/macros.h`), so it keeps the same real-time speed in 60 FPS mode. See [60FPS.md](60FPS.md).
+- Frame counts assume 30 FPS. When code sets or compares a frame-counted timer, wrap the value in `FPS_DOUBLE`, and wrap per-frame steps or blink phases in `FPS_HALF` (`include/macros.h`), so it keeps the same real-time speed in 60 FPS mode. Data recorded frame by frame (ghosts, AI lap recordings) stays in 30 FPS units so recordings work in both modes. See [60FPS.md](60FPS.md).
 
 ## Testing
 - Build the AP and vanilla configurations.

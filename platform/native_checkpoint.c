@@ -21,7 +21,7 @@
 // and retail globals are defined, so they can snapshot the same process-local
 // regions the game mutates.
 #define NATIVE_CHECKPOINT_MAGIC              NATIVE_CHECKPOINT_FOURCC('C', 'T', 'R', 'C')
-#define NATIVE_CHECKPOINT_VERSION            2u
+#define NATIVE_CHECKPOINT_VERSION            3u
 #define NATIVE_CHECKPOINT_ADDRESS_RANGE_CAP  16u
 #define NATIVE_CHECKPOINT_POINTER_SLOT_CAP   65536u
 #define NATIVE_CHECKPOINT_CREDITS_STRING_CAP 4096u
@@ -105,6 +105,10 @@ struct NativeCheckpointHeader
 	struct PlatformMempackArena mempackArena;
 	u32 psxRandSeed;
 	s32 activeMempackIndex;
+	// The 60 FPS mode the state was taken in (MainMain_ApplyFrameRateMode).
+	// Frame timers are scaled when they are set, so a state only replays
+	// correctly in the mode it was captured in.
+	s32 fps60Enabled;
 	u32 addressRangeCount;
 	u32 codeAnchor;
 	struct NativeCheckpointAddressRange addressRanges[NATIVE_CHECKPOINT_ADDRESS_RANGE_CAP];
@@ -2249,6 +2253,7 @@ int NativeCheckpoint_Capture(void *dst, int dstSize)
 	header.mempackArena = *Platform_GetMempackArena();
 	header.psxRandSeed = PSX_BIOS_GetRandSeed();
 	header.activeMempackIndex = NativeCheckpoint_GetActiveMempackIndex();
+	header.fps60Enabled = gNative60FpsEnabled;
 
 	memset(dst, 0, header.size);
 	memcpy(dst, &header, sizeof(header));
@@ -2384,6 +2389,7 @@ int NativeCheckpoint_Restore(const void *src, int srcSize)
 	}
 
 	PSX_BIOS_SetRandSeed(header->psxRandSeed);
+	gNative60FpsEnabled = header->fps60Enabled;
 	Platform_ConfigureMempackArena();
 	NativeCheckpoint_RelocateMempackPointers(header, &liveHeader);
 	NativeCheckpoint_RelocateRuntimePointers(header, &liveHeader);

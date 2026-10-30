@@ -22,6 +22,7 @@ The script prints the capture folder (`%TEMP%\ctrdev\shots-HHmmss` unless `-Out`
 | `-Env` | Extra environment variables, e.g. `@{CTR_PGXP_DEBUG=1}` |
 | `-Visible`, `-RealTime` | Show the window, or keep wall-clock pacing |
 | `-Exe` | Executable to run (default `build-vanilla\ctr_native.exe`) |
+| `-RunDir` | Run folder (default `%TEMP%\ctrdev\run`). Give runs that happen at the same time a folder each |
 
 The race starts about 1,200 frames into a demo run.
 
@@ -39,6 +40,15 @@ All of these are read once, by `platform/native_dev.c` (`include/platform/native
 | `CTR_DEV_EXIT_FRAME=<n>` | Quit after n presented frames |
 | `CTR_DEV_DUMP_FRAME=<n>` | Write every polygon drawn in frame n to `polys-NNNNNN.txt` in the capture folder: the level-renderer bucket tag, then for each vertex its retail screen position, its drawn position and its precise depth |
 | `CTR_PGXP_DEBUG=1..4` | PGXP tints, see [PGXP.md](PGXP.md#debugging) |
+| `CTR_DEV_RACE=<LevelID>` | The title menu starts a one-player race on that track instead of the demo, with nobody at the controls unless the autopilot drives |
+| `CTR_DEV_MODE=tt` | Make `CTR_DEV_RACE` a Time Trial (default Arcade). `CTR_DEV_LAPS=n` sets the Arcade lap count |
+| `CTR_DEV_AUTOPILOT=1` | During a race, player 1's pad holds the throttle and steers along the AI's nav line (aiming about half a second ahead), so the kart drives through the normal physics. When wedged (under 300 units travelled in 1.5 s of race time) it reverses for a second. `=2` stands still on the grid instead |
+| `CTR_DEV_HOP_MS=<n>` | The autopilot hops every n ms of race time |
+| `CTR_DEV_TRACE=<csv>` | One row per frame of player 1 in a race: race time, position, angle, speed, velocity, airborne, kart state, lap, animation, the human ghost's position, and the autopilot's target |
+| `CTR_DEV_GHOST_OUT=<file>` | Write the Time Trial ghost recorded in the race (`0x3e00` bytes, the memory card ghost layout) |
+| `CTR_DEV_GHOST_IN=<file>` | Race a ghost file from `CTR_DEV_GHOST_OUT` in the Time Trial |
+| `CTR_DEV_EXIT_AFTER_RACE=1` | Quit a second after the finish |
+| `CTR_DEV_RESULTS=<csv>` | Every racer's rank, lap and distance to the finish at `CTR_DEV_RESULTS_MS` of race time (default 30000, counted from the lights). Works in the attract demo too, to compare the AI |
 
 Frame numbers count every presented frame, the boot splash included.
 
@@ -46,6 +56,30 @@ Frame numbers count every presented frame, the boot splash included.
 
 - `tools/decrypted/find_holes.py <dir> [--ignore-top N] [--max-run N]` finds see-through holes in a capture made with `CTR_PGXP_DEBUG=1`. In that mode the sky backdrop draws pure blue, so a short vertical run of blue with geometry above and below it is a hole. It prints a count per frame and a total, and writes `holes-*.png` with the holes painted magenta. Use `--ignore-top 110 --max-run 4` at 2x render scale to skip the HUD text. HUD text, boost flames and gaps between distant rocks also register, so compare totals against a baseline run (the same settings with `CTR_PGXP_DEBUG=3`) rather than reading them alone.
 - `tools/decrypted/pgxp_cracks.py <polys-NNNNNN.txt> [--level-only]` reads a polygon dump. It reports level vertices drawn at more than one position (a shared corner that disagrees with itself), then T-junction candidates: vertices that lie inside another polygon's edge in retail but not when drawn.
+
+## Unattended races
+
+The race switches above live in `platform/native_dev_race.c`. They check gameplay timing without anyone driving, mainly 60 FPS against 30:
+
+```powershell
+# Every track, a Time Trial at 30 and at 60 FPS, plus the 30 FPS ghost raced at both:
+tools\decrypted\fps-parity.ps1 -Ghosts
+# One track:
+tools\decrypted\fps-parity.ps1 -Tracks 3
+```
+
+`tools/decrypted/race_trace.py` reads the traces:
+
+- `laps A.csv B.csv`: lap splits.
+- `jumps A.csv`: airborne spells, airtime and apex height.
+- `parity A.csv B.csv`: finish times, and jumps launched from the same spot in both runs.
+- `ghost SOURCE.csv PLAY.csv`: how far the ghost in PLAY strays from the player of SOURCE, who recorded it.
+
+A Time Trial takes 10 to 20 seconds to run at 30 FPS, twice that at 60. The autopilot never boosts, hops or drifts, so it falls into the same pits again and again on N. Gin Labs and Polar Pass, and at 60 FPS it wedges on an inside wall of Dingo Canyon; those runs end at the frame cap. Results per track are in [60FPS.md](60FPS.md#automated-checks). Input replays (`--record`, `--replay`, [REPLAYS.md](REPLAYS.md)) work with these switches too. Set the same `CTR_DEV_RACE` and `CTR_DEV_MODE` when playing back, because they change the title menu's flow.
+
+## Frame timing
+
+`ctr_native.exe --perf` writes `debug/perf/perf-latest/frame_times.csv` and `summary.txt`. A frame's budget is the VBlanks it waits for times 16.68 ms (33.37 ms at 30 FPS, 16.68 ms at 60), and the summary counts frames over the budget, over 1.5 times it (shown on screen a refresh too long), and over twice it. The swap does not wait for the display in a hidden window, so measure VSync On and Adaptive with the window visible.
 
 ## Worked example: the distant-floor holes
 

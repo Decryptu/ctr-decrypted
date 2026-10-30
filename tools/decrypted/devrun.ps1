@@ -23,13 +23,14 @@ param(
 	[hashtable]$Env = @{},           # extra environment variables, e.g. @{CTR_PGXP_DEBUG=1}
 	[switch]$Visible,                # show the window instead of hiding it
 	[switch]$RealTime,               # keep wall-clock pacing
-	[int]$TimeoutSec = 300
+	[int]$TimeoutSec = 300,
+	[string]$RunDir = ""             # run folder (default %TEMP%\ctrdev\run); give parallel runs their own
 )
 $ErrorActionPreference = 'Stop'
 
 $exePath = (Resolve-Path $Exe).Path
 $root = Join-Path $env:TEMP 'ctrdev'
-$run = Join-Path $root 'run'
+$run = if ($RunDir) { $RunDir } else { Join-Path $root 'run' }
 New-Item -ItemType Directory -Force $run | Out-Null
 if (-not $Out) { $Out = Join-Path $root ("shots-" + (Get-Date -Format 'HHmmss')) }
 New-Item -ItemType Directory -Force $Out | Out-Null

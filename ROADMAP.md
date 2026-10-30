@@ -14,29 +14,25 @@ Status of CTR Decrypted, kept current with every change. **Status values:** Done
 ## Done
 | Item | Notes |
 |---|---|
-| Repo set up on dowlle/ctr-native-ap `main` | Imported through `tools/decrypted/sync-upstream.ps1` |
-| Windows checkout fix | `*.patch` files are forced to LF so the vendor hash check passes with `core.autocrlf=true` |
-| Native Switch 2 Pro Controller | Vendored libusb 1.0.30 in `externals/libusb`, so SDL's Switch 2 driver works without Steam. Tested over USB. Steam must not be running, or it grabs the pad first |
-| PGXP: anti-wobble and perspective-correct textures | Branch `feature/pgxp`. Port of High Octane 03014d84f (from CTR Turbocharged). OPTIONS → Video → PGXP (Anti-Wobble): OFF / TEXTURES / GEOMETRY / FULL, default FULL, switches live. Anti-wobble confirmed in game. Distant-floor holes and missing floor pieces fixed: per-polygon UV clamp, sampler fixes, and back-face culling on the precise vertices. See [docs/PGXP.md](docs/PGXP.md) |
-| Developer tools for unattended runs | `CTR_DEV_*` switches: attract demo on any track, fast-forward, hidden window, frame capture, polygon dumps, all bit-exact. `tools/decrypted/devrun.ps1` plus analysis scripts. See [docs/DEV-TOOLS.md](docs/DEV-TOOLS.md) |
-| Choose your starting racer in Adventure | Archipelago. When the seed unlocks all eight vanilla starters, the garage picker runs again at a new profile instead of being skipped, and the pick is stored like a hub-picker choice. Racers outside the garage's eight stay reachable through the hub picker |
-| Texture sampler rounding fix | A one-texel column of wrong colour through non-integer-scaled sprites, seen in the widescreen name-entry font. See the PGXP doc's texture sampling section |
-| Boot splash centred when the window starts maximized | The presentation viewport now reads the live window size; the SCEA and copyright screens drew before the first resize event and used the restored size (`NativeRenderer_UpdatePresentationViewport`) |
-| Darker backdrop behind the in-hub character picker | Archipelago. A 50% black layer behind the picker for contrast |
+| Repo set up on dowlle/ctr-native-ap `main` | Imported through `tools/decrypted/sync-upstream.ps1`. `*.patch` files forced to LF so the vendor hash check passes with `core.autocrlf=true` |
+| Native Switch 2 Pro Controller | Vendored libusb 1.0.30 (`externals/libusb`), so SDL's Switch 2 driver works without Steam. Steam must not be running, or it grabs the pad first |
+| PGXP: anti-wobble and perspective-correct textures | OPTIONS → Video → PGXP (Anti-Wobble), default FULL. Port of High Octane 03014d84f, plus fixes for distant-floor holes and texture sampler rounding. See [docs/PGXP.md](docs/PGXP.md) |
+| 60 FPS mode | OPTIONS → Video → 60 FPS (Next Load), on by default, every mode including Time Trial. Port of High Octane's option plus fork fixes: ghosts and AI lap recordings keep 30 FPS units, replays and savestates keep their mode, AI speed. Checked unattended on every track; what only a player can check is listed in [docs/60FPS.md](docs/60FPS.md) |
+| Developer tools for unattended runs | `CTR_DEV_*` switches: attract demo or race on any track, autopilot, traces, fast-forward, hidden window, frame capture, polygon dumps, all bit-exact. `devrun.ps1`, `fps-parity.ps1` and analysis scripts; `--perf` budget follows the frame rate. See [docs/DEV-TOOLS.md](docs/DEV-TOOLS.md) |
+| Archipelago: starting racer and hub picker | All eight vanilla starters unlocked → the garage picker runs at a new profile. 50% black backdrop behind the in-hub picker |
+| Boot splash centred when the window starts maximized | `NativeRenderer_UpdatePresentationViewport` reads the live window size |
 
 ## In progress
-| Item | Notes |
-|---|---|
-| 60 FPS mode | Branch `feature/60fps`, builds (AP and vanilla) but not yet tested in game. Port of High Octane's runtime option: commit 706f1819b and its follow-ups fixing animation speed and jump height. `fps60` in `config.ini`, **OPTIONS → Video → 60 FPS (Next Load)**, on by default, applied at the next level load. Time Trial stays at 30 for ghosts. Archipelago timers keep real-time durations. Blinks and flashes audited and fixed (list in the doc). Remaining: the in-game checklist in [docs/60FPS.md](docs/60FPS.md), then merge |
+Nothing.
 
 ## Planned
 Roughly in this order.
 
 | Item | Source |
 |---|---|
-| Check frame pacing at 60 FPS with the existing VSync option (Off / On / Adaptive, from the base) on 60 Hz and high-refresh monitors | High Octane lacks VSync (#46). Our base has it, but it was tuned for 30 FPS |
-| 60 FPS: Time Trial at 60 (ghosts tagged with their frame rate) | Time Trial is pinned to 30 because ghosts store one sample per frame |
-| 60 FPS: internal replay scheduler and AI lap recorder count frames | Recordings only match at the frame rate they were made at |
+| Check frame pacing at 60 FPS with the existing VSync option (Off / On / Adaptive, from the base) on 60 Hz and high-refresh monitors | High Octane lacks VSync (#46). The game's own clock is steady at 60 (median 16.68 ms); how it meets the display needs a visible window, see [docs/60FPS.md](docs/60FPS.md#left-to-check-by-playing) |
+| Kart pinned on a turbo pad edge: at 60 FPS the autopilot left the road at Cortex Castle's first turn (about 5.1 s in) and stopped nose-first against a wall on a turbo pad's lip. The pad refills reserves every frame, so the boost overrides brake, reverse and steering for good. Find whether 30 FPS can reach the same pose, then make the kart able to leave | Found by `fps-parity.ps1 -Tracks 10`; the 60 FPS trace freezes at (-1609, 27, 9971) |
+| 60 FPS: the last 1.4% of AI speed | Bots still leave the ground for a frame at kinks in the nav line more often than at 30 (9% of frames against 6%), mostly at the start |
 | Softlock or black screen on the credits and scrapbook after beating Oxide | ctr-native #45 and #52, High Octane #24 |
 | Mystery Caves left path crash with 3–4 players | ctr-native #58. Fixed in High Octane (#30); port it |
 | Stage-2 key count ignored with vanilla unlock requirements | ctr-native-ap #499 |
@@ -52,6 +48,7 @@ Roughly in this order.
 | Pre-race camera flyover is wrong | ctr-native #14 |
 
 ## Maybe
+- Retail-exact physics at 60 FPS: run the simulation at a fixed 30 Hz and interpolate rendering. Today's 60 FPS integrates in 16 ms steps, so curved kickers launch a little higher (Dingo Canyon: apex rise 24 at 30 FPS, 31 to 33 at 60). A different design from High Octane's, touching every rendered position.
 - Mirror mode, reverse tracks, Super/Ultra Hard, extra arcade modes, boss fights on any track (High Octane). Less useful for Archipelago play.
 - Custom racers (`.ctrr`) and High Octane's ghost replay tools.
 - A 4:3 / 5:4 aspect option for CRTs (High Octane #44).

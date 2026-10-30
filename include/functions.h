@@ -289,6 +289,7 @@ struct Instance *INSTANCE_BirthWithThread(int modelID, const char *name, int poo
 struct Instance *INSTANCE_BirthWithThread_Stack(int *spArr);
 void INSTANCE_Death(struct Instance *inst);
 b32 INSTANCE_Use60FpsAnimation(struct Instance *inst);
+b32 INSTANCE_AnimHasDoubledFrames(struct Instance *inst, int animIndex);
 u16 INSTANCE_GetNumAnimFrames(struct Instance *pInstance, int animIndex);
 void INSTANCE_LevInitAll(struct InstDef *levInstDef, int numInst);
 

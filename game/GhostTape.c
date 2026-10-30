@@ -125,13 +125,22 @@ void GhostTape_WriteMoves(s16 raceFinished)
 	    // If race is just finished
 	    (raceFinished != 0) ||
 
-	    // This is true every 8 frames
-	    ((sdata->GhostRecording.countEightFrames & 7) == 0))
+	    // This is true every 8 frames (16 at 60 FPS: tapes hold one
+	    // sample per 8 frames of 30 FPS, whatever rate records them)
+	    ((sdata->GhostRecording.countEightFrames & (FPS_DOUBLE(8) - 1)) == 0))
 	{
 		iVar8 = gGT->threadBuckets[0].thread->object;
 
 		// player instance
 		iVar7 = iVar8->instSelf;
+
+		// Tapes store animation frames at their 30 FPS length, so a ghost
+		// plays back the same at either frame rate (GhostReplay_ThTick).
+		s32 animFrame = iVar7->animFrame;
+		if (INSTANCE_AnimHasDoubledFrames(iVar7, iVar7->animIndex))
+		{
+			animFrame >>= 1;
+		}
 
 		// compress position (x, y, z) with bitshifting
 		iVar4 = iVar7->matrix.t[0] >> 3;
@@ -151,17 +160,17 @@ void GhostTape_WriteMoves(s16 raceFinished)
 
 		if (
 		    // if animation frame changed
-		    (sdata->GhostRecording.animFrame != iVar7->animFrame) ||
+		    (sdata->GhostRecording.animFrame != animFrame) ||
 
 		    // if animation changed
 		    (sdata->GhostRecording.animIndex != iVar7->animIndex))
 		{
-			sdata->GhostRecording.animFrame = iVar7->animFrame;
+			sdata->GhostRecording.animFrame = animFrame;
 			sdata->GhostRecording.animIndex = iVar7->animIndex;
 
 			pbVar1[0] = 0x81;
 			pbVar1[1] = iVar7->animIndex;
-			pbVar1[2] = iVar7->animFrame;
+			pbVar1[2] = animFrame;
 			pbVar1 += 3;
 		}
 
@@ -326,7 +335,8 @@ void GhostTape_WriteBoosts(int addReserve, u8 type, int speedCap)
 		{
 			return;
 		}
-		sdata->GhostRecording.boostCooldown1E = 0x1e;
+		// one second, counted down once per frame in GhostTape_WriteMoves
+		sdata->GhostRecording.boostCooldown1E = FPS_DOUBLE(0x1e);
 	}
 
 	// 0x82-style chunks are 6 bytes long (including 0x82)

@@ -13,18 +13,18 @@
 // Runtime frame-rate state behind CTR_NATIVE_60FPS_ACTIVE (include/macros.h).
 // Frame-counted timers are scaled with FPS_DOUBLE/FPS_HALF when they are set,
 // so the mode must not flip while those timers are live: it is only changed
-// here, at a level-load boundary, and at boot.
+// here, at a level-load boundary, and at boot. Checkpoints store and restore
+// it with the timers it scaled (native_checkpoint.c).
 int gNative60FpsEnabled = 1;
-int gNativeForce30Fps = 0;
 
-void MainMain_ApplyFrameRateMode(struct GameTracker *gGT)
+void MainMain_ApplyFrameRateMode(void)
 {
 	gNative60FpsEnabled = g_config.fps60 ? 1 : 0;
-
-	// Time Trial ghosts (GhostTape.c / GhostReplay.c) store one sample per
-	// frame and the ghost buffer is sized for a 30 FPS lap, so Time Trial
-	// races always run at 30, both when recording and when racing a ghost.
-	gNativeForce30Fps = (gGT != NULL) && ((gGT->gameMode1 & TIME_TRIAL) != 0) && (gGT->levelID != MAIN_MENU_LEVEL);
+#if defined(CTR_INTERNAL)
+	// An input replay plays back in the mode it was recorded in.
+	if (NativeReplayScheduler_GetFps60Option() >= 0)
+		gNative60FpsEnabled = NativeReplayScheduler_GetFps60Option();
+#endif
 }
 #endif
 
@@ -96,7 +96,7 @@ u32 main(void)
 	gGS = sdata->gGamepads;
 
 #if CTR_NATIVE_60FPS
-	MainMain_ApplyFrameRateMode(gGT);
+	MainMain_ApplyFrameRateMode();
 #endif
 
 	// NOTE(aalhendi): Retail main calls __main before the state loop. Native has
@@ -322,9 +322,9 @@ u32 main(void)
 						// remove LOADING... flag from gGT
 						sdata->Loading.stage = LOAD_IDLE;
 #if CTR_NATIVE_60FPS
-						// pick up the fps60 option and the Time Trial
-						// 30 FPS pin before the new level initializes
-						MainMain_ApplyFrameRateMode(gGT);
+						// pick up the fps60 option before the new
+						// level initializes
+						MainMain_ApplyFrameRateMode();
 #endif
 						sdata->mainGameState = 1;
 						gGT->gameMode1 &= ~LOADING;

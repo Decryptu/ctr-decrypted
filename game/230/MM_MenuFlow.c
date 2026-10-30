@@ -112,7 +112,7 @@ void MM_MenuProc_Main(struct RectMenu *mainMenu)
 			if (sdata->gGamepads->anyoneHeldCurr == 0)
 			{
 				gGT->demoCountdownTimer--;
-				if (NativeDev_DemoTrack() >= 0)
+				if ((NativeDev_DemoTrack() >= 0) || (NativeDev_RaceTrack() >= 0))
 					gGT->demoCountdownTimer = 0;
 
 				// If time runs out

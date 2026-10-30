@@ -538,6 +538,23 @@ b32 INSTANCE_Use60FpsAnimation(struct Instance *inst)
 }
 
 
+// True when inst plays animation animIndex at double length in 60 FPS mode.
+// Its animFrame then counts half frames, keyframes on the even values
+// (INSTANCE_GetNumAnimFrames). Animations flagged 0x8000 already store half
+// frames and play the same at both rates.
+b32 INSTANCE_AnimHasDoubledFrames(struct Instance *inst, int animIndex)
+{
+	if (!INSTANCE_Use60FpsAnimation(inst) || (animIndex < 0) || (animIndex >= (int)inst->model->headers[0].numAnimations) ||
+	    (inst->model->headers[0].ptrAnimations == NULL))
+	{
+		return false;
+	}
+
+	struct ModelAnim *anim = inst->model->headers[0].ptrAnimations[animIndex];
+	return (anim != NULL) && ((anim->numFrames & 0x8000) == 0) && ((anim->numFrames & 0x7fff) != 0);
+}
+
+
 /// @brief Obtain number of actual animation data frames in the first lod entry of the passed model.
 /// @param pInstance - pointer to Instance
 /// @param animIndex - animation index to check

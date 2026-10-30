@@ -77,9 +77,10 @@ CTR_STATIC_ASSERT(OFFSETOF(struct NavFrame, specialBits) == OFFSETOF(struct AP_N
 #define AP_NAVREC_SAMPLE_ROWS (AP_NAVREC_BANK_LAPS + 1)
 #define AP_NAVREC_LIVE_ROW    AP_NAVREC_BANK_LAPS
 
-// Raw samples per lap, one per race frame. 4000 frames is over two minutes at
-// 30 Hz, comfortably past any retail lap. A lap that overruns it is marked
-// dirty rather than truncated silently.
+// Raw samples per lap, one per 30 Hz race tick (every frame at 30 FPS, every
+// other frame at 60). 4000 ticks is over two minutes, comfortably past any
+// retail lap. A lap that overruns it is marked dirty rather than truncated
+// silently.
 #define AP_NAVREC_MAX_SAMPLES 4000
 
 // Recording-only working set, allocated when nav_record is switched ON and
@@ -152,6 +153,7 @@ static unsigned int s_navrecBankTurboFires[AP_NAVREC_BANK_LAPS];
 
 static unsigned int s_navrecCurSamples;
 static unsigned int s_navrecCurFrames;
+static int          s_navrecCurSkipFrame; // 60 FPS: the next frame is between two 30 Hz ticks
 static int          s_navrecCurDirty;
 static unsigned int s_navrecCurMaskFires;
 static unsigned int s_navrecCurTurboFires;
@@ -427,6 +429,7 @@ static void AP_NavRec_DropCurrentLap(void)
 {
 	s_navrecCurSamples = 0;
 	s_navrecCurFrames = 0;
+	s_navrecCurSkipFrame = 0;
 	s_navrecCurDirty = 0;
 	s_navrecCurMaskFires = 0;
 	s_navrecCurTurboFires = 0;
@@ -1717,6 +1720,18 @@ void AP_NavRec_Tick(struct GameTracker *gGT)
 		u8 ks = d->kartState;
 		if ((ks == KS_MASK_GRABBED) || (ks == KS_BLASTED) || (ks == KS_SPINNING) || (ks == KS_CRASHING))
 			s_navrecCurDirty = 1;
+	}
+
+	// Samples, node timestamps and lap lengths are in 30 Hz ticks whatever the
+	// frame rate, so a file recorded at 60 FPS matches one recorded at 30 (the
+	// sample cap, the closure bound's one tick of travel, lap ranking). At 60
+	// FPS every other frame is skipped, starting each lap on a sample. The
+	// boundary and dirty checks above still run every frame.
+	if (CTR_NATIVE_60FPS_ACTIVE)
+	{
+		s_navrecCurSkipFrame = !s_navrecCurSkipFrame;
+		if (!s_navrecCurSkipFrame)
+			return;
 	}
 
 	s_navrecCurFrames++;

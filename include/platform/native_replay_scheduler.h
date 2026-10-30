@@ -34,6 +34,9 @@ int NativeReplayScheduler_ConsumeVSyncPacket(int requestedVBlanks, int *emittedV
 int NativeReplayScheduler_ConsumeFrameElapsedTimeMS(int *elapsedTimeMS);
 int NativeReplayScheduler_EndFrame(const struct NativeReplaySchedulerFrameInfo *info);
 void NativeReplayScheduler_RecordVSyncPacket(int emittedVBlanks);
+// The fps60 option recorded in the replay being played back, or -1 when no
+// replay is playing.
+int NativeReplayScheduler_GetFps60Option(void);
 #endif
 
 #endif

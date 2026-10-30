@@ -176,6 +176,12 @@ void MM_Title_MenuUpdate(void)
 		gGT->gameMode1 &= ~(BATTLE_MODE | ADVENTURE_MODE | TIME_TRIAL | ADVENTURE_ARENA | ARCADE_MODE | ADVENTURE_CUP);
 		gGT->gameMode2 &= ~(CUP_ANY_KIND);
 
+		if (NativeDev_RaceTrack() >= 0)
+		{
+			cutsceneLev = NativeDev_StartRace(gGT);
+			goto LAB_800abfc0;
+		}
+
 		// enable Arcade Mode
 		gGT->gameMode1 |= ARCADE_MODE;
 

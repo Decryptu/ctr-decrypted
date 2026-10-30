@@ -26,7 +26,7 @@ NativeConfig g_config = {
 	false, // textureFiltering (default off: PSX-authentic point sampling)
 	0,     // vsync (0 = Off, default: avoid double-throttling the retail draw-sync path)
 	false, // muteWhenUnfocused (default off: a single-game setup keeps today's behaviour)
-	true,  // fps60 (default on: 60 FPS mode, Time Trial stays at 30)
+	true,  // fps60 (default on: 60 FPS mode)
 	NATIVE_WINDOW_GEOMETRY_POS_UNSET, // windowX  (unset = never saved)
 	NATIVE_WINDOW_GEOMETRY_POS_UNSET, // windowY
 	0,     // windowWidth  (0 = never saved)
@@ -112,8 +112,7 @@ const ConfigEntry g_configEntries[] = {
 	{"Video & QoL", "mute_when_unfocused",      "Mute When Unfocused",          CFG_BOOL, &g_config.muteWhenUnfocused},
 	// 60 FPS (CFG_BOOL, default on): High Octane's 60 FPS mode. Applied at the
 	// next level load, never mid-race (MainMain_ApplyFrameRateMode in
-	// game/MAIN/MainMain.c), which the label says; Time Trial is pinned to 30
-	// for ghost data.
+	// game/MAIN/MainMain.c), which the label says.
 	{"Video & QoL", "fps60",                    "60 FPS (Next Load)",           CFG_BOOL, &g_config.fps60},
 #ifdef CTR_AP
 	// Skip Podium Ceremonies (issue #285, CFG_BOOL): a LOCAL client option, off

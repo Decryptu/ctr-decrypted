@@ -290,11 +290,19 @@ void GhostReplay_ThTick(struct Thread *t)
 				inst->animIndex = (numAnimFrames < 1) ? 0 : buffer[1];
 
 				s32 maxFrame = INSTANCE_GetNumAnimFrames(inst, inst->animIndex) - 1;
-				if (buffer[2] != 0)
+
+				// Tapes store frames at the 30 FPS length (GhostTape_WriteMoves).
+				s32 frame = buffer[2];
+				if (INSTANCE_AnimHasDoubledFrames(inst, inst->animIndex))
 				{
-					if (buffer[2] < maxFrame)
+					frame <<= 1;
+				}
+
+				if (frame != 0)
+				{
+					if (frame < maxFrame)
 					{
-						inst->animFrame = buffer[2];
+						inst->animFrame = frame;
 					}
 					else
 					{

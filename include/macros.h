@@ -50,14 +50,12 @@ typedef double f64;
 
 // 60 FPS mode (ported from Crash Team Racing: High Octane). Enabled for every
 // native build. gNative60FpsEnabled follows the fps60 option in config.ini and
-// gNativeForce30Fps pins the game to 30 for modes whose data is recorded per
-// frame (Time Trial ghosts). Both are applied only at a level-load boundary,
-// see MainMain_ApplyFrameRateMode (game/MAIN/MainMain.c).
+// is applied only at a level-load boundary, see MainMain_ApplyFrameRateMode
+// (game/MAIN/MainMain.c).
 #if defined(CTR_NATIVE)
 #define CTR_NATIVE_60FPS 1
 extern int gNative60FpsEnabled;
-extern int gNativeForce30Fps;
-#define CTR_NATIVE_60FPS_ACTIVE     ((gNative60FpsEnabled != 0) && (gNativeForce30Fps == 0))
+#define CTR_NATIVE_60FPS_ACTIVE     (gNative60FpsEnabled != 0)
 #define CTR_FRAMES_PER_SECOND       (CTR_NATIVE_60FPS_ACTIVE ? 60 : FPS)
 #define CTR_NATIVE_FRAME_ELAPSED_MS (CTR_NATIVE_60FPS_ACTIVE ? 16 : ELAPSED_MS)
 #define FPS_DOUBLE(x)               (CTR_NATIVE_60FPS_ACTIVE ? ((x) * 2) : (x))
