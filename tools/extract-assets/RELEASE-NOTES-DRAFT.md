@@ -63,8 +63,3 @@ Bugs, crashes and stuck seeds go to the [issue tracker](https://github.com/dowll
 - SDL3, for cross-platform windowing, input, timing, and audio.
 - Crash Team Racing is a trademark of its respective rights holders. This is an
   unofficial, fan-made project and is not affiliated with or endorsed by them.
-
-### AI disclosure
-
-Parts of this project were developed with AI assistance. See the AI disclosure
-in the repository for details.
