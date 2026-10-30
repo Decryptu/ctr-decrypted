@@ -222,6 +222,10 @@ internal int NativeRenderer_InitialiseGLContext(char *windowName, int fullscreen
 	{
 		windowFlags |= SDL_WINDOW_FULLSCREEN;
 	}
+	if (NativeDev_Hidden())
+	{
+		windowFlags = (windowFlags & ~SDL_WINDOW_FULLSCREEN) | SDL_WINDOW_HIDDEN;
+	}
 
 	// Apply remembered window geometry (issue: remember position/size between
 	// sessions -- streaming setups want the same window every launch). With
@@ -2554,6 +2558,25 @@ void NativeRenderer_PresentVRAMRect(int displayX, int displayY, int displayW, in
 
 	s_previousShader = (ShaderID)-1;
 	s_lastBoundTexture = (TextureID)-1;
+}
+
+unsigned char *NativeRenderer_ReadMainTarget(int *width, int *height)
+{
+	if (s_mainRenderTarget.width <= 0 || s_mainRenderTarget.height <= 0)
+		return NULL;
+	unsigned char *pixels = (unsigned char *)malloc((size_t)s_mainRenderTarget.width * (size_t)s_mainRenderTarget.height * 4);
+	if (pixels == NULL)
+		return NULL;
+	GLint previousReadFramebuffer;
+	glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &previousReadFramebuffer);
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, s_mainRenderTarget.framebuffer);
+	glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+	glPixelStorei(GL_PACK_ALIGNMENT, 4);
+	glReadPixels(0, 0, s_mainRenderTarget.width, s_mainRenderTarget.height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)previousReadFramebuffer);
+	*width = s_mainRenderTarget.width;
+	*height = s_mainRenderTarget.height;
+	return pixels;
 }
 
 void NativeRenderer_PresentMainRenderTarget(void)

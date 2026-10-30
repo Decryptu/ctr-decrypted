@@ -16,7 +16,7 @@ Everything a new contributor needs, with no other context. Keep it current. [ROA
 | `include/` | Shared headers, structs, macros (`include/macros.h` holds the frame-rate macros) |
 | `externals/SDL` | SDL 3.4.10, vendored, static |
 | `externals/libusb` | libusb 1.0.30 Windows backend, vendored, for Switch 2 controllers |
-| `tools/decrypted/` | Our own scripts (upstream sync) |
+| `tools/decrypted/` | Our own scripts (upstream sync, unattended runs and render diagnostics) |
 | `docs/` | Project docs |
 
 ## Build (Windows)
@@ -66,4 +66,5 @@ The script needs `python -m pip install git-filter-repo`. High Octane (`highocta
 ## Testing
 - Build the AP and vanilla configurations.
 - In game, check at least: boot to the menu, one race, the Adventure hub, and connecting to a local Archipelago server. Check timing changes with `fps60` both on and off (`config.ini`, `[Video & QoL]`, or **OPTIONS → Video → 60 FPS (Next Load)**). To host a test seed: `ArchipelagoServer.exe --port 38281 <seed.zip>` from an Archipelago 0.6.7+ install.
+- Reproduce and check visual changes with the [developer tools](DEV-TOOLS.md): `tools/decrypted/devrun.ps1` runs any track's demo hidden and fast-forwarded and captures frames, bit-exact between runs. Never drive the game with OS keystrokes.
 - The upstream harnesses run in CI (`.github/workflows/ci.yml`). `tools/ci/` has the local runner.

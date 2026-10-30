@@ -3058,6 +3058,12 @@ s32 NativeAudio_SpuInit(void)
 	}
 
 	s_audio.init = 1;
+	// CTR_DEV_FAST: the SPU and XA streams normally advance in SDL's real-time
+	// callback, and the game waits on them (title music, cutscenes). Drive
+	// them from the VBlank clock instead, as replays do, from the very first
+	// frame, so unattended runs are frame-deterministic.
+	if (NativeDev_Fast())
+		NativeAudio_SetDeterministicRenderMode(1);
 	return 1;
 }
 

@@ -23,19 +23,27 @@ High Octane has no later functional changes to PGXP. Commit `9369c5f11` (post-pr
 
 The menu steps in High Octane's order (OFF, TEXTURES, GEOMETRY, FULL). Changes apply at the next frame boundary, so the option switches live with no restart. High Octane only applies a change after a restart because it compiles the shaders per mode. Here the shaders handle every mode, see below.
 
-High Octane also reads a config-file-only `pgxp_precise_nclip`, which makes back-face culling use the precise vertices. It is off by default there and is not exposed here: `gNativePgxpIntegerNclipEnabled` stays 1, so culling uses the retail integer result. The code path is ported and can be enabled by changing that default.
+Back-face culling uses the precise vertices whenever GEOMETRY or FULL is on (`gNativePgxpIntegerNclipEnabled` = 0). High Octane has the same code behind a config-file-only `pgxp_precise_nclip`, off by default there, and that default is what caused holes in distant floors, see [Back-face culling](#back-face-culling).
 
 ## How it hooks in
 
 - **Tracking (`platform/native_pgxp.c`).** A shadow of the GTE's SXY0..SXY2 FIFO holds the precise screen x/y and view depth of each projected vertex, keyed by the retail packed SXY value it was rounded to. Stores to memory (`CTR_GteStoreSXY*` in `include/ctr_gte.h`, `MFC2` and `MTC2` in `platform/native_inline_c.c`) copy the precise vertex into a table keyed by the destination address. Primitives in the two primitive arenas get one slot per word, registered from `MainInit_PrimMem` (`game/MAIN/MainInit.c`); other addresses use a 4096-entry hash cache. Every entry carries a frame generation, bumped in `Platform_EndFrame`, so stale data is never used.
-- **GTE (`platform/native_gte_core.c`).** `GTE_RotTransPers` recomputes the projection in double precision, without the GTE's IR truncation and approximate division, and pushes the result into the shadow FIFO. MVMVA records its exact result so that the level renderer's subdivision can project precise midpoints. NCLIP can use the precise vertices (off by default, see above). The Archipelago mirror trap flips the rotation matrix rather than screen x, so the precise projection needs no mirror handling of its own.
+- **GTE (`platform/native_gte_core.c`).** `GTE_RotTransPers` recomputes the projection in double precision, without the GTE's IR truncation and approximate division, and pushes the result into the shadow FIFO. MVMVA records its exact result so that the level renderer's subdivision can project precise midpoints. NCLIP uses the precise vertices while vertex precision is on, see [Back-face culling](#back-face-culling). The Archipelago mirror trap flips the rotation matrix rather than screen x, so the precise projection needs no mirror handling of its own.
 - **Level renderer (`game/226/226_00_DrawLevelOvr1P.c`).** The hand-decompiled level renderer subdivides near quads and clips against the near plane in integer space. The hooks carry precise positions through midpoints, copies, clip records and near-plane interpolation, so subdivided track geometry lines up without cracks.
 - **GPU (`platform/native_gpu.c`).** `MakeVertexTriangle` and `MakeVertexQuad` look up each vertex by address and packed value. A hit replaces x/y with the precise position (GEOMETRY/FULL). If every vertex of a textured polygon has a usable depth (at least 64), the depth is written to the new `w` field (TEXTURES/FULL). A miss keeps the retail position, so 2D elements, sprites and anything the game edits after projection draw exactly as before.
 - **Renderer (`platform/native_renderer.c`, `include/platform/native_renderer_types.h`).** `GrVertex` now stores float `x, y, w` (32 bytes, was 24), and texture page and CLUT moved to their own `a_page_clut` attribute. The vertex shader multiplies `gl_Position` by `w` when `w > 0`, which leaves the screen position unchanged but makes the GPU interpolate the texture coordinates perspective-correct. Colour and dither coordinates are declared `noperspective`, so Gouraud shading and dithering stay screen-linear as on the PS1. Vertices without a depth have `w = 0`, which the shader treats as 1, so the same shaders serve every mode. This is why the option switches live.
 
+## Back-face culling
+
+The owner reported thin horizontal holes in distant floors (the Adventure hub, every race) and whole floor pieces missing on Dingo Canyon. The sky showed through them. They were caused by culling, not by drawing.
+
+The level renderer culls back faces with the GTE's NCLIP, the signed area of the projected triangle. A distant floor polygon seen almost edge-on is only a fraction of a pixel tall. With retail integer vertices its area rounds to zero or flips sign, so it is culled, and that is harmless in retail because its neighbours round onto the same pixel rows and the strip it covers has no height. With precise vertices the neighbours keep their true sub-pixel positions, the strip opens, and nothing fills it. Culling now uses the same precise vertices the GPU draws with, so a polygon is culled exactly when its drawn shape faces away. Only rendering calls NCLIP (the level renderer and `RenderBucket_QueueExecute.c`), so gameplay is unaffected.
+
+Measured with the [developer tools](DEV-TOOLS.md) on Dingo Canyon's demo, FULL at 2x render scale: integer culling had about 45% more see-through pixels than drawing at retail positions. Precise culling is level with the retail baseline on Dingo Canyon, Crash Cove, Tiger Temple, Blizzard Bluff, Dragon Mines and Mystery Caves, and the remaining count is detector noise that the baseline has too.
+
 ## Texture sampling fixes
 
-The first in-game test showed thin horizontal holes in distant floors and walls, which disappeared up close. The geometry was fine: every vertex had its precise position. The holes came from texture sampling, which perspective-correct texturing exposed.
+The first in-game test showed thin horizontal holes in distant floors and walls. Part of them came from texture sampling, which perspective-correct texturing exposed, and was fixed as below. The rest came from culling (above).
 
 - **Per-polygon UV clamp.** `GrVertex` carries the polygon's texel bounds (`uMin`, `vMin`, `uMax`, `vMax`, filled by `NativeGpu_SetUvLimits` in `platform/native_gpu.c`), and the fragment shader clamps the texture coordinate to them. At grazing angles the perspective-correct coordinate can land a fraction of a texel outside the polygon's own texels, often on the transparent colour, which shows as a hole. DuckStation solves the same problem the same way. All-zero bounds (rectangles, lines) mean no clamp.
 - **Flat page and CLUT.** `v_page_clut` and `v_uvLimits` are `flat`. They are constant per polygon, and interpolating a constant perspective-correctly drifts by float error when the vertex depths differ a lot.
@@ -43,7 +51,16 @@ The first in-game test showed thin horizontal holes in distant floors and walls,
 
 ## Debugging
 
-`CTR_PGXP_DEBUG=1` (environment variable) tints polygons by how many vertices PGXP recovered: red for some, blue for none, untinted for all. `CTR_PGXP_DEBUG=2` also switches the recovered polygons between precise and retail positions every 2.5 seconds, tinting them green in the retail phase, to compare both in one run. The game's attract-mode demo (leave the title screen idle) gives a repeatable race to look at.
+`CTR_PGXP_DEBUG` (environment variable) tints polygons:
+
+| Value | Tint |
+|---|---|
+| 1 | By how many vertices PGXP recovered: red for some, blue for none, untinted for all. The sky backdrop is blue, so holes show as blue |
+| 2 | As 1, and the recovered polygons switch between precise and retail positions every 2.5 seconds, tinted green in the retail phase |
+| 3 | As 1, but always drawn at retail positions with affine textures: the baseline to compare a run against |
+| 4 | Level geometry by the overlay 226 bucket that emitted it: red 4x4, yellow dynamic, green 4x2, cyan 4x1 (low LOD), lilac water, orange full dynamic, white near-plane clipped |
+
+For reproducible captures, before/after measurements and polygon dumps, use the tools in [DEV-TOOLS.md](DEV-TOOLS.md) rather than playing.
 
 ## Differences from High Octane
 
@@ -62,7 +79,7 @@ The first in-game test showed thin horizontal holes in distant floors and walls,
 
 ## Needs in-game testing
 
-The owner confirmed anti-wobble in Adventure and reported the distant holes, which no longer appear in the attract-mode demo (Crash Cove, FULL, 16:9) after the texture sampling fixes. Still to check:
+The owner confirmed anti-wobble in Adventure and reported the distant holes. The texture sampling fixes and precise culling remove them in the attract-mode demos (measured, see above). Still to check:
 
 - Each mode on a race track, in the Adventure hub and in the menus: no cracks or flicker on track, walls and water, no displaced HUD, text or sprites.
 - Switching the option live in the middle of a race.

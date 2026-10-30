@@ -17,6 +17,7 @@
 #include "platform/native_perf.h"
 #include "platform/native_renderer.h"
 #include "platform/native_pgxp.h"
+#include "platform/native_dev.h"
 
 #include <assert.h>
 #include <math.h>
@@ -337,12 +338,32 @@ static int s_pgxpDebug = -1;
 static GrVertex *s_pgxpDebugVertex;
 static int s_pgxpDebugState;
 
+// CTR_PGXP_DEBUG=4: level geometry tinted by the overlay 226 bucket that
+// emitted it (index into sDrawLevelOvr1PBuckets, 11 = near-plane clipped).
+static const u8 s_pgxpBucketTint[12][3] = {
+	{255, 80, 80}, {255, 80, 80},   // 4x4 (nearest)
+	{255, 255, 0}, {255, 255, 0},   // dynamic
+	{0, 255, 0}, {0, 255, 0},       // 4x2
+	{0, 255, 255}, {0, 255, 255},   // 4x1 (low LOD)
+	{160, 160, 255}, {160, 160, 255}, // water
+	{255, 140, 0},                  // full dynamic
+	{255, 255, 255},                // clipped
+};
+
 static void NativeGpu_PgxpDebugTint(GrVertex *vertex, int n)
 {
 	if (vertex != s_pgxpDebugVertex || s_pgxpDebugState == 0)
 		return;
 	for (int i = 0; i < n; i++)
 	{
+		if (s_pgxpDebugState >= 100)
+		{
+			const u8 *tint = s_pgxpBucketTint[s_pgxpDebugState - 100];
+			vertex[i].r = tint[0];
+			vertex[i].g = tint[1];
+			vertex[i].b = tint[2];
+			continue;
+		}
 		vertex[i].r = (s_pgxpDebugState == 1) ? 255 : 0;
 		vertex[i].g = (s_pgxpDebugState == 3) ? 255 : 0;
 		vertex[i].b = (s_pgxpDebugState == 2) ? 255 : 0;
@@ -361,9 +382,12 @@ static void NativeGpu_ApplyPgxp(GrVertex *vertex, VERTTYPE *const *points, int c
 	}
 	// CTR_PGXP_DEBUG=2 also alternates with retail positions every 2.5 s
 	// (lookups still run, so the tint stays), to compare both in one run.
-	const int retailPhase = (s_pgxpDebug == 2) && ((SDL_GetTicks() / 2500) & 1);
+	// CTR_PGXP_DEBUG=3 draws retail all the time (tint unchanged): a baseline
+	// for tools/decrypted/find_holes.py.
+	const int retailPhase = ((s_pgxpDebug == 2) && ((SDL_GetTicks() / 2500) & 1)) || (s_pgxpDebug == 3);
 	float depth[4];
 	int recovered = 0;
+	int hit = 0;
 	const int preciseGeometry = NATIVE_PGXP_GEOMETRY_ACTIVE() && !retailPhase;
 	int perspective = NATIVE_PGXP_TEXTURES_ACTIVE() && !retailPhase;
 	for (int i = 0; i < count; i++)
@@ -380,6 +404,7 @@ static void NativeGpu_ApplyPgxp(GrVertex *vertex, VERTTYPE *const *points, int c
 			}
 			depth[i] = precise.w;
 			recovered++;
+			hit |= 1 << i;
 			perspective &= precise.w >= 64.0f && isfinite(precise.w);
 		}
 		else
@@ -392,10 +417,24 @@ static void NativeGpu_ApplyPgxp(GrVertex *vertex, VERTTYPE *const *points, int c
 		for (int i = 0; i < count; i++)
 			vertex[i].w = depth[i];
 	}
+	FILE *dump = NativeDev_DumpFile();
+	if (dump != NULL)
+	{
+		// tag, count, then per vertex: retail x y, drawn x y (draw offset
+		// removed), precise depth (-1 when the lookup missed)
+		fprintf(dump, "%d %d", NativeDev_PrimTag(points[0]), count);
+		for (int i = 0; i < count; i++)
+			fprintf(dump, " %d %d %.4f %.4f %.4f", points[i][0], points[i][1], vertex[i].x - ofsX, vertex[i].y - ofsY,
+			        (hit & (1 << i)) ? depth[i] : -1.0f);
+		fprintf(dump, "\n");
+	}
 	if (s_pgxpDebug)
 	{
 		s_pgxpDebugVertex = vertex;
-		s_pgxpDebugState = (recovered == count) ? (retailPhase ? 3 : 0) : (recovered > 0 ? 1 : 2);
+		s_pgxpDebugState = (recovered == count) ? ((retailPhase && s_pgxpDebug == 2) ? 3 : 0) : (recovered > 0 ? 1 : 2);
+		const int tag = (s_pgxpDebug == 4) ? NativeDev_PrimTag(points[0]) : -1;
+		if (tag >= 0 && tag < 12)
+			s_pgxpDebugState = 100 + tag;
 	}
 }
 

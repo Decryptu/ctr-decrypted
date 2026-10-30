@@ -1,4 +1,5 @@
 #include <common.h>
+#include <platform/native_dev.h>
 
 // In-game options menu (see game/230/MM_ConfigMenu.c): the config-enabled main
 // menu row arrays (adding the OPTIONS row) and the options RectMenu.
@@ -111,6 +112,8 @@ void MM_MenuProc_Main(struct RectMenu *mainMenu)
 			if (sdata->gGamepads->anyoneHeldCurr == 0)
 			{
 				gGT->demoCountdownTimer--;
+				if (NativeDev_DemoTrack() >= 0)
+					gGT->demoCountdownTimer = 0;
 
 				// If time runs out
 				if (gGT->demoCountdownTimer < 1)

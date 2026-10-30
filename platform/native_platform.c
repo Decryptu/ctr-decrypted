@@ -401,7 +401,7 @@ int Platform_BeginScene(void)
 	// are opt-in: the game clock never follows the display, so a display rate
 	// close to but not equal to the game's frame rate can show as a periodic
 	// hitch, and a display slower than the game clock would slow the game.
-	NativeRenderer_UpdateSwapIntervalState(g_config.vsync);
+	NativeRenderer_UpdateSwapIntervalState(NativeDev_Fast() ? 0 : g_config.vsync);
 
 	// "Mute When Unfocused" (issue 348): read the live option and the live
 	// focus state every frame and let the audio layer decide whether the SDL
@@ -412,7 +412,10 @@ int Platform_BeginScene(void)
 	{
 		s_windowFocused = ((SDL_GetWindowFlags(g_window) & SDL_WINDOW_INPUT_FOCUS) != 0) ? 1 : 0;
 	}
-	NativeAudio_UpdateFocusMuteState(g_config.muteWhenUnfocused ? 1 : 0, s_windowFocused);
+	if (NativeDev_Fast())
+		NativeAudio_UpdateFocusMuteState(1, 0); // fast-forwarded audio is noise
+	else
+		NativeAudio_UpdateFocusMuteState(g_config.muteWhenUnfocused ? 1 : 0, s_windowFocused);
 
 	NativeRenderer_BeginScene();
 
@@ -463,6 +466,7 @@ void Platform_EndScene(void)
 			NativeRenderer_PresentVRAMDisplay();
 		}
 		NativeRenderer_EndGpuFrame();
+		NativeDev_EndFrame();
 		NativeRenderer_SwapWindow();
 		s_pinnedVramDisplayFrames--;
 		if (s_pinnedVramDisplayFrames <= 0)
@@ -493,6 +497,7 @@ void Platform_EndScene(void)
 #ifdef CTR_AP
 	AP_TrackerPresent();
 #endif
+	NativeDev_EndFrame();
 	NativeRenderer_SwapWindow();
 	NativePerf_EndScope(NATIVE_PERF_BUCKET_PLATFORM_END_SCENE);
 }
@@ -953,6 +958,13 @@ internal void Native_WaitUntilVBlankTarget(void)
 	const u64 freq = SDL_GetPerformanceFrequency();
 	const u64 spinWindow = Native_CounterFromMicroseconds(freq, NATIVE_VSYNC_SPIN_US);
 
+	if (NativeDev_Fast())
+	{
+		// CTR_DEV_FAST: run ahead of the wall clock.
+		s_nextVBlankCounter = SDL_GetPerformanceCounter();
+		return;
+	}
+
 	NativePerf_BeginScope(NATIVE_PERF_BUCKET_VSYNC_WAIT);
 	while (1)
 	{
@@ -1012,6 +1024,8 @@ internal int Native_CatchUpDueVBlanks(void)
 	int emittedVBlanks = 0;
 
 	Native_EnsureVBlankTarget();
+	if (NativeDev_Fast())
+		return 0;
 
 	// NOTE(aalhendi): Native host stalls can be much longer than retail frame
 	// stalls, for example during window dragging or a debugger break. Replay a few

@@ -1,4 +1,5 @@
 #include <common.h>
+#include <platform/native_dev.h>
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800abcac-0x800ac178.
 void MM_Title_MenuUpdate(void)
@@ -179,7 +180,7 @@ void MM_Title_MenuUpdate(void)
 		gGT->gameMode1 |= ARCADE_MODE;
 
 		// If you have not viewed Oxide cutscene yet
-		if (gGT->boolSeenOxideIntro == 0)
+		if (gGT->boolSeenOxideIntro == 0 && NativeDev_DemoTrack() < 0)
 		{
 			gGT->boolSeenOxideIntro = 1;
 			cutsceneLev = INTRO_RACE_TODAY;
@@ -208,6 +209,8 @@ void MM_Title_MenuUpdate(void)
 			// get trackID from demo mode index,
 			// in order of Single Race track selection
 			cutsceneLev = D230.arcadeTracks[seenDemo & 7].levID;
+			if (NativeDev_DemoTrack() >= 0)
+				cutsceneLev = NativeDev_DemoTrack();
 
 			// increment counter
 			sdata->demoModeIndex = seenDemo + 1;

@@ -2,6 +2,7 @@
 
 #if defined(CTR_NATIVE)
 #include <platform/native_pgxp.h>
+#include <platform/native_dev.h>
 #endif
 
 struct DrawLevelOvr1PFaceSelector
@@ -10069,10 +10070,12 @@ static int Ovr226_800a0e10_DispatchBucketTable(struct DrawLevelOvr1PRenderList *
 
 		Ovr226_800a0e44_ApplyBucketSetup(setupAddress);
 
+		void *devPrimStart = primMem->cursor;
 		if (!Ovr226_800a0e78_DispatchBucketHandler(handlerAddress, bucketValue, pb, mesh, primMem, visFaceList))
 		{
 			return 0;
 		}
+		NativeDev_TagPrims(devPrimStart, primMem->cursor, (int)bucketIndex);
 	}
 
 	return 1;
@@ -10123,8 +10126,10 @@ void DrawLevelOvr1P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspL
 	// NOTE(aalhendi): Retail 0x800a0e98 reloads 0x800ab910 into scratch
 	// 0x240 immediately before 0x800aa790 consumes clipped records.
 	Ovr226_800ab3dc_CopyClipRecordJumpTable();
+	void *devPrimStart = primMem->cursor;
 	if (!DrawLevelOvr1P_ConsumeClipRecords(pb, primMem))
 	{
 		return;
 	}
+	NativeDev_TagPrims(devPrimStart, primMem->cursor, 11); // near-plane clipped
 }

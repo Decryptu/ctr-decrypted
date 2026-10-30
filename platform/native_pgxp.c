@@ -7,7 +7,7 @@
 
 int gNativePgxpMode = NATIVE_PGXP_MODE_OFF;
 
-int gNativePgxpIntegerNclipEnabled = 1;
+int gNativePgxpIntegerNclipEnabled = 0;
 
 #define NATIVE_PGXP_RECENT_COUNT 64
 #define NATIVE_PGXP_RECENT_BUCKET_COUNT 256
