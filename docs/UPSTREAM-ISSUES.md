@@ -110,9 +110,9 @@ All four are GPL-3.0. dowlle's `ctr.apworld` is MIT.
 - 0.3.0 work happens on `dev/custom-pad-0.3.0` with large stacked PRs (#520–#531) and matching apworld PRs.
 
 **Open bugs:**
-- #499: with vanilla unlock requirements the stage-2 key count is ignored.
+- #499: with vanilla unlock requirements the stage-2 key count is ignored. Fixed in the apworld (PR #154); we ship that apworld.
 - #484: white noise in the hub after winning a race.
-- #466: the progressive stats bar doesn't match the items collected.
+- #466: the progressive stats bar doesn't match the items collected. Fixed in client `main` (PR #469), which we have.
 - #282: invisible podium racers.
 - #205: unguarded instance births. Fixed in #468; the issue is still open.
 - #147: a large reconnect catch-up stalls the game thread.

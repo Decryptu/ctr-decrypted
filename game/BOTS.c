@@ -1,4 +1,5 @@
 #include <common.h>
+#include <platform/native_dev.h>
 #ifdef CTR_CUSTOM_PACKAGES
 #include <platform/native_custom_identity.h>
 #endif
@@ -1669,6 +1670,12 @@ UpdateTireColorTimer:
 		if (0x6400 < botDriver->botData.aiPhysics.speedLinear)
 		{
 			botDriver->botData.aiPhysics.speedLinear = 0x6400;
+		}
+
+		// CTR_DEV_BOT_SPEED: lower the bots' top speed so the autopilot wins.
+		if ((NativeDev_BotSpeedPercent() < 100) && (0x6400 * NativeDev_BotSpeedPercent() / 100 < botDriver->botData.aiPhysics.speedLinear))
+		{
+			botDriver->botData.aiPhysics.speedLinear = 0x6400 * NativeDev_BotSpeedPercent() / 100;
 		}
 
 		deltaPosThisFrame = CTR_MipsSra(CTR_MipsMulLo(botDriver->botData.aiPhysics.speedLinear, elapsedMilliseconds), 5); // iVar4

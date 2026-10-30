@@ -29,6 +29,7 @@ typedef struct
 	int loaded;
 	int raceTrack;
 	int timeTrial;
+	int adventure;
 	int players;
 	int laps;
 	int autopilot;
@@ -58,6 +59,7 @@ static NativeDevRaceState *NativeDevRace_State(void)
 		s_devRace.loaded = 1;
 		s_devRace.raceTrack = NativeDev_EnvInt("CTR_DEV_RACE", -1);
 		s_devRace.timeTrial = (mode != NULL) && (strcmp(mode, "tt") == 0);
+		s_devRace.adventure = (mode != NULL) && (strcmp(mode, "adv") == 0);
 		s_devRace.laps = NativeDev_EnvInt("CTR_DEV_LAPS", 0);
 		s_devRace.autopilot = NativeDev_EnvInt("CTR_DEV_AUTOPILOT", 0);
 		s_devRace.hopEvery = NativeDev_EnvInt("CTR_DEV_HOP_MS", 0);
@@ -103,6 +105,15 @@ int NativeDev_StartRace(struct GameTracker *gGT)
 	gGT->numPlyrNextGame = 1;
 	for (int i = 0; i < 8; i++)
 		data.characterIDs[i] = i;
+	// CTR_DEV_CHARACTER: player 1's racer; the bot that had it takes Crash.
+	int character = NativeDev_EnvInt("CTR_DEV_CHARACTER", -1);
+	if ((character > 0) && (character < 16))
+	{
+		for (int i = 1; i < 8; i++)
+			if (data.characterIDs[i] == character)
+				data.characterIDs[i] = 0;
+		data.characterIDs[0] = (s16)character;
+	}
 
 	// VS: no Arcade flag, two to four players.
 	if (dev->players > 1)
@@ -110,6 +121,15 @@ int NativeDev_StartRace(struct GameTracker *gGT)
 		gGT->numPlyrNextGame = (u8)dev->players;
 		if (dev->laps > 0)
 			gGT->numLaps = (char)dev->laps;
+		return dev->raceTrack;
+	}
+
+	// Adventure: a trophy race from a new profile. Winning it goes through the
+	// podium and back to the track's hub, like entering it from a warp pad.
+	if (dev->adventure)
+	{
+		gGT->gameMode1 |= ADVENTURE_MODE;
+		gGT->numLaps = (char)((dev->laps > 0) ? dev->laps : 3);
 		return dev->raceTrack;
 	}
 
@@ -152,7 +172,8 @@ static struct Driver *NativeDevRace_Player(int player)
 	if ((gGT == NULL) || (sdata->Loading.stage != LOAD_IDLE) || (gGT->levelID == MAIN_MENU_LEVEL))
 		return NULL;
 	const int vs = ((u8)gGT->numPlyrCurrGame > 1) && ((gGT->gameMode1 & (BATTLE_MODE | MAIN_MENU | GAME_CUTSCENE)) == 0);
-	if (((gGT->gameMode1 & (ARCADE_MODE | TIME_TRIAL)) == 0) && !vs)
+	const int adventureRace = ((gGT->gameMode1 & ADVENTURE_MODE) != 0) && ((gGT->gameMode1 & (ADVENTURE_ARENA | GAME_CUTSCENE)) == 0);
+	if (((gGT->gameMode1 & (ARCADE_MODE | TIME_TRIAL)) == 0) && !vs && !adventureRace)
 		return NULL;
 	if (player >= (u8)gGT->numPlyrCurrGame)
 		return NULL;
@@ -169,7 +190,21 @@ int NativeDev_AutopilotPad(int player, unsigned short *buttons, unsigned char *l
 	struct GameTracker *gGT = sdata->gGT;
 	struct Driver *d;
 
-	if (!dev->autopilot || ((d = NativeDevRace_Player(player)) == NULL) || ((gGT->gameMode1 & END_OF_RACE) != 0))
+	if (!dev->autopilot)
+		return 0;
+
+	// Adventure: after the race and on the podium, tap Cross every half second
+	// so the run continues into the hub, where the pad is left alone.
+	if (dev->adventure && (player == 0) && (gGT != NULL) && (sdata->Loading.stage == LOAD_IDLE) &&
+	    ((((gGT->gameMode1 & END_OF_RACE) != 0) && (NativeDevRace_Player(0) != NULL)) || ((gGT->gameMode2 & VEH_FREEZE_PODIUM) != 0)))
+	{
+		unsigned short held = ((sdata->frameCounter / 15) & 1) ? RAW_BTN_CROSS : 0;
+		*buttons = (unsigned short)~held;
+		*leftX = 0x80;
+		return 1;
+	}
+
+	if (((d = NativeDevRace_Player(player)) == NULL) || ((gGT->gameMode1 & END_OF_RACE) != 0))
 		return 0;
 
 	NativeDevPilot *p = &dev->pilot[player];
@@ -308,6 +343,11 @@ void NativeDev_RaceFrame(void)
 		dev->raceClock = 0;
 		return;
 	}
+
+	// A won Adventure race returns to prevLEV, which the load set to the main
+	// menu; send it to the track's own hub instead, as a warp pad would.
+	if (dev->adventure && (gGT->levelID < GEM_STONE_VALLEY))
+		gGT->prevLEV = GEM_STONE_VALLEY + data.metaDataLEV[gGT->levelID].hubID;
 
 	// Race time from the lights, kept here because AI drivers (the attract
 	// demo's player 1) do not count their own timeElapsedInRace.

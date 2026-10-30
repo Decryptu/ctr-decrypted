@@ -26,6 +26,17 @@ int NativeDev_Hidden(void);
 // at 30 and 60 FPS).
 int NativeDev_NoItems(void);
 
+// CTR_DEV_BOT_SPEED=<percent>: caps the bots' top speed at that share of
+// retail (default 100, no change), so the autopilot can win a race and reach
+// the podium.
+int NativeDev_BotSpeedPercent(void);
+
+// CTR_DEV_AUDIO=<file>: the mixed game audio as raw 16-bit stereo PCM at
+// 44100 Hz. In CTR_DEV_FAST runs audio is rendered on the VBlank clock, one
+// VBlank (735 frames) per call; in real time it is what SDL's audio thread
+// mixed. tools/decrypted/audio_noise.py reads it.
+void NativeDev_AudioFrames(const short *frames, int frameCount);
+
 // Called once per presented frame, before the swap. Handles
 // CTR_DEV_SHOT_DIR / CTR_DEV_SHOT_EVERY / CTR_DEV_SHOT_FROM (frame capture)
 // and CTR_DEV_EXIT_FRAME (quit after that many frames).
@@ -47,8 +58,9 @@ int NativeDev_PrimTag(const void *addr);
 
 // Unattended races (platform/native_dev_race.c).
 // CTR_DEV_RACE=<LevelID>: the title menu starts a one-player race on that
-// track instead of the attract demo. CTR_DEV_MODE=tt makes it a Time Trial
-// (default Arcade), CTR_DEV_LAPS sets the Arcade lap count. -1 if unset.
+// track instead of the attract demo. CTR_DEV_MODE=tt makes it a Time Trial,
+// CTR_DEV_MODE=adv an Adventure trophy race (default Arcade); CTR_DEV_LAPS
+// sets the lap count. -1 if unset.
 int NativeDev_RaceTrack(void);
 // CTR_DEV_PLAYERS=2..4 makes CTR_DEV_RACE a VS race for that many players.
 int NativeDev_RacePlayers(void);

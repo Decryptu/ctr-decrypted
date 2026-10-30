@@ -1,7 +1,7 @@
 #include <common.h>
+#include <platform/native_dev.h>
 #ifdef CTR_CUSTOM_PACKAGES
 #include <platform/native_custom_offline.h>
-#include <platform/native_dev.h>
 #endif
 
 #if defined(CTR_NATIVE) && defined(CTR_INTERNAL)

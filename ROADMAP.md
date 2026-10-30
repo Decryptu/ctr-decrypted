@@ -33,10 +33,8 @@ Roughly in this order.
 | Item | Source |
 |---|---|
 | Frame pacing at 60 FPS with VSync (Off / On / Adaptive) on 60 Hz and 144 Hz | High Octane lacks VSync (#46). The game paces itself on a 59.94 Hz timer and VSync On adds the display's wait on top, so a 60 Hz panel drifts against it and a 144 Hz one cannot show 60 evenly. `tools/decrypted/vsync-check.ps1` measures it; it needs the screen on and nobody at the machine, so it runs overnight. Then fix what it shows |
-| Stage-2 key count ignored with vanilla unlock requirements | ctr-native-ap #499 |
-| White noise in the hub after winning a race | ctr-native-ap #484 |
-| Progressive stats bar doesn't match the items received | ctr-native-ap #466 |
-| Invisible podium racers | ctr-native-ap #282 |
+| White noise in the hub after winning a race | ctr-native-ap #484. Not reproduced: after an Adventure win on Crash Cove, through the podium into N. Sanity Beach, `audio_noise.py` finds no noise in either build, fast-forwarded or real time. The report is from a connected session over several races, which the dev tools can't drive yet |
+| Invisible podium racers | ctr-native-ap #282. Oxide in 1st has no win-dance model in the original game. Crash, Papu Papu and Komodo Joe all show after an Adventure trophy race; still to try: a Gem Cup podium, and a relic race on a trial track hosted in another hub |
 | Reconnect catch-up stalls the game; move network work off the game thread | ctr-native-ap #147 |
 | Internal resolution scaling, FXAA | High Octane |
 | Post-processing filters (CRT, sharp bilinear, …) | High Octane |

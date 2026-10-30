@@ -43,6 +43,10 @@ All of these are read once, by `platform/native_dev.c` (`include/platform/native
 | `CTR_PGXP_DEBUG=1..4` | PGXP tints, see [PGXP.md](PGXP.md#debugging) |
 | `CTR_DEV_RACE=<LevelID>` | The title menu starts a one-player race on that track instead of the demo, with nobody at the controls unless the autopilot drives |
 | `CTR_DEV_MODE=tt` | Make `CTR_DEV_RACE` a Time Trial (default Arcade). `CTR_DEV_LAPS=n` sets the Arcade lap count |
+| `CTR_DEV_MODE=adv` | Make `CTR_DEV_RACE` an Adventure trophy race from a new profile. A win goes through the podium into the track's hub, where nobody drives; the autopilot taps Cross after the race and on the podium |
+| `CTR_DEV_BOT_SPEED=<percent>` | Cap the bots' top speed at that share of the original (default 100), so the autopilot wins and reaches the podium. 50 wins Crash Cove |
+| `CTR_DEV_CHARACTER=<id>` | Player 1's racer (`include/namespace_Vehicle.h`: 9 Papu Papu, 11 Komodo Joe, 15 Oxide...). The bot that had it takes Crash |
+| `CTR_DEV_AUDIO=<file>` | The mixed game audio as raw 16-bit stereo PCM at 44100 Hz, fast-forwarded or real time. Add `-Config @{mute_when_unfocused='true'}` to a real-time run so it stays silent; the dump is taken before that gain |
 | `CTR_DEV_PLAYERS=2..4` | Make `CTR_DEV_RACE` a VS race for that many players. With the autopilot on, it drives every player, each on its own AI lane, so on tracks with forks some take the other branch |
 | `CTR_DEV_ENDING=1` | Boot into Oxide's true ending, which runs into the credits, with every sapphire relic, so the credits end in the scrapbook. `=2` without the relics, so they end in the hub |
 | `CTR_DEV_AUTOPILOT=1` | During a race, player 1's pad holds the throttle and steers along the AI's nav line (aiming about half a second ahead), so the kart drives through the normal physics. When wedged (under 300 units travelled in 1.5 s of race time) it reverses for a second at full opposite lock. `=2` stands still on the grid instead |
@@ -61,6 +65,7 @@ Frame numbers count every presented frame, the boot splash included. Frames show
 ## Analysis scripts
 
 - `tools/decrypted/find_holes.py <dir> [--ignore-top N] [--max-run N]` finds see-through holes in a capture made with `CTR_PGXP_DEBUG=1`. In that mode the sky backdrop draws pure blue, so a short vertical run of blue with geometry above and below it is a hole. It prints a count per frame and a total, and writes `holes-*.png` with the holes painted magenta. Use `--ignore-top 110 --max-run 4` at 2x render scale to skip the HUD text. HUD text, boost flames and gaps between distant rocks also register, so compare totals against a baseline run (the same settings with `CTR_PGXP_DEBUG=3`) rather than reading them alone.
+- `tools/decrypted/audio_noise.py <audio.raw> [--flat F] [--wav out.wav]` finds white noise in a `CTR_DEV_AUDIO` dump: windows that are loud and spectrally flat (white noise scores about 0.58, game audio stays under 0.2). It prints the noisy spans with their VBlank number and can write a .wav to listen to.
 - `tools/decrypted/pgxp_cracks.py <polys-NNNNNN.txt> [--level-only]` reads a polygon dump. It reports level vertices drawn at more than one position (a shared corner that disagrees with itself), then T-junction candidates: vertices that lie inside another polygon's edge in retail but not when drawn.
 
 ## Unattended races

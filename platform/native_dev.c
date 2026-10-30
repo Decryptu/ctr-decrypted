@@ -17,6 +17,7 @@ typedef struct
 	int fast;
 	int hidden;
 	int noItems;
+	int botSpeed;
 	const char *shotDir;
 	int shotEvery;
 	int shotFrom;
@@ -46,6 +47,7 @@ static NativeDevState *NativeDev_State(void)
 		s_dev.fast = NativeDev_EnvInt("CTR_DEV_FAST", 0);
 		s_dev.hidden = NativeDev_EnvInt("CTR_DEV_HIDDEN", 0);
 		s_dev.noItems = NativeDev_EnvInt("CTR_DEV_NO_ITEMS", 0);
+		s_dev.botSpeed = NativeDev_EnvInt("CTR_DEV_BOT_SPEED", 100);
 		s_dev.shotDir = (dir != NULL && *dir != '\0') ? dir : NULL;
 		s_dev.shotEvery = NativeDev_EnvInt("CTR_DEV_SHOT_EVERY", 60);
 		if (s_dev.shotEvery < 1)
@@ -107,6 +109,7 @@ int NativeDev_DemoTrack(void) { return NativeDev_State()->demoTrack; }
 int NativeDev_Fast(void) { return NativeDev_State()->fast; }
 int NativeDev_Hidden(void) { return NativeDev_State()->hidden; }
 int NativeDev_NoItems(void) { return NativeDev_State()->noItems; }
+int NativeDev_BotSpeedPercent(void) { return NativeDev_State()->botSpeed; }
 
 // 24-bit top-down BMP, readable by every image tool with no extra library.
 static void NativeDev_WriteBmp(const char *path, const unsigned char *rgba, int w, int h)
@@ -174,6 +177,24 @@ static unsigned char *NativeDev_ReadVRAMRect(NativeDevState *dev, int *width, in
 	*width = w;
 	*height = h;
 	return rgba;
+}
+
+void NativeDev_AudioFrames(const short *frames, int frameCount)
+{
+	static FILE *out;
+	static int opened;
+	if (!opened)
+	{
+		const char *path = getenv("CTR_DEV_AUDIO");
+		opened = 1;
+		if ((path != NULL) && (*path != '\0'))
+			out = fopen(path, "wb");
+	}
+	if ((out != NULL) && (frameCount > 0))
+	{
+		fwrite(frames, sizeof(short) * 2, (size_t)frameCount, out);
+		fflush(out);
+	}
 }
 
 void NativeDev_EndFrameFromVRAM(int x, int y, int w, int h)

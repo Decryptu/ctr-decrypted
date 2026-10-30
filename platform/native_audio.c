@@ -2411,6 +2411,7 @@ internal void SDLCALL NativeAudio_StreamCallback(void *userdata, SDL_AudioStream
 			{
 				memset(&out[framesReady * NATIVE_AUDIO_CHANNELS], 0, (size_t)(chunkFrames - framesReady) * frameBytes);
 			}
+			NativeDev_AudioFrames(out, chunkFrames);
 		}
 
 		if (!SDL_PutAudioStreamData(stream, out, chunkFrames * frameBytes))
@@ -2926,6 +2927,7 @@ void NativeAudio_StepVBlank(void)
 		// VBlank clock. SDL only drains the scheduled PCM in its callback.
 		int framesRendered = NativeAudio_RenderFramesNoLock(renderedFrames, NATIVE_AUDIO_VBLANK_FRAMES);
 		NativeAudio_QueueRenderedFramesNoLock(renderedFrames, framesRendered);
+		NativeDev_AudioFrames(renderedFrames, framesRendered);
 	}
 
 #ifdef CTR_INTERNAL

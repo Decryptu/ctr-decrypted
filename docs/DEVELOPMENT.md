@@ -60,6 +60,7 @@ The script needs `python -m pip install git-filter-repo`. High Octane (`highocta
 - Credit ported work: `cherry-pick -x` keeps the original commit reference, and README's Credits names each source project.
 - New third-party code gets an entry in `THIRD_PARTY_NOTICES.md`.
 - Keep the Archipelago client compatible with the shipped `ctr.apworld` version. If slot data or item/location IDs change, the apworld must change in the same release.
+- Releases ship the apworld built from [dowlle/ctr-archipelago-apworld](https://github.com/dowlle/ctr-archipelago-apworld) `main` at b775595a4 or later (`release-prepare.yml` takes the run and commit). That is v0.2.4 plus generator-only fixes, with the same slot data; it includes the vanilla-mode stage 2 fix (ctr-native-ap #499: a track's relic races and CTR Challenge need that hub's keys, as in the original game), which the client already enforces.
 - Update `ROADMAP.md` in the same commit that finishes or starts an item.
 - Frame counts assume 30 FPS. When code sets or compares a frame-counted timer, wrap the value in `FPS_DOUBLE`, and wrap per-frame steps or blink phases in `FPS_HALF` (`include/macros.h`), so it keeps the same real-time speed in 60 FPS mode. Data recorded frame by frame (ghosts, AI lap recordings) stays in 30 FPS units so recordings work in both modes. See [60FPS.md](60FPS.md).
 
