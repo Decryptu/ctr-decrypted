@@ -19,6 +19,7 @@ Roughly in this order.
 | Item | Source |
 |---|---|
 | **High priority.** Port dowlle's unreleased 0.3.0 into our build and finish it ourselves: boss randomization, Wumpa shop, solo mode, custom tracks, lap checks, signed updater. Debug and improve it as we go, and move the matching `ctr.apworld` changes into `apworld/` | [dowlle/ctr-native-ap](https://github.com/dowlle/ctr-native-ap) and [ctr-archipelago-apworld](https://github.com/dowlle/ctr-archipelago-apworld) `dev/custom-pad-0.3.0` (220 commits past `main` as of 2026-10-31), plus `feat/solo-mode-89`, `feat/xdelta-track-import`, `feat/344-lap-checks`, `feat/signed-updater-301` |
+| **Medium priority, after the 0.3.0 port.** A Mods menu on the main screen, next to Adventure and Time Trial, so players never touch files or folders. Tabs for Tracks, Characters (`.ctrr`) and Karts, each entry with a picture, name and author; one-click install from an online catalogue (Project Saphi for tracks), drag and drop of a downloaded file or disc patch onto the window, an on/off switch and Remove per mod. Installed mods show up in the normal track and character selectors, and a seed that needs missing content offers to download it | Owner decision, 2026-10-31. Builds on 0.3.0's package verifier, xdelta importer and Install missing content |
 | Check in game: camera wobble when accelerating, braking and turning; the flag when exiting a race to the hub from the pause menu | Owner playtest, 2026-10-31. Fixed in the build after it: the [precise camera](docs/PGXP.md#precise-camera), the 60 FPS steering, camera and surface-spring conversions ([60FPS.md](docs/60FPS.md#changes-beyond-high-octane)), the flag's PGXP vertices and its "LOADING..." letters. Frame-by-frame captures of the pause-menu exit, fast and real time, show no other flicker; if it remains, an `F7` capture of it is the next step |
 | Archipelago character unlocks (high): Adventure starts with the vanilla character picker and only the 8 base racers; every other racer, Oxide included, is unlocked during the run | Owner request, 2026-10-31 |
 | Project website and guide (mid): GitHub Pages site with install steps, how to play with Archipelago, and the dev toolbox | Owner request, 2026-10-31 |
@@ -27,7 +28,7 @@ Roughly in this order.
 ## Maybe
 - Retail-exact physics at 60 FPS: run the simulation at a fixed 30 Hz and interpolate rendering. Today's 60 FPS integrates in 16 ms steps, so curved kickers launch a little higher (Dingo Canyon: apex rise 24 at 30 FPS, 31 to 33 at 60). A different design from High Octane's, touching every rendered position.
 - Mirror mode, reverse tracks, Super/Ultra Hard, extra arcade modes, boss fights on any track (High Octane). Less useful for Archipelago play.
-- Custom racers (`.ctrr`) and High Octane's ghost replay tools. Also custom karts and custom tracks (low priority).
+- High Octane's ghost replay tools.
 - Asset converters from other games (low priority): tracks, models and textures, for example from Mario Kart DS or from PS1 games with similar formats. Depends on custom tracks and racers.
 - Better bots (low priority): smarter driving, item use, racing lines and shortcuts, with no speed or other stat advantage.
 - PAL disc support (low priority). Upstream removed it on purpose (ctr-native #51, #54), so it would be our own work.
