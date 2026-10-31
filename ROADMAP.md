@@ -41,6 +41,7 @@ Roughly in this order.
 | White noise in the hub after winning a race | ctr-native-ap #484. Not reproduced: after an Adventure win on Crash Cove, through the podium into N. Sanity Beach, `audio_noise.py` finds no noise in either build, fast-forwarded or real time. Nor over several races in a row: the Yellow and Purple Gem Cups back to back (`CTR_DEV_MODE=cup`, eight races, two podiums, two hub returns, 42 minutes of game audio) have none. What is left untested from the report is a connected Archipelago session |
 | Merge newer ctr-native upstream work (decomp matching, gameplay fixes since July 2026) | Both forks are 100+ commits behind. Expect ~460 conflict hunks |
 | Pre-race camera flyover is wrong | ctr-native #14 |
+| Repository cleanup | Owner request. Keep only `main` and `dev` (plus `clean/*` import branches while a sync needs them), deleting merged feature and `ci/*` branches locally and on `origin`. Tidy the root: move or drop stray files and folders (spike notes such as `tools/CUSTOM-TRACK-SPIKE.md`, one-off scripts, build leftovers), so the root holds only the build, docs and licence files. Then check `.gitignore` covers every build and run folder, and that the docs point at the new paths |
 
 ## Maybe
 - Retail-exact physics at 60 FPS: run the simulation at a fixed 30 Hz and interpolate rendering. Today's 60 FPS integrates in 16 ms steps, so curved kickers launch a little higher (Dingo Canyon: apex rise 24 at 30 FPS, 31 to 33 at 60). A different design from High Octane's, touching every rendered position.

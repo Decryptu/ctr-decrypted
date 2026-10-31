@@ -10,3 +10,6 @@
 *.yml text eol=lf
 *.patch text eol=lf
 *.lock text eol=lf
+# Vendored sources are checked against SHA256 pins of their LF bytes
+# (cmake/CustomPackageDeps.cmake), so every checkout must be byte-exact.
+vendor/** text eol=lf
