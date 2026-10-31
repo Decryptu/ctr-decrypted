@@ -39,6 +39,12 @@ Roughly in this order.
 
 | Item | Source |
 |---|---|
+| Missing floor textures | Owner playtest, 2026-10-31, AP build from `dev`. Hot Air Skyway: no floor texture from 8th place on the start grid, and floor textures keep vanishing during the race. N. Sanity Beach hub: the wooden bridge has no floor texture when you stand on it facing the land rather than the sea (also after respawning there) |
+| Giant moving polygons on Hot Air Skyway | Owner playtest, 2026-10-31. Around the big jump after the loop, huge moving triangles stretch across the screen, as if from the far side of the map. They move, so they may be other racers' models drawn with a bad vertex |
+| Wobble while accelerating, braking and turning | Owner playtest, 2026-10-31. Driving straight at constant speed is smooth with PGXP, but the wobble is still visible while speeding up, slowing down and probably in turns |
+| Widescreen culling | Owner playtest, 2026-10-31. In widescreen, geometry at the left and right edges is unloaded while still on screen: the culling still uses the 4:3 view, which used to hide those edges |
+| Racers moving sideways at the race start | Owner playtest, 2026-10-31, Hot Air Skyway. The AI racers moved strangely sideways at the start, maybe bumping into each other, maybe a 60 FPS timing bug |
+| Flicker in the flag transition back to the hub | Owner playtest, 2026-10-31. Leaving a race for the Adventure hub, the checkered flag transition flickers |
 | White noise in the hub after winning a race | ctr-native-ap #484. Not reproduced: after an Adventure win on Crash Cove, through the podium into N. Sanity Beach, `audio_noise.py` finds no noise in either build, fast-forwarded or real time. Nor over several races in a row: the Yellow and Purple Gem Cups back to back (`CTR_DEV_MODE=cup`, eight races, two podiums, two hub returns, 42 minutes of game audio) have none. What is left untested from the report is a connected Archipelago session |
 | Merge newer ctr-native upstream work (decomp matching, gameplay fixes since July 2026) | Both forks are 100+ commits behind. Expect ~460 conflict hunks |
 | Pre-race camera flyover is wrong | ctr-native #14 |
