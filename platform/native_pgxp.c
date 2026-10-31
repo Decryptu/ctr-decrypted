@@ -2,6 +2,7 @@
 #include "platform/native_pgxp.h"
 #include "platform/native_config.h"
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
