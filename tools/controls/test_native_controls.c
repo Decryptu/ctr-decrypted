@@ -951,7 +951,7 @@ static u16 PadBusButtons(u8 *port0, int player)
 	struct TestPadSlot *slot = (struct TestPadSlot *)port0;
 	struct ControllerPacket *packet = &slot->controllers[player];
 
-	return (u16)((packet->controllerInput2 << 8) | packet->controllerInput1);
+	return (u16)((packet->input.low << 8) | packet->input.high);
 }
 
 // Whether the game would see a raw button mask held on a pad. Buttons are active low, and

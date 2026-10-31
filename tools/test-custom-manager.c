@@ -47,10 +47,10 @@ int CustomSaphi_StartInstall(const struct CustomSaphiRevision *r,const char *a)
 int CustomSaphi_PollInstall(char pin[65],char *e,size_t n)
 { (void)e;(void)n;if(installResult==1)strcpy(pin,"fixture");return installResult; }
 static char drawn[4096];
-void DecalFont_DrawLineOT(char *s,int x,int y,s16 f,int flags,uint32_t *ot)
+void DecalFont_DrawLineOT(char *s,s16 x,s16 y,s16 f,s16 flags,u32 *ot)
 { (void)ot; int w=DecalFont_GetLineWidth(s,f);if(flags&JUSTIFY_CENTER)x-=w/2;CHECK(x>=0&&x+w<=512&&y>=0&&y+8<=216);
   if(strlen(drawn)+strlen(s)+2<sizeof drawn){strcat(drawn,s);strcat(drawn,"\n");} }
-void RECTMENU_DrawInnerRect(RECT *r,int x,uint32_t *ot)
+void RECTMENU_DrawInnerRect(RECT *r,s16 x,u32 *ot)
 { (void)x;(void)ot;CHECK(r->x>=0&&r->x+r->w<=512&&r->y+r->h<=216); }
 void CTR_Box_DrawClearBox(const RECT *r,const Color *c,s32 t,u32 *ot,struct PrimMem *primMem)
 { (void)c;(void)t;(void)ot;(void)primMem;CHECK(r->x+r->w<=512); }

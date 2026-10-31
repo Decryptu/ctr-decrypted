@@ -595,13 +595,13 @@ int main(void)
 	s_gt.gameMode1 = TIME_TRIAL;
 	CHECK(!MainRaceTrack_OfflineCustomLoad());
 	GAMEPROG_GetPtrHighScoreTrack();
-	CHECK(sdata->ptrActiveHighScoreEntry == &GAME_PROGRESS.highScoreTracks[HOST].scoreEntry[0]);
+	CHECK(sdata->ptrActiveHighScoreEntry == &GAME_PROGRESS.highScoreTracks[HOST].scoreEntry[0][0]);
 	GhostTape_Start();
 	CHECK(((struct GhostHeader *)s_ghostRecord)->levelID == HOST);
 	end_race(60000);
 	CHECK(GAME_PROGRESS.highScoreTracks[HOST].timeTrialFlags != before.highScoreTracks[HOST].timeTrialFlags);
 	MainGameEnd_SoloRaceSaveHighScore();
-	CHECK(GAME_PROGRESS.highScoreTracks[HOST].scoreEntry[1].time == 60000);
+	CHECK(GAME_PROGRESS.highScoreTracks[HOST].scoreEntry[0][1].time == 60000);
 
 	{
 		char cmd[128];

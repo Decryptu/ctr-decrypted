@@ -13,7 +13,7 @@
 // replace failure, cleanup of only the owned temp, and a valid destination that
 // is a hard link never opened for writing.
 //
-//   cc -Wall -Wextra -I . -I include -o /tmp/test-disc-copy tools/test-disc-copy.c
+//   cc -m32 -Wall -Wextra -D_DEFAULT_SOURCE -DCTR_NATIVE -I . -I include -o /tmp/test-disc-copy tools/test-disc-copy.c
 //
 // Exit 0 = every assertion held; failures are printed otherwise.
 

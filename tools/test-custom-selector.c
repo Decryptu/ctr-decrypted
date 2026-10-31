@@ -38,7 +38,7 @@ void MM_TrackSelect_Video_State(int state) { (void)state; }
 /* Every string drawn this tick, for the reason and hint checks. */
 static char drawn[4096];
 static int drawnHas(const char *text) { return strstr(drawn, text) != NULL; }
-void DecalFont_DrawLineOT(char *text, int x, int y, s16 font, int flags, uint32_t *ot)
+void DecalFont_DrawLineOT(char *text, s16 x, s16 y, s16 font, s16 flags, u32 *ot)
 {
     (void)ot;
     if (strlen(drawn) + strlen(text) + 2 < sizeof drawn) { strcat(drawn, text); strcat(drawn, "\n"); }
@@ -54,10 +54,10 @@ static void box_check(const RECT *box)
 {
     CHECK(box->x + box->w <= 512);
 }
-void RECTMENU_DrawInnerRect(RECT *r, int x, uint32_t *ot) { (void)x; (void)ot; box_check(r); }
-void CTR_Box_DrawClearBox(const RECT *r, const Color *c, int t, uint32_t *ot)
-{ (void)c; (void)t; (void)ot; box_check(r); }
-void CTR_Box_DrawSolidBox(RECT *r, Color c, uint32_t *ot) { (void)c; (void)ot; box_check(r); }
+void RECTMENU_DrawInnerRect(RECT *r, s16 x, u32 *ot) { (void)x; (void)ot; box_check(r); }
+void CTR_Box_DrawClearBox(const RECT *r, const Color *c, s32 t, u32 *ot, struct PrimMem *primMem)
+{ (void)c; (void)t; (void)ot; (void)primMem; box_check(r); }
+void CTR_Box_DrawSolidBox(RECT *r, const Color *c, u32 *ot, struct PrimMem *primMem) { (void)c; (void)ot; (void)primMem; box_check(r); }
 int CustomOffline_StartPrepare(const char *assets, const char *pin)
 { (void)assets; (void)pin; prepared++; return 1; }
 int CustomOffline_PollPrepare(struct CustomOfflineRequest **out, char *e, size_t n)
@@ -82,7 +82,7 @@ int CustomOffline_BeginRuntime(struct CustomOfflineRequest **r, int host, int se
 }
 int CustomOffline_RuntimeMode(void) { return beganMode; }
 static unsigned char highMem[0x3e00];
-void *MEMPACK_AllocHighMem(int size) { CHECK(size == 0x3e00); memset(highMem, 0xee, sizeof highMem); return highMem; }
+void *MEMPACK_AllocHighMem(s32 size, const char *name) { (void)name; CHECK(size == 0x3e00); memset(highMem, 0xee, sizeof highMem); return highMem; }
 int MainRaceTrack_CustomLoadGhost(struct GhostHeader *dst)
 {
     ghostLoads++;
@@ -95,10 +95,10 @@ char *RECTMENU_DrawTime(int time) { static char t[16]; snprintf(t, sizeof t, "T%
 
 static int tick(int buttons)
 {
-    while (s_arcadeMotion) { sdata->buttonTapPerPlayer[0] = 0; MM_CustomTrackSelect_Tick(&D230.menuTrackSelect); }
+    while (s_arcadeMotion) { sdata->buttonTapPerPlayer[0] = 0; MM_CustomTrackSelect_Tick(); }
     sdata->buttonTapPerPlayer[0] = buttons;
     drawn[0] = 0;
-    return MM_CustomTrackSelect_Tick(&D230.menuTrackSelect);
+    return MM_CustomTrackSelect_Tick();
 }
 
 int main(void)

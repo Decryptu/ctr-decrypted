@@ -14,7 +14,7 @@
 //                                    operations exactly as production drives it
 //                                    with the real ones.
 //
-//   cc -Wall -Wextra -DCTR_AP -I . -I include -o /tmp/test-disc-resolution tools/test-disc-resolution.c
+//   cc -m32 -Wall -Wextra -D_DEFAULT_SOURCE -DCTR_NATIVE -DCTR_AP -I . -I include -o /tmp/test-disc-resolution tools/test-disc-resolution.c
 //
 // Exit 0 = every assertion held; failures are printed otherwise.
 

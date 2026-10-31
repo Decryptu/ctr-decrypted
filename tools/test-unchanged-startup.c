@@ -16,7 +16,7 @@
 // (BIGFILE/XA, which this host fixture does not carry) is stubbed through the
 // NativeStartupOps, exactly as the work order allows.
 //
-//   cc -Wall -Wextra -DCTR_AP -I . -I include -o /tmp/test-unchanged-startup tools/test-unchanged-startup.c
+//   cc -m32 -Wall -Wextra -D_DEFAULT_SOURCE -DCTR_NATIVE -DCTR_AP -I . -I include -o /tmp/test-unchanged-startup tools/test-unchanged-startup.c
 //
 // Exit 0 = every assertion held; failures are printed otherwise.
 

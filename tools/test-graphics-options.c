@@ -5,7 +5,7 @@
 // widescreen.c (the aspect-ratio arithmetic the game call sites use) against
 // the real game headers.
 //
-//   cc -Wall -Wextra -DCTR_NATIVE -I include -I . -o /tmp/test-graphics-options tools/test-graphics-options.c && /tmp/test-graphics-options
+//   cc -m32 -Wall -Wextra -D_DEFAULT_SOURCE -DCTR_NATIVE -I include -I . -o /tmp/test-graphics-options tools/test-graphics-options.c && /tmp/test-graphics-options
 //
 // Exit 0 = every assertion held; failing cases are printed otherwise.
 //
