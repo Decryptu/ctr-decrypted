@@ -18,6 +18,7 @@ Roughly in this order.
 
 | Item | Source |
 |---|---|
+| **High priority.** Port dowlle's unreleased 0.3.0 into our build and finish it ourselves: boss randomization, Wumpa shop, solo mode, custom tracks, lap checks, signed updater. Debug and improve it as we go, and move the matching `ctr.apworld` changes into `apworld/` | [dowlle/ctr-native-ap](https://github.com/dowlle/ctr-native-ap) and [ctr-archipelago-apworld](https://github.com/dowlle/ctr-archipelago-apworld) `dev/custom-pad-0.3.0` (220 commits past `main` as of 2026-10-31), plus `feat/solo-mode-89`, `feat/xdelta-track-import`, `feat/344-lap-checks`, `feat/signed-updater-301` |
 | Check in game: camera wobble when accelerating, braking and turning; the flag when exiting a race to the hub from the pause menu | Owner playtest, 2026-10-31. Fixed in the build after it: the [precise camera](docs/PGXP.md#precise-camera), the 60 FPS steering, camera and surface-spring conversions ([60FPS.md](docs/60FPS.md#changes-beyond-high-octane)), the flag's PGXP vertices and its "LOADING..." letters. Frame-by-frame captures of the pause-menu exit, fast and real time, show no other flicker; if it remains, an `F7` capture of it is the next step |
 | Archipelago character unlocks (high): Adventure starts with the vanilla character picker and only the 8 base racers; every other racer, Oxide included, is unlocked during the run | Owner request, 2026-10-31 |
 | Project website and guide (mid): GitHub Pages site with install steps, how to play with Archipelago, and the dev toolbox | Owner request, 2026-10-31 |
@@ -32,7 +33,6 @@ Roughly in this order.
 - PAL disc support (low priority). Upstream removed it on purpose (ctr-native #51, #54), so it would be our own work.
 - A 4:3 / 5:4 aspect option for CRTs (High Octane #44).
 - High Octane's colour effects as more Screen Filter entries: Gamma, Greyscale, Hue, Negative, Sepia, Vignette, LCD 3x, colour-blind modes.
-- Following dowlle's 0.3.0 work once it is released: boss randomization, Wumpa shop, solo mode, custom tracks.
 - macOS (low priority). First a clean 64-bit/arm64 build (today's builds are 32-bit x86 MinGW32), then a macOS platform layer: window, GL context, audio and controllers. Until then the Windows exe under CrossOver/Wine is the stopgap; it needs GL 3.x there (ctr-native #20, #33).
 - Exact pointer tests in the level renderer: `226_00_DrawLevelOvr1P.c` tells a hi-res texture pointer from inline texture data by the word's value (inside the level buffer, word-aligned, plausible page). Checked against the loader's pointer map on Hot Air Skyway in both builds: no disagreement in 100,000 lookups, so it is left alone. The exact version needs a flag carried next to scratchpad word 0x84.
 
