@@ -44,7 +44,12 @@ $repo = (Resolve-Path "$PSScriptRoot\..\..").Path
 $assets = Join-Path $run 'assets'
 if (-not (Test-Path $assets)) { Copy-Item (Join-Path $repo 'assets') $assets -Recurse }
 $disc = Join-Path $assets 'ctr-u.bin'
-if (-not (Test-Path $disc)) { Copy-Item $Bin $disc }
+# The game only reads the disc, so a hard link does; a copy per run folder is
+# 600 MB each. Copy only when the run folder is on another volume.
+if (-not (Test-Path $disc)) {
+	try { New-Item -ItemType HardLink -Path $disc -Target $Bin -ErrorAction Stop | Out-Null }
+	catch { Copy-Item $Bin $disc }
+}
 
 # Fixed baseline config, then the caller's overrides.
 $cfg = [ordered]@{ fps60 = 'true'; pgxp = 2; aspect_ratio = 1; render_scale = 0 }
