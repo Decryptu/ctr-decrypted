@@ -9,5 +9,8 @@ void *Platform_GetMempackBacking(void);
 int Platform_GetMempackBackingSize(void);
 void *Platform_GetSpawnPoolReserve(void);
 int Platform_GetSpawnPoolReserveSize(void);
+// The two primitive arenas, in host memory rather than MEMPACK.
+void *Platform_GetPrimArena(int index);
+u32 Platform_GetPrimArenaSize(void);
 
 #endif

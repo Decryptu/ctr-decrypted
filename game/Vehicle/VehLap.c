@@ -23,6 +23,18 @@ void VehLap_UpdateProgress(struct Driver *driver)
 	else
 	{
 		checkpointIndex = driver->botData.ai_quadblock_checkpointIndex;
+#if defined(CTR_NATIVE)
+		// Retail loads this with lbu and only bails on a negative index, so a
+		// bot on a quadblock with no checkpoint (0xff) reads nodes[255], far
+		// past the array. On the PS1 those bytes are fixed; here they include
+		// host pointers, which move with the load address (ASLR), so the race
+		// played differently from run to run. Treat 0xff as the human path
+		// does: no checkpoint, keep last frame's progress.
+		if (checkpointIndex == 0xff)
+		{
+			checkpointIndex = -1;
+		}
+#endif
 	}
 
 	struct Level *level = gGT->level1;

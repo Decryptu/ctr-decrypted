@@ -370,6 +370,9 @@ void LOAD_NextQueuedFile(void);
 
 void MainDB_OTMem(struct OTMem *otMem, u32 size);
 void MainDB_PrimMem(struct PrimMem *primMem, u32 size);
+#if defined(CTR_NATIVE)
+void MainDB_PrimMemAt(struct PrimMem *primMem, void *buffer, u32 size);
+#endif
 
 void MainDrawCb_Vsync(void);
 void MainDrawCb_DrawSync(void);

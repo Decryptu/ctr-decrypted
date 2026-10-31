@@ -162,52 +162,16 @@
 //        fields are u32/void*, and the GPU tags carry 24-bit tokens, not
 //        truncated pointers.
 //
-//    WHICH LOADS GET THE FLOOR. The first version of this decision gave it only
-//    to a load the loader was serving custom bytes for, on the argument that only
-//    a borrowed slot has a budget chosen for someone else's geometry. The
-//    2026-08-29 run showed that argument was too narrow. The adventure hub
-//    (levelID 25) takes its arena from the ADVENTURE_ARENA branch of
-//    MainInit_GetPrimMemSize -- 0x1c000 = 114,688 bytes, a constant, not the
-//    table -- and its worst frame in that run spent 106,324 of it, leaving 8,364
-//    free. That is 93% of a budget the PS1 sized for PS1 draw pressure, and the
-//    native client draws more per frame than the PS1 build did.
-//
-//    8,364 free is below DRAW_LEVEL_OVR1P_BUCKET_RESERVE_FULL_DYNAMIC (0x2700
-//    = 9,984), the largest reserve DrawLevelOvr1P_HasBucketPrimReserve asks
-//    for. What that does NOT establish is that any reserve check actually
-//    failed: the reserve is tested during terrain and that figure is measured
-//    after the sky, and a frame that DID fail a reserve abandons the rest of
-//    level rendering and therefore records a SMALLER spend than a frame that
-//    completed. The high-water instrument is structurally unable to answer the
-//    question it was built for, which is why decision 8's companion in
-//    platform/native_custom_tracks.c now counts refused reserves directly.
-//
-//    So the floor is widened on headroom, not on a proven exhaustion: every
-//    1P level load (numPlyrCurrGame == 1) gets it. 2P/3P/4P and the
-//    numPlyrCurrGame == 0 attract path keep their retail arenas, because
-//    nothing has been measured for them.
-//
-//    THE FOURTH CEILING, checked for the widening and asserted with the other
-//    three: MEMPACK has room for the floor on EVERY 1P load, not just the
-//    custom race. Any load that runs at all under CTR_NATIVE_MEMPACK_RETAIL_
-//    PRESSURE fits the retail window, 0x144e10 = 1,330,704 bytes, prim arenas
-//    included. A custom-tracks build replaces those arenas inside an 8 MiB
-//    pack (8,386,560 usable), so the worst conceivable 1P demand is the whole
-//    retail window plus both floors, 1,330,704 + 2,097,152 = 3,427,856, with
-//    4,958,704 spare. The custom race is the separate case already measured:
-//    5,418,356 free against a cost of 1,886,208.
-//
-//    The GPU-token ceiling does not compound across loads.
-//    MainFrame_RegisterGpuLinkRanges calls NativeGpuLinks_Reset() before it
-//    registers, so exactly six ranges are ever live and each level load starts
-//    the token space over -- widening the floor to every 1P load registers the
-//    same six ranges it always did, at the sizes already checked.
-//
-//    RETAIL SIZING IS STILL UNTOUCHED WITH THE GUARD OFF. MainInit_GetPrimMemSize
-//    is ASM-verified and unmodified; the floor is applied after it, inside
-//    #ifdef CTR_CUSTOM_TRACKS, and CTR_CUSTOM_TRACKS is what selects the 8 MiB
-//    pack in the first place. A build without the guard allocates exactly the
-//    bytes retail allocates, for every level and every player count.
+//    WHERE IT LIVES NOW. This decision first raised the arena inside MEMPACK,
+//    for served loads and then every 1P load, in custom-track builds only. The
+//    adventure hub's worst frame had spent 106,324 of its 114,688 retail bytes
+//    (2026-08-29), and increase_draw_distance later overran the retail arena on
+//    almost every frame of Hot Air Skyway, which drops the near floor because
+//    level buckets draw far to near. So every native build now takes both
+//    arenas from host memory at CTR_CT_PRIM_ARENA_BYTES, for every level and
+//    player count (MainInit_PrimMem, platform/native_memory.c). MEMPACK no
+//    longer holds them, so the MEMPACK ceiling above no longer applies;
+//    MainInit_GetPrimMemSize stays ASM-verified and unmodified.
 //
 // 9. HOW MANY RENDERED QUADBLOCKS FIT (rung 3a). Decision 8 hands terrain a
 //    much larger arena, so DrawLevelOvr1P now runs further into a level's
@@ -407,14 +371,11 @@
 #define CTR_CT_MAX_LEVELS  18
 #define CTR_CT_GROUP_SIZE  8
 
-// The primitive arena floor, in bytes, for a served custom track and for every
-// 1P level load. See decision 8 for the measurements behind it and the four
-// ceilings it was checked against.
+// Each primitive arena's size in bytes. Native builds give both arenas this
+// much host memory on every load (CTR_NATIVE_PRIM_ARENA_BYTES in
+// platform/native_memory.c, kept equal by hand);
+// see decision 8 for the measurements behind it.
 #define CTR_CT_PRIM_ARENA_BYTES 0x100000uL
-
-// The player count MainInit_GetPrimMemSize treats as a single-player level
-// load, and the only one decision 8 widens the floor to.
-#define CTR_CT_PRIM_ARENA_ONE_PLAYER 1
 
 // How many entries sdata_static.quadBlocksRendered holds. Decision 9 bounds
 // the append against the end of that array; tools/test-custom-track-load.c
@@ -1205,35 +1166,6 @@ static int CustomTrackPolicy_PrimFits(const void *cursor, unsigned long primSize
 		return 0;
 
 	return ((unsigned long)(g - c) > primSize) ? 1 : 0;
-}
-
-// The frame's primitive arena size in bytes: what MainInit_GetPrimMemSize
-// computed, raised to CTR_CT_PRIM_ARENA_BYTES when this load qualifies for the
-// floor. Decision 8 above.
-//
-// `retailBytes` is the retail answer for this load -- a table lookup
-// (data.primMem_SizePerLEV_1P and its 2P/4P siblings) or one of the four
-// constants MainInit_GetPrimMemSize returns for the non-arcade cases.
-//
-// Two independent reasons to raise it, either one sufficient:
-//   servingCustomTrack -- the slot's budget was chosen for someone else's
-//     geometry, and the event track's sky alone exceeds what the table can
-//     express.
-//   numPlyrCurrGame == 1 -- measured headroom. The hub's worst frame sat at
-//     93% of a constant the PS1 chose, and a frame that crosses it loses the
-//     rest of level rendering silently.
-// Everything else keeps its retail bytes exactly: split-screen, the attract
-// path, and every load in a build without CTR_CUSTOM_TRACKS.
-//
-// The expansion is a floor, not a replacement: a load whose retail budget is
-// already larger than CTR_CT_PRIM_ARENA_BYTES keeps it, so no load can ever be
-// given LESS room than retail gave it.
-static unsigned long CustomTrackPolicy_PrimArenaBytes(int servingCustomTrack, int numPlyrCurrGame, unsigned long retailBytes)
-{
-	if (!servingCustomTrack && (numPlyrCurrGame != CTR_CT_PRIM_ARENA_ONE_PLAYER))
-		return retailBytes;
-
-	return (retailBytes > CTR_CT_PRIM_ARENA_BYTES) ? retailBytes : CTR_CT_PRIM_ARENA_BYTES;
 }
 
 // Is there room for `slots` more entries of `slotBytes` each before the

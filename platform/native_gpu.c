@@ -18,6 +18,7 @@
 #include "platform/native_renderer.h"
 #include "platform/native_pgxp.h"
 #include "platform/native_dev.h"
+#include <widescreen.h>
 
 #include <assert.h>
 #include <math.h>
@@ -536,6 +537,19 @@ static void NativeGpu_SetUvLimits(GrVertex *vertex, int count)
 	}
 }
 
+// CTR_DEV_DUMP_FRAME: a "T" line after a textured polygon's vertex line, with
+// its texture page, CLUT and each vertex's UV.
+static void NativeGpu_DumpTexcoords(const GrVertex *vertex, int count, s16 page, s16 clut)
+{
+	FILE *dump = NativeDev_DumpFile();
+	if (dump == NULL)
+		return;
+	fprintf(dump, "T %04x %04x", (u16)page, (u16)clut);
+	for (int i = 0; i < count; i++)
+		fprintf(dump, " %d %d", vertex[i].u, vertex[i].v);
+	fprintf(dump, "\n");
+}
+
 void MakeTexcoordQuad(GrVertex *vertex, u8 *uv0, u8 *uv1, u8 *uv2, u8 *uv3, s16 page, s16 clut, u8 dither)
 {
 	assert(uv0);
@@ -588,6 +602,7 @@ void MakeTexcoordQuad(GrVertex *vertex, u8 *uv0, u8 *uv1, u8 *uv2, u8 *uv3, s16 
 		}
 	}
 	NativeGpu_SetUvLimits(vertex, 4);
+	NativeGpu_DumpTexcoords(vertex, 4, page, clut);
 	/*
 	if (g_cfg_bilinearFiltering)
 	{
@@ -647,6 +662,7 @@ void MakeTexcoordTriangle(GrVertex *vertex, u8 *uv0, u8 *uv1, u8 *uv2, s16 page,
 		}
 	}
 	NativeGpu_SetUvLimits(vertex, 3);
+	NativeGpu_DumpTexcoords(vertex, 3, page, clut);
 	/*
 	if (g_cfg_bilinearFiltering)
 	{
@@ -946,6 +962,57 @@ void TriangulateQuad()
 	s_gpu.vertexBuffer[s_gpu.vertexIndex + 5] = s_gpu.vertexBuffer[s_gpu.vertexIndex + 2];
 	s_gpu.vertexBuffer[s_gpu.vertexIndex + 2] = s_gpu.vertexBuffer[s_gpu.vertexIndex + 3];
 	s_gpu.vertexBuffer[s_gpu.vertexIndex + 3] = s_gpu.vertexBuffer[s_gpu.vertexIndex + 1];
+}
+
+// The PS1 GPU does not draw a triangle whose bounding box is 1024 or more
+// pixels wide or 512 or more tall (DuckStation and Mednafen agree). CTR relies
+// on it: a model or level polygon reaching the camera plane projects into a
+// huge triangle that the console silently skips. Tested on the retail integer
+// positions the game wrote, like the hardware, whatever PGXP draws with.
+// Widescreen squeezes every X position toward the centre (the projection and
+// the HUD alike), so the width is tested as it would be at 4:3: the same
+// triangles are skipped at every aspect ratio.
+internal bool NativeGpu_HardwareSkipsTriangle(const VERTTYPE *a, const VERTTYPE *b, const VERTTYPE *c)
+{
+	int minX = a[0], maxX = a[0], minY = a[1], maxY = a[1];
+	const VERTTYPE *rest[2] = {b, c};
+
+	for (int i = 0; i < 2; i++)
+	{
+		if (rest[i][0] < minX) minX = rest[i][0];
+		if (rest[i][0] > maxX) maxX = rest[i][0];
+		if (rest[i][1] < minY) minY = rest[i][1];
+		if (rest[i][1] > maxY) maxY = rest[i][1];
+	}
+
+	return (Widescreen_ScaleFrustumX(maxX - minX) >= 1024) || (maxY - minY >= 512);
+}
+
+// Commit a triangle written at the vertex cursor, unless the hardware skips it.
+internal void NativeGpu_CommitTriangle(const VERTTYPE *p0, const VERTTYPE *p1, const VERTTYPE *p2)
+{
+	if (!NativeGpu_HardwareSkipsTriangle(p0, p1, p2))
+		s_gpu.vertexIndex += 3;
+}
+
+// Triangulate and commit a quad written at the vertex cursor by MakeVertexQuad.
+// p0..p3 are the primitive's vertices in packet order; the hardware draws
+// (p0, p1, p2) and (p1, p2, p3), and skips each one on its own.
+internal void NativeGpu_CommitQuad(const VERTTYPE *p0, const VERTTYPE *p1, const VERTTYPE *p2, const VERTTYPE *p3)
+{
+	TriangulateQuad();
+
+	const bool skipFirst = NativeGpu_HardwareSkipsTriangle(p0, p1, p2);
+	const bool skipSecond = NativeGpu_HardwareSkipsTriangle(p1, p2, p3);
+	GrVertex *v = &s_gpu.vertexBuffer[s_gpu.vertexIndex];
+
+	if (skipFirst && !skipSecond)
+	{
+		v[0] = v[3];
+		v[1] = v[4];
+		v[2] = v[5];
+	}
+	s_gpu.vertexIndex += (skipFirst ? 0 : 3) + (skipSecond ? 0 : 3);
 }
 
 //------------------------------------------------------------------------------------------------------------------------
@@ -1662,7 +1729,7 @@ internal int ProcessFlatPoly(P_TAG *polyTag)
 		MakeTexcoordTriangleZero(firstVertex, 0);
 		MakeColourTriangle(firstVertex, shadeTexOn, &poly->r0, &poly->r0, &poly->r0);
 
-		s_gpu.vertexIndex += 3;
+		NativeGpu_CommitTriangle(&poly->x0, &poly->x1, &poly->x2);
 
 		return 4;
 	}
@@ -1682,7 +1749,7 @@ internal int ProcessFlatPoly(P_TAG *polyTag)
 			                     GET_TPAGE_DITHER(activeDrawEnv.tpage) || activeDrawEnv.dtd);
 			MakeColourTriangle(firstVertex, shadeTexOn, &poly->r0, &poly->r0, &poly->r0);
 
-			s_gpu.vertexIndex += 3;
+			NativeGpu_CommitTriangle(&poly->x0, &poly->x1, &poly->x2);
 		}
 		return 7;
 	}
@@ -1697,9 +1764,7 @@ internal int ProcessFlatPoly(P_TAG *polyTag)
 		MakeTexcoordQuadZero(firstVertex, 0);
 		MakeColourQuad(firstVertex, shadeTexOn, &poly->r0, &poly->r0, &poly->r0, &poly->r0);
 
-		TriangulateQuad();
-
-		s_gpu.vertexIndex += 6;
+		NativeGpu_CommitQuad(&poly->x0, &poly->x1, &poly->x2, &poly->x3);
 		return 5;
 	}
 	case 0xC:
@@ -1715,9 +1780,7 @@ internal int ProcessFlatPoly(P_TAG *polyTag)
 		                 GET_TPAGE_DITHER(activeDrawEnv.tpage) || activeDrawEnv.dtd);
 		MakeColourQuad(firstVertex, shadeTexOn, &poly->r0, &poly->r0, &poly->r0, &poly->r0);
 
-		TriangulateQuad();
-
-		s_gpu.vertexIndex += 6;
+		NativeGpu_CommitQuad(&poly->x0, &poly->x1, &poly->x2, &poly->x3);
 
 		return 9;
 	}
@@ -1744,7 +1807,7 @@ internal int ProcessGouraudPoly(P_TAG *polyTag)
 		MakeTexcoordTriangleZero(firstVertex, 1);
 		MakeColourTriangle(firstVertex, shadeTexOn, &poly->r0, &poly->r1, &poly->r2);
 
-		s_gpu.vertexIndex += 3;
+		NativeGpu_CommitTriangle(&poly->x0, &poly->x1, &poly->x2);
 
 		return 6;
 	}
@@ -1760,7 +1823,7 @@ internal int ProcessGouraudPoly(P_TAG *polyTag)
 		MakeTexcoordTriangle(firstVertex, &poly->u0, &poly->u1, &poly->u2, poly->tpage, poly->clut, GET_TPAGE_DITHER(activeDrawEnv.tpage) || activeDrawEnv.dtd);
 		MakeColourTriangle(firstVertex, shadeTexOn, &poly->r0, &poly->r1, &poly->r2);
 
-		s_gpu.vertexIndex += 3;
+		NativeGpu_CommitTriangle(&poly->x0, &poly->x1, &poly->x2);
 
 		return 9;
 	}
@@ -1775,9 +1838,7 @@ internal int ProcessGouraudPoly(P_TAG *polyTag)
 		MakeTexcoordQuadZero(firstVertex, 1);
 		MakeColourQuad(firstVertex, shadeTexOn, &poly->r0, &poly->r1, &poly->r3, &poly->r2);
 
-		TriangulateQuad();
-
-		s_gpu.vertexIndex += 6;
+		NativeGpu_CommitQuad(&poly->x0, &poly->x1, &poly->x2, &poly->x3);
 
 		return 8;
 	}
@@ -1794,9 +1855,7 @@ internal int ProcessGouraudPoly(P_TAG *polyTag)
 		                 GET_TPAGE_DITHER(activeDrawEnv.tpage) || activeDrawEnv.dtd);
 		MakeColourQuad(firstVertex, shadeTexOn, &poly->r0, &poly->r1, &poly->r3, &poly->r2);
 
-		TriangulateQuad();
-
-		s_gpu.vertexIndex += 6;
+		NativeGpu_CommitQuad(&poly->x0, &poly->x1, &poly->x2, &poly->x3);
 
 		return 12;
 	}

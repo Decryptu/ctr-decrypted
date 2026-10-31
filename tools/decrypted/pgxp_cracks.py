@@ -30,6 +30,8 @@ def main():
     polys = 0
     for line in open(args.dump):
         f = line.split()
+        if f[0] == "T":
+            continue  # texture line of the polygon before
         tag, count = int(f[0]), int(f[1])
         if args.level_only and tag < 0:
             continue
@@ -85,6 +87,8 @@ def tjunctions(path, level_only):
     polys = []
     for line in open(path):
         f = line.split()
+        if f[0] == "T":
+            continue  # texture line of the polygon before
         tag, count = int(f[0]), int(f[1])
         if level_only and tag < 0:
             continue

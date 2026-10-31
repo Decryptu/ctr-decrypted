@@ -52,6 +52,16 @@ void NativeDev_EndFrameFromVRAM(int x, int y, int w, int h);
 // one line per polygon; tools/decrypted/pgxp_cracks.py reads it.
 FILE *NativeDev_DumpFile(void);
 
+// F7 in a running game: the next frame's polygon dump (as CTR_DEV_DUMP_FRAME),
+// its image and its VRAM go to debug/captures, for bugs only a person can
+// reach.
+void NativeDev_RequestCapture(void);
+
+// CTR_DEV_STACK_POISON=<byte>: at the top of each main-loop frame, fill the
+// stack the frame is about to use with that byte. Two runs with different bytes play the
+// same unless game code reads a local it never wrote.
+void NativeDev_PoisonStack(void);
+
 // Primitive-range tags: code that emits primitives can label the arena range
 // it wrote, and debug views can ask which label a primitive came from. Used by
 // CTR_PGXP_DEBUG=4 to tint level geometry by LOD bucket. Reset every frame.
@@ -101,6 +111,8 @@ int NativeDev_AutopilotPad(int player, unsigned short *buttons, unsigned char *l
 // CTR_DEV_EXIT_AFTER_RACE=1 quits a second after the finish.
 // CTR_DEV_RESULTS=<csv> gets every racer's rank, lap and distance to the
 // finish at CTR_DEV_RESULTS_MS of race time (default 30000).
+// CTR_DEV_DRIVER_DUMP=<file> gets every Driver struct, every frame of a race
+// (tools/decrypted/driver_diff.py compares two runs).
 // CTR_DEV_QUAD_DUMP=<csv>: the level's quadblocks as it loads (LevInstDef_UnPack).
 struct mesh_info;
 void NativeDev_QuadDump(const struct mesh_info *mesh);

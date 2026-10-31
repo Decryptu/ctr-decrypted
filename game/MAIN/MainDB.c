@@ -49,6 +49,21 @@ void MainDB_PrimMem(struct PrimMem *primMem, u32 size)
 	primMem->guardEnd = (void *)((int)pvVar1 - 0x100);
 }
 
+#if defined(CTR_NATIVE)
+// MainDB_PrimMem over a buffer the caller owns instead of a MEMPACK allocation.
+void MainDB_PrimMemAt(struct PrimMem *primMem, void *buffer, u32 size)
+{
+	u8 *end = (u8 *)buffer + ((size >> 2) << 2);
+
+	primMem->capacityBytes = size;
+	primMem->allocationStart = buffer;
+	primMem->cursor = buffer;
+	primMem->start = buffer;
+	primMem->end = end;
+	primMem->guardEnd = end - 0x100;
+}
+#endif
+
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80034a28-0x80034a80.
 void MainDB_OTMem(struct OTMem *otMem, u32 size)
 {

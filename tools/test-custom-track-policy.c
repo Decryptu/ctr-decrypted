@@ -865,52 +865,15 @@ static void test_prim_fits(void)
 // ---------------------------------------------------------------------------
 // 11. How big the primitive arena is.
 // ---------------------------------------------------------------------------
+//
+// Native builds give both arenas CTR_CT_PRIM_ARENA_BYTES of host memory on every
+// load (MainInit_PrimMem, platform/native_memory.c), outside MEMPACK. What is
+// left to check is that the size covers the measured demand and fits the GPU
+// link token space.
 
 static void test_prim_arena_bytes(void)
 {
-	const unsigned long retailSlot6 = 0x67uL << 10;  // 105,472
-	const unsigned long retailWidest = 0x6euL << 10; // 112,640, the table's largest real entry
-	const unsigned long retailHub = 0x1c000uL;       // 114,688, MainInit_GetPrimMemSize's ADVENTURE_ARENA branch
-
-	// Split-screen and the attract path are handed the retail figure untouched.
-	// This is the retail-identity argument for everything the widening does NOT
-	// cover: nothing has been measured for those loads, so nothing changes.
-	expect_int(CustomTrackPolicy_PrimArenaBytes(0, 2, retailSlot6) == retailSlot6, 1,
-	           "a 2P load keeps the retail arena exactly");
-	expect_int(CustomTrackPolicy_PrimArenaBytes(0, 3, retailWidest) == retailWidest, 1,
-	           "so does 3P, including the table's widest entry");
-	expect_int(CustomTrackPolicy_PrimArenaBytes(0, 4, retailWidest) == retailWidest, 1, "and 4P");
-	expect_int(CustomTrackPolicy_PrimArenaBytes(0, 0, 0x25800uL) == 0x25800uL, 1,
-	           "and the numPlyrCurrGame == 0 attract path");
-	expect_int(CustomTrackPolicy_PrimArenaBytes(0, 2, CTR_CT_PRIM_ARENA_BYTES + 1) == CTR_CT_PRIM_ARENA_BYTES + 1, 1,
-	           "and a hypothetical huge one");
-
-	// Every 1P level load gets the floor, whether or not a custom track is being
-	// served. This is the widening the hub measurement bought.
-	expect_int(CustomTrackPolicy_PrimArenaBytes(0, 1, retailHub) == CTR_CT_PRIM_ARENA_BYTES, 1,
-	           "the adventure hub's 1P load gets the floor");
-	expect_int(CustomTrackPolicy_PrimArenaBytes(0, 1, retailSlot6) == CTR_CT_PRIM_ARENA_BYTES, 1,
-	           "so does a retail 1P arcade race");
-	expect_int(CustomTrackPolicy_PrimArenaBytes(0, 1, 0x1e000uL) == CTR_CT_PRIM_ARENA_BYTES, 1,
-	           "and the 1P intro-race constant");
-
-	// The custom track's own reason still stands alone, independently of the
-	// player count, because its argument is the borrowed slot rather than
-	// measured headroom.
-	expect_int(CustomTrackPolicy_PrimArenaBytes(1, 1, retailSlot6) == CTR_CT_PRIM_ARENA_BYTES, 1,
-	           "the event race gets the measured arena");
-	expect_int(CustomTrackPolicy_PrimArenaBytes(1, 2, retailSlot6) == CTR_CT_PRIM_ARENA_BYTES, 1,
-	           "and would still get it at a player count the widening does not cover");
-
-	// It is a FLOOR, not a replacement: a load whose retail budget was already
-	// larger must not be shrunk by turning the feature on. Checked on both
-	// reasons, because either one alone reaches this branch.
-	expect_int(CustomTrackPolicy_PrimArenaBytes(1, 2, CTR_CT_PRIM_ARENA_BYTES + 4096) == CTR_CT_PRIM_ARENA_BYTES + 4096, 1,
-	           "a bigger retail arena is never shrunk for a served track");
-	expect_int(CustomTrackPolicy_PrimArenaBytes(0, 1, CTR_CT_PRIM_ARENA_BYTES + 4096) == CTR_CT_PRIM_ARENA_BYTES + 4096, 1,
-	           "nor for a 1P load");
-	expect_int(CustomTrackPolicy_PrimArenaBytes(1, 1, CTR_CT_PRIM_ARENA_BYTES) == CTR_CT_PRIM_ARENA_BYTES, 1,
-	           "an exactly-equal arena is unchanged");
+	const unsigned long retailHub = 0x1c000uL; // 114,688, MainInit_GetPrimMemSize's ADVENTURE_ARENA branch
 
 	// --- what the hub measurement does and does not say ---------------------
 	{
@@ -964,35 +927,6 @@ static void test_prim_arena_bytes(void)
 		// session has been through. Widening the floor to every 1P load
 		// registers the same six at the same sizes.
 		expect_int(6 <= 64, 1, "six live ranges against NATIVE_GPU_LINK_MAX_RANGES");
-
-		// MEMPACK, measured free during this race on the 8 MiB arena the
-		// custom-track build already selects.
-		{
-			const unsigned long freeDuringRace = 5418356uL;
-			const unsigned long cost = 2uL * (CTR_CT_PRIM_ARENA_BYTES - retailSlot6);
-
-			expect_int(cost < freeDuringRace, 1, "the expansion fits the free MEMPACK measured in a real race");
-			expect_int(cost * 2 < freeDuringRace, 1, "with more than half of it still free afterwards");
-		}
-
-		// The fourth ceiling, added for the 1P widening: MEMPACK has room on
-		// EVERY 1P load, not only the one race that was measured. Any load that
-		// runs at all under retail pressure fits the retail window whole, prim
-		// arenas included, so the worst conceivable demand under the guard is
-		// that window plus both floors -- an over-estimate, since it double
-		// counts the retail arenas the floor replaces.
-		{
-			const unsigned long retailWindow = 0x144e10uL;                   // CTR_NATIVE_MEMPACK_SIZE, retail pressure
-			const unsigned long expandedPack = (8uL * 1024uL * 1024uL) - 0x800uL; // the pack CTR_CUSTOM_TRACKS selects
-			const unsigned long worstDemand = retailWindow + 2uL * CTR_CT_PRIM_ARENA_BYTES;
-
-			expect_int(retailWindow == 1330704uL, 1, "the retail window is 1,330,704 bytes");
-			expect_int(expandedPack == 8386560uL, 1, "and the expanded pack 8,386,560");
-			expect_int(worstDemand == 3427856uL, 1, "so the worst 1P demand is 3,427,856");
-			expect_int(worstDemand < expandedPack, 1, "which fits the expanded pack");
-			expect_int(expandedPack - worstDemand > 2uL * CTR_CT_PRIM_ARENA_BYTES, 1,
-			           "with more spare than the floor itself costs");
-		}
 	}
 }
 
