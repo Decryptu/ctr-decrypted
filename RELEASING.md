@@ -4,24 +4,17 @@ The repeatable checklist for shipping a release, written down from the v0.1.0
 release (2026-07-15). CTR-AP ships as a versioned PAIR: this client and the
 companion `ctr.apworld` carry the same version and are tested together.
 
-## Versioning policy (ruled 2026-07-26, extended 2026-07-28)
+## Versioning policy
 
-- **Every release is a three-part semver bump: `vX.Y.Z`, no fourth segment,
-  ever.** Regular releases bump the patch (0.1.4 -> 0.1.5); bigger updates
-  bump the minor (0.1.x -> 0.2.x). v0.1.4.1 is the one-off historical
-  exception and must not be repeated.
-- **The pair always bumps, even for client-only fixes.** A client fix ships
-  as a full release: the apworld's `world_version` bumps to match even when
-  its content did not change, the apworld is rebuilt, the full asset set
-  ships (see the completeness gate in section 7), and the indexes get their
-  version PR. Rationale: both live indexes resolve the apworld by a
-  `releases/download/v{{version}}/ctr.apworld` URL template, so a four-part
-  or client-only tag is either invisible to the apworld manager or breaks
-  the template.
-- **Every non-pre-release must be a complete, installable pair.** A release
-  missing any standard asset ships as a pre-release or not at all. What made
-  v0.1.4.1 unpromotable was not its version number; it was the missing
-  Linux build, apworld, template, and debug sidecar.
+- CTR Decrypted has its own version line, `vX.Y.Z` (three parts, semver): the
+  patch for fixes, the minor for features, the major for breaking changes.
+- The `ctr.apworld` it ships is dowlle's, unchanged, so it keeps dowlle's
+  version. The client declares which apworld it works with in
+  `CTR_AP_COMPAT_VERSION` (`ap/ap_version.h`); the assembler refuses an apworld
+  or template whose version differs from it. The release version itself is
+  independent of the apworld's.
+- Every release is a complete set: Windows and Linux clients, the apworld, the
+  player template, the debug sidecars and the signed manifest.
 
 ## 0. Cycle sequence (merge first, then test the merged result)
 
@@ -74,14 +67,12 @@ For 0.2.0, the maintainer has approved a community-tested baseline. The in-game 
 - [ ] Known issues written down honestly for the release notes, each with
       impact and workaround.
 
-## 2. Version bump (TWO places, same number)
+## 2. Version bump
 
 - [ ] `ap/ap_version.h` -> `CTR_AP_VERSION` (surfaces in the window title and
       the `[CTR-AP] Release:` startup log line).
-- [ ] apworld `worlds/ctr/archipelago.json` -> `world_version`.
-- WARNING: never LOWER `world_version`. Archipelago's requires-check hard-fails
-  any YAML generated from a template with a higher version, which strands every
-  existing player YAML.
+- [ ] When the shipped apworld changes version, set `CTR_AP_COMPAT_VERSION` to
+      it in the same commit that makes the client compatible with it.
 
 ## 3. Build
 
@@ -227,13 +218,8 @@ and upload steps are scoped to a complete two-platform release in section 7.
 
 ## 5. Tag
 
-- [ ] Same tag `vX.Y.Z` on BOTH repos at the exact release commits, pushed.
-      The player-facing GitHub release lives on this repo only; the apworld
-      tag exists for traceability.
-- [ ] The tag is on `main` in BOTH repos:
-      `git merge-base --is-ancestor vX.Y.Z origin/main`. If it was cut on a
-      release branch, the merge-back PR is open now and merged before any
-      follow-up fix lands (see section 0).
+- [ ] Tag `vX.Y.Z` on the release commit, on `main`
+      (`git merge-base --is-ancestor vX.Y.Z origin/main`), and push it.
 
 ## 6. Release notes
 

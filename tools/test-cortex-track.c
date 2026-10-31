@@ -334,11 +334,11 @@ struct guard_row
 
 static const struct guard_row rows[] = {
 	{"game/222.c", "#ifdef CTR_AP\n\t// Cortex Vortex pad track (schema 15)", "AP_NotifyCortexTrackRace",
-	 "rewardBit = gGT->levelID + ADV_REWARD_FIRST_TROPHY;"},
-	{"game/222.c", "rewardBit = gGT->levelID + ADV_REWARD_FIRST_CTR_TOKEN;", "AP_CortexTrackBit(AP_CV_SLOT_TOKEN)",
-	 "CHECK_ADV_BIT(adv->rewards, rewardBit) == 0))"},
-	{"game/223.c", "void RR_EndEvent_UnlockAward(void)", "AP_CortexTrackRelicAward(raceTime)",
-	 "data.RelicTime[levelID * RR_RELIC_TIERS + relicIndex]"},
+	 "rewardBit += ADV_REWARD_FIRST_TROPHY;"},
+	{"game/222.c", "tokenRewardBit = adventureGameTracker->levelID + ADV_REWARD_FIRST_CTR_TOKEN;",
+	 "AP_CortexTrackBit(AP_CV_SLOT_TOKEN)", "CHECK_ADV_BIT(GAME_ADV_PROGRESS.rewards, tokenRewardBit)"},
+	{"game/223.c", "void RR_EndEvent_UnlockAward(void)", "AP_CortexTrackRelicAward(",
+	 "RR_RELIC_TIMES[gGT->levelID]"},
 	{"ap/ap_boxes.c", "static int AP_BoxesPadRoutePolicy(", "AP_CortexTrackActive()",
 	 "phys  = ctr_cfg_warp_phys(level);"},
 	{"ap/ap_hooks_race.c", "static int AP_RetailPodiumTrack(", "AP_CV_PODIUM_LOGICAL_TRACK",
@@ -355,16 +355,16 @@ static const struct guard_row rows[] = {
 	{"ap/ap_hooks_pads.c", "static int AP_GlowBitRewardGroup(", "cortexGroup", "if (globalBit >= AP_PODIUM_PSEUDO_BASE)"},
 	{"game/232/AH_WarpPad.c", "s16 *AH_WarpPad_GetSpawnPosRot(", "CustomTrack_CortexTrackPrevServed()", "->levelID == exitedLevel"},
 	{"game/232/AH_WarpPad.c", "WarpPad_RequestLoad:\n", "AP_CortexTrackPrepareLoad(levelID)", "MainRaceTrack_RequestLoad(levelID);"},
-	{"game/UI/UI_CupStandings.c", "index = data.ArcadeCups[cupID].CupTrack[cupTrack].trackID;",
-	 "AP_CortexTrackPrepareLoad(index)", "MainRaceTrack_RequestLoad(index);"},
+	{"game/UI/UI_CupStandings.c", "nextLevelID = data.ArcadeCups[cupID].CupTrack[cupTrack].trackID;",
+	 "AP_CortexTrackPrepareLoad(nextLevelID)", "MainRaceTrack_RequestLoad(nextLevelID);"},
 	{"game/MAIN/MainRaceTrack.c", "void MainRaceTrack_RequestLoad(", "CustomTrack_CortexTrackOnRequestLoad(levelID)", "return;"},
 	{"platform/native_custom_tracks.c", "int CustomTrack_GetOverride(", "CustomTrack_CortexTrackServing(ctx->levelID",
 	 "if (!s_customTrackConfig.contentVerified)"},
 	// Issue #356: the recorded-lane arm must ask every serving predicate before
 	// it can fall through to the retail identity of the borrowed host slot.
-	{"game/BOTS.c", "// Which track's recordings may replay on this load.", "CustomTrack_CortexTrackIntent((int)gGT->levelID",
+	{"game/BOTS.c", "// Which track's recordings may replay on this load.", "CustomTrack_CortexTrackIntent((int)navGGT->levelID",
 	 "AP_NavRec_ClearActiveCustomTrack()"},
-	{"game/BOTS.c", "// Which track's recordings may replay on this load.", "CustomTrack_OxideFinalServing((int)gGT->levelID",
+	{"game/BOTS.c", "// Which track's recordings may replay on this load.", "CustomTrack_OxideFinalServing((int)navGGT->levelID",
 	 "AP_NavRec_ClearActiveCustomTrack()"},
 };
 

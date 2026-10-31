@@ -124,7 +124,7 @@ int main(void)
     }
     CHECK(CustomTrackLibrary_Replace(&s_contentLibrary, entries, 17));
     MM_CustomTrackSelect_Init();
-    D230.trackSel_transitionState = IN_MENU;
+    D230.trackSelect.transition.state = IN_MENU;
     CHECK(tick(0) == 0 && s_arcadePage == 0);
     CHECK(tick(BTN_LEFT) == 1 && s_arcadePage == 3);
     tick(BTN_DOWN); CHECK(s_arcadeRows[2] == 0); /* One row on final page. */
@@ -136,7 +136,7 @@ int main(void)
     tick(BTN_CROSS_one); CHECK(prepared == 1 && s_arcadePrepareBusy);
     tick(BTN_TRIANGLE); CHECK(s_arcadeConfirm && !s_arcadePrepareBusy); /* Drain worker before Back. */
     tick(BTN_TRIANGLE); CHECK(!s_arcadeConfirm && !s_arcadeRequest);
-    CHECK(D230.trackSel_transitionState == IN_MENU);
+    CHECK(D230.trackSelect.transition.state == IN_MENU);
     allowed = 0; tick(BTN_CROSS_one); CHECK(prepared == 1);
     allowed = 1; tracker.numPlyrNextGame = 2;
     tick(BTN_CROSS_one); CHECK(prepared == 1);
@@ -144,12 +144,12 @@ int main(void)
     tick(BTN_CROSS_one); tick(0); tick(BTN_CROSS_one);
     CHECK(launched == 1 && beganHost == 6 && tracker.currLEV == 6 && tracker.numLaps == 7);
     CHECK(tracker.arcadeDifficulty == 123 && tracker.numPlyrNextGame == 1);
-    CHECK(D230.trackSel_transitionState == EXITING_MENU && D230.trackSel_StartRaceAfterFadeOut == 1);
+    CHECK(D230.trackSelect.transition.state == EXITING_MENU && D230.trackSelect.transition.startAfterExit == 1);
     tracker.gameMode1 = TIME_TRIAL | ARCADE_MODE; /* not a mode the pages know */
     CHECK(tick(BTN_RIGHT) == 0);
     tracker.gameMode1 = BATTLE_MODE;
     CHECK(tick(BTN_RIGHT) == 0);
-    tracker.gameMode1=ARCADE_MODE;D230.trackSel_transitionState=IN_MENU;
+    tracker.gameMode1=ARCADE_MODE;D230.trackSelect.transition.state=IN_MENU;
     CHECK(beganMode == CTR_OFFLINE_MODE_ARCADE && checkedMode == CTR_OFFLINE_MODE_ARCADE);
     CHECK(!MM_CustomTrackSelect_TimeTrialStart()); /* Arcade never takes the Time Trial exit. */
 
@@ -162,7 +162,7 @@ int main(void)
     MM_CustomTrackSelect_Init();tick(0);
     CHECK(s_arcadeLibrary.count==2);
     CHECK(!strcmp(s_arcadeLibrary.entries[0].title,"Track 00") && !strcmp(s_arcadeLibrary.entries[1].version,"1.10.0"));
-    D230.trackSel_transitionState=IN_MENU;
+    D230.trackSelect.transition.state=IN_MENU;
     tick(BTN_RIGHT); CHECK(s_arcadePage==1);
     s_arcadeRows[0]=0; tick(0);
     CHECK(drawnHas("No AI paths. Use\nTime Trial.\n") || drawnHas("No AI paths.\nUse Time\nTrial.\n"));
@@ -183,7 +183,7 @@ int main(void)
     entries[2].local.timeTrial=0; strcpy(entries[2].local.timeTrialReason,"No lap checkpoints");
     strcpy(entries[0].local.uuid,"0f8fad5b-d9cb-469f-a165-70867728950e");
     CHECK(CustomTrackLibrary_Replace(&s_contentLibrary,entries,3));
-    MM_CustomTrackSelect_Init();D230.trackSel_transitionState=IN_MENU;tick(0);
+    MM_CustomTrackSelect_Init();D230.trackSelect.transition.state=IN_MENU;tick(0);
     CHECK(s_arcadeLibrary.count==2);
     tick(BTN_RIGHT); CHECK(s_arcadePage==1);
     s_arcadeRows[0]=0; tick(0);
@@ -192,7 +192,7 @@ int main(void)
     tick(BTN_CROSS_one); tick(0); CHECK(s_arcadeConfirm && checkedMode == CTR_OFFLINE_MODE_TIME_TRIAL);
     tick(BTN_CROSS_one);
     CHECK(launched == 1 && beganMode == CTR_OFFLINE_MODE_TIME_TRIAL && tracker.currLEV == 6 && tracker.numLaps == 7);
-    CHECK(D230.trackSel_transitionState == EXITING_MENU && D230.trackSel_StartRaceAfterFadeOut == 1);
+    CHECK(D230.trackSelect.transition.state == EXITING_MENU && D230.trackSelect.transition.startAfterExit == 1);
     /* Leaving the menu: the saved ghost comes from custom-records/, the memory
        card's ghost selection is skipped, and the load is queued. */
     ghostOnFile = 1; ghostLoads = 0; sdata->boolReplayHumanGhost = 0; data.characterIDs[1] = CRASH_BANDICOOT;
@@ -201,13 +201,13 @@ int main(void)
     CHECK(sdata->ptrDesiredMenu == &data.menuQueueLoadTrack && sdata->ptrGhostTapePlaying == (void *)highMem);
     CHECK(!MM_CustomTrackSelect_TimeTrialStart()); /* once per launch */
     /* Without a ghost file: an empty playing ghost, no replay, P2 model id 0. */
-    MM_CustomTrackSelect_Init();D230.trackSel_transitionState=IN_MENU;tick(0);tick(BTN_RIGHT);s_arcadeRows[0]=0;
+    MM_CustomTrackSelect_Init();D230.trackSelect.transition.state=IN_MENU;tick(0);tick(BTN_RIGHT);s_arcadeRows[0]=0;
     tick(BTN_CROSS_one); tick(0); tick(BTN_CROSS_one); CHECK(launched == 2);
     ghostOnFile = 0; sdata->boolReplayHumanGhost = 1;
     CHECK(MM_CustomTrackSelect_TimeTrialStart());
     CHECK(sdata->boolReplayHumanGhost == 0 && sdata->ptrGhostTapePlaying->characterID == 0 && data.characterIDs[1] == 0);
     /* The track that cannot run a Time Trial says why and does not start. */
-    MM_CustomTrackSelect_Init();D230.trackSel_transitionState=IN_MENU;tick(0);tick(BTN_RIGHT);
+    MM_CustomTrackSelect_Init();D230.trackSelect.transition.state=IN_MENU;tick(0);tick(BTN_RIGHT);
     s_arcadeRows[0]=1; tick(0);
     CHECK(drawnHas("No lap\ncheckpoints\n"));
     CHECK(!drawnHas("..."));

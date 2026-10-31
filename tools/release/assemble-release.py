@@ -349,15 +349,14 @@ def validate_apworld(path: Path, version: str, source_compat: str) -> None:
     manifest_version = manifest.get("world_version")
     compat = re.search(r'^COMPAT_VERSION\s*=\s*"([^"]+)"', version_py, re.MULTILINE)
     build = re.search(r'^BUILD_VERSION\s*=\s*"([^"]+)"', version_py, re.MULTILINE)
-    expected_compat = version.split("-", 1)[0]
     if manifest.get("game") != "Crash Team Racing":
         fail("apworld manifest is not Crash Team Racing")
-    if manifest_version != expected_compat or manifest_version != source_compat:
-        fail(f"apworld compatibility {manifest_version!r} does not match release {expected_compat}")
-    if compat is None or compat.group(1) != expected_compat:
-        fail("apworld COMPAT_VERSION does not match its manifest/release")
-    if build is None or build.group(1).removeprefix("v") != version:
-        fail("apworld BUILD_VERSION does not match the requested release version")
+    if manifest_version != source_compat:
+        fail(f"apworld compatibility {manifest_version!r} does not match the client's {source_compat}")
+    if compat is None or compat.group(1) != source_compat:
+        fail("apworld COMPAT_VERSION does not match its manifest")
+    if build is None:
+        fail("apworld lacks a BUILD_VERSION")
 
 
 def validate_template(path: Path, version: str, source_compat: str) -> None:
@@ -369,8 +368,6 @@ def validate_template(path: Path, version: str, source_compat: str) -> None:
     expected = f"Crash Team Racing: {source_compat}"
     if expected not in text:
         fail(f"template does not require apworld version {source_compat}")
-    if version.split("-", 1)[0] != source_compat:
-        fail("release build version and compatibility version disagree")
 
 
 def write_checksum(path: Path) -> None:
@@ -470,8 +467,6 @@ def assemble(args: argparse.Namespace) -> list[Path]:
     source_compat, source_build = read_source_identity(source)
     if source_build != version:
         fail(f"native source CTR_AP_VERSION is {source_build!r}, requested {version!r}")
-    if source_compat != version.split("-", 1)[0]:
-        fail("native source compatibility version does not match requested release")
     validate_apworld(args.apworld.resolve(), version, source_compat)
     validate_template(args.template.resolve(), version, source_compat)
     output.mkdir(parents=True, exist_ok=True)

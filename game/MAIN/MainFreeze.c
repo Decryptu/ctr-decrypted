@@ -850,7 +850,7 @@ void MainFreeze_ConfigSetupEntry(void)
 				int productY;
 
 				CTR_PSX_KEEP_VALUE_RELAXED(byteOffset);
-				position = (const s16 *)((u32)byteOffset + (u32)MAIN_FREEZE_NAMCO_ICON_OFFSETS);
+				position = (const s16 *)((const u8 *)MAIN_FREEZE_NAMCO_ICON_OFFSETS + byteOffset);
 				shape = MAIN_FREEZE_NAMCO_ROWS + rowOffset;
 				x = (u16)position[0];
 				scaleValue = (u16)shape[1];
@@ -858,7 +858,7 @@ void MainFreeze_ConfigSetupEntry(void)
 				y = (u16)position[1];
 
 				MainFreeze_ConfigDrawNPC105(productX + 0x100, MAIN_FREEZE_NAMCO_CENTER_Y + (productY = y * scaleValue), shape[0], 0x80, baseAngle,
-				                            (char *)((u32)byteOffset + (u32)MAIN_FREEZE_NAMCO_ICON_COLORS), GAME_TRACKER->pushBuffer_UI.ptrOT,
+				                            (char *)MAIN_FREEZE_NAMCO_ICON_COLORS + byteOffset, GAME_TRACKER->pushBuffer_UI.ptrOT,
 				                            &GAME_TRACKER->backBuffer->primMem);
 				{
 					register int next CTR_PSX_REGISTER("$2") = point + 1;

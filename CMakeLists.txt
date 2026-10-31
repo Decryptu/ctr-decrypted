@@ -187,6 +187,12 @@ target_compile_definitions(ctr_native PRIVATE
     CTR_INTERNAL
     CTR_NATIVE_VERSION=\"${CTR_NATIVE_VERSION}\"
 )
+# Strict C17 makes glibc hide its POSIX and BSD declarations (fdopen, fileno,
+# fsync, O_CLOEXEC...), which the Linux platform code uses. _DEFAULT_SOURCE
+# restores the set a non-strict build gets.
+if(NOT WIN32)
+    target_compile_definitions(ctr_native PRIVATE _DEFAULT_SOURCE)
+endif()
 # Only native_build_id.c sees the commit, so a new commit does not change
 # main.c's unity build (which defeated the compiler cache and recompiled the
 # whole game on every reconfigure).

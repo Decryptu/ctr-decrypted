@@ -320,7 +320,7 @@ VRM SHA-256: `4131444b9d1d53971befcfd11349efceaf887c20b795c8890fdcb2c36bdff07d`
 
 ## CTR ModSDK Retro-Fueled mechanics and Blue Fire palette
 
-Paths: `ap/ap_blue_fire.c`, `ap/ap_capability.c`, `game/Vehicle/VehBlueFire.c`,
+Paths: `ap/ap_blue_fire.c`, `ap/ap_capability.c`, `game/VehBlueFire.c`,
 `game/Vehicle/VehFire.c`, `game/Vehicle/VehPhysProc.c`
 
 The Progressive Boost capstone adapts Retro-Fueled's pad payload, USF stacking,

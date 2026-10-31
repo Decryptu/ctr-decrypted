@@ -73,7 +73,7 @@ typedef struct
 	bool reserveFire;           // Extras: keep the exhaust fire visible while
 	                            // reserves last (VehFire_Increment).
 	bool blueFire;              // Extras: blue exhaust fire at Ultimate Speed
-	                            // Fire (game/Vehicle/VehBlueFire.c).
+	                            // Fire (game/VehBlueFire.c).
 	bool slideMeterColours;     // Extras: powerslide bar fades green to yellow
 	                            // to red instead of two flat colours
 	                            // (UI_DrawSlideMeter).

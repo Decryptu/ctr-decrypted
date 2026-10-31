@@ -52,8 +52,8 @@ void DecalFont_DrawLineOT(char *s,int x,int y,s16 f,int flags,uint32_t *ot)
   if(strlen(drawn)+strlen(s)+2<sizeof drawn){strcat(drawn,s);strcat(drawn,"\n");} }
 void RECTMENU_DrawInnerRect(RECT *r,int x,uint32_t *ot)
 { (void)x;(void)ot;CHECK(r->x>=0&&r->x+r->w<=512&&r->y+r->h<=216); }
-void CTR_Box_DrawClearBox(const RECT *r,const Color *c,int t,uint32_t *ot)
-{ (void)c;(void)t;(void)ot;CHECK(r->x+r->w<=512); }
+void CTR_Box_DrawClearBox(const RECT *r,const Color *c,s32 t,u32 *ot,struct PrimMem *primMem)
+{ (void)c;(void)t;(void)ot;(void)primMem;CHECK(r->x+r->w<=512); }
 #include "../game/230/MM_CustomManager.c"
 static void tick(int buttons) { struct GamepadBuffer pad={0};pad.buttonsTapped=buttons;drawn[0]=0;MM_ConfigProc_CustomContent(NULL,NULL,&pad); }
 int main(void)

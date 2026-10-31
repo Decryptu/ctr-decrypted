@@ -249,7 +249,7 @@ checkRewards:
 		s32 byteOffset = (hubLevel - N_SANITY_BEACH) * AH_HUB_TRACK_COUNT * sizeof(s16);
 		for (; i < AH_HUB_TRACK_COUNT; i++)
 		{
-			if (!CHECK_ADV_BIT(rewards, *(s16 *)(byteOffset + (u32)tracks) + ADV_REWARD_FIRST_TROPHY))
+			if (!CHECK_ADV_BIT(rewards, *(s16 *)((u8 *)tracks + byteOffset) + ADV_REWARD_FIRST_TROPHY))
 			{
 				bossIsOpen = false;
 				break;

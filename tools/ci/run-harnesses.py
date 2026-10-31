@@ -33,7 +33,7 @@ OUT = os.environ.get("HARNESS_OUT", "/tmp/ctr-harness")
 JSON_INC = os.environ.get("HARNESS_JSON_INCLUDE", "ap/vendor/json/include")
 JOBS = int(os.environ.get("HARNESS_JOBS", "0")) or os.cpu_count() or 1
 
-DEFAULT_C = "cc -Wall -Wextra -DCTR_AP -I ap -I . -I include -o {out} {src} -lm"
+DEFAULT_C = "cc -Wall -Wextra -DCTR_NATIVE -DCTR_AP -I ap -I . -I include -o {out} {src} -lm"
 # Harnesses without a header build line that compile a production unit name it
 # in their text; map the name to the unit to link.
 EXTRA_UNITS = {"ap_seedcfg": "ap/ap_seedcfg.cpp", "ap_charseat": "ap/ap_charseat.c"}

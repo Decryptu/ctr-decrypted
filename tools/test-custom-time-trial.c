@@ -297,8 +297,8 @@ int main(void)
 	sdata->GhostRecording.ptrGhost = (struct GhostHeader *)s_ghostRecord;
 	sdata->GhostRecording.ptrStartOffset = GHOSTHEADER_GETRECORDBUFFER(s_ghostRecord);
 	sdata->ptrGhostTapePlaying = (struct GhostHeader *)s_ghostPlaying;
-	GAMEPROG_ResetHighScores(&sdata->gameProgress);
-	before = sdata->gameProgress;
+	GAMEPROG_ResetHighScores(&GAME_PROGRESS);
+	before = GAME_PROGRESS;
 
 	// ── a custom Time Trial ────────────────────────────────────────────────
 	start_time_trial();
@@ -333,8 +333,8 @@ int main(void)
 		CHECK(!CustomOffline_RuntimeCompleted());
 	}
 	// The table is the package's, not inside the retail save data.
-	CHECK((char *)sdata->ptrActiveHighScoreEntry < (char *)&sdata->gameProgress ||
-	      (char *)sdata->ptrActiveHighScoreEntry >= (char *)(&sdata->gameProgress + 1));
+	CHECK((char *)sdata->ptrActiveHighScoreEntry < (char *)&GAME_PROGRESS ||
+	      (char *)sdata->ptrActiveHighScoreEntry >= (char *)(&GAME_PROGRESS + 1));
 	CHECK(sdata->ptrActiveHighScoreEntry == MainRaceTrack_CustomHighScores());
 	CHECK(sdata->ptrActiveHighScoreEntry[1].time == 0x8c640); // no file yet: defaults
 	CHECK(strcmp(sdata->ptrActiveHighScoreEntry[1].name, "NAME1") == 0);
@@ -348,7 +348,7 @@ int main(void)
 	CHECK((s8)s_gt.newHighScoreIndex == 0);
 	CHECK((s_gt.gameModeEnd & NEW_HIGH_SCORE) != 0 && (s_gt.gameModeEnd & NEW_BEST_LAP) != 0);
 	// Nothing of Roo's Tubes changed: flags, times, unlocks, all of it.
-	CHECK(memcmp(&before, &sdata->gameProgress, sizeof before) == 0);
+	CHECK(memcmp(&before, &GAME_PROGRESS, sizeof before) == 0);
 	CHECK((s_gt.gameModeEnd & (NTROPY_JUST_OPENED | NTROPY_JUST_BEAT)) == 0);
 
 	// Saving the name stores the time in the package's table and its file.
@@ -358,7 +358,7 @@ int main(void)
 	CHECK(sdata->ptrActiveHighScoreEntry[1].time == 60000);
 	CHECK(strcmp(sdata->ptrActiveHighScoreEntry[1].name, "TESTRACER") == 0);
 	CHECK(sdata->ptrActiveHighScoreEntry[0].time == (u32)s_gt.lapTime[2]); // the fastest of the three
-	CHECK(memcmp(&before, &sdata->gameProgress, sizeof before) == 0);
+	CHECK(memcmp(&before, &GAME_PROGRESS, sizeof before) == 0);
 	{
 		struct CustomRecordKey key;
 		struct CustomRecordTimes times;
@@ -416,7 +416,7 @@ int main(void)
 		CHECK((s_gt.gameModeEnd & PLAYER_GHOST_BEAT) != 0);
 		CHECK(MainRaceTrack_CustomLoadGhost((struct GhostHeader *)s_ghostPlaying) == 1);
 		CHECK(((struct GhostHeader *)s_ghostPlaying)->timeElapsedInRace == 58000);
-		CHECK(memcmp(&before, &sdata->gameProgress, sizeof before) == 0);
+		CHECK(memcmp(&before, &GAME_PROGRESS, sizeof before) == 0);
 		// A run slower than the loaded ghost keeps the file as it was.
 		sdata->boolReplayHumanGhost = 1;
 		GhostTape_Start();
@@ -449,7 +449,7 @@ int main(void)
 	CHECK(MainRaceTrack_CustomLoadGhost((struct GhostHeader *)s_ghostPlaying) == 1);
 	end_race(70000); // slower: second place
 	CHECK((s8)s_gt.newHighScoreIndex == 1);
-	CHECK(memcmp(&before, &sdata->gameProgress, sizeof before) == 0);
+	CHECK(memcmp(&before, &GAME_PROGRESS, sizeof before) == 0);
 	engine_back_to_menu();
 
 	// An Arcade race of the same package does not serve in Time Trial and the
@@ -595,13 +595,13 @@ int main(void)
 	s_gt.gameMode1 = TIME_TRIAL;
 	CHECK(!MainRaceTrack_OfflineCustomLoad());
 	GAMEPROG_GetPtrHighScoreTrack();
-	CHECK(sdata->ptrActiveHighScoreEntry == &sdata->gameProgress.highScoreTracks[HOST].scoreEntry[0]);
+	CHECK(sdata->ptrActiveHighScoreEntry == &GAME_PROGRESS.highScoreTracks[HOST].scoreEntry[0]);
 	GhostTape_Start();
 	CHECK(((struct GhostHeader *)s_ghostRecord)->levelID == HOST);
 	end_race(60000);
-	CHECK(sdata->gameProgress.highScoreTracks[HOST].timeTrialFlags != before.highScoreTracks[HOST].timeTrialFlags);
+	CHECK(GAME_PROGRESS.highScoreTracks[HOST].timeTrialFlags != before.highScoreTracks[HOST].timeTrialFlags);
 	MainGameEnd_SoloRaceSaveHighScore();
-	CHECK(sdata->gameProgress.highScoreTracks[HOST].scoreEntry[1].time == 60000);
+	CHECK(GAME_PROGRESS.highScoreTracks[HOST].scoreEntry[1].time == 60000);
 
 	{
 		char cmd[128];

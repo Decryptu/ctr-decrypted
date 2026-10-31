@@ -141,7 +141,7 @@ void UI_CupStandings_UpdateCupRanks(void)
 			CTR_PSX_OBSERVE_VALUE(byteOffset);
 			// NOTE(aalhendi): Keep the cursor within the whole tracker and add
 			// the points offset at each access. MIPS/i686 pointers are 32 bits.
-			scoreBase = (u8 *)(byteOffset + (u32)cupGT);
+			scoreBase = (u8 *)cupGT + byteOffset;
 			do
 			{
 				const s32 *score;

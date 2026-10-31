@@ -1,6 +1,6 @@
 #include <common.h>
 #include <ctr_extras.h>
-#include "../../ap/ap_blue_fire_logic.h"
+#include "../ap/ap_blue_fire_logic.h"
 
 // Blue exhaust fire: swaps the retail flame and plume palettes in VRAM while
 // player 1 carries Ultimate Speed Fire. Two things ask for it: the Extras

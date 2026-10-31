@@ -6,7 +6,7 @@ OPTIONS → Extras holds optional HUD and effect mods from the CTR-ModSDK module
 |---|---|---|---|---|
 | Reserves Meter | `reserves_meter` | On in the Archipelago build, off in vanilla | A 49×3 bar under the powerslide bar showing the stacked boost ("reserves") you hold, in 1P races and crystal challenges. Red, yellow and green by amount; blue once it overruns the bar; purple once the value has wrapped past 0x7FFF and no longer drains ("Saffi fire"). | `UI_DrawReservesMeter` in `game/UI/UI_Meter.c`, maths in `ap/ap_reserves_meter_logic.h` |
 | Keep Reserve Fire | `reserve_fire` | Off | While a driver holds reserves, fire earned from a powerslide stays visible. Retail kills it after two frames or hides it for the visibility cooldown, so chained slides with no start boost show no fire. | `VehFire_KeepReserveFire` in `game/Vehicle/VehFire.c` |
-| Blue Fire At USF | `blue_fire` | Off | Player 1's exhaust turns blue while they carry Ultimate Speed Fire, as in Nitro-Fueled. | `game/Vehicle/VehBlueFire.c` |
+| Blue Fire At USF | `blue_fire` | Off | Player 1's exhaust turns blue while they carry Ultimate Speed Fire, as in Nitro-Fueled. | `game/VehBlueFire.c` |
 | Slide Meter Gradient | `slide_meter_colours` | Off | The powerslide bar fades from green to yellow as it fills, then through orange to red across the boost window, instead of flat green then red. | `UI_DrawSlideMeter`, maths in `include/ctr_extras.h` |
 | Cyan Super Pads (Next Load) | `super_pad_colour` | Off | Super turbo pads are drawn cyan, as in Nitro-Fueled, so they stand apart from ordinary pads. With the all-super-turbo-pads cheat every pad turns cyan. Applied when a track loads. | `game/LevSuperTurboPads.c`, the shader in `platform/native_renderer.c`, rules in `include/ctr_extras.h` |
 

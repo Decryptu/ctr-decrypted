@@ -40,6 +40,11 @@ u32 MFC2(int reg)
 	return gteData[reg];
 }
 
+u32 CFC2(int reg)
+{
+	return gteControl[reg];
+}
+
 int MFC2_S(int reg)
 {
 	return (s32)gteData[reg];

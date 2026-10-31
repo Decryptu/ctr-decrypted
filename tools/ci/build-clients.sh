@@ -70,6 +70,11 @@ for variant in ap vanilla authoring authoring-client; do
     -DCTR_AUTHORING_CLIENT="$client" \
     -DCTR_AP_VERIFY_VENDOR=ON
   cmake --build "$build" --parallel "${CTR_BUILD_JOBS:-$(nproc)}"
+  # The CMake tests (upstream's unit and regression tests) build with the game;
+  # run them where they can run, so they cannot break unnoticed.
+  if [ "$platform" = linux ]; then
+    ctest --test-dir "$build" --output-on-failure
+  fi
   exe="$build/$binary$suffix"
   if [ "$platform" = windows ]; then
     objcopy --only-keep-debug "$exe" "$exe.debug"

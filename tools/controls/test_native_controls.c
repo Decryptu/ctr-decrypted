@@ -1025,10 +1025,10 @@ static void TestTheKeyboardReportsAPadLikeAnyOtherDevice(void)
 	// Nothing is bound to the axes, so they must read as centre rather than as a
 	// deflection the game would steer with.
 	const struct ControllerPacket *packet = (const struct ControllerPacket *)&((struct TestPadSlot *)port0)->controllers[0];
-	Check(packet->analog.leftX == 0x80, "the left X axis reads as centre");
-	Check(packet->analog.leftY == 0x80, "the left Y axis reads as centre");
-	Check(packet->analog.rightX == 0x80, "the right X axis reads as centre");
-	Check(packet->analog.rightY == 0x80, "the right Y axis reads as centre");
+	Check(packet->payload.analog.leftX == 0x80, "the left X axis reads as centre");
+	Check(packet->payload.analog.leftY == 0x80, "the left Y axis reads as centre");
+	Check(packet->payload.analog.rightX == 0x80, "the right X axis reads as centre");
+	Check(packet->payload.analog.rightY == 0x80, "the right Y axis reads as centre");
 
 	s_inputInitialized = 0;
 	s_keyboardState = NULL;

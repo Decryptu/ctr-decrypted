@@ -92,6 +92,13 @@ class AssemblerFixtureTests(unittest.TestCase):
             "output_dir": output,
         })()
 
+    def test_release_version_is_independent_of_the_apworld_version(self) -> None:
+        apworld, template = self.prepare_assemble_inputs()
+        ASSEMBLER.validate_apworld(apworld, "1.0.0", "0.2.0")
+        ASSEMBLER.validate_template(template, "1.0.0", "0.2.0")
+        with self.assertRaises(ASSEMBLER.AssemblyError):
+            ASSEMBLER.validate_apworld(apworld, "1.0.0", "0.2.4")
+
     ASSET_MEMBERS = (
         "assets/tracks/cortex-vortex/CVortex Arcade All.lev",
         "assets/tracks/cortex-vortex/CVortex Arcade All.vrm",
