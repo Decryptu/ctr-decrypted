@@ -211,7 +211,7 @@ int NativeDev_StartRace(struct GameTracker *gGT)
 	}
 
 	// Gem Cups from a new profile: the first one starts here, the rest from
-	// the hub its podium lands in (NativeDevRace_CupHub).
+	// the hub its podium lands in (NativeDevRace_AdventureHub).
 	if (dev->cup)
 	{
 		gGT->gameMode1 |= ADVENTURE_MODE | ADVENTURE_CUP;
