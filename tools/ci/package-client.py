@@ -67,8 +67,10 @@ def verify(platform, exe):
         if struct.unpack_from('<H', pe, offset + 24)[0] != 0x10b:
             raise ValueError('Expected PE32 optional header')
         flags = struct.unpack_from('<H', pe, offset + 24 + 70)[0]
-        if flags & 0x140 != 0x140:
-            raise ValueError('Windows ASLR/NX flags missing')
+        # NX is required. ASLR (0x40) is not: the game is linked at a fixed
+        # base because savestates and replays hold raw pointers (CMakeLists.txt).
+        if flags & 0x100 != 0x100:
+            raise ValueError('Windows NX flag missing')
         imports = re.findall(r'DLL Name:\s*(\S+)', output('objdump', '-p', str(exe)))
         system = {'advapi32.dll', 'bcrypt.dll', 'cfgmgr32.dll', 'crypt32.dll',
                   'dinput8.dll', 'dwmapi.dll', 'gdi32.dll', 'hid.dll', 'imm32.dll',
