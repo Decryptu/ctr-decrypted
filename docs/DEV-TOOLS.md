@@ -151,6 +151,8 @@ tools\decrypted\devrun.ps1 -Exe build-ap\ctr_native_ap.exe -RealTime -Track -1 -
 
 The client logs every frame over 250 ms as `[AP PERF] frame stall` in the run folder's log, and `frame_times.csv` has every frame.
 
+The same server drives connected Adventure runs (`CTR_DEV_MODE=adv`, `CTR_DEV_RACES`) with the same `-Config` connection keys. A location the slot has already checked changes the flow (a won trophy skips its podium), so for a first win stop the server, delete the `.apsave` next to the seed zip, restart it, and give the run a new `-RunDir` (the client keeps `ap-state.json` there).
+
 ## Frame timing
 
 `ctr_native.exe --perf` writes `debug/perf/perf-latest/frame_times.csv` and `summary.txt`. A frame's budget is the VBlanks it waits for times 16.68 ms (33.37 ms at 30 FPS, 16.68 ms at 60), and the summary counts frames over the budget, over 1.5 times it (shown on screen a refresh too long), and over twice it. The swap does not wait for the display in a hidden window, so measure VSync On and Adaptive with the window visible.
