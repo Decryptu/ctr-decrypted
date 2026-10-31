@@ -3,7 +3,7 @@ name: Build clients
 on:
   pull_request:
   push:
-    branches: [main, 'release/**', 'ci/**']
+    branches: [main, dev, 'release/**']
     tags: ['v*']
   workflow_dispatch:
 
@@ -15,19 +15,40 @@ concurrency:
   group: clients-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Each variant builds in its own job, so the four run side by side instead of
+# one after another. Compiler output is reused between runs through ccache,
+# keyed per platform and variant. Branch builds save the cache; pull
+# requests only read it; tag builds (releases) neither read nor save it, so a
+# released binary is always compiled from scratch.
+env:
+  CCACHE_MAXSIZE: 400M
+  # SDL compiles with a precompiled header. ccache can only cache those
+  # objects when it may ignore the header's timestamps and __DATE__/__TIME__.
+  CCACHE_SLOPPINESS: pch_defines,time_macros,include_file_mtime,include_file_ctime
+  CCACHE_COMPRESS: 'true'
+  # A fresh MSYS2 install gives the compiler a new timestamp on every run, so
+  # identify the compiler by its contents (the default is size and mtime).
+  CCACHE_COMPILERCHECK: content
+  CMAKE_C_COMPILER_LAUNCHER: ccache
+  CMAKE_CXX_COMPILER_LAUNCHER: ccache
+
 jobs:
   linux:
-    name: Linux x86 (glibc <= 2.38)
+    name: Linux x86 ${{ matrix.variant }} (glibc <= 2.38)
     runs-on: ubuntu-24.04
     container: debian:bookworm-slim@sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [ap, vanilla, authoring, authoring-client]
     steps:
       - name: Install multiarch toolchain
         run: |
           dpkg --add-architecture i386
           apt-get update -q
           apt-get install -y --no-install-recommends \
-            ca-certificates git python3 cmake ninja-build pkg-config \
+            ca-certificates git python3 cmake ninja-build pkg-config ccache \
             gcc-multilib g++-multilib libssl-dev:i386 zlib1g-dev:i386 \
             libx11-dev:i386 libxext-dev:i386 libxrandr-dev:i386 \
             libxcursor-dev:i386 libxi-dev:i386 libxfixes-dev:i386 \
@@ -37,29 +58,52 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Build and verify both configurations
+      - name: Restore compiler cache
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ccache-linux-${{ matrix.variant }}-${{ github.sha }}
+          restore-keys: ccache-linux-${{ matrix.variant }}-
+      - name: Build and verify
         shell: bash
         env:
           PKG_CONFIG_LIBDIR: /usr/lib/i386-linux-gnu/pkgconfig:/usr/share/pkgconfig
+          CCACHE_DIR: ${{ runner.temp }}/ccache
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          bash tools/ci/build-clients.sh linux
+          ccache -z
+          bash tools/ci/build-clients.sh linux ${{ matrix.variant }}
+          ccache -s
+      - name: Save compiler cache
+        if: ${{ github.event_name != 'pull_request' && startsWith(github.ref, 'refs/heads/') }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ccache-linux-${{ matrix.variant }}-${{ github.sha }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: clients-linux-x86-${{ github.sha }}
+          name: clients-linux-x86-${{ matrix.variant }}-${{ github.sha }}
           path: client-artifacts/*
           if-no-files-found: error
           retention-days: 30
 
   windows:
-    name: Windows x86 (MinGW32)
+    name: Windows x86 ${{ matrix.variant }} (MinGW32)
     runs-on: windows-2022
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [ap, vanilla, authoring, authoring-client]
     defaults:
       run:
         shell: msys2 {0}
     steps:
-      - name: Keep checkout line endings consistent with MSYS2 Git
+      # The runner's global Git converts text files to CRLF on checkout. With
+      # this off, the text files a client package ships (default controls,
+      # example config) are the same bytes on Windows and Linux.
+      - name: Check out text files with LF, as on Linux
         shell: bash
         run: git config --global core.autocrlf false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -69,17 +113,35 @@ jobs:
         with:
           msystem: MINGW32
           update: true
-          cache: false
+          cache: true
           install: >-
             git python
             mingw-w64-i686-gcc mingw-w64-i686-cmake
             mingw-w64-i686-ninja mingw-w64-i686-openssl
-            mingw-w64-i686-zlib
-      - name: Build and verify both configurations
-        run: bash tools/ci/build-clients.sh windows
+            mingw-w64-i686-zlib mingw-w64-i686-ccache
+      - name: Restore compiler cache
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}\ccache
+          key: ccache-windows-${{ matrix.variant }}-${{ github.sha }}
+          restore-keys: ccache-windows-${{ matrix.variant }}-
+      - name: Build and verify
+        env:
+          CCACHE_DIR: ${{ runner.temp }}\ccache
+        run: |
+          ccache -z
+          bash tools/ci/build-clients.sh windows ${{ matrix.variant }}
+          ccache -s
+      - name: Save compiler cache
+        if: ${{ github.event_name != 'pull_request' && startsWith(github.ref, 'refs/heads/') }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}\ccache
+          key: ccache-windows-${{ matrix.variant }}-${{ github.sha }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: clients-windows-x86-${{ github.sha }}
+          name: clients-windows-x86-${{ matrix.variant }}-${{ github.sha }}
           path: client-artifacts/*
           if-no-files-found: error
           retention-days: 30

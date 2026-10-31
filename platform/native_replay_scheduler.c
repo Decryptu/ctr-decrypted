@@ -2,6 +2,8 @@
 
 #include <macros.h>
 
+#include "platform/native_build_id.h"
+
 #if defined(CTR_INTERNAL)
 #include "platform/native_audio.h"
 #include "platform/native_checkpoint.h"
@@ -287,7 +289,7 @@ internal void NativeReplayScheduler_InitHeader(struct NativeReplayFileHeader *he
 	header->nativeStateSize = (u32)NativeState_GetSize();
 	header->checkpointPolicy = (u32)s_checkpointPolicy;
 	header->fps60Option = g_config.fps60 ? 1u : 0u;
-	NativeReplayScheduler_CopyFixedString(header->buildId, sizeof(header->buildId), CTR_NATIVE_BUILD_ID);
+	NativeReplayScheduler_CopyFixedString(header->buildId, sizeof(header->buildId), gNativeBuildId);
 	NativeReplayScheduler_CopyFixedString(header->platformId, sizeof(header->platformId), NativeReplayScheduler_PlatformID());
 	header->identityChecksum = NativeReplayScheduler_IdentityChecksum(header);
 }

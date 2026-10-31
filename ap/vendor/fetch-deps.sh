@@ -40,12 +40,15 @@ LOCK="versions.lock"
 #   * .git excluded (stripped before hashing anyway)
 #   * LC_ALL=C byte sort of paths (matches CMake list(SORT))
 #   * one space between path and content hash, one '\n' per line (LF only)
+# One sha256sum call hashes every file (a process per file took minutes on
+# Windows). sed turns its "<hash>  ./<path>" lines into "<path> <hash>". A name
+# sha256sum has to escape (backslash or newline) does not match the pattern, so
+# it changes the hash and fails verification instead of passing silently.
 tree_hash() {
   ( cd "$1" && find . -type f ! -path './.git/*' -print0 \
       | LC_ALL=C sort -z \
-      | while IFS= read -r -d '' f; do
-          printf '%s %s\n' "${f#./}" "$(sha256sum "$f" | cut -d' ' -f1)"
-        done ) | sha256sum | cut -d' ' -f1
+      | xargs -0 -r sha256sum \
+      | sed -E 's/^([0-9a-f]{64}) [ *]\.\/(.*)$/\2 \1/' ) | sha256sum | cut -d' ' -f1
 }
 
 # --- versions.lock parser ----------------------------------------------------

@@ -36,6 +36,7 @@
 #include "platform/native_perf.h"
 #include "platform/native_ptr_scratch.h"
 #include "platform/native_replay_scheduler.h"
+#include "platform/native_build_id.h"
 #include "platform/native_savestate.h"
 
 #ifndef __GNUC__
@@ -145,10 +146,6 @@
 #define CTR_NATIVE_VERSION "0.0.0-dev"
 #endif
 
-#ifndef CTR_NATIVE_BUILD_ID
-#define CTR_NATIVE_BUILD_ID "unknown"
-#endif
-
 static int NativeConsole_ShouldPauseOnError(void)
 {
 #if defined(_WIN32)
@@ -225,7 +222,7 @@ int main(int argc, char *argv[])
 	{
 		if (NativeArg_IsVersion(argv[argIndex]))
 		{
-			printf("CTR Native %s (%s)\n", CTR_NATIVE_VERSION, CTR_NATIVE_BUILD_ID);
+			printf("CTR Native %s (%s)\n", CTR_NATIVE_VERSION, gNativeBuildId);
 			return 0;
 		}
 	}
@@ -304,7 +301,7 @@ int main(int argc, char *argv[])
 		return NativeConsole_Return(1);
 	}
 
-	printf("[CTR Native] Version: %s (%s)\n", CTR_NATIVE_VERSION, CTR_NATIVE_BUILD_ID);
+	printf("[CTR Native] Version: %s (%s)\n", CTR_NATIVE_VERSION, gNativeBuildId);
 #ifdef CTR_AP
 	// The CTR-AP RELEASE identifier (client + companion apworld pair), distinct
 	// from the engine version above -- this is the line a bug report should quote.

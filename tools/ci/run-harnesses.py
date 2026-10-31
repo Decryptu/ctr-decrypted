@@ -16,17 +16,22 @@ path per line, optionally followed by `skip <reason>`. A harness file that is
 neither listed nor skipped fails the run, so adding a harness means deciding
 whether CI runs it.
 
+Harnesses run in parallel, one per CPU (HARNESS_JOBS overrides it; 1 runs them
+one at a time). Each builds to its own output file, and those that write files
+do it in their own mkdtemp directory. Results print in a fixed order.
+
 Usage:
   tools/ci/run-harnesses.py            run the listed harnesses, fail on any failure
   tools/ci/run-harnesses.py --all      try every harness, report, never fail (discovery)
   tools/ci/run-harnesses.py --write-list  discovery, then rewrite harnesses.txt from the result
 """
-import glob, os, re, shlex, subprocess, sys
+import concurrent.futures, glob, os, re, shlex, subprocess, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 LIST = os.path.join(ROOT, "tools", "ci", "harnesses.txt")
 OUT = os.environ.get("HARNESS_OUT", "/tmp/ctr-harness")
 JSON_INC = os.environ.get("HARNESS_JSON_INCLUDE", "ap/vendor/json/include")
+JOBS = int(os.environ.get("HARNESS_JOBS", "0")) or os.cpu_count() or 1
 
 DEFAULT_C = "cc -Wall -Wextra -DCTR_AP -I ap -I . -I include -o {out} {src} -lm"
 # Harnesses without a header build line that compile a production unit name it
@@ -158,19 +163,16 @@ def main():
     listed, skipped, cmds = read_list()
     results = {}
     targets = all_rel if mode in ("--all", "--write-list") else [p for p in all_rel if p in listed]
-    for rel in targets:
-        status, cmd, detail = run_one(rel)
-        results[rel] = (status, cmd, detail)
-        print(f"{status:11s} {rel}")
-        if status != "pass" and mode == "ci":
-            print("  cmd: " + cmd)
-            print("  " + detail.replace("\n", "\n  "))
-    if mode == "ci":
-        for name, command in cmds.items():
-            status, cmd, detail = run_cmd(command)
-            results[name] = (status, cmd, detail)
-            print(f"{status:11s} {name}")
-            if status != "pass":
+    # The `cmd` steps go first: they are the longest (one builds SDL), so they
+    # start while the short harnesses fill the other workers.
+    jobs = [(name, run_cmd, command) for name, command in cmds.items()] if mode == "ci" else []
+    jobs += [(rel, run_one, rel) for rel in targets]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=JOBS) as pool:
+        for (name, _, _), result in zip(jobs, pool.map(lambda job: job[1](job[2]), jobs)):
+            status, cmd, detail = result
+            results[name] = result
+            print(f"{status:11s} {name}", flush=True)
+            if status != "pass" and mode == "ci":
                 print("  cmd: " + cmd)
                 print("  " + detail.replace("\n", "\n  "))
     if mode == "--write-list":

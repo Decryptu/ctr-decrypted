@@ -19,6 +19,8 @@ Everything a new contributor needs, with no other context. Keep it current. [ROA
 | `tools/decrypted/` | Our own scripts (upstream sync, unattended runs and render diagnostics) |
 | `docs/` | Project docs |
 
+The root and `tools/` keep dowlle's layout, including files we don't use ourselves (`build.bat`, `tools/authoring-branch/`, `tools/CUSTOM-TRACK-SPIKE.md`). We merge dowlle regularly, and every upstream file we moved or deleted would conflict on each sync and break upstream's own references to it. The root files are not strays: `support-bundle.*`, `default_controls.ini`, `ap-config.example.txt`, `LICENSE`, `THIRD_PARTY_NOTICES.md` and `SETUP.md` ship in every client package (`tools/ci/package-client.py`). Our own additions live in `tools/decrypted/`, `docs/` and `ROADMAP.md`. Build and run output stays out of the tree: build folders are `build-*/` (ignored), and the developer tools write to `%TEMP%\ctrdev`.
+
 ## Build (Windows)
 1. Install [MSYS2](https://www.msys2.org) at `C:\msys64`, then in a shell:
    `pacman -S --needed git mingw-w64-i686-gcc mingw-w64-i686-cmake mingw-w64-i686-ninja mingw-w64-i686-openssl mingw-w64-i686-zlib mingw-w64-i686-python`
@@ -41,7 +43,7 @@ From PowerShell, set `MSYSTEM=MINGW32` and `CHERE_INVOKING=1` and call `C:\msys6
 ## Branches
 - `main`: stable, always builds.
 - `dev`: integration branch. Finished feature branches are merged here first, and test builds for in-game testing come from it. It goes into `main` once the in-game checklists pass.
-- `feature/<name>`: one feature or fix per branch, merged into `dev` when it builds, then to `main` with `dev` after in-game testing.
+- `feature/<name>`: one feature or fix per branch, merged into `dev` when it builds, then to `main` with `dev` after in-game testing. Delete it locally and on `origin` once merged; only `main`, `dev` and the `clean/*` import refs stay.
 
 ## Syncing upstream
 Never merge upstream remotes directly. Import them through the sync script, which rewrites commit messages to strip AI co-author trailers. The rewrite is deterministic, so repeated imports produce the same hashes and later merges stay clean.
@@ -68,5 +70,7 @@ The script needs `python -m pip install git-filter-repo`. High Octane (`highocta
 - Build the AP and vanilla configurations.
 - In game, check at least: boot to the menu, one race, the Adventure hub, and connecting to a local Archipelago server. Check timing changes with `fps60` both on and off (`config.ini`, `[Video & QoL]`, or **OPTIONS → Video → 60 FPS (Next Load)**). To host a test seed: `ArchipelagoServer.exe --port 38281 <seed.zip>` from an Archipelago 0.6.7+ install.
 - Reproduce and check visual changes with the [developer tools](DEV-TOOLS.md): `tools/decrypted/devrun.ps1` runs any track's demo hidden and fast-forwarded and captures frames, bit-exact between runs. Never drive the game with OS keystrokes.
-- The host harnesses run in CI (`.github/workflows/ci.yml`) on pushes to `main`, `release/**` and `ci/**` and on pull requests; `tools/ci/` has the local runner. Push a `ci/<name>` branch to try a change in CI before it reaches `main`.
+- Both workflows run on pushes to `main`, `dev` and `release/**` and on pull requests, so `dev` is tested before it goes into `main`. To try another branch, start them by hand: `gh workflow run build.yml --ref <branch>` (same for `ci.yml`). `tools/ci/` has the local runners.
+- `ci.yml` builds and runs the host harnesses in parallel, one per CPU (`tools/ci/run-harnesses.py`).
+- `build.yml` builds each client variant (ap, vanilla, authoring, authoring-client) on Windows and Linux in its own job, all side by side. `tools/ci/build-clients.sh <platform> [variant...]` is the same recipe locally. Compiles go through ccache, cached per platform and variant; the MSYS2 packages are cached too. Pull requests read the compiler cache but don't save to it, and tag builds don't use it at all, so a release binary is always compiled from scratch. Two things keep the cache effective: CI builds without precompiled headers (MinGW GCC writes SDL's with different bytes every time, which made every SDL object miss), and the commit hash reaches the code only through `platform/native_build_id.c`, never as a definition on `main.c` (that changed the whole unity build with every commit). The Windows job checks text files out with LF so the packaged text files are the same bytes as on Linux.
 - Harnesses compile real game files on their own, so new code they pull in needs its declarations included where it is called (not only through `game/game_unity.h`), and fork-wide globals (`gNative60FpsEnabled`, `gNativePgxpMode`, the `NativeDev_*` switches) need a definition in the harness. Linux drops unused code at link time more aggressively than MinGW, so a harness can link in CI and still fail locally on Windows.

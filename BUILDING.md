@@ -153,7 +153,8 @@ acceptance. Do not silently switch this pointer-sensitive engine to x64.
 
 To reproduce the recipe in an environment with the workflow's dependencies,
 use a clean checkout and run `bash tools/ci/build-clients.sh linux` or
-`bash tools/ci/build-clients.sh windows` from an MSYS2 MINGW32 shell. Existing
+`bash tools/ci/build-clients.sh windows` from an MSYS2 MINGW32 shell (append
+variant names, such as `ap vanilla`, to build only those). Existing
 `build-ci-*` or `client-artifacts` directories are refused rather than reused.
 
 ## Running development builds

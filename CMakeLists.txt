@@ -174,15 +174,19 @@ endif()
 add_subdirectory(externals/SDL)
 
 # CTR Native
-add_executable(ctr_native main.c)
+add_executable(ctr_native main.c platform/native_build_id.c)
 target_include_directories(ctr_native PRIVATE ${CMAKE_SOURCE_DIR}/include)
 target_compile_definitions(ctr_native PRIVATE
     CTR_NATIVE
     BUILD=926
     CTR_INTERNAL
     CTR_NATIVE_VERSION=\"${CTR_NATIVE_VERSION}\"
-    CTR_NATIVE_BUILD_ID=\"${CTR_NATIVE_BUILD_ID}\"
 )
+# Only native_build_id.c sees the commit, so a new commit does not change
+# main.c's unity build (which defeated the compiler cache and recompiled the
+# whole game on every reconfigure).
+set_property(SOURCE platform/native_build_id.c APPEND PROPERTY COMPILE_DEFINITIONS
+    CTR_NATIVE_BUILD_ID=\"${CTR_NATIVE_BUILD_ID}\")
 
 # Custom-track loader. platform/native_custom_tracks.c is part of the main.c
 # unity build and its whole body is #ifdef CTR_CUSTOM_TRACKS, so the option only
