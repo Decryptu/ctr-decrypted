@@ -1,6 +1,6 @@
 # Working on CTR Decrypted
 
-Everything a new contributor needs, with no other context. Keep it current. [ROADMAP.md](../ROADMAP.md) has the status of every item, and [UPSTREAM-ISSUES.md](UPSTREAM-ISSUES.md) summarizes the projects we draw from.
+Everything a new contributor needs, with no other context. Keep it current. [ROADMAP.md](../ROADMAP.md) lists what is in progress and planned, and [UPSTREAM-ISSUES.md](UPSTREAM-ISSUES.md) summarizes the projects we draw from.
 
 ## What this is
 - A fork of [dowlle/ctr-native-ap](https://github.com/dowlle/ctr-native-ap): the native Crash Team Racing port (CTR-native) with an Archipelago client compiled in.
@@ -42,7 +42,7 @@ From PowerShell, set `MSYSTEM=MINGW32` and `CHERE_INVOKING=1` and call `C:\msys6
 
 ## Branches
 - `main`: stable, always builds.
-- `dev`: integration branch. Finished feature branches are merged here first, and test builds for in-game testing come from it. It goes into `main` once the in-game checklists pass.
+- `dev`: integration branch. Finished feature branches are merged here first, and test builds for in-game testing come from it. It goes into `main` once a test build has been played in game (the checks under [Testing](#testing)).
 - `feature/<name>`: one feature or fix per branch, merged into `dev` when it builds, then to `main` with `dev` after in-game testing. Delete it locally and on `origin` once merged; only `main`, `dev` and the `clean/*` import refs stay.
 
 ## Syncing upstream
@@ -63,7 +63,7 @@ The script needs `python -m pip install git-filter-repo`. High Octane (`highocta
 - New third-party code gets an entry in `THIRD_PARTY_NOTICES.md`.
 - Keep the Archipelago client compatible with the shipped `ctr.apworld` version. If slot data or item/location IDs change, the apworld must change in the same release.
 - Releases ship the apworld built from [dowlle/ctr-archipelago-apworld](https://github.com/dowlle/ctr-archipelago-apworld) `main` at b775595a4 or later (`release-prepare.yml` takes the run and commit). That is v0.2.4 plus generator-only fixes, with the same slot data; it includes the vanilla-mode stage 2 fix (ctr-native-ap #499: a track's relic races and CTR Challenge need that hub's keys, as in the original game), which the client already enforces.
-- Update `ROADMAP.md` in the same commit that finishes or starts an item.
+- Update `ROADMAP.md` in the same commit that starts or finishes an item: add its row when work starts, delete it when the item is done. The roadmap and docs describe the current state, never history: no "Done" list, no story of how a bug was found, no dated result tables. A doc that explains a fix keeps what someone working on that code needs now (the rule, why it is that way, how to check it); git history and commit messages hold the rest. At the end of a change, grep `ROADMAP.md` and `docs/` for its topic and remove anything it made stale.
 - Frame counts assume 30 FPS. When code sets or compares a frame-counted timer, wrap the value in `FPS_DOUBLE`, and wrap per-frame steps or blink phases in `FPS_HALF` (`include/macros.h`), so it keeps the same real-time speed in 60 FPS mode. Data recorded frame by frame (ghosts, AI lap recordings) stays in 30 FPS units so recordings work in both modes. See [60FPS.md](60FPS.md).
 
 ## Testing

@@ -31,34 +31,26 @@ Back-face culling uses the precise vertices whenever GEOMETRY or FULL is on (`gN
 - **GTE (`platform/native_gte_core.c`).** `GTE_RotTransPers` recomputes the projection in double precision, without the GTE's IR truncation and approximate division, and pushes the result into the shadow FIFO. MVMVA records its exact result so that the level renderer's subdivision can project precise midpoints. NCLIP uses the precise vertices while vertex precision is on, see [Back-face culling](#back-face-culling). The Archipelago mirror trap flips the rotation matrix rather than screen x, so the precise projection needs no mirror handling of its own.
 - **Level renderer (`game/226/226_00_DrawLevelOvr1P.c`).** The hand-decompiled level renderer subdivides near quads and clips against the near plane in integer space. The hooks carry precise positions through midpoints, copies, clip records and near-plane interpolation, so subdivided track geometry lines up without cracks.
 - **GPU (`platform/native_gpu.c`).** `MakeVertexTriangle` and `MakeVertexQuad` look up each vertex by address and packed value. A hit replaces x/y with the precise position (GEOMETRY/FULL). If every vertex of a textured polygon has a usable depth (at least 64), the depth is written to the new `w` field (TEXTURES/FULL). A miss keeps the retail position, so 2D elements, sprites and anything the game edits after projection draw exactly as before.
-- **Renderer (`platform/native_renderer.c`, `include/platform/native_renderer_types.h`).** `GrVertex` now stores float `x, y, w` (32 bytes, was 24), and texture page and CLUT moved to their own `a_page_clut` attribute. The vertex shader multiplies `gl_Position` by `w` when `w > 0`, which leaves the screen position unchanged but makes the GPU interpolate the texture coordinates perspective-correct. Colour and dither coordinates are declared `noperspective`, so Gouraud shading and dithering stay screen-linear as on the PS1. Vertices without a depth have `w = 0`, which the shader treats as 1, so the same shaders serve every mode. This is why the option switches live.
+- **Renderer (`platform/native_renderer.c`, `include/platform/native_renderer_types.h`).** `GrVertex` stores float `x, y, w` (32 bytes), with texture page and CLUT in their own `a_page_clut` attribute. The vertex shader multiplies `gl_Position` by `w` when `w > 0`, which leaves the screen position unchanged but makes the GPU interpolate the texture coordinates perspective-correct. Colour and dither coordinates are declared `noperspective`, so Gouraud shading and dithering stay screen-linear as on the PS1. Vertices without a depth have `w = 0`, which the shader treats as 1, so the same shaders serve every mode. This is why the option switches live.
 
 ## Level depth test
 
-The PS1 has no depth buffer. It draws in ordering-table order, and the level renderer sorts coarsely: the 16 faces of a 4x4 quadblock share one slot, taken from the block's farthest corner. So a nearer polygon can be drawn before a farther one and get painted over. On the N. Sanity Beach dock with the far camera, the translucent water near the camera painted over the planks. Retail does the same at that spot (checked in PCSX-Redux, see [DEV-TOOLS.md](DEV-TOOLS.md#capturing-a-frame-while-playing)).
-
-With TEXTURES or FULL, PGXP gives each level vertex its view depth, so level polygons now also test depth:
+The PS1 has no depth buffer. It draws in ordering-table order, and the level renderer sorts coarsely: the 16 faces of a 4x4 quadblock share one slot, taken from the block's farthest corner. So a nearer polygon can be drawn before a farther one and get painted over, in retail too (water over the N. Sanity Beach dock with the far camera, for one). With TEXTURES or FULL, PGXP gives each level vertex its view depth, so level polygons also test depth:
 
 - **Which polygons.** Only the run of primitives `DrawLevelOvr1P`..`4P` write each frame. `RenderAllLevelGeometry` reports it with `NativeGpu_SetLevelPrimRange`, and `MainFrame_ResetDB` clears it when the arena resets. Karts, instances, shadows, particles, the sky and the HUD keep ordering-table order exactly.
-- **How.** Opaque level splits draw twice. A depth-only pass writes the true depth with `GL_LESS`. A colour pass then tests with `GL_LEQUAL` against a depth pulled 2% of the distance nearer (`NATIVE_DEPTH_TOLERANCE`) and writes none. Translucent level polygons (water) get the colour pass only. The margin lets a later polygon win near-ties, as the ordering table intended. Without it, the Turbo Track pads, which are decals on the road but not quite in its plane, lost whole triangles to the road (1.5% of a demo frame).
+- **How.** Opaque level splits draw twice. A depth-only pass writes the true depth with `GL_LESS`. A colour pass then tests with `GL_LEQUAL` against a depth pulled 2% of the distance nearer (`NATIVE_DEPTH_TOLERANCE`) and writes none. Translucent level polygons (water) get the colour pass only. The margin lets a later polygon win near-ties, as the ordering table intended: decals such as the Turbo Track pads sit on the road but not quite in its plane, and without it they lose whole triangles to it.
 - **Depth value.** `gl_Position.z = w - 32`, so window depth is `1 - 16/w`. That is linear in screen space, so it interpolates correctly; nearer than 16 clamps (`GL_DEPTH_CLAMP`). A polygon with no depth (untextured, or a vertex nearer than 64) keeps ordering-table order: far plane in the depth pass, near plane in the colour pass.
-- **Measured.** On the dock (`CTR_DEV_WARP` to the owner's spot, far camera), water-coloured pixels over the planks fell from 27.2% to 7.6%; the rest is the kart. Over the 18 tracks' attract demos (90 frames), 40 frames are identical with and without the test, and the mean change is 0.02% of the pixels. Each larger change inspected was a sort error fixed: a far wall through a near one on N. Gin Labs, a tower over the slope at its base, a beam and red bits through a pillar on Turbo Track. With `pgxp=0` frames are identical, and 2- and 4-player split screen differs only where the two races differ. `CTR_DEV_NO_LEVEL_DEPTH=1` turns it off for A/B captures.
+- **Checking it.** `CTR_DEV_NO_LEVEL_DEPTH=1` turns it off for A/B captures ([DEV-TOOLS.md](DEV-TOOLS.md)). Across the 18 tracks' attract demos the difference is a few hundredths of a percent of the pixels, every one a sort error corrected; anything else is a regression. With `pgxp=0` frames must be identical.
 
 ## Back-face culling
 
-The owner reported thin horizontal holes in distant floors (the Adventure hub, every race) and whole floor pieces missing on Dingo Canyon. The sky showed through them. They were caused by culling, not by drawing.
+The level renderer culls back faces with the GTE's NCLIP, the signed area of the projected triangle, and here NCLIP uses the same precise vertices the GPU draws with. A distant floor polygon seen almost edge-on is a fraction of a pixel tall. With integer vertices its area rounds to zero or flips sign and it is culled; that is harmless in retail, where its neighbours round onto the same pixel rows, but with precise vertices the strip it covered opens and the sky shows through (thin holes in distant floors). Only rendering calls NCLIP (the level renderer and `RenderBucket_QueueExecute.c`), so gameplay is unaffected. To check: `find_holes.py` totals with `CTR_PGXP_DEBUG=1` should match the retail baseline (`CTR_PGXP_DEBUG=3`).
 
-The level renderer culls back faces with the GTE's NCLIP, the signed area of the projected triangle. A distant floor polygon seen almost edge-on is only a fraction of a pixel tall. With retail integer vertices its area rounds to zero or flips sign, so it is culled, and that is harmless in retail because its neighbours round onto the same pixel rows and the strip it covers has no height. With precise vertices the neighbours keep their true sub-pixel positions, the strip opens, and nothing fills it. Culling now uses the same precise vertices the GPU draws with, so a polygon is culled exactly when its drawn shape faces away. Only rendering calls NCLIP (the level renderer and `RenderBucket_QueueExecute.c`), so gameplay is unaffected.
-
-Measured with the [developer tools](DEV-TOOLS.md) on Dingo Canyon's demo, FULL at 2x render scale: integer culling had about 45% more see-through pixels than drawing at retail positions. Precise culling is level with the retail baseline on Dingo Canyon, Crash Cove, Tiger Temple, Blizzard Bluff, Dragon Mines and Mystery Caves, and the remaining count is detector noise that the baseline has too.
-
-## Texture sampling fixes
-
-The first in-game test showed thin horizontal holes in distant floors and walls. Part of them came from texture sampling, which perspective-correct texturing exposed, and was fixed as below. The rest came from culling (above).
+## Texture sampling
 
 - **Per-polygon UV clamp.** `GrVertex` carries the polygon's texel bounds (`uMin`, `vMin`, `uMax`, `vMax`, filled by `NativeGpu_SetUvLimits` in `platform/native_gpu.c`), and the fragment shader clamps the texture coordinate to them. At grazing angles the perspective-correct coordinate can land a fraction of a texel outside the polygon's own texels, often on the transparent colour, which shows as a hole. DuckStation solves the same problem the same way. All-zero bounds (rectangles, lines) mean no clamp.
 - **Flat page and CLUT.** `v_page_clut` and `v_uvLimits` are `flat`. They are constant per polygon, and interpolating a constant perspective-correctly drifts by float error when the vertex depths differ a lot.
-- **One rounding for word and index.** The 4- and 8-bit samplers used to compute the VRAM word and the index inside it with different rounding. Just below a word boundary they read the right word with the wrong index. This is not specific to PGXP: it also drew a one-texel column of wrong colour through the widescreen name-entry font. Each sampler now floors the coordinate once and fetches the word at its centre.
+- **One rounding for word and index.** The 4- and 8-bit samplers floor the coordinate once and derive both the VRAM word (fetched at its centre) and the index inside it from that value. Rounding them separately reads the right word with the wrong index just below a word boundary, a one-texel column of wrong colour.
 
 ## Debugging
 
@@ -76,7 +68,7 @@ For reproducible captures, before/after measurements and polygon dumps, use the 
 ## Differences from High Octane
 
 - High Octane's renderer is a multithreaded frontend/backend with Vita paths. Ours is dowlle/ctr-native-ap's single-threaded one. The shader changes were applied by hand: the PC path only, always compiled in instead of behind a `PGXP_PC_TEXTURES` define.
-- High Octane keeps a static 512 KiB primitive arena. Ours are MEMPACK allocations sized per level (larger for custom tracks), so the shadow table covers both arenas and is reallocated on level load. It is allocated even while PGXP is off.
+- High Octane keeps a static 512 KiB primitive arena. Ours are two 1 MiB host allocations made on every level load (`MainInit_PrimMem`), so the shadow table covers both arenas and is reallocated on level load. It is allocated even while PGXP is off.
 - High Octane's own mirror mode flips screen x in the GTE. We don't have that mode, so its mirror handling was dropped.
 - The menu, config and `load_config` changes went into our config system (`platform/native_config.c`, `game/230/MM_ConfigMenu.c`, `include/ctr_menu_pages.h`) instead of High Octane's menu.
 - All `__vita__` code was removed.
@@ -87,14 +79,3 @@ For reproducible captures, before/after measurements and polygon dumps, use the 
 - A polygon with some vertices recovered and some not draws with mixed positions. High Octane does the same deliberately, so shared corners stay precise.
 - Perspective-correct texturing needs every vertex of a polygon to have a depth. Polygons that are partly behind the near plane, or very close, keep affine mapping. The same polygons keep ordering-table order in the [level depth test](#level-depth-test), so a sort error right at the camera can remain.
 - Larger vertices cost about 2 MiB more per vertex buffer, 6 MiB in all (the CPU array plus two GL buffers), and the shadow table takes roughly 5 bytes per byte of primitive arena (about 10 MiB with 1 MiB arenas).
-
-## Needs in-game testing
-
-The owner confirmed anti-wobble in Adventure and reported the distant holes. The texture sampling fixes and precise culling remove them in the attract-mode demos (measured, see above), and the owner confirmed the fix in game (build ffe21bf61). Still to check:
-
-- Each mode on a race track, in the Adventure hub and in the menus: no cracks or flicker on track, walls and water, no displaced HUD, text or sprites.
-- Switching the option live in the middle of a race.
-- Split screen (2 to 4 players) and widescreen aspect ratios.
-- Mirror trap (Archipelago), the AP item box visuals, reverse tracks and a custom track (large primitive arena).
-- Render scale above ORIGINAL, where sub-pixel positions are most visible.
-- Frame time with FULL compared with OFF.

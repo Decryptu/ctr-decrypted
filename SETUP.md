@@ -262,8 +262,8 @@ fails closed instead of loading the displaced retail race.
 
 The game runs at 60 FPS by default. To go back to the original 30 FPS, turn off
 **OPTIONS → Video → 60 FPS (Next Load)** (saved as `fps60` in `config.ini`).
-The change applies the next time a track or menu loads. Time Trial always runs
-at 30 FPS so ghosts stay correct.
+The change applies the next time a track or menu loads. Every mode runs at
+60, Time Trial included; ghosts recorded at either rate play at both.
 
 ## Optional: controllers and Steam Input
 

@@ -5,7 +5,18 @@ A native PC version of **Crash Team Racing (PS1, 1999)** with the [Archipelago](
 - No emulator and no ROM patching: the game is compiled from the [CTR-native](https://github.com/CTR-tools/ctr-native) decompilation.
 - You supply your own NTSC-U disc image; the game reads its assets from it.
 
-CTR Decrypted is built on [dowlle/ctr-native-ap](https://github.com/dowlle/ctr-native-ap) and stays compatible with its seeds and `ctr.apworld`. It adds enhancements ported from [Crash Team Racing - High Octane](https://github.com/Rinnegatamante/Crash-Team-Racing-High-Octane), plus fixes of its own. See [ROADMAP.md](ROADMAP.md) for what is done and what is planned.
+CTR Decrypted is built on [dowlle/ctr-native-ap](https://github.com/dowlle/ctr-native-ap) and stays compatible with its seeds and `ctr.apworld`. It adds enhancements ported from [Crash Team Racing - High Octane](https://github.com/Rinnegatamante/Crash-Team-Racing-High-Octane), plus fixes of its own. [ROADMAP.md](ROADMAP.md) has what is planned.
+
+## Features
+
+On top of the Archipelago client, each in OPTIONS:
+
+- **60 FPS**, on by default, in every mode ([docs/60FPS.md](docs/60FPS.md)).
+- **PGXP anti-wobble** and perspective-correct textures, with a depth test that fixes the original's level sorting errors ([docs/PGXP.md](docs/PGXP.md)).
+- **Screen filters**: Sharp Bilinear, FXAA, Scanlines, CRT ([docs/SCREEN-FILTERS.md](docs/SCREEN-FILTERS.md)).
+- **Extras**: reserves meter, kept reserve fire, blue fire at Ultimate Speed Fire, slide meter gradient, cyan super pads ([docs/EXTRAS.md](docs/EXTRAS.md)).
+- **Playable N. Oxide**, unlocked by beating him in Adventure.
+- Widescreen, render scale, increased draw distance, remappable controls, and native Switch 2 Pro Controller support (with Steam closed).
 
 ## Getting started
 

@@ -45,7 +45,7 @@ All of these are read once, by `platform/native_dev.c` (`include/platform/native
 | `CTR_DEV_DUMP_FRAME=<n>` | Write every polygon drawn in frame n to `polys-NNNNNN.txt` in the capture folder: the level-renderer bucket tag, then for each vertex its retail screen position, its drawn position and its precise depth. A textured polygon is followed by a `T` line: texture page, CLUT, and each vertex's UV, to look the texels up in a `CTR_DEV_VRAM_DUMP` of the same frame |
 | `CTR_DEV_LOAD_STATE=<n>` | At frame n, load `debug/states/quick.ctrstates` from the run folder, as `F8` would. Copy a player's `F5` save there to replay their exact view unattended, with the exact exe that saved it (see [Determinism](#determinism-and-load-addresses)). Loading also restores the race switches' own state, so `CTR_DEV_TRACE` and `CTR_DEV_DRIVER_DUMP` stop after the load; frame captures and `CTR_DEV_DUMP_FRAME` keep working |
 | `CTR_DEV_SAVE_STATE=<n>` | At frame n, save `debug/states/quick.ctrstates`, as `F5` would |
-| `CTR_DEV_WARP=<x>,<y>,<z>,<angle>` | Once a level has loaded (the adventure hubs too), hold player 1 at that world position and heading, at rest, for two seconds, then let go. Reaches a spot a player reported in any build, unlike a savestate. The dock view: `CTR_DEV_RACE=26`, `CTR_DEV_MODE=adv`, `CTR_DEV_WARP=-25494,280,-8852,1393`, `CTR_DEV_PAD=4050:2` (far camera once Aku Aku's hint ends), capture from frame 4100 |
+| `CTR_DEV_WARP=<x>,<y>,<z>,<angle>` | Once a level has loaded (the adventure hubs too), hold player 1 at that world position and heading, at rest, for two seconds, then let go. Reaches a spot a player reported in any build, unlike a savestate. In the adventure hub, add `CTR_DEV_PAD=4050:2` for the far camera once Aku Aku's hint ends, and capture from frame 4100 |
 | `CTR_DEV_NO_LEVEL_DEPTH=1` | Draw the level in ordering-table order only, as the PS1 does, for A/B captures of the [level depth test](PGXP.md#level-depth-test) |
 | `CTR_PGXP_DEBUG=1..4` | PGXP tints, see [PGXP.md](PGXP.md#debugging) |
 | `CTR_DEV_RACE=<LevelID>` | The title menu starts a one-player race on that track instead of the demo, with nobody at the controls unless the autopilot drives |
@@ -78,25 +78,24 @@ Frame numbers count every presented frame, the boot splash included. Frames show
 
 ## Capturing a frame while playing
 
-Some bugs only show where a player drives. In an internal build, press `F7` while one is on screen: the next frame's polygon dump (the `CTR_DEV_DUMP_FRAME` format), its image (`fNNNNNN.bmp`) and all of VRAM (`vramNNNNNN.bin`) go to `debug/captures` next to the game. Press it a few times around the bug. `pgxp_cracks.py`, `vram_png.py` and a short script over the dump then show which polygons drew it: the black streaks behind the racers on Hot Air Skyway were found this way, as particle quads with corners pinned at x = 1023.
+Some bugs only show where a player drives. In an internal build, press `F7` while one is on screen: the next frame's polygon dump (the `CTR_DEV_DUMP_FRAME` format), its image (`fNNNNNN.bmp`) and all of VRAM (`vramNNNNNN.bin`) go to `debug/captures` next to the game. Press it a few times around the bug. `pgxp_cracks.py`, `vram_png.py` and a short script over the dump then show which polygons drew it.
 
-When the bug needs a view the player held, have them press `F5` there too, keep a copy of that exact exe, and replay the save with `CTR_DEV_LOAD_STATE`. To compare a spot with the original game, read the player's position from the save (an Instance's world position is at +0x44, after its 16-byte name at +0x08), then set retail's `Driver.posCurr` (+0x2d4, world × 256) and `angle` (+0x39a) to it in an emulator, and pass it to `CTR_DEV_WARP` for any later build. The water drawn over the N. Sanity Beach dock was shown to be retail's own this way.
+When the bug needs a view the player held, have them press `F5` there too, keep a copy of that exact exe, and replay the save with `CTR_DEV_LOAD_STATE`. To compare a spot with the original game, read the player's position from the save (an Instance's world position is at +0x44, after its 16-byte name at +0x08), then set retail's `Driver.posCurr` (+0x2d4, world × 256) and `angle` (+0x39a) to it in an emulator, and pass it to `CTR_DEV_WARP` for any later build.
 
 ## Analysis scripts
 
 - `tools/decrypted/find_holes.py <dir> [--ignore-top N] [--max-run N]` finds see-through holes in a capture made with `CTR_PGXP_DEBUG=1`. In that mode the sky backdrop draws pure blue, so a short vertical run of blue with geometry above and below it is a hole. It prints a count per frame and a total, and writes `holes-*.png` with the holes painted magenta. Use `--ignore-top 110 --max-run 4` at 2x render scale to skip the HUD text. HUD text, boost flames and gaps between distant rocks also register, so compare totals against a baseline run (the same settings with `CTR_PGXP_DEBUG=3`) rather than reading them alone.
 - `tools/decrypted/audio_noise.py <audio.raw> [--flat F] [--wav out.wav]` finds white noise in a `CTR_DEV_AUDIO` dump: windows that are loud and spectrally flat (white noise scores about 0.58, game audio stays under 0.2). It prints the noisy spans with their VBlank number and can write a .wav to listen to.
-- `tools/decrypted/filter_check.py <baseline.png> <capture.png>... [--lines 216]` compares `CTR_DEV_SHOT_PRESENTED` captures of one frame against a baseline (normally SMOOTH): mean brightness, the 99th percentile of the step between neighbouring pixels (anti-aliasing lowers it), and the share of vertical variation at the 216-line frequency (scanlines raise it). See [SCREEN-FILTERS.md](SCREEN-FILTERS.md#measurements).
+- `tools/decrypted/filter_check.py <baseline.png> <capture.png>... [--lines 216]` compares `CTR_DEV_SHOT_PRESENTED` captures of one frame against a baseline (normally SMOOTH): mean brightness, the 99th percentile of the step between neighbouring pixels (anti-aliasing lowers it), and the share of vertical variation at the 216-line frequency (scanlines raise it). See [SCREEN-FILTERS.md](SCREEN-FILTERS.md#checking).
 - `tools/decrypted/quad_dump.py <dump.csv> [--level N]` lists a level's turbo pad triggers and the visible quads over each one, with their texture slots (`*10` marks a 10-frame animation).
 - `tools/decrypted/pgxp_cracks.py <polys-NNNNNN.txt> [--level-only]` reads a polygon dump. It reports level vertices drawn at more than one position (a shared corner that disagrees with itself), then T-junction candidates: vertices that lie inside another polygon's edge in retail but not when drawn.
-
 - `tools/decrypted/driver_diff.py <A.bin> <B.bin> [--delta N]` compares two `CTR_DEV_DRIVER_DUMP` files and prints the first race frame where any driver differs, as driver, offset and both values. Pointer fields differ between runs that load at different addresses, so words that look like host pointers in both runs are skipped, or, with `--delta`, words that differ by exactly the load-base difference.
 
 ## Determinism and load addresses
 
-Runs are bit-exact only while nothing in the game depends on where the executable is loaded. The level data, statics and function pointers all sit at the load address, so code that reads past the end of level data, or tests a pointer's value the way retail tests for 0x80xxxxxx, behaves differently between builds, and between runs when the base moves. That is how the bot checkpoint bug in `VehLap_UpdateProgress` was found (see ROADMAP).
+Runs are bit-exact only while nothing in the game depends on where the executable is loaded. The level data, statics and function pointers all sit at the load address, so code that reads past the end of level data, or tests a pointer's value the way retail tests for 0x80xxxxxx, behaves differently between builds, and between runs when the base moves.
 
-The game is linked without ASLR (`--disable-dynamicbase` on Windows, `-no-pie` on Linux, in `CMakeLists.txt`), so every run of one build loads at the same address. Savestates and input replays store raw pointers and depend on this: with ASLR, a state saved in one launch crashed when loaded in the next. A state still loads only in the exact build that made it, since any code change moves the addresses.
+The game is linked without ASLR (`--disable-dynamicbase` on Windows, `-no-pie` on Linux, in `CMakeLists.txt`), so every run of one build loads at the same address. Savestates and input replays store raw pointers and depend on this; with ASLR they crash when loaded in another launch. A state loads only in the exact build that made it, since any code change moves the addresses.
 
 To check for address dependence, build twice at two fixed bases, then compare races with `CTR_DEV_DRIVER_DUMP` and `driver_diff.py --delta`:
 
@@ -105,7 +104,7 @@ cmake -S . -B /c/t/fb400000 -G Ninja -DCMAKE_BUILD_TYPE=Release "-DCMAKE_EXE_LIN
 cmake -S . -B /c/t/fb10000000 -G Ninja -DCMAKE_BUILD_TYPE=Release "-DCMAKE_EXE_LINKER_FLAGS=-Wl,--disable-dynamicbase -Wl,--image-base=0x10000000"
 ```
 
-Each fixed-base build repeats itself exactly; any difference between the two is an address dependence. After the fix, all 18 race tracks' attract demos match across the two bases for 4,500 frames of all eight drivers.
+Each fixed-base build repeats itself exactly; any difference between the two is an address dependence. All 18 race tracks' attract demos match across the two bases for 4,500 frames of all eight drivers, so any difference is a regression.
 
 ## Unattended races
 
@@ -125,7 +124,7 @@ tools\decrypted\fps-parity.ps1 -Tracks 3
 - `parity A.csv B.csv`: finish times, and jumps launched from the same spot in both runs.
 - `ghost SOURCE.csv PLAY.csv`: how far the ghost in PLAY strays from the player of SOURCE, who recorded it.
 
-A Time Trial takes 10 to 20 seconds to run at 30 FPS, twice that at 60. The autopilot never boosts, hops or drifts, so it falls into the same pits again and again on N. Gin Labs and Polar Pass; those runs end at the frame cap. Results per track are in [60FPS.md](60FPS.md#automated-checks). Input replays (`--record`, `--replay`, [REPLAYS.md](REPLAYS.md)) work with these switches too. Set the same `CTR_DEV_RACE` and `CTR_DEV_MODE` when playing back, because they change the title menu's flow.
+A Time Trial takes 10 to 20 seconds to run at 30 FPS, twice that at 60. The autopilot never boosts, hops or drifts, so it falls into the same pits again and again on N. Gin Labs and Polar Pass; those runs end at the frame cap. What to expect per track is in [60FPS.md](60FPS.md#checking). Input replays (`--record`, `--replay`, [REPLAYS.md](REPLAYS.md)) work with these switches too. Set the same `CTR_DEV_RACE` and `CTR_DEV_MODE` when playing back, because they change the title menu's flow.
 
 ## Archipelago server load
 
@@ -147,12 +146,3 @@ The client logs every frame over 250 ms as `[AP PERF] frame stall` in the run fo
 `ctr_native.exe --perf` writes `debug/perf/perf-latest/frame_times.csv` and `summary.txt`. A frame's budget is the VBlanks it waits for times 16.68 ms (33.37 ms at 30 FPS, 16.68 ms at 60), and the summary counts frames over the budget, over 1.5 times it (shown on screen a refresh too long), and over twice it. The swap does not wait for the display in a hidden window, so measure VSync On and Adaptive with the window visible.
 
 `tools/decrypted/vsync-check.ps1` does that for every VSync option at 30 and 60 FPS, windowed and fullscreen: it plays the attract demo in a visible window in real time with `--perf-dir`, reads the display's refresh rate from Windows, and runs `tools/decrypted/perf_pacing.py` on each result. Per run it prints the frame interval percentiles, how many refreshes each frame stayed on screen, the uneven frames (a refresh count other than the usual one) and the long ones (over 1.5 times nominal). It takes about 25 minutes. The screen has to stay on and unlocked throughout, so run it when nobody is using the machine.
-
-## Worked example: the distant-floor holes
-
-This is how the PGXP floor holes were found (see [PGXP.md](PGXP.md#back-face-culling)).
-
-1. `devrun.ps1 -Track 0 ... -Env @{CTR_PGXP_DEBUG=1}` against `CTR_PGXP_DEBUG=3`, both through `find_holes.py`. PGXP had about 45% more holes than the retail baseline, in modes FULL and GEOMETRY but not TEXTURES, so the cause was vertex positions.
-2. `CTR_PGXP_DEBUG=4` showed the holes inside one level bucket (dynamic), not along bucket boundaries.
-3. `CTR_DEV_DUMP_FRAME` and `pgxp_cracks.py` showed no shared vertex drawn twice, and T-junction candidates whose depths did not match. So neither theory held.
-4. Testing actual hole pixels against the dumped polygons showed the strip between two drawn polygons was covered by no polygon at all. The polygon that belonged there had been culled.

@@ -28,9 +28,9 @@ All four are GPL-3.0. dowlle's `ctr.apworld` is MIT.
 - No config file, settings menu, widescreen or 60 FPS in master.
 
 **Open issues:**
-- #58: Mystery Caves left path crashes with 3–4 players. Fixed here: the 3P/4P renderer read a quadblock's missing low-LOD texture through a null pointer (`226_00_DrawLevelOvr1P.c`). High Octane's own fix (ca43755cf, capping the rendered-quadblock lists) is not this crash: those lists peak at 59 of 64 entries here.
+- #58: Mystery Caves left path crashes with 3–4 players. Fixed here (a null low-LOD texture read in the 3P/4P renderer, `226_00_DrawLevelOvr1P.c`).
 - #12: black screen with a segfault on Manjaro Linux after the audio stream opens.
-- #45, #52: black screen and no scrapbook after the credits, after beating Oxide. Reported against Beta 7.1. Here the true ending, credits and scrapbook play through to the title at 30 and 60 FPS, in real time, at render scale 2 (`CTR_DEV_ENDING=1`). The Archipelago build still sends a connected game to the hub instead of the scrapbook.
+- #45, #52: black screen and no scrapbook after the credits, after beating Oxide. Not reproduced here: the ending, credits and scrapbook play through (`CTR_DEV_ENDING=1`). The Archipelago build sends a connected game to the hub instead of the scrapbook.
 - #14: the pre-race camera flyover is wrong (suspected undefined behaviour or compiler-dependent).
 - #61: unlock all characters including Oxide. Oxide is playable here (unlocked by beating him, or the Spyro 2 demo code); the other characters unlock as in retail.
 - #54: PAL support. Out of scope per #51.
@@ -73,7 +73,7 @@ All four are GPL-3.0. dowlle's `ctr.apworld` is MIT.
   - Ghost replay tools, 7 ghosts per track
   - Online leaderboard
 - Characters: playable N. Oxide, Penta 6/6/6, custom racers (`.ctrr`), stats viewer.
-  - Playable Oxide is Vita-only there (every change is under `__vita__`) and embeds his menu model, copied from the disc, in the source. Ported here for PC with the model read from the player's disc at runtime, the same unlock bit (37), the podium fallback and the Spyro 2 code. Its static-pool change for player 1 as Oxide answers the PS1 memory budget; 1P, 2P, 4P, Time Trial and Adventure as Oxide run without it here.
+  - Playable Oxide is Vita-only there and embeds his menu model in the source. Here he is playable on PC with the model read from the player's disc ([EXTRAS.md](EXTRAS.md) has the other mods).
 - Mods: reserves meter, custom cups, blue fire, OxideFix, cyan super turbo pads, powerslide bar.
 - Other: rebindable controls, 4-player splitscreen, cheats menu, Discord presence, multilanguage text, PAL voices.
 
@@ -84,8 +84,8 @@ All four are GPL-3.0. dowlle's `ctr.apworld` is MIT.
   - #43: the importer fails with a locked temp file.
 - #35: mirror mode isn't applied to the Adventure hub.
 - #34: Vita stick problems after AdHoc.
-- #24: softlock after beating Oxide; doesn't happen in ctr-native. High Octane-only; the same path works here.
-- #9: the all-super-turbopads cheat doesn't turn pads cyan. Handled here: Cyan Super Pads reads the cheat at level load and turns every pad cyan ([EXTRAS.md](EXTRAS.md)).
+- #24: softlock after beating Oxide; High Octane-only, not reproduced here.
+- #9: the all-super-turbopads cheat doesn't turn pads cyan. Handled here by Cyan Super Pads ([EXTRAS.md](EXTRAS.md)).
 - #42: a Hot Air Skyway shortcut is harder than on emulator (physics).
 - #39: Penta should use the PAL engine sound.
 - #46: no VSync option.
@@ -111,14 +111,12 @@ All four are GPL-3.0. dowlle's `ctr.apworld` is MIT.
 - 0.3.0 work happens on `dev/custom-pad-0.3.0` with large stacked PRs (#520–#531) and matching apworld PRs.
 
 **Open bugs:**
-- #499: with vanilla unlock requirements the stage-2 key count is ignored. Fixed in the apworld (PR #154); we ship that apworld.
+- #499: with vanilla unlock requirements the stage-2 key count is ignored. Fixed in the apworld we ship (PR #154).
 - #484: white noise in the hub after winning a race.
 - #466: the progressive stats bar doesn't match the items collected. Fixed in client `main` (PR #469), which we have.
-- #282: invisible podium racers.
-  - Report 1, Oxide missing in 1st: fixed here. Oxide's win-dance file in the BIGFILE is empty (0 bytes in both VRAM variants) and retail skipped loading it. He now takes his lose-dance model (98 KB) and its script, as the retail ending cutscene does. Seen on the podium after an Adventure win as Oxide (`CTR_DEV_CHARACTER=15`). In 2nd or 3rd he already used that model.
-  - Report 2, Papu Papu missing in 2nd after a Purple Gem Cup: fixed here (a retail bug). `UI_CupStandings_UpdateCupRanks` writes only the field's slots of `cupPositionPerPlayer[8]`, so after an eight-racer cup the five-racer Purple Cup kept three stale driver indices, and the end of the cup, which ranks all eight slots, gave any racer they named 5th to 8th place and an empty podium step. The update now fills the slots past the field with the unspawned drivers, so the array stays a permutation. Reproduced with `CTR_DEV_MODE=cup`: Yellow then Purple left the third step empty (final order `3,0,2,1,4,7,4,2`); with the fix it is Papu Papu (`3,0,2,1,4,5,6,7`). `tools/test-cup-ranks.py` covers every field size and cup order.
+- #282: invisible podium racers. Both reports fixed here: Oxide in 1st wears his lose-dance model (his win-dance file on the disc is empty), and the cup standings no longer keep stale slots after a smaller field (`UI_CupStandings_UpdateCupRanks`, covered by `tools/test-cup-ranks.py`).
 - #205: unguarded instance births. Fixed in #468; the issue is still open.
-- #147: a large reconnect catch-up stalls the game thread. Not here: with 29,700 items queued on a local server (`ap_backlog.py`), the connect catch-up keeps every frame under 23 ms. Moving the client to its own thread would mean routing every handler through a queue, for no measured gain.
+- #147: a large reconnect catch-up stalls the game thread. Not here: a 29,700-item catch-up keeps every frame under 23 ms (`ap_backlog.py`, [DEV-TOOLS.md](DEV-TOOLS.md#archipelago-server-load)).
 
 **Refactors:** #305 (done), #306, #307, #309, #310.
 

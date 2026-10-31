@@ -1,9 +1,11 @@
 # 60 FPS mode
 
-CTR Decrypted can run the game at 60 FPS. The feature is ported from
+CTR Decrypted can run the game at 60 FPS. The feature comes from
 [Crash Team Racing: High Octane](https://github.com/Rinnegatamante/Crash-Team-Racing-High-Octane)
-(branch `vita`). Both projects come from CTR-tools/ctr-native, so most of
-High Octane's changes carried over with the timing logic unchanged.
+(branch `vita`), ported commit by commit. Its 60 FPS timing is in sync up to
+High Octane `9054bab51`; no later High Octane commit changes it. High
+Octane's AdHoc multiplayer, input-replay ghosts, leaderboard, alternative
+Tiger Temple and its own config file were left out.
 
 ## How it works
 
@@ -16,6 +18,8 @@ High Octane's changes carried over with the timing logic unchanged.
   thresholds) or `FPS_HALF` (per-frame steps, blink/flash phases taken from
   `gGT->timer` / `sdata->frameCounter`). `FPS_LEFTSHIFT` / `FPS_RIGHTSHIFT`
   adjust shift amounts. Some per-frame updates run only on odd frames instead.
+  New code that blinks, flashes or counts frames must do the same; counters
+  already in milliseconds or on the vsync clock need nothing.
 - Model animations play back at double length with interpolated in-between
   frames (`INSTANCE_Use60FpsAnimation`, `RenderBucket_QueueExecute.c`).
   Particles are rescaled when they spawn (`MainFrame.c`) and spawn less often
@@ -46,220 +50,62 @@ work in both:
   of 30 FPS, timestamps in milliseconds, and animation frames. At 60 FPS
   `GhostTape_WriteMoves` samples every 16 frames, the turbo-pad cooldown is
   doubled, and animation frames are stored at their 30 FPS length
-  (`INSTANCE_AnimHasDoubledFrames`). `GhostReplay_ThTick` already plays back
-  by race time, and doubles the stored animation frame at 60. The ghost
-  format is unchanged: saved ghosts and the N. Tropy / N. Oxide ghosts play
-  at both rates, and a ghost recorded at 60 plays at 30. High Octane instead
-  pinned Time Trial to 30 FPS (`gNativeForce30Fps`), which is removed.
+  (`INSTANCE_AnimHasDoubledFrames`). `GhostReplay_ThTick` plays back by race
+  time, and doubles the stored animation frame at 60. The ghost format is
+  unchanged: saved ghosts and the N. Tropy / N. Oxide ghosts play at both
+  rates. (High Octane pinned Time Trial to 30 FPS instead.)
 - **AI lap recordings** (`nav_record`, `ap/ap_navrec.c`). Samples, node
   timestamps and lap lengths are in 30 Hz ticks; at 60 FPS every other frame
   is skipped. Files keep the same format and limits.
 
-## Ported High Octane commits
-
-Cherry-picked with `-x`, with conflicts resolved against this fork's older
-decomp names and its `#ifdef CTR_AP` hooks (all AP blocks kept):
-
-706f1819b (core), ba707d99f, 7aadd44f7, a118bbe97, 802926a4f, 50c32f030,
-d1d6a4dd6, 13ab86989, 08c001896, 1342cd2eb, 432e51382, 5aaa2fddd, 186d99460,
-0de42c522, aadd9a305, d7453b41f, 9b1a0c0e8, 109b364ec, d404c53c9, fd92fcce8,
-9054bab51.
-
-Partial picks:
-
-- f028f2803: only the rain particle-count change in `RenderWeather.c`.
-- 8c160d1c9: only the high score arrow flash in `MM_HighScore.c`.
-- 7f0d80466: only the indentation hunks for 60 FPS code (`222.c`, `225.c`).
-- f2f93ffe7 (Windows support): not cherry-picked. Its only 60 FPS change was
-  removing the `__vita__` gate from the macros, which is done here directly.
-
-No High Octane commit after 9054bab51 changes the 60 FPS timing. The v1.4
-release note "adjusted physics at 60 FPS" refers to 9054bab51 and the physics
-parts of 706f1819b.
-
-Left out (High Octane-only features): AdHoc multiplayer, input-replay ghosts
-and their per-ghost FPS metadata (`NativeGhostInput.c`, the `RefreshCard` /
-`SelectProfile` ghost FPS functions, `gNativeGhostReplayFpsOverride`), the
-leaderboard, the alternative Tiger Temple, and High Octane's own config file and
-options menu entry.
-
-## Fork-specific changes
+## Changes beyond High Octane
 
 - Archipelago timers (`ap/`, and the AP hooks in `223.c`, `AH_Map.c`,
-  `AH_WarpPad.c`): item feed lifetime, stagger and priming; DeathLink
-  cooldowns and receive grace; ceremony cycling and flash; trap item roll
-  timer; hub map flicker; warp pad tint and glow cycling; character swap arrow
-  flash; the item application throttle; content-gate re-verify windows; the
-  attract-demo hold behind the link prompt. Trap durations were already in
-  milliseconds.
-- Options menu: held-direction repeat and text cursor blink.
-- `AH_WarpPad.c`: AP-only warp frame checks (`framesWarping` 60/61) doubled
-  like the vanilla ones.
-- `222.c`: the "already unlocked" CTR letter lerps are doubled too (High
-  Octane left those two at 30 FPS lengths).
+  `AH_WarpPad.c`) are frame-rate aware: item feed, DeathLink cooldowns and
+  grace, ceremony, traps, hub map flicker, warp pad tint and glow, the item
+  application throttle, content-gate re-verify windows, the attract-demo hold
+  behind the link prompt. Trap durations are in milliseconds.
+- `222.c`: the "already unlocked" CTR letter lerps are doubled too.
 - `BOTS.c`, AI driving, which High Octane left at 30 FPS rates:
   - On the ground a bot's vertical speed is the height it gained this frame,
-    and that speed is applied per 32 ms. At 60 the delta is doubled
-    (`FPS_DOUBLE`), or bots float off every downhill.
-  - The ground height a bot follows is rounded to whole units. At 60 the
-    fraction is kept: a 60 FPS frame of gravity drops a bot only a quarter
-    as far as a 30 FPS frame, less than one rounding step, so bots kept
-    leaving the ground.
-  - A grounded bot keeps last frame's climb as its vertical speed, so where
-    the nav line bends downhill it takes off unless one frame of gravity
-    pulls it below the new slope. A 30 FPS frame of gravity absorbs a bend
-    twice as sharp as a 60 FPS frame, so at 60 bots took off at every small
-    crest. A bot that was on the ground last frame now also lands if it is
-    within one 60 FPS frame of gravity drop above the line, which gives the
-    30 FPS take-off threshold.
-  - A bot accelerates only while on the ground, so these made bots airborne
-    more often and slower. Measured with `CTR_DEV_NO_ITEMS=1` over the first
-    40 s of the attract demo on 11 tracks (88 drivers): the median driver
-    covered 0.54% less distance at 60 than at 30 before the crest fix, with
-    32 of 88 within 1%; after, 0.16% less, with 50 within 1%. On Crash
-    Cove, Hot Air Skyway, Sewer Speedway and Coco Park every driver but one
-    is within 1%. Elsewhere a few drivers are off by 2 to 30% in both
-    directions: bots bump into each other at different moments, which sends
-    them down different lines. 30 FPS traces are unchanged.
+    applied per 32 ms, so at 60 the delta is doubled (`FPS_DOUBLE`), or bots
+    float off every downhill.
+  - The ground height a bot follows keeps its fraction at 60: a 60 FPS frame
+    of gravity drops a bot less than one whole-unit rounding step.
+  - A bot that was on the ground last frame lands if it is within one 60 FPS
+    frame of gravity drop above the nav line. That gives the 30 FPS take-off
+    threshold; without it bots take off at every small crest, and since they
+    only accelerate on the ground they fall behind.
   - The speed steps (friction, acceleration, slope pull, throttle zones,
     deceleration to a target) run at 30 Hz, on every other frame, like the
-    other `use30HzStep` code. They used to run every frame, which doubled
-    the start acceleration. Progress cooldowns are doubled.
-  - 30 FPS is unchanged: a demo traced before and after matches on every
-    frame.
+    other `use30HzStep` code. Progress cooldowns are doubled.
+  - 30 FPS bot driving is retail: a 30 FPS demo traces identically.
 
-## Blink and flash audit
+## Known differences from 30 FPS
 
-`game/` and `ap/` were searched for blinks, flashes, pulses and colour
-cycles taken from frame counters (`gGT->timer`, `sdata->frameCounter`,
-`framesInThisLEV`, menu and HUD countdowns, `& mask`, `% n`, `/ n`, sine
-phases). Most were already fixed by the High Octane picks or the fork
-changes above. These were not, and are fixed here:
+- **Curved kickers.** The physics integrate in 16 ms steps, so on a curved
+  kicker the kart follows the curve one step further before leaving it and
+  launches a little higher (Dingo Canyon's kicker before the canyon: apex
+  rise 24 at 30 FPS, 31 to 33 at 60). Gravity per second matches. Retail-exact
+  physics would need a fixed 30 Hz simulation with interpolated rendering
+  (ROADMAP, Maybe).
+- **Displays that are not 60 Hz.** On a 60 Hz display every frame stays one
+  refresh at 60 FPS and two at 30, with VSync Off, On or Adaptive. 60 does not
+  divide 144, so on a fixed 144 Hz display frames alternate between two and
+  three refreshes whatever the game does; only variable refresh shows 60 FPS
+  evenly there.
 
-- `SelectProfile.c`: memory card message header flash (red/normal), the
-  SAVE COMPLETED flash and how long it stays up, and the spin of the 3D
-  load/save icons (odd spin rates add the remainder on alternate frames).
-- `SubmitName.c`: the name entry blink (letters, SAVE/CANCEL, cursor) now
-  steps off `sdata->frameCounter`. It used `gGT->timer`, which stops while
-  `PAUSE_ALL` is set; on an odd value it let the blink step every frame.
-- `MainFreeze.c`: pause menu option arrows, the analog calibration wheel
-  and neGcon wave.
-- `MM_Battle.c`: battle setup "THERE MUST BE AT LEAST ONE WEAPON" colour.
-- `MM_Characters.c`: colour pulse on players who have not picked yet.
-- `CS_Thread.c`: cutscene alpha flicker (cutscene flag 0x2, used on the
-  podium and other scripted scenes). Each state is held for two frames.
-- `UI_Weapon.c`: weapon icon flicker while an item is blocked.
-- `UI_DrawNum.c`, `UI_Reward.c` (AP): relic tier cycle on the HUD relic
-  count and icon, one tier per second like the warp pad glow.
-- `Display.c`: clock weapon blur wobble.
-- `FLARE.c`: the 20-frame lens flare after a mask respawn.
-- `MainFrame.c`: the VS/battle FINISHED/LOSER and quip countdown
-  (`timerEndOfRaceVS`) counts 30 FPS frames.
+## Checking
 
-Checked and left alone:
-
-- Counters already in milliseconds or on the vsync clock: wrong way text
-  (`elapsedEventTime`), tire hazard wobble, confetti
-  (`frameTimer_Confetti`), traffic lights.
-- Not visible as a blink: rumble pulse frequency (`GAMEPAD.c`), decal LOD
-  alternation (`DecalMP.c`), particle mirroring on odd frames
-  (`RB_FlameJet.c`, `VehEmitter.c`).
-- Short input or audio delays counted in frames: hint screen input
-  cooldown (`AH_HintMenu.c`, 30 frames), wrong way voice line delay
-  (`framesDrivingSameDirection`, 30 frames). They halve at 60 but nothing
-  blinks.
-- `221.c` CTR token text colour checks `gGT->timer == 0`, which is almost
-  never true at either frame rate.
-
-## Automated checks
-
-`tools/decrypted/fps-parity.ps1` drives a Time Trial on each track at 30 and
-at 60 FPS with the autopilot (the AI's line through the normal kart physics)
-and compares the traces ([DEV-TOOLS.md](DEV-TOOLS.md#unattended-races)).
-Results on 2026-10-30:
-
-| Track | Finish 30 / 60 FPS | Autopilot falls 30 / 60 | Matched jumps: count, mean airtime difference | Ghost drift, mean units: raced at 30 / at 60 |
-|---|---|---|---|---|
-| Dingo Canyon | 145.54 / 147.02 s (+1.0%) | 0 / 0 | 8, +12 ms | 50.9 / 50.9 |
-| Dragon Mines | 151.14 / 144.27 s (-4.5%) | 5 / 4 | 12, +24 ms | 50.8 / 49.0 |
-| Blizzard Bluff | 121.66 / 121.78 s (+0.1%) | 0 / 0 | 32, +12 ms | 62.1 / 62.1 |
-| Crash Cove | 107.90 / 107.60 s (-0.3%) | 0 / 0 | 6, +29 ms | 53.0 / 52.7 |
-| Tiger Temple | 137.92 / 140.78 s (+2.1%) | 0 / 0 | 32, +13 ms | 54.7 / 54.7 |
-| Papu's Pyramid | 188.48 / 201.31 s (+6.8%) | 7 / 9 | 26, +16 ms | 45.7 / 45.6 |
-| Roo's Tubes | 115.26 / 114.21 s (-0.9%) | 0 / 0 | 9, +0 ms | 53.1 / 52.7 |
-| Hot Air Skyway | 330.81 / 518.94 s (+57%) | 19 / 52 | 43, -186 ms | 64.3 / 63.9 |
-| Sewer Speedway | 173.73 / 173.84 s (+0.1%) | 0 / 0 | 17, +16 ms | 51.9 / 51.9 |
-| Mystery Caves | 154.98 / 155.58 s (+0.4%) | 0 / 0 | 29, -25 ms | 60.7 / 60.7 |
-| Cortex Castle | 243.29 / 270.06 s (+11.0%) | 9 / 13 | 33, +5 ms | 66.4 / 65.9 |
-| N. Gin Labs | did not finish (falls into the same pit) | 223 / 132 | | |
-| Polar Pass | did not finish (falls into the same pit) | 211 / 78 | | |
-| Oxide Station | 279.30 / 280.91 s (+0.6%) | 3 / 3 | 22, +4 ms | 65.0 / 65.0 |
-| Coco Park | 111.94 / 111.97 s (+0.0%) | 0 / 0 | none | 60.6 / 60.6 |
-| Tiny Arena | 291.84 / 294.01 s (+0.7%) | 0 / 0 | 104, +7 ms | 48.0 / 48.0 |
-| Slide Coliseum | 178.88 / 178.11 s (-0.4%) | 0 / 0 | none | 48.8 / 48.5 |
-| Turbo Track | 160.54 / 160.96 s (+0.3%) | 0 / 0 | none | 63.9 / 63.9 |
-
-The autopilot never boosts, so it misses some gaps and falls; each fall
-costs about six seconds, and the tracks with the largest finish differences
-are the ones where it fell a different number of times. Hot Air Skyway is
-the extreme case: it misses the first gap at both rates (takeoff speed 13133
-and 12920, the same distance short), and at 60 each respawn repeats the same
-failed attempt exactly, eleven times. Matched jumps agree on every track.
-
-- **Physics scale with frame time.** Finish times agree within about a
-  percent; the autopilot steers once per frame, so it never drives exactly
-  the same line twice. A standing hop on the Crash Cove grid: apex rise 51 at
-  30 FPS, 50 at 60; airtime 320 ms against 304 ms.
-- **Jumps.** Jumps launched from the same spot land within a 30 FPS frame of
-  airtime on average. The exception is a curved kicker: at 60 FPS the kart
-  follows the curve one 16 ms step further before leaving it, so it leaves
-  with more upward speed. The worst one found is the Dingo Canyon kicker
-  before the canyon (apex rise 24 at 30 FPS, 31 to 33 at 60; airtime 768 ms
-  against 800 ms). That is the integration step, not a missing scale factor:
-  gravity per second matches. Retail-exact physics at 60 would need the
-  simulation at a fixed 30 Hz with interpolated rendering, which is a
-  different design from High Octane's (ROADMAP, Maybe).
-- **Ghosts.** A ghost recorded at 30 FPS and raced at 60 stays as close to
-  the run that recorded it as the same ghost raced at 30, on every track
-  (table above). A 60 FPS ghost raced at 30 on Crash Cove: 26.9 units
-  against 26.5 at 60.
-- **Input replays.** A replay recorded at 60 FPS plays back frame-exact with
-  `fps60=false` in `config.ini` (0 of 1474 traced frames differ).
-- **AI lap recordings.** The same Crash Cove laps record as 1116 and 1125
-  ticks at 30 FPS, 1113 and 1114 at 60.
-- **AI.** `CTR_DEV_RESULTS` gives every racer's distance to the finish at a
-  set race time. Weapons and the random start boost make single races noisy
-  (several thousand units per bot), so the AI was checked on the demo's
-  driver 0 instead (see `BOTS.c` above).
-- **Frame pacing.** Measured hidden with `--perf`: 60 FPS frames take a median
-  16.68 ms (5th to 95th percentile 16.49 to 16.85 ms, worst 17.25 ms).
-  How that meets the display with VSync On or Adaptive cannot be measured
-  in a hidden window, because the driver does not block the swap there;
-  `tools/decrypted/vsync-check.ps1` measures it with the window visible.
-  On a 60 Hz laptop panel (Intel UHD, 60.01 Hz), every combination is even:
-  30 and 60 FPS, VSync Off, On and Adaptive, windowed and fullscreen, about
-  a minute of Crash Cove each. At 60 FPS every one of about 3655 frames
-  stayed on screen for exactly one refresh (median 16.68 to 16.69 ms, 99th
-  percentile at most 17.19 ms, worst 19.93 ms); at 30 FPS every one of about
-  1520 frames stayed for exactly two (median 33.40 ms). No run had an uneven
-  or long frame, so the game's 59.94 Hz clock does not drift visibly against
-  a 60 Hz display and VSync needs no pacing change.
-  Not measured: a 144 Hz display. 60 does not divide 144, so with a fixed
-  refresh rate frames there alternate between two and three refreshes
-  whatever the game does; only a variable-refresh display (G-Sync or
-  FreeSync) can show 60 FPS evenly at 144 Hz. To measure it, set the display
-  to 144 Hz and run the same script.
-
-## Left to check by playing
-
-- Drifting and turbo feel, and the Hot Air Skyway CTR challenge "R" (fixed
-  upstream by 9054bab51). The autopilot never drifts.
-- Adventure hub: warp pads (vanilla, AP stage-2 gates, Cortex Vortex, custom
-  cups), doors and keys, save points, garages, the pause menu, and podiums.
-- Results screens for every mode (arcade, cup standings, relic, CTR token,
-  battle) and the AP ceremony text on relic results.
-- Archipelago: feed timing, DeathLink send/receive, traps, map flicker.
-- Changing the option in the menu, then entering a race.
-- Blinks and flashes: name entry, memory card and save screens, pause
-  arrows, hub map icons, results text, battle setup, podium. All are
-  expected to run at their 30 FPS speed now (see the audit above).
+- `tools/decrypted/fps-parity.ps1` drives a Time Trial on each track at 30
+  and 60 FPS with the autopilot and compares the traces
+  ([DEV-TOOLS.md](DEV-TOOLS.md#unattended-races)). Finish times agree within
+  about a percent except where the autopilot, which never boosts, falls into
+  a gap a different number of times (Hot Air Skyway, Papu's Pyramid, Cortex
+  Castle; it never finishes N. Gin Labs or Polar Pass). Jumps launched from
+  the same spot land within a 30 FPS frame of airtime, curved kickers aside.
+  With `-Ghosts`, a 30 FPS ghost raced at 60 stays as close to its recording
+  run as at 30.
+- A replay recorded at 60 FPS plays back frame-exact with `fps60=false`.
+- `tools/decrypted/vsync-check.ps1` measures frame pacing for every VSync
+  option with a visible window ([DEV-TOOLS.md](DEV-TOOLS.md#frame-timing)).
