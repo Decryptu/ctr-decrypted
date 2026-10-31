@@ -63,7 +63,7 @@ All of these are read once, by `platform/native_dev.c` (`include/platform/native
 | `CTR_DEV_EXIT_AFTER_RACE=1` | Quit a second after the finish |
 | `CTR_DEV_RESULTS=<csv>` | Every racer's rank, lap, distance to the finish and the track length at `CTR_DEV_RESULTS_MS` of race time (default 30000, counted from the lights). Distance driven since the start line is `lap × length + length − distance`. Works in the attract demo too, to compare the AI |
 | `CTR_DEV_CHARACTER_SELECT=1` | The title menu opens the Arcade character select for `CTR_DEV_PLAYERS` players. `CTR_DEV_CHARACTER` puts player 1's cursor on that racer. `CTR_DEV_UNLOCKS=1` unlocks the retail secret racers in the run's save, `=2` N. Oxide as well |
-| `CTR_DEV_PAD=<frame>:<keys>,...` | Player 1 holds those buttons for two frames from each listed frame, to drive menus: `U D L R`, `X` Cross, `O` Circle, `S` Square, `T` Triangle, `Z` Start. Example: `500:D,560:L,620:X`. Between taps the autopilot, when on, drives |
+| `CTR_DEV_PAD=<frame>:<keys>[:<frames>],...` | Player 1 holds those buttons for two frames (or the given count) from each listed frame, to drive menus or the kart: `U D L R`, `X` Cross, `O` Circle, `S` Square, `T` Triangle, `Z` Start, `2` L2 (the far camera in a hub). Example: `500:D,560:L,620:X`; `4100:X:400` holds the throttle for 400 frames. Between taps the autopilot, when on, drives. `CTR_DEV_RACE=26` with `CTR_DEV_MODE=adv` boots a new adventure in N. Sanity Beach; Aku Aku's hint is timed and ends near frame 4000, so `4050:2,4100:X:400` drives forward from the spawn with the far camera |
 | `CTR_DEV_DRIVER_DUMP=<file>` | Every frame of a race, the race frame number and all eight `Driver` structs, raw. `tools/decrypted/driver_diff.py` finds the first frame and field where two runs differ |
 | `CTR_DEV_STACK_POISON=<byte>` | At the top of every main-loop frame, fill the stack the frame is about to use with that byte. Two runs with different bytes play the same unless code reads a local it never wrote |
 | `CTR_DEV_NO_ITEMS=1` | Weapon crates give nothing and bots are handed no weapons, so two runs differ only by driving |
@@ -71,6 +71,10 @@ All of these are read once, by `platform/native_dev.c` (`include/platform/native
 Frame numbers count every presented frame, the boot splash included. Frames shown straight from VRAM (the boot splash, the scrapbook and other movies) are captured from VRAM.
 
 `devrun.ps1` clears earlier captures from the output folder, and warns when the game exits with an error code before `-Frames` (a crash). For a stack, run the same switches on the Archipelago build (`-Exe build-ap\ctr_native_ap.exe`): its crash handler writes `ctr-ap-crash.txt` in the run folder, and `addr2line -f -e build-ap\ctr_native_ap.exe <0x400000 + offset>` names each frame. Release builds inline heavily, so check neighbouring symbols with `nm -n` too.
+
+## Capturing a frame while playing
+
+Some bugs only show where a player drives. In an internal build, press `F7` while one is on screen: the next frame's polygon dump (the `CTR_DEV_DUMP_FRAME` format), its image (`fNNNNNN.bmp`) and all of VRAM (`vramNNNNNN.bin`) go to `debug/captures` next to the game. Press it a few times around the bug. `pgxp_cracks.py`, `vram_png.py` and a short script over the dump then show which polygons drew it: the black streaks behind the racers on Hot Air Skyway were found this way, as particle quads with corners pinned at x = 1023.
 
 ## Analysis scripts
 

@@ -20,6 +20,41 @@ struct DrawTiresSolidProjectedWheel
 	int jumpIndex;
 };
 
+// One bit per wheel whose view-space position does not fit the GTE's 16-bit
+// vectors (native only). Retail draws tires only at the instance's top LOD,
+// which kept karts close enough to fit; increase_draw_distance holds that LOD
+// four times farther, where the camera-relative position saturates (IR1-3) or
+// a corner wraps when packed, and the quad collapses into a long dark line
+// from the racer across the screen. Such a wheel is a pixel or two anyway.
+static u32 sDrawTiresWheelOutOfRange;
+
+static void DrawTires_CheckWheelCenter(int wheelIndex)
+{
+	// GTE FLAG bits 24..22: IR1..IR3 saturated by the last operation.
+	if ((CFC2(31) & (7u << 22)) != 0)
+	{
+		sDrawTiresWheelOutOfRange |= 1u << wheelIndex;
+	}
+}
+
+static void DrawTires_CheckWheelCorner(int wheelIndex, int x, int y, int z)
+{
+	if ((x != (s16)x) || (y != (s16)y) || (z != (s16)z))
+	{
+		sDrawTiresWheelOutOfRange |= 1u << wheelIndex;
+	}
+}
+
+static int DrawTires_WheelOutOfRange(int wheelIndex)
+{
+#if defined(CTR_NATIVE)
+	return (sDrawTiresWheelOutOfRange >> wheelIndex) & 1;
+#else
+	(void)wheelIndex;
+	return 0;
+#endif
+}
+
 static int DrawTiresSolid_CountLeadingSignBits(int value)
 {
 	u32 bits = value;
@@ -221,6 +256,8 @@ static void DrawTiresSolid_BuildWheelAxes(struct DrawTiresScratch *scratch)
 	// cursors initialized at 0x8006e8e4-0x8006e8e8, then walks four wheel records
 	// backward through scratchpad. Native uses explicit offsets while preserving
 	// the same GTE operations and scratch writes.
+	sDrawTiresWheelOutOfRange = 0;
+
 	for (int wheelIndex = 3; wheelIndex >= 0; wheelIndex--)
 	{
 		struct DrawTiresWheelLocal *wheelLocal = &scratch->wheelLocal[wheelIndex];
@@ -235,6 +272,7 @@ static void DrawTiresSolid_BuildWheelAxes(struct DrawTiresScratch *scratch)
 		MTC2(wheelLocal->rim.z.word, 3);
 
 		gte_lcv0tr_b();
+		DrawTires_CheckWheelCenter(wheelIndex);
 		int centerX = MFC2_S(9);
 		int centerY = MFC2_S(10);
 		int centerZ = MFC2_S(11);
@@ -334,6 +372,8 @@ static void DrawTiresSolid_LoadCorner(struct DrawTiresScratch *scratch, int vect
 	int x = wheelLocal->center.x + (axisSign * axisA->x) + (rimSign * axisB->x);
 	int y = wheelLocal->center.y + (axisSign * axisA->y) + (rimSign * axisB->y);
 	int z = wheelLocal->center.z.lo + (axisSign * axisA->z) + (rimSign * axisB->z);
+
+	DrawTires_CheckWheelCorner(wheelIndex, x, y, z);
 
 	MTC2(CTR_PackS16Pair(x, y), vectorIndex * 2);
 	MTC2(z, (vectorIndex * 2) + 1);
@@ -560,6 +600,11 @@ static int DrawTiresSolid_ProjectWheelQuads(struct DrawTiresScratch *scratch, st
 		DrawTiresSolid_LoadCorner(scratch, 0, wheelIndex, 1, 1);
 		gte_rtps_b();
 		scratch->projectedSxy[3] = MFC2(14);
+
+		if (DrawTires_WheelOutOfRange(wheelIndex))
+		{
+			continue;
+		}
 
 		struct DrawTiresSolidProjectedWheel projectedWheel = DrawTiresSolid_SelectProjectedWheel(scratch, wheelIndex);
 
@@ -810,6 +855,8 @@ static void DrawTiresReflection_BuildWheelAxes(struct DrawTiresScratch *scratch)
 	// cursors initialized at 0x8006f360-0x8006f364, then walks four wheel
 	// records backward through scratchpad. Native uses explicit offsets while
 	// preserving the reflected Y mirror and GTE operation sequence.
+	sDrawTiresWheelOutOfRange = 0;
+
 	for (int wheelIndex = 3; wheelIndex >= 0; wheelIndex--)
 	{
 		struct DrawTiresWheelLocal *wheelLocal = &scratch->wheelLocal[wheelIndex];
@@ -825,6 +872,7 @@ static void DrawTiresReflection_BuildWheelAxes(struct DrawTiresScratch *scratch)
 		MTC2(wheelLocal->rim.z.word, 3);
 
 		gte_lcv0tr_b();
+		DrawTires_CheckWheelCenter(wheelIndex);
 		int centerX = MFC2_S(9);
 		int originalCenterY = MFC2_S(10);
 		int centerZ = MFC2_S(11);
@@ -925,6 +973,8 @@ static void DrawTiresReflection_LoadCorner(struct DrawTiresScratch *scratch, int
 	int x = wheelLocal->center.x + (axisSign * axisA->x) + (rimSign * axisB->x);
 	int y = wheelLocal->center.y + (axisSign * axisA->y) + (rimSign * axisB->y);
 	int z = wheelLocal->center.z.lo + (axisSign * axisA->z) + (rimSign * axisB->z);
+
+	DrawTires_CheckWheelCorner(wheelIndex, x, y, z);
 
 	MTC2(CTR_PackS16Pair(x, y), vectorIndex * 2);
 	MTC2(z, (vectorIndex * 2) + 1);
@@ -1126,6 +1176,11 @@ static int DrawTiresReflection_ProjectWheelQuads(struct DrawTiresScratch *scratc
 		DrawTiresReflection_LoadCorner(scratch, 0, wheelIndex, 1, 1);
 		gte_rtps_b();
 		scratch->projectedSxy[2] = MFC2(14);
+
+		if (DrawTires_WheelOutOfRange(wheelIndex))
+		{
+			continue;
+		}
 
 		struct DrawTiresReflectionProjectedWheel projectedWheel = DrawTiresReflection_SelectProjectedWheel(scratch, wheelIndex);
 		DrawTiresReflection_EmitProjectedWheel(scratch, &projectedWheel, primMem, primCount, wheelIndex);

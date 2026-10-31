@@ -977,9 +977,14 @@ static struct ParticleRenderListMatrix Particle_RenderList_BuildNormalMatrix(str
 	return matrix;
 }
 
-static void Particle_RenderList_WriteNormalPrimitive(POLY_FT4 *poly, struct Icon *icon, u16 flagsAxis, u16 flagsSetColor, u32 color,
-                                                     struct ParticleRenderListMatrix *matrix, s32 *scratchDepth)
+// Returns 0 when the quad must not be drawn (native only, see below).
+static int Particle_RenderList_WriteNormalPrimitive(POLY_FT4 *poly, struct Icon *icon, u16 flagsAxis, u16 flagsSetColor, u32 color,
+                                                    struct ParticleRenderListMatrix *matrix, s32 *scratchDepth)
 {
+	// GTE FLAG bit 17: the perspective divide overflowed, i.e. the corner is
+	// closer to the camera than half the screen distance (or behind it), and
+	// its screen position is a saturated guess.
+	u32 divideOverflow = 0;
 	s32 width;
 	s32 height;
 	s32 halfWidth;
@@ -1015,23 +1020,43 @@ static void Particle_RenderList_WriteNormalPrimitive(POLY_FT4 *poly, struct Icon
 
 	MTC2(input, 0);
 	gte_rtps_b();
+	divideOverflow |= CFC2(31);
 	CtrGpu_WritePackedXY(&poly->x0, MFC2(14));
 	*scratchDepth = (s32)MFC2(19);
 
 	input = Particle_RenderList_PackXY(halfWidth, -halfHeight);
 	MTC2(input, 0);
 	gte_rtps_b();
+	divideOverflow |= CFC2(31);
 	CtrGpu_WritePackedXY(&poly->x1, MFC2(14));
 
 	input = Particle_RenderList_PackXY(-halfWidth, halfHeight);
 	MTC2(input, 0);
 	gte_rtps_b();
+	divideOverflow |= CFC2(31);
 	CtrGpu_WritePackedXY(&poly->x2, MFC2(14));
 
 	input = Particle_RenderList_PackXY(halfWidth, halfHeight);
 	MTC2(input, 0);
 	gte_rtps_b();
+	divideOverflow |= CFC2(31);
 	CtrGpu_WritePackedXY(&poly->x3, MFC2(14));
+
+#if defined(CTR_NATIVE)
+	// Retail culls a particle only when its centre is behind the camera, so a
+	// quad the camera drives through (the dust and smoke of the racers ahead)
+	// gets corners whose divide overflowed and is stretched across the screen.
+	// The console's GPU skipped most of those as too wide; widescreen narrows
+	// X, so they came back as black streaks. Drop the quad instead: such
+	// corners have no meaningful position. A few per minute of racing.
+	if ((divideOverflow & (1 << 17)) != 0)
+	{
+		return 0;
+	}
+#else
+	(void)divideOverflow;
+#endif
+	return 1;
 }
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003f590-0x80040308
@@ -1216,7 +1241,10 @@ void Particle_RenderList(struct PushBuffer *pb, void *particleList)
 
 			struct ParticleRenderListMatrix matrix = Particle_RenderList_BuildNormalMatrix(particle, flagsAxis);
 
-			Particle_RenderList_WriteNormalPrimitive((POLY_FT4 *)prim, icon, flagsAxis, flagsSetColor, color, &matrix, &scratch->depth);
+			if (!Particle_RenderList_WriteNormalPrimitive((POLY_FT4 *)prim, icon, flagsAxis, flagsSetColor, color, &matrix, &scratch->depth))
+			{
+				goto next_particle;
+			}
 			Particle_RenderList_LinkAndAdvance(&primCursor, &payloadCursor, particle, idpp, flagsSetColor, scratch->depth, scratch->ot);
 			prim = primCursor;
 

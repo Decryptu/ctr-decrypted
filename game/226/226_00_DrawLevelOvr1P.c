@@ -3,6 +3,7 @@
 #if defined(CTR_NATIVE)
 #include <platform/native_pgxp.h>
 #include <platform/native_dev.h>
+#include <widescreen.h>
 #endif
 
 struct DrawLevelOvr1PFaceSelector
@@ -2514,7 +2515,19 @@ static int DrawLevelOvr1P_SourceInsideClipRecordWindow(const struct DrawLevelOvr
 
 	// NOTE(aalhendi): Retail 0x800a4f38/0x800a3640 use the sign bit of these
 	// extent checks ANDed together; negative means the source point is inside.
-	u32 insideBits = (u32)(x - 0x100) & (u32)(y - 0x180) & (u32)(z - 0x100);
+	s32 halfXZ = 0x100;
+#if defined(CTR_NATIVE)
+	// The window is retail's cheap stand-in for "this polygon reaches the near
+	// plane inside the view": a box around a point half the screen distance in
+	// front of the camera, sized for the 4:3 field of view. Widescreen widens
+	// the view sideways, so near-plane polygons at the screen edges fell
+	// outside the box and were dropped whole (black wedges at the left and
+	// right of a 16:9 frame). Widen the box's world X/Z extent by the same
+	// factor as the frustum; identity at 4:3. The extra records stay far under
+	// the clip buffer (peak 1800 of 12000 bytes at 21:9 on Hot Air Skyway).
+	halfXZ = Widescreen_ScaleFrustumX(0x100);
+#endif
+	u32 insideBits = (u32)(x - halfXZ) & (u32)(y - 0x180) & (u32)(z - halfXZ);
 	return (s32)insideBits < 0;
 }
 

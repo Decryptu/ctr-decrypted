@@ -10,6 +10,7 @@
 #include "platform/native_perf.h"
 #include "platform/native_renderer.h"
 #include "platform/native_config.h"
+#include "platform/native_dev.h"
 #include "platform/native_replay_scheduler.h"
 #include "platform/native_savestate.h"
 
@@ -246,8 +247,10 @@ internal void Platform_HandleKey(int key, char down)
 			NativeReplayScheduler_RequestStop();
 			break;
 		case SDL_SCANCODE_F7:
-			Platform_LogWarn("[CTR Native] saving VRAM.TGA\n");
-			NativeRenderer_SaveVRAM("VRAM.TGA", 0, 0, VRAM_WIDTH, VRAM_HEIGHT, 1);
+			// The next frame's polygons, image and VRAM into debug/captures
+			// (docs/DEV-TOOLS.md), for a bug seen while playing.
+			Platform_LogWarn("[CTR Native] capturing the next frame into debug/captures\n");
+			NativeDev_RequestCapture();
 			break;
 		case SDL_SCANCODE_F12:
 			Platform_LogWarn("[CTR Native] Saving screenshot...\n");

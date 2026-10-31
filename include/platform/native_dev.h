@@ -52,6 +52,11 @@ void NativeDev_EndFrameFromVRAM(int x, int y, int w, int h);
 // one line per polygon; tools/decrypted/pgxp_cracks.py reads it.
 FILE *NativeDev_DumpFile(void);
 
+// F7 in a running game: the next frame's polygon dump (as CTR_DEV_DUMP_FRAME),
+// its image and its VRAM go to debug/captures, for bugs only a person can
+// reach.
+void NativeDev_RequestCapture(void);
+
 // CTR_DEV_STACK_POISON=<byte>: at the top of each main-loop frame, fill the
 // stack the frame is about to use with that byte. Two runs with different bytes play the
 // same unless game code reads a local it never wrote.

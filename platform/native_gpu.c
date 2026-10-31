@@ -18,6 +18,7 @@
 #include "platform/native_renderer.h"
 #include "platform/native_pgxp.h"
 #include "platform/native_dev.h"
+#include <widescreen.h>
 
 #include <assert.h>
 #include <math.h>
@@ -968,6 +969,9 @@ void TriangulateQuad()
 // on it: a model or level polygon reaching the camera plane projects into a
 // huge triangle that the console silently skips. Tested on the retail integer
 // positions the game wrote, like the hardware, whatever PGXP draws with.
+// Widescreen squeezes every X position toward the centre (the projection and
+// the HUD alike), so the width is tested as it would be at 4:3: the same
+// triangles are skipped at every aspect ratio.
 internal bool NativeGpu_HardwareSkipsTriangle(const VERTTYPE *a, const VERTTYPE *b, const VERTTYPE *c)
 {
 	int minX = a[0], maxX = a[0], minY = a[1], maxY = a[1];
@@ -981,7 +985,7 @@ internal bool NativeGpu_HardwareSkipsTriangle(const VERTTYPE *a, const VERTTYPE 
 		if (rest[i][1] > maxY) maxY = rest[i][1];
 	}
 
-	return (maxX - minX >= 1024) || (maxY - minY >= 512);
+	return (Widescreen_ScaleFrustumX(maxX - minX) >= 1024) || (maxY - minY >= 512);
 }
 
 // Commit a triangle written at the vertex cursor, unless the hardware skips it.

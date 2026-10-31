@@ -3,6 +3,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef _WIN32
+#include <direct.h>
+#define NativeDev_MakeDir(path) _mkdir(path)
+#else
+#include <sys/stat.h>
+#define NativeDev_MakeDir(path) mkdir(path, 0755)
+#endif
+
+// F7 in a running game: where the frame capture goes.
+#define NATIVE_DEV_CAPTURE_DIR "debug/captures"
 
 // Reads the main render target (the frame at render scale) as bottom-up RGBA.
 // Defined in platform/native_renderer.c. Returns a malloc'd buffer or NULL.
@@ -29,6 +39,7 @@ typedef struct
 	int frame;
 	int presentedShot; // capture what reaches the window, after the screen filter
 	int vramDumpFrame; // CTR_DEV_VRAM_DUMP: save all of VRAM at this frame
+	int captureFrame; // F7: polygons, image and VRAM of this frame into NATIVE_DEV_CAPTURE_DIR
 	int vramShot; // this frame was presented straight from VRAM (vramX..vramH)
 	int vramX, vramY, vramW, vramH;
 } NativeDevState;
@@ -61,6 +72,7 @@ static NativeDevState *NativeDev_State(void)
 		s_dev.dumpFrame = NativeDev_EnvInt("CTR_DEV_DUMP_FRAME", -1);
 		s_dev.presentedShot = NativeDev_EnvInt("CTR_DEV_SHOT_PRESENTED", 0);
 		s_dev.vramDumpFrame = NativeDev_EnvInt("CTR_DEV_VRAM_DUMP", -1);
+		s_dev.captureFrame = -1;
 		NativeRenderer_EnablePresentCapture(s_dev.presentedShot && s_dev.shotDir != NULL);
 	}
 	return &s_dev;
@@ -115,12 +127,14 @@ __attribute__((noinline)) void NativeDev_PoisonStack(void)
 FILE *NativeDev_DumpFile(void)
 {
 	NativeDevState *dev = NativeDev_State();
-	if (dev->frame != dev->dumpFrame)
+	const int captured = (dev->frame == dev->captureFrame);
+	if ((dev->frame != dev->dumpFrame) && !captured)
 		return NULL;
 	if (dev->dump == NULL)
 	{
 		char path[1024];
-		snprintf(path, sizeof(path), "%s/polys-%06d.txt", dev->shotDir ? dev->shotDir : ".", dev->frame);
+		const char *dir = captured ? NATIVE_DEV_CAPTURE_DIR : (dev->shotDir ? dev->shotDir : ".");
+		snprintf(path, sizeof(path), "%s/polys-%06d.txt", dir, dev->frame);
 		dev->dump = fopen(path, "w");
 	}
 	return dev->dump;
@@ -230,6 +244,34 @@ void NativeDev_EndFrameFromVRAM(int x, int y, int w, int h)
 	dev->vramShot = 0;
 }
 
+// All of VRAM as raw 15-bit PSX pixels, 1024x512 little-endian
+// (tools/decrypted/vram_png.py reads it).
+static void NativeDev_WriteVRAM(const char *dir, int frame)
+{
+	unsigned short *vram = malloc(1024 * 512 * sizeof(unsigned short));
+	if (vram == NULL)
+		return;
+	char path[1024];
+	snprintf(path, sizeof(path), "%s/vram%06d.bin", dir, frame);
+	NativeRenderer_ReadVRAM(vram, 0, 0, 1024, 512);
+	FILE *f = fopen(path, "wb");
+	if (f != NULL)
+	{
+		fwrite(vram, sizeof(unsigned short), 1024 * 512, f);
+		fclose(f);
+	}
+	free(vram);
+}
+
+void NativeDev_RequestCapture(void)
+{
+	NativeDevState *dev = NativeDev_State();
+	NativeDev_MakeDir("debug");
+	NativeDev_MakeDir(NATIVE_DEV_CAPTURE_DIR);
+	// The frame being drawn may be half done; capture the next whole one.
+	dev->captureFrame = dev->frame + 1;
+}
+
 void NativeDev_EndFrame(void)
 {
 	NativeDevState *dev = NativeDev_State();
@@ -257,24 +299,24 @@ void NativeDev_EndFrame(void)
 		}
 	}
 
-	// CTR_DEV_VRAM_DUMP=N: all of VRAM at frame N as raw 15-bit PSX pixels,
-	// 1024x512 little-endian, in CTR_DEV_SHOT_DIR (tools/decrypted/vram_png.py).
+	// CTR_DEV_VRAM_DUMP=N: all of VRAM at frame N, in CTR_DEV_SHOT_DIR.
 	if (frame == dev->vramDumpFrame)
+		NativeDev_WriteVRAM(dev->shotDir != NULL ? dev->shotDir : ".", frame);
+
+	// F7: the frame's image and VRAM next to its polygon dump.
+	if (frame == dev->captureFrame)
 	{
-		unsigned short *vram = malloc(1024 * 512 * sizeof(unsigned short));
-		if (vram != NULL)
+		int w, h;
+		unsigned char *rgba = NativeRenderer_ReadMainTarget(&w, &h);
+		if (rgba != NULL)
 		{
 			char path[1024];
-			snprintf(path, sizeof(path), "%s/vram%06d.bin", dev->shotDir != NULL ? dev->shotDir : ".", frame);
-			NativeRenderer_ReadVRAM(vram, 0, 0, 1024, 512);
-			FILE *f = fopen(path, "wb");
-			if (f != NULL)
-			{
-				fwrite(vram, sizeof(unsigned short), 1024 * 512, f);
-				fclose(f);
-			}
-			free(vram);
+			snprintf(path, sizeof(path), "%s/f%06d.bmp", NATIVE_DEV_CAPTURE_DIR, frame);
+			NativeDev_WriteBmp(path, rgba, w, h);
+			free(rgba);
 		}
+		NativeDev_WriteVRAM(NATIVE_DEV_CAPTURE_DIR, frame);
+		printf("[CTR Dev] captured frame %d in %s\n", frame, NATIVE_DEV_CAPTURE_DIR);
 	}
 
 	if (dev->exitFrame > 0 && frame + 1 >= dev->exitFrame)

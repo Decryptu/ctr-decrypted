@@ -241,9 +241,10 @@ static struct Driver *NativeDevRace_Player(int player)
 // held, so the kart stays on the road through the real driving physics.
 // Player 1 follows lane 0; in VS each player takes the next lane, so on tracks
 // with forks some players take the other branch.
-// CTR_DEV_PAD="<frame>:<keys>,...": player 1 holds those buttons for two
-// presented frames from that frame on, to drive menus. Keys: U D L R, X
-// (Cross), O (Circle), S (Square), T (Triangle), Z (Start). While the
+// CTR_DEV_PAD="<frame>:<keys>[:<frames>],...": player 1 holds those buttons
+// for two presented frames (or the given count) from that frame on, to drive
+// menus or the kart. Keys: U D L R, X (Cross), O (Circle), S (Square),
+// T (Triangle), Z (Start), 2 (L2, the far camera in a hub). While the
 // script is set it owns player 1's pad, except between taps when the
 // autopilot is on.
 static int NativeDev_ScriptedPad(int autopilot, unsigned short *buttons, unsigned char *leftX)
@@ -268,7 +269,7 @@ static int NativeDev_ScriptedPad(int autopilot, unsigned short *buttons, unsigne
 		if ((end == p) || (*end != ':'))
 			break;
 		unsigned short keys = 0;
-		for (p = end + 1; (*p != '\0') && (*p != ','); p++)
+		for (p = end + 1; (*p != '\0') && (*p != ',') && (*p != ':'); p++)
 		{
 			switch (*p)
 			{
@@ -281,10 +282,17 @@ static int NativeDev_ScriptedPad(int autopilot, unsigned short *buttons, unsigne
 			case 'S': keys |= RAW_BTN_SQUARE; break;
 			case 'T': keys |= RAW_BTN_TRIANGLE; break;
 			case 'Z': keys |= RAW_BTN_START; break;
+			case '2': keys |= RAW_BTN_L2; break;
 			default: break;
 			}
 		}
-		if ((frame >= at) && (frame < at + 2))
+		long hold = 2;
+		if (*p == ':')
+		{
+			hold = strtol(p + 1, &end, 10);
+			p = end;
+		}
+		if ((frame >= at) && (frame < at + hold))
 			held |= keys;
 		if (*p == ',')
 			p++;
