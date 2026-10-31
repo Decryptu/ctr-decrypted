@@ -21,7 +21,6 @@ Roughly in this order.
 |---|---|
 | Check in game: camera wobble when accelerating, braking and turning; the flag when exiting a race to the hub from the pause menu | Owner playtest, 2026-10-31. Fixed in the build after it: the [precise camera](docs/PGXP.md#precise-camera), the 60 FPS steering, camera and surface-spring conversions ([60FPS.md](docs/60FPS.md#changes-beyond-high-octane)), the flag's PGXP vertices and its "LOADING..." letters. Frame-by-frame captures of the pause-menu exit, fast and real time, show no other flicker; if it remains, an `F7` capture of it is the next step |
 | Check in game: the ctr-native merge of 2026-10-20 (dozens of retail-behaviour fixes to bots, weapons, menus, audio and loading) | Unattended runs match the previous build: identical frames to the race start, the same kart physics under scripted input at 30 and 60 FPS, Gem Cups and four Adventure trophies to the boss door. Bots now drive slightly differently, as upstream intends |
-| Pre-race camera flyover is wrong | ctr-native #14 |
 
 ## Maybe
 - Retail-exact physics at 60 FPS: run the simulation at a fixed 30 Hz and interpolate rendering. Today's 60 FPS integrates in 16 ms steps, so curved kickers launch a little higher (Dingo Canyon: apex rise 24 at 30 FPS, 31 to 33 at 60). A different design from High Octane's, touching every rendered position.

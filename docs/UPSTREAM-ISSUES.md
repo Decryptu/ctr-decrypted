@@ -32,7 +32,7 @@ All four are GPL-3.0. dowlle's `ctr.apworld` is MIT.
 - #58: Mystery Caves left path crashes with 3–4 players. Fixed here (a null low-LOD texture read in the 3P/4P renderer, `226_00_DrawLevelOvr1P.c`).
 - #12: black screen with a segfault on Manjaro Linux after the audio stream opens.
 - #45, #52: black screen and no scrapbook after the credits, after beating Oxide. Not reproduced here: the ending, credits and scrapbook play through (`CTR_DEV_ENDING=1`). The Archipelago build sends a connected game to the hub instead of the scrapbook.
-- #14: the pre-race camera flyover is wrong (suspected undefined behaviour or compiler-dependent).
+- #14: the pre-race camera flyover is wrong (suspected undefined behaviour or compiler-dependent). Not reproduced here: in Arcade and Time Trial, at 30 and 60 FPS, the camera circles the grid and settles behind the player, and two runs with different `CTR_DEV_STACK_POISON` bytes capture identical flyover frames. Upstream has asm-verified `CAM_StartLine_FlyIn`.
 - #61: unlock all characters including Oxide. Oxide is playable here (unlocked by beating him, or the Spyro 2 demo code); the other characters unlock as in retail.
 - #54: PAL support. Out of scope per #51.
 - #43: Steam Deck: needs Steam Linux Runtime 4.0, the cursor stays visible, 16:10 requested.
