@@ -504,6 +504,8 @@ if(BUILD_TESTING)
             -O2 -Wall -Wextra -fsanitize=undefined -fno-sanitize-recover=all
         )
         target_link_options(ctr_gte_gpl_shift_regression PRIVATE -fsanitize=undefined -fno-sanitize-recover=all)
+        # The PGXP precise path in the GTE core uses libm.
+        target_link_libraries(ctr_gte_gpl_shift_regression PRIVATE m)
         add_test(NAME ctr_gte_gpl_shift_regression COMMAND $<TARGET_FILE:ctr_gte_gpl_shift_regression>)
     endif()
 endif()
