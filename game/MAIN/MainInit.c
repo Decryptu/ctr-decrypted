@@ -7,6 +7,7 @@
 
 #if defined(CTR_NATIVE)
 #include "../../platform/native_spawn_pools.h"
+#include <platform/native_memory.h>
 
 // JitPool_Init with caller-owned storage instead of MEMPACK (issue #205).
 static void MainInit_NativePoolAt(struct JitPool *AP, int maxItems, int itemSize, void *storage)
@@ -213,59 +214,21 @@ void MainInit_PrimMem(struct GameTracker *gGT)
 		return;
 	}
 
-#ifdef CTR_CUSTOM_TRACKS
-	// MainInit_GetPrimMemSize is left alone deliberately -- it is an
-	// ASM-verified retail function and its answer stays exactly what retail
-	// computes. The floor is applied HERE, after it, so a build without
-	// CTR_CUSTOM_TRACKS allocates retail's bytes for every level and every
-	// player count.
-	//
-	// Two reasons a load qualifies, and they are different arguments:
-	//
-	//   Serving the custom track. The retail table cannot express an arena this
-	//   track can use -- u8 << 10, ceiling 261,120 bytes, against a sky that
-	//   alone wants 310,464. Outside the table there is no such limit, which is
-	//   the same argument the MEMPACK expansion already made for the payload.
-	//
-	//   A 1P level load. Measured on 2026-08-29: the adventure hub's worst
-	//   frame spent 106,324 of the 114,688 bytes the ADVENTURE_ARENA branch
-	//   hands it, and a frame that crosses that line loses the rest of its
-	//   level geometry without saying so. See decision 8 in
-	//   native_custom_tracks_policy.h for the four ceilings the floor was
-	//   checked against, MEMPACK's included.
-	//
-	// All three facts the serving decision needs are committed before the
-	// ten-stage loader is armed (see tools/CUSTOM-TRACK-SPIKE.md), and this
-	// runs inside that machine, so asking here is safe.
-	{
-		int serving =
-#ifdef CTR_CUSTOM_PACKAGES
-		              MainRaceTrack_OfflineCustomLoad() ||
-#endif
-		              CustomTrack_ServingLoad((int)gGT->levelID, (gGT->gameMode1 & ADVENTURE_CUP) != 0, gGT->cup.cupID) ||
-		              CustomTrack_OxideFinalServing((int)gGT->levelID, gGT->bossID,
-	                                             (gGT->gameMode1 & ADVENTURE_BOSS) != 0) ||
-		              CustomTrack_CortexTrackServing((int)gGT->levelID,
-		                                             (gGT->gameMode1 & ADVENTURE_BOSS) != 0);
-		unsigned long chosen = CustomTrackPolicy_PrimArenaBytes(serving, gGT->numPlyrCurrGame, (unsigned long)size);
-
-		if (chosen != (unsigned long)size)
-		{
-#ifdef CTR_CUSTOM_PACKAGES
-			// The identity id: a custom-page race logs as the custom track.
-			CustomTrack_Log("[CustomTracks] level %d primitive arena %d -> %lu bytes (%s)\n", MainRaceTrack_IdentityLevelID(), size, chosen,
+#if defined(CTR_NATIVE)
+	// The PS1 carved both arenas out of its 2 MiB of RAM, sized per level for
+	// what retail draws. Native draws more than that (increase_draw_distance,
+	// custom tracks, the adventure hub already reached 93% of its budget), and
+	// a frame that runs out drops the rest of its level geometry: the buckets
+	// go far to near, so the floor under the camera is what disappears. The
+	// arenas live in host memory instead, the same size for every level and
+	// player count, and MEMPACK keeps its retail layout minus these bytes.
+	(void)size;
+	MainDB_PrimMemAt(&gGT->db[0].primMem, Platform_GetPrimArena(0), Platform_GetPrimArenaSize());
+	MainDB_PrimMemAt(&gGT->db[1].primMem, Platform_GetPrimArena(1), Platform_GetPrimArenaSize());
 #else
-			CustomTrack_Log("[CustomTracks] level %d primitive arena %d -> %lu bytes (%s)\n", (int)gGT->levelID, size, chosen,
-#endif
-			                serving ? "the borrowed slot's retail budget cannot hold this track"
-			                        : "measured 1P headroom: the retail budget leaves too little for the frame's last writers");
-			size = (int)chosen;
-		}
-	}
-#endif
-
 	MainDB_PrimMem(&gGT->db[0].primMem, size);
 	MainDB_PrimMem(&gGT->db[1].primMem, size);
+#endif
 #if defined(CTR_NATIVE)
 	// PGXP keeps one shadow slot per word of the two primitive arenas, so a
 	// primitive's precise vertices are found by address without hashing. The

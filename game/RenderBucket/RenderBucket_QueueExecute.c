@@ -1158,10 +1158,10 @@ static int RenderBucket_AcceptProjectedBounds(const struct RenderBucketBounds *b
 		return 0;
 	}
 
-	// increase_draw_distance (config.ini): relax the far-Z reject so geometry past
-	// the normal half-screen depth is still accepted.
-	int gsh = g_config.increaseDrawDistance ? (geomScreenHalf >> 2) : geomScreenHalf;
-	if (RenderBucket_MipsSub(bounds->maxZ, gsh) < 0)
+	// Near reject: the whole model is closer than half the projection distance
+	// (H / 2). increase_draw_distance must leave it alone; relaxing it once let
+	// models at the camera through, which project into giant triangles.
+	if (RenderBucket_MipsSub(bounds->maxZ, geomScreenHalf) < 0)
 	{
 		return 0;
 	}

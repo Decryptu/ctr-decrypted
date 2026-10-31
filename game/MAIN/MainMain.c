@@ -124,6 +124,9 @@ u32 main(void)
 		}
 #endif
 
+#if defined(CTR_NATIVE)
+		NativeDev_PoisonStack();
+#endif
 		LOAD_NextQueuedFile();
 		// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003c5d0-0x8003c5dc for per-frame XA pause handling.
 		CDSYS_XAPauseAtEnd();

@@ -98,6 +98,20 @@ int NativeDev_PrimTag(const void *addr)
 	return -1;
 }
 
+__attribute__((noinline)) void NativeDev_PoisonStack(void)
+{
+	static int poison = -2;
+	if (poison == -2)
+		poison = NativeDev_EnvInt("CTR_DEV_STACK_POISON", -1);
+	if (poison < 0)
+		return;
+
+	// The game logic's frames go below this one. volatile keeps the fill.
+	volatile u8 below[256 * 1024];
+	for (size_t i = 0; i < sizeof(below); i++)
+		below[i] = (u8)poison;
+}
+
 FILE *NativeDev_DumpFile(void)
 {
 	NativeDevState *dev = NativeDev_State();
