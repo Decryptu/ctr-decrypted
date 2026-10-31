@@ -30,6 +30,7 @@ typedef struct
 	int fast;
 	int hidden;
 	int noItems;
+	int noLevelDepth;
 	int botSpeed;
 	const char *shotDir;
 	int shotEvery;
@@ -65,6 +66,7 @@ static NativeDevState *NativeDev_State(void)
 		s_dev.fast = NativeDev_EnvInt("CTR_DEV_FAST", 0);
 		s_dev.hidden = NativeDev_EnvInt("CTR_DEV_HIDDEN", 0);
 		s_dev.noItems = NativeDev_EnvInt("CTR_DEV_NO_ITEMS", 0);
+		s_dev.noLevelDepth = NativeDev_EnvInt("CTR_DEV_NO_LEVEL_DEPTH", 0);
 		s_dev.botSpeed = NativeDev_EnvInt("CTR_DEV_BOT_SPEED", 100);
 		s_dev.shotDir = (dir != NULL && *dir != '\0') ? dir : NULL;
 		s_dev.shotEvery = NativeDev_EnvInt("CTR_DEV_SHOT_EVERY", 60);
@@ -149,6 +151,7 @@ int NativeDev_DemoTrack(void) { return NativeDev_State()->demoTrack; }
 int NativeDev_Fast(void) { return NativeDev_State()->fast; }
 int NativeDev_Hidden(void) { return NativeDev_State()->hidden; }
 int NativeDev_NoItems(void) { return NativeDev_State()->noItems; }
+int NativeDev_NoLevelDepth(void) { return NativeDev_State()->noLevelDepth; }
 int NativeDev_BotSpeedPercent(void) { return NativeDev_State()->botSpeed; }
 
 // 24-bit top-down BMP, readable by every image tool with no extra library.

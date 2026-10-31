@@ -1,5 +1,9 @@
 #include <common.h>
 
+#if defined(CTR_NATIVE)
+#include <platform/native_gpu.h>
+#endif
+
 #ifdef CTR_CUSTOM_TRACKS
 #include <platform/native_custom_tracks.h>
 #endif
@@ -898,6 +902,21 @@ static s32 RenderAllLevelGeometry_ScaleDistanceShift8(s32 distToScreen, s32 scal
 	return CTR_MipsSra(product, 8);
 }
 
+#if defined(CTR_NATIVE)
+// Level depth: report the run of primitives DrawLevelOvr*P just wrote (from
+// start to the arena cursor), so they draw with a depth test. The sky and its
+// glow, drawn next, are not part of it.
+static void RenderAllLevelGeometry_MarkLevelPrims(struct GameTracker *gGT, void *start)
+{
+	NativeGpu_SetLevelPrimRange(gGT->swapchainIndex, start, gGT->backBuffer->primMem.cursor);
+}
+#define LEVEL_PRIMS_BEGIN() void *levelPrimStart = gGT->backBuffer->primMem.cursor
+#define LEVEL_PRIMS_END()   RenderAllLevelGeometry_MarkLevelPrims(gGT, levelPrimStart)
+#else
+#define LEVEL_PRIMS_BEGIN() ((void)0)
+#define LEVEL_PRIMS_END()   ((void)0)
+#endif
+
 void RenderAllLevelGeometry(struct GameTracker *gGT, struct Level *level1, struct mesh_info *ptr_mesh_info)
 {
 	int i;
@@ -1021,8 +1040,10 @@ void RenderAllLevelGeometry(struct GameTracker *gGT, struct Level *level1, struc
 			unsigned long afterGeom;
 			unsigned long afterSky;
 
+			LEVEL_PRIMS_BEGIN();
 			DrawLevelOvr1P(&gGT->LevRenderLists[0], pushBuffer, (struct BSP *)ptr_mesh_info, pm, gGT->visMem1->visFaceList[0],
 			               level1->ptr_tex_waterEnvMap);
+			LEVEL_PRIMS_END();
 			afterGeom = (unsigned long)((char *)pm->cursor - (char *)pm->start);
 
 			DrawSky_Full(level1->ptr_skybox, pushBuffer, pm);
@@ -1031,8 +1052,10 @@ void RenderAllLevelGeometry(struct GameTracker *gGT, struct Level *level1, struc
 			CustomTrackDiag_NoteFrameSpend(before, afterGeom, afterSky, pm->primitiveCount, gGT->bspLeafsDrawn);
 		}
 #else
+		LEVEL_PRIMS_BEGIN();
 		DrawLevelOvr1P(&gGT->LevRenderLists[0], pushBuffer, (struct BSP *)ptr_mesh_info, &gGT->backBuffer->primMem, gGT->visMem1->visFaceList[0],
 		               level1->ptr_tex_waterEnvMap); // waterEnvMap?
+		LEVEL_PRIMS_END();
 
 		DrawSky_Full(level1->ptr_skybox, pushBuffer, &gGT->backBuffer->primMem);
 #endif
@@ -1068,9 +1091,11 @@ void RenderAllLevelGeometry(struct GameTracker *gGT, struct Level *level1, struc
 		}
 
 		// 226-229
+		LEVEL_PRIMS_BEGIN();
 		DrawLevelOvr2P(&gGT->LevRenderLists[0], &gGT->pushBuffer[0], (struct BSP *)ptr_mesh_info, &gGT->backBuffer->primMem, gGT->visMem1->visFaceList[0],
 		               gGT->visMem1->visFaceList[1],
 		               level1->ptr_tex_waterEnvMap); // waterEnvMap?
+		LEVEL_PRIMS_END();
 
 		goto SkyboxGlow;
 	}
@@ -1108,17 +1133,21 @@ void RenderAllLevelGeometry(struct GameTracker *gGT, struct Level *level1, struc
 	if (numPlyrCurrGame == 3)
 	{
 		// 226-229
+		LEVEL_PRIMS_BEGIN();
 		DrawLevelOvr3P(&gGT->LevRenderLists[0], &gGT->pushBuffer[0], (struct BSP *)ptr_mesh_info, &gGT->backBuffer->primMem, gGT->visMem1->visFaceList[0],
 		               gGT->visMem1->visFaceList[1], gGT->visMem1->visFaceList[2],
 		               level1->ptr_tex_waterEnvMap); // waterEnvMap?
+		LEVEL_PRIMS_END();
 	}
 
 	else // 4P mode
 	{
 		// 226-229
+		LEVEL_PRIMS_BEGIN();
 		DrawLevelOvr4P(&gGT->LevRenderLists[0], &gGT->pushBuffer[0], (struct BSP *)ptr_mesh_info, &gGT->backBuffer->primMem, gGT->visMem1->visFaceList[0],
 		               gGT->visMem1->visFaceList[1], gGT->visMem1->visFaceList[2], gGT->visMem1->visFaceList[3],
 		               level1->ptr_tex_waterEnvMap); // waterEnvMap?
+		LEVEL_PRIMS_END();
 	}
 
 SkyboxGlow:

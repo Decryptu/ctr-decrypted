@@ -46,6 +46,15 @@ extern SDL_Window *g_window;
 #define MAX_NUM_VERTEX_BUFFERS          (2)
 #define PSX_SCREEN_ASPECT               (240.0f / 320.0f) // PSX screen is mapped always to this aspect
 
+#ifndef GL_DEPTH_CLAMP
+#define GL_DEPTH_CLAMP 0x864F // core since OpenGL 3.2
+#endif
+
+// The level depth test's margin, as a share of the view distance (see
+// NativeDepthMode). 2% keeps the Turbo Track pads whole; 0% hid 1.5% of a
+// demo frame's pixels. The N. Sanity Beach dock is fixed at 0, 2% and 5% alike.
+#define NATIVE_DEPTH_TOLERANCE 0.02f
+
 #if defined(CTR_INTERNAL)
 #ifndef GL_TIME_ELAPSED
 #define GL_TIME_ELAPSED 0x88BF
@@ -105,7 +114,7 @@ struct NativeRenderTarget
 {
 	TextureID texture;
 	GLuint framebuffer;
-	GLuint stencilBuffer;
+	GLuint depthStencilBuffer;
 	s32 width;
 	s32 height;
 };
@@ -159,7 +168,6 @@ internal int NativeRenderer_InitialiseGLContext(char *windowName, int fullscreen
 internal int NativeRenderer_InitialiseGLExt(void);
 internal void NativeRenderer_DestroyTexture(TextureID texture);
 internal void NativeRenderer_SetScissorState(int enable);
-internal void NativeRenderer_EnableDepth(int enable);
 internal void NativeRenderer_SetViewPort(int x, int y, int width, int height);
 internal void NativeRenderer_SetPresentationAspect(int width, int height);
 internal void NativeRenderer_UpdatePresentationViewport(void);
@@ -563,7 +571,8 @@ void NativeRenderer_BeginScene(void)
 	}
 	else
 	{
-		glClear(GL_STENCIL_BUFFER_BIT);
+		NativeRenderer_SetDepthMode(NATIVE_DEPTH_OFF);
+		glClear(GL_STENCIL_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	}
 	NativeRenderer_SetViewPort(0, 0, s_mainRenderTarget.width, s_mainRenderTarget.height);
 
@@ -715,18 +724,18 @@ internal void NativeRenderer_InitRenderTarget(struct NativeRenderTarget *target)
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 	glBindTexture(GL_TEXTURE_2D, 0);
 
-	glGenRenderbuffers(1, &target->stencilBuffer);
-	glBindRenderbuffer(GL_RENDERBUFFER, target->stencilBuffer);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_STENCIL_INDEX8, 1, 1);
+	glGenRenderbuffers(1, &target->depthStencilBuffer);
+	glBindRenderbuffer(GL_RENDERBUFFER, target->depthStencilBuffer);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, 1, 1);
 	glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
 	glGenFramebuffers(1, &target->framebuffer);
 	glBindFramebuffer(GL_FRAMEBUFFER, target->framebuffer);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, target->texture, 0);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, target->stencilBuffer);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, target->depthStencilBuffer);
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 	{
-		NATIVE_RENDERER_ERROR("%s\n", "failed to create RGBA/stencil render target");
+		NATIVE_RENDERER_ERROR("%s\n", "failed to create RGBA/depth-stencil render target");
 	}
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
@@ -734,7 +743,7 @@ internal void NativeRenderer_InitRenderTarget(struct NativeRenderTarget *target)
 internal void NativeRenderer_DestroyRenderTarget(struct NativeRenderTarget *target)
 {
 	glDeleteFramebuffers(1, &target->framebuffer);
-	glDeleteRenderbuffers(1, &target->stencilBuffer);
+	glDeleteRenderbuffers(1, &target->depthStencilBuffer);
 	NativeRenderer_DestroyTexture(target->texture);
 	SDL_memset(target, 0, sizeof(*target));
 	target->texture = (TextureID)-1;
@@ -760,8 +769,8 @@ internal void NativeRenderer_EnsureRenderTarget(struct NativeRenderTarget *targe
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 	glBindTexture(GL_TEXTURE_2D, 0);
 
-	glBindRenderbuffer(GL_RENDERBUFFER, target->stencilBuffer);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_STENCIL_INDEX8, width, height);
+	glBindRenderbuffer(GL_RENDERBUFFER, target->depthStencilBuffer);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
 	glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
 	target->width = width;
@@ -854,7 +863,8 @@ internal void NativeRenderer_LoadRenderTargetFromVRAM(struct NativeRenderTarget 
 		sourceHeight = 1;
 	}
 	NativeRenderer_DrawVRAMRegion(x, y, sourceWidth, sourceHeight);
-	glClear(GL_STENCIL_BUFFER_BIT);
+	NativeRenderer_SetDepthMode(NATIVE_DEPTH_OFF);
+	glClear(GL_STENCIL_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_STENCIL_TEST);
 
 	if (s_boundVertexBuffer >= 0)
@@ -953,6 +963,7 @@ typedef struct
 	GLint psxDrawMaskSetLoc;
 	GLint psxTextureOutputStpLoc;
 	GLint disableDitherLoc;
+	GLint depthPullLoc;
 } GTEShader;
 
 internal int NativeRenderer_Shader_CheckShaderStatus(GLuint shader);
@@ -981,6 +992,7 @@ GLint u_psxSemiTransPassLoc;
 GLint u_psxDrawMaskSetLoc;
 GLint u_psxTextureOutputStpLoc;
 GLint u_disableDitherLoc;
+GLint u_depthPullLoc;
 
 // Each sampler floors the texel coordinate once and derives both the VRAM word
 // (fetched at its centre) and the index inside it from that one value. Deriving
@@ -1156,7 +1168,18 @@ const char *gte_shader_32_rgba = "	uniform sampler2D s_texture;\n"
 // PGXP perspective-correct texturing: scaling the whole clip-space position by
 // the view depth leaves the screen position unchanged but makes the hardware
 // interpolate v_texcoord perspective-correct.
-#define GTE_PGXP_DEPTH "		gl_Position *= (a_position.z > 0.0) ? a_position.z : 1.0;\n"
+//
+// The same depth feeds the level depth test (NativeRenderer_SetDepthMode):
+// window depth 1 - N/w, which is linear in screen space so it interpolates
+// correctly, with N = 16 view units (nearer points clamp to 0, GL_DEPTH_CLAMP).
+// 24 bits then resolve under a unit up to w = 16000. depthPull > 0 is the
+// colour pass, which scales w by (1 - depthPull) so a later polygon wins near
+// ties; depthPull < 0 is the depth-only pass. A vertex without a depth keeps
+// ordering table order: it is never written (far plane in the depth pass) and
+// never hidden (near plane in the colour pass).
+#define GTE_PGXP_DEPTH                                                                         \
+	"		gl_Position *= (a_position.z > 0.0) ? a_position.z : 1.0;\n"                          \
+	"		gl_Position.z = (a_position.z > 0.0) ? (a_position.z - 32.0 / (1.0 - max(depthPull, 0.0))) : ((depthPull < 0.0) ? gl_Position.w : -gl_Position.w);\n"
 
 #define GTE_VERTEX_SHADER                                                                                          \
 	"	attribute vec3 a_position; // x, y, PGXP depth (0 when unknown)\n"                                          \
@@ -1166,6 +1189,7 @@ const char *gte_shader_32_rgba = "	uniform sampler2D s_texture;\n"
 	"	attribute vec4 a_extra; // texcoord.xy ofs, unused.xy\n"                                                     \
 	"	attribute vec4 a_uv_limits; // polygon min u, min v, max u, max v\n"                                         \
 	"	uniform mat4 Projection;\n"                                                                                  \
+	"	uniform float depthPull;\n"                                                                                  \
 	"	const vec2 c_UVFudge = vec2(0.00025, 0.00025);\n"                                                            \
 	"	void main() {\n"                                                                                             \
 	"		v_uvLimits = a_uv_limits;\n"                                                                                \
@@ -1391,6 +1415,7 @@ internal void NativeRenderer_CompilePSXShader(GTEShader *sh, const char *source)
 	sh->psxDrawMaskSetLoc = glGetUniformLocation(sh->shader, "psxDrawMaskSet");
 	sh->psxTextureOutputStpLoc = glGetUniformLocation(sh->shader, "psxTextureOutputStp");
 	sh->disableDitherLoc = glGetUniformLocation(sh->shader, "disableDither");
+	sh->depthPullLoc = glGetUniformLocation(sh->shader, "depthPull");
 }
 
 internal void NativeRenderer_InitialisePSXShaders(void)
@@ -1523,7 +1548,10 @@ int NativeRenderer_InitialisePSX(void)
 	}
 #endif
 
-	glDepthFunc(GL_LEQUAL);
+	// The depth written for PGXP vertices (GTE_PGXP_DEPTH) runs past the near
+	// plane for points closer than 16 view units; clamp it instead of letting
+	// GL clip away geometry the PS1 draws.
+	glEnable(GL_DEPTH_CLAMP);
 	glEnable(GL_STENCIL_TEST);
 	glBlendColor(0.5f, 0.5f, 0.5f, 0.25f);
 
@@ -1718,6 +1746,7 @@ void NativeRenderer_SetTexture(TextureID texture, TexFormat texFormat)
 		u_psxDrawMaskSetLoc = s_gteShader4.psxDrawMaskSetLoc;
 		u_psxTextureOutputStpLoc = s_gteShader4.psxTextureOutputStpLoc;
 		u_disableDitherLoc = s_gteShader4.disableDitherLoc;
+		u_depthPullLoc = s_gteShader4.depthPullLoc;
 		break;
 	case TF_8_BIT:
 		NativeRenderer_SetShader(s_gteShader8.shader);
@@ -1728,6 +1757,7 @@ void NativeRenderer_SetTexture(TextureID texture, TexFormat texFormat)
 		u_psxDrawMaskSetLoc = s_gteShader8.psxDrawMaskSetLoc;
 		u_psxTextureOutputStpLoc = s_gteShader8.psxTextureOutputStpLoc;
 		u_disableDitherLoc = s_gteShader8.disableDitherLoc;
+		u_depthPullLoc = s_gteShader8.depthPullLoc;
 		break;
 	case TF_16_BIT:
 		NativeRenderer_SetShader(s_gteShader16.shader);
@@ -1738,6 +1768,7 @@ void NativeRenderer_SetTexture(TextureID texture, TexFormat texFormat)
 		u_psxDrawMaskSetLoc = s_gteShader16.psxDrawMaskSetLoc;
 		u_psxTextureOutputStpLoc = s_gteShader16.psxTextureOutputStpLoc;
 		u_disableDitherLoc = s_gteShader16.disableDitherLoc;
+		u_depthPullLoc = s_gteShader16.depthPullLoc;
 		break;
 	case TF_32_BIT_RGBA:
 		NativeRenderer_SetShader(s_gteShader32Rgba.shader);
@@ -1748,6 +1779,7 @@ void NativeRenderer_SetTexture(TextureID texture, TexFormat texFormat)
 		u_psxDrawMaskSetLoc = s_gteShader32Rgba.psxDrawMaskSetLoc;
 		u_psxTextureOutputStpLoc = s_gteShader32Rgba.psxTextureOutputStpLoc;
 		u_disableDitherLoc = s_gteShader32Rgba.disableDitherLoc;
+		u_depthPullLoc = s_gteShader32Rgba.depthPullLoc;
 		break;
 	}
 
@@ -2820,7 +2852,7 @@ internal void NativeRenderer_ScreenFilterPass(const struct NativeScreenFilterPro
 internal void NativeRenderer_DrawScreenFilter(int filter, TextureID texture, int sourceW, int sourceH, int logicalW, int logicalH)
 {
 	NativeRenderer_SetScissorState(0);
-	NativeRenderer_EnableDepth(0);
+	NativeRenderer_SetDepthMode(NATIVE_DEPTH_OFF);
 	NativeRenderer_SetBlendMode(BM_NONE);
 	glDisable(GL_STENCIL_TEST);
 
@@ -2876,7 +2908,7 @@ void NativeRenderer_PresentVRAMRect(int displayX, int displayY, int displayW, in
 		glBindFramebuffer(GL_FRAMEBUFFER, s_screenFilterSource.framebuffer);
 		NativeRenderer_SetViewPort(0, 0, displayW, displayH);
 		NativeRenderer_SetScissorState(0);
-		NativeRenderer_EnableDepth(0);
+		NativeRenderer_SetDepthMode(NATIVE_DEPTH_OFF);
 		NativeRenderer_SetBlendMode(BM_NONE);
 		glDisable(GL_STENCIL_TEST);
 		NativeRenderer_DrawVRAMRegion(displayX, displayY, displayW, displayH);
@@ -2889,7 +2921,7 @@ void NativeRenderer_PresentVRAMRect(int displayX, int displayY, int displayW, in
 	glBindFramebuffer(GL_FRAMEBUFFER, NativeRenderer_PresentFramebuffer());
 
 	NativeRenderer_SetScissorState(0);
-	NativeRenderer_EnableDepth(0);
+	NativeRenderer_SetDepthMode(NATIVE_DEPTH_OFF);
 	NativeRenderer_SetBlendMode(BM_NONE);
 
 	NativeRenderer_DrawVRAMRegion(displayX, displayY, displayW, displayH);
@@ -3045,16 +3077,42 @@ void NativeRenderer_PresentOverlayRGBA(const unsigned char *pixels, int width, i
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 }
 
-internal void NativeRenderer_EnableDepth(int enable)
+void NativeRenderer_SetDepthMode(NativeDepthMode mode)
 {
-	if (s_previousDepthMode == enable)
+	// Per program, so set it for whichever program the split bound.
+	if (u_depthPullLoc >= 0)
+	{
+		glUniform1f(u_depthPullLoc, (mode == NATIVE_DEPTH_TEST) ? NATIVE_DEPTH_TOLERANCE : (mode == NATIVE_DEPTH_WRITE) ? -1.0f : 0.0f);
+	}
+
+	if (s_previousDepthMode == (int)mode)
 	{
 		return;
 	}
 
-	s_previousDepthMode = enable;
+	s_previousDepthMode = (int)mode;
 
-	glDisable(GL_DEPTH_TEST);
+	switch (mode)
+	{
+	case NATIVE_DEPTH_OFF:
+		// The depth mask also gates glClear, which wants depth writable.
+		glDisable(GL_DEPTH_TEST);
+		glDepthMask(GL_TRUE);
+		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+		break;
+	case NATIVE_DEPTH_WRITE:
+		glEnable(GL_DEPTH_TEST);
+		glDepthFunc(GL_LESS);
+		glDepthMask(GL_TRUE);
+		glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+		break;
+	case NATIVE_DEPTH_TEST:
+		glEnable(GL_DEPTH_TEST);
+		glDepthFunc(GL_LEQUAL);
+		glDepthMask(GL_FALSE);
+		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+		break;
+	}
 }
 
 void NativeRenderer_SetStencilMode(int drawPrim)
@@ -3085,15 +3143,10 @@ void NativeRenderer_SetBlendMode(BlendMode blendMode)
 		return;
 	}
 
-	if (blendMode != BM_NONE)
+	if ((blendMode != BM_NONE) && (s_previousBlendMode == BM_NONE))
 	{
-		if (s_previousBlendMode == BM_NONE)
-		{
-			glBlendColor(0.25f, 0.25f, 0.25f, 0.5f);
-			glEnable(GL_BLEND);
-		}
-
-		NativeRenderer_EnableDepth(0);
+		glBlendColor(0.25f, 0.25f, 0.25f, 0.5f);
+		glEnable(GL_BLEND);
 	}
 
 	switch (blendMode)
@@ -3104,8 +3157,6 @@ void NativeRenderer_SetBlendMode(BlendMode blendMode)
 			glBlendColor(1.f, 1.f, 1.f, 1.f);
 			glDisable(GL_BLEND);
 		}
-
-		NativeRenderer_EnableDepth(1);
 		break;
 	case BM_AVERAGE:
 		glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);

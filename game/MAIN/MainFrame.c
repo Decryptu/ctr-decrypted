@@ -1,6 +1,10 @@
 #include <common.h>
 
 #if defined(CTR_NATIVE)
+#include <platform/native_gpu.h>
+#endif
+
+#if defined(CTR_NATIVE)
 static void MainFrame_RegisterGpuLinkRanges(struct GameTracker *gGT)
 {
 	static const char *const primLabels[2] = {"db0 prim", "db1 prim"};
@@ -75,6 +79,8 @@ void MainFrame_ResetDB(struct GameTracker *gGT)
 
 #if defined(CTR_NATIVE)
 	MainFrame_RegisterGpuLinkRanges(gGT);
+	// The arena is empty again; RenderAllLevelGeometry reports this frame's level.
+	NativeGpu_SetLevelPrimRange(gGT->swapchainIndex, NULL, NULL);
 #endif
 
 	CTR_EmptyFunc_MainFrame_ResetDB();

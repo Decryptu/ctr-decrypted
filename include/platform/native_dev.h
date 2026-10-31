@@ -26,6 +26,11 @@ int NativeDev_Hidden(void);
 // at 30 and 60 FPS).
 int NativeDev_NoItems(void);
 
+// CTR_DEV_NO_LEVEL_DEPTH=1: draw the level in ordering table order only, as
+// the PS1 does (no level depth test, NativeGpu_SetLevelPrimRange), for A/B
+// captures of the same build.
+int NativeDev_NoLevelDepth(void);
+
 // CTR_DEV_BOT_SPEED=<percent>: caps the bots' top speed at that share of
 // retail (default 100, no change), so the autopilot can win a race and reach
 // the podium.

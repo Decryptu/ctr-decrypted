@@ -39,6 +39,15 @@ int NativeGpu_HasPendingSplits(void);
 #define AP_TPAGE_TRIAL_LETTER_BIT 0x4000
 #define AP_TPAGE_SIDELOAD_MASK (AP_TPAGE_SIDELOAD_BIT | AP_TPAGE_TRIAL_LETTER_BIT)
 
+// Level depth. DrawLevelOvr1P..4P write all of the level's primitives in one
+// run of the frame's primitive arena; the frame code reports that run here
+// (db is the double-buffer index, NULL/NULL clears it when the arena resets).
+// Its primitives draw with a depth test (NativeRenderer_SetDepthMode) when
+// PGXP gave them depths, so the PS1 ordering table's coarse per-block sort can
+// no longer paint a farther level polygon over a nearer one (the water over
+// the N. Sanity Beach dock). Everything else keeps ordering table order.
+void NativeGpu_SetLevelPrimRange(int db, const void *start, const void *end);
+
 void NativeGpu_SetSideloadTexture(unsigned int texture, int width, int height);
 void NativeGpu_SetTrialLetterTexture(unsigned int texture, int width, int height);
 void ClearSplits(void);

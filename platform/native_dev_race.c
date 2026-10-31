@@ -56,6 +56,9 @@ typedef struct
 	int ghostWritten;
 	NativeDevPilot pilot[4];
 	int raceFrame;
+	int warp;
+	int warpPos[4]; // x, y, z (world units), angle
+	int warpFrames;
 } NativeDevRaceState;
 
 static NativeDevRaceState s_devRace;
@@ -99,6 +102,9 @@ static NativeDevRaceState *NativeDevRace_State(void)
 		s_devRace.ghostOut = getenv("CTR_DEV_GHOST_OUT");
 		s_devRace.tracePath = getenv("CTR_DEV_TRACE");
 		s_devRace.driverDumpPath = getenv("CTR_DEV_DRIVER_DUMP");
+		const char *warp = getenv("CTR_DEV_WARP");
+		s_devRace.warp = (warp != NULL) && (sscanf(warp, "%d,%d,%d,%d", &s_devRace.warpPos[0], &s_devRace.warpPos[1], &s_devRace.warpPos[2],
+		                                            &s_devRace.warpPos[3]) == 4);
 		s_devRace.resultsPath = getenv("CTR_DEV_RESULTS");
 		s_devRace.resultsMS = NativeDev_EnvInt("CTR_DEV_RESULTS_MS", 30000);
 		s_devRace.players = NativeDev_EnvInt("CTR_DEV_PLAYERS", 1);
@@ -523,6 +529,33 @@ static void NativeDevRace_CupHub(NativeDevRaceState *dev, struct GameTracker *gG
 	MainRaceTrack_RequestLoad(NativeDevRace_EnterCup(gGT, dev));
 }
 
+// CTR_DEV_WARP=x,y,z,angle: once a level has loaded, hold player 1 at that
+// world position and heading, at rest, for two seconds while the camera
+// settles, then let go. Works in the adventure hubs too. The position of a
+// player's F5 save is the kart Instance's matrix translation.
+static void NativeDevRace_Warp(NativeDevRaceState *dev, struct GameTracker *gGT)
+{
+	if (!dev->warp || (gGT == NULL) || (sdata->Loading.stage != LOAD_IDLE) || (gGT->levelID == MAIN_MENU_LEVEL) || (gGT->drivers[0] == NULL))
+	{
+		dev->warpFrames = 0;
+		return;
+	}
+	if (dev->warpFrames >= 120)
+		return;
+	dev->warpFrames++;
+
+	struct Driver *d = gGT->drivers[0];
+	for (int i = 0; i < 3; i++)
+	{
+		d->posCurr.v[i] = dev->warpPos[i] << 8;
+		d->posPrev.v[i] = dev->warpPos[i] << 8;
+		d->velocity.v[i] = 0;
+	}
+	d->xSpeed = d->ySpeed = d->zSpeed = 0;
+	d->speed = d->speedApprox = 0;
+	d->angle = (s16)dev->warpPos[3];
+}
+
 // Once per presented frame, from NativeDev_EndFrame.
 void NativeDev_RaceFrame(void)
 {
@@ -531,6 +564,7 @@ void NativeDev_RaceFrame(void)
 	struct Driver *d = NativeDevRace_Player(0);
 
 	NativeDevRace_CupHub(dev, gGT);
+	NativeDevRace_Warp(dev, gGT);
 
 	if (d == NULL)
 	{

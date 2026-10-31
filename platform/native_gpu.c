@@ -89,6 +89,7 @@ typedef struct
 	bool psxTexturedSemiTrans;
 	bool psxTextureOutputSTP;
 	bool psxDrawMaskSet;
+	NativeDepthMode depthMode;
 
 	u16 startVertex;
 	u16 numVerts;
@@ -117,6 +118,11 @@ typedef struct
 	int drawPrimMode;
 	bool psxDrawMaskSet;
 	bool framebufferFeedbackRunActive;
+	// The packet being parsed lies in a level primitive run (levelPrimStart/
+	// levelPrimEnd, per double buffer; see NativeGpu_SetLevelPrimRange).
+	bool levelPrim;
+	const u8 *levelPrimStart[2];
+	const u8 *levelPrimEnd[2];
 
 	// Slack past the uploaded capacity takes the writes of a primitive that
 	// does not fit; ParsePrimitive then drops it (see the budget header).
@@ -173,7 +179,47 @@ void ClearSplits(void)
 	s_gpu.splits[0].psxTexturedSemiTrans = false;
 	s_gpu.splits[0].psxTextureOutputSTP = false;
 	s_gpu.splits[0].psxDrawMaskSet = false;
+	s_gpu.splits[0].depthMode = NATIVE_DEPTH_OFF;
 	s_gpu.framebufferFeedbackRunActive = false;
+}
+
+void NativeGpu_SetLevelPrimRange(int db, const void *start, const void *end)
+{
+	if ((db < 0) || (db > 1))
+	{
+		return;
+	}
+
+	s_gpu.levelPrimStart[db] = (const u8 *)start;
+	s_gpu.levelPrimEnd[db] = (const u8 *)end;
+}
+
+internal bool NativeGpu_IsLevelPrim(const u8 *packet)
+{
+	for (int i = 0; i < 2; i++)
+	{
+		if ((packet >= s_gpu.levelPrimStart[i]) && (packet < s_gpu.levelPrimEnd[i]))
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+// Opaque level polygons test and write depth; translucent ones (water) only
+// test it, so what shows through them stays as the ordering table drew it.
+// Depths are the PGXP ones NativeGpu_ApplyPgxp writes to w, which it does
+// only with perspective texturing on (TEXTURES or FULL); otherwise the level
+// keeps ordering table order.
+internal NativeDepthMode NativeGpu_LevelDepthMode(bool semiTrans)
+{
+	if (!s_gpu.levelPrim || !NATIVE_PGXP_TEXTURES_ACTIVE() || NativeDev_NoLevelDepth())
+	{
+		return NATIVE_DEPTH_OFF;
+	}
+
+	return semiTrans ? NATIVE_DEPTH_TEST : NATIVE_DEPTH_WRITE;
 }
 
 int NativeGpu_GetStateSize(void)
@@ -1145,10 +1191,12 @@ internal void AddSplit(bool semiTrans, bool textured, bool framebufferFeedback)
 		psxTexturedSemiTrans = false;
 	}
 
+	const NativeDepthMode depthMode = NativeGpu_LevelDepthMode(semiTrans);
+
 	// FIXME: compare drawing environment too?
 	if (!psxTexturedSemiTrans && curSplit->blendMode == blendMode && curSplit->texFormat == texFormat && curSplit->textureId == textureId &&
 	    curSplit->drawPrimMode == s_gpu.drawPrimMode && curSplit->psxTexturedSemiTrans == psxTexturedSemiTrans &&
-	    curSplit->psxTextureOutputSTP == psxTextureOutputSTP && curSplit->psxDrawMaskSet == s_gpu.psxDrawMaskSet &&
+	    curSplit->psxTextureOutputSTP == psxTextureOutputSTP && curSplit->psxDrawMaskSet == s_gpu.psxDrawMaskSet && curSplit->depthMode == depthMode &&
 	    curSplit->drawenv.clip.x == activeDrawEnv.clip.x && curSplit->drawenv.clip.y == activeDrawEnv.clip.y &&
 	    curSplit->drawenv.clip.w == activeDrawEnv.clip.w && curSplit->drawenv.clip.h == activeDrawEnv.clip.h && curSplit->drawenv.dfe == activeDrawEnv.dfe &&
 	    curSplit->debugText == s_gpu.currentSplitDebugText)
@@ -1171,6 +1219,7 @@ internal void AddSplit(bool semiTrans, bool textured, bool framebufferFeedback)
 	split->psxTexturedSemiTrans = psxTexturedSemiTrans;
 	split->psxTextureOutputSTP = psxTextureOutputSTP;
 	split->psxDrawMaskSet = s_gpu.psxDrawMaskSet;
+	split->depthMode = depthMode;
 	split->drawenv = activeDrawEnv;
 	split->dispenv = activeDispEnv;
 	split->debugText = s_gpu.currentSplitDebugText;
@@ -1227,6 +1276,17 @@ void DrawSplit(const GPUDrawSplit *split)
 	NativeRenderer_SetupClipMode(&split->drawenv.clip, &split->dispenv, drawOnScreen);
 	NativeRenderer_SetOffscreenState(&split->drawenv.clip, !drawOnScreen);
 	NativeRenderer_SetProjection(&split->drawenv.clip, &split->dispenv, !drawOnScreen);
+
+	// Opaque level polygons: their true depth first, then colour with the
+	// tolerance (NativeDepthMode). An opaque split is never textured semi-trans.
+	if (split->depthMode == NATIVE_DEPTH_WRITE)
+	{
+		NativeRenderer_SetDepthMode(NATIVE_DEPTH_WRITE);
+		NativeRenderer_SetBlendMode(BM_NONE);
+		NativeRenderer_SetPSXTextureSemiTransPass(0);
+		NativeRenderer_DrawTriangles(split->startVertex, split->numVerts / 3);
+	}
+	NativeRenderer_SetDepthMode((split->depthMode == NATIVE_DEPTH_OFF) ? NATIVE_DEPTH_OFF : NATIVE_DEPTH_TEST);
 
 	if (split->psxTexturedSemiTrans)
 	{
@@ -1318,6 +1378,8 @@ internal void DrawPendingSplits(bool earlyFlush)
 	{
 		DrawSplit(&s_gpu.splits[i]);
 	}
+	// Draws outside the split table (VRAM copies, presentation) never test depth.
+	NativeRenderer_SetDepthMode(NATIVE_DEPTH_OFF);
 
 	ClearSplits();
 	NativePerf_EndScope(NATIVE_PERF_BUCKET_DRAW_ALL_SPLITS);
@@ -1440,6 +1502,7 @@ void ParsePrimitivesLinkedList(u32 *p, int singlePrimitive)
 
 	// setup single primitive flag (needed for AddSplits)
 	s_gpu.drawPrimMode = singlePrimitive;
+	s_gpu.levelPrim = false;
 
 	if (singlePrimitive)
 	{
@@ -1472,6 +1535,7 @@ void ParsePrimitivesLinkedList(u32 *p, int singlePrimitive)
 				u8 *currentPacket = basePacket;
 				u8 *endPacket = basePacket + (tagLength + P_LEN) * sizeof(u32);
 				int primLength = 0;
+				s_gpu.levelPrim = NativeGpu_IsLevelPrim(basePacket);
 				if (currentPacket < endPacket)
 				{
 					primLength = ParsePrimitive((P_TAG *)currentPacket);
