@@ -150,9 +150,12 @@ work in both:
   field together until the runs part (a wall, input landing a frame sooner);
   a field that strays alone and early is a frame-counted step still to
   convert. Steering, a hop into a drift and braking on Crash Cove's start
-  match this way. With `CTR_DEV_WARP` it starts anywhere on a track: the jump
-  after Hot Air Skyway's spiral, from the same run-up with the throttle held,
-  lands within a few units of the same spot at both rates.
+  match this way. With `CTR_DEV_WARP` it starts anywhere on a track: Hot Air
+  Skyway's super-turbo ramp after the spiral, from the same run-up with the
+  throttle held, lands on the left platform within a few units of the same
+  spot at both rates. The right platform needs a steer right and a hop at
+  the lip; the hops that reach it (about 50 ms either side of take-off) are
+  the same at 30 and 60.
 - A replay recorded at 60 FPS plays back frame-exact with `fps60=false`.
 - `tools/decrypted/vsync-check.ps1` measures frame pacing for every VSync
   option with a visible window ([DEV-TOOLS.md](DEV-TOOLS.md#frame-timing)).
