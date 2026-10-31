@@ -1,3 +1,9 @@
+# Every text file is stored with LF. Saying so here, rather than relying on each
+# git's core.autocrlf, keeps a CRLF checkout clean for every git that reads it:
+# MSYS2's git has no autocrlf setting and would otherwise see every file as
+# modified in a checkout made by Git for Windows.
+* text=auto
+
 # Shell/Python CI entry points must run unchanged after a Windows checkout.
 *.sh text eol=lf
 *.py text eol=lf

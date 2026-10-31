@@ -34,7 +34,7 @@ Everything a new contributor needs, with no other context. Keep it current. [ROA
 From PowerShell, set `MSYSTEM=MINGW32` and `CHERE_INVOKING=1` and call `C:\msys64\usr\bin\bash.exe -lc "<command>"`.
 
 ### Windows gotchas
-- **Line endings.** With `core.autocrlf=true`, checked-out files get CRLF. `.gitattributes` forces LF on `*.sh`, `*.py`, `*.yml`, `*.patch` and `*.lock`; the vendor patch hashes depend on it. `fetch-deps.sh` clones dependencies with your global git config, so run it with `GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.autocrlf GIT_CONFIG_VALUE_0=false` if the tree-hash check fails.
+- **Line endings.** Every text file is stored with LF (`* text=auto` in `.gitattributes`), so any git, MSYS2's included, compares a CRLF checkout cleanly. With `core.autocrlf=true`, checked-out files get CRLF. `.gitattributes` forces LF on `*.sh`, `*.py`, `*.yml`, `*.patch` and `*.lock`; the vendor patch hashes depend on it. `fetch-deps.sh` clones dependencies with your global git config, so run it with `GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.autocrlf GIT_CONFIG_VALUE_0=false` if the tree-hash check fails.
 - **Path length.** Keep the checkout at a short path. The repo uses `core.longpaths=true`.
 - **32-bit only.** The engine still assumes 32-bit pointers.
 

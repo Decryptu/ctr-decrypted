@@ -62,7 +62,9 @@ int NativeDev_PrimTag(const void *addr);
 // CTR_DEV_RACE=<LevelID>: the title menu starts a one-player race on that
 // track instead of the attract demo. CTR_DEV_MODE=tt makes it a Time Trial,
 // CTR_DEV_MODE=adv an Adventure trophy race (default Arcade); CTR_DEV_LAPS
-// sets the lap count. -1 if unset.
+// sets the lap count. -1 if unset. CTR_DEV_MODE=cup runs the Gem Cups listed
+// in CTR_DEV_CUPS back to back (no CTR_DEV_RACE needed), and CTR_DEV_PODIUM
+// gets each cup's podium.
 int NativeDev_RaceTrack(void);
 // CTR_DEV_PLAYERS=2..4 makes CTR_DEV_RACE a VS race for that many players.
 // CTR_DEV_CHEATS=<bits> turns on gameMode2 cheats for it (CHEAT_* values).

@@ -170,6 +170,7 @@ tools/test-spawn-null-guards.py
 tools/test-statbar-rank.c
 tools/test-bsp-instance.py
 tools/test-custom-ctr-result.py
+tools/test-cup-ranks.py
 tools/test-custom-letter-hooks.py
 tools/test-custom-letter-verifier.py
 tools/test-custom-profile-activation.py

@@ -54,8 +54,12 @@ void UI_CupStandings_FinalizeCupRanks(void)
 			}
 		}
 
+		// Fix: retail stored the slot number (selectedRankSlot) instead of the
+		// driver in that slot, so breaking a tie for first in an Arcade or VS
+		// cup handed the place to whichever driver had that index, and dropped
+		// the racer who actually won the tie from the standings.
 		int previousRankValue = (u16)data.cupPositionPerPlayer[rankSlot];
-		data.cupPositionPerPlayer[rankSlot] = (s16)selectedRankSlot;
+		data.cupPositionPerPlayer[rankSlot] = data.cupPositionPerPlayer[selectedRankSlot];
 		data.cupPositionPerPlayer[selectedRankSlot] = (s16)previousRankValue;
 
 		bestRank = 99;
@@ -103,6 +107,19 @@ void UI_CupStandings_UpdateCupRanks(void)
 		data.cupPositionPerPlayer[rankSlot] = (s16)bestIndex;
 		bestScore = 0;
 		bestIndex = -1;
+	}
+
+	// Fix: retail left the slots past the field as the last bigger cup wrote
+	// them, so after an eight-racer cup the five-racer Purple Cup kept three
+	// stale driver indices. The end of the cup ranks drivers[slot value] for
+	// all eight slots, so a stale index that is in the field overwrote that
+	// racer's place with 5..7 and left their podium step empty
+	// (ctr-native-ap #282). The field's slots hold exactly drivers 0..n-1, so
+	// filling the rest with n..7 (never spawned, NULL) keeps the array the
+	// permutation it starts as.
+	for (int rankSlot = numDrivers; rankSlot < 8; rankSlot++)
+	{
+		data.cupPositionPerPlayer[rankSlot] = rankSlot;
 	}
 }
 
@@ -770,12 +787,13 @@ void UI_CupStandings_InputAndDraw(void)
 				// If this is not an Adventure Cup
 				else
 				{
-					// === Naughty Dog Bug ===
-					// If driver[1] is an AI in a 1P cup,
-					// then you still get completion credit
+					// Fix: retail checked driver[1] without asking whether it is a
+					// player, so in a 1P Arcade cup the bot in that slot winning
+					// gave the player completion credit (and could unlock a battle
+					// map and the save prompt).
 
 					// If Player 1 or Player 2 won the cup
-					if ((gGT->drivers[0]->driverRank == 0) || ((gGT->drivers[1]->driverRank == 0) &&
+					if ((gGT->drivers[0]->driverRank == 0) || (((u8)gGT->numPlyrCurrGame > 1) && (gGT->drivers[1]->driverRank == 0) &&
 
 					                                           // If you're in Arcade Mode
 					                                           ((gGT->gameMode1 & ARCADE_MODE) != 0)))

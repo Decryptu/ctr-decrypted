@@ -27,6 +27,9 @@ Status of CTR Decrypted, kept current with every change. **Status values:** Done
 | Boot splash centred when the window starts maximized | `NativeRenderer_UpdatePresentationViewport` reads the live window size |
 | Upstream bug reports closed | Fixed: Mystery Caves crash with 3–4 players (ctr-native #58); Oxide missing from first place on the podium (ctr-native-ap #282, report 1: his win-dance file is empty on the disc, so he wears his lose-dance model, as the ending cutscene does). Already fine here, checked unattended: credits and scrapbook (ctr-native #45, #52), reconnect catch-up (ctr-native-ap #147), stat bars (#466), vanilla-mode stage 2 keys (#499, via the apworld we ship). Details in [docs/UPSTREAM-ISSUES.md](docs/UPSTREAM-ISSUES.md) |
 
+| Cup standings fixes (retail bugs) | Podium racers missing after a Purple Gem Cup that follows an eight-racer cup (ctr-native-ap #282, report 2): the cup's final order kept stale slots past the field. An Arcade or VS tie for first went to the driver whose index matched the tie-break slot instead of the racer who won it. In a 1P Arcade cup, the bot in slot 1 winning gave the player completion credit. Reproduced with `CTR_DEV_MODE=cup`, which runs Gem Cups back to back; `tools/test-cup-ranks.py` runs the real ranking code over every field size and cup order |
+| Line endings for every git | `* text=auto` in `.gitattributes`: MSYS2's git, which has no `core.autocrlf`, no longer sees every file of a Windows checkout as modified |
+
 ## In progress
 Nothing.
 
@@ -35,8 +38,7 @@ Roughly in this order.
 
 | Item | Source |
 |---|---|
-| White noise in the hub after winning a race | ctr-native-ap #484. Not reproduced: after an Adventure win on Crash Cove, through the podium into N. Sanity Beach, `audio_noise.py` finds no noise in either build, fast-forwarded or real time. The report is from a connected session over several races, which the dev tools can't drive yet |
-| Invisible podium racers after a Gem Cup | ctr-native-ap #282, report 2: Papu Papu missing in 2nd after a Purple Gem Cup. The report suspects stale `cupPositionPerPlayer` slots past the cup's driver count in `UI_CupStandings.c`. Needs a dev switch that runs a cup to reproduce |
+| White noise in the hub after winning a race | ctr-native-ap #484. Not reproduced: after an Adventure win on Crash Cove, through the podium into N. Sanity Beach, `audio_noise.py` finds no noise in either build, fast-forwarded or real time. Nor over several races in a row: the Yellow and Purple Gem Cups back to back (`CTR_DEV_MODE=cup`, eight races, two podiums, two hub returns, 42 minutes of game audio) have none. What is left untested from the report is a connected Archipelago session |
 | Merge newer ctr-native upstream work (decomp matching, gameplay fixes since July 2026) | Both forks are 100+ commits behind. Expect ~460 conflict hunks |
 | Pre-race camera flyover is wrong | ctr-native #14 |
 
