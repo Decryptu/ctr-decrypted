@@ -88,9 +88,12 @@ static inline size_t NativeWinPath_PrefixedLength(const NativeWinPathUnit *path,
 		return 8u + (len - 2u); // "\\?\UNC\" + the part after the two leading slashes
 	case NATIVE_WIN_PATH_DRIVE_ABSOLUTE:
 		return 4u + len; // "\\?\" + the path
-	default:
-		return len;
+	case NATIVE_WIN_PATH_EMPTY:
+	case NATIVE_WIN_PATH_DRIVE_RELATIVE:
+	case NATIVE_WIN_PATH_RELATIVE:
+		break;
 	}
+	return len;
 }
 
 // Produce the prefixed, slash-normalized path in out. Returns 1 on success and
@@ -160,9 +163,13 @@ static inline int NativeWinPath_Prefix(const NativeWinPathUnit *in, size_t len, 
 			out[i] = prefix[i];
 		return 1;
 	}
-	default:
-		return 1;
+	case NATIVE_WIN_PATH_EMPTY:
+	case NATIVE_WIN_PATH_DRIVE_RELATIVE:
+	case NATIVE_WIN_PATH_EXTENDED:
+	case NATIVE_WIN_PATH_RELATIVE:
+		break;
 	}
+	return 1;
 }
 
 #endif // NATIVE_FS_WINPATH_H

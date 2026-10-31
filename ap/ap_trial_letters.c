@@ -182,10 +182,10 @@ void AP_TrialLetters_Spawn(struct GameTracker *gGT)
         s_trialLetterBox[i].max.x=s_trialLetterBoxOffset[i].max.x+AP_TRIAL_LETTER_POS[track][i][0];
         s_trialLetterBox[i].max.y=s_trialLetterBoxOffset[i].max.y+AP_TRIAL_LETTER_POS[track][i][1];
         s_trialLetterBox[i].max.z=s_trialLetterBoxOffset[i].max.z+AP_TRIAL_LETTER_POS[track][i][2];
-        inst->scale=(SVec3){{0x1800,0x1800,0x1800}};
+        inst->scale=(SVec3){0x1800,0x1800,0x1800};
         inst->colorRGBA=0xffc8000;
         inst->flags=DRAW_COLLISION_MASK|DRAW_TRANSPARENT|USE_SPECULAR_LIGHT;
-        inst->thread->funcThCollide=(void (*)(struct Thread *))RB_CtrLetter_ThCollide;
+        inst->thread->funcThCollide=(void *)RB_CtrLetter_ThCollide;
     }
     // No retained instance/thread handles: the engine owns and clears all
     // three on load/restart, and the next MainInit births a fresh complete set.

@@ -1,146 +1,136 @@
 #include <common.h>
 
-static const u8 cs_opcodeMeta[256] = {
-    0xdf, 0x20, 0x00, 0x19, 0x28, 0x10, 0x10, 0x18, 0x10, 0x10, 0x10, 0x18, 0x00, 0x10, 0x10, 0x00, 0x10, 0x00, 0x18, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10,
-    0x00, 0x00, 0x10, 0x10, 0x10, 0x00, 0x00, 0x10, 0x10, 0x00, 0x19, 0x00, 0x2c, 0x10, 0x00, 0x00, 0x00, 0x1e, 0x11, 0xc7, 0x00, 0x00, 0x07, 0x00, 0x00, 0x00,
-    0x2a, 0x30, 0x00, 0x00, 0x28, 0x00, 0xff, 0x00, 0x1c, 0xfc, 0xff, 0xff, 0xff, 0x0d, 0x10, 0x00, 0x00, 0x00, 0x22, 0x22, 0x02, 0x00, 0x00, 0x12, 0x02, 0x00,
-    0x00, 0x00, 0x38, 0x01, 0x00, 0x00, 0x2b, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x27, 0x00, 0x00, 0x13, 0x20, 0x02, 0x2a, 0x30, 0x00, 0x00,
-    0x28, 0x00, 0xff, 0x00, 0x1c, 0xfc, 0xff, 0xff, 0xff, 0x0d, 0x10, 0x00, 0x00, 0x00, 0x22, 0x22, 0x02, 0x00, 0x00, 0x12, 0x02, 0x00, 0x00, 0x00, 0x39, 0x01,
-    0x00, 0x00, 0x2b, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x27, 0x00, 0x00, 0x13, 0x21, 0x00, 0x00, 0x00, 0x00, 0x28, 0x2a, 0x30, 0x00, 0x00,
-    0x28, 0x00, 0xff, 0x00, 0x1c, 0xfc, 0xff, 0xff, 0xff, 0x0d, 0x10, 0x00, 0x00, 0x00, 0x22, 0x22, 0x02, 0x00, 0x00, 0x12, 0x02, 0x00, 0x00, 0x00, 0x34, 0x01,
-    0x00, 0x00, 0x2b, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x27, 0x00, 0x00, 0x13, 0x20, 0x02, 0x2a, 0x30, 0x00, 0x00, 0x28, 0x00, 0xff, 0x00,
-    0x1c, 0xfc, 0xff, 0xff, 0xff, 0x0d, 0x10, 0x00, 0x00, 0x00, 0x22, 0x22, 0x02, 0x00, 0x00, 0x12, 0x02, 0x00, 0x00, 0x00, 0x35, 0x01, 0x00, 0x00, 0x2b, 0x01,
-    0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x27, 0x00, 0x00, 0x13, 0x20, 0x02, 0x2a, 0x30, 0x00, 0x00, 0x28, 0x00, 0xff, 0x00,
-};
+#ifndef CS_OPCODE_META_TABLE
+// NOTE(aalhendi): Retail indexes the overlay bytes here, including the script
+// bytes following the metadata prefix for otherwise undefined opcode values.
+#define CS_OPCODE_META_TABLE ((const u8 *)&D233 + OFFSETOF(struct OverlayDATA_233, csOpcodeMetaPrefix))
+#endif
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800abf70-0x800abf9c
-static s16 CS_ScriptCmd_ReadOpcode_GetShort(char **Opcodes)
+s16 CS_ScriptCmd_ReadOpcode_GetShort(char **cursor)
 {
-	char *bytes = *Opcodes;
-	s16 result = (s16)((u8)bytes[0] | ((u8)bytes[1] << 8));
-	*Opcodes = bytes + 2;
-	return result;
+	char *bytes = *cursor;
+	u32 high = (u8)bytes[1];
+	u32 low = (u8)bytes[0];
+	*cursor = bytes + 2;
+	return (s16)(low | (high << 8));
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800abf9c-0x800abfd8
-static u32 CS_ScriptCmd_ReadOpcode_GetInt(char **Opcodes)
+u32 CS_ScriptCmd_ReadOpcode_GetInt(char **cursor)
 {
-	char *bytes = *Opcodes;
-	*Opcodes = bytes + 4;
-	return (u8)bytes[3] << 24 | (u8)bytes[2] << 16 | (u8)bytes[1] << 8 | (u8)bytes[0];
+	char *bytes = *cursor;
+	u32 byte3 = (u8)bytes[3];
+	u32 byte2 = (u8)bytes[2];
+	u32 byte1 = (u8)bytes[1];
+	u32 byte0 = (u8)bytes[0];
+	*cursor = bytes + 4;
+	return (byte3 << 24) | (byte2 << 16) | (byte1 << 8) | byte0;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800abfd8-0x800ac014
-static u32 CS_ScriptCmd_ReadOpcode_GetInt_dup(char **Opcodes)
+u32 CS_ScriptCmd_ReadOpcode_GetInt_dup(char **cursor)
 {
-	char *bytes = *Opcodes;
-	*Opcodes = bytes + 4;
-	return (u8)bytes[3] << 24 | (u8)bytes[2] << 16 | (u8)bytes[1] << 8 | (u8)bytes[0];
+	char *bytes = *cursor;
+	u32 byte3 = (u8)bytes[3];
+	u32 byte2 = (u8)bytes[2];
+	u32 byte1 = (u8)bytes[1];
+	u32 byte0 = (u8)bytes[0];
+	*cursor = bytes + 4;
+	return (byte3 << 24) | (byte2 << 16) | (byte1 << 8) | byte0;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800ac014-0x800ac1c0
-static void CS_ScriptCmd_ReadOpcode_Main(struct CutsceneObj *cs)
+void CS_ScriptCmd_ReadOpcode_Main(struct CutsceneObj *cs)
 {
 	char *opcodes;
-	union CsOpcodeMeta *decoded;
-	s16 *offsets;
-	char meta;
-	char *local_cursor;
-
+	char *cursor;
+	struct CsOpcodeMeta *decoded;
+	u8 metaFlags;
 	opcodes = cs->currOpcode[0];
-
 	if (opcodes == cs->prevOpcode)
-	{
 		return;
-	}
-
-	local_cursor = opcodes + 1;
-	decoded = &cs->decodedOpcode;
-	offsets = (s16 *)decoded;
-
+	cursor = opcodes;
+	decoded = cs->metadataMeta;
 	cs->prevOpcode = opcodes;
-	offsets[0] = opcodes[0];
-
-	meta = cs_opcodeMeta[(u8)offsets[0]];
-
-	if (meta & 1)
+	decoded->opcode = (u8)*opcodes;
+	cursor = opcodes + 1;
+	// NOTE(aalhendi): The field-address form preserves GCC 2.8.1's opcode
+	// reload after advancing the cursor, without changing the native access.
+	metaFlags = CS_OPCODE_META_TABLE[*(&decoded->opcode)];
+	if (metaFlags & CS_OPCODE_META_HAS_ANIM_INDEX)
 	{
-		offsets[1] = CS_ScriptCmd_ReadOpcode_GetShort(&local_cursor);
+		decoded->animIndex = CS_ScriptCmd_ReadOpcode_GetShort(&cursor);
 	}
 	else
 	{
-		offsets[1] = 0;
+		decoded->animIndex = 0;
 	}
 
-	if (meta & 2)
+	if (metaFlags & CS_OPCODE_META_HAS_FRAME_START)
 	{
-		offsets[2] = CS_ScriptCmd_ReadOpcode_GetShort(&local_cursor);
+		decoded->frameStart = CS_ScriptCmd_ReadOpcode_GetShort(&cursor);
 	}
 	else
 	{
-		offsets[2] = 0;
+		decoded->frameStart = 0;
 	}
 
-	if (meta & 4)
+	if (metaFlags & CS_OPCODE_META_HAS_FRAME_END)
 	{
-		offsets[3] = CS_ScriptCmd_ReadOpcode_GetShort(&local_cursor);
+		decoded->frameEnd = CS_ScriptCmd_ReadOpcode_GetShort(&cursor);
 	}
 	else
 	{
-		offsets[3] = 0;
+		decoded->frameEnd = 0;
 	}
 
-	if (meta & 8)
+	if (metaFlags & CS_OPCODE_META_HAS_ARG0)
 	{
-		decoded->arg0.u = CS_ScriptCmd_ReadOpcode_GetInt(&local_cursor);
+		decoded->arg0.u = CS_ScriptCmd_ReadOpcode_GetInt(&cursor);
 	}
 	else
 	{
 		decoded->arg0.u = 0;
 	}
 
-	if (meta & 0x10)
+	if (metaFlags & CS_OPCODE_META_HAS_ARG1)
 	{
-		decoded->arg1.u = CS_ScriptCmd_ReadOpcode_GetInt(&local_cursor);
+		decoded->arg1.u = CS_ScriptCmd_ReadOpcode_GetInt(&cursor);
 	}
 	else
 	{
 		decoded->arg1.u = 0;
 	}
 
-	if (meta & 0x20)
+	if (metaFlags & CS_OPCODE_META_HAS_ALIGNED_ARG1)
 	{
-		while ((uintptr_t)local_cursor & 3)
+		while ((u32)cursor & 3)
 		{
-			local_cursor++;
+			cursor++;
 		}
 
-		decoded->arg1.u = CS_ScriptCmd_ReadOpcode_GetInt_dup(&local_cursor);
-		local_cursor += 1;
+		decoded->arg1.u = CS_ScriptCmd_ReadOpcode_GetInt_dup(&cursor);
+		cursor += 1;
 	}
 
-	if (meta & 0x40)
+	if (metaFlags & CS_OPCODE_META_HAS_ROT_START)
 	{
-		offsets[8] = CS_ScriptCmd_ReadOpcode_GetShort(&local_cursor);
+		decoded->rotStart = CS_ScriptCmd_ReadOpcode_GetShort(&cursor);
 	}
 	else
 	{
-		offsets[8] = 0;
+		decoded->rotStart = 0;
 	}
 
-	if (meta & 0x80)
+	if (metaFlags & CS_OPCODE_META_HAS_ROT_END)
 	{
-		offsets[9] = CS_ScriptCmd_ReadOpcode_GetShort(&local_cursor);
+		decoded->rotEnd = CS_ScriptCmd_ReadOpcode_GetShort(&cursor);
 	}
 	else
 	{
-		offsets[9] = 0;
+		decoded->rotEnd = 0;
 	}
 
-	cs->prevOpcode = local_cursor;
+	cs->prevOpcode = cursor;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800ac1c0-0x800ac1ec
 void CS_ScriptCmd_OpcodeNext(struct CutsceneObj *cs)
 {
 	char *prev = cs->prevOpcode;
@@ -149,7 +139,6 @@ void CS_ScriptCmd_OpcodeNext(struct CutsceneObj *cs)
 	CS_ScriptCmd_ReadOpcode_Main(cs);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800ac1ec-0x800ac214.
 // CTR_NATIVE translates retail bytecode branch targets before the retail body.
 void CS_ScriptCmd_OpcodeAt(struct CutsceneObj *cs, char *opCodeAt)
 {

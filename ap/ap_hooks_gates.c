@@ -45,7 +45,7 @@ void AP_DoorHistoryReconcile(int level, int door)
 	unsigned bit = AP_DoorBitPure(level, door);
 	unsigned mask = AP_DoorStoryPure(bit);
 	if (!ctr_cfg_active()) return;
-	sdata->advProgress.storyFlags = (sdata->advProgress.storyFlags & ~mask) |
+	sdata->advProgress.rewards[ADV_PROGRESS_WORD_STORY] = (sdata->advProgress.rewards[ADV_PROGRESS_WORD_STORY] & ~mask) |
 	                               (AP_DoorHistoryOpen(level, door) ? mask : 0);
 }
 
@@ -325,7 +325,7 @@ int AP_ReqMetCounts(const ctr_req *r, const int *counts)
 	case 3: // tokens (colour 0..4 = one colour; -1 = any token, summed)
 		if (r->colour >= 0 && r->colour <= 4)
 			return counts[AP_IDX_TOKEN_RED + r->colour] >= r->count;
-		/* fall through to the AnyToken sum */
+		/* fall through - to the AnyToken sum */
 	case 6: // AnyToken: any N tokens summed across all 5 colours
 		for (sum = 0, i = 0; i < 5; i++)
 			sum += counts[AP_IDX_TOKEN_RED + i];
@@ -336,7 +336,7 @@ int AP_ReqMetCounts(const ctr_req *r, const int *counts)
 	case 5: // gems (colour 0..4 = one colour; -1 = any gem, summed)
 		if (r->colour >= 0 && r->colour <= 4)
 			return counts[AP_IDX_GEM_RED + r->colour] >= r->count;
-		/* fall through to the AnyGem sum */
+		/* fall through - to the AnyGem sum */
 	case 8: // AnyGem: any N gems summed across all 5 colours
 		for (sum = 0, i = 0; i < 5; i++)
 			sum += counts[AP_IDX_GEM_RED + i];
@@ -617,7 +617,7 @@ static int AP_ReqOwned(const ctr_req *r)
 	case 3: // tokens (colour 0..4 = one colour)
 		if (r->colour >= 0 && r->colour <= 4)
 			return ap_recv_count[AP_IDX_TOKEN_RED + r->colour];
-		/* fall through to the AnyToken sum */
+		/* fall through - to the AnyToken sum */
 	case 6: // AnyToken
 		for (sum = 0, i = 0; i < 5; i++)
 			sum += ap_recv_count[AP_IDX_TOKEN_RED + i];
@@ -628,7 +628,7 @@ static int AP_ReqOwned(const ctr_req *r)
 	case 5: // gems (colour 0..4 = one colour)
 		if (r->colour >= 0 && r->colour <= 4)
 			return ap_recv_count[AP_IDX_GEM_RED + r->colour];
-		/* fall through to the AnyGem sum */
+		/* fall through - to the AnyGem sum */
 	case 8: // AnyGem
 		for (sum = 0, i = 0; i < 5; i++)
 			sum += ap_recv_count[AP_IDX_GEM_RED + i];

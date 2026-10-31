@@ -104,7 +104,7 @@ static int MM_CustomTrackSelect_TimeTrialStart(void)
     if (!s_customTimeTrialPending) return 0;
     s_customTimeTrialPending = 0;
     if (CustomOffline_RuntimeMode() != CTR_OFFLINE_MODE_TIME_TRIAL) return 0;
-    sdata->ptrGhostTapePlaying = MEMPACK_AllocHighMem(0x3e00);
+    sdata->ptrGhostTapePlaying = MEMPACK_AllocHighMem(0x3e00, "CustomTimeTrialGhost");
     memset(sdata->ptrGhostTapePlaying, 0, 0x28);
     sdata->boolReplayHumanGhost = MainRaceTrack_CustomLoadGhost(sdata->ptrGhostTapePlaying);
     /* The ghost's character is P2 (the Time Trial pack loads its model). */
@@ -137,7 +137,7 @@ static void MM_CustomTrackSelect_Text(const char *text, int x, int y, size_t wid
 
 /* Called after the retail transition state advances, before retail indexing.
    Returning 1 owns this frame; Vanilla returns to the unchanged retail proc. */
-static int MM_CustomTrackSelect_Tick(struct RectMenu *menu)
+static int MM_CustomTrackSelect_Tick(void)
 {
     struct GameTracker *gGT = sdata->gGT;
     uint32_t *ot = gGT->backBuffer->otMem.uiOT;
@@ -180,8 +180,8 @@ static int MM_CustomTrackSelect_Tick(struct RectMenu *menu)
     }
     pages = CustomTrackLibrary_PageCount(&s_arcadeLibrary) + 1;
     if (s_arcadePage >= pages) s_arcadePage = pages - 1;
-    if (D230.trackSel_transitionState != IN_MENU || D230.trackSel_boolOpenLapBox ||
-        D230.trackSel_changeTrack_frameCount || s_arcadeMotion) tapped = 0;
+    if (D230.trackSelect.transition.state != IN_MENU || D230.trackSelect.lapBoxOpen ||
+        D230.trackSelect.trackChangeFrames || s_arcadeMotion) tapped = 0;
 
     if (s_arcadePrepareBusy)
     {
@@ -210,7 +210,7 @@ static int MM_CustomTrackSelect_Tick(struct RectMenu *menu)
     }
     if (!s_arcadePage)
     {
-        if (D230.trackSel_transitionState == IN_MENU && !D230.trackSel_boolOpenLapBox)
+        if (D230.trackSelect.transition.state == IN_MENU && !D230.trackSelect.lapBoxOpen)
         {
             DecalFont_DrawLineOT("<  Vanilla  >", 394, 178, FONT_SMALL, JUSTIFY_CENTER | ORANGE, ot);
             snprintf(line, sizeof line, "Page 1/%u", (unsigned)pages);
@@ -244,8 +244,8 @@ static int MM_CustomTrackSelect_Tick(struct RectMenu *menu)
                    Arcade. Only the selected content and authored laps change. */
                 gGT->currLEV = host;
                 gGT->numLaps = CustomOffline_RuntimeLaps();
-                D230.trackSel_StartRaceAfterFadeOut = 1;
-                D230.trackSel_transitionState = EXITING_MENU;
+                D230.trackSelect.transition.startAfterExit = 1;
+                D230.trackSelect.transition.state = EXITING_MENU;
                 s_customTimeTrialPending = mode == CTR_OFFLINE_MODE_TIME_TRIAL;
                 fprintf(stderr, "[CustomSelector] custom track %d (bytes via group %d) mode=%s players=%d difficulty=%d laps=%d\n",
                     CTR_CUSTOM_LEVEL_ID, host, mode == CTR_OFFLINE_MODE_TIME_TRIAL ? "time trial" : "arcade",
@@ -272,8 +272,8 @@ static int MM_CustomTrackSelect_Tick(struct RectMenu *menu)
         }
         if (!MM_CustomLibrary_Busy() && (tapped & (BTN_TRIANGLE | BTN_SQUARE_one)))
         {
-            D230.trackSel_StartRaceAfterFadeOut = 0;
-            D230.trackSel_transitionState = EXITING_MENU;
+            D230.trackSelect.transition.startAfterExit = 0;
+            D230.trackSelect.transition.state = EXITING_MENU;
             OtherFX_Play(2, 1);
         }
         entry = rows ? CustomTrackLibrary_Row(&s_arcadeLibrary, first + row) : NULL;
@@ -302,8 +302,8 @@ static int MM_CustomTrackSelect_Tick(struct RectMenu *menu)
 
     /* Match the retail selector: curved big-font rows, translucent boxes,
        three-frame scrolling and the same entrance/exit transition offsets. */
-    int dx = D230.transitionMeta_trackSel[1].currX;
-    int dy = D230.transitionMeta_trackSel[1].currY;
+    int dx = D230.trackTransitions.transitionMeta_trackSel[1].currX;
+    int dy = D230.trackTransitions.transitionMeta_trackSel[1].currY;
     CustomTrackLibrary_PageLabel(&s_arcadeLibrary, s_arcadePage - 1, label, sizeof label);
     snprintf(line, sizeof line, "< Custom %s >", label);
     MM_CustomText_Draw(line, 394 + dx, 10 + dy, 192, 1, JUSTIFY_CENTER | ORANGE, ot);
@@ -318,8 +318,8 @@ static int MM_CustomTrackSelect_Tick(struct RectMenu *menu)
         if (offset == 4) offset = -4;
         int angle = offset * 0x73 + s_arcadeMotionDirection * s_arcadeMotion * 0x73 / 3;
         RECT box = {
-            D230.transitionMeta_trackSel[0].currX + (MATH_Cos(angle) * 25 >> 9) - 180,
-            D230.transitionMeta_trackSel[0].currY + (MATH_Sin(angle) * 200 >> 12) + 96,
+            D230.trackTransitions.transitionMeta_trackSel[0].currX + (MATH_Cos(angle) * 25 >> 9) - 180,
+            D230.trackTransitions.transitionMeta_trackSel[0].currY + (MATH_Sin(angle) * 200 >> 12) + 96,
             256, 25
         };
         /* Keep the retail curve, but do not draw a row through the footer. */
@@ -329,7 +329,7 @@ static int MM_CustomTrackSelect_Tick(struct RectMenu *menu)
         if (i == row && !s_arcadeMotion)
         {
             RECT highlight = {box.x + 6, box.y + 4, box.w - 12, box.h - 8};
-            CTR_Box_DrawClearBox(&highlight, &sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot);
+            CTR_Box_DrawClearBox(&highlight, &sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot, &GAME_TRACKER->backBuffer->primMem);
         }
         RECTMENU_DrawInnerRect(&box, 0, ot);
     }
@@ -368,7 +368,7 @@ static int MM_CustomTrackSelect_Tick(struct RectMenu *menu)
         "No tracks. Manage content in Options.", 309 + dx, 88 + dy, 174, 5, WHITE, ot);
     RECT details = {301 + dx, 82 + dy, 188, 87};
     RECTMENU_DrawInnerRect(&details, 0, ot);
-    if (D230.trackSel_transitionState == IN_MENU)
+    if (D230.trackSelect.transition.state == IN_MENU)
     {
         MM_CustomText_Draw(s_arcadeConfirm ? "Cross: Start  Back: Track list" :
             "Left/Right: Pages  Up/Down: Tracks", 256, 181, 464, 1, JUSTIFY_CENTER | WHITE, ot);

@@ -596,7 +596,7 @@ char *AP_Credits_PrependScroll(char *origScroll)
 	u32 apMax = (u32)AP_CREDITS_NUM_LINES * (3 + AP_CREDITS_FIELD_WIDTH + 1);
 	u32 origLen = strlen(origScroll);
 
-	char *merged = MEMPACK_AllocHighMem((int)(apMax + origLen + 1));
+	char *merged = MEMPACK_AllocHighMem((int)(apMax + origLen + 1), "APCeremony");
 	char *dst = merged;
 
 	for (int i = 0; i < AP_CREDITS_NUM_LINES; i++)

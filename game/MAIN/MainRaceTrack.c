@@ -255,7 +255,7 @@ int MainRaceTrack_CustomLoadGhost(struct GhostHeader *dst)
 	if (dst == NULL || !MainRaceTrack_CustomRecordKey(&key) ||
 	    !CustomRecords_LoadGhost(CTR_RECORDS_DIR, &key, dst, 0x3e00, &bytes))
 		return 0;
-	if (bytes < sizeof(struct GhostHeader) || dst->version != -4 || dst->size < 0 ||
+	if (bytes < sizeof(struct GhostHeader) || dst->version != -4 ||
 	    bytes != sizeof(struct GhostHeader) + (size_t)dst->size || dst->size > 0x3dd4 || dst->characterID < 0 ||
 	    dst->characterID > NITROS_OXIDE || dst->timeElapsedInRace <= 0)
 	{
@@ -291,7 +291,12 @@ const char *MainRaceTrack_OfflineCustomTitle(void)
 }
 #endif
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003cf7c-0x8003cfc0.
+// NOTE(aalhendi): The unit's resident binding names the existing requested-level
+// slot; native and unbound PSX code use the canonical loading field.
+#ifndef MAIN_REQUESTED_LEVEL
+#define MAIN_REQUESTED_LEVEL (sdata->Loading.Lev_ID_To_Load)
+#endif
+
 void MainRaceTrack_StartLoad(s16 levelID)
 {
 	// clear backup,
@@ -317,16 +322,17 @@ void MainRaceTrack_StartLoad(s16 levelID)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003cfc0-0x8003d024.
 void MainRaceTrack_RequestLoad(s16 levelID)
 {
+	struct GameTracker *gt = GAME_TRACKER;
+
 #ifdef CTR_CUSTOM_PACKAGES
 	// A retry keeps the custom race. Leaving the host slot ends it only when
 	// the load starts (MainRaceTrack_StartLoad).
 	CustomOffline_OnLoadRequested(levelID);
 #endif
 	// Turn off HUD
-	sdata->gGT->hudFlags &= 0xfe;
+	gt->hudFlags &= HUD_FLAG_CLEAR_RACE_HUD_MASK;
 
 	if (RaceFlag_IsFullyOffScreen() == 1)
 	{
@@ -335,7 +341,7 @@ void MainRaceTrack_RequestLoad(s16 levelID)
 	RaceFlag_ResetTextAnim();
 
 	sdata->Loading.stage = LOAD_REQUESTED;
-	sdata->Loading.Lev_ID_To_Load = levelID;
+	MAIN_REQUESTED_LEVEL = levelID;
 #ifdef CTR_CUSTOM_TRACKS
 	// Every level request passes through here, so this is where the Cortex
 	// Vortex pad-track serving state (schema 15) consumes the entry site's

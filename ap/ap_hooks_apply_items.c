@@ -179,11 +179,11 @@ static void AP_ReadConfig(char *uri, int uriN, char *slot, int slotN,
 		while (n && (line[n - 1] == '\n' || line[n - 1] == '\r'))
 			line[--n] = 0;
 		if (!strncmp(line, "uri=", 4))
-			snprintf(uri, uriN, "%s", line + 4);
+			snprintf(uri, uriN, "%.*s", (int)uriN - 1, line + 4);
 		else if (!strncmp(line, "slot=", 5))
-			snprintf(slot, slotN, "%s", line + 5);
+			snprintf(slot, slotN, "%.*s", (int)slotN - 1, line + 5);
 		else if (!strncmp(line, "password=", 9))
-			snprintf(pass, passN, "%s", line + 9);
+			snprintf(pass, passN, "%.*s", (int)passN - 1, line + 9);
 		else if (!strncmp(line, "skip_hints=", 11))
 			ap_skip_hints = (line[11] == '1'); // QoL: suppress Aku Aku mask hints
 		else if (AP_TrapConfigLine(line))

@@ -1,16 +1,83 @@
 #include <common.h>
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b0b98-0x800b0ce0.
-void AH_Map_LoadSave_Prim(s16 *vertPos, char *vertCol, void *ot, struct PrimMem *primMem)
+enum AHMapIconID
 {
-	POLY_G4 *p = primMem->cursor;
+	AH_MAP_ICON_WARPPAD = 0x31,
+	AH_MAP_ICON_BOSS_STAR = 0x37,
+};
 
-	if (primMem->end < (void *)p)
+enum AHMapArrowType
+{
+	AH_MAP_ARROW_WARPPAD_TROPHY = 0,
+	AH_MAP_ARROW_HUB_ROUTE,
+	AH_MAP_ARROW_BOSS,
+};
+
+enum AHMapColor
+{
+	AH_MAP_COLOR_COMPLETE = RED,
+	AH_MAP_COLOR_FLASH_PRIMARY = CRASH_BLUE,
+	AH_MAP_COLOR_FLASH_SECONDARY = WHITE,
+	AH_MAP_COLOR_RELIC_TOKEN = PAPU_YELLOW,
+	AH_MAP_COLOR_INVALID = BLACK,
+	AH_MAP_COLOR_LOCKED = GRAY,
+};
+
+
+enum AHMapBossItemState
+{
+	AH_MAP_BOSS_ITEM_NONE = -1,
+	AH_MAP_BOSS_ITEM_LOCKED = 0,
+	AH_MAP_BOSS_ITEM_OPEN = 1,
+	AH_MAP_BOSS_ITEM_COMPLETE = 2,
+};
+
+
+enum AHMapMainConstants
+{
+	AH_MAP_HUD_AND_DEBUG_SPEEDOMETER = 0x8,
+	AH_MAP_ICON_TOP_HALF = 3,
+	AH_MAP_ICON_BOTTOM_HALF = 4,
+	AH_MAP_SCREEN_POS_X = 500,
+	AH_MAP_SCREEN_POS_Y = 195,
+	AH_MAP_HUD_SLOT_SLIDE_METER = 8,
+	AH_MAP_HUD_SLOT_RELIC_COUNT = 0xe,
+	AH_MAP_HUD_SLOT_KEY_COUNT = 0xf,
+	AH_MAP_HUD_SLOT_TROPHY_COUNT = 0x10,
+	AH_MAP_HUD_COUNTER_OFFSET_X = 0x10,
+	AH_MAP_HUD_COUNTER_OFFSET_Y = -10,
+};
+
+enum AHMapArrowOutlineConstants
+{
+	AH_MAP_ARROW_OUTLINE_COUNT = 3,
+	AH_MAP_ARROW_OUTLINE_PHASE_STEP = 0xc,
+	AH_MAP_ARROW_OUTLINE_PHASE_MASK = 0x3f,
+	AH_MAP_ARROW_OUTLINE_PHASE_DELAY = 6,
+	AH_MAP_ARROW_OUTLINE_VISIBLE_PHASES = 0xc,
+	AH_MAP_ARROW_OUTLINE_RADIUS_MUL = 0x2aa,
+	AH_MAP_ARROW_OUTLINE_RADIUS_BIAS = FP_ONE,
+	AH_MAP_ARROW_OUTLINE_RADIUS_SHIFT = 0x1a,
+	AH_MAP_ARROW_OUTLINE_TROPHY_STEP = 0x200,
+	AH_MAP_ARROW_OUTLINE_ROUTE_STEP = 0x555,
+	AH_MAP_ARROW_OUTLINE_BOSS_STEP = 0x199,
+};
+
+
+void AH_Map_LoadSave_Prim(const SVec2 *vertPos, char *vertCol, void *ot, struct PrimMem *primMem)
+{
+	POLY_G4 *cursor = primMem->cursor;
+	POLY_G4 *p = NULL;
+
+	if (primMem->guardEnd >= (void *)cursor)
+	{
+		p = cursor;
+		primMem->cursor = p + 1;
+	}
+	if (p == NULL)
 	{
 		return;
 	}
-
-	primMem->cursor = p + 1;
 
 	setPolyG4(p);
 
@@ -30,604 +97,584 @@ void AH_Map_LoadSave_Prim(s16 *vertPos, char *vertCol, void *ot, struct PrimMem 
 	p->g3 = vertCol[13];
 	p->b3 = vertCol[14];
 
-	p->x0 = vertPos[0x0];
-	p->y0 = vertPos[0x1];
+	p->x0 = vertPos[0].x;
+	p->y0 = vertPos[0].y;
 
-	p->x1 = vertPos[0x2];
-	p->y1 = vertPos[0x3];
+	p->x1 = vertPos[1].x;
+	p->y1 = vertPos[1].y;
 
-	p->x2 = vertPos[0x4];
-	p->y2 = vertPos[0x5];
+	p->x2 = vertPos[2].x;
+	p->y2 = vertPos[2].y;
 
-	p->x3 = vertPos[0x6];
-	p->y3 = vertPos[0x7];
+	p->x3 = vertPos[3].x;
+	p->y3 = vertPos[3].y;
 
 	AddPrim(ot, p);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b0ce0-0x800b0f18.
-void AH_Map_LoadSave_Full(int posX, int posY, s16 *vertPos, char *vertCol, int unk800, int angle)
+// NOTE(aalhendi): Both marker shapes narrow the transformed coordinates before
+// adding outline offsets. Coordinate copies and the local point cursor preserve
+// the retail compiler's lifetimes without changing that fixed-point arithmetic.
+void AH_Map_LoadSave_Full(s32 inputX, s32 inputY, const SVec2 *positions, char *colors, s16 scale, s32 angle)
 {
-	s16 local_30[8];
-	s16 local_20[8];
-
-	struct GameTracker *gGT = sdata->gGT;
-
-	int sin = MATH_Sin(angle);
-	int cos = MATH_Cos(angle);
-
-	for (int i = 0; i < 4; i++)
+	s32 posX = inputX;
+	s32 posY = inputY;
+	s16 i;
+	SVec2 basePos[4];
+	SVec2 drawPos[4];
+	register s32 sin CTR_PSX_REGISTER("$8");
+	s32 cos;
+	const struct TrigTable *table = AH_TRIG_TABLE;
+	s32 scaleX;
+	scaleX = (scale * 8) / 5;
+	sin = CTR_ReadU32AlignedLE(&table[angle & 0x3ff]);
+	if ((angle & 0x400) != 0)
 	{
-		local_30[i * 2 + 0] = posX + 6 +
-		                      (s16)(((((vertPos[2 * i + 0] * cos) >> 0xc) + ((vertPos[2 * i + 1] * sin) >> 0xc)) * ((unk800 * 8) / 5)
-
-		                                 ) >>
-		                            0xc);
-
-		local_30[i * 2 + 1] = posY + 4 +
-		                      (s16)(((((vertPos[2 * i + 1] * cos) >> 0xc) - ((vertPos[2 * i + 0] * sin) >> 0xc)) * unk800
-
-		                             ) >>
-		                            0xc);
+		cos = (s16)sin;
+		sin = sin >> 16;
+		if ((angle & 0x800) != 0)
+			sin = -sin;
+		else
+			cos = -cos;
 	}
-
-	s16 *offset = &D232.primOffsetXY_LoadSave[0];
-
-	for (int i = 0; i < 5; i++)
-	{
-		for (int j = 0; j < 4; j++)
-		{
-			local_20[j * 2 + 0] = local_30[j * 2 + 0] + offset[i * 2 + 0];
-
-			local_20[j * 2 + 1] = local_30[j * 2 + 1] + offset[i * 2 + 1];
-		}
-
-		AH_Map_LoadSave_Prim(&local_20[0], vertCol, gGT->pushBuffer_UI.ptrOT, &gGT->backBuffer->primMem);
-
-		vertCol = (char *)&D232.colorQuad[0];
-	}
-}
-
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b0f18-0x800b1150.
-void AH_Map_HubArrow(int posX, int posY, s16 *vertPos, char *vertCol, int unk800, int angle)
-{
-	s16 local_30[6];
-	s16 local_20[6];
-
-	struct GameTracker *gGT = sdata->gGT;
-
-	int sin = MATH_Sin(angle);
-	int cos = MATH_Cos(angle);
-
-	for (int i = 0; i < 3; i++)
-	{
-		local_30[i * 2 + 0] = posX + 6 +
-		                      (s16)(((((vertPos[2 * i + 0] * cos) >> 0xc) + ((vertPos[2 * i + 1] * sin) >> 0xc)) * ((unk800 * 8) / 5)
-
-		                                 ) >>
-		                            0xc);
-
-		local_30[i * 2 + 1] = posY + 4 +
-		                      (s16)(((((vertPos[2 * i + 1] * cos) >> 0xc) - ((vertPos[2 * i + 0] * sin) >> 0xc)) * unk800
-
-		                             ) >>
-		                            0xc);
-	}
-
-	s16 *offset = &D232.primOffsetXY_HubArrow[0];
-
-	for (int i = 0; i < 5; i++)
-	{
-		for (int j = 0; j < 3; j++)
-		{
-			local_20[j * 2 + 0] = local_30[j * 2 + 0] + offset[i * 2 + 0];
-
-			local_20[j * 2 + 1] = local_30[j * 2 + 1] + offset[i * 2 + 1];
-		}
-
-		RECTMENU_DrawRwdTriangle(&local_20[0], vertCol, gGT->pushBuffer_UI.ptrOT, &gGT->backBuffer->primMem);
-
-		vertCol = (char *)&D232.colorTri[0];
-	}
-}
-
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b1150-0x800b14f4.
-void AH_Map_HubArrowOutter(void *hubPtrs, int arrowIndex, int posX, int posY, int inputAngle, int type)
-{
-	struct GameTracker *gGT;
-	gGT = sdata->gGT;
-
-	arrowIndex = (s16)arrowIndex;
-	type = (s16)type;
-
-	posX += D232.hubArrowXY_Inner[2 * type + 0];
-	posY += D232.hubArrowXY_Inner[2 * type + 1];
-
-	int timer = FPS_HALF(gGT->timer) >> 0;
-
-	int var14;
-	int var15;
-	int var8;
-
-	var15 = 0x40;
-	if ((timer & 1) != 0)
-	{
-		var15 = 0xe0;
-	}
-
-	if (type == 0)
-	{
-		var14 = var15;
-		var8 = 0x200;
-	}
-
-	else if (type == 1)
-	{
-		var14 = 0xff;
-		var8 = 0x555;
-
-		posX += D232.hubArrowXY_Outter[2 * (((inputAngle >> 0x8) & 0xc) >> 2) + 0];
-		posY += D232.hubArrowXY_Outter[2 * (((inputAngle >> 0x8) & 0xc) >> 2) + 1];
-	}
-
 	else
 	{
-		var14 = var15;
-		var8 = 0x199;
-		inputAngle ^= 0x800;
+		cos = sin >> 16;
+		sin = (s16)sin;
+		if ((angle & 0x800) != 0)
+		{
+			cos = -cos;
+			sin = -sin;
+		}
 	}
 
-	inputAngle = (s16)inputAngle;
-
-	for (int iVar10 = 0; iVar10 < 3; iVar10++)
 	{
-		u32 var5 = (~(timer + (int)arrowIndex * 0xc) & 0x3f) + (2 - (int)(s16)iVar10) * -6;
-
-		if (var5 >= 0xc)
+		SVec2 *transformed;
+		i = 0;
+		transformed = basePos;
+		for (; i < 4; i++)
 		{
-			continue;
+			SVec2 *point = transformed + i;
+			s32 x = (((((positions[i].x * cos) >> 12) + ((positions[i].y * sin) >> 12)) * (s16)scaleX) >> 12) + 6;
+			s32 y;
+			point->x = posX + x;
+			y = (((((positions[i].y * cos) >> 12) - ((positions[i].x * sin) >> 12)) * scale) >> 12) + 4;
+			point->y = posY + y;
 		}
+	}
 
-		int iVar16 = ((var5 * 0x2aa + 0x1000) * 0x10000) >> 0x1a;
-
-		int bVar1 = 1;
-
-		int shiftToggle = 1;
-
-		int iVar6 = 0;
-		int iVar9 = 0;
-
-		for (int iVar13 = 0; iVar13 < var8 + 0xfff; iVar13 += var8)
+	{
+		for (i = 0; i < 5; i++)
 		{
-			if (type != 2)
 			{
-				shiftToggle = 0;
+				s16 j;
+				for (j = 0; j < 4; j++)
+				{
+					drawPos[j].x = basePos[j].x + AH_SAVE_PRIM_OFFSETS[i].x;
+
+					drawPos[j].y = basePos[j].y + AH_SAVE_PRIM_OFFSETS[i].y;
+				}
 			}
 
-			int angle = iVar13 + inputAngle;
+			AH_Map_LoadSave_Prim(&drawPos[0], colors, GAME_TRACKER->pushBuffer_UI.ptrOT, &GAME_TRACKER->backBuffer->primMem);
 
-			int sin = MATH_Sin(angle);
-			int cos = MATH_Cos(angle);
-
-			int iVar4 = (shiftToggle & 1) + 0xc;
-
-			sin = posX + ((((iVar16 << 3) / 5) * sin) >> iVar4);
-			cos = posY - ((((iVar16)) * cos) >> iVar4);
-
-			if (!bVar1)
-			{
-				CTR_Box_DrawWirePrims((Point){{iVar9, iVar6}}, (Point){{sin, cos}}, MakeColor(var14, var15, 0xff), (void *)gGT->pushBuffer_UI.ptrOT);
-			}
-
-			bVar1 = 0;
-			iVar9 = sin;
-			iVar6 = cos;
-			shiftToggle++;
+			colors = (char *)AH_QUAD_COLOR;
 		}
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b14f4-0x800b1a18.
-void AH_Map_HubItems(void *hubPtrs, s16 *param_2)
+void AH_Map_HubArrow(s32 inputX, s32 inputY, const SVec2 *positions, char *colors, s16 scale, s32 angle)
 {
-	struct GameTracker *gGT;
-	struct AdvProgress *adv;
-	s16 levelID;
-	s16 sVar1;
-	b32 open;
-	int iVar3;
-	u32 bit;
-	int iVar5;
-	int uVar6;
-	s16 sVar7;
-	s16 sVar8;
-	s16 *psVar9;
-	s16 *psVar10;
-	int pos3D[3];
-	int local_40;
-	int local_3c;
-	int local_38;
-	int local_34;
-	int local_30;
-	int local_2c;
-
-	gGT = sdata->gGT;
-	adv = &sdata->advProgress;
-	levelID = gGT->levelID;
-
-	psVar10 = D232.hubItemsXY_ptrArray[levelID - GEM_STONE_VALLEY];
-	if (*psVar10 != -1)
+	s32 posX = inputX;
+	s32 posY = inputY;
+	s16 i;
+	SVec2 basePos[3];
+	SVec2 drawPos[3];
+	register s32 sin CTR_PSX_REGISTER("$8");
+	s32 cos;
+	const struct TrigTable *table = AH_TRIG_TABLE;
+	s32 scaleX;
+	scaleX = (scale * 8) / 5;
+	sin = CTR_ReadU32AlignedLE(&table[angle & 0x3ff]);
+	if ((angle & 0x400) != 0)
 	{
-		psVar9 = psVar10 + 1;
+		cos = (s16)sin;
+		sin = sin >> 16;
+		if ((angle & 0x800) != 0)
+			sin = -sin;
+		else
+			cos = -cos;
+	}
+	else
+	{
+		cos = sin >> 16;
+		sin = (s16)sin;
+		if ((angle & 0x800) != 0)
+		{
+			cos = -cos;
+			sin = -sin;
+		}
+	}
+
+	{
+		SVec2 *transformed;
+		i = 0;
+		transformed = basePos;
+		for (; i < 3; i++)
+		{
+			SVec2 *point = transformed + i;
+			s32 x = (((((positions[i].x * cos) >> 12) + ((positions[i].y * sin) >> 12)) * (s16)scaleX) >> 12) + 6;
+			s32 y;
+			point->x = posX + x;
+			y = (((((positions[i].y * cos) >> 12) - ((positions[i].x * sin) >> 12)) * scale) >> 12) + 4;
+			point->y = posY + y;
+		}
+	}
+
+	{
+		for (i = 0; i < 5; i++)
+		{
+			{
+				s16 j;
+				for (j = 0; j < 3; j++)
+				{
+					drawPos[j].x = basePos[j].x + AH_ARROW_PRIM_OFFSETS[i].x;
+
+					drawPos[j].y = basePos[j].y + AH_ARROW_PRIM_OFFSETS[i].y;
+				}
+			}
+
+			RECTMENU_DrawRwdTriangle(CTR_VECTOR_DATA(&(drawPos[0])), colors, GAME_TRACKER->pushBuffer_UI.ptrOT, &GAME_TRACKER->backBuffer->primMem);
+
+			colors = (char *)AH_TRIANGLE_COLOR;
+		}
+	}
+}
+
+void AH_Map_HubArrowOuter(struct UIMap *map, s32 arrowIndex, s32 inputX, s32 inputY, s32 inputAngle, s32 type)
+{
+	register s32 posX CTR_PSX_REGISTER("$23");
+	register s32 posY CTR_PSX_REGISTER("$22");
+	const SVec2 *innerOffsets = AH_MAP_INNER_OFFSETS;
+	u32 timer, phase;
+	s32 red;
+	s32 green;
+	s32 blue;
+	s32 step;
+	s32 limit;
+	s16 outlineIndex;
+	s32 loopType;
+	register s32 typeID CTR_PSX_REGISTER("$8");
+	register s32 direction CTR_PSX_REGISTER("$9");
+	s32 angleBits;
+	(void)map;
+	arrowIndex = (s16)arrowIndex;
+	// NOTE(aalhendi): Preserve the full-width argument read before signed-halfword narrowing.
+	CTR_PSX_OBSERVE_VALUE(type);
+	{
+		register s32 typeBits CTR_PSX_REGISTER("$2") = (s32)((u32)type << 16);
+		typeID = typeBits >> 16;
+	}
+	{
+		register s32 offsetX CTR_PSX_REGISTER("$3") = innerOffsets[typeID].x;
+		register s32 offsetY CTR_PSX_REGISTER("$2") = innerOffsets[typeID].y;
+		posX = inputX + offsetX;
+		posY = inputY + offsetY;
+	}
+	timer = FPS_HALF(GAME_TRACKER->timer);
+	phase = ~(timer + arrowIndex * AH_MAP_ARROW_OUTLINE_PHASE_STEP) & AH_MAP_ARROW_OUTLINE_PHASE_MASK;
+	direction = inputAngle;
+	switch (typeID)
+	{
+	case AH_MAP_ARROW_WARPPAD_TROPHY:
+		green = (timer & 1) ? 0xe0 : 0x40;
+		red = green;
+		blue = 0xff;
+		step = AH_MAP_ARROW_OUTLINE_TROPHY_STEP;
+		break;
+	case AH_MAP_ARROW_HUB_ROUTE:
+	{
+		s32 index;
+		const SVec2 *routeOffsets;
+		red = 0xff;
+		blue = red;
+		green = (timer & 1) ? 0xe0 : 0x40;
+		step = AH_MAP_ARROW_OUTLINE_ROUTE_STEP;
+		routeOffsets = AH_MAP_OUTER_OFFSETS;
+		index = ((u32)inputAngle >> 10) & 3;
+		posX += routeOffsets[index].x;
+		posY += routeOffsets[index].y;
+		break;
+	}
+	case AH_MAP_ARROW_BOSS:
+	default:
+		green = (FPS_HALF(GAME_TRACKER->timer) & 1) ? 0xe0 : 0x40;
+		red = green;
+		blue = 0xff;
+		step = AH_MAP_ARROW_OUTLINE_BOSS_STEP;
+		direction ^= 0x800;
+		break;
+	}
+	outlineIndex = 0;
+	limit = step + 0xfff;
+	loopType = (s16)type;
+	angleBits = (s32)((u32)direction << 16);
+	for (; outlineIndex < AH_MAP_ARROW_OUTLINE_COUNT; outlineIndex++)
+	{
+		s32 radius;
+		s32 radiusX;
+		// NOTE(aalhendi): These are halfword loop states; boss outlines alternate
+		// the radius at each vertex to form a star.
+		b16 first;
+		s16 toggle;
+		s32 prevX, prevY;
+		s16 outlineAngle;
+		u32 localPhase = phase - (AH_MAP_ARROW_OUTLINE_COUNT - 1 - outlineIndex) * AH_MAP_ARROW_OUTLINE_PHASE_DELAY;
+		if (localPhase >= AH_MAP_ARROW_OUTLINE_VISIBLE_PHASES)
+			continue;
+		radius = (s16)(localPhase * AH_MAP_ARROW_OUTLINE_RADIUS_MUL + AH_MAP_ARROW_OUTLINE_RADIUS_BIAS) >> 10;
+		radiusX = (radius * 8) / 5;
+		prevX = 0;
+		first = true;
+		toggle = first;
+		outlineAngle = prevX;
+		prevY = prevX;
+		if (limit != 0)
+		{
+			s32 heading = angleBits >> 16;
+			const struct TrigTable *table = AH_TRIG_TABLE;
+			do
+			{
+				s32 angle, cos, shift;
+				register s32 sin CTR_PSX_REGISTER("$3");
+				register s32 x CTR_PSX_REGISTER("$17");
+				s32 y;
+				s32 cosineProduct;
+				if (loopType != AH_MAP_ARROW_BOSS)
+					toggle = 0;
+				angle = outlineAngle + heading;
+				sin = CTR_ReadU32AlignedLE(&table[angle & 0x3ff]);
+				if (angle & 0x400)
+				{
+					cos = (s16)sin;
+					sin >>= 16;
+					if (angle & 0x800)
+						sin = -sin;
+					else
+						cos = -cos;
+				}
+				else
+				{
+					cos = sin >> 16;
+					sin = (s16)sin;
+					if (angle & 0x800)
+					{
+						cos = -cos;
+						sin = -sin;
+					}
+				}
+				sin = radiusX * sin;
+
+				cosineProduct = radius * cos;
+				shift = (toggle & 1) + 12;
+				sin >>= shift;
+				y = posY - (cosineProduct >> shift);
+				// NOTE(aalhendi): Keep the multiply result live through the Y transform.
+				CTR_PSX_OBSERVE_VALUE(cosineProduct);
+				x = posX + sin;
+				if (!first)
+				{
+					register s32 wireRed CTR_PSX_REGISTER("$3") = (s16)red;
+					CTR_Box_DrawWirePrims(prevX, prevY, x, y, wireRed, green, blue, GAME_TRACKER->pushBuffer_UI.ptrOT, &GAME_TRACKER->backBuffer->primMem);
+				}
+				prevX = x;
+				prevY = y;
+				first = false;
+				outlineAngle += step;
+				toggle++;
+			} while (outlineAngle < limit);
+		}
+	}
+}
+
+void AH_Map_HubItems(struct UIMap *map, s16 *arrowCounter)
+{
+	struct HubItem *item = AH_MAP_HUB_ITEMS[GAME_TRACKER->levelID - GEM_STONE_VALLEY];
+	Vec3 pos3D;
+
+	if (item->posX != AH_HUB_ITEM_LIST_END_POS_X)
+	{
 		do
 		{
-			sVar8 = -1;
-			sVar8 = -1;
-			sVar7 = (s16)0xffffffff; //???
-			sVar7 = -1;
-			sVar7 = -1;
+			s16 bossState = AH_MAP_BOSS_ITEM_NONE;
+			s16 routeLockState = -1;
+			b32 open = true;
+			s16 i;
 
-			// iconType
-			sVar1 = psVar9[2];
-
-			open = true;
-
-			// Arrow beach->gemstone
-			if (sVar1 == -1)
+			switch (item->iconType)
 			{
-				sVar7 = 0;
-
-				if (levelID == N_SANITY_BEACH)
-				{
-					// locked if key < 1
-					sVar7 = (gGT->currAdvProfile.numKeys < 1);
-				}
-
-			LAB_800b17e8:
-				iVar5 = sVar7 << 0x10;
-				sVar8 = sVar8;
-				sVar7 = (s16)sVar7;
-			LAB_800b17ec:
-				iVar5 = iVar5 >> 0x10;
+			case AH_HUB_ITEM_SAVE_LOAD_MARKER:
+			{
+				s32 saveLoadPosX = item->posX - 0x200;
+				s32 saveLoadPosY = item->posY - 0x100;
+				UI_Map_GetIconPos(map, &saveLoadPosX, &saveLoadPosY);
+				AH_Map_LoadSave_Full((s16)saveLoadPosX, (s16)saveLoadPosY, AH_MAP_SAVE_POS, (char *)AH_MAP_SAVE_COLORS, 0x800, item->angle);
+				break;
 			}
-			else
+			case AH_HUB_ITEM_ROUTE_KEY3:
+				routeLockState = GAME_TRACKER->currAdvProfile.numKeys < 3;
+				break;
+			case AH_HUB_ITEM_ROUTE_KEY2:
+				routeLockState = GAME_TRACKER->currAdvProfile.numKeys < 2;
+				break;
+			case AH_HUB_ITEM_ROUTE_KEY1_IF_BEACH:
+				routeLockState = 0;
+				if (GAME_TRACKER->levelID == N_SANITY_BEACH)
+					routeLockState = GAME_TRACKER->currAdvProfile.numKeys < 1;
+				break;
+			case AH_HUB_ITEM_ROUTE_OPEN_B:
+				routeLockState = 0;
+				break;
+			case AH_HUB_ITEM_ROUTE_OPEN_A:
+				routeLockState = 0;
+				break;
+			case AH_HUB_ITEM_RIPPER_ROO_GARAGE:
+			case AH_HUB_ITEM_PAPU_PAPU_GARAGE:
+			case AH_HUB_ITEM_KOMODO_JOE_GARAGE:
+			case AH_HUB_ITEM_PINSTRIPE_GARAGE:
 			{
-				if (-1 < sVar1)
-				{
-					sVar7 = sVar7;
-
-					// gemstone valley
-					if (sVar1 == 4)
-					{
-						iVar3 = 0;
-						iVar5 = 0;
-
+				s32 base = (GAME_TRACKER->levelID - N_SANITY_BEACH) * AH_HUB_TRACK_COUNT * sizeof(s16);
 #ifdef CTR_AP
-						// AP (WO-A1): light Oxide's garage from the SAME authority
-						// its physical door uses (AP_OxideGarageOpen, AH_Garage.c),
-						// exactly as the four boss garages below already delegate to
-						// AP_BossGarageOpen. The vanilla loop reads the four key bits,
-						// which AP_ApplyItems rewrites from RECEIVED Keys every
-						// reconcile tick -- so it would paint the garage open on Key 4
-						// while the composed-goal gate correctly keeps the door shut.
-						if (ctr_cfg_active())
-						{
-							open = (AP_OxideGarageOpen() != 0);
-						}
-						else
+				// AP: light the garage from the SAME authority its physical door
+				// uses (AP_BossGarageOpen, see AH_Garage.c) so the map matches
+				// whether it actually opens. AP fills trophy bits by COUNT (high-
+				// end first), never the specific hub-track bits the vanilla loop
+				// checks -- so that loop keeps the garage dark on the map even when
+				// the door opens (e.g. 4 trophies received). The boss index is
+				// levelID - N_SANITY_BEACH (GEM_STONE_VALLEY and N_SANITY_BEACH are
+				// consecutive level IDs).
+				if (ctr_cfg_active())
+				{
+					open = (AP_BossGarageOpen(GAME_TRACKER->levelID - N_SANITY_BEACH) != 0);
+				}
+				else
 #endif
+				{
+					for (i = 0; i < AH_HUB_TRACK_COUNT; i++)
+					{
+						if (!CHECK_ADV_BIT(GAME_ADV_PROGRESS.rewards, *(s16 *)((u8 *)AH_HUB_TRACK_IDS + base + i * sizeof(s16)) + ADV_REWARD_FIRST_TROPHY))
 						{
-							// check 4 boss keys
-							for (iVar3 = 0; iVar3 < 4; iVar3++)
-							{
-								bit = iVar3 + ADV_REWARD_FIRST_BOSS_KEY;
-
-								if (CHECK_ADV_BIT(adv->rewards, bit) == 0)
-								{
-									open = false;
-									break;
-								}
-							}
+							open = false;
+							break;
 						}
-						if (!open)
-						{
-						LAB_800b17e4:
-							sVar8 = 0;
-							goto LAB_800b17e8;
-						}
-						sVar7 = sdata->advProgress.storyFlags & ADV_REWARD_BEAT_OXIDE_FIRST_BOSS_MASK;
 					}
-
-					// not gemstone valley
+				}
+				if ((s16)open)
+				{
+					b32 beaten;
+					bossState = AH_MAP_BOSS_ITEM_OPEN;
+#ifdef CTR_AP
+					// AP: "beaten" must key off the boss-race LOCATION being
+					// checked, not the key AdvProgress bit -- in AP those bits
+					// double as the RECEIVED-Key pool, so holding Keys must not
+					// paint the star and a garage you personally beat must read
+					// done. Override, not OR: the AdvProgress mirror is rewritten
+					// from received Keys every frame. #458 follow-up: under a
+					// Bosses goal that still needs bosses, "beaten" is the
+					// player's own win, so a boss checked by another player's
+					// Collect keeps its glow (AP_BossMapStarBeaten).
+					if (ctr_cfg_active())
+						beaten = AP_BossMapStarBeaten(GAME_TRACKER->levelID - N_SANITY_BEACH) != 0;
 					else
+#endif
+						beaten = CHECK_ADV_BIT(GAME_ADV_PROGRESS.rewards, GAME_TRACKER->levelID + ADV_REWARD_FIRST_BOSS_KEY - N_SANITY_BEACH) != 0;
+					if (beaten)
 					{
-						iVar5 = 0;
-
-						if (3 < sVar1)
-						{
-							iVar5 = -0x10000;
-							sVar8 = sVar8;
-
-							// saveLoad screen (0x64)
-							if (sVar1 == 100)
-							{
-								local_40 = (int)*psVar10 + -0x200;
-								local_3c = (int)*psVar9 + -0x100;
-
-								UI_Map_GetIconPos(hubPtrs, &local_40, &local_3c);
-
-								AH_Map_LoadSave_Full(local_40, local_3c, &D232.loadSave_pos[0], (char *)&D232.loadSave_col[0], 0x800, (int)psVar9[1]);
-
-								iVar5 = -0x10000;
-							}
-							goto LAB_800b17ec;
-						}
-
-						// did not use GOTO,
-						// must be == 3, for Boss Garage
-
-						int base = levelID - N_SANITY_BEACH;
-
+						bossState = AH_MAP_BOSS_ITEM_COMPLETE;
 #ifdef CTR_AP
-						// AP: light the garage from the SAME authority its physical door
-						// uses (AP_BossGarageOpen, see AH_Garage.c) so the map matches
-						// whether it actually opens. AP fills trophy bits by COUNT (high-
-						// end first), never the specific hub-track bits the vanilla loop
-						// checks -- so that loop keeps the garage dark on the map even when
-						// the door opens (e.g. 4 trophies received). base == bossIdx here
-						// (GEM_STONE_VALLEY and N_SANITY_BEACH are consecutive level IDs, so
-						// levelID - N_SANITY_BEACH == (levelID - GEM_STONE_VALLEY) - 1).
+						// AP: a checked boss-race location removes the star
+						// entirely. Garages only; the Oxide icon keeps its marker.
 						if (ctr_cfg_active())
-						{
-							open = (AP_BossGarageOpen(base) != 0);
-						}
-						else
-#endif
-						{
-							s16 *trophies = &data.advHubTrackIDs[base * 4];
-							for (iVar3 = 0; iVar3 < 4; iVar3++)
-							{
-								if (CHECK_ADV_BIT(adv->rewards, trophies[iVar3] + ADV_REWARD_FIRST_TROPHY) == 0)
-								{
-									open = false;
-									break;
-								}
-							}
-						}
-						if (!open)
-						{
-							goto LAB_800b17e4;
-						}
-
-						// check if key is unlocked
-#ifdef CTR_AP
-						// AP: "beaten" must key off the boss-race LOCATION being
-						// checked, not the key AdvProgress bit -- in AP those bits
-						// double as the RECEIVED-Key pool (the exact trap the goal-3
-						// rework avoids), so holding Keys must not paint the star and
-						// a garage you personally beat must read done (live find,
-						// 2026-07-15 playtest). Override, not OR: the AdvProgress
-						// mirror is rewritten from received Keys every frame, so it
-						// must not feed sVar7 at all in AP. #458 follow-up: under a
-						// Bosses goal that still needs bosses, "beaten" is the
-						// player's own win, so a boss checked by another player's
-						// Collect keeps its glow (AP_BossMapStarBeaten).
-						if (ctr_cfg_active())
-						{
-							sVar7 = (s16)AP_BossMapStarBeaten(base);
-						}
-						else
-#endif
-						{
-							sVar7 = CHECK_ADV_BIT(adv->rewards, base + ADV_REWARD_FIRST_BOSS_KEY);
-						}
-					}
-
-					// open, not beaten
-					sVar8 = 1;
-
-					iVar5 = -0x10000;
-
-					// boss is beaten
-					if (sVar7 != 0)
-					{
-						sVar8 = 2;
-#ifdef CTR_AP
-						// AP: a checked boss-race location removes the star entirely
-						// (sVar8 = -1 skips the marker block at `if (-1 < sVar8)`).
-						// Guard on sVar1 == 3: the Oxide icon (sVar1 == 4) shares this
-						// tail and must keep its own marker (out of #84's scope).
-						if (ctr_cfg_active() && sVar1 == 3)
-						{
-							sVar8 = -1;
-						}
+							bossState = AH_MAP_BOSS_ITEM_NONE;
 #endif
 					}
-					goto LAB_800b17ec;
 				}
-
-				// Arrow beach->glacier
-				if (sVar1 == -4)
-				{
-					// locked if keys < 2
-					sVar7 = ((gGT->currAdvProfile.numKeys) < 2);
-					goto LAB_800b17e8;
-				}
-				if (sVar1 < -3)
-				{
-					// Arrow glacier->citadel
-					if (sVar1 == -5)
-					{
-						// locked if keys < 3
-						sVar7 = ((gGT->currAdvProfile.numKeys) < 3);
-						goto LAB_800b17e8;
-					}
-					iVar5 = -1;
-				}
-
 				else
+					bossState = AH_MAP_BOSS_ITEM_LOCKED;
+				break;
+			}
+			case AH_HUB_ITEM_OXIDE_WARPPAD:
+#ifdef CTR_AP
+				// AP (WO-A1): light Oxide's garage from the SAME authority
+				// its physical door uses (AP_OxideGarageOpen, AH_Garage.c),
+				// exactly as the four boss garages above already delegate to
+				// AP_BossGarageOpen. The vanilla loop reads the four key bits,
+				// which AP_ApplyItems rewrites from RECEIVED Keys every
+				// reconcile tick -- so it would paint the garage open on Key 4
+				// while the composed-goal gate correctly keeps the door shut.
+				if (ctr_cfg_active())
 				{
-					// either arrow on Gemstone hub,
-					// pointing to beach or to ruins
-					if ((sVar1 == -3) || (sVar1 == -2))
+					open = (AP_OxideGarageOpen() != 0);
+				}
+				else
+#endif
+				{
+					for (i = 0; i < AH_BOSS_KEY_COUNT; i++)
 					{
-						// never locked
-						sVar7 = 0;
-
-						goto LAB_800b17e8;
+						if (!CHECK_ADV_BIT(GAME_ADV_PROGRESS.rewards, i + ADV_REWARD_FIRST_BOSS_KEY))
+						{
+							open = false;
+							break;
+						}
 					}
-					iVar5 = -1;
+				}
+				if ((s16)open)
+				{
+					bossState = AH_MAP_BOSS_ITEM_OPEN;
+					if (GAME_ADV_PROGRESS.rewards[ADV_PROGRESS_WORD_STORY] & ADV_REWARD_BEAT_OXIDE_FIRST_BOSS_MASK)
+						bossState = AH_MAP_BOSS_ITEM_COMPLETE;
+				}
+				else
+					bossState = AH_MAP_BOSS_ITEM_LOCKED;
+				break;
+			}
+
+			if (routeLockState >= 0)
+			{
+				int routePosX = (int)item->posX - 0x200;
+				int routePosY = (int)item->posY - 0x100;
+
+				UI_Map_GetIconPos(map, &routePosX, &routePosY);
+				if ((routeLockState == 0) && (AH_MAP_ARROW_DRAWN == 0))
+				{
+					AH_Map_HubArrowOuter(map, (int)*arrowCounter, routePosX, routePosY, (s16)(0x1000 - (u16)item->angle), AH_MAP_ARROW_HUB_ROUTE);
+					*arrowCounter = *arrowCounter + 1;
+				}
+
+				{
+					SVec2 *arrowPos = AH_MAP_ARROW_POS;
+					register s32 colorByteOffset CTR_PSX_REGISTER("$3") = routeLockState;
+					s32 twiceState = colorByteOffset * 2;
+					s32 x = (s16)routePosX;
+					s32 y = (s16)routePosY;
+					char *colors;
+
+					// Two flashing RGB triplets for each route state.
+					if (FPS_HALF(GAME_TRACKER->timer) & 2)
+						colorByteOffset = (twiceState + 1) * 3;
+					else
+						colorByteOffset = colorByteOffset * 4 + twiceState;
+					colorByteOffset *= sizeof(u32);
+					colors = (char *)AH_MAP_ARROW_COLORS + colorByteOffset;
+
+					// NOTE(aalhendi): Keep the color address complete before preparing
+					// the stack arguments; native needs no scheduling constraint.
+					CTR_PSX_OBSERVE_VALUE(colors);
+					AH_Map_HubArrow(x, y, arrowPos, colors, 0x800, item->angle);
 				}
 			}
 
-			if (-1 < iVar5)
+			if (bossState >= AH_MAP_BOSS_ITEM_LOCKED)
 			{
-				local_38 = (int)*psVar10 + -0x200;
-				local_34 = (int)*psVar9 + -0x100;
-				UI_Map_GetIconPos(hubPtrs, &local_38, &local_34);
-				if ((iVar5 == 0) && (D232.unkModeHubItems == 0))
-				{
-					AH_Map_HubArrowOutter(hubPtrs, (int)*param_2, local_38, local_34, (0x1000 - (u16)psVar9[1]), 1);
-					*param_2 = *param_2 + 1;
-				}
+				s16 bossIconColor;
+				pos3D.x = (int)item->posX;
+				pos3D.y = 0;
+				pos3D.z = (int)item->posY;
 
-				// if even frame
-				if ((FPS_HALF(gGT->timer) & 2) == 0)
+				if (bossState != AH_MAP_BOSS_ITEM_COMPLETE)
 				{
-					iVar5 = (int)sVar7 * 6;
+					if (bossState == AH_MAP_BOSS_ITEM_OPEN)
+						bossIconColor = (FPS_HALF(GAME_TRACKER->timer) & 2) ? AH_MAP_COLOR_FLASH_SECONDARY : AH_MAP_COLOR_FLASH_PRIMARY;
+					else
+						bossIconColor = AH_MAP_COLOR_LOCKED;
 				}
 				else
 				{
-					iVar5 = ((int)sVar7 * 2 + 1) * 3;
+					bossIconColor = AH_MAP_COLOR_COMPLETE;
 				}
 
-				AH_Map_HubArrow(local_38, local_34, &D232.hubArrow_pos[0], (char *)&D232.hubArrow_col1[iVar5], 0x800, (int)psVar9[1]);
-			}
-
-			if (-1 < sVar8)
-			{
-				pos3D[0] = (int)*psVar10;
-				pos3D[1] = 0;
-				pos3D[2] = (int)*psVar9;
-
-				// if beat boss race
-				if (sVar8 == 2)
 				{
-					// red
-					uVar6 = 3;
-				}
-				else
-				{
-					// locked boss race
-					// sVar6 == 0
+					s32 state = bossState;
 
-					// grey
-					uVar6 = 0x17;
-
-					// open, not beaten
-					if (sVar8 == 1)
+					// Open, not beaten: point towards this boss.
+					if (state == AH_MAP_BOSS_ITEM_OPEN)
 					{
-						// blue and white
-						// depending on frames
-						uVar6 = 5;
-						if ((FPS_HALF(gGT->timer) & 2) != 0)
-						{
-							uVar6 = 4;
-						}
+						int bossArrowPosX;
+						int bossArrowPosY;
+						AH_MAP_ARROW_DRAWN = state;
+
+						bossArrowPosX = pos3D.x;
+						bossArrowPosY = pos3D.z;
+
+						UI_Map_GetIconPos(map, &bossArrowPosX, &bossArrowPosY);
+
+						AH_Map_HubArrowOuter(map, (int)*arrowCounter, bossArrowPosX, bossArrowPosY, 0, AH_MAP_ARROW_BOSS);
+						*arrowCounter = *arrowCounter + 1;
 					}
-				}
-
-				// open, not beaten
-				if (sVar8 == 1)
-				{
-					D232.unkModeHubItems = sVar8;
-					local_30 = pos3D[0];
-					local_2c = pos3D[2];
-
-					UI_Map_GetIconPos(hubPtrs, &local_30, &local_2c);
-
-					AH_Map_HubArrowOutter(hubPtrs, (int)*param_2, local_30, local_2c, 0, 2);
-
-					*param_2 = *param_2 + 1;
 				}
 
 				// draw star icon for boss
-				UI_Map_DrawRawIcon((int)hubPtrs, &pos3D[0], 0x37, uVar6, 0, 0x1000);
+				UI_Map_DrawRawIcon(map, (const VecElement *)&pos3D, AH_MAP_ICON_BOSS_STAR, bossIconColor, 0, 0x1000);
 			}
-			psVar10 = psVar10 + 4;
-			psVar9 = psVar9 + 4;
-		} while (*psVar10 != -1);
+			item++;
+		} while (item->posX != AH_HUB_ITEM_LIST_END_POS_X);
 	}
-	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b1a18-0x800b1c90.
-void AH_Map_Warppads(s16 *ptrMap, struct Thread *warppadThread, s16 *param_3)
+void AH_Map_Warppads(struct UIMap *map, struct Thread *warppadThread, s16 *arrowCounter)
 {
-	struct GameTracker *gGT = sdata->gGT;
-	struct Instance *warppadInst;
-	struct Instance *closestWarppadInst;
-	int distX;
-	int distY;
-	int distZ;
-	int color;
-	int currDistance;
-	int minDistance;
-	int posX;
-	int posY;
-
-	// find minDistance, set to max
-	minDistance = 0x7fffffff;
-	closestWarppadInst = NULL;
-
-	MATRIX *dMat = &gGT->drivers[0]->instSelf->matrix;
+	struct Instance *closestWarppadInst = NULL;
+	int minDistance = 0x7fffffff;
 
 	for (
 	    /**/; warppadThread != NULL; warppadThread = warppadThread->siblingThread)
 	{
-		int index = warppadThread->modelIndex;
-		int isTrophy = 0;
-		int skipDistance = 0;
+		Vec3 delta;
+		int currDistance;
+		int visualState = warppadThread->modelIndex;
+		b16 drawsTrophyArrow = false;
+		b16 skipSound = false;
 
-		warppadInst = warppadThread->inst;
+		struct Instance *warppadInst = warppadThread->inst;
+		s16 color;
 
-		switch ((u32)index)
+		switch ((u32)visualState)
 		{
-		case 0:
-			color = 0x17;
-			skipDistance = 1;
+		case AH_WP_VISUAL_LOCKED:
+			skipSound = true;
+			color = AH_MAP_COLOR_LOCKED;
 			break;
-		case 1:
-			color = 5;
-			if ((FPS_HALF(gGT->timer) & 2) != 0)
+		case AH_WP_VISUAL_TROPHY_OPEN:
+			color = AH_MAP_COLOR_FLASH_PRIMARY;
+			if ((FPS_HALF(GAME_TRACKER->timer) & 2) != 0)
 			{
-				color = 4;
+				color = AH_MAP_COLOR_FLASH_SECONDARY;
 			}
-			isTrophy = 1;
+			drawsTrophyArrow = true;
 			break;
-		case 2:
-			color = 3;
+		case AH_WP_VISUAL_COMPLETE:
+			color = AH_MAP_COLOR_COMPLETE;
 			break;
-		case 3:
-			color = 0xe;
+		case AH_WP_VISUAL_RELIC_TOKEN_OPEN:
+			color = AH_MAP_COLOR_RELIC_TOKEN;
 			break;
-		case 4:
+		case AH_WP_VISUAL_COLOR_CYCLE_OPEN:
 			// Each Slide Coliseum/Turbo Track color lasts two frames.
-			color = ((FPS_HALF(gGT->timer) >> 1) & 7) + 5;
+			color = (((u32)FPS_HALF(GAME_TRACKER->timer) >> 1) & 7) + AH_MAP_COLOR_FLASH_PRIMARY;
 			break;
 		default:
-			color = 0x15;
-			skipDistance = 1;
+			skipSound = true;
+			color = AH_MAP_COLOR_INVALID;
 			break;
 		}
 
 #ifdef CTR_AP
 		// AP Warp-Pad State Model v2: one honest map, always on. Whenever slot_data
-		// is active, EVERY warp-pad icon (locked ones included -- vanilla skipped
-		// them via skipDistance) is coloured from the unified AP_PadState of its
-		// DESTINATION track, so the player reads the pad's state off the map without
-		// a mode switch. Pure colour override -- no geometry change, and skipDistance
-		// still governs the proximity-sound distance check below (gameplay untouched).
+		// is active, EVERY warp-pad icon (locked ones included) is coloured from
+		// the unified AP_PadState of its DESTINATION track, so the player reads
+		// the pad's state off the map without a mode switch. Pure colour
+		// override -- no geometry change, and skipSound still governs the
+		// proximity-sound distance check below (gameplay untouched).
 		//   1 Locked      -> RED
 		//   2 Raceable    -> GREEN, vanilla-style two-tone flicker (timer & 2)
 		//   3 Re-locked   -> ORANGE (did something here, more items needed)
@@ -657,7 +704,7 @@ void AH_Map_Warppads(s16 *ptrMap, struct Thread *warppadThread, s16 *param_3)
 				// The map_flash option (ap-config.txt) turns the flicker off ->
 				// static GREEN. AP_MapFlashOn() defaults to 1 (flicker on).
 				color = LIGHT_GREEN;
-				if (AP_MapFlashOn() && (FPS_HALF(gGT->timer) & 2) != 0)
+				if (AP_MapFlashOn() && (FPS_HALF(GAME_TRACKER->timer) & 2) != 0)
 					color = FOREST_GREEN;
 			}
 			else if (st == 3)
@@ -669,7 +716,7 @@ void AH_Map_Warppads(s16 *ptrMap, struct Thread *warppadThread, s16 *param_3)
 				// the cadence alone separates "race open" from "checks remain".
 				// Honours the map_flash opt-out exactly like GREEN.
 				color = PERIWINKLE;
-				if (AP_MapFlashOn() && (FPS_HALF(gGT->timer) & 4) != 0)
+				if (AP_MapFlashOn() && (FPS_HALF(GAME_TRACKER->timer) & 4) != 0)
 					color = BLUE;
 			}
 			else if (st == 5)
@@ -677,35 +724,38 @@ void AH_Map_Warppads(s16 *ptrMap, struct Thread *warppadThread, s16 *param_3)
 		}
 #endif
 
-		if (isTrophy)
+		if (color >= 0)
 		{
-			// get posZ in 3D, turns into posY in 2D
-			posX = warppadInst->matrix.t[0];
-			posY = warppadInst->matrix.t[2];
+			if ((s16)drawsTrophyArrow)
+			{
+				// get posZ in 3D, turns into posY in 2D
+				int arrowPosX = warppadInst->matrix.t[0];
+				int arrowPosY = warppadInst->matrix.t[2];
 
-			D232.unkModeHubItems = 1;
+				AH_MAP_ARROW_DRAWN = 1;
 
-			// Get Icon Dimensions
-			UI_Map_GetIconPos(ptrMap, &posX, &posY);
+				// Get Icon Dimensions
+				UI_Map_GetIconPos(map, &arrowPosX, &arrowPosY);
 
-			AH_Map_HubArrowOutter(ptrMap, (int)*param_3, posX, posY, 0, 0);
+				AH_Map_HubArrowOuter(map, (int)*arrowCounter, arrowPosX, arrowPosY, 0, AH_MAP_ARROW_WARPPAD_TROPHY);
 
-			*param_3 = *param_3 + 1;
+				*arrowCounter = *arrowCounter + 1;
+			}
+
+			UI_Map_DrawRawIcon(map, &warppadInst->matrix.t[0], AH_MAP_ICON_WARPPAD, color, 0, 0x1000);
 		}
 
-		UI_Map_DrawRawIcon((int)ptrMap, (int *)&warppadInst->matrix.t[0], 0x31, color, 0, 0x1000);
-
-		if (skipDistance)
+		if ((s16)skipSound)
 		{
 			// skip distance check
 			continue;
 		}
 
-		distX = warppadInst->matrix.t[0] - dMat->t[0];
-		distY = warppadInst->matrix.t[1] - dMat->t[1];
-		distZ = warppadInst->matrix.t[2] - dMat->t[2];
+		delta.x = warppadInst->matrix.t[0] - GAME_TRACKER->drivers[0]->instSelf->matrix.t[0];
+		delta.y = warppadInst->matrix.t[1] - GAME_TRACKER->drivers[0]->instSelf->matrix.t[1];
+		delta.z = warppadInst->matrix.t[2] - GAME_TRACKER->drivers[0]->instSelf->matrix.t[2];
 
-		currDistance = SquareRoot0_stub(distX * distX + distY * distY + distZ * distZ);
+		currDistance = SquareRoot0_stub(delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);
 
 		if (minDistance > currDistance)
 		{
@@ -724,38 +774,38 @@ void AH_Map_Warppads(s16 *ptrMap, struct Thread *warppadThread, s16 *param_3)
 }
 
 #if defined(CTR_NATIVE)
-force_inline void AH_MaskHint_DrawRepeatPrompt(void);
+static void AH_MaskHint_DrawRepeatPrompt(void);
 #endif
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b1c90-0x800b1ef8.
 void AH_Map_Main(void)
 {
-	struct GameTracker *gGT = sdata->gGT;
+	s16 driverIconCounter;
+	s16 arrowCounter;
 	struct Driver *advDriver;
-	struct UiElement2D *ptrHudData;
-	int iVar1;
-	int hubPtrs; // int*?
-	s16 local_20;
-	s16 local_1e[3];
+	struct UiElement2D *hud;
+	struct UIMap *map;
+	s32 raceFlagState;
+	struct GameTracker *gGT = GAME_TRACKER;
+	s32 playerCount;
 
-	// force disable speedometer
-	sdata->HudAndDebugFlags &= 0xfffffff7;
-
-	local_20 = 0;
+	playerCount = gGT->numPlyrCurrGame;
+	driverIconCounter = 0;
+	AH_HUD_FLAGS &= ~AH_MAP_HUD_AND_DEBUG_SPEEDOMETER;
 	advDriver = gGT->drivers[0];
-	ptrHudData = data.hudStructPtr[gGT->numPlyrCurrGame - 1];
-	hubPtrs = 0;
-	iVar1 = RaceFlag_GetCanDraw();
-	if (iVar1 == 0)
+	hud = AH_HUD_LAYOUTS[playerCount - 1];
+	map = NULL;
+
+	raceFlagState = RaceFlag_GetCanDraw();
+	if (raceFlagState == 0)
 	{
 		RaceFlag_SetCanDraw(1);
 	}
 
 	if (
 	    // if Aku Hint is not unlocked
-	    (CHECK_ADV_BIT(sdata->advProgress.rewards, ADV_REWARD_HINT_WELCOME_TO_ARENA) == 0) &&
+	    (AH_STORY_REWARDS & ADV_REWARD_HINT_WELCOME_TO_ARENA_MASK) == 0 &&
 
-	    (iVar1 = RaceFlag_IsFullyOffScreen(), iVar1 != 0))
+	    RaceFlag_IsFullyOffScreen())
 	{
 		// Trigger Aku Hint:
 		// Welcome to Adventure Arena
@@ -764,44 +814,39 @@ void AH_Map_Main(void)
 
 
 	// NOTE(aalhendi): Retail keeps this AI-only Adventure Hub speedometer fallback.
-	if ((gGT->numPlyrCurrGame == 0) && ((advDriver->actionsFlagSet & ACTION_BOT) != 0))
+	if ((GAME_TRACKER->numPlyrCurrGame == 0) && ((GAME_TRACKER->drivers[0]->actionsFlagSet & ACTION_BOT) != 0))
 	{
-		sdata->HudAndDebugFlags = 8;
+		AH_HUD_FLAGS = AH_MAP_HUD_AND_DEBUG_SPEEDOMETER;
 	}
 
-	if (gGT->level1->ptrSpawnType1->count != 0)
+	if (GAME_TRACKER->level1->ptrSpawnType1->count != 0)
 	{
-		void **pointers = ST1_GETPOINTERS(gGT->level1->ptrSpawnType1);
-		hubPtrs = (int)pointers[ST1_MAP]; // cast as int*?
+		void **pointers = ST1_GETPOINTERS(GAME_TRACKER->level1->ptrSpawnType1);
+		map = pointers[ST1_MAP];
 	}
 
 	// if game is not paused
-	if ((gGT->gameMode1 & PAUSE_ALL) == 0)
+	if ((GAME_TRACKER->gameMode1 & PAUSE_ALL) == 0)
 	{
 		// Jump meter and landing boost
 		UI_JumpMeter_Update(advDriver);
 	}
 
-	// Check a HUD flag
-	if ((gGT->hudFlags & 0x10) == 0
+	if ((GAME_TRACKER->hudFlags & HUD_FLAG_HIDE_ADVENTURE_MAP) == 0
 #ifdef CTR_AP
 	    // The hub minimap and its markers hide while the character picker is
-	    // open (#54/#209). They drew ON TOP of it: the map goes to
-	    // gGT->pushBuffer_UI.ptrOT and the picker's own draw call is further
-	    // down this same function, so the picker's portraits are submitted
-	    // AFTER the map, which under the ordering table's prepend-and-walk
-	    // (AddPrim, platform/native_libgpu.c:309) places them behind it. The
-	    // map's fixed corner at (500,195) sits squarely over the right-hand
-	    // tiles, so it covered them.
+	    // open (#54/#209). They drew ON TOP of it: the map goes to the UI
+	    // ordering table and the picker's own draw call is further down this
+	    // same function, so the picker's portraits are submitted AFTER the map,
+	    // which under the ordering table's prepend-and-walk places them behind
+	    // it. The map's fixed corner sits squarely over the right-hand tiles.
 	    //
 	    // Suppressing the draw is the honest fix rather than shuffling
 	    // submission order between two tables: the picker is a full-screen
 	    // modal that already holds VEH_FREEZE_DOOR, so there is nothing a
-	    // minimap can usefully say while it is up, and a skipped draw cannot be
-	    // defeated later by an ordering detail the way a re-ordering could.
-	    // This covers the whole group -- driver dots, warp pads, hub items, the
-	    // map itself and the slide meter -- because all of them overlay the
-	    // same corner of the screen.
+	    // minimap can usefully say while it is up. This covers the whole group
+	    // -- driver dots, warp pads, hub items, the map itself and the slide
+	    // meter -- because all of them overlay the same corner of the screen.
 	    //
 	    // Asked through AP_CharSwap_HubHudHidden rather than the picker flag
 	    // directly, so this site and the counters below cannot drift apart.
@@ -809,38 +854,38 @@ void AH_Map_Main(void)
 #endif
 	)
 	{
-		local_1e[0] = 0;
+		arrowCounter = 0;
 
-		D232.unkModeHubItems = 0;
+		AH_MAP_ARROW_DRAWN = 0;
 
-		UI_Map_DrawDrivers(hubPtrs, gGT->threadBuckets[0].thread, &local_20);
+		UI_Map_DrawDrivers(map, GAME_TRACKER->threadBuckets[PLAYER].thread, &driverIconCounter);
 
-		AH_Map_Warppads((s16 *)hubPtrs, gGT->threadBuckets[5].thread,
-		                (s16 *)&local_1e[0]); // local_1e index 1 and 2 are never assigned to, so garbage data?
+		AH_Map_Warppads(map, GAME_TRACKER->threadBuckets[WARPPAD].thread, &arrowCounter);
 
-		AH_Map_HubItems((void *)hubPtrs, &local_1e[0]);
+		AH_Map_HubItems(map, &arrowCounter);
 
-		UI_Map_DrawMap(gGT->ptrIcons[3], gGT->ptrIcons[4],
+		UI_Map_DrawMap(GAME_TRACKER->ptrIcons[AH_MAP_ICON_TOP_HALF], GAME_TRACKER->ptrIcons[AH_MAP_ICON_BOTTOM_HALF],
 
-		               500, 195,
+		               AH_MAP_SCREEN_POS_X, AH_MAP_SCREEN_POS_Y,
 
-		               &gGT->backBuffer->primMem, gGT->pushBuffer_UI.ptrOT, 1);
+		               &GAME_TRACKER->backBuffer->primMem, GAME_TRACKER->pushBuffer_UI.ptrOT, 1);
 
-		UI_DrawSlideMeter(ptrHudData[8].x, ptrHudData[8].y, advDriver);
+		UI_DrawSlideMeter(hud[AH_MAP_HUD_SLOT_SLIDE_METER].x, hud[AH_MAP_HUD_SLOT_SLIDE_METER].y, advDriver);
 	}
 
 #ifdef CTR_AP
 	// The relic / key / trophy counters are the same class of standing hub HUD
 	// as the map group above and hide with it. They sit across the TOP of the
 	// screen, where the map guard does not reach, and the picker's own name and
-	// portrait rows are drawn under them. Found in live play on 2026-08-12,
-	// after the map fix had already landed.
+	// portrait rows are drawn under them.
 	if (!AP_CharSwap_HubHudHidden())
 #endif
 	{
-		UI_DrawNumRelic(ptrHudData[0xE].x + 0x10, ptrHudData[0xE].y - 10);
-		UI_DrawNumKey(ptrHudData[0xF].x + 0x10, ptrHudData[0xF].y - 10);
-		UI_DrawNumTrophy(ptrHudData[0x10].x + 0x10, ptrHudData[0x10].y - 10);
+		UI_DrawNumRelic(hud[AH_MAP_HUD_SLOT_RELIC_COUNT].x + AH_MAP_HUD_COUNTER_OFFSET_X, hud[AH_MAP_HUD_SLOT_RELIC_COUNT].y + AH_MAP_HUD_COUNTER_OFFSET_Y,
+		                advDriver);
+		UI_DrawNumKey(hud[AH_MAP_HUD_SLOT_KEY_COUNT].x + AH_MAP_HUD_COUNTER_OFFSET_X, hud[AH_MAP_HUD_SLOT_KEY_COUNT].y + AH_MAP_HUD_COUNTER_OFFSET_Y, advDriver);
+		UI_DrawNumTrophy(hud[AH_MAP_HUD_SLOT_TROPHY_COUNT].x + AH_MAP_HUD_COUNTER_OFFSET_X, hud[AH_MAP_HUD_SLOT_TROPHY_COUNT].y + AH_MAP_HUD_COUNTER_OFFSET_Y,
+		                 advDriver);
 	}
 
 #ifdef CTR_AP
@@ -875,6 +920,4 @@ void AH_Map_Main(void)
 		AH_MaskHint_DrawRepeatPrompt();
 	}
 #endif
-
-	return;
 }

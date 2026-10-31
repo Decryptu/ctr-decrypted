@@ -260,7 +260,7 @@ static void AP_DumpState(struct GameTracker *gGT)
 	// Identities a valid dump must satisfy: tokens_regular == red+green+blue+
 	// yellow, tokens == tokens_regular + tokens_purple.
 	const int gameTokensRegular = gGT->currAdvProfile.numCtrTokens.total;
-	const int gameTokensPurple = gGT->currAdvProfile.numCtrTokens.purple;
+	const int gameTokensPurple = gGT->currAdvProfile.numCtrTokens.color[4];
 	AP_TextBufPrintf(f,
 	        "  \"game_counters\": {\"trophies\": %d, \"relics\": %d, "
 	        "\"keys\": %d, \"tokens\": %d, \"tokens_regular\": %d, "
@@ -270,10 +270,10 @@ static void AP_DumpState(struct GameTracker *gGT)
 	        gGT->currAdvProfile.numTrophies, gGT->currAdvProfile.numRelics,
 	        gGT->currAdvProfile.numKeys, gameTokensRegular + gameTokensPurple,
 	        gameTokensRegular,
-	        gGT->currAdvProfile.numCtrTokens.red,
-	        gGT->currAdvProfile.numCtrTokens.green,
-	        gGT->currAdvProfile.numCtrTokens.blue,
-	        gGT->currAdvProfile.numCtrTokens.yellow,
+	        gGT->currAdvProfile.numCtrTokens.color[0],
+	        gGT->currAdvProfile.numCtrTokens.color[1],
+	        gGT->currAdvProfile.numCtrTokens.color[2],
+	        gGT->currAdvProfile.numCtrTokens.color[3],
 	        gameTokensPurple,
 	        gGT->currAdvProfile.completionPercent);
 

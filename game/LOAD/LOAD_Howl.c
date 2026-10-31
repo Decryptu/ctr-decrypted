@@ -1,46 +1,50 @@
 #include <common.h>
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80032498-0x8003254c
 int LOAD_HowlHeaderSectors(CdlFILE *cdlFileHWL, void *ptrDestination, int firstSector, int numSector)
 {
 	CdlLOC loc;
+	int sizeOver;
+	u8 buf[8];
 
 	CDSYS_SetMode_StreamData();
 
 	// Return error, if reading out-of-bounds after the end of KART HWL
-	int sizeOver = ((firstSector + numSector) * 0x800 - cdlFileHWL->size);
-	if (sizeOver >= 0x800)
+	sizeOver = ((firstSector + numSector) * LOAD_CD_DATA_SECTOR_SIZE - cdlFileHWL->size);
+	if (sizeOver >= LOAD_CD_DATA_SECTOR_SIZE)
 	{
 		return 0;
 	}
 
 	CdIntToPos(CdPosToInt(&cdlFileHWL->pos) + firstSector, &loc);
 
-	u8 buf[8];
 	CdControl(CdlSetloc, (u8 *)&loc, buf);
 
-	if (CdRead(numSector, ptrDestination, 0x80) == 0)
+	if (CdRead(numSector, ptrDestination, CdlModeSpeed) == 0)
 	{
 		return 0;
 	}
 
 	if (CdReadSync(0, 0) != 0)
 	{
+		// NOTE(aalhendi): Retail branches past the zero return instead of folding the sync result into a boolean.
+		CTR_PSX_MEMORY_BARRIER();
 		return 0;
 	}
 
 	return 1;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003254c-0x80032594.
 void LOAD_HowlCallback(u8 result, u8 *unk)
 {
+	(void)unk;
 	// disable callback
 	CdReadCallback(0);
 
 	if (result == CdlComplete)
 	{
 		sdata->howlChainState = 0;
+		// NOTE(aalhendi): Retail does not move this store into the following jump's delay slot.
+		CTR_PSX_MEMORY_BARRIER();
 	}
 	else
 	{
@@ -48,10 +52,11 @@ void LOAD_HowlCallback(u8 result, u8 *unk)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80032594-0x8003266c
 int LOAD_HowlSectorChainStart(CdlFILE *cdlFileHWL, void *ptrDestination, int firstSector, int numSector)
 {
 	CdlLOC loc;
+	int sizeOver;
+	u8 buf[8];
 
 	if (numSector == 0)
 	{
@@ -63,6 +68,8 @@ int LOAD_HowlSectorChainStart(CdlFILE *cdlFileHWL, void *ptrDestination, int fir
 	sdata->howlChainParams[1] = (int)ptrDestination;
 	sdata->howlChainParams[2] = (int)firstSector;
 	sdata->howlChainParams[3] = (int)numSector;
+	// NOTE(aalhendi): Retail does not move the final parameter store into the mode-setting call's delay slot.
+	CTR_PSX_MEMORY_BARRIER();
 
 #ifdef CTR_CUSTOM_PACKAGES
 	// Box authoring build: a custom race's .sca level bank is read from the
@@ -77,34 +84,34 @@ int LOAD_HowlSectorChainStart(CdlFILE *cdlFileHWL, void *ptrDestination, int fir
 	CDSYS_SetMode_StreamData();
 
 	// Return error, if reading out-of-bounds after the end of KART HWL
-	int sizeOver = ((firstSector + numSector) * 0x800 - cdlFileHWL->size);
-	if (sizeOver >= 0x800)
+	sizeOver = ((firstSector + numSector) * LOAD_CD_DATA_SECTOR_SIZE - cdlFileHWL->size);
+	if (sizeOver >= LOAD_CD_DATA_SECTOR_SIZE)
 	{
 		return 0;
 	}
 
 	CdIntToPos(CdPosToInt(&cdlFileHWL->pos) + firstSector, &loc);
 
-	u8 buf[8];
 	CdControl(CdlSetloc, (u8 *)&loc, buf);
 
 	sdata->howlChainState = 1;
 
 	CdReadCallback(LOAD_HowlCallback);
-	return (CdRead(numSector, ptrDestination, 0x80) != 0);
+	return (CdRead(numSector, ptrDestination, CdlModeSpeed) != 0);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003266c-0x800326b4.
-int LOAD_HowlSectorChainEnd()
+#ifndef LOAD_HOWL_CHAIN_STATE_INITIAL
+#define LOAD_HOWL_CHAIN_STATE_INITIAL (sdata->howlChainState)
+#endif
+
+int LOAD_HowlSectorChainEnd(void)
 {
-	int *howlChainParams;
-	int howlChainState = sdata->howlChainState;
-	howlChainParams = sdata->howlChainParams;
+	int howlChainState = LOAD_HOWL_CHAIN_STATE_INITIAL;
 
 	if (howlChainState == -1)
 	{
-		LOAD_HowlSectorChainStart((CdlFILE *)howlChainParams[0], (void *)howlChainParams[1], howlChainParams[2], howlChainParams[3]);
-
+		LOAD_HowlSectorChainStart((CdlFILE *)sdata->howlChainParams[0], (void *)sdata->howlChainParams[1], sdata->howlChainParams[2],
+		                          sdata->howlChainParams[3]);
 		return 0;
 	}
 

@@ -1,11 +1,30 @@
-build/
-assets/*
-!assets/tracks/
-assets/tracks/*
-!assets/tracks/cortex-vortex/
-!assets/tracks/cortex-vortex/CVortex Arcade All.lev
-!assets/tracks/cortex-vortex/CVortex Arcade All.vrm
-debug/
+# Repository-wide generated and private inputs.
+#
+# Machine-specific files belong in `.git/info/exclude`.
+/build/
+/build-*/
+/cmake-build-*/
+/dist/
+/debug/
+/client-artifacts/
+
+# User-supplied retail game files. Commit descriptors and hashes, never binaries.
+# The one exception is the bundled custom track, which is redistributable.
+/assets/*
+!/assets/tracks/
+/assets/tracks/*
+!/assets/tracks/cortex-vortex/
+!/assets/tracks/cortex-vortex/CVortex Arcade All.lev
+!/assets/tracks/cortex-vortex/CVortex Arcade All.vrm
+
+# Local matching experiments and caches.
+/.cache/
+
+# Runtime state.
+/memcards/
+*.log
+
+# Compiler outputs.
 *.exe
 *.o
 *.gch
@@ -17,14 +36,12 @@ debug/
 *.depend
 *.map
 compile_commands.json
+
+# Language and editor state.
 .venv/
-.cache/
+__pycache__/
+*.py[cod]
 .vs/
 .idea/
 *.swp
 *~
-*.log
-memcards/
-__pycache__/
-build-*/
-client-artifacts/

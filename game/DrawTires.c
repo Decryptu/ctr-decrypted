@@ -83,7 +83,7 @@ static struct TrigPair DrawTiresSolid_TrigAngleSinCos(int angle)
 	return pair;
 }
 
-static int DrawTiresSolid_GetLodThreshold(char numPlyr)
+static int DrawTiresSolid_GetLodThreshold(u8 numPlyr)
 {
 	return (((int)numPlyr - 2) > 0) ? 0 : 2;
 }
@@ -93,7 +93,7 @@ static struct InstDrawPerPlayer *DrawTiresSolid_GetIdpp(struct Instance *inst, i
 	return (struct InstDrawPerPlayer *)((char *)INST_GETIDPP(inst) + (playerIndex * sizeof(struct InstDrawPerPlayer)));
 }
 
-static void DrawTiresSolid_InitScratch(struct DrawTiresScratch *scratch, char numPlyr)
+static void DrawTiresSolid_InitScratch(struct DrawTiresScratch *scratch, u8 numPlyr)
 {
 	scratch->numPlyr = numPlyr;
 	scratch->lodThreshold = DrawTiresSolid_GetLodThreshold(numPlyr);
@@ -113,7 +113,7 @@ static void DrawTiresSolid_AddHazardOffset(struct DrawTiresPackedVec3 *rim, int 
 	struct TrigPair spin = DrawTiresSolid_TrigAngleSinCos(angle);
 
 	rim->y = (s16)(rim->y + (spin.cos >> shift));
-	rim->z.lo = (s16)(rim->z.lo + (spin.sin >> shift));
+	rim->z.halves.lo = (s16)(rim->z.halves.lo + (spin.sin >> shift));
 }
 
 s32 Unknown_8006ef98(s32 radicand)
@@ -371,7 +371,7 @@ static void DrawTiresSolid_LoadCorner(struct DrawTiresScratch *scratch, int vect
 	SVec3Slot *axisB = &scratch->tireAxisB[wheelIndex];
 	int x = wheelLocal->center.x + (axisSign * axisA->x) + (rimSign * axisB->x);
 	int y = wheelLocal->center.y + (axisSign * axisA->y) + (rimSign * axisB->y);
-	int z = wheelLocal->center.z.lo + (axisSign * axisA->z) + (rimSign * axisB->z);
+	int z = wheelLocal->center.z.halves.lo + (axisSign * axisA->z) + (rimSign * axisB->z);
 
 	DrawTires_CheckWheelCorner(wheelIndex, x, y, z);
 
@@ -541,9 +541,9 @@ static void DrawTiresSolid_LinkPrimitive(struct DrawTiresScratch *scratch, POLY_
 		selectedOTSlot = otRangeEnd;
 	}
 
-	uint32_t *otSlot = (uint32_t *)(uintptr_t)selectedOTSlot;
+	u32 *otSlot = (u32 *)(u32)selectedOTSlot;
 	p->tag = CtrGpu_PackOTTag(*otSlot, 0x09000000);
-	*otSlot = (uint32_t)CtrGpu_PrimToOTLink24(p);
+	*otSlot = (u32)CtrGpu_PrimToOTLink24(p);
 }
 
 static int DrawTiresSolid_EmitProjectedWheel(struct DrawTiresScratch *scratch, struct DrawTiresSolidProjectedWheel *selected, struct PrimMem *primMem,
@@ -667,10 +667,9 @@ static int DrawTiresSolid_StagePlayer(struct DrawTiresScratch *scratch, struct D
 	return 1;
 }
 
-void DrawTires_Solid(struct Thread *thread, struct PrimMem *primMem, char numPlyr)
+void DrawTires_Solid(struct Thread *thread, struct PrimMem *primMem, u8 numPlyr)
 {
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8006e588-0x8006ef30;
-	// native uses the accepted explicit DrawTiresScratch stack/scratch ABI.
+	// Native uses the explicit DrawTiresScratch stack/scratch ABI.
 	struct DrawTiresScratch scratch = {0};
 
 	// NOTE(aalhendi): PSX-backfeed blocker: retail DrawTires_Solid owns scratchpad
@@ -718,7 +717,7 @@ struct DrawTiresReflectionProjectedWheel
 	int jumpIndex;
 };
 
-static int DrawTiresReflection_GetLodThreshold(char numPlyr)
+static int DrawTiresReflection_GetLodThreshold(u8 numPlyr)
 {
 	return (((int)numPlyr - 2) > 0) ? 0 : 2;
 }
@@ -733,7 +732,7 @@ static int DrawTiresReflection_ReadMatrixWord(MATRIX *matrix, int offset)
 	return *(int *)((char *)matrix + offset);
 }
 
-static void DrawTiresReflection_InitScratch(struct DrawTiresScratch *scratch, char numPlyr)
+static void DrawTiresReflection_InitScratch(struct DrawTiresScratch *scratch, u8 numPlyr)
 {
 	scratch->numPlyr = numPlyr;
 	scratch->lodThreshold = DrawTiresReflection_GetLodThreshold(numPlyr);
@@ -753,7 +752,7 @@ static void DrawTiresReflection_AddHazardOffset(struct DrawTiresPackedVec3 *rim,
 	struct TrigPair spin = DrawTiresSolid_TrigAngleSinCos(angle);
 
 	rim->y = (s16)(rim->y + (spin.cos >> shift));
-	rim->z.lo = (s16)(rim->z.lo + (spin.sin >> shift));
+	rim->z.halves.lo = (s16)(rim->z.halves.lo + (spin.sin >> shift));
 }
 
 static void DrawTiresReflection_BuildWheelLocalPairs(struct DrawTiresScratch *scratch, struct Driver *driver, struct Instance *inst,
@@ -972,7 +971,7 @@ static void DrawTiresReflection_LoadCorner(struct DrawTiresScratch *scratch, int
 	SVec3Slot *axisB = &scratch->tireAxisB[wheelIndex];
 	int x = wheelLocal->center.x + (axisSign * axisA->x) + (rimSign * axisB->x);
 	int y = wheelLocal->center.y + (axisSign * axisA->y) + (rimSign * axisB->y);
-	int z = wheelLocal->center.z.lo + (axisSign * axisA->z) + (rimSign * axisB->z);
+	int z = wheelLocal->center.z.halves.lo + (axisSign * axisA->z) + (rimSign * axisB->z);
 
 	DrawTires_CheckWheelCorner(wheelIndex, x, y, z);
 
@@ -1117,9 +1116,9 @@ static void DrawTiresReflection_LinkPrimitive(struct DrawTiresScratch *scratch, 
 		selectedOTSlot = otRangeEnd;
 	}
 
-	uint32_t *otSlot = (uint32_t *)(uintptr_t)selectedOTSlot;
+	u32 *otSlot = (u32 *)(u32)selectedOTSlot;
 	p->tag = CtrGpu_PackOTTag(*otSlot, 0x09000000);
-	*otSlot = (uint32_t)CtrGpu_PrimToOTLink24(p);
+	*otSlot = (u32)CtrGpu_PrimToOTLink24(p);
 }
 
 static void DrawTiresReflection_EmitProjectedWheel(struct DrawTiresScratch *scratch, struct DrawTiresReflectionProjectedWheel *selected,
@@ -1234,10 +1233,9 @@ static int DrawTiresReflection_StagePlayer(struct DrawTiresScratch *scratch, str
 	return 1;
 }
 
-void DrawTires_Reflection(struct Thread *thread, struct PrimMem *primMem, char numPlyr)
+void DrawTires_Reflection(struct Thread *thread, struct PrimMem *primMem, u8 numPlyr)
 {
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8006f004-0x8006f9a8;
-	// native uses the accepted explicit DrawTiresScratch stack/scratch ABI.
+	// Native uses the explicit DrawTiresScratch stack/scratch ABI.
 	struct DrawTiresScratch scratch = {0};
 
 	// NOTE(aalhendi): PSX-backfeed blocker: retail DrawTires_Reflection owns

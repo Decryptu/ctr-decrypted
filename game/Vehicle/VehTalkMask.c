@@ -1,102 +1,160 @@
-#include <common.h>
+#include "VehCommon.h"
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80068f90-0x80069178.
+#ifndef VEH_TALK_MASK_HEAD
+#define VEH_TALK_MASK_HEAD (sdata->s_head)
+#endif
+
+enum
+{
+	TALK_MASK_3D_MODEL_SCALE = 0x2000,
+	TALK_MASK_STATIC_MODEL_SCALE = FP(1.0),
+	TALK_MASK_SCALE_SHIFT = 0xc,
+
+	TALK_MASK_MOUTH_SAMPLE_MULTIPLIER = 7,
+	TALK_MASK_MOUTH_NEGATIVE_ROUND_BIAS = 0x3fff,
+	TALK_MASK_MOUTH_SAMPLE_SHIFT = 0xe,
+	TALK_MASK_MOUTH_SILENCE_FRAME_THRESHOLD = 2,
+	TALK_MASK_MOUTH_SNAP_TARGET_THRESHOLD = 4,
+	TALK_MASK_MOUTH_SNAP_DELTA_THRESHOLD = 4,
+	TALK_MASK_MOUTH_FINAL_LERP_DELTA_THRESHOLD = 6,
+	TALK_MASK_MOUTH_LERP_STEP = 1,
+
+	TALK_MASK_INIT_MODEL = STATIC_AKUAKU,
+	TALK_MASK_INIT_OBJECT_SIZE = 6,
+	TALK_MASK_XA_TYPE = CDSYS_XA_TYPE_EXTRA,
+};
+
+CTR_STATIC_ASSERT((s32)TALK_MASK_INIT_MODEL == (s32)STATIC_AKUAKU);
+CTR_STATIC_ASSERT((s32)STATIC_UKAUKA - 1 == (s32)STATIC_AKUAKU);
+
 void VehTalkMask_ThTick(struct Thread *t)
 {
-	struct GameTracker *gGT = sdata->gGT;
+	struct GameTracker *gGT;
 
 	struct MaskHint *mhObj = t->object;
 	struct Instance *mhInst = t->inst;
 
-	int scale = 0x2000;
+	s32 modelScale = TALK_MASK_3D_MODEL_SCALE;
+	s32 scale;
+	s32 xaSamplePeak;
+	s32 numAnimFrames;
+	s32 mouthSampleProduct;
+	s32 targetMouthFrame;
+	s32 currentMouthFrame;
+	s32 mouthFrameDelta;
+	u32 threadFlags;
+	register s32 firstLerpTarget CTR_PSX_REGISTER("$4");
 
-	if (sdata->modelMaskHints3D != 0)
+	if (VEH_MODEL_MASK_HINTS_3D != 0)
 	{
-		mhInst->model = sdata->modelMaskHints3D;
+		mhInst->model = VEH_MODEL_MASK_HINTS_3D;
+		goto ModelSelected;
 	}
-	else
+
 	{
-		scale = 0x1000;
+		gGT = GAME_TRACKER;
 
 		if (gGT->drivers[0] != 0)
 		{
-			b32 boolGoodGuy = VehPickupItem_MaskBoolGoodGuy(gGT->drivers[0]);
+			s16 boolGoodGuy;
+			s32 modelOffset;
+			u8 *modelAddress;
 
-			// 0x3A for Uka, 0x39 for Aku
-			int modelID = STATIC_UKAUKA - boolGoodGuy;
-			mhInst->model = gGT->modelPtr[modelID];
+			boolGoodGuy = VehPickupItem_MaskBoolGoodGuy(gGT->drivers[0]);
+			modelOffset = STATIC_UKAUKA * sizeof(gGT->modelPtr[0]);
+			if (boolGoodGuy != 0)
+			{
+				modelOffset = STATIC_AKUAKU * sizeof(gGT->modelPtr[0]);
+			}
+			CTR_PSX_ADD_POINTER_OFFSET(modelAddress, gGT, modelOffset);
+			mhInst->model = *(struct Model **)(modelAddress + offsetof(struct GameTracker, modelPtr));
+			CTR_PSX_OBSERVE_MEMORY(mhInst->model);
+			modelScale = TALK_MASK_STATIC_MODEL_SCALE;
+		}
+		else
+		{
+			modelScale = TALK_MASK_STATIC_MODEL_SCALE;
 		}
 	}
 
-	scale = (mhObj->scale * scale) >> 0xc;
-	mhInst->scale.x = scale;
-	mhInst->scale.y = scale;
+ModelSelected:
+
+	xaSamplePeak = VEH_XA_MAX_SAMPLE_VALUE;
+	scale = (mhObj->scale * modelScale) >> TALK_MASK_SCALE_SHIFT;
+	sdata->talkMaskXASamplePeak = xaSamplePeak;
 	mhInst->scale.z = scale;
+	mhInst->scale.y = scale;
+	mhInst->scale.x = scale;
 
-	u32 lastFrame = VehFrameInst_GetNumAnimFrames(mhInst, 0) - 1;
+	numAnimFrames = VehFrameInst_GetNumAnimFrames(mhInst, 0);
 
-	sdata->talkMaskXASamplePeak = sdata->XA_MaxSampleValInArr;
+	mouthSampleProduct = sdata->talkMaskXASamplePeak * TALK_MASK_MOUTH_SAMPLE_MULTIPLIER;
 
-	int targetMouthFrame = sdata->talkMaskXASamplePeak * 7;
-
-	if (targetMouthFrame < 0)
+	if (mouthSampleProduct < 0)
 	{
-		targetMouthFrame = targetMouthFrame + 0x3fff;
+		mouthSampleProduct += TALK_MASK_MOUTH_NEGATIVE_ROUND_BIAS;
 	}
 
-	targetMouthFrame = targetMouthFrame >> 0xe;
+	targetMouthFrame = mouthSampleProduct >> TALK_MASK_MOUTH_SAMPLE_SHIFT;
 
 	if (sdata->talkMaskMaxMouthFrame < targetMouthFrame)
 	{
 		sdata->talkMaskMaxMouthFrame = targetMouthFrame;
 	}
 
-	int desiredMouthFrame = targetMouthFrame;
-	if (targetMouthFrame < 2)
+	if (targetMouthFrame < TALK_MASK_MOUTH_SILENCE_FRAME_THRESHOLD)
 	{
-		desiredMouthFrame = 0;
+		targetMouthFrame = 0;
 	}
 
-	int currentMouthFrame = mhInst->animFrame;
-
-	if (targetMouthFrame > 3)
+	firstLerpTarget = targetMouthFrame;
+	if (targetMouthFrame < TALK_MASK_MOUTH_SNAP_TARGET_THRESHOLD)
 	{
-		int mouthFrameDelta = currentMouthFrame - desiredMouthFrame;
+		currentMouthFrame = mhInst->animFrame;
+		goto LerpMouthFrame;
+	}
+	else
+	{
+		currentMouthFrame = mhInst->animFrame;
+		mouthFrameDelta = currentMouthFrame - targetMouthFrame;
 
 		if (mouthFrameDelta < 0)
 		{
 			mouthFrameDelta = -mouthFrameDelta;
 		}
 
-		if (mouthFrameDelta > 3)
+		if (mouthFrameDelta >= TALK_MASK_MOUTH_SNAP_DELTA_THRESHOLD)
 		{
-			mhInst->animFrame = (s16)desiredMouthFrame;
-
-			goto SkipLerp;
+			goto SnapMouthFrame;
 		}
 	}
 
-	mhInst->animFrame = EngineSound_VolumeAdjust(desiredMouthFrame, currentMouthFrame, 1);
+LerpMouthFrame:
+	mhInst->animFrame = EngineSound_VolumeAdjust(firstLerpTarget, currentMouthFrame, TALK_MASK_MOUTH_LERP_STEP);
+	goto SkipLerp;
+
+SnapMouthFrame:
+	mhInst->animFrame = (s16)targetMouthFrame;
 
 SkipLerp:
 
 	currentMouthFrame = mhInst->animFrame;
 
 	// animFrame
-	int mouthFrameDelta = currentMouthFrame - desiredMouthFrame;
+	mouthFrameDelta = currentMouthFrame - targetMouthFrame;
 
 	if (mouthFrameDelta < 0)
 	{
 		mouthFrameDelta = -mouthFrameDelta;
 	}
 
-	if (mouthFrameDelta < 6)
+	if (mouthFrameDelta < TALK_MASK_MOUTH_FINAL_LERP_DELTA_THRESHOLD)
 	{
-		mhInst->animFrame = EngineSound_VolumeAdjust(desiredMouthFrame, currentMouthFrame, 1);
+		mhInst->animFrame = EngineSound_VolumeAdjust(targetMouthFrame, currentMouthFrame, TALK_MASK_MOUTH_LERP_STEP);
 	}
 	else
 	{
-		mhInst->animFrame = (s16)desiredMouthFrame;
+		mhInst->animFrame = (s16)targetMouthFrame;
 	}
 
 	// animation frame goes back and forth
@@ -107,39 +165,42 @@ SkipLerp:
 	{
 		mhInst->animFrame = 0;
 	}
-	else if (lastFrame < (u32)mhInst->animFrame)
+	else if ((numAnimFrames - 1) < mhInst->animFrame)
 	{
-		mhInst->animFrame = (s16)lastFrame;
+		mhInst->animFrame = (s16)(numAnimFrames - 1);
 	}
 
 	if (sdata->talkMask_boolDead != 0)
 	{
+		threadFlags = t->flags;
 		sdata->talkMask_boolDead = 0;
 
 		// dead thread
-		t->flags |= THREAD_FLAG_DEAD;
+		t->flags = threadFlags | THREAD_FLAG_DEAD;
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80069178-0x800691e4.
-struct Instance *VehTalkMask_Init()
+struct Instance *VehTalkMask_Init(void)
 {
-	sdata->boolIsMaskThreadAlive = 1;
-	sdata->talkMask_boolDead = 0;
+	struct Instance *mhInst;
+	struct Thread *mhTh;
 
-	struct Instance *mhInst = INSTANCE_BirthWithThread(0x39, sdata->s_head, SMALL, AKUAKU, VehTalkMask_ThTick, 6, 0);
+	VEH_MASK_THREAD_ALIVE = 1;
+	VEH_TALK_MASK_DEAD = 0;
+
+	mhInst = INSTANCE_BirthWithThread(TALK_MASK_INIT_MODEL, VEH_TALK_MASK_HEAD, SMALL, AKUAKU, VehTalkMask_ThTick, TALK_MASK_INIT_OBJECT_SIZE, 0);
 
 #if defined(CTR_NATIVE)
 	// NOTE(dowlle): NULL when the native instance pool is full (#205). Callers check
 	// for a NULL return and skip the hint mask.
 	if (mhInst == NULL)
 	{
-		sdata->boolIsMaskThreadAlive = 0;
+		VEH_MASK_THREAD_ALIVE = 0;
 		return NULL;
 	}
 #endif
 
-	struct Thread *mhTh = mhInst->thread;
+	mhTh = mhInst->thread;
 	mhTh->funcThDestroy = PROC_DestroyInstance;
 
 	((struct MaskHint *)mhTh->object)->scale = 0;
@@ -147,35 +208,39 @@ struct Instance *VehTalkMask_Init()
 	return mhInst;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800691e4-0x8006924c.
-void VehTalkMask_PlayXA(struct Instance *i, int id)
+void VehTalkMask_PlayXA(struct Instance *i, s32 id)
 {
-	struct Driver *d = sdata->gGT->drivers[0];
+	struct Driver *d;
+	register s32 originalID CTR_PSX_REGISTER("$17");
+	register s32 xaID CTR_PSX_REGISTER("$16");
+
+	(void)i;
+	originalID = id;
+	d = GAME_TRACKER->drivers[0];
+	xaID = originalID;
 
 	if (d != 0)
 	{
-		b32 boolGoodGuy = VehPickupItem_MaskBoolGoodGuy(d);
+		s16 boolGoodGuy = (s16)VehPickupItem_MaskBoolGoodGuy(d);
 
 		if (boolGoodGuy == 0)
 		{
-			id += 0x1f;
+			xaID = CTR_MipsAddLo(originalID, ADV_MASK_HINT_UKA_UKA_XA_OFFSET);
 		}
 	}
 
-	CDSYS_XAPlay(CDSYS_XA_TYPE_EXTRA, id);
+	CDSYS_XAPlay(TALK_MASK_XA_TYPE, (s16)xaID);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8006924c-0x8006925c.
-int VehTalkMask_boolNoXA()
+b32 VehTalkMask_boolNoXA(void)
 {
-	return sdata->XA_State == 0;
+	return VEH_XA_STATE == 0;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8006925c-0x80069284.
-void VehTalkMask_End()
+void VehTalkMask_End(void)
 {
 	CDSYS_XAPauseRequest();
 
-	sdata->boolIsMaskThreadAlive = 0;
-	sdata->talkMask_boolDead = 1;
+	VEH_TALK_MASK_DEAD = 1;
+	VEH_MASK_THREAD_ALIVE = 0;
 }

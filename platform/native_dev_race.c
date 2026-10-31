@@ -240,7 +240,7 @@ int NativeDev_StartRace(struct GameTracker *gGT)
 	// The same setup MM_TrackSelect does before the ghost menu.
 	gGT->gameMode1 |= TIME_TRIAL;
 	gGT->numLaps = 3;
-	sdata->ptrGhostTapePlaying = MEMPACK_AllocHighMem(0x3e00);
+	sdata->ptrGhostTapePlaying = MEMPACK_AllocHighMem(0x3e00, "DevRace");
 	memset(sdata->ptrGhostTapePlaying, 0, 0x28);
 	sdata->boolReplayHumanGhost = 0;
 
@@ -372,9 +372,9 @@ int NativeDev_CharacterSelect(void)
 		return 0;
 	const int unlocks = NativeDev_EnvInt("CTR_DEV_UNLOCKS", 0);
 	for (int bit = 5; (unlocks >= 1) && (bit <= 11); bit++)
-		UNLOCK_ADV_BIT(sdata->gameProgress.unlocks, bit);
+		UNLOCK_ADV_BIT(GAME_PROGRESS.unlocks, bit);
 	if (unlocks >= 2)
-		UNLOCK_ADV_BIT(sdata->gameProgress.unlocks, GAME_UNLOCK_BIT_OXIDE);
+		UNLOCK_ADV_BIT(GAME_PROGRESS.unlocks, GAME_UNLOCK_BIT_OXIDE);
 	const int character = NativeDev_EnvInt("CTR_DEV_CHARACTER", -1);
 	if ((character >= 0) && (character < 16))
 		sdata->characterIDs_backup[0] = (s16)character;
@@ -609,12 +609,10 @@ static void NativeDevRace_Warp(NativeDevRaceState *dev, struct GameTracker *gGT)
 	dev->warpFrames++;
 
 	struct Driver *d = gGT->drivers[0];
-	for (int i = 0; i < 3; i++)
-	{
-		d->posCurr.v[i] = dev->warpPos[i] << 8;
-		d->posPrev.v[i] = dev->warpPos[i] << 8;
-		d->velocity.v[i] = 0;
-	}
+	d->posCurr.x = d->posPrev.x = dev->warpPos[0] << 8;
+	d->posCurr.y = d->posPrev.y = dev->warpPos[1] << 8;
+	d->posCurr.z = d->posPrev.z = dev->warpPos[2] << 8;
+	d->velocity.x = d->velocity.y = d->velocity.z = 0;
 	d->xSpeed = d->ySpeed = d->zSpeed = 0;
 	d->speed = d->speedApprox = 0;
 	d->angle = (s16)dev->warpPos[3];

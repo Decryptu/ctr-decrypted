@@ -1,95 +1,272 @@
-#include <common.h>
+#include "VehCommon.h"
 
-static inline void VehPickupItem_CopyMatrix(MATRIX *dst, const MATRIX *src)
+typedef s16 VehPickupItemSignedHalfword CTR_MAY_ALIAS;
+
+// NOTE(aalhendi): Retail copies matrices as eight words. Native keeps the
+// typed assignment so host compilers retain their normal aliasing guarantees.
+#ifdef CTR_NATIVE
+static inline void VehPickupItem_CopyInstanceMatrix(struct Instance *dst, const struct Instance *src)
 {
-	dst->m[0][0] = src->m[0][0];
-	dst->m[0][1] = src->m[0][1];
-	dst->m[0][2] = src->m[0][2];
-	dst->m[1][0] = src->m[1][0];
-	dst->m[1][1] = src->m[1][1];
-	dst->m[1][2] = src->m[1][2];
-	dst->m[2][0] = src->m[2][0];
-	dst->m[2][1] = src->m[2][1];
-	dst->m[2][2] = src->m[2][2];
-	dst->t[0] = src->t[0];
-	dst->t[1] = src->t[1];
-	dst->t[2] = src->t[2];
+	dst->matrix = src->matrix;
 }
+#define VehPickupItem_CopyInstanceMatrixForPhysics(dst, src, matrix) ((void)(matrix), VehPickupItem_CopyInstanceMatrix((dst), (src)))
+#else
+#define VEH_PICKUP_COPY_MATRIX_INSTRUCTIONS \
+	"lw $9,48(%1)\n\t"                      \
+	"lw $10,52(%1)\n\t"                     \
+	"lw $11,56(%1)\n\t"                     \
+	"lw $12,60(%1)\n\t"                     \
+	"sw $9,48(%0)\n\t"                      \
+	"sw $10,52(%0)\n\t"                     \
+	"sw $11,56(%0)\n\t"                     \
+	"sw $12,60(%0)\n\t"                     \
+	"lw $9,64(%1)\n\t"                      \
+	"lw $10,68(%1)\n\t"                     \
+	"lw $11,72(%1)\n\t"                     \
+	"lw $12,76(%1)\n\t"                     \
+	"sw $9,64(%0)\n\t"                      \
+	"sw $10,68(%0)\n\t"                     \
+	"sw $11,72(%0)\n\t"                     \
+	"sw $12,76(%0)"
+#define VehPickupItem_CopyInstanceMatrix(dst, src) \
+	__asm__ volatile(VEH_PICKUP_COPY_MATRIX_INSTRUCTIONS : : "r"(dst), "r"(src) : "$9", "$10", "$11", "$12", "memory")
+#define VehPickupItem_CopyInstanceMatrixForPhysics(dst, src, matrix) \
+	__asm__ volatile(VEH_PICKUP_COPY_MATRIX_INSTRUCTIONS : : "r"(dst), "r"(src), "r"(matrix) : "$9", "$10", "$11", "$12", "memory")
+#endif
 
-static inline void VehPickupItem_ClearMineMotion(struct MineWeapon *mine)
-{
-	mine->velocity.x = 0;
-	mine->velocity.y = 0;
-	mine->velocity.z = 0;
-	mine->stopFallAtY = 0;
-}
+// NOTE(aalhendi): Retail addresses the scratchpad normal with an OR; native
+// uses the typed member that occupies the same offset.
+#ifdef CTR_NATIVE
+#define VehPickupItem_SetWarpballMatrixPair(matrix, index, first, second) \
+	do                                                                    \
+	{                                                                     \
+		((s16 *)(matrix)->m)[(index)] = (first);                          \
+		((s16 *)(matrix)->m)[(index) + 1] = (second);                     \
+	} while (0)
+#else
+typedef u32 VehPickupItemMatrixWord CTR_MAY_ALIAS;
+#define VehPickupItem_SetWarpballMatrixPair(matrix, index, first, second) \
+	(*(VehPickupItemMatrixWord *)&((s16 *)(matrix)->m)[(index)] = ((u32)(u16)(first) | ((u32)(u16)(second) << 16)))
+#endif
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80064be4-0x80064c38.
-int VehPickupItem_MaskBoolGoodGuy(struct Driver *d)
+#ifdef CTR_NATIVE
+#define VehPickupItem_GetCollisionNormal(sps) CTR_VECTOR_DATA(&(sps)->hit.plane.normal)
+#else
+#define VehPickupItem_GetCollisionNormal(sps) ((s16 *)((u32)(sps) | 0x70))
+#endif
+
+enum
 {
-	int charID;
-	charID = data.characterIDs[d->driverID];
+	MASK_GOOD_GUY_CHARACTER_BITS = 0x20c9,
+	MASK_MODEL_COUNT = 2,
+	MASK_SOUND_ID_OFFSET_FROM_MODEL = 0x1a,
+	MASK_BEAM_MODEL_STRIDE = 2,
+	MASK_INITIAL_ROT_X = 0x40,
+};
+
+enum
+{
+	POTION_THROW_RANDOM = 0x1,
+	POTION_THROW_BACKWARD = 0x2,
+	POTION_THROW_FORWARD = 0x4,
+	POTION_THROW_AP_DROP = 0x8,
+	POTION_THROW_RANDOM_MASK = 0x1f,
+	POTION_THROW_RANDOM_BIAS = 0x10,
+	POTION_THROW_SPEED = 0x78,
+	POTION_THROW_Y_VELOCITY = 0x30,
+	POTION_THROW_MATRIX_SHIFT = 12,
+};
+
+enum
+{
+	MISSILE_TARGET_DRIVER_COUNT = 8,
+	MISSILE_TARGET_DISTANCE_SENTINEL = 0x7fffffff,
+	MISSILE_TARGET_POS_SHIFT = 8,
+	MISSILE_TARGET_GTE_RTPS_OVERFLOW = 0x40000,
+	MISSILE_TARGET_SCREEN_LEFT = 0x1f,
+	MISSILE_TARGET_SCREEN_RIGHT_MARGIN = 0x1e,
+	MISSILE_TARGET_SCREEN_TOP = 0x15,
+	MISSILE_TARGET_SCREEN_BOTTOM_MARGIN = 0x14,
+};
+
+enum
+{
+	WEAPON_ID_TURBO = 0,
+	WEAPON_ID_BOMB_MISSILE = 2,
+	WEAPON_ID_MINE = 3,
+	WEAPON_ID_BEAKER = 4,
+	WEAPON_ID_SHIELD = 6,
+	WEAPON_ID_MASK = 7,
+	WEAPON_ID_CLOCK = 8,
+	WEAPON_ID_WARPBALL = 9,
+	WEAPON_ID_INVISIBILITY = 0xc,
+	WEAPON_ID_SUPER_ENGINE = 0xd,
+	SHOOT_NOW_NO_FLAGS = 0,
+	SHOOT_NOW_BACKWARD = 0x2,
+	TURBO_ITEM_BOOST_NORMAL = 0x80,
+	TURBO_ITEM_BOOST_JUICED = 0x100,
+	TURBO_ITEM_RESERVES = 0x960,
+	TURBO_ITEM_FIRE_FLAGS = FREEZE_RESERVES_ON_TURBO_PAD | TURBO_ITEM,
+	WEAPON_GAMEPAD_RUMBLE_FRAMES = 8,
+	WEAPON_GAMEPAD_RUMBLE_FORCE = 0x7f,
+	ACTIVE_MISSILE_LIMIT = 12,
+	MISSILE_RACE_FALLBACK_EVENT_MASK = 1,
+	MISSILE_TRACKER_VELOCITY_NUMERATOR = 5,
+	MISSILE_TRACKER_VELOCITY_SHIFT = 8,
+	TRACKER_LAUNCH_VELOCITY_NUMERATOR = 3,
+	TRACKER_LAUNCH_VELOCITY_SHIFT = 7,
+	TRACKER_PARENT_SAFETY_FRAMES = 60,
+	MINE_PARENT_SAFETY_FRAMES = 10,
+	MINE_COLL_PROBE_TOP_Y_OFFSET = -400,
+	MINE_COLL_PROBE_BOTTOM_Y_OFFSET = 64,
+	MINE_COLL_SEARCH_PLAYER_THRESHOLD = 3,
+	MINE_COLL_CALLBACK_FLAGS = 0x40,
+	MINE_COLL_SCRATCH_OFFSET = 0x108,
+	MINE_HITBOX_FRUIT_MODEL = PU_FRUIT_CRATE,
+	MINE_HITBOX_RANDOM_MODEL = PU_RANDOM_CRATE,
+	BEAKER_MODEL_HEADER_CAMERA_FLAG = 0x2,
+	SHIELD_DARK_MODEL = DYNAMIC_SHIELD_DARK,
+	SHIELD_SCALE = 0x700,
+	SHIELD_HIGHLIGHT_ROT_Y = 0xc00,
+	SHIELD_DURATION_NORMAL = 0x2d00,
+	SHIELD_ALPHA_SCALE = 0x400,
+	CLOCK_HURT_DURATION_NORMAL = 0x1e00,
+	CLOCK_HURT_DURATION_JUICED = 0x2d00,
+	CLOCK_FLASH_FRAMES = 4,
+	CLOCK_SELF_SEND_FRAMES = 0x1e,
+	CLOCK_DRIVER_COUNT = 8,
+	CLOCK_HURT_REASON = 1,
+	WARPBALL_MODEL = DYNAMIC_WARPBALL,
+	WARPBALL_MATRIX_IDENTITY_SCALE = FP(1.0),
+	WARPBALL_POS_SHIFT = 8,
+	WARPBALL_PARENT_SAFETY_FRAMES = 10,
+	WARPBALL_VELOCITY_NUMERATOR = 7,
+	WARPBALL_VELOCITY_SHIFT = 8,
+	WARPBALL_PARTICLE_ICON_GROUP = 0,
+	WARPBALL_PARTICLE_OT_OFFSET = -6,
+	INVISIBILITY_CLEAR_DRAW_FLAGS = ~(DRAW_TRANSPARENT | GHOST_DRAW_TRANSPARENT),
+	INVISIBILITY_DURATION_NORMAL = 0x1e00,
+	INVISIBILITY_DURATION_JUICED = 0x2d00,
+	SUPER_ENGINE_DURATION_NORMAL = 0x1e00,
+	SUPER_ENGINE_DURATION_JUICED = 0x2d00,
+	SOUND_BOMB_LAUNCH = 0x47,
+	SOUND_MISSILE_LAUNCH = 0x4a,
+	SOUND_MINE_DROP = 0x52,
+	SOUND_SHIELD = 0x57,
+	SOUND_CLOCK = 0x44,
+	SOUND_WARPBALL = 0x4d,
+	SOUND_INVISIBILITY = 0x61,
+	VOICELINE_BOMB_LAUNCH = 10,
+	VOICELINE_MISSILE_LAUNCH = 11,
+	VOICELINE_MINE_DROP = 0xf,
+	VOICELINE_CLOCK = 0xe,
+	VOICELINE_WARPBALL = 0xc,
+	VOICELINE_WEAPON_PRIORITY = 0x10,
+};
+
+CTR_STATIC_ASSERT((s32)STATIC_UKAUKA - 1 == (s32)STATIC_AKUAKU);
+CTR_STATIC_ASSERT((s32)STATIC_AKUAKU + MASK_SOUND_ID_OFFSET_FROM_MODEL == 0x53);
+CTR_STATIC_ASSERT((s32)STATIC_UKAUKA + MASK_SOUND_ID_OFFSET_FROM_MODEL == 0x54);
+CTR_STATIC_ASSERT(MISSILE_TARGET_DRIVER_COUNT == len(((struct GameTracker *)0)->drivers));
+CTR_STATIC_ASSERT((s32)SHOOT_NOW_BACKWARD == (s32)POTION_THROW_BACKWARD);
+CTR_STATIC_ASSERT((s32)MINE_HITBOX_FRUIT_MODEL == (s32)PU_FRUIT_CRATE);
+CTR_STATIC_ASSERT((s32)MINE_HITBOX_RANDOM_MODEL == (s32)PU_RANDOM_CRATE);
+CTR_STATIC_ASSERT((s32)SHIELD_DARK_MODEL == (s32)DYNAMIC_SHIELD_DARK);
+CTR_STATIC_ASSERT(CLOCK_DRIVER_COUNT == len(((struct GameTracker *)0)->drivers));
+CTR_STATIC_ASSERT((s32)WARPBALL_MODEL == (s32)DYNAMIC_WARPBALL);
+CTR_STATIC_ASSERT((u32)INVISIBILITY_CLEAR_DRAW_FLAGS == 0xfff8ffffu);
+
+b32 VehPickupItem_MaskBoolGoodGuy(struct Driver *d)
+{
+	s32 charID = GAME_CHARACTER_IDS[d->driverID];
+	b32 isGoodGuy = false;
 
 	// Crash, Coco, Pura, Polar, Penta
-	u32 maskBits = 0x20c9;
+	if ((charID == CRASH_BANDICOOT) || (charID == COCO_BANDICOOT) || (charID == POLAR) || (charID == PURA) || (charID == PENTA_PENGUIN))
+	{
+		isGoodGuy = true;
+	}
 
-	return (maskBits >> charID) & 1;
+	return isGoodGuy;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80064c38-0x80064f94.
 // boolPlaySound only gates sound when refreshing an existing mask object.
 struct MaskHeadWeapon *VehPickupItem_MaskUseWeapon(struct Driver *driver, b32 boolPlaySound)
-
 {
 	struct Thread *currThread;
 	struct MaskHeadWeapon *maskObj;
 	struct Model *modelPtr;
-	struct Thread *t;
-	struct GameTracker *gGT;
+	struct Thread *parentThread;
+	struct Thread *maskThread;
 	struct Instance *instance;
 	int soundID;
+	b32 boolGoodGuy;
+	u32 actionsFlagSet;
+	register char *beamName CTR_PSX_REGISTER("$5");
+	register struct Thread *beamThread CTR_PSX_REGISTER("$6");
 
-	gGT = sdata->gGT;
-
-	if ((LOAD_IsOpen_RacingOrBattle() == 0) || ((gGT->gameMode1 & ADVENTURE_ARENA) != 0))
+	if (!LOAD_IsOpen_RacingOrBattle() || ((GAME_TRACKER->gameMode1 & ADVENTURE_ARENA) != 0))
 	{
-		// no mask object in adv arena
-		maskObj = NULL;
-		return maskObj;
+		return NULL;
 	}
 
-	t = driver->instSelf->thread;
+	parentThread = driver->instSelf->thread;
 
 	// check for existing mask
-	for (currThread = t->childThread; currThread != 0; currThread = currThread->siblingThread)
+	for (currThread = parentThread->childThread; currThread != 0; currThread = currThread->siblingThread)
 	{
 		// if thread->modelIndex is NOT Aku or Uka
-		if ((u32)(currThread->modelIndex - STATIC_AKUAKU) >= 2)
+		if ((u32)((u16)currThread->modelIndex - STATIC_AKUAKU) >= MASK_MODEL_COUNT)
 		{
 			continue;
 		}
 
 		currThread->funcThTick = RB_MaskWeapon_ThTick;
+		{
+			register s32 existingDuration CTR_PSX_REGISTER("$2");
+			register struct MaskHeadWeapon *existingMask CTR_PSX_REGISTER("$3");
 
-		maskObj = currThread->object;
-		maskObj->duration = (driver->numWumpas < 10) ? 0x1e00 : 0x2d00;
+			existingDuration = driver->numWumpas;
+			existingDuration = existingDuration < DRIVER_WUMPA_JUICED_COUNT;
+			if (existingDuration == 0)
+			{
+				existingMask = currThread->object;
+				existingDuration = MASK_HEAD_DURATION_JUICED;
+			}
+			else
+			{
+				existingDuration = MASK_HEAD_DURATION_NORMAL;
+				existingMask = currThread->object;
+			}
+			CTR_PSX_MEMORY_BARRIER();
+			existingMask->duration = (s16)existingDuration;
+		}
+
+		actionsFlagSet = driver->actionsFlagSet;
 
 		if (
 		    // If this is human and not AI
-		    ((driver->actionsFlagSet & ACTION_BOT) == 0) &&
+		    ((actionsFlagSet & ACTION_BOT) == 0) &&
 
 		    (boolPlaySound != 0))
 		{
-			// 0x3a: uka model
-			// 0x39: aku model
+			if (currThread->modelIndex == STATIC_UKAUKA)
+			{
+				soundID = STATIC_UKAUKA + MASK_SOUND_ID_OFFSET_FROM_MODEL;
+			}
+			else if (currThread->modelIndex == STATIC_AKUAKU)
+			{
+				soundID = STATIC_AKUAKU + MASK_SOUND_ID_OFFSET_FROM_MODEL;
+			}
+			else
+			{
+				goto MaskAlreadyActive;
+			}
 
-			// 0x54: uka sound
-			// 0x53: aku model
-
-			soundID = currThread->modelIndex + 0x1A;
-			OtherFX_Play_Echo(soundID, 1, driver->actionsFlagSet & ACTION_ENGINE_ECHO);
+			OtherFX_Play_Echo(soundID, 1, (actionsFlagSet >> 16) & 1);
 		}
 
+	MaskAlreadyActive:
 		// un-kill thread
 		currThread->flags &= ~THREAD_FLAG_DEAD;
 
@@ -97,77 +274,88 @@ struct MaskHeadWeapon *VehPickupItem_MaskUseWeapon(struct Driver *driver, b32 bo
 		return (struct MaskHeadWeapon *)currThread->object;
 	}
 
-	b32 boolGoodGuy = VehPickupItem_MaskBoolGoodGuy(driver);
+	boolGoodGuy = VehPickupItem_MaskBoolGoodGuy(driver);
 
-	int modelID = STATIC_UKAUKA - boolGoodGuy;
-
-	// 0x3a: uka head model idx in modelPtr array
-	instance = INSTANCE_BirthWithThread(modelID, sdata->s_doctor1, SMALL, OTHER, RB_MaskWeapon_ThTick, sizeof(struct MaskHeadWeapon), t);
-
-	soundID = modelID + 0x1A;
-
-
-	if (
-	    // If this is human and not AI
-	    ((driver->actionsFlagSet & ACTION_BOT) == 0) &&
-
-	    (OtherFX_Play_Echo(soundID, 1, driver->actionsFlagSet & ACTION_ENGINE_ECHO),
-
-	     (driver->kartState != KS_ENGINE_REVVING) && (driver->kartState != KS_MASK_GRABBED)))
+	if ((boolGoodGuy << 16) != 0)
 	{
-		if (boolGoodGuy == 0)
+		instance =
+		    INSTANCE_BirthWithThread(STATIC_AKUAKU, VEH_PICKUP_DOCTOR_NAME, SMALL, OTHER, RB_MaskWeapon_ThTick, sizeof(struct MaskHeadWeapon), parentThread);
+
+		actionsFlagSet = driver->actionsFlagSet;
+		if (((actionsFlagSet & ACTION_BOT) == 0) && (OtherFX_Play_Echo(STATIC_AKUAKU + MASK_SOUND_ID_OFFSET_FROM_MODEL, 1, (actionsFlagSet >> 16) & 1),
+		                                             (u32)(driver->kartState - KS_ENGINE_REVVING) > 1))
 		{
-			gGT->gameMode1 &= ~(AKU_SONG);
-			gGT->gameMode1 |= UKA_SONG;
+			GAME_TRACKER->gameMode1 = (GAME_TRACKER->gameMode1 | AKU_SONG) & ~UKA_SONG;
 		}
 
-		else
-		{
-			gGT->gameMode1 &= ~(UKA_SONG);
-			gGT->gameMode1 |= AKU_SONG;
-		}
-	}
-
-	// 0x3a: uka model
-	// 0x39: aku model
-
-	// 0x40: uka beam
-	// 0x3E: aku beam
-
-	modelPtr = gGT->modelPtr[STATIC_AKUBEAM + ((modelID - STATIC_AKUAKU) * 2)];
-
-#if defined(CTR_NATIVE)
-	// NOTE(dowlle): retail-blind deref of a pool birth (#56 Class-B). The mask birth
-	// above returns NULL on native when the instance or thread pool is full, and the
-	// thread/object reads below fault on it. NULL is already this function's documented
-	// "no mask" return (the adventure-arena early-out at the top), and every caller
-	// tolerates it: BOTS.c guards the result, and VehStuckProc stores it into
-	// KartStates.MaskGrab/RevEngine.maskObj, which it already sets to NULL itself and
-	// NULL-checks at every read. So bail out instead of crashing.
-	if (instance == NULL)
-	{
-#if defined(CTR_AP)
-		AP_LogLine("[AP POOL] Mask weapon birth NULL (crash averted)\n");
-#endif
-		return NULL;
-	}
-#endif
-
-	t = instance->thread;
-
-	maskObj = (struct MaskHeadWeapon *)t->object;
-
-// NOTE(aalhendi): Native keeps this model lookup string host-side; PS1 uses
-// the retail RDATA symbol.
 #ifdef CTR_NATIVE
-	maskObj->maskBeamInst = INSTANCE_Birth3D(modelPtr, "akubeam1", t);
+		beamName = "akubeam1";
 #else
-	maskObj->maskBeamInst = INSTANCE_Birth3D(modelPtr, rdata.s_akubeam1, t);
+		beamName = rdata.s_akubeam1;
 #endif
+#if defined(CTR_NATIVE)
+		// NOTE(dowlle): retail-blind deref of a pool birth (#56 Class-B). The mask birth
+		// returns NULL on native when the instance or thread pool is full. NULL is
+		// already this function's "no mask" return (the adventure-arena early-out at
+		// the top), and every caller tolerates it: BOTS.c guards the result, and
+		// VehStuckProc stores it into KartStates.MaskGrab/RevEngine.maskObj, which it
+		// already sets to NULL itself and NULL-checks at every read.
+		if (instance == NULL)
+		{
+#if defined(CTR_AP)
+			AP_LogLine("[AP POOL] Mask weapon birth NULL (crash averted)\n");
+#endif
+			return NULL;
+		}
+#endif
+		maskThread = instance->thread;
+		beamThread = maskThread;
+		modelPtr = GAME_TRACKER->modelPtr[STATIC_AKUBEAM];
+	}
+	else
+	{
+		instance =
+		    INSTANCE_BirthWithThread(STATIC_UKAUKA, VEH_PICKUP_DOCTOR_NAME, SMALL, OTHER, RB_MaskWeapon_ThTick, sizeof(struct MaskHeadWeapon), parentThread);
 
-	t->funcThDestroy = PROC_DestroyInstance;
+		actionsFlagSet = driver->actionsFlagSet;
+		if (((actionsFlagSet & ACTION_BOT) == 0) && (OtherFX_Play_Echo(STATIC_UKAUKA + MASK_SOUND_ID_OFFSET_FROM_MODEL, 1, (actionsFlagSet >> 16) & 1),
+		                                             (u32)(driver->kartState - KS_ENGINE_REVVING) > 1))
+		{
+			GAME_TRACKER->gameMode1 = (GAME_TRACKER->gameMode1 | UKA_SONG) & ~AKU_SONG;
+		}
 
-	t->flags |= THREAD_FLAG_DISABLE_COLLISION;
+#ifdef CTR_NATIVE
+		beamName = "akubeam1";
+#else
+		beamName = rdata.s_akubeam1;
+#endif
+#if defined(CTR_NATIVE)
+		// NOTE(dowlle): retail-blind deref of a pool birth (#56 Class-B). The mask birth
+		// returns NULL on native when the instance or thread pool is full. NULL is
+		// already this function's "no mask" return (the adventure-arena early-out at
+		// the top), and every caller tolerates it: BOTS.c guards the result, and
+		// VehStuckProc stores it into KartStates.MaskGrab/RevEngine.maskObj, which it
+		// already sets to NULL itself and NULL-checks at every read.
+		if (instance == NULL)
+		{
+#if defined(CTR_AP)
+			AP_LogLine("[AP POOL] Mask weapon birth NULL (crash averted)\n");
+#endif
+			return NULL;
+		}
+#endif
+		maskThread = instance->thread;
+		beamThread = maskThread;
+		modelPtr = GAME_TRACKER->modelPtr[STATIC_UKABEAM];
+	}
+
+	maskObj = (struct MaskHeadWeapon *)maskThread->object;
+
+	maskObj->maskBeamInst = INSTANCE_Birth3D(modelPtr, beamName, beamThread);
+
+	maskThread->funcThDestroy = PROC_DestroyInstance;
+
+	maskThread->flags |= THREAD_FLAG_DISABLE_COLLISION;
 	instance->flags |= HIDE_MODEL;
 #if defined(CTR_NATIVE)
 	// NOTE(dowlle): the beam is a second pool birth that can fail on its own (#56
@@ -177,119 +365,92 @@ struct MaskHeadWeapon *VehPickupItem_MaskUseWeapon(struct Driver *driver, b32 bo
 	// guard: INSTANCE_Death(NULL) reaches JitPool_Remove, whose LIST_RemoveMember and
 	// LIST_AddFront both early-return on a NULL item.
 	if (maskObj->maskBeamInst != NULL)
-	{
 #endif
-	maskObj->maskBeamInst->flags |= HIDE_MODEL;
-#if defined(CTR_NATIVE)
+	{
+		maskObj->maskBeamInst->flags |= HIDE_MODEL;
 	}
-#if defined(CTR_AP)
+#if defined(CTR_NATIVE) && defined(CTR_AP)
 	else
 	{
 		AP_LogLine("[AP POOL] Mask beam birth NULL (crash averted)\n");
 	}
 #endif
-#endif
-	maskObj->duration = (driver->numWumpas > 9) ? 0x2d00 : 0x1e00;
-	maskObj->rot.x = 0x40;
+	{
+		register s32 finalDuration CTR_PSX_REGISTER("$2");
+
+		finalDuration = driver->numWumpas;
+		finalDuration = finalDuration < DRIVER_WUMPA_JUICED_COUNT;
+		if (finalDuration != 0)
+		{
+			finalDuration = MASK_HEAD_DURATION_NORMAL;
+		}
+		else
+		{
+			finalDuration = MASK_HEAD_DURATION_JUICED;
+		}
+		maskObj->duration = (s16)finalDuration;
+	}
+	maskObj->rot.x = MASK_INITIAL_ROT_X;
 	maskObj->rot.y = 0;
+	maskObj->scale = MASK_HEAD_SCALE_NORMAL;
 	maskObj->rot.z = 0;
-	maskObj->scale = 0x1000; // scale
 
 	return maskObj;
 }
 
-static struct PushBuffer *VehPickupItem_GetDriverPushBuffer(struct GameTracker *gGT, u8 driverID)
-{
-	return (struct PushBuffer *)((u8 *)&gGT->pushBuffer[0] + (driverID * sizeof(struct PushBuffer)));
-}
-
-static void VehPickupItem_MissileLoadPlayerView(struct GameTracker *gGT, struct Driver *driver)
-{
-	struct PushBuffer *pb = VehPickupItem_GetDriverPushBuffer(gGT, driver->driverID);
-
-	SetRotMatrix(&pb->matrix_ViewProj);
-	SetTransMatrix(&pb->matrix_ViewProj);
-}
-
-static void VehPickupItem_MissileLoadAiView(struct Driver *driver)
-{
-	SVec3 rot = {.x = driver->rotCurr.x, .y = driver->rotCurr.y, .z = driver->rotCurr.z};
-	MATRIX matrix = {0};
-	MATRIX unusedInverse;
-
-	ConvertRotToMatrix(&matrix, &rot);
-	matrix.t[0] = CTR_MipsSra(driver->posCurr.x, 8);
-	matrix.t[1] = CTR_MipsSra(driver->posCurr.y, 8);
-	matrix.t[2] = CTR_MipsSra(driver->posCurr.z, 8);
-
-	MATH_HitboxMatrix(&unusedInverse, &matrix);
-
-	SetRotMatrix(&matrix);
-	SetTransMatrix(&matrix);
-}
-
-static int VehPickupItem_MissileCandidateVisible(struct PushBuffer *pb, struct Driver *candidate)
-{
-	struct Instance *inst = candidate->instSelf;
-	u32 sxy;
-	s32 gteFlag;
-	s16 screenX;
-	s16 screenY;
-
-	MTC2(((u32)(u16)inst->matrix.t[0]) | ((u32)(u16)inst->matrix.t[1] << 16), 0);
-	MTC2((s32)(s16)inst->matrix.t[2], 1);
-	gte_rtps();
-
-	sxy = MFC2(14);
-	gteFlag = CFC2(31);
-	if ((gteFlag & 0x40000) != 0)
-	{
-		return 0;
-	}
-
-	screenX = (s16)sxy;
-	if (screenX < 0x1f)
-	{
-		return 0;
-	}
-	if (screenX >= pb->rect.w - 0x1e)
-	{
-		return 0;
-	}
-
-	screenY = (s16)(sxy >> 16);
-	if (screenY < 0x15)
-	{
-		return 0;
-	}
-	if (screenY >= pb->rect.h - 0x14)
-	{
-		return 0;
-	}
-
-	return 1;
-}
-
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80064f94-0x800652c8.
 struct Driver *VehPickupItem_MissileGetTargetDriver(struct Driver *driver)
 {
-	struct GameTracker *gGT = sdata->gGT;
-	struct Driver *target = NULL;
-	s32 closestDistance = 0x7fffffff;
-	struct PushBuffer *pb = VehPickupItem_GetDriverPushBuffer(gGT, driver->driverID);
+	SVec3 rotation;
+	MATRIX matrix;
+	MATRIX inverseMatrix;
+	SVec3 candidatePosition;
+	struct MissileProjection
+	{
+		s32 screenPosition;
+		volatile s32 gteFlag;
+	} projection;
+	s32 *screenPositionPtr;
+	struct Driver *target;
+	s32 closestDistance;
+	s32 i;
+
+	target = NULL;
+	closestDistance = MISSILE_TARGET_DISTANCE_SENTINEL;
 
 	if (driver->instSelf->thread->modelIndex == DYNAMIC_PLAYER)
 	{
-		VehPickupItem_MissileLoadPlayerView(gGT, driver);
+		struct PushBuffer *pushBuffer = &GAME_TRACKER->pushBuffer[driver->driverID];
+
+		CTR_GteSetRotMatrix(&pushBuffer->matrix_ViewProj);
+		CTR_GteSetTransMatrix(&pushBuffer->matrix_ViewProj);
 	}
 	else
 	{
-		VehPickupItem_MissileLoadAiView(driver);
+		rotation.x = (u16)driver->rotCurr.x;
+		rotation.y = (u16)driver->rotCurr.y;
+		rotation.z = (u16)driver->rotCurr.z;
+
+		ConvertRotToMatrix(&matrix, &rotation);
+		matrix.t[0] = CTR_MipsSra(driver->posCurr.x, MISSILE_TARGET_POS_SHIFT);
+		matrix.t[1] = CTR_MipsSra(driver->posCurr.y, MISSILE_TARGET_POS_SHIFT);
+		matrix.t[2] = CTR_MipsSra(driver->posCurr.z, MISSILE_TARGET_POS_SHIFT);
+
+		MATH_HitboxMatrix(&inverseMatrix, &matrix);
+
+		CTR_GteSetRotMatrix(&matrix);
+		CTR_GteSetTransMatrix(&matrix);
 	}
 
-	for (int i = 0; i < 8; i++)
+	i = 0;
+	screenPositionPtr = &projection.screenPosition;
+	do
 	{
-		struct Driver *candidate = gGT->drivers[i];
+		struct Driver *candidate = GAME_TRACKER->drivers[i];
+		s32 dx;
+		s32 dz;
+		s32 distance;
+		s16 screenX;
+		s16 screenY;
 
 		if (candidate == NULL)
 		{
@@ -304,7 +465,7 @@ struct Driver *VehPickupItem_MissileGetTargetDriver(struct Driver *driver)
 			continue;
 		}
 
-		if (((gGT->gameMode1 & BATTLE_MODE) != 0) && (candidate->BattleHUD.teamID == driver->BattleHUD.teamID))
+		if (((GAME_TRACKER->gameMode1 & BATTLE_MODE) != 0) && (candidate->BattleHUD.teamID == driver->BattleHUD.teamID))
 		{
 			continue;
 		}
@@ -314,62 +475,164 @@ struct Driver *VehPickupItem_MissileGetTargetDriver(struct Driver *driver)
 			continue;
 		}
 
-		if (!VehPickupItem_MissileCandidateVisible(pb, candidate))
+		candidatePosition.x = (u16)candidate->instSelf->matrix.t[0];
+		candidatePosition.y = (u16)candidate->instSelf->matrix.t[1];
+		candidatePosition.z = (u16)candidate->instSelf->matrix.t[2];
+
+#ifdef CTR_NATIVE
+		MTC2(CTR_PackS16Pair(candidatePosition.x, candidatePosition.y), 0);
+		MTC2((s32)candidatePosition.z, 1);
+#else
+		__asm__ volatile("lwc2 $0,0(%0)\n\t"
+		                 "lwc2 $1,4(%0)"
+		                 :
+		                 : "r"(&candidatePosition)
+		                 : "memory");
+#endif
+		CTR_PSX_GTE_PIPELINE_DELAY();
+		gte_rtps();
+		CTR_PSX_STORE_COP2_WORD(screenPositionPtr, 14);
+
+#ifdef CTR_NATIVE
+		{
+			register u32 flagValue CTR_PSX_REGISTER("$12");
+
+			flagValue = CFC2(31);
+			CTR_PSX_GTE_READ_DELAY();
+			projection.gteFlag = flagValue;
+		}
+#else
+		{
+			register volatile s32 *flagPtr CTR_PSX_REGISTER("$2");
+
+			flagPtr = &projection.gteFlag;
+			__asm__ volatile("cfc2 $12,$31\n\t"
+			                 "nop\n\t"
+			                 "sw $12,0(%0)"
+			                 :
+			                 : "r"(flagPtr)
+			                 : "$12", "memory");
+		}
+#endif
+
+		if ((projection.gteFlag & MISSILE_TARGET_GTE_RTPS_OVERFLOW) != 0)
 		{
 			continue;
 		}
 
-		s32 dx = CTR_MipsSra(CTR_MipsSubLo(candidate->posCurr.x, driver->posCurr.x), 8);
-		s32 dz = CTR_MipsSra(CTR_MipsSubLo(candidate->posCurr.z, driver->posCurr.z), 8);
-		s32 distance = CTR_MipsAddLo(CTR_MipsMulLo(dx, dx), CTR_MipsMulLo(dz, dz));
+		screenX = (s16)projection.screenPosition;
+		if (screenX < MISSILE_TARGET_SCREEN_LEFT)
+		{
+			continue;
+		}
+		if (screenX >= GAME_TRACKER->pushBuffer[driver->driverID].rect.w - MISSILE_TARGET_SCREEN_RIGHT_MARGIN)
+		{
+			continue;
+		}
+
+		screenY = (s16)CTR_ReadU16LE((const u8 *)screenPositionPtr + sizeof(u16));
+		if (screenY < MISSILE_TARGET_SCREEN_TOP)
+		{
+			continue;
+		}
+		if (screenY >= GAME_TRACKER->pushBuffer[driver->driverID].rect.h - MISSILE_TARGET_SCREEN_BOTTOM_MARGIN)
+		{
+			continue;
+		}
+
+		dx = CTR_MipsSra(CTR_MipsSubLo(candidate->posCurr.x, driver->posCurr.x), MISSILE_TARGET_POS_SHIFT);
+		dz = CTR_MipsSra(CTR_MipsSubLo(candidate->posCurr.z, driver->posCurr.z), MISSILE_TARGET_POS_SHIFT);
+		distance = CTR_MipsAddLo(CTR_MipsMulLo(dx, dx), CTR_MipsMulLo(dz, dz));
 		if (distance < closestDistance)
 		{
 			closestDistance = distance;
 			target = candidate;
 		}
-	}
+	} while (++i < MISSILE_TARGET_DRIVER_COUNT);
 
 	return target;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800652c8-0x8006540c.
-u32 VehPickupItem_PotionThrow(struct MineWeapon *mine, struct Instance *inst, u32 flags)
+b32 VehPickupItem_PotionThrow(struct MineWeapon *mine, struct Instance *inst, u32 flags)
 {
 	s32 throwVelocity;
+	s32 matrixX;
+	s32 matrixZ;
+	s32 randomVelocityZ;
+	register s32 tailValue CTR_PSX_REGISTER("$3");
+	register b32 result CTR_PSX_REGISTER("$2");
 
-	if ((flags & 8) != 0)
+#ifdef CTR_AP
+	if ((flags & POTION_THROW_AP_DROP) != 0)
 	{
 		// AP Red Potion trap: fall vertically from its validated target marker.
-		throwVelocity = 0;
+		mine->velocity.x = 0;
+		mine->velocity.y = POTION_THROW_Y_VELOCITY;
+		mine->velocity.z = 0;
+		mine->crateInst = NULL;
+		mine->flags |= MINE_WEAPON_FLAG_THROWN;
+		return 1;
 	}
-	else if ((flags & 4) == 0)
-	{
-		if ((flags & 2) == 0)
-		{
-			if ((flags & 1) == 0)
-			{
-				return 0;
-			}
+#endif
 
-			throwVelocity = (MixRNG_Scramble() & 0x1f) - 0x10;
-		}
-		else
-		{
-			throwVelocity = -0x78;
-		}
+	if ((flags & POTION_THROW_FORWARD) != 0)
+	{
+		matrixX = inst->matrix.m[0][2];
+		CTR_PSX_KEEP_VALUE(matrixX);
+		result = 1;
+		CTR_PSX_KEEP_VALUE(result);
+		mine->velocity.x = (s16)((matrixX * 15) >> 9);
+		CTR_PSX_OBSERVE_MEMORY(mine->velocity.x);
+		matrixZ = inst->matrix.m[2][2];
+		mine->velocity.y = POTION_THROW_Y_VELOCITY;
+		mine->crateInst = NULL;
+		tailValue = (u16)mine->flags;
+		tailValue |= MINE_WEAPON_FLAG_THROWN;
+		mine->flags = (u16)tailValue;
+		CTR_PSX_OBSERVE_MEMORY(mine->flags);
+		tailValue = (matrixZ * 15) >> 9;
+	}
+	else if ((flags & POTION_THROW_BACKWARD) != 0)
+	{
+		result = 1;
+		CTR_PSX_KEEP_VALUE(result);
+		matrixX = inst->matrix.m[0][2];
+		mine->velocity.x = (s16)((matrixX * -POTION_THROW_SPEED) >> POTION_THROW_MATRIX_SHIFT);
+		CTR_PSX_OBSERVE_MEMORY(mine->velocity.x);
+		matrixZ = inst->matrix.m[2][2];
+		mine->velocity.y = POTION_THROW_Y_VELOCITY;
+		mine->crateInst = NULL;
+		tailValue = (u16)mine->flags;
+		tailValue |= MINE_WEAPON_FLAG_THROWN;
+		mine->flags = (u16)tailValue;
+		CTR_PSX_OBSERVE_MEMORY(mine->flags);
+		tailValue = (matrixZ * -POTION_THROW_SPEED) >> POTION_THROW_MATRIX_SHIFT;
 	}
 	else
 	{
-		throwVelocity = 0x78;
+		if ((flags & POTION_THROW_RANDOM) == 0)
+		{
+			return 0;
+		}
+
+		throwVelocity = (RngDeadCoed(&VEH_ADV_RNG) & POTION_THROW_RANDOM_MASK) - POTION_THROW_RANDOM_BIAS;
+		tailValue = inst->matrix.m[0][2];
+		mine->velocity.x = (s16)((tailValue * throwVelocity) >> POTION_THROW_MATRIX_SHIFT);
+		CTR_PSX_OBSERVE_MEMORY(mine->velocity.x);
+		tailValue = inst->matrix.m[2][2];
+		randomVelocityZ = (tailValue * throwVelocity) >> POTION_THROW_MATRIX_SHIFT;
+		mine->velocity.y = POTION_THROW_Y_VELOCITY;
+		mine->crateInst = NULL;
+		tailValue = (u16)mine->flags;
+		result = 1;
+		tailValue |= MINE_WEAPON_FLAG_THROWN;
+		mine->flags = (u16)tailValue;
+		CTR_PSX_OBSERVE_MEMORY(mine->flags);
+		tailValue = randomVelocityZ;
 	}
 
-	mine->velocity.x = (inst->matrix.m[0][2] * throwVelocity) >> 12;
-	mine->velocity.y = 0x30;
-	mine->velocity.z = (inst->matrix.m[2][2] * throwVelocity) >> 12;
-	mine->crateInst = NULL;
-	mine->extraFlags |= 2;
-
-	return 1;
+	mine->velocity.z = (s16)tailValue;
+	return result;
 }
 
 #ifdef CTR_AP
@@ -395,18 +658,18 @@ int VehPickupItem_TrapHazardAt(struct Driver *d, int weaponID, const SVec3 *targ
 	inst->matrix.t[2] = target->z;
 	d->numWumpas = 10; // Nitro rather than TNT; red rather than green potion.
 	flags = 0;
-	if (weaponID == 4)
+	if (weaponID == WEAPON_ID_BEAKER)
 	{
 		inst->matrix.t[1] += 1200;
-		flags = 8;
+		flags = POTION_THROW_AP_DROP;
 	}
 	VehPickupItem_ShootNow(d, weaponID, flags);
-	if (weaponID == 3)
+	if (weaponID == WEAPON_ID_MINE)
 	{
 		d->instTntSend = 0;
 		d->actionsFlagSet &= ~ACTION_DROPPING_MINE;
 	}
-	if (weaponID == 4 && sdata->gGT->threadBuckets[MINE].thread != before)
+	if (weaponID == WEAPON_ID_BEAKER && sdata->gGT->threadBuckets[MINE].thread != before)
 	{
 		struct MineWeapon *mine = sdata->gGT->threadBuckets[MINE].thread->object;
 		mine->velocity.x = 0;
@@ -422,23 +685,23 @@ int VehPickupItem_TrapHazardAt(struct Driver *d, int weaponID, const SVec3 *targ
 }
 #endif
 
-void VehPickupItem_ShootNow(struct Driver *d, int weaponID, int flags)
+// NOTE(aalhendi): Most retail weapon paths assume allocation succeeds. Native
+// skips failed births and releases any resources reserved before the failure.
+// NOTE(ap): no itemsanity hook here. By the time this runs, `weaponID` has
+// already lost the Bomb, Bomb x3 and Missile x3 identities to the shared
+// Missile branch, and the bot/boss auto-fire callers in PickupBots.c enter
+// here directly. The check hook sits at the player's own choke point
+// instead, in VehPickupItem_ShootOnCirclePress below.
+void VehPickupItem_ShootNow(struct Driver *d, s32 weaponID, s32 flags)
 {
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8006540c-0x800666e4.
-	// NOTE(ap): no itemsanity hook here. By the time this runs, `weaponID` has
-	// already lost the Bomb, Bomb x3 and Missile x3 identities to the shared
-	// Missile branch, and the bot/boss auto-fire callers in PickupBots.c enter
-	// here directly. The check hook sits at the player's own choke point
-	// instead, in VehPickupItem_ShootOnCirclePress below.
-	struct Instance *dInst;
-	struct Thread *weaponTh;
-	struct Instance *weaponInst;
-	struct MineWeapon *mw;
-	struct TrackerWeapon *tw;
-	struct GameTracker *gGT = sdata->gGT;
-	int modelID;
-	int mineHitModel = 0;
-	int mineShouldInitFollower = 0;
+	union
+	{
+		SVECTOR missileRotation;
+		SVec3 mineProbeTop;
+	} shootScratch;
+	SVec3 mineProbeBottom;
+	SVec3 beakerProbeTop;
+	SVec3 beakerProbeBottom;
 
 #if defined(CTR_AP) || defined(CTR_AI_LAP_RECORDER)
 	// AI lap recording: count the Mask and Turbo fires of the local player, for
@@ -448,715 +711,552 @@ void VehPickupItem_ShootNow(struct Driver *d, int weaponID, int flags)
 	AP_NavRec_NoteItemFire(d, weaponID);
 #endif
 
+#ifndef CTR_NATIVE
+	// NOTE(aalhendi): Taking each label's address keeps GCC's case blocks alive,
+	// while dispatch still reads the original resident jump table.
+	static void *const shootNowCaseLabels[] = {
+	    &&ShootNowTurbo, &&ShootNowDone,  &&ShootNowBombMissile, &&ShootNowMine, &&ShootNowBeaker, &&ShootNowDone,         &&ShootNowShield,
+	    &&ShootNowMask,  &&ShootNowClock, &&ShootNowWarpball,    &&ShootNowDone, &&ShootNowDone,   &&ShootNowInvisibility, &&ShootNowSuperEngine,
+	};
+
+	if ((u32)weaponID >= 14)
+	{
+		goto ShootNowDone;
+	}
+	VEH_PICKUP_SHOOT_NOW_DISPATCH(weaponID);
+#endif
 	switch (weaponID)
 	{
 	// Turbo
-	case 0:
+	case WEAPON_ID_TURBO:
+#ifndef CTR_NATIVE
+	ShootNowTurbo:
+#endif
 	{
-		int boost = 0x80;
-		if (d->numWumpas >= 10)
+		int boost = TURBO_ITEM_BOOST_NORMAL;
+		if (d->numWumpas >= DRIVER_WUMPA_JUICED_COUNT)
 		{
-			boost = 0x100;
+			boost = TURBO_ITEM_BOOST_JUICED;
 		}
 
-		VehFire_Increment(d, 0x960, 9, boost);
+		VehFire_Increment(d, TURBO_ITEM_RESERVES, TURBO_ITEM_FIRE_FLAGS, boost);
 	}
 	break;
 
+	// Mask
+	case WEAPON_ID_MASK:
+#ifndef CTR_NATIVE
+	ShootNowMask:
+#endif
+		VehPickupItem_MaskUseWeapon(d, true);
+		break;
+
 	// Shared code for Bomb and Missile
-	case 2:
-		if (gGT->numMissiles >= 12)
+	case WEAPON_ID_BOMB_MISSILE:
+#ifndef CTR_NATIVE
+	ShootNowBombMissile:
+#endif
+	{
+		register struct Instance *weaponInst CTR_PSX_REGISTER("$18");
+		struct TrackerWeapon *tw;
+		register struct Driver *victim CTR_PSX_REGISTER("$17");
+		register MATRIX *weaponMatrix CTR_PSX_REGISTER("$20");
+		int closest;
+
+		if ((s32)GAME_TRACKER->numMissiles >= ACTIVE_MISSILE_LIMIT)
 		{
 			return;
 		}
 
-		gGT->numMissiles++;
+		closest = MISSILE_TARGET_DISTANCE_SENTINEL;
 		d->numTimesMissileLaunched++;
+		GAME_TRACKER->numMissiles++;
 
-		GAMEPAD_ShockFreq(d, 8, 0);
-		GAMEPAD_ShockForce1(d, 8, 0x7f);
+		GAMEPAD_ShockFreq(d, WEAPON_GAMEPAD_RUMBLE_FRAMES, 0);
+		GAMEPAD_ShockForce1(d, WEAPON_GAMEPAD_RUMBLE_FRAMES, WEAPON_GAMEPAD_RUMBLE_FORCE);
 
-		struct Driver *victim = VehPickupItem_MissileGetTargetDriver(d);
-
-		// if driver not found
+		victim = VehPickupItem_MissileGetTargetDriver(d);
 		if (victim == 0)
 		{
-			// if not battle mode
-			if ((gGT->gameMode1 & 0x20) == 0)
+			CTR_PSX_FORGET_VALUE(victim);
+			if ((GAME_TRACKER->gameMode1 & BATTLE_MODE) != 0)
 			{
-				if (gGT->elapsedEventTime & 1)
+				int i;
+
+				for (i = 0; i < MISSILE_TARGET_DRIVER_COUNT; i++)
 				{
-					// if not DYNAMIC_PLAYER
-					if (d->instSelf->thread->modelIndex != DYNAMIC_PLAYER)
-					{
-						int rank = d->driverRank;
-						if (rank != 0)
-						{
-							victim = gGT->driversInRaceOrder[rank - 1];
-						}
-					}
-				}
-			}
+					struct Driver *candidate = GAME_TRACKER->drivers[i];
+#ifdef CTR_NATIVE
+					int distX;
+					int distZ;
+#endif
+					register int dist CTR_PSX_REGISTER("$3");
 
-			else
-			{
-				int closest = 0x7fffffff;
-
-				for (int i = 0; i < 8; i++)
-				{
-					struct Driver *tempD = gGT->drivers[i];
-
-					if (tempD == 0)
+					if (candidate == 0)
 					{
 						continue;
 					}
-					if (tempD == d)
+					if (candidate == d)
 					{
 						continue;
 					}
-					if (tempD->invisibleTimer != 0)
+					if (candidate->kartState == KS_MASK_GRABBED)
 					{
 						continue;
 					}
-					if (tempD->kartState == KS_MASK_GRABBED)
+					if (candidate->BattleHUD.teamID == d->BattleHUD.teamID)
 					{
 						continue;
 					}
-					if (tempD->BattleHUD.teamID == d->BattleHUD.teamID)
+					if (candidate->invisibleTimer != 0)
 					{
 						continue;
 					}
 
-					int distX = CTR_MipsSra(CTR_MipsSubLo(tempD->posCurr.x, d->posCurr.x), 8);
-					int distZ = CTR_MipsSra(CTR_MipsSubLo(tempD->posCurr.z, d->posCurr.z), 8);
-
-					int dist = CTR_MipsAddLo(CTR_MipsMulLo(distX, distX), CTR_MipsMulLo(distZ, distZ));
+#ifdef CTR_NATIVE
+					distX = CTR_MipsSra(CTR_MipsSubLo(candidate->posCurr.x, d->posCurr.x), MISSILE_TARGET_POS_SHIFT);
+					distZ = CTR_MipsSra(CTR_MipsSubLo(candidate->posCurr.z, d->posCurr.z), MISSILE_TARGET_POS_SHIFT);
+					dist = CTR_MipsAddLo(CTR_MipsMulLo(distX, distX), CTR_MipsMulLo(distZ, distZ));
+#else
+					// NOTE(aalhendi): GCC otherwise assigns the second MFLO to t6.
+					// Keep retail's v1 reuse without exposing this schedule to native;
+					// a broad memory clobber also destroys the required allocation.
+					__asm__ volatile("lw $2,724(%1)\n\t"
+					                 "lw $3,724(%2)\n\t"
+					                 "nop\n\t"
+					                 "subu $2,$2,$3\n\t"
+					                 "sra $2,$2,8\n\t"
+					                 "mult $2,$2\n\t"
+					                 "lw $2,732(%1)\n\t"
+					                 "lw $3,732(%2)\n\t"
+					                 "mflo $5\n\t"
+					                 "subu $2,$2,$3\n\t"
+					                 "sra $2,$2,8\n\t"
+					                 "mult $2,$2\n\t"
+					                 "mflo %0\n\t"
+					                 "addu %0,$5,%0"
+					                 : "=r"(dist)
+					                 : "r"(candidate), "r"(d)
+					                 : "$2", "$5");
+#endif
 					if (dist < closest)
 					{
 						closest = dist;
-						victim = tempD;
+						victim = candidate;
 					}
+				}
+			}
+			else if (d->instSelf->thread->modelIndex != DYNAMIC_PLAYER)
+			{
+				int rank = d->driverRank;
+
+				if ((rank != 0) && ((GAME_TRACKER->elapsedEventTime & MISSILE_RACE_FALLBACK_EVENT_MASK) != 0))
+				{
+					victim = GAME_TRACKER->driversInRaceOrder[rank - 1];
 				}
 			}
 		}
 
-		dInst = d->instSelf;
-
-		// set up missile
-		modelID = DYNAMIC_ROCKET;
-		int bucket = TRACKING;
-		struct Thread *parentTh = 0;
-		char *weaponName = rdata.s_bombtracker1;
-
-		// bomb
-		if ((d->heldItemID == 1) || (d->heldItemID == 10))
+		if ((d->heldItemID == HELD_ITEM_MISSILE_1X) || (d->heldItemID == HELD_ITEM_MISSILE_3X))
 		{
-			modelID = DYNAMIC_BOMB;
-			bucket = OTHER;
-			parentTh = dInst->thread;
-			weaponName = sdata->s_bomb1;
+			weaponInst =
+			    INSTANCE_BirthWithThread(DYNAMIC_ROCKET, rdata.s_bombtracker1, MEDIUM, TRACKING, RB_MovingExplosive_ThTick, sizeof(struct TrackerWeapon), 0);
 		}
-
-		// medium stack pool
-		weaponInst = INSTANCE_BirthWithThread(modelID, weaponName, MEDIUM, bucket, RB_MovingExplosive_ThTick, sizeof(struct TrackerWeapon), parentTh);
-
-		// NOTE(aalhendi): Native low-RAM audit candidate only. Retail
-		// dereferences weapon birth results before later checks in several
-		// branches of this function; keep unpatched until memory pressure or
-		// gameplay repro proves the semantic fallback.
-
-		VehPickupItem_CopyMatrix(&weaponInst->matrix, &dInst->matrix);
-
-		VehPhysForce_RotAxisAngle(&weaponInst->matrix, d->AxisAngle1_normalVec.v, d->rotCurr.y);
-
-		weaponTh = weaponInst->thread;
-		weaponTh->funcThDestroy = PROC_DestroyTracker;
-		weaponTh->funcThCollide = RB_Hazard_ThCollide_Missile;
-
-		tw = weaponTh->object;
-		tw->flags = 0;
-		tw->framesSeekMine = 0;
-		tw->soundIDCount = 0;
-		tw->timeAlive = 0;
-		tw->driverParent = d;
-		tw->driverTarget = victim;
-		tw->instParent = dInst;
-
-		int talk;
-
-		// bomb
-		if (modelID == DYNAMIC_BOMB)
-		{
-			talk = 10;
-			d->instBombThrow = weaponInst;
-
-			SVECTOR rot;
-			CTR_MatrixToRot(&rot, &weaponInst->matrix, 0x11);
-
-			// not a typo, required like this
-			tw->dir.x = rot.vy;
-			tw->dir.y = rot.vx;
-			tw->dir.z = rot.vz;
-
-			PlaySound3D(0x47, weaponInst);
-		}
-
-		// missile
 		else
 		{
-			talk = 11;
+			weaponInst = INSTANCE_BirthWithThread(DYNAMIC_BOMB, VEH_PICKUP_BOMB_NAME, MEDIUM, OTHER, RB_MovingExplosive_ThTick, sizeof(struct TrackerWeapon),
+			                                      d->instSelf->thread);
+		}
 
+#ifdef CTR_NATIVE
+		if (weaponInst == NULL)
+		{
+			d->numTimesMissileLaunched--;
+			GAME_TRACKER->numMissiles--;
+			return;
+		}
+#endif
+		weaponMatrix = &weaponInst->matrix;
+		{
+			register MATRIX *matrixArgument CTR_PSX_REGISTER("$4");
+			register const struct Instance *copySource CTR_PSX_REGISTER("$2");
+
+			copySource = d->instSelf;
+			CTR_PSX_KEEP_VALUE(copySource);
+			matrixArgument = weaponMatrix;
+			CTR_PSX_KEEP_VALUE(matrixArgument);
+			VehPickupItem_CopyInstanceMatrixForPhysics(weaponInst, copySource, matrixArgument);
+			VehPhysForce_RotAxisAngle(matrixArgument, CTR_VECTOR_DATA(&d->AxisAngle1_normalVec), d->rotCurr.y);
+		}
+
+		weaponInst->thread->funcThDestroy = PROC_DestroyTracker;
+		weaponInst->thread->funcThCollide = (void *)RB_Hazard_ThCollide_Missile;
+
+		tw = weaponInst->thread->object;
+		tw->flags = 0;
+		tw->driverParent = d;
+		tw->timeAlive = 0;
+		tw->framesSeekTargetTnt = 0;
+		tw->soundIDCount = 0;
+
+		if ((d->heldItemID == HELD_ITEM_BOMB_1X) || (d->heldItemID == HELD_ITEM_BOMB_3X))
+		{
+			CTR_MatrixToRot(&shootScratch.missileRotation, &weaponInst->matrix, 0x11);
+			tw->dir.x = shootScratch.missileRotation.vy;
+			tw->dir.y = shootScratch.missileRotation.vx;
+			tw->dir.z = shootScratch.missileRotation.vz;
+			tw->driverTarget = victim;
+			d->instBombThrow = weaponInst;
+
+			PlaySound3D(SOUND_BOMB_LAUNCH, weaponInst);
+			if ((d->actionsFlagSet & ACTION_BOT) == 0)
+			{
+				Voiceline_RequestPlay(VOICELINE_BOMB_LAUNCH, GAME_CHARACTER_IDS[d->driverID], VOICELINE_WEAPON_PRIORITY);
+			}
+		}
+		else
+		{
+			weaponInst->thread->funcThCollide = (void *)RB_Hazard_ThCollide_Missile;
 			if (victim != 0)
 			{
+				tw->driverTarget = victim;
 				if (victim->thTrackingMe == 0)
 				{
 					victim->thTrackingMe = RB_GetThread_ClosestTracker(victim);
 				}
 			}
-
-			PlaySound3D(0x4a, weaponInst);
-		}
-
-		// if human and not AI
-		if ((d->actionsFlagSet & ACTION_BOT) == 0)
-		{
-			Voiceline_RequestPlay(talk, data.characterIDs[d->driverID], 0x10);
+			else
+			{
+				CTR_PSX_CLOBBER("$17");
+				tw->driverTarget = 0;
+			}
+			PlaySound3D(SOUND_MISSILE_LAUNCH, weaponInst);
+			if ((d->actionsFlagSet & ACTION_BOT) == 0)
+			{
+				Voiceline_RequestPlay(VOICELINE_MISSILE_LAUNCH, GAME_CHARACTER_IDS[d->driverID], VOICELINE_WEAPON_PRIORITY);
+			}
 		}
 
 		tw->rotY = d->rotCurr.y;
-
-		// do NOT patch for 60fps,
-		// velocity uses elapsedTime
 		tw->vel.y = 0;
-		tw->vel.x = (weaponInst->matrix.m[0][2] * 3) >> 7;
-		tw->vel.z = (weaponInst->matrix.m[2][2] * 3) >> 7;
 
-		if (d->numWumpas >= 10)
+		if ((d->heldItemID == HELD_ITEM_BOMB_1X) || (d->heldItemID == HELD_ITEM_BOMB_3X))
 		{
-			tw->flags |= 1;
-		}
+			struct GamepadBuffer *gamepad;
 
-		// bomb
-		if (modelID == DYNAMIC_BOMB)
-		{
-			struct GamepadBuffer *gb = &sdata->gGamepads->gamepad[d->driverID];
-
-			if (
-			    // hold d-pad DOWN
-			    ((gb->buttonsHeldCurrFrame & BTN_DOWN) != 0) ||
-
-			    // pinstripe
-			    ((flags & 2) != 0))
+			tw->vel.x = (weaponInst->matrix.m[0][2] * TRACKER_LAUNCH_VELOCITY_NUMERATOR) >> TRACKER_LAUNCH_VELOCITY_SHIFT;
+			tw->vel.z = (weaponInst->matrix.m[2][2] * TRACKER_LAUNCH_VELOCITY_NUMERATOR) >> TRACKER_LAUNCH_VELOCITY_SHIFT;
+			if (d->numWumpas >= DRIVER_WUMPA_JUICED_COUNT)
 			{
-				tw->flags |= 0x20;
+				tw->flags |= TRACKER_FLAG_POWERED_UP;
+			}
 
+			gamepad = &GAMEPADS->gamepad[d->driverID];
+			if (((gamepad->buttonsHeldCurrFrame & BTN_DOWN) != 0) || ((flags & SHOOT_NOW_BACKWARD) != 0))
+			{
+				tw->flags |= TRACKER_FLAG_BOMB_BACKWARD;
 				tw->vel.x = -(((tw->vel.x >> 1) * 3) / 5);
 				tw->vel.z = -(((tw->vel.z >> 1) * 3) / 5);
 			}
 		}
-
-		// missile
+		else if (d->numWumpas >= DRIVER_WUMPA_JUICED_COUNT)
+		{
+			tw->vel.x = (weaponInst->matrix.m[0][2] * TRACKER_LAUNCH_VELOCITY_NUMERATOR) >> TRACKER_LAUNCH_VELOCITY_SHIFT;
+			tw->vel.z = (weaponInst->matrix.m[2][2] * TRACKER_LAUNCH_VELOCITY_NUMERATOR) >> TRACKER_LAUNCH_VELOCITY_SHIFT;
+			tw->flags |= TRACKER_FLAG_POWERED_UP;
+		}
 		else
 		{
-			if (d->numWumpas < 10)
-			{
-				// do NOT patch for 60fps,
-				// velocity uses elapsedTime
-				tw->vel.x = (weaponInst->matrix.m[0][2] * 5) >> 8;
-				tw->vel.z = (weaponInst->matrix.m[2][2] * 5) >> 8;
-			}
+			tw->vel.x = (weaponInst->matrix.m[0][2] * MISSILE_TRACKER_VELOCITY_NUMERATOR) >> MISSILE_TRACKER_VELOCITY_SHIFT;
+			tw->vel.z = (weaponInst->matrix.m[2][2] * MISSILE_TRACKER_VELOCITY_NUMERATOR) >> MISSILE_TRACKER_VELOCITY_SHIFT;
 		}
 
-		tw->frameCount_DontHurtParent = FPS_DOUBLE(60);
-		tw->frameCount_Blind = 0;
+		tw->parentSafetyFrames = FPS_DOUBLE(TRACKER_PARENT_SAFETY_FRAMES);
+		tw->blindFrames = 0;
+		tw->instParent = d->instSelf;
 		break;
+	}
 
-	// TNT/Nitro
-	case 3:
-
-		// tnt or nitro
-		modelID = STATIC_CRATE_TNT;
-		char *mineName = sdata->s_tnt1;
-		if (d->numWumpas >= 10)
-		{
-			modelID = PU_EXPLOSIVE_CRATE;
-			mineName = sdata->s_nitro1;
-		}
-
-		weaponInst = INSTANCE_BirthWithThread(modelID, mineName, SMALL, MINE, RB_GenericMine_ThTick, sizeof(struct MineWeapon), 0);
-#if defined(CTR_NATIVE)
-		if (weaponInst == 0)
-			return;
+	// Clock
+	case WEAPON_ID_CLOCK:
+#ifndef CTR_NATIVE
+	ShootNowClock:
 #endif
+	{
+		int i;
 
-		dInst = d->instSelf;
+		d->numTimesClockWeaponUsed++;
+		OtherFX_Play(SOUND_CLOCK, 1);
 
-		VehPickupItem_CopyMatrix(&weaponInst->matrix, &dInst->matrix);
-
-		weaponInst->scale.x = 0;
-		weaponInst->scale.y = 0;
-		weaponInst->scale.z = 0;
-
-		weaponTh = weaponInst->thread;
-		weaponTh->funcThDestroy = PROC_DestroyInstance;
-		weaponTh->funcThCollide = RB_Hazard_ThCollide_Generic;
-
-		PlaySound3D(0x52, weaponInst);
-
-		// if human and not AI
 		if ((d->actionsFlagSet & ACTION_BOT) == 0)
 		{
-			Voiceline_RequestPlay(0xf, data.characterIDs[d->driverID], 0x10);
+			Voiceline_RequestPlay(VOICELINE_CLOCK, GAME_CHARACTER_IDS[d->driverID], VOICELINE_WEAPON_PRIORITY);
 		}
 
-		mw = weaponTh->object;
-		mw->driverTarget = 0;
-		mw->instParent = dInst;
-		mw->crateInst = 0;
-		VehPickupItem_ClearMineMotion(mw);
-		mw->boolDestroyed = 0;
-		mw->frameCount_DontHurtParent = 10;
-		mw->tntSpinY = 0;
-		mw->extraFlags = 0;
-
-		RB_MinePool_Add(mw);
-		VehPickupItem_PotionThrow(mw, weaponInst, flags);
-		mineHitModel = weaponInst->model->id | COLL_MODELID_BLOCKAGE_FLAG;
-		mineShouldInitFollower = (flags == 0);
-
-	RunMineCOLL:;
-
-		SVec3 probeTop;
-		SVec3 probeBottom;
-
-		probeTop.x = (s16)(u16)weaponInst->matrix.t[0];
-		probeTop.y = (s16)CTR_MipsAddLo((u16)weaponInst->matrix.t[1], -400);
-		probeTop.z = (s16)(u16)weaponInst->matrix.t[2];
-
-		probeBottom.x = (s16)(u16)weaponInst->matrix.t[0];
-		probeBottom.y = (s16)CTR_MipsAddLo((u16)weaponInst->matrix.t[1], 64);
-		probeBottom.z = (s16)(u16)weaponInst->matrix.t[2];
-
-		struct ScratchpadStruct *sps = CTR_SCRATCHPAD_PTR(struct ScratchpadStruct, 0x108);
-
-		sps->Union.QuadBlockColl.quadFlagsWanted = QUADBLOCK_FLAG_GROUND;
-		sps->Union.QuadBlockColl.quadFlagsIgnored = 0;
-
-		sps->Union.QuadBlockColl.searchFlags = COLL_SEARCH_TEST_INSTANCES;
-		if (gGT->numPlyrCurrGame < 3)
+		for (i = 0; i < CLOCK_DRIVER_COUNT; i++)
 		{
-			sps->Union.QuadBlockColl.searchFlags = COLL_SEARCH_TEST_INSTANCES | COLL_SEARCH_HIGH_LOD;
-		}
+			struct Driver *victim;
 
-		sps->ptr_mesh_info = gGT->level1->ptr_mesh_info;
-
-		COLL_SearchBSP_CallbackQUADBLK(&probeTop, &probeBottom, sps, 0x40);
-
-		if (sps->boolDidTouchHitbox != 0)
-		{
-			sps->Input1.modelID = mineHitModel;
-
-			RB_Hazard_CollLevInst(sps, weaponTh);
-
-			struct InstDef *instDef = sps->bspHitbox->data.hitbox.instDef;
-
-			s16 modelTouched = instDef->modelID;
-			if ((modelTouched == PU_FRUIT_CRATE) || (modelTouched == PU_RANDOM_CRATE))
+#ifdef CTR_NATIVE
+			// NOTE(aalhendi): Retail writes before its null check; native must skip empty driver slots.
+			if (GAME_TRACKER->drivers[i] == 0)
 			{
-				mw->crateInst = instDef->ptrInstance;
+				continue;
 			}
-
+#endif
+			GAME_TRACKER->drivers[i]->clockFlash = FPS_DOUBLE(CLOCK_FLASH_FRAMES);
+			victim = GAME_TRACKER->drivers[i];
+			if (victim == 0)
+			{
+				continue;
+			}
+			if (victim != d)
+			{
+				if (RB_Hazard_HurtDriver(victim, CLOCK_HURT_REASON, 0, 0) != 0)
+				{
+					if (d->numWumpas >= DRIVER_WUMPA_JUICED_COUNT)
+					{
+						GAME_TRACKER->drivers[i]->clockReceive = CLOCK_HURT_DURATION_JUICED;
+					}
+					else
+					{
+						GAME_TRACKER->drivers[i]->clockReceive = CLOCK_HURT_DURATION_NORMAL;
+					}
+				}
+			}
 			else
 			{
-				RB_GenericMine_ThDestroy(weaponTh, weaponInst, mw);
-			}
-
-			sps->Union.QuadBlockColl.searchFlags = 0;
-			COLL_SearchBSP_CallbackQUADBLK(&probeTop, &probeBottom, sps, 0);
-		}
-
-		RB_MakeInstanceReflective(sps, weaponInst);
-
-		SVec3 fallbackNormal;
-		s16 *rotationNormal;
-
-		if (sps->boolDidTouchQuadblock == 0)
-		{
-			fallbackNormal = (SVec3){.x = 0, .y = COLL_FRACTION_ONE, .z = 0};
-			rotationNormal = fallbackNormal.v;
-
-			mw->stopFallAtY = weaponInst->matrix.t[1];
-		}
-
-		else
-		{
-			mw->stopFallAtY = sps->Union.QuadBlockColl.hitPos.y;
-			rotationNormal = sps->hit.plane.normal.v;
-		}
-
-		VehPhysForce_RotAxisAngle(&weaponInst->matrix, rotationNormal, d->angle);
-
-		d->instTntSend = weaponInst;
-
-		// dropped a mine
-		d->actionsFlagSet |= ACTION_DROPPING_MINE;
-
-		if (mineShouldInitFollower != 0)
-		{
-			RB_Follower_Init(d, weaponTh);
-		}
-		break;
-
-	// Beaker
-	case 4:
-
-		if (d->numWumpas < 10)
-		{
-			modelID = STATIC_BEAKER_GREEN;
-
-			weaponInst = INSTANCE_BirthWithThread(modelID, sdata->s_beaker1, SMALL, MINE, RB_GenericMine_ThTick, sizeof(struct MineWeapon), 0);
-			if (weaponInst == 0)
-			{
-				return;
+				d->clockSend = FPS_DOUBLE(CLOCK_SELF_SEND_FRAMES);
 			}
 		}
-		else
-		{
-			modelID = STATIC_BEAKER_RED;
-
-			weaponInst = INSTANCE_BirthWithThread(modelID, sdata->s_beaker1, SMALL, MINE, RB_GenericMine_ThTick, sizeof(struct MineWeapon), 0);
-		}
-		if (weaponInst == 0)
-			return;
-
-		dInst = d->instSelf;
-
-		VehPickupItem_CopyMatrix(&weaponInst->matrix, &dInst->matrix);
-
-		// potion always faces camera
-		weaponInst->model->headers[0].flags |= 2;
-
-		weaponTh = weaponInst->thread;
-		weaponTh->funcThDestroy = PROC_DestroyInstance;
-		weaponTh->funcThCollide = RB_Hazard_ThCollide_Generic;
-
-		PlaySound3D(0x52, weaponInst);
-
-		// if human and not AI
-		if ((d->actionsFlagSet & ACTION_BOT) == 0)
-		{
-			Voiceline_RequestPlay(0xf, data.characterIDs[d->driverID], 0x10);
-		}
-
-		mw = weaponTh->object;
-		mw->driverTarget = 0;
-		mw->instParent = dInst;
-		mw->crateInst = 0;
-		mw->boolDestroyed = 0;
-		mw->frameCount_DontHurtParent = 10;
-		mw->extraFlags = 0;
-		if (modelID == STATIC_BEAKER_RED)
-		{
-			mw->extraFlags = 1;
-		}
-
-		struct GamepadBuffer *gb = &sdata->gGamepads->gamepad[d->driverID];
-
-		// throw potion forward
-		if ((gb->buttonsHeldCurrFrame & BTN_UP) != 0)
-		{
-			flags |= 4;
-		}
-
-		RB_MinePool_Add(mw);
-		int ret = VehPickupItem_PotionThrow(mw, weaponInst, flags);
-
-		if (ret == 0)
-		{
-			weaponInst->scale.x = 0;
-			weaponInst->scale.y = 0;
-			weaponInst->scale.z = 0;
-
-			VehPickupItem_ClearMineMotion(mw);
-
-			mineHitModel = weaponInst->model->id;
-			mineShouldInitFollower = 1;
-			goto RunMineCOLL;
-		}
 		break;
+	}
 
 	// Shield Bubble
-	case 6:;
+	case WEAPON_ID_SHIELD:
+#ifndef CTR_NATIVE
+	ShootNowShield:
+#endif
+	{
+		register struct Instance *weaponInst CTR_PSX_REGISTER("$18");
+		register s32 scale CTR_PSX_REGISTER("$16");
+		register struct Shield *shieldObj CTR_PSX_REGISTER("$17");
 
-		char *shieldDarkName = rdata.s_shielddark;
-		char *highlightName = rdata.s_highlight;
+		weaponInst = INSTANCE_BirthWithThread(SHIELD_DARK_MODEL, VEH_PICKUP_SHIELD_DARK_NAME, MEDIUM, OTHER, RB_ShieldDark_ThTick_Grow, sizeof(struct Shield),
+		                                      d->instSelf->thread);
 
-		weaponInst = INSTANCE_BirthWithThread(0x5a, shieldDarkName, MEDIUM, OTHER, RB_ShieldDark_ThTick_Grow, sizeof(struct Shield), d->instSelf->thread);
-
-#if defined(CTR_NATIVE)
-		// NOTE(dowlle): retail-blind deref of a pool birth (#56 Class-B). On native this
-		// returns NULL when the instance or thread pool is full and the reads below
-		// fault. Dropping the shield entirely is the only safe failure: without the dark
-		// bubble there is no thread to hang the colour and highlight instances off.
-		// d->instBubbleHold is left untouched, so the driver simply has no shield.
+#ifdef CTR_NATIVE
 		if (weaponInst == NULL)
 		{
 #if defined(CTR_AP)
 			AP_LogLine("[AP POOL] Shield bubble birth NULL (crash averted)\n");
 #endif
-			break;
-		}
-#endif
-
-		weaponTh = weaponInst->thread;
-		weaponInst->scale.x = 0x700;
-		weaponInst->scale.y = 0x700;
-		weaponInst->scale.z = 0x700;
-		weaponTh->funcThDestroy = PROC_DestroyInstance;
-		OtherFX_Play(0x57, 1);
-
-		modelID = DYNAMIC_SHIELD_GREEN;
-		if (d->numWumpas >= 10)
-		{
-			modelID = DYNAMIC_SHIELD;
-		}
-
-		struct Instance *instColor = INSTANCE_Birth3D(gGT->modelPtr[modelID], sdata->s_shield, weaponTh);
-
-		struct Instance *instHighlight = INSTANCE_Birth3D(gGT->modelPtr[DYNAMIC_HIGHLIGHT], highlightName, weaponTh);
-
-#if defined(CTR_NATIVE)
-		// NOTE(dowlle): the colour and highlight layers are two more retail-blind pool
-		// births (#56 Class-B) and either can fail on its own. Both are cosmetic layers
-		// on top of the dark bubble, so a NULL one just means that layer is not drawn.
-		// The NULL is stored into shieldObj below and every consumer in
-		// RB_ShieldDark_ThTick_Grow / RB_ShieldDark_ThTick_Pop is guarded to match.
-		// Their teardowns need no guard: INSTANCE_Death(NULL) reaches JitPool_Remove,
-		// whose LIST_RemoveMember and LIST_AddFront both early-return on a NULL item.
-		if (instColor != NULL)
-		{
-#endif
-		instColor->scale.x = 0x700;
-		instColor->scale.y = 0x700;
-		instColor->scale.z = 0x700;
-#if defined(CTR_NATIVE)
-		}
-#if defined(CTR_AP)
-		else
-		{
-			AP_LogLine("[AP POOL] Shield colour birth NULL (crash averted)\n");
-		}
-#endif
-
-		if (instHighlight != NULL)
-		{
-#endif
-		instHighlight->scale.x = 0x700;
-		instHighlight->scale.y = 0x700;
-		instHighlight->scale.z = 0x700;
-#if defined(CTR_NATIVE)
-		}
-#if defined(CTR_AP)
-		else
-		{
-			AP_LogLine("[AP POOL] Shield highlight birth NULL (crash averted)\n");
-		}
-#endif
-#endif
-
-		struct Shield *shieldObj = weaponTh->object;
-		shieldObj->animFrame = 0;
-		shieldObj->flags = 0;
-		shieldObj->instColor = instColor;
-		shieldObj->instHighlight = instHighlight;
-		shieldObj->highlightRot.x = 0;
-		shieldObj->highlightRot.y = 0xc00;
-		shieldObj->highlightRot.z = 0;
-		shieldObj->highlightTimer = 0;
-
-		if (d->numWumpas < 10)
-		{
-			shieldObj->duration = 0x2d00;
-		}
-		else
-		{
-			shieldObj->flags = 4;
-		}
-
-		weaponInst->alphaScale = 0x400;
-		d->instBubbleHold = weaponInst;
-		break;
-
-	// Mask
-	case 7:
-		VehPickupItem_MaskUseWeapon(d, 1);
-		break;
-
-	// Clock
-	case 8:
-
-		d->numTimesClockWeaponUsed++;
-
-		OtherFX_Play(0x44, 1);
-
-		if ((d->actionsFlagSet & ACTION_BOT) == 0)
-		{
-			Voiceline_RequestPlay(0xe, data.characterIDs[d->driverID], 0x10);
-		}
-
-		int hurtVal = 0x1e00;
-		if (d->numWumpas >= 10)
-		{
-			hurtVal = 0x2d00;
-		}
-
-		struct Driver **dptr;
-
-		for (dptr = &gGT->drivers[0]; dptr < &gGT->drivers[8]; dptr++)
-		{
-			struct Driver *victim = *dptr;
-
-			if (victim == 0)
-			{
-				continue;
-			}
-
-			victim->clockFlash = FPS_DOUBLE(4);
-
-			if (victim == d)
-			{
-				d->clockSend = FPS_DOUBLE(0x1e);
-				continue;
-			}
-
-			// if spin out driver
-			if (RB_Hazard_HurtDriver(victim, 1, 0, 0) != 0)
-			{
-				victim->clockReceive = hurtVal;
-			}
-		}
-		break;
-
-	// Warpball
-	case 9:
-
-		dInst = d->instSelf;
-		GAMEPAD_ShockFreq(d, 8, 0);
-		GAMEPAD_ShockForce1(d, 8, 0x7f);
-
-		// MEDIUM
-		char *warpballName = rdata.s_warpball;
-
-		weaponInst = INSTANCE_BirthWithThread(0x36, warpballName, MEDIUM, TRACKING, RB_Warpball_ThTick, sizeof(struct TrackerWeapon), 0);
-#if defined(CTR_NATIVE)
-		if (weaponInst == 0)
-		{
-			gGT->gameMode1 &= ~WARPBALL_HELD;
 			return;
 		}
 #endif
+		weaponInst->scale.x = SHIELD_SCALE;
+		weaponInst->scale.y = SHIELD_SCALE;
+		weaponInst->scale.z = SHIELD_SCALE;
 
-		weaponInst->matrix.m[0][0] = 0x1000;
-		weaponInst->matrix.m[0][1] = 0;
-		weaponInst->matrix.m[0][2] = 0;
-		weaponInst->matrix.m[1][0] = 0;
-		weaponInst->matrix.m[1][1] = 0x1000;
-		weaponInst->matrix.m[1][2] = 0;
-		weaponInst->matrix.m[2][0] = 0;
-		weaponInst->matrix.m[2][1] = 0;
-		weaponInst->matrix.m[2][2] = 0x1000;
+		weaponInst->thread->funcThDestroy = PROC_DestroyInstance;
+		OtherFX_Play(SOUND_SHIELD, 1);
 
-		weaponInst->matrix.t[0] = CTR_MipsSra(d->posCurr.x, 8);
-		weaponInst->matrix.t[1] = CTR_MipsSra(d->posCurr.y, 8);
-		weaponInst->matrix.t[2] = CTR_MipsSra(d->posCurr.z, 8);
+		shieldObj = weaponInst->thread->object;
+		if (d->numWumpas >= DRIVER_WUMPA_JUICED_COUNT)
+		{
+			shieldObj->instColor = INSTANCE_Birth3D(GAME_TRACKER->modelPtr[DYNAMIC_SHIELD], VEH_PICKUP_SHIELD_NAME, weaponInst->thread);
+		}
+		else
+		{
+			shieldObj->instColor = INSTANCE_Birth3D(GAME_TRACKER->modelPtr[DYNAMIC_SHIELD_GREEN], VEH_PICKUP_SHIELD_NAME, weaponInst->thread);
+		}
 
-		weaponTh = weaponInst->thread;
-		weaponTh->funcThDestroy = PROC_DestroyInstance;
+#ifdef CTR_NATIVE
+		if (shieldObj->instColor == NULL)
+		{
+#if defined(CTR_AP)
+			AP_LogLine("[AP POOL] Shield colour birth NULL (crash averted)\n");
+#endif
+			goto ShieldBirthFailed;
+		}
+#endif
+		scale = SHIELD_SCALE;
+		shieldObj->instColor->scale.x = scale;
+		shieldObj->instColor->scale.y = scale;
+		shieldObj->instColor->scale.z = scale;
 
-		PlaySound3D(0x4d, weaponInst);
+		shieldObj->instHighlight = INSTANCE_Birth3D(GAME_TRACKER->modelPtr[DYNAMIC_HIGHLIGHT], VEH_PICKUP_HIGHLIGHT_NAME, weaponInst->thread);
+
+#ifdef CTR_NATIVE
+		if (shieldObj->instHighlight == NULL)
+		{
+#if defined(CTR_AP)
+			AP_LogLine("[AP POOL] Shield highlight birth NULL (crash averted)\n");
+#endif
+			INSTANCE_Death(shieldObj->instColor);
+			goto ShieldBirthFailed;
+		}
+#endif
+		shieldObj->instHighlight->scale.x = scale;
+		shieldObj->instHighlight->scale.y = scale;
+		shieldObj->instHighlight->scale.z = scale;
+
+		shieldObj->flags = 0;
+		shieldObj->highlightRot.x = 0;
+		shieldObj->highlightRot.y = SHIELD_HIGHLIGHT_ROT_Y;
+		shieldObj->highlightRot.z = 0;
+		shieldObj->highlightTimer = 0;
+
+		if (d->numWumpas >= DRIVER_WUMPA_JUICED_COUNT)
+		{
+			shieldObj->flags |= SHIELD_FLAG_BLUE;
+		}
+		else
+		{
+			shieldObj->duration = SHIELD_DURATION_NORMAL;
+		}
+
+		weaponInst->alphaScale = SHIELD_ALPHA_SCALE;
+		shieldObj->animFrame = 0;
+		d->instBubbleHold = weaponInst;
+		break;
+
+#ifdef CTR_NATIVE
+	ShieldBirthFailed:
+		// NOTE(aalhendi): Birth inserted this thread at the front of the driver's
+		// children. Unlink it before recycling the unfinished shield and object.
+		d->instSelf->thread->childThread = weaponInst->thread->siblingThread;
+		PROC_DestroySelf(weaponInst->thread);
+		return;
+#endif
+	}
+
+	// Warpball
+	case WEAPON_ID_WARPBALL:
+#ifndef CTR_NATIVE
+	ShootNowWarpball:
+#endif
+	{
+		register struct Instance *weaponInst CTR_PSX_REGISTER("$18");
+		register struct TrackerWeapon *tw CTR_PSX_REGISTER("$16");
+		struct Driver *victim;
+		struct CheckpointNode *checkpoints;
+		struct Particle *p;
+
+		GAMEPAD_ShockFreq(d, WEAPON_GAMEPAD_RUMBLE_FRAMES, 0);
+		GAMEPAD_ShockForce1(d, WEAPON_GAMEPAD_RUMBLE_FRAMES, WEAPON_GAMEPAD_RUMBLE_FORCE);
+
+		weaponInst = INSTANCE_BirthWithThread(WARPBALL_MODEL, rdata.s_warpball, MEDIUM, TRACKING, RB_Warpball_ThTick, sizeof(struct TrackerWeapon), 0);
+
+#ifdef CTR_NATIVE
+		if (weaponInst == NULL)
+		{
+			// The warpball thread's destroy callback is what releases WARPBALL_HELD;
+			// without a thread nothing would.
+			GAME_TRACKER->gameMode1 &= ~WARPBALL_HELD;
+			return;
+		}
+#endif
+		weaponInst->matrix.t[0] = CTR_MipsSra(d->posCurr.x, WARPBALL_POS_SHIFT);
+		weaponInst->matrix.t[1] = CTR_MipsSra(d->posCurr.y, WARPBALL_POS_SHIFT);
+		weaponInst->matrix.t[2] = CTR_MipsSra(d->posCurr.z, WARPBALL_POS_SHIFT);
+
+		VehPickupItem_SetWarpballMatrixPair(&weaponInst->matrix, 0, WARPBALL_MATRIX_IDENTITY_SCALE, 0);
+		VehPickupItem_SetWarpballMatrixPair(&weaponInst->matrix, 2, 0, 0);
+		VehPickupItem_SetWarpballMatrixPair(&weaponInst->matrix, 4, WARPBALL_MATRIX_IDENTITY_SCALE, 0);
+		VehPickupItem_SetWarpballMatrixPair(&weaponInst->matrix, 6, 0, 0);
+		weaponInst->matrix.m[2][2] = WARPBALL_MATRIX_IDENTITY_SCALE;
+
+		weaponInst->thread->funcThDestroy = PROC_DestroyInstance;
+
+		PlaySound3D(SOUND_WARPBALL, weaponInst);
 
 		// if human and not AI (AIs can not use Warpball)
 		if ((d->actionsFlagSet & ACTION_BOT) == 0)
 		{
-			Voiceline_RequestPlay(0xc, data.characterIDs[d->driverID], 0x10);
+			Voiceline_RequestPlay(VOICELINE_WARPBALL, GAME_CHARACTER_IDS[d->driverID], VOICELINE_WEAPON_PRIORITY);
 		}
 
-		// used by RB_Warpball_SeekDriver
-		victim = 0;
-		int rank = d->driverRank;
-		if (rank != 0)
-		{
-			victim = gGT->driversInRaceOrder[rank - 1];
-		}
-
-		tw = weaponTh->object;
-		tw->flags = 8;
-		tw->soundIDCount = 0;
-		tw->ptrNodeNext = 0;
-		tw->respawnPointIndex = 0;
-		tw->turnAround = 0;
+		tw = weaponInst->thread->object;
 		tw->driverParent = d;
-		tw->driverTarget = victim;
-		tw->instParent = dInst;
-
-		if (d->numWumpas >= 10)
+		tw->turnAroundFrames = 0;
+		tw->ptrNodeNext = 0;
+		victim = 0;
+		if (d->driverRank != 0)
 		{
-			tw->flags |= 1;
+			victim = GAME_TRACKER->driversInRaceOrder[d->driverRank - 1];
 		}
+		tw->driverTarget = victim;
 
-		// sets nodeCurrIndex
 		RB_Warpball_SeekDriver(tw, d->checkpoint.currentIndex, d);
 
-		struct CheckpointNode *cn = gGT->level1->ptr_restart_points;
+		checkpoints = GAME_TRACKER->level1->ptr_restart_points;
 		tw->nodeNextIndex = tw->nodeCurrIndex;
-		tw->ptrNodeCurr = &cn[tw->nodeCurrIndex];
+		tw->ptrNodeCurr = &checkpoints[tw->nodeCurrIndex];
+		tw->flags = 0;
+		tw->pathProgress = 0;
+
+		if (d->numWumpas >= DRIVER_WUMPA_JUICED_COUNT)
+		{
+			tw->flags |= TRACKER_FLAG_POWERED_UP;
+		}
+
+		tw->flags |= TRACKER_FLAG_WARPBALL_FALLBACK_PATH;
 
 		// make this driver invincible
 		tw->driversHit = 1 << d->driverID;
 
-		victim = 0;
-		if (rank != 0)
+		if (d->driverRank == 0)
 		{
-			victim = RB_Warpball_GetDriverTarget(tw, weaponInst);
+			tw->driverTarget = 0;
 		}
-		tw->driverTarget = victim;
+		else
+		{
+			tw->driverTarget = RB_Warpball_GetDriverTarget(tw, weaponInst);
+		}
+		if (d->driverRank == 0)
+		{
+			tw->driverTarget = 0;
+		}
 
-		if (victim != 0)
+		if (tw->driverTarget != 0)
 		{
 			RB_Warpball_SetTargetDriver(tw);
 		}
 
-		if ((tw->flags & 4) == 0)
+		if ((tw->flags & TRACKER_FLAG_WARPBALL_TARGET_PATH) != 0)
 		{
-			RB_Warpball_Start(tw);
+			tw->flags &= ~TRACKER_FLAG_WARPBALL_FALLBACK_PATH;
 		}
 		else
 		{
-			tw->flags &= 0xfff7;
+			RB_Warpball_Start(tw);
 		}
 
-		tw->ptrNodeNext = RB_Warpball_NewPathNode(tw->ptrNodeCurr, victim);
+		tw->ptrNodeNext = RB_Warpball_NewPathNode(tw->ptrNodeCurr, tw->driverTarget);
 
-		tw->vel.y = 0;
-		tw->rotY = d->angle;
-		tw->frameCount_DontHurtParent = 10;
+		tw->soundIDCount = 0;
 
 		// do NOT patch for 60fps,
 		// velocity uses elapsedTime
-		tw->vel.x = (dInst->matrix.m[0][2] * 7) >> 8;
-		tw->vel.z = (dInst->matrix.m[2][2] * 7) >> 8;
+		tw->vel.x = (d->instSelf->matrix.m[0][2] * WARPBALL_VELOCITY_NUMERATOR) >> WARPBALL_VELOCITY_SHIFT;
+		tw->vel.y = 0;
+		tw->vel.z = (d->instSelf->matrix.m[2][2] * WARPBALL_VELOCITY_NUMERATOR) >> WARPBALL_VELOCITY_SHIFT;
+		tw->parentSafetyFrames = WARPBALL_PARENT_SAFETY_FRAMES;
+		tw->dir.y = d->angle;
+		tw->instParent = d->instSelf;
 
 #if CTR_NATIVE_60FPS
 		if (CTR_NATIVE_60FPS_ACTIVE)
 		{
-			sdata->UnusedPadding1 = 1;
+			gParticleInitUnthrottled = 1;
 		}
 #endif
-		struct Particle *p = Particle_Init(0, gGT->iconGroup[0], &data.emSet_Warpball[0]);
+		p = Particle_Init(0, GAME_TRACKER->iconGroup[WARPBALL_PARTICLE_ICON_GROUP], &data.emSet_Warpball[0]);
 #if CTR_NATIVE_60FPS
 		if (CTR_NATIVE_60FPS_ACTIVE)
 		{
-			sdata->UnusedPadding1 = 0;
+			gParticleInitUnthrottled = 0;
 		}
 #endif
 
@@ -1164,52 +1264,428 @@ void VehPickupItem_ShootNow(struct Driver *d, int weaponID, int flags)
 
 		if (p != 0)
 		{
-			p->otIndexOffset = (s8)0xfa;
+			p->otIndexOffset = (s8)WARPBALL_PARTICLE_OT_OFFSET;
 		}
 
 		break;
+	}
+
+	// TNT/Nitro
+	case WEAPON_ID_MINE:
+#ifndef CTR_NATIVE
+	ShootNowMine:
+#endif
+	{
+		register struct Instance *weaponInst CTR_PSX_REGISTER("$18");
+		register struct MineWeapon *mw CTR_PSX_REGISTER("$16");
+		register struct ScratchpadStruct *sps CTR_PSX_REGISTER("$17");
+		register s32 soundID CTR_PSX_REGISTER("$4");
+		register struct Instance *soundInstance CTR_PSX_REGISTER("$5");
+		register struct InstDef *instDef CTR_PSX_REGISTER("$3");
+		register s32 modelTouched CTR_PSX_REGISTER("$4");
+		register MATRIX *matrixArgument CTR_PSX_REGISTER("$4");
+		register s16 *rotationNormal CTR_PSX_REGISTER("$5");
+		register s32 rotationAngle CTR_PSX_REGISTER("$6");
+
+		sps = CTR_SCRATCHPAD_PTR(struct ScratchpadStruct, MINE_COLL_SCRATCH_OFFSET);
+
+		if (d->numWumpas >= DRIVER_WUMPA_JUICED_COUNT)
+		{
+			weaponInst = INSTANCE_BirthWithThread(PU_EXPLOSIVE_CRATE, VEH_PICKUP_NITRO_NAME, SMALL, MINE, RB_GenericMine_ThTick, sizeof(struct MineWeapon), 0);
+		}
+		else
+		{
+			weaponInst = INSTANCE_BirthWithThread(STATIC_CRATE_TNT, VEH_PICKUP_TNT_NAME, SMALL, MINE, RB_GenericMine_ThTick, sizeof(struct MineWeapon), 0);
+		}
+
+#ifdef CTR_NATIVE
+		if (weaponInst == NULL)
+		{
+			return;
+		}
+#endif
+		{
+			register const struct Instance *copySource CTR_PSX_REGISTER("$2");
+
+			soundID = SOUND_MINE_DROP;
+			CTR_PSX_KEEP_VALUE(soundID);
+			copySource = d->instSelf;
+			CTR_PSX_KEEP_VALUE(copySource);
+			soundInstance = weaponInst;
+			CTR_PSX_KEEP_VALUE(soundInstance);
+			VehPickupItem_CopyInstanceMatrix(weaponInst, copySource);
+		}
+
+		weaponInst->scale.x = 0;
+		weaponInst->scale.y = 0;
+		weaponInst->scale.z = 0;
+
+		weaponInst->thread->funcThDestroy = PROC_DestroyInstance;
+		weaponInst->thread->funcThCollide = (void *)RB_Hazard_ThCollide_Generic;
+
+		PlaySound3D(soundID, soundInstance);
+
+		if ((d->actionsFlagSet & ACTION_BOT) == 0)
+		{
+			Voiceline_RequestPlay(VOICELINE_MINE_DROP, GAME_CHARACTER_IDS[d->driverID], VOICELINE_WEAPON_PRIORITY);
+		}
+
+		mw = weaponInst->thread->object;
+		mw->instParent = d->instSelf;
+		mw->velocity.x = 0;
+		mw->velocity.y = 0;
+		mw->velocity.z = 0;
+		mw->parentSafetyFrames = MINE_PARENT_SAFETY_FRAMES;
+		mw->boolDestroyed = 0;
+		mw->tntSpinY = 0;
+		mw->driverTarget = 0;
+		mw->crateInst = 0;
+		mw->flags = 0;
+
+		RB_MinePool_Add(mw);
+		VehPickupItem_PotionThrow(mw, weaponInst, flags);
+
+		shootScratch.mineProbeTop.x = (s16)(u16)weaponInst->matrix.t[0];
+		shootScratch.mineProbeTop.y = (s16)CTR_MipsAddLo((u16)weaponInst->matrix.t[1], MINE_COLL_PROBE_TOP_Y_OFFSET);
+		shootScratch.mineProbeTop.z = (s16)(u16)weaponInst->matrix.t[2];
+
+		mineProbeBottom.x = (s16)(u16)weaponInst->matrix.t[0];
+		mineProbeBottom.y = (s16)CTR_MipsAddLo((u16)weaponInst->matrix.t[1], MINE_COLL_PROBE_BOTTOM_Y_OFFSET);
+		{
+			register struct GameTracker *gameTracker CTR_PSX_REGISTER("$3");
+			register s32 probeBottomZ CTR_PSX_REGISTER("$4");
+
+			gameTracker = GAME_TRACKER;
+			CTR_PSX_KEEP_VALUE(gameTracker);
+			probeBottomZ = (u16)weaponInst->matrix.t[2];
+			CTR_PSX_KEEP_VALUE(probeBottomZ);
+			sps->Union.QuadBlockColl.quadFlagsWanted = QUADBLOCK_FLAG_GROUND;
+			sps->Union.QuadBlockColl.quadFlagsIgnored = 0;
+			sps->Union.QuadBlockColl.searchFlags = COLL_SEARCH_TEST_INSTANCES;
+			mineProbeBottom.z = (s16)probeBottomZ;
+			if (gameTracker->numPlyrCurrGame < MINE_COLL_SEARCH_PLAYER_THRESHOLD)
+			{
+				sps->Union.QuadBlockColl.searchFlags = COLL_SEARCH_TEST_INSTANCES | COLL_SEARCH_HIGH_LOD;
+			}
+		}
+		sps->ptr_mesh_info = GAME_TRACKER->level1->ptr_mesh_info;
+		COLL_SearchBSP_CallbackQUADBLK(&shootScratch.mineProbeTop, &mineProbeBottom, sps, MINE_COLL_CALLBACK_FLAGS);
+
+		if ((u16)sps->boolDidTouchHitbox != 0)
+		{
+			sps->Input1.modelID = weaponInst->model->id | COLL_MODELID_BLOCKAGE_FLAG;
+			RB_Hazard_CollLevInst(sps, weaponInst->thread);
+
+			instDef = sps->bspHitbox->data.hitbox.instDef;
+			CTR_PSX_LOAD_SIGNED_HALF_VOLATILE(modelTouched, instDef, offsetof(struct InstDef, modelID), *(VehPickupItemSignedHalfword *)&instDef->modelID);
+			if (modelTouched == MINE_HITBOX_FRUIT_MODEL)
+			{
+				goto MineHitCrate;
+			}
+			if (modelTouched != MINE_HITBOX_RANDOM_MODEL)
+			{
+				goto MineDestroy;
+			}
+
+		MineHitCrate:
+			mw->crateInst = instDef->ptrInstance;
+			goto MineHitboxDone;
+
+		MineDestroy:
+			RB_GenericMine_ThDestroy(weaponInst->thread, weaponInst, mw);
+		MineHitboxDone:
+
+			sps->Union.QuadBlockColl.searchFlags = 0;
+			COLL_SearchBSP_CallbackQUADBLK(&shootScratch.mineProbeTop, &mineProbeBottom, sps, 0);
+		}
+		else
+		{
+			mw->crateInst = 0;
+		}
+
+		RB_MakeInstanceReflective(sps, weaponInst);
+
+		matrixArgument = &weaponInst->matrix;
+		if (sps->boolDidTouchQuadblock != 0)
+		{
+			mw->stopFallAtY = sps->Union.QuadBlockColl.hitPos.y;
+			rotationAngle = d->angle;
+			CTR_PSX_KEEP_VALUE(rotationAngle);
+			rotationNormal = VehPickupItem_GetCollisionNormal(sps);
+		}
+		else
+		{
+			mw->stopFallAtY = weaponInst->matrix.t[1];
+			shootScratch.mineProbeTop.x = 0;
+			shootScratch.mineProbeTop.y = COLL_FRACTION_ONE;
+			shootScratch.mineProbeTop.z = 0;
+			rotationAngle = d->angle;
+			CTR_PSX_KEEP_VALUE(rotationAngle);
+			rotationNormal = CTR_VECTOR_DATA(&shootScratch.mineProbeTop);
+		}
+
+		VehPhysForce_RotAxisAngle(matrixArgument, rotationNormal, rotationAngle);
+
+		d->instTntSend = weaponInst;
+		d->actionsFlagSet |= ACTION_DROPPING_MINE;
+		if (flags == 0)
+		{
+			RB_Follower_Init(d, weaponInst->thread);
+		}
+		break;
+	}
+
+	// Beaker
+	case WEAPON_ID_BEAKER:
+#ifndef CTR_NATIVE
+	ShootNowBeaker:
+#endif
+	{
+		register struct Instance *weaponInst CTR_PSX_REGISTER("$18");
+		register struct MineWeapon *mw CTR_PSX_REGISTER("$16");
+		register struct ScratchpadStruct *sps CTR_PSX_REGISTER("$17");
+		register struct InstDef *instDef CTR_PSX_REGISTER("$3");
+		register s32 soundID CTR_PSX_REGISTER("$4");
+		register struct Instance *soundInstance CTR_PSX_REGISTER("$5");
+		register s32 modelTouched CTR_PSX_REGISTER("$4");
+		register MATRIX *matrixArgument CTR_PSX_REGISTER("$4");
+		register s16 *rotationNormal CTR_PSX_REGISTER("$5");
+		register s32 rotationAngle CTR_PSX_REGISTER("$6");
+		struct GamepadBuffer *gamepad;
+		struct ModelHeader *modelHeader;
+		u16 modelHeaderFlags;
+		s32 potionFlags;
+
+		sps = CTR_SCRATCHPAD_PTR(struct ScratchpadStruct, MINE_COLL_SCRATCH_OFFSET);
+
+		if (d->numWumpas >= DRIVER_WUMPA_JUICED_COUNT)
+		{
+			weaponInst = INSTANCE_BirthWithThread(STATIC_BEAKER_RED, VEH_PICKUP_BEAKER_NAME, SMALL, MINE, RB_GenericMine_ThTick, sizeof(struct MineWeapon), 0);
+#ifdef CTR_NATIVE
+			if (weaponInst == NULL)
+			{
+				return;
+			}
+#endif
+			mw = weaponInst->thread->object;
+			mw->flags = MINE_WEAPON_FLAG_RED_BEAKER;
+		}
+		else
+		{
+			weaponInst =
+			    INSTANCE_BirthWithThread(STATIC_BEAKER_GREEN, VEH_PICKUP_BEAKER_NAME, SMALL, MINE, RB_GenericMine_ThTick, sizeof(struct MineWeapon), 0);
+			if (weaponInst == 0)
+			{
+				return;
+			}
+			mw = weaponInst->thread->object;
+			mw->flags = 0;
+		}
+
+		{
+			register const struct Instance *copySource CTR_PSX_REGISTER("$2");
+
+			copySource = d->instSelf;
+			CTR_PSX_KEEP_VALUE(copySource);
+			VehPickupItem_CopyInstanceMatrix(weaponInst, copySource);
+		}
+
+		modelHeader = weaponInst->model->headers;
+		CTR_PSX_KEEP_VALUE(modelHeader);
+		soundID = SOUND_MINE_DROP;
+		CTR_PSX_KEEP_VALUE(soundID);
+		modelHeaderFlags = modelHeader->flags;
+		CTR_PSX_KEEP_VALUE(modelHeaderFlags);
+		soundInstance = weaponInst;
+		CTR_PSX_KEEP_VALUE(soundInstance);
+		modelHeader->flags = modelHeaderFlags | BEAKER_MODEL_HEADER_CAMERA_FLAG;
+
+		weaponInst->thread->funcThDestroy = PROC_DestroyInstance;
+		weaponInst->thread->funcThCollide = (void *)RB_Hazard_ThCollide_Generic;
+
+		{
+			register struct Instance *parentInstance CTR_PSX_REGISTER("$3");
+
+			parentInstance = d->instSelf;
+			CTR_PSX_KEEP_VALUE(parentInstance);
+			mw->parentSafetyFrames = MINE_PARENT_SAFETY_FRAMES;
+			mw->boolDestroyed = 0;
+			mw->crateInst = 0;
+			mw->instParent = parentInstance;
+
+			PlaySound3D(soundID, soundInstance);
+		}
+
+		if ((d->actionsFlagSet & ACTION_BOT) == 0)
+		{
+			Voiceline_RequestPlay(VOICELINE_MINE_DROP, GAME_CHARACTER_IDS[d->driverID], VOICELINE_WEAPON_PRIORITY);
+		}
+
+		RB_MinePool_Add(mw);
+
+		gamepad = &GAMEPADS->gamepad[d->driverID];
+		potionFlags = flags;
+		if ((gamepad->buttonsHeldCurrFrame & BTN_UP) != 0)
+		{
+			potionFlags |= POTION_THROW_FORWARD;
+		}
+
+		if ((s16)VehPickupItem_PotionThrow(mw, weaponInst, potionFlags) != 0)
+		{
+			break;
+		}
+
+		weaponInst->scale.x = 0;
+		weaponInst->scale.y = 0;
+		weaponInst->scale.z = 0;
+		mw->velocity.x = 0;
+		mw->velocity.y = 0;
+		mw->velocity.z = 0;
+
+		beakerProbeTop.x = (s16)(u16)weaponInst->matrix.t[0];
+		beakerProbeTop.y = (s16)CTR_MipsAddLo((u16)weaponInst->matrix.t[1], MINE_COLL_PROBE_TOP_Y_OFFSET);
+		beakerProbeTop.z = (s16)(u16)weaponInst->matrix.t[2];
+
+		beakerProbeBottom.x = (s16)(u16)weaponInst->matrix.t[0];
+		beakerProbeBottom.y = (s16)CTR_MipsAddLo((u16)weaponInst->matrix.t[1], MINE_COLL_PROBE_BOTTOM_Y_OFFSET);
+		{
+			register struct GameTracker *gameTracker CTR_PSX_REGISTER("$3");
+			register s32 probeBottomZ CTR_PSX_REGISTER("$4");
+
+			gameTracker = GAME_TRACKER;
+			CTR_PSX_KEEP_VALUE(gameTracker);
+			probeBottomZ = (u16)weaponInst->matrix.t[2];
+			CTR_PSX_KEEP_VALUE(probeBottomZ);
+			sps->Union.QuadBlockColl.quadFlagsWanted = QUADBLOCK_FLAG_GROUND;
+			sps->Union.QuadBlockColl.quadFlagsIgnored = 0;
+			sps->Union.QuadBlockColl.searchFlags = COLL_SEARCH_TEST_INSTANCES;
+			beakerProbeBottom.z = (s16)probeBottomZ;
+			if (gameTracker->numPlyrCurrGame < MINE_COLL_SEARCH_PLAYER_THRESHOLD)
+			{
+				sps->Union.QuadBlockColl.searchFlags = COLL_SEARCH_TEST_INSTANCES | COLL_SEARCH_HIGH_LOD;
+			}
+		}
+		sps->ptr_mesh_info = GAME_TRACKER->level1->ptr_mesh_info;
+		COLL_SearchBSP_CallbackQUADBLK(&beakerProbeTop, &beakerProbeBottom, sps, MINE_COLL_CALLBACK_FLAGS);
+
+		if ((u16)sps->boolDidTouchHitbox != 0)
+		{
+			sps->Input1.modelID = weaponInst->model->id;
+			RB_Hazard_CollLevInst(sps, weaponInst->thread);
+
+			instDef = sps->bspHitbox->data.hitbox.instDef;
+			CTR_PSX_LOAD_SIGNED_HALF_VOLATILE(modelTouched, instDef, offsetof(struct InstDef, modelID), *(VehPickupItemSignedHalfword *)&instDef->modelID);
+			if (modelTouched == MINE_HITBOX_FRUIT_MODEL)
+			{
+				goto BeakerHitCrate;
+			}
+			if (modelTouched != MINE_HITBOX_RANDOM_MODEL)
+			{
+				goto BeakerDestroy;
+			}
+
+		BeakerHitCrate:
+			mw->crateInst = instDef->ptrInstance;
+			goto BeakerHitboxDone;
+
+		BeakerDestroy:
+			RB_GenericMine_ThDestroy(weaponInst->thread, weaponInst, mw);
+		BeakerHitboxDone:
+			sps->Union.QuadBlockColl.searchFlags = 0;
+			COLL_SearchBSP_CallbackQUADBLK(&beakerProbeTop, &beakerProbeBottom, sps, 0);
+		}
+		else
+		{
+			mw->crateInst = 0;
+		}
+
+		RB_MakeInstanceReflective(sps, weaponInst);
+
+		matrixArgument = &weaponInst->matrix;
+		if (sps->boolDidTouchQuadblock != 0)
+		{
+			mw->stopFallAtY = sps->Union.QuadBlockColl.hitPos.y;
+			rotationAngle = d->angle;
+			CTR_PSX_KEEP_VALUE(rotationAngle);
+			rotationNormal = VehPickupItem_GetCollisionNormal(sps);
+		}
+		else
+		{
+			mw->stopFallAtY = weaponInst->matrix.t[1];
+			beakerProbeTop.x = 0;
+			beakerProbeTop.y = COLL_FRACTION_ONE;
+			beakerProbeTop.z = 0;
+			rotationAngle = d->angle;
+			CTR_PSX_KEEP_VALUE(rotationAngle);
+			rotationNormal = CTR_VECTOR_DATA(&beakerProbeTop);
+		}
+
+		VehPhysForce_RotAxisAngle(matrixArgument, rotationNormal, rotationAngle);
+		RB_Follower_Init(d, weaponInst->thread);
+		d->actionsFlagSet |= ACTION_DROPPING_MINE;
+		break;
+	}
+
+
+	// Super Engine
+	case WEAPON_ID_SUPER_ENGINE:
+#ifndef CTR_NATIVE
+	ShootNowSuperEngine:
+#endif
+	{
+		if (d->numWumpas >= DRIVER_WUMPA_JUICED_COUNT)
+		{
+			d->superEngineTimer = SUPER_ENGINE_DURATION_JUICED;
+			break;
+		}
+
+		d->superEngineTimer = SUPER_ENGINE_DURATION_NORMAL;
+	}
+	break;
 
 	// invisibility
-	case 0xc:
+	case WEAPON_ID_INVISIBILITY:
+#ifndef CTR_NATIVE
+	ShootNowInvisibility:
+#endif
+	{
+		register s32 time CTR_PSX_REGISTER("$2");
 
 		if (d->invisibleTimer == 0)
 		{
 			d->instFlagsBackup = d->instSelf->flags;
 
-			d->instSelf->flags = (d->instSelf->flags & 0xfff8ffff) | GHOST_DRAW_TRANSPARENT;
+			d->instSelf->flags &= INVISIBILITY_CLEAR_DRAW_FLAGS;
+			d->instSelf->flags |= GHOST_DRAW_TRANSPARENT;
 
-			OtherFX_Play(0x61, 1);
+			OtherFX_Play(SOUND_INVISIBILITY, 1);
 		}
 
-		int time = 0x1e00;
-		if (d->numWumpas >= 10)
+		time = d->numWumpas;
+		time = time < DRIVER_WUMPA_JUICED_COUNT;
+		if (time == 0)
 		{
-			time = 0x2d00;
+			time = INVISIBILITY_DURATION_JUICED;
+		}
+		else
+		{
+			time = INVISIBILITY_DURATION_NORMAL;
 		}
 
 		d->invisibleTimer = time;
 		break;
-
-
-	// Super Engine
-	case 0xd:
-	{
-		int engine = 0x1e00;
-		if (d->numWumpas >= 10)
-		{
-			engine = 0x2d00;
-		}
-
-		d->superEngineTimer = engine;
 	}
-	break;
 	}
+
+#ifndef CTR_NATIVE
+ShootNowDone:
+#endif
+    ;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800666e4-0x8006677c.
 void VehPickupItem_ShootOnCirclePress(struct Driver *d)
 {
-	u8 weapon;
+	s32 weapon;
 
 	if (d->pendingDamageType != 0)
 	{
@@ -1240,14 +1716,18 @@ void VehPickupItem_ShootOnCirclePress(struct Driver *d)
 	AP_TurboGrantOnFire(d, (int)d->heldItemID);
 #endif
 
-	weapon = d->heldItemID;
-
 	// Missiles and Bombs share code,
 	// Change Bomb1x, Bomb3x, Missile3x, to Missile1x
-	if ((weapon == 1) || (weapon == 10) || (weapon == 11))
+	weapon = HELD_ITEM_BOMB_1X;
+	if ((d->heldItemID != HELD_ITEM_BOMB_3X) && ((weapon = HELD_ITEM_BOMB_MISSILE_SHARED), d->heldItemID != HELD_ITEM_MISSILE_3X))
 	{
-		weapon = 2;
+		CTR_PSX_RELOAD(d->heldItemID);
+		weapon = d->heldItemID;
+	}
+	if (weapon == HELD_ITEM_BOMB_1X)
+	{
+		weapon = HELD_ITEM_BOMB_MISSILE_SHARED;
 	}
 
-	VehPickupItem_ShootNow(d, (int)weapon, 0);
+	VehPickupItem_ShootNow(d, (s32)weapon, SHOOT_NOW_NO_FLAGS);
 }

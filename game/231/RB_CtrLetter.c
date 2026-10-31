@@ -1,4 +1,4 @@
-#include <common.h>
+#include "RB_Pickup.h"
 
 #ifdef CTR_AP
 static int AP_CtrLetterIndex(int modelID)
@@ -10,101 +10,112 @@ static int AP_CtrLetterIndex(int modelID)
 }
 #endif
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b5090-0x800b5210.
-
 int RB_CtrLetter_ThCollide(struct Thread *letterTh, struct Thread *driverTh, void *funcThCollide, struct ScratchpadStruct *sps)
 {
-	s16 posScreen[2];
+	SVec4 posWorld;
+	union RBPickupScreen posScreen;
 	struct Driver *driver;
 	struct Instance *letterInst;
-	struct PushBuffer *pb;
+	(void)funcThCollide;
 
-	if (sps->Input1.modelID != DYNAMIC_PLAYER)
-	{
-		return 0;
-	}
 
 	letterInst = letterTh->inst;
-	driver = driverTh->object;
-#ifdef CTR_AP
-	int apLetter = AP_CtrLetterIndex(letterInst->model->id);
-	if (apLetter >= 0 && !AP_LetterAvailable(sdata->gGT->levelID, apLetter))
+	if (sps->Input1.modelID == DYNAMIC_PLAYER)
 	{
-		// `padding` is owned by the AP build and starts at zero when this letter's
-		// per-race object is born. The collision callback can run every frame while
-		// the kart overlaps a ghost letter, so log the refusal once for this letter
-		// instance rather than flooding ctr-ap.log.
-		struct CtrLetter *letterObj = letterTh->object;
-		if (letterObj != NULL && letterObj->padding == 0)
-		{
-			letterObj->padding = 1;
-			AP_LetterUnavailableTouched(sdata->gGT->levelID, apLetter);
-		}
-		return 0;
-	}
-#endif
-
-	pb = &sdata->gGT->pushBuffer[driver->driverID];
-	RB_Fruit_GetScreenCoords(pb, letterInst, &posScreen[0]);
-
-	driver->PickupLetterHUD.startX = pb->rect.x + posScreen[0];
-	driver->PickupLetterHUD.startY = pb->rect.y + posScreen[1] - 0x14;
-	driver->PickupLetterHUD.cooldown = FPS_DOUBLE(10);
-	driver->PickupLetterHUD.numCollected++;
-	driver->PickupLetterHUD.modelID = letterInst->model->id;
+		driver = driverTh->object;
 #ifdef CTR_AP
-	if (apLetter >= 0) AP_LetterCollected(sdata->gGT->levelID, apLetter);
+		int apLetter = AP_CtrLetterIndex(letterInst->model->id);
+		if (apLetter >= 0 && !AP_LetterAvailable(GAME_TRACKER->levelID, apLetter))
+		{
+			// `padding` is owned by the AP build and starts at zero when this letter's
+			// per-race object is born. The collision callback can run every frame while
+			// the kart overlaps a ghost letter, so log the refusal once for this letter
+			// instance rather than flooding ctr-ap.log.
+			struct CtrLetter *letterObj = letterTh->object;
+			if (letterObj != NULL && letterObj->padding == 0)
+			{
+				letterObj->padding = 1;
+				AP_LetterUnavailableTouched(GAME_TRACKER->levelID, apLetter);
+			}
+			return 0;
+		}
 #endif
 
-	letterInst->scale.x = 0;
-	letterInst->scale.y = 0;
-	letterInst->scale.z = 0;
-	letterInst->thread = 0;
-	letterInst->flags |= HIDE_MODEL;
+		posWorld.x = (s16)letterInst->matrix.t[0];
+		posWorld.y = (s16)letterInst->matrix.t[1];
+		posWorld.z = (s16)letterInst->matrix.t[2];
+		RB_Pickup_SetCamera(driver);
+		CTR_GteLoadPositionV0(&posWorld);
+		gte_rtps();
+		CTR_GteStorePositionXY(posScreen.coords);
 
-	OtherFX_Play(100, 1);
-	letterTh->flags |= THREAD_FLAG_DEAD;
+		driver->PickupLetterHUD.startX = posScreen.coords[0] + GAME_TRACKER->pushBuffer[driver->driverID].rect.x;
+		driver->PickupLetterHUD.startY = posScreen.coords[1] + GAME_TRACKER->pushBuffer[driver->driverID].rect.y - 0x14;
+		driver->PickupLetterHUD.cooldown = FPS_DOUBLE(10);
+		driver->PickupLetterHUD.modelID = letterInst->model->id;
+		driver->PickupLetterHUD.numCollected++;
+#ifdef CTR_AP
+		if (apLetter >= 0) AP_LetterCollected(GAME_TRACKER->levelID, apLetter);
+#endif
 
-	return 1;
+		letterInst->scale.x = 0;
+		letterInst->scale.y = 0;
+		letterInst->scale.z = 0;
+		letterInst->thread = 0;
+		letterInst->flags |= HIDE_MODEL;
+
+		OtherFX_Play(100, 1);
+		letterTh->flags |= THREAD_FLAG_DEAD;
+
+		return 1;
+	}
+	return 0;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b5210-0x800b52dc.
 
 int RB_CtrLetter_LInC(struct Instance *letterInst, struct Thread *driverTh, struct ScratchpadStruct *sps)
 {
-	typedef int (*CtrLetterCollideFunc)(struct Thread *, struct Thread *, void *, struct ScratchpadStruct *);
 	struct Thread *letterTh;
+	s32 result;
 
 	letterTh = letterInst->thread;
 	if (letterTh == NULL)
 	{
-		letterTh = PROC_BirthWithObject(SIZE_RELATIVE_POOL_BUCKET(4, NONE, SMALL, STATIC), RB_CtrLetter_ThTick, "ctr", NULL);
+		letterInst->thread = PROC_BirthWithObject(SIZE_RELATIVE_POOL_BUCKET(4, NONE, SMALL, STATIC), RB_CtrLetter_ThTick, "ctr", NULL);
 
-		letterInst->thread = letterTh;
+		letterTh = letterInst->thread;
 		if (letterTh == NULL)
 		{
 			return 0;
 		}
 
 		letterTh->inst = letterInst;
-		letterTh->funcThCollide = (void (*)(struct Thread *))RB_CtrLetter_ThCollide;
-		letterTh = letterInst->thread;
+		letterTh->funcThCollide = (void *)RB_CtrLetter_ThCollide;
 	}
+	letterTh = letterInst->thread;
 
-	if ((letterTh == NULL) || (letterTh->funcThCollide == NULL))
+	if (letterTh == NULL)
 	{
 		return 0;
 	}
 
-	if (letterInst->scale.x == 0)
+	if (letterTh->funcThCollide == NULL)
 	{
 		return 0;
 	}
 
-	return ((CtrLetterCollideFunc)letterTh->funcThCollide)(letterTh, driverTh, letterTh->funcThCollide, sps);
+	if (letterInst->scale.x != 0)
+	{
+		result = ((ThreadScratchCollideFunc)letterTh->funcThCollide)(letterTh, driverTh, letterTh->funcThCollide, sps);
+	}
+	else
+	{
+		result = 0;
+	}
+	return result;
 }
 
-SVec3 letterLightDir = {{0x94F, 0x94F, -0x94F}};
+SVec3 letterLightDir = {0x94F, 0x94F, -0x94F};
 
 #ifdef CTR_AP
 static void AP_CtrLetter_UpdateVisual(struct Instance *inst)
@@ -112,7 +123,7 @@ static void AP_CtrLetter_UpdateVisual(struct Instance *inst)
 	int letter = AP_CtrLetterIndex(inst->model->id);
 	if (letter < 0 || inst->scale.x == 0 ||
 	    (inst->thread && (inst->thread->flags & THREAD_FLAG_DEAD))) return;
-	if (AP_LetterAvailable(sdata->gGT->levelID, letter))
+	if (AP_LetterAvailable(GAME_TRACKER->levelID, letter))
 	{
 		inst->flags &= ~(DRAW_TRANSPARENT | GHOST_DRAW_TRANSPARENT);
 		inst->flags |= USE_SPECULAR_LIGHT;
@@ -129,7 +140,6 @@ static void AP_CtrLetter_UpdateVisual(struct Instance *inst)
 }
 #endif
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b52dc-0x800b5334.
 
 void RB_CtrLetter_ThTick(struct Thread *t)
 {
@@ -149,7 +159,6 @@ void RB_CtrLetter_ThTick(struct Thread *t)
 #endif
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b5334-0x800b53e0.
 
 void RB_CtrLetter_LInB(struct Instance *inst)
 {
@@ -173,7 +182,7 @@ void RB_CtrLetter_LInB(struct Instance *inst)
 			return;
 		}
 
-		t->funcThCollide = (void (*)(struct Thread *))RB_CtrLetter_ThCollide;
+		t->funcThCollide = (void *)RB_CtrLetter_ThCollide;
 		t->inst = inst;
 
 		letterObj = ((struct CtrLetter *)t->object);

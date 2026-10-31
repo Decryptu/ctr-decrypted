@@ -82,38 +82,38 @@ NativeConfig g_config = {
 };
 
 const ConfigEntry g_configEntries[] = {
-	{"Video & QoL", "skip_intro",               "Skip Intros",                  CFG_BOOL, &g_config.skipIntro},
-	{"Video & QoL", "increase_draw_distance",   "Increase Draw Distance",       CFG_BOOL, &g_config.increaseDrawDistance},
-	{"Video & QoL", "disable_split_screen_lod", "Hi-Res Models in Multiplayer", CFG_BOOL, &g_config.disableSplitScreenLod},
+	{"Video & QoL", "skip_intro",               "Skip Intros",                  CFG_BOOL, &g_config.skipIntro, 0, 0, 0},
+	{"Video & QoL", "increase_draw_distance",   "Increase Draw Distance",       CFG_BOOL, &g_config.increaseDrawDistance, 0, 0, 0},
+	{"Video & QoL", "disable_split_screen_lod", "Hi-Res Models in Multiplayer", CFG_BOOL, &g_config.disableSplitScreenLod, 0, 0, 0},
 	// The three graphics options ported from thecodingbob/ctr-native
 	// (widescreen-option / fullscreen-option / dithering-option branches). The
 	// aspect_ratio row is CFG_ENUM: 0 = 4:3 (vanilla default), 1 = 16:9,
 	// 2 = 16:10, 3 = 21:9, stepped through a fixed ladder and rendered as a name
 	// (see the s_aspectValues/s_aspectNames ladders in game/230/MM_ConfigMenu.c).
 	// Persists as its raw int value, same as CFG_INT.
-	{"Video & QoL", "dithering",                "Dithering",                    CFG_BOOL, &g_config.dithering},
-	{"Video & QoL", "fullscreen",               "Fullscreen",                   CFG_BOOL, &g_config.fullscreen},
+	{"Video & QoL", "dithering",                "Dithering",                    CFG_BOOL, &g_config.dithering, 0, 0, 0},
+	{"Video & QoL", "fullscreen",               "Fullscreen",                   CFG_BOOL, &g_config.fullscreen, 0, 0, 0},
 	// PGXP ladder (CFG_ENUM), ported from High Octane: OFF / TEXTURES /
 	// GEOMETRY / FULL, stored as the raw NativePgxpMode value (0/3/1/2, the
 	// same numbers High Octane writes as pgxp_mode). Picked up by
 	// NativePgxp_SyncConfig at the next frame boundary; see docs/PGXP.md.
-	{"Video & QoL", "pgxp",                     "PGXP (Anti-Wobble)",           CFG_ENUM, &g_config.pgxp},
-	{"Video & QoL", "aspect_ratio",             "Aspect Ratio",                 CFG_ENUM, &g_config.aspectRatio},
+	{"Video & QoL", "pgxp",                     "PGXP (Anti-Wobble)",           CFG_ENUM, &g_config.pgxp, 0, 0, 0},
+	{"Video & QoL", "aspect_ratio",             "Aspect Ratio",                 CFG_ENUM, &g_config.aspectRatio, 0, 0, 0},
 	// Render-scale ladder (CFG_ENUM): 1 = ORIGINAL (shipped raster + VRAM
 	// present, the default), 2/3/4 = fixed multiples, 0 = NATIVE (window-sized
 	// raster). Stored as the raw mode value; the renderer clamps out-of-ladder
 	// hand edits (NativeRenderScale_ClampMode) and applies edits on the next
 	// frame boundary, so none of these rows needs a menu-exit hook.
-	{"Video & QoL", "render_scale",             "Render Scale",                 CFG_ENUM, &g_config.renderScale},
+	{"Video & QoL", "render_scale",             "Render Scale",                 CFG_ENUM, &g_config.renderScale, 0, 0, 0},
 	// Screen-filter ladder (CFG_ENUM), include/platform/native_screen_filter.h.
 	// Applied by the renderer at the next present, so it switches live.
-	{"Video & QoL", "screen_filter",            "Screen Filter",                CFG_ENUM, &g_config.screenFilter},
-	{"Video & QoL", "texture_filtering",        "Texture Filtering",            CFG_BOOL, &g_config.textureFiltering},
+	{"Video & QoL", "screen_filter",            "Screen Filter",                CFG_ENUM, &g_config.screenFilter, 0, 0, 0},
+	{"Video & QoL", "texture_filtering",        "Texture Filtering",            CFG_BOOL, &g_config.textureFiltering, 0, 0, 0},
 	// VSync ladder (CFG_ENUM): 0 = Off (default), 1 = On, 2 = Adaptive. See
 	// include/platform/native_vsync.h for the option -> SDL swap-interval
 	// mapping and NativeRenderer_UpdateSwapIntervalState (platform/
 	// native_renderer.c) for where it is applied, cached, and re-applied.
-	{"Video & QoL", "vsync",                    "VSync",                        CFG_ENUM, &g_config.vsync},
+	{"Video & QoL", "vsync",                    "VSync",                        CFG_ENUM, &g_config.vsync, 0, 0, 0},
 	// Mute-when-unfocused (CFG_BOOL): off by default. On, the audio output is
 	// silenced whenever the game window does not have input focus, for players
 	// running several randomizer clients side by side. Decided in
@@ -121,19 +121,19 @@ const ConfigEntry g_configEntries[] = {
 	// by NativeAudio_UpdateFocusMuteState (platform/native_audio.c) from
 	// Platform_BeginScene, so it is picked up on the next frame and needs no
 	// menu-exit hook.
-	{"Video & QoL", "mute_when_unfocused",      "Mute When Unfocused",          CFG_BOOL, &g_config.muteWhenUnfocused},
+	{"Video & QoL", "mute_when_unfocused",      "Mute When Unfocused",          CFG_BOOL, &g_config.muteWhenUnfocused, 0, 0, 0},
 	// 60 FPS (CFG_BOOL, default on): High Octane's 60 FPS mode. Applied at the
 	// next level load, never mid-race (MainMain_ApplyFrameRateMode in
 	// game/MAIN/MainMain.c), which the label says.
-	{"Video & QoL", "fps60",                    "60 FPS (Next Load)",           CFG_BOOL, &g_config.fps60},
+	{"Video & QoL", "fps60",                    "60 FPS (Next Load)",           CFG_BOOL, &g_config.fps60, 0, 0, 0},
 	// Extras (CFG_BOOL): the CTR-ModSDK HUD and effect mods High Octane ships,
 	// each behind its own row so the retail look stays the default. See
 	// docs/EXTRAS.md.
-	{"Extras",      "reserves_meter",           "Reserves Meter",               CFG_BOOL, &g_config.reservesMeter},
-	{"Extras",      "reserve_fire",             "Keep Reserve Fire",            CFG_BOOL, &g_config.reserveFire},
-	{"Extras",      "blue_fire",                "Blue Fire At USF",             CFG_BOOL, &g_config.blueFire},
-	{"Extras",      "slide_meter_colours",      "Slide Meter Gradient",         CFG_BOOL, &g_config.slideMeterColours},
-	{"Extras",      "super_pad_colour",         "Cyan Super Pads (Next Load)",  CFG_BOOL, &g_config.superPadColour},
+	{"Extras",      "reserves_meter",           "Reserves Meter",               CFG_BOOL, &g_config.reservesMeter, 0, 0, 0},
+	{"Extras",      "reserve_fire",             "Keep Reserve Fire",            CFG_BOOL, &g_config.reserveFire, 0, 0, 0},
+	{"Extras",      "blue_fire",                "Blue Fire At USF",             CFG_BOOL, &g_config.blueFire, 0, 0, 0},
+	{"Extras",      "slide_meter_colours",      "Slide Meter Gradient",         CFG_BOOL, &g_config.slideMeterColours, 0, 0, 0},
+	{"Extras",      "super_pad_colour",         "Cyan Super Pads (Next Load)",  CFG_BOOL, &g_config.superPadColour, 0, 0, 0},
 #ifdef CTR_AP
 	// Skip Podium Ceremonies (issue #285, CFG_BOOL): a LOCAL client option, off
 	// by default, that drops the hub podium for an ordinary Trophy, CTR
@@ -142,7 +142,7 @@ const ConfigEntry g_configEntries[] = {
 	// player's presentation preference. Consumed by AP_SkipPodium
 	// (ap/ap_hooks.c) after the race's reward notification. Rendered and toggled
 	// by the generic section menu with no menu-specific code.
-	{"Video & QoL", "skip_podium",              "Skip Podium Ceremonies",       CFG_BOOL, &g_config.skipPodium},
+	{"Video & QoL", "skip_podium",              "Skip Podium Ceremonies",       CFG_BOOL, &g_config.skipPodium, 0, 0, 0},
 	// Skip Cutscenes (issue #377, CFG_BOOL): a LOCAL client option, off by
 	// default, that skips the adventure-hub boss and Oxide scenes a podium
 	// leads into: a boss intro after a hub's last Trophy, a boss outro after
@@ -150,17 +150,17 @@ const ConfigEntry g_configEntries[] = {
 	// for the once-per-seed flag). The skip takes the ordinary podium exit, the
 	// same teardown every other podium uses. Not slot_data. Consumed by
 	// AP_SkipCutscenes (ap/ap_podium_skip.c) from CS_Camera_ThTick_Podium.
-	{"Video & QoL", "skip_cutscenes",           "Skip Cutscenes",               CFG_BOOL, &g_config.skipCutscenes},
+	{"Video & QoL", "skip_cutscenes",           "Skip Cutscenes",               CFG_BOOL, &g_config.skipCutscenes, 0, 0, 0},
 #endif
 	// Remembered window geometry: config-file-only, exactly like update_last_seen
 	// below (State section, gated out of the in-game menu in BuildSectionMap,
 	// game/230/MM_ConfigMenu.c). Gathered/applied in platform/native_renderer.c;
 	// decision rules in include/platform/native_window_geometry.h.
-	{"State",       "window_x",                 "Window X",                     CFG_INT,  &g_config.windowX},
-	{"State",       "window_y",                 "Window Y",                     CFG_INT,  &g_config.windowY},
-	{"State",       "window_w",                 "Window Width",                 CFG_INT,  &g_config.windowWidth},
-	{"State",       "window_h",                 "Window Height",                CFG_INT,  &g_config.windowHeight},
-	{"State",       "window_maximized",         "Window Maximized",             CFG_BOOL, &g_config.windowMaximized},
+	{"State",       "window_x",                 "Window X",                     CFG_INT,  &g_config.windowX, 0, 0, 0},
+	{"State",       "window_y",                 "Window Y",                     CFG_INT,  &g_config.windowY, 0, 0, 0},
+	{"State",       "window_w",                 "Window Width",                 CFG_INT,  &g_config.windowWidth, 0, 0, 0},
+	{"State",       "window_h",                 "Window Height",                CFG_INT,  &g_config.windowHeight, 0, 0, 0},
+	{"State",       "window_maximized",         "Window Maximized",             CFG_BOOL, &g_config.windowMaximized, 0, 0, 0},
 	// Audio section: config-file-only. Hidden from the in-game options menu (gated
 	// out of BuildSectionMap in game/230/MM_ConfigMenu.c) because it is edited
 	// through the vanilla audio screen and a CFG_INT would render there as a bare
@@ -176,31 +176,31 @@ const ConfigEntry g_configEntries[] = {
 	{"Connection",  "uri",                      "Server",                       CFG_STRING, g_config.uri,      0, (int)sizeof(g_config.uri),      0},
 	{"Connection",  "slot",                     "Slot",                         CFG_STRING, g_config.slot,     0, (int)sizeof(g_config.slot),     0},
 	{"Connection",  "password",                 "Password",                     CFG_STRING, g_config.password, 0, (int)sizeof(g_config.password), 0},
-	{"Archipelago", "skip_hints",               "Skip Mask Hints",              CFG_BOOL, &g_config.skipHints},
-	{"Archipelago", "map_flash",                "Map Flash",                    CFG_BOOL, &g_config.mapFlash},
+	{"Archipelago", "skip_hints",               "Skip Mask Hints",              CFG_BOOL, &g_config.skipHints, 0, 0, 0},
+	{"Archipelago", "map_flash",                "Map Flash",                    CFG_BOOL, &g_config.mapFlash, 0, 0, 0},
 	// Item Box Colours: this player's opt-out of the seed's AP item box colours
 	// (color_boxes_by_item). Off = pink boxes for this player only. The menu
 	// shows "OFF (SEED)" and ignores input while a loaded seed has colours off.
-	{"Archipelago", "item_box_colours",         "Item Box Colours",             CFG_BOOL, &g_config.itemBoxColours},
+	{"Archipelago", "item_box_colours",         "Item Box Colours",             CFG_BOOL, &g_config.itemBoxColours, 0, 0, 0},
 	// CFG_ENUM: AI-difficulty preset, stepped through a fixed value ladder and
 	// rendered as a preset name (see MM_ConfigMenu.c). Stored as its raw value.
-	{"Archipelago", "ai_difficulty",            "AI Difficulty",                CFG_ENUM, &g_config.aiDifficulty},
-	{"Archipelago", "death_link",               "DeathLink",                    CFG_ENUM, &g_config.deathLink},
+	{"Archipelago", "ai_difficulty",            "AI Difficulty",                CFG_ENUM, &g_config.aiDifficulty, 0, 0, 0},
+	{"Archipelago", "death_link",               "DeathLink",                    CFG_ENUM, &g_config.deathLink, 0, 0, 0},
 	// DeathLink send triggers, one row each (SEED / OFF / ON), independent of the
 	// receive row above. SEED follows slot_data death_link_send, or the legacy
 	// coupling from death_link when the seed has no such key.
-	{"Archipelago", "dl_send_fall",             "DL Send Fall",                 CFG_ENUM, &g_config.dlSendFall},
-	{"Archipelago", "dl_send_hit",              "DL Send Hit",                  CFG_ENUM, &g_config.dlSendHit},
-	{"Archipelago", "dl_send_loss",             "DL Send Loss",                 CFG_ENUM, &g_config.dlSendLoss},
-	{"Archipelago", "trap_duration",            "Trap Duration",                CFG_ENUM, &g_config.trapDuration},
+	{"Archipelago", "dl_send_fall",             "DL Send Fall",                 CFG_ENUM, &g_config.dlSendFall, 0, 0, 0},
+	{"Archipelago", "dl_send_hit",              "DL Send Hit",                  CFG_ENUM, &g_config.dlSendHit, 0, 0, 0},
+	{"Archipelago", "dl_send_loss",             "DL Send Loss",                 CFG_ENUM, &g_config.dlSendLoss, 0, 0, 0},
+	{"Archipelago", "trap_duration",            "Trap Duration",                CFG_ENUM, &g_config.trapDuration, 0, 0, 0},
 	// Pair-version update notice (issue #150). A plain CFG_BOOL alongside
 	// skip_hints/map_flash, so it renders and toggles with no menu changes.
-	{"Archipelago", "update_check",             "Update Check",                 CFG_BOOL, &g_config.updateCheck},
+	{"Archipelago", "update_check",             "Update Check",                 CFG_BOOL, &g_config.updateCheck, 0, 0, 0},
 	// Discord Status (issue #366, CFG_BOOL): a LOCAL option, off by default.
 	// On, the Discord client on this machine shows the track, mode and check
 	// count (ap/ap_discord.c). No room, slot or seed details are sent. Not
 	// slot_data.
-	{"Archipelago", "discord_status",           "Discord Status",               CFG_BOOL, &g_config.discordStatus},
+	{"Archipelago", "discord_status",           "Discord Status",               CFG_BOOL, &g_config.discordStatus, 0, 0, 0},
 	// Discord section: config-file-only (CTR_MenuSectionHidden). An override
 	// for the Discord application ID, for testing before the built-in one is
 	// set; empty means the built-in AP_DISCORD_APPLICATION_ID.
@@ -219,14 +219,14 @@ const ConfigEntry g_configEntries[] = {
 	// gate off as defence in depth. Dedicated authoring builds opt in explicitly
 	// (CTR_BOX_AUTHORING: the AP box authoring download and the authoring client).
 #ifdef CTR_BOX_AUTHORING
-	{"Authoring",   "box_author",               "Box Author Mode",              CFG_BOOL, &g_config.boxAuthor},
+	{"Authoring",   "box_author",               "Box Author Mode",              CFG_BOOL, &g_config.boxAuthor, 0, 0, 0},
 #endif
 #if defined(CTR_AP) || defined(CTR_AI_LAP_RECORDER)
 	// "Save" is in the label deliberately. The one option in this build that
 	// writes to the player's disk should say so on the row itself, not only in a
 	// manual nobody reads.
-	{"Authoring",   "nav_record",               "Save AI Lap Recordings",       CFG_BOOL, &g_config.navRecord},
-	{"Authoring",   "nav_use_recorded",         "Use Recorded AI Laps",         CFG_BOOL, &g_config.navUseRecorded},
+	{"Authoring",   "nav_record",               "Save AI Lap Recordings",       CFG_BOOL, &g_config.navRecord, 0, 0, 0},
+	{"Authoring",   "nav_use_recorded",         "Use Recorded AI Laps",         CFG_BOOL, &g_config.navUseRecorded, 0, 0, 0},
 	// Read-only on the menu, edited in config.ini. Empty renders as "-" and, in
 	// an AP build, means the Archipelago slot name is used instead.
 	{"Authoring",   "nav_driver_name",          "Driver Name",                  CFG_STRING, g_config.navDriverName, 0, (int)sizeof(g_config.navDriverName), 0},

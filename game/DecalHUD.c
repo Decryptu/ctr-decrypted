@@ -1,94 +1,149 @@
 #include <common.h>
 
-
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80022db0-0x80022ec4.
-void DecalHUD_DrawPolyFT4(struct Icon *icon, s16 posX, s16 posY, struct PrimMem *primMem, uint32_t *ot, char transparency, s16 scale)
+enum
 {
+	DECAL_HUD_GPU_CODE_SEMI_TRANS = 0x02000000u,
+	DECAL_HUD_GPU_CODE_POLY_GT4 = 0x3c000000u,
+	DECAL_HUD_GPU_TAG_LENGTH_POLY_GT4 = 0x0c000000u,
+	DECAL_HUD_TPAGE_TRANSPARENCY_MASK = 0xff9fffffu,
+};
+
+
+void DecalHUD_DrawPolyFT4(struct Icon *icon, s32 posX, s32 posY, struct PrimMem *primMem, u32 *ot, u8 transparency, s16 scale)
+{
+	// NOTE(aalhendi): Keep the packed UV snapshots in their retail registers across blending.
+	u32 uvTopRight;
+	register u32 uvBottomLeft CTR_PSX_REGISTER("$10");
+	register u32 uvTopLeft CTR_PSX_REGISTER("$6");
+	s32 width, height;
+
+	POLY_FT4 *p;
+
 	if (!icon)
-	{
 		return;
-	}
-
-	POLY_FT4 *p = (POLY_FT4 *)primMem->cursor;
-	addPolyFT4(ot, p);
-
-	u32 width = icon->texLayout.u1 - icon->texLayout.u0;
-	u32 height = icon->texLayout.v2 - icon->texLayout.v0;
-	u32 bottomY = posY + FP_Mult(height, scale);
-	u32 rightX = posX + FP_Mult(width, scale);
-
-	setXY4CompilerHack(p, posX, posY, rightX, posY, posX, bottomY, rightX, bottomY);
-	setIconUV(p, icon);
-
-	// this function doesn't support coloring the primitives
-	setShadeTex(p, true);
-
+	uvTopRight = CTR_ReadU32LE(&icon->texLayout.u1);
+	uvTopLeft = CTR_ReadU32LE(&icon->texLayout.u0);
+	width = (s32)(((uvTopRight & 0xff) - (uvTopLeft & 0xff)) * scale) >> 12;
+	height = (s32)((icon->texLayout.v2 - ((s32)uvTopLeft >> 8 & 0xff)) * scale) >> 12;
+	// NOTE(aalhendi): Retail leaves X unmasked, so its upper bits can spill into packed Y.
+	posY = (u32)posY << 16;
+	uvBottomLeft = CTR_ReadU32LE(&icon->texLayout.u2);
+	p = (POLY_FT4 *)primMem->cursor;
 	if (transparency)
 	{
-		setTransparency(p, transparency);
+		p->code = 0x2f;
+
+		CtrGpu_WritePackedUVWord(&p->u1, (uvTopRight & DECAL_HUD_TPAGE_TRANSPARENCY_MASK) | (((u32)transparency - 1) << 21));
+	}
+	else
+	{
+		p->code = 0x2d;
+
+		CtrGpu_WritePackedUVWord(&p->u1, uvTopRight);
+		// NOTE(aalhendi): Keep the opaque UV store in this branch instead of merging both paths.
+		CTR_PSX_OBSERVE_VALUE(uvTopRight);
 	}
 
-	Widescreen_CompressFT4(p);
+	CtrGpu_WritePackedUVWord(&p->u0, uvTopLeft);
+	CtrGpu_WritePackedUV(&p->u2, uvBottomLeft);
+	CtrGpu_WritePackedUV(&p->u3, CTR_ReadU16LE(&icon->texLayout.u3));
+	CtrGpu_WritePackedXY(&p->x0, posX | posY);
+	CtrGpu_WritePackedXY(&p->x1, ((u32)posX + width) | posY);
+	CtrGpu_WritePackedXY(&p->x2, posX | (posY + ((u32)height << 16)));
+	CtrGpu_WritePackedXY(&p->x3, ((u32)posX + width) | (posY + ((u32)height << 16)));
 
+	Widescreen_CompressFT4(p);
+	p->tag = *ot | 0x09000000;
+	*ot = CtrGpu_PrimToOTLink24(p);
 	primMem->cursor = p + 1;
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80022ec4-0x80023054.
-void DecalHUD_DrawWeapon(struct Icon *icon, s16 posX, s16 posY, struct PrimMem *primMem, uint32_t *ot, char transparency, s16 scale, char rot)
+void DecalHUD_DrawWeapon(struct Icon *icon, s32 posX, s32 posY, struct PrimMem *primMem, u32 *ot, u8 transparency, s16 scale, s16 rot)
 {
-#if BUILD > SepReview
+	u32 uvTopRight;
+	register u32 uvBottomLeft CTR_PSX_REGISTER("$11");
+	u32 uvTopLeft;
+	s32 width, height;
+	u32 right, bottom, topLeft, topRight, bottomLeft, bottomRight;
+
+	POLY_FT4 *p;
+
 	if (!icon)
-	{
 		return;
-	}
-#endif
+	uvTopRight = CTR_ReadU32LE(&icon->texLayout.u1);
+	uvTopLeft = CTR_ReadU32LE(&icon->texLayout.u0);
+	width = (s32)(((uvTopRight & 0xff) - (uvTopLeft & 0xff)) * scale) >> 12;
+	height = (s32)((icon->texLayout.v2 - ((s32)uvTopLeft >> 8 & 0xff)) * scale) >> 12;
 
-	POLY_FT4 *p = (POLY_FT4 *)primMem->cursor;
-	addPolyFT4(ot, p);
-
-	u32 width = icon->texLayout.u1 - icon->texLayout.u0;
-	u32 height = icon->texLayout.v2 - icon->texLayout.v0;
-	u32 rightX = posX + FP_Mult(width, scale);
-	u32 bottomY = posY + FP_Mult(height, scale);
-	u32 sidewaysX = posX + FP_Mult(height, scale);
-	u32 sidewaysY = posY + FP_Mult(width, scale);
-
-	// NOTE(aalhendi): Retail leaves X unmasked while packing XY, allowing its
-	// upper bits to spill into Y for negative or overflowing coordinates.
-	if (!(rot & 1))
+	posY = (u32)posY << 16;
+	uvBottomLeft = CTR_ReadU32LE(&icon->texLayout.u2);
+	p = (POLY_FT4 *)primMem->cursor;
+	if (transparency)
 	{
-		if (rot == 0)
+		p->code = 0x2f;
+
+		CtrGpu_WritePackedUVWord(&p->u1, (uvTopRight & DECAL_HUD_TPAGE_TRANSPARENCY_MASK) | (((u32)transparency - 1) << 21));
+	}
+	else
+	{
+		p->code = 0x2d;
+
+		CtrGpu_WritePackedUVWord(&p->u1, uvTopRight);
+		CTR_PSX_OBSERVE_VALUE(uvTopRight);
+	}
+
+	CtrGpu_WritePackedUVWord(&p->u0, uvTopLeft);
+	CtrGpu_WritePackedUV(&p->u2, uvBottomLeft);
+	CtrGpu_WritePackedUV(&p->u3, CTR_ReadU16LE(&icon->texLayout.u3));
+
+	// Rotate the corner assignment in quarter turns, swapping width and height for odd turns.
+	if (rot & 1)
+	{
+		right = (u32)posX + height;
+		bottom = posY + ((u32)width << 16);
+		topLeft = posX | posY;
+		topRight = right | posY;
+		bottomLeft = posX | bottom;
+		bottomRight = right | bottom;
+		if (rot == 1)
 		{
-			setXY4CompilerHack(p, posX, posY, rightX, posY, posX, bottomY, rightX, bottomY);
+			CtrGpu_WritePackedXY(&p->x1, topLeft);
+			CtrGpu_WritePackedXY(&p->x3, topRight);
+			CtrGpu_WritePackedXY(&p->x0, bottomLeft);
+			CtrGpu_WritePackedXY(&p->x2, bottomRight);
 		}
 		else
 		{
-			setXY4CompilerHack(p, rightX, bottomY, posX, bottomY, rightX, posY, posX, posY);
+			CtrGpu_WritePackedXY(&p->x2, topLeft);
+			CtrGpu_WritePackedXY(&p->x0, topRight);
+			CtrGpu_WritePackedXY(&p->x3, bottomLeft);
+			CtrGpu_WritePackedXY(&p->x1, bottomRight);
 		}
 	}
 	else
 	{
-		if (rot == 1)
+		right = (u32)posX + width;
+		bottom = posY + ((u32)height << 16);
+		topLeft = posX | posY;
+		topRight = right | posY;
+		bottomLeft = posX | bottom;
+		bottomRight = right | bottom;
+		if (rot == 0)
 		{
-			setXY4CompilerHack(p, posX, sidewaysY, posX, posY, sidewaysX, sidewaysY, sidewaysX, posY);
+			CtrGpu_WritePackedXY(&p->x0, topLeft);
+			CtrGpu_WritePackedXY(&p->x1, topRight);
+			CtrGpu_WritePackedXY(&p->x2, bottomLeft);
+			CtrGpu_WritePackedXY(&p->x3, bottomRight);
 		}
 		else
 		{
-			setXY4CompilerHack(p, sidewaysX, posY, sidewaysX, sidewaysY, posX, posY, posX, sidewaysY);
+			CtrGpu_WritePackedXY(&p->x3, topLeft);
+			CtrGpu_WritePackedXY(&p->x2, topRight);
+			CtrGpu_WritePackedXY(&p->x1, bottomLeft);
+			CtrGpu_WritePackedXY(&p->x0, bottomRight);
 		}
 	}
-
-	setIconUV(p, icon);
-
-	// this function doesn't support coloring the primitives
-	setShadeTex(p, true);
-
-	if (transparency)
-	{
-		setTransparency(p, transparency);
-	}
-
 	// DecalHUD_DrawWeapon: compress the weapon-icon quad horizontally in
 	// widescreen so it keeps its position relative to the wider viewport.
 	int len = Widescreen_XShift(p->x2 - p->x0);
@@ -96,163 +151,200 @@ void DecalHUD_DrawWeapon(struct Icon *icon, s16 posX, s16 posY, struct PrimMem *
 	p->x1 += len;
 	p->x2 -= len;
 	p->x3 -= len;
-
+	p->tag = *ot | 0x09000000;
+	*ot = CtrGpu_PrimToOTLink24(p);
 	primMem->cursor = p + 1;
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80023054-0x80023190.
-void DecalHUD_DrawPolyGT4(struct Icon *icon, s16 posX, s16 posY, struct PrimMem *primMem, uint32_t *ot, u32 color0, u32 color1, u32 color2, u32 color3,
-                          char transparency, s16 scale)
+void DecalHUD_DrawPolyGT4(struct Icon *icon, s32 posX, s32 inputY, struct PrimMem *primMem, u32 *ot, Color color0, Color color1, Color color2, Color color3,
+                          u8 transparency, s16 scale)
 {
-#if BUILD > SepReview
+	u32 uv0, uv1, uv2;
+	u32 posY = inputY;
+	s32 width, height;
+	POLY_GT4 *p;
+	u32 tint, right, bottom, xy0, xy1, xy2, xy3;
+	register u32 code CTR_PSX_REGISTER("$3");
+
 	if (!icon)
-	{
 		return;
-	}
-#endif
 
-	// setInt32RGB4 needs to go before addPolyGT4
-	// for more information check "include/gpu.h"
-	POLY_GT4 *p = (POLY_GT4 *)primMem->cursor;
-	setInt32RGB4(p, color0, color1, color2, color3);
-	addPolyGT4(ot, p);
-
-	u32 width = icon->texLayout.u1 - icon->texLayout.u0;
-	u32 height = icon->texLayout.v2 - icon->texLayout.v0;
-	u32 bottomY = posY + FP_Mult(height, scale);
-	u32 rightX = (u16)posX + FP_Mult(width, scale);
-	setXY4CompilerHack(p, (u16)posX, posY, rightX, posY, (u16)posX, bottomY, rightX, bottomY);
-	setIconUV(p, icon);
-
+	uv1 = CTR_ReadU32LE(&icon->texLayout.u1);
+	uv0 = CTR_ReadU32LE(&icon->texLayout.u0);
+	width = (s32)(((uv1 & 0xff) - (uv0 & 0xff)) * scale) >> 12;
+	height = (s32)((icon->texLayout.v2 - ((s32)uv0 >> 8 & 0xff)) * scale) >> 12;
+	posX &= 0xffff;
+	posY <<= 16;
+	uv2 = CTR_ReadU32LE(&icon->texLayout.u2);
+	p = (POLY_GT4 *)primMem->cursor;
 	if (transparency)
 	{
-		setTransparency(p, transparency);
+		// NOTE(aalhendi): Retail reuses the blending register for the packet command.
+		register u32 page CTR_PSX_REGISTER("$4");
+		code = transparency;
+		CTR_PSX_OBSERVE_VALUE(code);
+		page = uv1 & DECAL_HUD_TPAGE_TRANSPARENCY_MASK;
+		page |= (code - 1) << 21;
+		tint = ColorCode_GetPacked(&color0);
+		code = DECAL_HUD_GPU_CODE_POLY_GT4 | DECAL_HUD_GPU_CODE_SEMI_TRANS;
+		CtrGpu_WritePackedUVWord(&p->u1, page);
 	}
+	else
+	{
+		tint = ColorCode_GetPacked(&color0);
+		code = DECAL_HUD_GPU_CODE_POLY_GT4;
+		CtrGpu_WritePackedUVWord(&p->u1, uv1);
+		CTR_PSX_OBSERVE_VALUE(uv1);
+	}
+	CtrGpu_WriteColorCode(&p->r0, ((tint << 8) >> 8) | code);
+	CtrGpu_WritePackedUVWord(&p->u0, uv0);
+	CtrGpu_WritePackedUV(&p->u2, uv2);
+	CtrGpu_WritePackedUV(&p->u3, CTR_ReadU16LE(&icon->texLayout.u3));
+
+	// NOTE(aalhendi): Only the initial X is masked; the scaled right edge can carry into Y.
+	right = (u32)posX + width;
+	bottom = posY + ((u32)height << 16);
+	xy0 = posX | posY;
+	xy1 = right | posY;
+	xy2 = posX | bottom;
+	xy3 = right | bottom;
+	CtrGpu_WritePackedXY(&p->x0, xy0);
+	CtrGpu_WritePackedXY(&p->x1, xy1);
+	CtrGpu_WritePackedXY(&p->x2, xy2);
+	CtrGpu_WritePackedXY(&p->x3, xy3);
+	CtrGpu_WriteColorCode(&p->r1, ColorCode_GetPacked(&color1));
+	CtrGpu_WriteColorCode(&p->r2, ColorCode_GetPacked(&color2));
+	CtrGpu_WriteColorCode(&p->r3, ColorCode_GetPacked(&color3));
 
 	Widescreen_CompressGT4(p);
-
+	p->tag = *ot | DECAL_HUD_GPU_TAG_LENGTH_POLY_GT4;
+	*ot = CtrGpu_PrimToOTLink24(p);
 	primMem->cursor = p + 1;
 }
 
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80023190-0x80023488.
-void DecalHUD_Arrow2D(struct Icon *icon, s16 posX, s16 posY, struct PrimMem *primMem, uint32_t *otMemPtr, u32 color1, u32 color2, u32 color3, u32 color4,
-                      char transparency, int scale, u16 rot)
+void DecalHUD_Arrow2D(struct Icon *icon, s32 posX, s32 posY, struct PrimMem *primMem, u32 *ot, Color color0, Color color1, Color color2, Color color3,
+                      u8 transparency, s16 scale, u16 rot)
 {
-	u8 y2;
-	u32 code;
-	int bitshiftTopRightCorner;
-	u32 topRightCornerAndPageXY;
-	int bitshiftPosY;
-	int iVar6;
-	int iVar7;
-	s16 sVar8;
-	u32 bottomMargin;
-	int iVar10;
-	u32 topLeftCornerAndPaletteXY;
-	int iVar12;
-	int iVar13;
-
+	u32 uv1;
+	u32 uv2;
+	u32 uv0;
+	u32 tint;
+	register u32 code CTR_PSX_REGISTER("$3");
+	s32 width;
+	s32 height;
+	s32 halfWidth, halfHeight;
+	s32 cosine;
+	register s32 sine CTR_PSX_REGISTER("$8");
+	s32 sideX;
+	s32 sideY;
+	s32 leftCos, leftSin, rightCos, topCos, topSin;
+	register s32 rightSin CTR_PSX_REGISTER("$24");
+	s32 lowerLeftCos, lowerLeftSin, lowerRightCos, lowerRightSin, bottomCos, bottomSin;
+	u32 xy0, xy1, xy2, xy3;
 	POLY_GT4 *p;
-
-	if (icon == 0)
-	{
+	const struct TrigTable *table;
+	if (!icon)
 		return;
-	}
-	scale = (s16)scale;
 
-	topRightCornerAndPageXY = CTR_ReadU32LE(&icon->texLayout.u1);
-	topLeftCornerAndPaletteXY = CTR_ReadU32LE(&icon->texLayout.u0);
-	y2 = icon->texLayout.v2;
-	bottomMargin = CTR_ReadU32LE(&icon->texLayout.u2);
-
+	uv1 = CTR_ReadU32LE(&icon->texLayout.u1);
+	uv0 = CTR_ReadU32LE(&icon->texLayout.u0);
+	width = (s32)(((uv1 & 0xff) - (uv0 & 0xff)) * scale) >> 12;
+	height = (s32)((icon->texLayout.v2 - ((s32)uv0 >> 8 & 0xff)) * scale) >> 12;
+	uv2 = CTR_ReadU32LE(&icon->texLayout.u2);
 	p = (POLY_GT4 *)primMem->cursor;
-
-	if (transparency == 0)
+	if (transparency)
 	{
-		code = 0x3c000000;
-		CtrGpu_WritePackedUVWord(&p->u1, topRightCornerAndPageXY);
+		register u32 page CTR_PSX_REGISTER("$4");
+		code = transparency;
+		CTR_PSX_OBSERVE_VALUE(code);
+		page = uv1 & DECAL_HUD_TPAGE_TRANSPARENCY_MASK;
+		page |= ((code - 1) << 21);
+		tint = ColorCode_GetPacked(&color0);
+		code = (DECAL_HUD_GPU_CODE_POLY_GT4 | DECAL_HUD_GPU_CODE_SEMI_TRANS);
+		CtrGpu_WritePackedUVWord(&p->u1, page);
 	}
-
 	else
 	{
-		code = 0x3e000000;
-
-		// set top right corner UVs and texpage of primitive, and alter the blending mode bits of the texpage from 11 (Mode 3, which is no blending) to 00 (Mode
-		// 0, equivalent to regular 50% opacity)
-		CtrGpu_WritePackedUVWord(&p->u1, (topRightCornerAndPageXY & 0xff9fffff) | (((u32)transparency - 1) * 0x200000));
+		tint = ColorCode_GetPacked(&color0);
+		code = DECAL_HUD_GPU_CODE_POLY_GT4;
+		CtrGpu_WritePackedUVWord(&p->u1, uv1);
+		CTR_PSX_OBSERVE_VALUE(uv1);
 	}
+	CtrGpu_WriteColorCode(&p->r0, ((tint << 8) >> 8) | code);
 
-	// set top left vertex color, and code in 7th byte of prim
-	CtrGpu_WriteColorCode(&p->r0, (color1 & 0xffffff) | code);
-
-	posX = posX & 0xffff;
-	CtrGpu_WritePackedUVWord(&p->u0, topLeftCornerAndPaletteXY);
-	CtrGpu_WritePackedUV(&p->u2, (u16)bottomMargin);
-
-	bitshiftPosY = (int)(((u32)y2 - ((int)topLeftCornerAndPaletteXY >> 8 & 0xffU)) * (int)scale) >> 0xd;
-
+	// NOTE(aalhendi): Finish the command/color store before setting up the rotated vertices.
+	CTR_PSX_OBSERVE_MEMORY(p->r0);
+	posX &= 0xffff;
+	table = data.trigApprox;
+	CtrGpu_WritePackedUVWord(&p->u0, uv0);
+	CtrGpu_WritePackedUV(&p->u2, uv2);
+	halfHeight = height >> 1;
 	CtrGpu_WritePackedUV(&p->u3, CTR_ReadU16LE(&icon->texLayout.u3));
-
-	bitshiftTopRightCorner = (int)(((topRightCornerAndPageXY & 0xff) - (topLeftCornerAndPaletteXY & 0xff)) * (int)scale) >> 0xd;
-
-	// stuff for rotation of primitive
-	u32 trigApprox = CTR_ReadU32LE(&data.trigApprox[(u32)rot & 0x3ff]);
-	iVar13 = (s32)trigApprox >> 0x10;
-	sVar8 = (s16)trigApprox;
-
-	if ((rot & 0x400) == 0)
+	sine = CTR_ReadU32LE(&table[rot & 0x3ff]);
+	// NOTE(aalhendi): Keep full width alive through the trig lookup, then halve it separately.
+	CTR_PSX_OBSERVE_VALUE(width);
+	halfWidth = width >> 1;
+	// The table stores first-quadrant sine/cosine; other quadrants swap and negate them.
+	if (rot & 0x400)
 	{
-		iVar10 = (int)sVar8;
-		if ((rot & 0x800) == 0)
-		{
-			goto LAB_800232d8;
-		}
-		iVar12 = -iVar13;
+		cosine = (s16)sine;
+		sine >>= 16;
+		if (!(rot & 0x800))
+			cosine = -cosine;
+		else
+			sine = -sine;
 	}
 	else
 	{
-		iVar12 = (int)sVar8;
-		iVar10 = iVar13;
-		if ((rot & 0x800) == 0)
+		cosine = sine >> 16;
+		sine = (s16)sine;
+		if (rot & 0x800)
 		{
-			iVar13 = -iVar12;
-			goto LAB_800232d8;
+			cosine = -cosine;
+			sine = -sine;
 		}
 	}
-	iVar10 = -iVar10;
-	iVar13 = iVar12;
-
-LAB_800232d8:
-	iVar12 = -bitshiftPosY;
-	bitshiftPosY = bitshiftPosY + 1;
-	iVar6 = iVar12 * iVar10 >> 0xc;
-	iVar12 = posY + (iVar12 * iVar13 >> 0xc);
-
-	CtrGpu_WritePackedXY(&p->x0, ((posX + (-bitshiftTopRightCorner * iVar13 >> 0xc) + iVar6) & 0xffff) |
-	                                 ((u32)(iVar12 - (-bitshiftTopRightCorner * iVar10 >> 0xc)) << 16));
-
-	iVar7 = bitshiftPosY * iVar10 >> 0xc;
-
-	CtrGpu_WritePackedXY(&p->x1, ((posX + ((bitshiftTopRightCorner + 1) * iVar13 >> 0xc) + iVar6) & 0xffff) |
-	                                 ((u32)(iVar12 - ((bitshiftTopRightCorner + 1) * iVar10 >> 0xc)) << 16));
-
-	posY = posY + (bitshiftPosY * iVar13 >> 0xc);
-
-	CtrGpu_WritePackedXY(&p->x2, ((posX + (-bitshiftTopRightCorner * iVar13 >> 0xc) + iVar7) & 0xffff) |
-	                                 ((u32)(posY - (-bitshiftTopRightCorner * iVar10 >> 0xc)) << 16));
-	CtrGpu_WritePackedXY(&p->x3, ((posX + ((bitshiftTopRightCorner + 1) * iVar13 >> 0xc) + iVar7) & 0xffff) |
-	                                 ((u32)(posY - ((bitshiftTopRightCorner + 1) * iVar10 >> 0xc)) << 16));
-
-	CtrGpu_WriteColorCode(&p->r1, color2);
-	CtrGpu_WriteColorCode(&p->r2, color3);
-	CtrGpu_WriteColorCode(&p->r3, color4);
-
-	p->tag = CtrGpu_PackOTTag(*otMemPtr, 0xc000000);
-	*otMemPtr = CtrGpu_PrimToOTLink24(p);
-
-	// POLY_GT4 is 0x34 bytes large
+	// NOTE(aalhendi): The far edges include one extra pixel after scaling and halving.
+	sideX = -halfWidth;
+	leftCos = sideX * cosine;
+	sideY = -halfHeight;
+	topSin = sideY * sine;
+	topCos = sideY * cosine;
+	leftSin = sideX * sine;
+	sideX = halfWidth + 1;
+	rightCos = sideX * cosine;
+	rightSin = sideX * sine;
+	// NOTE(aalhendi): Retail recomputes horizontal products for the bottom pair of vertices.
+	CTR_PSX_KEEP_VALUE_RELAXED(halfWidth);
+	sideX = -halfWidth;
+	lowerLeftCos = sideX * cosine;
+	sideY = halfHeight + 1;
+	bottomSin = sideY * sine;
+	lowerLeftSin = sideX * sine;
+	bottomCos = sideY * cosine;
+	sideX = halfWidth + 1;
+	lowerRightCos = sideX * cosine;
+	lowerRightSin = sideX * sine;
+	xy0 = ((posX + (leftCos >> 12) + (topSin >> 12)) & 0xffff) | ((u32)((u32)posY + (topCos >> 12) - (leftSin >> 12)) << 16);
+	xy1 = ((posX + (rightCos >> 12) + (topSin >> 12)) & 0xffff) | ((u32)((u32)posY + (topCos >> 12) - (rightSin >> 12)) << 16);
+	xy2 = ((posX + (lowerLeftCos >> 12) + (bottomSin >> 12)) & 0xffff) | ((u32)((u32)posY + (bottomCos >> 12) - (lowerLeftSin >> 12)) << 16);
+	xy3 = ((posX + (lowerRightCos >> 12) + (bottomSin >> 12)) & 0xffff) | ((u32)((u32)posY + (bottomCos >> 12) - (lowerRightSin >> 12)) << 16);
+	CtrGpu_WritePackedXY(&p->x0, xy0);
+	CtrGpu_WritePackedXY(&p->x1, xy1);
+	CtrGpu_WritePackedXY(&p->x2, xy2);
+	CtrGpu_WritePackedXY(&p->x3, xy3);
+	// NOTE(aalhendi): Retain raw products through the XY stores so their shifts use scratch registers.
+	CTR_PSX_OBSERVE_VALUE(rightSin);
+	{
+		register s32 bottomRightSin CTR_PSX_REGISTER("$8") = lowerRightSin;
+		CTR_PSX_OBSERVE_VALUE(bottomRightSin);
+	}
+	CtrGpu_WriteColorCode(&p->r1, ColorCode_GetPacked(&color1));
+	CtrGpu_WriteColorCode(&p->r2, ColorCode_GetPacked(&color2));
+	CtrGpu_WriteColorCode(&p->r3, ColorCode_GetPacked(&color3));
+	p->tag = *ot | DECAL_HUD_GPU_TAG_LENGTH_POLY_GT4;
+	*ot = CtrGpu_PrimToOTLink24(p);
 	primMem->cursor = p + 1;
-	return;
 }

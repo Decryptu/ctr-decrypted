@@ -404,7 +404,7 @@ static void Controls_DrawPicker(uint32_t *ot)
 		{
 			// Inset by less than the text padding so the bar frames the entry.
 			RECT sel = {boxX + 4, y - 2, boxWidth - 8, 0x0C};
-			CTR_Box_DrawClearBox(&sel, &sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot);
+			CTR_Box_DrawClearBox(&sel, &sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot, &GAME_TRACKER->backBuffer->primMem);
 		}
 	}
 

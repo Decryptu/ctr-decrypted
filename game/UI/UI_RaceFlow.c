@@ -4,77 +4,55 @@
 #include <platform/native_custom_tracks.h>
 #endif
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005572c-0x80055840.
-void UI_RaceEnd_GetDriverClock(struct Driver *driver)
+enum UIRaceEndMenuOption
 {
-	u8 missileLaunched;
-	int avgSpd;
-	int timeElapsed;
-	int numTimesAttacked;
+	UI_RACE_END_OPTION_QUIT = 3,
+	UI_RACE_END_OPTION_RETRY = 4,
+	UI_RACE_END_OPTION_CHANGE_CHARACTER = 5,
+	UI_RACE_END_OPTION_CHANGE_LEVEL = 6,
+	UI_RACE_END_OPTION_SAVE_GHOST = 9,
+	UI_RACE_END_OPTION_CHANGE_SETUP = 10,
+	UI_RACE_END_OPTION_EXIT_TO_MAP = 0xd,
+	UI_RACE_END_OPTION_PRESS_TO_CONTINUE = 0xc9,
+};
 
-	if ((driver->actionsFlagSet & ACTION_RACE_TIMER_FROZEN) == 0)
-	{
-		timeElapsed = driver->timeElapsedInRace;
-		driver->actionsFlagSet |= ACTION_RACE_TIMER_FROZEN;
+enum UIRaceFlowConstants
+{
+	UI_RACE_START_TITLE_EXIT_FRAME = 0x1f,
+	UI_RACE_START_TITLE_EXIT_BASE_FRAME = 0x1e,
+	UI_RACE_START_TITLE_CENTER_X = 0x100,
+	UI_RACE_START_TITLE_TOP_Y_BIAS = 7,
+	UI_RACE_START_CUP_TITLE_Y_OFFSET = -6,
+	UI_RACE_START_CUP_TRACK_Y_OFFSET = 0xb,
+	UI_RACE_START_LEVEL_TITLE_Y_OFFSET = -0x17,
+	UI_RACE_START_DIVIDER_TOP_Y_OFFSET = 0x1c,
+	UI_RACE_START_DIVIDER_BOTTOM_Y_OFFSET = -0x1e,
+	UI_RACE_START_DIVIDER_HEIGHT = 2,
+	UI_RACE_START_BAR_HEIGHT = 0x1e,
+	UI_RACE_START_BAR_ALPHA_MASK = 0xff000000,
+	UI_RACE_END_MIN_SPLITSCREEN_MENU_PLAYERS = 3,
+	UI_RACE_END_INITIAL_ICON_COUNT = 1,
+	UI_RACE_END_SAVE_GHOST_FRAME = 0x3f9,
+};
 
-		if (timeElapsed != 0)
-		{
-			// get average speed over time
-			avgSpd = driver->distanceDriven * 100;
-			driver->distanceDriven = avgSpd / timeElapsed;
-		}
 
-		// if missiles launched is less than 4
-		if ((u8)driver->numTimesMissileLaunched < 4)
-		{
-			driver->NumMissilesComparedToNumAttacks = 0xffffffff;
-		}
+#include "UI_RaceEndClock.c"
 
-		// if missiles launched is more than 4
-		else
-		{
-			// number of missiles launched
-			missileLaunched = driver->numTimesMissileLaunched;
-
-			// compare number of missiles to number of attacks
-			driver->NumMissilesComparedToNumAttacks = (int)(((u8)driver->numTimesAttacking << 0xc) / missileLaunched);
-		}
-
-		numTimesAttacked = 0;
-
-		// count number of times you were attacked in race
-		for (int i = 0; i < 8; i++)
-		{
-			numTimesAttacked += (u8)driver->numTimesAttackedByPlayer[i];
-		}
-
-		driver->numTimesAttacked = numTimesAttacked;
-
-		// if driver is in first place
-		if (driver->driverRank == 0)
-		{
-			// duplicate amount of time spent in last place
-			driver->TimeWinningDriverSpentLastPlace = driver->timeSpentInLastPlace;
-		}
-	}
-}
-
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80055840-0x80055c90.
 
 // You see this in 1P mode, right before traffic lights count down
 void UI_RaceStart_IntroText1P(void)
 {
-	s16 windowHeight;
+	s16 barTransition;
 	struct GameTracker *gGT;
-	int iVar2;
+	int textArrayIndex;
 	int gameMode;
 	int posX;
 	s16 *txtArray;
-	char *pcVar6;
-	s16 sVar7;
+	char *titleText;
+	s16 titleY;
 	s16 font;
 	int textID;
-	int transition;
+	int titleTransition;
 	char trackText[24];
 	RECT rect;
 	int colors[2];
@@ -90,7 +68,7 @@ void UI_RaceStart_IntroText1P(void)
 
 	// by default, do not transition
 	// title bars to off-screen
-	transition = 0;
+	titleTransition = 0;
 
 	gameMode = gGT->gameMode1;
 
@@ -98,7 +76,7 @@ void UI_RaceStart_IntroText1P(void)
 	if ((gameMode & RELIC_RACE) == 0)
 	{
 		// BONUS ROUND
-		textID = 0xbe;
+		textID = LNG_BONUS_ROUND;
 
 		// If you are not in Crystal challenge
 		if ((gameMode & CRYSTAL_CHALLENGE) == 0)
@@ -110,7 +88,7 @@ void UI_RaceStart_IntroText1P(void)
 				if ((gGT->gameMode2 & CUP_ANY_KIND) == 0)
 				{
 					// ARCADE
-					textID = 0x4e;
+					textID = LNG_ARCADE;
 
 					if (
 					    // If you're in Arcade Mode
@@ -118,7 +96,7 @@ void UI_RaceStart_IntroText1P(void)
 
 					    (
 					        // TIME TRIAL
-					        textID = 0x4d,
+					        textID = LNG_TIME_TRIAL,
 
 					        // if you are in time trial mode
 					        (gameMode & TIME_TRIAL) != 0))
@@ -129,17 +107,17 @@ void UI_RaceStart_IntroText1P(void)
 					if (-1 < gameMode)
 					{
 						// TROPHY RACE
-						textID = 0xb7;
+						textID = LNG_TROPHY_RACE;
 
 						// If you're in a CTR Token Race
 						if ((gGT->gameMode2 & TOKEN_RACE) != 0)
 						{
 							// CTR CHALLENGE
-							textID = 0x176;
+							textID = LNG_CTR_CHALLENGE_TITLE;
 						}
 						goto LAB_80055930;
 					}
-					iVar2 = gGT->bossID;
+					textArrayIndex = gGT->bossID;
 					txtArray = &data.lng_challenge[0];
 				}
 
@@ -147,7 +125,7 @@ void UI_RaceStart_IntroText1P(void)
 				else
 				{
 					// Get Cup ID
-					iVar2 = gGT->cup.cupID;
+					textArrayIndex = gGT->cup.cupID;
 					txtArray = &data.arcadeVsCupStringIndex[0];
 				}
 			}
@@ -156,7 +134,7 @@ void UI_RaceStart_IntroText1P(void)
 			else
 			{
 				// Get Cup ID
-				iVar2 = gGT->cup.cupID;
+				textArrayIndex = gGT->cup.cupID;
 				txtArray = &data.advCupStringIndex[0];
 
 #ifdef CTR_CUSTOM_TRACKS
@@ -171,7 +149,7 @@ void UI_RaceStart_IntroText1P(void)
 			// Get the name of the cup
 			// Wumpa, Nitro, Crystal
 			// Red, Green, Purple, etc
-			textID = txtArray[iVar2];
+			textID = txtArray[textArrayIndex];
 		}
 	}
 
@@ -179,28 +157,28 @@ void UI_RaceStart_IntroText1P(void)
 	else
 	{
 		// RELIC RACE
-		textID = 0xb8;
+		textID = LNG_RELIC_RACE;
 	}
 LAB_80055930:
 
 	// if fly-in animation is one second away from finishing
-	if (gGT->cameraDC->transitionFrame < 0x1f)
+	if (gGT->cameraDC->transitionFrame < UI_RACE_START_TITLE_EXIT_FRAME)
 	{
 		// use this to transition title bars to off-screen
-		transition = 0x1e - gGT->cameraDC->transitionFrame;
+		titleTransition = UI_RACE_START_TITLE_EXIT_BASE_FRAME - gGT->cameraDC->transitionFrame;
 	}
 
 	// RaceFlag_IsFullyOnScreen
-	iVar2 = RaceFlag_IsFullyOnScreen();
+	int raceFlagFullyOnScreen = RaceFlag_IsFullyOnScreen();
 
 	// if not
-	if (iVar2 == 0)
+	if (raceFlagFullyOnScreen == 0)
 	{
 		// Draw big string
 		font = FONT_BIG;
 
 		// used for transitioning bars to off-screen
-		windowHeight = transition;
+		barTransition = titleTransition;
 
 		if (
 
@@ -214,10 +192,10 @@ LAB_80055930:
 			posX = gGT->pushBuffer[0].rect.x + ((gGT->pushBuffer[0].rect.w << 0x10) >> 0x11);
 
 			// string of top title bar
-			pcVar6 = sdata->lngStrings[textID];
+			titleText = sdata->lngStrings[textID];
 
 			// Y-value that transitions title text to off-screen
-			sVar7 = gGT->pushBuffer[0].rect.y - (windowHeight + -7);
+			titleY = gGT->pushBuffer[0].rect.y - (barTransition - UI_RACE_START_TITLE_TOP_Y_BIAS);
 		}
 
 		// If you are in any cup of any kind
@@ -235,7 +213,8 @@ LAB_80055930:
 
 			                   gGT->pushBuffer[0].rect.x + ((gGT->pushBuffer[0].rect.w << 0x10) >> 0x11),
 
-			                   ((gGT->pushBuffer[0].rect.y - (transition + -7)) + -6), FONT_BIG, (JUSTIFY_CENTER | ORANGE));
+			                   ((gGT->pushBuffer[0].rect.y - (titleTransition - UI_RACE_START_TITLE_TOP_Y_BIAS)) + UI_RACE_START_CUP_TITLE_Y_OFFSET), FONT_BIG,
+			                   (JUSTIFY_CENTER | ORANGE));
 
 			// Track 1/4, 2/4, 3/4, 4/4 in cup
 #ifdef CTR_CUSTOM_TRACKS
@@ -260,20 +239,20 @@ LAB_80055930:
 #endif
 
 			// string of top title bar
-			pcVar6 = trackText;
+			titleText = trackText;
 
 			// X-value, centered
-			posX = 0x100;
+			posX = UI_RACE_START_TITLE_CENTER_X;
 
 			// Draw small string
 			font = FONT_SMALL;
 
 			// Y-value that transitions title text to off-screen
-			sVar7 = (gGT->pushBuffer[0].rect.y - (transition + -7)) + 0xb;
+			titleY = (gGT->pushBuffer[0].rect.y - (titleTransition - UI_RACE_START_TITLE_TOP_Y_BIAS)) + UI_RACE_START_CUP_TRACK_Y_OFFSET;
 		}
 
 		// Print top title text "Arcade, Time Trial, etc"
-		DecalFont_DrawLine(pcVar6, posX, sVar7, font, (JUSTIFY_CENTER | ORANGE));
+		DecalFont_DrawLine(titleText, posX, titleY, font, (JUSTIFY_CENTER | ORANGE));
 
 		// Print the name of the level
 		// Crash Cove, Roos Tubes, etc
@@ -295,7 +274,8 @@ LAB_80055930:
 
 		    gGT->pushBuffer[0].rect.x + ((gGT->pushBuffer[0].rect.w << 0x10) >> 0x11),
 
-		    (gGT->pushBuffer[0].rect.y + gGT->pushBuffer[0].rect.h + transition + -0x17), FONT_BIG, (JUSTIFY_CENTER | ORANGE));
+		    (gGT->pushBuffer[0].rect.y + gGT->pushBuffer[0].rect.h + titleTransition + UI_RACE_START_LEVEL_TITLE_Y_OFFSET), FONT_BIG,
+		    (JUSTIFY_CENTER | ORANGE));
 
 		// same for all
 		rect.x = gGT->pushBuffer[0].rect.x;
@@ -304,40 +284,39 @@ LAB_80055930:
 		// 2-pixel height
 		// random generic color
 		colors[0] = sdata->battleSetup_Color_UI_1;
-		rect.h = 2;
+		rect.h = UI_RACE_START_DIVIDER_HEIGHT;
 
 		// Draw tiny rectangle near big black title bar (first)
-		rect.y = gGT->pushBuffer[0].rect.y - (windowHeight + -0x1c);
+		rect.y = gGT->pushBuffer[0].rect.y - (barTransition - UI_RACE_START_DIVIDER_TOP_Y_OFFSET);
 
 		Color color;
-		color.self = colors[0];
+		ColorCode_SetPacked(&color, colors[0]);
 
-		uint32_t *ot = gGT->backBuffer->otMem.uiOT;
+		u32 *ot = gGT->backBuffer->otMem.uiOT;
 
-		CTR_Box_DrawSolidBox(&rect, color, ot);
+		CTR_Box_DrawSolidBox(&rect, &color, ot, &gGT->backBuffer->primMem);
 
 		// Draw tiny rectangle near big black title bar (second)
-		rect.y = gGT->pushBuffer[0].rect.y + gGT->pushBuffer[0].rect.h + windowHeight + -0x1e;
-		CTR_Box_DrawSolidBox(&rect, color, ot);
+		rect.y = gGT->pushBuffer[0].rect.y + gGT->pushBuffer[0].rect.h + barTransition + UI_RACE_START_DIVIDER_BOTTOM_Y_OFFSET;
+		CTR_Box_DrawSolidBox(&rect, &color, ot, &gGT->backBuffer->primMem);
 
 		// 30-pixel height
 		// clear RGB, keep alpha (which is zero anyway)
-		colors[0] = colors[0] & 0xff000000;
-		color.self = colors[0];
-		rect.h = 0x1e;
+		colors[0] = colors[0] & UI_RACE_START_BAR_ALPHA_MASK;
+		ColorCode_SetPacked(&color, colors[0]);
+		rect.h = UI_RACE_START_BAR_HEIGHT;
 
 		// draw big black title bar (first)
-		rect.y = gGT->pushBuffer[0].rect.y - windowHeight;
-		CTR_Box_DrawSolidBox(&rect, color, ot);
+		rect.y = gGT->pushBuffer[0].rect.y - barTransition;
+		CTR_Box_DrawSolidBox(&rect, &color, ot, &gGT->backBuffer->primMem);
 
 		// draw big black title bar (second)
-		rect.y = gGT->pushBuffer[0].rect.y + gGT->pushBuffer[0].rect.h + windowHeight + -0x1e;
-		CTR_Box_DrawSolidBox(&rect, color, ot);
+		rect.y = gGT->pushBuffer[0].rect.y + gGT->pushBuffer[0].rect.h + barTransition + UI_RACE_START_DIVIDER_BOTTOM_Y_OFFSET;
+		CTR_Box_DrawSolidBox(&rect, &color, ot, &gGT->backBuffer->primMem);
 	}
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80055c90-0x8005607c.
 // Exit To Map, shared by the race-end menu row and the AP relic results skip
 // (RR_EndEvent_DrawMenu), which leaves the results for the hub the same way.
 void UI_RaceEnd_ExitToMap(void)
@@ -409,14 +388,14 @@ void UI_RaceEnd_MenuProc(struct RectMenu *menu)
 
 	gGT = sdata->gGT;
 
-	if (menu->unk1e != 0)
+	if (menu->funcState != RECTMENU_FUNC_STATE_INPUT)
 	{
-		menu->drawStyle &= ~(0x100);
+		menu->drawStyle &= ~RECTMENU_DRAW_STYLE_3P4P_LAYOUT;
 
 		// if more than 2 screens
-		if (2 < gGT->numPlyrCurrGame)
+		if (UI_RACE_END_MIN_SPLITSCREEN_MENU_PLAYERS <= gGT->numPlyrCurrGame)
 		{
-			menu->drawStyle |= 0x100;
+			menu->drawStyle |= RECTMENU_DRAW_STYLE_3P4P_LAYOUT;
 		}
 
 		return;
@@ -431,20 +410,20 @@ void UI_RaceEnd_MenuProc(struct RectMenu *menu)
 	option = menu->rows[row].stringIndex;
 
 	// if not SAVE GHOST
-	if (option != 9)
+	if (option != UI_RACE_END_OPTION_SAVE_GHOST)
 	{
 		// make Menu invisible
 		RECTMENU_Hide(menu);
 	}
 
 	sdata->framesSinceRaceEnded = 0;
-	sdata->numIconsEOR = 1;
+	sdata->numIconsEOR = UI_RACE_END_INITIAL_ICON_COUNT;
 
 	// Press * To Continue
 	// do not put this in the switch,
 	// switch needs to be a "small" jump table,
 	// and an offest this large could bloat table
-	if (option == 0xc9)
+	if (option == UI_RACE_END_OPTION_PRESS_TO_CONTINUE)
 	{
 		sdata->menuReadyToPass |= 1;
 		return;
@@ -453,7 +432,7 @@ void UI_RaceEnd_MenuProc(struct RectMenu *menu)
 	switch (option)
 	{
 	// Quit
-	case 3:
+	case UI_RACE_END_OPTION_QUIT:
 	{
 		// Erase ghost of previous race from RAM
 		GhostTape_Destroy();
@@ -462,16 +441,16 @@ void UI_RaceEnd_MenuProc(struct RectMenu *menu)
 		sdata->mainMenuState = MAIN_MENU_TITLE;
 
 		// load LEV of main menu
-		MainRaceTrack_RequestLoad(0x27);
+		MainRaceTrack_RequestLoad(MAIN_MENU_LEVEL);
 		break;
 	}
 
-	case 4:
+	case UI_RACE_END_OPTION_RETRY:
 	{
 		// Turn off HUD
-		gGT->hudFlags &= 0xfe;
+		gGT->hudFlags &= HUD_FLAG_CLEAR_RACE_HUD_MASK;
 
-		if (RaceFlag_IsFullyOffScreen() == 1)
+		if (RaceFlag_IsFullyOffScreen())
 		{
 			RaceFlag_BeginTransition(1);
 		}
@@ -481,7 +460,6 @@ void UI_RaceEnd_MenuProc(struct RectMenu *menu)
 		// clear backup,
 		// keep music,
 		// destroy "most" fx, let menu fx play to end
-		// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80055df0-0x80055e04 for retry stop-audio args.
 		howl_StopAudio(1, 0, 0);
 
 		// if did not improve time, then dont
@@ -496,7 +474,7 @@ void UI_RaceEnd_MenuProc(struct RectMenu *menu)
 		// slower than ND's copy, I know, we'll
 		// come up with a modern-gcc friendly way
 		// to sort the LWs and SWs later
-		memcpy(sdata->ptrGhostTapePlaying, sdata->GhostRecording.ptrGhost, 0x3e00);
+		memcpy(sdata->ptrGhostTapePlaying, sdata->GhostRecording.ptrGhost, GHOST_RECORD_BUFFER_SIZE);
 
 		// Make P2 the character that is saved in the
 		// header of the ghost that you will see in the race
@@ -509,8 +487,8 @@ void UI_RaceEnd_MenuProc(struct RectMenu *menu)
 	}
 
 	// Change Character, or Change Level
-	case 5:
-	case 6:
+	case UI_RACE_END_OPTION_CHANGE_CHARACTER:
+	case UI_RACE_END_OPTION_CHANGE_LEVEL:
 	{
 		// Erase ghost of previous race from RAM
 		GhostTape_Destroy();
@@ -523,12 +501,12 @@ void UI_RaceEnd_MenuProc(struct RectMenu *menu)
 		sdata->Loading.OnBegin.AddBitsConfig0 |= MAIN_MENU;
 
 		// load LEV of main menu
-		MainRaceTrack_RequestLoad(0x27);
+		MainRaceTrack_RequestLoad(MAIN_MENU_LEVEL);
 		break;
 	}
 
 	// Save Ghost
-	case 9:
+	case UI_RACE_END_OPTION_SAVE_GHOST:
 	{
 #ifdef CTR_CUSTOM_PACKAGES
 		// Never offered on a custom track (224.c); never opens the memory card there.
@@ -537,10 +515,10 @@ void UI_RaceEnd_MenuProc(struct RectMenu *menu)
 			break;
 		}
 #endif
-		sdata->framesSinceRaceEnded = FPS_DOUBLE(0x3f9);
+		sdata->framesSinceRaceEnded = FPS_DOUBLE(UI_RACE_END_SAVE_GHOST_FRAME);
 
 		// Set Load/Save to Ghost mode
-		SelectProfile_ToggleMode(0x31);
+		SelectProfile_ToggleMode(SELECT_PROFILE_MODE_GHOST_SAVE);
 
 		// Change active Menu to GhostSelection
 		sdata->ptrDesiredMenu = &data.menuGhostSelection;
@@ -548,7 +526,7 @@ void UI_RaceEnd_MenuProc(struct RectMenu *menu)
 	}
 
 	// Change Setup
-	case 10:
+	case UI_RACE_END_OPTION_CHANGE_SETUP:
 	{
 		// go to battle setup screen
 		sdata->mainMenuState = MAIN_MENU_BATTLE_SETUP;
@@ -556,13 +534,15 @@ void UI_RaceEnd_MenuProc(struct RectMenu *menu)
 		sdata->Loading.OnBegin.AddBitsConfig0 |= MAIN_MENU;
 
 		// load LEV of main menu
-		MainRaceTrack_RequestLoad(0x27);
+		MainRaceTrack_RequestLoad(MAIN_MENU_LEVEL);
 		break;
 	}
 
 	// Exit To Map
-	case 0xd:
+	case UI_RACE_END_OPTION_EXIT_TO_MAP:
+	{
 		UI_RaceEnd_ExitToMap();
 		break;
 	}
+}
 }

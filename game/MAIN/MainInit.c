@@ -43,8 +43,8 @@ static void *MainInit_NativeSpawnPools(struct GameTracker *gGT, const struct Nat
 
 	MainInit_NativePoolAt(&gGT->JitPools.thread, plan.threadItems, sizeof(struct Thread), reserve + plan.threadOffset);
 	MainInit_NativePoolAt(&gGT->JitPools.instance, plan.instanceItems, (int)req->instanceItemSize, reserve + plan.instanceOffset);
-	MainInit_NativePoolAt(&gGT->JitPools.smallStack, plan.smallItems, 0x48, reserve + plan.smallOffset);
-	MainInit_NativePoolAt(&gGT->JitPools.mediumStack, plan.mediumItems, 0x88, reserve + plan.mediumOffset);
+	MainInit_NativePoolAt(&gGT->JitPools.smallStack, plan.smallItems, THREAD_SMALL_STACK_SIZE, reserve + plan.smallOffset);
+	MainInit_NativePoolAt(&gGT->JitPools.mediumStack, plan.mediumItems, THREAD_MEDIUM_STACK_SIZE, reserve + plan.mediumOffset);
 
 #ifdef CTR_AP
 	{
@@ -88,7 +88,6 @@ static void MainInit_InitVisMemBspListNodes(struct VisMem *visMem, struct mesh_i
 }
 #endif
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003af84-0x8003b008 for the retail path.
 void MainInit_VisMem(struct GameTracker *gGT)
 {
 	struct VisMem *visMem = gGT->level1->visMem;
@@ -112,7 +111,6 @@ void MainInit_VisMem(struct GameTracker *gGT)
 #endif
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003b008-0x8003b0f0
 void MainInit_RainBuffer(struct GameTracker *gGT)
 {
 	u8 numPlyr = gGT->numPlyrCurrGame;
@@ -204,7 +202,6 @@ static int MainInit_GetPrimMemSize(struct GameTracker *gGT)
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003b0f0-0x8003b2d4.
 void MainInit_PrimMem(struct GameTracker *gGT)
 {
 	int size = MainInit_GetPrimMemSize(gGT);
@@ -246,7 +243,6 @@ void MainInit_PrimMem(struct GameTracker *gGT)
 #endif
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003b2d4-0x8003b334.
 void MainInit_JitPoolsReset(struct GameTracker *gGT)
 {
 	JitPool_Clear(&gGT->JitPools.thread);
@@ -265,7 +261,6 @@ void MainInit_JitPoolsReset(struct GameTracker *gGT)
 	JitPool_Clear(&gGT->JitPools.rain);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003b334-0x8003b43c.
 void MainInit_OTMem(struct GameTracker *gGT)
 {
 	int size;
@@ -306,13 +301,12 @@ EndFunc:
 
 	// 0x1000 per player, plus 0x18 for linking
 	size = ((gGT->numPlyrCurrGame) << 0xC) | 0x18;
-	gGT->otSwapchainDB[0] = MEMPACK_AllocMem(size); // "ot1"
-	gGT->otSwapchainDB[1] = MEMPACK_AllocMem(size); // "ot2"
+	gGT->otSwapchainDB[0] = MEMPACK_AllocMem(size, NULL); // "ot1"
+	gGT->otSwapchainDB[1] = MEMPACK_AllocMem(size, NULL); // "ot2"
 }
 
 void MainInit_JitPoolsNew(struct GameTracker *gGT)
 {
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003b43c-0x8003b6d0 for the retail path.
 	u32 gameMode = gGT->gameMode1;
 	int poolScale = 0x800;
 	if ((gameMode & ADVENTURE_ARENA) == 0)
@@ -430,8 +424,8 @@ void MainInit_JitPoolsNew(struct GameTracker *gGT)
 	{
 		JitPool_Init(&gGT->JitPools.thread, (renderBucketSize * 3) >> 7, sizeof(struct Thread), rdata.s_ThreadPool);
 		JitPool_Init(&gGT->JitPools.instance, instanceCapacity, instanceItemSize, rdata.s_InstancePool);
-		JitPool_Init(&gGT->JitPools.smallStack, (poolScale * 0x19) >> 10, 0x48, rdata.s_SmallStackPool);
-		JitPool_Init(&gGT->JitPools.mediumStack, poolScale >> 7, 0x88, rdata.s_MediumStackPool);
+		JitPool_Init(&gGT->JitPools.smallStack, (poolScale * 0x19) >> 10, THREAD_SMALL_STACK_SIZE, rdata.s_SmallStackPool);
+		JitPool_Init(&gGT->JitPools.mediumStack, poolScale >> 7, THREAD_MEDIUM_STACK_SIZE, rdata.s_MediumStackPool);
 	}
 
 	int numDriver = poolScale >> 9;
@@ -439,7 +433,7 @@ void MainInit_JitPoolsNew(struct GameTracker *gGT)
 	{
 		numDriver = 4;
 	}
-	JitPool_Init(&gGT->JitPools.largeStack, numDriver, 0x670, rdata.s_LargeStackPool);
+	JitPool_Init(&gGT->JitPools.largeStack, numDriver, THREAD_LARGE_STACK_SIZE, rdata.s_LargeStackPool);
 
 	int numParticle = poolScale >> 5;
 	JitPool_Init(&gGT->JitPools.particle, numParticle, sizeof(struct Particle), rdata.s_ParticlePool);
@@ -447,7 +441,7 @@ void MainInit_JitPoolsNew(struct GameTracker *gGT)
 	JitPool_Init(&gGT->JitPools.rain, poolScale >> 9, sizeof(struct RainLocal), rdata.s_RainPool);
 
 #ifndef CTR_NATIVE
-	gGT->ptrRenderBucketInstance = MEMPACK_AllocMem(renderBucketSize);
+	gGT->ptrRenderBucketInstance = MEMPACK_AllocMem(renderBucketSize, NULL);
 #else
 	// NOTE(aalhendi): Native reuses static RDATA scratch for existing PC memory headroom.
 	gGT->ptrRenderBucketInstance = (void *)((uintptr_t)&rdata.s_STATIC_GNORMALZ[0] + 148);
@@ -480,7 +474,7 @@ void MainInit_JitPoolsNew(struct GameTracker *gGT)
 		// this loop used to make. See platform/native_clip_scratch.h.
 		data.PtrClipBuffer[i] = NativeClipScratch_Player((u32)i, (u32)clipEntries, (u32)gGT->numPlyrCurrGame);
 #else
-		data.PtrClipBuffer[i] = MEMPACK_AllocMem(clipEntries << 2);
+		data.PtrClipBuffer[i] = MEMPACK_AllocMem(clipEntries << 2, NULL);
 #endif
 	}
 
@@ -504,17 +498,15 @@ void MainInit_JitPoolsNew(struct GameTracker *gGT)
 #endif
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003b6d0-0x8003b934; CTR_NATIVE gates TT ghost model publication.
 void MainInit_Drivers(struct GameTracker *gGT)
 {
-	char i;
-	char numPlyrCurrGame = gGT->numPlyrCurrGame;
+	u8 numPlyrCurrGame = gGT->numPlyrCurrGame;
 	u8 numDrivers;
 	int gameMode = gGT->gameMode1;
 
-	for (i = 0; i < 8; i++)
+	for (int i = 0; i < 8; i++)
 	{
-		gGT->drivers[(s32)i] = NULL;
+		gGT->drivers[i] = NULL;
 	}
 
 	gGT->numBotsNextGame = 0;
@@ -534,9 +526,9 @@ void MainInit_Drivers(struct GameTracker *gGT)
 	// Spawn all players,
 	// This MUST be in reverse order,
 	// because of threadBucket linked list order
-	for (i = numPlyrCurrGame - 1; i >= 0; i--)
+	for (int i = numPlyrCurrGame - 1; i >= 0; i--)
 	{
-		gGT->drivers[(s32)i] = VehBirth_Player(i);
+		gGT->drivers[i] = VehBirth_Player(i);
 	}
 
 	// spawn all AIs
@@ -594,7 +586,7 @@ void MainInit_Drivers(struct GameTracker *gGT)
 		}
 
 		// Spawn AIs
-		for (i = numPlyrCurrGame; i < numDrivers; i++)
+		for (int i = numPlyrCurrGame; i < numDrivers; i++)
 		{
 			// spawn an AI at this character index
 			BOTS_Driver_Init(i);
@@ -637,7 +629,6 @@ void MainInit_Drivers(struct GameTracker *gGT)
 	}
 
 	// If number of AIs is not zero
-	// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003b868-0x8003b894 for AI engine-audio init side effects.
 	if (gGT->numBotsNextGame != 0)
 	{
 		// Init AI engine sounds
@@ -649,9 +640,9 @@ void MainInit_Drivers(struct GameTracker *gGT)
 	if ((gameMode & MAIN_MENU) != 0)
 	{
 		// fill up 4 players
-		for (i = numPlyrCurrGame; i < 4; i++)
+		for (int i = numPlyrCurrGame; i < 4; i++)
 		{
-			gGT->drivers[(s32)i] = VehBirth_Player(i);
+			gGT->drivers[i] = VehBirth_Player(i);
 		}
 	}
 
@@ -699,8 +690,6 @@ void MainInit_FinalizeInit(struct GameTracker *gGT)
 	gGT->pushBuffer[0].distanceToScreen_PREV = 0x100;
 	gGT->pushBuffer[0].distanceToScreen_CURR = 0x100;
 
-	// Retail clears the whole bucket table and marks the buckets that keep
-	// ticking while paused.
 	memset(gGT->threadBuckets, 0, sizeof(gGT->threadBuckets));
 	gGT->threadBuckets[STATIC].boolCantPause = 1;
 	gGT->threadBuckets[WARPPAD].boolCantPause = 1;
@@ -720,10 +709,10 @@ void MainInit_FinalizeInit(struct GameTracker *gGT)
 	for (i = 0; i < 12; i++)
 	{
 		gGT->DecalMP[i].inst = NULL;
-		*(s16 *)&gGT->DecalMP[i].data[0] = 1000;
+		gGT->DecalMP[i].timer = 1000;
 
-		gGT->DecalMP[i].ptrOT1 = 0;
-		gGT->DecalMP[i].ptrOT2 = 0;
+		gGT->DecalMP[i].pb.ptrOT = NULL;
+		gGT->DecalMP[i].pb.renderBucketOTRangeEnd = NULL;
 	}
 
 	MainInit_JitPoolsReset(gGT);
@@ -765,7 +754,7 @@ void MainInit_FinalizeInit(struct GameTracker *gGT)
 	PushBuffer_SetPsyqGeom(pb);
 	PushBuffer_SetMatrixVP(pb);
 
-	if ((gGT->hudFlags & 2) != 0)
+	if ((gGT->hudFlags & HUD_FLAG_INIT_UI_INSTANCES) != 0)
 	{
 #ifdef CTR_AP
 		AP_TrialLetters_Register(gGT);
@@ -789,7 +778,7 @@ void MainInit_FinalizeInit(struct GameTracker *gGT)
 		inst = d->instSelf;
 		if (inst != 0)
 		{
-			inst->scale = (SVec3){{0xccc, 0xccc, 0xccc}};
+			inst->scale = (SVec3){0xccc, 0xccc, 0xccc};
 		}
 
 		if (i < gGT->numPlyrCurrGame)
@@ -887,7 +876,7 @@ void MainInit_FinalizeInit(struct GameTracker *gGT)
 #endif
 
 	// animates water, 1P mode
-	AnimateWater1P(gGT->timer, lev1->numWaterVertices, lev1->ptr_water, lev1->ptr_tex_waterEnvMap, lev1->unk5);
+	AnimateWater1P(gGT->timer, lev1->numWaterVertices, lev1->ptr_water, lev1->ptr_tex_waterEnvMap, lev1->visOVertSrc);
 
 	gGT->pushBuffer_UI.fadeFromBlack_desiredResult = 0x1000;
 	gGT->pushBuffer_UI.fade_step = 0x200;
@@ -901,11 +890,9 @@ void MainInit_FinalizeInit(struct GameTracker *gGT)
 	gGT->stars.distance = lev1->stars.distance;
 
 	// confetti
-	// Retail zeroes the whole 32-bit word here, clearing the adjacent field too.
-	gGT->confetti.numParticles_curr = 0;
-	gGT->confetti.unk1 = 0;
+	gGT->confetti.numParticles_currWord = 0;
 	gGT->confetti.numParticles_max = 0;
-	gGT->confetti.unk2 = 0;
+	gGT->confetti.vanishRate = 0;
 	gGT->confetti.velY = -10;
 
 	for (i = 0; i < 4; i++)
@@ -920,7 +907,7 @@ void MainInit_FinalizeInit(struct GameTracker *gGT)
 	if ((gGT->gameMode1 & GAME_CUTSCENE) != 0)
 	{
 		// freecam mode
-		gGT->cameraDC[0].cameraMode = 3;
+		gGT->cameraDC[0].cameraMode = CAMERA_MODE_FREECAM;
 
 		// disable all HUD flags
 		gGT->hudFlags = 0;
@@ -940,7 +927,6 @@ void MainInit_FinalizeInit(struct GameTracker *gGT)
 	PickupBots_Init();
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003c1d4-0x8003c248.
 int MainInit_StringToLevID(char *str)
 {
 	for (int levelID = 0; levelID < 0x41; levelID++)
@@ -956,7 +942,6 @@ int MainInit_StringToLevID(char *str)
 	return 0;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003c248-0x8003c310 for the retail path.
 void MainInit_VRAMClear()
 {
 	DRAWENV drawEnv;
@@ -985,8 +970,7 @@ void MainInit_VRAMClear()
 	DrawOTag(&commands);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003c310-0x8003c41c; native wraps
-// the VRAM page moves in a platform frame for presentation.
+// Native wraps the VRAM page moves in a platform frame for presentation.
 void MainInit_VRAMDisplay()
 {
 	RECT r;

@@ -59,19 +59,19 @@ static u32 RenderWeather_ReadWord(const void *base, int offset)
 
 static struct TrigPair RenderWeather_TrigAngleSinCos(int angle)
 {
-	u32 packed = RenderWeather_ReadWord(&data.trigApprox[angle & 0x3ff], 0);
+	u32 packed = RenderWeather_ReadWord(&data.trigApprox[ANG_MODULO_HALF_PI(angle)], 0);
 	struct TrigPair pair;
 
 	// NOTE(aalhendi): PSX-backfeed blocker: retail calls
 	// TRIG_AngleSinCos_r16r17r18 with angle in s0 and returns sine/cosine in
 	// s1/s2. Native C uses an explicit helper; restore the register ABI before
 	// PSX backfeed.
-	if ((angle & 0x400) == 0)
+	if (IS_ANG_FIRST_OR_THIRD_QUADRANT(angle))
 	{
 		pair.sin = (s16)packed;
 		pair.cos = (s16)(packed >> 16);
 
-		if ((angle & 0x800) != 0)
+		if (IS_ANG_THIRD_OR_FOURTH_QUADRANT(angle))
 		{
 			pair.sin = -pair.sin;
 			pair.cos = -pair.cos;
@@ -82,7 +82,7 @@ static struct TrigPair RenderWeather_TrigAngleSinCos(int angle)
 		pair.sin = (s16)(packed >> 16);
 		pair.cos = (s16)packed;
 
-		if ((angle & 0x800) != 0)
+		if (IS_ANG_THIRD_OR_FOURTH_QUADRANT(angle))
 		{
 			pair.sin = -pair.sin;
 		}
@@ -138,8 +138,7 @@ static int RenderWeather_IsVisible(u32 gteFlag, u32 sxy0, u32 sxy1, u32 screenBo
 	return (s32)(bounds << 16) >= 0;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8006f9a8-0x8006fe08
-void RenderWeather(struct PushBuffer *pb, struct PrimMem *primMem, struct RainBuffer *rainBuffer, char numPlyr, int gameMode1)
+void RenderWeather(struct PushBuffer *pb, struct PrimMem *primMem, struct RainBuffer *rainBuffer, u8 numPlyr, int gameMode1)
 {
 	u32 *prim = (u32 *)primMem->cursor;
 	u32 *rainWords = (u32 *)(void *)rainBuffer;
@@ -150,7 +149,7 @@ void RenderWeather(struct PushBuffer *pb, struct PrimMem *primMem, struct RainBu
 	struct TrigPair trig;
 	u32 centerX;
 	u32 screenBounds;
-	uint32_t *ot;
+	u32 *ot;
 	s32 currentParticles;
 	u32 particleCount;
 	u32 scrollXY;

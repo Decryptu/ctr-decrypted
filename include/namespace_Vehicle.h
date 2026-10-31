@@ -15,7 +15,6 @@ enum VehBirthSpawnFlag
 	VEH_BIRTH_SPAWN_RACE_START = VEH_BIRTH_SPAWN_USE_LEVEL_POSITION | VEH_BIRTH_SPAWN_INIT_RACE_STATE,
 };
 
-CTR_STATIC_ASSERT(VEH_BIRTH_SPAWN_RACE_START == 0x3);
 
 enum DriverFuncSlot
 {
@@ -104,6 +103,12 @@ enum DriverAccelTap
 	DRIVER_ACCEL_TAP_STEER_COUNT = 7,
 };
 
+enum DriverWallRub
+{
+	DRIVER_WALL_RUB_TIMER_START = 0xf0,
+};
+
+
 enum DriverTireColorCycle
 {
 	DRIVER_TIRE_COLOR_DEFAULT = 0x2e808080,
@@ -120,6 +125,14 @@ enum DriverSkidmarks
 {
 	DRIVER_SKIDMARK_FRAME_COUNT = 8,
 	DRIVER_SKIDMARK_TIRE_COUNT = 4,
+	DRIVER_SKIDMARK_BACK_LEFT = 0x1,
+	DRIVER_SKIDMARK_BACK_RIGHT = 0x2,
+	DRIVER_SKIDMARK_FRONT_LEFT = 0x4,
+	DRIVER_SKIDMARK_FRONT_RIGHT = 0x8,
+	DRIVER_SKIDMARK_CURRENT_FRAME_MASK = DRIVER_SKIDMARK_BACK_LEFT | DRIVER_SKIDMARK_BACK_RIGHT | DRIVER_SKIDMARK_FRONT_LEFT | DRIVER_SKIDMARK_FRONT_RIGHT,
+	DRIVER_SKIDMARK_HISTORY_MASK = 0xfffff,
+	DRIVER_SKIDMARK_HISTORY_SHIFT = 4,
+	DRIVER_SKIDMARK_FRAME_INDEX_MASK = DRIVER_SKIDMARK_FRAME_COUNT - 1,
 };
 
 union VehEmitterSkidmark
@@ -132,7 +145,7 @@ union VehEmitterSkidmark
 		u8 flags;
 		SVec3 edge1;
 		s16 pad;
-	};
+	} fields;
 };
 
 struct DriverCheckpointState
@@ -142,6 +155,24 @@ struct DriverCheckpointState
 
 	// 0x1
 	u8 currentIndex;
+};
+
+struct DriverWarpState
+{
+	// 0x0
+	s32 timer;
+
+	// 0x4
+	s32 heightOffset;
+
+	// 0x8
+	s32 quadHeight;
+
+	// 0xc - angular phase for the warp dust rings
+	s32 dustAngle;
+
+	// 0x10
+	s32 beamHeight;
 };
 
 // NOTE(aalhendi): Retail reuses this scratch range as transformed tire words,
@@ -165,8 +196,8 @@ struct VehGroundSkidsScratch
 		{
 			u8 segmentFlagsLow;
 			u8 segmentFlagsPadding[3];
-		};
-	};
+		} bytes;
+	} segment;
 	u32 currXY[9];
 	u32 prevXY[9];
 	s32 currDepth[9];
@@ -540,7 +571,7 @@ enum EngineClass
 	// tiny, dingo, papu, ntropy
 	SPEED,
 
-	// polar, pura, roo (penta in ntsc)
+	// polar, pura, roo, penta
 	TURN,
 
 	NUM_CLASSES
@@ -604,6 +635,40 @@ enum
 	RAIN_CLOUD_EFFECT_RESERVE_RELEASE = 6,
 };
 typedef s16 RainCloudEffect;
+
+enum
+{
+	HELD_ITEM_TURBO = 0,
+	HELD_ITEM_BOMB_1X = 1,
+	HELD_ITEM_MISSILE_1X = 2,
+	HELD_ITEM_BOMB_MISSILE_SHARED = HELD_ITEM_MISSILE_1X,
+	HELD_ITEM_TNT = 3,
+	HELD_ITEM_POTION = 4,
+	HELD_ITEM_SPRING = 5,
+	HELD_ITEM_SHIELD = 6,
+	HELD_ITEM_MASK = 7,
+	HELD_ITEM_CLOCK = 8,
+	HELD_ITEM_WARPBALL = 9,
+	HELD_ITEM_BOMB_3X = 0xa,
+	HELD_ITEM_MISSILE_3X = 0xb,
+	HELD_ITEM_INVISIBILITY = 0xc,
+	HELD_ITEM_SUPER_ENGINE = 0xd,
+	HELD_ITEM_NONE = 0xf,
+	HELD_ITEM_ROULETTE = 0x10,
+};
+typedef u8 DriverHeldItem;
+
+enum HeldItemConstants
+{
+	HELD_ITEM_STACK_COUNT = 3,
+};
+
+enum DriverWumpaConstants
+{
+	DRIVER_WUMPA_JUICED_COUNT = 10,
+	DRIVER_WUMPA_MAX_COUNT = DRIVER_WUMPA_JUICED_COUNT,
+	DRIVER_WUMPA_JUICED_HUD_COOLDOWN_FRAMES = 10,
+};
 
 enum
 {
@@ -770,29 +835,7 @@ struct BotData
 	u8 padding_0x60b;
 
 	// 0x60c
-	union
-	{
-		struct NavFrame estimateNavFrame;
-		struct
-		{
-			SVec3 estimatePosition;
-			u8 estimateRotNav[3];
-			u8 estimateRotCurrY;
-			s16 distToNextNavXYZ;
-			s16 distToNextNavXZ;
-			s16 estimateFlags;
-			union
-			{
-				int estimateTail;
-				struct
-				{
-					s16 estimatePathChangeOpcode;
-					u8 estimateGoBackCount;
-					u8 estimateSpecialBits;
-				};
-			};
-		};
-	};
+	struct NavFrame estimateNavFrame;
 
 	// 0x620
 	struct MaskHeadWeapon *maskObj;
@@ -838,11 +881,8 @@ struct Driver
 	// 0x1C
 	struct Instance *instSelf;
 
-// Not in Aug Review
-#if BUILD >= SepReview
 	// 0x20
 	struct Instance *instTntSend; // on the ground
-#endif
 
 	// 0x24
 	int invincibleTimer;
@@ -853,9 +893,9 @@ struct Driver
 	// 0x30
 	s8 numWumpas;
 	// 0x31
-	char numCrystals;
+	s8 numCrystals;
 	// 0x32
-	char numTimeCrates;
+	s8 numTimeCrates;
 	// 0x33
 	s8 accelConst;
 	// 0x34
@@ -867,7 +907,7 @@ struct Driver
 	s8 turboConst;
 
 	// 0x36
-	u8 heldItemID;
+	DriverHeldItem heldItemID;
 	// 0x37
 	u8 numHeldItems;
 	// 0x38
@@ -897,31 +937,18 @@ struct Driver
 	// 0x4D
 	u8 matrixIndex;
 
-#if BUILD >= EurRetail
-	s16 compilerPadding_0x4E;
 
-	// 0x50
-	// highest amount of consecutive turbos in a race
-	// exclusive to Japan Retail
-	int numTurbosHighScore;
-#endif
-
-#if BUILD >= SepReview
-	// 0x4E -- UsaRetail
-	// 0x54 -- EurRetail, JpnRetail
+	// 0x4e
 	s16 numTurbos;
 	// 0x50
-	u16 frameAgainstWall; // allocated in Sep3, does not function
-#endif
+	u16 frameAgainstWall; // allocated but unused
 
-#if BUILD < EurRetail
 	// There is no "s16" on 0x52,
 	// there is padding for the next
 	// 4-byte void* that is unused
 	s16 funcPtrs_compilerpadding;
-#endif
 
-	// 0x54 (UsaRetail) / 0x58 (EurRetail, JpnRetail) - OnInit, First function for spawn, drifting, damage, etc
+	// 0x54 - OnInit, First function for spawn, drifting, damage, etc
 	// 0x58 - OnUpdate, updates per frame for any generic purpose
 	// 0x5C - OnPhysLinear
 	// 0x60 - OnAudio, engine sounds (always same)
@@ -951,26 +978,12 @@ struct Driver
 	DriverCollisionFlags collisionFlags;
 
 	// 0xac
-	union
-	{
-		s16 spsHitPosRaw[4];
-		struct
-		{
-			SVec3 spsHitPos;
-			s16 padding_0xb2;
-		};
-	};
+	SVec3 spsHitPos;
+	s16 padding_0xb2;
 
 	// 0xb4
-	union
-	{
-		s16 spsNormalVecRaw[4];
-		struct
-		{
-			SVec3 spsNormalVec;
-			s16 padding_0xba;
-		};
-	};
+	SVec3 spsNormalVec;
+	s16 padding_0xba;
 
 	// 0xBC
 	// 0xBD is waterFlag
@@ -1057,7 +1070,9 @@ struct Driver
 	SVec3Slot rotPrev;
 
 	// 0x2FC
-	int sfxDistortOffset;
+	// NOTE(aalhendi): Engine audio updates the signed halfword and preserves the adjacent padding.
+	s16 sfxDistortOffset;
+	u16 padding_0x2fe;
 
 	// 0x300
 	// 0x300 = Kart skidmarks sound
@@ -1233,16 +1248,9 @@ struct Driver
 
 	// 0x3d4
 	// This is a UNION between kart states
-	union
-	{
-		s16 turnWobbleRaw[3];
-		struct
-		{
-			s16 turnWobbleAngle;
-			s16 turnWobbleVelocity;
-			s16 turnWobbleTimer;
-		};
-	};
+	s16 turnWobbleAngle;
+	s16 turnWobbleVelocity;
+	s16 turnWobbleTimer;
 
 	// 0x3DA
 	// also drift direction
@@ -1528,7 +1536,6 @@ struct Driver
 	s16 driverRank;
 
 	// 0x484 - MetaPhys stat no. 0x40
-	// Used in Aug4 and Aug14
 	int const_prototypeKey;
 
 	// 0x484 - last of constants
@@ -1682,7 +1689,7 @@ struct Driver
 	RainCloudEffect rainCloudEffect;
 
 	// 0x50C
-	char numTimesAttackingPlayer[8];
+	u8 numTimesAttackingPlayer[8];
 
 	// 0x514
 	int timeElapsedInRace;
@@ -1739,46 +1746,46 @@ struct Driver
 	s16 numberOfJumps;
 
 	// 0x556
-	char numTimesMovingPotionHitSomeone;
+	u8 numTimesMovingPotionHitSomeone;
 
 	// 0x557
-	char numTimesMissileHitSomeone;
+	u8 numTimesMissileHitSomeone;
 
 	// 0x558
-	char numTimesClockWeaponUsed;
+	u8 numTimesClockWeaponUsed;
 
 	// 0x559
-	char numTimesAttacking;
+	u8 numTimesAttacking;
 
 	// 0x55a
-	char numTimesBombsHitSomeone;
+	u8 numTimesBombsHitSomeone;
 
 	// 0x55b
-	char numTimesSquishedSomeone;
+	u8 numTimesSquishedSomeone;
 
 	// 0x55c
-	char numTimesMissileLaunched;
+	u8 numTimesMissileLaunched;
 
 	// 0x55d
-	char numTimesMissileHitYou;
+	u8 numTimesMissileHitYou;
 
 	// 0x55e
-	char numTimesBombHitYou;
+	u8 numTimesBombHitYou;
 
 	// 0x55f
-	char numTimesMotionlessPotionHitYou;
+	u8 numTimesMotionlessPotionHitYou;
 
 	// 0x560
-	char numTimesAttackedByPlayer[8];
+	u8 numTimesAttackedByPlayer[8];
 
 	// 0x568
-	char numTimesHitWeaponBox;
+	u8 numTimesHitWeaponBox;
 
 	// 0x569
 	u8 numTimesWumpa;
 
 	// 0x56a
-	char numTimesMaskGrab;
+	u8 numTimesMaskGrab;
 
 	// 0x56b
 	// padding for the next int
@@ -1874,7 +1881,8 @@ struct Driver
 			RevEngineLockoutFlags lockoutFlags;
 
 			// 0x594
-			int boolMaskGrab;
+			u8 boolMaskGrab;
+			u8 padding_0x595[3];
 
 			// == end ==
 
@@ -1921,19 +1929,7 @@ struct Driver
 		} Blasted;
 
 		// state 10
-		struct
-		{
-			// 0x580
-			int timer;
-			// 0x584
-			int heightOffset;
-			// 0x588
-			int quadHeight;
-			// 0x58c
-			int numParticle;
-			// 0x590
-			int beamHeight;
-		} Warp;
+		struct DriverWarpState Warp;
 
 	} KartStates;
 
@@ -1943,8 +1939,7 @@ struct Driver
 
 	// ===========================================
 
-	// NTSC is 0x62C bytes large
-	// PAL is 0x630 bytes large
+	// 0x62c bytes
 
 	// ===========================================
 
@@ -1981,23 +1976,15 @@ enum
 
 CTR_STATIC_ASSERT(sizeof(struct MetaPhys) == 0x1C);
 CTR_STATIC_ASSERT(sizeof(DriverFunc) == sizeof(void *));
-CTR_STATIC_ASSERT(DRIVER_FUNC_INIT == 0);
-CTR_STATIC_ASSERT(DRIVER_FUNC_UPDATE == 1);
-CTR_STATIC_ASSERT(DRIVER_FUNC_PHYS_LINEAR == 2);
-CTR_STATIC_ASSERT(DRIVER_FUNC_AUDIO == 3);
-CTR_STATIC_ASSERT(DRIVER_FUNC_PHYS_ANGULAR == 4);
-CTR_STATIC_ASSERT(DRIVER_FUNC_APPLY_FORCES == 5);
-CTR_STATIC_ASSERT(DRIVER_FUNC_COLL_MOVED == 6);
-CTR_STATIC_ASSERT(DRIVER_FUNC_COLLIDE_DRIVERS == 7);
-CTR_STATIC_ASSERT(DRIVER_FUNC_COLL_FIXED == 8);
-CTR_STATIC_ASSERT(DRIVER_FUNC_JUMP_FRICTION == 9);
-CTR_STATIC_ASSERT(DRIVER_FUNC_TRANSLATE_MATRIX == 10);
-CTR_STATIC_ASSERT(DRIVER_FUNC_ANIMATE == 11);
-CTR_STATIC_ASSERT(DRIVER_FUNC_PARTICLES == 12);
-CTR_STATIC_ASSERT(DRIVER_FUNC_COUNT == 13);
 CTR_STATIC_ASSERT(sizeof(struct DriverCheckpointState) == 0x2);
 CTR_STATIC_ASSERT(offsetof(struct DriverCheckpointState, branchChoiceIndex) == 0x0);
 CTR_STATIC_ASSERT(offsetof(struct DriverCheckpointState, currentIndex) == 0x1);
+CTR_STATIC_ASSERT(sizeof(struct DriverWarpState) == 0x14);
+CTR_STATIC_ASSERT(offsetof(struct DriverWarpState, timer) == 0x0);
+CTR_STATIC_ASSERT(offsetof(struct DriverWarpState, heightOffset) == 0x4);
+CTR_STATIC_ASSERT(offsetof(struct DriverWarpState, quadHeight) == 0x8);
+CTR_STATIC_ASSERT(offsetof(struct DriverWarpState, dustAngle) == 0xc);
+CTR_STATIC_ASSERT(offsetof(struct DriverWarpState, beamHeight) == 0x10);
 
 CTR_STATIC_ASSERT(sizeof(struct BotPhysics) == 0x34);
 CTR_STATIC_ASSERT(offsetof(struct BotPhysics, rotXZ) == 0x0);
@@ -2022,68 +2009,28 @@ CTR_STATIC_ASSERT(offsetof(struct BotData, positionBackup) == 0x58);
 CTR_STATIC_ASSERT(offsetof(struct BotData, ai_quadblock_checkpointIndex) == 0x72);
 CTR_STATIC_ASSERT(offsetof(struct BotData, reserved_0x628) == 0x90);
 CTR_STATIC_ASSERT(offsetof(struct BotData, estimateNavFrame) == 0x74);
-CTR_STATIC_ASSERT(offsetof(struct BotData, estimatePosition) == 0x74);
-CTR_STATIC_ASSERT(sizeof(((struct BotData *)0)->estimatePosition) == 0x6);
-CTR_STATIC_ASSERT(offsetof(struct BotData, estimateFlags) == 0x82);
-CTR_STATIC_ASSERT(offsetof(struct BotData, estimateTail) == 0x84);
-CTR_STATIC_ASSERT(BOT_FLAG_ESTIMATE_NAV == 0x1);
-CTR_STATIC_ASSERT(BOT_FLAG_DAMAGE_ACTIVE == 0x2);
-CTR_STATIC_ASSERT(BOT_FLAG_DAMAGE_SUPPRESS_EMITTER == 0x4);
-CTR_STATIC_ASSERT(BOT_FLAG_FREE_PHYSICS == 0x8);
-CTR_STATIC_ASSERT(BOT_FLAG_NAV_BOOST_ACTIVE == 0x10);
-CTR_STATIC_ASSERT(BOT_FLAG_MOON_GRAVITY == 0x20);
-CTR_STATIC_ASSERT(BOT_FLAG_BOSS_PATH_REQUESTED == 0x40);
-CTR_STATIC_ASSERT(BOT_FLAG_BOSS_PATH_ACTIVE == 0x80);
-CTR_STATIC_ASSERT(BOT_FLAG_DEMO_CAMERA_STARTED == 0x100);
-CTR_STATIC_ASSERT(BOT_FLAG_STARTLINE_INIT_DONE == 0x200);
+CTR_STATIC_ASSERT(offsetof(struct BotData, estimateNavFrame.pos) == 0x74);
+CTR_STATIC_ASSERT(sizeof(((struct BotData *)0)->estimateNavFrame.pos) == 0x6);
+CTR_STATIC_ASSERT(offsetof(struct BotData, estimateNavFrame.flags) == 0x82);
+CTR_STATIC_ASSERT(offsetof(struct BotData, estimateNavFrame.pathChangeOpcode) == 0x84);
 CTR_STATIC_ASSERT(sizeof(Actions) == 0x4);
-CTR_STATIC_ASSERT(ACTION_TOUCH_GROUND == 0x1);
-CTR_STATIC_ASSERT(ACTION_STARTED_TOUCH_GROUND == 0x2);
-CTR_STATIC_ASSERT(ACTION_JUMP_BUTTON_HELD == 0x4);
-CTR_STATIC_ASSERT(ACTION_ACCEL_PREVENTION == 0x8);
-CTR_STATIC_ASSERT(ACTION_STEER_LEFT == 0x10);
-CTR_STATIC_ASSERT(ACTION_BRAKE_WITH_ACCEL == 0x20);
-CTR_STATIC_ASSERT(ACTION_HIGH_JUMP == 0x40);
-CTR_STATIC_ASSERT(ACTION_TURBO_INPUT_LATCH == 0x80);
-CTR_STATIC_ASSERT(ACTION_DRIVING_WRONG_WAY == 0x100);
-CTR_STATIC_ASSERT(ACTION_TURBO_ITEM == 0x200);
-CTR_STATIC_ASSERT(ACTION_JUMP_STARTED == 0x400);
-CTR_STATIC_ASSERT(ACTION_BACK_SKID == 0x800);
-CTR_STATIC_ASSERT(ACTION_FRONT_SKID == 0x1000);
-CTR_STATIC_ASSERT(ACTION_DRIVING_AGAINST_WALL == 0x2000);
-CTR_STATIC_ASSERT(ACTION_WARP == 0x4000);
-CTR_STATIC_ASSERT(ACTION_WEAPON_FIRE_REQUEST == 0x8000);
-CTR_STATIC_ASSERT(ACTION_ENGINE_ECHO == 0x10000);
-CTR_STATIC_ASSERT(ACTION_REVERSING_ENGINE == 0x20000);
-CTR_STATIC_ASSERT(ACTION_RACE_TIMER_FROZEN == 0x40000);
-CTR_STATIC_ASSERT(ACTION_AIRBORNE == 0x80000);
-CTR_STATIC_ASSERT(ACTION_BOT == 0x100000);
-CTR_STATIC_ASSERT(ACTION_NEW_BOOST == 0x200000);
-CTR_STATIC_ASSERT(ACTION_ACCEL_RELEASED_WITH_RESERVES == 0x400000);
-CTR_STATIC_ASSERT(ACTION_MASK_WEAPON == 0x800000);
-CTR_STATIC_ASSERT(ACTION_BEHIND_START_LINE == 0x1000000);
-CTR_STATIC_ASSERT(ACTION_RACE_FINISHED == 0x2000000);
-CTR_STATIC_ASSERT(ACTION_TRACKER_TARGETED == 0x4000000);
-CTR_STATIC_ASSERT(ACTION_CHECKPOINT_BRANCH_PENDING == 0x8000000);
-CTR_STATIC_ASSERT(ACTION_HUMAN_HUMAN_COLLISION == 0x10000000);
-CTR_STATIC_ASSERT(ACTION_REVERSE_STEER_LEFT == 0x20000000);
-CTR_STATIC_ASSERT(ACTION_REVERSE_STEER_RIGHT == 0x40000000);
-CTR_STATIC_ASSERT(ACTION_DROPPING_MINE == 0x80000000u);
 CTR_STATIC_ASSERT(sizeof(DriverCollisionFlags) == 0x2);
 CTR_STATIC_ASSERT(sizeof(RainCloudEffect) == 0x2);
+CTR_STATIC_ASSERT(sizeof(DriverHeldItem) == 0x1);
+CTR_STATIC_ASSERT(sizeof(((struct Driver *)0)->heldItemID) == 0x1);
 CTR_STATIC_ASSERT(sizeof(union VehEmitterSkidmark) == 0x10);
-CTR_STATIC_ASSERT(offsetof(union VehEmitterSkidmark, edge[0]) == 0x0);
-CTR_STATIC_ASSERT(offsetof(union VehEmitterSkidmark, edge[1]) == 0x8);
-CTR_STATIC_ASSERT(offsetof(union VehEmitterSkidmark, edge0) == 0x0);
-CTR_STATIC_ASSERT(offsetof(union VehEmitterSkidmark, color) == 0x6);
-CTR_STATIC_ASSERT(offsetof(union VehEmitterSkidmark, flags) == 0x7);
-CTR_STATIC_ASSERT(offsetof(union VehEmitterSkidmark, edge1) == 0x8);
+CTR_STATIC_ASSERT(CTR_OFFSET_OF_ARRAY(union VehEmitterSkidmark, edge, 0) == 0x0);
+CTR_STATIC_ASSERT(CTR_OFFSET_OF_ARRAY(union VehEmitterSkidmark, edge, 1) == 0x8);
+CTR_STATIC_ASSERT(offsetof(union VehEmitterSkidmark, fields.edge0) == 0x0);
+CTR_STATIC_ASSERT(offsetof(union VehEmitterSkidmark, fields.color) == 0x6);
+CTR_STATIC_ASSERT(offsetof(union VehEmitterSkidmark, fields.flags) == 0x7);
+CTR_STATIC_ASSERT(offsetof(union VehEmitterSkidmark, fields.edge1) == 0x8);
 CTR_STATIC_ASSERT(sizeof(union VehEmitterWallScratch) == 0x18);
 CTR_STATIC_ASSERT(offsetof(struct VehGroundSkidsScratch, projected) == 0x0);
 CTR_STATIC_ASSERT(offsetof(struct VehGroundSkidsScratch, pushBuffer) == 0x18);
 CTR_STATIC_ASSERT(offsetof(struct VehGroundSkidsScratch, colorNear) == 0x1c);
 CTR_STATIC_ASSERT(offsetof(struct VehGroundSkidsScratch, colorFar) == 0x20);
-CTR_STATIC_ASSERT(offsetof(struct VehGroundSkidsScratch, segmentFlags) == 0x24);
+CTR_STATIC_ASSERT(offsetof(struct VehGroundSkidsScratch, segment.segmentFlags) == 0x24);
 CTR_STATIC_ASSERT(offsetof(struct VehGroundSkidsScratch, currXY) == 0x28);
 CTR_STATIC_ASSERT(offsetof(struct VehGroundSkidsScratch, prevXY) == 0x4c);
 CTR_STATIC_ASSERT(offsetof(struct VehGroundSkidsScratch, currDepth) == 0x70);
@@ -2093,26 +2040,14 @@ CTR_STATIC_ASSERT(sizeof(struct VehGroundSkidsScratch) == 0xc4);
 CTR_STATIC_ASSERT(offsetof(struct VehPhysCrashAiScratch, forward) == 0x0);
 CTR_STATIC_ASSERT(offsetof(struct VehPhysCrashAiScratch, matrix) == 0x10);
 CTR_STATIC_ASSERT(sizeof(struct VehPhysCrashAiScratch) == 0x30);
-CTR_STATIC_ASSERT(RAIN_CLOUD_EFFECT_NONE == 0x4);
-CTR_STATIC_ASSERT(DRIVER_COLL_FLAG_MASK_GRAB_REQUEST == 0x1);
-CTR_STATIC_ASSERT(DRIVER_COLL_FLAG_SURFACE_PUSHBACK == 0x2);
-CTR_STATIC_ASSERT(DRIVER_COLL_FLAG_TOUCHED_QUADBLOCK == 0x4);
-CTR_STATIC_ASSERT(DRIVER_COLL_FLAG_GROUNDED == 0x8);
 CTR_STATIC_ASSERT(sizeof(ForcedJumpType) == 0x1);
-CTR_STATIC_ASSERT(FORCED_JUMP_NONE == 0);
-CTR_STATIC_ASSERT(FORCED_JUMP_LOW == 1);
-CTR_STATIC_ASSERT(FORCED_JUMP_HIGH == 2);
 CTR_STATIC_ASSERT(sizeof(RevEngineChargeState) == 0x1);
 CTR_STATIC_ASSERT(sizeof(RevEngineLockoutFlags) == 0x1);
 CTR_STATIC_ASSERT(sizeof(EngineSoundMode) == 0x1);
 
 CTR_STATIC_ASSERT(offsetof(struct Driver, ghostTape) == DRIVER_NTSC_RETAIL_SIZE);
 CTR_STATIC_ASSERT(sizeof(((struct Driver *)0)->funcPtrs) == DRIVER_FUNC_COUNT * sizeof(DriverFunc));
-#if BUILD < EurRetail
 CTR_STATIC_ASSERT(offsetof(struct Driver, funcPtrs) == 0x54);
-#else
-CTR_STATIC_ASSERT(offsetof(struct Driver, funcPtrs) == 0x58);
-#endif
 CTR_STATIC_ASSERT(offsetof(struct Driver, velocity) == 0x88);
 CTR_STATIC_ASSERT(sizeof(((struct Driver *)0)->velocity) == 0xc);
 CTR_STATIC_ASSERT(offsetof(struct Driver, collisionFlags) == 0xaa);
@@ -2124,14 +2059,16 @@ CTR_STATIC_ASSERT(offsetof(struct Driver, stepFlagSet) == 0xbc);
 CTR_STATIC_ASSERT(offsetof(struct Driver, skidmarks) == 0xc4);
 CTR_STATIC_ASSERT(offsetof(struct Driver, skidmarkEnableFlags) == 0x2c4);
 CTR_STATIC_ASSERT(sizeof(((struct Driver *)0)->stepFlagSet) == 0x4);
-CTR_STATIC_ASSERT(sizeof(((struct Driver *)0)->spsHitPosRaw) == 0x8);
-CTR_STATIC_ASSERT(sizeof(((struct Driver *)0)->spsNormalVecRaw) == 0x8);
 CTR_STATIC_ASSERT(offsetof(struct Driver, padding_0x3e) == 0x3e);
 CTR_STATIC_ASSERT(offsetof(struct Driver, actionsFlagSet) == 0x2c8);
 CTR_STATIC_ASSERT(offsetof(struct Driver, actionsFlagSetPrevFrame) == 0x2cc);
 CTR_STATIC_ASSERT(offsetof(struct Driver, quadBlockHeight) == 0x2d0);
 CTR_STATIC_ASSERT(offsetof(struct Driver, posCurr) == 0x2d4);
 CTR_STATIC_ASSERT(sizeof(((struct Driver *)0)->posCurr) == 0xc);
+CTR_STATIC_ASSERT(offsetof(struct Driver, sfxDistortOffset) == 0x2fc);
+CTR_STATIC_ASSERT(sizeof(((struct Driver *)0)->sfxDistortOffset) == sizeof(s16));
+CTR_STATIC_ASSERT(offsetof(struct Driver, padding_0x2fe) == offsetof(struct Driver, sfxDistortOffset) + sizeof(((struct Driver *)0)->sfxDistortOffset));
+CTR_STATIC_ASSERT(offsetof(struct Driver, driverAudioPtrs) == offsetof(struct Driver, padding_0x2fe) + sizeof(((struct Driver *)0)->padding_0x2fe));
 CTR_STATIC_ASSERT(offsetof(struct Driver, forcedJumpType) == 0x366);
 CTR_STATIC_ASSERT(offsetof(struct Driver, AxisAngle2_normalVec) == 0x368);
 CTR_STATIC_ASSERT(offsetof(struct Driver, speedometerNeedleValue) == 0x36e);
@@ -2205,6 +2142,9 @@ CTR_STATIC_ASSERT(offsetof(struct Driver, KartStates.RevEngine.releaseCooldownTi
 CTR_STATIC_ASSERT(offsetof(struct Driver, KartStates.RevEngine.emptyCooldownTimerMS) == 0x590);
 CTR_STATIC_ASSERT(offsetof(struct Driver, KartStates.RevEngine.chargeState) == 0x592);
 CTR_STATIC_ASSERT(offsetof(struct Driver, KartStates.RevEngine.lockoutFlags) == 0x593);
+CTR_STATIC_ASSERT(offsetof(struct Driver, KartStates.Warp) == 0x580);
+CTR_STATIC_ASSERT(offsetof(struct Driver, KartStates.Warp.dustAngle) == 0x58c);
+CTR_STATIC_ASSERT(offsetof(struct Driver, KartStates.Warp.beamHeight) == 0x590);
 CTR_STATIC_ASSERT(offsetof(struct Driver, rotCurr.x) == 0x2ec);
 CTR_STATIC_ASSERT(offsetof(struct Driver, rotCurr.y) == 0x2ee);
 CTR_STATIC_ASSERT(offsetof(struct Driver, rotCurr.z) == 0x2f0);

@@ -28,14 +28,12 @@ global_variable int s_lastHostRangeHit = 0;
 
 static int NativeGpuLinks_AlignTokenSize(size_t size, uint32_t *tokenSizeOut)
 {
-	size_t alignedSize;
-
 	if ((size == 0) || (size > NATIVE_GPU_LINK_FIRST_DYNAMIC_TOKEN) || (size > (SIZE_MAX - 3u)))
 	{
 		return 0;
 	}
 
-	alignedSize = (size + 3u) & ~(size_t)3u;
+	size_t alignedSize = (size + 3u) & ~(size_t)3u;
 	if (alignedSize > NATIVE_GPU_LINK_FIRST_DYNAMIC_TOKEN)
 	{
 		return 0;
@@ -60,8 +58,6 @@ int NativeGpuLinks_IsTerminator(uint32_t token)
 int NativeGpuLinks_RegisterRange(const void *hostStart, size_t size, uint32_t *tokenStartOut)
 {
 	uint32_t tokenSize;
-	uintptr_t start;
-	uintptr_t end;
 
 	if ((hostStart == NULL) || (size == 0))
 	{
@@ -78,8 +74,8 @@ int NativeGpuLinks_RegisterRange(const void *hostStart, size_t size, uint32_t *t
 		return 0;
 	}
 
-	start = (uintptr_t)hostStart;
-	end = start + (uintptr_t)size;
+	uintptr_t start = (uintptr_t)hostStart;
+	uintptr_t end = start + (uintptr_t)size;
 	if (end < start)
 	{
 		return 0;
@@ -168,15 +164,13 @@ uint32_t NativeGpuLinks_FromHostPointer(const void *hostPtr)
 
 void *NativeGpuLinks_ToHostPointer(uint32_t token)
 {
-	const struct NativeGpuLinkRange *range;
-
 	token &= 0x00ffffffu;
 	if (NativeGpuLinks_IsTerminator(token))
 	{
 		return NULL;
 	}
 
-	range = NativeGpuLinks_FindTokenRange(token);
+	const struct NativeGpuLinkRange *range = NativeGpuLinks_FindTokenRange(token);
 	if (range != NULL)
 	{
 		return (void *)(range->hostStart + (uintptr_t)(token - range->tokenStart));
@@ -192,16 +186,13 @@ int NativeGpuLinks_IsRegisteredHostPointer(const void *hostPtr)
 
 int NativeGpuLinks_IsRegisteredHostRange(const void *hostPtr, size_t size)
 {
-	uintptr_t start;
-	uintptr_t end;
-
 	if ((hostPtr == NULL) || (size == 0))
 	{
 		return 0;
 	}
 
-	start = (uintptr_t)hostPtr;
-	end = start + (uintptr_t)size;
+	uintptr_t start = (uintptr_t)hostPtr;
+	uintptr_t end = start + (uintptr_t)size;
 	if (end < start)
 	{
 		return 0;

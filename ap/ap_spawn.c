@@ -70,8 +70,8 @@ static AP_SpawnHandle AP_SpawnAdd(int modelID, struct Model *model, const Vec3 *
 		s_spawns[i].modelID = modelID;
 		s_spawns[i].model = model;
 		s_spawns[i].lifetime = lifetime;
-		s_spawns[i].pos = (pos != 0) ? *pos : (Vec3){{0, 0, 0}};
-		s_spawns[i].rot = (rot != 0) ? *rot : (SVec3){{0, 0, 0}};
+		s_spawns[i].pos = (pos != 0) ? *pos : (Vec3){0, 0, 0};
+		s_spawns[i].rot = (rot != 0) ? *rot : (SVec3){0, 0, 0};
 		s_spawns[i].scale = 0x1000; // 1.0, the INSTANCE_Birth default
 		s_spawns[i].colorRGBA = 0;
 		s_spawns[i].visible = 1;

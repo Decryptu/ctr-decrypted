@@ -1,6 +1,5 @@
 #include <common.h>
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80039fa8-0x8003a2b4
 void MainGameEnd_SoloRaceGetReward(int subtractTimeCrateBonus)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -12,7 +11,7 @@ void MainGameEnd_SoloRaceGetReward(int subtractTimeCrateBonus)
 
 	int timeBonus = 0;
 
-	if (((s8)driver->numTimeCrates == gGT->timeCratesInLEV) && (subtractTimeCrateBonus != 0))
+	if ((driver->numTimeCrates == gGT->timeCratesInLEV) && (subtractTimeCrateBonus != 0))
 	{
 		timeBonus = 0x2580;
 	}
@@ -31,7 +30,7 @@ void MainGameEnd_SoloRaceGetReward(int subtractTimeCrateBonus)
 
 	gGT->bestLapTime = sdata->ptrActiveHighScoreEntry[0].time;
 
-	for (s16 i = 0; i < (s8)gGT->numLaps; i++)
+	for (s16 i = 0; i < gGT->numLaps; i++)
 	{
 		if (gGT->lapTime[i] < gGT->bestLapTime)
 		{
@@ -62,7 +61,7 @@ void MainGameEnd_SoloRaceGetReward(int subtractTimeCrateBonus)
 	}
 #endif
 
-	struct HighScoreTrack *track = &sdata->gameProgress.highScoreTracks[gGT->levelID];
+	struct HighScoreTrack *track = &sdata->gameSave.progress.highScoreTracks[gGT->levelID];
 	int playerTime = player->timeElapsedInRace;
 
 	if (((track->timeTrialFlags >> data.bitIndex_timeTrialFlags_saveData.nTropyOpen) & 1) == 0)
@@ -100,13 +99,12 @@ void MainGameEnd_SoloRaceGetReward(int subtractTimeCrateBonus)
 	}
 
 CheckOxideAllTracks:
-	if ((GAMEPROG_CheckGhostsBeaten(2) & 0xffff) != 0)
+	if (GAMEPROG_CheckGhostsBeaten(2))
 	{
-		UNLOCK_ADV_BIT(sdata->gameProgress.unlocks, GAME_UNLOCK_BIT_SCRAPBOOK);
+		UNLOCK_ADV_BIT(sdata->gameSave.progress.unlocks, GAME_UNLOCK_BIT_SCRAPBOOK);
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003a2b4-0x8003a3fc.
 void MainGameEnd_SoloRaceSaveHighScore(void)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -153,7 +151,6 @@ void MainGameEnd_SoloRaceSaveHighScore(void)
 	memmove(entry->name, gGT->prevNameEntered, 0x11);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003a3fc-0x8003aee8
 
 static void MainGameEnd_AddBattleWinner(struct GameTracker *gGT, struct Driver *driver)
 {
@@ -173,7 +170,7 @@ static void MainGameEnd_AddBattleWinner(struct GameTracker *gGT, struct Driver *
 static void MainGameEnd_SetBattleConfetti(struct GameTracker *gGT)
 {
 	gGT->confetti.numParticles_max = 0xfa;
-	gGT->confetti.unk2 = 0xfa;
+	gGT->confetti.vanishRate = 0xfa;
 }
 
 static void MainGameEnd_UpdateAdventureLosses(struct GameTracker *gGT, struct Driver *player)
@@ -197,7 +194,7 @@ static void MainGameEnd_UpdateAdventureLosses(struct GameTracker *gGT, struct Dr
 		return;
 	}
 
-	char *lossCounter;
+	s8 *lossCounter;
 
 	if (IS_BOSS_RACE(gGT->gameMode1))
 	{
