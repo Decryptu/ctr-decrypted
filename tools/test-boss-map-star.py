@@ -104,7 +104,7 @@ int main(void)
 
 # ── 2. wiring ───────────────────────────────────────────────────────────────
 amap = (root / 'game/232/AH_Map.c').read_text()
-assert 'sVar7 = (s16)AP_BossMapStarBeaten(base);' in amap
+assert 'beaten = AP_BossMapStarBeaten(GAME_TRACKER->levelID - N_SANITY_BEACH) != 0;' in amap
 assert 'AP_LocationCheckedByBit(base + ADV_REWARD_FIRST_BOSS_KEY)' not in amap
 assert 'AP_BossMapBeaten(' in wrapper
 assert 'ctr_cfg.goal_bosses' in wrapper

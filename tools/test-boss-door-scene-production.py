@@ -1,7 +1,7 @@
 """Issue #377: the once-per-hub boss-door scene after a Trophy podium.
 
-1. Compile the production VehBirth_ShouldSpawnOutsideBoss (game/Vehicle/
-   VehBirth.c) with and without CTR_AP against stub engine state, and check
+1. Compile the production Trophy-podium branch of VehBirth_Init (game/Vehicle/
+   VehBirth.c), wrapped in a function, with and without CTR_AP against stub engine state, and check
    that the retail rule is unchanged without CTR_AP and without slot_data,
    and that with slot_data the decision is AP_BossDoorSceneReady for the
    podium's hub.
@@ -29,7 +29,16 @@ def extract(source, signature):
 
 # ── 1. the spawn decision, compiled from VehBirth.c ─────────────────────────
 vehbirth = (root / 'game/Vehicle/VehBirth.c').read_text()
-spawn_fn = extract(vehbirth, 'static int VehBirth_ShouldSpawnOutsideBoss(struct GameTracker *gGT)\n{')
+# The Trophy branch sets spawnOutsideBoss inline; wrap the branch body,
+# condition included, so the fixture can call it like a function.
+trophy_head = '\t\telse if (GAME_TRACKER->podiumRewardID == STATIC_TROPHY)\n'
+trophy_at = vehbirth.index(trophy_head)
+trophy_end = vehbirth.index('\n\t\t}\n', trophy_at) + len('\n\t\t}\n')
+trophy_branch = vehbirth[trophy_at + len('\t\telse '):trophy_end]
+assert 'VehBirth_TrophyRuleDone:;' in trophy_branch
+spawn_fn = ('static int VehBirth_ShouldSpawnOutsideBoss(struct GameTracker *gGT)\n{\n'
+            '\tint spawnOutsideBoss = 0;\n' + trophy_branch +
+            '\treturn spawnOutsideBoss;\n}\n')
 
 spawn_fixture = r'''
 #include <stdio.h>
@@ -44,6 +53,11 @@ spawn_fixture = r'''
 #define MEMCARD_BIT_WORD(b) ((b) >> 5)
 #define CHECK_ADV_BIT(rewards, bitIndex)  (((rewards)[MEMCARD_BIT_WORD(bitIndex)] >> ((bitIndex) & 0x1f)) & 1)
 struct GameTracker { int podiumRewardID; int levelID; };
+typedef unsigned u32;
+typedef short s16;
+#define CTR_PSX_REGISTER(r)
+#define GAME_TRACKER gGT
+#define GAME_ADV_PROGRESS (sdata->advProgress)
 static struct { struct { unsigned rewards[8]; } advProgress; } sd, *sdata = &sd;
 /* Stand-in hub track ids: four distinct tracks per hub. */
 static struct { short advHubTrackIDs[16]; } data = {{
@@ -214,11 +228,12 @@ assert re.search(r'\n\tap_boss_door_scene_flush\(\);\n\tap_doors_flush\(\);\n\ta
 # The spawn decision is made in one place, only for the retail "spawn outside
 # the boss" branch: the first-Key door freeze and SPAWN_AT_BOSS are untouched.
 assert vehbirth.count('AP_BossDoorSceneReady(') == 1
-assert vehbirth.count('spawnOutsideBoss = VehBirth_ShouldSpawnOutsideBoss(gGT);') == 1
-call = vehbirth.index('spawnOutsideBoss = VehBirth_ShouldSpawnOutsideBoss(gGT);')
-assert vehbirth.rindex('doorInst = VehBirth_FindDoor5(level1);', 0, call) < call
-assert vehbirth.index('if (spawnAtBoss != 0)\n\t\t{\n\t\t\tspawnOutsideBoss = 1;', call) > call
-assert 'if (ctr_cfg_active())\n\t{\n\t\treturn AP_BossDoorSceneReady(gGT->levelID - N_SANITY_BEACH);' in spawn_fn
+door = vehbirth.index('doorName = (u8 *)rdata.s_door5;')
+assert door < trophy_at
+assert vehbirth[trophy_end:].lstrip().startswith('if ((GAME_TRACKER->gameMode2 & SPAWN_AT_BOSS) != 0)\n\t\t{\n\t\t\tspawnOutsideBoss = 1;')
+ready = trophy_branch.index('spawnOutsideBoss = AP_BossDoorSceneReady(GAME_TRACKER->levelID - N_SANITY_BEACH);')
+assert trophy_branch.rindex('if (ctr_cfg_active())', 0, ready) < ready
+assert trophy_branch.index('goto VehBirth_TrophyRuleDone;', ready) < trophy_branch.index('CHECK_ADV_BIT(')
 
 # The hub is recorded once, in the podium camera, for a Trophy podium that
 # hands over to the scene, before the Skip Cutscenes exit or the watched path
@@ -229,7 +244,7 @@ mark = camera.index('AP_BossDoorSceneMarkPlayed(gGT->levelID - N_SANITY_BEACH);'
 taken = camera.rindex('AP_BossDoorSceneTaken(rewardId == STATIC_TROPHY,', 0, mark)
 assert 'CS_Camera_BoolGotoBoss() != 0))' in camera[taken:mark]
 assert camera.rindex('int apSkipScene = AP_CutsceneSkipDecision(', 0, taken) < taken
-assert camera.index('if (apSkipScene || CS_Camera_BoolGotoBoss() == 0)', mark) > mark
+assert camera.index('if (apSkipScene || !CS_Camera_BoolGotoBoss())', mark) > mark
 assert 'AP_BossDoorScene' not in (root / 'game/233/CS_Podium.c').read_text()
 assert '#include "../ap/ap_boss_door_scene.c"' in (root / 'game/game_unity.h').read_text()
 

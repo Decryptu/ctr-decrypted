@@ -129,12 +129,12 @@ assert camera.rindex('AP_CutsceneSkipCoversOxideScene(', 0, skip_mark) > \
     camera.rindex('AP_CutsceneSkipDecision(AP_SkipCutscenes()', 0, skip_mark)
 assert camera.rindex('AP_OxideFinalSceneReady(', 0, skip_mark) > \
     camera.rindex('AP_CutsceneSkipCoversOxideScene(', 0, skip_mark)
-assert camera.index('if (apSkipScene || CS_Camera_BoolGotoBoss() == 0)') > skip_mark
+assert camera.index('if (apSkipScene || !CS_Camera_BoolGotoBoss())') > skip_mark
 mark = camera.index('AP_OxideFinalSceneMarkPlayed();', skip_mark + 1)
 assert camera.rindex('OXIDE_RELICS_GEMSTONE;', 0, mark) > camera.rindex('AP_OxideFinalSceneReady(', 0, mark)
 tmark = thread.index('AP_OxideFinalSceneMarkPlayed();')
 assert thread.count('AP_OxideFinalSceneMarkPlayed();') == 1
-assert thread.rindex('D233.bossCutsceneIndex = 9;', 0, tmark) > thread.rindex('AP_OxideFinalSceneReady(', 0, tmark)
+assert thread.rindex('CS_BOSS_INDEX = 9;', 0, tmark) > thread.rindex('AP_OxideFinalSceneReady(', 0, tmark)
 assert 'AP_OxideFinalSceneMarkPlayed' not in skip
 
 # The open message: one feed site, gated on the flag barrier and the shown bit,

@@ -1,5 +1,6 @@
 """Execute the production custom warp picker control block with engine seams."""
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 
@@ -13,6 +14,8 @@ block = source[start:end]
 capture_start = source.index("static struct {")
 capture_end = source.index("\n#endif", capture_start)
 capture = source[capture_start:capture_end]
+# The block reads the warp's load frame from the file's own enum.
+load_frames = int(re.search(r'\bAH_WP_WARP_LOAD_FRAMES = (\d+),', source).group(1))
 fixture = r'''
 #include <assert.h>
 #include <stddef.h>
@@ -26,6 +29,8 @@ typedef struct { s16 x,y,z; } SVec3;
 #define TOKEN_RACE 8
 #define RELIC_RACE 128
 #define DRIVER_FUNC_INIT 0
+#define GAME_ADD_CONFIG_0 (sdata->Loading.OnBegin.AddBitsConfig0)
+#define GAME_REMOVE_CONFIG_0 (sdata->Loading.OnBegin.RemBitsConfig0)
 struct Instance { SVec3 scale; int flags; s16 vertSplit; } instance;
 struct Driver { void (*funcPtrs[1])(void); int driverID;
  struct { int y; } posCurr; s16 turnAngleCurr; SVec3 rotCurr; struct Instance *instSelf; } driver;
@@ -41,9 +46,11 @@ int ctr_cfg_active(void) { return active; }
 int AP_CustomTrackTrophyChecked(void) { return checked; }
 void RECTMENU_Show(struct Menu *menu) { assert(menu==&apCustomRaceMenu); shown++; }
 '''
+fixture += '#define AH_WP_WARP_LOAD_FRAMES %d\n' % load_frames
 fixture += capture + r'''
 int evaluate(void) {
  int levelID=104;
+ struct Driver *driver=gGT->drivers[0];
 '''
 tests = r'''
  return 1;

@@ -20,7 +20,7 @@ Roughly in this order.
 | Item | Source |
 |---|---|
 | Check in game: camera wobble when accelerating, braking and turning; the flag when exiting a race to the hub from the pause menu | Owner playtest, 2026-10-31. Fixed in the build after it: the [precise camera](docs/PGXP.md#precise-camera), the 60 FPS steering, camera and surface-spring conversions ([60FPS.md](docs/60FPS.md#changes-beyond-high-octane)), the flag's PGXP vertices and its "LOADING..." letters. Frame-by-frame captures of the pause-menu exit, fast and real time, show no other flicker; if it remains, an `F7` capture of it is the next step |
-| Merge newer ctr-native upstream work (decomp matching, gameplay fixes since July 2026) | Both forks are 100+ commits behind. Expect ~460 conflict hunks |
+| Check in game: the ctr-native merge of 2026-10-20 (dozens of retail-behaviour fixes to bots, weapons, menus, audio and loading) | Unattended runs match the previous build: identical frames to the race start, the same kart physics under scripted input at 30 and 60 FPS, Gem Cups and four Adventure trophies to the boss door. Bots now drive slightly differently, as upstream intends |
 | Pre-race camera flyover is wrong | ctr-native #14 |
 
 ## Maybe
@@ -36,3 +36,4 @@ Roughly in this order.
 - PS Vita and web builds, AdHoc netplay.
 - High Octane's online leaderboard, which depends on its author's server.
 - PAL/JP disc support. Upstream removed it on purpose (ctr-native #51).
+- Upstream's MSVC build (`build-msvc.bat`, the MSVC presets in `CMakePresets.json`). The Archipelago client and our platform code use GCC extensions and options; Windows builds use MSYS2 MinGW32.

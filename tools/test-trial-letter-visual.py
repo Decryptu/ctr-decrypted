@@ -8,7 +8,7 @@ source = (root / "game/231/RB_CtrLetter.c").read_text()
 start = source.index("static void AP_CtrLetter_UpdateVisual")
 helper = source[start:source.index("\n#endif", start)]
 start = source.index("void RB_CtrLetter_ThTick(struct Thread *t)")
-tick = source[start:source.index("\n// NOTE", start)]
+tick = source[start:source.index("\n}\n", start) + 3]
 fixture = r'''
 #include <assert.h>
 #define CTR_AP 1
@@ -28,6 +28,7 @@ struct CtrLetter { Vec rot; };
 struct Thread { struct Instance *inst; struct CtrLetter *object; int flags; };
 static struct { int levelID; } game;
 static struct { void *unused; typeof(game) *gGT; } data={0,&game}, *sdata=&data;
+#define GAME_TRACKER (sdata->gGT)
 static Vec letterLightDir;
 static int available;
 int AP_CtrLetterIndex(int id) { return id; }

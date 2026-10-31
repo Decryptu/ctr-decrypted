@@ -84,6 +84,8 @@
 // touches no engine state at all -- so an empty definition is all the link
 // needs, and it stays empty precisely BECAUSE the loader is engine-independent.
 struct sData sdata_static;
+// MEMPACK allocation names are rdata strings (GAME_RDATA_NAME).
+struct rData rdata;
 
 // The rest of LOAD_Assets.c's link footprint. LOAD_RunPtrMap itself references
 // none of these; they are here so the translation unit links, and are wired to
@@ -122,9 +124,10 @@ void *LOAD_ReadFile_ex(struct BigHeader *bigfile, u32 loadType, int subfileIndex
 	abort();
 }
 
-void *MEMPACK_AllocMem(int size)
+void *MEMPACK_AllocMem(s32 size, const char *name)
 {
 	(void)size;
+	(void)name;
 	printf("FAIL: MEMPACK_AllocMem is not available in this harness\n");
 	abort();
 }

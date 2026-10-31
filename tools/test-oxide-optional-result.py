@@ -10,9 +10,12 @@ start = source.index("void AP_NotifyGoal(int oxideSecond)")
 end = source.index("\n// ---------------------------------------------------------------------------", start)
 function = source[start:end]
 reward_source = (root / "game/222.c").read_text()
-start = reward_source.index("\t\t\tadv->storyFlags |= ADV_REWARD_OXIDE_FIRST_WIN_FLAGS;")
-end = reward_source.index("\n#ifdef CTR_AP\n\t\t\tif (AP_GoalClaimOxideEnding())", start)
-reward = reward_source[start:end]
+# The Oxide branch of the boss-race result: from the story bit through the
+# goal notifications, up to the ending claim.
+start = reward_source.index("\t\t\t\tif ((GAME_ADV_PROGRESS.rewards[ADV_PROGRESS_WORD_STORY] & ADV_REWARD_BEAT_OXIDE_FIRST_BOSS_MASK) == 0)")
+end = reward_source.index("\n\t\t\t\tif (AP_GoalClaimOxideEnding())", start)
+# The cut ends inside the CTR_AP block that closes after the claim.
+reward = reward_source[start:end] + "\n#endif"
 fixture = r'''
 #include <assert.h>
 #include "ap_race_attempt_logic.h"
@@ -27,16 +30,24 @@ void ap_net_boss_won_record(unsigned bit) { assert(bit == AP_BOSS_WON_OXIDE_FIRS
 #define AA_OXIDE_SECOND_WIN_BOSS_ID 7
 #define ADV_REWARD_OXIDE_FIRST_WIN_FLAGS 1
 #define ADV_REWARD_OXIDE_SECOND_WIN_FLAGS 2
-static struct { int bossID; } game, *gGT=&game;
-static struct { int storyFlags; } progress, *adv=&progress;
+static struct { int bossID; } game, *raceGameTracker=&game;
+#define ADV_REWARD_FIRST_BOSS_KEY 0x5e
+#define ADV_PROGRESS_WORD_STORY 3
+#define ADV_REWARD_BEAT_OXIDE_FIRST_BOSS_MASK 1
+static struct { unsigned rewards[8]; } advStore;
+#define GAME_ADV_PROGRESS advStore
+static int bossRewards;
 // Beating Oxide also unlocks him outside Adventure (include/namespace_Memcard.h).
 #define GAME_UNLOCK_BIT_OXIDE 37
 #define UNLOCK_ADV_BIT(words, bit) ((words)[(bit) >> 5] |= 1u << ((bit) & 0x1f))
 static struct { struct { unsigned unlocks[2]; } gameProgress; } sdataStore, *sdata=&sdataStore;
+#define GAME_PROGRESS (sdata->gameProgress)
 int ctr_cfg_active(void) { return active; }
 void AP_GoalArmLiveEvent(void) { arm++; }
 void AP_NotifyAdvReward(int bit) {
- if (bit == 115) first++; else { assert(bit == 116); final++; }
+ if (bit == 115) first++;
+ else if (bit == 116) final++;
+ else { assert(bit == game.bossID + ADV_REWARD_FIRST_BOSS_KEY); assert(!first && !final); bossRewards++; }
 }
 void AP_EvaluateGoal(void) { evaluate++; }
 // #286: production reaches the freestanding decision through
@@ -62,8 +73,9 @@ int main(void) {
   assert(ap_oxide_first_beaten==!second && ap_oxide_final_beaten==second);
   first=final=arm=evaluate=ap_oxide_first_beaten=ap_oxide_final_beaten=0;
   sdata->gameProgress.unlocks[1]=0;
-  game.bossID=second ? 7 : 6;
+  game.bossID=second ? 7 : 6; bossRewards=0;
   RewardOxide();
+  assert(bossRewards==1);
   assert(sdata->gameProgress.unlocks[1]==(1u << (37 - 32)));
   int skip = active && goal==2 && enabled;
   assert(first==1 && final==second);

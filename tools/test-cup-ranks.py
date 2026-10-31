@@ -1,28 +1,37 @@
-"""Run the production cup ranking (UI_CupStandings.c) over every field size and
-cup order: the final order stays a permutation, so the end-of-cup ranking gives
-each racer in the field one distinct place (ctr-native-ap #282), and an Arcade
-or VS tie for first goes to the tied racer who placed better in the last race."""
+"""Run the production cup ranking (game/UI/UI_CupRanks.c, native build) over
+every field size and cup order: the final order stays a permutation, so the
+end-of-cup ranking gives each racer in the field one distinct place
+(ctr-native-ap #282), and an Arcade or VS tie for first goes to the tied racer
+who placed better in the last race."""
 from pathlib import Path
 import os
 import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-source = (root / "game/UI/UI_CupStandings.c").read_text()
-start = source.index("// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005607c")
-end = source.index("void UI_CupStandings_InputAndDraw(void)", start)
-functions = source[start:end]
+source = (root / "game/UI/UI_CupRanks.c").read_text()
+functions = source.replace("#include <common.h>", "")
 
 fixture = r'''
 #include <assert.h>
+#include <stddef.h>
 #include <string.h>
+#define CTR_NATIVE 1
+#define CTR_PSX_REGISTER(name)
+#define CTR_PSX_OBSERVE_VALUE(value) ((void)(value))
+#define CTR_PSX_FORGET_VALUE(value) ((void)(value))
+#define CTR_PSX_RELOAD(value) ((void)(value))
+#define CTR_PSX_DEPEND_VALUE(value, dependency) ((void)(value), (void)(dependency))
+#define GAME_TRACKER (sdata->gGT)
 typedef unsigned char u8;
 typedef unsigned short u16;
+typedef unsigned int u32;
 typedef short s16;
+typedef int s32;
 struct Driver { s16 driverRank; };
 struct GameTracker {
  u8 numPlyrCurrGame, numBotsNextGame;
- struct { s16 points[8]; } cup;
+ struct { int points[8]; } cup;
  struct Driver *drivers[8];
 };
 static struct GameTracker game;
@@ -46,7 +55,7 @@ static void race(void) {
  static const int points[8] = {9, 6, 3, 1, 0, 0, 0, 0};
  for (int i = 0; i < n; i++) order[i] = i;
  for (int i = n - 1; i > 0; i--) { int j = next(i + 1), t = order[i]; order[i] = order[j]; order[j] = t; }
- for (int i = 0; i < n; i++) { karts[order[i]].driverRank = (s16)i; if (i < 4) game.cup.points[order[i]] += (s16)points[i]; }
+ for (int i = 0; i < n; i++) { karts[order[i]].driverRank = (s16)i; if (i < 4) game.cup.points[order[i]] += points[i]; }
  UI_CupStandings_UpdateCupRanks();
 }
 
@@ -86,7 +95,7 @@ int main(void) {
  // Arcade tie for first between drivers 3 and 5: driver 5 placed better in
  // the last race, so driver 5 takes first and driver 3 second.
  seat(1, 7);
- for (int i = 0; i < 8; i++) { game.cup.points[i] = (s16)i; karts[i].driverRank = (s16)(7 - i); }
+ for (int i = 0; i < 8; i++) { game.cup.points[i] = i; karts[i].driverRank = (s16)(7 - i); }
  game.cup.points[3] = 30; game.cup.points[5] = 30; karts[3].driverRank = 4; karts[5].driverRank = 1;
  UI_CupStandings_UpdateCupRanks();
  assert(data.cupPositionPerPlayer[0] == 3 && data.cupPositionPerPlayer[1] == 5);

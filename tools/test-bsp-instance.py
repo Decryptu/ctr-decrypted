@@ -4,14 +4,17 @@ import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-source = (root / 'game/COLL.c').read_text()
+source = (root / 'game/COLL/COLL_InstanceQuery.c').read_text()
 start = source.index('void COLL_FIXED_BSPLEAF_TestInstance(')
-end = source.index('// NOTE(', start)
+end = source.index('\n}\n', start) + 3
 function = source[start:end]
 fixture = r'''
 #include <assert.h>
 #include <stddef.h>
 typedef int s32;
+typedef unsigned char u8;
+/* The list ends at a record whose whole flag/id word is zero. */
+#define CTR_ReadU32AlignedLE(p) (*(const unsigned *)(const void *)(p))
 #define BSP_HITBOX_COLLIDABLE 128
 #define DRAW_COLLISION_MASK 15
 struct Vec { int x,y,z; };

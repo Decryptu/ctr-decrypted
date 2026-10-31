@@ -46,11 +46,13 @@ def one_int(source: str, pattern: str, what: str) -> int:
 sweep_radius = one_int(
     COLL, r"COLL_MOVED_PLAYER_HIT_RADIUS = (0x[0-9a-fA-F]+|\d+),", "swept player hit radius"
 )
+# VehPhysForce loads the unrotated offset {0, y, 0} into the GTE's VXY0 (y in the
+# high half) and rotates it by matrixFacingDir into originToCenter.
 centre_offset = one_int(
     VEH_FORCE,
-    r"originToCenter = VehPhysForce_OnApplyForces_RotateVector\(&driver->matrixFacingDir, 0, (\d+), 0\)",
-    "driver origin-to-centre offset",
-)
+    r"VehGteSetColorMatrix\(&driver->matrixFacingDir\);\s*MTC2\((0x[0-9a-fA-F]+), 0\);\s*MTC2\(0, 1\);",
+    "driver origin-to-centre offset (VXY0)",
+) >> 16
 assert sweep_radius == centre_offset, (
     "the swept driver sphere must sit exactly one radius above the origin "
     f"(radius {sweep_radius}, centre offset {centre_offset}); if these differ, a placement "
@@ -60,12 +62,12 @@ assert sweep_radius == centre_offset, (
 # The same geometry from the other side: a racer is born with its origin AT the
 # quadblock hit position, and the race-start call passes no vertical offset.
 assert (
-    "d->posCurr.y = CTR_MipsSll(CTR_MipsAddLo(sps->Union.QuadBlockColl.hitPos.y, spawnPosY), 8);"
+    "driver->posCurr.y = CTR_MipsSll(CTR_MipsAddLo(sps->Union.QuadBlockColl.hitPos.y, spawnPosY), FRACTIONAL_BITS_8);"
     in VEH_BIRTH
 ), "VehBirth must place a driver's origin at the quadblock hit height"
-assert (
-    "VehBirth_TeleportSelf(d, VEH_BIRTH_SPAWN_RACE_START, 0);" in BOTS
-), "the race-start spawn must pass a zero vertical offset"
+assert re.search(r"VehBirth_TeleportSelf\(d, teleportKind, 0\);", BOTS), (
+    "the race-start spawn must pass a zero vertical offset"
+)
 
 # The authoring tool records that exact field, unmodified.
 author = (ROOT / "ap" / "ap_author.c").read_text(encoding="utf-8")
