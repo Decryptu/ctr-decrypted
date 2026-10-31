@@ -492,6 +492,9 @@ if(BUILD_TESTING)
         add_executable(ctr_gte_gpl_shift_regression
             tests/gte_gpl_shift_regression.c
             platform/native_gte_core.c
+            platform/native_pgxp.c
+            platform/native_pgxp_view.c
+            tests/pgxp_test_config.c
         )
         set_target_properties(ctr_gte_gpl_shift_regression PROPERTIES
             C_STANDARD 17
@@ -504,7 +507,7 @@ if(BUILD_TESTING)
             -O2 -Wall -Wextra -fsanitize=undefined -fno-sanitize-recover=all
         )
         target_link_options(ctr_gte_gpl_shift_regression PRIVATE -fsanitize=undefined -fno-sanitize-recover=all)
-        # The PGXP precise path in the GTE core uses libm.
+        # The GTE core calls the PGXP module, whose precise path uses libm.
         target_link_libraries(ctr_gte_gpl_shift_regression PRIVATE m)
         add_test(NAME ctr_gte_gpl_shift_regression COMMAND $<TARGET_FILE:ctr_gte_gpl_shift_regression>)
     endif()

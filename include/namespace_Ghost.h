@@ -143,7 +143,8 @@ struct GhostHeader
 	// Variable-length packet data follows the header.
 };
 
-#define GHOSTHEADER_GETRECORDBUFFER(x) ((char *)((x) + 1))
+// The record data follows the header; x points at the header (any pointer type).
+#define GHOSTHEADER_GETRECORDBUFFER(x) ((char *)(x) + sizeof(struct GhostHeader))
 
 #ifndef GHOST_RECORDING
 #define GHOST_RECORDING      (sdata->GhostRecording)

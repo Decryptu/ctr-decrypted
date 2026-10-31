@@ -58,6 +58,8 @@ void CTR_Box_DrawClearBox(const RECT *r,const Color *c,s32 t,u32 *ot,struct Prim
 static void tick(int buttons) { struct GamepadBuffer pad={0};pad.buttonsTapped=buttons;drawn[0]=0;MM_ConfigProc_CustomContent(NULL,NULL,&pad); }
 int main(void)
 {
+ static struct GameTracker gt; static struct DB db;
+ gt.backBuffer=&db;sdata->gGT=&gt;
  data.font_charPixWidth[FONT_SMALL]=13;data.font_charPixWidth[FONT_BIG]=17;
  data.font_puncPixWidth[FONT_SMALL]=7;data.font_puncPixWidth[FONT_BIG]=11;
  data.font_buttonPixWidth[FONT_SMALL]=2;data.font_buttonPixWidth[FONT_BIG]=16;
