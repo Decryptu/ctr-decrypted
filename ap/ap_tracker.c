@@ -515,7 +515,7 @@ static void AP_TrackerBuildNodes(void)
 			snprintf(n->title, sizeof n->title, "%s", "CORTEX VORTEX");
 		} else if (dest >= 0 && dest < 65) {
 			snprintf(n->title, sizeof n->title, "%s", sdata->lngStrings[data.metaDataLEV[dest].name_LNG]);
-			if (dest >= 18 && dest < 25) { n->kind = 1; n->bit = R232.battleTrackArr[dest - 18] + ADV_REWARD_FIRST_PURPLE_TOKEN; }
+			if (dest >= 18 && dest < 25) { n->kind = 1; n->bit = R232.battleTrackPurpleTokenOffset[dest - 18] + ADV_REWARD_FIRST_PURPLE_TOKEN; }
 		} else snprintf(n->title, sizeof n->title, "DESTINATION %d", dest);
 		if (physical >= 100 && physical < 105) snprintf(n->pad, sizeof n->pad, "%s PAD", sdata->lngStrings[data.AdvCups[physical - 100].lngIndex_CupName]);
 		else if (physical >= 0 && physical < 65) snprintf(n->pad, sizeof n->pad, "%s PAD", sdata->lngStrings[data.metaDataLEV[physical].name_LNG]);
@@ -524,14 +524,14 @@ static void AP_TrackerBuildNodes(void)
 	/* Garage and exits are canonical hub item coordinates, independent of the
  * currently loaded hub. Include a checked garage rather than hiding it. */
 	{
-		s16 *item = D232.hubItemsXY_ptrArray[ap_tracker.hub];
-		for (; item[0] != -1; item += 4) if (item[3] >= 0 && item[3] <= 4) {
+		struct HubItem *item = D232.hubItemsXY_ptrArray[ap_tracker.hub];
+		for (; item->posX != AH_HUB_ITEM_LIST_END_POS_X; item++) if (item->iconType >= 0 && item->iconType <= 4) {
 			AP_TrackerNode *n = &ap_tracker.nodes[ap_tracker.count];
 			static const char *names[] = {"RIPPER ROO", "PAPU PAPU", "KOMODO JOE", "PINSTRIPE"};
 			memset(n, 0, sizeof *n); n->physical = -1; n->destination = -1; n->kind = 3;
 			n->bit = ap_tracker.hub ? ADV_REWARD_FIRST_BOSS_KEY + ap_tracker.hub - 1 : AP_GOAL_BIT_OXIDE_FIRST;
 			snprintf(n->title, sizeof n->title, "%s", ap_tracker.hub ? names[ap_tracker.hub - 1] : "N. OXIDE");
-			AP_TrackerProject(AP_TRACKER_MARK_GARAGE, item[0], item[1], &n->x, &n->y);
+			AP_TrackerProject(AP_TRACKER_MARK_GARAGE, item->posX, item->posY, &n->x, &n->y);
 			order[ap_tracker.count] = ap_tracker.count; ap_tracker.count++; break;
 		}
 	}
@@ -660,10 +660,10 @@ static void AP_TrackerDraw(void)
 	}
 	/* Exits stay at their physical map positions. */
 	{
-		s16 *item=D232.hubItemsXY_ptrArray[ap_tracker.hub];
-		for(;item[0]!=-1;item+=4) if(item[3]<0) {
-			int x,y; AP_TrackerProject(AP_TRACKER_MARK_EXIT,item[0],item[1],&x,&y);
-			AP_TrackerArrow(x,y,0x1000-item[2],9,TRACKER_WHITE);
+		struct HubItem *item=D232.hubItemsXY_ptrArray[ap_tracker.hub];
+		for(;item->posX!=AH_HUB_ITEM_LIST_END_POS_X;item++) if(item->iconType<0) {
+			int x,y; AP_TrackerProject(AP_TRACKER_MARK_EXIT,item->posX,item->posY,&x,&y);
+			AP_TrackerArrow(x,y,0x1000-item->angle,9,TRACKER_WHITE);
 		}
 	}
 	if(sdata->gGT->levelID==GEM_STONE_VALLEY+ap_tracker.hub && sdata->gGT->drivers[0] && sdata->gGT->drivers[0]->instSelf) {

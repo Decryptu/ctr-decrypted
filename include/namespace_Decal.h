@@ -19,7 +19,7 @@ enum BlendModeDecal
 
 enum Font
 {
-	// erased in final builds
+	// Debug font slot
 	FONT_DEBUG = 0,
 
 	// most gameplay
@@ -59,7 +59,7 @@ enum DecalFontStyle
 	DINGODILE_OLIVE,
 	POLAR_CYAN,
 	PURA_VIOLET,
-	PINSTRIPE_PALE_DARK_BLUE, // different in sep3
+	PINSTRIPE_PALE_DARK_BLUE,
 	PAPU_YELLOW,
 	ROO_ORANGE,
 	JOE_COLOR,
@@ -91,12 +91,9 @@ enum DecalFontStyle
 	FOREST_GREEN,
 	CREDITS_FADE, // written dynamically while credits are running, makes text fade to black bg
 
-// Only in USA, EUR, JPN, not Sep3
-#if BUILD >= UsaRetail
 	BLUE,
 	LIME_GREEN,
 	ORANGE_RED,
-#endif
 
 	// total amount of enum entries
 	NUM_COLORS,
@@ -112,10 +109,7 @@ enum DecalFontStyle
 typedef u16 DecalFontStyle;
 
 CTR_STATIC_ASSERT(sizeof(DecalFontStyle) == 0x2);
-CTR_STATIC_ASSERT(ORANGE == 0);
 CTR_STATIC_ASSERT(NUM_COLORS <= 0xfff);
-CTR_STATIC_ASSERT(JUSTIFY_RIGHT == 0x4000);
-CTR_STATIC_ASSERT(JUSTIFY_CENTER == 0x8000);
 
 struct TextureLayout
 {
@@ -179,6 +173,11 @@ struct IconGroup
 
 CTR_STATIC_ASSERT(sizeof(struct TextureLayout) == 0xC);
 CTR_STATIC_ASSERT(sizeof(struct Icon) == 0x20);
+CTR_STATIC_ASSERT(sizeof(((struct Icon *)0)->name) == 0x10);
+CTR_STATIC_ASSERT(sizeof(struct IconGroup) == 0x14);
+CTR_STATIC_ASSERT(OFFSETOF(struct IconGroup, name) == 0x0);
+CTR_STATIC_ASSERT(OFFSETOF(struct IconGroup, groupID) == 0x10);
+CTR_STATIC_ASSERT(OFFSETOF(struct IconGroup, numIcons) == 0x12);
 
 #define setIconUV(p, icon)                                                                                                                              \
 	CtrGpu_WritePackedUVWord(&(p)->u0, CTR_ReadU32LE(&(icon)->texLayout.u0)), CtrGpu_WritePackedUVWord(&(p)->u1, CTR_ReadU32LE(&(icon)->texLayout.u1)), \

@@ -12,82 +12,91 @@
 #include "../../ap/ap_net.h" // ap_net_checked_count for the [AP HIT] roster line
 #endif
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800326b4-0x80032700.
 void LOAD_RunPtrMap(char *origin, int *patchArr, int numPtrs)
 {
 	int *ptrCurrOffset = patchArr;
+	int *ptrEndOffset = &patchArr[numPtrs];
 
-	for (ptrCurrOffset = &patchArr[0]; ptrCurrOffset < &patchArr[numPtrs]; ptrCurrOffset++)
+	for (; ptrCurrOffset < ptrEndOffset; ptrCurrOffset++)
 	{
 		int offset = (*ptrCurrOffset >> 2) << 2;
-		*(int *)&origin[offset] = *(int *)&origin[offset] + (int)origin;
+		// NOTE(aalhendi): Retail adds the aligned offset before the 32-bit base address.
+		int *location = (int *)((u32)offset + (u32)origin);
+		*location = *location + (int)origin;
 #if defined(CTR_NATIVE) && defined(CTR_INTERNAL)
-		NativeCheckpoint_RegisterPointerSlot(&origin[offset]);
+		NativeCheckpoint_RegisterPointerSlot((char *)location);
 #endif
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80032700-0x800327dc.
 void LOAD_Robots2P(struct BigHeader *bigfile, int p1, int p2, void (*callback)(struct LoadQueueSlot *))
 {
-	int i;
-	char *robotSet;
-	b32 boolFoundRepeat = false;
+	int setIndex = 0;
+	int setOffset;
+	int racerIndex;
+	s16 *characterIDs = GAME_CHARACTER_IDS;
+	u8 *robotSetBase = GAME_2P_AI_SETS[0];
+	// NOTE(aalhendi): Retail keeps the set pointer in t1 while scanning via a separate table offset.
+	register u8(*robotSet)[LOAD_2P_AI_SET_RACER_COUNT] CTR_PSX_REGISTER("$9") = GAME_2P_AI_SETS;
+	b32 boolFoundRepeat;
+	setOffset = 0;
 
-	// 8 sets, but only check 7 cause
-	// the last is Gem Cups pack (4 bosses)
-	for (i = 0; i < 7; i++)
+	// 8 sets, but only check 7 because the last is the Gem Cups pack (4 bosses).
+	for (; setIndex < LOAD_2P_AI_SET_COUNT; robotSet++, setIndex++, setOffset += LOAD_2P_AI_SET_RACER_COUNT)
 	{
-		robotSet = &data.characterIDs_2P_AIs[4 * i];
-
 		boolFoundRepeat = false;
-		for (int j = 0; j < 4; j++)
+		racerIndex = 0;
+		do
 		{
-			if ((robotSet[j] == p1) || (robotSet[j] == p2))
+			// NOTE(aalhendi): The offset-first 32-bit address keeps retail's two-add order.
+			u8 racerID = *(u8 *)((u32)(racerIndex + setOffset) + (u32)robotSetBase);
+			if ((p1 == racerID) || (p2 == racerID))
 			{
 				boolFoundRepeat = true;
-				break;
 			}
-		}
+			racerIndex++;
+		} while ((racerIndex < LOAD_2P_AI_SET_RACER_COUNT) && !boolFoundRepeat);
 
 		if (!boolFoundRepeat)
 		{
-			break;
+			characterIDs[2] = (*robotSet)[0];
+			characterIDs[3] = (*robotSet)[1];
+			characterIDs[4] = (*robotSet)[2];
+			characterIDs[5] = (*robotSet)[3];
+
+			LOAD_AppendQueue(bigfile, LT_GETADDR, BI_2PARCADEPACK + setIndex, NULL, callback);
+			return;
 		}
 	}
-
-	if (i > 6)
-	{
-		return;
-	}
-
-	data.characterIDs[2] = robotSet[0];
-	data.characterIDs[3] = robotSet[1];
-	data.characterIDs[4] = robotSet[2];
-	data.characterIDs[5] = robotSet[3];
-
-	LOAD_AppendQueue(bigfile, LT_GETADDR, BI_2PARCADEPACK + i, NULL, callback);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800327dc-0x8003282c.
 void LOAD_Robots1P(int characterID)
 {
-	int newCharacterID = 0;
+	int slotIndex = 1;
+	int candidateID;
+	s16 *slot;
 
-	data.characterIDs[0] = characterID;
+	GAME_CHARACTER_IDS[0] = characterID;
+	candidateID = 0;
+	slot = &GAME_CHARACTER_IDS[1];
 
-	for (int i = 1; i < 8; i++, newCharacterID++)
+	// NOTE(aalhendi): Retail scans candidate IDs and advances the slot only for IDs kept.
+	for (; candidateID < LOAD_CHARACTER_ID_COUNT; candidateID++)
 	{
-		if (newCharacterID == characterID)
+		if (slotIndex >= LOAD_CHARACTER_ID_COUNT)
 		{
-			newCharacterID++;
+			break;
 		}
 
-		data.characterIDs[i] = newCharacterID;
+		if (candidateID != characterID)
+		{
+			*slot++ = candidateID;
+			slotIndex++;
+		}
 	}
 }
 
-static void (*const LOAD_DriverMPK_SetPointer)(struct LoadQueueSlot *) = (void (*)(struct LoadQueueSlot *))-2;
+static void (*const LOAD_DriverMPK_SetPointer)(struct LoadQueueSlot *) = LOAD_QUEUE_CALLBACK_SET_POINTER;
 
 #ifdef CTR_AP
 // Hit Character encounters (ticket 06). The engine ids whose HI models were
@@ -114,7 +123,7 @@ void LOAD_HitEncounterValidateExtras(void)
 	int i;
 
 	for (i = 0; i < 3; i++)
-		models[i] = data.driverModelExtras[i].model;
+		models[i] = GAME_DRIVER_MODEL_EXTRAS[i].model;
 
 	missing = AP_HitExtrasFirstMissingPure(&s_hitExtras, models);
 	if (missing >= 0)
@@ -176,16 +185,11 @@ static void LOAD_HitLogRoster(int level, int isCup, int player, int fresh,
 }
 #endif
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8003282c-0x80032b50.
+// NOTE(aalhendi): Retail queues fixed LOD slots and pack files in branch-local calls.
 int LOAD_DriverMPK(struct BigHeader *bigfile, int levelLOD, void (*callback)(struct LoadQueueSlot *))
 {
-	int i;
 	int gameMode1;
-
-	struct GameTracker *gGT = sdata->gGT;
-	gameMode1 = gGT->gameMode1;
-
-	int lastFileIndexMPK;
+	struct GameTracker *gGT;
 
 #ifdef CTR_AP
 	// Every load entry clears the previous load's Hit-encounter extras, not just
@@ -199,26 +203,33 @@ int LOAD_DriverMPK(struct BigHeader *bigfile, int levelLOD, void (*callback)(str
 #endif
 
 	// 3P/4P
-	if (levelLOD - 3U < 2)
+	if ((u32)(levelLOD - LOAD_LEVEL_LOD_3P) < LOAD_LEVEL_LOD_3P4P_COUNT)
 	{
+#if defined(CTR_NATIVE)
 		// disable_split_screen_lod (config.ini, see platform/native_config.c): load
 		// the hi-res character model in 3-4P split screen instead of the low LOD.
 		int racerModel = g_config.disableSplitScreenLod ? BI_RACERMODELHI : BI_RACERMODELLOW;
-		for (i = 0; i < 3; i++)
-		{
-			// low lod CTR model
-			LOAD_AppendQueue(bigfile, LT_GETADDR, racerModel + data.characterIDs[i], &data.driverModelExtras[i].fileBase, LOAD_DriverMPK_SetPointer);
-		}
+#else
+		int racerModel = BI_RACERMODELLOW;
+#endif
+
+		// low lod CTR models
+		LOAD_AppendQueue(bigfile, LT_GETADDR, racerModel + GAME_CHARACTER_IDS[0], &GAME_DRIVER_MODEL_EXTRAS[0].fileBase, LOAD_DriverMPK_SetPointer);
+		LOAD_AppendQueue(bigfile, LT_GETADDR, racerModel + GAME_CHARACTER_IDS[1], &GAME_DRIVER_MODEL_EXTRAS[1].fileBase, LOAD_DriverMPK_SetPointer);
+		LOAD_AppendQueue(bigfile, LT_GETADDR, racerModel + GAME_CHARACTER_IDS[2], &GAME_DRIVER_MODEL_EXTRAS[2].fileBase, LOAD_DriverMPK_SetPointer);
 
 		// load 4P MPK of fourth player
-		lastFileIndexMPK = BI_4PARCADEPACK + data.characterIDs[3];
+		LOAD_AppendQueue(bigfile, LT_GETADDR, BI_4PARCADEPACK + GAME_CHARACTER_IDS[3], NULL, callback);
+		return sdata->ptrMPK;
 	}
 
-	else if (levelLOD == 1)
+	if (levelLOD == LOAD_LEVEL_LOD_1P)
 	{
+		gGT = GAME_TRACKER;
+		gameMode1 = gGT->gameMode1;
 		if ((gameMode1 & (TIME_TRIAL | MAIN_MENU)) == TIME_TRIAL)
 		{
-			goto LoadHighAndPack;
+			goto CheckHighAndPack;
 		}
 
 		if (
@@ -231,8 +242,8 @@ int LOAD_DriverMPK(struct BigHeader *bigfile, int levelLOD, void (*callback)(str
 		    // adventure character select
 		    (gGT->levelID == ADVENTURE_GARAGE))
 		{
-			lastFileIndexMPK = BI_ADVENTUREPACK + data.characterIDs[0];
-			goto QueueLastPack;
+			LOAD_AppendQueue(bigfile, LT_GETADDR, BI_ADVENTUREPACK + GAME_CHARACTER_IDS[0], NULL, callback);
+			return sdata->ptrMPK;
 		}
 
 		if ((gameMode1 & ADVENTURE_BOSS) != 0)
@@ -272,22 +283,23 @@ int LOAD_DriverMPK(struct BigHeader *bigfile, int levelLOD, void (*callback)(str
 		)
 		{
 			// high lod model
-			LOAD_AppendQueue(bigfile, LT_GETADDR, BI_RACERMODELHI + data.characterIDs[0], &data.driverModelExtras[0].fileBase, LOAD_DriverMPK_SetPointer);
+			LOAD_AppendQueue(bigfile, LT_GETADDR, BI_RACERMODELHI + GAME_CHARACTER_IDS[0], &GAME_DRIVER_MODEL_EXTRAS[0].fileBase, LOAD_DriverMPK_SetPointer);
 
 			// pack of four AIs with bosses
-			LOAD_AppendQueue(bigfile, LT_GETADDR, BI_2PARCADEPACK + 7, NULL, callback);
+			LOAD_AppendQueue(bigfile, LT_GETADDR, BI_2PARCADEPACK + LOAD_PURPLE_GEM_CUP_AI_SET_INDEX, NULL, callback);
 
-			data.characterIDs[1] = RIPPER_ROO;
-			data.characterIDs[2] = PAPU_PAPU;
-			data.characterIDs[3] = KOMODO_JOE;
-			data.characterIDs[4] = PINSTRIPE;
+			GAME_CHARACTER_IDS[1] = RIPPER_ROO;
+			GAME_CHARACTER_IDS[2] = PAPU_PAPU;
+			GAME_CHARACTER_IDS[3] = KOMODO_JOE;
+			GAME_CHARACTER_IDS[4] = PINSTRIPE;
 
 			return sdata->ptrMPK;
 		}
 
-		if ((gameMode1 & (TIME_TRIAL | MAIN_MENU)) != MAIN_MENU)
+		// NOTE(aalhendi): Retail rereads the tracker slot before deciding whether to choose AI drivers.
+		if ((GAME_TRACKER_RELOAD()->gameMode1 & (TIME_TRIAL | MAIN_MENU)) != MAIN_MENU)
 		{
-			LOAD_Robots1P(data.characterIDs[0]);
+			LOAD_Robots1P(GAME_CHARACTER_IDS[0]);
 
 #ifdef CTR_CUSTOM_TRACKS
 			// The event race, and only it, races a shuffled field. This PERMUTES
@@ -305,10 +317,11 @@ int LOAD_DriverMPK(struct BigHeader *bigfile, int levelLOD, void (*callback)(str
 			if (CustomTrack_ServingLoad((int)gGT->levelID, (gameMode1 & ADVENTURE_CUP) != 0, gGT->cup.cupID))
 			{
 				int rosterIDs[CTR_CT_ROBOT_SLOTS];
+				int i;
 				int rosterDraws[CTR_CT_ROBOT_SLOTS - 1];
 
 				for (i = 0; i < CTR_CT_ROBOT_SLOTS; i++)
-					rosterIDs[i] = data.characterIDs[CTR_CT_ROBOT_FIRST_SLOT + i];
+					rosterIDs[i] = GAME_CHARACTER_IDS[CTR_CT_ROBOT_FIRST_SLOT + i];
 
 				// The adventure stream, which is what AH_WarpPad.c's grid shuffle
 				// already draws from, so this consumes an RNG the race path is
@@ -319,11 +332,11 @@ int LOAD_DriverMPK(struct BigHeader *bigfile, int levelLOD, void (*callback)(str
 				CustomTrackPolicy_PermuteRoster(rosterIDs, CTR_CT_ROBOT_SLOTS, rosterDraws);
 
 				for (i = 0; i < CTR_CT_ROBOT_SLOTS; i++)
-					data.characterIDs[CTR_CT_ROBOT_FIRST_SLOT + i] = (s16)rosterIDs[i];
+					GAME_CHARACTER_IDS[CTR_CT_ROBOT_FIRST_SLOT + i] = (s16)rosterIDs[i];
 
 				CustomTrack_Log("[CustomTracks] event race field: %d %d %d %d (of %d candidates)\n",
-				                (int)data.characterIDs[1], (int)data.characterIDs[2], (int)data.characterIDs[3],
-				                (int)data.characterIDs[4], CTR_CT_ROBOT_SLOTS);
+				                (int)GAME_CHARACTER_IDS[1], (int)GAME_CHARACTER_IDS[2], (int)GAME_CHARACTER_IDS[3],
+				                (int)GAME_CHARACTER_IDS[4], CTR_CT_ROBOT_SLOTS);
 			}
 #endif
 
@@ -381,20 +394,20 @@ int LOAD_DriverMPK(struct BigHeader *bigfile, int levelLOD, void (*callback)(str
 					if (isCup)
 						hitCount = AP_HitCupSnapshotField((int)gGT->cup.cupID,
 						                                  (int)gGT->cup.trackIndex,
-						                                  (int)data.characterIDs[0],
+						                                  (int)GAME_CHARACTER_IDS[0],
 						                                  aiSeats, hitRoster);
 					else
 						hitCount = AP_HitRaceField((int)gGT->levelID,
-						                           (int)data.characterIDs[0],
+						                           (int)GAME_CHARACTER_IDS[0],
 						                           aiSeats, hitRoster, &hitFresh);
 					for (k = 0; k < hitCount; k++)
-						data.characterIDs[1 + k] = (s16)hitRoster[k];
+						GAME_CHARACTER_IDS[1 + k] = (s16)hitRoster[k];
 
 					hitNeed = AP_HitEncounterExtras(hitRoster, hitCount,
-					                                (int)data.characterIDs[0],
+					                                (int)GAME_CHARACTER_IDS[0],
 					                                hitExtras, 3);
 					LOAD_HitLogRoster(isCup ? (int)gGT->cup.cupID : (int)gGT->levelID, isCup,
-					                  (int)data.characterIDs[0], hitFresh, hitRoster,
+					                  (int)GAME_CHARACTER_IDS[0], hitFresh, hitRoster,
 					                  hitCount, hitExtras, hitNeed > 3 ? 3 : hitNeed);
 					if (hitNeed > 3)
 						Platform_Fatal("CTR Native - Hit Character",
@@ -409,7 +422,7 @@ int LOAD_DriverMPK(struct BigHeader *bigfile, int levelLOD, void (*callback)(str
 					{
 						LOAD_AppendQueue(bigfile, LT_GETADDR,
 						                 BI_RACERMODELHI + hitExtras[k],
-						                 &data.driverModelExtras[k].fileBase,
+						                 &GAME_DRIVER_MODEL_EXTRAS[k].fileBase,
 						                 LOAD_DriverMPK_SetPointer);
 					}
 					AP_HitExtrasRecordPure(&s_hitExtras, hitExtras, hitNeed);
@@ -433,10 +446,13 @@ int LOAD_DriverMPK(struct BigHeader *bigfile, int levelLOD, void (*callback)(str
 		}
 
 		// arcade mpk
-		lastFileIndexMPK = BI_1PARCADEPACK + data.characterIDs[0];
+		LOAD_AppendQueue(bigfile, LT_GETADDR, BI_1PARCADEPACK + GAME_CHARACTER_IDS[0], NULL, callback);
+		return sdata->ptrMPK;
 	}
 
-	else if ((levelLOD == 8) || ((gameMode1 & TIME_TRIAL) != 0))
+// NOTE(aalhendi): Time trial rechecks the high-LOD condition; boss races enter its body directly.
+CheckHighAndPack:
+	if ((levelLOD == LOAD_LEVEL_LOD_RELIC) || ((GAME_TRACKER->gameMode1 & TIME_TRIAL) != 0))
 	{
 	LoadHighAndPack:
 		// Do NOT switch the order to optimize Relic,
@@ -445,111 +461,53 @@ int LOAD_DriverMPK(struct BigHeader *bigfile, int levelLOD, void (*callback)(str
 		// on Hot Air Skyway (except Crash Bandicoot)
 
 		// Load Player 1 [0]
-		LOAD_AppendQueue(bigfile, LT_GETADDR, BI_RACERMODELHI + data.characterIDs[0], &data.driverModelExtras[0].fileBase, LOAD_DriverMPK_SetPointer);
+		LOAD_AppendQueue(bigfile, LT_GETADDR, BI_RACERMODELHI + GAME_CHARACTER_IDS[0], &GAME_DRIVER_MODEL_EXTRAS[0].fileBase, LOAD_DriverMPK_SetPointer);
 
 		// Load boss or ghost [1]
-		lastFileIndexMPK = BI_TIMETRIALPACK + data.characterIDs[1];
-	}
-
-	// else if (levelLOD == 2)
-	else
-	{
-		// med models
-		for (i = 0; i < 2; i++)
-		{
-			// med lod CTR model
-			LOAD_AppendQueue(bigfile, LT_GETADDR, BI_RACERMODELMED + data.characterIDs[i], &data.driverModelExtras[i].fileBase, LOAD_DriverMPK_SetPointer);
-		}
-
-		LOAD_Robots2P(bigfile, data.characterIDs[0], data.characterIDs[1], callback);
+		LOAD_AppendQueue(bigfile, LT_GETADDR, BI_TIMETRIALPACK + GAME_CHARACTER_IDS[1], NULL, callback);
 		return sdata->ptrMPK;
 	}
 
-QueueLastPack:
-	LOAD_AppendQueue(bigfile, LT_GETADDR, lastFileIndexMPK, NULL, callback);
-	return sdata->ptrMPK;
+	// 2P and other standard LODs
+	else
+	{
+		// med models
+		LOAD_AppendQueue(bigfile, LT_GETADDR, BI_RACERMODELMED + GAME_CHARACTER_IDS[0], &GAME_DRIVER_MODEL_EXTRAS[0].fileBase, LOAD_DriverMPK_SetPointer);
+		LOAD_AppendQueue(bigfile, LT_GETADDR, BI_RACERMODELMED + GAME_CHARACTER_IDS[1], &GAME_DRIVER_MODEL_EXTRAS[1].fileBase, LOAD_DriverMPK_SetPointer);
+
+		LOAD_Robots2P(bigfile, GAME_CHARACTER_IDS[0], GAME_CHARACTER_IDS[1], callback);
+		return sdata->ptrMPK;
+	}
 }
 
-struct LngFile
-{
-	int numStrings;
-	int offsetToPtrArr;
-	char strings[1];
-};
+#include "LOAD_LangFile.c"
 
-// param_1 - Pointer to "cd position of bigfile"
-// param_2 - language index - 0 ja, 1 en, 2 en2, 3 fr, 4 de, 5 it, 6 es, 7 ne
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80032b50-0x80032c24
-void LOAD_LangFile(int bigfilePtr, int lang)
-{
-	struct LngFile *lngFile;
-	u32 size;
-
-	int i;
-	int numStrings;
-	char **strArray;
-
-#if BUILD == EurRetail
-	// This is to turn the screen black for a bit (optional)
-	CTR_ErrorScreen(0, 0, 0);
-	VSync(0);
-#endif
-
-	if (sdata->lngFile == 0)
-	{
-		sdata->lngFile = MEMPACK_AllocMem(sdata->langBufferSize /* "lang buffer" */);
-	}
-
-	lngFile = sdata->lngFile;
-
-	lngFile = LOAD_ReadFile_ex((struct BigHeader *)bigfilePtr, LT_SETADDR, BI_LANGUAGEFILE + lang, lngFile, &size, NULL);
-	if (lngFile == NULL)
-	{
-		return;
-	}
-
-	numStrings = lngFile->numStrings;
-	strArray = (char **)((u32)lngFile + lngFile->offsetToPtrArr);
-
-	sdata->numLngStrings = numStrings;
-	sdata->lngStrings = strArray;
-
-	for (i = 0; i < numStrings; i++)
-	{
-		strArray[i] = (char *)((u32)strArray[i] + (u32)lngFile);
-	}
-#if BUILD == EurRetail
-	// set voicelines to new lang
-	CDSYS_SetXAToLang(lang);
-#endif
-}
-
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80032c24-0x80032d30.
+// NOTE(aalhendi): Variable-stride group bases come last to preserve retail's return scheduling.
 int LOAD_GetBigfileIndex(u32 levelID, int lod, int fileIndexInGroup)
 {
 	if (levelID < NITRO_COURT)
 	{
-		return BI_ARCADETRACKS + levelID * 8 + sdata->levBigLodIndex[lod - 1] + fileIndexInGroup;
+		return BI_ARCADETRACKS + levelID * LOAD_TRACK_FILES_PER_LOD_GROUP + GAME_LEVEL_BIG_LOD_INDEX[lod - 1] + fileIndexInGroup;
 	}
 
-	if ((u32)(levelID - NITRO_COURT) < 7)
+	if ((u32)(levelID - NITRO_COURT) < LOAD_BATTLE_TRACK_COUNT)
 	{
-		return BI_BATTLETRACKS + (levelID - NITRO_COURT) * 8 + sdata->levBigLodIndex[lod - 1] + fileIndexInGroup;
+		return (levelID - NITRO_COURT) * LOAD_TRACK_FILES_PER_LOD_GROUP + GAME_LEVEL_BIG_LOD_INDEX[lod - 1] + fileIndexInGroup + BI_BATTLETRACKS;
 	}
 
-	if ((u32)(levelID - INTRO_RACE_TODAY) < 9)
+	if ((u32)(levelID - INTRO_RACE_TODAY) < LOAD_INTRO_CUTSCENE_COUNT)
 	{
-		return BI_CUTSCENES_INTRO + (levelID - INTRO_RACE_TODAY) * 3 + fileIndexInGroup;
+		return (levelID - INTRO_RACE_TODAY) * LOAD_CUTSCENE_FILES_PER_LEVEL + fileIndexInGroup + BI_CUTSCENES_INTRO;
 	}
 
-	if ((u32)(levelID - OXIDE_ENDING) < 2)
+	if ((u32)(levelID - OXIDE_ENDING) < LOAD_OUTRO_CUTSCENE_COUNT)
 	{
-		return BI_CUTSCENES_OUTRO + (levelID - OXIDE_ENDING) * 2 + fileIndexInGroup;
+		return (levelID - OXIDE_ENDING) * LOAD_OUTRO_FILES_PER_LEVEL + fileIndexInGroup + BI_CUTSCENES_OUTRO;
 	}
 
 	if (levelID == ADVENTURE_GARAGE)
 	{
-		return BI_MAINMENUFILE + 2 + fileIndexInGroup;
+		return BI_MAINMENUFILE + LOAD_MAIN_MENU_GARAGE_FILE_OFFSET + fileIndexInGroup;
 	}
 
 	if (levelID == NAUGHTY_DOG_CRATE)
@@ -557,9 +515,9 @@ int LOAD_GetBigfileIndex(u32 levelID, int lod, int fileIndexInGroup)
 		return BI_NDBOX + fileIndexInGroup;
 	}
 
-	if ((u32)(levelID - CREDITS_CRASH) < 20)
+	if ((u32)(levelID - CREDITS_CRASH) < LOAD_CREDIT_LEVEL_COUNT)
 	{
-		return BI_CREDITS + (levelID - CREDITS_CRASH) * 3 + fileIndexInGroup;
+		return (levelID - CREDITS_CRASH) * LOAD_CUTSCENE_FILES_PER_LEVEL + fileIndexInGroup + BI_CREDITS;
 	}
 
 	if (levelID == MAIN_MENU_LEVEL)
@@ -572,5 +530,5 @@ int LOAD_GetBigfileIndex(u32 levelID, int lod, int fileIndexInGroup)
 		return BI_SCRAPBOOK + fileIndexInGroup;
 	}
 
-	return BI_ADVENTUREHUB + (levelID - GEM_STONE_VALLEY) * 3 + fileIndexInGroup;
+	return (levelID - GEM_STONE_VALLEY) * LOAD_CUTSCENE_FILES_PER_LEVEL + fileIndexInGroup + BI_ADVENTUREHUB;
 }

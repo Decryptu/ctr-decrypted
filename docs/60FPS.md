@@ -23,7 +23,8 @@ Tiger Temple and its own config file were left out.
 - Model animations play back at double length with interpolated in-between
   frames (`INSTANCE_Use60FpsAnimation`, `RenderBucket_QueueExecute.c`).
   Particles are rescaled when they spawn (`MainFrame.c`) and spawn less often
-  (`Particle_Init`).
+  (`Particle_Init`). An emitter that must spawn every frame sets
+  `gParticleInitUnthrottled` around its call.
 
 ## The option
 

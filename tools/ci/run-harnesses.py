@@ -25,7 +25,7 @@ Usage:
   tools/ci/run-harnesses.py --all      try every harness, report, never fail (discovery)
   tools/ci/run-harnesses.py --write-list  discovery, then rewrite harnesses.txt from the result
 """
-import concurrent.futures, glob, os, re, shlex, subprocess, sys
+import concurrent.futures, glob, os, re, shlex, shutil, subprocess, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 LIST = os.path.join(ROOT, "tools", "ci", "harnesses.txt")
@@ -78,7 +78,7 @@ def build_command(src):
     cmd = header_command(src)
     if cmd:
         # rewrite the header's -o target to our output dir
-        cmd = re.sub(r"-o\s+\S+", "-o " + out, cmd)
+        cmd = re.sub(r"-o\s+\S+", lambda _: "-o " + out, cmd)
         if "-o " not in cmd:
             cmd += " -o " + out
         cmd = cmd.replace("ap/vendor/json/include", JSON_INC)
@@ -96,7 +96,7 @@ def build_command(src):
 def run_py(src):
     cmd = "python3 " + src
     try:
-        r = subprocess.run(["python3", src], cwd=ROOT, capture_output=True, text=True, timeout=600)
+        r = subprocess.run([sys.executable, src], cwd=ROOT, capture_output=True, text=True, timeout=600)
     except Exception as e:  # noqa: BLE001
         return "run-error", cmd, str(e)
     if r.returncode != 0:
@@ -153,8 +153,29 @@ def read_list():
     return listed, skipped, cmds
 
 
+def install_nosan_shim():
+    """On Windows, put compilers that drop -fsanitize first on PATH (see nosan-shim.c)."""
+    real = shutil.which("gcc")
+    if os.name != "nt" or real is None:
+        return
+    # Windows looks in the launching program's own folder before PATH, so under
+    # MinGW's python the real compilers next to it would win over the shims.
+    if os.path.exists(os.path.join(os.path.dirname(sys.executable), "gcc.exe")):
+        sys.exit("run this with a Python outside the MinGW bin folder, e.g. py -3 tools/ci/run-harnesses.py")
+    shim_dir = os.path.join(OUT, "nosan")
+    os.makedirs(shim_dir, exist_ok=True)
+    first = os.path.join(shim_dir, "cc.exe")
+    subprocess.run([real, "-O2", "-o", first, os.path.join(ROOT, "tools", "ci", "nosan-shim.c")], check=True)
+    for name in ("gcc.exe", "g++.exe"):
+        shutil.copyfile(first, os.path.join(shim_dir, name))
+    os.environ["NOSAN_REAL_DIR"] = os.path.dirname(real)
+    os.environ["PATH"] = shim_dir + os.pathsep + os.environ["PATH"]
+    print("windows: harnesses build without -fsanitize (MinGW has no UBSan runtime)")
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
+    install_nosan_shim()
     mode = sys.argv[1] if len(sys.argv) > 1 else "ci"
     all_src = sorted(glob.glob(os.path.join(ROOT, "tools", "test-*.c")) +
                      glob.glob(os.path.join(ROOT, "tools", "test-*.cpp")) +

@@ -234,7 +234,7 @@ int AP_PadUncollectedBits(int destLevelID, int *outBits, int cap)
 		// as the ThTick glow pass: battleTrackArr[dest-18] + FIRST_PURPLE_TOKEN.
 		// Never a removed slot (crystal bonuses are unconditional locations --
 		// see the package-3 build note), but checked the same way for consistency.
-		int bit = R232.battleTrackArr[destLevelID - 18] + ADV_REWARD_FIRST_PURPLE_TOKEN;
+		int bit = R232.battleTrackPurpleTokenOffset[destLevelID - 18] + ADV_REWARD_FIRST_PURPLE_TOKEN;
 		if (AP_LocationExistsByBit(bit) && !AP_LocationCheckedByBit(bit) && count < cap)
 			outBits[count++] = bit;
 	}
@@ -883,7 +883,7 @@ int AP_PadStage1Met(int physLevelID)
 		    ctr_cfg.warp_pad_unlock[physLevelID].stage1.type != 0)
 			return AP_BossReqMet(&ctr_cfg.warp_pad_unlock[physLevelID].stage1);
 		return AP_GateCount(AP_IDX_KEY) >=
-		       D232.arrKeysNeeded[data.metaDataLEV[physLevelID].hubID];
+		       D232.keysNeededByHub[data.metaDataLEV[physLevelID].hubID];
 	}
 
 	// Gem cups (100..104): randomized req overrides; else vanilla 4 Tokens of the

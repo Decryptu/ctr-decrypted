@@ -28,13 +28,18 @@ void AP_LogLine(const char *s) { (void)s; ++logCount; }
 void ConvertRotToMatrix(MATRIX *m,const SVec3 *rot) { (void)m;(void)rot; }
 void Vector_SpecLightSpin3D(struct Instance *i,const SVec3 *r,const SVec3 *l) { (void)i;(void)r;(void)l; }
 void RB_Default_LInB(struct Instance *i) { (void)i; }
-void RB_Fruit_GetScreenCoords(struct PushBuffer *p,struct Instance *i,s16 *pos) { (void)p;(void)i;pos[0]=42;pos[1]=43; }
 int OtherFX_Play(unsigned int id,int flags) { assert(id==100);(void)flags;++sounds;return 1; }
 int AP_LetterAvailable(int level,int letter) { assert(level==16||level==17); assert(letter>=0&&letter<3);return 1; }
 void AP_LetterCollected(int level,int letter) { assert(level==16||level==17); assert(letter>=0&&letter<3);++pickups; }
 void AP_LetterUnavailableTouched(int level,int letter) { (void)level;(void)letter;abort(); }
-struct Thread *PROC_BirthWithObject(int flags,void *func,const char *name,struct Thread *parent)
+struct Thread *PROC_BirthWithObject(ThreadFlags flags,void *func,const char *name,struct Thread *parent)
 { (void)flags;(void)func;(void)name;(void)parent;abort(); }
+// The pickup projects the letter to screen for the HUD fly-in; this harness does
+// not check that position, so the GTE does nothing and reads back zero.
+void MTC2(unsigned int value,int reg) { (void)value;(void)reg; }
+void CTC2(unsigned int value,int reg) { (void)value;(void)reg; }
+int MFC2_S(int reg) { (void)reg;return 0; }
+int doCOP2(int op) { (void)op;return 0; }
 
 struct Instance *INSTANCE_BirthWithThread(int id,const char *name,int pool,int bucket,void *func,int size,struct Thread *parent)
 {
@@ -82,8 +87,8 @@ static void reset(int level)
     for(i=0;i<2;i++) {ctr_cfg.trial_track_valid[i]=1;ctr_cfg.trial_track_mode[i]=2;}
     for(i=0;i<3;i++) {
         models[i].id=STATIC_C+i;s_trialModels[i]=&models[i];
-        s_trialLetterBoxOffset[i].min=(SVec3){{-32,-48,-24}};
-        s_trialLetterBoxOffset[i].max=(SVec3){{40,56,28}};
+        s_trialLetterBoxOffset[i].min=(SVec3){-32,-48,-24};
+        s_trialLetterBoxOffset[i].max=(SVec3){40,56,28};
     }
     liveCfg=1;s_trialAssets=1;births=0;sounds=0;pickups=0;
 }
@@ -97,11 +102,11 @@ static void production_cases(void)
         for(i=0;i<3;i++) {
             assert(gt.modelPtr[STATIC_C+i]==&models[i]);
             assert(objects[i].rot.y==AP_TRIAL_LETTER_YAW[level-16][i]);
-            for(axis=0;axis<3;axis++) {
-                int anchor=AP_TRIAL_LETTER_POS[level-16][i][axis];
-                assert(instances[i].matrix.t[axis]==anchor);
-                driver.posPrev.v[axis]=driver.posCurr.v[axis]=anchor*256;
-            }
+            for(axis=0;axis<3;axis++)
+                assert(instances[i].matrix.t[axis]==AP_TRIAL_LETTER_POS[level-16][i][axis]);
+            driver.posPrev.x=driver.posCurr.x=AP_TRIAL_LETTER_POS[level-16][i][0]*256;
+            driver.posPrev.y=driver.posCurr.y=AP_TRIAL_LETTER_POS[level-16][i][1]*256;
+            driver.posPrev.z=driver.posCurr.z=AP_TRIAL_LETTER_POS[level-16][i][2]*256;
             assert(instances[i].flags & DRAW_COLLISION_MASK);
             driver.posPrev.x-=100*256;driver.posCurr.x+=100*256;
             sdata_static.Loading.stage=1;AP_TrialLetters_Tick(&threads[i]);assert(pickups==i);
@@ -134,8 +139,8 @@ static void production_cases(void)
 int main(void)
 {
     unsigned char bad[64]={0},rgba[512]; unsigned out;
-    SVec3 a={{-100,0,0}},b={{100,0,0}};
-    struct BoundingBox box={.min={{-32,-48,-24}},.max={{40,56,28}}};
+    SVec3 a={-100,0,0},b={100,0,0};
+    struct BoundingBox box={.min={-32,-48,-24},.max={40,56,28}};
     production_cases();
     assert(AP_TrialLetterHit(&a,&b,&box));
     a.y=b.y=82;assert(!AP_TrialLetterHit(&a,&b,&box));

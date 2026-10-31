@@ -13,3 +13,8 @@
 # Vendored sources are checked against SHA256 pins of their LF bytes
 # (cmake/CustomPackageDeps.cmake), so every checkout must be byte-exact.
 vendor/** text eol=lf
+
+# Vendored upstream snapshots are byte-preserved.
+/externals/maspsx/** -text
+/externals/old-gcc/** -text
+/externals/psx-binutils/** -text

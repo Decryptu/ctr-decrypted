@@ -67,7 +67,7 @@ struct MenuRow s_rowsMainMenuBasicConfig[] = {
 	{0x51, 4, 6, 5, 5},
 	{0x0E, 5, 7, 6, 6},
 	{LNG_QUIT, 6, 7, 7, 7},
-	{-1},
+	{.stringIndex = -1},
 };
 
 struct MenuRow s_rowsMainMenuWithSBConfig[] = {
@@ -80,7 +80,7 @@ struct MenuRow s_rowsMainMenuWithSBConfig[] = {
 	{0x234, 5, 7, 6, 6},
 	{0x0E, 6, 8, 7, 7},
 	{LNG_QUIT, 7, 8, 8, 8},
-	{-1},
+	{.stringIndex = -1},
 };
 
 static void MM_MenuProc_Config(struct RectMenu *menu);
@@ -135,7 +135,7 @@ static int s_currentSection = -1; // -1 = section selector, 0+ = submenu
 static void Config_DrawRowHighlight(uint32_t *ot, int y)
 {
 	RECT sel = {0x30, y - 2, 0x1B0, 0x0C};
-	CTR_Box_DrawClearBox(&sel, &sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot);
+	CTR_Box_DrawClearBox(&sel, &sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot, &GAME_TRACKER->backBuffer->primMem);
 }
 
 // True when a held direction should step this frame. Takes the button mask rather than a
@@ -879,7 +879,7 @@ static void MM_ConfigProc_Connection(struct RectMenu *menu, uint32_t *ot, struct
 		if (j == menu->rowSelected)
 		{
 			RECT sel = {CONN_ROW_X, y - 2, CONN_ROW_W, CONN_ROW_H};
-			CTR_Box_DrawClearBox(&sel, &sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot);
+			CTR_Box_DrawClearBox(&sel, &sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot, &GAME_TRACKER->backBuffer->primMem);
 		}
 	}
 
@@ -890,7 +890,7 @@ static void MM_ConfigProc_Connection(struct RectMenu *menu, uint32_t *ot, struct
 		if (menu->rowSelected == numStrings)
 		{
 			RECT sel = {0x30, y - 2, 0x1B0, 0x0C};
-			CTR_Box_DrawClearBox(&sel, &sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot);
+			CTR_Box_DrawClearBox(&sel, &sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot, &GAME_TRACKER->backBuffer->primMem);
 		}
 	}
 
@@ -1133,7 +1133,7 @@ static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, str
 		if (i == menu->rowSelected)
 		{
 			RECT sel = {column == 0 ? 0x30 : 0x110, y - 2, 0xC0, 0x0C};
-			CTR_Box_DrawClearBox(&sel, &sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot);
+			CTR_Box_DrawClearBox(&sel, &sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot, &GAME_TRACKER->backBuffer->primMem);
 		}
 	}
 
@@ -1450,7 +1450,7 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 			if (j == menu->rowSelected)
 			{
 				RECT sel = {0x30, y - 2, 0x1B0, 0x0C};
-				CTR_Box_DrawClearBox(&sel, &sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot);
+				CTR_Box_DrawClearBox(&sel, &sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot, &GAME_TRACKER->backBuffer->primMem);
 			}
 		}
 #ifdef CTR_AP
@@ -1461,7 +1461,7 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 			if (menu->rowSelected == linkRow)
 			{
 				RECT sel = {0x30, y - 2, 0x1B0, 0x0C};
-				CTR_Box_DrawClearBox(&sel, &sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot);
+				CTR_Box_DrawClearBox(&sel, &sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot, &GAME_TRACKER->backBuffer->primMem);
 			}
 		}
 
@@ -1515,7 +1515,7 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 			if (i == menu->rowSelected)
 			{
 				RECT sel = {0x30, y - 2, 0x1B0, 0x0C};
-				CTR_Box_DrawClearBox(&sel, &sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot);
+				CTR_Box_DrawClearBox(&sel, &sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot, &GAME_TRACKER->backBuffer->primMem);
 			}
 		}
 
@@ -1529,9 +1529,8 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 
 	{
 		RECT sep = {0x20, 0x2C, 0x1C0, 2};
-		Color sepColor;
-		sepColor.self = sdata->battleSetup_Color_UI_1;
-		RECTMENU_DrawOuterRect_Edge(&sep, sepColor, 0x20, ot);
+		Color sepColor = ColorCode_Load(&sdata->battleSetup_Color_UI_1);
+		RECTMENU_DrawOuterRect_Edge(&sep, &sepColor, 0x20, ot);
 	}
 
 	RECT bg = {0x10, 4, 0x1E0, 0xCE};

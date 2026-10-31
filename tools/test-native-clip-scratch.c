@@ -124,6 +124,7 @@ static void parseClipTable(const char *root)
 	char line[512];
 	int inFunc = 0;
 	int inDefault = 0;
+	int inPlayerSplit = 0;
 	struct ClipGroup pending;
 	int braceDepth = 0;
 	int seenOpen = 0;
@@ -179,6 +180,35 @@ static void parseClipTable(const char *root)
 				memset(&pending, 0, sizeof pending);
 			}
 			inDefault = 1;
+			continue;
+		}
+
+		// The split may also be written as assignments to clipSize: the
+		// default value first, then the `numPlyrCurrGame < 3` override.
+		if (strstr(line, "numPlyrCurrGame < 3") != NULL)
+		{
+			inPlayerSplit = 1;
+			continue;
+		}
+		if (strstr(line, "break;") != NULL)
+		{
+			inPlayerSplit = 0;
+			continue;
+		}
+		if (sscanf(line, " clipSize = %d ;", &value) == 1)
+		{
+			struct ClipGroup *group = inDefault ? &clipDefault : &pending;
+
+			if (inPlayerSplit && group->returnCount == 1)
+			{
+				group->returns[1] = group->returns[0];
+				group->returns[0] = value;
+				group->returnCount = 2;
+			}
+			else if (group->returnCount == 0 && (inDefault || pending.labelCount > 0))
+			{
+				group->returns[group->returnCount++] = value;
+			}
 			continue;
 		}
 

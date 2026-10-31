@@ -176,7 +176,6 @@ internal s32 NativePerf_MakeDir(const char *path)
 internal s32 NativePerf_CreateDirs(const char *path)
 {
 	char copy[NATIVE_PERF_PATH_MAX];
-	char *cursor;
 	s32 ok = 1;
 
 	if ((path == NULL) || (path[0] == '\0'))
@@ -189,7 +188,7 @@ internal s32 NativePerf_CreateDirs(const char *path)
 		return 0;
 	}
 
-	cursor = copy;
+	char *cursor = copy;
 	if (NativePath_IsSeparator((u8)cursor[0]))
 	{
 		cursor++;
@@ -445,8 +444,6 @@ int NativePerf_IsEnabled(void)
 
 void NativePerf_Shutdown(void)
 {
-	FILE *summaryFile;
-
 	if (!s_enabled)
 	{
 		return;
@@ -471,7 +468,7 @@ void NativePerf_Shutdown(void)
 		s_gpuCsvFile = NULL;
 	}
 
-	summaryFile = fopen(s_summaryPath, "wb");
+	FILE *summaryFile = fopen(s_summaryPath, "wb");
 	if (summaryFile != NULL)
 	{
 		NativePerf_WriteSummary(summaryFile);
@@ -530,37 +527,30 @@ void NativePerf_BeginFrame(const struct NativePerfFrameInfo *info)
 
 void NativePerf_EndFrame(const struct NativePerfFrameInfo *info)
 {
-	f64 totalMs;
-	f64 workMs;
-	f64 budgetMs;
-	f64 overBudgetMs;
-	f64 workOverBudgetMs;
 	f64 dominantMs;
-	enum NativePerfBucket dominantBucket;
 	s32 endUnderrunFrames = 0;
 	s32 endOverflowFrames = 0;
 	s32 endQueuedFrames = 0;
 	struct NativePerfWorstFrame worstFrame;
-	const struct NativePerfFrameInfo *rowInfo;
 
 	if (!s_enabled || !s_frameOpen)
 	{
 		return;
 	}
 
-	totalMs = NativePerf_CounterToMs(SDL_GetPerformanceCounter() - s_frameStartCounter);
-	workMs = totalMs - s_frameBucketMs[NATIVE_PERF_BUCKET_VSYNC_WAIT];
+	f64 totalMs = NativePerf_CounterToMs(SDL_GetPerformanceCounter() - s_frameStartCounter);
+	f64 workMs = totalMs - s_frameBucketMs[NATIVE_PERF_BUCKET_VSYNC_WAIT];
 	if (workMs < 0.0)
 	{
 		workMs = 0.0;
 	}
 
-	rowInfo = (info != NULL) ? info : &s_frameBeginInfo;
-	budgetMs = NATIVE_PERF_VBLANK_MS * (f64)((rowInfo->vsyncTillFlip > 0) ? rowInfo->vsyncTillFlip : 2);
+	const struct NativePerfFrameInfo *rowInfo = (info != NULL) ? info : &s_frameBeginInfo;
+	f64 budgetMs = NATIVE_PERF_VBLANK_MS * (f64)((rowInfo->vsyncTillFlip > 0) ? rowInfo->vsyncTillFlip : 2);
 
-	overBudgetMs = (totalMs > budgetMs) ? (totalMs - budgetMs) : 0.0;
-	workOverBudgetMs = (workMs > budgetMs) ? (workMs - budgetMs) : 0.0;
-	dominantBucket = NativePerf_FindDominantBucket(&dominantMs);
+	f64 overBudgetMs = (totalMs > budgetMs) ? (totalMs - budgetMs) : 0.0;
+	f64 workOverBudgetMs = (workMs > budgetMs) ? (workMs - budgetMs) : 0.0;
+	enum NativePerfBucket dominantBucket = NativePerf_FindDominantBucket(&dominantMs);
 
 	NativeAudio_GetOutputStats(&endUnderrunFrames, &endOverflowFrames, &endQueuedFrames);
 

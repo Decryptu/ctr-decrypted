@@ -79,6 +79,7 @@
 #include "CDSYS.c"
 
 #include "COLL.c"
+#include "COLL/COLL_InstanceQuery.c"
 
 #include "CTR/CTR_Box.c"
 #include "CTR/CTR_CycleTex.c"
@@ -186,27 +187,39 @@
 #include "MATH/MATH_2_FastSqrt.c"
 #include "MATH/MATH_3_HitboxMatrix.c"
 #include "MATH/MATH_7_MatrixStubs.c"
+// NOTE(aalhendi): Retail compiles this register-entry leaf separately.
+#ifdef CTR_NATIVE
+#include "MATH/MATH_LightMatrix.c"
+#endif
 #include "MATH/MATH_MatrixRotate.c"
 #include "MATH/MATH_6_MatrixMul.c"
 
 #include "MEMCARD/MEMCARD_Icon.c"
 #include "MEMCARD/MEMCARD_Checksum.c"
+#include "MEMCARD/MEMCARD_RetailChecksumLoad.c"
 #include "MEMCARD/MEMCARD_String.c"
 #include "MEMCARD/MEMCARD_Card.c"
 #include "MEMCARD/MEMCARD_Events.c"
 #include "MEMCARD/MEMCARD_FileIO.c"
 
-// NOTE(aalhendi): Retail card operations use PSX card/event/file APIs. Native
-// provides the same game-facing MEMCARD_* API from platform/native_memcard_adapter.c.
+// NOTE(aalhendi): Retail card operations below use PSX card/event/file APIs.
+// Native selects their implementations from platform/native_memcard_adapter.c.
 #if !defined(CTR_NATIVE)
+#include "MEMCARD/MEMCARD_RetailInitCard.c"
 #include "MEMCARD/MEMCARD_RetailCard.c"
-#include "MEMCARD/MEMCARD_RetailEvents.c"
+#include "MEMCARD/MEMCARD_RetailHandleEvent.c"
 #include "MEMCARD/MEMCARD_RetailTransfer.c"
 #endif
 
 #include "MEMPACK.c"
 
 #include "MixRNG/PSX_BIOS_Rand.c"
+#if !defined(CTR_NATIVE)
+#include "PSX/PSX_BIOS_CallGates.c"
+#include "PSX/PSX_SDK_Leaves.c"
+#include "PSX/PSX_SDK_CDCore.c"
+#include "PSX/PSX_SDK_CDState.c"
+#endif
 #include "MixRNG/RngDeadCoed.c"
 #include "MixRNG/MixRNG.c"
 
@@ -257,6 +270,7 @@
 #include "UI/UI_Rank.c"
 #include "UI/UI_RenderFrame.c"
 #include "UI/UI_VsQuip.c"
+#include "UI/UI_VsWait.c"
 #include "UI/UI_RaceFlow.c"
 #include "UI/UI_CupStandings.c"
 
@@ -298,19 +312,7 @@
 
 #include "PlayLevel.c"
 
-#include "230/R230.c"
-#include "230/D230.c"
-#include "230/MM_Battle.c"
-#include "230/MM_MenuFlow.c"
-#include "230/MM_ConfigMenu.c"
-#include "230/MM_Title.c"
-#include "230/MM_CheatCodes.c"
-#include "230/MM_Characters.c"
-#include "230/MM_TrackSelect.c"
-#include "230/MM_CupSelect.c"
-#include "230/MM_HighScore.c"
-#include "230/MM_Scrapbook.c"
-#include "230/MM_Video.c"
+#include "230.c"
 
 #include "231/R231.c"
 #include "231/D231.c"

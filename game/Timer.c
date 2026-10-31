@@ -1,55 +1,72 @@
 #include <common.h>
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004b31c-0x8004b370.
-void Timer_Init()
+#define TIMER_RCNT RCntCNT1
+
+#ifndef TIMER_TOTAL_UNITS
+#define TIMER_TOTAL_UNITS sdata->rcntTotalUnits
+#endif
+
+enum TimerConstants
+{
+	TIMER_RCNT_TARGET = 0xffff,
+	TIMER_RCNT_MODE = 0x2000,
+	TIMER_RCNT_LOW_RECHECK_THRESHOLD = 100,
+	TIMER_MILLISECONDS_PER_SECOND = 1000,
+	TIMER_RCNT_UNITS_PER_SECOND = 0x147e,
+	TIMER_WRAP_MILLISECONDS = 0xc7e18,
+};
+
+void Timer_Init(void)
 {
 	EnterCriticalSection();
-	StopRCnt(DescRC + 1);
-	SetRCnt(DescRC + 1, 0xffff, 0x2000);
-	StartRCnt(DescRC + 1);
+	StopRCnt(TIMER_RCNT);
+	SetRCnt(TIMER_RCNT, TIMER_RCNT_TARGET, TIMER_RCNT_MODE);
+	StartRCnt(TIMER_RCNT);
 	ExitCriticalSection();
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004b370-0x8004b3a4.
-void Timer_Destroy()
+void Timer_Destroy(void)
 {
 	EnterCriticalSection();
-	StopRCnt(DescRC + 1);
+	StopRCnt(TIMER_RCNT);
 	ExitCriticalSection();
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004b3a4-0x8004b41c.
-int Timer_GetTime_Total()
+s32 Timer_GetTime_Total(void)
 {
-	int rcntTotal = sdata->rcntTotalUnits;
-	int rcnt = GetRCnt(DescRC + 1);
-	int sysClock = rcntTotal + rcnt;
+	u32 sysClock;
+	s32 rcnt;
 
-	if (rcnt < 100)
+	sysClock = TIMER_TOTAL_UNITS;
+	rcnt = GetRCnt(TIMER_RCNT);
+
+	sysClock += rcnt;
+
+	if (rcnt < TIMER_RCNT_LOW_RECHECK_THRESHOLD)
 	{
-		sysClock = sdata->rcntTotalUnits + rcnt;
+		// VSync may have accumulated and reset the counter during GetRCnt.
+		sysClock = TIMER_TOTAL_UNITS;
+		sysClock += rcnt;
 	}
 
-	return (sysClock * 1000) / 0x147e;
+	// NOTE(aalhendi): Retail wraps the 32-bit product before signed division.
+	return (s32)(sysClock * TIMER_MILLISECONDS_PER_SECOND) / TIMER_RCNT_UNITS_PER_SECOND;
 }
 
-// Usage: elapsed(frameStart, &frameStart)
-// will overwrite new frameStart, and return
-// elapsed time since previous frameStart
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004b41c-0x8004b470.
-int Timer_GetTime_Elapsed(int oldVal, int *retVal)
+// Return elapsed time and optionally store the current timestamp for the next call.
+s32 Timer_GetTime_Elapsed(s32 oldVal, s32 *retVal)
 {
-	int newVal = Timer_GetTime_Total();
+	s32 newVal = Timer_GetTime_Total();
 
 	if (retVal != 0)
 	{
 		*retVal = newVal;
 	}
 
-	// impossible?
+	// Correct a wrap in the scaled root-counter value.
 	if (newVal < oldVal)
 	{
-		newVal += 0xc7e18;
+		newVal += TIMER_WRAP_MILLISECONDS;
 	}
 
 	return newVal - oldVal;

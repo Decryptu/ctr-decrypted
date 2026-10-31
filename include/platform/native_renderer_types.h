@@ -28,7 +28,6 @@
 // that still do not fit drop whole primitives (native_gpu_vertex_budget_logic.h).
 #define MAX_VERTEX_BUFFER_SIZE (1u << 18)
 
-#pragma pack(push, 1)
 typedef struct
 {
 	float x, y, w;
@@ -43,7 +42,7 @@ typedef struct
 	// cannot sample past the polygon's own texels. All zero means no clamp.
 	u8 uMin, vMin, uMax, vMax;
 } GrVertex;
-#pragma pack(pop)
+
 CTR_STATIC_ASSERT(sizeof(GrVertex) == 32);
 
 typedef enum

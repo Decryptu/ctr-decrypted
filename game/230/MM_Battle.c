@@ -1,7 +1,6 @@
 #include <common.h>
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800abaa8-0x800abaf0.
-void MM_Battle_DrawIcon_Character(struct Icon *icon, int posX, int posY, struct PrimMem *primMem, uint32_t *ot, char transparency, s16 scale)
+void MM_Battle_DrawIcon_Character(struct Icon *icon, s32 posX, s32 posY, struct PrimMem *primMem, u32 *ot, u8 transparency, s16 scale)
 {
 	if (icon == 0)
 	{
@@ -10,980 +9,1163 @@ void MM_Battle_DrawIcon_Character(struct Icon *icon, int posX, int posY, struct 
 	DecalHUD_DrawPolyFT4(icon, posX, posY, primMem, ot, transparency, scale);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b164c-0x800b1660.
 void MM_Battle_CloseSubMenu(struct RectMenu *menu)
 {
-	menu->state |= 4;
+	menu->state |= ONLY_DRAW_TITLE;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 overlay 230 0x800b1660-0x800b1830.
-void MM_Battle_DrawIcon_Weapon(struct Icon *icon, u32 posX, int posY, struct PrimMem *primMem, u32 *ot, char transparency, s16 param_7, u16 param_8, u32 *color)
+enum
 {
-	if (!icon)
+	BATTLE_TRANSITION_FRAME_COUNT = 0xc,
+	BATTLE_ANIMATED_TRANSITION_META_COUNT = 8,
+	BATTLE_SETTINGS_COUNT = 5,
+	BATTLE_TEAM_COUNT = 4,
+	BATTLE_VALID_TEAM_MIN = 0,
+	BATTLE_VALID_TEAM_MAX = BATTLE_TEAM_COUNT - 1,
+	BATTLE_ROW_TYPE = 0,
+	BATTLE_ROW_LENGTH = 1,
+	BATTLE_ROW_TEAMS = 2,
+	BATTLE_ROW_WEAPON_TOP = 3,
+	BATTLE_ROW_WEAPON_BOTTOM = 4,
+	BATTLE_ROW_START = 5,
+	BATTLE_ROW_LIFE_COUNT = 10,
+	BATTLE_WEAPON_ROW_COUNT = 2,
+	BATTLE_WEAPONS_PER_ROW = 6,
+	BATTLE_WEAPON_ITEM_COUNT = 11,
+	BATTLE_WEAPON_FLAG_COUNT = 0xe,
+	BATTLE_REQUIRED_WEAPON_FLAGS = 0xcde,
+	BATTLE_CONFIRM_INPUT = BTN_CROSS_one | BTN_CIRCLE,
+	BATTLE_BACK_INPUT = BTN_SQUARE_one | BTN_TRIANGLE,
+	BATTLE_MENU_INPUT = BTN_UP | BTN_DOWN | BTN_LEFT | BTN_RIGHT | BATTLE_CONFIRM_INPUT | BATTLE_BACK_INPUT,
+	BATTLE_TIME_LIMIT_TYPE_ROW = 1,
+	BATTLE_LIFE_LIMIT_TYPE_ROW = 2,
+	BATTLE_MINUTES_TO_EVENT_TIME = 0xe100,
+	BATTLE_INACTIVE_TEAM_POINTS = -500,
+	BATTLE_ICON_SCALE = 0x1000,
+	BATTLE_WEAPON_ICON_ROTATE_RIGHT = 1,
+	BATTLE_WEAPON_DISABLED_TEXT_COLOR = 0x15,
+	BATTLE_WEAPON_ENABLED_TEXT_COLOR = 4,
+	BATTLE_TITLE_META_INDEX = 9,
+	BATTLE_TITLE_X_OFFSET = 0x100,
+	BATTLE_TITLE_Y_OFFSET = 10,
+	BATTLE_LABEL_X_OFFSET = 0x8c,
+	BATTLE_MENU_X_OFFSET = 0x9c,
+	BATTLE_ROW_TYPE_MENU_META_INDEX = 0,
+	BATTLE_ROW_TYPE_LABEL_META_INDEX = 1,
+	BATTLE_ROW_LENGTH_MENU_META_INDEX = 2,
+	BATTLE_ROW_LENGTH_LABEL_META_INDEX = 3,
+	BATTLE_ROW_TEAM_META_INDEX = 4,
+	BATTLE_ROW_TEAM_LABEL_META_INDEX = 5,
+	BATTLE_ROW_WEAPON_PANEL_META_INDEX = 6,
+	BATTLE_ROW_WEAPON_LABEL_META_INDEX = 7,
+	BATTLE_ROW_START_META_INDEX = 8,
+	BATTLE_TYPE_ROW_Y_OFFSET = 0x24,
+	BATTLE_MENU_DEFAULT_HEIGHT = 0xd,
+	BATTLE_LENGTH_ROW_Y_OFFSET = 0x20,
+	BATTLE_LENGTH_LABEL_Y_OFFSET = 4,
+	BATTLE_LENGTH_DUAL_MENU_X_OFFSET = 0x142,
+	BATTLE_LENGTH_DUAL_MENU_WIDTH = 0x8e,
+	BATTLE_WIDE_MENU_WIDTH = 0x134,
+	BATTLE_TEAM_PANEL_START_X = 0x9f,
+	BATTLE_TEAM_LABEL_Y_OFFSET = 10,
+	BATTLE_TEAM_SEGMENT_BASE_WIDTH = 4,
+	BATTLE_TEAM_PLAYER_WIDTH = 0x2a,
+	BATTLE_TEAM_PANEL_TOTAL_WIDTH = 0x12e,
+	BATTLE_TEAM_PLAYER_CENTER_OFFSET = -0x15,
+	BATTLE_TEAM_PLAYER_ICON_Y_OFFSET = 6,
+	BATTLE_TEAM_COLOR_H = 0x1a,
+	BATTLE_TEAM_COLOR_Y_OFFSET = 5,
+	BATTLE_TEAM_HIGHLIGHT_W = 0x134,
+	BATTLE_TEAM_HIGHLIGHT_H = 0x1e,
+	BATTLE_TEAM_HIGHLIGHT_Y_OFFSET = 3,
+	BATTLE_TEAM_PANEL_W = 0x140,
+	BATTLE_TEAM_PANEL_H = 0x24,
+	BATTLE_TEAM_PANEL_X_OFFSET = 0x96,
+	BATTLE_WEAPON_LABEL_Y_OFFSET = 0x44,
+	BATTLE_ERROR_COLOR_FRAME_BIT = 1,
+	BATTLE_ERROR_COLOR_A = -0x7fff,
+	BATTLE_ERROR_COLOR_B = -0x7ffd,
+	BATTLE_ERROR_TEXT_X = 0x100,
+	BATTLE_ERROR_TEXT_LINE_1_Y_OFFSET = 0x6a,
+	BATTLE_ERROR_TEXT_LINE_2_Y_OFFSET = 0x7a,
+	BATTLE_START_MENU_Y_OFFSET = 0x78,
+	BATTLE_WEAPON_PANEL_W = 0x140,
+	BATTLE_WEAPON_PANEL_H = 0x44,
+	BATTLE_WEAPON_PANEL_X_OFFSET = 0x96,
+	BATTLE_WEAPON_PANEL_Y_OFFSET = 0x2a,
+	BATTLE_WEAPON_GRID_X_OFFSET = 6,
+	BATTLE_WEAPON_GRID_Y_OFFSET = 2,
+	BATTLE_WEAPON_GRID_X_STEP = 0x34,
+	BATTLE_WEAPON_GRID_ROW_STAGGER_X = 0x1a,
+	BATTLE_WEAPON_GRID_Y_STEP = 0x20,
+	BATTLE_WEAPON_AMMO_TEXT_FIRST = 7,
+	BATTLE_WEAPON_AMMO_TEXT_COUNT = 2,
+	BATTLE_WEAPON_HIGHLIGHT_LEFT_X_OFFSET = 4,
+	BATTLE_WEAPON_HIGHLIGHT_RIGHT_X_OFFSET = 0x1e,
+	BATTLE_WEAPON_HIGHLIGHT_W = 0x34,
+	BATTLE_WEAPON_HIGHLIGHT_H = 0x20,
+	BATTLE_WEAPON_HIGHLIGHT_Y_OFFSET = 2,
+	BATTLE_WEAPON_PANEL_INSET_X = 3,
+	BATTLE_WEAPON_PANEL_INSET_Y = 2,
+	BATTLE_WEAPON_PANEL_INSET_W_SHRINK = 6,
+	BATTLE_WEAPON_PANEL_INSET_H_SHRINK = 4,
+	BATTLE_LABEL_TEXT_FLAGS = 0x4000,
+	BATTLE_TITLE_TEXT_FLAGS = JUSTIFY_CENTER | ORANGE,
+};
+
+enum
+{
+	BATTLE_COLOR_RGB_MASK = 0xffffffu,
+	BATTLE_GPU_CODE_POLY_FT4 = 0x2c000000u,
+	BATTLE_GPU_CODE_POLY_FT4_SEMI_TRANS = 0x2e000000u,
+	BATTLE_GPU_TAG_LENGTH_POLY_FT4 = 0x09000000u,
+	BATTLE_TPAGE_TRANSPARENCY_MASK = 0xff9fffffu,
+	BATTLE_TPAGE_TRANSPARENCY_SHIFT = 0x15,
+};
+
+void MM_Battle_DrawIcon_Weapon(struct Icon *icon, u32 posX, s32 posY, struct PrimMem *primMem, u32 *ot, s8 transparency, s32 scale, u16 rotation,
+                               const u32 *color)
+{
+	register struct PrimMem *packetMem CTR_PSX_REGISTER("$16");
+	register u32 *orderingTable CTR_PSX_REGISTER("$7");
+	register struct Icon *drawIcon CTR_PSX_REGISTER("$12");
+	register u32 drawX CTR_PSX_REGISTER("$14");
+	register const u32 *iconColor CTR_PSX_REGISTER("$25");
+	register u16 iconRotation CTR_PSX_REGISTER("$11");
+	register s32 iconScale CTR_PSX_REGISTER("$4");
+	register u8 iconTransparency CTR_PSX_REGISTER("$8");
+	register u32 uv1 CTR_PSX_REGISTER("$9");
+	register u32 uv2 CTR_PSX_REGISTER("$13");
+	register u32 packedY CTR_PSX_REGISTER("$6");
+	register s32 scaledWidth CTR_PSX_REGISTER("$24");
+	register s32 scaledHeight CTR_PSX_REGISTER("$15");
+	CtrPackedU32 *packet;
+	u32 uv0;
+	register u32 topLeft CTR_PSX_REGISTER("$4");
+	register u32 topRight CTR_PSX_REGISTER("$6");
+	register u32 bottomLeft CTR_PSX_REGISTER("$5");
+	register u32 bottomRight CTR_PSX_REGISTER("$9");
+	u32 farX;
+	u32 farY;
+
+	packetMem = primMem;
+	orderingTable = ot;
+	iconScale = scale;
+	drawIcon = icon;
+	iconColor = color;
+	iconTransparency = (u8)transparency;
+	iconRotation = rotation;
+	drawX = posX;
+
+	if (!drawIcon)
 	{
-		return;
+		goto cleanup;
 	}
+	CTR_PSX_KEEP_VALUE(iconTransparency);
+	CTR_PSX_KEEP_VALUE(orderingTable);
+	CTR_PSX_KEEP_VALUE(iconColor);
 
-	POLY_FT4 *p = (POLY_FT4 *)primMem->cursor;
-
-	u32 uv0 = CTR_ReadU32LE(&icon->texLayout.u0);
-	u32 uv1 = CTR_ReadU32LE(&icon->texLayout.u1);
-	u32 uv2 = CTR_ReadU32LE(&icon->texLayout.u2);
-	s32 scaledWidth = (((s32)((u8)icon->texLayout.u1 - (u8)icon->texLayout.u0)) * param_7) >> 0xc;
-	s32 scaledHeight = (((s32)((u8)icon->texLayout.v2 - (u8)icon->texLayout.v0)) * param_7) >> 0xc;
-	u32 code = 0x2c000000;
-	u32 packedY = (u32)(u16)posY << 0x10;
-	u32 packedBottomY;
-	u32 packedSideY;
-	u32 rightX;
-	u32 sidewaysX;
-
-	if ((u8)transparency != 0)
+	uv1 = CTR_ReadU32AlignedLE(&drawIcon->texLayout.u1);
+	uv0 = CTR_ReadU32AlignedLE(&drawIcon->texLayout.u0);
 	{
-		code = 0x2e000000;
-		uv1 = (uv1 & 0xff9fffff) | ((((u32)(u8)transparency - 1) << 0x15));
+		register s32 widthDifference CTR_PSX_REGISTER("$3");
+		register s32 widthBase CTR_PSX_REGISTER("$2");
+		register s32 widthProduct CTR_PSX_REGISTER("$5");
+
+		widthDifference = (s32)(uv1 & 0xff);
+		widthBase = (s32)(uv0 & 0xff);
+		widthDifference -= widthBase;
+		widthProduct = widthDifference * (s16)iconScale;
+		scaledWidth = widthProduct >> 0xc;
 	}
-
-	CtrGpu_WriteColorCode(&p->r0, (*color & 0xffffff) | code);
-	CtrGpu_WritePackedUVWord(&p->u0, uv0);
-	CtrGpu_WritePackedUVWord(&p->u1, uv1);
-	CtrGpu_WritePackedUV(&p->u2, (u16)uv2);
-	CtrGpu_WritePackedUV(&p->u3, (u16)(uv2 >> 0x10));
-
-	if ((param_8 & 1) != 0)
 	{
-		sidewaysX = posX + scaledHeight;
-		packedSideY = packedY + ((u32)scaledWidth << 0x10);
+		register s32 heightDifference CTR_PSX_REGISTER("$3");
+		register s32 heightValue CTR_PSX_REGISTER("$2");
 
-		if ((s16)param_8 == 1)
+		heightValue = ((s32)uv0 >> 8) & 0xff;
+		heightDifference = (s32)(u8)drawIcon->texLayout.v2 - heightValue;
+		heightValue = heightDifference * (s16)iconScale;
+		scaledHeight = heightValue >> 0xc;
+	}
+	packedY = (u32)posY << 0x10;
+	uv2 = CTR_ReadU32AlignedLE(&drawIcon->texLayout.u2);
+	packet = (CtrPackedU32 *)packetMem->cursor;
+
+	{
+		register u32 code CTR_PSX_REGISTER("$2");
+		register u32 adjustedUv CTR_PSX_REGISTER("$4");
+		u32 colorCode;
+
+		code = iconTransparency;
+		if (code != 0)
 		{
-			CtrGpu_WritePackedXY(&p->x1, posX | packedY);
-			CtrGpu_WritePackedXY(&p->x3, sidewaysX | packedY);
-			CtrGpu_WritePackedXY(&p->x0, posX | packedSideY);
-			CtrGpu_WritePackedXY(&p->x2, sidewaysX | packedSideY);
+			colorCode = *iconColor & BATTLE_COLOR_RGB_MASK;
+			adjustedUv = BATTLE_TPAGE_TRANSPARENCY_MASK;
+			adjustedUv = (adjustedUv & uv1) | ((code - 1) << BATTLE_TPAGE_TRANSPARENCY_SHIFT);
+			packet[5] = adjustedUv;
+			code = BATTLE_GPU_CODE_POLY_FT4_SEMI_TRANS;
 		}
 		else
 		{
-			CtrGpu_WritePackedXY(&p->x2, posX | packedY);
-			CtrGpu_WritePackedXY(&p->x0, sidewaysX | packedY);
-			CtrGpu_WritePackedXY(&p->x3, posX | packedSideY);
-			CtrGpu_WritePackedXY(&p->x1, sidewaysX | packedSideY);
+			code = BATTLE_COLOR_RGB_MASK;
+			colorCode = *iconColor & code;
+			packet[5] = uv1;
+			code = BATTLE_GPU_CODE_POLY_FT4;
+		}
+
+		colorCode |= code;
+		packet[1] = colorCode;
+	}
+	packet[3] = uv0;
+	((CtrPackedU16 *)packet)[0xe] = (u16)uv2;
+	((CtrPackedU16 *)packet)[0x12] = CTR_ReadU16AlignedLE(&drawIcon->texLayout.u3);
+
+	farX = drawX + scaledHeight;
+	if ((iconRotation & 1) != 0)
+	{
+		farY = packedY + ((u32)scaledWidth << 0x10);
+		CTR_PSX_KEEP_VALUE(scaledWidth);
+		topLeft = drawX | packedY;
+		topRight = farX | packedY;
+		bottomLeft = drawX | farY;
+		bottomRight = farX | farY;
+		CTR_PSX_KEEP_VALUE(farX);
+		CTR_PSX_KEEP_VALUE(farY);
+
+		if ((s16)iconRotation == BATTLE_WEAPON_ICON_ROTATE_RIGHT)
+		{
+			packet[4] = topLeft;
+			packet[8] = topRight;
+			packet[2] = bottomLeft;
+			packet[6] = bottomRight;
+		}
+		else
+		{
+			packet[6] = topLeft;
+			packet[2] = topRight;
+			packet[8] = bottomLeft;
+			packet[4] = bottomRight;
 		}
 	}
 	else
 	{
-		rightX = posX + scaledWidth;
-		packedBottomY = packedY + ((u32)scaledHeight << 0x10);
+		farX = drawX + scaledWidth;
+		farY = packedY + ((u32)scaledHeight << 0x10);
+		CTR_PSX_KEEP_VALUE(scaledHeight);
+		topLeft = drawX | packedY;
+		bottomLeft = drawX | farY;
+		bottomRight = farX | farY;
+		CTR_PSX_KEEP_VALUE(farX);
+		CTR_PSX_KEEP_VALUE(farY);
+		topRight = farX | packedY;
 
-		if (((u32)param_8 << 0x10) == 0)
+		if (((u32)iconRotation << 0x10) == 0)
 		{
-			CtrGpu_WritePackedXY(&p->x0, posX | packedY);
-			CtrGpu_WritePackedXY(&p->x1, rightX | packedY);
-			CtrGpu_WritePackedXY(&p->x2, posX | packedBottomY);
-			CtrGpu_WritePackedXY(&p->x3, rightX | packedBottomY);
+			packet[2] = topLeft;
+			packet[4] = topRight;
+			packet[6] = bottomLeft;
+			packet[8] = bottomRight;
 		}
 		else
 		{
-			CtrGpu_WritePackedXY(&p->x3, posX | packedY);
-			CtrGpu_WritePackedXY(&p->x2, rightX | packedY);
-			CtrGpu_WritePackedXY(&p->x1, posX | packedBottomY);
-			CtrGpu_WritePackedXY(&p->x0, rightX | packedBottomY);
+			packet[8] = topLeft;
+			packet[6] = topRight;
+			packet[4] = bottomLeft;
+			packet[2] = bottomRight;
 		}
 	}
+	CTR_PSX_KEEP_VALUE(iconRotation);
+	packet[0] = *orderingTable | BATTLE_GPU_TAG_LENGTH_POLY_FT4;
+	*orderingTable = CtrGpu_PrimToOTLink24(packet);
+	packetMem->cursor = packet + 10;
 
-	p->tag = CtrGpu_PackOTTag(*ot, 0x9000000);
-	*ot = CtrGpu_PrimToOTLink24(p);
-
-	primMem->cursor = p + 1;
+cleanup:
+	// NOTE(aalhendi): Retail preserves s1 without otherwise using it. This
+	// zero-byte clobber retains that prologue and epilogue shape.
+	CTR_PSX_CLOBBER("$17");
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b1830-0x800b1848.
 void MM_Battle_Init(void)
 {
-	D230.battle_transitionFrames = 0xc;
-	D230.battle_transitionState = 0;
+	MM_BATTLE_TRANSITION_FRAME = BATTLE_TRANSITION_FRAME_COUNT;
+	MM_BATTLE_TRANSITION_STATE = ENTERING_MENU;
 }
 
+// NOTE(aalhendi): Retail carries several menu values in fixed MIPS registers.
+// Matching constraints preserve those lifetimes; CTR_NATIVE paths assign the
+// equivalent C values directly.
 void MM_Battle_MenuProc(struct RectMenu *unused)
 {
-	char numPlyr;
-	u16 uVar4;
-	s16 sVar6;
-	int i, j;
-	int iVar8;
-	int iVar9;
-	u32 uVar10;
-	u32 color;
-	u32 uVar12;
-	int iVar13;
-	int iVar16;
-	u32 uVar17;
-	s16 sVar20;
-	RECT local_60;
-	u16 local_60b[4];
-	RECT local_58;
-	s16 local_58b[4];
-	RECT local_50;
-	RECT local_48;
-	RECT local_40;
-	s16 local_38;
-	s16 local_36;
-
-	struct RectMenu *box;
-	struct GameTracker *gGT = sdata->gGT;
-
-	local_38 = 0;
-
-	// save all five battle settings,
-	// these are selected rows from all battle options
-	for (i = 0; i < 5; i++)
+	s16 settingIndex;
+	struct TransitionMeta *transitionMeta;
+	s16 menuHeight = 0;
+#ifdef CTR_NATIVE
+	s32 defaultMenuHeight = BATTLE_MENU_DEFAULT_HEIGHT;
+#else
+	s32 defaultMenuHeight;
+#endif
+	s16 lifeCountMenuHeight;
+	(void)unused;
+	// Restore the selected row for each battle setting menu.
+	for (settingIndex = 0; settingIndex < BATTLE_SETTINGS_COUNT; settingIndex++)
 	{
-		D230.battleMenuArray[i]->rowSelected = sdata->battleSettings[i];
+		MM_BATTLE_MENU_ARRAY[settingIndex]->rowSelected = MM_BATTLE_SETTINGS[settingIndex];
 	}
 
-	sVar6 = D230.battle_transitionFrames;
-	if (D230.battle_transitionState != 1)
+	if (MM_BATTLE_TRANSITION_STATE == IN_MENU)
 	{
-		if ((s16)D230.battle_transitionState < 2)
+		goto LAB_Battle_DrawMenu;
+	}
+	if (MM_BATTLE_TRANSITION_STATE < EXITING_MENU)
+	{
+		if (MM_BATTLE_TRANSITION_STATE == ENTERING_MENU)
 		{
-			// if transitioning in
-			if (D230.battle_transitionState == 0)
+			goto LAB_Battle_EnterMenu;
+		}
+		goto LAB_Battle_DrawMenu;
+	}
+	if (MM_BATTLE_TRANSITION_STATE == EXITING_MENU)
+	{
+		goto LAB_Battle_ExitMenu;
+	}
+	goto LAB_Battle_DrawMenu;
+LAB_Battle_EnterMenu:
+	MM_TransitionInOut(MM_BATTLE_TRANSITIONS, (int)MM_BATTLE_TRANSITION_FRAME, BATTLE_ANIMATED_TRANSITION_META_COUNT);
+
+	if (MM_BATTLE_TRANSITION_FRAME != 0)
+	{
+		MM_BATTLE_TRANSITION_FRAME--;
+	}
+	else
+	{
+		MM_BATTLE_TRANSITION_STATE = IN_MENU;
+	}
+	goto LAB_Battle_DrawMenu;
+LAB_Battle_ExitMenu:
+	MM_TransitionInOut(MM_BATTLE_TRANSITIONS, (int)MM_BATTLE_TRANSITION_FRAME, BATTLE_ANIMATED_TRANSITION_META_COUNT);
+
+	MM_BATTLE_TRANSITION_FRAME++;
+	if (BATTLE_TRANSITION_FRAME_COUNT < MM_BATTLE_TRANSITION_FRAME)
+	{
+		if (MM_BATTLE_TRANSITION_START_AFTER_EXIT != 0)
+		{
+			MM_DESIRED_MENU = &MM_MENU_QUEUE_LOAD_TRACK;
+			return;
+		}
+		MM_TrackSelect_Init();
+		MM_DESIRED_MENU = &MM_MENU_TRACK_SELECT;
+		return;
+	}
+LAB_Battle_DrawMenu:
+	// Validate the setup before accepting input or offering Start Battle.
+	GAME_TRACKER->battleSetup.teamFlags = 0;
+
+	GAME_TRACKER->battleSetup.numTeams = 0;
+	{
+		s16 index;
+		for (index = 0; index < GAME_TRACKER->numPlyrNextGame; index++)
+		{
+			s16 teamFlag = 1 << GAME_TRACKER->battleSetup.teamOfEachPlayer[index];
+			if ((GAME_TRACKER->battleSetup.teamFlags & teamFlag) == 0)
 			{
-				MM_TransitionInOut(&D230.transitionMeta_battle[0], (int)D230.battle_transitionFrames, 8);
-
-				// reduce frames
-				sVar6 = D230.battle_transitionFrames - 1;
-
-				// if finished
-				if (D230.battle_transitionFrames == 0)
-				{
-					// menu is now in focus
-					D230.battle_transitionState = 1;
-					sVar6 = D230.battle_transitionFrames;
-				}
+				GAME_TRACKER->battleSetup.teamFlags |= teamFlag;
+				GAME_TRACKER->battleSetup.numTeams++;
 			}
 		}
-		else
+
+		for (index = 0; index < BATTLE_TEAM_COUNT; index++)
 		{
-			// if transitioning out
-			if (D230.battle_transitionState == 2)
+			if ((GAME_TRACKER->battleSetup.teamFlags & (1 << index)) != 0)
 			{
-				MM_TransitionInOut(&D230.transitionMeta_battle[0], (int)D230.battle_transitionFrames, 8);
-
-				// count frames
-				D230.battle_transitionFrames++;
-
-				sVar6 = D230.battle_transitionFrames;
-
-				// if 12 frames past
-				if (0xc < D230.battle_transitionFrames)
-				{
-					// if starting race
-					if (D230.battle_postTransition_boolStart != 0)
-					{
-						// passthrough Menu for funcPtr "QueueLoadTrack"
-						sdata->ptrDesiredMenu = &data.menuQueueLoadTrack;
-						return;
-					}
-
-					// == else goBack ==
-
-					MM_TrackSelect_Init();
-					sdata->ptrDesiredMenu = &D230.menuTrackSelect;
-
-					return;
-				}
+				GAME_TRACKER->battleSetup.pointsPerTeam[index] = 0;
 			}
-		}
-	}
-	D230.battle_transitionFrames = sVar6;
-
-	// There are no battle teams (clear flags)
-	gGT->battleSetup.teamFlags = 0;
-
-	// there are no battle teams (clear amount of teams)
-	gGT->battleSetup.numTeams = 0;
-
-	numPlyr = gGT->numPlyrNextGame;
-
-	// loop through all players
-	for (i = 0; i < numPlyr; i++)
-	{
-		// get the team of each player
-		uVar12 = (s16)(1 << gGT->battleSetup.teamOfEachPlayer[i]);
-
-		// If we have not accounted for this team existing
-		if ((gGT->battleSetup.teamFlags & uVar12) == 0)
-		{
-			// This team now exists
-			gGT->battleSetup.teamFlags |= uVar12;
-
-			// increase number of teams
-			gGT->battleSetup.numTeams++;
-		}
-	}
-
-	// Reset team points
-	for (int i = 0; i < 4; i++)
-	{
-		if ((gGT->battleSetup.teamFlags & (1 << i)) == 0)
-		{
-			gGT->battleSetup.pointsPerTeam[i] = -500;
-		}
-		else
-		{
-			gGT->battleSetup.pointsPerTeam[i] = 0;
-		}
-	}
-
-	// Related to Battle mode
-	if ((
-	        // If number of teams is less than 2
-	        ((gGT->battleSetup.numTeams) < 2) ||
-
-	        // If no weapons are slected
-	        ((gGT->battleSetup.enabledWeapons & 0xcde) == 0)) &&
-
-	    // If you are hovering over row 5 (Start Battle)
-	    (sdata->battleSetupRowHighlighted == 5))
-	{
-		// Move cursor back to row 4 (in weapons selection)
-		sdata->battleSetupRowHighlighted = 4;
-	}
-
-	for (i = 0; i < numPlyr; i++)
-	{
-		// If you are selecting "Teams" row
-		if (sdata->battleSetupRowHighlighted == 2)
-		{
-			// If you press Left on D-Pad or move stick to the Left
-			if ((sdata->buttonTapPerPlayer[i] & 4) != 0)
-			{
-				// If you have room to move left
-				// if your team number is more than 0
-				if (0 < gGT->battleSetup.teamOfEachPlayer[i])
-				{
-					// play sound
-					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b1b54-0x800b1b6c for battle team-left SFX.
-					OtherFX_Play(0, 1);
-
-					// Move your icon to the left
-					gGT->battleSetup.teamOfEachPlayer[i]--;
-				}
-
-				// clear the gamepad input so that it
-				// does not use this frame's input on the next frame
-				sdata->buttonTapPerPlayer[i] = 0;
-			}
-
-			// If you press Right on D-Pad or move stick to the Right
-			if ((sdata->buttonTapPerPlayer[i] & 8) != 0)
-			{
-				// If there is room to move right,
-				// If your team number is less than 3
-				if (gGT->battleSetup.teamOfEachPlayer[i] < 3)
-				{
-					// play sound
-					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b1bc0-0x800b1bd8 for battle team-right SFX.
-					OtherFX_Play(0, 1);
-
-					// Move your icon to the right
-					gGT->battleSetup.teamOfEachPlayer[i]++;
-				}
-
-				// clear the gamepad input so that it
-				// does not use this frame's input on the next frame
-				sdata->buttonTapPerPlayer[i] = 0;
-			}
-		}
-	}
-
-	// make a copy of the row you have highlighted
-	uVar4 = sdata->battleSetupRowHighlighted;
-
-	if ((D230.battle_transitionState == 1) &&
-
-	    // If you press D-pad or Cross, Square, Triangle, Circle
-	    ((sdata->buttonTapPerPlayer[0] & 0x4007f) != 0))
-	{
-		// if you are not in any drop-down menu
-		if ((s16)sdata->battleSetupExpandMenu < 0)
-		{
-			int buttonTapP1 = sdata->buttonTapPerPlayer[0];
-
-			// If you dont press Up
-			if ((buttonTapP1 & 1) == 0)
-			{
-				// If you dont press Down
-				if ((buttonTapP1 & 2) == 0)
-				{
-					// If you dont press Left
-					if ((buttonTapP1 & 4) == 0)
-					{
-						// If you dont press Right
-						if ((buttonTapP1 & 8) == 0)
-						{
-							// If you dont press Cross or Circle
-							if ((buttonTapP1 & 0x50) == 0)
-							{
-								// If you press Square or Trianlge
-								if ((buttonTapP1 & 0x40020) != 0)
-								{
-									// Play "Go Back" sound
-									// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b20f8-0x800b2110 for battle setup back SFX.
-									OtherFX_Play(2, 1);
-
-									// go back when transition is done, dont start race
-									D230.battle_postTransition_boolStart = 0;
-
-									// start transition out
-									D230.battle_transitionState = 2;
-								}
-							}
-
-							// If you press Cross or Circle
-							else
-							{
-								// Play sound
-								// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b1de4-0x800b1df4 for battle setup confirm SFX.
-								OtherFX_Play(1, 1);
-
-								switch (sdata->battleSetupRowHighlighted)
-								{
-									// If row selected can be
-									// expanded (type, length, lives)
-								case 0:
-								case 1:
-								case 10:
-									// Row expanded = row selected
-									sdata->battleSetupExpandMenu = sdata->battleSetupRowHighlighted;
-									break;
-
-									// If row selected is 3 or 4
-								case 3:
-								case 4:
-
-									// Enable or disable a weapon when you click it
-									gGT->battleSetup.enabledWeapons ^=
-									    D230.battleWeaponsEnabled[((int)sdata->battleSetupWeaponHighlighted +
-									                               ((int)(((u32)sdata->battleSetupRowHighlighted - 3) * 0x10000) >> 0x10) * 6) *
-									                              2];
-									break;
-
-									// If row selected is "start battle",
-									// all code below is for starting the battle
-								case 5:
-
-									// get game mode, minus some flags
-									gGT->gameMode1 &= ~(POINT_LIMIT | LIFE_LIMIT | TIME_LIMIT);
-
-									uVar12 = D230.FlagesGameMode1_BattleType[D230.menuBattleType.rowSelected];
-									gGT->gameMode1 |= uVar12;
-
-									if ((uVar12 & TIME_LIMIT) != 0)
-									{
-										// point limit
-										gGT->gameMode1 |= POINT_LIMIT;
-									}
-
-									if (((gGT->gameMode1 & LIFE_LIMIT) != 0) && (0 < D230.time_3_6_INF[D230.menuBattleLengthLifeTime.rowSelected]))
-									{
-										// time limit
-										gGT->gameMode1 |= TIME_LIMIT;
-									}
-
-									// set kill limit
-									gGT->battleSetup.killLimit = D230.points_5_10_15[D230.menuBattleLengthPoints.rowSelected];
-
-									// if time limit
-									if (D230.menuBattleType.rowSelected == 1)
-									{
-										uVar12 = D230.time_3_6_9[D230.menuBattleLengthTimeTime.rowSelected];
-									}
-
-									else
-									{
-										uVar12 = D230.time_3_6_INF[D230.menuBattleLengthLifeTime.rowSelected];
-									}
-
-									// set time limit based on number of minutes
-									gGT->originalEventTime = uVar12;
-									i = gGT->originalEventTime;
-									if (0 < i)
-									{
-										gGT->originalEventTime = i * 0xe100;
-									}
-
-									gGT->battleSetup.numWeapons = 0;
-
-									// life limit
-									gGT->battleSetup.lifeLimit = D230.lives_3_6_9[D230.menuBattleLengthLifeLife.rowSelected];
-
-									// write RNG array of weaponIDs, based on weapon flags,
-									// loop through 14 "possible" weapons
-									for (uVar12 = 0; uVar12 < 0xe; uVar12++)
-									{
-										// bit flag of weapons enabled
-										if ((gGT->battleSetup.enabledWeapons & 1 << uVar12) != 0)
-										{
-											// write weaponID in RNG array
-											gGT->battleSetup.RNG_itemSetCustom[gGT->battleSetup.numWeapons] = uVar12;
-
-											// increment number of weapons RNG can choose from
-											gGT->battleSetup.numWeapons++;
-										}
-									}
-
-									// start battle when transition is done
-									D230.battle_postTransition_boolStart = 1;
-
-									// start transition out
-									D230.battle_transitionState = 2;
-
-									// check if player changed team,
-									// then clear stats if a change happened
-
-									for (i = 0; i < numPlyr; i++)
-									{
-										if (sdata->teamOfEachPlayer[i] != gGT->battleSetup.teamOfEachPlayer[i])
-										{
-											MainStats_ClearBattleVS();
-										}
-										sdata->teamOfEachPlayer[i] = gGT->battleSetup.teamOfEachPlayer[i];
-									}
-
-									sdata->buttonTapPerPlayer[1] = 0;
-									sdata->buttonTapPerPlayer[2] = 0;
-									sdata->buttonTapPerPlayer[3] = 0;
-								}
-							}
-						}
-
-						// If you press Right
-						else
-						{
-							// if row 3 or 4 (weapons)
-							if ((u32)sdata->battleSetupRowHighlighted - 3 < 2)
-							{
-								// change which weapon is highlighted
-								sdata->battleSetupWeaponHighlighted++;
-							}
-
-							else
-							{
-								if ((D230.menuBattleType.rowSelected == 2) && (sdata->battleSetupRowHighlighted == 1))
-								{
-									sdata->battleSetupRowHighlighted = 10;
-								}
-							}
-						}
-					}
-
-					// If you press Left
-					else
-					{
-						// if row 3 or 4 (weapons)
-						if ((u32)sdata->battleSetupRowHighlighted - 3 < 2)
-						{
-							// change which weapon is highlighted
-							sdata->battleSetupWeaponHighlighted--;
-						}
-
-						else
-						{
-							if ((D230.menuBattleType.rowSelected == 2) && (sdata->battleSetupRowHighlighted == 10))
-							{
-								goto LAB_800b1d7c;
-							}
-						}
-					}
-				}
-
-				// If you press Down
-				else
-				{
-					if ((D230.menuBattleType.rowSelected == 2) && (sdata->battleSetupRowHighlighted == 10))
-					{
-						sdata->battleSetupRowHighlighted = D230.menuBattleType.rowSelected;
-					}
-					else
-					{
-						// Move one row down
-						sdata->battleSetupRowHighlighted++;
-
-						// If you go below row 5 (Start Battle)
-						if (5 < sdata->battleSetupRowHighlighted)
-						{
-							// Go back to row 5
-							sdata->battleSetupRowHighlighted = 5;
-						}
-					}
-				}
-			}
-
-			// If you press Up
 			else
 			{
-				if ((D230.menuBattleType.rowSelected == 2) && (sdata->battleSetupRowHighlighted == 10))
+				GAME_TRACKER->battleSetup.pointsPerTeam[index] = BATTLE_INACTIVE_TEAM_POINTS;
+			}
+		}
+	}
+	if (GAME_TRACKER->battleSetup.numTeams >= 2)
+	{
+		if ((GAME_TRACKER->battleSetup.enabledWeapons & BATTLE_REQUIRED_WEAPON_FLAGS) != 0)
+		{
+			goto LAB_Battle_ValidSetup;
+		}
+	}
+	if (MM_BATTLE_ROW_HIGHLIGHTED == BATTLE_ROW_START)
+	{
+		MM_BATTLE_ROW_HIGHLIGHTED = BATTLE_ROW_WEAPON_BOTTOM;
+	}
+LAB_Battle_ValidSetup:
+{
+	s16 playerIndex;
+	for (playerIndex = 0; playerIndex < GAME_TRACKER->numPlyrNextGame; playerIndex++)
+	{
+		if (MM_BATTLE_ROW_HIGHLIGHTED == BATTLE_ROW_TEAMS)
+		{
+			if ((MM_GAME_BUTTON_TAPS[playerIndex] & BTN_LEFT) != 0)
+			{
+				if (BATTLE_VALID_TEAM_MIN < GAME_TRACKER->battleSetup.teamOfEachPlayer[playerIndex])
+				{
+					OtherFX_Play(0, 1);
+					GAME_TRACKER->battleSetup.teamOfEachPlayer[playerIndex]--;
+				}
+				MM_GAME_BUTTON_TAPS[playerIndex] = 0;
+			}
+			if ((MM_GAME_BUTTON_TAPS[playerIndex] & BTN_RIGHT) != 0)
+			{
+				if (GAME_TRACKER->battleSetup.teamOfEachPlayer[playerIndex] < BATTLE_VALID_TEAM_MAX)
+				{
+					OtherFX_Play(0, 1);
+					GAME_TRACKER->battleSetup.teamOfEachPlayer[playerIndex]++;
+				}
+				MM_GAME_BUTTON_TAPS[playerIndex] = 0;
+			}
+		}
+	}
+}
+
+	CTR_PSX_CLOBBER("$18");
+	// Process navigation only while the menu is fully in focus.
+	if ((MM_BATTLE_TRANSITION_STATE == IN_MENU) && ((MM_GAME_BUTTON_TAPS[0] & BATTLE_MENU_INPUT) != 0))
+	{
+		if (((s16)MM_BATTLE_EXPAND_MENU) < 0)
+		{
+			int buttonTapP1 = MM_GAME_BUTTON_TAPS[0];
+			register u16 previousHighlightedRow CTR_PSX_REGISTER("$20") = MM_BATTLE_ROW_HIGHLIGHTED;
+			if ((buttonTapP1 & BTN_UP) != 0)
+			{
+				if ((MM_MENU_BATTLE_TYPE.rowSelected == BATTLE_LIFE_LIMIT_TYPE_ROW) && (((s16)previousHighlightedRow) == BATTLE_ROW_LIFE_COUNT))
+				{
+					goto LAB_800b1d7c;
+				}
+				else
+				{
+					u16 highlightedRow = (u16)MM_BATTLE_ROW_HIGHLIGHTED_UPDATE;
+					highlightedRow--;
+					MM_BATTLE_ROW_HIGHLIGHTED_UPDATE = highlightedRow;
+					if (((s16)highlightedRow) < 0)
+					{
+						MM_BATTLE_ROW_HIGHLIGHTED_UPDATE = BATTLE_ROW_TYPE;
+					}
+				}
+			}
+			else if ((buttonTapP1 & BTN_DOWN) != 0)
+			{
+				register s32 battleTypeRow CTR_PSX_REGISTER("$4") = (s16)MM_MENU_BATTLE_TYPE.rowSelected;
+				if ((battleTypeRow == BATTLE_LIFE_LIMIT_TYPE_ROW) && (((s16)previousHighlightedRow) == BATTLE_ROW_LIFE_COUNT))
+				{
+					MM_BATTLE_ROW_HIGHLIGHTED = battleTypeRow;
+				}
+				else
+				{
+					MM_BATTLE_ROW_HIGHLIGHTED++;
+					if (BATTLE_ROW_START < MM_BATTLE_ROW_HIGHLIGHTED)
+					{
+						MM_BATTLE_ROW_HIGHLIGHTED = BATTLE_ROW_START;
+					}
+				}
+			}
+			else if ((buttonTapP1 & BTN_LEFT) != 0)
+			{
+				if (((u16)(previousHighlightedRow - BATTLE_ROW_WEAPON_TOP)) < BATTLE_WEAPON_ROW_COUNT)
+				{
+					MM_BATTLE_WEAPON_HIGHLIGHTED--;
+				}
+				else if ((MM_MENU_BATTLE_TYPE.rowSelected == BATTLE_LIFE_LIMIT_TYPE_ROW) && (((s16)previousHighlightedRow) == BATTLE_ROW_LIFE_COUNT))
 				{
 				LAB_800b1d7c:
-					sdata->battleSetupRowHighlighted = D230.battle_transitionState;
-				}
-				else
 				{
-					// Go up one row
-					sdata->battleSetupRowHighlighted--;
+					register s32 transitionState CTR_PSX_REGISTER("$6");
+					register u32 rowStatePage CTR_PSX_REGISTER("$16");
+					CTR_PSX_CAPTURE_REGISTER(transitionState, MM_BATTLE_TRANSITION_STATE);
+					CTR_PSX_CAPTURE_REGISTER(rowStatePage, 0);
+					CTR_PSX_PAGE_LVALUE(u16, rowStatePage, MM_BATTLE_ROW_HIGHLIGHTED_PAGE_OFFSET, MM_BATTLE_ROW_HIGHLIGHTED) = transitionState;
+				}
+				}
+			}
+			else if ((buttonTapP1 & BTN_RIGHT) != 0)
+			{
+				if (((u16)(previousHighlightedRow - BATTLE_ROW_WEAPON_TOP)) < BATTLE_WEAPON_ROW_COUNT)
+				{
+					MM_BATTLE_WEAPON_HIGHLIGHTED++;
+				}
+				else if ((MM_MENU_BATTLE_TYPE.rowSelected == BATTLE_LIFE_LIMIT_TYPE_ROW) && (((s16)previousHighlightedRow) == MM_BATTLE_TRANSITION_STATE))
+				{
+					MM_BATTLE_ROW_HIGHLIGHTED = BATTLE_ROW_LIFE_COUNT;
+				}
+			}
+			else if ((buttonTapP1 & BATTLE_CONFIRM_INPUT) != 0)
+			{
+				OtherFX_Play(1, 1);
+				switch (MM_BATTLE_ROW_HIGHLIGHTED)
+				{
+					s32 originalEventTime;
+					s32 weaponFlagIndex;
+					s16 playerIndex;
+					u32 battleModeFlags;
+				case BATTLE_ROW_TYPE:
 
-					// If you go above the top row (0)
-					if (sdata->battleSetupRowHighlighted < 0)
+				case BATTLE_ROW_LENGTH:
+
+				case BATTLE_ROW_LIFE_COUNT:
+					MM_BATTLE_EXPAND_MENU = MM_BATTLE_ROW_HIGHLIGHTED;
+					break;
+
+				case BATTLE_ROW_WEAPON_TOP:
+
+				case BATTLE_ROW_WEAPON_BOTTOM:
+				{
+					register u32 gameTrackerPage CTR_PSX_REGISTER("$6");
+					register u32 weaponItemsAddress CTR_PSX_REGISTER("$4");
+					register u32 rowPage CTR_PSX_REGISTER("$5");
+					register s32 itemIndex CTR_PSX_REGISTER("$2");
+					register s32 rowOffset CTR_PSX_REGISTER("$3");
+					register struct GameTracker *gameTracker CTR_PSX_REGISTER("$5");
+					register u32 enabledWeapons CTR_PSX_REGISTER("$3");
+					CTR_PSX_LOAD_SYMBOL_PAGE(itemIndex, RETAIL_GAME_TRACKER_ASM_NAME);
+					CTR_PSX_LOAD_SYMBOL_PAGE(gameTrackerPage, RETAIL_GAME_TRACKER_ASM_NAME);
+					CTR_PSX_LOAD_SYMBOL_PAGE(weaponItemsAddress, MM_BATTLE_WEAPON_ITEMS_ASM_NAME);
+					CTR_PSX_ADD_SYMBOL_LOW_IN_PLACE(weaponItemsAddress, MM_BATTLE_WEAPON_ITEMS_ASM_NAME, (u32)MM_BATTLE_WEAPON_ITEMS);
+					itemIndex = CTR_PSX_PAGE_LVALUE(u16, itemIndex, MM_BATTLE_ROW_HIGHLIGHTED_PAGE_OFFSET, MM_BATTLE_ROW_HIGHLIGHTED);
+					CTR_PSX_LOAD_SYMBOL_PAGE(rowPage, RETAIL_GAME_TRACKER_ASM_NAME);
+					itemIndex = (s16)(itemIndex - BATTLE_ROW_WEAPON_TOP);
+					rowOffset = itemIndex * BATTLE_WEAPONS_PER_ROW;
+					itemIndex = CTR_PSX_PAGE_LVALUE(s16, rowPage, MM_BATTLE_WEAPON_HIGHLIGHTED_PAGE_OFFSET, MM_BATTLE_WEAPON_HIGHLIGHTED);
+					gameTracker = CTR_PSX_PAGE_LVALUE(struct GameTracker *, gameTrackerPage, MM_GAME_TRACKER_PAGE_OFFSET, GAME_TRACKER);
+					itemIndex += rowOffset;
+					enabledWeapons = gameTracker->battleSetup.enabledWeapons;
+					enabledWeapons ^= ((struct BattleWeaponMenuItem *)weaponItemsAddress)[itemIndex].enabledWeaponFlag;
+					gameTracker->battleSetup.enabledWeapons = enabledWeapons;
+				}
+				break;
+
+				case BATTLE_ROW_START:
+					GAME_TRACKER->gameMode1 &= ~((POINT_LIMIT | LIFE_LIMIT) | TIME_LIMIT);
+					battleModeFlags = MM_BATTLE_TYPE_MODE_FLAGS[MM_MENU_BATTLE_TYPE.rowSelected];
+					GAME_TRACKER->gameMode1 |= battleModeFlags;
+					if ((GAME_TRACKER->gameMode1 & TIME_LIMIT) != 0)
 					{
-						// Go back to the top row
-						sdata->battleSetupRowHighlighted = 0;
+						GAME_TRACKER->gameMode1 |= POINT_LIMIT;
+					}
+					if (((GAME_TRACKER->gameMode1 & LIFE_LIMIT) != 0) && (0 < MM_BATTLE_LIFE_TIME_LIMIT_MINUTES[MM_MENU_BATTLE_LENGTH_LIFE_TIME.rowSelected]))
+					{
+						GAME_TRACKER->gameMode1 |= TIME_LIMIT;
+					}
+					{
+						struct GameTracker *battleTracker = GAME_TRACKER;
+						register s32 eventTimeMinutes CTR_PSX_REGISTER("$2");
+						register u32 gameTrackerPage CTR_PSX_REGISTER("$6");
+						register struct GameTracker *timeTracker CTR_PSX_REGISTER("$5");
+						register struct GameTracker *setupTracker CTR_PSX_REGISTER("$4");
+						register struct GameTracker *setupTrackerWork CTR_PSX_REGISTER("$2");
+						register u32 weaponFlagBase CTR_PSX_REGISTER("$7");
+						register const u8 *lifeLimits CTR_PSX_REGISTER("$2");
+						register const u8 *lifeLimitAddress CTR_PSX_REGISTER("$3");
+						u32 lifeLimit;
+						battleTracker->battleSetup.killLimit = MM_BATTLE_POINT_LIMIT_VALUES[MM_MENU_BATTLE_LENGTH_POINTS.rowSelected];
+						if (MM_MENU_BATTLE_TYPE.rowSelected == BATTLE_TIME_LIMIT_TYPE_ROW)
+						{
+							eventTimeMinutes = MM_BATTLE_TIME_LIMIT_MINUTES[MM_MENU_BATTLE_LENGTH_TIME_TIME.rowSelected];
+						}
+						else
+						{
+							eventTimeMinutes = MM_BATTLE_LIFE_TIME_LIMIT_MINUTES[MM_MENU_BATTLE_LENGTH_LIFE_TIME.rowSelected];
+						}
+						gameTrackerPage = MM_GAME_TRACKER_PAGE_VALUE;
+						timeTracker = CTR_PSX_PAGE_LVALUE(struct GameTracker *, gameTrackerPage, MM_GAME_TRACKER_PAGE_OFFSET, GAME_TRACKER);
+						battleTracker->originalEventTime = eventTimeMinutes;
+						CTR_PSX_MEMORY_BARRIER();
+						originalEventTime = timeTracker->originalEventTime;
+						if (0 < originalEventTime)
+						{
+							timeTracker->originalEventTime = originalEventTime * BATTLE_MINUTES_TO_EVENT_TIME;
+						}
+						weaponFlagIndex = 0;
+						weaponFlagBase = 1;
+						lifeLimits = MM_BATTLE_LIFE_LIMIT_VALUES;
+						lifeLimitAddress = &lifeLimits[MM_MENU_BATTLE_LENGTH_LIFE_LIFE.rowSelected];
+						CTR_PSX_LOAD_WORD_FROM_PAGE_AFTER(setupTrackerWork, gameTrackerPage, RETAIL_GAME_TRACKER_ASM_NAME, GAME_TRACKER, lifeLimitAddress);
+						CTR_PSX_KEEP_VALUE(setupTrackerWork);
+						lifeLimit = *lifeLimitAddress;
+						setupTracker = setupTrackerWork;
+						setupTracker->battleSetup.numWeapons = 0;
+						setupTracker->battleSetup.lifeLimit = lifeLimit;
+						do
+						{
+							register u32 enabledWeapons CTR_PSX_REGISTER("$2");
+							register u32 weaponFlag CTR_PSX_REGISTER("$3");
+							enabledWeapons = setupTracker->battleSetup.enabledWeapons;
+							weaponFlag = weaponFlagBase << weaponFlagIndex;
+							CTR_PSX_KEEP_VALUE(weaponFlag);
+							if ((enabledWeapons & weaponFlag) != 0)
+							{
+								setupTracker->battleSetup.RNG_itemSetCustom[setupTracker->battleSetup.numWeapons] = weaponFlagIndex;
+								setupTracker->battleSetup.numWeapons++;
+							}
+							weaponFlagIndex++;
+						} while (weaponFlagIndex < BATTLE_WEAPON_FLAG_COUNT);
+						MM_BATTLE_TRANSITION_START_AFTER_EXIT = 1;
+						MM_BATTLE_TRANSITION_STATE = EXITING_MENU;
+						for (playerIndex = 0; playerIndex < GAME_TRACKER->numPlyrNextGame; playerIndex++)
+						{
+							if (MM_BATTLE_TEAM_OF_EACH_PLAYER[playerIndex] != GAME_TRACKER->battleSetup.teamOfEachPlayer[playerIndex])
+							{
+								MainStats_ClearBattleVS();
+							}
+							MM_BATTLE_TEAM_OF_EACH_PLAYER[playerIndex] = GAME_TRACKER->battleSetup.teamOfEachPlayer[playerIndex];
+						}
+
+						MM_GAME_BUTTON_TAPS[1] = 0;
+						MM_GAME_BUTTON_TAPS[2] = 0;
+						MM_GAME_BUTTON_TAPS[3] = 0;
 					}
 				}
 			}
-
-			// If you are a row less than 5,
-			// any row except the bottom
-			if ((u32)sdata->battleSetupRowHighlighted - 3 < 2)
+			else if ((buttonTapP1 & BATTLE_BACK_INPUT) != 0)
 			{
-				i = (u32)sdata->battleSetupRowHighlighted - 2;
-				if (sdata->battleSetupWeaponHighlighted < 0)
+				OtherFX_Play(2, 1);
+				MM_BATTLE_TRANSITION_START_AFTER_EXIT = 0;
+				MM_BATTLE_TRANSITION_STATE = EXITING_MENU;
+			}
+			{
+				register u32 highlightedRow CTR_PSX_REGISTER("$3") = (u16)MM_BATTLE_ROW_HIGHLIGHTED;
+				if (((u32)(highlightedRow - BATTLE_ROW_WEAPON_TOP)) < BATTLE_WEAPON_ROW_COUNT)
 				{
-					sdata->battleSetupWeaponHighlighted = 0;
-				}
-				if (6 - (i) < (int)sdata->battleSetupWeaponHighlighted)
-				{
-					sdata->battleSetupWeaponHighlighted = 6 - (s16)i;
+					register s32 highlightedWeaponRowOffset CTR_PSX_REGISTER("$6");
+					register s32 highlightedWeapon CTR_PSX_REGISTER("$3");
+					highlightedWeaponRowOffset = highlightedRow - (BATTLE_ROW_WEAPON_TOP - 1);
+					if (MM_BATTLE_WEAPON_HIGHLIGHTED < 0)
+					{
+						MM_BATTLE_WEAPON_HIGHLIGHTED = 0;
+					}
+					highlightedWeapon = (s16)MM_BATTLE_WEAPON_HIGHLIGHTED;
+					if (highlightedWeapon > (BATTLE_WEAPONS_PER_ROW - ((s16)highlightedWeaponRowOffset)))
+					{
+						register s32 clampedWeapon CTR_PSX_REGISTER("$2") = BATTLE_WEAPONS_PER_ROW - highlightedWeaponRowOffset;
+						MM_BATTLE_WEAPON_HIGHLIGHTED = clampedWeapon;
+					}
 				}
 			}
-
-			if (sdata->battleSetupRowHighlighted != uVar4)
 			{
-				// Play sound
-				// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b2178-0x800b2194 for battle row-change SFX.
-				OtherFX_Play(0, 1);
+				register u32 highlightedRowPage CTR_PSX_REGISTER("$2");
+				register s32 currentHighlightedRow CTR_PSX_REGISTER("$3");
+				register s32 previousHighlightedRowSigned CTR_PSX_REGISTER("$2");
+				highlightedRowPage = MM_GAME_TRACKER_PAGE_VALUE;
+				CTR_PSX_KEEP_VALUE(highlightedRowPage);
+				currentHighlightedRow = CTR_PSX_PAGE_LVALUE(s16, highlightedRowPage, MM_BATTLE_ROW_HIGHLIGHTED_PAGE_OFFSET, MM_BATTLE_ROW_HIGHLIGHTED);
+				previousHighlightedRowSigned = (s16)previousHighlightedRow;
+				if (currentHighlightedRow != previousHighlightedRowSigned)
+				{
+					OtherFX_Play(0, 1);
+				}
 			}
 		}
-
-		// if you are in any drop-down menu
 		else
 		{
-			box = NULL;
-
-			// If you are chosing Length
-			// Dropdown menu for Points (5, 10, 15)
-			// Dropdown menu for Time (3 minutes, 6 minutes, etc)
-			if (sdata->battleSetupExpandMenu == 1)
+			struct RectMenu *dropdownMenu = (void *)0;
+			if (MM_BATTLE_EXPAND_MENU == BATTLE_ROW_LENGTH)
 			{
-				if (D230.menuBattleType.rowSelected == 1)
+				goto LAB_Battle_DropdownLength;
+			}
+			if (MM_BATTLE_EXPAND_MENU < BATTLE_LIFE_LIMIT_TYPE_ROW)
+			{
+				if (MM_BATTLE_EXPAND_MENU == BATTLE_ROW_TYPE)
 				{
-					box = &D230.menuBattleLengthTimeTime;
+					goto LAB_Battle_DropdownType;
 				}
-				else
-				{
-					if ((s16)D230.menuBattleType.rowSelected < 2)
-					{
-						if (D230.menuBattleType.rowSelected == 0)
-						{
-							box = &D230.menuBattleLengthPoints;
-						}
-					}
-					else
-					{
-						if (D230.menuBattleType.rowSelected == 2)
-						{
-							box = &D230.menuBattleLengthLifeTime;
-						}
-					}
-				}
+				goto LAB_Battle_DropdownSelected;
+			}
+			if (MM_BATTLE_EXPAND_MENU == BATTLE_ROW_LIFE_COUNT)
+			{
+				goto LAB_Battle_DropdownLifeCount;
+			}
+			goto LAB_Battle_DropdownSelected;
+		LAB_Battle_DropdownType:
+			dropdownMenu = &MM_MENU_BATTLE_TYPE;
+
+			goto LAB_Battle_DropdownSelected;
+		LAB_Battle_DropdownLength:
+			if (MM_MENU_BATTLE_TYPE.rowSelected == BATTLE_TIME_LIMIT_TYPE_ROW)
+			{
+				goto LAB_Battle_DropdownTimeTime;
 			}
 
-			// If not choosing Length
-			else
+			if (MM_MENU_BATTLE_TYPE.rowSelected < BATTLE_LIFE_LIMIT_TYPE_ROW)
 			{
-				// < 2 means 0 or 1, seems pointless,
-				// considering the previous != 1 check and next == 0 check
-				if (sdata->battleSetupExpandMenu < 2)
+				if (MM_MENU_BATTLE_TYPE.rowSelected == BATTLE_ROW_TYPE)
 				{
-					// if you are chosing type of battle
-					// Dropdown menu for (Point Limit, Life Limit, TIme Limit)
-					if (sdata->battleSetupExpandMenu == 0)
-					{
-						box = &D230.menuBattleType;
-					}
+					goto LAB_Battle_DropdownPoints;
 				}
-
-				// sdata->battleSetupExpandMenu == 2
-				else
-				{
-					// If you're not chosing life limit
-					// Dropdown for 3 lives, 6 lives, 9 lives
-					if (sdata->battleSetupExpandMenu == 10)
-					{
-						box = &D230.menuBattleLengthLifeLife;
-					}
-				}
+				goto LAB_Battle_DropdownSelected;
 			}
-			if (box != NULL)
+			if (MM_MENU_BATTLE_TYPE.rowSelected == BATTLE_LIFE_LIMIT_TYPE_ROW)
 			{
-				RECTMENU_ProcessInput(box);
-				if ((box->state & ONLY_DRAW_TITLE) != 0)
-				{
-					box->state &= ~(ONLY_DRAW_TITLE);
+				goto LAB_Battle_DropdownLifeTime;
+			}
+			goto LAB_Battle_DropdownSelected;
+		LAB_Battle_DropdownPoints:
+			dropdownMenu = &MM_MENU_BATTLE_LENGTH_POINTS;
 
-					sdata->battleSetupExpandMenu = -1;
+			goto LAB_Battle_DropdownSelected;
+		LAB_Battle_DropdownTimeTime:
+			dropdownMenu = &MM_MENU_BATTLE_LENGTH_TIME_TIME;
+
+			goto LAB_Battle_DropdownSelected;
+		LAB_Battle_DropdownLifeTime:
+			dropdownMenu = &MM_MENU_BATTLE_LENGTH_LIFE_TIME;
+
+			goto LAB_Battle_DropdownSelected;
+		LAB_Battle_DropdownLifeCount:
+			dropdownMenu = &MM_MENU_BATTLE_LENGTH_LIFE_LIFE;
+
+		LAB_Battle_DropdownSelected:
+			if (dropdownMenu != ((void *)0))
+			{
+				RECTMENU_ProcessInput(dropdownMenu);
+				if ((dropdownMenu->state & ONLY_DRAW_TITLE) != 0)
+				{
+					dropdownMenu->state &= ~ONLY_DRAW_TITLE;
+					MM_BATTLE_EXPAND_MENU = -1;
 				}
 			}
 		}
-
-		// clear gamepad input (for menus)
 		RECTMENU_ClearInput();
 	}
-
-	struct TransitionMeta *tmbattle = &D230.transitionMeta_battle[0];
-
-	DecalFont_DrawLine(sdata->lngStrings[LNG_SETUP_BATTLE], tmbattle[9].currX + 0x100, tmbattle[9].currY + 10, 1, 0xffff8000);
-
-	DecalFont_DrawLine(sdata->lngStrings[LNG_TYPE], tmbattle[1].currX + 0x8c + 0, tmbattle[1].currY + 0x24, 1, 0x4000);
-
-	D230.menuBattleType.state &= ~(0x100 | SHOW_ONLY_HIGHLIT_ROW);
-
-	// if you are not choosing type of battle
-	if (sdata->battleSetupExpandMenu != 0)
 	{
-		D230.menuBattleType.state |= 0x40;
-	}
-
-	if (sdata->battleSetupRowHighlighted != 0)
-	{
-		D230.menuBattleType.state |= 0x100;
-	}
-
-	RECTMENU_DrawSelf(&D230.menuBattleType, tmbattle[0].currX + 0x9c + 0, tmbattle[0].currY + 0x24, 0x134);
-
-	local_38 = 0xd;
-	RECTMENU_GetHeight(&D230.menuBattleType, &local_38, 0);
-	sVar6 = local_38 + 0x20;
-
-	DecalFont_DrawLine(sdata->lngStrings[LNG_LENGTH], tmbattle[3].currX + 0x8c + 0, tmbattle[3].currY + sVar6 + 4, 1, 0x4000);
-
-	if (D230.menuBattleType.rowSelected == 1)
-	{
-		box = &D230.menuBattleLengthTimeTime;
-	}
-	else
-	{
-		sVar20 = sVar6;
-		if (1 < D230.menuBattleType.rowSelected)
+		struct TransitionMeta *battleTransitions = MM_BATTLE_TRANSITIONS;
+		s16 *menuHeightPtr;
+		struct RectMenu *lengthMenu;
+		s16 afterLengthY;
+		s32 lengthRowY;
+		union
 		{
-			if (D230.menuBattleType.rowSelected == 2)
+			u16 teamSegmentWidths[BATTLE_TEAM_COUNT];
+			RECT16 weaponHighlightRect;
+		} teamWidthScratch;
+		union
+		{
+			s16 teamPlayerCounts[BATTLE_TEAM_COUNT];
+			RECT16 weaponPanelInsetRect;
+		} teamCountScratch;
+		RECT16 teamHighlightRect;
+		RECT16 teamColorRect;
+		RECT16 menuPanelRect;
+		register s16 weaponPanelY CTR_PSX_REGISTER("$16");
+		register s32 menuStateMask CTR_PSX_REGISTER("$23");
+		struct RectMenu *battleTypeMenu;
+		// Draw the variable-height type, length, team, and weapon panels.
+		DecalFont_DrawLine(GAME_LANGUAGE_STRINGS[LNG_SETUP_BATTLE], battleTransitions[BATTLE_TITLE_META_INDEX].currX + BATTLE_TITLE_X_OFFSET,
+		                   battleTransitions[BATTLE_TITLE_META_INDEX].currY + BATTLE_TITLE_Y_OFFSET, FONT_BIG, (s16)BATTLE_TITLE_TEXT_FLAGS);
+		DecalFont_DrawLine(GAME_LANGUAGE_STRINGS[LNG_TYPE], battleTransitions[BATTLE_ROW_TYPE_LABEL_META_INDEX].currX + BATTLE_LABEL_X_OFFSET,
+		                   battleTransitions[BATTLE_ROW_TYPE_LABEL_META_INDEX].currY + BATTLE_TYPE_ROW_Y_OFFSET, FONT_BIG, BATTLE_LABEL_TEXT_FLAGS);
+		battleTypeMenu = &MM_MENU_BATTLE_TYPE;
+#ifdef CTR_NATIVE
+		menuStateMask = ~(HIDE_ROW_HIGHLIGHT | SHOW_ONLY_HIGHLIT_ROW);
+#else
+		asm("li %0,-321" : "=r"(menuStateMask) : "r"(battleTypeMenu));
+#endif
+		transitionMeta = battleTransitions;
+		CTR_PSX_OBSERVE_VALUE(transitionMeta);
+		battleTypeMenu->state &= menuStateMask;
+		if (MM_BATTLE_EXPAND_MENU != BATTLE_ROW_TYPE)
+		{
+			battleTypeMenu->state |= SHOW_ONLY_HIGHLIT_ROW;
+		}
+		if (MM_BATTLE_ROW_HIGHLIGHTED != BATTLE_ROW_TYPE)
+		{
+			battleTypeMenu->state |= HIDE_ROW_HIGHLIGHT;
+		}
+		RECTMENU_DrawSelf(battleTypeMenu, (s16)(((u16)battleTransitions[BATTLE_ROW_TYPE_MENU_META_INDEX].currX) + BATTLE_MENU_X_OFFSET),
+		                  battleTransitions[BATTLE_ROW_TYPE_MENU_META_INDEX].currY + BATTLE_TYPE_ROW_Y_OFFSET, BATTLE_WIDE_MENU_WIDTH);
+		menuHeight = BATTLE_MENU_DEFAULT_HEIGHT;
+		menuHeightPtr = &menuHeight;
+		RECTMENU_GetHeight(battleTypeMenu, menuHeightPtr, 0);
+		lengthRowY = ((u16)menuHeight) + BATTLE_LENGTH_ROW_Y_OFFSET;
+		afterLengthY = lengthRowY;
+		DecalFont_DrawLine(GAME_LANGUAGE_STRINGS[LNG_LENGTH], battleTransitions[BATTLE_ROW_LENGTH_LABEL_META_INDEX].currX + BATTLE_LABEL_X_OFFSET,
+		                   (battleTransitions[BATTLE_ROW_LENGTH_LABEL_META_INDEX].currY + lengthRowY) + BATTLE_LENGTH_LABEL_Y_OFFSET, FONT_BIG,
+		                   BATTLE_LABEL_TEXT_FLAGS);
+		if (battleTypeMenu->rowSelected == BATTLE_TIME_LIMIT_TYPE_ROW)
+		{
+			goto LAB_Battle_TimeLength;
+		}
+		if (((s16)battleTypeMenu->rowSelected) < BATTLE_LIFE_LIMIT_TYPE_ROW)
+		{
+			if (battleTypeMenu->rowSelected == BATTLE_ROW_TYPE)
 			{
-				D230.menuBattleLengthLifeTime.state &= ~(0x100 | SHOW_ONLY_HIGHLIT_ROW);
-
-				if (sdata->battleSetupExpandMenu != 1)
-				{
-					D230.menuBattleLengthLifeTime.state |= 0x40;
-				}
-				if (sdata->battleSetupRowHighlighted != 1)
-				{
-					D230.menuBattleLengthLifeTime.state |= 0x100;
-				}
-
-				RECTMENU_DrawSelf(&D230.menuBattleLengthLifeTime, tmbattle[2].currX + 0x9c + 0, tmbattle[2].currY + sVar6 + 4, 0x8e);
-
-				D230.menuBattleLengthLifeLife.state &= ~(0x100 | SHOW_ONLY_HIGHLIT_ROW);
-
-				if (sdata->battleSetupExpandMenu != 10)
-				{
-					D230.menuBattleLengthLifeLife.state |= 0x40;
-				}
-				if (sdata->battleSetupRowHighlighted != 10)
-				{
-					D230.menuBattleLengthLifeLife.state |= 0x100;
-				}
-
-				RECTMENU_DrawSelf(&D230.menuBattleLengthLifeLife, tmbattle[2].currX + 0x142 - 0, tmbattle[2].currY + sVar6 + 4, 0x8e);
-
-				local_38 = 0xd;
-				RECTMENU_GetHeight(&D230.menuBattleLengthLifeTime, &local_38, 0);
-				local_36 = 0xd;
-				RECTMENU_GetHeight(&D230.menuBattleLengthLifeLife, &local_36, 0);
-				sVar20 = local_36 + sVar6;
-				if (local_36 < local_38)
-				{
-					sVar20 = local_38 + sVar6;
-				}
+				goto LAB_Battle_PointLength;
 			}
 			goto LAB_800b25f0;
 		}
-		if (D230.menuBattleType.rowSelected != 0)
+		if (battleTypeMenu->rowSelected == BATTLE_LIFE_LIMIT_TYPE_ROW)
 		{
-			goto LAB_800b25f0;
+			goto LAB_Battle_LifeLength;
 		}
-		box = &D230.menuBattleLengthPoints;
-	}
+		goto LAB_800b25f0;
+	LAB_Battle_PointLength:
+		lengthMenu = &MM_MENU_BATTLE_LENGTH_POINTS;
 
-	box->state &= ~(0x100 | SHOW_ONLY_HIGHLIT_ROW);
+		goto LAB_Battle_DrawLength;
+	LAB_Battle_TimeLength:
+		lengthMenu = &MM_MENU_BATTLE_LENGTH_TIME_TIME;
 
-	if (sdata->battleSetupExpandMenu != 1)
+	LAB_Battle_DrawLength:
 	{
-		box->state |= 0x40;
-	}
-	if (sdata->battleSetupRowHighlighted != 1)
-	{
-		box->state |= 0x100;
-	}
-
-	RECTMENU_DrawSelf(box, tmbattle[2].currX + 0x9c + 0, tmbattle[2].currY + sVar6 + 4, 0x134);
-
-	local_38 = 0xd;
-	RECTMENU_GetHeight(box, &local_38, 0);
-	sVar20 = local_38 + sVar6;
-
-LAB_800b25f0:
-
-	iVar8 = 0x9f;
-
-	DecalFont_DrawLine(sdata->lngStrings[LNG_TEAMS], tmbattle[5].currX + 0x8c + 0, tmbattle[5].currY + sVar20 + 10, 1, 0x4000);
-
-	i = 4;
-
-	for (j = 0; j < 4; j++)
-	{
-		iVar16 = i;
-		iVar13 = (int)(s16)j;
-		local_58b[iVar13] = 0;
-		local_60b[iVar13] = 4;
-
-		for (i = 0; i < numPlyr; i++)
+		register s32 selectedLengthRow CTR_PSX_REGISTER("$5");
+		register s32 visibleState CTR_PSX_REGISTER("$2");
+		register s32 expandedRow CTR_PSX_REGISTER("$3");
+		register s32 highlightedRow CTR_PSX_REGISTER("$2");
+#ifdef CTR_NATIVE
+		selectedLengthRow = BATTLE_ROW_LENGTH;
+		visibleState = lengthMenu->state & menuStateMask;
+		expandedRow = MM_BATTLE_EXPAND_MENU;
+#else
+		asm("" : "=r"(selectedLengthRow));
+		asm("lw %0,8(%2)\n\tlh %1,%%lo(" MM_BATTLE_EXPAND_MENU_ASM_NAME ")($21)\n\tand %0,%0,$23" : "=&r"(visibleState), "=&r"(expandedRow) : "r"(lengthMenu));
+#endif
+		lengthMenu->state = visibleState;
+		if (expandedRow != selectedLengthRow)
 		{
-			iVar9 = (int)gGT->battleSetup.teamOfEachPlayer[i];
-			if (iVar9 == iVar13)
+			lengthMenu->state |= SHOW_ONLY_HIGHLIT_ROW;
+		}
+#ifdef CTR_NATIVE
+		highlightedRow = MM_BATTLE_ROW_HIGHLIGHTED;
+#else
+		asm("lh %0,%%lo(" MM_BATTLE_ROW_HIGHLIGHTED_ASM_NAME ")($30)" : "=r"(highlightedRow));
+#endif
+		if (highlightedRow != selectedLengthRow)
+		{
+			lengthMenu->state |= HIDE_ROW_HIGHLIGHT;
+		}
+		defaultMenuHeight = BATTLE_MENU_DEFAULT_HEIGHT;
+		RECTMENU_DrawSelf(lengthMenu, (s16)(((u16)battleTransitions[BATTLE_ROW_LENGTH_MENU_META_INDEX].currX) + BATTLE_MENU_X_OFFSET),
+		                  (battleTransitions[BATTLE_ROW_LENGTH_MENU_META_INDEX].currY + lengthRowY) + BATTLE_LENGTH_LABEL_Y_OFFSET, BATTLE_WIDE_MENU_WIDTH);
+		menuHeight = defaultMenuHeight;
+		RECTMENU_GetHeight(lengthMenu, menuHeightPtr, 0);
+		afterLengthY = menuHeight + lengthRowY;
+		goto LAB_Battle_AfterLength;
+	}
+
+	LAB_Battle_LifeLength:
+		MM_MENU_BATTLE_LENGTH_LIFE_TIME.state &= menuStateMask;
+
+		if (MM_BATTLE_EXPAND_MENU != BATTLE_ROW_LENGTH)
+		{
+			MM_MENU_BATTLE_LENGTH_LIFE_TIME.state |= SHOW_ONLY_HIGHLIT_ROW;
+		}
+		{
+			register s32 highlightedRow CTR_PSX_REGISTER("$2");
+#ifdef CTR_NATIVE
+			highlightedRow = MM_BATTLE_ROW_HIGHLIGHTED;
+#else
+			asm("lh %0,%%lo(" MM_BATTLE_ROW_HIGHLIGHTED_ASM_NAME ")($30)" : "=r"(highlightedRow));
+#endif
+			if (highlightedRow != BATTLE_ROW_LENGTH)
 			{
-				local_58b[iVar9]++;
-				local_60b[iVar9] += 0x2a;
-				iVar16 = iVar16 + 0x2a;
+				MM_MENU_BATTLE_LENGTH_LIFE_TIME.state |= HIDE_ROW_HIGHLIGHT;
+			}
+		}
+		RECTMENU_DrawSelf(&MM_MENU_BATTLE_LENGTH_LIFE_TIME, (s16)(((u16)battleTransitions[BATTLE_ROW_LENGTH_MENU_META_INDEX].currX) + BATTLE_MENU_X_OFFSET),
+		                  (battleTransitions[BATTLE_ROW_LENGTH_MENU_META_INDEX].currY + lengthRowY) + BATTLE_LENGTH_LABEL_Y_OFFSET,
+		                  BATTLE_LENGTH_DUAL_MENU_WIDTH);
+		MM_MENU_BATTLE_LENGTH_LIFE_LIFE.state &= menuStateMask;
+		if (MM_BATTLE_EXPAND_MENU != BATTLE_ROW_LIFE_COUNT)
+		{
+			MM_MENU_BATTLE_LENGTH_LIFE_LIFE.state |= SHOW_ONLY_HIGHLIT_ROW;
+		}
+		if (MM_BATTLE_ROW_HIGHLIGHTED != BATTLE_ROW_LIFE_COUNT)
+		{
+			MM_MENU_BATTLE_LENGTH_LIFE_LIFE.state |= HIDE_ROW_HIGHLIGHT;
+		}
+		RECTMENU_DrawSelf(
+		    &MM_MENU_BATTLE_LENGTH_LIFE_LIFE, (s16)(((u16)battleTransitions[BATTLE_ROW_LENGTH_MENU_META_INDEX].currX) + BATTLE_LENGTH_DUAL_MENU_X_OFFSET),
+		    (battleTransitions[BATTLE_ROW_LENGTH_MENU_META_INDEX].currY + lengthRowY) + BATTLE_LENGTH_LABEL_Y_OFFSET, BATTLE_LENGTH_DUAL_MENU_WIDTH);
+		menuHeight = BATTLE_MENU_DEFAULT_HEIGHT;
+		RECTMENU_GetHeight(&MM_MENU_BATTLE_LENGTH_LIFE_TIME, menuHeightPtr, 0);
+		lifeCountMenuHeight = defaultMenuHeight;
+		RECTMENU_GetHeight(&MM_MENU_BATTLE_LENGTH_LIFE_LIFE, &lifeCountMenuHeight, 0);
+		{
+			s16 selectedHeight = lifeCountMenuHeight;
+			if (lifeCountMenuHeight < menuHeight)
+			{
+				selectedHeight = menuHeight;
+			}
+			afterLengthY = ((u16)selectedHeight) + lengthRowY;
+		}
+	LAB_Battle_AfterLength:
+	{
+		s32 teamPanelX;
+		s32 accumulatedTeamWidth;
+		s32 remainingTeamWidth;
+		register s32 remainingWidthResult CTR_PSX_REGISTER("$2");
+		s16 teamIndex;
+		u32 sharedTeamPadding;
+		register s32 teamFont CTR_PSX_REGISTER("$7");
+	LAB_800b25f0:
+		teamFont = FONT_BIG;
+
+		teamPanelX = BATTLE_TEAM_PANEL_START_X;
+		CTR_PSX_OBSERVE_VALUE(teamFont);
+		DecalFont_DrawLine(GAME_LANGUAGE_STRINGS[LNG_TEAMS], MM_BATTLE_TRANSITIONS[BATTLE_ROW_TEAM_LABEL_META_INDEX].currX + BATTLE_LABEL_X_OFFSET,
+		                   (MM_BATTLE_TRANSITIONS[BATTLE_ROW_TEAM_LABEL_META_INDEX].currY + afterLengthY) + BATTLE_TEAM_LABEL_Y_OFFSET, teamFont,
+		                   BATTLE_LABEL_TEXT_FLAGS);
+		teamIndex = 0;
+		CTR_PSX_COPY_VALUE(accumulatedTeamWidth, teamIndex);
+		// Divide the team panel width among the teams currently in use.
+		do
+		{
+			s16 playerIndex;
+			accumulatedTeamWidth += BATTLE_TEAM_SEGMENT_BASE_WIDTH;
+			teamCountScratch.teamPlayerCounts[teamIndex] = 0;
+			teamWidthScratch.teamSegmentWidths[teamIndex] = BATTLE_TEAM_SEGMENT_BASE_WIDTH;
+			for (playerIndex = 0; playerIndex < GAME_TRACKER->numPlyrNextGame; playerIndex++)
+			{
+				s32 playerTeam = GAME_TRACKER->battleSetup.teamOfEachPlayer[playerIndex];
+				if (playerTeam == teamIndex)
+				{
+					teamCountScratch.teamPlayerCounts[playerTeam]++;
+					teamWidthScratch.teamSegmentWidths[playerTeam] += BATTLE_TEAM_PLAYER_WIDTH;
+					accumulatedTeamWidth += BATTLE_TEAM_PLAYER_WIDTH;
+				}
+			}
+
+			teamIndex++;
+		} while (teamIndex < BATTLE_TEAM_COUNT);
+		remainingWidthResult = BATTLE_TEAM_PANEL_TOTAL_WIDTH - accumulatedTeamWidth;
+		CTR_PSX_KEEP_VALUE(remainingWidthResult);
+		remainingTeamWidth = remainingWidthResult;
+		{
+			register s16 truncatedRemainingTeamWidth CTR_PSX_REGISTER("$2");
+			s32 paddedRemainingTeamWidth;
+#ifdef CTR_NATIVE
+			truncatedRemainingTeamWidth = (s16)remainingWidthResult;
+#else
+			asm("" : "=r"(truncatedRemainingTeamWidth) : "0"(remainingWidthResult));
+#endif
+			paddedRemainingTeamWidth = truncatedRemainingTeamWidth + 3;
+			if (paddedRemainingTeamWidth < 0)
+			{
+				paddedRemainingTeamWidth = truncatedRemainingTeamWidth + 6;
+			}
+			sharedTeamPadding = ((u32)paddedRemainingTeamWidth) >> 2;
+		}
+		for (teamIndex = 0; teamIndex < BATTLE_TEAM_COUNT; teamIndex++)
+		{
+			s32 nextRemainingTeamWidth;
+			teamWidthScratch.teamSegmentWidths[teamIndex] += sharedTeamPadding;
+			nextRemainingTeamWidth = remainingTeamWidth - sharedTeamPadding;
+			remainingTeamWidth = nextRemainingTeamWidth;
+			if (((s32)(sharedTeamPadding << 16)) > ((s32)(((u32)nextRemainingTeamWidth) << 16)))
+			{
+				sharedTeamPadding = nextRemainingTeamWidth;
 			}
 		}
 
-		i = iVar16 + 4;
-	}
-
-	uVar10 = 0x12e - iVar16;
-	i = (int)(uVar10);
-	uVar12 = i + 3;
-	if ((int)uVar12 < 0)
-	{
-		uVar12 = i + 6;
-	}
-	uVar12 = uVar12 >> 2;
-
-	for (i = 0; i < 4; i++)
-	{
-		local_60b[i] += uVar12;
-		uVar10 = uVar10 - uVar12;
-		if ((int)(uVar10) < (int)(uVar12))
+		for (teamIndex = 0; teamIndex < BATTLE_TEAM_COUNT; teamIndex++)
 		{
-			uVar12 = uVar10;
-		}
-	}
-
-	uint32_t *ot = gGT->backBuffer->otMem.uiOT;
-
-	for (i = 0; i < 4; i++)
-	{
-		uVar4 = local_60b[i];
-		iVar13 = iVar8 + (uVar4 >> 0x1) + (int)local_58b[i] * -0x15;
-
-		for (iVar16 = 0; iVar16 < numPlyr; iVar16++)
-		{
-			if (gGT->battleSetup.teamOfEachPlayer[iVar16] == i)
+			s16 playerIndex;
+			register s32 teamSegmentWidth CTR_PSX_REGISTER("$19");
+			int playerIconX;
+			teamSegmentWidth = teamWidthScratch.teamSegmentWidths[teamIndex];
+			playerIconX =
+			    (teamPanelX + (((s16)teamSegmentWidth) / 2)) + (((int)teamCountScratch.teamPlayerCounts[teamIndex]) * BATTLE_TEAM_PLAYER_CENTER_OFFSET);
+			for (playerIndex = 0; playerIndex < GAME_TRACKER->numPlyrNextGame; playerIndex++)
 			{
-				sVar6 = (s16)iVar13;
-				iVar13 = iVar13 + 0x2a;
-
-				MM_Battle_DrawIcon_Character(gGT->ptrIcons[data.MetaDataCharacters[data.characterIDs[iVar16]].iconID], (int)tmbattle[4].currX + (int)sVar6 + 0,
-				                             (int)tmbattle[4].currY + (int)sVar20 + 6,
-
-				                             &gGT->backBuffer->primMem, gGT->pushBuffer_UI.ptrOT, 1, 0x1000);
+				if (GAME_TRACKER->battleSetup.teamOfEachPlayer[playerIndex] == teamIndex)
+				{
+					s32 shiftedIconX = ((u32)playerIconX) << 16;
+					playerIconX = playerIconX + BATTLE_TEAM_PLAYER_WIDTH;
+					MM_Battle_DrawIcon_Character(GAME_TRACKER->ptrIcons[GAME_CHARACTER_METADATA[GAME_CHARACTER_IDS[playerIndex]].iconID],
+					                             ((int)MM_BATTLE_TRANSITIONS[BATTLE_ROW_TEAM_META_INDEX].currX) + (shiftedIconX >> 16),
+					                             (((int)MM_BATTLE_TRANSITIONS[BATTLE_ROW_TEAM_META_INDEX].currY) + ((int)afterLengthY)) +
+					                                 BATTLE_TEAM_PLAYER_ICON_Y_OFFSET,
+					                             &GAME_TRACKER->backBuffer->primMem, GAME_TRACKER->pushBuffer_UI.ptrOT, 1, BATTLE_ICON_SCALE);
+				}
 			}
+
+			teamColorRect.w = teamSegmentWidth;
+			teamColorRect.h = BATTLE_TEAM_COLOR_H;
+			teamColorRect.x = MM_BATTLE_TRANSITIONS[BATTLE_ROW_TEAM_META_INDEX].currX + ((s16)teamPanelX);
+			teamColorRect.y = (MM_BATTLE_TRANSITIONS[BATTLE_ROW_TEAM_META_INDEX].currY + afterLengthY) + BATTLE_TEAM_COLOR_Y_OFFSET;
+			teamPanelX = teamPanelX + ((u32)teamSegmentWidth);
+			MM_DRAW_SOLID_BOX_WITH_PRIM_MEM(&teamColorRect, (const Color *)MM_COLOR_POINTERS[PLAYER_BLUE + teamIndex], GAME_TRACKER->backBuffer->otMem.uiOT,
+			                                &GAME_TRACKER->backBuffer->primMem);
 		}
 
-		local_48.h = 0x1a;
-		local_48.x = tmbattle[4].currX + (s16)iVar8 + 0;
-		local_48.y = tmbattle[4].currY + sVar20 + 5;
-		iVar8 = iVar8 + (u32)uVar4;
-
-		local_48.w = uVar4;
-
-		Color color;
-		color.self = *data.ptrColor[PLAYER_BLUE + i];
-		CTR_Box_DrawSolidBox(&local_48, color, ot);
-	}
-
-	if (sdata->battleSetupRowHighlighted == 2)
-	{
-		local_50.w = 0x134;
-		local_50.h = 0x1e;
-		local_50.x = tmbattle[4].currX + 0x9c + 0;
-		local_50.y = tmbattle[4].currY + sVar20 + 3;
-
-		CTR_Box_DrawClearBox(&local_50, &sdata->menuRowHighlight_Normal, TRANS_50_DECAL, (uint32_t *)ot);
-	}
-
-	local_40.w = 0x140;
-	local_40.h = 0x24;
-	local_40.x = tmbattle[4].currX + 0x96 + 0;
-	local_40.y = tmbattle[4].currY + sVar20;
-
-	// Draw 2D Menu rectangle background
-	RECTMENU_DrawInnerRect(&local_40, 0, ot);
-
-	DecalFont_DrawLine(sdata->lngStrings[LNG_WEAPONS], tmbattle[7].currX + 0x8c + 0, tmbattle[7].currY + sVar20 + 0x44, 1, 0x4000);
-
-	// make flashing color for error message
-
-	// set default color
-	sVar6 = -0x7fff;
-
-	// if time on timer is odd
-	if ((FPS_HALF(sdata->frameCounter) & 1) != 0)
-	{
-		// change color
-		sVar6 = -0x7ffd;
-	}
-
-	i = 0;
-
-	// If you have no weapons selected, which are in flags "0xcde"
-	if ((gGT->battleSetup.enabledWeapons & 0xcde) == 0)
-	{
-		// THERE MUST BE
-		j = 0xac;
-
-		// AT LEAST ONE WEAPON
-		i = 0xad;
-	}
-
-	// if you have at least one weapon selected
-	else
-	{
-		// No error so far
-		j = 0;
-
-		// If number of teams is less than 2
-		if (gGT->battleSetup.numTeams < 2)
+		if (MM_BATTLE_ROW_HIGHLIGHTED == BATTLE_ROW_TEAMS)
 		{
-			// THERE MUST BE
-			j = 0xaa;
-
-			// TWO OR MORE TEAMS
-			i = 0xab;
+			teamHighlightRect.w = BATTLE_TEAM_HIGHLIGHT_W;
+			teamHighlightRect.h = BATTLE_TEAM_HIGHLIGHT_H;
+			teamHighlightRect.x = MM_BATTLE_TRANSITIONS[BATTLE_ROW_TEAM_META_INDEX].currX + BATTLE_MENU_X_OFFSET;
+			teamHighlightRect.y = (MM_BATTLE_TRANSITIONS[BATTLE_ROW_TEAM_META_INDEX].currY + afterLengthY) + BATTLE_TEAM_HIGHLIGHT_Y_OFFSET;
+			MM_DRAW_CLEAR_BOX(&teamHighlightRect, &GAME_MENU_HIGHLIGHT, TRANS_50_DECAL, GAME_TRACKER->backBuffer->otMem.uiOT,
+			                  &GAME_TRACKER->backBuffer->primMem);
 		}
+		menuPanelRect.w = BATTLE_TEAM_PANEL_W;
+		menuPanelRect.h = BATTLE_TEAM_PANEL_H;
+		menuPanelRect.x = MM_BATTLE_TRANSITIONS[BATTLE_ROW_TEAM_META_INDEX].currX + BATTLE_TEAM_PANEL_X_OFFSET;
+		menuPanelRect.y = MM_BATTLE_TRANSITIONS[BATTLE_ROW_TEAM_META_INDEX].currY + afterLengthY;
+		teamIndex = afterLengthY + BATTLE_WEAPON_PANEL_Y_OFFSET;
+#ifndef CTR_NATIVE
+		asm("" : "+r"(afterLengthY) : "m"(menuPanelRect.y));
+#endif
+		weaponPanelY = teamIndex;
+		afterLengthY = weaponPanelY;
+		afterLengthY += 0x4a;
+		RECTMENU_DrawInnerRect(&menuPanelRect, 0, GAME_TRACKER->backBuffer->otMem.uiOT);
 	}
 
-	// If you have no errors that prevent
-	// the player from starting the Battle
-	if (j == 0)
-	{
-		D230.menuBattleStartGame.state &= ~(0x100 | SHOW_ONLY_HIGHLIT_ROW);
-
-		if (sdata->battleSetupExpandMenu != 5)
 		{
-			D230.menuBattleStartGame.state |= SHOW_ONLY_HIGHLIT_ROW;
+			s16 flashingErrorColor;
+			register s32 errorLine1 CTR_PSX_REGISTER("$3");
+			s32 errorLine2;
+			s32 weaponPanelOffset;
+			s32 errorState;
+			register struct GameTracker *battleTracker CTR_PSX_REGISTER("$4");
+			register s32 weaponIndex CTR_PSX_REGISTER("$19");
+			DecalFont_DrawLine(GAME_LANGUAGE_STRINGS[LNG_WEAPONS], MM_BATTLE_TRANSITIONS[BATTLE_ROW_WEAPON_LABEL_META_INDEX].currX + BATTLE_LABEL_X_OFFSET,
+			                   (MM_BATTLE_TRANSITIONS[BATTLE_ROW_WEAPON_LABEL_META_INDEX].currY + weaponPanelY) + 0x1a, FONT_BIG, BATTLE_LABEL_TEXT_FLAGS);
+			flashingErrorColor = BATTLE_ERROR_COLOR_A;
+			if ((FPS_HALF(MM_FRAME_COUNTER) & BATTLE_ERROR_COLOR_FRAME_BIT) != 0)
+			{
+				flashingErrorColor = BATTLE_ERROR_COLOR_B;
+			}
+			errorLine1 = 0;
+			errorLine2 = 0;
+			battleTracker = GAME_TRACKER;
+			if ((battleTracker->battleSetup.enabledWeapons & BATTLE_REQUIRED_WEAPON_FLAGS) == 0)
+			{
+				errorLine1 = LNG_WEAPONS_ERROR_LINE1;
+				errorLine2 = LNG_AT_LEAST_ONE_WEAPON;
+			}
+			else if (battleTracker->battleSetup.numTeams < 2)
+			{
+				errorLine1 = LNG_TEAMS_ERROR_LINE1;
+				errorLine2 = LNG_TWO_OR_MORE_TEAMS;
+			}
+			errorState = errorLine1;
+			if (errorState != 0)
+			{
+				DecalFont_DrawLine(GAME_LANGUAGE_STRINGS[errorState], BATTLE_ERROR_TEXT_X, afterLengthY - 0xa, FONT_BIG, (int)flashingErrorColor);
+				DecalFont_DrawLine(GAME_LANGUAGE_STRINGS[errorLine2], BATTLE_ERROR_TEXT_X, afterLengthY + 6, FONT_BIG, (int)flashingErrorColor);
+			}
+			else
+			{
+				MM_MENU_BATTLE_START_GAME.state &= ~(HIDE_ROW_HIGHLIGHT | SHOW_ONLY_HIGHLIT_ROW);
+				if (MM_BATTLE_EXPAND_MENU != BATTLE_ROW_START)
+				{
+					MM_MENU_BATTLE_START_GAME.state |= SHOW_ONLY_HIGHLIT_ROW;
+				}
+				if (MM_BATTLE_ROW_HIGHLIGHTED != BATTLE_ROW_START)
+				{
+					MM_MENU_BATTLE_START_GAME.state |= HIDE_ROW_HIGHLIGHT;
+				}
+				RECTMENU_DrawSelf(&MM_MENU_BATTLE_START_GAME, (s16)(((u16)MM_BATTLE_TRANSITIONS[BATTLE_ROW_START_META_INDEX].currX) + BATTLE_MENU_X_OFFSET),
+				                  (MM_BATTLE_TRANSITIONS[BATTLE_ROW_START_META_INDEX].currY + afterLengthY) + 4, BATTLE_WIDE_MENU_WIDTH);
+				menuHeight = BATTLE_MENU_DEFAULT_HEIGHT;
+				RECTMENU_GetHeight(&MM_MENU_BATTLE_START_GAME, &menuHeight, 0);
+			}
+			weaponIndex = 0;
+			{
+				register u32 weaponTrackerPage CTR_PSX_REGISTER("$21");
+				weaponTrackerPage = MM_GAME_TRACKER_PAGE_VALUE;
+				menuPanelRect.w = BATTLE_WEAPON_PANEL_W;
+				menuPanelRect.h = BATTLE_WEAPON_PANEL_H;
+				menuPanelRect.x = MM_BATTLE_TRANSITIONS[BATTLE_ROW_WEAPON_PANEL_META_INDEX].currX + BATTLE_WEAPON_PANEL_X_OFFSET;
+				weaponPanelOffset = 0x4a;
+				menuPanelRect.y = MM_BATTLE_TRANSITIONS[BATTLE_ROW_WEAPON_PANEL_META_INDEX].currY + (afterLengthY - weaponPanelOffset);
+				// Draw both rows of weapon toggles.
+				for (;;)
+				{
+					const Color *weaponColor;
+					u32 enabledWeapons;
+					u32 weaponFlag;
+					u32 weaponTextColor;
+					register s32 weaponGridY CTR_PSX_REGISTER("$4");
+					s32 weaponGridX;
+					s16 weaponPosX;
+					s16 weaponPosY;
+					s16 weaponRow;
+					const struct BattleWeaponMenuItem *weaponItem;
+					weaponRow = ((s16)weaponIndex) / BATTLE_WEAPONS_PER_ROW;
+					weaponGridX = ((((s16)weaponIndex) % BATTLE_WEAPONS_PER_ROW) * BATTLE_WEAPON_GRID_X_STEP) + (weaponRow * BATTLE_WEAPON_GRID_ROW_STAGGER_X);
+					weaponItem = &MM_BATTLE_WEAPON_ITEMS[(s16)weaponIndex];
+					weaponColor = &MM_BATTLE_WEAPON_ENABLED_COLOR;
+					weaponTextColor = BATTLE_WEAPON_ENABLED_TEXT_COLOR;
+					weaponFlag = weaponItem->enabledWeaponFlag;
+					enabledWeapons =
+					    CTR_PSX_PAGE_LVALUE(struct GameTracker *, weaponTrackerPage, MM_GAME_TRACKER_PAGE_OFFSET, GAME_TRACKER)->battleSetup.enabledWeapons;
+					CTR_PSX_KEEP_VALUE(enabledWeapons);
+					weaponGridY = weaponRow * BATTLE_WEAPON_GRID_Y_STEP;
+					if ((enabledWeapons & weaponFlag) == 0)
+					{
+						weaponColor = &MM_BATTLE_WEAPON_DISABLED_COLOR;
+						weaponTextColor = BATTLE_WEAPON_DISABLED_TEXT_COLOR;
+					}
+					weaponPosX = ((u32)menuPanelRect.x) + (weaponGridX + BATTLE_WEAPON_GRID_X_OFFSET);
+					weaponPosY = ((u32)menuPanelRect.y) + (weaponGridY + BATTLE_WEAPON_GRID_Y_OFFSET);
+					CTR_PSX_OBSERVE_VALUE(weaponGridY);
+					if (((weaponIndex - 7U) & 0xffffU) < 2U)
+					{
+						DecalFont_DrawLine(&R230.s_3[0], weaponPosX, weaponPosY, 2, weaponTextColor);
+					}
+					MM_Battle_DrawIcon_Weapon(
+					    CTR_PSX_PAGE_LVALUE(struct GameTracker *, weaponTrackerPage, MM_GAME_TRACKER_PAGE_OFFSET, GAME_TRACKER)->ptrIcons[weaponItem->iconID],
+					    weaponPosX, weaponPosY,
+					    &CTR_PSX_PAGE_LVALUE(struct GameTracker *, weaponTrackerPage, MM_GAME_TRACKER_PAGE_OFFSET, GAME_TRACKER)->backBuffer->primMem,
+					    (u32 *)CTR_PSX_PAGE_LVALUE(struct GameTracker *, weaponTrackerPage, MM_GAME_TRACKER_PAGE_OFFSET, GAME_TRACKER)->pushBuffer_UI.ptrOT, 1,
+					    BATTLE_ICON_SCALE, BATTLE_WEAPON_ICON_ROTATE_RIGHT, (const u32 *)weaponColor);
+					{
+						register s32 nextWeaponIndex CTR_PSX_REGISTER("$2");
+						nextWeaponIndex = weaponIndex + 1;
+						CTR_PSX_KEEP_VALUE(nextWeaponIndex);
+						weaponIndex = nextWeaponIndex;
+						CTR_PSX_KEEP_VALUE(nextWeaponIndex);
+						if (((s16)nextWeaponIndex) >= BATTLE_WEAPON_ITEM_COUNT)
+						{
+							break;
+						}
+					}
+				}
+			}
+			{
+				u16 highlightedRow = MM_BATTLE_ROW_HIGHLIGHTED_UNSIGNED;
+				if ((((u32)highlightedRow) - BATTLE_ROW_WEAPON_TOP) < BATTLE_WEAPON_ROW_COUNT)
+				{
+					s32 highlightedWeaponX;
+					s32 signedHighlightedRow;
+					register s32 weaponHighlightRectX CTR_PSX_REGISTER("$5");
+					signedHighlightedRow = (s16)highlightedRow;
+					highlightedWeaponX = menuPanelRect.x + (MM_BATTLE_WEAPON_HIGHLIGHTED * BATTLE_WEAPON_GRID_X_STEP);
+					weaponHighlightRectX = highlightedWeaponX + BATTLE_WEAPON_HIGHLIGHT_LEFT_X_OFFSET;
+					if (signedHighlightedRow == BATTLE_ROW_WEAPON_BOTTOM)
+					{
+						weaponHighlightRectX = highlightedWeaponX + BATTLE_WEAPON_HIGHLIGHT_RIGHT_X_OFFSET;
+					}
+					teamWidthScratch.weaponHighlightRect.w = BATTLE_WEAPON_HIGHLIGHT_W;
+					teamWidthScratch.weaponHighlightRect.h = BATTLE_WEAPON_HIGHLIGHT_H;
+					teamWidthScratch.weaponHighlightRect.x = weaponHighlightRectX;
+					teamWidthScratch.weaponHighlightRect.y =
+					    (menuPanelRect.y + ((signedHighlightedRow - BATTLE_ROW_WEAPON_TOP) * BATTLE_WEAPON_GRID_Y_STEP)) + BATTLE_WEAPON_HIGHLIGHT_Y_OFFSET;
+					MM_DRAW_CLEAR_BOX(&teamWidthScratch.weaponHighlightRect, &GAME_MENU_HIGHLIGHT, TRANS_50_DECAL, GAME_TRACKER->backBuffer->otMem.uiOT,
+					                  &GAME_TRACKER->backBuffer->primMem);
+				}
+			}
+			teamCountScratch.weaponPanelInsetRect.x = menuPanelRect.x + BATTLE_WEAPON_PANEL_INSET_X;
+			teamCountScratch.weaponPanelInsetRect.y = menuPanelRect.y + BATTLE_WEAPON_PANEL_INSET_Y;
+			teamCountScratch.weaponPanelInsetRect.w = menuPanelRect.w - BATTLE_WEAPON_PANEL_INSET_W_SHRINK;
+			teamCountScratch.weaponPanelInsetRect.h = menuPanelRect.h - BATTLE_WEAPON_PANEL_INSET_H_SHRINK;
+			MM_DRAW_CLEAR_BOX(&teamCountScratch.weaponPanelInsetRect, &MM_BATTLE_WEAPON_PANEL_COLOR, TRANS_50_DECAL, GAME_TRACKER->backBuffer->otMem.uiOT,
+			                  &GAME_TRACKER->backBuffer->primMem);
+			RECTMENU_DrawInnerRect(&menuPanelRect, 0, GAME_TRACKER->backBuffer->otMem.uiOT);
 		}
-		if (sdata->battleSetupRowHighlighted != 5)
-		{
-			D230.menuBattleStartGame.state |= 0x100;
-		}
-		RECTMENU_DrawSelf(&D230.menuBattleStartGame, tmbattle[8].currX + 0x9c + 0, tmbattle[8].currY + sVar20 + 0x78, 0x134);
-
-		local_38 = 0xd;
-		RECTMENU_GetHeight(&D230.menuBattleStartGame, &local_38, 0);
 	}
-
-	// If you have no errors that prevent
-	// the player from starting the Battle
-	else
+	// Preserve the selected rows for the next frame.
+	for (settingIndex = 0; settingIndex < BATTLE_SETTINGS_COUNT; settingIndex++)
 	{
-		// Print two lines of error text,
-		// one on top of the other, centered text,
-		// 0x100 for halfway on the X-axis,
-		// flashing sVar6 color
-
-		DecalFont_DrawLine(sdata->lngStrings[j], 0x100, sVar20 + 0x6a, 1, (int)sVar6);
-		DecalFont_DrawLine(sdata->lngStrings[i], 0x100, sVar20 + 0x7a, 1, (int)sVar6);
-	}
-	i = 0;
-	local_40.w = 0x140;
-	local_40.h = 0x44;
-	local_40.x = tmbattle[6].currX + 0x96 + 0;
-	local_40.y = tmbattle[6].currY + sVar20 + 0x2a;
-
-	// Loop through all 11 weapon icons
-	for (i = 0; i < 11; i++)
-	{
-		iVar8 = (int)(s16)i;
-		j = (iVar8 / 6);
-
-		color = (u32)&D230.color1;
-		uVar17 = 4;
-
-		// Check if this weapon is not enabled
-		if ((gGT->battleSetup.enabledWeapons & D230.battleWeaponsEnabled[iVar8 * 2]) == 0)
-		{
-			color = (u32)&D230.color2;
-			uVar17 = 0x15;
-		}
-
-		// iVar4 % 6
-		// Go to 2nd row after 6th icon
-		iVar13 = (u32)local_40.x + 6 + (iVar8 % 6) * 0x34 + j * 0x1a;
-
-		j = (u32)local_40.y + 2 + j * 0x20;
-
-		// If the icon is bowling bomb or missile on the 2nd row
-		if (((i - 7U) & 0xffff) < 2)
-		{
-			// draw the "3" over the icons
-			DecalFont_DrawLine(&R230.s_3[0], iVar13, j, 2, uVar17);
-		}
-
-		MM_Battle_DrawIcon_Weapon(gGT->ptrIcons[D230.battleWeaponsEnabled[iVar8 * 2 + 1]], iVar13, j, &gGT->backBuffer->primMem,
-		                          (u32 *)gGT->pushBuffer_UI.ptrOT, 1, 0x1000, 1, (u32 *)color);
+		MM_BATTLE_SETTINGS[settingIndex] = MM_BATTLE_MENU_ARRAY[settingIndex]->rowSelected;
 	}
 
-	if ((u32)sdata->battleSetupRowHighlighted - 3 < 2)
-	{
-		sVar6 = local_40.x + sdata->battleSetupWeaponHighlighted * 0x34;
-		local_60.x = sVar6 + 4;
-		if (sdata->battleSetupRowHighlighted == 4)
-		{
-			local_60.x = sVar6 + 0x1e;
-		}
-		local_60.w = 0x34;
-		local_60.h = 0x20;
-		local_60.y = local_40.y + (sdata->battleSetupRowHighlighted - 3) * 0x20 + 2;
-
-		CTR_Box_DrawClearBox(&local_60, &sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot);
-	}
-
-	local_58.x = local_40.x + 3;
-	local_58.y = local_40.y + 2;
-	local_58.w = local_40.w - 6;
-	local_58.h = local_40.h - 4;
-
-	Color boxColor = {.self = D230.color3};
-	CTR_Box_DrawClearBox(&local_58, &boxColor, TRANS_50_DECAL, ot);
-
-	RECTMENU_DrawInnerRect(&local_40, 0, ot);
-
-	// save all five battle settings
-	// these are selected rows from all battle options
-	for (i = 0; i < 5; i++)
-	{
-		sdata->battleSettings[i] = D230.battleMenuArray[i]->rowSelected;
-	}
 	return;
 }

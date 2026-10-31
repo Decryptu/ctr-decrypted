@@ -1,6 +1,41 @@
 #include <common.h>
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800af9f8-0x800afa60.
+enum AHDoorConstants
+{
+	AH_DOOR_ACCESS_FLAG = 2,
+	AH_DOOR_INTERACTION_FORWARD_OFFSET = 0x300,
+	AH_DOOR_NEAR_DIST_SQ = 0x90000,
+	AH_DOOR_NEAR_DIST_MAX_SQ = AH_DOOR_NEAR_DIST_SQ - 1,
+	AH_DOOR_CAMERA_HOLD_FRAMES = CTR_SECONDS_TO_FRAMES(2),
+	AH_DOOR_KEY_SPIN_FRAMES = CTR_SECONDS_TO_FRAMES(4),
+	AH_DOOR_KEY_LIGHT_X = -0xc98,
+	AH_DOOR_KEY_LIGHT_Y = 0x99f,
+	AH_DOOR_KEY_LIGHT_Z = 0x232,
+	AH_DOOR_KEY_TARGET_SCALE = 0xa00,
+	AH_DOOR_KEY_SCALE_STEP = 0x40,
+	AH_DOOR_KEY_ROT_STEP = 0x40,
+	AH_DOOR_KEY_RAISE_HEIGHT = 0xa0,
+	AH_DOOR_KEY_RAISE_STEP = 4,
+	AH_DOOR_KEY_ORBIT_STEP = 0x10,
+	AH_DOOR_KEY_SHRINK_FRAME_COUNT = 0xb,
+	AH_DOOR_KEY_FLOAT_RADIUS_SHIFT = 5,
+	AH_DOOR_KEY_FLOAT_SFX_FRAME_0 = 0x0a,
+	AH_DOOR_KEY_FLOAT_SFX_FRAME_1 = 0x0f,
+	AH_DOOR_KEY_FLOAT_SFX_FRAME_2 = 0x14,
+	AH_DOOR_KEY_FLOAT_SFX_FRAME_3 = 0x19,
+	AH_DOOR_KEY_FLOAT_SFX_ID = 0x67,
+	AH_DOOR_UNLOCK_SFX_FRAME = 0x50,
+	AH_DOOR_UNLOCK_SFX_ID = 0x93,
+	AH_DOOR_CREAK_SFX_ID = 0x94,
+	AH_DOOR_OPEN_ROTATION = 0x400,
+	AH_DOOR_OPEN_ROTATION_STEP = 0x10,
+	AH_DOOR_PAIR_OFFSET = 0x600,
+	AH_DOOR_CAMERA_FORWARD_OFFSET = 0x312,
+	AH_DOOR_CAMERA_SIDE_OFFSET = 0x600,
+	AH_DOOR_CAMERA_HEIGHT_OFFSET = 0x17a,
+	AH_DOOR_CAMERA_PITCH_OFFSET = 0x800,
+};
+
 void AH_Door_ThDestroy(struct Thread *t)
 {
 	int i;
@@ -12,45 +47,12 @@ void AH_Door_ThDestroy(struct Thread *t)
 		woodDoor->otherDoor = NULL;
 	}
 
-	for (i = 0; i < 4; i++)
+	for (i = 0; i < AH_WOOD_DOOR_KEY_COUNT; i++)
 	{
 		INSTANCE_Death(woodDoor->keyInst[i]);
 		woodDoor->keyInst[i] = NULL;
 	}
 	return;
-}
-
-static char AH_Door_IsOpenByRewards(s16 levelID, s16 doorID)
-{
-#ifdef CTR_AP
-	if (AP_DoorHistoryEnabled()) return AP_DoorHistoryOpen(levelID, doorID);
-#endif
-	if ((levelID == N_SANITY_BEACH) && (doorID == 4))
-	{
-		return (sdata->advProgress.storyFlags & ADV_REWARD_DOOR_BEACH_TO_GLACIER_PARK_MASK) != 0;
-	}
-
-	if ((levelID == N_SANITY_BEACH) && (doorID == 5))
-	{
-		return (sdata->advProgress.storyFlags & ADV_REWARD_DOOR_BEACH_TO_GEMSTONE_VALLEY_MASK) != 0;
-	}
-
-	if (levelID == GEM_STONE_VALLEY)
-	{
-		return (sdata->advProgress.storyFlags & ADV_REWARD_DOOR_GEMSTONE_VALLEY_TO_CUPS_MASK) != 0;
-	}
-
-	if (levelID == THE_LOST_RUINS)
-	{
-		return (sdata->advProgress.storyFlags & ADV_REWARD_DOOR_LOST_RUINS_TO_GLACIER_PARK_MASK) != 0;
-	}
-
-	if (levelID == GLACIER_PARK)
-	{
-		return (sdata->advProgress.storyFlags & ADV_REWARD_DOOR_GLACIER_PARK_TO_CITADEL_CITY_MASK) != 0;
-	}
-
-	return false;
 }
 
 #ifdef CTR_AP
@@ -61,18 +63,18 @@ static void AH_Door_ApplyHistoryPose(struct Instance *inst, struct WoodDoor *doo
 	if (!AP_DoorHistoryEnabled()) return;
 	if (door->otherDoor == NULL || (door->camFlags & WdCam_CutscenePlaying) != 0)
 		return;
-	AP_DoorHistoryReconcile(sdata->gGT->levelID, door->doorID);
-	if (AP_DoorHistoryOpen(sdata->gGT->levelID, door->doorID))
+	AP_DoorHistoryReconcile(GAME_TRACKER->levelID, door->doorID);
+	if (AP_DoorHistoryOpen(GAME_TRACKER->levelID, door->doorID))
 	{
-		if (door->doorRot.y == 0x400) return;
-		door->doorRot.y = 0x400;
+		if (door->doorRot.y == AH_DOOR_OPEN_ROTATION) return;
+		door->doorRot.y = AH_DOOR_OPEN_ROTATION;
 		rot.x = door->doorRot.x; rot.z = door->doorRot.z;
-		rot.y = inst->instDef->rot.y + 0x400;
+		rot.y = inst->instDef->rot.y + AH_DOOR_OPEN_ROTATION;
 		ConvertRotToMatrix(&inst->matrix, &rot);
-		rot.y = inst->instDef->rot.y - 0x400;
+		rot.y = inst->instDef->rot.y - AH_DOOR_OPEN_ROTATION;
 		ConvertRotToMatrix(&door->otherDoor->matrix, &rot);
 	}
-	else if (door->doorRot.y == 0x400)
+	else if (door->doorRot.y == AH_DOOR_OPEN_ROTATION)
 	{
 		/* Inventory reset or a different room cannot retain an open pose. */
 		door->doorRot.y = 0;
@@ -84,231 +86,122 @@ static void AH_Door_ApplyHistoryPose(struct Instance *inst, struct WoodDoor *doo
 }
 #endif
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 overlay 232 0x800afa60-0x800b072c.
 void AH_Door_ThTick(struct Thread *t)
 {
-	char doorIsOpen;
-	s16 doorID;
-	s16 lev;
+	b32 doorIsOpen;
+	s16 requiredCount;
 	s16 numKeys;
 	u16 hintId;
-	u32 chkRewards;
-	int i;
-	int ratio;
-	int distX;
-	int distZ;
-	int dist;
-	int iVar17;
-	int iVar18;
+	s32 i;
+	s32 ratio;
+	s32 distX;
+	s32 distY;
+	s32 distZ;
+	s32 dist;
+	s32 levelID;
+	s32 beachLevel;
 	SVec3 desiredPos;
 	SVec3 desiredRot;
-	SVec3 keyLightDir;
-	s16 *scaler;
 
-	struct GameTracker *gGT = sdata->gGT;
+	struct GameTracker *gGT;
+	struct GameTracker *initialTracker = GAME_TRACKER;
+	struct CameraDC *cDC = initialTracker->cameraDC;
+	register struct Instance *doorInst CTR_PSX_REGISTER("$21") = t->inst;
+	struct Driver *driver = initialTracker->drivers[0];
 	struct WoodDoor *door = t->object;
-	struct Instance *doorInst = t->inst;
-	struct Instance *keyInst;
-	struct Driver *driver = gGT->drivers[0];
-	struct Instance *driverInst;
-	struct CameraDC *cDC = gGT->cameraDC;
-
-	doorID = door->doorID;
-
-	// Assume door is closed
+	// Each route has its own reward bit, including the two beach doors.
 	doorIsOpen = false;
-
-	lev = gGT->levelID;
 
 #ifdef CTR_AP
 	AH_Door_ApplyHistoryPose(doorInst, door);
+	if (AP_DoorHistoryEnabled())
+		doorIsOpen = AP_DoorHistoryOpen(GAME_TRACKER->levelID, door->doorID);
+	else
 #endif
-
-	// NOTE(aalhendi): Retail derives open state from adventure rewards here.
-	doorIsOpen = AH_Door_IsOpenByRewards(lev, doorID);
-
-	// Cosine(angle)
+	if (GAME_TRACKER->levelID == N_SANITY_BEACH && door->doorID == AH_DOOR_BEACH_TO_GLACIER_PARK &&
+	    (AH_STORY_REWARDS & ADV_REWARD_DOOR_BEACH_TO_GLACIER_PARK_MASK))
+		doorIsOpen = true;
+	else if (GAME_TRACKER->levelID == N_SANITY_BEACH && door->doorID == AH_DOOR_BEACH_TO_GEMSTONE_VALLEY &&
+	         (AH_STORY_REWARDS & ADV_REWARD_DOOR_BEACH_TO_GEMSTONE_VALLEY_MASK))
+		doorIsOpen = true;
+	else if (GAME_TRACKER->levelID == GEM_STONE_VALLEY && (AH_STORY_REWARDS & ADV_REWARD_DOOR_GEMSTONE_VALLEY_TO_CUPS_MASK))
+		doorIsOpen = true;
+	else if (GAME_TRACKER->levelID == THE_LOST_RUINS && (AH_STORY_REWARDS & ADV_REWARD_DOOR_LOST_RUINS_TO_GLACIER_PARK_MASK))
+		doorIsOpen = true;
+	else if (GAME_TRACKER->levelID == GLACIER_PARK && (AH_STORY_REWARDS & ADV_REWARD_DOOR_GLACIER_PARK_TO_CITADEL_CITY_MASK))
+		doorIsOpen = true;
+	// Test the point just in front of the doorway, using wrapping MIPS distance arithmetic.
 	ratio = MATH_Cos((int)doorInst->instDef->rot.y);
-
-	// X distance of player and door
-	distX = doorInst->matrix.t[0] + (ratio * 0x300 >> 0xc) - driver->instSelf->matrix.t[0];
-
-	// Sine(angle)
+	distX = CTR_MipsSubLo(CTR_MipsAddLo(doorInst->matrix.t[0], ratio * AH_DOOR_INTERACTION_FORWARD_OFFSET >> 0xc), driver->instSelf->matrix.t[0]);
+	distY = CTR_MipsSubLo(doorInst->matrix.t[1], driver->instSelf->matrix.t[1]);
 	ratio = MATH_Sin((int)doorInst->instDef->rot.y);
-
-	// Z distance of player and door
-	distZ = doorInst->matrix.t[2] + (ratio * 0x300 >> 0xc) - driver->instSelf->matrix.t[2];
-
-	// distance from player and door
-	dist = distX * distX + distZ * distZ;
-
-	// If player is close to a door
-	if (dist < 0x90000)
+	distZ = CTR_MipsSubLo(CTR_MipsAddLo(doorInst->matrix.t[2], ratio * AH_DOOR_INTERACTION_FORWARD_OFFSET >> 0xc), driver->instSelf->matrix.t[2]);
+	dist = (s32)((u32)CTR_MipsMulLo(distX, distX) + (u32)CTR_MipsMulLo(distY, distY) + (u32)CTR_MipsMulLo(distZ, distZ));
+	// Only the nearby door controls access through the collision boundary.
+	if (dist < AH_DOOR_NEAR_DIST_SQ)
 	{
-		// if door is open
-		if (doorIsOpen)
+		if ((s16)doorIsOpen)
 		{
-			// enable access through a door (disable collision)
-			sdata->doorAccessFlags |= 2;
+			GAME_DOOR_ACCESS_FLAGS |= AH_DOOR_ACCESS_FLAG;
 		}
-
-		// if door is locked
 		else
 		{
-			// remove access (enable collision)
-			sdata->doorAccessFlags &= 0xfffffffd;
+			GAME_DOOR_ACCESS_FLAGS &= ~AH_DOOR_ACCESS_FLAG;
 		}
 	}
 
-	// If this is N Sane Beach
-	if (lev == N_SANITY_BEACH)
-	{
-		// if this is beach -> gemstone,
-		// must have 1 key
-		numKeys = 1;
-
-		// If this is door from beach -> glacier
-		if (doorID == 4)
-		{
-			// must have 2 keys
-			numKeys = 2;
-		}
-	}
-	// If not N Sane Beach
+	if (GAME_TRACKER->levelID != N_SANITY_BEACH)
+		requiredCount = AH_HUB_REQUIRED_KEYS[GAME_TRACKER->levelID - GEM_STONE_VALLEY];
 	else
 	{
-		// get number of keys for whichever door is on the hub
-		numKeys = D232.arrKeysNeeded[(lev + -0x19)];
+		requiredCount = 1;
+		if (door->doorID == AH_DOOR_BEACH_TO_GLACIER_PARK)
+			requiredCount = 2;
 	}
-
-	// if in a state where you're seeing the boss key open an adv door,
-	// or some other kind of cutscene where you can't move
+	// A boss-key cutscene elsewhere owns the player until it finishes.
+	gGT = GAME_TRACKER;
 	if ((gGT->gameMode2 & 4) != 0)
 	{
 		return;
 	}
 
-	// If door is open
-	if (doorIsOpen)
-	{
-		// camera transition, watch door open
-		if ((cDC->flags & CAMERA_FLAG_TRANSITION_AWAY) != 0)
-		{
-			// quit, come back when camera transition ends
-			return;
-		}
+	if ((s16)doorIsOpen)
+		goto doorOpened;
 
-#ifdef CTR_AP
-		// AP (issue #51): release the first-key door freeze here.
-		//
-		// On the boss win that brings the player to exactly one Key,
-		// VehBirth_TeleportSelf teleports them to door 5 and sets VEH_FREEZE_DOOR
-		// (game/Vehicle/VehBirth.c:171-193). That flag kills driving input in
-		// VehPhysProc_Driving_PhysLinear (game/Vehicle/VehPhysProc.c:407) while
-		// the camera and the pause menu keep running. Retail's only runtime
-		// release is the "you opened a new area" greeting hint reaching state 7
-		// (game/232/AH_MaskHint.c:496-497), which the request below arms.
-		//
-		// AP never gets there: AP_PrelatchGreetingHint sets that hint's reward bit
-		// on connect (ap/ap_hooks.c:2681-2688, issue #17), so chkRewards below
-		// reads 1 and the request never fires; ap-config.txt skip_hints=1 makes
-		// MainFrame_RequestMaskHint early-return for the same net effect
-		// (game/MAIN/MainFrame.c:815-821). The freeze then survives until the next
-		// VehBirth_TeleportSelf clears it at :160, i.e. until a level reload.
-		//
-		// This sits at the point in the flow retail released at (door open, camera
-		// transition finished) and is a no-op unless the flag is actually stuck,
-		// so the driver re-init runs once rather than every frame.
-		//
-		// EXCEPT while the character picker owns the screen (#54/#209, #238). It
-		// holds this same flag AND writes this same INIT slot for as long as it is
-		// open (ap/ap_charfreeze.h), and this release cannot tell a stuck flag
-		// from a held one. Without the test below, standing in a hub whose door is
-		// open hands the kart back under an open picker and logs a release line
-		// every frame. The picker releases both halves itself on close, after
-		// which a genuinely stuck flag is released here on the next frame, exactly
-		// as before.
-		if (((gGT->gameMode2 & VEH_FREEZE_DOOR) != 0) && (AP_CharSwap_PickerOpen() == 0))
-		{
-			gGT->gameMode2 &= ~VEH_FREEZE_DOOR;
-			driver->funcPtrs[DRIVER_FUNC_INIT] = VehPhysProc_Driving_Init;
-			AP_LogLine("[AP DOOR] released first-key door freeze (#51)\n");
-		}
-#endif
-
-		// check if hint is unlocked
-		chkRewards = CHECK_ADV_BIT(sdata->advProgress.rewards, ADV_REWARD_HINT_NEW_WORLD_GREETING);
-
-		// "Congrats on opening this new area..."
-		hintId = ADV_MASK_HINT_ID_NEW_WORLD_GREETING;
-
-	joined_r0x800b06ec:
-
-		// if hint is not unlocked
-		if (chkRewards == 0)
-		{
-			MainFrame_RequestMaskHint(hintId, 0);
-		}
-		return;
-	}
-
-	// == if door is closed ==
-
-	if (
-	    // if player is far from the door
-	    (0x8ffff < dist) &&
-	    // flags
-	    ((door->camFlags & WdCam_CutscenePlaying) == 0))
+	if ((AH_DOOR_NEAR_DIST_MAX_SQ < dist) && ((door->camFlags & WdCam_CutscenePlaying) == 0))
 	{
 		return;
 	}
 
-	// if player has less than that amount
+	// Queue each missing-key hint once; an open door has a separate greeting.
 #ifdef CTR_AP
 	// AP Option B: hub doors open on received Keys (numKeys 1..4 per hub).
-	if (AP_GateCount(AP_IDX_KEY) < numKeys)
+	if (AP_GateCount(AP_IDX_KEY) < requiredCount)
 #else
-	if (gGT->currAdvProfile.numKeys < numKeys)
+	if (gGT->currAdvProfile.numKeys < requiredCount)
 #endif
 	{
-		// if one key is required
-		if (numKeys == 1)
+		if (requiredCount == 1)
 		{
-			// check if hint is unlocked
-			chkRewards = CHECK_ADV_BIT(sdata->advProgress.rewards, ADV_REWARD_HINT_MUST_HAVE_ONE_BOSS_KEY);
-
-			// Aku Hint "You must have a boss key"
+			if (AH_STORY_REWARDS & ADV_REWARD_HINT_MUST_HAVE_ONE_BOSS_KEY_MASK)
+				return;
 			hintId = ADV_MASK_HINT_ID_MUST_HAVE_ONE_BOSS_KEY;
 		}
-
-		// not one...
 		else
 		{
-			// if not 2...
-			if (numKeys != 2)
-			{
-				// no hint for that
+			if (requiredCount != 2)
 				return;
-			}
-
-			// if 2 keys are needed to enter
-
-			// check if hint is unlocked
-			chkRewards = CHECK_ADV_BIT(sdata->advProgress.rewards, ADV_REWARD_HINT_MUST_HAVE_TWO_BOSS_KEYS);
-
-			// Aku Hint "You must have two boss keys"
+			if (GAME_ADV_PROGRESS.rewards[ADV_PROGRESS_WORD_HINT] & ADV_REWARD_HINT_MUST_HAVE_TWO_BOSS_KEYS_MASK)
+				return;
 			hintId = ADV_MASK_HINT_ID_MUST_HAVE_TWO_BOSS_KEYS;
 		}
-
-		// request hint and quit
-		goto joined_r0x800b06ec;
+		goto requestHint;
 	}
 
-	// == door is closed, ready to unlock ==
-
+	// The camera transition and the door animation advance together.
 	if ((door->camFlags & WdCam_FlyingOut) != 0)
 	{
-		door->camTimer_unused = FPS_DOUBLE(0x3c);
+		door->camTimer_unused = FPS_DOUBLE(AH_DOOR_CAMERA_HOLD_FRAMES);
 
 		if (((cDC->flags & CAMERA_FLAG_TRANSITION_AWAY) == 0) && ((door->camFlags & WdCam_FlyingIn) == 0))
 		{
@@ -325,241 +218,189 @@ void AH_Door_ThTick(struct Thread *t)
 		if (door->camTimer_unused != 0)
 		{
 			door->camTimer_unused--;
-			return;
+			goto checkOpening;
 		}
-
-		// If the game is paused
 		if ((gGT->gameMode1 & PAUSE_ALL) != 0)
 		{
-			return;
+			goto checkOpening;
 		}
-
-		// If you are here, game must not be paused
 
 		driver->funcPtrs[DRIVER_FUNC_INIT] = VehPhysProc_FreezeEndEvent_Init;
 
 		door->camFlags |= WdCam_CutscenePlaying;
-
-		// if timer is less than four full seconds
-		if (door->frameCount_doorOpenAnim < FPS_DOUBLE(0x78))
+		numKeys = requiredCount;
+		if (door->frameCount_doorOpenAnim < FPS_DOUBLE(AH_DOOR_KEY_SPIN_FRAMES))
 		{
 			if (driver->speedApprox < 0x80)
 			{
-				keyLightDir.x = -0xc98;
-				keyLightDir.y = 0x99f;
-				keyLightDir.z = 0x232;
-
-				// if keys are not spawned, create them
+				// This local vector is lighting input during the key animation, then a camera target.
+				desiredPos.x = AH_DOOR_KEY_LIGHT_X;
+				desiredPos.y = AH_DOOR_KEY_LIGHT_Y;
+				desiredPos.z = AH_DOOR_KEY_LIGHT_Z;
+				// Publish each key immediately; subsequent state comes from the current tracker.
 				if (door->keyInst[0] == NULL)
 				{
-					// if number of keys is more than zero
-					if (numKeys > 0)
 					{
-						// spawn instances for every key you have,
-						// this makes them spin in a circle before
-						// seeing the doors animate open
 						for (i = 0; i < numKeys; i++)
 						{
-							// name = "key"
-							keyInst = INSTANCE_Birth3D(gGT->modelPtr[STATIC_KEY], R232.s_key, t);
+							door->keyInst[i] = INSTANCE_Birth3D(GAME_TRACKER->modelPtr[STATIC_KEY], AH_KEY_NAME, t);
+							door->keyInst[i]->colorRGBA = INST_COLOR_KEY;
 
-							// Set Key Color
-							keyInst->colorRGBA = 0xdca6000;
-
-							keyInst->flags |= USE_SPECULAR_LIGHT;
+							door->keyInst[i]->flags |= USE_SPECULAR_LIGHT;
 							door->frameCount_unused++;
+							door->keyInst[i]->matrix = GAME_TRACKER->drivers[0]->instSelf->matrix;
+							door->keyInst[i]->scale.x = 0;
+							door->keyInst[i]->scale.y = 0;
+							door->keyInst[i]->scale.z = 0;
 
-							driverInst = driver->instSelf;
-							keyInst->matrix = driverInst->matrix;
-
-							// set scale to zero
-							keyInst->scale.x = 0;
-							keyInst->scale.y = 0;
-							keyInst->scale.z = 0;
-
-							door->keyInst[i] = keyInst;
+							// Retail refreshes translation after the full matrix copy and scale reset.
+							door->keyInst[i]->matrix.t[0] = GAME_TRACKER->drivers[0]->instSelf->matrix.t[0];
+							door->keyInst[i]->matrix.t[1] = GAME_TRACKER->drivers[0]->instSelf->matrix.t[1];
+							door->keyInst[i]->matrix.t[2] = GAME_TRACKER->drivers[0]->instSelf->matrix.t[2];
 						}
 					}
-
-					// Make a backup of HUD variable
-					door->hudFlags = (u8)gGT->hudFlags;
-
-					// Disable HUD
-					gGT->hudFlags = 0;
-
-					// For watching hub doors animate open
+					door->hudFlags = (u8)GAME_TRACKER->hudFlags;
+					GAME_TRACKER->hudFlags = 0;
 				}
-
-				// if more than zero
+				i = 0;
 				if (0 < numKeys)
 				{
-					// loop through all keys
-					for (i = 0; i < numKeys; i++)
+					s32 keyCount;
+					SVec3 *keyRotation;
+					do
 					{
-						keyInst = door->keyInst[i];
-						if (keyInst != NULL)
+						// NOTE(aalhendi): Retain the slot address, not a tracker snapshot, across trig/light calls.
+						struct GameTracker **trackerSlot = &GAME_TRACKER;
+						keyCount = numKeys;
+						keyRotation = &door->keyRot;
+						if (door->keyInst[i] != NULL)
 						{
-							// if scale < 0xa00
-							if (keyInst->scale.x < 0xa00)
+							if (door->keyInst[i]->scale.x < AH_DOOR_KEY_TARGET_SCALE)
 							{
-								// increase scale on X, Y, Z
-								keyInst->scale.x += FPS_HALF(0x40);
-								keyInst->scale.y += FPS_HALF(0x40);
-								keyInst->scale.z += FPS_HALF(0x40);
+								door->keyInst[i]->scale.x += FPS_HALF(AH_DOOR_KEY_SCALE_STEP);
+								door->keyInst[i]->scale.y += FPS_HALF(AH_DOOR_KEY_SCALE_STEP);
+								door->keyInst[i]->scale.z += FPS_HALF(AH_DOOR_KEY_SCALE_STEP);
+							}
+							if (door->keyInst[i]->matrix.t[1] < (CTR_MipsAddLo((*trackerSlot)->drivers[0]->instSelf->matrix.t[1], AH_DOOR_KEY_RAISE_HEIGHT)))
+							{
+								door->keyInst[i]->matrix.t[1] = CTR_MipsAddLo(door->keyInst[i]->matrix.t[1], FPS_HALF(AH_DOOR_KEY_RAISE_STEP));
 							}
 
-							// if key posY is less than (player posY + 0xa0)
-							if (keyInst->matrix.t[1] < (driver->instSelf->matrix.t[1] + 0xa0))
 							{
-								// increase key posY
-								keyInst->matrix.t[1] += FPS_HALF(4);
-							}
-
-							if (1 < numKeys)
-							{
-								iVar18 = i * (0x1000 / numKeys);
-								iVar17 = (int)keyInst->scale.x;
-
-								if (iVar17 < 0)
+								SVec3 *lightingRot;
+								lightingRot = keyRotation;
+								if (1 < keyCount)
 								{
-									iVar17 += 0x1f;
+									// NOTE(aalhendi): Keep the trig result live while loading scale, before reusing the argument registers.
+									register s32 orbitTrig CTR_PSX_REGISTER("$2");
+									register s32 orbitScale CTR_PSX_REGISTER("$4");
+									struct Instance *orbitKey;
+									struct Instance *orbitPlayer;
+									s32 savedTrig;
+									s32 keyOrbitOffset = i * (FP_ONE / keyCount);
+
+									orbitTrig = MATH_Sin(door->keyOrbit + keyOrbitOffset);
+									orbitPlayer = (*trackerSlot)->drivers[0]->instSelf;
+									orbitKey = door->keyInst[i];
+									orbitScale = orbitKey->scale.x;
+									CTR_PSX_ORDER_VALUES(orbitTrig, orbitScale);
+									savedTrig = orbitTrig;
+									orbitKey->matrix.t[0] = CTR_MipsAddLo(orbitPlayer->matrix.t[0], (orbitScale / 32) * savedTrig >> 12);
+									orbitTrig = MATH_Cos(door->keyOrbit + keyOrbitOffset);
+									orbitPlayer = (*trackerSlot)->drivers[0]->instSelf;
+									orbitKey = door->keyInst[i];
+									orbitScale = orbitKey->scale.x;
+									CTR_PSX_ORDER_VALUES(orbitTrig, orbitScale);
+									savedTrig = orbitTrig;
+									orbitKey->matrix.t[2] = CTR_MipsAddLo(orbitPlayer->matrix.t[2], (orbitScale / 32) * savedTrig >> 12);
+									// The rotation argument becomes live only after the final orbit coordinate.
+									CTR_PSX_OBSERVE_VALUE(savedTrig);
+
+									lightingRot = keyRotation;
 								}
 
-								ratio = MATH_Sin(door->keyOrbit + iVar18);
-
-								keyInst->matrix.t[0] = driver->instSelf->matrix.t[0] + ((iVar17 >> 5) * ratio >> 0xc);
-
-								ratio = MATH_Cos(door->keyOrbit + iVar18);
-
-								keyInst->matrix.t[2] = driver->instSelf->matrix.t[2] + ((iVar17 >> 5) * ratio >> 0xc);
+								Vector_SpecLightSpin3D(door->keyInst[i], lightingRot, &desiredPos);
 							}
-
-							Vector_SpecLightSpin3D(keyInst, &door->keyRot, &keyLightDir);
-
-							// convert 3 rotation shorts into rotation matrix
-							ConvertRotToMatrix(&keyInst->matrix, &door->keyRot);
+							ConvertRotToMatrix(&door->keyInst[i]->matrix, keyRotation);
 						}
-						door->keyInst[i] = keyInst;
-					}
+						i++;
+					} while (i < numKeys);
 				}
 
 				door->keyRot.x = 0;
-				door->keyRot.y += FPS_HALF(0x40);
+				door->keyRot.y += FPS_HALF(AH_DOOR_KEY_ROT_STEP);
 				door->keyRot.z = 0;
 
-				door->keyOrbit += FPS_HALF(0x10);
+				door->keyOrbit += FPS_HALF(AH_DOOR_KEY_ORBIT_STEP);
 
 				door->frameCount_doorOpenAnim++;
 
-				// Sound effects when keys float in air
-
-				if (door->frameCount_doorOpenAnim == FPS_DOUBLE(0x0A))
-				{
-					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b0208-0x800b0218 for first floating-key SFX.
-					OtherFX_Play_LowLevel(0x67, 1, 0xff7680);
-				}
-				else if (door->frameCount_doorOpenAnim == FPS_DOUBLE(0x0F))
-				{
-					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b022c-0x800b023c for second floating-key SFX.
-					OtherFX_Play_LowLevel(0x67, 1, 0xeb8080);
-				}
-				else if (door->frameCount_doorOpenAnim == FPS_DOUBLE(0x14))
-				{
-					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b0250-0x800b0260 for third floating-key SFX.
-					OtherFX_Play_LowLevel(0x67, 1, 0xd78a80);
-				}
-				else if (door->frameCount_doorOpenAnim == FPS_DOUBLE(0x19))
-				{
-					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b0274-0x800b0284 for fourth floating-key SFX.
-					OtherFX_Play_LowLevel(0x67, 1, 0xc39480);
-				}
-				else if (door->frameCount_doorOpenAnim == FPS_DOUBLE(0x50))
-				{
-					// unlock door sound
-					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b0298-0x800b02ac for door unlock SFX.
-					OtherFX_Play(0x93, 1);
-				}
-				else if (door->frameCount_doorOpenAnim == FPS_DOUBLE(0x78))
-				{
-					// on last frame, doors "creek" open
-					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b02a0-0x800b02ac for door creak SFX.
-					OtherFX_Play(0x94, 1);
-				}
+				// Four rising-key cues, followed by the unlock and door-creak cues.
+				if (door->frameCount_doorOpenAnim == FPS_DOUBLE(AH_DOOR_KEY_FLOAT_SFX_FRAME_0))
+					OtherFX_Play_LowLevel(AH_DOOR_KEY_FLOAT_SFX_ID, 1, 0xff7680);
+				else if (door->frameCount_doorOpenAnim == FPS_DOUBLE(AH_DOOR_KEY_FLOAT_SFX_FRAME_1))
+					OtherFX_Play_LowLevel(AH_DOOR_KEY_FLOAT_SFX_ID, 1, 0xeb8080);
+				else if (door->frameCount_doorOpenAnim == FPS_DOUBLE(AH_DOOR_KEY_FLOAT_SFX_FRAME_2))
+					OtherFX_Play_LowLevel(AH_DOOR_KEY_FLOAT_SFX_ID, 1, 0xd78a80);
+				else if (door->frameCount_doorOpenAnim == FPS_DOUBLE(AH_DOOR_KEY_FLOAT_SFX_FRAME_3))
+					OtherFX_Play_LowLevel(AH_DOOR_KEY_FLOAT_SFX_ID, 1, 0xc39480);
+				else if (door->frameCount_doorOpenAnim == FPS_DOUBLE(AH_DOOR_UNLOCK_SFX_FRAME))
+					OtherFX_Play(AH_DOOR_UNLOCK_SFX_ID, 1);
+				else if (door->frameCount_doorOpenAnim == FPS_DOUBLE(AH_DOOR_KEY_SPIN_FRAMES))
+					OtherFX_Play(AH_DOOR_CREAK_SFX_ID, 1);
 			}
-			return;
+			goto checkOpening;
 		}
-
-		// == After 4 seconds ==
 
 		ratio = MATH_Cos((int)doorInst->instDef->rot.y);
 
-		i = MATH_Cos((int)doorInst->instDef->rot.y + 0x400);
-
-		// desired posX for transition
-		desiredPos.x = doorInst->matrix.t[0] + (s16)(ratio * 0x312 >> 0xc) + (s16)(i * 0x600 >> 0xc);
-		// desired posY for transition
-		desiredPos.y = doorInst->matrix.t[1] + 0x17a;
+		i = MATH_Cos((int)doorInst->instDef->rot.y + AH_DOOR_OPEN_ROTATION);
+		desiredPos.x = doorInst->matrix.t[0] + (s16)(ratio * AH_DOOR_CAMERA_FORWARD_OFFSET >> 0xc) + (s16)(i * AH_DOOR_CAMERA_SIDE_OFFSET >> 0xc);
+		desiredPos.y = doorInst->matrix.t[1] + AH_DOOR_CAMERA_HEIGHT_OFFSET;
 
 		ratio = MATH_Sin((int)doorInst->instDef->rot.y);
 
-		i = MATH_Sin((int)doorInst->instDef->rot.y + 0x400);
-
-		// desired posZ for transition
-		desiredPos.z = doorInst->matrix.t[2] + (s16)(ratio * 0x312 >> 0xc) + (s16)(i * 0x600 >> 0xc);
-
-		// desired rotation for transition
-		desiredRot.x = doorInst->instDef->rot.x + 0x800;
+		i = MATH_Sin((int)doorInst->instDef->rot.y + AH_DOOR_OPEN_ROTATION);
+		desiredPos.z = doorInst->matrix.t[2] + (s16)(ratio * AH_DOOR_CAMERA_FORWARD_OFFSET >> 0xc) + (s16)(i * AH_DOOR_CAMERA_SIDE_OFFSET >> 0xc);
+		desiredRot.x = doorInst->instDef->rot.x + AH_DOOR_CAMERA_PITCH_OFFSET;
 		desiredRot.y = doorInst->instDef->rot.y;
 		desiredRot.z = doorInst->instDef->rot.z;
-
-		// set desired position and rotation for CamerDC transition
-		CAM_SetDesiredPosRot(&gGT->cameraDC[0], &desiredPos, &desiredRot);
+		// Begin opening on this same tick after setting the camera target.
+		CAM_SetDesiredPosRot(&GAME_TRACKER->cameraDC[0], &desiredPos, &desiredRot);
 
 		GAMEPAD_JogCon2(driver, 0, 0);
-
-		// start camera out transition (in "else" below)
 		door->camFlags |= WdCam_FlyingOut;
 
-		return;
+		goto checkOpening;
 	}
 
-	// == door is opening ==
+checkOpening:
+	if (!(door->camFlags & WdCam_FlyingOut))
+		return;
 
-	if (door->doorRot.y < 0x400)
+	// Both halves turn together; keys shrink for eleven frames before removal.
+	if (door->doorRot.y < AH_DOOR_OPEN_ROTATION)
 	{
-		door->doorRot.y += FPS_HALF(0x10);
-
-		// right-hand door rot[x,y,z]
-		desiredRot.x = door->doorRot.x;
-		desiredRot.y = doorInst->instDef->rot.y - door->doorRot.y;
-		desiredRot.z = door->doorRot.z;
-
-		// converted to TEST in rebuildPS1
-		ConvertRotToMatrix(&door->otherDoor->matrix, &desiredRot);
-
-		// left-hand door rot[x,y,z]
-		desiredRot.y = doorInst->instDef->rot.y + door->doorRot.y;
-
-		// converted to TEST in rebuildPS1
-		ConvertRotToMatrix(&doorInst->matrix, &desiredRot);
-
-		// if less than 11 frames have passed,
-		// decrease key scale, then quit function
-		if (door->keyShrinkFrame < FPS_DOUBLE(0xb))
+		SVec3 leftRot;
+		s16 shrinkScale[11] = {AH_DOOR_KEY_SHRINK_SCALES};
+		door->doorRot.y += FPS_HALF(AH_DOOR_OPEN_ROTATION_STEP);
+		desiredPos.x = door->doorRot.x;
+		desiredPos.y = doorInst->instDef->rot.y - door->doorRot.y;
+		desiredPos.z = door->doorRot.z;
+		leftRot.x = door->doorRot.x;
+		leftRot.y = doorInst->instDef->rot.y + door->doorRot.y;
+		leftRot.z = door->doorRot.z;
+		ConvertRotToMatrix(&doorInst->matrix, &leftRot);
+		ConvertRotToMatrix(&door->otherDoor->matrix, &desiredPos);
+		if (door->keyShrinkFrame < FPS_DOUBLE(AH_DOOR_KEY_SHRINK_FRAME_COUNT))
 		{
-			scaler = (s16 *)R232.keyFrame;
-
-			// loop through 4 keys
-			for (i = 0; i < 4; i++)
+			for (i = 0; i < AH_WOOD_DOOR_KEY_COUNT; i++)
 			{
-				keyInst = door->keyInst[i];
-				// if instance exists
-				if (keyInst != NULL)
+				if (door->keyInst[i] != NULL)
 				{
-					// decrease scale of key
-					keyInst->scale.x = scaler[FPS_HALF(door->keyShrinkFrame)];
-					keyInst->scale.y = scaler[FPS_HALF(door->keyShrinkFrame)];
-					keyInst->scale.z = scaler[FPS_HALF(door->keyShrinkFrame)];
+					door->keyInst[i]->scale.x = shrinkScale[FPS_HALF(door->keyShrinkFrame)];
+					door->keyInst[i]->scale.y = shrinkScale[FPS_HALF(door->keyShrinkFrame)];
+					door->keyInst[i]->scale.z = shrinkScale[FPS_HALF(door->keyShrinkFrame)];
 				}
 			}
 
@@ -567,9 +408,7 @@ void AH_Door_ThTick(struct Thread *t)
 
 			return;
 		}
-
-		// loop through 4 keys
-		for (i = 0; i < 4; i++)
+		for (i = 0; i < AH_WOOD_DOOR_KEY_COUNT; i++)
 		{
 			INSTANCE_Death(door->keyInst[i]);
 			door->keyInst[i] = NULL;
@@ -577,242 +416,195 @@ void AH_Door_ThTick(struct Thread *t)
 
 		return;
 	}
+	// Persist the newly opened route, then return camera, physics, and HUD control.
+	levelID = GAME_TRACKER->levelID;
+	beachLevel = N_SANITY_BEACH;
 
-	// == Door is fully open ==
-
-	if (
-	    // if this is N Sane Beach
-	    ((lev == N_SANITY_BEACH) &&
-
-	     // if this is door #4 (beach -> glacier)
-	     (doorID == 4)) ||
-
-	    // if this is lost ruins (ruins -> glacier)
-	    (lev == THE_LOST_RUINS))
+	if (((levelID == beachLevel) && (door->doorID == AH_DOOR_BEACH_TO_GLACIER_PARK)) || (levelID == THE_LOST_RUINS))
 	{
-		// open all doors to glacier
-		sdata->advProgress.storyFlags |= ADV_REWARD_DOORS_TO_GLACIER_PARK_MASK;
+		GAME_ADV_PROGRESS.rewards[ADV_PROGRESS_WORD_STORY] |= ADV_REWARD_DOORS_TO_GLACIER_PARK_MASK;
 	}
 
-	else if (
-	    // if this is N Sane Beach
-	    (lev == N_SANITY_BEACH) &&
-
-	    // Door #5 (beach -> ruins)
-	    (doorID == 5))
+	else if ((levelID == beachLevel) && (door->doorID == AH_DOOR_BEACH_TO_GEMSTONE_VALLEY))
 	{
-		// record that door is open
-		sdata->advProgress.storyFlags |= ADV_REWARD_DOOR_BEACH_TO_GEMSTONE_VALLEY_MASK;
+		GAME_ADV_PROGRESS.rewards[ADV_PROGRESS_WORD_STORY] |= ADV_REWARD_DOOR_BEACH_TO_GEMSTONE_VALLEY_MASK;
 	}
-
-	// Gemstone valley (cup door)
-	else if (lev == GEM_STONE_VALLEY)
+	else if (GAME_TRACKER->levelID == GEM_STONE_VALLEY)
 	{
-		// record that door is open
-		sdata->advProgress.storyFlags |= ADV_REWARD_DOOR_GEMSTONE_VALLEY_TO_CUPS_MASK;
+		GAME_ADV_PROGRESS.rewards[ADV_PROGRESS_WORD_STORY] |= ADV_REWARD_DOOR_GEMSTONE_VALLEY_TO_CUPS_MASK;
 	}
-
-	// Glacier Park (glacier -> citadel)
 	else
 	{
-		// record that door is open
-		sdata->advProgress.storyFlags |= ADV_REWARD_DOOR_GLACIER_PARK_TO_CITADEL_CITY_MASK;
+		GAME_ADV_PROGRESS.rewards[ADV_PROGRESS_WORD_STORY] |= ADV_REWARD_DOOR_GLACIER_PARK_TO_CITADEL_CITY_MASK;
 	}
 
 #ifdef CTR_AP
-	AP_DoorHistoryRecord(lev, doorID);
+	AP_DoorHistoryRecord(levelID, door->doorID);
 #endif
 	cDC->flags |= CAMERA_FLAG_TRANSITION_BACK;
 
 	driver->funcPtrs[DRIVER_FUNC_INIT] = VehPhysProc_Driving_Init;
-
-	// cutscene over
 	door->camFlags = (door->camFlags & ~WdCam_CutscenePlaying) | WdCam_FlyingIn;
-
-	// bring HUD back
-	gGT->hudFlags = (u8)door->hudFlags;
+	GAME_TRACKER->hudFlags = (u8)door->hudFlags;
+	return;
+doorOpened:
+	if (cDC->flags & CAMERA_FLAG_TRANSITION_AWAY)
+		return;
+#ifdef CTR_AP
+	// AP (issue #51): release the first-key door freeze here.
+	//
+	// On the boss win that brings the player to exactly one Key,
+	// VehBirth_TeleportSelf teleports them to door 5 and sets VEH_FREEZE_DOOR.
+	// That flag kills driving input in VehPhysProc_Driving_PhysLinear while
+	// the camera and the pause menu keep running. Retail's only runtime
+	// release is the "you opened a new area" greeting hint reaching state 7
+	// (AH_MaskHint.c), which the request below arms.
+	//
+	// AP never gets there: AP_PrelatchGreetingHint sets that hint's reward bit
+	// on connect (issue #17), so the check below returns before the request;
+	// ap-config.txt skip_hints=1 makes MainFrame_RequestMaskHint early-return
+	// for the same net effect. The freeze then survives until the next
+	// VehBirth_TeleportSelf clears it, i.e. until a level reload.
+	//
+	// This sits at the point in the flow retail released at (door open, camera
+	// transition finished) and is a no-op unless the flag is actually stuck,
+	// so the driver re-init runs once rather than every frame.
+	//
+	// EXCEPT while the character picker owns the screen (#54/#209, #238). It
+	// holds this same flag AND writes this same INIT slot for as long as it is
+	// open (ap/ap_charfreeze.h), and this release cannot tell a stuck flag
+	// from a held one. Without the test below, standing in a hub whose door is
+	// open hands the kart back under an open picker and logs a release line
+	// every frame. The picker releases both halves itself on close, after
+	// which a genuinely stuck flag is released here on the next frame, exactly
+	// as before.
+	if (((gGT->gameMode2 & VEH_FREEZE_DOOR) != 0) && (AP_CharSwap_PickerOpen() == 0))
+	{
+		gGT->gameMode2 &= ~VEH_FREEZE_DOOR;
+		driver->funcPtrs[DRIVER_FUNC_INIT] = VehPhysProc_Driving_Init;
+		AP_LogLine("[AP DOOR] released first-key door freeze (#51)\n");
+	}
+#endif
+	if (AH_STORY_REWARDS & ADV_REWARD_HINT_NEW_WORLD_GREETING_MASK)
+		return;
+	hintId = ADV_MASK_HINT_ID_NEW_WORLD_GREETING;
+requestHint:
+	MainFrame_RequestMaskHint(hintId, 0);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800b072c-0x800b0b98.
 void AH_Door_LInB(struct Instance *inst)
 {
-	char i;
-	int levelID;
-	int ratio;
-	SVec3 leftRot;
+	s32 levelID;
+	s32 ratio;
+	s32 key;
+	s16 digit;
+	b16 doorIsOpen = false;
 	SVec3 rightRot;
+	SVec3 leftRot;
+	struct Thread *t = inst->thread;
+	struct Model *model;
+	struct WoodDoor *door;
 
-	struct GameTracker *gGT;
-	struct Thread *t;
-	struct Instance *otherDoorInst;
-	struct Model *m;
-	struct ModelHeader *headers;
-	struct WoodDoor *woodDoor;
-	struct Instance **instPtrArr;
-
-	gGT = sdata->gGT;
-	levelID = gGT->levelID;
-
-	// If this Instance already has a thread
-	if (inst->thread != NULL)
-	{
+	if (t != NULL)
 		return;
-	}
 
-	t = PROC_BirthWithObject(SIZE_RELATIVE_POOL_BUCKET(sizeof(struct WoodDoor), NONE, SMALL, STATIC),
-	                         AH_Door_ThTick, // behavior
-	                         R232.s_door,    // debug name
-	                         0               // thread relative
-	);
-
-	inst->thread = t;
-
-	// if the thread failed to build
+	t = inst->thread = PROC_BirthWithObject(SIZE_RELATIVE_POOL_BUCKET(sizeof(struct WoodDoor), NONE, SMALL, STATIC), AH_Door_ThTick, AH_DOOR_NAME, 0);
 	if (t == NULL)
-	{
 		return;
-	}
 
-	woodDoor = t->object;
-
+	door = t->object;
 	t->inst = inst;
-
 	t->funcThDestroy = AH_Door_ThDestroy;
 
-	// this instance is always the left-hand door,
-	// and every left-hand door has one key hole
+	// The left-hand door comes from the level; its partner is created here.
 	inst->flags |= SPLIT_SPECIAL;
+	for (key = AH_WOOD_DOOR_KEY_COUNT - 1; key >= 0; key--)
+		door->keyInst[key] = NULL;
 
-	// 4 keys, all next to each other
-	instPtrArr = &woodDoor->keyInst[0];
-	for (i = 0; i < 4; i++)
+	door->frameCount_unused = 0;
+	door->camFlags = WdCam_None;
+	door->camTimer_unused = 0;
+	door->frameCount_doorOpenAnim = 0;
+	door->keyShrinkFrame = 0;
+	door->doorRot.x = 0;
+	door->doorRot.y = 0;
+	door->doorRot.z = 0;
+	door->doorID = 0;
+
+	for (digit = 5; inst->name[digit] != '\0'; digit++)
 	{
-		instPtrArr[(s32)i] = NULL;
+		s32 value;
+		door->doorID *= 10;
+		value = (u8)inst->name[digit] - '0';
+		door->doorID = door->doorID + value;
 	}
 
-	woodDoor->frameCount_unused = 0;
-	woodDoor->camFlags = 0;
-	woodDoor->camTimer_unused = 0;
-	woodDoor->frameCount_doorOpenAnim = 0;
-	woodDoor->keyShrinkFrame = 0;
-
-	woodDoor->doorRot.x = 0;
-	woodDoor->doorRot.y = 0;
-	woodDoor->doorRot.z = 0;
-	woodDoor->doorID = 0;
-
-	for (i = 5; inst->name[(s32)i] != '\0'; i++)
-	{
-		woodDoor->doorID = woodDoor->doorID * 10 + inst->name[(s32)i] - '0';
-	}
-
-	// Level ID is Glacier Park
+	levelID = GAME_TRACKER->levelID;
 	if (levelID == GLACIER_PARK)
 	{
-		// door with two key holes
-		m = gGT->modelPtr[STATIC_DOOR3];
+		// Two key holes.
+		door->otherDoor = INSTANCE_Birth3D(GAME_TRACKER->modelPtr[STATIC_DOOR3], AH_DOOR_NAME, t);
 	}
-
-	// Level ID is not Glacier Park
-	else if (
-	    // Level ID is N Sanity Beach
-	    (levelID == N_SANITY_BEACH) &&
-
-	    // doorID == 5
-	    (woodDoor->doorID == 5))
+	else if (levelID == N_SANITY_BEACH && door->doorID == AH_DOOR_BEACH_TO_GEMSTONE_VALLEY)
 	{
-		// door with no key holes
-		m = gGT->modelPtr[STATIC_DOOR2];
+		// No key holes.
+		model = GAME_TRACKER->modelPtr[STATIC_DOOR2];
+		if (model != NULL)
+			door->otherDoor = INSTANCE_Birth3D(model, AH_DOOR_NAME, t);
+		else
+			door->otherDoor = NULL;
 	}
-
-	// if not that door
 	else
 	{
-		// door with one key hole
-		m = gGT->modelPtr[STATIC_DOOR];
+		// One key hole.
+		door->otherDoor = INSTANCE_Birth3D(GAME_TRACKER->modelPtr[STATIC_DOOR], AH_DOOR_NAME, t);
 	}
 
-	// DAT_800abaa4
-	// "door"
+	door->otherDoor->flags |= SPLIT_SPECIAL | REVERSE_CULL_DIRECTION;
+	door->otherDoor->matrix = inst->matrix;
+	door->otherDoor->scale.x = -FP_ONE;
+	door->otherDoor->flags |= REVERSE_CULL_DIRECTION;
 
-	// INSTANCE_Birth3D -- ptrModel, name, thread
-	otherDoorInst = INSTANCE_Birth3D(m, R232.s_door, t);
+	ratio = MATH_Cos(inst->instDef->rot.y) * AH_DOOR_PAIR_OFFSET;
+	door->otherDoor->matrix.t[0] = inst->matrix.t[0] + (ratio >> 12);
+	door->otherDoor->matrix.t[1] = inst->matrix.t[1];
+	ratio = MATH_Sin(inst->instDef->rot.y) * AH_DOOR_PAIR_OFFSET;
+	door->otherDoor->matrix.t[2] = inst->matrix.t[2] + (ratio >> 12);
 
-	// spawn instance of right-hand door,
-	// which is not in LEV file, only built in thread
-	woodDoor->otherDoor = otherDoorInst;
-
-	// NOTE(aalhendi): Native low-RAM audit candidate only. Retail uses the
-	// generated right-door instance before any null fallback; keep unpatched
-	// until a valid hub/door repro proves the allocation can fail.
-
-	otherDoorInst->flags |= (SPLIT_SPECIAL | REVERSE_CULL_DIRECTION);
-
-	// copy full matrix (position and rotation)
-	// from left-hand door to right-hand door
-	otherDoorInst->matrix = inst->matrix;
-
-	// set scaleX to -0x1000
-	otherDoorInst->scale.x = -0x1000;
-
-	ratio = MATH_Cos((int)inst->instDef->rot.y);
-
-	otherDoorInst->matrix.t[0] += (ratio * 0x600 >> 0xc);
-
-	otherDoorInst->matrix.t[1] = inst->matrix.t[1];
-
-	ratio = MATH_Sin((int)(int)inst->instDef->rot.y);
-
-	otherDoorInst->matrix.t[2] += (ratio * 0x600 >> 0xc);
-
-	// both doors always face camera
-	headers = inst->model->headers;
-
-	headers->flags |= 2;
-
-	headers = otherDoorInst->model->headers;
-
-	headers->flags |= 2;
+	inst->model->headers->flags |= 2;
+	door->otherDoor->model->headers->flags |= 2;
 
 #ifdef CTR_AP
 	if (AP_DoorHistoryEnabled())
 	{
-		AH_Door_ApplyHistoryPose(inst, woodDoor);
+		AH_Door_ApplyHistoryPose(inst, door);
 		return;
 	}
 #endif
-	if (
-	    // Level ID is N Sanity Beach, check door to Glacier Park
-	    (levelID == N_SANITY_BEACH && woodDoor->doorID == 4 && ((sdata->advProgress.storyFlags & ADV_REWARD_DOOR_BEACH_TO_GLACIER_PARK_MASK) != 0)) ||
-
-	    // Level ID is N Sanity Beach, check door to Gemstone Valley
-	    (levelID == N_SANITY_BEACH && woodDoor->doorID == 5 && ((sdata->advProgress.storyFlags & ADV_REWARD_DOOR_BEACH_TO_GEMSTONE_VALLEY_MASK) != 0)) ||
-
-	    // Level ID is Gemstone Valley, check door to Cup room
-	    (levelID == GEM_STONE_VALLEY && ((sdata->advProgress.storyFlags & ADV_REWARD_DOOR_GEMSTONE_VALLEY_TO_CUPS_MASK) != 0)) ||
-
-	    // Level ID is Lost Ruins, check door to Glacier Park
-	    (levelID == THE_LOST_RUINS && ((sdata->advProgress.storyFlags & ADV_REWARD_DOOR_LOST_RUINS_TO_GLACIER_PARK_MASK) != 0)) ||
-
-	    // Level ID is Glacier Park, check door to Citadel City
-	    ((levelID == GLACIER_PARK) && ((sdata->advProgress.storyFlags & ADV_REWARD_DOOR_GLACIER_PARK_TO_CITADEL_CITY_MASK) != 0)))
+	if (GAME_TRACKER->levelID == N_SANITY_BEACH && door->doorID == AH_DOOR_BEACH_TO_GLACIER_PARK &&
+	    (AH_STORY_REWARDS & ADV_REWARD_DOOR_BEACH_TO_GLACIER_PARK_MASK))
+		doorIsOpen = true;
+	else if (GAME_TRACKER->levelID == N_SANITY_BEACH && door->doorID == AH_DOOR_BEACH_TO_GEMSTONE_VALLEY &&
+	         (AH_STORY_REWARDS & ADV_REWARD_DOOR_BEACH_TO_GEMSTONE_VALLEY_MASK))
+		doorIsOpen = true;
+	else if (GAME_TRACKER->levelID == GEM_STONE_VALLEY && (AH_STORY_REWARDS & ADV_REWARD_DOOR_GEMSTONE_VALLEY_TO_CUPS_MASK))
+		doorIsOpen = true;
+	else if (GAME_TRACKER->levelID == THE_LOST_RUINS && (AH_STORY_REWARDS & ADV_REWARD_DOOR_LOST_RUINS_TO_GLACIER_PARK_MASK))
+		doorIsOpen = true;
+	else if (GAME_TRACKER->levelID == GLACIER_PARK && (AH_STORY_REWARDS & ADV_REWARD_DOOR_GLACIER_PARK_TO_CITADEL_CITY_MASK))
+		doorIsOpen = true;
+	if ((s16)doorIsOpen)
 	{
-		// rotation = 90 degrees
-		woodDoor->doorRot.y = 0x400;
+		door->doorRot.y = AH_DOOR_OPEN_ROTATION;
 
-		leftRot.x = woodDoor->doorRot.x;
-		leftRot.y = inst->instDef->rot.y + woodDoor->doorRot.y;
-		leftRot.z = woodDoor->doorRot.z;
+		rightRot.x = door->doorRot.x;
+		rightRot.y = inst->instDef->rot.y - door->doorRot.y;
+		rightRot.z = door->doorRot.z;
+		leftRot.x = door->doorRot.x;
+		leftRot.y = inst->instDef->rot.y + door->doorRot.y;
+		leftRot.z = door->doorRot.z;
 
-		rightRot.x = woodDoor->doorRot.x;
-		rightRot.y = inst->instDef->rot.y - woodDoor->doorRot.y;
-		rightRot.z = woodDoor->doorRot.z;
-
-		// make matrices for both doors rotated open
-
-		// converted to TEST in rebuildPS1
 		ConvertRotToMatrix(&inst->matrix, &leftRot);
-		ConvertRotToMatrix(&otherDoorInst->matrix, &rightRot);
+		ConvertRotToMatrix(&door->otherDoor->matrix, &rightRot);
 	}
-	return;
 }

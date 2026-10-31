@@ -1,148 +1,122 @@
 #include <common.h>
 
-static inline s32 UI_SaveLapTime_MipsMul(s32 lhs, s32 rhs)
+enum
 {
-	return (s32)((u32)lhs * (u32)rhs);
-}
+	UI_LAP_TIME_LAPS_PER_PLAYER = 7,
+	UI_LAP_TIME_TICKS_PER_SECOND = 0x3c0,
+	UI_LAP_TIME_TICKS_PER_TENTH_SECOND = 96,
+	UI_LAP_TIME_TICKS_PER_TEN_SECONDS = 0x2580,
+	UI_LAP_TIME_TICKS_PER_MINUTE = 0xe100,
+	UI_LAP_TIME_MAX_MINUTES = 9,
+	UI_LAP_TIME_SECONDS_TENS_MOD = 6,
+	UI_LAP_TIME_DECIMAL_BASE = 10,
+	UI_LAP_TIME_CENTISECOND_SCALE = 100,
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004c55c-0x8004c718.
-void UI_SaveLapTime(int numLaps, int lapTime, s16 driverID)
+	UI_REWARD_WUMPA_SHINE_CENTER = 0x80,
+	UI_REWARD_WUMPA_SHINE_SHIFT = 4,
+	UI_REWARD_PICKUP_ROT_SLOW = 0x40,
+	UI_REWARD_PICKUP_ROT_FAST = 0x80,
+	// NOTE(aalhendi): Retail reads the four adjacent HUD bytes as one word:
+	// only the HUD-visible bit and zero demo byte decide visibility.
+	UI_REWARD_HUD_VISIBLE_WORD_MASK = 0xff0100,
+	UI_REWARD_HUD_VISIBLE_WORD_VALUE = 0x100,
+	UI_REWARD_FADE_VISIBLE_MIN = 0xfff,
+	UI_REWARD_CTR_LETTER_BASE_SCALE = 0x800,
+	UI_REWARD_CTR_LETTER_NEGATIVE_SCALE_BIAS = 0x401,
+	UI_REWARD_CTR_LETTER_ROT_SHIFT = 10,
+	UI_REWARD_CTR_LETTER_ROT_STEP = 0x200,
+};
+
+#define UI_REWARD_PICKUP_COLOR 0xffff0000u
+
+void UI_SaveLapTime(s32 lapIndex, s32 lapTime, s16 driverID)
 {
-	int numMinutes;
-	int PlayerLapIndex;
+	s32 *minuteSlots = GAME_LAP_MINUTE_UNITS;
+	s32 playerLapIndex = ((s32)driverID * UI_LAP_TIME_LAPS_PER_PLAYER) + lapIndex;
+	s32 numMinutes;
+	s32 tenSeconds;
+	s32 seconds;
 
-	// PlayerLapIndex
-	// Goes from 0 to 0xd, 0-6 are laps 1-7 for Player 1 in the p1 variables of the LapTimes struct
-	// The 7-0xd range skips over to the p2 variables in the same struct for Player 2's lap 1-7
-	// Like so: sdata->LapTimes.p1_Min1s[7] is sdata->LapTimes.p2_Min1s[0]
-	PlayerLapIndex = ((int)driverID * 7 + numLaps);
+	numMinutes = (minuteSlots[playerLapIndex] = lapTime / UI_LAP_TIME_TICKS_PER_MINUTE);
 
-	numMinutes = lapTime / 0xe100;
-
-	// number of minutes
-	sdata->LapTimes.p1_Min1s[PlayerLapIndex] = numMinutes;
-
-	// if number of minutes is more than 9
-	if (9 < numMinutes)
+	if (UI_LAP_TIME_MAX_MINUTES < numMinutes)
 	{
-		// rig to 9:59:99
-		sdata->LapTimes.p1_Min1s[PlayerLapIndex] = 9;
-		sdata->LapTimes.p1_Sec10s[PlayerLapIndex] = 5;
-		sdata->LapTimes.p1_Sec1s[PlayerLapIndex] = 9;
-		sdata->LapTimes.p1_Ms10s[PlayerLapIndex] = 9;
-		sdata->LapTimes.p1_Ms1s[PlayerLapIndex] = 9;
+		minuteSlots[playerLapIndex] = UI_LAP_TIME_MAX_MINUTES;
+		GAME_LAP_SECOND_TENS[playerLapIndex] = UI_LAP_TIME_SECONDS_TENS_MOD - 1;
+		GAME_LAP_SECOND_UNITS[playerLapIndex] = UI_LAP_TIME_DECIMAL_BASE - 1;
+		GAME_LAP_CENTISECOND_TENS[playerLapIndex] = UI_LAP_TIME_DECIMAL_BASE - 1;
+		GAME_LAP_CENTISECOND_UNITS[playerLapIndex] = UI_LAP_TIME_DECIMAL_BASE - 1;
 		return;
 	}
 
-	// calculate proper lap time
-	sdata->LapTimes.p1_Sec10s[PlayerLapIndex] = (lapTime / 0x2580) % 6;
-	sdata->LapTimes.p1_Sec1s[PlayerLapIndex] = (lapTime / 0x3c0) % 10;
-	sdata->LapTimes.p1_Ms10s[PlayerLapIndex] = (UI_SaveLapTime_MipsMul(lapTime, 10) / 0x3c0) % 10;
-	sdata->LapTimes.p1_Ms1s[PlayerLapIndex] = (UI_SaveLapTime_MipsMul(lapTime, 100) / 0x3c0) % 10;
-	return;
+	// NOTE(aalhendi): Carry each quotient into the next digit. Scaling ticks
+	// by ten first would wrap before division and change the retail result.
+	tenSeconds = lapTime / UI_LAP_TIME_TICKS_PER_TEN_SECONDS;
+	GAME_LAP_SECOND_TENS[playerLapIndex] = tenSeconds - numMinutes * UI_LAP_TIME_SECONDS_TENS_MOD;
+	GAME_LAP_SECOND_UNITS[playerLapIndex] = (seconds = lapTime / UI_LAP_TIME_TICKS_PER_SECOND) - tenSeconds * UI_LAP_TIME_DECIMAL_BASE;
+	GAME_LAP_CENTISECOND_TENS[playerLapIndex] = lapTime / UI_LAP_TIME_TICKS_PER_TENTH_SECOND - seconds * UI_LAP_TIME_DECIMAL_BASE;
+	// NOTE(aalhendi): Keep the hundredfold product modulo 32 bits, then divide
+	// as signed. The direct constant also lets old GCC synthesize shift/adds.
+	GAME_LAP_CENTISECOND_UNITS[playerLapIndex] =
+	    ((s32)((u32)lapTime * UI_LAP_TIME_CENTISECOND_SCALE) / UI_LAP_TIME_TICKS_PER_SECOND) % UI_LAP_TIME_DECIMAL_BASE;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004c718-0x8004c850.
 void UI_ThTick_CountPickup(struct Thread *bucket)
 {
-	struct GameTracker *gGT;
-	s16 rotSpd;
-	u32 flags;
-	MATRIX *mat;
-
-	gGT = sdata->gGT;
-
-	// object from thread
 	struct UiElement3D *obj = bucket->object;
-
-	// instance from thread
 	struct Instance *inst = bucket->inst;
+	MATRIX *mat;
+	u32 drawOtagState;
 
-	// instance color
-	inst->colorRGBA = 0xffff0000;
-
-	// if numPlyrCurrGame is 1
-	if (gGT->numPlyrCurrGame == 1)
 	{
-		// if instance->model->modelID is not timebox
-		if (inst->model->id != STATIC_TIME_CRATE_01)
+		struct GameTracker *gGT = GAME_TRACKER;
+
+		inst->colorRGBA = UI_REWARD_PICKUP_COLOR;
+
+		if ((gGT->numPlyrCurrGame == 1) && (inst->model->id != STATIC_TIME_CRATE_01))
 		{
-			// If player's wumpa is less than 10
-			if (gGT->drivers[0]->numWumpas < 10)
+			if (gGT->drivers[0]->numWumpas >= DRIVER_WUMPA_JUICED_COUNT)
 			{
-				// no shine
-				inst->alphaScale = 0;
+				inst->alphaScale = ((s32)CTR_ReadU16LE(&sdata->wumpaShineResult) - UI_REWARD_WUMPA_SHINE_CENTER) * (1 << UI_REWARD_WUMPA_SHINE_SHIFT);
 			}
 			else
 			{
-				// wumpaShineResult
-				inst->alphaScale = ((s16)sdata->wumpaShineResult + -0x80) * 0x10;
+				inst->alphaScale = 0;
 			}
-			goto LAB_8004c7a4;
 		}
 	}
 
-	// if numPlyrCurrGame is not 1
+	if (inst->model->id == STATIC_TIME_CRATE_01)
+	{
+		obj->rot.y = (u16)obj->rot.y + FPS_HALF(UI_REWARD_PICKUP_ROT_SLOW);
+	}
 	else
 	{
-	LAB_8004c7a4:
-
-		// if HUD item is not timecrate
-		if (inst->model->id != STATIC_TIME_CRATE_01)
-		{
-			// rotation speed 0x80
-			rotSpd = obj->rot.y + FPS_HALF(0x80);
-			goto LAB_8004c7d4;
-		}
+		obj->rot.y = (u16)obj->rot.y + FPS_HALF(UI_REWARD_PICKUP_ROT_FAST);
 	}
 
-	// if wumpa or crystal,
-	// rotation speed 0x40
-	rotSpd = obj->rot.y + FPS_HALF(0x40);
-
-LAB_8004c7d4:
-
-	obj->rot.y = rotSpd;
 	mat = &inst->matrix;
-
 	ConvertRotToMatrix(mat, &obj->rot);
-
 	MatrixRotate(mat, &obj->m, mat);
 
-	// if hud is enabled, and this is not demo mode
-	if ((*(int *)&gGT->bool_DrawOTag_InProgress & 0xff0100) == 0x100)
+	drawOtagState = CTR_ReadU32LE(&GAME_TRACKER->bool_DrawOTag_InProgress);
+	if ((drawOtagState & UI_REWARD_HUD_VISIBLE_WORD_MASK) != UI_REWARD_HUD_VISIBLE_WORD_VALUE)
 	{
-		flags = inst->flags & ~HIDE_MODEL;
+		inst->flags |= HIDE_MODEL;
 	}
-
 	else
 	{
-		flags = inst->flags | HIDE_MODEL;
+		inst->flags &= ~HIDE_MODEL;
 	}
-
-	inst->flags = flags;
-	return;
 }
 
-// Draw various objects, like relic,
-// key trophy, token, crystal, etc
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004c850-0x8004c914.
 void UI_ThTick_Reward(struct Thread *bucket)
-
 {
-	u32 flags;
-	MATRIX *mat;
+	struct Instance *inst = bucket->inst;
+	struct UiElement3D *obj = bucket->object;
 	struct GameTracker *gGT;
-	struct UiElement3D *obj;
-	struct Instance *inst;
-
-	gGT = sdata->gGT;
-
-	// Get instance
-	inst = bucket->inst;
-
-	// Get object
-	obj = bucket->object;
+	MATRIX *mat;
+	u32 drawOtagState;
 
 #ifdef CTR_AP
 	// AP: re-tint the hub RELIC counter icon to match the tier its count is
@@ -153,145 +127,119 @@ void UI_ThTick_Reward(struct Thread *bucket)
 	if (ctr_cfg_active() && inst->model->id == STATIC_RELIC)
 	{
 		static const u32 s_hudRelicTierTint[3] = {0x060a5ff0, 0x0ffc6290, 0x0ebebf50};
-		inst->colorRGBA = s_hudRelicTierTint[(gGT->timer / FPS_DOUBLE(0x3C)) % 3];
+		inst->colorRGBA = s_hudRelicTierTint[(GAME_TRACKER->timer / FPS_DOUBLE(0x3C)) % 3];
 	}
 #endif
 
-	// Spin on the Y axis
-	obj->rot.y += FPS_HALF(0x40);
-
+	obj->rot.y += FPS_HALF(UI_REWARD_PICKUP_ROT_SLOW);
 	Vector_SpecLightSpin2D(inst, &obj->rot, &obj->lightDir);
 
-	// pointer to matrix
 	mat = &inst->matrix;
-
 	ConvertRotToMatrix(mat, &obj->rot);
-
 	MatrixRotate(mat, &obj->m, mat);
 
-	if (
-	    // if hud is enabled, and this is not demo mode
-	    ((*(int *)&gGT->bool_DrawOTag_InProgress & 0xff0100) == 0x100) &&
-
-	    // if any fade-in-from-black transition is over
-	    (0xfff < gGT->pushBuffer_UI.fadeFromBlack_currentValue)
+	gGT = GAME_TRACKER;
+	drawOtagState = CTR_ReadU32LE(&gGT->bool_DrawOTag_InProgress);
+	if (((drawOtagState & UI_REWARD_HUD_VISIBLE_WORD_MASK) != UI_REWARD_HUD_VISIBLE_WORD_VALUE) ||
+	    (gGT->pushBuffer_UI.fadeFromBlack_currentValue <= UI_REWARD_FADE_VISIBLE_MIN)
 #ifdef CTR_AP
 	    // The hub picker owns the whole screen. Its 2D counter calls already
 	    // stand down, but these reward icons are persistent 3D instances whose
 	    // own thread clears HIDE_MODEL every frame. Gate that authoritative
 	    // visibility decision too, or relic/key/trophy icons leak through the
 	    // picker even though their numbers are gone.
-	    && !AP_CharSwap_HubHudHidden()
+	    || AP_CharSwap_HubHudHidden()
 #endif
 	)
 	{
-		flags = inst->flags & ~HIDE_MODEL;
+		inst->flags |= HIDE_MODEL;
 	}
 	else
 	{
-		flags = inst->flags | HIDE_MODEL;
+		inst->flags &= ~HIDE_MODEL;
 	}
-	inst->flags = flags;
-	return;
 }
 
-// Handle CTR letters in HUD
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004c914-0x8004ca04.
 void UI_ThTick_CtrLetters(struct Thread *bucket)
-
 {
-	int endOfRaceTransition;
-	struct Instance *inst;
-	struct UiElement3D *obj;
+	struct Instance *inst = bucket->inst;
+	struct UiElement3D *obj = bucket->object;
 	SVec3 rot;
+	MATRIX *mat;
 
-	// thread->instance
-	inst = bucket->inst;
-
-	// thread->object
-	obj = bucket->object;
-
-	// I know they dont look like they rotate in HUD,
-	// believe, me, there is "rotation" to some degree,
-	// that's why the lighting changes in the HUD
-
-	// Rotate on the Y axis
-	obj->rot.y += FPS_HALF(0x40);
+	obj->rot.y += FPS_HALF(UI_REWARD_PICKUP_ROT_SLOW);
 
 	Vector_SpecLightSpin2D(inst, &obj->rot, &obj->lightDir);
 
-	if (
-	    // If you're in End-Of-Race menu
-	    ((sdata->gGT->gameMode1 & END_OF_RACE) != 0) &&
-
-	    (RaceFlag_IsTransitioning() != 0))
+	if (((GAME_TRACKER->gameMode1 & END_OF_RACE) != 0) && RaceFlag_IsTransitioning())
 	{
-		// Set Scale to zero, basically stop
-		// drawing letters in the HUD
 		inst->scale.x = 0;
 		inst->scale.y = 0;
 		inst->scale.z = 0;
 	}
 
-	if (inst->scale.x == 0x800)
+	// NOTE(aalhendi): Initialize the complete rotation in each branch; old
+	// GCC merges the zero-Z tail before preparing the matrix-call arguments.
+	if (inst->scale.x != UI_REWARD_CTR_LETTER_BASE_SCALE)
 	{
-		rot.y = 0;
-	}
-	else
-	{
-		endOfRaceTransition = (int)inst->scale.x + -0x800;
+		s32 endOfRaceTransition;
+		rot.x = 0;
+		endOfRaceTransition = (s32)inst->scale.x - UI_REWARD_CTR_LETTER_BASE_SCALE;
 		if (endOfRaceTransition < 0)
 		{
-			endOfRaceTransition = (int)inst->scale.x + -0x401;
+			endOfRaceTransition = (s32)inst->scale.x - UI_REWARD_CTR_LETTER_NEGATIVE_SCALE_BIAS;
 		}
-		rot.y = ((s16)(endOfRaceTransition >> 10) + 1) * 0x200;
+		rot.y = ((endOfRaceTransition >> UI_REWARD_CTR_LETTER_ROT_SHIFT) + 1) * UI_REWARD_CTR_LETTER_ROT_STEP;
+		rot.z = 0;
 	}
-	rot.x = 0;
-	rot.z = 0;
-
-	ConvertRotToMatrix(&inst->matrix, &rot);
-
-	MatrixRotate(&inst->matrix, &obj->m, &inst->matrix);
-
-	return;
-}
-
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004ca04-0x8004caa8.
-void UI_ThTick_big1(struct Thread *bucket)
-
-{
-	s16 uVar1;
-	u32 flags;
-	struct UiElement3D *obj;
-	struct Instance *inst;
-
-	// Get object from thread
-	obj = bucket->object;
-
-	// Get instance from thread
-	inst = bucket->inst;
-
-	uVar1 = obj->scale;
-	CTR_WriteU32LE(&inst->matrix.m[0][0], uVar1);
-	CTR_WriteU32LE(&inst->matrix.m[0][2], 0);
-	CTR_WriteU32LE(&inst->matrix.m[1][1], uVar1);
-	CTR_WriteU32LE(&inst->matrix.m[2][0], 0);
-	inst->matrix.m[2][2] = uVar1;
-
-	MatrixRotate(&inst->matrix, &obj->m, &inst->matrix);
-
-	// if hud is enabled, and this is not demo mode
-	if ((*(int *)&sdata->gGT->bool_DrawOTag_InProgress & 0xff0100) == 0x100)
-	{
-		flags = inst->flags & ~HIDE_MODEL;
-	}
-
 	else
 	{
-		flags = inst->flags | HIDE_MODEL;
+		rot.x = 0;
+		rot.y = 0;
+		rot.z = 0;
 	}
 
-	inst->flags = flags;
+	mat = &inst->matrix;
+	ConvertRotToMatrix(mat, &rot);
 
-	return;
+	MatrixRotate(mat, &obj->m, mat);
+}
+
+void UI_ThTick_big1(struct Thread *bucket)
+{
+	struct UiElement3D *obj = bucket->object;
+	struct Instance *inst = bucket->inst;
+	struct GameTracker *gGT;
+	u16 scale;
+	u32 drawOtagState;
+
+	// NOTE(aalhendi): Scale is sampled for each diagonal store group. Clear
+	// individual halfwords so negative scale never fills an off-diagonal.
+	scale = (u16)obj->scale;
+	inst->matrix.m[0][1] = 0;
+	inst->matrix.m[0][2] = 0;
+	inst->matrix.m[1][0] = 0;
+	inst->matrix.m[0][0] = scale;
+
+	scale = (u16)obj->scale;
+	inst->matrix.m[1][2] = 0;
+	inst->matrix.m[2][0] = 0;
+	inst->matrix.m[2][1] = 0;
+	inst->matrix.m[1][1] = scale;
+
+	scale = (u16)obj->scale;
+	inst->matrix.m[2][2] = scale;
+
+	MatrixRotate(&inst->matrix, &obj->m, &inst->matrix);
+
+	gGT = GAME_TRACKER;
+	drawOtagState = CTR_ReadU32LE(&gGT->bool_DrawOTag_InProgress);
+	if ((drawOtagState & UI_REWARD_HUD_VISIBLE_WORD_MASK) != UI_REWARD_HUD_VISIBLE_WORD_VALUE)
+	{
+		inst->flags |= HIDE_MODEL;
+	}
+	else
+	{
+		inst->flags &= ~HIDE_MODEL;
+	}
 }

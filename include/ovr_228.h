@@ -5,8 +5,8 @@ enum OverlayRDATA_228_Counts
 {
 	OVR228_BUCKET_COUNT = 8,
 	OVR228_SCRATCH_INIT_WORD_COUNT = 24,
-	OVR228_SETUP_COPY0_WORD_COUNT = 15,
-	OVR228_SETUP_COPY1_WORD_COUNT = 3,
+	OVR228_SETUP_COPY0_WORD_COUNT = DRAW_LEVEL_OVR_COPIED_SETUP0_WORD_COUNT,
+	OVR228_SETUP_COPY1_WORD_COUNT = DRAW_LEVEL_OVR_COPIED_SETUP1_WORD_COUNT,
 	OVR228_CLIP_RECORD_JUMP_WORD_COUNT = 24,
 };
 
@@ -35,21 +35,6 @@ enum OverlayRDATA_228_BucketSetupLayout
 #define OVR228_RETAIL_LABEL_QUAD_4X4_RENDERED_HANDLER       0x800a71fcu
 #define OVR228_RETAIL_LABEL_WATER_RENDERED_DEFAULT_WRAPPER  0x800a2224u
 
-struct OverlayRDATA_228_BucketSetupCopy
-{
-	u32 loopCounter;
-	u32 sourceAddress;
-	u32 scratchOffset;
-};
-
-struct OverlayRDATA_228_BucketSetupRecord
-{
-	struct OverlayRDATA_228_BucketSetupCopy copies[2];
-	u32 padding;
-	u32 copy0[OVR228_SETUP_COPY0_WORD_COUNT];
-	u32 copy1[OVR228_SETUP_COPY1_WORD_COUNT];
-};
-
 struct OverlayRDATA_228
 {
 	// 0x800a8e38
@@ -62,7 +47,7 @@ struct OverlayRDATA_228
 	u32 scratchInitTable[OVR228_SCRATCH_INIT_WORD_COUNT];
 
 	// 0x800a8ed8
-	struct OverlayRDATA_228_BucketSetupRecord bucketSetups[OVR228_BUCKET_COUNT];
+	struct DrawLevelOvrBucketSetupRecord bucketSetups[OVR228_BUCKET_COUNT];
 
 	// 0x800a91f8
 	u32 clipRecordJumpTable[OVR228_CLIP_RECORD_JUMP_WORD_COUNT];

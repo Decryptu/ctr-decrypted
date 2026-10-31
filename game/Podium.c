@@ -1,56 +1,70 @@
 #include <common.h>
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80041c84-0x80041dc0.
+enum PodiumConstants
+{
+	PODIUM_DRIVER_COUNT = 8,
+	PODIUM_RANK_FIRST = 0,
+	PODIUM_RANK_SECOND = 1,
+	PODIUM_RANK_THIRD = 2,
+};
+
+
 void Podium_InitModels(struct GameTracker *gGT)
 {
+	s32 i;
+	struct Driver *driver;
+	struct Driver **drivers;
+
 	gGT->podium_modelIndex_First = 0;
 	gGT->podium_modelIndex_Second = 0;
 	gGT->podium_modelIndex_Third = 0;
 	gGT->podium_modelIndex_tawna = STATIC_TAWNA1;
 
-	u8 *podiumModelIndexArr = &gGT->podium_modelIndex_First;
-
-	for (int i = 0; i < 8; i++)
+	for (i = 0, drivers = gGT->drivers; i < PODIUM_DRIVER_COUNT; i++, drivers++)
 	{
-		struct Driver *driver = gGT->drivers[i];
-
-		if (driver == NULL)
+		driver = *drivers;
+		if (driver != 0)
 		{
-			continue;
-		}
-
-		s16 rank = driver->driverRank;
-
-		if (rank < 3)
-		{
-			u8 characterID = data.characterIDs[driver->driverID];
-			podiumModelIndexArr[rank] = characterID + STATIC_CRASHDANCE;
-
-			if (rank != 0)
+			// NOTE(aalhendi): Each rank writes a named byte field, not an element of a C array.
+			switch (driver->driverRank)
 			{
-				continue;
+			case PODIUM_RANK_FIRST:
+			{
+				gGT->podium_modelIndex_First = (u8)GAME_CHARACTER_IDS[driver->driverID] + STATIC_CRASHDANCE;
+				// NOTE(aalhendi): Select Tawna from the stored model byte; unlisted winners keep the current selection.
+				switch (gGT->podium_modelIndex_First)
+				{
+				case STATIC_CRASHDANCE + CRASH_BANDICOOT:
+				case STATIC_CRASHDANCE + COCO_BANDICOOT:
+				{
+					gGT->podium_modelIndex_tawna = STATIC_TAWNA2;
+					break;
+				}
+				case STATIC_CRASHDANCE + POLAR:
+				case STATIC_CRASHDANCE + PURA:
+				{
+					gGT->podium_modelIndex_tawna = STATIC_TAWNA3;
+					break;
+				}
+				case STATIC_CRASHDANCE + NEO_CORTEX:
+				case STATIC_CRASHDANCE + N_GIN:
+				{
+					gGT->podium_modelIndex_tawna = STATIC_TAWNA4;
+					break;
+				}
+				}
+				break;
 			}
-
-			switch (characterID)
+			case PODIUM_RANK_SECOND:
 			{
-			case 0:
-			case 3:
-				gGT->podium_modelIndex_tawna = STATIC_TAWNA2;
+				gGT->podium_modelIndex_Second = (u8)GAME_CHARACTER_IDS[driver->driverID] + STATIC_CRASHDANCE;
 				break;
-
-			case 6:
-			case 7:
-				gGT->podium_modelIndex_tawna = STATIC_TAWNA3;
+			}
+			case PODIUM_RANK_THIRD:
+			{
+				gGT->podium_modelIndex_Third = (u8)GAME_CHARACTER_IDS[driver->driverID] + STATIC_CRASHDANCE;
 				break;
-
-			case 1:
-			case 4:
-				gGT->podium_modelIndex_tawna = STATIC_TAWNA4;
-				break;
-
-			default:
-				gGT->podium_modelIndex_tawna = STATIC_TAWNA1;
-				break;
+			}
 			}
 		}
 	}

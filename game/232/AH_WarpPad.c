@@ -145,18 +145,75 @@ static void AH_WarpPad_HitRaceRows(int tokenLeft, int relicLeft)
 }
 #endif
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800abafc-0x800abbdc.
+// NOTE(aalhendi): WarpPad level IDs come from "warppad#NN" instance names
+// and use retail adventure numbering, not the native LevelID enum.
+enum AdventureWarpPadID
+{
+	AH_WP_ID_SLIDE_COLISEUM = 16,
+	AH_WP_ID_TURBO_TRACK = 17,
+	AH_WP_ID_FIRST_BATTLE_TRACK = 18,
+	AH_WP_ID_SKULL_ROCK = 21,
+	AH_WP_ID_ROCKY_ROAD = 23,
+	AH_WP_ID_FIRST_GEM_CUP = ADVENTURE_CUP_SYNTHETIC_LEVEL_ID_BASE,
+};
+
+enum
+{
+	AH_WP_GEM_CUP_COUNT = 5,
+	AH_WP_BATTLE_TRACK_ID_SPAN = 7,
+	AH_WP_RACER_SLOT_COUNT = 8,
+	AH_WP_REWARD_INSTANCE_COUNT = 3,
+	AH_WP_WISP_COUNT = 2,
+	AH_WP_WARP_LOAD_FRAMES = 61,
+	AH_WP_TROPHY_PORTAL_HOLD_FRAMES = 0x400,
+	AH_WP_LONG_RANGE_NEAR_DIST_SQ = 0x144000,
+	AH_WP_SHORT_RANGE_NEAR_DIST_SQ = 0x90000,
+	AH_WP_WARP_TRIGGER_DIST_SQ = 0x8fff,
+	AH_WP_REWARD_FADE_DIST_SQ = 0x900000,
+	AH_WP_REWARD_SPACING_ANGLE = 0x555,
+	AH_WP_SPAWN_FORWARD_OFFSET = 0x400,
+	AH_WP_FLOATING_OBJECT_HEIGHT = 0x100,
+	AH_WP_PRIZE_RING_RADIUS = 0xc0,
+	AH_WP_PRIZE_TILT_Z = 0x155,
+	AH_WP_RELIC_PRIZE_SCALE = 0x1800,
+	AH_WP_STANDARD_ITEM_SCALE = 0x2000,
+	AH_WP_TROPHY_PRIZE_SCALE = 0x2800,
+	AH_WP_CLOSED_SINGLE_DIGIT_OFFSET = -0x80,
+	AH_WP_CLOSED_SINGLE_ITEM_OFFSET = 0x80,
+	AH_WP_CLOSED_ITEM_WITH_TENS_OFFSET = 0xc0,
+	AH_WP_CLOSED_X_WITH_TENS_OFFSET = 0x40,
+	AH_WP_CLOSED_TENS_OFFSET = -0x40,
+	AH_WP_CLOSED_ONES_WITH_TENS_OFFSET = -0xa0,
+	AH_WP_SPIN_PRIZE_STEP = 0x40,
+	AH_WP_SPIN_PRIZE_REWARD_STEP = 0x80,
+	AH_WP_SPIN_BEAM_STEP = 0x200,
+	AH_WP_SPIN_WISP_STEP = 0x100,
+	AH_WP_SPIN_REWARD_RING_STEP = 0x4,
+	AH_WP_REWARD_PHASE_STEP = 0x20,
+	AH_WP_WISP_RISE_RATE = 0x20,
+	AH_WP_WISP_RISE_RATE_STEP = 0x10,
+	AH_WP_WISP_FAR_MAX_HEIGHT = 0x600,
+	AH_WP_WISP_NEAR_MAX_HEIGHT = 0x400,
+	AH_WP_WISP_FIRST_FRAMES = 4,
+	AH_WP_WISP_FADE_IN_STEP = 0x380,
+	AH_WP_WISP_FADE_OUT_RANGE = 0xc00,
+	AH_WP_OPEN_BEAM_ALPHA = 0xc00,
+	AH_WP_OPEN_RING_ALPHA = 0x400,
+	AH_WP_OPEN_RING_HEIGHT_STEP = 0x400,
+	AH_WP_FULL_ALPHA = 0x1000,
+	AH_WP_PURPLE_TOKEN_GROUP = 4,
+	AH_WP_NAME_LEVEL_ID_OFFSET = 8,
+	AH_WP_DIGIT_MODEL_FIRST_1_TO_8 = 0x38,
+	AH_WP_DIGIT_MODEL_0 = 0x6d,
+	AH_WP_DIGIT_MODEL_9 = 0x6e,
+};
+
 s16 *AH_WarpPad_GetSpawnPosRot(s16 *posData)
 {
 	struct Thread *t;
-	struct GameTracker *gGT;
 	struct Instance *inst;
-	struct InstDef *instDef;
 
-	gGT = sdata->gGT;
-	t = gGT->threadBuckets[WARPPAD].thread;
-
-	int exitedLevel = gGT->prevLEV;
+	int exitedLevel = GAME_TRACKER->prevLEV;
 #if defined(CTR_AP) && defined(CTR_CUSTOM_TRACKS)
 	// Schema 15: returning from the Cortex Vortex pad track (host level 13)
 	// puts the kart back at the pad hosting destination 110, not at the pad
@@ -165,36 +222,18 @@ s16 *AH_WarpPad_GetSpawnPosRot(s16 *posData)
 		exitedLevel = AP_CORTEX_DEST;
 #endif
 
-	// check all warppads
-	while (1)
+	for (t = GAME_TRACKER->threadBuckets[WARPPAD].thread; t != NULL; t = t->siblingThread)
 	{
-		// if can't find a warppad
-		if (t == 0)
-		{
-			// quit
-			return 0;
-		}
-
-		// if warppad found that matches level exited
+		inst = t->inst;
 		if (((struct WarpPad *)t->object)->levelID == exitedLevel)
 		{
-			// end loop
-			break;
+			posData[0] = inst->matrix.t[0] + ((MATH_Cos(inst->instDef->rot.y) * AH_WP_SPAWN_FORWARD_OFFSET) >> 12);
+			posData[1] = inst->matrix.t[1];
+			posData[2] = inst->matrix.t[2] + ((MATH_Sin(inst->instDef->rot.y) * -AH_WP_SPAWN_FORWARD_OFFSET) >> 12);
+			return &inst->instDef->rot.x;
 		}
-
-		t = t->siblingThread;
 	}
-
-	inst = t->inst;
-	instDef = inst->instDef;
-
-	posData[0] = inst->matrix.t[0] + ((MATH_Cos(instDef->rot.y) << 0xA) >> 0xC);
-
-	posData[1] = inst->matrix.t[1];
-
-	posData[2] = inst->matrix.t[2] + ((MATH_Sin(instDef->rot.y) * -0x400) >> 0xC);
-
-	return &instDef->rot.x;
+	return NULL;
 }
 
 CTR_STATIC_ASSERT(sizeof(struct WarpPad) == 0x78);
@@ -224,73 +263,55 @@ static unsigned s_padRebirthGen[128];
 static int      s_padRebirthState[128];
 #endif
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800abbdc-0x800abd80.
 void AH_WarpPad_AllWarppadNum()
 {
-	struct WarpPad *wp;
-	struct ModelHeader *mh;
-	struct Instance *inst;
-
-	struct Thread *t = sdata->gGT->threadBuckets[WARPPAD].thread;
+	struct Thread *t = GAME_TRACKER->threadBuckets[WARPPAD].thread;
 
 	for (; t != 0; t = t->siblingThread)
 	{
-		wp = t->object;
+		struct WarpPad *wp = t->object;
 
 		// DCxDemo says:
 		// 1 to 8 is taken from mpk i guess, 0, 9 and X are seprate models
 
-		if ((wp->inst[2] != 0) && (wp->digit1s != 0) && (wp->digit1s != 9))
+		if ((wp->slots.inst[2] != 0) && (wp->digit1s != 0) && (wp->digit1s != 9))
 		{
-			inst = wp->inst[2];
-			mh = &inst->model->headers[0];
-			AH_WarpPad_SetNumModelData(inst, &mh[wp->digit1s - 1]);
+			INST_GETIDPP(wp->slots.inst[2])->ptrCommandList = wp->slots.inst[2]->model->headers[wp->digit1s - 1].ptrCommandList;
+			INST_GETIDPP(wp->slots.inst[2])->ptrColorLayout = (u32)wp->slots.inst[2]->model->headers[wp->digit1s - 1].ptrColors;
+			INST_GETIDPP(wp->slots.inst[2])->ptrTexLayout = wp->slots.inst[2]->model->headers[wp->digit1s - 1].ptrTexLayout;
+			INST_GETIDPP(wp->slots.inst[2])->ptrCurrFrame = wp->slots.inst[2]->model->headers[wp->digit1s - 1].ptrFrameData;
 		}
 
-		if ((wp->inst[3] != 0) && (wp->digit10s != 0))
+		if ((wp->slots.inst[3] != 0) && (wp->digit10s != 0))
 		{
-			inst = wp->inst[3];
-			mh = &inst->model->headers[0];
-			AH_WarpPad_SetNumModelData(inst, mh);
+			INST_GETIDPP(wp->slots.inst[3])->ptrCommandList = wp->slots.inst[3]->model->headers[0].ptrCommandList;
+			INST_GETIDPP(wp->slots.inst[3])->ptrColorLayout = (u32)wp->slots.inst[3]->model->headers[0].ptrColors;
+			INST_GETIDPP(wp->slots.inst[3])->ptrTexLayout = wp->slots.inst[3]->model->headers[0].ptrTexLayout;
+			INST_GETIDPP(wp->slots.inst[3])->ptrCurrFrame = wp->slots.inst[3]->model->headers[0].ptrFrameData;
 		}
 	}
 }
 
-void AH_WarpPad_SetNumModelData(struct Instance *inst, struct ModelHeader *mh)
-{
-	struct InstDrawPerPlayer *idpp = INST_GETIDPP(inst);
-
-	idpp[0].ptrCommandList = mh->ptrCommandList;
-	idpp[0].ptrColorLayout = (u32)mh->ptrColors;
-	idpp[0].ptrTexLayout = mh->ptrTexLayout;
-	idpp[0].ptrCurrFrame = mh->ptrFrameData;
-}
-
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800abd80-0x800abdfc.
 void AH_WarpPad_MenuProc(struct RectMenu *menu)
 {
-	struct GameTracker *gGT = sdata->gGT;
-
 	RECTMENU_Hide(menu);
 
-	if (menu->rowSelected == 0)
+	switch (menu->rowSelected)
 	{
-		gGT->gameMode2 |= TOKEN_RACE;
-	}
-
-	else if (menu->rowSelected == 1)
-	{
-		gGT->gameMode1 |= RELIC_RACE;
+	case 0:
+		GAME_TRACKER->gameMode2 |= TOKEN_RACE;
+		break;
+	case 1:
+		GAME_TRACKER->gameMode1 |= RELIC_RACE;
+		break;
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800abdfc-0x800abf48.
-void AH_WarpPad_SpinRewards(struct Instance *prizeInst, struct WarpPad *warppadObj, int index, int x, int y, int z)
+void AH_WarpPad_SpinRewards(struct Instance *prizeInst, struct WarpPad *warppadObj, s16 index, Vec3 position)
 {
-	SVec3 *lightDir;
-	u32 modelID;
-	u32 trig;
-	u32 thirds;
+	s32 modelID;
+	s32 thirds;
+	s32 trig;
 
 	ConvertRotToMatrix(&prizeInst->matrix, &warppadObj->spinRot_Prize);
 
@@ -324,21 +345,21 @@ void AH_WarpPad_SpinRewards(struct Instance *prizeInst, struct WarpPad *warppadO
 	{
 		if (modelID == STATIC_GEM) // gem
 		{
-			lightDir = &warppadObj->lightDirGem;
+			Vector_SpecLightSpin3D(prizeInst, &warppadObj->spinRot_Prize, &warppadObj->lightDirGem);
 		}
 		else
 		{
 			if (modelID == STATIC_RELIC) // relic
 			{
-				lightDir = &warppadObj->lightDirRelic;
+				Vector_SpecLightSpin3D(prizeInst, &warppadObj->spinRot_Prize, &warppadObj->lightDirRelic);
 			}
 			else
 			{
 				if (modelID == STATIC_TOKEN) // token
 				{
-					lightDir = &warppadObj->lightDirToken;
-				}
+					Vector_SpecLightSpin3D(prizeInst, &warppadObj->spinRot_Prize, &warppadObj->lightDirToken);
 #ifdef CTR_AP
+				}
 				else if (modelID == STATIC_KEY || modelID == STATIC_CRYSTAL)
 				{
 					// AP: a boss Key can occupy a reward glow slot (vanilla never
@@ -357,89 +378,86 @@ void AH_WarpPad_SpinRewards(struct Instance *prizeInst, struct WarpPad *warppadO
 					// to read as a dark bar. The gem slot is seeded on both AP birth
 					// paths and all five D232 entries are identical, so it needs no new
 					// seeding.
-					lightDir = &warppadObj->lightDirGem;
-				}
+					Vector_SpecLightSpin3D(prizeInst, &warppadObj->spinRot_Prize, &warppadObj->lightDirGem);
 #endif
-				else
-				{
-					goto SpinReward;
 				}
 			}
 		}
-		Vector_SpecLightSpin3D(prizeInst, &warppadObj->spinRot_Prize, lightDir);
 	}
 
-SpinReward:
-
-	// initialized as 0x555*index, but not const
-	thirds = warppadObj->thirds[index];
+	// initialized as AH_WP_REWARD_SPACING_ANGLE * index, but not const
+	thirds = (s16)warppadObj->thirds[index];
 
 	trig = MATH_Sin(thirds);
-	prizeInst->matrix.t[1] = y + ((trig << 6) >> 0xc) + 0x100;
+	trig = ((trig * 64) >> 0xc) + AH_WP_FLOATING_OBJECT_HEIGHT;
+	prizeInst->matrix.t[1] = position.y + trig;
 
 	// do not use original "thirds",
 	// set new value without "+="
-	thirds = 0x555 * index + warppadObj->spinRot_Rewards.y;
+	thirds = AH_WP_REWARD_SPACING_ANGLE * index + warppadObj->spinRot_Rewards.y;
 
 	trig = MATH_Sin(thirds);
-	prizeInst->matrix.t[0] = x + (trig * 0xA0 >> 0xc);
+	prizeInst->matrix.t[0] = position.x + (trig * 0xA0 >> 0xc);
 
+	thirds = AH_WP_REWARD_SPACING_ANGLE * index + warppadObj->spinRot_Rewards.y;
 	trig = MATH_Cos(thirds);
-	prizeInst->matrix.t[2] = z + (trig * 0xA0 >> 0xc);
+	prizeInst->matrix.t[2] = position.z + (trig * 0xA0 >> 0xc);
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800abf48-0x800ad2c8.
+#ifdef CTR_NATIVE
+// NOTE(aalhendi): Synthetic cup IDs probe beyond metaDataLEV. Read through
+// the enclosing data image without indexing past the native array.
+static inline s16 AH_WarpPad_Champion(s32 levelID)
+{
+	return (s16)CTR_ReadU16AlignedLE((const u8 *)&data + offsetof(struct Data, metaDataLEV) + levelID * sizeof(struct MetaDataLEV) +
+	                                 offsetof(struct MetaDataLEV, characterID_Champion));
+}
+#else
+#define AH_WarpPad_Champion(levelID) (AH_LEVEL_METADATA[(levelID)].characterID_Champion)
+#endif
+
 void AH_WarpPad_ThTick(struct Thread *t)
 {
-	int i;
-	b32 boolOpen;
-	struct GameTracker *gGT;
+	struct Driver *driver;
+	struct Instance *driverInst;
+	s32 i;
+	b16 boolOpen;
+
 	struct WarpPad *warppadObj;
 	struct Instance *warppadInst;
 	struct Instance **visInstSrc;
-	struct Instance **instArr;
 
-	struct Driver *driver;
-	struct Instance *driverInst;
+	s32 modelID;
+	s32 x, y, z, dist;
+	s32 rangeLevel;
+	u32 unsignedLevel;
 
-	int modelID;
-	int levelID;
-	int x, y, z, dist;
-	char *warppadLNG;
+	s16 angleCamToWarppad;
 
-	int angleCamToWarppad;
-	int angleSin, angleCos;
-	MATRIX *warppadMatrix;
+	s16 wispMaxHeight;
+	s16 wispRiseRate;
+	s32 rng1;
+	s32 resetQuotient;
+	s16 rng2;
 
-	int wispMaxHeight;
-	int wispRiseRate;
-	int rng1;
-	int rng2;
+	s16 rewardScale;
+	s32 rewardScale2;
 
-	int rewardScale;
-	int rewardScale2;
+	s32 champID;
+	s32 champSlot;
+	s32 champLevel;
+	struct GameTracker *gGT;
+	s32 levelID;
 
-	int champID;
-	int champSlot;
-
-	char randKartSpawn[8];
-
-	// NOTE(aalhendi): WarpPad level IDs come from "warppad#NN" instance names
-	// and use retail adventure numbering, not the native LevelID enum.
-	enum
-	{
-		AH_WP_SLIDE_COLISEUM = 16,
-		AH_WP_TURBO_TRACK = 17,
-		AH_WP_NITRO_COURT = 18,
-		AH_WP_GEM_STONE_VALLEY = 25,
-		AH_WP_ADV_CUP = 100,
-	};
-
-	boolOpen = false;
-	gGT = sdata->gGT;
+	u8 randKartSpawn[AH_WP_RACER_SLOT_COUNT];
+	rewardScale = 0x100;
 	warppadObj = t->object;
+	visInstSrc = GAME_TRACKER->cameraDC[0].visInstSrc;
+	gGT = GAME_TRACKER;
+	levelID = warppadObj->levelID;
 	warppadInst = t->inst;
-	visInstSrc = gGT->cameraDC[0].visInstSrc;
+	driver = GAME_TRACKER->drivers[0];
+	boolOpen = false;
 
 #ifdef CTR_AP
 	// AP live pad refresh: the locked/open/done look + gate instances are latched at
@@ -489,18 +507,31 @@ void AH_WarpPad_ThTick(struct Thread *t)
 		}
 	}
 
-	// array of instances in warppad object
-	instArr = &warppadObj->inst[0];
-	warppadMatrix = &warppadInst->matrix;
-
 	// make instances visible
 	if (boolOpen)
 	{
-		for (i = 0; i < WPIS_NUM_INSTANCES; i++)
+		if (warppadObj->slots.visuals.closed[0])
+			warppadObj->slots.visuals.closed[0]->flags &= ~HIDE_MODEL;
+		if (warppadObj->slots.visuals.closed[1])
+			warppadObj->slots.visuals.closed[1]->flags &= ~HIDE_MODEL;
+		if (warppadObj->slots.visuals.closed[2])
+			warppadObj->slots.visuals.closed[2]->flags &= ~HIDE_MODEL;
+		if (warppadObj->slots.visuals.closed[3])
+			warppadObj->slots.visuals.closed[3]->flags &= ~HIDE_MODEL;
+		if (warppadObj->slots.visuals.beam)
+			warppadObj->slots.visuals.beam->flags &= ~HIDE_MODEL;
+		for (i = 0; i < 2; i++)
 		{
-			if (instArr[i] != 0)
+			if (warppadObj->slots.visuals.rings[i] != 0)
 			{
-				instArr[i]->flags &= ~(0x80);
+				warppadObj->slots.visuals.rings[i]->flags &= ~HIDE_MODEL;
+			}
+		}
+		for (i = 0; i < 3; i++)
+		{
+			if (warppadObj->slots.visuals.prizes[i] != 0)
+			{
+				warppadObj->slots.visuals.prizes[i]->flags &= ~HIDE_MODEL;
 			}
 		}
 	}
@@ -508,75 +539,94 @@ void AH_WarpPad_ThTick(struct Thread *t)
 	// make instances invisible
 	else
 	{
-		for (i = 0; i < WPIS_NUM_INSTANCES; i++)
+		if (warppadObj->slots.visuals.closed[0])
+			warppadObj->slots.visuals.closed[0]->flags |= HIDE_MODEL;
+		if (warppadObj->slots.visuals.closed[1])
+			warppadObj->slots.visuals.closed[1]->flags |= HIDE_MODEL;
+		if (warppadObj->slots.visuals.closed[2])
+			warppadObj->slots.visuals.closed[2]->flags |= HIDE_MODEL;
+		if (warppadObj->slots.visuals.closed[3])
+			warppadObj->slots.visuals.closed[3]->flags |= HIDE_MODEL;
+		if (warppadObj->slots.visuals.beam)
+			warppadObj->slots.visuals.beam->flags |= HIDE_MODEL;
+		for (i = 0; i < 2; i++)
 		{
-			if (instArr[i] != 0)
+			if (warppadObj->slots.visuals.rings[i] != 0)
 			{
-				instArr[i]->flags |= 0x80;
+				warppadObj->slots.visuals.rings[i]->flags |= HIDE_MODEL;
+			}
+		}
+		for (i = 0; i < 3; i++)
+		{
+			if (warppadObj->slots.visuals.prizes[i] != 0)
+			{
+				warppadObj->slots.visuals.prizes[i]->flags |= HIDE_MODEL;
 			}
 		}
 	}
 
 	warppadInst->flags |= HIDE_MODEL;
 
-	driver = gGT->drivers[0];
 	driverInst = driver->instSelf;
 
-	x = warppadMatrix->t[0] - driverInst->matrix.t[0];
-	y = warppadMatrix->t[1] - driverInst->matrix.t[1];
-	z = warppadMatrix->t[2] - driverInst->matrix.t[2];
-	dist = x * x + y * y + z * z;
+	x = driverInst->matrix.t[0];
+	x = (s32)((u32)warppadInst->matrix.t[0] - (u32)x);
+	y = CTR_MipsSubLo(warppadInst->matrix.t[1], driverInst->matrix.t[1]);
+	// NOTE(aalhendi): Keep the Z input separate from its displacement while
+	// the three squared terms overlap in the register schedule.
+	{
+		s32 portalZ;
+		register s32 playerZ CTR_PSX_REGISTER("$2");
+		portalZ = warppadInst->matrix.t[2];
+		playerZ = driverInst->matrix.t[2];
+		z = (s32)((u32)portalZ - (u32)playerZ);
+	}
+	dist = (s32)((u32)CTR_MipsMulLo(x, x) + (u32)CTR_MipsMulLo(y, y) + (u32)CTR_MipsMulLo(z, z));
 
-	levelID = warppadObj->levelID;
-
+	rangeLevel = warppadObj->levelID;
+	unsignedLevel = (u16)warppadObj->levelID;
 	// if near a portal
 	if (
 	    // Trophy tracks (-16)
-	    ((levelID < AH_WP_SLIDE_COLISEUM) && (dist < 0x144000)) ||
+	    ((rangeLevel < AH_WP_ID_SLIDE_COLISEUM) && (dist < AH_WP_LONG_RANGE_NEAR_DIST_SQ)) ||
 #ifdef CTR_AP
 	    // Cortex Vortex pad track (virtual destination 110): a race pad
-	    ((levelID == AP_CORTEX_DEST) && (dist < 0x144000)) ||
+	    ((rangeLevel == AP_CORTEX_DEST) && (dist < AH_WP_LONG_RANGE_NEAR_DIST_SQ)) ||
 #endif
 
 	    // Slide Col + Turbo Track (-16)
-	    ((((u16)(levelID - AH_WP_SLIDE_COLISEUM)) < 2) && (dist < 0x90000)) ||
+	    (((unsignedLevel - AH_WP_ID_SLIDE_COLISEUM) < 2) && (dist < AH_WP_SHORT_RANGE_NEAR_DIST_SQ)) ||
 
 	    // Battle tracks (-18)
-	    ((((u16)(levelID - AH_WP_NITRO_COURT)) < 7) && (dist < 0x144000)) ||
+	    (((unsignedLevel - AH_WP_ID_FIRST_BATTLE_TRACK) < AH_WP_BATTLE_TRACK_ID_SPAN) && (dist < AH_WP_LONG_RANGE_NEAR_DIST_SQ)) ||
 
 	    // Gem cups
-	    (((u16)(levelID - AH_WP_ADV_CUP) < 5) && (dist < 0x90000)))
+	    (((unsignedLevel - AH_WP_ID_FIRST_GEM_CUP) < AH_WP_GEM_CUP_COUNT) && (dist < AH_WP_SHORT_RANGE_NEAR_DIST_SQ)))
 	{
 		// if you are near a new warppad, or if you already were
 		// determined as near the same warppad in the last frame,
 		// then use this warppad as the "closest". Otherwise the
 		// game could run this for two warppads right next to each other
-		if ((D232.levelID == -1) || (D232.levelID == levelID))
+		if ((AH_WARP_NEAREST_ID == -1) || (AH_WARP_NEAREST_ID == warppadObj->levelID))
 		{
 			// saved as nearest warppad
-			D232.levelID = levelID;
-
-
-			// if not giving Aku Hint
-			if (sdata->AkuAkuHintState == 0)
+			AH_WARP_NEAREST_ID = warppadObj->levelID;
 			{
-				// default
-				if (levelID < AH_WP_ADV_CUP)
-				{
-					warppadLNG = sdata->lngStrings[data.metaDataLEV[levelID].name_LNG];
-				}
+				struct PushBuffer *pushBuffer = &GAME_TRACKER->pushBuffer[0];
 #ifdef CTR_AP
 				// Schema 15: destination 110 has no metaDataLEV or AdvCups row.
-				else if (levelID == AP_CORTEX_DEST)
+				if (warppadObj->levelID == AP_CORTEX_DEST)
 				{
-					warppadLNG = (char *)"CORTEX VORTEX";
+					if (AH_HINT_STATE == 0)
+						DecalFont_DrawLine((char *)"CORTEX VORTEX", pushBuffer->rect.x + (pushBuffer->rect.w >> 1), pushBuffer->rect.y + pushBuffer->rect.h - 30,
+						                   FONT_BIG, JUSTIFY_CENTER | ORANGE);
 				}
-#endif
-				// gem cups
 				else
+#endif
+				if (warppadObj->levelID >= AH_WP_ID_FIRST_GEM_CUP)
 				{
-					warppadLNG = sdata->lngStrings[data.AdvCups[levelID - AH_WP_ADV_CUP].lngIndex_CupName];
-
+					s16 titleCup = warppadObj->levelID - AH_WP_ID_FIRST_GEM_CUP;
+					char *cupName = GAME_LANGUAGE_STRINGS[AH_WARP_CUPS[titleCup].lngIndex_CupName];
 #ifdef CTR_CUSTOM_TRACKS
 					// A displaced cup does not race the tracks this pad's retail name
 					// promises, so the name is the one thing on the pad that is
@@ -585,154 +635,127 @@ void AH_WarpPad_ThTick(struct Thread *t)
 					// written, and that field is never reset, so it still holds
 					// whichever cup was entered last.
 					{
-						const char *ctName = CustomTrack_CupDisplayName(levelID - AH_WP_ADV_CUP, 1);
+						const char *ctName = CustomTrack_CupDisplayName(titleCup, 1);
 
 						if (ctName != NULL)
-							warppadLNG = (char *)ctName;
+							cupName = (char *)ctName;
 					}
 #endif
+					if (AH_HINT_STATE == 0)
+						DecalFont_DrawLine(cupName, pushBuffer->rect.x + (pushBuffer->rect.w >> 1),
+						                   pushBuffer->rect.y + pushBuffer->rect.h - 30, FONT_BIG, JUSTIFY_CENTER | ORANGE);
+					if (!(GAME_ADV_PROGRESS.rewards[ADV_REWARD_HINT_GEM_CUPS_CHALLENGE / 32] & MEMCARD_BIT_MASK(ADV_REWARD_HINT_GEM_CUPS_CHALLENGE)) &&
+					    warppadObj->slots.inst[WPIS_CLOSED_1S])
+						MainFrame_RequestMaskHint(ADV_MASK_HINT_ID_GEM_CUPS_CHALLENGE, 0);
 				}
-
-				// midpoing X,
-				// 30 pixels above botttom Y
-				DecalFont_DrawLine(warppadLNG, gGT->pushBuffer[0].rect.x + gGT->pushBuffer[0].rect.w / 2,
-				                   gGT->pushBuffer[0].rect.y + gGT->pushBuffer[0].rect.h - 30, FONT_BIG, (JUSTIFY_CENTER | ORANGE));
+				else
+				{
+					if (AH_HINT_STATE == 0)
+						DecalFont_DrawLine(GAME_LANGUAGE_STRINGS[AH_LEVEL_METADATA[warppadObj->levelID].name_LNG],
+						                   pushBuffer->rect.x + (pushBuffer->rect.w >> 1), pushBuffer->rect.y + pushBuffer->rect.h - 30, FONT_BIG,
+						                   JUSTIFY_CENTER | ORANGE);
+					if (warppadObj->levelID == AH_WP_ID_SLIDE_COLISEUM)
+					{
+						if (!(GAME_ADV_PROGRESS.rewards[ADV_REWARD_HINT_MUST_GET_10_RELICS / 32] & MEMCARD_BIT_MASK(ADV_REWARD_HINT_MUST_GET_10_RELICS)) &&
+#ifdef CTR_AP
+						    // AP: the retail hint says "10 relics". Only true while the
+						    // pad keeps its retail gate; a seed that emits its own
+						    // requirement (randomized, or a lowered vanilla gate) shows
+						    // the real count on the pad instead.
+						    (ctr_cfg_slide_coliseum_req() == 0) &&
+#endif
+						    warppadObj->slots.inst[WPIS_CLOSED_1S])
+							MainFrame_RequestMaskHint(ADV_MASK_HINT_ID_MUST_GET_10_RELICS, 0);
+					}
+					else if ((u16)(warppadObj->levelID - AH_WP_ID_TURBO_TRACK) >= 8)
+					{
+						if (!(GAME_ADV_PROGRESS.rewards[ADV_REWARD_HINT_NEED_MORE_TROPHIES / 32] & MEMCARD_BIT_MASK(ADV_REWARD_HINT_NEED_MORE_TROPHIES)) &&
+						    warppadObj->slots.inst[WPIS_CLOSED_1S] && warppadObj->slots.inst[WPIS_CLOSED_ITEM]->model->id != STATIC_KEY)
+							MainFrame_RequestMaskHint(ADV_MASK_HINT_ID_NEED_MORE_TROPHIES, 0);
+					}
+				}
 
 #ifdef CTR_AP
-				int apBoxesLeft = 0;
-
-				// A trophy-complete pad can deliberately stay raceable while this
-				// destination still owns unchecked AP boxes (#232). Without an
-				// explanation that looks like a pad which failed to advance. Show the
-				// exact server-truth count below the title only in that transitional
-				// state; before the trophy it is ordinary race content, and at zero
-				// the line disappears as the pad advances normally.
-				if (levelID < AH_WP_SLIDE_COLISEUM &&
-				    AP_LocationCheckedByBit(levelID + ADV_REWARD_FIRST_TROPHY))
-					apBoxesLeft = AP_PadUncollectedBoxCount(levelID);
-
-				if (apBoxesLeft > 0)
 				{
-					char apBoxLine[32];
-					snprintf(apBoxLine, sizeof apBoxLine, "AP BOXES LEFT: %d", apBoxesLeft);
-					DecalFont_DrawLine(apBoxLine,
-					                   gGT->pushBuffer[0].rect.x + gGT->pushBuffer[0].rect.w / 2,
-					                   gGT->pushBuffer[0].rect.y + gGT->pushBuffer[0].rect.h - 15,
-					                   FONT_SMALL, (JUSTIFY_CENTER | ORANGE));
-				}
+					s32 apLevelID = warppadObj->levelID;
+					int apBoxesLeft = 0;
 
-				// Racer lock (#237). The pad's ITEM requirement already has a
-				// display: the 3D digit and reward models floating in front of
-				// the pad. A character lock had none, so a racer-locked pad was
-				// indistinguishable from an open one until you drove in and were
-				// refused. Draw the demanded racer here.
-				//
-				// ADDITIVE, never a replacement: this sits in the HUD layer while
-				// the item requirement stays in world space, so a pad that wants
-				// both a racer AND items shows both at once, which is exactly the
-				// case that was previously unreadable.
-				//
-				// Keyed by PHYSICAL pad, because that is what carries the lock --
-				// the same conversion every other requirement here uses.
-				{
-					int apLockPhys = ctr_cfg_warp_phys(levelID);
-					int apLockRacer = ctr_cfg_racer_lock(apLockPhys);
+					// A trophy-complete pad can deliberately stay raceable while this
+					// destination still owns unchecked AP boxes (#232). Without an
+					// explanation that looks like a pad which failed to advance. Show the
+					// exact server-truth count below the title only in that transitional
+					// state; before the trophy it is ordinary race content, and at zero
+					// the line disappears as the pad advances normally.
+					if (apLevelID < AH_WP_ID_SLIDE_COLISEUM &&
+					    AP_LocationCheckedByBit(apLevelID + ADV_REWARD_FIRST_TROPHY))
+						apBoxesLeft = AP_PadUncollectedBoxCount(apLevelID);
 
-					if (apLockRacer >= 0)
+					if (apBoxesLeft > 0)
 					{
-						char apRacerLine[32];
-						int apHave = AP_CharacterUnlocked(apLockRacer);
-						short apCx = (short)(gGT->pushBuffer[0].rect.x
-						                     + gGT->pushBuffer[0].rect.w / 2);
-						// The icon anchors at its TOP-LEFT and is up to ~32 high
-						// (DecalHUD_DrawPolyGT4 sizes it from the icon's own
-						// texture layout), so its bottom lands near y + 32. The
-						// RACER text below sits at h-45; h-82 keeps a clear gap.
-						// h-62 planted the icon straight through the text (Deck
-						// field check, 2026-08-17).
-						short apCy = (short)(gGT->pushBuffer[0].rect.y
-						                     + gGT->pushBuffer[0].rect.h - 82);
-
-						// Portrait centred above the title, dimmed until owned so
-						// "can I use this pad yet" reads without counting items.
-						AP_CharSwap_DrawPortraitAt(apLockRacer,
-						                           (short)(apCx - 16), apCy, !apHave);
-
-						if (!apHave)
-						{
-							// The engine's own short name (name_LNG_short) mismatches
-							// the AP log/feed spelling for several racers -- e.g.
-							// PENGUIN vs PENTA, KOMODO.J vs JOE (#362). Prefer the
-							// same alias the rest of the AP UI already uses; fall back
-							// to the engine name only for a racer id it cannot place.
-							const char *apRacerName = AP_ItemAliasRacerShortName(apLockRacer);
-							if (apRacerName == NULL)
-								apRacerName = sdata->lngStrings[data.MetaDataCharacters[apLockRacer].name_LNG_short];
-							snprintf(apRacerLine, sizeof apRacerLine, "REQUIRES %s", apRacerName);
-						}
-
-						DecalFont_DrawLine(apHave ? "RACER READY" : apRacerLine,
-						                   apCx,
-						                   (short)(gGT->pushBuffer[0].rect.y
-						                           + gGT->pushBuffer[0].rect.h - 45),
+						char apBoxLine[32];
+						snprintf(apBoxLine, sizeof apBoxLine, "AP BOXES LEFT: %d", apBoxesLeft);
+						DecalFont_DrawLine(apBoxLine,
+						                   pushBuffer->rect.x + pushBuffer->rect.w / 2,
+						                   pushBuffer->rect.y + pushBuffer->rect.h - 15,
 						                   FONT_SMALL, (JUSTIFY_CENTER | ORANGE));
 					}
+
+					// Racer lock (#237). The pad's ITEM requirement already has a
+					// display: the 3D digit and reward models floating in front of
+					// the pad. A character lock had none, so a racer-locked pad was
+					// indistinguishable from an open one until you drove in and were
+					// refused. Draw the demanded racer here.
+					//
+					// ADDITIVE, never a replacement: this sits in the HUD layer while
+					// the item requirement stays in world space, so a pad that wants
+					// both a racer AND items shows both at once, which is exactly the
+					// case that was previously unreadable.
+					//
+					// Keyed by PHYSICAL pad, because that is what carries the lock --
+					// the same conversion every other requirement here uses.
+					{
+						int apLockPhys = ctr_cfg_warp_phys(apLevelID);
+						int apLockRacer = ctr_cfg_racer_lock(apLockPhys);
+
+						if (apLockRacer >= 0)
+						{
+							char apRacerLine[32];
+							int apHave = AP_CharacterUnlocked(apLockRacer);
+							short apCx = (short)(pushBuffer->rect.x + pushBuffer->rect.w / 2);
+							// The icon anchors at its TOP-LEFT and is up to ~32 high
+							// (DecalHUD_DrawPolyGT4 sizes it from the icon's own
+							// texture layout), so its bottom lands near y + 32. The
+							// RACER text below sits at h-45; h-82 keeps a clear gap.
+							// h-62 planted the icon straight through the text (Deck
+							// field check, 2026-08-17).
+							short apCy = (short)(pushBuffer->rect.y + pushBuffer->rect.h - 82);
+
+							// Portrait centred above the title, dimmed until owned so
+							// "can I use this pad yet" reads without counting items.
+							AP_CharSwap_DrawPortraitAt(apLockRacer,
+							                           (short)(apCx - 16), apCy, !apHave);
+
+							if (!apHave)
+							{
+								// The engine's own short name (name_LNG_short) mismatches
+								// the AP log/feed spelling for several racers -- e.g.
+								// PENGUIN vs PENTA, KOMODO.J vs JOE (#362). Prefer the
+								// same alias the rest of the AP UI already uses; fall back
+								// to the engine name only for a racer id it cannot place.
+								const char *apRacerName = AP_ItemAliasRacerShortName(apLockRacer);
+								if (apRacerName == NULL)
+									apRacerName = GAME_LANGUAGE_STRINGS[data.MetaDataCharacters[apLockRacer].name_LNG_short];
+								snprintf(apRacerLine, sizeof apRacerLine, "REQUIRES %s", apRacerName);
+							}
+
+							DecalFont_DrawLine(apHave ? "RACER READY" : apRacerLine,
+							                   apCx,
+							                   (short)(pushBuffer->rect.y + pushBuffer->rect.h - 45),
+							                   FONT_SMALL, (JUSTIFY_CENTER | ORANGE));
+						}
+					}
 				}
 #endif
-			}
-
-			// if track is unlocked, ignore all other ELSE-IFs
-			if (instArr[WPIS_CLOSED_1S] == 0)
-			{
-			}
-
-			else if (
-
-			    // gem cup
-			    ((u16)(levelID - AH_WP_ADV_CUP) < 5) &&
-
-			    // Dont have hint "you must have 4 tokens for a gem"
-			    (CHECK_ADV_BIT(sdata->advProgress.rewards, ADV_REWARD_HINT_GEM_CUPS_CHALLENGE) == 0)
-
-			)
-			{
-				// give hint "you must have 4 tokens for a gem"
-				MainFrame_RequestMaskHint(ADV_MASK_HINT_ID_GEM_CUPS_CHALLENGE, 0);
-			}
-
-			else if (
-
-			    // Trophy track
-			    (levelID < AH_WP_SLIDE_COLISEUM) &&
-
-			    // Dont have hint "you must have more trophies"
-			    (CHECK_ADV_BIT(sdata->advProgress.rewards, ADV_REWARD_HINT_NEED_MORE_TROPHIES) == 0) &&
-
-			    // required item is not KEY
-			    (instArr[WPIS_CLOSED_ITEM]->model->id != STATIC_KEY))
-			{
-				// give hint for "need more trophies"
-				MainFrame_RequestMaskHint(ADV_MASK_HINT_ID_NEED_MORE_TROPHIES, 0);
-			}
-
-			else if (
-
-			    // Slide Col
-			    (levelID == AH_WP_SLIDE_COLISEUM) &&
-
-#ifdef CTR_AP
-			    // AP: the retail hint says "10 relics". Only true while the
-			    // pad keeps its retail gate; a seed that emits its own
-			    // requirement (randomized, or a lowered vanilla gate) shows
-			    // the real count on the pad instead.
-			    (ctr_cfg_slide_coliseum_req() == 0) &&
-#endif
-
-			    // Dont have hint "you must have 10 relics"
-			    (CHECK_ADV_BIT(sdata->advProgress.rewards, ADV_REWARD_HINT_MUST_GET_10_RELICS) == 0))
-			{
-				// give hint for "need more trophies"
-				MainFrame_RequestMaskHint(ADV_MASK_HINT_ID_MUST_GET_10_RELICS, 0);
 			}
 		}
 	}
@@ -740,71 +763,84 @@ void AH_WarpPad_ThTick(struct Thread *t)
 	// not near portal
 	else
 	{
-		D232.levelID = -1;
+		AH_WARP_NEAREST_ID = -1;
 	}
 
 	// if warppad is locked
-	if (instArr[WPIS_CLOSED_1S] != 0)
+	if (warppadObj->slots.inst[WPIS_CLOSED_1S] != 0)
 	{
-		angleCamToWarppad = ratan2(warppadMatrix->t[0] - gGT->pushBuffer[0].pos.x, warppadMatrix->t[2] - gGT->pushBuffer[0].pos.z);
+		struct Instance *closedItemInst;
+		angleCamToWarppad = ratan2(warppadInst->matrix.t[0] - GAME_TRACKER->pushBuffer[0].pos.x, warppadInst->matrix.t[2] - GAME_TRACKER->pushBuffer[0].pos.z);
 
 		angleCamToWarppad = -angleCamToWarppad;
 
-		angleSin = MATH_Sin(angleCamToWarppad);
-		angleCos = MATH_Cos(angleCamToWarppad);
 
-		// no 10s digit
-		if (instArr[WPIS_CLOSED_10S] == 0)
+		if (warppadObj->slots.inst[WPIS_CLOSED_10S] != 0)
 		{
-			instArr[WPIS_CLOSED_1S]->matrix.t[0] = warppadMatrix->t[0] + (angleCos * -0x80 >> 0xC);
-			instArr[WPIS_CLOSED_1S]->matrix.t[2] = warppadMatrix->t[2] + (angleSin * -0x80 >> 0xC);
+			warppadObj->slots.inst[WPIS_CLOSED_ITEM]->matrix.t[0] =
+			    warppadInst->matrix.t[0] + (MATH_Cos(angleCamToWarppad) * AH_WP_CLOSED_ITEM_WITH_TENS_OFFSET >> 0xC);
+			warppadObj->slots.inst[WPIS_CLOSED_ITEM]->matrix.t[2] =
+			    warppadInst->matrix.t[2] + (MATH_Sin(angleCamToWarppad) * AH_WP_CLOSED_ITEM_WITH_TENS_OFFSET >> 0xC);
 
-			instArr[WPIS_CLOSED_ITEM]->matrix.t[0] = warppadMatrix->t[0] + ((angleCos << 7) >> 0xC);
-			instArr[WPIS_CLOSED_ITEM]->matrix.t[2] = warppadMatrix->t[2] + ((angleSin << 7) >> 0xC);
+			warppadObj->slots.inst[WPIS_CLOSED_X]->matrix.t[0] =
+			    warppadInst->matrix.t[0] + (MATH_Cos(angleCamToWarppad) * AH_WP_CLOSED_X_WITH_TENS_OFFSET >> 0xC);
+			warppadObj->slots.inst[WPIS_CLOSED_X]->matrix.t[2] =
+			    warppadInst->matrix.t[2] + (MATH_Sin(angleCamToWarppad) * AH_WP_CLOSED_X_WITH_TENS_OFFSET >> 0xC);
+
+			warppadObj->slots.inst[WPIS_CLOSED_10S]->matrix.t[0] = warppadInst->matrix.t[0] + (MATH_Cos(angleCamToWarppad) * AH_WP_CLOSED_TENS_OFFSET >> 0xC);
+			warppadObj->slots.inst[WPIS_CLOSED_10S]->matrix.t[2] = warppadInst->matrix.t[2] + (MATH_Sin(angleCamToWarppad) * AH_WP_CLOSED_TENS_OFFSET >> 0xC);
+
+			warppadObj->slots.inst[WPIS_CLOSED_1S]->matrix.t[0] =
+			    warppadInst->matrix.t[0] + (MATH_Cos(angleCamToWarppad) * AH_WP_CLOSED_ONES_WITH_TENS_OFFSET >> 0xC);
+			warppadObj->slots.inst[WPIS_CLOSED_1S]->matrix.t[2] =
+			    warppadInst->matrix.t[2] + (MATH_Sin(angleCamToWarppad) * AH_WP_CLOSED_ONES_WITH_TENS_OFFSET >> 0xC);
 		}
-
-		// 10s digit
 		else
 		{
-			instArr[WPIS_CLOSED_ITEM]->matrix.t[0] = warppadMatrix->t[0] + (angleCos * 0xC0 >> 0xC);
-			instArr[WPIS_CLOSED_ITEM]->matrix.t[2] = warppadMatrix->t[2] + (angleSin * 0xC0 >> 0xC);
+			warppadObj->slots.inst[WPIS_CLOSED_1S]->matrix.t[0] =
+			    warppadInst->matrix.t[0] + (MATH_Cos(angleCamToWarppad) * AH_WP_CLOSED_SINGLE_DIGIT_OFFSET >> 0xC);
+			warppadObj->slots.inst[WPIS_CLOSED_1S]->matrix.t[2] =
+			    warppadInst->matrix.t[2] + (MATH_Sin(angleCamToWarppad) * AH_WP_CLOSED_SINGLE_DIGIT_OFFSET >> 0xC);
 
-			instArr[WPIS_CLOSED_X]->matrix.t[0] = warppadMatrix->t[0] + ((angleCos << 6) >> 0xC);
-			instArr[WPIS_CLOSED_X]->matrix.t[2] = warppadMatrix->t[2] + ((angleSin << 6) >> 0xC);
-
-			instArr[WPIS_CLOSED_10S]->matrix.t[0] = warppadMatrix->t[0] + (angleCos * -0x40 >> 0xC);
-			instArr[WPIS_CLOSED_10S]->matrix.t[2] = warppadMatrix->t[2] + (angleSin * -0x40 >> 0xC);
-
-			instArr[WPIS_CLOSED_1S]->matrix.t[0] = warppadMatrix->t[0] + (angleCos * -0xa0 >> 0xC);
-			instArr[WPIS_CLOSED_1S]->matrix.t[2] = warppadMatrix->t[2] + (angleSin * -0xa0 >> 0xC);
+			warppadObj->slots.inst[WPIS_CLOSED_ITEM]->matrix.t[0] =
+			    warppadInst->matrix.t[0] + (MATH_Cos(angleCamToWarppad) * AH_WP_CLOSED_SINGLE_ITEM_OFFSET >> 0xC);
+			warppadObj->slots.inst[WPIS_CLOSED_ITEM]->matrix.t[2] =
+			    warppadInst->matrix.t[2] + (MATH_Sin(angleCamToWarppad) * AH_WP_CLOSED_SINGLE_ITEM_OFFSET >> 0xC);
 		}
 
 		warppadObj->spinRot_Prize.x = 0;
 		warppadObj->spinRot_Prize.z = 0;
 
-		warppadObj->spinRot_Prize.y += FPS_HALF(0x40);
+		warppadObj->spinRot_Prize.y += FPS_HALF(AH_WP_SPIN_PRIZE_STEP);
 
-		// reuse variable,
-		// end of function anyway
-		warppadInst = instArr[WPIS_CLOSED_ITEM];
-#define InstArr0 warppadInst
-
-		// converted to TEST in rebuildPS1
-		ConvertRotToMatrix(&InstArr0->matrix, &warppadObj->spinRot_Prize);
-
-		modelID = InstArr0->model->id;
-
-		// Trophy has no specular light
-		if (modelID == STATIC_TROPHY)
+		ConvertRotToMatrix(&warppadObj->slots.inst[WPIS_CLOSED_ITEM]->matrix, &warppadObj->spinRot_Prize);
+		closedItemInst = warppadObj->slots.inst[WPIS_CLOSED_ITEM];
+		if (closedItemInst->model->id == STATIC_GEM)
 		{
-			return;
+			s16 colorIndex = ((u32)GAME_TRACKER->timer / FPS_DOUBLE(60)) % 5;
+#ifdef CTR_AP
+			// AP: the gem icon here advertises this pad's gem REQUIREMENT. The
+			// vanilla 5-colour cycle is right for a genuine AnyGem req (type 8),
+			// but a specific-colour req (type 5) must pin ITS one colour -- the
+			// cycle made a "1x Blue Gem" gate read as "any 1 gem" (live confusion,
+			// 2026-07-15 playtest). Mirrors the relic-tier pin below; LInB recorded
+			// the shown requirement's gem colour keyed by the physical pad.
+			if (ctr_cfg_active())
+			{
+				int apReqGemC = AP_WarpReqGemColour(ctr_cfg_warp_phys(warppadObj->levelID));
+				if (apReqGemC >= 0)
+					colorIndex = apReqGemC; // specific colour -> fixed; negative keeps the cycle
+			}
+#endif
+			closedItemInst->colorRGBA =
+			    ((u32)AH_WARP_CUPS[colorIndex].color[0] << 20) | ((u32)AH_WARP_CUPS[colorIndex].color[1] << 12) | ((u32)AH_WARP_CUPS[colorIndex].color[2] << 4);
 		}
-
-		// NOTE(aalhendi): Retail passes the per-WarpPad spec-light arrays at
-		// offsets 0x50/0x58/0x60.
-
-		// Relic
-		if (modelID == STATIC_RELIC)
+		modelID = warppadObj->slots.inst[WPIS_CLOSED_ITEM]->model->id;
+		if (modelID == STATIC_TROPHY)
+			return;
+		if (modelID == STATIC_KEY)
+			Vector_SpecLightSpin3D(warppadObj->slots.inst[WPIS_CLOSED_ITEM], &warppadObj->spinRot_Prize, &warppadObj->lightDirGem);
+		else if (modelID == STATIC_RELIC)
 		{
 #ifdef CTR_AP
 			// AP: the relic icon here advertises this pad's relic REQUIREMENT. An
@@ -822,17 +858,14 @@ void AH_WarpPad_ThTick(struct Thread *t)
 				static const u32 s_relicTierTint[3] = {0x020a5ff0, 0x0ffc6290, 0x0ebebf50};
 				int relicTintTier = AP_WarpReqRelicTint(ctr_cfg_warp_phys(warppadObj->levelID));
 				if (relicTintTier >= 0)
-					InstArr0->colorRGBA = s_relicTierTint[relicTintTier]; // specific tier -> fixed
+					closedItemInst->colorRGBA = s_relicTierTint[relicTintTier]; // specific tier -> fixed
 				else
-					InstArr0->colorRGBA = s_relicTierTint[(gGT->timer / FPS_DOUBLE(0x3C)) % 3]; // AnyRelic -> cycle
+					closedItemInst->colorRGBA = s_relicTierTint[(GAME_TRACKER->timer / FPS_DOUBLE(0x3C)) % 3]; // AnyRelic -> cycle
 			}
 #endif
-			Vector_SpecLightSpin3D(InstArr0, &warppadObj->spinRot_Prize, &warppadObj->lightDirRelic);
-			return;
+			Vector_SpecLightSpin3D(warppadObj->slots.inst[WPIS_CLOSED_ITEM], &warppadObj->spinRot_Prize, &warppadObj->lightDirRelic);
 		}
-
-		// Token
-		if (modelID == STATIC_TOKEN)
+		else if (modelID == STATIC_TOKEN)
 		{
 #ifdef CTR_AP
 			// AP: the token icon here advertises this pad's token REQUIREMENT. The
@@ -842,47 +875,22 @@ void AH_WarpPad_ThTick(struct Thread *t)
 			// requirement's OWN colour (record >= 0); AnyToken (-1) cycles all 5
 			// like AnyGem so it reads as "any token"; -2 (no resolved token req,
 			// e.g. the vanilla cup rule) leaves the birth colour untouched.
-			// Mirrors the gem-requirement pin below.
+			// Mirrors the gem-requirement pin above.
 			if (ctr_cfg_active())
 			{
 				int apReqTokC = AP_WarpReqTokenColour(ctr_cfg_warp_phys(warppadObj->levelID));
 				if (apReqTokC >= -1)
 				{
-					i = (apReqTokC >= 0) ? apReqTokC : (gGT->timer / FPS_DOUBLE(0x3C)) % 5;
-					InstArr0->colorRGBA = ((u32)data.AdvCups[i].color[0] << 0x14) |
-					                      ((u32)data.AdvCups[i].color[1] << 0xc) |
-					                      ((u32)data.AdvCups[i].color[2] << 0x4);
+					s16 colorIndex = (apReqTokC >= 0) ? apReqTokC : (s16)(((u32)GAME_TRACKER->timer / (u32)FPS_DOUBLE(60)) % 5);
+					closedItemInst->colorRGBA = ((u32)AH_WARP_CUPS[colorIndex].color[0] << 20) | ((u32)AH_WARP_CUPS[colorIndex].color[1] << 12) |
+					                            ((u32)AH_WARP_CUPS[colorIndex].color[2] << 4);
 				}
 			}
 #endif
-			Vector_SpecLightSpin3D(InstArr0, &warppadObj->spinRot_Prize, &warppadObj->lightDirToken);
-			return;
+			Vector_SpecLightSpin3D(warppadObj->slots.inst[WPIS_CLOSED_ITEM], &warppadObj->spinRot_Prize, &warppadObj->lightDirToken);
 		}
-
-		// If Gem, change colors every 2 seconds
-		if (modelID == STATIC_GEM)
-		{
-			i = (gGT->timer / FPS_DOUBLE(0x3C)) % 5;
-
-#ifdef CTR_AP
-			// AP: the gem icon here advertises this pad's gem REQUIREMENT. The
-			// vanilla 5-colour cycle is right for a genuine AnyGem req (type 8),
-			// but a specific-colour req (type 5) must pin ITS one colour -- the
-			// cycle made a "1x Blue Gem" gate read as "any 1 gem" (live confusion,
-			// 2026-07-15 playtest). Mirrors the relic-tier pin above; LInB recorded
-			// the shown requirement's gem colour keyed by the physical pad.
-			if (ctr_cfg_active())
-			{
-				int apReqGemC = AP_WarpReqGemColour(ctr_cfg_warp_phys(warppadObj->levelID));
-				if (apReqGemC >= 0)
-					i = apReqGemC; // specific colour -> fixed; negative keeps the cycle
-			}
-#endif
-			InstArr0->colorRGBA = ((u32)data.AdvCups[i].color[0] << 0x14) | ((u32)data.AdvCups[i].color[1] << 0xc) | ((u32)data.AdvCups[i].color[2] << 0x4);
-		}
-
-		// for Key or Gem
-		Vector_SpecLightSpin3D(InstArr0, &warppadObj->spinRot_Prize, &warppadObj->lightDirGem);
+		else if (modelID == STATIC_GEM)
+			Vector_SpecLightSpin3D(warppadObj->slots.inst[WPIS_CLOSED_ITEM], &warppadObj->spinRot_Prize, &warppadObj->lightDirGem);
 		return;
 	}
 
@@ -901,59 +909,56 @@ void AH_WarpPad_ThTick(struct Thread *t)
 	{
 		return;
 	}
-#endif
 
-#ifdef CTR_AP
 	if (apEntryRefusedDest == warppadObj->levelID && warppadObj->boolEnteredWarppad == 0)
 	{
-		if (dist > 0x8fff)
+		if (dist > AH_WP_WARP_TRIGGER_DIST_SQ)
 			apEntryRefusedDest = -1; // left the pad: entry re-arms
 		else
 			goto WarpPad_AnimateOpen;
 	}
 #endif
 
-	if ((dist > 0x8fff) && (warppadObj->boolEnteredWarppad == 0))
+	if ((dist > AH_WP_WARP_TRIGGER_DIST_SQ) && (warppadObj->boolEnteredWarppad == 0))
 	{
 		goto WarpPad_AnimateOpen;
 	}
 
-	// Retail repeats this setup every close/warping frame before the
+	// NOTE(aalhendi): This setup repeats every close/warping frame before the
 	// transition/load gate.
-	LOAD_Robots1P(data.characterIDs[0]);
+	LOAD_Robots1P(GAME_CHARACTER_IDS[0]);
 
-	// variable reuse, get track speed champion
+	// Track speed champion.
 #ifdef CTR_AP
 	// Destination 110 races on host level 13; there is no row 110.
-	champID = data.metaDataLEV[levelID == AP_CORTEX_DEST ? 13 : levelID].characterID_Champion;
+	champLevel = (warppadObj->levelID == AP_CORTEX_DEST) ? 13 : warppadObj->levelID;
 #else
-	champID = data.metaDataLEV[levelID].characterID_Champion;
+	champLevel = warppadObj->levelID;
 #endif
-
-	// default
-	champSlot = 0;
+	champID = AH_WarpPad_Champion(champLevel);
 
 	// If Speed Champion is on the track (Crash-Pura)
 	// and is not the same characterID as this driver
-	if ((champID < 8) && (champID != data.characterIDs[driver->driverID]))
+	if ((champID < AH_WP_RACER_SLOT_COUNT) && (champID != GAME_CHARACTER_IDS[driver->driverID]))
 	{
+		champSlot = 0;
 		// set everyone to spawn in order
-		for (i = 1; i < 8; i++)
+		for (i = 1; i < AH_WP_RACER_SLOT_COUNT; i++)
 		{
-			if (champID == data.characterIDs[i])
+			if (AH_WarpPad_Champion(champLevel) == GAME_CHARACTER_IDS[i])
 			{
-				sdata->kartSpawnOrderArray[i] = 0;
 				champSlot = i;
+				AH_KART_SPAWN_ORDER[i] = 0;
 			}
 
 			else if (i == 7)
 			{
-				sdata->kartSpawnOrderArray[7] = champSlot;
+				AH_KART_SPAWN_ORDER[AH_WP_RACER_SLOT_COUNT - 1] = champSlot;
 			}
 
 			else
 			{
-				sdata->kartSpawnOrderArray[i] = i;
+				AH_KART_SPAWN_ORDER[i] = i;
 			}
 		}
 	}
@@ -961,23 +966,21 @@ void AH_WarpPad_ThTick(struct Thread *t)
 	// Speed Champion is invalid
 	else
 	{
-		for (i = 1; i < 8; i++)
+		i = 1;
+		do
 		{
 			randKartSpawn[i] = i;
-		}
+			i++;
+		} while (i < AH_WP_RACER_SLOT_COUNT);
 
-		for (i = 0; i < 7; i++)
+		for (i = 0; i < AH_WP_RACER_SLOT_COUNT - 1; i++)
 		{
-			rng1 = RngDeadCoed(&sdata->advRng);
+			rng1 = RngDeadCoed(&AH_ADVENTURE_RNG);
 
-			rng2 = 7 - i;
+			rng2 = (rng1 & 0xfff) % (AH_WP_RACER_SLOT_COUNT - 1 - i) + 1;
+			AH_KART_SPAWN_ORDER[(s32)randKartSpawn[rng2]] = (u8)i;
 
-			rng2 = (rng1 & 0xfff) % rng2 + 1;
-			rng2 = (s16)rng2;
-
-			sdata->kartSpawnOrderArray[(s32)randKartSpawn[rng2]] = (char)i;
-
-			while (rng2 < 7)
+			while (rng2 < AH_WP_RACER_SLOT_COUNT - 1)
 			{
 				randKartSpawn[rng2] = randKartSpawn[rng2 + 1];
 				rng2++;
@@ -986,13 +989,14 @@ void AH_WarpPad_ThTick(struct Thread *t)
 	}
 
 	// spawn P1 in the back
-	sdata->kartSpawnOrderArray[0] = 7;
+	AH_KART_SPAWN_ORDER[0] = 7;
 
 	// if flag is on-screen, loading has already been finalized
-	if (RaceFlag_IsTransitioning() != 0)
+	if (RaceFlag_IsTransitioning())
 	{
 		goto WarpPad_AnimateOpen;
 	}
+
 
 	levelID = warppadObj->levelID;
 
@@ -1077,8 +1081,8 @@ void AH_WarpPad_ThTick(struct Thread *t)
 			AH_WarpPad_WarpCapture(gGT);
 		warppadObj->boolEnteredWarppad = 1;
 		warppadObj->framesWarping++;
-		gGT->drivers[0]->funcPtrs[DRIVER_FUNC_INIT] = VehStuckProc_Warp_Init;
-		if (warppadObj->framesWarping < FPS_DOUBLE(61))
+		driver->funcPtrs[DRIVER_FUNC_INIT] = VehStuckProc_Warp_Init;
+		if (warppadObj->framesWarping < FPS_DOUBLE(AH_WP_WARP_LOAD_FRAMES))
 			goto WarpPad_AnimateOpen;
 
 		{
@@ -1105,39 +1109,39 @@ void AH_WarpPad_ThTick(struct Thread *t)
 		if (cvRoute == AP_PAD_TIER2_TOKEN)
 		{
 			gGT->gameMode2 |= TOKEN_RACE;
-			RECTMENU_Hide(&D232.menuTokenRelic);
+			RECTMENU_Hide(&AH_WARP_MENU);
 		}
 		else if (cvRoute == AP_PAD_TIER2_RELIC)
 		{
 			gGT->gameMode1 |= RELIC_RACE;
-			RECTMENU_Hide(&D232.menuTokenRelic);
+			RECTMENU_Hide(&AH_WARP_MENU);
 		}
 		else if (cvRoute == AP_PAD_TIER2_MENU)
 		{
-			if (sdata->boolOpenTokenRelicMenu == 0)
+			if (AH_WARP_MENU_OPENED == 0)
 			{
-				D232.menuTokenRelic.rowSelected = cvTokenLeft ? 0 : 1;
-				RECTMENU_Show(&D232.menuTokenRelic);
-				sdata->boolOpenTokenRelicMenu = 1;
+				AH_WARP_MENU.rowSelected = cvTokenLeft ? 0 : 1;
+				RECTMENU_Show(&AH_WARP_MENU);
+				AH_WARP_MENU_OPENED = 1;
 			}
-			if ((RECTMENU_BoolHidden(&D232.menuTokenRelic) & 0xffff) == 0)
+			if ((RECTMENU_BoolHidden(&AH_WARP_MENU) & 0xffff) == 0)
 				goto WarpPad_TrophyAnimateOnly;
 		}
 		else
 			goto WarpPad_RefuseEntry; // Done is hard-locked upstream; never trap
-		sdata->boolOpenTokenRelicMenu = 0;
+		AH_WARP_MENU_OPENED = 0;
 		warppadObj->boolEnteredWarppad = 0;
 		goto WarpPad_RequestLoad;
 	}
 #endif
 
 	// gem cups
-	if (levelID >= AH_WP_ADV_CUP)
+	if (levelID >= AH_WP_ID_FIRST_GEM_CUP)
 	{
 #ifdef CTR_AP
 		// Schema 15: a cup that legs Cortex Vortex is not enterable while the
 		// pad track is unavailable; its leg would otherwise have no bytes.
-		if (ctr_cfg_active() && AP_CupLegsCortexTrack(levelID - AH_WP_ADV_CUP) &&
+		if (ctr_cfg_active() && AP_CupLegsCortexTrack(levelID - AH_WP_ID_FIRST_GEM_CUP) &&
 		    !AP_CortexTrackEntryReady(warppadObj->framesWarping == 0))
 			goto WarpPad_AnimateOpen;
 #endif
@@ -1145,7 +1149,7 @@ void AH_WarpPad_ThTick(struct Thread *t)
 		// A displaced destination is not enterable until the exact package this
 		// seed requires verifies. The gate re-hashes at event entry, so even a
 		// same-size file swap after connect is refused before loading begins.
-		if (ctr_cfg_active() && ctr_cfg_cup_displaced(levelID - AH_WP_ADV_CUP) &&
+		if (ctr_cfg_active() && ctr_cfg_cup_displaced(levelID - AH_WP_ID_FIRST_GEM_CUP) &&
 		    !AP_CustomContentGateEventEntry(warppadObj->framesWarping == FPS_DOUBLE(60)))
 			goto WarpPad_AnimateOpen;
 #endif
@@ -1156,8 +1160,8 @@ void AH_WarpPad_ThTick(struct Thread *t)
 #endif
 		warppadObj->boolEnteredWarppad = 1;
 		warppadObj->framesWarping++;
-		gGT->drivers[0]->funcPtrs[DRIVER_FUNC_INIT] = VehStuckProc_Warp_Init;
-		if (warppadObj->framesWarping < FPS_DOUBLE(61))
+		driver->funcPtrs[DRIVER_FUNC_INIT] = VehStuckProc_Warp_Init;
+		if (warppadObj->framesWarping < FPS_DOUBLE(AH_WP_WARP_LOAD_FRAMES))
 		{
 			goto WarpPad_AnimateOpen;
 		}
@@ -1166,7 +1170,7 @@ void AH_WarpPad_ThTick(struct Thread *t)
 		if (ctr_cfg_active() && ctr_cfg.custom_ctr_enabled &&
 		    levelID == ctr_cfg.custom_track.replaces_cup_level_id)
 		{
-			if (warppadObj->framesWarping == FPS_DOUBLE(61))
+			if (warppadObj->framesWarping == FPS_DOUBLE(AH_WP_WARP_LOAD_FRAMES))
 			{
 				apCustomRaceChoice = -2;
 				apCustomRaceMenu.rowSelected = AP_CustomTrackTrophyChecked() ? 1 : 0;
@@ -1179,13 +1183,13 @@ void AH_WarpPad_ThTick(struct Thread *t)
 				warppadObj->boolEnteredWarppad = 0;
 				warppadObj->framesWarping = 0;
 				AH_WarpPad_WarpRestore(gGT);
-				gGT->drivers[0]->funcPtrs[DRIVER_FUNC_INIT] = VehPhysProc_Driving_Init;
+				driver->funcPtrs[DRIVER_FUNC_INIT] = VehPhysProc_Driving_Init;
 				goto WarpPad_AnimateOpen;
 			}
 			gGT->gameMode2 &= ~TOKEN_RACE;
 			gGT->gameMode1 &= ~RELIC_RACE;
-			sdata->Loading.OnBegin.AddBitsConfig0 &= ~RELIC_RACE;
-			sdata->Loading.OnBegin.RemBitsConfig0 |= RELIC_RACE;
+			GAME_ADD_CONFIG_0 &= ~RELIC_RACE;
+			GAME_REMOVE_CONFIG_0 |= RELIC_RACE;
 			sdata->Loading.OnBegin.AddBitsConfig8 &= ~TOKEN_RACE;
 			sdata->Loading.OnBegin.RemBitsConfig8 |= TOKEN_RACE;
 			if (apCustomRaceChoice == 1)
@@ -1196,11 +1200,11 @@ void AH_WarpPad_ThTick(struct Thread *t)
 			}
 		}
 #endif
-		sdata->Loading.OnBegin.AddBitsConfig0 |= ADVENTURE_CUP;
+		GAME_ADD_CONFIG_0 |= ADVENTURE_CUP;
 
-		gGT->cup.cupID = levelID - AH_WP_ADV_CUP;
+		gGT->cup.cupID = levelID - AH_WP_ID_FIRST_GEM_CUP;
 		gGT->cup.trackIndex = 0;
-		for (i = 0; i < 8; i++)
+		for (i = 0; i < AH_WP_RACER_SLOT_COUNT; i++)
 		{
 			gGT->cup.points[i] = 0;
 		}
@@ -1265,18 +1269,18 @@ void AH_WarpPad_ThTick(struct Thread *t)
 
 #ifdef CTR_AP
 		// #166: ctr_cfg_cup_leg is identity-safe (returns the vanilla
-		// data.advCupTrackIDs value when slot_data is inactive or this seed left
+		// AH_WARP_CUP_TRACKS value when slot_data is inactive or this seed left
 		// the leg at its default), so this is a no-op pre-#166 and on an
 		// option-off / pre-0.2.0 seed.
 		levelID = ctr_cfg_cup_leg(gGT->cup.cupID, 0);
 #else
-		levelID = data.advCupTrackIDs[4 * gGT->cup.cupID];
+		levelID = AH_WARP_CUP_TRACKS[4 * gGT->cup.cupID];
 #endif
 		goto WarpPad_RequestLoad;
 	}
 
 	// Slide Col or Turbo Track
-	if (((u16)(levelID - AH_WP_SLIDE_COLISEUM)) < 2)
+	if (((u16)(levelID - AH_WP_ID_SLIDE_COLISEUM)) < 2)
 	{
 #ifdef CTR_AP
 		// Stage 2 for a trial destination (2026-10-09). Under destination
@@ -1289,7 +1293,7 @@ void AH_WarpPad_ThTick(struct Thread *t)
 		// still needs the plain rerace. Unshuffled trial pads have no stage 2
 		// (ctr_cfg_warp_stage2_unlocked returns 1), so they never stop here.
 		int apTrialStage2Locked = ctr_cfg_active() &&
-		    ctr_cfg.trial_track_valid[levelID - AH_WP_SLIDE_COLISEUM] &&
+		    ctr_cfg.trial_track_valid[levelID - AH_WP_ID_SLIDE_COLISEUM] &&
 		    AP_TrialTrackLocationChecked(levelID, CTR_CFG_TRIAL_TROPHY) &&
 		    !ctr_cfg_warp_stage2_unlocked(physLevelID);
 		if (apTrialStage2Locked && warppadObj->boolEnteredWarppad == 0 &&
@@ -1308,14 +1312,14 @@ void AH_WarpPad_ThTick(struct Thread *t)
 #endif
 		warppadObj->boolEnteredWarppad = 1;
 		warppadObj->framesWarping++;
-		gGT->drivers[0]->funcPtrs[DRIVER_FUNC_INIT] = VehStuckProc_Warp_Init;
-		if (warppadObj->framesWarping < FPS_DOUBLE(61))
+		driver->funcPtrs[DRIVER_FUNC_INIT] = VehStuckProc_Warp_Init;
+		if (warppadObj->framesWarping < FPS_DOUBLE(AH_WP_WARP_LOAD_FRAMES))
 		{
 			goto WarpPad_AnimateOpen;
 		}
 
 		#ifdef CTR_AP
-		if (ctr_cfg_active() && ctr_cfg.trial_track_valid[levelID - AH_WP_SLIDE_COLISEUM])
+		if (ctr_cfg_active() && ctr_cfg.trial_track_valid[levelID - AH_WP_ID_SLIDE_COLISEUM])
 		{
 			int tokenLeft, relicLeft, boxLeft, wumpaLeft, route;
 			int relicBits[3];
@@ -1363,11 +1367,11 @@ void AH_WarpPad_ThTick(struct Thread *t)
 				int apHitAction = AP_HitChooserFrame(
 				    &apHitChooser, apHitOpp, tokenLeft, relicLeft,
 				    (int)gGT->gameMode1, (int)gGT->gameMode2,
-				    sdata->Loading.OnBegin.AddBitsConfig0,
-				    sdata->Loading.OnBegin.RemBitsConfig0,
+				    GAME_ADD_CONFIG_0,
+				    GAME_REMOVE_CONFIG_0,
 				    sdata->Loading.OnBegin.AddBitsConfig8,
 				    sdata->Loading.OnBegin.RemBitsConfig8,
-				    sdata->boolOpenTokenRelicMenu, &apHitRoute);
+				    AH_WARP_MENU_OPENED, &apHitRoute);
 				AP_HitLogChooser(physLevelID, levelID, apHitAction, apHitRoute,
 				                 tokenLeft, relicLeft);
 				if (apHitAction == AP_HIT_CHOOSER_OPEN)
@@ -1404,36 +1408,36 @@ void AH_WarpPad_ThTick(struct Thread *t)
 					    apHitChooser.savedAdd0, apHitChooser.savedRem0,
 					    apHitChooser.savedAdd8, apHitChooser.savedRem8,
 					    &gGT->gameMode1, &gGT->gameMode2,
-					    &sdata->Loading.OnBegin.AddBitsConfig0,
-					    &sdata->Loading.OnBegin.RemBitsConfig0,
+					    &GAME_ADD_CONFIG_0,
+					    &GAME_REMOVE_CONFIG_0,
 					    &sdata->Loading.OnBegin.AddBitsConfig8,
 					    &sdata->Loading.OnBegin.RemBitsConfig8);
-					sdata->boolOpenTokenRelicMenu = apHitChooser.savedMenuFlag;
+					AH_WARP_MENU_OPENED = apHitChooser.savedMenuFlag;
 					warppadObj->boolEnteredWarppad = 0;
 					warppadObj->framesWarping = 0;
 					AH_WarpPad_WarpRestore(gGT);
-					gGT->drivers[0]->funcPtrs[DRIVER_FUNC_INIT] = VehPhysProc_Driving_Init;
+					driver->funcPtrs[DRIVER_FUNC_INIT] = VehPhysProc_Driving_Init;
 					goto WarpPad_AnimateOpen;
 				}
 				else if (apHitAction == AP_HIT_CHOOSER_APPLY)
 				{
 					unsigned apGm1, apGm2, apA0, apR0, apA8, apR8;
-					RECTMENU_Hide(&D232.menuTokenRelic);
+					RECTMENU_Hide(&AH_WARP_MENU);
 					AP_HitChooserApplyPure(apHitRoute,
 					                       (unsigned)TOKEN_RACE, (unsigned)RELIC_RACE,
 					                       (unsigned)gGT->gameMode1, (unsigned)gGT->gameMode2,
-					                       sdata->Loading.OnBegin.AddBitsConfig0,
-					                       sdata->Loading.OnBegin.RemBitsConfig0,
+					                       GAME_ADD_CONFIG_0,
+					                       GAME_REMOVE_CONFIG_0,
 					                       sdata->Loading.OnBegin.AddBitsConfig8,
 					                       sdata->Loading.OnBegin.RemBitsConfig8,
 					                       &apGm1, &apGm2, &apA0, &apR0, &apA8, &apR8);
 					gGT->gameMode1 = (int)apGm1;
 					gGT->gameMode2 = (int)apGm2;
-					sdata->Loading.OnBegin.AddBitsConfig0 = apA0;
-					sdata->Loading.OnBegin.RemBitsConfig0 = apR0;
+					GAME_ADD_CONFIG_0 = apA0;
+					GAME_REMOVE_CONFIG_0 = apR0;
 					sdata->Loading.OnBegin.AddBitsConfig8 = apA8;
 					sdata->Loading.OnBegin.RemBitsConfig8 = apR8;
-					sdata->boolOpenTokenRelicMenu = 0;
+					AH_WARP_MENU_OPENED = 0;
 					warppadObj->boolEnteredWarppad = 0;
 					goto WarpPad_RequestLoad;
 				}
@@ -1445,55 +1449,55 @@ void AH_WarpPad_ThTick(struct Thread *t)
 			if (route == AP_PAD_TIER2_TOKEN)
 			{
 				gGT->gameMode2 |= TOKEN_RACE;
-				RECTMENU_Hide(&D232.menuTokenRelic);
+				RECTMENU_Hide(&AH_WARP_MENU);
 			}
 			else if (route == AP_PAD_TIER2_RELIC)
 			{
 				gGT->gameMode1 |= RELIC_RACE;
-				RECTMENU_Hide(&D232.menuTokenRelic);
+				RECTMENU_Hide(&AH_WARP_MENU);
 			}
 			else if (route == AP_PAD_TIER2_MENU)
 			{
-				if (sdata->boolOpenTokenRelicMenu == 0)
+				if (AH_WARP_MENU_OPENED == 0)
 				{
-					D232.menuTokenRelic.rowSelected = tokenLeft ? 0 : 1;
-					RECTMENU_Show(&D232.menuTokenRelic);
-					sdata->boolOpenTokenRelicMenu = 1;
+					AH_WARP_MENU.rowSelected = tokenLeft ? 0 : 1;
+					RECTMENU_Show(&AH_WARP_MENU);
+					AH_WARP_MENU_OPENED = 1;
 				}
-				if ((RECTMENU_BoolHidden(&D232.menuTokenRelic) & 0xffff) == 0)
+				if ((RECTMENU_BoolHidden(&AH_WARP_MENU) & 0xffff) == 0)
 					goto WarpPad_TrophyAnimateOnly;
 			}
 			else if (route == AP_PAD_TIER2_BOX_RERACE)
 			{
-				RECTMENU_Hide(&D232.menuTokenRelic);
+				RECTMENU_Hide(&AH_WARP_MENU);
 				goto WarpPad_RequestLoad;
 			}
 			else
 				goto WarpPad_RefuseEntry; // nothing to load: release, never trap
-			sdata->boolOpenTokenRelicMenu = 0;
+			AH_WARP_MENU_OPENED = 0;
 			warppadObj->boolEnteredWarppad = 0;
 		}
 		else
 		#endif
-			sdata->Loading.OnBegin.AddBitsConfig0 |= RELIC_RACE;
+			GAME_ADD_CONFIG_0 |= RELIC_RACE;
 		goto WarpPad_RequestLoad;
 	}
 
 	// Battle Tracks
-	if ((((u16)(levelID - AH_WP_NITRO_COURT)) < 2) || (levelID == 21) || (levelID == 23))
+	if ((((u16)(levelID - AH_WP_ID_FIRST_BATTLE_TRACK)) < 2) || (levelID == AH_WP_ID_SKULL_ROCK) || (levelID == AH_WP_ID_ROCKY_ROAD))
 	{
 		warppadObj->boolEnteredWarppad = 1;
 		warppadObj->framesWarping++;
-		gGT->drivers[0]->funcPtrs[DRIVER_FUNC_INIT] = VehStuckProc_Warp_Init;
-		if (warppadObj->framesWarping < FPS_DOUBLE(61))
+		driver->funcPtrs[DRIVER_FUNC_INIT] = VehStuckProc_Warp_Init;
+		if (warppadObj->framesWarping < FPS_DOUBLE(AH_WP_WARP_LOAD_FRAMES))
 		{
 			goto WarpPad_AnimateOpen;
 		}
 
-		sdata->Loading.OnBegin.AddBitsConfig0 |= CRYSTAL_CHALLENGE;
+		GAME_ADD_CONFIG_0 |= CRYSTAL_CHALLENGE;
 
 		// Dont have hint "collect every crystal"
-		if (CHECK_ADV_BIT(sdata->advProgress.rewards, ADV_REWARD_HINT_COLLECT_EVERY_CRYSTAL) == 0)
+		if (CHECK_ADV_BIT(GAME_ADV_PROGRESS.rewards, ADV_REWARD_HINT_COLLECT_EVERY_CRYSTAL) == 0)
 		{
 			MainFrame_RequestMaskHint(ADV_MASK_HINT_ID_COLLECT_EVERY_CRYSTAL, 1);
 		}
@@ -1506,11 +1510,11 @@ void AH_WarpPad_ThTick(struct Thread *t)
 			goto WarpPad_AnimateOpen;
 		}
 
-		gGT->originalEventTime = D232.timeCrystalChallenge[levelID - AH_WP_NITRO_COURT];
+		gGT->originalEventTime = AH_WARP_BATTLE_TIMES[levelID - AH_WP_ID_FIRST_BATTLE_TRACK];
 		goto WarpPad_RequestLoad;
 	}
 
-	if (levelID < AH_WP_SLIDE_COLISEUM)
+	if (levelID < AH_WP_ID_SLIDE_COLISEUM)
 	{
 #ifdef CTR_AP
 		// Capture the pre-warp kart/camera state the frame this warp begins, so a
@@ -1535,7 +1539,7 @@ void AH_WarpPad_ThTick(struct Thread *t)
 		// unlock REQUIREMENT below stays keyed by physLevelID (a pad property).
 		if (AP_LocationCheckedByBit(levelID + ADV_REWARD_FIRST_TROPHY))
 #else
-		if (CHECK_ADV_BIT(sdata->advProgress.rewards, levelID + ADV_REWARD_FIRST_TROPHY) != 0)
+		if (CHECK_ADV_BIT(GAME_ADV_PROGRESS.rewards, levelID + ADV_REWARD_FIRST_TROPHY) != 0)
 #endif
 		{
 #ifdef CTR_AP
@@ -1547,7 +1551,8 @@ void AH_WarpPad_ThTick(struct Thread *t)
 			// differs from `levelID` (= the remapped track being loaded).
 			if (ctr_cfg_warp_unlocked(physLevelID))
 #else
-			if (gGT->currAdvProfile.numTrophies >= data.metaDataLEV[levelID].numTrophiesToOpen)
+			// Token/relic selection is unlocked by the hub's key requirement.
+			if (gGT->currAdvProfile.numKeys >= AH_HUB_REQUIRED_KEYS[AH_LEVEL_METADATA[levelID].hubID])
 #endif
 			{
 #ifdef CTR_AP
@@ -1601,7 +1606,7 @@ void AH_WarpPad_ThTick(struct Thread *t)
 				}
 #endif
 
-				if (warppadObj->framesWarping < FPS_DOUBLE(61))
+				if (warppadObj->framesWarping < FPS_DOUBLE(AH_WP_WARP_LOAD_FRAMES))
 				{
 					goto WarpPad_TrophyAnimateOnly;
 				}
@@ -1640,11 +1645,11 @@ void AH_WarpPad_ThTick(struct Thread *t)
 					int apHitAction = AP_HitChooserFrame(
 					    &apHitChooser, apHitOpp, apHitTokenLeft, apHitRelicLeft,
 					    (int)gGT->gameMode1, (int)gGT->gameMode2,
-					    sdata->Loading.OnBegin.AddBitsConfig0,
-					    sdata->Loading.OnBegin.RemBitsConfig0,
+					    GAME_ADD_CONFIG_0,
+					    GAME_REMOVE_CONFIG_0,
 					    sdata->Loading.OnBegin.AddBitsConfig8,
 					    sdata->Loading.OnBegin.RemBitsConfig8,
-					    sdata->boolOpenTokenRelicMenu, &apHitRoute);
+					    AH_WARP_MENU_OPENED, &apHitRoute);
 					AP_HitLogChooser(physLevelID, levelID, apHitAction, apHitRoute,
 					                 apHitTokenLeft, apHitRelicLeft);
 
@@ -1684,15 +1689,15 @@ void AH_WarpPad_ThTick(struct Thread *t)
 						    apHitChooser.savedAdd0, apHitChooser.savedRem0,
 						    apHitChooser.savedAdd8, apHitChooser.savedRem8,
 						    &gGT->gameMode1, &gGT->gameMode2,
-						    &sdata->Loading.OnBegin.AddBitsConfig0,
-						    &sdata->Loading.OnBegin.RemBitsConfig0,
+						    &GAME_ADD_CONFIG_0,
+						    &GAME_REMOVE_CONFIG_0,
 						    &sdata->Loading.OnBegin.AddBitsConfig8,
 						    &sdata->Loading.OnBegin.RemBitsConfig8);
-						sdata->boolOpenTokenRelicMenu = apHitChooser.savedMenuFlag;
+						AH_WARP_MENU_OPENED = apHitChooser.savedMenuFlag;
 						warppadObj->boolEnteredWarppad = 0;
 						warppadObj->framesWarping = 0;
 						AH_WarpPad_WarpRestore(gGT);
-						gGT->drivers[0]->funcPtrs[DRIVER_FUNC_INIT] = VehPhysProc_Driving_Init;
+						driver->funcPtrs[DRIVER_FUNC_INIT] = VehPhysProc_Driving_Init;
 						goto WarpPad_AnimateOpen;
 					}
 					else if (apHitAction == AP_HIT_CHOOSER_APPLY)
@@ -1700,32 +1705,32 @@ void AH_WarpPad_ThTick(struct Thread *t)
 						unsigned apGm1, apGm2, apA0, apR0, apA8, apR8;
 						// Hide the token/relic menu so the post-chooser
 						// BoolHidden check below cannot stall the load.
-						RECTMENU_Hide(&D232.menuTokenRelic);
+						RECTMENU_Hide(&AH_WARP_MENU);
 						AP_HitChooserApplyPure(apHitRoute,
 						                       (unsigned)TOKEN_RACE, (unsigned)RELIC_RACE,
 						                       (unsigned)gGT->gameMode1, (unsigned)gGT->gameMode2,
-						                       sdata->Loading.OnBegin.AddBitsConfig0,
-						                       sdata->Loading.OnBegin.RemBitsConfig0,
+						                       GAME_ADD_CONFIG_0,
+						                       GAME_REMOVE_CONFIG_0,
 						                       sdata->Loading.OnBegin.AddBitsConfig8,
 						                       sdata->Loading.OnBegin.RemBitsConfig8,
 						                       &apGm1, &apGm2, &apA0, &apR0, &apA8, &apR8);
 						gGT->gameMode1 = (int)apGm1;
 						gGT->gameMode2 = (int)apGm2;
-						sdata->Loading.OnBegin.AddBitsConfig0 = apA0;
-						sdata->Loading.OnBegin.RemBitsConfig0 = apR0;
+						GAME_ADD_CONFIG_0 = apA0;
+						GAME_REMOVE_CONFIG_0 = apR0;
 						sdata->Loading.OnBegin.AddBitsConfig8 = apA8;
 						sdata->Loading.OnBegin.RemBitsConfig8 = apR8;
 						if (apHitRoute == 0)
 							goto WarpPad_BoxReRace; // Trophy: plain adventure rerace
 						apHitHandled = 1; // fall through to the ordinary load
-						sdata->boolOpenTokenRelicMenu = 1;
+						AH_WARP_MENU_OPENED = 1;
 					}
 					// AP_HIT_CHOOSER_NONE: fall through to the normal routing.
 				}
 #endif
 
 				// if never opened
-				if (!apHitHandled && sdata->boolOpenTokenRelicMenu == 0)
+				if (!apHitHandled && AH_WARP_MENU_OPENED == 0)
 				{
 					if ((gGT->gameMode1 & ADVENTURE_ARENA) != 0)
 					{
@@ -1784,24 +1789,24 @@ void AH_WarpPad_ThTick(struct Thread *t)
 								// only CTR Token challenge left -> enter directly
 								// (mirrors AH_WarpPad_MenuProc row 0); no menu shown.
 								gGT->gameMode2 |= TOKEN_RACE;
-								RECTMENU_Hide(&D232.menuTokenRelic);
+								RECTMENU_Hide(&AH_WARP_MENU);
 							}
 							else if (apTier2Route == AP_PAD_TIER2_RELIC)
 							{
 								// only Relic Race left -> enter directly (row 1).
 								gGT->gameMode1 |= RELIC_RACE;
-								RECTMENU_Hide(&D232.menuTokenRelic);
+								RECTMENU_Hide(&AH_WARP_MENU);
 							}
 							else if (apTier2Route == AP_PAD_TIER2_MENU)
 							{
 								// both types have an unchecked location -> show the
 								// menu, cursor on an available row.
-								D232.menuTokenRelic.rowSelected = apTokenLeft ? 0 : 1;
-								RECTMENU_Show(&D232.menuTokenRelic);
+								AH_WARP_MENU.rowSelected = apTokenLeft ? 0 : 1;
+								RECTMENU_Show(&AH_WARP_MENU);
 							}
 							else if (apTier2Route == AP_PAD_TIER2_BOX_RERACE)
 							{
-								RECTMENU_Hide(&D232.menuTokenRelic);
+								RECTMENU_Hide(&AH_WARP_MENU);
 								goto WarpPad_BoxReRace;
 							}
 							else
@@ -1814,18 +1819,18 @@ void AH_WarpPad_ThTick(struct Thread *t)
 						else
 #endif
 						{
-							D232.menuTokenRelic.rowSelected = (CHECK_ADV_BIT(sdata->advProgress.rewards, levelID + ADV_REWARD_FIRST_CTR_TOKEN) != 0);
+							AH_WARP_MENU.rowSelected = (CHECK_ADV_BIT(GAME_ADV_PROGRESS.rewards, levelID + ADV_REWARD_FIRST_CTR_TOKEN) != 0);
 
-							RECTMENU_Show(&D232.menuTokenRelic);
+							RECTMENU_Show(&AH_WARP_MENU);
 						}
 
 						// now opened
-						sdata->boolOpenTokenRelicMenu = 1;
+						AH_WARP_MENU_OPENED = 1;
 					}
 				}
 
 				// if opened, but not closed yet
-				if ((RECTMENU_BoolHidden(&D232.menuTokenRelic) & 0xffff) == 0)
+				if ((RECTMENU_BoolHidden(&AH_WARP_MENU) & 0xffff) == 0)
 				{
 					goto WarpPad_TrophyAnimateOnly;
 				}
@@ -1834,13 +1839,13 @@ void AH_WarpPad_ThTick(struct Thread *t)
 				i = ADV_MASK_HINT_ID_RELIC_CHALLENGE;
 
 				// CTR Token Hint
-				if ((gGT->gameMode2 & 8) != 0)
+				if ((gGT->gameMode2 & TOKEN_RACE) != 0)
 				{
 					i = ADV_MASK_HINT_ID_CTR_TOKEN_CHALLENGE;
 				}
 
 				// if hint is locked
-				if (CHECK_ADV_BIT(sdata->advProgress.rewards, ADV_REWARD_FIRST_HINT + i) == 0)
+				if (CHECK_ADV_BIT(GAME_ADV_PROGRESS.rewards, ADV_REWARD_FIRST_HINT + i) == 0)
 				{
 					MainFrame_RequestMaskHint(i, 1);
 				}
@@ -1854,11 +1859,11 @@ void AH_WarpPad_ThTick(struct Thread *t)
 				}
 
 				// reset for future gameplay
-				sdata->boolOpenTokenRelicMenu = 0;
+				AH_WARP_MENU_OPENED = 0;
 				warppadObj->boolEnteredWarppad = 0;
 
 				// Rem Adventure Arena
-				sdata->Loading.OnBegin.RemBitsConfig0 |= ADVENTURE_ARENA;
+				GAME_REMOVE_CONFIG_0 |= ADVENTURE_ARENA;
 
 #ifdef CTR_AP
 				// Racer lock enforcement: seat the demanded racer before the
@@ -1886,12 +1891,12 @@ void AH_WarpPad_ThTick(struct Thread *t)
 	// drives straight through a green pad. Mirrors the ThTick:601 f9fbfa7a0 fix.
 	if (AP_LocationCheckedByBit(levelID + ADV_REWARD_FIRST_TROPHY))
 #else
-	if (CHECK_ADV_BIT(sdata->advProgress.rewards, levelID + ADV_REWARD_FIRST_TROPHY) != 0)
+	if (CHECK_ADV_BIT(GAME_ADV_PROGRESS.rewards, levelID + ADV_REWARD_FIRST_TROPHY) != 0)
 #endif
 	{
-		i = data.metaDataLEV[levelID].hubID + ADV_REWARD_BOSS_KEY_HUB_ID_BASE;
+		i = AH_LEVEL_METADATA[levelID].hubID + ADV_REWARD_BOSS_KEY_HUB_ID_BASE;
 
-		if (CHECK_ADV_BIT(sdata->advProgress.rewards, i) == 0)
+		if (CHECK_ADV_BIT(GAME_ADV_PROGRESS.rewards, i) == 0)
 		{
 			goto WarpPad_AnimateOpen;
 		}
@@ -1906,8 +1911,8 @@ WarpPad_BoxReRace:
 #endif
 	warppadObj->boolEnteredWarppad = 1;
 	warppadObj->framesWarping++;
-	gGT->drivers[0]->funcPtrs[DRIVER_FUNC_INIT] = VehStuckProc_Warp_Init;
-	if (warppadObj->framesWarping < FPS_DOUBLE(61))
+	driver->funcPtrs[DRIVER_FUNC_INIT] = VehStuckProc_Warp_Init;
+	if (warppadObj->framesWarping < FPS_DOUBLE(AH_WP_WARP_LOAD_FRAMES))
 	{
 		goto WarpPad_AnimateOpen;
 	}
@@ -1915,7 +1920,7 @@ WarpPad_BoxReRace:
 WarpPad_RequestLoad:
 
 	// Rem Adventure Arena
-	sdata->Loading.OnBegin.RemBitsConfig0 |= ADVENTURE_ARENA;
+	GAME_REMOVE_CONFIG_0 |= ADVENTURE_ARENA;
 
 #ifdef CTR_AP
 	// Schema 15: destination 110 (a pad, or a cup's first leg) loads host
@@ -1946,12 +1951,12 @@ WarpPad_RequestLoad:
 	// the way the Hit chooser cancel does, then latch the pad until the kart
 	// leaves it so the release is not undone the next frame.
 WarpPad_RefuseEntry:
-	RECTMENU_Hide(&D232.menuTokenRelic);
-	sdata->boolOpenTokenRelicMenu = 0;
+	RECTMENU_Hide(&AH_WARP_MENU);
+	AH_WARP_MENU_OPENED = 0;
 	warppadObj->boolEnteredWarppad = 0;
 	warppadObj->framesWarping = 0;
 	AH_WarpPad_WarpRestore(gGT);
-	gGT->drivers[0]->funcPtrs[DRIVER_FUNC_INIT] = VehPhysProc_Driving_Init;
+	driver->funcPtrs[DRIVER_FUNC_INIT] = VehPhysProc_Driving_Init;
 	apEntryRefusedDest = warppadObj->levelID;
 	AP_PadLogEntryRefused(ctr_cfg_warp_phys(warppadObj->levelID), warppadObj->levelID);
 	goto WarpPad_AnimateOpen;
@@ -1959,71 +1964,73 @@ WarpPad_RefuseEntry:
 
 WarpPad_TrophyAnimateOnly:
 
-	if (warppadObj->framesWarping < FPS_DOUBLE(0x400))
+	if (warppadObj->framesWarping < FPS_DOUBLE(AH_WP_TROPHY_PORTAL_HOLD_FRAMES))
 	{
 		warppadObj->framesWarping++;
 	}
 
 	warppadObj->boolEnteredWarppad = 1;
 
-	gGT->drivers[0]->funcPtrs[DRIVER_FUNC_INIT] = VehStuckProc_Warp_Init;
+	driver->funcPtrs[DRIVER_FUNC_INIT] = VehStuckProc_Warp_Init;
 
 WarpPad_AnimateOpen:
 
-	if ((instArr[WPIS_OPEN_BEAM] != 0) && ((!CTR_NATIVE_60FPS_ACTIVE && ((gGT->timer & 1) != 0)) || (CTR_NATIVE_60FPS_ACTIVE && ((gGT->timer & 3) == 3))))
+	if ((warppadObj->slots.inst[WPIS_OPEN_BEAM] != 0) &&
+	    ((!CTR_NATIVE_60FPS_ACTIVE && ((GAME_TRACKER->timer & 1) != 0)) || (CTR_NATIVE_60FPS_ACTIVE && ((GAME_TRACKER->timer & 3) == 3))))
 	{
+		s32 beamRng;
 		warppadObj->spinRot_Beam.x = 0;
+		// Randomized beam rotation advances only on odd frames.
+		beamRng = MixRNG_Scramble();
 		warppadObj->spinRot_Beam.z = 0;
+		warppadObj->spinRot_Beam.y += ((beamRng >> 3) % 6 + 1) * AH_WP_SPIN_BEAM_STEP;
 
-		// what on earth was this RNG?
-		// how'd they come up with something so random, that looks so good?
-		i = MixRNG_Scramble();
-		warppadObj->spinRot_Beam.y += ((s16)(i >> 3) + (s16)((i >> 3) / 6) * -6 + 1) * 0x200;
-
-		// converted to TEST in rebuildPS1
-		ConvertRotToMatrix(&instArr[WPIS_OPEN_BEAM]->matrix, &warppadObj->spinRot_Beam);
+		ConvertRotToMatrix(&warppadObj->slots.inst[WPIS_OPEN_BEAM]->matrix, &warppadObj->spinRot_Beam);
 	}
 
-	wispRiseRate = FPS_HALF(0x20);
+	i = 0;
 
-	wispMaxHeight = 0x600;
 
-	// if close to this warppad
-	if (D232.levelID != -1)
+	for (; i < AH_WP_WISP_COUNT; i++)
 	{
-		wispMaxHeight = 0x400;
-	}
+		wispRiseRate = FPS_HALF(i * AH_WP_WISP_RISE_RATE_STEP + AH_WP_WISP_RISE_RATE);
 
-	for (i = 0; i < 2; i++)
-	{
-		if (instArr[WPIS_OPEN_RING1 + i] != 0)
+		if (warppadObj->slots.visuals.rings[i] != 0)
 		{
+			wispMaxHeight = AH_WP_WISP_FAR_MAX_HEIGHT;
+
+			// if close to this warppad
+			if (AH_WARP_NEAREST_ID != -1)
+			{
+				wispMaxHeight = AH_WP_WISP_NEAR_MAX_HEIGHT;
+			}
+
 			warppadObj->spinRot_Wisp[i].x = 0;
 			warppadObj->spinRot_Wisp[i].z = 0;
 
-			warppadObj->spinRot_Wisp[i].y += FPS_HALF(0x100);
+			warppadObj->spinRot_Wisp[i].y += FPS_HALF(AH_WP_SPIN_WISP_STEP);
 
-			// converted to TEST in rebuildPS1
-			ConvertRotToMatrix(&instArr[WPIS_OPEN_RING1 + i]->matrix, &warppadObj->spinRot_Wisp[i]);
+			ConvertRotToMatrix(&warppadObj->slots.visuals.rings[i]->matrix,
+			                   (SVec3 *)((u32)warppadObj + offsetof(struct WarpPad, spinRot_Wisp) + i * sizeof(SVec3Slot)));
 
 			// if height hasn't reached max height
-			if (instArr[WPIS_OPEN_RING1 + i]->matrix.t[1] < (warppadInst->matrix.t[1] + wispMaxHeight))
+			if (warppadObj->slots.visuals.rings[i]->matrix.t[1] < (warppadInst->matrix.t[1] + wispMaxHeight))
 			{
-				instArr[WPIS_OPEN_RING1 + i]->matrix.t[1] += wispRiseRate;
+				warppadObj->slots.visuals.rings[i]->matrix.t[1] += wispRiseRate;
 
 				// if height hasn't reached 4x RiseRate,
 				// first 4 frames of rising
-				if (instArr[WPIS_OPEN_RING1 + i]->matrix.t[1] < (warppadInst->matrix.t[1] + wispRiseRate * FPS_DOUBLE(4)))
+				if (warppadObj->slots.visuals.rings[i]->matrix.t[1] < (warppadInst->matrix.t[1] + wispRiseRate * FPS_DOUBLE(AH_WP_WISP_FIRST_FRAMES)))
 				{
 					// reduce transparency
-					instArr[WPIS_OPEN_RING1 + i]->alphaScale -= FPS_HALF(0x380);
+					warppadObj->slots.visuals.rings[i]->alphaScale -= FPS_HALF(AH_WP_WISP_FADE_IN_STEP);
 				}
 
 				// after first 4 frames
 				else
 				{
 					// add transparency as the wisp spirals upward (~0x60  per frame)
-					instArr[WPIS_OPEN_RING1 + i]->alphaScale += 0xc00 / (wispMaxHeight / wispRiseRate);
+					warppadObj->slots.visuals.rings[i]->alphaScale += AH_WP_WISP_FADE_OUT_RANGE / (wispMaxHeight / wispRiseRate);
 				}
 			}
 
@@ -2031,39 +2038,33 @@ WarpPad_AnimateOpen:
 			else
 			{
 				// reset height
-				instArr[WPIS_OPEN_RING1 + i]->matrix.t[1] = warppadInst->matrix.t[1];
+				warppadObj->slots.visuals.rings[i]->matrix.t[1] = warppadInst->matrix.t[1];
 
 				// full transparency
-				instArr[WPIS_OPEN_RING1 + i]->alphaScale = 0x1000;
+				warppadObj->slots.visuals.rings[i]->alphaScale = AH_WP_FULL_ALPHA;
 
 				rng1 = MixRNG_Scramble() >> 3;
 
-				rng2 = rng1;
+				resetQuotient = rng1;
 				if (rng1 < 0)
 				{
-					rng2 = rng1 + 0xfff;
+					resetQuotient = rng1 + 0xfff;
 				}
 
-				warppadObj->spinRot_Wisp[i].y = (s16)rng1 + (s16)(rng2 >> 0xc) * -0x1000;
+				warppadObj->spinRot_Wisp[i].y = rng1 + (resetQuotient >> 0xc) * -AH_WP_FULL_ALPHA;
 			}
 		}
-
-		wispRiseRate += FPS_HALF(0x10);
 	}
 
-	warppadObj->spinRot_Prize.y += FPS_HALF(0x80);
+	warppadObj->spinRot_Prize.y += FPS_HALF(AH_WP_SPIN_PRIZE_REWARD_STEP);
 
-	rewardScale = 0x100;
 
-	if (dist > 0x900000 * 2)
+	if (dist > AH_WP_REWARD_FADE_DIST_SQ)
 	{
-		rewardScale = 0;
-	}
-
-	else if (dist > 0x900000)
-	{
-		// range [90, 90*2] to [0%, 100%]
-		rewardScale = ((((0x900000 * 2) - dist) * 0x100) / 0x900000);
+		s32 fadeDistance = dist - AH_WP_REWARD_FADE_DIST_SQ;
+		if (fadeDistance > AH_WP_REWARD_FADE_DIST_SQ)
+			fadeDistance = AH_WP_REWARD_FADE_DIST_SQ;
+		rewardScale = (CTR_MipsMulLo(AH_WP_REWARD_FADE_DIST_SQ - fadeDistance, 256)) / AH_WP_REWARD_FADE_DIST_SQ;
 	}
 
 #ifdef CTR_AP
@@ -2106,10 +2107,10 @@ WarpPad_AnimateOpen:
 	int apUncBits[AP_PAD_DISPLAY_BITS_MAX];
 	int apUncN = -1;     // -1 = "not an AP glow destination" -> leave vanilla glow alone
 	int apSlotBit[3] = {-1, -1, -1}; // per-slot advertised bit, or -1 = hide slot
-	if ((levelID >= 0 && levelID < AH_WP_SLIDE_COLISEUM) ||       // race 0..15
-	    (levelID == AH_WP_SLIDE_COLISEUM) || (levelID == AH_WP_TURBO_TRACK) || // trial 16/17
-	    (((u16)(levelID - AH_WP_NITRO_COURT)) < 2) || (levelID == 21) || (levelID == 23) || // arena
-	    (((u16)(levelID - AH_WP_ADV_CUP)) < 5) ||                 // cup 100..104
+	if ((levelID >= 0 && levelID < AH_WP_ID_SLIDE_COLISEUM) ||       // race 0..15
+	    (levelID == AH_WP_ID_SLIDE_COLISEUM) || (levelID == AH_WP_ID_TURBO_TRACK) || // trial 16/17
+	    (((u16)(levelID - AH_WP_ID_FIRST_BATTLE_TRACK)) < 2) || (levelID == AH_WP_ID_SKULL_ROCK) || (levelID == AH_WP_ID_ROCKY_ROAD) || // arena
+	    (((u16)(levelID - AH_WP_ID_FIRST_GEM_CUP)) < 5) ||                 // cup 100..104
 	    (levelID == AP_CORTEX_DEST))                              // Cortex Vortex 110
 	{
 		apUncN = AP_PadUncollectedDisplayBits(warppadObj->levelID, apUncBits,
@@ -2120,24 +2121,25 @@ WarpPad_AnimateOpen:
 	}
 #endif
 
-	for (i = 0; i < 3; i++)
+	for (i = 0; i < AH_WP_REWARD_INSTANCE_COUNT; i++)
 	{
-		warppadObj->spinRot_Prize.z = 0x155;
+		warppadObj->spinRot_Prize.z = AH_WP_PRIZE_TILT_Z;
 
-		if (instArr[WPIS_OPEN_PRIZE1 + i] != 0)
+		if (warppadObj->slots.visuals.prizes[i] != 0)
 		{
+			s32 prizeModel;
 #ifdef CTR_AP
 			// Apply the AP slot decision before spinning/scaling this instance.
 			if (apUncN >= 0)
 			{
-				struct Instance *apPrize = instArr[WPIS_OPEN_PRIZE1 + i];
+				struct Instance *apPrize = warppadObj->slots.visuals.prizes[i];
 				if (apSlotBit[i] < 0)
 				{
 					// Nothing to advertise in this slot -> force-hide and skip the
 					// spin/scale entirely so it neither renders nor mutates.
 					apPrize->flags |= HIDE_MODEL;
-					warppadObj->thirds[i] += FPS_HALF(0x20);
-					warppadObj->spinRot_Rewards.y += FPS_HALF(0x4);
+					warppadObj->thirds[i] += FPS_HALF(AH_WP_REWARD_PHASE_STEP);
+					warppadObj->spinRot_Rewards.y += FPS_HALF(AH_WP_SPIN_REWARD_RING_STEP);
 					continue;
 				}
 
@@ -2216,12 +2218,12 @@ WarpPad_AnimateOpen:
 						int tg = AP_WarpPadRewardTokenColour(apSlotBit[i]);
 						if (tg < 0)
 							tg = warppadObj->levelID == AP_CORTEX_DEST
-							         ? data.metaDataLEV[13].ctrTokenGroupID
-							         : data.metaDataLEV[warppadObj->levelID].ctrTokenGroupID;
+							         ? AH_LEVEL_METADATA[13].ctrTokenGroupID
+							         : AH_LEVEL_METADATA[warppadObj->levelID].ctrTokenGroupID;
 						apPrize->colorRGBA =
-						    ((u32)data.AdvCups[tg].color[0] << 0x14) |
-						    ((u32)data.AdvCups[tg].color[1] << 0xc) |
-						    ((u32)data.AdvCups[tg].color[2] << 0x4);
+						    ((u32)AH_WARP_CUPS[tg].color[0] << 0x14) |
+						    ((u32)AH_WARP_CUPS[tg].color[1] << 0xc) |
+						    ((u32)AH_WARP_CUPS[tg].color[2] << 0x4);
 						apPrize->flags |= (DRAW_TRANSPARENT | USE_SPECULAR_LIGHT);
 						break;
 					}
@@ -2230,20 +2232,20 @@ WarpPad_AnimateOpen:
 						// gem-cup gem (mine, or a CTR peer's -- the peer's is ghosted below).
 						// The white-gem stand-in for foreign and filler items is retired
 						// (#212), so AP_WarpPadRewardTint no longer returns white here.
-						// OWN gem -> its gem COLOUR via data.AdvCups: the gem model has no
+						// OWN gem -> its gem COLOUR via AH_WARP_CUPS: the gem model has no
 						// useful unmodulated colour -- at colorRGBA 0 it renders near-black
 						// (the specular sibling of the black-key bug; seen live 2026-07-15,
 						// an own Purple Gem reading as a "black gem"). Vanilla always
-						// modulates gems (CS_Podium tints by data.AdvCups[cup].color) --
+						// modulates gems (CS_Podium tints by AH_WARP_CUPS[cup].color) --
 						// mirror that here keyed by the SCOUTED gem's colour.
 						apTint = AP_WarpPadRewardTint(apSlotBit[i]);
 						if (apTint == 0)
 						{
 							int apGemC = AP_WarpPadRewardGemColour(apSlotBit[i]);
 							if (apGemC >= 0)
-								apTint = ((u32)data.AdvCups[apGemC].color[0] << 0x14) |
-								         ((u32)data.AdvCups[apGemC].color[1] << 0xc) |
-								         ((u32)data.AdvCups[apGemC].color[2] << 0x4);
+								apTint = ((u32)AH_WARP_CUPS[apGemC].color[0] << 0x14) |
+								         ((u32)AH_WARP_CUPS[apGemC].color[1] << 0xc) |
+								         ((u32)AH_WARP_CUPS[apGemC].color[2] << 0x4);
 						}
 						apPrize->colorRGBA = apTint;
 						apPrize->flags |= USE_SPECULAR_LIGHT;
@@ -2352,88 +2354,66 @@ WarpPad_AnimateOpen:
 				}
 			}
 #endif
-			AH_WarpPad_SpinRewards(instArr[WPIS_OPEN_PRIZE1 + i], warppadObj, i, warppadInst->matrix.t[0], warppadInst->matrix.t[1], warppadInst->matrix.t[2]);
+			// NOTE(aalhendi): Position is a by-value vector, split between
+			// the last argument register and the stack on MIPS.
+			AH_WarpPad_SpinRewards(warppadObj->slots.visuals.prizes[i], warppadObj, i, *(const Vec3 *)warppadInst->matrix.t);
 
-			modelID = instArr[WPIS_OPEN_PRIZE1 + i]->model->id;
+			prizeModel = warppadObj->slots.visuals.prizes[i]->model->id;
 
-			if (rewardScale == 0)
+			rewardScale2 = AH_WP_STANDARD_ITEM_SCALE;
+			if (prizeModel != STATIC_TOKEN)
 			{
-				// invisible
-				instArr[WPIS_OPEN_PRIZE1 + i]->flags |= 0x80;
-			}
-
-			else
-			{
-				// visible
-				instArr[WPIS_OPEN_PRIZE1 + i]->flags &= ~(0x80);
-
-				// token
-				rewardScale2 = 0x2000;
-
-				// not token
-				if (modelID != STATIC_TOKEN)
-				{
-					// trophy
-					rewardScale2 = 0x2800;
-
-					// relic
-					if (modelID == STATIC_RELIC)
-					{
-						rewardScale2 = 0x1800;
-					}
+				rewardScale2 = AH_WP_TROPHY_PRIZE_SCALE;
+				if (prizeModel == STATIC_RELIC)
+					rewardScale2 = AH_WP_RELIC_PRIZE_SCALE;
 #ifdef CTR_AP
-					// #219: the crystal is much taller per unit of instance scale than
-					// anything vanilla puts on a pad, so the trophy default above would
-					// draw it roughly two and a half times the height of its neighbours.
-					//
-					// Derived, not picked. Every one of these models fills the same
-					// 0..255 vertex cube on every axis, so a model's rendered height is
-					// just header scale.y times the instance scale. Measured out of the
-					// retail pack: crystal 3137, relic 2040, trophy 1169. The vanilla pad
-					// rewards land between 8.4M (token) and 12.5M (relic) on that
-					// product; 0x1000 puts the crystal at 12.8M, inside the same family
-					// and within a few percent of the relic it sits beside.
-					//
-					// Still owed an in-game look: the arithmetic fixes the gross
-					// mismatch, it does not prove the result reads well.
-					else if (modelID == STATIC_CRYSTAL)
-					{
-						rewardScale2 = 0x1000;
-					}
+				// #219: the crystal is much taller per unit of instance scale than
+				// anything vanilla puts on a pad, so the trophy default above would
+				// draw it roughly two and a half times the height of its neighbours.
+				//
+				// Derived, not picked. Every one of these models fills the same
+				// 0..255 vertex cube on every axis, so a model's rendered height is
+				// just header scale.y times the instance scale. Measured out of the
+				// retail pack: crystal 3137, relic 2040, trophy 1169. The vanilla pad
+				// rewards land between 8.4M (token) and 12.5M (relic) on that
+				// product; 0x1000 puts the crystal at 12.8M, inside the same family
+				// and within a few percent of the relic it sits beside.
+				//
+				// Still owed an in-game look: the arithmetic fixes the gross
+				// mismatch, it does not prove the result reads well.
+				else if (prizeModel == STATIC_CRYSTAL)
+					rewardScale2 = 0x1000;
 #endif
-				}
-
-				rewardScale2 = (u32)(rewardScale2 * rewardScale) >> 8;
-				instArr[WPIS_OPEN_PRIZE1 + i]->scale.x = (s16)rewardScale2;
-				instArr[WPIS_OPEN_PRIZE1 + i]->scale.y = (s16)rewardScale2;
-				instArr[WPIS_OPEN_PRIZE1 + i]->scale.z = (s16)rewardScale2;
 			}
+			rewardScale2 = (rewardScale2 * rewardScale) >> 8;
+			warppadObj->slots.visuals.prizes[i]->scale.x = rewardScale2;
+			warppadObj->slots.visuals.prizes[i]->scale.y = rewardScale2;
+			warppadObj->slots.visuals.prizes[i]->scale.z = rewardScale2;
+			if (rewardScale == 0)
+				warppadObj->slots.visuals.prizes[i]->flags |= HIDE_MODEL;
+			else
+				warppadObj->slots.visuals.prizes[i]->flags &= ~HIDE_MODEL;
 		}
 
-		warppadObj->thirds[i] += FPS_HALF(0x20);
-		warppadObj->spinRot_Rewards.y += FPS_HALF(0x4);
+		warppadObj->thirds[i] += FPS_HALF(AH_WP_REWARD_PHASE_STEP);
+		warppadObj->spinRot_Rewards.y += FPS_HALF(AH_WP_SPIN_REWARD_RING_STEP);
 	}
 
-	if (instArr[WPIS_CLOSED_1S] != 0)
+	if (warppadObj->slots.inst[WPIS_CLOSED_1S] != 0)
 	{
-		INSTANCE_Death(instArr[WPIS_CLOSED_1S]);
-		INSTANCE_Death(instArr[WPIS_CLOSED_10S]);
-		INSTANCE_Death(instArr[WPIS_CLOSED_X]);
-		INSTANCE_Death(instArr[WPIS_CLOSED_ITEM]);
+		INSTANCE_Death(warppadObj->slots.inst[WPIS_CLOSED_1S]);
+		INSTANCE_Death(warppadObj->slots.inst[WPIS_CLOSED_10S]);
+		INSTANCE_Death(warppadObj->slots.inst[WPIS_CLOSED_X]);
+		INSTANCE_Death(warppadObj->slots.inst[WPIS_CLOSED_ITEM]);
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800ad2c8-0x800ad3ec.
 void AH_WarpPad_ThDestroy(struct Thread *t)
 {
-	int i;
-	struct Instance **instArr;
-	struct WarpPad *warppadObj;
-
-	warppadObj = t->object;
+	struct WarpPad *warppadObj = t->object;
 
 	// array of instances in warppad object
-	instArr = &warppadObj->inst[0];
+	struct Instance **instArr = &warppadObj->slots.inst[0];
 
 	if (instArr[WPIS_CLOSED_1S] != 0)
 	{
@@ -2465,28 +2445,33 @@ void AH_WarpPad_ThDestroy(struct Thread *t)
 		instArr[WPIS_OPEN_BEAM] = 0;
 	}
 
-	for (i = WPIS_OPEN_RING1; i < WPIS_OPEN_PRIZE1; i++)
 	{
-		if (instArr[i] != 0)
+		int i;
+		for (i = 0; i < WPIS_OPEN_PRIZE1 - WPIS_OPEN_RING1; i++)
 		{
-			INSTANCE_Death(instArr[i]);
-			instArr[i] = 0;
+			if (instArr[WPIS_OPEN_RING1 + i] != 0)
+			{
+				INSTANCE_Death(instArr[WPIS_OPEN_RING1 + i]);
+				instArr[WPIS_OPEN_RING1 + i] = 0;
+			}
 		}
 	}
 
-	for (i = WPIS_OPEN_PRIZE1; i < WPIS_NUM_INSTANCES; i++)
 	{
-		if (instArr[i] != 0)
+		int i;
+		for (i = 0; i < WPIS_NUM_INSTANCES - WPIS_OPEN_PRIZE1; i++)
 		{
-			INSTANCE_Death(instArr[i]);
-			instArr[i] = 0;
+			if (instArr[WPIS_OPEN_PRIZE1 + i] != 0)
+			{
+				INSTANCE_Death(instArr[WPIS_OPEN_PRIZE1 + i]);
+				instArr[WPIS_OPEN_PRIZE1 + i] = 0;
+			}
 		}
 	}
 }
 
 static const s16 s_warpPadRewardModelIDs[3] = {STATIC_TROPHY, STATIC_RELIC, STATIC_TOKEN};
 
-// NOTE(aalhendi): Source-backed for NTSC-U 926 0x800ad3ec-0x800ae870.
 #ifdef CTR_AP
 // Resolve a per-seed unlock requirement (ctr_req) into the LInB display/gate
 // triple (model id + owned count + needed count), colour-aware. Mirrors the
@@ -2531,11 +2516,6 @@ static int AP_Stage2RelockToUnlock(struct WarpPad *warppadObj, int physLevelID,
                                    int *modelID, int *numOwned, int *numNeeded,
                                    int *tint, int *gemColour, int *tokenColour)
 {
-	// same function-local idiom as ThTick/BuildInstances
-	enum
-	{
-		AH_WP_SLIDE_COLISEUM = 16,
-	};
 	const ctr_req *r;
 	if (!ctr_cfg_active())
 		return 0;
@@ -2546,7 +2526,7 @@ static int AP_Stage2RelockToUnlock(struct WarpPad *warppadObj, int physLevelID,
 		if (!AP_CortexTrackChecked(AP_CV_SLOT_TROPHY))
 			return 0;
 	}
-	else if (warppadObj->levelID >= AH_WP_SLIDE_COLISEUM ||
+	else if (warppadObj->levelID >= AH_WP_ID_SLIDE_COLISEUM ||
 	         !AP_LocationCheckedByBit(warppadObj->levelID + ADV_REWARD_FIRST_TROPHY))
 		return 0;
 	// Issue #232 plus per-track Wumpa: while a plain-race check remains the
@@ -2638,17 +2618,7 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 	struct Instance *newInst;
 	struct Instance *inst = t->inst;
 
-	// NOTE(aalhendi): WarpPad level IDs come from "warppad#NN" instance names
-	// and use retail adventure numbering, not the native LevelID enum.
-	enum
-	{
-		AH_WP_SLIDE_COLISEUM = 16,
-		AH_WP_TURBO_TRACK = 17,
-		AH_WP_NITRO_COURT = 18,
-		AH_WP_ADV_CUP = 100,
-	};
-
-	gGT = sdata->gGT;
+	gGT = GAME_TRACKER;
 
 	// 0 - locked
 	// 1 - open for trophy
@@ -2657,7 +2627,7 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 	// 4 - purple token or SlideCol/TurboTrack
 
 	// locked
-	t->modelIndex = 0;
+	t->modelIndex = AH_WP_VISUAL_LOCKED;
 
 	// make invisible
 	// this is the red triangle
@@ -2671,7 +2641,7 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 
 	for (i = 0; i < WPIS_NUM_INSTANCES; i++)
 	{
-		warppadObj->inst[i] = 0;
+		warppadObj->slots.inst[i] = 0;
 	}
 
 	// each warppad has a name "warppad#xxx"
@@ -2761,16 +2731,16 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 		// always face camera
 		newInst->model->headers[0].flags |= 1;
 
-		warppadObj->inst[WPIS_CLOSED_X] = newInst;
+		warppadObj->slots.inst[WPIS_CLOSED_X] = newInst;
 		return;
 	}
 #endif
 
 	// Trophy Track
-	if (levelID < AH_WP_SLIDE_COLISEUM)
+	if (levelID < AH_WP_ID_SLIDE_COLISEUM)
 	{
 		// optimization idea:
-		// instead of data.metaDataLEV[levelID].hubID
+		// instead of AH_LEVEL_METADATA[levelID].hubID
 		// can we just do gGT->levelID-0x19?
 
 #ifdef CTR_AP
@@ -2791,7 +2761,7 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 		// (cup/arena/trial). The trophy-race two-stage lifecycle only exists for a
 		// RACE destination, and warppadObj->levelID + FIRST_TROPHY aliases an
 		// unrelated location bit for a non-race dest -- so gate the whole trophy
-		// lifecycle on "destination is a race track" (< AH_WP_SLIDE_COLISEUM). For a
+		// lifecycle on "destination is a race track" (< AH_WP_ID_SLIDE_COLISEUM). For a
 		// non-race dest this is already inert (the apworld emits stage2 type 0 -> the
 		// !unlocked term is false), but the guard makes it robust regardless of what
 		// the destination hosts. Matches ThTick's own dest-race gate at :654.
@@ -2803,7 +2773,7 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 		// the same gate/display split in the other direction. The trial / arena
 		// / cup twin of this decline lives in AP_Stage2RelockToUnlock.
 		if (ctr_cfg_active() &&
-		    ((warppadObj->levelID < AH_WP_SLIDE_COLISEUM &&
+		    ((warppadObj->levelID < AH_WP_ID_SLIDE_COLISEUM &&
 		      AP_LocationCheckedByBit(warppadObj->levelID + ADV_REWARD_FIRST_TROPHY)) ||
 		     (warppadObj->levelID == AP_CORTEX_DEST &&
 		      AP_CortexTrackChecked(AP_CV_SLOT_TROPHY))) &&
@@ -2872,7 +2842,7 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 		// (destination) for shuffle consistency.
 		//
 		// slot_data v3 (merged destination shuffle): guard on "destination is a race
-		// track" (< AH_WP_SLIDE_COLISEUM). This branch runs whenever the PHYSICAL pad
+		// track" (< AH_WP_ID_SLIDE_COLISEUM). This branch runs whenever the PHYSICAL pad
 		// is a trophy track, but under merged grouping the DESTINATION may be a
 		// cup/arena/trial, for which warppadObj->levelID + FIRST_TROPHY aliases an
 		// unrelated location bit (e.g. arena dest 18 -> bit 24 = track-2 sapphire).
@@ -2883,13 +2853,13 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 		// fall straight to the "trophy not owned" branch below, which advertises the
 		// PHYSICAL pad's stage-1 requirement (the correct gate). No-op for a race
 		// dest (the normal case), where the guard is always true.
-		if ((warppadObj->levelID < AH_WP_SLIDE_COLISEUM &&
+		if ((warppadObj->levelID < AH_WP_ID_SLIDE_COLISEUM &&
 		     AP_LocationCheckedByBit(warppadObj->levelID + ADV_REWARD_FIRST_TROPHY)) ||
 		    (ctr_cfg_active() && warppadObj->levelID == AP_CORTEX_DEST &&
 		     AP_CortexTrackChecked(AP_CV_SLOT_TROPHY)))
 #else
 		// if trophy owned
-		if (CHECK_ADV_BIT(sdata->advProgress.rewards, levelID + ADV_REWARD_FIRST_TROPHY) != 0)
+		if (CHECK_ADV_BIT(GAME_ADV_PROGRESS.rewards, levelID + ADV_REWARD_FIRST_TROPHY) != 0)
 #endif
 		{
 #ifdef CTR_AP
@@ -2931,7 +2901,7 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 #else
 				unlockItem_numOwned = gGT->currAdvProfile.numKeys;
 #endif
-				unlockItem_numNeeded = D232.arrKeysNeeded[data.metaDataLEV[levelID].hubID];
+				unlockItem_numNeeded = AH_HUB_REQUIRED_KEYS[AH_LEVEL_METADATA[levelID].hubID];
 			}
 		}
 
@@ -3007,13 +2977,13 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 #else
 				unlockItem_numOwned = gGT->currAdvProfile.numTrophies;
 #endif
-				unlockItem_numNeeded = data.metaDataLEV[levelID].numTrophiesToOpen;
+				unlockItem_numNeeded = AH_LEVEL_METADATA[levelID].numTrophiesToOpen;
 			}
 		}
 	}
 
 	// Slide Col
-	else if (levelID == AH_WP_SLIDE_COLISEUM)
+	else if (levelID == AH_WP_ID_SLIDE_COLISEUM)
 	{
 #ifdef CTR_AP
 		// AP stage-2 re-lock first: a race destination hosted on this trial pad
@@ -3054,7 +3024,7 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 	}
 
 	// Turbo Track
-	else if (levelID == AH_WP_TURBO_TRACK)
+	else if (levelID == AH_WP_ID_TURBO_TRACK)
 	{
 #ifdef CTR_AP
 		// AP stage-2 re-lock first (see the Slide Coliseum branch above).
@@ -3089,14 +3059,14 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 				if (AP_GateCountGemColour(i) >= 1)
 					unlockItem_numOwned++;
 #else
-				if (CHECK_ADV_BIT(sdata->advProgress.rewards, ADV_REWARD_FIRST_GEM + i) != 0)
+				if (CHECK_ADV_BIT(GAME_ADV_PROGRESS.rewards, ADV_REWARD_FIRST_GEM + i) != 0)
 					unlockItem_numOwned++;
 #endif
 		}
 	}
 
 	// battle maps
-	else if ((((u16)(levelID - AH_WP_NITRO_COURT)) < 2) || (levelID == 21) || (levelID == 23))
+	else if ((((u16)(levelID - AH_WP_ID_FIRST_BATTLE_TRACK)) < 2) || (levelID == AH_WP_ID_SKULL_ROCK) || (levelID == AH_WP_ID_ROCKY_ROAD))
 	{
 #ifdef CTR_AP
 		// AP open randomization: battle-arena pads carry a per-seed randomized
@@ -3129,21 +3099,21 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 	}
 
 	// gem cups
-	else if (((u16)(levelID - AH_WP_ADV_CUP)) < 5)
+	else if (((u16)(levelID - AH_WP_ID_FIRST_GEM_CUP)) < 5)
 	{
 		// number tokens needed to open
 		unlockItem_modelID = STATIC_TOKEN;
 		unlockItem_numNeeded = 4;
 
 #ifdef CTR_AP
-		// cup index (levelID - AH_WP_ADV_CUP) is 0..4 = R,G,B,Y,P. `levelID` here is
+		// cup index (levelID - AH_WP_ID_FIRST_GEM_CUP) is 0..4 = R,G,B,Y,P. `levelID` here is
 		// the PHYSICAL cup pad (LInB keeps it physical; warppadObj->levelID holds the
 		// shuffled destination). Per the keying invariant the unlock REQUIREMENT is a
 		// property of the physical pad, so gem_cup_unlock is indexed by the physical
 		// cup colour -- correct even under slot_data v3 destination shuffle, where this
 		// cup pad may load a non-cup destination (its requirement still shows here).
 		{
-			int cupIdx = levelID - AH_WP_ADV_CUP;
+			int cupIdx = levelID - AH_WP_ID_FIRST_GEM_CUP;
 			// AP stage-2 re-lock first (see the Slide Coliseum branch above): a race
 			// destination hosted on this cup pad (merged shuffle) with its trophy
 			// checked + stage-2 unmet renders CLOSED advertising the stage-2
@@ -3221,8 +3191,10 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 			}
 		}
 #else
-		int *arrTokenCount = &gGT->currAdvProfile.numCtrTokens.red;
-		unlockItem_numOwned = arrTokenCount[levelID - AH_WP_ADV_CUP];
+		// NOTE(aalhendi): The five color counts follow total. Read through the
+		// owning struct's bytes instead of indexing past its scalar red member.
+		const u8 *arrTokenCount = (const u8 *)&gGT->currAdvProfile.numCtrTokens;
+		unlockItem_numOwned = (s32)CTR_ReadU32AlignedLE(arrTokenCount + sizeof(s32) + (s16)(levelID - AH_WP_ID_FIRST_GEM_CUP) * sizeof(s32));
 #endif
 	}
 
@@ -3230,7 +3202,7 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 	if (unlockItem_numOwned >= unlockItem_numNeeded)
 	{
 		warppadObj->digit1s = 0;
-		t->modelIndex = 1;
+		t->modelIndex = AH_WP_VISUAL_TROPHY_OPEN;
 
 		// if beam model exists
 		if (gGT->modelPtr[STATIC_BEAM] != 0)
@@ -3249,7 +3221,7 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 
 			newInst->alphaScale = 0xc00;
 
-			warppadObj->inst[WPIS_OPEN_BEAM] = newInst;
+			warppadObj->slots.inst[WPIS_OPEN_BEAM] = newInst;
 		}
 
 		// if spiral ring exists
@@ -3271,7 +3243,7 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 
 				newInst->alphaScale = 0x400;
 
-				warppadObj->inst[WPIS_OPEN_RING1 + i] = newInst;
+				warppadObj->slots.inst[WPIS_OPEN_RING1 + i] = newInst;
 			}
 		}
 
@@ -3320,28 +3292,28 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 		// proven branch below untouched. This also grants IDENTITY trials their
 		// Time-Trial relic glow for the first time (backlog: trial-pad reward GLOW).
 		if (ctr_cfg_active() &&
-		    (levelID == AH_WP_SLIDE_COLISEUM || levelID == AH_WP_TURBO_TRACK ||
-		     (((u16)(levelID - AH_WP_NITRO_COURT)) < 2) || levelID == 21 || levelID == 23 ||
-		     (((u16)(levelID - AH_WP_ADV_CUP)) < 5)))
+		    (levelID == AH_WP_ID_SLIDE_COLISEUM || levelID == AH_WP_ID_TURBO_TRACK ||
+		     (((u16)(levelID - AH_WP_ID_FIRST_BATTLE_TRACK)) < 2) || levelID == AH_WP_ID_SKULL_ROCK || levelID == AH_WP_ID_ROCKY_ROAD ||
+		     (((u16)(levelID - AH_WP_ID_FIRST_GEM_CUP)) < 5)))
 		{
 			// metaDataLEV is valid for track/trial/arena LevelIDs but NOT cup pads
 			// (100..104); a cup destination shows a gem (lightDirGem), never a token,
 			// so group 0 is a safe placeholder there. For race/trial/arena this equals
 			// the physical pad's own token group, matching the race birth below.
-			int apTokGroup = (levelID >= 0 && levelID < AH_WP_ADV_CUP)
-			                     ? data.metaDataLEV[levelID].ctrTokenGroupID
+			int apTokGroup = (levelID >= 0 && levelID < AH_WP_ID_FIRST_GEM_CUP)
+			                     ? AH_LEVEL_METADATA[levelID].ctrTokenGroupID
 			                     : 0;
-			t->modelIndex = 4;
-			warppadObj->lightDirRelic = D232.lightDirRelic[0];
-			warppadObj->lightDirToken = D232.lightDirToken[apTokGroup];
-			warppadObj->lightDirGem = D232.lightDirGem[0];
+			t->modelIndex = AH_WP_VISUAL_COLOR_CYCLE_OPEN;
+			warppadObj->lightDirRelic = AH_WARP_LIGHT_RELIC[0];
+			warppadObj->lightDirToken = AH_WARP_LIGHT_TOKEN[apTokGroup];
+			warppadObj->lightDirGem = AH_WARP_LIGHT_GEM[0];
 
 			rewardAngle = 0;
 			for (i = 0; i < 3; i++)
 			{
 				rewardModelID = s_warpPadRewardModelIDs[i];
 				newInst = INSTANCE_Birth3D(gGT->modelPtr[rewardModelID], "prize1", t);
-				warppadObj->inst[WPIS_OPEN_PRIZE1 + i] = newInst;
+				warppadObj->slots.inst[WPIS_OPEN_PRIZE1 + i] = newInst;
 
 				// copy matrix (birth placeholder pose; SpinRewards recomputes it live)
 				*(int *)((int)&newInst->matrix + 0x0) = *(int *)((int)&inst->matrix + 0x0);
@@ -3355,7 +3327,7 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 
 				if (rewardModelID == STATIC_RELIC)
 				{
-					newInst->colorRGBA = 0x20a5ff0;
+					newInst->colorRGBA = INST_COLOR_SAPPHIRE_RELIC;
 					newInst->flags |= USE_SPECULAR_LIGHT;
 					newInst->scale.x = 0x1800;
 					newInst->scale.y = 0x1800;
@@ -3363,9 +3335,9 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 				}
 				else if (rewardModelID == STATIC_TOKEN)
 				{
-					newInst->colorRGBA = ((u32)data.AdvCups[apTokGroup].color[0] << 0x14) |
-					                     ((u32)data.AdvCups[apTokGroup].color[1] << 0xc) |
-					                     ((u32)data.AdvCups[apTokGroup].color[2] << 0x4);
+					newInst->colorRGBA = ((u32)AH_WARP_CUPS[apTokGroup].color[0] << 0x14) |
+					                     ((u32)AH_WARP_CUPS[apTokGroup].color[1] << 0xc) |
+					                     ((u32)AH_WARP_CUPS[apTokGroup].color[2] << 0x4);
 					newInst->flags |= (DRAW_TRANSPARENT | USE_SPECULAR_LIGHT);
 					newInst->scale.x = 0x2000;
 					newInst->scale.y = 0x2000;
@@ -3385,10 +3357,10 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 		}
 #endif
 
-		if (levelID < AH_WP_SLIDE_COLISEUM)
+		if (levelID < AH_WP_ID_SLIDE_COLISEUM)
 		{
 			// unlocked all
-			t->modelIndex = 2;
+			t->modelIndex = AH_WP_VISUAL_COMPLETE;
 
 			// if trophy not owned
 #ifdef CTR_AP
@@ -3403,23 +3375,23 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 			// vanilla placeholders; _ThTick overwrites model + colorRGBA every frame.
 			// lightDirRelic/Token are seeded once so a slot that _ThTick turns into a
 			// relic/token gets correct specular spin (SpinRewards reads them by model).
-			if (levelID < AH_WP_SLIDE_COLISEUM)
+			if (levelID < AH_WP_ID_SLIDE_COLISEUM)
 #else
-			if (CHECK_ADV_BIT(sdata->advProgress.rewards, levelID + ADV_REWARD_FIRST_TROPHY) == 0)
+			if (CHECK_ADV_BIT(GAME_ADV_PROGRESS.rewards, levelID + ADV_REWARD_FIRST_TROPHY) == 0)
 #endif
 			{
 				// open for trophy
-				t->modelIndex = 1;
+				t->modelIndex = AH_WP_VISUAL_TROPHY_OPEN;
 
 #ifdef CTR_AP
-				warppadObj->lightDirRelic = D232.lightDirRelic[0];
+				warppadObj->lightDirRelic = AH_WARP_LIGHT_RELIC[0];
 				warppadObj->lightDirToken =
-				    D232.lightDirToken[data.metaDataLEV[levelID].ctrTokenGroupID];
+				    AH_WARP_LIGHT_TOKEN[AH_LEVEL_METADATA[levelID].ctrTokenGroupID];
 				// Seed the gem light dir too: _ThTick can turn a slot into STATIC_GEM
 				// (own gem-cup gem, or a white-gem FOREIGN marker), and SpinRewards
 				// reads lightDirGem for specular spin on gem models. All 5 D232 table
 				// entries are identical, so [0] is the universal value.
-				warppadObj->lightDirGem = D232.lightDirGem[0];
+				warppadObj->lightDirGem = AH_WARP_LIGHT_GEM[0];
 #endif
 
 				rewardAngle = 0;
@@ -3427,7 +3399,7 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 				{
 					rewardModelID = s_warpPadRewardModelIDs[i];
 					newInst = INSTANCE_Birth3D(gGT->modelPtr[rewardModelID], "prize1", t);
-					warppadObj->inst[WPIS_OPEN_PRIZE1 + i] = newInst;
+					warppadObj->slots.inst[WPIS_OPEN_PRIZE1 + i] = newInst;
 
 					// copy matrix
 					*(int *)((int)&newInst->matrix + 0x0) = *(int *)((int)&inst->matrix + 0x0);
@@ -3441,7 +3413,7 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 
 					if (rewardModelID == STATIC_RELIC)
 					{
-						newInst->colorRGBA = 0x20a5ff0;
+						newInst->colorRGBA = INST_COLOR_SAPPHIRE_RELIC;
 						newInst->flags |= USE_SPECULAR_LIGHT;
 						newInst->scale.x = 0x1800;
 						newInst->scale.y = 0x1800;
@@ -3450,15 +3422,15 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 
 					else if (rewardModelID == STATIC_TOKEN)
 					{
-						tokenGroupID = data.metaDataLEV[levelID].ctrTokenGroupID;
+						tokenGroupID = AH_LEVEL_METADATA[levelID].ctrTokenGroupID;
 
 						// token color
-						newInst->colorRGBA = ((u32)data.AdvCups[tokenGroupID].color[0] << 0x14) | ((u32)data.AdvCups[tokenGroupID].color[1] << 0xc) |
-						                     ((u32)data.AdvCups[tokenGroupID].color[2] << 0x4);
+						newInst->colorRGBA = ((u32)AH_WARP_CUPS[tokenGroupID].color[0] << 0x14) | ((u32)AH_WARP_CUPS[tokenGroupID].color[1] << 0xc) |
+						                     ((u32)AH_WARP_CUPS[tokenGroupID].color[2] << 0x4);
 
 						newInst->flags |= (DRAW_TRANSPARENT | USE_SPECULAR_LIGHT);
 
-						warppadObj->lightDirToken = D232.lightDirToken[tokenGroupID];
+						warppadObj->lightDirToken = AH_WARP_LIGHT_TOKEN[tokenGroupID];
 
 						newInst->scale.x = 0x2000;
 						newInst->scale.y = 0x2000;
@@ -3479,10 +3451,10 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 			}
 
 			// if relic not owned
-			if (CHECK_ADV_BIT(sdata->advProgress.rewards, levelID + ADV_REWARD_FIRST_SAPPHIRE_RELIC) == 0)
+			if (CHECK_ADV_BIT(GAME_ADV_PROGRESS.rewards, levelID + ADV_REWARD_FIRST_SAPPHIRE_RELIC) == 0)
 			{
 				// open for relic/token
-				t->modelIndex = 3;
+				t->modelIndex = AH_WP_VISUAL_RELIC_TOKEN_OPEN;
 
 				rewardModelID = STATIC_RELIC;
 #ifdef CTR_AP
@@ -3497,7 +3469,7 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 				newInst = INSTANCE_Birth3D(gGT->modelPtr[rewardModelID], "prize2", t);
 
 				// relic blue
-				newInst->colorRGBA = 0x20a5ff0;
+				newInst->colorRGBA = INST_COLOR_SAPPHIRE_RELIC;
 #ifdef CTR_AP
 				{
 					// Tint the relic-time-trial glow by the scouted relic TIER
@@ -3510,7 +3482,7 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 
 				newInst->flags |= USE_SPECULAR_LIGHT;
 
-				warppadObj->lightDirRelic = D232.lightDirRelic[0];
+				warppadObj->lightDirRelic = AH_WARP_LIGHT_RELIC[0];
 
 				// copy matrix
 				*(int *)((int)&newInst->matrix + 0x0) = *(int *)((int)&inst->matrix + 0x0);
@@ -3526,19 +3498,19 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 				newInst->scale.y = 0x1800;
 				newInst->scale.z = 0x1800;
 
-				warppadObj->inst[WPIS_OPEN_PRIZE1] = newInst;
+				warppadObj->slots.inst[WPIS_OPEN_PRIZE1] = newInst;
 			}
 
 			// if token owned
-			if (CHECK_ADV_BIT(sdata->advProgress.rewards, levelID + ADV_REWARD_FIRST_CTR_TOKEN) != 0)
+			if (CHECK_ADV_BIT(GAME_ADV_PROGRESS.rewards, levelID + ADV_REWARD_FIRST_CTR_TOKEN) != 0)
 			{
 				return;
 			}
 
-			tokenGroupID = data.metaDataLEV[levelID].ctrTokenGroupID;
+			tokenGroupID = AH_LEVEL_METADATA[levelID].ctrTokenGroupID;
 
 			// open for relic/token
-			t->modelIndex = 3;
+			t->modelIndex = AH_WP_VISUAL_RELIC_TOKEN_OPEN;
 
 			rewardModelID = STATIC_TOKEN;
 #ifdef CTR_AP
@@ -3552,12 +3524,12 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 			newInst = INSTANCE_Birth3D(gGT->modelPtr[rewardModelID], "prize2", t);
 
 			// token color
-			newInst->colorRGBA = ((u32)data.AdvCups[tokenGroupID].color[0] << 0x14) | ((u32)data.AdvCups[tokenGroupID].color[1] << 0xc) |
-			                     ((u32)data.AdvCups[tokenGroupID].color[2] << 0x4);
+			newInst->colorRGBA = ((u32)AH_WARP_CUPS[tokenGroupID].color[0] << 0x14) | ((u32)AH_WARP_CUPS[tokenGroupID].color[1] << 0xc) |
+			                     ((u32)AH_WARP_CUPS[tokenGroupID].color[2] << 0x4);
 
 			newInst->flags |= (DRAW_TRANSPARENT | USE_SPECULAR_LIGHT);
 
-			warppadObj->lightDirToken = D232.lightDirToken[tokenGroupID];
+			warppadObj->lightDirToken = AH_WARP_LIGHT_TOKEN[tokenGroupID];
 
 			// copy matrix
 			*(int *)((int)&newInst->matrix + 0x0) = *(int *)((int)&inst->matrix + 0x0);
@@ -3573,48 +3545,48 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 			newInst->scale.y = 0x2000;
 			newInst->scale.z = 0x2000;
 
-			warppadObj->inst[WPIS_OPEN_PRIZE2] = newInst;
+			warppadObj->slots.inst[WPIS_OPEN_PRIZE2] = newInst;
 
 			return;
 
 		SlideColTurboTrack:
 
 			// if relic not owned
-			if (levelID < AH_WP_NITRO_COURT)
+			if (levelID < AH_WP_ID_FIRST_BATTLE_TRACK)
 			{
-				if (CHECK_ADV_BIT(sdata->advProgress.rewards, levelID + ADV_REWARD_FIRST_SAPPHIRE_RELIC) == 0)
+				if (CHECK_ADV_BIT(GAME_ADV_PROGRESS.rewards, levelID + ADV_REWARD_FIRST_SAPPHIRE_RELIC) == 0)
 				{
 					// SlideCol/TurboTrack
-					if (levelID >= AH_WP_SLIDE_COLISEUM)
+					if (levelID >= AH_WP_ID_SLIDE_COLISEUM)
 					{
-						t->modelIndex = 4;
+						t->modelIndex = AH_WP_VISUAL_COLOR_CYCLE_OPEN;
 					}
 					// open for token/relic
 					else if (t->modelIndex != 1)
 					{
-						t->modelIndex = 3;
+						t->modelIndex = AH_WP_VISUAL_RELIC_TOKEN_OPEN;
 					}
 
 					newInst = INSTANCE_Birth3D(gGT->modelPtr[STATIC_RELIC], "prize2", t);
 
 					// relic blue
-					newInst->colorRGBA = 0x20a5ff0;
+					newInst->colorRGBA = INST_COLOR_SAPPHIRE_RELIC;
 
 					newInst->flags |= USE_SPECULAR_LIGHT;
 
-					warppadObj->lightDirRelic = D232.lightDirRelic[0];
+					warppadObj->lightDirRelic = AH_WARP_LIGHT_RELIC[0];
 
 					newInst->scale.x = 0x1800;
 					newInst->scale.y = 0x1800;
 					newInst->scale.z = 0x1800;
 
-					warppadObj->inst[WPIS_OPEN_PRIZE1] = newInst;
+					warppadObj->slots.inst[WPIS_OPEN_PRIZE1] = newInst;
 				}
 			}
 
 			for (i = 0; i < 3; i++)
 			{
-				newInst = warppadObj->inst[WPIS_OPEN_PRIZE1 + i];
+				newInst = warppadObj->slots.inst[WPIS_OPEN_PRIZE1 + i];
 
 				if (newInst == 0)
 				{
@@ -3634,21 +3606,21 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 		}
 
 		// slide col, turbo track
-		else if (levelID < AH_WP_NITRO_COURT)
+		else if (levelID < AH_WP_ID_FIRST_BATTLE_TRACK)
 		{
 			// already unlocked
-			t->modelIndex = 2;
+			t->modelIndex = AH_WP_VISUAL_COMPLETE;
 
 			goto SlideColTurboTrack;
 		}
 
 		// battle tracks
-		else if ((((u16)(levelID - AH_WP_NITRO_COURT)) < 2) || (levelID == 21) || (levelID == 23))
+		else if ((((u16)(levelID - AH_WP_ID_FIRST_BATTLE_TRACK)) < 2) || (levelID == AH_WP_ID_SKULL_ROCK) || (levelID == AH_WP_ID_ROCKY_ROAD))
 		{
-			i = R232.battleTrackArr[levelID - AH_WP_NITRO_COURT] + ADV_REWARD_FIRST_PURPLE_TOKEN;
+			i = AH_WARP_BATTLE_OFFSETS[levelID - AH_WP_ID_FIRST_BATTLE_TRACK] + ADV_REWARD_FIRST_PURPLE_TOKEN;
 
 			// already unlocked
-			t->modelIndex = 2;
+			t->modelIndex = AH_WP_VISUAL_COMPLETE;
 
 #ifdef CTR_AP
 			// AP GLOW: ALWAYS birth the battle-arena prize slot so AH_WarpPad_ThTick's
@@ -3656,13 +3628,13 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 			// Mirrors the trophy always-birth (~1413); do NOT gate on the cosmetic
 			// crystal bit -- AP_ApplyItems clears it every frame, which left the pad
 			// showing a stale vanilla CTR coin that never hid on collect (image-124).
-			if ((((u16)(levelID - AH_WP_NITRO_COURT)) < 2) || (levelID == 21) || (levelID == 23))
+			if ((((u16)(levelID - AH_WP_ID_FIRST_BATTLE_TRACK)) < 2) || (levelID == AH_WP_ID_SKULL_ROCK) || (levelID == AH_WP_ID_ROCKY_ROAD))
 #else
-			if (CHECK_ADV_BIT(sdata->advProgress.rewards, i) == 0)
+			if (CHECK_ADV_BIT(GAME_ADV_PROGRESS.rewards, i) == 0)
 #endif
 			{
 				// rainbow
-				t->modelIndex = 4;
+				t->modelIndex = AH_WP_VISUAL_COLOR_CYCLE_OPEN;
 
 				newInst = INSTANCE_Birth3D(gGT->modelPtr[STATIC_TOKEN], "prize2", t);
 
@@ -3671,16 +3643,16 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 				tokenGroupID = 4;
 
 				// token color
-				newInst->colorRGBA = ((u32)data.AdvCups[tokenGroupID].color[0] << 0x14) | ((u32)data.AdvCups[tokenGroupID].color[1] << 0xc) |
-				                     ((u32)data.AdvCups[tokenGroupID].color[2] << 0x4);
+				newInst->colorRGBA = ((u32)AH_WARP_CUPS[tokenGroupID].color[0] << 0x14) | ((u32)AH_WARP_CUPS[tokenGroupID].color[1] << 0xc) |
+				                     ((u32)AH_WARP_CUPS[tokenGroupID].color[2] << 0x4);
 
-				warppadObj->lightDirToken = D232.lightDirToken[tokenGroupID];
+				warppadObj->lightDirToken = AH_WARP_LIGHT_TOKEN[tokenGroupID];
 
 				newInst->scale.x = 0x2000;
 				newInst->scale.y = 0x2000;
 				newInst->scale.z = 0x2000;
 
-				warppadObj->inst[WPIS_OPEN_PRIZE1] = newInst;
+				warppadObj->slots.inst[WPIS_OPEN_PRIZE1] = newInst;
 
 				// for matrix copy
 				goto SlideColTurboTrack;
@@ -3688,17 +3660,17 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 		}
 
 		// gem cups
-		else if (((u16)(levelID - AH_WP_ADV_CUP)) < 5)
+		else if (((u16)(levelID - AH_WP_ID_FIRST_GEM_CUP)) < 5)
 		{
 			// bit index of gem
-			i = (levelID - AH_WP_ADV_CUP) + ADV_REWARD_FIRST_GEM;
+			i = (levelID - AH_WP_ID_FIRST_GEM_CUP) + ADV_REWARD_FIRST_GEM;
 
 #ifndef CTR_AP
 			// if gem is already unlocked, quit
-			if (CHECK_ADV_BIT(sdata->advProgress.rewards, i) != 0)
+			if (CHECK_ADV_BIT(GAME_ADV_PROGRESS.rewards, i) != 0)
 			{
 				// beaten
-				t->modelIndex = 2;
+				t->modelIndex = AH_WP_VISUAL_COMPLETE;
 
 				return;
 			}
@@ -3710,21 +3682,21 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 #endif
 
 			// rainbow color
-			t->modelIndex = 4;
+			t->modelIndex = AH_WP_VISUAL_COLOR_CYCLE_OPEN;
 
 			newInst = INSTANCE_Birth3D(gGT->modelPtr[STATIC_GEM], "prize2", t);
 
 			newInst->flags |= USE_SPECULAR_LIGHT;
 
-			i = levelID - AH_WP_ADV_CUP;
+			i = levelID - AH_WP_ID_FIRST_GEM_CUP;
 
 			// token color
-			newInst->colorRGBA = ((u32)data.AdvCups[i].color[0] << 0x14) | ((u32)data.AdvCups[i].color[1] << 0xc) | ((u32)data.AdvCups[i].color[2] << 0x4);
+			newInst->colorRGBA = ((u32)AH_WARP_CUPS[i].color[0] << 0x14) | ((u32)AH_WARP_CUPS[i].color[1] << 0xc) | ((u32)AH_WARP_CUPS[i].color[2] << 0x4);
 
-			warppadObj->inst[WPIS_OPEN_PRIZE1] = newInst;
+			warppadObj->slots.inst[WPIS_OPEN_PRIZE1] = newInst;
 
 			// store in Gem array
-			warppadObj->lightDirGem = D232.lightDirGem[i];
+			warppadObj->lightDirGem = AH_WARP_LIGHT_GEM[i];
 
 			newInst->scale.x = 0x2000;
 			newInst->scale.y = 0x2000;
@@ -3797,9 +3769,9 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 		if (unlockItem_modelID == STATIC_RELIC)
 		{
 			// Relic blue color
-			newInst->colorRGBA = 0x20a5ff0;
+			newInst->colorRGBA = INST_COLOR_SAPPHIRE_RELIC;
 
-			warppadObj->lightDirRelic = D232.lightDirRelic[0];
+			warppadObj->lightDirRelic = AH_WARP_LIGHT_RELIC[0];
 
 #ifdef CTR_AP
 			// Record which tier tint the destination-keyed ThTick should pin for
@@ -3815,31 +3787,31 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 		else if (unlockItem_modelID == STATIC_KEY)
 		{
 			// Key color
-			newInst->colorRGBA = 0xdca6000;
+			newInst->colorRGBA = INST_COLOR_KEY;
 
 			// store in Gem array (intended by ND, not a bug)
-			warppadObj->lightDirGem = D232.lightDirGem[0];
+			warppadObj->lightDirGem = AH_WARP_LIGHT_GEM[0];
 		}
 
 		// Gem
 		else if (unlockItem_modelID == STATIC_GEM)
 		{
-			newInst->colorRGBA = ((u32)data.AdvCups[0].color[0] << 0x14) | ((u32)data.AdvCups[0].color[1] << 0xc) | ((u32)data.AdvCups[0].color[2] << 0x4);
+			newInst->colorRGBA = ((u32)AH_WARP_CUPS[0].color[0] << 0x14) | ((u32)AH_WARP_CUPS[0].color[1] << 0xc) | ((u32)AH_WARP_CUPS[0].color[2] << 0x4);
 
 			// store in Gem array
-			warppadObj->lightDirGem = D232.lightDirGem[0];
+			warppadObj->lightDirGem = AH_WARP_LIGHT_GEM[0];
 		}
 
 		// assume token
 		else
 		{
-			i = levelID - AH_WP_ADV_CUP;
+			i = levelID - AH_WP_ID_FIRST_GEM_CUP;
 
 #ifdef CTR_AP
 			// Cosmetic-index fix: `i` is the cup colour ONLY for gem-cup pads
 			// (levelID 100..104 -> 0..4). Under AP randomization a NON-cup pad
 			// (race/trial/arena, levelID < 100) can carry a Token requirement,
-			// making i negative -> data.AdvCups[i] / D232.lightDirToken[i] read
+			// making i negative -> AH_WARP_CUPS[i] / AH_WARP_LIGHT_TOKEN[i] read
 			// out of bounds (garbage tint / possible bad light dir). Clamp to a
 			// valid colour slot; the closed-req token tint is purely cosmetic.
 			if (i < 0 || i > 4)
@@ -3855,13 +3827,13 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 #endif
 
 			// token color
-			newInst->colorRGBA = ((u32)data.AdvCups[i].color[0] << 0x14) | ((u32)data.AdvCups[i].color[1] << 0xc) | ((u32)data.AdvCups[i].color[2] << 0x4);
+			newInst->colorRGBA = ((u32)AH_WARP_CUPS[i].color[0] << 0x14) | ((u32)AH_WARP_CUPS[i].color[1] << 0xc) | ((u32)AH_WARP_CUPS[i].color[2] << 0x4);
 
-			warppadObj->lightDirToken = D232.lightDirToken[i];
+			warppadObj->lightDirToken = AH_WARP_LIGHT_TOKEN[i];
 		}
 	}
 
-	warppadObj->inst[WPIS_CLOSED_ITEM] = newInst;
+	warppadObj->slots.inst[WPIS_CLOSED_ITEM] = newInst;
 
 	// ====== "X" ========
 
@@ -3885,7 +3857,7 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 	// always face camera
 	newInst->model->headers[0].flags |= 1;
 
-	warppadObj->inst[WPIS_CLOSED_X] = newInst;
+	warppadObj->slots.inst[WPIS_CLOSED_X] = newInst;
 
 	// ====== "10s" ========
 
@@ -3914,7 +3886,7 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 			newInst->model->headers[i].flags |= 1;
 		}
 
-		warppadObj->inst[WPIS_CLOSED_10S] = newInst;
+		warppadObj->slots.inst[WPIS_CLOSED_10S] = newInst;
 	}
 
 	// ====== "1s" ========
@@ -3953,5 +3925,5 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 		newInst->model->headers[i].flags |= 1;
 	}
 
-	warppadObj->inst[WPIS_CLOSED_1S] = newInst;
+	warppadObj->slots.inst[WPIS_CLOSED_1S] = newInst;
 }

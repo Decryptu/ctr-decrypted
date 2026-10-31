@@ -1,4 +1,4 @@
-#include <common.h>
+#include "VehCommon.h"
 #ifdef CTR_AP
 #include "../../ap/ap_retro_fueled_logic.h"
 #endif
@@ -19,111 +19,148 @@ static int VehFire_KeepReserveFire(const struct Driver *driver)
 }
 #endif
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005ab24-0x8005abfc.
+enum
+{
+	VEH_FIRE_AUDIO_HIGH_THRESHOLD = 0x80,
+	VEH_FIRE_AUDIO_MEDIUM_THRESHOLD = 0x40,
+	VEH_FIRE_AUDIO_VOLUME_LOW = 0x80,
+	VEH_FIRE_AUDIO_VOLUME_MEDIUM = 0xc0,
+	VEH_FIRE_AUDIO_VOLUME_HIGH = 0xff,
+	VEH_FIRE_AUDIO_DISTORT_LOW = 0x94,
+	VEH_FIRE_AUDIO_DISTORT_HIGH = 0x6c,
+	VEH_FIRE_VOICELINE_HIGH_BOOST_ID = 0x10,
+	VEH_FIRE_VOICELINE_PRIORITY = 0x10,
+	VEH_FIRE_AUDIO_SFX = 0xd,
+	VEH_FIRE_AUDIO_COOLDOWN = 0xf0,
+
+	VEH_FIRE_POWER_SLIDE_DISAPPEAR_FRAMES = 2,
+	VEH_FIRE_NO_DISAPPEAR = -1,
+	VEH_FIRE_VISIBILITY_COOLDOWN = 0x60,
+	VEH_FIRE_SPEED_CAP_SHIFT = 8,
+	VEH_FIRE_SIZE_SHIFT = 6,
+	VEH_FIRE_SIZE_BASE = 5,
+	VEH_FIRE_SIZE_MAX = 8,
+	VEH_FIRE_CAMERA_SHAKE_FLAG = 0x80,
+	VEH_FIRE_RUMBLE_CHANNEL = 8,
+	VEH_FIRE_RUMBLE_FORCE = 0x7f,
+};
+
+enum
+{
+	VEH_FIRE_INITIAL_INSTANCE_FLAGS = DEPTH_FADE | DRAW_BILLBOARD | HIDE_MODEL,
+};
+
+
 void VehFire_Audio(struct Driver *driver, int speed_cap)
 {
-	u32 distortion;
-	u32 volume;
-	u32 echo;
+	register struct Driver *audioDriver CTR_PSX_REGISTER("$18") = driver;
+	register u32 volume CTR_PSX_REGISTER("$17");
+	register u32 distortion CTR_PSX_REGISTER("$16");
+	register u32 volumeFlags CTR_PSX_REGISTER("$5");
+	register u32 distortionFlags CTR_PSX_REGISTER("$4");
+	register u32 packedAudio CTR_PSX_REGISTER("$2");
+	register u32 audioFlags CTR_PSX_REGISTER("$6");
 
 	// if turbo audio cooldown is not done
-	if (driver->VehFire_AudioCooldown != 0)
+	if (audioDriver->VehFire_AudioCooldown != 0)
 	{
 		return;
 	}
 
-	if (speed_cap >= 0x80)
+	volume = VEH_FIRE_AUDIO_VOLUME_LOW;
+	if (speed_cap < VEH_FIRE_AUDIO_MEDIUM_THRESHOLD)
+		goto LowSpeed;
+
+	volume = VEH_FIRE_AUDIO_VOLUME_MEDIUM;
+	if (speed_cap < VEH_FIRE_AUDIO_HIGH_THRESHOLD)
+		goto MediumSpeed;
+
+	volume = VEH_FIRE_AUDIO_VOLUME_HIGH;
+	distortion = VEH_FIRE_AUDIO_DISTORT_HIGH;
+	Voiceline_RequestPlay(VEH_FIRE_VOICELINE_HIGH_BOOST_ID, GAME_CHARACTER_IDS[audioDriver->driverID], VEH_FIRE_VOICELINE_PRIORITY);
+	CTR_PSX_KEEP_VALUE(volume);
+	volumeFlags = volume << HOWL_SFX_VOLUME_SHIFT;
+	goto AudioFlags;
+
+MediumSpeed:
+	distortion = HOWL_SFX_DISTORTION_NONE;
+	goto PackVolume;
+
+LowSpeed:
+	distortion = VEH_FIRE_AUDIO_DISTORT_LOW;
+
+PackVolume:
+	volumeFlags = volume << HOWL_SFX_VOLUME_SHIFT;
+
+AudioFlags:
+	distortionFlags = distortion << HOWL_SFX_DISTORTION_SHIFT;
+	if ((audioDriver->actionsFlagSet & ACTION_ENGINE_ECHO) != 0)
 	{
-		// max volume
-		volume = 0xff;
-
-		// distort
-		distortion = 0x6c;
-
-		Voiceline_RequestPlay(0x10, data.characterIDs[driver->driverID], 0x10);
-
-		goto Skip;
+		packedAudio = distortionFlags | HOWL_SFX_ECHO_FLAG;
+		packedAudio = volumeFlags | packedAudio;
+		goto PlayAudio;
 	}
+	packedAudio = volumeFlags | distortionFlags;
 
-	if (speed_cap >= 0x40)
-	{
-		// 3/4 volume
-		volume = 0xc0;
-
-		// no distort
-		distortion = HOWL_SFX_DISTORTION_NONE;
-
-		goto Skip;
-	}
-
-	// half volume
-	volume = 0x80;
-
-	// distort
-	distortion = 0x94;
-
-Skip:
-
-	echo = 0;
-
-	// if echo is required
-	if ((driver->actionsFlagSet & ACTION_ENGINE_ECHO) != 0)
-	{
-		echo = 1;
-	}
-
-	// 0xD = Turbo Boost Sound
-	// 0x80 = balance L/R
-	OtherFX_Play_LowLevel(0xd, 1, HowlSfx_Pack(HOWL_SFX_LR_CENTER, distortion, volume, echo));
+PlayAudio:
+	audioFlags = packedAudio | HOWL_SFX_LR_CENTER;
+	CTR_PSX_KEEP_VALUE(audioFlags);
+	OtherFX_Play_LowLevel(VEH_FIRE_AUDIO_SFX, 1, audioFlags);
 
 	// turbo audio cooldown 0.24s
-	driver->VehFire_AudioCooldown = 0xf0;
+	audioDriver->VehFire_AudioCooldown = VEH_FIRE_AUDIO_COOLDOWN;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8005abfc-0x8005b0c4.
 
 // param1 - driver
 // param2 - reserves to add
 // param3 - add type
 // param4 - fire level
-void VehFire_Increment(struct Driver *driver, int reserves, u32 type, int fireLevel)
+void VehFire_Increment(struct Driver *driverArg, int reservesArg, u32 typeArg, int fireLevelArg)
 {
+	register struct Driver *driver CTR_PSX_REGISTER("$18") = driverArg;
+	register int reserves CTR_PSX_REGISTER("$20") = reservesArg;
+	register u32 type CTR_PSX_REGISTER("$19") = typeArg;
+	register int fireLevel CTR_PSX_REGISTER("$21") = fireLevelArg;
 	u8 kartState;
 	s8 count;
 
 	int newFireSpeedCap;
-	int newFireSize;
 	int oldOTT;
+	int reserveDelta;
 
 	u32 addFlags;
-	struct Turbo *turboObj;
+	register struct Turbo *turboObj CTR_PSX_REGISTER("$16");
 	struct Thread *turboThread;
-	struct Instance *turboInst1;
-	struct Instance *turboInst2;
-
-	struct GameTracker *gGT = sdata->gGT;
+	register struct Instance *turboInst1 CTR_PSX_REGISTER("$17");
 
 #ifdef CTR_AP
-	// Boost Blocker owns this choke point before capability filtering, so no boost
-	// source can recreate reserves or fire while the timed effect is active.
-	if (!AP_TrapAllowBoostGrant(driver))
-		return;
+	{
+		// Boost Blocker owns this choke point before capability filtering, so no boost
+		// source can recreate reserves or fire while the timed effect is active.
+		if (!AP_TrapAllowBoostGrant(driver))
+			return;
 
-	// Progressive Boost (#12), local player only, and only on a seed that turned
-	// the pack on. This function is the single choke point every boost in the game
-	// passes through -- pads, powerslides, hang time, the rev boost, the Turbo
-	// pickup, the Super Engine -- so filtering here covers the whole chain in one
-	// place. It runs before everything else in the function so a suppressed grant
-	// also leaves no fire, no audio and no entry in the ghost tape, exactly as if
-	// the boost had never been earned. Byte-identical to vanilla when the pack is
-	// off: AP_CapabilityFireGrant returns 1 without touching either out-param.
-	if (!AP_CapabilityFireGrant(driver, &reserves, type, &fireLevel))
-		return;
+		// Progressive Boost (#12), local player only, and only on a seed that turned
+		// the pack on. This function is the single choke point every boost in the game
+		// passes through -- pads, powerslides, hang time, the rev boost, the Turbo
+		// pickup, the Super Engine -- so filtering here covers the whole chain in one
+		// place. It runs before everything else in the function so a suppressed grant
+		// also leaves no fire, no audio and no entry in the ghost tape, exactly as if
+		// the boost had never been earned. Byte-identical to vanilla when the pack is
+		// off: AP_CapabilityFireGrant returns 1 without touching either out-param.
+		int grantReserves = reserves;
+		int grantFireLevel = fireLevel;
+		if (!AP_CapabilityFireGrant(driver, &grantReserves, type, &grantFireLevel))
+			return;
+		reserves = grantReserves;
+		fireLevel = grantFireLevel;
+	}
 #endif
 
 	if (
 	    // if this is a turbo pad
-	    ((type & 4) != 0) &&
+	    ((type & TURBO_PAD) != 0) &&
 
 	    // racer is in accel prevention (holding square)
 	    ((driver->actionsFlagSet & ACTION_ACCEL_PREVENTION) != 0))
@@ -142,7 +179,7 @@ void VehFire_Increment(struct Driver *driver, int reserves, u32 type, int fireLe
 	    (driver->instSelf->thread->modelIndex == DYNAMIC_PLAYER))
 	{
 		// Add Reserves to ghost buffer
-		GhostTape_WriteBoosts(reserves, (u8)type, fireLevel);
+		GhostTape_WriteBoosts(reserves, type, fireLevel);
 	}
 
 	kartState = driver->kartState;
@@ -151,11 +188,11 @@ void VehFire_Increment(struct Driver *driver, int reserves, u32 type, int fireLe
 	{
 		return;
 	}
-	if (kartState == KS_MASK_GRABBED)
+	if (kartState == KS_BLASTED)
 	{
 		return;
 	}
-	if (kartState == KS_BLASTED)
+	if (kartState == KS_MASK_GRABBED)
 	{
 		return;
 	}
@@ -164,7 +201,7 @@ void VehFire_Increment(struct Driver *driver, int reserves, u32 type, int fireLe
 	driver->actionsFlagSet = (driver->actionsFlagSet & ~ACTION_TURBO_INPUT_LATCH) | ACTION_NEW_BOOST;
 
 	// turbo thread bucket
-	turboThread = gGT->threadBuckets[TURBO].thread;
+	turboThread = GAME_TRACKER->threadBuckets[TURBO].thread;
 
 	// check all turbo threads
 	while (turboThread != 0)
@@ -180,161 +217,20 @@ void VehFire_Increment(struct Driver *driver, int reserves, u32 type, int fireLe
 		turboThread = turboThread->siblingThread;
 	}
 
-	// if no turbo exists, create one
-	if (turboThread == 0)
-	{
-#if BUILD < JpnRetail
-
-		driver->numTurbos = 1;
-
-#else
-
-		// Japan retail gates this through the extra turbo state byte.
-		if (driver->japanTurboUnknown == 0)
-		{
-			driver->numTurbos = 1;
-			if ((driver->numTurbosHighScore < 1) && ((gGT->gameMode1 & END_OF_RACE) == 0))
-			{
-				driver->numTurbosHighScore = 1;
-			}
-		}
-		else
-		{
-			driver->numTurbos = (s16)CTR_MipsAddLo((u16)driver->numTurbos, 1);
-			if ((driver->numTurbosHighScore < driver->numTurbos) && ((gGT->gameMode1 & END_OF_RACE) == 0))
-			{
-				driver->numTurbosHighScore = driver->numTurbos;
-			}
-		}
-
-#endif
-
-#if defined(CTR_NATIVE)
-		turboInst1 = INSTANCE_BirthWithThread(0x2c, sdata->s_turbo1, SMALL, TURBO, VehTurbo_ThTick, sizeof(struct Turbo), 0);
-
-		turboObj = 0;
-
-		if (turboInst1 != 0)
-		{
-			// get thread, ignore all collisions
-			turboThread = turboInst1->thread;
-			turboThread->flags |= THREAD_FLAG_DISABLE_COLLISION;
-
-			// get object, set essentials
-			turboObj = turboThread->object;
-			turboObj->driver = driver;
-			turboObj->fireVisibilityCooldown = 0;
-
-			// make flame disappear after
-			// 	- powerslide: two frames (quick death)
-			//	- all others: -1 frames (255 = 'no' death)
-			if ((type & 2)
-#ifdef CTR_NATIVE
-			    && !VehFire_KeepReserveFire(driver)
-#endif
-			)
-			{
-				count = 2;
-			}
-			else
-			{
-				count = -1;
-			}
-			turboObj->fireDisappearCountdown = count;
-
-			// player of any kind
-			if (driver->instSelf->thread->modelIndex == DYNAMIC_PLAYER)
-			{
-				turboObj->fireAudioDistort = 0;
-
-				if (driver->kartState != KS_CRASHING)
-				{
-					VehFire_Audio(driver, fireLevel);
-				}
-			}
-
-			turboThread->funcThDestroy = VehTurbo_ThDestroy;
-
-			// turbo #2
-			turboInst2 = INSTANCE_Birth3D(gGT->modelPtr[STATIC_TURBO_EFFECT], // model
-			                              &sdata->s_turbo2[0],                // name
-			                              turboThread                         // parent thread
-			);
-
-			// 2P 3P 4P flags
-			addFlags = 0;
-
-			turboObj->inst = turboInst2;
-			turboObj->fireAnimIndex = 0;
-
-			// 1P flags
-			if (gGT->numPlyrCurrGame == 1)
-			{
-				addFlags = VISIBLE_DURING_GAMEPLAY;
-			}
-
-			// Make turbos invisible and transparent.
-			turboInst1->flags = turboInst1->flags | addFlags | 0x1040080;
-#if defined(CTR_NATIVE)
-			// NOTE(dowlle): retail-blind deref of a pool birth (#56 Class-B). The second
-			// flame is cosmetic, so a NULL one degrades the turbo to a single flame
-			// rather than crashing. turboObj->inst keeps the NULL and every consumer
-			// (VehTurbo_ThTick, VehTurbo_ProcessBucket, the "turbo already exists" branch
-			// below) is guarded to match. Teardown needs no guard: VehTurbo_ThDestroy's
-			// INSTANCE_Death(turboObj->inst) reaches JitPool_Remove, whose
-			// LIST_RemoveMember/LIST_AddFront both early-return on a NULL item.
-			if (turboInst2 != NULL)
-			{
-#endif
-			turboInst2->flags = turboInst2->flags | addFlags | 0x1040080;
-#if defined(CTR_NATIVE)
-			}
-#if defined(CTR_AP)
-			else
-			{
-				AP_LogLine("[AP POOL] Turbo second flame birth NULL (crash averted)\n");
-			}
-#endif
-#endif
-		}
-#else
-		turboObj = 0;
-		turboInst1 = 0;
-#endif
-	}
-
 	// if turbo exists, modify it
-	else
+	if (turboThread != 0)
 	{
 		// get the turbo's object
 		turboObj = turboThread->object;
 
 		// get the turbo's instances
 		turboInst1 = turboThread->inst;
-		turboInst2 = turboObj->inst;
 
 		// remove "dead thread" flag
 		turboThread->flags &= ~THREAD_FLAG_DEAD;
 
-		// turbo pad
-		if ((type & 4) != 0)
-		{
-			// only increase counter on the first frame of turbo pad
-
-			if ((driver->actionsFlagSetPrevFrame & ACTION_NEW_BOOST) == 0)
-			{
-				driver->numTurbos = (s16)CTR_MipsAddLo((u16)driver->numTurbos, 1);
-
-#if BUILD == JpnRetail
-				// the japanese version of the game keeps track of your highest turbo chain in a race
-				if (driver->numTurbosHighScore < driver->numTurbos && (gGT->gameMode1 & END_OF_RACE) == 0)
-					driver->numTurbosHighScore = driver->numTurbos;
-#endif
-			}
-		}
-
 		// all other boosts
-		else
+		if ((type & TURBO_PAD) == 0)
 		{
 #ifdef CTR_NATIVE
 			// Extras "Keep Reserve Fire" (see VehFire_KeepReserveFire).
@@ -344,36 +240,38 @@ void VehFire_Increment(struct Driver *driver, int reserves, u32 type, int fireLe
 				// make fire invisible for the sake of the visibility cooldown as explained in common.h
 				turboInst1->flags |= DEPTH_FADE | HIDE_MODEL;
 #if defined(CTR_NATIVE)
-				// second flame may have failed its pool birth (see above)
-				if (turboInst2 != NULL)
+				// second flame may have failed its pool birth (see below)
+				if (turboObj->inst != NULL)
+#endif
 				{
-#endif
-				turboInst2->flags |= DEPTH_FADE | HIDE_MODEL;
-#if defined(CTR_NATIVE)
+					turboObj->inst->flags |= DEPTH_FADE | HIDE_MODEL;
 				}
-#endif
 
-				turboObj->fireVisibilityCooldown = 0x60;
+				turboObj->fireVisibilityCooldown = VEH_FIRE_VISIBILITY_COOLDOWN;
 			}
 			driver->numTurbos = (s16)CTR_MipsAddLo((u16)driver->numTurbos, 1);
-#if BUILD == JpnRetail
-			// the japanese version of the game keeps track of your highest turbo chain in a race
-			if (driver->numTurbosHighScore < driver->numTurbos && (gGT->gameMode1 & END_OF_RACE) == 0)
-				driver->numTurbosHighScore = driver->numTurbos;
-#endif
 		}
 
-		turboObj->fireDisappearCountdown = -1;
+		// turbo pad
+		else
+		{
+			// only increase counter on the first frame of turbo pad
+
+			if ((driver->actionsFlagSetPrevFrame & ACTION_NEW_BOOST) == 0)
+			{
+				driver->numTurbos = (s16)CTR_MipsAddLo((u16)driver->numTurbos, 1);
+			}
+		}
+
+		turboObj->fireDisappearCountdown = VEH_FIRE_NO_DISAPPEAR;
 		turboInst1->alphaScale = 0;
 #if defined(CTR_NATIVE)
-		// second flame may have failed its pool birth (see above)
-		if (turboInst2 != NULL)
+		// second flame may have failed its pool birth (see below)
+		if (turboObj->inst != NULL)
+#endif
 		{
-#endif
-		turboInst2->alphaScale = 0;
-#if defined(CTR_NATIVE)
+			turboObj->inst->alphaScale = 0;
 		}
-#endif
 
 		// player of any kind
 		if (driver->instSelf->thread->modelIndex == DYNAMIC_PLAYER)
@@ -390,8 +288,99 @@ void VehFire_Increment(struct Driver *driver, int reserves, u32 type, int fireLe
 		}
 	}
 
-	newFireSpeedCap = CTR_MipsAddLo(CTR_MipsSra(CTR_MipsMulLo(fireLevel, CTR_MipsSubLo(driver->const_SacredFireSpeed, driver->const_SingleTurboSpeed)), 8),
-	                                driver->const_SingleTurboSpeed);
+	// if no turbo exists, create one
+	else
+	{
+		driver->numTurbos = 1;
+
+		turboInst1 = INSTANCE_BirthWithThread(STATIC_TURBO_EFFECT, VEH_TURBO1_NAME, SMALL, TURBO, VehTurbo_ThTick, sizeof(struct Turbo), 0);
+
+		turboObj = 0;
+
+		if (turboInst1 != 0)
+		{
+			// get object, set essentials
+			turboObj = turboInst1->thread->object;
+			turboObj->driver = driver;
+			turboObj->fireVisibilityCooldown = 0;
+
+			// Ignore collisions between the turbo thread and the world.
+			turboInst1->thread->flags |= THREAD_FLAG_DISABLE_COLLISION;
+
+			// player of any kind
+			if (driver->instSelf->thread->modelIndex == DYNAMIC_PLAYER)
+			{
+				turboObj->fireAudioDistort = 0;
+
+				if (driver->kartState != KS_CRASHING)
+				{
+					VehFire_Audio(driver, fireLevel);
+				}
+			}
+
+			turboInst1->thread->funcThDestroy = VehTurbo_ThDestroy;
+
+			// turbo #2
+			turboObj->inst = INSTANCE_Birth3D(GAME_TRACKER->modelPtr[STATIC_TURBO_EFFECT], // model
+			                                  VEH_TURBO2_NAME,                                 // name
+			                                  turboInst1->thread                               // parent thread
+			);
+
+			// 2P 3P 4P flags
+			addFlags = DEPTH_FADE | DRAW_BILLBOARD;
+
+			// 1P flags
+			if (GAME_TRACKER->numPlyrCurrGame == 1)
+			{
+				addFlags |= VISIBLE_DURING_GAMEPLAY;
+			}
+
+			// Initial fire instances are billboarded but hidden until the turbo tick reveals them.
+			addFlags |= HIDE_MODEL;
+			turboInst1->flags |= addFlags;
+#if defined(CTR_NATIVE)
+			// NOTE(dowlle): retail-blind deref of a pool birth (#56 Class-B). The second
+			// flame is cosmetic, so a NULL one degrades the turbo to a single flame
+			// rather than crashing. turboObj->inst keeps the NULL and every consumer
+			// (VehTurbo_ThTick, VehTurbo_ProcessBucket, the "turbo already exists" branch
+			// above) is guarded to match. Teardown needs no guard: VehTurbo_ThDestroy's
+			// INSTANCE_Death(turboObj->inst) reaches JitPool_Remove, whose
+			// LIST_RemoveMember/LIST_AddFront both early-return on a NULL item.
+			if (turboObj->inst != NULL)
+#endif
+			{
+				turboObj->inst->flags |= addFlags;
+			}
+#if defined(CTR_NATIVE) && defined(CTR_AP)
+			else
+			{
+				AP_LogLine("[AP POOL] Turbo second flame birth NULL (crash averted)\n");
+			}
+#endif
+
+			// Powerslide flames disappear quickly; other flames remain until their thread is reused.
+			turboObj->fireAnimIndex = 0;
+			if (((type & POWER_SLIDE_HANG_TIME) != 0)
+#ifdef CTR_NATIVE
+			    && !VehFire_KeepReserveFire(driver)
+#endif
+			)
+			{
+				CTR_PSX_MEMORY_BARRIER();
+				count = VEH_FIRE_POWER_SLIDE_DISAPPEAR_FRAMES;
+			}
+			else
+			{
+				CTR_PSX_MEMORY_BARRIER();
+				count = VEH_FIRE_NO_DISAPPEAR;
+			}
+			turboObj->fireDisappearCountdown = count;
+		}
+	}
+
+	newFireSpeedCap = CTR_MipsAddLo(
+	    CTR_MipsSra(CTR_MipsMulLo(fireLevel, CTR_MipsSubLo(driver->const_SacredFireSpeed, driver->const_SingleTurboSpeed)), VEH_FIRE_SPEED_CAP_SHIFT),
+	    driver->const_SingleTurboSpeed);
 
 	if (
 	    // any gain in boost,
@@ -426,12 +415,11 @@ void VehFire_Increment(struct Driver *driver, int reserves, u32 type, int fireLe
 		if (turboObj != 0)
 		{
 			// modify, cap, and save the size of the fire
-			newFireSize = CTR_MipsAddLo(CTR_MipsSra(fireLevel, 6), 5);
-			if (newFireSize > 8)
+			turboObj->fireSize = (s16)CTR_MipsAddLo(CTR_MipsSra(fireLevel, VEH_FIRE_SIZE_SHIFT), VEH_FIRE_SIZE_BASE);
+			if (turboObj->fireSize > VEH_FIRE_SIZE_MAX)
 			{
-				newFireSize = 8;
+				turboObj->fireSize = VEH_FIRE_SIZE_MAX;
 			}
-			turboObj->fireSize = (s16)newFireSize;
 		}
 	}
 
@@ -442,24 +430,25 @@ void VehFire_Increment(struct Driver *driver, int reserves, u32 type, int fireLe
 	}
 
 	// turbo pad, boost powerup
-	if (type & 1)
+	if ((type & FREEZE_RESERVES_ON_TURBO_PAD) != 0)
 	{
 		// this adds reserves on the first frame you touch the turbo pad,
 		// then prevent reserves from decreasing until the first frame
 		// you leave the turbo pad
 
 		oldOTT = driver->turbo_outsideTimer;
+		CTR_PSX_OBSERVE_VALUE(oldOTT);
+		reserveDelta = CTR_MipsSubLo(reserves, (u16)driver->turbo_outsideTimer);
 
 		if (oldOTT < reserves)
 		{
-			int reserveDelta = CTR_MipsSubLo(reserves, (u16)driver->turbo_outsideTimer);
 			driver->reserves = (s16)CTR_MipsAddLo((u16)driver->reserves, reserveDelta);
 			driver->turbo_outsideTimer = (s16)reserves;
 		}
 	}
 
 	// startline, hang time, powerslide
-	else if ((type & 0x10) == 0)
+	else if ((type & SUPER_ENGINE) == 0)
 	{
 		// increase reserves BY param2
 		driver->reserves = (s16)CTR_MipsAddLo((u16)driver->reserves, reserves);
@@ -479,10 +468,14 @@ void VehFire_Increment(struct Driver *driver, int reserves, u32 type, int fireLe
 	if (driver->instSelf->thread->modelIndex == DYNAMIC_PLAYER)
 	{
 		// CameraDC flag
-		gGT->cameraDC[driver->driverID].flags |= 0x80;
+		GAME_TRACKER->cameraDC[driver->driverID].flags |= VEH_FIRE_CAMERA_SHAKE_FLAG;
 
 		// gamepad vibration
-		GAMEPAD_ShockForce1(driver, 8, 0x7f);
+		GAMEPAD_ShockForce1(driver, VEH_FIRE_RUMBLE_CHANNEL, VEH_FIRE_RUMBLE_FORCE);
 	}
+
+	CTR_PSX_OBSERVE_VALUE(reserves);
+	CTR_PSX_OBSERVE_VALUE(type);
+	CTR_PSX_OBSERVE_VALUE(fireLevel);
 	// #endif
 }

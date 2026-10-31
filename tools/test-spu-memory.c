@@ -23,6 +23,7 @@
 #include <platform/native_disc_image.h>
 
 struct sData sdata_static; // common.h binds sdata to it
+struct rData rdata;         // MEMPACK allocation names (GAME_RDATA_NAME)
 
 // --- what the allocator calls: disc reads, the mempack, the libspu transfer ---
 
@@ -43,7 +44,7 @@ int LOAD_HowlSectorChainStart(CdlFILE *file, void *dst, int firstSector, int num
 int LOAD_HowlSectorChainEnd(void) { return 1; }
 int MEMPACK_PushState(void) { return 1; }
 void MEMPACK_PopState(void) {}
-void *MEMPACK_AllocMem(int size) { (void)size; return s_mempack; }
+void *MEMPACK_AllocMem(s32 size, const char *name) { (void)size; (void)name; return s_mempack; }
 void *MEMPACK_ReallocMem(int size) { return size <= (int)sizeof s_mempack ? s_mempack : NULL; }
 
 #include "game/HOWL/HOWL_Bank.c"

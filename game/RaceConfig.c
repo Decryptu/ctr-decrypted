@@ -1,28 +1,33 @@
 #include <common.h>
 
+#ifndef RACECONFIG_OPTIONS_LOADED
+#define RACECONFIG_OPTIONS_LOADED sdata->boolHasLoadedOptions
+#endif
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80043c10-0x80043d24.
 void RaceConfig_LoadGameOptions(void)
 {
-	int i;
-	s16 *volumes;
+	struct GameSave *save;
+	s16 i;
 
-	if (sdata->boolHasLoadedOptions != 0)
+	if (RACECONFIG_OPTIONS_LOADED != 0)
 	{
 		return;
 	}
 
-	sdata->boolHasLoadedOptions = 1;
-	volumes = &sdata->gameOptions.volFx;
+	RACECONFIG_OPTIONS_LOADED = 1;
+	i = 0;
+	save = &GAME_SAVE;
 
-	for (i = 0; i < 3; i++)
+	for (; i < GAME_OPTIONS_VOLUME_COUNT; i++)
 	{
-		howl_VolumeSet(i, (u8)volumes[i]);
-		memcpy(&data.rwd[0], &sdata->gameOptions.rwd[0], sizeof(data.rwd));
+		// NOTE(aalhendi): Index-first addition preserves the retail address operands.
+		howl_VolumeSet(i, (u8) * (i + save->options.volumes));
+		// Retail refreshes the wheel settings after each volume channel.
+		memcpy(&data.rwd[0], &save->options.rwd[0], sizeof(data.rwd));
 	}
 
-	sdata->gGT->gameMode1 |= sdata->gameOptions.gameMode1_vibrationFlags & GAME_MODE_VIBRATION_MASK;
-	howl_ModeSet((u8)sdata->gameOptions.audioMode & 1);
+	GAME_TRACKER->gameMode1 |= GAME_SAVE.options.gameMode1_vibrationFlags & GAME_MODE_VIBRATION_MASK;
+	howl_ModeSet((u8)GAME_SAVE.options.audioMode & 1);
 
 	// config.ini audio (see platform/native_config.c) is authoritative over the
 	// adventure-profile card: reapply the saved values so the memcard reconcile
@@ -37,21 +42,17 @@ void RaceConfig_LoadGameOptions(void)
 	}
 }
 
-
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80043d24-0x80043e34.
 void RaceConfig_SaveGameOptions(void)
 {
-	int i;
-	s16 *volumes;
+	s16 i = 0;
+	struct GameSave *save = &GAME_SAVE;
 
-	volumes = &sdata->gameOptions.volFx;
-
-	for (i = 0; i < 3; i++)
+	for (; i < GAME_OPTIONS_VOLUME_COUNT; i++)
 	{
-		volumes[i] = howl_VolumeGet(i) & 0xff;
+		*(i + save->options.volumes) = howl_VolumeGet(i) & 0xff;
 	}
 
-	memcpy(&sdata->gameOptions.rwd[0], &data.rwd[0], sizeof(data.rwd));
-	sdata->gameOptions.gameMode1_vibrationFlags = sdata->gGT->gameMode1 & GAME_MODE_VIBRATION_MASK;
-	CTR_WriteU16LE(&sdata->gameOptions.audioMode, (u16)(howl_ModeGet() != 0));
+	memcpy(&GAME_SAVE.options.rwd[0], &data.rwd[0], sizeof(data.rwd));
+	GAME_SAVE.options.gameMode1_vibrationFlags = GAME_TRACKER->gameMode1 & GAME_MODE_VIBRATION_MASK;
+	GAME_SAVE.options.audioMode = (u8)howl_ModeGet() != 0;
 }

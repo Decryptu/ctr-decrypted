@@ -7,17 +7,16 @@
 
 #if defined(_WIN32)
 #include <io.h>
+#include "platform/native_win32.h"
 #else
 #include <unistd.h>
 #endif
 
-#if __GNUC__
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #define _EnterCriticalSection(x)
 #define EnterCriticalSection(x)
 #define ExitCriticalSection()
-#endif
 
 #ifdef CTR_AP
 #include "ap/ap_version.h"
@@ -38,10 +37,6 @@
 #include "platform/native_replay_scheduler.h"
 #include "platform/native_build_id.h"
 #include "platform/native_savestate.h"
-
-#ifndef __GNUC__
-#define __attribute__(x)
-#endif
 
 #include <platform.h>
 
@@ -122,7 +117,7 @@
 #include "platform/native_disc_resolution.c"
 
 #ifndef CC
-#if __GNUC__
+#if defined(__GNUC__)
 #if _WIN32
 #ifndef __clang__
 #define CC "MINGW-GCC"

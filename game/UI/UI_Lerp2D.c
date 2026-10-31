@@ -1,115 +1,69 @@
 #include <common.h>
 
-// used for character icons in races
-// get position of icon based on a circular motion to move the driver up or down in the ranks
-// param1 = pointer to (x,y) position
-// param2 = drawn position
-// param3 = absolute position
-// param4 = frame counter
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004eaa8-0x8004ec18.
+enum
+{
+	UI_LERP2D_RANK_ICON_RADIUS = 0x14,
+	UI_LERP2D_RANK_ICON_BASE_Y = 0x39,
+	UI_LERP2D_RANK_ICON_SLOT_H = 0x1b,
+	UI_LERP2D_ANGULAR_FRAME_SHIFT = 0xb,
+	UI_LERP2D_FIXED_SHIFT = 0xc,
+	UI_LERP2D_TRANSITION_FRAMES = 5,
+};
+
 void UI_Lerp2D_Angular(SVec2 *pos, s16 drawnPosition, s16 absolutePosition, s16 frameCounter)
 {
-	int angle;
-	int drawnPositionInt;
-	int absolutePositionInt;
+	s32 drawnPositionInt = drawnPosition;
+	s32 absolutePositionInt = absolutePosition;
 
-	// Moving up moves icon to the right
-	// Moving down moves icon to the left
-	// 0x1b is a constant for base radius
-
-	// drawn position
-	drawnPositionInt = (int)drawnPosition;
-
-	// absolute position
-	absolutePositionInt = (int)absolutePosition;
-
-	angle = MATH_Sin(((int)frameCounter << 0xb) / 5);
-
-	// if driver "just" passed another driver
+	// NOTE(aalhendi): Keep each direction's sine sample and position update together for retail scheduling.
 	if (absolutePositionInt < drawnPositionInt)
 	{
-		pos->x = (s16)(angle * 0x14 >> 0xc) + 0x14;
+		pos->x = UI_LERP2D_RANK_ICON_RADIUS +
+		         (MATH_Sin((frameCounter * (1 << UI_LERP2D_ANGULAR_FRAME_SHIFT)) / UI_LERP2D_TRANSITION_FRAMES) * UI_LERP2D_RANK_ICON_RADIUS >>
+		          UI_LERP2D_FIXED_SHIFT);
+		pos->y = drawnPositionInt * UI_LERP2D_RANK_ICON_SLOT_H + UI_LERP2D_RANK_ICON_BASE_Y +
+		         (frameCounter * (UI_LERP2D_RANK_ICON_SLOT_H * (absolutePositionInt - drawnPositionInt))) / UI_LERP2D_TRANSITION_FRAMES;
 	}
-
-	// if driver "was" passed by another driver
 	else
 	{
-		pos->x = 0x14 - (s16)(angle * 0x14 >> 0xc);
+		pos->x = UI_LERP2D_RANK_ICON_RADIUS -
+		         (MATH_Sin((frameCounter * (1 << UI_LERP2D_ANGULAR_FRAME_SHIFT)) / UI_LERP2D_TRANSITION_FRAMES) * UI_LERP2D_RANK_ICON_RADIUS >>
+		          UI_LERP2D_FIXED_SHIFT);
+		pos->y = drawnPositionInt * UI_LERP2D_RANK_ICON_SLOT_H + UI_LERP2D_RANK_ICON_BASE_Y +
+		         (frameCounter * (UI_LERP2D_RANK_ICON_SLOT_H * (absolutePositionInt - drawnPositionInt))) / UI_LERP2D_TRANSITION_FRAMES;
 	}
-
-	// absolutePositionInt - drawnPositionInt is either -1 or +1
-	// 0x1b is vertical size of the icon
-	pos->y =
-
-	    // Y value where all icons start
-	    0x39 +
-
-	    // start Y before transition
-	    (drawnPosition * 0x1b) +
-
-	    // transition per frame
-	    (
-	        // distance to travel
-	        ((((absolutePositionInt - drawnPositionInt) * 0x1b)
-
-	          // move more each frame
-	          * (int)frameCounter) *
-	         4)
-
-	        // divide distance down
-	        / (5 * 4));
-
-	return;
 }
 
-// param1 pointer to array of two shorts (x,y)
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004ec18-0x8004ecd4.
-void UI_Lerp2D_HUD(s16 *ptrPos, s16 startX, s16 startY, s16 endX, s16 endY, int curFrame, s16 endFrame)
+void UI_Lerp2D_HUD(s16 *pos, s16 startX, s16 startY, s16 endX, s16 endY, s32 curFrame, s16 endFrame)
 {
-	int endFrameInt;
-	int newPosX;
+	// NOTE(aalhendi): Keep the divisor live and split Y sign extension around the endpoint's retail word load.
+	register s32 duration CTR_PSX_REGISTER("$3") = endFrame;
+	s32 deltaX = curFrame * ((s32)startX - (s32)endX) / duration;
+	u32 startYHigh = (u32)startY << 16;
+	s32 deltaY;
+	CTR_PSX_OBSERVE_VALUE(endY);
+	deltaY = curFrame * ((s16)(startYHigh >> 16) - (s32)endY) / duration;
 
-	newPosX = curFrame * ((int)startX - (int)endX);
-	endFrameInt = (int)endFrame;
-
-	// newPosY
-	curFrame = curFrame * ((int)startY - (int)endY);
-
-	*ptrPos = endX + (s16)(newPosX / endFrameInt);
-	ptrPos[1] = endY + (s16)(curFrame / endFrameInt);
-	return;
+	// NOTE(aalhendi): HUD timers count down, so zero is the destination rather than the starting point.
+	pos[0] = endX + deltaX;
+	pos[1] = endY + deltaY;
 }
 
-// param1 pointer to array of two shorts (x,y)
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8004ecd4-0x8004edac.
-void UI_Lerp2D_Linear(s16 *ptrPos, s16 startX, s16 startY, s16 endX, s16 endY, int curFrame, s16 endFrame)
+void UI_Lerp2D_Linear(s16 *pos, s16 startX, s16 startY, s16 endX, s16 endY, s32 curFrame, s16 endFrame)
 {
-	int endFrameInt;
-	int newPosX;
+	s32 endFrameInt = (s32)endFrame;
 
-	// Get end frame
-	endFrameInt = (int)endFrame;
-
-	// If interpolation is not done yet
+	// NOTE(aalhendi): This timer counts up and clamps at the destination after the transition.
 	if (curFrame <= endFrameInt)
 	{
-		newPosX = curFrame * ((int)endX - (int)startX);
+		s32 newPosX = curFrame * ((s32)endX - (s32)startX);
+		s32 newPosY = curFrame * ((s32)endY - (s32)startY);
 
-		// newPosY
-		curFrame = curFrame * ((int)endY - (int)startY);
-
-		// posX
-		*ptrPos = startX + (s16)(newPosX / endFrameInt);
-
-		// posY
-		ptrPos[1] = startY + (s16)(curFrame / endFrameInt);
+		pos[0] = startX + (s16)(newPosX / endFrameInt);
+		pos[1] = startY + (s16)(newPosY / endFrameInt);
 		return;
 	}
 
-	// if you already reached the end
-
-	// Set X and Y to EndX and EndY
-	*ptrPos = endX;
-	ptrPos[1] = endY;
-	return;
+	pos[0] = endX;
+	pos[1] = endY;
 }

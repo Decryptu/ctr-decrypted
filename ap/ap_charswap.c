@@ -1946,8 +1946,9 @@ void AP_CharSwap_DrawPortraitAt(int characterID, short x, short y, int dim)
 
 	if (icon != NULL)
 	{
+		Color tintColor = ColorCode_Load(&tint);
 		RECTMENU_DrawPolyGT4(icon, x, y, &gGT->backBuffer->primMem,
-		                     gGT->pushBuffer_UI.ptrOT, tint, tint, tint, tint,
+		                     gGT->pushBuffer_UI.ptrOT, tintColor, tintColor, tintColor, tintColor,
 		                     TRANS_50_DECAL, FP(1.0));
 		return;
 	}
@@ -2022,7 +2023,7 @@ void AP_CharPicker_Draw(void)
 	col.g = 0xd0;
 	col.b = 0x40;
 	col.code.code = 0;
-	RECTMENU_DrawOuterRect_HighLevel(&r, col, 0, ot);
+	RECTMENU_DrawOuterRect_HighLevel(&r, &col, 0, ot);
 
 	for (i = 0; i < AP_CS_TILES; i++)
 	{
@@ -2057,9 +2058,10 @@ void AP_CharPicker_Draw(void)
 
 		if (icon != NULL)
 		{
+			Color tintColor = ColorCode_Load(&tint);
 			RECTMENU_DrawPolyGT4(icon, (short)(ap_cs_tiles[i].posX + 6), (short)(ap_cs_tiles[i].posY + 4),
 			                     &gGT->backBuffer->primMem, gGT->pushBuffer_UI.ptrOT,
-			                     tint, tint, tint, tint, TRANS_50_DECAL, FP(1.0));
+			                     tintColor, tintColor, tintColor, tintColor, TRANS_50_DECAL, FP(1.0));
 		}
 		else
 		{
@@ -2231,7 +2233,8 @@ void AP_CharPicker_Draw(void)
 			{
 				DecalHUD_Arrow2D(icons[0x38], arrowX[a], barY + 3,
 				                 &gGT->backBuffer->primMem, gGT->pushBuffer_UI.ptrOT,
-				                 arrowColors[0], arrowColors[1], arrowColors[2], arrowColors[3],
+				                 ColorCode_Load(&arrowColors[0]), ColorCode_Load(&arrowColors[1]),
+				                 ColorCode_Load(&arrowColors[2]), ColorCode_Load(&arrowColors[3]),
 				                 0, 0x1000, arrowRot[a]);
 			}
 		}
@@ -2263,7 +2266,7 @@ void AP_CharPicker_Draw(void)
 	col.g = 0;
 	col.b = 0;
 	col.code.code = 0;
-	CTR_Box_DrawClearBox(&r, &col, 0, ot);
+	CTR_Box_DrawClearBox(&r, &col, 0, ot, &GAME_TRACKER->backBuffer->primMem);
 }
 
 #endif // CTR_AP

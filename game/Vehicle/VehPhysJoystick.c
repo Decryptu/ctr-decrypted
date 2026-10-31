@@ -1,50 +1,66 @@
 #include <common.h>
 
-extern struct RacingWheelData rwd_default;
+enum
+{
+	RACING_WHEEL_DEFAULT_CENTER = 0x80,
+	RACING_WHEEL_DEFAULT_DEAD_ZONE = 0x30,
+	RACING_WHEEL_DEFAULT_RANGE = 0x7f,
+	// NOTE(aalhendi): Retail's null-wheel strength path uses 0x5e directly,
+	// not default range minus default dead zone.
+	RACING_WHEEL_DEFAULT_STRENGTH_DISTANCE = 0x5e,
+	JOYSTICK_STRENGTH_CURVE_SEGMENTS = 5,
+};
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x8006163c-0x800616b0.
+
 int VehPhysJoystick_ReturnToRest(int stickVal, int half, struct RacingWheelData *rwd)
 {
-	if (rwd == 0)
+	register int outputHalf CTR_PSX_REGISTER("$3");
+	int center;
+	int deadZone;
+	int range;
+
+	outputHalf = half;
+
+	if (rwd != 0)
 	{
-		rwd = &rwd_default;
+		center = rwd->gamepadCenter;
+		deadZone = rwd->deadZone;
+		range = rwd->range;
+	}
+	else
+	{
+		center = RACING_WHEEL_DEFAULT_CENTER;
+		deadZone = RACING_WHEEL_DEFAULT_DEAD_ZONE;
+		range = RACING_WHEEL_DEFAULT_RANGE;
 	}
 
-	stickVal = CTR_MipsSubLo(stickVal, rwd->gamepadCenter);
-
+	stickVal = CTR_MipsSubLo(stickVal, center);
 	if (stickVal < 0)
 	{
-		return CTR_MipsNegLo(VehCalc_MapToRange(CTR_MipsNegLo(stickVal), rwd->deadZone, rwd->range, 0, half));
+		return CTR_MipsNegLo(VehCalc_MapToRange(CTR_MipsNegLo(stickVal), deadZone, range, 0, outputHalf));
 	}
 
-	return VehCalc_MapToRange(stickVal, rwd->deadZone, rwd->range, 0, half);
+	return VehCalc_MapToRange(stickVal, deadZone, range, 0, outputHalf);
 }
 
-struct RacingWheelData rwd_default = {.gamepadCenter = 0x80,
-
-                                      .deadZone = 0x30,
-
-                                      .range = 0x7f};
-
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800616b0-0x800617cc.
 int VehPhysJoystick_GetStrength(int val, int max, struct RacingWheelData *rwd)
 {
 	int dead;
 	int range;
 	int dist;
+	int halfDist;
 
-	if (rwd == 0)
-	{
-		dead = 0x30;
-		range = 0x7f;
-		dist = 0x5e;
-	}
-
-	else
+	if (rwd != 0)
 	{
 		dead = rwd->deadZone;
 		range = rwd->range;
 		dist = CTR_MipsSubLo(range, dead);
+	}
+	else
+	{
+		dead = RACING_WHEEL_DEFAULT_DEAD_ZONE;
+		range = RACING_WHEEL_DEFAULT_RANGE;
+		dist = RACING_WHEEL_DEFAULT_STRENGTH_DISTANCE;
 	}
 
 	if (val < dead)
@@ -52,38 +68,46 @@ int VehPhysJoystick_GetStrength(int val, int max, struct RacingWheelData *rwd)
 		return 0;
 	}
 
-	dead = CTR_MipsSubLo(val, dead);
-
 	if (range <= val)
 	{
 		return max;
 	}
 
-	int halfDist = CTR_MipsSra(CTR_MipsAddLo(dist, (u32)dist >> 31), 1);
-	int maxFifth = max / 5;
+	val = CTR_MipsSubLo(val, dead);
+	halfDist = CTR_MipsSra(CTR_MipsAddLo(dist, (u32)dist >> 31), 1);
 
-	if (halfDist <= dead)
+	if (val < halfDist)
 	{
-		dead = CTR_MipsSubLo(dead, halfDist);
-		dead = CTR_MipsMulLo(dead, CTR_MipsSubLo(max, maxFifth));
-		dead = CTR_MipsSll(dead, 1);
-		return CTR_MipsAddLo(CTR_MipsDiv(dead, dist), maxFifth);
+		int product;
+
+		max = max / JOYSTICK_STRENGTH_CURVE_SEGMENTS;
+		product = CTR_MipsMulLo(val, max);
+		product = CTR_MipsSll(product, 1);
+		return CTR_MipsDiv(product, dist);
 	}
 
-	dead = CTR_MipsMulLo(dead, CTR_MipsSll(maxFifth, 1));
-	return CTR_MipsDiv(dead, dist);
+	{
+		int maxFifth = max / JOYSTICK_STRENGTH_CURVE_SEGMENTS;
+		int product;
+
+		val = CTR_MipsSubLo(val, halfDist);
+		max = CTR_MipsSubLo(max, maxFifth);
+		product = CTR_MipsMulLo(val, max);
+		product = CTR_MipsSll(product, 1);
+		return CTR_MipsAddLo(CTR_MipsDiv(product, dist), maxFifth);
+	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800617cc-0x8006181c.
 int VehPhysJoystick_GetStrengthAbsolute(int stickVal, int maxSteer, struct RacingWheelData *rwd)
 {
-	int center = 0x80;
+	register int center CTR_PSX_REGISTER("$2") = RACING_WHEEL_DEFAULT_CENTER;
+	int distFromCenter;
+
 	if (rwd != NULL)
 	{
 		center = rwd->gamepadCenter;
 	}
-
-	int distFromCenter = CTR_MipsSubLo(stickVal, center);
+	distFromCenter = CTR_MipsSubLo(stickVal, center);
 
 	// if steering right
 	if (distFromCenter < 0)

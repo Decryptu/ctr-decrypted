@@ -5,7 +5,7 @@ backdrop is such a polygon, so any blue pixel with geometry directly above and
 below it in its column is a place where the sky shows through the world: a
 crack or a missing polygon.
 
-Usage: python -I tools/decrypted/find_holes.py <capture dir> [--max-run N]
+Usage: python tools/decrypted/find_holes.py <capture dir> [--max-run N]
 Prints one line per frame (hole pixel count, bounding box) and writes
 holes-<frame>.png next to each frame with holes, with holes painted magenta.
 """

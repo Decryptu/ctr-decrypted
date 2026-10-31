@@ -12,30 +12,15 @@
 #include <string.h>
 
 #ifdef _WIN32
-// This file is part of the unity build, so whatever windows.h drags in lands in
-// the SAME translation unit as the PSX prelude and the decompiled game. Without
-// these trims, winuser.h's ACCEL collides with the game's ACCEL enum and the
-// windef.h RECT family collides with the PSX RECT16, which then cascades errors
-// through zGlobal_DATA.c and native_gpu.c. Only the process/debug APIs are
-// needed here, so drop GDI and USER entirely.
-#define WIN32_LEAN_AND_MEAN
-#define NOGDI
-#define NOUSER
-#define NOMINMAX
-// psx_prelude.h ends with `#ifndef RECT / #define RECT RECT16`. RECT is a
-// typedef rather than a macro in the Windows headers, so that guard passes and
-// the alias is already active by the time we get here. windows.h's own
-// `typedef struct tagRECT {...} RECT;` would then expand to `... RECT16;` and
-// redefine RECT16 as struct tagRECT, which breaks every PSX RECT16 user
-// downstream. Suspend the alias across the include and restore it after, so the
-// Windows headers and the rest of the unity build each see the RECT they expect.
-#pragma push_macro("RECT")
-#undef RECT
-#include <windows.h>
+// native_win32.h trims windows.h for the unity build (no USER, no min/max
+// macros) and keeps the PSX RECT alias out of it.
+#include <platform/native_win32.h>
 // Module enumeration for address attribution (issue #119). PSAPI_VERSION 2
 // resolves the Enum/GetModule* calls to the K32* exports in kernel32 (Win7+),
 // so no extra import library enters the link.
 #define PSAPI_VERSION 2
+#pragma push_macro("RECT")
+#undef RECT
 #include <psapi.h>
 #pragma pop_macro("RECT")
 #include <signal.h>

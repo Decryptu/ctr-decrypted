@@ -5,8 +5,8 @@ enum OverlayRDATA_227_Counts
 {
 	OVR227_BUCKET_COUNT = 11,
 	OVR227_SCRATCH_INIT_WORD_COUNT = 24,
-	OVR227_SETUP_COPY0_WORD_COUNT = 15,
-	OVR227_SETUP_COPY1_WORD_COUNT = 3,
+	OVR227_SETUP_COPY0_WORD_COUNT = DRAW_LEVEL_OVR_COPIED_SETUP0_WORD_COUNT,
+	OVR227_SETUP_COPY1_WORD_COUNT = DRAW_LEVEL_OVR_COPIED_SETUP1_WORD_COUNT,
 	OVR227_CLIP_RECORD_JUMP_WORD_COUNT = 24,
 };
 
@@ -37,21 +37,6 @@ enum OverlayRDATA_227_BucketSetupLayout
 #define OVR227_RETAIL_LABEL_QUAD_4X4_LIST_HANDLER       0x800a8bfcu
 #define OVR227_RETAIL_LABEL_QUAD_4X4_RENDERED_HANDLER   0x800a9850u
 
-struct OverlayRDATA_227_BucketSetupCopy
-{
-	u32 loopCounter;
-	u32 sourceAddress;
-	u32 scratchOffset;
-};
-
-struct OverlayRDATA_227_BucketSetupRecord
-{
-	struct OverlayRDATA_227_BucketSetupCopy copies[2];
-	u32 padding;
-	u32 copy0[OVR227_SETUP_COPY0_WORD_COUNT];
-	u32 copy1[OVR227_SETUP_COPY1_WORD_COUNT];
-};
-
 struct OverlayRDATA_227
 {
 	// 0x800ab48c
@@ -64,7 +49,7 @@ struct OverlayRDATA_227
 	u32 scratchInitTable[OVR227_SCRATCH_INIT_WORD_COUNT];
 
 	// 0x800ab544
-	struct OverlayRDATA_227_BucketSetupRecord bucketSetups[OVR227_BUCKET_COUNT];
+	struct DrawLevelOvrBucketSetupRecord bucketSetups[OVR227_BUCKET_COUNT];
 
 	// 0x800ab990
 	u32 clipRecordJumpTable[OVR227_CLIP_RECORD_JUMP_WORD_COUNT];

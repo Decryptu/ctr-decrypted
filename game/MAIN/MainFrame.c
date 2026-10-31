@@ -31,7 +31,6 @@ static void MainFrame_RegisterGpuLinkRanges(struct GameTracker *gGT)
 }
 #endif
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80034b48-0x80034bbc.
 void MainFrame_TogglePauseAudio(b32 bool_pause)
 {
 	if (bool_pause == 0)
@@ -52,10 +51,9 @@ void MainFrame_TogglePauseAudio(b32 bool_pause)
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80034bbc-0x80034d54 for the retail path.
 void MainFrame_ResetDB(struct GameTracker *gGT)
 {
-	uint32_t *puVar3;
+	u32 *puVar3;
 	int iVar4;
 	struct DB *db;
 	int otSwapchainDB;
@@ -90,23 +88,23 @@ void MainFrame_ResetDB(struct GameTracker *gGT)
 
 	for (iVar4 = 0; iVar4 < sdata->gGT->numPlyrCurrGame; iVar4++)
 	{
-		gGT->pushBuffer[iVar4].ptrOT = (uint32_t *)((int)otSwapchainDB + (sdata->gGT->numPlyrCurrGame - iVar4 - 1) * 0x1000 + 0x18);
+		gGT->pushBuffer[iVar4].ptrOT = (u32 *)((int)otSwapchainDB + (sdata->gGT->numPlyrCurrGame - iVar4 - 1) * 0x1000 + 0x18);
 	}
 
 	for (; iVar4 < 4; iVar4++)
 	{
 		// but why?
-		gGT->pushBuffer[iVar4].ptrOT = (uint32_t *)((int)otSwapchainDB + 3 * 0x1000 + 0x18);
+		gGT->pushBuffer[iVar4].ptrOT = (u32 *)((int)otSwapchainDB + 3 * 0x1000 + 0x18);
 	}
 
-	puVar3 = (uint32_t *)((int)otSwapchainDB + 4);
+	puVar3 = (u32 *)((int)otSwapchainDB + 4);
 	gGT->pushBuffer_UI.ptrOT = puVar3;
 	db->otMem.uiOT = puVar3;
 
 #if defined(CTR_NATIVE)
 	if (sdata->ptrPushBufferUI != 0)
 	{
-		struct PushBuffer *wumpaPushBuffer = (struct PushBuffer *)(uintptr_t)sdata->ptrPushBufferUI;
+		struct PushBuffer *wumpaPushBuffer = (struct PushBuffer *)(u32)sdata->ptrPushBufferUI;
 
 		// NOTE(aalhendi): Retail stores PS1 RAM OT addresses here. Native stores
 		// host pointers, so reset the fake UI pushbuffer to the current backbuffer
@@ -126,7 +124,7 @@ void MainFrame_ResetDB(struct GameTracker *gGT)
 
 void MainFrame_GameLogic(struct GameTracker *gGT, struct GamepadSystem *gGamepads)
 {
-	char bVar1;
+	b32 wasPausedAtFrameStart;
 	s16 sVar2;
 	u32 uVar3;
 	int iVar4;
@@ -138,10 +136,10 @@ void MainFrame_GameLogic(struct GameTracker *gGT, struct GamepadSystem *gGamepad
 	int iVar11;
 	struct Thread *psVar12;
 
-	bVar1 = true;
+	wasPausedAtFrameStart = true;
 	if ((gGT->gameMode1 & PAUSE_ALL) == 0)
 	{
-		bVar1 = false;
+		wasPausedAtFrameStart = false;
 		pushBuffer = gGT->pushBuffer;
 		for (psVar12 = gGT->threadBuckets[0].thread; psVar12 != 0; psVar12 = psVar12->siblingThread)
 		{
@@ -238,7 +236,6 @@ void MainFrame_GameLogic(struct GameTracker *gGT, struct GamepadSystem *gGamepad
 					else
 					{
 						uVar3 = gGT->timer;
-						// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80034f84-0x80034fec for frozen-time tick SFX.
 						if (uVar3 == (uVar3 / FPS_DOUBLE(6)) * FPS_DOUBLE(6))
 						{
 							if (uVar3 == (uVar3 / FPS_DOUBLE(0xc)) * FPS_DOUBLE(0xc))
@@ -268,7 +265,7 @@ void MainFrame_GameLogic(struct GameTracker *gGT, struct GamepadSystem *gGamepad
 #if defined(CTR_NATIVE)
 		for (psVar12 = gGT->threadBuckets[0].thread; psVar12 != 0; psVar12 = psVar12->siblingThread)
 		{
-			struct Driver *currentDriver = (struct Driver *)psVar12->object;
+			struct Driver *currentDriver = psVar12->object;
 
 			if (currentDriver->driverID == 0)
 			{
@@ -287,7 +284,7 @@ void MainFrame_GameLogic(struct GameTracker *gGT, struct GamepadSystem *gGamepad
 				continue;
 			}
 
-			if ((u8)currentDriver->numTimesAttacking < (u8)psVar8->numTimesAttacking)
+			if (currentDriver->numTimesAttacking < psVar8->numTimesAttacking)
 			{
 				psVar9 = psVar8;
 				psVar8 = currentDriver;
@@ -295,7 +292,7 @@ void MainFrame_GameLogic(struct GameTracker *gGT, struct GamepadSystem *gGamepad
 		}
 #endif
 
-		if (((psVar8 != 0) && (psVar9 != 0)) && (iVar4 = (u32)(u8)psVar9->numTimesAttacking - (u32)(u8)psVar8->numTimesAttacking, psVar8->quip2 < iVar4))
+		if (((psVar8 != 0) && (psVar9 != 0)) && (iVar4 = (u32)psVar9->numTimesAttacking - (u32)psVar8->numTimesAttacking, psVar8->quip2 < iVar4))
 		{
 			psVar8->quip2 = (s16)iVar4;
 		}
@@ -415,7 +412,7 @@ void MainFrame_GameLogic(struct GameTracker *gGT, struct GamepadSystem *gGamepad
 
 	if ((uVar3 & END_OF_RACE) == 0)
 	{
-		if ((bVar1) || ((uVar3 & PAUSE_ALL) != 0))
+		if (wasPausedAtFrameStart || ((uVar3 & PAUSE_ALL) != 0))
 		{
 			if (gGT->cooldownfromPauseUntilUnpause == 0)
 			{
@@ -426,7 +423,6 @@ void MainFrame_GameLogic(struct GameTracker *gGT, struct GamepadSystem *gGamepad
 					RECTMENU_ClearInput();
 					gGT->gameMode1 &= ~PAUSE_1;
 
-					// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800354dc-0x80035508 for unpause audio side effects.
 					MainFrame_TogglePauseAudio(0);
 					OtherFX_Play(1, 1);
 
@@ -450,18 +446,17 @@ void MainFrame_GameLogic(struct GameTracker *gGT, struct GamepadSystem *gGamepad
 				{
 					if (sdata->AkuAkuHintState == 0)
 					{
-						if (RaceFlag_IsFullyOnScreen() == 0)
+						if (!RaceFlag_IsFullyOnScreen())
 						{
 							for (iVar4 = 0; iVar4 < gGT->numPlyrCurrGame; iVar4++)
 							{
-								if ((((uVar5 != 0) &&
-								      ((
+								if ((((uVar5 != 0) && ((
 #if defined(CTR_NATIVE)
-								          uVar3 = MainFrame_HaveAllPads((u16)(u8)gGT->numPlyrNextGame), (uVar3 & 0xffff) == 0 &&
+								                          !MainFrame_HaveAllPads((u16)gGT->numPlyrNextGame) &&
 #endif
-								                                                                            ((gGT->gameMode1 & PAUSE_ALL) == 0)))) ||
+								                          ((gGT->gameMode1 & PAUSE_ALL) == 0)))) ||
 								     ((gGamepads->gamepad[iVar4].buttonsTapped & BTN_START) != 0)) &&
-								    (gGT->overlayIndex_Threads != -1))
+								    (gGT->overlayIndex_Threads != OVERLAY_INDEX_NONE))
 								{
 									// NOTE(aalhendi): Retail writes this before freezing the game for pause.
 									gGT->gameModeEnd = (gGT->gameMode1 & GAME_MODE_END_RETAINED_MODE_MASK) | PAUSE_1;
@@ -527,7 +522,7 @@ void MainFrame_GameLogic(struct GameTracker *gGT, struct GamepadSystem *gGamepad
 #endif
 					sdata->boolSaveCupProgress = 0;
 
-					SelectProfile_ToggleMode(0x41);
+					SelectProfile_ToggleMode(SELECT_PROFILE_MODE_SLOT_SAVE);
 
 					RECTMENU_Show(&data.menuWarning2);
 					gGT->gameModeEnd |= NEW_NAME;
@@ -567,7 +562,6 @@ void MainFrame_GameLogic(struct GameTracker *gGT, struct GamepadSystem *gGamepad
 	return;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 PSX path 0x80035d30-0x80035d70.
 void MainFrame_InitVideoSTR(u32 boolPlayVideoStr, RECT *r, s16 posX, s16 posY)
 {
 #ifdef CTR_NATIVE
@@ -594,8 +588,7 @@ void MainFrame_InitVideoSTR(u32 boolPlayVideoStr, RECT *r, s16 posX, s16 posY)
 	sdata->videoSTR_dst_vramY = posY;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80035d70-0x80035e20.
-int MainFrame_HaveAllPads(s16 numPlyrNextGame)
+b32 MainFrame_HaveAllPads(s16 numPlyrNextGame)
 {
 	// if game is not loading
 	if (sdata->Loading.stage == LOAD_IDLE)
@@ -604,7 +597,7 @@ int MainFrame_HaveAllPads(s16 numPlyrNextGame)
 
 		if (numPlyrNextGame == 0)
 		{
-			return 0;
+			return false;
 		}
 
 		for (int i = 0; i < numPlyrNextGame; i++)
@@ -613,18 +606,18 @@ int MainFrame_HaveAllPads(s16 numPlyrNextGame)
 
 			if (packet == NULL)
 			{
-				return 0;
+				return false;
 			}
 			if (packet->plugged != PLUGGED)
 			{
-				return 0;
+				return false;
 			}
 
 			gb++;
 		}
 	}
 
-	return 1;
+	return true;
 }
 
 static void MainFrame_ReplacePackedVisList(int *dst, void *src, int byteCount)
@@ -660,7 +653,6 @@ static int MainFrame_VisMemHasQuad(const int *visFaceList, const struct QuadBloc
 	return (visFaceList[quadIndex >> 5] & (1 << (quadIndex & 0x1f))) != 0;
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80035684-0x800357b8, unnamed in syms926.
 static void MainFrame_VisMemAddDriverPVS(struct GameTracker *gGT, int playerIndex)
 {
 	struct Driver *driver = gGT->drivers[playerIndex];
@@ -690,7 +682,6 @@ static void MainFrame_VisMemAddDriverPVS(struct GameTracker *gGT, int playerInde
 	}
 }
 
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x800357b8-0x80035d30.
 void MainFrame_VisMemFullFrame(struct GameTracker *gGT, struct Level *level)
 {
 	struct VisMem *visMem;
@@ -791,10 +782,15 @@ void MainFrame_VisMemFullFrame(struct GameTracker *gGT, struct Level *level)
 
 #if defined(CTR_NATIVE)
 				// Retail replays even a NULL source (reads PSX low memory);
-				// skip the replay on native instead of faulting.
+				// skip the replay on native instead of faulting. The level
+				// default is copied in on the next frame below.
 				if (camDC->visOVertSrc != NULL)
 #endif
 				MainFrame_ReplacePackedVisList(visMem->visOVertList[playerIndex], camDC->visOVertSrc, ((level->numWaterVertices + 0x1f) >> 5) << 2);
+			}
+			else if (visMem->visOVertSrc[playerIndex] == NULL)
+			{
+				memcpy(visMem->visOVertList[playerIndex], level->visOVertSrc, ((level->numWaterVertices + 0x1f) >> 5) << 2);
 			}
 		}
 		else
@@ -809,6 +805,10 @@ void MainFrame_VisMemFullFrame(struct GameTracker *gGT, struct Level *level)
 				if (camDC->visSCVertSrc != NULL)
 #endif
 				MainFrame_ReplacePackedVisList(visMem->visSCVertList[playerIndex], camDC->visSCVertSrc, ((level->numSCVert + 0x1f) >> 5) << 2);
+			}
+			else if (visMem->visSCVertSrc[playerIndex] == NULL)
+			{
+				memcpy(visMem->visSCVertList[playerIndex], level->visSCVertSrc, ((level->numSCVert + 0x1f) >> 5) << 2);
 			}
 		}
 	}
@@ -833,8 +833,7 @@ void MainFrame_VisMemFullFrame(struct GameTracker *gGT, struct Level *level)
 // param2:
 //	0x00 - not interrupting a warppad load screen
 // 	0x01 - interrupting (CTR, Relic, or Crystal hints)
-// NOTE(aalhendi): ASM-verified NTSC-U 926 0x80035e20-0x80035e70.
-void MainFrame_RequestMaskHint(s16 hintId, char interruptWarpPad)
+void MainFrame_RequestMaskHint(s16 hintId, s16 interruptWarpPad)
 {
 #ifdef CTR_AP
 	// AP QoL (ap-config.txt skip_hints=1): suppress all Aku Aku mask hints at the

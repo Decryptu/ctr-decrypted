@@ -973,8 +973,6 @@ internal void Native_WaitUntilVBlankTarget(void)
 	while (1)
 	{
 		const u64 now = SDL_GetPerformanceCounter();
-		u64 remaining;
-		u64 sleepUs;
 
 		if (now >= s_nextVBlankCounter)
 		{
@@ -982,7 +980,7 @@ internal void Native_WaitUntilVBlankTarget(void)
 			return;
 		}
 
-		remaining = s_nextVBlankCounter - now;
+		u64 remaining = s_nextVBlankCounter - now;
 		if (remaining <= spinWindow)
 		{
 			// NOTE(penta3): OS sleeps can wake late. Sleep while safely far from
@@ -997,7 +995,7 @@ internal void Native_WaitUntilVBlankTarget(void)
 			return;
 		}
 
-		sleepUs = ((remaining - spinWindow) * 1000000) / freq;
+		u64 sleepUs = ((remaining - spinWindow) * 1000000) / freq;
 		if (sleepUs > 0)
 		{
 			// Cross-platform precise sleep: SDL_DelayPrecise uses the best per-OS
@@ -1030,6 +1028,29 @@ internal int Native_CatchUpDueVBlanks(void)
 	Native_EnsureVBlankTarget();
 	if (NativeDev_Fast())
 		return 0;
+
+	// NOTE(aalhendi): Native host stalls can be much longer than retail frame
+	// stalls, for example during window dragging or a debugger break. Replay a few
+	// late VBlanks normally, but rebase pathological stalls instead of bursting
+	// many callbacks into one host frame.
+	{
+		const u64 now = SDL_GetPerformanceCounter();
+
+		if (now >= s_nextVBlankCounter)
+		{
+			const u64 freq = SDL_GetPerformanceFrequency();
+			const u64 step = (freq * NATIVE_VBLANK_GPU_CYCLES) / NATIVE_GPU_CLOCK_HZ;
+			const u64 dueApprox = ((now - s_nextVBlankCounter) / step) + 1;
+
+			if (dueApprox > NATIVE_VSYNC_CATCHUP_MAX)
+			{
+				s_nextVBlankCounter = now;
+				s_vblankRemainder = 0;
+				Native_AdvanceVBlankTarget();
+				return 0;
+			}
+		}
+	}
 
 	// NOTE(aalhendi): Native host stalls can be much longer than retail frame
 	// stalls, for example during window dragging or a debugger break. Replay a few
@@ -1087,7 +1108,6 @@ internal void Native_WaitAndEmitVBlank(void)
 
 int VSync(int mode)
 {
-	int requestedVBlanks;
 	int emittedVBlanks;
 
 	if (mode < 0)
@@ -1095,7 +1115,7 @@ int VSync(int mode)
 		return s_nativeVBlankCount;
 	}
 
-	requestedVBlanks = (mode == 0) ? 1 : mode;
+	int requestedVBlanks = (mode == 0) ? 1 : mode;
 	emittedVBlanks = 0;
 
 #if defined(CTR_INTERNAL)

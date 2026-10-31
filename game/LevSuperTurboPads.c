@@ -75,7 +75,7 @@ static struct AnimTex *LevSuperTurboPads_CopyAnim(const struct AnimTex *src)
 {
 	const int frames = src->numFrames;
 	struct AnimTex *copy = MEMPACK_AllocMem(sizeof(struct AnimTex) + frames * (int)sizeof(struct IconGroup4 *) +
-	                                        frames * (int)sizeof(struct IconGroup4));
+	                                        frames * (int)sizeof(struct IconGroup4), "SuperTurboPadAnim");
 	struct IconGroup4 **dstFrames = (ANIMTEX_GETARRAY(copy));
 	struct IconGroup4 *groups = (struct IconGroup4 *)&dstFrames[frames];
 	struct IconGroup4 **srcFrames = (ANIMTEX_GETARRAY(src));
@@ -192,7 +192,7 @@ void LevSuperTurboPads_Mark(struct GameTracker *gGT)
 			if (l == numLow && numLow < SUPER_PAD_MAX_LAYOUTS)
 			{
 				lowSource[numLow] = low;
-				lowCopy[numLow] = MEMPACK_AllocMem(sizeof(struct TextureLayout));
+				lowCopy[numLow] = MEMPACK_AllocMem(sizeof(struct TextureLayout), "SuperTurboPadLayout");
 				LevSuperTurboPads_CyanLayout(lowCopy[numLow], low);
 				numLow++;
 			}

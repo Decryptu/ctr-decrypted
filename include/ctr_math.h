@@ -5,96 +5,76 @@
 
 // vectors //
 
-typedef union SVec2
+typedef struct SVec2
 {
-	struct
-	{
-		s16 x;
-		s16 y;
-	};
-	s16 v[2];
+	s16 x;
+	s16 y;
 } SVec2;
 
-typedef union SVec3
+typedef struct SVec3
 {
-	struct
-	{
-		s16 x;
-		s16 y;
-		s16 z;
-	};
-	s16 v[3];
+	s16 x;
+	s16 y;
+	s16 z;
 } SVec3;
 
-typedef union SVec4
+typedef struct SVec4
 {
-	struct
-	{
-		s16 x;
-		s16 y;
-		s16 z;
-		s16 w;
-	};
-	s16 v[4];
+	s16 x;
+	s16 y;
+	s16 z;
+	s16 w;
 } SVec4;
 
-typedef union SVec3Slot
+typedef struct SVec3Slot
 {
-	struct
-	{
-		SVec3 vec;
-		s16 pad;
-	};
-	struct
-	{
-		s16 x;
-		s16 y;
-		s16 z;
-		s16 w;
-	};
-	s16 v[4];
+	s16 x;
+	s16 y;
+	s16 z;
+	s16 w;
 } SVec3Slot;
 
 CTR_STATIC_ASSERT(sizeof(SVec3Slot) == 0x8);
-CTR_STATIC_ASSERT(offsetof(SVec3Slot, vec) == 0x0);
-CTR_STATIC_ASSERT(offsetof(SVec3Slot, pad) == 0x6);
 CTR_STATIC_ASSERT(offsetof(SVec3Slot, x) == 0x0);
 CTR_STATIC_ASSERT(offsetof(SVec3Slot, y) == 0x2);
 CTR_STATIC_ASSERT(offsetof(SVec3Slot, z) == 0x4);
 CTR_STATIC_ASSERT(offsetof(SVec3Slot, w) == 0x6);
 
-typedef union Vec2
+static inline SVec3 *SVec3Slot_AsVec3(SVec3Slot *slot)
 {
-	struct
-	{
-		s32 x;
-		s32 y;
-	};
-	s32 v[2];
+	return (SVec3 *)slot;
+}
+
+static inline const SVec3 *SVec3Slot_AsConstVec3(const SVec3Slot *slot)
+{
+	return (const SVec3 *)slot;
+}
+
+typedef struct Vec2
+{
+	s32 x;
+	s32 y;
 } Vec2;
 
-typedef union Vec3
+// NOTE(aalhendi): Vec3 can also view the SDK's three contiguous translation words.
+typedef struct CTR_MAY_ALIAS Vec3
 {
-	struct
-	{
-		s32 x;
-		s32 y;
-		s32 z;
-	};
-	s32 v[3];
+	s32 x;
+	s32 y;
+	s32 z;
 } Vec3;
 
-typedef union Vec4
+typedef struct Vec4
 {
-	struct
-	{
-		s32 x;
-		s32 y;
-		s32 z;
-		s32 w;
-	};
-	s32 v[4];
+	s32 x;
+	s32 y;
+	s32 z;
+	s32 w;
 } Vec4;
+
+typedef s32 VecElement CTR_MAY_ALIAS;
+
+#define CTR_VECTOR_DATA(VECTOR) (&(VECTOR)->x)
 
 // trigonometry //
 
@@ -113,15 +93,19 @@ struct TrigPair
 #define ANG_TWO_PI                         0x1000           // 360
 #define ANG_PI                             (ANG_TWO_PI / 2) // 180
 #define ANG_HALF_PI                        (ANG_PI / 2)     // 90
+#define ANG_QUADRANT_MASK                  (ANG_HALF_PI - 1)
+#define ANG_QUADRANT_BIT                   ANG_HALF_PI
+#define ANG_SIGN_BIT                       ANG_PI
+#define ANG_QUADRANT_BITS                  (ANG_QUADRANT_BIT | ANG_SIGN_BIT)
 
 #define ANG_MODULO_TWO_PI(x)               ((x) & (ANG_TWO_PI - 1))  // ang % 360
 #define ANG_MODULO_PI(x)                   ((x) & (ANG_PI - 1))      // ang % 180
-#define ANG_MODULO_HALF_PI(x)              ((x) & (ANG_HALF_PI - 1)) // ang % 90
+#define ANG_MODULO_HALF_PI(x)              ((x) & ANG_QUADRANT_MASK) // ang % 90
 
 #define ANG(x)                             ANG_MODULO_TWO_PI(((s16)((((float)x) * ANG_TWO_PI) / 360))) // works for any float, pos or neg
 
-#define IS_ANG_FIRST_OR_THIRD_QUADRANT(x)  (((x) & ANG_HALF_PI) == 0) // [0, 90[ \/ [180, 270[
-#define IS_ANG_THIRD_OR_FOURTH_QUADRANT(x) ((x) & ANG_PI)             // [180, 360[
+#define IS_ANG_FIRST_OR_THIRD_QUADRANT(x)  (((x) & ANG_QUADRANT_BIT) == 0) // [0, 90[ \/ [180, 270[
+#define IS_ANG_THIRD_OR_FOURTH_QUADRANT(x) ((x) & ANG_SIGN_BIT)            // [180, 360[
 
 // fixed point //
 
@@ -144,23 +128,35 @@ static inline int FP_Mult(int x, int y)
 	return (x * y) >> FRACTIONAL_BITS;
 }
 
-// MIPS R3000 integer operations used in ASM-audited code paths. These keep
-// overflow, shifts, multiply-low, divide traps, and truncation points explicit.
+// MIPS R3000 integer helpers keep overflow, shifts, multiply-low, divide traps,
+// and truncation points explicit. Native-only masks and guards avoid ISO C
+// undefined behavior; retail expressions remain visible to GCC 2.8.1 codegen.
 static inline s32 CTR_MipsSll(s32 value, u32 shift)
 {
-	return (s32)((u32)value << (shift & 0x1f));
+#if defined(CTR_NATIVE)
+	shift &= 0x1f;
+#endif
+
+	return (s32)((u32)value << shift);
 }
 
 static inline s32 CTR_MipsSra(s32 value, u32 shift)
 {
+#if defined(CTR_NATIVE)
 	shift &= 0x1f;
-
 	return (s32)(((u32)value >> shift) | ((value < 0) ? ~(0xffffffffu >> shift) : 0));
+#else
+	return value >> shift;
+#endif
 }
 
 static inline u32 CTR_MipsSrl(s32 value, u32 shift)
 {
-	return (u32)value >> (shift & 0x1f);
+#if defined(CTR_NATIVE)
+	shift &= 0x1f;
+#endif
+
+	return (u32)value >> shift;
 }
 
 static inline s32 CTR_MipsMulLo(s32 lhs, s32 rhs)
@@ -195,22 +191,26 @@ static inline u32 CTR_PackS16Pair(s32 lo, s32 hi)
 
 static inline s32 CTR_MipsDiv(s32 dividend, s32 divisor)
 {
+#if defined(CTR_NATIVE)
 	const s32 minS32 = (-2147483647 - 1);
 
 	if ((divisor == 0) || ((divisor == -1) && (dividend == minS32)))
 	{
-		__builtin_trap();
+		CTR_TRAP();
 	}
+#endif
 
 	return dividend / divisor;
 }
 
 static inline u32 CTR_MipsDivU(u32 dividend, u32 divisor)
 {
+#if defined(CTR_NATIVE)
 	if (divisor == 0)
 	{
-		__builtin_trap();
+		CTR_TRAP();
 	}
+#endif
 
 	return dividend / divisor;
 }

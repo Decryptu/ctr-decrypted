@@ -344,7 +344,7 @@ static void AP_DeathLinkPopup(int applied, const char *why)
 	const char *cause = g_dl_pending_cause;
 	size_t n = strlen(g_dl_pending_source);
 
-	snprintf(src, sizeof src, "%s", g_dl_pending_source[0] ? g_dl_pending_source : "A PLAYER");
+	snprintf(src, sizeof src, "%.16s", g_dl_pending_source[0] ? g_dl_pending_source : "A PLAYER");
 	if (!applied)
 	{
 		// "DEATHLINK IGNORED" / "<SOURCE>: <WHY>" (the source cut to 10 characters).
@@ -365,7 +365,7 @@ static void AP_DeathLinkPopup(int applied, const char *why)
 		while (*cause == ' ')
 			cause++;
 	}
-	snprintf(line, sizeof line, "%s", cause[0] ? cause : "DIED");
+	snprintf(line, sizeof line, "%.*s", (int)sizeof line - 1, cause[0] ? cause : "DIED");
 	AP_FeedDeathLinkLine(line, 0);
 }
 

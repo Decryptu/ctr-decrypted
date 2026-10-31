@@ -4,6 +4,7 @@ Server ordering: MultiServer Connected reply includes initial ReceivedItems;
 the subsequent Get response is a barrier, including for empty inventory.
 """
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 
@@ -119,7 +120,9 @@ gates = ''.join(extract('ap/ap_hooks_gates.c', signature) for signature in (
     'void AP_DoorHistoryRecord(int level, int door)',
     'void AP_DoorHistoryReconcile(int level, int door)'))
 pose = extract('game/232/AH_Door.c', 'static void AH_Door_ApplyHistoryPose(')
-game_fixture = r'''
+open_rotation = re.search(r'\bAH_DOOR_OPEN_ROTATION = (0x[0-9a-fA-F]+|\d+),',
+                          (root/'game/232/AH_Door.c').read_text()).group(1)
+game_fixture = '#define AH_DOOR_OPEN_ROTATION %s\n' % open_rotation + r'''
 #include <cassert>
 #include "ap_door_history.h"
 struct {int schema_newer;} ctr_cfg;
@@ -139,8 +142,11 @@ struct Def {SVec3 rot;};
 struct Instance {Matrix matrix; Def *instDef;};
 struct WoodDoor {Instance *otherDoor; unsigned camFlags; SVec3 doorRot; int doorID;};
 struct GT {int levelID;};
-struct State {GT *gGT; struct {unsigned storyFlags;} advProgress;};
-static GT gt={26}; static State state={&gt,{0x800001f0}}; static State *sdata=&state;
+#define ADV_PROGRESS_WORD_STORY 3
+struct State {GT *gGT; struct {unsigned rewards[4];} advProgress;};
+static GT gt={26}; static State state={&gt,{{0,0,0,0x800001f0}}}; static State *sdata=&state;
+#define GAME_TRACKER (sdata->gGT)
+#define STORY state.advProgress.rewards[ADV_PROGRESS_WORD_STORY]
 #define WdCam_CutscenePlaying 1
 static int poseCalls=0;
 void ConvertRotToMatrix(Matrix *m,SVec3 *r){poseCalls++;m->angle=r->y;}
@@ -151,13 +157,13 @@ int main(){
  WoodDoor door={&right,0,{0,0,0},4};
  /* Cold saved flags cannot open or be imported; unrelated flags survive. */
  AH_Door_ApplyHistoryPose(&left,&door);
- assert(!door.doorRot.y && state.advProgress.storyFlags==0x80000130);
+ assert(!door.doorRot.y && STORY==0x80000130);
  history=2; keys=2; AH_Door_ApplyHistoryPose(&left,&door); assert(!door.doorRot.y);
  ready=1; keys=1; AH_Door_ApplyHistoryPose(&left,&door); assert(!door.doorRot.y);
  keys=2; AH_Door_ApplyHistoryPose(&left,&door);
  assert(door.doorRot.y==0x400 && left.matrix.angle==1124 && right.matrix.angle==-924);
  auto calls=poseCalls; AH_Door_ApplyHistoryPose(&left,&door); assert(poseCalls==calls);
- assert((state.advProgress.storyFlags&0xc0)==0xc0);
+ assert((STORY&0xc0)==0xc0);
  /* Shared opposite door restores, but 3-Key and cup gates stay distinct. */
  assert(AP_DoorHistoryOpen(27,0)); assert(!AP_DoorHistoryOpen(28,0));
  history=8; assert(AP_DoorHistoryOpen(25,0)); keys=1; assert(!AP_DoorHistoryOpen(25,0));
@@ -173,15 +179,24 @@ int main(){
  AH_Door_ApplyHistoryPose(&left,&door); assert(door.doorRot.y==0x400);
  door.camFlags=0; AH_Door_ApplyHistoryPose(&left,&door); assert(!door.doorRot.y);
  ctr_cfg.schema_newer=1; AP_DoorHistoryRecord(26,4); assert(!session);
- active=0; auto flags=state.advProgress.storyFlags;
- AP_DoorHistoryReconcile(26,4); assert(flags==state.advProgress.storyFlags);
+ active=0; auto flags=STORY;
+ AP_DoorHistoryReconcile(26,4); assert(flags==STORY);
 }
 '''
 # Wiring assertions complement extracted production behavior.
 door_source=(root/'game/232/AH_Door.c').read_text()
 assert door_source.count('AH_Door_ApplyHistoryPose(')==3
-assert door_source.index('AP_DoorHistoryRecord(lev, doorID);') > door_source.index('// == Door is fully open ==')
-assert 'return AP_DoorHistoryOpen(levelID, doorID);' in door_source
+# The opened route is recorded after its retail story bit is set and before
+# control returns to the driver.
+assert door_source.count('AP_DoorHistoryRecord(') == 1
+record = door_source.index('AP_DoorHistoryRecord(levelID, door->doorID);')
+assert door_source.rindex('|= ADV_REWARD_DOOR_GLACIER_PARK_TO_CITADEL_CITY_MASK;', 0, record) < record
+assert door_source.index('cDC->flags |= CAMERA_FLAG_TRANSITION_BACK;', record) > record
+# With history enabled the per-tick open test comes from the history, not
+# from the retail reward bits.
+open_at = door_source.index('doorIsOpen = AP_DoorHistoryOpen(GAME_TRACKER->levelID, door->doorID);')
+assert door_source.rindex('if (AP_DoorHistoryEnabled())', 0, open_at) > door_source.rindex('AH_Door_ApplyHistoryPose(doorInst, door);', 0, open_at)
+assert door_source.index('ADV_REWARD_DOOR_BEACH_TO_GLACIER_PARK_MASK', open_at) > open_at
 with tempfile.TemporaryDirectory() as tmp:
     for name, code in [('net',fixture+net+tests),('game',game_fixture+gates+pose+game_tests)]:
         src=Path(tmp)/(name+'.cpp'); exe=Path(tmp)/name

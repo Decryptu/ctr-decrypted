@@ -203,7 +203,7 @@ static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, str
             title=line;
         }
         MM_CustomText_Draw(title,32,box.y+2,244,1,row==*selected ? ORANGE : WHITE,ot);
-        if (row==*selected) CTR_Box_DrawClearBox(&box,&sdata->menuRowHighlight_Normal,TRANS_50_DECAL,ot);
+        if (row==*selected) CTR_Box_DrawClearBox(&box,&sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot, &GAME_TRACKER->backBuffer->primMem);
     }
     if (!count) MM_CustomText_Draw(s_saphiRefreshBusy && !s_contentLibraryTab ? "Loading Saphi..." :
         *s_saphiQuery ? "No search matches" : s_contentLibraryTab ? "No installed tracks" : "Catalogue unavailable",32,84,244,3,WHITE,ot);

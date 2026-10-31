@@ -11,8 +11,9 @@ if ! command -v gcc &>/dev/null; then
     exit 1
 fi
 
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release "-DCMAKE_POLICY_VERSION_MINIMUM=3.5" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_C_FLAGS="-msse" -DCMAKE_LIBRARY_ARCHITECTURE=i386-linux-gnu -DCMAKE_PREFIX_PATH=/usr/lib/i386-linux-gnu
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON "-DCMAKE_POLICY_VERSION_MINIMUM=3.5" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_C_FLAGS="-msse" -DCMAKE_LIBRARY_ARCHITECTURE=i386-linux-gnu -DCMAKE_PREFIX_PATH=/usr/lib/i386-linux-gnu
 cmake --build build -j"$(nproc)"
+ctest --test-dir build --output-on-failure
 
 echo ""
 echo "Build succeeded: build/ctr_native"

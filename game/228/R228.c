@@ -1,7 +1,7 @@
 #include <common.h>
 
 CTR_STATIC_ASSERT(sizeof(struct OverlayRDATA_228) == 0x420);
-CTR_STATIC_ASSERT(sizeof(struct OverlayRDATA_228_BucketSetupRecord) == 0x64);
+CTR_STATIC_ASSERT(sizeof(struct DrawLevelOvrBucketSetupRecord) == 0x64);
 CTR_STATIC_ASSERT(sizeof(((struct OverlayRDATA_228 *)0)->scratchInitTable) == 0x60);
 CTR_STATIC_ASSERT(sizeof(((struct OverlayRDATA_228 *)0)->clipRecordJumpTable) == 0x60);
 
@@ -39,7 +39,8 @@ struct OverlayRDATA_228 R228 = {
     .bucketSetups =
         {
             {
-                {{0xe, OVR228_RDATA_BUCKET_COPY0_ADDRESS(0), 0x14c}, {0x2, OVR228_RDATA_BUCKET_COPY1_ADDRESS(0), 0x188}},
+                {{DRAW_LEVEL_OVR_COPIED_SETUP0_LAST_WORD_INDEX, OVR228_RDATA_BUCKET_COPY0_ADDRESS(0), DRAW_LEVEL_OVR_COPIED_SETUP0_SCRATCH_OFFSET},
+                 {DRAW_LEVEL_OVR_COPIED_SETUP1_LAST_WORD_INDEX, OVR228_RDATA_BUCKET_COPY1_ADDRESS(0), DRAW_LEVEL_OVR_COPIED_SETUP1_SCRATCH_OFFSET}},
                 0x0,
                 {
                     0x800a15cc,
@@ -65,7 +66,8 @@ struct OverlayRDATA_228 R228 = {
                 },
             },
             {
-                {{0xe, OVR228_RDATA_BUCKET_COPY0_ADDRESS(1), 0x14c}, {0x2, OVR228_RDATA_BUCKET_COPY1_ADDRESS(1), 0x188}},
+                {{DRAW_LEVEL_OVR_COPIED_SETUP0_LAST_WORD_INDEX, OVR228_RDATA_BUCKET_COPY0_ADDRESS(1), DRAW_LEVEL_OVR_COPIED_SETUP0_SCRATCH_OFFSET},
+                 {DRAW_LEVEL_OVR_COPIED_SETUP1_LAST_WORD_INDEX, OVR228_RDATA_BUCKET_COPY1_ADDRESS(1), DRAW_LEVEL_OVR_COPIED_SETUP1_SCRATCH_OFFSET}},
                 0x0,
                 {
                     0x800a20c4,
@@ -91,7 +93,8 @@ struct OverlayRDATA_228 R228 = {
                 },
             },
             {
-                {{0xe, OVR228_RDATA_BUCKET_COPY0_ADDRESS(2), 0x14c}, {0x2, OVR228_RDATA_BUCKET_COPY1_ADDRESS(2), 0x188}},
+                {{DRAW_LEVEL_OVR_COPIED_SETUP0_LAST_WORD_INDEX, OVR228_RDATA_BUCKET_COPY0_ADDRESS(2), DRAW_LEVEL_OVR_COPIED_SETUP0_SCRATCH_OFFSET},
+                 {DRAW_LEVEL_OVR_COPIED_SETUP1_LAST_WORD_INDEX, OVR228_RDATA_BUCKET_COPY1_ADDRESS(2), DRAW_LEVEL_OVR_COPIED_SETUP1_SCRATCH_OFFSET}},
                 0x0,
                 {
                     0x800a2eb4,
@@ -117,7 +120,8 @@ struct OverlayRDATA_228 R228 = {
                 },
             },
             {
-                {{0xe, OVR228_RDATA_BUCKET_COPY0_ADDRESS(3), 0x14c}, {0x2, OVR228_RDATA_BUCKET_COPY1_ADDRESS(3), 0x188}},
+                {{DRAW_LEVEL_OVR_COPIED_SETUP0_LAST_WORD_INDEX, OVR228_RDATA_BUCKET_COPY0_ADDRESS(3), DRAW_LEVEL_OVR_COPIED_SETUP0_SCRATCH_OFFSET},
+                 {DRAW_LEVEL_OVR_COPIED_SETUP1_LAST_WORD_INDEX, OVR228_RDATA_BUCKET_COPY1_ADDRESS(3), DRAW_LEVEL_OVR_COPIED_SETUP1_SCRATCH_OFFSET}},
                 0x0,
                 {
                     0x800a3bbc,
@@ -143,7 +147,8 @@ struct OverlayRDATA_228 R228 = {
                 },
             },
             {
-                {{0xe, OVR228_RDATA_BUCKET_COPY0_ADDRESS(4), 0x14c}, {0x2, OVR228_RDATA_BUCKET_COPY1_ADDRESS(4), 0x188}},
+                {{DRAW_LEVEL_OVR_COPIED_SETUP0_LAST_WORD_INDEX, OVR228_RDATA_BUCKET_COPY0_ADDRESS(4), DRAW_LEVEL_OVR_COPIED_SETUP0_SCRATCH_OFFSET},
+                 {DRAW_LEVEL_OVR_COPIED_SETUP1_LAST_WORD_INDEX, OVR228_RDATA_BUCKET_COPY1_ADDRESS(4), DRAW_LEVEL_OVR_COPIED_SETUP1_SCRATCH_OFFSET}},
                 0x0,
                 {
                     0x800a4cf4,
@@ -169,7 +174,8 @@ struct OverlayRDATA_228 R228 = {
                 },
             },
             {
-                {{0xe, OVR228_RDATA_BUCKET_COPY0_ADDRESS(5), 0x14c}, {0x2, OVR228_RDATA_BUCKET_COPY1_ADDRESS(5), 0x188}},
+                {{DRAW_LEVEL_OVR_COPIED_SETUP0_LAST_WORD_INDEX, OVR228_RDATA_BUCKET_COPY0_ADDRESS(5), DRAW_LEVEL_OVR_COPIED_SETUP0_SCRATCH_OFFSET},
+                 {DRAW_LEVEL_OVR_COPIED_SETUP1_LAST_WORD_INDEX, OVR228_RDATA_BUCKET_COPY1_ADDRESS(5), DRAW_LEVEL_OVR_COPIED_SETUP1_SCRATCH_OFFSET}},
                 0x0,
                 {
                     0x800a59fc,
@@ -195,7 +201,8 @@ struct OverlayRDATA_228 R228 = {
                 },
             },
             {
-                {{0xe, OVR228_RDATA_BUCKET_COPY0_ADDRESS(6), 0x14c}, {0x2, OVR228_RDATA_BUCKET_COPY1_ADDRESS(6), 0x188}},
+                {{DRAW_LEVEL_OVR_COPIED_SETUP0_LAST_WORD_INDEX, OVR228_RDATA_BUCKET_COPY0_ADDRESS(6), DRAW_LEVEL_OVR_COPIED_SETUP0_SCRATCH_OFFSET},
+                 {DRAW_LEVEL_OVR_COPIED_SETUP1_LAST_WORD_INDEX, OVR228_RDATA_BUCKET_COPY1_ADDRESS(6), DRAW_LEVEL_OVR_COPIED_SETUP1_SCRATCH_OFFSET}},
                 0x0,
                 {
                     0x800a6958,
@@ -221,7 +228,8 @@ struct OverlayRDATA_228 R228 = {
                 },
             },
             {
-                {{0xe, OVR228_RDATA_BUCKET_COPY0_ADDRESS(7), 0x14c}, {0x2, OVR228_RDATA_BUCKET_COPY1_ADDRESS(7), 0x188}},
+                {{DRAW_LEVEL_OVR_COPIED_SETUP0_LAST_WORD_INDEX, OVR228_RDATA_BUCKET_COPY0_ADDRESS(7), DRAW_LEVEL_OVR_COPIED_SETUP0_SCRATCH_OFFSET},
+                 {DRAW_LEVEL_OVR_COPIED_SETUP1_LAST_WORD_INDEX, OVR228_RDATA_BUCKET_COPY1_ADDRESS(7), DRAW_LEVEL_OVR_COPIED_SETUP1_SCRATCH_OFFSET}},
                 0x0,
                 {
                     0x800a7600,

@@ -32,8 +32,8 @@ extern int g_cfg_bilinearFiltering;
 extern int g_dbg_emulatorPaused;
 extern int g_dbg_polygonSelected;
 
-#define NATIVE_GPU_LOG(fmt, ...)   Platform_Log("[CTR GPU] " fmt, ##__VA_ARGS__)
-#define NATIVE_GPU_ERROR(fmt, ...) Platform_LogError("[CTR GPU] [%s] - " fmt, __func__, ##__VA_ARGS__)
+#define NATIVE_GPU_LOG(fmt, ...)   Platform_Log("[CTR GPU] " fmt, __VA_ARGS__)
+#define NATIVE_GPU_ERROR(fmt, ...) Platform_LogError("[CTR GPU] [%s] - " fmt, __func__, __VA_ARGS__)
 
 // NOTE(aalhendi): Little-endian tag `CTRG` = CTR native GPU snapshot.
 #define NATIVE_GPU_STATE_MAGIC     0x47525443
@@ -1342,13 +1342,13 @@ internal void DrawPendingSplits(bool earlyFlush)
 			vert->g = 0;
 			vert->b = 0;
 
-			NATIVE_GPU_LOG("==========================================\n");
+			NATIVE_GPU_LOG("%s\n", "==========================================");
 			NATIVE_GPU_LOG("POLYGON: %d\n", g_dbg_polygonSelected);
 			NATIVE_GPU_LOG("X: %.2f Y: %.2f W: %.2f\n", vert->x, vert->y, vert->w);
 			NATIVE_GPU_LOG("U: %d V: %d\n", vert->u, vert->v);
 			NATIVE_GPU_LOG("TP: %d CLT: %d\n", vert->page, vert->clut);
 
-			NATIVE_GPU_LOG("==========================================\n");
+			NATIVE_GPU_LOG("%s\n", "==========================================");
 		}
 
 		Platform_PollHostEvents();
