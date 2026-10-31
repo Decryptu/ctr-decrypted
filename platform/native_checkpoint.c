@@ -770,7 +770,6 @@ internal void NativeCheckpoint_RelocateInstance(const struct NativeCheckpointHea
                                                 struct Instance *inst, s32 numPlayers)
 {
 	local_persist const struct NativeCheckpointFieldRelocation fields[] = {
-	    NATIVE_CHECKPOINT_FIELD_PTR(struct Instance, next),   NATIVE_CHECKPOINT_FIELD_PTR(struct Instance, prev),
 	    NATIVE_CHECKPOINT_FIELD_PTR(struct Instance, model),  NATIVE_CHECKPOINT_FIELD_PTR(struct Instance, instDef),
 	    NATIVE_CHECKPOINT_FIELD_PTR(struct Instance, thread),
 	};
@@ -798,8 +797,6 @@ internal void NativeCheckpoint_RelocateThread(const struct NativeCheckpointHeade
                                               struct Thread *thread)
 {
 	local_persist const struct NativeCheckpointFieldRelocation fields[] = {
-	    NATIVE_CHECKPOINT_FIELD_PTR(struct Thread, next),
-	    NATIVE_CHECKPOINT_FIELD_PTR(struct Thread, prev),
 	    NATIVE_CHECKPOINT_FIELD_PTR(struct Thread, name),
 	    NATIVE_CHECKPOINT_FIELD_PTR(struct Thread, parentThread),
 	    NATIVE_CHECKPOINT_FIELD_PTR(struct Thread, siblingThread),
@@ -901,7 +898,6 @@ internal void NativeCheckpoint_RelocateRainLocal(const struct NativeCheckpointHe
 		return;
 	}
 
-	NativeCheckpoint_RelocateItemLinks(oldHeader, liveHeader, (struct Item *)rain);
 	NativeCheckpoint_RelocatePointerSlot(oldHeader, liveHeader, &rain->cloudInst);
 }
 
@@ -1206,84 +1202,115 @@ internal void NativeCheckpoint_RelocateThreadObject(const struct NativeCheckpoin
 	}
 }
 
-internal void NativeCheckpoint_RelocateThreadsInPool(const struct NativeCheckpointHeader *oldHeader, const struct NativeCheckpointHeader *liveHeader,
-                                                     struct JitPool *pool)
+// Pool slots in use: every slot not on the free list. The taken list cannot be
+// trusted for this: retail PROC_BirthWithObject and part of INSTANCE take
+// threads and instances straight off the free list (LIST_RemoveFront), so
+// they never appear on it, and walking it once left every thread's object,
+// instance and callbacks pointing into the previous run (a savestate or
+// replay loaded in a new launch crashed on the first driver callback). Runs
+// after RelocateJitPool, which has already relocated every slot's links.
+#define NATIVE_CHECKPOINT_POOL_SLOT_CAP 4096
+
+internal int NativeCheckpoint_MarkFreeSlots(struct JitPool *pool, u8 *isFree, u32 *stepOut)
 {
-	struct Item *item;
+	u32 step;
 	s32 guard = 0;
 
-	if (pool == NULL)
+	if ((pool == NULL) || (pool->ptrPoolData == NULL) || (pool->maxItems <= 0) || (pool->maxItems > NATIVE_CHECKPOINT_POOL_SLOT_CAP))
+	{
+		return 0;
+	}
+	step = ((u32)pool->itemSize >> 2) << 2;
+	if (step == 0)
+	{
+		return 0;
+	}
+
+	memset(isFree, 0, (size_t)pool->maxItems);
+	for (struct Item *item = pool->free.first; (item != NULL) && (guard++ < pool->maxItems); item = item->next)
+	{
+		const uintptr_t offset = (uintptr_t)item - (uintptr_t)pool->ptrPoolData;
+		if ((offset % step) == 0 && (offset / step) < (uintptr_t)pool->maxItems)
+		{
+			isFree[offset / step] = 1;
+		}
+	}
+
+	*stepOut = step;
+	return 1;
+}
+
+typedef void (*NativeCheckpointSlotFn)(const struct NativeCheckpointHeader *oldHeader, const struct NativeCheckpointHeader *liveHeader, void *slot,
+                                      s32 arg);
+
+internal void NativeCheckpoint_ForEachLiveSlot(const struct NativeCheckpointHeader *oldHeader, const struct NativeCheckpointHeader *liveHeader,
+                                               struct JitPool *pool, NativeCheckpointSlotFn fn, s32 arg)
+{
+	local_persist u8 isFree[NATIVE_CHECKPOINT_POOL_SLOT_CAP];
+	u32 step;
+
+	if (!NativeCheckpoint_MarkFreeSlots(pool, isFree, &step))
 	{
 		return;
 	}
-
-	item = pool->taken.first;
-	while ((item != NULL) && (guard++ < pool->maxItems))
+	for (s32 index = 0; index < pool->maxItems; index++)
 	{
-		struct Item *next = item->next;
-		NativeCheckpoint_RelocateThread(oldHeader, liveHeader, (struct Thread *)item);
-		item = next;
+		if (isFree[index] == 0)
+		{
+			fn(oldHeader, liveHeader, (u8 *)pool->ptrPoolData + (uintptr_t)index * step, arg);
+		}
 	}
+}
+
+internal void NativeCheckpoint_RelocateThreadSlot(const struct NativeCheckpointHeader *oldHeader, const struct NativeCheckpointHeader *liveHeader, void *slot,
+                                                  s32 arg)
+{
+	(void)arg;
+	NativeCheckpoint_RelocateThread(oldHeader, liveHeader, (struct Thread *)slot);
+}
+
+internal void NativeCheckpoint_RelocateThreadObjectSlot(const struct NativeCheckpointHeader *oldHeader, const struct NativeCheckpointHeader *liveHeader,
+                                                        void *slot, s32 arg)
+{
+	(void)arg;
+	NativeCheckpoint_RelocateThreadObject(oldHeader, liveHeader, (struct Thread *)slot);
+}
+
+internal void NativeCheckpoint_RelocateInstanceSlot(const struct NativeCheckpointHeader *oldHeader, const struct NativeCheckpointHeader *liveHeader, void *slot,
+                                                    s32 numPlayers)
+{
+	NativeCheckpoint_RelocateInstance(oldHeader, liveHeader, (struct Instance *)slot, numPlayers);
+}
+
+internal void NativeCheckpoint_RelocateRainSlot(const struct NativeCheckpointHeader *oldHeader, const struct NativeCheckpointHeader *liveHeader, void *slot,
+                                                s32 arg)
+{
+	(void)arg;
+	NativeCheckpoint_RelocateRainLocal(oldHeader, liveHeader, (struct RainLocal *)slot);
+}
+
+internal void NativeCheckpoint_RelocateThreadsInPool(const struct NativeCheckpointHeader *oldHeader, const struct NativeCheckpointHeader *liveHeader,
+                                                     struct JitPool *pool)
+{
+	NativeCheckpoint_ForEachLiveSlot(oldHeader, liveHeader, pool, NativeCheckpoint_RelocateThreadSlot, 0);
 }
 
 internal void NativeCheckpoint_RelocateThreadObjectsInPool(const struct NativeCheckpointHeader *oldHeader, const struct NativeCheckpointHeader *liveHeader,
                                                            struct JitPool *pool)
 {
-	struct Item *item;
-	s32 guard = 0;
-
-	if (pool == NULL)
-	{
-		return;
-	}
-
-	item = pool->taken.first;
-	while ((item != NULL) && (guard++ < pool->maxItems))
-	{
-		struct Item *next = item->next;
-		NativeCheckpoint_RelocateThreadObject(oldHeader, liveHeader, (struct Thread *)item);
-		item = next;
-	}
+	NativeCheckpoint_ForEachLiveSlot(oldHeader, liveHeader, pool, NativeCheckpoint_RelocateThreadObjectSlot, 0);
 }
 
 internal void NativeCheckpoint_RelocateInstancesInPool(const struct NativeCheckpointHeader *oldHeader, const struct NativeCheckpointHeader *liveHeader,
                                                        struct JitPool *pool, s32 numPlayers)
 {
-	struct Item *item;
-	s32 guard = 0;
-
-	if (pool == NULL)
-	{
-		return;
-	}
-
-	item = pool->taken.first;
-	while ((item != NULL) && (guard++ < pool->maxItems))
-	{
-		struct Item *next = item->next;
-		NativeCheckpoint_RelocateInstance(oldHeader, liveHeader, (struct Instance *)item, numPlayers);
-		item = next;
-	}
+	NativeCheckpoint_ForEachLiveSlot(oldHeader, liveHeader, pool, NativeCheckpoint_RelocateInstanceSlot, numPlayers);
 }
 
 internal void NativeCheckpoint_RelocateRainPool(const struct NativeCheckpointHeader *oldHeader, const struct NativeCheckpointHeader *liveHeader,
                                                 struct JitPool *pool)
 {
-	struct Item *item;
-	s32 guard = 0;
-
-	if (pool == NULL)
-	{
-		return;
-	}
-
-	item = pool->taken.first;
-	while ((item != NULL) && (guard++ < pool->maxItems))
-	{
-		struct Item *next = item->next;
-		NativeCheckpoint_RelocateRainLocal(oldHeader, liveHeader, (struct RainLocal *)item);
-		item = next;
-	}
+	NativeCheckpoint_ForEachLiveSlot(oldHeader, liveHeader, pool, NativeCheckpoint_RelocateRainSlot, 0);
 }
 
 internal void NativeCheckpoint_RelocateParticle(const struct NativeCheckpointHeader *oldHeader, const struct NativeCheckpointHeader *liveHeader,

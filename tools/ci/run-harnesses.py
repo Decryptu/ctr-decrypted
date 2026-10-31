@@ -159,7 +159,8 @@ def main():
     all_src = sorted(glob.glob(os.path.join(ROOT, "tools", "test-*.c")) +
                      glob.glob(os.path.join(ROOT, "tools", "test-*.cpp")) +
                      glob.glob(os.path.join(ROOT, "tools", "test-*.py")))
-    all_rel = [os.path.relpath(p, ROOT) for p in all_src]
+    # harnesses.txt uses forward slashes; Windows Python's relpath does not.
+    all_rel = [os.path.relpath(p, ROOT).replace(os.sep, "/") for p in all_src]
     listed, skipped, cmds = read_list()
     results = {}
     targets = all_rel if mode in ("--all", "--write-list") else [p for p in all_rel if p in listed]

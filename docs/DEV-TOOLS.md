@@ -43,6 +43,8 @@ All of these are read once, by `platform/native_dev.c` (`include/platform/native
 | `CTR_DEV_QUAD_DUMP=<csv>` | Append every quadblock of each level as it loads: flags, terrain byte, bounding box, and each texture slot's pointer, palette word, page and animation frame count; a `#` line before each level gives the bytes left in the level's memory pack. With Cyan Super Pads on, the level is dumped again after the pads are marked (their palette words carry 0x8000). `tools/decrypted/quad_dump.py` reads it |
 | `CTR_DEV_VRAM_DUMP=<n>` | Save all of VRAM at frame n as `vramNNNNNN.bin` (1024×512 raw 15-bit pixels) in the capture folder. `tools/decrypted/vram_png.py` turns it into a PNG, never-written words in magenta |
 | `CTR_DEV_DUMP_FRAME=<n>` | Write every polygon drawn in frame n to `polys-NNNNNN.txt` in the capture folder: the level-renderer bucket tag, then for each vertex its retail screen position, its drawn position and its precise depth. A textured polygon is followed by a `T` line: texture page, CLUT, and each vertex's UV, to look the texels up in a `CTR_DEV_VRAM_DUMP` of the same frame |
+| `CTR_DEV_LOAD_STATE=<n>` | At frame n, load `debug/states/quick.ctrstates` from the run folder, as `F8` would. Copy a player's `F5` save there to replay their exact view unattended, with the exact exe that saved it (see [Determinism](#determinism-and-load-addresses)). Loading also restores the race switches' own state, so `CTR_DEV_TRACE` and `CTR_DEV_DRIVER_DUMP` stop after the load; frame captures and `CTR_DEV_DUMP_FRAME` keep working |
+| `CTR_DEV_SAVE_STATE=<n>` | At frame n, save `debug/states/quick.ctrstates`, as `F5` would |
 | `CTR_PGXP_DEBUG=1..4` | PGXP tints, see [PGXP.md](PGXP.md#debugging) |
 | `CTR_DEV_RACE=<LevelID>` | The title menu starts a one-player race on that track instead of the demo, with nobody at the controls unless the autopilot drives |
 | `CTR_DEV_MODE=tt` | Make `CTR_DEV_RACE` a Time Trial (default Arcade). `CTR_DEV_LAPS=n` sets the Arcade lap count |
@@ -76,6 +78,8 @@ Frame numbers count every presented frame, the boot splash included. Frames show
 
 Some bugs only show where a player drives. In an internal build, press `F7` while one is on screen: the next frame's polygon dump (the `CTR_DEV_DUMP_FRAME` format), its image (`fNNNNNN.bmp`) and all of VRAM (`vramNNNNNN.bin`) go to `debug/captures` next to the game. Press it a few times around the bug. `pgxp_cracks.py`, `vram_png.py` and a short script over the dump then show which polygons drew it: the black streaks behind the racers on Hot Air Skyway were found this way, as particle quads with corners pinned at x = 1023.
 
+When the bug needs a view the player held, have them press `F5` there too, keep a copy of that exact exe, and replay the save with `CTR_DEV_LOAD_STATE`. To compare a spot with the original game, read the player's position from the save (an Instance's world position is at +0x44, after its 16-byte name at +0x08), then set retail's `Driver.posCurr` (+0x2d4, world × 256) and `angle` (+0x39a) to it in an emulator. The water drawn over the N. Sanity Beach dock was shown to be retail's own this way.
+
 ## Analysis scripts
 
 - `tools/decrypted/find_holes.py <dir> [--ignore-top N] [--max-run N]` finds see-through holes in a capture made with `CTR_PGXP_DEBUG=1`. In that mode the sky backdrop draws pure blue, so a short vertical run of blue with geometry above and below it is a hole. It prints a count per frame and a total, and writes `holes-*.png` with the holes painted magenta. Use `--ignore-top 110 --max-run 4` at 2x render scale to skip the HUD text. HUD text, boost flames and gaps between distant rocks also register, so compare totals against a baseline run (the same settings with `CTR_PGXP_DEBUG=3`) rather than reading them alone.
@@ -88,9 +92,11 @@ Some bugs only show where a player drives. In an internal build, press `F7` whil
 
 ## Determinism and load addresses
 
-Runs are bit-exact only while nothing in the game depends on where Windows loads the executable. The exe is built with ASLR, so every run loads at a different base, and the level data, statics and function pointers all move with it. Code that reads past the end of level data, or tests a pointer's value the way retail tests for 0x80xxxxxx, then behaves differently from run to run and between builds. That is how the bot checkpoint bug in `VehLap_UpdateProgress` was found (see ROADMAP).
+Runs are bit-exact only while nothing in the game depends on where the executable is loaded. The level data, statics and function pointers all sit at the load address, so code that reads past the end of level data, or tests a pointer's value the way retail tests for 0x80xxxxxx, behaves differently between builds, and between runs when the base moves. That is how the bot checkpoint bug in `VehLap_UpdateProgress` was found (see ROADMAP).
 
-To check for it, build twice with ASLR off at two fixed bases, then compare races with `CTR_DEV_DRIVER_DUMP` and `driver_diff.py --delta`:
+The game is linked without ASLR (`--disable-dynamicbase` on Windows, `-no-pie` on Linux, in `CMakeLists.txt`), so every run of one build loads at the same address. Savestates and input replays store raw pointers and depend on this: with ASLR, a state saved in one launch crashed when loaded in the next. A state still loads only in the exact build that made it, since any code change moves the addresses.
+
+To check for address dependence, build twice at two fixed bases, then compare races with `CTR_DEV_DRIVER_DUMP` and `driver_diff.py --delta`:
 
 ```sh
 cmake -S . -B /c/t/fb400000 -G Ninja -DCMAKE_BUILD_TYPE=Release "-DCMAKE_EXE_LINKER_FLAGS=-Wl,--disable-dynamicbase -Wl,--image-base=0x400000"

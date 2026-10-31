@@ -1,4 +1,5 @@
 #include "platform/native_dev.h"
+#include "platform/native_savestate.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -40,6 +41,8 @@ typedef struct
 	int presentedShot; // capture what reaches the window, after the screen filter
 	int vramDumpFrame; // CTR_DEV_VRAM_DUMP: save all of VRAM at this frame
 	int captureFrame; // F7: polygons, image and VRAM of this frame into NATIVE_DEV_CAPTURE_DIR
+	int loadStateFrame; // CTR_DEV_LOAD_STATE: load the quick savestate at this frame
+	int saveStateFrame; // CTR_DEV_SAVE_STATE: write the quick savestate at this frame
 	int vramShot; // this frame was presented straight from VRAM (vramX..vramH)
 	int vramX, vramY, vramW, vramH;
 } NativeDevState;
@@ -73,6 +76,8 @@ static NativeDevState *NativeDev_State(void)
 		s_dev.presentedShot = NativeDev_EnvInt("CTR_DEV_SHOT_PRESENTED", 0);
 		s_dev.vramDumpFrame = NativeDev_EnvInt("CTR_DEV_VRAM_DUMP", -1);
 		s_dev.captureFrame = -1;
+		s_dev.loadStateFrame = NativeDev_EnvInt("CTR_DEV_LOAD_STATE", -1);
+		s_dev.saveStateFrame = NativeDev_EnvInt("CTR_DEV_SAVE_STATE", -1);
 		NativeRenderer_EnablePresentCapture(s_dev.presentedShot && s_dev.shotDir != NULL);
 	}
 	return &s_dev;
@@ -281,6 +286,13 @@ void NativeDev_EndFrame(void)
 		dev->dump = NULL;
 	}
 	const int frame = dev->frame++;
+	// CTR_DEV_LOAD_STATE=N: load debug/states/quick.ctrstates (F5 in game) at
+	// frame N, to start a run from a spot a player saved. CTR_DEV_SAVE_STATE=N
+	// writes it at frame N.
+	if (frame == dev->loadStateFrame)
+		NativeSaveState_RequestLoad();
+	if (frame == dev->saveStateFrame)
+		NativeSaveState_RequestSave();
 	s_devTagCount = 0;
 	NativeDev_RaceFrame();
 
