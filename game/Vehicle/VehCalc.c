@@ -26,6 +26,23 @@ int VehCalc_InterpBySpeed(int val, int speed, int desired)
 	return val;
 }
 
+#if CTR_NATIVE_60FPS
+// rate * elapsedTimeMS >> 5, the per-frame step of a value moving at `rate`
+// units per 32 ms. At 60 FPS the shift drops up to a unit every frame, which
+// stalls a slow lerp (1 * 16 >> 5 is 0); the even frame adds what the odd one
+// dropped, so each pair of frames moves what one 30 FPS frame would. No state,
+// so savestates and replays stay exact.
+int VehCalc_FrameStep(int rate, int elapsedMS)
+{
+	const int step = CTR_MipsSra(CTR_MipsMulLo(rate, elapsedMS), 5);
+	if (!CTR_NATIVE_60FPS_ACTIVE || ((sdata->gGT->timer & 1) != 0))
+	{
+		return step;
+	}
+	return CTR_MipsSubLo(CTR_MipsSra(CTR_MipsMulLo(rate, CTR_MipsSll(elapsedMS, 1)), 5), step);
+}
+#endif
+
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80058f9c-0x8005900c.
 int VehCalc_MapToRange(int val, int oldMin, int oldMax, int newMin, int newMax)
 {

@@ -124,6 +124,9 @@ void NativePgxp_GteProjectTexture(u32 value, float w) { (void)value, (void)w; HA
 int NativePgxp_GteNclip(u32 sxy0, u32 sxy1, u32 sxy2, s64 *out) { (void)sxy0, (void)sxy1, (void)sxy2, (void)out; HARNESS_UNREACHED("NativePgxp_GteNclip"); }
 void NativePgxp_GteSetMvmvaResult(const double *precise, s16 ir1, s16 ir2, s16 ir3) { (void)precise, (void)ir1, (void)ir2, (void)ir3; HARNESS_UNREACHED("NativePgxp_GteSetMvmvaResult"); }
 void NativePgxp_Transform(const double *rotation, const double *translation, const double *input, double *result) { (void)rotation, (void)translation, (void)input, (void)result; HARNESS_UNREACHED("NativePgxp_Transform"); }
+void NativePgxp_ViewFollowDriver(int cameraID, const struct NativePgxpFollowCamera *in, const SVec3 *pbPos, const SVec3 *pbRot) { (void)cameraID, (void)in, (void)pbPos, (void)pbRot; }
+void NativePgxp_ViewForgetCamera(int cameraID) { (void)cameraID; }
+int NativePgxp_ViewLookup(const u32 words[5], const s32 t[3], double rot[9], double trans[3]) { (void)words, (void)t, (void)rot, (void)trans; HARNESS_UNREACHED("NativePgxp_ViewLookup"); }
 
 // Fixture: the two authored camera tables the fly-in reads, ptrStart at
 // path+0x0 and ptrEnd at path+0x354, exactly as CAM_ThTick hands them to

@@ -441,6 +441,15 @@ void PushBuffer_SetMatrixVP(struct PushBuffer *pb)
 	AP_TrapRenderTransform(pb);
 #endif
 
+#ifdef CTR_NATIVE
+	// The same view from the camera's unrounded pose, for PGXP.
+	{
+		const ptrdiff_t cameraID = pb - sdata->gGT->pushBuffer;
+		if ((cameraID >= 0) && (cameraID < 4))
+			NativePgxp_ViewRegisterCamera((int)cameraID, &pb->pos, &pb->rot, &pb->matrix_ViewProj);
+	}
+#endif
+
 	// store camera matrix,
 	// otherwise oxide intro cutscene bugs out,
 	// when crash is sleeping on the grassy hill

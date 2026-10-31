@@ -2170,6 +2170,20 @@ static struct RenderBucketEntry *RenderBucket_QueueDraw(struct Instance *inst, s
 	idpp->ptrNextFrame = nextFrame;
 	RenderBucket_StoreMatrixWords(&idpp->m3x3, matrixState.m0, matrixState.m1, matrixState.m2, matrixState.m3, matrixState.m4);
 	split = RenderBucket_BuildSplitState(inst, mh, frame, nextFrame, pb, idpp, viewDepth, &queuedFlags, &matrixState, &projectionMvp);
+#ifdef CTR_NATIVE
+	// The model-view matrix from the camera's unrounded pose, for PGXP. Only
+	// the plain composite (view * model); split, mirrored and camera-facing
+	// models keep the integer one.
+	if (idpp->mvp.t[2] == 6326) fprintf(stderr, "PV q6326 flags %08x mhflags %04x vz %d model %d t %d %d\n", queuedFlags, mh->flags, viewDepth, inst->model->id, idpp->mvp.t[0], idpp->mvp.t[1]);
+	if (((queuedFlags & (SPLIT_STATE_MASK | SCREENSPACE_INSTANCE | CUSTOM_MATRIX)) == 0) && ((mh->flags & RB_MODEL_ALWAYS_POINT_NORTH) == 0))
+	{
+		const s32 instPos[3] = {inst->matrix.t[0], inst->matrix.t[1], inst->matrix.t[2]};
+		int shift = ((s32)((u32)viewDepth - 0x1000u) < 0) ? 2 : 0;
+		if ((inst->flags & DRAW_HUGE) != 0)
+			shift -= 2;
+		NativePgxp_ViewRegisterInstance((int)(pb - sdata->gGT->pushBuffer), &idpp->mvp, &idpp->m3x3, instPos, shift);
+	}
+#endif
 
 	if (RenderBucket_BuildDepthRange(inst, frame, nextFrame, pb, idpp, queueState, viewDepth, normalDepthBias, secondaryDepthBias, &queuedFlags, &split,
 	                                 &projectionMvp) == 0)

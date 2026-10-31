@@ -1673,12 +1673,15 @@ void VehPhysProc_PowerSlide_PhysAngular(struct Thread *th, struct Driver *driver
 
 	int turnAngleStep;
 #if CTR_NATIVE_60FPS
+	// Retail closes 1/8 of the gap a frame. At 60 FPS the odd frame closes
+	// 1/16 and the even frame 1/15 of what is left, which is 1/8 per 30 FPS
+	// frame again in two nearly equal steps.
 	if (CTR_NATIVE_60FPS_ACTIVE)
 	{
 		if ((gGT->timer & 1) != 0)
 			turnAngleStep = CTR_MipsSra(turnAngleDelta, 3 + 1);
 		else
-			turnAngleStep = CTR_MipsSra((turnAngleDelta * 16) / 15, 3);
+			turnAngleStep = CTR_MipsSra((turnAngleDelta * 16) / 15, 3 + 1);
 	}
 	else
 	{
@@ -1837,22 +1840,9 @@ void PhysLerpRot(struct Driver *driver, int targetRotW)
 		remainingRot = CTR_MipsNegLo(remainingRot);
 	}
 
-	int lerpStep;
-#if CTR_NATIVE_60FPS
-	if (CTR_NATIVE_60FPS_ACTIVE)
-	{
-		if ((sdata->gGT->timer & 1) != 0)
-			lerpStep = CTR_MipsSra(remainingRot, 4);
-		else
-			lerpStep = CTR_MipsSra((remainingRot * 16) / 15, 3);
-	}
-	else
-	{
-		lerpStep = CTR_MipsSra(remainingRot, 3);
-	}
-#else
-	lerpStep = CTR_MipsSra(remainingRot, 3);
-#endif
+	// A speed in units per 32 ms, applied below with the frame time, so it
+	// needs no 60 FPS change; only the ramp toward it is per frame.
+	int lerpStep = CTR_MipsSra(remainingRot, 3);
 
 	if (lerpStep == 0)
 	{
@@ -1866,10 +1856,10 @@ void PhysLerpRot(struct Driver *driver, int targetRotW)
 	}
 
 	// Interpolate rotation by speed
-	driver->rotPrev.w = VehCalc_InterpBySpeed((int)driver->rotPrev.w, 8, maxLerpStep);
+	driver->rotPrev.w = VehCalc_InterpBySpeed((int)driver->rotPrev.w, FPS_HALF(8), maxLerpStep);
 
 	// Interpolate rotation by speed
-	driver->rotCurr.w = VehCalc_InterpBySpeed((int)driver->rotCurr.w, CTR_MipsSra(CTR_MipsMulLo(driver->rotPrev.w, sdata->gGT->elapsedTimeMS), 5), targetRotW);
+	driver->rotCurr.w = VehCalc_InterpBySpeed((int)driver->rotCurr.w, VehCalc_FrameStep(driver->rotPrev.w, sdata->gGT->elapsedTimeMS), targetRotW);
 }
 
 void PhysTerrainSlope(struct Driver *driver)

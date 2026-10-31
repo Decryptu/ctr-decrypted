@@ -243,31 +243,14 @@ static struct Driver *NativeDevRace_Player(int player)
 	return gGT->drivers[player];
 }
 
-// Steer toward a nav point ahead on one of the AI's lines, with the throttle
-// held, so the kart stays on the road through the real driving physics.
-// Player 1 follows lane 0; in VS each player takes the next lane, so on tracks
-// with forks some players take the other branch.
-// CTR_DEV_PAD="<frame>:<keys>[:<frames>],...": player 1 holds those buttons
-// for two presented frames (or the given count) from that frame on, to drive
-// menus or the kart. Keys: U D L R, X (Cross), O (Circle), S (Square),
-// T (Triangle), Z (Start), 2 (L2, the far camera in a hub). While the
-// script is set it owns player 1's pad, except between taps when the
-// autopilot is on.
-static int NativeDev_ScriptedPad(int autopilot, unsigned short *buttons, unsigned char *leftX)
+// The buttons a "<at>:<keys>[:<length>],..." script holds at `now`: each
+// entry holds its keys from `at` for `length` (default `defaultLength`). Keys:
+// U D L R, X (Cross), O (Circle), S (Square), T (Triangle), Z (Start), 2 (L2,
+// the far camera in a hub), H (R1, hop and drift), J (L1).
+static unsigned short NativeDev_ScriptHeld(const char *script, long now, long defaultLength)
 {
-	static const char *s_script;
-	static int s_loaded;
-	if (!s_loaded)
-	{
-		s_loaded = 1;
-		s_script = getenv("CTR_DEV_PAD");
-	}
-	if ((s_script == NULL) || (*s_script == '\0'))
-		return 0;
-
-	const int frame = NativeDev_State()->frame;
 	unsigned short held = 0;
-	const char *p = s_script;
+	const char *p = script;
 	while (*p != '\0')
 	{
 		char *end;
@@ -289,20 +272,53 @@ static int NativeDev_ScriptedPad(int autopilot, unsigned short *buttons, unsigne
 			case 'T': keys |= RAW_BTN_TRIANGLE; break;
 			case 'Z': keys |= RAW_BTN_START; break;
 			case '2': keys |= RAW_BTN_L2; break;
+			case 'H': keys |= RAW_BTN_R1; break;
+			case 'J': keys |= RAW_BTN_L1; break;
 			default: break;
 			}
 		}
-		long hold = 2;
+		long length = defaultLength;
 		if (*p == ':')
 		{
-			hold = strtol(p + 1, &end, 10);
+			length = strtol(p + 1, &end, 10);
 			p = end;
 		}
-		if ((frame >= at) && (frame < at + hold))
+		if ((now >= at) && (now < at + length))
 			held |= keys;
 		if (*p == ',')
 			p++;
 	}
+	return held;
+}
+
+// CTR_DEV_PAD="<frame>:<keys>[:<frames>],...": player 1 holds those buttons
+// for two presented frames (or the given count) from that frame on, to drive
+// menus or the kart. CTR_DEV_DRIVE is the same script timed in milliseconds
+// of race time from the lights (default length 100 ms), so 30 and 60 FPS runs
+// get the same input at the same moment of the race. While a script is set it
+// owns player 1's pad, except between taps when the autopilot is on.
+static int NativeDev_ScriptedPad(int autopilot, unsigned short *buttons, unsigned char *leftX)
+{
+	static const char *s_padScript;
+	static const char *s_driveScript;
+	static int s_loaded;
+	if (!s_loaded)
+	{
+		s_loaded = 1;
+		s_padScript = getenv("CTR_DEV_PAD");
+		s_driveScript = getenv("CTR_DEV_DRIVE");
+	}
+	const int hasPad = (s_padScript != NULL) && (*s_padScript != '\0');
+	const int hasDrive = (s_driveScript != NULL) && (*s_driveScript != '\0') && (NativeDevRace_Player(0) != NULL) &&
+	                     (sdata->gGT->trafficLightsTimer <= 0);
+	if (!hasPad && !hasDrive)
+		return 0;
+
+	unsigned short held = 0;
+	if (hasPad)
+		held |= NativeDev_ScriptHeld(s_padScript, NativeDev_State()->frame, 2);
+	if (hasDrive)
+		held |= NativeDev_ScriptHeld(s_driveScript, NativeDevRace_State()->raceClock, 100);
 	if ((held == 0) && autopilot)
 		return 0;
 	*buttons = (unsigned short)~held;
@@ -332,6 +348,10 @@ int NativeDev_CharacterSelect(void)
 	return 1;
 }
 
+// Steer toward a nav point ahead on one of the AI's lines, with the throttle
+// held, so the kart stays on the road through the real driving physics.
+// Player 1 follows lane 0; in VS each player takes the next lane, so on tracks
+// with forks some players take the other branch.
 int NativeDev_AutopilotPad(int player, unsigned short *buttons, unsigned char *leftX)
 {
 	NativeDevRaceState *dev = NativeDevRace_State();
@@ -554,6 +574,11 @@ static void NativeDevRace_Warp(NativeDevRaceState *dev, struct GameTracker *gGT)
 	d->xSpeed = d->ySpeed = d->zSpeed = 0;
 	d->speed = d->speedApprox = 0;
 	d->angle = (s16)dev->warpPos[3];
+	// In a race the mask-grab progress check would see the warp as a skipped
+	// section and take the kart back: forget the last checkpoint progress, and
+	// let the first quad touched become the respawn point.
+	d->lastValid = NULL;
+	d->distanceToFinish_checkpoint = 0;
 }
 
 // Once per presented frame, from NativeDev_EndFrame.
@@ -599,7 +624,7 @@ void NativeDev_RaceFrame(void)
 	{
 		dev->trace = fopen(dev->tracePath, "w");
 		if (dev->trace != NULL)
-			fprintf(dev->trace, "frame,fps60,level,lights,end,raceMS,x,y,z,angle,speed,air,kart,lap,reserves,anim,animFrame,gx,gy,gz,gvis,nav,navTarget,want,steer,vx,vy,vz,coll,timer,fireCap\n");
+			fprintf(dev->trace, "frame,fps60,level,lights,end,raceMS,x,y,z,angle,speed,air,kart,lap,reserves,anim,animFrame,gx,gy,gz,gvis,nav,navTarget,want,steer,vx,vy,vz,coll,timer,fireCap,cx,cy,cz,crx,cry,crz,turn,rotW,camSpeed,pcx,pcy,pcz,pcrx,pcry,pcrz,spin,wobble,lerpVel,rotPrevW,drift,clock,base,fire\n");
 	}
 
 	if (dev->trace != NULL)
@@ -617,12 +642,22 @@ void NativeDev_RaceFrame(void)
 				gvis = (g->instSelf->flags & HIDE_MODEL) == 0;
 			}
 		}
-		fprintf(dev->trace, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n", dev->raceFrame, CTR_NATIVE_60FPS_ACTIVE ? 1 : 0,
+		fprintf(dev->trace, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d", dev->raceFrame, CTR_NATIVE_60FPS_ACTIVE ? 1 : 0,
 		        gGT->levelID, gGT->trafficLightsTimer, (gGT->gameMode1 & END_OF_RACE) != 0, d->timeElapsedInRace, d->posCurr.x >> 8,
 		        d->posCurr.y >> 8, d->posCurr.z >> 8, d->angle & 0xfff, d->speedApprox, (d->actionsFlagSet & ACTION_TOUCH_GROUND) == 0,
 		        d->kartState, d->lapIndex, d->reserves, d->instSelf ? d->instSelf->animIndex : -1, d->instSelf ? d->instSelf->animFrame : -1, gx,
 		        gy, gz, gvis, dev->pilot[0].navIndex, dev->pilot[0].navTarget, dev->pilot[0].wantAngle, dev->pilot[0].steer, d->velocity.x,
 		        d->velocity.y, d->velocity.z, (int)d->collisionFlags, gGT->timer, d->fireSpeedCap);
+		// Player 1's camera, and the kart angles it follows, for race_trace.py smooth.
+		struct PushBuffer *pb = &gGT->pushBuffer[0];
+		fprintf(dev->trace, ",%d,%d,%d,%d,%d,%d,%d,%d,%d", pb->pos.x, pb->pos.y, pb->pos.z, pb->rot.x, pb->rot.y, pb->rot.z, d->turnAngleCurr,
+		        d->rotCurr.w, gGT->cameraDC[0].cameraMoveSpeed);
+		// The same camera unrounded (PGXP precise camera), or the integer one,
+		// then the turning state race_trace.py fps compares between 30 and 60.
+		double ppos[3] = {pb->pos.x, pb->pos.y, pb->pos.z}, prot[3] = {pb->rot.x, pb->rot.y, pb->rot.z};
+		NativePgxp_ViewGetPose(0, ppos, prot);
+		fprintf(dev->trace, ",%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%d,%d,%d,%d,%d,%d,%d,%d\n", ppos[0], ppos[1], ppos[2], prot[0], prot[1], prot[2], d->rotationSpinRate,
+		        d->turnWobbleAngle, d->turnAngleLerpVel, d->rotPrev.w, d->KartStates.Drifting.numFramesDrifting, dev->raceClock, d->baseSpeed, d->fireSpeed);
 	}
 	dev->raceFrame++;
 

@@ -19,10 +19,7 @@ Roughly in this order.
 
 | Item | Source |
 |---|---|
-| Wobble while accelerating, braking and turning | Owner playtest, 2026-10-31. Driving straight at constant speed is smooth with PGXP, but the wobble is still visible while speeding up, slowing down and probably in turns |
-| Racers moving sideways at the race start | Owner playtest, 2026-10-31, Hot Air Skyway. The AI racers moved strangely sideways at the start, maybe bumping into each other, maybe a 60 FPS timing bug |
-| The jump after the Hot Air Skyway loop is hard to make | Owner playtest, 2026-10-31: made once in about ten tries. Check whether it is as hard on the original game or a 60 FPS physics difference |
-| Flicker in the flag transition back to the hub | Owner playtest, 2026-10-31. Leaving a race for the Adventure hub, the checkered flag transition flickers |
+| Check in game: camera wobble when accelerating, braking and turning; the jump after Hot Air Skyway's spiral; the flag when exiting a race to the hub from the pause menu | Owner playtest, 2026-10-31. Fixed in the build after it: the [precise camera](docs/PGXP.md#precise-camera), the 60 FPS steering, camera and surface-spring conversions ([60FPS.md](docs/60FPS.md#changes-beyond-high-octane)), the flag's PGXP vertices and its "LOADING..." letters. Frame-by-frame captures of the pause-menu exit, fast and real time, show no other flicker; if it remains, an `F7` capture of it is the next step |
 | White noise in the hub after winning a race | ctr-native-ap #484. Not reproduced offline: Adventure wins and back-to-back Gem Cups into the hub (`CTR_DEV_MODE=cup`) are clean by `audio_noise.py` in both builds. Still to test: a connected Archipelago session |
 | Merge newer ctr-native upstream work (decomp matching, gameplay fixes since July 2026) | Both forks are 100+ commits behind. Expect ~460 conflict hunks |
 | Pre-race camera flyover is wrong | ctr-native #14 |

@@ -1461,9 +1461,12 @@ void COLL_FIXED_PlayerSearch(struct Thread *t, struct Driver *d)
 	if ((d->currBlockTouching != NULL) && ((d->collisionFlags & (DRIVER_COLL_FLAG_MASK_GRAB_REQUEST | DRIVER_COLL_FLAG_GROUNDED)) == 0) &&
 	    (d->kartState != KS_MASK_GRABBED))
 	{
-		d->velocity.x = CTR_MipsAddLo(d->velocity.x, CTR_MipsSra(d->AxisAngle1_normalVec.x, 1));
-		d->velocity.y = CTR_MipsAddLo(d->velocity.y, CTR_MipsSra(d->AxisAngle1_normalVec.y, 1));
-		d->velocity.z = CTR_MipsAddLo(d->velocity.z, CTR_MipsSra(d->AxisAngle1_normalVec.z, 1));
+		// Half the surface normal, every frame the kart touches a quad without
+		// standing on it: a push, so half of it per 60 FPS frame, or slopes and
+		// lips throw the kart off twice as hard.
+		d->velocity.x = CTR_MipsAddLo(d->velocity.x, CTR_MipsSra(d->AxisAngle1_normalVec.x, FPS_RIGHTSHIFT(1)));
+		d->velocity.y = CTR_MipsAddLo(d->velocity.y, CTR_MipsSra(d->AxisAngle1_normalVec.y, FPS_RIGHTSHIFT(1)));
+		d->velocity.z = CTR_MipsAddLo(d->velocity.z, CTR_MipsSra(d->AxisAngle1_normalVec.z, FPS_RIGHTSHIFT(1)));
 	}
 
 	struct QuadBlock *quad = d->currBlockTouching;

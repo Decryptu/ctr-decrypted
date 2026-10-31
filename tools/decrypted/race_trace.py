@@ -7,6 +7,11 @@
                                            the player of SOURCE (who recorded it)
   race_trace.py parity A.csv B.csv         one line: finish times, and jumps
                                            launched from the same spot in both
+  race_trace.py smooth A.csv [B.csv ...]   how unevenly player 1's camera and
+                                           kart angles move from frame to frame
+  race_trace.py fps A.csv B.csv [--until MS]
+                                           the same scripted drive (CTR_DEV_DRIVE)
+                                           at two frame rates, field by field
 
 Positions are in the trace's units (world >> 8). Typical use is a 30 FPS run
 against a 60 FPS run of the same autopilot race; see docs/DEV-TOOLS.md.
@@ -19,7 +24,7 @@ import sys
 
 def load(path):
     with open(path, newline="") as f:
-        return [{k: int(v) for k, v in row.items()} for row in csv.DictReader(f)]
+        return [{k: (float(v) if "." in v else int(v)) for k, v in row.items()} for row in csv.DictReader(f)]
 
 
 def racing(rows):
@@ -132,6 +137,98 @@ def ghost(src_path, play_path):
           f"p95 {errs[int(len(errs) * 0.95)]:.1f}, max {errs[-1]:.1f}")
 
 
+# Integer camera angles and position, then the PGXP precise camera's.
+SMOOTH_CHANNELS = [("cry", 4096), ("crx", 4096), ("crz", 4096), ("cx", 0), ("cy", 0), ("cz", 0),
+                   ("pcry", 4096), ("pcrx", 4096), ("pcrz", 4096), ("pcx", 0), ("pcy", 0), ("pcz", 0)]
+
+
+def smooth(paths):
+    """Per channel, the residual of each frame from the midpoint of its two
+    neighbours: zero for motion at a steady rate, so it measures how unevenly a
+    value moves (judder), in the channel's own units, as median/90th percentile. 'alt' is the share of it
+    that flips sign every frame, the signature of something stepped on odd
+    frames only. Angles are in 4096ths of a turn."""
+    for path in paths:
+        rows = [r for r in racing(load(path)) if "cry" in r]
+        fps = 60 if any(r["fps60"] for r in rows) else 30
+        parts = []
+        for name, wrap in SMOOTH_CHANNELS:
+            if name not in rows[0]:
+                continue
+            v = [r[name] for r in rows]
+            res = []
+            for i in range(1, len(v) - 1):
+                a, b, c = v[i - 1], v[i], v[i + 1]
+                if wrap:
+                    b = a + ((b - a + wrap // 2) % wrap - wrap // 2)
+                    c = b + ((c - b + wrap // 2) % wrap - wrap // 2)
+                res.append(b - (a + c) / 2)
+            if not res:
+                continue
+            # Percentiles, not a mean: a respawn or mask grab is one huge step.
+            mag = sorted(abs(x) for x in res)
+            p50, p90 = mag[len(mag) // 2], mag[len(mag) * 9 // 10]
+            keep = [(i, x) for i, x in enumerate(res) if abs(x) <= 4 * p90 + 1]
+            alt = abs(sum(x * (1 if i & 1 else -1) for i, x in keep)) / max(1e-9, sum(abs(x) for _, x in keep))
+            parts.append(f"{name} {p50:.2f}/{p90:.2f} (alt {alt:.2f})")
+        print(f"{path}: {fps} FPS, {len(rows)} frames: " + ", ".join(parts))
+
+
+# Kart state that must follow the same course in time at any frame rate
+# (vertical velocity left out: on the ground it is contact noise at both).
+FPS_FIELDS = [("x", 0), ("z", 0), ("y", 0), ("angle", 4096), ("speed", 0), ("vx", 0), ("vz", 0),
+              ("turn", 0), ("rotW", 0), ("spin", 0), ("wobble", 0), ("lerpVel", 0), ("rotPrevW", 0),
+              ("camSpeed", 0), ("crx", 4096), ("cry", 4096)]
+
+
+def fps(a_path, b_path, until=None):
+    """B (normally 60 FPS) against A (normally 30 FPS) on the same scripted
+    drive, at A's race times, B interpolated. Per field: the RMS difference as
+    a share of A's own spread over the run, and the race time it first strays
+    by more than a tenth of that spread. A field that scales correctly with
+    frame time stays near zero until the runs part (a wall, a jump) and every
+    field strays together; one that strays alone and early is a frame-counted
+    step that was not converted for 60 FPS."""
+    a = [r for r in load(a_path) if r["lights"] <= 0 and not r["end"]]
+    b = [r for r in load(b_path) if r["lights"] <= 0 and not r["end"]]
+    if until is not None:
+        a = [r for r in a if r["clock"] <= until]
+    times = [r["clock"] for r in b]
+    print(f"{a_path} ({len(a)} frames) vs {b_path} ({len(b)} frames)")
+    for name, wrap in FPS_FIELDS:
+        if name not in a[0]:
+            continue
+        diffs, values, first = [], [], None
+        for r in a:
+            t = r["clock"]
+            i = bisect.bisect_left(times, t)
+            if i <= 0 or i >= len(times):
+                continue
+            p, q = b[i - 1], b[i]
+            f = (t - p["clock"]) / max(1, q["clock"] - p["clock"])
+            pv, qv, av = p[name], q[name], r[name]
+            if wrap:
+                qv = pv + ((qv - pv + wrap // 2) % wrap - wrap // 2)
+            bv = pv + (qv - pv) * f
+            d = bv - av
+            if wrap:
+                d = (d + wrap / 2) % wrap - wrap / 2
+            diffs.append((t, d))
+            values.append(av)
+        if not diffs:
+            continue
+        mean = sum(values) / len(values)
+        spread = math.sqrt(sum((v - mean) ** 2 for v in values) / len(values)) if not wrap else 512.0
+        spread = max(spread, 1.0)
+        rms = math.sqrt(sum(d * d for _, d in diffs) / len(diffs))
+        for t, d in diffs:
+            if abs(d) > spread / 10:
+                first = t
+                break
+        when = f"strays at {first} ms" if first is not None else "stays within 10%"
+        print(f"  {name:9} rms diff {rms:9.1f} = {rms / spread:6.1%} of spread {spread:8.1f}, {when}")
+
+
 if __name__ == "__main__":
     if len(sys.argv) < 3:
         sys.exit(__doc__)
@@ -142,6 +239,10 @@ if __name__ == "__main__":
         jumps(args)
     elif cmd == "ghost" and len(args) == 2:
         ghost(*args)
+    elif cmd == "smooth":
+        smooth(args)
+    elif cmd == "fps" and len(args) in (2, 4) and (len(args) == 2 or args[2] == "--until"):
+        fps(args[0], args[1], int(args[3]) if len(args) == 4 else None)
     elif cmd == "parity" and len(args) == 2:
         parity(*args)
     else:

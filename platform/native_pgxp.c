@@ -558,4 +558,5 @@ void NativePgxp_EndFrame(void)
 	memset(s_pgxpFifo, 0, sizeof(s_pgxpFifo));
 	memset(s_pgxpInputs, 0, sizeof(s_pgxpInputs));
 	s_pgxpMvmvaResult.valid = 0;
+	NativePgxp_ViewEndFrame();
 }

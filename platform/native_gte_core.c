@@ -316,14 +316,35 @@ internal int Lm_H(s64 value, int sf)
 	return value_12;
 }
 
+// The precise view matrix (native_pgxp_view.c) for a GTE matrix register set
+// (0 rotation, 1 light, 2 colour) and translation set (0 TR, 1 BK, 3 none).
+static int NativeGte_PreciseView(int mx, int cv, double *rotation, double *translation)
+{
+	if ((mx > 2) || (cv == 2) || (cv > 3) || !NATIVE_PGXP_GEOMETRY_ACTIVE())
+		return 0;
+
+	u32 words[5];
+	s32 t[3] = {0, 0, 0};
+	for (int i = 0; i < 5; i++)
+		words[i] = gteRegs.CP2C.p[(mx << 3) + i].d;
+	words[4] = (u32)(s32)(s16)words[4];
+	if (cv < 2)
+	{
+		for (int i = 0; i < 3; i++)
+			t[i] = gteRegs.CP2C.p[(cv << 3) + 5 + i].sd;
+	}
+	return NativePgxp_ViewLookup(words, t, rotation, translation);
+}
+
 static void NativeGte_RecordMvmva(int mx, int v, int cv, int lm)
 {
 	double input[3] = {VX(v), VY(v), VZ(v)};
 	double precise[3];
-	const double rotation[9] = {MX11(mx), MX12(mx), MX13(mx), MX21(mx), MX22(mx), MX23(mx), MX31(mx), MX32(mx), MX33(mx)};
-	const double translation[3] = {CV1(cv), CV2(cv), CV3(cv)};
+	double rotation[9] = {MX11(mx), MX12(mx), MX13(mx), MX21(mx), MX22(mx), MX23(mx), MX31(mx), MX32(mx), MX33(mx)};
+	double translation[3] = {CV1(cv), CV2(cv), CV3(cv)};
 
 	NativePgxp_GteGetInput(v, (s16)VX(v), (s16)VY(v), (s16)VZ(v), input);
+	NativeGte_PreciseView(mx, cv, rotation, translation);
 	NativePgxp_Transform(rotation, translation, input, precise);
 
 	const double scale = m_sf ? 1.0 / 4096.0 : 1.0;
@@ -343,19 +364,22 @@ static void NativeGte_RecordProjection(s64 viewX, s64 viewY, s64 viewZ, int hOve
 	float w = 0.0f;
 	if (hOverSz3 < 0x1ffff && C2_SZ3 > 0)
 	{
-		double preciseInput[3];
+		double preciseInput[3] = {VX(idx), VY(idx), VZ(idx)};
 		const int hasPreciseInput = NativePgxp_GteGetInput(idx, (s16)VX(idx), (s16)VY(idx), (s16)VZ(idx), preciseInput);
+		double rotation[9] = {C2_R11, C2_R12, C2_R13, C2_R21, C2_R22, C2_R23, C2_R31, C2_R32, C2_R33};
+		double translation[3] = {C2_TRX, C2_TRY, C2_TRZ};
+		const int hasPreciseView = NativeGte_PreciseView(0, 0, rotation, translation);
 		// Bypass the GTE's IR truncation and approximate UNR division.
 		const double scale = m_sf ? (1.0 / 4096.0) : 1.0;
 		const double minIr = lm ? 0.0 : -32768.0;
 		double exactX = (double)viewX;
 		double exactY = (double)viewY;
 		double exactZ = (double)viewZ;
-		if (hasPreciseInput)
+		if (hasPreciseInput || hasPreciseView)
 		{
-			exactX = (double)C2_TRX * 4096.0 + C2_R11 * preciseInput[0] + C2_R12 * preciseInput[1] + C2_R13 * preciseInput[2];
-			exactY = (double)C2_TRY * 4096.0 + C2_R21 * preciseInput[0] + C2_R22 * preciseInput[1] + C2_R23 * preciseInput[2];
-			exactZ = (double)C2_TRZ * 4096.0 + C2_R31 * preciseInput[0] + C2_R32 * preciseInput[1] + C2_R33 * preciseInput[2];
+			exactX = translation[0] * 4096.0 + rotation[0] * preciseInput[0] + rotation[1] * preciseInput[1] + rotation[2] * preciseInput[2];
+			exactY = translation[1] * 4096.0 + rotation[3] * preciseInput[0] + rotation[4] * preciseInput[1] + rotation[5] * preciseInput[2];
+			exactZ = translation[2] * 4096.0 + rotation[6] * preciseInput[0] + rotation[7] * preciseInput[1] + rotation[8] * preciseInput[2];
 		}
 		const double depth = exactZ / 4096.0;
 		if (depth > 0.0)

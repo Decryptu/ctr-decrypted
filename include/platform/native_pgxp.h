@@ -2,6 +2,7 @@
 #define NATIVE_PGXP_H
 
 #include <macros.h>
+#include <ctr_math.h>
 #include <stddef.h>
 
 enum NativePgxpMode
@@ -74,6 +75,43 @@ void NativePgxp_GteSetMvmvaResult(const double *precise, s16 ir1, s16 ir2, s16 i
 int NativePgxp_GteGetMvmvaResult(const s16 *ir, float *out);
 
 void NativePgxp_Transform(const double *rotation, const double *translation, const double *input, double *result);
+
+// Precise view (platform/native_pgxp_view.c, docs/PGXP.md#precise-camera).
+
+// CAM_FollowDriver_Normal's inputs and integer results, for the same camera
+// computed without rounding.
+struct NativePgxpFollowCamera
+{
+	SVec3 orbitRot;     // rotation the orbit offset is taken in
+	SVec3 headingRot;   // rotation the damage pitch offset is taken in
+	int moveSpeed;      // cameraMoveSpeed, mapped to the orbit distance
+	int speedMin, speedMax, distMin, distMax;
+	int distanceOffset; // fire speed zoom, 8 fractional bits
+	int driverPos[3];   // driver position, world units
+	b32 maskGrabY;      // camera height set by the mask grab
+	int vertDistance;
+	int damagePitch;
+	int lookAtHeight;
+	double roll;
+	Vec3 basePos;       // camera and look-at points before the game's adjustments
+	Vec3 baseDelta;
+	Vec3 finalPos;      // and after them
+	Vec3 finalDelta;
+	Vec3 prevPos;       // cameraPos before this frame
+	Vec3 correction;    // pushBufferPosCorrection after this frame
+};
+
+void NativePgxp_ViewFollowDriver(int cameraID, const struct NativePgxpFollowCamera *in, const SVec3 *pbPos, const SVec3 *pbRot);
+void NativePgxp_ViewForgetCamera(int cameraID);
+// The follow camera's precise pose, for the race trace; 0 when it has none.
+int NativePgxp_ViewGetPose(int cameraID, double pos[3], double rot[3]);
+// Matrices are GTE MATRIX layouts: five packed rotation words, then t[3].
+void NativePgxp_ViewRegisterCamera(int cameraID, const SVec3 *pbPos, const SVec3 *pbRot, const void *viewProj);
+void NativePgxp_ViewRegisterInstance(int cameraID, const void *mvp, const void *model, const s32 instPos[3], int translationShift);
+// The precise rotation (4096 = 1) and translation (view units) to use instead
+// of a GTE matrix and translation, or 0 when there is none.
+int NativePgxp_ViewLookup(const u32 words[5], const s32 t[3], double rot[9], double trans[3]);
+void NativePgxp_ViewEndFrame(void);
 
 // GPU side.
 int NativePgxp_Lookup(const void *addr, u32 value, NativePgxpVertex *out);

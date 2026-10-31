@@ -944,6 +944,27 @@ static b32 CAM_RetailFrameTick(void)
 	return !CTR_NATIVE_60FPS_ACTIVE || ((sdata->gGT->timer & 1) != 0);
 }
 
+// One frame of the camera's smoothing filters, new = (keep * old + give *
+// target) >> 8 with weights out of 256. At 60 FPS the weights are retuned so
+// two frames do what one 30 FPS frame does: two steps of a'*x + c'*t are
+// a'^2*x + (1 + a')*c'*t, so keep becomes its square root (out of 256,
+// sqrt(256 * keep)) and give becomes give / (1 + a').
+static s32 CAM_SmoothFrame(s32 old, s32 target, s32 keep, s32 give)
+{
+	if (CTR_NATIVE_60FPS_ACTIVE && (keep > 0))
+	{
+		const s32 square = keep * 256;
+		s32 keep60 = 0;
+		while ((keep60 + 1) * (keep60 + 1) <= square)
+			keep60++;
+		if ((square - keep60 * keep60) > keep60)
+			keep60++;
+		give = (give * 256 + (256 + keep60) / 2) / (256 + keep60);
+		keep = keep60;
+	}
+	return (keep * old + give * target) >> 8;
+}
+
 static struct CheckpointNode *CAM_FollowDriver_TrackPath_GetNode(struct CameraDC *cDC, struct CheckpointNode *node, s32 speed)
 {
 	struct CheckpointNode *nodes = sdata->gGT->level1->ptr_restart_points;
@@ -1141,6 +1162,11 @@ void CAM_FollowDriver_Normal(struct CameraDC *cDC, struct Driver *d, SVec3 *push
 	SVec3 local_40;
 	SVec3 local_38;
 	struct FlyInData flyInData;
+#ifdef CTR_NATIVE
+	// The same camera without rounding, for PGXP (native_pgxp_view.c).
+	struct NativePgxpFollowCamera precise;
+	precise.prevPos = cDC->cameraPos;
+#endif
 
 	// backup flags
 	backupFlags = cDC->flags;
@@ -1200,7 +1226,7 @@ void CAM_FollowDriver_Normal(struct CameraDC *cDC, struct Driver *d, SVec3 *push
 			uVar13 = (u32)zoom->percentage1;
 			uVar11 = (u32)zoom->percentage1;
 		}
-		cDC->cameraMoveSpeed = (s32)(uVar11 * cDC->cameraMoveSpeed + (0x100 - uVar13) * x) >> 8;
+		cDC->cameraMoveSpeed = CAM_SmoothFrame(cDC->cameraMoveSpeed, x, (s32)uVar11, (s32)(0x100 - uVar13));
 	}
 
 	// if camera angle changed
@@ -1229,6 +1255,9 @@ void CAM_FollowDriver_Normal(struct CameraDC *cDC, struct Driver *d, SVec3 *push
 	cam->rot.y = (d->rotCurr.w + d->angle + 0x800 + sVar10) & 0xfff;
 
 	cam->rot.z = cDC->desiredRot.x * -2;
+#ifdef CTR_NATIVE
+	precise.orbitRot = cam->rot;
+#endif
 
 	// convert 3 rotation shorts into rotation matrix
 	ConvertRotToMatrix(&cam->matrix, &cam->rot);
@@ -1271,6 +1300,14 @@ void CAM_FollowDriver_Normal(struct CameraDC *cDC, struct Driver *d, SVec3 *push
 		}
 	}
 	cam->rot.z += cDC->fireSpeedZoom.distanceOffset >> 8;
+#ifdef CTR_NATIVE
+	precise.moveSpeed = cDC->cameraMoveSpeed;
+	precise.speedMin = zoom->speedMin;
+	precise.speedMax = zoom->speedMax;
+	precise.distMin = zoom->distMin;
+	precise.distMax = zoom->distMax;
+	precise.distanceOffset = cDC->fireSpeedZoom.distanceOffset;
+#endif
 
 	gte_SetRotMatrix(&cam->matrix);
 	CTR_GteLoadSVec3V0(&cam->rot);
@@ -1306,6 +1343,14 @@ void CAM_FollowDriver_Normal(struct CameraDC *cDC, struct Driver *d, SVec3 *push
 	}
 
 	cam->pos.z += cam->delta.z;
+#ifdef CTR_NATIVE
+	precise.driverPos[0] = CTR_MipsSra(d->posCurr.x, 8);
+	precise.driverPos[1] = CTR_MipsSra(d->posCurr.y, 8);
+	precise.driverPos[2] = CTR_MipsSra(d->posCurr.z, 8);
+	precise.maskGrabY = (cDC->flags & CAMERA_FLAG_MASK_GRAB) != 0;
+	precise.vertDistance = zoom->vertDistance;
+	precise.basePos = cam->pos;
+#endif
 
 	uVar8 = 0;
 	if (gGT->numPlyrCurrGame != 2)
@@ -1324,12 +1369,15 @@ void CAM_FollowDriver_Normal(struct CameraDC *cDC, struct Driver *d, SVec3 *push
 
 	// convert 3 rotation shorts into rotation matrix
 	ConvertRotToMatrix(&cam->matrix, &cam->rot);
+#ifdef CTR_NATIVE
+	precise.headingRot = cam->rot;
+#endif
 
 	// if racer is not damaged,
 	// slight-down view angle
 	if ((d->actionsFlagSet & ACTION_WARP) == 0)
 	{
-		cDC->damagePitchOffset -= 8;
+		cDC->damagePitchOffset -= FPS_HALF(8);
 		if (cDC->damagePitchOffset < -0x20)
 		{
 			cDC->damagePitchOffset = -0x20;
@@ -1340,7 +1388,7 @@ void CAM_FollowDriver_Normal(struct CameraDC *cDC, struct Driver *d, SVec3 *push
 	// straight-forward angle
 	else
 	{
-		cDC->damagePitchOffset += 8;
+		cDC->damagePitchOffset += FPS_HALF(8);
 		if (cDC->damagePitchOffset > 0)
 		{
 			cDC->damagePitchOffset = 0;
@@ -1361,8 +1409,13 @@ void CAM_FollowDriver_Normal(struct CameraDC *cDC, struct Driver *d, SVec3 *push
 	cam->delta.x += (s32)cam->rot.x;
 	cam->delta.z += (s32)cam->rot.z;
 	cam->delta.y += (s32)cam->rot.y + (s32)zoom->angle[2];
+#ifdef CTR_NATIVE
+	precise.damagePitch = cDC->damagePitchOffset;
+	precise.lookAtHeight = zoom->angle[2];
+	precise.baseDelta = cam->delta;
+#endif
 
-	cDC->desiredRot.x = ((zoom->angle[1] * (s32)cDC->desiredRot.x) + ((0x100 - (s32)zoom->angle[1]) * (s32)d->rotCurr.z)) >> 8;
+	cDC->desiredRot.x = CAM_SmoothFrame((s32)cDC->desiredRot.x, (s32)d->rotCurr.z, (s32)zoom->angle[1], 0x100 - (s32)zoom->angle[1]);
 
 
 	state = d->kartState;
@@ -1475,14 +1528,14 @@ void CAM_FollowDriver_Normal(struct CameraDC *cDC, struct Driver *d, SVec3 *push
 	{
 		if (cam->pos.y < (s32)cDC->heightSmoothing.currentOffset + CTR_MipsSra(d->posCurr.y, 8))
 		{
-			cDC->heightSmoothing.framesRemaining = 8;
+			cDC->heightSmoothing.framesRemaining = FPS_DOUBLE(8);
 			cDC->heightSmoothing.startOffset = cDC->heightSmoothing.currentOffset;
 			cam->pos.y = (s32)cDC->heightSmoothing.currentOffset + CTR_MipsSra(d->posCurr.y, 8);
 
 			goto LAB_8001ab04;
 		}
 
-		cDC->heightSmoothing.framesRemaining = 8;
+		cDC->heightSmoothing.framesRemaining = FPS_DOUBLE(8);
 		cDC->heightSmoothing.startOffset = (s16)cam->pos.y - (s16)CTR_MipsSra(d->posCurr.y, 8);
 	}
 
@@ -1507,7 +1560,7 @@ void CAM_FollowDriver_Normal(struct CameraDC *cDC, struct Driver *d, SVec3 *push
 		{
 			cam->pos.y =
 
-			    ((8 - x) * cam->pos.y + x * ((s32)cDC->heightSmoothing.startOffset + CTR_MipsSra(d->posCurr.y, 8))) >> 3;
+			    ((FPS_DOUBLE(8) - x) * cam->pos.y + x * ((s32)cDC->heightSmoothing.startOffset + CTR_MipsSra(d->posCurr.y, 8))) >> FPS_RIGHTSHIFT(3);
 
 			cDC->heightSmoothing.framesRemaining += -1;
 		}
@@ -1620,6 +1673,21 @@ LAB_8001ab04:
 	cDC->lookAtPos.x = cam->delta.x;
 	cDC->lookAtPos.y = cam->delta.y;
 	cDC->lookAtPos.z = cam->delta.z;
+
+#ifdef CTR_NATIVE
+	if (d->kartState != KS_MASK_GRABBED)
+	{
+		precise.roll = (double)zoom->angle[0] * cDC->desiredRot.x / 256.0;
+		precise.finalPos = cam->pos;
+		precise.finalDelta = cam->delta;
+		precise.correction = cDC->pushBufferPosCorrection;
+		NativePgxp_ViewFollowDriver(cDC->cameraID, &precise, &pb->pos, &pb->rot);
+	}
+	else
+	{
+		NativePgxp_ViewForgetCamera(cDC->cameraID);
+	}
+#endif
 
 	// backup flags (again)
 	backupFlags = cDC->flags;

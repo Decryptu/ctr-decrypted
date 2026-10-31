@@ -93,7 +93,7 @@ void VehPhysGeneral_PhysAngular(struct Thread *thread, struct Driver *driver)
 		{
 			int rate = CTR_MipsSra(
 			    CTR_MipsMulLo(CTR_MipsAddLo(driver->const_TurnInputDelay, CTR_MipsMulLo((s8)driver->turnConst, 100)), terrain->turnResponseScale), 8);
-			rotCurrW_original = CTR_MipsAddLo(rotCurrW_original, rate);
+			rotCurrW_original = CTR_MipsAddLo(rotCurrW_original, FPS_HALF(rate));
 
 			interpLessThanOriginal = rotCurrW_interp < rotCurrW_original;
 		LAB_8005fee4:
@@ -106,7 +106,7 @@ void VehPhysGeneral_PhysAngular(struct Thread *thread, struct Driver *driver)
 		{
 			int rate = CTR_MipsSra(
 			    CTR_MipsMulLo(CTR_MipsAddLo(driver->const_TurnInputDelay, CTR_MipsMulLo((s8)driver->turnConst, 50)), terrain->turnResponseScale), 8);
-			rotCurrW_original = CTR_MipsSubLo(rotCurrW_original, rate);
+			rotCurrW_original = CTR_MipsSubLo(rotCurrW_original, FPS_HALF(rate));
 
 			interpLessThanOriginal = rotCurrW_original < rotCurrW_interp;
 			goto LAB_8005fee4;
@@ -219,7 +219,7 @@ void VehPhysGeneral_PhysAngular(struct Thread *thread, struct Driver *driver)
 	{
 		classSpeed_halved = CTR_MipsSra(CTR_MipsMulLo(terrain->turnAngleScale, classSpeed_halved), 8);
 	}
-	driftAngleCurr_Final = CTR_MipsAddLo(driftAngleCurr_og, CTR_MipsSra(CTR_MipsMulLo(classSpeed_halved, elapsedTimeMS), 5));
+	driftAngleCurr_Final = CTR_MipsAddLo(driftAngleCurr_og, VehCalc_FrameStep(classSpeed_halved, elapsedTimeMS));
 	driver->turnAngleCurr = (s16)driftAngleCurr_Final;
 	turnResistMinBitshift = rotCurrW_original;
 	if ((0x2ff < speedApprox) && ((actionsFlagSet & ACTION_TOUCH_GROUND) != 0))
@@ -294,11 +294,13 @@ void VehPhysGeneral_PhysAngular(struct Thread *thread, struct Driver *driver)
 				}
 				if (rotCurrW_interp < 10)
 				{
-					turnResistMaxBitshift = 8;
-					rotCurrW_original = 0x14;
+					// Wobble out for 8 frames at 0x14 a frame (VehPhysProc's drift
+					// wobble has the same frame counts).
+					turnResistMaxBitshift = FPS_DOUBLE(8);
+					rotCurrW_original = FPS_HALF(0x14);
 					if (driftAngleCurr_Final < 0)
 					{
-						rotCurrW_original = -0x14;
+						rotCurrW_original = -FPS_HALF(0x14);
 					}
 				}
 			}

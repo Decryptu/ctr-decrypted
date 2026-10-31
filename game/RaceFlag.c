@@ -288,6 +288,27 @@ void RaceFlag_ResetTextAnim(void)
 }
 
 
+#if CTR_NATIVE_60FPS
+// Screen x of one "LOADING..." letter at a 30 FPS animation frame, as the
+// retail loop below places it; 0x23c is off screen (not drawn).
+static int RaceFlag_LoadingLetterX(int frame)
+{
+	if ((frame < 0) || (0x4f < frame))
+	{
+		return 0x23c;
+	}
+	if (frame <= 4)
+	{
+		return frame * -0x3c + 0x23c;
+	}
+	if (frame <= 0x4a)
+	{
+		return 0x100;
+	}
+	return (0x4b - frame) * 0x3c + 0x100;
+}
+#endif
+
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x800442a0-0x800444e8.
 void RaceFlag_DrawLoadingString(void)
 {
@@ -336,6 +357,13 @@ void RaceFlag_DrawLoadingString(void)
 	iVar10 = (sdata->RaceFlag_Transition & 0xffff) - (iVar3 >> 1);
 
 	iVar3 = FPS_HALF(sdata->RaceFlag_LoadingTextAnimFrame);
+#if CTR_NATIVE_60FPS
+	// At 60 FPS the animation frame counts 60 FPS frames, so the 30 FPS frame
+	// above holds for two of them and every letter jumps 60 pixels every
+	// other frame. Odd frames draw each letter halfway between its two 30 FPS
+	// positions instead.
+	const b32 halfFrame = CTR_NATIVE_60FPS_ACTIVE && ((sdata->RaceFlag_LoadingTextAnimFrame & 1) != 0);
+#endif
 
 	if (0 < iVar2)
 	{
@@ -376,6 +404,14 @@ void RaceFlag_DrawLoadingString(void)
 					iVar4 = (0x4b - iVar3) * 0x3c + 0x100;
 				}
 			}
+#if CTR_NATIVE_60FPS
+			if (halfFrame)
+			{
+				const int from = RaceFlag_LoadingLetterX(iVar3);
+				const int to = RaceFlag_LoadingLetterX(iVar3 + 1);
+				iVar4 = (from == 0x23c) ? to : ((to == 0x23c) ? from : (from + to) / 2);
+			}
+#endif
 			local_30[0] = *pbVar7;
 			pbVar8 = pbVar7 + 1;
 			uVar5 = 1;
@@ -735,6 +771,15 @@ SKIP_LOADING_TEXT:
 					CtrGpu_WritePackedXY(&p->x2, read1);
 					CtrGpu_WritePackedXY(&p->x1, write0);
 					CtrGpu_WritePackedXY(&p->x3, write1);
+#ifdef CTR_NATIVE
+					// The projected corners went through the scratchpad as words;
+					// carry their PGXP positions along, or the flag snaps to whole
+					// pixels and its wave moves in uneven steps.
+					NativePgxp_CopyXY(&p->x0, &readScreen->xy[pointIndex], read0);
+					NativePgxp_CopyXY(&p->x2, &readScreen->xy[pointIndex + 1], read1);
+					NativePgxp_CopyXY(&p->x1, &writeScreen->xy[pointIndex], write0);
+					NativePgxp_CopyXY(&p->x3, &writeScreen->xy[pointIndex + 1], write1);
+#endif
 
 					// prim/code
 					setPolyG4(p);

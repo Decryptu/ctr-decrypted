@@ -609,9 +609,12 @@ void VehPhysForce_CollideDrivers(struct Thread *thread, struct Driver *driver)
 		{
 			int diffY = CTR_MipsSubLo(CTR_MipsSra(driver->posCurr.y, 8), driver->spsHitPos.y);
 
-			driver->velocity.x = CTR_MipsAddLo(driver->velocity.x, CTR_MipsSll(diffX, 6));
-			driver->velocity.y = CTR_MipsAddLo(driver->velocity.y, CTR_MipsSll(diffY, 6));
-			driver->velocity.z = CTR_MipsAddLo(driver->velocity.z, CTR_MipsSll(diffZ, 6));
+			// A spring out of the surface, applied every frame: half of it per
+			// 60 FPS frame, or the kart bounces off bumpy slopes twice as hard
+			// and stalls climbing them.
+			driver->velocity.x = CTR_MipsAddLo(driver->velocity.x, CTR_MipsSll(diffX, FPS_LEFTSHIFT(6)));
+			driver->velocity.y = CTR_MipsAddLo(driver->velocity.y, CTR_MipsSll(diffY, FPS_LEFTSHIFT(6)));
+			driver->velocity.z = CTR_MipsAddLo(driver->velocity.z, CTR_MipsSll(diffZ, FPS_LEFTSHIFT(6)));
 		}
 	}
 }

@@ -10,9 +10,11 @@
   same spot compare. The 30 FPS ghost is also raced at 60 and its drift from
   the run that recorded it is printed next to the same race at 30.
 
-  Physics that scale correctly with frame time keep the finish within about a
-  percent (the autopilot reacts once per frame, so it never drives exactly the
-  same line) and matched jumps within a 30 FPS frame of airtime.
+  The autopilot reacts once per frame, so it never drives exactly the same
+  line and its laps vary by a few percent even at one frame rate: read the
+  finish times for stalls and falls that happen at one rate only. Matched
+  jumps land within a 30 FPS frame of airtime. For smaller differences, use
+  fps-drive.ps1 (the same scripted input at both rates).
 
 .EXAMPLE
   tools\decrypted\fps-parity.ps1 -Tracks 3,7 -Ghosts
