@@ -1,5 +1,6 @@
 #include "platform/native_dev.h"
 #include "platform/native_savestate.h"
+#include "platform/native_audio.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,6 +45,7 @@ typedef struct
 	int captureFrame; // F7: polygons, image and VRAM of this frame into NATIVE_DEV_CAPTURE_DIR
 	int loadStateFrame; // CTR_DEV_LOAD_STATE: load the quick savestate at this frame
 	int saveStateFrame; // CTR_DEV_SAVE_STATE: write the quick savestate at this frame
+	int pressCaptureFrame; // CTR_DEV_CAPTURE: press F7 at this frame
 	int vramShot; // this frame was presented straight from VRAM (vramX..vramH)
 	int vramX, vramY, vramW, vramH;
 } NativeDevState;
@@ -80,6 +82,7 @@ static NativeDevState *NativeDev_State(void)
 		s_dev.captureFrame = -1;
 		s_dev.loadStateFrame = NativeDev_EnvInt("CTR_DEV_LOAD_STATE", -1);
 		s_dev.saveStateFrame = NativeDev_EnvInt("CTR_DEV_SAVE_STATE", -1);
+		s_dev.pressCaptureFrame = NativeDev_EnvInt("CTR_DEV_CAPTURE", -1);
 		NativeRenderer_EnablePresentCapture(s_dev.presentedShot && s_dev.shotDir != NULL);
 	}
 	return &s_dev;
@@ -278,6 +281,8 @@ void NativeDev_RequestCapture(void)
 	NativeDev_MakeDir(NATIVE_DEV_CAPTURE_DIR);
 	// The frame being drawn may be half done; capture the next whole one.
 	dev->captureFrame = dev->frame + 1;
+	// And what was just heard: the last 20 seconds of audio and SPU audit.
+	NativeAudio_WriteCapture(NATIVE_DEV_CAPTURE_DIR, dev->captureFrame);
 }
 
 void NativeDev_EndFrame(void)
@@ -296,6 +301,8 @@ void NativeDev_EndFrame(void)
 		NativeSaveState_RequestLoad();
 	if (frame == dev->saveStateFrame)
 		NativeSaveState_RequestSave();
+	if (frame == dev->pressCaptureFrame)
+		NativeDev_RequestCapture();
 	s_devTagCount = 0;
 	NativeDev_RaceFrame();
 

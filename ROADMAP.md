@@ -20,7 +20,7 @@ Roughly in this order.
 | Item | Source |
 |---|---|
 | Check in game: camera wobble when accelerating, braking and turning; the flag when exiting a race to the hub from the pause menu | Owner playtest, 2026-10-31. Fixed in the build after it: the [precise camera](docs/PGXP.md#precise-camera), the 60 FPS steering, camera and surface-spring conversions ([60FPS.md](docs/60FPS.md#changes-beyond-high-octane)), the flag's PGXP vertices and its "LOADING..." letters. Frame-by-frame captures of the pause-menu exit, fast and real time, show no other flicker; if it remains, an `F7` capture of it is the next step |
-| White noise in the hub after winning a race | ctr-native-ap #484. Not reproduced offline: Adventure wins and back-to-back Gem Cups into the hub (`CTR_DEV_MODE=cup`) are clean by `audio_noise.py` in both builds. Still to test: a connected Archipelago session |
+| White noise in the hub after winning a race | ctr-native-ap #484, reported on v0.2.3. Not reproduced here, by `audio_noise.py` and the SPU audit: connected and offline, fast and real time, all four N. Sanity Beach trophies and a relic race back to back (`CTR_DEV_RACES`), Ripper Roo's boss-door scene, Gem Cups. The v0.2.3 podium exit and its boss-door replay after every Trophy win are gone (#235, #377). If it is heard in game, press `F7` right after: the capture holds the last 20 s of audio and the SPU audit ([DEV-TOOLS.md](docs/DEV-TOOLS.md#capturing-a-frame-while-playing)) |
 | Merge newer ctr-native upstream work (decomp matching, gameplay fixes since July 2026) | Both forks are 100+ commits behind. Expect ~460 conflict hunks |
 | Pre-race camera flyover is wrong | ctr-native #14 |
 

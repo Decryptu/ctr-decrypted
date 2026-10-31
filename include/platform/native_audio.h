@@ -29,6 +29,10 @@ void NativeAudio_SetXAVolume(int volumeLeft, int volumeRight);
 void NativeAudio_StopXA(void);
 void NativeAudio_StepVBlank(void);
 int NativeAudio_RenderFrames(s16 *out, int frameCount);
+// F7: the last 20 seconds of mixed output as dir/audio-NNNNNN.raw (16-bit
+// stereo PCM at 44100 Hz, tools/decrypted/audio_noise.py) and the SPU audit's
+// last rows as dir/spu-NNNNNN.csv.
+void NativeAudio_WriteCapture(const char *dir, int frame);
 void NativeAudio_SetDeterministicRenderMode(int enabled);
 int NativeAudio_IsDeterministicRenderMode(void);
 int NativeAudio_QueueRenderedFrames(const s16 *frames, int frameCount);

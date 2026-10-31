@@ -9,6 +9,7 @@
 
 #include <SDL3/SDL.h>
 #include <limits.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -368,6 +369,155 @@ struct NativeAudioSnapshot
 };
 
 global_variable struct NativeAudioState s_audio;
+
+// SPU audit: catches the sound bugs that become noise. Every 16-byte block of
+// SPU RAM keeps the number of the upload that last wrote it (0: never
+// written). A voice is decoding something other than its sample when it is
+// keyed on inside one (not at an upload's start, nor right after a block that
+// ends a sample: "midsample"), or decodes a block nobody uploaded
+// ("unwritten") or one uploaded after its key-on, a bank load under a playing
+// sound ("overwritten"). One row per voice and key-on: V,vblank,voice,kind,
+// block address,key-on address,pitch,volL,volR,adsr level,blocks played. Each
+// upload is a W,vblank,offset,size row. The last rows stay in memory for F7
+// (NativeAudio_WriteCapture); CTR_DEV_SPU_AUDIT=<csv> writes them all.
+#define NATIVE_AUDIO_AUDIT_ROWS 128
+#define NATIVE_AUDIO_AUDIT_ROW_CHARS 96
+
+struct NativeAudioSpuAudit
+{
+	FILE *out;
+	u32 uploads;
+	u32 vblank;
+	u32 blockUpload[NATIVE_AUDIO_SPU_MEMSIZE / NATIVE_AUDIO_ADPCM_BLOCK_BYTES];
+	u8 uploadStart[NATIVE_AUDIO_SPU_MEMSIZE / NATIVE_AUDIO_ADPCM_BLOCK_BYTES];
+	u32 keyOnUpload[NATIVE_AUDIO_SPU_VOICE_COUNT];
+	u32 blocksPlayed[NATIVE_AUDIO_SPU_VOICE_COUNT];
+	b32 reported[NATIVE_AUDIO_SPU_VOICE_COUNT];
+	char rows[NATIVE_AUDIO_AUDIT_ROWS][NATIVE_AUDIO_AUDIT_ROW_CHARS];
+	u32 numRows;
+};
+
+global_variable struct NativeAudioSpuAudit *s_spuAudit;
+
+// The last seconds of mixed output, for F7.
+#define NATIVE_AUDIO_HISTORY_FRAMES (NATIVE_AUDIO_SAMPLE_RATE * 20)
+
+struct NativeAudioHistory
+{
+	s16 pcm[NATIVE_AUDIO_HISTORY_FRAMES * NATIVE_AUDIO_CHANNELS];
+	u32 frames; // total frames written; the ring holds the last ones
+};
+
+global_variable struct NativeAudioHistory *s_audioHistory;
+
+internal void NativeAudio_AuditOpen(void)
+{
+	const char *path = getenv("CTR_DEV_SPU_AUDIT");
+
+	if (s_spuAudit == NULL)
+	{
+		s_spuAudit = calloc(1, sizeof(*s_spuAudit));
+		s_audioHistory = calloc(1, sizeof(*s_audioHistory));
+	}
+	if ((s_spuAudit != NULL) && (s_spuAudit->out == NULL) && (path != NULL) && (*path != '\0'))
+	{
+		s_spuAudit->out = fopen(path, "w");
+	}
+}
+
+internal void NativeAudio_AuditRow(const char *fmt, ...)
+{
+	char *row = s_spuAudit->rows[s_spuAudit->numRows++ % NATIVE_AUDIO_AUDIT_ROWS];
+	va_list args;
+
+	va_start(args, fmt);
+	vsnprintf(row, NATIVE_AUDIO_AUDIT_ROW_CHARS, fmt, args);
+	va_end(args);
+	if (s_spuAudit->out != NULL)
+	{
+		fprintf(s_spuAudit->out, "%s\n", row);
+		fflush(s_spuAudit->out);
+	}
+}
+
+internal void NativeAudio_AuditUpload(u32 offset, u32 size)
+{
+	u32 block;
+
+	if ((s_spuAudit == NULL) || (size == 0))
+	{
+		return;
+	}
+	s_spuAudit->uploads++;
+	s_spuAudit->uploadStart[offset / NATIVE_AUDIO_ADPCM_BLOCK_BYTES] = 1;
+	for (block = offset / NATIVE_AUDIO_ADPCM_BLOCK_BYTES; block <= (offset + size - 1) / NATIVE_AUDIO_ADPCM_BLOCK_BYTES; block++)
+	{
+		s_spuAudit->blockUpload[block] = s_spuAudit->uploads;
+	}
+	NativeAudio_AuditRow("W,%u,0x%x,0x%x", s_spuAudit->vblank, offset, size);
+}
+
+internal void NativeAudio_AuditReport(const struct NativeAudioVoice *voice, const char *kind)
+{
+	const int i = (int)(voice - s_audio.voices);
+
+	s_spuAudit->reported[i] = 1;
+	NativeAudio_AuditRow("V,%u,%d,%s,0x%x,0x%x,0x%x,%d,%d,%d,%u", s_spuAudit->vblank, i, kind, voice->stream.currentAddr, voice->attr.addr,
+	                     voice->attr.pitch, voice->attr.volume.left, voice->attr.volume.right, voice->adsrLevel, s_spuAudit->blocksPlayed[i]);
+}
+
+// Restarts the checks for a voice: at Key On, and for restored voices.
+internal void NativeAudio_AuditKeyOn(const struct NativeAudioVoice *voice)
+{
+	const int i = (int)(voice - s_audio.voices);
+
+	if (s_spuAudit == NULL)
+	{
+		return;
+	}
+	s_spuAudit->keyOnUpload[i] = s_spuAudit->uploads;
+	s_spuAudit->blocksPlayed[i] = 0;
+	s_spuAudit->reported[i] = 0;
+}
+
+internal void NativeAudio_AuditKeyOnAddr(const struct NativeAudioVoice *voice)
+{
+	const u32 block = voice->stream.currentAddr / NATIVE_AUDIO_ADPCM_BLOCK_BYTES;
+
+	if ((s_spuAudit == NULL) || (s_spuAudit->blockUpload[block] == 0) || s_spuAudit->uploadStart[block])
+	{
+		return;
+	}
+	if ((block == 0) || ((s_audio.spu.memory[(block - 1) * NATIVE_AUDIO_ADPCM_BLOCK_BYTES + 1] & ADPCM_LOOP_END) == 0))
+	{
+		NativeAudio_AuditReport(voice, "midsample");
+	}
+}
+
+internal void NativeAudio_AuditBlock(const struct NativeAudioVoice *voice)
+{
+	const int i = (int)(voice - s_audio.voices);
+	u32 upload;
+
+	if (s_spuAudit == NULL)
+	{
+		return;
+	}
+	s_spuAudit->blocksPlayed[i]++;
+	if (s_spuAudit->reported[i])
+	{
+		return;
+	}
+	upload = s_spuAudit->blockUpload[voice->stream.currentAddr / NATIVE_AUDIO_ADPCM_BLOCK_BYTES];
+	if (upload == 0)
+	{
+		NativeAudio_AuditReport(voice, "unwritten");
+	}
+	else if (upload > s_spuAudit->keyOnUpload[i])
+	{
+		NativeAudio_AuditReport(voice, "overwritten");
+	}
+}
 
 internal b32 NativeAudio_OutputOpen(void)
 {
@@ -1457,6 +1607,9 @@ internal void NativeAudio_VoiceStreamKeyOn(struct NativeAudioVoice *voice)
 	stream->repeatAddr = repeatAddr;
 	NativeAudio_DecodeVoiceBlock(stream);
 	stream->valid = 1;
+	NativeAudio_AuditKeyOn(voice);
+	NativeAudio_AuditKeyOnAddr(voice);
+	NativeAudio_AuditBlock(voice);
 }
 
 // returns 0 when the voice ended (Loop-End without Repeat: hardware jumps to
@@ -1482,6 +1635,10 @@ internal int NativeAudio_VoiceStreamAdvanceBlock(struct NativeAudioVoice *voice)
 	}
 
 	NativeAudio_DecodeVoiceBlock(stream);
+	if (!ended)
+	{
+		NativeAudio_AuditBlock(voice);
+	}
 	return !ended;
 }
 
@@ -2713,10 +2870,13 @@ int NativeAudio_RestoreState(const void *src, int srcSize)
 	s_audio.reverb = snapshot->reverb;
 	s_audio.commonAttr = snapshot->commonAttr;
 	memcpy(s_audio.spu.memory, snapshot->spuSampleMem, sizeof(s_audio.spu.memory));
+	NativeAudio_AuditUpload(0, sizeof(s_audio.spu.memory));
 	s_audio.spu.transferOffset = snapshot->spuTransferOffset;
 	for (i = 0; i < NATIVE_AUDIO_SPU_VOICE_COUNT; i++)
 	{
 		NativeAudio_CopyStateToVoice(&s_audio.voices[i], &snapshot->voices[i]);
+		// the restored voices were keyed on over this same memory
+		NativeAudio_AuditKeyOn(&s_audio.voices[i]);
 	}
 
 	if (snapshot->xa.active && snapshot->xa.hasTrackIdentity)
@@ -2882,6 +3042,16 @@ internal int NativeAudio_RenderFramesNoLock(s16 *out, int frameCount)
 		}
 	}
 
+	if (s_audioHistory != NULL)
+	{
+		for (frame = 0; frame < frameCount; frame++)
+		{
+			const u32 slot = (s_audioHistory->frames++ % NATIVE_AUDIO_HISTORY_FRAMES) * NATIVE_AUDIO_CHANNELS;
+			s_audioHistory->pcm[slot] = out[frame * NATIVE_AUDIO_CHANNELS];
+			s_audioHistory->pcm[slot + 1] = out[frame * NATIVE_AUDIO_CHANNELS + 1];
+		}
+	}
+
 	return frameCount;
 }
 
@@ -2903,6 +3073,50 @@ int NativeAudio_RenderFrames(s16 *out, int frameCount)
 	return framesRendered;
 }
 
+void NativeAudio_WriteCapture(const char *dir, int frame)
+{
+	char path[512];
+	FILE *f;
+	u32 i;
+
+	if ((s_spuAudit == NULL) || (s_audioHistory == NULL))
+	{
+		return;
+	}
+
+	NativeAudio_LockOutput();
+
+	snprintf(path, sizeof(path), "%s/audio-%06d.raw", dir, frame);
+	f = fopen(path, "wb");
+	if (f != NULL)
+	{
+		const u32 count = (s_audioHistory->frames < NATIVE_AUDIO_HISTORY_FRAMES) ? s_audioHistory->frames : NATIVE_AUDIO_HISTORY_FRAMES;
+		const u32 first = s_audioHistory->frames - count;
+
+		for (i = 0; i < count; i++)
+		{
+			fwrite(&s_audioHistory->pcm[((first + i) % NATIVE_AUDIO_HISTORY_FRAMES) * NATIVE_AUDIO_CHANNELS], sizeof(s16), NATIVE_AUDIO_CHANNELS, f);
+		}
+		fclose(f);
+	}
+
+	snprintf(path, sizeof(path), "%s/spu-%06d.csv", dir, frame);
+	f = fopen(path, "w");
+	if (f != NULL)
+	{
+		const u32 count = (s_spuAudit->numRows < NATIVE_AUDIO_AUDIT_ROWS) ? s_spuAudit->numRows : NATIVE_AUDIO_AUDIT_ROWS;
+
+		for (i = s_spuAudit->numRows - count; i < s_spuAudit->numRows; i++)
+		{
+			fprintf(f, "%s\n", s_spuAudit->rows[i % NATIVE_AUDIO_AUDIT_ROWS]);
+		}
+		fprintf(f, "N,%u\n", s_spuAudit->vblank);
+		fclose(f);
+	}
+
+	NativeAudio_UnlockOutput();
+}
+
 void NativeAudio_StepVBlank(void)
 {
 #ifdef CTR_INTERNAL
@@ -2919,6 +3133,10 @@ void NativeAudio_StepVBlank(void)
 
 	NativePerf_BeginScope(NATIVE_PERF_BUCKET_AUDIO_VBLANK);
 	NativeAudio_LockOutput();
+	if (s_spuAudit != NULL)
+	{
+		s_spuAudit->vblank++;
+	}
 
 	if (s_audio.output.deterministicRenderMode)
 	{
@@ -3061,6 +3279,7 @@ s32 NativeAudio_SpuInit(void)
 	}
 
 	s_audio.init = 1;
+	NativeAudio_AuditOpen();
 	// CTR_DEV_FAST: the SPU and XA streams normally advance in SDL's real-time
 	// callback, and the game waits on them (title music, cutscenes). Drive
 	// them from the VBlank clock instead, as replays do, from the very first
@@ -3105,6 +3324,7 @@ u32 NativeAudio_SpuWrite(const u8 *addr, u32 size)
 	// nothing to invalidate: voices read SPU RAM live, the write is just
 	// heard, like hardware -penta3
 	memcpy(&s_audio.spu.memory[wptrOfs], addr, size);
+	NativeAudio_AuditUpload((u32)wptrOfs, size);
 
 	NativeAudio_UnlockOutput();
 

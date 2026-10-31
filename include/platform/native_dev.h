@@ -59,7 +59,8 @@ FILE *NativeDev_DumpFile(void);
 
 // F7 in a running game: the next frame's polygon dump (as CTR_DEV_DUMP_FRAME),
 // its image and its VRAM go to debug/captures, for bugs only a person can
-// reach.
+// reach, with the last 20 seconds of audio and the SPU audit
+// (NativeAudio_WriteCapture). CTR_DEV_CAPTURE=<frame> presses it at a frame.
 void NativeDev_RequestCapture(void);
 
 // CTR_DEV_STACK_POISON=<byte>: at the top of each main-loop frame, fill the
@@ -79,7 +80,8 @@ int NativeDev_PrimTag(const void *addr);
 // CTR_DEV_MODE=adv an Adventure trophy race (default Arcade); CTR_DEV_LAPS
 // sets the lap count. -1 if unset. CTR_DEV_MODE=cup runs the Gem Cups listed
 // in CTR_DEV_CUPS back to back (no CTR_DEV_RACE needed), and CTR_DEV_PODIUM
-// gets each cup's podium.
+// gets each cup's podium. With CTR_DEV_MODE=adv, CTR_DEV_RACES=3,6r runs those
+// Adventure races back to back through the hub (r: the relic race).
 int NativeDev_RaceTrack(void);
 // CTR_DEV_PLAYERS=2..4 makes CTR_DEV_RACE a VS race for that many players.
 // CTR_DEV_CHEATS=<bits> turns on gameMode2 cheats for it (CHEAT_* values).

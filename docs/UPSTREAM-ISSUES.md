@@ -112,7 +112,7 @@ All four are GPL-3.0. dowlle's `ctr.apworld` is MIT.
 
 **Open bugs:**
 - #499: with vanilla unlock requirements the stage-2 key count is ignored. Fixed in the apworld we ship (PR #154).
-- #484: white noise in the hub after winning a race.
+- #484: white noise in the hub after winning a race (v0.2.3). Not reproduced here; see the roadmap.
 - #466: the progressive stats bar doesn't match the items collected. Fixed in client `main` (PR #469), which we have.
 - #282: invisible podium racers. Both reports fixed here: Oxide in 1st wears his lose-dance model (his win-dance file on the disc is empty), and the cup standings no longer keep stale slots after a smaller field (`UI_CupStandings_UpdateCupRanks`, covered by `tools/test-cup-ranks.py`).
 - #205: unguarded instance births. Fixed in #468; the issue is still open.

@@ -35,6 +35,9 @@ typedef struct
 	int numCups;
 	int nextCup;
 	int cupRunning;
+	int races[16]; // CTR_DEV_RACES: Adventure races back to back, LevelID | NATIVE_DEV_RELIC
+	int numRaces;
+	int nextRace;
 	int hubFrames;
 	const char *podiumPath;
 	int players;
@@ -62,6 +65,9 @@ typedef struct
 } NativeDevRaceState;
 
 static NativeDevRaceState s_devRace;
+
+// CTR_DEV_RACES: the entry is that track's relic race.
+#define NATIVE_DEV_RELIC 0x100
 
 static NativeDevRaceState *NativeDevRace_State(void)
 {
@@ -93,6 +99,31 @@ static NativeDevRaceState *NativeDevRace_State(void)
 			// picks its own tracks.
 			if ((s_devRace.numCups > 0) && (s_devRace.raceTrack < 0))
 				s_devRace.raceTrack = 0;
+		}
+		if (s_devRace.adventure && !s_devRace.cup)
+		{
+			// CTR_DEV_RACES=3,6r,8: Adventure races in order, the first from
+			// the title menu, the rest from the hub the previous one returns
+			// to. An r makes it the track's relic race.
+			const char *p = getenv("CTR_DEV_RACES");
+			while ((p != NULL) && (*p != '\0') && (s_devRace.numRaces < 16))
+			{
+				char *end;
+				const long levelID = strtol(p, &end, 10);
+				if (end == p)
+					break;
+				int race = (int)levelID;
+				if (*end == 'r')
+				{
+					race |= NATIVE_DEV_RELIC;
+					end++;
+				}
+				if ((levelID >= 0) && (levelID < GEM_STONE_VALLEY))
+					s_devRace.races[s_devRace.numRaces++] = race;
+				p = (*end == ',') ? end + 1 : end;
+			}
+			if (s_devRace.numRaces > 0)
+				s_devRace.raceTrack = s_devRace.races[s_devRace.nextRace++];
 		}
 		s_devRace.laps = NativeDev_EnvInt("CTR_DEV_LAPS", 0);
 		s_devRace.autopilot = NativeDev_EnvInt("CTR_DEV_AUTOPILOT", 0);
@@ -192,8 +223,10 @@ int NativeDev_StartRace(struct GameTracker *gGT)
 	if (dev->adventure)
 	{
 		gGT->gameMode1 |= ADVENTURE_MODE;
+		if ((dev->raceTrack & NATIVE_DEV_RELIC) != 0)
+			gGT->gameMode1 |= RELIC_RACE;
 		gGT->numLaps = (char)((dev->laps > 0) ? dev->laps : 3);
-		return dev->raceTrack;
+		return dev->raceTrack & ~NATIVE_DEV_RELIC;
 	}
 
 	if (!dev->timeTrial)
@@ -366,10 +399,11 @@ int NativeDev_AutopilotPad(int player, unsigned short *buttons, unsigned char *l
 
 	// Adventure: after the race and on the podium, tap Cross every half second
 	// so the run continues into the hub, where the pad is left alone. Between
-	// cups it also dismisses Aku Aku's hints, so the next cup can start.
+	// cups or CTR_DEV_RACES it also dismisses Aku Aku's hints, so the next one
+	// can start.
 	if (dev->adventure && (player == 0) && (gGT != NULL) && (sdata->Loading.stage == LOAD_IDLE) &&
 	    ((((gGT->gameMode1 & END_OF_RACE) != 0) && (NativeDevRace_Player(0) != NULL)) || ((gGT->gameMode2 & VEH_FREEZE_PODIUM) != 0) ||
-	     (dev->cup && (sdata->AkuAkuHintState != 0))))
+	     ((dev->cup || (dev->numRaces > 0)) && (sdata->AkuAkuHintState != 0))))
 	{
 		unsigned short held = ((sdata->frameCounter / 15) & 1) ? RAW_BTN_CROSS : 0;
 		*buttons = (unsigned short)~held;
@@ -506,10 +540,11 @@ int NativeDev_AutopilotPad(int player, unsigned short *buttons, unsigned char *l
 // CTR_DEV_MODE=cup, in the hub a finished cup returns to. On arrival,
 // CTR_DEV_PODIUM=<csv> gets the podium the cup set up: the racer on each step
 // (-1 for an empty step) and the cup's final order. Once the podium is over,
-// the next cup in CTR_DEV_CUPS starts as its warp pad would start it.
-static void NativeDevRace_CupHub(NativeDevRaceState *dev, struct GameTracker *gGT)
+// the next cup in CTR_DEV_CUPS starts as its warp pad would start it. With
+// CTR_DEV_MODE=adv, the next race in CTR_DEV_RACES starts the same way.
+static void NativeDevRace_AdventureHub(NativeDevRaceState *dev, struct GameTracker *gGT)
 {
-	if (!dev->cup || (gGT == NULL) || (sdata->Loading.stage != LOAD_IDLE) || ((gGT->gameMode1 & ADVENTURE_ARENA) == 0))
+	if (!dev->adventure || (gGT == NULL) || (sdata->Loading.stage != LOAD_IDLE) || ((gGT->gameMode1 & ADVENTURE_ARENA) == 0))
 	{
 		dev->hubFrames = 0;
 		return;
@@ -540,13 +575,22 @@ static void NativeDevRace_CupHub(NativeDevRaceState *dev, struct GameTracker *gG
 		dev->hubFrames = 0;
 		return;
 	}
-	if ((++dev->hubFrames < 60) || (dev->nextCup >= dev->numCups))
+	if ((++dev->hubFrames < 60) || (dev->cup ? (dev->nextCup >= dev->numCups) : (dev->nextRace >= dev->numRaces)))
 		return;
 
 	dev->hubFrames = 0;
-	sdata->Loading.OnBegin.AddBitsConfig0 |= ADVENTURE_CUP;
 	sdata->Loading.OnBegin.RemBitsConfig0 |= ADVENTURE_ARENA;
-	MainRaceTrack_RequestLoad(NativeDevRace_EnterCup(gGT, dev));
+	if (dev->cup)
+	{
+		sdata->Loading.OnBegin.AddBitsConfig0 |= ADVENTURE_CUP;
+		MainRaceTrack_RequestLoad(NativeDevRace_EnterCup(gGT, dev));
+		return;
+	}
+	const int race = dev->races[dev->nextRace++];
+	if ((race & NATIVE_DEV_RELIC) != 0)
+		sdata->Loading.OnBegin.AddBitsConfig0 |= RELIC_RACE;
+	gGT->numLaps = (char)((dev->laps > 0) ? dev->laps : 3);
+	MainRaceTrack_RequestLoad(race & ~NATIVE_DEV_RELIC);
 }
 
 // CTR_DEV_WARP=x,y,z,angle: once a level has loaded, hold player 1 at that
@@ -588,7 +632,7 @@ void NativeDev_RaceFrame(void)
 	struct GameTracker *gGT = sdata->gGT;
 	struct Driver *d = NativeDevRace_Player(0);
 
-	NativeDevRace_CupHub(dev, gGT);
+	NativeDevRace_AdventureHub(dev, gGT);
 	NativeDevRace_Warp(dev, gGT);
 
 	if (d == NULL)
