@@ -1110,10 +1110,15 @@ GLint u_disableDitherLoc;
 	    "		t.w = 1.0 - t.w;\n"                                                                                                                        \
 	    "		return t;\n"                                                                                                                               \
 	    "	}\n"                                                                                                                                        \
+	    "	vec3 superPadCyan(vec3 c) {\n"                                                                                                             \
+	    "		float l = max(c.r, max(c.g, c.b));\n"                                                                                                    \
+	    "		return vec3(l * 0.3, min(1.0, l * 1.25), min(1.0, l * 1.25 + 0.065));\n"                                                                \
+	    "	}\n"                                                                                                                                        \
 	    "	void main() {\n"                                                                                                                            \
 	    "		vec2 tc = v_texcoord.xy;\n"                                                                                                                \
 	    "		if (v_uvLimits.z + v_uvLimits.w > 0.0) tc = clamp(tc, v_uvLimits.xy, v_uvLimits.zw);\n"                                                    \
 	    "		vec4 color = (bilinearFilter > 0) ? bilinearTextureSample(tc) : nearestTextureSample(tc);\n"                                               \
+	    "		if (v_superPadCyan > 0.5) color.rgb = superPadCyan(color.rgb);\n"                                                                          \
 	    "		fragColor = dither(color * v_color);\n"                                                                                                    \
 	    "		fragColor.a = (psxDrawMaskSet != 0 || (psxTextureOutputStp != 0 && sampledStp >= 0.5)) ? 1.0 : 0.0;\n"                                     \
 	    "	}\n"
@@ -1130,6 +1135,7 @@ global_variable const char *gpu_shader_common = "	varying vec4 v_texcoord;\n"
                                                 "	noperspective varying vec4 v_color;\n"
                                                 "	flat varying vec4 v_page_clut;\n"
                                                 "	flat varying vec4 v_uvLimits;\n"
+                                                "	flat varying float v_superPadCyan;\n"
                                                 "	noperspective varying vec2 v_ditherCoord;\n"
                                                 "	varying float v_z;\n";
 
@@ -1170,8 +1176,10 @@ const char *gte_shader_32_rgba = "	uniform sampler2D s_texture;\n"
 	"		v_color.xyz *= a_texcoord.z;\n"                                                                             \
 	"		v_page_clut.x = fract(a_page_clut.x / 16.0) * 1024.0;\n"                                                    \
 	"		v_page_clut.y = floor(a_page_clut.x / 16.0) * 256.0;\n"                                                     \
-	"		v_page_clut.z = fract(a_page_clut.y / 64.0);\n"                                                             \
-	"		v_page_clut.w = floor(a_page_clut.y / 64.0) / 512.0;\n"                                                     \
+	"		float clutWord = a_page_clut.y < 0.0 ? a_page_clut.y + 32768.0 : a_page_clut.y;\n"                         \
+	"		v_superPadCyan = a_page_clut.y < 0.0 ? 1.0 : 0.0;\n"                                                        \
+	"		v_page_clut.z = fract(clutWord / 64.0);\n"                                                                  \
+	"		v_page_clut.w = floor(clutWord / 64.0) / 512.0;\n"                                                          \
 	"		v_page_clut.xy += c_UVFudge;\n"                                                                             \
 	"		v_page_clut.zw += c_UVFudge;\n" GTE_PERSPECTIVE_CORRECTION "		v_z = (gl_Position.z - 40.0) * 0.005;\n" \
 	GTE_PGXP_DEPTH                                                                                                 \

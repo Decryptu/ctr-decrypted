@@ -99,6 +99,10 @@ int NativeDev_AutopilotPad(int player, unsigned short *buttons, unsigned char *l
 // CTR_DEV_EXIT_AFTER_RACE=1 quits a second after the finish.
 // CTR_DEV_RESULTS=<csv> gets every racer's rank, lap and distance to the
 // finish at CTR_DEV_RESULTS_MS of race time (default 30000).
+// CTR_DEV_QUAD_DUMP=<csv>: the level's quadblocks as it loads (LevInstDef_UnPack).
+struct mesh_info;
+void NativeDev_QuadDump(const struct mesh_info *mesh);
+
 void NativeDev_RaceFrame(void);
 void NativeDev_RaceShutdown(void);
 

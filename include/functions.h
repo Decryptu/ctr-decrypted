@@ -706,6 +706,8 @@ void UI_DrawSlideMeter(s16 posX, s16 posY, struct Driver *driver);
 #ifdef CTR_NATIVE
 void UI_DrawReservesMeter(s16 posX, s16 posY, struct Driver *driver);
 void VehBlueFire_Tick(struct GameTracker *gGT);
+void LevSuperTurboPads_Mark(struct GameTracker *gGT);
+void LevSuperTurboPads_Cycle(struct GameTracker *gGT);
 #endif
 #ifdef CTR_AP
 void UI_DrawSpeedNum(s16 posX, s16 posY, struct Driver *driver);

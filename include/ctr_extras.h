@@ -46,4 +46,50 @@ static inline int CtrExtras_BlueFireWanted(int reserves, int fireSpeedCap, int s
 	return reserves != 0 && fireSpeedCap > sacredFireSpeed;
 }
 
+// "Cyan Super Turbo Pads": which level quads draw a super turbo pad.
+// A pad's trigger is an invisible quad (QUADBLOCK_FLAG_TRIGGER) whose terrain
+// byte carries the turbo or super turbo step bit. The pad you see is a separate
+// visible quad laid over it, textured with the pad's animated arrows; ordinary
+// and super pads share that animation. Measured on Hot Air Skyway, Oxide
+// Station, Cortex Castle and Turbo Track (tools/decrypted/quad_dump.py).
+
+// Share of box a's X/Z footprint covered by box b, in thousandths.
+static inline int CtrExtras_FootprintCover(int aMinX, int aMaxX, int aMinZ, int aMaxZ,
+                                           int bMinX, int bMaxX, int bMinZ, int bMaxZ)
+{
+	int w = (aMaxX < bMaxX ? aMaxX : bMaxX) - (aMinX > bMinX ? aMinX : bMinX);
+	int d = (aMaxZ < bMaxZ ? aMaxZ : bMaxZ) - (aMinZ > bMinZ ? aMinZ : bMinZ);
+	if (w <= 0 || d <= 0)
+		return 0;
+	long long area = (long long)(aMaxX - aMinX > 0 ? aMaxX - aMinX : 1) * (aMaxZ - aMinZ > 0 ? aMaxZ - aMinZ : 1);
+	return (int)(((long long)w * d * 1000) / area);
+}
+
+// A visible quad is a pad's overlay when it covers most of a turbo trigger's
+// footprint: every pad overlay measured covers its trigger by 98% or more,
+// while road quads beside a pad cover at most about half.
+#define CTR_EXTRAS_PAD_COVER 900
+static inline int CtrExtras_QuadIsPadOverlay(int triggerCoveredByQuad)
+{
+	return triggerCoveredByQuad >= CTR_EXTRAS_PAD_COVER;
+}
+
+// ...and lies at the trigger's height: overlays measured sit within 30 units
+// of it, so 256 keeps out the road on a level above or below. Centres are
+// passed doubled (min + max) to stay in integers.
+#define CTR_EXTRAS_PAD_HEIGHT 256
+static inline int CtrExtras_QuadAtTriggerHeight(int quadCenterY2, int triggerCenterY2)
+{
+	int dy = quadCenterY2 - triggerCenterY2;
+	if (dy < 0)
+		dy = -dy;
+	return dy <= 2 * CTR_EXTRAS_PAD_HEIGHT;
+}
+
+// The palette word's top bit marks a super-pad face for the renderer. PSX
+// palette words keep it clear (the hardware requires 0 there), so it never
+// collides with real data; the shader clears it before the palette lookup
+// and recolours the texel cyan (platform/native_renderer.c).
+#define CTR_EXTRAS_CYAN_CLUT_BIT 0x8000u
+
 #endif

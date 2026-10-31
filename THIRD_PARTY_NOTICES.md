@@ -330,14 +330,17 @@ Source: <https://github.com/CTR-tools/CTR-ModSDK>
 
 License: GPL-3.0, the same license as this project.
 
-## CTR ModSDK ReservesMeter and High Octane slide meter gradient
+## CTR ModSDK ReservesMeter, High Octane slide meter gradient and cyan pads
 
 Paths: `game/UI/UI_Meter.c`, `ap/ap_reserves_meter_logic.h`,
-`game/Vehicle/VehFire.c`, `include/ctr_extras.h`
+`game/Vehicle/VehFire.c`, `include/ctr_extras.h`, `game/LevSuperTurboPads.c`,
+`platform/native_renderer.c` (the cyan recolour)
 
 The Extras rows "Reserves Meter" and "Keep Reserve Fire" port the ReservesMeter
 module: the meter's geometry, colour thresholds and the exhaust-fire tweak.
-"Slide Meter Gradient" follows High Octane's progressive powerslide bar colours.
+"Slide Meter Gradient" follows High Octane's progressive powerslide bar colours,
+and "Cyan Super Pads" uses High Octane's cyan recolour formula (the pad
+detection and the renderer path are this project's own).
 
 ReservesMeter: Superstarxalien
 

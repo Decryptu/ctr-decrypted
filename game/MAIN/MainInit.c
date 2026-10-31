@@ -918,6 +918,11 @@ void MainInit_FinalizeInit(struct GameTracker *gGT)
 
 	MainInit_RainBuffer(gGT);
 
+#ifdef CTR_NATIVE
+	// Extras "Cyan Super Turbo Pads": after the level's own allocations.
+	LevSuperTurboPads_Mark(gGT);
+#endif
+
 	// animates water, 1P mode
 	AnimateWater1P(gGT->timer, lev1->numWaterVertices, lev1->ptr_water, lev1->ptr_tex_waterEnvMap, lev1->unk5);
 

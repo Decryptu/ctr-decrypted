@@ -71,6 +71,21 @@ int main(void)
 	expect("no reserves is red", CtrExtras_BlueFireWanted(0, 0x4800, 0x1000), 0);
 	expect("wrapped reserves at USF stay blue", CtrExtras_BlueFireWanted(-5, 0x4800, 0x1000), 1);
 
+	// Pad overlays measured on Hot Air Skyway: super trigger 410 is
+	// x 10176..10944, z 5756..6525, y -944..-584. Overlay quad 411 matches it
+	// (road quad 408 does too, but carries no animation, which the caller
+	// checks), and a road quad shifted half a pad along covers half of it.
+	expect("overlay covers its trigger fully",
+	       CtrExtras_FootprintCover(10176, 10944, 5756, 6525, 10176, 10944, 5756, 6525), 1000);
+	expect("overlay counts as a pad",
+	       CtrExtras_QuadIsPadOverlay(CtrExtras_FootprintCover(10176, 10944, 5756, 6525, 10176, 10944, 5756, 6525)), 1);
+	expect("road beside a pad is not one",
+	       CtrExtras_QuadIsPadOverlay(CtrExtras_FootprintCover(10176, 10944, 5756, 6525, 10560, 11328, 5756, 6525)), 0);
+	expect("touching edges cover nothing", CtrExtras_FootprintCover(0, 100, 0, 100, 100, 200, 0, 100), 0);
+	expect("same height", CtrExtras_QuadAtTriggerHeight(-944 + -584, -944 + -584 + 60), 1);
+	expect("a level above is not", CtrExtras_QuadAtTriggerHeight(-944 + -584, -944 + -584 + 2 * 600), 0);
+	expect("cyan bit is free in PSX palette words", (0x7FFF & CTR_EXTRAS_CYAN_CLUT_BIT) == 0, 1);
+
 	printf(failures ? "\n%d FAILED\n" : "\nall passed\n", failures);
 	return failures != 0;
 }

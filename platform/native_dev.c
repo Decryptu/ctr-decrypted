@@ -28,6 +28,7 @@ typedef struct
 	FILE *dump;
 	int frame;
 	int presentedShot; // capture what reaches the window, after the screen filter
+	int vramDumpFrame; // CTR_DEV_VRAM_DUMP: save all of VRAM at this frame
 	int vramShot; // this frame was presented straight from VRAM (vramX..vramH)
 	int vramX, vramY, vramW, vramH;
 } NativeDevState;
@@ -59,6 +60,7 @@ static NativeDevState *NativeDev_State(void)
 		s_dev.exitFrame = NativeDev_EnvInt("CTR_DEV_EXIT_FRAME", 0);
 		s_dev.dumpFrame = NativeDev_EnvInt("CTR_DEV_DUMP_FRAME", -1);
 		s_dev.presentedShot = NativeDev_EnvInt("CTR_DEV_SHOT_PRESENTED", 0);
+		s_dev.vramDumpFrame = NativeDev_EnvInt("CTR_DEV_VRAM_DUMP", -1);
 		NativeRenderer_EnablePresentCapture(s_dev.presentedShot && s_dev.shotDir != NULL);
 	}
 	return &s_dev;
@@ -238,6 +240,26 @@ void NativeDev_EndFrame(void)
 			snprintf(path, sizeof(path), "%s/f%06d.bmp", dev->shotDir, frame);
 			NativeDev_WriteBmp(path, rgba, w, h);
 			free(rgba);
+		}
+	}
+
+	// CTR_DEV_VRAM_DUMP=N: all of VRAM at frame N as raw 15-bit PSX pixels,
+	// 1024x512 little-endian, in CTR_DEV_SHOT_DIR (tools/decrypted/vram_png.py).
+	if (frame == dev->vramDumpFrame)
+	{
+		unsigned short *vram = malloc(1024 * 512 * sizeof(unsigned short));
+		if (vram != NULL)
+		{
+			char path[1024];
+			snprintf(path, sizeof(path), "%s/vram%06d.bin", dev->shotDir != NULL ? dev->shotDir : ".", frame);
+			NativeRenderer_ReadVRAM(vram, 0, 0, 1024, 512);
+			FILE *f = fopen(path, "wb");
+			if (f != NULL)
+			{
+				fwrite(vram, sizeof(unsigned short), 1024 * 512, f);
+				fclose(f);
+			}
+			free(vram);
 		}
 	}
 

@@ -14,6 +14,10 @@ void LevInstDef_UnPack(struct mesh_info *ptr_mesh_info)
 	numQuadBlock = ptr_mesh_info->numQuadBlock;
 	ptrQuadBlockArray = ptr_mesh_info->ptrQuadBlockArray;
 
+#if defined(CTR_NATIVE) && defined(CTR_INTERNAL)
+	NativeDev_QuadDump(ptr_mesh_info); // CTR_DEV_QUAD_DUMP
+#endif
+
 	// loop through all quadblocks
 	for (i = 0; i < numQuadBlock; i++)
 	{

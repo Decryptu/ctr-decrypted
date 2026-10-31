@@ -44,7 +44,7 @@ static const char *const s_ctrMenuPageGameplay[] = {
 	"mute_when_unfocused", NULL,
 };
 static const char *const s_ctrMenuPageExtras[] = {
-	"reserves_meter", "reserve_fire", "blue_fire", "slide_meter_colours", NULL,
+	"reserves_meter", "reserve_fire", "blue_fire", "slide_meter_colours", "super_pad_colour", NULL,
 };
 static const char *const s_ctrMenuPageControls[] = {
 	NULL,

@@ -36,6 +36,7 @@ NativeConfig g_config = {
 	false, // reserveFire (off: retail hides powerslide fire)
 	false, // blueFire (off: retail red fire)
 	false, // slideMeterColours (off: retail two-colour bar)
+	false, // superPadColour (off: retail pads)
 	NATIVE_WINDOW_GEOMETRY_POS_UNSET, // windowX  (unset = never saved)
 	NATIVE_WINDOW_GEOMETRY_POS_UNSET, // windowY
 	0,     // windowWidth  (0 = never saved)
@@ -132,6 +133,7 @@ const ConfigEntry g_configEntries[] = {
 	{"Extras",      "reserve_fire",             "Keep Reserve Fire",            CFG_BOOL, &g_config.reserveFire},
 	{"Extras",      "blue_fire",                "Blue Fire At USF",             CFG_BOOL, &g_config.blueFire},
 	{"Extras",      "slide_meter_colours",      "Slide Meter Gradient",         CFG_BOOL, &g_config.slideMeterColours},
+	{"Extras",      "super_pad_colour",         "Cyan Super Pads (Next Load)",  CFG_BOOL, &g_config.superPadColour},
 #ifdef CTR_AP
 	// Skip Podium Ceremonies (issue #285, CFG_BOOL): a LOCAL client option, off
 	// by default, that drops the hub podium for an ordinary Trophy, CTR

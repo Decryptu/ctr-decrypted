@@ -520,3 +520,52 @@ void NativeDev_RaceShutdown(void)
 		s_devRace.trace = NULL;
 	}
 }
+
+// CTR_DEV_QUAD_DUMP=<csv>: every quadblock of the level as it loads (called
+// from LevInstDef_UnPack), for studying level data offline: index, flags,
+// terrain, bounding box, and each texture slot's pointer, palette (clut) and
+// page. An animated slot (tagged pointer) reports its first frame and how many
+// frames it has. tools/decrypted/quad_dump.py reads it.
+static void NativeDev_QuadTexture(FILE *f, const void *slot)
+{
+	uintptr_t p = (uintptr_t)slot;
+	const struct TextureLayout *t = (const struct TextureLayout *)p;
+	int frames = 0;
+	if (p & 1)
+	{
+		const struct AnimTex *anim = (const struct AnimTex *)(p - 1);
+		frames = anim->numFrames;
+		t = (const struct TextureLayout *)(ANIMTEX_GETARRAY(anim))[0];
+	}
+	if (t == NULL)
+		fprintf(f, ",0,0,0,0");
+	else
+		fprintf(f, ",%lx,%d,%u,%u", (unsigned long)p, frames, t->clut, t->tpage);
+}
+
+void NativeDev_QuadDump(const struct mesh_info *mesh)
+{
+	const char *path = getenv("CTR_DEV_QUAD_DUMP");
+	if (path == NULL || *path == '\0' || mesh == NULL)
+		return;
+	FILE *f = fopen(path, "a");
+	if (f == NULL)
+		return;
+	fprintf(f, "# level %d, %d bytes free in the level pack\n", sdata->gGT->levelID, MEMPACK_GetFreeBytes());
+	fprintf(f, "level,quad,flags,terrain,minx,miny,minz,maxx,maxy,maxz");
+	fprintf(f, ",low,lowFrames,lowClut,lowTpage");
+	for (int face = 0; face < 4; face++)
+		fprintf(f, ",mid%d,mid%dFrames,mid%dClut,mid%dTpage", face, face, face, face);
+	fprintf(f, "\n");
+	for (int i = 0; i < mesh->numQuadBlock; i++)
+	{
+		const struct QuadBlock *q = &mesh->ptrQuadBlockArray[i];
+		fprintf(f, "%d,%d,%u,%u,%d,%d,%d,%d,%d,%d", sdata->gGT->levelID, i, (unsigned)q->quadFlags, q->terrain_type,
+		        q->bbox.min.x, q->bbox.min.y, q->bbox.min.z, q->bbox.max.x, q->bbox.max.y, q->bbox.max.z);
+		NativeDev_QuadTexture(f, q->ptr_texture_low);
+		for (int face = 0; face < 4; face++)
+			NativeDev_QuadTexture(f, q->ptr_texture_mid[face]);
+		fprintf(f, "\n");
+	}
+	fclose(f);
+}

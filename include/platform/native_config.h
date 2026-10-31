@@ -77,6 +77,8 @@ typedef struct
 	bool slideMeterColours;     // Extras: powerslide bar fades green to yellow
 	                            // to red instead of two flat colours
 	                            // (UI_DrawSlideMeter).
+	bool superPadColour;        // Extras: super turbo pads drawn cyan, applied at
+	                            // level load (game/LevSuperTurboPads.c).
 	// Remembered window position/size (issue: "remember window position and size
 	// between sessions" -- streaming setups want the same window every launch).
 	// Config-file-only, [State] section, the update_last_seen precedent: this is

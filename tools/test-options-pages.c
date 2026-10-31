@@ -127,7 +127,7 @@ int main(void)
 			"skip_intro", "skip_hints", "skip_podium", "skip_cutscenes", "ai_difficulty",
 			"mute_when_unfocused", NULL};
 		static const char *const extras[] = {
-			"reserves_meter", "reserve_fire", "blue_fire", "slide_meter_colours", NULL};
+			"reserves_meter", "reserve_fire", "blue_fire", "slide_meter_colours", "super_pad_colour", NULL};
 		static const char *const controls[] = {NULL};
 		static const char *const connection[] = {"uri", "slot", "password", NULL};
 		static const char *const archipelago[] = {

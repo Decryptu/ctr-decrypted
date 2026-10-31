@@ -85,7 +85,7 @@ All four are GPL-3.0. dowlle's `ctr.apworld` is MIT.
 - #35: mirror mode isn't applied to the Adventure hub.
 - #34: Vita stick problems after AdHoc.
 - #24: softlock after beating Oxide; doesn't happen in ctr-native. High Octane-only; the same path works here.
-- #9: the all-super-turbopads cheat doesn't turn pads cyan.
+- #9: the all-super-turbopads cheat doesn't turn pads cyan. Handled here: Cyan Super Pads reads the cheat at level load and turns every pad cyan ([EXTRAS.md](EXTRAS.md)).
 - #42: a Hot Air Skyway shortcut is harder than on emulator (physics).
 - #39: Penta should use the PAL engine sound.
 - #46: no VSync option.
