@@ -326,7 +326,7 @@ assert re.search(r"AP_ContentMenuRows\(pad, &apRsRows\);", warp)
 with tempfile.TemporaryDirectory() as temporary:
     path = Path(temporary) / "ctrfirst.c"
     binary = Path(temporary) / "ctrfirst"
-    path.write_text(fixture)
+    path.write_text(fixture, encoding="utf-8")
     subprocess.run(["cc", "-std=c99", "-Wall", "-Wextra", "-Werror", "-Wno-unused-function", "-fsanitize=undefined",
                     "-fno-sanitize-recover=all", "-I", str(root / "include"), "-I", str(root), "-I", str(root / "ap"),
                     str(path), "-o", str(binary)], check=True)

@@ -214,12 +214,12 @@ kitg = venue[venue.index('static inline int AP_BossEncounterKitGarage('):]
 kitg = kitg[:kitg.index('\n}\n')]
 assert 'custom' not in kitg.split('{', 1)[1], 'a composed kit must run on a content-plan custom venue'
 garage = text('game/232/AH_Garage.c')
-load = garage[garage.index('if (hubID >= 1 && hubID <= 4)'):garage.index('RaceFlag_SetDrawOrder(1);\n\t\tMainRaceTrack_RequestLoad(levelID);')]
+load = garage[garage.index('if (hubID >= 1 && hubID <= 4)'):garage.index('RaceFlag_SetDrawOrder(1);\n\t\t\tMainRaceTrack_RequestLoad(raceLevel);')]
 # The garage load seats the drawn racer on every room: no content-plan gate
 # between the boss cup branch and the seat, and the final racer for hub 0.
 seat = load[load.index('int venue = AP_BossGarageVenue(hubID - 1);'):]
-assert 'ap_content_plan' not in seat and 'data.characterIDs[1] = (s16)opponent;' in seat
-assert 'data.characterIDs[1] = (s16)finalOpponent;' in load
+assert 'ap_content_plan' not in seat and 'GAME_CHARACTER_IDS[1] = (s16)opponent;' in seat
+assert 'GAME_CHARACTER_IDS[1] = (s16)finalOpponent;' in load
 gates = text('ap/ap_hooks_gates.c')
 adv = extract(gates, 'int AP_BossVenueAdvert(int bossIdx, char *out, int cap)\n{')
 assert 'ctr_boss_encounters.custom[bossIdx]' in adv and 'pkg->display_name' in adv and '"Track: Cortex Vortex"' in adv

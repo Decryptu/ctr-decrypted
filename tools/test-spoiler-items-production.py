@@ -266,7 +266,8 @@ int main(void){
     "@SHOW@", grab("int AP_WarpPadShowNeutralMarker(struct Instance *prize)"))
 # A neutral slot shows: the vanilla visible branch clears HIDE_MODEL (0x80)
 # after the AP block, for the marker as for every reward.
-assert "instArr[WPIS_OPEN_PRIZE1 + i]->flags &= ~(0x80);" in warp
+assert "else\n\t\t\t\twarppadObj->slots.visuals.prizes[i]->flags &= ~HIDE_MODEL;" in \
+    warp[warp.index("AP_WarpPadShowNeutralMarker(apPrize)"):]
 # Both input paths stop only on the seed lock, so the item-locked row toggles.
 proc = menu[menu.index("static void MM_MenuProc_Config(struct RectMenu *menu)\n{"):]
 assert "else if (Config_RowLockedBySeed(e))\n\t\t\t\t; // the seed has item box colours off" in proc

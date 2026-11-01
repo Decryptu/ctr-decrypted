@@ -36,15 +36,18 @@ enum { ORANGE = 0, WHITE = 4, RED = 3, JUSTIFY_CENTER = 0x8000, JUSTIFY_RIGHT = 
 enum { BTN_UP = 0x1, BTN_DOWN = 0x2, BTN_CROSS = 0x10 | 0x4000, BTN_SQUARE = 0x20 | 0x8000, BTN_CIRCLE = 0x40,
        BTN_R1 = 0x400, BTN_L1 = 0x800, BTN_START = 0x1000, BTN_TRIANGLE = 0x40000 };
 struct GamepadBuffer { int buttonsTapped; };
-struct GameTracker { unsigned int timer; };
+struct PrimMem { int unused; };
+struct DB { struct PrimMem primMem; };
+struct GameTracker { unsigned int timer; struct DB *backBuffer; };
 struct { struct GameTracker *gGT; int menuRowHighlight_Normal; } sdata_s;
 #define sdata (&sdata_s)
-static struct GameTracker gt;
+static struct DB db;
+static struct GameTracker gt = { 0, &db };
 static int draws;
 int DecalFont_GetLineWidth(char *s, short font) { (void)font; return (int)strlen(s) * 8; }
 void DecalFont_DrawLineOT(char *s, int x, int y, int font, int flags, uint32_t *ot) { (void)s; (void)x; (void)y; (void)font; (void)flags; (void)ot; draws++; }
 void OtherFX_Play(int a, int b) { (void)a; (void)b; }
-void CTR_Box_DrawClearBox(RECT *r, int *c, int t, uint32_t *ot) { (void)r; (void)c; (void)t; (void)ot; }
+void CTR_Box_DrawClearBox(RECT *r, int *c, int t, uint32_t *ot, struct PrimMem *pm) { (void)r; (void)c; (void)t; (void)ot; (void)pm; }
 static int s_customContentSection = 5;
 
 /* The stub room. */

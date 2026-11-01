@@ -68,6 +68,9 @@ fixture = r"""
 #include "ap_race_attempt_logic.h"
 #include "ap_deathlink_inbox.h"
 
+/* The model ticks at 30 FPS, where include/macros.h's FPS_DOUBLE is the identity. */
+#define FPS_DOUBLE(x) (x)
+
 enum { CTR_DL_OFF = 0, CTR_DL_MASK_RESET = 1, CTR_DL_RACE_LOSS = 3, CTR_DL_WEAPON_HIT = 4 };
 
 /* Engine-side stubs: record what production shows and logs. */

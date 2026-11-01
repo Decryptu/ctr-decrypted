@@ -205,9 +205,9 @@ assert 'AP_TrialLetters_Prepare()' not in trial
 assert 'AP_PadLogRoute(levelID, levelID' not in trial
 # Five route fail-safes plus the content-plan mode menu's cancel (#133 PR 3).
 assert len(re.findall(r'goto WarpPad_RefuseEntry;', warp)) == 6
-battle = warp[warp.index('// Battle Tracks'):warp.index('gGT->originalEventTime = D232.timeCrystalChallenge')]
+battle = warp[warp.index('// Battle Tracks'):warp.index('gGT->originalEventTime = AH_WARP_BATTLE_TIMES[')]
 assert 'if (ctr_cfg_arena_pad_disabled(levelID))' in battle
-assert battle.index('goto WarpPad_RefuseEntry;') < battle.index('AddBitsConfig0 |= CRYSTAL_CHALLENGE;')
+assert battle.index('goto WarpPad_RefuseEntry;') < battle.index('GAME_ADD_CONFIG_0 |= CRYSTAL_CHALLENGE;')
 # Stage 2 on a trial destination is the physical pad's, as in the apworld and
 # AP_PadState: inert before the warp unless a plain rerace is still needed,
 # and only the plain trial rerace after it.

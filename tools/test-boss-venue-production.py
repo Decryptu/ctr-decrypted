@@ -283,22 +283,22 @@ def require(path, *needles):
 
 
 garage = text('game/232/AH_Garage.c')
-load = garage[garage.index('// new levelID'):garage.index('MainRaceTrack_RequestLoad(levelID);')]
+load = garage[garage.index('// Set the boss character (P2)'):garage.index('MainRaceTrack_RequestLoad(raceLevel);')]
 # The opponent is read from the home track BEFORE the venue replaces levelID.
 assert load.index('characterID_Boss') < load.index('AP_BossGarageVenue(hubID - 1)'), 'opponent must come from the home track'
-assert 'gGT->bossID = R232.bossIDs[hubID];' in garage, 'bossID stays the physical garage'
-assert 'levelID = venue;' in load and 'fadeFromBlack_desiredResult = 0x1000' in load
+assert 'GAME_TRACKER->bossID = bosses[GAME_TRACKER->levelID - GEM_STONE_VALLEY];' in garage, 'bossID stays the physical garage'
+assert 'raceLevel = venue;' in load and 'fadeFromBlack_desiredResult = 0x1000' in load
 require('game/232/AH_Garage.c', 'AP_BossVenueAdvert(advertBoss, venueLine')
 require('ap/ap_hooks_gates.c',
         'if (bossIdx < AP_BOSS_VENUE_GARAGES && AP_BossGarageVenue(bossIdx) < 0)\n\t\treturn 0;',
         '"Boss track refused: %s"')
 require('game/PickupBots.c', 'AP_BossVenueAttackSchedule(1)', 'AP_BossVenueAttackSchedule(0)',
-        'AP_BossRetailRulesLevel(gGT->levelID) == OXIDE_STATION')
+        'AP_BossRetailRulesLevel(GAME_TRACKER->levelID) == OXIDE_STATION')
 require('game/231/RB_MinePool.c', 'bossLevel = AP_BossRetailRulesLevel(bossLevel);')
 require('game/231/RB_Hazard.c', 'AP_BossRetailRulesLevel(gGT->levelID) == OXIDE_STATION')
-require('game/222.c', 'AP_BossRetailRulesLevel(gGT->levelID) == HOT_AIR_SKYWAY')
-require('game/Vehicle/VehPhysGeneral.c', 'AP_BossRetailRulesLevel(gGT->levelID) == DRAGON_MINES')
-require('game/Vehicle/VehBirth.c', 'gGT->prevLEV == AP_BossGarageVenue(3)')
+require('game/222.c', 'AP_BossRetailRulesLevel(GAME_TRACKER->levelID) == HOT_AIR_SKYWAY')
+require('game/Vehicle/VehPhysGeneral.c', 'AP_BossRetailRulesLevel(GAME_TRACKER->levelID) == DRAGON_MINES')
+require('game/Vehicle/VehBirth.c', 'bossTracker->prevLEV == AP_BossGarageVenue(3)')
 require('ap/ap_tracker.c', 'AP_BossVenueAdvert(ap_tracker.hub - 1, n->pad')
 # J03 boss adapter wiring: protection on both bot damage paths, the
 # per-frame self-state tick, race-init reset, and the advanced families
@@ -306,8 +306,8 @@ require('ap/ap_tracker.c', 'AP_BossVenueAdvert(ap_tracker.hub - 1, n->pad')
 require('game/231/RB_Hazard.c', 'if (PickupBots_AdapterProtect(driverVictim))')
 require('game/BOTS.c', 'if (PickupBots_AdapterProtect(botDriver))')
 require('game/PickupBots.c', 'PickupBots_AdapterTick();', 'AP_BossAdapterReset(&s_apBossAdapter);',
-        'if (AP_BossAdapterIsAdvanced(bossMeta->weaponType))', 'PickupBots_UpdateBoss(gGT->drivers[1]);',
-        'PickupBots_UpdateBoss(attacker);')
+        'if (AP_BossAdapterIsAdvanced(bossMeta->weaponType))', 'PickupBots_UpdateBoss(gGT, gGT->drivers[1]);',
+        'PickupBots_UpdateBoss(gGT, attacker);')
 require('ap/ap_seedcfg.cpp', 'ap_seedcfg_parse_boss_encounters(j, opt, schema);',
         'std::memset(&ctr_boss_encounters, 0, sizeof ctr_boss_encounters);')
 # Every remaining retail boss-track test in the AP build must be one of the

@@ -214,30 +214,38 @@ def require(path, *needles):
 
 
 garage = text('game/232/AH_Garage.c')
-load = garage[garage.index('// new levelID'):garage.index('MainRaceTrack_RequestLoad(levelID);')]
+load = garage[garage.index('// Set the boss character (P2)'):garage.index('MainRaceTrack_RequestLoad(raceLevel);')]
 # The drawn racer replaces the home track's boss only after the venue check,
 # and bossID stays the physical garage.
 assert load.index('characterID_Boss') < load.index('AP_BossGarageVenue(hubID - 1)') \
-    < load.index('opponent = AP_BossGarageOpponent(hubID - 1)') < load.index('data.characterIDs[1] = (s16)opponent;')
-assert 'gGT->bossID = R232.bossIDs[hubID];' in garage
+    < load.index('opponent = AP_BossGarageOpponent(hubID - 1)') < load.index('GAME_CHARACTER_IDS[1] = (s16)opponent;')
+assert 'GAME_TRACKER->bossID = bosses[GAME_TRACKER->levelID - GEM_STONE_VALLEY];' in garage
 require('game/232/AH_Garage.c', 'AP_BossRivalAdvert(advertBoss, rivalLine', 'AP_BossKitAdvert(advertBoss, kitLine',
         'char advert[192];')
 
 assets = text('game/LOAD/LOAD_Assets.c')
-boss = assets[assets.index('LoadHighAndPack:'):assets.index('QueueLastPack:')]
-assert 'AP_BossRaceOpponentModels((int)data.characterIDs[0], &bossExtra)' in boss
-assert 'lastFileIndexMPK = BI_TIMETRIALPACK + bossPack;' in boss
-assert '&data.driverModelExtras[1].fileBase' in boss, 'the opponent extra goes to slot 1; slot 0 is the player'
-assert boss.index('BI_RACERMODELHI + data.characterIDs[0]') < boss.index('BI_RACERMODELHI + bossExtra')
-require('game/LOAD/LOAD_Assets.c', 's_bossExtra = -1;\n}', 'data.driverModelExtras[1].model == NULL')
+boss = assets[assets.index('LoadHighAndPack:'):assets.index('// 2P and other standard LODs')]
+assert 'AP_BossRaceOpponentModels((int)GAME_CHARACTER_IDS[0], &bossExtra)' in boss
+assert 'LOAD_AppendQueue(bigfile, LT_GETADDR, BI_TIMETRIALPACK + bossPack, NULL, callback);' in boss
+assert boss.index('BI_RACERMODELHI + bossExtra') < boss.index('BI_TIMETRIALPACK + bossPack'), 'the extra is queued before the pack'
+assert '&GAME_DRIVER_MODEL_EXTRAS[1].fileBase' in boss, 'the opponent extra goes to slot 1; slot 0 is the player'
+assert boss.index('BI_RACERMODELHI + GAME_CHARACTER_IDS[0]') < boss.index('BI_RACERMODELHI + bossExtra')
+require('game/LOAD/LOAD_Assets.c', 's_bossExtra = -1;\n}', 'GAME_DRIVER_MODEL_EXTRAS[1].model == NULL')
 stages = text('game/LOAD/LOAD_TenStages.c')
-assert stages.index('data.driverModelExtras[i].model = (struct Model *)') < stages.index('LOAD_BossOpponentValidateExtra();')
+assert stages.index('GAME_DRIVER_MODEL_EXTRAS[i].model = (struct Model *)') < stages.index('LOAD_BossOpponentValidateExtra();')
 
-require('game/PickupBots.c', 'AP_BossLossEasingNow() ? ((s8)sdata->advProgress.timesLostBossRace[gGT->bossID] * 4) : 0')
-require('game/BOTS.c', 'AP_BossLossEasingNow() ? sdata->advProgress.timesLostBossRace[bossID] : 0',
-        'BOTS_Adv_NumTimesLostEvent(bossLosses) - 0xe1', 'BOTS_Adv_NumTimesLostEvent(bossLosses) - 0x141')
+# The cooldown's per-loss bonus reads PickupBots_BossLossCount, which is 0 with easing off.
+require('game/PickupBots.c', 'if (!AP_BossLossEasingNow() || (AP_BossGauntletAttacker() >= 0))\n\t{\n\t\treturn 0;\n\t}\n\treturn (s8)GAME_ADV_PROGRESS.timesLostBossRace[GAME_TRACKER->bossID];',
+        '#define PICKUPBOTS_BOSS_LOSS_COUNT() PickupBots_BossLossCount()',
+        '(PICKUPBOTS_BOSS_LOSS_COUNT() * PICKUPBOTS_BOSS_LOSS_COOLDOWN_STEP)')
+# Both the normal and the cheat boss difficulty read the loss count through easing.
+botsBody = text('game/BOTS.c')
+assert botsBody.count('BOTS_Adv_NumTimesLostEvent(AP_BossLossEasingNow() ? (s8)BOTS_ADV_PROGRESS.timesLostBossRace[') == 2
+assert 'BOTS_ADV_HIGH_TIER_LOSS_BASE = 0xe1,' in botsBody and 'BOTS_ADV_HIGH_TIER_CHEAT_LOSS_BASE = 0x141,' in botsBody
 # The driving table stays the physical garage's boss-grade row.
-require('game/BOTS.c', 'data.BossDifficulty[gGT->bossID].params1')
+bossRow = botsBody[botsBody.index('if ((initialMode & ADVENTURE_BOSS) != 0)'):]
+bossRow = bossRow[:bossRow.index('else')]
+assert 'CTR_PSX_LOAD_WORD_VOLATILE(firstIndex, tracker->bossID);' in bossRow and 'offsetof(struct Data, BossDifficulty)' in bossRow
 require('ap/ap_tracker.c', 'AP_BossRivalAdvert(ap_tracker.hub - 1, rival')
 # A drawn racer's icon may be missing from the garage boss's pack: the one
 # icon draw without a NULL guard has one now.

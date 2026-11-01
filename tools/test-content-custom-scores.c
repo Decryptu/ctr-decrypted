@@ -30,6 +30,8 @@ void AP_DeathLinkOnRaceEnd(struct GameTracker *gGT, struct Driver *player);
 
 struct sData sdata_static;
 struct Data data;
+// The results screen runs at retail's 30 FPS timing.
+int gNative60FpsEnabled = 0;
 
 static struct CustomTrackRaceContext race;
 static int custom_on;
@@ -40,17 +42,17 @@ const struct CustomTrackRaceContext *CustomTrack_StandaloneContext(int level)
 
 // The drawing calls RR_EndEvent_DrawHighScore makes once past its policy check.
 static int draws;
-void DecalFont_DrawLine(char *str, int posX, int posY, s16 fontType, int flags)
+void DecalFont_DrawLine(char *str, s16 posX, s16 posY, s16 fontType, s16 flags)
 { (void)str; (void)posX; (void)posY; (void)fontType; (void)flags; ++draws; }
 void UI_Lerp2D_Linear(s16 *ptrPos, s16 startX, s16 startY, s16 endX, s16 endY, s32 curFrame, s16 endFrame)
 { (void)startX; (void)endX; (void)endY; (void)curFrame; (void)endFrame; ptrPos[0] = startX; ptrPos[1] = startY; ++draws; }
 
-void CTR_Box_DrawClearBox(const RECT *r, const Color *color, int transparency, uint32_t *ot)
-{ (void)r; (void)color; (void)transparency; (void)ot; ++draws; }
-void RECTMENU_DrawInnerRect(RECT *r, int x, uint32_t *ot) { (void)r; (void)x; (void)ot; ++draws; }
-char *RECTMENU_DrawTime(int milliseconds) { (void)milliseconds; ++draws; return "0:00.00"; }
-void RECTMENU_DrawPolyGT4(struct Icon *icon, s16 posX, s16 posY, struct PrimMem *primMem, uint32_t *ot, u32 color0, u32 color1, u32 color2, u32 color3,
-                          char transparency, s16 scale)
+void CTR_Box_DrawClearBox(const RECT *r, const Color *color, s32 transparency, u32 *ot, struct PrimMem *primMem)
+{ (void)r; (void)color; (void)transparency; (void)ot; (void)primMem; ++draws; }
+void RECTMENU_DrawInnerRect(RECT *r, s16 x, u32 *ot) { (void)r; (void)x; (void)ot; ++draws; }
+char *RECTMENU_DrawTime(s32 ticks) { (void)ticks; ++draws; return "0:00.00"; }
+void RECTMENU_DrawPolyGT4(struct Icon *icon, s32 posX, s32 posY, struct PrimMem *primMem, u32 *ot, Color color0, Color color1, Color color2, Color color3,
+                          u8 transparency, s16 scale)
 {
     (void)icon; (void)posX; (void)posY; (void)primMem; (void)ot; (void)color0; (void)color1; (void)color2; (void)color3;
     (void)transparency; (void)scale; ++draws;
@@ -99,8 +101,8 @@ int main(void)
     driver.numTimeCrates = 1;
     // The host slot's saved table: every time beatable, so a leak would show.
     for (i = 0; i < 12; ++i)
-        sdata->gameProgress.highScoreTracks[6].scoreEntry[i].time = 0x7fffff;
-    memcpy(&saved, &sdata->gameProgress.highScoreTracks[6], sizeof saved);
+        GAME_PROGRESS.highScoreTracks[6].scoreEntry[i / 6][i % 6].time = 0x7fffff;
+    memcpy(&saved, &GAME_PROGRESS.highScoreTracks[6], sizeof saved);
 
     custom_on = 1;
     finish(19200, 19200);
@@ -112,10 +114,10 @@ int main(void)
     finish(1, 1);
     expect(!offered(), "custom: the shortest possible run offers no record or best lap");
     expect(gt.bestLapTime == 0, "custom: best lap comes from the scratch table");
-    expect((char *)sdata->ptrActiveHighScoreEntry < (char *)&sdata->gameProgress ||
-               (char *)sdata->ptrActiveHighScoreEntry >= (char *)(&sdata->gameProgress + 1),
+    expect((char *)sdata->ptrActiveHighScoreEntry < (char *)&GAME_PROGRESS ||
+               (char *)sdata->ptrActiveHighScoreEntry >= (char *)(&GAME_PROGRESS + 1),
            "custom: the high-score pointer is outside the save");
-    expect(memcmp(&saved, &sdata->gameProgress.highScoreTracks[6], sizeof saved) == 0,
+    expect(memcmp(&saved, &GAME_PROGRESS.highScoreTracks[6], sizeof saved) == 0,
            "custom: the host slot's saved table and flags are unchanged");
     draws = 0;
     RR_EndEvent_DrawHighScore(0x100, 10, RR_SCORE_MODE_RELIC_RACE);
@@ -123,7 +125,7 @@ int main(void)
 
     custom_on = 0;
     finish(4800, 4800);
-    expect(sdata->ptrActiveHighScoreEntry == &sdata->gameProgress.highScoreTracks[6].scoreEntry[6],
+    expect(sdata->ptrActiveHighScoreEntry == &GAME_PROGRESS.highScoreTracks[6].scoreEntry[1][0],
            "retail: the pointer names the track's Relic Race table");
     expect(gt.newHighScoreIndex == 0 && (gt.gameModeEnd & NEW_HIGH_SCORE) != 0,
            "retail: a beatable time still offers a record");

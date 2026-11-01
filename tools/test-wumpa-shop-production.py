@@ -50,7 +50,7 @@ cheat = rb.index('CHEAT_WUMPA')
 bank = rb.find('AP_WumpaBankKart(driver, numWumpaOriginal, wumpaDelta)')
 check('ModifyWumpa banks the overflow after the cheat early return', bank > cheat)
 check('ModifyWumpa banks inside the human-driver branch', bank > rb.index('ACTION_BOT) == 0)'))
-check('ModifyWumpa banks before the count is capped', bank < rb.index('driver->numWumpas > 10'))
+check('ModifyWumpa banks before the count is capped', bank < rb.index('driver->numWumpas > DRIVER_WUMPA_MAX_COUNT'))
 
 wumpa = text('ap/ap_wumpa.c')
 recv = body(wumpa, 'void AP_WumpaReceive(int count)')
@@ -111,12 +111,13 @@ check('the verifier sweep treats the Wumpa arm as met', 'in.wumpaShort = 0;' in 
 
 save = text('game/232/AH_SaveObj.c')
 check('the save screen prepares the WUMPA SHOP row before showing the menu',
-      re.search(r'AP_WumpaShopPrepareGreenMenu\(&data\.menuGreenLoadSave\);\s*#endif\s*RECTMENU_Show\(&data\.menuGreenLoadSave\);', save) is not None)
+      re.search(r'AP_WumpaShopPrepareGreenMenu\(&AH_SAVE_MENU\);\s*#endif\s*RECTMENU_Show\(&AH_SAVE_MENU\);', save) is not None and
+      '#define AH_SAVE_MENU               data.menuGreenLoadSave' in text('include/ovr_232.h'))
 proc = body(text('game/SelectProfile.c'), 'void SelectProfile_AdvPickMode_MenuProc(')
 check('the green menu procedure maps the shop and EXIT rows first',
-      proc.index('AP_WumpaShopGreenMenuRow(menu, row)') < proc.index('if ((row >= 0) && (row < 3))'))
+      re.search(r'row = \(s16\)AP_WumpaShopGreenMenuRow\(menu, row\);\s*if \(row == AP_WSHOP_GREEN_HANDLED\)\s*return;\s*#endif\s*switch \(row\)', proc) is not None)
 rect = text('game/RECTMENU.c')
-state = body(rect, 'void RECTMENU_ProcessState()')
+state = body(rect, 'void RECTMENU_ProcessState(void)')
 check('the shop page owns input like the tracker', 'if (AP_WumpaShopMenuFrame()) return;' in state)
 check('the row label resolves', 'index == AP_LNG_WUMPA_SHOP' in rect)
 check('the race HUD draws no banked number', 'AP_Wumpa' not in text('game/UI/UI_DrawNum.c'))

@@ -63,19 +63,21 @@ start = warp.index('#ifdef CTR_CUSTOM_TRACKS\n\tif (ap_content_plan_active())\n\
 block = warp[start:warp.index('goto WarpPad_RequestLoad;', start)]
 check('a content-plan pad clears Arcade before the load',
       'gGT->gameMode1 &= ~(ADVENTURE_CUP | ADVENTURE_BOSS | RELIC_RACE | CRYSTAL_CHALLENGE | ARCADE_MODE);' in block and
-      'sdata->Loading.OnBegin.RemBitsConfig0 |= ADVENTURE_CUP | ADVENTURE_BOSS | RELIC_RACE | CRYSTAL_CHALLENGE | ARCADE_MODE;' in block)
-sets = re.findall(r'(?:gameMode1 \|=|AddBitsConfig0 \|=)\s*([A-Z_| ]+);', block)
+      'GAME_REMOVE_CONFIG_0 |= ADVENTURE_CUP | ADVENTURE_BOSS | RELIC_RACE | CRYSTAL_CHALLENGE | ARCADE_MODE;' in block and
+      '#define GAME_REMOVE_CONFIG_0         (sdata->Loading.OnBegin.RemBitsConfig0)' in text('include/common.h'))
+# AddBitsConfig0 is spelled GAME_ADD_CONFIG_0 (include/common.h).
+sets = re.findall(r'(?:gameMode1 \|=|AddBitsConfig0 \|=|GAME_ADD_CONFIG_0 \|=)\s*([A-Z_| ]+);', block)
 setbits = {b.strip() for s in sets for b in s.split('|')}
 check('a content-plan pad sets only Adventure race flags (no Battle, Arcade or Time Trial)',
       setbits <= {'CRYSTAL_CHALLENGE', 'RELIC_RACE', 'ADVENTURE_CUP'} and setbits and
       'ADVENTURE_MODE' not in ''.join(re.findall(r'&= ~\(([^)]*)\)', block)))
 garage = text('game/232/AH_Garage.c')
 check('boss races and boss cups set no Battle, Arcade or Time Trial flag',
-      re.search(r'(gameMode1|AddBitsConfig0) \|=[^;]*(BATTLE_MODE|ARCADE_MODE|TIME_TRIAL)', garage) is None and
-      re.search(r'AddBitsConfig0 \|=[^;]*(BATTLE_MODE|ARCADE_MODE|TIME_TRIAL)', block) is None)
+      re.search(r'(gameMode1|AddBitsConfig0|GAME_ADD_CONFIG_0) \|=[^;]*(BATTLE_MODE|ARCADE_MODE|TIME_TRIAL)', garage) is None and
+      re.search(r'(AddBitsConfig0|GAME_ADD_CONFIG_0) \|=[^;]*(BATTLE_MODE|ARCADE_MODE|TIME_TRIAL)', block) is None)
 crystal = text('game/221.c')
 check('a content-plan arena load does not switch to Battle mode',
-      re.search(r'(gameMode1|AddBitsConfig0) \|=[^;]*BATTLE_MODE', crystal) is None)
+      re.search(r'(gameMode1|AddBitsConfig0|GAME_ADD_CONFIG_0) \|=[^;]*BATTLE_MODE', crystal) is None)
 wumpa = text('ap/ap_wumpa.c')
 check('banking has no content-plan gate', 'content_plan' not in wumpa)
 

@@ -387,8 +387,8 @@ tick = body(warp, "void AH_WarpPad_ThTick(struct Thread *t)")
 arrive = tick.index("AP_TrackerLaunchPadArrives(ctr_cfg_warp_phys(levelID), levelID)")
 # The arrival only stands the kart on the pad: it comes after the distance and
 # before every entry gate, so the pad's own gates all run.
-assert tick.index("dist = x * x + y * y + z * z;") < arrive
-for gate in ("if ((dist > 0x8fff) && (warppadObj->boolEnteredWarppad == 0))",
+assert tick.index("dist = (s32)((u32)CTR_MipsMulLo(x, x) + (u32)CTR_MipsMulLo(y, y) + (u32)CTR_MipsMulLo(z, z));") < arrive
+for gate in ("if ((dist > AH_WP_WARP_TRIGGER_DIST_SQ) && (warppadObj->boolEnteredWarppad == 0))",
              "AP_PadState(ctr_cfg_warp_phys(warppadObj->levelID), warppadObj->levelID) == 5",
              "if (!ctr_cfg_racer_lock_met(physLevelID))",
              "AP_ContentMenuRows(pad, &apRsRows);"):
@@ -397,7 +397,7 @@ assert "dist = 0;" in tick[arrive:arrive + 1500] and "AP_TrackerLaunchTaken();" 
 assert "LOAD_RequestLoad" not in tick[arrive:arrive + 1500] and "MainRaceTrack_RequestLoad" not in tick[arrive:arrive + 1500]
 # Decision 33: the kart is put on the pad on arrival, before the warp capture
 # remembers its height and before the entry gates.
-place = tick.index("AH_WarpPad_PlaceKartOnPad(driver, driverInst, warppadMatrix);", arrive)
+place = tick.index("AH_WarpPad_PlaceKartOnPad(driver, driverInst, &warppadInst->matrix);", arrive)
 assert place < tick.index("dist = 0;", place) and place < tick.index("AH_WarpPad_WarpCapture(gGT);", arrive)
 assert "driver->quadBlockHeight = ground;" in warp[:warp.index("void AH_WarpPad_ThTick")] and "AP_TLKartOnPad(padPos" in warp
 # A pad that refused the kart earlier (the entry latch) is not placed on again.
@@ -413,11 +413,13 @@ assert take.index("AP_TLGateOpen(r)") < take.index("AP_TLTakeMode(r, physical, d
 assert "AP_TrackerLaunchDrop(AP_TL_DROP_REFUSED);" in warp[warp.index("WarpPad_RefuseEntry:"):][:200]
 
 garage = (root / "game/232/AH_Garage.c").read_text()
-gtick = body(garage, "void AH_Garage_ThTick(struct Thread *t)")
+# The whole function: its inner blocks close at column 0, so "\n}\n" ends it early.
+gtick = garage[garage.index("void AH_Garage_ThTick(struct Thread *t)"):garage.index("\nvoid AH_Garage_LInB(")]
 garrive = gtick.index("AP_TrackerLaunchGarageArrives()")
 # Only reached with the garage open, before its own load.
-assert gtick.index("LAB_800aede8:") < garrive < gtick.index("if (gGT->pushBuffer_UI.fadeFromBlack_currentValue == 0)")
-assert gtick.index("if (!bossIsOpen)\n\t{\n\t\treturn;") < gtick.index("LAB_800aede8:")
+assert gtick.index("openGarage:") < garrive < gtick.index("if (GAME_TRACKER->pushBuffer_UI.fadeFromBlack_currentValue == 0)")
+assert gtick.index("if (!(s16)bossIsOpen)\n\t{\n\t\treturn;") < gtick.index("openGarage:")
+assert gtick.count("goto openGarage;") == 1 and "if ((s16)bossIsOpen)\n\t{\n\t\tgoto openGarage;" in gtick
 
 launch = (root / "ap/ap_tracker_launch.c").read_text()
 acts = body(launch, "int AP_PadActivities(")

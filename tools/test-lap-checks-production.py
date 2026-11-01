@@ -21,7 +21,7 @@ mode_enum = modes[start:modes.index('};', start) + 2]
 # so it also runs on a one-lap race's final crossing and never on the
 # behind-the-start-line crossing that skips it.
 play = (root / 'game/PlayLevel.c').read_text()
-call = re.search(r'currDriver->lapIndex\+\+;\n#ifdef CTR_AP\n[^\n]*\n\t*AP_LapOnCrossing\(gGT, currDriver, iVar10\);\n#endif\n', play)
+call = re.search(r'currDriver->lapIndex\+\+;\n#ifdef CTR_AP\n[^\n]*\n\t*AP_LapOnCrossing\(gGT, currDriver, driverIndex\);\n#endif\n', play)
 assert call, 'AP_LapOnCrossing must follow currDriver->lapIndex++ in PlayLevel_UpdateLapStats'
 assert play.count('AP_LapOnCrossing(') == 1
 assert play.index('ACTION_BEHIND_START_LINE') < call.start() < play.index('If did not just finish race')

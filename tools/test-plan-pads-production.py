@@ -46,13 +46,14 @@ assert "ap_content_plan_active() ? ap_content_plan_pad(physLevelID) : NULL" in r
 sel = body(gates, "int AP_RaceTypeSelectorSetting(void)")
 assert "AP_RaceSelectorEffective(g_config.raceTypeSelector" in sel and "client->present ?" in sel
 assert '"race_type_selector"' in pages and '"Race Type Menu"' in config and "s_raceMenuNames" in menu
-assert "RECTMENU_APReplayRow(menu, sVar6)" in rect
+assert "if (!(row->stringIndex & 0x8000) && RECTMENU_APReplayRow(menu, rowIndex))\n\t\t\t\t\ttextFlags = 0x17;" in rect
 
 # Item 3, presentation: AP BOXES LEFT and no info line.
 draw = tick[:tick.index("// spawn P1 in the back")]
 for gone in ("Incomplete", "Complete (replay)", "Install content", "win %s first", "locked, needs", "apLockLift"):
     assert gone not in warp, gone
-assert "apBoxesLeft = AP_ContentBoxesLine(ap_content_plan_pad(levelID));" in draw
+assert "s32 apLevelID = warppadObj->levelID;" in draw
+assert "apBoxesLeft = AP_ContentBoxesLine(ap_content_plan_pad(apLevelID));" in draw
 assert "AP BOXES LEFT: %d" in draw
 
 # Item 4, the pad closes again and floats stage 2.

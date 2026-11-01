@@ -8,15 +8,50 @@
 // ALWAYS_POINT_NORTH, {11120,11120,6748}. Vertices are a representative triangle,
 // not retail geometry. A custom basis has negative Y even without Mirror Mode.
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <platform/native_pgxp.h>
+#include <platform/native_config.h>
+#include <platform/native_gpu_links.h>
 #include "../game/RenderBucket/RenderBucket_QueueExecute.c"
 #include "../platform/native_gte_core.c"
 #include "../game/MATH/MATH_7_MatrixStubs.c"
+#include "../game/MATH/MATH_LightMatrix.c"
 
 static int mirrored;
 static int checks, failures;
 struct sData sdata_static;
 int AP_TrapMirrorCullFlip(void) { return mirrored; }
+// The polygon-dump labels (platform/native_dev.c) are a developer view only.
+void NativeDev_NamePrims(const void *start, const void *end, const char *name) { (void)start; (void)end; (void)name; }
+
+// PGXP off: the cull is checked as retail computes it. The GTE calls these
+// entry points only while PGXP is on, so they only have to link; reaching one
+// fails the harness rather than changing what it measures.
+int gNativePgxpMode = NATIVE_PGXP_MODE_OFF;
+#define HARNESS_UNREACHED(name) do { printf("FAIL: harness reached %s\n", name); exit(1); } while (0)
+void NativePgxp_GteWriteSXY(int reg, u32 value) { (void)reg, (void)value; HARNESS_UNREACHED("NativePgxp_GteWriteSXY"); }
+void NativePgxp_GteInvalidateInput(int reg) { (void)reg; HARNESS_UNREACHED("NativePgxp_GteInvalidateInput"); }
+void NativePgxp_GteReadSXY(int reg, u32 value) { (void)reg, (void)value; HARNESS_UNREACHED("NativePgxp_GteReadSXY"); }
+void NativePgxp_StoreGteSXY(const void *dst, int reg, u32 value) { (void)dst, (void)reg, (void)value; HARNESS_UNREACHED("NativePgxp_StoreGteSXY"); }
+void NativePgxp_GteProject(float x, float y, float w, u32 value) { (void)x, (void)y, (void)w, (void)value; HARNESS_UNREACHED("NativePgxp_GteProject"); }
+void NativePgxp_GteProjectTexture(u32 value, float w) { (void)value, (void)w; HARNESS_UNREACHED("NativePgxp_GteProjectTexture"); }
+int NativePgxp_GteNclip(u32 sxy0, u32 sxy1, u32 sxy2, s64 *out) { (void)sxy0, (void)sxy1, (void)sxy2, (void)out; HARNESS_UNREACHED("NativePgxp_GteNclip"); }
+int NativePgxp_GteGetInput(int slot, s16 vx, s16 vy, s16 vz, double *out) { (void)slot, (void)vx, (void)vy, (void)vz, (void)out; HARNESS_UNREACHED("NativePgxp_GteGetInput"); }
+void NativePgxp_GteSetMvmvaResult(const double *precise, s16 ir1, s16 ir2, s16 ir3) { (void)precise, (void)ir1, (void)ir2, (void)ir3; HARNESS_UNREACHED("NativePgxp_GteSetMvmvaResult"); }
+void NativePgxp_Transform(const double *rotation, const double *translation, const double *input, double *result) { (void)rotation, (void)translation, (void)input, (void)result; HARNESS_UNREACHED("NativePgxp_Transform"); }
+int NativePgxp_ViewLookup(const u32 words[5], const s32 t[3], double rot[9], double trans[3]) { (void)words, (void)t, (void)rot, (void)trans; HARNESS_UNREACHED("NativePgxp_ViewLookup"); }
+void NativePgxp_ViewRegisterInstance(int cameraID, const void *mvp, const void *model, const void *inst, const s32 instPos[3], int translationShift) { (void)cameraID, (void)mvp, (void)model, (void)inst, (void)instPos, (void)translationShift; HARNESS_UNREACHED("NativePgxp_ViewRegisterInstance"); }
+
+// The rest of the renderer unit links against these. ELF --gc-sections drops
+// the code that uses them; PE (MinGW) keeps it, so they are defined here too.
+// The matrix builders under test never reach them.
+int gNative60FpsEnabled = 0;
+NativeConfig g_config;
+struct Data data;
+u8 *gCTRNativeScratchpadBase;
+uint32_t NativeGpuLinks_FromHostPointer(const void *hostPtr) { (void)hostPtr; HARNESS_UNREACHED("NativeGpuLinks_FromHostPointer"); }
+b32 INSTANCE_Use60FpsAnimation(struct Instance *inst) { (void)inst; HARNESS_UNREACHED("INSTANCE_Use60FpsAnimation"); }
 
 static void expect(int condition, const char *name)
 {

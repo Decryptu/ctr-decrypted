@@ -74,7 +74,9 @@ def header_command(src):
 
 def build_command(src):
     name = os.path.splitext(os.path.basename(src))[0]
-    out = os.path.join(OUT, name)
+    # Forward slash, not os.path.join: on Windows a backslash would be eaten
+    # by shlex.split below, and the binary would land beside the folder.
+    out = OUT.rstrip("/") + "/" + name
     cmd = header_command(src)
     if cmd:
         # rewrite the header's -o target to our output dir

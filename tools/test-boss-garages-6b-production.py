@@ -80,9 +80,13 @@ tracks = read("platform/native_custom_tracks.c")
 override = tracks[tracks.index("int CustomTrack_GetOverride("):]
 check(override.index("CustomTrack_GarageVenueServing(") < override.index("CustomTrack_OxideFinalServing("),
       "the loader override checks the garage venue before the Oxide 2 venue and the standalone path")
-for rel, count in (("game/MAIN/MainInit.c", 2), ("game/BOTS.c", 1), ("ap/ap_navrec.c", 1),
+# MainInit.c: the instance pool sizing. The per-level primitive arena sizing
+# that also asked is gone; native builds give every level one fixed arena.
+for rel, count in (("game/MAIN/MainInit.c", 1), ("game/BOTS.c", 1), ("ap/ap_navrec.c", 1),
                    ("ap/ap_boxes.c", 1), ("ap/ap_hooks_race.c", 1)):
-    check(read(rel).count("CustomTrack_GarageVenueServing(") >= count, rel + " consults the garage venue")
+    body = read(rel)
+    check(body.count("CustomTrack_GarageVenueServing(") >= max(count, body.count("CustomTrack_OxideFinalServing(")),
+          rel + " consults the garage venue wherever it consults the Oxide 2 venue")
 gates = read("ap/ap_hooks_gates.c")
 venue = gates[gates.index("int AP_BossGarageVenue(int bossIdx)"):]
 venue = venue[:venue.index("\n}\n")]
@@ -93,14 +97,15 @@ garage = read("game/232/AH_Garage.c")
 check(garage.index("AP_ContentGarageCupPrepare(hubID - 1)") < garage.index("int venue = AP_BossGarageVenue(hubID - 1)"),
       "the garage stages its boss cup before its venue")
 block = garage[garage.index("AP_ContentGarageCupPrepare(hubID - 1)"):garage.index("int venue = AP_BossGarageVenue(hubID - 1)")]
-check("AddBitsConfig0 |= ADVENTURE_CUP" in block and "RemBitsConfig0 |= ADVENTURE_BOSS" not in block
-      and "AddBitsConfig0 |= ADVENTURE_BOSS" in garage[:garage.index("AP_ContentGarageCupPrepare(hubID - 1)")],
+# GAME_ADD_CONFIG_0 / GAME_REMOVE_CONFIG_0 are Loading.OnBegin.AddBitsConfig0 / RemBitsConfig0.
+check("GAME_ADD_CONFIG_0 |= ADVENTURE_CUP" in block and "GAME_REMOVE_CONFIG_0 |= ADVENTURE_BOSS" not in block
+      and "GAME_ADD_CONFIG_0 |= ADVENTURE_BOSS" in garage[:garage.index("AP_ContentGarageCupPrepare(hubID - 1)")],
       "the boss cup keeps boss mode and adds cup mode")
 bots = read("game/BOTS.c")
-check("(gameMode1 & ADVENTURE_CUP) != 0 && (gameMode1 & ADVENTURE_BOSS) == 0" in bots,
+check("(modeTracker->gameMode1 & ADVENTURE_CUP) != 0 && (modeTracker->gameMode1 & ADVENTURE_BOSS) == 0" in bots,
       "a boss cup leg takes the boss difficulty row")
 speed = bots[bots.index("b32 isInAdvArcadeOrVSCup = false;"):]
-speed = speed[:speed.index("difficultyStat; // sVar7")]
+speed = speed[:speed.index("difficultyStat = sdata->arcade_difficultyParams[0xB];")]
 check(speed.index("isInAdvArcadeOrVSCup = true;") < speed.index("if ((gGT->gameMode1 & ADVENTURE_BOSS) != 0)")
       < speed.rindex("isInAdvArcadeOrVSCup = false;"), "a boss cup's catch-up reads live ranks, not the eight-kart cup grid")
 cups = read("ap/ap_hooks_content_cups.c")
@@ -113,7 +118,7 @@ check("AP_ContentGarageCupRunning() < 0" in cups[cups.index("int AP_ContentCupHi
       "a boss cup seats no Hit field")
 standings = read("game/UI/UI_CupStandings.c")
 check(standings.count("AP_ContentGarageCupReturn(gGT, apGarageCup)") == 2, "both cup-end paths return to the garage")
-check("AP_ContentGarageCupReturn(gGT, apGarageCup)" in read("game/MAIN/MainFreeze.c"), "the pause menu returns to the garage")
+check("AP_ContentGarageCupReturn(mapTracker, apGarageCup)" in read("game/MAIN/MainFreeze.c"), "the pause menu returns to the garage")
 check("AP_ContentGarageCupReturn(gGT, AP_ContentGarageCupRunning())" in read("game/UI/UI_RaceFlow.c"),
       "the end-of-race abandon path returns to the garage")
 check("(id >= 1000 && id <= 1003)" in read("include/platform/native_custom_race_context.h"),

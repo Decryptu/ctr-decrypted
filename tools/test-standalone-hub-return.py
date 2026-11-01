@@ -24,6 +24,8 @@ struct WarpPad { int levelID; } pads[3];
 struct Thread { struct Thread *siblingThread; void *object; struct Instance *inst; } threads[3];
 struct GameTracker { int levelID,prevLEV; struct { struct Thread *thread; } threadBuckets[1]; } game;
 static struct {struct GameTracker *gGT;} data={&game}, *sdata=&data;
+#define GAME_TRACKER (sdata->gGT)
+#define AH_WP_SPAWN_FORWARD_OFFSET 0x400
 static struct CustomTrackRaceContext previous;
 static int havePrevious, cortex;
 const struct CustomTrackRaceContext *CustomTrack_PreviousStandaloneContext(void) {
