@@ -318,6 +318,24 @@ The game runs at 60 FPS by default. To go back to the original 30 FPS, turn off
 The change applies the next time a track or menu loads. Every mode runs at
 60, Time Trial included; ghosts recorded at either rate play at both.
 
+## Importing custom tracks from an xdelta patch
+
+Some custom tracks come as an xdelta patch for the game disc (for example a
+custom adventure pack). The client can take the race tracks out of such a patch
+using your own disc; nothing from the patch is downloaded or shared.
+
+1. Open **OPTIONS → Custom Content** and press **Select** (Import track files).
+2. Choose the patch with the file dialog, drop the `.xdelta` file on the game
+   window, or put it in `assets/tracks/import/` (useful on Steam Deck in Game
+   Mode) and pick it from the list.
+3. Check the list of found tracks and press **Cross** to install.
+
+The tracks are saved in `assets/tracks/<track>/original/`, where rooms and solo
+seeds look for custom tracks. If a pack descriptor (`<patch name>.ctrpack.json`)
+sits next to the patch, it supplies the track names, laps and relic times.
+Only race tracks are imported; arenas, game code and other changed files are
+listed but skipped.
+
 ## Optional: controllers and Steam Input
 
 Controllers work out of the box: the game uses SDL, so common gamepads (Xbox
