@@ -145,3 +145,57 @@ jobs:
           path: client-artifacts/*
           if-no-files-found: error
           retention-days: 30
+
+  # Every build goes through the release assembler: the archives this run made,
+  # the apworld packed from this commit, the solo runtimes, and the same script
+  # release-prepare.yml uses (tools/release/ci-assemble.sh). A client archive the
+  # assembler would refuse then fails here, on the push that changed it, instead
+  # of at release time. Nothing is signed or uploaded.
+  release-check:
+    name: Release assembly check
+    needs: [linux, windows]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Download this run's client archives
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: ctr-decrypted-*-x86-*-${{ github.sha }}
+          path: native-artifacts
+      - name: Pack the apworld from this commit
+        run: |
+          set -euo pipefail
+          mkdir -p apworld-packed
+          python3 apworld/ctr/tools/build_apworld.py apworld-packed/ctr.apworld
+      - name: Archipelago for the template
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ArchipelagoMW/Archipelago
+          ref: debe4cf035c7c15efe6fb95f72343af0d420c68c # 0.6.7
+          fetch-depth: 1
+          path: archipelago
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.11"
+      - name: Generate template
+        run: bash tools/release/ci-template.sh apworld-packed/ctr.apworld archipelago generated-template/Crash.Team.Racing.yaml
+      - name: Python 3.12 for the solo runtime bytecode
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v5
+        with:
+          python-version: "3.12"
+      - name: Restore the solo runtime downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: solo-runtime-cache
+          key: solo-runtime-${{ hashFiles('tools/solo/runtime-lock.json') }}
+      - name: Assemble and verify as a release of this commit's version
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^#define CTR_AP_VERSION "v\{0,1\}\(.*\)"/\1/p' ap/ap_version.h)"
+          test -n "$version"
+          bash tools/release/ci-assemble.sh native-artifacts apworld-packed/ctr.apworld \
+            generated-template/Crash.Team.Racing.yaml "$version" release-check

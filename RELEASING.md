@@ -58,6 +58,10 @@ For 0.2.0, the maintainer has approved a community-tested baseline. The in-game 
       covered). It runs on pushes that touch `apworld/`; otherwise start it
       from Actions, CTR world, Run workflow. Its run ID is the
       `apworld_run_id` that `release-prepare.yml` asks for.
+- [ ] Build clients (`.github/workflows/build.yml`) green on the release
+      commit, including its release assembly check, which runs the same
+      assembly as `release-prepare.yml` on that run's archives. Its run ID is
+      the `native_run_id`.
 - [ ] In-game playtest of a real generated seed on the exact release
       executable. Every surface changed since the last playtest gets looked at
       in-game, not just compiled.
