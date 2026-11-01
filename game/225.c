@@ -272,7 +272,7 @@ void VB_EndEvent_DrawMenu(void)
 							vsCharacterIDs = GAME_CHARACTER_IDS;
 
 							VB_DRAW_POLY_FT4(
-							    GAME_TRACKER->ptrIcons[GAME_CHARACTER_METADATA[vsCharacterIDs[GAME_TRACKER->battleSetup.standingsOrder[resultIndex]]].iconID],
+							    VEH_DRIVER_ICON(GAME_TRACKER->battleSetup.standingsOrder[resultIndex], GAME_TRACKER->ptrIcons[GAME_CHARACTER_METADATA[vsCharacterIDs[GAME_TRACKER->battleSetup.standingsOrder[resultIndex]]].iconID]),
 							    pos.x, iconY, &GAME_TRACKER->backBuffer->primMem, GAME_TRACKER->pushBuffer_UI.ptrOT, VB_ICON_TRANSPARENCY, VB_ICON_SCALE);
 						}
 						else
@@ -293,7 +293,7 @@ void VB_EndEvent_DrawMenu(void)
 									if (GAME_TRACKER->drivers[player]->BattleHUD.teamID == GAME_TRACKER->battleSetup.standingsOrder[resultIndex])
 									{
 										iconSlotBeforeIncrement = iconSlot;
-										VB_DRAW_POLY_FT4(GAME_TRACKER->ptrIcons[GAME_CHARACTER_METADATA[GAME_CHARACTER_IDS[player]].iconID], pos.x,
+										VB_DRAW_POLY_FT4(VEH_DRIVER_ICON(player, GAME_TRACKER->ptrIcons[GAME_CHARACTER_METADATA[GAME_CHARACTER_IDS[player]].iconID]), pos.x,
 										                 battleIconY + iconSlotBeforeIncrement * VB_BATTLE_PLAYER_ICON_SPACING,
 										                 &GAME_TRACKER->backBuffer->primMem, GAME_TRACKER->pushBuffer_UI.ptrOT, VB_ICON_TRANSPARENCY,
 										                 VB_ICON_SCALE);

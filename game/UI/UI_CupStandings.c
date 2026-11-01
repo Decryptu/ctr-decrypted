@@ -382,7 +382,7 @@ void UI_CupStandings_InputAndDraw(void)
 		}
 
 		// Draw character icon
-		UI_DrawDriverIcon(gGT->ptrIcons[data.MetaDataCharacters[data.characterIDs[d->driverID]].iconID],
+		UI_DrawDriverIcon(VEH_DRIVER_ICON(d->driverID, gGT->ptrIcons[data.MetaDataCharacters[data.characterIDs[d->driverID]].iconID]),
 
 		                  drawPos.x, drawPos.y, &gGT->backBuffer->primMem,
 

@@ -86,5 +86,17 @@ python tools/racers/convert_racer.py --disc "CTR (USA).bin" --sources sources.js
 
 The mods collected so far (17 patches, 37 racers) are static, vertex-coloured meshes: no textures and no animations, as they are on a PS1. Their kart textures, voices and code patches are not carried over.
 
+## In a race
+A driver races as a custom racer when it is a human player who picked one, outside Adventure and the menus, and its character ID is still the racer's template (`NativeRacers_Driver`). Anything that changed the ID since (Archipelago's character swap, the garage) changed the racer too. Then:
+
+- `VehBirth_NonGhost` births it with the racer's model instead of the template's, at every split-screen size.
+- `VehBirth_TireSprites` gives it wheels or not by the racer's `wheels`.
+- `VehBirth_SetConsts` reads the racer's engine class (`VEH_BIRTH_ENGINE_ID`, `include/common.h`). Engine sound stays the template's.
+- The HUD portraits use the racer's (`VEH_DRIVER_ICON`): the race rank list, cup standings, the race results and the VS and battle standings.
+
+Everything else keyed by character ID uses the template: voice, podium, records, ghosts, Archipelago. Bots never pick a custom racer.
+
+`CTR_DEV_RACER=n` with `CTR_DEV_RACE` puts player 1 in a race as the nth installed racer.
+
 ## Checking
 `CTR_DEV_CHARACTER_SELECT=1` opens the screen ([DEV-TOOLS.md](DEV-TOOLS.md)). `CTR_DEV_FAKE_RACERS=n` replaces the installed racers with n placeholders that borrow the first eight retail racers' looks, to fill pages. To check that retail is unchanged, A/B the screen against an older build with `CTR_DEV_UNLOCKS=0` and `=1` at 1 to 4 players, with `CTR_DEV_PAD` navigation scripts that hit taken icons and row ends. Every frame should match except the exit slide-out, which older builds did not animate.

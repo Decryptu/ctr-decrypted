@@ -291,3 +291,25 @@ int NativeRacers_Player(int player)
 {
 	return ((player >= 0) && (player < 4)) ? s_playerRacer[player] : -1;
 }
+
+int NativeRacers_Driver(int driverID)
+{
+	struct GameTracker *gGT = sdata->gGT;
+	if ((gGT == NULL) || (driverID < 0) || (driverID >= gGT->numPlyrCurrGame) || (driverID >= 4) ||
+	    ((gGT->gameMode1 & (ADVENTURE_MODE | MAIN_MENU)) != 0))
+		return -1;
+	const int racer = s_playerRacer[driverID];
+	return (NativeRacers_Valid(racer) && (s_racers[racer].templateID == GAME_CHARACTER_IDS[driverID])) ? racer : -1;
+}
+
+int NativeRacers_DriverEngine(int driverID, int retailEngine)
+{
+	const int racer = NativeRacers_Driver(driverID);
+	return (racer >= 0) ? NativeRacers_Engine(racer) : retailEngine;
+}
+
+struct Icon *NativeRacers_DriverIcon(int driverID, struct Icon *retailIcon)
+{
+	struct Icon *icon = NativeRacers_Portrait(NativeRacers_Driver(driverID));
+	return icon ? icon : retailIcon;
+}

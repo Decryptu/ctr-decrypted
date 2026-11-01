@@ -218,6 +218,17 @@
 #if defined(CTR_NATIVE)
 #include <platform.h>
 #include <platform/native_config.h>
+#include <platform/native_racers.h>
+#endif
+
+// Custom racers (docs/CUSTOM_RACERS.md): a driver's engine class and HUD
+// portrait come from its racer when it races as one.
+#if defined(CTR_NATIVE)
+#define VEH_BIRTH_ENGINE_ID(metadata, ids, driver) 	NativeRacers_DriverEngine((driver)->driverID, (metadata)[(ids)[(driver)->driverID]].engineID)
+#define VEH_DRIVER_ICON(driverID, retailIcon) NativeRacers_DriverIcon((driverID), (retailIcon))
+#else
+#define VEH_BIRTH_ENGINE_ID(metadata, ids, driver) ((metadata)[(ids)[(driver)->driverID]].engineID)
+#define VEH_DRIVER_ICON(driverID, retailIcon) (retailIcon)
 #endif
 
 // Game declarations and GPU helpers that depend on the layout headers above.

@@ -193,6 +193,14 @@ int NativeDev_StartRace(struct GameTracker *gGT)
 		data.characterIDs[i] = i;
 	// CTR_DEV_CHARACTER: player 1's racer; the bot that had it takes Crash.
 	int character = NativeDev_EnvInt("CTR_DEV_CHARACTER", -1);
+	// CTR_DEV_RACER: player 1 races as that installed custom racer (by
+	// library order, docs/CUSTOM_RACERS.md), on its template's character ID.
+	const int racer = NativeDev_EnvInt("CTR_DEV_RACER", -1);
+	if ((racer >= 0) && (racer < NativeRacers_Count()))
+	{
+		character = NativeRacers_Template(racer);
+		NativeRacers_SetPlayer(0, racer);
+	}
 	if ((character > 0) && (character < 16))
 	{
 		for (int i = 1; i < 8; i++)

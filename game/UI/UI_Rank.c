@@ -225,7 +225,7 @@ void UI_DrawRankedDrivers(void)
 
 				UI_DrawDriverIcon(
 
-				    gGT->ptrIcons[data.MetaDataCharacters[data.characterIDs[driverIndex]].iconID],
+				    VEH_DRIVER_ICON(driverIndex, gGT->ptrIcons[data.MetaDataCharacters[data.characterIDs[driverIndex]].iconID]),
 
 				    pos.x, pos.y, &gGT->backBuffer->primMem,
 
@@ -340,7 +340,7 @@ void UI_DrawRankedDrivers(void)
 			Color color;
 			ColorCode_SetPacked(&color, damageColor);
 
-			DecalHUD_DrawPolyGT4(gGT->ptrIcons[data.MetaDataCharacters[data.characterIDs[driverIndex]].iconID], posX, posY,
+			DecalHUD_DrawPolyGT4(VEH_DRIVER_ICON(driverIndex, gGT->ptrIcons[data.MetaDataCharacters[data.characterIDs[driverIndex]].iconID]), posX, posY,
 
 			                     // pointer to PrimMem struct
 			                     &gGT->backBuffer->primMem,

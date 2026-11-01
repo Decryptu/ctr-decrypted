@@ -729,7 +729,7 @@ void VehBirth_SetConsts(struct Driver *driver)
 		{
 		case 1:
 			driverFieldOffset = metaPhys->offset;
-			engineValueOffset = characterMetadata[characterIDs[driver->driverID]].engineID * sizeof(s32);
+			engineValueOffset = VEH_BIRTH_ENGINE_ID(characterMetadata, characterIDs, driver) * sizeof(s32);
 			engineValueOffset += metaPhysByteOffset;
 			metaPhysValue = (u8 *)((size_t)engineValueOffset + (size_t)metaPhysBase);
 			driverField = (u8 *)driver + driverFieldOffset;
@@ -738,7 +738,7 @@ void VehBirth_SetConsts(struct Driver *driver)
 
 		case 2:
 			driverFieldOffset = metaPhys->offset;
-			engineValueOffset = characterMetadata[characterIDs[driver->driverID]].engineID * sizeof(s32);
+			engineValueOffset = VEH_BIRTH_ENGINE_ID(characterMetadata, characterIDs, driver) * sizeof(s32);
 			engineValueOffset += metaPhysByteOffset;
 			metaPhysValue = (u8 *)((size_t)engineValueOffset + (size_t)metaPhysBase);
 			driverField = (u8 *)driver + driverFieldOffset;
@@ -747,7 +747,7 @@ void VehBirth_SetConsts(struct Driver *driver)
 
 		case 4:
 			driverFieldOffset = metaPhys->offset;
-			engineValueOffset = characterMetadata[characterIDs[driver->driverID]].engineID * sizeof(s32);
+			engineValueOffset = VEH_BIRTH_ENGINE_ID(characterMetadata, characterIDs, driver) * sizeof(s32);
 			engineValueOffset += metaPhysByteOffset;
 			metaPhysValue = (u8 *)((size_t)engineValueOffset + (size_t)metaPhysBase);
 			driverField = (u8 *)driver + driverFieldOffset;
@@ -812,6 +812,13 @@ void VehBirth_TireSprites(struct Thread *t)
 	{
 		d->wheelSize = 0;
 	}
+#if defined(CTR_NATIVE)
+	// A custom racer's own wheel setting wins over its template's.
+	if ((GAME_TRACKER->levelID != MAIN_MENU_LEVEL) && (NativeRacers_Driver(driverID) >= 0))
+	{
+		d->wheelSize = NativeRacers_Wheels(NativeRacers_Driver(driverID)) ? VEH_BIRTH_WHEEL_SIZE : 0;
+	}
+#endif
 
 	d->tireColor = DRIVER_TIRE_COLOR_DEFAULT;
 	d->tireColorCycleTimer = DRIVER_TIRE_COLOR_TIMER_INITIAL;
@@ -883,6 +890,15 @@ void VehBirth_NonGhost(struct Thread *t, int index)
 
 	characterMetadataAddress = (size_t)characterMetadata + ((size_t)id * sizeof(*characterMetadata));
 	m = VehBirth_GetModelByName(((struct MetaDataCHAR *)characterMetadataAddress)->name_Debug);
+#if defined(CTR_NATIVE)
+	// A custom racer drives its own model (docs/CUSTOM_RACERS.md).
+	if ((GAME_TRACKER->gameMode1 & MAIN_MENU) == 0)
+	{
+		struct Model *racerModel = NativeRacers_RaceModel(NativeRacers_Driver(playerIndex));
+		if (racerModel != NULL)
+			m = racerModel;
+	}
+#endif
 
 	inst = INSTANCE_Birth3D(m, m->name, t);
 

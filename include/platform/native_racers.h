@@ -29,4 +29,12 @@ struct Model *NativeRacers_RaceModel(int racer);
 void NativeRacers_SetPlayer(int player, int racer);
 int NativeRacers_Player(int player);
 
+// The custom racer a driver races as, or -1: a human player's pick, outside
+// Adventure and the menus, while their character ID is still the racer's
+// template (anything that changed the ID since, changed the racer too).
+int NativeRacers_Driver(int driverID);
+// A driver's engine class and HUD portrait: the racer's when it has one.
+int NativeRacers_DriverEngine(int driverID, int retailEngine);
+struct Icon *NativeRacers_DriverIcon(int driverID, struct Icon *retailIcon);
+
 #endif
