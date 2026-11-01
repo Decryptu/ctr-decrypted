@@ -100,6 +100,9 @@ typedef struct
 	// Retail resets it to near on every camera birth and race start; the 1P
 	// camera starts from this instead and L2 updates it (game/CAM.c).
 	bool cameraFar;
+	// The Triangle map/speedometer choice (true = speedometer), [State]
+	// hud_speedometer, applied every race frame (game/UI/UI_RenderFrame.c).
+	bool hudSpeedometer;
 	// Audio: the vanilla audio screen's volumes (0-255) and stereo/mono mode.
 	// Config-file-only -- persisted to config.ini [Audio] and edited through that
 	// screen (game/MAIN/MainFreeze.c), NOT the in-game options menu (the [Audio]

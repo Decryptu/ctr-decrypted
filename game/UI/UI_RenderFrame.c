@@ -86,6 +86,9 @@ void UI_RenderFrame_Racing()
 				// if !& 8, add bit 8,
 				// toggle map and speedometer
 				sdata->HudAndDebugFlags ^= 8;
+#ifdef CTR_NATIVE
+				g_config.hudSpeedometer = (sdata->HudAndDebugFlags & 8) != 0;
+#endif
 			}
 		}
 		else
@@ -102,6 +105,18 @@ void UI_RenderFrame_Racing()
 		// force draw speedometer, and not map, why?
 		sdata->HudAndDebugFlags = 8;
 	}
+#ifdef CTR_NATIVE
+	// Native: the player's map/speedometer choice outlives the session and the
+	// attract demo's override above (config.ini [State] hud_speedometer).
+	else if (g_config.hudSpeedometer)
+	{
+		sdata->HudAndDebugFlags |= 8;
+	}
+	else
+	{
+		sdata->HudAndDebugFlags &= ~8;
+	}
+#endif
 
 #ifdef CTR_NATIVE
 	// NOTE(aalhendi): Native can load levels before ST1 map metadata is present.
