@@ -17,12 +17,23 @@ def _build(seed=1, **options):
     return setup_multiworld(ctrAPWorld, seed=seed, options=options)
 
 
+def _from_pool(mw):
+    """Racers the world starts from the pool. The world creates only the
+    copies left in the pool and keeps the starts it took in
+    ctr_content_original_starts; setup_multiworld stops before Main.main
+    hands them out, so they are not precollected yet."""
+    starts = mw.worlds[1].ctr_content_original_starts
+    return {name for name, count in starts.items() if count and name in ROSTER}
+
+
 def _pooled_racers(mw):
     return [i.name for i in mw.itempool if i.player == 1 and i.name in ROSTER]
 
 
 def _held_racers(mw):
-    return {i.name for i in mw.precollected_items[1] if i.name in ROSTER}
+    """The starting racer (slot data, not an item) and the racers started from
+    the pool."""
+    return {mw.worlds[1].ctr_starting_character} | _from_pool(mw)
 
 
 class TestVanillaEight(unittest.TestCase):

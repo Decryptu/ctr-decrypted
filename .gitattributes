@@ -13,6 +13,9 @@
 # Vendored sources are checked against SHA256 pins of their LF bytes
 # (cmake/CustomPackageDeps.cmake), so every checkout must be byte-exact.
 vendor/** text eol=lf
+# The world is packed into ctr.apworld and its test fixtures are checked against
+# SHA256 pins of their LF bytes, so a Windows checkout must not convert it.
+apworld/** text eol=lf
 
 # Vendored upstream snapshots are byte-preserved.
 /externals/maspsx/** -text

@@ -38,7 +38,7 @@ if (-not (Test-Path $marker) -or (Get-Content $marker) -ne $apRef) {
         $env:SKIP_REQUIREMENTS_UPDATE = "1"
         Run $python @("Launcher.py", "--update_settings")
     } finally { Pop-Location }
-    Set-Content -NoNewline $marker $apRef
+    Set-Content -LiteralPath $marker -Value $apRef -NoNewline
 }
 
 $world = Join-Path $ap "worlds\ctr"
