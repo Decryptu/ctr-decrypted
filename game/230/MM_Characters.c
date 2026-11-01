@@ -9,14 +9,7 @@ enum
 	MM_CHARACTER_SELECT_MODEL_MOVE_FP_SHIFT = 0xc,
 	MM_CHARACTER_SELECT_MODEL_MOVE_NEXT = 1,
 	MM_CHARACTER_SELECT_MODEL_MOVE_PREV = -1,
-#if defined(CTR_NATIVE)
-	// Fork addition: N. Oxide's icon goes in slot 15 (see MM_Characters_BuildRoster).
-	MM_CHARACTER_SELECT_RETAIL_ICON_COUNT = 0xf,
-	MM_CHARACTER_SELECT_ICON_OXIDE = 0xf,
-	MM_CHARACTER_SELECT_ICON_COUNT = 0x10,
-#else
 	MM_CHARACTER_SELECT_ICON_COUNT = 0xf,
-#endif
 	MM_CHARACTER_SELECT_EXPANSION_ICON_FIRST = 0xc,
 	MM_CHARACTER_SELECT_DEFAULT_DRIVER_COUNT = 8,
 	MM_CHARACTER_SELECT_MAX_PLAYERS = 4,
@@ -116,118 +109,6 @@ enum
 #endif
 
 #if defined(CTR_NATIVE)
-// Fork addition: N. Oxide on the character select, once unlocked
-// (GAME_UNLOCK_BIT_OXIDE: beat him in Adventure, or the Spyro 2 demo code).
-// High Octane has the same feature on Vita only.
-//
-// Retail draws 15 icons. Its transition table holds the 15 icons, then the
-// "Select Character" title, then one entry per player window, then a
-// terminator. Oxide's icon goes in slot 15, so the title and windows move up
-// one. The retail tables in D230 stay untouched: the 16-icon tables below
-// are rebuilt from them at every layout pass, and Oxide's icon and the links
-// into it are added only while he is unlocked, so a locked roster lays out
-// and navigates exactly as retail. Placement follows High Octane: the free
-// slot at the end of the 1P/2P bottom row, and the top row in 3P and 4P.
-enum
-{
-	CS_RETAIL_TRANSITION_COUNT = 0x15, // icons, title, 4 windows, terminator
-	CS_TRANSITION_COUNT = CS_RETAIL_TRANSITION_COUNT + 1,
-	CS_MENU_WHEEL_SIZE = 0xccc,
-	CS_NAV_UP = 0,
-	CS_NAV_DOWN = 1,
-	CS_NAV_LEFT = 2,
-	CS_NAV_RIGHT = 3,
-};
-
-static struct CharacterSelectMeta s_csm1P2P[MM_CHARACTER_SELECT_ICON_COUNT];
-static struct CharacterSelectMeta s_csm1P2PLimited[MM_CHARACTER_SELECT_ICON_COUNT];
-static struct CharacterSelectMeta s_csm3P[MM_CHARACTER_SELECT_ICON_COUNT];
-static struct CharacterSelectMeta s_csm4P[MM_CHARACTER_SELECT_ICON_COUNT];
-static struct TransitionMeta s_transition1P2P[CS_TRANSITION_COUNT];
-static struct TransitionMeta s_transition3P[CS_TRANSITION_COUNT];
-static struct TransitionMeta s_transition4P[CS_TRANSITION_COUNT];
-// Same order as MM_CHARACTER_SELECT_META_BY_LAYOUT: 1P, 2P, 3P, 4P, then the unexpanded 1P and 2P.
-static struct CharacterSelectMeta *const s_csmByLayout[6] = {s_csm1P2P, s_csm1P2P, s_csm3P, s_csm4P, s_csm1P2PLimited, s_csm1P2PLimited};
-static struct TransitionMeta *const s_transitionByPlayers[4] = {s_transition1P2P, s_transition1P2P, s_transition3P, s_transition4P};
-
-static int MM_Characters_OxideUnlocked(void)
-{
-	return ((GAME_PROGRESS.unlocks[GAME_UNLOCK_BIT_OXIDE >> 5] >> (GAME_UNLOCK_BIT_OXIDE & 0x1f)) & 1) != 0;
-}
-
-static void MM_Characters_CopyRetailRoster(struct CharacterSelectMeta *dst, const struct CharacterSelectMeta *src, s16 oxideX, s16 oxideY)
-{
-	for (int i = 0; i < MM_CHARACTER_SELECT_RETAIL_ICON_COUNT; i++)
-	{
-		dst[i] = src[i];
-	}
-	dst[MM_CHARACTER_SELECT_ICON_OXIDE] = src[MM_CHARACTER_SELECT_RETAIL_ICON_COUNT - 1];
-	dst[MM_CHARACTER_SELECT_ICON_OXIDE].posX = oxideX;
-	dst[MM_CHARACTER_SELECT_ICON_OXIDE].posY = oxideY;
-	dst[MM_CHARACTER_SELECT_ICON_OXIDE].characterID = NITROS_OXIDE;
-	dst[MM_CHARACTER_SELECT_ICON_OXIDE].unlockFlags = GAME_UNLOCK_BIT_OXIDE;
-	for (int d = 0; d < CHARACTER_SELECT_DIRECTION_COUNT; d++)
-	{
-		dst[MM_CHARACTER_SELECT_ICON_OXIDE].nextIconByDirection[d] = MM_CHARACTER_SELECT_ICON_OXIDE;
-	}
-}
-
-static void MM_Characters_CopyRetailTransitions(struct TransitionMeta *dst, const struct TransitionMeta *src, s16 oxideHeadStart)
-{
-	for (int i = 0; i < MM_CHARACTER_SELECT_RETAIL_ICON_COUNT; i++)
-	{
-		dst[i] = src[i];
-	}
-	// Oxide slides in with the icon before him, a little later.
-	dst[MM_CHARACTER_SELECT_ICON_OXIDE] = src[MM_CHARACTER_SELECT_RETAIL_ICON_COUNT - 1];
-	dst[MM_CHARACTER_SELECT_ICON_OXIDE].headStart = oxideHeadStart;
-	for (int i = MM_CHARACTER_SELECT_RETAIL_ICON_COUNT; i < CS_RETAIL_TRANSITION_COUNT; i++)
-	{
-		dst[i + 1] = src[i];
-	}
-}
-
-static void MM_Characters_BuildRoster(void)
-{
-	MM_Characters_CopyRetailRoster(s_csm1P2P, D230.characterSelectMeta1P2P, 0x160, 0xAE);
-	MM_Characters_CopyRetailRoster(s_csm1P2PLimited, D230.characterSelectMeta1P2PLimited, 0x160, 0xCE);
-	MM_Characters_CopyRetailRoster(s_csm3P, D230.characterSelectMeta3P, 0xE0, 0x20);
-	MM_Characters_CopyRetailRoster(s_csm4P, D230.characterSelectMeta4P, 0x100, 0x20);
-
-	// The transitions keep their positions whatever the unlock state, because
-	// the title and windows sit after the icons.
-	MM_Characters_CopyRetailTransitions(s_transition1P2P, D230.characterSelectTransition1P2P, 1);
-	MM_Characters_CopyRetailTransitions(s_transition3P, D230.characterSelectTransition3P, 5);
-	MM_Characters_CopyRetailTransitions(s_transition4P, D230.characterSelectTransition4P, 3);
-
-	if (!MM_Characters_OxideUnlocked())
-	{
-		return;
-	}
-
-	// 1P/2P: right of Fake Crash, under Pura; Papu Papu also steps down to him.
-	s_csm1P2P[7].nextIconByDirection[CS_NAV_DOWN] = MM_CHARACTER_SELECT_ICON_OXIDE;
-	s_csm1P2P[11].nextIconByDirection[CS_NAV_DOWN] = MM_CHARACTER_SELECT_ICON_OXIDE;
-	s_csm1P2P[14].nextIconByDirection[CS_NAV_RIGHT] = MM_CHARACTER_SELECT_ICON_OXIDE;
-	s_csm1P2P[MM_CHARACTER_SELECT_ICON_OXIDE].nextIconByDirection[CS_NAV_UP] = 7;
-	s_csm1P2P[MM_CHARACTER_SELECT_ICON_OXIDE].nextIconByDirection[CS_NAV_LEFT] = 14;
-	s_csm1P2P[MM_CHARACTER_SELECT_ICON_OXIDE].nextIconByDirection[CS_NAV_RIGHT] = 11;
-
-	// 3P: top row, right of Fake Crash and above Coco.
-	s_csm3P[3].nextIconByDirection[CS_NAV_UP] = MM_CHARACTER_SELECT_ICON_OXIDE;
-	s_csm3P[14].nextIconByDirection[CS_NAV_RIGHT] = MM_CHARACTER_SELECT_ICON_OXIDE;
-	s_csm3P[MM_CHARACTER_SELECT_ICON_OXIDE].nextIconByDirection[CS_NAV_DOWN] = 3;
-	s_csm3P[MM_CHARACTER_SELECT_ICON_OXIDE].nextIconByDirection[CS_NAV_LEFT] = 14;
-
-	// 4P: Penta moves one slot left on the top row to make room, above
-	// Cortex, and Oxide takes the slot above Tiny.
-	s_csm4P[14].posX = 0xC0;
-	s_csm4P[14].nextIconByDirection[CS_NAV_RIGHT] = MM_CHARACTER_SELECT_ICON_OXIDE;
-	s_csm4P[2].nextIconByDirection[CS_NAV_UP] = MM_CHARACTER_SELECT_ICON_OXIDE;
-	s_csm4P[MM_CHARACTER_SELECT_ICON_OXIDE].nextIconByDirection[CS_NAV_DOWN] = 2;
-	s_csm4P[MM_CHARACTER_SELECT_ICON_OXIDE].nextIconByDirection[CS_NAV_LEFT] = 14;
-}
-
 // Oxide's menu model. The main-menu level carries the 15 retail racers only,
 // so his racer model is read from the player's disc on first use (the
 // BIGFILE's high-detail model), relocated like any DRAM file, and kept.
@@ -333,6 +214,9 @@ void MM_Characters_AnimateColors(u8 *colorData, s16 playerID, s16 flag)
 
 	return;
 }
+// The retail roster, navigation and drawing. The native build replaces
+// them with MM_CharacterGrid.c (included at the end of this file).
+#if !defined(CTR_NATIVE)
 s32 MM_Characters_GetNextDriver(s32 direction, s16 characterID)
 {
 	register s16 nextIcon CTR_PSX_REGISTER("$5");
@@ -383,6 +267,7 @@ b32 MM_Characters_boolIsInvalid(s16 *iconPerPlayer, s16 characterID, s32 player)
 	// if driver is not taken
 	return isInvalid;
 }
+#endif
 
 // Search for character model by string,
 // specific to main menu lev, altered in oxide mod
@@ -429,6 +314,7 @@ struct Model *MM_Characters_GetModelByName(const char *name)
 #endif
 	return model;
 }
+#if !defined(CTR_NATIVE)
 void MM_Characters_DrawWindows(b32 showDrivers)
 {
 	struct InstanceWithIDPP
@@ -546,10 +432,6 @@ LAB_Characters_DrawWindows_Loop:
 				pb->rect.x = rectEnd;
 				pb->rect.w = 0;
 
-#ifdef CTR_NATIVE
-				// NOTE(aalhendi): Native renderer guard; retail leaves w at zero.
-				pb->rect.w = 1;
-#endif
 			}
 		}
 
@@ -574,10 +456,6 @@ LAB_Characters_DrawWindows_Loop:
 				pb->rect.y = rectEnd;
 				pb->rect.h = 0;
 
-#ifdef CTR_NATIVE
-				// NOTE(aalhendi): Native renderer guard; retail leaves h at zero.
-				pb->rect.h = 1;
-#endif
 			}
 		}
 	}
@@ -644,10 +522,6 @@ LAB_Characters_DrawWindows_Loop:
 	// set modelPtr in Instance
 	driverInst->model = model;
 
-#if defined(CTR_NATIVE)
-	// Fork addition: Oxide's hovercraft has no wheels.
-	GAME_TRACKER->drivers[indexOrSlideFactor]->wheelSize = (*currCharacterID == NITROS_OXIDE) ? 0 : CS_MENU_WHEEL_SIZE;
-#endif
 
 	// CameraDC, freecam mode
 	GAME_TRACKER->cameraDC[indexOrSlideFactor].cameraMode = CAMERA_MODE_FREECAM;
@@ -779,14 +653,7 @@ void MM_Characters_SetMenuLayout(void)
 	expandRoster = false;
 	iconIndex = MM_CHARACTER_SELECT_EXPANSION_ICON_FIRST;
 	progress = &GAME_PROGRESS;
-#if defined(CTR_NATIVE)
-	// Fork addition: the 16-icon roster with Oxide; the loop below also
-	// expands the layout for him.
-	MM_Characters_BuildRoster();
-	meta1P2P = s_csm1P2P;
-#else
 	meta1P2P = MM_CHARACTER_SELECT_META_1P2P;
-#endif
 
 	layoutIndex = GAME_TRACKER->numPlyrNextGame - 1;
 
@@ -821,11 +688,7 @@ void MM_Characters_SetMenuLayout(void)
 	MM_CHARACTER_SELECT_LAYOUT_INDEX = layoutIndex;
 
 	MM_ACTIVE_CHARACTER_SELECT_WINDOW_POS = MM_CHARACTER_SELECT_WINDOW_POS_BY_LAYOUT[layoutIndex];
-#if defined(CTR_NATIVE)
-	MM_ACTIVE_CHARACTER_SELECT_META = s_csmByLayout[layoutIndex];
-#else
 	MM_ACTIVE_CHARACTER_SELECT_META = MM_CHARACTER_SELECT_META_BY_LAYOUT[layoutIndex];
-#endif
 
 	MM_CHARACTER_SELECT_WINDOW_WIDTH = MM_CHARACTER_SELECT_LAYOUT_WINDOW_W[layoutIndex];
 	MM_CHARACTER_SELECT_WINDOW_HEIGHT = MM_CHARACTER_SELECT_LAYOUT_WINDOW_H[layoutIndex];
@@ -833,11 +696,7 @@ void MM_Characters_SetMenuLayout(void)
 	MM_CHARACTER_SELECT_DRIVER_POS.y = MM_CHARACTER_SELECT_LAYOUT_DRIVER_POS_Y[layoutIndex];
 	MM_CHARACTER_SELECT_DRIVER_POS.z = MM_CHARACTER_SELECT_LAYOUT_DRIVER_POS_Z[layoutIndex];
 
-#if defined(CTR_NATIVE)
-	MM_CHARACTER_SELECT_TRANSITION_META = s_transitionByPlayers[GAME_TRACKER->numPlyrNextGame - 1];
-#else
 	MM_CHARACTER_SELECT_TRANSITION_META = MM_CHARACTER_SELECT_TRANSITION_BY_PLAYER_COUNT[GAME_TRACKER->numPlyrNextGame - 1];
-#endif
 }
 void MM_Characters_BackupIDs(void)
 {
@@ -866,11 +725,7 @@ void MM_Characters_PreventOverlap(void)
 	s16 playerIndex;
 
 	// default 0,1,2,3,4,5,6,7
-#ifdef CTR_NATIVE
-	memcpy(&availableDefaultCharacters, MM_DEFAULT_CHARACTER_ID_WORDS, sizeof(availableDefaultCharacters));
-#else
 	availableDefaultCharacters = *(const struct PackedCharacterIDs *)MM_DEFAULT_CHARACTER_ID_WORDS;
-#endif
 
 	for (playerIndex = 0; playerIndex < GAME_TRACKER->numPlyrNextGame; playerIndex++)
 	{
@@ -1005,9 +860,6 @@ void MM_Characters_RestoreIDs(void)
 		// set name string ID to the character ID of each player.
 		// The string will only draw if both these variables match
 		characterID = MM_CHARACTER_SELECT_DESIRED_IDS[playerIndex] = (MM_CHARACTER_SELECT_CURRENT_IDS[playerIndex] = GAME_CHARACTER_IDS[playerIndex]);
-#ifdef CTR_NATIVE
-		(void)characterID;
-#endif
 
 		// something to do with transitioning between icons
 		MM_CHARACTER_SELECT_MOVE_TIMERS[playerIndex] = 0;
@@ -1019,6 +871,7 @@ void MM_Characters_RestoreIDs(void)
 	MM_Characters_DrawWindows(0);
 	return;
 }
+#endif
 
 void MM_Characters_HideDrivers(void)
 {
@@ -1039,6 +892,7 @@ static inline u8 MM_Characters_ScaleColor(u8 color)
 	return (u8)((int)((u32)color << 2) / 5);
 }
 
+#if !defined(CTR_NATIVE)
 void MM_Characters_MenuProc(struct RectMenu *unused)
 {
 	s16 iconPerPlayer[4];
@@ -1552,11 +1406,7 @@ outerPlayerLoopComplete:
 				                            (u32)MM_CHARACTER_SELECT_TRANSITION_META);
 				iconCharacterMetadata = (struct MetaDataCHAR *)MM_CHARACTER_METADATA_PAGE_VALUE;
 				CTR_PSX_FORGET_VALUE(iconCharacterMetadata);
-#if defined(CTR_NATIVE)
-				iconCharacterMetadata = GAME_CHARACTER_METADATA;
-#else
 				iconCharacterMetadata = (struct MetaDataCHAR *)((u8 *)iconCharacterMetadata + MM_CHARACTER_METADATA_PAGE_OFFSET);
-#endif
 				MM_CHARACTERS_BEGIN_ICON_COLOR_COPY(iconCharacterMetadata);
 				iconTransitionByteOffset += iconWork;
 				iconTransition = (struct TransitionMeta *)iconTransitionByteOffset;
@@ -1814,6 +1664,7 @@ outerPlayerLoopComplete:
 	}
 	return;
 }
+#endif
 
 #undef MM_CHARACTERS_LOAD_OUTLINE_GAME_TRACKER
 #undef MM_CHARACTERS_LOAD_OUTER_LOOP_GAME_TRACKER
@@ -1822,3 +1673,7 @@ outerPlayerLoopComplete:
 #undef MM_CHARACTERS_BEGIN_ICON_COLOR_COPY
 #undef MM_CHARACTERS_END_ICON_COLOR_COPY
 #undef MM_CHARACTERS_LOAD_HIGHLIGHT_GAME_TRACKER
+
+#if defined(CTR_NATIVE)
+#include "MM_CharacterGrid.c"
+#endif

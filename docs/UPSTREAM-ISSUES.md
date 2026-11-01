@@ -74,7 +74,7 @@ All four are GPL-3.0. dowlle's `ctr.apworld` is MIT.
   - Ghost replay tools, 7 ghosts per track
   - Online leaderboard
 - Characters: playable N. Oxide, Penta 6/6/6, custom racers (`.ctrr`), stats viewer.
-  - Playable Oxide is Vita-only there and embeds his menu model in the source. Here he is playable on PC with the model read from the player's disc ([EXTRAS.md](EXTRAS.md) has the other mods).
+  - Playable Oxide is Vita-only there and embeds his menu model in the source. Here he is playable on PC with the model read from the player's disc, on the generated character select ([CUSTOM_RACERS.md](CUSTOM_RACERS.md)).
 - Mods: reserves meter, custom cups, blue fire, OxideFix, cyan super turbo pads, powerslide bar.
 - Other: rebindable controls, 4-player splitscreen, cheats menu, Discord presence, multilanguage text, PAL voices.
 
