@@ -61,6 +61,20 @@ void RECTMENU_DrawInnerRect(RECT *r, s16 x, u32 *ot) { (void)x; (void)ot; box_ch
 void CTR_Box_DrawClearBox(const RECT *r, const Color *c, s32 t, u32 *ot, struct PrimMem *primMem)
 { (void)c; (void)t; (void)ot; (void)primMem; box_check(r); }
 void CTR_Box_DrawSolidBox(RECT *r, const Color *c, u32 *ot, struct PrimMem *primMem) { (void)c; (void)ot; (void)primMem; box_check(r); }
+/* The page arrows: icon 0x38 of icon group 4, in orange. */
+static struct { struct IconGroup group; struct Icon *icons[0x39]; } arrowGroup;
+static struct Icon arrowIcon;
+static u32 orange[4];
+static int arrows;
+void DecalHUD_Arrow2D(struct Icon *icon, s32 posX, s32 posY, struct PrimMem *primMem, u32 *ot, Color color0, Color color1,
+                      Color color2, Color color3, u8 transparency, s16 scale, u16 rot)
+{
+    (void)posY; (void)primMem; (void)ot; (void)color0; (void)color1; (void)color2; (void)color3;
+    (void)transparency; (void)scale; (void)rot;
+    arrows++;
+    CHECK(icon == &arrowIcon);
+    CHECK(posX >= 0 && posX <= 512);
+}
 int CustomOffline_StartPrepare(const char *assets, const char *pin)
 { (void)assets; (void)pin; prepared++; return 1; }
 int CustomOffline_PollPrepare(struct CustomOfflineRequest **out, char *e, size_t n)
@@ -115,6 +129,9 @@ int main(void)
     data.font_buttonPixWidth[FONT_BIG] = 16;
     sdata->gGT = &tracker;
     tracker.backBuffer = &buffer;
+    arrowGroup.icons[0x38] = &arrowIcon;
+    tracker.iconGroup[4] = &arrowGroup.group;
+    data.ptrColor[ORANGE] = orange;
     tracker.gameMode1 = ARCADE_MODE;
     tracker.numPlyrNextGame = 1;
     tracker.arcadeDifficulty = 123;
@@ -226,6 +243,7 @@ int main(void)
     tracker.gameMode1=ARCADE_MODE;
     CustomTrackLibrary_Free(&s_contentLibrary);
     CustomTrackLibrary_Free(&s_arcadeLibrary);
+    CHECK(arrows > 0 && arrows % 2 == 0); /* both arrows, every time the title is drawn */
     printf("custom selector: %d checks, %d failures\n", checks, failures);
     return failures != 0;
 }

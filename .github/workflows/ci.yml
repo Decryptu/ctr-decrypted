@@ -11,12 +11,18 @@ name: CI
 
 on:
   pull_request:
+  # main only ever moves to a commit dev already tested, so it runs nothing.
   push:
-    branches: [main, dev, 'release/**']
+    branches: [dev, 'release/**']
   workflow_dispatch:
 
 permissions:
   contents: read
+
+# A newer push to the same branch replaces a run still going.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   harnesses:

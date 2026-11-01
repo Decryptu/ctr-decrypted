@@ -1,0 +1,129 @@
+# The CTR world fuzz arms (.github/workflows/apworld.yml, fuzz job).
+#
+# Columns: name, generations in the full run, generations on a push or pull
+# request (0: the full run only), meta, hook. The full run is every arm at its
+# full count: nightly on dev, and by hand (Run workflow) for a release. A push
+# runs about twenty arms that cover each family at a few hundred seeds, so it
+# fits in one wave of runners.
+#
+# meta: "canonical" is the index's canonical generation check; "random" is
+# random-meta.yaml; "accessibility-full" is random-meta.yaml with accessibility
+# full; gem-cups-<count>-<tracks> fills content-plan-gem-cups-meta.yaml;
+# pads-<unlock>-<placement>-<density>[-<fixed>[-<overlay>]] fills
+# content-plan-pads-meta.yaml (<fixed>: keys, gems, both, filler, all or none;
+# <overlay>: a file in overlays/); any other name is <meta>-meta.yaml.
+# hook: a fuzz hook, "-" for none. hooks.ctr_ut_hook:Hook also installs
+# Universal Tracker and compares its logic with the server's (ctr_ut_hook.py).
+
+canonical-default                  1     1  canonical                                      -
+default                         5000  1000  random                                         -
+no-restrictive-starts           5000   300  random                                         hooks.no_rs:Hook
+check-determinism                500   100  random                                         hooks.determinism:Hook
+check-collect-accessibility      500   100  random                                         hooks.collect_accessibility_test:Hook
+check-item-location-count        500   100  random                                         hooks.item_location_count:Hook
+check-placement-refs             500   100  random                                         hooks.check_placement_item_location_references:Hook
+check-lambda-capture             500   100  random                                         hooks.detect_rule_variable_capture_issues:Hook
+check-static-output              500   100  random                                         hooks.detect_output_placement_changes:Hook
+check-indirect-conditions        500   100  random                                         hooks.indirect_conditions:Hook
+# The tracker arms compare Universal Tracker's logic with the server's.
+# apworld/fuzz/ctr_ut_hook.py runs the tracker's hook and compares
+# checks by location id, since the tracker shows generic-slot custom
+# track checks under their room title. check-ut forces accessibility
+# full on the plain world; check-ut-custom-tracks puts Baby T Park on
+# a pad in every seed.
+check-ut                         500   200  accessibility-full                             hooks.ctr_ut_hook:Hook
+check-ut-custom-tracks          1000     0  check-ut-custom-tracks                         hooks.ctr_ut_hook:Hook
+# The content plan: two custom tracks (one named block, one generic
+# slot), then cups, boss garages, every pack at once, and the 0.3.0
+# features (ctr_first, Wumpa Shop and goal, Boss Opponent and Kit
+# Shuffle). Each meta is apworld/fuzz/<meta>-meta.yaml.
+content-plan                    1000   300  content-plan                                   -
+content-plan-ut                  500     0  content-plan                                   hooks.ctr_ut_hook:Hook
+content-plan-cups               1000     0  content-plan-cups                              -
+content-plan-bosses             1000     0  content-plan-bosses                            -
+content-plan-bosses-ut           500     0  content-plan-bosses                            hooks.ctr_ut_hook:Hook
+content-plan-full               1000   300  content-plan-full                              -
+content-plan-full-ut             500     0  content-plan-full                              hooks.ctr_ut_hook:Hook
+content-plan-030                1000   300  content-plan-030                               -
+content-plan-030-ut              500     0  content-plan-030                               hooks.ctr_ut_hook:Hook
+# Original Gem Cups: three and seven cups under each cup track value
+# (gem-cups-<count>-<tracks>), from content-plan-gem-cups-meta.yaml.
+gem-cups-3-off                   500     0  gem-cups-3-off                                 -
+gem-cups-3-random                500     0  gem-cups-3-random                              -
+gem-cups-3-no-repeats            500     0  gem-cups-3-random_no_repeats                   -
+gem-cups-7-off                   500     0  gem-cups-7-off                                 -
+gem-cups-7-random                500   200  gem-cups-7-random                              -
+gem-cups-7-no-repeats            500     0  gem-cups-7-random_no_repeats                   -
+gem-cups-ut                      500     0  gem-cups-7-off                                 hooks.ctr_ut_hook:Hook
+pads-vanilla-vanilla             500     0  pads-vanilla-vanilla-full                      -
+pads-vanilla-within              500     0  pads-vanilla-shuffle_within_kind-full          -
+pads-vanilla-shuffle             500   300  pads-vanilla-shuffle-full                      -
+pads-within                      500     0  pads-randomized-shuffle_within_kind-full       -
+pads-no-4-keys                   500     0  pads-random_without_4_keys-shuffle-full        -
+pads-density-off                 500     0  pads-randomized-shuffle-off                    -
+pads-density-light               500     0  pads-randomized-shuffle-light                  -
+pads-density-standard            500     0  pads-randomized-shuffle-standard               -
+pads-density-deep                500     0  pads-randomized-shuffle-deep                   -
+pads-density-full                500   300  pads-randomized-shuffle-full                   -
+pads-ut                          500     0  pads-vanilla-shuffle-full                      hooks.ctr_ut_hook:Hook
+pads-fixed-keys-vanilla          500     0  pads-vanilla-shuffle-full-keys                 -
+pads-fixed-gems-vanilla          500     0  pads-vanilla-shuffle-full-gems                 -
+pads-fixed-both-vanilla          500     0  pads-vanilla-shuffle-full-both                 -
+pads-fixed-keys-random           500     0  pads-randomized-shuffle-full-keys              -
+pads-fixed-gems-random           500     0  pads-randomized-shuffle-full-gems              -
+pads-fixed-both-random           500   200  pads-randomized-shuffle-full-both              -
+pads-filler-vanilla              500     0  pads-vanilla-shuffle-full-filler               -
+pads-filler-random               500     0  pads-randomized-shuffle-full-filler            -
+pads-fixed-ut-vanilla            500     0  pads-vanilla-shuffle-full-all                  hooks.ctr_ut_hook:Hook
+pads-fixed-ut-random             500     0  pads-randomized-shuffle-full-all               hooks.ctr_ut_hook:Hook
+pads-goal-any                    500     0  pads-randomized-shuffle-full-none-goal-any     -
+pads-goal-101                    500     0  pads-randomized-shuffle-full-none-goal-101     -
+pads-goal-bosses                 500     0  pads-randomized-shuffle-full-none-goal-bosses  -
+pads-goal-gems                   500     0  pads-randomized-shuffle-full-none-goal-gems    -
+pads-goal-wumpa                  500     0  pads-randomized-shuffle-full-none-goal-wumpa   -
+pads-goal-all                    500   200  pads-randomized-shuffle-full-none-goal-all     -
+pads-goal-wumpa-vanilla          500     0  pads-vanilla-shuffle-full-none-goal-wumpa      -
+pads-boss-opponent               500     0  pads-randomized-shuffle-full-none-boss-opponent -
+pads-boss-kit                    500     0  pads-randomized-shuffle-full-none-boss-kit     -
+pads-boss-all                    500     0  pads-randomized-shuffle-full-none-boss-all     -
+pads-boss-all-vanilla            500     0  pads-vanilla-shuffle-full-none-boss-all        -
+pads-boss-cups                   500     0  pads-randomized-shuffle-full-none-boss-cups    -
+pads-boss-cups-vanilla           500     0  pads-vanilla-shuffle-full-none-boss-cups       -
+pads-gauntlet                    500     0  pads-randomized-shuffle-full-none-gauntlet     -
+pads-gauntlet-vanilla            500     0  pads-vanilla-shuffle-full-none-gauntlet        -
+pads-ctr-first                   500     0  pads-randomized-shuffle-full-none-ctr-first    -
+pads-ctr-first-vanilla           500     0  pads-vanilla-shuffle-full-none-ctr-first       -
+pads-letters                     500     0  pads-randomized-shuffle-full-none-letters      -
+pads-letters-vanilla             500     0  pads-vanilla-shuffle-full-none-letters         -
+pads-shop-allowed                500   200  pads-randomized-shuffle-full-none-shop-allowed -
+pads-shop-excluded               500     0  pads-randomized-shuffle-full-none-shop-excluded -
+pads-shop-excluded-vanilla       500     0  pads-vanilla-shuffle-full-none-shop-excluded   -
+pads-shop-fixed                  500     0  pads-randomized-shuffle-full-both-shop-excluded -
+pads-shop-fixed-vanilla          500     0  pads-vanilla-shuffle-full-both-shop-excluded   -
+pads-shop-filler                 500     0  pads-randomized-shuffle-full-filler-shop-excluded -
+pads-shop-filler-vanilla         500     0  pads-vanilla-shuffle-full-filler-shop-excluded -
+pads-wumpa-fixed                 500     0  pads-randomized-shuffle-full-both-goal-all     -
+pads-spoiler                     500     0  pads-randomized-shuffle-full-none-spoiler      -
+pads-spoiler-vanilla             500     0  pads-vanilla-shuffle-full-none-spoiler         -
+pads-client                      500     0  pads-randomized-shuffle-full-none-client       -
+pads-client-vanilla              500     0  pads-vanilla-shuffle-full-none-client          -
+pads-all-ut                      500   200  pads-randomized-shuffle-full-none-all          hooks.ctr_ut_hook:Hook
+pads-all-ut-vanilla              500     0  pads-vanilla-shuffle-full-none-all             hooks.ctr_ut_hook:Hook
+# Lap checks with each goal, with fixed Keys and Gems, with boss cups,
+# and through Universal Tracker (overlays laps*.yaml).
+pads-laps-goal-any               500     0  pads-randomized-shuffle-full-none-laps-goal-any -
+pads-laps-goal-101               500     0  pads-randomized-shuffle-full-none-laps-goal-101 -
+pads-laps-goal-bosses            500     0  pads-randomized-shuffle-full-none-laps-goal-bosses -
+pads-laps-goal-gems              500     0  pads-randomized-shuffle-full-none-laps-goal-gems -
+pads-laps-goal-wumpa             500     0  pads-randomized-shuffle-full-none-laps-goal-wumpa -
+pads-laps-goal-all               500   200  pads-randomized-shuffle-full-none-laps-goal-all -
+pads-laps-goal-all-vanilla       500     0  pads-vanilla-shuffle-full-none-laps-goal-all   -
+pads-laps-fixed-keys-vanilla     500     0  pads-vanilla-shuffle-full-keys-laps            -
+pads-laps-fixed-keys-random      500     0  pads-randomized-shuffle-full-keys-laps         -
+pads-laps-fixed-gems-vanilla     500     0  pads-vanilla-shuffle-full-gems-laps            -
+pads-laps-fixed-gems-random      500     0  pads-randomized-shuffle-full-gems-laps         -
+pads-laps-fixed-both-vanilla     500     0  pads-vanilla-shuffle-full-both-laps            -
+pads-laps-fixed-both-random      500     0  pads-randomized-shuffle-full-both-laps         -
+pads-laps-boss-cups              500     0  pads-randomized-shuffle-full-none-laps-boss-cups -
+pads-laps-ut                     500     0  pads-randomized-shuffle-full-none-laps         hooks.ctr_ut_hook:Hook
+pads-laps-ut-vanilla             500     0  pads-vanilla-shuffle-full-none-laps            hooks.ctr_ut_hook:Hook
