@@ -725,10 +725,14 @@ class ctrAPWorld(World):
             # the fill, see sphere0_guard.bootstrap_start.
             from . import sphere0_guard
             sphere0_guard.bootstrap_start(self)
-            # Independent supply never uses automatic progression starts. Manual
-            # pad rules still get the solo fill check, so a dead end names them.
-            if warp_pad_rules.fixed(self) and len(self.multiworld.worlds) == 1:
-                self._manual_rules_fill_check()
+            # Independent supply never uses automatic progression starts. Solo,
+            # a fill that dead-ends is shuffled again (_reshuffle_fill); manual
+            # pad rules that no shuffle fills are refused with their names.
+            if len(self.multiworld.worlds) == 1:
+                if warp_pad_rules.fixed(self):
+                    self._manual_rules_fill_check()
+                else:
+                    self._reshuffle_fill(self._panic_method())
             return
         # Solo only (replay fidelity: nothing consumes multiworld.random between
         # here and the fill). Vanilla and randomized both route through the same
@@ -755,17 +759,51 @@ class ctrAPWorld(World):
 
     _ROLLBACK_BACKSTOP_MAX_ROUNDS = 40
 
-    def _manual_rules_fill_check(self) -> None:
-        """Solo seeds with manual warp pad rules: replay the upcoming fill and,
-        if it dead-ends, refuse with the fixed rules and the fill's own cause.
-        Grants no item, relaxes no rule. A green replay changes nothing."""
+    # Content plans, solo: how many other shuffles a dead-end fill may try. AP's
+    # fill places items in a random order and can dead-end on a layout another
+    # order fills. CI fuzz saw about one dead end in 5,000 valid seeds, on four
+    # different option shapes; none reproduced locally, so this is a safeguard.
+    # A seed that still fails with it is generated again from the seed and
+    # PYTHONHASHSEED its fuzz log prints (apworld/fuzz/log-seed.py).
+    _FILL_RESHUFFLES = 10
+
+    @staticmethod
+    def _panic_method() -> str:
         try:
             from settings import get_settings
-            panic = get_settings().generator.panic_method
+            return get_settings().generator.panic_method
         except Exception:
-            panic = "swap"
+            return "swap"
+
+    def _reshuffle_fill(self, panic: str) -> bool:
+        """Solo content plans: replay the upcoming fill and, while it dead-ends,
+        take one draw from multiworld.random so the real fill shuffles its items
+        and locations another way, then replay again. Nothing is granted and no
+        item, rule or gate changes: only the order the fill tries. A fill that is
+        green at once takes no draw, so its seed is unchanged. True once a replay
+        is green; the real fill then repeats it (Main.py runs pre_fill and the
+        fill back to back)."""
         self._ctr_fill_failure = ""
-        if self._rollback_simulate_fill(panic) is True:
+        for attempt in range(self._FILL_RESHUFFLES + 1):
+            if self._rollback_simulate_fill(panic) is True:
+                if attempt:
+                    self._ctr_fill_reshuffles = attempt
+                    logging.info("[CTR] fill dead-ended; green after %d reshuffle(s).", attempt)
+                return True
+            self.multiworld.random.random()
+        return False
+
+    def _manual_rules_fill_check(self) -> None:
+        """Solo seeds with manual warp pad rules: replay the upcoming fill, with
+        the reshuffles above on a content plan, and if no replay fills, refuse
+        with the fixed rules and the fill's own cause. Grants no item, relaxes
+        no rule. A green replay changes nothing."""
+        panic = self._panic_method()
+        self._ctr_fill_failure = ""
+        if hasattr(self, "ctr_content_plan"):
+            if self._reshuffle_fill(panic):
+                return
+        elif self._rollback_simulate_fill(panic) is True:
             return
         rules = ", ".join(
             f"{pad}: {warp_pad_rules.describe(rule)}"
@@ -1509,6 +1547,11 @@ class ctrAPWorld(World):
                 f"precollected {len(items)} progression item(s) into starting "
                 f"inventory so the greedy fill converges -- {', '.join(items)}. "
                 f"Seed stays fully reachable; this is a diagnosable rescue.\n")
+        if getattr(self, "_ctr_fill_reshuffles", 0):
+            spoiler_handle.write(
+                f"\n\nCTR fill ({self.multiworld.player_name[self.player]}): the first item "
+                f"order dead-ended; filled after {self._ctr_fill_reshuffles} reshuffle(s). "
+                f"Items, rules and gates are as drawn.\n")
 
         # Issue #261: tell the player which destination each changed physical
         # pad loads. Identity entries produce no section at all, preserving the

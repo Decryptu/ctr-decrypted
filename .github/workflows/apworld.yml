@@ -275,6 +275,8 @@ jobs:
           cp fuzz-hooks/empty.apworld archipelago/custom_worlds/empty.apworld
           curl -SsL --fail -o archipelago/fuzz.py \
             "https://raw.githubusercontent.com/Eijebong/Archipelago-fuzzer/${FUZZER_COMMIT}/fuzz.py"
+          # Each generation's log (kept beside a failing YAML) names its seed.
+          python3 world-src/apworld/fuzz/log-seed.py archipelago/fuzz.py
       - name: Install the pinned Universal Tracker world
         if: matrix.check_tracker == 'yes'
         shell: bash
@@ -313,6 +315,10 @@ jobs:
           set -euo pipefail
           fuzz=../world-src/apworld/fuzz
           echo "=== ${CHECK_NAME} (${CHECK_RUNS} runs) ==="
+          # A fixed hash seed per run, so a failure's set orders can be repeated:
+          # PYTHONHASHSEED=<it> python Generate.py --seed <the log's fuzz seed>.
+          export PYTHONHASHSEED=$(( (GITHUB_RUN_ID + $(cksum <<< "$CHECK_NAME" | cut -d' ' -f1)) % 4294967296 ))
+          echo "PYTHONHASHSEED=${PYTHONHASHSEED}"
           if [ "$CHECK_MODE" = "canonical" ]; then
             uv run python ../index-repo/.github/scripts/check_canonical_generation.py \
               --module ctr --artifact-dir canonical_output --seed 0

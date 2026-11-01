@@ -375,7 +375,33 @@ class TestContentPlan(unittest.TestCase):
         world.pre_fill()
         plain = make_world(profile_options(), seed=3)
         plain._rollback_simulate_fill = dead_end
-        plain.pre_fill()  # no manual rules: the content-plan path never replays the fill
+        plain.pre_fill()  # no manual rules: no shuffle fills, and the real fill reports it
+
+    def test_dead_end_fill_is_shuffled_again_and_nothing_else_changes(self):
+        world = make_world(profile_options(), seed=3)
+        mw = world.multiworld
+        start = list(mw.precollected_items[1])
+        replays = []
+
+        def twice_dead(panic):
+            replays.append(mw.random.getstate())
+            return len(replays) > 2
+
+        world._rollback_simulate_fill = twice_dead
+        world.pre_fill()
+        self.assertEqual(world._ctr_fill_reshuffles, 2)
+        self.assertEqual(len({str(state) for state in replays}), 3)  # each replay shuffles another way
+        self.assertEqual(mw.random.getstate(), replays[-1])  # the real fill repeats the green one
+        self.assertEqual(mw.precollected_items[1], start)
+
+    def test_green_fill_takes_no_draw(self):
+        world = make_world(profile_options(), seed=3)
+        mw = world.multiworld
+        world._rollback_simulate_fill = lambda panic: True
+        state = mw.random.getstate()
+        world.pre_fill()
+        self.assertEqual(mw.random.getstate(), state)
+        self.assertFalse(getattr(world, "_ctr_fill_reshuffles", 0))
 
     def test_hub_key_floor_stays_in_entrance_req(self):
         plan = self.world().ctr_content_plan
