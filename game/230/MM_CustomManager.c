@@ -195,24 +195,26 @@ static void MM_Mods_DrawTabs(int seedTab, uint32_t *ot)
     MM_CustomText_Draw("R1",456,50,28,1,WHITE,ot);
 }
 
+/* The detail panel below the title and version line (y 112 to 172): the
+   actions, or the Remove confirmation. */
 static void MM_Mods_DrawActions(const struct CustomTrackLibraryEntry *installed, int off, uint32_t *ot)
 {
     if (s_modsActions == MODS_ACTIONS_CONFIRM_REMOVE)
     {
-        MM_CustomText_Draw("Remove this track? Its files are deleted.",305,98,176,3,WHITE,ot);
-        MM_CustomText_Draw("X Remove   ^ Keep",305,144,176,1,ORANGE,ot);
+        MM_CustomText_Draw("Remove this track and its files?",305,112,176,3,WHITE,ot);
+        MM_CustomText_Draw("* Yes  ^ No",305,159,176,1,ORANGE,ot);
         return;
     }
     for (int i = 0; i < MODS_ACTION_COUNT; i++)
     {
         static const char *const labels[MODS_ACTION_COUNT] = {NULL, "Remove", "Check files"};
-        RECT box = {299,96 + i * 15,186,14};
+        RECT box = {299,110 + i * 15,186,14};
         MM_CustomText_Draw(i == MODS_ACTION_SWITCH ? (off ? "Turn on" : "Turn off") : labels[i],
                            305,box.y + 2,176,1,i == s_modsActionRow ? ORANGE : WHITE,ot);
         if (i == s_modsActionRow) CTR_Box_DrawClearBox(&box,&sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot, &GAME_TRACKER->backBuffer->primMem);
     }
     (void)installed;
-    MM_CustomText_Draw("X Choose   ^ Close",305,159,176,1,ORANGE,ot);
+    MM_CustomText_Draw("* OK  ^ Close",305,159,176,1,ORANGE,ot);
 }
 
 static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, struct GamepadBuffer *pad)
@@ -473,10 +475,22 @@ static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, str
     if (source || installed)
     {
         const char *author = source ? source->author : installed->author[0] ? installed->author : installed->local.author;
-        MM_CustomText_Draw(source ? source->title : installed->title,305,70,176,2,ORANGE,ot);
-        if (author[0]) snprintf(line,sizeof line,"v%.32s  by %.80s",source ? source->version : installed->version,author);
-        else snprintf(line,sizeof line,"v%.32s",source ? source->version : installed->version);
-        MM_CustomText_Draw(line,305,98,176,1,WHITE,ot);
+        /* The panel fits about 13 letters a line. A one-line title has the
+           version under it; the author gets a line of its own. */
+        const char *title = source ? source->title : installed->title;
+        snprintf(line,sizeof line,"%s",title);
+        if (DecalFont_GetLineWidth(line,FONT_SMALL) <= 176)
+        {
+            MM_CustomText_Draw(title,305,70,176,1,ORANGE,ot);
+            snprintf(line,sizeof line,"v%.32s",source ? source->version : installed->version);
+            MM_CustomText_Draw(line,305,82,176,1,WHITE,ot);
+        }
+        else MM_CustomText_Draw(title,305,70,176,2,ORANGE,ot);
+        if (author[0])
+        {
+            snprintf(line,sizeof line,"by %.80s",author);
+            MM_CustomText_Draw(line,305,98,176,1,WHITE,ot);
+        }
         if (installed && s_modsActions != MODS_ACTIONS_CLOSED)
             MM_Mods_DrawActions(installed, off, ot);
         else

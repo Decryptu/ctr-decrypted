@@ -17,7 +17,9 @@ static void MM_CustomText_DrawFont(const char *text, int x, int y, int width,
             n++;
         }
         if (!n) break;
-        if (text[n] && text[n] != '\n' && lastSpace) n = lastSpace;
+        /* Break at a space, except on the last line, which is cut with "..."
+           instead: "by Lolothesamurai" keeps "by Lolothes...", not "by...". */
+        if (text[n] && text[n] != '\n' && lastSpace && drawn + 1 < lines) n = lastSpace;
         line[n] = 0;
         text += n;
         while (*text == ' ' || *text == '\n') text++;

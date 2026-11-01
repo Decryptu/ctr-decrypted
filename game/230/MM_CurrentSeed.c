@@ -12,9 +12,14 @@
    no Seed tab. Decisions and text live in ap/ap_seed_content_logic.h; the
    install in ap/ap_hooks_seed_content.c. */
 
-#define MM_SEED_VISIBLE_ROWS 6
+/* Rows on the main page and in the overview. Everything ends by y 196, the
+   last line the Mods screen's frame shows, like the Browse and Installed
+   tabs; every line is cut or wrapped to fit 456 pixels. */
+#define MM_SEED_VISIBLE_ROWS 4
+#define MM_SEED_OVERVIEW_ROWS 6
 #define MM_SEED_LIST_Y 0x48
 #define MM_SEED_ROW_H 0x0C
+#define MM_SEED_WIDTH 0x1C8
 
 static int s_seedSelected;
 static int s_seedOverview;     /* the Install missing content overview is open */
@@ -36,6 +41,14 @@ static void MM_Seed_Fit(const char *text, char *out, size_t size, int width)
 		if (DecalFont_GetLineWidth(out, FONT_SMALL) <= width) return;
 	}
 	out[0] = '\0';
+}
+
+/* One centred line, cut to the screen's width. */
+static void MM_Seed_DrawCentered(const char *text, int y, int color, uint32_t *ot)
+{
+	char fit[200];
+	MM_Seed_Fit(text, fit, sizeof fit, MM_SEED_WIDTH);
+	DecalFont_DrawLineOT(fit, 0x100, y, FONT_SMALL, JUSTIFY_CENTER | color, ot);
 }
 
 /* Draw plain text left-justified in up to `lines` lines of `width` pixels,
@@ -89,8 +102,8 @@ static void MM_CurrentSeed_DrawOverview(const struct AP_SeedContentRow *rows, in
 		s_seedOverview = 0;
 		return;
 	}
-	DecalFont_DrawLineOT("Install missing content", 0x100, 0x3C, FONT_SMALL, JUSTIFY_CENTER | ORANGE, ot);
-	for (i = 0; i < queued && i < MM_SEED_VISIBLE_ROWS; i++)
+	MM_Seed_DrawCentered("Install missing content", 0x3C, ORANGE, ot);
+	for (i = 0; i < queued && i < MM_SEED_OVERVIEW_ROWS; i++)
 	{
 		const struct AP_SeedContentRow *r = &rows[plan[i]];
 		ap_seed_format_bytes((uint64_t)r->lev_bytes + r->vrm_bytes, size, sizeof size);
@@ -100,23 +113,23 @@ static void MM_CurrentSeed_DrawOverview(const struct AP_SeedContentRow *rows, in
 		DecalFont_DrawLineOT(size, 0x1E0, y, FONT_SMALL, JUSTIFY_RIGHT | WHITE, ot);
 		y += MM_SEED_ROW_H;
 	}
-	if (queued > MM_SEED_VISIBLE_ROWS)
+	if (queued > MM_SEED_OVERVIEW_ROWS)
 	{
-		snprintf(line, sizeof line, "and %d more", queued - MM_SEED_VISIBLE_ROWS);
+		snprintf(line, sizeof line, "and %d more", queued - MM_SEED_OVERVIEW_ROWS);
 		DecalFont_DrawLineOT(line, 0x20, y, FONT_SMALL, WHITE, ot);
 	}
 	for (i = 0; i < count; i++)
 		if (ap_seed_row_state(&rows[i]) != AP_SEED_STATE_READY && !ap_seed_row_downloadable(&rows[i])) manual++;
 	ap_seed_format_bytes(bytes, size, sizeof size);
 	snprintf(line, sizeof line, "Total: %d track%s, %s from Project Saphi.", queued, queued == 1 ? "" : "s", size);
-	DecalFont_DrawLineOT(line, 0x100, 0xA2, FONT_SMALL, JUSTIFY_CENTER | ORANGE, ot);
+	MM_Seed_DrawWrapped(line, 0x20, 0x9C, MM_SEED_WIDTH, 2, ORANGE, ot);
 	if (manual)
 	{
 		snprintf(line, sizeof line, "%d other track%s need%s files added by hand. See each track.",
 		         manual, manual == 1 ? "" : "s", manual == 1 ? "s" : "");
-		MM_Seed_DrawWrapped(line, 0x20, 0xB0, 0x1C0, 1, WHITE, ot);
+		MM_Seed_DrawWrapped(line, 0x20, 0xB4, MM_SEED_WIDTH, 1, WHITE, ot);
 	}
-	DecalFont_DrawLineOT("Cross: Install    Triangle: Cancel", 0x100, 0xD6, FONT_SMALL, JUSTIFY_CENTER | ORANGE, ot);
+	MM_Seed_DrawCentered("* Install   ^ Cancel", 0xC4, WHITE, ot);
 }
 
 /* The Seed tab's body, below the Mods screen's title and tabs. */
@@ -197,7 +210,7 @@ static void MM_CurrentSeed_Page(uint32_t *ot, struct GamepadBuffer *pad)
 	}
 
 	snprintf(line, sizeof line, "Seed content ready: %d / %d", ready, count);
-	DecalFont_DrawLineOT(line, 0x100, 0x3C, FONT_SMALL, JUSTIFY_CENTER | (ready == count ? ORANGE : RED), ot);
+	MM_Seed_DrawCentered(line, 0x3C, ready == count ? ORANGE : RED, ot);
 
 	first = (s_seedSelected / MM_SEED_VISIBLE_ROWS) * MM_SEED_VISIBLE_ROWS;
 	for (i = first; i < first + MM_SEED_VISIBLE_ROWS && i < count; i++)
@@ -235,20 +248,21 @@ static void MM_CurrentSeed_Page(uint32_t *ot, struct GamepadBuffer *pad)
 			snprintf(line, sizeof line, "By %.48s  |  %s  |  %s", r->author, size,
 			         r->source == AP_SEED_SOURCE_SAPHI ? "Project Saphi" : "No download");
 		}
-		MM_Seed_Fit(line, fit, sizeof fit, 0x1C0);
-		DecalFont_DrawLineOT(fit, 0x20, 0x94, FONT_SMALL, ORANGE, ot);
+		MM_Seed_Fit(line, fit, sizeof fit, MM_SEED_WIDTH);
+		DecalFont_DrawLineOT(fit, 0x20, 0x7C, FONT_SMALL, ORANGE, ot);
 		ap_seed_instruction(r, instruction, sizeof instruction);
-		MM_Seed_DrawWrapped(instruction, 0x20, 0xA2, 0x1C0, 2, WHITE, ot);
+		MM_Seed_DrawWrapped(instruction, 0x20, 0x88, MM_SEED_WIDTH, 2, WHITE, ot);
 		if (r->source != AP_SEED_SOURCE_BUNDLED)
 		{
 			ap_seed_locator_line(r, locator, sizeof locator);
-			MM_Seed_Fit(locator, fit, sizeof fit, 0x1C0);
-			DecalFont_DrawLineOT(fit, 0x20, 0xBA, FONT_SMALL, WHITE, ot);
+			MM_Seed_Fit(locator, fit, sizeof fit, MM_SEED_WIDTH);
+			DecalFont_DrawLineOT(fit, 0x20, 0xA0, FONT_SMALL, WHITE, ot);
 		}
 	}
-	MM_Seed_DrawWrapped(s_seedMessage[0] ? s_seedMessage : "Select: Import track files from an xdelta patch",
-	                    0x20, 0xC8, 0x1C0, 1, ORANGE, ot);
-	DecalFont_DrawLineOT(AP_SeedContentInstallBusy() ? "Installing...    Square: Rescan" :
-	                     "Cross: Install missing content    Square: Rescan",
-	                     0x100, 0xD6, FONT_SMALL, JUSTIFY_CENTER | WHITE, ot);
+	/* The bottom three lines match Browse: a message, Select, the buttons. */
+	if (s_seedMessage[0]) MM_Seed_DrawCentered(s_seedMessage, 0xB4, WHITE, ot);
+	MM_Seed_DrawCentered("Select: Import track files", 0xBC, ORANGE, ot);
+	snprintf(line, sizeof line, "%s   [ Rescan   Back: %s",
+	         AP_SeedContentInstallBusy() ? "Installing..." : "* Install missing", s_modsFromTitle ? "Title" : "Options");
+	MM_Seed_DrawCentered(line, 0xC4, WHITE, ot);
 }

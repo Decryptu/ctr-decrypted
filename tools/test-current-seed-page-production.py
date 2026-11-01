@@ -15,7 +15,10 @@ Cases:
   5. on another tab of the Mods screen (s_modsSeed 0) Back is never held,
   6. the overview closes itself when the room changes under it,
   7. Up / Down wrap through the rows; leaving and coming back starts clean,
-  8. Square rescans, except while an install runs.
+  8. Square rescans, except while an install runs,
+  9. every line of the page and of the overview, with long names and
+     messages, fits the Mods screen's frame: x 24 to 488 at the retail small
+     font's 13 pixels a letter, and nothing below y 196.
 """
 from pathlib import Path
 import subprocess
@@ -43,12 +46,27 @@ struct { struct GameTracker *gGT; int menuRowHighlight_Normal; } sdata_s;
 static struct DB db;
 static struct GameTracker gt = { 0, &db };
 static int draws;
-int DecalFont_GetLineWidth(char *s, short font) { (void)font; return (int)strlen(s) * 8; }
-void DecalFont_DrawLineOT(char *s, int x, int y, int font, int flags, uint32_t *ot) { (void)s; (void)x; (void)y; (void)font; (void)flags; (void)ot; draws++; }
+static int outside;          /* lines drawn outside the frame */
+static char outside_text[200];
+int DecalFont_GetLineWidth(char *s, short font) { (void)font; return (int)strlen(s) * 13; }
+void DecalFont_DrawLineOT(char *s, int x, int y, int font, int flags, uint32_t *ot)
+{
+	int w = DecalFont_GetLineWidth(s, (short)font), left = x;
+	(void)ot;
+	if (flags & JUSTIFY_CENTER) left = x - w / 2;
+	else if (flags & JUSTIFY_RIGHT) left = x - w;
+	if (left < 24 || left + w > 488 || y > 196)
+	{
+		if (!outside) snprintf(outside_text, sizeof outside_text, "%s at x %d..%d y %d", s, left, left + w, y);
+		outside++;
+	}
+	draws++;
+}
 void OtherFX_Play(int a, int b) { (void)a; (void)b; }
 void CTR_Box_DrawClearBox(RECT *r, int *c, int t, uint32_t *ot, struct PrimMem *pm) { (void)r; (void)c; (void)t; (void)ot; (void)pm; }
 static int s_customContentSection = 5;
 static int s_modsSeed = 1; /* the Mods screen shows the Seed tab */
+static int s_modsFromTitle = 1; /* opened from the title screen */
 
 /* The stub room. */
 static int active = 1, busy, starts, rescans, plan_result = AP_SEED_PLAN_OK;
@@ -167,6 +185,27 @@ int main(void)
 	frame(0);
 	expect(strstr(s_seedMessage, "Wait") != NULL, "a running install keeps its message across visits");
 	busy = 0;
+
+	/* 9. Layout: long names and messages stay inside the frame. */
+	for (i = 0; i < 3; i++)
+	{
+		snprintf(room[i].title, sizeof room[i].title, "A Very Long Custom Track Title Number %d Deluxe", i);
+		snprintf(room[i].author, sizeof room[i].author, "An Author With A Remarkably Long Name");
+		snprintf(room[i].revision, sizeof room[i].revision, "12.345.6789");
+	}
+	room_count = 3;
+	gt.timer += 100;
+	outside = 0;
+	frame(0);
+	snprintf(s_seedMessage, sizeof s_seedMessage, "%s", "A message long enough to need cutting before it reaches the edge of the frame");
+	frame(0);
+	expect(outside == 0, "the page fits the frame");
+	if (outside) printf("  first outside: %s\n", outside_text);
+	outside = 0;
+	frame(BTN_CROSS);
+	frame(0);
+	expect(s_seedOverview && outside == 0, "the overview fits the frame");
+	if (outside) printf("  first outside: %s\n", outside_text);
 
 	printf("%d checks, %d failures\n", checks, failures);
 	return failures ? 1 : 0;
