@@ -126,10 +126,12 @@ def main():
         for file in companions:
             shutil.copy2(file, root / file)
         if variant in ('ap', 'authoring', 'authoring-client'):
-            # The xdelta importer (player client and Track Manager) vendors
-            # xdelta3 (Apache 2.0) and utf8proc (MIT, Unicode data license).
+            # The package library (player client and Track Manager) vendors
+            # xdelta3 (Apache 2.0), utf8proc (MIT, Unicode data license) and
+            # stb_image (public domain or MIT).
             shutil.copy2('vendor/xdelta3/LICENSE', root / 'LICENSE-xdelta3.txt')
             shutil.copy2('vendor/utf8proc/LICENSE.md', root / 'LICENSE-utf8proc.md')
+            shutil.copy2('vendor/stb/LICENSE', root / 'LICENSE-stb.txt')
         if variant == 'authoring':
             shutil.copy2('docs/HELP_PLACE_BOXES.md', root / 'HELP-PLACE-BOXES.md')
         if variant == 'authoring-client':

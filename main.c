@@ -66,6 +66,7 @@
 #include "platform/native_pgxp.c"
 #include "platform/native_pgxp_view.c"
 #include "platform/native_gpu.c"
+#include "platform/native_racers.c"
 #include "platform/native_gte_core.c"
 #include "platform/native_glad.c"
 #include "platform/native_controls.c"

@@ -38,6 +38,11 @@ int NativeGpu_HasPendingSplits(void);
 // layouts only, never level quadblocks or sprite draw environments.
 #define AP_TPAGE_TRIAL_LETTER_BIT 0x4000
 #define AP_TPAGE_SIDELOAD_MASK (AP_TPAGE_SIDELOAD_BIT | AP_TPAGE_TRIAL_LETTER_BIT)
+// Both bits: the racer VRAM bank (NativeGpu_SetRacerBankTexture), a second
+// VRAM of the same format that the custom racers' portraits live in. The
+// primitive keeps its page, palette and colour depth; only the texture it
+// samples changes. Set on racer icons only (platform/native_racers.c).
+#define NATIVE_TPAGE_RACER_BANK (AP_TPAGE_SIDELOAD_BIT | AP_TPAGE_TRIAL_LETTER_BIT)
 
 // Level depth. DrawLevelOvr1P..4P write all of the level's primitives in one
 // run of the frame's primitive arena; the frame code reports that run here
@@ -55,6 +60,7 @@ void NativeGpu_AddLevelWaterRange(const void *start, const void *end);
 
 void NativeGpu_SetSideloadTexture(unsigned int texture, int width, int height);
 void NativeGpu_SetTrialLetterTexture(unsigned int texture, int width, int height);
+void NativeGpu_SetRacerBankTexture(unsigned int texture);
 void ClearSplits(void);
 void DrawAllSplits(void);
 void ParsePrimitivesLinkedList(u32 *p, int singlePrimitive);

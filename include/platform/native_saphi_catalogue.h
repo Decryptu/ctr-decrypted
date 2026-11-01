@@ -24,6 +24,11 @@ struct CustomSaphiRevision
        current revisions, and only when Saphi lists exactly one current .sca
        with a download; id zero otherwise. Optional: never disables a row. */
     struct CustomSaphiMedia sca;
+    /* The track's picture (a JPEG thumbnail), shown in the Mods screen. Set on
+       every row of the track when Saphi lists exactly one current picture;
+       id zero otherwise. Saphi serves a smaller copy than its listed size
+       and checksum describe, so only the id and path are used. */
+    struct CustomSaphiMedia picture;
     unsigned int modeTags;
     int current;
     int sourceLaps; /* Track-level source metadata, zero if unspecified. */

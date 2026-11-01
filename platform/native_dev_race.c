@@ -193,6 +193,14 @@ int NativeDev_StartRace(struct GameTracker *gGT)
 		data.characterIDs[i] = i;
 	// CTR_DEV_CHARACTER: player 1's racer; the bot that had it takes Crash.
 	int character = NativeDev_EnvInt("CTR_DEV_CHARACTER", -1);
+	// CTR_DEV_RACER: player 1 races as that installed custom racer (by
+	// library order, docs/CUSTOM_RACERS.md), on its template's character ID.
+	const int racer = NativeDev_EnvInt("CTR_DEV_RACER", -1);
+	if ((racer >= 0) && (racer < NativeRacers_Count()))
+	{
+		character = NativeRacers_Template(racer);
+		NativeRacers_SetPlayer(0, racer);
+	}
 	if ((character > 0) && (character < 16))
 	{
 		for (int i = 1; i < 8; i++)
@@ -379,6 +387,15 @@ int NativeDev_CharacterSelect(void)
 	if ((character >= 0) && (character < 16))
 		sdata->characterIDs_backup[0] = (s16)character;
 	return 1;
+}
+
+int NativeDev_ModsTab(void)
+{
+	static int s_done;
+	if (s_done)
+		return 0;
+	s_done = 1;
+	return NativeDev_EnvInt("CTR_DEV_MODS", 0);
 }
 
 // Steer toward a nav point ahead on one of the AI's lines, with the throttle

@@ -1409,6 +1409,36 @@ internal void NativeRenderer_GenerateCommonTextures(void)
 	}
 }
 
+// A second VRAM: same size and format as the PS1 one, so the paletted
+// shaders sample it unchanged. Primitives tagged NATIVE_TPAGE_RACER_BANK read
+// it instead of VRAM (platform/native_gpu.c). Starts all zero (transparent).
+TextureID NativeRenderer_CreateVramBank(void)
+{
+	TextureID bank;
+	glGenTextures(1, &bank);
+	glBindTexture(GL_TEXTURE_2D, bank);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	u8 *zero = (u8 *)calloc((size_t)VRAM_WIDTH * VRAM_HEIGHT, 2);
+	glTexImage2D(GL_TEXTURE_2D, 0, VRAM_INTERNAL_FORMAT, VRAM_WIDTH, VRAM_HEIGHT, 0, VRAM_FORMAT, GL_UNSIGNED_BYTE, zero);
+	free(zero);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	s_lastBoundTexture = (TextureID)-1;
+	return bank;
+}
+
+// Write w x h PS1 15-bit words at (x, y) of a bank.
+void NativeRenderer_UploadVramBank(TextureID bank, int x, int y, int w, int h, const u16 *pixels)
+{
+	glBindTexture(GL_TEXTURE_2D, bank);
+	// Rows are w words, not padded to GL's default 4-byte alignment.
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 2);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, w, h, VRAM_FORMAT, GL_UNSIGNED_BYTE, pixels);
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	s_lastBoundTexture = (TextureID)-1;
+}
+
 TextureID NativeRenderer_CreateRGBATexture(int width, int height, u8 *data)
 {
 	TextureID newTexture;

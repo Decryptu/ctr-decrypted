@@ -62,13 +62,16 @@ NATIVE_COMPANIONS = (
     "support-bundle.sh",
     "vendor/xdelta3/LICENSE",
     "vendor/utf8proc/LICENSE.md",
+    "vendor/stb/LICENSE",
 )
-# Licences of the libraries the xdelta track importer vendors. package-client
+# Licences of the libraries the package library vendors (the xdelta track
+# importer, the track picture decoder). package-client
 # copies them into the player and box authoring archives under these names,
 # and the release folders ship them the same way (THIRD_PARTY_NOTICES.md).
 VENDOR_LICENSES = {
     "LICENSE-xdelta3.txt": "vendor/xdelta3/LICENSE",
     "LICENSE-utf8proc.md": "vendor/utf8proc/LICENSE.md",
+    "LICENSE-stb.txt": "vendor/stb/LICENSE",
 }
 
 

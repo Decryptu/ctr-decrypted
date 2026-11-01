@@ -9,6 +9,7 @@
 #include "../ap/ap_perf.h"      // whole-frame stall watchdog, bracketed in MainMain.c
 #include "../ap/ap_link.h"      // one-click-connect glue (#334 slice 3)
 #include "../ap/ap_update.h"    // signed in-game updater (#301)
+#include "../ap/ap_seed_prompt.h" // missing tracks prompt on connect
 #include "../ap/ap_pad_state.h" // tier-2 pad routing is consumed by AH_WarpPad.c
 #include "../ap/ap_hit_policy.h"    // freestanding Hit Character encounter decisions (ticket 06)
 #include "../ap/ap_hit_chooser.h"   // freestanding ordinary chooser state machine (ticket 06)
@@ -397,6 +398,7 @@
 #include "../ap/ap_hooks_apply_items.c"
 #include "../ap/ap_hooks_custom_content.c"
 #include "../ap/ap_hooks_seed_content.c" // #133 PR 7 Current Seed
+#include "../ap/ap_seed_prompt.c"          // missing tracks prompt on connect
 #include "../ap/ap_hooks_net.c"
 #include "../ap/ap_hooks_race.c"
 #include "../ap/ap_hooks_itemsanity.c"

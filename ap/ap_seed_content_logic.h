@@ -295,6 +295,58 @@ static inline void ap_seed_instruction(const struct AP_SeedContentRow *row, char
 	}
 }
 
+/* The prompt on connecting to a room whose tracks are not all ready
+ * (ap/ap_seed_prompt.c): a title, two lines and the keys, from the missing
+ * count and what "Install missing content" would do. can_install says
+ * whether Cross downloads. */
+struct AP_SeedPromptText
+{
+	char title[48];
+	char line1[64];
+	char line2[64];
+	char keys[32];
+	int can_install;
+};
+
+static inline void ap_seed_prompt_text(int missing, int plan_result, int plan_count, uint64_t plan_bytes,
+                                       struct AP_SeedPromptText *t)
+{
+	char size[16];
+	memset(t, 0, sizeof *t);
+	snprintf(t->title, sizeof t->title, "THIS ROOM NEEDS %d MISSING TRACK%s", missing, missing == 1 ? "" : "S");
+	snprintf(t->keys, sizeof t->keys, "*: OK");
+	switch (plan_result)
+	{
+	case AP_SEED_PLAN_OK:
+		ap_seed_format_bytes(plan_bytes, size, sizeof size);
+		if (plan_count >= missing)
+		{
+			snprintf(t->line1, sizeof t->line1, "%s can be downloaded now: %s.", missing == 1 ? "It" : "All", size);
+			snprintf(t->line2, sizeof t->line2, "Download %s?", missing == 1 ? "it" : "them");
+		}
+		else
+		{
+			snprintf(t->line1, sizeof t->line1, "%d can be downloaded now: %s.", plan_count, size);
+			snprintf(t->line2, sizeof t->line2, "The Seed tab in Mods tells how to get the rest.");
+		}
+		snprintf(t->keys, sizeof t->keys, "*: DOWNLOAD   ^: LATER");
+		t->can_install = 1;
+		return;
+	case AP_SEED_PLAN_MANUAL_ONLY:
+		snprintf(t->line1, sizeof t->line1, "%s no download.", missing == 1 ? "It has" : "None has a");
+		snprintf(t->line2, sizeof t->line2, "The Seed tab in Mods tells how to get %s.", missing == 1 ? "it" : "each one");
+		return;
+	case AP_SEED_PLAN_BUSY:
+		snprintf(t->line1, sizeof t->line1, "A download is already running.");
+		snprintf(t->line2, sizeof t->line2, "The Seed tab in Mods shows it.");
+		return;
+	default:
+		snprintf(t->line1, sizeof t->line1, "They cannot be downloaded here.");
+		snprintf(t->line2, sizeof t->line2, "The Seed tab in Mods says why.");
+		return;
+	}
+}
+
 /* The patch locator field: which xdelta patch carries this track. */
 static inline void ap_seed_locator_line(const struct AP_SeedContentRow *row, char *out, size_t size)
 {

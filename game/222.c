@@ -512,7 +512,7 @@ void AA_EndEvent_DrawMenu(void)
 				// Draw the driver's character icon
 				UI_DrawDriverIcon(
 
-				    GAME_TRACKER->ptrIcons[iconID],
+				    VEH_DRIVER_ICON(GAME_TRACKER->driversInRaceOrder[i]->driverID, GAME_TRACKER->ptrIcons[iconID]),
 
 				    pos.x, 0x60, &GAME_TRACKER->backBuffer->primMem,
 

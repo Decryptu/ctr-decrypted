@@ -8,6 +8,8 @@
 // Authoring build only: the Track Manager's Saphi catalogue and package install.
 #include <platform/native_saphi_catalogue.h>
 #include <platform/native_custom_package.h>
+#include <platform/native_racer_library.h>
+#include <platform/native_track_picture.h>
 #include <zlib.h>
 #include <chrono>
 #include <future>
@@ -90,14 +92,20 @@ std::string lower_ascii(std::string value)
 	return value;
 }
 
-bool decode_http_response(const std::vector<unsigned char> &raw, size_t max_bytes,
+// What error messages call a host.
+std::string server_name(const char *host)
+{
+	return std::strcmp(host, kSaphiHost) == 0 ? std::string("Project Saphi") : std::string(host);
+}
+
+bool decode_http_response(const char *host, const std::vector<unsigned char> &raw, size_t max_bytes,
 	                      std::vector<unsigned char> &body, std::string &error)
 {
 	const std::string marker = "\r\n\r\n";
 	auto header_end = std::search(raw.begin(), raw.end(), marker.begin(), marker.end());
 	if (header_end == raw.end())
 	{
-		error = "Saphi returned an invalid HTTP response.";
+		error = server_name(host) + " returned an invalid HTTP response.";
 		return false;
 	}
 	const size_t header_bytes = static_cast<size_t>(header_end - raw.begin());
@@ -105,7 +113,7 @@ bool decode_http_response(const std::vector<unsigned char> &raw, size_t max_byte
 	const size_t line_end = headers.find("\r\n");
 	if (line_end == std::string::npos || headers.substr(0, line_end).find(" 200 ") == std::string::npos)
 	{
-		error = "Project Saphi did not return the requested file.";
+		error = server_name(host) + " did not return the requested file.";
 		return false;
 	}
 
@@ -117,7 +125,7 @@ bool decode_http_response(const std::vector<unsigned char> &raw, size_t max_byte
 	{
 		if (raw.size() - body_start > max_bytes)
 		{
-			error = "Project Saphi returned a file larger than this client accepts.";
+			error = server_name(host) + " returned a file larger than this client accepts.";
 			return false;
 		}
 		body.assign(raw.begin() + body_start, raw.end());
@@ -151,7 +159,7 @@ bool decode_http_response(const std::vector<unsigned char> &raw, size_t max_byte
 			break;
 		cursor += 2;
 	}
-	error = "Project Saphi returned an incomplete download.";
+	error = server_name(host) + " returned an incomplete download.";
 	return false;
 }
 
@@ -161,7 +169,7 @@ std::wstring widen_ascii(const std::string &text)
 	return std::wstring(text.begin(), text.end());
 }
 
-bool https_get(const std::string &path, size_t max_bytes,
+bool https_get(const char *host, const std::string &path, size_t max_bytes,
 	           std::vector<unsigned char> &body, std::string &error)
 {
 	HINTERNET session = WinHttpOpen(L"CTR-Decrypted/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
@@ -172,7 +180,8 @@ bool https_get(const std::string &path, size_t max_bytes,
 		return false;
 	}
 	WinHttpSetTimeouts(session, 10000, 10000, 15000, 30000);
-	HINTERNET connection = WinHttpConnect(session, L"www.projectsaphi.com",
+	const std::wstring wide_host = widen_ascii(host);
+	HINTERNET connection = WinHttpConnect(session, wide_host.c_str(),
 	                                      INTERNET_DEFAULT_HTTPS_PORT, 0);
 	const std::wstring wide_path = widen_ascii(path);
 	HINTERNET request = connection ? WinHttpOpenRequest(connection, L"GET", wide_path.c_str(),
@@ -200,7 +209,7 @@ bool https_get(const std::string &path, size_t max_bytes,
 			break;
 		if (body.size() + available > max_bytes)
 		{
-			error = "Project Saphi returned a file larger than this client accepts.";
+			error = server_name(host) + " returned a file larger than this client accepts.";
 			ok = false;
 			break;
 		}
@@ -215,7 +224,7 @@ bool https_get(const std::string &path, size_t max_bytes,
 		body.resize(old_size + read);
 	}
 	if (!ok && error.empty())
-		error = status == 0 ? "Could not reach Project Saphi." : "Project Saphi did not return the requested file.";
+		error = status == 0 ? "Could not reach " + server_name(host) + "." : server_name(host) + " did not return the requested file.";
 	if (request) WinHttpCloseHandle(request);
 	if (connection) WinHttpCloseHandle(connection);
 	WinHttpCloseHandle(session);
@@ -286,7 +295,7 @@ template<typename T> T saphi_await(asio::io_context &io, std::future<T> result,
     io.restart();
     io.run_until(deadline);
     if (result.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
-        throw std::runtime_error("Project Saphi request timed out; check connection and retry");
+        throw std::runtime_error("the request timed out; check connection and retry");
     return result.get();
 }
 
@@ -319,7 +328,7 @@ bool load_ca_store(asio::ssl::context &context)
 
 #endif
 
-bool https_get(const std::string &path, size_t max_bytes,
+bool https_get(const char *host, const std::string &path, size_t max_bytes,
 	           std::vector<unsigned char> &body, std::string &error)
 {
 	try
@@ -332,21 +341,21 @@ bool https_get(const std::string &path, size_t max_bytes,
 			return false;
 		}
 		asio::ssl::stream<asio::ip::tcp::socket> stream(io, context);
-		if (!SSL_set_tlsext_host_name(stream.native_handle(), kSaphiHost))
+		if (!SSL_set_tlsext_host_name(stream.native_handle(), host))
 			throw std::runtime_error("TLS host setup failed");
 		stream.set_verify_mode(asio::ssl::verify_peer);
-		stream.set_verify_callback(asio::ssl::host_name_verification(kSaphiHost));
+		stream.set_verify_callback(asio::ssl::host_name_verification(host));
 		asio::ip::tcp::resolver resolver(io);
 #ifdef CTR_CUSTOM_PACKAGES
 		const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(35);
-		auto endpoints = saphi_await(io, resolver.async_resolve(kSaphiHost, "443", asio::use_future), deadline);
+		auto endpoints = saphi_await(io, resolver.async_resolve(host, "443", asio::use_future), deadline);
 		saphi_await(io, asio::async_connect(stream.next_layer(), endpoints, asio::use_future), deadline);
 		saphi_await(io, stream.async_handshake(asio::ssl::stream_base::client, asio::use_future), deadline);
 #else
-		asio::connect(stream.next_layer(), resolver.resolve(kSaphiHost, "443"));
+		asio::connect(stream.next_layer(), resolver.resolve(host, "443"));
 		stream.handshake(asio::ssl::stream_base::client);
 #endif
-		const std::string request = "GET " + path + " HTTP/1.1\r\nHost: " + kSaphiHost +
+		const std::string request = "GET " + path + " HTTP/1.1\r\nHost: " + host +
 		                            "\r\nUser-Agent: CTR-Decrypted/1.0\r\nAccept-Encoding: identity\r\nConnection: close\r\n\r\n";
 #ifdef CTR_CUSTOM_PACKAGES
 		saphi_await(io, asio::async_write(stream, asio::buffer(request), asio::use_future), deadline);
@@ -368,7 +377,7 @@ bool https_get(const std::string &path, size_t max_bytes,
 			{
 				if (raw.size() + got > max_bytes + 64 * 1024)
 				{
-					error = "Project Saphi returned a file larger than this client accepts.";
+					error = server_name(host) + " returned a file larger than this client accepts.";
 					return false;
 				}
 				raw.insert(raw.end(), chunk, chunk + got);
@@ -378,11 +387,11 @@ bool https_get(const std::string &path, size_t max_bytes,
 			if (ec)
 				throw asio::system_error(ec);
 		}
-		return decode_http_response(raw, max_bytes, body, error);
+		return decode_http_response(host, raw, max_bytes, body, error);
 	}
 	catch (const std::exception &e)
 	{
-		error = std::string("Could not reach Project Saphi: ") + e.what();
+		error = "Could not reach " + server_name(host) + ": " + e.what();
 		return false;
 	}
 }
@@ -704,7 +713,7 @@ void worker(std::string package_root, std::string api_url, std::string version,
 		set_state(AP_CT_DOWNLOAD_RUNNING, "Contacting Project Saphi...");
 		std::vector<unsigned char> metadata;
 		std::string error;
-		if (!https_get(api_path, kMetadataMax, metadata, error))
+		if (!https_get(kSaphiHost, api_path, kMetadataMax, metadata, error))
 			throw std::runtime_error(error);
 		nlohmann::json root = nlohmann::json::parse(metadata.begin(), metadata.end());
 		MediaFile lev;
@@ -717,13 +726,13 @@ void worker(std::string package_root, std::string api_url, std::string version,
 		std::vector<unsigned char> lev_bytes;
 		std::vector<unsigned char> vrm_bytes;
 		set_state(AP_CT_DOWNLOAD_RUNNING, "Downloading the track (LEV) from Saphi...");
-		if (!https_get(lev.path, kTrackFileMax, lev_bytes, error) || lev_bytes.size() != lev.size)
+		if (!https_get(kSaphiHost, lev.path, kTrackFileMax, lev_bytes, error) || lev_bytes.size() != lev.size)
 			throw std::runtime_error(error.empty() ? "The Saphi LEV download was incomplete." : error);
 		if (!hash_matches(lev_bytes, lev_hash))
 			throw std::runtime_error("The downloaded LEV does not match this release registry.");
 
 		set_state(AP_CT_DOWNLOAD_RUNNING, "Downloading the track (VRM) from Saphi...");
-		if (!https_get(vrm.path, kTrackFileMax, vrm_bytes, error) || vrm_bytes.size() != vrm.size)
+		if (!https_get(kSaphiHost, vrm.path, kTrackFileMax, vrm_bytes, error) || vrm_bytes.size() != vrm.size)
 			throw std::runtime_error(error.empty() ? "The Saphi VRM download was incomplete." : error);
 		if (!hash_matches(vrm_bytes, vrm_hash))
 			throw std::runtime_error("The downloaded VRM does not match this release registry.");
@@ -920,7 +929,7 @@ void saphi_refresh_worker()
         {
             const std::string path = "/api/v3/tracks?per_page=100&include_standards=0&include_events=0&include_downloads=1&page=" + std::to_string(page);
             std::vector<unsigned char> body;
-            if (!https_get(path, 4 * 1024 * 1024, body, error)) throw std::runtime_error(error);
+            if (!https_get(kSaphiHost, path, 4 * 1024 * 1024, body, error)) throw std::runtime_error(error);
             totalBytes += body.size();
             if (totalBytes > 4 * 1024 * 1024) throw std::runtime_error("Saphi catalogue exceeds this client's capacity");
             auto response = nlohmann::json::parse(body.begin(), body.end());
@@ -1014,7 +1023,7 @@ void saphi_install_worker(CustomSaphiRevision revision, std::string assets)
             const std::string expected = "/api/v3/tracks/" + std::to_string(revision.trackID) + "/downloads/" + std::to_string(media.id);
             if (!media.bytes || media.bytes > kTrackFileMax || expected != media.path)
                 throw std::runtime_error("Selected Saphi revision has no valid download");
-            if (!https_get(expected, kTrackFileMax, bytes, error)) throw std::runtime_error(error);
+            if (!https_get(kSaphiHost, expected, kTrackFileMax, bytes, error)) throw std::runtime_error(error);
             if (bytes.size() != media.bytes || crc32(0, bytes.data(), static_cast<uInt>(bytes.size())) != media.crc32)
                 throw std::runtime_error("Saphi file differs from the selected source revision; refresh and retry");
         };
@@ -1152,6 +1161,205 @@ extern "C" int CustomSaphi_PollInstall(char pin[65], char *error, size_t errorSi
     int result = state.state;
     if (pin) std::snprintf(pin,65,"%s",state.pin.c_str());
     if (error && errorSize) std::snprintf(error,errorSize,"%s",state.error.c_str());
+    state.state = -1;
+    return result;
+}
+/* The racer catalogue (docs/CUSTOM_RACERS.md): index.json, then per racer its
+   racer.json (checked against the index) and the files it lists (checked
+   against racer.json), from the catalogue repository's main branch. */
+namespace {
+constexpr const char *kRacerHost = "raw.githubusercontent.com";
+constexpr const char *kRacerRoot = "/Decryptu/ctr-decrypted-racers/main/";
+constexpr int kRacerIndexMax = 256;
+
+struct RacerJobState
+{
+    std::mutex mutex;
+    int state = -1;
+    std::vector<NativeRacerCatalogueEntry> entries;
+    std::string error;
+};
+RacerJobState &racer_refresh_state() { static auto *state = new RacerJobState(); return *state; }
+RacerJobState &racer_install_state() { static auto *state = new RacerJobState(); return *state; }
+
+void racer_finish(RacerJobState &state, int result, const std::string &error,
+                  std::vector<NativeRacerCatalogueEntry> entries = {})
+{
+    std::lock_guard<std::mutex> guard(state.mutex);
+    state.entries = std::move(entries);
+    state.error = error;
+    state.state = result;
+}
+
+int racer_poll(RacerJobState &state, char *error, size_t errorSize)
+{
+    if (state.state == 0 || state.state == -1) return state.state;
+    int result = state.state;
+    if (error && errorSize) std::snprintf(error, errorSize, "%s", state.error.c_str());
+    state.state = -1;
+    return result;
+}
+
+void racer_refresh_worker()
+{
+    std::vector<unsigned char> body;
+    std::string error;
+    if (!https_get(kRacerHost, std::string(kRacerRoot) + "index.json", 1024 * 1024, body, error))
+        return racer_finish(racer_refresh_state(), -2, error);
+    std::vector<NativeRacerCatalogueEntry> entries(kRacerIndexMax);
+    char detail[256] = {0};
+    const int count = NativeRacerLibrary_ParseIndex(reinterpret_cast<const char *>(body.data()), body.size(),
+                                                    entries.data(), kRacerIndexMax, detail, sizeof detail);
+    if (count < 0) return racer_finish(racer_refresh_state(), -2, std::string("The racer list is unreadable: ") + detail);
+    entries.resize(count);
+    racer_finish(racer_refresh_state(), 1, "", std::move(entries));
+}
+
+void racer_install_worker(NativeRacerCatalogueEntry entry, std::string racersDir)
+{
+    auto &state = racer_install_state();
+    const std::string folder = std::string(kRacerRoot) + "racers/" + entry.folder + "/";
+    std::vector<unsigned char> manifest, model, portrait;
+    std::string error;
+    if (!https_get(kRacerHost, folder + "racer.json", 65536, manifest, error))
+        return racer_finish(state, -2, error);
+    if (!hash_matches(manifest, entry.manifestSha256) || manifest.size() != entry.manifestBytes)
+        return racer_finish(state, -2, "racer.json does not match the racer list.");
+    NativeRacerEntry parsed;
+    char modelSha[65], portraitSha[65], detail[256] = {0};
+    size_t modelBytes = 0, portraitBytes = 0;
+    if (!NativeRacerLibrary_ParseManifest(reinterpret_cast<const char *>(manifest.data()), manifest.size(), &parsed,
+                                          modelSha, portraitSha, &modelBytes, &portraitBytes, detail, sizeof detail))
+        return racer_finish(state, -2, std::string("racer.json: ") + detail);
+    if (std::strcmp(parsed.id, entry.id) != 0)
+        return racer_finish(state, -2, "racer.json is for another racer.");
+    if (!https_get(kRacerHost, folder + parsed.modelPath, NATIVE_RACER_MODEL_MAX_BYTES, model, error) ||
+        !https_get(kRacerHost, folder + parsed.portraitPath, 4096, portrait, error))
+        return racer_finish(state, -2, error);
+    if (!NativeRacerLibrary_Install(racersDir.c_str(), entry.folder, manifest.data(), manifest.size(), model.data(),
+                                    model.size(), portrait.data(), portrait.size(), detail, sizeof detail))
+        return racer_finish(state, -2, detail);
+    racer_finish(state, 1, "");
+}
+}
+
+extern "C" int NativeRacerCatalogue_StartRefresh(void)
+{
+    auto &state = racer_refresh_state();
+    std::lock_guard<std::mutex> guard(state.mutex);
+    if (state.state != -1) return 0;
+    state.state = 0;
+    try { std::thread(racer_refresh_worker).detach(); return 1; }
+    catch (const std::exception &) { state.state = -1; return 0; }
+}
+extern "C" int NativeRacerCatalogue_PollRefresh(NativeRacerCatalogueEntry *out, int max, int *count, char *error, size_t errorSize)
+{
+    auto &state = racer_refresh_state();
+    std::lock_guard<std::mutex> guard(state.mutex);
+    if (state.state == 1 && out && count)
+    {
+        *count = std::min<int>(max, (int)state.entries.size());
+        std::copy(state.entries.begin(), state.entries.begin() + *count, out);
+    }
+    return racer_poll(state, error, errorSize);
+}
+extern "C" int NativeRacerCatalogue_StartInstall(const NativeRacerCatalogueEntry *entry, const char *racersDir)
+{
+    if (!entry || !racersDir || !*racersDir || !std::memchr(entry->folder, 0, sizeof entry->folder) ||
+        !std::memchr(entry->id, 0, sizeof entry->id) || !std::memchr(entry->manifestSha256, 0, sizeof entry->manifestSha256))
+        return 0;
+    auto &state = racer_install_state();
+    std::lock_guard<std::mutex> guard(state.mutex);
+    if (state.state != -1) return 0;
+    state.state = 0;
+    try { std::thread(racer_install_worker, *entry, std::string(racersDir)).detach(); return 1; }
+    catch (const std::exception &) { state.state = -1; return 0; }
+}
+extern "C" int NativeRacerCatalogue_PollInstall(char *error, size_t errorSize)
+{
+    auto &state = racer_install_state();
+    std::lock_guard<std::mutex> guard(state.mutex);
+    return racer_poll(state, error, errorSize);
+}
+/* Track pictures (include/platform/native_track_picture.h): Saphi's thumbnail
+   for one track, decoded and cached as "CTP1", the media id, then the texels. */
+namespace {
+struct PictureJobState
+{
+    std::mutex mutex;
+    int state = -1, trackID = 0;
+    std::vector<uint16_t> texels;
+};
+PictureJobState &picture_state() { static auto *state = new PictureJobState(); return *state; }
+
+void picture_finish(int trackID, int result, std::vector<uint16_t> texels = {})
+{
+    auto &state = picture_state();
+    std::lock_guard<std::mutex> guard(state.mutex);
+    state.trackID = trackID;
+    state.texels = std::move(texels);
+    state.state = result;
+}
+
+void picture_worker(int trackID, int mediaID, std::string path, std::string cacheDir)
+{
+    const std::string cacheFile = join_path(cacheDir, (std::to_string(trackID) + ".bin").c_str());
+    const size_t texelBytes = NATIVE_TRACK_PICTURE_TEXELS * sizeof(uint16_t);
+    std::vector<uint16_t> texels(NATIVE_TRACK_PICTURE_TEXELS);
+    {
+        std::ifstream file(cacheFile, std::ios::binary);
+        std::vector<unsigned char> cached(8 + texelBytes + 1);
+        file.read(reinterpret_cast<char *>(cached.data()), static_cast<std::streamsize>(cached.size()));
+        int32_t cachedID = 0;
+        std::memcpy(&cachedID, &cached[4], 4);
+        if (file.gcount() == static_cast<std::streamsize>(8 + texelBytes) && !std::memcmp(cached.data(), "CTP1", 4) &&
+            (mediaID == 0 || cachedID == mediaID))
+        {
+            std::memcpy(texels.data(), &cached[8], texelBytes);
+            return picture_finish(trackID, 1, std::move(texels));
+        }
+    }
+    const std::string prefix = "/api/v3/tracks/" + std::to_string(trackID) + "/downloads/";
+    if (mediaID <= 0 || path.compare(0, prefix.size(), prefix) != 0) return picture_finish(trackID, -2);
+    std::vector<unsigned char> jpeg;
+    std::string error;
+    if (!https_get(kSaphiHost, path, NATIVE_TRACK_PICTURE_MAX_BYTES, jpeg, error) ||
+        !NativeTrackPicture_Decode(jpeg.data(), jpeg.size(), texels.data()))
+        return picture_finish(trackID, -2);
+    // The cache is a convenience: a failed write still shows the picture.
+    const size_t slash = cacheDir.find_last_of("/\\");
+    if ((slash == std::string::npos || make_directory(cacheDir.substr(0, slash))) && make_directory(cacheDir))
+    {
+        std::vector<unsigned char> bytes(8 + texelBytes);
+        const int32_t id = mediaID;
+        std::memcpy(bytes.data(), "CTP1", 4);
+        std::memcpy(&bytes[4], &id, 4);
+        std::memcpy(&bytes[8], texels.data(), texelBytes);
+        const std::string part = cacheFile + ".part";
+        if (!write_file(part, bytes) || !replace_file(part, cacheFile)) std::remove(part.c_str());
+    }
+    picture_finish(trackID, 1, std::move(texels));
+}
+}
+
+extern "C" int NativeTrackPicture_Start(int trackID, int mediaID, const char *path, const char *cacheDir)
+{
+    if (trackID <= 0 || !cacheDir || !*cacheDir) return 0;
+    auto &state = picture_state();
+    std::lock_guard<std::mutex> guard(state.mutex);
+    if (state.state != -1) return 0;
+    state.state = 0;
+    try { std::thread(picture_worker, trackID, mediaID, std::string(path ? path : ""), std::string(cacheDir)).detach(); return 1; }
+    catch (const std::exception &) { state.state = -1; return 0; }
+}
+extern "C" int NativeTrackPicture_Poll(int *trackID, uint16_t out[NATIVE_TRACK_PICTURE_TEXELS])
+{
+    auto &state = picture_state();
+    std::lock_guard<std::mutex> guard(state.mutex);
+    const int result = state.state;
+    if (result == 0 || result == -1) return result;
+    if (trackID) *trackID = state.trackID;
+    if (result == 1 && out) std::copy(state.texels.begin(), state.texels.end(), out);
     state.state = -1;
     return result;
 }
