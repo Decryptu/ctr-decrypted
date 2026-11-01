@@ -61,6 +61,13 @@ void RECTMENU_DrawInnerRect(RECT *r, s16 x, u32 *ot) { (void)x; (void)ot; box_ch
 void CTR_Box_DrawClearBox(const RECT *r, const Color *c, s32 t, u32 *ot, struct PrimMem *primMem)
 { (void)c; (void)t; (void)ot; (void)primMem; box_check(r); }
 void CTR_Box_DrawSolidBox(RECT *r, const Color *c, u32 *ot, struct PrimMem *primMem) { (void)c; (void)ot; (void)primMem; box_check(r); }
+void DecalHUD_Arrow2D(struct Icon *icon, s32 posX, s32 posY, struct PrimMem *primMem, u32 *ot, Color color0, Color color1,
+                      Color color2, Color color3, u8 transparency, s16 scale, u16 rot)
+{
+    (void)icon; (void)posY; (void)primMem; (void)ot; (void)color0; (void)color1; (void)color2; (void)color3;
+    (void)transparency; (void)scale; (void)rot;
+    CHECK(posX >= 0 && posX <= 512);
+}
 int CustomOffline_StartPrepare(const char *assets, const char *pin)
 { (void)assets; (void)pin; prepared++; return 1; }
 int CustomOffline_PollPrepare(struct CustomOfflineRequest **out, char *e, size_t n)
