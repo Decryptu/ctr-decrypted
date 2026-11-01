@@ -717,7 +717,12 @@ def draw_racer_locks(world, plan, racers):
     if n <= 0:
         return
     chosen = sorted(world.random.sample(pads, n), key=lambda pad_id: int(pad_id.split(":")[1]))
-    candidates = [name for name in characters.ROSTER_CHARACTER_ID if not racer_excluded(racers, name)]
+    # A racer the slot already holds (Starting Roster) would open its lock at
+    # the start, spending the pad on nothing.
+    held = {ITEM_BY_CODE.get(row["item"]) for row in plan["items"]["rows"]
+            if row["start_from_pool"] + row["start_additional"]}
+    candidates = [name for name in characters.ROSTER_CHARACTER_ID
+                  if not racer_excluded(racers, name) and characters.unlock_item_name(name) not in held]
     by_id = {pad["id"]: pad for pad in plan["pads"]}
     for pad_id, name in zip(chosen, characters.spread_lock_racers(world, candidates, n)):
         by_id[pad_id]["racer_lock"] = characters.ROSTER_CHARACTER_ID[name]
@@ -1378,6 +1383,10 @@ def generate(world):
         racers = dict(starting_character=characters.ROSTER_CHARACTER_ID[world.ctr_starting_character],
                       remove_playable_oxide=characters.oxide_removed(world), requested_locks=0)
         selected.update({name: 1 for name in unlock_names(racers)})
+        # Starting Roster: the other retail starters start from the pool, so
+        # the retail character select offers all eight.
+        for name in characters.held_starters(world):
+            o.start_inventory_from_pool.value[name] = max(1, o.start_inventory_from_pool.value.get(name, 0))
     # Capability packs (#133 PR 4c): the boost and stat chains, as many copies
     # as on the legacy path (progressive_capability.created_item_counts).
     selected.update(content_capability.item_counts(capability))

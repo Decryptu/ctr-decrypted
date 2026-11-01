@@ -1101,6 +1101,23 @@ class DeathLinkAmnesty(Range):
     default = 1
 
 
+class StartingRoster(Choice):
+    """Which racers you have when Adventure starts.
+
+    - **vanilla_eight** (default): the 8 retail Adventure racers (Crash, Coco,
+      Cortex, Tiny, N. Gin, Dingodile, Polar and Pura), picked with the retail
+      character select. Only the other 8 racers, Nitros Oxide included, are
+      items.
+    - **starting_character_only**: only your Starting Character; the other 15
+      racers are items.
+
+    Needs Character Unlocks on."""
+    display_name = "Starting Roster"
+    option_vanilla_eight = 0
+    option_starting_character_only = 1
+    default = 0
+
+
 class StartingCharacter(Choice):
     """Which racer you begin with.
 
@@ -1108,7 +1125,8 @@ class StartingCharacter(Choice):
     - **random_any**: any of the 16 playable racers.
     - A racer's name: always begin as that racer.
 
-    With Character Unlocks on, the other 15 racers become items. With it off,
+    With Character Unlocks on, the racers Starting Roster does not give you
+    become items. With it off,
     this still decides who is seated when Adventure starts, but the whole
     roster is immediately available from the hub picker."""
     display_name = "Starting Character"
@@ -1153,8 +1171,8 @@ class StartingStatClass(Choice):
 class CharacterUnlocks(DefaultOnToggle):
     """Make the roster something you unlock instead of something you start with.
 
-    You begin with one racer and the rest arrive as items. Until then the
-    character select only offers who you actually have.
+    You begin with the racers Starting Roster gives you and the rest arrive as
+    items. Until then the character select only offers who you actually have.
 
     With this off, every racer is available from the start, as in the retail
     game."""
@@ -1652,6 +1670,7 @@ class ctrAPOptions(PerGameCommonOptions):
     tizi_helper: TiziHelper
     # characters and stats
     starting_character: StartingCharacter
+    starting_roster: StartingRoster
     character_unlocks: CharacterUnlocks
     remove_playable_oxide: RemovePlayableOxide
     starting_stat_class: StartingStatClass
@@ -1696,7 +1715,8 @@ ap_ctr_option_groups: Dict[str, List[Any]] = {
     "Wumpa Shop": [WumpaShopSlots, WumpaShopPrices, WumpaShopProgression, WumpaShopHints],
     "Items and Traps": [ContentItemPool, TrapFillPercentage, TrapWeights, WumpaBundles, ReserveTopUp,
                         ProgressiveStartingWumpa, TurboGrant, TiziHelper],
-    "Characters and Stats": [StartingCharacter, CharacterUnlocks, RemovePlayableOxide, StartingStatClass, PentaStats,
+    "Characters and Stats": [StartingCharacter, StartingRoster, CharacterUnlocks, RemovePlayableOxide,
+                             StartingStatClass, PentaStats,
                              EditableStats, ProgressiveStatsMode],
     "Boost": [ProgressiveBoostMode, ProgressiveBoostBlueFire, LogicDifficulty, ShortcutKnowledge],
     "DeathLink": [DeathLink, DeathLinkSend, DeathLinkAmnesty],

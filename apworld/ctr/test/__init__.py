@@ -1,5 +1,12 @@
 from test.bases import WorldTestBase
 
+from ..Options import StartingRoster
+
+# The suite (and every test upstream adds) counts 15 unlock items, the
+# one-racer roster. Tests of the eight-racer roster, the player default, ask
+# for it explicitly (test_starting_roster.py).
+StartingRoster.default = StartingRoster.option_starting_character_only
+
 
 class CTRTestBase(WorldTestBase):
     game = "Crash Team Racing"

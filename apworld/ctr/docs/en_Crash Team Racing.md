@@ -139,6 +139,15 @@ not at all. With `own_pad` it is sure to get a pad. It takes no other content's
 checks with it. With Progressive Boost on, its finish checks need two Progressive
 Boosts.
 
+### Starting Roster
+
+With `vanilla_eight` a new Adventure opens the original character select with
+Crash, Coco, Cortex, Tiny, N. Gin, Dingodile, Polar and Pura, as the original
+game does. Ripper Roo, Papu Papu, Komodo Joe, Pinstripe, Fake Crash, Penta
+Penguin, N. Tropy and N. Oxide are items; once one arrives, switch to them from
+the hub's character picker. The eight racers you start with are never asked for
+by a Racer-Locked Warp Pad.
+
 ### Racer-Locked Warp Pads
 
 A pad can only take a lock if the seed randomized its requirement, so the

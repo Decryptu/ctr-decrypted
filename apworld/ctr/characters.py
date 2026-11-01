@@ -209,6 +209,19 @@ assert len(OPTION_KEY_TO_CHARACTER) == 16, "option keys collided"
 # Item creation + classification
 # ---------------------------------------------------------------------------
 
+def held_starters(world) -> List[str]:
+    """The retail Adventure racers the slot holds from the start besides its
+    starting racer: the other seven with Starting Roster on vanilla_eight, so
+    the retail character select offers all eight and only the other eight
+    racers are items. They start from the pool (start_inventory_from_pool), so
+    logic, the client and the tracker all see them as received items. Empty
+    with Character Unlocks off, where nothing is an item."""
+    roster = getattr(world.options, "starting_roster", None)
+    if not unlocks_enabled(world) or roster is None or roster.value != 0:
+        return []
+    return [name for name in ADVENTURE_STARTERS if name != world.ctr_starting_character]
+
+
 def unlocks_enabled(world) -> bool:
     """Whether the 15 unlock items exist this seed (the ruled all-unlocked
     comfort mode, wayfarer gap 7a, is this option turned off)."""
