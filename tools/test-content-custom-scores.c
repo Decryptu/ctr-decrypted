@@ -21,6 +21,9 @@
 // Declared here so a compiler that rejects implicit declarations (gcc 15) builds the units below.
 int AP_RaceAttempt_ProducerBlocked(int producerClass);
 void AP_DeathLinkOnRaceEnd(struct GameTracker *gGT, struct Driver *player);
+// MainGameEnd.c and 223.c call DeathLink hooks; the unity build declares them
+// through game_unity.h.
+#include "ap_deathlink.h"
 #include "game/GAMEPROG.c"
 #include "game/MAIN/MainGameEnd.c"
 #include "game/223.c"

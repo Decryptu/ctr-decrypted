@@ -6,6 +6,9 @@
 extern struct MenuRow s_rowsMainMenuBasicConfig[];
 extern struct MenuRow s_rowsMainMenuWithSBConfig[];
 extern struct RectMenu g_configMenu;
+#if defined(CTR_AP) && !defined(CTR_AP_AUTHORING)
+void MM_Solo_OpenFromTitle(void); // MM_ConfigMenu.c (#89)
+#endif
 
 s32 MM_TransitionInOut(struct TransitionMeta *meta, s32 framesPassed, s32 numFrames)
 {
@@ -106,6 +109,10 @@ void MM_MenuProc_Main(struct RectMenu *menu)
 			// submenu open, are where a waiting room link may be offered.
 			if ((MM_MENU_MAIN.state & DRAW_NEXT_MENU_IN_HIERARCHY) == 0)
 				AP_LinkMainMenuSettled(mainMenu);
+			// Signed updater (issue #301): the offer, download and restart
+			// prompts appear only on these settled frames, never in a race.
+			if ((D230.menuMainMenu.state & DRAW_NEXT_MENU_IN_HIERARCHY) == 0)
+				AP_UpdateMainMenuSettled(mainMenu);
 			AP_LinkDrawTitleHint(&GAME_TRACKER->backBuffer->otMem.uiOT[MM_TITLE_TM_OT_INDEX]);
 #endif
 		}
@@ -337,12 +344,24 @@ void MM_MenuProc_Main(struct RectMenu *menu)
 		MM_DESIRED_MENU = &g_configMenu;
 		return;
 
+#if defined(CTR_AP) && !defined(CTR_AP_AUTHORING)
+	// PLAY SOLO (#89, decision 30): the Play Solo pages of Options >
+	// Connection, opened directly. Leaving Play Solo returns here.
+	if (choose == AP_LNG_PLAY_SOLO)
+	{
+		MM_Solo_OpenFromTitle();
+		sdata->ptrDesiredMenu = &g_configMenu;
+		return;
+	}
+#endif
+
 	// Quit (#211): controller-first exit, mirroring the window-close path
 	// (platform/native_platform.c's SDL_EVENT_WINDOW_CLOSE_REQUESTED handler).
 	// Row is shared game code, present in both builds; only the AP disconnect
 	// ahead of it is CTR_AP-only.
 	case LNG_QUIT:
 #ifdef CTR_AP
+		AP_Solo_Shutdown(); // #89: let a solo server save and exit first
 		AP_Net_Shutdown();
 #endif
 		exit(0);
