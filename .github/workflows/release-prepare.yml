@@ -16,27 +16,15 @@ on:
         required: true
         type: string
       apworld_run_id:
-        description: "Successful ctr-world run ID containing the ctr.apworld artifact"
+        description: "Successful CTR world run ID on the same source commit (its ctr.apworld artifact ships)"
         required: true
-        type: string
-      apworld_source_commit:
-        description: "Full apworld source commit used by that run"
-        required: true
-        type: string
-      apworld_repo:
-        description: "Repository that owns the apworld run"
-        required: true
-        default: dowlle/ctr-archipelago-apworld
-        type: string
-      apworld_artifact_name:
-        description: "Artifact name in the apworld run"
-        required: true
-        default: ctr.apworld
         type: string
 
 # This workflow prepares an uploadable artifact only. It never creates a tag or
-# GitHub release. The native and companion runs are selected by exact IDs and
-# their source heads are checked before any bytes are assembled.
+# GitHub release. The native and CTR world runs are selected by exact IDs and
+# their source heads are checked before any bytes are assembled. The world ships
+# from apworld/ctr at the same commit as the client, packed and tested by the
+# CTR world workflow (apworld.yml).
 permissions:
   contents: read
   actions: read
@@ -53,28 +41,17 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Check out the exact apworld source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: ${{ inputs.apworld_repo }}
-          ref: ${{ inputs.apworld_source_commit }}
-          fetch-depth: 1
-          path: apworld-source
-          persist-credentials: false
-
       - name: Verify successful run identities
         env:
           GH_TOKEN: ${{ github.token }}
           NATIVE_RUN_ID: ${{ inputs.native_run_id }}
           NATIVE_SOURCE_COMMIT: ${{ inputs.native_source_commit }}
           APWORLD_RUN_ID: ${{ inputs.apworld_run_id }}
-          APWORLD_SOURCE_COMMIT: ${{ inputs.apworld_source_commit }}
-          APWORLD_REPO: ${{ inputs.apworld_repo }}
         run: |
           set -euo pipefail
           check_run() {
             local run_id="$1" repo="$2" expected="$3" mode="$4"
-            gh run view "$run_id" --repo "$repo" --json status,conclusion,headSha > run.json
+            gh run view "$run_id" --repo "$repo" --json status,conclusion,headSha,workflowName > run.json
             python3 - "$expected" "$mode" run.json <<'PY'
           import json
           import sys
@@ -84,6 +61,8 @@ jobs:
               raise SystemExit(f"run is not successful: {run}")
           if len(expected) != 40 or any(c not in "0123456789abcdef" for c in expected):
               raise SystemExit(f"source commit is not a full hexadecimal id: {expected}")
+          if mode == "apworld" and run.get("workflowName") != "CTR world":
+              raise SystemExit(f"apworld run is a {run.get('workflowName')!r} run, not CTR world")
           if mode == "apworld" and run.get("headSha") != expected:
               raise SystemExit(
                   f"apworld run head {run.get('headSha')} does not match {expected}"
@@ -95,7 +74,7 @@ jobs:
           PY
           }
           check_run "$NATIVE_RUN_ID" "$GITHUB_REPOSITORY" "$NATIVE_SOURCE_COMMIT" native
-          check_run "$APWORLD_RUN_ID" "$APWORLD_REPO" "$APWORLD_SOURCE_COMMIT" apworld
+          check_run "$APWORLD_RUN_ID" "$GITHUB_REPOSITORY" "$NATIVE_SOURCE_COMMIT" apworld
 
       - name: Download exact hosted native artifacts
         env:
@@ -109,13 +88,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           APWORLD_RUN_ID: ${{ inputs.apworld_run_id }}
-          APWORLD_REPO: ${{ inputs.apworld_repo }}
-          APWORLD_ARTIFACT_NAME: ${{ inputs.apworld_artifact_name }}
         run: |
           set -euo pipefail
           gh run download "$APWORLD_RUN_ID" \
-            --repo "$APWORLD_REPO" \
-            --name "$APWORLD_ARTIFACT_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name ctr.apworld \
             --dir apworld-artifact
           test "$(find apworld-artifact -type f -name ctr.apworld | wc -l)" -eq 1
 
@@ -124,7 +101,7 @@ jobs:
           set -euo pipefail
           downloaded="$(find apworld-artifact -type f -name ctr.apworld -print -quit)"
           mkdir -p apworld-repacked
-          python3 apworld-source/worlds/ctr/tools/build_apworld.py apworld-repacked/ctr.apworld
+          python3 apworld/ctr/tools/build_apworld.py apworld-repacked/ctr.apworld
           python3 - "$downloaded" apworld-repacked/ctr.apworld <<'PY'
           import sys
           import zipfile

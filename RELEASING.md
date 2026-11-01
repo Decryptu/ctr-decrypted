@@ -8,8 +8,9 @@ companion `ctr.apworld` carry the same version and are tested together.
 
 - CTR Decrypted has its own version line, `vX.Y.Z` (three parts, semver): the
   patch for fixes, the minor for features, the major for breaking changes.
-- The `ctr.apworld` it ships is dowlle's, unchanged, so it keeps dowlle's
-  version. The client declares which apworld it works with in
+- The `ctr.apworld` it ships is packed from `apworld/ctr` at the release
+  commit: dowlle's world, merged from upstream, plus our changes. It keeps
+  dowlle's version line. The client declares which apworld it works with in
   `CTR_AP_COMPAT_VERSION` (`ap/ap_version.h`); the assembler refuses an apworld
   or template whose version differs from it. The release version itself is
   independent of the apworld's.
@@ -51,9 +52,12 @@ The release cycle's development order, settled during the 0.1.4 cycle:
 
 For 0.2.0, the maintainer has approved a community-tested baseline. The in-game playtest and verifier sweep below are documented testing debt, not prerequisites for this release. Automated checks, complete matching packages and honest known limitations still apply. Follow-up reports go through GitHub Issues, reproduction and verified fixes before a paired 0.2.x release. Recorded-AI corrections are planned for 0.2.1; generalized custom-track work remains separate for 0.3.0.
 
-- [ ] Full fuzz clean on the apworld release commit: ~14,000 generations, zero
+- [ ] The CTR world workflow (`.github/workflows/apworld.yml`) green on the
+      release commit: the world's pytest suite and every fuzz arm, zero
       failures (the fuzzer randomizes all options, so option-combo corners are
-      covered). Smaller smoke runs are for iteration only.
+      covered). It runs on pushes that touch `apworld/`; otherwise start it
+      from Actions, CTR world, Run workflow. Its run ID is the
+      `apworld_run_id` that `release-prepare.yml` asks for.
 - [ ] In-game playtest of a real generated seed on the exact release
       executable. Every surface changed since the last playtest gets looked at
       in-game, not just compiled.
@@ -100,8 +104,9 @@ For 0.2.0, the maintainer has approved a community-tested baseline. The in-game 
 - [ ] Generate `versions.txt` for the bundle from the pinned set:
       `tools/release-versions.sh > <bundle>/versions.txt`. Its dep lines must
       match the resolved set the AP configure just printed.
-- [ ] Build `ctr.apworld` from the apworld release commit and verify it is
-      content-identical to the build the fuzz gate ran on.
+- [ ] `ctr.apworld` is the artifact of that CTR world run. `release-prepare.yml`
+      checks the run is on the same commit as the client, repacks `apworld/ctr`
+      and refuses any difference from the artifact.
 - [ ] Linux/Steam Deck binary: build on the multiarch rig at the glibc-2.38
       floor (`-DCTR_AP=ON`; see BUILDING.md). The build strips the binary and
       writes a `ctr_native_ap.debug` sidecar next to it (CTR_SPLIT_DEBUG,

@@ -9,18 +9,23 @@
 # -Path keeps only one folder of the upstream repo and -Prefix moves it, so the CTR world, which
 # lives in an Archipelago fork, lands in our apworld/ folder with its own history:
 #   pwsh tools/decrypted/sync-upstream.ps1 -Remote apworld -Branch main -Path worlds/ctr -Prefix apworld/ctr
+# -Name picks the clean/ ref when one branch is imported twice. The world's fuzz settings come from
+# the same fork, imported on their own:
+#   pwsh tools/decrypted/sync-upstream.ps1 -Remote apworld -Branch main -Path .github/fuzz -Prefix apworld/fuzz -Name apworld-fuzz-main
 #
 # Needs git-filter-repo: python -m pip install git-filter-repo
 param(
     [string]$Remote = "dowlle",
     [string]$Branch = "main",
     [string]$Path = "",
-    [string]$Prefix = ""
+    [string]$Prefix = "",
+    [string]$Name = ""
 )
 $ErrorActionPreference = "Stop"
 $repo = (git rev-parse --show-toplevel).Trim()
 $url = (git -C $repo remote get-url $Remote).Trim()
-$work = Join-Path ([IO.Path]::GetTempPath()) "ctrd-sync-$Remote-$Branch"
+if (-not $Name) { $Name = "$Remote-$Branch" }
+$work = Join-Path ([IO.Path]::GetTempPath()) "ctrd-sync-$($Name -replace '/', '-')"
 
 if (Test-Path $work) { Remove-Item -Recurse -Force $work }
 git clone --bare --single-branch --branch $Branch --no-tags $url $work
@@ -39,7 +44,7 @@ if ($Path -and $Prefix) { $pathArgs += @("--path-rename", "${Path}:$Prefix") }
 python -m git_filter_repo --source $work --target $work --force --quiet --message-callback $callback @pathArgs
 if ($LASTEXITCODE) { throw "filter-repo failed" }
 
-git -C $repo fetch --no-tags $work "+refs/heads/${Branch}:refs/remotes/clean/$Remote-$Branch"
+git -C $repo fetch --no-tags $work "+refs/heads/${Branch}:refs/remotes/clean/$Name"
 if ($LASTEXITCODE) { throw "fetch failed" }
 Remove-Item -Recurse -Force $work
-Write-Host "Updated clean/$Remote-$Branch -> $((git -C $repo rev-parse --short "clean/$Remote-$Branch").Trim())"
+Write-Host "Updated clean/$Name -> $((git -C $repo rev-parse --short "clean/$Name").Trim())"

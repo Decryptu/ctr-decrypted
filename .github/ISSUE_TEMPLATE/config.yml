@@ -1,11 +1,11 @@
 blank_issues_enabled: true
 contact_links:
   - name: Setup and troubleshooting guide
-    url: https://github.com/dowlle/ctr-native-ap/blob/main/SETUP.md
+    url: https://github.com/Decryptu/ctr-decrypted/blob/main/SETUP.md
     about: Installing, extracting your disc, Steam Deck and Linux notes, and the common fixes. Worth a look before filing.
   - name: What the options do
-    url: https://github.com/dowlle/ctr-archipelago-apworld/blob/main/worlds/ctr/README.md
-    about: The CTR world README documents every YAML option. Generation, option and logic problems are filed here too, with the "Stuck or impossible seed" form.
+    url: https://github.com/Decryptu/ctr-decrypted/blob/main/apworld/ctr/docs/en_Crash%20Team%20Racing.md
+    about: The CTR world guide documents every YAML option. Generation, option and logic problems are filed here too, with the "Stuck or impossible seed" form.
   - name: Community questions on Discord
     url: https://discord.com/channels/731205301247803413/1222304293751750777
     about: The Crash Team Racing channel on the Archipelago Discord (invite discord.gg/8Z65BR2). For community questions. Please file bugs, stuck seeds and suggestions here on GitHub so I can review them when I return.
