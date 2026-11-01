@@ -1,0 +1,2 @@
+// The exe's icon. SDL gives the window and taskbar the exe's first icon.
+1 ICON "ctr.ico"

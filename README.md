@@ -1,3 +1,5 @@
+<p align="center"><img src="platform/icon/icon-256.png" alt="CTR Decrypted icon: Ripper Roo"></p>
+
 # CTR Decrypted
 
 A native PC version of **Crash Team Racing (PS1, 1999)** with the [Archipelago](https://archipelago.gg) multiworld randomizer built in and High Octane-style enhancements.

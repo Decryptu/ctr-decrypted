@@ -26,7 +26,7 @@ Roughly in this order.
 | Save backups (mid): keep the last few copies of the save and Archipelago progress automatically, with a restore option in the menu | Owner request, 2026-10-31 |
 | Linux and Steam Deck (mid): publish a Linux build and have it tested on a Steam Deck (the owner has a tester), including controller and default resolution | Owner request, 2026-10-31. Only Windows is tested today |
 | Archipelago character unlocks (high): Adventure starts with the vanilla character picker and only the 8 base racers; every other racer, Oxide included, is unlocked during the run | Owner request, 2026-10-31 |
-| Proper exe and window icon, so the game looks right in the taskbar, program list and shortcuts instead of the default Windows icon | Owner request, 2026-11-01 |
+| Save-file tool (dev): read and edit the game save (and the Archipelago progress next to it) from a script: unlocked racers and tracks, trophies, relics, keys, gems, tokens, Adventure position, so a test or a bug repro can start from any point of the game. Today only `CTR_DEV_UNLOCKS` (secret racers) and new-profile runs exist ([DEV-TOOLS.md](docs/DEV-TOOLS.md)) | Owner request, 2026-11-01 |
 | Project website and guide (mid): GitHub Pages site with install steps, how to play with Archipelago, and the dev toolbox | Owner request, 2026-10-31 |
 
 ## Maybe

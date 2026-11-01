@@ -182,6 +182,11 @@ set_target_properties(ctr_native PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
 )
 target_include_directories(ctr_native PRIVATE ${CMAKE_SOURCE_DIR}/include)
+# Icon: platform/icon, rebuilt from icon.png by tools/decrypted/make_icon.py.
+if(WIN32)
+    enable_language(RC)
+    target_sources(ctr_native PRIVATE platform/icon/ctr.rc)
+endif()
 target_compile_definitions(ctr_native PRIVATE
     CTR_NATIVE
     CTR_INTERNAL

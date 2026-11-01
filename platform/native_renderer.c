@@ -199,6 +199,30 @@ global_variable GLuint s_glVramFramebuffer;
 // failed init, where those entry points are still null and calling them crashes.
 global_variable int s_glInitialised = 0;
 
+#ifndef _WIN32
+#include "icon/native_icon_pixels.h"
+
+// Windows takes the exe's icon resource (platform/icon/ctr.rc); elsewhere the
+// window has to be given it.
+static void NativeRenderer_SetWindowIcon(SDL_Window *window)
+{
+	SDL_Surface *surface = SDL_CreateSurface(NATIVE_ICON_SIZE, NATIVE_ICON_SIZE, SDL_PIXELFORMAT_RGBA32);
+
+	if (surface == NULL)
+		return;
+
+	for (int y = 0; y < NATIVE_ICON_SIZE; y++)
+	{
+		unsigned char *row = (unsigned char *)surface->pixels + y * surface->pitch;
+		for (int x = 0; x < NATIVE_ICON_SIZE; x++)
+			memcpy(row + x * 4, kNativeIconPalette[kNativeIconPixels[y * NATIVE_ICON_SIZE + x]], 4);
+	}
+
+	SDL_SetWindowIcon(window, surface);
+	SDL_DestroySurface(surface);
+}
+#endif
+
 
 // Snapshot the currently connected displays' desktop bounds, for the saved-
 // position validity check in NativeWindowGeometry_PlanStartupPure. Returns the
@@ -269,6 +293,10 @@ internal int NativeRenderer_InitialiseGLContext(char *windowName, int fullscreen
 		NATIVE_RENDERER_ERROR("%s\n", "Failed to initialise SDL window!");
 		return 0;
 	}
+
+#ifndef _WIN32
+	NativeRenderer_SetWindowIcon(g_window);
+#endif
 
 	if (plan.usePosition)
 	{

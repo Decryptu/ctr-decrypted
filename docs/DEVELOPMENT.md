@@ -12,6 +12,7 @@ Everything a new contributor needs, with no other context. Keep it current. [ROA
 |---|---|
 | `game/` | Decompiled game code (unity build via `game/game_unity.h`). Archipelago hooks are `#ifdef CTR_AP` blocks |
 | `platform/native_*.c` | PC layer: OpenGL renderer, software SPU audio, input, config, disc reading |
+| `platform/icon/` | The game's icon: Ripper Roo's character-select portrait on its select tile, 64x64 pixel art in `icon.png`. `python tools/decrypted/make_icon.py` rebuilds the exe icon (`ctr.ico`, linked through `ctr.rc` on Windows, where SDL gives it to the window too), the Linux window icon (`native_icon_pixels.h`) and the README image from it |
 | `ap/` | Archipelago client and game hooks (`ap_hooks_*.c`). Dependencies are fetched and verified by `ap/vendor/fetch-deps.sh` |
 | `include/` | Shared headers, structs, macros (`include/macros.h` holds the frame-rate macros) |
 | `externals/SDL` | SDL 3.4.10, vendored, static |
