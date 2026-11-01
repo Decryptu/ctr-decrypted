@@ -157,7 +157,12 @@ MM_ConfigProc_CustomContent`; the title row is `CTR_LNG_MODS`,
 
 - **Seed** (Archipelago player client, in a room whose content plan names
   custom tracks; the screen opens on it there): `game/230/MM_CurrentSeed.c`,
-  the room's tracks and Install missing content (section 12).
+  the room's tracks and Install missing content (section 12). On connecting
+  to such a room with tracks missing, the settled title menu also asks once
+  per room: it says how many are missing and, when Project Saphi has them,
+  Cross runs the same Install missing content (`ap/ap_seed_prompt.c`, wording
+  in `ap_seed_prompt_text`, `ap/ap_seed_content_logic.h`). Triangle puts it
+  off until the next room.
 - **Browse**: the Saphi catalogue (section 5). Search on R2.
 - **Installed**: one row per track (its newest revision). Cross opens the
   track's actions: turn it off or on (`assets/tracks/mods-off.txt`), Remove

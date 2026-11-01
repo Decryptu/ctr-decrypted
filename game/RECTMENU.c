@@ -797,6 +797,8 @@ void RECTMENU_ProcessState(void)
 	if (AP_LinkMenuFrame()) return;
 	// The updater prompt (issue #301) likewise, after a waiting room link.
 	if (AP_UpdateMenuFrame()) return;
+	// The missing-tracks prompt of a content-plan room, after both.
+	if (AP_SeedPromptMenuFrame()) return;
 #endif
 	struct RectMenu *currMenu;
 	s16 width;

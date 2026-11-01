@@ -245,6 +245,28 @@ int main(void)
 		expect(strlen(tiny) == 7, "locator truncates safely");
 	}
 
+	{
+		/* The connect prompt's wording. */
+		struct AP_SeedPromptText t;
+		ap_seed_prompt_text(2, AP_SEED_PLAN_OK, 2, 3u * 1024u * 1024u, &t);
+		expect(!strcmp(t.title, "THIS ROOM NEEDS 2 MISSING TRACKS") && t.can_install, "prompt: every missing track downloads");
+		expect(!strcmp(t.line1, "All can be downloaded now: 3.0 MB.") && !strcmp(t.line2, "Download them?"), "prompt: all downloadable lines");
+		expect(!strcmp(t.keys, "*: DOWNLOAD   ^: LATER"), "prompt: download keys");
+		ap_seed_prompt_text(1, AP_SEED_PLAN_OK, 1, 1000, &t);
+		expect(!strcmp(t.title, "THIS ROOM NEEDS 1 MISSING TRACK") && !strcmp(t.line1, "It can be downloaded now: 1 KB.") &&
+		           !strcmp(t.line2, "Download it?"), "prompt: one track");
+		ap_seed_prompt_text(3, AP_SEED_PLAN_OK, 1, 2048, &t);
+		expect(!strcmp(t.line1, "1 can be downloaded now: 2 KB.") && !strcmp(t.line2, "The Seed tab in Mods tells how to get the rest.") &&
+		           t.can_install, "prompt: some downloadable");
+		ap_seed_prompt_text(2, AP_SEED_PLAN_MANUAL_ONLY, 0, 0, &t);
+		expect(!t.can_install && !strcmp(t.keys, "*: OK") && !strcmp(t.line2, "The Seed tab in Mods tells how to get each one."),
+		       "prompt: manual only");
+		ap_seed_prompt_text(1, AP_SEED_PLAN_BUSY, 0, 0, &t);
+		expect(!t.can_install && !strcmp(t.line1, "A download is already running."), "prompt: busy");
+		ap_seed_prompt_text(1, AP_SEED_PLAN_BAD_FOLDER, 0, 0, &t);
+		expect(!t.can_install && !strcmp(t.line2, "The Seed tab in Mods says why."), "prompt: refused");
+	}
+
 	printf("%d checks, %d failures\n", checks, failures);
 	return failures ? 1 : 0;
 }

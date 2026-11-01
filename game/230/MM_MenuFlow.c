@@ -119,6 +119,9 @@ void MM_MenuProc_Main(struct RectMenu *menu)
 			// prompts appear only on these settled frames, never in a race.
 			if ((D230.menuMainMenu.state & DRAW_NEXT_MENU_IN_HIERARCHY) == 0)
 				AP_UpdateMainMenuSettled(mainMenu);
+			// A room with missing tracks offers to download them, on the same frames.
+			if ((D230.menuMainMenu.state & DRAW_NEXT_MENU_IN_HIERARCHY) == 0)
+				AP_SeedPromptMainMenuSettled(mainMenu);
 			AP_LinkDrawTitleHint(&GAME_TRACKER->backBuffer->otMem.uiOT[MM_TITLE_TM_OT_INDEX]);
 #endif
 		}
