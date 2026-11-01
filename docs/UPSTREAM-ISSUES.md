@@ -17,7 +17,7 @@ All four are GPL-3.0. dowlle's `ctr.apworld` is MIT.
 | | Merge-base with ctr-native | Behind ctr-native | Notes |
 |---|---|---|---|
 | High Octane (`vita`) | 2026-07-16 | 118 commits | Last real upstream merge 2026-07-17 |
-| ctr-native-ap (`main`) | 2026-07-02 | 201 commits | Syncs by cherry-pick. `dev/custom-pad-0.3.0` is ~135 commits ahead of `main` |
+| ctr-native-ap (`main`) | 2026-07-02 | 201 commits | Syncs by cherry-pick. `dev/custom-pad-0.3.0` is ~230 commits ahead of `main`; we merge it and its feature branches (see DEVELOPMENT.md, Syncing upstream) |
 | ctr-decrypted (`dev`) | 2026-10-20 | 0 commits | Merged through `clean/ctr-native-master` (see DEVELOPMENT.md, Syncing upstream) |
 
 ## CTR-tools/ctr-native

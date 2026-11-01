@@ -14,6 +14,7 @@ Everything a new contributor needs, with no other context. Keep it current. [ROA
 | `platform/native_*.c` | PC layer: OpenGL renderer, software SPU audio, input, config, disc reading |
 | `platform/icon/` | The game's icon: Ripper Roo's character-select portrait on its select tile, 64x64 pixel art in `icon.png`. `python tools/decrypted/make_icon.py` rebuilds the exe icon (`ctr.ico`, linked through `ctr.rc` on Windows, where SDL gives it to the window too), the Linux window icon (`native_icon_pixels.h`) and the README image from it |
 | `ap/` | Archipelago client and game hooks (`ap_hooks_*.c`). Dependencies are fetched and verified by `ap/vendor/fetch-deps.sh` |
+| `apworld/ctr/` | The Archipelago world (generator) that makes CTR seeds. `python apworld/ctr/tools/build_apworld.py <out>.apworld` packs it; its tests (`apworld/ctr/test/`) run from an Archipelago 0.6.7 source checkout with the folder copied to `worlds/ctr` (`pytest worlds/ctr`) |
 | `include/` | Shared headers, structs, macros (`include/macros.h` holds the frame-rate macros) |
 | `externals/SDL` | SDL 3.4.10, vendored, static |
 | `externals/libusb` | libusb 1.0.30 Windows backend, vendored, for Switch 2 controllers |
@@ -56,6 +57,16 @@ git merge clean/dowlle-main
 pwsh tools/decrypted/sync-upstream.ps1 -Remote ctr-native -Branch master
 ```
 
+The world comes from dowlle's Archipelago fork, of which we keep only `worlds/ctr`, moved to `apworld/ctr` with its history:
+
+```
+git remote add apworld https://github.com/dowlle/ctr-archipelago-apworld.git   # once
+pwsh tools/decrypted/sync-upstream.ps1 -Remote apworld -Branch dev/custom-pad-0.3.0 -Path worlds/ctr -Prefix apworld/ctr
+git merge clean/apworld-dev/custom-pad-0.3.0
+```
+
+We follow dowlle's 0.3.0 line: `dev/custom-pad-0.3.0` in both repositories, plus the client feature branches not merged there yet (`feat/signed-updater-301`, which carries `feat/solo-mode-89`, and `feat/xdelta-track-import`). Import each and merge its `clean/` ref.
+
 The script needs `python -m pip install git-filter-repo`.
 
 Upstream moves functions between files, so a merge can drop our edit to a function without any conflict. After resolving, run `python tools/decrypted/merge_audit.py <merge-base> HEAD^1 --moved` (our changes in functions that now live in another file) and without `--moved` (every line we added that is missing from the merged tree; most hits are renames). Carry each real loss into the function's new home, then build every variant (`tools/ci/build-clients.sh`) and run the harnesses: the `*-production` harnesses check that hooks sit where they must in upstream's code.
@@ -67,7 +78,8 @@ High Octane (`highoctane/vita`) is not merged. Port its commits by cherry-pickin
 - Credit ported work: `cherry-pick -x` keeps the original commit reference, and README's Credits names each source project.
 - New third-party code gets an entry in `THIRD_PARTY_NOTICES.md`.
 - Keep the Archipelago client compatible with the shipped `ctr.apworld` version. If slot data or item/location IDs change, the apworld must change in the same release.
-- Releases ship the apworld built from [dowlle/ctr-archipelago-apworld](https://github.com/dowlle/ctr-archipelago-apworld) `main` at b775595a4 or later (`release-prepare.yml` takes the run and commit). That is v0.2.4 plus generator-only fixes, with the same slot data; it includes the vanilla-mode stage 2 fix (ctr-native-ap #499: a track's relic races and CTR Challenge need that hub's keys, as in the original game), which the client already enforces.
+- The world in `apworld/ctr` and the client change together: a slot data or item/location change lands in one commit with the client code that reads it. Releases still take `ctr.apworld` from a run of dowlle's repository (`release-prepare.yml`) until the roadmap's "Ship our own apworld" item is done.
+- Our world changes: `starting_roster` (default `vanilla_eight`) gives the slot the eight retail Adventure racers as from-pool starts, so the Adventure garage runs the retail character select (`AP_CharSwap_GarageRacer` lets it run when every retail starter is unlocked) and only the other eight racers are items. The test package pins `starting_character_only` as its default because the upstream suite counts 15 unlock items; `test_starting_roster.py` covers the eight-racer roster.
 - Update `ROADMAP.md` in the same commit that starts or finishes an item: add its row when work starts, delete it when the item is done. The roadmap and docs describe the current state, never history: no "Done" list, no story of how a bug was found, no dated result tables. A doc that explains a fix keeps what someone working on that code needs now (the rule, why it is that way, how to check it); git history and commit messages hold the rest. At the end of a change, grep `ROADMAP.md` and `docs/` for its topic and remove anything it made stale.
 - Frame counts assume 30 FPS. When code sets or compares a frame-counted timer, wrap the value in `FPS_DOUBLE`, and wrap per-frame steps or blink phases in `FPS_HALF` (`include/macros.h`), so it keeps the same real-time speed in 60 FPS mode. Data recorded frame by frame (ghosts, AI lap recordings) stays in 30 FPS units so recordings work in both modes. See [60FPS.md](60FPS.md).
 
