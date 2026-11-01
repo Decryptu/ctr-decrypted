@@ -84,6 +84,8 @@ gcc -O2 -Iinclude tools/racers/xdelta_apply.c -o tools/racers/xdelta_apply.exe
 python tools/racers/convert_racer.py --disc "CTR (USA).bin" --sources sources.json --out racers/ mods/*.xdelta
 ```
 
+The catalogue, [Decryptu/ctr-decrypted-racers](https://github.com/Decryptu/ctr-decrypted-racers), keeps the converted racers under `racers/`, with its `sources.json`. `tools/racers/build_index.py <catalogue>` checks every racer folder and writes `index.json` (each racer's folder, plus the size and SHA-256 of its `racer.json`) and `CREDITS.md`. It refuses a racer with no authors.
+
 The mods collected so far (17 patches, 37 racers) are static, vertex-coloured meshes: no textures and no animations, as they are on a PS1. Their kart textures, voices and code patches are not carried over.
 
 ## In a race

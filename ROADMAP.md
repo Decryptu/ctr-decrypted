@@ -13,7 +13,7 @@ What is being worked on, what is next, and what was decided. Kept current with e
 - **High Octane is ported feature by feature, never merged.** A trial merge conflicts in 92 files (351 hunks), and High Octane carries Vita, web and leaderboard code we don't want.
 
 ## In progress
-- **Custom racers** ([CUSTOM_RACERS.md](docs/CUSTOM_RACERS.md)). Done: the generated character select with pages. Next: the racer format and a converter for the racer mods we collected (xdelta patches and `.ctr` model replacements, turned into new slots), the second VRAM bank, racers in races, a Racers tab in the Mods screen with portraits, and the catalogue repo.
+- **Custom racers** ([CUSTOM_RACERS.md](docs/CUSTOM_RACERS.md)). Done: the paged character select, the racer format, the converter, portraits in a second VRAM bank, racers in races, and the catalogue (26 credited racers, not pushed yet). Next: the Racers tab in the Mods screen, which browses the catalogue, installs and removes racers and shows credits. The download code is tied to Project Saphi's host and has to take any host first. 11 more converted racers wait for their authors (Iron Checkpoint Crate, JP Crash, Komodo Moe, the Rainbow Road DS roster, Rilla Roo, Spyro, N. Brio).
 
 ## Planned
 Roughly in this order.
