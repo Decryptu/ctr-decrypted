@@ -21,6 +21,20 @@
 volatile int gCtrDebugSkipLevelGeometry = 0;
 #endif
 
+#ifdef CTR_NATIVE
+#include <platform/native_dev.h>
+// Labels a stage's primitives in the polygon dump (CTR_DEV_DUMP_FRAME).
+#define MAINFRAME_NAMED(name, stage)                                                  \
+	do                                                                            \
+	{                                                                             \
+		void *const namedStart = gGT->backBuffer->primMem.cursor;             \
+		stage;                                                                \
+		NativeDev_NamePrims(namedStart, gGT->backBuffer->primMem.cursor, name); \
+	} while (0)
+#else
+#define MAINFRAME_NAMED(name, stage) stage
+#endif
+
 void MainFrame_RenderFrame(struct GameTracker *gGT, struct GamepadSystem *gGamepads)
 {
 	struct Level *lev = gGT->level1;
@@ -89,11 +103,11 @@ void MainFrame_RenderFrame(struct GameTracker *gGT, struct GamepadSystem *gGamep
 	MAINFRAME_PERF_END(NATIVE_PERF_BUCKET_MAINFRAME_SETUP);
 
 	MAINFRAME_PERF_BEGIN(NATIVE_PERF_BUCKET_MAINFRAME_EFFECTS);
-	RenderAllWeather(gGT);
-	RenderAllConfetti(gGT);
+	MAINFRAME_NAMED("weather", RenderAllWeather(gGT));
+	MAINFRAME_NAMED("confetti", RenderAllConfetti(gGT));
 	if (((gGT->renderFlags & RENDER_FLAG_STARS) != 0) && (gGT->stars.numStars != 0))
 	{
-		RenderStars(&gGT->pushBuffer[0], &gGT->backBuffer->primMem, &gGT->stars, gGT->numPlyrCurrGame);
+		MAINFRAME_NAMED("stars", RenderStars(&gGT->pushBuffer[0], &gGT->backBuffer->primMem, &gGT->stars, gGT->numPlyrCurrGame));
 	}
 
 	if (((gGT->renderFlags & RENDER_FLAG_MULTIPLAYER_DECALS) != 0) && (gGT->numPlyrCurrGame > 1))
@@ -103,11 +117,11 @@ void MainFrame_RenderFrame(struct GameTracker *gGT, struct GamepadSystem *gGamep
 	MAINFRAME_PERF_END(NATIVE_PERF_BUCKET_MAINFRAME_EFFECTS);
 
 	MAINFRAME_PERF_BEGIN(NATIVE_PERF_BUCKET_MAINFRAME_HUD);
-	RenderAllHUD(gGT);
+	MAINFRAME_NAMED("hud", RenderAllHUD(gGT));
 	MAINFRAME_PERF_END(NATIVE_PERF_BUCKET_MAINFRAME_HUD);
 
 	MAINFRAME_PERF_BEGIN(NATIVE_PERF_BUCKET_MAINFRAME_EFFECTS);
-	RenderAllBeakerRain(gGT);
+	MAINFRAME_NAMED("beakerRain", RenderAllBeakerRain(gGT));
 
 	RenderAllBoxSceneSplitLines(gGT);
 	MAINFRAME_PERF_END(NATIVE_PERF_BUCKET_MAINFRAME_EFFECTS);
@@ -117,7 +131,7 @@ void MainFrame_RenderFrame(struct GameTracker *gGT, struct GamepadSystem *gGamep
 	MAINFRAME_PERF_END(NATIVE_PERF_BUCKET_MAINFRAME_QUEUE_INSTANCES);
 
 	MAINFRAME_PERF_BEGIN(NATIVE_PERF_BUCKET_MAINFRAME_EFFECTS);
-	RenderAllNormalParticles(gGT);
+	MAINFRAME_NAMED("particles", RenderAllNormalParticles(gGT));
 
 	RenderDispEnv_World(gGT); // == RenderDispEnv_World ==
 
@@ -126,20 +140,20 @@ void MainFrame_RenderFrame(struct GameTracker *gGT, struct GamepadSystem *gGamep
 		DecalMP_02(gGT);
 	}
 
-	RenderAllFlag0x40(gGT); // I need a better name
-	RenderAllTitleDPP(gGT);
+	MAINFRAME_NAMED("effects", RenderAllFlag0x40(gGT)); // I need a better name
+	MAINFRAME_NAMED("titleDPP", RenderAllTitleDPP(gGT));
 	MAINFRAME_PERF_END(NATIVE_PERF_BUCKET_MAINFRAME_EFFECTS);
 
 	MAINFRAME_PERF_BEGIN(NATIVE_PERF_BUCKET_MAINFRAME_EXECUTE_INSTANCES);
-	RenderBucket_ExecuteAllInstances(gGT);
+	MAINFRAME_NAMED("instances", RenderBucket_ExecuteAllInstances(gGT));
 	MAINFRAME_PERF_END(NATIVE_PERF_BUCKET_MAINFRAME_EXECUTE_INSTANCES);
 
 	MAINFRAME_PERF_BEGIN(NATIVE_PERF_BUCKET_MAINFRAME_EFFECTS);
-	RenderAllTires(gGT);
+	MAINFRAME_NAMED("tires", RenderAllTires(gGT));
 
-	RenderAllShadows(gGT);
+	MAINFRAME_NAMED("shadows", RenderAllShadows(gGT));
 
-	RenderAllHeatParticles(gGT);
+	MAINFRAME_NAMED("heatParticles", RenderAllHeatParticles(gGT));
 
 	PushBuffer_FadeAllWindows();
 	MAINFRAME_PERF_END(NATIVE_PERF_BUCKET_MAINFRAME_EFFECTS);
@@ -151,7 +165,7 @@ void MainFrame_RenderFrame(struct GameTracker *gGT, struct GamepadSystem *gGamep
 #endif
 		{
 			MAINFRAME_PERF_BEGIN(NATIVE_PERF_BUCKET_MAINFRAME_LEVEL_GEOMETRY);
-			RenderAllLevelGeometry(gGT, lev, ptr_mesh_info);
+			MAINFRAME_NAMED("level", RenderAllLevelGeometry(gGT, lev, ptr_mesh_info));
 			MAINFRAME_PERF_END(NATIVE_PERF_BUCKET_MAINFRAME_LEVEL_GEOMETRY);
 		}
 
@@ -778,31 +792,31 @@ void RenderAllFlag0x40(struct GameTracker *gGT)
 	{
 		RB_Player_ToggleInvisible();
 		RB_Player_ToggleFlicker();
-		RB_Burst_ProcessBucket(gGT->threadBuckets[BURST].thread);
-		RB_Blowup_ProcessBucket(gGT->threadBuckets[BLOWUP].thread);
+		MAINFRAME_NAMED("burst", RB_Burst_ProcessBucket(gGT->threadBuckets[BURST].thread));
+		MAINFRAME_NAMED("blowup", RB_Blowup_ProcessBucket(gGT->threadBuckets[BLOWUP].thread));
 
-		RB_Spider_DrawWebs(gGT->threadBuckets[SPIDER].thread, &gGT->pushBuffer[0]);
+		MAINFRAME_NAMED("spiderWebs", RB_Spider_DrawWebs(gGT->threadBuckets[SPIDER].thread, &gGT->pushBuffer[0]));
 		RB_Follower_ProcessBucket(gGT->threadBuckets[FOLLOWER].thread);
-		RB_StartText_ProcessBucket(gGT->threadBuckets[STARTTEXT].thread);
+		MAINFRAME_NAMED("startText", RB_StartText_ProcessBucket(gGT->threadBuckets[STARTTEXT].thread));
 	}
 
 	if (LOAD_IsOpen_AdvHub())
 	{
 		if ((gGT->gameMode1 & ADVENTURE_ARENA) != 0)
 		{
-			AH_WarpPad_AllWarppadNum();
+			MAINFRAME_NAMED("warpPadNums", AH_WarpPad_AllWarppadNum());
 		}
 	}
 
-	VehTurbo_ProcessBucket(gGT->threadBuckets[TURBO].thread);
+	MAINFRAME_NAMED("turbo", VehTurbo_ProcessBucket(gGT->threadBuckets[TURBO].thread));
 
 	int i;
 	struct PushBuffer *pb;
 	for (i = 0; i < gGT->numPlyrCurrGame; i++)
 	{
 		pb = &gGT->pushBuffer[i];
-		VehGroundSkids_Main(gGT->threadBuckets[PLAYER].thread, pb);
-		VehGroundSkids_Main(gGT->threadBuckets[ROBOT].thread, pb);
+		MAINFRAME_NAMED("skids", VehGroundSkids_Main(gGT->threadBuckets[PLAYER].thread, pb));
+		MAINFRAME_NAMED("skids", VehGroundSkids_Main(gGT->threadBuckets[ROBOT].thread, pb));
 	}
 }
 

@@ -31,6 +31,16 @@ int NativeDev_NoItems(void);
 // captures of the same build.
 int NativeDev_NoLevelDepth(void);
 
+// CTR_DEV_NUDGE=pitch|yaw|roll|x|y|z: in frame CTR_DEV_NUDGE_FRAME (default
+// CTR_DEV_DUMP_FRAME), move player 1's integer camera by CTR_DEV_NUDGE_BY
+// units (default 1) on that axis, where the follow camera hands its pose to
+// the precise camera (CAM_FollowDriver_Normal), as a real rounding step
+// would. Nothing drawn from the precise camera should move; a polygon dump
+// of the same frame with and without the nudge shows what still follows the
+// integer camera (tools/decrypted/nudge_diff.py). pos and rot point at the
+// x, y, z of the push buffer's position and rotation.
+void NativeDev_NudgeCamera(int cameraID, short *pos, short *rot);
+
 // CTR_DEV_BOT_SPEED=<percent>: caps the bots' top speed at that share of
 // retail (default 100, no change), so the autopilot can win a race and reach
 // the podium.
@@ -73,6 +83,11 @@ void NativeDev_PoisonStack(void);
 // CTR_PGXP_DEBUG=4 to tint level geometry by LOD bucket. Reset every frame.
 void NativeDev_TagPrims(const void *start, const void *end, int tag);
 int NativeDev_PrimTag(const void *addr);
+// The same with a name, recorded only while a polygon dump is being written:
+// each draw stage and each instance labels its primitives, and the dump ends
+// a polygon's line with "@name" (the innermost range that holds it).
+void NativeDev_NamePrims(const void *start, const void *end, const char *name);
+const char *NativeDev_PrimName(const void *addr);
 
 // Unattended races (platform/native_dev_race.c).
 // CTR_DEV_RACE=<LevelID>: the title menu starts a one-player race on that

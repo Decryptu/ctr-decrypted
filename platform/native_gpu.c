@@ -468,11 +468,15 @@ static void NativeGpu_ApplyPgxp(GrVertex *vertex, VERTTYPE *const *points, int c
 	if (dump != NULL)
 	{
 		// tag, count, then per vertex: retail x y, drawn x y (draw offset
-		// removed), precise depth (-1 when the lookup missed)
+		// removed), precise depth (-1 when the lookup missed), then the
+		// stage or instance that drew it, if it was named
 		fprintf(dump, "%d %d", NativeDev_PrimTag(points[0]), count);
 		for (int i = 0; i < count; i++)
 			fprintf(dump, " %d %d %.4f %.4f %.4f", points[i][0], points[i][1], vertex[i].x - ofsX, vertex[i].y - ofsY,
 			        (hit & (1 << i)) ? depth[i] : -1.0f);
+		const char *name = NativeDev_PrimName(points[0]);
+		if (name != NULL)
+			fprintf(dump, " @%s", name);
 		fprintf(dump, "\n");
 	}
 	if (s_pgxpDebug)

@@ -5331,6 +5331,12 @@ void RenderBucket_Execute(void *param_1, struct PrimMem *param_2)
 			continue;
 		}
 
+#ifdef CTR_NATIVE
+		void *const namedStart = param_2->cursor;
+#endif
 		RenderBucket_DispatchDrawFunc(&ctx);
+#ifdef CTR_NATIVE
+		NativeDev_NamePrims(namedStart, param_2->cursor, entry->inst->name);
+#endif
 	}
 }

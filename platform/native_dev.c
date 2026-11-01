@@ -46,6 +46,10 @@ typedef struct
 	int loadStateFrame; // CTR_DEV_LOAD_STATE: load the quick savestate at this frame
 	int saveStateFrame; // CTR_DEV_SAVE_STATE: write the quick savestate at this frame
 	int pressCaptureFrame; // CTR_DEV_CAPTURE: press F7 at this frame
+	int nudgeAxis; // CTR_DEV_NUDGE: 0..2 pitch/yaw/roll, 3..5 x/y/z, -1 off
+	int nudgeBy;
+	int nudgeFrame;
+	int nudgedFrame; // the frame the nudge was applied in, so it applies once
 	int vramShot; // this frame was presented straight from VRAM (vramX..vramH)
 	int vramX, vramY, vramW, vramH;
 } NativeDevState;
@@ -83,6 +87,19 @@ static NativeDevState *NativeDev_State(void)
 		s_dev.loadStateFrame = NativeDev_EnvInt("CTR_DEV_LOAD_STATE", -1);
 		s_dev.saveStateFrame = NativeDev_EnvInt("CTR_DEV_SAVE_STATE", -1);
 		s_dev.pressCaptureFrame = NativeDev_EnvInt("CTR_DEV_CAPTURE", -1);
+		s_dev.nudgeAxis = -1;
+		{
+			static const char *const axes[] = {"pitch", "yaw", "roll", "x", "y", "z"};
+			const char *nudge = getenv("CTR_DEV_NUDGE");
+			for (int i = 0; nudge != NULL && i < 6; i++)
+			{
+				if (strcmp(nudge, axes[i]) == 0)
+					s_dev.nudgeAxis = i;
+			}
+		}
+		s_dev.nudgeBy = NativeDev_EnvInt("CTR_DEV_NUDGE_BY", 1);
+		s_dev.nudgeFrame = NativeDev_EnvInt("CTR_DEV_NUDGE_FRAME", s_dev.dumpFrame);
+		s_dev.nudgedFrame = -1;
 		NativeRenderer_EnablePresentCapture(s_dev.presentedShot && s_dev.shotDir != NULL);
 	}
 	return &s_dev;
@@ -107,6 +124,49 @@ void NativeDev_TagPrims(const void *start, const void *end, int tag)
 		s_devTags[s_devTagCount].tag = tag;
 		s_devTagCount++;
 	}
+}
+
+#define NATIVE_DEV_MAX_NAMES 1024
+
+static struct
+{
+	const char *start;
+	const char *end;
+	char name[24];
+} s_devNames[NATIVE_DEV_MAX_NAMES];
+static int s_devNameCount;
+
+void NativeDev_NamePrims(const void *start, const void *end, const char *name)
+{
+	if ((s_devNameCount >= NATIVE_DEV_MAX_NAMES) || ((const char *)end <= (const char *)start) || (NativeDev_DumpFile() == NULL))
+		return;
+	s_devNames[s_devNameCount].start = (const char *)start;
+	s_devNames[s_devNameCount].end = (const char *)end;
+	// Instance names are 16 bytes and not always terminated.
+	snprintf(s_devNames[s_devNameCount].name, sizeof(s_devNames[0].name), "%.16s", name);
+	for (char *ch = s_devNames[s_devNameCount].name; *ch != '\0'; ch++)
+	{
+		if ((*ch <= ' ') || (*ch > '~'))
+			*ch = '_';
+	}
+	s_devNameCount++;
+}
+
+const char *NativeDev_PrimName(const void *addr)
+{
+	// The innermost range: an instance inside its stage.
+	const char *p = (const char *)addr;
+	const char *name = NULL;
+	ptrdiff_t size = 0;
+	for (int i = 0; i < s_devNameCount; i++)
+	{
+		if ((p >= s_devNames[i].start) && (p < s_devNames[i].end) && ((name == NULL) || (s_devNames[i].end - s_devNames[i].start < size)))
+		{
+			name = s_devNames[i].name;
+			size = s_devNames[i].end - s_devNames[i].start;
+		}
+	}
+	return name;
 }
 
 int NativeDev_PrimTag(const void *addr)
@@ -156,6 +216,18 @@ int NativeDev_Hidden(void) { return NativeDev_State()->hidden; }
 int NativeDev_NoItems(void) { return NativeDev_State()->noItems; }
 int NativeDev_NoLevelDepth(void) { return NativeDev_State()->noLevelDepth; }
 int NativeDev_BotSpeedPercent(void) { return NativeDev_State()->botSpeed; }
+
+void NativeDev_NudgeCamera(int cameraID, short *pos, short *rot)
+{
+	NativeDevState *dev = NativeDev_State();
+	if ((dev->nudgeAxis < 0) || (cameraID != 0) || (dev->frame != dev->nudgeFrame) || (dev->nudgedFrame == dev->frame))
+		return;
+	dev->nudgedFrame = dev->frame;
+	if (dev->nudgeAxis < 3)
+		rot[dev->nudgeAxis] = (short)(rot[dev->nudgeAxis] + dev->nudgeBy);
+	else
+		pos[dev->nudgeAxis - 3] = (short)(pos[dev->nudgeAxis - 3] + dev->nudgeBy);
+}
 
 // 24-bit top-down BMP, readable by every image tool with no extra library.
 static void NativeDev_WriteBmp(const char *path, const unsigned char *rgba, int w, int h)
@@ -304,6 +376,7 @@ void NativeDev_EndFrame(void)
 	if (frame == dev->pressCaptureFrame)
 		NativeDev_RequestCapture();
 	s_devTagCount = 0;
+	s_devNameCount = 0;
 	NativeDev_RaceFrame();
 
 	if (dev->shotDir != NULL && frame >= dev->shotFrom && ((frame - dev->shotFrom) % dev->shotEvery) == 0)

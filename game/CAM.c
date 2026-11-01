@@ -2,6 +2,7 @@
 
 #ifdef CTR_NATIVE
 #include <math.h>
+#include <platform/native_dev.h>
 #endif
 
 #ifdef CTR_AP
@@ -1860,6 +1861,7 @@ void CAM_FollowDriver_Normal(struct CameraDC *cDC, struct Driver *d, SVec3 *push
 			precise.finalPos = cam->pos;
 			precise.finalDelta = cam->delta;
 			precise.correction = cDC->pushBufferPosCorrection;
+			NativeDev_NudgeCamera(cDC->cameraID, &pb->pos.x, &pb->rot.x);
 			NativePgxp_ViewFollowDriver(cDC->cameraID, &precise, &pb->pos, &pb->rot);
 		}
 		else
