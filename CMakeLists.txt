@@ -242,6 +242,7 @@ set(CTR_CUSTOM_PACKAGE_SOURCES
     platform/native_custom_records.c
     platform/native_custom_track_library.c
     platform/native_custom_unicode.c
+    platform/native_racer_library.cpp
     platform/native_saphi_catalogue.cpp
     platform/native_xdelta_import.cpp
     platform/native_xdelta_decode.c

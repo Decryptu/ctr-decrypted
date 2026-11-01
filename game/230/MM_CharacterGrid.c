@@ -656,9 +656,10 @@ void MM_Characters_DrawWindows(b32 showDrivers)
 		inst->animIndex = 0;
 		inst->model = MM_CharacterGrid_Model(s_currentEntry[p]);
 
-		// Oxide's hovercraft has no wheels.
-		const int currentID = (s_currentEntry[p] >= 0) ? s_entries[s_currentEntry[p]].characterID : CRASH_BANDICOOT;
-		gGT->drivers[p]->wheelSize = (currentID == NITROS_OXIDE) ? 0 : CS_MENU_WHEEL_SIZE;
+		// Oxide's hovercraft has no wheels, nor do racers that say so.
+		const struct CsEntry *current = (s_currentEntry[p] >= 0) ? &s_entries[s_currentEntry[p]] : NULL;
+		const int wheels = (current == NULL) || ((current->racer >= 0) ? NativeRacers_Wheels(current->racer) : (current->characterID != NITROS_OXIDE));
+		gGT->drivers[p]->wheelSize = wheels ? CS_MENU_WHEEL_SIZE : 0;
 
 		gGT->cameraDC[p].cameraMode = CAMERA_MODE_FREECAM;
 

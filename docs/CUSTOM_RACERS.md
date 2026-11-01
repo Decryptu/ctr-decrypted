@@ -2,7 +2,7 @@
 
 The native character select is built from a roster list instead of retail's hand-made icon tables, so it can hold N. Oxide and any number of custom racers. With the retail racers only, it draws, animates and navigates exactly like retail.
 
-Code: `game/230/MM_CharacterGrid.c` (included from `MM_Characters.c`; the PS1 build keeps the retail functions there). The racer library behind it: `platform/native_racers.c`, `include/platform/native_racers.h`.
+Code: `game/230/MM_CharacterGrid.c` (included from `MM_Characters.c`; the PS1 build keeps the retail functions there). The racers behind it: `platform/native_racers.c` (models, portraits, the players' picks) and `platform/native_racer_library.cpp` (the installed packages).
 
 ## The roster
 In this order:
@@ -35,5 +35,56 @@ Entries flow into the rows. Every row is centred, so 15 racers land exactly on r
 
 Players are tracked by roster entry. `GAME_CHARACTER_IDS` gets the entry's character ID, and `NativeRacers_SetPlayer` gets its racer index (-1 for a retail racer).
 
+## Racer packages
+A racer is a folder under `assets/racers/` (any name) holding `racer.json` and the files it lists. Package builds only (`CTR_CUSTOM_PACKAGES`, with the Mods screen). The library reads every folder once, the first time the character select needs it (`platform/native_racer_library.cpp`). A folder whose manifest or files do not check out is left out with a `[Racers]` line in the log.
+
+```json
+{
+  "schema_version": 1,
+  "id": "uuid",
+  "name": "CRUNCH BANDICOOT",
+  "short_name": "CRUNCH",
+  "version": "1",
+  "authors": ["robthefryman", "Angel123/Booz"],
+  "credits": "",
+  "source": {"file": "ctr-u_CrunchKart.xdelta", "sha256": "...", "url": "https://gamebanana.com/mods/575350"},
+  "template": "crash",
+  "engine": "balanced",
+  "wheels": true,
+  "files": {
+    "model": {"path": "model.ctr", "bytes": 14536, "sha256": "..."},
+    "portrait": {"path": "portrait.bin", "bytes": 612, "sha256": "..."}
+  }
+}
+```
+
+- `name` and `short_name`: printable ASCII, drawn with the game's font (under 32 and 16 bytes).
+- `template`: the retail racer whose character ID it borrows: `crash cortex tiny coco ngin dingodile polar pura pinstripe papu roo komodo tropy penta fakecrash oxide`.
+- `engine`: `balanced`, `accel`, `speed` or `turn`. `wheels`: whether the game draws its tires.
+- `model.ctr`: a racer model file as the BIGFILE stores one (a u32 pointer-map offset, the model, the pointer map), at most 512 KiB. The menu draws it scaled 5/8, as N. Oxide's.
+- `portrait.bin`: `CDP1`, u16 width 44, u16 height 26, 16 palette words, then 26 rows of 11 words of 4-bit texels. PS1 15-bit colours, word 0 transparent.
+- Every file's size and SHA-256 must match. The id is unique: a second folder with the same id is left out.
+
+## Portraits: the racer VRAM bank
+Portraits go to a second VRAM, a GL texture with the same size and format as the PS1 VRAM (`NativeRenderer_CreateVramBank`). A primitive whose tpage word has both bits 14 and 15 set (`NATIVE_TPAGE_RACER_BANK`, `include/platform/native_gpu.h`) samples the bank instead of VRAM. Its page, palette, colour depth and blending stay as they are, so the paletted shaders and every icon draw path work unchanged. The two bits alone keep their Archipelago meanings (box atlas, trial letters).
+
+Portrait i sits in a 64×32-texel slot: four across and eight down per 4-bit page, in pages 0 to 14 of both page rows. Its palette goes in page 15, four per row. Each racer gets an `Icon` whose layout points there (`platform/native_racers.c`).
+
+## Converting PS1 racer mods
+Racer mods for the disc are xdelta patches that replace a retail racer. `tools/racers/convert_racer.py` applies each patch to a clean disc and writes one package per racer it replaces:
+
+- The model is the patched `BIGFILE` racer model (high detail).
+- The portrait is cut from the patched shared VRM at the template's portrait (44×26, 4-bit; the positions are in the script).
+- The names come from the patched English language file.
+
+A racer whose mod kept the retail name or portrait is refused until `sources.json` names it; nothing from the retail disc goes into a package. `sources.json` also holds authors, credits and the source URL, keyed by patch file name. Two mods with the same model give one racer. The script prints what it wrote, skipped and refused.
+
+```sh
+gcc -O2 -Iinclude tools/racers/xdelta_apply.c -o tools/racers/xdelta_apply.exe
+python tools/racers/convert_racer.py --disc "CTR (USA).bin" --sources sources.json --out racers/ mods/*.xdelta
+```
+
+The mods collected so far (17 patches, 37 racers) are static, vertex-coloured meshes: no textures and no animations, as they are on a PS1. Their kart textures, voices and code patches are not carried over.
+
 ## Checking
-`CTR_DEV_CHARACTER_SELECT=1` opens the screen ([DEV-TOOLS.md](DEV-TOOLS.md)). `CTR_DEV_FAKE_RACERS=n` adds n placeholder racers that borrow the first eight retail racers' looks, to fill pages. To check that retail is unchanged, A/B the screen against an older build with `CTR_DEV_UNLOCKS=0` and `=1` at 1 to 4 players, with `CTR_DEV_PAD` navigation scripts that hit taken icons and row ends. Every frame should match except the exit slide-out, which older builds did not animate.
+`CTR_DEV_CHARACTER_SELECT=1` opens the screen ([DEV-TOOLS.md](DEV-TOOLS.md)). `CTR_DEV_FAKE_RACERS=n` replaces the installed racers with n placeholders that borrow the first eight retail racers' looks, to fill pages. To check that retail is unchanged, A/B the screen against an older build with `CTR_DEV_UNLOCKS=0` and `=1` at 1 to 4 players, with `CTR_DEV_PAD` navigation scripts that hit taken icons and row ends. Every frame should match except the exit slide-out, which older builds did not animate.

@@ -12,11 +12,17 @@ struct Model;
 
 int NativeRacers_Count(void);
 int NativeRacers_Template(int racer);
-// The racer's display name, or NULL to use the template's.
+// enum EngineClass; the template's unless the racer names one.
+int NativeRacers_Engine(int racer);
+int NativeRacers_Wheels(int racer);
+// The racer's names, or NULL to use the template's.
 const char *NativeRacers_Name(int racer);
-// The racer's portrait and menu model, or NULL to use the template's.
+const char *NativeRacers_ShortName(int racer);
+// The racer's portrait and models, or NULL to use the template's. The menu
+// model is scaled to the character select's windows.
 struct Icon *NativeRacers_Portrait(int racer);
 struct Model *NativeRacers_MenuModel(int racer);
+struct Model *NativeRacers_RaceModel(int racer);
 
 // The racer each human player picked on the character select (-1: the
 // retail character in GAME_CHARACTER_IDS).

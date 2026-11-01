@@ -116,6 +116,8 @@ typedef struct
 	TextureID trialLetterTexture;
 	int trialLetterWidth;
 	int trialLetterHeight;
+	// The racer VRAM bank, sampled by primitives tagged NATIVE_TPAGE_RACER_BANK.
+	TextureID racerBankTexture;
 
 	int drawPrimMode;
 	bool psxDrawMaskSet;
@@ -170,6 +172,11 @@ void NativeGpu_SetSideloadTexture(unsigned int texture, int width, int height)
 	s_gpu.apSideloadTexture = (TextureID)texture;
 	s_gpu.apSideloadWidth = width;
 	s_gpu.apSideloadHeight = height;
+}
+
+void NativeGpu_SetRacerBankTexture(unsigned int texture)
+{
+	s_gpu.racerBankTexture = (TextureID)texture;
 }
 
 void NativeGpu_SetTrialLetterTexture(unsigned int texture, int width, int height)
@@ -703,7 +710,7 @@ void MakeTexcoordQuad(GrVertex *vertex, u8 *uv0, u8 *uv1, u8 *uv2, u8 *uv3, s16 
 	// shader also adds tcx/tcy * 0.5; those auxiliary fields are otherwise left
 	// as stale vertex-buffer contents here, which magnifies/crops the AP art in
 	// a run-dependent way. Retail texture paths retain their existing behavior.
-	if (((u16)page & AP_TPAGE_SIDELOAD_MASK) != 0)
+	if ((((u16)page & AP_TPAGE_SIDELOAD_MASK) != 0) && (((u16)page & AP_TPAGE_SIDELOAD_MASK) != NATIVE_TPAGE_RACER_BANK))
 	{
 		int i;
 		for (i = 0; i < 4; i++)
@@ -763,7 +770,7 @@ void MakeTexcoordTriangle(GrVertex *vertex, u8 *uv0, u8 *uv1, u8 *uv2, s16 page,
 
 	// See MakeTexcoordQuad: sideload UVs must not inherit auxiliary offsets from
 	// an earlier primitive that occupied these vertex-buffer slots.
-	if (((u16)page & AP_TPAGE_SIDELOAD_MASK) != 0)
+	if ((((u16)page & AP_TPAGE_SIDELOAD_MASK) != 0) && (((u16)page & AP_TPAGE_SIDELOAD_MASK) != NATIVE_TPAGE_RACER_BANK))
 	{
 		int i;
 		for (i = 0; i < 3; i++)
@@ -1229,13 +1236,18 @@ internal void AddSplit(bool semiTrans, bool textured, bool framebufferFeedback)
 	// This scopes per PRIMITIVE rather than per display-list position, which
 	// matters: a model's prims are spread across depth-sorted OT buckets, so
 	// bracketing packets around a draw could not have scoped reliably.
-	bool trialLetter = (tpage & AP_TPAGE_SIDELOAD_MASK) == AP_TPAGE_TRIAL_LETTER_BIT;
+	//
+	// Both bits together tag the racer VRAM bank instead: a paletted texture in
+	// a second VRAM, so only the texture changes, not the format or blending.
+	const int nativeTag = tpage & AP_TPAGE_SIDELOAD_MASK;
+	bool racerBank = textured && (nativeTag == NATIVE_TPAGE_RACER_BANK) && (s_gpu.racerBankTexture != 0);
+	bool trialLetter = nativeTag == AP_TPAGE_TRIAL_LETTER_BIT;
 	TextureID sideloadTexture = trialLetter ? s_gpu.trialLetterTexture : s_gpu.apSideloadTexture;
-	bool apSideload = textured && (tpage & AP_TPAGE_SIDELOAD_MASK) != 0 && sideloadTexture != 0;
+	bool apSideload = textured && (nativeTag != 0) && (nativeTag != NATIVE_TPAGE_RACER_BANK) && sideloadTexture != 0;
 
 	BlendMode blendMode = semiTrans ? GET_TPAGE_BLEND(tpage) : BM_NONE;
 	TexFormat texFormat = GetTPageFormat(tpage);
-	TextureID textureId = textured ? NativeRenderer_GetVRAMTexture() : NativeRenderer_GetWhiteTexture();
+	TextureID textureId = !textured ? NativeRenderer_GetWhiteTexture() : racerBank ? s_gpu.racerBankTexture : NativeRenderer_GetVRAMTexture();
 	bool psxTexturedSemiTrans = semiTrans && textured && s_gpu.overrideTexture == 0 && !apSideload;
 	// NOTE(aalhendi): PS1 framebuffer bit 15 follows sampled texture STP for
 	// textured draws unless E6 forces it. Recursive screen-copy effects depend
