@@ -205,6 +205,8 @@ static std::string           g_room_endpoint;
 static bool                  g_rejected = false;
 static void ap_solo_journal_resend(const std::string &seed); // #89, defined below
 static std::string g_solo_journal_path; // #89 solo check journal (see ap_net_set_check_journal)
+static int (*g_solo_session)(void) = nullptr; // #89 is a solo session running: no DeathLink on the wire
+static bool ap_net_in_solo_session(void) { return g_solo_session && g_solo_session(); }
 static std::string g_solo_journal_seed;
 static bool                  g_reject_stop_pending = false;
 
@@ -1382,8 +1384,8 @@ extern "C" int ap_net_init(const char *uuid, const char *game, const char *uri)
 	// DeathLink tag, ignores our own death echoed back by the server (we carry the
 	// tag too), and adds the death to the inbox the game thread drains each frame.
 	g_ap->set_bounced_handler([](const nlohmann::json &packet) {
-		if (g_rejected)
-			return; // a refused seed's DeathLink bounce must not latch
+		if (g_rejected || ap_net_in_solo_session())
+			return; // a refused seed's DeathLink bounce must not latch; a solo session has none
 		if (!packet.contains("tags") || !packet["tags"].is_array())
 			return;
 		bool isDeath = false;
@@ -2563,6 +2565,14 @@ extern "C" int ap_net_item_text(long long item_id, int sender_slot, char *item_b
 
 // ── DeathLink (issue #6) ──
 
+// A Play Solo session has no other players, whatever the room says: no tag, no
+// death sent, none taken in. A call rather than a copied flag, so a session that
+// ends in the same frame as the next connection leaves nothing stale behind.
+extern "C" void ap_net_set_solo_session_query(int (*active)(void))
+{
+	g_solo_session = active;
+}
+
 // Add the "DeathLink" connection tag on top of the base "AP" tag so the server
 // relays deaths to us. ConnectUpdate replaces the whole tag set, so both tags are
 // re-declared; items_handling is left unchanged (send_items_handling = false).
@@ -2623,6 +2633,8 @@ extern "C" int ap_net_identity_hash(unsigned long long *out)
 
 extern "C" void ap_net_deathlink_enable(void)
 {
+	if (ap_net_in_solo_session())
+		return;
 	if (!g_ap)
 		return;
 	AP_NET_GUARD("deathlink_enable", {
@@ -2648,7 +2660,7 @@ extern "C" void ap_net_deathlink_disable(void)
 // "<player> <cause>" line. No-op unless slot-connected.
 extern "C" void ap_net_deathlink_send(const char *cause)
 {
-	if (!g_ap || !g_connected)
+	if (!g_ap || !g_connected || ap_net_in_solo_session())
 		return;
 	AP_NET_GUARD("deathlink_send", {
 		std::string slot = g_ap->get_slot();

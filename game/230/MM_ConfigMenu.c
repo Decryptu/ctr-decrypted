@@ -571,6 +571,13 @@ static int Config_RowLockedBySeed(const ConfigEntry *e)
 	return e->valuePtr == &g_config.itemBoxColours && AP_Boxes_ColourRowState() == AP_BOX_COLOUR_ROW_SEED_OFF;
 }
 
+// A Play Solo session has no other players: the DeathLink rows read "OFF (SOLO)" in
+// grey and take no input. Their saved values stay for multiworld rooms.
+static int Config_RowLockedBySolo(const ConfigEntry *e)
+{
+	return (e->valuePtr == &g_config.deathLink || IsDlSendField((const int *)e->valuePtr)) && AP_Solo_SessionActive();
+}
+
 static int Config_RowLockedByItem(const ConfigEntry *e)
 {
 	return e->valuePtr == &g_config.itemBoxColours && AP_Boxes_ColourRowState() == AP_BOX_COLOUR_ROW_ITEM_LOCKED;
@@ -608,6 +615,11 @@ static void Config_DrawRowHelp(const ConfigEntry *e, uint32_t *ot)
 			second = "cyan filler, salmon trap.";
 		}
 	}
+	if (Config_RowLockedBySolo(e))
+	{
+		first = "No other players in solo.";
+		second = "DeathLink stays off.";
+	}
 	if (e->valuePtr == &g_config.raceTypeSelector)
 	{
 		first = "When race pads ask which race.";
@@ -642,6 +654,11 @@ static void Config_DrawValue(const ConfigEntry *e, const int valueX, int y, uint
 	if (Config_RowLockedBySeed(e))
 	{
 		DecalFont_DrawLineOT("OFF (SEED)", valueX, y, FONT_SMALL, JUSTIFY_RIGHT | GRAY, ot);
+		return;
+	}
+	if (Config_RowLockedBySolo(e))
+	{
+		DecalFont_DrawLineOT("OFF (SOLO)", valueX, y, FONT_SMALL, JUSTIFY_RIGHT | GRAY, ot);
 		return;
 	}
 	if (Config_RowLockedByItem(e))
@@ -1406,6 +1423,8 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 				AP_LinkRegAction(); // Room links: use this client for ctr-ap:// links, or stop
 			else if (Config_RowLockedBySeed(e))
 				; // the seed has item box colours off: nothing to toggle
+			else if (Config_RowLockedBySolo(e))
+				; // no DeathLink in a solo session: nothing to toggle
 			else
 #endif
 			if (e->type == CFG_BOOL)
@@ -1445,7 +1464,11 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 		// enum entries: tap left/right to step through the preset ladder
 		{
 			const ConfigEntry *e = selEntry;
+#ifdef CTR_AP
+			if (e != NULL && e->type == CFG_ENUM && !Config_RowLockedBySolo(e))
+#else
 			if (e != NULL && e->type == CFG_ENUM)
+#endif
 			{
 				if ((pad->buttonsTapped & BTN_LEFT) != 0)
 				{
@@ -1487,7 +1510,11 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 			const int editing = 0;
 #endif
 
+#ifdef CTR_AP
+			DecalFont_DrawLineOT((char *)e->label, labelX, y, FONT_SMALL, Config_RowLockedBySolo(e) ? GRAY : ORANGE, ot);
+#else
 			DecalFont_DrawLineOT((char *)e->label, labelX, y, FONT_SMALL, ORANGE, ot);
+#endif
 			Config_DrawValue(e, valueX, y, ot, buf, editing);
 
 			if (j == menu->rowSelected)
