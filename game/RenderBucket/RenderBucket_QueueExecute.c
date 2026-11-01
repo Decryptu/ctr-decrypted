@@ -4,6 +4,9 @@
 #include "../../ap/ap_traps.h"
 #include <platform/native_gte_cull.h>
 #endif
+#ifdef CTR_NATIVE
+#include <platform/native_dev.h>
+#endif
 
 #include "RenderBucket_ProjectedBounds.h"
 

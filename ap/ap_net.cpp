@@ -91,6 +91,13 @@ static void ap_fx_store_clear()
 #include <openssl/x509.h> // X509_get_default_cert_file/dir: the compiled-in OPENSSLDIR
 #include <unistd.h>       // access(): the overflow-free existence test, see below
 #include <dirent.h>
+#else
+// MultiByteToWideChar for the UTF-8 journal path. The game build gets it
+// through asio already; the host harnesses use a mock client without it.
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
 #endif
 
 // ctr-ap.log shim from ap_hooks (resolved at final link). Connection-health
