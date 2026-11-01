@@ -6,10 +6,16 @@
 #   pwsh tools/decrypted/sync-upstream.ps1 -Remote ctr-native -Branch master
 #   git merge clean/dowlle-main
 #
+# -Path keeps only one folder of the upstream repo and -Prefix moves it, so the CTR world, which
+# lives in an Archipelago fork, lands in our apworld/ folder with its own history:
+#   pwsh tools/decrypted/sync-upstream.ps1 -Remote apworld -Branch main -Path worlds/ctr -Prefix apworld/ctr
+#
 # Needs git-filter-repo: python -m pip install git-filter-repo
 param(
     [string]$Remote = "dowlle",
-    [string]$Branch = "main"
+    [string]$Branch = "main",
+    [string]$Path = "",
+    [string]$Prefix = ""
 )
 $ErrorActionPreference = "Stop"
 $repo = (git rev-parse --show-toplevel).Trim()
@@ -27,7 +33,10 @@ if pat.search(message):
     message = pat.sub(b'', message).rstrip() + b'\n'
 return message
 '@
-python -m git_filter_repo --source $work --target $work --force --quiet --message-callback $callback
+$pathArgs = @()
+if ($Path) { $pathArgs += @("--path", $Path) }
+if ($Path -and $Prefix) { $pathArgs += @("--path-rename", "${Path}:$Prefix") }
+python -m git_filter_repo --source $work --target $work --force --quiet --message-callback $callback @pathArgs
 if ($LASTEXITCODE) { throw "filter-repo failed" }
 
 git -C $repo fetch --no-tags $work "+refs/heads/${Branch}:refs/remotes/clean/$Remote-$Branch"
