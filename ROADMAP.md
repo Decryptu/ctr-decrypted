@@ -20,7 +20,6 @@ Roughly in this order.
 |---|---|
 | Residual camera wobble while the speed changes: much smaller since the [precise camera](docs/PGXP.md#precise-camera) and the 60 FPS camera conversions ([60FPS.md](docs/60FPS.md#changes-beyond-high-octane)), but still felt. Repro: spawn in the Adventure hub, reverse for a second and release, then drive the same path at constant speed; only the accelerating/decelerating run wobbles. The small wobble left in turns is probably the same speed-change effect | Owner playtest, 2026-11-01 |
 | Archipelago character unlocks (high): Adventure starts with the vanilla character picker and only the 8 base racers; every other racer, Oxide included, is unlocked during the run | Owner request, 2026-10-31 |
-| Remember the camera distance (L2 close/far) across races and scene changes, saved in `config.ini`, instead of resetting to close every time | Owner request, 2026-11-01 |
 | Proper exe and window icon, so the game looks right in the taskbar, program list and shortcuts instead of the default Windows icon | Owner request, 2026-11-01 |
 | Project website and guide (mid): GitHub Pages site with install steps, how to play with Archipelago, and the dev toolbox | Owner request, 2026-10-31 |
 

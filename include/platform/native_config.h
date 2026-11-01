@@ -96,6 +96,10 @@ typedef struct
 	int  windowWidth;
 	int  windowHeight;
 	bool windowMaximized;
+	// The L2 camera distance (false = near, true = far), [State] camera_far.
+	// Retail resets it to near on every camera birth and race start; the 1P
+	// camera starts from this instead and L2 updates it (game/CAM.c).
+	bool cameraFar;
 	// Audio: the vanilla audio screen's volumes (0-255) and stereo/mono mode.
 	// Config-file-only -- persisted to config.ini [Audio] and edited through that
 	// screen (game/MAIN/MainFreeze.c), NOT the in-game options menu (the [Audio]

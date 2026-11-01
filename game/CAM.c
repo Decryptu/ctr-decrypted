@@ -394,6 +394,19 @@ void CAM_ClearScreen(struct GameTracker *gGT)
 	gGT->backBuffer->primMem.cursor = tile;
 }
 
+// Native: the 1P camera keeps the last L2 distance (config.ini [State]
+// camera_far) instead of retail's reset to near. Split screen keeps retail.
+static void CAM_ApplyRememberedDistance(struct CameraDC *cDC)
+{
+	if (GAME_TRACKER->numPlyrCurrGame != 1)
+	{
+		return;
+	}
+
+	cDC->nearOrFar = g_config.cameraFar ? 1 : 0;
+	cDC->zoomToggleState = cDC->nearOrFar;
+}
+
 void CAM_Init(struct CameraDC *cDC, s32 cameraID, struct Driver *d, struct PushBuffer *pb)
 {
 	PROC_BirthWithObject(0x30f, CAM_ThTick, GAME_CAMERA_THREAD_NAME, NULL)->inst = (struct Instance *)cDC;
@@ -411,6 +424,8 @@ void CAM_Init(struct CameraDC *cDC, s32 cameraID, struct Driver *d, struct PushB
 	cDC->cameraMode = 0;
 
 	cDC->flags |= CAMERA_FLAG_DIRECTION_CHANGED;
+
+	CAM_ApplyRememberedDistance(cDC);
 }
 
 s32 CAM_Path_GetNumPoints(void)
@@ -551,6 +566,7 @@ void CAM_StartOfRace(struct CameraDC *cDC)
 
 		cDC->transitionFrameCount = FPS_DOUBLE(0x1E);
 		cDC->nearOrFar = 0;
+		CAM_ApplyRememberedDistance(cDC);
 
 		// when camera reaches player, be zoomed in
 		cDC->cameraMode = 0;
@@ -2092,6 +2108,11 @@ void CAM_ThTick(struct Thread *t)
 			{
 				cDC->nearOrFar = cDC->zoomToggleState;
 				cDC->cameraMode = 0;
+
+				if (gGT->numPlyrCurrGame == 1)
+				{
+					g_config.cameraFar = cDC->nearOrFar != 0;
+				}
 			}
 		}
 
