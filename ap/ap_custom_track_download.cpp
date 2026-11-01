@@ -481,6 +481,20 @@ struct MediaFile
 	size_t size = 0;
 };
 
+// The package-library parts between here and the Track Manager section are
+// spelled `#if defined(...)`: test-seed-content-download-production.py cuts
+// the pinned downloader out of this file at the next `#ifdef` of it.
+#if defined(CTR_CUSTOM_PACKAGES)
+// Install verified LEV and VRM bytes into the package library as the package
+// Browse makes for the same Saphi revision (defined with the Browse installer
+// below). Returns an empty string, or why nothing was installed.
+std::string saphi_install_library(const std::string &assets, const std::string &api_path,
+                                  const MediaFile &lev_media, const MediaFile &vrm_media,
+                                  const std::string &version, const std::string &title,
+                                  const std::string &author, int laps,
+                                  const std::vector<unsigned char> &lev, const std::vector<unsigned char> &vrm);
+#endif
+
 bool find_media(const nlohmann::json &root, const std::string &type,
 	            const std::string &version, MediaFile &media)
 {
@@ -666,9 +680,18 @@ void publish_pinned(const std::string &tracks, const std::string &folder,
 // `lev_bytes` / `vrm_bytes` are the room's size pins and `tracks` the folder
 // the package root must sit in (Current Seed, #133 PR 7); all zero / empty for
 // the legacy single-package download, which keeps its old behaviour.
+// One install. `tracks` set: a pinned Current Seed install; with `library`
+// set too (the assets folder) it goes into the package library instead of
+// <tracks>/<folder>, under `title`, `author` and `laps`.
+struct LibraryTarget
+{
+	std::string assets, title, author;
+	int laps = 0;
+};
+
 void worker(std::string package_root, std::string api_url, std::string version,
 	        std::string lev_hash, std::string vrm_hash,
-	        uint32_t lev_pin, uint32_t vrm_pin, std::string tracks)
+	        uint32_t lev_pin, uint32_t vrm_pin, std::string tracks, LibraryTarget library)
 {
 	const bool pinned = !tracks.empty();
 	try
@@ -676,7 +699,7 @@ void worker(std::string package_root, std::string api_url, std::string version,
 		std::string api_path;
 		if (!saphi_url_path(api_url, api_path))
 			throw std::runtime_error("The release registry has an invalid Saphi API URL.");
-		if (pinned && !ap_seed_root_safe(tracks.c_str(), package_root.c_str()))
+		if (pinned && library.assets.empty() && !ap_seed_root_safe(tracks.c_str(), package_root.c_str()))
 			throw std::runtime_error("The track folder is not a safe place to install. Nothing was changed.");
 		set_state(AP_CT_DOWNLOAD_RUNNING, "Contacting Project Saphi...");
 		std::vector<unsigned char> metadata;
@@ -693,13 +716,13 @@ void worker(std::string package_root, std::string api_url, std::string version,
 
 		std::vector<unsigned char> lev_bytes;
 		std::vector<unsigned char> vrm_bytes;
-		set_state(AP_CT_DOWNLOAD_RUNNING, "Downloading Baby T Park LEV from Saphi...");
+		set_state(AP_CT_DOWNLOAD_RUNNING, "Downloading the track (LEV) from Saphi...");
 		if (!https_get(lev.path, kTrackFileMax, lev_bytes, error) || lev_bytes.size() != lev.size)
 			throw std::runtime_error(error.empty() ? "The Saphi LEV download was incomplete." : error);
 		if (!hash_matches(lev_bytes, lev_hash))
 			throw std::runtime_error("The downloaded LEV does not match this release registry.");
 
-		set_state(AP_CT_DOWNLOAD_RUNNING, "Downloading Baby T Park VRM from Saphi...");
+		set_state(AP_CT_DOWNLOAD_RUNNING, "Downloading the track (VRM) from Saphi...");
 		if (!https_get(vrm.path, kTrackFileMax, vrm_bytes, error) || vrm_bytes.size() != vrm.size)
 			throw std::runtime_error(error.empty() ? "The Saphi VRM download was incomplete." : error);
 		if (!hash_matches(vrm_bytes, vrm_hash))
@@ -707,6 +730,17 @@ void worker(std::string package_root, std::string api_url, std::string version,
 		if (!ap_seed_size_agrees(lev_pin, lev_bytes.size()) || !ap_seed_size_agrees(vrm_pin, vrm_bytes.size()))
 			throw std::runtime_error("The downloaded files are not the size this seed pins. Nothing was changed.");
 
+#if defined(CTR_CUSTOM_PACKAGES)
+		if (pinned && !library.assets.empty())
+		{
+			set_state(AP_CT_DOWNLOAD_RUNNING, "Download verified. Adding it to the library...");
+			const std::string failure = saphi_install_library(library.assets, api_path, lev, vrm, version, library.title,
+			                                                  library.author, library.laps, lev_bytes, vrm_bytes);
+			if (!failure.empty()) throw std::runtime_error(failure);
+			set_state(AP_CT_DOWNLOAD_SUCCEEDED, "Download verified. Installed in the library.");
+			return;
+		}
+#endif
 		const std::string original = join_path(package_root, "original");
 		const std::string lev_temp = join_path(original, ".saphi-track.lev.part");
 		const std::string vrm_temp = join_path(original, ".saphi-track.vrm.part");
@@ -771,7 +805,8 @@ int existing_target(const std::string &path, const std::string &expected)
 
 int start_worker(const char *package_root, const char *download_api_url, const char *package_version,
 	             const char *lev_sha256, const char *vrm_sha256,
-	             uint32_t lev_bytes, uint32_t vrm_bytes, const char *tracks)
+	             uint32_t lev_bytes, uint32_t vrm_bytes, const char *tracks,
+	             LibraryTarget library = LibraryTarget())
 {
 	DownloadState &shared = download_state();
 	{
@@ -785,7 +820,7 @@ int start_worker(const char *package_root, const char *download_api_url, const c
 	{
 		std::thread(worker, std::string(package_root), std::string(download_api_url), std::string(package_version),
 		            std::string(lev_sha256), std::string(vrm_sha256), lev_bytes, vrm_bytes,
-		            std::string(tracks ? tracks : "")).detach();
+		            std::string(tracks ? tracks : ""), library).detach();
 		return 1;
 	}
 	catch (const std::exception &e)
@@ -822,6 +857,29 @@ extern "C" int ap_custom_track_download_start_pinned(const char *tracks_dir,
 	return start_worker(package_root, download_api_url, package_version, lev_sha256, vrm_sha256,
 	                    lev_bytes, vrm_bytes, tracks_dir);
 }
+
+#if defined(CTR_CUSTOM_PACKAGES)
+extern "C" int ap_custom_track_download_start_library(const char *assets,
+	                                                   const char *package_root,
+	                                                   const char *download_api_url,
+	                                                   const char *package_version,
+	                                                   const char *lev_sha256, uint32_t lev_bytes,
+	                                                   const char *vrm_sha256, uint32_t vrm_bytes,
+	                                                   const char *title, const char *author, int laps)
+{
+	LibraryTarget library;
+	if (!assets || !*assets || !title || !*title || !package_root || !*package_root || !download_api_url ||
+	    !*download_api_url || !package_version || !*package_version || !lev_sha256 || !vrm_sha256 ||
+	    !lev_bytes || !vrm_bytes)
+		return 0;
+	library.assets = assets;
+	library.title = title;
+	library.author = author ? author : "";
+	library.laps = laps;
+	return start_worker(package_root, download_api_url, package_version, lev_sha256, vrm_sha256,
+	                    lev_bytes, vrm_bytes, package_root, library);
+}
+#endif
 
 extern "C" int ap_custom_track_download_status(char *detail, int detail_bytes)
 {
@@ -1012,6 +1070,67 @@ void saphi_install_worker(CustomSaphiRevision revision, std::string assets)
     state.state = error.empty() ? 1 : -2;
 }
 }
+namespace {
+// The id after the last '/' of a Saphi path, or 0.
+int saphi_path_id(const std::string &path, size_t from)
+{
+    int id = 0;
+    for (size_t i = from; i < path.size() && path[i] != '/'; i++)
+    {
+        if (path[i] < '0' || path[i] > '9' || id > 100000000) return 0;
+        id = id * 10 + (path[i] - '0');
+    }
+    return id;
+}
+
+std::string saphi_install_library(const std::string &assets, const std::string &api_path,
+                                  const MediaFile &lev_media, const MediaFile &vrm_media,
+                                  const std::string &version, const std::string &title,
+                                  const std::string &author, int laps,
+                                  const std::vector<unsigned char> &lev, const std::vector<unsigned char> &vrm)
+{
+    /* The same package Browse installs for this revision: same UUID, so the
+       Installed tab shows the track once, and the same provenance, so it
+       names the author and Browse knows it is installed. */
+    const size_t tracksAt = api_path.find("/tracks/");
+    const int track = tracksAt == std::string::npos ? 0 : saphi_path_id(api_path, tracksAt + 8);
+    const int levID = saphi_path_id(lev_media.path, lev_media.path.rfind('/') + 1);
+    const int vrmID = saphi_path_id(vrm_media.path, vrm_media.path.rfind('/') + 1);
+    if (track <= 0 || levID <= 0 || vrmID <= 0) return "Saphi listed the track in an unexpected form. Nothing was installed.";
+    const auto levHash = saphi_digest(lev.data(), lev.size(), EVP_sha256());
+    const auto vrmHash = saphi_digest(vrm.data(), vrm.size(), EVP_sha256());
+    nlohmann::json files = nlohmann::json::array();
+    files.push_back({{"role","lev"},{"path","original/lev-" + std::to_string(levID) + ".lev"},{"sha256",levHash},{"bytes",lev.size()}});
+    const std::string presentation = nlohmann::json({{"schema_version",1},{"provider","projectsaphi"},
+        {"track_id",track},{"lev_media_id",levID},{"vrm_media_id",vrmID},{"version",version},{"author",author}}).dump();
+    files.push_back({{"role","presentation"},{"path","metadata/saphi-source.json"},
+        {"sha256",saphi_digest(presentation.data(),presentation.size(),EVP_sha256())},{"bytes",presentation.size()}});
+    std::string settings;
+    if (laps >= 1 && laps <= 127)
+    {
+        settings = nlohmann::json({{"schema_version",1},{"laps",laps},{"lev_sha256",levHash},{"vrm_sha256",vrmHash}}).dump();
+        files.push_back({{"role","race_settings"},{"path","metadata/race-settings.json"},
+            {"sha256",saphi_digest(settings.data(),settings.size(),EVP_sha256())},{"bytes",settings.size()}});
+    }
+    files.push_back({{"role","vrm"},{"path","original/vrm-" + std::to_string(vrmID) + ".vrm"},{"sha256",vrmHash},{"bytes",vrm.size()}});
+    const std::string manifest = nlohmann::json({{"schema_version",1},{"package_uuid",saphi_import_uuid(track)},
+        {"version",version},{"title",title},
+        {"compatibility",{{"native_contract",1},{"apworld_contract",1}}},{"files",files}}).dump();
+    const std::string pin = saphi_digest(manifest.data(),manifest.size(),EVP_sha256());
+    std::vector<CustomPackageInput> inputs = {{"lev",lev.data(),lev.size()},{"vrm",vrm.data(),vrm.size()},
+        {"presentation",presentation.data(),presentation.size()}};
+    if (!settings.empty()) inputs.push_back({"race_settings",settings.data(),settings.size()});
+    CustomPackageOwned *owned = nullptr;
+    char detail[512];
+    std::string failure;
+    if (!CustomPackage_AcquireBuffers(manifest.data(),manifest.size(),pin.c_str(),inputs.data(),inputs.size(),&owned,detail,sizeof detail) ||
+        !CustomPackage_InstallAssets(owned, assets.c_str(), detail, sizeof detail))
+        failure = detail;
+    CustomPackage_Free(&owned);
+    return failure;
+}
+}
+
 extern "C" int CustomSaphi_StartInstall(const CustomSaphiRevision *revision, const char *assets)
 {
     if (!revision || !assets || !*assets || std::strlen(assets) > 31000 || revision->disabledReason[0] ||

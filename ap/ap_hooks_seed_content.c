@@ -148,8 +148,16 @@ static int AP_SeedInstallBegin(int at, char *message, size_t messageSize)
 	struct CustomTrackManagerStatus paths;
 	char tracks[CTR_CT_MANAGER_PATH_MAX];
 	if (!pkg || !AP_SeedInstallTarget(index, &profile, &paths, tracks, sizeof tracks) ||
+#ifdef CTR_CUSTOM_PACKAGES
+	    /* Into the package library, like Browse: the Installed tab then lists
+	       it, and the room finds it there (CustomTrackManager_LocateContentFiles). */
+	    !ap_custom_track_download_start_library(NativeAssets_GetAssetDir(), paths.packageRoot, profile->downloadApiUrl,
+	                                            pkg->revision, pkg->lev_sha256, pkg->lev_bytes, pkg->vrm_sha256,
+	                                            pkg->vrm_bytes, pkg->display_name, pkg->author, pkg->laps))
+#else
 	    !ap_custom_track_download_start_pinned(tracks, paths.packageRoot, profile->downloadApiUrl, pkg->revision,
 	                                           pkg->lev_sha256, pkg->lev_bytes, pkg->vrm_sha256, pkg->vrm_bytes))
+#endif
 	{
 		snprintf(message, messageSize, "%s: could not start the download.%s", ap_seed_install.title[at],
 		         ap_seed_install.installed ? "" : " Nothing was installed.");
@@ -261,6 +269,7 @@ int AP_SeedContentInstallTick(char *message, size_t messageSize)
 		AP_SeedInstallFinish(message, messageSize, failure);
 		return 0;
 	}
+#ifndef CTR_CUSTOM_PACKAGES
 	{
 		// The verified files are in place: add the profile's folder skeleton
 		// (PrepareFolder never replaces a file) before the rescan finalizes.
@@ -270,6 +279,7 @@ int AP_SeedContentInstallTick(char *message, size_t messageSize)
 		if (AP_SeedInstallTarget(ap_seed_install.queue[ap_seed_install.at], &profile, &paths, tracks, sizeof tracks))
 			CustomTrackManager_PrepareFolder(NativeAssets_GetAssetDir(), profile, &paths);
 	}
+#endif
 	ap_seed_install.installed++;
 	ap_seed_install.at++;
 	if (ap_seed_install.at >= ap_seed_install.count)

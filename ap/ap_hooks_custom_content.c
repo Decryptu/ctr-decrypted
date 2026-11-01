@@ -152,10 +152,18 @@ static int AP_ContentScanPackageFiles(int index, int autoFinalize, struct Custom
 		                     status->state == CTR_CT_MANAGER_MANIFEST_INVALID))
 			CustomTrackManager_FinalizePackage(NativeAssets_GetAssetDir(), compiled, status);
 	}
-	else
+	if (!compiled || status->state != CTR_CT_MANAGER_READY)
+	{
+		/* By digest: <key>/original, then the package library, where the Seed
+		   tab and Browse install. A compiled profile keeps its own folder's
+		   message when the files are nowhere. */
+		struct CustomTrackManagerStatus located;
+		memset(&located, 0, sizeof located);
 		CustomTrackManager_LocateContentFiles(NativeAssets_GetAssetDir(), pkg->content_id, pkg->display_name,
 		                                      pkg->revision, pkg->lev_sha256, pkg->lev_bytes,
-		                                      pkg->vrm_sha256, pkg->vrm_bytes, status);
+		                                      pkg->vrm_sha256, pkg->vrm_bytes, &located);
+		if (!compiled || located.state == CTR_CT_MANAGER_READY) *status = located;
+	}
 	if (status->state != CTR_CT_MANAGER_READY) return 0;
 	error[0] = '\0';
 	if (!CustomContentVerify_Files(status->levPath, status->vrmPath, &report, error, sizeof error) ||

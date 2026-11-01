@@ -389,14 +389,20 @@ four retail legs. That path is not in the authoring client.
 Content-plan seeds (0.3.0 development) admit any complete package descriptor:
 track key, LEV and VRM pins, authored laps and measured capability flags
 (`time_trial`, `arcade`, `relic`, `ctr_tokens`, `wumpa`). The two compiled Baby
-T Park revisions keep their manager folders. Any other package is found by
-SHA-256 and size in `assets/tracks/<track key>/original/`, whatever the file
-names, so several revisions of one track can share the folder. When that
-folder has no LEV or VRM at all, the package store is searched too: a
-`packages/<pin>/` whose `manifest.json` names both digests is hashed, and the
-first whose bytes and sizes match is used
+T Park revisions are looked for in their manager folders first. Every package
+is found by SHA-256 and size in `assets/tracks/<track key>/original/`,
+whatever the file names, so several revisions of one track can share the
+folder. When that folder has no LEV or VRM at all, the package store is
+searched too: a `packages/<pin>/` whose `manifest.json` names both digests is
+hashed, and the first whose bytes and sizes match is used
 (`platform/native_custom_track_manager.c: Manager_FindInPackages`), so a track
-installed from Browse needs no second download. On connect and
+installed from Browse needs no second download. The Seed tab's Install
+missing content downloads into the package store too, as the same package
+Browse would make for that Saphi revision
+(`ap/ap_custom_track_download.cpp: saphi_install_library`), so Installed lists
+it with Off, Remove and Check files. It can download only the compiled
+profiles (Baby T Park); any other track of a room is added from Browse or an
+xdelta patch. On connect and
 again at pad entry the client runs the structural verifier on those exact
 bytes (`ap/ap_content_capability.h`) and refuses the package when a flag the
 descriptor sets to true is not there; the loader then hashes the files once

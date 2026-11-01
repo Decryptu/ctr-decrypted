@@ -152,7 +152,12 @@ static void MM_CurrentSeed_Page(uint32_t *ot, struct GamepadBuffer *pad)
 		s_seedOverview = 0;
 	}
 	s_seedLastFrame = now;
-	AP_SeedContentInstallTick(s_seedMessage, sizeof s_seedMessage);
+	{
+		/* A finished install added packages: rescan the library for Installed. */
+		const int wasInstalling = AP_SeedContentInstallBusy();
+		AP_SeedContentInstallTick(s_seedMessage, sizeof s_seedMessage);
+		if (wasInstalling && !AP_SeedContentInstallBusy()) s_contentStoreWanted = 1;
+	}
 
 	count = AP_SeedContentRows(rows, AP_SEED_ROWS_MAX);
 	ready = ap_seed_ready_count(rows, count);

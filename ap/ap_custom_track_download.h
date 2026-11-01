@@ -40,6 +40,21 @@ int ap_custom_track_download_start_pinned(const char *tracks_dir,
 	                                      const char *lev_sha256, uint32_t lev_bytes,
 	                                      const char *vrm_sha256, uint32_t vrm_bytes);
 
+// Current Seed with the package library (CTR_CUSTOM_PACKAGES): the same
+// pinned, verified download, installed into the library under `assets` as
+// the package Browse makes for that Saphi revision, so the Installed tab
+// lists it (Off, Remove, Check files). `package_root` is only where the
+// profile would have installed it; nothing is written there. `title`,
+// `author` and `laps` (0 for none) describe the package. Returns 1 when a
+// worker was started.
+int ap_custom_track_download_start_library(const char *assets,
+	                                       const char *package_root,
+	                                       const char *download_api_url,
+	                                       const char *package_version,
+	                                       const char *lev_sha256, uint32_t lev_bytes,
+	                                       const char *vrm_sha256, uint32_t vrm_bytes,
+	                                       const char *title, const char *author, int laps);
+
 // Thread-safe snapshot for the game thread. Returns an AP_CT_DOWNLOAD_* value.
 int ap_custom_track_download_status(char *detail, int detail_bytes);
 

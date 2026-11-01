@@ -18,7 +18,9 @@ Cases:
   8. Square rescans, except while an install runs,
   9. every line of the page and of the overview, with long names and
      messages, fits the Mods screen's frame: x 24 to 488 at the retail small
-     font's 13 pixels a letter, and nothing below y 196.
+     font's 13 pixels a letter, and nothing below y 196,
+ 10. an install that finishes asks for a rescan of the package library, so
+     the Installed tab lists what the Seed tab installed; an idle frame does not.
 """
 from pathlib import Path
 import subprocess
@@ -67,6 +69,7 @@ void CTR_Box_DrawClearBox(RECT *r, int *c, int t, uint32_t *ot, struct PrimMem *
 static int s_customContentSection = 5;
 static int s_modsSeed = 1; /* the Mods screen shows the Seed tab */
 static int s_modsFromTitle = 1; /* opened from the title screen */
+static int s_contentStoreWanted; /* the Installed list rescans */
 
 /* The stub room. */
 static int active = 1, busy, starts, rescans, plan_result = AP_SEED_PLAN_OK;
@@ -86,7 +89,8 @@ int AP_SeedContentInstallPreview(int *plan, int *count, uint64_t *bytes, char *r
 	return AP_SEED_PLAN_OK;
 }
 int AP_SeedContentInstallStart(char *m, size_t n) { starts++; busy = 1; snprintf(m, n, "Downloading"); return 1; }
-int AP_SeedContentInstallTick(char *m, size_t n) { (void)m; (void)n; return busy; }
+static int finish_on_tick; /* the next tick ends the running install */
+int AP_SeedContentInstallTick(char *m, size_t n) { (void)m; (void)n; if (finish_on_tick) busy = 0; return busy; }
 int AP_SeedContentInstallBusy(void) { return busy; }
 void AP_CustomContentRescan(void) { rescans++; }
 '''
@@ -206,6 +210,18 @@ int main(void)
 	frame(0);
 	expect(s_seedOverview && outside == 0, "the overview fits the frame");
 	if (outside) printf("  first outside: %s\n", outside_text);
+
+	/* 10. A finished install rescans the library. */
+	s_seedOverview = 0;
+	s_contentStoreWanted = 0;
+	busy = 0;
+	frame(0);
+	expect(!s_contentStoreWanted, "an idle frame asks for no library rescan");
+	busy = 1;
+	finish_on_tick = 1;
+	frame(0);
+	expect(s_contentStoreWanted && !busy, "a finished install asks for a library rescan");
+	finish_on_tick = 0;
 
 	printf("%d checks, %d failures\n", checks, failures);
 	return failures ? 1 : 0;
