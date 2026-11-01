@@ -175,6 +175,26 @@ MM_ConfigProc_CustomContent`; the title row is `CTR_LNG_MODS`,
 Select imports an xdelta patch, also when one is dropped on the window
 (`game/230/MM_CustomImport.c`, `platform/native_xdelta_import.cpp`).
 
+- **Track pictures.** Browse and Installed show the selected track's Saphi
+  thumbnail at the panel's top left (`game/230/MM_CustomPicture.c`). The
+  catalogue keeps each track's one current `track_thumbnail`
+  (`CustomSaphiRevision.picture`); a track with none, or with two, has no
+  picture, as does a track that did not come from Saphi. Once the selection
+  has rested on a track for 12 frames, a worker
+  (`NativeTrackPicture_Start`, `ap/ap_custom_track_download.cpp`) fetches the
+  JPEG, and `platform/native_track_picture.c` decodes it with stb_image
+  (`vendor/stb`, JPEG only, at most 1 MB and 2048 pixels a side, checked from
+  the header first), crops it to 3:2 and box-filters it to 112x42 PS1 15-bit
+  texels. 112x42 looks 3:2 because the 512x216 frame fills a 4:3 screen. The
+  texels are cached as `assets/tracks/pictures/<track id>.bin` (`CTP1`, the
+  picture's media id, the texels), so a picture seen once shows offline; a
+  new media id fetches it again. Saphi serves a smaller copy than the size
+  and CRC it lists, so the picture is not checked against the listing; it is
+  only ever drawn. The picture goes to the racer VRAM bank at (512, 256),
+  page 8 of the second page row (`NativeRacers_TrackPicture`,
+  `platform/native_racers.c`). `tools/test-track-picture.c` checks the crop,
+  the colours and the refusals on two fixtures of plain colour blocks.
+
 - **Store scan.** `CustomPackage_StartStoreScan` walks
   `assets/tracks/packages/` on a worker thread, re-acquires and re-verifies
   every directory whose name is a lowercase 64-hex pin, and ignores staging and

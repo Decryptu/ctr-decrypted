@@ -16,10 +16,12 @@
 //   scaled 5/8: the racer models are larger than the menu's own models.
 // - Portraits live in the racer VRAM bank, a second VRAM sampled by
 //   primitives whose tpage carries NATIVE_TPAGE_RACER_BANK. Portrait i takes a
-//   64x32-texel slot: four across and eight down in a 4-bit page, pages 0-14
-//   of both page rows. Its palette goes in page 15, four palettes per row.
+//   64x32-texel slot: four across and eight down in a 4-bit page, from page 0
+//   of the first page row. Its palette goes in page 15, four palettes per row.
 //   Each racer gets an Icon whose layout points there, so every icon draw path
 //   takes it unchanged.
+// - The bank also holds the Mods screen's track picture: 15-bit texels from
+//   VRAM (512, 256), page 8 of the second page row, which no portrait reaches.
 
 #if defined(CTR_CUSTOM_PACKAGES)
 #include <platform/native_racer_library.h>
@@ -56,6 +58,8 @@ struct NativeRacer
 };
 
 #define NATIVE_RACERS_MAX 64
+_Static_assert(NATIVE_RACERS_MAX <= NATIVE_RACERS_PORTRAIT_PAGES * NATIVE_RACERS_SLOTS_PER_PAGE,
+               "every portrait fits the first page row, clear of the track picture");
 
 static struct NativeRacer s_racers[NATIVE_RACERS_MAX];
 static int s_racerCount = -1;
@@ -234,6 +238,38 @@ struct Model *NativeRacers_RaceModel(int racer)
 	return r->raceModel;
 }
 
+// The racer bank, one for the run; a reload writes over its slots.
+static TextureID NativeRacers_Bank(void)
+{
+	static TextureID bank;
+	static int bankCreated;
+	if (!bankCreated)
+	{
+		bank = NativeRenderer_CreateVramBank();
+		bankCreated = 1;
+		NativeGpu_SetRacerBankTexture(bank);
+	}
+	return bank;
+}
+
+struct Icon *NativeRacers_TrackPicture(const u16 *texels, int width, int height)
+{
+	static struct Icon picture;
+	if (!texels || (width < 1) || (width > 256) || (height < 1) || (height > 256))
+		return NULL;
+	NativeRenderer_UploadVramBank(NativeRacers_Bank(), 512, 256, width, height, texels);
+	struct TextureLayout *t = &picture.texLayout;
+	t->u0 = t->u2 = 0;
+	t->u1 = t->u3 = (u8)width;
+	t->v0 = t->v1 = 0;
+	t->v2 = t->v3 = (u8)height;
+	t->clut = 0;
+	// 15-bit direct colour (tpage bits 7-8 = 2), page 8 of the second row.
+	t->tpage = (u16)(NATIVE_TPAGE_RACER_BANK | (2 << 7) | (1 << 4) | 8);
+	snprintf(picture.name, sizeof picture.name, "trackpicture");
+	return &picture;
+}
+
 // Every portrait into the racer bank, and an Icon per racer pointing at it.
 static void NativeRacers_UploadPortraits(void)
 {
@@ -247,15 +283,7 @@ static void NativeRacers_UploadPortraits(void)
 	if (!any)
 		return;
 
-	// One bank for the run; a reload writes over the slots.
-	static TextureID bank;
-	static int bankCreated;
-	if (!bankCreated)
-	{
-		bank = NativeRenderer_CreateVramBank();
-		bankCreated = 1;
-		NativeGpu_SetRacerBankTexture(bank);
-	}
+	const TextureID bank = NativeRacers_Bank();
 
 	for (int r = 0; r < s_racerCount; r++)
 	{

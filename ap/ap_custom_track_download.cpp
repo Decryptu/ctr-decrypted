@@ -9,6 +9,7 @@
 #include <platform/native_saphi_catalogue.h>
 #include <platform/native_custom_package.h>
 #include <platform/native_racer_library.h>
+#include <platform/native_track_picture.h>
 #include <zlib.h>
 #include <chrono>
 #include <future>
@@ -1279,5 +1280,87 @@ extern "C" int NativeRacerCatalogue_PollInstall(char *error, size_t errorSize)
     auto &state = racer_install_state();
     std::lock_guard<std::mutex> guard(state.mutex);
     return racer_poll(state, error, errorSize);
+}
+/* Track pictures (include/platform/native_track_picture.h): Saphi's thumbnail
+   for one track, decoded and cached as "CTP1", the media id, then the texels. */
+namespace {
+struct PictureJobState
+{
+    std::mutex mutex;
+    int state = -1, trackID = 0;
+    std::vector<uint16_t> texels;
+};
+PictureJobState &picture_state() { static auto *state = new PictureJobState(); return *state; }
+
+void picture_finish(int trackID, int result, std::vector<uint16_t> texels = {})
+{
+    auto &state = picture_state();
+    std::lock_guard<std::mutex> guard(state.mutex);
+    state.trackID = trackID;
+    state.texels = std::move(texels);
+    state.state = result;
+}
+
+void picture_worker(int trackID, int mediaID, std::string path, std::string cacheDir)
+{
+    const std::string cacheFile = join_path(cacheDir, (std::to_string(trackID) + ".bin").c_str());
+    const size_t texelBytes = NATIVE_TRACK_PICTURE_TEXELS * sizeof(uint16_t);
+    std::vector<uint16_t> texels(NATIVE_TRACK_PICTURE_TEXELS);
+    {
+        std::ifstream file(cacheFile, std::ios::binary);
+        std::vector<unsigned char> cached(8 + texelBytes + 1);
+        file.read(reinterpret_cast<char *>(cached.data()), static_cast<std::streamsize>(cached.size()));
+        int32_t cachedID = 0;
+        std::memcpy(&cachedID, &cached[4], 4);
+        if (file.gcount() == static_cast<std::streamsize>(8 + texelBytes) && !std::memcmp(cached.data(), "CTP1", 4) &&
+            (mediaID == 0 || cachedID == mediaID))
+        {
+            std::memcpy(texels.data(), &cached[8], texelBytes);
+            return picture_finish(trackID, 1, std::move(texels));
+        }
+    }
+    const std::string prefix = "/api/v3/tracks/" + std::to_string(trackID) + "/downloads/";
+    if (mediaID <= 0 || path.compare(0, prefix.size(), prefix) != 0) return picture_finish(trackID, -2);
+    std::vector<unsigned char> jpeg;
+    std::string error;
+    if (!https_get(kSaphiHost, path, NATIVE_TRACK_PICTURE_MAX_BYTES, jpeg, error) ||
+        !NativeTrackPicture_Decode(jpeg.data(), jpeg.size(), texels.data()))
+        return picture_finish(trackID, -2);
+    // The cache is a convenience: a failed write still shows the picture.
+    const size_t slash = cacheDir.find_last_of("/\\");
+    if ((slash == std::string::npos || make_directory(cacheDir.substr(0, slash))) && make_directory(cacheDir))
+    {
+        std::vector<unsigned char> bytes(8 + texelBytes);
+        const int32_t id = mediaID;
+        std::memcpy(bytes.data(), "CTP1", 4);
+        std::memcpy(&bytes[4], &id, 4);
+        std::memcpy(&bytes[8], texels.data(), texelBytes);
+        const std::string part = cacheFile + ".part";
+        if (!write_file(part, bytes) || !replace_file(part, cacheFile)) std::remove(part.c_str());
+    }
+    picture_finish(trackID, 1, std::move(texels));
+}
+}
+
+extern "C" int NativeTrackPicture_Start(int trackID, int mediaID, const char *path, const char *cacheDir)
+{
+    if (trackID <= 0 || !cacheDir || !*cacheDir) return 0;
+    auto &state = picture_state();
+    std::lock_guard<std::mutex> guard(state.mutex);
+    if (state.state != -1) return 0;
+    state.state = 0;
+    try { std::thread(picture_worker, trackID, mediaID, std::string(path ? path : ""), std::string(cacheDir)).detach(); return 1; }
+    catch (const std::exception &) { state.state = -1; return 0; }
+}
+extern "C" int NativeTrackPicture_Poll(int *trackID, uint16_t out[NATIVE_TRACK_PICTURE_TEXELS])
+{
+    auto &state = picture_state();
+    std::lock_guard<std::mutex> guard(state.mutex);
+    const int result = state.state;
+    if (result == 0 || result == -1) return result;
+    if (trackID) *trackID = state.trackID;
+    if (result == 1 && out) std::copy(state.texels.begin(), state.texels.end(), out);
+    state.state = -1;
+    return result;
 }
 #endif // CTR_CUSTOM_PACKAGES

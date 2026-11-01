@@ -11,6 +11,7 @@
      the track's actions: turn it off or on, remove it, check its files.
    - Racers: the custom racer catalogue and the installed racers
      (MM_CustomRacers.c).
+   Browse and Installed show the selected track's picture (MM_CustomPicture.c).
    Everywhere: Select imports an xdelta patch (MM_CustomImport.c, also on a
    patch dropped on the window), R2 searches, L2 refreshes the catalogue.
 
@@ -19,6 +20,29 @@
    package UUID (or pin, for a package without one) per line. Seeds ignore it:
    a room that needs a track still finds it. */
 #include <platform/native_custom_revision.h>
+
+/* Every tab's list (left) and detail panel (right): a row is 15 pixels and
+   holds MODS_LIST_TEXT_W pixels of text; the panel's text starts at
+   MODS_PANEL_X and is MODS_PANEL_W wide. A track's picture takes the panel's
+   top left corner (MM_CustomPicture.c), its text MODS_PANEL_SIDE_X onwards. */
+#define MODS_LIST_TEXT_W 182
+#define MODS_LIST_RIGHT 216
+#define MODS_PANEL_X 241
+#define MODS_PANEL_W 240
+#define MODS_PANEL_SIDE_X 359
+#define MODS_PANEL_SIDE_W 122
+static RECT MM_Mods_RowBox(int row)
+{
+    RECT box = {24, 68 + row * 15, 198, 14};
+    return box;
+}
+static void MM_Mods_DrawBoxes(uint32_t *ot)
+{
+    RECT listBox = {20, 64, 206, 108}, detailBox = {235, 64, 252, 108};
+    RECTMENU_DrawInnerRect(&listBox, 0, ot);
+    RECTMENU_DrawInnerRect(&detailBox, 0, ot);
+}
+
 #include "MM_CustomImport.c"
 #if defined(CTR_AP) && !defined(CTR_AP_AUTHORING)
 #include "MM_CurrentSeed.c"
@@ -165,6 +189,7 @@ static const struct CustomTrackLibraryEntry *MM_CustomSourceInstalled(const stru
     return exact;
 }
 
+#include "MM_CustomPicture.c"
 #include "MM_CustomRacers.c"
 
 static int MM_Mods_ConsumesBack(void)
@@ -210,26 +235,26 @@ static void MM_Mods_DrawTabs(int seedTab, uint32_t *ot)
     MM_CustomText_Draw("R1",456,50,28,1,WHITE,ot);
 }
 
-/* The detail panel below the title and version line (y 112 to 172): the
+/* The detail panel below the picture and its text (y 124 to 172): the
    actions, or the Remove confirmation. */
 static void MM_Mods_DrawActions(const struct CustomTrackLibraryEntry *installed, int off, uint32_t *ot)
 {
     if (s_modsActions == MODS_ACTIONS_CONFIRM_REMOVE)
     {
-        MM_CustomText_Draw("Remove this track and its files?",305,112,176,3,WHITE,ot);
-        MM_CustomText_Draw("* Yes  ^ No",305,159,176,1,ORANGE,ot);
+        MM_CustomText_Draw("Remove this track and its files?",MODS_PANEL_X,126,MODS_PANEL_W,2,WHITE,ot);
+        MM_CustomText_Draw("* Yes  ^ No",MODS_PANEL_X,160,MODS_PANEL_W,1,ORANGE,ot);
         return;
     }
     for (int i = 0; i < MODS_ACTION_COUNT; i++)
     {
         static const char *const labels[MODS_ACTION_COUNT] = {NULL, "Remove", "Check files"};
-        RECT box = {299,110 + i * 15,186,14};
+        RECT box = {MODS_PANEL_X - 4,124 + i * 12,MODS_PANEL_W + 6,12};
         MM_CustomText_Draw(i == MODS_ACTION_SWITCH ? (off ? "Turn on" : "Turn off") : labels[i],
-                           305,box.y + 2,176,1,i == s_modsActionRow ? ORANGE : WHITE,ot);
+                           MODS_PANEL_X,box.y + 1,MODS_PANEL_W,1,i == s_modsActionRow ? ORANGE : WHITE,ot);
         if (i == s_modsActionRow) CTR_Box_DrawClearBox(&box,&sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot, &GAME_TRACKER->backBuffer->primMem);
     }
     (void)installed;
-    MM_CustomText_Draw("* OK  ^ Close",305,159,176,1,ORANGE,ot);
+    MM_CustomText_Draw("* OK  ^ Close",MODS_PANEL_X,160,MODS_PANEL_W,1,ORANGE,ot);
 }
 
 static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, struct GamepadBuffer *pad)
@@ -258,6 +283,7 @@ static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, str
     if (!seedTab) s_modsSeed = 0;
     MM_CustomLibrary_Tick(0);
     MM_ModsRacers_Tick();
+    MM_ModsPicture_Tick();
 #if defined(CTR_AP) && !defined(CTR_AP_AUTHORING)
     const int seedBusy = AP_SeedContentInstallBusy();
 #else
@@ -482,37 +508,35 @@ static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, str
     {
         const char *title = !s_contentLibraryTab ? CustomSaphi_Row(s_saphiCatalogue,visible[row])->title : s_contentLibrary.entries[visible[row]].title;
         int rowOff = s_contentLibraryTab && MM_Mods_IsOff(&s_contentLibrary.entries[visible[row]]);
-        RECT box = {24,68 + (int)(row-first)*15,260,14};
+        RECT box = MM_Mods_RowBox((int)(row-first));
         if(s_saphiVersionTrack && !s_contentLibraryTab)
         {
             const struct CustomSaphiRevision *r=CustomSaphi_Row(s_saphiCatalogue,visible[row]);
             snprintf(line,sizeof line,"v%.32s %s",r->version,(r->modeTags&1)?"Arcade":(r->modeTags&2)?"TT":"Other");
             title=line;
         }
-        MM_CustomText_Draw(title,32,box.y+2,rowOff ? 210 : 244,1,row==*selected ? ORANGE : rowOff ? GRAY : WHITE,ot);
-        if (rowOff) MM_CustomText_Draw("OFF",278,box.y+2,40,1,JUSTIFY_RIGHT | GRAY,ot);
+        MM_CustomText_Draw(title,32,box.y+2,rowOff ? MODS_LIST_TEXT_W - 34 : MODS_LIST_TEXT_W,1,row==*selected ? ORANGE : rowOff ? GRAY : WHITE,ot);
+        if (rowOff) MM_CustomText_Draw("OFF",MODS_LIST_RIGHT,box.y+2,40,1,JUSTIFY_RIGHT | GRAY,ot);
         if (row==*selected) CTR_Box_DrawClearBox(&box,&sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot, &GAME_TRACKER->backBuffer->primMem);
     }
     if (!count) MM_CustomText_Draw(s_saphiRefreshBusy && !s_contentLibraryTab ? "Loading Saphi..." :
-        *s_saphiQuery ? "No search matches" : s_contentLibraryTab ? "No tracks yet. Install one from Browse." : "Catalogue unavailable",32,84,244,3,WHITE,ot);
+        *s_saphiQuery ? "No search matches" : s_contentLibraryTab ? "No tracks yet. Install one from Browse." : "Catalogue unavailable",32,84,MODS_LIST_TEXT_W,3,WHITE,ot);
     if (source || installed)
     {
         const char *author = source ? source->author : installed->author[0] ? installed->author : installed->local.author;
-        /* The panel fits about 13 letters a line. A one-line title has the
-           version under it; the author gets a line of its own. */
+        MM_ModsPicture_Draw(source ? source->trackID : installed->local.trackID, ot);
+        /* Beside the picture, about 9 letters a line: the title (one or two
+           lines), the version, then the author in what is left. */
         const char *title = source ? source->title : installed->title;
         snprintf(line,sizeof line,"%s",title);
-        if (DecalFont_GetLineWidth(line,FONT_SMALL) <= 176)
-        {
-            MM_CustomText_Draw(title,305,70,176,1,ORANGE,ot);
-            snprintf(line,sizeof line,"v%.32s",source ? source->version : installed->version);
-            MM_CustomText_Draw(line,305,82,176,1,WHITE,ot);
-        }
-        else MM_CustomText_Draw(title,305,70,176,2,ORANGE,ot);
+        const int titleLines = DecalFont_GetLineWidth(line,FONT_SMALL) <= MODS_PANEL_SIDE_W ? 1 : 2;
+        MM_CustomText_Draw(title,MODS_PANEL_SIDE_X,70,MODS_PANEL_SIDE_W,titleLines,ORANGE,ot);
+        snprintf(line,sizeof line,"v%.32s",source ? source->version : installed->version);
+        MM_CustomText_Draw(line,MODS_PANEL_SIDE_X,70 + 12 * titleLines,MODS_PANEL_SIDE_W,1,WHITE,ot);
         if (author[0])
         {
             snprintf(line,sizeof line,"by %.80s",author);
-            MM_CustomText_Draw(line,305,98,176,1,WHITE,ot);
+            MM_CustomText_Draw(line,MODS_PANEL_SIDE_X,82 + 12 * titleLines,MODS_PANEL_SIDE_W,3 - titleLines,WHITE,ot);
         }
         if (installed && s_modsActions != MODS_ACTIONS_CLOSED)
             MM_Mods_DrawActions(installed, off, ot);
@@ -520,9 +544,9 @@ static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, str
         {
             /* Installed: which custom pages list the track as raceable. */
             MM_CustomText_Draw(source ? ((source->modeTags&1) ? "Arcade tagged" : (source->modeTags&2) ? "Time Trial" : "Other modes") :
-                off ? "Off" : installed->local.arcade ? "Arcade" : installed->local.timeTrial ? "Time Trial" : "No races",305,112,176,1,WHITE,ot);
+                off ? "Off" : installed->local.arcade ? "Arcade" : installed->local.timeTrial ? "Time Trial" : "No races",MODS_PANEL_X,126,MODS_PANEL_W,1,WHITE,ot);
             MM_CustomText_Draw(s_saphiDownloading ? "Downloading..." : source ?
-                sourceInstalled ? "* Recheck" : source->disabledReason[0] ? "Unavailable" : hasOlder ? "* Update" : "* Download" : "* Options",305,130,176,1,ORANGE,ot);
+                sourceInstalled ? "* Recheck" : source->disabledReason[0] ? "Unavailable" : hasOlder ? "* Update" : "* Download" : "* Options",MODS_PANEL_X,138,MODS_PANEL_W,1,ORANGE,ot);
             /* An installed track that is not on the Arcade pages says why, in up
                to two lines (native_custom_content_verify.h). */
             const char *why = installed && !installed->local.arcade ?
@@ -531,8 +555,8 @@ static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, str
                 sourceInstalled ? "Installed" : hasOlder && !s_saphiVersionTrack ? "Update available" : s_saphiMessage[0] ? s_saphiMessage : source ?
                 (source->modeTags & 1) ? "Arcade tagged" : (source->modeTags & 2) ? "Time Trial tagged" : "Other modes" :
                 off ? "Hidden from Arcade and Time Trial" : why[0] ? why : "Files verified";
-            MM_CustomText_Draw(status,305,144,176,source ? 1 : 2,WHITE,ot);
-            if(source) MM_CustomText_Draw(s_saphiVersionTrack ? "Back: Tracks" : "[ Versions",305,159,176,1,ORANGE,ot);
+            MM_CustomText_Draw(status,MODS_PANEL_X,150,MODS_PANEL_W,source ? 1 : 2,WHITE,ot);
+            if(source) MM_CustomText_Draw(s_saphiVersionTrack ? "Back: Tracks" : "[ Versions",MODS_PANEL_X,162,MODS_PANEL_W,1,ORANGE,ot);
         }
     }
     snprintf(line,sizeof line,"R2 Search: %s%s",s_saphiQuery,s_contentSearchEditing ? "_" : "");
@@ -541,7 +565,6 @@ static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, str
     snprintf(line,sizeof line,"%u/%u   L2 Refresh   Back: %s",count ? (unsigned)*selected+1 : 0,(unsigned)count,
              s_modsFromTitle ? "Title" : "Options");
     MM_CustomText_Draw(line,256,196,456,1,JUSTIFY_CENTER | WHITE,ot);
-    RECT listBox={20,64,268,108}, detailBox={297,64,190,108};
-    RECTMENU_DrawInnerRect(&listBox,0,ot);RECTMENU_DrawInnerRect(&detailBox,0,ot);
+    MM_Mods_DrawBoxes(ot);
     if(enterVersions) { s_saphiVersionTrack=enterVersions;s_saphiBrowseSelection=*selected;*selected=0; }
 }

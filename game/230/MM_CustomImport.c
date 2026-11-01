@@ -225,22 +225,22 @@ static void MM_CustomImport_Proc(uint32_t *ot, struct GamepadBuffer *pad)
         first = (s_importRow / 7) * 7;
         for (size_t row = first; row < first + 7 && row < count; row++)
         {
-            RECT box = {24, 68 + (int)(row - first) * 15, 260, 14};
-            MM_CustomText_Draw(row == 0 ? "Choose a file" : s_importFiles[row - 1], 32, box.y + 2, 244, 1,
+            RECT box = MM_Mods_RowBox((int)(row - first));
+            MM_CustomText_Draw(row == 0 ? "Choose a file" : s_importFiles[row - 1], 32, box.y + 2, MODS_LIST_TEXT_W, 1,
                                row == s_importRow ? ORANGE : WHITE, ot);
             if (row == s_importRow) CTR_Box_DrawClearBox(&box, &sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot, &GAME_TRACKER->backBuffer->primMem);
         }
         MM_CustomText_Draw(s_importStage == IMPORT_PICKING ? "Waiting for the file dialog. Back: stop waiting" :
                            s_importMessage[0] ? s_importMessage :
                            IMPORT_HINT,
-                           305, 70, 176, 6, WHITE, ot);
-        MM_CustomText_Draw("[ Rescan folder", 305, 159, 176, 1, ORANGE, ot);
+                           MODS_PANEL_X, 70, MODS_PANEL_W, 6, WHITE, ot);
+        MM_CustomText_Draw("[ Rescan folder", MODS_PANEL_X, 159, MODS_PANEL_W, 1, ORANGE, ot);
     }
     else if (s_importStage == IMPORT_SCANNING)
     {
         snprintf(line, sizeof line, "%d%%", s_importProgress);
-        MM_CustomText_Draw("Reading patch", 32, 84, 244, 1, WHITE, ot);
-        MM_CustomText_Draw(line, 32, 99, 244, 1, ORANGE, ot);
+        MM_CustomText_Draw("Reading patch", 32, 84, MODS_LIST_TEXT_W, 1, WHITE, ot);
+        MM_CustomText_Draw(line, 32, 99, MODS_LIST_TEXT_W, 1, ORANGE, ot);
     }
     else if (s_importStage == IMPORT_REVIEW || s_importStage == IMPORT_INSTALLING)
     {
@@ -249,21 +249,21 @@ static void MM_CustomImport_Proc(uint32_t *ot, struct GamepadBuffer *pad)
         for (size_t row = first; row < first + 7 && row < count; row++)
         {
             const struct XdeltaImportItem *r = &s_importSummary.items[row];
-            RECT box = {24, 68 + (int)(row - first) * 15, 260, 14};
+            RECT box = MM_Mods_RowBox((int)(row - first));
             snprintf(line, sizeof line, "%s %s", r->offered ? (s_importSelected[row] ? "[x]" : "[ ]") : " - ", r->title);
-            MM_CustomText_Draw(line, 32, box.y + 2, 244, 1, row == s_importRow ? ORANGE : r->offered ? WHITE : GRAY, ot);
+            MM_CustomText_Draw(line, 32, box.y + 2, MODS_LIST_TEXT_W, 1, row == s_importRow ? ORANGE : r->offered ? WHITE : GRAY, ot);
             if (row == s_importRow) CTR_Box_DrawClearBox(&box, &sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot, &GAME_TRACKER->backBuffer->primMem);
         }
-        if (!count) MM_CustomText_Draw("The patch changes no track files.", 32, 84, 244, 2, WHITE, ot);
+        if (!count) MM_CustomText_Draw("The patch changes no track files.", 32, 84, MODS_LIST_TEXT_W, 2, WHITE, ot);
         if (item)
         {
-            MM_CustomText_Draw(item->title, 305, 70, 176, 2, ORANGE, ot);
-            MM_CustomText_Draw(item->offered ? item->tags : "Skipped", 305, 98, 176, 1, WHITE, ot);
-            MM_CustomText_Draw(item->offered ? "" : item->reason, 305, 112, 176, 2, WHITE, ot);
+            MM_CustomText_Draw(item->title, MODS_PANEL_X, 70, MODS_PANEL_W, 2, ORANGE, ot);
+            MM_CustomText_Draw(item->offered ? item->tags : "Skipped", MODS_PANEL_X, 98, MODS_PANEL_W, 1, WHITE, ot);
+            MM_CustomText_Draw(item->offered ? "" : item->reason, MODS_PANEL_X, 112, MODS_PANEL_W, 2, WHITE, ot);
         }
         MM_CustomText_Draw(s_importStage == IMPORT_INSTALLING ? "Installing..." :
                            s_importMessage[0] ? s_importMessage : s_importSummary.descriptorNote[0] ? s_importSummary.descriptorNote :
-                           "[ Select   X Install", 305, 144, 176, 2, ORANGE, ot);
+                           "[ Select   X Install", MODS_PANEL_X, 144, MODS_PANEL_W, 2, ORANGE, ot);
     }
     else
     {
@@ -279,9 +279,5 @@ static void MM_CustomImport_Proc(uint32_t *ot, struct GamepadBuffer *pad)
     else snprintf(line, sizeof line, "%s", s_importStage == IMPORT_RESULT ? "X: Installed tracks" :
                   s_importStage == IMPORT_SCANNING ? "Back: Cancel" : "Folder: assets/tracks/import");
     MM_CustomText_Draw(line, 256, 196, 456, 1, JUSTIFY_CENTER | WHITE, ot);
-    {
-        RECT listBox = {20, 64, 268, 108}, detailBox = {297, 64, 190, 108};
-        RECTMENU_DrawInnerRect(&listBox, 0, ot);
-        RECTMENU_DrawInnerRect(&detailBox, 0, ot);
-    }
+    MM_Mods_DrawBoxes(ot);
 }

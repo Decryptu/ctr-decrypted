@@ -39,4 +39,9 @@ int NativeRacers_Driver(int driverID);
 int NativeRacers_DriverEngine(int driverID, int retailEngine);
 struct Icon *NativeRacers_DriverIcon(int driverID, struct Icon *retailIcon);
 
+// The Mods screen's track picture: width x height PS1 15-bit texels (at most
+// 256 x 256) into the racer bank, replacing the last one. The Icon draws them
+// at their own size.
+struct Icon *NativeRacers_TrackPicture(const unsigned short *texels, int width, int height);
+
 #endif

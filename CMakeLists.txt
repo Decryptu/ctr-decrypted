@@ -244,6 +244,7 @@ set(CTR_CUSTOM_PACKAGE_SOURCES
     platform/native_custom_unicode.c
     platform/native_racer_library.cpp
     platform/native_saphi_catalogue.cpp
+    platform/native_track_picture.c
     platform/native_xdelta_import.cpp
     platform/native_xdelta_decode.c
     vendor/utf8proc/utf8proc.c)

@@ -508,6 +508,20 @@ ships as `LICENSE-xdelta3.txt` in the release folders that include the importer.
 
 Copyright 2016 Joshua MacDonald
 
+## stb_image (AP build, box authoring build and authoring client)
+
+Source: <https://github.com/nothings/stb>, commit
+`f58f558c120e9b32c217290b80bad1a0729fbb2c` (stb_image 2.30).
+
+Vendored unmodified in `vendor/stb/` and pinned by `vendor/stb/SHA256SUMS`.
+Decodes the custom track pictures in the Mods screen (JPEG only).
+
+License: public domain or MIT, at your choice. The full text is in
+`vendor/stb/LICENSE` and ships as `LICENSE-stb.txt` in the release folders
+that include it.
+
+Copyright (c) 2017 Sean Barrett
+
 ## utf8proc (AP build, box authoring build and authoring client)
 
 Source: utf8proc 2.8.0 (Unicode 15.0.0), vendored in `vendor/utf8proc/` and

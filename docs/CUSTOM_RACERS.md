@@ -68,7 +68,7 @@ A racer is a folder under `assets/racers/` (any name) holding `racer.json` and t
 ## Portraits: the racer VRAM bank
 Portraits go to a second VRAM, a GL texture with the same size and format as the PS1 VRAM (`NativeRenderer_CreateVramBank`). A primitive whose tpage word has both bits 14 and 15 set (`NATIVE_TPAGE_RACER_BANK`, `include/platform/native_gpu.h`) samples the bank instead of VRAM. Its page, palette, colour depth and blending stay as they are, so the paletted shaders and every icon draw path work unchanged. The two bits alone keep their Archipelago meanings (box atlas, trial letters).
 
-Portrait i sits in a 64×32-texel slot: four across and eight down per 4-bit page, in pages 0 to 14 of both page rows. Its palette goes in page 15, four per row. Each racer gets an `Icon` whose layout points there (`platform/native_racers.c`).
+Portrait i sits in a 64×32-texel slot: four across and eight down per 4-bit page, from page 0 of the first page row (64 racers fill two pages). Its palette goes in page 15, four per row. Each racer gets an `Icon` whose layout points there (`platform/native_racers.c`). The Mods screen's track picture also lives in the bank, at (512, 256) in the second page row ([CUSTOM_TRACKS.md](CUSTOM_TRACKS.md#4-the-mods-screen-and-the-library)).
 
 ## Converting PS1 racer mods
 Racer mods for the disc are xdelta patches that replace a retail racer. `tools/racers/convert_racer.py` applies each patch to a clean disc and writes one package per racer it replaces:
@@ -84,7 +84,7 @@ gcc -O2 -Iinclude tools/racers/xdelta_apply.c -o tools/racers/xdelta_apply.exe
 python tools/racers/convert_racer.py --disc "CTR (USA).bin" --sources sources.json --out racers/ mods/*.xdelta
 ```
 
-The catalogue, [Decryptu/ctr-decrypted-racers](https://github.com/Decryptu/ctr-decrypted-racers), keeps the converted racers under `racers/`, with its `sources.json`. `tools/racers/build_index.py <catalogue>` checks every racer folder and writes `index.json` (each racer's folder, its authors, plus the size and SHA-256 of its `racer.json`) and `CREDITS.md`. It refuses a racer with no authors. A racer whose look comes from a release of the game (`JP_Crash.xdelta`, the Japanese Crash) stays out.
+The catalogue, [Decryptu/ctr-decrypted-racers](https://github.com/Decryptu/ctr-decrypted-racers), keeps the converted racers under `racers/`, with its `sources.json`. `tools/racers/build_index.py <catalogue>` checks every racer folder and writes `index.json` (each racer's folder, its authors, plus the size and SHA-256 of its `racer.json`) and `CREDITS.md`. It refuses a racer with no authors. A racer that reuses a look from another release says so in its `credits` (the Japanese Crash credits the Japanese release).
 
 The racer mods converted so far are static, vertex-coloured meshes: no textures and no animations, as they are on a PS1. Their kart textures, voices and code patches are not carried over.
 

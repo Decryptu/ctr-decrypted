@@ -129,6 +129,20 @@ extern "C" int CustomSaphi_ParseCatalogue(const char *input, size_t size,
                 catch (const std::exception &) {}
             }
             if (currentSca != 1) sca = CustomSaphiMedia{};
+            int currentPictures = 0;
+            for (const auto &media : downloads)
+            {
+                try
+                {
+                    if (!media.is_object() || media.at("type") != "track_thumbnail" || media.at("is_current") != true) continue;
+                    auto file = source_media(media, id);
+                    if (!file.path[0]) continue;
+                    base.picture = file;
+                    currentPictures++;
+                }
+                catch (const std::exception &) {}
+            }
+            if (currentPictures != 1) base.picture = CustomSaphiMedia{};
             for (const auto &media : downloads)
             {
                 const auto &type = media.at("type");

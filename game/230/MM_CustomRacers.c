@@ -196,15 +196,15 @@ static void MM_ModsRacers_Page(uint32_t *ot, int tapped)
     const size_t first = (s_racerSelection / 7) * 7;
     for (size_t i = first; i < first + 7 && i < count; i++)
     {
-        RECT box = {24, 68 + (int)(i - first) * 15, 260, 14};
+        RECT box = MM_Mods_RowBox((int)(i - first));
         const char *name = rows[i].listed ? rows[i].listed->name : rows[i].installed->name;
-        MM_CustomText_Draw(name, 32, box.y + 2, rows[i].installed ? 180 : 244, 1, i == s_racerSelection ? ORANGE : WHITE, ot);
-        if (rows[i].installed) MM_CustomText_Draw("OWNED", 278, box.y + 2, 80, 1, JUSTIFY_RIGHT | GRAY, ot);
+        MM_CustomText_Draw(name, 32, box.y + 2, rows[i].installed ? MODS_LIST_TEXT_W - 64 : MODS_LIST_TEXT_W, 1, i == s_racerSelection ? ORANGE : WHITE, ot);
+        if (rows[i].installed) MM_CustomText_Draw("OWNED", MODS_LIST_RIGHT, box.y + 2, 80, 1, JUSTIFY_RIGHT | GRAY, ot);
         if (i == s_racerSelection) CTR_Box_DrawClearBox(&box, &sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot, &GAME_TRACKER->backBuffer->primMem);
     }
     if (!count)
         MM_CustomText_Draw(s_racerRefreshBusy ? "Loading racers..." : *s_saphiQuery ? "No search matches" :
-                           s_racerMessage[0] ? s_racerMessage : "Racer list unavailable", 32, 84, 244, 3, WHITE, ot);
+                           s_racerMessage[0] ? s_racerMessage : "Racer list unavailable", 32, 84, MODS_LIST_TEXT_W, 3, WHITE, ot);
 
     if (row)
     {
@@ -212,27 +212,27 @@ static void MM_ModsRacers_Page(uint32_t *ot, int tapped)
         const char *authors = row->listed ? row->listed->authors : row->installed->authors;
         const int templateID = row->listed ? row->listed->templateID : row->installed->templateID;
         struct Icon *portrait = MM_ModsRacers_Portrait(row->installed);
-        const int textX = portrait ? 357 : 305, textW = portrait ? 124 : 176;
+        const int textX = portrait ? MODS_PANEL_X + 52 : MODS_PANEL_X, textW = portrait ? MODS_PANEL_W - 52 : MODS_PANEL_W;
         if (portrait)
         {
             struct GameTracker *gGT = sdata->gGT;
             const Color color = MM_CHARACTER_SELECT_NEUTRAL_COLOR;
-            RECTMENU_DrawPolyGT4(portrait, 305, 70, &gGT->backBuffer->primMem, ot, color, color, color, color, TRANS_50_DECAL, FP(1.0));
+            RECTMENU_DrawPolyGT4(portrait, MODS_PANEL_X, 70, &gGT->backBuffer->primMem, ot, color, color, color, color, TRANS_50_DECAL, FP(1.0));
         }
         MM_CustomText_Draw(name, textX, 70, textW, 2, ORANGE, ot);
-        MM_CustomText_Draw(authors, 305, 96, 176, 2, WHITE, ot);
+        MM_CustomText_Draw(authors, MODS_PANEL_X, 96, MODS_PANEL_W, 2, WHITE, ot);
         if (s_racerConfirmRemove)
         {
-            MM_CustomText_Draw("Remove this racer and its files?", 305, 120, 176, 2, WHITE, ot);
-            MM_CustomText_Draw("* Yes  ^ No", 305, 158, 176, 1, ORANGE, ot);
+            MM_CustomText_Draw("Remove this racer and its files?", MODS_PANEL_X, 120, MODS_PANEL_W, 2, WHITE, ot);
+            MM_CustomText_Draw("* Yes  ^ No", MODS_PANEL_X, 158, MODS_PANEL_W, 1, ORANGE, ot);
         }
         else
         {
             snprintf(line, sizeof line, "Based on %s", s_racerTemplateNames[templateID & 15]);
-            MM_CustomText_Draw(line, 305, 120, 176, 1, WHITE, ot);
-            MM_CustomText_Draw(s_racerInstallBusy ? "Downloading..." : row->installed ? "* Remove" : "* Download", 305, 132, 176, 1, ORANGE, ot);
+            MM_CustomText_Draw(line, MODS_PANEL_X, 120, MODS_PANEL_W, 1, WHITE, ot);
+            MM_CustomText_Draw(s_racerInstallBusy ? "Downloading..." : row->installed ? "* Remove" : "* Download", MODS_PANEL_X, 132, MODS_PANEL_W, 1, ORANGE, ot);
             MM_CustomText_Draw(s_racerMessage[0] ? s_racerMessage : !row->installed ? "Not installed" :
-                               row->listed ? "Installed" : "Installed, not in the list", 305, 146, 176, 2, WHITE, ot);
+                               row->listed ? "Installed" : "Installed, not in the list", MODS_PANEL_X, 146, MODS_PANEL_W, 2, WHITE, ot);
         }
     }
 
@@ -242,7 +242,5 @@ static void MM_ModsRacers_Page(uint32_t *ot, int tapped)
     snprintf(line, sizeof line, "%u/%u   L2 Refresh   Back: %s", count ? (unsigned)s_racerSelection + 1 : 0, (unsigned)count,
              s_modsFromTitle ? "Title" : "Options");
     MM_CustomText_Draw(line, 256, 196, 456, 1, JUSTIFY_CENTER | WHITE, ot);
-    RECT listBox = {20, 64, 268, 108}, detailBox = {297, 64, 190, 108};
-    RECTMENU_DrawInnerRect(&listBox, 0, ot);
-    RECTMENU_DrawInnerRect(&detailBox, 0, ot);
+    MM_Mods_DrawBoxes(ot);
 }

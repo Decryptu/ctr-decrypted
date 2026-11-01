@@ -88,5 +88,15 @@ int main(int argc,char **argv)
     {auto big=sca;big["file_size"]=2*1024*1024;j=withSca({big});CHECK(parse(j,&c));CHECK(rowFor(c,"1.0.0")->sca.id==0);CustomSaphi_Free(&c);}
     {auto ref=sca;ref["download_url"]=nullptr;ref["file_size"]=0;j=withSca({ref});CHECK(parse(j,&c));CHECK(rowFor(c,"1.0.0")->sca.id==0);CustomSaphi_Free(&c);}
     {auto odd=sca;odd["is_current"]="yes";j=withSca({odd});CHECK(parse(j,&c));CHECK(rowFor(c,"1.0.0")->sca.id==0);CustomSaphi_Free(&c);}
+    /* Track picture: one current thumbnail goes to every row of the track,
+       its listed size above the media cap or not; two, or a bad row, leave it off. */
+    json picture={{"id",15},{"type","track_thumbnail"},{"version",nullptr},{"modes",json::array()},{"file_size",1960283},{"crc32_hash",194441523u},
+        {"download_url","/api/v3/tracks/7/downloads/15"},{"is_current",true}};
+    j=withSca({picture});CHECK(parse(j,&c));CHECK(CustomSaphi_Count(c)==2);
+    CHECK(rowFor(c,"1.0.0")->picture.id==15 && rowFor(c,"0.9.0")->picture.id==15);
+    CHECK(!std::strcmp(rowFor(c,"1.0.0")->picture.path,"/api/v3/tracks/7/downloads/15") && rowFor(c,"1.0.0")->sca.id==0);CustomSaphi_Free(&c);
+    {auto second=picture;second["id"]=16;second["download_url"]="/api/v3/tracks/7/downloads/16";
+     j=withSca({picture,second});CHECK(parse(j,&c));CHECK(rowFor(c,"1.0.0")->picture.id==0);CustomSaphi_Free(&c);}
+    {auto bad=picture;bad["download_url"]="/api/v3/tracks/8/downloads/15";j=withSca({bad});CHECK(parse(j,&c));CHECK(rowFor(c,"1.0.0")->picture.id==0);CustomSaphi_Free(&c);}
     std::printf("Saphi catalogue: %d checks, %d failures\n",checks,failures);return failures!=0;
 }
