@@ -1,0 +1,159 @@
+import json
+import pkgutil
+from BaseClasses import Location
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from . import ctrAPWorld
+
+
+from .item_boxes import ITEM_BOX_CLASS
+from .itemsanity import ITEMSANITY_CLASS
+from .lettersanity import LETTERSANITY_CLASS
+from .location_class import LocationClassRegistry
+from .podium import PODIUM_CLASS
+from .relic_perfect import RELIC_PERFECT_CLASS
+from .trial_trophy import TRIAL_TROPHY_CLASS
+from .wumpa_checks import WUMPA_CLASS
+from .custom_track_locations import CUSTOM_TRACK_LOCATION_CLASS
+from .custom_lettersanity import CUSTOM_LETTERSANITY_CLASS, CUSTOM_CTR_CHALLENGE_CLASS
+from .cortex_vortex_track import CORTEX_VORTEX_TRACK_CLASS
+from .hit_character import HIT_CHARACTER_CLASS
+
+# The registered optional location classes (#176), in registration order.
+#
+# REGISTRATION IS APPEND-ONLY. Registration order is the order every class's
+# locations enter CTR_LOCATION_IDS, so a new class goes at the END of this list.
+# Codes are explicit per class so a reorder would not renumber anything, but
+# keeping the order stable keeps location_name_to_id byte-stable, which is what
+# makes a datapackage manifest diff (#177) readable.
+#
+# The six classes after podium are the 0.2.0 name freeze (#177): every location
+# name the release will ever register, minted in one datapackage bump. They are
+# INERT -- each one's created_location_names returns nothing, because the freeze
+# mints names, not features, and each feature's own build attaches to the names
+# already sitting here. The spine-1 precedent is the same shape on the item side
+# (64 per-character capability names registered, pool gated behind an
+# OptionError). Order below is ascending code block, which is also the order the
+# blocks were claimed:
+#
+#   relic_perfect  #49   35012400  18 names
+#   lettersanity   #148  35012500  48 names
+#   item_boxes     #109  35014000  270 names
+#   podium         (shipped)       35015000 / 35015100  112 names
+#   itemsanity     #145  35016000  22 names
+#   wumpa          R-H   35016100  1 name
+#   trial_trophy   #203  35016200  2 names
+#   cortex_vortex_track   35026000  8 names (2026-09-13 unfreeze; its five
+#                                   podium rungs ride the podium class)
+#
+# podium keeps its FIRST registration slot regardless: it shipped, and moving it
+# would churn the manifest diff for every already-frozen rung name.
+CTR_LOCATION_CLASSES = LocationClassRegistry()
+CTR_LOCATION_CLASSES.register(PODIUM_CLASS)
+CTR_LOCATION_CLASSES.register(RELIC_PERFECT_CLASS)
+CTR_LOCATION_CLASSES.register(LETTERSANITY_CLASS)
+CTR_LOCATION_CLASSES.register(ITEM_BOX_CLASS)
+CTR_LOCATION_CLASSES.register(ITEMSANITY_CLASS)
+CTR_LOCATION_CLASSES.register(WUMPA_CLASS)
+CTR_LOCATION_CLASSES.register(TRIAL_TROPHY_CLASS)
+CTR_LOCATION_CLASSES.register(CUSTOM_TRACK_LOCATION_CLASS)
+CTR_LOCATION_CLASSES.register(CUSTOM_LETTERSANITY_CLASS)
+CTR_LOCATION_CLASSES.register(CUSTOM_CTR_CHALLENGE_CLASS)
+CTR_LOCATION_CLASSES.register(CORTEX_VORTEX_TRACK_CLASS)
+# Hit Character encounter checks (0.2.1 candidate): appended LAST, after the
+# Cortex Vortex pad track, so every earlier class keeps its datapackage order.
+# Global Menu checks like itemsanity.
+CTR_LOCATION_CLASSES.register(HIT_CHARACTER_CLASS)
+# Named custom-track blocks (#306), filled by the 0.3.0 id step from the pinned
+# registry commit in data/named_tracks.json.
+from .named_tracks import NAMED_TRACK_CLASS
+CTR_LOCATION_CLASSES.register(NAMED_TRACK_CLASS)
+# The rest of the 0.3.0 id step (ruled 2026-10-13 22:02 CEST): every approved
+# 0.3.0 name, appended after the named blocks. All INERT: each class creates
+# nothing until its feature PR builds the option, the logic and the native send.
+from .cup_checks import CUP_LEG_VICTORY_CLASS, CUP_SWEEP_CLASS, CUP_WIN_CLASS
+from .lap_checks import LAP_COMPLETION_CLASS
+from .crystal_checks import CRYSTAL_CLASS
+from .custom_fallback_families import (CUSTOM_ITEM_BOX_CLASS, CUSTOM_RACE_V2_CLASS,
+                                       CUSTOM_RELIC_CLASS, CUSTOM_WUMPA_CLASS)
+for _minted_030 in (CUP_WIN_CLASS, CUP_SWEEP_CLASS, CUP_LEG_VICTORY_CLASS, LAP_COMPLETION_CLASS,
+                    CRYSTAL_CLASS, CUSTOM_RELIC_CLASS, CUSTOM_RACE_V2_CLASS, CUSTOM_WUMPA_CLASS,
+                    CUSTOM_ITEM_BOX_CLASS):
+    CTR_LOCATION_CLASSES.register(_minted_030)
+
+# #259 second mint: sixty authored anchors and three independent completions.
+from .arena_content import ARCADE_ARENA_CLASS
+CTR_LOCATION_CLASSES.register(ARCADE_ARENA_CLASS)
+
+# 0.3.0 second id step: the 125 Wumpa Shop slots (#249), appended last. Inert.
+from .wumpa_shop import WUMPA_SHOP_CLASS
+CTR_LOCATION_CLASSES.register(WUMPA_SHOP_CLASS)
+
+_LOCATION_DATA = json.loads(
+    pkgutil.get_data(__package__, "data/locations.json").decode("utf-8")
+)
+
+
+CTR_LOCATION_IDS = {loc["name"]: loc["code"] for loc in _LOCATION_DATA}
+CTR_LOCATION_TO_REGION = {loc["name"]: loc["region"] for loc in _LOCATION_DATA}
+
+# Optional location classes are part of the game's global datapackage
+# (name<->id must be stable for servers/trackers), so every class's FULL frozen
+# superset is registered here unconditionally -- for podium that is all 112 rungs
+# (16 tracks x 7 entries: 3 shipped names at the 35015000 block plus 4 new rungs
+# at the 35015100 block). Whether a given SEED creates them is decided per-option
+# in Regions.create_regions; get_total_locations counts only the locations a seed
+# actually creates, so the datapackage size never inflates a seed's reported
+# location count.
+#
+# The disjointness check runs BEFORE the merge: a class block colliding with the
+# static table would otherwise silently overwrite a shipped id.
+CTR_LOCATION_CLASSES.assert_disjoint_from(CTR_LOCATION_IDS, "data/locations.json")
+for _cls_name, _cls_code, _cls_region in CTR_LOCATION_CLASSES.all_locations():
+    CTR_LOCATION_IDS[_cls_name] = _cls_code
+    CTR_LOCATION_TO_REGION[_cls_name] = _cls_region
+
+# Named blocks must not collide with any other CTR name or id, and no other id
+# may sit inside a named range (#306).
+from .named_tracks import validate_tracks as _validate_named_tracks
+_validate_named_tracks(
+    NAMED_TRACK_CLASS.tracks,
+    {n: c for n, c in CTR_LOCATION_IDS.items() if n not in set(NAMED_TRACK_CLASS.names())})
+
+
+def get_location_id(name: str):
+    """Return the numeric ID for a given location name."""
+    return CTR_LOCATION_IDS.get(name)
+
+
+def get_region_for_location(name: str):
+    """Return the region name associated with a given location."""
+    return CTR_LOCATION_TO_REGION.get(name)
+
+
+def get_location_names() -> dict:
+    """
+    Return a dictionary of all locations and their numeric IDs.
+    """
+    return CTR_LOCATION_IDS.copy()
+
+
+def get_total_locations(world) -> int:
+    """
+    Return the number of locations THIS seed actually created (incl. events, to
+    preserve the historical value for non-podium seeds). Counting created
+    locations -- rather than len(CTR_LOCATION_IDS), the full static datapackage --
+    keeps TotalLocations accurate now that the datapackage always carries the 112
+    podium rungs while a seed may create 0-80 of them per option (up to 5 rungs
+    across 16 tracks).
+    """
+    return len(world.multiworld.get_locations(world.player))
+
+
+def create_location(player: int, name: str, region):
+    """
+    Factory to create Location objects linked to CTR location codes.
+    """
+    addr = get_location_id(name)
+    return Location(player, name, addr, region)

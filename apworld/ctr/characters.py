@@ -1,0 +1,922 @@
+"""Character phase (issues #54 / #209): starting character, the 15 character
+unlock items, racer-locked warp pads, Penta PAL/NTSC stats, editable stats.
+
+Everything the ruled Route A character phase needs on the apworld side lives
+here, so the native consumer has exactly one apworld module to read and the
+rest of the world never re-derives any of it. That single-resolver discipline
+is copied deliberately from `podium.created_rung_keys_from_options` and the
+2026-08-08 feasibility note's section 7 recommendation ("put the precedence in
+one resolver ... nothing else in the world may re-derive it").
+
+WHAT IS RULED, AND WHERE
+------------------------
+Design source is the 2026-07-23 character-phase wayfarer (R2-R5, R7, R8, R15,
+R17) plus the 2026-08-08 picker clarification. The parent issue #209 body is
+the public scope statement. Concretely:
+
+  * R2/R3  all 16 racers are playable in Adventure; a YAML option picks the
+           one you start as, defaulting to a random pick from the 8 vanilla
+           Adventure starters.
+  * R4     the other 15 are multiworld unlock items. They add ZERO locations.
+  * R8/R17 a YAML option asks for AT MOST N racer-locked warp pads, 0 being
+           off (the 2026-08-29 Lane B specification replaced the Alpha 6
+           toggle with this count). Locks ON -- meaning the seed's resolved
+           pad map is non-empty, not merely that the count is positive --
+           makes the unlock items `progression` (a pad can demand one); locks
+           OFF makes them `useful` and nothing in logic ever names a
+           character, so the seed plans around the starting character only.
+  * R15    `penta_stats: ntsc | pal`, NTSC default. The 2026-07-23 wayfarer
+           wrote the two labels the wrong way round; corrected 2026-08-21.
+           NTSC-U Penta reuses Polar and Pura's ordinary TURN class, and the
+           fifth MAX class is the PAL/JP one. The wire numbers did not move:
+           0 is still the ordinary table and 1 is still MAX.
+
+ROSTER ORDER IS THE WIRE ORDER, AND IT IS NOT THE ENGINE'S ORDER
+----------------------------------------------------------------
+`progressive_capability.ROSTER` is the apworld's canonical 16-racer order and
+`data/items.json` mints both the per-character capability chains (indices
+31..94) and the 16 character unlock items (indices 123..138) in exactly that
+order. The engine's own `enum Characters`
+(`ctr-native-ap/include/namespace_Vehicle.h:38-56`) numbers the same sixteen
+racers in a COMPLETELY different order, and native already carries the
+reconciliation table for the capability block
+(`ap/ap_capability.c` `AP_CAP_ROSTER_CHARACTER`).
+
+`ROSTER_CHARACTER_ID` below is the apworld's copy of that same mapping, written
+name-by-name for the same reason native writes it name-by-name: getting it
+wrong would not crash or warn, it would silently lock a pad to the wrong racer.
+Anything that leaves this module on the wire carries the ENGINE character id,
+because that is the number native can use directly without a second mapping.
+
+WHY RACER LOCKS ARE THEIR OWN WIRE BLOCK AND NOT A 10th `Req` TYPE
+------------------------------------------------------------------
+The 2026-07-25 Tier-1 source read proposed encoding a racer lock as
+`{"type": 9, "count": 1, "colour": <characterID>}` inside the existing `Req`
+struct, on the grounds that it is the cheapest possible plumbing. This module
+deliberately does NOT do that, for two reasons that both post-date the
+proposal:
+
+  1. A `Req` REPLACES the pad's stage-1 requirement. A racer lock is supposed
+     to sit ON TOP of whatever the sphere search already assigned ("capture the
+     base rule, AND onto it, never replace it" -- the one idiom `Rules.py`
+     uses). Overwriting stage 1 with a character would silently delete the
+     trophy/key gate the sphere search proved reachable at that pad.
+  2. slot_data Contract Sec.2 puts every new requirement type under the
+     six-consumer lockstep rule, which is the rule BUG-E was born from
+     violating. A new top-level block has no such fan-out: a native that does
+     not know the block simply does not see it, rather than hitting a `switch`
+     default on a type it cannot evaluate.
+
+So racer locks travel as `racer_locks` (Sec.7h), and the nine `Req` types are
+untouched.
+
+SELF-LOCK PREVENTION
+--------------------
+The named hazard (#209's third "what is still needed" bullet) is a fill that
+places character X's unlock item behind a pad that requires character X. With
+locks ON the unlock items are `progression`, so AP's own fill only ever seats
+them in locations reachable from the current state, and a pad requiring X is
+by construction not reachable until X is received -- the deadlock cannot be
+constructed. That is an argument, not a proof, so `verify_no_self_lock` below
+re-derives it from the FILLED multiworld and raises if it is ever false. It is
+wired into `stage_post_fill` (once per room), and the test suite drives it directly.
+"""
+import json
+import pkgutil
+from typing import Dict, List, Optional, Tuple
+
+from BaseClasses import ItemClassification
+from Options import OptionError
+
+from .progressive_capability import ROSTER
+
+# ---------------------------------------------------------------------------
+# Roster <-> engine identity
+# ---------------------------------------------------------------------------
+
+# Wire roster slot -> engine `enum Characters` value. Mirrors native's
+# ap/ap_capability.c AP_CAP_ROSTER_CHARACTER exactly; see the module docstring.
+ROSTER_CHARACTER_ID: Dict[str, int] = {
+    "Crash Bandicoot": 0,   # CRASH_BANDICOOT
+    "Coco Bandicoot": 3,    # COCO_BANDICOOT
+    "Polar": 6,             # POLAR
+    "Pura": 7,              # PURA
+    "Neo Cortex": 1,        # NEO_CORTEX
+    "N. Tropy": 12,         # N_TROPY
+    "Ripper Roo": 10,       # RIPPER_ROO
+    "Papu Papu": 9,         # PAPU_PAPU
+    "Komodo Joe": 11,       # KOMODO_JOE
+    "Pinstripe": 8,         # PINSTRIPE
+    "Dingodile": 5,         # DINGODILE
+    "Tiny Tiger": 2,        # TINY_TIGER
+    "N. Gin": 4,            # N_GIN
+    "Fake Crash": 14,       # FAKE_CRASH
+    "Nitros Oxide": 15,     # NITROS_OXIDE
+    "Penta Penguin": 13,    # PENTA_PENGUIN
+}
+
+CHARACTER_ID_TO_NAME: Dict[int, str] = {
+    cid: name for name, cid in ROSTER_CHARACTER_ID.items()}
+
+# Structural invariants. A 17th racer, a renamed roster entry or a duplicated
+# engine id has to break here rather than mis-lock a pad in a live seed.
+assert set(ROSTER_CHARACTER_ID) == set(ROSTER), \
+    "characters.ROSTER_CHARACTER_ID and progressive_capability.ROSTER disagree"
+assert sorted(ROSTER_CHARACTER_ID.values()) == list(range(16)), \
+    "characters.ROSTER_CHARACTER_ID must be a bijection onto engine ids 0..15"
+
+# The 8 racers vanilla CTR lets you take into Adventure = engine ids 0..7
+# (Crash, Cortex, Tiny, Coco, N. Gin, Dingodile, Polar, Pura). Anchored on the
+# enum, not on memory: `UNLOCK_CHARACTERS` in native's namespace_Main.h is the
+# complementary set (Tropy, Penta, Roo, Papu, Joe, Pinstripe, Fake Crash) and
+# Oxide is 15.
+ADVENTURE_STARTERS: Tuple[str, ...] = tuple(
+    name for name, cid in ROSTER_CHARACTER_ID.items() if cid <= 7)
+assert len(ADVENTURE_STARTERS) == 8
+
+# The unlock item for a racer IS the racer's name. data/items.json mints all 16
+# at codes 35010123..35010138 with count 0 (registered in the frozen #177
+# datapackage superset, created per seed) -- the same
+# superset-then-per-seed-creation shape podium rungs use.
+def unlock_item_name(character: str) -> str:
+    assert character in ROSTER_CHARACTER_ID, character
+    return character
+
+
+# ---------------------------------------------------------------------------
+# Starting character
+# ---------------------------------------------------------------------------
+
+def resolve_starting_character(world) -> str:
+    """This seed's starting racer, as a roster name.
+
+    Drawn ONCE, in generate_early, and stashed on the world; every other
+    consumer reads `world.ctr_starting_character`. Two option values roll:
+    `random_starter` (the ruled default -- uniform over the 8 vanilla
+    Adventure starters) and `random_any` (uniform over all 16). Both draw from
+    `world.random`, so a seed reproduces.
+    """
+    key = world.options.starting_character.current_key
+    if key == "random_starter":
+        return world.random.choice(list(ADVENTURE_STARTERS))
+    if key == "random_any":
+        # Remove Playable Oxide (#426) takes him out of the draw. With the
+        # option off the list is the unchanged roster, so the draw is too.
+        return world.random.choice(
+            [name for name in ROSTER if not _excluded_racer(world, name)])
+    name = OPTION_KEY_TO_CHARACTER.get(key)
+    if name is None:  # unreachable via AP's own option validation
+        raise OptionError(
+            f"CTR 'starting_character': unknown value {key!r}. Valid values are "
+            f"'random_starter', 'random_any', or one of: "
+            f"{', '.join(sorted(OPTION_KEY_TO_CHARACTER))}.")
+    return name
+
+
+def restore_starting_character(world, ctr_options: Dict[str, object]) -> str:
+    """Universal Tracker: take the connected seed's starting racer off the wire.
+
+    `ctr_options.starting_character` carries the ENGINE character id. A wire
+    from before this feature has no such key, in which case there is nothing to
+    restore and the normal draw runs -- that older seed had no character items
+    and no racer locks, so whichever racer we pick changes nothing about its
+    graph.
+    """
+    raw = ctr_options.get("starting_character")
+    if raw is None:
+        return resolve_starting_character(world)
+    name = CHARACTER_ID_TO_NAME.get(int(raw))
+    if name is None:
+        return resolve_starting_character(world)
+    return name
+
+
+def _option_key(character: str) -> str:
+    """Roster name -> the snake_case key its Choice option uses.
+
+    'N. Gin' -> 'n_gin', 'Crash Bandicoot' -> 'crash_bandicoot'. Derived rather
+    than hand-listed so a roster edit cannot leave the two tables out of step.
+    """
+    return character.lower().replace(". ", "_").replace(".", "").replace(" ", "_")
+
+
+OPTION_KEY_TO_CHARACTER: Dict[str, str] = {
+    _option_key(name): name for name in ROSTER_CHARACTER_ID}
+assert len(OPTION_KEY_TO_CHARACTER) == 16, "option keys collided"
+
+
+# ---------------------------------------------------------------------------
+# Item creation + classification
+# ---------------------------------------------------------------------------
+
+def unlocks_enabled(world) -> bool:
+    """Whether the 15 unlock items exist this seed (the ruled all-unlocked
+    comfort mode, wayfarer gap 7a, is this option turned off)."""
+    return bool(world.options.character_unlocks.value)
+
+
+# Remove Playable Oxide (#426). The roster name of the one racer the option
+# takes out of the unlockable roster.
+OXIDE = "Nitros Oxide"
+
+
+def oxide_removed(world) -> bool:
+    """Whether Nitros Oxide is out of the unlockable roster this seed.
+
+    The option only means something while the unlock items exist: with
+    Character Unlocks off every racer is available from the start and there is
+    no Oxide item to leave out, so the option does nothing (`forced_options`
+    notes it). This is the single place that resolves the pair.
+    """
+    toggle = getattr(world.options, "remove_playable_oxide", None)
+    return bool(toggle is not None and toggle.value) and unlocks_enabled(world)
+
+
+def _excluded_racer(world, name: str) -> bool:
+    """A racer this seed never lets you play: never a start draw, never an
+    unlock item, never a racer lock."""
+    return name == OXIDE and oxide_removed(world)
+
+
+def racer_locks_requested(world) -> bool:
+    """Whether this seed ASKED for racer locks, after the all-unlocked AND.
+
+    Requesting is not the same as getting: the request is a maximum, and a seed
+    whose eligible pad set is empty carries no lock at all. Ask
+    `racer_locks_effective` for what the seed actually has -- this predicate is
+    for the option-level warnings only.
+
+    With all-unlocked mode on there is no item that could gate a pad, so a lock
+    would either be unsatisfiable or trivially free. `forced_options` logs the
+    downgrade; this is the single place that resolves it, so nothing else in
+    the world re-derives the pair.
+    """
+    if not unlocks_enabled(world):
+        return False
+    return legacy_boolean_request(world) or bool(
+        world.options.racer_locked_pads.value)
+
+
+def racer_locks_effective(world) -> bool:
+    """Whether this seed actually carries locks: the resolved pad map is
+    non-empty.
+
+    This, not the requested count, is what every consumer must read. A positive
+    request against an empty eligible set produces no lock, and treating it as
+    "on" would inflate the unlock items to progression for a feature that is
+    not in the seed. Reads the map `Regions.create_regions` stored, so it is
+    only meaningful from `create_items` onwards -- which is where all of its
+    callers live.
+    """
+    return bool(getattr(world, "ctr_racer_locks", {}))
+
+
+def _hit_character_enabled(world) -> bool:
+    """Whether this seed enables the Hit Character encounter checks.
+
+    Read straight off the option rather than importing `hit_character`, which
+    imports this module. An enabled Hit seed's route names racers, so its
+    unlock items are logic inputs exactly like a racer-locked pad's.
+    """
+    toggle = getattr(world.options, "hit_character", None)
+    return bool(toggle is not None and toggle.value)
+
+
+def unlock_classification(world) -> ItemClassification:
+    """R17. Locks ON -> a pad can demand a specific racer, so the unlock items
+    genuinely gate reachability and MUST be progression (logic state does not
+    track useful items, which is the same root cause as the #145 FillError).
+    Locks OFF -> nothing in this seed's logic ever names a character, so the
+    items gate nothing and `useful` is the correct AP semantics: it relaxes the
+    ordered fill instead of inflating an already ~98%-progression pool.
+
+    "ON" means the RESOLVED pad map is non-empty, not that the requested count
+    is positive. A request the seed could not satisfy (no eligible pad) leaves
+    no rule naming a racer, so promoting the 15 items there would pay the
+    fill cost of a feature the seed does not have.
+
+    An ENABLED Hit Character seed is the other case that names racers: its
+    implemented hit route requires a selectable non-target racer, so the
+    unlocks are logic inputs there too. The promotion keeps every identity and
+    count unchanged -- only the classification moves.
+
+    `useful` rather than pure `filler` is deliberate and is R17's own caveat:
+    a character still opens options (and, under per_character capability modes,
+    access to that racer's chains), so it is not dead padding.
+    """
+    from . import progressive_capability
+    return (ItemClassification.progression
+            if (racer_locks_effective(world)
+                or progressive_capability.unlock_items_are_logic_inputs(world)
+                or _hit_character_enabled(world))
+            else ItemClassification.useful)
+
+
+def created_unlock_names(world) -> List[str]:
+    """The 15 unlock items this seed puts in the pool: the whole roster minus
+    the starting character (which the player already has, and which
+    `create_items` pushes as precollected instead).
+
+    Empty in all-unlocked mode -- and empty means EMPTY, not "trimmed": the
+    seed either carries the whole family or none of it, the same atomic
+    all-or-nothing rule the #14/#15 comfort pack follows. A partial roster
+    would be a silent cap on a core feature.
+
+    The one ruled exception is Remove Playable Oxide (#426): an explicit
+    player choice that leaves Oxide's item out, so the list has 14 names. The
+    filler top-up in `create_items` fills the freed slot.
+    """
+    if not unlocks_enabled(world):
+        return []
+    start = world.ctr_starting_character
+    return [name for name in ROSTER
+            if name != start and not _excluded_racer(world, name)]
+
+
+def raise_if_unlocks_exceed_location_supply(world, *, available_supply: int) -> None:
+    """RAISE guard: the 15 unlock items must fit in THIS seed's real location
+    supply (#178 convention, and the same shape as
+    `progressive_capability.raise_if_capability_items_exceed_location_supply`).
+
+    The unlock items bring ZERO locations of their own, so on a deliberately
+    reduced seed (Podium Placement Checks off, heavy `exclude_locations`) they
+    genuinely do not fit -- the AP invariant the 2026-07-23 wayfarer restated
+    as "items == locations, in EVERY mode". Raise rather than dropping items:
+    silently shipping 9 of 15 racers would be exactly the kind of unannounced
+    cap this project forbids, and it would also strand any racer lock pointing
+    at a racer that never got created.
+
+    `available_supply` is the caller's LIVE net-capacity figure (the seed's
+    final post-creation unfilled count minus every non-unlock item in the
+    COMPLETE current pool -- character unlocks, the comfort pack, itemsanity
+    weapons and the progressive packs all included), never a predicted
+    constant. The message reports needed vs available and tells the player to
+    enable more location checks (ANY enabled location class can supply
+    capacity: podium rungs, item boxes, itemsanity checks, ...) or reduce
+    item-producing options, without pretending one family is mandatory.
+    """
+    needed = len(created_unlock_names(world))
+    if needed <= 0:
+        return
+    if available_supply >= needed:
+        return
+    raise OptionError(
+        f"CTR: the character phase adds {needed} character unlock item(s) to "
+        f"the pool, but this seed has only {available_supply} unfilled "
+        f"location(s) left for them. Character unlocks add no locations of "
+        f"their own. Enable more location checks (e.g. Podium Placement "
+        f"Checks, Item Box Checks, Itemsanity, or another location family) or "
+        f"reduce item-producing options (e.g. set 'character_unlocks' to "
+        f"false for all-unlocked mode, which makes every racer available "
+        f"from the start and creates no unlock items at all).")
+
+
+# ---------------------------------------------------------------------------
+# Racer-locked warp pads
+# ---------------------------------------------------------------------------
+
+# The complete supported physical-pad census: every pad exit data/warp_pad_ids
+# .json knows about, race, crystal, trial and cup alike. It is the ceiling of
+# the `racer_locked_pads` range, because no seed can ever carry more locks than
+# it has physical pads, and reading it from the JSON rather than typing a
+# literal is what keeps the option ceiling from drifting when a pad is added.
+# A lock is placed on a PHYSICAL pad, so destination shuffle cannot change this
+# number. `test_character_phase` pins it against the same file.
+PHYSICAL_PAD_COUNT: int = len(json.loads(
+    pkgutil.get_data(__package__, "data/warp_pad_ids.json").decode("utf-8")
+)["pads"])
+
+# The Alpha 6 automatic density, kept ONLY as the compatibility meaning of the
+# old Boolean `racer_locked_pads: true`. Up to and including Alpha 6 the option
+# was a toggle and this was the density it chose: a quarter of the eligible
+# pads, clamped to 1..6. It is no longer the default behaviour of the option --
+# the player now names a maximum and 0 is the default -- but a YAML written
+# against Alpha 6 must keep meaning what it meant, so `true` normalizes to this
+# policy with a logged message rather than being silently read as the integer 1.
+# See forced_options.warn_racer_locked_pads_boolean_normalized.
+_LEGACY_AUTO_FRACTION = 0.25
+_LEGACY_AUTO_MIN = 1
+_LEGACY_AUTO_MAX = 6
+
+
+def legacy_boolean_request(world) -> bool:
+    """Whether this seed's YAML wrote the Alpha 6 Boolean `true` rather than a
+    count. `Options.RacerLockedPads.from_any` sets the flag; nothing else may
+    infer it, because a Range cannot tell the integer 1 from `True` after the
+    fact (`bool` is an `int` subclass, which is exactly the ambiguity the
+    normalization exists to remove)."""
+    return bool(getattr(world.options.racer_locked_pads,
+                        "legacy_boolean_auto", False))
+
+
+def requested_lock_count(world, eligible_count: int) -> int:
+    """The requested MAXIMUM number of racer locks for this seed.
+
+    Zero whenever the unlock items do not exist: with all-unlocked mode on
+    there is no item a lock could gate, so the request is inert no matter what
+    the YAML asked for (`forced_options` logs that downgrade).
+
+    `eligible_count` is only read on the Alpha 6 Boolean-compatibility path,
+    where the request IS the old automatic density and therefore a function of
+    the eligible set. A modern integer request is independent of it; the
+    eligible set only ever clamps the request in `resolve_racer_locks`.
+    """
+    if not unlocks_enabled(world):
+        return 0
+    if legacy_boolean_request(world):
+        if eligible_count <= 0:
+            return 0
+        return max(_LEGACY_AUTO_MIN,
+                   min(_LEGACY_AUTO_MAX,
+                       int(eligible_count * _LEGACY_AUTO_FRACTION)))
+    return int(world.options.racer_locked_pads.value)
+
+
+def _pad_is_free(req: Optional[dict]) -> bool:
+    """True for a pad the sphere search left open at spawn.
+
+    The free-pad convention is load-bearing (slot_data Contract Sec.4): a free
+    stage 1 is emitted as `{type:1, count:0}` (Trophy x0), and `type:0` means
+    the pad is not randomized at all. Both are sphere-0 backbone and neither
+    may take a lock -- see `eligible_lock_pads`.
+    """
+    if req is None:
+        return True
+    t = int(req.get("type", 0))
+    if t == 0:
+        return True
+    return t == 1 and int(req.get("count", 0)) <= 0
+
+
+def eligible_lock_pads(world) -> List[str]:
+    """Pad exit names that may carry a racer lock, in a stable order.
+
+    Excluded, each for a stated reason:
+
+      * `bootstrap` pads (data/warp_pad_ids.json) -- the always-open N. Sanity
+        Beach starters that MUST stay reachable from an empty inventory so
+        trophies can be earned. That flag is the file's own description of the
+        solvability backbone.
+      * any pad whose resolved stage 1 is FREE -- the per-seed free subset is
+        what guarantees sphere 0 is non-empty (`warp_pad_logic.run_sphere_search`
+        step 1). Locking one behind a unique single-copy item would collapse
+        sphere-0 breadth to whatever the fill happens to seat first.
+      * pads outside `world.warp_pad_unlock` -- a pad kind this seed does not
+        randomize (arenas with `include_battle_arenas` off, cups with
+        `include_gem_cups` off) keeps its vanilla gate untouched.
+    """
+    unlock = getattr(world, "warp_pad_unlock", {}) or {}
+    pad_ids = getattr(world, "warp_pad_ids", {}) or {}
+    out: List[str] = []
+    for pad_name in sorted(unlock):
+        meta = pad_ids.get(pad_name)
+        if meta is None:
+            continue
+        if meta.get("bootstrap"):
+            continue
+        if _pad_is_free(unlock.get(pad_name)):
+            continue
+        out.append(pad_name)
+    return out
+
+
+def resolve_racer_locks(world) -> Dict[str, str]:
+    """{pad exit name -> roster name required to enter it}.
+
+    Resolved ONCE per seed, in `Regions.create_regions` right after the sphere
+    search has produced `world.warp_pad_unlock`, and stashed on the world. This
+    is the same "draw once, store on the world, never recompute" rule
+    `gem_cup_legs` and the #109 active box slots follow, and for the same
+    reason: Rules.py, `fill_slot_data` and the spoiler must not be able to
+    disagree about which pads are locked.
+
+    The required racer is never the starting character. A lock on the racer you
+    already have would be satisfied at spawn and would spend an eligible pad on
+    nothing. It is also never Oxide when Remove Playable Oxide is on (#426):
+    his unlock item does not exist, so such a lock could never open.
+
+    The player's `racer_locked_pads` count is a MAXIMUM: the seed takes
+    `min(requested, eligible)`, so an ambitious request on a seed with few
+    randomized pads quietly produces fewer locks rather than failing. Both
+    counts are stored on the world here (`ctr_racer_lock_counts`) under the
+    same draw-once rule as the map itself, because slot data reports them and
+    must not recompute an eligible set that has since been overwritten.
+    """
+    pads = eligible_lock_pads(world) if unlocks_enabled(world) else []
+    requested = requested_lock_count(world, len(pads))
+    world.ctr_racer_lock_counts = {
+        "requested": requested, "eligible": len(pads)}
+    n = min(requested, len(pads))
+    if n <= 0:
+        return {}
+    chosen_pads = world.random.sample(pads, n)
+    candidates = [c for c in ROSTER if c != world.ctr_starting_character
+                  and not _excluded_racer(world, c)]
+    return dict(zip(sorted(chosen_pads), spread_lock_racers(world, candidates, n)))
+
+
+def spread_lock_racers(world, candidates: List[str], n: int) -> List[str]:
+    """`n` required racers, spread as evenly as the roster allows.
+
+    Drawn from a shuffled bag of every candidate that is only refilled once it
+    is empty, so no racer locks a second pad until every candidate locks one.
+    With the 15 non-starter candidates that means one pad per racer up to 15
+    locks and at most two per racer from 16 to 30 (the option tops out at 27):
+    at most `ceil(n / len(candidates))` pads per racer, never more.
+
+    The draw used to be one independent `random.choice` per pad, with
+    replacement, so a single racer routinely locked three or more pads while
+    others locked none. That concentration made one unlock item gate a large
+    part of the seed, and made it likely that the item's own location sat on a
+    track that racer also locked (2026-09-22 racer-lock research).
+
+    The result is only ever produced here, at generation. Universal Tracker
+    pins the map from the wire (`reconstruct_racer_locks_from_wire`), so
+    changing the draw leaves every existing seed's reconstruction unchanged.
+    """
+    out: List[str] = []
+    if not candidates:
+        return out
+    while len(out) < n:
+        bag = list(candidates)
+        world.random.shuffle(bag)
+        out.extend(bag)
+    return out[:n]
+
+
+def racer_lock_counts(world) -> Tuple[int, int]:
+    """(requested maximum, eligible pad count) for this seed, as resolved once
+    by `resolve_racer_locks` or pinned from the wire by
+    `reconstruct_racer_locks_from_wire`. Diagnostics and slot data read this
+    rather than re-deriving, so support logs and the wire cannot disagree."""
+    counts = getattr(world, "ctr_racer_lock_counts", None) or {}
+    return int(counts.get("requested", 0)), int(counts.get("eligible", 0))
+
+
+def reconstruct_racer_locks_from_wire(world, passthrough: Dict[str, object]
+                                      ) -> Dict[str, str]:
+    """Universal Tracker: pin the connected seed's locks instead of re-drawing.
+
+    `resolve_racer_locks` samples `world.random`, and a passthrough carries no
+    RNG replay, so a re-draw would produce a DIFFERENT set of locked pads and
+    UT would report a graph the server does not have. Read the wire block back
+    instead. An absent or malformed block falls back to "no locks", which is
+    the correct reading of a pre-character-phase seed.
+    """
+    block = (passthrough or {}).get("racer_locks") or {}
+    pads = block.get("pads") or {}
+    if not isinstance(pads, dict) or not pads:
+        world.ctr_racer_lock_counts = {"requested": 0, "eligible": 0}
+        return {}
+    pad_ids = getattr(world, "warp_pad_ids", {}) or {}
+    by_level_id = {str(meta["level_id"]): name
+                   for name, meta in pad_ids.items()}
+    out: Dict[str, str] = {}
+    for lid, character_id in pads.items():
+        pad_name = by_level_id.get(str(lid))
+        name = CHARACTER_ID_TO_NAME.get(int(character_id))
+        if pad_name is not None and name is not None:
+            out[pad_name] = name
+    # The counts ride the wire too, so UT reports the connected seed's numbers
+    # instead of the tracking player's YAML. A seed generated before the count
+    # metadata existed carries neither key; fall back to what the restored pad
+    # data can prove -- the locks that are actually on the wire, and this
+    # seed's own eligible set -- rather than to a default the seed never had.
+    world.ctr_racer_lock_counts = {
+        "requested": int(block.get("requested_count", len(out))),
+        "eligible": int(block.get("eligible_count",
+                                  len(eligible_lock_pads(world)))),
+    }
+    return out
+
+
+def racer_lock_slot_data(world) -> Dict[str, object]:
+    """The `racer_locks` wire block (slot_data Contract Sec.7h).
+
+    Shape: {"enabled": bool, "pads": {"<physical pad LevelID>": <engine
+    characterID 0..15>}}. Keys are physical pad LevelIDs as JSON strings, the
+    same keying `warp_pad_unlock` uses, so native reads them through the parser
+    it already has. Values are ENGINE character ids, not roster slots, so
+    native's gate needs no second mapping table.
+
+    `enabled` is emitted even when the option is off (with an empty `pads`), so
+    a tracker can tell "locks off" from "old seed" without inferring from block
+    absence -- the same reason `itemsanity` and `shortcut_knowledge` are always
+    emitted as raw scalars. It reports the EFFECTIVE feature: a request that
+    found no eligible pad is off, which is the same reading `unlock_
+    classification` takes.
+
+    `requested_count` and `eligible_count` are diagnostics for trackers and
+    support logs -- "you asked for 8, this seed only had 5 pads that could take
+    one". Native reads neither; it enforces the resolved `pads` map and nothing
+    else, so it never re-derives a selection.
+    """
+    pad_ids = getattr(world, "warp_pad_ids", {}) or {}
+    locks = getattr(world, "ctr_racer_locks", {}) or {}
+    pads: Dict[str, int] = {}
+    for pad_name, character in locks.items():
+        meta = pad_ids.get(pad_name)
+        if meta is None:
+            continue
+        pads[str(meta["level_id"])] = ROSTER_CHARACTER_ID[character]
+    requested, eligible = racer_lock_counts(world)
+    return {
+        "enabled": bool(pads),
+        "requested_count": requested,
+        "eligible_count": eligible,
+        "pads": pads,
+    }
+
+
+def locked_destination_regions(world, pad_name: str) -> list:
+    """The regions whose checks belong to the destination `pad_name` loads.
+
+    Read from the built graph, not from pad or track names: the pad's own
+    entrance knows which destination region it loads this seed (destination
+    shuffle retargets it), so there is no name-to-pad lookup to get wrong.
+
+    The destination region itself, plus the dead-end regions that hang off it
+    and belong to it: its `"<destination>: Podium"` and `"<destination>: Wumpa"`
+    regions, which Gem Cup legs (and a boss garage for Wumpa) also enter, and
+    any child region every entrance of which comes from the destination (a
+    custom race that replaces a Gem Cup surface). A Gem Cup's exits into the
+    Podium and Wumpa regions of the tracks it races are NOT included: those
+    belong to their own tracks, which have their own pads.
+    """
+    mw = world.multiworld
+    try:
+        destination = mw.get_entrance(pad_name, world.player).connected_region
+    except KeyError:
+        return []
+    if destination is None:
+        return []
+    out = [destination]
+    prefix = f"{destination.name}: "
+    for ent in destination.exits:
+        child = ent.connected_region
+        if child is None or child is destination or child in out:
+            continue
+        if child.name.startswith(prefix) or all(
+                e.parent_region is destination for e in child.entrances):
+            out.append(child)
+    return out
+
+
+def racer_lock_forbidden_locations(world) -> Dict[str, list]:
+    """{racer -> this world's locations that racer's unlock item may not hold}.
+
+    A racer's unlock never sits on a check of a destination whose pad that
+    racer locks. AP's own fill already keeps it out of places that are only
+    reachable through that pad, but a track's Held and Finish rungs (and its
+    per-track Wumpa check) are ALSO reachable through any Gem Cup that races
+    the track. So without this rule the fill could seat Crash's unlock on
+    `Polar Pass: Held 3rd` while the pad that loads Polar Pass says "requires
+    Crash": in logic through the cup, and unreadable to the player (2026-09-22
+    racer-lock research, config D seed 183).
+    """
+    locks = getattr(world, "ctr_racer_locks", {}) or {}
+    out: Dict[str, list] = {}
+    for pad_name, racer in sorted(locks.items()):
+        bucket = out.setdefault(racer, [])
+        for region in locked_destination_regions(world, pad_name):
+            for loc in region.locations:
+                if loc not in bucket:
+                    bucket.append(loc)
+    return out
+
+
+def racer_link_groups(multiworld, player: int, item_name: str) -> Tuple[int, ...]:
+    """Item-link groups through which `player` receives `item_name`.
+
+    Under AP item links the network copy of a linked item belongs to the GROUP
+    player, and each member receives it through a group-owned receipt event.
+    A check that only follows `item.player == player` therefore never sees the
+    item that actually unlocks the racer."""
+    return tuple(gid for gid, group in getattr(multiworld, "groups", {}).items()
+                 if player in group["players"] and item_name in group["item_pool"])
+
+
+def verify_no_self_lock(world) -> None:
+    """Post-fill proof that no racer's unlock item sits behind that racer's own
+    lock (issue #209, "character-locked-pad solvability logic gets built and
+    proven ... so a fill can never place a character's own unlock item behind a
+    pad that requires that same character"). One world; generation runs
+    `verify_room_no_self_lock` once for every CTR slot instead."""
+    verify_room_no_self_lock(world.multiworld, [world])
+
+
+def verify_room_no_self_lock(multiworld, worlds=None) -> None:
+    """`verify_no_self_lock` for every CTR slot in the room, sharing one
+    all-items state.
+
+    Re-derived from the FILLED multiworld rather than argued: for every racer
+    a pad requires, walk to each location holding that racer's unlock item and
+    confirm it is reachable in a state that does NOT hold it. With the unlock
+    items as progression that is what AP's fill already guarantees, so this
+    never fires -- which is the point. If the invariant is ever broken by a
+    future change to the lock selection, this raises at generation instead of
+    shipping a seed nobody can finish.
+
+    The all-items state is built ONCE per room. It used to be rebuilt for every
+    locked pad of every CTR slot, a whole-room sweep each time, so the check
+    grew with (CTR slots x locked pads x room size): 741 s of a 500-slot room
+    with 125 CTR slots (Generation scale baseline, 2026-10-01). Each racer is
+    now checked by taking it out of the shared state, re-walking only the
+    affected players and putting everything back.
+
+    Item links count: the unlock can be the group's network copy, and the
+    counterfactual removes the group copy too, otherwise the racer is simply
+    received again through the link."""
+    mw = multiworld
+    if worlds is None:
+        worlds = [mw.worlds[p] for p in mw.player_ids]
+    checks = []
+    for world in worlds:
+        locks = getattr(world, "ctr_racer_locks", {}) or {}
+        if locks:
+            checks.append((world, locks))
+    if not checks:
+        return
+
+    groups = getattr(mw, "groups", {})
+    needed = {unlock_item_name(c) for _, locks in checks for c in locks.values()}
+    # (owning player, item name) -> locations holding it. Group-owned
+    # locations are link receipts: virtual events that hold a member's copy
+    # and open exactly when the group copy is held, so they are never where
+    # the racer actually is.
+    holders: Dict[Tuple[int, str], list] = {}
+    for loc in mw.get_filled_locations():
+        if loc.item is not None and loc.item.name in needed and loc.player not in groups:
+            holders.setdefault((loc.item.player, loc.item.name), []).append(loc)
+
+    for world, locks in checks:
+        player = world.player
+        for character, forbidden in racer_lock_forbidden_locations(world).items():
+            item_name = unlock_item_name(character)
+            owners = (player,) + racer_link_groups(mw, player, item_name)
+            for owner in owners:
+                for loc in holders.get((owner, item_name), ()):
+                    if loc in forbidden:
+                        raise OptionError(
+                            f"CTR racer-locked pads: '{character}' was placed at "
+                            f"'{loc.name}', a check of a destination whose own pad "
+                            f"requires '{character}'. The placement rule installed by "
+                            f"Rules.add_racer_unlock_placement_rules forbids this; a fill "
+                            f"that bypassed it produced this seed.")
+
+    state = mw.get_all_state()
+    for world, locks in checks:
+        player = world.player
+        precollected = {item.name for item in mw.precollected_items[player]}
+        pads_by_racer: Dict[str, str] = {}
+        for pad_name, character in sorted(locks.items()):
+            pads_by_racer.setdefault(unlock_item_name(character), pad_name)
+        for item_name, pad_name in sorted(pads_by_racer.items()):
+            if item_name in precollected:
+                # Start inventory: no placement can be behind the lock.
+                continue
+            link_groups = racer_link_groups(mw, player, item_name)
+            owners = (player,) + link_groups
+            placed = [loc for owner in owners for loc in holders.get((owner, item_name), ())]
+            if not placed:
+                continue
+            loc = _first_unreachable_without(state, item_name, owners, link_groups, placed)
+            if loc is not None:
+                raise OptionError(
+                    f"CTR racer-locked pads: '{item_name}' was placed at "
+                    f"'{loc.name}', which is not reachable without '{item_name}' "
+                    f"itself -- the pad '{pad_name}' requires that racer. This is "
+                    f"the self-lock deadlock issue #209 names; the seed would be "
+                    f"unfinishable. Re-roll, or lower 'racer_locked_pads' (0 turns "
+                    f"racer locks off).")
+
+
+def _first_unreachable_without(state, item_name, owners, link_groups, placed):
+    """First of `placed` that `state` cannot reach once every owner's copy of
+    `item_name` is gone, or None. `state` is restored before returning.
+
+    Strips the item OUTRIGHT rather than calling `state.remove(...)`:
+    `get_all_state` can hold more than one logical copy of a single placed
+    item (it collects the pool AND sweeps the placements), so a single
+    decrement leaves the count at 1 and the check passes whatever the
+    placement is -- a verifier that cannot fail. Zero the count for the
+    owners and for every member of a link group that carries it (they receive
+    it through the same group copy), and drop their region caches."""
+    affected = set(owners)
+    for gid in link_groups:
+        affected.update(state.multiworld.groups[gid]["players"])
+    saved = {p: (state.prog_items[p].get(item_name), state.reachable_regions[p],
+                 state.blocked_connections[p], state.stale[p]) for p in affected}
+    try:
+        for p in affected:
+            state.prog_items[p].pop(item_name, None)
+            state.reachable_regions[p] = set()
+            state.blocked_connections[p] = set()
+            state.stale[p] = True
+        for loc in placed:
+            if not loc.can_reach(state):
+                return loc
+        return None
+    finally:
+        for p, (count, regions, blocked, stale) in saved.items():
+            if count is not None:
+                state.prog_items[p][item_name] = count
+            state.reachable_regions[p] = regions
+            state.blocked_connections[p] = blocked
+            state.stale[p] = stale
+
+
+# ---------------------------------------------------------------------------
+# Stat ownership: progressive vs editable vs vanilla, and Penta
+# ---------------------------------------------------------------------------
+
+# Resolved stat SOURCE, as it goes on the wire. Native must NOT re-implement
+# the precedence rule -- it receives the outcome. (2026-08-08 note section 7
+# recommendation 3, and Lessons Learned #12: the cheapest way for the text, the
+# rules and the engine to agree is for only one of them to own the rule.)
+STAT_SOURCE_VANILLA = 0
+STAT_SOURCE_PROGRESSIVE = 1
+STAT_SOURCE_EDITABLE = 2
+
+# Resolved stat OWNERSHIP granularity.
+STAT_OWNER_NONE = 0
+STAT_OWNER_GLOBAL = 1
+STAT_OWNER_PER_CHARACTER = 2
+
+# 0 is the ordinary TURN-class table, 1 is the PAL/JP MAX table. The region
+# labels were inverted until 2026-08-21; these numbers were always correct and
+# are what native reads, so they did not move.
+PENTA_NTSC = 0
+PENTA_PAL = 1
+
+
+def effective_stat_config(world) -> Tuple[int, int, bool]:
+    """`(source, owner, editable)` -- THE resolver for the ruled precedence.
+
+    The 2026-08-08 ruling, restated exactly:
+
+      * progressive stats non-off wins outright. The panel is read-only and
+        there is no edit control at all, whatever `editable_stats` says.
+      * progressive off + editable non-off -> the editor is available at the
+        editable option's own granularity.
+      * both off -> vanilla class stats, read-only.
+
+    Enabling both is explicitly NOT an error (the ruling: "this simple
+    combination does not invalidate or reject a seed"). `forced_options` logs a
+    downgrade-with-warning line for it, matching the #178 convention for a
+    combination that only leaves an option with nothing to do.
+    """
+    prog = int(world.options.progressive_stats.value)
+    edit = int(world.options.editable_stats.value)
+    if prog:
+        return (STAT_SOURCE_PROGRESSIVE, prog, False)
+    if edit:
+        return (STAT_SOURCE_EDITABLE, edit, True)
+    return (STAT_SOURCE_VANILLA, STAT_OWNER_NONE, False)
+
+
+def fill_slot_data(world) -> Dict[str, object]:
+    """This module's contribution to `ctr_options`, plus nothing else.
+
+    The `racer_locks` top-level block is emitted separately by
+    `racer_lock_slot_data` because it is a block, not a scalar. Every scalar
+    here is emitted UNCONDITIONALLY, on or off, so a tracker or a diagnostic
+    reads the seed's real configuration without inferring it from the presence
+    of other keys -- the convention `itemsanity` / `shortcut_knowledge` set.
+
+    No `schema_version` bump: the Q28 standing ruling already makes 7
+    unconditional on every 0.2.0 seed, and native reads `ctr_options` by
+    explicit named key, so a native that does not know these keys never sees
+    them (slot_data Contract Sec.3).
+    """
+    source, owner, editable = effective_stat_config(world)
+    start = world.ctr_starting_character
+    return {
+        "starting_character": ROSTER_CHARACTER_ID[start],
+        "starting_stat_class": int(world.options.starting_stat_class.value),
+        # Logic-relevant, and therefore load-bearing for Universal Tracker: it
+        # decides whether 15 unlock items exist at all. A UT re-generation that
+        # falls back to the tracking player's own default here rebuilds a
+        # DIFFERENT pool than the seed has -- and on a reduced seed it does not
+        # even fit, which is how the #54/#209 fuzz found this.
+        "character_unlocks": unlocks_enabled(world),
+        # Remove Playable Oxide (#426), the EFFECTIVE value (off whenever
+        # Character Unlocks is off). Logic-relevant for Universal Tracker for
+        # the same reason as character_unlocks: it decides whether Oxide's
+        # unlock item is in the pool, and a tight seed that only fits the
+        # 14-racer pool does not fit a re-generation that rebuilds 15.
+        "remove_playable_oxide": oxide_removed(world),
+        # The REQUESTED maximum, as an integer, after the all-unlocked-mode
+        # AND and the Alpha 6 Boolean normalization. A native or tracker that
+        # still reads this key as a Boolean is not broken by the change: 0 is
+        # false and any positive count is true. The resolved `racer_locks`
+        # block above it stays authoritative for what is actually locked.
+        "racer_locked_pads": racer_lock_counts(world)[0],
+        "penta_stats": int(world.options.penta_stats.value),
+        "editable_stats": int(world.options.editable_stats.value),
+        # The RESOLVED outcome. Native reads these three and never re-derives
+        # the precedence between progressive_stats and editable_stats.
+        "stat_source": source,
+        "stat_owner": owner,
+        "stat_editing_allowed": bool(editable),
+    }

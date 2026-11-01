@@ -1,0 +1,1202 @@
+[
+  {
+    "name": "Trophy",
+    "code": 35010000,
+    "count": 16,
+    "classification": "progression"
+  },
+  {
+    "name": "Sapphire Relic",
+    "code": 35010001,
+    "count": 18,
+    "classification": "progression"
+  },
+  {
+    "name": "Gold Relic",
+    "code": 35010002,
+    "count": 18,
+    "classification": "progression"
+  },
+  {
+    "name": "Platinum Relic",
+    "code": 35010003,
+    "count": 18,
+    "classification": "progression"
+  },
+  {
+    "name": "Red CTR Token",
+    "code": 35010004,
+    "count": 4,
+    "classification": "progression"
+  },
+  {
+    "name": "Green CTR Token",
+    "code": 35010005,
+    "count": 4,
+    "classification": "progression"
+  },
+  {
+    "name": "Blue CTR Token",
+    "code": 35010006,
+    "count": 4,
+    "classification": "progression"
+  },
+  {
+    "name": "Yellow CTR Token",
+    "code": 35010007,
+    "count": 4,
+    "classification": "progression"
+  },
+  {
+    "name": "Purple CTR Token",
+    "code": 35010008,
+    "count": 4,
+    "classification": "progression"
+  },
+  {
+    "name": "Red Gem",
+    "code": 35010009,
+    "count": 1,
+    "classification": "progression"
+  },
+  {
+    "name": "Green Gem",
+    "code": 35010010,
+    "count": 1,
+    "classification": "progression"
+  },
+  {
+    "name": "Blue Gem",
+    "code": 35010011,
+    "count": 1,
+    "classification": "progression"
+  },
+  {
+    "name": "Yellow Gem",
+    "code": 35010012,
+    "count": 1,
+    "classification": "progression"
+  },
+  {
+    "name": "Purple Gem",
+    "code": 35010013,
+    "count": 1,
+    "classification": "progression"
+  },
+  {
+    "name": "Key",
+    "code": 35010014,
+    "count": 4,
+    "classification": "progression"
+  },
+  {
+    "name": "Wumpa Fruit",
+    "code": 35010015,
+    "count": 1,
+    "classification": "filler"
+  },
+  {
+    "name": "Icy Road",
+    "code": 35010016,
+    "count": 0,
+    "classification": "trap"
+  },
+  {
+    "name": "Low Gravity",
+    "code": 35010017,
+    "count": 0,
+    "classification": "trap"
+  },
+  {
+    "name": "Forced USF",
+    "code": 35010018,
+    "count": 0,
+    "classification": "trap"
+  },
+  {
+    "name": "Forced Boost",
+    "code": 35010019,
+    "count": 0,
+    "classification": "trap"
+  },
+  {
+    "name": "First Person",
+    "code": 35010020,
+    "count": 0,
+    "classification": "trap"
+  },
+  {
+    "name": "Ignore Grass",
+    "code": 35010021,
+    "count": 1,
+    "classification": "useful"
+  },
+  {
+    "name": "Ignore Dirt",
+    "code": 35010022,
+    "count": 1,
+    "classification": "useful"
+  },
+  {
+    "name": "Ignore Snow",
+    "code": 35010023,
+    "count": 1,
+    "classification": "useful"
+  },
+  {
+    "name": "Ignore Water",
+    "code": 35010024,
+    "count": 1,
+    "classification": "useful"
+  },
+  {
+    "name": "Ignore Ice",
+    "code": 35010025,
+    "count": 1,
+    "classification": "useful"
+  },
+  {
+    "name": "Ignore Sand",
+    "code": 35010026,
+    "count": 0,
+    "classification": "filler"
+  },
+  {
+    "name": "Progressive Boost",
+    "code": 35010027,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Top Speed",
+    "code": 35010028,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Acceleration",
+    "code": 35010029,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Turning",
+    "code": 35010030,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Boost (Crash Bandicoot)",
+    "code": 35010031,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Top Speed (Crash Bandicoot)",
+    "code": 35010032,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Acceleration (Crash Bandicoot)",
+    "code": 35010033,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Turning (Crash Bandicoot)",
+    "code": 35010034,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Boost (Coco Bandicoot)",
+    "code": 35010035,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Top Speed (Coco Bandicoot)",
+    "code": 35010036,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Acceleration (Coco Bandicoot)",
+    "code": 35010037,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Turning (Coco Bandicoot)",
+    "code": 35010038,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Boost (Polar)",
+    "code": 35010039,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Top Speed (Polar)",
+    "code": 35010040,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Acceleration (Polar)",
+    "code": 35010041,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Turning (Polar)",
+    "code": 35010042,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Boost (Pura)",
+    "code": 35010043,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Top Speed (Pura)",
+    "code": 35010044,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Acceleration (Pura)",
+    "code": 35010045,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Turning (Pura)",
+    "code": 35010046,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Boost (Neo Cortex)",
+    "code": 35010047,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Top Speed (Neo Cortex)",
+    "code": 35010048,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Acceleration (Neo Cortex)",
+    "code": 35010049,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Turning (Neo Cortex)",
+    "code": 35010050,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Boost (N. Tropy)",
+    "code": 35010051,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Top Speed (N. Tropy)",
+    "code": 35010052,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Acceleration (N. Tropy)",
+    "code": 35010053,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Turning (N. Tropy)",
+    "code": 35010054,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Boost (Ripper Roo)",
+    "code": 35010055,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Top Speed (Ripper Roo)",
+    "code": 35010056,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Acceleration (Ripper Roo)",
+    "code": 35010057,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Turning (Ripper Roo)",
+    "code": 35010058,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Boost (Papu Papu)",
+    "code": 35010059,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Top Speed (Papu Papu)",
+    "code": 35010060,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Acceleration (Papu Papu)",
+    "code": 35010061,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Turning (Papu Papu)",
+    "code": 35010062,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Boost (Komodo Joe)",
+    "code": 35010063,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Top Speed (Komodo Joe)",
+    "code": 35010064,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Acceleration (Komodo Joe)",
+    "code": 35010065,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Turning (Komodo Joe)",
+    "code": 35010066,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Boost (Pinstripe)",
+    "code": 35010067,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Top Speed (Pinstripe)",
+    "code": 35010068,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Acceleration (Pinstripe)",
+    "code": 35010069,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Turning (Pinstripe)",
+    "code": 35010070,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Boost (Dingodile)",
+    "code": 35010071,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Top Speed (Dingodile)",
+    "code": 35010072,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Acceleration (Dingodile)",
+    "code": 35010073,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Turning (Dingodile)",
+    "code": 35010074,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Boost (Tiny Tiger)",
+    "code": 35010075,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Top Speed (Tiny Tiger)",
+    "code": 35010076,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Acceleration (Tiny Tiger)",
+    "code": 35010077,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Turning (Tiny Tiger)",
+    "code": 35010078,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Boost (N. Gin)",
+    "code": 35010079,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Top Speed (N. Gin)",
+    "code": 35010080,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Acceleration (N. Gin)",
+    "code": 35010081,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Turning (N. Gin)",
+    "code": 35010082,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Boost (Fake Crash)",
+    "code": 35010083,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Top Speed (Fake Crash)",
+    "code": 35010084,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Acceleration (Fake Crash)",
+    "code": 35010085,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Turning (Fake Crash)",
+    "code": 35010086,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Boost (Nitros Oxide)",
+    "code": 35010087,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Top Speed (Nitros Oxide)",
+    "code": 35010088,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Acceleration (Nitros Oxide)",
+    "code": 35010089,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Turning (Nitros Oxide)",
+    "code": 35010090,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Boost (Penta Penguin)",
+    "code": 35010091,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Top Speed (Penta Penguin)",
+    "code": 35010092,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Acceleration (Penta Penguin)",
+    "code": 35010093,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Progressive Turning (Penta Penguin)",
+    "code": 35010094,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Turbo",
+    "code": 35010095,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Bomb",
+    "code": 35010096,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Missile",
+    "code": 35010097,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "TNT",
+    "code": 35010098,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Beaker",
+    "code": 35010099,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Shield Bubble",
+    "code": 35010100,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Mask",
+    "code": 35010101,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "N. Tropy Clock",
+    "code": 35010102,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Warpball",
+    "code": 35010103,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Bomb x3",
+    "code": 35010104,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Missile x3",
+    "code": 35010105,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Wumpa Wipeout",
+    "code": 35010106,
+    "count": 0,
+    "classification": "trap"
+  },
+  {
+    "name": "Flatten",
+    "code": 35010107,
+    "count": 0,
+    "classification": "trap"
+  },
+  {
+    "name": "Item Reroll",
+    "code": 35010108,
+    "count": 0,
+    "classification": "trap"
+  },
+  {
+    "name": "Forced Use",
+    "code": 35010109,
+    "count": 0,
+    "classification": "trap"
+  },
+  {
+    "name": "Empty Crates",
+    "code": 35010110,
+    "count": 0,
+    "classification": "trap"
+  },
+  {
+    "name": "Weakened Kart",
+    "code": 35010111,
+    "count": 0,
+    "classification": "trap"
+  },
+  {
+    "name": "Boost Blocker",
+    "code": 35010112,
+    "count": 0,
+    "classification": "trap"
+  },
+  {
+    "name": "Wireframe",
+    "code": 35010113,
+    "count": 0,
+    "classification": "trap"
+  },
+  {
+    "name": "Nitro Drop",
+    "code": 35010114,
+    "count": 0,
+    "classification": "trap"
+  },
+  {
+    "name": "Reverse Steering",
+    "code": 35010115,
+    "count": 0,
+    "classification": "trap"
+  },
+  {
+    "name": "Red Potion",
+    "code": 35010116,
+    "count": 0,
+    "classification": "trap"
+  },
+  {
+    "name": "Passive Shield",
+    "code": 35010117,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Invincibility Mask",
+    "code": 35010118,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Invisibility",
+    "code": 35010119,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Small Wumpa Bundle",
+    "code": 35010120,
+    "count": 0,
+    "classification": "filler"
+  },
+  {
+    "name": "Big Wumpa Bundle",
+    "code": 35010121,
+    "count": 0,
+    "classification": "filler"
+  },
+  {
+    "name": "Progressive Starting Wumpa",
+    "code": 35010122,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Crash Bandicoot",
+    "code": 35010123,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Coco Bandicoot",
+    "code": 35010124,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Polar",
+    "code": 35010125,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Pura",
+    "code": 35010126,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Neo Cortex",
+    "code": 35010127,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "N. Tropy",
+    "code": 35010128,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Ripper Roo",
+    "code": 35010129,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Papu Papu",
+    "code": 35010130,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Komodo Joe",
+    "code": 35010131,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Pinstripe",
+    "code": 35010132,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Dingodile",
+    "code": 35010133,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Tiny Tiger",
+    "code": 35010134,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "N. Gin",
+    "code": 35010135,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Fake Crash",
+    "code": 35010136,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Nitros Oxide",
+    "code": 35010137,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Penta Penguin",
+    "code": 35010138,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Letter C (Crash Cove)",
+    "code": 35010139,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter T (Crash Cove)",
+    "code": 35010140,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter R (Crash Cove)",
+    "code": 35010141,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter C (Roo's Tubes)",
+    "code": 35010142,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter T (Roo's Tubes)",
+    "code": 35010143,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter R (Roo's Tubes)",
+    "code": 35010144,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter C (Mystery Caves)",
+    "code": 35010145,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter T (Mystery Caves)",
+    "code": 35010146,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter R (Mystery Caves)",
+    "code": 35010147,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter C (Sewer Speedway)",
+    "code": 35010148,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter T (Sewer Speedway)",
+    "code": 35010149,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter R (Sewer Speedway)",
+    "code": 35010150,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter C (Coco Park)",
+    "code": 35010151,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter T (Coco Park)",
+    "code": 35010152,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter R (Coco Park)",
+    "code": 35010153,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter C (Tiger Temple)",
+    "code": 35010154,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter T (Tiger Temple)",
+    "code": 35010155,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter R (Tiger Temple)",
+    "code": 35010156,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter C (Papu's Pyramid)",
+    "code": 35010157,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter T (Papu's Pyramid)",
+    "code": 35010158,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter R (Papu's Pyramid)",
+    "code": 35010159,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter C (Dingo Canyon)",
+    "code": 35010160,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter T (Dingo Canyon)",
+    "code": 35010161,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter R (Dingo Canyon)",
+    "code": 35010162,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter C (Blizzard Bluff)",
+    "code": 35010163,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter T (Blizzard Bluff)",
+    "code": 35010164,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter R (Blizzard Bluff)",
+    "code": 35010165,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter C (Dragon Mines)",
+    "code": 35010166,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter T (Dragon Mines)",
+    "code": 35010167,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter R (Dragon Mines)",
+    "code": 35010168,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter C (Polar Pass)",
+    "code": 35010169,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter T (Polar Pass)",
+    "code": 35010170,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter R (Polar Pass)",
+    "code": 35010171,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter C (Tiny Arena)",
+    "code": 35010172,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter T (Tiny Arena)",
+    "code": 35010173,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter R (Tiny Arena)",
+    "code": 35010174,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter C (Hot Air Skyway)",
+    "code": 35010175,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter T (Hot Air Skyway)",
+    "code": 35010176,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter R (Hot Air Skyway)",
+    "code": 35010177,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter C (Cortex Castle)",
+    "code": 35010178,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter T (Cortex Castle)",
+    "code": 35010179,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter R (Cortex Castle)",
+    "code": 35010180,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter C (N. Gin Labs)",
+    "code": 35010181,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter T (N. Gin Labs)",
+    "code": 35010182,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter R (N. Gin Labs)",
+    "code": 35010183,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter C (Oxide Station)",
+    "code": 35010184,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter T (Oxide Station)",
+    "code": 35010185,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter R (Oxide Station)",
+    "code": 35010186,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Gas Pedal",
+    "code": 35010187,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Tizi Helper",
+    "code": 35010188,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Turbo Grant",
+    "code": 35010189,
+    "count": 0,
+    "classification": "useful"
+  },
+  {
+    "name": "Upside Down",
+    "code": 35010190,
+    "count": 0,
+    "classification": "trap"
+  },
+  {
+    "name": "Mirror Mode",
+    "code": 35010191,
+    "count": 0,
+    "classification": "trap"
+  },
+  {
+    "name": "Warpball Ambush",
+    "code": 35010192,
+    "count": 0,
+    "classification": "trap"
+  },
+  {
+    "name": "Demo Camera",
+    "code": 35010193,
+    "count": 0,
+    "classification": "trap"
+  },
+  {
+    "name": "Letter C (Slide Coliseum)",
+    "code": 35010194,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter T (Slide Coliseum)",
+    "code": 35010195,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter R (Slide Coliseum)",
+    "code": 35010196,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter C (Turbo Track)",
+    "code": 35010197,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter T (Turbo Track)",
+    "code": 35010198,
+    "count": 0,
+    "classification": "progression"
+  },
+  {
+    "name": "Letter R (Turbo Track)",
+    "code": 35010199,
+    "count": 0,
+    "classification": "progression"
+  }
+]
