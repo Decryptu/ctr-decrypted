@@ -711,6 +711,89 @@ const struct CustomTrackManagerPackage *CustomTrackManager_FindPackage(
 	return NULL;
 }
 
+#ifdef CTR_CUSTOM_PACKAGES
+/* Does packages/<pin>/manifest.json name both digests? A cheap text test that
+   picks which package folders are worth hashing; the hashes decide. */
+static int Manager_ManifestNames(const char *packageDir, const char *levSha256, const char *vrmSha256)
+{
+	char path[CTR_CT_MANAGER_PATH_MAX];
+	static char text[64 * 1024];
+	size_t got;
+	FILE *f;
+	if (!Manager_Join(path, sizeof path, packageDir, "manifest.json") || (f = fopen(path, "rb")) == NULL)
+		return 0;
+	got = fread(text, 1, sizeof text - 1, f);
+	fclose(f);
+	text[got] = '\0';
+	return strstr(text, levSha256) != NULL && strstr(text, vrmSha256) != NULL;
+}
+
+/* A track installed from the Mods menu lives in packages/<pin>/original. Look
+   there for the seed's exact LEV and VRM; 1 when one package holds both. */
+static int Manager_FindInPackage(const char *packageDir, const char *levSha256, unsigned long levBytes,
+	                             const char *vrmSha256, unsigned long vrmBytes,
+	                             struct CustomTrackManagerStatus *outStatus)
+{
+	char original[CTR_CT_MANAGER_PATH_MAX], lev[CTR_CT_MANAGER_PATH_MAX], vrm[CTR_CT_MANAGER_PATH_MAX];
+	char levHash[NATIVE_SHA256_HEX_BYTES], vrmHash[NATIVE_SHA256_HEX_BYTES];
+	unsigned long gotLev, gotVrm;
+	int levCandidates, vrmCandidates, levUnreadable, vrmUnreadable;
+	if (!Manager_ManifestNames(packageDir, levSha256, vrmSha256) ||
+	    !Manager_Join(original, sizeof original, packageDir, "original") ||
+	    !Manager_FindVerifiedSource(original, ".lev", levSha256, lev, levHash, &gotLev, &levCandidates, &levUnreadable) ||
+	    !Manager_FindVerifiedSource(original, ".vrm", vrmSha256, vrm, vrmHash, &gotVrm, &vrmCandidates, &vrmUnreadable) ||
+	    lev[0] == '\0' || vrm[0] == '\0' || gotLev != levBytes || gotVrm != vrmBytes)
+		return 0;
+	snprintf(outStatus->levPath, sizeof outStatus->levPath, "%s", lev);
+	snprintf(outStatus->vrmPath, sizeof outStatus->vrmPath, "%s", vrm);
+	snprintf(outStatus->actualLevSha256, sizeof outStatus->actualLevSha256, "%s", levHash);
+	snprintf(outStatus->actualVrmSha256, sizeof outStatus->actualVrmSha256, "%s", vrmHash);
+	outStatus->levBytes = gotLev;
+	outStatus->vrmBytes = gotVrm;
+	return 1;
+}
+
+static int Manager_FindInPackages(const char *tracks, const char *levSha256, unsigned long levBytes,
+	                              const char *vrmSha256, unsigned long vrmBytes,
+	                              struct CustomTrackManagerStatus *outStatus)
+{
+	char store[CTR_CT_MANAGER_PATH_MAX], dir[CTR_CT_MANAGER_PATH_MAX];
+	int found = 0;
+	if (!Manager_Join(store, sizeof store, tracks, "packages"))
+		return 0;
+#if defined(_WIN32)
+	{
+		char pattern[CTR_CT_MANAGER_PATH_MAX];
+		WIN32_FIND_DATAA data;
+		HANDLE find;
+		if (!Manager_Join(pattern, sizeof pattern, store, "*"))
+			return 0;
+		find = FindFirstFileA(pattern, &data);
+		if (find == INVALID_HANDLE_VALUE)
+			return 0;
+		do
+			found = (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && Manager_IsHex64(data.cFileName) &&
+			        Manager_Join(dir, sizeof dir, store, data.cFileName) &&
+			        Manager_FindInPackage(dir, levSha256, levBytes, vrmSha256, vrmBytes, outStatus);
+		while (!found && FindNextFileA(find, &data));
+		FindClose(find);
+	}
+#else
+	{
+		DIR *d = opendir(store);
+		struct dirent *entry;
+		if (d == NULL)
+			return 0;
+		while (!found && (entry = readdir(d)) != NULL)
+			found = Manager_IsHex64(entry->d_name) && Manager_Join(dir, sizeof dir, store, entry->d_name) &&
+			        Manager_FindInPackage(dir, levSha256, levBytes, vrmSha256, vrmBytes, outStatus);
+		closedir(d);
+	}
+#endif
+	return found;
+}
+#endif
+
 int CustomTrackManager_LocateContentFiles(const char *assetsRoot, const char *trackKey,
 	                                       const char *title, const char *revision,
 	                                       const char *levSha256, unsigned long levBytes,
@@ -760,6 +843,14 @@ int CustomTrackManager_LocateContentFiles(const char *assetsRoot, const char *tr
 	}
 	if (levCandidates == 0 && vrmCandidates == 0)
 	{
+#ifdef CTR_CUSTOM_PACKAGES
+		if (Manager_FindInPackages(tracks, levSha256, levBytes, vrmSha256, vrmBytes, outStatus))
+		{
+			Manager_SetDetail(outStatus, CTR_CT_MANAGER_READY, "%.64s %.32s is installed from the Mods menu.",
+			                  shownTitle, shownRevision);
+			return outStatus->state;
+		}
+#endif
 		Manager_SetDetail(outStatus, CTR_CT_MANAGER_NOT_INSTALLED,
 		                  "Put the LEV and VRM of %.64s %.32s in tracks/%.64s/original, then Rescan.",
 		                  shownTitle, shownRevision, trackKey);

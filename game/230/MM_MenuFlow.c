@@ -1,13 +1,18 @@
 #include <common.h>
 #include <platform/native_dev.h>
+#include <ctr_menu_strings.h>
 
 // In-game options menu (see game/230/MM_ConfigMenu.c): the config-enabled main
 // menu row arrays (adding the OPTIONS row) and the options RectMenu.
 extern struct MenuRow s_rowsMainMenuBasicConfig[];
 extern struct MenuRow s_rowsMainMenuWithSBConfig[];
 extern struct RectMenu g_configMenu;
+void MM_MainRows_Link(struct MenuRow *rows);
 #if defined(CTR_AP) && !defined(CTR_AP_AUTHORING)
 void MM_Solo_OpenFromTitle(void); // MM_ConfigMenu.c (#89)
+#endif
+#ifdef CTR_CUSTOM_PACKAGES
+void MM_Mods_OpenFromTitle(void); // MM_ConfigMenu.c
 #endif
 
 s32 MM_TransitionInOut(struct TransitionMeta *meta, s32 framesPassed, s32 numFrames)
@@ -78,6 +83,7 @@ void MM_MenuProc_Main(struct RectMenu *menu)
 	{
 		MM_MENU_MAIN.rows = s_rowsMainMenuBasicConfig;
 	}
+	MM_MainRows_Link(MM_MENU_MAIN.rows);
 
 	MM_ParseCheatCodes();
 	MM_ToggleRows_Difficulty();
@@ -347,12 +353,18 @@ void MM_MenuProc_Main(struct RectMenu *menu)
 #if defined(CTR_AP) && !defined(CTR_AP_AUTHORING)
 	// PLAY SOLO (#89, decision 30): the Play Solo pages of Options >
 	// Connection, opened directly. Leaving Play Solo returns here.
-	if (choose == AP_LNG_PLAY_SOLO)
-	{
+	case AP_LNG_PLAY_SOLO:
 		MM_Solo_OpenFromTitle();
 		sdata->ptrDesiredMenu = &g_configMenu;
 		return;
-	}
+#endif
+
+#ifdef CTR_CUSTOM_PACKAGES
+	// MODS: the Mods screen of Options, opened directly. Leaving it returns here.
+	case CTR_LNG_MODS:
+		MM_Mods_OpenFromTitle();
+		sdata->ptrDesiredMenu = &g_configMenu;
+		return;
 #endif
 
 	// Quit (#211): controller-first exit, mirroring the window-close path

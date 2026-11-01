@@ -148,6 +148,8 @@ struct CustomTrackLibrary;
 int CustomPackage_StartStoreScan(const char *store);
 /* -1 idle, 0 running, 1 applied, -2 failed (old library retained). */
 int CustomPackage_PollStoreScan(struct CustomTrackLibrary *library, char *error, size_t errorSize);
+/* Delete assets/tracks/packages/<pin>. 1 removed, 0 refused with error. */
+int CustomPackage_RemoveInstalled(const char *assets, const char *pin, char *error, size_t errorSize);
 
 #ifdef __cplusplus
 }

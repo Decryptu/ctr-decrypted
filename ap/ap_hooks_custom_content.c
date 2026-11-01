@@ -737,8 +737,8 @@ void AP_DrawCustomContentWarning(void)
 		return;
 	DecalFont_DrawLine("!! CUSTOM CONTENT REQUIRED !!", AP_FEED_X, 0x30, FONT_SMALL, RED);
 	// A content-plan room lists every required track on its own tab.
-	DecalFont_DrawLine(ap_content_plan_active() ? "Open OPTIONS > Custom Content > Current Seed to install it."
-	                                            : "Open OPTIONS > Custom Content to download or verify the track.",
+	DecalFont_DrawLine(ap_content_plan_active() ? "Open OPTIONS > Mods > Seed to install it."
+	                                            : "Open OPTIONS > Mods to download or verify the track.",
 	                   AP_FEED_X, 0x30 + AP_FEED_LINE_H, FONT_SMALL, RED);
 }
 #endif

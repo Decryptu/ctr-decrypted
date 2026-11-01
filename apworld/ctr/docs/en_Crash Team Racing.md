@@ -219,8 +219,8 @@ download rather than writing it. The game checks the track's files against the
 entry when you connect. A custom track joins the pool with the original tracks,
 so a seed with more tracks than pads may leave it out; list its track key in
 `required_entries` to keep it. Cups take custom tracks up to Custom Races Per Cup.
-A pad needs the track installed, and the Custom Content page shows what a seed
-asks for.
+A pad needs the track installed, and the Seed tab of the game's Mods screen shows
+what a seed asks for and downloads it.
 
 ## Which items can be in another player's world?
 

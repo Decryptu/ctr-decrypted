@@ -120,6 +120,16 @@ static void pause_rows(void)
 	EXPECT(AP_LNG_TRACKER > 0x1000 && AP_LNG_TRACKER < 0x8000, "the TRACKER label index is clear of retail strings and the lock bit");
 	EXPECT(AP_LNG_PLAY_SOLO > 0x1000 && AP_LNG_PLAY_SOLO < 0x8000 && AP_LNG_PLAY_SOLO != AP_LNG_TRACKER,
 	       "the PLAY SOLO label index (#89) is clear of retail strings, the lock bit and TRACKER");
+	{
+		/* Every owned row string resolves to its own label. */
+		const int owned[] = {AP_LNG_TRACKER, AP_LNG_WUMPA_SHOP, AP_LNG_PLAY_SOLO, CTR_LNG_MODS};
+		const int n = (int)(sizeof owned / sizeof owned[0]);
+		int distinct = 1;
+		for (int i = 0; i < n; i++)
+			for (int j = i + 1; j < n; j++)
+				distinct &= owned[i] != owned[j];
+		EXPECT(distinct, "TRACKER, WUMPA SHOP, PLAY SOLO and MODS have different label indices");
+	}
 }
 
 int main(void)

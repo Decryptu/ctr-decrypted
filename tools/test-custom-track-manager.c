@@ -15,6 +15,7 @@
 #include <unistd.h>
 
 #define CTR_CUSTOM_TRACKS 1
+#define CTR_CUSTOM_PACKAGES 1 // the package-store fallback of LocateContentFiles
 
 #ifdef CTR_AP
 static char s_apLogCaptured[4096];
@@ -778,6 +779,49 @@ int main(void)
 		expect_int(CustomTrackManager_LocateContentFiles(root, "open-key", "Open\nTrack", "2.1", s_fixtureLevSha,
 		           (unsigned long)s_fixtureLevLen, vrmSha, 3, &open), CTR_CT_MANAGER_READY, "an unprintable title is not echoed");
 		expect_int(strchr(open.detail, '\n') == NULL, 1, "status detail stays one line");
+	}
+	{
+		// A track installed from the Mods menu: no tracks/<track key> folder, the
+		// files in packages/<pin>/original. Only a pin folder whose manifest names
+		// both digests is hashed, and the hashes decide.
+		char root[CTR_CT_MANAGER_PATH_MAX], tracks[CTR_CT_MANAGER_PATH_MAX], store[CTR_CT_MANAGER_PATH_MAX];
+		char pinDir[CTR_CT_MANAGER_PATH_MAX], original[CTR_CT_MANAGER_PATH_MAX], path[CTR_CT_MANAGER_PATH_MAX];
+		char decoy[CTR_CT_MANAGER_PATH_MAX], decoyOriginal[CTR_CT_MANAGER_PATH_MAX], manifest[512];
+		const char *vrmSha = "cb8379ac2098aa165029e3938a51da0bcecfc008fd6795f401178647f96c5b34"; /* sha256("def") */
+		struct CustomTrackManagerStatus found;
+		snprintf(manifest, sizeof manifest, "{\"files\":[{\"sha256\":\"%s\"},{\"sha256\":\"%s\"}]}", s_fixtureLevSha, vrmSha);
+		if (!Manager_Join(root, sizeof root, tempRoot, "pkg-assets") || !Manager_Join(tracks, sizeof tracks, root, "tracks") ||
+		    !Manager_Join(store, sizeof store, tracks, "packages") ||
+		    !Manager_Join(decoy, sizeof decoy, store, "0000000000000000000000000000000000000000000000000000000000000000") ||
+		    !Manager_Join(decoyOriginal, sizeof decoyOriginal, decoy, "original") ||
+		    !Manager_Join(pinDir, sizeof pinDir, store, "1111111111111111111111111111111111111111111111111111111111111111") ||
+		    !Manager_Join(original, sizeof original, pinDir, "original") ||
+		    !Manager_CreateDirectory(root) || !Manager_CreateDirectory(tracks) || !Manager_CreateDirectory(store) ||
+		    !Manager_CreateDirectory(decoy) || !Manager_CreateDirectory(decoyOriginal) ||
+		    !Manager_CreateDirectory(pinDir) || !Manager_CreateDirectory(original))
+			return 2;
+		expect_int(CustomTrackManager_LocateContentFiles(root, "pkg-key", "Pkg Track", "1", s_fixtureLevSha,
+		           (unsigned long)s_fixtureLevLen, vrmSha, 3, &found), CTR_CT_MANAGER_NOT_INSTALLED, "empty package store");
+		/* The decoy's manifest names the digests but its files are other bytes. */
+		Manager_Join(path, sizeof path, decoy, "manifest.json"); write_file(path, manifest);
+		Manager_Join(path, sizeof path, decoyOriginal, "a.lev"); write_file(path, "not a lev");
+		Manager_Join(path, sizeof path, decoyOriginal, "a.vrm"); write_file(path, "dex");
+		expect_int(CustomTrackManager_LocateContentFiles(root, "pkg-key", "Pkg Track", "1", s_fixtureLevSha,
+		           (unsigned long)s_fixtureLevLen, vrmSha, 3, &found), CTR_CT_MANAGER_NOT_INSTALLED, "a manifest alone is not enough");
+		Manager_Join(path, sizeof path, original, "lev-1.lev"); write_bytes(path, s_fixtureLev, s_fixtureLevLen);
+		Manager_Join(path, sizeof path, original, "vrm-2.vrm"); write_file(path, "def");
+		expect_int(CustomTrackManager_LocateContentFiles(root, "pkg-key", "Pkg Track", "1", s_fixtureLevSha,
+		           (unsigned long)s_fixtureLevLen, vrmSha, 3, &found), CTR_CT_MANAGER_NOT_INSTALLED,
+		           "a package whose manifest does not name the digests is not hashed");
+		Manager_Join(path, sizeof path, pinDir, "manifest.json"); write_file(path, manifest);
+		expect_int(CustomTrackManager_LocateContentFiles(root, "pkg-key", "Pkg Track", "1", s_fixtureLevSha,
+		           (unsigned long)s_fixtureLevLen, vrmSha, 3, &found), CTR_CT_MANAGER_READY, "found in the package store");
+		expect_contains(found.levPath, "1111111111111111", "the package with the right bytes is chosen");
+		expect_contains(found.vrmPath, "vrm-2.vrm", "its VRM is chosen");
+		expect_contains(found.detail, "Mods menu", "the status says where it came from");
+		expect_int(CustomTrackManager_LocateContentFiles(root, "pkg-key", "Pkg Track", "1", s_fixtureLevSha,
+		           (unsigned long)s_fixtureLevLen + 1, vrmSha, 3, &found), CTR_CT_MANAGER_NOT_INSTALLED,
+		           "the declared size must match here too");
 	}
 	printf("test-custom-track-manager: %d checks, %d failures\n", checks, failures);
 	return failures ? 1 : 0;

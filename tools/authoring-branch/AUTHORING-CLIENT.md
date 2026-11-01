@@ -10,7 +10,7 @@ regenerated from each release tag of `dowlle/ctr-native-ap`.
 What it builds (`ctr_native_authoring`):
 
 - the custom track loader with the 8 MiB memory arena it needs,
-- the package library, Track Manager (`Options > Custom Content`), Arcade and
+- the package library, the Mods screen (`MODS` on the title screen), Arcade and
   Time Trial custom pages, Project Saphi catalogue and install, custom music,
 - Box Author Mode (`Options > Authoring`), which writes box placement files,
 - the AI lap recorder.

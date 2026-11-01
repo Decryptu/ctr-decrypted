@@ -501,7 +501,7 @@ Source: <https://github.com/jmacd/xdelta>, branch `release3_1_apl`, commit
 `7508fd2a823443b1f0173ca361620f21d62a7d37` (xdelta 3.1.1).
 
 Vendored as an unmodified decode-only subset in `vendor/xdelta3/` for the xdelta
-track importer (Options > Custom Content > Import track files).
+track importer (Mods > Import track files).
 
 License: Apache License 2.0. The full text is in `vendor/xdelta3/LICENSE` and
 ships as `LICENSE-xdelta3.txt` in the release folders that include the importer.

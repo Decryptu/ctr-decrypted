@@ -1,19 +1,18 @@
-"""The Current Seed page cannot trap the player (#133 PR 7).
+"""The Seed tab cannot trap the player (#133 PR 7).
 
-Compiles game/230/MM_CurrentSeed.c, the page Options > Custom Content shows
-in a content-plan room, with stub drawing and a stub room behind the real
+Compiles game/230/MM_CurrentSeed.c, the Seed tab of the Mods screen in a
+content-plan room, with stub drawing and a stub room behind the real
 decisions in ap/ap_seed_content_logic.h, and drives it frame by frame.
 
 Cases:
-  1. a room without a content plan (legacy or none) never sees the page: it
-     returns 0 every frame, so the old Custom Content page runs unchanged,
-  2. Back (Triangle) leaves Custom Content except while the install overview
+  1. a room without a content plan (legacy or none) draws nothing and never
+     holds Back,
+  2. Back (Triangle) leaves the Mods screen except while the install overview
      is open; then it only closes the overview,
   3. Cross opens the overview only when there is something to download;
      otherwise the reason is shown and Back still leaves,
   4. Cross in the overview starts the install once and closes the overview,
-  5. L1 / R1 switch to the package page (which then runs) and close the
-     overview; Back is never held there,
+  5. on another tab of the Mods screen (s_modsSeed 0) Back is never held,
   6. the overview closes itself when the room changes under it,
   7. Up / Down wrap through the rows; leaving and coming back starts clean,
   8. Square rescans, except while an install runs.
@@ -49,6 +48,7 @@ void DecalFont_DrawLineOT(char *s, int x, int y, int font, int flags, uint32_t *
 void OtherFX_Play(int a, int b) { (void)a; (void)b; }
 void CTR_Box_DrawClearBox(RECT *r, int *c, int t, uint32_t *ot, struct PrimMem *pm) { (void)r; (void)c; (void)t; (void)ot; (void)pm; }
 static int s_customContentSection = 5;
+static int s_modsSeed = 1; /* the Mods screen shows the Seed tab */
 
 /* The stub room. */
 static int active = 1, busy, starts, rescans, plan_result = AP_SEED_PLAN_OK;
@@ -80,11 +80,14 @@ static void expect(int ok, const char *what)
 	checks++;
 	if (!ok) { failures++; printf("FAIL: %s\n", what); }
 }
+/* 1 when the page drew this frame. */
 static int frame(int buttons)
 {
 	struct GamepadBuffer pad = {buttons};
+	int before = draws;
 	gt.timer++;
-	return MM_CurrentSeed_Page(NULL, &pad);
+	MM_CurrentSeed_Page(NULL, &pad);
+	return draws != before;
 }
 /* What MM_MenuProc_Config does with Back this frame, before the page runs. */
 static int back_leaves(void) { return !MM_CurrentSeed_ConsumesBack(s_customContentSection); }
@@ -104,7 +107,7 @@ int main(void)
 
 	/* 1. No content plan. */
 	active = 0;
-	expect(frame(0) == 0 && frame(BTN_CROSS) == 0 && frame(BTN_L1) == 0 && back_leaves(), "no plan: old page every frame, Back leaves");
+	expect(frame(0) == 0 && frame(BTN_CROSS) == 0 && back_leaves(), "no plan: nothing drawn, Back leaves");
 	active = 1;
 
 	/* 2-4. The overview. */
@@ -120,11 +123,12 @@ int main(void)
 	       "nothing to download: the reason, no overview, Back leaves");
 	plan_result = AP_SEED_PLAN_OK;
 
-	/* 5. Tabs. */
+	/* 5. Another tab of the Mods screen. */
 	frame(BTN_CROSS);
-	expect(s_seedOverview && frame(BTN_R1) == 0 && !s_seedOverview && back_leaves(), "R1 goes to the package page and closes the overview");
-	expect(frame(BTN_CROSS) == 0 && !s_seedOverview && back_leaves() && starts == 1, "the package page owns Cross; Back leaves");
-	expect(frame(BTN_L1) == 1 && s_seedTab == 0, "L1 comes back to Current Seed");
+	s_modsSeed = 0;
+	expect(s_seedOverview && back_leaves(), "on Browse or Installed Back leaves, even with the overview left open");
+	s_modsSeed = 1;
+	frame(BTN_TRIANGLE);
 
 	/* 6. The room changes under the overview. */
 	frame(BTN_CROSS);
@@ -176,5 +180,5 @@ with tempfile.TemporaryDirectory() as tmp:
                     "-fsanitize=undefined,address", "-fno-sanitize-recover=all",
                     "-I" + str(root), str(src), "-o", str(exe)], check=True, cwd=root)
     subprocess.run([str(exe)], check=True, cwd=root)
-print("PASS: Current Seed page: off without a plan, Back held only by the open overview, one install per confirm, "
-      "tabs, self-closing overview, selection bounds, fresh visits, rescan")
+print("PASS: Seed tab: off without a plan, Back held only by the open overview on its tab, one install per confirm, "
+      "self-closing overview, selection bounds, fresh visits, rescan")

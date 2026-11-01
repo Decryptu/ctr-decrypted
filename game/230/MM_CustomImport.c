@@ -1,24 +1,17 @@
 /* "Import track files" (xdelta importer, 0.3.0). Included by
-   MM_CustomManager.c in the Track Manager builds (CTR_CUSTOM_PACKAGES) and by
-   MM_ConfigMenu.c in the player client (decision 35, 2026-10-28). Select
-   opens it on Options > Custom Content. The player picks a patch through the
-   system dialog, from assets/tracks/import/ (Steam Deck Game Mode), or drops
-   it on the client window; the patch is read on a worker against the mounted
-   disc, and the review list shows one line per found item. Confirm installs
-   the selected race tracks where rooms and solo seeds find them
-   (assets/tracks/<track key>/original) and, in the Track Manager builds, as
-   packages too. */
+   MM_CustomManager.c; Select opens it on the Mods screen. The player picks a
+   patch through the system dialog, from assets/tracks/import/ (Steam Deck
+   Game Mode), or drops it on the client window; the patch is read on a worker
+   against the mounted disc, and the review list shows one line per found
+   item. Confirm installs the selected race tracks as packages (Installed,
+   Arcade and Time Trial) and where rooms and solo seeds find them
+   (assets/tracks/<track key>/original). */
 #include <platform/native_xdelta_import.h>
 #include <platform/native_xdelta_pick.h>
 #include <platform/native_disc_image.h>
 
-#ifdef CTR_CUSTOM_PACKAGES
 #define IMPORT_WHERE (CTR_XDELTA_INSTALL_PACKAGES | CTR_XDELTA_INSTALL_ROOM)
-#define IMPORT_HINT "Pick or drop an xdelta patch. Its race tracks become packages."
-#else
-#define IMPORT_WHERE CTR_XDELTA_INSTALL_ROOM
-#define IMPORT_HINT "Pick or drop an xdelta patch for rooms and solo seeds."
-#endif
+#define IMPORT_HINT "Pick or drop an xdelta patch. Its race tracks are installed."
 
 enum { IMPORT_CHOOSE, IMPORT_PICKING, IMPORT_SCANNING, IMPORT_REVIEW, IMPORT_INSTALLING, IMPORT_RESULT };
 static int s_importOpen, s_importStage, s_importFileCount, s_importProgress;
@@ -144,10 +137,9 @@ static void MM_CustomImport_Proc(uint32_t *ot, struct GamepadBuffer *pad)
         if (state == 1 || state == -2)
         {
             s_importStage = IMPORT_RESULT;
-#ifdef CTR_CUSTOM_PACKAGES
             s_contentStoreWanted = 1;
-#else
-            /* Current Seed shows the new files at once, also after a
+#if defined(CTR_AP) && !defined(CTR_AP_AUTHORING)
+            /* The Seed tab shows the new files at once, also after a
                failure part way through the list. */
             if (!AP_SeedContentInstallBusy()) AP_CustomContentRescan();
 #endif
@@ -212,9 +204,8 @@ static void MM_CustomImport_Proc(uint32_t *ot, struct GamepadBuffer *pad)
         if (tapped & (BTN_CROSS | BTN_CIRCLE | BTN_TRIANGLE | BTN_START))
         {
             s_importOpen = 0;
-#ifdef CTR_CUSTOM_PACKAGES
             s_contentLibraryTab = 1;
-#endif
+            s_modsSeed = 0;
             OtherFX_Play(2, 1);
             return;
         }
@@ -284,12 +275,7 @@ static void MM_CustomImport_Proc(uint32_t *ot, struct GamepadBuffer *pad)
         snprintf(line, sizeof line, "%u/%u  %u track%s  Back: Cancel", count ? (unsigned)s_importRow + 1 : 0,
                  (unsigned)count, offered, offered == 1 ? "" : "s");
     }
-#ifdef CTR_CUSTOM_PACKAGES
-#define IMPORT_DONE "X: Installed tracks"
-#else
-#define IMPORT_DONE "X: Custom Content"
-#endif
-    else snprintf(line, sizeof line, "%s", s_importStage == IMPORT_RESULT ? IMPORT_DONE :
+    else snprintf(line, sizeof line, "%s", s_importStage == IMPORT_RESULT ? "X: Installed tracks" :
                   s_importStage == IMPORT_SCANNING ? "Back: Cancel" : "Folder: assets/tracks/import");
     MM_CustomText_Draw(line, 256, 196, 456, 1, JUSTIFY_CENTER | WHITE, ot);
     {

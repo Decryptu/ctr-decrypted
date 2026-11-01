@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <ctr_menu_ux.h>
 #include <ctr_menu_pages.h>
+#include <ctr_menu_strings.h>
 #include <platform/native_renderer.h> // NativeRenderer_CaptureWindowGeometry, ahead of the NativeConfig_Save calls below
 #include <platform/native_controls.h> // the Controls page (MM_ControlsConfig.c)
 #include <platform/native_screen_filter.h> // the Screen Filter row
@@ -16,8 +17,7 @@
 #include <platform/native_custom_track_manager.h>
 #include "../../ap/ap_seed_content.h" // Current Seed (#133 PR 7)
 #ifdef CTR_CUSTOM_PACKAGES
-// Box authoring build: the package library and Saphi Track Manager replace the
-// single-package Custom Content page (CMakeLists.txt, CTR_CUSTOM_PACKAGES).
+// The package library and the Mods screen (CMakeLists.txt, CTR_CUSTOM_PACKAGES).
 #include <stdlib.h>
 #include <platform/native_custom_track_library.h>
 #include <platform/native_custom_package.h>
@@ -55,68 +55,58 @@
 // menu with an OPTIONS row (string 0x0E == LNG_OPTIONS) and are pointed at by
 // MM_MenuProc_Main.
 
-// Row arrays with CONFIG entry at bottom, used by MM_MenuProc_Main. QUIT (#211)
-// is appended last, after OPTIONS, reusing LNG_QUIT (0x003) -- already proven as
-// a MenuRow stringIndex elsewhere (e.g. game/225.c's battle pause row) rather
-// than a title-only string -- so no new label is minted.
+// Title screen rows, used by MM_MenuProc_Main: the retail rows (SCRAPBOOK
+// once it is unlocked), then the rows this build adds, then OPTIONS (string
+// 0x0E == LNG_OPTIONS) and QUIT (#211, LNG_QUIT, already proven as a MenuRow
+// stringIndex in game/225.c's battle pause row).
 //
-// The AP player client adds PLAY SOLO (#89, decision 30) just above OPTIONS,
-// with its own string slot (AP_LNG_PLAY_SOLO). It opens the same Play Solo
-// pages as Options > Connection > Play Solo. The box authoring download and
-// the build without Archipelago keep the rows below.
+// - PLAY SOLO (#89, decision 30), AP player client: the same Play Solo pages
+//   as Options > Connection > Play Solo.
+// - MODS, builds with the package library: the Mods screen, the same page as
+//   Options > Mods.
+//
+// Rows without a retail string carry an owned index (ctr_menu_strings.h). The
+// Up / Down links are filled in by MM_MainRows_Link.
 #if defined(CTR_AP) && !defined(CTR_AP_AUTHORING)
-struct MenuRow s_rowsMainMenuBasicConfig[] = {
-	{0x4C, 0, 1, 0, 0},
-	{0x4D, 0, 2, 1, 1},
-	{0x4E, 1, 3, 2, 2},
-	{0x4F, 2, 4, 3, 3},
-	{0x50, 3, 5, 4, 4},
-	{0x51, 4, 6, 5, 5},
-	{AP_LNG_PLAY_SOLO, 5, 7, 6, 6},
-	{0x0E, 6, 8, 7, 7},
-	{LNG_QUIT, 7, 8, 8, 8},
-	{-1},
-};
-
-struct MenuRow s_rowsMainMenuWithSBConfig[] = {
-	{0x4C, 0, 1, 0, 0},
-	{0x4D, 0, 2, 1, 1},
-	{0x4E, 1, 3, 2, 2},
-	{0x4F, 2, 4, 3, 3},
-	{0x50, 3, 5, 4, 4},
-	{0x51, 4, 6, 5, 5},
-	{0x234, 5, 7, 6, 6},
-	{AP_LNG_PLAY_SOLO, 6, 8, 7, 7},
-	{0x0E, 7, 9, 8, 8},
-	{LNG_QUIT, 8, 9, 9, 9},
-	{-1},
-};
+#define MM_MAIN_ROW_SOLO {AP_LNG_PLAY_SOLO},
 #else
+#define MM_MAIN_ROW_SOLO
+#endif
+#ifdef CTR_CUSTOM_PACKAGES
+#define MM_MAIN_ROW_MODS {CTR_LNG_MODS},
+#else
+#define MM_MAIN_ROW_MODS
+#endif
+
 struct MenuRow s_rowsMainMenuBasicConfig[] = {
-	{0x4C, 0, 1, 0, 0},
-	{0x4D, 0, 2, 1, 1},
-	{0x4E, 1, 3, 2, 2},
-	{0x4F, 2, 4, 3, 3},
-	{0x50, 3, 5, 4, 4},
-	{0x51, 4, 6, 5, 5},
-	{0x0E, 5, 7, 6, 6},
-	{LNG_QUIT, 6, 7, 7, 7},
+	{0x4C}, {0x4D}, {0x4E}, {0x4F}, {0x50}, {0x51},
+	MM_MAIN_ROW_SOLO MM_MAIN_ROW_MODS
+	{0x0E}, {LNG_QUIT},
 	{.stringIndex = -1},
 };
 
 struct MenuRow s_rowsMainMenuWithSBConfig[] = {
-	{0x4C, 0, 1, 0, 0},
-	{0x4D, 0, 2, 1, 1},
-	{0x4E, 1, 3, 2, 2},
-	{0x4F, 2, 4, 3, 3},
-	{0x50, 3, 5, 4, 4},
-	{0x51, 4, 6, 5, 5},
-	{0x234, 5, 7, 6, 6},
-	{0x0E, 6, 8, 7, 7},
-	{LNG_QUIT, 7, 8, 8, 8},
+	{0x4C}, {0x4D}, {0x4E}, {0x4F}, {0x50}, {0x51}, {0x234},
+	MM_MAIN_ROW_SOLO MM_MAIN_ROW_MODS
+	{0x0E}, {LNG_QUIT},
 	{.stringIndex = -1},
 };
-#endif
+
+// Each row's Up and Down go to its neighbours, stopping at the ends; Left and
+// Right stay on the row, as in the retail arrays.
+void MM_MainRows_Link(struct MenuRow *rows)
+{
+	int count = 0, i;
+	while (rows[count].stringIndex != -1)
+		count++;
+	for (i = 0; i < count; i++)
+	{
+		rows[i].rowOnPressUp = (char)(i > 0 ? i - 1 : 0);
+		rows[i].rowOnPressDown = (char)(i < count - 1 ? i + 1 : i);
+		rows[i].rowOnPressLeft = (char)i;
+		rows[i].rowOnPressRight = (char)i;
+	}
+}
 
 static void MM_MenuProc_Config(struct RectMenu *menu);
 
@@ -139,7 +129,7 @@ static void BuildSectionMap(void)
 #if (defined(CTR_AP) && defined(CTR_CUSTOM_TRACKS)) || defined(CTR_CUSTOM_PACKAGES)
 	s_customContentSection = s_numSections;
 	s_sectionCount[s_numSections] = 0;
-	s_sectionName[s_numSections] = "Custom Content";
+	s_sectionName[s_numSections] = "Mods";
 	s_numSections++;
 #endif
 }
@@ -1158,240 +1148,36 @@ static void MM_ConfigProc_Connection(struct RectMenu *menu, uint32_t *ot, struct
 		TextEdit_DrawHint(startY + (numStrings + 4) * rowSpacing, ot);
 }
 
-#if defined(CTR_CUSTOM_TRACKS) && !defined(CTR_CUSTOM_PACKAGES)
-#include "MM_CustomText.c"
-#include "MM_CustomImport.c" // xdelta importer in the player client (decision 35)
-#include "MM_CurrentSeed.c" // content-plan rooms: the Current Seed tab (#133 PR 7)
-#define CUSTOM_CONTENT_ACTION_COUNT 6
-static const char *const s_customContentActions[CUSTOM_CONTENT_ACTION_COUNT] = {
-	"Download Saphi",
-	"Rescan",
-	"Verify / Setup",
-	"Open Source",
-	"Copy YAML",
-	"Save YAML",
-};
-static char s_customContentMessage[128] =
-	"Download from Saphi, or add the original LEV and VRM files, then Rescan.";
-static int s_customContentDownloadActive = 0;
-
-static void CustomContent_SetMessage(const char *message)
-{
-	size_t len = strlen(message);
-	if (len >= sizeof s_customContentMessage)
-		len = sizeof s_customContentMessage - 1;
-	memcpy(s_customContentMessage, message, len);
-	s_customContentMessage[len] = '\0';
-}
-
-static void CustomContent_DrawMessage(uint32_t *ot)
-{
-	char first[35];
-	char second[35];
-	const char *cursor = s_customContentMessage;
-	int line;
-
-	for (line = 0; line < 2 && *cursor != '\0'; line++)
-	{
-		char *out = line == 0 ? first : second;
-		int count = 0;
-		int lastSpace = -1;
-
-		while (cursor[count] != '\0' && count < 34)
-		{
-			out[count] = cursor[count];
-			if (cursor[count] == ' ')
-				lastSpace = count;
-			count++;
-		}
-		if (cursor[count] != '\0' && lastSpace > 0)
-			count = lastSpace;
-		out[count] = '\0';
-		cursor += count;
-		while (*cursor == ' ')
-			cursor++;
-	}
-	if (line == 2 && *cursor != '\0')
-	{
-		int len = (int)strlen(second);
-		if (len > 30)
-			len = 30;
-		memcpy(second + len, "...", 4);
-	}
-
-	DecalFont_DrawLineOT(first, 0x100, 0xB8, FONT_SMALL,
-	                   JUSTIFY_CENTER | (AP_CustomContentRequired() ? RED : WHITE), ot);
-	if (line > 1)
-		DecalFont_DrawLineOT(second, 0x100, 0xC6, FONT_SMALL,
-		                   JUSTIFY_CENTER | (AP_CustomContentRequired() ? RED : WHITE), ot);
-}
-
-static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, struct GamepadBuffer *pad)
-{
-	const struct CustomTrackManagerPackage *package = AP_CustomContentPackage();
-	const struct CustomTrackManagerStatus *status = AP_CustomContentStatus();
-	struct CustomTrackManagerStatus exported;
-	char line[160];
-	char yaml[4096];
-	char downloadMessage[128];
-	int downloadState = AP_CustomContentDownloadStatus(downloadMessage, sizeof downloadMessage);
-	int i;
-
-	// Import track files (decision 35): Select opens it, a patch dropped on
-	// the window opens it with that patch. It owns the page while open.
-	if (!s_customContentDownloadActive && !AP_SeedContentInstallBusy())
-		MM_CustomImport_TakeDrop();
-	if (!MM_CustomImport_Active() && (pad->buttonsTapped & BTN_SELECT) && !s_customContentDownloadActive &&
-	    !AP_SeedContentInstallBusy())
-	{
-		MM_CustomImport_Open();
-		OtherFX_Play(1, 1);
-		return;
-	}
-	if (MM_CustomImport_Active())
-	{
-		MM_CustomImport_Proc(ot, pad);
-		return;
-	}
-
-	// A content-plan room opens on Current Seed; L1 / R1 reach this page.
-	if (MM_CurrentSeed_Page(ot, pad))
-		return;
-
-	if (package == NULL)
-	{
-		DecalFont_DrawLineOT("Custom Content", 0x100, 0x18, FONT_BIG, JUSTIFY_CENTER | ORANGE, ot);
-		DecalFont_DrawLineOT("This seed's package is unsupported.", 0x100, 0x48,
-		                   FONT_SMALL, JUSTIFY_CENTER | RED, ot);
-		return;
-	}
-
-	if (s_customContentDownloadActive)
-	{
-		CustomContent_SetMessage(downloadMessage);
-		if (downloadState == AP_CT_DOWNLOAD_SUCCEEDED)
-		{
-			s_customContentDownloadActive = 0;
-			AP_CustomContentVerify();
-			status = AP_CustomContentStatus();
-			CustomContent_SetMessage(status->detail);
-		}
-		else if (downloadState == AP_CT_DOWNLOAD_FAILED)
-			s_customContentDownloadActive = 0;
-	}
-
-	if ((pad->buttonsTapped & BTN_UP) != 0)
-	{
-		int row = menu->rowSelected % 3;
-		menu->rowSelected += row > 0 ? -1 : 2;
-		OtherFX_Play(0, 1);
-	}
-	if ((pad->buttonsTapped & BTN_DOWN) != 0)
-	{
-		int row = menu->rowSelected % 3;
-		menu->rowSelected += row < 2 ? 1 : -2;
-		OtherFX_Play(0, 1);
-	}
-	if ((pad->buttonsTapped & (BTN_LEFT | BTN_RIGHT)) != 0)
-	{
-		menu->rowSelected = (menu->rowSelected + 3) % CUSTOM_CONTENT_ACTION_COUNT;
-		OtherFX_Play(0, 1);
-	}
-
-	if ((pad->buttonsTapped & (BTN_CROSS | BTN_CIRCLE)) != 0)
-	{
-		OtherFX_Play(1, 1);
-		switch (menu->rowSelected)
-		{
-		case 0:
-			if (AP_CustomContentDownloadStart())
-			{
-				s_customContentDownloadActive = 1;
-				CustomContent_SetMessage("Starting verified download from Project Saphi...");
-			}
-			else
-			{
-				AP_CustomContentDownloadStatus(downloadMessage, sizeof downloadMessage);
-				CustomContent_SetMessage(downloadMessage);
-			}
-			break;
-		case 1:
-			AP_CustomContentRescan();
-			status = AP_CustomContentStatus();
-			CustomContent_SetMessage(status->detail);
-			break;
-		case 2:
-			AP_CustomContentVerify();
-			status = AP_CustomContentStatus();
-			CustomContent_SetMessage(status->detail);
-			break;
-		case 3:
-			CustomContent_SetMessage(Platform_OpenURL(package->sourceUrl)
-			                        ? "Opened the official Project Saphi page."
-			                        : "Could not open the official source page.");
-			break;
-		case 4:
-			if (CustomTrackManager_RenderYaml(package, status, yaml, sizeof yaml) &&
-			    Platform_SetClipboardText(yaml))
-				CustomContent_SetMessage("Verified custom_tracks YAML copied.");
-			else
-				CustomContent_SetMessage("Copy YAML requires a Ready package.");
-			break;
-		case 5:
-			if (CustomTrackManager_SaveYaml(NativeAssets_GetAssetDir(), package, status,
-			                                &exported))
-			{
-				char savedMessage[96];
-				CustomTrackManager_FormatSavedPathForDisplay(exported.yamlPath, savedMessage,
-				                                              sizeof savedMessage);
-				CustomContent_SetMessage(savedMessage);
-			}
-			else
-				CustomContent_SetMessage("Save YAML requires a Ready package.");
-			break;
-		}
-	}
-
-	status = AP_CustomContentStatus();
-	DecalFont_DrawLineOT("Custom Content", 0x100, 0x18, FONT_BIG, JUSTIFY_CENTER | ORANGE, ot);
-	DecalFont_DrawLineOT((char *)package->title, 0x100, 0x36,
-	                   FONT_SMALL, JUSTIFY_CENTER | WHITE, ot);
-	snprintf(line, sizeof line, "v%s  |  %s  |  Project Saphi", package->version, package->author);
-	DecalFont_DrawLineOT(line, 0x100, 0x48, FONT_SMALL, JUSTIFY_CENTER | WHITE, ot);
-	snprintf(line, sizeof line, "Status: %s  |  Seed: %s",
-	         downloadState == AP_CT_DOWNLOAD_RUNNING ? "Downloading" : CustomTrackManager_StateText(status->state),
-	         AP_CustomContentSeedSelected()
-	             ? (AP_CustomContentRequired() ? "REQUIRED" : "READY")
-	             : "OPTIONAL");
-	DecalFont_DrawLineOT(line, 0x100, 0x5A, FONT_SMALL, JUSTIFY_CENTER |
-	                   (AP_CustomContentRequired() ? RED : ORANGE), ot);
-
-	for (i = 0; i < CUSTOM_CONTENT_ACTION_COUNT; i++)
-	{
-		int column = i / 3;
-		int row = i % 3;
-		int x = column == 0 ? 0x38 : 0x118;
-		int y = 0x78 + row * 0x18;
-		DecalFont_DrawLineOT((char *)s_customContentActions[i], x, y, FONT_SMALL, ORANGE, ot);
-		if (i == menu->rowSelected)
-		{
-			RECT sel = {column == 0 ? 0x30 : 0x110, y - 2, 0xC0, 0x0C};
-			CTR_Box_DrawClearBox(&sel, &sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot, &GAME_TRACKER->backBuffer->primMem);
-		}
-	}
-
-	CustomContent_DrawMessage(ot);
-	DecalFont_DrawLineOT("Select: Import track files", 0x100, 0x68, FONT_SMALL, JUSTIFY_CENTER | ORANGE, ot);
-}
-#endif
 #endif // CTR_AP
 
-// The package library and Track Manager: the AP box authoring download and the
-// authoring client without Archipelago.
+// The package library and the Mods screen: every build with CTR_CUSTOM_PACKAGES
+// (the AP player client, the box authoring download and the authoring client).
 #ifdef CTR_CUSTOM_PACKAGES
+// MODS on the title screen opens the options menu on the Mods page, and Back
+// from that page goes straight back to the title screen.
+static int s_modsFromTitle;
+
+void MM_Mods_OpenFromTitle(void)
+{
+	if (s_numSections == 0)
+		BuildSectionMap();
+	s_currentSection = s_customContentSection;
+	g_configMenu.rowSelected = 0;
+	s_modsFromTitle = 1;
+}
+
+static void MM_Mods_ReturnToTitle(struct RectMenu *menu)
+{
+	s_modsFromTitle = 0;
+	menu->rowSelected = 0;
+	s_currentSection = -1;
+	sdata->ptrDesiredMenu = &D230.menuMainMenu;
+}
+
 static struct CustomTrackLibrary s_contentLibrary;
 static int s_contentLibraryLoaded;
 static int s_contentLibraryTab;
+static int s_modsSeed; /* the Mods screen shows its Seed tab (MM_CustomManager.c) */
 static int s_contentSearchEditing;
 static int s_contentSearchPadPrev;
 static char s_contentSearchBackup[CTR_LIBRARY_QUERY_MAX + 1];
@@ -1506,10 +1292,11 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 #ifdef CTR_CUSTOM_PACKAGES
 	    // Drain a package or Saphi worker before leaving; Back first leaves
 	    // the Versions list of one track.
-	    && !MM_CustomLibrary_Busy() && !s_saphiVersionTrack && !MM_CustomImport_Active()
-#elif defined(CTR_AP) && defined(CTR_CUSTOM_TRACKS)
+	    && !MM_CustomLibrary_Busy() && !s_saphiVersionTrack && !MM_CustomImport_Active() && !MM_Mods_ConsumesBack()
+#if defined(CTR_AP) && !defined(CTR_AP_AUTHORING)
 	    // Back first closes the Install missing content overview (#133 PR 7).
-	    && !MM_CurrentSeed_ConsumesBack(s_currentSection) && !MM_CustomImport_Active()
+	    && !MM_CurrentSeed_ConsumesBack(s_currentSection)
+#endif
 #endif
 #ifdef CTR_AP
 	    // Back first steps out of the Play Solo pages (#89).
@@ -1518,6 +1305,11 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 	)
 	{
 		OtherFX_Play(2, 1);
+#ifdef CTR_CUSTOM_PACKAGES
+		if (s_modsFromTitle && s_currentSection == s_customContentSection)
+			MM_Mods_ReturnToTitle(menu);
+		else
+#endif
 		if (s_currentSection >= 0)
 		{
 			if (inControls)

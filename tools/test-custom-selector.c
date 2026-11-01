@@ -30,6 +30,9 @@ static int busy, allowed = 1, prepared, launched, checks, failures;
 #define CHECK(x) do { checks++; if (!(x)) { failures++; printf("FAIL %d: %s\n", __LINE__, #x); } } while (0)
 static void MM_CustomLibrary_Tick(int reload) { (void)reload; }
 static int MM_CustomLibrary_Busy(void) { return busy; }
+/* The Mods screen's off switch (MM_CustomManager.c): one track title is off. */
+static const char *offTitle = "";
+static int MM_Mods_IsOff(const struct CustomTrackLibraryEntry *e) { return !strcmp(e->title, offTitle); }
 int AP_CustomOfflineLaunchAllowed(void) { return allowed; }
 const char *NativeAssets_GetAssetDir(void) { return "/unused"; }
 int OtherFX_Play(u32 sound, int flags) { (void)sound; (void)flags; return 0; }
@@ -176,6 +179,12 @@ int main(void)
     MM_CustomTrackSelect_Init();tick(0);
     CHECK(s_arcadeLibrary.count==2 && !strcmp(s_arcadeLibrary.entries[1].version,"1.9.0"));
     entries[2].local.arcade=1; entries[2].local.arcadeReason[0]=0;
+
+    /* A track turned off on the Mods screen is not listed. */
+    offTitle="Track 00";
+    MM_CustomTrackSelect_Init();tick(0);
+    CHECK(s_arcadeLibrary.count==1 && strcmp(s_arcadeLibrary.entries[0].title,"Track 00"));
+    offTitle="";
 
     /* Time Trial: the same pages, the Time Trial rule, the Time Trial runtime. */
     tracker.gameMode1=TIME_TRIAL; tracker.numLaps=3;

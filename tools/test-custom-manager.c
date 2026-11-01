@@ -17,6 +17,10 @@ struct Data data;
 #define CONN_PAD_CANCEL RAW_BTN_TRIANGLE
 static struct CustomTrackLibrary s_contentLibrary;
 static int s_contentLibraryTab, s_contentSearchEditing, s_contentSearchPadPrev, s_contentStoreWanted;
+static int s_modsSeed, s_modsFromTitle;
+static int removes;
+int CustomPackage_RemoveInstalled(const char *a,const char *pin,char *e,size_t n)
+{ (void)a;(void)pin;(void)e;(void)n;removes++;return 1; }
 static char s_contentSearchBackup[81], s_contentInstallPin[65];
 static struct CustomSaphiCatalogue *s_saphiCatalogue;
 static int s_saphiRefreshBusy, s_saphiLoaded, s_saphiDownloading;
@@ -96,7 +100,21 @@ int main(void)
  tick(BTN_R1);CHECK(s_contentLibraryTab==1);
  struct CustomTrackLibraryEntry installed={0};installed.installed=1;strcpy(installed.title,"Installed track");
  s_contentLibrary.entries=&installed;s_contentLibrary.count=1;s_contentStoreWanted=0;
- tick(BTN_CROSS);CHECK(s_contentStoreWanted&&starts==1);
+ /* Installed: Cross opens the track's actions, which own the pad until closed. */
+ tick(BTN_CROSS);CHECK(s_modsActions==MODS_ACTIONS_OPEN&&starts==1&&MM_Mods_ConsumesBack());
+ tick(0);CHECK(strstr(drawn,"Turn off")&&strstr(drawn,"Remove")&&strstr(drawn,"Check files"));
+ tick(BTN_R1);CHECK(s_contentLibraryTab==1);
+ tick(BTN_UP);tick(BTN_CROSS);CHECK(s_contentStoreWanted&&s_modsActions==MODS_ACTIONS_CLOSED);
+ s_contentStoreWanted=0;
+ tick(BTN_CROSS);tick(BTN_DOWN);tick(BTN_CROSS);CHECK(s_modsActions==MODS_ACTIONS_CONFIRM_REMOVE&&removes==0);
+ tick(BTN_TRIANGLE);CHECK(s_modsActions==MODS_ACTIONS_OPEN&&removes==0);
+ tick(BTN_CROSS);tick(BTN_CROSS);CHECK(removes==1&&s_contentStoreWanted&&!MM_Mods_ConsumesBack());
+ s_contentStoreWanted=0;
+ /* Off: kept in memory even where the list cannot be saved (no /test folder). */
+ tick(BTN_CROSS);tick(BTN_CROSS);CHECK(MM_Mods_IsOff(&installed)&&s_modsActions==MODS_ACTIONS_CLOSED);
+ tick(0);CHECK(strstr(drawn,"OFF\n")&&strstr(drawn,"\nOff\n"));
+ tick(BTN_CROSS);CHECK(strstr(drawn,"Turn on"));
+ tick(BTN_CROSS);CHECK(!MM_Mods_IsOff(&installed));
  tick(BTN_R2);CHECK(s_contentSearchEditing);strcpy(s_saphiQuery,"no match");textResult=2;tick(0);CHECK(!s_contentSearchEditing&&!s_saphiQuery[0]);
  /* One track row for two revisions; latest downloadable beats an unavailable current. */
  tick(BTN_R1);s_saphiSelection[0]=0;

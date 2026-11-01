@@ -567,6 +567,18 @@ int main()
             else CHECK(e.local.bigfileIndex == 9 && !e.local.ctrChallenge && !std::strcmp(e.local.ctrChallengeReason, "No CTR letters"),
                        "no letters, no CTR Challenge");
         }
+        /* Remove (the Mods screen): the pin folder and everything in it go, and
+           the store scan no longer lists it. Anything but a pin is refused. */
+        CHECK(!CustomPackage_RemoveInstalled(assets.c_str(), "../packages", error, sizeof error), "remove refuses a path");
+        CHECK(CustomPackage_RemoveInstalled(assets.c_str(), t1->pin, error, sizeof error), "remove an installed package");
+        CHECK(stat((assets + "/tracks/packages/" + t1->pin).c_str(), &info) != 0, "its folder is gone");
+        CHECK(stat((assets + "/tracks/packages/.removing-" + std::string(t1->pin)).c_str(), &info) != 0, "nothing is left behind");
+        CHECK(!CustomPackage_RemoveInstalled(assets.c_str(), t1->pin, error, sizeof error), "a second remove says it is gone");
+        rows.clear();
+        CustomPackage_ScanStore((assets + "/tracks/packages").c_str(),
+            [](const CustomPackageStoreEntry *e, void *c) { if (e->verified) ((std::vector<CustomPackageStoreEntry> *)c)->push_back(*e); },
+            &rows, error, sizeof error);
+        CHECK(rows.size() == 1, "the store scan lists the other package only");
     }
 
     /* Descriptor: titles, laps, relic targets; one for another patch is ignored with a note. */

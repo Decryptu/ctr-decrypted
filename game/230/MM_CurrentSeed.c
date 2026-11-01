@@ -1,21 +1,21 @@
-/* Current Seed (#133 PR 7): Options > Custom Content in a content-plan room.
-   Included by MM_ConfigMenu.c in the player client (CTR_AP, CTR_CUSTOM_TRACKS,
-   not CTR_CUSTOM_PACKAGES), ahead of MM_ConfigProc_CustomContent.
+/* The Seed tab of the Mods screen (#133 PR 7), in a content-plan room.
+   Included by MM_CustomManager.c in the AP player client, which draws the
+   title and the tabs and calls MM_CurrentSeed_Page for the tab's body.
 
-   L1 / R1 switch between Current Seed and the package page that every room
-   had before. Current Seed lists the room's required tracks with Ready,
-   Missing or Check files; Up / Down selects one and shows its author, size,
-   instructions and patch locator. Cross opens the "Install missing content"
-   overview (authors, versions, sizes, total); Cross there installs, Triangle
-   closes it. Square rescans. Rooms without a content plan, or whose plan
-   names no custom content, never see this page. Decisions and text live in
-   ap/ap_seed_content_logic.h; the install in ap/ap_hooks_seed_content.c. */
+   It lists the room's required tracks with Ready, Missing or Check files;
+   Up / Down selects one and shows its author, size, instructions and patch
+   locator. Cross opens the "Install missing content" overview (authors,
+   versions, sizes, total); Cross there installs, Triangle closes it. Square
+   rescans. A track installed from Browse counts as Ready
+   (CustomTrackManager_LocateContentFiles also looks in the package store).
+   Rooms without a content plan, or whose plan names no custom content, have
+   no Seed tab. Decisions and text live in ap/ap_seed_content_logic.h; the
+   install in ap/ap_hooks_seed_content.c. */
 
 #define MM_SEED_VISIBLE_ROWS 6
 #define MM_SEED_LIST_Y 0x48
 #define MM_SEED_ROW_H 0x0C
 
-static int s_seedTab;          /* 0 Current Seed, 1 the package page */
 static int s_seedSelected;
 static int s_seedOverview;     /* the Install missing content overview is open */
 static unsigned int s_seedLastFrame;
@@ -71,18 +71,10 @@ static void MM_Seed_DrawWrapped(const char *text, int x, int y, int width, int l
 	}
 }
 
-/* Back closes the overview first instead of leaving Custom Content. */
+/* Back closes the overview first instead of leaving the Mods screen. */
 static int MM_CurrentSeed_ConsumesBack(int section)
 {
-	return section == s_customContentSection && s_seedOverview && s_seedTab == 0 && AP_SeedContentActive();
-}
-
-static void MM_CurrentSeed_DrawTabs(uint32_t *ot)
-{
-	DecalFont_DrawLineOT("L1", 0x40, 0x28, FONT_SMALL, WHITE, ot);
-	DecalFont_DrawLineOT("Current Seed", 0xB0, 0x28, FONT_SMALL, JUSTIFY_CENTER | (s_seedTab == 0 ? ORANGE : WHITE), ot);
-	DecalFont_DrawLineOT("Package", 0x150, 0x28, FONT_SMALL, JUSTIFY_CENTER | (s_seedTab == 1 ? ORANGE : WHITE), ot);
-	DecalFont_DrawLineOT("R1", 0x1C0, 0x28, FONT_SMALL, JUSTIFY_RIGHT | WHITE, ot);
+	return section == s_customContentSection && s_seedOverview && s_modsSeed && AP_SeedContentActive();
 }
 
 static void MM_CurrentSeed_DrawOverview(const struct AP_SeedContentRow *rows, int count, uint32_t *ot)
@@ -97,7 +89,7 @@ static void MM_CurrentSeed_DrawOverview(const struct AP_SeedContentRow *rows, in
 		s_seedOverview = 0;
 		return;
 	}
-	DecalFont_DrawLineOT("Install missing content", 0x100, 0x38, FONT_SMALL, JUSTIFY_CENTER | ORANGE, ot);
+	DecalFont_DrawLineOT("Install missing content", 0x100, 0x3C, FONT_SMALL, JUSTIFY_CENTER | ORANGE, ot);
 	for (i = 0; i < queued && i < MM_SEED_VISIBLE_ROWS; i++)
 	{
 		const struct AP_SeedContentRow *r = &rows[plan[i]];
@@ -127,8 +119,8 @@ static void MM_CurrentSeed_DrawOverview(const struct AP_SeedContentRow *rows, in
 	DecalFont_DrawLineOT("Cross: Install    Triangle: Cancel", 0x100, 0xD6, FONT_SMALL, JUSTIFY_CENTER | ORANGE, ot);
 }
 
-/* Returns 1 when it drew Current Seed; 0 lets the package page run. */
-static int MM_CurrentSeed_Page(uint32_t *ot, struct GamepadBuffer *pad)
+/* The Seed tab's body, below the Mods screen's title and tabs. */
+static void MM_CurrentSeed_Page(uint32_t *ot, struct GamepadBuffer *pad)
 {
 	struct AP_SeedContentRow rows[AP_SEED_ROWS_MAX];
 	const unsigned int now = (unsigned int)sdata->gGT->timer;
@@ -137,8 +129,8 @@ static int MM_CurrentSeed_Page(uint32_t *ot, struct GamepadBuffer *pad)
 
 	if (!AP_SeedContentActive())
 	{
-		s_seedTab = 0; s_seedOverview = 0;
-		return 0;
+		s_seedOverview = 0;
+		return;
 	}
 	/* A fresh visit starts clean; a running install keeps its message. */
 	if (now - s_seedLastFrame > 2 && !AP_SeedContentInstallBusy())
@@ -148,20 +140,6 @@ static int MM_CurrentSeed_Page(uint32_t *ot, struct GamepadBuffer *pad)
 	}
 	s_seedLastFrame = now;
 	AP_SeedContentInstallTick(s_seedMessage, sizeof s_seedMessage);
-
-	if (tapped & (BTN_L1 | BTN_R1))
-	{
-		s_seedTab = !s_seedTab;
-		s_seedOverview = 0;
-		OtherFX_Play(0, 1);
-		tapped = 0;
-	}
-	if (s_seedTab == 1)
-	{
-		/* The package page reads the pad itself and has no L1 / R1 action. */
-		MM_CurrentSeed_DrawTabs(ot);
-		return 0;
-	}
 
 	count = AP_SeedContentRows(rows, AP_SEED_ROWS_MAX);
 	ready = ap_seed_ready_count(rows, count);
@@ -212,16 +190,14 @@ static int MM_CurrentSeed_Page(uint32_t *ot, struct GamepadBuffer *pad)
 		}
 	}
 
-	DecalFont_DrawLineOT("Custom Content", 0x100, 0x18, FONT_BIG, JUSTIFY_CENTER | ORANGE, ot);
-	MM_CurrentSeed_DrawTabs(ot);
 	if (s_seedOverview)
 	{
 		MM_CurrentSeed_DrawOverview(rows, count, ot);
-		if (s_seedOverview) return 1;
+		if (s_seedOverview) return;
 	}
 
 	snprintf(line, sizeof line, "Seed content ready: %d / %d", ready, count);
-	DecalFont_DrawLineOT(line, 0x100, 0x38, FONT_SMALL, JUSTIFY_CENTER | (ready == count ? ORANGE : RED), ot);
+	DecalFont_DrawLineOT(line, 0x100, 0x3C, FONT_SMALL, JUSTIFY_CENTER | (ready == count ? ORANGE : RED), ot);
 
 	first = (s_seedSelected / MM_SEED_VISIBLE_ROWS) * MM_SEED_VISIBLE_ROWS;
 	for (i = first; i < first + MM_SEED_VISIBLE_ROWS && i < count; i++)
@@ -244,7 +220,7 @@ static int MM_CurrentSeed_Page(uint32_t *ot, struct GamepadBuffer *pad)
 	if (count > MM_SEED_VISIBLE_ROWS)
 	{
 		snprintf(line, sizeof line, "%d / %d", s_seedSelected + 1, count);
-		DecalFont_DrawLineOT(line, 0x1E0, 0x38, FONT_SMALL, JUSTIFY_RIGHT | WHITE, ot);
+		DecalFont_DrawLineOT(line, 0x1E0, 0x3C, FONT_SMALL, JUSTIFY_RIGHT | WHITE, ot);
 	}
 
 	if (count)
@@ -275,5 +251,4 @@ static int MM_CurrentSeed_Page(uint32_t *ot, struct GamepadBuffer *pad)
 	DecalFont_DrawLineOT(AP_SeedContentInstallBusy() ? "Installing...    Square: Rescan" :
 	                     "Cross: Install missing content    Square: Rescan",
 	                     0x100, 0xD6, FONT_SMALL, JUSTIFY_CENTER | WHITE, ot);
-	return 1;
 }

@@ -13,6 +13,7 @@
 #include <atomic>
 #include <memory>
 #include <algorithm>
+#include <filesystem>
 #ifdef _WIN32
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -500,6 +501,37 @@ extern "C" int CustomPackage_InstallInbox(const char *assets, const char *pin, c
     catch (const std::exception &exception)
     {
         CustomPackage_Free(&package);
+        if (error && errorSize) std::snprintf(error, errorSize, "%s", exception.what());
+        return 0;
+    }
+}
+
+/* Remove one installed revision (the Mods screen's Remove). The pin folder is
+   first renamed out of the store, so a removal that stops part way leaves a
+   name the store scan ignores rather than a damaged package; the renamed
+   folder is then deleted. A link or reparse point is removed, never followed. */
+extern "C" int CustomPackage_RemoveInstalled(const char *assets, const char *pin, char *error, size_t errorSize)
+{
+    if (error && errorSize) error[0] = 0;
+    try
+    {
+        if (!assets || std::strlen(assets) > 31000 || !pin || !revision_name(pin))
+            throw std::runtime_error("Expected assets directory and exact lowercase package pin");
+        const std::filesystem::path store = std::filesystem::u8path(assets) / "tracks" / "packages";
+        const std::filesystem::path installed = store / pin, removing = store / (std::string(".removing-") + pin);
+        std::error_code ec;
+        const auto status = std::filesystem::symlink_status(installed, ec);
+        if (ec || !std::filesystem::is_directory(status))
+            throw std::runtime_error("This track is not installed any more");
+        std::filesystem::remove_all(removing, ec);
+        std::filesystem::rename(installed, removing, ec);
+        if (ec) throw std::runtime_error("Could not remove the track: " + ec.message());
+        std::filesystem::remove_all(removing, ec);
+        if (ec) throw std::runtime_error("The track was removed, but some files are left: " + ec.message());
+        return 1;
+    }
+    catch (const std::exception &exception)
+    {
         if (error && errorSize) std::snprintf(error, errorSize, "%s", exception.what());
         return 0;
     }

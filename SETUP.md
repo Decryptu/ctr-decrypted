@@ -298,18 +298,25 @@ internet. Everything solo is stored in the `solo` folder next to the game, so
 back that folder up together with your memory cards. Multiplayer still uses
 **Connect** as before.
 
-## Experimental custom content in 0.2.0
+## Custom tracks: the Mods screen
 
-The public archive contains no custom-track files. Version 0.2.0 recognizes one
-experimental Baby T Park package supplied by its creator. Open **OPTIONS →
-Custom Content** to inspect it, follow the creator link and verify the installed
-files. **Ready** means the files are compatible; it does not make a generated
-seed use the track.
+Choose **MODS** on the title screen (or **OPTIONS → Mods** from anywhere). L1
+and R1 switch tabs:
 
-To use the preview, export its YAML fragment from the manager and add that block
-to the player YAML before generating the room. Every player whose slot requires
-the track must install the same verified package. A missing or mismatched package
-fails closed instead of loading the displaced retail race.
+- **Seed**, in a room that uses custom tracks: what the room needs, each track
+  marked Ready or Missing. **Cross** downloads every missing track from Project
+  Saphi in one go, after showing what it will download.
+- **Browse**: the Project Saphi track catalogue. **Cross** installs the selected
+  track, **Square** lists its other versions, **R2** searches.
+- **Installed**: your tracks. **Cross** opens a track's options: turn it off
+  (it stays installed but leaves the Arcade and Time Trial lists), remove it, or
+  check its files.
+
+Installed tracks appear on extra pages after the normal tracks in a one-player
+Arcade race and in Time Trial: at the track list, press Right past the last
+page. They race outside Archipelago, so disconnect from a room first. A room
+that needs a track you installed from Browse finds it without downloading it
+again.
 
 ## 60 FPS
 
@@ -324,14 +331,15 @@ Some custom tracks come as an xdelta patch for the game disc (for example a
 custom adventure pack). The client can take the race tracks out of such a patch
 using your own disc; nothing from the patch is downloaded or shared.
 
-1. Open **OPTIONS → Custom Content** and press **Select** (Import track files).
+1. Open **MODS** on the title screen and press **Select** (Import track files).
 2. Choose the patch with the file dialog, drop the `.xdelta` file on the game
    window, or put it in `assets/tracks/import/` (useful on Steam Deck in Game
    Mode) and pick it from the list.
 3. Check the list of found tracks and press **Cross** to install.
 
 The tracks are saved in `assets/tracks/<track>/original/`, where rooms and solo
-seeds look for custom tracks. If a pack descriptor (`<patch name>.ctrpack.json`)
+seeds look for custom tracks, and appear on the Mods screen's Installed tab and
+in Arcade and Time Trial. If a pack descriptor (`<patch name>.ctrpack.json`)
 sits next to the patch, it supplies the track names, laps and relic times.
 Only race tracks are imported; arenas, game code and other changed files are
 listed but skipped.

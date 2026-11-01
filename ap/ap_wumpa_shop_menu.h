@@ -5,9 +5,9 @@
 // LOAD, SAVE, DELETE, WUMPA SHOP, EXIT. Retail EXIT is row 3; with the shop row
 // it is row 4, and the menu procedure maps it back so retail code sees 3.
 
-// MenuRow.stringIndex of the WUMPA SHOP row. No retail string index comes near
-// it; RECTMENU_RowString resolves it, like AP_LNG_TRACKER (0x7f00).
-#define AP_LNG_WUMPA_SHOP 0x7f01
+// MenuRow.stringIndex of the WUMPA SHOP row: AP_LNG_WUMPA_SHOP, in
+// ctr_menu_strings.h with every other owned row string.
+#include "../include/ctr_menu_strings.h"
 
 #define AP_WSHOP_GREEN_SHOP 3
 #define AP_WSHOP_GREEN_EXIT 4

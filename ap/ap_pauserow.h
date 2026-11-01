@@ -37,15 +37,9 @@
 #define AP_PAUSEROW_OPTIONS   5
 #define AP_PAUSEROW_KINDS     6
 
-// The TRACKER row has no retail string. MenuRow.stringIndex indexes
-// sdata->lngStrings (masked with 0x7fff), so the row carries this AP-owned
-// index instead, and RECTMENU.c resolves it to "TRACKER" in the two places it
-// reads a row label. No retail string index comes near it.
-#define AP_LNG_TRACKER 0x7f00
-
-// The title screen's PLAY SOLO row (#89, decision 30) has no retail string
-// either. Same rule: an AP-owned index, resolved to "PLAY SOLO" by RECTMENU.c.
-#define AP_LNG_PLAY_SOLO 0x7f01
+// The TRACKER row and the title screen's PLAY SOLO row (#89, decision 30)
+// have no retail string: their owned indices are in ctr_menu_strings.h.
+#include "../include/ctr_menu_strings.h"
 
 // Rows in order for the given AP rows. Returns the row count (4, 5 or 6).
 // (0, 0) is the retail set.

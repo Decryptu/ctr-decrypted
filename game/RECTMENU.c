@@ -1,4 +1,5 @@
 #include <common.h>
+#include <ctr_menu_strings.h>
 
 #ifndef RECTMENU_TIME_BUFFER
 #define RECTMENU_TIME_BUFFER      sdata->ghostStrTrackTime
@@ -319,11 +320,27 @@ void RECTMENU_DrawFullRect(struct RectMenu *menu, RECT *inner)
 }
 
 
+// Gap under each big-font row: 3 pixels as in retail, 1 when the menu has more
+// than ten rows, which would not fit on the 216-line screen otherwise. No
+// retail menu has that many; the title menu does once Scrapbook, PLAY SOLO and
+// MODS are all there (eleven rows).
+#define RECTMENU_BIG_ROWS_FIT 10
+static s16 RECTMENU_BigRowGap(const struct RectMenu *m)
+{
+	const struct MenuRow *row;
+	int rows = 0;
+	if (m->state & (SHOW_ONLY_HIGHLIT_ROW | ONLY_DRAW_TITLE))
+		return 3;
+	for (row = m->rows; row->stringIndex != -1; ++row)
+		rows++;
+	return rows > RECTMENU_BIG_ROWS_FIT ? 1 : 3;
+}
+
 void RECTMENU_GetHeight(struct RectMenu *m, s16 *height, b16 boolCheckSubmenu)
 {
 	s16 lineHeight;
 	struct MenuRow *row;
-	lineHeight = (m->state & USE_SMALL_FONT) ? data.font_charPixHeight[FONT_SMALL] : data.font_charPixHeight[FONT_BIG] + 3;
+	lineHeight = (m->state & USE_SMALL_FONT) ? data.font_charPixHeight[FONT_SMALL] : data.font_charPixHeight[FONT_BIG] + RECTMENU_BigRowGap(m);
 	if (m->state & SHOW_ONLY_HIGHLIT_ROW)
 	{
 		*height += lineHeight;
@@ -367,11 +384,14 @@ static int RECTMENU_APReplayRow(const struct RectMenu *m, int row)
 }
 #endif
 
-// Row label lookup. Retail reads the language strings directly; AP rows that have
-// no retail string (the hub pause TRACKER row, AP_LNG_TRACKER, and the title
-// screen's PLAY SOLO row, AP_LNG_PLAY_SOLO) resolve here.
+// Row label lookup. Retail reads the language strings directly; rows that have
+// no retail string carry an owned index (ctr_menu_strings.h) and resolve here.
 static char *RECTMENU_RowString(int index)
 {
+#ifdef CTR_CUSTOM_PACKAGES
+	if (index == CTR_LNG_MODS)
+		return (char *)"MODS";
+#endif
 #ifdef CTR_AP
 	if (index == AP_LNG_TRACKER)
 		return (char *)"TRACKER";
@@ -477,7 +497,7 @@ void RECTMENU_DrawSelf(struct RectMenu *menu, s16 posX, s16 posY, s16 menuWidth)
 	{
 		fontType = FONT_BIG;
 		rowTopMargin = 2;
-		rowHeight = RECTMENU_FONT_HEIGHT[FONT_BIG] + 3;
+		rowHeight = RECTMENU_FONT_HEIGHT[FONT_BIG] + RECTMENU_BigRowGap(menu);
 		titleHeight = rowHeight;
 	}
 	height = 0;

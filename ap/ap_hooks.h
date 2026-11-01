@@ -426,8 +426,9 @@ int AP_CustomContentGateEventEntry(int forceVerify);
 void AP_DrawCustomContentWarning(void);
 #endif
 #ifdef CTR_CUSTOM_PACKAGES
-// Box authoring build: may the Arcade custom pages start a package race? The
-// authoring build never joins a room (ap_net_init), so this is "no seed".
+// May the Arcade and Time Trial custom pages start a package race? Only with no
+// seed loaded: a package race is not part of any Archipelago game. The box
+// authoring download never joins a room (ap_net_init), so there it always may.
 int AP_CustomOfflineLaunchAllowed(void);
 #endif
 

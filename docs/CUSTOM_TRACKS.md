@@ -11,10 +11,10 @@ There are two ways a custom track reaches the engine. Both end in the same
 byte-serving hook (section 6).
 
 - **Packages (offline).** A verified, immutable folder per track revision,
-  installed from Project Saphi or by hand, and raced from extra pages on the
-  normal Arcade and Time Trial track selector. This is what the authoring
-  client and the Archipelago box authoring download use, and what most of this
-  document describes.
+  installed from Project Saphi, from an xdelta patch or by hand, and raced from
+  extra pages on the normal Arcade and Time Trial track selector. Every build
+  with custom tracks has them, the Archipelago player client included (the Mods
+  screen), and most of this document describes them.
 - **Seed-bound tracks (Archipelago player client only).** An Archipelago seed
   names a track by its LEV and VRM SHA-256 and the Gem Cup it replaces;
   `config.ini [CustomTracks]` says where the two files are.
@@ -29,14 +29,15 @@ All options are in `CMakeLists.txt`.
 | Option | What it adds | Needs |
 |---|---|---|
 | `CTR_CUSTOM_TRACKS` | The loader core: BIGFILE serving, the 8 MiB memory arena, render bounds for larger tracks | nothing |
-| `CTR_CUSTOM_PACKAGES` | Package library, Track Manager, Arcade and Time Trial custom pages, offline loader, Saphi catalogue and install, custom music, custom Time Trial records, 1 MiB SPU memory | `CTR_CUSTOM_TRACKS` |
+| `CTR_CUSTOM_PACKAGES` | Package library, the Mods screen, Arcade and Time Trial custom pages, offline loader, Saphi catalogue and install, xdelta import, custom music, custom Time Trial records, 1 MiB SPU memory | `CTR_CUSTOM_TRACKS` |
 | `CTR_BOX_AUTHORING` | Box Author Mode, the in-game box placement editor | nothing |
 | `CTR_AI_LAP_RECORDER` | The AI lap recorder (always present when `CTR_AP` is on) | nothing |
 | `CTR_AUTHORING_CLIENT` | All four of the above, without Archipelago; exe `ctr_native_authoring`, window title `AUTHORING CLIENT (no Archipelago)` | `CTR_AP=OFF` |
 
-With `CTR_AP=ON`, packages and Box Author Mode come only from
-`CTR_AP_AUTHORING` (the box authoring download, `ctr_native_ap_authoring`).
-The Archipelago player client never contains them.
+With `CTR_AP=ON`, packages follow `CTR_CUSTOM_TRACKS`, so the player client
+and the box authoring download (`ctr_native_ap_authoring`) both have them, and
+Box Author Mode comes only from `CTR_AP_AUTHORING`. Box Author Mode on custom
+tracks needs both (`AP_AUTHOR_CUSTOM` in `ap/ap_author.c`).
 
 Linux, from a checkout:
 
@@ -70,6 +71,7 @@ directory, the same place as `config.ini`.
 | `assets/tracks/packages/<pin>/` | Saphi install, inbox import | One installed package revision. Never modified after install |
 | `assets/tracks/packages/.pending-<pin>-…` | an install in progress | Staging; a failed one is kept for review and never treated as installed |
 | `assets/tracks/inbox/<pin>/` | you | A package to import by hand |
+| `assets/tracks/mods-off.txt` | the Mods screen | Tracks turned off: one package UUID (or pin, for a package without one) per line. Off tracks stay installed and leave the Arcade and Time Trial pages; seeds ignore the list |
 | `assets/tracks/library.catalog` | an external tool, optional | Metadata-only cache (`CTRLB001`), never treated as installed or verified |
 | `custom-records/` | Time Trial on a custom track | Best times and ghost per track identity (section 9) |
 | `ap-box-placements-authoring.json` | Box Author Mode | Placements on the 18 retail tracks and 7 arenas |
@@ -146,12 +148,25 @@ that cannot run in a mode is listed dimmed with the reason. Passing these
 checks is not a promise that the track plays well; it only rules out what is
 known to crash or misbehave.
 
-## 4. Track Manager and the library
+## 4. The Mods screen and the library
 
-`Options > Custom Content` opens the Track Manager
+`MODS` on the title screen, or `Options > Mods`, opens the Mods screen
 (`game/230/MM_CustomManager.c`, included by `game/230/MM_ConfigMenu.c:
-MM_ConfigProc_CustomContent`). It has a Saphi browse list and an Installed
-list, with search on R2.
+MM_ConfigProc_CustomContent`; the title row is `CTR_LNG_MODS`,
+`include/ctr_menu_strings.h`). L1 and R1 switch tabs:
+
+- **Seed** (Archipelago player client, in a room whose content plan names
+  custom tracks; the screen opens on it there): `game/230/MM_CurrentSeed.c`,
+  the room's tracks and Install missing content (section 12).
+- **Browse**: the Saphi catalogue (section 5). Search on R2.
+- **Installed**: one row per track (its newest revision). Cross opens the
+  track's actions: turn it off or on (`assets/tracks/mods-off.txt`), Remove
+  (`CustomPackage_RemoveInstalled`: every revision of the track; each pin folder
+  is renamed out of the store, then deleted, so a removal cut short is never
+  read as a package), and Check files.
+
+Select imports an xdelta patch, also when one is dropped on the window
+(`game/230/MM_CustomImport.c`, `platform/native_xdelta_import.cpp`).
 
 - **Store scan.** `CustomPackage_StartStoreScan` walks
   `assets/tracks/packages/` on a worker thread, re-acquires and re-verifies
@@ -218,9 +233,10 @@ In order:
    mode.
 3. **Begin.** The second Cross calls `CustomOffline_BeginRuntime` with the host
    slot and mode, sets the lap count from the package, and starts the normal
-   race load for the host slot. In the Archipelago box authoring download this
-   is refused while a seed is loaded (`AP_CustomOfflineLaunchAllowed`); in the
-   authoring client it is always allowed (`ap/ap_authoring_host.c`).
+   race load for the host slot. In the Archipelago builds this is refused while
+   a seed is loaded (`AP_CustomOfflineLaunchAllowed`): a
+   package race is not part of any Archipelago game. In the authoring client it
+   is always allowed (`ap/ap_authoring_host.c`).
 4. **Load request.** `game/MAIN/MainRaceTrack.c: MainRaceTrack_RequestLoad`
    tells the runtime a load was requested; a retry of the host slot keeps it.
 5. **Load start.** `MainRaceTrack_StartLoad` refuses the load (back to the
@@ -375,7 +391,12 @@ track key, LEV and VRM pins, authored laps and measured capability flags
 (`time_trial`, `arcade`, `relic`, `ctr_tokens`, `wumpa`). The two compiled Baby
 T Park revisions keep their manager folders. Any other package is found by
 SHA-256 and size in `assets/tracks/<track key>/original/`, whatever the file
-names, so several revisions of one track can share the folder. On connect and
+names, so several revisions of one track can share the folder. When that
+folder has no LEV or VRM at all, the package store is searched too: a
+`packages/<pin>/` whose `manifest.json` names both digests is hashed, and the
+first whose bytes and sizes match is used
+(`platform/native_custom_track_manager.c: Manager_FindInPackages`), so a track
+installed from Browse needs no second download. On connect and
 again at pad entry the client runs the structural verifier on those exact
 bytes (`ap/ap_content_capability.h`) and refuses the package when a flag the
 descriptor sets to true is not there; the loader then hashes the files once

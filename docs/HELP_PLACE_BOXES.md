@@ -81,7 +81,7 @@ The authoring download can also race community tracks from Project Saphi, so
 you can place boxes on them before they are in a release. One custom track at
 a time.
 
-1. Main menu: `OPTIONS -> Custom Content`. This is the Track Manager.
+1. Title screen: `MODS`.
    - **Browse** lists the Saphi catalogue. Pick a track and press Cross to
      download it. Square shows its other versions. R2 searches, L2 refreshes.
    - **Installed** lists what you have. L1 and R1 switch between the two.
@@ -94,7 +94,7 @@ a time.
    the track's own music when Saphi has it for the track. Otherwise, or when the
    music is too large to fit next to the eight racers' sounds, you hear Crash
    Cove's music. A track downloaded before Saphi added its music shows
-   `* Update` in the Track Manager.
+   `* Update` on the Mods screen.
 4. With Box Author Mode on, the top left shows `BOX AUTHOR  <TRACK NAME>  <N>
    HERE`. The keys are the same as in step 3.
 
@@ -104,7 +104,7 @@ tracks are made for Time Trial only: they have no paths for the computer
 racers, so they cannot run an Arcade race with seven opponents. The Arcade page
 then says `No AI paths. Use Time Trial.` Other reasons are `Grid: 3 of 8` (fewer
 than eight start positions), `No lap checkpoints` and `Files failed checks`. In
-the Track Manager, the Installed tab shows `Arcade`, `Time Trial` (Time Trial
+the Mods screen, the Installed tab shows `Arcade`, `Time Trial` (Time Trial
 only) or `No races` for each track, with the reason under it.
 
 In Time Trial on a custom track, your best times and your best ghost are saved

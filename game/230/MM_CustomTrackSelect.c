@@ -1,7 +1,6 @@
-/* Custom pages at the normal track selector in Arcade and Time Trial, box
-   authoring build only. Included by MM_TrackSelect.c inside
-   CTR_CUSTOM_PACKAGES. Custom pages use owned library metadata, never indices
-   into retail track/ghost tables.
+/* Custom pages at the normal track selector in Arcade and Time Trial.
+   Included by MM_TrackSelect.c inside CTR_CUSTOM_PACKAGES. Custom pages use
+   owned library metadata, never indices into retail track/ghost tables.
 
    One custom track at a time: Cross prepares the chosen installed package,
    the second Cross hands it to the offline loader (native_custom_offline.h)
@@ -11,8 +10,9 @@
    which group that is, is a loading detail below and never the track's
    identity. Leaving the race ends the custom runtime; Retry keeps it.
 
-   Every installed track is listed. One that cannot run in this mode is drawn
-   dimmed and says why (native_custom_content_verify.h). A Time Trial reads
+   Every installed track is listed, except one turned off on the Mods screen
+   (MM_Mods_IsOff). One that cannot run in this mode is drawn dimmed and says
+   why (native_custom_content_verify.h). A Time Trial reads
    and writes its best times and ghost in custom-records/
    (native_custom_records.h), never the memory card. */
 #include <platform/native_custom_track_library.h>
@@ -160,7 +160,7 @@ static int MM_CustomTrackSelect_Tick(void)
             for (size_t i=0;i<s_contentLibrary.count;i++)
             {
                 const struct CustomTrackLibraryEntry *item=&s_contentLibrary.entries[i];
-                if (!item->installed) continue;
+                if (!item->installed || MM_Mods_IsOff(item)) continue;
                 size_t at=0;
                 for (;at<count;at++)
                     if (item->local.uuid[0] && !strcmp(item->local.uuid,eligible[at].local.uuid)) break;
@@ -281,11 +281,11 @@ static int MM_CustomTrackSelect_Tick(void)
         {
             char why[80];
             if (!entry->installed)
-                snprintf(s_arcadeMessage, sizeof s_arcadeMessage, "Install this track in Options / Custom Content.");
+                snprintf(s_arcadeMessage, sizeof s_arcadeMessage, "Install this track from MODS on the title screen.");
             else if (!MM_CustomTrackSelect_Eligible(entry, why, sizeof why))
                 snprintf(s_arcadeMessage, sizeof s_arcadeMessage, "%s", why);
             else if (!AP_CustomOfflineLaunchAllowed())
-                snprintf(s_arcadeMessage, sizeof s_arcadeMessage, "Custom tracks need a client with no Archipelago seed.");
+                snprintf(s_arcadeMessage, sizeof s_arcadeMessage, "Disconnect from Archipelago to race custom tracks here.");
             else if (gGT->numPlyrNextGame != 1)
                 snprintf(s_arcadeMessage, sizeof s_arcadeMessage, "Custom tracks are one player only. Choose one player.");
             else
