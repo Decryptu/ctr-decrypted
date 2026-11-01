@@ -29,6 +29,27 @@
    the audit in native_custom_identity.h and tools/test-custom-identity.c. */
 #define MM_CUSTOM_ARCADE_HOST_LEVEL 6
 
+/* The page title sits between the game's own arrow icon, pointing each way,
+   as on the hub pause screen (icon 0x38 of iconGroup[4]). The font cannot
+   do it: its '<' is a left arrow but its '>' is a dash. */
+#define MM_CUSTOM_PAGE_ARROW_GAP 14
+
+static void MM_CustomTrackSelect_DrawPageArrows(int centerX, int y, int titleWidth, u32 *ot)
+{
+    struct GameTracker *gGT = sdata->gGT;
+    struct Icon **icons = ICONGROUP_GETICONS(gGT->iconGroup[4]);
+    u32 *colors = data.ptrColor[ORANGE];
+    const int x[2] = {centerX - titleWidth / 2 - MM_CUSTOM_PAGE_ARROW_GAP, centerX + titleWidth / 2 + MM_CUSTOM_PAGE_ARROW_GAP};
+    const int rotation[2] = {0x800, 0};
+
+    for (int i = 0; i < 2; i++)
+    {
+        DecalHUD_Arrow2D(icons[0x38], x[i], y + data.font_charPixHeight[FONT_SMALL] / 2, &gGT->backBuffer->primMem, ot,
+                         ColorCode_Load(&colors[0]), ColorCode_Load(&colors[1]), ColorCode_Load(&colors[2]),
+                         ColorCode_Load(&colors[3]), 0, 0x1000, rotation[i]);
+    }
+}
+
 static struct CustomTrackLibrary s_arcadeLibrary;
 static size_t s_arcadePage;
 static size_t s_arcadeRows[CTR_LIBRARY_MAX / CTR_LIBRARY_PAGE_ROWS + 1];
@@ -212,7 +233,8 @@ static int MM_CustomTrackSelect_Tick(void)
     {
         if (D230.trackSelect.transition.state == IN_MENU && !D230.trackSelect.lapBoxOpen)
         {
-            DecalFont_DrawLineOT("<  Vanilla  >", 394, 178, FONT_SMALL, JUSTIFY_CENTER | ORANGE, ot);
+            DecalFont_DrawLineOT("Vanilla", 394, 178, FONT_SMALL, JUSTIFY_CENTER | ORANGE, ot);
+            MM_CustomTrackSelect_DrawPageArrows(394, 178, DecalFont_GetLineWidth("Vanilla", FONT_SMALL), ot);
             snprintf(line, sizeof line, "Page 1/%u", (unsigned)pages);
             DecalFont_DrawLineOT(line, 394, 190, FONT_SMALL, JUSTIFY_CENTER | WHITE, ot);
         }
@@ -305,8 +327,12 @@ static int MM_CustomTrackSelect_Tick(void)
     int dx = D230.trackTransitions.transitionMeta_trackSel[1].currX;
     int dy = D230.trackTransitions.transitionMeta_trackSel[1].currY;
     CustomTrackLibrary_PageLabel(&s_arcadeLibrary, s_arcadePage - 1, label, sizeof label);
-    snprintf(line, sizeof line, "< Custom %s >", label);
+    snprintf(line, sizeof line, "Custom %s", label);
     MM_CustomText_Draw(line, 394 + dx, 10 + dy, 192, 1, JUSTIFY_CENTER | ORANGE, ot);
+    {
+        int titleWidth = DecalFont_GetLineWidth(line, FONT_SMALL);
+        MM_CustomTrackSelect_DrawPageArrows(394 + dx, 10 + dy, titleWidth < 192 ? titleWidth : 192, ot);
+    }
     snprintf(line, sizeof line, "Page %u/%u", (unsigned)s_arcadePage + 1, (unsigned)pages);
     MM_CustomText_Draw(line, 394 + dx, 24 + dy, 192, 1, JUSTIFY_CENTER | WHITE, ot);
     for (size_t i = 0; i < rows; i++)

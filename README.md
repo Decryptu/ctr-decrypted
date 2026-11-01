@@ -14,7 +14,7 @@ CTR Decrypted is built on [dowlle/ctr-native-ap](https://github.com/dowlle/ctr-n
 On top of the Archipelago client, each in OPTIONS:
 
 - **60 FPS**, on by default, in every mode ([docs/60FPS.md](docs/60FPS.md)).
-- **PGXP anti-wobble** and perspective-correct textures, with a depth test that fixes the original's level sorting errors ([docs/PGXP.md](docs/PGXP.md)).
+- **PGXP anti-wobble** and perspective-correct textures, with a depth test that keeps water from painting over nearer ground ([docs/PGXP.md](docs/PGXP.md)).
 - **Screen filters**: Sharp Bilinear, FXAA, Scanlines, CRT ([docs/SCREEN-FILTERS.md](docs/SCREEN-FILTERS.md)).
 - **Extras**: reserves meter, kept reserve fire, blue fire at Ultimate Speed Fire, slide meter gradient, cyan super pads ([docs/EXTRAS.md](docs/EXTRAS.md)).
 - **Playable N. Oxide**, unlocked by beating him in Adventure.
