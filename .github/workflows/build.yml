@@ -2,8 +2,9 @@ name: Build clients
 
 on:
   pull_request:
+  # main only ever moves to a commit dev already tested, so it runs nothing.
   push:
-    branches: [main, dev, 'release/**']
+    branches: [dev, 'release/**']
     tags: ['v*']
   workflow_dispatch:
 

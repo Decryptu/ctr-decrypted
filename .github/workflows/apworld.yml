@@ -1,23 +1,39 @@
 name: CTR world
 
 # The Archipelago world in apworld/ctr: its pytest suite inside Archipelago, the
-# ctr.apworld a release ships (packed from this commit), and the fuzz matrix the
-# Archipelago-index runs at publication time, plus the arms for the content plan,
-# pads, goals and laps. apworld/fuzz holds the metas and the tracker hook.
-# release-prepare.yml takes ctr.apworld from a successful run of this workflow
-# on the release commit; run it by hand (Run workflow) when no push started one.
+# ctr.apworld a release ships (packed from this commit), and the fuzz arms in
+# apworld/fuzz/arms.txt: the Archipelago-index checks plus arms for the content
+# plan, pads, goals and laps. A push or pull request runs the quick set (about
+# twenty arms, one wave of runners); the nightly run on dev and a run by hand
+# (Run workflow, tier full) run every arm at its full count. release-prepare.yml
+# takes ctr.apworld from a full run on the release commit.
 
 on:
   pull_request:
     paths:
       - 'apworld/**'
       - '.github/workflows/apworld.yml'
+  # main only ever moves to a commit dev already tested, so it runs nothing.
   push:
-    branches: [main, dev, 'release/**']
+    branches: [dev, 'release/**']
     paths:
       - 'apworld/**'
       - '.github/workflows/apworld.yml'
+  # The full fuzz, every arm at its full count, on dev every night.
+  schedule:
+    - cron: '0 3 * * *'
   workflow_dispatch:
+    inputs:
+      tier:
+        description: "Fuzz arms: full (every arm, the release gate) or push (the quick set)"
+        type: choice
+        options: [full, push]
+        default: full
+
+# A newer push to the same branch replaces a run still going.
+concurrency:
+  group: ctr-world-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -39,6 +55,10 @@ env:
   # worlds.tracker.fuzzer_hook from it.
   TRACKER_VERSION: 'v0.2.26'
   TRACKER_SHA256: 'ce5674e899d0303f156d43f2c8ebe026498031bf7cd3382524c1d02ee359d463'
+  # The nightly run tests dev, not the default branch; other runs test their own commit.
+  SOURCE_REF: ${{ github.event_name == 'schedule' && 'dev' || '' }}
+  # push: the quick set of arms in apworld/fuzz/arms.txt; full: every arm.
+  FUZZ_TIER: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.tier == 'full')) && 'full' || 'push' }}
 
 jobs:
   tests:
@@ -48,6 +68,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ env.SOURCE_REF }}
           persist-credentials: false
       - name: Fetch the published named-track lock (freeze baseline)
         shell: bash
@@ -99,6 +120,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ env.SOURCE_REF }}
           persist-credentials: false
       - name: Pack
         id: pack
@@ -115,134 +137,33 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  plan:
+    name: pick the fuzz arms
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.pick.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.SOURCE_REF }}
+          sparse-checkout: apworld/fuzz
+          persist-credentials: false
+      - id: pick
+        run: python3 apworld/fuzz/matrix.py "$FUZZ_TIER" >> "$GITHUB_OUTPUT"
+
   fuzz:
-    name: fuzz / ${{ matrix.check_name }}
-    needs: pack
+    name: fuzz / ${{ matrix.name }}
+    needs: [pack, plan]
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - {check_name: canonical-default,           check_runs: 1,    check_hook: '',                                                    check_mode: canonical}
-          - {check_name: default,                     check_runs: 5000, check_hook: '',                                                    check_mode: fuzz, check_meta: 'random'}
-          - {check_name: no-restrictive-starts,       check_runs: 5000, check_hook: 'hooks.no_rs:Hook',                                    check_mode: fuzz, check_meta: 'random'}
-          - {check_name: check-determinism,           check_runs: 500,  check_hook: 'hooks.determinism:Hook',                              check_mode: fuzz, check_meta: 'random'}
-          - {check_name: check-collect-accessibility, check_runs: 500,  check_hook: 'hooks.collect_accessibility_test:Hook',               check_mode: fuzz, check_meta: 'random'}
-          - {check_name: check-item-location-count,   check_runs: 500,  check_hook: 'hooks.item_location_count:Hook',                      check_mode: fuzz, check_meta: 'random'}
-          - {check_name: check-placement-refs,        check_runs: 500,  check_hook: 'hooks.check_placement_item_location_references:Hook', check_mode: fuzz, check_meta: 'random'}
-          - {check_name: check-lambda-capture,        check_runs: 500,  check_hook: 'hooks.detect_rule_variable_capture_issues:Hook',      check_mode: fuzz, check_meta: 'random'}
-          - {check_name: check-static-output,         check_runs: 500,  check_hook: 'hooks.detect_output_placement_changes:Hook',          check_mode: fuzz, check_meta: 'random'}
-          - {check_name: check-indirect-conditions,   check_runs: 500,  check_hook: 'hooks.indirect_conditions:Hook',                      check_mode: fuzz, check_meta: 'random'}
-          # The tracker arms compare Universal Tracker's logic with the server's.
-          # apworld/fuzz/ctr_ut_hook.py runs the tracker's hook and compares
-          # checks by location id, since the tracker shows generic-slot custom
-          # track checks under their room title. check-ut forces accessibility
-          # full on the plain world; check-ut-custom-tracks puts Baby T Park on
-          # a pad in every seed.
-          - {check_name: check-ut,                    check_runs: 500,  check_hook: 'hooks.ctr_ut_hook:Hook', check_mode: fuzz, check_tracker: 'yes', check_meta: 'accessibility-full'}
-          - {check_name: check-ut-custom-tracks,      check_runs: 1000, check_hook: 'hooks.ctr_ut_hook:Hook', check_mode: fuzz, check_tracker: 'yes', check_meta: 'check-ut-custom-tracks'}
-          # The content plan: two custom tracks (one named block, one generic
-          # slot), then cups, boss garages, every pack at once, and the 0.3.0
-          # features (ctr_first, Wumpa Shop and goal, Boss Opponent and Kit
-          # Shuffle). Each meta is apworld/fuzz/<meta>-meta.yaml.
-          - {check_name: content-plan,                check_runs: 1000, check_hook: '',                       check_mode: fuzz, check_meta: 'content-plan'}
-          - {check_name: content-plan-ut,             check_runs: 500,  check_hook: 'hooks.ctr_ut_hook:Hook', check_mode: fuzz, check_tracker: 'yes', check_meta: 'content-plan'}
-          - {check_name: content-plan-cups,           check_runs: 1000, check_hook: '',                       check_mode: fuzz, check_meta: 'content-plan-cups'}
-          - {check_name: content-plan-bosses,         check_runs: 1000, check_hook: '',                       check_mode: fuzz, check_meta: 'content-plan-bosses'}
-          - {check_name: content-plan-bosses-ut,      check_runs: 500,  check_hook: 'hooks.ctr_ut_hook:Hook', check_mode: fuzz, check_tracker: 'yes', check_meta: 'content-plan-bosses'}
-          - {check_name: content-plan-full,           check_runs: 1000, check_hook: '',                       check_mode: fuzz, check_meta: 'content-plan-full'}
-          - {check_name: content-plan-full-ut,        check_runs: 500,  check_hook: 'hooks.ctr_ut_hook:Hook', check_mode: fuzz, check_tracker: 'yes', check_meta: 'content-plan-full'}
-          - {check_name: content-plan-030,            check_runs: 1000, check_hook: '',                       check_mode: fuzz, check_meta: 'content-plan-030'}
-          - {check_name: content-plan-030-ut,         check_runs: 500,  check_hook: 'hooks.ctr_ut_hook:Hook', check_mode: fuzz, check_tracker: 'yes', check_meta: 'content-plan-030'}
-          # Original Gem Cups: three and seven cups under each cup track value
-          # (gem-cups-<count>-<tracks>), from content-plan-gem-cups-meta.yaml.
-          - {check_name: gem-cups-3-off,              check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'gem-cups-3-off'}
-          - {check_name: gem-cups-3-random,           check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'gem-cups-3-random'}
-          - {check_name: gem-cups-3-no-repeats,       check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'gem-cups-3-random_no_repeats'}
-          - {check_name: gem-cups-7-off,              check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'gem-cups-7-off'}
-          - {check_name: gem-cups-7-random,           check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'gem-cups-7-random'}
-          - {check_name: gem-cups-7-no-repeats,       check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'gem-cups-7-random_no_repeats'}
-          - {check_name: gem-cups-ut,                 check_runs: 500,  check_hook: 'hooks.ctr_ut_hook:Hook', check_mode: fuzz, check_tracker: 'yes', check_meta: 'gem-cups-7-off'}
-          # Pads: check_meta is pads-<unlock>-<placement>-<density>[-<fixed>[-<overlay>]]
-          # on content-plan-pads-meta.yaml. <fixed> fixes keys, gems, both,
-          # filler (oxide_1_optional on a 101_percent goal), all, or none;
-          # <overlay> names a file in apworld/fuzz/overlays.
-          - {check_name: pads-vanilla-vanilla,        check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-vanilla-vanilla-full'}
-          - {check_name: pads-vanilla-within,         check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-vanilla-shuffle_within_kind-full'}
-          - {check_name: pads-vanilla-shuffle,        check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-vanilla-shuffle-full'}
-          - {check_name: pads-within,                 check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle_within_kind-full'}
-          - {check_name: pads-no-4-keys,              check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-random_without_4_keys-shuffle-full'}
-          - {check_name: pads-density-off,            check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-off'}
-          - {check_name: pads-density-light,          check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-light'}
-          - {check_name: pads-density-standard,       check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-standard'}
-          - {check_name: pads-density-deep,           check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-deep'}
-          - {check_name: pads-density-full,           check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full'}
-          - {check_name: pads-ut,                     check_runs: 500,  check_hook: 'hooks.ctr_ut_hook:Hook', check_mode: fuzz, check_tracker: 'yes', check_meta: 'pads-vanilla-shuffle-full'}
-          - {check_name: pads-fixed-keys-vanilla,     check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-vanilla-shuffle-full-keys'}
-          - {check_name: pads-fixed-gems-vanilla,     check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-vanilla-shuffle-full-gems'}
-          - {check_name: pads-fixed-both-vanilla,     check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-vanilla-shuffle-full-both'}
-          - {check_name: pads-fixed-keys-random,      check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-keys'}
-          - {check_name: pads-fixed-gems-random,      check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-gems'}
-          - {check_name: pads-fixed-both-random,      check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-both'}
-          - {check_name: pads-filler-vanilla,         check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-vanilla-shuffle-full-filler'}
-          - {check_name: pads-filler-random,          check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-filler'}
-          - {check_name: pads-fixed-ut-vanilla,       check_runs: 500,  check_hook: 'hooks.ctr_ut_hook:Hook', check_mode: fuzz, check_tracker: 'yes', check_meta: 'pads-vanilla-shuffle-full-all'}
-          - {check_name: pads-fixed-ut-random,        check_runs: 500,  check_hook: 'hooks.ctr_ut_hook:Hook', check_mode: fuzz, check_tracker: 'yes', check_meta: 'pads-randomized-shuffle-full-all'}
-          - {check_name: pads-goal-any,               check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-none-goal-any'}
-          - {check_name: pads-goal-101,               check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-none-goal-101'}
-          - {check_name: pads-goal-bosses,            check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-none-goal-bosses'}
-          - {check_name: pads-goal-gems,              check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-none-goal-gems'}
-          - {check_name: pads-goal-wumpa,             check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-none-goal-wumpa'}
-          - {check_name: pads-goal-all,               check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-none-goal-all'}
-          - {check_name: pads-goal-wumpa-vanilla,     check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-vanilla-shuffle-full-none-goal-wumpa'}
-          - {check_name: pads-boss-opponent,          check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-none-boss-opponent'}
-          - {check_name: pads-boss-kit,               check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-none-boss-kit'}
-          - {check_name: pads-boss-all,               check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-none-boss-all'}
-          - {check_name: pads-boss-all-vanilla,       check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-vanilla-shuffle-full-none-boss-all'}
-          - {check_name: pads-boss-cups,              check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-none-boss-cups'}
-          - {check_name: pads-boss-cups-vanilla,      check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-vanilla-shuffle-full-none-boss-cups'}
-          - {check_name: pads-gauntlet,               check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-none-gauntlet'}
-          - {check_name: pads-gauntlet-vanilla,       check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-vanilla-shuffle-full-none-gauntlet'}
-          - {check_name: pads-ctr-first,              check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-none-ctr-first'}
-          - {check_name: pads-ctr-first-vanilla,      check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-vanilla-shuffle-full-none-ctr-first'}
-          - {check_name: pads-letters,                check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-none-letters'}
-          - {check_name: pads-letters-vanilla,        check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-vanilla-shuffle-full-none-letters'}
-          - {check_name: pads-shop-allowed,           check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-none-shop-allowed'}
-          - {check_name: pads-shop-excluded,          check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-none-shop-excluded'}
-          - {check_name: pads-shop-excluded-vanilla,  check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-vanilla-shuffle-full-none-shop-excluded'}
-          - {check_name: pads-shop-fixed,             check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-both-shop-excluded'}
-          - {check_name: pads-shop-fixed-vanilla,     check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-vanilla-shuffle-full-both-shop-excluded'}
-          - {check_name: pads-shop-filler,            check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-filler-shop-excluded'}
-          - {check_name: pads-shop-filler-vanilla,    check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-vanilla-shuffle-full-filler-shop-excluded'}
-          - {check_name: pads-wumpa-fixed,            check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-both-goal-all'}
-          - {check_name: pads-spoiler,                check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-none-spoiler'}
-          - {check_name: pads-spoiler-vanilla,        check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-vanilla-shuffle-full-none-spoiler'}
-          - {check_name: pads-client,                 check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-none-client'}
-          - {check_name: pads-client-vanilla,         check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-vanilla-shuffle-full-none-client'}
-          - {check_name: pads-all-ut,                 check_runs: 500,  check_hook: 'hooks.ctr_ut_hook:Hook', check_mode: fuzz, check_tracker: 'yes', check_meta: 'pads-randomized-shuffle-full-none-all'}
-          - {check_name: pads-all-ut-vanilla,         check_runs: 500,  check_hook: 'hooks.ctr_ut_hook:Hook', check_mode: fuzz, check_tracker: 'yes', check_meta: 'pads-vanilla-shuffle-full-none-all'}
-          # Lap checks with each goal, with fixed Keys and Gems, with boss cups,
-          # and through Universal Tracker (overlays laps*.yaml).
-          - {check_name: pads-laps-goal-any,          check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-none-laps-goal-any'}
-          - {check_name: pads-laps-goal-101,          check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-none-laps-goal-101'}
-          - {check_name: pads-laps-goal-bosses,       check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-none-laps-goal-bosses'}
-          - {check_name: pads-laps-goal-gems,         check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-none-laps-goal-gems'}
-          - {check_name: pads-laps-goal-wumpa,        check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-none-laps-goal-wumpa'}
-          - {check_name: pads-laps-goal-all,          check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-none-laps-goal-all'}
-          - {check_name: pads-laps-goal-all-vanilla,  check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-vanilla-shuffle-full-none-laps-goal-all'}
-          - {check_name: pads-laps-fixed-keys-vanilla, check_runs: 500, check_hook: '',                       check_mode: fuzz, check_meta: 'pads-vanilla-shuffle-full-keys-laps'}
-          - {check_name: pads-laps-fixed-keys-random, check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-keys-laps'}
-          - {check_name: pads-laps-fixed-gems-vanilla, check_runs: 500, check_hook: '',                       check_mode: fuzz, check_meta: 'pads-vanilla-shuffle-full-gems-laps'}
-          - {check_name: pads-laps-fixed-gems-random, check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-gems-laps'}
-          - {check_name: pads-laps-fixed-both-vanilla, check_runs: 500, check_hook: '',                       check_mode: fuzz, check_meta: 'pads-vanilla-shuffle-full-both-laps'}
-          - {check_name: pads-laps-fixed-both-random, check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-both-laps'}
-          - {check_name: pads-laps-boss-cups,         check_runs: 500,  check_hook: '',                       check_mode: fuzz, check_meta: 'pads-randomized-shuffle-full-none-laps-boss-cups'}
-          - {check_name: pads-laps-ut,                check_runs: 500,  check_hook: 'hooks.ctr_ut_hook:Hook', check_mode: fuzz, check_tracker: 'yes', check_meta: 'pads-randomized-shuffle-full-none-laps'}
-          - {check_name: pads-laps-ut-vanilla,        check_runs: 500,  check_hook: 'hooks.ctr_ut_hook:Hook', check_mode: fuzz, check_tracker: 'yes', check_meta: 'pads-vanilla-shuffle-full-none-laps'}
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ env.SOURCE_REF }}
           path: world-src
           sparse-checkout: apworld/fuzz
           persist-credentials: false
@@ -254,7 +175,7 @@ jobs:
           path: index-repo
           persist-credentials: false
       - name: Check out the fuzz hooks
-        if: matrix.check_mode == 'fuzz'
+        if: matrix.meta != 'canonical'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ env.FUZZ_HOOKS_REPO }}
@@ -267,7 +188,7 @@ jobs:
           version: ${{ env.AP_VERSION }}
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Stage hooks, empty.apworld and fuzz.py
-        if: matrix.check_mode == 'fuzz'
+        if: matrix.meta != 'canonical'
         shell: bash
         run: |
           set -euo pipefail
@@ -278,7 +199,7 @@ jobs:
           # Each generation's log (kept beside a failing YAML) names its seed.
           python3 world-src/apworld/fuzz/log-seed.py archipelago/fuzz.py
       - name: Install the pinned Universal Tracker world
-        if: matrix.check_tracker == 'yes'
+        if: matrix.tracker == 'yes'
         shell: bash
         run: |
           set -euo pipefail
@@ -289,7 +210,7 @@ jobs:
           # ("Players"), and raises when the folder does not exist.
           mkdir -p archipelago/Players
       - name: Stage the CTR tracker hook (compares by location id)
-        if: matrix.check_hook == 'hooks.ctr_ut_hook:Hook'
+        if: matrix.hook == 'hooks.ctr_ut_hook:Hook'
         shell: bash
         run: cp world-src/apworld/fuzz/ctr_ut_hook.py archipelago/hooks/ctr_ut_hook.py
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -306,11 +227,10 @@ jobs:
         shell: bash
         working-directory: archipelago
         env:
-          CHECK_NAME: ${{ matrix.check_name }}
-          CHECK_RUNS: ${{ matrix.check_runs }}
-          CHECK_HOOK: ${{ matrix.check_hook }}
-          CHECK_MODE: ${{ matrix.check_mode }}
-          CHECK_META: ${{ matrix.check_meta }}
+          CHECK_NAME: ${{ matrix.name }}
+          CHECK_RUNS: ${{ matrix.runs }}
+          CHECK_HOOK: ${{ matrix.hook }}
+          CHECK_META: ${{ matrix.meta }}
         run: |
           set -euo pipefail
           fuzz=../world-src/apworld/fuzz
@@ -319,7 +239,7 @@ jobs:
           # PYTHONHASHSEED=<it> python Generate.py --seed <the log's fuzz seed>.
           export PYTHONHASHSEED=$(( (GITHUB_RUN_ID + $(cksum <<< "$CHECK_NAME" | cut -d' ' -f1)) % 4294967296 ))
           echo "PYTHONHASHSEED=${PYTHONHASHSEED}"
-          if [ "$CHECK_MODE" = "canonical" ]; then
+          if [ "$CHECK_META" = "canonical" ]; then
             uv run python ../index-repo/.github/scripts/check_canonical_generation.py \
               --module ctr --artifact-dir canonical_output --seed 0
             exit 0
@@ -371,7 +291,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: fuzz-failure-${{ matrix.check_name }}
+          name: fuzz-failure-${{ matrix.name }}
           path: |
             archipelago/fuzz_output
             archipelago/canonical_output
