@@ -60,7 +60,16 @@ NATIVE_COMPANIONS = (
     "support-bundle.bat",
     "support-bundle.ps1",
     "support-bundle.sh",
+    "vendor/xdelta3/LICENSE",
+    "vendor/utf8proc/LICENSE.md",
 )
+# Licences of the libraries the xdelta track importer vendors. package-client
+# copies them into the player and box authoring archives under these names,
+# and the release folders ship them the same way (THIRD_PARTY_NOTICES.md).
+VENDOR_LICENSES = {
+    "LICENSE-xdelta3.txt": "vendor/xdelta3/LICENSE",
+    "LICENSE-utf8proc.md": "vendor/utf8proc/LICENSE.md",
+}
 
 
 class AssemblyError(ValueError):
@@ -172,6 +181,7 @@ def unpack_artifact(
         "default_controls.ini",
         "BUILD.json",
         "BUILD-NOTICE.txt",
+        *VENDOR_LICENSES,
         *variant_names,
         *helper_names,
     }
@@ -586,6 +596,10 @@ def assemble(args: argparse.Namespace) -> list[Path]:
             fail("versions.txt does not carry the requested build identity")
         (temp / "versions.txt").write_text(versions, encoding="utf-8")
         bundle_common = [*common, temp / "versions.txt"]
+        licenses = [(source / path, name) for name, path in VENDOR_LICENSES.items()]
+        for path, _ in licenses:
+            if not path.is_file():
+                fail(f"missing release companion file: {path}")
         if not (source / "support-bundle.sh").is_file():
             fail("missing release companion file: support-bundle.sh")
         windows_assets = staged["windows"][2]
@@ -598,12 +612,14 @@ def assemble(args: argparse.Namespace) -> list[Path]:
         windows_files = [
             (staged["windows"][0], "ctr_native_ap.exe"),
             *((path, path.name) for path in [*bundle_common, *helper]),
+            *licenses,
             *windows_assets,
         ]
         linux_files = [
             (staged["linux"][0], "ctr_native_ap"),
             *((path, path.name) for path in bundle_common),
             (source / "support-bundle.sh", "support-bundle.sh"),
+            *licenses,
             *linux_assets,
         ]
         # The solo runtime (#89) ships inside both client archives, so the

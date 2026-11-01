@@ -194,6 +194,15 @@ class AssemblerFixtureTests(unittest.TestCase):
         with self.assertRaises(ASSEMBLER.AssemblyError):
             ASSEMBLER.unpack_artifact(archive, "windows", self.root / "out-nested")
 
+    def test_vendored_library_licenses_are_accepted(self) -> None:
+        extra = {name: name.encode() for name in ASSEMBLER.VENDOR_LICENSES}
+        artifact, _ = self.write_build_archive("windows", extra=extra)
+        archive = next(artifact.glob("ctr-decrypted-windows-x86-*.zip"))
+        unpacked = self.root / "unpacked-licenses"
+        ASSEMBLER.unpack_artifact(archive, "windows", unpacked)
+        for name in ASSEMBLER.VENDOR_LICENSES:
+            self.assertEqual((unpacked / name).read_bytes(), name.encode())
+
     def test_unexpected_root_member_is_still_rejected(self) -> None:
         artifact, _ = self.write_build_archive("windows", extra={"surprise.txt": b"nope"})
         archive = next(artifact.glob("ctr-decrypted-windows-x86-*.zip"))
