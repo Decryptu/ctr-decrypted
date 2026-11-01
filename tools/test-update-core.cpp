@@ -90,8 +90,8 @@ static Bytes B(const std::string &s) { return Bytes(s.begin(), s.end()); }
 static const char kManifest024[] =
     "{\n"
     "  \"artifacts\": {\n"
-    "    \"ctr-decrypted-v0.2.4-linux-x86.tar.gz\": \"79d0d430946a27bbf939aceb875f1f20037aef093fb283599ea4d015fa4f5b8e\",\n"
-    "    \"ctr-decrypted-v0.2.4-windows-x86.zip\": \"2a8fe4a9594e3ba77230716ff4f722bf44f62c6269a3d28f5818f91a9c54d9cf\"\n"
+    "    \"ctr-archipelago-v0.2.4-linux-x86.tar.gz\": \"79d0d430946a27bbf939aceb875f1f20037aef093fb283599ea4d015fa4f5b8e\",\n"
+    "    \"ctr-archipelago-v0.2.4-windows-x86.zip\": \"2a8fe4a9594e3ba77230716ff4f722bf44f62c6269a3d28f5818f91a9c54d9cf\"\n"
     "  },\n"
     "  \"version\": \"v0.2.4\"\n"
     "}\n";
@@ -374,19 +374,12 @@ static void TestInterop()
 	std::string sig = kSig024;
 	sig.replace(sig.find("1791883611"), 10, "1791883612");
 	CHECK_EQ(VerifyMinisign(key, m, sig, nullptr), ERR_COMMENT_SIGNATURE);
-	// The parsed manifest is the one the release published.
+	// The downloads are ctr-decrypted-* since v1.1.0. This signed release
+	// names ctr-archipelago-* files: its signature still verifies, but it is
+	// not a release this client can install.
 	Manifest parsed;
-	CHECK_EQ(ParseManifest(m, parsed), OK);
-	CHECK(parsed.version == "v0.2.4");
-	CHECK(parsed.linuxSha256 == "79d0d430946a27bbf939aceb875f1f20037aef093fb283599ea4d015fa4f5b8e");
-	// A full release check of v0.2.4 for a v0.2.3 build reaches the archive
-	// hash (the archive is not embedded, so any bytes fail there).
-	CHECK_EQ(VerifyRelease(AP_UPDATE_PUBLIC_KEY, m, kSig024, "v0.2.4", "v0.2.3", PLATFORM_WINDOWS, B("x")), ERR_HASH);
-	// The same signed release is a downgrade or no-op for v0.2.4 and later.
-	CHECK_EQ(VerifyRelease(AP_UPDATE_PUBLIC_KEY, m, kSig024, "v0.2.4", "v0.2.4", PLATFORM_WINDOWS, B("x")),
-	         ERR_NOT_NEWER);
-	CHECK_EQ(VerifyRelease(AP_UPDATE_PUBLIC_KEY, m, kSig024, "v0.2.4", "v0.3.0", PLATFORM_LINUX, B("x")),
-	         ERR_NOT_NEWER);
+	CHECK_EQ(ParseManifest(m, parsed), ERR_MANIFEST);
+	CHECK_EQ(VerifyRelease(AP_UPDATE_PUBLIC_KEY, m, kSig024, "v0.2.4", "v0.2.3", PLATFORM_WINDOWS, B("x")), ERR_MANIFEST);
 }
 
 static void TestSignatureFailures()

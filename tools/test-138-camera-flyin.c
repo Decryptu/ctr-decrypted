@@ -51,6 +51,8 @@
 struct sData sdata_static;
 struct Data data;
 u8 *gCTRNativeScratchpadBase;
+// CAM.c remembers the one-player L2 camera distance in the settings.
+NativeConfig g_config;
 
 // Layout checks the issue-138 result packet asked for, taken on the real
 // production types rather than on copies. A 32-bit build must agree.

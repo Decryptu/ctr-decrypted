@@ -1274,6 +1274,10 @@ extern "C" int XdeltaImport_TrackKey(const char *title, char out[65])
     return 1;
 }
 
+#ifdef CTR_XDELTA_TESTING
+extern "C" { int g_xdeltaTestFailRoomVrm; }
+#endif
+
 namespace {
 
 /* ---- Room folder install (decision 35): ASSETS/tracks/<key>/original. Rooms
@@ -1297,9 +1301,8 @@ std::string room_failure(const std::string &what, bool placedLev, bool placedVrm
 }
 
 #ifdef CTR_XDELTA_TESTING
-/* Harness only: fail the VRM after the LEV is placed. */
-extern "C" int g_xdeltaTestFailRoomVrm;
-int g_xdeltaTestFailRoomVrm;
+/* Harness only: fail the VRM after the LEV is placed (g_xdeltaTestFailRoomVrm
+   is defined above the unnamed namespace, so the harness can link to it). */
 #define XDELTA_TEST_FAIL_VRM() do { if (g_xdeltaTestFailRoomVrm) throw std::runtime_error("Test failure"); } while (0)
 #else
 #define XDELTA_TEST_FAIL_VRM() do { } while (0)
