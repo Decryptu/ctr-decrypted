@@ -1241,6 +1241,129 @@ static void TestDeadzoneDefaultsToNone(void)
 	Check(NATIVE_CONTROLS_DEADZONE_DEFAULT == 0, "the default is the console's behaviour");
 }
 
+// === Steering ===
+
+// The game's null-wheel steering curve (game/Vehicle/VehPhysJoystick.c), in thousandths
+// of full lock for one stick byte. Copied so the test checks what the game makes of the
+// byte rather than the byte alone.
+static int TestGameSteer(u8 byte)
+{
+	int distance = (int)byte - 0x80;
+	const int sign = (distance < 0) ? -1 : 1;
+	const int max = 1000;
+
+	distance *= sign;
+
+	if (distance < 0x30)
+	{
+		return 0;
+	}
+
+	if (distance >= 0x7f)
+	{
+		return sign * max;
+	}
+
+	int value = distance - 0x30;
+
+	if (value < 0x5e / 2)
+	{
+		return sign * ((value * (max / 5) * 2) / 0x5e);
+	}
+
+	value -= 0x5e / 2;
+	return sign * (((value * (max - max / 5) * 2) / 0x5e) + max / 5);
+}
+
+static s32 TestTravel(int permille)
+{
+	return (s32)((long long)permille * SDL_JOYSTICK_AXIS_MAX / 1000);
+}
+
+static void TestModernSteeringFollowsTheStick(void)
+{
+	printf("steering: modern is proportional and reaches full lock early\n");
+
+	Check(NativeInput_ModernSteerByte(0) == 0x80, "a centred stick is centred");
+	Check(TestGameSteer(NativeInput_ModernSteerByte(TestTravel(90))) == 0, "a resting stick inside 10% does not steer");
+	Check(TestGameSteer(NativeInput_ModernSteerByte(TestTravel(-90))) == 0, "the same on the left");
+
+	// Half of the travel between the inner zone and 75% asks for half of full lock.
+	const int half = TestGameSteer(NativeInput_ModernSteerByte(TestTravel(425)));
+	Check((half > 450) && (half < 550), "halfway asks for half of full lock");
+	Check(TestGameSteer(NativeInput_ModernSteerByte(TestTravel(-425))) == -half, "left mirrors right");
+
+	Check(TestGameSteer(NativeInput_ModernSteerByte(TestTravel(750))) == 1000, "75% of the travel is full lock");
+	Check(TestGameSteer(NativeInput_ModernSteerByte(SDL_JOYSTICK_AXIS_MAX)) == 1000, "full right is full lock");
+	Check(TestGameSteer(NativeInput_ModernSteerByte(SDL_JOYSTICK_AXIS_MIN)) == -1000, "full left is full lock");
+
+	// A fully pushed stick 45 degrees off horizontal still has cos(45) = 0.707 of the travel.
+	Check(TestGameSteer(NativeInput_ModernSteerByte(TestTravel(707))) == 1000, "45 degrees off horizontal is full lock");
+
+	int previous = 0;
+	bool monotonic = true;
+	int largestStep = 0;
+	for (int permille = 0; permille <= 1000; permille++)
+	{
+		const int steer = TestGameSteer(NativeInput_ModernSteerByte(TestTravel(permille)));
+		monotonic = monotonic && (steer >= previous);
+
+		// The curve's own gap between 73% and full lock is the only large step allowed.
+		if ((steer - previous > largestStep) && (previous < 700))
+		{
+			largestStep = steer - previous;
+		}
+
+		previous = steer;
+	}
+	Check(monotonic, "steering never drops as the stick goes further");
+	Check(largestStep <= 20, "below the curve's top gap, steering moves in small steps");
+}
+
+static void TestOriginalSteeringIsTheConsoleCurve(void)
+{
+	printf("steering: original keeps the raw stick\n");
+
+	// The console curve: nothing for a third of the travel, then 73% just short of the edge.
+	Check(TestGameSteer(NativeInput_AxisToByte(TestTravel(350))) == 0, "a third of the travel does not steer");
+	Check(TestGameSteer(NativeInput_AxisToByte(TestTravel(990))) < 750, "just short of the edge is under 75%");
+	Check(TestGameSteer(NativeInput_AxisToByte(SDL_JOYSTICK_AXIS_MAX)) == 1000, "only the edge is full lock");
+}
+
+static void TestSteeringModeIsPerDeviceAndRestored(void)
+{
+	printf("steering: saved per device, restored by defaults\n");
+	ResetModule();
+
+	int pads[4];
+	int keyboard;
+	SetupDevices(2, pads, &keyboard);
+	NativeControls_ResolveAssignment();
+
+	Check(NativeControls_GetSteering(pads[0]) == NATIVE_CONTROLS_STEERING_ORIGINAL, "a new pad steers like the console");
+	Check(NATIVE_CONTROLS_STEERING_DEFAULT == NATIVE_CONTROLS_STEERING_ORIGINAL, "the default is the console's");
+
+	NativeControls_SetSteering(pads[0], NATIVE_CONTROLS_STEERING_MODERN);
+	NativeControls_SetSteering(pads[1], 7);
+	Check(NativeControls_GetSteering(pads[1]) == NATIVE_CONTROLS_STEERING_ORIGINAL, "an unknown mode is ignored");
+	NativeControls_Save();
+
+	ResetModule();
+	NativeControls_Load();
+
+	int reloadedPads[4];
+	int reloadedKeyboard;
+	SetupDevices(2, reloadedPads, &reloadedKeyboard);
+
+	Check(NativeControls_GetSteering(reloadedPads[0]) == NATIVE_CONTROLS_STEERING_MODERN, "modern survived the file");
+	Check(NativeControls_GetSteering(reloadedPads[1]) == NATIVE_CONTROLS_STEERING_ORIGINAL, "the other pad kept original");
+
+	NativeControls_RestoreDeviceDefaults(reloadedPads[0]);
+	Check(NativeControls_GetSteering(reloadedPads[0]) == NATIVE_CONTROLS_STEERING_ORIGINAL, "restore defaults puts it back");
+	Check(NativeControls_GetSteering(NATIVE_CONTROLS_NO_DEVICE) == NATIVE_CONTROLS_STEERING_DEFAULT,
+	      "no device reads the default");
+}
+
 // The snapshot version in effect while the digital/analog toggle still existed. Its layout
 // carried two extra fields per slot, so a snapshot from that build is bigger than the
 // struct now and the size check in Platform_InputRestoreState does not catch it: the
@@ -2274,6 +2397,9 @@ int main(void)
 	TestAnUnreadableDeadzoneKeepsTheDefault();
 	TestAHandEditedDeadzoneCannotExceedTheMaximum();
 	TestDeadzoneDefaultsToNone();
+	TestModernSteeringFollowsTheStick();
+	TestOriginalSteeringIsTheConsoleCurve();
+	TestSteeringModeIsPerDeviceAndRestored();
 	TestAnOlderInputSnapshotIsRefused();
 	TestAltKeepsTheKeyboardPadConnected();
 	TestChangingAPlayerDeviceReachesThePadBus();

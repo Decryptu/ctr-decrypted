@@ -87,6 +87,33 @@ it is shared by two identical controllers, and `Restore Defaults` puts it back t
 The keyboard has no axes, so the row is not shown for it. The figure is saved when
 you leave the player's screen.
 
+## Steering
+
+**STEERING** chooses how the left stick steers: `Left`, `Right` or `Cross` switch
+between the two.
+
+- **Original** (default) hands the game the stick as the console did. The game's
+  own curve ignores the first third of the travel, gives 73% of full lock just
+  short of the edge and full lock only at the very edge. A round modern stick
+  leaves that edge as soon as it is a few degrees off horizontal, so a stick pushed
+  hard but slightly up or down steers far less than the D-pad (about 70% at 25
+  degrees, 25% at the diagonal).
+- **Modern** reshapes the stick for that curve: nothing inside the first 10% of
+  the travel, then steering in proportion to the stick, and full lock from about
+  two-thirds of the travel, which a fully pushed stick keeps up to about 45
+  degrees off horizontal. The game's curve has no value between 73% and full lock,
+  so that last step stays a jump. Only the horizontal axis changes, and the
+  physics are the game's own (`NativeInput_ModernSteerByte` in
+  `platform/native_input.c`).
+
+Modern also makes a smaller push count as Left or Right in the menus that read
+the stick, since a quarter of the travel already reaches the threshold.
+
+Like the deadzone, the mode belongs to the device, is saved when you leave the
+player's screen, and goes back to Original with `Restore Defaults`. To check it,
+`tools/controls/test_native_controls.c` runs both modes through a copy of the
+game's curve.
+
 ## Editing someone else's controls
 
 `L1` and `R1` on player 1's device switch between players, and the cursor jumps
@@ -181,6 +208,7 @@ name = Xbox 360 Controller
 cross = A
 l2 = Left Trigger
 deadzone = 15
+steering = modern
 
 [AP Shortcuts]
 character_picker = Keypad 9

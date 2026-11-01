@@ -1,5 +1,5 @@
 // Options -> Controls: the player list, and for each player the device picker,
-// the rebinding rows, the stick deadzone and Restore Defaults.
+// the rebinding rows, the stick deadzone, the steering mode and Restore Defaults.
 //
 // The per-player screen is ported from CTR Native Expanded by thecodingbob
 // (https://github.com/thecodingbob/ctr-native, game/230/MM_ControlsConfig.c,
@@ -40,6 +40,7 @@ enum ControlsRowKind
 	CONTROLS_ROW_DEVICE = 0,
 	CONTROLS_ROW_BINDING,
 	CONTROLS_ROW_DEADZONE,
+	CONTROLS_ROW_STEERING,
 	CONTROLS_ROW_RESTORE,
 
 	// One AP shortcut; `binding` holds the NATIVE_SHORTCUT_* index.
@@ -78,7 +79,7 @@ static int s_scroll;
 #define CONTROLS_MAX_ROWS                                                                                  \
 	((((int)NATIVE_CONTROLS_BIND_COUNT > (int)NATIVE_SHORTCUT_COUNT) ? (int)NATIVE_CONTROLS_BIND_COUNT          \
 	                                                                 : (int)NATIVE_SHORTCUT_COUNT) +           \
-	 3)
+	 4)
 static struct ControlsRow s_rows[CONTROLS_MAX_ROWS];
 static int s_rowCount;
 
@@ -183,6 +184,10 @@ static void Controls_BuildRows(void)
 	if (hasAnalog)
 	{
 		s_rows[s_rowCount].kind = CONTROLS_ROW_DEADZONE;
+		s_rows[s_rowCount].binding = -1;
+		s_rowCount++;
+
+		s_rows[s_rowCount].kind = CONTROLS_ROW_STEERING;
 		s_rows[s_rowCount].binding = -1;
 		s_rowCount++;
 	}
@@ -520,6 +525,21 @@ static void Controls_AdjustDeadzone(int device, int held)
 	}
 }
 
+// Two modes, so Left, Right and Cross all flip it.
+static void Controls_ToggleSteering(int device)
+{
+	if (device == NATIVE_CONTROLS_NO_DEVICE)
+	{
+		OtherFX_Play(2, 1);
+		return;
+	}
+
+	const s32 mode = NativeControls_GetSteering(device);
+	NativeControls_SetSteering(device, (mode == NATIVE_CONTROLS_STEERING_MODERN) ? NATIVE_CONTROLS_STEERING_ORIGINAL
+	                                                                             : NATIVE_CONTROLS_STEERING_MODERN);
+	OtherFX_Play(1, 1);
+}
+
 static void Controls_HandleConfirm(int device, const struct ControlsRow *row)
 {
 	switch (row->kind)
@@ -532,6 +552,10 @@ static void Controls_HandleConfirm(int device, const struct ControlsRow *row)
 	case CONTROLS_ROW_DEADZONE:
 		// Left and Right are the editing gesture here; Cross has nothing to confirm.
 		OtherFX_Play(2, 1);
+		break;
+
+	case CONTROLS_ROW_STEERING:
+		Controls_ToggleSteering(device);
 		break;
 
 	case CONTROLS_ROW_BINDING:
@@ -637,6 +661,14 @@ static void Controls_DrawValue(int device, const struct ControlsRow *row, int y,
 		return;
 	}
 
+	if ((row->kind == CONTROLS_ROW_STEERING) && (device != NATIVE_CONTROLS_NO_DEVICE))
+	{
+		const bool modern = NativeControls_GetSteering(device) == NATIVE_CONTROLS_STEERING_MODERN;
+		DecalFont_DrawLineOT((char *)(modern ? "Modern" : "Original"), CONFIG_VALUE_X, y, FONT_SMALL,
+		                     JUSTIFY_RIGHT | WHITE, ot);
+		return;
+	}
+
 	if (row->kind == CONTROLS_ROW_SHORTCUT)
 	{
 		// Grey for unbound, so a shortcut cleared by a newer binding stands out.
@@ -704,6 +736,9 @@ static void Controls_DrawRows(struct RectMenu *menu, uint32_t *ot, int device)
 			break;
 		case CONTROLS_ROW_DEADZONE:
 			label = "Deadzone";
+			break;
+		case CONTROLS_ROW_STEERING:
+			label = "Steering";
 			break;
 		case CONTROLS_ROW_RESTORE:
 			label = "Restore Defaults";
@@ -869,6 +904,10 @@ static void Controls_HandleInput(struct RectMenu *menu, u32 tapped, u32 held, in
 	{
 		Controls_AdjustDeadzone(device, held);
 	}
+	else if ((s_rows[menu->rowSelected].kind == CONTROLS_ROW_STEERING) && ((tapped & (BTN_LEFT | BTN_RIGHT)) != 0))
+	{
+		Controls_ToggleSteering(device);
+	}
 
 	if ((tapped & BTN_CROSS) != 0)
 	{
@@ -978,8 +1017,9 @@ static void Controls_OpenScreen(struct RectMenu *menu, int player)
 	menu->rowSelected = 0;
 }
 
-// Back on a player's screen: drop any pending rebind, persist the deadzone (it is
-// only held in memory while it is being nudged) and return to the player list.
+// Back on a player's screen: drop any pending rebind, persist the deadzone and the
+// steering mode (both only held in memory while they change) and return to the
+// player list.
 static void MM_Controls_CloseScreen(struct RectMenu *menu)
 {
 	NativeControls_CancelCapture();

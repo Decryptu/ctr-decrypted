@@ -38,6 +38,14 @@
 // figure mean a larger share of the stick than it says.
 #define NATIVE_CONTROLS_DEADZONE_SCALE 100
 
+// How the left stick's horizontal axis reaches the game's steering, per device.
+// ORIGINAL hands the game the raw stick, as the console did. MODERN reshapes it so the
+// game's own analog steering curve comes out proportional to the stick, with full lock
+// before the edge of the gate (platform/native_input.c, docs/CONTROLS.md).
+#define NATIVE_CONTROLS_STEERING_ORIGINAL 0
+#define NATIVE_CONTROLS_STEERING_MODERN   1
+#define NATIVE_CONTROLS_STEERING_DEFAULT  NATIVE_CONTROLS_STEERING_ORIGINAL
+
 // Returned by NativeControls_GetPlayerDevice when a player has no device. Also a
 // valid index into the device table, so callers can use one sentinel for both.
 #define NATIVE_CONTROLS_NO_DEVICE (-1)
@@ -161,6 +169,13 @@ s32 NativeControls_GetDeadzone(int device);
 
 // Sets the deadzone in memory. The value is clamped, not refused.
 void NativeControls_SetDeadzone(int device, s32 percent);
+
+// Steering mode for one device (NATIVE_CONTROLS_STEERING_*), or the default without a
+// device.
+s32 NativeControls_GetSteering(int device);
+
+// Sets the steering mode in memory, like the deadzone. An unknown mode is ignored.
+void NativeControls_SetSteering(int device, s32 mode);
 
 // Waits for the device to go neutral, then takes the next press on that device alone and
 // applies it. The binding reads as unbound for the duration; if the capture is cancelled

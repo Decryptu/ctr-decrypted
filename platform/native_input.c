@@ -357,6 +357,70 @@ internal s32 NativeInput_ApplyDeadzone(s32 axis, s32 percent)
 	return (axis < 0) ? -stretched : stretched;
 }
 
+// Modern steering (NATIVE_CONTROLS_STEERING_MODERN). For a pad, the game turns the stick
+// byte into steering through VehPhysJoystick_GetStrength with its built-in table (no wheel
+// calibration): nothing up to 0x30 from centre, 20% of full lock at 0x5f, 73% at 0x7e, and
+// full lock only at 0x7f, the very edge. A modern round stick seldom sits there: a few
+// degrees off horizontal already drops it, so the console curve gave its full lock to
+// the D-pad and a quarter of it to a stick at the diagonal.
+//
+// Modern reads the stick's horizontal travel instead: nothing inside the first 10% (a
+// resting stick), then steering in proportion to the travel, asking for full lock at 75%.
+// The byte handed to the game is the inverse of its own curve, so the physics are
+// untouched. The curve has no value between 73% and full lock, so a request in that gap
+// goes to whichever is nearer: full lock from about two-thirds of the travel, which a
+// fully pushed stick keeps up to about 45 degrees off horizontal.
+#define NATIVE_INPUT_MODERN_INNER_PERCENT 10
+#define NATIVE_INPUT_MODERN_FULL_PERCENT  75
+
+// The game's null-wheel table (game/Vehicle/VehPhysJoystick.c): dead zone, full lock
+// distance, the span its two linear pieces share, and its last value short of full lock
+// in thousandths.
+#define NATIVE_INPUT_STEER_DEAD       0x30
+#define NATIVE_INPUT_STEER_FULL       0x7f
+#define NATIVE_INPUT_STEER_SPAN       0x5e
+#define NATIVE_INPUT_STEER_LAST_SHORT 728
+
+internal u8 NativeInput_ModernSteerByte(s32 axis)
+{
+	const long long full = -SDL_JOYSTICK_AXIS_MIN;
+	const long long magnitude = (axis < 0) ? -(long long)axis : (long long)axis;
+
+	// Requested steering in thousandths of full lock.
+	long long want = (magnitude * 100 - NATIVE_INPUT_MODERN_INNER_PERCENT * full) * 1000 /
+	           ((NATIVE_INPUT_MODERN_FULL_PERCENT - NATIVE_INPUT_MODERN_INNER_PERCENT) * full);
+
+	if (want <= 0)
+	{
+		return 0x80;
+	}
+
+	s32 distance;
+
+	if (want >= (1000 + NATIVE_INPUT_STEER_LAST_SHORT) / 2)
+	{
+		distance = NATIVE_INPUT_STEER_FULL;
+	}
+	else if (want < 200)
+	{
+		// First piece: 0 to 20% over half the span.
+		distance = NATIVE_INPUT_STEER_DEAD + (s32)((want * NATIVE_INPUT_STEER_SPAN + 200) / 400);
+	}
+	else
+	{
+		// Second piece: 20% upwards at four times the slope.
+		distance = NATIVE_INPUT_STEER_DEAD + (NATIVE_INPUT_STEER_SPAN / 2) +
+		           (s32)(((want - 200) * NATIVE_INPUT_STEER_SPAN + 800) / 1600);
+
+		if (distance > NATIVE_INPUT_STEER_FULL - 1)
+		{
+			distance = NATIVE_INPUT_STEER_FULL - 1;
+		}
+	}
+
+	return (u8)((axis < 0) ? (0x80 - distance) : (0x80 + distance));
+}
+
 internal void NativeInput_ApplyController(s32 slot)
 {
 	struct NativeInputController *nativeController = &s_controllers[slot];
@@ -393,7 +457,9 @@ internal void NativeInput_ApplyController(s32 slot)
 	NativeInput_SetSnapshotButtons(snapshot, buttons);
 	snapshot->analog[0] = NativeInput_AxisToByte(NativeInput_ApplyDeadzone(rightX, deadzone));
 	snapshot->analog[1] = NativeInput_AxisToByte(NativeInput_ApplyDeadzone(rightY, deadzone));
-	snapshot->analog[2] = NativeInput_AxisToByte(NativeInput_ApplyDeadzone(leftX, deadzone));
+	snapshot->analog[2] = (NativeControls_GetSteering(device) == NATIVE_CONTROLS_STEERING_MODERN)
+	                          ? NativeInput_ModernSteerByte(NativeInput_ApplyDeadzone(leftX, deadzone))
+	                          : NativeInput_AxisToByte(NativeInput_ApplyDeadzone(leftX, deadzone));
 	snapshot->analog[3] = NativeInput_AxisToByte(NativeInput_ApplyDeadzone(leftY, deadzone));
 }
 

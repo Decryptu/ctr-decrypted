@@ -37,6 +37,9 @@
 #define NATIVE_CONTROLS_KEY_NAME     "name"
 #define NATIVE_CONTROLS_KEY_NONE     "none"
 #define NATIVE_CONTROLS_KEY_DEADZONE "deadzone"
+#define NATIVE_CONTROLS_KEY_STEERING "steering"
+#define NATIVE_CONTROLS_VALUE_ORIGINAL "original"
+#define NATIVE_CONTROLS_VALUE_MODERN   "modern"
 #define NATIVE_CONTROLS_VALUE_AUTO     "auto"
 #define NATIVE_CONTROLS_VALUE_DISABLED "disabled"
 
@@ -75,6 +78,7 @@ struct NativeControlsProfile
 	char key[NATIVE_CONTROLS_KEY_LENGTH];
 	char name[NATIVE_CONTROLS_NAME_LENGTH];
 	s32 deadzone;
+	s32 steering;
 	s32 bindings[NATIVE_CONTROLS_BIND_COUNT];
 };
 
@@ -349,6 +353,7 @@ internal int NativeControls_CreateProfile(int kind, const char *key, const char 
 		snprintf(profile->key, sizeof(profile->key), "%s", key);
 		snprintf(profile->name, sizeof(profile->name), "%s", name);
 		profile->deadzone = NATIVE_CONTROLS_DEADZONE_DEFAULT;
+		profile->steering = NATIVE_CONTROLS_STEERING_DEFAULT;
 		memcpy(profile->bindings, NativeControls_DefaultsForKind(kind), sizeof(profile->bindings));
 		return i;
 	}
@@ -605,6 +610,20 @@ internal void NativeControls_ApplyDeviceKey(int profile, char *key, char *value)
 		}
 
 		s_profiles[profile].deadzone = NativeControls_ClampDeadzone((s32)percent);
+		return;
+	}
+
+	if (NativeControls_StrEqual(key, NATIVE_CONTROLS_KEY_STEERING))
+	{
+		// Anything but the two names keeps the default, like an unreadable deadzone.
+		if (NativeControls_StrEqual(value, NATIVE_CONTROLS_VALUE_MODERN))
+		{
+			s_profiles[profile].steering = NATIVE_CONTROLS_STEERING_MODERN;
+		}
+		else if (NativeControls_StrEqual(value, NATIVE_CONTROLS_VALUE_ORIGINAL))
+		{
+			s_profiles[profile].steering = NATIVE_CONTROLS_STEERING_ORIGINAL;
+		}
 		return;
 	}
 
@@ -869,6 +888,9 @@ void NativeControls_Save(void)
 		fprintf(file, "\n[%s%s]\n", NATIVE_CONTROLS_SECTION_PREFIX, s_profiles[i].key);
 		fprintf(file, "%s = %s\n", NATIVE_CONTROLS_KEY_NAME, s_profiles[i].name);
 		fprintf(file, "%s = %d\n", NATIVE_CONTROLS_KEY_DEADZONE, s_profiles[i].deadzone);
+		fprintf(file, "%s = %s\n", NATIVE_CONTROLS_KEY_STEERING,
+		        (s_profiles[i].steering == NATIVE_CONTROLS_STEERING_MODERN) ? NATIVE_CONTROLS_VALUE_MODERN
+		                                                                     : NATIVE_CONTROLS_VALUE_ORIGINAL);
 
 		for (int binding = 0; binding < NATIVE_CONTROLS_BIND_COUNT; binding++)
 		{
@@ -1451,6 +1473,7 @@ void NativeControls_RestoreDeviceDefaults(int device)
 
 	memcpy(bindings, NativeControls_DefaultsForKind(s_devices[device].kind), sizeof(s_profiles[0].bindings));
 	s_profiles[s_devices[device].profile].deadzone = NATIVE_CONTROLS_DEADZONE_DEFAULT;
+	s_profiles[s_devices[device].profile].steering = NATIVE_CONTROLS_STEERING_DEFAULT;
 
 	// The keyboard defaults and the shortcut defaults are only free of each other as a
 	// set, so the keyboard never comes back on its own: a shortcut moved onto C would
@@ -1493,6 +1516,39 @@ void NativeControls_SetDeadzone(int device, s32 percent)
 	}
 
 	s_profiles[profile].deadzone = NativeControls_ClampDeadzone(percent);
+}
+
+s32 NativeControls_GetSteering(int device)
+{
+	if (!NativeControls_IsValidDevice(device))
+	{
+		return NATIVE_CONTROLS_STEERING_DEFAULT;
+	}
+
+	int profile = s_devices[device].profile;
+	if (profile < 0)
+	{
+		return NATIVE_CONTROLS_STEERING_DEFAULT;
+	}
+
+	return s_profiles[profile].steering;
+}
+
+void NativeControls_SetSteering(int device, s32 mode)
+{
+	if (!NativeControls_IsValidDevice(device) ||
+	    ((mode != NATIVE_CONTROLS_STEERING_ORIGINAL) && (mode != NATIVE_CONTROLS_STEERING_MODERN)))
+	{
+		return;
+	}
+
+	int profile = s_devices[device].profile;
+	if (profile < 0)
+	{
+		return;
+	}
+
+	s_profiles[profile].steering = mode;
 }
 
 // ---------------------------------------------------------------------------

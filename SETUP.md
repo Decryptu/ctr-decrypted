@@ -358,8 +358,9 @@ controllers, DualShock 4 / DualSense, and most others) are picked up
 automatically with a PlayStation-style layout, whether connected before or
 after launch.
 
-To change which device each player uses, rebind buttons, or set a stick
-deadzone for a drifting stick, open **Options → Controls** and pick a player.
+To change which device each player uses, rebind buttons, set a stick deadzone
+for a drifting stick, or switch **Steering** to **Modern** if the stick feels
+weaker than the D-pad, open **Options → Controls** and pick a player.
 Your choices are saved in `controls.ini` next to `config.ini`. The full guide is
 [docs/CONTROLS.md](docs/CONTROLS.md).
 
