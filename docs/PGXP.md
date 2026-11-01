@@ -89,5 +89,5 @@ For reproducible captures, before/after measurements and polygon dumps, use the 
 
 - Precision only reaches primitives whose vertices the game writes straight from the GTE (or copies through the hooked level-renderer helpers). Geometry that game code builds or edits in integer space after projection falls back to retail positions for those vertices.
 - A polygon with some vertices recovered and some not draws with mixed positions. High Octane does the same deliberately, so shared corners stay precise.
-- Perspective-correct texturing needs every vertex of a polygon to have a depth. Polygons that are partly behind the near plane, or very close, keep affine mapping. The same polygons keep ordering-table order in the [level depth test](#level-depth-test), so a sort error right at the camera can remain.
+- Perspective-correct texturing needs every vertex of a polygon to have a depth. Polygons that are partly behind the near plane, or very close, keep affine mapping. The same polygons have no depth for the [level depth test](#level-depth-test), so water that close to the camera can still paint over nearer ground, as in the original.
 - Larger vertices cost about 2 MiB more per vertex buffer, 6 MiB in all (the CPU array plus two GL buffers), and the shadow table takes roughly 5 bytes per byte of primitive arena (about 10 MiB with 1 MiB arenas).
