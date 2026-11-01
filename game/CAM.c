@@ -1309,7 +1309,23 @@ void CAM_FollowDriver_Normal(struct CameraDC *cDC, struct Driver *d, SVec3 *push
 			uVar13 = (u32)zoom->percentage1;
 			uVar11 = (u32)zoom->percentage1;
 		}
+#ifdef CTR_NATIVE
+		const s32 slowerThanCamera = x < cDC->cameraMoveSpeed;
+#endif
 		cDC->cameraMoveSpeed = CAM_SmoothFrame(cDC->cameraMoveSpeed, x, (s32)uVar11, (s32)(0x100 - uVar13));
+#ifdef CTR_NATIVE
+		// Native: the inward weights (keep 0xF0, give 0x100 - 0xFF) sum to
+		// 241/256, so each inward frame drops the speed 6% whatever the gap,
+		// below the kart's own; the outward filter then climbs back until the
+		// kart slows past it again. While the kart slows the camera distance
+		// and pitch saw in steps of a few frames. Stop the drop at the kart's
+		// speed: a hard stop still pulls in 6% a frame, a gentle one follows
+		// the kart's speed smoothly.
+		if (slowerThanCamera && (cDC->cameraMoveSpeed < x))
+		{
+			cDC->cameraMoveSpeed = x;
+		}
+#endif
 	}
 
 	// if camera angle changed
