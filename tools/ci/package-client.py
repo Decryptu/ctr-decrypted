@@ -109,8 +109,10 @@ def main():
     commit = output('git', 'rev-parse', 'HEAD').strip()
     if output('git', 'diff', '--name-only', 'HEAD').strip():
         raise ValueError('Tracked source differs from the recorded commit')
-    label = 'ap-authoring' if variant == 'authoring' else variant
-    name = f'ctr-{label}-{platform}-x86-{commit[:12]}'
+    # ctr-decrypted (the player client), ctr-decrypted-box-authoring,
+    # ctr-decrypted-vanilla, ctr-decrypted-authoring-client.
+    label = {'ap': '', 'authoring': '-box-authoring'}.get(variant, '-' + variant)
+    name = f'ctr-decrypted{label}-{platform}-x86-{commit[:12]}'
     with tempfile.TemporaryDirectory() as temporary:
         root = Path(temporary) / name
         root.mkdir()

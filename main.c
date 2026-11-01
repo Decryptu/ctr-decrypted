@@ -502,11 +502,10 @@ int main(int argc, char *argv[])
 #endif
 
 #ifdef CTR_AP
-	// Window title carries the CTR-AP release so a screenshot alone names the
-	// build (release-management plan, proposal 1).
-#define CTR_WINDOW_TITLE "Crash Team Racing - CTR-AP " CTR_AP_VERSION
+	// Window title carries the release so a screenshot alone names the build.
+#define CTR_WINDOW_TITLE "CTR Decrypted " CTR_AP_VERSION
 #else
-#define CTR_WINDOW_TITLE "Crash Team Racing"
+#define CTR_WINDOW_TITLE "CTR Decrypted"
 #endif
 
 #ifdef USE_16BY9

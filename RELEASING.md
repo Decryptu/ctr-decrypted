@@ -124,17 +124,17 @@ For 0.2.0, the maintainer has approved a community-tested baseline. The in-game 
 
 ## 4. Package
 
-- [ ] Bundle folder named `ctr-archipelago-vX.Y.Z/` containing:
+- [ ] Bundle folder named `ctr-decrypted-vX.Y.Z/` containing:
       `ctr_native_ap.exe`, `ctr.apworld`, `versions.txt`, `extract_assets.py`,
       `SETUP.md`, `ap-config.example.txt`, `LICENSE`, `THIRD_PARTY_NOTICES.md`,
       `default_controls.ini`, `support-bundle.bat`, `support-bundle.ps1`
       (Linux tarball instead ships
       `support-bundle.sh`).
-- [ ] Zip it as `ctr-archipelago-vX.Y.Z-windows-x86.zip`. The folder INSIDE
+- [ ] Zip it as `ctr-decrypted-vX.Y.Z-windows-x86.zip`. The folder INSIDE
       the zip must carry the release name too (players see it when unzipping).
 - [ ] Write the `.sha256` file for the zip; quote the hash in the release
       notes.
-- [ ] Linux tarball: assemble `ctr-archipelago-vX.Y.Z-linux-x86.tar.gz`
+- [ ] Linux tarball: assemble `ctr-decrypted-vX.Y.Z-linux-x86.tar.gz`
       containing the STRIPPED `ctr_native_ap` plus the same companion files as
       the Windows bundle (`ctr.apworld`, `extract_assets.py`, `SETUP.md`,
       `ap-config.example.txt`, `LICENSE`, `THIRD_PARTY_NOTICES.md`,
@@ -174,13 +174,13 @@ archive, and its contents never change the player client.
 
 - [ ] The `Build clients` workflow builds it next to the player client on both
       platforms (`-DCTR_AP=ON -DCTR_CUSTOM_TRACKS=ON -DCTR_AP_AUTHORING=ON`) as
-      its own artifact archive, `ctr-ap-authoring-<platform>-x86-<commit>`,
+      its own artifact archive, `ctr-decrypted-box-authoring-<platform>-x86-<commit>`,
       with its own `ctr_native_ap_authoring(.exe).debug` sidecar.
 - [ ] `tools/release/assemble-release.py --authoring` (the `Prepare release
       assets` workflow passes it) repackages it under the release name:
-      `ctr-archipelago-vX.Y.Z-box-authoring-windows-x86.zip` and
-      `ctr-archipelago-vX.Y.Z-box-authoring-linux-x86.tar.gz`, each with a
-      `.sha256`. The folder inside is `ctr-archipelago-vX.Y.Z-box-authoring/`.
+      `ctr-decrypted-vX.Y.Z-box-authoring-windows-x86.zip` and
+      `ctr-decrypted-vX.Y.Z-box-authoring-linux-x86.tar.gz`, each with a
+      `.sha256`. The folder inside is `ctr-decrypted-vX.Y.Z-box-authoring/`.
       It holds `ctr_native_ap_authoring(.exe)`, `HELP-PLACE-BOXES.md`,
       `AUTHORING-BUILD.txt`, `SETUP.md`, `extract_assets.py`, `versions.txt`,
       `LICENSE`, `THIRD_PARTY_NOTICES.md`, `default_controls.ini`, the support
@@ -200,8 +200,8 @@ exact shape, with sorted keys and a single trailing newline:
 ```json
 {
   "artifacts": {
-    "ctr-archipelago-vX.Y.Z-linux-x86.tar.gz": "<sha256 hex>",
-    "ctr-archipelago-vX.Y.Z-windows-x86.zip": "<sha256 hex>"
+    "ctr-decrypted-vX.Y.Z-linux-x86.tar.gz": "<sha256 hex>",
+    "ctr-decrypted-vX.Y.Z-windows-x86.zip": "<sha256 hex>"
   },
   "version": "vX.Y.Z"
 }
@@ -211,7 +211,7 @@ The in-game updater (#301, `ap/ap_update_core.cpp`) reads this contract in
 released clients: it offers only a stable `vX.Y.Z` release whose assets include
 `manifest.json`, `manifest.json.minisig` and both client archives, verifies the
 signature with the public key compiled into the client, and installs from the
-platform archive's `ctr-archipelago-vX.Y.Z/` folder only `ctr_native_ap(.exe)`,
+platform archive's `ctr-decrypted-vX.Y.Z/` folder only `ctr_native_ap(.exe)`,
 `ctr.apworld`, the files directly in `assets/tracks/cortex-vortex/` and the whole
 `solo-runtime/` folder (#89), which replaces the installed runtime folder as one
 unit and must carry `solo-runtime/RUNTIME.txt`. The player's `solo/` folder is
@@ -294,7 +294,7 @@ the previous release's published notes. House style:
       Windows-only prerelease stops here, uploads no `manifest.json` and needs
       no signing key.
 - [ ] If this release offers the box authoring download (§4), upload
-      `ctr-archipelago-vX.Y.Z-box-authoring-windows-x86.zip` and its `.sha256`
+      `ctr-decrypted-vX.Y.Z-box-authoring-windows-x86.zip` and its `.sha256`
       as two more assets, plus the Linux `.tar.gz` pair on a two-platform
       release. Name it in the release notes as a separate download for helping
       place boxes, not for playing.

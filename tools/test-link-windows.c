@@ -599,7 +599,7 @@ static void TestRollback(void)
 
 	RegisterFailEachStep(SetupClean, 0, "clean machine");
 	RegisterFailEachStep(SimRegForeign, 1, "explicit replacement of another program");
-	RegisterFailEachStep(SetupOtherClient, 0, "another CTR-AP client with foreign additions");
+	RegisterFailEachStep(SetupOtherClient, 0, "another CTR Decrypted client with foreign additions");
 
 	// Writes that report success but read back wrong are undone exactly.
 	SimRegInit(&reg);

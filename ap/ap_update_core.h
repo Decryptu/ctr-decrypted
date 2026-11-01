@@ -159,7 +159,7 @@ Result VerifyRelease(const std::string &publicKeyBase64, const Bytes &manifest,
                      const std::string &runningVersion, Platform platform, const Bytes &archive);
 
 // ── Archive ──
-// Members must all live under "ctr-archipelago-<tag>/", be regular files or
+// Members must all live under "ctr-decrypted-<tag>/", be regular files or
 // directories, have no "..", absolute, drive or backslash paths, no
 // duplicates (also by case), and stay inside the size limits. ZIP: stored or
 // deflated, no encryption, CRC-32 checked. tar.gz: ustar with pax path

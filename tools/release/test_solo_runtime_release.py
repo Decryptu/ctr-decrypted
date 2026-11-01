@@ -130,8 +130,8 @@ class SoloRuntimeReleaseTests(unittest.TestCase):
                 entries += [(p, f"solo-runtime/{p.relative_to(runtime).as_posix()}")
                             for p in sorted(runtime.rglob("*")) if p.is_file()]
             suffix = ".zip" if platform == "windows" else ".tar.gz"
-            ASSEMBLER.create_archive(release / f"ctr-archipelago-{tag}-{platform}-x86{suffix}",
-                                     f"ctr-archipelago-{tag}", entries, linux=platform == "linux")
+            ASSEMBLER.create_archive(release / f"ctr-decrypted-{tag}-{platform}-x86{suffix}",
+                                     f"ctr-decrypted-{tag}", entries, linux=platform == "linux")
         return release
 
     def test_verifier_accepts_matching_runtimes(self) -> None:
@@ -160,7 +160,7 @@ class SoloRuntimeReleaseTests(unittest.TestCase):
     def test_verifier_refuses_a_non_executable_interpreter_and_links(self) -> None:
         import tarfile
         release = self.write_release("v0.3.0", self.runtime("windows"), self.runtime("linux"))
-        tarball = release / "ctr-archipelago-v0.3.0-linux-x86.tar.gz"
+        tarball = release / "ctr-decrypted-v0.3.0-linux-x86.tar.gz"
         repacked = self.root / "repacked.tar.gz"
         with tarfile.open(tarball) as src, tarfile.open(repacked, "w:gz") as out:
             for member in src.getmembers():
@@ -178,7 +178,7 @@ class SoloRuntimeReleaseTests(unittest.TestCase):
                 if member.name.endswith("python/bin/python3.12"):
                     member.mode = 0o755
                 out.addfile(member, io.BytesIO(data) if data is not None else None)
-            link = tarfile.TarInfo("ctr-archipelago-v0.3.0/solo-runtime/python/bin/python3")
+            link = tarfile.TarInfo("ctr-decrypted-v0.3.0/solo-runtime/python/bin/python3")
             link.type = tarfile.SYMTYPE
             link.linkname = "python3.12"
             out.addfile(link)
@@ -188,9 +188,9 @@ class SoloRuntimeReleaseTests(unittest.TestCase):
 
     def test_verifier_refuses_special_zip_members(self) -> None:
         release = self.write_release("v0.3.0", self.runtime("windows"), self.runtime("linux"))
-        archive = release / "ctr-archipelago-v0.3.0-windows-x86.zip"
+        archive = release / "ctr-decrypted-v0.3.0-windows-x86.zip"
         with zipfile.ZipFile(archive, "a") as bundle:
-            fifo = zipfile.ZipInfo("ctr-archipelago-v0.3.0/solo-runtime/pipe")
+            fifo = zipfile.ZipInfo("ctr-decrypted-v0.3.0/solo-runtime/pipe")
             fifo.external_attr = (0o010644) << 16  # a FIFO
             bundle.writestr(fifo, b"")
         with self.assertRaises(VERIFIER.PolicyError):

@@ -91,8 +91,8 @@ class ReleaseFixture:
         names = permitted - {MANIFEST_NAME}
         # Client archives get real, distinct bytes so tampering is meaningful.
         archives = {
-            f"ctr-archipelago-{version}-windows-x86.zip": b"windows-client-bytes",
-            f"ctr-archipelago-{version}-linux-x86.tar.gz": b"linux-client-bytes",
+            f"ctr-decrypted-{version}-windows-x86.zip": b"windows-client-bytes",
+            f"ctr-decrypted-{version}-linux-x86.tar.gz": b"linux-client-bytes",
         }
         for name in names:
             if name.endswith(".sha256"):
@@ -222,7 +222,7 @@ class ProductionBoundaryTests(unittest.TestCase):
         self.fixture.sign()
         target = (
             self.fixture.assembly
-            / f"ctr-archipelago-{self.fixture.VERSION}-windows-x86.zip"
+            / f"ctr-decrypted-{self.fixture.VERSION}-windows-x86.zip"
         )
         target.write_bytes(b"tampered")
         result = self.fixture.run_verifier("--public-key", str(self.fixture.public_key))
@@ -235,7 +235,7 @@ class ProductionBoundaryTests(unittest.TestCase):
         self.fixture.sign()
         target = (
             self.fixture.assembly
-            / f"ctr-archipelago-{self.fixture.VERSION}-linux-x86.tar.gz"
+            / f"ctr-decrypted-{self.fixture.VERSION}-linux-x86.tar.gz"
         )
         target.write_bytes(b"replaced")
         (self.fixture.assembly / (target.name + ".sha256")).write_text(
@@ -249,11 +249,11 @@ class ProductionBoundaryTests(unittest.TestCase):
         self.fixture.sign()
         (
             self.fixture.assembly
-            / f"ctr-archipelago-{self.fixture.VERSION}-linux-x86.tar.gz"
+            / f"ctr-decrypted-{self.fixture.VERSION}-linux-x86.tar.gz"
         ).unlink()
         (
             self.fixture.assembly
-            / f"ctr-archipelago-{self.fixture.VERSION}-linux-x86.tar.gz.sha256"
+            / f"ctr-decrypted-{self.fixture.VERSION}-linux-x86.tar.gz.sha256"
         ).unlink()
         result = self.fixture.run_verifier("--public-key", str(self.fixture.public_key))
         self.assertNotEqual(result.returncode, 0)
@@ -358,7 +358,7 @@ class ProductionBoundaryTests(unittest.TestCase):
         self.fixture.sign()
         target = (
             self.fixture.assembly
-            / f"ctr-archipelago-{self.fixture.VERSION}-windows-x86.zip"
+            / f"ctr-decrypted-{self.fixture.VERSION}-windows-x86.zip"
         )
         real = self.root / "real.zip"
         target.replace(real)
@@ -381,8 +381,8 @@ class MalformedManifestTests(unittest.TestCase):
             {
                 "version": self.VERSION,
                 "artifacts": {
-                    f"ctr-archipelago-{self.VERSION}-windows-x86.zip": "a" * 64,
-                    f"ctr-archipelago-{self.VERSION}-linux-x86.tar.gz": "b" * 64,
+                    f"ctr-decrypted-{self.VERSION}-windows-x86.zip": "a" * 64,
+                    f"ctr-decrypted-{self.VERSION}-linux-x86.tar.gz": "b" * 64,
                 },
             }
         )
@@ -401,7 +401,7 @@ class MalformedManifestTests(unittest.TestCase):
             self.parse(text)
 
     def test_duplicate_artifact_filename_is_rejected(self) -> None:
-        name = f"ctr-archipelago-{self.VERSION}-windows-x86.zip"
+        name = f"ctr-decrypted-{self.VERSION}-windows-x86.zip"
         text = (
             '{"version": "v0.2.0-rc-prep1", "artifacts": {'
             f'"{name}": "{"a" * 64}", "{name}": "{"b" * 64}"'
@@ -415,7 +415,7 @@ class MalformedManifestTests(unittest.TestCase):
             self.parse('{"version": NaN, "artifacts": {}}')
 
     def test_nan_inside_artifact_is_rejected(self) -> None:
-        name = f"ctr-archipelago-{self.VERSION}-windows-x86.zip"
+        name = f"ctr-decrypted-{self.VERSION}-windows-x86.zip"
         text = '{"version": "v0.2.0-rc-prep1", "artifacts": {"' + name + '": NaN}}'
         with self.assertRaises(release_policy.PolicyError):
             self.parse(text)
@@ -444,21 +444,21 @@ class MalformedManifestTests(unittest.TestCase):
 
     def test_uppercase_sha_rejected(self) -> None:
         data = json.loads(self.good())
-        data["artifacts"][f"ctr-archipelago-{self.VERSION}-windows-x86.zip"] = "A" * 64
+        data["artifacts"][f"ctr-decrypted-{self.VERSION}-windows-x86.zip"] = "A" * 64
         with self.assertRaises(release_policy.PolicyError):
             self.parse(json.dumps(data))
 
     def test_short_sha_rejected(self) -> None:
         data = json.loads(self.good())
-        data["artifacts"][f"ctr-archipelago-{self.VERSION}-windows-x86.zip"] = "a" * 63
+        data["artifacts"][f"ctr-decrypted-{self.VERSION}-windows-x86.zip"] = "a" * 63
         with self.assertRaises(release_policy.PolicyError):
             self.parse(json.dumps(data))
 
     def test_wrong_platform_name_rejected(self) -> None:
         data = json.loads(self.good())
         data["artifacts"] = {
-            f"ctr-archipelago-{self.VERSION}-macos-x86.zip": "a" * 64,
-            f"ctr-archipelago-{self.VERSION}-linux-x86.tar.gz": "b" * 64,
+            f"ctr-decrypted-{self.VERSION}-macos-x86.zip": "a" * 64,
+            f"ctr-decrypted-{self.VERSION}-linux-x86.tar.gz": "b" * 64,
         }
         with self.assertRaises(release_policy.PolicyError):
             self.parse(json.dumps(data))
@@ -513,7 +513,7 @@ class UpdaterArchiveLimitTests(unittest.TestCase):
     def test_archive_over_updater_limit_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             release = Path(tmp)
-            name = "ctr-archipelago-v0.3.1-linux-x86.tar.gz"
+            name = "ctr-decrypted-v0.3.1-linux-x86.tar.gz"
             with (release / name).open("wb") as out:
                 out.truncate(VERIFIER.UPDATER_MAX_ARCHIVE + 1)
             with self.assertRaises(VERIFIER.PolicyError) as raised:
@@ -523,7 +523,7 @@ class UpdaterArchiveLimitTests(unittest.TestCase):
     def test_archive_at_updater_limit_reaches_hash_check(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             release = Path(tmp)
-            name = "ctr-archipelago-v0.3.1-linux-x86.tar.gz"
+            name = "ctr-decrypted-v0.3.1-linux-x86.tar.gz"
             with (release / name).open("wb") as out:
                 out.truncate(VERIFIER.UPDATER_MAX_ARCHIVE)
             with self.assertRaises(VERIFIER.PolicyError) as raised:

@@ -153,7 +153,7 @@ bool IsStableTag(const std::string &tag)
 
 std::string ArchiveName(const std::string &tag, Platform platform)
 {
-	return "ctr-archipelago-" + tag + (platform == PLATFORM_WINDOWS ? "-windows-x86.zip" : "-linux-x86.tar.gz");
+	return "ctr-decrypted-" + tag + (platform == PLATFORM_WINDOWS ? "-windows-x86.zip" : "-linux-x86.tar.gz");
 }
 
 const char *ExecutableName(Platform platform)
@@ -848,7 +848,7 @@ Result ExtractInstallSet(const Bytes &archive, Platform platform, const std::str
 		return ERR_ARCHIVE;
 	if (archive.size() > kMaxArchive)
 		return ERR_SIZE;
-	const std::string root = "ctr-archipelago-" + tag;
+	const std::string root = "ctr-decrypted-" + tag;
 	Result r = platform == PLATFORM_WINDOWS ? ExtractZip(archive, root, platform, out)
 	                                        : ExtractTarGz(archive, root, platform, out);
 	if (r != OK)

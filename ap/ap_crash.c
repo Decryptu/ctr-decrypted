@@ -60,7 +60,7 @@ static int ap_crash_format(char *buf, int cap, const char *what,
                            unsigned long long addr)
 {
 	return snprintf(buf, cap,
-	                "\n==== CTR-AP CRASH ====\n"
+	                "\n==== CTR DECRYPTED CRASH ====\n"
 	                "release: %s\n"
 #ifdef CTR_NATIVE_VERSION
 	                "engine: %s\n"

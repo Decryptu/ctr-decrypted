@@ -16,15 +16,15 @@ from pathlib import Path
 
 
 STANDARD_ASSET_NAMES = (
-    "ctr-archipelago-{version}-windows-x86.zip",
-    "ctr-archipelago-{version}-windows-x86.zip.sha256",
+    "ctr-decrypted-{version}-windows-x86.zip",
+    "ctr-decrypted-{version}-windows-x86.zip.sha256",
     "ctr_native_ap.exe.debug",
     "ctr_native_ap.exe.debug.sha256",
     "ctr.apworld",
     "ctr.apworld.sha256",
     "Crash.Team.Racing.yaml",
-    "ctr-archipelago-{version}-linux-x86.tar.gz",
-    "ctr-archipelago-{version}-linux-x86.tar.gz.sha256",
+    "ctr-decrypted-{version}-linux-x86.tar.gz",
+    "ctr-decrypted-{version}-linux-x86.tar.gz.sha256",
     "ctr_native_ap.debug",
     "ctr_native_ap.debug.sha256",
 )
@@ -34,12 +34,12 @@ STANDARD_ASSET_NAMES = (
 # the eleven standard assets and the signed manifest never covers it. When an
 # archive is present its .sha256 sidecar must be present and correct.
 AUTHORING_ASSET_NAMES = {
-    "windows": "ctr-archipelago-{version}-box-authoring-windows-x86.zip",
-    "linux": "ctr-archipelago-{version}-box-authoring-linux-x86.tar.gz",
+    "windows": "ctr-decrypted-{version}-box-authoring-windows-x86.zip",
+    "linux": "ctr-decrypted-{version}-box-authoring-linux-x86.tar.gz",
 }
 
-WINDOWS_CLIENT_ASSET = "ctr-archipelago-{version}-windows-x86.zip"
-LINUX_CLIENT_ASSET = "ctr-archipelago-{version}-linux-x86.tar.gz"
+WINDOWS_CLIENT_ASSET = "ctr-decrypted-{version}-windows-x86.zip"
+LINUX_CLIENT_ASSET = "ctr-decrypted-{version}-linux-x86.tar.gz"
 SIGNED_ASSET_NAMES = (WINDOWS_CLIENT_ASSET, LINUX_CLIENT_ASSET)
 
 MANIFEST_NAME = "manifest.json"

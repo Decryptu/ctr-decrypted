@@ -5,7 +5,7 @@
 # downloaded build is self-describing and a bug report names its exact deps
 # (issue #78). Run from anywhere.
 #
-#   tools/release-versions.sh > dist/ctr-archipelago-vX.Y.Z/versions.txt
+#   tools/release-versions.sh > dist/ctr-decrypted-vX.Y.Z/versions.txt
 set -euo pipefail
 here="$(dirname "$(readlink -f "$0")")"
 root="$(cd "$here/.." && pwd)"

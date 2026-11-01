@@ -164,7 +164,7 @@ std::wstring widen_ascii(const std::string &text)
 bool https_get(const std::string &path, size_t max_bytes,
 	           std::vector<unsigned char> &body, std::string &error)
 {
-	HINTERNET session = WinHttpOpen(L"CTR-AP-alpha7/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
+	HINTERNET session = WinHttpOpen(L"CTR-Decrypted/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
 	                                WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
 	if (!session)
 	{
@@ -347,7 +347,7 @@ bool https_get(const std::string &path, size_t max_bytes,
 		stream.handshake(asio::ssl::stream_base::client);
 #endif
 		const std::string request = "GET " + path + " HTTP/1.1\r\nHost: " + kSaphiHost +
-		                            "\r\nUser-Agent: CTR-AP-alpha7/1.0\r\nAccept-Encoding: identity\r\nConnection: close\r\n\r\n";
+		                            "\r\nUser-Agent: CTR-Decrypted/1.0\r\nAccept-Encoding: identity\r\nConnection: close\r\n\r\n";
 #ifdef CTR_CUSTOM_PACKAGES
 		saphi_await(io, asio::async_write(stream, asio::buffer(request), asio::use_future), deadline);
 #else

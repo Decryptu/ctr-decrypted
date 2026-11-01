@@ -25,7 +25,7 @@ No Archipelago connection is needed. The mode is entirely local.
 ## The box authoring download
 
 CI builds the authoring client as its own archive
-(`ctr-ap-authoring-<platform>-x86-<commit>`), and a release can attach it as a
+(`ctr-decrypted-box-authoring-<platform>-x86-<commit>`), and a release can attach it as a
 separate download next to the player client. The player guide is
 [HELP_PLACE_BOXES.md](HELP_PLACE_BOXES.md), shipped in the archive as
 `HELP-PLACE-BOXES.md`. The authoring build differs from the player client in
@@ -34,7 +34,7 @@ exactly these ways:
 | | Player client | Box authoring download |
 |---|---|---|
 | Executable | `ctr_native_ap(.exe)` | `ctr_native_ap_authoring(.exe)` |
-| Window title | `... CTR-AP ...` | adds `BOX AUTHORING BUILD (no Archipelago)` |
+| Window title | `CTR Decrypted vX.Y.Z` | adds `BOX AUTHORING BUILD (no Archipelago)` |
 | Box Author Mode | compiled out | on the Options menu |
 | Placement file | reads `ap-box-placements.json` if present | reads and writes `ap-box-placements-authoring.json` |
 | Archipelago | connects | refuses every dial; the connection status says why |

@@ -90,8 +90,8 @@ static Bytes B(const std::string &s) { return Bytes(s.begin(), s.end()); }
 static const char kManifest024[] =
     "{\n"
     "  \"artifacts\": {\n"
-    "    \"ctr-archipelago-v0.2.4-linux-x86.tar.gz\": \"79d0d430946a27bbf939aceb875f1f20037aef093fb283599ea4d015fa4f5b8e\",\n"
-    "    \"ctr-archipelago-v0.2.4-windows-x86.zip\": \"2a8fe4a9594e3ba77230716ff4f722bf44f62c6269a3d28f5818f91a9c54d9cf\"\n"
+    "    \"ctr-decrypted-v0.2.4-linux-x86.tar.gz\": \"79d0d430946a27bbf939aceb875f1f20037aef093fb283599ea4d015fa4f5b8e\",\n"
+    "    \"ctr-decrypted-v0.2.4-windows-x86.zip\": \"2a8fe4a9594e3ba77230716ff4f722bf44f62c6269a3d28f5818f91a9c54d9cf\"\n"
     "  },\n"
     "  \"version\": \"v0.2.4\"\n"
     "}\n";
@@ -200,8 +200,8 @@ static std::string Sign(const TestKey &k, const Bytes &msg, bool prehashed = tru
 
 static std::string ManifestText(const std::string &tag, const std::string &linSha, const std::string &winSha)
 {
-	return "{\n  \"artifacts\": {\n    \"ctr-archipelago-" + tag + "-linux-x86.tar.gz\": \"" + linSha +
-	       "\",\n    \"ctr-archipelago-" + tag + "-windows-x86.zip\": \"" + winSha + "\"\n  },\n  \"version\": \"" +
+	return "{\n  \"artifacts\": {\n    \"ctr-decrypted-" + tag + "-linux-x86.tar.gz\": \"" + linSha +
+	       "\",\n    \"ctr-decrypted-" + tag + "-windows-x86.zip\": \"" + winSha + "\"\n  },\n  \"version\": \"" +
 	       tag + "\"\n}\n";
 }
 
@@ -323,7 +323,7 @@ static std::string PaxRecord(const std::string &key, const std::string &value)
 }
 
 static const std::string kTag = "v0.3.1";
-static const std::string kRoot = "ctr-archipelago-v0.3.1/";
+static const std::string kRoot = "ctr-decrypted-v0.3.1/";
 static const std::string kExeBytes = "NEW-CLIENT-BINARY-\x01\x02\x03-v0.3.1";
 
 static std::vector<Member> GoodMembers(Platform p)
@@ -594,21 +594,21 @@ static void TestManifestStrictness()
 	CHECK_EQ(ParseManifest(B(ManifestText(kTag, a, b)), m), OK);
 	CHECK(m.linuxSha256 == a && m.windowsSha256 == b);
 	// Compact formatting is still the same JSON.
-	CHECK_EQ(ParseManifest(B("{\"version\":\"v0.3.1\",\"artifacts\":{\"ctr-archipelago-v0.3.1-linux-x86.tar.gz\":\"" + a +
-	                         "\",\"ctr-archipelago-v0.3.1-windows-x86.zip\":\"" + b + "\"}}"),
+	CHECK_EQ(ParseManifest(B("{\"version\":\"v0.3.1\",\"artifacts\":{\"ctr-decrypted-v0.3.1-linux-x86.tar.gz\":\"" + a +
+	                         "\",\"ctr-decrypted-v0.3.1-windows-x86.zip\":\"" + b + "\"}}"),
 	                       m),
 	         OK);
 	CHECK_EQ(ParseManifest(B("{\"version\":\"v0.3.1\",\"version\":\"v0.3.1\",\"artifacts\":{}}"), m), ERR_MANIFEST);
-	CHECK_EQ(ParseManifest(B("{\"version\":\"v0.3.1\",\"extra\":1,\"artifacts\":{\"ctr-archipelago-v0.3.1-linux-x86.tar.gz\":\"" +
-	                         a + "\",\"ctr-archipelago-v0.3.1-windows-x86.zip\":\"" + b + "\"}}"),
+	CHECK_EQ(ParseManifest(B("{\"version\":\"v0.3.1\",\"extra\":1,\"artifacts\":{\"ctr-decrypted-v0.3.1-linux-x86.tar.gz\":\"" +
+	                         a + "\",\"ctr-decrypted-v0.3.1-windows-x86.zip\":\"" + b + "\"}}"),
 	                       m),
 	         ERR_MANIFEST);
-	CHECK_EQ(ParseManifest(B("{\"version\":\"v0.3.1\",\"artifacts\":{\"ctr-archipelago-v0.3.1-linux-x86.tar.gz\":\"" + a +
-	                         "\",\"ctr-archipelago-v0.3.1-windows-x86.zip\":\"" + b + "\",\"x.zip\":\"" + a + "\"}}"),
+	CHECK_EQ(ParseManifest(B("{\"version\":\"v0.3.1\",\"artifacts\":{\"ctr-decrypted-v0.3.1-linux-x86.tar.gz\":\"" + a +
+	                         "\",\"ctr-decrypted-v0.3.1-windows-x86.zip\":\"" + b + "\",\"x.zip\":\"" + a + "\"}}"),
 	                       m),
 	         ERR_MANIFEST);
-	CHECK_EQ(ParseManifest(B("{\"version\":\"v0.3.1\",\"artifacts\":{\"ctr-archipelago-v0.3.1-linux-x86.tar.gz\":\"" + a +
-	                         "\",\"ctr-archipelago-v0.3.1-linux-x86.tar.gz\":\"" + b + "\"}}"),
+	CHECK_EQ(ParseManifest(B("{\"version\":\"v0.3.1\",\"artifacts\":{\"ctr-decrypted-v0.3.1-linux-x86.tar.gz\":\"" + a +
+	                         "\",\"ctr-decrypted-v0.3.1-linux-x86.tar.gz\":\"" + b + "\"}}"),
 	                       m),
 	         ERR_MANIFEST);
 	CHECK_EQ(ParseManifest(B(ManifestText(kTag, std::string(64, 'A'), b)), m), ERR_MANIFEST);
@@ -631,10 +631,10 @@ static void TestArchives()
 		CHECK_EQ(ExtractExecutable(Archive(p, GoodMembers(p)), p, "v0.3.2", out), ERR_ARCHIVE);
 		CHECK(out.empty());
 
-		const char *badNames[] = {"../evil", "ctr-archipelago-v0.3.1/../evil", "/etc/passwd",
-		                          "ctr-archipelago-v0.3.1/a\\..\\evil", "ctr-archipelago-v0.3.1/C:/evil",
-		                          "ctr-archipelago-v0.3.0/x", "other/x", "ctr-archipelago-v0.3.1//x",
-		                          "ctr-archipelago-v0.3.1/./x", "ctr-archipelago-v0.3.1x/y"};
+		const char *badNames[] = {"../evil", "ctr-decrypted-v0.3.1/../evil", "/etc/passwd",
+		                          "ctr-decrypted-v0.3.1/a\\..\\evil", "ctr-decrypted-v0.3.1/C:/evil",
+		                          "ctr-decrypted-v0.3.0/x", "other/x", "ctr-decrypted-v0.3.1//x",
+		                          "ctr-decrypted-v0.3.1/./x", "ctr-decrypted-v0.3.1x/y"};
 		for (const char *bad : badNames)
 		{
 			std::vector<Member> m = GoodMembers(p);

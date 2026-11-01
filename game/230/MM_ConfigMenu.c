@@ -1565,7 +1565,7 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 #ifdef CTR_AP
 		// Keep the tester-visible pair identity available in-game, without using a
 		// main-menu row or colliding with the denser section submenus.
-		DecalFont_DrawLineOT("CTR-AP " CTR_AP_VERSION,
+		DecalFont_DrawLineOT("CTR Decrypted " CTR_AP_VERSION,
 			0x100, 0xC0, FONT_SMALL, JUSTIFY_CENTER | WHITE, ot);
 #endif
 	}

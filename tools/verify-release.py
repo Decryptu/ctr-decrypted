@@ -200,7 +200,7 @@ def verify_solo_runtime(release: Path, tag: str) -> None:
     apworld = sha256(release / "ctr.apworld")
     for platform, interpreter in (("windows", "python/python.exe"), ("linux", "python/bin/python3.12")):
         suffix = ".zip" if platform == "windows" else ".tar.gz"
-        archive = release / f"ctr-archipelago-{tag}-{platform}-x86{suffix}"
+        archive = release / f"ctr-decrypted-{tag}-{platform}-x86{suffix}"
         text = read_archive_member(archive, SOLO_RUNTIME_MANIFEST)
         if text is None:
             fail(f"{archive.name} has no {SOLO_RUNTIME_MANIFEST}")

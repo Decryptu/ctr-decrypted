@@ -102,8 +102,6 @@ internal void Platform_GetWindowName(const char *appName, char *buffer, size_t b
 	snprintf(buffer, bufferSize, "%s | BOX AUTHORING BUILD (no Archipelago)", appName);
 #elif defined(CTR_AUTHORING_CLIENT)
 	snprintf(buffer, bufferSize, "%s | AUTHORING CLIENT (no Archipelago)", appName);
-#elif defined(CTR_INTERNAL)
-	snprintf(buffer, bufferSize, "%s | Internal", appName);
 #else
 	snprintf(buffer, bufferSize, "%s", appName);
 #endif

@@ -10,8 +10,8 @@ You need a controller, or a keyboard with a number pad.
 ## 1. Install the box authoring download
 
 The release page has a separate download for this:
-`ctr-archipelago-vX.Y.Z-box-authoring-windows-x86.zip` (Windows) or
-`ctr-archipelago-vX.Y.Z-box-authoring-linux-x86.tar.gz` (Linux and Steam Deck).
+`ctr-decrypted-vX.Y.Z-box-authoring-windows-x86.zip` (Windows) or
+`ctr-decrypted-vX.Y.Z-box-authoring-linux-x86.tar.gz` (Linux and Steam Deck).
 
 - Unzip it into a **new, empty folder**. Do not unzip it into your normal
   CTR Archipelago folder.

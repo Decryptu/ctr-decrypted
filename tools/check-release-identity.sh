@@ -64,7 +64,7 @@ check_binary_string() {
 check_equal "apworld manifest compatibility" "$manifest_compat" "$compat"
 check_equal "apworld source compatibility" "$source_compat" "$compat"
 check_equal "apworld source build" "$source_build" "$build"
-check_binary_string "window title" "Crash Team Racing - CTR-AP $build_v"
+check_binary_string "window title" "CTR Decrypted $build_v"
 check_binary_string "boot log" "[AP BOOT] ===== client run start ===== ($build_v)"
 check_binary_string "exported diagnostics" "  \"client\": \"$build_v\","
 

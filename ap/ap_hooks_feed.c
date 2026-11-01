@@ -483,7 +483,7 @@ void AP_DrawSchemaWarning(void)
 	if (!ctr_cfg.schema_newer)
 		return;
 	// Static so the strings are not rebuilt per frame; DrawLine takes char*.
-	static char warn1[] = "!! CTR-AP CLIENT OUT OF DATE !!";
+	static char warn1[] = "!! CTR DECRYPTED OUT OF DATE !!";
 	static char warn2[] = "This seed needs a newer client. Gates may be wrong.";
 	DecalFont_DrawLine(warn1, AP_FEED_X, 0x14, FONT_SMALL, RED);
 	DecalFont_DrawLine(warn2, AP_FEED_X, 0x14 + AP_FEED_LINE_H, FONT_SMALL, RED);

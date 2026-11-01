@@ -36,15 +36,15 @@ ASSET_NAMES = release_policy.STANDARD_ASSET_NAMES
 ASSET_DIR = "assets"
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
 ARTIFACT_ARCHIVE = {
-    "windows": re.compile(r"^ctr-ap-windows-x86-([0-9a-f]{12,40})\.zip$"),
-    "linux": re.compile(r"^ctr-ap-linux-x86-([0-9a-f]{12,40})\.tar\.gz$"),
+    "windows": re.compile(r"^ctr-decrypted-windows-x86-([0-9a-f]{12,40})\.zip$"),
+    "linux": re.compile(r"^ctr-decrypted-linux-x86-([0-9a-f]{12,40})\.tar\.gz$"),
 }
 # The separate box authoring download (CTR_AP_AUTHORING). Its own CI archive,
 # its own release asset; it never enters the player client archive or the
 # signed manifest.
 AUTHORING_ARCHIVE = {
-    "windows": re.compile(r"^ctr-ap-authoring-windows-x86-([0-9a-f]{12,40})\.zip$"),
-    "linux": re.compile(r"^ctr-ap-authoring-linux-x86-([0-9a-f]{12,40})\.tar\.gz$"),
+    "windows": re.compile(r"^ctr-decrypted-box-authoring-windows-x86-([0-9a-f]{12,40})\.zip$"),
+    "linux": re.compile(r"^ctr-decrypted-box-authoring-linux-x86-([0-9a-f]{12,40})\.tar\.gz$"),
 }
 AUTHORING_BINARY = {"windows": "ctr_native_ap_authoring.exe", "linux": "ctr_native_ap_authoring"}
 NATIVE_COMPANIONS = (
@@ -507,7 +507,7 @@ def assemble_authoring(source: Path, version: str, platform: str, artifact_dir: 
     tag = f"v{version}"
     name = release_policy.authoring_asset_name(tag, platform)
     destination = output / name
-    create_archive(destination, f"ctr-archipelago-{tag}-box-authoring", entries, linux=platform == "linux")
+    create_archive(destination, f"ctr-decrypted-{tag}-box-authoring", entries, linux=platform == "linux")
     write_checksum(destination)
     return destination
 
@@ -565,7 +565,7 @@ def assemble(args: argparse.Namespace) -> list[Path]:
             # package-client.verify resolves the sidecar as <binary>.debug.
             shutil.copy2(debug, temp / platform / debug_name)
             validate_build(source, platform, archive, debug, unpacked, metadata)
-        root_name = f"ctr-archipelago-v{version}"
+        root_name = f"ctr-decrypted-v{version}"
         common = [
             source / "tools" / "extract-assets" / "extract_assets.py",
             source / "SETUP.md",
@@ -617,8 +617,8 @@ def assemble(args: argparse.Namespace) -> list[Path]:
         if solo_windows is not None:
             windows_files += solo_runtime_entries(solo_windows.resolve(), "windows", args.apworld.resolve())
             linux_files += solo_runtime_entries(solo_linux.resolve(), "linux", args.apworld.resolve())
-        windows_archive = output / f"ctr-archipelago-v{version}-windows-x86.zip"
-        linux_archive = output / f"ctr-archipelago-v{version}-linux-x86.tar.gz"
+        windows_archive = output / f"ctr-decrypted-v{version}-windows-x86.zip"
+        linux_archive = output / f"ctr-decrypted-v{version}-linux-x86.tar.gz"
         create_archive(windows_archive, root_name, windows_files, linux=False)
         create_archive(linux_archive, root_name, linux_files, linux=True)
         shutil.copy2(temp / "windows" / "ctr_native_ap.exe.debug", output / "ctr_native_ap.exe.debug")
@@ -632,10 +632,10 @@ def assemble(args: argparse.Namespace) -> list[Path]:
     shutil.copy2(args.apworld, output / "ctr.apworld")
     shutil.copy2(args.template, output / "Crash.Team.Racing.yaml")
     for name in (
-        f"ctr-archipelago-v{version}-windows-x86.zip",
+        f"ctr-decrypted-v{version}-windows-x86.zip",
         "ctr_native_ap.exe.debug",
         "ctr.apworld",
-        f"ctr-archipelago-v{version}-linux-x86.tar.gz",
+        f"ctr-decrypted-v{version}-linux-x86.tar.gz",
         "ctr_native_ap.debug",
     ):
         write_checksum(output / name)
