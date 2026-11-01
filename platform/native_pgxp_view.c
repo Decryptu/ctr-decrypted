@@ -47,6 +47,12 @@ typedef struct
 	double fromInt[9];   // precise view of an integer view-space vector
 	double offset[3];    // precise view of (integer camera - precise camera)
 	double camPos[3];    // precise camera position
+
+	// The followed driver's Instance and the fraction of a world unit its
+	// integer position drops: the camera follows the exact position, so the
+	// kart is drawn there too.
+	const void *followInst;
+	double followFrac[3];
 } NativePgxpViewCamera;
 
 typedef struct
@@ -166,6 +172,7 @@ void NativePgxp_ViewFollowDriver(int cameraID, const struct NativePgxpFollowCame
 
 	NativePgxpViewCamera *cam = &s_viewCameras[cameraID];
 	cam->hasPose = 0;
+	cam->followInst = NULL;
 
 	// The orbit offset and side offset, as the GTE computes them but unrounded.
 	double orbit[9];
@@ -183,8 +190,8 @@ void NativePgxp_ViewFollowDriver(int cameraID, const struct NativePgxpFollowCame
 	for (int i = 0; i < 3; i++)
 	{
 		const double side = (i == 1) ? 0.0 : orbit[i * 3 + 1] * 64.0;
-		delta[i] = in->driverPos[i] + side;
-		pos[i] = orbit[i * 3 + 2] * distance + in->driverPos[i] + side;
+		delta[i] = in->driverPos[i] + in->driverFrac[i] + side;
+		pos[i] = orbit[i * 3 + 2] * distance + in->driverPos[i] + in->driverFrac[i] + side;
 	}
 	pos[1] = in->maskGrabY ? in->basePos.y : pos[1] + in->vertDistance;
 
@@ -207,8 +214,9 @@ void NativePgxp_ViewFollowDriver(int cameraID, const struct NativePgxpFollowCame
 		const double posResidual = pos[i] - basePos[i];
 		const double deltaResidual = delta[i] - baseDelta[i];
 
-		// Each point sums two GTE results the game floors, so up to 2 units.
-		// More means the float model and the game disagree.
+		// Each point sums two GTE results the game floors, so up to 2 units,
+		// plus the driver's fraction. More means the float model and the game
+		// disagree.
 		if ((fabs(posResidual) > 4.0) || (fabs(deltaResidual) > 4.0))
 			return;
 		camPos[i] = finalPos[i] + posResidual;
@@ -257,6 +265,8 @@ void NativePgxp_ViewFollowDriver(int cameraID, const struct NativePgxpFollowCame
 	memcpy(cam->rot, rot, sizeof(rot));
 	cam->intPos = *pbPos;
 	cam->intRot = *pbRot;
+	cam->followInst = in->driverInst;
+	memcpy(cam->followFrac, in->driverFrac, sizeof(cam->followFrac));
 	cam->hasPose = 1;
 }
 
@@ -275,6 +285,7 @@ void NativePgxp_ViewForgetCamera(int cameraID)
 	{
 		s_viewCameras[cameraID].hasPose = 0;
 		s_viewCameras[cameraID].hasDeadband = 0;
+		s_viewCameras[cameraID].followInst = NULL;
 	}
 }
 
@@ -345,7 +356,7 @@ internal u32 NativePgxpView_Hash(const u32 key[8])
 	return h;
 }
 
-void NativePgxp_ViewRegisterInstance(int cameraID, const void *mvp, const void *model, const s32 instPos[3], int translationShift)
+void NativePgxp_ViewRegisterInstance(int cameraID, const void *mvp, const void *model, const void *inst, const s32 instPos[3], int translationShift)
 {
 	if ((cameraID < 0) || (cameraID >= NATIVE_PGXP_VIEW_CAMERAS))
 		return;
@@ -369,7 +380,12 @@ void NativePgxp_ViewRegisterInstance(int cameraID, const void *mvp, const void *
 	for (int i = 0; i < 9; i++)
 		viewUnit[i] = cam->view[i] / 4096.0;
 	NativePgxpView_Mul3(viewUnit, modelMatrix, rot);
-	const double rel[3] = {instPos[0] - cam->camPos[0], instPos[1] - cam->camPos[1], instPos[2] - cam->camPos[2]};
+	double rel[3] = {instPos[0] - cam->camPos[0], instPos[1] - cam->camPos[1], instPos[2] - cam->camPos[2]};
+	if ((inst != NULL) && (inst == cam->followInst))
+	{
+		for (int i = 0; i < 3; i++)
+			rel[i] += cam->followFrac[i];
+	}
 	NativePgxpView_Apply(viewUnit, rel, trans);
 	// The two differ by the camera's sub-unit shift and a fraction of an angle
 	// unit, which grows with distance; anything more is not this instance.

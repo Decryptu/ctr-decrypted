@@ -88,6 +88,8 @@ struct NativePgxpFollowCamera
 	int speedMin, speedMax, distMin, distMax;
 	int distanceOffset; // fire speed zoom, 8 fractional bits
 	int driverPos[3];   // driver position, world units
+	double driverFrac[3]; // and the fraction the game drops from it, 0..1
+	const void *driverInst; // the driver's Instance, drawn at the exact position
 	b32 maskGrabY;      // camera height set by the mask grab
 	int vertDistance;
 	int damagePitch;
@@ -107,7 +109,7 @@ void NativePgxp_ViewForgetCamera(int cameraID);
 int NativePgxp_ViewGetPose(int cameraID, double pos[3], double rot[3]);
 // Matrices are GTE MATRIX layouts: five packed rotation words, then t[3].
 void NativePgxp_ViewRegisterCamera(int cameraID, const SVec3 *pbPos, const SVec3 *pbRot, const void *viewProj);
-void NativePgxp_ViewRegisterInstance(int cameraID, const void *mvp, const void *model, const s32 instPos[3], int translationShift);
+void NativePgxp_ViewRegisterInstance(int cameraID, const void *mvp, const void *model, const void *inst, const s32 instPos[3], int translationShift);
 // The precise rotation (4096 = 1) and translation (view units) to use instead
 // of a GTE matrix and translation, or 0 when there is none.
 int NativePgxp_ViewLookup(const u32 words[5], const s32 t[3], double rot[9], double trans[3]);

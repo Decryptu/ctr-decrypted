@@ -1446,6 +1446,10 @@ void CAM_FollowDriver_Normal(struct CameraDC *cDC, struct Driver *d, SVec3 *push
 	precise.driverPos[0] = CTR_MipsSra(d->posCurr.x, 8);
 	precise.driverPos[1] = CTR_MipsSra(d->posCurr.y, 8);
 	precise.driverPos[2] = CTR_MipsSra(d->posCurr.z, 8);
+	precise.driverFrac[0] = (d->posCurr.x & 0xff) / 256.0;
+	precise.driverFrac[1] = (d->posCurr.y & 0xff) / 256.0;
+	precise.driverFrac[2] = (d->posCurr.z & 0xff) / 256.0;
+	precise.driverInst = d->instSelf;
 	precise.maskGrabY = (cDC->flags & CAMERA_FLAG_MASK_GRAB) != 0;
 	precise.vertDistance = zoom->vertDistance;
 	precise.basePos = cam->pos;

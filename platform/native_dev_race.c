@@ -666,7 +666,7 @@ void NativeDev_RaceFrame(void)
 	{
 		dev->trace = fopen(dev->tracePath, "w");
 		if (dev->trace != NULL)
-			fprintf(dev->trace, "frame,fps60,level,lights,end,raceMS,x,y,z,angle,speed,air,kart,lap,reserves,anim,animFrame,gx,gy,gz,gvis,nav,navTarget,want,steer,vx,vy,vz,coll,timer,fireCap,cx,cy,cz,crx,cry,crz,turn,rotW,camSpeed,pcx,pcy,pcz,pcrx,pcry,pcrz,spin,wobble,lerpVel,rotPrevW,drift,clock,base,fire\n");
+			fprintf(dev->trace, "frame,fps60,level,lights,end,raceMS,x,y,z,angle,speed,air,kart,lap,reserves,anim,animFrame,gx,gy,gz,gvis,nav,navTarget,want,steer,vx,vy,vz,coll,timer,fireCap,cx,cy,cz,crx,cry,crz,turn,rotW,camSpeed,pcx,pcy,pcz,pcrx,pcry,pcrz,spin,wobble,lerpVel,rotPrevW,drift,clock,base,fire,kx,ky,kz\n");
 	}
 
 	if (dev->trace != NULL)
@@ -698,8 +698,10 @@ void NativeDev_RaceFrame(void)
 		// then the turning state race_trace.py fps compares between 30 and 60.
 		double ppos[3] = {pb->pos.x, pb->pos.y, pb->pos.z}, prot[3] = {pb->rot.x, pb->rot.y, pb->rot.z};
 		NativePgxp_ViewGetPose(0, ppos, prot);
-		fprintf(dev->trace, ",%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%d,%d,%d,%d,%d,%d,%d,%d\n", ppos[0], ppos[1], ppos[2], prot[0], prot[1], prot[2], d->rotationSpinRate,
+		fprintf(dev->trace, ",%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%d,%d,%d,%d,%d,%d,%d,%d", ppos[0], ppos[1], ppos[2], prot[0], prot[1], prot[2], d->rotationSpinRate,
 		        d->turnWobbleAngle, d->turnAngleLerpVel, d->rotPrev.w, d->KartStates.Drifting.numFramesDrifting, dev->raceClock, d->baseSpeed, d->fireSpeed);
+		// The kart's position with its 8 fractional bits.
+		fprintf(dev->trace, ",%.3f,%.3f,%.3f\n", d->posCurr.x / 256.0, d->posCurr.y / 256.0, d->posCurr.z / 256.0);
 	}
 	dev->raceFrame++;
 
