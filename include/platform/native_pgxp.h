@@ -56,6 +56,9 @@ void NativePgxp_GteReadSXY(int reg, u32 value);
 
 void NativePgxp_StoreGteSXY(const void *dst, int reg, u32 value);
 void NativePgxp_CopyXY(const void *dst, const void *src, u32 value);
+// A screen position the game computed itself (no GTE), unrounded, for the
+// packed SXY value it stores at dst.
+void NativePgxp_SetXY(const void *dst, float x, float y, u32 value);
 
 void NativePgxp_SetPosition(const void *key, const s16 *vector, const float *precise);
 void NativePgxp_ClearPosition(const void *key);
@@ -107,6 +110,9 @@ void NativePgxp_ViewFollowDriver(int cameraID, const struct NativePgxpFollowCame
 void NativePgxp_ViewForgetCamera(int cameraID);
 // The follow camera's precise pose, for the race trace; 0 when it has none.
 int NativePgxp_ViewGetPose(int cameraID, double pos[3], double rot[3]);
+// The precise angles of the view registered this frame, for screen-space
+// effects placed from the camera's angles; 0 when the view is integer.
+int NativePgxp_ViewGetAngles(int cameraID, double rot[3]);
 // Matrices are GTE MATRIX layouts: five packed rotation words, then t[3].
 void NativePgxp_ViewRegisterCamera(int cameraID, const SVec3 *pbPos, const SVec3 *pbRot, const void *viewProj);
 void NativePgxp_ViewRegisterInstance(int cameraID, const void *mvp, const void *model, const void *inst, const s32 instPos[3], int translationShift);

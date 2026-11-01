@@ -353,6 +353,12 @@ void NativePgxp_StoreGteSXY(const void *dst, int reg, u32 value)
 	}
 }
 
+void NativePgxp_SetXY(const void *dst, float x, float y, u32 value)
+{
+	const NativePgxpVertex vertex = {x, y, -1.0f, value};
+	NativePgxp_SetShadow(dst, vertex);
+}
+
 void NativePgxp_CopyXY(const void *dst, const void *src, u32 value)
 {
 	const NativePgxpVertex *vertex = NativePgxp_FindShadow(src, value);

@@ -1,5 +1,9 @@
 #include <common.h>
 
+#ifdef CTR_NATIVE
+#include <math.h>
+#endif
+
 #ifdef CTR_AP
 #include "../ap/ap_democam.h" // AP_DemoCamOwnsCamera (#454)
 #endif
@@ -153,8 +157,79 @@ static u32 CAM_SkyboxGlow_ClearGradientColor(void)
 	return *(u32 *)&sdata->gGT->level1->clearColor[2].rgb[0] & 0xffffff;
 }
 
+#ifdef CTR_NATIVE
+static u32 CAM_SkyboxGlow_PackPrecise(const void *dst, s32 x, double y)
+{
+	const s32 rounded = (s32)floor(y + 0.5);
+	const u32 xy = CAM_SkyboxGlow_PackXY(x, rounded);
+	NativePgxp_SetXY(dst, (float)x, (float)y, xy);
+	return xy;
+}
+
+// Native: with the precise camera (PGXP GEOMETRY/FULL) the glow is placed
+// from its unrounded pitch and roll, like the sky and level behind it.
+// Retail places it from the integer pitch, whole pixels at a time, so while
+// the speed changes the camera's integer pitch flips by a unit and the
+// horizon band steps up and down against the sky. The bands are drawn
+// unclipped (the renderer clips them) instead of retail's cut at the top.
+static int CAM_SkyboxGlow_Precise(struct SkyboxGlowGradient *grad, struct PushBuffer *pb, struct PrimMem *primMem, u32 *ptrOT)
+{
+	double rot[3];
+
+	if (!NATIVE_PGXP_GEOMETRY_ACTIVE() || !NativePgxp_ViewGetAngles((int)(pb - sdata->gGT->pushBuffer), rot))
+	{
+		return 0;
+	}
+
+	// CAM_SkyboxGlow_CalcCenterY and CalcTilt without rounding.
+	const double centerY = (rot[0] - 0x800) * 0x78 / 1024.0 + (s16)pb->rect.h / 2.0;
+	const double tilt = -tan(rot[2] * (6.283185307179586 / 4096.0)) * 128.0;
+	const s32 screenWidth = (s16)pb->rect.w;
+
+	for (s32 i = 0; i < 3; i++, grad++)
+	{
+		const double toLeft = centerY - grad->pointTo - tilt;
+		const double toRight = centerY - grad->pointTo + tilt;
+		const double fromLeft = centerY - grad->pointFrom - tilt;
+		const double fromRight = centerY - grad->pointFrom + tilt;
+
+		// Entirely above the screen: retail draws nothing either.
+		if ((toLeft < 0) && (toRight < 0) && (fromLeft < 0) && (fromRight < 0))
+		{
+			continue;
+		}
+
+		POLY_G4 *band = primMem->cursor;
+		CAM_SkyboxGlow_EmitG4(primMem, ptrOT, grad->colorFrom & 0xffffff, CAM_SkyboxGlow_PackPrecise(&band->x0, 0, fromLeft), grad->colorFrom & 0xffffff,
+		                      CAM_SkyboxGlow_PackPrecise(&band->x1, screenWidth, fromRight), grad->colorTo & 0xffffff,
+		                      CAM_SkyboxGlow_PackPrecise(&band->x2, 0, toLeft), grad->colorTo & 0xffffff,
+		                      CAM_SkyboxGlow_PackPrecise(&band->x3, screenWidth, toRight));
+
+		if (CAM_SkyboxGlow_HasClearGradient(i))
+		{
+			// The clear colour fills from the top of the screen to the band.
+			const double upper = (fromLeft < fromRight) ? fromLeft : fromRight;
+			const double top = (upper < 0) ? floor(upper) : 0.0;
+			POLY_F4 *fill = primMem->cursor;
+			CAM_SkyboxGlow_EmitF4(primMem, ptrOT, CAM_SkyboxGlow_ClearGradientColor(), CAM_SkyboxGlow_PackPrecise(&fill->x0, 0, top),
+			                      CAM_SkyboxGlow_PackPrecise(&fill->x1, screenWidth, top), CAM_SkyboxGlow_PackPrecise(&fill->x2, 0, fromLeft),
+			                      CAM_SkyboxGlow_PackPrecise(&fill->x3, screenWidth, fromRight));
+		}
+	}
+
+	return 1;
+}
+#endif
+
 void CAM_SkyboxGlow(struct SkyboxGlowGradient *grad, struct PushBuffer *pb, struct PrimMem *primMem, u32 *ptrOT)
 {
+#ifdef CTR_NATIVE
+	if (CAM_SkyboxGlow_Precise(grad, pb, primMem, ptrOT))
+	{
+		return;
+	}
+#endif
+
 	s32 tilt = CAM_SkyboxGlow_CalcTilt(pb);
 	s32 centerY1 = CAM_SkyboxGlow_CalcCenterY(pb);
 	s32 centerY2 = CAM_SkyboxGlow_CalcCenterY(pb);

@@ -47,6 +47,10 @@ typedef struct
 	double fromInt[9];   // precise view of an integer view-space vector
 	double offset[3];    // precise view of (integer camera - precise camera)
 	double camPos[3];    // precise camera position
+	// The view's own translation (world origin in view space): the integer
+	// one the game truncated, and the exact one to use in its place.
+	s32 ownT[3];
+	double ownTrans[3];
 
 	// The followed driver's Instance and the fraction of a world unit its
 	// integer position drops: the camera follows the exact position, so the
@@ -279,6 +283,14 @@ int NativePgxp_ViewGetPose(int cameraID, double pos[3], double rot[3])
 	return 1;
 }
 
+int NativePgxp_ViewGetAngles(int cameraID, double rot[3])
+{
+	if ((cameraID < 0) || (cameraID >= NATIVE_PGXP_VIEW_CAMERAS) || (s_viewCameras[cameraID].viewGeneration != s_viewGeneration))
+		return 0;
+	memcpy(rot, s_viewCameras[cameraID].rot, sizeof(s_viewCameras[cameraID].rot));
+	return 1;
+}
+
 void NativePgxp_ViewForgetCamera(int cameraID)
 {
 	if ((cameraID >= 0) && (cameraID < NATIVE_PGXP_VIEW_CAMERAS))
@@ -344,6 +356,18 @@ void NativePgxp_ViewRegisterCamera(int cameraID, const SVec3 *pbPos, const SVec3
 	NativePgxpView_Mul3(viewUnit, intInverse, cam->fromInt);
 	NativePgxpView_Apply(viewUnit, shift, cam->offset);
 	memcpy(cam->camPos, cam->pos, sizeof(cam->pos));
+
+	// The game builds its translation as the integer rotation times the
+	// camera position, truncated, then scaled for aspect with integer
+	// division: up to a couple of units off, by an amount that changes
+	// whenever the integer rotation steps. Converted, that error moves the
+	// whole level (most visibly the ground near the camera) each time the
+	// integer pitch flips while the speed changes. Geometry that uses the
+	// view's own translation (the level, the sky) gets the exact one.
+	const double origin[3] = {-cam->pos[0], -cam->pos[1], -cam->pos[2]};
+	for (int i = 0; i < 3; i++)
+		cam->ownT[i] = NativePgxpView_ReadTranslation(viewProj, i);
+	NativePgxpView_Apply(viewUnit, origin, cam->ownTrans);
 	memcpy(cam->words, words, sizeof(words));
 	cam->viewGeneration = s_viewGeneration;
 }
@@ -447,10 +471,17 @@ int NativePgxp_ViewLookup(const u32 words[5], const s32 t[3], double rot[9], dou
 			const NativePgxpViewCamera *cam = &s_viewCameras[i];
 			if ((cam->viewGeneration != s_viewGeneration) || (memcmp(cam->words, words, sizeof(cam->words)) != 0))
 				continue;
-			const double intTrans[3] = {t[0], t[1], t[2]};
-			NativePgxpView_Apply(cam->fromInt, intTrans, s_viewCacheTrans);
-			for (int k = 0; k < 3; k++)
-				s_viewCacheTrans[k] += cam->offset[k];
+			if ((t[0] == cam->ownT[0]) && (t[1] == cam->ownT[1]) && (t[2] == cam->ownT[2]))
+			{
+				memcpy(s_viewCacheTrans, cam->ownTrans, sizeof(s_viewCacheTrans));
+			}
+			else
+			{
+				const double intTrans[3] = {t[0], t[1], t[2]};
+				NativePgxpView_Apply(cam->fromInt, intTrans, s_viewCacheTrans);
+				for (int k = 0; k < 3; k++)
+					s_viewCacheTrans[k] += cam->offset[k];
+			}
 			memcpy(s_viewCacheRot, cam->view, sizeof(s_viewCacheRot));
 			s_viewCacheHit = 1;
 		}

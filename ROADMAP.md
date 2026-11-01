@@ -18,7 +18,7 @@ Roughly in this order.
 
 | Item | Source |
 |---|---|
-| Check in game: camera wobble while the speed changes. The [precise camera](docs/PGXP.md#precise-camera) now follows the kart's exact position instead of its whole-unit one, and its speed filter no longer saws while the kart slows. Repro: spawn in the Adventure hub, drive back and forth while speeding up and slowing down, then drive the same path at constant speed; both should feel the same | Owner playtest, 2026-11-01 |
+| Check in game: camera wobble while the speed changes. The sky, the horizon glow and the level's translation no longer follow the game's integer camera, whose pitch flips by a unit every few frames while the speed changes ([precise camera](docs/PGXP.md#precise-camera)). Repro: spawn in the Adventure hub, drive back and forth while speeding up and slowing down, and watch the left and right edges of the screen against a run at constant speed | Owner playtest, 2026-11-01 |
 | Archipelago character unlocks (high): Adventure starts with the vanilla character picker and only the 8 base racers; every other racer, Oxide included, is unlocked during the run | Owner request, 2026-10-31 |
 | Proper exe and window icon, so the game looks right in the taskbar, program list and shortcuts instead of the default Windows icon | Owner request, 2026-11-01 |
 | Project website and guide (mid): GitHub Pages site with install steps, how to play with Archipelago, and the dev toolbox | Owner request, 2026-10-31 |

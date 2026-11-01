@@ -630,6 +630,12 @@ void NativeDev_RaceFrame(void)
 	struct GameTracker *gGT = sdata->gGT;
 	struct Driver *d = NativeDevRace_Player(0);
 
+	// The trace and dumps also follow player 1 around an Adventure hub, where
+	// nobody races (the autopilot and drive script stay race-only).
+	if ((d == NULL) && (gGT != NULL) && (sdata->Loading.stage == LOAD_IDLE) && ((gGT->gameMode1 & ADVENTURE_ARENA) != 0) &&
+	    ((u8)gGT->numPlyrCurrGame == 1))
+		d = gGT->drivers[0];
+
 	NativeDevRace_AdventureHub(dev, gGT);
 	NativeDevRace_Warp(dev, gGT);
 

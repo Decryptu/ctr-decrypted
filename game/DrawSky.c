@@ -98,6 +98,18 @@ static void DrawSky_EmitPrimitive(u32 **primCursor, u32 *ot)
 	CtrGpu_WriteColorCode(&poly->r2, MFC2(22));
 	CtrGpu_WritePackedXY(&poly->x2, MFC2(14));
 	CtrGpu_LinkPacket24(ot, &poly->tag, poly, 0x06000000);
+#ifdef CTR_NATIVE
+	// The sky is projected through the precise view like the level, but its
+	// screen positions are copied out by hand: attach the precise ones, or the
+	// sky's gradient steps with the integer camera's pitch while the speed
+	// changes.
+	if (NATIVE_PGXP_ACTIVE())
+	{
+		NativePgxp_StoreGteSXY(&poly->x0, 12, MFC2(12));
+		NativePgxp_StoreGteSXY(&poly->x1, 13, MFC2(13));
+		NativePgxp_StoreGteSXY(&poly->x2, 14, MFC2(14));
+	}
+#endif
 
 	*primCursor = (u32 *)(poly + 1);
 }
