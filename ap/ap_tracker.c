@@ -283,6 +283,26 @@ static const char *AP_TrackerPadDestinationName(int physical)
 	return AP_TrackerPadName(physical);
 }
 
+/* The hub pause page in a content-plan room (AH_Pause.c): a physical pad's
+ * row is named by what the pad leads to and shows that pad's own checks, not
+ * the reward bits of the retail track that owned it. Returns 0 outside a plan,
+ * where the retail row stays. relic is the best Time Trial relic checked:
+ * 0 none, 1 Sapphire, 2 Gold, 3 Platinum. */
+int AP_PausePadRow(int physical, const char **name, int *trophy, int *relic, int *token)
+{
+	const ctr_content_pad *pad;
+	int i;
+	if (!ap_content_plan_active()) return 0;
+	pad = ap_content_plan_pad(physical);
+	*name = !pad || !pad->occupied ? "NO ENTRY" : pad->room_title[0] ? pad->room_title : pad->display_name;
+	*trophy = pad && pad->trophy_location > 0 && AP_ContentCodeChecked(pad->trophy_location);
+	*token = pad && pad->ctr_location > 0 && AP_ContentCodeChecked(pad->ctr_location);
+	*relic = 0;
+	for (i = 0; pad && i < 3; i++)
+		if (pad->relic_locations[i] > 0 && AP_ContentCodeChecked(pad->relic_locations[i])) *relic = i + 1;
+	return 1;
+}
+
 /* RACERS tab: one row per racer, in engine order. UNLOCKED reads the same gate
  * the picker and the pad locks use; the pad list is the per-pad racer lock
  * from slot_data, named by what each pad leads to this seed; HIT is the Hit Character check when that option is on. */

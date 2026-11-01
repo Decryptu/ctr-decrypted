@@ -221,6 +221,8 @@ void AH_Pause_Draw(s32 pageID, s32 inputPosX)
 		}
 		for (trackID = 0; trackID < AH_PAUSE_LEVEL_SCAN_COUNT; trackID++)
 		{
+			const char *rowName = GAME_LANGUAGE_STRINGS[AH_LEVEL_METADATA[trackID].name_LNG];
+			s32 plan = 0, planTrophy = 0, planRelic = 0, planToken = 0;
 			if (AH_LEVEL_METADATA[trackID].hubID != hubID)
 				continue;
 			if (trackID >= AH_PAUSE_FIRST_CRYSTAL_LEVEL)
@@ -228,20 +230,26 @@ void AH_Pause_Draw(s32 pageID, s32 inputPosX)
 				crystalID = trackID;
 				continue;
 			}
+#ifdef CTR_AP
+			// A content-plan room names the pad by what it leads to and shows
+			// that pad's own checks (a custom track on Dingo Canyon's pad).
+			plan = AP_PausePadRow(trackID, &rowName, &planTrophy, &planRelic, &planToken);
+#endif
+#define AH_PAUSE_ROW_HAS(bit, planValue) (plan ? (planValue) != 0 : CHECK_ADV_BIT(GAME_ADV_PROGRESS.rewards, (bit)) != 0)
 			// Set the row's rewards before positioning them through the UI helpers.
 			if (hubID != 0)
 			{
 				member->iconIndex = AH_PAUSE_ICON_TROPHY;
-				if (CHECK_ADV_BIT(GAME_ADV_PROGRESS.rewards, trackID + ADV_REWARD_FIRST_TROPHY))
+				if (AH_PAUSE_ROW_HAS(trackID + ADV_REWARD_FIRST_TROPHY, planTrophy))
 					member->unlockFlags |= AH_PAUSE_MEMBER_UNLOCKED;
 				member++;
 			}
-			if (CHECK_ADV_BIT(GAME_ADV_PROGRESS.rewards, trackID + ADV_REWARD_FIRST_PLATINUM_RELIC))
+			if (AH_PAUSE_ROW_HAS(trackID + ADV_REWARD_FIRST_PLATINUM_RELIC, planRelic == 3))
 			{
 				member->unlockFlags |= AH_PAUSE_MEMBER_UNLOCKED;
 				member->iconIndex = AH_PAUSE_ICON_PLATINUM_RELIC;
 			}
-			else if (CHECK_ADV_BIT(GAME_ADV_PROGRESS.rewards, trackID + ADV_REWARD_FIRST_GOLD_RELIC))
+			else if (AH_PAUSE_ROW_HAS(trackID + ADV_REWARD_FIRST_GOLD_RELIC, planRelic == 2))
 			{
 				member->unlockFlags |= AH_PAUSE_MEMBER_UNLOCKED;
 				member->iconIndex = AH_PAUSE_ICON_GOLD_RELIC;
@@ -249,14 +257,14 @@ void AH_Pause_Draw(s32 pageID, s32 inputPosX)
 			else
 			{
 				member->iconIndex = AH_PAUSE_ICON_SAPPHIRE_RELIC;
-				if (CHECK_ADV_BIT(GAME_ADV_PROGRESS.rewards, trackID + ADV_REWARD_FIRST_SAPPHIRE_RELIC))
+				if (AH_PAUSE_ROW_HAS(trackID + ADV_REWARD_FIRST_SAPPHIRE_RELIC, planRelic == 1))
 					member->unlockFlags |= AH_PAUSE_MEMBER_UNLOCKED;
 			}
 			member++;
 			if (hubID != 0)
 			{
 				member->iconIndex = AH_PAUSE_ICON_FIRST_TOKEN + AH_LEVEL_METADATA[trackID].ctrTokenGroupID;
-				if (CHECK_ADV_BIT(GAME_ADV_PROGRESS.rewards, trackID + ADV_REWARD_FIRST_CTR_TOKEN))
+				if (AH_PAUSE_ROW_HAS(trackID + ADV_REWARD_FIRST_CTR_TOKEN, planToken))
 					member->unlockFlags |= AH_PAUSE_MEMBER_UNLOCKED;
 				member++;
 				for (i = 0; i < AH_PAUSE_HUB_REWARD_ICON_COUNT; i++)
@@ -272,8 +280,9 @@ void AH_Pause_Draw(s32 pageID, s32 inputPosX)
 				translation->x = SelectProfile_UI_ConvertX(savedPosX + iconX + AH_PAUSE_ROW_ICON_STEP_X, AH_PAUSE_UI_COORD_SCALE);
 				translation->y = SelectProfile_UI_ConvertY(rowY + AH_PAUSE_ROW_ICON_Y, AH_PAUSE_UI_COORD_SCALE);
 			}
-			DecalFont_DrawLine(GAME_LANGUAGE_STRINGS[AH_LEVEL_METADATA[trackID].name_LNG], savedPosX + textX, rowY + AH_PAUSE_ROW_TEXT_Y, FONT_BIG, 0);
+			DecalFont_DrawLine((char *)rowName, savedPosX + textX, rowY + AH_PAUSE_ROW_TEXT_Y, FONT_BIG, 0);
 			rowY += AH_PAUSE_ROW_STEP_Y;
+#undef AH_PAUSE_ROW_HAS
 		}
 		DecalFont_DrawLine(GAME_LANGUAGE_STRINGS[GAME_CHARACTER_METADATA[page->characterID_Boss].name_LNG_long], savedPosX + textX, rowY + AH_PAUSE_ROW_TEXT_Y,
 		                   FONT_BIG, WHITE);

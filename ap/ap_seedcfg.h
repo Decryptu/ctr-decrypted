@@ -1071,6 +1071,13 @@ int AP_BossGateAdvert(int bossIdx, char *out, int cap);
 // is shut belongs to AP_BossGateAdvert. IMPLEMENTED C-SIDE in ap_hooks.c.
 int AP_GoalAdvert(char *out, int cap);
 
+// The hub pause page's row for a physical pad in a content-plan room: the
+// name of what the pad leads to and whether its Trophy, best relic (0 none,
+// 1 Sapphire, 2 Gold, 3 Platinum) and CTR Token checks are done. Returns 0
+// outside a plan, where the page keeps its retail rows. IMPLEMENTED C-SIDE
+// in ap_tracker.c.
+int AP_PausePadRow(int physical, const char **name, int *trophy, int *relic, int *token);
+
 // #169 tier 1 boss track shuffle (schema 18, ap_boss_venue.h). The seed's
 // four garage venues, parsed from `boss_encounters` and checked against
 // ctr_options.boss_track_shuffle. RETAIL (no draw) is the default.
