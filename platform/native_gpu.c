@@ -98,6 +98,8 @@ typedef struct
 } GPUDrawSplit;
 
 #define MAX_DRAW_SPLITS 4096
+// Water runs per frame: two water buckets for each of up to four viewports.
+#define NATIVE_GPU_MAX_WATER_RANGES 8
 
 typedef struct
 {
@@ -123,6 +125,13 @@ typedef struct
 	bool levelPrim;
 	const u8 *levelPrimStart[2];
 	const u8 *levelPrimEnd[2];
+	// The level's water runs inside it (NativeGpu_AddLevelWaterRange): two
+	// buckets per viewport, merged when adjacent.
+	bool levelWater;
+	int waterDb;
+	int waterCount[2];
+	const u8 *waterStart[2][NATIVE_GPU_MAX_WATER_RANGES];
+	const u8 *waterEnd[2][NATIVE_GPU_MAX_WATER_RANGES];
 
 	// Slack past the uploaded capacity takes the writes of a primitive that
 	// does not fit; ParsePrimitive then drops it (see the budget header).
@@ -192,6 +201,40 @@ void NativeGpu_SetLevelPrimRange(int db, const void *start, const void *end)
 
 	s_gpu.levelPrimStart[db] = (const u8 *)start;
 	s_gpu.levelPrimEnd[db] = (const u8 *)end;
+
+	// The arena reset: this frame's water runs follow.
+	if (start == NULL)
+	{
+		s_gpu.waterDb = db;
+		s_gpu.waterCount[db] = 0;
+	}
+}
+
+void NativeGpu_AddLevelWaterRange(const void *start, const void *end)
+{
+	const int db = s_gpu.waterDb;
+	int count = s_gpu.waterCount[db];
+
+	if ((const u8 *)end <= (const u8 *)start)
+	{
+		return;
+	}
+
+	if ((count > 0) && (s_gpu.waterEnd[db][count - 1] == (const u8 *)start))
+	{
+		s_gpu.waterEnd[db][count - 1] = (const u8 *)end;
+		return;
+	}
+
+	if (count >= NATIVE_GPU_MAX_WATER_RANGES)
+	{
+		// More runs than viewports allow; the rest keeps ordering table order.
+		return;
+	}
+
+	s_gpu.waterStart[db][count] = (const u8 *)start;
+	s_gpu.waterEnd[db][count] = (const u8 *)end;
+	s_gpu.waterCount[db] = count + 1;
 }
 
 internal bool NativeGpu_IsLevelPrim(const u8 *packet)
@@ -207,19 +250,37 @@ internal bool NativeGpu_IsLevelPrim(const u8 *packet)
 	return false;
 }
 
-// Opaque level polygons test and write depth; translucent ones (water) only
-// test it, so what shows through them stays as the ordering table drew it.
-// Depths are the PGXP ones NativeGpu_ApplyPgxp writes to w, which it does
-// only with perspective texturing on (TEXTURES or FULL); otherwise the level
-// keeps ordering table order.
-internal NativeDepthMode NativeGpu_LevelDepthMode(bool semiTrans)
+internal bool NativeGpu_IsLevelWater(const u8 *packet)
+{
+	for (int db = 0; db < 2; db++)
+	{
+		for (int i = 0; i < s_gpu.waterCount[db]; i++)
+		{
+			if ((packet >= s_gpu.waterStart[db][i]) && (packet < s_gpu.waterEnd[db][i]))
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+// The level keeps ordering table order and writes depth, and its water tests
+// that depth, so water sorted after a nearer surface no longer paints over it.
+// Opaque and translucent polygons outside the water keep the PS1's order among
+// themselves: the art relies on it (a cave's translucent wall blended over a
+// lining that crosses it). Depths are the PGXP ones NativeGpu_ApplyPgxp writes
+// to w, which it does only with perspective texturing on (TEXTURES or FULL);
+// otherwise the level keeps ordering table order.
+internal NativeDepthMode NativeGpu_LevelDepthMode(void)
 {
 	if (!s_gpu.levelPrim || !NATIVE_PGXP_TEXTURES_ACTIVE() || NativeDev_NoLevelDepth())
 	{
 		return NATIVE_DEPTH_OFF;
 	}
 
-	return semiTrans ? NATIVE_DEPTH_TEST : NATIVE_DEPTH_WRITE;
+	return s_gpu.levelWater ? NATIVE_DEPTH_TEST : NATIVE_DEPTH_WRITE;
 }
 
 int NativeGpu_GetStateSize(void)
@@ -1195,7 +1256,7 @@ internal void AddSplit(bool semiTrans, bool textured, bool framebufferFeedback)
 		psxTexturedSemiTrans = false;
 	}
 
-	const NativeDepthMode depthMode = NativeGpu_LevelDepthMode(semiTrans);
+	const NativeDepthMode depthMode = NativeGpu_LevelDepthMode();
 
 	// FIXME: compare drawing environment too?
 	if (!psxTexturedSemiTrans && curSplit->blendMode == blendMode && curSplit->texFormat == texFormat && curSplit->textureId == textureId &&
@@ -1281,16 +1342,9 @@ void DrawSplit(const GPUDrawSplit *split)
 	NativeRenderer_SetOffscreenState(&split->drawenv.clip, !drawOnScreen);
 	NativeRenderer_SetProjection(&split->drawenv.clip, &split->dispenv, !drawOnScreen);
 
-	// Opaque level polygons: their true depth first, then colour with the
-	// tolerance (NativeDepthMode). An opaque split is never textured semi-trans.
-	if (split->depthMode == NATIVE_DEPTH_WRITE)
-	{
-		NativeRenderer_SetDepthMode(NATIVE_DEPTH_WRITE);
-		NativeRenderer_SetBlendMode(BM_NONE);
-		NativeRenderer_SetPSXTextureSemiTransPass(0);
-		NativeRenderer_DrawTriangles(split->startVertex, split->numVerts / 3);
-	}
-	NativeRenderer_SetDepthMode((split->depthMode == NATIVE_DEPTH_OFF) ? NATIVE_DEPTH_OFF : NATIVE_DEPTH_TEST);
+	// Opaque level polygons draw in order and leave their depth; translucent
+	// ones test it (NativeDepthMode).
+	NativeRenderer_SetDepthMode(split->depthMode);
 
 	if (split->psxTexturedSemiTrans)
 	{
@@ -1507,6 +1561,7 @@ void ParsePrimitivesLinkedList(u32 *p, int singlePrimitive)
 	// setup single primitive flag (needed for AddSplits)
 	s_gpu.drawPrimMode = singlePrimitive;
 	s_gpu.levelPrim = false;
+	s_gpu.levelWater = false;
 
 	if (singlePrimitive)
 	{
@@ -1540,6 +1595,7 @@ void ParsePrimitivesLinkedList(u32 *p, int singlePrimitive)
 				u8 *endPacket = basePacket + (tagLength + P_LEN) * sizeof(u32);
 				int primLength = 0;
 				s_gpu.levelPrim = NativeGpu_IsLevelPrim(basePacket);
+				s_gpu.levelWater = s_gpu.levelPrim && NativeGpu_IsLevelWater(basePacket);
 				if (currentPacket < endPacket)
 				{
 					primLength = ParsePrimitive((P_TAG *)currentPacket);

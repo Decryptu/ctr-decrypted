@@ -57,20 +57,20 @@ void NativeRenderer_SetBlendMode(BlendMode blendMode);
 void NativeRenderer_SetStencilMode(int drawPrim);
 
 // Level depth (see NativeGpu_SetLevelPrimRange). The PS1 draws in ordering
-// table order only; with PGXP each level vertex also has its view depth, and
-// level polygons test it so a nearer one already drawn is not painted over by
-// one the ordering table sorted after it.
+// table order only; with PGXP each level vertex also has its view depth. The
+// level still draws in ordering table order, since its art relies on it (a
+// cave's translucent wall blended over a lining that crosses it), and leaves
+// the depth of whatever ends up on screen. Only its water tests that depth, so
+// water the ordering table sorted late no longer paints over a nearer surface.
 //
-// Level decals (the Turbo Track pads) sit on the road but not exactly in its
-// plane, and the ordering table puts them after it. So the colour pass tests a
-// depth pulled a little nearer (NATIVE_DEPTH_TOLERANCE of the distance) and
-// writes none: a later polygon wins anything within that margin, as in the
-// original. Opaque polygons write their true depth in a separate pass.
+// The test uses a depth pulled a little nearer (NATIVE_DEPTH_TOLERANCE of the
+// distance) and writes none, so water lying on a surface still wins as in the
+// original.
 typedef enum
 {
 	NATIVE_DEPTH_OFF,   // ordering table order only (everything but the level)
-	NATIVE_DEPTH_WRITE, // true depth only, colour masked (opaque level polygons, first pass)
-	NATIVE_DEPTH_TEST,  // colour, tested with the tolerance, no depth write
+	NATIVE_DEPTH_WRITE, // ordering table order, writing true depth (the level but its water)
+	NATIVE_DEPTH_TEST,  // colour, tested with the tolerance, no depth write (the level's water)
 } NativeDepthMode;
 void NativeRenderer_SetDepthMode(NativeDepthMode mode);
 void NativeRenderer_SetOffscreenState(const RECT16 *offscreenRect, int enable);

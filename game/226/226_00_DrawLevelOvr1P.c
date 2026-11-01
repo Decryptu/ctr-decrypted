@@ -3,6 +3,7 @@
 #if defined(CTR_NATIVE)
 #include <platform/native_pgxp.h>
 #include <platform/native_dev.h>
+#include <platform/native_gpu.h>
 #include <widescreen.h>
 #endif
 
@@ -9434,8 +9435,8 @@ static int Ovr226_800a1ee0_EmitWaterListQuadBlock(struct PushBuffer *pb, struct 
 	                                                       DRAW_LEVEL_OVR1P_DIRECT_QUAD, NULL);
 }
 
-static int Ovr226_800a1e30_DrawWaterBspList(struct VisMemBspListNode *slot, struct PushBuffer *pb, struct mesh_info *mesh, struct PrimMem *primMem,
-                                            const int *visFaceList)
+static int Ovr226_800a1e30_DrawWaterBspListPrims(struct VisMemBspListNode *slot, struct PushBuffer *pb, struct mesh_info *mesh,
+                                                 struct PrimMem *primMem, const int *visFaceList)
 {
 	Ovr226_800a1e30_SeedWaterListState();
 
@@ -9476,6 +9477,16 @@ static int Ovr226_800a1e30_DrawWaterBspList(struct VisMemBspListNode *slot, stru
 
 	DrawLevelOvr1P_TerminateRenderedListCursor();
 	return 1;
+}
+
+// Water depth-tests against the rest of the level (NativeGpu_AddLevelWaterRange).
+static int Ovr226_800a1e30_DrawWaterBspList(struct VisMemBspListNode *slot, struct PushBuffer *pb, struct mesh_info *mesh, struct PrimMem *primMem,
+                                            const int *visFaceList)
+{
+	void *waterStart = primMem->cursor;
+	const int drawn = Ovr226_800a1e30_DrawWaterBspListPrims(slot, pb, mesh, primMem, visFaceList);
+	NativeGpu_AddLevelWaterRange(waterStart, primMem->cursor);
+	return drawn;
 }
 
 static int Ovr226_800a30f0_WaterRenderedFaceGate(struct PushBuffer *pb, struct PrimMem *primMem, struct QuadBlock *block,
@@ -9977,7 +9988,13 @@ static int DrawLevelOvr1P_DrawRenderedQuadBlocks(struct QuadBlock **renderedList
 		return DrawLevelOvr1P_DrawNonWaterRenderedList(renderedList, pb, mesh, primMem, role);
 
 	case DRAW_LEVEL_OVR1P_BUCKET_WATER_RENDERED:
-		return Ovr226_800a2904_DrawWaterRenderedList(renderedList, pb, mesh, primMem);
+	{
+		// Water depth-tests against the rest of the level (NativeGpu_AddLevelWaterRange).
+		void *waterStart = primMem->cursor;
+		const int drawn = Ovr226_800a2904_DrawWaterRenderedList(renderedList, pb, mesh, primMem);
+		NativeGpu_AddLevelWaterRange(waterStart, primMem->cursor);
+		return drawn;
+	}
 
 	default:
 		return 0;

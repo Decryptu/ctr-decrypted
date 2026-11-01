@@ -1201,10 +1201,11 @@ const char *gte_shader_32_rgba = "	uniform sampler2D s_texture;\n"
 // window depth 1 - N/w, which is linear in screen space so it interpolates
 // correctly, with N = 16 view units (nearer points clamp to 0, GL_DEPTH_CLAMP).
 // 24 bits then resolve under a unit up to w = 16000. depthPull > 0 is the
-// colour pass, which scales w by (1 - depthPull) so a later polygon wins near
-// ties; depthPull < 0 is the depth-only pass. A vertex without a depth keeps
-// ordering table order: it is never written (far plane in the depth pass) and
-// never hidden (near plane in the colour pass).
+// tested pass (the level's water), which scales w by (1 - depthPull) so a later
+// polygon wins near ties; depthPull < 0 is the rest of the level, which writes
+// the true depth. A vertex without a depth keeps ordering table order: it
+// writes the far plane in the writing pass and is never hidden (near plane) in
+// the tested one.
 #define GTE_PGXP_DEPTH                                                                         \
 	"		gl_Position *= (a_position.z > 0.0) ? a_position.z : 1.0;\n"                          \
 	"		gl_Position.z = (a_position.z > 0.0) ? (a_position.z - 32.0 / (1.0 - max(depthPull, 0.0))) : ((depthPull < 0.0) ? gl_Position.w : -gl_Position.w);\n"
@@ -3129,10 +3130,12 @@ void NativeRenderer_SetDepthMode(NativeDepthMode mode)
 		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		break;
 	case NATIVE_DEPTH_WRITE:
+		// Drawn in ordering table order like the PS1, so the depth left behind is
+		// the surface that ends up on screen.
 		glEnable(GL_DEPTH_TEST);
-		glDepthFunc(GL_LESS);
+		glDepthFunc(GL_ALWAYS);
 		glDepthMask(GL_TRUE);
-		glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		break;
 	case NATIVE_DEPTH_TEST:
 		glEnable(GL_DEPTH_TEST);
