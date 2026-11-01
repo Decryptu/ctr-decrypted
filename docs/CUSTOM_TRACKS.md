@@ -169,6 +169,8 @@ MM_ConfigProc_CustomContent`; the title row is `CTR_LNG_MODS`,
   (`CustomPackage_RemoveInstalled`: every revision of the track; each pin folder
   is renamed out of the store, then deleted, so a removal cut short is never
   read as a package), and Check files.
+- **Racers**: the custom racer catalogue and the installed racers
+  ([CUSTOM_RACERS.md](CUSTOM_RACERS.md#the-racers-tab)).
 
 Select imports an xdelta patch, also when one is dropped on the window
 (`game/230/MM_CustomImport.c`, `platform/native_xdelta_import.cpp`).

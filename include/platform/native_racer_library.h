@@ -35,6 +35,19 @@ struct NativeRacerEntry
 	int wheels;
 	char modelPath[NATIVE_RACER_PATH_BYTES];
 	char portraitPath[NATIVE_RACER_PATH_BYTES];
+	char folder[64];   // its folder under assets/racers (set by Scan)
+};
+
+// One racer in the catalogue's index.json (github.com/Decryptu/ctr-decrypted-racers).
+struct NativeRacerCatalogueEntry
+{
+	char id[37];
+	char name[NATIVE_RACER_NAME_BYTES];
+	char authors[128]; // comma-separated
+	char folder[64];   // racers/<folder>/ in the catalogue, and the install folder
+	int templateID;
+	size_t manifestBytes;
+	char manifestSha256[65];
 };
 
 // Fill `out` with up to `max` installed racers from `racersDir`, sorted by
@@ -46,6 +59,31 @@ int NativeRacerLibrary_Scan(const char *racersDir, struct NativeRacerEntry *out,
 // `error` gets the reason otherwise. Paths are left relative.
 int NativeRacerLibrary_ParseManifest(const char *json, size_t size, struct NativeRacerEntry *out, char *modelSha256, char *portraitSha256,
                                      size_t *modelBytes, size_t *portraitBytes, char *error, size_t errorSize);
+
+// Parse the catalogue's index.json. Returns the count (at most `max`), or -1
+// with `error` set.
+int NativeRacerLibrary_ParseIndex(const char *json, size_t size, struct NativeRacerCatalogueEntry *out, int max,
+                                  char *error, size_t errorSize);
+
+// Install a downloaded racer as racersDir/<folder>: the manifest and both
+// files are checked against each other first, written to a staging folder,
+// then moved into place. Any installed folder with the same racer id is
+// replaced. Returns 1 on success.
+int NativeRacerLibrary_Install(const char *racersDir, const char *folder, const void *manifest, size_t manifestSize,
+                               const void *model, size_t modelSize, const void *portrait, size_t portraitSize,
+                               char *error, size_t errorSize);
+
+// Delete racersDir/<folder> and everything in it. Returns 1 on success.
+int NativeRacerLibrary_Remove(const char *racersDir, const char *folder, char *error, size_t errorSize);
+
+// The catalogue over HTTPS (ap/ap_custom_track_download.cpp, from
+// raw.githubusercontent.com). Start returns 1 when a worker was started.
+// Poll returns 0 while running, 1 on success, -2 on failure (with `error`),
+// -1 when idle; a finished result is handed over once.
+int NativeRacerCatalogue_StartRefresh(void);
+int NativeRacerCatalogue_PollRefresh(struct NativeRacerCatalogueEntry *out, int max, int *count, char *error, size_t errorSize);
+int NativeRacerCatalogue_StartInstall(const struct NativeRacerCatalogueEntry *entry, const char *racersDir);
+int NativeRacerCatalogue_PollInstall(char *error, size_t errorSize);
 
 #ifdef __cplusplus
 }

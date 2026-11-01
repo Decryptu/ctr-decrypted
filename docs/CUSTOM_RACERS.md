@@ -84,9 +84,18 @@ gcc -O2 -Iinclude tools/racers/xdelta_apply.c -o tools/racers/xdelta_apply.exe
 python tools/racers/convert_racer.py --disc "CTR (USA).bin" --sources sources.json --out racers/ mods/*.xdelta
 ```
 
-The catalogue, [Decryptu/ctr-decrypted-racers](https://github.com/Decryptu/ctr-decrypted-racers), keeps the converted racers under `racers/`, with its `sources.json`. `tools/racers/build_index.py <catalogue>` checks every racer folder and writes `index.json` (each racer's folder, plus the size and SHA-256 of its `racer.json`) and `CREDITS.md`. It refuses a racer with no authors.
+The catalogue, [Decryptu/ctr-decrypted-racers](https://github.com/Decryptu/ctr-decrypted-racers), keeps the converted racers under `racers/`, with its `sources.json`. `tools/racers/build_index.py <catalogue>` checks every racer folder and writes `index.json` (each racer's folder, its authors, plus the size and SHA-256 of its `racer.json`) and `CREDITS.md`. It refuses a racer with no authors. A racer whose look comes from a release of the game (`JP_Crash.xdelta`, the Japanese Crash) stays out.
 
-The mods collected so far (17 patches, 37 racers) are static, vertex-coloured meshes: no textures and no animations, as they are on a PS1. Their kart textures, voices and code patches are not carried over.
+The racer mods converted so far are static, vertex-coloured meshes: no textures and no animations, as they are on a PS1. Their kart textures, voices and code patches are not carried over.
+
+## The Racers tab
+The Mods screen's Racers tab (`game/230/MM_CustomRacers.c`) lists every racer in the catalogue's `index.json` and every installed racer the catalogue does not list, by name, with `OWNED` on installed ones. The panel shows the portrait (once installed), the authors and the retail racer it is based on. Cross downloads a racer, or asks to remove an installed one. L2 reads the catalogue again; R2 searches names and authors.
+
+- The downloads come from `raw.githubusercontent.com`, the catalogue's `main` branch, through the same HTTPS code as Project Saphi (`ap/ap_custom_track_download.cpp`, `NativeRacerCatalogue_*`). The index pins each `racer.json` (size and SHA-256), and `racer.json` pins its files, so the repository's `.gitattributes` keeps `racer.json` byte for byte (`eol=lf`).
+- `NativeRacerLibrary_Install` checks the files against each other, writes them to a hidden `.<folder>.part` folder, removes any installed folder with the same racer id, then renames the staging folder into place. `NativeRacerLibrary_Remove` deletes the racer's folder.
+- After either, `NativeRacers_Reload` reads the library again, so the character select has the change at once. It clears the players' racer picks, since racer indices change.
+
+`CTR_DEV_MODS=3` opens the tab ([DEV-TOOLS.md](DEV-TOOLS.md)). `CTR_DEV_PAD` presses then drive it; the catalogue loads within about 300 frames of a fast-forwarded run.
 
 ## In a race
 A driver races as a custom racer when it is a human player who picked one, outside Adventure and the menus, and its character ID is still the racer's template (`NativeRacers_Driver`). Anything that changed the ID since (Archipelago's character swap, the garage) changed the racer too. Then:

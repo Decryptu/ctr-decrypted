@@ -389,6 +389,15 @@ int NativeDev_CharacterSelect(void)
 	return 1;
 }
 
+int NativeDev_ModsTab(void)
+{
+	static int s_done;
+	if (s_done)
+		return 0;
+	s_done = 1;
+	return NativeDev_EnvInt("CTR_DEV_MODS", 0);
+}
+
 // Steer toward a nav point ahead on one of the AI's lines, with the throttle
 // held, so the kart stays on the road through the real driving physics.
 // Player 1 follows lane 0; in VS each player takes the next lane, so on tracks

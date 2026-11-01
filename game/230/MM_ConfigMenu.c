@@ -1195,6 +1195,7 @@ static struct CustomTrackLibrary s_contentLibrary;
 static int s_contentLibraryLoaded;
 static int s_contentLibraryTab;
 static int s_modsSeed; /* the Mods screen shows its Seed tab (MM_CustomManager.c) */
+static int s_modsRacers; /* the Mods screen shows its Racers tab (MM_CustomRacers.c) */
 static int s_contentSearchEditing;
 static int s_contentSearchPadPrev;
 static char s_contentSearchBackup[CTR_LIBRARY_QUERY_MAX + 1];

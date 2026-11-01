@@ -102,6 +102,26 @@ static void NativeRacers_Load(void)
 #endif
 }
 
+// Read the library again (the Mods screen installed or removed a racer).
+// Called from the menus only: no race holds a racer model then. The players'
+// picks are cleared, since racer indices change.
+void NativeRacers_Reload(void)
+{
+	for (int r = 0; r < s_racerCount; r++)
+	{
+		// A model is the file buffer less its leading u32 pointer-map offset.
+		if (s_racers[r].menuModel)
+			free((u32 *)s_racers[r].menuModel - 1);
+		if (s_racers[r].raceModel)
+			free((u32 *)s_racers[r].raceModel - 1);
+	}
+	memset(s_racers, 0, sizeof s_racers);
+	s_racerCount = -1;
+	s_portraitsUploaded = 0;
+	for (int p = 0; p < 4; p++)
+		s_playerRacer[p] = -1;
+}
+
 static int NativeRacers_Valid(int racer)
 {
 	NativeRacers_Load();
@@ -227,8 +247,15 @@ static void NativeRacers_UploadPortraits(void)
 	if (!any)
 		return;
 
-	const TextureID bank = NativeRenderer_CreateVramBank();
-	NativeGpu_SetRacerBankTexture(bank);
+	// One bank for the run; a reload writes over the slots.
+	static TextureID bank;
+	static int bankCreated;
+	if (!bankCreated)
+	{
+		bank = NativeRenderer_CreateVramBank();
+		bankCreated = 1;
+		NativeGpu_SetRacerBankTexture(bank);
+	}
 
 	for (int r = 0; r < s_racerCount; r++)
 	{

@@ -13,6 +13,7 @@ void MM_Solo_OpenFromTitle(void); // MM_ConfigMenu.c (#89)
 #endif
 #ifdef CTR_CUSTOM_PACKAGES
 void MM_Mods_OpenFromTitle(void); // MM_ConfigMenu.c
+void MM_Mods_DevOpen(int tab);     // MM_CustomManager.c
 #endif
 
 s32 MM_TransitionInOut(struct TransitionMeta *meta, s32 framesPassed, s32 numFrames)
@@ -129,6 +130,15 @@ void MM_MenuProc_Main(struct RectMenu *menu)
 		if ((MM_MENU_MAIN.state & DRAW_NEXT_MENU_IN_HIERARCHY) == 0)
 		{
 			GAME_TRACKER->numPlyrNextGame = 1;
+#ifdef CTR_CUSTOM_PACKAGES
+			// CTR_DEV_MODS=<tab>: open the Mods screen on that tab, once.
+			const int devModsTab = NativeDev_ModsTab();
+			if (devModsTab > 0)
+			{
+				MM_Mods_DevOpen(devModsTab);
+				sdata->ptrDesiredMenu = &g_configMenu;
+			}
+#endif
 			// This runs every frame until the level loads, after the title has
 			// set up a CTR_DEV_RACE, so a VS race's player count goes here.
 			if (NativeDev_RaceTrack() >= 0)

@@ -139,6 +139,7 @@ tools/test-podium-seedcfg.cpp
 tools/test-podium-skip.c
 tools/test-podium-trophy-presentation.c
 tools/test-race-attempt-lifecycle.c
+tools/test-racer-library.cpp
 tools/test-received-backlog.cpp
 tools/test-relic-goal.c
 tools/test-relic-perfect.c

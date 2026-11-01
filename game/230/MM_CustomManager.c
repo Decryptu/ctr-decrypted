@@ -9,6 +9,8 @@
      Square lists a track's versions.
    - Installed: one row per installed track, its newest revision. Cross opens
      the track's actions: turn it off or on, remove it, check its files.
+   - Racers: the custom racer catalogue and the installed racers
+     (MM_CustomRacers.c).
    Everywhere: Select imports an xdelta patch (MM_CustomImport.c, also on a
    patch dropped on the window), R2 searches, L2 refreshes the catalogue.
 
@@ -120,11 +122,6 @@ static void MM_Mods_Remove(const struct CustomTrackLibraryEntry *entry, char *me
 #endif
 }
 
-static int MM_Mods_ConsumesBack(void)
-{
-    return s_modsActions != MODS_ACTIONS_CLOSED;
-}
-
 /* ---- Lists ---- */
 static int MM_CustomSearchMatch(const char *text, const char *query)
 {
@@ -168,28 +165,46 @@ static const struct CustomTrackLibraryEntry *MM_CustomSourceInstalled(const stru
     return exact;
 }
 
+#include "MM_CustomRacers.c"
+
+static int MM_Mods_ConsumesBack(void)
+{
+    return s_modsActions != MODS_ACTIONS_CLOSED || MM_ModsRacers_ConsumesBack();
+}
+
 /* L1 / R1 and the tab names. Tab 0 is Seed, shown only in a room that needs
-   custom tracks; 1 Browse, 2 Installed. */
+   custom tracks; 1 Browse, 2 Installed, 3 Racers. */
+#define MODS_TABS 4
 static int MM_Mods_Tab(void)
 {
-    return s_modsSeed ? 0 : 1 + s_contentLibraryTab;
+    return s_modsSeed ? 0 : s_modsRacers ? 3 : 1 + s_contentLibraryTab;
 }
 
 static void MM_Mods_SetTab(int tab)
 {
     s_modsSeed = tab == 0;
-    if (tab) s_contentLibraryTab = tab - 1;
+    s_modsRacers = tab == 3;
+    if (tab == 1 || tab == 2) s_contentLibraryTab = tab - 1;
     s_modsActions = MODS_ACTIONS_CLOSED;
+    s_racerConfirmRemove = 0;
+}
+
+/* CTR_DEV_MODS (game/230/MM_MenuFlow.c): the title opens this screen on a tab. */
+void MM_Mods_DevOpen(int tab)
+{
+    MM_Mods_OpenFromTitle();
+    MM_Mods_SetTab(tab < MODS_TABS ? tab : 1);
+    s_modsLastFrame = (unsigned int)sdata->gGT->timer;
 }
 
 static void MM_Mods_DrawTabs(int seedTab, uint32_t *ot)
 {
-    static const char *const names[3] = {"Seed", "Browse", "Installed"};
+    static const char *const names[MODS_TABS] = {"Seed", "Browse", "Installed", "Racers"};
     const int tab = MM_Mods_Tab();
     MM_CustomText_Draw("L1",42,50,28,1,WHITE,ot);
-    for (int i = seedTab ? 0 : 1, n = 0; i < 3; i++, n++)
+    for (int i = seedTab ? 0 : 1, n = 0; i < MODS_TABS; i++, n++)
     {
-        int x = seedTab ? 150 + n * 106 : 146 + n * 219;
+        int x = seedTab ? 111 + n * 96 : 150 + n * 106;
         MM_CustomText_Draw(names[i],x,50,150,1,JUSTIFY_CENTER | (i == tab ? ORANGE : WHITE),ot);
     }
     MM_CustomText_Draw("R1",456,50,28,1,WHITE,ot);
@@ -235,11 +250,14 @@ static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, str
     if (now - s_modsLastFrame > 2)
     {
         s_modsSeed = seedTab;
+        if (seedTab) s_modsRacers = 0;
         s_modsActions = MODS_ACTIONS_CLOSED;
+        s_racerConfirmRemove = 0;
     }
     s_modsLastFrame = now;
     if (!seedTab) s_modsSeed = 0;
     MM_CustomLibrary_Tick(0);
+    MM_ModsRacers_Tick();
 #if defined(CTR_AP) && !defined(CTR_AP_AUTHORING)
     const int seedBusy = AP_SeedContentInstallBusy();
 #else
@@ -311,9 +329,9 @@ static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, str
     {
         s_saphiVersionTrack=0;s_saphiSelection[0]=s_saphiBrowseSelection;tapped=0;
     }
-    if ((tapped & (BTN_L1 | BTN_R1)) && s_modsActions == MODS_ACTIONS_CLOSED)
+    if ((tapped & (BTN_L1 | BTN_R1)) && s_modsActions == MODS_ACTIONS_CLOSED && !s_racerConfirmRemove)
     {
-        const int low = seedTab ? 0 : 1, tabs = 3 - low;
+        const int low = seedTab ? 0 : 1, tabs = MODS_TABS - low;
         int tab = MM_Mods_Tab() - low;
         tab = (tab + ((tapped & BTN_R1) ? 1 : tabs - 1)) % tabs;
         if(s_saphiVersionTrack) s_saphiSelection[0]=s_saphiBrowseSelection;
@@ -333,12 +351,17 @@ static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, str
     }
 #endif
 
-    if ((tapped & BTN_R2) && s_modsActions == MODS_ACTIONS_CLOSED)
+    if ((tapped & BTN_R2) && s_modsActions == MODS_ACTIONS_CLOSED && !s_racerConfirmRemove)
     {
         strcpy(s_contentSearchBackup, s_saphiQuery);
         NativeText_Begin(s_saphiQuery, sizeof s_saphiQuery, 28, 180, 456, 12, 0);
         s_contentSearchEditing = 1;
         tapped = 0;
+    }
+    if (s_modsRacers)
+    {
+        MM_ModsRacers_Page(ot, tapped);
+        return;
     }
     if (!s_contentLibraryTab)
     {

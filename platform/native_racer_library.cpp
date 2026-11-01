@@ -8,6 +8,7 @@ extern "C" {
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -68,6 +69,52 @@ bool HashFile(const std::filesystem::path &path, size_t expectedBytes, const cha
     NativeSha256_Final(&ctx, digest);
     NativeSha256_ToHex(digest, hex);
     return !readError && total == expectedBytes && NativeSha256_HexEquals(expectedSha256, hex);
+}
+
+bool HashBytes(const void *bytes, size_t size, size_t expectedBytes, const char *expectedSha256)
+{
+    NativeSha256Ctx ctx;
+    NativeSha256_Init(&ctx);
+    NativeSha256_Update(&ctx, bytes, size);
+    unsigned char digest[NATIVE_SHA256_DIGEST_BYTES];
+    char hex[NATIVE_SHA256_HEX_BYTES];
+    NativeSha256_Final(&ctx, digest);
+    NativeSha256_ToHex(digest, hex);
+    return size == expectedBytes && NativeSha256_HexEquals(expectedSha256, hex);
+}
+
+// An install folder name: a plain name that is not hidden (staging folders are).
+bool ValidFolder(const char *folder)
+{
+    return folder && ValidFileName(folder) && folder[0] != '.';
+}
+
+bool WriteFile(const std::filesystem::path &path, const void *bytes, size_t size)
+{
+    std::ofstream out(path, std::ios::binary | std::ios::trunc);
+    out.write(static_cast<const char *>(bytes), static_cast<std::streamsize>(size));
+    out.close();
+    return !out.fail();
+}
+
+// The racer id in a folder's racer.json, or "" when there is none.
+std::string FolderRacerId(const std::filesystem::path &folder)
+{
+    FILE *f = NativeFs_OpenRead((folder / "racer.json").u8string().c_str());
+    if (!f) return "";
+    std::string text;
+    char buffer[4096];
+    size_t n;
+    while ((n = std::fread(buffer, 1, sizeof buffer, f)) > 0 && text.size() < 65536) text.append(buffer, n);
+    std::fclose(f);
+    try
+    {
+        return json::parse(text).value("id", std::string());
+    }
+    catch (const std::exception &)
+    {
+        return "";
+    }
 }
 } // namespace
 
@@ -175,6 +222,7 @@ extern "C" int NativeRacerLibrary_Scan(const char *racersDir, NativeRacerEntry *
         }
         std::snprintf(e.modelPath, sizeof e.modelPath, "%s", model.u8string().c_str());
         std::snprintf(e.portraitPath, sizeof e.portraitPath, "%s", portrait.u8string().c_str());
+        std::snprintf(e.folder, sizeof e.folder, "%s", folder.c_str());
         found.push_back(e);
     }
 
@@ -185,4 +233,104 @@ extern "C" int NativeRacerLibrary_Scan(const char *racersDir, NativeRacerEntry *
     const int count = std::min<int>((int)found.size(), max);
     for (int i = 0; i < count; i++) out[i] = found[i];
     return count;
+}
+
+extern "C" int NativeRacerLibrary_ParseIndex(const char *text, size_t size, NativeRacerCatalogueEntry *out, int max,
+                                             char *error, size_t errorSize)
+{
+    try
+    {
+        const json index = json::parse(text, text + size);
+        if (index.at("schema_version").get<int>() != 1) return Fail(error, errorSize, "unknown index schema_version"), -1;
+        int count = 0;
+        for (const auto &r : index.at("racers"))
+        {
+            if (count >= max) break;
+            NativeRacerCatalogueEntry e{};
+            const std::string id = r.at("id").get<std::string>();
+            const std::string name = r.at("name").get<std::string>();
+            const std::string folder = r.at("folder").get<std::string>();
+            const json &manifest = r.at("manifest");
+            const std::string sha = manifest.at("sha256").get<std::string>();
+            e.templateID = IndexOf(kTemplates, 16, r.at("template").get<std::string>());
+            e.manifestBytes = manifest.at("bytes").get<size_t>();
+            // A row this client cannot use is left out, not the whole index.
+            if (id.size() != 36 || !ValidName(name, sizeof e.name) || !ValidFolder(folder.c_str()) ||
+                folder.size() >= sizeof e.folder || sha.size() != 64 || e.templateID < 0 || e.manifestBytes > 65536)
+                continue;
+            std::string authors;
+            for (const auto &a : r.value("authors", json::array()))
+                authors += (authors.empty() ? "" : ", ") + a.get<std::string>();
+            std::memcpy(e.id, id.c_str(), 37);
+            std::snprintf(e.name, sizeof e.name, "%s", name.c_str());
+            std::snprintf(e.authors, sizeof e.authors, "%s", authors.c_str());
+            std::snprintf(e.folder, sizeof e.folder, "%s", folder.c_str());
+            std::memcpy(e.manifestSha256, sha.c_str(), 65);
+            out[count++] = e;
+        }
+        return count;
+    }
+    catch (const std::exception &x)
+    {
+        Fail(error, errorSize, x.what());
+        return -1;
+    }
+}
+
+extern "C" int NativeRacerLibrary_Install(const char *racersDir, const char *folder, const void *manifest, size_t manifestSize,
+                                          const void *model, size_t modelSize, const void *portrait, size_t portraitSize,
+                                          char *error, size_t errorSize)
+{
+    if (!ValidFolder(folder)) return Fail(error, errorSize, "bad folder name"), 0;
+    NativeRacerEntry e;
+    char modelSha[65], portraitSha[65];
+    size_t modelBytes = 0, portraitBytes = 0;
+    if (!NativeRacerLibrary_ParseManifest((const char *)manifest, manifestSize, &e, modelSha, portraitSha, &modelBytes,
+                                          &portraitBytes, error, errorSize))
+        return 0;
+    if (!HashBytes(model, modelSize, modelBytes, modelSha) || !HashBytes(portrait, portraitSize, portraitBytes, portraitSha))
+        return Fail(error, errorSize, "a downloaded file does not match racer.json"), 0;
+
+    std::error_code ec;
+    const std::filesystem::path root = std::filesystem::u8path(racersDir);
+    const std::filesystem::path target = root / std::filesystem::u8path(folder);
+    const std::filesystem::path staging = root / std::filesystem::u8path(std::string(".") + folder + ".part");
+    std::filesystem::create_directories(root, ec);
+    std::filesystem::remove_all(staging, ec);
+    if (!std::filesystem::create_directory(staging, ec) ||
+        !WriteFile(staging / "racer.json", manifest, manifestSize) ||
+        !WriteFile(staging / std::filesystem::u8path(e.modelPath), model, modelSize) ||
+        !WriteFile(staging / std::filesystem::u8path(e.portraitPath), portrait, portraitSize))
+    {
+        std::filesystem::remove_all(staging, ec);
+        return Fail(error, errorSize, "could not write the racer's files"), 0;
+    }
+
+    // An update replaces the racer wherever it was installed.
+    for (const auto &item : std::filesystem::directory_iterator(root, ec))
+    {
+        const std::string name = item.path().filename().u8string();
+        if (item.is_directory(ec) && !item.is_symlink(ec) && name[0] != '.' && FolderRacerId(item.path()) == e.id)
+            std::filesystem::remove_all(item.path(), ec);
+    }
+    std::filesystem::remove_all(target, ec);
+    std::filesystem::rename(staging, target, ec);
+    if (ec)
+    {
+        std::filesystem::remove_all(staging, ec);
+        return Fail(error, errorSize, "could not move the racer into place"), 0;
+    }
+    return 1;
+}
+
+extern "C" int NativeRacerLibrary_Remove(const char *racersDir, const char *folder, char *error, size_t errorSize)
+{
+    if (!ValidFolder(folder)) return Fail(error, errorSize, "bad folder name"), 0;
+    std::error_code ec;
+    const std::filesystem::path target = std::filesystem::u8path(racersDir) / std::filesystem::u8path(folder);
+    if (std::filesystem::is_symlink(target, ec) || !std::filesystem::is_directory(target, ec))
+        return Fail(error, errorSize, "the racer's folder is not there"), 0;
+    std::filesystem::remove_all(target, ec);
+    if (ec) return Fail(error, errorSize, "could not delete the racer's files"), 0;
+    return 1;
 }

@@ -206,6 +206,7 @@ static void MM_CustomImport_Proc(uint32_t *ot, struct GamepadBuffer *pad)
             s_importOpen = 0;
             s_contentLibraryTab = 1;
             s_modsSeed = 0;
+            s_modsRacers = 0;
             OtherFX_Play(2, 1);
             return;
         }

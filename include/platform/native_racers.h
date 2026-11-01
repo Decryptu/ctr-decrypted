@@ -12,6 +12,8 @@ struct Model;
 
 int NativeRacers_Count(void);
 int NativeRacers_Template(int racer);
+// Read the installed racers again (menus only); clears the players' picks.
+void NativeRacers_Reload(void);
 // enum EngineClass; the template's unless the racer names one.
 int NativeRacers_Engine(int racer);
 int NativeRacers_Wheels(int racer);
