@@ -335,6 +335,25 @@ int main(void)
 		expect_int(CustomTrackManager_RenderYaml(&package, &status, yaml, sizeof yaml), 1,
 		           "refused cross export leaves the scanned package exportable");
 	}
+	{
+		struct CustomTrackManagerPackage other = package;
+		struct CustomTrackManagerStatus exported;
+		other.version = "2.0.0";
+		expect_int(CustomTrackManager_RenderYaml(&other, &status, yaml, sizeof yaml), 0,
+		           "Ready receipt cannot export another revision even with identical bytes");
+		expect_int(CustomTrackManager_SaveYaml(assets, &other, &status, &exported), 0,
+		           "mismatched revision cannot be saved either");
+		other = package;
+		other.navigationRevision++;
+		expect_int(CustomTrackManager_RenderYaml(&other, &status, yaml, sizeof yaml), 0,
+		           "Ready receipt binds navigation identity");
+		other = package;
+		other.laps++;
+		expect_int(CustomTrackManager_RenderYaml(&other, &status, yaml, sizeof yaml), 0,
+		           "Ready receipt binds authored laps");
+		expect_int(CustomTrackManager_RenderYaml(&package, &status, yaml, sizeof yaml), 1,
+		           "rejected exports leave the verified revision usable");
+	}
 
 	// Preflight only recognizes release-owned registry entries. The fixture is
 	// useful for scanner tests, but it must not become selectable by a seed.
@@ -665,8 +684,13 @@ int main(void)
 		expect_contains(baby->version, "1.0.0", "legacy getter stays 1.0.0");
 		memset(&ready, 0, sizeof ready);
 		ready.state = CTR_CT_MANAGER_READY;
+		snprintf(ready.levPath, sizeof ready.levPath, "%s", "track.lev");
+		snprintf(ready.vrmPath, sizeof ready.vrmPath, "%s", "track.vrm");
 		snprintf(ready.actualLevSha256, sizeof ready.actualLevSha256, "%s", cur->levSha256);
 		snprintf(ready.actualVrmSha256, sizeof ready.actualVrmSha256, "%s", cur->vrmSha256);
+		// A completed scan also records the package receipt (ScanPackage).
+		expect_int(Manager_PackageReceipt(cur, &ready, ready.verifiedPackageSha256), 1,
+		           "1.0.2 scan receipt recorded");
 		expect_int(CustomTrackManager_RenderYaml(cur, &ready, yaml, sizeof yaml), 1,
 		           "Ready 1.0.2 scan exports under the 1.0.2 handle");
 		expect_contains(yaml, "package_version: 1.0.2", "1.0.2 export names 1.0.2");
@@ -675,6 +699,8 @@ int main(void)
 		           "Ready 1.0.2 scan cannot be exported as 1.0.0");
 		snprintf(ready.actualLevSha256, sizeof ready.actualLevSha256, "%s", baby->levSha256);
 		snprintf(ready.actualVrmSha256, sizeof ready.actualVrmSha256, "%s", baby->vrmSha256);
+		expect_int(Manager_PackageReceipt(baby, &ready, ready.verifiedPackageSha256), 1,
+		           "1.0.0 scan receipt recorded");
 		expect_int(CustomTrackManager_RenderYaml(baby, &ready, yaml, sizeof yaml), 1,
 		           "Ready 1.0.0 scan still exports as 1.0.0");
 		expect_int(CustomTrackManager_RenderYaml(cur, &ready, yaml, sizeof yaml), 0,
@@ -704,6 +730,54 @@ int main(void)
 		current.minimumClientVersion = legacy.minimumClientVersion;
 		expect_int(CustomTrackManager_MatchingPackage(&current) == NULL, 1,
 		           "old feature floor refused for current profile");
+	}
+	{
+		// Open content-plan packages (#133 PR 2): files found by digest and size
+		// in tracks/<track key>/original, whatever their names, with no manifest.
+		char root[CTR_CT_MANAGER_PATH_MAX], tracks[CTR_CT_MANAGER_PATH_MAX], keyDir[CTR_CT_MANAGER_PATH_MAX];
+		char original[CTR_CT_MANAGER_PATH_MAX], levPath[CTR_CT_MANAGER_PATH_MAX], vrmPath[CTR_CT_MANAGER_PATH_MAX];
+		char otherLev[CTR_CT_MANAGER_PATH_MAX];
+		const char *vrmSha = "cb8379ac2098aa165029e3938a51da0bcecfc008fd6795f401178647f96c5b34"; /* sha256("def") */
+		unsigned char other[FIXTURE_LEV_MAX];
+		size_t otherLen = build_lev(other, 1, 0, 1);
+		struct CustomTrackManagerStatus open;
+		if (!Manager_Join(root, sizeof root, tempRoot, "open-assets") || !Manager_Join(tracks, sizeof tracks, root, "tracks") ||
+		    !Manager_Join(keyDir, sizeof keyDir, tracks, "open-key") || !Manager_Join(original, sizeof original, keyDir, "original") ||
+		    !Manager_Join(levPath, sizeof levPath, original, "lev-715.lev") ||
+		    !Manager_Join(vrmPath, sizeof vrmPath, original, "vrm-716.vrm") ||
+		    !Manager_Join(otherLev, sizeof otherLev, original, "an-older-revision.lev"))
+			return 2;
+		expect_int(CustomTrackManager_LocateContentFiles(root, "../escape", "T", "1", s_fixtureLevSha,
+		           (unsigned long)s_fixtureLevLen, vrmSha, 3, &open), CTR_CT_MANAGER_UNSUPPORTED, "unsafe track key refused");
+		expect_int(CustomTrackManager_LocateContentFiles(root, "Open-Key", "T", "1", s_fixtureLevSha,
+		           (unsigned long)s_fixtureLevLen, vrmSha, 3, &open), CTR_CT_MANAGER_UNSUPPORTED, "uppercase track key refused");
+		expect_int(CustomTrackManager_LocateContentFiles(root, "open-key", "T", "1", "zz",
+		           (unsigned long)s_fixtureLevLen, vrmSha, 3, &open), CTR_CT_MANAGER_UNSUPPORTED, "malformed pin refused");
+		expect_int(CustomTrackManager_LocateContentFiles(root, "open-key", "Open Track", "2.1", s_fixtureLevSha,
+		           (unsigned long)s_fixtureLevLen, vrmSha, 3, &open), CTR_CT_MANAGER_NOT_INSTALLED, "absent open package");
+		expect_contains(open.detail, "tracks/open-key/original", "absent open package names its folder");
+		expect_contains(open.detail, "Open Track 2.1", "absent open package names title and revision");
+		if (!Manager_CreateDirectory(root) || !Manager_CreateDirectory(tracks) || !Manager_CreateDirectory(keyDir) ||
+		    !Manager_CreateDirectory(original))
+			return 2;
+		write_bytes(otherLev, other, otherLen);
+		write_bytes(levPath, s_fixtureLev, s_fixtureLevLen);
+		expect_int(CustomTrackManager_LocateContentFiles(root, "open-key", "Open Track", "2.1", s_fixtureLevSha,
+		           (unsigned long)s_fixtureLevLen, vrmSha, 3, &open), CTR_CT_MANAGER_MISSING_FILES, "open package without VRM");
+		write_file(vrmPath, "dex");
+		expect_int(CustomTrackManager_LocateContentFiles(root, "open-key", "Open Track", "2.1", s_fixtureLevSha,
+		           (unsigned long)s_fixtureLevLen, vrmSha, 3, &open), CTR_CT_MANAGER_HASH_MISMATCH, "wrong VRM bytes");
+		write_file(vrmPath, "def");
+		expect_int(CustomTrackManager_LocateContentFiles(root, "open-key", "Open Track", "2.1", s_fixtureLevSha,
+		           (unsigned long)s_fixtureLevLen, vrmSha, 3, &open), CTR_CT_MANAGER_READY, "open package Ready by digest");
+		expect_contains(open.levPath, "lev-715.lev", "the matching LEV is chosen beside another revision");
+		expect_contains(open.vrmPath, "vrm-716.vrm", "the matching VRM is chosen");
+		expect_int((int)open.levBytes, (int)s_fixtureLevLen, "located LEV size");
+		expect_int(CustomTrackManager_LocateContentFiles(root, "open-key", "Open Track", "2.1", s_fixtureLevSha,
+		           (unsigned long)s_fixtureLevLen + 1, vrmSha, 3, &open), CTR_CT_MANAGER_HASH_MISMATCH, "declared size must match");
+		expect_int(CustomTrackManager_LocateContentFiles(root, "open-key", "Open\nTrack", "2.1", s_fixtureLevSha,
+		           (unsigned long)s_fixtureLevLen, vrmSha, 3, &open), CTR_CT_MANAGER_READY, "an unprintable title is not echoed");
+		expect_int(strchr(open.detail, '\n') == NULL, 1, "status detail stays one line");
 	}
 	printf("test-custom-track-manager: %d checks, %d failures\n", checks, failures);
 	return failures ? 1 : 0;

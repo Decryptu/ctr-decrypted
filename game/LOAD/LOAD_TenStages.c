@@ -4,6 +4,7 @@
 // Defined in LOAD_Assets.c (same unity translation unit). Refuses a required
 // Hit-encounter driver model that did not load, before any birth dereferences it.
 void LOAD_HitEncounterValidateExtras(void);
+void LOAD_BossOpponentValidateExtra(void);
 #endif
 
 #ifdef CTR_NATIVE
@@ -532,6 +533,7 @@ int LOAD_TenStages(struct GameTracker *unusedGameTracker, int loadingStage, stru
 		// dereferences the result (ticket 06). Inert when the feature is off.
 		if (AP_HitEncounterEnabled())
 			LOAD_HitEncounterValidateExtras();
+		LOAD_BossOpponentValidateExtra();
 #endif
 
 		// == banks are done parsing ===

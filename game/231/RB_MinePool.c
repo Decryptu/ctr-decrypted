@@ -10,6 +10,13 @@ static inline s32 RB_MinePool_Capacity(void)
 {
 	struct GameTracker *gGT = GAME_TRACKER;
 	s32 count;
+	int bossLevel = gGT->levelID;
+
+#ifdef CTR_AP
+	// #169: the pool size belongs to the boss's inherited attack, so a
+	// shuffled venue keeps its garage's home-track pool.
+	bossLevel = AP_BossRetailRulesLevel(bossLevel);
+#endif
 
 	if (gGT->gameMode1 & CRYSTAL_CHALLENGE)
 	{
@@ -17,16 +24,14 @@ static inline s32 RB_MinePool_Capacity(void)
 		// premature mine recycling; increasing it changes gameplay.
 		count = 40;
 	}
-	else if ((gGT->gameMode1 & ADVENTURE_BOSS) && gGT->levelID == DRAGON_MINES)
+	else if ((gGT->gameMode1 & ADVENTURE_BOSS) && bossLevel == DRAGON_MINES)
 	{
 		count = 3;
 	}
 	else
 	{
-		// NOTE(aalhendi): Retail reloads resident state for the second boss check.
-		struct GameTracker *currentGT = GAME_TRACKER_RELOAD();
 		count = 10;
-		if ((currentGT->gameMode1 & ADVENTURE_BOSS) && currentGT->levelID == ROO_TUBES)
+		if ((gGT->gameMode1 & ADVENTURE_BOSS) && bossLevel == ROO_TUBES)
 		{
 			count = 7;
 		}

@@ -166,10 +166,25 @@ int AP_CortexTrackPrepareLoad(int destLevelID)
 	return level;
 }
 
+// Server checked-state of a content-plan code, the callback the pure
+// track-mode decisions (ap_content_modes.h) take.
+int AP_ContentCodeChecked(int64_t code)
+{
+	return code > 0 && ap_net_location_checked((long)code);
+}
+
 int AP_RelicTimeFor(int levelID, int tier)
 {
 	if (tier < 0 || tier > 2)
 		tier = 0;
+#ifdef CTR_CUSTOM_TRACKS
+	{
+		// A content-plan Relic Race shows its own track's targets (#133 PR 3).
+		int target = AP_StandaloneRelicTarget(tier);
+		if (target > 0)
+			return target;
+	}
+#endif
 	if (AP_CortexTrackActive())
 		return AP_CortexRelicTime(tier);
 	if (levelID < 0 || levelID >= 18)
@@ -310,8 +325,90 @@ static void AP_AppendTrackRungGlow(int track, int *outBits, int cap, int *count)
 // (decision 3, 2026-07-16 wayfinder). Kept separate from
 // AP_PadUncollectedBits so the tier-2 menu stays tier-only. AP_PadState consumes
 // the glow-complete enumeration because a Done lock may not strand a rung.
+// Content-plan pad enumeration. openOnly hides the checks of a mode still locked
+// behind stage 2 (decision 26, review finding 11); the pad's glow asks for that,
+// while the pad state and the tracker count every open location, locked or not.
+static int AP_ContentPadGlowBits(int destLevelID, int *outBits, int cap, int openOnly)
+{
+		const ctr_content_pad *pad = ap_content_plan_pad(destLevelID);
+        int count=0,n;
+        if(!pad || !pad->occupied || !outBits || cap<=0)return 0;
+        if(pad->cup) {
+            // Cups (#133 PR 5): the Win, the sweep and each leg track's Cup
+            // Leg Victory once, then each track's first lap, Wumpa check and
+            // boxes once. A leg breaks a box only while the track's own pad
+            // is open, so the glow keeps a shut pad's boxes hidden.
+            int64_t codes[6]; int slots[6], k, c=ap_content_cup_codes(pad,codes,slots);
+            ap_content_cup_track_check rows[AP_CONTENT_CUP_TRACK_CHECKS];
+            for(k=0;k<c && count<cap;++k)
+                if(!ap_net_location_checked((long)codes[k]))
+                    outBits[count++]=slots[k]<0 ? AP_CONTENT_BIT_TROPHY+pad->physical
+                                                : AP_CONTENT_BIT_CUP+pad->physical*AP_CONTENT_CUP_STRIDE+slots[k];
+            c=ap_content_cup_track_checks(pad,ap_content_plan_pad,rows);
+            for(k=0;k<c && count<cap;++k) {
+                if(ap_net_location_checked((long)rows[k].code))continue;
+                if(openOnly && rows[k].box_pad>=0 && !AP_ContentPadOpen(ap_content_plan_pad(rows[k].box_pad)))continue;
+                outBits[count++]=rows[k].bit;
+            }
+            return count;
+        }
+        if(pad->crystal) {
+            if(!ap_net_location_checked((long)pad->trophy_location))outBits[count++]=AP_CONTENT_BIT_TROPHY+pad->physical;
+        }
+        // Track modes (#133 PR 3): every unchecked check of every mode that is
+        // open now, in the pad's mode order, as the glow ruling of 2026-09-30
+        // asks. A mode still locked behind stage 2 stays hidden, like a legacy
+        // pad (decision 26, review finding 11).
+        for(n=0;!pad->crystal && n<pad->mode_count && count<cap;++n) {
+            int64_t codes[3]={0,0,0};
+            int k,c;
+            if(openOnly && !AP_ContentModeOpen(pad,pad->modes[n]))continue;
+            c=ap_content_mode_codes(pad,pad->modes[n],codes);
+            for(k=0;k<c && count<cap;++k) {
+                if(codes[k]<=0 || ap_net_location_checked((long)codes[k]))continue;
+                outBits[count++]=pad->modes[n]==AP_CONTENT_MODE_TROPHY ? AP_CONTENT_BIT_TROPHY+pad->physical :
+                                 pad->modes[n]==AP_CONTENT_MODE_CTR ? AP_CONTENT_BIT_CTR+pad->physical :
+                                 AP_CONTENT_BIT_RELIC+pad->physical*3+k;
+            }
+            // ctr_first (J11): the CTR Challenge also pays the Trophy Race
+            // check, so it glows under the CTR mode, right after the CTR.
+            {
+                const int64_t paired=ap_content_mode_paired_trophy(pad,pad->modes[n]);
+                if(paired>0 && count<cap && !ap_net_location_checked((long)paired))
+                    outBits[count++]=AP_CONTENT_BIT_TROPHY+pad->physical;
+            }
+        }
+        // Per-track families (#133 PR 3b): podium rungs, the track's Wumpa
+        // check (once, whichever modes reach it) and the letter checks; the
+        // Relic Race Perfect (#133 PR 3c).
+        {
+            unsigned seen=0;
+            for(n=0;!pad->crystal && n<pad->mode_count && count<cap;++n) {
+                int64_t codes[AP_CONTENT_FAMILY_SLOTS];
+                int slots[AP_CONTENT_FAMILY_SLOTS];
+                int k,c;
+                if(openOnly && !AP_ContentModeOpen(pad,pad->modes[n]))continue;
+                c=ap_content_mode_family_codes(pad,pad->modes[n],codes,slots);
+                for(k=0;k<c && count<cap;++k) {
+                    if((seen & (1u<<slots[k])) || ap_net_location_checked((long)codes[k]))continue;
+                    seen|=1u<<slots[k];
+                    outBits[count++]=AP_CONTENT_BIT_FAMILY+pad->physical*AP_CONTENT_FAMILY_STRIDE+slots[k];
+                }
+            }
+        }
+        // Item Box checks (#133 PR 4e): every unchecked box of the pad.
+        for(n=0;!pad->crystal && n<pad->box_count && n<15 && count<cap;++n)
+            if(pad->box_locations[n]>0 && !ap_net_location_checked((long)pad->box_locations[n]))
+                outBits[count++]=AP_CONTENT_BIT_BOX+pad->physical*AP_CONTENT_BOX_STRIDE+n;
+        for(n=0;n<pad->crystal_count && count<cap;++n)
+            if(!ap_net_location_checked((long)pad->crystal_locations[n]))outBits[count++]=60000+pad->physical*20+n;
+        return count;
+}
+
 int AP_PadUncollectedGlowBits(int destLevelID, int *outBits, int cap)
 {
+	if (ap_content_plan_active())
+		return AP_ContentPadGlowBits(destLevelID, outBits, cap, 0);
 	int count;
 
 #ifdef CTR_CUSTOM_TRACKS
@@ -322,6 +419,22 @@ int AP_PadUncollectedGlowBits(int destLevelID, int *outBits, int cap)
 #endif
 
 	count = AP_PadUncollectedBits(destLevelID, outBits, cap);
+    if(ctr_cfg_active() && destLevelID>=100 && destLevelID<105 && count<cap) {
+        long sweep=AP_CupSweepCode(&ctr_cup_sweeps,destLevelID-100);
+        if(sweep>0 && ap_net_location_exists(sweep) && !ap_net_location_checked(sweep))
+            outBits[count++]=AP_CUP_SWEEP_PSEUDO_BASE+destLevelID-100;
+    }
+    {
+        int arena=AP_CrystalArenaIndex(destLevelID);
+        if (ctr_cfg_active() && arena>=0 && ctr_crystal_checks.state==1 &&
+            ctr_crystal_checks.present[arena])
+            for (int n=0;n<20 && count<cap;++n)
+            {
+                int bit=AP_CRYSTAL_PSEUDO_BASE+arena*20+n;
+                long code=AP_CrystalPseudoCode(&ctr_crystal_checks,bit);
+                if (ap_net_location_exists(code) && !ap_net_location_checked(code)) outBits[count++]=bit;
+            }
+    }
 
 	// #439 follow-up: an open Relic Race Perfect is advertised like the other
 	// relic-side checks, right after the tier bits. Retail race pads and the two
@@ -445,14 +558,16 @@ static int AP_PadTrackBoxSlots(int levelID)
 				continue;
 			if (lvl < 0 || lvl >= AP_BOX_TRACK_COUNT)
 				continue;
-			if (s_slots[lvl] >= AP_BOX_SLOTS_PER_TRACK)
-				continue; // past the frozen ceiling: no name, never spawns
 			s_slots[lvl]++;
 		}
 		s_gen = gen;
 	}
 
-	return s_slots[levelID];
+	// The guard compares the raw authored count, including rows beyond the
+	// frozen 15-slot ceiling. A refused track contributes no box checks to pad
+	// state or glow, matching the spawn path in ap_boxes.c.
+	return ctr_cfg_box_placement_valid(levelID, s_slots[levelID])
+	           ? s_slots[levelID] : 0;
 }
 
 // Server truth, in the shape AP_BoxMap_CountStanding wants. ap_boxes.c holds its
@@ -492,6 +607,19 @@ int AP_PadUncollectedBoxCount(int destLevelID)
 
 	if (!ctr_cfg_active())
 		return 0;
+
+	// #133 PR 4e: a content-plan pad owns its Item Box checks by its physical
+	// id, whatever track it holds; never the retail row of that number.
+	if (ap_content_plan_active())
+	{
+		const ctr_content_pad *pad = ap_content_plan_pad(destLevelID);
+		int b;
+		for (b = 0; pad && pad->occupied && b < pad->box_count && b < 15; b++)
+			if (pad->box_locations[b] > 0 && AP_PadBoxLive((long)pad->box_locations[b], 0) &&
+			    !AP_PadBoxChecked((long)pad->box_locations[b], 0))
+				n++;
+		return n;
+	}
 
 	if (destLevelID >= 0 && destLevelID < AP_BOX_TRACK_COUNT)
 		return AP_PadTrackBoxesLeft(destLevelID);
@@ -636,6 +764,11 @@ int AP_PadUncollectedDisplayBits(int destLevelID, int *outBits, int cap)
 
 	if (!ctr_cfg_active())
 		return count;
+	// A content-plan pad's glow above already lists every family it owns, its
+	// Item Box checks included (#133 PR 4e). The legacy appends below key on
+	// a retail LevelID, which a content-plan physical pad is not.
+	if (ap_content_plan_active())
+		return AP_ContentPadGlowBits(destLevelID, outBits, cap, 1);
 #ifdef CTR_CUSTOM_TRACKS
 	if (AP_CustomPadOwnsDestination(&ctr_cfg, destLevelID))
 	{
@@ -743,6 +876,33 @@ CTR_STATIC_ASSERT(AP_PAD_DISPLAY_BITS_MAX >=
 // <first-bit-of-its-block> + index, so the block bases ARE the boundaries.
 static int AP_GlowBitRewardGroup(int globalBit)
 {
+    // A cup's sweep rides the race slot on a normal room too, like a content
+    // plan's (decision 29, review finding 10).
+    if(globalBit>=AP_CUP_SWEEP_PSEUDO_BASE && globalBit<AP_CUP_SWEEP_PSEUDO_BASE+5)return 0;
+    if(globalBit>=60000 && globalBit<62100)return 2;
+    {
+        // Content-plan pads: Trophy rides the race slot, the relic tiers the
+        // relic slot, CTR and a Crystal Challenge the token slot.
+        int contentPad,contentMode,contentTier;
+        if(ap_content_bit_decode(globalBit,&contentPad,&contentMode,&contentTier)) {
+            const ctr_content_pad *p=ap_content_plan_pad(contentPad);
+            if(p && p->crystal)return 2;
+            return contentMode==AP_CONTENT_MODE_RELIC ? 1 : contentMode==AP_CONTENT_MODE_CTR ? 2 : 0;
+        }
+        // Rungs and Wumpa ride the race slot, letters the token slot, as on
+        // retail pads (ruling 2026-09-30); the perfect rides the relic slot.
+        if(ap_content_family_bit_decode(globalBit,&contentPad,&contentTier))
+            return ap_content_family_reward_group(contentTier);
+        // Item Box checks (#133 PR 4e) ride the race slot, and so do a cup's
+        // sweep, Cup Leg Victory (#133 PR 5) and first lap checks.
+        if(ap_content_box_bit_decode(globalBit,&contentPad,&contentTier))
+            return 0;
+        if(ap_content_cup_bit_decode(globalBit,&contentPad,&contentTier))
+            return 0;
+        if(ap_content_cup_lap_bit_decode(globalBit,&contentPad,&contentTier))
+            return 0;
+    }
+    if (globalBit>=AP_CRYSTAL_PSEUDO_BASE && globalBit<AP_CRYSTAL_PSEUDO_BASE+80) return 2;
 	int cortexGroup = AP_CortexPseudoRewardGroup(globalBit);
 	int trialGroup = AP_TrialPseudoRewardGroup(globalBit);
 	int perfectGroup = AP_RelicPerfectPseudoRewardGroup(globalBit);
@@ -839,6 +999,11 @@ static int AP_DestKnown(int destLevelID)
 // policy exists to remove. Declared in ap_hooks.h.
 int AP_PadStage1Met(int physLevelID)
 {
+	if (ap_content_plan_active())
+	{
+		const ctr_content_pad *pad = ap_content_plan_pad(physLevelID);
+		return AP_ContentPadOpen(pad);
+	}
 	int i, owned;
 
 	// Race tracks (0..15): the canonical helper (shared with ThTick + LInB).
@@ -874,11 +1039,13 @@ int AP_PadStage1Met(int physLevelID)
 	// non-type-0 stage-1 for them -- a FREE arena arrives as the explicit
 	// always-true "0 trophies" ({type 1, count 0}), so it opens here with no
 	// vanilla-key AND (only its hub door still gates it physically). type 0 is
-	// reserved for vanilla unlock mode / arenas-not-included, where the vanilla
-	// gate below is the correct behaviour.
+	// reserved for vanilla unlock mode. Arena-off schema-18 seeds close the
+	// physical pads before reaching that fallback.
 	if (physLevelID == 18 || physLevelID == 19 ||
 	    physLevelID == 21 || physLevelID == 23)
 	{
+		if (ctr_cfg_arena_pad_disabled(physLevelID))
+			return 0;
 		if (ctr_cfg_active() && physLevelID < CTR_CFG_PAD_COUNT &&
 		    ctr_cfg.warp_pad_unlock[physLevelID].stage1.type != 0)
 			return AP_BossReqMet(&ctr_cfg.warp_pad_unlock[physLevelID].stage1);
@@ -917,13 +1084,18 @@ static int AP_HitEffectivePlayer(int physLevelID)
 // opportunity at the sixteen retail tracks (0..15) and the two trial Trophy
 // tracks (16/17). A trial whose trial row is invalid has no Trophy route, so it never
 // reports an opportunity (the pad must not stay open with nothing to earn);
-// logged once per trial. Cups are ticket 11. Counted by AP_PadState as BOTH a
+// logged once per trial. Since #133 PR 5c the legacy Cortex Vortex pad track
+// (110, drawn on host 13) and a Gem Cup a legacy custom track took over (its
+// one custom race, drawn from that cup's order) are Hit races too; retail Gem
+// Cups stay extra opportunities (ticket 11). Counted by AP_PadState as BOTH a
 // remaining location and a plain-rerace check, so Done cannot hard-lock the pad
 // while a target can still be encountered, and a stage-2-locked pad keeps its
 // phase-1 plain rerace. Also consumed by AH_WarpPad.c's tier-2 choosers.
 int AP_HitPadOpportunity(int physLevelID, int destLevelID)
 {
 	int trialValid = 1;
+	int customCup = 0;
+	int drawDest;
 
 	if (!AP_HitEncounterEnabled())
 		return 0;
@@ -947,10 +1119,17 @@ int AP_HitPadOpportunity(int physLevelID, int destLevelID)
 			return 0;
 		}
 	}
-	else if (!AP_HitPadDestEligiblePure(destLevelID, 1))
+#ifdef CTR_CUSTOM_TRACKS
+	// A package whose measured `crates` flag is false rolls no weapon, so
+	// nothing can be hit there; the apworld routes no Hit check from it.
+	customCup = AP_CustomPadOwnsDestination(&ctr_cfg, destLevelID) && ctr_cfg.custom_track.flags.crates;
+#endif
+	drawDest = AP_HitPadDrawDestPure(destLevelID, trialValid, AP_CortexDestValid(),
+	                                 CORTEX_TRACK_HOST_LEVEL, customCup);
+	if (drawDest < 0)
 		return 0;
 
-	return AP_HitEncounterOpportunity(destLevelID, AP_HitEffectivePlayer(physLevelID)) >= 0;
+	return AP_HitEncounterOpportunity(drawDest, AP_HitEffectivePlayer(physLevelID)) >= 0;
 }
 
 void AP_HitLogChooser(int physLevelID, int destLevelID, int action, int route,
@@ -987,6 +1166,27 @@ void AP_HitLogChooser(int physLevelID, int destLevelID, int action, int route,
 // are equal; the callers pass both so it is correct under destination shuffle.
 int AP_PadState(int physLevelID, int destLevelID)
 {
+	if (ap_content_plan_active())
+	{
+		const ctr_content_pad *pad = ap_content_plan_pad(physLevelID);
+		if (!pad || !pad->occupied) return 5;
+#ifdef CTR_CUSTOM_TRACKS
+		if (!AP_ContentPadReady(physLevelID)) return 5;
+#endif
+		if (!AP_ContentPadOpen(pad)) return 1;
+        if(pad->crystal) {
+            int bits[21];
+            return AP_PadUncollectedGlowBits(physLevelID,bits,21) ? 2 : 5;
+        }
+        // Cups (#133 PR 5): open while a cup check or a check of its tracks
+        // is left, then Done (AP_PadReplayable keeps the race open).
+        if(pad->cup) {
+            int bits[6+AP_CONTENT_CUP_TRACK_CHECKS];
+            return AP_PadUncollectedGlowBits(physLevelID,bits,6+AP_CONTENT_CUP_TRACK_CHECKS) ? 2 : 5;
+        }
+		// Track modes (#133 PR 3), the states of ap_pad_state.h.
+		return AP_ContentTrackPadState(pad);
+	}
 	// Sized for the widest case: a cup pad aggregates its four legs' rungs
 	// (4 * CTR_CFG_PODIUM_RUNG_COUNT) plus its own gem bit.
 	int uncBits[24];
@@ -1000,6 +1200,9 @@ int AP_PadState(int physLevelID, int destLevelID)
 
 	if (!ctr_cfg_active())
 		return 0; // vanilla mode -> caller leaves the pad untouched
+	if (ctr_cfg_arena_pad_disabled(physLevelID) ||
+	    ctr_cfg_arena_pad_disabled(destLevelID))
+		return 5;
 	if (!AP_DestKnown(destLevelID))
 		return 0;
 
@@ -1085,6 +1288,54 @@ int AP_PadPhase1ReRaceable(int physLevelID, int destLevelID)
 	if (!AP_DestTrophyChecked(destLevelID))
 		return 0;
 	return AP_PadState(physLevelID, destLevelID) == 2;
+}
+
+// A Hit Character or Itemsanity use, or the `wumpa: global` check, a race on this
+// plan pad can still serve (one generator row 6). They belong to no pad, so a
+// closing pad would strand them, and logic counts every first race as a route:
+// they keep the first race open, as on an ordinary pad. Asked for the engine
+// track the pad's race loads.
+int AP_ContentPadPlainLeft(const ctr_content_pad *pad)
+{
+	const ctr_content_checks *fam = ap_content_plan_checks();
+	int host;
+	if (!pad || !pad->occupied || pad->crystal || pad->cup)
+		return 0;
+	if (fam->wumpa == 1 && pad->wumpa_modes && fam->wumpa_global > 0 && !AP_ContentCodeChecked(fam->wumpa_global))
+		return 1;
+	host = ap_content_pad_host(pad);
+	return (AP_HitEncounterEnabled() &&
+	        AP_HitEncounterOpportunity(host, AP_HitEffectivePlayer(pad->physical)) >= 0) ||
+	       AP_ItemsanityPadOpportunity(host);
+}
+
+int AP_PadReplayable(int physLevelID, int destLevelID)
+{
+#ifdef CTR_CUSTOM_TRACKS
+	const ctr_content_pad *pad = ap_content_plan_active() ? ap_content_plan_pad(physLevelID) : NULL;
+	return pad && pad->occupied && !pad->crystal && AP_ContentPadReady(physLevelID) && AP_ContentPadOpen(pad) &&
+	       AP_PadState(physLevelID, destLevelID) == 5;
+#else
+	(void)physLevelID;
+	(void)destLevelID;
+	return 0;
+#endif
+}
+
+// One line per menu decision, so a player log shows what a pad offered.
+void AP_ContentLogMenu(const ctr_content_pad *pad, const ap_rs_rows *rows, int decision)
+{
+	static const char *const names[AP_RS_COUNT] = {"trophy", "ctr", "relic"};
+	char msg[160];
+	int len, i;
+	len = snprintf(msg, sizeof msg, "[AP PAD] plan pad %d: race menu rows", pad->physical);
+	for (i = 0; i < rows->count && len > 0 && len < (int)sizeof msg; i++)
+		len += snprintf(msg + len, sizeof msg - len, " %s%s", names[rows->mode[i]],
+		                rows->productive[i] ? "" : "(grey)");
+	if (len > 0 && len < (int)sizeof msg)
+		snprintf(msg + len, sizeof msg - len, " -> %s\n",
+		         decision == AP_RS_OPEN_MENU ? "menu" : decision == AP_RS_NO_ROUTE ? "refused" : names[decision]);
+	AP_LogLine(msg);
 }
 
 // The warp-pad entry fail-safe (2026-10-09). AH_WarpPad.c calls this when a

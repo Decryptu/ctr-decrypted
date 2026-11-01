@@ -14,6 +14,7 @@
 #ifdef CTR_CUSTOM_TRACKS
 #include <platform/native_assets.h>
 #include <platform/native_custom_track_manager.h>
+#include "../../ap/ap_seed_content.h" // Current Seed (#133 PR 7)
 #ifdef CTR_CUSTOM_PACKAGES
 // Box authoring build: the package library and Saphi Track Manager replace the
 // single-package Custom Content page (CMakeLists.txt, CTR_CUSTOM_PACKAGES).
@@ -325,18 +326,34 @@ static void AiDiff_Step(int *value, int dir)
 
 #ifdef CTR_AP
 // DeathLink ladder (CFG_ENUM): follow the seed option / force off / force a
-// tier. 1/2/3 are the CTR_DL_MASK_RESET / CTR_DL_ANY_HIT / CTR_DL_RACE_LOSS tier
-// values themselves (ap_deathlink.h), so every in-game layer is directly
-// selectable. Edits apply live: ap_deathlink.c re-reads the preference every
+// tier. 1/2/3/4 are the CTR_DL_MASK_RESET / CTR_DL_ANY_HIT / CTR_DL_RACE_LOSS /
+// CTR_DL_WEAPON_HIT tier values themselves (ap_deathlink.h), so every in-game
+// layer is directly selectable. Edits apply live: ap_deathlink.c re-reads the preference every
 // frame and syncs the connection tag itself, so this row needs no menu-exit hook.
-static const int   s_dlinkValues[] = {-1, 0, 1, 2, 3};
-static const char *s_dlinkNames[]  = {"SEED", "OFF", "MASK RESET", "ANY HIT", "RACE LOSS"};
+static const int   s_dlinkValues[] = {-1, 0, 1, 2, 3, 4};
+static const char *s_dlinkNames[]  = {"SEED", "OFF", "MASK RESET", "ANY HIT", "RACE LOSS",
+	"WEAPON HIT"};
 #define DLINK_COUNT ((int)(sizeof(s_dlinkValues) / sizeof(s_dlinkValues[0])))
 
 // DeathLink send trigger rows (CFG_ENUM): follow the seed / force off / force on.
 static const int   s_dlSendValues[] = {-1, 0, 1};
 static const char *s_dlSendNames[]  = {"SEED", "OFF", "ON"};
 #define DLSEND_COUNT ((int)(sizeof(s_dlSendValues) / sizeof(s_dlSendValues[0])))
+
+// Race type menu (#208, decision 15): follow the seed / always / productive.
+// 1 and 0 are the AP_RS_SELECTOR_ALWAYS / AP_RS_SELECTOR_PRODUCTIVE values;
+// AP_RaceTypeSelectorSetting reads the row at every plan pad entry.
+static const int   s_raceMenuValues[] = {-1, 1, 0};
+static const char *s_raceMenuNames[]  = {"SEED", "ALWAYS", "PRODUCTIVE"};
+#define RACEMENU_COUNT ((int)(sizeof(s_raceMenuValues) / sizeof(s_raceMenuValues[0])))
+
+static int RaceMenu_Index(int value)
+{
+	for (int i = 0; i < RACEMENU_COUNT; i++)
+		if (s_raceMenuValues[i] == value)
+			return i;
+	return 0; // out-of-range persisted value renders and steps as SEED
+}
 
 // Sustained-trap comfort window. Zero is stored for Full race so config.ini
 // remains readable and the scheduler does not need a magic large duration.
@@ -392,11 +409,13 @@ static const char *Enum_Label(const ConfigEntry *e)
 		return s_pgxpNames[Pgxp_Index(*(int *)e->valuePtr)];
 #ifdef CTR_AP
 	if (e->valuePtr == &g_config.deathLink)
-		return s_dlinkNames[Dlink_Index(*(int *)e->valuePtr)];
+		return s_dlinkNames[Dlink_Index(AP_DeathLinkRowValue(*(int *)e->valuePtr))];
 	if (IsDlSendField((const int *)e->valuePtr))
 		return s_dlSendNames[DlSend_Index(*(int *)e->valuePtr)];
 	if (e->valuePtr == &g_config.trapDuration)
 		return s_trapDurationNames[TrapDuration_Index(*(int *)e->valuePtr)];
+	if (e->valuePtr == &g_config.raceTypeSelector)
+		return s_raceMenuNames[RaceMenu_Index(*(int *)e->valuePtr)];
 #endif
 	return AiDiff_Label(*(int *)e->valuePtr);
 }
@@ -474,6 +493,16 @@ static void Enum_Step(const ConfigEntry *e, int dir)
 		*(int *)e->valuePtr = s_dlSendValues[i];
 		return;
 	}
+	if (e->valuePtr == &g_config.raceTypeSelector)
+	{
+		int i = RaceMenu_Index(*(int *)e->valuePtr) + dir;
+		if (i < 0)
+			i = 0;
+		if (i > RACEMENU_COUNT - 1)
+			i = RACEMENU_COUNT - 1;
+		*(int *)e->valuePtr = s_raceMenuValues[i];
+		return;
+	}
 	if (e->valuePtr == &g_config.trapDuration)
 	{
 		int i = TrapDuration_Index(*(int *)e->valuePtr) + dir;
@@ -509,10 +538,18 @@ static void Enum_Advance(const ConfigEntry *e)
 #ifdef CTR_AP
 // The Item Box Colours row is the player's opt-out of the seed's item box
 // colours. While a loaded seed has them off, it reads "OFF (SEED)" in grey and
-// takes no input: a player can turn colours off, never on.
+// takes no input: a player can turn colours off, never on. While Spoiler Items
+// (#459) still holds the colours behind AP Box Colours, the row stays editable
+// (#459 ruling, 2026-10-28): it reads "ON (LOCKED)" or "OFF", and an OFF set early
+// keeps the boxes pink after the item arrives.
 static int Config_RowLockedBySeed(const ConfigEntry *e)
 {
 	return e->valuePtr == &g_config.itemBoxColours && AP_Boxes_ColourRowState() == AP_BOX_COLOUR_ROW_SEED_OFF;
+}
+
+static int Config_RowLockedByItem(const ConfigEntry *e)
+{
+	return e->valuePtr == &g_config.itemBoxColours && AP_Boxes_ColourRowState() == AP_BOX_COLOUR_ROW_ITEM_LOCKED;
 }
 
 static void Config_DrawHelpLines(const char *first, const char *second, uint32_t *ot)
@@ -531,7 +568,12 @@ static void Config_DrawRowHelp(const ConfigEntry *e, uint32_t *ot)
 
 	if (e->valuePtr == &g_config.itemBoxColours)
 	{
-		if (Config_RowLockedBySeed(e))
+		if (Config_RowLockedByItem(e))
+		{
+			first = "Pink until AP Box Colours.";
+			second = "Set OFF to keep them pink.";
+		}
+		else if (Config_RowLockedBySeed(e))
 		{
 			first = "This seed turned box colours off.";
 			second = "All AP item boxes stay pink.";
@@ -541,6 +583,11 @@ static void Config_DrawRowHelp(const ConfigEntry *e, uint32_t *ot)
 			first = "Purple progression, blue useful,";
 			second = "cyan filler, salmon trap.";
 		}
+	}
+	if (e->valuePtr == &g_config.raceTypeSelector)
+	{
+		first = "When race pads ask which race.";
+		second = "SEED uses the seed's setting.";
 	}
 	if (first == 0)
 		return;
@@ -571,6 +618,11 @@ static void Config_DrawValue(const ConfigEntry *e, const int valueX, int y, uint
 	if (Config_RowLockedBySeed(e))
 	{
 		DecalFont_DrawLineOT("OFF (SEED)", valueX, y, FONT_SMALL, JUSTIFY_RIGHT | GRAY, ot);
+		return;
+	}
+	if (Config_RowLockedByItem(e))
+	{
+		DecalFont_DrawLineOT(*(bool *)e->valuePtr ? "ON (LOCKED)" : "OFF", valueX, y, FONT_SMALL, JUSTIFY_RIGHT | WHITE, ot);
 		return;
 	}
 #endif
@@ -668,6 +720,7 @@ static int  s_connPadPrev = 0;   // previous frame's physical-pad mask, for edge
 // panel at FONT_SMALL (13 px per character). Longer status text is moved to its
 // own centred line below the row.
 #define CONN_STATUS_INLINE_MAX 24
+#define CONN_STATUS_LINE_WIDTH 0x1B0
 
 // Render a CFG_STRING value into out: masked (one '*' per char) for the password,
 // plain otherwise, with a blinking trailing cursor while this row is being edited.
@@ -803,6 +856,49 @@ static void TextEdit_Begin(const ConfigEntry *e, int row, int rowY)
 	s_connEditing = 1;
 }
 
+// A long status: "Error:" stays beside the label and the reason takes up to two
+// centred rows, broken at spaces (the v0.2.x room refusal needs both). A word too
+// wide for the panel is cut, and text past the last row ends in "...". The second
+// row is the edit hint's while a row is being edited.
+static void Conn_DrawLongStatus(const char *status, int labelY, int valueX, int rowSpacing, uint32_t *ot)
+{
+	const int rows = s_connEditing ? 1 : 2;
+	int row;
+
+	if (strncmp(status, "Error: ", 7) == 0)
+	{
+		DecalFont_DrawLineOT((char *)"Error:", valueX, labelY, FONT_SMALL, WHITE, ot);
+		status += 7;
+	}
+	for (row = 0; row < rows && *status != '\0'; row++)
+	{
+		char line[128];
+		int end = 0;
+		int i;
+
+		for (i = 0; status[i] != '\0' && i < (int)sizeof line - 4; i++)
+		{
+			line[i] = status[i];
+			line[i + 1] = '\0';
+			if (DecalFont_GetLineWidth(line, FONT_SMALL) > CONN_STATUS_LINE_WIDTH)
+			{
+				if (end == 0)
+					end = i;
+				break;
+			}
+			if (status[i + 1] == ' ' || status[i + 1] == '\0')
+				end = i + 1;
+		}
+		line[end] = '\0';
+		status += end;
+		while (*status == ' ')
+			status++;
+		if (row == rows - 1 && *status != '\0')
+			memcpy(line + (end >= 3 ? end - 3 : end), "...", 4);
+		DecalFont_DrawLineOT(line, 0x100, labelY + (row + 1) * rowSpacing, FONT_SMALL, JUSTIFY_CENTER | WHITE, ot);
+	}
+}
+
 // Pad hint while a row is being edited, so the controller exits are
 // discoverable. '*' and '^' are the font's own PSX face button glyphs (see
 // game/DecalFont.c).
@@ -903,8 +999,7 @@ static void MM_ConfigProc_Connection(struct RectMenu *menu, uint32_t *ot, struct
 		const char *status = AP_Net_StatusLine();
 		DecalFont_DrawLineOT("Status", labelX, y, FONT_SMALL, ORANGE, ot);
 		if ((int)strlen(status) > CONN_STATUS_INLINE_MAX)
-			DecalFont_DrawLineOT((char *)status, 0x100, y + rowSpacing,
-				FONT_SMALL, JUSTIFY_CENTER | WHITE, ot);
+			Conn_DrawLongStatus(status, y, valueX, rowSpacing, ot);
 		else
 			DecalFont_DrawLineOT((char *)status, valueX, y, FONT_SMALL, WHITE, ot);
 	}
@@ -948,6 +1043,7 @@ static void MM_ConfigProc_Connection(struct RectMenu *menu, uint32_t *ot, struct
 }
 
 #if defined(CTR_CUSTOM_TRACKS) && !defined(CTR_CUSTOM_PACKAGES)
+#include "MM_CurrentSeed.c" // content-plan rooms: the Current Seed tab (#133 PR 7)
 #define CUSTOM_CONTENT_ACTION_COUNT 6
 static const char *const s_customContentActions[CUSTOM_CONTENT_ACTION_COUNT] = {
 	"Download Saphi",
@@ -1022,6 +1118,18 @@ static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, str
 	char downloadMessage[128];
 	int downloadState = AP_CustomContentDownloadStatus(downloadMessage, sizeof downloadMessage);
 	int i;
+
+	// A content-plan room opens on Current Seed; L1 / R1 reach this page.
+	if (MM_CurrentSeed_Page(ot, pad))
+		return;
+
+	if (package == NULL)
+	{
+		DecalFont_DrawLineOT("Custom Content", 0x100, 0x18, FONT_BIG, JUSTIFY_CENTER | ORANGE, ot);
+		DecalFont_DrawLineOT("This seed's package is unsupported.", 0x100, 0x48,
+		                   FONT_SMALL, JUSTIFY_CENTER | RED, ot);
+		return;
+	}
 
 	if (s_customContentDownloadActive)
 	{
@@ -1263,6 +1371,9 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 	    // Drain a package or Saphi worker before leaving; Back first leaves
 	    // the Versions list of one track.
 	    && !MM_CustomLibrary_Busy() && !s_saphiVersionTrack
+#elif defined(CTR_AP) && defined(CTR_CUSTOM_TRACKS)
+	    // Back first closes the Install missing content overview (#133 PR 7).
+	    && !MM_CurrentSeed_ConsumesBack(s_currentSection)
 #endif
 	)
 	{

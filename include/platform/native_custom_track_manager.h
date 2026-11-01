@@ -126,6 +126,8 @@ struct CustomTrackManagerStatus
 	char yamlPath[CTR_CT_MANAGER_PATH_MAX];
 	char actualLevSha256[NATIVE_SHA256_HEX_BYTES];
 	char actualVrmSha256[NATIVE_SHA256_HEX_BYTES];
+	// Binds a successful scan to the complete package identity used for export.
+	char verifiedPackageSha256[NATIVE_SHA256_HEX_BYTES];
 	unsigned long levBytes;
 	unsigned long vrmBytes;
 	// What the installed LEV actually measured. Valid once the scan has reached
@@ -172,10 +174,33 @@ const struct CustomTrackManagerPackage *CustomTrackManager_BabyTPark(void);
 // names another profile, the Custom Content page downloads, verifies and
 // exports this one.
 const struct CustomTrackManagerPackage *CustomTrackManager_BabyTParkCurrent(void);
+// Exact content-plan identity, resolved only against release-owned profiles.
+const struct CustomTrackManagerPackage *CustomTrackManager_FindPackage(
+	const char *id, const char *uuid, const char *version,
+	const char *levSha256, const char *vrmSha256);
+// Content-plan packages outside the compiled registry (#133 PR 2): find the
+// exact LEV and VRM by SHA-256 and size in assets/tracks/<trackKey>/original,
+// whatever their file names, so several revisions can share one folder. No
+// manifest is read or written and nothing is certified: the caller measures the
+// located bytes, and the loader hashes them again when it arms. READY fills
+// levPath, vrmPath, the actual hashes and sizes; any other state says why.
+int CustomTrackManager_LocateContentFiles(const char *assetsRoot, const char *trackKey,
+	                                       const char *title, const char *revision,
+	                                       const char *levSha256, unsigned long levBytes,
+	                                       const char *vrmSha256, unsigned long vrmBytes,
+	                                       struct CustomTrackManagerStatus *outStatus);
 const struct CustomTrackManagerPackage *CustomTrackManager_MatchingPackage(
 	const struct CustomTrackManagerRequirement *requirement);
 
 const char *CustomTrackManager_StateText(int state);
+
+// The package's folder and file paths (packageRoot, levPath, vrmPath,
+// manifestPath, yamlPath) without touching the file system. Returns 1 when
+// the registry entry is supported and every path fits (Current Seed, #133 PR 7,
+// checks where an install would write before it starts one).
+int CustomTrackManager_ResolvePaths(const char *assetsRoot,
+	                                 const struct CustomTrackManagerPackage *package,
+	                                 struct CustomTrackManagerStatus *outStatus);
 
 // Create the deterministic non-destructive directory skeleton for a package.
 // Existing directories and creator files are left untouched.

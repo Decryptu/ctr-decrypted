@@ -326,6 +326,12 @@ void MainRaceTrack_RequestLoad(s16 levelID)
 {
 	struct GameTracker *gt = GAME_TRACKER;
 
+#ifdef CTR_AP
+	AP_CupSweepOnLoadRequested(levelID);
+#ifdef CTR_CUSTOM_TRACKS
+	AP_ContentCupOnLoadRequested(levelID); // #133 PR 5
+#endif
+#endif
 #ifdef CTR_CUSTOM_PACKAGES
 	// A retry keeps the custom race. Leaving the host slot ends it only when
 	// the load starts (MainRaceTrack_StartLoad).
@@ -348,6 +354,7 @@ void MainRaceTrack_RequestLoad(s16 levelID)
 	// explicit selection, or ends when anything other than LevelID 13 loads.
 	// See include/platform/native_cortex_track_latch.h.
 	CustomTrack_CortexTrackOnRequestLoad(levelID);
+	CustomTrack_OnRaceLoadRequested(levelID);
 #endif
 	return;
 }

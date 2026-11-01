@@ -304,8 +304,10 @@ void CS_Garage_MenuProc(struct RectMenu *menu)
 				// character is intentionally ignored; in per_character mode it selects
 				// the PR #216 received-count row. An inactive or unknown configuration
 				// returns -1 and preserves the retail class-table bar byte-for-byte.
+				// The APPLIED rank: a rank the player lowered in the hub picker is
+				// what this racer drives, so it is what the bar shows.
 				{
-					int rank = AP_CapabilityStatRankForCharacter(AP_CAP_CHAIN_TOP_SPEED + i, *selectedID);
+					int rank = AP_CapabilityAppliedRankForCharacter(AP_CAP_CHAIN_TOP_SPEED + i, *selectedID);
 					if (rank >= 0)
 					{
 						s16 target = (s16)AP_StatBar_LenForRank(rank);

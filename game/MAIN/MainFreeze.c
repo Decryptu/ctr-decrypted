@@ -1432,6 +1432,25 @@ void MainFreeze_SafeAdvDestroy(void)
 	return;
 }
 
+#ifdef CTR_AP
+// #375: a start from the in-game tracker leaves the hub pause exactly as the
+// RESUME row does (the case below), so the pad that takes the kart next runs
+// on an unpaused hub with the game's own cooldown and audio state.
+void MainFreeze_APResumeFromTracker(void)
+{
+	struct GameTracker *gGT = GAME_TRACKER;
+	// the same cooldown the RESUME row sets
+	gGT->cooldownFromUnpauseUntilPause = FPS_DOUBLE(5);
+	if (sdata->ptrActiveMenu != NULL)
+		RECTMENU_Hide(sdata->ptrActiveMenu);
+	MainFreeze_SafeAdvDestroy();
+	ElimBG_Deactivate(gGT);
+	gGT->gameMode1 &= ~PAUSE_1;
+	MainFrame_TogglePauseAudio(0);
+	OtherFX_Play(1, 1);
+}
+#endif
+
 void MainFreeze_MenuPtrDefault(struct RectMenu *menu)
 {
 	register struct GameTracker *tracker CTR_PSX_REGISTER("$6") = GAME_TRACKER;
@@ -1575,7 +1594,7 @@ void MainFreeze_MenuPtrDefault(struct RectMenu *menu)
 
 
 	// must wait 5 frames until next pause
-	GAME_TRACKER->cooldownFromUnpauseUntilPause = 5;
+	GAME_TRACKER->cooldownFromUnpauseUntilPause = FPS_DOUBLE(5);
 	CTR_PSX_MEMORY_BARRIER();
 
 	// hide Menu
@@ -1761,6 +1780,12 @@ void MainFreeze_MenuPtrDefault(struct RectMenu *menu)
 		// Adventure Cup returns to Gem Stone Valley.
 		if ((modeForBranch & ADVENTURE_CUP) != 0)
 		{
+#if defined(CTR_AP) && defined(CTR_CUSTOM_TRACKS)
+			// A content-plan cup (#133 PR 5) returns to its own pad. Both are
+			// read before levelID is rewritten below.
+			int apContentPad = AP_ContentCupPadLevel();
+			int apGarageCup = AP_ContentGarageCupRunning(); // #133 PR 6b
+#endif
 			// when loading is done remove bits for Adventure Cup, relic, and crystal challenge
 			cupRemBits = remBits0 | ADVENTURE_CUP;
 			CTR_PSX_KEEP_VALUE_RELAXED(cupRemBits);
@@ -1772,6 +1797,12 @@ void MainFreeze_MenuPtrDefault(struct RectMenu *menu)
 
 			// Level ID
 			mapTracker->levelID = cupID + ADVENTURE_CUP_SYNTHETIC_LEVEL_ID_BASE;
+#if defined(CTR_AP) && defined(CTR_CUSTOM_TRACKS)
+			if (apContentPad >= 0)
+				mapTracker->levelID = (s16)apContentPad;
+			// A boss cup left from the pause menu returns to its garage.
+			AP_ContentGarageCupReturn(mapTracker, apGarageCup);
+#endif
 
 #ifdef CTR_AP
 			// Under destination shuffle a gem cup can be entered from any hub, so
@@ -1817,6 +1848,18 @@ void MainFreeze_MenuPtrDefault(struct RectMenu *menu)
 			bossAddBits8 |= SPAWN_AT_BOSS;
 			sdata->Loading.OnBegin.AddBitsConfig8 = bossAddBits8;
 		}
+
+#if defined(CTR_AP) && defined(CTR_CUSTOM_TRACKS)
+		// A standalone content-plan race returns to the hub it was entered from.
+		{
+			const struct CustomTrackRaceContext *race = CustomTrack_StandaloneContext(mapTracker->levelID);
+			if (race)
+			{
+				MainRaceTrack_RequestLoad((s16)race->returnHub);
+				return;
+			}
+		}
+#endif
 
 		// Return to the level you were in previously.
 		MainRaceTrack_RequestLoad(CTR_ReadS16LE(&mapTracker->prevLEV));

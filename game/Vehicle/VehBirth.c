@@ -415,7 +415,14 @@ VehBirth_PositionReady:
 						goto VehBirth_UpdateBossRotation;
 					}
 
+#ifdef CTR_AP
+					// #169: arriving from Pinstripe's race means his garage's
+					// venue, which boss track shuffle may have moved.
+					if ((bossTracker->levelID == GEM_STONE_VALLEY) && (bossTracker->bossID == 3) &&
+					    (bossTracker->prevLEV == AP_BossGarageVenue(3)))
+#else
 					if ((bossTracker->levelID == GEM_STONE_VALLEY) && (bossTracker->prevLEV == HOT_AIR_SKYWAY))
+#endif
 					{
 						// NOTE(aalhendi): Make the redundant retail store observable so
 						// GCC can schedule it into the following jump's delay slot.

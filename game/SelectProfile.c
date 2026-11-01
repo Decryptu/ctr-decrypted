@@ -484,7 +484,16 @@ void SelectProfile_AdvPickMode_MenuProc(struct RectMenu *menu)
 	s16 state = savedMenu->funcState;
 	if (state == RECTMENU_FUNC_STATE_INPUT)
 	{
-		switch (menu->rowSelected)
+		s16 row = menu->rowSelected;
+
+#ifdef CTR_AP
+		// #249: WUMPA SHOP opens the shop page; EXIT maps back to retail row 3.
+		row = (s16)AP_WumpaShopGreenMenuRow(menu, row);
+		if (row == AP_WSHOP_GREEN_HANDLED)
+			return;
+#endif
+
+		switch (row)
 		{
 		case 0:
 		case 1:
@@ -1515,12 +1524,20 @@ static __inline__ void SelectProfile_Finalize(struct RectMenu *menu)
 				GAMEPROG_AdvPercent(&GAME_ADV_PROGRESS);
 				SELECT_PROFILE_DESIRED_MENU = &SELECT_PROFILE_MENU_QUEUE_LOAD_HUB;
 				GAME_TRACKER->currLEV = GAME_ADV_PROGRESS.HubLevYouSavedOn;
+#ifdef CTR_AP
+				SELECT_PROFILE_MENU_GREEN_LOAD_SAVE.rowSelected = AP_WumpaShopGreenExitRow(&SELECT_PROFILE_MENU_GREEN_LOAD_SAVE);
+#else
 				SELECT_PROFILE_MENU_GREEN_LOAD_SAVE.rowSelected = 3;
+#endif
 				return;
 			}
 		}
 		SELECT_PROFILE_DESIRED_MENU = &SELECT_PROFILE_MENU_GREEN_LOAD_SAVE;
+#ifdef CTR_AP
+		SELECT_PROFILE_MENU_GREEN_LOAD_SAVE.rowSelected = AP_WumpaShopGreenExitRow(&SELECT_PROFILE_MENU_GREEN_LOAD_SAVE);
+#else
 		SELECT_PROFILE_MENU_GREEN_LOAD_SAVE.rowSelected = 3;
+#endif
 		return;
 
 	case SELECT_PROFILE_SCREEN_GHOST:

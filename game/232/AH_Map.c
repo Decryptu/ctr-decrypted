@@ -886,6 +886,10 @@ void AH_Map_Main(void)
 		UI_DrawNumKey(hud[AH_MAP_HUD_SLOT_KEY_COUNT].x + AH_MAP_HUD_COUNTER_OFFSET_X, hud[AH_MAP_HUD_SLOT_KEY_COUNT].y + AH_MAP_HUD_COUNTER_OFFSET_Y, advDriver);
 		UI_DrawNumTrophy(hud[AH_MAP_HUD_SLOT_TROPHY_COUNT].x + AH_MAP_HUD_COUNTER_OFFSET_X, hud[AH_MAP_HUD_SLOT_TROPHY_COUNT].y + AH_MAP_HUD_COUNTER_OFFSET_Y,
 		                 advDriver);
+#ifdef CTR_AP
+		// #249: Wumpa balance and banked total below the counters.
+		AP_WumpaDrawHub();
+#endif
 	}
 
 #ifdef CTR_AP

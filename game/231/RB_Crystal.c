@@ -36,6 +36,9 @@ int RB_Crystal_ThCollide(struct Thread *crystalTh, struct Thread *driverTh, void
 		driver = driverTh->object;
 		if (modelID == DYNAMIC_PLAYER)
 		{
+#ifdef CTR_AP
+			AP_NotifyCrystalPickup(crystalInst, driver->driverID);
+#endif
 			posWorld.x = (s16)crystalInst->matrix.t[0];
 			posWorld.y = (s16)crystalInst->matrix.t[1];
 			posWorld.z = (s16)crystalInst->matrix.t[2];

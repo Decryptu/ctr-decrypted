@@ -1,6 +1,7 @@
 """Issue #343: compile the actual pad glow gather and prize-slot grouping.
 
-Also the 2026-09-30 display enumeration (boxes, letters, Wumpa on every pad).
+Also the 2026-09-30 display enumeration (boxes, letters, Wumpa on every pad),
+and a content-plan pad's Item Box checks (#133 PR 4e).
 
 Slide Coliseum / Turbo Track pads used to enumerate only relic tiers and
 podium rungs, so their Trophy and CTR Challenge items never appeared.
@@ -17,12 +18,26 @@ def extract(signature):
 fixture=r'''
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 #define CTR_AP 1
 #include "ap_seedcfg.h"
 #include "ap_glow_slots_logic.h"
 #include "ap_trial_pad_glow.h"
 #include "ap_relic_perfect.h"
 #include "ap_pad_glow_items.h"
+#include "ap_content_plan.h"
+#include "ap_content_modes.h"
+static int planOn;static ctr_content_pad cpad;
+static int lockedMode=-1;
+int AP_ContentModeOpen(const ctr_content_pad *p,int mode){(void)p;return mode!=lockedMode;}
+int AP_ContentPadOpen(const ctr_content_pad *p){(void)p;return 1;}
+int ap_content_plan_active(void){return planOn;}
+const ctr_content_pad *ap_content_plan_pad(int p){return planOn&&p==cpad.physical?&cpad:NULL;}
+static long crystalChecked;
+int ap_net_location_checked(long c){return c==crystalChecked;}
+int ap_net_location_exists(long c){return (c>=35028400 && c<35028480)||(c>=35028300 && c<35028305);}
+AP_CrystalChecks ctr_crystal_checks;
+AP_CupSweepConfig ctr_cup_sweeps;
 #define ADV_REWARD_FIRST_SAPPHIRE_RELIC 0x16
 #define ADV_REWARD_FIRST_CTR_TOKEN 0x4c
 #define AP_PODIUM_PSEUDO_BASE 0x100
@@ -63,6 +78,17 @@ tests=r'''
 static int has(const int *b,int n,int bit){int i;for(i=0;i<n;i++)if(b[i]==bit)return 1;return 0;}
 int main(void){
  int d;
+ // A collected Gem does not hide an unchecked sweep on the same Cup pad.
+ {
+  int bits[24],n;relics=rung=0;
+  ctr_cup_sweeps.enabled=1;ctr_cup_sweeps.present[0]=1;ctr_cup_sweeps.locations[0]=35028300;
+  n=AP_PadUncollectedGlowBits(100,bits,24);
+  assert(n==1&&bits[0]==AP_CUP_SWEEP_PSEUDO_BASE);
+  assert(AP_GlowBitRewardGroup(bits[0])==0); /* decision 29: the race slot, as on a content plan */
+  crystalChecked=35028300;assert(AP_PadUncollectedGlowBits(100,bits,24)==0);
+  crystalChecked=0;ctr_cup_sweeps.enabled=0;
+  assert(AP_PadUncollectedGlowBits(100,bits,24)==0);relics=rung=1;
+ }
  for(d=16;d<=17;d++){
   int t=d-16,bits[24],n,slot[3],phase,ctrShown=0,trophyShown=0;
   int trophy=AP_TrialPseudoBit(t,CTR_CFG_TRIAL_TROPHY),ctr=AP_TrialPseudoBit(t,CTR_CFG_TRIAL_CTR);
@@ -190,10 +216,78 @@ int main(void){
   n=AP_PadUncollectedDisplayBits(18,bits,AP_PAD_DISPLAY_BITS_MAX);assert(n==1);
   assert(AP_PadGlowItemCode(&ctr_cfg,AP_PadGlowBoxBit(AP_BOX_CODE_BASE))==AP_BOX_CODE_BASE);
  }
+ /* Crystal pickups keep a completed arena open; checked positions vanish. */
+ {
+  int bits[24],n,i;
+  relics=0;rung=0;ctr_crystal_checks.state=1;ctr_crystal_checks.present[0]=1;
+  for(i=0;i<20;i++)ctr_crystal_checks.locations[0][i]=35028400+i;
+  n=AP_PadUncollectedGlowBits(21,bits,24);assert(n==20);
+  for(i=0;i<n;i++){assert(bits[i]==52000+i);assert(AP_GlowBitRewardGroup(bits[i])==2);}
+  crystalChecked=35028407;n=AP_PadUncollectedGlowBits(21,bits,24);
+  assert(n==19&&!has(bits,n,52007));
+  assert(AP_PadUncollectedGlowBits(21,bits,3)==3);
+  assert(AP_PadUncollectedGlowBits(18,bits,24)==0);
+  ctr_crystal_checks.state=0;assert(AP_PadUncollectedGlowBits(21,bits,24)==0);
+ }
+ /* #133 PR 4e: a content-plan pad lists its Item Box checks on the race
+    slot, by its own codes; the legacy appends (which key on a retail LevelID
+    the physical pad is not) and the retail box count stay out. */
+ {
+  int bits[AP_PAD_DISPLAY_BITS_MAX],n,i,slots3[3],phase,boxes=0;
+  planOn=1;memset(&cpad,0,sizeof cpad);nChecked=0;
+  cpad.physical=3;cpad.occupied=1;cpad.mode_count=1;cpad.modes[0]=AP_CONTENT_MODE_TROPHY;cpad.stages[0]=1;
+  cpad.trophy_location=35014990; /* an unchecked Trophy code */
+  cpad.box_count=8;for(i=0;i<8;i++)cpad.box_locations[i]=35201620+i;
+  ctr_cfg.wumpa.mode=CTR_CFG_WUMPA_PER_TRACK;
+  n=AP_PadUncollectedGlowBits(3,bits,AP_PAD_DISPLAY_BITS_MAX);
+  assert(n==1+8&&bits[0]==AP_CONTENT_BIT_TROPHY+3);
+  for(i=1;i<n;i++){int ph,sl;assert(ap_content_box_bit_decode(bits[i],&ph,&sl)&&ph==3&&sl==i-1);
+   assert(AP_GlowBitRewardGroup(bits[i])==0);boxes++;}
+  assert(boxes==8);
+  assert(AP_PadUncollectedDisplayBits(3,bits,AP_PAD_DISPLAY_BITS_MAX)==n); /* no retail boxes, letters or Wumpa of LevelID 3 */
+  for(phase=0;phase<16;phase++){AP_GlowSlots_Select(bits,n,phase,1,AP_GlowBitRewardGroup,slots3);
+   assert(slots3[1]<0&&slots3[2]<0&&slots3[0]>=0);}
+  assert(AP_PadUncollectedBoxCount(3)==8);
+  /* the glow reads ap_net_location_checked, the count AP_PadBoxChecked */
+  checked[nChecked++]=35201621;crystalChecked=35201621;
+  n=AP_PadUncollectedGlowBits(3,bits,AP_PAD_DISPLAY_BITS_MAX);assert(n==1+7);
+  for(i=0;i<n;i++)assert(bits[i]!=AP_CONTENT_BIT_BOX+3*AP_CONTENT_BOX_STRIDE+1);
+  crystalChecked=0;
+  assert(AP_PadUncollectedBoxCount(3)==7);
+  assert(AP_PadUncollectedGlowBits(3,bits,4)==4);
+  assert(AP_PadUncollectedBoxCount(4)==0); /* a pad the plan does not know */
+  cpad.box_count=0;assert(AP_PadUncollectedGlowBits(3,bits,AP_PAD_DISPLAY_BITS_MAX)==1&&AP_PadUncollectedBoxCount(3)==0);
+  planOn=0;nChecked=0;ctr_cfg.wumpa.mode=CTR_CFG_WUMPA_GLOBAL;
+ }
+ /* Decision 26: a content-plan mode still locked behind stage 2 stays out of the glow. */
+ {
+  int bits[AP_PAD_DISPLAY_BITS_MAX],n;
+  planOn=1;memset(&cpad,0,sizeof cpad);nChecked=0;crystalChecked=0;
+  cpad.physical=3;cpad.occupied=1;cpad.mode_count=2;
+  cpad.modes[0]=AP_CONTENT_MODE_TROPHY;cpad.stages[0]=1;
+  cpad.modes[1]=AP_CONTENT_MODE_RELIC;cpad.stages[1]=2;
+  cpad.trophy_location=35014990;cpad.relic_locations[0]=35014991;cpad.relic_locations[1]=35014992;cpad.relic_locations[2]=35014993;
+  lockedMode=-1;
+  n=AP_PadUncollectedGlowBits(3,bits,AP_PAD_DISPLAY_BITS_MAX);
+  assert(has(bits,n,AP_CONTENT_BIT_TROPHY+3)&&has(bits,n,AP_CONTENT_BIT_RELIC+3*3)&&has(bits,n,AP_CONTENT_BIT_RELIC+3*3+2));
+  n=AP_PadUncollectedDisplayBits(3,bits,AP_PAD_DISPLAY_BITS_MAX);
+  assert(has(bits,n,AP_CONTENT_BIT_TROPHY+3)&&has(bits,n,AP_CONTENT_BIT_RELIC+3*3));
+  lockedMode=AP_CONTENT_MODE_RELIC;
+  n=AP_PadUncollectedDisplayBits(3,bits,AP_PAD_DISPLAY_BITS_MAX);
+  assert(n==1&&bits[0]==AP_CONTENT_BIT_TROPHY+3);
+  /* the pad state and the tracker count every open location, locked or not */
+  n=AP_PadUncollectedGlowBits(3,bits,AP_PAD_DISPLAY_BITS_MAX);
+  assert(n==4&&has(bits,n,AP_CONTENT_BIT_RELIC+3*3));
+  lockedMode=AP_CONTENT_MODE_TROPHY;
+  n=AP_PadUncollectedDisplayBits(3,bits,AP_PAD_DISPLAY_BITS_MAX);
+  assert(!has(bits,n,AP_CONTENT_BIT_TROPHY+3)&&has(bits,n,AP_CONTENT_BIT_RELIC+3*3));
+  lockedMode=-1;planOn=0;
+ }
  puts("Trial pad glow production gather passed");
 }
 '''
-signatures=['int AP_PadUncollectedGlowBits(int destLevelID, int *outBits, int cap)','int AP_PadUncollectedDisplayBits(int destLevelID, int *outBits, int cap)','static int AP_GlowBitRewardGroup(int globalBit)']
+signatures=['static int AP_PadTrackBoxesLeft(int levelID)','int AP_PadUncollectedBoxCount(int destLevelID)',
+ 'static int AP_ContentPadGlowBits(int destLevelID, int *outBits, int cap, int openOnly)','int AP_PadUncollectedGlowBits(int destLevelID, int *outBits, int cap)','int AP_PadUncollectedDisplayBits(int destLevelID, int *outBits, int cap)','static int AP_GlowBitRewardGroup(int globalBit)']
 with tempfile.TemporaryDirectory() as tmp:
  src=Path(tmp)/'fixture.c';exe=Path(tmp)/'fixture'
  src.write_text(fixture+'\n'.join(extract(s) for s in signatures)+tests)

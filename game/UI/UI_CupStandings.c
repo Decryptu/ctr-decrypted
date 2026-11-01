@@ -185,6 +185,11 @@ void UI_CupStandings_InputAndDraw(void)
 			// track the retail cup name does not name. Same redirect predicate as
 			// the leg counter below and the completion fork above it.
 			ctCupName = CustomTrack_CupDisplayName(cupID, 1);
+#ifdef CTR_AP
+			// A content-plan cup (#133 PR 5) shows its own name.
+			if (AP_ContentCupName() != NULL)
+				ctCupName = AP_ContentCupName();
+#endif
 #endif
 		}
 
@@ -497,6 +502,13 @@ void UI_CupStandings_InputAndDraw(void)
 		// If this is the first frame of Track Standings
 		if (wasTrackPointsPage == 0)
 		{
+#ifdef CTR_AP
+			AP_CupSweepRecordLeg(gGT);
+#ifdef CTR_CUSTOM_TRACKS
+			// Content-plan cup (#133 PR 5): the leg's Cup Leg Victory and sweep record.
+			AP_ContentCupLegResult(gGT);
+#endif
+#endif
 			if (numDrivers > UI_CUP_STANDINGS_MAX_VISIBLE_AWARD_DRIVERS)
 			{
 				numDrivers = UI_CUP_STANDINGS_MAX_VISIBLE_AWARD_DRIVERS;
@@ -530,6 +542,12 @@ void UI_CupStandings_InputAndDraw(void)
 
 			sdata->menuReadyToPass &= ~UI_CUP_STANDINGS_PAGE_TRACK_POINTS;
 
+#if defined(CTR_AP) && defined(CTR_CUSTOM_TRACKS)
+			// A content-plan cup (#133 PR 5), read before the leg advances.
+			const int apContentCup = AP_ContentCupPad() != NULL;
+			const int apContentPad = AP_ContentCupPadLevel();
+			const int apGarageCup = AP_ContentGarageCupRunning(); // #133 PR 6b
+#endif
 			// Increment Track Number by 1 (0-3 in the cup)
 			gGT->cup.trackIndex++;
 
@@ -549,6 +567,28 @@ void UI_CupStandings_InputAndDraw(void)
 #endif
 			{
 				int nextLevelID;
+
+#if defined(CTR_AP) && defined(CTR_CUSTOM_TRACKS)
+				// Content-plan cup (#133 PR 5): stage and load the plan's next
+				// leg with its own laps. A leg that cannot be served ends the
+				// cup at the hub instead of racing a different track.
+				if (apContentCup && (gGT->gameMode2 & CUP_ANY_KIND) == 0)
+				{
+					int legLaps = 0;
+					nextLevelID = AP_ContentCupNextLeg(cupTrack, &legLaps);
+					if (nextLevelID < 0)
+					{
+						gGT->cup.trackIndex = 0;
+						sdata->Loading.OnBegin.RemBitsConfig0 |= ADVENTURE_CUP;
+						if (apContentPad >= 0) gGT->levelID = (s16)apContentPad;
+						AP_ContentGarageCupReturn(gGT, apGarageCup);
+						nextLevelID = AP_CupReturnHub() >= 0 ? AP_CupReturnHub() : GEM_STONE_VALLEY;
+					}
+					else gGT->numLaps = (char)legLaps;
+					MainRaceTrack_RequestLoad(nextLevelID);
+					goto UI_CupStandings_LegRequested;
+				}
+#endif
 
 				// If not in Arcade or VS cup
 				if ((gGT->gameMode2 & CUP_ANY_KIND) == 0)
@@ -574,6 +614,9 @@ void UI_CupStandings_InputAndDraw(void)
 				nextLevelID = AP_CortexTrackPrepareLoad(nextLevelID);
 #endif
 				MainRaceTrack_RequestLoad(nextLevelID);
+#if defined(CTR_AP) && defined(CTR_CUSTOM_TRACKS)
+			UI_CupStandings_LegRequested:;
+#endif
 			}
 
 			// If this was the last race in the cup
@@ -585,6 +628,9 @@ void UI_CupStandings_InputAndDraw(void)
 					UI_CupStandings_FinalizeCupRanks();
 				}
 
+#ifdef CTR_AP
+                AP_CupSweepComplete(gGT,cupTrack);
+#endif
 				gGT->cup.trackIndex = 0;
 
 #ifdef CTR_CUSTOM_TRACKS
@@ -627,13 +673,40 @@ void UI_CupStandings_InputAndDraw(void)
 				// If this is an Adventure Cup
 				if ((gGT->gameMode2 & CUP_ANY_KIND) == 0)
 				{
+#if defined(CTR_AP) && defined(CTR_CUSTOM_TRACKS)
+					// Content-plan cup (#133 PR 5): its Win on points (and the
+					// sweep), never a Gem bit or a boss character. Decided while
+					// the last leg's context still stands.
+					int apContentWon = -1;
+					if (apContentCup)
+					{
+						apContentWon = data.cupPositionPerPlayer[0] == gGT->drivers[0]->driverID;
+						AP_ContentCupFinish(gGT, apContentWon);
+					}
+#endif
 					// Array with the ranking of each player
 					gGT->levelID = i + ADVENTURE_CUP_SYNTHETIC_LEVEL_ID_BASE;
+#if defined(CTR_AP) && defined(CTR_CUSTOM_TRACKS)
+					// The hub return puts the kart on the cup's own pad.
+					if (apContentCup && apContentPad >= 0)
+						gGT->levelID = (s16)apContentPad;
+					// A boss cup returns to its garage (#133 PR 6b).
+					AP_ContentGarageCupReturn(gGT, apGarageCup);
+#endif
 
 					// when loading is done,
 					// remove flag for adventure cup
 					sdata->Loading.OnBegin.RemBitsConfig0 |= ADVENTURE_CUP;
 
+#if defined(CTR_AP) && defined(CTR_CUSTOM_TRACKS)
+					if (apContentWon >= 0)
+					{
+						// race_loss DeathLink: the whole cup is lost.
+						if (!apContentWon)
+							AP_DeathLinkOnCupLost();
+					}
+					else
+#endif
 					// If player 1 won the cup
 					if (data.cupPositionPerPlayer[0] == gGT->drivers[0]->driverID
 #if defined(CTR_AP) && defined(CTR_CUSTOM_TRACKS)

@@ -614,6 +614,9 @@ void RECTMENU_GetHeight(struct RectMenu *m, s16 *height, b16 boolCheckSubmenu);
 void RECTMENU_GetWidth(struct RectMenu *m, s16 *width, b16 boolCheckSubmenu);
 void RECTMENU_Hide(struct RectMenu *m);
 void RECTMENU_Show(struct RectMenu *m);
+#ifdef CTR_AP
+void RECTMENU_APSetReplayRows(const struct RectMenu *m, unsigned rows);
+#endif
 
 s32 MixRNG_Scramble(void);
 s32 MixRNG_Particles(s32 range);
@@ -1252,7 +1255,6 @@ int VehCalc_MapToRange(int val, int oldMin, int oldMax, int newMin, int newMax);
 b32 VehPickupItem_MaskBoolGoodGuy(struct Driver *d);
 int RB_Hazard_HurtDriver(struct Driver *driverVictim, int damageType, struct Driver *driverAttacker, int reason);
 void VehPickupItem_ShootNow(struct Driver *d, s32 weaponID, s32 flags);
-int VehPickupItem_TrapHazardAt(struct Driver *d, int weaponID, const SVec3 *target);
 int VehPickState_NewState(struct Driver *victimDriver, int damageType, struct Driver *attackDriver, int reason);
 void RB_Follower_Init(struct Driver *d, struct Thread *mineTh);
 void VehPhysForce_CounterSteer(struct Driver *driver);

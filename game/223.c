@@ -1,4 +1,7 @@
 #include <common.h>
+#if defined(CTR_AP) && defined(CTR_CUSTOM_TRACKS)
+#include <platform/native_custom_tracks.h>
+#endif
 
 enum RelicRaceEndMenuConstants
 {
@@ -132,6 +135,16 @@ void RR_EndEvent_UnlockAward(void)
 		}
 
 #ifdef CTR_AP
+#ifdef CTR_CUSTOM_TRACKS
+		// Content-plan Relic Race (#133 PR 3): the pad's own tier codes against
+		// the track's own targets (a custom package's, or the retail track's).
+		// The checks below would award the engine host's retail relic bits.
+		if (AP_StandaloneRaceActive())
+		{
+			AP_NotifyStandaloneRelic(driver->timeElapsedInRace - timeDeduct);
+			return;
+		}
+#endif
 		// Cortex Vortex pad track (schema 15): package-owned targets and direct
 		// relic codes. The checks below would compare against Oxide Station's
 		// retail times and award Oxide Station's relic bits for LevelID 13.
@@ -248,6 +261,15 @@ void RR_EndEvent_DrawHighScore(s16 startX, s32 startY, s16 scoreMode)
 	s32 currentY;
 	s32 highlightY;
 	s16 nameColor;
+
+#if defined(CTR_AP) && defined(CTR_CUSTOM_TRACKS)
+	// A content-plan custom track keeps no scores, and the table below would
+	// be its engine host's saved best times.
+	if (CustomTrack_KeepsNoScores(GAME_TRACKER->levelID))
+	{
+		return;
+	}
+#endif
 
 	{
 		register s32 iconYBaseSource CTR_PSX_REGISTER("$17");

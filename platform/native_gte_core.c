@@ -11,7 +11,9 @@
 #include <platform/native_pgxp_projection.h>
 
 #if defined(CTR_AP)
+#include <platform/native_gte_cull.h>
 extern int AP_TrapMirrorCullFlip(void);
+int NativeGte_ModelCullFlip = -1;
 #endif
 
 GTERegisters gteRegs;
@@ -486,7 +488,8 @@ int GTE_operator(int op)
 			NativePgxp_GteNclip(C2_SXY0, C2_SXY1, C2_SXY2, &nclip);
 		C2_MAC0 = (int)(F(nclip));
 #if defined(CTR_AP)
-		if (AP_TrapMirrorCullFlip() && NativeGte_RotMatrixReversesWinding())
+		if (NativeGte_ModelCullFlip >= 0 ? NativeGte_ModelCullFlip :
+		    (AP_TrapMirrorCullFlip() && NativeGte_RotMatrixReversesWinding()))
 			C2_MAC0 = -C2_MAC0;
 #endif
 		C2_FLAG = 0;

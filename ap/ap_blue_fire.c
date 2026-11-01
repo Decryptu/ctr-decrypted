@@ -11,7 +11,7 @@
 int AP_BlueFireWanted(const struct Driver *driver)
 {
 	return driver->reserves > 0 &&
-	       AP_CapabilityBoostTier() == AP_CAP_BOOST_BLUEFIRE &&
+	       AP_CapabilityAppliedBoostTier() == AP_CAP_BOOST_BLUEFIRE &&
 	       (int)driver->fireSpeedCap > (int)driver->const_SacredFireSpeed;
 }
 

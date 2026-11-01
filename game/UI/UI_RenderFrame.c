@@ -928,6 +928,10 @@ void UI_RenderFrame_Racing()
 	// close enough to read.
 	AP_NavRec_DrawBotNames();
 
+#if defined(CTR_NATIVE)
+	AP_Boxes_DrawNumbers();
+#endif
+
 	// Box placement author mode (#182): one status line while the mode is on.
 	// Self-gates on the "Box Author Mode" option, so this is a call and a
 	// compare for everyone else. Drawn after the feed so the authoring
@@ -971,6 +975,10 @@ void UI_RenderFrame_AdvHub(void)
 		UI_DrawNumRelic(hudStructPtr[UI_HUD_SLOT_RELIC].x + 0x10, hudStructPtr[UI_HUD_SLOT_RELIC].y - 10, gGT->drivers[0]);
 		UI_DrawNumKey(hudStructPtr[UI_HUD_SLOT_KEY].x + 0x10, hudStructPtr[UI_HUD_SLOT_KEY].y - 10, gGT->drivers[0]);
 		UI_DrawNumTrophy(hudStructPtr[UI_HUD_SLOT_TROPHY].x + 0x10, hudStructPtr[UI_HUD_SLOT_TROPHY].y - 10, gGT->drivers[0]);
+#ifdef CTR_AP
+		// #249: Wumpa balance and banked total below the counters.
+		AP_WumpaDrawHub();
+#endif
 	}
 
 #ifdef CTR_AP

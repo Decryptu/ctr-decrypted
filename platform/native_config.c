@@ -54,12 +54,14 @@ NativeConfig g_config = {
 	false, // skipCutscenes (default off: boss and Oxide scenes play unless the player opts out)
 	true,  // mapFlash (default on: vanilla-style Raceable flicker)
 	true,  // itemBoxColours (default on: follow the seed's item box colours)
+	true,  // itemBoxNumbers (default on: show the authored location number)
 	0,     // aiDifficulty (0 = vanilla)
 	-1,    // deathLink (-1 = follow the seed option)
 	-1,    // dlSendFall (-1 = follow the seed's send triggers)
 	-1,    // dlSendHit
 	-1,    // dlSendLoss
 	15,    // trapDuration (recommended default, seconds; 0 = full race)
+	-1,    // raceTypeSelector (-1 = follow the seed's race_type_selector)
 	"",    // uri      (empty = no saved room; startup skips the auto-dial)
 	"",    // slot
 	"",    // password
@@ -181,11 +183,15 @@ const ConfigEntry g_configEntries[] = {
 	{"Connection",  "slot",                     "Slot",                         CFG_STRING, g_config.slot,     0, (int)sizeof(g_config.slot),     0},
 	{"Connection",  "password",                 "Password",                     CFG_STRING, g_config.password, 0, (int)sizeof(g_config.password), 0},
 	{"Archipelago", "skip_hints",               "Skip Mask Hints",              CFG_BOOL, &g_config.skipHints, 0, 0, 0},
+	// Race type menu on plan pads (#208, CFG_ENUM SEED / ALWAYS / PRODUCTIVE).
+	// SEED follows the seed's race_type_selector. Shown on the Gameplay page.
+	{"Archipelago", "race_type_selector",       "Race Type Menu",               CFG_ENUM, &g_config.raceTypeSelector, 0, 0, 0},
 	{"Archipelago", "map_flash",                "Map Flash",                    CFG_BOOL, &g_config.mapFlash, 0, 0, 0},
 	// Item Box Colours: this player's opt-out of the seed's AP item box colours
 	// (color_boxes_by_item). Off = pink boxes for this player only. The menu
 	// shows "OFF (SEED)" and ignores input while a loaded seed has colours off.
 	{"Archipelago", "item_box_colours",         "Item Box Colours",             CFG_BOOL, &g_config.itemBoxColours, 0, 0, 0},
+	{"Archipelago", "item_box_numbers",         "Item Box Numbers",             CFG_BOOL, &g_config.itemBoxNumbers, 0, 0, 0},
 	// CFG_ENUM: AI-difficulty preset, stepped through a fixed value ladder and
 	// rendered as a preset name (see MM_ConfigMenu.c). Stored as its raw value.
 	{"Archipelago", "ai_difficulty",            "AI Difficulty",                CFG_ENUM, &g_config.aiDifficulty, 0, 0, 0},

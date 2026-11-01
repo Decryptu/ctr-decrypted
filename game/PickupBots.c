@@ -1,6 +1,16 @@
 #include <common.h>
 #include <platform/native_dev.h>
 
+#ifdef CTR_AP
+#include "../ap/ap_boss_adapter.h"
+
+// J03 (#169 full weapon suite): the boss adapter's per-race state and the
+// driver it armed. Reset at every race init, so a restart, an exit to the map
+// or a failed load never carries a use or a timer into the next race.
+static AP_BossAdapterState s_apBossAdapter;
+static struct Driver *s_apBossAdapterDriver;
+#endif
+
 #if defined(CTR_AP) && defined(CTR_CUSTOM_TRACKS)
 static struct MetaDataBOSS s_cortexVortexOxideWeapons[14];
 static const struct MetaDataBOSS s_cortexVortexOxideWeaponTemplate[14] = {
@@ -42,6 +52,13 @@ void PickupBots_Init(void)
 	u16 hub;
 	int lev = GAME_TRACKER->levelID;
 
+#ifdef CTR_AP
+	// J03: reset before any early return, so no armed driver pointer from an
+	// earlier race survives into a custom-page race (review round 1).
+	AP_BossAdapterReset(&s_apBossAdapter);
+	s_apBossAdapterDriver = NULL;
+#endif
+
 #ifdef CTR_CUSTOM_PACKAGES
 	// A custom-page race has no hub and no boss: never read the host slot's
 	// level metadata. bossWeaponMeta is only read by boss AI.
@@ -57,6 +74,22 @@ void PickupBots_Init(void)
 	{
 		hub = 0;
 	}
+
+#ifdef CTR_AP
+	// #169 boss track shuffle: a garage boss on a drawn venue keeps its own
+	// retail attack, mapped onto this track's checkpoints. The venue's own
+	// hubID would hand it another boss's table, or none on a trial track.
+	// J03: also N. Oxide's composed final record (before the Cortex Vortex
+	// table, which it replaces) and an armed Purple Gem Cup gauntlet leg.
+	{
+		struct MetaDataBOSS *venueMeta = AP_BossVenueAttackSchedule(1);
+		if (venueMeta != NULL)
+		{
+			sdata->bossWeaponMeta = venueMeta;
+			return;
+		}
+	}
+#endif
 
 #if defined(CTR_AP) && defined(CTR_CUSTOM_TRACKS)
 	if (CustomTrack_OxideFinalServing(lev, GAME_TRACKER->bossID,
@@ -314,16 +347,41 @@ static inline void PickupBots_UpdateArcade(struct GameTracker *initialGT)
 	} while (i < GAME_TRACKER_RELOAD()->numPlyrCurrGame);
 }
 
+#ifdef CTR_AP
+// #169 tier 3: boss_loss_easing off keeps a composed kit's pressure the
+// same on every try; the retail per-loss bonus applies everywhere else.
+// J03: a gauntlet leg is no garage race and has no loss count.
+static inline int PickupBots_BossLossCount(void)
+{
+	if (!AP_BossLossEasingNow() || (AP_BossGauntletAttacker() >= 0))
+	{
+		return 0;
+	}
+	return (s8)GAME_ADV_PROGRESS.timesLostBossRace[GAME_TRACKER->bossID];
+}
+#define PICKUPBOTS_BOSS_LOSS_COUNT() PickupBots_BossLossCount()
+#else
+#define PICKUPBOTS_BOSS_LOSS_COUNT() ((s8)GAME_ADV_PROGRESS.timesLostBossRace[GAME_TRACKER->bossID])
+#endif
+
 static inline void PickupBots_SetBossCooldown(struct MetaDataBOSS *bossMeta)
 {
 	*(volatile s16 *)&sdata->bossWeaponCooldown = FPS_DOUBLE((RngDeadCoed(&GAME_ADV_RNG) & PICKUPBOTS_BOSS_COOLDOWN_RANDOM_MASK) +
 	                                                         (bossMeta->weaponCooldown + PICKUPBOTS_BOSS_COOLDOWN_BASE_FRAMES) +
-	                                                         ((s8)GAME_ADV_PROGRESS.timesLostBossRace[GAME_TRACKER->bossID] * PICKUPBOTS_BOSS_LOSS_COOLDOWN_STEP));
+	                                                         (PICKUPBOTS_BOSS_LOSS_COUNT() * PICKUPBOTS_BOSS_LOSS_COOLDOWN_STEP));
 }
 
 static inline struct MetaDataBOSS *PickupBots_GetInitialBossMeta(void)
 {
 	struct GameTracker *gGT = GAME_TRACKER;
+
+#ifdef CTR_AP
+	{
+		struct MetaDataBOSS *venueMeta = AP_BossVenueAttackSchedule(0);
+		if (venueMeta != NULL)
+			return venueMeta;
+	}
+#endif
 
 #if defined(CTR_AP) && defined(CTR_CUSTOM_TRACKS)
 	if (CustomTrack_OxideFinalServing((int)gGT->levelID, gGT->bossID,
@@ -339,9 +397,299 @@ static inline struct MetaDataBOSS *PickupBots_GetInitialBossMeta(void)
 	return GAME_BOSS_WEAPON_METADATA[GAME_LEVEL_METADATA[gGT->levelID].hubID];
 }
 
+#ifdef CTR_AP
+// J03 boss adapter: the advanced families (decision 6, Wayfinder D2).
+// Bots never run VehPhysProc, so the timers it keeps for a human (mask flag,
+// invisibility, super engine) are kept here for the one driver the adapter
+// armed. The decisions are ap/ap_boss_adapter.h.
+
+// The schedule row the boss is on and the last real row, from the live table.
+static void PickupBots_AdapterSegment(struct MetaDataBOSS *bossMeta, int *segment, int *lastSegment)
+{
+	struct MetaDataBOSS *base = PickupBots_GetInitialBossMeta();
+	int i;
+
+	*segment = 0;
+	*lastSegment = 0;
+	if (base == NULL)
+		return;
+	for (i = 0; i < 16 && base[i].throwFlag != 0; i++)
+		*lastSegment = i;
+	if (bossMeta >= base && bossMeta - base < 16)
+		*segment = (int)(bossMeta - base);
+}
+
+// Is a mask (Aku or Uka) attached to the driver and alive?
+static int PickupBots_AdapterMaskAlive(struct Driver *d)
+{
+	struct Thread *t;
+
+	if (d->instSelf == NULL || d->instSelf->thread == NULL)
+		return 0;
+	for (t = d->instSelf->thread->childThread; t != NULL; t = t->siblingThread)
+		if (((u32)(t->modelIndex - STATIC_AKUAKU) < 2) && (t->flags & THREAD_FLAG_DEAD) == 0)
+			return 1;
+	return 0;
+}
+
+static struct MaskHeadWeapon *PickupBots_AdapterMaskObject(struct Driver *d)
+{
+	struct Thread *t;
+
+	if (d->instSelf == NULL || d->instSelf->thread == NULL)
+		return NULL;
+	for (t = d->instSelf->thread->childThread; t != NULL; t = t->siblingThread)
+		if (((u32)(t->modelIndex - STATIC_AKUAKU) < 2) && (t->flags & THREAD_FLAG_DEAD) == 0)
+			return (struct MaskHeadWeapon *)t->object;
+	return NULL;
+}
+
+static void PickupBots_AdapterEndInvisibility(struct Driver *d)
+{
+	if (d->invisibleTimer == 0)
+		return;
+	d->invisibleTimer = 0;
+	d->instSelf->flags = d->instFlagsBackup;
+	d->instSelf->alphaScale = 0;
+	OtherFX_Play(0x62, 1);
+}
+
+// End every self-state of the armed driver: finish, race over, race exit.
+// A held shield is popped here too: its own thread only pops it once its
+// driver finishes, and the race can end while the boss is still driving
+// (review round 1). A reload frees it with the level.
+static void PickupBots_AdapterEndAll(struct Driver *d)
+{
+	struct MaskHeadWeapon *mask;
+
+	if (d->instBubbleHold != NULL && d->instBubbleHold->thread != NULL)
+	{
+		struct Shield *shield = (struct Shield *)d->instBubbleHold->thread->object;
+		if (shield != NULL)
+			shield->flags |= SHIELD_FLAG_POP_ON_DAMAGE; // the retail pop VehPickState uses
+		d->instBubbleHold = NULL;
+	}
+
+	PickupBots_AdapterEndInvisibility(d);
+	d->superEngineTimer = 0;
+	s_apBossAdapter.superMs = 0;
+	if (s_apBossAdapter.maskOn)
+	{
+		mask = PickupBots_AdapterMaskObject(d);
+		if (mask != NULL)
+			mask->duration = 0; // RB_MaskWeapon_ThTick fades it away
+		d->actionsFlagSet &= ~ACTION_MASK_WEAPON;
+		s_apBossAdapter.maskOn = 0;
+	}
+	d->invincibleTimer = 0;
+}
+
+// Fire one advanced segment (called with the boss's cooldown already reset).
+static void PickupBots_FireAdvanced(struct Driver *boss, struct Driver *player, struct MetaDataBOSS *bossMeta)
+{
+	struct GameTracker *gGT = GAME_TRACKER;
+	AP_BossAdapterFacts f;
+	int decision;
+	u8 oldWumpa;
+
+	PickupBots_AdapterSegment(bossMeta, &f.segment, &f.lastSegment);
+	f.weapon = bossMeta->weaponType;
+	f.lap = boss->lapIndex;
+	f.numLaps = (s8)gGT->numLaps;
+	AP_BossAdapterEnter(&s_apBossAdapter, f.lap, f.segment);
+	if (s_apBossAdapter.used)
+		return;
+	// Only one driver is armed per race.
+	if (s_apBossAdapterDriver != NULL && s_apBossAdapterDriver != boss)
+		return;
+	f.bossRank = boss->driverRank;
+	f.playerRank = player->driverRank;
+	f.playerClocked = player->clockReceive != 0;
+	f.warpOrbInPlay = (gGT->gameMode1 & WARPBALL_HELD) != 0;
+	f.shieldHeld = boss->instBubbleHold != NULL;
+	f.maskActive = s_apBossAdapter.maskOn && PickupBots_AdapterMaskAlive(boss);
+	f.invisible = boss->invisibleTimer != 0;
+	f.superEngine = boss->superEngineTimer != 0;
+	f.superAllowed = AP_BossFinalComposedNow();
+	decision = AP_BossAdapterDecide(&s_apBossAdapter, &f);
+	AP_BossAdapterCommit(&s_apBossAdapter, &f, decision);
+	if (decision != AP_BA_FIRE)
+		return;
+	s_apBossAdapterDriver = boss;
+
+	// The juice bit picks the retail juiced duration (invisibility only).
+	oldWumpa = boss->numWumpas;
+	boss->numWumpas = ((bossMeta->juiceFlag & BOSS_WEAPON_JUICED) != 0) ? DRIVER_WUMPA_JUICED_COUNT : 0;
+	boss->heldItemID = (u8)f.weapon;
+
+	switch (f.weapon)
+	{
+	case AP_BA_MASK:
+	{
+		// Retail MaskUseWeapon picks Aku or Uka from the racer's side and is
+		// silent for a bot; its activation sound is the telegraph here.
+		int goodGuy = VehPickupItem_MaskBoolGoodGuy(boss);
+		OtherFX_Play((STATIC_UKAUKA - goodGuy) + 0x1A, 1);
+		VehPickupItem_ShootNow(boss, f.weapon, 0);
+		if (PickupBots_AdapterMaskAlive(boss))
+			boss->actionsFlagSet |= ACTION_MASK_WEAPON;
+		else
+			s_apBossAdapter.maskOn = 0; // pool full: no mask, nothing to keep
+		break;
+	}
+	default:
+		// turbo, shield, clock, warp orb, invisibility, super engine: the retail
+		// item with its own retail cue (fire, bubble, clock, orb, fade sound);
+		// decision 6 asks no extra warning for the clock.
+		VehPickupItem_ShootNow(boss, f.weapon, 0);
+		break;
+	}
+
+	boss->heldItemID = PICKUPBOTS_ITEM_NONE;
+	boss->numWumpas = oldWumpa;
+}
+
+// Every unpaused race frame: keep and expire the armed driver's self-states.
+static void PickupBots_AdapterTick(void)
+{
+	struct GameTracker *gGT = GAME_TRACKER;
+	struct Driver *d = s_apBossAdapterDriver;
+	int ms, rule, timer;
+	int live = 0, i;
+
+	if (!s_apBossAdapter.armed || d == NULL)
+		return;
+	for (i = 0; i < 8; i++)
+		if (gGT->drivers[i] == d)
+			live = 1;
+	if (!live || d->instSelf == NULL)
+	{
+		// The driver left the race (exit or reload): nothing to restore.
+		AP_BossAdapterReset(&s_apBossAdapter);
+		s_apBossAdapterDriver = NULL;
+		return;
+	}
+	ms = gGT->elapsedTimeMS;
+	rule = AP_BossAdapterEndRule((d->actionsFlagSet & ACTION_RACE_FINISHED) != 0,
+	                             (gGT->gameMode1 & END_OF_RACE) != 0,
+	                             (d->botData.botFlags & BOT_FLAG_DAMAGE_ACTIVE) != 0);
+	if (rule == AP_BA_END_ALL)
+	{
+		PickupBots_AdapterEndAll(d);
+		return;
+	}
+	if (rule == AP_BA_END_INVISIBILITY)
+		PickupBots_AdapterEndInvisibility(d);
+
+	// Invisibility: retail countdown and restore (VehPhysProc for a human).
+	if (d->invisibleTimer != 0)
+	{
+		timer = d->invisibleTimer;
+		if (AP_BossAdapterCountdown(&timer, ms))
+		{
+			d->invisibleTimer = 1;
+			PickupBots_AdapterEndInvisibility(d);
+		}
+		else
+			d->invisibleTimer = timer;
+	}
+
+	// Super engine: retail 0.12 s reserves top-up while the timer runs.
+	if (d->superEngineTimer != 0)
+	{
+		timer = d->superEngineTimer;
+		AP_BossAdapterCountdown(&timer, ms);
+		d->superEngineTimer = (s16)timer;
+		if (d->superEngineTimer != 0 && d->botData.aiPhysics.speedLinear > 0)
+			VehFire_Increment(d, 120, (TURBO_PAD | SUPER_ENGINE), 0x80);
+	}
+
+	// Mask: invincible (PickupBots_AdapterProtect), damages on contact
+	// (ACTION_MASK_WEAPON, VehPhysCrash_Attack) and faster (single turbo
+	// reserves while it lasts). The mask thread owns the retail duration.
+	if (s_apBossAdapter.maskOn)
+	{
+		if (PickupBots_AdapterMaskAlive(d))
+		{
+			d->actionsFlagSet |= ACTION_MASK_WEAPON;
+			if (d->reserves < 0x40)
+				VehFire_Increment(d, 0x78, 1, 0x80);
+		}
+		else
+		{
+			d->actionsFlagSet &= ~ACTION_MASK_WEAPON;
+			s_apBossAdapter.maskOn = 0;
+		}
+	}
+
+	// Shield pop invincibility (retail VehPickState sets 0x2a0 ms).
+	if (d->invincibleTimer != 0)
+	{
+		timer = d->invincibleTimer;
+		AP_BossAdapterCountdown(&timer, ms);
+		d->invincibleTimer = timer;
+	}
+}
+
+// RB_Hazard_HurtDriver, bot branch: retail VehPickState protection for the
+// armed driver only. Returns 1 when the hit is absorbed (no damage, no Hit
+// check, no DeathLink).
+int PickupBots_AdapterProtect(struct Driver *victim)
+{
+	if (!s_apBossAdapter.armed || victim == NULL || victim != s_apBossAdapterDriver)
+		return 0;
+	if (victim->kartState == KS_MASK_GRABBED)
+		return 0;
+	if ((s_apBossAdapter.maskOn && (victim->actionsFlagSet & ACTION_MASK_WEAPON) != 0) || victim->invincibleTimer != 0)
+	{
+		Voiceline_RequestPlay(2, GAME_CHARACTER_IDS[victim->driverID], 0x10);
+		return 1;
+	}
+	if (victim->instBubbleHold != NULL)
+	{
+		struct Shield *shieldObj = victim->instBubbleHold->thread->object;
+		shieldObj->flags |= SHIELD_FLAG_POP_ON_DAMAGE;
+		victim->invincibleTimer = 0x2a0;
+		victim->instBubbleHold = NULL;
+		Voiceline_RequestPlay(2, GAME_CHARACTER_IDS[victim->driverID], 0x10);
+		return 1;
+	}
+	return 0;
+}
+
+// The armed gauntlet leg's attacker: the AI racing the leg's drawn racer,
+// else the first AI.
+static struct Driver *PickupBots_GauntletAttacker(void)
+{
+	struct GameTracker *gGT = GAME_TRACKER;
+	int character = AP_BossGauntletAttacker();
+	int i;
+
+	if (character < 0)
+		return NULL;
+	for (i = 1; i < 8; i++)
+	{
+		struct Driver *d = gGT->drivers[i];
+		if (d != NULL && (d->actionsFlagSet & ACTION_BOT) != 0 && GAME_CHARACTER_IDS[d->driverID] == character)
+			return d;
+	}
+	if (gGT->drivers[1] != NULL && (gGT->drivers[1]->actionsFlagSet & ACTION_BOT) != 0)
+		return gGT->drivers[1];
+	return NULL;
+}
+#endif
+
+
+#ifdef CTR_AP
+// J03: a Purple Gem Cup gauntlet leg runs this for its attacker, not for
+// drivers[1].
+static inline void PickupBots_UpdateBoss(struct GameTracker *gGT, struct Driver *boss)
+{
+#else
 static inline void PickupBots_UpdateBoss(struct GameTracker *gGT)
 {
 	struct Driver *boss = gGT->drivers[1];
+#endif
 	struct Driver *player = gGT->drivers[0];
 	register struct MetaDataBOSS *bossMeta CTR_PSX_REGISTER("s1") = sdata->bossWeaponMeta;
 	register int weaponID CTR_PSX_REGISTER("s0");
@@ -407,7 +755,13 @@ static inline void PickupBots_UpdateBoss(struct GameTracker *gGT)
 		sdata->bossWeaponMeta = bossMeta;
 	}
 
+#ifdef CTR_AP
+	// J03: the boss lane requests belong to the garage boss race only; a
+	// gauntlet attacker keeps its ordinary race lanes.
+	if ((bossMeta->pathChangeDisabled == 0) && ((gGT->gameMode1 & ADVENTURE_BOSS) != 0))
+#else
 	if (bossMeta->pathChangeDisabled == 0)
+#endif
 	{
 		s16 pathTimer = sdata->bossPathRequestTimer;
 		u16 pathTimerUnsigned = sdata->bossPathRequestTimer;
@@ -489,7 +843,17 @@ static inline void PickupBots_UpdateBoss(struct GameTracker *gGT)
 	weaponFlags = 0;
 	sdata->bossWeaponCooldown = FPS_DOUBLE((RngDeadCoed(&GAME_ADV_RNG) & PICKUPBOTS_BOSS_COOLDOWN_RANDOM_MASK) +
 	                                       (bossMeta->weaponCooldown + PICKUPBOTS_BOSS_COOLDOWN_BASE_FRAMES) +
-	                                       ((s8)GAME_ADV_PROGRESS.timesLostBossRace[GAME_TRACKER->bossID] * PICKUPBOTS_BOSS_LOSS_COOLDOWN_STEP));
+	                                       (PICKUPBOTS_BOSS_LOSS_COUNT() * PICKUPBOTS_BOSS_LOSS_COOLDOWN_STEP));
+
+#ifdef CTR_AP
+	// J03: the advanced families go through the boss adapter, never the
+	// projectile branch below. Retail tables never carry these codes.
+	if (AP_BossAdapterIsAdvanced(bossMeta->weaponType))
+	{
+		PickupBots_FireAdvanced(boss, player, bossMeta);
+		return;
+	}
+#endif
 
 	weaponID = bossMeta->weaponType;
 	encodedWeaponType = weaponID;
@@ -656,8 +1020,16 @@ BossJuiceDone:
 		{
 			VehPickupItem_ShootNow(boss, PICKUPBOTS_SHOOT_ID_BOMB_MISSILE, (s16)weaponFlags);
 		}
+#ifdef CTR_AP
+		// #169: Oxide's double potion belongs to Oxide, not to a garage boss
+		// whose drawn venue is Oxide Station.
+		else if ((boss->heldItemID == PICKUPBOTS_ITEM_POTION) && ((s16)weaponFlags == PICKUPBOTS_SHOOT_FLAG_RANDOM) &&
+		         ((GAME_TRACKER->gameMode1 & ADVENTURE_BOSS) != 0) &&
+		         (AP_BossRetailRulesLevel(GAME_TRACKER->levelID) == OXIDE_STATION))
+#else
 		else if ((boss->heldItemID == PICKUPBOTS_ITEM_POTION) && ((s16)weaponFlags == PICKUPBOTS_SHOOT_FLAG_RANDOM) &&
 		         (GAME_TRACKER_RELOAD()->levelID == OXIDE_STATION))
+#endif
 		{
 			register s16 repeatWeaponID CTR_PSX_REGISTER("s0") = weaponID;
 			VehPickupItem_ShootNow(boss, repeatWeaponID, PICKUPBOTS_SHOOT_FLAG_RANDOM);
@@ -688,6 +1060,12 @@ void PickupBots_Update(void)
 	register struct GameTracker *initialGT CTR_PSX_REGISTER("v1") = GAME_TRACKER;
 	struct GameTracker *gGT;
 
+#ifdef CTR_AP
+	// J03: the boss adapter's self-state timers run every unpaused race frame,
+	// before any early return, so expiry and cleanup never wait on a weapon.
+	PickupBots_AdapterTick();
+#endif
+
 	if ((initialGT->numBotsNextGame == 0) || (initialGT->elapsedEventTime < PICKUPBOTS_UPDATE_START_DELAY))
 	{
 		if (initialGT->gameMode1 >= 0)
@@ -704,10 +1082,36 @@ void PickupBots_Update(void)
 	gGT = GAME_TRACKER_RELOAD();
 	if ((gGT->gameMode1 & (ADVENTURE_BOSS | END_OF_RACE)) == ADVENTURE_BOSS)
 	{
+#ifdef CTR_AP
+		PickupBots_UpdateBoss(gGT, gGT->drivers[1]);
+#else
 		PickupBots_UpdateBoss(gGT);
+#endif
 	}
 	else
 	{
+#ifdef CTR_AP
+		// J03: an armed Purple Gem Cup gauntlet leg adds one boss-style
+		// attacker. Its ordinary AI weapons are held back while the leg
+		// is armed, so it never fires two systems in one frame (review
+		// round 1): a nonzero bot cooldown fails the arcade readiness test.
+		// Same gates as the arcade pass: players present, items not off.
+		struct Driver *attacker = NULL;
+		if (((gGT->gameMode1 & END_OF_RACE) == 0) && (gGT->numPlyrCurrGame != 0) && !NativeDev_NoItems())
+		{
+			attacker = PickupBots_GauntletAttacker();
+		}
+		if ((attacker != NULL) && (attacker->botData.weaponCooldown == 0))
+		{
+			attacker->botData.weaponCooldown = 1;
+		}
 		PickupBots_UpdateArcade(gGT);
+		if (attacker != NULL)
+		{
+			PickupBots_UpdateBoss(gGT, attacker);
+		}
+#else
+		PickupBots_UpdateArcade(gGT);
+#endif
 	}
 }

@@ -1,5 +1,9 @@
 #include <common.h>
 
+#if defined(CTR_AP) && defined(CTR_CUSTOM_TRACKS)
+#include <platform/native_custom_tracks.h>
+#endif
+
 void GAMEPROG_AdvPercent(struct AdvProgress *adv)
 {
 	s32 goldBonus = 0;
@@ -339,6 +343,19 @@ void GAMEPROG_GetPtrHighScoreTrack(void)
 	if (MainRaceTrack_OfflineCustomLoad())
 	{
 		sdata->ptrActiveHighScoreEntry = &MainRaceTrack_CustomHighScores()[6 * ((gGT->gameMode1 & RELIC_RACE) != 0)];
+		return;
+	}
+#endif
+#if defined(CTR_AP) && defined(CTR_CUSTOM_TRACKS)
+	// A content-plan custom track (#133 PR 3) never reads or writes its engine
+	// host's retail high scores, which live in the save. It points at a zeroed
+	// scratch table; MainGameEnd_SoloRaceGetReward offers no record from it and
+	// RR_EndEvent_DrawHighScore does not draw it.
+	if (CustomTrack_KeepsNoScores(gGT->levelID))
+	{
+		static struct HighScoreEntry scratch[12];
+		memset(scratch, 0, sizeof scratch);
+		sdata->ptrActiveHighScoreEntry = &scratch[MEMCARD_HIGH_SCORE_ENTRIES_PER_MODE * ((gGT->gameMode1 & RELIC_RACE) != 0)];
 		return;
 	}
 #endif

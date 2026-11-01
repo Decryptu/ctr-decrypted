@@ -139,6 +139,7 @@ typedef struct
 	                            // when the seed colours them; it can never turn
 	                            // colours on when the seed has them off
 	                            // (AP_BoxColour_Enabled, ap/ap_box_colour_logic.h).
+	bool itemBoxNumbers;        // Archipelago: local overhead AP box numbers (default on).
 	int  aiDifficulty;          // Archipelago: AI-difficulty preset, stored as the raw
 	                            // engine difficulty VALUE (0=vanilla, 0x50, 0xa0, 0xf0,
 	                            // 0x140, 0x280). Local value; synced to the per-slot
@@ -157,6 +158,10 @@ typedef struct
 	                            // quit). ap_deathlink.c reads them every frame.
 	int  trapDuration;          // Archipelago: sustained trap lifetime in seconds.
 	                            // 10/15/20/25/30/45/60/90, or 0 = full race.
+	int  raceTypeSelector;      // Archipelago: race type menu on plan pads (#208).
+	                            // -1 = follow the seed's race_type_selector
+	                            // (default), 0 = productive, 1 = always. Read
+	                            // at every pad entry (AP_RaceTypeSelectorSetting).
 	// Archipelago room, edited in the in-game connection manager (see
 	// game/230/MM_ConfigMenu.c) and persisted to config.ini [Connection]. uri is
 	// "ws://host:port". Slot names are at most 16 chars in AP but the buffers are

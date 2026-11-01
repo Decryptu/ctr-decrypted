@@ -349,6 +349,24 @@ void RECTMENU_GetHeight(struct RectMenu *m, s16 *height, b16 boolCheckSubmenu)
 	}
 }
 
+#ifdef CTR_AP
+// #208 race type menu: rows drawn grey that stay selectable. One menu at a
+// time owns the mask; every other menu, vanilla ones included, is untouched.
+static const struct RectMenu *s_apReplayMenu;
+static unsigned s_apReplayRows;
+
+void RECTMENU_APSetReplayRows(const struct RectMenu *m, unsigned rows)
+{
+	s_apReplayMenu = m;
+	s_apReplayRows = rows;
+}
+
+static int RECTMENU_APReplayRow(const struct RectMenu *m, int row)
+{
+	return m == s_apReplayMenu && row >= 0 && row < 32 && (s_apReplayRows & (1u << row)) != 0;
+}
+#endif
+
 // Row label lookup. Retail reads the language strings directly; AP rows that have
 // no retail string (the hub pause TRACKER row, AP_LNG_TRACKER) resolve here.
 static char *RECTMENU_RowString(int index)
@@ -356,6 +374,8 @@ static char *RECTMENU_RowString(int index)
 #ifdef CTR_AP
 	if (index == AP_LNG_TRACKER)
 		return (char *)"TRACKER";
+	if (index == AP_LNG_WUMPA_SHOP)
+		return (char *)"WUMPA SHOP";
 #endif
 	return GAME_LANGUAGE_STRINGS[index];
 }
@@ -504,6 +524,13 @@ void RECTMENU_DrawSelf(struct RectMenu *menu, s16 posX, s16 posY, s16 menuWidth)
 			{
 				s16 textIndex = row->stringIndex & 0x7fff;
 				u16 textFlags = (row->stringIndex & 0x8000) ? 0x17 : baseFlags;
+#ifdef CTR_AP
+				// #208: a grey row that can still be chosen (a replay in the
+				// race type menu). Drawn like a locked row; activation only
+				// looks at the 0x8000 bit.
+				if (!(row->stringIndex & 0x8000) && RECTMENU_APReplayRow(menu, rowIndex))
+					textFlags = 0x17;
+#endif
 				// NOTE(aalhendi): The complemented mask sets JUSTIFY_CENTER with a
 				// signed result; a direct OR changes GCC 2.8's loop constant folding.
 				if (textIndex > 0)
@@ -740,6 +767,8 @@ void RECTMENU_ProcessState(void)
 	// The map owns input while open, preventing focus/inspect/back from
 	// also selecting Resume, Quit or another underlying pause-menu row.
 	if (AP_TrackerMenuFrame()) return;
+	// The #249 Wumpa Shop page owns input and drawing the same way.
+	if (AP_WumpaShopMenuFrame()) return;
 	// A room-link prompt on the settled main menu owns input the same way
 	// (issue #334): the menu underneath neither runs nor sees the answer press.
 	if (AP_LinkMenuFrame()) return;

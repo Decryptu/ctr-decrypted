@@ -107,9 +107,26 @@ static void (*const LOAD_DriverMPK_SetPointer)(struct LoadQueueSlot *) = LOAD_QU
 CTR_STATIC_ASSERT(AP_HIT_FIELD_MAX == 7);
 static ap_hit_extras_state s_hitExtras;
 
+// #169 tier 2: the drawn boss opponent sideloaded into driverModelExtras[1]
+// for this load, or -1. Reset with the Hit extras on every load entry.
+static int s_bossExtra = -1;
+
 void LOAD_HitEncounterResetExtras(void)
 {
 	AP_HitExtrasResetPure(&s_hitExtras);
+	s_bossExtra = -1;
+}
+
+// Stage 6: a sideloaded boss opponent whose model did not load is a load
+// failure with its name, never a NULL into VehBirth.
+void LOAD_BossOpponentValidateExtra(void)
+{
+	if (s_bossExtra >= 0 && GAME_DRIVER_MODEL_EXTRAS[1].model == NULL)
+	{
+		char msg[160];
+		snprintf(msg, sizeof msg, "Boss opponent model for character %d failed to load.", s_bossExtra);
+		Platform_Fatal("CTR Native - Boss Opponent", msg);
+	}
 }
 
 // Called from LOAD_TenStages stage 6, after fileBase->model conversion and
@@ -349,28 +366,48 @@ int LOAD_DriverMPK(struct BigHeader *bigfile, int levelLOD, void (*callback)(str
 			// the gameMode2 TOKEN_RACE bit set, so it seats the same field from
 			// the same destination key; an Adventure Gem Cup uses its
 			// FROZEN snapshot (drawn once at the pad entry, reused across every
-			// leg and same-session retry). Custom-served loads keep
-			// their own permute and get no roster. The player's arcade pack is
-			// built around the stock set LOAD_Robots1P just wrote, so any selected
-			// opponent outside it needs a BI_RACERMODELHI extra.
+			// leg and same-session retry). Custom-served loads apply like a
+			// retail race (#133 PR 5b content plans, PR 5c legacy rooms; the
+			// event-race permute above is overwritten): a standalone custom or
+			// Cortex Vortex race draws from its host's order (6 or 13), and a
+			// content-plan cup draws its frozen field once, at its first leg,
+			// from its own order (200 + name index) whatever track that leg is,
+			// then seats it in every leg, custom legs included. A legacy custom
+			// track that took the Purple cup over is a one-race cup: its field
+			// is drawn at the pad entry from that cup's order. The player's
+			// arcade pack is built around the stock set LOAD_Robots1P just wrote,
+			// so any selected opponent outside it needs a BI_RACERMODELHI extra;
+			// the load path and queue are the same on a custom-served load.
 			{
 				int isCup = (gameMode1 & ADVENTURE_CUP) != 0;
 				int customServed = 0;
+				int contentCupDest = -1;
+				int eventFieldSize = 0;
+				int hitCupDest;
 				int hitApply = 0;
 				int aiSeats = 7;
 
 #ifdef CTR_CUSTOM_TRACKS
 				customServed = CustomTrack_ServingLoad((int)gGT->levelID, isCup,
 				                                       gGT->cup.cupID);
+				if (isCup)
+					contentCupDest = AP_ContentCupHitDestination();
+				// A legacy custom track that took a cup over grids its own
+				// field (MainInit, Purple cup only); a content-plan cup leg
+				// races on engine cup 0 with eight karts.
+				if (isCup && customServed && contentCupDest < 0)
+					eventFieldSize = CustomTrack_EventFieldSize((int)gGT->levelID, 1, gGT->cup.cupID);
 #endif
-				if (!customServed && isCup && AP_HitEncounterEnabled())
+				hitCupDest = AP_HitCupDestinationPure((int)gGT->cup.cupID, contentCupDest);
+				if (isCup && AP_HitEncounterEnabled())
 				{
 					// Gem Cup: four AI in the retail Purple cup, seven otherwise,
+					// and the measured field of a legacy custom event race,
 					// matching MainInit's field count.
-					aiSeats = AP_HitEncounterCupFieldSize((int)gGT->cup.cupID);
+					aiSeats = AP_HitCupSeatsPure((int)gGT->cup.cupID, eventFieldSize);
 					hitApply = 1;
 				}
-				else if (!customServed &&
+				else if (
 				         AP_HitEncounterShouldApply(
 				             (gameMode1 & ADVENTURE_MODE) != 0, (int)gGT->levelID,
 				             isCup, IS_BOSS_RACE(gameMode1),
@@ -392,10 +429,10 @@ int LOAD_DriverMPK(struct BigHeader *bigfile, int levelLOD, void (*callback)(str
 					int hitFresh = 1;
 
 					if (isCup)
-						hitCount = AP_HitCupSnapshotField((int)gGT->cup.cupID,
-						                                  (int)gGT->cup.trackIndex,
-						                                  (int)GAME_CHARACTER_IDS[0],
-						                                  aiSeats, hitRoster);
+						hitCount = AP_HitCupSnapshotFieldAt(hitCupDest, (int)gGT->cup.cupID,
+						                                    (int)gGT->cup.trackIndex,
+						                                    (int)GAME_CHARACTER_IDS[0],
+						                                    aiSeats, hitRoster);
 					else
 						hitCount = AP_HitRaceField((int)gGT->levelID,
 						                           (int)GAME_CHARACTER_IDS[0],
@@ -406,7 +443,7 @@ int LOAD_DriverMPK(struct BigHeader *bigfile, int levelLOD, void (*callback)(str
 					hitNeed = AP_HitEncounterExtras(hitRoster, hitCount,
 					                                (int)GAME_CHARACTER_IDS[0],
 					                                hitExtras, 3);
-					LOAD_HitLogRoster(isCup ? (int)gGT->cup.cupID : (int)gGT->levelID, isCup,
+					LOAD_HitLogRoster(isCup ? hitCupDest - 100 : (int)gGT->levelID, isCup,
 					                  (int)GAME_CHARACTER_IDS[0], hitFresh, hitRoster,
 					                  hitCount, hitExtras, hitNeed > 3 ? 3 : hitNeed);
 					if (hitNeed > 3)
@@ -464,6 +501,45 @@ CheckHighAndPack:
 		LOAD_AppendQueue(bigfile, LT_GETADDR, BI_RACERMODELHI + GAME_CHARACTER_IDS[0], &GAME_DRIVER_MODEL_EXTRAS[0].fileBase, LOAD_DriverMPK_SetPointer);
 
 		// Load boss or ghost [1]
+#ifdef CTR_AP
+		// #169 tier 2: a garage boss race against a drawn racer keeps the
+		// garage boss's own time-trial pack, which carries everything that
+		// race has always needed, and adds the racer's hi model as one
+		// extra (slot 1; slot 0 is the player), queued before the pack.
+		// VehBirth resolves the AI by name and searches the extras first. A
+		// racer who is the player's own character needs no extra: slot 0 has
+		// that model.
+		if ((GAME_TRACKER->gameMode1 & ADVENTURE_BOSS) != 0)
+		{
+			int bossExtra;
+			int bossPack = AP_BossRaceOpponentModels((int)GAME_CHARACTER_IDS[0], &bossExtra);
+			// J03 (decision 7): N. Oxide's garage against a drawn racer
+			// keeps Oxide's own pack and adds the racer's hi model, the
+			// same way.
+			if (bossPack < 0 && (GAME_TRACKER->bossID == 4 || GAME_TRACKER->bossID == 5) &&
+			    (GAME_TRACKER->gameMode1 & ADVENTURE_CUP) == 0)
+			{
+				int finalOpponent = AP_BossFinalGarageOpponent();
+				if (finalOpponent >= 0)
+					bossPack = AP_BossOpponentModels(AP_BOSS_OXIDE_CHARACTER, finalOpponent,
+					                                 (int)GAME_CHARACTER_IDS[0], &bossExtra);
+			}
+			if (bossPack >= 0)
+			{
+				if (bossExtra >= 0)
+				{
+					if (!AP_HitQueueFitsPure((int)sdata->queueLength, 2, 8))
+						Platform_Fatal("CTR Native - Boss Opponent",
+						               "Boss opponent model does not fit the load queue.");
+					LOAD_AppendQueue(bigfile, LT_GETADDR, BI_RACERMODELHI + bossExtra,
+					                 &GAME_DRIVER_MODEL_EXTRAS[1].fileBase, LOAD_DriverMPK_SetPointer);
+					s_bossExtra = bossExtra;
+				}
+				LOAD_AppendQueue(bigfile, LT_GETADDR, BI_TIMETRIALPACK + bossPack, NULL, callback);
+				return sdata->ptrMPK;
+			}
+		}
+#endif
 		LOAD_AppendQueue(bigfile, LT_GETADDR, BI_TIMETRIALPACK + GAME_CHARACTER_IDS[1], NULL, callback);
 		return sdata->ptrMPK;
 	}

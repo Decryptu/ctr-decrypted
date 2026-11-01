@@ -16,6 +16,7 @@
 #include "ap_retry_budget.h" // bounded pre-connect reconnect budget (pure logic)
 #include "ap_received_batch_logic.h"
 #include "ap_seedcfg.h"   // ap_seedcfg_parse_json() -- per-seed slot_data (Phase 2)
+#include "ap_content_plan.h"
 #include "ap_locations.h" // AP_LOCATION_TABLE -- the 99 CTR codes to scout on connect
 #include "ap_box_map.h"   // AP_BOX_CODE_BASE / AP_BOX_LOCATION_COUNT -- the #109 block
 #include "ap_held_checks.h"
@@ -24,7 +25,11 @@
 #include "ap_oxide_scene_seen.h" // #377 once-per-seed Final Challenge scene flag
 #include "ap_boss_door_scene_seen.h" // #377 once-per-hub boss-door scene flag
 #include "ap_boss_won_flags.h" // #458 personally won boss races and Oxide's Challenge
+#include "ap_wumpa_ledger.h" // #249 Wumpa Shop wallet
 #include "ap_hit_policy.h" // AP_HitFallbackConflictPure -- the block schema 3 check
+#include "ap_win_logic.h" // AP_WinStakesIdentHash: full-name identity for the race stakes latch
+#include "ap_deathlink_inbox.h" // inbound DeathLink bounces until the game thread drains them
+#include "ap_stat_select_logic.h" // AP_StatSel_ValueOk: the stored rank selection bound
 
 static APDoorHistory g_doors;
 static unsigned g_doors_sent = 0;
@@ -35,6 +40,9 @@ static APBossDoorSceneSeen g_boss_door_scene;
 static void ap_boss_door_scene_flush();
 static APBossWonFlags g_boss_won;
 static void ap_boss_won_flush();
+static APWumpaLedger g_wumpa;
+static void ap_wumpa_flush();
+static void ap_wumpa_resend_paid();
 static unsigned ap_boss_won_migration_bits();
 
 // #299: room-scoped one-shot effect markers. Keys are per team+slot inside the
@@ -51,6 +59,7 @@ struct APFxStore
 static APFxStore g_fx_store[AP_NET_FX_COUNT] = {
 	{"ctr_fx_", "", AP_FXM_STORE_PENDING, 0, 0},
 	{"ctr_turbo_fired_", "", AP_FXM_STORE_PENDING, 0, 0},
+	{"ctr_reserve_spent_", "", AP_FXM_STORE_PENDING, 0, 0},
 };
 static void ap_fx_store_clear()
 {
@@ -64,6 +73,7 @@ static void ap_fx_store_clear()
 }
 
 #include <deque>
+#include <vector>
 #include <algorithm>
 #include <cctype>
 #include <list>
@@ -373,6 +383,75 @@ static bool ap_edit_accept(const nlohmann::json &v)
 	return true;
 }
 
+// Progressive rank selection (ruling 2026-09-11, Boost 2026-10-26). Same
+// per-slot data-storage path and the same wholesale-reject rule as the editable
+// package; the value range is the selector's own (ap_stat_select_logic.h).
+static int         g_statsel_value[AP_NET_STATSELECT_COUNT];
+static bool        g_statsel_known = false;
+static unsigned    g_statsel_rev = 0;
+
+static std::string ap_statsel_key()
+{
+	return "ctr_statselect_" + g_slot;
+}
+
+// Our own writes still on their way back. SetNotify echoes every Set to its
+// writer too, and with fast presses an older echo can land after a newer local
+// write; applying it would roll the selection back and eat a press. The server
+// answers in order, so an echo that matches the oldest write in flight is ours
+// and is dropped; anything else is a foreign change and wins.
+static std::deque<std::vector<int>> g_statsel_inflight;
+
+static bool ap_statsel_parse(const nlohmann::json &v, std::vector<int> &out)
+{
+	if (!v.is_array() || v.size() != (size_t)AP_NET_STATSELECT_COUNT)
+		return false;
+	out.clear();
+	for (const auto &e : v)
+	{
+		long long n = 0;
+		if (!e.is_number_integer() || !ap_json_int64(e, &n) || !AP_StatSel_ValueOk(n))
+			return false;
+		out.push_back((int)n);
+	}
+	return true;
+}
+
+static void ap_statsel_store(const std::vector<int> &staged)
+{
+	for (int i = 0; i < AP_NET_STATSELECT_COUNT; i++)
+		g_statsel_value[i] = staged[i];
+	g_statsel_known = true;
+	g_statsel_rev++;
+}
+
+// A Get reply: authoritative, applied whole or not at all.
+static bool ap_statsel_accept(const nlohmann::json &v)
+{
+	std::vector<int> staged;
+	if (!ap_statsel_parse(v, staged))
+		return false;
+	g_statsel_inflight.clear();
+	ap_statsel_store(staged);
+	return true;
+}
+
+// A SetNotify update: our own echo is dropped, a foreign change is applied.
+static bool ap_statsel_notify(const nlohmann::json &v)
+{
+	std::vector<int> staged;
+	if (!ap_statsel_parse(v, staged))
+		return false;
+	if (!g_statsel_inflight.empty() && g_statsel_inflight.front() == staged)
+	{
+		g_statsel_inflight.pop_front();
+		return false;
+	}
+	g_statsel_inflight.clear();
+	ap_statsel_store(staged);
+	return true;
+}
+
 // The stored racer gets the same pre-narrowing treatment for the same reason.
 // A raw get<int>() on 4294967301 yields 5, which passes an 0..15 roster check
 // and seats a racer nobody stored.
@@ -388,15 +467,15 @@ static bool ap_char_accept(const nlohmann::json &v, int *out)
 }
 
 // ── DeathLink (issue #6) ──
-// Depth-1 inbound latch: the most recent DeathLink bounce not yet handed to the
-// game thread. A newer death overwrites an unhandled one, so extras are dropped
-// at the network boundary. The game side does not queue: it applies the death
-// inside a live race or drops it. Written in the bounced handler and drained by
-// ap_net_deathlink_take on the SAME poll thread (apclientpp is single-threaded,
-// the same guarantee the received-item queue relies on), so no lock is needed.
-static bool        g_dl_incoming = false;
-static std::string g_dl_incoming_cause;
-static std::string g_dl_incoming_source;
+// Inbound deaths not yet handed to the game thread (ap_deathlink_inbox.h).
+// AP_DeathLinkTick drains all of them every frame, oldest first: the newest stays
+// pending and each older one gets its ignored popup, so a second death in the
+// same frame no longer overwrites the first unseen. The game side does not queue:
+// it applies the death inside a live race or drops it. Written in the bounced
+// handler and drained by ap_net_deathlink_take on the SAME poll thread
+// (apclientpp is single-threaded, the same guarantee the received-item queue
+// relies on), so no lock is needed.
+static APDeathLinkInbox g_dl_inbox;
 
 // ── TLS trust store (issue #170) ──
 //
@@ -639,6 +718,7 @@ static void ap_net_refuse_seed(const std::string &reason)
 	g_oxide_scene.disconnected();
 	g_boss_door_scene.disconnected();
 	g_boss_won.disconnected();
+	g_wumpa.disconnected();
 	g_status = AP_NET_STATUS_ERROR;
 	g_last_error = reason;
 	char line[256];
@@ -801,7 +881,7 @@ extern "C" int ap_net_init(const char *uuid, const char *game, const char *uri)
 	g_ap->set_room_info_handler([]() {
 		std::fprintf(stderr, "[AP NET] RoomInfo; connecting slot '%s'\n", g_slot.c_str());
 		// items_handling 0b111 = remote items + own world + starting inventory.
-		g_ap->ConnectSlot(g_slot, g_password, 7, {"AP"});
+		g_ap->ConnectSlot(g_slot, g_password, 7, {"AP"}, APClient::Version{0, 6, 7});
 	});
 	g_ap->set_slot_connected_handler([](const nlohmann::json &slotData) {
 		// ADMISSION FIRST (ticket 05). Clear the accepted latch BEFORE parsing so
@@ -821,6 +901,35 @@ extern "C" int ap_net_init(const char *uuid, const char *game, const char *uri)
 			// discards them for a different seed.
 			ap_net_refuse_seed(ap_seedcfg_reject_reason());
 			return;
+		}
+#ifndef AP_NET_TEST_PLANLESS_ROOMS
+		// One generator row 7: every 0.3.0 room carries a content plan, so a room
+		// without one comes from v0.2.x. Row 12 deletes the reader behind this
+		// and the test define.
+		if (!ap_content_plan_present())
+		{
+			ap_seedcfg_reject_late("This room was made with v0.2.x. Play it on the v0.2.4 client.");
+			ap_net_refuse_seed(ap_seedcfg_reject_reason());
+			return;
+		}
+#endif
+		if (ap_content_plan_present())
+		{
+			std::set<int64_t> locations = g_ap->get_checked_locations();
+			const std::set<int64_t> missing = g_ap->get_missing_locations();
+			locations.insert(missing.begin(), missing.end());
+			const std::vector<int64_t> ids(locations.begin(), locations.end());
+			if (!ap_content_plan_bind(g_ap->get_seed().c_str(), g_ap->get_team_number(),
+			                          g_ap->get_player_number(), ids.data(), ids.size()))
+			{
+				ap_net_refuse_seed(ap_seedcfg_reject_reason());
+				return;
+			}
+#ifndef CTR_CUSTOM_TRACKS
+			ap_seedcfg_reject_late("content_plan needs a client built with custom-track support");
+			ap_net_refuse_seed(ap_seedcfg_reject_reason());
+			return;
+#endif
 		}
 		// Block schema 3 consistency (2026-09-18): `fallback_keys` asserts the
 		// guest has NO unlock win in this seed. The parser only sees slot_data, so
@@ -954,6 +1063,22 @@ extern "C" int ap_net_init(const char *uuid, const char *game, const char *uri)
 		g_boss_won.connect(g_room_endpoint, connectedSeed, g_ap->get_team_number(), g_ap->get_player_number());
 		g_ap->SetNotify({g_boss_won.key});
 		g_ap->Get({g_boss_won.key});
+		// #249: the Wumpa Shop wallet, same scoping. Only when the seed banks.
+		g_wumpa.connect(g_room_endpoint, connectedSeed, g_ap->get_team_number(), g_ap->get_player_number());
+		{
+			// The seed's prices: a stored entry counts at its slot's price, and
+			// a code this seed does not sell counts nothing.
+			std::map<long long, int> prices;
+			if (AP_WumpaShopUsable(&ctr_wumpa_shop))
+				for (int h = 0; h < AP_WUMPA_SHOP_HUBS; ++h)
+					for (int k = 0; k < ctr_wumpa_shop.slots; ++k)
+						prices[ctr_wumpa_shop.slot[h][k].code] = ctr_wumpa_shop.slot[h][k].price;
+			g_wumpa.configure(prices);
+		}
+		if (AP_WumpaBankingActive(&ctr_wumpa_shop)) {
+			g_ap->SetNotify({g_wumpa.bankKey, g_wumpa.shopKey});
+			g_ap->Get({g_wumpa.bankKey, g_wumpa.shopKey});
+		}
 		APHeldCheckFlush heldFlush = g_held_checks.onConnected(
 		    connectedSeed, g_slot,
 		    [](int64_t code) {
@@ -1085,6 +1210,24 @@ extern "C" int ap_net_init(const char *uuid, const char *game, const char *uri)
 			AP_LogLine(line);
 			ap_boss_won_flush();
 		}
+		auto wBank = keys.find(g_wumpa.bankKey);
+		if (g_connected && !g_wumpa.bankKey.empty() && wBank != keys.end()) {
+			g_wumpa.bankRetrieved(wBank->second);
+			char line[160];
+			std::snprintf(line, sizeof line, "[AP WUMPA BANK] retrieved valid=%d lifetime=%lld server=%lld\n",
+			              (int)g_wumpa.bankValid, g_wumpa.lifetime, g_wumpa.server);
+			AP_LogLine(line);
+			ap_wumpa_flush();
+		}
+		auto wShop = keys.find(g_wumpa.shopKey);
+		if (g_connected && !g_wumpa.shopKey.empty() && wShop != keys.end()) {
+			g_wumpa.shopRetrieved(wShop->second);
+			char line[160];
+			std::snprintf(line, sizeof line, "[AP WUMPA SHOP] wallet retrieved valid=%d bought=%d\n",
+			              (int)g_wumpa.shopValid, (int)g_wumpa.bought.size());
+			AP_LogLine(line);
+			ap_wumpa_resend_paid();
+		}
 		auto it = keys.find(ap_diff_key());
 		if (it != keys.end() && it->second.is_number_integer())
 		{
@@ -1108,9 +1251,13 @@ extern "C" int ap_net_init(const char *uuid, const char *game, const char *uri)
 		if (es != keys.end() && ap_edit_accept(es->second))
 			std::fprintf(stderr, "[AP NET] editable stat package retrieved (%d values)\n",
 			             AP_EDITSTAT_COUNT);
+		auto ss = keys.find(ap_statsel_key());
+		if (ss != keys.end() && ap_statsel_accept(ss->second))
+			std::fprintf(stderr, "[AP NET] rank selection retrieved (%d values)\n",
+			             AP_NET_STATSELECT_COUNT);
 	});
 	g_ap->set_set_reply_handler([](const std::string &key, const nlohmann::json &value,
-	                               const nlohmann::json &) {
+	                               const nlohmann::json &original) {
 		if (g_rejected)
 			return; // no rejected-seed state may activate
 		if (g_connected && key == g_doors.key) {
@@ -1154,6 +1301,30 @@ extern "C" int ap_net_init(const char *uuid, const char *game, const char *uri)
 			AP_LogLine(line);
 			ap_boss_won_flush();
 		}
+		if (g_connected && !g_wumpa.bankKey.empty() && key == g_wumpa.bankKey) {
+			bool wasOverspent = g_wumpa.overspent();
+			g_wumpa.bankReply(value);
+			ap_wumpa_flush();
+			// Banking that covers an overspent wallet releases the purchases
+			// that were waiting for it.
+			if (wasOverspent && !g_wumpa.overspent())
+				ap_wumpa_resend_paid();
+		}
+		if (g_connected && !g_wumpa.shopKey.empty() && key == g_wumpa.shopKey) {
+			long long code = g_wumpa.pendingCode;
+			int outcome = g_wumpa.shopReply(value, original);
+			char line[160];
+			if (outcome == APWumpaLedger::REPLY_CONFIRMED) {
+				std::snprintf(line, sizeof line, "[AP WUMPA SHOP] bought %lld; sending its check\n", code);
+				AP_LogLine(line);
+				ap_net_try_send_location((int64_t)code);
+			} else if (outcome == APWumpaLedger::REPLY_ROLLBACK) {
+				std::snprintf(line, sizeof line,
+				              "[AP WUMPA SHOP] %lld refused: the fruit was spent elsewhere first; undoing\n", code);
+				AP_LogLine(line);
+				ap_wumpa_flush();
+			}
+		}
 		if (key == ap_diff_key() && value.is_number_integer())
 		{
 			g_diff_value = value.get<int>();
@@ -1170,6 +1341,8 @@ extern "C" int ap_net_init(const char *uuid, const char *game, const char *uri)
 		}
 		if (key == ap_edit_key() && ap_edit_accept(value))
 			std::fprintf(stderr, "[AP NET] editable stat package changed\n");
+		if (key == ap_statsel_key() && ap_statsel_notify(value))
+			std::fprintf(stderr, "[AP NET] rank selection changed\n");
 	});
 	g_ap->set_items_received_handler([](const std::list<APClient::NetworkItem> &items) {
 		if (g_rejected)
@@ -1187,7 +1360,7 @@ extern "C" int ap_net_init(const char *uuid, const char *game, const char *uri)
 	// DeathLink: incoming deaths arrive as a tagged Bounce. The handler fires
 	// inline on the poll thread like every other handler. It filters to the
 	// DeathLink tag, ignores our own death echoed back by the server (we carry the
-	// tag too), and latches the most recent death (depth 1) for the game thread.
+	// tag too), and adds the death to the inbox the game thread drains each frame.
 	g_ap->set_bounced_handler([](const nlohmann::json &packet) {
 		if (g_rejected)
 			return; // a refused seed's DeathLink bounce must not latch
@@ -1214,9 +1387,8 @@ extern "C" int ap_net_init(const char *uuid, const char *game, const char *uri)
 		std::string cause = (d.contains("cause") && d["cause"].is_string())
 		                        ? d["cause"].get<std::string>()
 		                        : "";
-		g_dl_incoming = true; // depth-1: overwrite any death not yet drained
-		g_dl_incoming_cause = cause;
-		g_dl_incoming_source = source;
+		if (AP_DeathLinkInboxPush(&g_dl_inbox, cause.c_str(), source.c_str()))
+			std::fprintf(stderr, "[AP NET] deathlink inbox full: oldest undrained death discarded\n");
 		std::fprintf(stderr, "[AP NET] deathlink received from '%s': %s\n",
 		             source.c_str(), cause.c_str());
 	});
@@ -1336,10 +1508,12 @@ static void ap_net_apply_retry_stop(void)
 	g_scouts.clear();
 	g_scouts_done = false;
 	g_pending_checks.clear();
-	g_dl_incoming = false;
+	AP_DeathLinkInboxClear(&g_dl_inbox);
 	g_diff_known = false;
 	g_char_known = false;
 	g_edit_known = false;
+	g_statsel_known = false;
+	g_statsel_inflight.clear();
 	g_status = AP_NET_STATUS_RETRY_STOPPED; // set last: delete may fire handlers
 	g_last_error.clear();
 	g_retry.start(false); // fresh budget waits inertly until the next manual dial
@@ -1380,16 +1554,19 @@ static void ap_net_apply_seed_reject(void)
 	g_scouts.clear();
 	g_scouts_done = false;
 	g_pending_checks.clear();
-	g_dl_incoming = false;
+	AP_DeathLinkInboxClear(&g_dl_inbox);
 	g_diff_known = false;
 	g_char_known = false;
 	g_edit_known = false;
+	g_statsel_known = false;
+	g_statsel_inflight.clear();
 	g_doors.disconnected();
 	ap_fx_store_clear();
 	g_doors_sent = 0;
 	g_oxide_scene.disconnected();
 	g_boss_door_scene.disconnected();
 	g_boss_won.disconnected();
+	g_wumpa.disconnected();
 	// Restore the visible refusal defensively, LAST (a handler fired by delete
 	// may have touched either field). The menu keeps showing why the seed was
 	// refused.
@@ -1864,6 +2041,119 @@ extern "C" void ap_net_boss_won_record(unsigned bit)
 	ap_boss_won_flush();
 }
 
+// #249: the Wumpa Shop wallet (ap/ap_wumpa_ledger.h). Banking is flushed with
+// "max"; a refused purchase is undone with "pop".
+static void ap_wumpa_flush()
+{
+	if (!g_ap || !g_connected || g_rejected) return;
+	if (!ctr_cfg_active() || ctr_cfg.schema_newer) return;
+	if (g_wumpa.bankWantsSend()) {
+		AP_NET_GUARD("wumpa_bank_set", {
+			APClient::DataStorageOperation op;
+			op.operation = "max"; op.value = g_wumpa.lifetime;
+			if (g_ap->Set(g_wumpa.bankKey, 0, true, {op})) g_wumpa.bankSent = true;
+		});
+	}
+	std::vector<long long> undo = g_wumpa.rollbacks;
+	for (long long code : undo) {
+		AP_NET_GUARD("wumpa_shop_pop", {
+			APClient::DataStorageOperation op;
+			op.operation = "pop"; op.value = std::to_string(code);
+			if (g_ap->Set(g_wumpa.shopKey, nlohmann::json::object(), true, {op}))
+				g_wumpa.rollbackSent(code);
+		});
+	}
+}
+
+// Every bought slot whose check the server does not have yet: sent again on
+// each connect, so a crash between paying and checking costs nothing.
+static void ap_wumpa_resend_paid()
+{
+	if (!g_ap || !g_connected || g_rejected || !g_wumpa.shopKnown()) return;
+	ap_locs_refresh();
+	auto done = [](long long code) {
+		return g_locs_chk.count((int64_t)code) != 0 || g_locs_miss.count((int64_t)code) == 0;
+	};
+	// A purchase another client outspent may still be in the wallet if that
+	// client stopped before undoing it. Send nothing while the wallet is
+	// overspent: the purchases wait until banking pays for them.
+	if (g_wumpa.overspent()) {
+		char line[128];
+		std::snprintf(line, sizeof line, "[AP WUMPA SHOP] wallet overspent by %lld: unchecked purchases wait\n",
+		              -g_wumpa.balance());
+		AP_LogLine(line);
+		return;
+	}
+	std::vector<long long> unsent = g_wumpa.unsentPaid(done);
+	for (long long code : unsent) {
+		char line[128];
+		std::snprintf(line, sizeof line, "[AP WUMPA SHOP] resending the check of bought slot %lld\n", code);
+		AP_LogLine(line);
+		ap_net_try_send_location((int64_t)code);
+	}
+}
+
+extern "C" void ap_net_wumpa_credit(int n)
+{
+	if (g_rejected || n <= 0) return;
+	g_wumpa.credit(n);
+	ap_wumpa_flush();
+}
+extern "C" long long ap_net_wumpa_lifetime(void)
+{
+	return g_rejected ? 0 : g_wumpa.shownLifetime();
+}
+extern "C" long long ap_net_wumpa_balance(void)
+{
+	return g_rejected ? 0 : g_wumpa.balance();
+}
+extern "C" int ap_net_wumpa_ready(void)
+{
+	return g_ap && g_connected && !g_rejected && g_wumpa.bankKnown() && g_wumpa.shopKnown();
+}
+extern "C" int ap_net_wumpa_bought(long long code)
+{
+	return !g_rejected && g_wumpa.isBought(code);
+}
+extern "C" int ap_net_wumpa_pending(void)
+{
+	return !g_rejected && (g_wumpa.pendingCode >= 0 || !g_wumpa.rollbacks.empty());
+}
+extern "C" int ap_net_wumpa_buy(long long code, int price, int unlock)
+{
+	if (!g_ap || !g_connected || g_rejected) return APWumpaLedger::BUY_NOT_READY;
+	if (!ctr_cfg_active() || ctr_cfg.schema_newer) return APWumpaLedger::BUY_NOT_READY;
+	ap_locs_refresh();
+	if (g_locs_miss.count((int64_t)code) == 0 && g_locs_chk.count((int64_t)code) == 0)
+		return APWumpaLedger::BUY_NOT_READY; // not a location of this slot
+	int r = g_wumpa.tryBuy(code, price, unlock, g_locs_chk.count((int64_t)code) != 0);
+	if (r != APWumpaLedger::BUY_OK) return r;
+	bool sent = false;
+	AP_NET_GUARD("wumpa_shop_buy", {
+		APClient::DataStorageOperation op;
+		op.operation = "update";
+		op.value = nlohmann::json::object({{std::to_string(code), price}});
+		sent = g_ap->Set(g_wumpa.shopKey, nlohmann::json::object(), true, {op});
+	});
+	if (!sent) {
+		g_wumpa.pendingCode = -1; g_wumpa.pendingPrice = 0;
+		return APWumpaLedger::BUY_NOT_READY;
+	}
+	char line[128];
+	std::snprintf(line, sizeof line, "[AP WUMPA SHOP] buying %lld for %d\n", code, price);
+	AP_LogLine(line);
+	return r;
+}
+// Hint the given shop codes to their owners (LocationScouts, create_as_hint 2:
+// only new hints are announced).
+extern "C" void ap_net_wumpa_hint(const long long *codes, int n)
+{
+	if (!g_ap || !g_connected || g_rejected || codes == nullptr || n <= 0) return;
+	std::list<int64_t> locs;
+	for (int i = 0; i < n; ++i) locs.push_back((int64_t)codes[i]);
+	AP_NET_GUARD("wumpa_shop_hint", g_ap->LocationScouts(locs, 2));
+}
+
 extern "C" void ap_net_difficulty_subscribe(int slot_default)
 {
 	if (!g_ap || !g_connected)
@@ -2020,6 +2310,72 @@ extern "C" unsigned ap_net_editstats_revision(void)
 	return g_edit_rev;
 }
 
+extern "C" void ap_net_statselect_subscribe(void)
+{
+	if (!g_ap || !g_connected)
+		return;
+	AP_NET_GUARD("statselect_subscribe", {
+		const std::string key = ap_statsel_key();
+		g_ap->SetNotify({key});
+		g_ap->Get({key});
+	});
+}
+
+extern "C" void ap_net_statselect_set(const int *values, int n)
+{
+	if (!g_ap || !g_connected)
+	{
+		// Not stored: the next connect restores the server's copy. Said in the
+		// log so a lost change is visible rather than silent.
+		std::fprintf(stderr, "[AP NET] rank selection changed while not connected; "
+		                     "it is not saved to the server\n");
+		return;
+	}
+	if (values == 0 || n != AP_NET_STATSELECT_COUNT)
+		return;
+	// Never store what we would refuse to load.
+	for (int i = 0; i < n; i++)
+	{
+		if (!AP_StatSel_ValueOk((long long)values[i]))
+		{
+			std::fprintf(stderr,
+			             "[AP NET] refusing to store an out-of-range rank selection "
+			             "(index %d = %d)\n", i, values[i]);
+			return;
+		}
+	}
+	nlohmann::json arr = nlohmann::json::array();
+	for (int i = 0; i < n; i++)
+		arr.push_back(values[i]);
+	AP_NET_GUARD("statselect_set", {
+		APClient::DataStorageOperation op;
+		op.operation = "replace";
+		op.value = arr;
+		g_ap->Set(ap_statsel_key(), arr, false, {op});
+	});
+	g_statsel_inflight.emplace_back(values, values + n);
+	if (g_statsel_inflight.size() > 64)
+		g_statsel_inflight.pop_front(); // a server that never echoes must not grow this forever
+	for (int i = 0; i < n; i++)
+		g_statsel_value[i] = values[i];
+	g_statsel_known = true;
+	// Our own write needs no re-apply, so the revision is not bumped here.
+}
+
+extern "C" int ap_net_statselect_known(int *out, int n)
+{
+	if (!g_statsel_known || out == 0 || n != AP_NET_STATSELECT_COUNT)
+		return 0;
+	for (int i = 0; i < n; i++)
+		out[i] = g_statsel_value[i];
+	return 1;
+}
+
+extern "C" unsigned ap_net_statselect_revision(void)
+{
+	return g_statsel_rev;
+}
+
 extern "C" int ap_net_difficulty_known(int *out)
 {
 	if (!g_diff_known)
@@ -2135,6 +2491,22 @@ extern "C" int ap_net_slot_name(char *buf, int n)
 	return buf[0] != '\0';
 }
 
+// Hash of the full seed and slot names (no truncation), for the race stakes
+// latch. 0 and *out untouched when either name is unknown.
+extern "C" int ap_net_identity_hash(unsigned long long *out)
+{
+	if (!out || !g_ap)
+		return 0;
+	try
+	{
+		return AP_WinStakesIdentHash(g_ap->get_seed().c_str(), g_ap->get_slot().c_str(), out);
+	}
+	catch (...)
+	{
+		return 0;
+	}
+}
+
 extern "C" void ap_net_deathlink_enable(void)
 {
 	if (!g_ap)
@@ -2179,18 +2551,18 @@ extern "C" void ap_net_deathlink_send(const char *cause)
 	});
 }
 
-// Drain the inbound death latch. Returns 1 (and copies the cause and source
-// strings, truncated to fit) if a death was pending, then clears it; 0 otherwise.
+// Take the oldest undrained inbound death. Returns 1 (and copies the cause and
+// source strings, truncated to fit) if one was waiting, 0 when none is left.
 extern "C" int ap_net_deathlink_take(char *cause_buf, int cause_n, char *source_buf, int source_n)
 {
-	if (!g_dl_incoming)
-		return 0;
-	g_dl_incoming = false;
-	if (cause_buf && cause_n > 0)
-		std::snprintf(cause_buf, (size_t)cause_n, "%s", g_dl_incoming_cause.c_str());
-	if (source_buf && source_n > 0)
-		std::snprintf(source_buf, (size_t)source_n, "%s", g_dl_incoming_source.c_str());
-	return 1;
+	return AP_DeathLinkInboxTake(&g_dl_inbox, cause_buf, cause_n, source_buf, source_n);
+}
+
+// Deaths the full inbox discarded since the last call (0 when none), so the
+// game thread can show one ignored popup for them.
+extern "C" int ap_net_deathlink_take_dropped(void)
+{
+	return AP_DeathLinkInboxTakeDropped(&g_dl_inbox);
 }
 
 extern "C" void ap_net_shutdown(void)
@@ -2223,6 +2595,7 @@ extern "C" void ap_net_shutdown(void)
 	g_oxide_scene.disconnected();
 	g_boss_door_scene.disconnected();
 	g_boss_won.disconnected();
+	g_wumpa.disconnected();
 	g_items_player.clear();
 	g_items_index.clear();
 	g_items_location.clear();
@@ -2231,10 +2604,12 @@ extern "C" void ap_net_shutdown(void)
 	g_scouts.clear();
 	g_scouts_done = false;    // #85: no valid scout cache after shutdown
 	g_pending_checks.clear(); // #85: drop any in-flight checks on a server switch
-	g_dl_incoming = false; // a pending death must not survive a server switch
+	AP_DeathLinkInboxClear(&g_dl_inbox); // a pending death must not survive a server switch
 	g_diff_known = false; // a difficulty override must not survive a server switch
 	g_char_known = false; // nor may a racer selection leak into another slot
 	g_edit_known = false; // nor an edited stat package
+	g_statsel_known = false; // nor a rank selection
+	g_statsel_inflight.clear();
 	g_status = AP_NET_STATUS_IDLE; // set last: delete g_ap may fire the disconnect handler
 	g_last_error.clear();
 	g_host.clear();     // #146: no host to name once the client is gone

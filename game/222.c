@@ -1,4 +1,7 @@
 #include <common.h>
+#if defined(CTR_AP) && defined(CTR_CUSTOM_TRACKS)
+#include <platform/native_custom_tracks.h>
+#endif
 
 enum ArcadeAdventureEndMenuConstants
 {
@@ -115,7 +118,13 @@ void AA_EndEvent_DrawMenu(void)
 #endif
 	didEarnCtrToken = (driver->driverRank == 0) && (driver->PickupLetterHUD.numCollected == 3);
 #ifdef CTR_AP
-	if (ctr_cfg_active() && ctr_cfg.lettersanity_mode >= 2)
+	if (ctr_cfg_active() && (ctr_cfg.lettersanity_mode >= 2
+#ifdef CTR_CUSTOM_TRACKS
+	                         // A content-plan CTR Challenge reads its own
+	                         // Lettersanity letters (#133 PR 3b).
+	                         || AP_StandaloneRaceActive()
+#endif
+	                             ))
 		didEarnCtrToken = AP_LetterTokenEarned(GAME_TRACKER->levelID, driver->driverRank == 0, driver->PickupLetterHUD.numCollected);
 #endif
 	if (GAME_FRAMES_SINCE_RACE_ENDED < FPS_DOUBLE(AA_RESULT_MAX_FRAMES))
@@ -195,10 +204,19 @@ void AA_EndEvent_DrawMenu(void)
 			// never Oxide Station's token bit for LevelID 13.
 			if (AP_CortexTrackActive())
 				tokenRewardBit = AP_CortexTrackBit(AP_CV_SLOT_TOKEN);
+#ifdef CTR_CUSTOM_TRACKS
+			// A content-plan CTR Challenge celebrates its pad's own check
+			// (#133 PR 3), never the engine host's token bit.
+			else if (AP_StandaloneCtrBit() >= 0)
+				tokenRewardBit = AP_StandaloneCtrBit();
+#endif
 #endif
 
 #ifdef CTR_AP
 			if (AP_CortexTrackActive()                          ? AP_CortexTrackChecked(AP_CV_SLOT_TOKEN)
+#ifdef CTR_CUSTOM_TRACKS
+			    : AP_StandaloneCtrBit() >= 0                     ? AP_LocationCheckedByBit(tokenRewardBit)
+#endif
 			    : AP_TrialTrackConfigured(GAME_TRACKER->levelID) ? AP_TrialTrackLocationChecked(GAME_TRACKER->levelID, CTR_CFG_TRIAL_CTR)
 			                                                     : (CHECK_ADV_BIT(GAME_ADV_PROGRESS.rewards, tokenRewardBit) != 0))
 #else
@@ -598,7 +616,11 @@ race_won:
 	// trophy win that is not a boss race or a CTR-token race (which draws its own
 	// block above). The trophy check sends on the continue-press, so it is passed
 	// as the primary bit; podium rungs come from the ledger.
-	if (((GAME_TRACKER->gameMode2 & TOKEN_RACE) == 0) && !IS_BOSS_RACE(GAME_TRACKER->gameMode1) && !AP_TrialTrackConfigured(GAME_TRACKER->levelID))
+	if (((GAME_TRACKER->gameMode2 & TOKEN_RACE) == 0) && !IS_BOSS_RACE(GAME_TRACKER->gameMode1) &&
+#if defined(CTR_CUSTOM_TRACKS)
+	    !AP_StandaloneRaceActive() &&
+#endif
+	    !AP_TrialTrackConfigured(GAME_TRACKER->levelID))
 		AP_CeremonyDraw(0x100, 0x40, AP_CortexTrackActive() ? AP_CortexTrackBit(AP_CV_SLOT_TROPHY) : GAME_TRACKER->levelID + ADV_REWARD_FIRST_TROPHY, 1);
 #endif
 	DecalFont_DrawLine(GAME_LANGUAGE_STRINGS[LNG_PRESS_TO_CONTINUE], 0x100, 0xbe, FONT_BIG, (JUSTIFY_CENTER | ORANGE));
@@ -625,6 +647,21 @@ race_won:
 		addConfig0Value = CTR_PSX_PAGE_LVALUE(u32, addConfig0Page, AA_ADD_CONFIG_0_PAGE_OFFSET, GAME_ADD_CONFIG_0);
 		CTR_PSX_PAGE_LVALUE(u32, addConfig0Page, AA_ADD_CONFIG_0_PAGE_OFFSET, GAME_ADD_CONFIG_0) = addConfig0Value | arenaConfigMask;
 	}
+
+#if defined(CTR_AP) && defined(CTR_CUSTOM_TRACKS)
+	if (AP_StandaloneRaceActive())
+	{
+		const struct CustomTrackRaceContext *context = CustomTrack_StandaloneContext(GAME_TRACKER->levelID);
+		// Report the logical route before any retail reward-bit computation.
+		// The source hub stays stable through same-track restart loads.
+		AP_NotifyStandaloneRace();
+		GAME_TRACKER->podiumRewardID = STATIC_TROPHY;
+		AP_SkipPodium(GAME_TRACKER->podiumRewardID);
+		gameRemoveConfig8 |= TOKEN_RACE;
+		MainRaceTrack_RequestLoad(context->returnHub);
+		return;
+	}
+#endif
 
 	{
 		register u32 bossConfigMask CTR_PSX_REGISTER("$5");
@@ -705,7 +742,13 @@ race_won:
 			}
 
 			// Pinstripe's key podium is in Gem Stone Valley.
+#ifdef CTR_AP
+			// #169: "just beat Pinstripe" is the garage, not the track
+			// a shuffled seed raced him on.
+			if ((AP_BossRetailRulesLevel(GAME_TRACKER->levelID) == HOT_AIR_SKYWAY) && (GAME_TRACKER->podiumRewardID == STATIC_KEY))
+#else
 			if ((GAME_TRACKER->levelID == HOT_AIR_SKYWAY) && (GAME_TRACKER->podiumRewardID == STATIC_KEY))
+#endif
 			{
 				MainRaceTrack_RequestLoad(GEM_STONE_VALLEY);
 				return;

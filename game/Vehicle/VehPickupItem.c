@@ -69,7 +69,6 @@ enum
 	POTION_THROW_RANDOM = 0x1,
 	POTION_THROW_BACKWARD = 0x2,
 	POTION_THROW_FORWARD = 0x4,
-	POTION_THROW_AP_DROP = 0x8,
 	POTION_THROW_RANDOM_MASK = 0x1f,
 	POTION_THROW_RANDOM_BIAS = 0x10,
 	POTION_THROW_SPEED = 0x78,
@@ -562,19 +561,6 @@ b32 VehPickupItem_PotionThrow(struct MineWeapon *mine, struct Instance *inst, u3
 	register s32 tailValue CTR_PSX_REGISTER("$3");
 	register b32 result CTR_PSX_REGISTER("$2");
 
-#ifdef CTR_AP
-	if ((flags & POTION_THROW_AP_DROP) != 0)
-	{
-		// AP Red Potion trap: fall vertically from its validated target marker.
-		mine->velocity.x = 0;
-		mine->velocity.y = POTION_THROW_Y_VELOCITY;
-		mine->velocity.z = 0;
-		mine->crateInst = NULL;
-		mine->flags |= MINE_WEAPON_FLAG_THROWN;
-		return 1;
-	}
-#endif
-
 	if ((flags & POTION_THROW_FORWARD) != 0)
 	{
 		matrixX = inst->matrix.m[0][2];
@@ -634,56 +620,6 @@ b32 VehPickupItem_PotionThrow(struct MineWeapon *mine, struct Instance *inst, u3
 	mine->velocity.z = (s16)tailValue;
 	return result;
 }
-
-#ifdef CTR_AP
-int VehPickupItem_TrapHazardAt(struct Driver *d, int weaponID, const SVec3 *target)
-{
-	struct Instance *inst;
-	struct Thread *before;
-	SVec3 oldPos;
-	int oldWumpas;
-	int flags;
-
-	if (d == 0 || target == 0 || d->instSelf == 0)
-		return 0;
-	inst = d->instSelf;
-	before = sdata->gGT->threadBuckets[MINE].thread;
-	oldPos.x = inst->matrix.t[0];
-	oldPos.y = inst->matrix.t[1];
-	oldPos.z = inst->matrix.t[2];
-	oldWumpas = d->numWumpas;
-
-	inst->matrix.t[0] = target->x;
-	inst->matrix.t[1] = target->y;
-	inst->matrix.t[2] = target->z;
-	d->numWumpas = 10; // Nitro rather than TNT; red rather than green potion.
-	flags = 0;
-	if (weaponID == WEAPON_ID_BEAKER)
-	{
-		inst->matrix.t[1] += 1200;
-		flags = POTION_THROW_AP_DROP;
-	}
-	VehPickupItem_ShootNow(d, weaponID, flags);
-	if (weaponID == WEAPON_ID_MINE)
-	{
-		d->instTntSend = 0;
-		d->actionsFlagSet &= ~ACTION_DROPPING_MINE;
-	}
-	if (weaponID == WEAPON_ID_BEAKER && sdata->gGT->threadBuckets[MINE].thread != before)
-	{
-		struct MineWeapon *mine = sdata->gGT->threadBuckets[MINE].thread->object;
-		mine->velocity.x = 0;
-		mine->velocity.y = 0;
-		mine->velocity.z = 0;
-	}
-
-	d->numWumpas = oldWumpas;
-	inst->matrix.t[0] = oldPos.x;
-	inst->matrix.t[1] = oldPos.y;
-	inst->matrix.t[2] = oldPos.z;
-	return sdata->gGT->threadBuckets[MINE].thread != before;
-}
-#endif
 
 // NOTE(aalhendi): Most retail weapon paths assume allocation succeeds. Native
 // skips failed births and releases any resources reserved before the failure.
@@ -1709,11 +1645,6 @@ void VehPickupItem_ShootOnCirclePress(struct Driver *d)
 	// 12-missile ceiling) swallow the projectile. It reads d->heldItemID, the
 	// true weapon identity, before the shared Bomb/Missile rewrite below.
 	AP_ItemsanityOnUse(d, (int)d->heldItemID);
-	// #224 Turbo Grant: the same committed-use choke point, for the same reason.
-	// A delivered grant is only counted as spent once the player actually fires
-	// it, so this is where the persisted fired count moves. Reads the true held
-	// id before the shared Bomb/Missile rewrite below, like the line above.
-	AP_TurboGrantOnFire(d, (int)d->heldItemID);
 #endif
 
 	// Missiles and Bombs share code,

@@ -124,14 +124,14 @@ int main(void)
 			"texture_filtering", "dithering", "pgxp", "increase_draw_distance",
 			"disable_split_screen_lod", NULL};
 		static const char *const gameplay[] = {
-			"skip_intro", "skip_hints", "skip_podium", "skip_cutscenes", "ai_difficulty",
-			"mute_when_unfocused", NULL};
+			"skip_intro", "skip_hints", "race_type_selector", "skip_podium", "skip_cutscenes",
+			"ai_difficulty", "mute_when_unfocused", NULL};
 		static const char *const extras[] = {
 			"reserves_meter", "reserve_fire", "blue_fire", "slide_meter_colours", "super_pad_colour", NULL};
 		static const char *const controls[] = {NULL};
 		static const char *const connection[] = {"uri", "slot", "password", NULL};
 		static const char *const archipelago[] = {
-			"map_flash", "item_box_colours", "death_link", "dl_send_fall", "dl_send_hit", "dl_send_loss", "trap_duration", "update_check",
+			"map_flash", "item_box_colours", "item_box_numbers", "death_link", "dl_send_fall", "dl_send_hit", "dl_send_loss", "trap_duration", "update_check",
 			"discord_status", NULL};
 		static const char *const authoring[] = {
 			"nav_record", "nav_use_recorded", "nav_driver_name", NULL};
@@ -152,6 +152,7 @@ int main(void)
 	ExpectSection("skip_cutscenes", "Video & QoL");
 	ExpectSection("reserves_meter", "Extras");
 	ExpectSection("skip_hints", "Archipelago");
+	ExpectSection("race_type_selector", "Archipelago");
 	ExpectSection("ai_difficulty", "Archipelago");
 	ExpectSection("discord_status", "Archipelago");
 	ExpectSection("application_id", "Discord");

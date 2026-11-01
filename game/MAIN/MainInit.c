@@ -378,6 +378,9 @@ void MainInit_JitPoolsNew(struct GameTracker *gGT)
 		if ((gGT->levelID == SLIDE_COLISEUM || gGT->levelID == TURBO_TRACK) &&
 		    (gGT->gameMode2 & TOKEN_RACE))
 			apInstExtra = 6;
+		if (AP_ContentCrystalPad() &&
+		    (gGT->levelID == PARKING_LOT || gGT->levelID == THE_NORTH_BOWL || gGT->levelID == LAB_BASEMENT))
+			apInstExtra += 20;
 		instanceCapacity = (renderBucketSize >> 5) + apInstExtra;
 #ifdef CTR_CUSTOM_TRACKS
 		int customServing =
@@ -388,6 +391,8 @@ void MainInit_JitPoolsNew(struct GameTracker *gGT)
 		    (gameMode & ADVENTURE_CUP) != 0, gGT->cup.cupID) ||
 		    CustomTrack_OxideFinalServing((int)gGT->levelID, gGT->bossID,
 		                                (gameMode & ADVENTURE_BOSS) != 0) ||
+		    CustomTrack_GarageVenueServing((int)gGT->levelID, gGT->bossID,
+		                                   (gameMode & ADVENTURE_BOSS) != 0) >= 0 ||
 		    CustomTrack_CortexTrackServing((int)gGT->levelID,
 		                                   (gameMode & ADVENTURE_BOSS) != 0);
 		if (gGT->level1 != NULL)
@@ -808,6 +813,7 @@ void MainInit_FinalizeInit(struct GameTracker *gGT)
 	INSTANCE_LevInitAll(lev1->ptrInstDefs, lev1->numInstances);
 #ifdef CTR_AP
 	AP_TrialLetters_Spawn(gGT);
+	AP_ArcadeCrystals_Spawn(gGT);
 #endif
 
 	// Debug_ToggleNormalSpawn == normal spawn
@@ -819,6 +825,10 @@ void MainInit_FinalizeInit(struct GameTracker *gGT)
 		// loaded level is an eligible racing level. Hub, menu, cutscene and battle
 		// loads reach this call too but leave the latch set.
 		AP_RaceAttempt_OnLevelStart(gGT);
+		AP_CupSweepOnLevelStart(gGT);
+#ifdef CTR_CUSTOM_TRACKS
+		AP_ContentCupOnLevelStart(); // #133 PR 5: content-plan cup sweep record
+#endif
 #endif
 
 		if (gGT->boolDemoMode != 0)

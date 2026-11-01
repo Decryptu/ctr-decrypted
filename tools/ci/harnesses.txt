@@ -8,19 +8,31 @@ tools/test-author-pad.c
 tools/test-authoring-client-config.c
 tools/test-trial-letter-identity.cpp
 tools/test-blue-fire.c
+tools/test-boss-adapter.c
 tools/test-boss-assist.c
+tools/test-boss-encounters-production.py
+tools/test-boss-venue.cpp
+tools/test-boss-venue-production.py
 tools/test-box-colour-config.c
 tools/test-box-colour-seedcfg.cpp
 tools/test-box-colour.c
 tools/test-box-edge.c
 tools/test-box-ghost-visual.py
 tools/test-box-map.c
+tools/test-box-placement-guard.cpp
+tools/test-box-number.c
 tools/test-box-offset.c
+tools/test-box-seat.c
+tools/test-box-seat-production.py
 tools/test-ceremony-banner.c
+tools/test-clocked-out-production.py
 tools/test-character-persistence.cpp skip build-fail under the generic recipe; give it a build line in its header comment
 tools/test-character-phase-seedcfg.cpp
 tools/test-checkdiag-once.c
 tools/test-cup-box-policy.c
+tools/test-cup-sweeps.cpp
+tools/test-cup-sweeps-production.py
+tools/test-current-seed-page-production.py
 tools/test-custom-content-verify.c
 tools/test-custom-identity.c
 tools/test-custom-exit-window.c
@@ -39,6 +51,7 @@ tools/test-custom-package-unicode.c
 tools/test-custom-tracks-seedcfg.cpp
 tools/test-custom-trophy-ceremony.c
 tools/test-deathlink-race-loss.c
+tools/test-deathlink-replaced-popup.py
 tools/test-democam.c
 tools/test-disc-resolution.c
 tools/test-disc-copy.c
@@ -69,6 +82,8 @@ tools/test-hit-bots-gather.c
 tools/test-hit-boss-identity.cpp
 tools/test-hit-chooser.c
 tools/test-hit-cup-snapshot.cpp
+tools/test-hit-content-cups.cpp
+tools/test-hit-legacy-custom-production.py
 tools/test-hit-encounter-production.cpp
 tools/test-hit-policy.c
 tools/test-hit-roster-fixture.cpp
@@ -77,6 +92,9 @@ tools/test-held-race-rearm.c
 tools/test-instance-birth-production.c skip build-fail under the generic recipe; give it a build line in its header comment
 tools/test-item-aliases.c
 tools/test-itemsanity.c
+tools/test-lap-checks.cpp
+tools/test-lap-checks-production.py
+tools/test-pad-laps-cups.py
 tools/test-launch-request.c
 tools/test-link-handoff.c
 tools/test-link-windows.c
@@ -84,12 +102,14 @@ tools/test-lettersanity-remote-feed.c
 tools/test-lettersanity-seedcfg.cpp
 tools/test-lettersanity.c
 tools/test-menu-ux.c
+tools/test-named-blocks.cpp
 tools/test-native-clip-scratch.c
 tools/test-native-spawn-pools.c
 tools/test-native-ptr-scratch.c
 tools/test-navrec-label.c
 tools/test-navrec.c
 tools/test-net-admission.cpp
+tools/test-net-planless-refusal.cpp
 tools/test-options-pages.c
 tools/test-oxide-cutscene.c
 tools/test-oxide-encounter.c
@@ -130,13 +150,20 @@ tools/test-tracker-boss-node.c
 tools/test-tracker-markers.c
 tools/test-tracker-progress.c
 tools/test-tracker-tabs.c
+tools/test-tracker-pad-launch.py
+tools/test-plan-pads.c
+tools/test-plan-pads-production.py
 tools/test-retro-fueled.c
 tools/test-retry-budget.cpp
 tools/test-reward-policy.c
 tools/test-saphi-catalogue.cpp
+tools/test-seed-content.c
+tools/test-seed-content-download-production.py
+tools/test-seed-content-hooks-production.py
 tools/test-slide-coliseum-gate-seedcfg.cpp
 tools/test-spu-memory.c
 tools/test-stat-ladder.c
+tools/test-stat-select.c
 tools/test-surface-items.c skip build-fail under the generic recipe; give it a build line in its header comment
 tools/test-text-buf.c
 tools/test-title-ring.c
@@ -145,9 +172,35 @@ tools/test-transition-diag.c
 tools/test-tunnel-charswap-production.py
 tools/test-door-history-production.py
 tools/test-trial-track-seedcfg.cpp
+tools/test-content-plan.cpp
+tools/test-content-features.cpp
+tools/test-content-verify.cpp
+tools/test-content-cup-latch.c
+tools/test-content-capability.c
+tools/test-content-hooks-admission.py
+tools/test-content-modes.c
+tools/test-content-relic-result.py
+tools/test-content-custom-scores.c
+tools/test-content-track-checks.c
+tools/test-content-track-checks-production.py
+tools/test-content-cortex-perfect-production.py
+tools/test-content-win-stakes-production.py
+tools/test-content-ctr-first-production.py
+tools/test-content-wumpa-production.py
+tools/test-content-boss-shuffle-production.py
+tools/test-content-racer-lock-production.py
+tools/test-content-global-checks-production.cpp
+tools/test-content-bosses-production.py
+tools/test-boss-garages-6b-production.py
+tools/test-reserve-top-up-production.py
 tools/test-trial-letters.c
 tools/test-trial-pad-glow.c
+tools/test-trap-identities.cpp
+tools/test-arena-pads-seedcfg.cpp
+tools/test-crystal-checks.cpp
+tools/test-crystal-pickup-production.py
 tools/test-trap-scheduler.c
+tools/test-mirror-model-cull.c
 tools/test-turbo-grant.c
 tools/test-verify-020.c
 tools/test-verify-families.cpp
@@ -163,10 +216,15 @@ tools/test-wumpa-production.c skip build-fail under the generic recipe; give it 
 tools/test-wumpa-residency.c
 tools/test-retail-asset-reader.c
 tools/test-wumpa-seedcfg.cpp
+tools/test-wumpa-bank.c
+tools/test-wumpa-shop-seedcfg.cpp
+tools/test-wumpa-shop-ledger.cpp
+tools/test-wumpa-shop-production.py
 tools/test-deathlink-send-seedcfg.cpp
 tools/test-reconnect-catchup.cpp skip needs the fake AP server (tools/fake-ap-server.py) on a socket; run by hand, see its header
 tools/test-proc-hitbox-distance.c
 tools/test-spawn-null-guards.py
+tools/test-spoiler-items-production.py
 tools/test-statbar-rank.c
 tools/test-bsp-instance.py
 tools/test-custom-ctr-result.py
@@ -184,3 +242,9 @@ tools/test-box-anchor-premise.py
 cmd Controls page module (native_controls, ported from CTR Native Expanded) :: bash tools/controls/run-tests.sh
 cmd TLS and cache boundary regressions :: bash tools/security/run.sh
 cmd Release assembly boundary checks :: python3 -m unittest discover -s tools/release -p 'test_*.py'
+tools/test-standalone-hub-return.py
+tools/test-standalone-race-result.py
+tools/test-content-pad-entry.py skip needs the installed Baby T Park package, a built libap_net.a and optionally a live MultiServer; run by hand
+tools/test-content-plan-parity.py skip needs a paired apworld checkout and the AP virtualenv; run by hand
+tools/test-arcade-crystals-production.py
+tools/test-reverse-camera-production.py

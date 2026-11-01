@@ -695,6 +695,99 @@ const struct CustomTrackManagerPackage *CustomTrackManager_BabyTParkCurrent(void
 	return &s_babyTParkCurrent;
 }
 
+const struct CustomTrackManagerPackage *CustomTrackManager_FindPackage(
+	const char *id, const char *uuid, const char *version,
+	const char *levSha256, const char *vrmSha256)
+{
+	const struct CustomTrackManagerPackage *profiles[] = {&s_babyTParkPackage, &s_babyTParkCurrent};
+	int i;
+	if (!id || !uuid || !version || !levSha256 || !vrmSha256) return NULL;
+	for (i = 0; i < 2; ++i)
+	{
+		const struct CustomTrackManagerPackage *p = profiles[i];
+		if (!strcmp(id, p->id) && !strcmp(uuid, p->packageUuid) && !strcmp(version, p->version) &&
+		    !strcmp(levSha256, p->levSha256) && !strcmp(vrmSha256, p->vrmSha256)) return p;
+	}
+	return NULL;
+}
+
+int CustomTrackManager_LocateContentFiles(const char *assetsRoot, const char *trackKey,
+	                                       const char *title, const char *revision,
+	                                       const char *levSha256, unsigned long levBytes,
+	                                       const char *vrmSha256, unsigned long vrmBytes,
+	                                       struct CustomTrackManagerStatus *outStatus)
+{
+	char tracks[CTR_CT_MANAGER_PATH_MAX];
+	char original[CTR_CT_MANAGER_PATH_MAX];
+	char foundLev[CTR_CT_MANAGER_PATH_MAX];
+	char foundVrm[CTR_CT_MANAGER_PATH_MAX];
+	char foundLevHash[NATIVE_SHA256_HEX_BYTES];
+	char foundVrmHash[NATIVE_SHA256_HEX_BYTES];
+	unsigned long foundLevBytes, foundVrmBytes;
+	int levCandidates, vrmCandidates, levUnreadable, vrmUnreadable;
+	const char *shownTitle = (title && Manager_IsPlainText(title)) ? title : trackKey;
+	const char *shownRevision = (revision && Manager_IsPlainText(revision)) ? revision : "";
+
+	if (outStatus == NULL)
+		return CTR_CT_MANAGER_IO_ERROR;
+	memset(outStatus, 0, sizeof *outStatus);
+	if (!Manager_IsSafeId(trackKey) || strlen(trackKey) > 64 ||
+	    !Manager_IsHex64(levSha256) || !Manager_IsHex64(vrmSha256) ||
+	    levBytes == 0 || vrmBytes == 0)
+	{
+		Manager_SetDetail(outStatus, CTR_CT_MANAGER_UNSUPPORTED, "The seed's package descriptor is unusable.");
+		return outStatus->state;
+	}
+	if (!Manager_Join(tracks, sizeof tracks, assetsRoot, "tracks") ||
+	    !Manager_Join(outStatus->packageRoot, sizeof outStatus->packageRoot, tracks, trackKey) ||
+	    !Manager_Join(original, sizeof original, outStatus->packageRoot, "original"))
+	{
+		Manager_SetDetail(outStatus, CTR_CT_MANAGER_IO_ERROR, "Installed-content path is empty or too long.");
+		return outStatus->state;
+	}
+	if (!Manager_FindVerifiedSource(original, ".lev", levSha256, foundLev, foundLevHash, &foundLevBytes,
+	                                &levCandidates, &levUnreadable) ||
+	    !Manager_FindVerifiedSource(original, ".vrm", vrmSha256, foundVrm, foundVrmHash, &foundVrmBytes,
+	                                &vrmCandidates, &vrmUnreadable))
+	{
+		Manager_SetDetail(outStatus, CTR_CT_MANAGER_IO_ERROR, "Could not scan the original track folder.");
+		return outStatus->state;
+	}
+	if (levUnreadable || vrmUnreadable)
+	{
+		Manager_SetDetail(outStatus, CTR_CT_MANAGER_IO_ERROR, "One or more candidate track files could not be read.");
+		return outStatus->state;
+	}
+	if (levCandidates == 0 && vrmCandidates == 0)
+	{
+		Manager_SetDetail(outStatus, CTR_CT_MANAGER_NOT_INSTALLED,
+		                  "Put the LEV and VRM of %.64s %.32s in tracks/%.64s/original, then Rescan.",
+		                  shownTitle, shownRevision, trackKey);
+		return outStatus->state;
+	}
+	if (levCandidates == 0 || vrmCandidates == 0)
+	{
+		Manager_SetDetail(outStatus, CTR_CT_MANAGER_MISSING_FILES,
+		                  "No %s file was found in tracks/%.64s/original.", levCandidates == 0 ? "LEV" : "VRM", trackKey);
+		return outStatus->state;
+	}
+	if (foundLev[0] == '\0' || foundVrm[0] == '\0' || foundLevBytes != levBytes || foundVrmBytes != vrmBytes)
+	{
+		Manager_SetDetail(outStatus, CTR_CT_MANAGER_HASH_MISMATCH,
+		                  "The LEV or VRM in tracks/%.64s/original is not %.64s %.32s as this seed pins it.",
+		                  trackKey, shownTitle, shownRevision);
+		return outStatus->state;
+	}
+	snprintf(outStatus->levPath, sizeof outStatus->levPath, "%s", foundLev);
+	snprintf(outStatus->vrmPath, sizeof outStatus->vrmPath, "%s", foundVrm);
+	snprintf(outStatus->actualLevSha256, sizeof outStatus->actualLevSha256, "%s", foundLevHash);
+	snprintf(outStatus->actualVrmSha256, sizeof outStatus->actualVrmSha256, "%s", foundVrmHash);
+	outStatus->levBytes = foundLevBytes;
+	outStatus->vrmBytes = foundVrmBytes;
+	Manager_SetDetail(outStatus, CTR_CT_MANAGER_READY, "%.64s %.32s files match the seed.", shownTitle, shownRevision);
+	return outStatus->state;
+}
+
 const char *CustomTrackManager_StateText(int state)
 {
 	switch (state)
@@ -711,6 +804,21 @@ const char *CustomTrackManager_StateText(int state)
 	case CTR_CT_MANAGER_IO_ERROR: return "I/O Error";
 	default: return "Unknown";
 	}
+}
+
+int CustomTrackManager_ResolvePaths(const char *assetsRoot,
+	                                 const struct CustomTrackManagerPackage *package,
+	                                 struct CustomTrackManagerStatus *outStatus)
+{
+	if (outStatus == NULL)
+		return 0;
+	memset(outStatus, 0, sizeof *outStatus);
+	if (!Manager_PackageSupported(package))
+	{
+		Manager_SetDetail(outStatus, CTR_CT_MANAGER_UNSUPPORTED, "Package registry entry is invalid or unsupported.");
+		return 0;
+	}
+	return Manager_BuildPaths(assetsRoot, package, outStatus);
 }
 
 int CustomTrackManager_PrepareFolder(const char *assetsRoot,
@@ -758,6 +866,26 @@ int CustomTrackManager_PrepareFolder(const char *assetsRoot,
 	}
 
 	return CustomTrackManager_ScanPackage(assetsRoot, package, outStatus) != CTR_CT_MANAGER_IO_ERROR;
+}
+
+static int Manager_PackageReceipt(const struct CustomTrackManagerPackage *package,
+	                             const struct CustomTrackManagerStatus *status,
+	                             char out[NATIVE_SHA256_HEX_BYTES])
+{
+	char manifest[CTR_CT_MANAGER_TEXT_MAX];
+	char laps[32];
+	struct NativeSha256Ctx ctx;
+	unsigned char digest[NATIVE_SHA256_DIGEST_BYTES];
+	if (!Manager_RenderManifest(package, status, manifest, sizeof manifest))
+		return 0;
+	// Laps are part of exported identity but not the legacy manifest shape.
+	snprintf(laps, sizeof laps, "\nlaps:%d", package->laps);
+	NativeSha256_Init(&ctx);
+	NativeSha256_Update(&ctx, manifest, strlen(manifest));
+	NativeSha256_Update(&ctx, laps, strlen(laps));
+	NativeSha256_Final(&ctx, digest);
+	NativeSha256_ToHex(digest, out);
+	return 1;
 }
 
 int CustomTrackManager_ScanPackage(const char *assetsRoot,
@@ -885,6 +1013,11 @@ int CustomTrackManager_ScanPackage(const char *assetsRoot,
 		return outStatus->state;
 	}
 
+	if (!Manager_PackageReceipt(package, outStatus, outStatus->verifiedPackageSha256))
+	{
+		Manager_SetDetail(outStatus, CTR_CT_MANAGER_UNSUPPORTED, "Could not bind verified package identity.");
+		return outStatus->state;
+	}
 	Manager_SetDetail(outStatus, CTR_CT_MANAGER_READY, "%s %s is verified and ready.", package->title, package->version);
 	return outStatus->state;
 }
@@ -989,6 +1122,7 @@ int CustomTrackManager_RenderYaml(const struct CustomTrackManagerPackage *packag
 	                               char *dst, size_t dstSize)
 {
 	int wrote;
+	char receipt[NATIVE_SHA256_HEX_BYTES];
 
 	if (!Manager_PackageSupported(package) || status == NULL || status->state != CTR_CT_MANAGER_READY ||
 	    dst == NULL || dstSize == 0)
@@ -997,6 +1131,9 @@ int CustomTrackManager_RenderYaml(const struct CustomTrackManagerPackage *packag
 	// same bytes, so a Ready 1.0.2 status can never be written out as 1.0.0.
 	if (!NativeSha256_HexEquals(status->actualLevSha256, package->levSha256) ||
 	    !NativeSha256_HexEquals(status->actualVrmSha256, package->vrmSha256))
+		return 0;
+	if (!Manager_PackageReceipt(package, status, receipt) ||
+	    !NativeSha256_HexEquals(status->verifiedPackageSha256, receipt))
 		return 0;
 
 	wrote = snprintf(dst, dstSize,

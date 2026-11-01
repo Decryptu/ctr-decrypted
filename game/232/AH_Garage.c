@@ -2,6 +2,9 @@
 
 #ifdef CTR_AP
 #include "../../ap/ap_oxide_garage_advert.h"
+#ifdef CTR_CUSTOM_TRACKS
+#include <platform/native_custom_tracks.h>
+#endif
 #endif
 
 enum AHGarageConstants
@@ -282,7 +285,7 @@ checkRewards:
 		s16 challengeBosses[5] = {AH_BOSS_CHARACTER_IDS};
 		s32 challengeY = (view->rect.y + view->rect.h) - 0x1e;
 #ifdef CTR_AP
-		char advert[128];
+		char advert[192];
 		int advertVisible = 0;
 		int advertLines = 0;
 
@@ -290,11 +293,42 @@ checkRewards:
 		// laid out as one bottom-anchored block: count the panel's explicit
 		// lines and shift the title plus panel upward by exactly the overflow
 		// past the bottom of the view.
-		if (!(s16)bossIsOpen && AH_HINT_STATE == 0)
+		if (AH_HINT_STATE == 0)
 		{
 			int advertBoss = (GAME_TRACKER->levelID == GEM_STONE_VALLEY) ? 4 : ((GAME_TRACKER->levelID - GEM_STONE_VALLEY) - 1);
+			char venueLine[64];
 
-			advertVisible = AP_BossGateAdvert(advertBoss, advert, (int)sizeof advert);
+			if (!(s16)bossIsOpen)
+				advertVisible = AP_BossGateAdvert(advertBoss, advert, (int)sizeof advert);
+			// #169: a drawn boss track is named on the panel, open or shut,
+			// as the first line above any requirement.
+			if (advertBoss < 4 && AP_BossVenueAdvert(advertBoss, venueLine, (int)sizeof venueLine))
+			{
+				char joined[192];
+				// #169 tiers 2 and 3: the drawn rival and kit follow the track.
+				char rivalLine[48], kitLine[96];
+				int used = snprintf(joined, sizeof joined, "%s", venueLine);
+				if (AP_BossRivalAdvert(advertBoss, rivalLine, (int)sizeof rivalLine) && used < (int)sizeof joined)
+					used += snprintf(joined + used, sizeof joined - used, "\r%s", rivalLine);
+				if (AP_BossKitAdvert(advertBoss, kitLine, (int)sizeof kitLine) && used < (int)sizeof joined)
+					used += snprintf(joined + used, sizeof joined - used, "\r%s", kitLine);
+				if (advertVisible && used < (int)sizeof joined)
+					snprintf(joined + used, sizeof joined - used, "\r%s", advert);
+				memcpy(advert, joined, sizeof advert);
+				advertVisible = 1;
+			}
+			// J03 (decision 7): N. Oxide's garage names the racer the final
+			// race drew, open or shut, as the first line.
+			if (advertBoss == 4 && AP_BossFinalGarageOpponent() >= 0)
+			{
+				char joined[192];
+				int c = AP_BossFinalGarageOpponent();
+				int used = snprintf(joined, sizeof joined, "Rival: %s", GAME_LANGUAGE_STRINGS[data.MetaDataCharacters[c].name_LNG_short]);
+				if (advertVisible && used < (int)sizeof joined)
+					snprintf(joined + used, sizeof joined - used, "\r%s", advert);
+				memcpy(advert, joined, sizeof advert);
+				advertVisible = 1;
+			}
 			if (advertVisible)
 			{
 				advertLines = AP_OxideGarageAdvertLineCount(advert);
@@ -328,6 +362,8 @@ checkRewards:
 		// is drawn with DecalFont_DrawMultiLine. 480 (0x1e0) is a safety margin
 		// above every line the compact panel can produce (proven under 460 px in
 		// tools/test-oxide-garage-advert.c), not a load-bearing wrap width.
+		// #169: an open garage still names its drawn track (and rival) here,
+		// under the title; only a shut door adds the requirement lines.
 		if (advertVisible)
 		{
 			DecalFont_DrawMultiLine(advert, view->rect.x + (view->rect.w >> 1), challengeY + data.font_charPixHeight[FONT_BIG], 0x1e0, FONT_SMALL,
@@ -409,6 +445,19 @@ openGarage:
 		GAME_TRACKER->pushBuffer_UI.fade_step = AH_GARAGE_FADE_STEP;
 	}
 
+#ifdef CTR_AP
+	// #375: a start from the in-game tracker arrives inside this garage. Only
+	// reached with the garage open (bossIsOpen above, the same gates the
+	// door uses); the load below, its boss intro and the hub return are the
+	// garage's own.
+	if (ctr_cfg_active() && AP_TrackerLaunchGarageArrives())
+	{
+		AP_TrackerLaunchTaken();
+		GAME_TRACKER->pushBuffer_UI.fadeFromBlack_desiredResult = 0;
+		GAME_TRACKER->pushBuffer_UI.fade_step = AH_GARAGE_FADE_STEP;
+	}
+#endif
+
 	// If fade complete, start loading level
 	if (GAME_TRACKER->pushBuffer_UI.fadeFromBlack_currentValue == 0)
 	{
@@ -446,9 +495,95 @@ openGarage:
 		// Set the boss character (P2)
 		GAME_CHARACTER_IDS[1] = AH_LEVEL_METADATA[raceLevels[GAME_TRACKER->levelID - GEM_STONE_VALLEY]].characterID_Boss;
 
+#ifdef CTR_AP
+		{
+			s32 hubID = GAME_TRACKER->levelID - GEM_STONE_VALLEY;
+			s32 raceLevel = raceLevels[hubID];
+
+			// #169 boss track shuffle: the four ordinary garages race on the
+			// seed's drawn venue. The opponent above is still read from the home
+			// track and bossID stays the physical garage, so the Key, the
+			// Boss Race check, the loss counter, the driving table and the
+			// cutscenes are the garage's own. A refused record keeps the garage
+			// shut (AP_BossGarageOpen); this guard only stops a load that
+			// slipped past it, and never substitutes the retail venue.
+			if (hubID >= 1 && hubID <= 4)
+			{
+#ifdef CTR_CUSTOM_TRACKS
+				// #133 PR 6b: a content-plan garage holding a boss cup runs it on
+				// the Adventure Cup machinery (engine cup 0) with boss mode kept:
+				// four legs against the garage's boss, his AI and attack on each,
+				// won on points (UI_CupStandings.c, AP_ContentCupFinish).
+				int cupLevel = AP_ContentGarageCupPrepare(hubID - 1);
+				if (cupLevel == -1)
+				{
+					GAME_TRACKER->pushBuffer_UI.fadeFromBlack_desiredResult = 0x1000;
+					GAME_TRACKER->pushBuffer_UI.fade_step = -AH_GARAGE_FADE_STEP;
+					return;
+				}
+				if (cupLevel >= 0)
+				{
+					int cupSlot;
+					const ctr_content_pad *cupPad = ap_content_plan_pad(AP_CONTENT_GARAGE_CUP_PAD + hubID - 1);
+					int cupOpponent = AP_BossGarageOpponent(hubID - 1);
+					GAME_ADD_CONFIG_0 |= ADVENTURE_CUP;
+					GAME_REMOVE_CONFIG_0 &= ~ADVENTURE_CUP;
+					// One drawn racer through all four races, as in a boss race.
+					if (cupOpponent >= 0)
+						GAME_CHARACTER_IDS[1] = (s16)cupOpponent;
+					GAME_TRACKER->cup.cupID = 0;
+					GAME_TRACKER->cup.trackIndex = 0;
+					for (cupSlot = 0; cupSlot < 8; cupSlot++)
+						GAME_TRACKER->cup.points[cupSlot] = 0;
+					AP_CupEnterFromHub(GAME_TRACKER->levelID);
+					AP_ContentCupEnter();
+					GAME_TRACKER->numLaps = (char)cupPad->legs[0].laps;
+					RaceFlag_SetDrawOrder(1);
+					MainRaceTrack_RequestLoad(cupLevel);
+					return;
+				}
+#endif
+				int venue = AP_BossGarageVenue(hubID - 1);
+				int opponent;
+				if (venue < 0)
+				{
+					GAME_TRACKER->pushBuffer_UI.fadeFromBlack_desiredResult = 0x1000;
+					GAME_TRACKER->pushBuffer_UI.fade_step = -AH_GARAGE_FADE_STEP;
+					return;
+				}
+				raceLevel = venue;
+				// #169 tier 2: the seed's drawn racer replaces the garage's boss
+				// as P2. bossID stays physical; LOAD_DriverMPK keeps the boss's
+				// own pack and sideloads the racer's hi model.
+				opponent = AP_BossGarageOpponent(hubID - 1);
+				if (opponent >= 0)
+					GAME_CHARACTER_IDS[1] = (s16)opponent;
+#ifdef CTR_CUSTOM_TRACKS
+				// The venue may be a custom track's host slot; this load is retail.
+				CustomTrack_SelectRetailRace();
+#endif
+			}
+			else if (hubID == 0)
+			{
+				// J03 (decision 7): with N. Oxide in the pool the final race
+				// draws a racer, for both Oxide races. bossID stays 4 or 5, so
+				// the checks, goal, flags and loss count are N. Oxide's; the
+				// venue (Oxide Station or the Cortex Vortex Oxide 2 role) is
+				// unchanged. LOAD_DriverMPK keeps Oxide's pack and sideloads the
+				// racer's hi model.
+				int finalOpponent = AP_BossFinalGarageOpponent();
+				if (finalOpponent >= 0)
+					GAME_CHARACTER_IDS[1] = (s16)finalOpponent;
+			}
+
+			RaceFlag_SetDrawOrder(1);
+			MainRaceTrack_RequestLoad(raceLevel);
+		}
+#else
 		// NOTE(aalhendi): Retail reloads the destination after the callback.
 		RaceFlag_SetDrawOrder(1);
 		MainRaceTrack_RequestLoad(raceLevels[GAME_TRACKER->levelID - GEM_STONE_VALLEY]);
+#endif
 	}
 }
 	return;

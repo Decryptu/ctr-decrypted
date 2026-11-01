@@ -274,6 +274,15 @@ void UI_TrackerBG(struct Icon *targetIcon, s16 centerX, s16 centerY, struct Prim
 
 void UI_DrawDriverIcon(struct Icon *icon, s16 posX, s16 posY, struct PrimMem *primMem, u32 *ot, char transparency, s16 scale, u32 color)
 {
+#ifdef CTR_AP
+	// #169 tier 2: a drawn boss racer's icon comes from the garage boss's
+	// pack. Draw nothing rather than dereference a missing one, as
+	// DecalHUD_DrawPolyFT4 and RECTMENU_DrawPolyGT4 already do.
+	if (icon == NULL)
+	{
+		return;
+	}
+#endif
 	PolyFT4 *p = primMem->cursor;
 	const PrimCode primCode = {.kind.poly = {.renderCode = RenderCode_Polygon, .quad = 1, .textured = 1}};
 	ColorCode_SetPacked(&p->colorCode, color);

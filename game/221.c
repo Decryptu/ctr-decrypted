@@ -178,6 +178,17 @@ void CC_EndEvent_DrawMenu()
 #endif
 	s32 tokenRewardBit;
 	b32 use30HzStep = true;
+#ifdef CTR_AP
+	const ctr_content_pad *contentArena = AP_ContentCrystalPad();
+
+	// A stale standalone arena may not fall through to retail reward-bit math.
+	if ((ap_content_plan_present() || AP_ContentCrystalIntent()) && !contentArena)
+	{
+		GAME_REMOVE_CONFIG_0 |= CRYSTAL_CHALLENGE;
+		MainRaceTrack_RequestLoad(26);
+		return;
+	}
+#endif
 
 	driver = GAME_TRACKER_RELOAD()->drivers[0];
 	comparisonGT = GAME_TRACKER_RELOAD();
@@ -247,7 +258,13 @@ void CC_EndEvent_DrawMenu()
 		}
 
 #if defined(CTR_NATIVE)
+#ifdef CTR_AP
+		// A custom arena's location is keyed by its physical pad, not a retail token bit.
+		tokenRewardBit = contentArena ? 50000 + contentArena->physical
+		                              : CC_EndEvent_GetRewardOffset(GAME_TRACKER) + ADV_REWARD_FIRST_PURPLE_TOKEN;
+#else
 		tokenRewardBit = CC_EndEvent_GetRewardOffset(GAME_TRACKER) + ADV_REWARD_FIRST_PURPLE_TOKEN;
+#endif
 #ifdef CTR_AP
 		// AP: as of issue #142 the crystal-arena bits are part of the AP_ApplyItems
 		// reconcile, so they mirror your RECEIVED Purple CTR Tokens rather than what
@@ -258,7 +275,7 @@ void CC_EndEvent_DrawMenu()
 		// Decide "already won" from the AP CHECKED state instead -- the same fix class
 		// as the trophy and boss-key gates in 222.c. AP_NotifyAdvReward dedupes, so a
 		// re-win is safe.
-		if (ctr_cfg_active() ? (AP_LocationCheckedByBit(tokenRewardBit) != 0) : CC_EndEvent_HasRewardBit(&GAME_ADV_PROGRESS, tokenRewardBit))
+		if ((contentArena || ctr_cfg_active()) ? (AP_LocationCheckedByBit(tokenRewardBit) != 0) : CC_EndEvent_HasRewardBit(&GAME_ADV_PROGRESS, tokenRewardBit))
 #else
 		if (CC_EndEvent_HasRewardBit(&GAME_ADV_PROGRESS, tokenRewardBit))
 #endif
@@ -282,7 +299,11 @@ void CC_EndEvent_DrawMenu()
 			// celebrated bit is passed directly and resolved from the scout cache.
 			if (!AP_CeremonyDraw(pos[0], pos[1], tokenRewardBit, 0))
 #endif
-				DecalFont_DrawLine(GAME_LANGUAGE_STRINGS[LNG_CTR_TOKEN_AWARDED], pos[0], pos[1], FONT_BIG,
+				DecalFont_DrawLine(
+#ifdef CTR_AP
+				                   contentArena ? "CRYSTAL CHALLENGE COMPLETE" :
+#endif
+				                   GAME_LANGUAGE_STRINGS[LNG_CTR_TOKEN_AWARDED], pos[0], pos[1], FONT_BIG,
 				                   (GAME_TRACKER->timer != 0) ? (s16)(JUSTIFY_CENTER | ORANGE) : (s16)(JUSTIFY_CENTER | WHITE));
 #if defined(CTR_NATIVE)
 			if (GAME_TOKEN != NULL)
@@ -347,9 +368,23 @@ void CC_EndEvent_DrawMenu()
 				returnGT = GAME_TRACKER;
 				addConfig = &GAME_ADD_CONFIG_0;
 #if defined(CTR_NATIVE)
-				CC_EndEvent_UnlockRewardBit(&GAME_ADV_PROGRESS, tokenRewardBit);
 #ifdef CTR_AP
-				AP_NotifyAdvReward(tokenRewardBit); // AP: CTR token challenge location check
+				if (contentArena)
+				{
+					*addConfig |= ADVENTURE_ARENA;
+					AP_NotifyContentCrystalComplete();
+					MainRaceTrack_RequestLoad(contentArena->hub);
+					return;
+				}
+				// A removed arena has no token reward even if this ceremony was reached
+				// through a stale in-progress race after the seed changed.
+				if (!ctr_cfg_arena_pad_disabled(returnGT->levelID))
+				{
+					CC_EndEvent_UnlockRewardBit(&GAME_ADV_PROGRESS, tokenRewardBit);
+					AP_NotifyAdvReward(tokenRewardBit); // AP: CTR token challenge location check
+				}
+#else
+				CC_EndEvent_UnlockRewardBit(&GAME_ADV_PROGRESS, tokenRewardBit);
 #endif
 #else
 			    UNLOCK_ADV_BIT(GAME_ADV_PROGRESS.rewards, battleTrackPurpleTokenOffset[returnGT->levelID - NITRO_COURT] + ADV_REWARD_FIRST_PURPLE_TOKEN);

@@ -13,12 +13,22 @@ fixture=r'''
 #include <stdio.h>
 #define CTR_AP 1
 #include "ap_pad_state.h"
+#include "ap_content_plan.h"
+#include "ap_content_modes.h"
+#define AP_IDX_KEY 14
+int ap_content_plan_active(void){return 0;}
+const ctr_content_pad *ap_content_plan_pad(int p){(void)p;return NULL;}
+int AP_GateCount(int i){(void)i;return 0;}
+int AP_ContentPadOpen(const ctr_content_pad *p){(void)p;return 0;}
+int AP_ContentTrackPadState(const ctr_content_pad *p){(void)p;return 0;}
+int ap_net_location_checked(long c){(void)c;return 0;}
 #define CTR_CFG_TRIAL_TROPHY 0
 #define ADV_REWARD_FIRST_TROPHY 0
 static int active=1,configured=1,trophyOwned=1,trophyChecked=0;
 static int stage1=1,stage2=1,racer=1,remaining=1,boxes=0,letters=0,wumpa=0;
 static int physical=3,destination=16;
 int ctr_cfg_active(void){return active;}
+int ctr_cfg_arena_pad_disabled(int p){(void)p;return 0;}
 int AP_TrialTrackConfigured(int d){return configured&&(d==16||d==17);}
 long AP_TrialTrackLocation(int d,int c){return trophyOwned?35015000: -1;}
 int AP_TrialTrackLocationChecked(int d,int c){assert(d==destination);return trophyChecked;}
