@@ -123,13 +123,14 @@ extern "C" int mkdirat(int dir, const char *name, mode_t mode)
 '''
 
 stub = r'''
-// The transport is the only stub: path -> body, or a failure.
+// The transport is the only stub: Saphi path -> body, or a failure.
 std::map<std::string, std::vector<unsigned char>> served;
 std::vector<std::string> requested;
 std::mutex served_mutex;
-bool https_get(const std::string &path, size_t max_bytes, std::vector<unsigned char> &body, std::string &error)
+bool https_get(const char *host, const std::string &path, size_t max_bytes, std::vector<unsigned char> &body, std::string &error)
 {
 	std::lock_guard<std::mutex> lock(served_mutex);
+	if (std::strcmp(host, kSaphiHost) != 0) { error = "stub: not Project Saphi"; return false; }
 	requested.push_back(path);
 	auto it = served.find(path);
 	if (it == served.end()) { error = "Could not reach Project Saphi: stub network failure"; return false; }

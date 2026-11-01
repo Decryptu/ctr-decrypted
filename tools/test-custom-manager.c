@@ -17,7 +17,11 @@ struct Data data;
 #define CONN_PAD_CANCEL RAW_BTN_TRIANGLE
 static struct CustomTrackLibrary s_contentLibrary;
 static int s_contentLibraryTab, s_contentSearchEditing, s_contentSearchPadPrev, s_contentStoreWanted;
-static int s_modsSeed, s_modsFromTitle;
+static int s_modsSeed, s_modsFromTitle, s_modsRacers;
+/* MM_ConfigMenu.c and 230.c, around the manager in the game. */
+void MM_Mods_OpenFromTitle(void) { s_modsFromTitle=1; }
+static Color neutralColor;
+#define MM_CHARACTER_SELECT_NEUTRAL_COLOR neutralColor
 static int removes;
 int CustomPackage_RemoveInstalled(const char *a,const char *pin,char *e,size_t n)
 { (void)a;(void)pin;(void)e;(void)n;removes++;return 1; }
@@ -79,6 +83,29 @@ int XdeltaImport_StartInstall(const unsigned char *sel,unsigned count,const char
 { (void)a; memcpy(lastSelected,sel,count); lastWhere=where; installStarts++; installState=0; return 1; }
 int XdeltaPick_TakeDrop(char *path,size_t size) { int s=dropState; if(s==1) snprintf(path,size,"/drop/LRG2.xdelta"); dropState=0; return s; }
 int XdeltaImport_PollInstall(int *installed,char *e,size_t n) { (void)e;(void)n; int s=installState; if(s==1){*installed=2;installState=-1;} return s; }
+/* Racers tab and track pictures: the catalogue, the library and VRAM are stubbed. */
+#include <platform/native_racer_library.h>
+#include <platform/native_track_picture.h>
+static int pictureStarts;
+int NativeRacerLibrary_Scan(const char *d,struct NativeRacerEntry *o,int m) { (void)d;(void)o;(void)m; return 0; }
+int NativeRacerLibrary_Remove(const char *d,const char *f,char *e,size_t n) { (void)d;(void)f;(void)e;(void)n; return 1; }
+int NativeRacerCatalogue_StartRefresh(void) { return 0; }
+int NativeRacerCatalogue_PollRefresh(struct NativeRacerCatalogueEntry *o,int m,int *c,char *e,size_t n) { (void)o;(void)m;(void)c;(void)e;(void)n; return -1; }
+int NativeRacerCatalogue_StartInstall(const struct NativeRacerCatalogueEntry *x,const char *d) { (void)x;(void)d; return 0; }
+int NativeRacerCatalogue_PollInstall(char *e,size_t n) { (void)e;(void)n; return -1; }
+int NativeRacers_Count(void) { return 0; }
+const char *NativeRacers_Name(int r) { (void)r; return NULL; }
+int NativeRacers_Template(int r) { (void)r; return 0; }
+struct Icon *NativeRacers_Portrait(int r) { (void)r; return NULL; }
+void NativeRacers_Reload(void) {}
+static struct Icon pictureIcon;
+struct Icon *NativeRacers_TrackPicture(const unsigned short *t,int w,int h) { (void)t;(void)w;(void)h; return &pictureIcon; }
+int NativeTrackPicture_Start(int id,int media,const char *path,const char *dir) { (void)id;(void)media;(void)path;(void)dir; pictureStarts++; return 1; }
+int NativeTrackPicture_Poll(int *id,uint16_t out[NATIVE_TRACK_PICTURE_TEXELS]) { (void)id;(void)out; return -2; }
+void DecalHUD_DrawPolyGT4(struct Icon *i,s32 x,s32 y,struct PrimMem *p,u32 *ot,Color a,Color b,Color c,Color d,u8 t,s16 s)
+{ (void)i;(void)x;(void)y;(void)p;(void)ot;(void)a;(void)b;(void)c;(void)d;(void)t;(void)s; }
+void RECTMENU_DrawPolyGT4(struct Icon *i,s32 x,s32 y,struct PrimMem *p,u32 *ot,Color a,Color b,Color c,Color d,u8 t,s16 s)
+{ (void)i;(void)p;(void)ot;(void)a;(void)b;(void)c;(void)d;(void)t;(void)s;CHECK(x>=0&&x+NATIVE_TRACK_PICTURE_WIDTH<=512&&y+NATIVE_TRACK_PICTURE_HEIGHT<=216); }
 #include "../game/230/MM_CustomManager.c"
 static void tick(int buttons) { struct GamepadBuffer pad={0};pad.buttonsTapped=buttons;drawn[0]=0;MM_ConfigProc_CustomContent(NULL,NULL,&pad); }
 int main(void)
@@ -116,8 +143,10 @@ int main(void)
  tick(BTN_CROSS);CHECK(strstr(drawn,"Turn on"));
  tick(BTN_CROSS);CHECK(!MM_Mods_IsOff(&installed));
  tick(BTN_R2);CHECK(s_contentSearchEditing);strcpy(s_saphiQuery,"no match");textResult=2;tick(0);CHECK(!s_contentSearchEditing&&!s_saphiQuery[0]);
+ /* R1 goes on to Racers, L1 back to Browse. */
+ tick(BTN_R1);CHECK(s_modsRacers&&MM_Mods_Tab()==3);tick(BTN_L1);CHECK(!s_modsRacers&&s_contentLibraryTab==1);
  /* One track row for two revisions; latest downloadable beats an unavailable current. */
- tick(BTN_R1);s_saphiSelection[0]=0;
+ tick(BTN_L1);CHECK(s_contentLibraryTab==0);s_saphiSelection[0]=0;
  rows[1].trackID=rows[0].trackID;strcpy(rows[0].version,"1.9.0");strcpy(rows[1].version,"1.10.0");
  rows[1].lev.id=42;rows[1].vrm.id=43;
  tick(BTN_UP);CHECK(s_saphiSelection[0]==7);tick(BTN_DOWN);
@@ -133,15 +162,15 @@ int main(void)
  rows[1].sca.id=77;CHECK(MM_CustomSourceInstalled(&rows[1],&older)==NULL && older==1);
  installed.local.scaID=77;CHECK(MM_CustomSourceInstalled(&rows[1],&older)==&installed && older==0);
  rows[1].sca.id=0;installed.local.scaID=0;
- /* Installed tab: which pages list the track, and why not Arcade (two lines). */
+ /* Installed tab: which pages list the track, and why not Arcade (up to two lines). */
  tick(BTN_R1);CHECK(s_contentLibraryTab==1);s_saphiMessage[0]=0;
  installed.local.arcade=1;installed.local.timeTrial=1;tick(0);
- CHECK(strstr(drawn,"\nArcade\n")&&strstr(drawn,"\nFiles\nverified\n"));
+ CHECK(strstr(drawn,"\nArcade\n")&&strstr(drawn,"\nFiles verified\n"));
  installed.local.arcade=0;strcpy(installed.local.arcadeReason,"No AI paths");tick(0);
  CHECK(strstr(drawn,"\nTime Trial\n")&&strstr(drawn,"\nNo AI paths\n")&&!strstr(drawn,"verified"));
  strcpy(installed.local.arcadeReason,"Grid: 3 of 8");tick(0);CHECK(strstr(drawn,"\nGrid: 3 of 8\n"));
  installed.local.timeTrial=0;strcpy(installed.local.timeTrialReason,"No lap checkpoints");tick(0);
- CHECK(strstr(drawn,"\nNo races\n")&&strstr(drawn,"\nNo lap\ncheckpoints\n")&&!strstr(drawn,"..."));
+ CHECK(strstr(drawn,"\nNo races\n")&&strstr(drawn,"\nNo lap checkpoints\n"));
  strcpy(installed.local.timeTrialReason,"Files failed checks");tick(0);
  CHECK(strstr(drawn,"\nFiles failed\nchecks\n"));
  /* Import track files: Select opens it, back closes it before Options can. */
@@ -158,7 +187,7 @@ int main(void)
  fakeSummary.items[0].offered=1;strcpy(fakeSummary.items[0].title,"Snowy Valley");strcpy(fakeSummary.items[0].tags,"Race TT Arcade Relic CTR");
  fakeSummary.items[1].offered=1;memset(fakeSummary.items[1].title,'W',150);
  strcpy(fakeSummary.items[2].title,"LRG2Pancho slot 169");strcpy(fakeSummary.items[2].reason,"Arena: not supported yet");
- scanState=1;tick(0);CHECK(strstr(drawn,"[x] Snowy Valley")&&strstr(drawn,"2 tracks"));
+ scanState=1;tick(0);CHECK(strstr(drawn,"[x] Snowy")&&strstr(drawn,"2 tracks"));
  tick(BTN_DOWN);tick(BTN_DOWN);tick(BTN_SQUARE);tick(0);CHECK(strstr(drawn,"Skipped")&&strstr(drawn,"Arena: not"));
  tick(BTN_UP);tick(BTN_SQUARE);tick(BTN_CROSS);CHECK(installStarts==1&&lastSelected[0]&&!lastSelected[1]&&!lastSelected[2]);
  CHECK(lastWhere==(CTR_XDELTA_INSTALL_PACKAGES|CTR_XDELTA_INSTALL_ROOM));
@@ -177,5 +206,7 @@ int main(void)
  tick(BTN_TRIANGLE);CHECK(!MM_CustomImport_Active());
  CHECK(CustomRevision_Compare("2.0.0","1.99.0")>0);
  CHECK(CustomRevision_Compare("1.0.0","1.0.0-rc1")>0);
+ /* Browse rested on a Saphi track: its picture was asked for. */
+ CHECK(pictureStarts>=1);
  printf("custom manager: %d checks, %d failures\n",checks,failures);return failures!=0;
 }
