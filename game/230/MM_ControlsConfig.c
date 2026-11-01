@@ -413,8 +413,9 @@ static void Controls_DrawPicker(uint32_t *ot)
 		}
 	}
 
+	// Solid fill (type bit 1): the rows under the popup must not show through it.
 	RECT popup = {boxX, boxY, boxWidth, boxHeight};
-	RECTMENU_DrawInnerRect(&popup, 4, ot);
+	RECTMENU_DrawInnerRect(&popup, 4 | 1, ot);
 }
 
 // True while one player's screen is open; false on the player list.
@@ -648,6 +649,36 @@ static void Controls_DrawSafeText(const char *text, int x, int y, int flags, uin
 	DecalFont_DrawLineOT(s_safeBuffer, x, y, FONT_SMALL, flags, ot);
 }
 
+// Gap kept between a row's label and a value shortened to fit beside it.
+#define CONTROLS_VALUE_GAP 0x10
+
+// A right-justified value on the row of `label`, shortened with ".." when it
+// would run into the label. Device names come from the driver and can be
+// longer than the row ("Nintendo Switch Pro Controller" is).
+static void Controls_DrawFittedValue(const char *label, const char *text, int y, int flags, uint32_t *ot)
+{
+	const int room = CONFIG_VALUE_X - CONFIG_LABEL_X - DecalFont_GetLineWidth((char *)label, FONT_SMALL) - CONTROLS_VALUE_GAP;
+	size_t length;
+
+	Controls_FilterText(text, s_safeBuffer, sizeof(s_safeBuffer) - 2);
+	length = strlen(s_safeBuffer);
+
+	if (DecalFont_GetLineWidth(s_safeBuffer, FONT_SMALL) > room)
+	{
+		do
+		{
+			length--;
+			while ((length > 0) && (s_safeBuffer[length - 1] == ' '))
+			{
+				length--;
+			}
+			memcpy(&s_safeBuffer[length], "..", 3);
+		} while ((length > 1) && (DecalFont_GetLineWidth(s_safeBuffer, FONT_SMALL) > room));
+	}
+
+	DecalFont_DrawLineOT(s_safeBuffer, CONFIG_VALUE_X, y, FONT_SMALL, JUSTIFY_RIGHT | flags, ot);
+}
+
 static void Controls_DrawValue(int device, const struct ControlsRow *row, int y, uint32_t *ot)
 {
 	if (row->kind == CONTROLS_ROW_RESTORE)
@@ -690,8 +721,8 @@ static void Controls_DrawValue(int device, const struct ControlsRow *row, int y,
 	}
 	else if (row->kind == CONTROLS_ROW_DEVICE)
 	{
-		text = NativeControls_GetDeviceName(device);
-		colour = WHITE;
+		Controls_DrawFittedValue("DEVICE", NativeControls_GetDeviceName(device), y, WHITE, ot);
+		return;
 	}
 	else
 	{
@@ -996,7 +1027,7 @@ static void Controls_DrawPlayerRow(int player, int y, uint32_t *ot)
 		return;
 	}
 
-	Controls_DrawSafeText(NativeControls_GetDeviceName(device), CONFIG_VALUE_X, y, JUSTIFY_RIGHT | WHITE, ot);
+	Controls_DrawFittedValue(label, NativeControls_GetDeviceName(device), y, WHITE, ot);
 }
 
 // `player` is a player-list row: a player, or PLATFORM_INPUT_PAD_COUNT for the
