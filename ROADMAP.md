@@ -18,10 +18,11 @@ Roughly in this order.
 
 | Item | Source |
 |---|---|
-| Check in game: camera wobble when accelerating, braking and turning; the flag when exiting a race to the hub from the pause menu | Owner playtest, 2026-10-31. Fixed in the build after it: the [precise camera](docs/PGXP.md#precise-camera), the 60 FPS steering, camera and surface-spring conversions ([60FPS.md](docs/60FPS.md#changes-beyond-high-octane)), the flag's PGXP vertices and its "LOADING..." letters. Frame-by-frame captures of the pause-menu exit, fast and real time, show no other flicker; if it remains, an `F7` capture of it is the next step |
+| Residual camera wobble while the speed changes: much smaller since the [precise camera](docs/PGXP.md#precise-camera) and the 60 FPS camera conversions ([60FPS.md](docs/60FPS.md#changes-beyond-high-octane)), but still felt. Repro: spawn in the Adventure hub, reverse for a second and release, then drive the same path at constant speed; only the accelerating/decelerating run wobbles. The small wobble left in turns is probably the same speed-change effect | Owner playtest, 2026-11-01 |
 | Archipelago character unlocks (high): Adventure starts with the vanilla character picker and only the 8 base racers; every other racer, Oxide included, is unlocked during the run | Owner request, 2026-10-31 |
+| Remember the camera distance (L2 close/far) across races and scene changes, saved in `config.ini`, instead of resetting to close every time | Owner request, 2026-11-01 |
+| Proper exe and window icon, so the game looks right in the taskbar, program list and shortcuts instead of the default Windows icon | Owner request, 2026-11-01 |
 | Project website and guide (mid): GitHub Pages site with install steps, how to play with Archipelago, and the dev toolbox | Owner request, 2026-10-31 |
-| Check in game: the ctr-native merge of 2026-10-20 (dozens of retail-behaviour fixes to bots, weapons, menus, audio and loading) | Unattended runs match the previous build: identical frames to the race start, the same kart physics under scripted input at 30 and 60 FPS, Gem Cups and four Adventure trophies to the boss door. Bots now drive slightly differently, as upstream intends |
 
 ## Maybe
 - Retail-exact physics at 60 FPS: run the simulation at a fixed 30 Hz and interpolate rendering. Today's 60 FPS integrates in 16 ms steps, so curved kickers launch a little higher (Dingo Canyon: apex rise 24 at 30 FPS, 31 to 33 at 60). A different design from High Octane's, touching every rendered position.
