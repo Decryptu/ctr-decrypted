@@ -19,7 +19,7 @@ Everything a new contributor needs, with no other context. Keep it current. [ROA
 | `include/` | Shared headers, structs, macros (`include/macros.h` holds the frame-rate macros) |
 | `externals/SDL` | SDL 3.4.10, vendored, static |
 | `externals/libusb` | libusb 1.0.30 Windows backend, vendored, for Switch 2 controllers |
-| `tools/decrypted/` | Our own scripts (upstream sync, unattended runs and render diagnostics) |
+| `tools/decrypted/` | Our own scripts (upstream sync and status, unattended runs and render diagnostics) |
 | `docs/` | Project docs |
 
 The root and `tools/` keep dowlle's layout, including files we don't use ourselves (`build.bat`, `tools/authoring-branch/`, `tools/CUSTOM-TRACK-SPIKE.md`). We merge dowlle regularly, and every upstream file we moved or deleted would conflict on each sync and break upstream's own references to it. The root files are not strays: `support-bundle.*`, `default_controls.ini`, `ap-config.example.txt`, `LICENSE`, `THIRD_PARTY_NOTICES.md` and `SETUP.md` ship in every client package (`tools/ci/package-client.py`). Our own additions live in `tools/decrypted/`, `docs/` and `ROADMAP.md`. Build and run output stays out of the tree: build folders are `build-*/` (ignored), and the developer tools write to `%TEMP%\ctrdev`.
@@ -49,6 +49,8 @@ From PowerShell, set `MSYSTEM=MINGW32` and `CHERE_INVOKING=1` and call `C:\msys6
 - `feature/<name>`: one feature or fix per branch, merged into `dev` when it builds, then to `main` with `dev` after in-game testing. Delete it locally and on `origin` once merged; only `main`, `dev` and the `clean/*` import refs stay.
 
 ## Syncing upstream
+`python tools/decrypted/upstream_status.py` shows where we stand. It fetches the upstream remotes, then gives, for each branch we follow (the `FOLLOWED` list at the top of the script), the newest commit we have and every newer one we lack. It also lists the other dowlle and apworld branches that hold work we don't have, and the High Octane summary below. A commit counts as ours when our history has one with the same author time, author email and subject, so it sees through the sync script's rewrite, the apworld path filter and cherry-picks. Add a branch to `FOLLOWED` when we start following it.
+
 Never merge upstream remotes directly. Import them through the sync script, which rewrites commit messages to strip AI co-author trailers. The rewrite is deterministic, so repeated imports produce the same hashes and later merges stay clean.
 
 ```
@@ -74,7 +76,7 @@ The script needs `python -m pip install git-filter-repo`.
 
 Upstream moves functions between files, so a merge can drop our edit to a function without any conflict. After resolving, run `python tools/decrypted/merge_audit.py <merge-base> HEAD^1 --moved` (our changes in functions that now live in another file) and without `--moved` (every line we added that is missing from the merged tree; most hits are renames). Carry each real loss into the function's new home, then build every variant (`tools/ci/build-clients.sh`) and run the harnesses: the `*-production` harnesses check that hooks sit where they must in upstream's code.
 
-High Octane (`highoctane/vita`) is not merged. Port its commits by cherry-picking with `-x` and resolve conflicts by hand, keeping every `#ifdef CTR_AP` block.
+High Octane (`highoctane/vita`) is not merged. Port its commits by cherry-picking with `-x` and resolve conflicts by hand, keeping every `#ifdef CTR_AP` block. `tools/decrypted/highoctane.txt` records what we did with each of its commits that is not in ctr-native: ported by hand, already here, our own version, on the roadmap's Maybe list, skipped, or not decided (`open`). A full cherry-pick needs no line; a hand port, or a cherry-pick of only part of a commit, does. The status script lists the commits we ported (`--ho ported`, the default; `--ho open,maybe` for the others) and every new High Octane commit that has no line yet: review it and add its line.
 
 ## Conventions
 - Commit messages are plain and descriptive. No co-author trailers for tools, and no mention of AI assistants anywhere in commits, code or docs. Local assistant files (`CLAUDE.md`, `AGENTS.md`, `.claude/`) are listed in `.git/info/exclude` and never committed.
