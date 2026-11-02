@@ -24,6 +24,7 @@ NativeConfig g_config = {
 	2,     // pgxp (2 = Full: anti-wobble and perspective-correct textures)
 	1,     // renderScale (1 = original PSX raster, the shipped default)
 	0,     // screenFilter (0 = Smooth: linear presentation at scaled modes)
+	0,     // colourFilter (0 = Off)
 	false, // textureFiltering (default off: PSX-authentic point sampling)
 	0,     // vsync (0 = Off, default: avoid double-throttling the retail draw-sync path)
 	false, // muteWhenUnfocused (default off: a single-game setup keeps today's behaviour)
@@ -140,6 +141,9 @@ const ConfigEntry g_configEntries[] = {
 	{"Extras",      "blue_fire",                "Blue Fire At USF",             CFG_BOOL, &g_config.blueFire, 0, 0, 0},
 	{"Extras",      "slide_meter_colours",      "Slide Meter Gradient",         CFG_BOOL, &g_config.slideMeterColours, 0, 0, 0},
 	{"Extras",      "super_pad_colour",         "Cyan Super Pads (Next Load)",  CFG_BOOL, &g_config.superPadColour, 0, 0, 0},
+	// Colour-filter ladder (CFG_ENUM), include/platform/native_screen_filter.h.
+	// Applied by the renderer at the next present, like the Screen Filter.
+	{"Extras",      "colour_filter",            "Colour Filter",                CFG_ENUM, &g_config.colourFilter, 0, 0, 0},
 #ifdef CTR_AP
 	// Skip Podium Ceremonies (issue #285, CFG_BOOL): a LOCAL client option, off
 	// by default, that drops the hub podium for an ordinary Trophy, CTR
@@ -429,6 +433,7 @@ void NativeConfig_Load(void)
 	if (!sawScreenFilter && legacySharp)
 		g_config.screenFilter = NATIVE_SCREEN_FILTER_SHARP;
 	g_config.screenFilter = NativeScreenFilter_Clamp(g_config.screenFilter);
+	g_config.colourFilter = NativeColourFilter_Clamp(g_config.colourFilter);
 #ifdef CTR_AP
 	// Keep the in-memory/menu value inside the public ladder even when a player
 	// hand-edited an unsupported value. Zero is the intentional Full race token.

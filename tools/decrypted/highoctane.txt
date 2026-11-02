@@ -182,7 +182,7 @@ bcf381c2d open   menu changes                                          | Invert 
 95f3a5878 skip   web build                                             | Explicitly request an opaque GL context on Emscripten.
 ca43755cf open   split-screen fix                                      | Fix rendered quadblock retry list overflow in native split-screen
 1f9d08844 skip   Vita                                                  | Update Livearea assets.
-9369c5f11 own    Screen Filters (docs/SCREEN-FILTERS.md); its colour effects are a Maybe | Added post-processing shaders support.
+9369c5f11 own    Screen Filters and Colour Filter (docs/SCREEN-FILTERS.md); Hue and Gamma left out | Added post-processing shaders support.
 035997448 skip   Vita                                                  | Fix crash on game exit on PSVita.
 d0f187f43 skip   readme, changelog or housekeeping                     | Add v.1.5 changelog to the readme.
 b561a9834 skip   custom racer importer; our racers come from the racers index | Update the custom racers import script.

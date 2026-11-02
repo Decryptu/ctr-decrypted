@@ -749,6 +749,10 @@ internal void NativeRenderer_InitRenderTarget(struct NativeRenderTarget *target)
 	glBindTexture(GL_TEXTURE_2D, target->texture);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	// A frame never tiles: a linear read at its edge (the screen filters)
+	// must not blend in the opposite edge.
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 	glBindTexture(GL_TEXTURE_2D, 0);
 
@@ -2661,6 +2665,9 @@ void NativeRenderer_UpdateVRAM(void)
 // work in Scanlines and CRT happens in linear light (squared, a gamma-2
 // approximation) so a dark gap between two bright lines darkens the way a
 // tube's does. The output alpha is 1: the frame's alpha is the PSX STP bit.
+// SCREEN_FILTER picks how the frame is shown and COLOUR_FILTER how each colour
+// read from it changes (Colour, applied in Fetch so every filter shows the
+// changed picture).
 global_variable const char *ctr_screen_filter_shader =
 	"#ifdef VERTEX\n"
 	"attribute vec2 a_position;\n"
@@ -2676,7 +2683,34 @@ global_variable const char *ctr_screen_filter_shader =
 	"uniform vec2 sourceSize;\n"
 	"uniform vec2 logicalSize;\n"
 	"uniform vec2 outputSize;\n"
-	"vec3 Fetch(vec2 uv) { return texture2D(s_texture, uv).rgb; }\n"
+	// Protanopia and Deuteranopia: what those players see of a colour
+	// (Machado, Oliveira and Fernandes 2009, full severity, in linear light),
+	// and the part they miss added back into green and blue (Fidaner's
+	// daltonize), so red and green differ in lightness and blue too.
+	"vec3 Daltonize(vec3 colour, vec3 r, vec3 g, vec3 b) {\n"
+	"	vec3 lin = colour * colour;\n"
+	"	vec3 lost = lin - vec3(dot(r, lin), dot(g, lin), dot(b, lin));\n"
+	"	lin += vec3(0.0, 0.7 * lost.r + lost.g, 0.7 * lost.r + lost.b);\n"
+	"	return sqrt(clamp(lin, 0.0, 1.0));\n"
+	"}\n"
+	"vec3 Colour(vec3 c, vec2 uv) {\n"
+	"#if COLOUR_FILTER == 1\n"
+	"	return vec3(dot(c, vec3(0.2126, 0.7152, 0.0722)));\n"
+	"#elif COLOUR_FILTER == 2\n"
+	"	return min(vec3(dot(c, vec3(0.393, 0.769, 0.189)), dot(c, vec3(0.349, 0.686, 0.168)), dot(c, vec3(0.272, 0.534, 0.131))), 1.0);\n"
+	"#elif COLOUR_FILTER == 3\n"
+	"	return 1.0 - c;\n"
+	"#elif COLOUR_FILTER == 4\n"
+	"	return c * mix(1.0, 0.35, smoothstep(0.3, 0.75, length(uv - 0.5)));\n"
+	"#elif COLOUR_FILTER == 5\n"
+	"	return Daltonize(c, vec3(0.152286, 1.052583, -0.204868), vec3(0.114503, 0.786281, 0.099216), vec3(-0.003882, -0.048116, 1.051998));\n"
+	"#elif COLOUR_FILTER == 6\n"
+	"	return Daltonize(c, vec3(0.367322, 0.860646, -0.227968), vec3(0.280085, 0.672501, 0.047413), vec3(-0.011820, 0.042940, 0.968881));\n"
+	"#else\n"
+	"	return c;\n"
+	"#endif\n"
+	"}\n"
+	"vec3 Fetch(vec2 uv) { return Colour(texture2D(s_texture, uv).rgb, uv); }\n"
 	// Whole source texels with a linear seam about one window pixel wide.
 	// grid is the pixel grid to keep crisp: the source texels, or the PSX
 	// raster for Scanlines.
@@ -2764,15 +2798,35 @@ global_variable const char *ctr_screen_filter_shader =
 	"	colour *= mix(vec3(1.0), grille, strength);\n"
 	"	return sqrt(colour);\n"
 	"}\n"
+	// LCD: each PSX pixel a cell of red, green and blue stripes with darker
+	// rows between cells, in linear light. Each pattern averages 1, so
+	// brightness is kept below white, and fades out where a cell is under
+	// about 3 window pixels wide (stripes) or 2.5 tall (rows).
+	"vec3 Lcd(vec2 uv) {\n"
+	"	vec3 colour = Fetch(SharpCoord(uv, logicalSize));\n"
+	"	vec2 cell = fract(uv * logicalSize);\n"
+	"	vec3 stripes = 1.0 - abs(fract(cell.x - vec3(1.0, 3.0, 5.0) / 6.0 + 0.5) * 2.0 - 1.0);\n"
+	"	float rows = 1.0 - abs(cell.y * 2.0 - 1.0);\n"
+	"	vec2 strength = clamp(outputSize / logicalSize - vec2(2.5, 1.5), 0.0, 1.0);\n"
+	"	vec3 x = 1.0 + 0.6 * strength.x * (stripes * 2.0 - 1.0);\n"
+	"	float y = 1.0 + 0.3 * strength.y * (rows * 2.0 - 1.0);\n"
+	"	return sqrt(colour * colour * x * y);\n"
+	"}\n"
 	"void main() {\n"
-	"#if SCREEN_FILTER == 2\n"
+	"#if SCREEN_FILTER == 0\n"
+	"	fragColor = vec4(Fetch(v_uv), 1.0);\n"
+	"#elif SCREEN_FILTER == 1\n"
+	"	fragColor = vec4(Fetch((floor(v_uv * sourceSize) + 0.5) / sourceSize), 1.0);\n"
+	"#elif SCREEN_FILTER == 2\n"
 	"	fragColor = vec4(SharpBilinear(v_uv), 1.0);\n"
 	"#elif SCREEN_FILTER == 3\n"
 	"	fragColor = vec4(Fxaa(v_uv), 1.0);\n"
 	"#elif SCREEN_FILTER == 4\n"
 	"	fragColor = vec4(sqrt(ScanlinesLinear(v_uv)), 1.0);\n"
-	"#else\n"
+	"#elif SCREEN_FILTER == 5\n"
 	"	fragColor = vec4(Crt(v_uv), 1.0);\n"
+	"#else\n"
+	"	fragColor = vec4(Lcd(v_uv), 1.0);\n"
 	"#endif\n"
 	"}\n"
 	"#endif\n";
@@ -2786,14 +2840,14 @@ struct NativeScreenFilterProgram
 	int failed;
 };
 
-global_variable struct NativeScreenFilterProgram s_screenFilters[NATIVE_SCREEN_FILTER_COUNT];
+global_variable struct NativeScreenFilterProgram s_screenFilters[NATIVE_SCREEN_FILTER_COUNT][NATIVE_COLOUR_FILTER_COUNT];
 
 // Compiled on first use, so a player who never picks a filter pays nothing.
 // A program that fails to compile or link is remembered, and that filter
 // falls back to the plain present.
-internal struct NativeScreenFilterProgram *NativeRenderer_ScreenFilterProgram(int filter)
+internal struct NativeScreenFilterProgram *NativeRenderer_ScreenFilterProgram(int filter, int colour)
 {
-	struct NativeScreenFilterProgram *entry = &s_screenFilters[filter];
+	struct NativeScreenFilterProgram *entry = &s_screenFilters[filter][colour];
 	if (entry->program != 0 || entry->failed)
 	{
 		return entry->program != 0 ? entry : NULL;
@@ -2806,7 +2860,7 @@ internal struct NativeScreenFilterProgram *NativeRenderer_ScreenFilterProgram(in
 		entry->failed = 1;
 		return NULL;
 	}
-	SDL_snprintf(source, sourceLength, "#define SCREEN_FILTER %d\n%s", filter, ctr_screen_filter_shader);
+	SDL_snprintf(source, sourceLength, "#define SCREEN_FILTER %d\n#define COLOUR_FILTER %d\n%s", filter, colour, ctr_screen_filter_shader);
 	const ShaderID program = NativeRenderer_Shader_Compile(source, false);
 	SDL_free(source);
 
@@ -2814,7 +2868,7 @@ internal struct NativeScreenFilterProgram *NativeRenderer_ScreenFilterProgram(in
 	glGetProgramiv(program, GL_LINK_STATUS, &linked);
 	if (linked != GL_TRUE)
 	{
-		NATIVE_RENDERER_ERROR("screen filter %d unavailable, using the plain present\n", filter);
+		NATIVE_RENDERER_ERROR("screen filter %d, colour filter %d unavailable, using the plain present\n", filter, colour);
 		glDeleteProgram(program);
 		entry->failed = 1;
 		return NULL;
@@ -2830,24 +2884,44 @@ internal void NativeRenderer_DestroyScreenFilters(void)
 {
 	for (int i = 0; i < NATIVE_SCREEN_FILTER_COUNT; i++)
 	{
-		if (s_screenFilters[i].program != 0)
+		for (int j = 0; j < NATIVE_COLOUR_FILTER_COUNT; j++)
 		{
-			glDeleteProgram(s_screenFilters[i].program);
+			if (s_screenFilters[i][j].program != 0)
+			{
+				glDeleteProgram(s_screenFilters[i][j].program);
+			}
 		}
 	}
 	SDL_memset(s_screenFilters, 0, sizeof(s_screenFilters));
 }
 
-// The player's filter when it needs the shader pass and its program is
-// usable, else -1 (the plain present).
-internal int NativeRenderer_ActiveShaderFilter(void)
+// The program the frame's last pass draws with when the player's filters
+// need the shader pass and it is usable, else NULL (the plain present). Smooth
+// shows a frame straight from VRAM unscaled by the GPU's own pixels, so with a
+// colour filter it takes Sharp's pass there and only the colours change.
+internal struct NativeScreenFilterProgram *NativeRenderer_ActiveShaderFilter(int fromVram)
 {
-	const int filter = NativeScreenFilter_Clamp(g_config.screenFilter);
-	if (!NativeScreenFilter_UsesShader(filter) || (NativeRenderer_ScreenFilterProgram(filter) == NULL))
+	int filter = NativeScreenFilter_Clamp(g_config.screenFilter);
+	const int colour = NativeColourFilter_Clamp(g_config.colourFilter);
+	if (!NativeScreenFilter_UsesShader(filter, colour))
 	{
-		return -1;
+		return NULL;
 	}
-	return filter;
+	if (fromVram && (filter == NATIVE_SCREEN_FILTER_SMOOTH))
+	{
+		filter = NATIVE_SCREEN_FILTER_SHARP;
+	}
+	if (filter == NATIVE_SCREEN_FILTER_FXAA)
+	{
+		// FXAA's first pass works on the frame's own colours; the colour
+		// filter rides on the Sharp Bilinear pass that scales the result.
+		if (NativeRenderer_ScreenFilterProgram(filter, NATIVE_COLOUR_FILTER_OFF) == NULL)
+		{
+			return NULL;
+		}
+		filter = NATIVE_SCREEN_FILTER_SHARP_BILINEAR;
+	}
+	return NativeRenderer_ScreenFilterProgram(filter, colour);
 }
 
 // Where presents draw: the window, or in a dev capture run the same-sized
@@ -2903,12 +2977,14 @@ internal void NativeRenderer_ScreenFilterPass(const struct NativeScreenFilterPro
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 }
 
-// Draw a finished frame texture through the player's filter onto the
-// presentation viewport. FXAA smooths the rendered raster's own stair-steps,
-// so it runs at the source size and Sharp Bilinear then scales the result:
-// run per window pixel while upscaling, FXAA would trace halos around every
-// edge, and a linear upscale would blur the whole frame at Original.
-internal void NativeRenderer_DrawScreenFilter(int filter, TextureID texture, int sourceW, int sourceH, int logicalW, int logicalH)
+// Draw a finished frame texture through the player's filters onto the
+// presentation viewport, ending with the program ActiveShaderFilter chose.
+// FXAA smooths the rendered raster's own stair-steps, so it runs at the source
+// size and Sharp Bilinear then scales the result: run per window pixel while
+// upscaling, FXAA would trace halos around every edge, and a linear upscale
+// would blur the whole frame at Original.
+internal void NativeRenderer_DrawScreenFilter(const struct NativeScreenFilterProgram *entry, TextureID texture, int sourceW, int sourceH,
+                                              int logicalW, int logicalH)
 {
 	NativeRenderer_SetScissorState(0);
 	NativeRenderer_SetDepthMode(NATIVE_DEPTH_OFF);
@@ -2916,32 +2992,15 @@ internal void NativeRenderer_DrawScreenFilter(int filter, TextureID texture, int
 	glDisable(GL_STENCIL_TEST);
 
 	const GLuint present = NativeRenderer_PresentFramebuffer();
-	if (filter == NATIVE_SCREEN_FILTER_FXAA)
+	if (NativeScreenFilter_Clamp(g_config.screenFilter) == NATIVE_SCREEN_FILTER_FXAA)
 	{
 		NativeRenderer_EnsureRenderTarget(&s_screenFilterResult, sourceW, sourceH);
-		NativeRenderer_ScreenFilterPass(&s_screenFilters[filter], texture, s_screenFilterResult.framebuffer,
-		                                0, 0, sourceW, sourceH, sourceW, sourceH, logicalW, logicalH);
-		const struct NativeScreenFilterProgram *scale = NativeRenderer_ScreenFilterProgram(NATIVE_SCREEN_FILTER_SHARP_BILINEAR);
-		if (scale != NULL)
-		{
-			NativeRenderer_ScreenFilterPass(scale, s_screenFilterResult.texture, present, s_presentViewport.x, s_presentViewport.y,
-			                                s_presentViewport.w, s_presentViewport.h, sourceW, sourceH, logicalW, logicalH);
-		}
-		else
-		{
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, s_screenFilterResult.framebuffer);
-			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, present);
-			glBlitFramebuffer(0, 0, sourceW, sourceH,
-			                  s_presentViewport.x, s_presentViewport.y,
-			                  s_presentViewport.x + s_presentViewport.w, s_presentViewport.y + s_presentViewport.h,
-			                  GL_COLOR_BUFFER_BIT, GL_LINEAR);
-		}
+		NativeRenderer_ScreenFilterPass(&s_screenFilters[NATIVE_SCREEN_FILTER_FXAA][NATIVE_COLOUR_FILTER_OFF], texture,
+		                                s_screenFilterResult.framebuffer, 0, 0, sourceW, sourceH, sourceW, sourceH, logicalW, logicalH);
+		texture = s_screenFilterResult.texture;
 	}
-	else
-	{
-		NativeRenderer_ScreenFilterPass(&s_screenFilters[filter], texture, present, s_presentViewport.x, s_presentViewport.y,
-		                                s_presentViewport.w, s_presentViewport.h, sourceW, sourceH, logicalW, logicalH);
-	}
+	NativeRenderer_ScreenFilterPass(entry, texture, present, s_presentViewport.x, s_presentViewport.y,
+	                                s_presentViewport.w, s_presentViewport.h, sourceW, sourceH, logicalW, logicalH);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	glEnable(GL_STENCIL_TEST);
@@ -2958,8 +3017,8 @@ void NativeRenderer_PresentVRAMRect(int displayX, int displayY, int displayW, in
 
 	NativeRenderer_UpdateVRAM();
 
-	const int filter = NativeRenderer_ActiveShaderFilter();
-	if (filter >= 0)
+	const struct NativeScreenFilterProgram *filter = NativeRenderer_ActiveShaderFilter(1);
+	if (filter != NULL)
 	{
 		// VRAM holds packed 15-bit pixels and the filter samples colours, so
 		// decode the shown rectangle at its PSX size first.
@@ -3047,8 +3106,8 @@ void NativeRenderer_PresentMainRenderTarget(void)
 		return;
 	}
 
-	const int filter = NativeRenderer_ActiveShaderFilter();
-	if (filter >= 0)
+	const struct NativeScreenFilterProgram *filter = NativeRenderer_ActiveShaderFilter(0);
+	if (filter != NULL)
 	{
 		int logicalW;
 		int logicalH;

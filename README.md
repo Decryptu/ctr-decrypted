@@ -31,7 +31,7 @@ And in OPTIONS:
 - **Save backups**: the last 10 copies of your save and Play Solo progress, made automatically, with a restore in **OPTIONS → Backups** ([SETUP.md](SETUP.md#backups-going-back-to-an-earlier-save)).
 - **60 FPS**, on by default, in every mode ([docs/60FPS.md](docs/60FPS.md)).
 - **PGXP anti-wobble** and perspective-correct textures, with a depth test that keeps water from painting over nearer ground ([docs/PGXP.md](docs/PGXP.md)).
-- **Screen filters**: Sharp Bilinear, FXAA, Scanlines, CRT ([docs/SCREEN-FILTERS.md](docs/SCREEN-FILTERS.md)).
+- **Screen filters**: Sharp Bilinear, FXAA, Scanlines, CRT, LCD, and colour filters including colour-blind corrections ([docs/SCREEN-FILTERS.md](docs/SCREEN-FILTERS.md)).
 - **Extras**: reserves meter, kept reserve fire, blue fire at Ultimate Speed Fire, slide meter gradient, cyan super pads ([docs/EXTRAS.md](docs/EXTRAS.md)).
 - **Playable N. Oxide**, unlocked by beating him in Adventure.
 - Widescreen, render scale, increased draw distance (with no far scenery dropping out: [docs/LEVEL-VISIBILITY.md](docs/LEVEL-VISIBILITY.md)), remappable controls, and native Switch 2 Pro Controller support (with Steam closed).

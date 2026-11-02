@@ -32,8 +32,12 @@ typedef struct
 	                            // a NATIVE_SCREEN_FILTER_* value (include/platform/
 	                            // native_screen_filter.h): 0 = Smooth (default),
 	                            // 1 = Sharp, 2 = Sharp Bilinear, 3 = FXAA,
-	                            // 4 = Scanlines, 5 = CRT. Replaces the old
+	                            // 4 = Scanlines, 5 = CRT, 6 = LCD. Replaces the old
 	                            // smooth_scaling switch, which still loads.
+	int  colourFilter;          // Extras: how the picture's colours change, a
+	                            // NATIVE_COLOUR_FILTER_* value: 0 = Off (default),
+	                            // 1 = Greyscale, 2 = Sepia, 3 = Negative,
+	                            // 4 = Vignette, 5 = Protanopia, 6 = Deuteranopia.
 	bool textureFiltering;      // Video & QoL: bilinear PSX texture sampling in the
 	                            // GTE shaders (default off: PSX-authentic point
 	                            // sampling). Also flipped by the F3 debug key.

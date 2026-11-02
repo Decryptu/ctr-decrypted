@@ -87,7 +87,7 @@ How far behind each one we are, and which High Octane commits we ported: `python
 - #42: a Hot Air Skyway shortcut is harder than on emulator (physics).
 - #39: Penta should use the PAL engine sound.
 - #46: no VSync option.
-- #44: 4:3 / 5:4 aspect.
+- #44: 4:3 / 5:4 aspect. Handled here: 4:3 is the default Aspect Ratio, and on a 5:4 screen it is letterboxed (1280×1024 shows 1280×960).
 - #41: 8-player splitscreen.
 - #37: custom characters in Adventure.
 - #31: analog U-turn.

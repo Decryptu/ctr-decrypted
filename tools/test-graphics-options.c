@@ -261,6 +261,7 @@ static void TestPersistenceRoundTrip(void)
 	SetEntry("Video & QoL", "dithering", 0);
 	SetEntry("Video & QoL", "render_scale", 0);
 	SetEntry("Video & QoL", "screen_filter", 5);
+	SetEntry("Extras", "colour_filter", 6);
 	SetEntry("Video & QoL", "texture_filtering", 1);
 #ifdef CTR_AP
 	SetEntry("Archipelago", "trap_duration", 90);
@@ -273,6 +274,7 @@ static void TestPersistenceRoundTrip(void)
 	g_config.dithering = 1;
 	g_config.renderScale = 1;
 	g_config.screenFilter = 0;
+	g_config.colourFilter = 0;
 	g_config.textureFiltering = 0;
 #ifdef CTR_AP
 	g_config.trapDuration = 15;
@@ -284,6 +286,7 @@ static void TestPersistenceRoundTrip(void)
 	EXPECT_INT("persisted dithering", g_config.dithering, 0);
 	EXPECT_INT("persisted renderScale (Native)", g_config.renderScale, 0);
 	EXPECT_INT("persisted screenFilter (CRT)", g_config.screenFilter, 5);
+	EXPECT_INT("persisted colourFilter (Deuteranopia)", g_config.colourFilter, 6);
 	EXPECT_INT("persisted textureFiltering", g_config.textureFiltering, 1);
 
 	// A hand-edited out-of-ladder render_scale snaps onto the ladder at load,
@@ -307,6 +310,10 @@ static void TestPersistenceRoundTrip(void)
 	NativeConfig_Save();
 	NativeConfig_Load();
 	EXPECT_INT("out-of-ladder screen_filter loads as Smooth", g_config.screenFilter, 0);
+	SetEntry("Extras", "colour_filter", 42);
+	NativeConfig_Save();
+	NativeConfig_Load();
+	EXPECT_INT("out-of-ladder colour_filter loads as Off", g_config.colourFilter, 0);
 
 	// A config.ini from before the Screen Filter row: smooth_scaling = false
 	// loads as Sharp, true as Smooth, and a saved screen_filter wins.
