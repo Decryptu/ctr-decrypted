@@ -18,7 +18,7 @@ import zlib
 AUTHORING_NOTICE = (
     'BOX AUTHORING BUILD. For placing extra item boxes only.\n'
     'It does not connect to Archipelago. Do not play seeds with it.\n'
-    'Unzip it into its own folder, never into your normal CTR Archipelago folder.\n'
+    'Unzip it into its own folder, never into your normal CTR Decrypted folder.\n'
     'Read HELP-PLACE-BOXES.md for the steps.\n')
 
 AUTHORING_CLIENT_NOTICE = (

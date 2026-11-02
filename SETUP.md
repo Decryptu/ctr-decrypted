@@ -13,7 +13,7 @@ disc. You will need:
    work. Only the North American release is supported right now. PAL (European)
    and Japanese discs are detected and refused.
 2. The release archive for your platform from the
-   [releases page](https://github.com/dowlle/ctr-native-ap/releases): the Windows
+   [releases page](https://github.com/Decryptu/ctr-decrypted/releases): the Windows
    `.zip`, or the Linux and Steam Deck `.tar.gz`.
 
 That is everything you need on the game side when you are joining an existing
@@ -37,7 +37,7 @@ to Archipelago) and follow the
 ## Step 1: get the game executable
 
 Download and extract the archive for your platform from the
-[releases page](https://github.com/dowlle/ctr-native-ap/releases):
+[releases page](https://github.com/Decryptu/ctr-decrypted/releases):
 `ctr-decrypted-vX.Y.Z-windows-x86.zip` on Windows, or
 `ctr-decrypted-vX.Y.Z-linux-x86.tar.gz` on Linux and Steam Deck. Keep the
 extracted files together in their own folder. The rest of these steps add the
@@ -117,7 +117,7 @@ COMPLETABLE** warning, stop and report it with your YAML and spoiler log. For a
 crash or a seed that appears stuck, follow
 [Reporting a crash or a stuck seed](#reporting-a-crash-or-a-stuck-seed). Setup
 questions and reproducible bugs can go to the
-[GitHub issue tracker](https://github.com/dowlle/ctr-native-ap/issues); if you
+[GitHub issue tracker](https://github.com/Decryptu/ctr-decrypted/issues); if you
 are unsure which repository is responsible, file it there anyway.
 
 ### Alternative: config file
@@ -383,7 +383,7 @@ If the game crashes, or a seed seems impossible to progress, run
 the game folder. It creates one small archive (`ctr-ap-support-<date>.zip` /
 `.tar.gz`) containing the game log, the AP log, the crash report if there was
 one, and your connection settings with the password removed. No game data is
-included. Attach that archive to a [GitHub issue](https://github.com/dowlle/ctr-native-ap/issues/new/choose),
+included. Attach that archive to a [GitHub issue](https://github.com/Decryptu/ctr-decrypted/issues/new/choose),
 or bring it to the [Crash Team Racing channel](https://discord.com/channels/731205301247803413/1222304293751750777)
 on the Archipelago Discord, together with a line about what you were doing; if the seed itself seems broken,
 include your YAML and the spoiler log too.

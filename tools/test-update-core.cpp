@@ -9,8 +9,9 @@
 // archives are written in memory. No network, no files outside a temp dir.
 //
 // Covers:
-//   * interop: the published v0.2.4 manifest and its minisign signature verify
-//     against the pinned release key; one flipped byte anywhere fails
+//   * interop: the published v1.2.0 manifest and its minisign signature verify
+//     against the pinned release key; one flipped byte anywhere fails; a
+//     release signed by dowlle's key (v0.2.4) is refused
 //   * signature failure: wrong key, foreign key id, flipped manifest, flipped
 //     trusted comment, malformed signature files
 //   * hash mismatch and partial download: a flipped or truncated archive
@@ -85,7 +86,24 @@ static int g_failures;
 
 static Bytes B(const std::string &s) { return Bytes(s.begin(), s.end()); }
 
-// ── the published v0.2.4 release (public files) ──
+// ── the published v1.2.0 release (public files) ──
+
+static const char kManifest120[] =
+    "{\n"
+    "  \"artifacts\": {\n"
+    "    \"ctr-decrypted-v1.2.0-linux-x86.tar.gz\": \"7089757b001611be968bfa4a34e944f754fc3836f3f4295dedac05af17c9552a\",\n"
+    "    \"ctr-decrypted-v1.2.0-windows-x86.zip\": \"67149ec00894c91554c9f3502727f71bab2197dc3942801fbf9268d92859224d\"\n"
+    "  },\n"
+    "  \"version\": \"v1.2.0\"\n"
+    "}\n";
+
+static const char kSig120[] =
+    "untrusted comment: signature from minisign secret key\n"
+    "RUT7UfQHfRUpLArJ0yCN3SNsf6X8wVLFy5XK8GQetFEt1LyIFTloPHnEeVPqP95TRjEAB6KOnX13WY9A/i0589Qjd7XEmrT85Q0=\n"
+    "trusted comment: timestamp:1793597133\tfile:manifest.json\thashed\n"
+    "MRAQf6MD0OUEzD8ClvopDDwlmRz0nb2WK9OVVVRFzJqmB0faMTN9D2r3yCtWz5qdwC0k9kQ58U6CFA/EkxVHCg==\n";
+
+// ── dowlle's published v0.2.4 release, signed by another key ──
 
 static const char kManifest024[] =
     "{\n"
@@ -349,37 +367,45 @@ static void TestInterop()
 	PublicKey key;
 	CHECK(ParsePublicKey(AP_UPDATE_PUBLIC_KEY, key));
 	std::string comment;
-	CHECK_EQ(VerifyMinisign(key, B(kManifest024), kSig024, &comment), OK);
-	CHECK(comment == "timestamp:1791883611\tfile:manifest.json\thashed");
-	// CRLF line endings in the .minisig are accepted.
+	CHECK_EQ(VerifyMinisign(key, B(kManifest120), kSig120, &comment), OK);
+	CHECK(comment == "timestamp:1793597133\tfile:manifest.json\thashed");
+	// CRLF line endings in the .minisig are accepted (the published one has them).
 	std::string crlf;
-	for (char c : std::string(kSig024))
+	for (char c : std::string(kSig120))
 		crlf += c == '\n' ? std::string("\r\n") : std::string(1, c);
-	CHECK_EQ(VerifyMinisign(key, B(kManifest024), crlf, nullptr), OK);
+	CHECK_EQ(VerifyMinisign(key, B(kManifest120), crlf, nullptr), OK);
 	// Every single flipped manifest byte breaks the signature.
 	int broken = 0;
-	const Bytes m = B(kManifest024);
+	const Bytes m = B(kManifest120);
 	for (size_t i = 0; i < m.size(); i++)
 	{
 		Bytes f = m;
 		f[i] ^= 0x01;
-		broken += VerifyMinisign(key, f, kSig024, nullptr) == ERR_SIGNATURE;
+		broken += VerifyMinisign(key, f, kSig120, nullptr) == ERR_SIGNATURE;
 	}
 	CHECK_EQ(broken, (long long)m.size());
 	// Appending a byte (a different file) fails too.
 	Bytes longer = m;
 	longer.push_back('\n');
-	CHECK_EQ(VerifyMinisign(key, longer, kSig024, nullptr), ERR_SIGNATURE);
+	CHECK_EQ(VerifyMinisign(key, longer, kSig120, nullptr), ERR_SIGNATURE);
 	// The trusted comment is covered by the global signature.
-	std::string sig = kSig024;
-	sig.replace(sig.find("1791883611"), 10, "1791883612");
+	std::string sig = kSig120;
+	sig.replace(sig.find("1793597133"), 10, "1793597134");
 	CHECK_EQ(VerifyMinisign(key, m, sig, nullptr), ERR_COMMENT_SIGNATURE);
-	// The downloads are ctr-decrypted-* since v1.1.0. This signed release
-	// names ctr-archipelago-* files: its signature still verifies, but it is
-	// not a release this client can install.
+	// The manifest is one this client installs: offered to v1.1.0 it passes
+	// signature, shape and version and stops only at the archive hash; v1.2.0
+	// itself is not offered its own release.
 	Manifest parsed;
-	CHECK_EQ(ParseManifest(m, parsed), ERR_MANIFEST);
-	CHECK_EQ(VerifyRelease(AP_UPDATE_PUBLIC_KEY, m, kSig024, "v0.2.4", "v0.2.3", PLATFORM_WINDOWS, B("x")), ERR_MANIFEST);
+	CHECK_EQ(ParseManifest(m, parsed), OK);
+	CHECK(parsed.version == "v1.2.0");
+	CHECK_EQ(VerifyRelease(AP_UPDATE_PUBLIC_KEY, m, kSig120, "v1.2.0", "v1.1.0", PLATFORM_WINDOWS, B("x")), ERR_HASH);
+	CHECK_EQ(VerifyRelease(AP_UPDATE_PUBLIC_KEY, m, kSig120, "v1.2.0", "v1.2.0", PLATFORM_WINDOWS, B("x")),
+	         ERR_NOT_NEWER);
+	// dowlle's releases are signed by dowlle's key: never installed here.
+	CHECK_EQ(VerifyMinisign(key, B(kManifest024), kSig024, nullptr), ERR_SIG_KEY_ID);
+	CHECK_EQ(VerifyRelease(AP_UPDATE_PUBLIC_KEY, B(kManifest024), kSig024, "v0.2.4", "v0.2.3", PLATFORM_WINDOWS,
+	                       B("x")),
+	         ERR_SIG_KEY_ID);
 }
 
 static void TestSignatureFailures()
@@ -1564,21 +1590,21 @@ static void TestAllowlist()
 	std::string host, path;
 	CHECK(AllowedUrl(LatestReleaseUrl(), false, host, path) && host == "api.github.com");
 	CHECK(AllowedUrl(AssetUrl(kTag, "manifest.json"), false, host, path) && host == "github.com" &&
-	      path == "/dowlle/ctr-native-ap/releases/download/v0.3.1/manifest.json");
+	      path == "/Decryptu/ctr-decrypted/releases/download/v0.3.1/manifest.json");
 	CHECK(AllowedUrl("https://objects.githubusercontent.com/github-production-release-asset/1?x=y", true, host, path));
 	CHECK(AllowedUrl("https://release-assets.githubusercontent.com/github-production-release-asset/1", true, host, path));
 	CHECK(!AllowedUrl("https://objects.githubusercontent.com/x", false, host, path)); // only via redirect
-	CHECK(!AllowedUrl("http://github.com/dowlle/ctr-native-ap/releases/download/v0.3.1/x", true, host, path));
+	CHECK(!AllowedUrl("http://github.com/Decryptu/ctr-decrypted/releases/download/v0.3.1/x", true, host, path));
 	CHECK(!AllowedUrl("https://github.com/someone/ctr-native-ap/releases/download/v0.3.1/x", true, host, path));
-	CHECK(!AllowedUrl("https://github.com/dowlle/ctr-native-ap/releases/download/../../x", true, host, path));
-	CHECK(!AllowedUrl("https://evil.example/dowlle/ctr-native-ap/releases/download/v1/x", true, host, path));
-	CHECK(!AllowedUrl("https://github.com.evil.example/dowlle/ctr-native-ap/releases/download/v1/x", true, host, path));
-	CHECK(!AllowedUrl("https://user@github.com/dowlle/ctr-native-ap/releases/download/v1/x", true, host, path));
-	CHECK(!AllowedUrl("https://github.com:8443/dowlle/ctr-native-ap/releases/download/v1/x", true, host, path));
-	CHECK(!AllowedUrl("https://api.github.com/repos/dowlle/ctr-native-ap/releases/latest", true, host, path));
+	CHECK(!AllowedUrl("https://github.com/Decryptu/ctr-decrypted/releases/download/../../x", true, host, path));
+	CHECK(!AllowedUrl("https://evil.example/Decryptu/ctr-decrypted/releases/download/v1/x", true, host, path));
+	CHECK(!AllowedUrl("https://github.com.evil.example/Decryptu/ctr-decrypted/releases/download/v1/x", true, host, path));
+	CHECK(!AllowedUrl("https://user@github.com/Decryptu/ctr-decrypted/releases/download/v1/x", true, host, path));
+	CHECK(!AllowedUrl("https://github.com:8443/Decryptu/ctr-decrypted/releases/download/v1/x", true, host, path));
+	CHECK(!AllowedUrl("https://api.github.com/repos/Decryptu/ctr-decrypted/releases/latest", true, host, path));
 	CHECK(!AllowedUrl("https://api.github.com/repos/other/repo/releases/latest", false, host, path));
 	CHECK(!AllowedUrl("/relative/path", true, host, path));
-	CHECK(!AllowedUrl("https://github.com/dowlle/ctr-native-ap/releases/download/v1/a b", true, host, path));
+	CHECK(!AllowedUrl("https://github.com/Decryptu/ctr-decrypted/releases/download/v1/a b", true, host, path));
 }
 
 // ── Linux executable swap without hard links, marker and folder-sync faults ──
@@ -1890,6 +1916,41 @@ static void TestSoloRuntime()
 	CHECK(NewRuntime(in) && SoloUntouched(in) && !real.exists(nullptr, dir + "/solo-runtime.old"));
 	ConfirmStarted(real, in.exe);
 	CleanRuntime(in);
+
+	// The executable in a child of the game's base folder: ctr.apworld and the
+	// runtime install where Play Solo reads them, beside solo/.
+	{
+		const std::string base = dir + "/base";
+		const std::string game = base + "/game";
+		const std::string exe = game + "/ctr_native_ap";
+		MakeDirs(game);
+		WriteText(exe, "OLD EXE");
+		Put(base, "ctr.apworld", "OLD WORLD");
+		Put(base, "solo-runtime/RUNTIME.txt", "OLD ID");
+		Put(base, "solo-runtime/stale.py", "STALE");
+		Put(base, "solo/room.archipelago", "SEED");
+		SetBaseDir(base + "/");
+		SetAssetDir(base + "/assets");
+		CHECK(TargetPath(exe, "ctr.apworld") == base + "/ctr.apworld");
+		CHECK(TargetPath(exe, kRtPy) == base + "/" + kRtPy);
+		CHECK_EQ(Stage(real, exe, RuntimeSet(), staged), OK);
+		CHECK(!real.exists(nullptr, game + "/solo-runtime.update"));
+		CHECK_EQ(Apply(real, exe, staged, "v0.3.1"), OK);
+		CHECK(ReadText(exe) == "NEW EXE");
+		CHECK(ReadText(base + "/ctr.apworld") == "NEW WORLD");
+		CHECK(ReadText(base + "/" + kRtId) != "OLD ID");
+		CHECK(real.exists(nullptr, base + "/" + kRtPy));
+		CHECK(!real.exists(nullptr, base + "/solo-runtime/stale.py"));
+		CHECK(!real.exists(nullptr, game + "/ctr.apworld") && !real.exists(nullptr, game + "/solo-runtime"));
+		CHECK(ReadText(base + "/solo/room.archipelago") == "SEED");
+		CHECK_EQ((int)StartupCheck(real, exe, "v0.3.1"), (int)STARTUP_UPDATED);
+		ConfirmStarted(real, exe);
+		CHECK(!real.exists(nullptr, base + "/solo-runtime.old") && !real.exists(nullptr, base + "/ctr.apworld.old"));
+		SetBaseDir("");
+		SetAssetDir("");
+		CHECK(TargetPath(exe, "ctr.apworld") == game + "/ctr.apworld");
+		CHECK(std::system(("rm -rf '" + base + "'").c_str()) == 0);
+	}
 
 	// A failure at either folder rename, or at the executable after the
 	// folder moved: everything back, the old runtime in place, nothing staged.

@@ -1,7 +1,7 @@
 # How custom tracks load in this fork
 
-This is for CTR Native modders who want to know how this fork
-(`dowlle/ctr-native-ap`) loads community tracks: what a package is, where the
+This is for CTR Native modders who want to know how CTR Decrypted
+(built on `dowlle/ctr-native-ap`) loads community tracks: what a package is, where the
 files live, which engine functions the loading path goes through, and what
 memory it needs. References are `file: function` in this repository. The
 freestanding headers named below carry the full reasoning in their comments,

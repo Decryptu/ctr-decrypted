@@ -207,6 +207,8 @@ tools/test-trap-scheduler.c
 tools/test-mirror-model-cull.c
 tools/test-turbo-grant.c
 tools/test-update-core.cpp
+tools/test-update-menu.c
+tools/test-update-solo-gate.cpp
 tools/test-verify-020.c
 tools/test-verify-families.cpp
 tools/test-verify-parity-329.c
@@ -254,3 +256,4 @@ tools/test-content-plan-parity.py skip needs a paired apworld checkout and the A
 tools/test-arcade-crystals-production.py
 tools/test-reverse-camera-production.py
 tools/test-xdelta-import.cpp
+cmd No links or keys pointing at dowlle's repository :: python3 tools/decrypted/check_upstream_refs.py

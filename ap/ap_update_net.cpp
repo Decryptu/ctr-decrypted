@@ -47,14 +47,14 @@ const Platform kPlatform = PLATFORM_WINDOWS;
 const Platform kPlatform = PLATFORM_LINUX;
 #endif
 
-const char kUserAgent[] = "ctr-native-ap-updater";
+const char kUserAgent[] = "ctr-decrypted-updater";
 
 struct State
 {
 	std::mutex mutex;
 	int status = AP_UPD_IDLE;
 	std::string tag;          // offered release
-	std::string running;      // CTR_AP_COMPAT_VERSION
+	std::string running;      // CTR_AP_VERSION
 	std::string detail;
 	int progress = -1;
 	std::string exe;          // installed executable, resolved once at startup
@@ -155,7 +155,7 @@ bool HttpsGet(const std::string &host, const std::string &path, size_t maxBody, 
 	body.clear();
 	location.clear();
 	status = 0;
-	HINTERNET session = WinHttpOpen(L"ctr-native-ap-updater", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
+	HINTERNET session = WinHttpOpen(L"ctr-decrypted-updater", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
 	                                WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
 	if (!session)
 	{
@@ -681,6 +681,16 @@ extern "C" void ap_update_set_asset_dir(const char *dir)
 	const bool absolute = dir[0] == '/' || dir[0] == '\\' || (dir[0] && dir[1] == ':');
 	if (absolute)
 		SetAssetDir(dir);
+}
+
+extern "C" void ap_update_set_base_dir(const char *dir)
+{
+	// Only an absolute path is taken; anything else keeps the exe folder.
+	if (!dir || !*dir)
+		return;
+	const bool absolute = dir[0] == '/' || dir[0] == '\\' || (dir[0] && dir[1] == ':');
+	if (absolute)
+		SetBaseDir(dir);
 }
 
 extern "C" int ap_update_startup(const char *running_tag)

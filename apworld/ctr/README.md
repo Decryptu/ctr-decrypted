@@ -6,7 +6,7 @@ This world targets the native PC client [`ctr-native-ap`](https://github.com/dow
 
 The randomization design builds on Icebound777's CTR randomizer (MIT), and this project carries the native path forward with his blessing. The foundational work, and the credit for it, stays with him and Taor.
 
-Releases ship as a pair (client + `ctr.apworld`) on the [client's releases page](https://github.com/dowlle/ctr-native-ap/releases).
+Releases ship as a pair (client + `ctr.apworld`) on the [client's releases page](https://github.com/Decryptu/ctr-decrypted/releases).
 
 ## Playing and creating a YAML
 
@@ -18,7 +18,7 @@ The YAML Builder creates one player's configuration file. It does not generate t
 
 Always keep the client and `ctr.apworld` on the same release. Development source in this repository may be newer than the latest published player package.
 
-**Found a bug?** Please report it on the [client repo's issue tracker](https://github.com/dowlle/ctr-native-ap/issues), whichever half seems at fault - that is the single intake for the whole project. Issues that turn out to be purely generation-side get transferred here, and the link you posted keeps working.
+**Found a bug?** Please report it on the [client repo's issue tracker](https://github.com/Decryptu/ctr-decrypted/issues), whichever half seems at fault - that is the single intake for the whole project. Issues that turn out to be purely generation-side get transferred here, and the link you posted keeps working.
 
 ---
 

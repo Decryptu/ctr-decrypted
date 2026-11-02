@@ -52,7 +52,7 @@ the full walkthrough.
 
 ### Reporting a problem
 
-Bugs, crashes and stuck seeds go to the [issue tracker](https://github.com/dowlle/ctr-native-ap/issues/new/choose). Run `support-bundle.bat` (Windows) or `./support-bundle.sh` (Linux and Steam Deck) next to the executable and attach the archive it creates, together with your exact version, platform, and seed or YAML. For questions, use the [Crash Team Racing channel](https://discord.com/channels/731205301247803413/1222304293751750777) on the Archipelago Discord.
+Bugs, crashes and stuck seeds go to the [issue tracker](https://github.com/Decryptu/ctr-decrypted/issues/new/choose). Run `support-bundle.bat` (Windows) or `./support-bundle.sh` (Linux and Steam Deck) next to the executable and attach the archive it creates, together with your exact version, platform, and seed or YAML. For questions, use the [Crash Team Racing channel](https://discord.com/channels/731205301247803413/1222304293751750777) on the Archipelago Discord.
 
 ### Credits
 

@@ -3,7 +3,7 @@
 Crash Team Racing runs as a native PC port with the Archipelago client built in.
 It does not use an emulator or a ROM patch. The detailed and actively maintained
 client walkthrough is the
-[CTR Archipelago setup guide](https://github.com/dowlle/ctr-native-ap/blob/main/SETUP.md).
+[CTR Archipelago setup guide](https://github.com/Decryptu/ctr-decrypted/blob/main/SETUP.md).
 
 <!-- The native repository's SETUP.md is the canonical client guide. Keep this
 page focused on Archipelago generation and do not duplicate its troubleshooting
@@ -12,7 +12,7 @@ or platform instructions here. -->
 ## What you need
 
 - The release archive for your platform from the
-  [CTR Archipelago releases page](https://github.com/dowlle/ctr-native-ap/releases):
+  [CTR Archipelago releases page](https://github.com/Decryptu/ctr-decrypted/releases):
   the Windows `.zip`, or the Linux and Steam Deck `.tar.gz`.
 - Your own NTSC-U (North American) Crash Team Racing disc image. The client
   ships no game data. A raw MODE2/2352 `.bin` can be used directly; `.chd`
@@ -46,7 +46,7 @@ trap items.
 ## Setting up the client
 
 Follow the
-[canonical client setup guide](https://github.com/dowlle/ctr-native-ap/blob/main/SETUP.md)
+[canonical client setup guide](https://github.com/Decryptu/ctr-decrypted/blob/main/SETUP.md)
 to extract the release archive, add your disc image, connect from **OPTIONS →
 Connection**, configure controllers or Steam Input, and troubleshoot platform or
 disc-image errors.
@@ -58,6 +58,6 @@ the seed warning, and the current disconnect limitation.
 ## Getting help
 
 Report reproducible bugs and stuck seeds on the
-[CTR Archipelago issue tracker](https://github.com/dowlle/ctr-native-ap/issues).
+[CTR Archipelago issue tracker](https://github.com/Decryptu/ctr-decrypted/issues).
 The native guide explains how to create a privacy-scrubbed support bundle. New to
 Archipelago itself? Start with the [Archipelago tutorials](https://archipelago.gg/tutorial/).

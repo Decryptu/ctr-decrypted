@@ -217,6 +217,12 @@ int NativeDev_NoItems(void) { return NativeDev_State()->noItems; }
 int NativeDev_NoLevelDepth(void) { return NativeDev_State()->noLevelDepth; }
 int NativeDev_BotSpeedPercent(void) { return NativeDev_State()->botSpeed; }
 
+const char *NativeDev_UpdateAs(void)
+{
+	const char *value = getenv("CTR_DEV_UPDATE");
+	return (value != NULL && *value != '\0') ? value : NULL;
+}
+
 void NativeDev_NudgeCamera(int cameraID, short *pos, short *rot)
 {
 	NativeDevState *dev = NativeDev_State();

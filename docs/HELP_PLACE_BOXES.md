@@ -14,7 +14,7 @@ The release page has a separate download for this:
 `ctr-decrypted-vX.Y.Z-box-authoring-linux-x86.tar.gz` (Linux and Steam Deck).
 
 - Unzip it into a **new, empty folder**. Do not unzip it into your normal
-  CTR Archipelago folder.
+  CTR Decrypted folder.
 - Add your disc image to its `assets` folder, the same way as for the normal
   client (see `SETUP.md`, step 2).
 - Start `ctr_native_ap_authoring.exe` (Linux: `ctr_native_ap_authoring`). The
@@ -131,7 +131,7 @@ need. If you placed boxes on custom tracks, also send
 `ap-box-placements-custom-authoring.json` from the same folder.
 
 Open a
-[Box placement submission](https://github.com/dowlle/ctr-native-ap/issues/new?template=box_placement.yaml)
+[Box placement submission](https://github.com/Decryptu/ctr-decrypted/issues/new?template=box_placement.yaml)
 issue, drag the file (or both files) into the form, and say which tracks you
 worked on. If
 GitHub refuses the file, put it in a zip first. You need a free GitHub account
