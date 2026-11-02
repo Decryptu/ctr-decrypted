@@ -63,7 +63,7 @@ typedef struct
 	int raceFrame;
 	int warp;
 	int warpPos[4]; // x, y, z (world units), angle
-	int warpFrames;
+	int warpHeldMS;
 	u32 primPeak; // most primitive-arena bytes one frame used, printed at exit
 	int primPeakLevel;
 	int profile;      // CTR_DEV_PROFILE, -1 if unset
@@ -674,19 +674,21 @@ static void NativeDevRace_AdventureHub(NativeDevRaceState *dev, struct GameTrack
 }
 
 // CTR_DEV_WARP=x,y,z,angle: once a level has loaded, hold player 1 at that
-// world position and heading, at rest, for two seconds while the camera
-// settles, then let go. Works in the adventure hubs too. The position of a
-// player's F5 save is the kart Instance's matrix translation.
+// world position and heading, at rest, for two seconds of game time while the
+// camera settles, then let go: in a race that is before the lights at both
+// frame rates, so 30 and 60 FPS runs start from rest at race time 0. Works in
+// the adventure hubs too. The position of a player's F5 save is the kart
+// Instance's matrix translation.
 static void NativeDevRace_Warp(NativeDevRaceState *dev, struct GameTracker *gGT)
 {
 	if (!dev->warp || (gGT == NULL) || (sdata->Loading.stage != LOAD_IDLE) || (gGT->levelID == MAIN_MENU_LEVEL) || (gGT->drivers[0] == NULL))
 	{
-		dev->warpFrames = 0;
+		dev->warpHeldMS = 0;
 		return;
 	}
-	if (dev->warpFrames >= 120)
+	if (dev->warpHeldMS >= 2000)
 		return;
-	dev->warpFrames++;
+	dev->warpHeldMS += gGT->elapsedTimeMS;
 
 	struct Driver *d = gGT->drivers[0];
 	d->posCurr.x = d->posPrev.x = dev->warpPos[0] << 8;

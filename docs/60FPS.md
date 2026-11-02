@@ -106,25 +106,43 @@ work in both:
   - `CAM_FollowDriver_Normal`: the camera's speed and roll filters are
     retuned so two frames do what one 30 FPS frame does (`CAM_SmoothFrame`),
     and the damage pitch step and height smoothing use 60 FPS frame counts.
+  - Velocity conversions (`VehPhysForce_OnApplyForces`). Every frame retail
+    rebuilds the velocity from speed and two angles, turns it into the
+    kart's frame and back, and turns it into speed and angles again. Each
+    conversion shortens it a little (trig table entries and the rows of
+    `matrixMovingDir` are a hair under unit length, products truncate):
+    about 0.13% of the speed a frame, a drag nothing refills in the air,
+    downhill, above top speed or braking. Applied twice as often, it made
+    60 FPS lose speed faster in all of those. `VehCalc_KeepLossPerFrameTime`
+    lets a frame shorter than 32 ms keep only its share of each loss.
+  - Arcs (`COLL_MOVED_SetStepLead`). Retail moves the kart with its velocity
+    at the end of a 32 ms frame, after that frame's gravity and friction, so
+    its arcs trail exact motion by half a frame of those forces; a 16 ms
+    frame trails by half as much, and jumps flew higher and longer. The
+    sweep moves a shorter frame with the difference added, taken from the
+    velocity change across `VehPhysForce_OnGravity` (impulses such as jumps
+    and turbo kicks arrive through speed and are not led). The lead loses
+    its part into a surface the sweep hits, like the velocity does.
+  - Both do nothing in a 32 ms frame: 30 FPS stays retail bit for bit.
 - The checkered flag's "LOADING..." letters move every frame, each odd frame
   halfway between two 30 FPS positions, instead of jumping 60 pixels every
   other frame.
 
 ## Known differences from 30 FPS
 
-- **Curved kickers.** The physics integrate in 16 ms steps, so on a curved
-  kicker the kart follows the curve one step further before leaving it and
-  launches a little higher (Dingo Canyon's kicker before the canyon: apex
-  rise 24 at 30 FPS, 31 to 33 at 60). Gravity per second matches. Retail-exact
-  physics would need a fixed 30 Hz simulation with interpolated rendering
-  (ROADMAP, Maybe).
+- **Curved kickers.** The kart touches a ramp once a frame, and leaves with
+  the direction of the last facet it touched. At 30 FPS that last touch is
+  on average half a 32 ms frame of travel before the lip, at 60 half as far,
+  so on a ramp that curves up it leaves a little steeper (Dingo Canyon's
+  valley kicker, same input: apex rise 19 at 30 FPS, 22 at 60). This is
+  where each rate samples the ramp, not a timing error; gravity on the arc
+  and air speed after the lip match.
 - **Input lands a frame sooner.** Both rates read the pad one frame before
   the physics act on it, which is 16 ms at 60 and 33 at 30, so a 60 FPS kart
   turns slightly earlier and scripted 30/60 runs part after a few seconds.
-- **Braking** sheds about 4% more speed per second at 60 (Crash Cove's start
-  straight: 8.7 against 8.4 units/ms). `speedApprox` reads about half an
-  acceleration step lower at full throttle (it includes this frame's
-  impulse); the velocity itself matches.
+- **`speedApprox`** reads about half an acceleration step lower at full
+  throttle (it includes this frame's impulse, half as large at 60); the
+  velocity itself matches.
 - **Displays that are not 60 Hz.** On a 60 Hz display every frame stays one
   refresh at 60 FPS and two at 30, with VSync Off, On or Adaptive. 60 does not
   divide 144, so on a fixed 144 Hz display frames alternate between two and
@@ -139,10 +157,13 @@ work in both:
   closed loop and never boosts, so its laps vary by a few percent even at one
   frame rate, and more where it falls into a gap a different number of times
   (Hot Air Skyway, Papu's Pyramid, Cortex Castle; it never finishes N. Gin
-  Labs or Polar Pass). Read it for stalls and falls that happen at one rate
-  only (a lap minutes longer), and use `fps-drive.ps1` for anything smaller.
-  Jumps launched from the same spot land within a 30 FPS frame of airtime,
-  curved kickers aside.
+  Labs or Polar Pass). On Hot Air Skyway a respawn just before a gap can
+  loop it for minutes at either rate: from that standstill the gap cannot be
+  cleared, and only a different line gets it out. Read it for stalls and
+  falls that happen at one rate only, and use `fps-drive.ps1` for anything
+  smaller. Matched jumps average within 10 ms of airtime and a few units of
+  apex across the tracks; braking, downhill speed and air speed match
+  within about 1% under the same input.
   With `-Ghosts`, a 30 FPS ghost raced at 60 stays as close to its recording
   run as at 30.
 - `tools/decrypted/fps-drive.ps1` drives the same scripted input

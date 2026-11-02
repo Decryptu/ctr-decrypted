@@ -19,6 +19,7 @@ param(
 	[int]$Track = 3,
 	[Parameter(Mandatory)][string]$Drive,
 	[int]$Until = 4000,
+	[hashtable]$Env = @{},           # more switches for both runs, e.g. @{CTR_DEV_WARP='5838,2374,7579,2683'}
 	[string]$Out = "$env:TEMP\ctrdev\fpsdrive",
 	[string]$Exe = "$PSScriptRoot\..\..\build-vanilla\ctr_native.exe"
 )
@@ -26,11 +27,12 @@ $ErrorActionPreference = 'Stop'
 New-Item -ItemType Directory -Force $Out | Out-Null
 
 $jobs = foreach ($fps60 in 'false', 'true') {
-	Start-Job -ArgumentList $fps60, $Track, $Drive, $Out, (Resolve-Path $Exe).Path, $PSScriptRoot -ScriptBlock {
-		param($fps60, $track, $drive, $out, $exe, $tools)
+	Start-Job -ArgumentList $fps60, $Track, $Drive, $Out, (Resolve-Path $Exe).Path, $PSScriptRoot, $Env -ScriptBlock {
+		param($fps60, $track, $drive, $out, $exe, $tools, $extra)
 		$dir = Join-Path $out $fps60
 		New-Item -ItemType Directory -Force $dir | Out-Null
 		$envs = @{ CTR_DEV_RACE = $track; CTR_DEV_MODE = 'tt'; CTR_DEV_DRIVE = $drive; CTR_DEV_TRACE = "$dir\trace.csv" }
+		foreach ($k in $extra.Keys) { $envs[$k] = $extra[$k] }
 		# The lights take about 1,200 frames at 30 FPS; the cap ends the run
 		# well after -Until, which the comparison trims to.
 		& "$tools\devrun.ps1" -Exe $exe -RunDir (Join-Path $out "run-$fps60") -Track -1 -Frames 6000 -From 1000000 -Out $dir `

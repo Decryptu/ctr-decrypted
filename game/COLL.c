@@ -1824,12 +1824,28 @@ internal void CollMoved_PlayerSearch_StoreHitbox(struct ScratchpadStruct *sps)
 	sps->numBspHitboxesHit++;
 }
 
+#if CTR_NATIVE_60FPS
+static Vec3 sCollMovedStepLead[8];
+
+void COLL_MOVED_SetStepLead(const struct Driver *d, const Vec3 *lead)
+{
+	sCollMovedStepLead[d->driverID] = *lead;
+}
+#endif
+
 void COLL_MOVED_PlayerSearch(struct Thread *t, struct Driver *d)
 {
 	struct GameTracker *gGT = sdata->gGT;
 	struct ScratchpadStruct *sps = CTR_SCRATCHPAD_PTR(struct ScratchpadStruct, 0x108);
 	s32 multiplier = COLL_FRACTION_ONE;
 	s16 hitRadius = COLL_MOVED_PLAYER_HIT_RADIUS;
+#if CTR_NATIVE_60FPS
+	Vec3 lead = sCollMovedStepLead[d->driverID];
+
+	sCollMovedStepLead[d->driverID] = (Vec3){0, 0, 0};
+#else
+	const Vec3 lead = {0, 0, 0};
+#endif
 
 	sps->Input1.hitRadius = hitRadius;
 	sps->Input1.hitRadiusSquared = hitRadius * hitRadius;
@@ -1854,9 +1870,9 @@ void COLL_MOVED_PlayerSearch(struct Thread *t, struct Driver *d)
 	for (s32 iterations = 15; iterations != 0; iterations--)
 	{
 		Vec3 velocity = {
-		    .x = CollMoved_PlayerSearch_StepVelocity(d->velocity.x, gGT->elapsedTimeMS, multiplier),
-		    .y = CollMoved_PlayerSearch_StepVelocity(d->velocity.y, gGT->elapsedTimeMS, multiplier),
-		    .z = CollMoved_PlayerSearch_StepVelocity(d->velocity.z, gGT->elapsedTimeMS, multiplier),
+		    .x = CollMoved_PlayerSearch_StepVelocity(d->velocity.x + lead.x, gGT->elapsedTimeMS, multiplier),
+		    .y = CollMoved_PlayerSearch_StepVelocity(d->velocity.y + lead.y, gGT->elapsedTimeMS, multiplier),
+		    .z = CollMoved_PlayerSearch_StepVelocity(d->velocity.z + lead.z, gGT->elapsedTimeMS, multiplier),
 		};
 
 		sps->boolDidTouchQuadblock = 0;
@@ -1918,6 +1934,9 @@ void COLL_MOVED_PlayerSearch(struct Thread *t, struct Driver *d)
 
 			sps->Union.QuadBlockColl.searchFlags &= ~COLL_SEARCH_REUSE_NORMALS;
 			d->collisionFlags &= ~DRIVER_COLL_FLAG_SURFACE_PUSHBACK;
+#if CTR_NATIVE_60FPS
+			lead = (Vec3){0, 0, 0};
+#endif
 
 			s32 hitboxResult = CollMoved_PlayerSearch_RunHitboxLInC(sps, t);
 			u8 hitboxId = Coll_BspHitboxClass(bspHitbox);
@@ -1986,6 +2005,19 @@ void COLL_MOVED_PlayerSearch(struct Thread *t, struct Driver *d)
 			d->spsNormalVec = sps->hit.plane.normal;
 
 			u32 impactResult = COLL_MOVED_ScrubImpact(d, t, sps, scrub, &d->velocity);
+#if CTR_NATIVE_60FPS
+			{
+				const SVec3 *n = &sps->hit.plane.normal;
+				const s32 into = CTR_MipsSra(lead.x * n->x + lead.y * n->y + lead.z * n->z, 12);
+
+				if (into < 0)
+				{
+					lead.x -= CTR_MipsSra(into * n->x, 12);
+					lead.y -= CTR_MipsSra(into * n->y, 12);
+					lead.z -= CTR_MipsSra(into * n->z, 12);
+				}
+			}
+#endif
 			if (impactResult == 2)
 			{
 				return;

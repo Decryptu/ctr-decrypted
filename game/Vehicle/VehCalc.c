@@ -48,6 +48,69 @@ int VehCalc_FrameStep(int rate, int elapsedMS)
 	}
 	return CTR_MipsSubLo(CTR_MipsSra(CTR_MipsMulLo(rate, CTR_MipsSll(elapsedMS, 1)), 5), step);
 }
+
+// The length of (x, y, z), with 8 fractional bits.
+int VehCalc_Length8(int x, int y, int z)
+{
+	u64 n = (u64)((s64)x * x + (s64)y * y + (s64)z * z) << 16;
+	u64 root = 0;
+	u64 bit = (u64)1 << 62;
+
+	while (bit > n)
+	{
+		bit >>= 2;
+	}
+	while (bit != 0)
+	{
+		if (n >= root + bit)
+		{
+			n -= root + bit;
+			root = (root >> 1) + bit;
+		}
+		else
+		{
+			root >>= 1;
+		}
+		bit >>= 2;
+	}
+	return (int)root;
+}
+
+static int VehCalc_ScaleRounded(int value, s64 num, s64 den)
+{
+	const s64 product = (s64)value * num;
+	return (int)((product >= 0 ? product + den / 2 : product - den / 2) / den);
+}
+
+// Every frame retail turns the kart's velocity into other forms and back
+// (VehPhysForce_OnApplyForces): speed and angles into a vector, the vector into
+// the kart's frame and out again. Each conversion shortens it a little, since
+// trig table entries and the rows of matrixMovingDir are a hair under unit
+// length and every product is truncated: together about 0.13% of the speed,
+// a drag retail applies once per 32 ms frame. Call this after a conversion of
+// a vector that measured lengthBefore8 (VehCalc_Length8) going in: a shorter
+// frame keeps only its share of the loss, half at 60 FPS, so the drag per
+// second stays retail's. A 32 ms frame keeps all of it, bit for bit.
+void VehCalc_KeepLossPerFrameTime(Vec3 *v, int lengthBefore8)
+{
+	const int elapsedMS = sdata->gGT->elapsedTimeMS;
+	int lengthAfter8;
+	s64 target8;
+
+	if (elapsedMS >= 32)
+	{
+		return;
+	}
+	lengthAfter8 = VehCalc_Length8(v->x, v->y, v->z);
+	if (lengthAfter8 == 0)
+	{
+		return;
+	}
+	target8 = lengthAfter8 + (s64)(lengthBefore8 - lengthAfter8) * (32 - elapsedMS) / 32;
+	v->x = VehCalc_ScaleRounded(v->x, target8, lengthAfter8);
+	v->y = VehCalc_ScaleRounded(v->y, target8, lengthAfter8);
+	v->z = VehCalc_ScaleRounded(v->z, target8, lengthAfter8);
+}
 #endif
 
 // NOTE(aalhendi): ASM-verified NTSC-U 926 0x80058f9c-0x8005900c.

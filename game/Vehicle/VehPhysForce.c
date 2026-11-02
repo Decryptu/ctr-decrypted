@@ -233,6 +233,16 @@ void VehPhysForce_OnGravity(struct Driver *driver, Vec3 *velocity)
 		localY = MFC2_S(26);
 		localZ = MFC2_S(27);
 	}
+#if CTR_NATIVE_60FPS
+	{
+		Vec3 local = {localX, localY, localZ};
+
+		VehCalc_KeepLossPerFrameTime(&local, VehCalc_Length8((s16)velocity->x, (s16)velocity->y, (s16)velocity->z));
+		localX = local.x;
+		localY = local.y;
+		localZ = local.z;
+	}
+#endif
 	gameTracker = GAME_TRACKER;
 	gravityConstant = driver->const_Gravity;
 	CTR_PSX_OBSERVE_VALUE(gravityConstant);
@@ -836,6 +846,9 @@ void VehPhysForce_OnGravity(struct Driver *driver, Vec3 *velocity)
 		CTR_PSX_KEEP_VALUE(outputVelocity);
 		CTR_PSX_STORE_COP2_VEC3(&outputVelocity->x, 25, 26, 27);
 	}
+#if CTR_NATIVE_60FPS
+	VehCalc_KeepLossPerFrameTime(velocity, VehCalc_Length8((s16)localX, (s16)localY, (s16)localZ));
+#endif
 	driver->actionsFlagSet = actionsFlagSet;
 
 	if ((actionsFlagSet & ACTION_AIRBORNE) == 0)
@@ -955,6 +968,9 @@ void VehPhysForce_OnApplyForces(struct Thread *thread, struct Driver *driver)
 	CTR_PSX_STORE_COP2_WORD(&driver->originToCenter.z, 27);
 
 	VehPhysForce_ConvertSpeedToVec(driver, &driver->velocity);
+#if CTR_NATIVE_60FPS
+	VehCalc_KeepLossPerFrameTime(&driver->velocity, CTR_MipsSll(driver->speed, 8));
+#endif
 
 	if ((driver->underDriver) && (driver->underDriver->terrain_type == TERRAIN_MUD))
 	{
@@ -969,7 +985,30 @@ void VehPhysForce_OnApplyForces(struct Thread *thread, struct Driver *driver)
 		}
 	}
 
+#if CTR_NATIVE_60FPS
+	{
+		// Retail moves the kart with its velocity at the end of a 32 ms frame,
+		// after the whole frame of gravity and friction, so its arcs trail exact
+		// motion by half a frame of those forces. A shorter frame trails by less;
+		// the sweep moves it with the difference added (COLL_MOVED_SetStepLead),
+		// so jumps fly retail's arcs. Impulses (jumps, turbo kicks, crashes) come
+		// through speed, not here, and are not led.
+		const Vec3 velocityBefore = driver->velocity;
+		const int elapsedMS = GAME_TRACKER->elapsedTimeMS;
+		Vec3 lead = {0, 0, 0};
+
+		VehPhysForce_OnGravity(driver, &driver->velocity);
+		if ((elapsedMS > 0) && (elapsedMS < 32))
+		{
+			lead.x = (driver->velocity.x - velocityBefore.x) * (32 - elapsedMS) / (2 * elapsedMS);
+			lead.y = (driver->velocity.y - velocityBefore.y) * (32 - elapsedMS) / (2 * elapsedMS);
+			lead.z = (driver->velocity.z - velocityBefore.z) * (32 - elapsedMS) / (2 * elapsedMS);
+		}
+		COLL_MOVED_SetStepLead(driver, &lead);
+	}
+#else
 	VehPhysForce_OnGravity(driver, &driver->velocity);
+#endif
 
 	accelX = driver->accel.x;
 	CTR_PSX_KEEP_VALUE(accelX);
