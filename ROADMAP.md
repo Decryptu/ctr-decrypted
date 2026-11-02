@@ -21,7 +21,6 @@ Roughly in this order.
 
 | Item | Source |
 |---|---|
-| Upstream status check (mid): one command that shows, for dowlle (`main`, `dev/custom-pad-0.3.0`, its feature branches and the apworld's `worlds/ctr`), ctr-native and High Octane, the last commit we integrated and what is new since, so we always know how far behind we are. The High Octane features already ported get listed the same way | Owner request, 2026-10-31. Today `tools/decrypted/sync-upstream.ps1` imports a branch and [UPSTREAM-ISSUES.md](docs/UPSTREAM-ISSUES.md) snapshots the trackers, but nothing tracks what is integrated |
 | Easy download and update (mid): one download for players and an in-game "update available, install?" with one click. Start from 0.3.0's signed updater (`ap/ap_update.c`) and point it at our releases | Owner request, 2026-10-31 |
 | First-launch setup (mid): a guided screen the first time the game starts: find the player's disc image, set up Archipelago (server, slot name, password) and a few basic options, so nobody edits `config.ini` | Owner request, 2026-10-31 |
 | Save backups (mid): keep the last few copies of the save and Archipelago progress automatically, with a restore option in the menu | Owner request, 2026-10-31 |

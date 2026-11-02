@@ -14,11 +14,7 @@ CTR-tools/CTR-ModSDK            decompilation (now only mods and OnlineCTR)
 
 All four are GPL-3.0. dowlle's `ctr.apworld` is MIT.
 
-| | Merge-base with ctr-native | Behind ctr-native | Notes |
-|---|---|---|---|
-| High Octane (`vita`) | 2026-07-16 | 118 commits | Last real upstream merge 2026-07-17 |
-| ctr-native-ap (`main`) | 2026-07-02 | 201 commits | Syncs by cherry-pick. `dev/custom-pad-0.3.0` is ~230 commits ahead of `main`; we merge it and its feature branches (see DEVELOPMENT.md, Syncing upstream) |
-| ctr-decrypted (`dev`) | 2026-10-20 | 0 commits | Merged through `clean/ctr-native-master` (see DEVELOPMENT.md, Syncing upstream) |
+How far behind each one we are, and which High Octane commits we ported: `python tools/decrypted/upstream_status.py` ([DEVELOPMENT.md](DEVELOPMENT.md#syncing-upstream)).
 
 ## CTR-tools/ctr-native
 **State:**
@@ -55,7 +51,7 @@ All four are GPL-3.0. dowlle's `ctr.apworld` is MIT.
 - Heavy divergence: 709 files changed against the merge-base, and about 78 files carry `__vita__` ifdefs.
 - The Vita build can't be reproduced from the public repo (needs a patched SDL3 and private shader blobs).
 
-**Features it adds:**
+**Features it adds** (`tools/decrypted/highoctane.txt` records what we did with each commit):
 - Graphics:
   - 60 FPS (runtime option)
   - 960x544 internal resolution, MSAA on Vita, FXAA on PC
