@@ -25,7 +25,7 @@ And in OPTIONS:
 - **Screen filters**: Sharp Bilinear, FXAA, Scanlines, CRT ([docs/SCREEN-FILTERS.md](docs/SCREEN-FILTERS.md)).
 - **Extras**: reserves meter, kept reserve fire, blue fire at Ultimate Speed Fire, slide meter gradient, cyan super pads ([docs/EXTRAS.md](docs/EXTRAS.md)).
 - **Playable N. Oxide**, unlocked by beating him in Adventure.
-- Widescreen, render scale, increased draw distance, remappable controls, and native Switch 2 Pro Controller support (with Steam closed).
+- Widescreen, render scale, increased draw distance (with no far scenery dropping out: [docs/LEVEL-VISIBILITY.md](docs/LEVEL-VISIBILITY.md)), remappable controls, and native Switch 2 Pro Controller support (with Steam closed).
 - The one-player camera distance you pick with `L2` is kept across races, hubs and sessions (`camera_far` under `[State]` in `config.ini`). Split screen starts near, as the original does. The map or speedometer you pick with `Triangle` is kept the same way (`hud_speedometer`).
 
 ## Getting started

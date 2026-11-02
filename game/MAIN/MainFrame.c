@@ -811,6 +811,28 @@ void MainFrame_VisMemFullFrame(struct GameTracker *gGT, struct Level *level)
 				memcpy(visMem->visSCVertList[playerIndex], level->visSCVertSrc, ((level->numSCVert + 0x1f) >> 5) << 2);
 			}
 		}
+
+#if defined(CTR_NATIVE)
+		// The lists above are the level's precomputed visibility, picked from
+		// the quadblock under the camera. They were baked for the retail view:
+		// 4:3, the retail draw distance and the camera heights the developers
+		// sampled. Widescreen, the far camera and increase_draw_distance see
+		// past them, and whole stretches of far road and sky vanish from one
+		// step to the next (docs/LEVEL-VISIBILITY.md). They only saved PS1 time,
+		// so native draws every level face and animates every water and
+		// vertex-colour vertex; the frustum and draw distance still cull.
+		// CTR_DEV_RETAIL_PVS=1 keeps the retail lists, for A/B captures.
+		// Instances keep their lists: warp pads and cutscenes read them.
+		if (!NativeDev_RetailPvs())
+		{
+			memset(visMem->visLeafList[playerIndex], 0xff, ((mesh->numBspNodes + 0x1f) >> 5) << 2);
+			memset(visMem->visFaceList[playerIndex], 0xff, ((mesh->numQuadBlock + 0x1f) >> 5) << 2);
+			if (((level->configFlags & 4) == 0) && (visMem->visOVertList[playerIndex] != NULL))
+				memset(visMem->visOVertList[playerIndex], 0xff, ((level->numWaterVertices + 0x1f) >> 5) << 2);
+			if (((level->configFlags & 4) != 0) && (visMem->visSCVertList[playerIndex] != NULL))
+				memset(visMem->visSCVertList[playerIndex], 0xff, ((level->numSCVert + 0x1f) >> 5) << 2);
+		}
+#endif
 	}
 }
 

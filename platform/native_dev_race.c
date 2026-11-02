@@ -63,6 +63,8 @@ typedef struct
 	int warp;
 	int warpPos[4]; // x, y, z (world units), angle
 	int warpFrames;
+	u32 primPeak; // most primitive-arena bytes one frame used, printed at exit
+	int primPeakLevel;
 } NativeDevRaceState;
 
 static NativeDevRaceState s_devRace;
@@ -658,6 +660,18 @@ void NativeDev_RaceFrame(void)
 	NativeDevRace_AdventureHub(dev, gGT);
 	NativeDevRace_Warp(dev, gGT);
 
+	// The frame just drawn is still in the back buffer's primitive arena.
+	if ((gGT != NULL) && (gGT->backBuffer != NULL))
+	{
+		const struct PrimMem *pm = &gGT->backBuffer->primMem;
+		const u32 used = (u32)((u8 *)pm->cursor - (u8 *)pm->start);
+		if (used > dev->primPeak)
+		{
+			dev->primPeak = used;
+			dev->primPeakLevel = gGT->levelID;
+		}
+	}
+
 	if (d == NULL)
 	{
 		dev->raceFrame = 0;
@@ -776,6 +790,7 @@ void NativeDev_RaceFrame(void)
 
 void NativeDev_RaceShutdown(void)
 {
+	Platform_Log("[CTR Dev] primitive arena peak %u of %u bytes (level %d)\n", s_devRace.primPeak, Platform_GetPrimArenaSize(), s_devRace.primPeakLevel);
 	if (s_devRace.trace != NULL)
 	{
 		fclose(s_devRace.trace);

@@ -50,6 +50,7 @@ All of these are read once, by `platform/native_dev.c` (`include/platform/native
 | `CTR_DEV_CAPTURE=<n>` | At frame n, capture as `F7` would ([Capturing while playing](#capturing-a-frame-while-playing)) |
 | `CTR_DEV_WARP=<x>,<y>,<z>,<angle>` | Once a level has loaded (the adventure hubs too), hold player 1 at that world position and heading, at rest, for 120 frames, then let go. In a race it also clears the checkpoint progress, so the mask-grab check does not take the kart back to where it was. Drop it a little above the road (trace `y` + 50). Reaches a spot a player reported in any build, unlike a savestate. In the adventure hub, add `CTR_DEV_PAD=4050:2` for the far camera once Aku Aku's hint ends, and capture from frame 4100 |
 | `CTR_DEV_NO_LEVEL_DEPTH=1` | Draw the level in ordering-table order only, as the PS1 does, for A/B captures of the [level depth test](PGXP.md#level-depth-test) |
+| `CTR_DEV_RETAIL_PVS=1` | Draw the level with its retail visibility lists, for A/B captures ([LEVEL-VISIBILITY.md](LEVEL-VISIBILITY.md)). A dev run also logs `[CTR Dev] primitive arena peak`: the most primitive-arena bytes one frame used |
 | `CTR_PGXP_DEBUG=1..4` | PGXP tints, see [PGXP.md](PGXP.md#debugging) |
 | `CTR_DEV_RACE=<LevelID>` | The title menu starts a one-player race on that track instead of the demo, with nobody at the controls unless the autopilot drives |
 | `CTR_DEV_MODE=tt` | Make `CTR_DEV_RACE` a Time Trial (default Arcade). `CTR_DEV_LAPS=n` sets the Arcade lap count |
@@ -90,7 +91,7 @@ Frame numbers count every presented frame, the boot splash included. Frames show
 ## Capturing a frame while playing
 
 Some bugs only show where a player drives. Press `F7` while one is on screen (every build has it). Each press makes its own folder, `debug/captures/<date>-<time>` next to the game, so nothing is overwritten. In it:
-- `state.ctrstates`: a savestate of that moment. Replay it with `CTR_DEV_STATE_FILE=<it>` and `CTR_DEV_LOAD_STATE=1300` on the exact exe that made it (keep a copy), and the next frame is pixel-identical to the player's.
+- `state.ctrstates`: a savestate of that moment. Replay it with `CTR_DEV_STATE_FILE=<it>` and `CTR_DEV_LOAD_STATE=1300` on the exact exe that made it (keep a copy), and the next frame is pixel-identical to the player's. A rebuilt exe crashes loading it, so to test a change at the spot, warp there with `where.txt` instead.
 - `where.txt`: the level, player 1's position and heading as a ready `CTR_DEV_WARP=` line for any later build, the camera's position and rotation, and the view settings (`camera_far`, aspect, draw distance, render scale, PGXP).
 - `polys-NNNNNN.txt`, `fNNNNNN.bmp`, `vramNNNNNN.bin`: the next frame's polygon dump (the `CTR_DEV_DUMP_FRAME` format), image and VRAM. `pgxp_cracks.py`, `vram_png.py` and a short script over the dump show which polygons drew it.
 
