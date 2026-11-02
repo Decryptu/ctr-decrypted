@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #ifdef _WIN32
 #include <direct.h>
 #define NativeDev_MakeDir(path) _mkdir(path)
@@ -13,7 +14,7 @@
 #define NativeDev_MakeDir(path) mkdir(path, 0755)
 #endif
 
-// F7 in a running game: where the frame capture goes.
+// F7 in a running game: each press gets its own folder in here.
 #define NATIVE_DEV_CAPTURE_DIR "debug/captures"
 
 // Reads the main render target (the frame at render scale) as bottom-up RGBA.
@@ -42,7 +43,8 @@ typedef struct
 	int frame;
 	int presentedShot; // capture what reaches the window, after the screen filter
 	int vramDumpFrame; // CTR_DEV_VRAM_DUMP: save all of VRAM at this frame
-	int captureFrame; // F7: polygons, image and VRAM of this frame into NATIVE_DEV_CAPTURE_DIR
+	int captureFrame; // F7: polygons, image and VRAM of this frame into captureDir
+	char captureDir[128]; // NATIVE_DEV_CAPTURE_DIR/<date>-<time>, one per press
 	int loadStateFrame; // CTR_DEV_LOAD_STATE: load the quick savestate at this frame
 	int saveStateFrame; // CTR_DEV_SAVE_STATE: write the quick savestate at this frame
 	int pressCaptureFrame; // CTR_DEV_CAPTURE: press F7 at this frame
@@ -203,7 +205,7 @@ FILE *NativeDev_DumpFile(void)
 	if (dev->dump == NULL)
 	{
 		char path[1024];
-		const char *dir = captured ? NATIVE_DEV_CAPTURE_DIR : (dev->shotDir ? dev->shotDir : ".");
+		const char *dir = captured ? dev->captureDir : (dev->shotDir ? dev->shotDir : ".");
 		snprintf(path, sizeof(path), "%s/polys-%06d.txt", dir, dev->frame);
 		dev->dump = fopen(path, "w");
 	}
@@ -362,10 +364,24 @@ void NativeDev_RequestCapture(void)
 	NativeDevState *dev = NativeDev_State();
 	NativeDev_MakeDir("debug");
 	NativeDev_MakeDir(NATIVE_DEV_CAPTURE_DIR);
+	// A new folder per press, named by the date and time, so no capture
+	// overwrites another, across sessions too.
+	time_t now = time(NULL);
+	struct tm *local = localtime(&now);
+	char stamp[32];
+	strftime(stamp, sizeof(stamp), "%Y%m%d-%H%M%S", local);
+	snprintf(dev->captureDir, sizeof(dev->captureDir), "%s/%s", NATIVE_DEV_CAPTURE_DIR, stamp);
+	for (int n = 2; NativeDev_MakeDir(dev->captureDir) != 0 && n < 100; n++)
+		snprintf(dev->captureDir, sizeof(dev->captureDir), "%s/%s-%d", NATIVE_DEV_CAPTURE_DIR, stamp, n);
 	// The frame being drawn may be half done; capture the next whole one.
 	dev->captureFrame = dev->frame + 1;
 	// And what was just heard: the last 20 seconds of audio and SPU audit.
-	NativeAudio_WriteCapture(NATIVE_DEV_CAPTURE_DIR, dev->captureFrame);
+	NativeAudio_WriteCapture(dev->captureDir, dev->captureFrame);
+	// A savestate of that frame: replay it with CTR_DEV_STATE_FILE and
+	// CTR_DEV_LOAD_STATE, on the same exe.
+	char path[192];
+	snprintf(path, sizeof(path), "%s/state.ctrstates", dev->captureDir);
+	NativeSaveState_RequestSaveTo(path);
 }
 
 void NativeDev_EndFrame(void)
@@ -417,12 +433,16 @@ void NativeDev_EndFrame(void)
 		if (rgba != NULL)
 		{
 			char path[1024];
-			snprintf(path, sizeof(path), "%s/f%06d.bmp", NATIVE_DEV_CAPTURE_DIR, frame);
+			snprintf(path, sizeof(path), "%s/f%06d.bmp", dev->captureDir, frame);
 			NativeDev_WriteBmp(path, rgba, w, h);
 			free(rgba);
 		}
-		NativeDev_WriteVRAM(NATIVE_DEV_CAPTURE_DIR, frame);
-		printf("[CTR Dev] captured frame %d in %s\n", frame, NATIVE_DEV_CAPTURE_DIR);
+		NativeDev_WriteVRAM(dev->captureDir, frame);
+		// Where player 1 and the camera are, and the view settings.
+		char where[192];
+		snprintf(where, sizeof(where), "%s/where.txt", dev->captureDir);
+		NativeDev_RaceWriteWhere(where);
+		printf("[CTR Dev] captured frame %d in %s\n", frame, dev->captureDir);
 	}
 
 	if (dev->exitFrame > 0 && frame + 1 >= dev->exitFrame)

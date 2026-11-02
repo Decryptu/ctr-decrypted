@@ -155,6 +155,8 @@ struct mesh_info;
 void NativeDev_QuadDump(const struct mesh_info *mesh);
 
 void NativeDev_RaceFrame(void);
+// F7: the level, player 1's position and heading, and the view settings, as text.
+void NativeDev_RaceWriteWhere(const char *path);
 void NativeDev_RaceShutdown(void);
 
 #endif

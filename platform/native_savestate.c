@@ -8,6 +8,7 @@
 #include "platform/native_log.h"
 
 #include <errno.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #if defined(_WIN32)
@@ -24,6 +25,7 @@
 
 global_variable s32 s_quickSaveRequested;
 global_variable s32 s_quickLoadRequested;
+global_variable char s_saveStatePath[512];
 global_variable u8 *s_quickPayload;
 global_variable int s_quickPayloadSize;
 
@@ -90,7 +92,7 @@ internal s32 NativeSaveState_PreparePayload(void)
 	return 1;
 }
 
-internal s32 NativeSaveState_SaveQuick(void)
+internal s32 NativeSaveState_SaveQuick(const char *path)
 {
 	if (!NativeSaveState_PrepareDir())
 	{
@@ -109,17 +111,17 @@ internal s32 NativeSaveState_SaveQuick(void)
 		return 0;
 	}
 
-	if (!NativeCheckpointFile_WriteSingle(NATIVE_SAVESTATE_QUICK_PATH, s_quickPayload, s_quickPayloadSize, 0, 0))
+	if (!NativeCheckpointFile_WriteSingle(path, s_quickPayload, s_quickPayloadSize, 0, 0))
 	{
-		Platform_Log("[CTR State] failed to write quick state: %s\n", NATIVE_SAVESTATE_QUICK_PATH);
+		Platform_Log("[CTR State] failed to write quick state: %s\n", path);
 		return 0;
 	}
 
-	Platform_Log("[CTR State] saved quick state: %s\n", NATIVE_SAVESTATE_QUICK_PATH);
+	Platform_Log("[CTR State] saved quick state: %s\n", path);
 	return 1;
 }
 
-internal s32 NativeSaveState_LoadQuick(void)
+internal s32 NativeSaveState_LoadQuick(const char *path)
 {
 	struct NativeCheckpointFileRecordInfo info;
 
@@ -128,26 +130,40 @@ internal s32 NativeSaveState_LoadQuick(void)
 		return 0;
 	}
 
-	if (!NativeCheckpointFile_ReadSingle(NATIVE_SAVESTATE_QUICK_PATH, s_quickPayload, s_quickPayloadSize, &info))
+	if (!NativeCheckpointFile_ReadSingle(path, s_quickPayload, s_quickPayloadSize, &info))
 	{
-		Platform_Log("[CTR State] failed to read quick state: %s\n", NATIVE_SAVESTATE_QUICK_PATH);
+		Platform_Log("[CTR State] failed to read quick state: %s\n", path);
 		return 0;
 	}
 
 	if (!NativeCheckpoint_Restore(s_quickPayload, s_quickPayloadSize))
 	{
-		Platform_Log("[CTR State] failed to restore quick state: %s\n", NATIVE_SAVESTATE_QUICK_PATH);
+		Platform_Log("[CTR State] failed to restore quick state: %s\n", path);
 		return 0;
 	}
 
-	Platform_Log("[CTR State] loaded quick state checksum=0x%08x: %s\n", info.checksum, NATIVE_SAVESTATE_QUICK_PATH);
+	Platform_Log("[CTR State] loaded quick state checksum=0x%08x: %s\n", info.checksum, path);
 	return 1;
+}
+
+// The quick slot, unless CTR_DEV_STATE_FILE names another file (for example
+// the state.ctrstates of an F7 capture).
+internal const char *NativeSaveState_DefaultPath(void)
+{
+	const char *path = getenv("CTR_DEV_STATE_FILE");
+	return (path != NULL && *path != '\0') ? path : NATIVE_SAVESTATE_QUICK_PATH;
 }
 
 void NativeSaveState_RequestSave(void)
 {
+	NativeSaveState_RequestSaveTo(NULL);
+}
+
+void NativeSaveState_RequestSaveTo(const char *path)
+{
 	if (s_quickSaveRequested == 0)
 	{
+		snprintf(s_saveStatePath, sizeof(s_saveStatePath), "%s", (path != NULL) ? path : NativeSaveState_DefaultPath());
 		s_quickSaveRequested = 1;
 		Platform_Log("[CTR State] quick save requested\n");
 	}
@@ -167,13 +183,13 @@ void NativeSaveState_BeginFrame(void)
 	if (s_quickSaveRequested != 0)
 	{
 		s_quickSaveRequested = 0;
-		NativeSaveState_SaveQuick();
+		NativeSaveState_SaveQuick(s_saveStatePath);
 	}
 
 	if (s_quickLoadRequested != 0)
 	{
 		s_quickLoadRequested = 0;
-		NativeSaveState_LoadQuick();
+		NativeSaveState_LoadQuick(NativeSaveState_DefaultPath());
 	}
 }
 #endif

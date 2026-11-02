@@ -1,4 +1,5 @@
 #include "platform/native_dev.h"
+#include "platform/native_config.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -833,5 +834,26 @@ void NativeDev_QuadDump(const struct mesh_info *mesh)
 			NativeDev_QuadTexture(f, q->ptr_texture_mid[face]);
 		fprintf(f, "\n");
 	}
+	fclose(f);
+}
+
+void NativeDev_RaceWriteWhere(const char *path)
+{
+	struct GameTracker *gGT = sdata->gGT;
+	FILE *f = fopen(path, "w");
+	if (f == NULL)
+		return;
+	fprintf(f, "version=%s\n", CTR_NATIVE_VERSION);
+	if (gGT != NULL)
+	{
+		fprintf(f, "level=%d players=%d gameMode1=0x%08x\n", gGT->levelID, (u8)gGT->numPlyrCurrGame, (u32)gGT->gameMode1);
+		struct Driver *d = gGT->drivers[0];
+		if (d != NULL)
+			fprintf(f, "CTR_DEV_WARP=%d,%d,%d,%d\n", d->posCurr.x >> 8, d->posCurr.y >> 8, d->posCurr.z >> 8, d->angle);
+		const struct PushBuffer *pb = &gGT->pushBuffer[0];
+		fprintf(f, "camera pos=%d,%d,%d rot=%d,%d,%d\n", pb->pos.x, pb->pos.y, pb->pos.z, pb->rot.x, pb->rot.y, pb->rot.z);
+	}
+	fprintf(f, "camera_far=%d aspect_ratio=%d increase_draw_distance=%d render_scale=%d pgxp=%d window=%dx%d\n", g_config.cameraFar,
+	        g_config.aspectRatio, g_config.increaseDrawDistance, g_config.renderScale, g_config.pgxp, g_config.windowWidth, g_config.windowHeight);
 	fclose(f);
 }
