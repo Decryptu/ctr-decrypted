@@ -24,6 +24,7 @@
 #include "ap_update.h"
 #include "platform/native_steam_route.h"
 #include <platform/native_assets.h>
+#include <platform/native_dev.h>
 
 static struct RectMenu *ap_upd_menu;
 static int ap_upd_menu_frame;
@@ -34,6 +35,14 @@ static int ap_upd_snoozed;         // READY deferred until the main menu is ente
 static int ap_upd_last_status = -1;
 static int ap_upd_finished;        // 1 = installed, waiting for the QUIT press
 static int ap_upd_steam;           // this process was started by Steam
+
+// The version the updater compares releases with: this build's, or the one
+// CTR_DEV_UPDATE gives (platform/native_dev.c).
+static const char *AP_UpdateRunning(void)
+{
+	const char *dev = NativeDev_UpdateAs();
+	return dev ? dev : CTR_AP_VERSION;
+}
 
 static void AP_UpdateLog(const char *what)
 {
@@ -55,7 +64,7 @@ void AP_UpdateTick(struct GameTracker *gGT)
 
 		ap_update_set_asset_dir(NativeAssets_GetAssetDir());
 		ap_update_set_base_dir(NativeAssets_GetBaseDir());
-		startup = ap_update_startup(CTR_AP_COMPAT_VERSION);
+		startup = ap_update_startup(AP_UpdateRunning());
 
 		ap_upd_started = 1;
 		ap_upd_steam = NativeSteamRoute_ParseGameId(getenv("SteamGameId"), &steamId);
@@ -79,7 +88,7 @@ void AP_UpdateTick(struct GameTracker *gGT)
 		}
 		// [Archipelago] update_check = false turns the network check off.
 		if (g_config.updateCheck)
-			ap_update_check_start(CTR_AP_COMPAT_VERSION, g_config.updateDeclined);
+			ap_update_check_start(AP_UpdateRunning(), g_config.updateDeclined);
 	}
 
 	status = ap_update_status(NULL, 0, NULL);
@@ -160,6 +169,8 @@ static void AP_UpdateRestart(void)
 	if (!applied)
 		return; // FAILED_INSTALL: the next frame shows it; the running build is in place
 	AP_UpdateLog("installed");
+	if (NativeDev_UpdateAs())
+		AP_UpdateQuit(); // a dev run checks the installed files itself
 	if (!ap_upd_steam)
 	{
 		// The new process must be able to take this install's primary lock.
@@ -193,6 +204,8 @@ int AP_UpdateMenuFrame(void)
 
 	status = ap_update_status(tag, sizeof tag, &permille);
 	tap = sdata->buttonTapPerPlayer[0];
+	if (NativeDev_UpdateAs())
+		tap = BTN_CROSS; // DOWNLOAD, RESTART, OK
 	soloBusy = ap_update_solo_busy();
 
 	if (ap_upd_finished)
@@ -214,7 +227,7 @@ int AP_UpdateMenuFrame(void)
 		if (!g_config.updateCheck)
 			break; // switched off after the check started
 		snprintf(title, sizeof title, "UPDATE %s AVAILABLE", tag);
-		snprintf(line, sizeof line, "You have %s.", CTR_AP_COMPAT_VERSION);
+		snprintf(line, sizeof line, "You have %s.", AP_UpdateRunning());
 		ap_upd_prompting = 1;
 		gGT->demoCountdownTimer = 900;
 		AP_UpdateDraw(title, line, "Updates this game client.", "Hosts need the new apworld.",

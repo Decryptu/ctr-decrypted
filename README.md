@@ -23,7 +23,7 @@ On top of the Archipelago client, each in OPTIONS:
 
 ## Getting started
 
-**1. Download a release** from the [Releases](https://github.com/Decryptu/ctr-decrypted/releases) page and extract it.
+**1. Download** `ctr-decrypted-vX.Y.Z-windows-x86.zip` from the [latest release](https://github.com/Decryptu/ctr-decrypted/releases/latest) and extract it (Linux: the `-linux-x86.tar.gz`). After that the game updates itself: when a new version is out, the main menu offers it, and accepting installs it and restarts the game. Your settings and saves stay.
 
 **2. Add your disc image.** This project contains no game assets. You must own a retail **NTSC-U** copy of Crash Team Racing, dumped as a raw single-track `.bin` (MODE2/2352). A 2048-byte `.iso` won't work: it loses the audio and video sectors. Put the image in an `assets` folder next to the executable. Launching the game once creates that folder.
 

@@ -47,14 +47,14 @@ const Platform kPlatform = PLATFORM_WINDOWS;
 const Platform kPlatform = PLATFORM_LINUX;
 #endif
 
-const char kUserAgent[] = "ctr-native-ap-updater";
+const char kUserAgent[] = "ctr-decrypted-updater";
 
 struct State
 {
 	std::mutex mutex;
 	int status = AP_UPD_IDLE;
 	std::string tag;          // offered release
-	std::string running;      // CTR_AP_COMPAT_VERSION
+	std::string running;      // CTR_AP_VERSION
 	std::string detail;
 	int progress = -1;
 	std::string exe;          // installed executable, resolved once at startup

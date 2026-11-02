@@ -52,10 +52,10 @@
 #include <string>
 #include <vector>
 
-// The release public key (ctr-release-minisign.pub, key id 46F129D8BEF2D633).
+// The release public key (ctr-release-minisign.pub, key id 2C29157D07F451FB).
 // Public by design; the secret key never exists outside the maintainer's
 // offline storage. Changing this line is a reviewed key rotation.
-#define AP_UPDATE_PUBLIC_KEY "RWQz1vK+2CnxRlzUFiAM8FlyI706TxjELuc+8d4N9uh06nS1zAKGuD6x"
+#define AP_UPDATE_PUBLIC_KEY "RWT7UfQHfRUpLC61tcAYdT0TiObrV6ahvUjDb6znPuexIDd7wu9h2i+j"
 
 namespace ap_update
 {
@@ -188,8 +188,8 @@ Result ExtractExecutable(const Bytes &archive, Platform platform, const std::str
                          Bytes &exeOut);
 
 // ── Where the updater may connect ──
-// The check reads https://api.github.com/repos/dowlle/ctr-native-ap/releases/latest.
-// Downloads start at https://github.com/dowlle/ctr-native-ap/releases/download/<tag>/<name>,
+// The check reads https://api.github.com/repos/Decryptu/ctr-decrypted/releases/latest.
+// Downloads start at https://github.com/Decryptu/ctr-decrypted/releases/download/<tag>/<name>,
 // built here from a stable tag and a fixed asset name, never from a URL in the
 // API response. GitHub answers those with a redirect to its release-asset
 // storage; a redirect is followed only over HTTPS, at most four times, and only

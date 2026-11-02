@@ -868,8 +868,8 @@ Result ExtractExecutable(const Bytes &archive, Platform platform, const std::str
 
 // ── network topology ──
 
-static const char kRepoPath[] = "/repos/dowlle/ctr-native-ap/releases/latest";
-static const char kDownloadPrefix[] = "/dowlle/ctr-native-ap/releases/download/";
+static const char kRepoPath[] = "/repos/Decryptu/ctr-decrypted/releases/latest";
+static const char kDownloadPrefix[] = "/Decryptu/ctr-decrypted/releases/download/";
 
 std::string LatestReleaseUrl()
 {

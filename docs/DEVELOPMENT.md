@@ -78,6 +78,19 @@ Upstream moves functions between files, so a merge can drop our edit to a functi
 
 High Octane (`highoctane/vita`) is not merged. Port its commits by cherry-picking with `-x` and resolve conflicts by hand, keeping every `#ifdef CTR_AP` block. `tools/decrypted/highoctane.txt` records what we did with each of its commits that is not in ctr-native: ported by hand, already here, our own version, on the roadmap's Maybe list, skipped, or not decided (`open`). A full cherry-pick needs no line; a hand port, or a cherry-pick of only part of a commit, does. The status script lists the commits we ported (`--ho ported`, the default; `--ho open,maybe` for the others) and every new High Octane commit that has no line yet: review it and add its line.
 
+## Releases and updates
+Players download the Windows archive of the [latest release](https://github.com/Decryptu/ctr-decrypted/releases/latest) (`ctr-decrypted-vX.Y.Z-windows-x86.zip`; Linux has the `.tar.gz`). It holds everything the game needs except the disc image. The other assets are for hosts (`ctr.apworld`, the YAML template), crash reports (`.debug`) and box authors. The release notes open with a **Download** line naming that archive. The release steps are in [RELEASING.md](../RELEASING.md).
+
+After that, the game updates itself (`ap/ap_update.c`, trust rules in `ap/ap_update_core.h`). At start it reads `https://api.github.com/repos/Decryptu/ctr-decrypted/releases/latest`. When that is a stable `vX.Y.Z` release newer than `CTR_AP_VERSION` (`ap/ap_version.h`), with `manifest.json`, `manifest.json.minisig` and both client archives, the main menu offers it. Nothing downloads until the player accepts. The manifest must verify against the key compiled in (`AP_UPDATE_PUBLIC_KEY`, the same key as `ctr-release-minisign.pub`), and the archive must match the manifest's hash. Only the client, `ctr.apworld`, `solo-runtime/` and the Cortex Vortex files are installed; settings, saves and the disc image are never touched. So:
+- Publishing a release (not a draft, not a prerelease) offers it to every player. Publish as a prerelease to hold it back.
+- A release without the signed manifest is never offered, and neither is one signed by another key (dowlle's releases, for example).
+- `CTR_AP_VERSION` is what the updater compares, so bump it in the release commit; `CTR_AP_COMPAT_VERSION` stays the apworld's line.
+- Builds up to v1.2.0 check dowlle's repository, which never offers anything to them. Those players download the first release with this updater by hand once.
+- `[Archipelago] update_check = false` in `config.ini` turns the check off.
+- The updater is dowlle's (`feat/signed-updater-301`). Ours differs only in the repository paths (`kRepoPath`, `kDownloadPrefix` in `ap_update_core.cpp`), the key (`ap_update_core.h`) and the version it passes (`CTR_AP_VERSION` instead of `CTR_AP_COMPAT_VERSION`, in `ap_update.c`). Keep those when a merge of dowlle's updater conflicts.
+
+Test a release end to end with `CTR_DEV_UPDATE` ([DEV-TOOLS.md](DEV-TOOLS.md)): `.\tools\decrypted\devrun.ps1 -Exe build-ap\ctr_native_ap.exe -RunDir C:\t\updrun -Track -1 -Frames 30000 -Env @{CTR_DEV_UPDATE='v1.1.0'}`, then compare the run folder's files with the release archive. The trust rules have host harnesses (`tools/test-update-core.cpp`, `test-update-menu.c`, `test-update-solo-gate.cpp`, Linux only); `test-update-core.cpp` checks the published v1.2.0 manifest and signature against the compiled-in key.
+
 ## Conventions
 - Commit messages are plain and descriptive. No co-author trailers for tools, and no mention of AI assistants anywhere in commits, code or docs. Local assistant files (`CLAUDE.md`, `AGENTS.md`, `.claude/`) are listed in `.git/info/exclude` and never committed.
 - Credit ported work: `cherry-pick -x` keeps the original commit reference, and README's Credits names each source project.

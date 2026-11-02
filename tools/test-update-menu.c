@@ -67,6 +67,7 @@ int ap_update_apply(void)
 	return fake_apply_result;
 }
 int ap_update_relaunch(void) { ++relaunches; return fake_relaunch; }
+const char *NativeDev_UpdateAs(void) { return NULL; }
 
 // ── the game around it ──
 static char screen[8][64];
@@ -168,7 +169,7 @@ static void test_gates(void)
 {
 	reset_all();
 	fake_status = AP_UPD_OFFER;
-	expect(frame(0) == 1 && shown("v9.9.9 AVAILABLE") && shown("You have " CTR_AP_COMPAT_VERSION),
+	expect(frame(0) == 1 && shown("v9.9.9 AVAILABLE") && shown("You have " CTR_AP_VERSION),
 	       "the offer shows on the settled main menu with both versions");
 	expect(downloads == 0, "nothing downloads before the player confirms");
 

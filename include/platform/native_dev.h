@@ -46,6 +46,11 @@ void NativeDev_NudgeCamera(int cameraID, short *pos, short *rot);
 // the podium.
 int NativeDev_BotSpeedPercent(void);
 
+// CTR_DEV_UPDATE=<vX.Y.Z>: the in-game updater runs as that version and
+// answers its own prompts (download, install), then quits instead of starting
+// the new build, so a run tests a real release end to end. NULL when unset.
+const char *NativeDev_UpdateAs(void);
+
 // CTR_DEV_AUDIO=<file>: the mixed game audio as raw 16-bit stereo PCM at
 // 44100 Hz. In CTR_DEV_FAST runs audio is rendered on the VBlank clock, one
 // VBlank (735 frames) per call; in real time it is what SDL's audio thread

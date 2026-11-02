@@ -21,7 +21,6 @@ Roughly in this order.
 
 | Item | Source |
 |---|---|
-| Easy download and update (mid): one download for players and an in-game "update available, install?" with one click. Start from 0.3.0's signed updater (`ap/ap_update.c`) and point it at our releases | Owner request, 2026-10-31 |
 | First-launch setup (mid): a guided screen the first time the game starts: find the player's disc image, set up Archipelago (server, slot name, password) and a few basic options, so nobody edits `config.ini` | Owner request, 2026-10-31 |
 | Save backups (mid): keep the last few copies of the save and Archipelago progress automatically, with a restore option in the menu | Owner request, 2026-10-31 |
 | Linux and Steam Deck (mid): publish a Linux build and have it tested on a Steam Deck (the owner has a tester), including controller and default resolution | Owner request, 2026-10-31. Only Windows is tested today |
