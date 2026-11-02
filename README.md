@@ -7,9 +7,16 @@ A native PC version of **Crash Team Racing (PS1, 1999)** with the [Archipelago](
 - No emulator and no ROM patching: the game is compiled from the [CTR-native](https://github.com/CTR-tools/ctr-native) decompilation.
 - You supply your own NTSC-U disc image; the game reads its assets from it.
 
+<p align="center"><img src="docs/images/readme-oxide.jpg" alt="N. Oxide racing on Hot Air Skyway at 16:9"></p>
+
 CTR Decrypted is built on [dowlle/ctr-native-ap](https://github.com/dowlle/ctr-native-ap) and stays compatible with its seeds and `ctr.apworld`. It adds enhancements ported from [Crash Team Racing - High Octane](https://github.com/Rinnegatamante/Crash-Team-Racing-High-Octane), plus fixes of its own. [ROADMAP.md](ROADMAP.md) has what is planned.
 
 ## Features
+
+<p align="center">
+  <img src="docs/images/readme-archipelago.jpg" width="49%" alt="Items from another player in the in-race Archipelago feed on Crash Cove">
+  <img src="docs/images/readme-mods.jpg" width="49%" alt="The Mods screen browsing community tracks">
+</p>
 
 On top of the Archipelago client:
 

@@ -162,6 +162,16 @@ tools\decrypted\fps-parity.ps1 -Tracks 3
 
 A Time Trial takes 10 to 20 seconds to run at 30 FPS, twice that at 60. The autopilot never boosts, hops or drifts, so it falls into the same pits again and again on N. Gin Labs and Polar Pass; those runs end at the frame cap. What to expect per track is in [60FPS.md](60FPS.md#checking). Input replays (`--record`, `--replay`, [REPLAYS.md](REPLAYS.md)) work with these switches too. Set the same `CTR_DEV_RACE` and `CTR_DEV_MODE` when playing back, because they change the title menu's flow.
 
+## README screenshots
+
+`tools/decrypted/readme-shots.ps1` retakes the three README images in `docs/images` (1920x1080, 16:9, PGXP, increased draw distance): N. Oxide on Hot Air Skyway, the Archipelago item feed in a Crash Cove race, and the Mods screen's track browser. Retake them after a visible change to any of those; `-Only oxide` (or `archipelago`, `mods`) does one.
+
+- The Oxide shot is fast-forwarded, so its frame is always the same.
+- The Archipelago shot generates a throwaway two-player seed (Decrypt and Friend, item boxes as checks) with this repository's apworld, in the Archipelago checkout `apworld-test.ps1` sets up (run that once first). It hosts the seed on 127.0.0.1:38300 and races in real time while `tools/decrypted/ap_feed_demo.py` connects as Friend and checks Friend's locations that hold Decrypt's items, so the feed shows them as `<ITEM> FROM FRIEND`.
+- The Mods shot needs the network for the Project Saphi catalogue.
+
+The real-time shots can land a little differently from run to run. Every captured frame stays under `C:\t\shots\<name>`; pass another with `-ApFrame` or `-ModsFrame`.
+
 ## Archipelago server load
 
 `tools/decrypted/ap_backlog.py PORT SLOT COUNT [ITEM]` gives a slot a large item backlog on a local server, through the server's item cheat (`!getitem`, allowed by default in `host.yaml`), so the next connect receives it all in one packet. To measure a connect:
