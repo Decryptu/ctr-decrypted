@@ -30,15 +30,16 @@
 // build can be tested before this constant is filled in.
 //
 // Setting it up (Discord Developer Portal, discord.com/developers/applications):
-// create an application named "CTR Archipelago" (Discord shows this name as
-// "Playing CTR Archipelago"), copy its Application ID from General
-// Information into the constant below, and under Rich Presence > Art Assets
-// upload the logo with the key AP_DISCORD_LARGE_IMAGE_KEY.
-#define AP_DISCORD_APPLICATION_ID "1554175711055446086"
+// the application is "CTR Decrypted" (Discord shows "Playing CTR Decrypted"),
+// owned by the maintainer. Its Application ID is under General Information;
+// under Rich Presence > Art Assets the logo is uploaded with the key
+// AP_DISCORD_LARGE_IMAGE_KEY: the game icon (platform/icon/icon.png) scaled
+// to 1024x1024 without smoothing.
+#define AP_DISCORD_APPLICATION_ID "1566716230822535188"
 
 // Art asset key of the large image, as uploaded under the application's Rich
 // Presence art assets in the Discord Developer Portal.
-#define AP_DISCORD_LARGE_IMAGE_KEY  "ctr_ap_logo"
+#define AP_DISCORD_LARGE_IMAGE_KEY  "ctr_decrypted_logo"
 #define AP_DISCORD_LARGE_IMAGE_TEXT "CTR Decrypted"
 // Button shown under the activity (label at most 32 characters).
 #define AP_DISCORD_BUTTON_LABEL "CTR Decrypted on GitHub"

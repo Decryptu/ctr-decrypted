@@ -14,7 +14,7 @@ The release page has a separate download for this:
 `ctr-decrypted-vX.Y.Z-box-authoring-linux-x86.tar.gz` (Linux and Steam Deck).
 
 - Unzip it into a **new, empty folder**. Do not unzip it into your normal
-  CTR Archipelago folder.
+  CTR Decrypted folder.
 - Add your disc image to its `assets` folder, the same way as for the normal
   client (see `SETUP.md`, step 2).
 - Start `ctr_native_ap_authoring.exe` (Linux: `ctr_native_ap_authoring`). The
