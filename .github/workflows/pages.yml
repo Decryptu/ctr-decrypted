@@ -3,19 +3,27 @@ name: Site
 # The project site on GitHub Pages (https://decryptu.github.io/ctr-decrypted/):
 # the docs rendered as pages, plus the YAML builder, whose options are dumped
 # from apworld/ctr inside the same Archipelago version apworld.yml tests with.
-# Built from main, so the builder always matches the released world. A pull
-# request, or a run by hand on another branch, builds it without deploying, so
-# a broken doc or option fails there.
+# Published from main, so the builder always matches the released world. On dev
+# and pull requests it is built without deploying, so a broken doc or option
+# fails before it reaches main.
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
+    paths:
+      - 'site/**'
+      - '*.md'
+      - 'docs/**'
+      - 'apworld/ctr/**'
+      - 'platform/icon/**'
+      - '.github/workflows/pages.yml'
   pull_request:
     paths:
       - 'site/**'
       - '*.md'
       - 'docs/**'
       - 'apworld/ctr/**'
+      - 'platform/icon/**'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
