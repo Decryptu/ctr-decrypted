@@ -247,6 +247,16 @@ void NativeFs_CloseDir(NativeFsDir *dir)
 	free(dir);
 }
 
+int NativeFs_RemoveDirectory(const char *utf8Path)
+{
+	wchar_t wide[NATIVE_FS_WIDE_MAX];
+
+	if (!NativeFs_Utf8ToWidePath(utf8Path, wide, (int)(sizeof(wide)/sizeof(wide[0]))))
+		return 0;
+
+	return RemoveDirectoryW(wide) != 0;
+}
+
 int NativeFs_MakeDirectory(const char *utf8Path)
 {
 	wchar_t wide[NATIVE_FS_WIDE_MAX];
@@ -460,6 +470,14 @@ void NativeFs_CloseDir(NativeFsDir *dir)
 		closedir(dir->dir);
 
 	free(dir);
+}
+
+int NativeFs_RemoveDirectory(const char *utf8Path)
+{
+	if (utf8Path == NULL)
+		return 0;
+
+	return rmdir(utf8Path) == 0;
 }
 
 int NativeFs_MakeDirectory(const char *utf8Path)

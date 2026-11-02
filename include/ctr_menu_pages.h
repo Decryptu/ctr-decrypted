@@ -15,7 +15,8 @@
 // effect mods, Archipelago holds the multiworld rows.
 // Controls (0.3.0) sits after Gameplay. It has no config rows: its screen
 // (game/230/MM_ControlsConfig.c) edits controls.ini, so it is a bespoke page
-// that is always shown even though no key lists it.
+// that is always shown even though no key lists it. Backups is bespoke the same
+// way (game/230/MM_Backups.c): it lists the save backups, not config rows.
 
 // Rows that fit between the title rule and the bottom of the panel at the
 // menu's 0x0E spacing from 0x3C. A twelfth row is drawn past the panel edge.
@@ -33,6 +34,7 @@ typedef struct
 } CtrMenuPage;
 
 #define CTR_MENU_PAGE_CONTROLS "Controls"
+#define CTR_MENU_PAGE_BACKUPS "Backups"
 
 static const char *const s_ctrMenuPageVideo[] = {
 	"fullscreen", "aspect_ratio", "render_scale", "vsync", "fps60", "screen_filter",
@@ -47,6 +49,9 @@ static const char *const s_ctrMenuPageExtras[] = {
 	"reserves_meter", "reserve_fire", "blue_fire", "slide_meter_colours", "super_pad_colour", NULL,
 };
 static const char *const s_ctrMenuPageControls[] = {
+	NULL,
+};
+static const char *const s_ctrMenuPageBackups[] = {
 	NULL,
 };
 static const char *const s_ctrMenuPageConnection[] = {
@@ -67,6 +72,7 @@ static const CtrMenuPage s_ctrMenuPages[] = {
 	{CTR_MENU_PAGE_CONTROLS, s_ctrMenuPageControls, 1},
 	{"Connection", s_ctrMenuPageConnection, 0},
 	{"Archipelago", s_ctrMenuPageArchipelago, 0},
+	{CTR_MENU_PAGE_BACKUPS, s_ctrMenuPageBackups, 1},
 	{"Authoring", s_ctrMenuPageAuthoring, 0},
 };
 #define CTR_MENU_PAGE_COUNT ((int)(sizeof(s_ctrMenuPages) / sizeof(s_ctrMenuPages[0])))

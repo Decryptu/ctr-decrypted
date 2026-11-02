@@ -220,6 +220,13 @@ static int Config_IsControlsSection(int sec)
 
 #include "MM_ControlsConfig.c"
 
+static int Config_IsBackupsSection(int sec)
+{
+	return sec >= 0 && sec < s_numSections && strcmp(s_sectionName[sec], CTR_MENU_PAGE_BACKUPS) == 0;
+}
+
+#include "MM_Backups.c"
+
 struct RectMenu g_configMenu = {
 	.stringIndexTitle = -1,
 	.state = EXECUTE_FUNCPTR | DISABLE_INPUT_ALLOW_FUNCPTRS,
@@ -1333,6 +1340,8 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 	// Escape is the cancel key, handled in the platform layer). NativeText_Active
 	// is always 0 outside an edit, so this is a no-op change for the toggle sections.
 	if (!backHandled && (backTapped & (BTN_TRIANGLE | BTN_START)) != 0 && !NativeText_Active()
+	    // Back first closes the restore question or message on the Backups page.
+	    && !MM_Backups_ConsumesBack()
 #ifdef CTR_CUSTOM_PACKAGES
 	    // Drain a package or Saphi worker before leaving; Back first leaves
 	    // the Versions list of one track.
@@ -1379,6 +1388,10 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 	{
 		// Controls draws and edits everything itself, including its own input.
 		MM_ConfigProc_Controls(menu, ot);
+	}
+	else if (Config_IsBackupsSection(s_currentSection))
+	{
+		MM_ConfigProc_Backups(menu, ot, pad);
 	}
 	else if (s_currentSection >= 0)
 	{
@@ -1575,6 +1588,7 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 	}
 	else
 	{
+		s_bkLoaded = 0; // the Backups page reads the folder again when opened
 		if ((pad->buttonsTapped & BTN_UP) != 0)
 		{
 			menu->rowSelected = (menu->rowSelected > 0) ? menu->rowSelected - 1 : s_numSections - 1;

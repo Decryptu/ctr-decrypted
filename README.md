@@ -11,8 +11,15 @@ CTR Decrypted is built on [dowlle/ctr-native-ap](https://github.com/dowlle/ctr-n
 
 ## Features
 
-On top of the Archipelago client, each in OPTIONS:
+On top of the Archipelago client:
 
+- **Custom tracks** (**MODS** on the title screen): install community tracks from Project Saphi, from an xdelta patch or by hand, and race them in Arcade and Time Trial from extra pages of the track select. A seed can also put a custom track into a Gem Cup ([docs/CUSTOM_TRACKS.md](docs/CUSTOM_TRACKS.md)).
+- **Custom racers** (**MODS → Racers**): add community characters to the character select, beside the retail racers and N. Oxide ([docs/CUSTOM_RACERS.md](docs/CUSTOM_RACERS.md)).
+- **Play Solo** (title screen): generate and play a one-player seed on your own machine, with no room to host.
+
+And in OPTIONS:
+
+- **Save backups**: the last 10 copies of your save and Play Solo progress, made automatically, with a restore in **OPTIONS → Backups** ([SETUP.md](SETUP.md#backups-going-back-to-an-earlier-save)).
 - **60 FPS**, on by default, in every mode ([docs/60FPS.md](docs/60FPS.md)).
 - **PGXP anti-wobble** and perspective-correct textures, with a depth test that keeps water from painting over nearer ground ([docs/PGXP.md](docs/PGXP.md)).
 - **Screen filters**: Sharp Bilinear, FXAA, Scanlines, CRT ([docs/SCREEN-FILTERS.md](docs/SCREEN-FILTERS.md)).

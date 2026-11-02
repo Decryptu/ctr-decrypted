@@ -50,6 +50,8 @@
 #undef RECT
 
 #include "platform/native_fs_utf8.c"
+#include "platform/native_backup.c"
+#include "platform/native_relaunch.c"
 #include "platform/native_dev.c"
 #include "platform/native_dev_race.c"
 #include "platform/native_disc_copy.c"
@@ -483,6 +485,11 @@ int main(int argc, char *argv[])
 			return NativeConsole_Return(1);
 		}
 	}
+
+	// Save backups (platform/native_backup.c): a restore asked for in the menu
+	// is applied here, before anything reads a save or starts a solo server,
+	// then a backup of the progress the game starts with is kept.
+	NativeBackup_OnLaunch(time(NULL));
 
 	// controls.ini sits beside config.ini and is read the same way. Devices are
 	// enumerated later, by Platform_InputInit, once the gamepad subsystem is up.

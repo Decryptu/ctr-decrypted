@@ -309,9 +309,29 @@ From 0.3.0 the client can make and host a single-player seed itself. Choose
 
 The client starts a private Archipelago server on your own computer
 (127.0.0.1, ports 38301 to 38320) and connects to it; nothing goes over the
-internet. Everything solo is stored in the `solo` folder next to the game, so
-back that folder up together with your memory cards. Multiplayer still uses
+internet. Everything solo is stored in the `solo` folder next to the game; the
+game keeps backups of its saves with your memory card (see
+[Backups](#backups-going-back-to-an-earlier-save)). Multiplayer still uses
 **Connect** as before.
+
+## Backups: going back to an earlier save
+
+The game keeps copies of your progress in the `backups` folder next to it:
+your memory card save and the save of every Play Solo seed. A copy is made
+each time the game starts and, while you play, before a save when the last copy
+is more than 15 minutes old. Nothing is copied when nothing changed. The 10
+newest copies are kept.
+
+To go back, open **OPTIONS → Backups**. Each copy shows when it was made and
+why (game start, while playing, before a restore); the line under the list
+says what it holds. **Cross** on one asks to restore it, and the game restarts
+and loads it. What you had before is backed up first, so a restore can be undone
+the same way. Started from Steam, the game cannot restart itself: quit and start
+it again from Steam, and the copy is restored then. Until then the row reads
+**AT NEXT START**, and Cross on it cancels.
+
+A multiworld's progress (checked locations, received items) lives on its
+server, not here: a restore brings back your save and Play Solo seeds only.
 
 ## Custom tracks: the Mods screen
 

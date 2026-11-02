@@ -13,7 +13,7 @@
 //     Video & QoL and the last one fell off the panel)
 //   * the page order and row order agreed on 2026-09-22, with Extras after
 //     Gameplay and the bespoke Controls page (0.3.0) after Extras: shown, and
-//     holding no config rows
+//     holding no config rows, and the bespoke Backups page after Archipelago
 //   * every key in the page table exists in the entry table, except the
 //     authoring-build-only box_author, so a renamed key cannot silently drop a
 //     row onto a fallback page
@@ -116,8 +116,8 @@ int main(void)
 			EXPECT_TRUE(label, CTR_MenuFindEntry(g_configEntries, g_numConfigEntries, *k) >= 0);
 		}
 
-	EXPECT_TRUE("seven pages in the AP build", numPages == 7);
-	if (numPages == 7)
+	EXPECT_TRUE("eight pages in the AP build", numPages == 8);
+	if (numPages == 8)
 	{
 		static const char *const video[] = {
 			"fullscreen", "aspect_ratio", "render_scale", "vsync", "fps60", "screen_filter",
@@ -133,6 +133,7 @@ int main(void)
 		static const char *const archipelago[] = {
 			"map_flash", "item_box_colours", "item_box_numbers", "death_link", "dl_send_fall", "dl_send_hit", "dl_send_loss", "trap_duration", "update_check",
 			"discord_status", NULL};
+		static const char *const backups[] = {NULL};
 		static const char *const authoring[] = {
 			"nav_record", "nav_use_recorded", "nav_driver_name", NULL};
 
@@ -142,7 +143,8 @@ int main(void)
 		ExpectPage(3, "Controls", controls);
 		ExpectPage(4, "Connection", connection);
 		ExpectPage(5, "Archipelago", archipelago);
-		ExpectPage(6, "Authoring", authoring);
+		ExpectPage(6, "Backups", backups);
+		ExpectPage(7, "Authoring", authoring);
 	}
 
 	ExpectSection("skip_intro", "Video & QoL");
