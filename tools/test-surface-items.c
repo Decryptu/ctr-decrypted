@@ -1,3 +1,4 @@
+//   cc -m32 -Wall -Wextra -DCTR_NATIVE -DCTR_AP -I ap -I . -I include -o /tmp/test-surface-items tools/test-surface-items.c -lm
 #include <stdio.h>
 #include <string.h>
 

@@ -18,7 +18,8 @@ whether CI runs it.
 
 Harnesses run in parallel, one per CPU (HARNESS_JOBS overrides it; 1 runs them
 one at a time). Each builds to its own output file, and those that write files
-do it in their own mkdtemp directory. Results print in a fixed order.
+do it in their own mkdtemp directory under /tmp (C:\tmp on Windows). Anything a
+run leaves in /tmp is deleted when it ends. Results print in a fixed order.
 
 Usage:
   tools/ci/run-harnesses.py            run the listed harnesses, fail on any failure
@@ -91,7 +92,8 @@ def build_command(src):
         text = open(os.path.join(ROOT, src), encoding="utf-8", errors="replace").read()
         for needle, unit in EXTRA_UNITS.items():
             if needle in text:
-                cmd += " " + unit
+                # g++ would compile a .c unit as C++, with mangled names
+                cmd += f" -x c {unit} -x none" if src.endswith(".cpp") and unit.endswith(".c") else " " + unit
     return cmd, out
 
 
@@ -176,9 +178,28 @@ def install_nosan_shim():
 
 
 def main():
+    tmp = os.path.abspath("/tmp")
+    before = set(os.listdir(tmp)) if os.path.isdir(tmp) else set()
+    try:
+        return run(sys.argv[1] if len(sys.argv) > 1 else "ci")
+    finally:
+        # Harnesses don't all delete their mkdtemp folders; nothing in /tmp
+        # outlives the run, the build output in OUT included.
+        if os.path.isdir(tmp):
+            for name in set(os.listdir(tmp)) - before:
+                path = os.path.join(tmp, name)
+                if os.path.isdir(path):
+                    shutil.rmtree(path, ignore_errors=True)
+                else:
+                    try:
+                        os.remove(path)
+                    except OSError:
+                        pass
+
+
+def run(mode):
     os.makedirs(OUT, exist_ok=True)
     install_nosan_shim()
-    mode = sys.argv[1] if len(sys.argv) > 1 else "ci"
     all_src = sorted(glob.glob(os.path.join(ROOT, "tools", "test-*.c")) +
                      glob.glob(os.path.join(ROOT, "tools", "test-*.cpp")) +
                      glob.glob(os.path.join(ROOT, "tools", "test-*.py")))

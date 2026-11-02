@@ -34,6 +34,9 @@ $exePath = (Resolve-Path $Exe).Path
 $root = Join-Path $env:TEMP 'ctrdev'
 $run = if ($RunDir) { $RunDir } else { Join-Path $root 'run' }
 New-Item -ItemType Directory -Force $run | Out-Null
+# Default capture folders are scratch: drop the ones older than a day.
+Get-ChildItem $root -Directory -Filter 'shots-*' -ErrorAction SilentlyContinue |
+	Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-1) } | Remove-Item -Recurse -Force
 if (-not $Out) { $Out = Join-Path $root ("shots-" + (Get-Date -Format 'HHmmss')) }
 New-Item -ItemType Directory -Force $Out | Out-Null
 # Captures from an earlier run would mix into this one's sheet.

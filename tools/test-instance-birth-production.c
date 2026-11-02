@@ -1,19 +1,22 @@
 // Exercise the production birth transaction through its real entry point.
 // Build as 32-bit because the native game intentionally preserves PS1 pointer
 // layout and PROC_BirthWithObject uses 32-bit object-pointer arithmetic.
+//   cc -m32 -Wall -Wextra -DCTR_NATIVE -I . -I include -o /tmp/test-instance-birth-production tools/test-instance-birth-production.c -lm
 #include <stdio.h>
 #include <string.h>
 
 #include <common.h>
 
 struct sData sdata_static;
+int gNative60FpsEnabled;
 
 // PE/COFF does not discard every unrelated included function as aggressively
 // as ELF. These inert definitions satisfy references outside the transaction
 // under test; none is reached by either test case.
-void *MEMPACK_AllocMem(int size)
+void *MEMPACK_AllocMem(s32 size, const char *name)
 {
 	(void)size;
+	(void)name;
 	return NULL;
 }
 

@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include <common.h>
+//   cc -m32 -Wall -Wextra -DCTR_NATIVE -DCTR_AP -I ap -I . -I include -o /tmp/test-wumpa-production tools/test-wumpa-production.c -lm
 
 struct sData sdata_static;
 
@@ -31,6 +32,23 @@ void RB_Player_ModifyWumpa(struct Driver *driver, int amount)
 void AP_LogLine(const char *line)
 {
 	snprintf(lastLog, sizeof lastLog, "%s", line ? line : "");
+}
+
+#include "../ap/ap_seedcfg.h"
+#include "../ap/ap_net.h"
+
+// No seed and no server: the bank and shop paths stay off.
+ctr_seed_config ctr_cfg;
+AP_WumpaShopConfig ctr_wumpa_shop;
+int ctr_cfg_active(void) { return 0; }
+void ap_net_wumpa_credit(int n) { (void)n; }
+long long ap_net_wumpa_lifetime(void) { return 0; }
+long long ap_net_wumpa_balance(void) { return 0; }
+int ap_net_wumpa_ready(void) { return 0; }
+int AP_RaceAttemptIsForcedLoss(void) { return 0; }
+void DecalFont_DrawLine(char *str, s16 posX, s16 posY, s16 fontType, s16 flags)
+{
+	(void)str; (void)posX; (void)posY; (void)fontType; (void)flags;
 }
 
 #include "../ap/ap_wumpa.c"
