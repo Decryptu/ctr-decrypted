@@ -644,7 +644,8 @@ void AP_DrawTitleUpdateNotice(uint32_t *ot)
 	                     FONT_SMALL, JUSTIFY_CENTER | ORANGE, ot);
 }
 
-// "ARCHIPELAGO" under the red CRASH TEAM RACING banner on the title screen.
+// The project name, "DECRYPTED", under the red CRASH TEAM RACING banner on the
+// title screen.
 //
 // Drawn under the same gates as the trademark line (MM_MenuProc_Main: main menu,
 // title object alive, fly-in finished), so it appears with the settled logo and
@@ -654,7 +655,7 @@ void AP_DrawTitleUpdateNotice(uint32_t *ot)
 // Placement, in the 512 x 216 UI space of the 1P viewport (see the
 // AP_UPD_TITLE_Y comment above for the menu arithmetic):
 //   * centred on x 0x94, the middle of the banner's lettering. FONT_BIG bills
-//     17 px per character, so the 11 letters span about x 0x3A..0xEE and end
+//     17 px per character, so the 9 letters span about x 0x48..0xE0 and end
 //     well left of the main-menu box, whose left edge is x 0x126 at any row
 //     count.
 //   * top at y 0xB1, just under the banner's lower edge (measured in a 4:3
@@ -666,14 +667,14 @@ void AP_DrawTitleUpdateNotice(uint32_t *ot)
 // pulled toward x 0x100 by the same factor (Widescreen_CompressXAbout) to stay
 // under the banner. At 21:9, the widest, it then ends near x 0x120, still left
 // of the menu box. The y placement does not change with the aspect ratio.
-#define AP_TITLE_AP_LINE_CENTRE_X 0x94
-#define AP_TITLE_AP_LINE_Y        0xB1
+#define AP_TITLE_NAME_LINE_CENTRE_X 0x94
+#define AP_TITLE_NAME_LINE_Y        0xB1
 
-static char ap_title_ap_line[] = "ARCHIPELAGO";
+static char ap_title_name_line[] = "DECRYPTED";
 
-void AP_DrawTitleArchipelagoLine(uint32_t *ot)
+void AP_DrawTitleNameLine(uint32_t *ot)
 {
-	DecalFont_DrawLineOT(ap_title_ap_line, Widescreen_CompressXAbout(AP_TITLE_AP_LINE_CENTRE_X, 0x100), AP_TITLE_AP_LINE_Y,
+	DecalFont_DrawLineOT(ap_title_name_line, Widescreen_CompressXAbout(AP_TITLE_NAME_LINE_CENTRE_X, 0x100), AP_TITLE_NAME_LINE_Y,
 	                     FONT_BIG, JUSTIFY_CENTER | ORANGE, ot);
 }
 

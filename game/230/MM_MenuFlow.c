@@ -111,9 +111,9 @@ void MM_MenuProc_Main(struct RectMenu *menu)
 			// a session with no slot_data -- and the whole vanilla build -- draws
 			// nothing.
 			AP_DrawTitleUpdateNotice(&GAME_TRACKER->backBuffer->otMem.uiOT[MM_TITLE_TM_OT_INDEX]);
-			// "ARCHIPELAGO" under the banner, only while no submenu is open.
+			// "DECRYPTED" under the banner, only while no submenu is open.
 			if ((MM_MENU_MAIN.state & DRAW_NEXT_MENU_IN_HIERARCHY) == 0)
-				AP_DrawTitleArchipelagoLine(&GAME_TRACKER->backBuffer->otMem.uiOT[MM_TITLE_TM_OT_INDEX]);
+				AP_DrawTitleNameLine(&GAME_TRACKER->backBuffer->otMem.uiOT[MM_TITLE_TM_OT_INDEX]);
 			// One-click connect (issue #334): these same settled frames, with no
 			// submenu open, are where a waiting room link may be offered.
 			if ((MM_MENU_MAIN.state & DRAW_NEXT_MENU_IN_HIERARCHY) == 0)
