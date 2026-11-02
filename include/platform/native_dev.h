@@ -51,6 +51,10 @@ int NativeDev_BotSpeedPercent(void);
 // the new build, so a run tests a real release end to end. NULL when unset.
 const char *NativeDev_UpdateAs(void);
 
+// CTR_DEV_SETUP=1: the title opens the first-launch setup even when it already
+// ran or a room is saved, to capture its pages. 1 when set.
+int NativeDev_Setup(void);
+
 // CTR_DEV_AUDIO=<file>: the mixed game audio as raw 16-bit stereo PCM at
 // 44100 Hz. In CTR_DEV_FAST runs audio is rendered on the VBlank clock, one
 // VBlank (735 frames) per call; in real time it is what SDL's audio thread

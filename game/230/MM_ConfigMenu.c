@@ -157,6 +157,19 @@ static int s_currentSection = -1; // -1 = section selector, 0+ = submenu
 // counted at 30 FPS and doubled by FPS_DOUBLE in 60 FPS mode.
 #define CONFIG_STEP_REPEAT_FRAMES 3
 
+// The panel behind every page: the separator under the title, then the box.
+static void Config_DrawPanel(uint32_t *ot)
+{
+	{
+		RECT sep = {0x20, 0x2C, 0x1C0, 2};
+		Color sepColor = ColorCode_Load(&sdata->battleSetup_Color_UI_1);
+		RECTMENU_DrawOuterRect_Edge(&sep, &sepColor, 0x20, ot);
+	}
+
+	RECT bg = {0x10, 4, 0x1E0, 0xCE};
+	RECTMENU_DrawInnerRect(&bg, 4, ot);
+}
+
 static void Config_DrawRowHighlight(uint32_t *ot, int y)
 {
 	RECT sel = {0x30, y - 2, 0x1B0, 0x0C};
@@ -1165,6 +1178,10 @@ static void MM_ConfigProc_Connection(struct RectMenu *menu, uint32_t *ot, struct
 		TextEdit_DrawHint(startY + (numStrings + 4) * rowSpacing, ot);
 }
 
+#if !defined(CTR_AP_AUTHORING)
+#include "MM_Setup.c" // first-launch setup, opened from the title screen
+#endif
+
 #endif // CTR_AP
 
 // The package library and the Mods screen: every build with CTR_CUSTOM_PACKAGES
@@ -1275,6 +1292,15 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 
 	if (s_numSections == 0)
 		BuildSectionMap();
+
+#if defined(CTR_AP) && !defined(CTR_AP_AUTHORING)
+	// The first-launch setup owns the whole menu while it is open.
+	if (MM_Setup_Frame(menu, ot, pad))
+	{
+		Config_DrawPanel(ot);
+		return;
+	}
+#endif
 
 	// On the Controls page the back button also answers to the selected player's
 	// own device (MM_Controls_MenuTapped). The device picker consumes back itself,
@@ -1598,12 +1624,5 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 #endif
 	}
 
-	{
-		RECT sep = {0x20, 0x2C, 0x1C0, 2};
-		Color sepColor = ColorCode_Load(&sdata->battleSetup_Color_UI_1);
-		RECTMENU_DrawOuterRect_Edge(&sep, &sepColor, 0x20, ot);
-	}
-
-	RECT bg = {0x10, 4, 0x1E0, 0xCE};
-	RECTMENU_DrawInnerRect(&bg, 4, ot);
+	Config_DrawPanel(ot);
 }

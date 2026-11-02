@@ -32,6 +32,7 @@
 #include "platform/native_assets.c"
 #include "platform/native_disc_copy.c"
 #include "platform/native_disc_path_store.c"
+#include "platform/native_disc_search.c"
 #include "platform/native_startup.c"
 
 static int g_checks;
@@ -273,6 +274,7 @@ static void runStartupCase(const char *base, const char *expectSuffix, const cha
 	expect(startupArgs.explicitDiscPath == NULL, label);
 	expect(startupArgs.validateDiscOnly == 0, label);
 
+	startupOps.searchDisc = NULL;
 	startupOps.pickDisc = ctxPick;
 	startupOps.confirm = ctxConfirm;
 	startupOps.validateAssets = ctxValidateAssets;
@@ -322,6 +324,7 @@ static void runNoDiscCase(const char *base, int expectPicker, const char *label)
 	memset(&ctx, 0, sizeof(ctx));
 	expect(NativeStartup_ParseArgs(1, argv, &startupArgs) == NATIVE_STARTUP_ARG_OK, label);
 
+	startupOps.searchDisc = NULL;
 	startupOps.pickDisc = ctxPick;
 	startupOps.confirm = ctxConfirm;
 	startupOps.validateAssets = ctxValidateAssets;

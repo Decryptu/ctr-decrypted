@@ -7,6 +7,7 @@
 #include "platform/native_startup.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "platform/native_assets.h"
@@ -14,6 +15,7 @@
 #include "platform/native_disc_copy.h"
 #include "platform/native_disc_image.h"
 #include "platform/native_disc_path_store.h"
+#include "platform/native_disc_search.h"
 #include "platform/native_fs_utf8.h"
 
 // ── real (non-injectable) resolution operations ──────────────────────────────
@@ -82,6 +84,33 @@ static void NativeStartup_Report(void *ctx, const char *line)
 {
 	(void)ctx;
 	printf("[CTR Native] %s\n", line);
+}
+
+static int NativeStartup_SearchAccept(void *ctx, const char *path)
+{
+	(void)ctx;
+	return NativeDiscImage_ValidateCandidate(path, 0) == NATIVE_DISC_IMAGE_VALID;
+}
+
+int NativeStartup_SearchDisc(void *ctx, char *outPath, size_t outPathSize)
+{
+	char roots[NATIVE_DISC_SEARCH_ROOTS_MAX][NATIVE_DISC_SEARCH_PATH_MAX];
+	const char *rootList[NATIVE_DISC_SEARCH_ROOTS_MAX];
+#ifdef _WIN32
+	const char *home = getenv("USERPROFILE");
+#else
+	const char *home = getenv("HOME");
+#endif
+	const int count = NativeDiscSearch_Roots(NativeAssets_GetBaseDir(), home, roots, NATIVE_DISC_SEARCH_ROOTS_MAX);
+	int i;
+
+	(void)ctx;
+	for (i = 0; i < count; i++)
+		rootList[i] = roots[i];
+	if (!NativeDiscSearch_Walk(rootList, count, NativeStartup_SearchAccept, NULL, outPath, outPathSize))
+		return 0;
+	printf("[CTR Native] disc search found %s\n", outPath);
+	return 1;
 }
 
 // ── arguments ───────────────────────────────────────────────────────────────
@@ -170,6 +199,7 @@ NativeStartupStatus NativeStartup_ResolveDisc(const NativeStartupArgs *args, con
 	resolutionOps.fileExists = NativeStartup_FileExists;
 	resolutionOps.validateCandidate = NativeStartup_ValidateCandidate;
 	resolutionOps.scanAssets = NativeStartup_ScanAssets;
+	resolutionOps.searchDisc = ops->searchDisc;
 	resolutionOps.pickDisc = ops->pickDisc;
 	resolutionOps.confirm = ops->confirm;
 	resolutionOps.copyAndMount = NativeStartup_CopyAndMount;

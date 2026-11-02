@@ -250,6 +250,9 @@ struct StubCtx
 	int scanCalls;
 	int confirmCalls;
 	int pickCalls;
+	const char *searchPath; // what the disc search finds, or NULL
+	int searchCalls;
+	char firstQuestion[NATIVE_DISC_PATH_MAX + 128];
 	char status[2048];
 };
 
@@ -313,6 +316,17 @@ static int stubScan(void *ctx, char *chosenPath, size_t chosenPathSize)
 	return 1;
 }
 
+static int stubSearch(void *ctx, char *outPath, size_t outPathSize)
+{
+	struct StubCtx *c = (struct StubCtx *)ctx;
+
+	c->searchCalls++;
+	if (c->searchPath == NULL)
+		return 0;
+	NativeDiscResolution_CopyString(outPath, outPathSize, c->searchPath);
+	return 1;
+}
+
 static int stubPick(void *ctx, char *outPath, size_t outPathSize)
 {
 	struct StubCtx *c = (struct StubCtx *)ctx;
@@ -335,7 +349,8 @@ static int stubConfirm(void *ctx, const char *question)
 	struct StubCtx *c = (struct StubCtx *)ctx;
 	int answer;
 
-	(void)question;
+	if (c->confirmCalls == 0)
+		NativeDiscResolution_CopyString(c->firstQuestion, sizeof(c->firstQuestion), question);
 	c->confirmCalls++;
 	if (c->confirmIndex >= c->confirmCount)
 		return 0;
@@ -372,6 +387,7 @@ static int runStub(struct StubCtx *ctx, const char *explicitPath, const char *sa
 	ops.fileExists = stubFileExists;
 	ops.validateCandidate = stubValidate;
 	ops.scanAssets = stubScan;
+	ops.searchDisc = stubSearch;
 	ops.pickDisc = stubPick;
 	ops.confirm = stubConfirm;
 	ops.copyAndMount = stubCopy;
@@ -922,11 +938,108 @@ static void TestDiscPathStoreLeavesConfigAlone(void)
 	free(after);
 }
 
+// The disc search runs only when nothing else found a disc, its find is asked
+// about by path, and a no or a stale find falls back to the picker.
+static void TestDiscSearch(void)
+{
+	NativeDiscResolutionResult result;
+
+	// Found and accepted: no picker, then the usual copy question.
+	{
+		struct StubCtx ctx;
+		memset(&ctx, 0, sizeof(ctx));
+		stubAddFile(&ctx, "/home/p/Downloads/CTR/ctr.bin", NATIVE_DISC_IMAGE_VALID);
+		ctx.searchPath = "/home/p/Downloads/CTR/ctr.bin";
+		ctx.confirmAnswers[0] = 1; // use it
+		ctx.confirmAnswers[1] = 1; // copy it
+		ctx.confirmCount = 2;
+		ctx.copyResult = 1;
+
+		expect(runStub(&ctx, NULL, "", "/game/assets/ctr-u.bin", 1, &result) == 1, "search accept: found");
+		expect(result.searchFound == 1 && result.searchAccepted == 1, "search accept: flags");
+		expect(ctx.pickCalls == 0, "search accept: no picker");
+		expect(strstr(ctx.firstQuestion, "/home/p/Downloads/CTR/ctr.bin") != NULL, "search accept: question names the path");
+		expect(strncmp(ctx.firstQuestion, NATIVE_DISC_TEXT_FOUND_BEFORE, strlen(NATIVE_DISC_TEXT_FOUND_BEFORE)) == 0,
+		       "search accept: question wording");
+		expect(ctx.copyCalls == 1 && strcmp(ctx.copiedSource, "/home/p/Downloads/CTR/ctr.bin") == 0,
+		       "search accept: copied into the game folder");
+		expect(result.source == NATIVE_DISC_SOURCE_ASSETS, "search accept: assets source after the copy");
+	}
+
+	// Found and accepted, copy declined: the found path is remembered.
+	{
+		struct StubCtx ctx;
+		memset(&ctx, 0, sizeof(ctx));
+		stubAddFile(&ctx, "/home/p/Games/ctr.bin", NATIVE_DISC_IMAGE_VALID);
+		ctx.searchPath = "/home/p/Games/ctr.bin";
+		ctx.confirmAnswers[0] = 1;
+		ctx.confirmAnswers[1] = 0;
+		ctx.confirmCount = 2;
+
+		expect(runStub(&ctx, NULL, "", "/game/assets/ctr-u.bin", 1, &result) == 1, "search keep: found");
+		expect(result.persistExternal == 1 && strcmp(result.chosenPath, "/home/p/Games/ctr.bin") == 0,
+		       "search keep: external path remembered");
+	}
+
+	// Declined: the picker opens.
+	{
+		struct StubCtx ctx;
+		memset(&ctx, 0, sizeof(ctx));
+		stubAddFile(&ctx, "/home/p/Games/ctr.bin", NATIVE_DISC_IMAGE_VALID);
+		stubAddFile(&ctx, "/discs/good.bin", NATIVE_DISC_IMAGE_VALID);
+		ctx.searchPath = "/home/p/Games/ctr.bin";
+		ctx.picks[0] = "/discs/good.bin";
+		ctx.pickCount = 1;
+		ctx.confirmAnswers[0] = 0; // not that one
+		ctx.confirmAnswers[1] = 0; // keep it where it is
+		ctx.confirmCount = 2;
+
+		expect(runStub(&ctx, NULL, "", "/game/assets/ctr-u.bin", 1, &result) == 1, "search decline: found by picker");
+		expect(result.searchFound == 1 && result.searchAccepted == 0, "search decline: flags");
+		expect(ctx.pickCalls == 1, "search decline: picker opened");
+		expect(strcmp(result.chosenPath, "/discs/good.bin") == 0, "search decline: picked disc used");
+	}
+
+	// Accepted but no longer valid when mounted: the picker opens.
+	{
+		struct StubCtx ctx;
+		memset(&ctx, 0, sizeof(ctx));
+		stubAddFile(&ctx, "/home/p/Games/ctr.bin", NATIVE_DISC_IMAGE_WRONG_REGION);
+		ctx.searchPath = "/home/p/Games/ctr.bin";
+		ctx.picks[0] = NULL;
+		ctx.pickCount = 1;
+		ctx.confirmAnswers[0] = 1;
+		ctx.confirmCount = 1;
+
+		expect(runStub(&ctx, NULL, "", "/game/assets/ctr-u.bin", 1, &result) == 0, "search stale: picker cancelled");
+		expect(result.searchAccepted == 0 && ctx.pickCalls == 1, "search stale: picker opened");
+	}
+
+	// A disc in the game folder wins: the search never runs. Nor in
+	// validation-only mode, which has no wizard.
+	{
+		struct StubCtx ctx;
+		memset(&ctx, 0, sizeof(ctx));
+		ctx.scanResult = 1;
+		ctx.scanPath = "/game/assets/ctr-u.bin";
+		ctx.searchPath = "/home/p/Games/ctr.bin";
+
+		expect(runStub(&ctx, NULL, "", "/game/assets/ctr-u.bin", 1, &result) == 1, "search skipped: assets found");
+		expect(ctx.searchCalls == 0, "search skipped: assets disc wins");
+
+		memset(&ctx, 0, sizeof(ctx));
+		ctx.searchPath = "/home/p/Games/ctr.bin";
+		expect(runStub(&ctx, NULL, "", "/game/assets/ctr-u.bin", 0, &result) == 0, "search skipped: validate-only");
+		expect(ctx.searchCalls == 0, "search skipped: no search in validate-only");
+	}
+}
+
 int main(void)
 {
 	TestRealValidator();
 	TestPrecedenceAndFallthrough();
 	TestWizardAndCopy();
+	TestDiscSearch();
 	TestPathValidation();
 	TestCopyPlan();
 	TestDiscPathStore();

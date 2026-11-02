@@ -25,7 +25,7 @@ On top of the Archipelago client, each in OPTIONS:
 
 **1. Download** `ctr-decrypted-vX.Y.Z-windows-x86.zip` from the [latest release](https://github.com/Decryptu/ctr-decrypted/releases/latest) and extract it (Linux: the `-linux-x86.tar.gz`). After that the game updates itself: when a new version is out, the main menu offers it, and accepting installs it and restarts the game. Your settings and saves stay.
 
-**2. Add your disc image.** This project contains no game assets. You must own a retail **NTSC-U** copy of Crash Team Racing, dumped as a raw single-track `.bin` (MODE2/2352). A 2048-byte `.iso` won't work: it loses the audio and video sectors. Put the image in an `assets` folder next to the executable. Launching the game once creates that folder.
+**2. Add your disc image.** This project contains no game assets. You must own a retail **NTSC-U** copy of Crash Team Racing, dumped as a raw single-track `.bin` (MODE2/2352). A 2048-byte `.iso` won't work: it loses the audio and video sectors. On the first launch the game looks for it in the game folder, Downloads, Desktop, Documents and Games and asks to use what it finds; otherwise a file picker opens. You can also put it in an `assets` folder next to the executable yourself.
 
 ```
 CTR-Decrypted/
@@ -34,12 +34,7 @@ CTR-Decrypted/
     ctr-u.bin
 ```
 
-**3. Connect to your Archipelago room.**
-1. Go to **OPTIONS → Connection**.
-2. Enter the server address (for example `archipelago.gg:38281`), your slot name and the password.
-3. Select **Connect**.
-
-The settings are saved to `config.ini`.
+**3. Connect to your Archipelago room.** The first launch opens a short setup on the title screen: enter the server address (for example `archipelago.gg:38281`), your slot name and the password, then pick a few options. Later, change them in **OPTIONS → Connection**. The settings are saved to `config.ini`.
 
 ## Making a multiworld
 

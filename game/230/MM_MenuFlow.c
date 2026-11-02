@@ -10,6 +10,8 @@ extern struct RectMenu g_configMenu;
 void MM_MainRows_Link(struct MenuRow *rows);
 #if defined(CTR_AP) && !defined(CTR_AP_AUTHORING)
 void MM_Solo_OpenFromTitle(void); // MM_ConfigMenu.c (#89)
+int MM_Setup_ShouldOpen(void);    // MM_Setup.c, first-launch setup
+void MM_Setup_OpenFromTitle(void);
 #endif
 #ifdef CTR_CUSTOM_PACKAGES
 void MM_Mods_OpenFromTitle(void); // MM_ConfigMenu.c
@@ -123,6 +125,14 @@ void MM_MenuProc_Main(struct RectMenu *menu)
 			// A room with missing tracks offers to download them, on the same frames.
 			if ((D230.menuMainMenu.state & DRAW_NEXT_MENU_IN_HIERARCHY) == 0)
 				AP_SeedPromptMainMenuSettled(mainMenu);
+#if !defined(CTR_AP_AUTHORING)
+			// First launch: the guided setup, once the title has settled.
+			if ((D230.menuMainMenu.state & DRAW_NEXT_MENU_IN_HIERARCHY) == 0 && MM_Setup_ShouldOpen())
+			{
+				MM_Setup_OpenFromTitle();
+				sdata->ptrDesiredMenu = &g_configMenu;
+			}
+#endif
 			AP_LinkDrawTitleHint(&GAME_TRACKER->backBuffer->otMem.uiOT[MM_TITLE_TM_OT_INDEX]);
 #endif
 		}
