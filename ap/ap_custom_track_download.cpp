@@ -1281,6 +1281,100 @@ extern "C" int NativeRacerCatalogue_PollInstall(char *error, size_t errorSize)
     std::lock_guard<std::mutex> guard(state.mutex);
     return racer_poll(state, error, errorSize);
 }
+
+/* A racer's portrait before it is installed: racer.json, checked against the
+   racer list, names the portrait and its hash; the portrait is checked against
+   that and kept in cacheDir as <id>-<first 16 of the racer.json hash>.bin, so
+   a racer seen once shows offline and an updated racer is fetched again. */
+namespace {
+struct PreviewJobState
+{
+    std::mutex mutex;
+    int state = -1;
+    std::string id;
+    std::vector<unsigned char> portrait;
+};
+PreviewJobState &preview_state() { static auto *state = new PreviewJobState(); return *state; }
+
+void preview_finish(const std::string &id, int result, std::vector<unsigned char> portrait = {})
+{
+    auto &state = preview_state();
+    std::lock_guard<std::mutex> guard(state.mutex);
+    state.id = id;
+    state.portrait = std::move(portrait);
+    state.state = result;
+}
+
+bool portrait_valid(const std::vector<unsigned char> &bytes)
+{
+    if (bytes.size() != NATIVE_RACER_PORTRAIT_BYTES || std::memcmp(bytes.data(), "CDP1", 4) != 0) return false;
+    uint16_t w = 0, h = 0;
+    std::memcpy(&w, &bytes[4], 2);
+    std::memcpy(&h, &bytes[6], 2);
+    return w == NATIVE_RACER_PORTRAIT_W && h == NATIVE_RACER_PORTRAIT_H;
+}
+
+void preview_worker(NativeRacerCatalogueEntry entry, std::string cacheDir)
+{
+    const std::string id = entry.id;
+    const std::string cacheFile = join_path(cacheDir, (id + "-" + std::string(entry.manifestSha256).substr(0, 16) + ".bin").c_str());
+    {
+        std::ifstream file(cacheFile, std::ios::binary);
+        std::vector<unsigned char> cached(NATIVE_RACER_PORTRAIT_BYTES + 1);
+        file.read(reinterpret_cast<char *>(cached.data()), static_cast<std::streamsize>(cached.size()));
+        cached.resize(static_cast<size_t>(file.gcount()));
+        if (portrait_valid(cached)) return preview_finish(id, 1, std::move(cached));
+    }
+    const std::string folder = std::string(kRacerRoot) + "racers/" + entry.folder + "/";
+    std::vector<unsigned char> manifest, portrait;
+    std::string error;
+    if (!https_get(kRacerHost, folder + "racer.json", 65536, manifest, error) ||
+        !hash_matches(manifest, entry.manifestSha256) || manifest.size() != entry.manifestBytes)
+        return preview_finish(id, -2);
+    NativeRacerEntry parsed;
+    char modelSha[65], portraitSha[65], detail[256] = {0};
+    size_t modelBytes = 0, portraitBytes = 0;
+    if (!NativeRacerLibrary_ParseManifest(reinterpret_cast<const char *>(manifest.data()), manifest.size(), &parsed,
+                                          modelSha, portraitSha, &modelBytes, &portraitBytes, detail, sizeof detail) ||
+        std::strcmp(parsed.id, entry.id) != 0)
+        return preview_finish(id, -2);
+    if (!https_get(kRacerHost, folder + parsed.portraitPath, 4096, portrait, error) || portrait.size() != portraitBytes ||
+        !hash_matches(portrait, portraitSha) || !portrait_valid(portrait))
+        return preview_finish(id, -2);
+    // The cache is a convenience: a failed write still shows the portrait.
+    const size_t slash = cacheDir.find_last_of("/\\");
+    if ((slash == std::string::npos || make_directory(cacheDir.substr(0, slash))) && make_directory(cacheDir))
+    {
+        const std::string part = cacheFile + ".part";
+        if (!write_file(part, portrait) || !replace_file(part, cacheFile)) std::remove(part.c_str());
+    }
+    preview_finish(id, 1, std::move(portrait));
+}
+}
+
+extern "C" int NativeRacerCatalogue_StartPreview(const NativeRacerCatalogueEntry *entry, const char *cacheDir)
+{
+    if (!entry || !cacheDir || !*cacheDir || !std::memchr(entry->folder, 0, sizeof entry->folder) ||
+        !std::memchr(entry->id, 0, sizeof entry->id) || !std::memchr(entry->manifestSha256, 0, sizeof entry->manifestSha256))
+        return 0;
+    auto &state = preview_state();
+    std::lock_guard<std::mutex> guard(state.mutex);
+    if (state.state != -1) return 0;
+    state.state = 0;
+    try { std::thread(preview_worker, *entry, std::string(cacheDir)).detach(); return 1; }
+    catch (const std::exception &) { state.state = -1; return 0; }
+}
+extern "C" int NativeRacerCatalogue_PollPreview(char id[37], unsigned char portrait[NATIVE_RACER_PORTRAIT_BYTES])
+{
+    auto &state = preview_state();
+    std::lock_guard<std::mutex> guard(state.mutex);
+    const int result = state.state;
+    if (result == 0 || result == -1) return result;
+    if (id) std::snprintf(id, 37, "%s", state.id.c_str());
+    if (result == 1 && portrait) std::memcpy(portrait, state.portrait.data(), NATIVE_RACER_PORTRAIT_BYTES);
+    state.state = -1;
+    return result;
+}
 /* Track pictures (include/platform/native_track_picture.h): Saphi's thumbnail
    for one track, decoded and cached as "CTP1", the media id, then the texels. */
 namespace {

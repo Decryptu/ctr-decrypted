@@ -148,7 +148,7 @@ int main(void)
 	/* 5. Another tab of the Mods screen. */
 	frame(BTN_CROSS);
 	s_modsSeed = 0;
-	expect(s_seedOverview && back_leaves(), "on Browse or Installed Back leaves, even with the overview left open");
+	expect(s_seedOverview && back_leaves(), "on Tracks or Installed Back leaves, even with the overview left open");
 	s_modsSeed = 1;
 	frame(BTN_TRIANGLE);
 

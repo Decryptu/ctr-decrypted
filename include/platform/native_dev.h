@@ -118,8 +118,8 @@ int NativeDev_RacePlayers(void);
 // Returns 1 when set (called every idle title frame).
 int NativeDev_CharacterSelect(void);
 
-// CTR_DEV_MODS=<tab>: the title opens the Mods screen on that tab (1 Browse,
-// 2 Installed, 3 Racers). Returns the tab the first time, then 0.
+// CTR_DEV_MODS=<tab>: the title opens the Mods screen on that tab (1 Tracks,
+// 2 Racers, 3 Installed). Returns the tab the first time, then 0.
 int NativeDev_ModsTab(void);
 
 // CTR_DEV_ENDING=1: boot into Oxide's true ending, which runs into the

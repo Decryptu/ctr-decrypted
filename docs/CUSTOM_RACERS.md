@@ -89,13 +89,15 @@ The catalogue, [Decryptu/ctr-decrypted-racers](https://github.com/Decryptu/ctr-d
 The racer mods converted so far are static, vertex-coloured meshes: no textures and no animations, as they are on a PS1. Their kart textures, voices and code patches are not carried over.
 
 ## The Racers tab
-The Mods screen's Racers tab (`game/230/MM_CustomRacers.c`) lists every racer in the catalogue's `index.json` and every installed racer the catalogue does not list, by name, with `OWNED` on installed ones. The panel shows the portrait (once installed), the authors and the retail racer it is based on. Cross downloads a racer, or asks to remove an installed one. L2 reads the catalogue again; R2 searches names and authors.
+The Mods screen's Racers tab (`game/230/MM_CustomRacers.c`) lists every racer in the catalogue's `index.json` and every installed racer the catalogue does not list, by name, with `OWNED` on installed ones. The panel shows the portrait, the authors and the retail racer it is based on. Cross downloads a racer, or asks to remove an installed one. L2 reads the catalogue again; R2 searches names and authors. The Installed tab lists the installed racers after the tracks, with the same panel and Cross.
+
+- A listed racer's portrait shows before it is installed. Once the selection rests on it, `NativeRacerCatalogue_StartPreview` fetches its `racer.json` (checked against the index) and then only the portrait (checked against `racer.json`), and keeps it in `assets/racers/previews/<id>-<first 16 of the racer.json hash>.bin`, so a racer seen once shows offline and an updated one is fetched again. It is drawn from the slot the track pictures use, so one hides the other (`game/230/MM_CustomPicture.c`).
 
 - The downloads come from `raw.githubusercontent.com`, the catalogue's `main` branch, through the same HTTPS code as Project Saphi (`ap/ap_custom_track_download.cpp`, `NativeRacerCatalogue_*`). The index pins each `racer.json` (size and SHA-256), and `racer.json` pins its files, so the repository's `.gitattributes` keeps `racer.json` byte for byte (`eol=lf`).
 - `NativeRacerLibrary_Install` checks the files against each other, writes them to a hidden `.<folder>.part` folder, removes any installed folder with the same racer id, then renames the staging folder into place. `NativeRacerLibrary_Remove` deletes the racer's folder.
 - After either, `NativeRacers_Reload` reads the library again, so the character select has the change at once. It clears the players' racer picks, since racer indices change.
 
-`CTR_DEV_MODS=3` opens the tab ([DEV-TOOLS.md](DEV-TOOLS.md)). `CTR_DEV_PAD` presses then drive it; the catalogue loads within about 300 frames of a fast-forwarded run.
+`CTR_DEV_MODS=2` opens the tab ([DEV-TOOLS.md](DEV-TOOLS.md)). `CTR_DEV_PAD` presses then drive it; the catalogue loads within about 300 frames of a fast-forwarded run.
 
 ## In a race
 A driver races as a custom racer when it is a human player who picked one, outside Adventure and the menus, and its character ID is still the racer's template (`NativeRacers_Driver`). Anything that changed the ID since (Archipelago's character swap, the garage) changed the racer too. Then:

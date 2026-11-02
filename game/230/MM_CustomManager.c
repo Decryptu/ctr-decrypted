@@ -1,17 +1,18 @@
 /* The Mods screen: MODS on the title screen, or Options > Mods. Included by
    MM_ConfigMenu.c inside CTR_CUSTOM_PACKAGES only.
 
-   Tabs, L1 / R1:
+   Tabs, L1 / R1, drawn by the shared tab bar (MM_TabBar.c):
    - Seed (AP player client, a room whose plan names custom tracks): what the
      room needs and Install missing content (MM_CurrentSeed.c). The screen
      opens here in such a room.
-   - Browse: the Project Saphi catalogue. Cross installs the selected revision,
-     Square lists a track's versions.
-   - Installed: one row per installed track, its newest revision. Cross opens
-     the track's actions: turn it off or on, remove it, check its files.
+   - Tracks: the Project Saphi catalogue. Cross installs the selected
+     revision, Square lists a track's versions.
    - Racers: the custom racer catalogue and the installed racers
-     (MM_CustomRacers.c).
-   Browse and Installed show the selected track's picture (MM_CustomPicture.c).
+     (MM_CustomRacers.c), with each racer's portrait.
+   - Installed: everything installed, tracks first (their newest revision),
+     then racers, tagged RACER. Cross on a track opens its actions: turn it
+     off or on, remove it, check its files; on a racer, removes it.
+   Tracks and Installed show the selected track's picture (MM_CustomPicture.c).
    Everywhere: Select imports an xdelta patch (MM_CustomImport.c, also on a
    patch dropped on the window), R2 searches, L2 refreshes the catalogue.
 
@@ -20,6 +21,7 @@
    package UUID (or pin, for a package without one) per line. Seeds ignore it:
    a room that needs a track still finds it. */
 #include <platform/native_custom_revision.h>
+#include "MM_TabBar.c"
 
 /* Every tab's list (left) and detail panel (right): a row is 15 pixels and
    holds MODS_LIST_TEXT_W pixels of text; the panel's text starts at
@@ -198,18 +200,18 @@ static int MM_Mods_ConsumesBack(void)
 }
 
 /* L1 / R1 and the tab names. Tab 0 is Seed, shown only in a room that needs
-   custom tracks; 1 Browse, 2 Installed, 3 Racers. */
+   custom tracks; 1 Tracks, 2 Racers, 3 Installed. */
 #define MODS_TABS 4
 static int MM_Mods_Tab(void)
 {
-    return s_modsSeed ? 0 : s_modsRacers ? 3 : 1 + s_contentLibraryTab;
+    return s_modsSeed ? 0 : s_modsRacers ? 2 : s_contentLibraryTab ? 3 : 1;
 }
 
 static void MM_Mods_SetTab(int tab)
 {
     s_modsSeed = tab == 0;
-    s_modsRacers = tab == 3;
-    if (tab == 1 || tab == 2) s_contentLibraryTab = tab - 1;
+    s_modsRacers = tab == 2;
+    if (tab == 1 || tab == 3) s_contentLibraryTab = tab == 3;
     s_modsActions = MODS_ACTIONS_CLOSED;
     s_racerConfirmRemove = 0;
 }
@@ -224,15 +226,10 @@ void MM_Mods_DevOpen(int tab)
 
 static void MM_Mods_DrawTabs(int seedTab, uint32_t *ot)
 {
-    static const char *const names[MODS_TABS] = {"Seed", "Browse", "Installed", "Racers"};
-    const int tab = MM_Mods_Tab();
-    MM_CustomText_Draw("L1",42,50,28,1,WHITE,ot);
-    for (int i = seedTab ? 0 : 1, n = 0; i < MODS_TABS; i++, n++)
-    {
-        int x = seedTab ? 111 + n * 96 : 150 + n * 106;
-        MM_CustomText_Draw(names[i],x,50,150,1,JUSTIFY_CENTER | (i == tab ? ORANGE : WHITE),ot);
-    }
-    MM_CustomText_Draw("R1",456,50,28,1,WHITE,ot);
+    static const char *const names[MODS_TABS] = {"Seed", "Tracks", "Racers", "Installed"};
+    static const char *const shortNames[MODS_TABS] = {NULL, NULL, NULL, "Owned"};
+    const int low = seedTab ? 0 : 1;
+    MM_TabBar_Draw(names + low, shortNames + low, MODS_TABS - low, MM_Mods_Tab() - low, 20, 492, 50, ot);
 }
 
 /* The detail panel below the picture and its text (y 124 to 172): the
@@ -284,6 +281,7 @@ static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, str
     MM_CustomLibrary_Tick(0);
     MM_ModsRacers_Tick();
     MM_ModsPicture_Tick();
+    MM_ModsRacers_PreviewTick();
 #if defined(CTR_AP) && !defined(CTR_AP_AUTHORING)
     const int seedBusy = AP_SeedContentInstallBusy();
 #else
@@ -421,13 +419,20 @@ static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, str
             }
         }
     }
+    /* Installed: the racers come after the tracks (MM_CustomRacers.c). A row
+       index below count is a track, from count on a racer. */
+    const struct NativeRacerEntry *racers[NATIVE_RACER_MAX];
+    const size_t racerCount = s_contentLibraryTab ? (size_t)MM_ModsRacers_InstalledRows(racers, NATIVE_RACER_MAX) : 0;
+    const size_t total = count + racerCount;
+    const struct NativeRacerEntry *racer = NULL;
     size_t *selected = &s_saphiSelection[s_contentLibraryTab];
-    if (*selected >= count) *selected = 0;
-    if (count)
+    if (*selected >= total) *selected = 0;
+    if (*selected < count)
     {
         if (!s_contentLibraryTab) source = CustomSaphi_Row(s_saphiCatalogue, visible[*selected]);
         else installed = &s_contentLibrary.entries[visible[*selected]];
     }
+    else if (total) racer = racers[*selected - count];
     if (!installed) s_modsActions = MODS_ACTIONS_CLOSED;
     const int off = installed && MM_Mods_IsOff(installed);
 
@@ -471,14 +476,23 @@ static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, str
         }
         tapped = 0;
     }
+    if (racer || s_racerConfirmRemove) tapped = MM_ModsRacers_Input(MM_ModsRacers_Listed(racer), racer, tapped);
 
-    if (count && (tapped & (BTN_UP | BTN_DOWN)))
+    if (total && (tapped & (BTN_UP | BTN_DOWN)))
     {
-        *selected = (*selected + ((tapped & BTN_UP) ? count - 1 : 1)) % count;
+        *selected = (*selected + ((tapped & BTN_UP) ? total - 1 : 1)) % total;
         if (!s_saphiDownloading) s_saphiMessage[0] = 0;
+        if (!s_racerInstallBusy) s_racerMessage[0] = 0;
         OtherFX_Play(0,1);
-        installed = s_contentLibraryTab ? &s_contentLibrary.entries[visible[*selected]] : NULL;
-        source = s_contentLibraryTab ? NULL : CustomSaphi_Row(s_saphiCatalogue, visible[*selected]);
+        installed = NULL;
+        source = NULL;
+        racer = NULL;
+        if (*selected < count)
+        {
+            installed = s_contentLibraryTab ? &s_contentLibrary.entries[visible[*selected]] : NULL;
+            source = s_contentLibraryTab ? NULL : CustomSaphi_Row(s_saphiCatalogue, visible[*selected]);
+        }
+        else racer = racers[*selected - count];
     }
     if(source && !s_saphiVersionTrack && (tapped & BTN_SQUARE))
     {
@@ -504,8 +518,16 @@ static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, str
         OtherFX_Play(1,1);
     }
     first = (*selected / 7) * 7;
-    for (size_t row = first; row < first + 7 && row < count; row++)
+    for (size_t row = first; row < first + 7 && row < total; row++)
     {
+        if (row >= count)
+        {
+            RECT box = MM_Mods_RowBox((int)(row-first));
+            MM_CustomText_Draw(racers[row - count]->name,32,box.y+2,MODS_LIST_TEXT_W - 64,1,row==*selected ? ORANGE : WHITE,ot);
+            MM_CustomText_Draw("RACER",MODS_LIST_RIGHT,box.y+2,80,1,JUSTIFY_RIGHT | GRAY,ot);
+            if (row==*selected) CTR_Box_DrawClearBox(&box,&sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot, &GAME_TRACKER->backBuffer->primMem);
+            continue;
+        }
         const char *title = !s_contentLibraryTab ? CustomSaphi_Row(s_saphiCatalogue,visible[row])->title : s_contentLibrary.entries[visible[row]].title;
         int rowOff = s_contentLibraryTab && MM_Mods_IsOff(&s_contentLibrary.entries[visible[row]]);
         RECT box = MM_Mods_RowBox((int)(row-first));
@@ -515,13 +537,20 @@ static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, str
             snprintf(line,sizeof line,"v%.32s %s",r->version,(r->modeTags&1)?"Arcade":(r->modeTags&2)?"TT":"Other");
             title=line;
         }
-        MM_CustomText_Draw(title,32,box.y+2,rowOff ? MODS_LIST_TEXT_W - 34 : MODS_LIST_TEXT_W,1,row==*selected ? ORANGE : rowOff ? GRAY : WHITE,ot);
+        /* Tracks: a track already installed is tagged OWNED, as on Racers. */
+        int older = 0;
+        const int rowOwned = !s_contentLibraryTab && !s_saphiVersionTrack &&
+                             MM_CustomSourceInstalled(CustomSaphi_Row(s_saphiCatalogue,visible[row]),&older) != NULL;
+        MM_CustomText_Draw(title,32,box.y+2,rowOff ? MODS_LIST_TEXT_W - 34 : rowOwned ? MODS_LIST_TEXT_W - 64 : MODS_LIST_TEXT_W,1,
+                           row==*selected ? ORANGE : rowOff ? GRAY : WHITE,ot);
         if (rowOff) MM_CustomText_Draw("OFF",MODS_LIST_RIGHT,box.y+2,40,1,JUSTIFY_RIGHT | GRAY,ot);
+        if (rowOwned) MM_CustomText_Draw("OWNED",MODS_LIST_RIGHT,box.y+2,80,1,JUSTIFY_RIGHT | GRAY,ot);
         if (row==*selected) CTR_Box_DrawClearBox(&box,&sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot, &GAME_TRACKER->backBuffer->primMem);
     }
-    if (!count) MM_CustomText_Draw(s_saphiRefreshBusy && !s_contentLibraryTab ? "Loading Saphi..." :
-        *s_saphiQuery ? "No search matches" : s_contentLibraryTab ? "No tracks yet. Install one from Browse." : "Catalogue unavailable",32,84,MODS_LIST_TEXT_W,3,WHITE,ot);
-    if (source || installed)
+    if (!total) MM_CustomText_Draw(s_saphiRefreshBusy && !s_contentLibraryTab ? "Loading Saphi..." :
+        *s_saphiQuery ? "No search matches" : s_contentLibraryTab ? "Nothing installed yet. Get tracks and racers from their tabs." : "Catalogue unavailable",32,84,MODS_LIST_TEXT_W,3,WHITE,ot);
+    if (racer) MM_ModsRacers_DrawPanel(MM_ModsRacers_Listed(racer), racer, ot);
+    else if (source || installed)
     {
         const char *author = source ? source->author : installed->author[0] ? installed->author : installed->local.author;
         MM_ModsPicture_Draw(source ? source->trackID : installed->local.trackID, ot);
@@ -562,7 +591,7 @@ static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, str
     snprintf(line,sizeof line,"R2 Search: %s%s",s_saphiQuery,s_contentSearchEditing ? "_" : "");
     MM_CustomText_Draw(line,256,180,456,1,JUSTIFY_CENTER | WHITE,ot);
     MM_CustomText_Draw("Select: Import track files",256,188,456,1,JUSTIFY_CENTER | ORANGE,ot);
-    snprintf(line,sizeof line,"%u/%u   L2 Refresh   Back: %s",count ? (unsigned)*selected+1 : 0,(unsigned)count,
+    snprintf(line,sizeof line,"%u/%u   L2 Refresh   Back: %s",total ? (unsigned)*selected+1 : 0,(unsigned)total,
              s_modsFromTitle ? "Title" : "Options");
     MM_CustomText_Draw(line,256,196,456,1,JUSTIFY_CENTER | WHITE,ot);
     MM_Mods_DrawBoxes(ot);

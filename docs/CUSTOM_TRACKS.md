@@ -163,19 +163,27 @@ MM_ConfigProc_CustomContent`; the title row is `CTR_LNG_MODS`,
   Cross runs the same Install missing content (`ap/ap_seed_prompt.c`, wording
   in `ap_seed_prompt_text`, `ap/ap_seed_content_logic.h`). Triangle puts it
   off until the next room.
-- **Browse**: the Saphi catalogue (section 5). Search on R2.
-- **Installed**: one row per track (its newest revision). Cross opens the
-  track's actions: turn it off or on (`assets/tracks/mods-off.txt`), Remove
-  (`CustomPackage_RemoveInstalled`: every revision of the track; each pin folder
-  is renamed out of the store, then deleted, so a removal cut short is never
-  read as a package), and Check files.
+- **Tracks**: the Saphi catalogue (section 5), `OWNED` on installed tracks.
+  Search on R2.
 - **Racers**: the custom racer catalogue and the installed racers
   ([CUSTOM_RACERS.md](CUSTOM_RACERS.md#the-racers-tab)).
+- **Installed**: one row per track (its newest revision), then the installed
+  racers, tagged `RACER`, with the Racers tab's panel and Cross. Cross on a
+  track opens its actions: turn it off or on (`assets/tracks/mods-off.txt`),
+  Remove (`CustomPackage_RemoveInstalled`: every revision of the track; each pin
+  folder is renamed out of the store, then deleted, so a removal cut short is
+  never read as a package), and Check files.
+
+The tabs are drawn by the shared tab bar (`game/230/MM_TabBar.c`, layout in
+`include/ctr_tab_bar.h`): each tab in its own box, the active one filled. When
+the bar is too narrow it shrinks the padding, then uses the short names
+(Installed is "Owned"), then shows only the active tab with its place;
+`tools/test-tab-bar.c` checks every width. A new tabbed screen uses it too.
 
 Select imports an xdelta patch, also when one is dropped on the window
 (`game/230/MM_CustomImport.c`, `platform/native_xdelta_import.cpp`).
 
-- **Track pictures.** Browse and Installed show the selected track's Saphi
+- **Track pictures.** Tracks and Installed show the selected track's Saphi
   thumbnail at the panel's top left (`game/230/MM_CustomPicture.c`). The
   catalogue keeps each track's one current `track_thumbnail`
   (`CustomSaphiRevision.picture`); a track with none, or with two, has no
@@ -423,12 +431,12 @@ folder. When that folder has no LEV or VRM at all, the package store is
 searched too: a `packages/<pin>/` whose `manifest.json` names both digests is
 hashed, and the first whose bytes and sizes match is used
 (`platform/native_custom_track_manager.c: Manager_FindInPackages`), so a track
-installed from Browse needs no second download. The Seed tab's Install
+installed from Tracks needs no second download. The Seed tab's Install
 missing content downloads into the package store too, as the same package
-Browse would make for that Saphi revision
+Tracks would make for that Saphi revision
 (`ap/ap_custom_track_download.cpp: saphi_install_library`), so Installed lists
 it with Off, Remove and Check files. It can download only the compiled
-profiles (Baby T Park); any other track of a room is added from Browse or an
+profiles (Baby T Park); any other track of a room is added from Tracks or an
 xdelta patch. On connect and
 again at pad entry the client runs the structural verifier on those exact
 bytes (`ap/ap_content_capability.h`) and refuses the package when a flag the

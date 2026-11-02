@@ -17,6 +17,9 @@
 static uint16_t s_pictureTexels[NATIVE_TRACK_PICTURE_TEXELS];
 static struct Icon *s_pictureIcon;
 static int s_pictureShown, s_pictureWanted, s_pictureWait, s_pictureBusy, s_pictureFailed;
+/* The racer whose portrait preview holds the slot instead (MM_CustomRacers.c),
+   or "". */
+static char s_racerPreviewShown[37];
 
 /* Every frame of the Mods screen: finish the job. */
 static void MM_ModsPicture_Tick(void)
@@ -30,6 +33,7 @@ static void MM_ModsPicture_Tick(void)
     {
         s_pictureIcon = NativeRacers_TrackPicture(s_pictureTexels, NATIVE_TRACK_PICTURE_WIDTH, NATIVE_TRACK_PICTURE_HEIGHT);
         s_pictureShown = s_pictureIcon ? trackID : 0;
+        s_racerPreviewShown[0] = 0;
     }
     else s_pictureFailed = trackID;
 }

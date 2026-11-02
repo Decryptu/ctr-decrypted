@@ -87,12 +87,16 @@ int XdeltaImport_PollInstall(int *installed,char *e,size_t n) { (void)e;(void)n;
 #include <platform/native_racer_library.h>
 #include <platform/native_track_picture.h>
 static int pictureStarts;
-int NativeRacerLibrary_Scan(const char *d,struct NativeRacerEntry *o,int m) { (void)d;(void)o;(void)m; return 0; }
+static int racerInstalledStub, previewStarts;
+int NativeRacerLibrary_Scan(const char *d,struct NativeRacerEntry *o,int m)
+{ (void)d; if(!racerInstalledStub||m<1) return 0; memset(o,0,sizeof *o); strcpy(o->id,"r1"); strcpy(o->name,"Test Racer"); strcpy(o->authors,"Someone"); strcpy(o->folder,"test-racer"); return 1; }
 int NativeRacerLibrary_Remove(const char *d,const char *f,char *e,size_t n) { (void)d;(void)f;(void)e;(void)n; return 1; }
 int NativeRacerCatalogue_StartRefresh(void) { return 0; }
 int NativeRacerCatalogue_PollRefresh(struct NativeRacerCatalogueEntry *o,int m,int *c,char *e,size_t n) { (void)o;(void)m;(void)c;(void)e;(void)n; return -1; }
 int NativeRacerCatalogue_StartInstall(const struct NativeRacerCatalogueEntry *x,const char *d) { (void)x;(void)d; return 0; }
 int NativeRacerCatalogue_PollInstall(char *e,size_t n) { (void)e;(void)n; return -1; }
+int NativeRacerCatalogue_StartPreview(const struct NativeRacerCatalogueEntry *x,const char *d) { (void)x;(void)d; previewStarts++; return 0; }
+int NativeRacerCatalogue_PollPreview(char id[37],unsigned char p[NATIVE_RACER_PORTRAIT_BYTES]) { (void)id;(void)p; return -1; }
 int NativeRacers_Count(void) { return 0; }
 const char *NativeRacers_Name(int r) { (void)r; return NULL; }
 int NativeRacers_Template(int r) { (void)r; return 0; }
@@ -124,7 +128,10 @@ int main(void)
  rows[0].disabledReason[0]=0;tick(BTN_CROSS);CHECK(starts==1&&s_saphiDownloading);
  tick(BTN_CROSS);CHECK(starts==1);
  installResult=1;tick(0);CHECK(!s_saphiDownloading&&s_contentStoreWanted);
- tick(BTN_R1);CHECK(s_contentLibraryTab==1);
+ /* Tabs in order: Tracks, Racers, Installed, drawn as one bar. */
+ tick(0);CHECK(strstr(drawn,"L1\n")&&strstr(drawn,"Tracks\n")&&strstr(drawn,"Racers\n")&&strstr(drawn,"Installed\n")&&strstr(drawn,"R1\n"));
+ tick(BTN_R1);CHECK(s_modsRacers&&MM_Mods_Tab()==2);
+ tick(BTN_R1);CHECK(s_contentLibraryTab==1&&!s_modsRacers&&MM_Mods_Tab()==3);
  struct CustomTrackLibraryEntry installed={0};installed.installed=1;strcpy(installed.title,"Installed track");
  s_contentLibrary.entries=&installed;s_contentLibrary.count=1;s_contentStoreWanted=0;
  /* Installed: Cross opens the track's actions, which own the pad until closed. */
@@ -143,10 +150,18 @@ int main(void)
  tick(BTN_CROSS);CHECK(strstr(drawn,"Turn on"));
  tick(BTN_CROSS);CHECK(!MM_Mods_IsOff(&installed));
  tick(BTN_R2);CHECK(s_contentSearchEditing);strcpy(s_saphiQuery,"no match");textResult=2;tick(0);CHECK(!s_contentSearchEditing&&!s_saphiQuery[0]);
- /* R1 goes on to Racers, L1 back to Browse. */
- tick(BTN_R1);CHECK(s_modsRacers&&MM_Mods_Tab()==3);tick(BTN_L1);CHECK(!s_modsRacers&&s_contentLibraryTab==1);
+ /* Installed lists the installed racers after the tracks, tagged RACER;
+    Cross on one asks to remove it, as on Racers. */
+ racerInstalledStub=1;s_racerInstalledStale=1;tick(0);tick(BTN_DOWN);
+ CHECK(s_saphiSelection[1]==1&&strstr(drawn,"Test Racer\n")&&strstr(drawn,"RACER\n")&&strstr(drawn,"* Remove"));
+ tick(BTN_CROSS);CHECK(s_racerConfirmRemove&&MM_Mods_ConsumesBack());
+ tick(BTN_R1);CHECK(MM_Mods_Tab()==3);
+ tick(BTN_TRIANGLE);CHECK(!s_racerConfirmRemove);
+ racerInstalledStub=0;s_racerInstalledStale=1;tick(0);s_saphiSelection[1]=0;
+ /* L1 goes back to Racers, R1 on to Installed and round to Tracks. */
+ tick(BTN_L1);CHECK(s_modsRacers&&MM_Mods_Tab()==2);tick(BTN_R1);CHECK(!s_modsRacers&&s_contentLibraryTab==1);
  /* One track row for two revisions; latest downloadable beats an unavailable current. */
- tick(BTN_L1);CHECK(s_contentLibraryTab==0);s_saphiSelection[0]=0;
+ tick(BTN_R1);CHECK(s_contentLibraryTab==0&&!s_modsRacers);s_saphiSelection[0]=0;
  rows[1].trackID=rows[0].trackID;strcpy(rows[0].version,"1.9.0");strcpy(rows[1].version,"1.10.0");
  rows[1].lev.id=42;rows[1].vrm.id=43;
  tick(BTN_UP);CHECK(s_saphiSelection[0]==7);tick(BTN_DOWN);
@@ -163,7 +178,7 @@ int main(void)
  installed.local.scaID=77;CHECK(MM_CustomSourceInstalled(&rows[1],&older)==&installed && older==0);
  rows[1].sca.id=0;installed.local.scaID=0;
  /* Installed tab: which pages list the track, and why not Arcade (up to two lines). */
- tick(BTN_R1);CHECK(s_contentLibraryTab==1);s_saphiMessage[0]=0;
+ tick(BTN_L1);CHECK(s_contentLibraryTab==1);s_saphiMessage[0]=0;
  installed.local.arcade=1;installed.local.timeTrial=1;tick(0);
  CHECK(strstr(drawn,"\nArcade\n")&&strstr(drawn,"\nFiles verified\n"));
  installed.local.arcade=0;strcpy(installed.local.arcadeReason,"No AI paths");tick(0);
@@ -206,7 +221,7 @@ int main(void)
  tick(BTN_TRIANGLE);CHECK(!MM_CustomImport_Active());
  CHECK(CustomRevision_Compare("2.0.0","1.99.0")>0);
  CHECK(CustomRevision_Compare("1.0.0","1.0.0-rc1")>0);
- /* Browse rested on a Saphi track: its picture was asked for. */
+ /* Tracks rested on a Saphi track: its picture was asked for. */
  CHECK(pictureStarts>=1);
  printf("custom manager: %d checks, %d failures\n",checks,failures);return failures!=0;
 }

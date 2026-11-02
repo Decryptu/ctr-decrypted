@@ -333,7 +333,7 @@ it again from Steam, and the copy is restored then. Until then the row reads
 A multiworld's progress (checked locations, received items) lives on its
 server, not here: a restore brings back your save and Play Solo seeds only.
 
-## Custom tracks: the Mods screen
+## Custom tracks and racers: the Mods screen
 
 Choose **MODS** on the title screen (or **OPTIONS → Mods** from anywhere). L1
 and R1 switch tabs:
@@ -341,16 +341,21 @@ and R1 switch tabs:
 - **Seed**, in a room that uses custom tracks: what the room needs, each track
   marked Ready or Missing. **Cross** downloads every missing track from Project
   Saphi in one go, after showing what it will download.
-- **Browse**: the Project Saphi track catalogue. **Cross** installs the selected
-  track, **Square** lists its other versions, **R2** searches.
-- **Installed**: your tracks. **Cross** opens a track's options: turn it off
-  (it stays installed but leaves the Arcade and Time Trial lists), remove it, or
-  check its files.
+- **Tracks**: the Project Saphi track catalogue, with **OWNED** on the ones you
+  have. **Cross** installs the selected track, **Square** lists its other
+  versions, **R2** searches.
+- **Racers**: the custom racer catalogue, with each racer's portrait and
+  **OWNED** on the ones you have. **Cross** downloads the selected racer, or
+  removes one you have. A downloaded racer is in the character select at once.
+- **Installed**: everything you have, tracks first, then racers (tagged
+  **RACER**). **Cross** on a track opens its options: turn it off (it stays
+  installed but leaves the Arcade and Time Trial lists), remove it, or check its
+  files. **Cross** on a racer removes it.
 
 Installed tracks appear on extra pages after the normal tracks in a one-player
 Arcade race and in Time Trial: at the track list, press Right past the last
 page. They race outside Archipelago, so disconnect from a room first. A room
-that needs a track you installed from Browse finds it without downloading it
+that needs a track you installed from Tracks finds it without downloading it
 again.
 
 ## 60 FPS

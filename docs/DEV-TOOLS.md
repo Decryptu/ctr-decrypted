@@ -71,7 +71,7 @@ All of these are read once, by `platform/native_dev.c` (`include/platform/native
 | `CTR_DEV_GHOST_IN=<file>` | Race a ghost file from `CTR_DEV_GHOST_OUT` in the Time Trial |
 | `CTR_DEV_EXIT_AFTER_RACE=1` | Quit a second after the finish |
 | `CTR_DEV_RESULTS=<csv>` | Every racer's rank, lap, distance to the finish and the track length at `CTR_DEV_RESULTS_MS` of race time (default 30000, counted from the lights). Distance driven since the start line is `lap × length + length − distance`. Works in the attract demo too, to compare the AI |
-| `CTR_DEV_MODS=<tab>` | Package builds: the title opens the Mods screen on that tab (`1` Browse, `2` Installed, `3` Racers), once |
+| `CTR_DEV_MODS=<tab>` | Package builds: the title opens the Mods screen on that tab (`1` Tracks, `2` Racers, `3` Installed), once |
 | `CTR_DEV_CHARACTER_SELECT=1` | The title menu opens the Arcade character select for `CTR_DEV_PLAYERS` players. `CTR_DEV_CHARACTER` puts player 1's cursor on that racer. `CTR_DEV_UNLOCKS=1` unlocks the retail secret racers in the run's save, `=2` N. Oxide as well |
 | `CTR_DEV_FAKE_RACERS=<n>` | n placeholder custom racers on the character select instead of the installed ones, borrowing the first eight retail racers' looks, to fill its pages ([CUSTOM_RACERS.md](CUSTOM_RACERS.md)) |
 | `CTR_DEV_SETUP=1` | Archipelago build: the title opens the first-launch setup (`game/230/MM_Setup.c`) even when it already ran or a room is saved. `devrun.ps1` writes `setup_done = true` into every run's `config.ini`, so without this switch it never opens in a dev run |

@@ -82,9 +82,9 @@ you can place boxes on them before they are in a release. One custom track at
 a time.
 
 1. Title screen: `MODS`.
-   - **Browse** lists the Saphi catalogue. Pick a track and press Cross to
+   - **Tracks** lists the Saphi catalogue. Pick a track and press Cross to
      download it. Square shows its other versions. R2 searches, L2 refreshes.
-   - **Installed** lists what you have. L1 and R1 switch between the two.
+   - **Installed** lists what you have. L1 and R1 switch tabs.
    - Downloaded tracks are checked and stored under `assets/tracks/packages`.
 2. Start an Arcade single race for **one player**, or a Time Trial. Pick your
    racer (and in Arcade the difficulty), and at the track list press Right to go

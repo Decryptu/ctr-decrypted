@@ -84,6 +84,11 @@ int NativeRacerCatalogue_StartRefresh(void);
 int NativeRacerCatalogue_PollRefresh(struct NativeRacerCatalogueEntry *out, int max, int *count, char *error, size_t errorSize);
 int NativeRacerCatalogue_StartInstall(const struct NativeRacerCatalogueEntry *entry, const char *racersDir);
 int NativeRacerCatalogue_PollInstall(char *error, size_t errorSize);
+// A listed racer's portrait file (NATIVE_RACER_PORTRAIT_BYTES, checked against
+// the list), from cacheDir or downloaded and kept there. Poll as above; on 1
+// `id` names the racer and `portrait` holds the file.
+int NativeRacerCatalogue_StartPreview(const struct NativeRacerCatalogueEntry *entry, const char *cacheDir);
+int NativeRacerCatalogue_PollPreview(char id[37], unsigned char portrait[NATIVE_RACER_PORTRAIT_BYTES]);
 
 #ifdef __cplusplus
 }
