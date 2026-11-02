@@ -107,6 +107,10 @@ typedef struct
 	// The Triangle map/speedometer choice (true = speedometer), [State]
 	// hud_speedometer, applied every race frame (game/UI/UI_RenderFrame.c).
 	bool hudSpeedometer;
+	// The Arcade and VS speed class (0 = Classic, 1 = 200cc), [State]
+	// speed_class: the last pick on the SPEED screen, which opens on it
+	// (game/SpeedClass.c, docs/SPEED-CLASS.md).
+	int speedClass;
 	// Audio: the vanilla audio screen's volumes (0-255) and stereo/mono mode.
 	// Config-file-only -- persisted to config.ini [Audio] and edited through that
 	// screen (game/MAIN/MainFreeze.c), NOT the in-game options menu (the [Audio]

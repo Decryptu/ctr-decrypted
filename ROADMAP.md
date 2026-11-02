@@ -18,13 +18,10 @@ What is in progress, what is next, and what was decided. A finished item is dele
 Nothing.
 
 ## Planned
-Roughly in this order.
-
-| Item | Source |
-|---|---|
-| 200cc: a faster speed class for every racer, bots included. Raises top speed and acceleration together, keeps turning and drift timing playable; Time Trial records and ghosts are kept per class. Whether Archipelago can require or place it is a later choice. CTR Native Expanded's per-stat multipliers (speed, turn, jump, gravity, reserves) show where the stats are applied | Owner request, 2026-11-02 |
+Nothing.
 
 ## Maybe
+- 200cc beyond Arcade and VS ([SPEED-CLASS.md](docs/SPEED-CLASS.md)): Time Trial with records and ghosts kept per class (a save format change), and whether Archipelago can require or place it.
 - Title screen: a drawn logo in place of the DECRYPTED text, and the release version in a corner. Owner idea, 2026-11-02.
 - Chaos effects as Archipelago traps. CTR Native Expanded has 38 race effects, harmful and helpful (reversed steering, low gravity, giant karts, no items...), with an external trigger file. They could be the trap and buff items dowlle's tracker asks for (#248, #455, #486), sent by the multiworld instead of a timer.
 - CTR Native Expanded's two-player co-op Adventure. The Archipelago client would need to know about a second player.

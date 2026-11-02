@@ -18,6 +18,59 @@ void MM_Mods_OpenFromTitle(void); // MM_ConfigMenu.c
 void MM_Mods_DevOpen(int tab);     // MM_CustomManager.c
 #endif
 
+#ifdef CTR_NATIVE
+#include <ctr_speed_class.h>
+
+// The SPEED screen (docs/SPEED-CLASS.md): Classic or 200cc, built like the
+// DIFFICULTY screen. It follows DIFFICULTY in Arcade and the player count in
+// VS, then leaves for the character select as those did.
+static void MM_MenuProc_SpeedClass(struct RectMenu *menu);
+
+static struct MenuRow s_rowsSpeedClass[] = {
+	{CTR_LNG_CLASSIC, 0, 1, 0, 0},
+	{CTR_LNG_200CC, 0, 1, 1, 1},
+	{RECTMENU_STRING_NONE},
+};
+
+static struct RectMenu s_menuSpeedClass = {
+	.stringIndexTitle = CTR_LNG_SPEED,
+	.state = CENTER_ON_X,
+	.rows = s_rowsSpeedClass,
+	.funcPtr = MM_MenuProc_SpeedClass,
+};
+
+// Open the SPEED screen under menu, with the cursor on the last pick.
+static void MM_SpeedClass_Open(struct RectMenu *menu)
+{
+	s_menuSpeedClass.rowSelected = (g_config.speedClass == SPEED_CLASS_200CC) ? 1 : 0;
+	menu->ptrNextBox_InHierarchy = &s_menuSpeedClass;
+	menu->state |= ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY;
+}
+
+static void MM_MenuProc_SpeedClass(struct RectMenu *menu)
+{
+	s16 row = menu->rowSelected;
+
+	// back to the menu that opened it
+	if (row == -1)
+	{
+		menu->ptrPrevBox_InHierarchy->state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
+		return;
+	}
+	if (row < 0 || row >= SPEED_CLASS_COUNT)
+	{
+		return;
+	}
+
+	g_config.speedClass = row;
+	NativeConfig_Save();
+
+	MM_TITLE_MENU_STATE = TITLE_MENU_STATE_EXITING;
+	MM_DESIRED_MENU_INDEX = MM_EXIT_ROUTE_CHARACTER_SELECT;
+	menu->state |= ONLY_DRAW_TITLE;
+}
+#endif
+
 s32 MM_TransitionInOut(struct TransitionMeta *meta, s32 framesPassed, s32 numFrames)
 {
 	s16 negativeTransitionState;
@@ -512,6 +565,15 @@ void MM_MenuProc_2p3p4p(struct RectMenu *menu)
 	// row 0 is 2P, row 1 is 3P, row 2 is 4P
 	GAME_TRACKER->numPlyrNextGame = selectedMenu->rowSelected + 2;
 
+#ifdef CTR_NATIVE
+	// VS races pick a speed class next; Battle shares this menu and goes on.
+	if ((GAME_TRACKER->gameMode1 & BATTLE_MODE) == 0)
+	{
+		MM_SpeedClass_Open(selectedMenu);
+		return;
+	}
+#endif
+
 	MM_TITLE_MENU_STATE = TITLE_MENU_STATE_EXITING;
 	MM_DESIRED_MENU_INDEX = MM_EXIT_ROUTE_CHARACTER_SELECT;
 
@@ -654,6 +716,11 @@ void MM_MenuProc_Difficulty(struct RectMenu *menu)
 
 	// set difficulty to value, from array of fixed difficulty values
 	GAME_TRACKER->arcadeDifficulty = MM_CUP_DIFFICULTY_SPEED[row];
+
+#ifdef CTR_NATIVE
+	MM_SpeedClass_Open(selectedMenu);
+	return;
+#endif
 
 	MM_TITLE_MENU_STATE = TITLE_MENU_STATE_EXITING;
 	MM_DESIRED_MENU_INDEX = MM_EXIT_ROUTE_CHARACTER_SELECT;

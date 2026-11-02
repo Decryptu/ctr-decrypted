@@ -1970,11 +1970,14 @@ UpdateTireColorTimer:
 			int ZYsqr = CTR_MipsAddLo(CTR_MipsMulLo(botDriver->botData.aiPhysics.speedLinear, botDriver->botData.aiPhysics.speedLinear),
 			                          CTR_MipsMulLo(botDriver->botData.aiPhysics.speedY, botDriver->botData.aiPhysics.speedY));
 
-			if (0x2b110000 < ZYsqr) // sqrZY
+			// 200cc raises the airborne speed cap with the class (SpeedClass_Speed).
+			int airSpeedCap = SpeedClass_Speed(0x6900);
+
+			if (CTR_MipsMulLo(airSpeedCap, airSpeedCap) < ZYsqr) // sqrZY
 			{
 				int ZY = SquareRoot0_stub(ZYsqr);
 
-				int zVel = CTR_MipsMulLo(botDriver->botData.aiPhysics.speedLinear, 0x6900); // iVar3
+				int zVel = CTR_MipsMulLo(botDriver->botData.aiPhysics.speedLinear, airSpeedCap); // iVar3
 
 #if 0 // in the OG game
 				if (ZY == 0)
@@ -1986,7 +1989,7 @@ UpdateTireColorTimer:
 					//trap(0x1800);
 				}
 #endif
-				int yVel = CTR_MipsMulLo(botDriver->botData.aiPhysics.speedY, 0x6900); // iVar15
+				int yVel = CTR_MipsMulLo(botDriver->botData.aiPhysics.speedY, airSpeedCap); // iVar15
 #if 0                                                                                  // in the OG game
 				if (ZY == 0)
 				{
@@ -2175,6 +2178,8 @@ UpdateTireColorTimer:
 				{
 					botVelocity = CTR_MipsNegLo(iVar9);
 				}
+				// 200cc: the catch-up term is a speed too.
+				botVelocity = SpeedClass_Speed(botVelocity);
 
 				bestDriverWumpaCount = bestDriverRank->numWumpas; // iVar15, assume max of 9?
 				if (9 < bestDriverWumpaCount)
@@ -2196,23 +2201,23 @@ UpdateTireColorTimer:
 				    CTR_MipsSra(CTR_MipsAddLo(CTR_MipsDiv(CTR_MipsMulLo(bestDriverWumpaCount, netSpeedStat), 10), CTR_MipsMulLo(turboMult, netSpeedStat)),
 				                0xc));
 
-				if (additionalVelocity > 0x6900)
+				if (additionalVelocity > SpeedClass_Speed(0x6900))
 				{
-					additionalVelocity = 0x6900;
+					additionalVelocity = SpeedClass_Speed(0x6900);
 				}
 
 				botVelocity = CTR_MipsAddLo(botVelocity, additionalVelocity);
 
-				if (botVelocity < 0x5dc1)
+				if (botVelocity <= SpeedClass_Speed(24000))
 				{
-					if (botVelocity < 0x1c20)
+					if (botVelocity < SpeedClass_Speed(0x1c20))
 					{
-						botVelocity = 0x1c20;
+						botVelocity = SpeedClass_Speed(0x1c20);
 					}
 				}
 				else
 				{
-					botVelocity = 24000;
+					botVelocity = SpeedClass_Speed(24000);
 				}
 			}
 
@@ -2228,7 +2233,7 @@ UpdateTireColorTimer:
 				}
 				else
 				{
-					botVelocity = CTR_MipsAddLo(botDriver->fireSpeedCap, 10000);
+					botVelocity = CTR_MipsAddLo(botDriver->fireSpeedCap, SpeedClass_Speed(10000));
 				}
 			}
 
@@ -2287,9 +2292,9 @@ UpdateTireColorTimer:
 				botDriver->botData.aiPhysics.speedLinear = 0;
 			}
 
-			if (0x6900 < botVelocity)
+			if (SpeedClass_Speed(0x6900) < botVelocity)
 			{
-				botVelocity = 0x6900;
+				botVelocity = SpeedClass_Speed(0x6900);
 			}
 
 			velocityAccountingForTerrain = CTR_MipsSra(CTR_MipsMulLo(botVelocity, botTerrain->bot.fields.targetSpeedScale), 8); // iVar4
@@ -2394,15 +2399,16 @@ UpdateTireColorTimer:
 			}
 		}
 
-		if (0x6400 < botDriver->botData.aiPhysics.speedLinear)
+		if (SpeedClass_Speed(0x6400) < botDriver->botData.aiPhysics.speedLinear)
 		{
-			botDriver->botData.aiPhysics.speedLinear = 0x6400;
+			botDriver->botData.aiPhysics.speedLinear = SpeedClass_Speed(0x6400);
 		}
 
 		// CTR_DEV_BOT_SPEED: lower the bots' top speed so the autopilot wins.
-		if ((NativeDev_BotSpeedPercent() < 100) && (0x6400 * NativeDev_BotSpeedPercent() / 100 < botDriver->botData.aiPhysics.speedLinear))
+		if ((NativeDev_BotSpeedPercent() < 100) &&
+		    (SpeedClass_Speed(0x6400) * NativeDev_BotSpeedPercent() / 100 < botDriver->botData.aiPhysics.speedLinear))
 		{
-			botDriver->botData.aiPhysics.speedLinear = 0x6400 * NativeDev_BotSpeedPercent() / 100;
+			botDriver->botData.aiPhysics.speedLinear = SpeedClass_Speed(0x6400) * NativeDev_BotSpeedPercent() / 100;
 		}
 
 		deltaPosThisFrame = CTR_MipsSra(CTR_MipsMulLo(botDriver->botData.aiPhysics.speedLinear, elapsedMilliseconds), 5); // iVar4

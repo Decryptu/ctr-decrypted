@@ -45,6 +45,7 @@ NativeConfig g_config = {
 	false, // windowMaximized
 	false, // cameraFar (near: the retail default)
 	false, // hudSpeedometer (map: the retail default)
+	0,     // speedClass (Classic)
 	-1,    // volFx    (-1 = audio not captured; card / boot defaults stand)
 	-1,    // volMusic
 	-1,    // volVoice
@@ -173,6 +174,7 @@ const ConfigEntry g_configEntries[] = {
 	{"State",       "window_maximized",         "Window Maximized",             CFG_BOOL, &g_config.windowMaximized, 0, 0, 0},
 	{"State",       "camera_far",               "Camera Far",                   CFG_BOOL, &g_config.cameraFar, 0, 0, 0},
 	{"State",       "hud_speedometer",          "HUD Speedometer",              CFG_BOOL, &g_config.hudSpeedometer, 0, 0, 0},
+	{"State",       "speed_class",              "Speed Class",                  CFG_INT,  &g_config.speedClass, 0, 1, 1},
 	// Audio section: config-file-only. Hidden from the in-game options menu (gated
 	// out of BuildSectionMap in game/230/MM_ConfigMenu.c) because it is edited
 	// through the vanilla audio screen and a CFG_INT would render there as a bare

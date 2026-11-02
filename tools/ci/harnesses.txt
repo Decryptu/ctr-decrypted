@@ -60,6 +60,7 @@ tools/test-disc-picker.c
 tools/test-discord-ipc.cpp
 tools/test-discord-presence.c
 tools/test-extras.c
+tools/test-speed-class.c
 tools/test-fs-winpath.c
 tools/test-unchanged-startup.c
 tools/test-feed-class-cpp.cpp

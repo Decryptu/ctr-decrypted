@@ -384,10 +384,17 @@ static int RECTMENU_APReplayRow(const struct RectMenu *m, int row)
 }
 #endif
 
-// Row label lookup. Retail reads the language strings directly; rows that have
-// no retail string carry an owned index (ctr_menu_strings.h) and resolve here.
+// Row and title label lookup. Retail reads the language strings directly; rows
+// and titles that have no retail string carry an owned index
+// (ctr_menu_strings.h) and resolve here.
 static char *RECTMENU_RowString(int index)
 {
+	if (index == CTR_LNG_SPEED)
+		return (char *)"SPEED";
+	if (index == CTR_LNG_CLASSIC)
+		return (char *)"CLASSIC";
+	if (index == CTR_LNG_200CC)
+		return (char *)"200CC";
 #ifdef CTR_CUSTOM_PACKAGES
 	if (index == CTR_LNG_MODS)
 		return (char *)"MODS";
@@ -433,7 +440,7 @@ void RECTMENU_GetWidth(struct RectMenu *m, s16 *width, b16 boolCheckSubmenu)
 	// handle menu title
 	if (m->stringIndexTitle >= 0)
 	{
-		lineWidth = DecalFont_GetLineWidth(GAME_LANGUAGE_STRINGS[m->stringIndexTitle], (m->state & BIG_TEXT_IN_TITLE) ? FONT_BIG : fontType) + 1;
+		lineWidth = DecalFont_GetLineWidth(RECTMENU_RowString(m->stringIndexTitle), (m->state & BIG_TEXT_IN_TITLE) ? FONT_BIG : fontType) + 1;
 
 		// set new width if new max is found
 		if (*width < (lineWidth))
@@ -529,11 +536,11 @@ void RECTMENU_DrawSelf(struct RectMenu *menu, s16 posX, s16 posY, s16 menuWidth)
 		s16 titleFont = (menu->state & BIG_TEXT_IN_TITLE) ? FONT_BIG : fontType;
 		if (menu->state & CENTER_MENU_TEXT)
 		{
-			DecalFont_DrawLine(GAME_LANGUAGE_STRINGS[menu->stringIndexTitle], posX + menu->posX_prev + menuWidth / 2, rowY, titleFont, baseFlags | 0x8000);
+			DecalFont_DrawLine(RECTMENU_RowString(menu->stringIndexTitle), posX + menu->posX_prev + menuWidth / 2, rowY, titleFont, baseFlags | 0x8000);
 		}
 		else
 		{
-			DecalFont_DrawLine(GAME_LANGUAGE_STRINGS[menu->stringIndexTitle], posX + menu->posX_prev, rowY, titleFont,
+			DecalFont_DrawLine(RECTMENU_RowString(menu->stringIndexTitle), posX + menu->posX_prev, rowY, titleFont,
 			                   (menu->state & CENTER_ON_X) ? baseFlags | 0x8000 : baseFlags);
 		}
 		rowY = titleHeight + (s16)(rowY + 6);

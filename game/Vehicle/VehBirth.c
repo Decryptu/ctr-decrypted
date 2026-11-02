@@ -765,6 +765,9 @@ void VehBirth_SetConsts(struct Driver *driver)
 	// the call is a no-op unless an AP package is active.
 	AP_CharSwap_ApplyStatPackage(driver);
 #endif
+#ifdef CTR_NATIVE
+	SpeedClass_ApplyConsts(driver);
+#endif
 }
 
 void VehBirth_EngineAudio_AllPlayers(void)

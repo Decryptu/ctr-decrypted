@@ -2265,10 +2265,17 @@ int VehPhysGeneral_GetBaseSpeed(struct Driver *driver)
 
 	statAdditional = CTR_MipsSubLo(statAdditional, subtract);
 
+#if defined(CTR_NATIVE)
+	if (SpeedClass_Speed(VEH_BASE_SPEED_NET_CAP) < statAdditional)
+	{
+		statAdditional = SpeedClass_Speed(VEH_BASE_SPEED_NET_CAP);
+	}
+#else
 	if (VEH_BASE_SPEED_NET_CAP < statAdditional)
 	{
 		statAdditional = VEH_BASE_SPEED_NET_CAP;
 	}
+#endif
 
 	return statAdditional;
 }

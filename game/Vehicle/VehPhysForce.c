@@ -943,7 +943,11 @@ START_ROLLBACK:
 void VehPhysForce_OnApplyForces(struct Thread *thread, struct Driver *driver)
 {
 	const int maxMudSinkYLevel = FP(-1);
+#if defined(CTR_NATIVE)
+	const int maxSpeed = SpeedClass_Speed(FP8(100));
+#else
 	const int maxSpeed = FP8(100);
+#endif
 	register s32 velocityX CTR_PSX_REGISTER("$2");
 	register s32 velocityZ CTR_PSX_REGISTER("$3");
 	register s32 accelX CTR_PSX_REGISTER("$4");
