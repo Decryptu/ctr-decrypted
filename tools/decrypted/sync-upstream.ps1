@@ -1,6 +1,7 @@
-# Imports an upstream branch into refs/remotes/clean/<name>, with AI co-author trailers stripped
+# Imports an upstream branch into refs/clean/<name>, with AI co-author trailers stripped
 # from commit messages. The rewrite is deterministic, so running it again later produces the same
-# hashes for commits already imported and a normal `git merge clean/<name>` keeps working.
+# hashes for commits already imported and a normal `git merge clean/<name>` keeps working. The ref
+# sits outside refs/remotes/, so Git clients do not list it as a branch.
 #
 #   pwsh tools/decrypted/sync-upstream.ps1                       # dowlle main (the default)
 #   pwsh tools/decrypted/sync-upstream.ps1 -Remote ctr-native -Branch master
@@ -44,7 +45,7 @@ if ($Path -and $Prefix) { $pathArgs += @("--path-rename", "${Path}:$Prefix") }
 python -m git_filter_repo --source $work --target $work --force --quiet --message-callback $callback @pathArgs
 if ($LASTEXITCODE) { throw "filter-repo failed" }
 
-git -C $repo fetch --no-tags $work "+refs/heads/${Branch}:refs/remotes/clean/$Name"
+git -C $repo fetch --no-tags $work "+refs/heads/${Branch}:refs/clean/$Name"
 if ($LASTEXITCODE) { throw "fetch failed" }
 Remove-Item -Recurse -Force $work
 Write-Host "Updated clean/$Name -> $((git -C $repo rev-parse --short "clean/$Name").Trim())"

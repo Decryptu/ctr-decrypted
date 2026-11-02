@@ -12,6 +12,9 @@ followed branch the report gives the newest integrated commit and every newer on
 branches of dowlle and the apworld fork are listed when they hold commits that are neither ours nor
 on a followed branch.
 
+Upstream branches are fetched into refs/<remote>/ (dowlle/main is refs/dowlle/main), not
+refs/remotes/, so Git clients list only our own branches.
+
 High Octane is ported, never merged. Its commits not in ctr-native are each either cherry-picked
 (found by the key above or by `git cherry-pick -x`'s line) or listed with a status in
 highoctane.txt next to this script; a line there wins over a cherry-pick, for one taken only in
@@ -163,7 +166,7 @@ def main():
     if not args.no_fetch:
         for remote in sorted({r for r, _, _ in FOLLOWED} | set(SCANNED) | {HO_REF.split("/")[0]}):
             print(f"fetching {remote}...", file=sys.stderr)
-            subprocess.run(["git", "fetch", "--prune", "--no-tags", "--quiet", remote], check=True)
+            subprocess.run(["git", "fetch", "--prune", "--no-tags", "--quiet", remote, f"+refs/heads/*:refs/{remote}/*"], check=True)
 
     ours = {c[2] for c in commits(args.base)}
     print(f"Compared with {args.base} ({git('rev-parse', '--short', args.base).strip()})")
@@ -174,8 +177,9 @@ def main():
     followed = {f"{r}/{b}" for r, b, _ in FOLLOWED}
     for remote, path in SCANNED.items():
         others = []
-        for ref in git("for-each-ref", "--format=%(refname:short)", f"refs/remotes/{remote}/").split():
-            if ref in followed or ref.endswith("/HEAD") or ref == remote:
+        for full in git("for-each-ref", "--format=%(refname)", f"refs/{remote}/").split():
+            ref = full[len("refs/"):]
+            if ref in followed:
                 continue
             excl = [f"^{f}" for f in followed if f.startswith(remote + "/")]
             new = [c for c in commits(ref, *excl, path=path) if c[2] not in ours]

@@ -46,7 +46,9 @@ From PowerShell, set `MSYSTEM=MINGW32` and `CHERE_INVOKING=1` and call `C:\msys6
 ## Branches
 - `main`: stable, always builds.
 - `dev`: integration branch. Finished feature branches are merged here first, and test builds for in-game testing come from it. It goes into `main` once a test build has been played in game (the checks under [Testing](#testing)).
-- `feature/<name>`: one feature or fix per branch, merged into `dev` when it builds, then to `main` with `dev` after in-game testing. Delete it locally and on `origin` once merged; only `main`, `dev` and the `clean/*` import refs stay.
+- `feature/<name>`: one feature or fix per branch, merged into `dev` when it builds, then to `main` with `dev` after in-game testing. Delete it locally and on `origin` once merged; only `main` and `dev` stay.
+
+Upstream branches never show up as branches: `upstream_status.py` fetches them into `refs/<remote>/` and the sync script writes `refs/clean/`, both outside `refs/remotes/`, which is all GitHub Desktop and other clients list. Git still resolves `dowlle/main` and `clean/dowlle-main`. Give each upstream remote the same fetch line, so a plain `git fetch` keeps them there too (below).
 
 ## Syncing upstream
 `python tools/decrypted/upstream_status.py` shows where we stand. It fetches the upstream remotes, then gives, for each branch we follow (the `FOLLOWED` list at the top of the script), the newest commit we have and every newer one we lack. It also lists the other dowlle and apworld branches that hold work we don't have, and the High Octane summary below. A commit counts as ours when our history has one with the same author time, author email and subject, so it sees through the sync script's rewrite, the apworld path filter and cherry-picks. Add a branch to `FOLLOWED` when we start following it.
@@ -55,6 +57,7 @@ Never merge upstream remotes directly. Import them through the sync script, whic
 
 ```
 git remote add dowlle https://github.com/dowlle/ctr-native-ap.git      # once
+git config remote.dowlle.fetch "+refs/heads/*:refs/dowlle/*"           # once
 pwsh tools/decrypted/sync-upstream.ps1                                 # -> clean/dowlle-main
 git merge clean/dowlle-main
 pwsh tools/decrypted/sync-upstream.ps1 -Remote ctr-native -Branch master
@@ -64,6 +67,7 @@ The world comes from dowlle's Archipelago fork, of which we keep only `worlds/ct
 
 ```
 git remote add apworld https://github.com/dowlle/ctr-archipelago-apworld.git   # once
+git config remote.apworld.fetch "+refs/heads/*:refs/apworld/*"                # once
 pwsh tools/decrypted/sync-upstream.ps1 -Remote apworld -Branch dev/custom-pad-0.3.0 -Path worlds/ctr -Prefix apworld/ctr
 git merge clean/apworld-dev/custom-pad-0.3.0
 pwsh tools/decrypted/sync-upstream.ps1 -Remote apworld -Branch dev/custom-pad-0.3.0 -Path .github/fuzz -Prefix apworld/fuzz -Name apworld-fuzz-dev/custom-pad-0.3.0
