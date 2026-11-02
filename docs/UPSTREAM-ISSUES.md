@@ -108,7 +108,7 @@ How far behind each one we are, and which High Octane commits we ported: `python
 - Its own PGXP, widescreen, render scale, FXAA, VSync, rebinding and dead zone overlap ours; nothing to take there.
 
 **Worth a look** (the ones we want are in [ROADMAP.md](../ROADMAP.md)):
-- Rendering fixes: widescreen faces lost to the clip-record window (`209b71fe`), increased draw distance (`fb83d103`, `e86365e1`, `e0fedbf2`, `a81bf65b`), distant tires wrapping at 16-bit limits (`26e520a2`).
+- Rendering fixes: widescreen faces lost to the clip-record window (`209b71fe`), increased draw distance (`fb83d103`, `e86365e1`, `e0fedbf2`, `a81bf65b`), distant tires projected at full width instead of skipped (`26e520a2`).
 - Modes: two-player co-op Adventure, Chaos (38 race effects with an external trigger), Super/Ultra Hard in Arcade and Adventure, 3P/4P Arcade and eight racers in split screen, race tracks in Battle, Oxide Station in multiplayer.
 - Options: per-stat kart multipliers (speed, turn, jump, gravity, reserves), weapon and mask tuning, mask modes, skip intro, podiums, boss cutscenes and mask hints, save anywhere in the hubs.
 
