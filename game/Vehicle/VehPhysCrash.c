@@ -53,6 +53,20 @@ static inline s32 VehPhysCrash_Dot3(s32 ax, s32 ay, s32 az, s32 bx, s32 by, s32 
 	return CTR_MipsAddLo(CTR_MipsAddLo(CTR_MipsMulLo(ax, bx), CTR_MipsMulLo(ay, by)), CTR_MipsMulLo(az, bz));
 }
 
+// The speeds below are full-width lengths stored into s16 fields. Retail tops
+// out near 29600 (the 0x6400 cap plus one frame of super turbo pad push), but
+// 200cc raises the cap to 30720 and that push would wrap the field negative
+// (docs/SPEED-CLASS.md), so native saturates instead. Below 0x8000 it is a
+// no-op.
+#if defined(CTR_NATIVE)
+static inline int VehPhysCrash_SaturateSpeed(int speed)
+{
+	return speed > 0x7fff ? 0x7fff : speed;
+}
+#else
+#define VehPhysCrash_SaturateSpeed(speed) (speed)
+#endif
+
 void VehPhysCrash_ConvertVecToSpeed(struct Driver *d, Vec3 *vel)
 {
 	register int speed2D CTR_PSX_REGISTER("$19") = VehCalc_FastSqrt(VehPhysCrash_LengthSq2(vel->x, vel->z), VEH_PHYS_CRASH_FAST_SQRT_ITERATIONS);
@@ -66,7 +80,7 @@ void VehPhysCrash_ConvertVecToSpeed(struct Driver *d, Vec3 *vel)
 	int projZ;
 
 	speed = (u32)VehCalc_FastSqrt(VehPhysCrash_LengthSq3(vel->x, vel->y, vel->z), VEH_PHYS_CRASH_FAST_SQRT_ITERATIONS) >> VEH_PHYS_CRASH_VECTOR_SPEED_SHIFT;
-	d->speed = speed;
+	d->speed = VehPhysCrash_SaturateSpeed(speed);
 	d->axisRotationY = (s16)ratan2(CTR_MipsSll(vel->y, VEH_PHYS_CRASH_VECTOR_SPEED_SHIFT), speed2D);
 	d->axisRotationX = (s16)ratan2(vel->x, vel->z);
 
@@ -80,6 +94,7 @@ void VehPhysCrash_ConvertVecToSpeed(struct Driver *d, Vec3 *vel)
 
 	jumpSpeed = (u32)VehCalc_FastSqrt(VehPhysCrash_LengthSq3(projX, projY, projZ), VEH_PHYS_CRASH_FAST_SQRT_ITERATIONS) >> VEH_PHYS_CRASH_VECTOR_SPEED_SHIFT;
 
+	jumpSpeed = VehPhysCrash_SaturateSpeed(jumpSpeed);
 	d->jumpHeightCurr = jumpSpeed;
 	if (projOnMovingDirAxis < 0)
 	{
@@ -93,6 +108,7 @@ void VehPhysCrash_ConvertVecToSpeed(struct Driver *d, Vec3 *vel)
 	approximateSpeed =
 	    (u32)VehCalc_FastSqrt(VehPhysCrash_LengthSq3(projX, projY, projZ), VEH_PHYS_CRASH_FAST_SQRT_ITERATIONS) >> VEH_PHYS_CRASH_VECTOR_SPEED_SHIFT;
 
+	approximateSpeed = VehPhysCrash_SaturateSpeed(approximateSpeed);
 	d->speedApprox = approximateSpeed;
 
 	if (VehPhysCrash_Dot3(projX, projY, projZ, d->matrixMovingDir.m[0][2], d->matrixMovingDir.m[1][2], d->matrixMovingDir.m[2][2]) < 0)

@@ -12,8 +12,10 @@ enum
 };
 
 // Speeds, boosts and accelerations scale by 6/5. The ceiling is the s16 the
-// game keeps speeds in: the scaled speed cap (0x6400 -> 30720) leaves about
-// 2000 units for one frame's acceleration and slope push before 32767.
+// game keeps speeds in: a super turbo pad pushes about 3950 past the speed cap
+// in one frame (retail peaks at 29552 against 0x6400), which at the scaled cap
+// (30720) passes 32767, so VehPhysCrash_ConvertVecToSpeed saturates the stored
+// speed. A larger factor would also overflow the bots' 0x6900 target cap.
 #define SPEED_CLASS_SPEED_NUM 6
 #define SPEED_CLASS_SPEED_DEN 5
 
