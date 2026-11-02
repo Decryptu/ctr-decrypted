@@ -44,4 +44,9 @@ struct Icon *NativeRacers_DriverIcon(int driverID, struct Icon *retailIcon);
 // at their own size.
 struct Icon *NativeRacers_TrackPicture(const unsigned short *texels, int width, int height);
 
+// Raw PS1 texels into the racer bank at (x, y), for owners of an area the
+// portraits, their palettes and the track picture never reach: the title
+// screen's Roo uses x 512..895 of the first page row (ap/ap_title_roo.c).
+void NativeRacers_UploadBank(int x, int y, int width, int height, const unsigned short *texels);
+
 #endif

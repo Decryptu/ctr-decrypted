@@ -22,7 +22,9 @@
 //   Each racer gets an Icon whose layout points there, so every icon draw path
 //   takes it unchanged.
 // - The bank also holds the Mods screen's track picture: 15-bit texels from
-//   VRAM (512, 256), page 8 of the second page row, which no portrait reaches.
+//   VRAM (512, 256), page 8 of the second page row, which no portrait reaches,
+//   and the title screen's Roo (ap/ap_title_roo.c) at x 512..895 of the first
+//   page row, which 64 portraits (pages 0 and 1) never reach either.
 
 #if defined(CTR_CUSTOM_PACKAGES)
 #include <platform/native_racer_library.h>
@@ -251,6 +253,11 @@ static TextureID NativeRacers_Bank(void)
 		NativeGpu_SetRacerBankTexture(bank);
 	}
 	return bank;
+}
+
+void NativeRacers_UploadBank(int x, int y, int width, int height, const u16 *texels)
+{
+	NativeRenderer_UploadVramBank(NativeRacers_Bank(), x, y, width, height, texels);
 }
 
 struct Icon *NativeRacers_TrackPicture(const u16 *texels, int width, int height)

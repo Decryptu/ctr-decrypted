@@ -1,5 +1,16 @@
 #include <common.h>
 #include <platform/native_dev.h>
+#if defined(CTR_AP)
+#include "../../ap/ap_title_roo.h"
+#endif
+
+// Title instance rows (D230 titleInstances): the trophy, and Crash, whom the
+// Archipelago build replaces with Roo (ap/ap_title_roo.c).
+enum
+{
+	TITLE_INSTANCE_TROPHY = 1,
+	TITLE_INSTANCE_CRASH = 2,
+};
 
 void MM_Title_MenuUpdate(void)
 {
@@ -542,6 +553,15 @@ u16 MM_Title_ThTick(struct Thread *title)
 			titleInst->animFrame = 0;
 		}
 
+#if defined(CTR_AP)
+		if (((s16)index == TITLE_INSTANCE_CRASH) && (titleInst->model == AP_TitleRoo_Model()))
+		{
+			titleInst->flags &= ~HIDE_MODEL;
+			// timer stops at the menu-ready frame; a skip jumps it there.
+			AP_TitleRoo_Tick(titleInst, (s16)timer >= FPS_DOUBLE(TITLE_INTRO_MENU_READY_FRAME));
+		}
+#endif
+
 		if ((MM_TITLE_INSTANCES[(s16)index].isTrophy) != 0)
 		{
 			// if frame is anywhere in the two seconds
@@ -649,7 +669,25 @@ void MM_Title_Init(void)
 		// create title instances
 		for (instanceIndex = 0; (u16)instanceIndex < TITLE_INSTANCE_COUNT; instanceIndex++, titleInstanceSlot++)
 		{
+#if defined(CTR_AP)
+			// Roo dances in Crash's place, with no trophy to catch. The slot
+			// stays NULL, which every title function already skips.
+			if (AP_TitleRoo_Model() != NULL)
+			{
+				if (instanceIndex == TITLE_INSTANCE_TROPHY)
+					continue;
+				if (instanceIndex == TITLE_INSTANCE_CRASH)
+				{
+					AP_TitleRoo_Reset();
+					inst = INSTANCE_Birth3D(AP_TitleRoo_Model(), MM_TITLE_OBJECT_NAME, t);
+					goto title_instance_born;
+				}
+			}
+#endif
 			inst = INSTANCE_Birth3D(GAME_TRACKER->modelPtr[MM_TITLE_INSTANCES[(s16)instanceIndex].modelID], MM_TITLE_OBJECT_NAME, t);
+#if defined(CTR_AP)
+		title_instance_born:
+#endif
 
 			// store instance
 			*titleInstanceSlot = inst;
