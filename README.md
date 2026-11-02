@@ -9,7 +9,7 @@ A native PC version of **Crash Team Racing (PS1, 1999)** with the [Archipelago](
 
 <p align="center"><img src="docs/images/readme-oxide.jpg" alt="N. Oxide racing on Hot Air Skyway at 16:9"></p>
 
-CTR Decrypted is built on [dowlle/ctr-native-ap](https://github.com/dowlle/ctr-native-ap) and stays compatible with its seeds and `ctr.apworld`. It adds enhancements ported from [Crash Team Racing - High Octane](https://github.com/Rinnegatamante/Crash-Team-Racing-High-Octane), plus fixes of its own. [ROADMAP.md](ROADMAP.md) has what is planned.
+CTR Decrypted is built on [dowlle/ctr-native-ap](https://github.com/dowlle/ctr-native-ap) and stays compatible with its seeds and `ctr.apworld`. It adds enhancements ported from [Crash Team Racing - High Octane](https://github.com/Rinnegatamante/Crash-Team-Racing-High-Octane) and fixes of its own. [ROADMAP.md](ROADMAP.md) has what is planned.
 
 The project site, [decryptu.github.io/ctr-decrypted](https://decryptu.github.io/ctr-decrypted/), has these docs as pages and the YAML builder.
 
@@ -22,26 +22,26 @@ The project site, [decryptu.github.io/ctr-decrypted](https://decryptu.github.io/
 
 On top of the Archipelago client:
 
-- **Custom tracks** (**MODS** on the title screen): install community tracks from Project Saphi, from an xdelta patch or by hand, and race them in Arcade and Time Trial from extra pages of the track select. A seed can also put a custom track into a Gem Cup ([docs/CUSTOM_TRACKS.md](docs/CUSTOM_TRACKS.md)).
-- **Custom racers** (**MODS → Racers**): add community characters to the character select, beside the retail racers and N. Oxide ([docs/CUSTOM_RACERS.md](docs/CUSTOM_RACERS.md)).
+- **Custom tracks** (**MODS** on the title screen): install community tracks from Project Saphi, an xdelta patch or by hand, and race them in Arcade and Time Trial. A seed can put one into a Gem Cup ([docs/CUSTOM_TRACKS.md](docs/CUSTOM_TRACKS.md)).
+- **Custom racers** (**MODS → Racers**): community characters in the character select, beside the retail racers and N. Oxide ([docs/CUSTOM_RACERS.md](docs/CUSTOM_RACERS.md)).
 - **Play Solo** (title screen): generate and play a one-player seed on your own machine, with no room to host.
 
 And in OPTIONS:
 
-- **Save backups**: the last 10 copies of your save and Play Solo progress, made automatically, with a restore in **OPTIONS → Backups** ([SETUP.md](SETUP.md#backups-going-back-to-an-earlier-save)).
+- **Save backups**: the last 10 copies of your save and Play Solo progress, with a restore in **OPTIONS → Backups** ([SETUP.md](SETUP.md#backups-going-back-to-an-earlier-save)).
 - **60 FPS**, on by default, in every mode ([docs/60FPS.md](docs/60FPS.md)).
-- **PGXP anti-wobble** and perspective-correct textures, with a depth test that keeps water from painting over nearer ground ([docs/PGXP.md](docs/PGXP.md)).
+- **PGXP anti-wobble** and perspective-correct textures ([docs/PGXP.md](docs/PGXP.md)).
 - **Screen filters**: Sharp Bilinear, FXAA, Scanlines, CRT, LCD, and colour filters including colour-blind corrections ([docs/SCREEN-FILTERS.md](docs/SCREEN-FILTERS.md)).
 - **Extras**: reserves meter, kept reserve fire, blue fire at Ultimate Speed Fire, slide meter gradient, cyan super pads ([docs/EXTRAS.md](docs/EXTRAS.md)).
 - **Playable N. Oxide**, unlocked by beating him in Adventure.
-- Widescreen, render scale, increased draw distance (with no far scenery dropping out: [docs/LEVEL-VISIBILITY.md](docs/LEVEL-VISIBILITY.md)), remappable controls, and native Switch 2 Pro Controller support (with Steam closed).
-- The one-player camera distance you pick with `L2` is kept across races, hubs and sessions (`camera_far` under `[State]` in `config.ini`). Split screen starts near, as the original does. The map or speedometer you pick with `Triangle` is kept the same way (`hud_speedometer`).
+- Widescreen, render scale, increased draw distance ([docs/LEVEL-VISIBILITY.md](docs/LEVEL-VISIBILITY.md)), remappable controls, and native Switch 2 Pro Controller support (with Steam closed).
+- The one-player camera distance (`L2`) and the map or speedometer (`Triangle`) you pick are kept across races and sessions (`camera_far` and `hud_speedometer` under `[State]` in `config.ini`). Split screen starts near, as the original does.
 
 ## Getting started
 
-**1. Download** `ctr-decrypted-vX.Y.Z-windows-x86.zip` from the [latest release](https://github.com/Decryptu/ctr-decrypted/releases/latest) and extract it (Linux: the `-linux-x86.tar.gz`). After that the game updates itself: when a new version is out, the main menu offers it, and accepting installs it and restarts the game. Your settings and saves stay.
+**1. Download** `ctr-decrypted-vX.Y.Z-windows-x86.zip` from the [latest release](https://github.com/Decryptu/ctr-decrypted/releases/latest) and extract it (Linux: the `-linux-x86.tar.gz`; Steam Deck: [docs/STEAM-DECK.md](docs/STEAM-DECK.md)). After that the game updates itself: the main menu offers each new version, and your settings and saves stay.
 
-**2. Add your disc image.** This project contains no game assets. You must own a retail **NTSC-U** copy of Crash Team Racing, dumped as a raw single-track `.bin` (MODE2/2352). A 2048-byte `.iso` won't work: it loses the audio and video sectors. On the first launch the game looks for it in the game folder, Downloads, Desktop, Documents and Games and asks to use what it finds; otherwise a file picker opens. You can also put it in an `assets` folder next to the executable yourself.
+**2. Add your disc image.** This project contains no game assets. You need a retail **NTSC-U** copy of Crash Team Racing, dumped as a raw single-track `.bin` (MODE2/2352). A 2048-byte `.iso` won't work: it loses the audio and video sectors. On the first launch the game looks in the game folder, Downloads, Desktop, Documents and Games, and otherwise opens a file picker. You can also put it in an `assets` folder next to the executable:
 
 ```
 CTR-Decrypted/
@@ -50,25 +50,19 @@ CTR-Decrypted/
     ctr-u.bin
 ```
 
-**3. Connect to your Archipelago room.** The first launch opens a short setup on the title screen: enter the server address (for example `archipelago.gg:38281`), your slot name and the password, then pick a few options. Later, change them in **OPTIONS → Connection**. The settings are saved to `config.ini`.
+**3. Connect to your Archipelago room.** The first launch opens a short setup: enter the server address (for example `archipelago.gg:38281`), your slot name and the password, then pick a few options. Change them later in **OPTIONS → Connection**.
 
 ## Making a multiworld
 
-- Each player makes a YAML options file with the [YAML builder](https://decryptu.github.io/ctr-decrypted/builder.html). It is generated from the `ctr.apworld` of the latest release, so it always offers that world's options.
-- The person generating the room installs the `ctr.apworld` shipped with the release into Archipelago's `custom_worlds` folder, then generates with every player's YAML.
-- Host the result on [archipelago.gg](https://archipelago.gg/uploads) or with your own Archipelago server.
+- Each player makes a YAML options file with the [YAML builder](https://decryptu.github.io/ctr-decrypted/builder.html), which always matches the latest release's `ctr.apworld`.
+- The person generating the room puts the release's `ctr.apworld` into Archipelago's `custom_worlds` folder and generates with every player's YAML.
+- Host the result on [archipelago.gg](https://archipelago.gg/uploads) or your own Archipelago server.
 
 [SETUP.md](SETUP.md) has the full walkthrough and troubleshooting.
 
 ## Building from source
 
-See [BUILDING.md](BUILDING.md).
-- Windows builds use MSYS2 MinGW32.
-- The game is 32-bit only for now.
-
-## Keeping up with upstream
-
-Upstream branches are imported with `tools/decrypted/sync-upstream.ps1`. It writes `clean/<remote>-<branch>`, which you then merge.
+See [BUILDING.md](BUILDING.md) and [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ## License
 
