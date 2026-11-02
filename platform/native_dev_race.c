@@ -1,5 +1,6 @@
 #include "platform/native_dev.h"
 #include "platform/native_config.h"
+#include "platform/native_memcard.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -65,7 +66,17 @@ typedef struct
 	int warpFrames;
 	u32 primPeak; // most primitive-arena bytes one frame used, printed at exit
 	int primPeakLevel;
+	int profile;      // CTR_DEV_PROFILE, -1 if unset
+	int profileToHub; // no race asked for: start in the profile's hub
 } NativeDevRaceState;
+
+// The run's save as the card holds it: struct MemcardProfile, padded, CRC last.
+#define NATIVE_DEV_SLOTS_BYTES 0x1680
+static union
+{
+	struct MemcardProfile mcp;
+	u8 bytes[NATIVE_DEV_SLOTS_BYTES];
+} s_devCard;
 
 static NativeDevRaceState s_devRace;
 
@@ -81,7 +92,7 @@ static NativeDevRaceState *NativeDevRace_State(void)
 		s_devRace.raceTrack = NativeDev_EnvInt("CTR_DEV_RACE", -1);
 		s_devRace.timeTrial = (mode != NULL) && (strcmp(mode, "tt") == 0);
 		s_devRace.cup = (mode != NULL) && (strcmp(mode, "cup") == 0);
-		s_devRace.adventure = s_devRace.cup || ((mode != NULL) && (strcmp(mode, "adv") == 0));
+		s_devRace.adventure = s_devRace.cup || ((mode != NULL) && (strcmp(mode, "adv") == 0)) || (getenv("CTR_DEV_PROFILE") != NULL);
 		if (s_devRace.cup)
 		{
 			// CTR_DEV_CUPS=0,4: the cups to run, in order (0 Red .. 4 Purple).
@@ -128,6 +139,31 @@ static NativeDevRaceState *NativeDevRace_State(void)
 			if (s_devRace.numRaces > 0)
 				s_devRace.raceTrack = s_devRace.races[s_devRace.nextRace++];
 		}
+		// CTR_DEV_PROFILE=<0-3>: Adventure from that profile of the run's save
+		// (memcards/slot0, written by tools/decrypted/ctr_save.py), as loading
+		// it from the title would. With no race asked for, the run starts in
+		// the hub the profile was saved in.
+		s_devRace.profile = NativeDev_EnvInt("CTR_DEV_PROFILE", -1);
+		if ((s_devRace.profile >= 0) && (s_devRace.profile < MEMCARD_ADV_PROFILE_COUNT))
+		{
+			u32 crc = 0;
+			const int read = NativeMemcard_ReadSaveData("bu00:BASCUS-94426-SLOTS", s_devCard.bytes, NATIVE_DEV_SLOTS_BYTES, 0x100) == NATIVE_MEMCARD_OK;
+			for (int i = 0; read && (i < NATIVE_DEV_SLOTS_BYTES + 2); i++)
+				crc = MEMCARD_CRC16(crc, (i < NATIVE_DEV_SLOTS_BYTES) ? s_devCard.bytes[i] : 0);
+			if (!read || ((crc & 0xffff) != 0) || (s_devCard.mcp.header[0] != MEMCARD_PROFILE_VERSION))
+			{
+				printf("[CTR Dev] CTR_DEV_PROFILE: no valid save in memcards/slot0\n");
+				s_devRace.profile = -1;
+			}
+			else if (!s_devRace.cup && (s_devRace.raceTrack < 0))
+			{
+				const int hub = s_devCard.mcp.advProgress[s_devRace.profile].HubLevYouSavedOn;
+				s_devRace.profileToHub = 1;
+				s_devRace.raceTrack = ((hub >= GEM_STONE_VALLEY) && (hub <= CITADEL_CITY)) ? hub : N_SANITY_BEACH;
+			}
+		}
+		else
+			s_devRace.profile = -1;
 		s_devRace.laps = NativeDev_EnvInt("CTR_DEV_LAPS", 0);
 		s_devRace.autopilot = NativeDev_EnvInt("CTR_DEV_AUTOPILOT", 0);
 		s_devRace.hopEvery = NativeDev_EnvInt("CTR_DEV_HOP_MS", 0);
@@ -219,6 +255,29 @@ int NativeDev_StartRace(struct GameTracker *gGT)
 		if (dev->laps > 0)
 			gGT->numLaps = (char)dev->laps;
 		return dev->raceTrack;
+	}
+
+	if (dev->profile >= 0)
+	{
+		struct MemcardProfile *mcp = &s_devCard.mcp;
+		GAMEPROG_SyncGameAndCard(&mcp->gameSave.progress, &GAME_SAVE.progress);
+		memcpy(&GAME_ADV_PROGRESS, &mcp->advProgress[dev->profile], sizeof(GAME_ADV_PROGRESS));
+		if (CHECK_ADV_BIT(GAME_ADV_PROGRESS.rewards, ADV_REWARD_BEAT_OXIDE_FIRST))
+			UNLOCK_ADV_BIT(GAME_SAVE.progress.unlocks, GAME_UNLOCK_BIT_OXIDE);
+		memcpy(gGT->prevNameEntered, GAME_ADV_PROGRESS.name, sizeof(gGT->prevNameEntered));
+		const int racer = GAME_ADV_PROGRESS.characterID;
+		if ((NativeDev_EnvInt("CTR_DEV_CHARACTER", -1) < 0) && (racer >= 0) && (racer < 16))
+		{
+			for (int i = 1; i < 8; i++)
+				if (data.characterIDs[i] == racer)
+					data.characterIDs[i] = data.characterIDs[0];
+			data.characterIDs[0] = (s16)racer;
+		}
+		if (dev->profileToHub)
+		{
+			gGT->gameMode1 |= ADVENTURE_MODE;
+			return dev->raceTrack;
+		}
 	}
 
 	// Gem Cups from a new profile: the first one starts here, the rest from

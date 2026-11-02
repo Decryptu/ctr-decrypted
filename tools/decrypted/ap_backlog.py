@@ -77,29 +77,50 @@ def recv_packets(s, until, timeout=10.0):
             continue
         if op != 1:
             continue
+        # Keep the whole frame: the server sends Connected and ReceivedItems together.
+        hit = False
         for p in json.loads(payload):
             seen.append(p)
-            if until(p):
-                return seen
+            hit = until(p) or hit
+        if hit:
+            return seen
     return seen
 
 
-def main():
-    if len(sys.argv) < 4:
-        print(__doc__)
-        return 2
-    port, slot, count = int(sys.argv[1]), sys.argv[2], int(sys.argv[3])
-    item = sys.argv[4] if len(sys.argv) > 4 else 'Wumpa Fruit'
+def wait(s, secs):
+    """Sit on the connection for SECS, answering pings: the server drops a
+    client that stays silent."""
+    end = time.time() + secs
+    s.settimeout(0.5)
+    while time.time() < end:
+        try:
+            op, payload = ws_recv(s)
+        except socket.timeout:
+            continue
+        if op == 9:
+            mask = os.urandom(4)
+            s.sendall(struct.pack('!BB', 0x8A, 0x80 | len(payload)) + mask +
+                      bytes(b ^ mask[i % 4] for i, b in enumerate(payload)))
+
+
+def connect(port, slot, game='', tags=('TextOnly',), items_handling=0, uuid='ap-backlog'):
+    """Connect to ws://127.0.0.1:PORT as SLOT. Returns (socket, packets up to
+    and including Connected), or raises with the server's refusal."""
     s = ws_connect('127.0.0.1', port)
     recv_packets(s, lambda p: p.get('cmd') == 'RoomInfo')
     ws_send(s, json.dumps([{
-        'cmd': 'Connect', 'game': '', 'name': slot, 'password': '', 'uuid': 'ap-backlog',
+        'cmd': 'Connect', 'game': game, 'name': slot, 'password': '', 'uuid': uuid,
         'version': {'major': 0, 'minor': 6, 'build': 8, 'class': 'Version'},
-        'items_handling': 0, 'tags': ['TextOnly'], 'slot_data': False}]))
+        'items_handling': items_handling, 'tags': list(tags), 'slot_data': False}]))
     got = recv_packets(s, lambda p: p.get('cmd') in ('Connected', 'ConnectionRefused'))
     if not any(p.get('cmd') == 'Connected' for p in got):
-        print('connect failed:', got[-1:] if got else 'no reply')
-        return 1
+        s.close()
+        raise ConnectionError(f'connect failed: {got[-1:] if got else "no reply"}')
+    return s, got
+
+
+def getitem(s, item, count):
+    """Send "!getitem ITEM" COUNT times; returns how many the server confirmed."""
     # Read the server's reply to each batch before sending the next, or it
     # stops reading and the send blocks.
     def is_reply(p):
@@ -117,6 +138,21 @@ def main():
             return state['n'] >= target
         recv_packets(s, done, timeout=30.0)
         replies = state['n']
+    return replies
+
+
+def main():
+    if len(sys.argv) < 4:
+        print(__doc__)
+        return 2
+    port, slot, count = int(sys.argv[1]), sys.argv[2], int(sys.argv[3])
+    item = sys.argv[4] if len(sys.argv) > 4 else 'Wumpa Fruit'
+    try:
+        s, _ = connect(port, slot)
+    except ConnectionError as e:
+        print(e)
+        return 1
+    replies = getitem(s, item, count)
     print(f'sent {count} x {item}, {replies} confirmed')
     s.close()
     return 0

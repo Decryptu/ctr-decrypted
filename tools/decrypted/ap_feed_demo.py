@@ -10,28 +10,10 @@ each one as "<ITEM> FROM <SLOT>". tools/decrypted/readme-shots.ps1 uses it.
 Standard library only, on top of ap_backlog.py's minimal websocket client.
 """
 import json
-import os
-import socket
-import struct
 import sys
 import time
 
-from ap_backlog import recv_packets, ws_connect, ws_recv, ws_send
-
-
-def wait(s, secs):
-    # Keep answering pings, or the server drops a client that sits silent.
-    end = time.time() + secs
-    s.settimeout(0.5)
-    while time.time() < end:
-        try:
-            op, payload = ws_recv(s)
-        except socket.timeout:
-            continue
-        if op == 9:
-            mask = os.urandom(4)
-            s.sendall(struct.pack('!BB', 0x8A, 0x80 | len(payload)) + mask +
-                      bytes(b ^ mask[i % 4] for i, b in enumerate(payload)))
+from ap_backlog import connect, recv_packets, wait, ws_send
 
 
 def main():
@@ -40,18 +22,13 @@ def main():
         return 2
     port, slot = int(sys.argv[1]), sys.argv[2]
     delay, count, gap = float(sys.argv[3]), int(sys.argv[4]), float(sys.argv[5])
-    s = ws_connect('127.0.0.1', port)
-    recv_packets(s, lambda p: p.get('cmd') == 'RoomInfo')
     # A game client, not TextOnly: the server ignores location checks from those.
-    ws_send(s, json.dumps([{
-        'cmd': 'Connect', 'game': 'Crash Team Racing', 'name': slot, 'password': '', 'uuid': 'ap-feed-demo',
-        'version': {'major': 0, 'minor': 6, 'build': 7, 'class': 'Version'},
-        'items_handling': 0, 'tags': [], 'slot_data': False}]))
-    got = recv_packets(s, lambda p: p.get('cmd') in ('Connected', 'ConnectionRefused'))
-    con = next((p for p in got if p.get('cmd') == 'Connected'), None)
-    if con is None:
-        print('connect failed:', got[-1:] if got else 'no reply')
+    try:
+        s, got = connect(port, slot, game='Crash Team Racing', tags=(), uuid='ap-feed-demo')
+    except ConnectionError as e:
+        print(e)
         return 1
+    con = next(p for p in got if p.get('cmd') == 'Connected')
     ws_send(s, json.dumps([{'cmd': 'LocationScouts', 'locations': con['missing_locations'], 'create_as_hint': 0}]))
     got = recv_packets(s, lambda p: p.get('cmd') == 'LocationInfo')
     info = next(p for p in got if p.get('cmd') == 'LocationInfo')

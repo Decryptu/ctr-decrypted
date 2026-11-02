@@ -23,6 +23,7 @@ The script prints the capture folder (`%TEMP%\ctrdev\shots-HHmmss` unless `-Out`
 | `-Visible`, `-RealTime` | Show the window, or keep wall-clock pacing |
 | `-Exe` | Executable to run (default `build-vanilla\ctr_native.exe`) |
 | `-RunDir` | Run folder (default `%TEMP%\ctrdev\run`). Give runs that happen at the same time a folder each |
+| `-Save` | A save to copy into the run folder's `memcards\slot0` first ([Saves and progress](#saves-and-progress)). Without it the run keeps whatever save its folder already has |
 | `-GameArgs` | Command-line arguments for the game, e.g. `'--perf-dir','C:\t\perf'` |
 
 The race starts about 1,200 frames into a demo run.
@@ -57,6 +58,7 @@ All of these are read once, by `platform/native_dev.c` (`include/platform/native
 | `CTR_DEV_MODE=adv` | Make `CTR_DEV_RACE` an Adventure trophy race from a new profile. A win goes through the podium into the track's hub, where nobody drives; the autopilot taps Cross after the race and on the podium |
 | `CTR_DEV_RACES=<LevelIDs>` | With `CTR_DEV_MODE=adv`, Adventure races back to back instead of `CTR_DEV_RACE`: the first from the title menu, each next one from the hub the previous one returns to, once its podium and Aku Aku's hints are over (the autopilot taps through them). A trailing `r` makes it the track's relic race. `8,3,6,9` with `CTR_DEV_BOT_SPEED=25` wins all four N. Sanity Beach trophies, so the last podium leads into Ripper Roo's boss-door scene. A lost race is raced again, so give `-Frames` room |
 | `CTR_DEV_MODE=cup` | Run Adventure Gem Cups from a new profile, back to back, instead of one race (`CTR_DEV_RACE` is not needed). `CTR_DEV_CUPS=0,4` lists them in order (0 Red, 1 Green, 2 Blue, 3 Yellow, 4 Purple; default 4). Each cup's podium lands in Gemstone Valley; once it and any Aku Aku hint are over, the next cup starts as its warp pad would. With the autopilot on, Cross is tapped through the results, the podium and the hints. `CTR_DEV_LAPS=1` shortens every leg. Two cups take about a minute |
+| `CTR_DEV_PROFILE=<0-3>` | Play Adventure from that profile of the run's save (`-Save`), as loading it from the title does: its rewards, racer and name, and the save's game-wide unlocks. With no `CTR_DEV_RACE` or `CTR_DEV_RACES` the run starts in the hub the profile was saved in, otherwise those races are Adventure races from it. `CTR_DEV_CHARACTER` overrides its racer. In the Archipelago build a connected client still applies the slot's items |
 | `CTR_DEV_PODIUM=<csv>` | With `CTR_DEV_MODE=cup`, a row per finished cup, appended: cup, podium reward model, the racer on the first, second and third steps (`include/namespace_Vehicle.h`, `-1` for an empty step), then the cup's final order (`cupPositionPerPlayer`, eight driver indices) |
 | `CTR_DEV_BOT_SPEED=<percent>` | Cap the bots' top speed at that share of the original (default 100), so the autopilot wins and reaches the podium. 50 wins Crash Cove |
 | `CTR_DEV_CHARACTER=<id>` | Player 1's racer (`include/namespace_Vehicle.h`: 9 Papu Papu, 11 Komodo Joe, 15 Oxide...). The bot that had it takes Crash |
@@ -161,6 +163,33 @@ tools\decrypted\fps-parity.ps1 -Tracks 3
 - `ghost SOURCE.csv PLAY.csv`: how far the ghost in PLAY strays from the player of SOURCE, who recorded it.
 
 A Time Trial takes 10 to 20 seconds to run at 30 FPS, twice that at 60. The autopilot never boosts, hops or drifts, so it falls into the same pits again and again on N. Gin Labs and Polar Pass; those runs end at the frame cap. What to expect per track is in [60FPS.md](60FPS.md#checking). Input replays (`--record`, `--replay`, [REPLAYS.md](REPLAYS.md)) work with these switches too. Set the same `CTR_DEV_RACE` and `CTR_DEV_MODE` when playing back, because they change the title menu's flow.
+
+## Saves and progress
+
+`tools/decrypted/ctr_save.py` reads and edits the game save, `memcards\slot0\BASCUS-94426-SLOTS` next to the exe: the four Adventure profiles and the game-wide progress (`struct MemcardProfile`, `include/namespace_Memcard.h`). It rewrites the checksum, so the game accepts the edited file. `python tools\decrypted\ctr_save.py -h` lists every name.
+
+```powershell
+$s = 'tools\decrypted\ctr_save.py'
+python $s show <save>                    # what each profile has; --json for scripts
+python $s new C:\t\sv\test.sav           # an empty card
+# Profile 0 as Coco, saved in Glacier Park: 8 trophies, 2 keys, one relic, the doors
+# to Glacier Park open, every hint already seen (no Aku Aku popups in the run).
+python $s edit C:\t\sv\test.sav --character coco --hub glacier --give trophy:0,1,2,3,4,5,6,7 key:2 sapphire:blizzard door:beach_gemstone,beach_glacier,ruins_glacier hint
+python $s edit C:\t\sv\test.sav --profile 1 --give everything racer cup ghost   # 100% and every unlock
+tools\decrypted\devrun.ps1 -Track -1 -Frames 2600 -From 2400 -Save C:\t\sv\test.sav -Env @{CTR_DEV_PROFILE=0}
+```
+
+`--give` and `--take` take `KIND[:WHICH]`: trophies, relics per tier, tokens, keys, gems, purple tokens, hub doors, the two Oxide endings and hints for the profile; racers, bonus tracks and arenas, Arcade cups, the scrapbook and beaten Time Trial ghosts for the whole save. An edited empty profile becomes `DEV`, Crash, in N. Sanity Beach. A door makes that hub door stand open, as after opening it with the keys (`game/232/AH_Door.c`); warp pads and boss garages still count the profile's trophies, relics and keys. In the Archipelago build the doors follow the slot's door history instead.
+
+Archipelago progress is kept by the server, so the same script talks to a local server (127.0.0.1, any room; `ap-give` needs the item cheat, on by default in `host.yaml`):
+
+```powershell
+python $s ap-show 38300 Decrypt                         # items received, locations checked
+python $s ap-give 38300 Decrypt "Sapphire Relic" 6      # the server's !getitem
+python $s ap-check 38300 Decrypt "Crash Cove: *" "*: Trophy Race"   # names or wildcards
+```
+
+`ap-check` connects as a game client of the slot (the server ignores checks from text-only clients) and checks the matching locations, so their items go out as if found in game. Location and item names are in `apworld/ctr/data/locations.json` and `items.json`. A server stopped by killing its process does not write its `.apsave`, so stop it from its console (`/exit`) to keep what was given.
 
 ## README screenshots
 

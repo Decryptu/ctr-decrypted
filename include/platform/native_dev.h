@@ -107,6 +107,8 @@ const char *NativeDev_PrimName(const void *addr);
 // in CTR_DEV_CUPS back to back (no CTR_DEV_RACE needed), and CTR_DEV_PODIUM
 // gets each cup's podium. With CTR_DEV_MODE=adv, CTR_DEV_RACES=3,6r runs those
 // Adventure races back to back through the hub (r: the relic race).
+// CTR_DEV_PROFILE=<0-3> plays Adventure from that profile of the run's save,
+// in its hub unless CTR_DEV_RACE or CTR_DEV_RACES asks for a race.
 int NativeDev_RaceTrack(void);
 // CTR_DEV_PLAYERS=2..4 makes CTR_DEV_RACE a VS race for that many players.
 // CTR_DEV_CHEATS=<bits> turns on gameMode2 cheats for it (CHEAT_* values).

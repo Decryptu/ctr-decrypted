@@ -25,6 +25,7 @@ param(
 	[switch]$RealTime,               # keep wall-clock pacing
 	[int]$TimeoutSec = 300,
 	[string]$RunDir = "",            # run folder (default %TEMP%\ctrdev\run); give parallel runs their own
+	[string]$Save = "",              # a save (tools/decrypted/ctr_save.py) to put in the run's memcards/slot0
 	[string[]]$GameArgs = @()        # command-line arguments for the game, e.g. '--perf-dir','C:\t\perf'
 )
 $ErrorActionPreference = 'Stop'
@@ -49,6 +50,12 @@ $disc = Join-Path $assets 'ctr-u.bin'
 if (-not (Test-Path $disc)) {
 	try { New-Item -ItemType HardLink -Path $disc -Target $Bin -ErrorAction Stop | Out-Null }
 	catch { Copy-Item $Bin $disc }
+}
+
+if ($Save) {
+	$card = Join-Path $run 'memcards\slot0'
+	New-Item -ItemType Directory -Force $card | Out-Null
+	Copy-Item $Save (Join-Path $card 'BASCUS-94426-SLOTS') -Force
 }
 
 # Fixed baseline config, then the caller's overrides.
