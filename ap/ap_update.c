@@ -54,6 +54,7 @@ void AP_UpdateTick(struct GameTracker *gGT)
 		int startup;
 
 		ap_update_set_asset_dir(NativeAssets_GetAssetDir());
+		ap_update_set_base_dir(NativeAssets_GetBaseDir());
 		startup = ap_update_startup(CTR_AP_COMPAT_VERSION);
 
 		ap_upd_started = 1;
@@ -159,7 +160,6 @@ static void AP_UpdateRestart(void)
 	if (!applied)
 		return; // FAILED_INSTALL: the next frame shows it; the running build is in place
 	AP_UpdateLog("installed");
-	NativeConfig_Save();
 	if (!ap_upd_steam)
 	{
 		// The new process must be able to take this install's primary lock.
@@ -211,6 +211,8 @@ int AP_UpdateMenuFrame(void)
 	case AP_UPD_OFFER:
 		if (soloBusy)
 			break; // the offer waits until Play Solo stops
+		if (!g_config.updateCheck)
+			break; // switched off after the check started
 		snprintf(title, sizeof title, "UPDATE %s AVAILABLE", tag);
 		snprintf(line, sizeof line, "You have %s.", CTR_AP_COMPAT_VERSION);
 		ap_upd_prompting = 1;
