@@ -71,4 +71,8 @@ int NativeBackup_RequestRestore(const char *name);
 int NativeBackup_PendingRestore(char *name, size_t size);
 void NativeBackup_CancelRestore(void);
 
+// Send report lines (a backup taken, a restore applied, a failure) to log, and
+// first the lines reported before it was set. Until then they go to stdout.
+void NativeBackup_SetLog(void (*log)(const char *text));
+
 #endif // NATIVE_BACKUP_H

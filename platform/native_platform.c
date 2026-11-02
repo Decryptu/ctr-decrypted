@@ -3,6 +3,7 @@
 #include <macros.h>
 
 #include "platform/native_audio.h"
+#include "platform/native_backup.h"
 #include "platform/native_glad.h"
 #include "platform/native_gpu.h"
 #include "platform/native_input.h"
@@ -277,11 +278,18 @@ internal void Platform_HandleKey(int key, char down)
 #endif
 }
 
+internal void Platform_LogBackupLine(const char *text)
+{
+	Platform_Log("%s", text);
+}
+
 void Platform_Init(const char *title, int width, int height)
 {
 	char windowName[128];
 
 	Platform_LogInit(title);
+	// The launch backup and a restore ran before the log opened (main.c).
+	NativeBackup_SetLog(Platform_LogBackupLine);
 	Platform_GetWindowName(title, windowName, sizeof(windowName));
 
 	Platform_Log("[CTR Native] Initialising platform\n");

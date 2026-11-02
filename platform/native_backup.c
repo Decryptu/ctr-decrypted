@@ -2,6 +2,7 @@
 
 #include "platform/native_backup.h"
 
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,6 +29,37 @@ static NativeBackupFiles s_backupLive;
 static NativeBackupFiles s_backupOther;
 
 static const char *const s_backupReasonKeys[] = {"launch", "play", "before-restore"};
+
+// Where report lines go (NativeBackup_SetLog). Until it is set they are printed
+// and kept here, since the launch backup and a restore run before the log
+// file opens.
+static void (*s_backupLog)(const char *text);
+static char s_backupEarly[2048];
+
+static void Backup_Report(const char *fmt, ...)
+{
+	char line[512];
+	va_list args;
+	va_start(args, fmt);
+	vsnprintf(line, sizeof line, fmt, args);
+	va_end(args);
+	if (s_backupLog != NULL)
+	{
+		s_backupLog(line);
+		return;
+	}
+	fputs(line, stdout);
+	if (strlen(s_backupEarly) + strlen(line) < sizeof s_backupEarly)
+		strcat(s_backupEarly, line);
+}
+
+void NativeBackup_SetLog(void (*log)(const char *text))
+{
+	s_backupLog = log;
+	if (log != NULL && s_backupEarly[0] != '\0')
+		log(s_backupEarly);
+	s_backupEarly[0] = '\0';
+}
 
 void NativeBackup_SetBaseDir(const char *dir)
 {
@@ -407,7 +439,7 @@ int NativeBackup_Take(NativeBackupReason reason, time_t now)
 		if (!Backup_Path(src, sizeof src, s_backupLive.rel[i]) || !Backup_Join(dst, sizeof dst, tmp, s_backupLive.rel[i]) ||
 		    !Backup_MakeParents(dst, strlen(tmp) + 1) || !Backup_CopyFile(src, dst))
 		{
-			fprintf(stderr, "[CTR Native] backup failed: could not copy %s\n", s_backupLive.rel[i]);
+			Backup_Report("[CTR Native] backup failed: could not copy %s\n", s_backupLive.rel[i]);
 			Backup_RemoveTree(tmp);
 			return -1;
 		}
@@ -426,7 +458,7 @@ int NativeBackup_Take(NativeBackupReason reason, time_t now)
 		Backup_RemoveTree(tmp);
 		return -1;
 	}
-	printf("[CTR Native] backup %s (%s, %d files)\n", name, s_backupReasonKeys[reason], s_backupLive.count);
+	Backup_Report("[CTR Native] backup %s (%s, %d files)\n", name, s_backupReasonKeys[reason], s_backupLive.count);
 	Backup_Prune();
 	return 1;
 }
@@ -489,7 +521,7 @@ int NativeBackup_RequestRestore(const char *name)
 		NativeFs_Delete(tmp);
 		return 0;
 	}
-	printf("[CTR Native] backup %s will be restored at the next start\n", name);
+	Backup_Report("[CTR Native] backup %s will be restored at the next start\n", name);
 	return 1;
 }
 
@@ -561,7 +593,7 @@ static int Backup_ApplyPending(time_t now)
 	if (NativeBackup_Take(NATIVE_BACKUP_BEFORE_RESTORE, now) < 0)
 	{
 		s_backupKeep = NULL;
-		fprintf(stderr, "[CTR Native] restore of %s cancelled: the current progress could not be backed up\n", name);
+		Backup_Report("[CTR Native] restore of %s cancelled: the current progress could not be backed up\n", name);
 		return 0;
 	}
 	s_backupKeep = NULL;
@@ -579,10 +611,10 @@ static int Backup_ApplyPending(time_t now)
 		else
 		{
 			failed++;
-			fprintf(stderr, "[CTR Native] restore: could not put back %s\n", s_backupOther.rel[i]);
+			Backup_Report("[CTR Native] restore: could not put back %s\n", s_backupOther.rel[i]);
 		}
 	}
-	printf("[CTR Native] restored backup %s (%d files, %d failed)\n", name, restored, failed);
+	Backup_Report("[CTR Native] restored backup %s (%d files, %d failed)\n", name, restored, failed);
 	return 1;
 }
 
