@@ -26,7 +26,7 @@ Roughly in this order.
 | 200cc: a faster speed class for every racer, bots included, like Mario Kart's. Raises top speed and acceleration together and keeps turning and drift timing playable; Time Trial records and ghosts are kept apart per class. Whether Archipelago can require or place it is a later choice. CTR Native Expanded's per-stat multipliers (speed, turn, jump, gravity, reserves) show where the stats are applied | Owner request, 2026-11-02 |
 
 ## Maybe
-- Title screen: our own touch on it (CTR Native Expanded adds its name to the main menu), and an option to skip Aku Aku's and Uka Uka's hints (theirs: `skip_hints`). Intros, podiums and boss cutscenes already have skip options. Owner idea, 2026-11-02; what to change on the title screen is still open.
+- Title screen: our own touch on it (CTR Native Expanded adds its name to the main menu). Owner idea, 2026-11-02; what to change is still open.
 - Chaos effects as Archipelago traps. CTR Native Expanded has 38 race effects, harmful and helpful (reversed steering, low gravity, giant karts, no items, shuffled controls, free reserves, a mask...), with an external trigger file. They could be the trap and buff items dowlle's tracker asks for (#248, #455, #486), sent by the multiworld instead of a timer.
 - CTR Native Expanded's two-player co-op Adventure (both racers in hub and races, shared progress). It would need the Archipelago client to know about a second player.
 - More multiplayer from CTR Native Expanded: 3P/4P Arcade, eight racers in split screen, full-detail split screen, Oxide Station in multiplayer, race tracks in Battle, ending a race once only one racer is left.
