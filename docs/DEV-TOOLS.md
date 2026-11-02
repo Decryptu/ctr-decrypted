@@ -96,7 +96,7 @@ When the bug needs a view the player held, have them press `F5` there too, keep 
 
 ## Rounding detector
 
-The game keeps its camera in whole units, and its rounding steps every few frames while the camera moves. Under the [precise camera](PGXP.md#precise-camera) nothing drawn should follow those steps; anything that does jumps by up to a pixel against the rest of the scene, which players see as wobble or judder (the sky, the horizon glow and the level's translation did, until they were moved off it). The detector finds those draw paths in any frame:
+The game keeps its camera in whole units, and its rounding steps every few frames while the camera moves. Under the [precise camera](PGXP.md#precise-camera) nothing drawn should follow those steps; anything that does jumps by up to a pixel against the rest of the scene, which players see as wobble or judder. The detector finds those draw paths in any frame:
 
 ```powershell
 # The Adventure hub at frame 4000, then a race while the autopilot drives:
@@ -106,7 +106,7 @@ tools\decrypted\nudge.ps1 -Frame 2600 -Env @{CTR_DEV_RACE=0; CTR_DEV_AUTOPILOT=1
 
 It runs the frame once as is and once per camera axis with `CTR_DEV_NUDGE`, in parallel, and `nudge_diff.py` compares each polygon dump with the base one. Polygons are matched by who drew them, texture and nearest position. Those whose retail position moved but whose drawn position did not are precise; those whose drawn position moved with the retail one follow the integer camera, and are listed by the stage or instance that drew them (`@name`), with how far they moved and where on screen. `--png` paints them red on the frame. The frame must show the follow camera (a race or a hub after the intro).
 
-How to read it: precise polygons move at most a few hundredths of a pixel. A whole group following (`tires`, `shadows`, `skids`) is a draw path that projects through the GTE without attaching precise positions, like the sky did (`NativePgxp_StoreGteSXY`), or an instance whose model-view is not registered (`NativePgxp_ViewRegisterInstance` skips split, camera-facing and custom-matrix models). One or two polygons of an otherwise precise model are matching noise between look-alike triangles. After a fix, the group must drop out of the list, and `find_holes.py` totals must not rise.
+How to read it: precise polygons move at most a few hundredths of a pixel. A whole group following is a draw path that copies GTE results into its primitives without attaching the precise positions (`NativePgxp_StoreGteSXY`, `NativePgxp_CopyXY`), one that takes positions relative to the integer camera outside a `NativePgxp_ViewBeginRelative` scope, or an instance whose model-view is not registered (split and screen-space models are not); see [PGXP.md](PGXP.md#precise-camera). Two kinds of entry are not rounding: one or two polygons of an otherwise precise model whose drawn move is about its retail move (matching noise between look-alike triangles, check the dump: their drawn positions barely move), and vertices with no depth drawn at x 1023 (a skid mark corner behind the camera, which the GTE clamps, as in retail). Dingo Canyon at frame 2600 and the N. Sanity Beach hub at frame 4000, the two examples above, show only those. After a fix, the group must drop out of the list, and `find_holes.py` totals must not rise.
 
 ## Analysis scripts
 

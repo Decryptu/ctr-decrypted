@@ -394,6 +394,9 @@ typedef struct
 global_variable NativePgxpPositionSlot s_pgxpPositions[NATIVE_PGXP_POSITION_COUNT];
 global_variable NativePgxpInput s_pgxpInputs[3];
 global_variable NativePgxpInput s_pgxpMvmvaResult;
+global_variable s32 s_pgxpTranslationInt[3];
+global_variable double s_pgxpTranslation[3];
+global_variable b32 s_pgxpTranslationValid;
 
 internal NativePgxpPositionSlot *NativePgxp_PositionSlot(const void *key)
 {
@@ -526,6 +529,29 @@ int NativePgxp_GteGetMvmvaResult(const s16 *ir, float *out)
 	return 1;
 }
 
+void NativePgxp_GteSetTranslation(const s32 t[3], const float precise[3])
+{
+	for (int i = 0; i < 3; i++)
+	{
+		s_pgxpTranslationInt[i] = t[i];
+		s_pgxpTranslation[i] = precise[i];
+	}
+	s_pgxpTranslationValid = 1;
+}
+
+void NativePgxp_GteClearTranslation(void)
+{
+	s_pgxpTranslationValid = 0;
+}
+
+int NativePgxp_GteGetTranslation(const s32 t[3], double out[3])
+{
+	if (!s_pgxpTranslationValid || (t[0] != s_pgxpTranslationInt[0]) || (t[1] != s_pgxpTranslationInt[1]) || (t[2] != s_pgxpTranslationInt[2]))
+		return 0;
+	memcpy(out, s_pgxpTranslation, sizeof(s_pgxpTranslation));
+	return 1;
+}
+
 void NativePgxp_Transform(const double *rotation, const double *translation, const double *input, double *result)
 {
 	for (int row = 0; row < 3; row++)
@@ -565,5 +591,6 @@ void NativePgxp_EndFrame(void)
 	memset(s_pgxpFifo, 0, sizeof(s_pgxpFifo));
 	memset(s_pgxpInputs, 0, sizeof(s_pgxpInputs));
 	s_pgxpMvmvaResult.valid = 0;
+	s_pgxpTranslationValid = 0;
 	NativePgxp_ViewEndFrame();
 }

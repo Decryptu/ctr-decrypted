@@ -76,6 +76,12 @@ int NativePgxp_GteGetInput(int slot, s16 vx, s16 vy, s16 vz, double *out);
 // Exact MAC1..MAC3 of the last MVMVA, matched against the IR1..IR3 it produced.
 void NativePgxp_GteSetMvmvaResult(const double *precise, s16 ir1, s16 ir2, s16 ir3);
 int NativePgxp_GteGetMvmvaResult(const s16 *ir, float *out);
+// The exact value of a GTE translation (TR) the game loaded from a result it
+// read back, such as a particle's view-space centre; projections through that
+// TR and a rotation with no precise view use it. Cleared at the frame end.
+void NativePgxp_GteSetTranslation(const s32 t[3], const float precise[3]);
+void NativePgxp_GteClearTranslation(void);
+int NativePgxp_GteGetTranslation(const s32 t[3], double out[3]);
 
 void NativePgxp_Transform(const double *rotation, const double *translation, const double *input, double *result);
 
@@ -116,6 +122,21 @@ int NativePgxp_ViewGetAngles(int cameraID, double rot[3]);
 // Matrices are GTE MATRIX layouts: five packed rotation words, then t[3].
 void NativePgxp_ViewRegisterCamera(int cameraID, const SVec3 *pbPos, const SVec3 *pbRot, const void *viewProj);
 void NativePgxp_ViewRegisterInstance(int cameraID, const void *mvp, const void *model, const void *inst, const s32 instPos[3], int translationShift);
+// A camera-facing model (RenderBucket_BuildCustomMatrix): its integer matrix
+// turns it towards its integer view position; the precise one turns it towards
+// the precise position.
+void NativePgxp_ViewRegisterFacing(int cameraID, const void *mvp, const void *inst, const s32 instPos[3], int translationShift, int reverse);
+// Between these, vectors projected through a camera's rotation are positions
+// the game took relative to the integer camera and scaled by 1 << shift
+// (tires, shadows, skid marks, particles). The precise view adds the camera's
+// sub-unit shift at that scale, and for `inst`, when it is the kart a camera
+// follows, the fraction of a unit the kart is drawn at (without its height
+// unless withHeight).
+void NativePgxp_ViewBeginRelative(int shift, const void *inst, int withHeight);
+void NativePgxp_ViewEndRelative(void);
+// The same offset in world units, for code that shapes such geometry from the
+// camera's direction itself (the tires); 0 when the camera's view is integer.
+int NativePgxp_ViewRelativeShift(int cameraID, const void *inst, int withHeight, double shift[3]);
 // The precise rotation (4096 = 1) and translation (view units) to use instead
 // of a GTE matrix and translation, or 0 when there is none.
 int NativePgxp_ViewLookup(const u32 words[5], const s32 t[3], double rot[9], double trans[3]);

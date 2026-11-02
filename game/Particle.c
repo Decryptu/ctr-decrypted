@@ -539,6 +539,20 @@ CTR_STATIC_ASSERT(offsetof(struct ParticleSpecialPacket, line) == 0x0C);
 #define Particle_LoadVector(xy, z, xyreg, zreg) __asm__ volatile("mtc2 %0,$" #xyreg "\n\tmtc2 %1,$" #zreg : : "r"(xy), "r"(z))
 #endif
 
+// A projected screen position stored into a primitive, with its precise
+// position on native (docs/PGXP.md#precise-camera).
+#ifdef CTR_NATIVE
+#define Particle_StoreXY(address, reg)                         \
+	do                                                     \
+	{                                                      \
+		CTR_PSX_STORE_COP2_WORD((address), reg);               \
+		if (NATIVE_PGXP_ACTIVE())                              \
+			NativePgxp_StoreGteSXY((address), reg, MFC2(reg)); \
+	} while (0)
+#else
+#define Particle_StoreXY(address, reg) CTR_PSX_STORE_COP2_WORD((address), reg)
+#endif
+
 void Particle_RenderList(struct PushBuffer *pb, void *particleList)
 {
 	struct Particle *particle = particleList;
@@ -660,6 +674,14 @@ void Particle_RenderList(struct PushBuffer *pb, void *particleList)
 				goto nextParticle;
 			Particle_LoadVector(Particle_RenderList_PackXY(posX, posY), posZ, 0, 1);
 			CTR_GteLoadDelay();
+#ifdef CTR_NATIVE
+			// The centre is taken relative to the integer camera, x4, and turned
+			// into view space here; the quad's corners are then projected around
+			// it with a screen-facing rotation. Keep the precise centre as the
+			// translation they are projected from.
+			NativePgxp_ViewBeginRelative(2, (flagsSetColor & PARTICLE_SET_COLOR_FLAG_DRIVER_LOCAL) ? particle->owner.driverInst : NULL,
+			                             (flagsSetColor & PARTICLE_SET_COLOR_FLAG_DRIVER_LOCAL_IGNORE_Y) == 0);
+#endif
 			gte_llv0_b();
 			{
 				register s32 macX CTR_PSX_REGISTER("$12") = MFC2(25);
@@ -668,6 +690,19 @@ void Particle_RenderList(struct PushBuffer *pb, void *particleList)
 				CTC2(macX, 5);
 				CTC2(macY, 6);
 				CTC2(macZ, 7);
+#ifdef CTR_NATIVE
+				if (NATIVE_PGXP_GEOMETRY_ACTIVE())
+				{
+					const s16 ir[3] = {(s16)MFC2(9), (s16)MFC2(10), (s16)MFC2(11)};
+					const s32 mac[3] = {macX, macY, macZ};
+					float precise[3];
+					// sf=1 and no saturation: the translation is the IR result.
+					if ((ir[0] == macX) && (ir[1] == macY) && (ir[2] == macZ) && NativePgxp_GteGetMvmvaResult(ir, precise))
+						NativePgxp_GteSetTranslation(mac, precise);
+					else
+						NativePgxp_GteClearTranslation();
+				}
+#endif
 			}
 			CTR_GteReadDataDelayed(r13r21, 27);
 			if (r13r21 < 0)
@@ -731,8 +766,8 @@ void Particle_RenderList(struct PushBuffer *pb, void *particleList)
 				CTR_WriteU32AlignedLE(&particle->axis[PARTICLE_AXIS_ICON_FRAME_OR_LINE_COLOR].velocity, color);
 				packet->drawMode = PARTICLE_GPU_DRAWMODE_BASE | (flagsSetColor & PARTICLE_SET_COLOR_FLAG_DRAW_MODE_MASK);
 				packet->pad = 0;
-				CTR_PSX_STORE_COP2_WORD(&packet->line.xy0, 12);
-				CTR_PSX_STORE_COP2_WORD(&packet->line.xy1, 13);
+				Particle_StoreXY(&packet->line.xy0, 12);
+				Particle_StoreXY(&packet->line.xy1, 13);
 				CTR_PSX_STORE_COP2_WORD(&scratch->depth, 17);
 				goto linkPrimitive;
 			}
@@ -1117,7 +1152,7 @@ void Particle_RenderList(struct PushBuffer *pb, void *particleList)
 					goto cornerEnd;
 				cornerZero:
 					r22r23 = (((u32)(halfWidth) & 0xffff) | ((u32)(-halfHeight) << 16));
-					CTR_PSX_STORE_COP2_WORD(prim + 2, 14);
+					Particle_StoreXY(prim + 2, 14);
 					{
 						u32 *depthAddress;
 						// NOTE(aalhendi): Keep this address calculation beside the
@@ -1139,15 +1174,15 @@ void Particle_RenderList(struct PushBuffer *pb, void *particleList)
 #else
 						__asm__ volatile("addiu %0,%1,16" : "=r"(caseOneAddress) : "r"(prim));
 #endif
-						CTR_PSX_STORE_COP2_WORD(caseOneAddress, 14);
+						Particle_StoreXY(caseOneAddress, 14);
 					}
 					goto cornerEnd;
 				cornerTwo:
 					r22r23 = (((u32)(halfWidth) & 0xffff) | ((u32)(halfHeight) << 16));
-					CTR_PSX_STORE_COP2_WORD(caseTwoAddress, 14);
+					Particle_StoreXY(caseTwoAddress, 14);
 					goto cornerEnd;
 				cornerThree:
-					CTR_PSX_STORE_COP2_WORD(payload, 14);
+					Particle_StoreXY(payload, 14);
 					goto cornerEnd;
 				cornerEnd:;
 				}
@@ -1207,6 +1242,10 @@ void Particle_RenderList(struct PushBuffer *pb, void *particleList)
 			CTR_PSX_KEEP_VALUE(payload);
 			particle = particle->next;
 		} while (particle);
+#ifdef CTR_NATIVE
+		NativePgxp_ViewEndRelative();
+		NativePgxp_GteClearTranslation();
+#endif
 	}
 	GAME_TRACKER->backBuffer->primMem.cursor = prim;
 }

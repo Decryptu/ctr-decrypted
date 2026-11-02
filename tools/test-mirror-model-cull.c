@@ -42,6 +42,8 @@ void NativePgxp_GteSetMvmvaResult(const double *precise, s16 ir1, s16 ir2, s16 i
 void NativePgxp_Transform(const double *rotation, const double *translation, const double *input, double *result) { (void)rotation, (void)translation, (void)input, (void)result; HARNESS_UNREACHED("NativePgxp_Transform"); }
 int NativePgxp_ViewLookup(const u32 words[5], const s32 t[3], double rot[9], double trans[3]) { (void)words, (void)t, (void)rot, (void)trans; HARNESS_UNREACHED("NativePgxp_ViewLookup"); }
 void NativePgxp_ViewRegisterInstance(int cameraID, const void *mvp, const void *model, const void *inst, const s32 instPos[3], int translationShift) { (void)cameraID, (void)mvp, (void)model, (void)inst, (void)instPos, (void)translationShift; HARNESS_UNREACHED("NativePgxp_ViewRegisterInstance"); }
+void NativePgxp_ViewRegisterFacing(int cameraID, const void *mvp, const void *inst, const s32 instPos[3], int translationShift, int reverse) { (void)cameraID, (void)mvp, (void)inst, (void)instPos, (void)translationShift, (void)reverse; HARNESS_UNREACHED("NativePgxp_ViewRegisterFacing"); }
+int NativePgxp_GteGetTranslation(const s32 t[3], double out[3]) { (void)t, (void)out; HARNESS_UNREACHED("NativePgxp_GteGetTranslation"); }
 
 // The rest of the renderer unit links against these. ELF --gc-sections drops
 // the code that uses them; PE (MinGW) keeps it, so they are defined here too.

@@ -2158,16 +2158,20 @@ static struct RenderBucketEntry *RenderBucket_QueueDraw(struct Instance *inst, s
 	RenderBucket_StoreMatrixWords(&idpp->m3x3, matrixState.m0, matrixState.m1, matrixState.m2, matrixState.m3, matrixState.m4);
 	split = RenderBucket_BuildSplitState(inst, mh, frame, nextFrame, pb, idpp, viewDepth, &queuedFlags, &matrixState, &projectionMvp);
 #ifdef CTR_NATIVE
-	// The model-view matrix from the camera's unrounded pose, for PGXP. Only
-	// the plain composite (view * model); split, mirrored and camera-facing
-	// models keep the integer one.
-	if (((queuedFlags & (SPLIT_STATE_MASK | SCREENSPACE_INSTANCE | CUSTOM_MATRIX)) == 0) && ((mh->flags & RB_MODEL_ALWAYS_POINT_NORTH) == 0))
+	// The model-view matrix from the camera's unrounded pose, for PGXP: the
+	// plain composite (view * model), or a camera-facing model turned towards
+	// its precise position. Split and screen-space models keep the integer one.
+	if ((queuedFlags & (SPLIT_STATE_MASK | SCREENSPACE_INSTANCE)) == 0)
 	{
 		const s32 instPos[3] = {inst->matrix.t[0], inst->matrix.t[1], inst->matrix.t[2]};
+		const int cameraID = (int)(pb - sdata->gGT->pushBuffer);
 		int shift = ((s32)((u32)viewDepth - 0x1000u) < 0) ? 2 : 0;
 		if ((inst->flags & DRAW_HUGE) != 0)
 			shift -= 2;
-		NativePgxp_ViewRegisterInstance((int)(pb - sdata->gGT->pushBuffer), &idpp->mvp, &idpp->m3x3, inst, instPos, shift);
+		if (RenderBucket_NeedsCustomMatrix(queuedFlags, mh) != 0)
+			NativePgxp_ViewRegisterFacing(cameraID, &idpp->mvp, inst, instPos, shift, (queuedFlags & REVERSE_CULL_DIRECTION) != 0);
+		else
+			NativePgxp_ViewRegisterInstance(cameraID, &idpp->mvp, &idpp->m3x3, inst, instPos, shift);
 	}
 #endif
 

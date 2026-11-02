@@ -131,6 +131,7 @@ void NativePgxp_Transform(const double *rotation, const double *translation, con
 void NativePgxp_ViewFollowDriver(int cameraID, const struct NativePgxpFollowCamera *in, const SVec3 *pbPos, const SVec3 *pbRot) { (void)cameraID, (void)in, (void)pbPos, (void)pbRot; }
 void NativePgxp_ViewForgetCamera(int cameraID) { (void)cameraID; }
 int NativePgxp_ViewLookup(const u32 words[5], const s32 t[3], double rot[9], double trans[3]) { (void)words, (void)t, (void)rot, (void)trans; HARNESS_UNREACHED("NativePgxp_ViewLookup"); }
+int NativePgxp_GteGetTranslation(const s32 t[3], double out[3]) { (void)t, (void)out; HARNESS_UNREACHED("NativePgxp_GteGetTranslation"); }
 
 // Fixture: the two authored camera tables the fly-in reads, ptrStart at
 // path+0x0 and ptrEnd at path+0x354, exactly as CAM_ThTick hands them to

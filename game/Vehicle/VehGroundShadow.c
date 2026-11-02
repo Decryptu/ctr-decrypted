@@ -29,6 +29,15 @@ typedef s16 VehGroundShadowSignedHalfword CTR_MAY_ALIAS;
 #define VEH_GROUND_SHADOW_SIGNED_BYTE(base, offset) (*(s8 *)((u8 *)(base) + (offset)))
 
 #ifdef CTR_NATIVE
+// A corner's screen position copied from the projected ones in the scratchpad,
+// with its precise position (docs/PGXP.md#precise-camera).
+#define VEH_GROUND_SHADOW_COPY_XY(prim, primOffset, scratch, scratchOffset)                                                   \
+	do                                                                                                                        \
+	{                                                                                                                         \
+		VEH_GROUND_SHADOW_WORD((prim), (primOffset)) = VEH_GROUND_SHADOW_WORD((scratch), (scratchOffset));                    \
+		if (NATIVE_PGXP_ACTIVE())                                                                                             \
+			NativePgxp_CopyXY((u8 *)(prim) + (primOffset), (u8 *)(scratch) + (scratchOffset), VEH_GROUND_SHADOW_WORD((prim), (primOffset))); \
+	} while (0)
 #define VehGroundShadow_LoadTransMatrix(vector)          gte_SetTransVector(vector)
 #define VehGroundShadow_LoadRotMatrix(matrix)            VehGroundShadow_LoadGteRotMatrix(matrix)
 #define VehGroundShadow_SetLocalVector(vector, scratch)  ((vector) = (scratch) + 0x48)
@@ -54,6 +63,8 @@ typedef s16 VehGroundShadowSignedHalfword CTR_MAY_ALIAS;
 #define VehGroundShadow_SetCounterZero(counter)          __asm__ volatile("move %0,$0" : "=r"(counter))
 #define VehGroundShadow_SetFirstTexture(texture)         __asm__("lui %0,0x1f80\n\tori %0,%0,0x224" : "=r"(texture))
 #define VehGroundShadow_SetIconIndex(index)              __asm__("move %0,$0" : "=r"(index))
+#define VEH_GROUND_SHADOW_COPY_XY(prim, primOffset, scratch, scratchOffset) \
+	(VEH_GROUND_SHADOW_WORD((prim), (primOffset)) = VEH_GROUND_SHADOW_WORD((scratch), (scratchOffset)))
 #endif
 
 /// @brief Copies texture layout data from icon to arbitrary mem address. Particularly used to copy kart shadow textures to scratchpad.
@@ -441,6 +452,12 @@ void VehGroundShadow_Main(void)
 			v0Value = VEH_GROUND_SHADOW_HALF(entryCursor, -0x0a);
 			localOutput = scratch;
 			VEH_GROUND_SHADOW_HALF(scratch, 0x220) = (u16)(z - v0Value);
+#ifdef CTR_NATIVE
+			// The corners are relative to the integer camera, x4, around the
+			// kart's position without its fraction; the shadow lies on the
+			// ground, so not the kart's height.
+			NativePgxp_ViewBeginRelative(2, driver->instSelf, 0);
+#endif
 			do
 			{
 				VehGteLoadV3((SVECTOR *)(scratch + 0x20c));
@@ -501,6 +518,9 @@ void VehGroundShadow_Main(void)
 				entryPlayerIndex += 3;
 				localOutput += 0x0c;
 			} while (entryPlayerIndex < 9);
+#ifdef CTR_NATIVE
+			NativePgxp_ViewEndRelative();
+#endif
 
 			quadIndex = 0;
 			y = (size_t)(prim + 8);
@@ -530,31 +550,31 @@ void VehGroundShadow_Main(void)
 				goto quad_points_ready;
 
 			quad_case_zero:
-				VEH_GROUND_SHADOW_WORD((u8 *)y, -0x18) = VEH_GROUND_SHADOW_WORD(scratch, 0x20);
-				VEH_GROUND_SHADOW_WORD((u8 *)y, -0x10) = VEH_GROUND_SHADOW_WORD(scratch, 0x00);
-				VEH_GROUND_SHADOW_WORD((u8 *)y, -0x08) = VEH_GROUND_SHADOW_WORD(scratch, 0x04);
-				VEH_GROUND_SHADOW_WORD((u8 *)y, 0x00) = VEH_GROUND_SHADOW_WORD(scratch, 0x08);
+				VEH_GROUND_SHADOW_COPY_XY((u8 *)y, -0x18, scratch, 0x20);
+				VEH_GROUND_SHADOW_COPY_XY((u8 *)y, -0x10, scratch, 0x00);
+				VEH_GROUND_SHADOW_COPY_XY((u8 *)y, -0x08, scratch, 0x04);
+				VEH_GROUND_SHADOW_COPY_XY((u8 *)y, 0x00, scratch, 0x08);
 				goto quad_points_ready;
 
 			quad_case_one:
-				VEH_GROUND_SHADOW_WORD((u8 *)y, -0x18) = VEH_GROUND_SHADOW_WORD(scratch, 0x20);
-				VEH_GROUND_SHADOW_WORD((u8 *)y, -0x10) = VEH_GROUND_SHADOW_WORD(scratch, 0x00);
-				VEH_GROUND_SHADOW_WORD((u8 *)y, -0x08) = VEH_GROUND_SHADOW_WORD(scratch, 0x1c);
-				VEH_GROUND_SHADOW_WORD((u8 *)y, 0x00) = VEH_GROUND_SHADOW_WORD(scratch, 0x18);
+				VEH_GROUND_SHADOW_COPY_XY((u8 *)y, -0x18, scratch, 0x20);
+				VEH_GROUND_SHADOW_COPY_XY((u8 *)y, -0x10, scratch, 0x00);
+				VEH_GROUND_SHADOW_COPY_XY((u8 *)y, -0x08, scratch, 0x1c);
+				VEH_GROUND_SHADOW_COPY_XY((u8 *)y, 0x00, scratch, 0x18);
 				goto quad_points_ready;
 
 			quad_case_two:
-				VEH_GROUND_SHADOW_WORD((u8 *)y, -0x18) = VEH_GROUND_SHADOW_WORD(scratch, 0x10);
-				VEH_GROUND_SHADOW_WORD((u8 *)y, -0x10) = VEH_GROUND_SHADOW_WORD(scratch, 0x00);
-				VEH_GROUND_SHADOW_WORD((u8 *)y, -0x08) = VEH_GROUND_SHADOW_WORD(scratch, 0x0c);
-				VEH_GROUND_SHADOW_WORD((u8 *)y, 0x00) = VEH_GROUND_SHADOW_WORD(scratch, 0x08);
+				VEH_GROUND_SHADOW_COPY_XY((u8 *)y, -0x18, scratch, 0x10);
+				VEH_GROUND_SHADOW_COPY_XY((u8 *)y, -0x10, scratch, 0x00);
+				VEH_GROUND_SHADOW_COPY_XY((u8 *)y, -0x08, scratch, 0x0c);
+				VEH_GROUND_SHADOW_COPY_XY((u8 *)y, 0x00, scratch, 0x08);
 				goto quad_points_ready;
 
 			quad_case_three:
-				VEH_GROUND_SHADOW_WORD((u8 *)y, -0x18) = VEH_GROUND_SHADOW_WORD(scratch, 0x10);
-				VEH_GROUND_SHADOW_WORD((u8 *)y, -0x10) = VEH_GROUND_SHADOW_WORD(scratch, 0x00);
-				VEH_GROUND_SHADOW_WORD((u8 *)y, -0x08) = VEH_GROUND_SHADOW_WORD(scratch, 0x14);
-				VEH_GROUND_SHADOW_WORD((u8 *)y, 0x00) = VEH_GROUND_SHADOW_WORD(scratch, 0x18);
+				VEH_GROUND_SHADOW_COPY_XY((u8 *)y, -0x18, scratch, 0x10);
+				VEH_GROUND_SHADOW_COPY_XY((u8 *)y, -0x10, scratch, 0x00);
+				VEH_GROUND_SHADOW_COPY_XY((u8 *)y, -0x08, scratch, 0x14);
+				VEH_GROUND_SHADOW_COPY_XY((u8 *)y, 0x00, scratch, 0x18);
 
 			quad_points_ready:
 				depthIndex = ((s32)VEH_GROUND_SHADOW_WORD(scratch, 0x24) >> 8) + VEH_GROUND_SHADOW_SIGNED_BYTE(entryCursor, -1);

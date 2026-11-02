@@ -501,6 +501,9 @@ if(BUILD_TESTING)
         add_executable(ctr_particle_renderer_smoke
             tests/particle_renderer_smoke.c
             platform/native_gpu_links.c
+            platform/native_pgxp.c
+            platform/native_pgxp_view.c
+            tests/pgxp_test_config.c
         )
         set_target_properties(ctr_particle_renderer_smoke PROPERTIES
             C_STANDARD 17
@@ -513,6 +516,8 @@ if(BUILD_TESTING)
             -O2 -Wall -Wextra -ffunction-sections -fdata-sections
         )
         target_link_options(ctr_particle_renderer_smoke PRIVATE -Wl,--gc-sections)
+        # The renderer hands its precise positions to the PGXP module.
+        target_link_libraries(ctr_particle_renderer_smoke PRIVATE m)
         add_test(NAME ctr_particle_renderer_smoke COMMAND $<TARGET_FILE:ctr_particle_renderer_smoke>)
 
         add_executable(ctr_gte_gpl_shift_regression

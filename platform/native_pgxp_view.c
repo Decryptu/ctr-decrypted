@@ -45,7 +45,8 @@ typedef struct
 	u32 words[5];
 	double view[9];      // precise ViewProj rotation, 4096 = 1
 	double fromInt[9];   // precise view of an integer view-space vector
-	double offset[3];    // precise view of (integer camera - precise camera)
+	double shift[3];     // integer camera - precise camera, world units
+	double offset[3];    // precise view of shift
 	double camPos[3];    // precise camera position
 	// The view's own translation (world origin in view space): the integer
 	// one the game truncated, and the exact one to use in its place.
@@ -77,6 +78,12 @@ global_variable u32 s_viewCacheGeneration;
 global_variable b32 s_viewCacheHit;
 global_variable double s_viewCacheRot[9];
 global_variable double s_viewCacheTrans[3];
+
+// Geometry the game places itself relative to the integer camera, scaled by
+// 1 << shift (NativePgxp_ViewBeginRelative).
+global_variable int s_relativeShift;
+global_variable const void *s_relativeInst;
+global_variable b32 s_relativeHeight;
 
 // ConvertRotToMatrix in floating point: Ry * Rx * Rz, angles in 4096ths of a
 // turn, unit scale.
@@ -352,9 +359,11 @@ void NativePgxp_ViewRegisterCamera(int cameraID, const SVec3 *pbPos, const SVec3
 	if (!NativePgxpView_Invert(intUnit, intInverse))
 		return;
 
-	const double shift[3] = {pbPos->x - cam->pos[0], pbPos->y - cam->pos[1], pbPos->z - cam->pos[2]};
+	cam->shift[0] = pbPos->x - cam->pos[0];
+	cam->shift[1] = pbPos->y - cam->pos[1];
+	cam->shift[2] = pbPos->z - cam->pos[2];
 	NativePgxpView_Mul3(viewUnit, intInverse, cam->fromInt);
-	NativePgxpView_Apply(viewUnit, shift, cam->offset);
+	NativePgxpView_Apply(viewUnit, cam->shift, cam->offset);
 	memcpy(cam->camPos, cam->pos, sizeof(cam->pos));
 
 	// The game builds its translation as the integer rotation times the
@@ -380,30 +389,15 @@ internal u32 NativePgxpView_Hash(const u32 key[8])
 	return h;
 }
 
-void NativePgxp_ViewRegisterInstance(int cameraID, const void *mvp, const void *model, const void *inst, const s32 instPos[3], int translationShift)
+// The precise view-space position of an instance (scaled like the GTE
+// translation the game built, 1 << translationShift), or 0 when the integer
+// translation in `key` is not this instance seen from this camera.
+internal b32 NativePgxpView_InstanceTranslation(const NativePgxpViewCamera *cam, const u32 key[8], const void *inst, const s32 instPos[3],
+                                                int translationShift, double trans[3])
 {
-	if ((cameraID < 0) || (cameraID >= NATIVE_PGXP_VIEW_CAMERAS))
-		return;
-
-	const NativePgxpViewCamera *cam = &s_viewCameras[cameraID];
-	if (cam->viewGeneration != s_viewGeneration)
-		return;
-
-	u32 key[8];
-	u32 modelWords[5];
-	double modelMatrix[9];
-	NativePgxpView_ReadWords(mvp, key);
-	for (int i = 0; i < 3; i++)
-		key[5 + i] = (u32)NativePgxpView_ReadTranslation(mvp, i);
-	NativePgxpView_ReadWords(model, modelWords);
-	NativePgxpView_Unpack(modelWords, modelMatrix);
-
-	// The integer composite is ViewProj * model >> 12; the precise one uses
-	// the precise view, and the instance position from the precise camera.
-	double viewUnit[9], rot[9], trans[3];
+	double viewUnit[9];
 	for (int i = 0; i < 9; i++)
 		viewUnit[i] = cam->view[i] / 4096.0;
-	NativePgxpView_Mul3(viewUnit, modelMatrix, rot);
 	double rel[3] = {instPos[0] - cam->camPos[0], instPos[1] - cam->camPos[1], instPos[2] - cam->camPos[2]};
 	if ((inst != NULL) && (inst == cam->followInst))
 	{
@@ -418,21 +412,140 @@ void NativePgxp_ViewRegisterInstance(int cameraID, const void *mvp, const void *
 	{
 		trans[i] *= scale;
 		if (fabs(trans[i] - (double)(s32)key[5 + i]) > 8.0 * scale + 2.0 + 0.02 * fabs(trans[2]))
-			return;
+			return 0;
 	}
+	return 1;
+}
 
+internal void NativePgxpView_ReadKey(const void *mvp, u32 key[8])
+{
+	NativePgxpView_ReadWords(mvp, key);
+	for (int i = 0; i < 3; i++)
+		key[5 + i] = (u32)NativePgxpView_ReadTranslation(mvp, i);
+}
+
+internal void NativePgxpView_StoreInstance(const u32 key[8], const double rot[9], const double trans[3])
+{
 	const u32 hash = NativePgxpView_Hash(key);
 	for (u32 probe = 0; probe < NATIVE_PGXP_VIEW_INSTANCE_PROBE; probe++)
 	{
 		NativePgxpViewInstance *slot = &s_viewInstances[(hash + probe) & (NATIVE_PGXP_VIEW_INSTANCE_COUNT - 1)];
-		if ((slot->generation == s_viewGeneration) && (memcmp(slot->key, key, sizeof(key)) != 0))
+		if ((slot->generation == s_viewGeneration) && (memcmp(slot->key, key, 8 * sizeof(u32)) != 0))
 			continue;
-		memcpy(slot->key, key, sizeof(key));
-		memcpy(slot->rot, rot, sizeof(rot));
-		memcpy(slot->trans, trans, sizeof(trans));
+		memcpy(slot->key, key, sizeof(slot->key));
+		memcpy(slot->rot, rot, sizeof(slot->rot));
+		memcpy(slot->trans, trans, sizeof(slot->trans));
 		slot->generation = s_viewGeneration;
 		return;
 	}
+}
+
+void NativePgxp_ViewRegisterInstance(int cameraID, const void *mvp, const void *model, const void *inst, const s32 instPos[3], int translationShift)
+{
+	if ((cameraID < 0) || (cameraID >= NATIVE_PGXP_VIEW_CAMERAS))
+		return;
+
+	const NativePgxpViewCamera *cam = &s_viewCameras[cameraID];
+	if (cam->viewGeneration != s_viewGeneration)
+		return;
+
+	u32 key[8];
+	double trans[3];
+	NativePgxpView_ReadKey(mvp, key);
+	if (!NativePgxpView_InstanceTranslation(cam, key, inst, instPos, translationShift, trans))
+		return;
+
+	// The integer composite is ViewProj * model >> 12; the precise one uses
+	// the precise view.
+	u32 modelWords[5];
+	double modelMatrix[9], viewUnit[9], rot[9];
+	NativePgxpView_ReadWords(model, modelWords);
+	NativePgxpView_Unpack(modelWords, modelMatrix);
+	for (int i = 0; i < 9; i++)
+		viewUnit[i] = cam->view[i] / 4096.0;
+	NativePgxpView_Mul3(viewUnit, modelMatrix, rot);
+	NativePgxpView_StoreInstance(key, rot, trans);
+}
+
+// The yaw that turns a camera-facing model towards its view-space position,
+// as RenderBucket_BuildCustomMatrix builds it (unit scale).
+internal b32 NativePgxpView_FacingBasis(double x, double z, b32 reverse, double f[9])
+{
+	if (reverse)
+		x = -x;
+	const double length = sqrt(x * x + z * z);
+	if (length < 1.0)
+		return 0;
+	const double c = z / length, s = x / length;
+	const double basis[9] = {c, 0, s, 0, 1, 0, -s, 0, c};
+	memcpy(f, basis, sizeof(basis));
+	return 1;
+}
+
+void NativePgxp_ViewRegisterFacing(int cameraID, const void *mvp, const void *inst, const s32 instPos[3], int translationShift, int reverse)
+{
+	if ((cameraID < 0) || (cameraID >= NATIVE_PGXP_VIEW_CAMERAS))
+		return;
+
+	const NativePgxpViewCamera *cam = &s_viewCameras[cameraID];
+	if (cam->viewGeneration != s_viewGeneration)
+		return;
+
+	u32 key[8];
+	double trans[3];
+	NativePgxpView_ReadKey(mvp, key);
+	if (!NativePgxpView_InstanceTranslation(cam, key, inst, instPos, translationShift, trans))
+		return;
+
+	// The integer matrix is tilt * model * F, F the facing yaw taken from the
+	// integer view position; swap it for the yaw from the precise one.
+	double intBasis[9], preciseBasis[9];
+	if (!NativePgxpView_FacingBasis((s32)key[5], (s32)key[7], reverse, intBasis) || !NativePgxpView_FacingBasis(trans[0], trans[2], reverse, preciseBasis))
+		return;
+	double matrix[9], intInverse[9], rot[9];
+	NativePgxpView_Unpack(key, matrix);
+	for (int i = 0; i < 3; i++)
+		for (int j = 0; j < 3; j++)
+			intInverse[i * 3 + j] = intBasis[j * 3 + i];
+	NativePgxpView_Mul3(matrix, intInverse, rot);
+	NativePgxpView_Mul3(rot, preciseBasis, rot);
+	NativePgxpView_StoreInstance(key, rot, trans);
+}
+
+// What a position taken relative to the integer camera is off by, in world
+// units: the camera's sub-unit shift, plus the fraction the followed kart is
+// drawn at when `inst` is that kart.
+internal void NativePgxpView_RelativeShift(const NativePgxpViewCamera *cam, const void *inst, b32 withHeight, double out[3])
+{
+	memcpy(out, cam->shift, sizeof(cam->shift));
+	if ((inst != NULL) && (inst == cam->followInst))
+	{
+		out[0] += cam->followFrac[0];
+		out[1] += withHeight ? cam->followFrac[1] : 0.0;
+		out[2] += cam->followFrac[2];
+	}
+}
+
+int NativePgxp_ViewRelativeShift(int cameraID, const void *inst, int withHeight, double shift[3])
+{
+	if ((cameraID < 0) || (cameraID >= NATIVE_PGXP_VIEW_CAMERAS) || (s_viewCameras[cameraID].viewGeneration != s_viewGeneration))
+		return 0;
+	NativePgxpView_RelativeShift(&s_viewCameras[cameraID], inst, withHeight, shift);
+	return 1;
+}
+
+void NativePgxp_ViewBeginRelative(int shift, const void *inst, int withHeight)
+{
+	s_relativeShift = shift;
+	s_relativeInst = inst;
+	s_relativeHeight = withHeight;
+	// The one-entry cache holds a translation for the previous scale.
+	s_viewCacheGeneration = 0;
+}
+
+void NativePgxp_ViewEndRelative(void)
+{
+	NativePgxp_ViewBeginRelative(0, NULL, 0);
 }
 
 int NativePgxp_ViewLookup(const u32 words[5], const s32 t[3], double rot[9], double trans[3])
@@ -477,10 +590,19 @@ int NativePgxp_ViewLookup(const u32 words[5], const s32 t[3], double rot[9], dou
 			}
 			else
 			{
+				// Vectors relative to the integer camera: add the camera's
+				// sub-unit shift, at the scale the vectors are in, and for the
+				// followed kart's own pieces the fraction it is drawn at.
 				const double intTrans[3] = {t[0], t[1], t[2]};
+				const double scale = ldexp(1.0, s_relativeShift);
+				double shift[3], viewUnit[9], viewShift[3];
+				NativePgxpView_RelativeShift(cam, s_relativeInst, s_relativeHeight, shift);
+				for (int k = 0; k < 9; k++)
+					viewUnit[k] = cam->view[k] / 4096.0;
+				NativePgxpView_Apply(viewUnit, shift, viewShift);
 				NativePgxpView_Apply(cam->fromInt, intTrans, s_viewCacheTrans);
 				for (int k = 0; k < 3; k++)
-					s_viewCacheTrans[k] += cam->offset[k];
+					s_viewCacheTrans[k] += scale * viewShift[k];
 			}
 			memcpy(s_viewCacheRot, cam->view, sizeof(s_viewCacheRot));
 			s_viewCacheHit = 1;

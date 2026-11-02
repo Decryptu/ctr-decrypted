@@ -92,6 +92,17 @@ void VehGroundSkids_Subset1(u32 *currXY, u32 *prevXY, int depth, struct VehGroun
 	poly[5] = currXY[1];
 	poly[8] = previousXY[0];
 	poly[11] = previousXY[1];
+#ifdef CTR_NATIVE
+	// The corners were projected into the scratchpad with their precise
+	// positions; keep those with the copies (docs/PGXP.md#precise-camera).
+	if (NATIVE_PGXP_ACTIVE())
+	{
+		NativePgxp_CopyXY(&poly[2], &currXY[0], poly[2]);
+		NativePgxp_CopyXY(&poly[5], &currXY[1], poly[5]);
+		NativePgxp_CopyXY(&poly[8], &previousXY[0], poly[8]);
+		NativePgxp_CopyXY(&poly[11], &previousXY[1], poly[11]);
+	}
+#endif
 
 	poly[3] = *(const CtrPackedU32 *)&gGT->ptrIcons[VEH_GROUND_SKIDS_ICON_TIREMARK]->texLayout.u0;
 	if ((scratch->segment.segmentFlags & VEH_GROUND_SKIDS_ALT_TPAGE_FLAG) != 0)
@@ -204,6 +215,11 @@ void VehGroundSkids_Main(struct Thread *thread, struct PushBuffer *pb)
 	scratch->origin.y = pb->matrix_Camera.t[1];
 	scratch->origin.z = pb->matrix_Camera.t[2];
 	CTR_PSX_MEMORY_BARRIER();
+#ifdef CTR_NATIVE
+	// The marks are projected from world positions relative to the integer
+	// camera, x4.
+	NativePgxp_ViewBeginRelative(VEH_GROUND_SKIDS_PROJECT_SCALE_SHIFT, NULL, 0);
+#endif
 
 	cursor = (size_t)*(struct Thread *volatile *)&thread;
 	while (cursor != 0)
@@ -456,4 +472,7 @@ void VehGroundSkids_Main(struct Thread *thread, struct PushBuffer *pb)
 		cursor = (size_t)((struct Thread *)cursor)->siblingThread;
 		thread = (struct Thread *)cursor;
 	}
+#ifdef CTR_NATIVE
+	NativePgxp_ViewEndRelative();
+#endif
 }

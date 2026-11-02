@@ -335,7 +335,11 @@ static int NativeGte_PreciseView(int mx, int cv, double *rotation, double *trans
 		for (int i = 0; i < 3; i++)
 			t[i] = gteRegs.CP2C.p[(cv << 3) + 5 + i].sd;
 	}
-	return NativePgxp_ViewLookup(words, t, rotation, translation);
+	if (NativePgxp_ViewLookup(words, t, rotation, translation))
+		return 1;
+	// No precise view for this rotation, but the translation may be one the
+	// game read back from a precise result (a particle's centre).
+	return (cv == 0) && NativePgxp_GteGetTranslation(t, translation);
 }
 
 static void NativeGte_RecordMvmva(int mx, int v, int cv, int lm)

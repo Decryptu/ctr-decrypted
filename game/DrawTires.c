@@ -1,5 +1,9 @@
 #include <common.h>
 
+#if defined(CTR_NATIVE)
+#include <math.h>
+#endif
+
 static const u32 sDrawTiresSolidJumpTable[8] = {
     0x8006ed7c, 0x8006ed98, 0x8006edb4, 0x8006edcc, 0x8006ede4, 0x8006ee00, 0x8006ee1c, 0x8006ee3c,
 };
@@ -53,6 +57,129 @@ static int DrawTires_WheelOutOfRange(int wheelIndex)
 	(void)wheelIndex;
 	return 0;
 #endif
+}
+
+// The wheels are projected through the camera's rotation from positions taken
+// relative to the integer camera (x4), and their screen positions are copied
+// out by hand. Keep the precise ones with the copies, so they follow the
+// precise camera (docs/PGXP.md#precise-camera).
+static void DrawTires_StoreProjected(struct DrawTiresScratch *scratch, int slot, int reg)
+{
+	scratch->projectedSxy[slot] = MFC2(reg);
+#if defined(CTR_NATIVE)
+	if (NATIVE_PGXP_ACTIVE())
+		NativePgxp_StoreGteSXY(&scratch->projectedSxy[slot], reg, (u32)scratch->projectedSxy[slot]);
+#endif
+}
+
+#if defined(CTR_NATIVE)
+// Each wheel is a sprite facing the camera: its two axes come from the
+// direction from the camera to the wheel, in whole units and through several
+// rounded divisions, so they step with the integer camera. Under the precise
+// camera the same axes are taken from the precise direction, unrounded, and
+// each corner goes to the GTE as a precise input.
+static b32 sDrawTiresPrecise;
+static double sDrawTiresPreciseAxisA[4][3];
+static double sDrawTiresPreciseAxisB[4][3];
+
+static void DrawTires_Cross(const double a[3], const double b[3], double out[3])
+{
+	out[0] = a[1] * b[2] - a[2] * b[1];
+	out[1] = a[2] * b[0] - a[0] * b[2];
+	out[2] = a[0] * b[1] - a[1] * b[0];
+}
+
+static b32 DrawTires_Normalize(double v[3])
+{
+	const double len = sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+	if (len < 1e-9)
+		return 0;
+	for (int i = 0; i < 3; i++)
+		v[i] /= len;
+	return 1;
+}
+
+// After BuildWheelAxes: centres are camera-relative (x4), rims transformed.
+static void DrawTires_BuildPreciseAxes(struct DrawTiresScratch *scratch, struct PushBuffer *pb, struct Instance *inst, int withHeight)
+{
+	double shift[3];
+
+	sDrawTiresPrecise = NATIVE_PGXP_GEOMETRY_ACTIVE() && NativePgxp_ViewRelativeShift((s8)pb->cameraID, inst, withHeight, shift);
+	if (!sDrawTiresPrecise)
+		return;
+
+	// axisA = n x rim and axisB = -(n x axisA), each wheelSize / 64 long, n the
+	// direction from the wheel to the camera.
+	const double size = scratch->wheelSize.word / 64.0;
+	for (int wheelIndex = 0; wheelIndex < 4; wheelIndex++)
+	{
+		const struct DrawTiresWheelLocal *wheelLocal = &scratch->wheelLocal[wheelIndex];
+		const struct DrawTiresPackedVec3 *rim = &scratch->transformedRimVectors[wheelIndex];
+		double normal[3] = {-(wheelLocal->center.x + 4.0 * shift[0]), -(wheelLocal->center.y + 4.0 * shift[1]),
+		                    -(wheelLocal->center.z.halves.lo + 4.0 * shift[2])};
+		const double rimVector[3] = {rim->x, rim->y, rim->z.word};
+		double *axisA = sDrawTiresPreciseAxisA[wheelIndex];
+		double *axisB = sDrawTiresPreciseAxisB[wheelIndex];
+
+		if (!DrawTires_Normalize(normal))
+		{
+			sDrawTiresPrecise = 0;
+			return;
+		}
+		DrawTires_Cross(normal, rimVector, axisA);
+		if (!DrawTires_Normalize(axisA))
+		{
+			sDrawTiresPrecise = 0;
+			return;
+		}
+		DrawTires_Cross(normal, axisA, axisB);
+		for (int i = 0; i < 3; i++)
+		{
+			axisA[i] *= size;
+			axisB[i] *= -size;
+		}
+	}
+}
+
+static void DrawTires_SetPreciseCorner(struct DrawTiresScratch *scratch, int vectorIndex, int wheelIndex, int axisSign, int rimSign, int x, int y, int z)
+{
+	if (!sDrawTiresPrecise)
+		return;
+
+	const struct DrawTiresWheelLocal *wheelLocal = &scratch->wheelLocal[wheelIndex];
+	const double *axisA = sDrawTiresPreciseAxisA[wheelIndex];
+	const double *axisB = sDrawTiresPreciseAxisB[wheelIndex];
+	const s16 vector[3] = {(s16)x, (s16)y, (s16)z};
+	const float precise[3] = {(float)(wheelLocal->center.x + axisSign * axisA[0] + rimSign * axisB[0]),
+	                          (float)(wheelLocal->center.y + axisSign * axisA[1] + rimSign * axisB[1]),
+	                          (float)(wheelLocal->center.z.halves.lo + axisSign * axisA[2] + rimSign * axisB[2])};
+	NativePgxp_GteSetInput(vectorIndex, vector, precise);
+}
+#endif
+
+static void DrawTires_WriteCorners(POLY_FT4 *p, struct DrawTiresScratch *scratch, int sxy[4])
+{
+	VERTTYPE *corners[4] = {&p->x0, &p->x1, &p->x2, &p->x3};
+
+	for (int i = 0; i < 4; i++)
+	{
+		CtrGpu_WritePackedXY(corners[i], (u32)sxy[i]);
+#if defined(CTR_NATIVE)
+		if (NATIVE_PGXP_ACTIVE())
+		{
+			for (int slot = 0; slot < 4; slot++)
+			{
+				if (scratch->projectedSxy[slot] == sxy[i])
+				{
+					NativePgxp_CopyXY(corners[i], &scratch->projectedSxy[slot], (u32)sxy[i]);
+					break;
+				}
+			}
+		}
+#else
+		(void)scratch;
+#endif
+	}
 }
 
 static int DrawTiresSolid_CountLeadingSignBits(int value)
@@ -377,6 +504,9 @@ static void DrawTiresSolid_LoadCorner(struct DrawTiresScratch *scratch, int vect
 
 	MTC2(CTR_PackS16Pair(x, y), vectorIndex * 2);
 	MTC2(z, (vectorIndex * 2) + 1);
+#if defined(CTR_NATIVE)
+	DrawTires_SetPreciseCorner(scratch, vectorIndex, wheelIndex, axisSign, rimSign, x, y, z);
+#endif
 }
 
 static int DrawTiresSolid_SelectSpriteIndex(int angleValue)
@@ -518,14 +648,6 @@ static int DrawTiresSolid_ApplyCornerOrder(struct DrawTiresScratch *scratch, int
 	return 1;
 }
 
-static void DrawTiresSolid_WritePrimitiveCorners(POLY_FT4 *p, int sxy[4])
-{
-	CtrGpu_WritePackedXY(&p->x0, (u32)sxy[0]);
-	CtrGpu_WritePackedXY(&p->x1, (u32)sxy[1]);
-	CtrGpu_WritePackedXY(&p->x2, (u32)sxy[2]);
-	CtrGpu_WritePackedXY(&p->x3, (u32)sxy[3]);
-}
-
 static void DrawTiresSolid_LinkPrimitive(struct DrawTiresScratch *scratch, POLY_FT4 *p, int selectedOTSlot)
 {
 	int otRangeStart = scratch->otRangeStart;
@@ -572,7 +694,7 @@ static int DrawTiresSolid_EmitProjectedWheel(struct DrawTiresScratch *scratch, s
 		return 0;
 	}
 
-	DrawTiresSolid_WritePrimitiveCorners(p, sxy);
+	DrawTires_WriteCorners(p, scratch, sxy);
 	DrawTiresSolid_LinkPrimitive(scratch, p, selectedOTSlot);
 	primMem->cursor = (char *)primMem->cursor + sizeof(POLY_FT4);
 	(*primCount)++;
@@ -593,13 +715,13 @@ static int DrawTiresSolid_ProjectWheelQuads(struct DrawTiresScratch *scratch, st
 		DrawTiresSolid_LoadCorner(scratch, 2, wheelIndex, -1, 1);
 
 		gte_rtpt_b();
-		scratch->projectedSxy[0] = MFC2(12);
-		scratch->projectedSxy[1] = MFC2(13);
-		scratch->projectedSxy[2] = MFC2(14);
+		DrawTires_StoreProjected(scratch, 0, 12);
+		DrawTires_StoreProjected(scratch, 1, 13);
+		DrawTires_StoreProjected(scratch, 2, 14);
 
 		DrawTiresSolid_LoadCorner(scratch, 0, wheelIndex, 1, 1);
 		gte_rtps_b();
-		scratch->projectedSxy[3] = MFC2(14);
+		DrawTires_StoreProjected(scratch, 3, 14);
 
 		if (DrawTires_WheelOutOfRange(wheelIndex))
 		{
@@ -662,7 +784,14 @@ static int DrawTiresSolid_StagePlayer(struct DrawTiresScratch *scratch, struct D
 	DrawTiresSolid_SetupGteState(scratch, inst, idpp, pb);
 	DrawTiresSolid_BuildWheelAxes(scratch);
 	DrawTiresSolid_SetupProjectionState(pb);
+#if defined(CTR_NATIVE)
+	NativePgxp_ViewBeginRelative(2, inst, 1);
+	DrawTires_BuildPreciseAxes(scratch, pb, inst, 1);
+#endif
 	DrawTiresSolid_ProjectWheelQuads(scratch, primMem, primCount);
+#if defined(CTR_NATIVE)
+	NativePgxp_ViewEndRelative();
+#endif
 
 	return 1;
 }
@@ -977,6 +1106,9 @@ static void DrawTiresReflection_LoadCorner(struct DrawTiresScratch *scratch, int
 
 	MTC2(CTR_PackS16Pair(x, y), vectorIndex * 2);
 	MTC2(z, (vectorIndex * 2) + 1);
+#if defined(CTR_NATIVE)
+	DrawTires_SetPreciseCorner(scratch, vectorIndex, wheelIndex, axisSign, rimSign, x, y, z);
+#endif
 }
 
 static struct DrawTiresReflectionProjectedWheel DrawTiresReflection_SelectProjectedWheel(struct DrawTiresScratch *scratch, int wheelIndex)
@@ -1093,14 +1225,6 @@ static int DrawTiresReflection_ApplyCornerOrder(struct DrawTiresScratch *scratch
 	return 1;
 }
 
-static void DrawTiresReflection_WritePrimitiveCorners(POLY_FT4 *p, int sxy[4])
-{
-	CtrGpu_WritePackedXY(&p->x0, (u32)sxy[0]);
-	CtrGpu_WritePackedXY(&p->x1, (u32)sxy[1]);
-	CtrGpu_WritePackedXY(&p->x2, (u32)sxy[2]);
-	CtrGpu_WritePackedXY(&p->x3, (u32)sxy[3]);
-}
-
 static void DrawTiresReflection_LinkPrimitive(struct DrawTiresScratch *scratch, POLY_FT4 *p, int selectedOTSlot)
 {
 	int otRangeStart = scratch->otRangeStart;
@@ -1149,7 +1273,7 @@ static void DrawTiresReflection_EmitProjectedWheel(struct DrawTiresScratch *scra
 		return;
 	}
 
-	DrawTiresReflection_WritePrimitiveCorners(p, sxy);
+	DrawTires_WriteCorners(p, scratch, sxy);
 	DrawTiresReflection_LinkPrimitive(scratch, p, selectedOTSlot);
 	primMem->cursor = (char *)primMem->cursor + sizeof(POLY_FT4);
 	(*primCount)++;
@@ -1168,13 +1292,13 @@ static int DrawTiresReflection_ProjectWheelQuads(struct DrawTiresScratch *scratc
 		DrawTiresReflection_LoadCorner(scratch, 2, wheelIndex, -1, 1);
 
 		gte_rtpt_b();
-		scratch->projectedSxy[1] = MFC2(12);
-		scratch->projectedSxy[0] = MFC2(13);
-		scratch->projectedSxy[3] = MFC2(14);
+		DrawTires_StoreProjected(scratch, 1, 12);
+		DrawTires_StoreProjected(scratch, 0, 13);
+		DrawTires_StoreProjected(scratch, 3, 14);
 
 		DrawTiresReflection_LoadCorner(scratch, 0, wheelIndex, 1, 1);
 		gte_rtps_b();
-		scratch->projectedSxy[2] = MFC2(14);
+		DrawTires_StoreProjected(scratch, 2, 14);
 
 		if (DrawTires_WheelOutOfRange(wheelIndex))
 		{
@@ -1228,7 +1352,16 @@ static int DrawTiresReflection_StagePlayer(struct DrawTiresScratch *scratch, str
 	DrawTiresReflection_SetupGteState(scratch, inst, idpp, pb);
 	DrawTiresReflection_BuildWheelAxes(scratch);
 	DrawTiresReflection_SetupProjectionState(pb);
+#if defined(CTR_NATIVE)
+	// The reflection mirrors the kart's height, so its fraction would have to
+	// be mirrored too; leave the height out.
+	NativePgxp_ViewBeginRelative(2, inst, 0);
+	DrawTires_BuildPreciseAxes(scratch, pb, inst, 0);
+#endif
 	DrawTiresReflection_ProjectWheelQuads(scratch, primMem, primCount);
+#if defined(CTR_NATIVE)
+	NativePgxp_ViewEndRelative();
+#endif
 
 	return 1;
 }
