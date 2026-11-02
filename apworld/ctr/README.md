@@ -12,7 +12,7 @@ Releases ship as a pair (client + `ctr.apworld`) on the [client's releases page]
 
 - [CTR overview and player resources](https://ap-pie.com/ctr)
 - [CTR setup guide](https://ap-pie.com/guides/ctr)
-- [CTR YAML Builder](https://ap-pie.com/apworlds?build=ctr)
+- [CTR YAML builder](https://decryptu.github.io/ctr-decrypted/builder.html)
 
 The YAML Builder creates one player's configuration file. It does not generate the seed or host the playable Archipelago server. Give the downloaded YAML to the person generating the room. That person installs the matching `ctr.apworld`; players install the client from the same release and connect with the slot name assigned in the YAML.
 

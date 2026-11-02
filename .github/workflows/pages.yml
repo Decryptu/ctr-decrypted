@@ -1,0 +1,81 @@
+name: Site
+
+# The project site on GitHub Pages (https://decryptu.github.io/ctr-decrypted/):
+# the docs rendered as pages, plus the YAML builder, whose options are dumped
+# from apworld/ctr inside the same Archipelago version apworld.yml tests with.
+# Built from main, so the builder always matches the released world. A pull
+# request, or a run by hand on another branch, builds it without deploying, so
+# a broken doc or option fails there.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - 'site/**'
+      - '*.md'
+      - 'docs/**'
+      - 'apworld/ctr/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Same Archipelago as apworld.yml.
+  AP_REF: debe4cf035c7c15efe6fb95f72343af0d420c68c
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check out Archipelago
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ArchipelagoMW/Archipelago
+          ref: ${{ env.AP_REF }}
+          fetch-depth: 1
+          path: archipelago
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install Archipelago and the world
+        working-directory: archipelago
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check -r requirements.txt markdown
+          cp -r ../apworld/ctr worlds/ctr
+      - name: Dump the world's options
+        working-directory: archipelago
+        env:
+          SKIP_REQUIREMENTS_UPDATE: '1'
+        run: python ../site/dump_options.py "$RUNNER_TEMP/options.json"
+      - name: Build the site
+        run: python site/build.py "$RUNNER_TEMP/options.json" _site
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

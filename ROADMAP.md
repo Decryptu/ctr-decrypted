@@ -23,7 +23,6 @@ Roughly in this order.
 |---|---|
 | Steam Deck test: the owner's tester runs the checklist in [STEAM-DECK.md](docs/STEAM-DECK.md#testing-on-a-deck) on v1.3.0, the first release with the Deck defaults. It has not run on a Deck yet | Owner request, 2026-10-31 |
 | 200cc: a faster speed class for every racer, bots included, like Mario Kart's. Raises top speed and acceleration together and keeps turning and drift timing playable; Time Trial records and ghosts are kept apart per class. Whether Archipelago can require or place it is a later choice. CTR Native Expanded's per-stat multipliers (speed, turn, jump, gravity, reserves) show where the stats are applied | Owner request, 2026-11-02 |
-| Project website and guide (mid): GitHub Pages site with install steps, how to play with Archipelago, the dev toolbox, and our own YAML builder for `ctr.apworld` options, generated from the apworld's option definitions so it follows the version we ship. The README then links it instead of the external CTR YAML Builder | Owner request, 2026-10-31 and 2026-11-02 |
 
 ## Maybe
 - Title screen: our own touch on it (CTR Native Expanded adds its name to the main menu), and an option to skip Aku Aku's and Uka Uka's hints (theirs: `skip_hints`). Intros, podiums and boss cutscenes already have skip options. Owner idea, 2026-11-02; what to change on the title screen is still open.

@@ -24,8 +24,7 @@ and a CTR YAML file; see [Generating or hosting a multiworld](#generating-or-hos
 
 For a guided first setup, use the
 [CTR setup guide on AP-Pie](https://ap-pie.com/guides/ctr). To create a player
-file for stable 0.2.0, open the
-[0.2.0 CTR YAML Builder](https://ap-pie.com/yaml-builder/ctr?version=0.2.0).
+file, open the [YAML builder](https://decryptu.github.io/ctr-decrypted/builder.html).
 
 **Choose your next step:** if your room is already generated, install the
 client and connect using the host's details. If the host is still collecting
@@ -234,11 +233,10 @@ through [Reporting a crash or a stuck seed](#reporting-a-crash-or-a-stuck-seed).
 
 ## Generating or hosting a multiworld
 
-Create your player file with the
-[0.2.0 CTR YAML Builder](https://ap-pie.com/yaml-builder/ctr?version=0.2.0).
-Download the resulting YAML and give it to the person generating the room. The
-Builder prepares and validates player configuration; it does not generate the
-seed or host the playable server.
+Create your player file with the [YAML builder](https://decryptu.github.io/ctr-decrypted/builder.html). Its
+options come from the `ctr.apworld` of the latest release. Download the
+resulting YAML and give it to the person generating the room. The builder only
+writes your player file; it does not generate the seed or host the server.
 
 Only the person generating the room needs the `ctr.apworld`. Download it from
 the same release as the client and install it by double-clicking it or placing
@@ -301,7 +299,7 @@ From 0.3.0 the client can make and host a single-player seed itself. Choose
   when its files are in `assets/tracks/<track>/original` and the client knows
   its descriptor: from a room that used the track, or a descriptor file in the
   `solo/tracks` folder.
-- **Import YAML file** takes a YAML you made with the YAML Builder.
+- **Import YAML file** takes a YAML you made with the [YAML builder](https://decryptu.github.io/ctr-decrypted/builder.html).
 - **Import room file** takes a one-player CTR room (`.archipelago` or
   `AP_*.zip`) generated elsewhere.
 - Your solo seeds are listed with their progress. Cross resumes one; Square shows
