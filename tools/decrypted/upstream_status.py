@@ -35,7 +35,6 @@ FOLLOWED = [
     ("ctr-native", "master", None),
     ("dowlle", "main", None),
     ("dowlle", "dev/custom-pad-0.3.0", None),
-    ("dowlle", "feat/signed-updater-301", None),
     ("dowlle", "feat/xdelta-track-import", None),
     ("apworld", "dev/custom-pad-0.3.0", "worlds/ctr"),
     ("apworld", "dev/custom-pad-0.3.0", ".github/fuzz"),
@@ -172,6 +171,9 @@ def main():
     print(f"Compared with {args.base} ({git('rev-parse', '--short', args.base).strip()})")
 
     for remote, branch, path in FOLLOWED:
+        if subprocess.run(["git", "rev-parse", "--verify", "--quiet", f"refs/{remote}/{branch}"], capture_output=True).returncode:
+            print(f"\n{remote}/{branch}: gone upstream; drop it from FOLLOWED")
+            continue
         report_branch(f"{remote}/{branch}" + (f" ({path})" if path else ""), [f"{remote}/{branch}"], path, ours, limit)
 
     followed = {f"{r}/{b}" for r, b, _ in FOLLOWED}

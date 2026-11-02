@@ -74,7 +74,7 @@ pwsh tools/decrypted/sync-upstream.ps1 -Remote apworld -Branch dev/custom-pad-0.
 git merge clean/apworld-fuzz-dev/custom-pad-0.3.0
 ```
 
-We follow dowlle's 0.3.0 line: `dev/custom-pad-0.3.0` in both repositories, plus the client feature branches not merged there yet (`feat/signed-updater-301`, which carries `feat/solo-mode-89`, and `feat/xdelta-track-import`). Import each and merge its `clean/` ref.
+We follow dowlle's 0.3.0 line: `dev/custom-pad-0.3.0` in both repositories, plus the client feature branch not merged there yet (`feat/xdelta-track-import`). Import each and merge its `clean/` ref.
 
 The script needs `python -m pip install git-filter-repo`.
 
