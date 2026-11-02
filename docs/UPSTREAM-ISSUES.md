@@ -8,11 +8,12 @@ A snapshot of the projects CTR Decrypted draws from, taken 2026-10-30. Refresh i
 CTR-tools/CTR-ModSDK            decompilation (now only mods and OnlineCTR)
   └─ CTR-tools/ctr-native       native PC port; contains ModSDK's full history
        ├─ Rinnegatamante/Crash-Team-Racing-High-Octane   enhanced fork (Vita first)
+       ├─ thecodingbob/ctr-native ("CTR Native Expanded") options fork
        └─ dowlle/ctr-native-ap  Archipelago client fork  ← our base
             └─ Decryptu/ctr-decrypted (this repo)
 ```
 
-All four are GPL-3.0. dowlle's `ctr.apworld` is MIT.
+All five are GPL-3.0. dowlle's `ctr.apworld` is MIT.
 
 How far behind each one we are, and which High Octane commits we ported: `python tools/decrypted/upstream_status.py` ([DEVELOPMENT.md](DEVELOPMENT.md#syncing-upstream)).
 
@@ -99,6 +100,21 @@ How far behind each one we are, and which High Octane commits we ported: `python
 - #16: Linux (the author says to use Proton).
 
 **Open PRs:** #52 custom tracks (`.ctrt`) plus a Wayland GL fix, #50 web menu cleanup, #49 importer `--no-voice`, #28 vitasdk build fixes.
+
+## thecodingbob/ctr-native (CTR Native Expanded)
+**State** (checked 2026-11-02):
+- Active, with tagged releases (v2.1.1, 2026-11-01). 308 commits not in ctr-native `master`, which it last merged in September.
+- Like High Octane it is ported feature by feature, never merged: it removed the `CTR_NATIVE` guards and the retail matching pipeline, and renamed the executable and prefixes. To see what is new: `https://github.com/thecodingbob/ctr-native/compare/CTR-tools:master...thecodingbob:master`.
+- Its own PGXP, widescreen, render scale, FXAA, VSync, rebinding and dead zone overlap ours; nothing to take there.
+
+**Worth a look** (the ones we want are in [ROADMAP.md](../ROADMAP.md)):
+- Rendering fixes: widescreen faces lost to the clip-record window (`209b71fe`), increased draw distance (`fb83d103`, `e86365e1`, `e0fedbf2`, `a81bf65b`), distant tires wrapping at 16-bit limits (`26e520a2`).
+- Modes: two-player co-op Adventure, Chaos (38 race effects with an external trigger), Super/Ultra Hard in Arcade and Adventure, 3P/4P Arcade and eight racers in split screen, race tracks in Battle, Oxide Station in multiplayer.
+- Options: per-stat kart multipliers (speed, turn, jump, gravity, reserves), weapon and mask tuning, mask modes, skip intro, podiums, boss cutscenes and mask hints, save anywhere in the hubs.
+
+**Open issues:** #92 custom track loader, #89 language selector, #88 rare GPU crash during Chaos.
+
+Not a source: kkv0n/Gasmox-Launcher is a C# launcher that runs OnlineCTR (patched disc images) in DuckStation. It shares no code with the native port.
 
 ## dowlle/ctr-native-ap (our base)
 **State:**
