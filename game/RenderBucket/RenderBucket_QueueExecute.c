@@ -605,6 +605,17 @@ static struct RenderBucketExecuteScratch *RenderBucket_Scratch(void)
 
 static struct RenderBucketPackedVertex *RenderBucket_PackedVertexScratch(u16 stackIndex)
 {
+#if defined(CTR_NATIVE)
+	// The scratchpad holds 88 cached vertices past 0x140. Retail models
+	// stay under that; a custom racer's model can use all 256 stack slots, and
+	// on native the bytes after the scratchpad are the first draw buffer's
+	// primitives, so the slots that do not fit live here instead.
+	static struct RenderBucketPackedVertex s_overflow[256];
+	if (RENDER_BUCKET_PAYLOAD_SCRATCH_OFFSET + ((u32)stackIndex + 1) * sizeof(struct RenderBucketPackedVertex) > CTR_SCRATCHPAD_SIZE)
+	{
+		return &s_overflow[stackIndex & 0xff];
+	}
+#endif
 	return CTR_SCRATCHPAD_PTR(struct RenderBucketPackedVertex, RENDER_BUCKET_PAYLOAD_SCRATCH_OFFSET + (stackIndex * sizeof(struct RenderBucketPackedVertex)));
 }
 
@@ -2337,6 +2348,14 @@ static void RenderBucket_CopyScratchColorCache(struct RenderBucketDrawContext *c
 	// NOTE(aalhendi): Retail Execute copies ptrColorLayout to scratchpad 0x140
 	// before DrawFunc_Normal so UncompressAnimationFrame can service command
 	// bit 0x08000000 from the same cache.
+#if defined(CTR_NATIVE)
+	// Command colors reach 128 words at most (offset bits 0x1fc); a longer
+	// layout would run past the scratchpad into the draw buffer.
+	if (count > (CTR_SCRATCHPAD_SIZE - RENDER_BUCKET_PAYLOAD_SCRATCH_OFFSET) / sizeof(u32))
+	{
+		count = (CTR_SCRATCHPAD_SIZE - RENDER_BUCKET_PAYLOAD_SCRATCH_OFFSET) / sizeof(u32);
+	}
+#endif
 	for (u32 i = 0; i < count; i++)
 	{
 		scratchColor[i] = colorLayout[i];

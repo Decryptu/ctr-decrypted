@@ -120,6 +120,14 @@ int Widescreen_CompressXAbout(int x, int centerX)
 	return centerX + ((x - centerX) * factor) / 1000;
 }
 
+void Widescreen_CompressFT4About(POLY_FT4 *p, int centerX)
+{
+	p->x0 = Widescreen_CompressXAbout(p->x0, centerX);
+	p->x1 = Widescreen_CompressXAbout(p->x1, centerX);
+	p->x2 = Widescreen_CompressXAbout(p->x2, centerX);
+	p->x3 = Widescreen_CompressXAbout(p->x3, centerX);
+}
+
 void Widescreen_CompressGT4About(POLY_GT4 *p, int centerX)
 {
 	p->x0 = Widescreen_CompressXAbout(p->x0, centerX);

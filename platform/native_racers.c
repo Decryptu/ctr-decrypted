@@ -12,8 +12,9 @@
 //   replaces it with n placeholder racers that borrow the first eight retail
 //   racers' looks, to fill the character select in any build.
 // - Models are the racer's own model file, loaded like the game loads a DRAM
-//   file (the pointer map relocated) when first asked for. The menu copy is
-//   scaled 5/8: the racer models are larger than the menu's own models.
+//   file (the pointer map relocated) when first asked for. The menu copy of
+//   a racer with wheels keeps its race size, so the menu's wheels touch the
+//   kart as in a race; one without wheels is scaled 5/8, as N. Oxide's.
 // - Portraits live in the racer VRAM bank, a second VRAM sampled by
 //   primitives whose tpage carries NATIVE_TPAGE_RACER_BANK. Portrait i takes a
 //   64x32-texel slot: four across and eight down in a 4-bit page, from page 0
@@ -219,7 +220,7 @@ struct Model *NativeRacers_MenuModel(int racer)
 	struct NativeRacer *r = &s_racers[racer];
 	if (r->menuModel == NULL)
 	{
-		r->menuModel = NativeRacers_ReadModel(r->modelPath, 1);
+		r->menuModel = NativeRacers_ReadModel(r->modelPath, !r->wheels);
 		r->menuModelFailed = (r->menuModel == NULL);
 	}
 	return r->menuModel;

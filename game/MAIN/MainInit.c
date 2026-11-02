@@ -665,8 +665,10 @@ void MainInit_Drivers(struct GameTracker *gGT)
 		// that's characterIDs[1] from the MPK
 		// humanGhost = *humanPlyrDriverModel,
 
-		// then replace with intended P1 model
-		*humanPlyrDriverModel = data.driverModelExtras[0].model;
+		// then replace with intended P1 model, unless P1 is a custom racer,
+		// which VehBirth_NonGhost already gave its own model
+		if (NativeRacers_Driver(0) < 0)
+			*humanPlyrDriverModel = data.driverModelExtras[0].model;
 #endif
 	}
 }

@@ -370,7 +370,8 @@ static int NativeDev_ScriptedPad(int autopilot, unsigned short *buttons, unsigne
 // CTR_DEV_CHARACTER_SELECT=1: the title menu opens the Arcade character
 // select (CTR_DEV_PLAYERS players) instead of idling. CTR_DEV_CHARACTER puts
 // player 1's cursor on that racer. CTR_DEV_UNLOCKS=1 unlocks the retail
-// secret racers in this run's save, =2 N. Oxide as well.
+// secret racers in this run's save, =2 N. Oxide as well. With CTR_DEV_MODE=tt
+// it is the Time Trial character select instead (returns 2).
 int NativeDev_CharacterSelect(void)
 {
 	static int s_mode = -1;
@@ -386,7 +387,7 @@ int NativeDev_CharacterSelect(void)
 	const int character = NativeDev_EnvInt("CTR_DEV_CHARACTER", -1);
 	if ((character >= 0) && (character < 16))
 		sdata->characterIDs_backup[0] = (s16)character;
-	return 1;
+	return NativeDevRace_State()->timeTrial ? 2 : 1;
 }
 
 int NativeDev_ModsTab(void)

@@ -114,8 +114,10 @@ int NativeDev_RacePlayers(void);
 // CTR_DEV_CHARACTER_SELECT=1: the title menu opens the Arcade character
 // select for CTR_DEV_PLAYERS players. CTR_DEV_CHARACTER puts player 1's
 // cursor on that racer; CTR_DEV_UNLOCKS=1 unlocks the retail secret racers
-// first, =2 N. Oxide as well.
-// Returns 1 when set (called every idle title frame).
+// first, =2 N. Oxide as well. With CTR_DEV_MODE=tt it opens the Time Trial
+// character select instead, and the run goes on through the track and ghost
+// selects as the pad drives it.
+// Returns 1 when set, 2 for Time Trial (called every idle title frame).
 int NativeDev_CharacterSelect(void);
 
 // CTR_DEV_MODS=<tab>: the title opens the Mods screen on that tab (1 Tracks,

@@ -403,6 +403,43 @@ static void TestShineHalvesMeet(void)
 	EXPECT_INT("4:3 leaves x unchanged", Widescreen_CompressXAbout(123, 50), 123);
 }
 
+// The start lights: four lamps in a row, each quad starting where the last
+// ends (DotLights_Video). Squeezed about the row's centre they still touch.
+static void TestStartLightsTouch(void)
+{
+	const int lampW = 34, rowX = (512 - 4 * lampW) / 2, centerX = rowX + 2 * lampW;
+
+	for (int ratio = 0; ratio <= 3; ratio++)
+	{
+		char name[96];
+		POLY_FT4 grouped[4], alone[4];
+		int touching = 1, apart = 0;
+		g_config.aspectRatio = ratio;
+		for (int lamp = 0; lamp < 4; lamp++)
+		{
+			memset(&grouped[lamp], 0, sizeof grouped[lamp]);
+			grouped[lamp].x0 = grouped[lamp].x2 = (short)(rowX + lamp * lampW);
+			grouped[lamp].x1 = grouped[lamp].x3 = (short)(rowX + (lamp + 1) * lampW);
+			alone[lamp] = grouped[lamp];
+			Widescreen_CompressFT4About(&grouped[lamp], centerX);
+			Widescreen_CompressFT4(&alone[lamp]);
+		}
+		for (int lamp = 0; lamp < 3; lamp++)
+		{
+			touching &= (grouped[lamp].x1 == grouped[lamp + 1].x0) && (grouped[lamp].x3 == grouped[lamp + 1].x2);
+			apart |= (alone[lamp + 1].x0 - alone[lamp].x1) > 0;
+		}
+		snprintf(name, sizeof name, "start lights touch, aspect %d", ratio);
+		EXPECT_TRUE(name, touching);
+		snprintf(name, sizeof name, "start lights stay centred, aspect %d", ratio);
+		EXPECT_INT(name, grouped[0].x0 + grouped[3].x1, 2 * centerX);
+		// Each lamp squeezed about its own centre, for contrast, leaves gaps.
+		snprintf(name, sizeof name, "per-lamp squeeze left gaps, aspect %d", ratio);
+		EXPECT_TRUE(name, ratio == 0 ? !apart : apart);
+	}
+	g_config.aspectRatio = 0;
+}
+
 int main(void)
 {
 	TestConfigDefaults();
@@ -413,6 +450,7 @@ int main(void)
 	TestFullscreenSync();
 	TestPersistenceRoundTrip();
 	TestShineHalvesMeet();
+	TestStartLightsTouch();
 
 	printf("\n%s\n", g_failures ? "FAILURES PRESENT" : "all assertions passed");
 	return g_failures != 0;

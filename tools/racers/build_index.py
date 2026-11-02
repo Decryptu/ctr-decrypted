@@ -3,7 +3,8 @@
 
 The catalogue (github.com/Decryptu/ctr-decrypted-racers) keeps one folder per
 racer under racers/, as convert_racer.py writes them. This checks every folder
-(racer.json present, every listed file's size and SHA-256) and writes:
+(racer.json present, every listed file's size and SHA-256, no two racers with
+one name) and writes:
 
 - index.json: what the Mods screen downloads first, one entry per racer with
   its folder and the size and SHA-256 of racer.json, so a client can fetch
@@ -48,6 +49,12 @@ def main():
             "manifest": {"bytes": os.path.getsize(manifest_path), "sha256": sha256(manifest_path)},
         })
     entries.sort(key=lambda e: (e["name"], e["id"]))
+    # One racer per character: two entries with one name would sit side by
+    # side on the character select. Keep the better one and mark the other
+    # {"skip": true, "reason": ...} in sources.json.
+    for a, b in zip(entries, entries[1:]):
+        if a["name"] == b["name"]:
+            sys.exit(f"{a['folder']} and {b['folder']}: both are {a['name']}; skip one in sources.json")
 
     with open(os.path.join(root, "index.json"), "w", encoding="utf-8", newline="\n") as f:
         json.dump({"schema_version": 1, "racers": entries}, f, indent=2, ensure_ascii=False)

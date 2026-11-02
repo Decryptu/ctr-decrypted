@@ -83,6 +83,10 @@ void DecalGlobal_Store(struct GameTracker *gGT, struct LevTexLookup *LTL);
 struct IconGroup *DecalGlobal_FindInLEV(struct Level *level, const char *name);
 struct Icon *DecalGlobal_FindInMPK(struct Icon *icons, const char *name);
 void DecalHUD_DrawPolyFT4(struct Icon *icon, s32 posX, s32 posY, struct PrimMem *primMem, u32 *ot, u8 transparency, s16 scale);
+// One quad of a sprite made of several: the widescreen squeeze pulls it toward
+// groupCenterX, the sprite's centre, so neighbouring pieces stay joined.
+void DecalHUD_DrawPolyFT4Grouped(struct Icon *icon, s32 posX, s32 posY, struct PrimMem *primMem, u32 *ot, u8 transparency, s16 scale,
+                                 s32 groupCenterX);
 void DecalHUD_DrawPolyGT4(struct Icon *icon, s32 posX, s32 posY, struct PrimMem *primMem, u32 *ot, Color color0, Color color1, Color color2, Color color3,
                           u8 transparency, s16 scale);
 void DecalMP_01(struct GameTracker *gGT);

@@ -56,10 +56,16 @@ void DotLights_Video(struct GameTracker *gGT, s32 red1, s32 red2, s32 red3, s32 
 		newPosX = (pb->rect.w - sizeX * DOT_LIGHT_COUNT) / 2;
 		newPosY = -FP_Mult(icon->texLayout.v2 - icon->texLayout.v0, scale) + FP_Mult((s16)(pb->rect.h / 3), posY);
 		// NOTE(aalhendi): Separate calls retain live icon, back-buffer and OT reads between lights.
-		DecalHUD_DrawPolyFT4(gGT->trafficLights.color.red[red1], newPosX, newPosY, &gGT->backBuffer->primMem, pb->ptrOT, 0, scale);
-		DecalHUD_DrawPolyFT4(gGT->trafficLights.color.red[red2], newPosX + sizeX, newPosY, &gGT->backBuffer->primMem, pb->ptrOT, 0, scale);
-		DecalHUD_DrawPolyFT4(gGT->trafficLights.color.red[red3], newPosX + sizeX * 2, newPosY, &gGT->backBuffer->primMem, pb->ptrOT, 0, scale);
-		DecalHUD_DrawPolyFT4(gGT->trafficLights.color.green[green], newPosX + sizeX * 3, newPosY, &gGT->backBuffer->primMem, pb->ptrOT, 0, scale);
+		// The four lamps are one sprite: in widescreen they squeeze toward the
+		// row's centre together, so they keep touching.
+		const s32 rowCenterX = newPosX + (sizeX * DOT_LIGHT_COUNT) / 2;
+		DecalHUD_DrawPolyFT4Grouped(gGT->trafficLights.color.red[red1], newPosX, newPosY, &gGT->backBuffer->primMem, pb->ptrOT, 0, scale, rowCenterX);
+		DecalHUD_DrawPolyFT4Grouped(gGT->trafficLights.color.red[red2], newPosX + sizeX, newPosY, &gGT->backBuffer->primMem, pb->ptrOT, 0, scale,
+		                            rowCenterX);
+		DecalHUD_DrawPolyFT4Grouped(gGT->trafficLights.color.red[red3], newPosX + sizeX * 2, newPosY, &gGT->backBuffer->primMem, pb->ptrOT, 0, scale,
+		                            rowCenterX);
+		DecalHUD_DrawPolyFT4Grouped(gGT->trafficLights.color.green[green], newPosX + sizeX * 3, newPosY, &gGT->backBuffer->primMem, pb->ptrOT, 0, scale,
+		                            rowCenterX);
 	}
 }
 

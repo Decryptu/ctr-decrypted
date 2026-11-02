@@ -9,7 +9,10 @@ enum
 };
 
 
-void DecalHUD_DrawPolyFT4(struct Icon *icon, s32 posX, s32 posY, struct PrimMem *primMem, u32 *ot, u8 transparency, s16 scale)
+// groupCenterX: the centre of the sprite this quad is one piece of, which the
+// widescreen squeeze pulls it toward; -1 squeezes the quad about its own centre.
+static void DecalHUD_DrawPolyFT4Piece(struct Icon *icon, s32 posX, s32 posY, struct PrimMem *primMem, u32 *ot, u8 transparency, s16 scale,
+                                      s32 groupCenterX)
 {
 	// NOTE(aalhendi): Keep the packed UV snapshots in their retail registers across blending.
 	u32 uvTopRight;
@@ -52,10 +55,24 @@ void DecalHUD_DrawPolyFT4(struct Icon *icon, s32 posX, s32 posY, struct PrimMem 
 	CtrGpu_WritePackedXY(&p->x2, posX | (posY + ((u32)height << 16)));
 	CtrGpu_WritePackedXY(&p->x3, ((u32)posX + width) | (posY + ((u32)height << 16)));
 
-	Widescreen_CompressFT4(p);
+	if (groupCenterX < 0)
+		Widescreen_CompressFT4(p);
+	else
+		Widescreen_CompressFT4About(p, groupCenterX);
 	p->tag = *ot | 0x09000000;
 	*ot = CtrGpu_PrimToOTLink24(p);
 	primMem->cursor = p + 1;
+}
+
+void DecalHUD_DrawPolyFT4(struct Icon *icon, s32 posX, s32 posY, struct PrimMem *primMem, u32 *ot, u8 transparency, s16 scale)
+{
+	DecalHUD_DrawPolyFT4Piece(icon, posX, posY, primMem, ot, transparency, scale, -1);
+}
+
+void DecalHUD_DrawPolyFT4Grouped(struct Icon *icon, s32 posX, s32 posY, struct PrimMem *primMem, u32 *ot, u8 transparency, s16 scale,
+                                 s32 groupCenterX)
+{
+	DecalHUD_DrawPolyFT4Piece(icon, posX, posY, primMem, ot, transparency, scale, groupCenterX);
 }
 
 

@@ -156,15 +156,15 @@ void MM_MenuProc_Main(struct RectMenu *menu)
 				GAME_TRACKER->numPlyrNextGame = (u8)NativeDev_RacePlayers();
 			}
 
-			// CTR_DEV_CHARACTER_SELECT: leave the title for the Arcade
-			// character select, the way Time Trial does. The player count is
+			// CTR_DEV_CHARACTER_SELECT: leave the title for the Arcade (or Time
+			// Trial) character select, the way Time Trial does. The player count is
 			// set on every frame of the fade-out, like the one above.
 			if (NativeDev_CharacterSelect())
 			{
 				GAME_TRACKER->numPlyrNextGame = (u8)NativeDev_RacePlayers();
 				if (MM_TITLE_MENU_STATE != TITLE_MENU_STATE_EXITING)
 				{
-					GAME_TRACKER->gameMode1 |= ARCADE_MODE;
+					GAME_TRACKER->gameMode1 |= (NativeDev_CharacterSelect() == 2) ? TIME_TRIAL : ARCADE_MODE;
 					MM_DESIRED_MENU_INDEX = MM_EXIT_ROUTE_CHARACTER_SELECT;
 					MM_TITLE_MENU_STATE = TITLE_MENU_STATE_EXITING;
 				}

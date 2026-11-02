@@ -61,7 +61,7 @@ A racer is a folder under `assets/racers/` (any name) holding `racer.json` and t
 - `name` and `short_name`: printable ASCII, drawn with the game's font (under 32 and 16 bytes).
 - `template`: the retail racer whose character ID it borrows: `crash cortex tiny coco ngin dingodile polar pura pinstripe papu roo komodo tropy penta fakecrash oxide`.
 - `engine`: `balanced`, `accel`, `speed` or `turn`. `wheels`: whether the game draws its tires.
-- `model.ctr`: a racer model file as the BIGFILE stores one (a u32 pointer-map offset, the model, the pointer map), at most 512 KiB. The menu draws it scaled 5/8, as N. Oxide's.
+- `model.ctr`: a racer model file as the BIGFILE stores one (a u32 pointer-map offset, the model, the pointer map), at most 512 KiB. The character select draws a racer with wheels at its race size, since the menu's wheels sit where the race's do; a racer without wheels is scaled 5/8 to fit the window, as N. Oxide's hovercraft is. Converted models have no animations and can use all 256 vertex slots of a model's command list; retail models stay under the 88 that fit the scratchpad's vertex cache, so the slots past it live in an array of their own (`RenderBucket_PackedVertexScratch`, `game/RenderBucket/RenderBucket_QueueExecute.c`). Past the scratchpad lies the first draw buffer, so a slot written there cuts that buffer's draw list short: the HUD and the loading flag flicker every other frame.
 - `portrait.bin`: `CDP1`, u16 width 44, u16 height 26, 16 palette words, then 26 rows of 11 words of 4-bit texels. PS1 15-bit colours, word 0 transparent.
 - Every file's size and SHA-256 must match. The id is unique: a second folder with the same id is left out.
 
@@ -102,14 +102,14 @@ The Mods screen's Racers tab (`game/230/MM_CustomRacers.c`) lists every racer in
 ## In a race
 A driver races as a custom racer when it is a human player who picked one, outside Adventure and the menus, and its character ID is still the racer's template (`NativeRacers_Driver`). Anything that changed the ID since (Archipelago's character swap, the garage) changed the racer too. Then:
 
-- `VehBirth_NonGhost` births it with the racer's model instead of the template's, at every split-screen size.
+- `VehBirth_NonGhost` births it with the racer's model instead of the template's, at every split-screen size. In Time Trial, `MainInit_Drivers` gives player 1 the template's high-detail model afterwards; it leaves a custom racer's model alone.
 - `VehBirth_TireSprites` gives it wheels or not by the racer's `wheels`.
 - `VehBirth_SetConsts` reads the racer's engine class (`VEH_BIRTH_ENGINE_ID`, `include/common.h`). Engine sound stays the template's.
 - The HUD portraits use the racer's (`VEH_DRIVER_ICON`): the race rank list, cup standings, the race results and the VS and battle standings.
 
 Everything else keyed by character ID uses the template: voice, podium, records, ghosts, Archipelago. Bots never pick a custom racer.
 
-`CTR_DEV_RACER=n` with `CTR_DEV_RACE` puts player 1 in a race as the nth installed racer.
+`CTR_DEV_RACER=n` with `CTR_DEV_RACE` puts player 1 in a race as the nth installed racer. To go through the menus instead, `CTR_DEV_CHARACTER_SELECT=1` with `CTR_DEV_MODE=tt` opens the Time Trial character select, and `CTR_DEV_PAD` picks the racer, the track and the ghost.
 
 ## Checking
 `CTR_DEV_CHARACTER_SELECT=1` opens the screen ([DEV-TOOLS.md](DEV-TOOLS.md)). `CTR_DEV_FAKE_RACERS=n` replaces the installed racers with n placeholders that borrow the first eight retail racers' looks, to fill pages. To check that retail is unchanged, A/B the screen against an older build with `CTR_DEV_UNLOCKS=0` and `=1` at 1 to 4 players, with `CTR_DEV_PAD` navigation scripts that hit taken icons and row ends. Every frame should match except the exit slide-out, which older builds did not animate.
