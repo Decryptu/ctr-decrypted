@@ -72,13 +72,13 @@ const char *NativeDev_UpdateAs(void) { return NULL; }
 // ── the game around it ──
 static char screen[8][64];
 static int lines;
-void DecalFont_DrawLineOT(char *str, int posX, int posY, s16 fontType, int flags, uint32_t *ot)
+void DecalFont_DrawLineOT(char *str, s16 posX, s16 posY, s16 fontType, s16 flags, u32 *ot)
 {
 	(void)posX; (void)posY; (void)fontType; (void)flags; (void)ot;
 	if (lines < 8)
 		snprintf(screen[lines++], sizeof screen[0], "%s", str);
 }
-void RECTMENU_DrawInnerRect(RECT *r, int x, uint32_t *ot) { (void)r; (void)x; (void)ot; }
+void RECTMENU_DrawInnerRect(RECT *r, s16 x, u32 *ot) { (void)r; (void)x; (void)ot; }
 void AP_AppendLog(const char *line) { (void)line; }
 void NativeConfig_Save(void) { ++saves; }
 NativeLinkHost *AP_LinkHost(void) { return NULL; }
