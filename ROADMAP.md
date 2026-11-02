@@ -22,7 +22,6 @@ Roughly in this order.
 
 | Item | Source |
 |---|---|
-| Steam Deck test: the owner's tester runs the checklist in [STEAM-DECK.md](docs/STEAM-DECK.md#testing-on-a-deck) on v1.3.0, the first release with the Deck defaults. It has not run on a Deck yet | Owner request, 2026-10-31 |
 | 200cc: a faster speed class for every racer, bots included, like Mario Kart's. Raises top speed and acceleration together and keeps turning and drift timing playable; Time Trial records and ghosts are kept apart per class. Whether Archipelago can require or place it is a later choice. CTR Native Expanded's per-stat multipliers (speed, turn, jump, gravity, reserves) show where the stats are applied | Owner request, 2026-11-02 |
 
 ## Maybe
