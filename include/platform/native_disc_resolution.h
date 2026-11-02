@@ -19,6 +19,7 @@
 // NativeDiscResolutionOps.
 
 #include <stddef.h>
+#include <string.h>
 
 #include "platform/native_disc_image.h"
 #include "platform/native_disc_limits.h"
@@ -31,6 +32,9 @@
 #define NATIVE_DISC_TEXT_COPY    "Copy this disc image into the game folder? If you choose No, the game will remember where it is."
 #define NATIVE_DISC_TEXT_REPLACE "The file in the game folder is not a valid disc image. Replace it with the selected one?"
 #define NATIVE_DISC_TEXT_INVALID "That file is not a valid Crash Team Racing NTSC-U disc image."
+// The disc search's question: the found path goes between the two halves.
+#define NATIVE_DISC_TEXT_FOUND_BEFORE "Found your Crash Team Racing disc image:\n\n"
+#define NATIVE_DISC_TEXT_FOUND_AFTER  "\n\nUse it? If you choose No, you can pick the file yourself."
 
 // Status lines the resolution emits through the reportStatus operation.
 #define NATIVE_DISC_STATUS_EXPLICIT_INVALID "the requested disc image is not a valid Crash Team Racing NTSC-U disc image"
@@ -204,6 +208,10 @@ typedef struct NativeDiscResolutionOps
 	// Scan the assets folder for a valid disc. Returns 1 and fills chosenPath on
 	// success, 0 when the folder holds no valid disc.
 	int (*scanAssets)(void *ctx, char *chosenPath, size_t chosenPathSize);
+	// Look for a disc in the usual folders before the picker opens
+	// (native_disc_search.h). Returns 1 and fills outPath with a valid disc.
+	// NULL: no search, the picker opens straight away.
+	int (*searchDisc)(void *ctx, char *outPath, size_t outPathSize);
 	// Show the native picker. Returns 1 and fills outPath when the user chose a
 	// file, 0 on cancel or when the dialog API is unavailable.
 	int (*pickDisc)(void *ctx, char *outPath, size_t outPathSize);
@@ -234,6 +242,8 @@ typedef struct NativeDiscResolutionResult
 	int explicitInvalid;             // explicit path given but not valid (terminal)
 	int staleSavedPath;              // saved path present but no longer usable
 	int wizardRan;
+	int searchFound;                 // the search found a disc and asked about it
+	int searchAccepted;              // ... and the player took it
 	int cancelled;
 	int destinationReused;           // existing valid destination reused
 	int copyOffered;
@@ -286,6 +296,8 @@ static inline int NativeDiscResolution_Run(const NativeDiscResolutionOps *ops, v
 	result->explicitInvalid = 0;
 	result->staleSavedPath = 0;
 	result->wizardRan = 0;
+	result->searchFound = 0;
+	result->searchAccepted = 0;
 	result->cancelled = 0;
 	result->destinationReused = 0;
 	result->copyOffered = 0;
@@ -343,7 +355,25 @@ static inline int NativeDiscResolution_Run(const NativeDiscResolutionOps *ops, v
 		return 0;
 
 	result->wizardRan = 1;
-	for (;;)
+
+	// 4a. A disc in the usual folders, offered before the picker. Declined, or
+	//     no longer valid by the time it is mounted, the picker opens as usual.
+	if ((ops->searchDisc != NULL) && ops->searchDisc(ctx, result->pickedPath, sizeof(result->pickedPath)))
+	{
+		char question[NATIVE_DISC_PATH_MAX + 128];
+
+		result->searchFound = 1;
+		NativeDiscResolution_CopyString(question, sizeof(question), NATIVE_DISC_TEXT_FOUND_BEFORE);
+		NativeDiscResolution_CopyString(question + strlen(question), sizeof(question) - strlen(question), result->pickedPath);
+		NativeDiscResolution_CopyString(question + strlen(question), sizeof(question) - strlen(question), NATIVE_DISC_TEXT_FOUND_AFTER);
+		if (ops->confirm(ctx, question))
+		{
+			result->validation = ops->validateCandidate(ctx, result->pickedPath, result->chosenPath, sizeof(result->chosenPath));
+			result->searchAccepted = (result->validation == NATIVE_DISC_IMAGE_VALID);
+		}
+	}
+
+	while (!result->searchAccepted)
 	{
 		if (!ops->pickDisc(ctx, result->pickedPath, sizeof(result->pickedPath)))
 		{

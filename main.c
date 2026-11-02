@@ -54,6 +54,7 @@
 #include "platform/native_dev_race.c"
 #include "platform/native_disc_copy.c"
 #include "platform/native_disc_path_store.c"
+#include "platform/native_disc_search.c"
 #include "platform/native_disc_image.c"
 #include "platform/native_assets.c"
 #include "platform/native_audio.c"
@@ -444,6 +445,7 @@ int main(int argc, char *argv[])
 		NativeDiscResolutionResult discResult;
 		NativeStartupStatus startupStatus;
 
+		startupOps.searchDisc = NativeStartup_SearchDisc;
 		startupOps.pickDisc = NativeDiscResolution_RealPick;
 		startupOps.confirm = NativeDiscResolution_RealConfirm;
 		startupOps.validateAssets = NativeStartup_ValidateRetailAssets;

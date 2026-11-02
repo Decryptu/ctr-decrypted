@@ -43,11 +43,17 @@ Download and extract the archive for your platform from the
 extracted files together in their own folder. The rest of these steps add the
 game data and your server settings there.
 
-## Step 2: drop in your disc image
+## Step 2: your disc image
 
-The game reads the raw disc image directly. Copy your NTSC-U `.bin` into an
-`assets` folder next to `ctr_native_ap.exe` (launching the game once creates
-that folder for you):
+The game reads the raw disc image directly. On the first launch without one, it
+looks in the game folder, the folder above it, and Downloads, Desktop, Documents
+and Games in your home folder (three folders deep). If it finds your disc it
+asks whether to use it; otherwise a file picker opens. Either way it then offers
+to copy the image into the game folder, or to remember where it is.
+
+You can also put it there yourself: copy your NTSC-U `.bin` into an `assets`
+folder next to `ctr_native_ap.exe` (launching the game once creates that
+folder):
 
 ```
 CTR-AP/
@@ -69,9 +75,10 @@ save disk space, see the appendix at the end of this guide.
 
 ## Step 3: connect to your room
 
-Launch `ctr_native_ap.exe`. On a first start with no saved connection the game
-boots to the main menu and shows that it is not connected. Go to **OPTIONS →
-Connection** and fill in your room details:
+Launch `ctr_native_ap.exe`. On the first start a setup screen opens on the
+title screen: it asks for your room details, then a few options (fullscreen,
+aspect ratio, render scale, 60 FPS, skipping the intros, Discord status). Skip
+it, or come back later, in **OPTIONS → Connection**. The room details are:
 
 - **Server**: the address of your room, for example `archipelago.gg:38281`
   (the port is on your room page). Secure connections (`wss://`) are used
@@ -82,7 +89,8 @@ Connection** and fill in your room details:
   font marks uppercase letters with a short outlined white line underneath.
 - **Password**: the room password, or leave it blank if there is none.
 
-Select **Connect**. The status line on the same screen shows the connection
+Select **Connect** (in the setup, **Next** connects too). The status line on
+the same screen shows the connection
 state (Connecting… / Connected / an error message). Your settings are saved to
 `config.ini` next to the executable, and the game dials automatically on later
 launches. A startup dial that cannot reach the room stops after a few automatic

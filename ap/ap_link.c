@@ -206,6 +206,11 @@ int AP_LinkBootAdmit(void)
 	return 1;
 }
 
+int AP_LinkWaiting(void)
+{
+	return ap_link_ready && (ap_link_boot_pending || ap_link.haveOffer);
+}
+
 void AP_LinkMainMenuSettled(struct RectMenu *menu)
 {
 	ap_link_menu = menu;

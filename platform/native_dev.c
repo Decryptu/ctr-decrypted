@@ -217,6 +217,11 @@ int NativeDev_NoItems(void) { return NativeDev_State()->noItems; }
 int NativeDev_NoLevelDepth(void) { return NativeDev_State()->noLevelDepth; }
 int NativeDev_BotSpeedPercent(void) { return NativeDev_State()->botSpeed; }
 
+int NativeDev_Setup(void)
+{
+	return NativeDev_EnvInt("CTR_DEV_SETUP", 0) == 1;
+}
+
 const char *NativeDev_UpdateAs(void)
 {
 	const char *value = getenv("CTR_DEV_UPDATE");

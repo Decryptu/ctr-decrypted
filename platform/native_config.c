@@ -74,6 +74,7 @@ NativeConfig g_config = {
 	"",    // navDriverName (empty = fall back to the Archipelago slot name)
 	false, // discordStatus (off: nothing is opened or sent unless the player opts in)
 	"",    // discordAppId (empty = the built-in AP_DISCORD_APPLICATION_ID)
+	false, // setupDone (off: the first-launch setup has not run)
 #else
 #ifdef CTR_BOX_AUTHORING
 	false, // boxAuthor
@@ -226,6 +227,9 @@ const ConfigEntry g_configEntries[] = {
 	// Signed in-game updater (issue #301): the declined release tag. Written by
 	// the main-menu offer only, never by a menu row.
 	{"State",       "update_declined_version",  "Update Declined Version",      CFG_STRING, g_config.updateDeclined, 0, (int)sizeof(g_config.updateDeclined), 0},
+	// First-launch setup (game/230/MM_Setup.c): written when the player
+	// finishes or skips it, never by a menu row.
+	{"State",       "setup_done",               "Setup Done",                   CFG_BOOL, &g_config.setupDone, 0, 0, 0},
 #endif
 	// Box placement editing is absent from ordinary public builds. Keeping the
 	// row out of g_configEntries means NativeConfig_Load cannot revive it from a

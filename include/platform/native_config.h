@@ -220,6 +220,10 @@ typedef struct
 	// feature does nothing. Consumed by AP_Discord_OnFrame (ap/ap_discord.c).
 	bool discordStatus;
 	char discordAppId[32];
+	// First-launch setup (game/230/MM_Setup.c): set once the player finished or
+	// skipped it. Hidden [State] value. The setup only opens while this is off
+	// and no room is saved, so a player who already connected never sees it.
+	bool setupDone;
 #else
 	// The authoring client without Archipelago keeps the authoring options it
 	// builds, with the meanings described above (AP block).

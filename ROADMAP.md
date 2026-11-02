@@ -21,7 +21,6 @@ Roughly in this order.
 
 | Item | Source |
 |---|---|
-| First-launch setup (mid): a guided screen the first time the game starts: find the player's disc image, set up Archipelago (server, slot name, password) and a few basic options, so nobody edits `config.ini` | Owner request, 2026-10-31 |
 | Save backups (mid): keep the last few copies of the save and Archipelago progress automatically, with a restore option in the menu | Owner request, 2026-10-31 |
 | Linux and Steam Deck (mid): publish a Linux build and have it tested on a Steam Deck (the owner has a tester), including controller and default resolution | Owner request, 2026-10-31. Only Windows is tested today |
 | Take the rest off the game's rounded camera: kart tires, shadows, skid marks, particles and the hub's warp-pad numbers still jump with its rounding (the [rounding detector](docs/DEV-TOOLS.md#rounding-detector) lists them in every race and hub), the same judder the sky and ground had | Detector run, 2026-11-01 |

@@ -42,6 +42,10 @@ void AP_LinkMainMenuSettled(struct RectMenu *menu);
 // this frame: the menu underneath neither runs nor sees the buttons.
 int AP_LinkMenuFrame(void);
 
+// 1 while a room link waits to be offered (from the command line or another
+// launch), so the first-launch setup leaves the room to the link prompt.
+int AP_LinkWaiting(void);
+
 // A dial the player made without a link (saved settings at boot, Connection
 // page's Connect row), so a later link for the same session is recognised.
 void AP_LinkNoteDial(const char *uri, const char *slot);

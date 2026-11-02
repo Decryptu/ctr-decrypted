@@ -52,7 +52,9 @@ if (-not (Test-Path $disc)) {
 }
 
 # Fixed baseline config, then the caller's overrides.
-$cfg = [ordered]@{ fps60 = 'true'; pgxp = 2; aspect_ratio = 1; render_scale = 0 }
+# setup_done keeps the first-launch setup from opening on the title screen (pass
+# @{'State.setup_done'='false'} or CTR_DEV_SETUP=1 to see it).
+$cfg = [ordered]@{ fps60 = 'true'; pgxp = 2; aspect_ratio = 1; render_scale = 0; 'State.setup_done' = 'true' }
 foreach ($k in $Config.Keys) { $cfg[$k] = $Config[$k] }
 # A key named 'Section.key' goes in that section, e.g. 'Connection.uri'.
 $sections = [ordered]@{ 'Video & QoL' = @() }

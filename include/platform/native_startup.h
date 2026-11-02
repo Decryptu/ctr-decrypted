@@ -14,8 +14,8 @@
 // function with only the final retail asset validation stubbed, so the sequence
 // cannot drift from production.
 //
-// The three injectable operations are the picker, the yes/no confirmations and
-// the final full asset validation. Everything else (argument parsing, config
+// The injectable operations are the disc search, the picker, the yes/no
+// confirmations and the final full asset validation. Everything else (argument parsing, config
 // load, disc-path store load and save, filesystem scan, candidate validation,
 // copy and mount) is the real production code and is not injectable.
 
@@ -38,6 +38,9 @@ NativeStartupArgStatus NativeStartup_ParseArgs(int argc, char *const *argv, Nati
 
 typedef struct NativeStartupOps
 {
+	// Look for a disc in the usual folders before the picker opens. NULL: no
+	// search. Production passes NativeStartup_SearchDisc.
+	int (*searchDisc)(void *ctx, char *outPath, size_t outPathSize);
 	// Show the native disc picker. 1 and outPath when chosen, 0 otherwise.
 	int (*pickDisc)(void *ctx, char *outPath, size_t outPathSize);
 	// Ask a yes/no question. 1 only for an affirmative answer.
@@ -65,5 +68,10 @@ NativeStartupStatus NativeStartup_ResolveDisc(const NativeStartupArgs *args, con
 // pass as NativeStartupOps.validateAssets. The host harness substitutes its own
 // stub while keeping every other step real.
 int NativeStartup_ValidateRetailAssets(void *ctx);
+
+// The production disc search (native_disc_search.h) over the game folder and
+// the user's home folders, each candidate checked with the real disc validator
+// without mounting it. For main.c to pass as NativeStartupOps.searchDisc.
+int NativeStartup_SearchDisc(void *ctx, char *outPath, size_t outPathSize);
 
 #endif // NATIVE_STARTUP_H
