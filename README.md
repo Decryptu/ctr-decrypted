@@ -19,6 +19,7 @@ On top of the Archipelago client:
 
 And in OPTIONS:
 
+- **Save backups**: the last 10 copies of your save and Play Solo progress, made automatically, with a restore in **OPTIONS → Backups** ([SETUP.md](SETUP.md#backups-going-back-to-an-earlier-save)).
 - **60 FPS**, on by default, in every mode ([docs/60FPS.md](docs/60FPS.md)).
 - **PGXP anti-wobble** and perspective-correct textures, with a depth test that keeps water from painting over nearer ground ([docs/PGXP.md](docs/PGXP.md)).
 - **Screen filters**: Sharp Bilinear, FXAA, Scanlines, CRT ([docs/SCREEN-FILTERS.md](docs/SCREEN-FILTERS.md)).

@@ -57,6 +57,9 @@ void NativeFs_CloseDir(NativeFsDir *dir);
 // directory, 0 otherwise. The parent must exist.
 int NativeFs_MakeDirectory(const char *utf8Path);
 
+// Remove an empty directory. Returns 0 on failure.
+int NativeFs_RemoveDirectory(const char *utf8Path);
+
 // Exclusive advisory lock on a file, created when missing (issue #334, slice 3:
 // the one-click-connect store and primary-client locks). Returns NULL when the
 // lock is held elsewhere or the file cannot be opened. The lock lasts until

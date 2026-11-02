@@ -2,6 +2,8 @@
 
 #include <macros.h>
 
+#include "platform/native_backup.h"
+#include "platform/native_fs_utf8.h"
 #include "platform/native_path.h"
 
 #include <errno.h>
@@ -14,6 +16,7 @@
 #endif
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #define NATIVE_MEMCARD_MAX_FOUND_FILES 64
 #define NATIVE_MEMCARD_MAX_NAME        64
@@ -805,9 +808,35 @@ enum NativeMemcardResult NativeMemcard_ReadSaveData(const char *save_name, unsig
 
 enum NativeMemcardResult NativeMemcard_WriteSaveData(const char *save_name, const void *icon, int icon_byte_count, const unsigned char *src, int byte_count)
 {
-	const char *path = NativeMemcard_PathFromDeviceName(save_name, 1);
+	char path[NATIVE_MEMCARD_MAX_PATH];
+	char temp_path[NATIVE_MEMCARD_MAX_PATH + 1];
+	const char *slash;
 
-	FILE *file = fopen(path, "wb");
+	// The default root is the player's own card; a replay's copied root is not.
+	if (s_memcardRoot[0] == '\0')
+	{
+		NativeBackup_BeforeSave(time(NULL));
+	}
+
+	if (!NativeMemcard_CopyString(path, sizeof(path), NativeMemcard_PathFromDeviceName(save_name, 1)))
+	{
+		return NATIVE_MEMCARD_OPEN_FAILED;
+	}
+
+	// Written beside the save as ~name, then moved over it, so a crash or a full
+	// disk mid-write leaves the previous save whole. The ~ keeps the temporary
+	// file out of the game's BASCUS* save search.
+	slash = strrchr(path, '/');
+	slash = (slash != NULL) ? slash + 1 : path;
+	{
+		const size_t dir_length = (size_t)(slash - path);
+		const size_t name_length = strlen(slash);
+		memcpy(temp_path, path, dir_length);
+		temp_path[dir_length] = '~';
+		memcpy(temp_path + dir_length + 1, slash, name_length + 1);
+	}
+
+	FILE *file = fopen(temp_path, "wb");
 	if (file == NULL)
 	{
 		return NATIVE_MEMCARD_OPEN_FAILED;
@@ -815,10 +844,12 @@ enum NativeMemcardResult NativeMemcard_WriteSaveData(const char *save_name, cons
 
 	size_t wrote_icon = fwrite(icon, 1, icon_byte_count, file);
 	size_t wrote_data = fwrite(src, 1, byte_count, file);
+	int flushed = NativeFs_FlushToDisk(file);
 	fclose(file);
 
-	if ((wrote_icon != (size_t)icon_byte_count) || (wrote_data != (size_t)byte_count))
+	if ((wrote_icon != (size_t)icon_byte_count) || (wrote_data != (size_t)byte_count) || !flushed || !NativeFs_Replace(temp_path, path))
 	{
+		remove(temp_path);
 		return NATIVE_MEMCARD_IO_ERROR;
 	}
 
