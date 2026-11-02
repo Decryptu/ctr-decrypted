@@ -256,3 +256,4 @@ tools/test-content-plan-parity.py skip needs a paired apworld checkout and the A
 tools/test-arcade-crystals-production.py
 tools/test-reverse-camera-production.py
 tools/test-xdelta-import.cpp
+cmd No links or keys pointing at dowlle's repository :: python3 tools/decrypted/check_upstream_refs.py

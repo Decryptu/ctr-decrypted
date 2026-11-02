@@ -131,7 +131,7 @@ need. If you placed boxes on custom tracks, also send
 `ap-box-placements-custom-authoring.json` from the same folder.
 
 Open a
-[Box placement submission](https://github.com/dowlle/ctr-native-ap/issues/new?template=box_placement.yaml)
+[Box placement submission](https://github.com/Decryptu/ctr-decrypted/issues/new?template=box_placement.yaml)
 issue, drag the file (or both files) into the form, and say which tracks you
 worked on. If
 GitHub refuses the file, put it in a zip first. You need a free GitHub account

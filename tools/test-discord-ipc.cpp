@@ -93,7 +93,7 @@ static void TestJson()
 		CHECK("large image key", act["assets"]["large_image"] == AP_DISCORD_LARGE_IMAGE_KEY);
 		CHECK("large image text", act["assets"]["large_text"] == AP_DISCORD_LARGE_IMAGE_TEXT);
 		CHECK("one button", act["buttons"].is_array() && act["buttons"].size() == 1);
-		CHECK("button url", act["buttons"][0]["url"] == "https://github.com/dowlle/ctr-native-ap");
+		CHECK("button url", act["buttons"][0]["url"] == "https://github.com/Decryptu/ctr-decrypted");
 		CHECK("button label fits", std::string(AP_DISCORD_BUTTON_LABEL).size() <= 32);
 		CHECK("no other activity fields", act.size() == 5);
 	}

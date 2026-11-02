@@ -39,10 +39,10 @@
 // Art asset key of the large image, as uploaded under the application's Rich
 // Presence art assets in the Discord Developer Portal.
 #define AP_DISCORD_LARGE_IMAGE_KEY  "ctr_ap_logo"
-#define AP_DISCORD_LARGE_IMAGE_TEXT "CTR Archipelago"
+#define AP_DISCORD_LARGE_IMAGE_TEXT "CTR Decrypted"
 // Button shown under the activity (label at most 32 characters).
-#define AP_DISCORD_BUTTON_LABEL "CTR Archipelago on GitHub"
-#define AP_DISCORD_BUTTON_URL   "https://github.com/dowlle/ctr-native-ap"
+#define AP_DISCORD_BUTTON_LABEL "CTR Decrypted on GitHub"
+#define AP_DISCORD_BUTTON_URL   "https://github.com/Decryptu/ctr-decrypted"
 
 // Discord accepts details and state of 2 to 128 characters.
 #define AP_DISCORD_TEXT_MAX 128

@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for placing boxes. The steps are in [Help place item boxes](https://github.com/dowlle/ctr-native-ap/blob/main/docs/HELP_PLACE_BOXES.md).
+        Thanks for placing boxes. The steps are in [Help place item boxes](https://github.com/Decryptu/ctr-decrypted/blob/main/docs/HELP_PLACE_BOXES.md).
 
         Every spot is checked for reachability before it goes in, so some may be left out. Not knowing an answer is fine. Leave it blank.
 

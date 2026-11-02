@@ -235,7 +235,7 @@ the feed when you return to the hub. Traps arm silently and trigger during a
 later race rather than firing the moment they arrive.
 
 Download the paired client and apworld from the
-[CTR Archipelago releases page](https://github.com/dowlle/ctr-native-ap/releases),
-then follow the [setup guide](https://github.com/dowlle/ctr-native-ap/blob/main/SETUP.md)
+[CTR Archipelago releases page](https://github.com/Decryptu/ctr-decrypted/releases),
+then follow the [setup guide](https://github.com/Decryptu/ctr-decrypted/blob/main/SETUP.md)
 to play. Report bugs and stuck seeds on
-the [project issue tracker](https://github.com/dowlle/ctr-native-ap/issues).
+the [project issue tracker](https://github.com/Decryptu/ctr-decrypted/issues).

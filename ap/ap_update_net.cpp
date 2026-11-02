@@ -155,7 +155,7 @@ bool HttpsGet(const std::string &host, const std::string &path, size_t maxBody, 
 	body.clear();
 	location.clear();
 	status = 0;
-	HINTERNET session = WinHttpOpen(L"ctr-native-ap-updater", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
+	HINTERNET session = WinHttpOpen(L"ctr-decrypted-updater", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
 	                                WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
 	if (!session)
 	{
