@@ -363,21 +363,36 @@ static void NativeGte_RecordMvmva(int mx, int v, int cv, int lm)
 	NativePgxp_GteSetMvmvaResult(precise, C2_IR1, C2_IR2, C2_IR3);
 }
 
-static void NativeGte_RecordProjection(s64 viewX, s64 viewY, s64 viewZ, int hOverSz3, int lm, int idx)
+// wideInput: the full-width input of NativeGte_ProjectWide, whose view
+// position is not limited to IR1..IR3.
+static void NativeGte_RecordProjection(s64 viewX, s64 viewY, s64 viewZ, int hOverSz3, int lm, int idx, const double *wideInput)
 {
 	float x = (float)C2_SX2;
 	float y = (float)C2_SY2;
 	float w = 0.0f;
 	if (hOverSz3 < 0x1ffff && C2_SZ3 > 0)
 	{
-		double preciseInput[3] = {VX(idx), VY(idx), VZ(idx)};
-		const int hasPreciseInput = NativePgxp_GteGetInput(idx, (s16)VX(idx), (s16)VY(idx), (s16)VZ(idx), preciseInput);
+		double preciseInput[3];
+		int hasPreciseInput = 1;
+		if (wideInput != NULL)
+		{
+			for (int i = 0; i < 3; i++)
+				preciseInput[i] = wideInput[i];
+		}
+		else
+		{
+			preciseInput[0] = VX(idx);
+			preciseInput[1] = VY(idx);
+			preciseInput[2] = VZ(idx);
+			hasPreciseInput = NativePgxp_GteGetInput(idx, (s16)VX(idx), (s16)VY(idx), (s16)VZ(idx), preciseInput);
+		}
 		double rotation[9] = {C2_R11, C2_R12, C2_R13, C2_R21, C2_R22, C2_R23, C2_R31, C2_R32, C2_R33};
 		double translation[3] = {C2_TRX, C2_TRY, C2_TRZ};
 		const int hasPreciseView = NativeGte_PreciseView(0, 0, rotation, translation);
 		// Bypass the GTE's IR truncation and approximate UNR division.
 		const double scale = m_sf ? (1.0 / 4096.0) : 1.0;
-		const double minIr = lm ? 0.0 : -32768.0;
+		const double minIr = wideInput != NULL ? -INFINITY : (lm ? 0.0 : -32768.0);
+		const double maxIr = wideInput != NULL ? INFINITY : 32767.0;
 		double exactX = (double)viewX;
 		double exactY = (double)viewY;
 		double exactZ = (double)viewZ;
@@ -392,8 +407,8 @@ static void NativeGte_RecordProjection(s64 viewX, s64 viewY, s64 viewZ, int hOve
 		{
 			double irX = exactX * scale;
 			double irY = exactY * scale;
-			irX = irX < minIr ? minIr : (irX > 32767.0 ? 32767.0 : irX);
-			irY = irY < minIr ? minIr : (irY > 32767.0 ? 32767.0 : irY);
+			irX = irX < minIr ? minIr : (irX > maxIr ? maxIr : irX);
+			irY = irY < minIr ? minIr : (irY > maxIr ? maxIr : irY);
 			x = (float)((double)C2_OFX / 65536.0 + irX * (double)C2_H / depth);
 			y = (float)((double)C2_OFY / 65536.0 + irY * (double)C2_H / depth);
 			w = (float)depth;
@@ -455,10 +470,50 @@ internal int GTE_RotTransPers(int idx, int lm)
 	}
 	else if (NATIVE_PGXP_ACTIVE())
 	{
-		NativeGte_RecordProjection(viewX, viewY, viewZ, h_over_sz3, lm, idx);
+		NativeGte_RecordProjection(viewX, viewY, viewZ, h_over_sz3, lm, idx, NULL);
 	}
 
 	return h_over_sz3;
+}
+
+void NativeGte_ProjectWide(s32 x, s32 y, s32 z, const double *precise)
+{
+	// RTPS of a position that does not fit V0's 16 bits, with the screen
+	// position taken from MAC1/MAC2 instead of the saturated IR1/IR2. The SZ and
+	// SXY FIFOs, MAC0 and PGXP advance as for RTPS.
+	m_sf = 1;
+	C2_FLAG = 0;
+
+	const s64 viewX = (s64)C2_TRX * 4096 + (s64)C2_R11 * x + (s64)C2_R12 * y + (s64)C2_R13 * z;
+	const s64 viewY = (s64)C2_TRY * 4096 + (s64)C2_R21 * x + (s64)C2_R22 * y + (s64)C2_R23 * z;
+	const s64 viewZ = (s64)C2_TRZ * 4096 + (s64)C2_R31 * x + (s64)C2_R32 * y + (s64)C2_R33 * z;
+	C2_MAC1 = A1(viewX);
+	C2_MAC2 = A2(viewY);
+	C2_MAC3 = A3(viewZ);
+	C2_IR1 = Lm_B1(C2_MAC1, 0);
+	C2_IR2 = Lm_B2(C2_MAC2, 0);
+	C2_IR3 = Lm_B3_sf(m_mac3, m_sf, 0);
+	C2_SZ0 = C2_SZ1;
+	C2_SZ1 = C2_SZ2;
+	C2_SZ2 = C2_SZ3;
+	C2_SZ3 = Lm_D(m_mac3, 1);
+	const int h_over_sz3 = Lm_E(gte_divide(C2_H, C2_SZ3));
+	C2_SXY0 = C2_SXY1;
+	C2_SXY1 = C2_SXY2;
+	C2_SX2 = Lm_G1(F((s64)C2_OFX + ((viewX >> 12) * h_over_sz3)) >> 16);
+	C2_SY2 = Lm_G2(F((s64)C2_OFY + ((viewY >> 12) * h_over_sz3)) >> 16);
+	if (gNativePgxpMode == NATIVE_PGXP_MODE_TEXTURES)
+	{
+		NativePgxp_GteProjectTexture((u32)C2_SXY2, NativePgxp_TextureDepthFromGte(C2_SZ3, h_over_sz3));
+	}
+	else if (NATIVE_PGXP_ACTIVE())
+	{
+		const double input[3] = {x, y, z};
+		NativeGte_RecordProjection(viewX, viewY, viewZ, h_over_sz3, 0, -1, precise != NULL ? precise : input);
+	}
+
+	C2_MAC0 = (int)(F((s64)C2_DQB + ((s64)C2_DQA * h_over_sz3)));
+	C2_IR0 = Lm_H(m_mac0, 1);
 }
 
 int GTE_operator(int op)

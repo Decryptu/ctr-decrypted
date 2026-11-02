@@ -1,4 +1,5 @@
 #include <common.h>
+#include <platform/native_draw_distance.h>
 
 
 void PushBuffer_Init(struct PushBuffer *pb, int id, int total)
@@ -524,9 +525,7 @@ void PushBuffer_UpdateFrustum(struct PushBuffer *pb)
 
 	fcOUT = &spf->fc[3];
 
-	// increase_draw_distance (config.ini, see platform/native_config.c): push the
-	// frustum far clip out so distant geometry is not culled early.
-	int farClip = g_config.increaseDrawDistance ? 0x200 : 0x100;
+	int farClip = NativeDrawDistance_Limit(0x100);
 
 	for (i = 0; i < 4; i++)
 	{

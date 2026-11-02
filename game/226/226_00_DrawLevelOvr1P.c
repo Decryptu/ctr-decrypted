@@ -1,4 +1,5 @@
 #include <common.h>
+#include <platform/native_draw_distance.h>
 
 #if defined(CTR_NATIVE)
 #include <platform/native_pgxp.h>
@@ -8418,10 +8419,10 @@ static int Ovr226_800a0ef4_DrawFullDynamicBspList(struct VisMemBspListNode *slot
 static void DrawLevelOvr1P_SetSplitGroundThresholdScratch(void)
 {
 	DrawLevelOvr1P_RenderScratch()->depthScale = 0x780;
-	DrawLevelOvr1P_RenderScratch()->textureLodDepthThreshold0 = 0x640;
-	DrawLevelOvr1P_RenderScratch()->textureLodDepthThreshold1 = 0x500;
-	DrawLevelOvr1P_RenderScratch()->topLevelNearDepthThreshold = 0x280;
-	DrawLevelOvr1P_RenderScratch()->recursiveNearDepthThreshold = 0x140;
+	DrawLevelOvr1P_RenderScratch()->textureLodDepthThreshold0 = NativeDrawDistance_Limit(0x640);
+	DrawLevelOvr1P_RenderScratch()->textureLodDepthThreshold1 = NativeDrawDistance_Limit(0x500);
+	DrawLevelOvr1P_RenderScratch()->topLevelNearDepthThreshold = NativeDrawDistance_Limit(0x280);
+	DrawLevelOvr1P_RenderScratch()->recursiveNearDepthThreshold = NativeDrawDistance_Limit(0x140);
 }
 
 static int DrawLevelOvr1P_ProjectSplitGroundListALowGrid(struct LevVertex *vertices, const struct QuadBlock *block,

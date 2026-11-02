@@ -1,4 +1,5 @@
 #include <common.h>
+#include <platform/native_draw_distance.h>
 #ifdef CTR_AP
 #include "../../ap/ap_title_ring_logic.h"
 #include "../../ap/ap_traps.h"
@@ -1228,11 +1229,10 @@ static struct ModelHeader *RenderBucket_SelectModelHeader(struct Instance *inst,
 	// NOTE(aalhendi): Retail keeps the low 32 bits of this product before dividing by GTE H.
 	projectedDistance = (int)(u32)((s64)(pb->rect.w >> 1) * viewDepth) / pb->distanceToScreen_PREV;
 #ifdef CTR_NATIVE
-	// increase_draw_distance (config.ini): shrink the per-model LOD distance so
-	// higher-detail LODs are held farther out. Must skip screenspace instances
-	// (e.g. instBigNum) whose viewDepth is a digit selector, not a 3D camera distance.
-	if (g_config.increaseDrawDistance && (inst->flags & SCREENSPACE_INSTANCE) == 0)
-		projectedDistance = (projectedDistance * 100) / 400;
+	// Not for screenspace instances (instBigNum), whose viewDepth is a digit
+	// selector, not a distance.
+	if ((inst->flags & SCREENSPACE_INSTANCE) == 0)
+		projectedDistance = NativeDrawDistance_ModelLod(projectedDistance);
 #endif
 	mh = inst->model->headers;
 	headersRemaining = inst->model->numHeaders;

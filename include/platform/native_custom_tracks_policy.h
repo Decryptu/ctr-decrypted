@@ -142,16 +142,19 @@
 //    limit: this is the same argument the MEMPACK expansion already made, and
 //    the same answer.
 //
-//    CTR_CT_PRIM_ARENA_BYTES is 1 MiB, sized from measurement rather than taste:
+//    CTR_CT_PRIM_ARENA_BYTES is 2 MiB, sized from measurement rather than taste:
 //      sky, worst 4-segment frame ....................  310,464
 //      level geometry, EVERY quadblock at near LOD ...  496,704
 //      both at once, which cannot actually happen ....  807,168
-//    1,048,576 covers that impossible worst case with 30% to spare, and every
-//    real frame by a wide margin. Three ceilings were checked against it rather
+//      increase_draw_distance, two-player split screen,
+//      worst measured frame (N. Gin Labs) ............  820,616
+//    2,097,152 covers the impossible worst case and the worst real frame
+//    (native_draw_distance.h moves every limit out by four) with more than
+//    double to spare. Three ceilings were checked against it rather
 //    than assumed, and each is asserted in tools/test-custom-track-policy.c:
 //      - GPU link tokens. Ranges are handed tokens counting DOWN from
 //        0x00f00000 (platform/native_gpu_links.c), so all registered ranges
-//        share a 15,728,640-byte budget. Two prim arenas at 1 MiB plus the OT
+//        share a 15,728,640-byte budget. Two prim arenas at 2 MiB plus the OT
 //        pair and the swapchain pair come to 4,218,928 -- 27% of it. Over-large
 //        would fail LOUDLY: NativeGpuLinks_RegisterRangeChecked aborts at
 //        startup rather than silently truncating.
@@ -375,7 +378,7 @@
 // much host memory on every load (CTR_NATIVE_PRIM_ARENA_BYTES in
 // platform/native_memory.c, kept equal by hand);
 // see decision 8 for the measurements behind it.
-#define CTR_CT_PRIM_ARENA_BYTES 0x100000uL
+#define CTR_CT_PRIM_ARENA_BYTES 0x200000uL
 
 // How many entries sdata_static.quadBlocksRendered holds. Decision 9 bounds
 // the append against the end of that array; tools/test-custom-track-load.c

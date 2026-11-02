@@ -32,6 +32,9 @@ extern int CFC2_S(int reg);
 /* performs cop2 opcode */
 extern int doCOP2(int op);
 
+/* RTPS of a full-width position (native only); precise is its PGXP input or NULL */
+extern void NativeGte_ProjectWide(s32 x, s32 y, s32 z, const double *precise);
+
 #else
 
 #define CTR_GTE_STRINGIFY_IMPL(value) #value

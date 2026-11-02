@@ -24,40 +24,78 @@ struct DrawTiresSolidProjectedWheel
 	int jumpIndex;
 };
 
-// One bit per wheel whose view-space position does not fit the GTE's 16-bit
-// vectors (native only). Retail draws tires only at the instance's top LOD,
-// which kept karts close enough to fit; increase_draw_distance holds that LOD
-// four times farther, where the camera-relative position saturates (IR1-3) or
-// a corner wraps when packed, and the quad collapses into a long dark line
-// from the racer across the screen. Such a wheel is a pixel or two anyway.
-static u32 sDrawTiresWheelOutOfRange;
-
-static void DrawTires_CheckWheelCenter(int wheelIndex)
-{
-	// GTE FLAG bits 24..22: IR1..IR3 saturated by the last operation.
-	if ((CFC2(31) & (7u << 22)) != 0)
-	{
-		sDrawTiresWheelOutOfRange |= 1u << wheelIndex;
-	}
-}
-
-static void DrawTires_CheckWheelCorner(int wheelIndex, int x, int y, int z)
-{
-	if ((x != (s16)x) || (y != (s16)y) || (z != (s16)z))
-	{
-		sDrawTiresWheelOutOfRange |= 1u << wheelIndex;
-	}
-}
-
-static int DrawTires_WheelOutOfRange(int wheelIndex)
-{
 #if defined(CTR_NATIVE)
-	return (sDrawTiresWheelOutOfRange >> wheelIndex) & 1;
-#else
-	(void)wheelIndex;
-	return 0;
-#endif
+// Wheels whose camera-relative position does not fit the GTE's 16-bit vectors
+// (native only). Retail draws tires only at the instance's top LOD, which kept
+// karts close enough to fit; increase_draw_distance holds that LOD four times
+// farther, where the centre saturates IR1-3 and a corner wraps when packed.
+// Such a wheel keeps its full-width centre (MAC1-3), takes its facing from it,
+// and has its corners projected by NativeGte_ProjectWide.
+static u32 sDrawTiresWheelOutOfRange;
+static s32 sDrawTiresWheelCenter[4][3];
+
+// After the LCV0TR that moves the wheel centre into view space. The reflection
+// mirrors the height about splitCameraY.
+static void DrawTires_StoreWheelCenter(int wheelIndex, int mirror, int splitCameraY)
+{
+	s32 *center = sDrawTiresWheelCenter[wheelIndex];
+
+	center[0] = MFC2_S(25);
+	center[1] = mirror ? splitCameraY - (MFC2_S(26) - splitCameraY) : MFC2_S(26);
+	center[2] = MFC2_S(27);
+	// GTE FLAG bits 24..22: IR1..IR3 saturated; the mirror can also leave s16.
+	if (((CFC2(31) & (7u << 22)) != 0) || (center[1] != (s16)center[1]))
+	{
+		sDrawTiresWheelOutOfRange |= 1u << wheelIndex;
+	}
 }
+
+// The facing normal (4096 long, towards the camera) from the full-width centre
+// when the 16-bit one saturated.
+static void DrawTires_WideNormal(struct DrawTiresPackedVec3 *viewNormal, int wheelIndex, int *normalX, int *normalY, int *normalZ)
+{
+	if (((sDrawTiresWheelOutOfRange >> wheelIndex) & 1) == 0)
+		return;
+
+	const s32 *center = sDrawTiresWheelCenter[wheelIndex];
+	const double len = sqrt((double)center[0] * center[0] + (double)center[1] * center[1] + (double)center[2] * center[2]);
+	if (len < 1.0)
+		return;
+	*normalX = (int)(-center[0] * 4096.0 / len);
+	*normalY = (int)(-center[1] * 4096.0 / len);
+	*normalZ = (int)(-center[2] * 4096.0 / len);
+	viewNormal->x = *normalX;
+	viewNormal->y = *normalY;
+	viewNormal->z.word = *normalZ;
+}
+
+static void DrawTires_WideCorner(const struct DrawTiresScratch *scratch, int wheelIndex, int axisSign, int rimSign, s32 out[3])
+{
+	const s32 *center = sDrawTiresWheelCenter[wheelIndex];
+	const SVec3Slot *axisA = &scratch->tireAxisA[wheelIndex];
+	const SVec3Slot *axisB = &scratch->tireAxisB[wheelIndex];
+
+	out[0] = center[0] + (axisSign * axisA->x) + (rimSign * axisB->x);
+	out[1] = center[1] + (axisSign * axisA->y) + (rimSign * axisB->y);
+	out[2] = center[2] + (axisSign * axisA->z) + (rimSign * axisB->z);
+}
+
+// A corner near the edge of the range can wrap even when the centre fits.
+static int DrawTires_WheelIsWide(const struct DrawTiresScratch *scratch, int wheelIndex)
+{
+	if ((sDrawTiresWheelOutOfRange >> wheelIndex) & 1)
+		return 1;
+
+	for (int corner = 0; corner < 4; corner++)
+	{
+		s32 v[3];
+		DrawTires_WideCorner(scratch, wheelIndex, (corner & 1) ? 1 : -1, (corner & 2) ? 1 : -1, v);
+		if ((v[0] != (s16)v[0]) || (v[1] != (s16)v[1]) || (v[2] != (s16)v[2]))
+			return 1;
+	}
+	return 0;
+}
+#endif
 
 // The wheels are projected through the camera's rotation from positions taken
 // relative to the integer camera (x4), and their screen positions are copied
@@ -113,10 +151,9 @@ static void DrawTires_BuildPreciseAxes(struct DrawTiresScratch *scratch, struct 
 	const double size = scratch->wheelSize.word / 64.0;
 	for (int wheelIndex = 0; wheelIndex < 4; wheelIndex++)
 	{
-		const struct DrawTiresWheelLocal *wheelLocal = &scratch->wheelLocal[wheelIndex];
+		const s32 *center = sDrawTiresWheelCenter[wheelIndex];
 		const struct DrawTiresPackedVec3 *rim = &scratch->transformedRimVectors[wheelIndex];
-		double normal[3] = {-(wheelLocal->center.x + 4.0 * shift[0]), -(wheelLocal->center.y + 4.0 * shift[1]),
-		                    -(wheelLocal->center.z.halves.lo + 4.0 * shift[2])};
+		double normal[3] = {-(center[0] + 4.0 * shift[0]), -(center[1] + 4.0 * shift[1]), -(center[2] + 4.0 * shift[2])};
 		const double rimVector[3] = {rim->x, rim->y, rim->z.word};
 		double *axisA = sDrawTiresPreciseAxisA[wheelIndex];
 		double *axisB = sDrawTiresPreciseAxisB[wheelIndex];
@@ -141,19 +178,44 @@ static void DrawTires_BuildPreciseAxes(struct DrawTiresScratch *scratch, struct 
 	}
 }
 
-static void DrawTires_SetPreciseCorner(struct DrawTiresScratch *scratch, int vectorIndex, int wheelIndex, int axisSign, int rimSign, int x, int y, int z)
+static void DrawTires_PreciseCorner(int wheelIndex, int axisSign, int rimSign, double out[3])
+{
+	const s32 *center = sDrawTiresWheelCenter[wheelIndex];
+	const double *axisA = sDrawTiresPreciseAxisA[wheelIndex];
+	const double *axisB = sDrawTiresPreciseAxisB[wheelIndex];
+
+	for (int i = 0; i < 3; i++)
+		out[i] = center[i] + axisSign * axisA[i] + rimSign * axisB[i];
+}
+
+static void DrawTires_SetPreciseCorner(int vectorIndex, int wheelIndex, int axisSign, int rimSign, int x, int y, int z)
 {
 	if (!sDrawTiresPrecise)
 		return;
 
-	const struct DrawTiresWheelLocal *wheelLocal = &scratch->wheelLocal[wheelIndex];
-	const double *axisA = sDrawTiresPreciseAxisA[wheelIndex];
-	const double *axisB = sDrawTiresPreciseAxisB[wheelIndex];
+	double corner[3];
+	DrawTires_PreciseCorner(wheelIndex, axisSign, rimSign, corner);
 	const s16 vector[3] = {(s16)x, (s16)y, (s16)z};
-	const float precise[3] = {(float)(wheelLocal->center.x + axisSign * axisA[0] + rimSign * axisB[0]),
-	                          (float)(wheelLocal->center.y + axisSign * axisA[1] + rimSign * axisB[1]),
-	                          (float)(wheelLocal->center.z.halves.lo + axisSign * axisA[2] + rimSign * axisB[2])};
+	const float precise[3] = {(float)corner[0], (float)corner[1], (float)corner[2]};
 	NativePgxp_GteSetInput(vectorIndex, vector, precise);
+}
+
+// The four corners of an out-of-range wheel, in the order the GTE path
+// projects them (so the SZ FIFO holds them for AVSZ4), each stored to slots[i].
+static void DrawTires_ProjectWide(struct DrawTiresScratch *scratch, int wheelIndex, const int slots[4])
+{
+	static const int signs[4][2] = {{-1, -1}, {1, -1}, {-1, 1}, {1, 1}};
+
+	for (int i = 0; i < 4; i++)
+	{
+		s32 v[3];
+		double precise[3];
+		DrawTires_WideCorner(scratch, wheelIndex, signs[i][0], signs[i][1], v);
+		if (sDrawTiresPrecise)
+			DrawTires_PreciseCorner(wheelIndex, signs[i][0], signs[i][1], precise);
+		NativeGte_ProjectWide(v[0], v[1], v[2], sDrawTiresPrecise ? precise : NULL);
+		DrawTires_StoreProjected(scratch, slots[i], 14);
+	}
 }
 #endif
 
@@ -383,7 +445,9 @@ static void DrawTiresSolid_BuildWheelAxes(struct DrawTiresScratch *scratch)
 	// cursors initialized at 0x8006e8e4-0x8006e8e8, then walks four wheel records
 	// backward through scratchpad. Native uses explicit offsets while preserving
 	// the same GTE operations and scratch writes.
+#if defined(CTR_NATIVE)
 	sDrawTiresWheelOutOfRange = 0;
+#endif
 
 	for (int wheelIndex = 3; wheelIndex >= 0; wheelIndex--)
 	{
@@ -399,7 +463,9 @@ static void DrawTiresSolid_BuildWheelAxes(struct DrawTiresScratch *scratch)
 		MTC2(wheelLocal->rim.z.word, 3);
 
 		gte_lcv0tr_b();
-		DrawTires_CheckWheelCenter(wheelIndex);
+#if defined(CTR_NATIVE)
+		DrawTires_StoreWheelCenter(wheelIndex, 0, 0);
+#endif
 		int centerX = MFC2_S(9);
 		int centerY = MFC2_S(10);
 		int centerZ = MFC2_S(11);
@@ -428,6 +494,9 @@ static void DrawTiresSolid_BuildWheelAxes(struct DrawTiresScratch *scratch)
 		int normalZ = (centerZ * invLen) >> 4;
 		transformedRim->z.word = rimZ;
 		viewNormal->z.word = normalZ;
+#if defined(CTR_NATIVE)
+		DrawTires_WideNormal(viewNormal, wheelIndex, &normalX, &normalY, &normalZ);
+#endif
 
 		CTC2(normalX & 0xffff, 0);
 		CTC2(normalY & 0xffff, 2);
@@ -500,12 +569,10 @@ static void DrawTiresSolid_LoadCorner(struct DrawTiresScratch *scratch, int vect
 	int y = wheelLocal->center.y + (axisSign * axisA->y) + (rimSign * axisB->y);
 	int z = wheelLocal->center.z.halves.lo + (axisSign * axisA->z) + (rimSign * axisB->z);
 
-	DrawTires_CheckWheelCorner(wheelIndex, x, y, z);
-
 	MTC2(CTR_PackS16Pair(x, y), vectorIndex * 2);
 	MTC2(z, (vectorIndex * 2) + 1);
 #if defined(CTR_NATIVE)
-	DrawTires_SetPreciseCorner(scratch, vectorIndex, wheelIndex, axisSign, rimSign, x, y, z);
+	DrawTires_SetPreciseCorner(vectorIndex, wheelIndex, axisSign, rimSign, x, y, z);
 #endif
 }
 
@@ -528,11 +595,14 @@ static int DrawTiresSolid_SelectSpriteIndex(int angleValue)
 
 static struct DrawTiresSolidProjectedWheel DrawTiresSolid_SelectProjectedWheel(struct DrawTiresScratch *scratch, int wheelIndex)
 {
-	struct DrawTiresWheelLocal *wheelLocal = &scratch->wheelLocal[wheelIndex];
 	struct DrawTiresPackedVec3 *viewNormal = &scratch->viewNormalVectors[wheelIndex];
 	struct DrawTiresPackedVec3 *transformedRim = &scratch->transformedRimVectors[wheelIndex];
 	int selectedOT = scratch->otRangeNormal;
-	int splitDelta = scratch->splitCameraY - wheelLocal->center.y;
+#if defined(CTR_NATIVE)
+	int splitDelta = scratch->splitCameraY - sDrawTiresWheelCenter[wheelIndex][1];
+#else
+	int splitDelta = scratch->splitCameraY - scratch->wheelLocal[wheelIndex].center.y;
+#endif
 	struct DrawTiresSolidProjectedWheel selected = {
 	    .selectedOT = selectedOT,
 	    .jumpIndex = wheelIndex,
@@ -710,22 +780,27 @@ static int DrawTiresSolid_ProjectWheelQuads(struct DrawTiresScratch *scratch, st
 	// depth-bias scratch updates, UV copy, and OT linking.
 	for (int wheelIndex = 3; wheelIndex >= 0; wheelIndex--)
 	{
-		DrawTiresSolid_LoadCorner(scratch, 0, wheelIndex, -1, -1);
-		DrawTiresSolid_LoadCorner(scratch, 1, wheelIndex, 1, -1);
-		DrawTiresSolid_LoadCorner(scratch, 2, wheelIndex, -1, 1);
-
-		gte_rtpt_b();
-		DrawTires_StoreProjected(scratch, 0, 12);
-		DrawTires_StoreProjected(scratch, 1, 13);
-		DrawTires_StoreProjected(scratch, 2, 14);
-
-		DrawTiresSolid_LoadCorner(scratch, 0, wheelIndex, 1, 1);
-		gte_rtps_b();
-		DrawTires_StoreProjected(scratch, 3, 14);
-
-		if (DrawTires_WheelOutOfRange(wheelIndex))
+#if defined(CTR_NATIVE)
+		if (DrawTires_WheelIsWide(scratch, wheelIndex))
 		{
-			continue;
+			static const int slots[4] = {0, 1, 2, 3};
+			DrawTires_ProjectWide(scratch, wheelIndex, slots);
+		}
+		else
+#endif
+		{
+			DrawTiresSolid_LoadCorner(scratch, 0, wheelIndex, -1, -1);
+			DrawTiresSolid_LoadCorner(scratch, 1, wheelIndex, 1, -1);
+			DrawTiresSolid_LoadCorner(scratch, 2, wheelIndex, -1, 1);
+
+			gte_rtpt_b();
+			DrawTires_StoreProjected(scratch, 0, 12);
+			DrawTires_StoreProjected(scratch, 1, 13);
+			DrawTires_StoreProjected(scratch, 2, 14);
+
+			DrawTiresSolid_LoadCorner(scratch, 0, wheelIndex, 1, 1);
+			gte_rtps_b();
+			DrawTires_StoreProjected(scratch, 3, 14);
 		}
 
 		struct DrawTiresSolidProjectedWheel projectedWheel = DrawTiresSolid_SelectProjectedWheel(scratch, wheelIndex);
@@ -983,7 +1058,9 @@ static void DrawTiresReflection_BuildWheelAxes(struct DrawTiresScratch *scratch)
 	// cursors initialized at 0x8006f360-0x8006f364, then walks four wheel
 	// records backward through scratchpad. Native uses explicit offsets while
 	// preserving the reflected Y mirror and GTE operation sequence.
+#if defined(CTR_NATIVE)
 	sDrawTiresWheelOutOfRange = 0;
+#endif
 
 	for (int wheelIndex = 3; wheelIndex >= 0; wheelIndex--)
 	{
@@ -1000,7 +1077,9 @@ static void DrawTiresReflection_BuildWheelAxes(struct DrawTiresScratch *scratch)
 		MTC2(wheelLocal->rim.z.word, 3);
 
 		gte_lcv0tr_b();
-		DrawTires_CheckWheelCenter(wheelIndex);
+#if defined(CTR_NATIVE)
+		DrawTires_StoreWheelCenter(wheelIndex, 1, splitCameraY);
+#endif
 		int centerX = MFC2_S(9);
 		int originalCenterY = MFC2_S(10);
 		int centerZ = MFC2_S(11);
@@ -1030,6 +1109,9 @@ static void DrawTiresReflection_BuildWheelAxes(struct DrawTiresScratch *scratch)
 		int normalZ = (centerZ * invLen) >> 4;
 		transformedRim->z.word = rimZ;
 		viewNormal->z.word = normalZ;
+#if defined(CTR_NATIVE)
+		DrawTires_WideNormal(viewNormal, wheelIndex, &normalX, &normalY, &normalZ);
+#endif
 
 		CTC2(normalX & 0xffff, 0);
 		CTC2(normalY & 0xffff, 2);
@@ -1102,12 +1184,10 @@ static void DrawTiresReflection_LoadCorner(struct DrawTiresScratch *scratch, int
 	int y = wheelLocal->center.y + (axisSign * axisA->y) + (rimSign * axisB->y);
 	int z = wheelLocal->center.z.halves.lo + (axisSign * axisA->z) + (rimSign * axisB->z);
 
-	DrawTires_CheckWheelCorner(wheelIndex, x, y, z);
-
 	MTC2(CTR_PackS16Pair(x, y), vectorIndex * 2);
 	MTC2(z, (vectorIndex * 2) + 1);
 #if defined(CTR_NATIVE)
-	DrawTires_SetPreciseCorner(scratch, vectorIndex, wheelIndex, axisSign, rimSign, x, y, z);
+	DrawTires_SetPreciseCorner(vectorIndex, wheelIndex, axisSign, rimSign, x, y, z);
 #endif
 }
 
@@ -1287,22 +1367,27 @@ static int DrawTiresReflection_ProjectWheelQuads(struct DrawTiresScratch *scratc
 	// reflected SXY scratch order used by the later jump-table primitive path.
 	for (int wheelIndex = 3; wheelIndex >= 0; wheelIndex--)
 	{
-		DrawTiresReflection_LoadCorner(scratch, 0, wheelIndex, -1, -1);
-		DrawTiresReflection_LoadCorner(scratch, 1, wheelIndex, 1, -1);
-		DrawTiresReflection_LoadCorner(scratch, 2, wheelIndex, -1, 1);
-
-		gte_rtpt_b();
-		DrawTires_StoreProjected(scratch, 1, 12);
-		DrawTires_StoreProjected(scratch, 0, 13);
-		DrawTires_StoreProjected(scratch, 3, 14);
-
-		DrawTiresReflection_LoadCorner(scratch, 0, wheelIndex, 1, 1);
-		gte_rtps_b();
-		DrawTires_StoreProjected(scratch, 2, 14);
-
-		if (DrawTires_WheelOutOfRange(wheelIndex))
+#if defined(CTR_NATIVE)
+		if (DrawTires_WheelIsWide(scratch, wheelIndex))
 		{
-			continue;
+			static const int slots[4] = {1, 0, 3, 2};
+			DrawTires_ProjectWide(scratch, wheelIndex, slots);
+		}
+		else
+#endif
+		{
+			DrawTiresReflection_LoadCorner(scratch, 0, wheelIndex, -1, -1);
+			DrawTiresReflection_LoadCorner(scratch, 1, wheelIndex, 1, -1);
+			DrawTiresReflection_LoadCorner(scratch, 2, wheelIndex, -1, 1);
+
+			gte_rtpt_b();
+			DrawTires_StoreProjected(scratch, 1, 12);
+			DrawTires_StoreProjected(scratch, 0, 13);
+			DrawTires_StoreProjected(scratch, 3, 14);
+
+			DrawTiresReflection_LoadCorner(scratch, 0, wheelIndex, 1, 1);
+			gte_rtps_b();
+			DrawTires_StoreProjected(scratch, 2, 14);
 		}
 
 		struct DrawTiresReflectionProjectedWheel projectedWheel = DrawTiresReflection_SelectProjectedWheel(scratch, wheelIndex);

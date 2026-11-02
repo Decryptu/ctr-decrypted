@@ -68,11 +68,11 @@ CTR_STATIC_ASSERT(sizeof(union NativeScratchpadStorage) == CTR_SCRATCHPAD_SIZE);
 global_variable char s_mempackMemory[CTR_NATIVE_MEMPACK_BUFFER_SIZE];
 global_variable struct PlatformMempackArena s_mempackArena;
 // The two primitive arenas (MainInit_PrimMem), in host memory instead of
-// MEMPACK. 1 MiB each, sized by decision 8 in native_custom_tracks_policy.h
+// MEMPACK. 2 MiB each, sized by decision 8 in native_custom_tracks_policy.h
 // (CTR_CT_PRIM_ARENA_BYTES, keep equal): the worst custom-track sky plus every
-// quadblock at near LOD is 807,168 bytes. Hot Air Skyway with
-// increase_draw_distance peaks at about 140 KB.
-#define CTR_NATIVE_PRIM_ARENA_BYTES 0x100000u
+// quadblock at near LOD is 807,168 bytes, and two-player split screen with
+// increase_draw_distance peaks at about 820 KB.
+#define CTR_NATIVE_PRIM_ARENA_BYTES 0x200000u
 global_variable u8 s_primArena[2][CTR_NATIVE_PRIM_ARENA_BYTES];
 global_variable union NativeScratchpadStorage s_scratchpadMemory;
 u8 *gCTRNativeScratchpadBase;

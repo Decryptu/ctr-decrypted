@@ -1,4 +1,5 @@
 #include <common.h>
+#include <platform/native_draw_distance.h>
 #include "../RenderLevel/DrawLevelOvr_shared.h"
 
 enum Ovr227DrawLevelConstants
@@ -106,10 +107,10 @@ static void DrawLevelOvr2P_SeedSharedHelperThresholdScratch(void)
 	// copied BSP handler bodies. Native reuses 226 C helpers that still read
 	// the equivalent thresholds from scratch, so seed the shared-helper view.
 	DrawLevelOvr1P_RenderScratch()->depthScale = OVR227_DEPTH_SCALE;
-	DrawLevelOvr1P_RenderScratch()->textureLodDepthThreshold0 = OVR227_TEXTURE_LOD_DEPTH_THRESHOLD0;
-	DrawLevelOvr1P_RenderScratch()->textureLodDepthThreshold1 = OVR227_TEXTURE_LOD_DEPTH_THRESHOLD1;
-	DrawLevelOvr1P_RenderScratch()->topLevelNearDepthThreshold = OVR227_TOP_LEVEL_NEAR_DEPTH_THRESHOLD;
-	DrawLevelOvr1P_RenderScratch()->recursiveNearDepthThreshold = OVR227_RECURSIVE_NEAR_DEPTH_THRESHOLD;
+	DrawLevelOvr1P_RenderScratch()->textureLodDepthThreshold0 = NativeDrawDistance_Limit(OVR227_TEXTURE_LOD_DEPTH_THRESHOLD0);
+	DrawLevelOvr1P_RenderScratch()->textureLodDepthThreshold1 = NativeDrawDistance_Limit(OVR227_TEXTURE_LOD_DEPTH_THRESHOLD1);
+	DrawLevelOvr1P_RenderScratch()->topLevelNearDepthThreshold = NativeDrawDistance_Limit(OVR227_TOP_LEVEL_NEAR_DEPTH_THRESHOLD);
+	DrawLevelOvr1P_RenderScratch()->recursiveNearDepthThreshold = NativeDrawDistance_Limit(OVR227_RECURSIVE_NEAR_DEPTH_THRESHOLD);
 }
 
 static const struct DrawLevelOvr1PBucket *DrawLevelOvr2P_FindBucketByHandler(u32 handlerAddress)

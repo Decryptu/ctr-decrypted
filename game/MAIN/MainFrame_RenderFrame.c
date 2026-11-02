@@ -1,4 +1,5 @@
 #include <common.h>
+#include <platform/native_draw_distance.h>
 
 #if defined(CTR_NATIVE)
 #include <platform/native_gpu.h>
@@ -977,11 +978,11 @@ void RenderAllLevelGeometry(struct GameTracker *gGT, struct Level *level1, struc
 			// relationship between near-clip and far-clip,
 			// for each RenderList LOD set in the level
 			scratch->depthScale = 0x1e00;
-			scratch->bspLodDistanceThreshold = 0x640;
-			scratch->textureLodDepthThreshold0 = 0x640;
-			scratch->textureLodDepthThreshold1 = 0x500;
-			scratch->topLevelNearDepthThreshold = 0x280;
-			scratch->recursiveNearDepthThreshold = 0x140;
+			scratch->bspLodDistanceThreshold = NativeDrawDistance_Limit(0x640);
+			scratch->textureLodDepthThreshold0 = NativeDrawDistance_Limit(0x640);
+			scratch->textureLodDepthThreshold1 = NativeDrawDistance_Limit(0x500);
+			scratch->topLevelNearDepthThreshold = NativeDrawDistance_Limit(0x280);
+			scratch->recursiveNearDepthThreshold = NativeDrawDistance_Limit(0x140);
 			scratch->fullDynamicFadeDepthStart = scratch->bspLodDistanceThreshold + MAIN_RENDER_LEVEL_GEOMETRY_FULL_DYNAMIC_FADE_OFFSET;
 		}
 
@@ -993,15 +994,11 @@ void RenderAllLevelGeometry(struct GameTracker *gGT, struct Level *level1, struc
 			distToScreen = pushBuffer->distanceToScreen_PREV;
 
 			scratch->depthScale = RenderAllLevelGeometry_ScaleDistanceShift8(distToScreen, 0x2080);
-			scratch->bspLodDistanceThreshold = CTR_MipsMulLo(distToScreen, 0x1a);
-			// increase_draw_distance (config.ini): extend the BSP LOD threshold so
-			// full-detail level geometry renders farther out.
-			if (g_config.increaseDrawDistance)
-				scratch->bspLodDistanceThreshold = scratch->bspLodDistanceThreshold * 3;
-			scratch->textureLodDepthThreshold0 = CTR_MipsMulLo(distToScreen, 0x18);
-			scratch->textureLodDepthThreshold1 = CTR_MipsMulLo(distToScreen, 0xc);
-			scratch->topLevelNearDepthThreshold = CTR_MipsMulLo(distToScreen, 7);
-			scratch->recursiveNearDepthThreshold = RenderAllLevelGeometry_ScaleDistanceShift8(distToScreen, 0x380);
+			scratch->bspLodDistanceThreshold = NativeDrawDistance_Limit(CTR_MipsMulLo(distToScreen, 0x1a));
+			scratch->textureLodDepthThreshold0 = NativeDrawDistance_Limit(CTR_MipsMulLo(distToScreen, 0x18));
+			scratch->textureLodDepthThreshold1 = NativeDrawDistance_Limit(CTR_MipsMulLo(distToScreen, 0xc));
+			scratch->topLevelNearDepthThreshold = NativeDrawDistance_Limit(CTR_MipsMulLo(distToScreen, 7));
+			scratch->recursiveNearDepthThreshold = NativeDrawDistance_Limit(RenderAllLevelGeometry_ScaleDistanceShift8(distToScreen, 0x380));
 			scratch->fullDynamicFadeDepthStart = CTR_MipsAddLo(scratch->bspLodDistanceThreshold, MAIN_RENDER_LEVEL_GEOMETRY_FULL_DYNAMIC_FADE_OFFSET);
 		}
 
