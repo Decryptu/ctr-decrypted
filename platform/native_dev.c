@@ -33,7 +33,7 @@ typedef struct
 	int hidden;
 	int noItems;
 	int noLevelDepth;
-	int retailPvs; // CTR_DEV_RETAIL_PVS: draw the level with its retail visibility lists
+	int retailCull; // CTR_DEV_RETAIL_CULL: retail level visibility lists and sky slices
 	int botSpeed;
 	const char *shotDir;
 	int shotEvery;
@@ -76,7 +76,7 @@ static NativeDevState *NativeDev_State(void)
 		s_dev.hidden = NativeDev_EnvInt("CTR_DEV_HIDDEN", 0);
 		s_dev.noItems = NativeDev_EnvInt("CTR_DEV_NO_ITEMS", 0);
 		s_dev.noLevelDepth = NativeDev_EnvInt("CTR_DEV_NO_LEVEL_DEPTH", 0);
-		s_dev.retailPvs = NativeDev_EnvInt("CTR_DEV_RETAIL_PVS", 0);
+		s_dev.retailCull = NativeDev_EnvInt("CTR_DEV_RETAIL_CULL", 0);
 		s_dev.botSpeed = NativeDev_EnvInt("CTR_DEV_BOT_SPEED", 100);
 		s_dev.shotDir = (dir != NULL && *dir != '\0') ? dir : NULL;
 		s_dev.shotEvery = NativeDev_EnvInt("CTR_DEV_SHOT_EVERY", 60);
@@ -219,7 +219,7 @@ int NativeDev_Fast(void) { return NativeDev_State()->fast; }
 int NativeDev_Hidden(void) { return NativeDev_State()->hidden; }
 int NativeDev_NoItems(void) { return NativeDev_State()->noItems; }
 int NativeDev_NoLevelDepth(void) { return NativeDev_State()->noLevelDepth; }
-int NativeDev_RetailPvs(void) { return NativeDev_State()->retailPvs; }
+int NativeDev_RetailCull(void) { return NativeDev_State()->retailCull; }
 int NativeDev_BotSpeedPercent(void) { return NativeDev_State()->botSpeed; }
 
 int NativeDev_Setup(void)

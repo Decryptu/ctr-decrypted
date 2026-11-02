@@ -30,7 +30,7 @@ int NativeDev_NoItems(void);
 // the PS1 does (no level depth test, NativeGpu_SetLevelPrimRange), for A/B
 // captures of the same build.
 int NativeDev_NoLevelDepth(void);
-int NativeDev_RetailPvs(void);
+int NativeDev_RetailCull(void);
 
 // CTR_DEV_NUDGE=pitch|yaw|roll|x|y|z: in frame CTR_DEV_NUDGE_FRAME (default
 // CTR_DEV_DUMP_FRAME), move player 1's integer camera by CTR_DEV_NUDGE_BY

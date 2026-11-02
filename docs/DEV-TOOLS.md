@@ -50,7 +50,7 @@ All of these are read once, by `platform/native_dev.c` (`include/platform/native
 | `CTR_DEV_CAPTURE=<n>` | At frame n, capture as `F7` would ([Capturing while playing](#capturing-a-frame-while-playing)) |
 | `CTR_DEV_WARP=<x>,<y>,<z>,<angle>` | Once a level has loaded (the adventure hubs too), hold player 1 at that world position and heading, at rest, for 120 frames, then let go. In a race it also clears the checkpoint progress, so the mask-grab check does not take the kart back to where it was. Drop it a little above the road (trace `y` + 50). Reaches a spot a player reported in any build, unlike a savestate. In the adventure hub, add `CTR_DEV_PAD=4050:2` for the far camera once Aku Aku's hint ends, and capture from frame 4100 |
 | `CTR_DEV_NO_LEVEL_DEPTH=1` | Draw the level in ordering-table order only, as the PS1 does, for A/B captures of the [level depth test](PGXP.md#level-depth-test) |
-| `CTR_DEV_RETAIL_PVS=1` | Draw the level with its retail visibility lists, for A/B captures ([LEVEL-VISIBILITY.md](LEVEL-VISIBILITY.md)). A dev run also logs `[CTR Dev] primitive arena peak`: the most primitive-arena bytes one frame used |
+| `CTR_DEV_RETAIL_CULL=1` | Draw the level with its retail visibility lists and the sky the retail way, for A/B captures ([LEVEL-VISIBILITY.md](LEVEL-VISIBILITY.md)). A dev run also logs `[CTR Dev] primitive arena peak`: the most primitive-arena bytes one frame used |
 | `CTR_PGXP_DEBUG=1..4` | PGXP tints, see [PGXP.md](PGXP.md#debugging) |
 | `CTR_DEV_RACE=<LevelID>` | The title menu starts a one-player race on that track instead of the demo, with nobody at the controls unless the autopilot drives |
 | `CTR_DEV_MODE=tt` | Make `CTR_DEV_RACE` a Time Trial (default Arcade). `CTR_DEV_LAPS=n` sets the Arcade lap count |

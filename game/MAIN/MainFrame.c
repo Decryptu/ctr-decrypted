@@ -821,9 +821,9 @@ void MainFrame_VisMemFullFrame(struct GameTracker *gGT, struct Level *level)
 		// step to the next (docs/LEVEL-VISIBILITY.md). They only saved PS1 time,
 		// so native draws every level face and animates every water and
 		// vertex-colour vertex; the frustum and draw distance still cull.
-		// CTR_DEV_RETAIL_PVS=1 keeps the retail lists, for A/B captures.
+		// CTR_DEV_RETAIL_CULL=1 keeps the retail lists, for A/B captures.
 		// Instances keep their lists: warp pads and cutscenes read them.
-		if (!NativeDev_RetailPvs())
+		if (!NativeDev_RetailCull())
 		{
 			memset(visMem->visLeafList[playerIndex], 0xff, ((mesh->numBspNodes + 0x1f) >> 5) << 2);
 			memset(visMem->visFaceList[playerIndex], 0xff, ((mesh->numQuadBlock + 0x1f) >> 5) << 2);
