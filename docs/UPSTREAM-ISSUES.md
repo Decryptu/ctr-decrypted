@@ -31,7 +31,7 @@ How far behind each one we are, and which High Octane commits we ported: `python
 - #14: the pre-race camera flyover is wrong. Fixed here: the GTE load macros read 16-bit vector fields through a 32-bit pointer, which strict aliasing lets GCC at -O2 drop, so whether the fly-in worked depended on the compiler. They read through a `may_alias` type (`include/psx/inline_c.h`), covered by `tools/test-138-camera-flyin.c`.
 - #61: unlock all characters including Oxide. Oxide is playable here (unlocked by beating him, or the Spyro 2 demo code); the other characters unlock as in retail.
 - #54: PAL support. Out of scope per #51.
-- #43: Steam Deck: needs Steam Linux Runtime 4.0, the cursor stays visible, 16:10 requested.
+- #43: Steam Deck: needs Steam Linux Runtime 4.0, the cursor stays visible, 16:10 requested. Here the Linux build needs only glibc 2.38, hides the cursor under gamescope and starts at 16:10 on a Deck ([STEAM-DECK.md](STEAM-DECK.md)).
 - #25: Android. #20: Mac.
 
 **Open PRs:**

@@ -222,6 +222,20 @@ static void TestFullscreenSync(void)
 	EXPECT_INT("sync apply when config changed since last request", NativeConfig_FullscreenNeedsReapply(true, false, 0), 1);
 }
 
+// A first launch on a Steam Deck starts fullscreen at 16:10; anywhere else the
+// defaults are untouched.
+static void TestSteamDeckFirstLaunch(void)
+{
+	NativeConfig saved = g_config;
+	NativeConfig_ApplyFirstLaunchDefaults(false);
+	EXPECT_INT("first launch elsewhere: fullscreen unchanged", g_config.fullscreen, saved.fullscreen);
+	EXPECT_INT("first launch elsewhere: aspect unchanged", g_config.aspectRatio, saved.aspectRatio);
+	NativeConfig_ApplyFirstLaunchDefaults(true);
+	EXPECT_INT("first launch on a Deck: fullscreen", g_config.fullscreen, 1);
+	EXPECT_INT("first launch on a Deck: 16:10", g_config.aspectRatio, 2);
+	g_config = saved;
+}
+
 static void TestPersistenceRoundTrip(void)
 {
 	// Persist a full non-default state, then reload from a clean config and
@@ -448,6 +462,7 @@ int main(void)
 	TestViewport();
 	TestDitherUniform();
 	TestFullscreenSync();
+	TestSteamDeckFirstLaunch();
 	TestPersistenceRoundTrip();
 	TestShineHalvesMeet();
 	TestStartLightsTouch();

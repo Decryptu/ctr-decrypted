@@ -122,7 +122,10 @@ internal void Platform_UpdateCursorVisibility(void)
 		return;
 	}
 
-	if ((SDL_GetWindowFlags(g_window) & SDL_WINDOW_FULLSCREEN) != 0)
+	// The setting counts as well as the window flag: gamescope (Steam Deck Game
+	// Mode) never reports the window as fullscreen, and the cursor stayed on
+	// screen there.
+	if (g_config.fullscreen || (SDL_GetWindowFlags(g_window) & SDL_WINDOW_FULLSCREEN) != 0)
 	{
 		SDL_HideCursor();
 	}

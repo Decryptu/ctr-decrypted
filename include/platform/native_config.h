@@ -278,6 +278,12 @@ bool NativeConfig_FullscreenToggledFromWindow(bool windowFullscreen);
 // fullscreen, and re-requesting every frame blocked each frame for ~100 ms.
 bool NativeConfig_FullscreenNeedsReapply(bool want, bool have, int lastRequested);
 
+// The first launch (no config.ini) on a Steam Deck starts fullscreen at 16:10,
+// the Deck's screen; elsewhere the defaults stay windowed 4:3.
+// NativeConfig_Load applies this when it finds no config.ini.
+void NativeConfig_ApplyFirstLaunchDefaults(bool steamDeck);
+bool NativeConfig_IsSteamDeck(void);
+
 // true if a config.ini was present at load time. Consumers (e.g. the AP layer)
 // use this to decide config.ini precedence over legacy flat config files.
 bool NativeConfig_HasIni(void);

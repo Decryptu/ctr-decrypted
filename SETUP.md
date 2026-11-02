@@ -404,10 +404,14 @@ Non-Steam Game to My Library…**, browse to `ctr_native_ap.exe`, and from then
 on launch it from your Steam library. Steam Input then treats it like any
 other Steam game.
 
-**On a Steam Deck** you do not need a keyboard at all. Launch the game from
-Steam in Gaming Mode, and focusing any field on the Connection screen brings up
-the Steam on-screen keyboard. The whole edit works from the pad: X or START
-saves the field, TRIANGLE cancels it.
+**On a Steam Deck**, use the Linux `.tar.gz`. In Desktop Mode, extract it into
+a folder of its own (for example `~/Games/CTR`), put your disc image in its
+`assets` folder, then right-click `ctr_native_ap` and choose **Add to Steam**.
+From then on start it from your library in Gaming Mode. The first launch on a
+Deck is fullscreen at 16:10, the Deck's screen, and the built-in controls work
+as a controller. You do not need a keyboard: focusing any field on the
+Connection screen brings up the Steam on-screen keyboard, and the whole edit
+works from the pad: X or START saves the field, TRIANGLE cancels it.
 
 ## Reporting a crash or a stuck seed
 

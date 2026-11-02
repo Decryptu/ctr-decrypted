@@ -284,6 +284,46 @@ bool NativeConfig_FullscreenNeedsReapply(bool want, bool have, int lastRequested
 	return want != have && lastRequested != (want ? 1 : 0);
 }
 
+void NativeConfig_ApplyFirstLaunchDefaults(bool steamDeck)
+{
+	if (steamDeck)
+	{
+		g_config.fullscreen = true;
+		g_config.aspectRatio = 2; // 16:10, the Deck's 1280x800 screen
+	}
+}
+
+// Steam sets SteamDeck=1 for everything it launches on a Deck; the board name
+// covers a launch from Desktop Mode outside Steam. Jupiter is the LCD model,
+// Galileo the OLED.
+bool NativeConfig_IsSteamDeck(void)
+{
+	const char *env = getenv("SteamDeck");
+	if (env != NULL && strcmp(env, "1") == 0)
+		return true;
+#if defined(__linux__)
+	char vendor[32] = "", board[32] = "";
+	FILE *f = fopen("/sys/class/dmi/id/board_vendor", "r");
+	if (f)
+	{
+		if (!fgets(vendor, sizeof(vendor), f))
+			vendor[0] = '\0';
+		fclose(f);
+	}
+	f = fopen("/sys/class/dmi/id/board_name", "r");
+	if (f)
+	{
+		if (!fgets(board, sizeof(board), f))
+			board[0] = '\0';
+		fclose(f);
+	}
+	return strncmp(vendor, "Valve", 5) == 0 &&
+	       (strncmp(board, "Jupiter", 7) == 0 || strncmp(board, "Galileo", 7) == 0);
+#else
+	return false;
+#endif
+}
+
 static bool ParseBool(const char *s)
 {
 	return strcmp(s, "true") == 0 || strcmp(s, "1") == 0;
@@ -309,6 +349,7 @@ void NativeConfig_Load(void)
 	{
 		g_configIniPresent = false;
 		printf("[Config] config.ini not found, using defaults\n");
+		NativeConfig_ApplyFirstLaunchDefaults(NativeConfig_IsSteamDeck());
 		return;
 	}
 
