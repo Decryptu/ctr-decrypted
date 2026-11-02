@@ -19,7 +19,7 @@ Everything a new contributor needs, with no other context. Keep it current. [ROA
 | `include/` | Shared headers, structs, macros (`include/macros.h` holds the frame-rate macros) |
 | `externals/SDL` | SDL 3.4.10, vendored, static |
 | `externals/libusb` | libusb 1.0.30 Windows backend, vendored, for Switch 2 controllers |
-| `tools/decrypted/` | Our own scripts (upstream sync and status, unattended runs and render diagnostics) |
+| `tools/decrypted/` | Our own scripts (upstream sync and status, unattended runs, render diagnostics, save and Archipelago progress editing) |
 | `docs/` | Project docs |
 
 The root and `tools/` keep dowlle's layout, including files we don't use ourselves (`build.bat`, `tools/authoring-branch/`, `tools/CUSTOM-TRACK-SPIKE.md`). We merge dowlle regularly, and every upstream file we moved or deleted would conflict on each sync and break upstream's own references to it. The root files are not strays: `support-bundle.*`, `default_controls.ini`, `ap-config.example.txt`, `LICENSE`, `THIRD_PARTY_NOTICES.md` and `SETUP.md` ship in every client package (`tools/ci/package-client.py`). Our own additions live in `tools/decrypted/`, `docs/` and `ROADMAP.md`. Build and run output stays out of the tree: build folders are `build-*/` (ignored), and the developer tools write to `%TEMP%\ctrdev`.

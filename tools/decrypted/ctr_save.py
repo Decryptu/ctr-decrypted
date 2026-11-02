@@ -348,8 +348,8 @@ def ap_check(port, slot, patterns):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__.split('\n')[0], formatter_class=argparse.RawDescriptionHelpFormatter,
-                                 epilog='\n'.join(__doc__.split('\n')[2:]))
+    intro, _, rest = __doc__.partition('\n\n')
+    ap = argparse.ArgumentParser(description=intro, formatter_class=argparse.RawDescriptionHelpFormatter, epilog=rest)
     sub = ap.add_subparsers(dest='cmd', required=True)
     p = sub.add_parser('show')
     p.add_argument('save')
