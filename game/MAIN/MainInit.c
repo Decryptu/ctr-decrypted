@@ -108,6 +108,7 @@ void MainInit_VisMem(struct GameTracker *gGT)
 
 #ifdef CTR_NATIVE
 	MainInit_InitVisMemBspListNodes(visMem, gGT->level1->ptr_mesh_info);
+	MainFrame_BuildEverVisibleLeafs(gGT->level1->ptr_mesh_info);
 #endif
 }
 

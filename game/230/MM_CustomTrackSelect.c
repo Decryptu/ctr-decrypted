@@ -23,11 +23,9 @@
 #include <platform/native_custom_identity.h>
 #include <platform/native_custom_records.h>
 
-/* The BIGFILE subfile group the package's bytes are served through (arcade
-   group 6). A loading mechanism only: difficulty, music, sound, banner, high
-   scores, AI recordings, logs and box keys all use the custom identity, see
-   the audit in native_custom_identity.h and tools/test-custom-identity.c. */
-#define MM_CUSTOM_ARCADE_HOST_LEVEL 6
+/* The host slot (native_custom_identity.h); tools/test-custom-identity.c
+   audits what the custom identity covers. */
+#define MM_CUSTOM_ARCADE_HOST_LEVEL CTR_CUSTOM_ARCADE_HOST_LEVEL
 
 /* The page title sits between the game's own arrow icon, pointing each way,
    as on the hub pause screen (icon 0x38 of iconGroup[4]). The font cannot

@@ -332,7 +332,9 @@ every load in that build:
   past it (decision 7). `game/226/226_00_DrawLevelOvr1P.c:
   DrawLevelOvr1P_AppendRenderedQuadBlock` stops at the end of the 256-entry
   rendered-quadblock array (decision 9), and `game/RenderLevel/RenderLists.c:
-  RenderLists_PushChild` counts dropped BSP records.
+  RenderLists_PushChild` counts dropped BSP records. Each custom level's run
+  logs a `[CustomTracks] level ...` report of these at the next level load (and
+  at the end of a dev run), with the list's peak use.
 - **SPU memory** (packages only). `include/platform/native_spu_memory.h`
   doubles the emulated SPU RAM to 1 MiB so a track's own sound bank fits next
   to the retail banks. The engine's u16 SPU addresses switch from 8-byte to

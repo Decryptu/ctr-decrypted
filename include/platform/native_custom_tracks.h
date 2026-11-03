@@ -348,6 +348,8 @@ void CustomTrackDiag_NoteReserveRefused(unsigned long reserveBytes, unsigned lon
 // The rendered-quadblock list reached the end of its array and an append was
 // refused. Decision 9. Retail would have written past the array here.
 void CustomTrackDiag_NoteRenderedListFull(void);
+// Entries in the rendered-quadblock list after an append; the report keeps the peak.
+void CustomTrackDiag_NoteRenderedUse(unsigned long entries);
 
 // RenderLists_PushChild dropped a BSP record because the 51-record scratch
 // stack was full, so a whole subtree was never walked. Independent of the

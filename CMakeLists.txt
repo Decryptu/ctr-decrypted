@@ -175,7 +175,7 @@ endif()
 add_subdirectory(externals/SDL)
 
 # CTR Native
-add_executable(ctr_native main.c platform/native_build_id.c)
+add_executable(ctr_native main.c platform/native_build_id.c platform/native_crash_log.c)
 set_target_properties(ctr_native PROPERTIES
     C_STANDARD 17
     C_STANDARD_REQUIRED ON

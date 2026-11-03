@@ -18,10 +18,11 @@ A fork of [dowlle/ctr-native-ap](https://github.com/dowlle/ctr-native-ap) (the n
 | `externals/SDL` | SDL 3.4.10, vendored, static |
 | `externals/libusb` | libusb 1.0.30 Windows backend, vendored, for Switch 2 controllers |
 | `tools/decrypted/` | Our own scripts: upstream sync and status, unattended runs, render diagnostics, save and Archipelago progress editing |
+| `tools/racers/`, `tools/tracks/` | Converters for custom racers ([CUSTOM_RACERS.md](CUSTOM_RACERS.md)) and for Mario Kart DS courses ([TRACK-CONVERTER.md](TRACK-CONVERTER.md)) |
 | `docs/` | Project docs |
 | `site/` | The project site ([Site](#site)) |
 
-The root and `tools/` keep dowlle's layout, including files we don't use (`build.bat`, `tools/authoring-branch/`, `tools/CUSTOM-TRACK-SPIKE.md`): moving or deleting an upstream file would conflict on every sync. `support-bundle.*`, `default_controls.ini`, `ap-config.example.txt`, `LICENSE`, `THIRD_PARTY_NOTICES.md` and `SETUP.md` ship in every client package (`tools/ci/package-client.py`). Our additions live in `tools/decrypted/`, `docs/` and `ROADMAP.md`. Build folders are `build-*/` (ignored); the developer tools write to `%TEMP%\ctrdev`.
+The root and `tools/` keep dowlle's layout, including files we don't use (`build.bat`, `tools/authoring-branch/`, `tools/CUSTOM-TRACK-SPIKE.md`): moving or deleting an upstream file would conflict on every sync. `support-bundle.*`, `default_controls.ini`, `ap-config.example.txt`, `LICENSE`, `THIRD_PARTY_NOTICES.md` and `SETUP.md` ship in every client package (`tools/ci/package-client.py`). Our additions live in `tools/decrypted/`, `tools/racers/`, `tools/tracks/`, `docs/` and `ROADMAP.md`. Build folders are `build-*/` (ignored); the developer tools write to `%TEMP%\ctrdev`.
 
 ## Build (Windows)
 1. Install [MSYS2](https://www.msys2.org) at `C:\msys64`, then in a shell:

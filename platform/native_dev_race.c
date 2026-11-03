@@ -1,6 +1,12 @@
 #include "platform/native_dev.h"
 #include "platform/native_config.h"
 #include "platform/native_memcard.h"
+#ifdef CTR_CUSTOM_PACKAGES
+#include "platform/native_assets.h"
+#include "platform/native_custom_identity.h"
+#include "platform/native_custom_offline.h"
+#include "platform/native_custom_package.h"
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,6 +50,7 @@ typedef struct
 	const char *podiumPath;
 	int players;
 	int laps;
+	const char *customPin; // CTR_DEV_CUSTOM
 	int autopilot;
 	int hopEvery;
 	int exitAfterRace;
@@ -90,6 +97,13 @@ static NativeDevRaceState *NativeDevRace_State(void)
 		const char *mode = getenv("CTR_DEV_MODE");
 		s_devRace.loaded = 1;
 		s_devRace.raceTrack = NativeDev_EnvInt("CTR_DEV_RACE", -1);
+#ifdef CTR_CUSTOM_PACKAGES
+		// CTR_DEV_CUSTOM=<pin>: an Arcade race on that installed package,
+		// served through the custom pages' host slot.
+		s_devRace.customPin = getenv("CTR_DEV_CUSTOM");
+		if ((s_devRace.customPin != NULL) && (s_devRace.raceTrack < 0))
+			s_devRace.raceTrack = CTR_CUSTOM_ARCADE_HOST_LEVEL;
+#endif
 		s_devRace.timeTrial = (mode != NULL) && (strcmp(mode, "tt") == 0);
 		s_devRace.cup = (mode != NULL) && (strcmp(mode, "cup") == 0);
 		s_devRace.adventure = s_devRace.cup || ((mode != NULL) && (strcmp(mode, "adv") == 0)) || (getenv("CTR_DEV_PROFILE") != NULL);
@@ -219,6 +233,33 @@ static int NativeDevRace_EnterCup(struct GameTracker *gGT, NativeDevRaceState *d
 	return data.advCupTrackIDs[4 * cupID];
 }
 
+#ifdef CTR_CUSTOM_PACKAGES
+// CTR_DEV_CUSTOM: acquire the installed package synchronously (the custom
+// pages do it on a worker) and arm the offline loader for the host slot. A
+// refusal is logged and the race runs on the host slot's retail track.
+static void NativeDevRace_BeginCustom(struct GameTracker *gGT, const char *pin)
+{
+	char path[1024], error[256] = "";
+	struct CustomPackageOwned *package = NULL;
+	struct CustomOfflineRequest *request = NULL;
+	const int pathLen = snprintf(path, sizeof path, "%s/tracks/packages/%.64s", NativeAssets_GetAssetDir(), pin);
+	if ((pathLen < 0) || ((size_t)pathLen >= sizeof path))
+		snprintf(error, sizeof error, "package path too long");
+	if ((error[0] != 0) || !CustomPackage_AcquireDirectory(path, pin, &package, error, sizeof error) ||
+		!CustomOffline_Prepare(&package, pin, &request, error, sizeof error) ||
+		!CustomOffline_CheckStructure(request, CTR_OFFLINE_MODE_ARCADE, error, sizeof error) ||
+		!CustomOffline_BeginRuntime(&request, CTR_CUSTOM_ARCADE_HOST_LEVEL, 0, CTR_OFFLINE_MODE_ARCADE))
+	{
+		Platform_Log("[CTR Dev] custom track %s refused: %s\n", pin, error);
+		CustomOffline_Free(&request);
+		CustomPackage_Free(&package);
+		return;
+	}
+	gGT->numLaps = (char)CustomOffline_RuntimeLaps();
+	Platform_Log("[CTR Dev] custom track %s, %d laps\n", pin, gGT->numLaps);
+}
+#endif
+
 int NativeDev_StartRace(struct GameTracker *gGT)
 {
 	NativeDevRaceState *dev = NativeDevRace_State();
@@ -302,6 +343,10 @@ int NativeDev_StartRace(struct GameTracker *gGT)
 	if (!dev->timeTrial)
 	{
 		gGT->gameMode1 |= ARCADE_MODE;
+#ifdef CTR_CUSTOM_PACKAGES
+		if (dev->customPin != NULL)
+			NativeDevRace_BeginCustom(gGT, dev->customPin);
+#endif
 		if (dev->laps > 0)
 			gGT->numLaps = (char)dev->laps;
 		return dev->raceTrack;
@@ -705,12 +750,108 @@ static void NativeDevRace_Warp(NativeDevRaceState *dev, struct GameTracker *gGT)
 	d->distanceToFinish_checkpoint = 0;
 }
 
+// CTR_DEV_COLL_PROBE=<csv>: once a race's level is loaded, run the kart's own
+// ground search (COLL_FIXED_PlayerSearch: same flags, probe span and BSP walk,
+// without the previous-frame quadblock shortcut) straight down at every node of
+// the level's three AI lanes and at lateral steps across them, and write one
+// row per probe. A miss where the track has road is a hole a kart falls
+// through; no driving needed to find it.
+static void NativeDevRace_CollProbe(struct GameTracker *gGT)
+{
+	static int done;
+	const char *path = getenv("CTR_DEV_COLL_PROBE");
+	if (done || (path == NULL) || (gGT == NULL) || (gGT->level1 == NULL) || (sdata->Loading.stage != LOAD_IDLE) ||
+		(gGT->level1->ptr_mesh_info == NULL) || (gGT->level1->LevNavTable == NULL))
+		return;
+	done = 1;
+	FILE *f = fopen(path, "w");
+	if (f == NULL)
+		return;
+	fprintf(f, "lane,node,offset,x,y,z,hit,hitY,flags,terrain,sphere\n");
+	struct ScratchpadStruct *sps = CTR_SCRATCHPAD_PTR(struct ScratchpadStruct, 0x108);
+	int misses = 0, sphereMisses = 0, probes = 0;
+	// CTR_DEV_COLL_PROBE_IN=<file>: probe these points ("x y z" per line, LEV units:
+	// where the ground should be) instead of walking the AI lanes. Lane rows are
+	// written as lane -1, node = line number.
+	FILE *in = getenv("CTR_DEV_COLL_PROBE_IN") ? fopen(getenv("CTR_DEV_COLL_PROBE_IN"), "r") : NULL;
+	for (int lane = (in != NULL) ? -1 : 0; lane < ((in != NULL) ? 0 : 3); lane++)
+	{
+		struct NavHeader *nh = (lane >= 0) ? gGT->level1->LevNavTable[lane] : NULL;
+		if ((lane >= 0) && ((nh == NULL) || (nh->magicNumber != (s16)-0x1303)))
+			continue;
+		struct NavFrame *fr = (nh != NULL) ? NAVHEADER_GETFRAME(nh) : NULL;
+		for (int n = 0; (in != NULL) || (n < nh->numPoints); n++)
+		{
+			int px, py, pz, dx = 0, dz = 0, len = 1;
+			if (in != NULL)
+			{
+				if (fscanf(in, "%d %d %d", &px, &py, &pz) != 3)
+					break;
+			}
+			else
+			{
+				struct NavFrame *a = &fr[n], *b = &fr[(n + 1) % nh->numPoints];
+				px = a->pos.x, py = a->pos.y, pz = a->pos.z;
+				dx = b->pos.x - a->pos.x, dz = b->pos.z - a->pos.z;
+				len = (int)sqrt((double)dx * dx + (double)dz * dz);
+				if (len == 0)
+					continue;
+			}
+			// on a lane: 64-unit steps across it, 1024 units each side
+			for (int off = (in != NULL) ? 0 : -1024; off <= ((in != NULL) ? 0 : 1024); off += 64)
+			{
+				const s16 x = (s16)(px - dz * off / len), z = (s16)(pz + dx * off / len);
+				// the span COLL_FIXED_PlayerSearch_SetupSearch gives a kart standing at py
+				const SVec3 bottom = {.x = x, .y = (s16)(py - COLL_FIXED_PLAYER_SEARCH_BOTTOM_Y_OFFSET), .z = z};
+				const SVec3 top = {.x = x, .y = (s16)(py + COLL_FIXED_PLAYER_SEARCH_TOP_Y_OFFSET), .z = z};
+				sps->Union.QuadBlockColl.pos = top;
+				sps->Input1.pos = bottom;
+				sps->ptr_mesh_info = gGT->level1->ptr_mesh_info;
+				sps->Union.QuadBlockColl.quadFlagsIgnored = QUADBLOCK_FLAG_NO_COLLISION_RESPONSE;
+				sps->Union.QuadBlockColl.quadFlagsWanted = QUADBLOCK_FLAG_GROUND | QUADBLOCK_FLAG_COLLISION_SURFACE;
+				sps->Union.QuadBlockColl.searchFlags = COLL_SEARCH_HIGH_LOD;
+				sps->boolDidTouchQuadblock = 0;
+				sps->boolDidTouchHitbox = 0;
+				sps->numTrianglesTested = 0;
+				sps->bbox.min.x = sps->bbox.max.x = x;
+				sps->bbox.min.y = bottom.y;
+				sps->bbox.max.y = top.y;
+				sps->bbox.min.z = sps->bbox.max.z = z;
+				sps->Union.QuadBlockColl.hitPos = bottom;
+				COLL_SearchBSP_CallbackPARAM(sps->ptr_mesh_info->bspRoot, &sps->bbox, COLL_FIXED_BSPLEAF_TestQuadblocks, sps);
+				const int hit = sps->boolDidTouchQuadblock != 0;
+				const struct QuadBlock *q = hit ? sps->hit.ptrQuadblock : NULL;
+				const int hitY = hit ? sps->Union.QuadBlockColl.hitPos.y : 0;
+				const int flags = q ? q->quadFlags : 0, terrain = q ? q->terrain_type : 0;
+				// The sphere sweep that stops a moving kart (COLL_MOVED_PlayerSearch's radius).
+				sps->Union.QuadBlockColl.quadFlagsWanted = QUADBLOCK_FLAG_GROUND | QUADBLOCK_FLAG_COLLISION_SURFACE;
+				sps->Union.QuadBlockColl.quadFlagsIgnored = 0;
+				sps->Union.QuadBlockColl.searchFlags = COLL_SEARCH_HIGH_LOD;
+				COLL_SearchBSP_CallbackQUADBLK(&bottom, &top, sps, COLL_MOVED_PLAYER_HIT_RADIUS);
+				const int sphere = sps->boolDidTouchQuadblock != 0;
+				fprintf(f, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n", lane, n, off, x, py, z, hit, hitY, flags, terrain, sphere);
+				probes++;
+				misses += !hit;
+				sphereMisses += !sphere;
+			}
+		}
+	}
+	if (in != NULL)
+		fclose(in);
+	fclose(f);
+	Platform_Log("[CTR Dev] collision probe: %d probes, %d without ground under the line search, %d under the sphere sweep, written to %s\n",
+		probes, misses, sphereMisses, path);
+}
+
 // Once per presented frame, from NativeDev_EndFrame.
 void NativeDev_RaceFrame(void)
 {
 	NativeDevRaceState *dev = NativeDevRace_State();
 	struct GameTracker *gGT = sdata->gGT;
 	struct Driver *d = NativeDevRace_Player(0);
+
+	if (d != NULL)
+		NativeDevRace_CollProbe(gGT);
 
 	// The trace and dumps also follow player 1 around an Adventure hub, where
 	// nobody races (the autopilot and drive script stay race-only).
@@ -852,6 +993,9 @@ void NativeDev_RaceFrame(void)
 void NativeDev_RaceShutdown(void)
 {
 	Platform_Log("[CTR Dev] primitive arena peak %u of %u bytes (level %d)\n", s_devRace.primPeak, Platform_GetPrimArenaSize(), s_devRace.primPeakLevel);
+#ifdef CTR_CUSTOM_TRACKS
+	CustomTrackDiag_FlushLevelLoad(); // the custom level's render report, normally written at the next level load
+#endif
 	if (s_devRace.trace != NULL)
 	{
 		fclose(s_devRace.trace);

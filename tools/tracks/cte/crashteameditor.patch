@@ -1,0 +1,99 @@
+diff --git a/src/bsp.cpp b/src/bsp.cpp
+index f282bb1..a3b345c 100644
+--- a/src/bsp.cpp
++++ b/src/bsp.cpp
+@@ -1,6 +1,7 @@
+ #include "bsp.h"
+ #include "psx_types.h"
+ 
++#include <algorithm>
+ #include <cstring>
+ 
+ static size_t g_id = 0;
+@@ -260,6 +261,25 @@ void BSP::Generate(const std::vector<Quadblock>& quadblocks, const size_t maxQua
+ 		m_flags &= ~BSPFlags::LEAF;
+ 	}
+ 
++	// Root only: drawn blocks and collision-only blocks (ground or wall flags) go in separate
++	// subtrees, so the collision subtree can be marked invisible in the visibility lists and the
++	// renderer never walks it.
++	if (m_parent == nullptr)
++	{
++		std::vector<size_t> drawn, collision;
++		for (size_t index : m_quadblockIndexes)
++		{
++			if (quadblocks[index].GetFlags() & (QuadFlags::GROUND | QuadFlags::WALL)) { collision.push_back(index); }
++			else { drawn.push_back(index); }
++		}
++		if (!drawn.empty() && !collision.empty())
++		{
++			m_axis = AxisSplit::Y;
++			GenerateOffspring(drawn, collision, quadblocks, maxQuadsPerLeaf, maxAxisLength);
++			return;
++		}
++	}
++
+ 	if (m_quadblockIndexes.size() == 1)
+ 	{
+ 		std::vector<size_t> empty = {};
+@@ -355,7 +375,25 @@ float BSP::Split(std::vector<size_t>& left, std::vector<size_t>& right, const Ax
+ 			break;
+ 		}
+ 	}
+-	if (left.empty() || right.empty()) { return std::numeric_limits<float>::max(); }
++	if (left.empty() || right.empty())
++	{
++		// One large quadblock can stretch the box while every centre sits on one side of
++		// its midpoint: split at the median centre instead.
++		std::vector<std::pair<float, size_t>> centres;
++		for (size_t index : m_quadblockIndexes)
++		{
++			const Vec3 c = quadblocks[index].GetCenter();
++			centres.emplace_back(axis == AxisSplit::X ? c.x : (axis == AxisSplit::Y ? c.y : c.z), index);
++		}
++		std::sort(centres.begin(), centres.end());
++		const size_t half = centres.size() / 2;
++		if (centres.size() < 2 || centres.front().first == centres.back().first)
++		{
++			return std::numeric_limits<float>::max();
++		}
++		left.clear(); right.clear();
++		for (size_t i = 0; i < centres.size(); i++) { (i < half ? right : left).push_back(centres[i].second); }
++	}
+ 	float perimeterLeft = ComputeBoundingBox(quadblocks, left).SemiPerimeter();
+ 	float perimeterRight = ComputeBoundingBox(quadblocks, right).SemiPerimeter();
+ 	return perimeterLeft + perimeterRight;
+diff --git a/src/level.h b/src/level.h
+index bf98ad3..9f68de7 100644
+--- a/src/level.h
++++ b/src/level.h
+@@ -95,6 +95,7 @@ private:
+ 	void ViewportClickHandleBlockSelection(int pixelX, int pixelY, bool appendSelection, const Renderer& rend);
+ 
+ 	friend class UI;
++	friend struct HeadlessAccess;
+ 
+ private:
+ 	bool m_saveScript;
+diff --git a/src/texture.cpp b/src/texture.cpp
+index ddc9176..d3bc87e 100644
+--- a/src/texture.cpp
++++ b/src/texture.cpp
+@@ -333,7 +333,7 @@ static void BufferToVRM(std::vector<uint16_t>& vram, std::vector<bool>& vramUsed
+ 
+ static bool TestRect(std::vector<bool>& vramUsed, size_t x, size_t y, size_t width, size_t height, bool clut)
+ {
+-	if (((x + width) >= VRAM_WIDTH) || (y + height) >= VRAM_HEIGHT) { return false; }
++	if (((x + width) > VRAM_WIDTH) || (y + height) > VRAM_HEIGHT) { return false; }
+ 
+ 	size_t texPage = GetTexPage(x, y);
+ 	size_t texPageLastCorner = GetTexPage(x + width - 1, y + height - 1);
+@@ -367,7 +367,7 @@ static bool FindAvailableSpace(std::vector<bool>& vramUsed, size_t width, size_t
+ 		}
+ 		if (clut) { x += 16; }
+ 		else { x++; }
+-		if (((x + width) >= VRAM_WIDTH) && (y + height) >= VRAM_HEIGHT) { break; }
++		if (((x + width) > VRAM_WIDTH) && (y + height) > VRAM_HEIGHT) { break; }
+ 	}
+ 	return false;
+ }

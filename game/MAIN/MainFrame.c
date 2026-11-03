@@ -646,6 +646,36 @@ static void MainFrame_OrPackedVisList(int *dst, void *src, int byteCount)
 	CTR_unknownMaybeThunk2(dst, (void *)(srcWord & ~(u32)3));
 }
 
+#if defined(CTR_NATIVE)
+// Union of every quadblock's leaf list: the BSP nodes the level draws from somewhere. A node
+// outside it is never drawn from anywhere (a custom track's collision-only subtree), so the
+// draw-all in MainFrame_VisMemFullFrame keeps it hidden. Built per level by MainInit_VisMem.
+static int s_everVisibleLeafs[(0x4000 >> 5) + 64];
+static int s_everVisibleLeafsValid;
+
+void MainFrame_BuildEverVisibleLeafs(struct mesh_info *mesh)
+{
+	const void *last = NULL;
+
+	s_everVisibleLeafsValid = 0;
+	if ((mesh == NULL) || (mesh->numBspNodes <= 0) || (mesh->numBspNodes > 0x4000))
+		return;
+
+	memset(s_everVisibleLeafs, 0, sizeof(s_everVisibleLeafs));
+	for (int i = 0; i < mesh->numQuadBlock; i++)
+	{
+		struct PVS *pvs = mesh->ptrQuadBlockArray[i].pvs;
+
+		// neighbouring quadblocks usually share one list: skip the repeat
+		if ((pvs == NULL) || (pvs->visLeafSrc == NULL) || (pvs->visLeafSrc == last))
+			continue;
+		last = pvs->visLeafSrc;
+		MainFrame_OrPackedVisList(s_everVisibleLeafs, pvs->visLeafSrc, ((mesh->numBspNodes + 0x1f) >> 5) << 2);
+		s_everVisibleLeafsValid = 1;
+	}
+}
+#endif
+
 static int MainFrame_VisMemHasQuad(const int *visFaceList, const struct QuadBlock *quad, const struct mesh_info *mesh)
 {
 	int quadIndex = (int)(quad - mesh->ptrQuadBlockArray);
@@ -823,9 +853,13 @@ void MainFrame_VisMemFullFrame(struct GameTracker *gGT, struct Level *level)
 		// vertex-colour vertex; the frustum and draw distance still cull.
 		// CTR_DEV_RETAIL_CULL=1 keeps the retail lists, for A/B captures.
 		// Instances keep their lists: warp pads and cutscenes read them.
+		// Nodes no list ever shows stay hidden (MainFrame_BuildEverVisibleLeafs).
 		if (!NativeDev_RetailCull())
 		{
-			memset(visMem->visLeafList[playerIndex], 0xff, ((mesh->numBspNodes + 0x1f) >> 5) << 2);
+			if (s_everVisibleLeafsValid)
+				memcpy(visMem->visLeafList[playerIndex], s_everVisibleLeafs, ((mesh->numBspNodes + 0x1f) >> 5) << 2);
+			else
+				memset(visMem->visLeafList[playerIndex], 0xff, ((mesh->numBspNodes + 0x1f) >> 5) << 2);
 			memset(visMem->visFaceList[playerIndex], 0xff, ((mesh->numQuadBlock + 0x1f) >> 5) << 2);
 			if (((level->configFlags & 4) == 0) && (visMem->visOVertList[playerIndex] != NULL))
 				memset(visMem->visOVertList[playerIndex], 0xff, ((level->numWaterVertices + 0x1f) >> 5) << 2);

@@ -148,7 +148,7 @@ static const struct NativeGpuLinkRange *NativeGpuLinks_FindTokenRange(uint32_t t
 	return NULL;
 }
 
-uint32_t NativeGpuLinks_FromHostPointer(const void *hostPtr)
+__attribute__((noinline)) uint32_t NativeGpuLinks_FromHostPointer(const void *hostPtr)
 {
 	uintptr_t host = (uintptr_t)hostPtr;
 	const struct NativeGpuLinkRange *range = NativeGpuLinks_FindHostRange(host);
@@ -158,7 +158,12 @@ uint32_t NativeGpuLinks_FromHostPointer(const void *hostPtr)
 		return range->tokenStart + (uint32_t)(host - range->hostStart);
 	}
 
-	fprintf(stderr, "[CTR Native] GPU link bridge has no token for host pointer %p\n", hostPtr);
+	fprintf(stderr, "[CTR Native] GPU link bridge has no token for host pointer %p (caller %p); registered ranges:\n", hostPtr,
+	        __builtin_return_address(0));
+	for (int i = 0; i < s_nativeGpuLinkRangeCount; i++)
+	{
+		fprintf(stderr, "  %p..%p\n", (void *)s_nativeGpuLinkRanges[i].hostStart, (void *)s_nativeGpuLinkRanges[i].hostEnd);
+	}
 	abort();
 }
 

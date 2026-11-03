@@ -30,6 +30,12 @@
 
 #define CTR_CUSTOM_LEVEL_ID 0x80 // above all 65 retail LevelIDs (0..64), as LinksLab uses 128+
 
+// The BIGFILE subfile group a package's bytes are served through (arcade
+// group 6, Roo's Tubes). A loading mechanism only: difficulty, music, sound,
+// banner, high scores, AI recordings, logs and box keys all use the custom
+// identity above.
+#define CTR_CUSTOM_ARCADE_HOST_LEVEL 6
+
 // Retail thresholds the custom id must clear, mirrored so this header stays
 // engine-free; tools/test-custom-identity.c checks them against the enum.
 #define CTR_CUSTOM_RETAIL_LEVEL_COUNT 65  // enum LevelID: DINGO_CANYON (0) .. SCRAPBOOK (64)

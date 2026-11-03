@@ -15,7 +15,7 @@ What is in progress, what is next, and what was decided. A finished item is dele
 - **High Octane is ported feature by feature, never merged.** A trial merge conflicts in 92 files, and it carries Vita, web and leaderboard code we don't want.
 
 ## In progress
-Nothing.
+- Mario Kart DS course converter ([TRACK-CONVERTER.md](docs/TRACK-CONVERTER.md)). Figure-8 Circuit converts and passes the checks; the owner plays it next. Then: the minimap (an image in the package's VRAM, icons 3 and 4 pointed at it, and an `ST1_MAP` entry with the world bounds), item boxes and the other course objects, then every course in one batch run with `check_track.ps1`.
 
 ## Planned
 Nothing.
@@ -28,7 +28,7 @@ Nothing.
 - More multiplayer from CTR Native Expanded: 3P/4P Arcade, eight racers in split screen, full-detail split screen, Oxide Station in multiplayer, race tracks in Battle, ending a race when one racer is left.
 - Mirror mode, reverse tracks, Super/Ultra Hard, extra arcade modes, boss fights on any track (High Octane; CTR Native Expanded also has Super/Ultra Hard in Adventure, with matching relic and crystal times). Less useful for Archipelago play.
 - High Octane's ghost replay tools.
-- Asset converters from other games (low priority): tracks, models and textures, for example from Mario Kart DS or similar PS1 formats. Depends on custom tracks and racers.
+- Racers from other games (low priority): Mario Kart DS karts and drivers, or other PS1 formats, as custom racers.
 - Better bots (low priority): smarter driving, item use, lines and shortcuts, with no stat advantage.
 - PAL disc support (low priority). Upstream removed it on purpose (ctr-native #51, #54).
 - macOS (low priority). First a clean 64-bit/arm64 build (builds are 32-bit x86 MinGW32 today), then a macOS platform layer: window, GL context, audio, controllers. Until then the Windows exe runs under CrossOver/Wine with GL 3.x (ctr-native #20, #33).

@@ -3117,7 +3117,14 @@ static void Ovr226_800aab00_InterpolateClipRecordVertex(struct DrawLevelOvr1PScr
 	u8 *dstUv = (u8 *)&dst->flags;
 	s32 threshold = DrawLevelOvr1P_GetDepthClipThreshold();
 	s32 denom = (s16)outside->depth - (s16)inside->depth;
+#if defined(CTR_NATIVE)
+	// Inside and outside are classed by the clip window, not by depth, so a wide quad near the
+	// camera can pair two vertices at the same depth (custom tracks do; no retail track does).
+	// There is no crossing to interpolate then: keep the inside vertex instead of dividing by 0.
+	s32 factor = (denom != 0) ? DrawLevelOvr1P_ShiftLeft16Wrap(threshold - (s32)(s16)inside->depth) / denom : 0;
+#else
 	s32 factor = DrawLevelOvr1P_ShiftLeft16Wrap(threshold - (s32)(s16)inside->depth) / denom;
+#endif
 
 	// NOTE(aalhendi): Retail 0x800aab00..0x800aac00 writes only offsets
 	// 0x00, 0x02, and bytes 0x06..0x0a. Offset 0x04 and source delta 0x12
@@ -7693,6 +7700,9 @@ static void DrawLevelOvr1P_AppendRenderedQuadBlock(struct QuadBlock *block)
 
 	*renderedList = block;
 	DrawLevelOvr1P_SetRenderedListCursor(renderedList + 1);
+#ifdef CTR_CUSTOM_TRACKS
+	CustomTrackDiag_NoteRenderedUse((unsigned long)(renderedList + 1 - DrawLevelOvr1P_GetRenderedOverflowBase()));
+#endif
 }
 
 static void DrawLevelOvr1P_TerminateRenderedListCursor(void)

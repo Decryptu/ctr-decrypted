@@ -37,7 +37,8 @@ void CustomTrack_Log(const char *fmt, ...)
 	vsnprintf(line, sizeof line, fmt, args);
 	va_end(args);
 
-	fputs(line, stdout);
+	// the run log (and stdout), so dev runs and players' logs both carry it
+	Platform_Log("%s", line);
 
 #ifdef CTR_AP
 	AP_LogLine(line);
@@ -1277,6 +1278,7 @@ struct CustomTrackDiagLoad
 	unsigned long tightestReserve; // what the bucket wanted, on the closest refusal
 	unsigned long tightestFree;    // what was left when it wanted it
 	unsigned long renderedListFull;
+	unsigned long renderedPeak;
 	unsigned long bspRecordsDropped;
 };
 
@@ -1305,10 +1307,11 @@ void CustomTrackDiag_FlushLevelLoad(void)
 
 	CustomTrack_Log("[CustomTracks] level %d over %lu frames: prim arena worst frame %lu/%lu bytes "
 	                "(other draws %lu, terrain +%lu, sky +%lu, %lu free, %d primitives across %d leaves); "
-	                "reserve refused %lu, rendered list full %lu, bsp records dropped %lu\n",
+	                "reserve refused %lu, rendered list peak %lu of %lu, rendered list full %lu, bsp records dropped %lu\n",
 	                d->levelID, d->frames, d->worstSpend, d->capacityBytes, d->worstBeforeGeom,
 	                d->worstAfterGeom - d->worstBeforeGeom, d->worstSpend - d->worstAfterGeom, freeBytes, d->worstPrimCount,
-	                d->worstLeavesDrawn, d->reserveRefusals, d->renderedListFull, d->bspRecordsDropped);
+	                d->worstLeavesDrawn, d->reserveRefusals, d->renderedPeak, CTR_CT_RENDERED_QUADBLOCK_SLOTS,
+	                d->renderedListFull, d->bspRecordsDropped);
 
 	if (d->reserveRefusals != 0)
 	{
@@ -1390,6 +1393,12 @@ void CustomTrackDiag_NoteRenderedListFull(void)
 {
 	if (sCustomTrackDiag.frameOpen)
 		sCustomTrackDiag.renderedListFull++;
+}
+
+void CustomTrackDiag_NoteRenderedUse(unsigned long entries)
+{
+	if (sCustomTrackDiag.frameOpen && (entries > sCustomTrackDiag.renderedPeak))
+		sCustomTrackDiag.renderedPeak = entries;
 }
 
 void CustomTrackDiag_NoteBspRecordDropped(void)
