@@ -54,6 +54,8 @@ typedef struct
 	int nudgeBy;
 	int nudgeFrame;
 	int nudgedFrame; // the frame the nudge was applied in, so it applies once
+	int camera; // CTR_DEV_CAMERA was given
+	short cameraPos[3], cameraRot[3];
 	int vramShot; // this frame was presented straight from VRAM (vramX..vramH)
 	int vramX, vramY, vramW, vramH;
 } NativeDevState;
@@ -106,6 +108,19 @@ static NativeDevState *NativeDev_State(void)
 		s_dev.nudgeBy = NativeDev_EnvInt("CTR_DEV_NUDGE_BY", 1);
 		s_dev.nudgeFrame = NativeDev_EnvInt("CTR_DEV_NUDGE_FRAME", s_dev.dumpFrame);
 		s_dev.nudgedFrame = -1;
+		{
+			const char *camera = getenv("CTR_DEV_CAMERA");
+			int v[6];
+			if ((camera != NULL) && (sscanf(camera, "%d,%d,%d,%d,%d,%d", &v[0], &v[1], &v[2], &v[3], &v[4], &v[5]) == 6))
+			{
+				s_dev.camera = 1;
+				for (int i = 0; i < 3; i++)
+				{
+					s_dev.cameraPos[i] = (short)v[i];
+					s_dev.cameraRot[i] = (short)v[3 + i];
+				}
+			}
+		}
 		NativeRenderer_EnablePresentCapture(s_dev.presentedShot && s_dev.shotDir != NULL);
 	}
 	return &s_dev;
@@ -234,6 +249,19 @@ const char *NativeDev_UpdateAs(void)
 {
 	const char *value = getenv("CTR_DEV_UPDATE");
 	return (value != NULL && *value != '\0') ? value : NULL;
+}
+
+int NativeDev_PinCamera(int cameraID, short *pos, short *rot)
+{
+	NativeDevState *dev = NativeDev_State();
+	if (!dev->camera || (cameraID != 0))
+		return 0;
+	for (int i = 0; i < 3; i++)
+	{
+		pos[i] = dev->cameraPos[i];
+		rot[i] = dev->cameraRot[i];
+	}
+	return 1;
 }
 
 void NativeDev_NudgeCamera(int cameraID, short *pos, short *rot)

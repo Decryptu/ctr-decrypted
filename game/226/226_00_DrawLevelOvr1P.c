@@ -83,6 +83,19 @@ enum DrawLevelOvr1PGridSlotMode
 static int sDrawLevelOvr1P_FullDynamicInheritedOtIndex;
 static struct QuadBlock **sDrawLevelOvr1P_RenderedOverflowBase;
 static u8 *sDrawLevelOvr1P_ClipRecordStart;
+#if defined(CTR_NATIVE)
+// The view the clip records are tested against (DrawLevelOvr1P_ShouldWriteRenderedClippedRecord),
+// set with the GTE for each push buffer. halfWidth/halfHeight carry an 8-pixel margin.
+struct DrawLevelOvr1PClipView
+{
+	MATRIX matrix;
+	s32 distanceToScreen;
+	s32 halfWidth;
+	s32 halfHeight;
+	s32 depthClipThreshold;
+};
+static struct DrawLevelOvr1PClipView sDrawLevelOvr1P_ClipView;
+#endif
 static u32 sDrawLevelOvr1P_PrimReserveBias;
 static u32 sDrawLevelOvr1P_MosaicReloadSpanOverride;
 static int sDrawLevelOvr1P_ListHandlersSeedRenderedCursor;
@@ -2551,51 +2564,65 @@ static int DrawLevelOvr1P_SourceInsideClipRecordWindow(const struct DrawLevelOvr
 static int DrawLevelOvr1P_ShouldWriteRenderedClippedRecord(const struct DrawLevelOvr1PScratchVertex *projected, const int *indices, int count)
 {
 #if defined(CTR_NATIVE)
-	// The window is retail's cheap stand-in for "this polygon reaches the near
-	// plane inside the view": a box around a point half the screen distance in
-	// front of the camera, sized for the 4:3 field of view. Retail keeps a
-	// polygon when one of its corners is inside the box. Two things break that:
-	// - widescreen widens the view sideways, so the box's X/Z extent is widened
-	//   by the same factor as the frustum (identity at 4:3);
-	// - a polygon larger than the box (a converted course's floor, even at the
-	//   finest detail level) can cross the near plane beside the camera with
-	//   every corner outside the box.
-	// Either way the polygon was dropped whole: a black wedge, or what lies
-	// under the floor, at the bottom left or right of the frame. So the
-	// polygon's bounds are tested against the box instead. A corner inside
-	// means the bounds overlap, so every polygon retail keeps is still kept.
-	// The extra records stay far under the clip budget (peak 1800 of 12000
-	// bytes at 21:9 on Hot Air Skyway).
-	const s16 *center = CTR_VECTOR_DATA(&(DrawLevelOvr1P_Scratch()->projectedCenter));
-	const s32 half[3] = {Widescreen_ScaleFrustumX(0x100), 0x180, Widescreen_ScaleFrustumX(0x100)};
+	// Retail keeps a polygon here when one of its corners is inside a box
+	// around a point half the screen distance in front of the camera, sized
+	// for the 4:3 view: a cheap stand-in for "this polygon reaches the near
+	// plane inside the view". Widescreen and a converted course's large faces
+	// break it: a floor face beside or under the camera, or one running from
+	// beside the camera far into the view, has every corner outside the box
+	// and was dropped whole, leaving the background or what lies under the
+	// floor at the side of the frame.
+	//
+	// So the polygon is tested against the view frustum instead, in view space
+	// (the level's view-projection matrix, widescreen included). It is dropped
+	// only when every corner is outside one plane: nearer than the plane the
+	// records are cut at, or past one screen edge (with a margin). Such a
+	// polygon draws nothing, so every polygon retail keeps that draws anything
+	// is still kept. The extra records stay far under the clip budget.
+	const struct DrawLevelOvr1PClipView *view = &sDrawLevelOvr1P_ClipView;
+	u32 outside = 0x1f;
 
-	for (s32 axis = 0; axis < 3; axis++)
+	for (s32 vertexIndex = 0; (vertexIndex < count) && (outside != 0); vertexIndex++)
 	{
-		s32 lo = 0x7fffffff;
-		s32 hi = -0x7fffffff;
+		const s16 *pos = projected[indices[vertexIndex]].pos;
+		s64 v[3];
+		u32 out = 0;
 
-		for (s32 vertexIndex = 0; vertexIndex < count; vertexIndex++)
+		for (s32 row = 0; row < 3; row++)
 		{
-			s32 d = (s32)projected[indices[vertexIndex]].pos[axis] - center[axis];
-
-			if (d < lo)
-			{
-				lo = d;
-			}
-
-			if (d > hi)
-			{
-				hi = d;
-			}
+			v[row] = (((s64)view->matrix.m[row][0] * pos[0] + (s64)view->matrix.m[row][1] * pos[1] + (s64)view->matrix.m[row][2] * pos[2]) >> 12) +
+			         view->matrix.t[row];
 		}
 
-		if (lo >= half[axis] || hi <= -half[axis])
+		if (v[2] * 2 < view->depthClipThreshold)
 		{
-			return 0;
+			out |= 1;
 		}
+
+		if (v[0] * view->distanceToScreen > v[2] * view->halfWidth)
+		{
+			out |= 2;
+		}
+
+		if (v[0] * view->distanceToScreen < -v[2] * view->halfWidth)
+		{
+			out |= 4;
+		}
+
+		if (v[1] * view->distanceToScreen > v[2] * view->halfHeight)
+		{
+			out |= 8;
+		}
+
+		if (v[1] * view->distanceToScreen < -v[2] * view->halfHeight)
+		{
+			out |= 16;
+		}
+
+		outside &= out;
 	}
 
-	return 1;
+	return outside == 0;
 #else
 	for (s32 vertexIndex = 0; vertexIndex < count; vertexIndex++)
 	{
@@ -10132,6 +10159,13 @@ static void *DrawLevelOvr1P_GetRenderListBucketValue(struct DrawLevelOvr1PRender
 
 static void Ovr226_800a0d34_SetEntryGteAndCameraScratch(struct PushBuffer *pb)
 {
+#if defined(CTR_NATIVE)
+	sDrawLevelOvr1P_ClipView.matrix = pb->matrix_ViewProj;
+	sDrawLevelOvr1P_ClipView.distanceToScreen = pb->distanceToScreen_PREV;
+	sDrawLevelOvr1P_ClipView.halfWidth = pb->rect.w / 2 + 8;
+	sDrawLevelOvr1P_ClipView.halfHeight = pb->rect.h / 2 + 8;
+	sDrawLevelOvr1P_ClipView.depthClipThreshold = (pb->distanceToScreen_PREV >> 1) + 1;
+#endif
 	for (s32 controlWordIndex = 0; controlWordIndex < 8; controlWordIndex++)
 	{
 		CTC2(DrawLevelOvr1P_ReadWord(&pb->matrix_ViewProj, (u32)(controlWordIndex * 4)), controlWordIndex);

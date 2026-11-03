@@ -1863,7 +1863,11 @@ void CAM_FollowDriver_Normal(struct CameraDC *cDC, struct Driver *d, SVec3 *push
 		cDC->lookAtPos.z = cam->delta.z;
 
 #ifdef CTR_NATIVE
-		if (d->kartState != KS_MASK_GRABBED)
+		if (NativeDev_PinCamera(cDC->cameraID, &pb->pos.x, &pb->rot.x))
+		{
+			NativePgxp_ViewForgetCamera(cDC->cameraID);
+		}
+		else if (d->kartState != KS_MASK_GRABBED)
 		{
 			precise.roll = (double)zoom->angle[0] * cDC->desiredRot.x / 256.0;
 			precise.finalPos = cam->pos;

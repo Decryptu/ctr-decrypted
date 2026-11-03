@@ -238,6 +238,18 @@ internal void CollFixed_GteGPL12(void)
 
 
 
+#if defined(CTR_NATIVE)
+// A collision triangle whose normal is zero: its triNormalVecDividend is 0, as a converted track
+// gives the slivers it drops (docs/TRACK-CONVERTER.md). It is no surface, but tested, its plane
+// distance is 0 everywhere, so every sweep through its block's bounds stopped dead against nothing
+// (an invisible wall). Both triangle tests skip it. Of the retail race tracks only Oxide Station
+// tests such triangles, never to any effect: its races play frame-identical either way.
+static int CollTriangle_HasNoNormal(const struct CollPlane *plane)
+{
+	return (plane->normal.x == 0) && (plane->normal.y == 0) && (plane->normal.z == 0);
+}
+#endif
+
 internal void COLL_FIXED_TRIANGL_TestPoint_Body(struct ScratchpadStruct *sps, struct BspSearchVertex *v1, struct BspSearchVertex *v2,
                                                 struct BspSearchVertex *v3, s32 normalZW);
 
@@ -430,6 +442,13 @@ void COLL_FIXED_TRIANGL_TestPoint(struct ScratchpadStruct *sps, struct BspSearch
 	sps->numTrianglesTested = (s16)CTR_MipsAddLo(sps->numTrianglesTested, 1);
 	sps->candidate.normalAxis = v1->normalAxis;
 	sps->candidate.plane = v1->plane;
+
+#if defined(CTR_NATIVE)
+	if (CollTriangle_HasNoNormal(&v1->plane))
+	{
+		return;
+	}
+#endif
 
 	COLL_FIXED_TRIANGL_TestPoint_Body(sps, v1, v2, v3, normalZW);
 }
@@ -1429,6 +1448,13 @@ void COLL_MOVED_TRIANGL_TestPoint(struct ScratchpadStruct *sps, struct BspSearch
 	sps->numTrianglesTested = (s16)CTR_MipsAddLo(sps->numTrianglesTested, 1);
 	sps->candidate.normalAxis = v1->normalAxis;
 	sps->candidate.plane = v1->plane;
+
+#if defined(CTR_NATIVE)
+	if (CollTriangle_HasNoNormal(&v1->plane))
+	{
+		return;
+	}
+#endif
 
 	struct QuadBlock *quad = sps->candidate.ptrQuadblock;
 	s32 normalZW = (s32)CTR_PackS16Pair(sps->candidate.plane.normal.z, sps->candidate.plane.halfDistance);

@@ -270,7 +270,7 @@ def pair_quads(items, max_dev):
     return quads, [items[i] for i in range(len(items)) if i not in used]
 
 
-def group_grids(quads):
+def group_grids(quads, max_dev):
     """Group four quads that meet at one vertex, each sharing an edge with the next around it,
     into one quadblock: its 3x3 grid is then made of the source's own corners, so nothing is
     interpolated. Each face keeps its own UVs (a quadblock has a texture layout per face), so
@@ -308,9 +308,21 @@ def group_grids(quads):
         # CTE takes the grid's facing from its outer corners (orient_quad): none may be straight
         if min(corner_sines([rot[i][2] for i in order])) < 0.1:
             continue
+        # far away the game draws a block as one quad over its outer corners, skipping the edge
+        # points, which the neighbours keep as corners: each must lie on its edge's straight line,
+        # or a crack opens there (the sky through the hills)
+        if any(line_distance(rot[order[n]][3], rot[order[n]][2], rot[order[(n + 1) % 4]][2]) > max_dev for n in range(4)):
+            continue
         used |= set(order)
         grids.append(([rot[i] for i in order], quads[start][1]))
     return grids, [quads[i] for i in range(len(quads)) if i not in used]
+
+
+def line_distance(v, a, b):
+    """Distance of vertex dict v from the line through vertex dicts a and b."""
+    P, A, B = (np.asarray(x['pos'], float) for x in (v, a, b))
+    d = B - A
+    return np.linalg.norm(np.cross(P - A, d)) / max(np.linalg.norm(d), 1e-12)
 
 
 def corner_sines(ring):
@@ -558,7 +570,7 @@ def convert(course, out_dir, name, scale, max_edge):
                 render.append((out, mi))
     refined = [(tri, mi) for tri, mi in refine(render, max_edge, weld_tol=0.25 / 64) if area(tri) >= 1e-9]
     quads, tris = pair_quads(refined, max_dev=2 / 64)
-    grids, quads = group_grids(quads)
+    grids, quads = group_grids(quads, max_dev=2 / 64)
     for faces, mi in grids:
         stats['render grids'] += 1
         normal = sum(tri_normal(f[:3]) for f in faces)

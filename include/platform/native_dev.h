@@ -42,6 +42,13 @@ int NativeDev_RetailCull(void);
 // x, y, z of the push buffer's position and rotation.
 void NativeDev_NudgeCamera(int cameraID, short *pos, short *rot);
 
+// CTR_DEV_CAMERA=<x>,<y>,<z>,<rx>,<ry>,<rz>: player 1's camera is held at
+// that integer position and rotation (an F7 capture's where.txt "camera"
+// line) instead of following the kart; the precise camera is off for it.
+// With CTR_DEV_WARP, any build shows the captured view. Returns 1 when it
+// set pos and rot.
+int NativeDev_PinCamera(int cameraID, short *pos, short *rot);
+
 // CTR_DEV_BOT_SPEED=<percent>: caps the bots' top speed at that share of
 // retail (default 100, no change), so the autopilot can win a race and reach
 // the podium.
