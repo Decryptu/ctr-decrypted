@@ -93,6 +93,18 @@ struct rData rdata;
 struct Data data;
 NativeConfig g_config;
 
+// The loader's own log line goes to the run log through Platform_Log; the log
+// module is not linked here, so its lines go to stdout, where a failing run
+// shows them next to the assertion.
+void Platform_Log(const char *fmt, ...)
+{
+	va_list args;
+
+	va_start(args, fmt);
+	vprintf(fmt, args);
+	va_end(args);
+}
+
 // LOAD_AppendQueue aborts by default, like the other stubs, so a test that
 // started calling one says so. The roster scenario is the one exception: it
 // drives the real LOAD_DriverMPK to find out WHICH PACK the event race queues,
@@ -1416,7 +1428,7 @@ static void test_render_report_is_one_line_per_load(void)
 	});
 	expect_int(log_line_count(), 1, "600 quiet frames produce exactly one line");
 	expect_log_contains("level 25 over 600 frames", "and it names the load that ended and its frame count");
-	expect_log_contains("reserve refused 0, rendered list full 0, bsp records dropped 0",
+	expect_log_contains("reserve refused 0, rendered list peak 0 of 256, rendered list full 0, bsp records dropped 0",
 	                    "with all three drop counters at zero");
 
 	// Two DIFFERENT levels that share an arena size are two loads, not one. Rung
@@ -1461,8 +1473,8 @@ static void test_render_report_is_one_line_per_load(void)
 		CustomTrackDiag_FlushLevelLoad();
 	});
 	expect_int(log_line_count(), 3, "a load with drops reports the summary plus two loud lines");
-	expect_log_contains("reserve refused 2, rendered list full 1, bsp records dropped 2",
-	                    "the summary carries all three counters");
+	expect_log_contains("reserve refused 2, rendered list peak 0 of 256, rendered list full 1, bsp records dropped 2",
+	                    "the summary carries every counter");
 	expect_log_contains("LOST LEVEL GEOMETRY: a bucket reserve was refused 2 times across 1 frames",
 	                    "the loud line names the prefix cut");
 	expect_log_contains("closest 6656 bytes wanted with 6000 left", "and reports the CLOSEST refusal, not the first");
@@ -1486,7 +1498,7 @@ static void test_render_report_is_one_line_per_load(void)
 	});
 	expect_int(log_line_count(), 1, "and the load still reports as one line");
 	expect_log_contains("level 25 over 2 frames", "with both of its own frames counted");
-	expect_log_contains("reserve refused 0, rendered list full 0, bsp records dropped 0",
+	expect_log_contains("reserve refused 0, rendered list peak 0 of 256, rendered list full 0, bsp records dropped 0",
 	                    "drops outside an open frame reach no report");
 }
 

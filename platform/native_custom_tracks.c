@@ -2,6 +2,7 @@
 
 #include <platform/native_custom_tracks.h>
 #include <platform/native_sha256.h>
+#include <platform/native_log.h>
 
 #include <stdio.h>
 #include <stdlib.h>
