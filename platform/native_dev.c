@@ -40,6 +40,7 @@ typedef struct
 	int shotFrom;
 	int exitFrame;
 	int dumpFrame;
+	int dumpEvery; // CTR_DEV_DUMP_EVERY: and every this many frames after it
 	FILE *dump;
 	int frame;
 	int presentedShot; // capture what reaches the window, after the screen filter
@@ -85,6 +86,7 @@ static NativeDevState *NativeDev_State(void)
 		s_dev.shotFrom = NativeDev_EnvInt("CTR_DEV_SHOT_FROM", 0);
 		s_dev.exitFrame = NativeDev_EnvInt("CTR_DEV_EXIT_FRAME", 0);
 		s_dev.dumpFrame = NativeDev_EnvInt("CTR_DEV_DUMP_FRAME", -1);
+		s_dev.dumpEvery = NativeDev_EnvInt("CTR_DEV_DUMP_EVERY", 0);
 		s_dev.presentedShot = NativeDev_EnvInt("CTR_DEV_SHOT_PRESENTED", 0);
 		s_dev.vramDumpFrame = NativeDev_EnvInt("CTR_DEV_VRAM_DUMP", -1);
 		s_dev.captureFrame = -1;
@@ -202,7 +204,8 @@ FILE *NativeDev_DumpFile(void)
 {
 	NativeDevState *dev = NativeDev_State();
 	const int captured = (dev->frame == dev->captureFrame);
-	if ((dev->frame != dev->dumpFrame) && !captured)
+	const int repeated = (dev->dumpFrame >= 0) && (dev->dumpEvery > 0) && (dev->frame > dev->dumpFrame) && ((dev->frame - dev->dumpFrame) % dev->dumpEvery == 0);
+	if ((dev->frame != dev->dumpFrame) && !repeated && !captured)
 		return NULL;
 	if (dev->dump == NULL)
 	{

@@ -2518,6 +2518,7 @@ static u32 DrawLevelOvr1P_GetPreparedProjectedMaxDepthCount(const struct DrawLev
 	return maxDepth;
 }
 
+#if !defined(CTR_NATIVE)
 static int DrawLevelOvr1P_SourceInsideClipRecordWindow(const struct DrawLevelOvr1PScratchVertex *src)
 {
 	const s16 *center = CTR_VECTOR_DATA(&(DrawLevelOvr1P_Scratch()->projectedCenter));
@@ -2542,24 +2543,60 @@ static int DrawLevelOvr1P_SourceInsideClipRecordWindow(const struct DrawLevelOvr
 
 	// NOTE(aalhendi): Retail 0x800a4f38/0x800a3640 use the sign bit of these
 	// extent checks ANDed together; negative means the source point is inside.
-	s32 halfXZ = 0x100;
-#if defined(CTR_NATIVE)
-	// The window is retail's cheap stand-in for "this polygon reaches the near
-	// plane inside the view": a box around a point half the screen distance in
-	// front of the camera, sized for the 4:3 field of view. Widescreen widens
-	// the view sideways, so near-plane polygons at the screen edges fell
-	// outside the box and were dropped whole (black wedges at the left and
-	// right of a 16:9 frame). Widen the box's world X/Z extent by the same
-	// factor as the frustum; identity at 4:3. The extra records stay far under
-	// retail's clip budget (peak 1800 of 12000 bytes at 21:9 on Hot Air Skyway).
-	halfXZ = Widescreen_ScaleFrustumX(0x100);
-#endif
-	u32 insideBits = (u32)(x - halfXZ) & (u32)(y - 0x180) & (u32)(z - halfXZ);
+	u32 insideBits = (u32)(x - 0x100) & (u32)(y - 0x180) & (u32)(z - 0x100);
 	return (s32)insideBits < 0;
 }
+#endif
 
 static int DrawLevelOvr1P_ShouldWriteRenderedClippedRecord(const struct DrawLevelOvr1PScratchVertex *projected, const int *indices, int count)
 {
+#if defined(CTR_NATIVE)
+	// The window is retail's cheap stand-in for "this polygon reaches the near
+	// plane inside the view": a box around a point half the screen distance in
+	// front of the camera, sized for the 4:3 field of view. Retail keeps a
+	// polygon when one of its corners is inside the box. Two things break that:
+	// - widescreen widens the view sideways, so the box's X/Z extent is widened
+	//   by the same factor as the frustum (identity at 4:3);
+	// - a polygon larger than the box (a converted course's floor, even at the
+	//   finest detail level) can cross the near plane beside the camera with
+	//   every corner outside the box.
+	// Either way the polygon was dropped whole: a black wedge, or what lies
+	// under the floor, at the bottom left or right of the frame. So the
+	// polygon's bounds are tested against the box instead. A corner inside
+	// means the bounds overlap, so every polygon retail keeps is still kept.
+	// The extra records stay far under the clip budget (peak 1800 of 12000
+	// bytes at 21:9 on Hot Air Skyway).
+	const s16 *center = CTR_VECTOR_DATA(&(DrawLevelOvr1P_Scratch()->projectedCenter));
+	const s32 half[3] = {Widescreen_ScaleFrustumX(0x100), 0x180, Widescreen_ScaleFrustumX(0x100)};
+
+	for (s32 axis = 0; axis < 3; axis++)
+	{
+		s32 lo = 0x7fffffff;
+		s32 hi = -0x7fffffff;
+
+		for (s32 vertexIndex = 0; vertexIndex < count; vertexIndex++)
+		{
+			s32 d = (s32)projected[indices[vertexIndex]].pos[axis] - center[axis];
+
+			if (d < lo)
+			{
+				lo = d;
+			}
+
+			if (d > hi)
+			{
+				hi = d;
+			}
+		}
+
+		if (lo >= half[axis] || hi <= -half[axis])
+		{
+			return 0;
+		}
+	}
+
+	return 1;
+#else
 	for (s32 vertexIndex = 0; vertexIndex < count; vertexIndex++)
 	{
 		if (DrawLevelOvr1P_SourceInsideClipRecordWindow(&projected[indices[vertexIndex]]))
@@ -2569,6 +2606,7 @@ static int DrawLevelOvr1P_ShouldWriteRenderedClippedRecord(const struct DrawLeve
 	}
 
 	return 0;
+#endif
 }
 
 static void DrawLevelOvr1P_CopyClipRecordVertex(struct DrawLevelOvr1PClipRecordVertex *dst, const struct DrawLevelOvr1PScratchVertex *src)

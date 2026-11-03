@@ -2,7 +2,7 @@
 
 `tools/tracks/` turns a course from the player's own Mario Kart DS ROM into a custom track package ([CUSTOM_TRACKS.md](CUSTOM_TRACKS.md#3-the-package-format)). Nothing from the ROM is in the repository; the tools read the ROM and write the package on the player's machine.
 
-Status: Figure-8 Circuit (`cross_course`) converts and passes every check below; the owner's fourth play test is next. Not converted yet: the minimap, item boxes and other course objects, animated textures. The other courses have not been run.
+Status: Figure-8 Circuit (`cross_course`) converts and passes every check below; the owner's fifth play test is next. Not converted yet: the minimap, item boxes and other course objects, animated textures. The other courses have not been run.
 
 ## Use
 1. Build CrashTeamEditor's headless converter once, from an MSYS2 shell:
