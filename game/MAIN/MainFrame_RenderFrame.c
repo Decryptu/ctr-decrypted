@@ -914,6 +914,7 @@ static s32 RenderAllLevelGeometry_ScaleDistanceShift8(s32 distToScreen, s32 scal
 static void RenderAllLevelGeometry_MarkLevelPrims(struct GameTracker *gGT, void *start)
 {
 	NativeGpu_SetLevelPrimRange(gGT->swapchainIndex, start, gGT->backBuffer->primMem.cursor);
+	NativeGpu_SetLevelDepthTested((gGT->level1 != NULL) && ((gGT->level1->configFlags & LEVEL_CONFIG_DEPTH_TESTED) != 0));
 }
 #define LEVEL_PRIMS_BEGIN() void *levelPrimStart = gGT->backBuffer->primMem.cursor
 #define LEVEL_PRIMS_END()   RenderAllLevelGeometry_MarkLevelPrims(gGT, levelPrimStart)

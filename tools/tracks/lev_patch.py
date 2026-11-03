@@ -1,10 +1,12 @@
 """Finish a CrashTeamEditor LEV for a converted track (docs/TRACK-CONVERTER.md):
 - collision-only quadblocks draw nothing, and their BSP subtree is cleared from the visibility lists;
-- bot paths: a 3-entry LevNavTable, each a NavHeader plus NavFrames (CrashTeamEditor writes none)."""
+- bot paths: a 3-entry LevNavTable, each a NavHeader plus NavFrames (CrashTeamEditor writes none);
+- the level is marked depth-tested (LEVEL_CONFIG_DEPTH_TESTED): its art was made for a depth buffer."""
 import json, math, struct, sys
 
 FP_ONE_GEO = 64
-OFF_NUM_CHECKPOINTS, OFF_CHECKPOINTS, OFF_NAV_TABLE = 0x148, 0x14C, 0x188
+OFF_CONFIG_FLAGS, OFF_NUM_CHECKPOINTS, OFF_CHECKPOINTS, OFF_NAV_TABLE = 0xDC, 0x148, 0x14C, 0x188
+LEVEL_CONFIG_DEPTH_TESTED = 0x80000000  # include/platform/native_gpu.h
 
 
 def patch(lev_path, nav_path, out_path):
@@ -93,6 +95,9 @@ def patch(lev_path, nav_path, out_path):
                              min(int(math.sqrt(dx*dx+dz*dz)), 32767), 0, 0x7fff, near, 0)
             data += fr
     struct.pack_into('<I', data, OFF_NAV_TABLE, table)
+    # MKDS draws with a depth buffer: billboards, fences and signs hang a few units in front of the
+    # walls they are on, which the per-block ordering table sort swaps as the camera moves
+    struct.pack_into('<I', data, OFF_CONFIG_FLAGS, struct.unpack_from('<I', data, OFF_CONFIG_FLAGS)[0] | LEVEL_CONFIG_DEPTH_TESTED)
     out = struct.pack('<I', len(data)) + bytes(data) + struct.pack('<I', 4 * len(ptrs)) + struct.pack(f'<{len(ptrs)}I', *ptrs)
     open(out_path, 'wb').write(out)
     return {'lanes': len(lanes), 'checkpoints': ncp, 'hidden quadblocks': hidden,

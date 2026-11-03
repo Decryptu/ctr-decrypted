@@ -130,6 +130,7 @@ typedef struct
 	// The level's water runs inside it (NativeGpu_AddLevelWaterRange): two
 	// buckets per viewport, merged when adjacent.
 	bool levelWater;
+	bool levelDepthTested; // NativeGpu_SetLevelDepthTested
 	int waterDb;
 	int waterCount[2];
 	const u8 *waterStart[2][NATIVE_GPU_MAX_WATER_RANGES];
@@ -217,6 +218,11 @@ void NativeGpu_SetLevelPrimRange(int db, const void *start, const void *end)
 	}
 }
 
+void NativeGpu_SetLevelDepthTested(int depthTested)
+{
+	s_gpu.levelDepthTested = depthTested != 0;
+}
+
 void NativeGpu_AddLevelWaterRange(const void *start, const void *end)
 {
 	const int db = s_gpu.waterDb;
@@ -280,6 +286,9 @@ internal bool NativeGpu_IsLevelWater(const u8 *packet)
 // lining that crosses it). Depths are the PGXP ones NativeGpu_ApplyPgxp writes
 // to w, which it does only with perspective texturing on (TEXTURES or FULL);
 // otherwise the level keeps ordering table order.
+// A depth-tested level (NativeGpu_SetLevelDepthTested) tests everything. Every
+// level face sets the PS1 blend bit (only texels with STP blend), so it says
+// nothing about translucency and is not looked at.
 internal NativeDepthMode NativeGpu_LevelDepthMode(void)
 {
 	if (!s_gpu.levelPrim || !NATIVE_PGXP_TEXTURES_ACTIVE() || NativeDev_NoLevelDepth())
@@ -287,7 +296,35 @@ internal NativeDepthMode NativeGpu_LevelDepthMode(void)
 		return NATIVE_DEPTH_OFF;
 	}
 
-	return s_gpu.levelWater ? NATIVE_DEPTH_TEST : NATIVE_DEPTH_WRITE;
+	if (s_gpu.levelWater)
+	{
+		return NATIVE_DEPTH_TEST;
+	}
+
+	return s_gpu.levelDepthTested ? NATIVE_DEPTH_TEST_WRITE : NATIVE_DEPTH_WRITE;
+}
+
+// A depth-tested level's polygon that PGXP gave no depth (a vertex nearer than
+// 64, or a lookup miss) would test as the far plane and vanish: it moves to its
+// own split that keeps ordering table order (NATIVE_DEPTH_WRITE), which the next
+// primitive's AddSplit closes again. Called after the polygon's vertices are
+// written at the vertex cursor and before they are committed.
+internal void NativeGpu_KeepDepthlessPolygonInOrder(void)
+{
+	GPUDrawSplit *curSplit = &s_gpu.splits[s_gpu.splitIndex];
+
+	if ((curSplit->depthMode != NATIVE_DEPTH_TEST_WRITE) || (s_gpu.vertexBuffer[s_gpu.vertexIndex].w > 0.0f) ||
+	    NativeGpuSplitBudget_IsFull(s_gpu.splitIndex, MAX_DRAW_SPLITS))
+	{
+		return;
+	}
+
+	curSplit->numVerts = s_gpu.vertexIndex - curSplit->startVertex;
+	GPUDrawSplit *split = &s_gpu.splits[++s_gpu.splitIndex];
+	*split = *curSplit;
+	split->depthMode = NATIVE_DEPTH_WRITE;
+	split->startVertex = s_gpu.vertexIndex;
+	split->numVerts = 0;
 }
 
 int NativeGpu_GetStateSize(void)
@@ -1109,6 +1146,7 @@ internal bool NativeGpu_HardwareSkipsTriangle(const VERTTYPE *a, const VERTTYPE 
 // Commit a triangle written at the vertex cursor, unless the hardware skips it.
 internal void NativeGpu_CommitTriangle(const VERTTYPE *p0, const VERTTYPE *p1, const VERTTYPE *p2)
 {
+	NativeGpu_KeepDepthlessPolygonInOrder();
 	if (!NativeGpu_HardwareSkipsTriangle(p0, p1, p2))
 		s_gpu.vertexIndex += 3;
 }
@@ -1118,6 +1156,7 @@ internal void NativeGpu_CommitTriangle(const VERTTYPE *p0, const VERTTYPE *p1, c
 // (p0, p1, p2) and (p1, p2, p3), and skips each one on its own.
 internal void NativeGpu_CommitQuad(const VERTTYPE *p0, const VERTTYPE *p1, const VERTTYPE *p2, const VERTTYPE *p3)
 {
+	NativeGpu_KeepDepthlessPolygonInOrder();
 	TriangulateQuad();
 
 	const bool skipFirst = NativeGpu_HardwareSkipsTriangle(p0, p1, p2);

@@ -794,6 +794,8 @@ struct Level
 	// & 1 = enables glowGradient skybox gradients
 	// & 2 = mask grab when underwater
 	// & 4 = toggles between water and animated vertices?
+	// & LEVEL_CONFIG_DEPTH_TESTED (native, set by converted tracks only): the
+	//   level's art was made for a depth buffer (NativeGpu_SetLevelDepthTested)
 	u32 configFlags;
 
 	// 0xE0

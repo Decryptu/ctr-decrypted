@@ -16,7 +16,7 @@ import numpy as np
 from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import nds, nitro3d, mkdsmap, lev_patch, package
+import nds, nitro3d, mkdsmap, lev_patch, package, winding_check
 
 MODEL_TO_WORLD = 16.0  # course models are drawn 16 times larger than their stored size
 
@@ -303,9 +303,31 @@ def group_grids(quads):
         pts = {k(rot[i][j]) for i in order for j in (1, 2)}
         if len(pts) != 8:
             continue
+        # CTE takes the grid's facing from its outer corners (orient_quad): none may be straight
+        if min(corner_sines([rot[i][2] for i in order])) < 0.1:
+            continue
         used |= set(order)
         grids.append(([rot[i] for i in order], quads[start][1]))
     return grids, [quads[i] for i in range(len(quads)) if i not in used]
+
+
+def corner_sines(ring):
+    """|sin| of the angle at each corner of a polygon of vertex dicts (0 for a straight corner)."""
+    P = [np.asarray(v['pos'], float) for v in ring]
+    out = []
+    for i in range(len(P)):
+        a, b = P[i - 1] - P[i], P[(i + 1) % len(P)] - P[i]
+        out.append(np.linalg.norm(np.cross(a, b)) / max(np.linalg.norm(a) * np.linalg.norm(b), 1e-12))
+    return out
+
+
+def orient_quad(quad):
+    """CrashTeamEditor takes a quadblock's facing from its corners 0 and 2 (the triangles
+    p0 p2 p6 and p2 p8 p6 of its grid) and turns the block over when that disagrees with the OBJ
+    normal. A quad that undoes a midpoint split has a straight corner, which gives a zero normal
+    and a block turned over at random: start the ring so that corners 0 and 2 are not straight."""
+    s = corner_sines(quad)
+    return quad if min(s[0], s[2]) >= min(s[1], s[3]) else quad[1:] + quad[:1]
 
 
 def fan(poly):
@@ -541,8 +563,10 @@ def convert(course, out_dir, name, scale, max_edge):
         write_grid(f'g{stats["render grids"]:05d}', mat_names[mi], faces, normal / max(np.linalg.norm(normal), 1e-9))
     for quad, mi in quads:
         stats['render quads'] += 1
-        write_quadblock(f'q{stats["render quads"]:05d}', mat_names[mi], quad,
-                        tri_normal(quad[:3]))
+        quad = orient_quad(quad)
+        Q = [np.asarray(v['pos'], float) for v in quad]
+        normal = np.cross(Q[2] - Q[0], Q[3] - Q[1])  # the diagonals: defined even with a straight corner
+        write_quadblock(f'q{stats["render quads"]:05d}', mat_names[mi], quad, normal / max(np.linalg.norm(normal), 1e-9))
     for tri, mi in tris:
         stats['render'] += 1
         write_triblock(f'r{stats["render"]:05d}', mat_names[mi], tri, tri_normal(tri))
@@ -605,7 +629,10 @@ def convert(course, out_dir, name, scale, max_edge):
                 continue
             mk_n = np.cross(piece[1]['mk'] - piece[0]['mk'], piece[2]['mk'] - piece[0]['mk'])
             if np.dot(tri_normal(piece), mk_n) < 0:
-                stats['collision flipped by the LEV grid'] += 1
+                # a sliver the grid turned over: its neighbours now overlap the strip it covered,
+                # so dropping it leaves no gap, and the game would test it facing the wrong way
+                stats['collision slivers turned over by the LEV grid, dropped'] += 1
+                continue
             stats['collision'] += 1
             bname = f'c{stats["collision"]:05d}'
             cte = [{'pos': v['pos'], 'uv': v['uv'], 'col': v['col']} for v in piece]
@@ -647,9 +674,11 @@ def convert(course, out_dir, name, scale, max_edge):
     pre = os.path.join(out_dir, name + '_presets')
     os.makedirs(pre, exist_ok=True)
     mats = {'header': 3, 'materials': sorted(set(mat_names.values()) | {c[0] for c in COLLISION.values()})}
-    for mname in mat_names.values():
+    for i, mname in mat_names.items():
         mats[mname + '_quadflags'] = 0  # drawn only
         mats[mname + '_checkpoint'] = False
+        # fences, rails and signs MKDS draws from both sides (polygon attribute bit 6, back faces)
+        mats[mname + '_drawflags'] = bool((course.model.mats[i].polygon_attr >> 6) & 1)
     for cname, terrain, flags, pathable in COLLISION.values():
         mats[cname + '_terrain'] = terrain
         mats[cname + '_quadflags'] = flags
@@ -658,7 +687,9 @@ def convert(course, out_dir, name, scale, max_edge):
     json.dump(mats, open(os.path.join(pre, 'material.json'), 'w'), indent=1)
 
     # 8 spawns in two staggered columns behind the start, like MKDS's grid
-    heading = math.degrees(math.atan2(fwd[0], -fwd[1]))
+    # a kart at game angle a faces (sin a, cos a) in x/z, and VehBirth turns the spawn's rot.y by
+    # a quarter turn before using it
+    heading = math.degrees(math.atan2(fwd[0], fwd[1])) - 90
     spawns = []
     side = np.array([-fwd[1], fwd[0]])
     for i in range(8):
@@ -756,6 +787,10 @@ def main():
     lev = os.path.join(lev_dir, name + '.lev')
     patched = os.path.join(lev_dir, name + '_patched.lev')
     print('lev_patch', lev_patch.patch(lev, os.path.join(work, name + '_nav.json'), patched))
+    winding = winding_check.check(os.path.join(work, name + '.obj'), patched)
+    print('winding', winding)
+    if winding['flipped'] or winding['unmatched']:
+        sys.exit('CrashTeamEditor turned drawn blocks over (they would vanish from the front)')
     pin = package.build(patched, os.path.join(lev_dir, name + '.vrm'), a.title, 'mkds/' + a.course, a.version, a.store)
     # a re-conversion replaces the revision this work folder installed last
     pin_file = os.path.join(work, 'pin.txt')

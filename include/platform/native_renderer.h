@@ -73,6 +73,7 @@ typedef enum
 	NATIVE_DEPTH_OFF,   // ordering table order only (everything but the level)
 	NATIVE_DEPTH_WRITE, // ordering table order, writing true depth (the level but its water)
 	NATIVE_DEPTH_TEST,  // colour, tested with the tolerance, no depth write (the level's water)
+	NATIVE_DEPTH_TEST_WRITE, // tested and writing true depth (a depth-tested level, NativeGpu_SetLevelDepthTested)
 } NativeDepthMode;
 void NativeRenderer_SetDepthMode(NativeDepthMode mode);
 void NativeRenderer_SetOffscreenState(const RECT16 *offscreenRect, int enable);

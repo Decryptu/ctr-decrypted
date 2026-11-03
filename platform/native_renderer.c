@@ -3200,7 +3200,7 @@ void NativeRenderer_SetDepthMode(NativeDepthMode mode)
 	// Per program, so set it for whichever program the split bound.
 	if (u_depthPullLoc >= 0)
 	{
-		glUniform1f(u_depthPullLoc, (mode == NATIVE_DEPTH_TEST) ? NATIVE_DEPTH_TOLERANCE : (mode == NATIVE_DEPTH_WRITE) ? -1.0f : 0.0f);
+		glUniform1f(u_depthPullLoc, (mode == NATIVE_DEPTH_TEST) ? NATIVE_DEPTH_TOLERANCE : ((mode == NATIVE_DEPTH_WRITE) || (mode == NATIVE_DEPTH_TEST_WRITE)) ? -1.0f : 0.0f);
 	}
 
 	if (s_previousDepthMode == (int)mode)
@@ -3230,6 +3230,13 @@ void NativeRenderer_SetDepthMode(NativeDepthMode mode)
 		glEnable(GL_DEPTH_TEST);
 		glDepthFunc(GL_LEQUAL);
 		glDepthMask(GL_FALSE);
+		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+		break;
+	case NATIVE_DEPTH_TEST_WRITE:
+		// A later polygon wins ties, as in ordering table order.
+		glEnable(GL_DEPTH_TEST);
+		glDepthFunc(GL_LEQUAL);
+		glDepthMask(GL_TRUE);
 		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		break;
 	}

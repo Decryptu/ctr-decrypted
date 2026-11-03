@@ -2,7 +2,7 @@
 
 `tools/tracks/` turns a course from the player's own Mario Kart DS ROM into a custom track package ([CUSTOM_TRACKS.md](CUSTOM_TRACKS.md#3-the-package-format)). Nothing from the ROM is in the repository; the tools read the ROM and write the package on the player's machine.
 
-Status: Figure-8 Circuit (`cross_course`) converts and passes every check below. Not converted yet: the minimap, item boxes and other course objects, animated textures. The other courses have not been run.
+Status: Figure-8 Circuit (`cross_course`) converts and passes every check below; the owner's second play test is next. Not converted yet: the minimap, item boxes and other course objects, animated textures. The other courses have not been run.
 
 ## Use
 1. Build CrashTeamEditor's headless converter once, from an MSYS2 shell:
@@ -18,24 +18,29 @@ Scale: MKDS course models are drawn 16 times their stored size; one MKDS world u
 - Textures are decoded from `course_model.nsbtx`. A repeating texture is tiled inside its image (up to 4 times, as far as one triangle spans it) while everything fits 14 texture pages of the VRM. Textures wider than 128 pixels are quantised to 16 colours, because a texture page holds 128 pixels at 8 bits.
 - Triangles are cut at texture-tile edges, then split until no edge is longer than `--max-edge` (24 units, 1536 LEV units; retail quadblocks span about 900 to 1600).
 - Two triangles that share an edge become one quad when one texture mapping covers both, the shape is convex and it is flat within 2 LEV units: the quad's midpoints and centre then get exactly the texture the triangles had. Four quads around one vertex become one quadblock, each face keeping its own UVs. What is left becomes triblocks. Fewer, larger blocks matter because the level renderer queues the blocks near the camera in a 256-entry list and does not draw what does not fit ([below](#checks)).
+- CrashTeamEditor takes a block's facing from its corners 0 and 2 and turns the block over when that disagrees with the OBJ normal. A quad that undoes a midpoint split has a straight corner, which gives it a zero normal and a facing chosen at random; a block turned over vanishes from the front, as back faces are culled (the road under the kart showed black). Each quad's ring starts so that corners 0 and 2 are not straight, a grid is only made when none of its outer corners is, and the normal written is that of the diagonals.
+- Materials MKDS draws from both sides (polygon attribute bit 6: fences, rails, signs, the giant blocks behind the walls) are double-sided quadblocks (CrashTeamEditor's `_drawflags`).
 
 **Collision** (`course_collision.kcl`): invisible quadblocks carrying the terrain and flags (table `COLLISION` in `mkds_convert.py`; CrashTeamEditor's flag labels are misleading, the script names the game's bits). The engine tests each LEV triangle exactly, with no radius to hide gaps, so the collision mesh is made watertight before it is written:
 - vertices within 0.5 MKDS units are welded, and a vertex lying on another triangle's edge is inserted into that edge (T-junctions leave slivers a kart falls through);
 - long edges are split at their midpoints in every triangle that shares them, so neighbours stay matched (large triangles left the kart under the road);
-- positions are snapped to the LEV grid (1/64 unit) before writing, so the mesh checked is the one the game tests.
+- positions are snapped to the LEV grid (1/64 unit) before writing, so the mesh checked is the one the game tests. A sliver the snapping turns over (236 on Figure-8) is dropped: its neighbours now overlap the strip it covered, and the game would test it facing down.
 
-**Track data** (`course_map.nkm`): eight spawns behind the start, the finish line (collision triangles crossing it are split so the lap checkpoints start exactly on it), three AI lanes along the CPU route (its centre line, and 40% of its radius to each side), a sky gradient from the course's skybox texture, and the probe points `check_track.ps1` uses (every 64 LEV units on every MKDS ground layer).
+**Track data** (`course_map.nkm`): eight spawns behind the start, facing along the route (a kart at game angle `a` faces `(sin a, cos a)` in x/z, and `VehBirth` turns a spawn's `rot.y` a quarter turn before using it), the finish line (collision triangles crossing it are split so the lap checkpoints start exactly on it), three AI lanes along the CPU route (its centre line, and 40% of its radius to each side), a sky gradient from the course's skybox texture, and the probe points `check_track.ps1` uses (every 64 LEV units on every MKDS ground layer).
 
 ## After CrashTeamEditor
 `lev_patch.py` adds what CrashTeamEditor does not write:
 - The collision quadblocks' faces get draw mode 3 (nothing drawn).
 - The renderer would still walk the collision blocks, as many as the drawn ones, filling the near-camera list for nothing. The patched CrashTeamEditor puts them in their own BSP subtree (the root's second child), and `lev_patch.py` clears that subtree in every visibility list. The native renderer ignores retail visibility lists but keeps nodes that no list ever shows hidden ([LEVEL-VISIBILITY.md](LEVEL-VISIBILITY.md#the-stages)). Collision does not use the lists.
 - The bot paths: a three-entry nav table, each lane a `NavHeader` and its `NavFrame`s, one more frame than points as the engine reads one past the end.
+- The level is marked depth-tested (`LEVEL_CONFIG_DEPTH_TESTED` in `configFlags`): MKDS draws with a depth buffer, and fences, billboards and signs hang a few units in front of the walls they are on. The per-block ordering-table sort swaps those as the camera moves (flicker, a gantry's lattice drawn over its letters); a depth-tested level is drawn with a real depth test under PGXP ([PGXP.md](PGXP.md#level-depth-test)).
 
 `crashteameditor.patch` also makes the BSP builder split at the median block centre when one large block stretches a node so that every centre is on one side of its midpoint, and lets a texture fill VRAM to the last column and row (CrashTeamEditor refused an exact fit).
 
 ## Checks
+The converter itself fails when `winding_check.py` finds a drawn block CrashTeamEditor turned over: it matches every LEV block to its OBJ block by corner positions and compares the facing of the game's triangles with the OBJ normal.
+
 `check_track.ps1` fails on any of these:
-- The custom level's render report (`[CustomTracks] level 128 ...` in the run log, written at the end of a dev run): `reserve refused`, `rendered list full` and `bsp records dropped` must be 0. `rendered list peak` is the most blocks the near-camera list held in one frame, of 256; retail Crash Cove peaks at 50, Figure-8 at 180.
+- The custom level's render report (`[CustomTracks] level 128 ...` in the run log, written at the end of a dev run): `reserve refused`, `rendered list full` and `bsp records dropped` must be 0. `rendered list peak` is the most blocks the near-camera list held in one frame, of 256; retail Crash Cove peaks at 50, Figure-8 at 182.
 - A crash (`crash.txt` in the run folder).
 - `collision_check.py` over the in-game collision probe (`CTR_DEV_COLL_PROBE`, [DEV-TOOLS.md](DEV-TOOLS.md#environment-variables)): at every probe point the kart's own ground search runs, and a miss where MKDS has ground all around is a hole. Misses on the rim of the drivable area (`edge`), within one LEV unit of a triangle edge (`engine edge`, retail tracks have these too) and down a wall face (`wall footprint`) are listed but allowed. It also prints how far the game's ground is from the MKDS ground and the drawn surface from the game's ground; Figure-8 has 0 holes over 47,230 points, ground within 3 LEV units of MKDS's and the drawn surface within 3 of the ground.

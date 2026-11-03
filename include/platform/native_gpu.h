@@ -58,6 +58,15 @@ void NativeGpu_SetLevelPrimRange(int db, const void *start, const void *end);
 // whose level range was cleared last.
 void NativeGpu_AddLevelWaterRange(const void *start, const void *end);
 
+// A level whose configFlags carry LEVEL_CONFIG_DEPTH_TESTED was made for a
+// depth buffer (a converted Mario Kart DS course: fences, billboards and signs
+// a few units in front of the walls they hang on), which the per-block sort
+// gets wrong as the camera moves. Its polygons then test depth and write it
+// (NATIVE_DEPTH_TEST_WRITE), its water tests only, and a polygon PGXP gave no
+// depth keeps ordering table order. Retail levels never set the bit.
+#define LEVEL_CONFIG_DEPTH_TESTED 0x80000000u
+void NativeGpu_SetLevelDepthTested(int depthTested);
+
 void NativeGpu_SetSideloadTexture(unsigned int texture, int width, int height);
 void NativeGpu_SetTrialLetterTexture(unsigned int texture, int width, int height);
 void NativeGpu_SetRacerBankTexture(unsigned int texture);

@@ -53,6 +53,7 @@ typedef struct
 	const char *customPin; // CTR_DEV_CUSTOM
 	int autopilot;
 	int hopEvery;
+	int autopilotLane;
 	int exitAfterRace;
 	int endFrames;
 	const char *ghostIn;
@@ -181,6 +182,7 @@ static NativeDevRaceState *NativeDevRace_State(void)
 		s_devRace.laps = NativeDev_EnvInt("CTR_DEV_LAPS", 0);
 		s_devRace.autopilot = NativeDev_EnvInt("CTR_DEV_AUTOPILOT", 0);
 		s_devRace.hopEvery = NativeDev_EnvInt("CTR_DEV_HOP_MS", 0);
+		s_devRace.autopilotLane = NativeDev_EnvInt("CTR_DEV_AUTOPILOT_LANE", 0);
 		s_devRace.exitAfterRace = NativeDev_EnvInt("CTR_DEV_EXIT_AFTER_RACE", 0);
 		s_devRace.ghostIn = getenv("CTR_DEV_GHOST_IN");
 		s_devRace.ghostOut = getenv("CTR_DEV_GHOST_OUT");
@@ -508,8 +510,9 @@ int NativeDev_ModsTab(void)
 
 // Steer toward a nav point ahead on one of the AI's lines, with the throttle
 // held, so the kart stays on the road through the real driving physics.
-// Player 1 follows lane 0; in VS each player takes the next lane, so on tracks
-// with forks some players take the other branch.
+// Player 1 follows lane 0 (CTR_DEV_AUTOPILOT_LANE picks another); in VS each
+// player takes the next lane, so on tracks with forks some players take the
+// other branch.
 int NativeDev_AutopilotPad(int player, unsigned short *buttons, unsigned char *leftX)
 {
 	NativeDevRaceState *dev = NativeDevRace_State();
@@ -540,7 +543,7 @@ int NativeDev_AutopilotPad(int player, unsigned short *buttons, unsigned char *l
 		return 0;
 
 	NativeDevPilot *p = &dev->pilot[player];
-	struct NavHeader *nh = sdata->NavPath_ptrHeader[player % 3];
+	struct NavHeader *nh = sdata->NavPath_ptrHeader[(player + dev->autopilotLane) % 3];
 	if ((nh == NULL) || (nh->numPoints <= 0))
 		nh = sdata->NavPath_ptrHeader[0];
 	if ((nh == NULL) || (nh->numPoints <= 0))
