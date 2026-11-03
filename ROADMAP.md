@@ -15,7 +15,7 @@ What is in progress, what is next, and what was decided. A finished item is dele
 - **High Octane is ported feature by feature, never merged.** A trial merge conflicts in 92 files, and it carries Vita, web and leaderboard code we don't want.
 
 ## In progress
-- Mario Kart DS course converter ([TRACK-CONVERTER.md](docs/TRACK-CONVERTER.md)). Figure-8 Circuit converts and passes the checks; the owner plays it next. Karts the owner once saw missing while their shadows showed are not reproduced: the next sighting gets an `F7` capture (its polygon dump tells a kart never drawn from one drawn over). Then: the minimap (an image in the package's VRAM, icons 3 and 4 pointed at it, and an `ST1_MAP` entry with the world bounds), item boxes and the other course objects, then every course in one batch run with `check_track.ps1`.
+- Mario Kart DS course converter ([TRACK-CONVERTER.md](docs/TRACK-CONVERTER.md)). Figure-8 Circuit converts and passes the checks; the owner plays it next. Karts the owner once saw missing while their shadows showed are not reproduced and were not seen again: a next sighting gets an `F7` capture (its polygon dump tells a kart never drawn from one drawn over). Then: the minimap (an image in the package's VRAM, icons 3 and 4 pointed at it, and an `ST1_MAP` entry with the world bounds), item boxes and the other course objects, then every course in one batch run with `check_track.ps1`.
 
 ## Planned
 Nothing.

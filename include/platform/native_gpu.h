@@ -58,6 +58,10 @@ void NativeGpu_SetLevelPrimRange(int db, const void *start, const void *end);
 // whose level range was cleared last.
 void NativeGpu_AddLevelWaterRange(const void *start, const void *end);
 
+// The near-plane clip records' consumer reports the runs of primitives it
+// wrote, the same way: the GPU draws them however large (NativeGpu_HardwareSkipsTriangle).
+void NativeGpu_AddLevelClippedRange(const void *start, const void *end);
+
 // A level whose configFlags carry LEVEL_CONFIG_DEPTH_TESTED was made for a
 // depth buffer (a converted Mario Kart DS course: fences, billboards and signs
 // a few units in front of the walls they hang on), which the per-block sort

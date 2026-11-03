@@ -4,7 +4,8 @@
 - the level is marked depth-tested (LEVEL_CONFIG_DEPTH_TESTED): its art was made for a depth buffer;
 - and as having one texture per LOD (LEVEL_CONFIG_ONE_TEXTURE_LOD), so the extended draw distance does not
   subdivide it farther;
-- every collision triangle's normal scale is recomputed from the LEV's integer vertices."""
+- every collision triangle's normal scale is recomputed from the LEV's integer vertices, and the
+  triangles the grid turned away from their block get none."""
 import json, math, struct, sys
 
 FP_ONE_GEO = 64
@@ -13,6 +14,7 @@ LEVEL_CONFIG_DEPTH_TESTED = 0x80000000  # include/platform/native_gpu.h
 LEVEL_CONFIG_ONE_TEXTURE_LOD = 0x40000000  # include/platform/native_draw_distance.h
 # The triangles COLL_FIXED_QUADBLK_GetNormVecs_HiLOD / _LoLOD build, in triNormalVecDividend order
 NORMAL_TRIS = [(0, 4, 5), (4, 6, 5), (6, 4, 1), (5, 6, 2), (8, 6, 7), (7, 3, 8), (1, 7, 6), (2, 6, 8), (0, 1, 2), (1, 3, 2)]
+TURNED_COS = 0.9  # fix_normals: about 25 degrees
 
 
 def _s16(v):
@@ -62,11 +64,22 @@ def exact_normal_scale(verts, tris):
     return best
 
 
+def _unit(m):
+    length = math.sqrt(sum(x * x for x in m))
+    return [x / length for x in m] if length else None
+
+
 def fix_normals(data, mesh):
-    """-> (worst error, quadblocks over 2%), over the blocks collision tests (GROUND or COLLISION_SURFACE)."""
+    """-> (worst error, quadblocks over 2%, sub-triangles given no normal), over the blocks collision
+    tests (GROUND or COLLISION_SURFACE).
+    A high-detail triangle turned more than TURNED_COS away from the half of the block it divides
+    gets no normal (dividend 0), so the game ignores it like a zero-area one. CrashTeamEditor rounds
+    a block's edge midpoints to the grid, and on a sliver a unit or two wide that stands a piece up:
+    a wall that tall across the road, which stops the kart dead. Its neighbours cover the strip."""
     nq, nv, _, qoff, voff = struct.unpack_from('<5I', data, mesh)
     verts = [struct.unpack_from('<3h', data, voff + 16 * i) for i in range(nv)]
     worst = []
+    ignored = 0
     for q in range(nq):
         o = qoff + 0x5c * q
         if not struct.unpack_from('<H', data, o + 0x12)[0] & 0x3000:
@@ -76,11 +89,18 @@ def fix_normals(data, mesh):
         tris = [(tuple(idx[k] for k in t), 0) for t in NORMAL_TRIS[:8]] + [(tuple(idx[k] for k in t), 2) for t in NORMAL_TRIS[8:]]
         if tri:
             tris = tris[:4] + [((idx[0], idx[0], idx[0]), 0)] * 4 + tris[8:]
+        halves = [_unit(game_normal_cross(*(verts[k] for k in tris[8 + h][0]))) for h in range(2)]
+        for i in range(8):
+            n = _unit(game_normal_cross(*(verts[k] for k in tris[i][0])))
+            half = halves[i // 4]  # triangles 0-3 divide (0,1,2), 4-7 divide (1,3,2)
+            if n and half and sum(a * b for a, b in zip(n, half)) < TURNED_COS:
+                tris[i] = ((idx[0], idx[0], idx[0]), 0)
+                ignored += 1
         shift, div, err = exact_normal_scale(verts, tris)
         data[o + 0x3f] = shift
         struct.pack_into('<10h', data, o + 0x48, *div)
         worst.append(err)
-    return max(worst), sum(e > 0.02 for e in worst)
+    return max(worst), sum(e > 0.02 for e in worst), ignored
 
 
 def patch(lev_path, nav_path, out_path):
@@ -102,7 +122,7 @@ def patch(lev_path, nav_path, out_path):
     # CrashTeamEditor writes every face as drawn.
     mesh = struct.unpack_from('<I', data, 0)[0]
     nq, _, _, qoff = struct.unpack_from('<4I', data, mesh)
-    normal_error, normal_bad = fix_normals(data, mesh)
+    normal_error, normal_bad, normal_ignored = fix_normals(data, mesh)
     hidden = 0
     for q in range(nq):
         o = qoff + 0x5c * q
@@ -179,7 +199,8 @@ def patch(lev_path, nav_path, out_path):
     open(out_path, 'wb').write(out)
     return {'lanes': len(lanes), 'checkpoints': ncp, 'hidden quadblocks': hidden,
             'culled bsp nodes': len(culled), 'of': nbsp, 'vis lists': len(vis_lists),
-            'worst collision normal error': round(normal_error, 4), 'quadblocks over 2%': normal_bad}
+            'worst collision normal error': round(normal_error, 4), 'quadblocks over 2%': normal_bad,
+            'collision triangles turned by the grid, ignored': normal_ignored}
 
 
 if __name__ == '__main__':

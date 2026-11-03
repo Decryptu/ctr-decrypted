@@ -98,8 +98,18 @@ typedef struct
 } GPUDrawSplit;
 
 #define MAX_DRAW_SPLITS 4096
-// Water runs per frame: two water buckets for each of up to four viewports.
-#define NATIVE_GPU_MAX_WATER_RANGES 8
+// Runs of level primitives per frame: two water buckets for each of up to four
+// viewports, or each viewport's near-plane clipped faces.
+#define NATIVE_GPU_MAX_LEVEL_RUNS 8
+
+// Runs the level renderer reports in the frame whose level range was cleared
+// last, per double buffer; adjacent runs merge.
+typedef struct
+{
+	int count[2];
+	const u8 *start[2][NATIVE_GPU_MAX_LEVEL_RUNS];
+	const u8 *end[2][NATIVE_GPU_MAX_LEVEL_RUNS];
+} NativeGpuLevelRuns;
 
 typedef struct
 {
@@ -127,14 +137,14 @@ typedef struct
 	bool levelPrim;
 	const u8 *levelPrimStart[2];
 	const u8 *levelPrimEnd[2];
-	// The level's water runs inside it (NativeGpu_AddLevelWaterRange): two
-	// buckets per viewport, merged when adjacent.
+	// The level's water runs inside it (NativeGpu_AddLevelWaterRange) and its
+	// near-plane clipped faces (NativeGpu_AddLevelClippedRange).
 	bool levelWater;
+	bool levelClipped;
 	bool levelDepthTested; // NativeGpu_SetLevelDepthTested
-	int waterDb;
-	int waterCount[2];
-	const u8 *waterStart[2][NATIVE_GPU_MAX_WATER_RANGES];
-	const u8 *waterEnd[2][NATIVE_GPU_MAX_WATER_RANGES];
+	int levelRunDb;
+	NativeGpuLevelRuns water;
+	NativeGpuLevelRuns clipped;
 
 	// Slack past the uploaded capacity takes the writes of a primitive that
 	// does not fit; ParsePrimitive then drops it (see the budget header).
@@ -210,11 +220,12 @@ void NativeGpu_SetLevelPrimRange(int db, const void *start, const void *end)
 	s_gpu.levelPrimStart[db] = (const u8 *)start;
 	s_gpu.levelPrimEnd[db] = (const u8 *)end;
 
-	// The arena reset: this frame's water runs follow.
+	// The arena reset: this frame's water and clipped runs follow.
 	if (start == NULL)
 	{
-		s_gpu.waterDb = db;
-		s_gpu.waterCount[db] = 0;
+		s_gpu.levelRunDb = db;
+		s_gpu.water.count[db] = 0;
+		s_gpu.clipped.count[db] = 0;
 	}
 }
 
@@ -223,31 +234,58 @@ void NativeGpu_SetLevelDepthTested(int depthTested)
 	s_gpu.levelDepthTested = depthTested != 0;
 }
 
-void NativeGpu_AddLevelWaterRange(const void *start, const void *end)
+// A run past NATIVE_GPU_MAX_LEVEL_RUNS (more than viewports allow) is not kept,
+// and its primitives are drawn as if outside any run.
+internal void NativeGpu_AddLevelRun(NativeGpuLevelRuns *runs, const void *start, const void *end)
 {
-	const int db = s_gpu.waterDb;
-	int count = s_gpu.waterCount[db];
+	const int db = s_gpu.levelRunDb;
+	int count = runs->count[db];
 
 	if ((const u8 *)end <= (const u8 *)start)
 	{
 		return;
 	}
 
-	if ((count > 0) && (s_gpu.waterEnd[db][count - 1] == (const u8 *)start))
+	if ((count > 0) && (runs->end[db][count - 1] == (const u8 *)start))
 	{
-		s_gpu.waterEnd[db][count - 1] = (const u8 *)end;
+		runs->end[db][count - 1] = (const u8 *)end;
 		return;
 	}
 
-	if (count >= NATIVE_GPU_MAX_WATER_RANGES)
+	if (count >= NATIVE_GPU_MAX_LEVEL_RUNS)
 	{
-		// More runs than viewports allow; the rest keeps ordering table order.
 		return;
 	}
 
-	s_gpu.waterStart[db][count] = (const u8 *)start;
-	s_gpu.waterEnd[db][count] = (const u8 *)end;
-	s_gpu.waterCount[db] = count + 1;
+	runs->start[db][count] = (const u8 *)start;
+	runs->end[db][count] = (const u8 *)end;
+	runs->count[db] = count + 1;
+}
+
+internal bool NativeGpu_InLevelRun(const NativeGpuLevelRuns *runs, const u8 *packet)
+{
+	for (int db = 0; db < 2; db++)
+	{
+		for (int i = 0; i < runs->count[db]; i++)
+		{
+			if ((packet >= runs->start[db][i]) && (packet < runs->end[db][i]))
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+void NativeGpu_AddLevelWaterRange(const void *start, const void *end)
+{
+	NativeGpu_AddLevelRun(&s_gpu.water, start, end);
+}
+
+void NativeGpu_AddLevelClippedRange(const void *start, const void *end)
+{
+	NativeGpu_AddLevelRun(&s_gpu.clipped, start, end);
 }
 
 internal bool NativeGpu_IsLevelPrim(const u8 *packet)
@@ -257,22 +295,6 @@ internal bool NativeGpu_IsLevelPrim(const u8 *packet)
 		if ((packet >= s_gpu.levelPrimStart[i]) && (packet < s_gpu.levelPrimEnd[i]))
 		{
 			return true;
-		}
-	}
-
-	return false;
-}
-
-internal bool NativeGpu_IsLevelWater(const u8 *packet)
-{
-	for (int db = 0; db < 2; db++)
-	{
-		for (int i = 0; i < s_gpu.waterCount[db]; i++)
-		{
-			if ((packet >= s_gpu.waterStart[db][i]) && (packet < s_gpu.waterEnd[db][i]))
-			{
-				return true;
-			}
 		}
 	}
 
@@ -1127,8 +1149,18 @@ void TriangulateQuad()
 // Widescreen squeezes every X position toward the centre (the projection and
 // the HUD alike), so the width is tested as it would be at 4:3: the same
 // triangles are skipped at every aspect ratio.
+// The level's near-plane clipped faces are the exception: the game clipped
+// them itself, so their projection is right however large, and the native
+// view (widescreen, the far camera, a converted course's large faces) makes
+// pieces wider than the PS1 drew; skipping them left the floor by the camera
+// showing the clear colour.
 internal bool NativeGpu_HardwareSkipsTriangle(const VERTTYPE *a, const VERTTYPE *b, const VERTTYPE *c)
 {
+	if (s_gpu.levelClipped)
+	{
+		return false;
+	}
+
 	int minX = a[0], maxX = a[0], minY = a[1], maxY = a[1];
 	const VERTTYPE *rest[2] = {b, c};
 
@@ -1613,6 +1645,7 @@ void ParsePrimitivesLinkedList(u32 *p, int singlePrimitive)
 	s_gpu.drawPrimMode = singlePrimitive;
 	s_gpu.levelPrim = false;
 	s_gpu.levelWater = false;
+	s_gpu.levelClipped = false;
 
 	if (singlePrimitive)
 	{
@@ -1646,7 +1679,8 @@ void ParsePrimitivesLinkedList(u32 *p, int singlePrimitive)
 				u8 *endPacket = basePacket + (tagLength + P_LEN) * sizeof(u32);
 				int primLength = 0;
 				s_gpu.levelPrim = NativeGpu_IsLevelPrim(basePacket);
-				s_gpu.levelWater = s_gpu.levelPrim && NativeGpu_IsLevelWater(basePacket);
+				s_gpu.levelWater = s_gpu.levelPrim && NativeGpu_InLevelRun(&s_gpu.water, basePacket);
+				s_gpu.levelClipped = s_gpu.levelPrim && NativeGpu_InLevelRun(&s_gpu.clipped, basePacket);
 				if (currentPacket < endPacket)
 				{
 					primLength = ParsePrimitive((P_TAG *)currentPacket);

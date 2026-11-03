@@ -3575,6 +3575,8 @@ static int DrawLevelOvr1P_ConsumeClipRecords(struct PushBuffer *pb, struct PrimM
 		return 1;
 	}
 
+	// Drawn however large (NativeGpu_AddLevelClippedRange).
+	void *clippedStart = primMem->cursor;
 	while (cursor < end)
 	{
 		struct DrawLevelOvr1PClipRecord *record = (struct DrawLevelOvr1PClipRecord *)cursor;
@@ -3588,12 +3590,14 @@ static int DrawLevelOvr1P_ConsumeClipRecords(struct PushBuffer *pb, struct PrimM
 
 		if (!Ovr226_800aa848_ProjectFirstThreeClipRecordsAndDispatch(pb, primMem, record))
 		{
+			NativeGpu_AddLevelClippedRange(clippedStart, primMem->cursor);
 			return 0;
 		}
 
 		cursor += recordSize;
 	}
 
+	NativeGpu_AddLevelClippedRange(clippedStart, primMem->cursor);
 	DrawLevelOvr1P_SetClipRecordCursor(start);
 	return 1;
 }

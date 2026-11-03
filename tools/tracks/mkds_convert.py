@@ -31,6 +31,8 @@ CAMERA_SEARCH, KILL_PLANE, GROUND, COLLISION_SURFACE = 0x0800, 0x0200, 0x1000, 0
 _ROAD = GROUND | CAMERA_SEARCH
 _WALL = COLLISION_SURFACE | CAMERA_SEARCH
 _FALL = GROUND | KILL_PLANE | CAMERA_SEARCH
+# a collision triangle whose normal on the LEV grid is further than this from its source's is dropped
+TURNED_COS = 0.9  # about 25 degrees
 COLLISION = {
     0x00: ('col_road', 'Asphalt', _ROAD, True),
     0x01: ('col_road', 'Asphalt', _ROAD, True),
@@ -610,28 +612,41 @@ def convert(course, out_dir, name, scale, max_edge):
                 for p in pieces:
                     for v in p: v.pop('d', None)
                 for v in tri: v.pop('d', None)
-        collision += [(p, (cname, crossing)) for p in pieces if area(p) >= 1e-6]
-    # Collision is checked by the game on integer LEV coordinates: snap to that grid first, then
-    # close the T-junctions the snapping and the source leave, so the mesh tested here is the
-    # mesh the game tests.
-    def to_grid(p):
-        return np.round(np.asarray(to_cte(p)) * 64) / 64
+        src_n = np.cross(np.subtract(b, a), np.subtract(c, a))
+        src_n = src_n / (np.linalg.norm(src_n) or 1)
+        collision += [(p, (cname, crossing, src_n)) for p in pieces if area(p) >= 1e-6]
+    # Collision is checked by the game on integer LEV coordinates, so the mesh is snapped to that
+    # grid here and checked as the game will test it. Splitting near-parallel source edges leaves
+    # corners closer than the source weld, a unit or two apart on the grid: those are welded
+    # again (GRID_WELD LEV units). A shared corner moves the same in every triangle that has it,
+    # so welding opens no gap, and the sliver between the two corners collapses.
+    GRID_WELD = 2
+    reps = {}
+    def grid_weld(p):
+        q = np.round(np.asarray(to_cte(p)) * 64)
+        cell = tuple((q // (2 * GRID_WELD)).astype(int))
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                for dz in (-1, 0, 1):
+                    for r in reps.get((cell[0] + dx, cell[1] + dy, cell[2] + dz), ()):
+                        if np.linalg.norm(r - q) <= GRID_WELD:
+                            return r / 64
+        reps.setdefault(cell, []).append(q)
+        return q / 64
     snapped = []
     for piece, meta in refine(collision, max_edge / scale, weld_tol=0.5, tjunction_tol=1.0):
-        snapped.append(([{'pos': to_grid(v['pos']), 'mk': np.asarray(v['pos'], float), 'uv': v['uv'], 'col': v['col']}
+        snapped.append(([{'pos': grid_weld(v['pos']), 'mk': np.asarray(v['pos'], float), 'uv': v['uv'], 'col': v['col']}
                          for v in piece], meta))
-    flipped = 0
-    for piece, (cname, crossing) in snapped:
-            for v in piece:
-                v['pos'] = np.round(v['pos'] * 64) / 64
+    for piece, (cname, crossing, src_n) in snapped:
             if area(piece) < 1e-9:
                 stats['collision degenerate on the LEV grid'] += 1
                 continue
-            mk_n = np.cross(piece[1]['mk'] - piece[0]['mk'], piece[2]['mk'] - piece[0]['mk'])
-            if np.dot(tri_normal(piece), mk_n) < 0:
-                # a sliver the grid turned over: its neighbours now overlap the strip it covered,
-                # so dropping it leaves no gap, and the game would test it facing the wrong way
-                stats['collision slivers turned over by the LEV grid, dropped'] += 1
+            if np.dot(tri_normal(piece), src_n) < TURNED_COS:
+                # a sliver the grid turned (only a sliver turns this far when its corners move by
+                # half a unit): turned over, the game would test it facing the wrong way; stood up
+                # across a road, it is a wall a unit or two tall that stops the kart dead. Its
+                # neighbours cover the strip it was, to within the grid.
+                stats['collision slivers turned by the LEV grid, dropped'] += 1
                 continue
             stats['collision'] += 1
             bname = f'c{stats["collision"]:05d}'
