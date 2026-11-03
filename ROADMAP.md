@@ -15,7 +15,12 @@ What is in progress, what is next, and what was decided. A finished item is dele
 - **High Octane is ported feature by feature, never merged.** A trial merge conflicts in 92 files, and it carries Vita, web and leaderboard code we don't want.
 
 ## In progress
-- Mario Kart DS course converter ([TRACK-CONVERTER.md](docs/TRACK-CONVERTER.md)). Figure-8 Circuit converts, passes the checks and plays clean (owner play test, 2026-11-03). Karts the owner once saw missing while their shadows showed are not reproduced and were not seen again: a next sighting gets an `F7` capture (its polygon dump tells a kart never drawn from one drawn over). Then: the minimap (an image in the package's VRAM, icons 3 and 4 pointed at it, and an `ST1_MAP` entry with the world bounds), item boxes and the other course objects, then every course in one batch run with `check_track.ps1`.
+- Mario Kart DS course converter ([TRACK-CONVERTER.md](docs/TRACK-CONVERTER.md)). Figure-8 Circuit converts, passes the checks and plays clean (owner play test, 2026-11-03). Karts the owner once saw missing while their shadows showed are not reproduced and were not seen again: a next sighting gets an `F7` capture (its polygon dump tells a kart never drawn from one drawn over). Next steps, in this order (gameplay first), each on Figure-8 before the batch:
+  1. Item boxes and boost pads. Item boxes come one for one from the course's object list (position and type) as CTR item boxes. Dash panels and boost ramps are a surface type in the course's collision and become CTR turbo pads.
+  2. Wumpa fruit. MKDS has none in races, so the converter places them in small rows along the racing line. Placement is the owner's taste: show the first capture before tuning.
+  3. Minimap: an image of the track outline from above in the package's VRAM, icons 3 and 4 pointed at it, and an `ST1_MAP` entry with the world bounds so kart icons line up.
+  4. Other course objects (trees, pipes...): mostly static scenery, since most have no CTR equivalent; moving ones later.
+  5. Every remaining course in one batch run with `check_track.ps1`; the owner play-tests only those that pass.
 
 ## Planned
 - Converted tracks with PGXP off: on Figure-8 the top of the screen shows a black band where the sky should be. Suspects: the integer `CAM_SkyboxGlow` band placement ([PGXP.md](docs/PGXP.md)) or the clear colour the converter writes. Reproduce with `devrun.ps1` and `pgxp=0` on the converted package.
