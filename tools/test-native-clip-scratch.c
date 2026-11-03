@@ -370,6 +370,26 @@ int main(int argc, char **argv)
 
 	expect(worstEntries == (int)CTR_NATIVE_CLIP_SCRATCH_MAX_ENTRIES,
 	       "declared max entry count still matches the live clip size table");
+
+	// What MainInit_JitPoolsNew gives each player: the whole buffer split evenly,
+	// never less than the table asks for at that player count.
+	{
+		int shareOk = 1;
+
+		for (uint32_t players = 1; players <= CTR_NATIVE_CLIP_SCRATCH_MAX_PLAYERS; players++)
+		{
+			uint32_t share = NativeClipScratch_PlayerEntries(players);
+
+			if (!NativeClipScratch_CanFit(share, players, CTR_NATIVE_CLIP_SCRATCH_CAPACITY))
+				shareOk = 0;
+			for (int level = 0; level < levelCount; level++)
+			{
+				if (share < (uint32_t)clipEntriesFor(level, (int)players))
+					shareOk = 0;
+			}
+		}
+		expect(shareOk, "each player's share fits the buffer and covers every table entry");
+	}
 	expect(garage >= 0 && clipEntriesFor(garage, 1) == worstEntries,
 	       "ADVENTURE_GARAGE is the worst case the buffer is sized from");
 	expect(worstBytes <= (int)CTR_NATIVE_CLIP_SCRATCH_CAPACITY,

@@ -106,11 +106,13 @@ static void DrawLevelOvr2P_SeedSharedHelperThresholdScratch(void)
 	// NOTE(aalhendi): Retail 227 bakes these thresholds as immediates in
 	// copied BSP handler bodies. Native reuses 226 C helpers that still read
 	// the equivalent thresholds from scratch, so seed the shared-helper view.
+	const u32 levelConfigFlags = sdata->gGT->level1->configFlags;
+
 	DrawLevelOvr1P_RenderScratch()->depthScale = OVR227_DEPTH_SCALE;
-	DrawLevelOvr1P_RenderScratch()->textureLodDepthThreshold0 = NativeDrawDistance_Limit(OVR227_TEXTURE_LOD_DEPTH_THRESHOLD0);
-	DrawLevelOvr1P_RenderScratch()->textureLodDepthThreshold1 = NativeDrawDistance_Limit(OVR227_TEXTURE_LOD_DEPTH_THRESHOLD1);
-	DrawLevelOvr1P_RenderScratch()->topLevelNearDepthThreshold = NativeDrawDistance_Limit(OVR227_TOP_LEVEL_NEAR_DEPTH_THRESHOLD);
-	DrawLevelOvr1P_RenderScratch()->recursiveNearDepthThreshold = NativeDrawDistance_Limit(OVR227_RECURSIVE_NEAR_DEPTH_THRESHOLD);
+	DrawLevelOvr1P_RenderScratch()->textureLodDepthThreshold0 = NativeDrawDistance_LevelLod(OVR227_TEXTURE_LOD_DEPTH_THRESHOLD0, levelConfigFlags);
+	DrawLevelOvr1P_RenderScratch()->textureLodDepthThreshold1 = NativeDrawDistance_LevelLod(OVR227_TEXTURE_LOD_DEPTH_THRESHOLD1, levelConfigFlags);
+	DrawLevelOvr1P_RenderScratch()->topLevelNearDepthThreshold = NativeDrawDistance_LevelLod(OVR227_TOP_LEVEL_NEAR_DEPTH_THRESHOLD, levelConfigFlags);
+	DrawLevelOvr1P_RenderScratch()->recursiveNearDepthThreshold = NativeDrawDistance_LevelLod(OVR227_RECURSIVE_NEAR_DEPTH_THRESHOLD, levelConfigFlags);
 }
 
 static const struct DrawLevelOvr1PBucket *DrawLevelOvr2P_FindBucketByHandler(u32 handlerAddress)

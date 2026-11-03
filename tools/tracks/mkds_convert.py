@@ -786,7 +786,10 @@ def main():
 
     lev = os.path.join(lev_dir, name + '.lev')
     patched = os.path.join(lev_dir, name + '_patched.lev')
-    print('lev_patch', lev_patch.patch(lev, os.path.join(work, name + '_nav.json'), patched))
+    patched_stats = lev_patch.patch(lev, os.path.join(work, name + '_nav.json'), patched)
+    print('lev_patch', patched_stats)
+    if patched_stats['quadblocks over 2%']:
+        sys.exit('collision normals the game cannot represent within 2% (the kart would stop against them)')
     winding = winding_check.check(os.path.join(work, name + '.obj'), patched)
     print('winding', winding)
     if winding['flipped'] or winding['unmatched']:

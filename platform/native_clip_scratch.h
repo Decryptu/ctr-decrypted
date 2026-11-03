@@ -3,10 +3,12 @@
 
 #include <stdint.h>
 
-// Per-player clip records are per-frame render scratch. MainInit_JitPoolsNew
-// hands every player a block of MainDB_GetClipSize(levelID, players) 32-bit
-// entries, the DrawLevelOvr* overlays fill it while drawing the frame, and
-// nothing reads it once the frame ends. Retail took that block from MEMPACK,
+// Per-player clip records are per-frame render scratch. Retail's
+// MainInit_JitPoolsNew hands every player a block of
+// MainDB_GetClipSize(levelID, players) 32-bit entries (native gives each player
+// an even share of this buffer instead, NativeClipScratch_PlayerEntries), the
+// DrawLevelOvr* overlays fill it while drawing the frame, and nothing reads it
+// once the frame ends. Retail took that block from MEMPACK,
 // which makes it the largest single allocation a level load performs (96,000
 // bytes at the adventure garage, 10,000-12,000 on a race track) and puts it in
 // direct competition with level and racer assets for the 0x144e10 arena.
@@ -29,6 +31,17 @@
 static inline uint32_t NativeClipScratch_PlayerBytes(uint32_t clipEntries)
 {
 	return clipEntries * 4u;
+}
+
+// The entries each player gets: an equal share of the whole buffer, never
+// less than any MainDB_GetClipSize entry. Retail's per-track budget was sized
+// for 4:3 and its own levels; a widescreen far camera, increased draw distance
+// or a dense custom track writes more records (19,500 bytes in one frame of a
+// converted Mario Kart DS course against a 12,000-byte budget), and a frame
+// whose records overflow loses all of them (DrawLevelOvr1P_ConsumeClipRecords).
+static inline uint32_t NativeClipScratch_PlayerEntries(uint32_t players)
+{
+	return CTR_NATIVE_CLIP_SCRATCH_MAX_ENTRIES * CTR_NATIVE_CLIP_SCRATCH_MAX_PLAYERS / ((players != 0u) ? players : 1u);
 }
 
 static inline int NativeClipScratch_CanFit(uint32_t clipEntries, uint32_t players, uint32_t capacity)

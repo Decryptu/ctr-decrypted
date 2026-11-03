@@ -257,7 +257,7 @@ static int RenderLists_Walk1P2P(struct BSP *bspRoot, const int *visLeafList, str
 	struct RenderListsScratchRecord *stack = stackBase;
 	struct BSP *branch = bspRoot;
 	int lodDistanceThreshold = (numPlyr == 1) ? CTR_SCRATCHPAD_PTR(struct MainRenderLevelGeometryScratch, 0)->bspLodDistanceThreshold
-	                                       : NativeDrawDistance_Limit(0x1540);
+	                                       : NativeDrawDistance_LevelLod(0x1540, sdata->gGT->level1->configFlags);
 	int count = 0;
 
 	if (bspRoot == 0 || pb == 0)

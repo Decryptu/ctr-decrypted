@@ -1,12 +1,86 @@
 """Finish a CrashTeamEditor LEV for a converted track (docs/TRACK-CONVERTER.md):
 - collision-only quadblocks draw nothing, and their BSP subtree is cleared from the visibility lists;
 - bot paths: a 3-entry LevNavTable, each a NavHeader plus NavFrames (CrashTeamEditor writes none);
-- the level is marked depth-tested (LEVEL_CONFIG_DEPTH_TESTED): its art was made for a depth buffer."""
+- the level is marked depth-tested (LEVEL_CONFIG_DEPTH_TESTED): its art was made for a depth buffer;
+- and as having one texture per LOD (LEVEL_CONFIG_ONE_TEXTURE_LOD), so the extended draw distance does not
+  subdivide it farther;
+- every collision triangle's normal scale is recomputed from the LEV's integer vertices."""
 import json, math, struct, sys
 
 FP_ONE_GEO = 64
 OFF_CONFIG_FLAGS, OFF_NUM_CHECKPOINTS, OFF_CHECKPOINTS, OFF_NAV_TABLE = 0xDC, 0x148, 0x14C, 0x188
 LEVEL_CONFIG_DEPTH_TESTED = 0x80000000  # include/platform/native_gpu.h
+LEVEL_CONFIG_ONE_TEXTURE_LOD = 0x40000000  # include/platform/native_draw_distance.h
+# The triangles COLL_FIXED_QUADBLK_GetNormVecs_HiLOD / _LoLOD build, in triNormalVecDividend order
+NORMAL_TRIS = [(0, 4, 5), (4, 6, 5), (6, 4, 1), (5, 6, 2), (8, 6, 7), (7, 3, 8), (1, 7, 6), (2, 6, 8), (0, 1, 2), (1, 3, 2)]
+
+
+def _s16(v):
+    v &= 0xffff
+    return v - 0x10000 if v & 0x8000 else v
+
+
+def game_normal_cross(a, b, c):
+    """The GTE OP product COLL_FIXED_TRIANGL_GetNormVec starts from (MAC1..3)."""
+    d = [_s16(c[k] - a[k]) for k in range(3)]
+    e = [b[k] - a[k] for k in range(3)]
+    return [d[1] * e[2] - d[2] * e[1], d[2] * e[0] - d[0] * e[2], d[0] * e[1] - d[1] * e[0]]
+
+
+def game_normal_length(m, lod_shift, dividend, shift):
+    n = [_s16(((x >> lod_shift) * dividend) >> shift) for x in m]
+    return math.sqrt(sum(x * x for x in n)) / 4096
+
+
+def exact_normal_scale(verts, tris):
+    """One triNormalVecBitShift per quadblock and one dividend per triangle, so the game's fixed-point
+    normal ((cross >> lodShift) * dividend >> bitShift) comes out 4096 long. CrashTeamEditor derives
+    them from float positions before they are rounded to the LEV grid, and gives a triblock's four
+    triangles one shared value: on slivers a few units wide that leaves normals far too short, and a
+    short normal shrinks the distance the kart's sphere sweep measures, so it stops against nothing.
+    Returns (shift, dividends, worst error); a too-short normal counts double, being the harmful side."""
+    crosses = []
+    for i, (t, lod) in enumerate(tris):
+        m = game_normal_cross(*(verts[k] for k in t))
+        crosses.append((i, [x >> lod for x in m], lod, m))
+    best = None
+    for shift in range(20):
+        div = [0] * 10
+        worst = 0.0
+        for i, m, lod, raw in crosses:
+            mag = math.sqrt(sum(x * x for x in m))
+            if mag == 0:
+                continue
+            div[i] = max(1, min(32767, int(round(4096 * (1 << shift) / mag))))
+            if any(abs(x * div[i]) >= 1 << 31 for x in m):
+                worst = math.inf
+                break
+            length = game_normal_length(raw, lod, div[i], shift)
+            worst = max(worst, math.inf if length == 0 else (1 / length - 1) * 2 if length < 1 else length - 1)
+        if best is None or worst < best[2]:
+            best = (shift, div, worst)
+    return best
+
+
+def fix_normals(data, mesh):
+    """-> (worst error, quadblocks over 2%), over the blocks collision tests (GROUND or COLLISION_SURFACE)."""
+    nq, nv, _, qoff, voff = struct.unpack_from('<5I', data, mesh)
+    verts = [struct.unpack_from('<3h', data, voff + 16 * i) for i in range(nv)]
+    worst = []
+    for q in range(nq):
+        o = qoff + 0x5c * q
+        if not struct.unpack_from('<H', data, o + 0x12)[0] & 0x3000:
+            continue
+        idx = struct.unpack_from('<9H', data, o)
+        tri = idx[2] == idx[3]  # a triblock: COLL_*_TestTriangles uses only the first four
+        tris = [(tuple(idx[k] for k in t), 0) for t in NORMAL_TRIS[:8]] + [(tuple(idx[k] for k in t), 2) for t in NORMAL_TRIS[8:]]
+        if tri:
+            tris = tris[:4] + [((idx[0], idx[0], idx[0]), 0)] * 4 + tris[8:]
+        shift, div, err = exact_normal_scale(verts, tris)
+        data[o + 0x3f] = shift
+        struct.pack_into('<10h', data, o + 0x48, *div)
+        worst.append(err)
+    return max(worst), sum(e > 0.02 for e in worst)
 
 
 def patch(lev_path, nav_path, out_path):
@@ -28,6 +102,7 @@ def patch(lev_path, nav_path, out_path):
     # CrashTeamEditor writes every face as drawn.
     mesh = struct.unpack_from('<I', data, 0)[0]
     nq, _, _, qoff = struct.unpack_from('<4I', data, mesh)
+    normal_error, normal_bad = fix_normals(data, mesh)
     hidden = 0
     for q in range(nq):
         o = qoff + 0x5c * q
@@ -96,12 +171,15 @@ def patch(lev_path, nav_path, out_path):
             data += fr
     struct.pack_into('<I', data, OFF_NAV_TABLE, table)
     # MKDS draws with a depth buffer: billboards, fences and signs hang a few units in front of the
-    # walls they are on, which the per-block ordering table sort swaps as the camera moves
-    struct.pack_into('<I', data, OFF_CONFIG_FLAGS, struct.unpack_from('<I', data, OFF_CONFIG_FLAGS)[0] | LEVEL_CONFIG_DEPTH_TESTED)
+    # walls they are on, which the per-block ordering table sort swaps as the camera moves. And
+    # CrashTeamEditor writes one layout to all four LOD slots of a texture group.
+    struct.pack_into('<I', data, OFF_CONFIG_FLAGS,
+                     struct.unpack_from('<I', data, OFF_CONFIG_FLAGS)[0] | LEVEL_CONFIG_DEPTH_TESTED | LEVEL_CONFIG_ONE_TEXTURE_LOD)
     out = struct.pack('<I', len(data)) + bytes(data) + struct.pack('<I', 4 * len(ptrs)) + struct.pack(f'<{len(ptrs)}I', *ptrs)
     open(out_path, 'wb').write(out)
     return {'lanes': len(lanes), 'checkpoints': ncp, 'hidden quadblocks': hidden,
-            'culled bsp nodes': len(culled), 'of': nbsp, 'vis lists': len(vis_lists)}
+            'culled bsp nodes': len(culled), 'of': nbsp, 'vis lists': len(vis_lists),
+            'worst collision normal error': round(normal_error, 4), 'quadblocks over 2%': normal_bad}
 
 
 if __name__ == '__main__':

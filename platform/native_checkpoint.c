@@ -1452,7 +1452,7 @@ internal void NativeCheckpoint_RelocateDataPointers(const struct NativeCheckpoin
 	// overlays, so they are cleared rather than pointed anywhere.
 	{
 		int clipPlayers = (int)sdata_static.gameTracker.numPlyrCurrGame;
-		int clipEntries = MainDB_GetClipSize(sdata_static.gameTracker.levelID, clipPlayers);
+		int clipEntries = (int)NativeClipScratch_PlayerEntries((u32)clipPlayers);
 		int clipUsable = (clipPlayers > 0) && NativeClipScratch_CanFit((u32)clipEntries, (u32)clipPlayers, NativeClipScratch_Capacity());
 
 		for (u32 i = 0; i < len(data.PtrClipBuffer); i++)

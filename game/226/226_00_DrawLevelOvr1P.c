@@ -1017,7 +1017,12 @@ static u8 *DrawLevelOvr1P_GetClipRecordEnd(void)
 		return start;
 	}
 
+#if defined(CTR_NATIVE)
+	// MainInit_JitPoolsNew gives each player this share of the native clip scratch
+	return start + NativeClipScratch_PlayerBytes(NativeClipScratch_PlayerEntries((u32)gGT->numPlyrCurrGame));
+#else
 	return start + ((u32)MainDB_GetClipSize(gGT->levelID, gGT->numPlyrCurrGame) << 2);
+#endif
 }
 
 static u32 DrawLevelOvr1P_GetClipRecordSize(int count)
@@ -2546,7 +2551,7 @@ static int DrawLevelOvr1P_SourceInsideClipRecordWindow(const struct DrawLevelOvr
 	// outside the box and were dropped whole (black wedges at the left and
 	// right of a 16:9 frame). Widen the box's world X/Z extent by the same
 	// factor as the frustum; identity at 4:3. The extra records stay far under
-	// the clip buffer (peak 1800 of 12000 bytes at 21:9 on Hot Air Skyway).
+	// retail's clip budget (peak 1800 of 12000 bytes at 21:9 on Hot Air Skyway).
 	halfXZ = Widescreen_ScaleFrustumX(0x100);
 #endif
 	u32 insideBits = (u32)(x - halfXZ) & (u32)(y - 0x180) & (u32)(z - halfXZ);
@@ -2699,6 +2704,14 @@ static int Ovr226_800a34d4_WriteWaterRenderedClippedRecordAtOtEntry(struct PushB
 	{
 		return 1;
 	}
+
+#if defined(CTR_NATIVE)
+	// Retail trusts the clip budget; past it, the consumer drops the whole frame's records
+	if (!DrawLevelOvr1P_HasClipRecordSpace(recordSize))
+	{
+		return 1;
+	}
+#endif
 
 	record = (struct DrawLevelOvr1PClipRecord *)cursor;
 	// NOTE(aalhendi): Retail water-rendered clipped-record writers
@@ -5028,6 +5041,14 @@ static int Ovr226_800a4dcc_WriteGround4x1RenderedClippedRecordAtOtEntry(struct P
 		return 1;
 	}
 
+#if defined(CTR_NATIVE)
+	// Retail trusts the clip budget; past it, the consumer drops the whole frame's records
+	if (!DrawLevelOvr1P_HasClipRecordSpace(recordSize))
+	{
+		return 1;
+	}
+#endif
+
 	struct DrawLevelOvr1PClipRecord *record = (struct DrawLevelOvr1PClipRecord *)cursor;
 	record->header = DrawLevelOvr1P_GetRenderedClipRecordHeader(block, count);
 	record->otEntry = (u32)(u32)otEntry;
@@ -6352,6 +6373,14 @@ static int Ovr226_800a6d6c_WriteGround4x2RenderedClippedRecordAtOtEntry(struct P
 		return 1;
 	}
 
+#if defined(CTR_NATIVE)
+	// Retail trusts the clip budget; past it, the consumer drops the whole frame's records
+	if (!DrawLevelOvr1P_HasClipRecordSpace(recordSize))
+	{
+		return 1;
+	}
+#endif
+
 	struct DrawLevelOvr1PClipRecord *record = (struct DrawLevelOvr1PClipRecord *)cursor;
 	record->header = DrawLevelOvr1P_GetRenderedClipRecordHeader(block, count);
 	record->otEntry = (u32)(u32)otEntry;
@@ -6814,6 +6843,14 @@ static int Ovr226_800a898c_WriteDynamicRenderedClippedRecordAtOtEntry(struct Pus
 		return 1;
 	}
 
+#if defined(CTR_NATIVE)
+	// Retail trusts the clip budget; past it, the consumer drops the whole frame's records
+	if (!DrawLevelOvr1P_HasClipRecordSpace(recordSize))
+	{
+		return 1;
+	}
+#endif
+
 	record = (struct DrawLevelOvr1PClipRecord *)cursor;
 	record->header = DrawLevelOvr1P_GetRenderedClipRecordHeader(block, count);
 	record->otEntry = (u32)(u32)otEntry;
@@ -7241,6 +7278,14 @@ static int Ovr226_800aa5ac_WriteQuad4x4RenderedClippedRecordAtOtEntry(struct Pus
 	{
 		return 1;
 	}
+
+#if defined(CTR_NATIVE)
+	// Retail trusts the clip budget; past it, the consumer drops the whole frame's records
+	if (!DrawLevelOvr1P_HasClipRecordSpace(recordSize))
+	{
+		return 1;
+	}
+#endif
 
 	struct DrawLevelOvr1PClipRecord *record = (struct DrawLevelOvr1PClipRecord *)cursor;
 	record->header = DrawLevelOvr1P_GetRenderedClipRecordHeader(block, count);
@@ -8428,11 +8473,13 @@ static int Ovr226_800a0ef4_DrawFullDynamicBspList(struct VisMemBspListNode *slot
 
 static void DrawLevelOvr1P_SetSplitGroundThresholdScratch(void)
 {
+	const u32 levelConfigFlags = sdata->gGT->level1->configFlags;
+
 	DrawLevelOvr1P_RenderScratch()->depthScale = 0x780;
-	DrawLevelOvr1P_RenderScratch()->textureLodDepthThreshold0 = NativeDrawDistance_Limit(0x640);
-	DrawLevelOvr1P_RenderScratch()->textureLodDepthThreshold1 = NativeDrawDistance_Limit(0x500);
-	DrawLevelOvr1P_RenderScratch()->topLevelNearDepthThreshold = NativeDrawDistance_Limit(0x280);
-	DrawLevelOvr1P_RenderScratch()->recursiveNearDepthThreshold = NativeDrawDistance_Limit(0x140);
+	DrawLevelOvr1P_RenderScratch()->textureLodDepthThreshold0 = NativeDrawDistance_LevelLod(0x640, levelConfigFlags);
+	DrawLevelOvr1P_RenderScratch()->textureLodDepthThreshold1 = NativeDrawDistance_LevelLod(0x500, levelConfigFlags);
+	DrawLevelOvr1P_RenderScratch()->topLevelNearDepthThreshold = NativeDrawDistance_LevelLod(0x280, levelConfigFlags);
+	DrawLevelOvr1P_RenderScratch()->recursiveNearDepthThreshold = NativeDrawDistance_LevelLod(0x140, levelConfigFlags);
 }
 
 static int DrawLevelOvr1P_ProjectSplitGroundListALowGrid(struct LevVertex *vertices, const struct QuadBlock *block,

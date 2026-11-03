@@ -2,7 +2,7 @@
 
 `tools/tracks/` turns a course from the player's own Mario Kart DS ROM into a custom track package ([CUSTOM_TRACKS.md](CUSTOM_TRACKS.md#3-the-package-format)). Nothing from the ROM is in the repository; the tools read the ROM and write the package on the player's machine.
 
-Status: Figure-8 Circuit (`cross_course`) converts and passes every check below; the owner's second play test is next. Not converted yet: the minimap, item boxes and other course objects, animated textures. The other courses have not been run.
+Status: Figure-8 Circuit (`cross_course`) converts and passes every check below; the owner's third play test is next. Not converted yet: the minimap, item boxes and other course objects, animated textures. The other courses have not been run.
 
 ## Use
 1. Build CrashTeamEditor's headless converter once, from an MSYS2 shell:
@@ -33,7 +33,9 @@ Scale: MKDS course models are drawn 16 times their stored size; one MKDS world u
 - The collision quadblocks' faces get draw mode 3 (nothing drawn).
 - The renderer would still walk the collision blocks, as many as the drawn ones, filling the near-camera list for nothing. The patched CrashTeamEditor puts them in their own BSP subtree (the root's second child), and `lev_patch.py` clears that subtree in every visibility list. The native renderer ignores retail visibility lists but keeps nodes that no list ever shows hidden ([LEVEL-VISIBILITY.md](LEVEL-VISIBILITY.md#the-stages)). Collision does not use the lists.
 - The bot paths: a three-entry nav table, each lane a `NavHeader` and its `NavFrame`s, one more frame than points as the engine reads one past the end.
+- Every collision block's normal scale (`triNormalVecBitShift` and the ten `triNormalVecDividend`s) is recomputed from the LEV's integer vertices, with the game's own arithmetic (`COLL_FIXED_TRIANGL_GetNormVec`: cross product, times the dividend, shifted). CrashTeamEditor derives them from float positions before they are rounded and gives a triblock's four triangles one shared value; on slivers a few units wide the game's normal came out as short as 1% of its length. The kart's sphere sweep measures distance with that normal, so a kart above such a sliver found itself inside it and stopped dead (an invisible wall). One shift is shared by a block's triangles, so `lev_patch.py` picks the shift whose worst triangle is closest, a too-short normal counting double; it prints the worst error over the collision blocks (1.2% on Figure-8), and the converter fails if any block is over 2%. Triangles the grid flattens to a line have no normal at all; the kart passes through them without a hit.
 - The level is marked depth-tested (`LEVEL_CONFIG_DEPTH_TESTED` in `configFlags`): MKDS draws with a depth buffer, and fences, billboards and signs hang a few units in front of the walls they are on. The per-block ordering-table sort swaps those as the camera moves (flicker, a gantry's lattice drawn over its letters); a depth-tested level is drawn with a real depth test under PGXP ([PGXP.md](PGXP.md#level-depth-test)).
+- It is also marked `LEVEL_CONFIG_ONE_TEXTURE_LOD`: CrashTeamEditor writes one texture layout to all four LOD slots of a texture group, so `increase_draw_distance` moves only its far clip out, not its LOD and subdivision depths ([LEVEL-VISIBILITY.md](LEVEL-VISIBILITY.md#the-stages)).
 
 `crashteameditor.patch` also makes the BSP builder split at the median block centre when one large block stretches a node so that every centre is on one side of its midpoint, and lets a texture fill VRAM to the last column and row (CrashTeamEditor refused an exact fit).
 

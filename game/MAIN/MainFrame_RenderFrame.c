@@ -979,11 +979,11 @@ void RenderAllLevelGeometry(struct GameTracker *gGT, struct Level *level1, struc
 			// relationship between near-clip and far-clip,
 			// for each RenderList LOD set in the level
 			scratch->depthScale = 0x1e00;
-			scratch->bspLodDistanceThreshold = NativeDrawDistance_Limit(0x640);
-			scratch->textureLodDepthThreshold0 = NativeDrawDistance_Limit(0x640);
-			scratch->textureLodDepthThreshold1 = NativeDrawDistance_Limit(0x500);
-			scratch->topLevelNearDepthThreshold = NativeDrawDistance_Limit(0x280);
-			scratch->recursiveNearDepthThreshold = NativeDrawDistance_Limit(0x140);
+			scratch->bspLodDistanceThreshold = NativeDrawDistance_LevelLod(0x640, level1->configFlags);
+			scratch->textureLodDepthThreshold0 = NativeDrawDistance_LevelLod(0x640, level1->configFlags);
+			scratch->textureLodDepthThreshold1 = NativeDrawDistance_LevelLod(0x500, level1->configFlags);
+			scratch->topLevelNearDepthThreshold = NativeDrawDistance_LevelLod(0x280, level1->configFlags);
+			scratch->recursiveNearDepthThreshold = NativeDrawDistance_LevelLod(0x140, level1->configFlags);
 			scratch->fullDynamicFadeDepthStart = scratch->bspLodDistanceThreshold + MAIN_RENDER_LEVEL_GEOMETRY_FULL_DYNAMIC_FADE_OFFSET;
 		}
 
@@ -995,11 +995,12 @@ void RenderAllLevelGeometry(struct GameTracker *gGT, struct Level *level1, struc
 			distToScreen = pushBuffer->distanceToScreen_PREV;
 
 			scratch->depthScale = RenderAllLevelGeometry_ScaleDistanceShift8(distToScreen, 0x2080);
-			scratch->bspLodDistanceThreshold = NativeDrawDistance_Limit(CTR_MipsMulLo(distToScreen, 0x1a));
-			scratch->textureLodDepthThreshold0 = NativeDrawDistance_Limit(CTR_MipsMulLo(distToScreen, 0x18));
-			scratch->textureLodDepthThreshold1 = NativeDrawDistance_Limit(CTR_MipsMulLo(distToScreen, 0xc));
-			scratch->topLevelNearDepthThreshold = NativeDrawDistance_Limit(CTR_MipsMulLo(distToScreen, 7));
-			scratch->recursiveNearDepthThreshold = NativeDrawDistance_Limit(RenderAllLevelGeometry_ScaleDistanceShift8(distToScreen, 0x380));
+			scratch->bspLodDistanceThreshold = NativeDrawDistance_LevelLod(CTR_MipsMulLo(distToScreen, 0x1a), level1->configFlags);
+			scratch->textureLodDepthThreshold0 = NativeDrawDistance_LevelLod(CTR_MipsMulLo(distToScreen, 0x18), level1->configFlags);
+			scratch->textureLodDepthThreshold1 = NativeDrawDistance_LevelLod(CTR_MipsMulLo(distToScreen, 0xc), level1->configFlags);
+			scratch->topLevelNearDepthThreshold = NativeDrawDistance_LevelLod(CTR_MipsMulLo(distToScreen, 7), level1->configFlags);
+			scratch->recursiveNearDepthThreshold =
+			    NativeDrawDistance_LevelLod(RenderAllLevelGeometry_ScaleDistanceShift8(distToScreen, 0x380), level1->configFlags);
 			scratch->fullDynamicFadeDepthStart = CTR_MipsAddLo(scratch->bspLodDistanceThreshold, MAIN_RENDER_LEVEL_GEOMETRY_FULL_DYNAMIC_FADE_OFFSET);
 		}
 

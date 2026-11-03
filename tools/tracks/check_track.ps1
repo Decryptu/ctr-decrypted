@@ -30,12 +30,13 @@ Copy-Item (Join-Path $Work "packages\$pin") $store -Recurse -Force
 
 $probe = Join-Path $Work 'probe.csv'
 $shots = Join-Path $Work 'shots'
-$log = Join-Path $RunDir 'CTR Decrypted.log'
 Remove-Item $probe, (Join-Path $RunDir 'crash.txt'), $shots -Recurse -Force -ErrorAction SilentlyContinue
 & (Join-Path $repo 'tools\decrypted\devrun.ps1') -Track -1 -Frames $Frames -From 1500 -Every 1500 -Exe $Exe -RunDir $RunDir -Out $shots `
 	-Env @{CTR_DEV_CUSTOM = $pin; CTR_DEV_AUTOPILOT = 1; CTR_DEV_COLL_PROBE = $probe; CTR_DEV_COLL_PROBE_IN = (Join-Path $Work "${Course}_probe.txt")} | Out-Null
 
 $failed = @()
+# release builds put the version in the log's name
+$log = (Get-ChildItem $RunDir -Filter 'CTR Decrypted*.log' | Sort-Object LastWriteTime | Select-Object -Last 1).FullName
 $text = Get-Content $log -Raw
 if ($text -notmatch "custom track $pin, \d+ laps") { $failed += 'the race did not load the package (see the log)' }
 # CustomTrackDiag_FlushLevelLoad's report for the custom level (CTR_CUSTOM_LEVEL_ID 0x80)

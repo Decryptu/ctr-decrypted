@@ -477,7 +477,9 @@ void MainInit_JitPoolsNew(struct GameTracker *gGT)
 		// allocation a level load makes. Taking it out of the pack is what
 		// stops a heavier racer package from deciding whether the load fits:
 		// the arena headroom a level keeps stopped varying with the request
-		// this loop used to make. See platform/native_clip_scratch.h.
+		// this loop used to make. Each player gets its whole share of the
+		// buffer, not the retail entry count. See platform/native_clip_scratch.h.
+		clipEntries = (int)NativeClipScratch_PlayerEntries((u32)gGT->numPlyrCurrGame);
 		data.PtrClipBuffer[i] = NativeClipScratch_Player((u32)i, (u32)clipEntries, (u32)gGT->numPlyrCurrGame);
 #else
 		data.PtrClipBuffer[i] = MEMPACK_AllocMem(clipEntries << 2, NULL);
