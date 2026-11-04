@@ -42,6 +42,10 @@ static struct RectMenu s_menuSpeedClass = {
 // Open the SPEED screen under menu, with the cursor on the last pick.
 static void MM_SpeedClass_Open(struct RectMenu *menu)
 {
+	// Overlay 230's menus are restored when the menu level loads, but this one
+	// lives outside them and would keep the state of its last pick: drawn as a
+	// finished choice, it takes no input and the screen locks.
+	s_menuSpeedClass.state = CENTER_ON_X;
 	s_menuSpeedClass.rowSelected = (g_config.speedClass == SPEED_CLASS_200CC) ? 1 : 0;
 	menu->ptrNextBox_InHierarchy = &s_menuSpeedClass;
 	menu->state |= ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY;

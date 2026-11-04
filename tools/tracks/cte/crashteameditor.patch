@@ -75,6 +75,59 @@ index bf98ad3..9f68de7 100644
  
  private:
  	bool m_saveScript;
+diff --git a/src/quadblock.cpp b/src/quadblock.cpp
+index d6c7df9..0fd4ec1 100644
+--- a/src/quadblock.cpp
++++ b/src/quadblock.cpp
+@@ -339,45 +339,9 @@ Quadblock::Quadblock(const std::string& name, Quad& q0, Quad& q1, Quad& q2, Quad
+ 		m_uvs[2] = { GetUV(m_p[3].m_pos, *uvq2), GetUV(m_p[4].m_pos, *uvq2), GetUV(m_p[6].m_pos, *uvq2), GetUV(m_p[7].m_pos, *uvq2) };
+ 		m_uvs[3] = { GetUV(m_p[4].m_pos, *uvq3), GetUV(m_p[5].m_pos, *uvq3), GetUV(m_p[7].m_pos, *uvq3), GetUV(m_p[8].m_pos, *uvq3) };
+ 
+-		float uMin = std::numeric_limits<float>::max(); float vMin = std::numeric_limits<float>::max();
+-		float uMax = -std::numeric_limits<float>::max(); float vMax = -std::numeric_limits<float>::max();
+-		for (size_t i = 0; i < 4; i++)
+-		{
+-			for (size_t j = 0; j < 4; j++)
+-			{
+-				uMin = std::min(uMin, m_uvs[i][j].x); vMin = std::min(vMin, m_uvs[i][j].y);
+-				uMax = std::max(uMax, m_uvs[i][j].x);	vMax = std::max(vMax, m_uvs[i][j].y);
+-			}
+-		}
+-
+-		bool indexPicked[4] = {false, false, false, false};
+-		bool boundPicked[4] = {false, false, false, false};
+-		const QuadUV uvBounds = { Vec2(uMin, vMin), Vec2(uMax, vMin), Vec2(uMin, vMax), Vec2(uMax, vMax)};
+-
+-		for (size_t indexCount = 0; indexCount < 4; indexCount++)
+-		{
+-			size_t bestIndex = 0;
+-			size_t bestBound = 0;
+-			float bestDistance = std::numeric_limits<float>::max();
+-			for (size_t i = 0; i < 4; i++)
+-			{
+-				if (indexPicked[i]) { continue; }
+-				for (size_t j = 0; j < 4; j++)
+-				{
+-					if (boundPicked[j]) { continue; }
+-					float dist = ((m_uvs[0][i].x - uvBounds[j].x) * (m_uvs[0][i].x - uvBounds[j].x)) + ((m_uvs[0][i].y - uvBounds[j].y) * (m_uvs[0][i].y - uvBounds[j].y));
+-					if (dist < bestDistance)
+-					{
+-						bestIndex = i;
+-						bestBound = j;
+-						bestDistance = dist;
+-					}
+-				}
+-			}
+-			indexPicked[bestIndex] = true;
+-			boundPicked[bestBound] = true;
+-			m_uvs[4][bestIndex] = uvBounds[bestBound];
+-		}
++		/* The far quad spans the block's four corners: each keeps its own UV. A bounding
++		   rectangle fits only a block aligned with its texture. */
++		m_uvs[4] = { m_uvs[0][0], m_uvs[1][1], m_uvs[2][2], m_uvs[3][3] };
+ 	}
+ 	else { ResetUVs(); }
+ 
 diff --git a/src/texture.cpp b/src/texture.cpp
 index ddc9176..d3bc87e 100644
 --- a/src/texture.cpp
