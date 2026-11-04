@@ -27,7 +27,9 @@ MODEL_TO_WORLD = 16.0  # course models are drawn 16 times larger than their stor
 CAMERA_SEARCH, KILL_PLANE, GROUND, COLLISION_SURFACE = 0x0800, 0x0200, 0x1000, 0x2000
 
 # KCL type -> (material name, terrain label, quad flags, pathable). Collision blocks are drawn
-# with nothing: navpatch sets their faces' draw mode to "none".
+# with nothing: navpatch sets their faces' draw mode to "none". Not Mud, Water or Fast Water on
+# ground a kart drives on: on those the game clips the kart's model at world height 0, as a retail
+# level has them there (COLL.c), and a converted course lies at any height, so the kart vanishes.
 _ROAD = GROUND | CAMERA_SEARCH
 _WALL = COLLISION_SURFACE | CAMERA_SEARCH
 _FALL = GROUND | KILL_PLANE | CAMERA_SEARCH
@@ -41,7 +43,7 @@ COLLISION = {
     0x14: ('col_road', 'Asphalt', _ROAD, True),
     0x02: ('col_grass', 'Grass', _ROAD, True),
     0x03: ('col_offroad', 'Slow Grass', _ROAD, True),
-    0x05: ('col_mud', 'Mud', _ROAD, True),
+    0x05: ('col_mud', 'Slow Dirt', _ROAD, True),
     0x07: ('col_boost', 'Asphalt', _ROAD, True),
     0x12: ('col_boost', 'Asphalt', _ROAD, True),
     0x08: ('col_wall', 'Asphalt', _WALL, False),
@@ -51,7 +53,7 @@ COLLISION = {
     0x15: ('col_wall', 'Asphalt', _WALL, False),
     0x0a: ('col_fall', 'Asphalt', _FALL, False),
     0x0b: ('col_fall', 'Asphalt', _FALL, False),
-    0x11: ('col_fall', 'Water', _FALL, False),
+    0x11: ('col_river', 'River Asphalt', _ROAD, True),
 }
 
 
