@@ -643,9 +643,11 @@ def quantize(img):
     """RGBA uint8 array -> PIL image with at most 256 colours (16 when that loses little)."""
     im = Image.fromarray(img, 'RGBA')
     alpha = img[..., 3]
-    # one PS1 texture page is 64 VRAM words wide: 256 texels at 4 bits, 128 at 8 (CTE refuses wider)
+    # one PS1 texture page is 64 VRAM words wide: 256 texels at 4 bits, 128 at 8. CTE refuses wider and
+    # leaves the material with no texture, so transparency, a palette entry of its own, counts here
+    clear = int((alpha <= 127).any())
     for colours in ((16,) if img.shape[1] > 128 else (16, 256)):
-        q = im.quantize(colours, method=Image.Quantize.FASTOCTREE).convert('RGBA')
+        q = im.quantize(colours - clear, method=Image.Quantize.FASTOCTREE).convert('RGBA')
         qa = np.array(q)
         err = np.abs(qa[..., :3].astype(int) - img[..., :3].astype(int))[alpha > 127].mean() if (alpha > 127).any() else 0
         if err < 3.0 or colours == 256 or img.shape[1] > 128:
@@ -730,7 +732,7 @@ def convert(course, out_dir, name, scale, max_edge, crate, vram_share):
     shrink = defaultdict(lambda: 1)  # the last resort, when even single tiles do not fit
     def vram_words(i):
         m = course.mats[i]
-        w, h = m.width * tiles[i][0] // shrink[i], m.height * tiles[i][1] // shrink[i]
+        w, h = min(m.width * tiles[i][0], 256) // shrink[i], min(m.height * tiles[i][1], 256) // shrink[i]
         return math.ceil(w / 4) * h  # 4-bit worst case; 8-bit textures are at most 128 wide
     budget = 14 * 64 * 256 * vram_share  # 14 free texture pages in a CTE VRM, less room for palettes
     budget -= sum(math.ceil(image.shape[1] / 4) * image.shape[0] for image in item_images)
@@ -758,7 +760,10 @@ def convert(course, out_dir, name, scale, max_edge, crate, vram_share):
                 if fy and j % 2: t = t[::-1, :]
                 row.append(t)
             rows.append(np.concatenate(row, 1))
-        img, colours = quantize(np.ascontiguousarray(np.concatenate(rows, 0)))
+        tiled = np.concatenate(rows, 0)
+        # a texture page is 256 texels each way: CTE refuses more, and the material ends up with no texture
+        tiled = tiled[::math.ceil(tiled.shape[0] / 256), ::math.ceil(tiled.shape[1] / 256)]
+        img, colours = quantize(np.ascontiguousarray(tiled))
         fn = f'{mname}.png'
         img.save(os.path.join(tex_dir, fn))
         mtl += [f'newmtl {mname}', f'map_Kd {fn}', '']

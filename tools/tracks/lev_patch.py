@@ -407,6 +407,11 @@ def patch(lev_path, vrm_path, nav_path, out_path, out_vrm, zenith, horizon, item
     hidden = 0
     for q in range(nq):
         o = qoff + 0x5c * q
+        if not struct.unpack_from('<H', data, o + 0x12)[0] & 0x3000:
+            # CTE gives a material whose image it refused an all-zero layout: the block would sample
+            # the framebuffer at VRAM (0, 0)
+            faces = struct.unpack_from('<4I', data, o + 0x1c)
+            assert all(any(data[t:t + 12]) for t in faces), f'drawn block {q} has no texture'
         if struct.unpack_from('<H', data, o + 0x12)[0] & 0x3000:  # GROUND or COLLISION_SURFACE: collision-only blocks
             dl = struct.unpack_from('<I', data, o + 0x14)[0]
             for face in range(4):

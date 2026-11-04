@@ -32,7 +32,7 @@ $probe = Join-Path $Work 'probe.csv'
 $trace = Join-Path $Work 'trace.csv'
 $shots = Join-Path $Work 'shots'
 Remove-Item $probe, $trace, (Join-Path $RunDir 'crash.txt'), $shots -Recurse -Force -ErrorAction SilentlyContinue
-& (Join-Path $repo 'tools\decrypted\devrun.ps1') -Track -1 -Frames $Frames -From 1500 -Every 1500 -Exe $Exe -RunDir $RunDir -Out $shots `
+& (Join-Path $repo 'tools\decrypted\devrun.ps1') -Track -1 -Frames $Frames -From 1500 -Every 1500 -Exe $Exe -RunDir $RunDir -Out $shots -TimeoutSec 1200 `
 	-Env @{CTR_DEV_CUSTOM = $pin; CTR_DEV_AUTOPILOT = 3; CTR_DEV_TRACE = $trace; CTR_DEV_COLL_PROBE = $probe; CTR_DEV_COLL_PROBE_IN = (Join-Path $Work "${Course}_probe.txt")} | Out-Null
 
 $failed = @()
