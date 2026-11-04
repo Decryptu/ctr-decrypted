@@ -70,6 +70,8 @@ typedef s16 VehGroundShadowSignedHalfword CTR_MAY_ALIAS;
 /// @brief Copies texture layout data from icon to arbitrary mem address. Particularly used to copy kart shadow textures to scratchpad.
 /// @param dst - destination texture layout
 /// @param iconIndex - icon index to take data from
+#define VEH_GROUND_SHADOW_MAX_OFFSET 0x2000
+
 b32 VehGroundShadow_Subset1(struct TextureLayout *pDst, int iconIndex)
 {
 	// get pointer to icon
@@ -279,6 +281,15 @@ void VehGroundShadow_Main(void)
 			if ((VEH_GROUND_SHADOW_BYTE((u8 *)v0Value, 0x1c) & DRAW_SUCCESSFUL) == 0)
 				goto next_driver;
 
+#ifdef CTR_NATIVE
+			// The offset from the camera is kept x4 in 16 bits, so past 8191 units it
+			// wraps and a kart far away passes the range test below, its shadow on
+			// the ground beside the camera. Custom levels are that large.
+			if ((abs((s16)VEH_GROUND_SHADOW_HALF(entryCursor, 0x0c) - (s16)VEH_GROUND_SHADOW_HALF(scratch, 0x90)) >= VEH_GROUND_SHADOW_MAX_OFFSET) ||
+			    (abs((s16)VEH_GROUND_SHADOW_HALF(entryCursor, 0x0e) - (s16)VEH_GROUND_SHADOW_HALF(scratch, 0x94)) >= VEH_GROUND_SHADOW_MAX_OFFSET) ||
+			    (abs((s16)VEH_GROUND_SHADOW_HALF(entryCursor, 0x10) - (s16)VEH_GROUND_SHADOW_HALF(scratch, 0x98)) >= VEH_GROUND_SHADOW_MAX_OFFSET))
+				goto next_driver;
+#endif
 			v1Value = VEH_GROUND_SHADOW_HALF(entryCursor, 0x0c);
 			v1Value -= VEH_GROUND_SHADOW_HALF(scratch, 0x90);
 			VEH_GROUND_SHADOW_HALF(scratch, 0x9c) = (u16)(v1Value << 2);
