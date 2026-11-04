@@ -396,21 +396,30 @@ def ground_under(x, z, top, tris):
 
 def minimap(kcl, to_lev, forward):
     """The road from above: a white edge round a blended fill, as retail's, turned so that forward
-    (x, z, the way the start line faces) is as near up as a quarter turn gets. -> (RGBA array, the
-    UIMap's first nine fields, which put a world position on it)."""
+    (x, z, the way the start line faces) is as near up as a quarter turn gets; a diagonal start, with
+    two turns as near, takes the one that draws the road larger. -> (RGBA array, the UIMap's first
+    nine fields, which put a world position on it)."""
     road = [[to_lev(p) for p in t[:3]] for t in kcl
-            if (i := COLLISION.get(mkdsmap.kcl_type(t[4]))) and i[0] in MAP_ROAD and abs(t[3][1]) >= 0.3]
+            if (i := COLLISION.get(mkdsmap.kcl_type(t[4]))) and i[0] in MAP_ROAD and abs(t[3][1]) >= 0.3
+            and np.isfinite(t[:3]).all()]  # a degenerate KCL prism has no corners
     points = np.array(road).reshape(-1, 3)
-    mode = max(range(4), key=lambda m: np.dot(forward, MAP_UP[m]))
-    up_x, up_z = MAP_UP[mode]
-    wide = lambda p: p[0] * -up_z + p[2] * up_x  # a quarter turn clockwise from up
-    tall = lambda p: -(p[0] * up_x + p[2] * up_z)
-    x0, z0 = min(map(wide, points)), min(map(tall, points))
-    span_x, span_z = max(map(wide, points)) - x0, max(map(tall, points)) - z0
-    down = min((MAP_MAX_HEIGHT - 5) / span_z, (MAP_MAX_WIDTH - 4) / MAP_PIXEL_ASPECT / span_x)  # pixels per LEV unit
+    def axes(mode):
+        up_x, up_z = MAP_UP[mode]
+        return (lambda p: p[0] * -up_z + p[2] * up_x,  # a quarter turn clockwise from up
+                lambda p: -(p[0] * up_x + p[2] * up_z))
+
+    def pixels_down(mode):  # per LEV unit, filling the box
+        wide, tall = axes(mode)
+        return min((MAP_MAX_HEIGHT - 5) / np.ptp(tall(points.T)), (MAP_MAX_WIDTH - 4) / MAP_PIXEL_ASPECT / np.ptp(wide(points.T)))
+
+    mode = max(range(4), key=lambda m: (round(float(np.dot(forward, MAP_UP[m])), 2), pixels_down(m)))
+    wide, tall = axes(mode)
+    x0, z0 = wide(points.T).min(), tall(points.T).min()
+    span_x, span_z = np.ptp(wide(points.T)), np.ptp(tall(points.T))
+    down = pixels_down(mode)
     across = down * MAP_PIXEL_ASPECT
-    width = math.ceil(span_x * across) + 4
-    height = (math.ceil(span_z * down) + 5) // 2 * 2  # the game keeps half of it
+    width = math.ceil(span_x * across - 1e-6) + 4
+    height = (math.ceil(span_z * down - 1e-6) + 5) // 2 * 2  # the game keeps half of it
     at = lambda p: ((wide(p) - x0) * across + 2, (tall(p) - z0) * down + 2)
     scale = 4  # drawn large and reduced, or a road narrower than a pixel breaks up
     image = Image.new('L', (width * scale, height * scale), 0)
