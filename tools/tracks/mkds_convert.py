@@ -13,7 +13,7 @@ Start, finish line and route come from course_map.nkm.
 import argparse, json, math, os, shutil, subprocess, sys
 from collections import defaultdict
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ctr_items, nds, nitro3d, mkdsmap, lev_patch, package, winding_check
@@ -68,6 +68,17 @@ FRUIT_CLEAR_OF_CRATES = 500
 FRUIT_ROAD = {'col_road', 'col_boost'}
 # MKDS units: a route point may be this far under the road, and this far above it before it is a jump
 ROUTE_ABOVE_GROUND, ROUTE_IN_THE_AIR = 20, 60
+
+
+# The minimap, in screen pixels. The game draws it with its bottom right corner here (UI_RenderFrame).
+MAP_CORNER_X, MAP_CORNER_Y = 500, 195
+MAP_MAX_WIDTH, MAP_MAX_HEIGHT = 96, 96  # the largest retail's maps reach
+MAP_PIXEL_ASPECT = 1.5  # screen pixels across per pixel down for the same distance, as retail's maps
+# UIMap::mode -> (x, z) of what is up on the map, as UI_Map_GetIconPos draws it
+MAP_UP = ((0, -1), (-1, 0), (0, 1), (1, 0))
+MAP_ICON_X, MAP_ICON_Y = 4, 2  # a kart icon's top left corner from the point it marks
+MAP_ROAD = {'col_road', 'col_boost'}
+MAP_FILL, MAP_EDGE = (132, 132, 132, 255), (255, 255, 255, 255)  # lev_patch sets the fill to blend
 
 
 # ---------------------------------------------------------------- geometry helpers
@@ -383,6 +394,51 @@ def ground_under(x, z, top, tris):
     return best
 
 
+def minimap(kcl, to_lev, forward):
+    """The road from above: a white edge round a blended fill, as retail's, turned so that forward
+    (x, z, the way the start line faces) is as near up as a quarter turn gets. -> (RGBA array, the
+    UIMap's first nine fields, which put a world position on it)."""
+    road = [[to_lev(p) for p in t[:3]] for t in kcl
+            if (i := COLLISION.get(mkdsmap.kcl_type(t[4]))) and i[0] in MAP_ROAD and abs(t[3][1]) >= 0.3]
+    points = np.array(road).reshape(-1, 3)
+    mode = max(range(4), key=lambda m: np.dot(forward, MAP_UP[m]))
+    up_x, up_z = MAP_UP[mode]
+    wide = lambda p: p[0] * -up_z + p[2] * up_x  # a quarter turn clockwise from up
+    tall = lambda p: -(p[0] * up_x + p[2] * up_z)
+    x0, z0 = min(map(wide, points)), min(map(tall, points))
+    span_x, span_z = max(map(wide, points)) - x0, max(map(tall, points)) - z0
+    down = min((MAP_MAX_HEIGHT - 5) / span_z, (MAP_MAX_WIDTH - 4) / MAP_PIXEL_ASPECT / span_x)  # pixels per LEV unit
+    across = down * MAP_PIXEL_ASPECT
+    width = math.ceil(span_x * across) + 4
+    height = (math.ceil(span_z * down) + 5) // 2 * 2  # the game keeps half of it
+    at = lambda p: ((wide(p) - x0) * across + 2, (tall(p) - z0) * down + 2)
+    scale = 4  # drawn large and reduced, or a road narrower than a pixel breaks up
+    image = Image.new('L', (width * scale, height * scale), 0)
+    draw = ImageDraw.Draw(image)
+    for tri in road:
+        draw.polygon([(x * scale, y * scale) for x, y in map(at, tri)], fill=255)
+    mask = np.array(image.resize((width, height), Image.Resampling.BOX)) > 40
+    grown = mask.copy()
+    for axis in (0, 1):
+        for shift in (-1, 1):
+            grown |= np.roll(mask, shift, axis)
+    inner = grown.copy()
+    for axis in (0, 1):
+        for shift in (-1, 1):
+            inner &= np.roll(grown, shift, axis)
+    rgba = np.zeros((height, width, 4), np.uint8)
+    rgba[grown] = MAP_EDGE
+    rgba[inner] = MAP_FILL
+    left, top = MAP_CORNER_X - width + 1, MAP_CORNER_Y - height + 1
+    range_wide, range_tall = round(width / across), round(height / down)
+    range_x, range_z = (range_tall, range_wide) if mode & 1 else (range_wide, range_tall)
+    start_x = left + 2 - x0 * across - MAP_ICON_X
+    start_y = top + 2 - z0 * down - MAP_ICON_Y + 0x10  # UI_Map_GetIconPos takes 0x10 off
+    # only the ranges count, and each end has to fit 16 bits
+    return rgba, [range_x // 2, range_z // 2, range_x // 2 - range_x, range_z // 2 - range_z, width, height // 2,
+                  int(round(start_x)), int(round(start_y)), mode]
+
+
 def fruit_rows(route_at, total, lev, crates, to_lev, ground):
     """Wumpa fruit positions in LEV units. route_at(s) is the route's point s MKDS units past the
     finish line. A row wanted somewhere it cannot lie (off the road, in the air, near a crate or the
@@ -473,6 +529,23 @@ def convert(course, out_dir, name, scale, max_edge, crate):
         q = (np.asarray(p) - centre) * scale
         return (q[0], q[1], q[2])  # OBJ and MKDS share axes (right-handed, Y up)
 
+    to_lev = lambda p: np.array(to_cte(p)) * 64
+    # the start line, and the way across it
+    m = course.nkm
+    cps = mkdsmap.checkpoints(m)
+    (x1, z1), (x2, z2), _, _ = cps[0]
+    route = mkdsmap.cpu_route(m)
+    start_pos, start_rot = mkdsmap.start_positions(m)[0]
+    line_a, line_b = np.array([x1, z1]), np.array([x2, z2])
+    along = (line_b - line_a) / np.linalg.norm(line_b - line_a)
+    fwd = np.array([-along[1], along[0]])
+    if np.dot(np.array([route[0][0][0], route[0][0][2]]) - line_a, fwd) < 0:
+        fwd = -fwd
+    seg_len = np.linalg.norm(line_b - line_a)
+    map_image, ui_map = minimap(course.kcl, to_lev, fwd)
+    # what the game needs from the VRM besides the course: each gets a carrier block
+    item_images = [g['image'] for g in crate.groups] + [map_image]
+
     # ---- materials and textures
     mtl = []
     mat_names = {}
@@ -498,7 +571,7 @@ def convert(course, out_dir, name, scale, max_edge, crate):
         w, h = m.width * tiles[i][0], m.height * tiles[i][1]
         return math.ceil(w / 4) * h  # 4-bit worst case; 8-bit textures are at most 128 wide
     budget = 14 * 64 * 256 * 0.85  # 14 free texture pages in a CTE VRM, minus room for palettes
-    budget -= sum(math.ceil(g['image'].shape[1] / 4) * g['image'].shape[0] for g in crate.groups)
+    budget -= sum(math.ceil(image.shape[1] / 4) * image.shape[0] for image in item_images)
     while sum(vram_words(i) for i in tiles) > budget:
         i = max((i for i in tiles if max(tiles[i]) > 1), key=vram_words)
         a = 0 if tiles[i][0] >= tiles[i][1] else 1
@@ -528,11 +601,11 @@ def convert(course, out_dir, name, scale, max_edge, crate):
     grey.save(os.path.join(tex_dir, 'collision.png'))
     for cname in sorted({c[0] for c in COLLISION.values()}):
         mtl += [f'newmtl {cname}', 'map_Kd collision.png', '']
-    # the crate's textures: CrashTeamEditor packs only what a block uses, so each gets a carrier block
+    # CrashTeamEditor packs only what a block uses
     item_mats = []
-    for i, group in enumerate(crate.groups):
+    for i, image in enumerate(item_images):
         item_mats.append(f'item{i}')
-        Image.fromarray(group['image'], 'RGBA').save(os.path.join(tex_dir, f'item{i}.png'))
+        Image.fromarray(image, 'RGBA').save(os.path.join(tex_dir, f'item{i}.png'))
         mtl += [f'newmtl item{i}', f'map_Kd item{i}.png', '']
 
     # ---- OBJ writer
@@ -659,17 +732,6 @@ def convert(course, out_dir, name, scale, max_edge, crate):
         write_triblock(f'r{stats["render"]:05d}', mat_names[mi], tri, tri_normal(tri))
 
     # ---- collision geometry
-    m = course.nkm
-    cps = mkdsmap.checkpoints(m)
-    (x1, z1), (x2, z2), _, _ = cps[0]
-    route = mkdsmap.cpu_route(m)
-    start_pos, start_rot = mkdsmap.start_positions(m)[0]
-    line_a, line_b = np.array([x1, z1]), np.array([x2, z2])
-    along = (line_b - line_a) / np.linalg.norm(line_b - line_a)
-    fwd = np.array([-along[1], along[0]])
-    if np.dot(np.array([route[0][0][0], route[0][0][2]]) - line_a, fwd) < 0:
-        fwd = -fwd
-    seg_len = np.linalg.norm(line_b - line_a)
 
     def near_line(p):
         s = np.dot(np.array([p[0], p[2]]) - line_a, along)
@@ -760,7 +822,6 @@ def convert(course, out_dir, name, scale, max_edge, crate):
 
     # ---- item boxes: one crate per MKDS box, on the ground under it
     ground = [t for t in course.kcl if (i := COLLISION.get(mkdsmap.kcl_type(t[4]))) and i[2] & GROUND and abs(t[3][1]) >= 0.3]
-    to_lev = lambda p: np.array(to_cte(p)) * 64
     crates = []
     for pos in course.item_boxes:
         found = ground_under(pos[0], pos[2], pos[1] + 1, ground)
@@ -883,7 +944,7 @@ def convert(course, out_dir, name, scale, max_edge, crate):
     fruit, dropped = fruit_rows(route_at, total, 64 * scale, crates, to_lev, ground)
     stats['wumpa fruit'] = len(fruit)
     stats['fruit rows dropped'] = dropped
-    json.dump({'crates': crates, 'fruit': fruit, 'carriers': carriers}, open(os.path.join(out_dir, name + '_items.json'), 'w'))
+    json.dump({'crates': crates, 'fruit': fruit, 'carriers': carriers, 'map': ui_map}, open(os.path.join(out_dir, name + '_items.json'), 'w'))
 
     lanes = [[], [], []]
     for k in range(count):
@@ -947,8 +1008,10 @@ def main():
         sys.exit('CrashTeamEditor wrote no VRM: the textures do not fit its VRAM')
     lev = os.path.join(lev_dir, name + '.lev')
     patched = os.path.join(lev_dir, name + '_patched.lev')
+    vrm = os.path.join(lev_dir, name + '.vrm')
+    patched_vrm = os.path.join(lev_dir, name + '_patched.vrm')
     placed = json.load(open(os.path.join(work, name + '_items.json')))
-    patched_stats = lev_patch.patch(lev, os.path.join(work, name + '_nav.json'), patched, *course.sky_colours(), items, placed)
+    patched_stats = lev_patch.patch(lev, vrm, os.path.join(work, name + '_nav.json'), patched, patched_vrm, *course.sky_colours(), items, placed)
     print('lev_patch', patched_stats)
     if patched_stats['quadblocks over 2%']:
         sys.exit('collision normals the game cannot represent within 2% (the kart would stop against them)')
@@ -956,7 +1019,7 @@ def main():
     print('winding', winding)
     if winding['flipped'] or winding['unmatched']:
         sys.exit('CrashTeamEditor turned drawn blocks over (they would vanish from the front)')
-    pin = package.build(patched, os.path.join(lev_dir, name + '.vrm'), a.title, 'mkds/' + a.course, a.version, a.store)
+    pin = package.build(patched, patched_vrm, a.title, 'mkds/' + a.course, a.version, a.store)
     # a re-conversion replaces the revision this work folder installed last
     pin_file = os.path.join(work, 'pin.txt')
     old = open(pin_file).read().strip() if os.path.exists(pin_file) else ''

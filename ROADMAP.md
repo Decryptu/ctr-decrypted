@@ -15,10 +15,9 @@ What is in progress, what is next, and what was decided. A finished item is dele
 - **High Octane is ported feature by feature, never merged.** A trial merge conflicts in 92 files, and it carries Vita, web and leaderboard code we don't want.
 
 ## In progress
-- Mario Kart DS course converter ([TRACK-CONVERTER.md](docs/TRACK-CONVERTER.md)). Figure-8 Circuit converts with its item boxes and Wumpa fruit and passes the checks. Next steps, in this order (gameplay first), each on Figure-8 before the batch:
-  1. Minimap: an image of the track outline from above in the package's VRAM, icons 3 and 4 pointed at it, and an `ST1_MAP` entry with the world bounds so kart icons line up.
-  2. Other course objects (trees, pipes...): mostly static scenery, since most have no CTR equivalent; moving ones later.
-  3. Every remaining course in one batch run with `check_track.ps1`; the owner play-tests only those that pass. Known failures to fix first: `nitro3d.decode` reads a palette past the end of the file (`clock_course`, `airship_course`, `old_luigi_gc`); textures that do not fit the VRM (`bank_course`); drawn blocks turned over (`bank_course`, `snow_course`). Real boost pads have only been tested through a stretch of Figure-8 marked as boost, as Figure-8 has none: drive one on the first course with pads that converts. KCL types 0x0c (jump pad), 0x0f (cannon) and 0x13 (loop) are not converted.
+- Mario Kart DS course converter ([TRACK-CONVERTER.md](docs/TRACK-CONVERTER.md)). Figure-8 Circuit converts with its item boxes, Wumpa fruit and minimap and passes the checks. Next steps, in this order (gameplay first), each on Figure-8 before the batch:
+  1. Other course objects (trees, pipes...): mostly static scenery, since most have no CTR equivalent; moving ones later.
+  2. Every remaining course in one batch run with `check_track.ps1`; the owner play-tests only those that pass. Known failures to fix first: `nitro3d.decode` reads a palette past the end of the file (`clock_course`, `airship_course`, `old_luigi_gc`); textures that do not fit the VRM (`bank_course`); drawn blocks turned over (`bank_course`, `snow_course`). Real boost pads have only been tested through a stretch of Figure-8 marked as boost, as Figure-8 has none: drive one on the first course with pads that converts. KCL types 0x0c (jump pad), 0x0f (cannon) and 0x13 (loop) are not converted.
 
 ## Maybe
 - 200cc beyond Arcade and VS ([SPEED-CLASS.md](docs/SPEED-CLASS.md)): Time Trial with records and ghosts kept per class (a save format change), and whether Archipelago can require or place it.

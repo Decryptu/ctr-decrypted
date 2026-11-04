@@ -8,7 +8,8 @@
   triangles the grid turned away from their block get none;
 - the sky colours CrashTeamEditor has no field for: the clear colour and the clear split behind the
   sky's bands;
-- the item boxes and Wumpa fruit: their models, an instance for each, their hitboxes and the visible list."""
+- the item boxes and Wumpa fruit: their models, an instance for each, their hitboxes and the visible list;
+- the minimap: its two icons, its entry in the spawn table and its palette in the VRM."""
 import json, math, struct
 
 FP_ONE_GEO = 64
@@ -20,6 +21,7 @@ LEVEL_CONFIG_ONE_TEXTURE_LOD = 0x40000000  # include/platform/native_draw_distan
 NORMAL_TRIS = [(0, 4, 5), (4, 6, 5), (6, 4, 1), (5, 6, 2), (8, 6, 7), (7, 3, 8), (1, 7, 6), (2, 6, 8), (0, 1, 2), (1, 3, 2)]
 TURNED_COS = 0.9  # fix_normals: about 25 degrees
 OFF_NUM_INSTANCES, OFF_INSTANCES, OFF_NUM_MODELS, OFF_MODELS, OFF_INSTANCE_LIST = 0xC, 0x10, 0x14, 0x18, 0x24
+OFF_TEX_LOOKUP, OFF_ICONS, OFF_SPAWN_TYPE1 = 0x3C, 0x40, 0x134
 QUAD_SIZE, QUAD_BBOX, QUAD_TEXTURE_LOW, QUAD_PVS = 0x5c, 0x2c, 0x40, 0x44
 PVS_SIZE, PVS_INSTANCES = 0x10, 8
 INSTDEF_SIZE = 0x40
@@ -29,6 +31,11 @@ HITBOX_FLAG_TOUCH = 0x4c0  # BSP_HITBOX_COLLIDABLE | BSP_HITBOX_USE_Y_AXIS, clas
 # hitbox's centre above the instance's origin
 KINDS = (('crates', 'crate', 8, 7, 76, 46), ('fruit', 'fruit', 2, 0xf, 64, 64))
 LEAF_HITBOXES = 0x14
+ICON_SIZE, ICON_LAYOUT = 0x20, 0x14
+ICON_MAP_TOP, ICON_MAP_BOTTOM = 3, 4  # gGT->ptrIcons
+MAP_NO_TOP_HALF = 1  # UIMapSpawnMetadata::topHalfMode: the bottom icon is the whole map
+MAP_WHITE, STP = 0x7fff, 0x8000
+MAP_COLOURS = 3  # transparent, edge, fill: CrashTeamEditor's palette stops there and the next word is a texel
 LEAF_REACH = 64  # a road leaf ends at the road, and a fruit's box starts above it: the kart reaches both
 
 
@@ -118,6 +125,56 @@ def fix_normals(data, mesh):
     return max(worst), sum(e > 0.02 for e in worst), ignored
 
 
+def add_minimap(data, pointer, block, ui_map):
+    """The minimap's icons, read from where CrashTeamEditor put its image, and a one-entry spawn table
+    (the game's other entries are all behind `count` checks). -> the image's palette word."""
+    layout = struct.unpack_from('<I', data, block + QUAD_TEXTURE_LOW)[0]
+    u0, v0, clut, u1, v1, tpage, u2, v2, u3, v3 = struct.unpack_from('<BBHBBHBBBB', data, layout)
+    left, right, top, bottom = min(u0, u1, u2, u3), max(u0, u1, u2, u3), min(v0, v1, v2, v3), max(v0, v1, v2, v3)
+    icons = len(data)
+    for index in (ICON_MAP_TOP, ICON_MAP_BOTTOM):
+        icon = bytearray(ICON_SIZE)
+        icon[:16] = (f'map-{index}'.encode() + bytes(16))[:16]
+        struct.pack_into('<i', icon, 0x10, index)
+        struct.pack_into('<BBHBBHBBBB', icon, ICON_LAYOUT, left, top, clut, right, top, tpage, left, bottom, right, bottom)
+        data += icon
+    lookup = len(data)
+    data += struct.pack('<4I', 2, 0, 0, 0)
+    pointer(lookup + 4, icons)
+    pointer(OFF_TEX_LOOKUP, lookup)
+    pointer(OFF_ICONS, icons)
+    metadata = len(data)
+    data += struct.pack('<10h', *ui_map, MAP_NO_TOP_HALF)
+    table = len(data)
+    data += struct.pack('<2I', 1, 0)
+    pointer(table + 4, metadata)
+    pointer(OFF_SPAWN_TYPE1, table)
+    return clut
+
+
+def blend_map_palette(vrm, clut):
+    """Retail's map palettes (bytes of a VRM -> bytes): white is drawn solid, the rest blends. A PS1
+    texel blends only with its top bit set, which CrashTeamEditor does not set."""
+    out = bytearray(vrm)
+    cx, cy = (clut & 63) * 16, clut >> 6
+    cur = 4
+    while cur + 4 <= len(out):
+        size = struct.unpack_from('<I', out, cur)[0]
+        cur += 4
+        if size == 0:
+            break
+        x, y, w, h = struct.unpack_from('<4h', out, cur + 0xC)
+        if x <= cx and cx + MAP_COLOURS <= x + w and y <= cy < y + h:
+            for i in range(MAP_COLOURS):
+                o = cur + 0x14 + ((cy - y) * w + cx - x + i) * 2
+                c = struct.unpack_from('<H', out, o)[0]
+                if c & 0x7fff not in (0, MAP_WHITE):
+                    struct.pack_into('<H', out, o, c | STP)
+            return bytes(out)
+        cur += size & ~3
+    raise ValueError(f'the map palette {clut:#x} is not in the VRM')
+
+
 def add_items(data, ptrs, items, placed, collision_leaves):
     """Append the item models, their instances and hitboxes to the LEV. -> stats."""
     def align():
@@ -147,6 +204,8 @@ def add_items(data, ptrs, items, placed, collision_leaves):
         layout = struct.unpack_from('<I', data, block + QUAD_TEXTURE_LOW)[0]
         u0, v0, clut, u1, v1, tpage, u2, v2, u3, v3 = struct.unpack_from('<BBHBBHBBBB', data, layout)
         crate.retarget(group, min(u0, u1, u2, u3), min(v0, v1, v2, v3), clut, tpage)
+
+    map_clut = add_minimap(data, pointer, carrier_quads[tuple(placed['carriers'][len(crate.groups)])], placed['map'])
 
     model_at = {}
     for kind, *_ in KINDS:
@@ -235,10 +294,10 @@ def add_items(data, ptrs, items, placed, collision_leaves):
             pointer(len(data) - 4, defs + INSTDEF_SIZE * n)
         data += bytes(HITBOX_SIZE)
         pointer(leaf + LEAF_HITBOXES, array)
-    return {'instances': len(placements), 'leaves with hitboxes': len(hit), 'hitbox records': sum(len(e) for e in hit.values())}
+    return map_clut, {'instances': len(placements), 'leaves with hitboxes': len(hit), 'hitbox records': sum(len(e) for e in hit.values())}
 
 
-def patch(lev_path, nav_path, out_path, zenith, horizon, items, placed):
+def patch(lev_path, vrm_path, nav_path, out_path, out_vrm, zenith, horizon, items, placed):
     lev = open(lev_path, 'rb').read()
     data_len = struct.unpack_from('<I', lev, 0)[0]
     data = bytearray(lev[4:4 + data_len])
@@ -301,7 +360,7 @@ def patch(lev_path, nav_path, out_path, zenith, horizon, items, placed):
             struct.pack_into('<I', data, o, struct.unpack_from('<I', data, o)[0] & ~(1 << (31 - (i & 31))))
 
     collision_leaves = [bsp + 0x20 * i for i, ok in collision_only.items() if ok and nodes[i][0] & 1]
-    item_stats = add_items(data, ptrs, items, placed, collision_leaves)
+    map_clut, item_stats = add_items(data, ptrs, items, placed, collision_leaves)
 
     lanes = json.load(open(nav_path))['lanes']
     while len(data) % 4: data.append(0)
@@ -339,6 +398,7 @@ def patch(lev_path, nav_path, out_path, zenith, horizon, items, placed):
     data[OFF_CLEAR_SPLIT:OFF_CLEAR_SPLIT + 8] = b''.join(bytes(round(c) for c in rgb) + b'\1' for rgb in (zenith, horizon))
     out = struct.pack('<I', len(data)) + bytes(data) + struct.pack('<I', 4 * len(ptrs)) + struct.pack(f'<{len(ptrs)}I', *ptrs)
     open(out_path, 'wb').write(out)
+    open(out_vrm, 'wb').write(blend_map_palette(open(vrm_path, 'rb').read(), map_clut))
     return {'lanes': len(lanes), 'checkpoints': ncp, 'hidden quadblocks': hidden,
             'culled bsp nodes': len(culled), 'of': nbsp, 'vis lists': len(vis_lists),
             'worst collision normal error': round(normal_error, 4), 'quadblocks over 2%': normal_bad,

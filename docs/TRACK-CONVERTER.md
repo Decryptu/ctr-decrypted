@@ -2,7 +2,7 @@
 
 `tools/tracks/` turns a course from the player's own Mario Kart DS ROM into a custom track package ([CUSTOM_TRACKS.md](CUSTOM_TRACKS.md#3-the-package-format)). Nothing from the ROM or the CTR disc is in the repository; the tools read them and write the package on the player's machine, so a converted package is not for sharing.
 
-Status: Figure-8 Circuit (`cross_course`) converts with its item boxes and Wumpa fruit and passes every check below. Figure-8 has no boost surfaces; turbo pads were tested by marking a stretch of its road as boost. Not converted yet: the minimap, other course objects, animated textures. The other courses have not passed yet (`ROADMAP.md`).
+Status: Figure-8 Circuit (`cross_course`) converts with its item boxes, Wumpa fruit and minimap and passes every check below. Figure-8 has no boost surfaces; turbo pads were tested by marking a stretch of its road as boost. Not converted yet: other course objects, animated textures. The other courses have not passed yet (`ROADMAP.md`).
 
 ## Use
 1. Build CrashTeamEditor's headless converter once, from an MSYS2 shell:
@@ -43,6 +43,23 @@ Each MKDS item box (object 0x65) becomes a weapon crate (`PU_RANDOM_CRATE`) on t
 MKDS has none in races, so the converter lays them out: `fruit_rows` in `mkds_convert.py` places rows of 4, 230 LEV units apart, on the CPU route's centre line, one row every 13,000 LEV units (6 rows and 24 fruit on Figure-8; retail tracks have about 16). A row stays 800 units from the finish line and 500 from any crate, and only lies on road or boost surface with the route on the ground; a row that cannot lie where it is wanted slides forward along the route, and is dropped after half a gap. The constants are at the top of the file.
 
 The model (`PU_WUMPA_FRUIT`, Dingo Canyon's `fruit`) is read like the crate but has no textures, so it needs no carrier block. Instances take retail's flags (`0xf`), and hitboxes retail's radius of 64 with the centre 64 above the origin (`KINDS` in `lev_patch.py`).
+
+### Minimap
+`minimap` in `mkds_convert.py` draws the KCL's road and boost triangles from above into an image. Size and shape follow the 18 retail race tracks:
+- At most 96 pixels each way (retail: 64 to 96 across, 56 to 96 down).
+- About 1.5 pixels across for every pixel down for the same distance (retail: 1.18 to 1.69, mostly 1.5), as screen pixels are not square.
+
+Orientation is the owner's rule, not retail's: driving forward from the start moves the kart up the map. Of the four `UIMap` modes the converter takes the one whose up is nearest the start line's facing (`MAP_UP`), so a start running along the course's short side gives a map wider than tall. Retail has no such rule: its starts head every way on its maps, and its turns stand long tracks upright (13 of 18 have the long axis down the screen, the other 5 are within 13% of square).
+
+The road is grown by a pixel so a thin road survives, with a white edge round a grey fill. The image goes through a carrier block like the crate's textures.
+
+`lev_patch.py` then adds what the HUD reads:
+- Icons 3 and 4 (`gGT->ptrIcons`) through the header's `levTexLookup`, both the whole image. Retail splits a map into a top and a bottom half; a `topHalfMode` of 1 draws only the bottom icon.
+- A spawn table of one entry, `ST1_MAP`. Every other reader of the table checks `count` first (`CAM.c`, `MM_Title.c`), or needs a retail model a converted track does not have.
+- The `UIMap`: only the ranges of its world bounds matter, so each is split round 0 to fit 16 bits. The icon start places world 0, less 4 and 2 pixels for the kart icon's corner, and 0x10 pixels for what `UI_Map_GetIconPos` takes off.
+- The palette, patched in the VRM: a PS1 texel blends only with its top bit set, which CrashTeamEditor does not set. As in retail, white stays solid and the rest blends. CrashTeamEditor's palette is only as long as the image's colours and texels may follow it in VRAM, so only those three entries are touched.
+
+The HUD shows the map or the speedometer, whichever the player picked (`hud_speedometer` in `config.ini`).
 
 ## After CrashTeamEditor
 `lev_patch.py` adds what CrashTeamEditor does not write:
