@@ -16,7 +16,7 @@ import numpy as np
 from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import nds, nitro3d, mkdsmap, lev_patch, package, winding_check
+import ctr_items, nds, nitro3d, mkdsmap, lev_patch, package, winding_check
 
 MODEL_TO_WORLD = 16.0  # course models are drawn 16 times larger than their stored size
 
@@ -43,6 +43,7 @@ COLLISION = {
     0x03: ('col_offroad', 'Slow Grass', _ROAD, True),
     0x05: ('col_mud', 'Mud', _ROAD, True),
     0x07: ('col_boost', 'Asphalt', _ROAD, True),
+    0x12: ('col_boost', 'Asphalt', _ROAD, True),
     0x08: ('col_wall', 'Asphalt', _WALL, False),
     0x09: ('col_wall', 'Asphalt', _WALL, False),
     0x0e: ('col_wall', 'Asphalt', _WALL, False),
@@ -52,6 +53,13 @@ COLLISION = {
     0x0b: ('col_fall', 'Asphalt', _FALL, False),
     0x11: ('col_fall', 'Water', _FALL, False),
 }
+
+
+BOOST_MATERIAL = 'col_boost'
+TRIGGER_TURBO_PAD = 1  # CrashTeamEditor's QuadblockTrigger
+PRESET_TURBO_PAD = 4  # CrashTeamEditor's PresetHeader
+# LEV units from the ground up to a crate instance's origin (retail tracks: 0 to 8)
+CRATE_LIFT = 8
 
 
 # ---------------------------------------------------------------- geometry helpers
@@ -363,6 +371,7 @@ class Course:
         self.tex0 = nitro3d.load_tex0(tex['course_model.nsbtx'])
         self.kcl = mkdsmap.kcl(arc['course_collision.kcl'])
         self.nkm = mkdsmap.nkm(arc['course_map.nkm'])
+        self.item_boxes = mkdsmap.item_boxes(self.nkm)
         self.sky = None
         if 'course_model_V.nsbmd' in arc and 'course_model_V.nsbtx' in tex:
             self.sky = (nitro3d.Model(arc['course_model_V.nsbmd']), nitro3d.load_tex0(tex['course_model_V.nsbtx']))
@@ -394,7 +403,7 @@ def quantize(img):
     return Image.fromarray(qa, 'RGBA'), colours
 
 
-def convert(course, out_dir, name, scale, max_edge):
+def convert(course, out_dir, name, scale, max_edge, crate):
     os.makedirs(out_dir, exist_ok=True)
     tex_dir = out_dir  # CTE resolves map_Kd next to the OBJ only
     os.makedirs(tex_dir, exist_ok=True)
@@ -432,6 +441,7 @@ def convert(course, out_dir, name, scale, max_edge):
         w, h = m.width * tiles[i][0], m.height * tiles[i][1]
         return math.ceil(w / 4) * h  # 4-bit worst case; 8-bit textures are at most 128 wide
     budget = 14 * 64 * 256 * 0.85  # 14 free texture pages in a CTE VRM, minus room for palettes
+    budget -= sum(math.ceil(g['image'].shape[1] / 4) * g['image'].shape[0] for g in crate.groups)
     while sum(vram_words(i) for i in tiles) > budget:
         i = max((i for i in tiles if max(tiles[i]) > 1), key=vram_words)
         a = 0 if tiles[i][0] >= tiles[i][1] else 1
@@ -461,6 +471,12 @@ def convert(course, out_dir, name, scale, max_edge):
     grey.save(os.path.join(tex_dir, 'collision.png'))
     for cname in sorted({c[0] for c in COLLISION.values()}):
         mtl += [f'newmtl {cname}', 'map_Kd collision.png', '']
+    # the crate's textures: CrashTeamEditor packs only what a block uses, so each gets a carrier block
+    item_mats = []
+    for i, group in enumerate(crate.groups):
+        item_mats.append(f'item{i}')
+        Image.fromarray(group['image'], 'RGBA').save(os.path.join(tex_dir, f'item{i}.png'))
+        mtl += [f'newmtl item{i}', f'map_Kd item{i}.png', '']
 
     # ---- OBJ writer
     lines = ['mtllib ' + name + '.mtl']
@@ -603,6 +619,7 @@ def convert(course, out_dir, name, scale, max_edge):
         return -50 <= s <= seg_len + 50 and abs(p[1] - start_pos[1]) < 150
 
     start_quads, end_quads = [], []
+    boost_blocks = []
     collision = []
     for a, b, c, nrm, attr in course.kcl:
         ty = mkdsmap.kcl_type(attr)
@@ -664,11 +681,45 @@ def convert(course, out_dir, name, scale, max_edge):
             bname = f'c{stats["collision"]:05d}'
             cte = [{'pos': v['pos'], 'uv': v['uv'], 'col': v['col']} for v in piece]
             write_triblock(bname, cname, cte, tri_normal(cte))
+            if cname == BOOST_MATERIAL:
+                boost_blocks.append(bname)
             if crossing:
                 d = [np.dot(np.array([v['mk'][0], v['mk'][2]]) - line_a, fwd) for v in piece]
                 touches = min(abs(x) for x in d) < 1e-2
                 if touches and np.mean(d) > 0: start_quads.append(bname)
                 if touches and np.mean(d) < 0: end_quads.append(bname)
+
+    # ---- carrier blocks, under everything, hidden and out of reach like the rest of the collision
+    # blocks (lev_patch finds them by their bounds and reads where their textures landed)
+    low = np.ceil(np.array(to_cte(kpts.min(0))) * 64) / 64 - 8
+    carriers = []
+    for i, mat in enumerate(item_mats):
+        x0, x1, z0, z1 = low[0] + 4 * i, low[0] + 4 * i + 2, low[2], low[2] + 2
+        corners = [np.array(c, float) for c in ((x0, low[1], z1), (x1, low[1], z1), (x1, low[1], z0), (x0, low[1], z0))]
+        uvs = ((0, 0), (1, 0), (1, 1), (0, 1))
+        quad = [{'pos': c, 'uv': np.array(uv, float), 'col': np.array([.5, .5, .5])} for c, uv in zip(corners, uvs)]
+        write_quadblock(f'i{i}', mat, quad, np.array([0.0, 1.0, 0.0]))
+        carriers.append([int(round(c * 64)) for c in (x0, low[1], z0, x1, z1)])
+
+    # ---- item boxes: one crate per MKDS box, on the ground under it
+    ground = [t for t in course.kcl if (i := COLLISION.get(mkdsmap.kcl_type(t[4]))) and i[2] & GROUND and abs(t[3][1]) >= 0.3]
+    crates = []
+    for pos in course.item_boxes:
+        best = None
+        for a, b, c, nrm, _ in ground:
+            d = lambda u, v: (v[0] - u[0]) * (pos[2] - u[2]) - (v[2] - u[2]) * (pos[0] - u[0])
+            e = (d(a, b), d(b, c), d(c, a))
+            if min(e) >= 0 or max(e) <= 0:
+                y = a[1] - (nrm[0] * (pos[0] - a[0]) + nrm[2] * (pos[2] - a[2])) / nrm[1]
+                if y <= pos[1] + 1 and (best is None or y > best):
+                    best = y
+        if best is None:
+            stats['item boxes with no ground under them, left at their height'] += 1
+            best = pos[1]
+        q = np.array(to_cte((pos[0], best, pos[2]))) * 64
+        crates.append([int(round(q[0])), int(round(q[1])) + CRATE_LIFT, int(round(q[2]))])
+    stats['item boxes'] = len(crates)
+    json.dump({'crates': crates, 'carriers': carriers}, open(os.path.join(out_dir, name + '_items.json'), 'w'))
 
     # ---- probe points for CTR_DEV_COLL_PROBE_IN: every 64 LEV units on every MKDS ground layer
     lev = 64 * scale
@@ -700,7 +751,7 @@ def convert(course, out_dir, name, scale, max_edge):
     # ---- presets
     pre = os.path.join(out_dir, name + '_presets')
     os.makedirs(pre, exist_ok=True)
-    mats = {'header': 3, 'materials': sorted(set(mat_names.values()) | {c[0] for c in COLLISION.values()})}
+    mats = {'header': 3, 'materials': sorted(set(mat_names.values()) | {c[0] for c in COLLISION.values()} | set(item_mats))}
     for i, mname in mat_names.items():
         mats[mname + '_quadflags'] = 0  # drawn only
         mats[mname + '_checkpoint'] = False
@@ -711,7 +762,22 @@ def convert(course, out_dir, name, scale, max_edge):
         mats[cname + '_quadflags'] = flags
         mats[cname + '_checkpoint'] = True
         mats[cname + '_checkpointPathable'] = pathable
+    for mat in item_mats:
+        mats[mat + '_terrain'] = 'Asphalt'
+        mats[mat + '_quadflags'] = _WALL
+        mats[mat + '_checkpoint'] = True
+        mats[mat + '_checkpointPathable'] = False
     json.dump(mats, open(os.path.join(pre, 'material.json'), 'w'), indent=1)
+
+    # CrashTeamEditor raises a copy of each pad block as the trigger; the pad's look is the MKDS road
+    turbo = {'header': PRESET_TURBO_PAD, 'turbopads': boost_blocks}
+    turbo.update({b + '_trigger': TRIGGER_TURBO_PAD for b in boost_blocks})
+    pad_preset = os.path.join(pre, 'turbopad.json')
+    if boost_blocks:
+        json.dump(turbo, open(pad_preset, 'w'), indent=1)
+    elif os.path.exists(pad_preset):
+        os.remove(pad_preset)
+    stats['boost blocks'] = len(boost_blocks)
 
     # 8 spawns in two staggered columns behind the start, like MKDS's grid
     # a kart at game angle a faces (sin a, cos a) in x/z, and VehBirth turns the spawn's rot.y by
@@ -787,6 +853,7 @@ def main():
     ap.add_argument('rom', help='the player\'s own Mario Kart DS ROM (.nds)')
     ap.add_argument('course', help='course archive name under data/Course, e.g. cross_course')
     ap.add_argument('--title', required=True, help='title shown on the custom tracks page')
+    ap.add_argument('--disc', required=True, help='the player\'s own CTR (USA) disc image (.bin): the weapon crate comes from it')
     ap.add_argument('--store', default=None,
                     help='packages folder to install into (default <work>/packages, where check_track.ps1 looks); '
                          'a game install\'s is assets/tracks/packages')
@@ -804,7 +871,8 @@ def main():
     name = a.course
     files = nds.nitrofs(open(a.rom, 'rb').read())
     course = Course(files, a.course)
-    print('convert', convert(course, work, name, a.scale, a.max_edge))
+    crate = ctr_items.crate(a.disc)
+    print('convert', convert(course, work, name, a.scale, a.max_edge, crate))
 
     lev_dir = os.path.join(work, 'lev')
     os.makedirs(lev_dir, exist_ok=True)  # CTE saves into an existing folder only
@@ -815,9 +883,12 @@ def main():
     if r.returncode != 0:
         sys.exit('cte_headless failed:\n' + r.stderr)
 
+    if not os.path.exists(os.path.join(lev_dir, name + '.vrm')):
+        sys.exit('CrashTeamEditor wrote no VRM: the textures do not fit its VRAM')
     lev = os.path.join(lev_dir, name + '.lev')
     patched = os.path.join(lev_dir, name + '_patched.lev')
-    patched_stats = lev_patch.patch(lev, os.path.join(work, name + '_nav.json'), patched, *course.sky_colours())
+    placed = json.load(open(os.path.join(work, name + '_items.json')))
+    patched_stats = lev_patch.patch(lev, os.path.join(work, name + '_nav.json'), patched, *course.sky_colours(), crate, placed)
     print('lev_patch', patched_stats)
     if patched_stats['quadblocks over 2%']:
         sys.exit('collision normals the game cannot represent within 2% (the kart would stop against them)')

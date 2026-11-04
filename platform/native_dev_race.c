@@ -846,6 +846,25 @@ static void NativeDevRace_CollProbe(struct GameTracker *gGT)
 		probes, misses, sphereMisses, path);
 }
 
+// CTR_DEV_MODEL_DUMP=<file>: append the models the running race has in
+// gGT->modelPtr, once per level: id and name.
+static void NativeDevRace_ModelDump(const struct GameTracker *gGT)
+{
+	static int dumpedLevel = -1;
+	const char *path = getenv("CTR_DEV_MODEL_DUMP");
+	if (path == NULL || *path == '\0' || gGT == NULL || dumpedLevel == (int)gGT->levelID)
+		return;
+	dumpedLevel = (int)gGT->levelID;
+	FILE *f = fopen(path, "a");
+	if (f == NULL)
+		return;
+	fprintf(f, "# level %d\n", (int)gGT->levelID);
+	for (u32 i = 0; i < len(gGT->modelPtr); i++)
+		if (gGT->modelPtr[i] != NULL)
+			fprintf(f, "%u %s\n", i, gGT->modelPtr[i]->name);
+	fclose(f);
+}
+
 // Once per presented frame, from NativeDev_EndFrame.
 void NativeDev_RaceFrame(void)
 {
@@ -855,6 +874,8 @@ void NativeDev_RaceFrame(void)
 
 	if (d != NULL)
 		NativeDevRace_CollProbe(gGT);
+	if (d != NULL)
+		NativeDevRace_ModelDump(gGT);
 
 	// The trace and dumps also follow player 1 around an Adventure hub, where
 	// nobody races (the autopilot and drive script stay race-only).

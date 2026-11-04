@@ -84,3 +84,10 @@ def cpu_route(m):
 
 def objects(m):
     return [(u16(e, 0x24), vec32(e, 0), vec32(e, 12)) for e in m['OBJI']]
+
+
+OBJ_ITEM_BOX = 0x65
+
+
+def item_boxes(m):
+    return [pos for obj, pos, _ in objects(m) if obj == OBJ_ITEM_BOX]

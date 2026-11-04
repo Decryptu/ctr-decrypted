@@ -15,12 +15,11 @@ What is in progress, what is next, and what was decided. A finished item is dele
 - **High Octane is ported feature by feature, never merged.** A trial merge conflicts in 92 files, and it carries Vita, web and leaderboard code we don't want.
 
 ## In progress
-- Mario Kart DS course converter ([TRACK-CONVERTER.md](docs/TRACK-CONVERTER.md)). Figure-8 Circuit converts, passes the checks and plays clean (owner play test, 2026-11-03). Karts the owner once saw missing while their shadows showed are not reproduced and were not seen again: a next sighting gets an `F7` capture (its polygon dump tells a kart never drawn from one drawn over). Next steps, in this order (gameplay first), each on Figure-8 before the batch:
-  1. Item boxes and boost pads. Item boxes come one for one from the course's object list (position and type) as CTR item boxes. Dash panels and boost ramps are a surface type in the course's collision and become CTR turbo pads.
-  2. Wumpa fruit. MKDS has none in races, so the converter places them in small rows along the racing line. Placement is the owner's taste: show the first capture before tuning.
-  3. Minimap: an image of the track outline from above in the package's VRAM, icons 3 and 4 pointed at it, and an `ST1_MAP` entry with the world bounds so kart icons line up.
-  4. Other course objects (trees, pipes...): mostly static scenery, since most have no CTR equivalent; moving ones later.
-  5. Every remaining course in one batch run with `check_track.ps1`; the owner play-tests only those that pass.
+- Mario Kart DS course converter ([TRACK-CONVERTER.md](docs/TRACK-CONVERTER.md)). Figure-8 Circuit converts with its item boxes and passes the checks. Next steps, in this order (gameplay first), each on Figure-8 before the batch:
+  1. Wumpa fruit. MKDS has none in races, so the converter places them in small rows along the racing line. Placement is the owner's taste: show the first capture before tuning. The model is not on a converted track: read it from the disc like the crate (`ctr_items.py`; Dingo Canyon has model 2, `fruit`).
+  2. Minimap: an image of the track outline from above in the package's VRAM, icons 3 and 4 pointed at it, and an `ST1_MAP` entry with the world bounds so kart icons line up.
+  3. Other course objects (trees, pipes...): mostly static scenery, since most have no CTR equivalent; moving ones later.
+  4. Every remaining course in one batch run with `check_track.ps1`; the owner play-tests only those that pass. Known failures to fix first: `nitro3d.decode` reads a palette past the end of the file (`clock_course`, `airship_course`, `old_luigi_gc`); textures that do not fit the VRM (`bank_course`); drawn blocks turned over (`bank_course`, `snow_course`). Real boost pads have only been tested through a stretch of Figure-8 marked as boost, as Figure-8 has none: drive one on the first course with pads that converts. KCL types 0x0c (jump pad), 0x0f (cannon) and 0x13 (loop) are not converted.
 
 ## Maybe
 - 200cc beyond Arcade and VS ([SPEED-CLASS.md](docs/SPEED-CLASS.md)): Time Trial with records and ghosts kept per class (a save format change), and whether Archipelago can require or place it.

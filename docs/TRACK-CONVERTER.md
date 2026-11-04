@@ -1,14 +1,14 @@
 # Track converter: Mario Kart DS courses
 
-`tools/tracks/` turns a course from the player's own Mario Kart DS ROM into a custom track package ([CUSTOM_TRACKS.md](CUSTOM_TRACKS.md#3-the-package-format)). Nothing from the ROM is in the repository; the tools read the ROM and write the package on the player's machine.
+`tools/tracks/` turns a course from the player's own Mario Kart DS ROM into a custom track package ([CUSTOM_TRACKS.md](CUSTOM_TRACKS.md#3-the-package-format)). Nothing from the ROM or the CTR disc is in the repository; the tools read them and write the package on the player's machine, so a converted package is not for sharing.
 
-Status: Figure-8 Circuit (`cross_course`) converts and passes every check below; the owner's sixth play test found nothing new. Next work is item boxes and boost pads (order in `ROADMAP.md`). Not converted yet: the minimap, item boxes and other course objects, animated textures. The other courses have not been run.
+Status: Figure-8 Circuit (`cross_course`) converts with its item boxes and passes every check below. Figure-8 has no boost surfaces; turbo pads were tested by marking a stretch of its road as boost. Not converted yet: Wumpa fruit, the minimap, other course objects, animated textures. The other courses have not passed yet (`ROADMAP.md`).
 
 ## Use
 1. Build CrashTeamEditor's headless converter once, from an MSYS2 shell:
    `MSYSTEM=MINGW32 /c/msys64/usr/bin/bash.exe -lc "bash tools/tracks/cte/build.sh C:/t/cte"`.
    It clones [CrashTeamEditor](https://github.com/mateusfavarin/CrashTeamEditor) (MIT) at a pinned commit, applies `crashteameditor.patch`, adds `headless.cpp` and builds `C:\t\cte\cte_headless.exe`. Python needs `numpy` and `Pillow`.
-2. Convert: `python tools/tracks/mkds_convert.py <rom.nds> cross_course --title "Figure-8 Circuit"`. It writes the OBJ, LEV and probe points to `C:\t\mkds-cross_course` and installs the package in its `packages` folder, printing the pin. The same input always gives the same pin. `--store <install>\assets\tracks\packages` installs into a game folder instead.
+2. Convert: `python tools/tracks/mkds_convert.py <rom.nds> cross_course --title "Figure-8 Circuit" --disc <ctr-u.bin>`. `--disc` is the player's CTR (USA) disc image, which the item boxes come from. It writes the OBJ, LEV and probe points to `C:\t\mkds-cross_course` and installs the package in its `packages` folder, printing the pin. The same input always gives the same pin. `--store <install>\assets\tracks\packages` installs into a game folder instead.
 3. Check: `tools\tracks\check_track.ps1 -Rom <rom.nds> -Course cross_course`. It races three laps on autopilot, hidden and fast-forwarded (`devrun.ps1`), and prints `PASS` or what failed. Frames land in `<work>\shots`.
 
 ## What the converter writes
@@ -29,6 +29,16 @@ Scale: MKDS course models are drawn 16 times their stored size; one MKDS world u
 
 **Track data** (`course_map.nkm`): eight spawns behind the start, facing along the route (a kart at game angle `a` faces `(sin a, cos a)` in x/z, and `VehBirth` turns a spawn's `rot.y` a quarter turn before using it), the finish line (collision triangles crossing it are split so the lap checkpoints start exactly on it), three AI lanes along the CPU route (its centre line, and 40% of its radius to each side), a sky gradient from the course's skybox texture (three bands in retail's order: band 0 highest, each from its upper edge to its lower one, the last running 100 pixels below the horizon; `CAM_SkyboxGlow` skips a band written the other way up when PGXP is off), and the probe points `check_track.ps1` uses (every 64 LEV units on every MKDS ground layer).
 
+**Turbo pads** (KCL types 0x07 and 0x12): collision blocks of these types are listed in a `turbopad.json` preset, and CrashTeamEditor raises a copy of each 32 LEV units as its trigger (flags `0xa040`, terrain 1, as retail's). The kart's sphere reaches it while it drives on the road, which gives the pad's 960 reserves (`VEH_PHYS_FORCE_TURBO_PAD_RESERVES`). What the pad looks like is the MKDS road texture.
+
+### Item boxes
+Each MKDS item box (object 0x65) becomes a weapon crate (`PU_RANDOM_CRATE`) on the ground under it, 8 LEV units up. The game does not have this model on a converted track: `crate_question` is not in the shared packs, every retail track carries its own in its LEV, its textures in that track's VRM (`CTR_DEV_MODEL_DUMP` lists what a race has). So `ctr_items.py` reads it from Dingo Canyon on the player's disc:
+- The model is copied byte for byte, its pointers made relative. Each texture (palette and page) it samples is decoded to a PNG the OBJ gives to a carrier block, as CrashTeamEditor packs only what a block uses. Carrier blocks sit 8 units below the course, hidden like the collision blocks.
+- `lev_patch.py` finds each carrier by its bounds, reads where the image landed from the block's low texture layout, and rewrites the model's layouts to it, keeping each layout's offset in the image and the blend mode of its page.
+- It then adds the model, one `InstDef` per box and the list of them. CrashTeamEditor writes neither.
+- Hitboxes: retail lists each once, in the leaf that holds it. Here every collision leaf the crate's box overlaps lists a copy, because a converted leaf can be a thin strip of road. A second hit on the same crate is stopped by its cooldown. A crate that touches no leaf fails the conversion.
+- Visibility: all quadblocks share one PVS, so its instance list holds every crate. `LevInstDef_UnPack` flips a list between InstDefs and Instances once per block that refers to it, so the count of blocks must be odd: when it is even, the first carrier takes a copy of the PVS with no list.
+
 ## After CrashTeamEditor
 `lev_patch.py` adds what CrashTeamEditor does not write:
 - The collision quadblocks' faces get draw mode 3 (nothing drawn).
@@ -44,7 +54,10 @@ Scale: MKDS course models are drawn 16 times their stored size; one MKDS world u
 ## Checks
 The converter itself fails when `winding_check.py` finds a drawn block CrashTeamEditor turned over: it matches every LEV block to its OBJ block by corner positions and compares the facing of the game's triangles with the OBJ normal.
 
+The converter also fails when CrashTeamEditor writes no VRM, which means the textures did not fit.
+
 `check_track.ps1` fails on any of these:
 - The custom level's render report (`[CustomTracks] level 128 ...` in the run log, written at the end of a dev run): `reserve refused`, `rendered list full` and `bsp records dropped` must be 0. `rendered list peak` is the most blocks the near-camera list held in one frame, of 256; retail Crash Cove peaks at 50, Figure-8 at 172.
 - A crash (`crash.txt` in the run folder).
+- The package refused at load (`custom track ... refused` in the log, for example `duplicate pointer-map slot`): the race then runs the retail host level, and the check fails with `the race did not load the package`.
 - `collision_check.py` over the in-game collision probe (`CTR_DEV_COLL_PROBE`, [DEV-TOOLS.md](DEV-TOOLS.md#environment-variables)): at every probe point the kart's own ground search runs, and a miss where MKDS has ground all around is a hole. Misses on the rim of the drivable area (`edge`), within one LEV unit of a triangle edge (`engine edge`, retail tracks have these too) and down a wall face (`wall footprint`) are listed but allowed. It also prints how far the game's ground is from the MKDS ground and the drawn surface from the game's ground; Figure-8 has 0 holes over 47,230 points, ground within 3 LEV units of MKDS's and the drawn surface within 3 of the ground.
