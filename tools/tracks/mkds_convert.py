@@ -183,6 +183,53 @@ def close_tjunctions(items, tol):
     return out
 
 
+def overlap_tjunctions(items, tol, push):
+    """Where a vertex lies on (within tol of) an open edge of another triangle, move it across that
+    edge by push, into the triangle. Both sides are rounded to the LEV grid, so a corner on a neighbour's
+    long edge leaves a hairline of sky; the surfaces overlap instead, which a depth-tested level does not
+    show. Every triangle with that vertex moves with it, so nothing opens, and no block is added."""
+    edges = defaultdict(list)
+    for ti, (tri, _) in enumerate(items):
+        for i in range(3):
+            edges[frozenset((tuple(tri[i]['pos']), tuple(tri[(i + 1) % 3]['pos'])))].append(ti)
+    open_edges = [(tuple(e), tis[0]) for e, tis in edges.items() if len(tis) == 1 and len(e) == 2]
+    # only corners of open edges can leave a gap
+    cell = 2.0
+    grid = defaultdict(list)
+    for (a, b), _ in open_edges:
+        for p in (a, b):
+            c = tuple(np.floor(np.array(p) / cell).astype(int).tolist())
+            if p not in grid[c]:
+                grid[c].append(p)
+    moved = {}
+    for (a, b), ti in open_edges:
+        a, b = np.array(a), np.array(b)
+        ab = b - a
+        length2 = np.dot(ab, ab)
+        tri = [v['pos'] for v in items[ti][0]]
+        inward = sum(tri) / 3 - a
+        inward -= ab * (np.dot(inward, ab) / length2)
+        if np.linalg.norm(inward) < 1e-9:
+            continue
+        inward /= np.linalg.norm(inward)
+        steps = int(math.sqrt(length2) / cell) + 1
+        cells = set()
+        for i in range(steps + 1):
+            cx, cy, cz = np.floor((a + ab * (i / steps)) / cell).astype(int).tolist()
+            cells.update((cx + dx, cy + dy, cz + dz) for dx in (-1, 0, 1) for dy in (-1, 0, 1) for dz in (-1, 0, 1))
+        for c in cells:
+            for key in grid.get(c, ()):
+                p = np.array(key)
+                t = np.dot(p - a, ab) / length2
+                foot = a + ab * t
+                if 1e-6 < t < 1 - 1e-6 and np.linalg.norm(foot - p) <= tol and key not in moved:
+                    moved[key] = foot + inward * push
+    out = []
+    for tri, meta in items:
+        out.append(([dict(v, pos=moved.get(tuple(v['pos']), v['pos'])) for v in tri], meta))
+    return out, len(moved)
+
+
 def refine(items, max_edge, weld_tol, snap=4, tjunction_tol=0.0):
     """Conforming refinement: split every edge longer than max_edge at its midpoint, in every
     triangle that has it, until none is left. Neighbours always split a shared edge at the same
@@ -887,7 +934,9 @@ def convert(course, out_dir, name, scale, max_edge, crate, vram_share):
                     if flip_t and tiles[mi][1] == 1 and tv % 2: fv = 1 - fv
                     out.append({'pos': p['pos'], 'uv': np.array([fu, 1 - fv]), 'col': p['col']})
                 render.append((out, mi))
-    refined = [(tri, mi) for tri, mi in refine(render, max_edge, weld_tol=0.25 / 64) if area(tri) >= 1e-9]
+    refined = refine(render, max_edge, weld_tol=1.5 / 64)
+    refined, stats['render corners moved over an edge'] = overlap_tjunctions(refined, 2 / 64, 1.5 / 64)
+    refined = [(tri, mi) for tri, mi in refined if area(tri) >= 1e-9]
     quads, tris = pair_quads(refined, max_dev=2 / 64)
     grids, quads = group_grids(quads, max_dev=2 / 64)
     for faces, mi in grids:
