@@ -85,6 +85,7 @@ MAP_PIXEL_ASPECT = 1.5  # screen pixels across per pixel down for the same dista
 MAP_UP = ((0, -1), (-1, 0), (0, 1), (1, 0))
 MAP_ICON_X, MAP_ICON_Y = 4, 2  # a kart icon's top left corner from the point it marks
 MAP_ROAD = {'col_road', 'col_boost'}
+MAP_CORRIDOR, MAP_TOO_MUCH = 1.1, 1.5  # of a route point's radius; of the corridor's area
 MAP_FILL, MAP_EDGE = (132, 132, 132, 255), (255, 255, 255, 255)  # lev_patch sets the fill to blend
 
 
@@ -491,7 +492,7 @@ def ground_under(x, z, top, tris):
     return best
 
 
-def minimap(kcl, to_lev, forward):
+def minimap(kcl, to_lev, forward, route):
     """The road from above: a white edge round a blended fill, as retail's, turned so that forward
     (x, z, the way the start line faces) is as near up as a quarter turn gets; a diagonal start, with
     two turns as near, takes the one that draws the road larger. -> (RGBA array, the UIMap's first
@@ -523,6 +524,19 @@ def minimap(kcl, to_lev, forward):
     for tri in road:
         draw.polygon([(x * scale, y * scale) for x, y in map(at, tri)], fill=255)
     mask = np.array(image.resize((width, height), Image.Resampling.BOX)) > 40
+    # a course whose infield is typed as road (GBA Luigi Circuit) draws a square: keep what lies along
+    # the route. A normal course skips this, so a fork the route does not take stays on its map.
+    corridor = Image.new('L', (width * scale, height * scale), 0)
+    pen = ImageDraw.Draw(corridor)
+    steps = [(np.array(a) + (np.array(b) - np.array(a)) * t / 8, r) for (a, r), (b, _) in zip(route, route[1:] + route[:1]) for t in range(8)]
+    for p, r in steps:
+        x, y = at(np.array(to_lev(p)))
+        reach = np.linalg.norm(to_lev(p + np.array([r, 0, 0])) - to_lev(p))
+        rx, ry = reach * across * scale * MAP_CORRIDOR, reach * down * scale * MAP_CORRIDOR
+        pen.ellipse([x * scale - rx, y * scale - ry, x * scale + rx, y * scale + ry], fill=255)
+    along_route = np.array(corridor.resize((width, height), Image.Resampling.BOX)) > 40
+    if mask.sum() > MAP_TOO_MUCH * along_route.sum():
+        mask &= along_route
     grown = mask.copy()
     for axis in (0, 1):
         for shift in (-1, 1):
@@ -802,7 +816,7 @@ def convert(course, out_dir, name, scale, max_edge, crate, vram_share):
     if np.dot(np.array([route[0][0][0], route[0][0][2]]) - line_a, fwd) < 0:
         fwd = -fwd
     seg_len = np.linalg.norm(line_b - line_a)
-    map_image, ui_map = minimap(course.kcl, to_lev, fwd)
+    map_image, ui_map = minimap(course.kcl, to_lev, fwd, route)
     # what the game needs from the VRM besides the course: each gets a carrier block
     item_images = [g['image'] for g in crate.groups] + [map_image]
 

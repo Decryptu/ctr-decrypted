@@ -75,6 +75,8 @@ The model (`PU_WUMPA_FRUIT`, Dingo Canyon's `fruit`) is read like the crate but 
 
 Orientation is the owner's rule, not retail's: driving forward from the start moves the kart up the map. Of the four `UIMap` modes the converter takes the one whose up is nearest the start line's facing (`MAP_UP`), so a start running along the course's short side gives a map wider than tall (the smallest road this leaves on a race course is 84% of the best turn's, on `old_yoshi_gc`). A diagonal start has two turns as near, and takes the one that draws the road larger (`rainbow_course`). Retail has no such rule: its starts head every way on its maps, and its turns stand long tracks upright (13 of 18 have the long axis down the screen, the other 5 are within 13% of square).
 
+A course whose infield is typed as road draws a square (GBA Luigi Circuit), so when the road covers over 1.5 times the corridor along the CPU route, it is trimmed to that corridor. Any other course skips this, so a fork the route does not take stays on its map.
+
 The road is grown by a pixel so a thin road survives, with a white edge round a grey fill. The image goes through a carrier block like the crate's textures.
 
 `lev_patch.py` then adds what the HUD reads:
