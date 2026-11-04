@@ -77,7 +77,9 @@ class Tex0:
                     pi = u16(b, info + 2 * blk)
                     poff = (pi & 0x3fff) * 4
                     mode = pi >> 14
-                    c = [bgr555(u16(b, pal + poff + 2 * k)) + (255,) for k in range(4)] if pal is not None else []
+                    # modes 1 and 3 store two colours, and a palette's last entry may have no others after it
+                    stored = 2 if mode & 1 else 4
+                    c = [bgr555(u16(b, pal + poff + 2 * k)) + (255,) for k in range(stored)] + [(0, 0, 0, 0)] * (4 - stored)
                     if mode == 0:
                         c[3] = (0, 0, 0, 0)
                     elif mode == 1:

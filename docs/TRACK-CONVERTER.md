@@ -1,8 +1,8 @@
 # Track converter: Mario Kart DS courses
 
-`tools/tracks/` turns a course from the player's own Mario Kart DS ROM into a custom track package ([CUSTOM_TRACKS.md](CUSTOM_TRACKS.md#3-the-package-format)). Nothing from the ROM or the CTR disc is in the repository; the tools read them and write the package on the player's machine, so a converted package is not for sharing.
+`tools/tracks/` turns a course from the player's own Mario Kart DS ROM into a custom track package ([CUSTOM_TRACKS.md](CUSTOM_TRACKS.md#3-the-package-format)). Nothing from the ROM or the CTR disc is in this repository; the tools read them and write the package on the player's machine. A package holds the course's models and textures, and the crate and fruit models from the disc.
 
-Status: Figure-8 Circuit (`cross_course`) converts with its item boxes, Wumpa fruit and minimap and passes every check below. Figure-8 has no boost surfaces; turbo pads were tested by marking a stretch of its road as boost. Not converted yet: other course objects, animated textures. The other courses have not passed yet (`ROADMAP.md`).
+Status: Figure-8 Circuit (`cross_course`) converts with its item boxes, Wumpa fruit, minimap and trees and passes every check below. Figure-8 has no boost surfaces; turbo pads were tested by marking a stretch of its road as boost. Not converted yet: moving objects, animated textures. The other courses have not passed yet (`ROADMAP.md`).
 
 ## Use
 1. Build CrashTeamEditor's headless converter once, from an MSYS2 shell:
@@ -38,6 +38,13 @@ Each MKDS item box (object 0x65) becomes a weapon crate (`PU_RANDOM_CRATE`) on t
 - It then adds the model, one `InstDef` per box and the list of them. CrashTeamEditor writes neither.
 - Hitboxes: retail lists each once, in the leaf that holds it. Here every collision leaf the item's box overlaps lists a copy, because a converted leaf can be a thin strip of road. A second hit on the same crate is stopped by its cooldown. An item that touches no leaf fails the conversion. A road leaf ends at the road and a fruit's box starts above it, so leaves are matched with 64 units of reach (`LEAF_REACH`).
 - Visibility: all quadblocks share one PVS, so its instance list holds every item. `LevInstDef_UnPack` flips a list between InstDefs and Instances once per block that refers to it, so the count of blocks must be odd: when it is even, the first carrier takes a copy of the PVS with no list.
+
+### Scenery
+Objects that never move (`SCENERY` in `mkds_convert.py`: object id to model) are baked into the drawn mesh, through the same steps as the course. Each course keeps these models in its own archive, under `MapObj/`, textures included; an object whose model is not there is reported and left out. The table comes from which models each course carries beside which ids it places, so check each new course's objects by eye. Objects with no model (ids 0x08 and 0x66 on Figure-8) draw nothing.
+
+An object's model is drawn 16 times its stored size, like the course, times the object's own scale. Most are one flat quad MKDS turns to the camera. Level blocks cannot turn, so a flat model is drawn as two crossed quads, seen from both sides; one quad would go edge-on as the kart passes.
+
+Where there is road or ground under such an object, it also gets a solid six-sided pillar in the collision mesh, an eighth of its width in radius and half its height tall, so karts stop against the trunk (`pillar`). Most objects stand outside the walls where the course has no ground, like all 22 of Figure-8's trees, and get none. The course is centred on its own collision, without the pillars. Tested by driving into a pipe on `old_mario_sfc`: the kart stops 39 LEV units from its centre.
 
 ### Wumpa fruit
 MKDS has none in races, so the converter lays them out: `fruit_rows` in `mkds_convert.py` places rows of 4, 230 LEV units apart, on the CPU route's centre line, one row every 13,000 LEV units (6 rows and 24 fruit on Figure-8; retail tracks have about 16). A row stays 800 units from the finish line and 500 from any crate, and only lies on road or boost surface with the route on the ground; a row that cannot lie where it is wanted slides forward along the route, and is dropped after half a gap. The constants are at the top of the file.

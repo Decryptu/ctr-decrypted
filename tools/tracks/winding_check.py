@@ -43,6 +43,19 @@ def check(obj_path, lev_path):
     by_pts = {}
     for name, (pts, n) in blocks.items():
         by_pts.setdefault(frozenset(pts), (name, n))
+    by_point = {}
+    for name, (pts, n) in blocks.items():
+        for p in pts:
+            by_point.setdefault(tuple(int(c) for c in p), []).append((frozenset(pts), name, n))
+
+    def near(key):
+        """A block with these corners, give or take one LEV unit: an OBJ position that falls on a half can round either way."""
+        for p in key:
+            for pts, name, n in by_point.get(p, ()):
+                if len(pts) == len(key) and all(any(max(abs(a - b) for a, b in zip(q, r)) <= 1 for r in pts) for q in key):
+                    return name, n
+        return None
+
     lev = open(lev_path, 'rb').read()[4:]
     mesh = struct.unpack_from('<I', lev, 0)[0]
     nq, nv, _, qoff, voff = struct.unpack_from('<5I', lev, mesh)
@@ -57,7 +70,7 @@ def check(obj_path, lev_path):
         idx = struct.unpack_from('<9H', lev, o)
         tri = idx[2] == idx[3]
         key = frozenset(tuple(int(c) for c in V[i]) for i in set(idx))
-        hit = by_pts.get(key)
+        hit = by_pts.get(key) or near(key)
         if hit is None:
             unmatched += 1
             continue

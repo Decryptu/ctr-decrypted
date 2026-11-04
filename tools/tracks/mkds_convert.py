@@ -485,18 +485,101 @@ def fruit_rows(route_at, total, lev, crates, to_lev, ground):
 
 # ---------------------------------------------------------------- course
 
+# Scenery objects that never move, and the model each draws. A course keeps its models in its own
+# archive; an object whose model is missing there is reported and left out.
+SCENERY = {
+    0x12d: 'yoshi_tree', 0x12e: 'BeachTree1', 0x12f: 'earthen_pipe1', 0x130: 'opa_tree1', 0x131: 'OlgMush1',
+    0x132: 'OlgPipe1', 0x133: 'Of6Tree1', 0x134: 'om6Tree1', 0x136: 'mini_dokan', 0x138: 'GardenTree1',
+    0x13a: 'CrossTree1', 0x13e: 'Bank_Tree1', 0x142: 'MarioTree3', 0x145: 'TownTree1', 0x146: 'Snow_Tree1',
+    0x148: 'DeTree1', 0x14b: 'KinoHouse1', 0x14c: 'KinoHouse2', 0x14d: 'KinoMount1', 0x14e: 'KinoMount2',
+    0x14f: 'olaTree1c', 0x150: 'osaTree1c',
+}
+TRUNK_RADIUS = 1 / 8  # of a billboard's width: its solid part, a pillar as high as half the object
+OBJECT_ABOVE_GROUND = 64
+KCL_WALL = 0x08
+
+
+def rotate_y(p, degrees):
+    a = math.radians(degrees)
+    return np.array([p[0] * math.cos(a) + p[2] * math.sin(a), p[1], -p[0] * math.sin(a) + p[2] * math.cos(a)])
+
+
+def pillar(pos, radius, height):
+    """Six outward-facing wall quads round pos, as KCL triangles, from below the ground up."""
+    tris = []
+    ring = [np.array([math.cos(i * math.pi / 3), 0.0, math.sin(i * math.pi / 3)]) * radius for i in range(6)]
+    for i in range(6):
+        a, b = pos + ring[i], pos + ring[(i + 1) % 6]
+        low, high = np.array([0.0, -32.0, 0.0]), np.array([0.0, height, 0.0])
+        for t in ((a + low, b + high, b + low), (a + low, a + high, b + high)):
+            n = np.cross(t[1] - t[0], t[2] - t[0])
+            tris.append((t[0], t[1], t[2], n / np.linalg.norm(n), KCL_WALL << 8))
+    return tris
+
+
 class Course:
     def __init__(self, rom_files, name):
         arc = nds.carc(rom_files[f'data/Course/{name}.carc'])
         tex = nds.carc(rom_files[f'data/Course/{name}Tex.carc'])
         self.model = nitro3d.Model(arc['course_model.nsbmd'])
-        self.tex0 = nitro3d.load_tex0(tex['course_model.nsbtx'])
         self.kcl = mkdsmap.kcl(arc['course_collision.kcl'])
         self.nkm = mkdsmap.nkm(arc['course_map.nkm'])
         self.item_boxes = mkdsmap.item_boxes(self.nkm)
+        # some courses keep their textures inside the model file
+        course_tex0 = nitro3d.load_tex0(tex['course_model.nsbtx'] if 'course_model.nsbtx' in tex else arc['course_model.nsbmd'])
+        for m in self.model.mats:
+            m.tex0 = course_tex0
+        self.mats = list(self.model.mats)
+        self.triangles = [(mi, [(np.array(pos) * MODEL_TO_WORLD, uv, col, nrm) for pos, uv, col, nrm in tri])
+                          for mi, tri in self.model.triangles()]
+        self.ground_triangles = len(self.kcl)  # the course is centred on these, without the scenery's pillars
+        self.add_scenery(arc)
         self.sky = None
         if 'course_model_V.nsbmd' in arc and 'course_model_V.nsbtx' in tex:
             self.sky = (nitro3d.Model(arc['course_model_V.nsbmd']), nitro3d.load_tex0(tex['course_model_V.nsbtx']))
+
+    def add_scenery(self, arc):
+        """Bake the static objects into the drawn mesh and give each a solid pillar.
+
+        Most are one flat quad that MKDS turns to the camera. Level blocks cannot turn, so such a
+        billboard is drawn as two crossed quads, seen from both sides.
+        """
+        loaded = {}
+        ground = [t for t in self.kcl if t[3][1] > 0.1]  # NaN corners and normals fail this too
+        missing = set()
+        for object_id, pos, rot, size in mkdsmap.placed_objects(self.nkm):
+            name = SCENERY.get(object_id)
+            if name is None:
+                continue
+            file = f'MapObj/{name}.nsbmd'
+            if file not in arc:
+                missing.add(name)
+                continue
+            if name not in loaded:
+                model = nitro3d.Model(arc[file])
+                first = len(self.mats)
+                tex0 = nitro3d.load_tex0(arc[file])
+                tris = model.triangles()
+                flat = all(abs(v[0][2]) < 1e-3 for _, tri in tris for v in tri)
+                for m in model.mats:
+                    m.tex0 = tex0
+                    if flat:
+                        m.polygon_attr |= 1 << 6  # both sides
+                    self.mats.append(m)
+                loaded[name] = (first, tris, flat)
+            first, tris, flat = loaded[name]
+            turns = (rot[1], rot[1] + 90) if flat else (rot[1],)
+            for turn in turns:
+                for mi, tri in tris:
+                    vs = [(pos + rotate_y(np.array(v[0]) * MODEL_TO_WORLD * size, turn), v[1], v[2], v[3]) for v in tri]
+                    self.triangles.append((first + mi, vs))
+            # most stand outside the walls, where the course has no ground and no kart can come
+            if flat and ground_under(pos[0], pos[2], pos[1] + OBJECT_ABOVE_GROUND, ground) is not None:
+                corners = np.array([v[0] for _, tri in tris for v in tri]) * MODEL_TO_WORLD * size
+                width, height = np.ptp(corners[:, 0]), np.ptp(corners[:, 1])
+                self.kcl += pillar(pos, width * TRUNK_RADIUS, height / 2)
+        for name in sorted(missing):
+            print(f'scenery: no model {name} in this course')
 
     def sky_colours(self):
         """(zenith, horizon) RGB from the skybox texture's top and bottom rows; a plain blue without one."""
@@ -531,7 +614,7 @@ def convert(course, out_dir, name, scale, max_edge, crate):
     os.makedirs(tex_dir, exist_ok=True)
 
     # world placement: centre the course, MKDS units -> CTE units
-    kpts = np.array([v for t in course.kcl for v in t[:3]])
+    kpts = np.array([v for t in course.kcl[:course.ground_triangles] for v in t[:3]])
     centre = (kpts.min(0) + kpts.max(0)) / 2
 
     def to_cte(p):
@@ -562,8 +645,8 @@ def convert(course, out_dir, name, scale, max_edge, crate):
     # Repeat a tiling texture inside its image so fewer triangles need cutting at tile edges, but
     # only as often as one triangle spans it, and only while every texture fits the level's VRAM.
     span = defaultdict(lambda: [1.0, 1.0])
-    for mi, tri in course.model.triangles():
-        m = course.model.mats[mi]
+    for mi, tri in course.triangles:
+        m = course.mats[mi]
         for axis, size, sc in ((0, m.width, m.texmtx[0]), (1, m.height, m.texmtx[1])):
             vals = [v[1][axis] * sc / size for v in tri]
             span[mi][axis] = max(span[mi][axis], max(vals) - min(vals))
@@ -571,12 +654,12 @@ def convert(course, out_dir, name, scale, max_edge, crate):
         k = 1
         while k * 2 <= x: k *= 2
         return k
-    for i, m in enumerate(course.model.mats):
+    for i, m in enumerate(course.mats):
         kx = pow2_at_most(min(256 // m.width, math.ceil(span[i][0]), 4)) if (m.teximage >> 16) & 1 else 1
         ky = pow2_at_most(min(256 // m.height, math.ceil(span[i][1]), 4)) if (m.teximage >> 17) & 1 else 1
         tiles[i] = [kx, ky]
     def vram_words(i):
-        m = course.model.mats[i]
+        m = course.mats[i]
         w, h = m.width * tiles[i][0], m.height * tiles[i][1]
         return math.ceil(w / 4) * h  # 4-bit worst case; 8-bit textures are at most 128 wide
     budget = 14 * 64 * 256 * 0.85  # 14 free texture pages in a CTE VRM, minus room for palettes
@@ -585,11 +668,11 @@ def convert(course, out_dir, name, scale, max_edge, crate):
         i = max((i for i in tiles if max(tiles[i]) > 1), key=vram_words)
         a = 0 if tiles[i][0] >= tiles[i][1] else 1
         tiles[i][a] //= 2
-    for i_mat, m in enumerate(course.model.mats):
+    for i_mat, m in enumerate(course.mats):
         i = i_mat
         mname = f'v{i:02d}_{m.tex}'
         mat_names[i] = mname
-        src = course.tex0.decode(m.tex, m.pal)
+        src = m.tex0.decode(m.tex, m.pal)
         kx, ky = tiles[i_mat]
         fx, fy = (m.teximage >> 18) & 1, (m.teximage >> 19) & 1
         rows = []
@@ -693,8 +776,8 @@ def convert(course, out_dir, name, scale, max_edge, crate):
     # ---- render geometry
     stats = defaultdict(int)
     render = []
-    for ti, (mi, tri) in enumerate(course.model.triangles()):
-        m = course.model.mats[mi]
+    for ti, (mi, tri) in enumerate(course.triangles):
+        m = course.mats[mi]
         sx, sy, tx, ty = m.texmtx
         repeat_s, repeat_t = (m.teximage >> 16) & 1, (m.teximage >> 17) & 1
         flip_s, flip_t = (m.teximage >> 18) & 1, (m.teximage >> 19) & 1
@@ -703,7 +786,7 @@ def convert(course, out_dir, name, scale, max_edge, crate):
             kx, ky = tiles[mi]
             u = (uv[0] * sx / m.width + tx) / kx
             v = (uv[1] * sy / m.height + ty) / ky
-            vs.append({'pos': np.array(to_cte(np.array(pos) * MODEL_TO_WORLD)), 'uv': np.array([u, v]),
+            vs.append({'pos': np.array(to_cte(pos)), 'uv': np.array([u, v]),
                        'col': np.array(col) / 255.0 * 0.5})
         if area(vs) < 1e-6:
             stats['degenerate'] += 1
@@ -875,7 +958,7 @@ def convert(course, out_dir, name, scale, max_edge, crate):
         mats[mname + '_quadflags'] = 0  # drawn only
         mats[mname + '_checkpoint'] = False
         # fences, rails and signs MKDS draws from both sides (polygon attribute bit 6, back faces)
-        mats[mname + '_drawflags'] = bool((course.model.mats[i].polygon_attr >> 6) & 1)
+        mats[mname + '_drawflags'] = bool((course.mats[i].polygon_attr >> 6) & 1)
     for cname, terrain, flags, pathable in COLLISION.values():
         mats[cname + '_terrain'] = terrain
         mats[cname + '_quadflags'] = flags
@@ -1028,7 +1111,8 @@ def main():
     print('winding', winding)
     if winding['flipped'] or winding['unmatched']:
         sys.exit('CrashTeamEditor turned drawn blocks over (they would vanish from the front)')
-    pin = package.build(patched, patched_vrm, a.title, 'mkds/' + a.course, a.version, a.store)
+    pin = package.build(patched, patched_vrm, a.title, 'mkds/' + a.course, a.version, a.store,
+                       'Nintendo, converted by Decrypt')
     # a re-conversion replaces the revision this work folder installed last
     pin_file = os.path.join(work, 'pin.txt')
     old = open(pin_file).read().strip() if os.path.exists(pin_file) else ''

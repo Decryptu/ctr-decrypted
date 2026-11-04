@@ -86,6 +86,11 @@ def objects(m):
     return [(u16(e, 0x24), vec32(e, 0), vec32(e, 12)) for e in m['OBJI']]
 
 
+def placed_objects(m):
+    """-> (object id, position, rotation in degrees, scale) per object."""
+    return [(u16(e, 0x24), vec32(e, 0), vec32(e, 12), vec32(e, 0x18)) for e in m['OBJI']]
+
+
 OBJ_ITEM_BOX = 0x65
 
 
