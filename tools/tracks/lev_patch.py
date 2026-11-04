@@ -5,11 +5,14 @@
 - and as having one texture per LOD (LEVEL_CONFIG_ONE_TEXTURE_LOD), so the extended draw distance does not
   subdivide it farther;
 - every collision triangle's normal scale is recomputed from the LEV's integer vertices, and the
-  triangles the grid turned away from their block get none."""
-import json, math, struct, sys
+  triangles the grid turned away from their block get none;
+- the sky colours CrashTeamEditor has no field for: the clear colour and the clear split behind the
+  sky's bands."""
+import json, math, struct
 
 FP_ONE_GEO = 64
-OFF_CONFIG_FLAGS, OFF_NUM_CHECKPOINTS, OFF_CHECKPOINTS, OFF_NAV_TABLE = 0xDC, 0x148, 0x14C, 0x188
+OFF_CLEAR_COLOR, OFF_CONFIG_FLAGS, OFF_NUM_CHECKPOINTS, OFF_CHECKPOINTS, OFF_NAV_TABLE = 0xD8, 0xDC, 0x148, 0x14C, 0x188
+OFF_CLEAR_SPLIT = 0x160  # clearColor[0] above the horizon, [1] below: r, g, b, enable
 LEVEL_CONFIG_DEPTH_TESTED = 0x80000000  # include/platform/native_gpu.h
 LEVEL_CONFIG_ONE_TEXTURE_LOD = 0x40000000  # include/platform/native_draw_distance.h
 # The triangles COLL_FIXED_QUADBLK_GetNormVecs_HiLOD / _LoLOD build, in triNormalVecDividend order
@@ -103,7 +106,7 @@ def fix_normals(data, mesh):
     return max(worst), sum(e > 0.02 for e in worst), ignored
 
 
-def patch(lev_path, nav_path, out_path):
+def patch(lev_path, nav_path, out_path, zenith, horizon):
     lev = open(lev_path, 'rb').read()
     data_len = struct.unpack_from('<I', lev, 0)[0]
     data = bytearray(lev[4:4 + data_len])
@@ -195,13 +198,13 @@ def patch(lev_path, nav_path, out_path):
     # CrashTeamEditor writes one layout to all four LOD slots of a texture group.
     struct.pack_into('<I', data, OFF_CONFIG_FLAGS,
                      struct.unpack_from('<I', data, OFF_CONFIG_FLAGS)[0] | LEVEL_CONFIG_DEPTH_TESTED | LEVEL_CONFIG_ONE_TEXTURE_LOD)
+    # CrashTeamEditor reads the clear colour from a LEV but never writes it: without this the backdrop is black
+    data[OFF_CLEAR_COLOR:OFF_CLEAR_COLOR + 4] = bytes(round(c) for c in horizon) + b'\0'
+    # The clear split above and below the horizon, as retail levels set it (the bands blend across it)
+    data[OFF_CLEAR_SPLIT:OFF_CLEAR_SPLIT + 8] = b''.join(bytes(round(c) for c in rgb) + b'\1' for rgb in (zenith, horizon))
     out = struct.pack('<I', len(data)) + bytes(data) + struct.pack('<I', 4 * len(ptrs)) + struct.pack(f'<{len(ptrs)}I', *ptrs)
     open(out_path, 'wb').write(out)
     return {'lanes': len(lanes), 'checkpoints': ncp, 'hidden quadblocks': hidden,
             'culled bsp nodes': len(culled), 'of': nbsp, 'vis lists': len(vis_lists),
             'worst collision normal error': round(normal_error, 4), 'quadblocks over 2%': normal_bad,
             'collision triangles turned by the grid, ignored': normal_ignored}
-
-
-if __name__ == '__main__':
-    print(patch(*sys.argv[1:4]))

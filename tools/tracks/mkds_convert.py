@@ -726,13 +726,16 @@ def convert(course, out_dir, name, scale, max_edge):
         spawns.append({'pos': dict(zip('xyz', map(float, to_cte(p)))), 'rot': {'x': 0.0, 'y': heading, 'z': 0.0}})
     json.dump({'header': 0, 'spawn': spawns}, open(os.path.join(pre, 'spawn.json'), 'w'), indent=1)
 
-    # sky: a gradient from the course's own skybox texture, horizon colour to zenith colour
+    # sky: a gradient from the course's own skybox texture, in the order retail levels have it: band 0
+    # highest, each from its upper edge to its lower one (positions are pixels above the horizon), running
+    # past the horizon. CAM_SkyboxGlow only clips bands in that order; lev_patch sets the clear colours behind them.
     top, horizon = course.sky_colours()
+    middle = (np.array(top) + horizon) / 2
     col = lambda c: {'r': c[0] / 255, 'g': c[1] / 255, 'b': c[2] / 255, 'a': 1.0}
-    level = {'header': 1, 'configFlags': 1, 'clearColor': col(horizon),
-             'skyGradient': [{'posFrom': 0.0, 'posTo': 60.0, 'colorFrom': col(horizon), 'colorTo': col((np.array(top) + horizon) / 2)},
-                             {'posFrom': 60.0, 'posTo': 160.0, 'colorFrom': col((np.array(top) + horizon) / 2), 'colorTo': col(top)},
-                             {'posFrom': 160.0, 'posTo': 400.0, 'colorFrom': col(top), 'colorTo': col(top)}]}
+    level = {'header': 1, 'configFlags': 1,
+             'skyGradient': [{'posFrom': 160.0, 'posTo': 60.0, 'colorFrom': col(top), 'colorTo': col(middle)},
+                             {'posFrom': 60.0, 'posTo': 0.0, 'colorFrom': col(middle), 'colorTo': col(horizon)},
+                             {'posFrom': 0.0, 'posTo': -100.0, 'colorFrom': col(horizon), 'colorTo': col(horizon)}]}
     json.dump(level, open(os.path.join(pre, 'level.json'), 'w'), indent=1)
 
     path = {'header': 2, 'pathCount': 1, 'path0': {'index': 0, 'hasLeft': False, 'hasRight': False,
@@ -800,7 +803,8 @@ def main():
     os.makedirs(a.store, exist_ok=True)
     name = a.course
     files = nds.nitrofs(open(a.rom, 'rb').read())
-    print('convert', convert(Course(files, a.course), work, name, a.scale, a.max_edge))
+    course = Course(files, a.course)
+    print('convert', convert(course, work, name, a.scale, a.max_edge))
 
     lev_dir = os.path.join(work, 'lev')
     os.makedirs(lev_dir, exist_ok=True)  # CTE saves into an existing folder only
@@ -813,7 +817,7 @@ def main():
 
     lev = os.path.join(lev_dir, name + '.lev')
     patched = os.path.join(lev_dir, name + '_patched.lev')
-    patched_stats = lev_patch.patch(lev, os.path.join(work, name + '_nav.json'), patched)
+    patched_stats = lev_patch.patch(lev, os.path.join(work, name + '_nav.json'), patched, *course.sky_colours())
     print('lev_patch', patched_stats)
     if patched_stats['quadblocks over 2%']:
         sys.exit('collision normals the game cannot represent within 2% (the kart would stop against them)')

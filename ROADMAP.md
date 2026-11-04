@@ -22,9 +22,6 @@ What is in progress, what is next, and what was decided. A finished item is dele
   4. Other course objects (trees, pipes...): mostly static scenery, since most have no CTR equivalent; moving ones later.
   5. Every remaining course in one batch run with `check_track.ps1`; the owner play-tests only those that pass.
 
-## Planned
-- Converted tracks with PGXP off: on Figure-8 the top of the screen shows a black band where the sky should be. Suspects: the integer `CAM_SkyboxGlow` band placement ([PGXP.md](docs/PGXP.md)) or the clear colour the converter writes. Reproduce with `devrun.ps1` and `pgxp=0` on the converted package.
-
 ## Maybe
 - 200cc beyond Arcade and VS ([SPEED-CLASS.md](docs/SPEED-CLASS.md)): Time Trial with records and ghosts kept per class (a save format change), and whether Archipelago can require or place it.
 - Title screen: a drawn logo in place of the DECRYPTED text, and the release version in a corner. Owner idea, 2026-11-02.
