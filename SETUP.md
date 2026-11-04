@@ -339,8 +339,8 @@ and R1 switch tabs:
 - **Seed**, in a room that uses custom tracks: what the room needs, each track
   marked Ready or Missing. **Cross** downloads every missing track from Project
   Saphi in one go, after showing what it will download.
-- **Tracks**: the Project Saphi track catalogue, with **OWNED** on the ones you
-  have. **Cross** installs the selected track, **Square** lists its other
+- **Tracks**: the tracks from Project Saphi and the CTR Decrypted track
+  catalogue in one list, with **OWNED** on the ones you have. **Cross** installs the selected track, **Square** lists its other
   versions, **R2** searches.
 - **Racers**: the custom racer catalogue, with each racer's portrait and
   **OWNED** on the ones you have. **Cross** downloads the selected racer, or

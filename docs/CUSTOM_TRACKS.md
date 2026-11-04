@@ -11,7 +11,8 @@ There are two ways a custom track reaches the engine. Both end in the same
 byte-serving hook (section 6).
 
 - **Packages (offline).** A verified, immutable folder per track revision,
-  installed from Project Saphi, from an xdelta patch or by hand, and raced from
+  installed from Project Saphi, from the Decrypted track catalogue, from an
+  xdelta patch or by hand, and raced from
   extra pages on the normal Arcade and Time Trial track selector. Every build
   with custom tracks has them, the Archipelago player client included (the Mods
   screen), and most of this document describes them.
@@ -163,7 +164,8 @@ MM_ConfigProc_CustomContent`; the title row is `CTR_LNG_MODS`,
   Cross runs the same Install missing content (`ap/ap_seed_prompt.c`, wording
   in `ap_seed_prompt_text`, `ap/ap_seed_content_logic.h`). Triangle puts it
   off until the next room.
-- **Tracks**: the Saphi catalogue (section 5), `OWNED` on installed tracks.
+- **Tracks**: the Saphi and Decrypted catalogues in one list (section 5),
+  `OWNED` on installed tracks.
   Search on R2.
 - **Racers**: the custom racer catalogue and the installed racers
   ([CUSTOM_RACERS.md](CUSTOM_RACERS.md#the-racers-tab)).
@@ -244,6 +246,50 @@ for history; it has no Archipelago dependency) and
 - Older versions of a track can be listed and installed side by side; the
   manager marks a newer Saphi version as "Update available" and never replaces
   an installed revision.
+
+### The Decrypted track catalogue
+
+[Decryptu/ctr-decrypted-tracks](https://github.com/Decryptu/ctr-decrypted-tracks)
+is a second source, so a track can be played without waiting for Saphi to list
+it. It works like the racer catalogue ([CUSTOM_RACERS.md](CUSTOM_RACERS.md)).
+
+- **The repository.** `tracks/<slug>-<first 8 of the UUID>/` holds one package
+  exactly as installed, plus `listing.json` (`authors`, `source`, `credits`,
+  `modes`, `saphi_track_id`). A folder is the track's newest version; git keeps
+  older ones. `tools/tracks/build_index.py <catalogue> [<package> <authors>
+  <source> ...]` adds packages, checks every folder and writes `index.json` and
+  `CREDITS.md`. It refuses a track with no authors. `.gitattributes` keeps
+  `manifest.json` and the metadata byte for byte, as `manifest.json`'s hash is
+  the pin.
+- **Refresh.** After Saphi's pages, the same worker reads `index.json` from
+  `raw.githubusercontent.com`, the repository's `main` branch.
+  `CustomSaphi_AddDecrypted` adds its rows to the catalogue, all or nothing.
+  Either source alone is a usable list: one being down hides only its tracks.
+- **Install.** `manifest.json` is checked against the pin in the index, then
+  each file it lists goes through `CustomPackage_AcquireBuffers` like any other
+  package. The package's `metadata/decrypted-source.json` names the author.
+- **The same track on both.** A catalogue track is Saphi's when its
+  `saphi_track_id` names a listed track, or when a Saphi revision has the same
+  LEV and VRM size and CRC32 (an upload of the same files needs no index
+  change). Set `saphi_track_id` when an upload's bytes differ. A title is never
+  enough: anyone may upload their own Figure-8 Circuit.
+  - Same version on both: the catalogue row is dropped, unless Saphi's cannot
+    be downloaded. Saphi's row has the picture and the version list.
+  - Different versions: the rows pair as versions of one track, and the newest
+    is what the list shows.
+  - Installed: a copy from either source counts for the other's row. The same
+    version is `OWNED`; a newer one is "Update available"
+    (`MM_CustomSourceInstalled`).
+  - The two sources have different package UUIDs, so after an update from one
+    source the other's copy is removed, or the track would be listed twice
+    (`MM_CustomSourceRemoveTwins`). Time Trial records follow the UUID, so that
+    track's records start over. A seed's own install from Saphi does not do
+    this: a Decrypted copy stays beside it until it is removed by hand.
+- Catalogue tracks have no picture yet, unless they pair with a Saphi track.
+
+To test without publishing, `CTR_DEV_TRACK_CATALOGUE=<folder>` reads the
+catalogue from a local copy, with that folder's `saphi.json` (if any) standing
+in for Saphi's pages ([DEV-TOOLS.md](DEV-TOOLS.md)).
 
 ## 6. Racing a package: the loading path
 

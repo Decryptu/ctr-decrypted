@@ -5,7 +5,8 @@
    - Seed (AP player client, a room whose plan names custom tracks): what the
      room needs and Install missing content (MM_CurrentSeed.c). The screen
      opens here in such a room.
-   - Tracks: the Project Saphi catalogue. Cross installs the selected
+   - Tracks: the Project Saphi catalogue and the Decrypted track catalogue, in
+     one list (docs/CUSTOM_TRACKS.md section 5). Cross installs the selected
      revision, Square lists a track's versions.
    - Racers: the custom racer catalogue and the installed racers
      (MM_CustomRacers.c), with each racer's portrait.
@@ -55,6 +56,8 @@ static void MM_Mods_DrawBoxes(uint32_t *ot)
 
 static int s_saphiVersionTrack;
 static size_t s_saphiBrowseSelection;
+/* The revision being installed, for MM_CustomSourceRemoveTwins. */
+static struct CustomSaphiRevision s_saphiInstalling;
 static unsigned int s_modsLastFrame;
 
 /* Installed track actions: the list, then the Remove confirmation. */
@@ -182,13 +185,46 @@ static const struct CustomTrackLibraryEntry *MM_CustomSourceInstalled(const stru
     for(size_t i=0;i<s_contentLibrary.count;i++)
     {
         const struct CustomTrackLibraryEntry *r=&s_contentLibrary.entries[i];
-        if(!r->installed || r->local.trackID!=source->trackID) continue;
+        const int fromSaphi=r->local.trackID>0 && r->local.trackID==source->trackID;
+        const int fromCatalogue=source->packageUuid[0] && !strcmp(r->local.uuid,source->packageUuid);
+        if(!r->installed || (!fromSaphi && !fromCatalogue)) continue;
+        /* The other source's copy of a track both list: the version decides. */
+        if(fromSaphi ? source->decrypted : !source->decrypted)
+        {
+            const int order=CustomRevision_Compare(source->version,r->version);
+            if(!order) exact=r;
+            else if(order>0) *older=1;
+            continue;
+        }
+        if(source->decrypted)
+        {
+            if(!strcmp(r->manifestSha256,source->pin)) exact=r;
+            else if(CustomRevision_Compare(source->version,r->version)>=0) *older=1;
+            continue;
+        }
         int sameTrackFiles=r->local.levID==source->lev.id && r->local.vrmID==source->vrm.id && !strcmp(r->version,source->version);
         /* The same track files without the track's current music is an update. */
         if(sameTrackFiles && r->local.scaID==source->sca.id) exact=r;
         else if(sameTrackFiles || CustomRevision_Compare(source->version,r->version)>0) *older=1;
     }
     return exact;
+}
+
+/* A track both sources list has two package UUIDs. Once one source's newer
+   revision is installed, the other source's copy would list the track twice,
+   so it goes. Same-source older revisions stay, as they always have. */
+static void MM_CustomSourceRemoveTwins(const struct CustomSaphiRevision *source)
+{
+    char error[256];
+    for(size_t i=0;i<s_contentLibrary.count;i++)
+    {
+        const struct CustomTrackLibraryEntry *r=&s_contentLibrary.entries[i];
+        const int twin=source->decrypted ? source->trackID>0 && r->local.trackID==source->trackID
+                                         : source->packageUuid[0] && !strcmp(r->local.uuid,source->packageUuid);
+        if(!r->installed || !twin) continue;
+        if(!CustomPackage_RemoveInstalled(NativeAssets_GetAssetDir(),r->manifestSha256,error,sizeof error))
+            fprintf(stderr,"[Tracks] remove %.16s: %s\n",r->manifestSha256,error);
+    }
 }
 
 #include "MM_CustomPicture.c"
@@ -311,6 +347,7 @@ static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, str
             s_saphiDownloading = 0;
             if (result == 1)
             {
+                if (!MM_CustomLibrary_Busy()) MM_CustomSourceRemoveTwins(&s_saphiInstalling);
                 s_contentStoreWanted = 1;
                 snprintf(s_saphiMessage, sizeof s_saphiMessage, "Installed. Files verified.");
 #if defined(CTR_AP) && !defined(CTR_AP_AUTHORING)
@@ -339,7 +376,7 @@ static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, str
     {
         s_saphiLoaded = 1;
         s_saphiRefreshBusy = CustomSaphi_StartRefresh();
-        if (!s_saphiRefreshBusy) snprintf(s_saphiMessage,sizeof s_saphiMessage,"Could not refresh Saphi. L2: Retry.");
+        if (!s_saphiRefreshBusy) snprintf(s_saphiMessage,sizeof s_saphiMessage,"Could not refresh tracks. L2: Retry.");
         if (tapped & BTN_L2) s_contentStoreWanted = 1;
     }
     if ((tapped & BTN_SELECT) && !s_contentSearchEditing && !MM_CustomLibrary_Busy() && !seedBusy)
@@ -506,6 +543,7 @@ static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, str
         if (sourceInstalled) { s_contentStoreWanted=1; snprintf(s_saphiMessage,sizeof s_saphiMessage,"Installed. Files verified."); }
         else if (source && !source->disabledReason[0])
         {
+            s_saphiInstalling = *source;
             s_saphiDownloading = CustomSaphi_StartInstall(source,NativeAssets_GetAssetDir());
             snprintf(s_saphiMessage,sizeof s_saphiMessage,"%s",s_saphiDownloading ? "Downloading and checking selected revision..." : "Could not start download.");
         }
@@ -547,7 +585,7 @@ static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, str
         if (rowOwned) MM_CustomText_Draw("OWNED",MODS_LIST_RIGHT,box.y+2,80,1,JUSTIFY_RIGHT | GRAY,ot);
         if (row==*selected) CTR_Box_DrawClearBox(&box,&sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot, &GAME_TRACKER->backBuffer->primMem);
     }
-    if (!total) MM_CustomText_Draw(s_saphiRefreshBusy && !s_contentLibraryTab ? "Loading Saphi..." :
+    if (!total) MM_CustomText_Draw(s_saphiRefreshBusy && !s_contentLibraryTab ? "Loading tracks..." :
         *s_saphiQuery ? "No search matches" : s_contentLibraryTab ? "Nothing installed yet. Get tracks and racers from their tabs." : "Catalogue unavailable",32,84,MODS_LIST_TEXT_W,3,WHITE,ot);
     if (racer) MM_ModsRacers_DrawPanel(MM_ModsRacers_Listed(racer), racer, ot);
     else if (source || installed)

@@ -8,10 +8,15 @@ def canonical(manifest):
     return json.dumps(m, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode('utf-8')
 
 
-def build(lev, vrm, title, key, version, store):
+def build(lev, vrm, title, key, version, store, author='Decrypt'):
     """Install into <store>/<pin>/ and return the pin."""
     files = []
     blobs = {}
+    source = json.dumps({'schema_version': 1, 'provider': 'ctr-decrypted', 'author': author},
+                        separators=(',', ':'), ensure_ascii=False).encode('utf-8')
+    blobs['metadata/decrypted-source.json'] = source
+    files.append({'role': 'presentation', 'path': 'metadata/decrypted-source.json',
+                  'sha256': hashlib.sha256(source).hexdigest(), 'bytes': len(source)})
     for role, src in (('lev', lev), ('vrm', vrm)):
         data = open(src, 'rb').read()
         path = f'original/{role}.{role}'
@@ -30,8 +35,8 @@ def build(lev, vrm, title, key, version, store):
     out = os.path.join(store, pin)
     if os.path.isdir(out):
         shutil.rmtree(out)
-    os.makedirs(os.path.join(out, 'original'))
     for path, data in blobs.items():
+        os.makedirs(os.path.dirname(os.path.join(out, path)), exist_ok=True)
         open(os.path.join(out, path), 'wb').write(data)
     open(os.path.join(out, 'manifest.json'), 'wb').write(body)
     return pin

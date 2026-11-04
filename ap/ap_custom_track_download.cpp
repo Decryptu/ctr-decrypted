@@ -51,6 +51,8 @@ namespace
 constexpr size_t kMetadataMax = 256 * 1024;
 constexpr size_t kTrackFileMax = 8 * 1024 * 1024;
 constexpr const char *kSaphiHost = "www.projectsaphi.com";
+constexpr const char *kCatalogueHost = "raw.githubusercontent.com";
+constexpr const char *kTrackRoot = "/Decryptu/ctr-decrypted-tracks/main/";
 
 struct DownloadState
 {
@@ -903,6 +905,19 @@ extern "C" int ap_custom_track_download_status(char *detail, int detail_bytes)
 // Track Manager: the Saphi catalogue refresh and the explicit install of one
 // catalogue revision into the package store. Authoring build only.
 namespace {
+// A file of the Decrypted track catalogue, or of the local copy of one that
+// CTR_DEV_TRACK_CATALOGUE names.
+bool track_catalogue_get(const std::string &path, size_t max, std::vector<unsigned char> &out, std::string &error)
+{
+    const char *dir = std::getenv("CTR_DEV_TRACK_CATALOGUE");
+    if (!dir || !*dir) return https_get(kCatalogueHost, kTrackRoot + path, max, out, error);
+    std::ifstream file(join_path(dir, path.c_str()), std::ios::binary);
+    out.assign(std::istreambuf_iterator<char>(file), {});
+    if (!out.empty() && out.size() <= max) return true;
+    error = "Cannot read " + path;
+    return false;
+}
+
 struct SaphiRefreshState
 {
     std::mutex mutex;
@@ -920,10 +935,16 @@ void saphi_refresh_worker()
 {
     CustomSaphiCatalogue *catalogue = nullptr;
     std::string error;
+    nlohmann::json combined = {{"data", nlohmann::json::array()}};
+    const char *localCatalogue = std::getenv("CTR_DEV_TRACK_CATALOGUE");
     try
     {
-        nlohmann::json combined = {{"data", nlohmann::json::array()}};
-        int pages = 1;
+        /* A local catalogue stands in for Saphi too: its saphi.json, or nothing. */
+        int pages = localCatalogue && *localCatalogue ? 0 : 1;
+        std::vector<unsigned char> localSaphi;
+        if (!pages && track_catalogue_get("saphi.json", 4 * 1024 * 1024, localSaphi, error))
+            combined = nlohmann::json::parse(localSaphi.begin(), localSaphi.end());
+        error.clear();
         size_t totalBytes = 0;
         for (int page = 1; page <= pages; page++)
         {
@@ -951,6 +972,22 @@ void saphi_refresh_worker()
             throw std::runtime_error(detail);
     }
     catch (const std::exception &e) { error = e.what(); }
+    /* Either source alone is a usable list: one being down hides only its tracks. */
+    std::vector<unsigned char> index;
+    std::string indexError;
+    if (track_catalogue_get("index.json", 1024 * 1024, index, indexError))
+    {
+        char detail[512];
+        const char empty[] = "{\"data\":[]}";
+        if (!catalogue && !CustomSaphi_ParseCatalogue(empty, sizeof empty - 1, &catalogue, detail, sizeof detail))
+            indexError = detail;
+        else if (!CustomSaphi_AddDecrypted(catalogue, reinterpret_cast<const char *>(index.data()), index.size(), detail, sizeof detail))
+            indexError = detail;
+        else indexError.clear();
+    }
+    if (!indexError.empty()) std::fprintf(stderr, "[Tracks] catalogue: %s\n", indexError.c_str());
+    if (catalogue && CustomSaphi_Count(catalogue) == 0 && !error.empty()) CustomSaphi_Free(&catalogue);
+    else if (catalogue && !error.empty()) std::fprintf(stderr, "[Saphi] catalogue: %s\n", error.c_str());
     auto &state = saphi_refresh_state();
     std::lock_guard<std::mutex> guard(state.mutex);
     state.catalogue = catalogue;
@@ -1012,63 +1049,105 @@ struct SaphiInstallState
     std::string pin, error;
 };
 SaphiInstallState &saphi_install_state() { static auto *s = new SaphiInstallState(); return *s; }
+/* A Decrypted catalogue package: the index pins manifest.json, which pins its
+   files, and the package is published as those exact bytes. */
+void decrypted_install(const CustomSaphiRevision &revision, const std::string &assets, CustomPackageOwned **owned)
+{
+    const std::string folder = std::string("tracks/") + revision.folder + "/";
+    std::vector<unsigned char> manifest;
+    std::string error;
+    if (!track_catalogue_get(folder + "manifest.json", 65536, manifest, error)) throw std::runtime_error(error);
+    if (manifest.size() != revision.manifestBytes || !hash_matches(manifest, revision.pin))
+        throw std::runtime_error("manifest.json does not match the track list; refresh and retry");
+    const auto listed = nlohmann::json::parse(manifest.begin(), manifest.end());
+    std::vector<std::vector<unsigned char>> bytes;
+    std::vector<std::string> roles;
+    bytes.reserve(listed.at("files").size());
+    roles.reserve(listed.at("files").size());
+    std::vector<CustomPackageInput> inputs;
+    for (const auto &file : listed.at("files"))
+    {
+        const auto path = file.at("path").get<std::string>();
+        if (path.empty() || path[0] == '/' || path.find("..") != std::string::npos || path.find('\\') != std::string::npos)
+            throw std::runtime_error("manifest.json lists an unsafe path");
+        bytes.emplace_back();
+        if (!track_catalogue_get(folder + path, kTrackFileMax, bytes.back(), error)) throw std::runtime_error(error);
+        roles.push_back(file.at("role").get<std::string>());
+        inputs.push_back({roles.back().c_str(), bytes.back().data(), bytes.back().size()});
+    }
+    char detail[512];
+    if (!CustomPackage_AcquireBuffers(reinterpret_cast<const char *>(manifest.data()), manifest.size(), revision.pin,
+                                      inputs.data(), inputs.size(), owned, detail, sizeof detail) ||
+        !CustomPackage_InstallAssets(*owned, assets.c_str(), detail, sizeof detail))
+        throw std::runtime_error(detail);
+}
+void saphi_install(const CustomSaphiRevision &revision, const std::string &assets, CustomPackageOwned **out, std::string &pin)
+{
+    std::string error;
+    std::vector<unsigned char> lev, vrm;
+    auto fetch = [&](const CustomSaphiMedia &media, std::vector<unsigned char> &bytes) {
+        const std::string expected = "/api/v3/tracks/" + std::to_string(revision.trackID) + "/downloads/" + std::to_string(media.id);
+        if (!media.bytes || media.bytes > kTrackFileMax || expected != media.path)
+            throw std::runtime_error("Selected Saphi revision has no valid download");
+        if (!https_get(kSaphiHost, expected, kTrackFileMax, bytes, error)) throw std::runtime_error(error);
+        if (bytes.size() != media.bytes || crc32(0, bytes.data(), static_cast<uInt>(bytes.size())) != media.crc32)
+            throw std::runtime_error("Saphi file differs from the selected source revision; refresh and retry");
+    };
+    fetch(revision.lev, lev); fetch(revision.vrm, vrm);
+    /* The track's own music, when Saphi lists one current .sca. It is
+       pinned like LEV and VRM; the race decides whether it can play it. */
+    std::vector<unsigned char> sca;
+    if (revision.sca.id) fetch(revision.sca, sca);
+    auto levHash = saphi_digest(lev.data(), lev.size(), EVP_sha256());
+    auto vrmHash = saphi_digest(vrm.data(), vrm.size(), EVP_sha256());
+    nlohmann::json files = nlohmann::json::array();
+    files.push_back({{"role","lev"},{"path","original/lev-" + std::to_string(revision.lev.id) + ".lev"},{"sha256",levHash},{"bytes",lev.size()}});
+    nlohmann::json source = {{"schema_version",1},{"provider","projectsaphi"},
+        {"track_id",revision.trackID},{"lev_media_id",revision.lev.id},{"vrm_media_id",revision.vrm.id},
+        {"version",revision.version},{"author",revision.author}};
+    if (!sca.empty()) source["sca_media_id"] = revision.sca.id;
+    std::string presentation = source.dump();
+    files.push_back({{"role","presentation"},{"path","metadata/saphi-source.json"},
+        {"sha256",saphi_digest(presentation.data(),presentation.size(),EVP_sha256())},{"bytes",presentation.size()}});
+    std::string settings;
+    /* Track-level laps are applied only to current source media. An old
+       revision is never silently given today's potentially changed rules. */
+    if (revision.current && revision.sourceLaps >= 1 && revision.sourceLaps <= 127)
+    {
+        settings = nlohmann::json({{"schema_version",1},{"laps",revision.sourceLaps},{"lev_sha256",levHash},{"vrm_sha256",vrmHash}}).dump();
+        files.push_back({{"role","race_settings"},{"path","metadata/race-settings.json"},
+            {"sha256",saphi_digest(settings.data(),settings.size(),EVP_sha256())},{"bytes",settings.size()}});
+    }
+    /* Files stay in role order (the manifest pin is over the sorted list). */
+    if (!sca.empty())
+        files.push_back({{"role","sca"},{"path","original/sca-" + std::to_string(revision.sca.id) + ".sca"},
+            {"sha256",saphi_digest(sca.data(),sca.size(),EVP_sha256())},{"bytes",sca.size()}});
+    files.push_back({{"role","vrm"},{"path","original/vrm-" + std::to_string(revision.vrm.id) + ".vrm"},{"sha256",vrmHash},{"bytes",vrm.size()}});
+    std::string manifest = nlohmann::json({{"schema_version",1},{"package_uuid",saphi_import_uuid(revision.trackID)},
+        {"version",revision.version},{"title",revision.title},
+        {"compatibility",{{"native_contract",1},{"apworld_contract",1}}},{"files",files}}).dump();
+    pin = saphi_digest(manifest.data(),manifest.size(),EVP_sha256());
+    std::vector<CustomPackageInput> inputs = {{"lev",lev.data(),lev.size()},{"vrm",vrm.data(),vrm.size()}};
+    inputs.push_back({"presentation",presentation.data(),presentation.size()});
+    if (!settings.empty()) inputs.push_back({"race_settings",settings.data(),settings.size()});
+    if (!sca.empty()) inputs.push_back({"sca",sca.data(),sca.size()});
+    char detail[512];
+    if (!CustomPackage_AcquireBuffers(manifest.data(),manifest.size(),pin.c_str(),inputs.data(),inputs.size(),out,detail,sizeof detail))
+        throw std::runtime_error(detail);
+    if (!CustomPackage_InstallAssets(*out, assets.c_str(), detail, sizeof detail)) throw std::runtime_error(detail);
+}
 void saphi_install_worker(CustomSaphiRevision revision, std::string assets)
 {
     CustomPackageOwned *owned = nullptr;
     std::string error, pin;
     try
     {
-        std::vector<unsigned char> lev, vrm;
-        auto fetch = [&](const CustomSaphiMedia &media, std::vector<unsigned char> &bytes) {
-            const std::string expected = "/api/v3/tracks/" + std::to_string(revision.trackID) + "/downloads/" + std::to_string(media.id);
-            if (!media.bytes || media.bytes > kTrackFileMax || expected != media.path)
-                throw std::runtime_error("Selected Saphi revision has no valid download");
-            if (!https_get(kSaphiHost, expected, kTrackFileMax, bytes, error)) throw std::runtime_error(error);
-            if (bytes.size() != media.bytes || crc32(0, bytes.data(), static_cast<uInt>(bytes.size())) != media.crc32)
-                throw std::runtime_error("Saphi file differs from the selected source revision; refresh and retry");
-        };
-        fetch(revision.lev, lev); fetch(revision.vrm, vrm);
-        /* The track's own music, when Saphi lists one current .sca. It is
-           pinned like LEV and VRM; the race decides whether it can play it. */
-        std::vector<unsigned char> sca;
-        if (revision.sca.id) fetch(revision.sca, sca);
-        auto levHash = saphi_digest(lev.data(), lev.size(), EVP_sha256());
-        auto vrmHash = saphi_digest(vrm.data(), vrm.size(), EVP_sha256());
-        nlohmann::json files = nlohmann::json::array();
-        files.push_back({{"role","lev"},{"path","original/lev-" + std::to_string(revision.lev.id) + ".lev"},{"sha256",levHash},{"bytes",lev.size()}});
-        nlohmann::json source = {{"schema_version",1},{"provider","projectsaphi"},
-            {"track_id",revision.trackID},{"lev_media_id",revision.lev.id},{"vrm_media_id",revision.vrm.id},
-            {"version",revision.version},{"author",revision.author}};
-        if (!sca.empty()) source["sca_media_id"] = revision.sca.id;
-        std::string presentation = source.dump();
-        files.push_back({{"role","presentation"},{"path","metadata/saphi-source.json"},
-            {"sha256",saphi_digest(presentation.data(),presentation.size(),EVP_sha256())},{"bytes",presentation.size()}});
-        std::string settings;
-        /* Track-level laps are applied only to current source media. An old
-           revision is never silently given today's potentially changed rules. */
-        if (revision.current && revision.sourceLaps >= 1 && revision.sourceLaps <= 127)
+        if (revision.decrypted)
         {
-            settings = nlohmann::json({{"schema_version",1},{"laps",revision.sourceLaps},{"lev_sha256",levHash},{"vrm_sha256",vrmHash}}).dump();
-            files.push_back({{"role","race_settings"},{"path","metadata/race-settings.json"},
-                {"sha256",saphi_digest(settings.data(),settings.size(),EVP_sha256())},{"bytes",settings.size()}});
+            decrypted_install(revision, assets, &owned);
+            pin = revision.pin;
         }
-        /* Files stay in role order (the manifest pin is over the sorted list). */
-        if (!sca.empty())
-            files.push_back({{"role","sca"},{"path","original/sca-" + std::to_string(revision.sca.id) + ".sca"},
-                {"sha256",saphi_digest(sca.data(),sca.size(),EVP_sha256())},{"bytes",sca.size()}});
-        files.push_back({{"role","vrm"},{"path","original/vrm-" + std::to_string(revision.vrm.id) + ".vrm"},{"sha256",vrmHash},{"bytes",vrm.size()}});
-        std::string manifest = nlohmann::json({{"schema_version",1},{"package_uuid",saphi_import_uuid(revision.trackID)},
-            {"version",revision.version},{"title",revision.title},
-            {"compatibility",{{"native_contract",1},{"apworld_contract",1}}},{"files",files}}).dump();
-        pin = saphi_digest(manifest.data(),manifest.size(),EVP_sha256());
-        std::vector<CustomPackageInput> inputs = {{"lev",lev.data(),lev.size()},{"vrm",vrm.data(),vrm.size()}};
-        inputs.push_back({"presentation",presentation.data(),presentation.size()});
-        if (!settings.empty()) inputs.push_back({"race_settings",settings.data(),settings.size()});
-        if (!sca.empty()) inputs.push_back({"sca",sca.data(),sca.size()});
-        char detail[512];
-        if (!CustomPackage_AcquireBuffers(manifest.data(),manifest.size(),pin.c_str(),inputs.data(),inputs.size(),&owned,detail,sizeof detail))
-            throw std::runtime_error(detail);
-        if (!CustomPackage_InstallAssets(owned, assets.c_str(), detail, sizeof detail)) throw std::runtime_error(detail);
+        else saphi_install(revision, assets, &owned, pin);
     }
     catch (const std::exception &e) { error = e.what(); }
     CustomPackage_Free(&owned);
@@ -1168,7 +1247,7 @@ extern "C" int CustomSaphi_PollInstall(char pin[65], char *error, size_t errorSi
    racer.json (checked against the index) and the files it lists (checked
    against racer.json), from the catalogue repository's main branch. */
 namespace {
-constexpr const char *kRacerHost = "raw.githubusercontent.com";
+constexpr const char *kRacerHost = kCatalogueHost;
 constexpr const char *kRacerRoot = "/Decryptu/ctr-decrypted-racers/main/";
 constexpr int kRacerIndexMax = 256;
 

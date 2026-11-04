@@ -17,6 +17,18 @@ static json fixture()
     return {{"data",json::array({{{"id",7},{"name","Fixture Track"},{"author","Creator"},{"type","race"},
         {"is_active",true},{"lap_count",3},{"downloads",{lev,vrm}}}})}};
 }
+static json decrypted_index()
+{
+    json file={{"bytes",1000},{"crc32",5}};
+    return {{"schema_version",1},{"tracks",json::array({{{"id","c2a1f7f0-7a6e-5b43-9d3a-2f1e8b6a4d10"},
+        {"title","Own Track"},{"author","Decrypt"},{"version","1.0.0"},{"folder","own-track-c2a1f7f0"},
+        {"pin",std::string(64,'a')},{"manifest_bytes",700},{"lev",file},{"vrm",file},{"modes",{"arcade","time_trial"}}}})}};
+}
+static int add(CustomSaphiCatalogue *c, const json &j)
+{
+    char error[256];auto bytes=j.dump();
+    return CustomSaphi_AddDecrypted(c,bytes.data(),bytes.size(),error,sizeof error);
+}
 static int parse(const json &j, CustomSaphiCatalogue **out)
 {
     char error[256];auto bytes=j.dump();
@@ -34,7 +46,48 @@ int main(int argc,char **argv)
         std::printf("Live catalogue: %zu revisions, %zu current, %zu unavailable pairs\n",CustomSaphi_Count(c),current,unavailable);
         CustomSaphi_Free(&c);return 0;
     }
-    auto j=fixture();CHECK(parse(j,&c));CHECK(CustomSaphi_Count(c)==1);
+    /* The Decrypted catalogue: a track of its own is a row of its own. */
+    auto j=fixture();auto own=decrypted_index();CHECK(parse(j,&c));CHECK(add(c,own));CHECK(CustomSaphi_Count(c)==2);
+    {
+        auto *row=CustomSaphi_Row(c,1);auto *fixtureRow=CustomSaphi_Row(c,0);
+        CHECK(!strcmp(row->title,"Own Track") && row->decrypted && row->trackID<0 && row->current && row->modeTags==3);
+        CHECK(!strcmp(row->pin,std::string(64,'a').c_str()) && row->manifestBytes==700 && !strcmp(row->folder,"own-track-c2a1f7f0"));
+        CHECK(!fixtureRow->decrypted && !fixtureRow->packageUuid[0]);
+    }
+    CustomSaphi_Free(&c);
+    /* Saphi lists it by id, same version: one row, Saphi's, knowing the UUID. */
+    own["tracks"][0]["saphi_track_id"]=7;own["tracks"][0]["title"]="Fixture Track";
+    CHECK(parse(j,&c));CHECK(add(c,own));CHECK(CustomSaphi_Count(c)==1);
+    CHECK(!CustomSaphi_Row(c,0)->decrypted && !strcmp(CustomSaphi_Row(c,0)->packageUuid,"c2a1f7f0-7a6e-5b43-9d3a-2f1e8b6a4d10"));CustomSaphi_Free(&c);
+    /* Ours is newer: both rows, one track, so it is a version of Saphi's. */
+    own["tracks"][0]["version"]="1.1.0";
+    CHECK(parse(j,&c));CHECK(add(c,own));CHECK(CustomSaphi_Count(c)==2);
+    CHECK(CustomSaphi_Row(c,0)->trackID==7 && CustomSaphi_Row(c,1)->trackID==7);
+    CHECK(CustomSaphi_Row(c,0)->decrypted!=CustomSaphi_Row(c,1)->decrypted);CustomSaphi_Free(&c);
+    /* No id, but Saphi has the same LEV and VRM: the same track. */
+    own=decrypted_index();own["tracks"][0]["version"]="1.0.0";
+    own["tracks"][0]["lev"]={{"bytes",4096},{"crc32",4294967295u}};own["tracks"][0]["vrm"]=own["tracks"][0]["lev"];
+    CHECK(parse(j,&c));CHECK(add(c,own));CHECK(CustomSaphi_Count(c)==1);CHECK(CustomSaphi_Row(c,0)->packageUuid[0]);CustomSaphi_Free(&c);
+    /* A Saphi row that cannot be downloaded does not hide ours. */
+    {
+        auto gone=j;gone["data"][0]["downloads"][0]["file_size"]=0;gone["data"][0]["downloads"][0]["download_url"]=nullptr;
+        auto linked=decrypted_index();linked["tracks"][0]["saphi_track_id"]=7;
+        CHECK(parse(gone,&c));CHECK(add(c,linked));CHECK(CustomSaphi_Count(c)==2);CustomSaphi_Free(&c);
+    }
+    /* Refusals leave the catalogue as it was. */
+    CHECK(parse(j,&c));
+    for(auto edit:std::initializer_list<std::pair<const char *,json>>{{"folder","../x"},{"folder","Own"},{"id","nope"},{"pin","abc"},{"manifest_bytes",0}})
+    {
+        auto bad=decrypted_index();bad["tracks"][0][edit.first]=edit.second;
+        CHECK(!add(c,bad));CHECK(CustomSaphi_Count(c)==1);
+    }
+    {
+        auto twice=decrypted_index();twice["tracks"].push_back(twice["tracks"][0]);
+        CHECK(!add(c,twice));CHECK(CustomSaphi_Count(c)==1);
+        auto future=decrypted_index();future["schema_version"]=2;CHECK(!add(c,future));
+    }
+    CustomSaphi_Free(&c);
+    CHECK(parse(j,&c));CHECK(CustomSaphi_Count(c)==1);
     auto r=*CustomSaphi_Row(c,0);CHECK(r.trackID==7 && r.lev.id==11 && r.vrm.id==12);
     CHECK(r.lev.crc32==UINT32_MAX && r.sourceLaps==3 && r.current && !r.disabledReason[0]);
     CHECK(!CustomSaphi_Row(c,1));CHECK(!parse(j,&c));CHECK(CustomSaphi_Count(c)==1);CustomSaphi_Free(&c);

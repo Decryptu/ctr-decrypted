@@ -33,12 +33,26 @@ struct CustomSaphiRevision
     int current;
     int sourceLaps; /* Track-level source metadata, zero if unspecified. */
     char disabledReason[129]; /* Ambiguous/missing pair remains visible. */
+    /* The Decrypted track catalogue (docs/CUSTOM_TRACKS.md section 5). On its
+       rows, decrypted is set and trackID is negative, or the Saphi track id
+       when Saphi lists the same track, so the two pair as versions of one
+       track. packageUuid is the catalogue package's UUID, also on the Saphi
+       rows of such a track, so an installed copy from either source counts. */
+    int decrypted;
+    char packageUuid[37], pin[65], folder[129];
+    unsigned int manifestBytes;
 };
 struct CustomSaphiCatalogue;
 /* Parse a complete, bounded response transactionally. No downloads/writes.
    Exactly one LEV and VRM must match both version and mode signature. */
 int CustomSaphi_ParseCatalogue(const char *json, size_t size,
     struct CustomSaphiCatalogue **out, char *error, size_t errorSize);
+/* Add the Decrypted catalogue's index.json to a parsed catalogue, all or
+   nothing. A track Saphi also lists (its saphi_track_id, or a Saphi revision
+   with the same LEV and VRM size and CRC32) joins that track's rows, and is
+   left out when an available Saphi row has the same version. */
+int CustomSaphi_AddDecrypted(struct CustomSaphiCatalogue *catalogue, const char *json, size_t size,
+    char *error, size_t errorSize);
 size_t CustomSaphi_Count(const struct CustomSaphiCatalogue *catalogue);
 const struct CustomSaphiRevision *CustomSaphi_Row(const struct CustomSaphiCatalogue *catalogue, size_t index);
 void CustomSaphi_Free(struct CustomSaphiCatalogue **catalogue);

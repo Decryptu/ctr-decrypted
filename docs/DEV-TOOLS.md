@@ -77,6 +77,7 @@ All are read once, by `platform/native_dev.c` (`include/platform/native_dev.h`).
 | `CTR_DEV_GHOST_IN=<file>` | Race a `CTR_DEV_GHOST_OUT` file in the Time Trial |
 | `CTR_DEV_EXIT_AFTER_RACE=1` | Quit a second after the finish |
 | `CTR_DEV_RESULTS=<csv>` | Every racer's rank, lap, distance to the finish and track length at `CTR_DEV_RESULTS_MS` of race time (default 30000, from the lights). Distance driven is `lap × length + length − distance`. Works in the attract demo too, to compare the AI |
+| `CTR_DEV_TRACK_CATALOGUE=<folder>` | Package builds: read the Decrypted track catalogue from that local copy, and Saphi's list from its `saphi.json` (one `{"data": [...]}` of Saphi rows; none means an empty list). No network, so a catalogue change can be installed and raced before it is published |
 | `CTR_DEV_MODS=<tab>` | Package builds: the title opens the Mods screen on that tab (`1` Tracks, `2` Racers, `3` Installed), once |
 | `CTR_DEV_CHARACTER_SELECT=1` | The title menu opens the Arcade character select for `CTR_DEV_PLAYERS` players. `CTR_DEV_CHARACTER` puts player 1's cursor on that racer. `CTR_DEV_UNLOCKS=1` unlocks the retail secret racers in the run's save, `=2` N. Oxide too. With `CTR_DEV_MODE=tt` it is the Time Trial select, and `CTR_DEV_PAD` can carry on through track and ghost selects into the race |
 | `CTR_DEV_FAKE_RACERS=<n>` | n placeholder custom racers on the character select instead of the installed ones, using the first eight retail racers' looks, to fill its pages ([CUSTOM_RACERS.md](CUSTOM_RACERS.md)) |

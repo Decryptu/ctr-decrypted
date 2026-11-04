@@ -80,6 +80,42 @@ CustomSaphiMedia source_media(const json &media, int track)
     std::snprintf(result.path, sizeof result.path, "%s", path.c_str());
     return result;
 }
+void sort_rows(std::vector<CustomSaphiRevision> &rows)
+{
+    auto folded = [](const char *text) {
+        std::string value(text);
+        for (char &c : value) if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
+        return value;
+    };
+    std::sort(rows.begin(), rows.end(), [&](const auto &a, const auto &b) {
+        auto at = folded(a.title), bt = folded(b.title);
+        if (at != bt) return at < bt;
+        if (a.current != b.current) return a.current > b.current;
+        int version = std::strcmp(a.version,b.version);
+        if (version) return version < 0;
+        if (a.trackID != b.trackID) return a.trackID < b.trackID;
+        if (a.decrypted != b.decrypted) return a.decrypted < b.decrypted;
+        if (a.lev.id != b.lev.id) return a.lev.id < b.lev.id;
+        return a.vrm.id < b.vrm.id;
+    });
+}
+template<size_t N> void lowercase_hex(const json &value, char (&out)[N], const char *what)
+{
+    auto text = value.get<std::string>();
+    if (text.size() != N - 1 || text.find_first_not_of("0123456789abcdef-") != std::string::npos)
+        throw std::runtime_error(what);
+    std::memcpy(out, text.c_str(), N);
+}
+CustomSaphiMedia listed_file(const json &file)
+{
+    CustomSaphiMedia result{};
+    result.bytes = source_integer(file.at("bytes"), 8 * 1024 * 1024);
+    const auto &crc = file.at("crc32");
+    if (!crc.is_number_integer() || crc < 0 || crc > UINT32_MAX) throw std::runtime_error("Invalid track checksum");
+    result.crc32 = crc.get<uint32_t>();
+    return result;
+}
+bool same_file(const CustomSaphiMedia &a, const CustomSaphiMedia &b) { return a.bytes && a.bytes == b.bytes && a.crc32 == b.crc32; }
 }
 
 extern "C" int CustomSaphi_ParseCatalogue(const char *input, size_t size,
@@ -175,22 +211,77 @@ extern "C" int CustomSaphi_ParseCatalogue(const char *input, size_t size,
                 if (result->rows.size() > 1024) throw std::runtime_error("Too many Saphi revisions");
             }
         }
-        auto folded = [](const char *text) {
-            std::string value(text);
-            for (char &c : value) if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
-            return value;
-        };
-        std::sort(result->rows.begin(), result->rows.end(), [&](const auto &a, const auto &b) {
-            auto at = folded(a.title), bt = folded(b.title);
-            if (at != bt) return at < bt;
-            if (a.current != b.current) return a.current > b.current;
-            int version = std::strcmp(a.version,b.version);
-            if (version) return version < 0;
-            if (a.trackID != b.trackID) return a.trackID < b.trackID;
-            if (a.lev.id != b.lev.id) return a.lev.id < b.lev.id;
-            return a.vrm.id < b.vrm.id;
-        });
+        sort_rows(result->rows);
         *out = result.release();
+        if (error && errorSize) error[0] = 0;
+        return 1;
+    }
+    catch (const std::exception &e)
+    {
+        if (error && errorSize) std::snprintf(error, errorSize, "%s", e.what());
+        return 0;
+    }
+}
+extern "C" int CustomSaphi_AddDecrypted(CustomSaphiCatalogue *catalogue, const char *input, size_t size,
+    char *error, size_t errorSize)
+{
+    try
+    {
+        if (!catalogue || !input || !size || size > 1024 * 1024) throw std::runtime_error("Expected a bounded track list");
+        json root = json::parse(input, input + size);
+        if (root.at("schema_version") != 1 || !root.at("tracks").is_array() || root["tracks"].size() > 256)
+            throw std::runtime_error("Invalid track list");
+        std::vector<CustomSaphiRevision> rows = catalogue->rows;
+        std::set<std::string> ids;
+        int next = -1;
+        for (const auto &track : root["tracks"])
+        {
+            CustomSaphiRevision row{};
+            lowercase_hex(track.at("id"), row.packageUuid, "Invalid track id");
+            if (!ids.insert(row.packageUuid).second) throw std::runtime_error("Duplicate track id");
+            lowercase_hex(track.at("pin"), row.pin, "Invalid track pin");
+            source_text(track.at("title"), row.title);
+            source_text(track.at("author"), row.author);
+            source_text(track.at("version"), row.version);
+            source_text(track.at("folder"), row.folder);
+            if (std::strspn(row.folder, "abcdefghijklmnopqrstuvwxyz0123456789-") != std::strlen(row.folder))
+                throw std::runtime_error("Invalid track folder");
+            row.manifestBytes = source_integer(track.at("manifest_bytes"), 65536);
+            row.lev = listed_file(track.at("lev"));
+            row.vrm = listed_file(track.at("vrm"));
+            row.modeTags = source_modes(track.at("modes"), nullptr);
+            row.current = row.decrypted = 1;
+            row.trackID = next--;
+            int saphi = 0;
+            if (track.contains("saphi_track_id")) saphi = source_integer(track["saphi_track_id"], 2147483647);
+            int same = 0;
+            for (const auto &other : rows)
+            {
+                if (other.decrypted) continue;
+                if (other.trackID == saphi || (same_file(row.lev, other.lev) && same_file(row.vrm, other.vrm)))
+                {
+                    same = other.trackID;
+                    break;
+                }
+            }
+            bool listed = false;
+            if (same)
+            {
+                row.trackID = same;
+                for (auto &other : rows)
+                {
+                    if (other.decrypted || other.trackID != same) continue;
+                    std::memcpy(other.packageUuid, row.packageUuid, sizeof row.packageUuid);
+                    row.picture = other.picture;
+                    if (!other.disabledReason[0] && !std::strcmp(other.version, row.version)) listed = true;
+                }
+            }
+            if (listed) continue;
+            rows.push_back(row);
+            if (rows.size() > 1024) throw std::runtime_error("Too many track revisions");
+        }
+        sort_rows(rows);
+        catalogue->rows = std::move(rows);
         if (error && errorSize) error[0] = 0;
         return 1;
     }

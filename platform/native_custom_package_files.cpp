@@ -627,6 +627,21 @@ extern "C" int CustomPackage_ScanStore(const char *path, CustomPackageStoreVisit
                 for (unsigned int i=0;i<entry.manifest.count;i++)
                 {
                     const auto &file=entry.manifest.files[i];
+                    /* A Decrypted catalogue package only names its author. */
+                    if (!std::strcmp(file.role,"presentation") && !std::strcmp(file.path,"metadata/decrypted-source.json") && file.bytes<=4096)
+                    {
+                        std::string bytes(file.bytes,'\0');
+                        if (!CustomPackage_CopyFile(package,"presentation",bytes.data(),bytes.size(),nullptr)) continue;
+                        try {
+                            auto source=nlohmann::json::parse(bytes);
+                            auto author=source.at("author").get<std::string>();
+                            if (source.at("provider")!="ctr-decrypted" || source.at("schema_version")!=1 ||
+                                author.size()>=sizeof entry.local.author ||
+                                std::any_of(author.begin(),author.end(),[](unsigned char c){return c<32 || c==127;})) continue;
+                            std::memcpy(entry.local.author,author.c_str(),author.size()+1);
+                        } catch (const std::exception &) { /* Optional display metadata cannot grant admission. */ }
+                        continue;
+                    }
                     if (std::strcmp(file.role,"presentation") || std::strcmp(file.path,"metadata/saphi-source.json") || file.bytes>4096) continue;
                     std::string bytes(file.bytes,'\0');
                     if (!CustomPackage_CopyFile(package,"presentation",bytes.data(),bytes.size(),nullptr)) continue;

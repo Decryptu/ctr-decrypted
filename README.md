@@ -22,7 +22,7 @@ The project site, [decryptu.github.io/ctr-decrypted](https://decryptu.github.io/
 
 On top of the Archipelago client:
 
-- **Custom tracks** (**MODS** on the title screen): install community tracks from Project Saphi, an xdelta patch or by hand, and race them in Arcade and Time Trial. A seed can put one into a Gem Cup ([docs/CUSTOM_TRACKS.md](docs/CUSTOM_TRACKS.md)).
+- **Custom tracks** (**MODS** on the title screen): install community tracks from Project Saphi, the CTR Decrypted catalogue, an xdelta patch or by hand, and race them in Arcade and Time Trial. A seed can put one into a Gem Cup ([docs/CUSTOM_TRACKS.md](docs/CUSTOM_TRACKS.md)).
 - **Custom racers** (**MODS → Racers**): community characters in the character select, beside the retail racers and N. Oxide ([docs/CUSTOM_RACERS.md](docs/CUSTOM_RACERS.md)).
 - **Play Solo** (title screen): generate and play a one-player seed on your own machine, with no room to host.
 - **200cc** (Arcade and VS): every racer, bots included, about 20% faster, picked on the SPEED screen after the difficulty or player count ([docs/SPEED-CLASS.md](docs/SPEED-CLASS.md)).
