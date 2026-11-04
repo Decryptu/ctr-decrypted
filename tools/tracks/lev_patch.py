@@ -8,7 +8,7 @@
   triangles the grid turned away from their block get none;
 - the sky colours CrashTeamEditor has no field for: the clear colour and the clear split behind the
   sky's bands;
-- the item boxes: the crate model, an instance for each box, their hitboxes and the visible list."""
+- the item boxes and Wumpa fruit: their models, an instance for each, their hitboxes and the visible list."""
 import json, math, struct
 
 FP_ONE_GEO = 64
@@ -23,12 +23,13 @@ OFF_NUM_INSTANCES, OFF_INSTANCES, OFF_NUM_MODELS, OFF_MODELS, OFF_INSTANCE_LIST 
 QUAD_SIZE, QUAD_BBOX, QUAD_TEXTURE_LOW, QUAD_PVS = 0x5c, 0x2c, 0x40, 0x44
 PVS_SIZE, PVS_INSTANCES = 0x10, 8
 INSTDEF_SIZE = 0x40
-MODEL_RANDOM_CRATE = 8  # enum MODEL_ID
-INSTDEF_FLAGS_CRATE = 7  # as retail's crates
 HITBOX_SIZE = 0x20
 HITBOX_FLAG_TOUCH = 0x4c0  # BSP_HITBOX_COLLIDABLE | BSP_HITBOX_USE_Y_AXIS, class BSP_HITBOX_CLASS_TOUCH
-HITBOX_RADIUS, HITBOX_LIFT = 76, 46  # retail's: the crate's centre is 46 above its origin
+# Each kind as retail has it: placed key, name, MODEL_ID, InstDef flags, hitbox radius, height of the
+# hitbox's centre above the instance's origin
+KINDS = (('crates', 'crate', 8, 7, 76, 46), ('fruit', 'fruit', 2, 0xf, 64, 64))
 LEAF_HITBOXES = 0x14
+LEAF_REACH = 64  # a road leaf ends at the road, and a fruit's box starts above it: the kart reaches both
 
 
 def _s16(v):
@@ -117,8 +118,8 @@ def fix_normals(data, mesh):
     return max(worst), sum(e > 0.02 for e in worst), ignored
 
 
-def add_items(data, ptrs, crate, placed, collision_leaves):
-    """Append the crate model, its instances and hitboxes to the LEV. -> stats."""
+def add_items(data, ptrs, items, placed, collision_leaves):
+    """Append the item models, their instances and hitboxes to the LEV. -> stats."""
     def align():
         while len(data) % 4:
             data.append(0)
@@ -139,49 +140,55 @@ def add_items(data, ptrs, crate, placed, collision_leaves):
         x0, y0, z0, x1, y1, z1 = struct.unpack_from('<6h', data, o + QUAD_BBOX)
         carrier_quads.setdefault((x0, y0, z0, x1, z1), o)
 
-    # The textures: where CrashTeamEditor put each image
+    # The textures: where CrashTeamEditor put each image (only the crate has any)
+    crate = items['crates']
     for group, key in zip(crate.groups, placed['carriers']):
         block = carrier_quads[tuple(key)]
         layout = struct.unpack_from('<I', data, block + QUAD_TEXTURE_LOW)[0]
         u0, v0, clut, u1, v1, tpage, u2, v2, u3, v3 = struct.unpack_from('<BBHBBHBBBB', data, layout)
         crate.retarget(group, min(u0, u1, u2, u3), min(v0, v1, v2, v3), clut, tpage)
 
-    align()
-    model = len(data)
-    data += crate.blob
-    for p in crate.pointers:
-        pointer(model + p, struct.unpack_from('<I', crate.blob, p)[0] + model)
+    model_at = {}
+    for kind, *_ in KINDS:
+        align()
+        model_at[kind] = len(data)
+        data += items[kind].blob
+        for p in items[kind].pointers:
+            pointer(model_at[kind] + p, struct.unpack_from('<I', items[kind].blob, p)[0] + model_at[kind])
     align()
     models = len(data)
-    data += bytes(4)
-    pointer(models, model)
+    data += bytes(4 * len(KINDS))
+    for i, (kind, *_) in enumerate(KINDS):
+        pointer(models + 4 * i, model_at[kind])
     pointer(OFF_MODELS, models)
-    struct.pack_into('<I', data, OFF_NUM_MODELS, 1)
+    struct.pack_into('<I', data, OFF_NUM_MODELS, len(KINDS))
 
-    # One InstDef per box; a null-ended list of them for the game's pack and unpack
-    crates = placed['crates']
+    # One InstDef per instance; a null-ended list of them for the game's pack and unpack
+    placements = [(kind, i, pos) for kind, *_ in KINDS for i, pos in enumerate(placed[kind])]
+    by_key = {k[0]: k for k in KINDS}
     defs = len(data)
-    for i, pos in enumerate(crates):
+    for n, (kind, i, pos) in enumerate(placements):
+        _, label, model_id, flags, _, _ = by_key[kind]
         d = bytearray(INSTDEF_SIZE)
-        d[:16] = (f'crate#{i}'.encode() + bytes(16))[:16]
+        d[:16] = (f'{label}#{i}'.encode() + bytes(16))[:16]
         struct.pack_into('<3h', d, 0x14, 4096, 4096, 4096)
-        struct.pack_into('<I', d, 0x20, INSTDEF_FLAGS_CRATE)
+        struct.pack_into('<I', d, 0x20, flags)
         struct.pack_into('<3h', d, 0x30, *pos)
-        struct.pack_into('<i', d, 0x3c, MODEL_RANDOM_CRATE)
+        struct.pack_into('<i', d, 0x3c, model_id)
         data += d
-        pointer(defs + INSTDEF_SIZE * i + 0x10, model)
-    struct.pack_into('<I', data, OFF_NUM_INSTANCES, len(crates))
+        pointer(defs + INSTDEF_SIZE * n + 0x10, model_at[kind])
+    struct.pack_into('<I', data, OFF_NUM_INSTANCES, len(placements))
     pointer(OFF_INSTANCES, defs)
 
     def instance_list():
         start = len(data)
-        data.extend(bytes(4 * (len(crates) + 1)))
-        for i in range(len(crates)):
+        data.extend(bytes(4 * (len(placements) + 1)))
+        for i in range(len(placements)):
             pointer(start + 4 * i, defs + INSTDEF_SIZE * i)
         return start
     pointer(OFF_INSTANCE_LIST, instance_list())
 
-    # Visibility: every crate from every block. The game flips a list between InstDefs and Instances
+    # Visibility: every instance from every block. The game flips a list between InstDefs and Instances
     # once per block that refers to it (LevInstDef_UnPack), so a shared list needs an odd count: a
     # carrier block, never stood on, takes a copy of the PVS with no list when the count is even.
     visible = instance_list()
@@ -204,33 +211,34 @@ def add_items(data, ptrs, crate, placed, collision_leaves):
         struct.pack_into('<I', data, spare + PVS_INSTANCES, 0)
         struct.pack_into('<I', data, carrier_quads[tuple(placed['carriers'][0])] + QUAD_PVS, spare)
 
-    # Hitboxes: every collision leaf whose footprint the crate's box overlaps lists a copy (the kart
-    # search visits leaves by box, and a thin road leaf may be under only part of the crate)
+    # Hitboxes: every collision leaf whose footprint the item's box overlaps lists a copy (the kart
+    # search visits leaves by box, and a thin road leaf may be under only part of the item)
     hit = {}
-    for i, pos in enumerate(crates):
-        cx, cy, cz = pos[0], pos[1] + HITBOX_LIFT, pos[2]
-        box = (cx - HITBOX_RADIUS, cy - HITBOX_RADIUS, cz - HITBOX_RADIUS, cx + HITBOX_RADIUS, cy + HITBOX_RADIUS, cz + HITBOX_RADIUS)
+    for n, (kind, i, pos) in enumerate(placements):
+        _, label, _, _, radius, lift = by_key[kind]
+        cx, cy, cz = pos[0], pos[1] + lift, pos[2]
+        box = (cx - radius, cy - radius, cz - radius, cx + radius, cy + radius, cz + radius)
         found = 0
         for leaf in collision_leaves:
             x0, y0, z0, x1, y1, z1 = struct.unpack_from('<6h', data, leaf + 4)
-            if x0 <= box[3] and box[0] <= x1 and z0 <= box[5] and box[2] <= z1 and y0 <= box[4] and box[1] <= y1:
-                hit.setdefault(leaf, []).append((i, box, (cx, cy, cz)))
+            if x0 <= box[3] and box[0] <= x1 and z0 <= box[5] and box[2] <= z1 and y0 <= box[4] and box[1] - LEAF_REACH <= y1:
+                hit.setdefault(leaf, []).append((n, box, (cx, cy, cz), radius))
                 found += 1
         if not found:
-            raise ValueError(f'item box {i} at {pos} touches no collision leaf: it could not be hit')
+            raise ValueError(f'{label} {i} at {pos} touches no collision leaf: it could not be hit')
     for leaf, entries in hit.items():
         array = len(data)
-        for i, box, centre in entries:
+        for n, box, centre, radius in entries:
             r = bytearray(HITBOX_SIZE)
-            struct.pack_into('<Hh6h3hhh', r, 0, HITBOX_FLAG_TOUCH, 0, *box, *centre, HITBOX_RADIUS, HITBOX_RADIUS * HITBOX_RADIUS)
+            struct.pack_into('<Hh6h3hhh', r, 0, HITBOX_FLAG_TOUCH, 0, *box, *centre, radius, radius * radius)
             data += r
-            pointer(len(data) - 4, defs + INSTDEF_SIZE * i)
+            pointer(len(data) - 4, defs + INSTDEF_SIZE * n)
         data += bytes(HITBOX_SIZE)
         pointer(leaf + LEAF_HITBOXES, array)
-    return {'crates': len(crates), 'leaves with hitboxes': len(hit), 'hitbox records': sum(len(e) for e in hit.values())}
+    return {'instances': len(placements), 'leaves with hitboxes': len(hit), 'hitbox records': sum(len(e) for e in hit.values())}
 
 
-def patch(lev_path, nav_path, out_path, zenith, horizon, crate, placed):
+def patch(lev_path, nav_path, out_path, zenith, horizon, items, placed):
     lev = open(lev_path, 'rb').read()
     data_len = struct.unpack_from('<I', lev, 0)[0]
     data = bytearray(lev[4:4 + data_len])
@@ -293,7 +301,7 @@ def patch(lev_path, nav_path, out_path, zenith, horizon, crate, placed):
             struct.pack_into('<I', data, o, struct.unpack_from('<I', data, o)[0] & ~(1 << (31 - (i & 31))))
 
     collision_leaves = [bsp + 0x20 * i for i, ok in collision_only.items() if ok and nodes[i][0] & 1]
-    item_stats = add_items(data, ptrs, crate, placed, collision_leaves)
+    item_stats = add_items(data, ptrs, items, placed, collision_leaves)
 
     lanes = json.load(open(nav_path))['lanes']
     while len(data) % 4: data.append(0)

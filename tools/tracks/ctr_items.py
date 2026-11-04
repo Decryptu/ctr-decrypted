@@ -1,8 +1,9 @@
 """Models a converted track needs from the player's CTR disc (docs/TRACK-CONVERTER.md#item-boxes).
 
-The weapon crate is not in the shared packs: every retail track carries its own copy in its LEV, with
-its textures in that track's VRM. A converted LEV has to carry one too, so it is read from Dingo Canyon
-on the disc the game already needs, and the package stays on the player's machine.
+The weapon crate and the Wumpa fruit are not in the shared packs: every retail track carries its own
+copies in its LEV, the crate's textures in that track's VRM (the fruit has none). A converted LEV has
+to carry them too, so they are read from Dingo Canyon on the disc the game already needs, and the
+package stays on the player's machine.
 """
 import os, struct, sys
 
@@ -14,7 +15,7 @@ from ctrmodel import Layout, parse_vram  # noqa: E402
 
 SOURCE_LEVEL = 0  # Dingo Canyon
 BIG_VRM, BIG_LEV = SOURCE_LEVEL * 8, SOURCE_LEVEL * 8 + 1  # the 1P files of the level's group
-PU_RANDOM_CRATE = 8  # enum MODEL_ID
+PU_WUMPA_FRUIT, PU_RANDOM_CRATE = 2, 8  # enum MODEL_ID
 OFF_NUM_MODELS, OFF_MODELS = 0x14, 0x18
 MODEL_HEADER_SIZE = 0x40
 LAYOUT_SIZE = 12
@@ -59,12 +60,17 @@ def decode(vram, layout, x0, y0, w, h):
     return out
 
 
-def crate(disc_path):
-    """The weapon crate of the player's disc as an ItemModel."""
+def read(disc_path):
+    """{'crates': the weapon crate, 'fruit': the Wumpa fruit} of the player's disc, as ItemModels."""
     disc = Disc(disc_path)
     big = BigFile(disc)
     raw, vrm = big.read(BIG_LEV), big.read(BIG_VRM)
     disc.close()
+    vram, _ = parse_vram(vrm)
+    return {'crates': _model(raw, vram, PU_RANDOM_CRATE), 'fruit': _model(raw, vram, PU_WUMPA_FRUIT)}
+
+
+def _model(raw, vram, model_id):
     size = struct.unpack_from('<I', raw, 0)[0]
     data = raw[4:4 + size]
     count = struct.unpack_from('<I', raw, 4 + size)[0] // 4
@@ -72,17 +78,16 @@ def crate(disc_path):
     u32 = lambda o: struct.unpack_from('<I', data, o)[0]
     table = u32(OFF_MODELS)
     models = sorted(u32(table + 4 * i) for i in range(u32(OFF_NUM_MODELS)))
-    start = next(m for m in models if struct.unpack_from('<h', data, m + 0x10)[0] == PU_RANDOM_CRATE)
-    end = models[models.index(start) + 1]  # models lie one after the other; this one is never the last
+    start = next(m for m in models if struct.unpack_from('<h', data, m + 0x10)[0] == model_id)
+    end = models[models.index(start) + 1]  # models lie one after the other; neither is the last
     blob = bytearray(data[start:end])
     pointers = sorted(p - start for p in ptrs if start <= p < end)
     for p in pointers:
         target = struct.unpack_from('<I', blob, p)[0]
         if not start <= target < end:
-            raise ValueError(f'the crate model points outside itself at +{p:#x}')
+            raise ValueError(f'model {model_id} points outside itself at +{p:#x}')
         struct.pack_into('<I', blob, p, target - start)
 
-    vram, _ = parse_vram(vrm)
     by_texture = {}
     num_headers, headers = struct.unpack_from('<hI', blob, 0x12)
     for h in range(num_headers):

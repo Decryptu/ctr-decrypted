@@ -2,13 +2,13 @@
 
 `tools/tracks/` turns a course from the player's own Mario Kart DS ROM into a custom track package ([CUSTOM_TRACKS.md](CUSTOM_TRACKS.md#3-the-package-format)). Nothing from the ROM or the CTR disc is in the repository; the tools read them and write the package on the player's machine, so a converted package is not for sharing.
 
-Status: Figure-8 Circuit (`cross_course`) converts with its item boxes and passes every check below. Figure-8 has no boost surfaces; turbo pads were tested by marking a stretch of its road as boost. Not converted yet: Wumpa fruit, the minimap, other course objects, animated textures. The other courses have not passed yet (`ROADMAP.md`).
+Status: Figure-8 Circuit (`cross_course`) converts with its item boxes and Wumpa fruit and passes every check below. Figure-8 has no boost surfaces; turbo pads were tested by marking a stretch of its road as boost. Not converted yet: the minimap, other course objects, animated textures. The other courses have not passed yet (`ROADMAP.md`).
 
 ## Use
 1. Build CrashTeamEditor's headless converter once, from an MSYS2 shell:
    `MSYSTEM=MINGW32 /c/msys64/usr/bin/bash.exe -lc "bash tools/tracks/cte/build.sh C:/t/cte"`.
    It clones [CrashTeamEditor](https://github.com/mateusfavarin/CrashTeamEditor) (MIT) at a pinned commit, applies `crashteameditor.patch`, adds `headless.cpp` and builds `C:\t\cte\cte_headless.exe`. Python needs `numpy` and `Pillow`.
-2. Convert: `python tools/tracks/mkds_convert.py <rom.nds> cross_course --title "Figure-8 Circuit" --disc <ctr-u.bin>`. `--disc` is the player's CTR (USA) disc image, which the item boxes come from. It writes the OBJ, LEV and probe points to `C:\t\mkds-cross_course` and installs the package in its `packages` folder, printing the pin. The same input always gives the same pin. `--store <install>\assets\tracks\packages` installs into a game folder instead.
+2. Convert: `python tools/tracks/mkds_convert.py <rom.nds> cross_course --title "Figure-8 Circuit" --disc <ctr-u.bin>`. `--disc` is the player's CTR (USA) disc image, which the crate and fruit models come from. It writes the OBJ, LEV and probe points to `C:\t\mkds-cross_course` and installs the package in its `packages` folder, printing the pin. The same input always gives the same pin. `--store <install>\assets\tracks\packages` installs into a game folder instead.
 3. Check: `tools\tracks\check_track.ps1 -Rom <rom.nds> -Course cross_course`. It races three laps on autopilot, hidden and fast-forwarded (`devrun.ps1`), and prints `PASS` or what failed. Frames land in `<work>\shots`.
 
 ## What the converter writes
@@ -36,8 +36,13 @@ Each MKDS item box (object 0x65) becomes a weapon crate (`PU_RANDOM_CRATE`) on t
 - The model is copied byte for byte, its pointers made relative. Each texture (palette and page) it samples is decoded to a PNG the OBJ gives to a carrier block, as CrashTeamEditor packs only what a block uses. Carrier blocks sit 8 units below the course, hidden like the collision blocks.
 - `lev_patch.py` finds each carrier by its bounds, reads where the image landed from the block's low texture layout, and rewrites the model's layouts to it, keeping each layout's offset in the image and the blend mode of its page.
 - It then adds the model, one `InstDef` per box and the list of them. CrashTeamEditor writes neither.
-- Hitboxes: retail lists each once, in the leaf that holds it. Here every collision leaf the crate's box overlaps lists a copy, because a converted leaf can be a thin strip of road. A second hit on the same crate is stopped by its cooldown. A crate that touches no leaf fails the conversion.
-- Visibility: all quadblocks share one PVS, so its instance list holds every crate. `LevInstDef_UnPack` flips a list between InstDefs and Instances once per block that refers to it, so the count of blocks must be odd: when it is even, the first carrier takes a copy of the PVS with no list.
+- Hitboxes: retail lists each once, in the leaf that holds it. Here every collision leaf the item's box overlaps lists a copy, because a converted leaf can be a thin strip of road. A second hit on the same crate is stopped by its cooldown. An item that touches no leaf fails the conversion. A road leaf ends at the road and a fruit's box starts above it, so leaves are matched with 64 units of reach (`LEAF_REACH`).
+- Visibility: all quadblocks share one PVS, so its instance list holds every item. `LevInstDef_UnPack` flips a list between InstDefs and Instances once per block that refers to it, so the count of blocks must be odd: when it is even, the first carrier takes a copy of the PVS with no list.
+
+### Wumpa fruit
+MKDS has none in races, so the converter lays them out: `fruit_rows` in `mkds_convert.py` places rows of 4, 230 LEV units apart, on the CPU route's centre line, one row every 13,000 LEV units (6 rows and 24 fruit on Figure-8; retail tracks have about 16). A row stays 800 units from the finish line and 500 from any crate, and only lies on road or boost surface with the route on the ground; a row that cannot lie where it is wanted slides forward along the route, and is dropped after half a gap. The constants are at the top of the file.
+
+The model (`PU_WUMPA_FRUIT`, Dingo Canyon's `fruit`) is read like the crate but has no textures, so it needs no carrier block. Instances take retail's flags (`0xf`), and hitboxes retail's radius of 64 with the centre 64 above the origin (`KINDS` in `lev_patch.py`).
 
 ## After CrashTeamEditor
 `lev_patch.py` adds what CrashTeamEditor does not write:

@@ -58,8 +58,16 @@ COLLISION = {
 BOOST_MATERIAL = 'col_boost'
 TRIGGER_TURBO_PAD = 1  # CrashTeamEditor's QuadblockTrigger
 PRESET_TURBO_PAD = 4  # CrashTeamEditor's PresetHeader
-# LEV units from the ground up to a crate instance's origin (retail tracks: 0 to 8)
+# LEV units from the ground up to a crate or fruit instance's origin (retail tracks: 0 to 8)
 CRATE_LIFT = 8
+# Wumpa fruit: rows along the CPU route, as retail lays them. LEV units.
+FRUIT_PER_ROW, FRUIT_SPACING = 4, 230
+FRUIT_ROW_GAP = 13000  # along the route, from one row to the next
+FRUIT_CLEAR_OF_START = 800  # no row this close to the finish line, either side
+FRUIT_CLEAR_OF_CRATES = 500
+FRUIT_ROAD = {'col_road', 'col_boost'}
+# MKDS units: a route point may be this far under the road, and this far above it before it is a jump
+ROUTE_ABOVE_GROUND, ROUTE_IN_THE_AIR = 20, 60
 
 
 # ---------------------------------------------------------------- geometry helpers
@@ -359,6 +367,55 @@ def fan(poly):
 def area(tri):
     a, b, c = (np.array(v['pos']) for v in tri)
     return np.linalg.norm(np.cross(b - a, c - a)) / 2
+
+
+def ground_under(x, z, top, tris):
+    """The highest of tris (KCL triangles) under (x, z) at or below height top. -> (height, its triangle)."""
+    best = None
+    for tri in tris:
+        a, b, c, nrm, _ = tri
+        d = lambda u, v: (v[0] - u[0]) * (z - u[2]) - (v[2] - u[2]) * (x - u[0])
+        e = (d(a, b), d(b, c), d(c, a))
+        if min(e) >= 0 or max(e) <= 0:
+            y = a[1] - (nrm[0] * (x - a[0]) + nrm[2] * (z - a[2])) / nrm[1]
+            if y <= top and (best is None or y > best[0]):
+                best = (y, tri)
+    return best
+
+
+def fruit_rows(route_at, total, lev, crates, to_lev, ground):
+    """Wumpa fruit positions in LEV units. route_at(s) is the route's point s MKDS units past the
+    finish line. A row wanted somewhere it cannot lie (off the road, in the air, near a crate or the
+    finish line) slides forward along the route; one that slides half a gap is dropped."""
+    spacing, gap = FRUIT_SPACING / lev, FRUIT_ROW_GAP / lev
+    clear_start, clear_crates = FRUIT_CLEAR_OF_START / lev, FRUIT_CLEAR_OF_CRATES / lev
+    length = spacing * (FRUIT_PER_ROW - 1)
+
+    def row_at(s):
+        if s < clear_start or s + length > total - clear_start:
+            return None
+        row = []
+        for k in range(FRUIT_PER_ROW):
+            p = route_at(s + spacing * k)
+            found = ground_under(p[0], p[2], p[1] + ROUTE_ABOVE_GROUND, ground)
+            if found is None or p[1] - found[0] > ROUTE_IN_THE_AIR or COLLISION[mkdsmap.kcl_type(found[1][4])][0] not in FRUIT_ROAD:
+                return None
+            q = to_lev((p[0], found[0], p[2]))
+            if any(math.dist(q, c) < FRUIT_CLEAR_OF_CRATES for c in crates):
+                return None
+            row.append([int(round(q[0])), int(round(q[1])) + CRATE_LIFT, int(round(q[2]))])
+        return row
+
+    rows = max(1, int(total / gap))
+    fruit, dropped = [], 0
+    for r in range(rows):
+        wanted = (r + 0.5) * total / rows
+        row = next((row for step in range(int(gap / 2 / spacing)) if (row := row_at(wanted + step * spacing))), None)
+        if row:
+            fruit += row
+        else:
+            dropped += 1
+    return fruit, dropped
 
 
 # ---------------------------------------------------------------- course
@@ -703,23 +760,15 @@ def convert(course, out_dir, name, scale, max_edge, crate):
 
     # ---- item boxes: one crate per MKDS box, on the ground under it
     ground = [t for t in course.kcl if (i := COLLISION.get(mkdsmap.kcl_type(t[4]))) and i[2] & GROUND and abs(t[3][1]) >= 0.3]
+    to_lev = lambda p: np.array(to_cte(p)) * 64
     crates = []
     for pos in course.item_boxes:
-        best = None
-        for a, b, c, nrm, _ in ground:
-            d = lambda u, v: (v[0] - u[0]) * (pos[2] - u[2]) - (v[2] - u[2]) * (pos[0] - u[0])
-            e = (d(a, b), d(b, c), d(c, a))
-            if min(e) >= 0 or max(e) <= 0:
-                y = a[1] - (nrm[0] * (pos[0] - a[0]) + nrm[2] * (pos[2] - a[2])) / nrm[1]
-                if y <= pos[1] + 1 and (best is None or y > best):
-                    best = y
-        if best is None:
+        found = ground_under(pos[0], pos[2], pos[1] + 1, ground)
+        if found is None:
             stats['item boxes with no ground under them, left at their height'] += 1
-            best = pos[1]
-        q = np.array(to_cte((pos[0], best, pos[2]))) * 64
+        q = to_lev((pos[0], found[0] if found else pos[1], pos[2]))
         crates.append([int(round(q[0])), int(round(q[1])) + CRATE_LIFT, int(round(q[2]))])
     stats['item boxes'] = len(crates)
-    json.dump({'crates': crates, 'carriers': carriers}, open(os.path.join(out_dir, name + '_items.json'), 'w'))
 
     # ---- probe points for CTR_DEV_COLL_PROBE_IN: every 64 LEV units on every MKDS ground layer
     lev = 64 * scale
@@ -825,6 +874,17 @@ def convert(course, out_dir, name, scale, max_edge, crate):
         if dd < best[0]: best = (dd, acc + t * lens[i])
         acc += lens[i]
     cum = np.concatenate([[0], np.cumsum(lens)])
+
+    def route_at(s):
+        s = (best[1] + s) % total
+        i = int(np.searchsorted(cum, s, side='right') - 1)
+        return pts[i] + seg[i] * (s - cum[i]) / lens[i]
+
+    fruit, dropped = fruit_rows(route_at, total, 64 * scale, crates, to_lev, ground)
+    stats['wumpa fruit'] = len(fruit)
+    stats['fruit rows dropped'] = dropped
+    json.dump({'crates': crates, 'fruit': fruit, 'carriers': carriers}, open(os.path.join(out_dir, name + '_items.json'), 'w'))
+
     lanes = [[], [], []]
     for k in range(count):
         s_ = (best[1] + total * k / count) % total
@@ -853,7 +913,7 @@ def main():
     ap.add_argument('rom', help='the player\'s own Mario Kart DS ROM (.nds)')
     ap.add_argument('course', help='course archive name under data/Course, e.g. cross_course')
     ap.add_argument('--title', required=True, help='title shown on the custom tracks page')
-    ap.add_argument('--disc', required=True, help='the player\'s own CTR (USA) disc image (.bin): the weapon crate comes from it')
+    ap.add_argument('--disc', required=True, help='the player\'s own CTR (USA) disc image (.bin): the crate and fruit models come from it')
     ap.add_argument('--store', default=None,
                     help='packages folder to install into (default <work>/packages, where check_track.ps1 looks); '
                          'a game install\'s is assets/tracks/packages')
@@ -871,8 +931,8 @@ def main():
     name = a.course
     files = nds.nitrofs(open(a.rom, 'rb').read())
     course = Course(files, a.course)
-    crate = ctr_items.crate(a.disc)
-    print('convert', convert(course, work, name, a.scale, a.max_edge, crate))
+    items = ctr_items.read(a.disc)
+    print('convert', convert(course, work, name, a.scale, a.max_edge, items['crates']))
 
     lev_dir = os.path.join(work, 'lev')
     os.makedirs(lev_dir, exist_ok=True)  # CTE saves into an existing folder only
@@ -888,7 +948,7 @@ def main():
     lev = os.path.join(lev_dir, name + '.lev')
     patched = os.path.join(lev_dir, name + '_patched.lev')
     placed = json.load(open(os.path.join(work, name + '_items.json')))
-    patched_stats = lev_patch.patch(lev, os.path.join(work, name + '_nav.json'), patched, *course.sky_colours(), crate, placed)
+    patched_stats = lev_patch.patch(lev, os.path.join(work, name + '_nav.json'), patched, *course.sky_colours(), items, placed)
     print('lev_patch', patched_stats)
     if patched_stats['quadblocks over 2%']:
         sys.exit('collision normals the game cannot represent within 2% (the kart would stop against them)')
