@@ -57,7 +57,7 @@ def check(rom, course, runs):
         f.write(r.stdout)
     render = re.search(r'rendered list peak (\d+)', r.stdout)
     laps = re.search(r'laps finished (\d+)', r.stdout)
-    hops = re.search(r'(d+) hops', r.stdout)
+    hops = re.search(r'(\d+) hops', r.stdout)
     detail = f"peak {render[1] if render else "?"}, laps {laps[1] if laps else "?"}, hops {hops[1] if hops else "?"}"
     return course, r.returncode == 0, detail if r.returncode == 0 else f'{detail}: {reason(r.stdout)}'
 

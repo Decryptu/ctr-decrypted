@@ -2,7 +2,7 @@
 
 `tools/tracks/` turns a course from the player's own Mario Kart DS ROM into a custom track package ([CUSTOM_TRACKS.md](CUSTOM_TRACKS.md#3-the-package-format)). Nothing from the ROM or the CTR disc is in this repository; the tools read them and write the package on the player's machine. A package holds the course's models and textures, and the crate and fruit models from the disc.
 
-Status: all 32 race courses convert, with their item boxes, Wumpa fruit, minimap and scenery. 24 pass every check below; the 8 that do not stop at something not converted yet (`ROADMAP.md`). Not converted: moving objects, animated textures, jump pads, cannons, loops.
+Status: all 32 race courses convert, with their item boxes, Wumpa fruit, minimap and scenery. 24 pass every check below, though play-testing found visual and surface bugs the checks cannot see; the 8 that do not stop at something not converted yet (`ROADMAP.md` lists both). Not converted: moving objects, animated textures, jump pads, cannons, loops.
 
 ## Use
 1. Build CrashTeamEditor's headless converter once, from an MSYS2 shell:

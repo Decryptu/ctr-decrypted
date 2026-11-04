@@ -17,7 +17,18 @@ What is in progress, what is next, and what was decided. A finished item is dele
 
 ## In progress
 - Mario Kart DS course converter ([TRACK-CONVERTER.md](docs/TRACK-CONVERTER.md)). All 32 race courses convert and 24 pass `mkds_batch.py --check`. Next steps, in this order:
-  1. The owner play-tests the 24. The checks cannot see taste or feel: scenery by eye (the `SCENERY` table is deduced, and only its captures have been looked at; a house may look wrong as crossed quads), the rainbow patches on Tick-Tock Clock and Wario Stadium ramps (likely MKDS's own ramp material, not confirmed), and the plain white or flat sky where a course has only its gradient (`course_model_V` is not drawn).
+  1. Fix what the owner's play-test of the 24 found. Nothing here has been diagnosed yet; the causes are unknown, and the groups are by symptom. Figure-8 Circuit is fine. Replay what can be replayed before guessing, and fix the shared causes first:
+     - **Flickering surfaces.** Cheep Cheep Beach: the start flag's blue pole, a blue wall on the bridge ahead of the start, and blue walls all round when looking back. GBA Luigi Circuit: white flickering. GCN Baby Park: blue on the sides and the missing ground outside the course. GCN Mushroom Bridge: grey poles from the start, tunnel sides, road sides, the bridge. Luigi's Mansion: the flag over the start. Mario Circuit, Shroom Ridge, Yoshi Falls: everywhere. Peach Gardens: blue road and some walls. Wario Stadium: floor and textures, bad enough that the owner could not play it.
+     - **Ghost shadows on the ground, GBA Peach Circuit.** Dark kart-shaped shapes on the grass, each turn while the CPU karts are on the far side of the map. The owner's `F7` capture replays with `pwsh C:\Users\gurva\Games\CTR\captures\gba-peach-shadows\replay.ps1` (exact exe, state and package kept there): the shadow is lower left of the kart in frame 3002.
+     - **Wrong ground and textures.** Desert Hills: glitched ground from the start, right of the road round the palm tree, and on through the lap. GBA Luigi Circuit: glitched floor all over. DK Pass: on the snow descent after mid-lap, ground and CPU karts draw in the wrong depth order. Peach Gardens: castle wall textures change as the kart approaches. SNES Donut Plains 1: the wooden bridge's texture when riding on it.
+     - **Thin line gaps at texture joins.** N64 Choco Mountain (many), N64 Moo Moo Farm (few), SNES Choco Island 2, SNES Koopa Beach 2, SNES Mario Circuit 1.
+     - **Missing surroundings.** GCN Yoshi Circuit: the ocean or ground round the course. Tick-Tock Clock: many floors, and the sky or outer ground. SNES Koopa Beach 2 and SNES Mario Circuit 1: flat grey sky. `course_model_V` is not drawn; check whether that is all of it.
+     - **Surfaces that act wrong.** Desert Hills: the character disappears in slow sand, on every patch. Yoshi Falls: drivable water kills the kart. GBA Luigi Circuit: Aku Aku takes the kart from the grass on the inside of the sharp 90 degree turn. Cheep Cheep Beach: the bumps where light sand meets wet sand are not smooth. GCN Mushroom Bridge: the kart is pulled forward in the middle of the road before the tunnel. N64 Frappe Snowland: falling on the left before the canyon, Aku Aku puts the kart in front of the start line, skipping the canyon.
+     - **Minimap.** GBA Luigi Circuit: a square, not the track shape. Colours bleed on GBA Peach Circuit, Peach Gardens, SNES Donut Plains 1, SNES Koopa Beach 2.
+     - **Frame rate.** Add a frame rate check for every course to `mkds_batch.py`; the owner drops the per-map reports in favour of it. Tick-Tock Clock is very slow. A normal run of the test game logged 35 to 54 FPS on converted courses, with `draw split table full` at up to 9,946 splits.
+     - **Camera (retail tracks too?).** The camera rises whenever a wall is behind the kart: on the Cheep Cheep Beach boost jump and wooden section, and also in slow sand on Desert Hills. It breaks focus while drifting. Compare with retail in the emulator first; if retail does it, make it less sensitive.
+     - **Aku Aku respawn animation.** Depth or overlap glitch during the animation on every course (seen on N64 Banshee Boardwalk). Check retail tracks too.
+     - **Still to look at:** the rainbow patches on Tick-Tock Clock and Wario Stadium ramps (likely MKDS's own ramp material, not confirmed).
   2. The 8 that stop at something not converted, each with no lap finished:
      - KCL 0x0f (cannon): Airship Fortress, Waluigi Pinball.
      - KCL 0x0c (jump pad): GBA Bowser Castle 2, GBA Sky Garden.
@@ -25,7 +36,7 @@ What is in progress, what is next, and what was decided. A finished item is dele
      - Moving bridges: Bowser Castle (`rotary_bridge`), Delfino Square (`bridge`).
      - GCN Luigi Circuit: bug, cause not found. The kart gets through most of the lap, then Aku Aku takes it again and again near LEV (-2090, -1226, -1550), three quarters round. No listed surface explains it.
      Waluigi Pinball peaks at 255 of the 256 near-camera blocks: when it can be driven, convert it with a larger `--max-edge`.
-  3. Moving course objects (cars, Goombas, Thwomps, flippers): none are converted, and some courses are built round them.
+  3. Moving course objects (cars, Goombas, Thwomps, flippers): none are converted, and some courses are built round them. Tick-Tock Clock cannot be finished normally without its turning cogs: Aku Aku teleports the kart past them.
   4. Publish the finished tracks in the catalogue (`tools/tracks/build_index.py`) and submit them to Saphi, then set `saphi_track_id` on any upload whose bytes differ. Catalogue tracks need a picture: the Mods screen shows only Saphi's today.
 
 ## Maybe
