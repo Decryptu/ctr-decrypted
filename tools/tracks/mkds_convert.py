@@ -231,7 +231,7 @@ def overlap_tjunctions(items, tol, push):
 
 
 def refine(items, max_edge, weld_tol, snap=4, tjunction_tol=0.0):
-    """Conforming refinement: split every edge longer than max_edge at its midpoint, in every
+    """Conforming refinement: split every edge longer than max_edge (a function of meta, or a number) at its midpoint, in every
     triangle that has it, until none is left. Neighbours always split a shared edge at the same
     point, so no T-junction (and no crack the game can fall through) appears.
     items: list of (triangle of 3 vertex dicts with 'pos', meta). Positions are snapped first so
@@ -262,10 +262,10 @@ def refine(items, max_edge, weld_tol, snap=4, tjunction_tol=0.0):
         items = close_tjunctions(items, tjunction_tol)
     while True:
         long = set()
-        for tri, _ in items:
+        for tri, meta in items:
             for i in range(3):
                 a, b = tri[i], tri[(i + 1) % 3]
-                if np.linalg.norm(a['pos'] - b['pos']) > max_edge:
+                if np.linalg.norm(a['pos'] - b['pos']) > (max_edge(meta) if callable(max_edge) else max_edge):
                     long.add(frozenset((key(a), key(b))))
         if not long:
             return items
@@ -588,6 +588,8 @@ SCENERY = {
     0x148: 'DeTree1', 0x14b: 'KinoHouse1', 0x14c: 'KinoHouse2', 0x14d: 'KinoMount1', 0x14e: 'KinoMount2',
     0x14f: 'olaTree1c', 0x150: 'osaTree1c',
 }
+FAR_EDGE = 8  # backdrops and water take blocks this many times longer: nothing rides on them
+WATER_OBJECTS = {0x01, 0x03, 0x06, 0x09}  # the sheet of water round a course, one per course
 TRUNK_RADIUS = 1 / 8  # of a billboard's width: its solid part, a pillar as high as half the object
 OBJECT_ABOVE_GROUND = 64
 KCL_WALL = 0x08
@@ -612,7 +614,7 @@ def pillar(pos, radius, height):
 
 
 class Course:
-    def __init__(self, rom_files, name):
+    def __init__(self, rom_files, name, scale):
         arc = nds.carc(rom_files[f'data/Course/{name}.carc'])
         tex = nds.carc(rom_files[f'data/Course/{name}Tex.carc'])
         self.model = nitro3d.Model(arc['course_model.nsbmd'])
@@ -631,6 +633,48 @@ class Course:
         self.sky = None
         if 'course_model_V.nsbmd' in arc and 'course_model_V.nsbtx' in tex:
             self.sky = (nitro3d.Model(arc['course_model_V.nsbmd']), nitro3d.load_tex0(tex['course_model_V.nsbtx']))
+        self.far_mats = set()
+        self.add_water(arc)
+        self.add_backdrop(MAX_COORD / scale)
+
+    def add_water(self, arc):
+        """Bake the course's sheet of water: an object in MKDS, a flat layer (waterA) under a moving one (waterC)."""
+        for object_id, pos, rot, size in mkdsmap.placed_objects(self.nkm):
+            if object_id not in WATER_OBJECTS:
+                continue
+            file = next((f for end in ('waterA.nsbmd', 'waterC.nsbmd') for f in arc if f.endswith(end)), None)
+            if file is None:
+                print(f'water: object {object_id:#x} has no model in this course')
+                continue
+            model = nitro3d.Model(arc[file])
+            tex0 = nitro3d.load_tex0(arc[file])
+            first = len(self.mats)
+            for m in model.mats:
+                m.tex0 = tex0
+                self.far_mats.add(len(self.mats))
+                self.mats.append(m)
+            for mi, tri in model.triangles():
+                self.triangles.append((first + mi, [(pos + rotate_y(np.array(v[0]) * MODEL_TO_WORLD * size, rot[1]), v[1], v[2], v[3]) for v in tri]))
+
+    def add_backdrop(self, limit):
+        """Bake the backdrop: hills, woods, walls. A sky model of one texture is only a sky, which the
+        level's gradient stands for at no cost in blocks. A backdrop reaching past what LEV positions
+        hold is scaled round the course, so it keeps its shape."""
+        if self.sky is None or len(self.sky[0].mats) < 2:
+            return
+        model, tex0 = self.sky
+        tris = model.triangles()
+        kcl = np.array([v for t in self.kcl[:self.ground_triangles] for v in t[:3]])
+        centre = (kcl.min(0) + kcl.max(0)) / 2
+        reach = max(np.abs(np.array(v[0]) * MODEL_TO_WORLD - centre).max() for _, tri in tris for v in tri)
+        fit = min(1.0, 0.98 * limit / reach)
+        first = len(self.mats)
+        for m in model.mats:
+            m.tex0 = tex0
+            self.far_mats.add(len(self.mats))
+            self.mats.append(m)
+        for mi, tri in tris:
+            self.triangles.append((first + mi, [(centre + (np.array(v[0]) * MODEL_TO_WORLD - centre) * fit, v[1], v[2], v[3]) for v in tri]))
 
     def add_scenery(self, arc):
         """Bake the static objects into the drawn mesh and give each a solid pillar.
@@ -680,7 +724,11 @@ class Course:
         if not self.sky:
             return (40, 90, 200), (150, 200, 240)
         model, tex0 = self.sky
-        m = model.mats[0]
+        # a sky model can hold clouds too: the sky is the most colourful of its textures
+        def colourful(m):
+            a = tex0.decode(m.tex, m.pal)[..., :3].astype(float)
+            return (a.max(2) - a.min(2)).mean()
+        m = max(model.mats, key=colourful)
         a = tex0.decode(m.tex, m.pal)[..., :3].astype(float)
         h = a.shape[0]
         return tuple(a[:h // 8].reshape(-1, 3).mean(0)), tuple(a[-h // 8:].reshape(-1, 3).mean(0))
@@ -934,7 +982,7 @@ def convert(course, out_dir, name, scale, max_edge, crate, vram_share):
                     if flip_t and tiles[mi][1] == 1 and tv % 2: fv = 1 - fv
                     out.append({'pos': p['pos'], 'uv': np.array([fu, 1 - fv]), 'col': p['col']})
                 render.append((out, mi))
-    refined = refine(render, max_edge, weld_tol=1.5 / 64)
+    refined = refine(render, lambda mi: max_edge * FAR_EDGE if mi in course.far_mats else max_edge, weld_tol=1.5 / 64)
     refined, stats['render corners moved over an edge'] = overlap_tjunctions(refined, 2 / 64, 1.5 / 64)
     refined = [(tri, mi) for tri, mi in refined if area(tri) >= 1e-9]
     quads, tris = pair_quads(refined, max_dev=2 / 64)
@@ -1218,7 +1266,7 @@ def main():
     os.makedirs(a.store, exist_ok=True)
     name = a.course
     files = nds.nitrofs(open(a.rom, 'rb').read())
-    course = Course(files, a.course)
+    course = Course(files, a.course, a.scale)
     items = ctr_items.read(a.disc)
     lev_dir = os.path.join(work, 'lev')
     os.makedirs(lev_dir, exist_ok=True)  # CTE saves into an existing folder only

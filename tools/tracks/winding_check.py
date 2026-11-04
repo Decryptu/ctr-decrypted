@@ -5,7 +5,7 @@
 The game culls back faces, so a block wound the wrong way vanishes when seen from its front
 (the road under the kart turned black). Blocks are matched by their corner positions; prints the
 count of drawn blocks whose LEV triangles face against the OBJ normal and exits 1 if any do."""
-import struct, sys
+import itertools, struct, sys
 import numpy as np
 
 # LEV index slots of the eight hi-LOD triangles (levtri.py); a triblock uses the first four
@@ -50,10 +50,11 @@ def check(obj_path, lev_path):
             by_point.setdefault(tuple(int(c) for c in p), []).append((key, found))
 
     def near(key):
-        """Blocks with these corners, give or take one LEV unit: an OBJ position that falls on a half can round either way."""
-        for p in key:
-            for pts, found in by_point.get(p, ()):
-                if len(pts) == len(key) and all(any(max(abs(a - b) for a, b in zip(q, r)) <= 1 for r in pts) for q in key):
+        """Blocks with these corners, give or take one LEV unit: an OBJ position that falls on a half can round either way, and two corners of a tiny block can round to one."""
+        p = next(iter(key))
+        for offset in itertools.product((-1, 0, 1), repeat=3):
+            for pts, found in by_point.get(tuple(a + b for a, b in zip(p, offset)), ()):
+                if len(pts) >= len(key) and all(any(max(abs(a - b) for a, b in zip(q, r)) <= 1 for r in pts) for q in key):
                     return found
         return None
 
