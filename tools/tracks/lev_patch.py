@@ -139,14 +139,21 @@ def fix_normals(data, mesh):
     return max(worst), sum(e > 0.02 for e in worst), ignored
 
 
-def rebuild_checkpoints(data, mesh, lane):
+OFF_ROUTE = 1.5  # road half widths, walked over block centres
+SIDE_LANE = 0.4  # how far out of the road's half width mkds_convert puts a side lane
+
+
+def rebuild_checkpoints(data, mesh, lane, side):
     """Replace CrashTeamEditor's checkpoints with nodes along the route. It walks outward from the
     start line over neighbouring blocks, so wherever two sections of a course touch through grass or
     a shared edge the walk runs round the wrong way: 4 nodes for a whole lap on Airship Fortress, and
     the game never counts a lap. Every ground block takes the node nearest it across the ground
     itself, so a wall keeps two sections of road apart, however close. Its start and end blocks
-    keep their first and last nodes: the finish line runs exactly between them.
-    lane: the centre lane, starting at the finish line. -> nodes' positions."""
+    keep their first and last nodes: the finish line runs exactly between them. Ground further from
+    the route than OFF_ROUTE road widths has no checkpoint, as in retail: an infield touches two parts
+    of a lap, so a node there is a quarter of a lap from the kart and the game calls that a shortcut.
+    lane: the centre lane, starting at the finish line. side: a side lane, SIDE_LANE of the road's
+    half width out. -> nodes' positions."""
     old = struct.unpack_from('<I', data, OFF_NUM_CHECKPOINTS)[0]
     nq, nv, _, qoff, voff = struct.unpack_from('<5I', data, mesh)
     route = [tuple(int(round(c * FP_ONE_GEO)) for c in p) for p in lane]
@@ -156,6 +163,7 @@ def rebuild_checkpoints(data, mesh, lane):
     for a, b in zip(route, route[1:] + route[:1]):
         along.append(along[-1] + math.dist(a, b))
     nodes = [route[i * stride] for i in range(count)]
+    width = [math.dist(lane[i * stride], side[i * stride]) * FP_ONE_GEO / SIDE_LANE for i in range(count)]
     # the game counts a lap when a kart's distance to the finish jumps past 32000, so a shorter lap counts as that long
     unit = DIST_TO_FINISH_UNIT * min(1, along[-1] / SHORTEST_LAP)
     remaining = [max(1, int((along[-1] - along[i * stride]) / unit)) for i in range(count)]
@@ -190,11 +198,13 @@ def rebuild_checkpoints(data, mesh, lane):
     heap = [(0.0, q, node) for q, node in label.items()]
     heapq.heapify(heap)
     label = {}
+    walked = {}
     while heap:
         cost, q, node = heapq.heappop(heap)
         if q in label:
             continue
         label[q] = node
+        walked[q] = cost
         o = qoff + QUAD_SIZE * q
         for i in set(struct.unpack_from('<9H', data, o)):
             for other in by_vertex[i]:
@@ -205,6 +215,8 @@ def rebuild_checkpoints(data, mesh, lane):
         node = label.get(q)
         if node is None:  # ground the route's own ground does not reach: an island or a ledge
             node = int(((apart - centres[q]) ** 2).sum(1).argmin())
+        elif walked[q] > OFF_ROUTE * width[node]:
+            node = NO_CHECKPOINT
         data[qoff + QUAD_SIZE * q + QUAD_CHECKPOINT] = node
 
     while len(data) % 4: data.append(0)
@@ -455,7 +467,7 @@ def patch(lev_path, vrm_path, nav_path, out_path, out_vrm, zenith, horizon, item
     map_clut, item_stats = add_items(data, ptrs, items, placed, collision_leaves)
 
     lanes = json.load(open(nav_path))['lanes']
-    cps, seeded_blocks = rebuild_checkpoints(data, mesh, lanes[0])
+    cps, seeded_blocks = rebuild_checkpoints(data, mesh, lanes[0], lanes[1])
     ncp = len(cps)
     while len(data) % 4: data.append(0)
     table = len(data)
