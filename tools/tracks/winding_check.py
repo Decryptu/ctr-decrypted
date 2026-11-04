@@ -9,6 +9,7 @@ import struct, sys
 import numpy as np
 
 # LEV index slots of the eight hi-LOD triangles (levtri.py); a triblock uses the first four
+THIN_BLOCK = 2  # LEV units
 TRIS = [(0, 4, 5), (4, 6, 5), (6, 4, 1), (5, 6, 2), (8, 6, 7), (7, 3, 8), (1, 7, 6), (2, 6, 8)]
 
 
@@ -40,20 +41,20 @@ def obj_blocks(path):
 
 def check(obj_path, lev_path):
     blocks = obj_blocks(obj_path)
-    by_pts = {}
+    by_pts = {}  # a list: a two-sided surface is two blocks on one set of corners, facing apart
     for name, (pts, n) in blocks.items():
-        by_pts.setdefault(frozenset(pts), (name, n))
+        by_pts.setdefault(frozenset(pts), []).append((name, n))
     by_point = {}
-    for name, (pts, n) in blocks.items():
-        for p in pts:
-            by_point.setdefault(tuple(int(c) for c in p), []).append((frozenset(pts), name, n))
+    for key, found in by_pts.items():
+        for p in key:
+            by_point.setdefault(tuple(int(c) for c in p), []).append((key, found))
 
     def near(key):
-        """A block with these corners, give or take one LEV unit: an OBJ position that falls on a half can round either way."""
+        """Blocks with these corners, give or take one LEV unit: an OBJ position that falls on a half can round either way."""
         for p in key:
-            for pts, name, n in by_point.get(p, ()):
+            for pts, found in by_point.get(p, ()):
                 if len(pts) == len(key) and all(any(max(abs(a - b) for a, b in zip(q, r)) <= 1 for r in pts) for q in key):
-                    return name, n
+                    return found
         return None
 
     lev = open(lev_path, 'rb').read()[4:]
@@ -70,16 +71,18 @@ def check(obj_path, lev_path):
         idx = struct.unpack_from('<9H', lev, o)
         tri = idx[2] == idx[3]
         key = frozenset(tuple(int(c) for c in V[i]) for i in set(idx))
+        P = V[list(idx)]
+        # the game's triangles are wound clockwise seen from the front: their cross product points back
+        back = sum(np.cross(P[b] - P[a], P[c] - P[a]) for a, b, c in (TRIS[:4] if tri else TRIS))
+        if np.linalg.norm(back) < THIN_BLOCK * 4 * np.ptp(P, axis=0).max():
+            continue  # thinner than the grid: it has no facing there, and draws next to nothing
         hit = by_pts.get(key) or near(key)
         if hit is None:
             unmatched += 1
             continue
-        P = V[list(idx)]
-        # the game's triangles are wound clockwise seen from the front: their cross product points back
-        back = sum(np.cross(P[b] - P[a], P[c] - P[a]) for a, b, c in (TRIS[:4] if tri else TRIS))
-        if np.dot(back, hit[1]) > 0:
+        if all(np.dot(back, n) > 0 for _, n in hit):
             flipped += 1
-            names.append(hit[0])
+            names.append(hit[0][0])
     return {'drawn': drawn, 'flipped': flipped, 'unmatched': unmatched, 'examples': names[:8]}
 
 

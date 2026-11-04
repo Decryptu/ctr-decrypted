@@ -1,5 +1,6 @@
 """Finish a CrashTeamEditor LEV for a converted track (docs/TRACK-CONVERTER.md):
 - collision-only quadblocks draw nothing, and their BSP subtree is cleared from the visibility lists;
+- checkpoints: nodes along the route, every ground block taking the nearest across the ground;
 - bot paths: a 3-entry LevNavTable, each a NavHeader plus NavFrames (CrashTeamEditor writes none);
 - the level is marked depth-tested (LEVEL_CONFIG_DEPTH_TESTED): its art was made for a depth buffer;
 - and as having one texture per LOD (LEVEL_CONFIG_ONE_TEXTURE_LOD), so the extended draw distance does not
@@ -10,6 +11,9 @@
   sky's bands;
 - the item boxes and Wumpa fruit: their models, an instance for each, their hitboxes and the visible list;
 - the minimap: its two icons, its entry in the spawn table and its palette in the VRM."""
+import heapq
+from collections import defaultdict
+import numpy as np
 import json, math, struct
 
 FP_ONE_GEO = 64
@@ -36,12 +40,22 @@ ICON_MAP_TOP, ICON_MAP_BOTTOM = 3, 4  # gGT->ptrIcons
 MAP_NO_TOP_HALF = 1  # UIMapSpawnMetadata::topHalfMode: the bottom icon is the whole map
 MAP_WHITE, STP = 0x7fff, 0x8000
 MAP_COLOURS = 3  # transparent, edge, fill: CrashTeamEditor's palette stops there and the next word is a texel
+QUAD_CHECKPOINT, NO_CHECKPOINT = 0x3e, 0xff
+MAX_CHECKPOINT_NODES = 250  # a quadblock's index is 8 bits, 0xff meaning none
+DIST_TO_FINISH_UNIT = 8  # LEV units; the game multiplies a node's distance by 8
+SHORTEST_LAP = 34000  # LEV units; PLAYLEVEL_FINISHLINE_FAR_DISTANCE, and a margin
 LEAF_REACH = 64  # a road leaf ends at the road, and a fruit's box starts above it: the kart reaches both
 
 
 def _s16(v):
     v &= 0xffff
     return v - 0x10000 if v & 0x8000 else v
+
+
+def vertex_count(lev_path):
+    with open(lev_path, 'rb') as f:
+        data = f.read()
+    return struct.unpack_from('<I', data, 4 + struct.unpack_from('<I', data, 4)[0] + 4)[0]
 
 
 def game_normal_cross(a, b, c):
@@ -123,6 +137,83 @@ def fix_normals(data, mesh):
         struct.pack_into('<10h', data, o + 0x48, *div)
         worst.append(err)
     return max(worst), sum(e > 0.02 for e in worst), ignored
+
+
+def rebuild_checkpoints(data, mesh, lane):
+    """Replace CrashTeamEditor's checkpoints with nodes along the route. It walks outward from the
+    start line over neighbouring blocks, so wherever two sections of a course touch through grass or
+    a shared edge the walk runs round the wrong way: 4 nodes for a whole lap on Airship Fortress, and
+    the game never counts a lap. Every ground block takes the node nearest it across the ground
+    itself, so a wall keeps two sections of road apart, however close. Its start and end blocks
+    keep their first and last nodes: the finish line runs exactly between them.
+    lane: the centre lane, starting at the finish line. -> nodes' positions."""
+    old = struct.unpack_from('<I', data, OFF_NUM_CHECKPOINTS)[0]
+    nq, nv, _, qoff, voff = struct.unpack_from('<5I', data, mesh)
+    route = [tuple(int(round(c * FP_ONE_GEO)) for c in p) for p in lane]
+    stride = max(1, math.ceil(len(route) / MAX_CHECKPOINT_NODES))
+    count = len(route) // stride
+    along = [0.0]
+    for a, b in zip(route, route[1:] + route[:1]):
+        along.append(along[-1] + math.dist(a, b))
+    nodes = [route[i * stride] for i in range(count)]
+    # the game counts a lap when a kart's distance to the finish jumps past 32000, so a shorter lap counts as that long
+    unit = DIST_TO_FINISH_UNIT * min(1, along[-1] / SHORTEST_LAP)
+    remaining = [max(1, int((along[-1] - along[i * stride]) / unit)) for i in range(count)]
+
+    ground = []
+    centres = {}
+    by_vertex = defaultdict(list)
+    for q in range(nq):
+        o = qoff + QUAD_SIZE * q
+        if not struct.unpack_from('<H', data, o + 0x12)[0] & 0x1000:
+            continue
+        ground.append(q)
+        idx = struct.unpack_from('<9H', data, o)
+        corners = [struct.unpack_from('<3h', data, voff + 16 * i) for i in set(idx[:4])]
+        centres[q] = tuple(sum(c[k] for c in corners) / len(corners) for k in range(3))
+        for i in set(idx):
+            by_vertex[i].append(q)
+    bounds = np.array([struct.unpack_from('<6h', data, qoff + QUAD_SIZE * q + QUAD_BBOX) for q in ground])
+    label = {}
+    for q in ground:
+        index = data[qoff + QUAD_SIZE * q + QUAD_CHECKPOINT]
+        if index == 0:
+            label[q] = 0
+        elif index == old - 1:
+            label[q] = count - 1
+    for i, (x, y, z) in enumerate(route[:count * stride]):
+        under = np.nonzero((bounds[:, 0] <= x) & (x <= bounds[:, 3]) & (bounds[:, 2] <= z) & (z <= bounds[:, 5]) &
+                           (bounds[:, 1] - 64 <= y) & (y <= bounds[:, 4] + 64))[0]
+        for k in under:
+            label.setdefault(ground[k], i // stride)
+    seeded = len(label)
+    heap = [(0.0, q, node) for q, node in label.items()]
+    heapq.heapify(heap)
+    label = {}
+    while heap:
+        cost, q, node = heapq.heappop(heap)
+        if q in label:
+            continue
+        label[q] = node
+        o = qoff + QUAD_SIZE * q
+        for i in set(struct.unpack_from('<9H', data, o)):
+            for other in by_vertex[i]:
+                if other not in label:
+                    heapq.heappush(heap, (cost + math.dist(centres[q], centres[other]), other, node))
+    apart = np.array(nodes, float)
+    for q in ground:
+        node = label.get(q)
+        if node is None:  # ground the route's own ground does not reach: an island or a ledge
+            node = int(((apart - centres[q]) ** 2).sum(1).argmin())
+        data[qoff + QUAD_SIZE * q + QUAD_CHECKPOINT] = node
+
+    while len(data) % 4: data.append(0)
+    table = len(data)
+    for i, p in enumerate(nodes):
+        data += struct.pack('<3hH4B', *p, remaining[i], (i + 1) % count, NO_CHECKPOINT, (i - 1) % count, NO_CHECKPOINT)
+    struct.pack_into('<I', data, OFF_NUM_CHECKPOINTS, count)
+    struct.pack_into('<I', data, OFF_CHECKPOINTS, table)
+    return nodes, seeded
 
 
 def add_minimap(data, pointer, block, ui_map):
@@ -306,10 +397,6 @@ def patch(lev_path, vrm_path, nav_path, out_path, out_vrm, zenith, horizon, item
     tail = lev[8 + data_len + 4 * nptr:]
     assert not tail, 'unexpected bytes after the pointer map'
 
-    ncp = struct.unpack_from('<I', data, OFF_NUM_CHECKPOINTS)[0]
-    cpo = struct.unpack_from('<I', data, OFF_CHECKPOINTS)[0]
-    cps = [struct.unpack_from('<3h', data, cpo + 12 * i) for i in range(ncp)]
-
     # Collision blocks (the converter draws nothing but the render mesh, which has no collision
     # flags): retail hides a face by its draw mode
     # (2 bits per face at drawOrderLow bit 8 + 5*face + 3; 3 draws nothing).
@@ -363,6 +450,8 @@ def patch(lev_path, vrm_path, nav_path, out_path, out_vrm, zenith, horizon, item
     map_clut, item_stats = add_items(data, ptrs, items, placed, collision_leaves)
 
     lanes = json.load(open(nav_path))['lanes']
+    cps, seeded_blocks = rebuild_checkpoints(data, mesh, lanes[0])
+    ncp = len(cps)
     while len(data) % 4: data.append(0)
     table = len(data)
     data += bytes(12)
@@ -379,7 +468,7 @@ def patch(lev_path, vrm_path, nav_path, out_path, out_vrm, zenith, horizon, item
             p, q = pos[i % n], pos[(i + 1) % n]
             dx, dy, dz = q[0] - p[0], q[1] - p[1], q[2] - p[2]
             yaw = int(round(math.atan2(dx, dz) * 4096 / (2 * math.pi))) & 0xfff
-            near = min(range(ncp), key=lambda c: sum((cps[c][k] - p[k]) ** 2 for k in range(3))) if ncp else 0
+            near = min(range(ncp), key=lambda c: sum((cps[c][k] - p[k]) ** 2 for k in range(3)))
             fr = bytearray(0x14)
             struct.pack_into('<3h', fr, 0, *p)
             fr[7] = yaw >> 4
@@ -399,7 +488,7 @@ def patch(lev_path, vrm_path, nav_path, out_path, out_vrm, zenith, horizon, item
     out = struct.pack('<I', len(data)) + bytes(data) + struct.pack('<I', 4 * len(ptrs)) + struct.pack(f'<{len(ptrs)}I', *ptrs)
     open(out_path, 'wb').write(out)
     open(out_vrm, 'wb').write(blend_map_palette(open(vrm_path, 'rb').read(), map_clut))
-    return {'lanes': len(lanes), 'checkpoints': ncp, 'hidden quadblocks': hidden,
+    return {'lanes': len(lanes), 'checkpoints': ncp, 'blocks under the route': seeded_blocks, 'hidden quadblocks': hidden,
             'culled bsp nodes': len(culled), 'of': nbsp, 'vis lists': len(vis_lists),
             'worst collision normal error': round(normal_error, 4), 'quadblocks over 2%': normal_bad,
             'collision triangles turned by the grid, ignored': normal_ignored, **item_stats}

@@ -28,6 +28,8 @@ typedef struct
 	int stuckMS;
 	int stuckX, stuckZ;
 	int reverseMS;
+	int wedges; // CTR_DEV_AUTOPILOT=3: in a row, near (wedgeX, wedgeZ)
+	int wedgeX, wedgeZ;
 	int wantAngle;
 	int steer;
 } NativeDevPilot;
@@ -632,7 +634,36 @@ int NativeDev_AutopilotPad(int player, unsigned short *buttons, unsigned char *l
 		{
 			p->stuckMS = 0;
 			p->reverseMS = 1000;
+			mx = x - p->wedgeX;
+			mz = z - p->wedgeZ;
+			if (mx * mx + mz * mz > 1000 * 1000)
+				p->wedges = 0;
+			p->wedgeX = x;
+			p->wedgeZ = z;
+			p->wedges++;
 		}
+	}
+
+	// CTR_DEV_AUTOPILOT=3: wedged twice in one place, hop on along the line, so
+	// a lap shows every place a kart gets stuck and not only the first. The
+	// jump in the trace marks the place (tools/tracks/lap_check.py).
+	if ((dev->autopilot == 3) && (p->wedges >= 2))
+	{
+		int to = (best + 6) % count;
+		int next = (to + 1) % count;
+		d->posCurr.x = d->posPrev.x = frames[to].pos.x << 8;
+		d->posCurr.y = d->posPrev.y = (frames[to].pos.y + 32) << 8;
+		d->posCurr.z = d->posPrev.z = frames[to].pos.z << 8;
+		d->velocity.x = d->velocity.y = d->velocity.z = 0;
+		d->xSpeed = d->ySpeed = d->zSpeed = 0;
+		d->speed = d->speedApprox = 0;
+		d->angle = (s16)(ratan2(frames[next].pos.x - frames[to].pos.x, frames[next].pos.z - frames[to].pos.z) & 0xfff);
+		d->distanceToFinish_checkpoint = 0;
+		p->navIndex = to;
+		p->wedges = 0;
+		p->reverseMS = 0;
+		p->stuckX = frames[to].pos.x;
+		p->stuckZ = frames[to].pos.z;
 	}
 
 	// The d-pad too on a hard turn: analog alone steers too gently.
@@ -646,6 +677,8 @@ int NativeDev_AutopilotPad(int player, unsigned short *buttons, unsigned char *l
 		held = RAW_BTN_SQUARE | RAW_BTN_DOWN;
 		steer = (steer > 0) ? -127 : 127;
 	}
+	else if ((dev->autopilot == 3) && (speedAbs > 6000) && ((err > 0x180) || (err < -0x180)))
+		held = RAW_BTN_SQUARE; // a kart at full speed turns far wider than the corner
 	if (steer < -48)
 		held |= RAW_BTN_LEFT;
 	if (steer > 48)

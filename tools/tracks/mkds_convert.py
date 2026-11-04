@@ -55,6 +55,11 @@ COLLISION = {
 }
 
 
+SLIVER_WIDTH = 3  # LEV units: thinner than this, the grid turns a collision triangle's pieces any way
+MAX_VERTICES = 65000  # quadblocks index vertices with 16 bits; a little under, as the OBJ's count is close, not exact
+MAX_COORD = 500  # CrashTeamEditor units; 512 is the LEV's 16-bit limit, and the carrier blocks sit 8 past the course
+VRAM_SHARE = 0.85  # of the free texture pages, at first
+MAX_FIT_ATTEMPTS = 12
 BOOST_MATERIAL = 'col_boost'
 TRIGGER_TURBO_PAD = 1  # CrashTeamEditor's QuadblockTrigger
 PRESET_TURBO_PAD = 4  # CrashTeamEditor's PresetHeader
@@ -241,6 +246,49 @@ def refine(items, max_edge, weld_tol, snap=4, tjunction_tol=0.0):
         items = out
 
 
+def close_slivers(items, width):
+    """Remove triangles thinner than width without opening a crack. Such a sliver has a corner almost on
+    its longest edge: every neighbour across that edge is split at this corner instead, so the sliver's
+    two short edges take its place in the mesh. Dropping it would leave a strip with no ground, a kart's
+    probe falling through it. items: as refine's, on the LEV grid. -> (items, slivers removed)."""
+    def k(v):
+        return tuple(np.round(np.asarray(v['pos']) * 64).astype(int))
+    items = [item for item in items if len({k(v) for v in item[0]}) == 3]  # welded to a line
+    removed = 0
+    for _ in range(16):  # splitting a neighbour can leave it a sliver in turn
+        edges = defaultdict(list)
+        for i, (t, _meta) in enumerate(items):
+            for e in range(3):
+                edges[frozenset((k(t[e]), k(t[(e + 1) % 3])))].append((i, e))
+        touched, gone, added = set(), set(), []
+        for i, (t, _meta) in enumerate(items):
+            if i in touched:
+                continue
+            P = [np.asarray(v['pos'], float) for v in t]
+            e = max(range(3), key=lambda e: np.linalg.norm(P[(e + 1) % 3] - P[e]))
+            base = np.linalg.norm(P[(e + 1) % 3] - P[e])
+            if base == 0 or np.linalg.norm(np.cross(P[1] - P[0], P[2] - P[0])) / base >= width:
+                continue
+            apex = t[(e + 2) % 3]
+            others = [(j, f) for j, f in edges[frozenset((k(t[e]), k(t[(e + 1) % 3])))] if j != i]
+            if i in touched or any(j in touched for j, _f in others):
+                continue  # next pass: its neighbours have changed
+            touched.add(i)
+            gone.add(i)
+            removed += 1
+            for j, f in others:
+                touched.add(j)
+                gone.add(j)
+                n, meta = items[j]
+                p, q, r = n[f], n[(f + 1) % 3], n[(f + 2) % 3]
+                if k(apex) != k(r):  # two slivers back to back close each other
+                    added += [([p, apex, r], meta), ([apex, q, r], meta)]
+        if not gone:
+            break
+        items = [item for i, item in enumerate(items) if i not in gone] + added
+    return items, removed
+
+
 def pair_quads(items, max_dev):
     """Merge pairs of triangles that share an edge into quads, so one quadblock draws what two
     triblocks did. A pair merges only when one affine texture map covers both (the quad's
@@ -400,8 +448,7 @@ def minimap(kcl, to_lev, forward):
     two turns as near, takes the one that draws the road larger. -> (RGBA array, the UIMap's first
     nine fields, which put a world position on it)."""
     road = [[to_lev(p) for p in t[:3]] for t in kcl
-            if (i := COLLISION.get(mkdsmap.kcl_type(t[4]))) and i[0] in MAP_ROAD and abs(t[3][1]) >= 0.3
-            and np.isfinite(t[:3]).all()]  # a degenerate KCL prism has no corners
+            if (i := COLLISION.get(mkdsmap.kcl_type(t[4]))) and i[0] in MAP_ROAD and abs(t[3][1]) >= 0.3]
     points = np.array(road).reshape(-1, 3)
     def axes(mode):
         up_x, up_z = MAP_UP[mode]
@@ -545,7 +592,7 @@ class Course:
         billboard is drawn as two crossed quads, seen from both sides.
         """
         loaded = {}
-        ground = [t for t in self.kcl if t[3][1] > 0.1]  # NaN corners and normals fail this too
+        ground = [t for t in self.kcl if t[3][1] > 0.1]
         missing = set()
         for object_id, pos, rot, size in mkdsmap.placed_objects(self.nkm):
             name = SCENERY.get(object_id)
@@ -608,7 +655,27 @@ def quantize(img):
     return Image.fromarray(qa, 'RGBA'), colours
 
 
-def convert(course, out_dir, name, scale, max_edge, crate):
+def fit_to_lev(course, centre, limit):
+    """LEV positions are 16 bits, and a few courses reach further than that from their centre: sea and
+    backdrop, not the road. A triangle wholly past the limit is dropped, and a corner of one that crosses
+    it moves to the limit. limit: MKDS units either way from centre. -> triangles dropped."""
+    low, high = centre - limit, centre + limit
+    def past(points):
+        p = np.array(points)
+        return bool(np.any(np.all(p > high, axis=0) | np.all(p < low, axis=0)))
+    def fit(p):
+        return np.clip(p, low, high)
+    kept = [t for t in course.kcl if not past(t[:3])]
+    dropped = len(course.kcl) - len(kept)
+    course.ground_triangles -= sum(past(t[:3]) for t in course.kcl[:course.ground_triangles])
+    course.kcl = [(fit(a), fit(b), fit(c), n, attr) for a, b, c, n, attr in kept]
+    drawn = [(mi, tri) for mi, tri in course.triangles if not past([v[0] for v in tri])]
+    dropped += len(course.triangles) - len(drawn)
+    course.triangles = [(mi, [(fit(p), uv, col, nrm) for p, uv, col, nrm in tri]) for mi, tri in drawn]
+    return dropped
+
+
+def convert(course, out_dir, name, scale, max_edge, crate, vram_share):
     os.makedirs(out_dir, exist_ok=True)
     tex_dir = out_dir  # CTE resolves map_Kd next to the OBJ only
     os.makedirs(tex_dir, exist_ok=True)
@@ -616,6 +683,8 @@ def convert(course, out_dir, name, scale, max_edge, crate):
     # world placement: centre the course, MKDS units -> CTE units
     kpts = np.array([v for t in course.kcl[:course.ground_triangles] for v in t[:3]])
     centre = (kpts.min(0) + kpts.max(0)) / 2
+    outside = fit_to_lev(course, centre, MAX_COORD / scale)
+    kpts = np.array([v for t in course.kcl[:course.ground_triangles] for v in t[:3]])
 
     def to_cte(p):
         q = (np.asarray(p) - centre) * scale
@@ -658,21 +727,26 @@ def convert(course, out_dir, name, scale, max_edge, crate):
         kx = pow2_at_most(min(256 // m.width, math.ceil(span[i][0]), 4)) if (m.teximage >> 16) & 1 else 1
         ky = pow2_at_most(min(256 // m.height, math.ceil(span[i][1]), 4)) if (m.teximage >> 17) & 1 else 1
         tiles[i] = [kx, ky]
+    shrink = defaultdict(lambda: 1)  # the last resort, when even single tiles do not fit
     def vram_words(i):
         m = course.mats[i]
-        w, h = m.width * tiles[i][0], m.height * tiles[i][1]
+        w, h = m.width * tiles[i][0] // shrink[i], m.height * tiles[i][1] // shrink[i]
         return math.ceil(w / 4) * h  # 4-bit worst case; 8-bit textures are at most 128 wide
-    budget = 14 * 64 * 256 * 0.85  # 14 free texture pages in a CTE VRM, minus room for palettes
+    budget = 14 * 64 * 256 * vram_share  # 14 free texture pages in a CTE VRM, less room for palettes
     budget -= sum(math.ceil(image.shape[1] / 4) * image.shape[0] for image in item_images)
     while sum(vram_words(i) for i in tiles) > budget:
-        i = max((i for i in tiles if max(tiles[i]) > 1), key=vram_words)
-        a = 0 if tiles[i][0] >= tiles[i][1] else 1
-        tiles[i][a] //= 2
+        repeated = [i for i in tiles if max(tiles[i]) > 1]
+        if repeated:
+            i = max(repeated, key=vram_words)
+            a = 0 if tiles[i][0] >= tiles[i][1] else 1
+            tiles[i][a] //= 2
+        else:
+            shrink[max(tiles, key=vram_words)] *= 2
     for i_mat, m in enumerate(course.mats):
         i = i_mat
         mname = f'v{i:02d}_{m.tex}'
         mat_names[i] = mname
-        src = m.tex0.decode(m.tex, m.pal)
+        src = m.tex0.decode(m.tex, m.pal)[::shrink[i_mat], ::shrink[i_mat]]
         kx, ky = tiles[i_mat]
         fx, fy = (m.teximage >> 18) & 1, (m.teximage >> 19) & 1
         rows = []
@@ -775,6 +849,8 @@ def convert(course, out_dir, name, scale, max_edge, crate):
 
     # ---- render geometry
     stats = defaultdict(int)
+    if outside:
+        stats['triangles past the LEV limit, dropped'] = outside
     render = []
     for ti, (mi, tri) in enumerate(course.triangles):
         m = course.mats[mi]
@@ -877,16 +953,15 @@ def convert(course, out_dir, name, scale, max_edge, crate):
     for piece, meta in refine(collision, max_edge / scale, weld_tol=0.5, tjunction_tol=1.0):
         snapped.append(([{'pos': grid_weld(v['pos']), 'mk': np.asarray(v['pos'], float), 'uv': v['uv'], 'col': v['col']}
                          for v in piece], meta))
+    snapped, stats['collision slivers closed'] = close_slivers(snapped, SLIVER_WIDTH / 64)
     for piece, (cname, crossing, src_n) in snapped:
             if area(piece) < 1e-9:
                 stats['collision degenerate on the LEV grid'] += 1
                 continue
             if np.dot(tri_normal(piece), src_n) < TURNED_COS:
-                # a sliver the grid turned (only a sliver turns this far when its corners move by
-                # half a unit): turned over, the game would test it facing the wrong way; stood up
-                # across a road, it is a wall a unit or two tall that stops the kart dead. Its
-                # neighbours cover the strip it was, to within the grid.
-                stats['collision slivers turned by the LEV grid, dropped'] += 1
+                # turned over, the game would test it facing the wrong way; stood up across a road,
+                # it is a wall that stops the kart dead
+                stats['collision triangles turned by the LEV grid, dropped'] += 1
                 continue
             stats['collision'] += 1
             bname = f'c{stats["collision"]:05d}'
@@ -1061,6 +1136,12 @@ def convert(course, out_dir, name, scale, max_edge, crate):
     return dict(stats)
 
 
+def obj_vertices(path):
+    """Distinct position and colour pairs in an OBJ: CrashTeamEditor's LEV vertices, to within a few."""
+    with open(path) as f:
+        return len({line for line in f if line.startswith('v ')})
+
+
 def main():
     ap = argparse.ArgumentParser(description='Convert a Mario Kart DS course into an installed custom track package.')
     ap.add_argument('rom', help='the player\'s own Mario Kart DS ROM (.nds)')
@@ -1085,22 +1166,37 @@ def main():
     files = nds.nitrofs(open(a.rom, 'rb').read())
     course = Course(files, a.course)
     items = ctr_items.read(a.disc)
-    print('convert', convert(course, work, name, a.scale, a.max_edge, items['crates']))
-
     lev_dir = os.path.join(work, 'lev')
     os.makedirs(lev_dir, exist_ok=True)  # CTE saves into an existing folder only
     # cte_headless links MinGW32's Python runtime
     env = dict(os.environ, PATH='C:/msys64/mingw32/bin' + os.pathsep + os.environ.get('PATH', ''))
-    r = subprocess.run([a.cte, os.path.join(work, name + '.obj'), lev_dir], env=env, capture_output=True, text=True)
-    print(r.stdout.strip())
-    if r.returncode != 0:
-        sys.exit('cte_headless failed:\n' + r.stderr)
-
-    if not os.path.exists(os.path.join(lev_dir, name + '.vrm')):
-        sys.exit('CrashTeamEditor wrote no VRM: the textures do not fit its VRAM')
     lev = os.path.join(lev_dir, name + '.lev')
-    patched = os.path.join(lev_dir, name + '_patched.lev')
     vrm = os.path.join(lev_dir, name + '.vrm')
+    # Blocks grow until the vertices fit 16-bit indices, textures shrink until they fit the VRM
+    max_edge, vram_share = a.max_edge, VRAM_SHARE
+    for attempt in range(MAX_FIT_ATTEMPTS):
+        for stale in (lev, vrm):
+            if os.path.exists(stale):
+                os.remove(stale)
+        print('convert', convert(course, work, name, a.scale, max_edge, items['crates'], vram_share))
+        if obj_vertices(os.path.join(work, name + '.obj')) > MAX_VERTICES:
+            print(f'over {MAX_VERTICES} vertices at --max-edge {max_edge}')
+            max_edge = round(max_edge * 1.25, 1)
+            continue
+        r = subprocess.run([a.cte, os.path.join(work, name + '.obj'), lev_dir], env=env, capture_output=True, text=True)
+        print(r.stdout.strip())
+        if r.returncode != 0:
+            sys.exit('cte_headless failed:\n' + r.stderr)
+        if os.path.exists(vrm):
+            break
+        print(f'the textures do not fit the VRM at {vram_share} of it')
+        vram_share = round(vram_share * 0.85, 3)
+    else:
+        sys.exit(f'nothing fits after {MAX_FIT_ATTEMPTS} attempts')
+    print(f'fits at --max-edge {max_edge}, {vram_share} of the VRM')
+    if lev_patch.vertex_count(lev) > 0xffff:
+        sys.exit('more vertices than a quadblock can index')
+    patched = os.path.join(lev_dir, name + '_patched.lev')
     patched_vrm = os.path.join(lev_dir, name + '_patched.vrm')
     placed = json.load(open(os.path.join(work, name + '_items.json')))
     patched_stats = lev_patch.patch(lev, vrm, os.path.join(work, name + '_nav.json'), patched, patched_vrm, *course.sky_colours(), items, placed)

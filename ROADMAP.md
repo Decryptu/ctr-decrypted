@@ -16,10 +16,17 @@ What is in progress, what is next, and what was decided. A finished item is dele
 - **High Octane is ported feature by feature, never merged.** A trial merge conflicts in 92 files, and it carries Vita, web and leaderboard code we don't want.
 
 ## In progress
-- Mario Kart DS course converter ([TRACK-CONVERTER.md](docs/TRACK-CONVERTER.md)). Figure-8 Circuit converts with its item boxes, Wumpa fruit, minimap and trees and passes the checks. Next steps, in this order:
-  1. Every remaining course in one batch run with `check_track.ps1`; the owner play-tests only those that pass. Known failures to fix first: textures that do not fit the VRM (`bank_course`); drawn blocks turned over (`bank_course`, `snow_course`). `clock_course` and `old_noko_sfc` each have 2 KCL prisms with no valid corners: the minimap skips them, the collision steps have not been tried on them. Check each course's scenery by eye: the `SCENERY` table is deduced, so two models may be swapped, and a pipe or house may look wrong as crossed quads. Only Figure-8 and `old_mario_sfc` have been run with scenery. Real boost pads have only been tested through a stretch of Figure-8 marked as boost, as Figure-8 has none: drive one on the first course with pads that converts. KCL types 0x0c (jump pad), 0x0f (cannon) and 0x13 (loop) are not converted.
-  2. Moving course objects (cars, Goombas, Thwomps, flippers): none are converted, and some courses are built round them.
-  3. Publish the finished tracks in the catalogue (`tools/tracks/build_index.py`) and submit them to Saphi, then set `saphi_track_id` on any upload whose bytes differ. Catalogue tracks need a picture: the Mods screen shows only Saphi's today.
+- Mario Kart DS course converter ([TRACK-CONVERTER.md](docs/TRACK-CONVERTER.md)). All 32 race courses convert and 24 pass `mkds_batch.py --check`. Next steps, in this order:
+  1. The owner play-tests the 24. The checks cannot see taste or feel: scenery by eye (the `SCENERY` table is deduced, and only its captures have been looked at; a house may look wrong as crossed quads), the rainbow patches on Tick-Tock Clock and Wario Stadium ramps (likely MKDS's own ramp material, not confirmed), and the plain white or flat sky where a course has only its gradient (`course_model_V` is not drawn).
+  2. The 8 that stop at something not converted, each with no lap finished:
+     - KCL 0x0f (cannon): Airship Fortress, Waluigi Pinball.
+     - KCL 0x0c (jump pad): GBA Bowser Castle 2, GBA Sky Garden.
+     - KCL 0x13 (loop) and the gaps round it: Rainbow Road.
+     - Moving bridges: Bowser Castle (`rotary_bridge`), Delfino Square (`bridge`).
+     - GCN Luigi Circuit: bug, cause not found. The kart gets through most of the lap, then Aku Aku takes it again and again near LEV (-2090, -1226, -1550), three quarters round. No listed surface explains it.
+     Waluigi Pinball peaks at 255 of the 256 near-camera blocks: when it can be driven, convert it with a larger `--max-edge`.
+  3. Moving course objects (cars, Goombas, Thwomps, flippers): none are converted, and some courses are built round them.
+  4. Publish the finished tracks in the catalogue (`tools/tracks/build_index.py`) and submit them to Saphi, then set `saphi_track_id` on any upload whose bytes differ. Catalogue tracks need a picture: the Mods screen shows only Saphi's today.
 
 ## Maybe
 - 200cc beyond Arcade and VS ([SPEED-CLASS.md](docs/SPEED-CLASS.md)): Time Trial with records and ghosts kept per class (a save format change), and whether Archipelago can require or place it.

@@ -6,7 +6,7 @@
   tools\tracks\check_track.ps1 -Rom C:\roms\mkds.nds -Course cross_course
   Installs the package tools\tracks\mkds_convert.py left in C:\t\mkds-cross_course\packages into a
   run folder, races three laps on autopilot with the collision probe, and fails (exit 1) on any
-  refused draw, dropped BSP record, crash or collision hole. Frames land in <Work>\shots.
+  refused draw, dropped BSP record, crash, collision hole or race with no lap finished. Frames land in <Work>\shots.
 #>
 param(
 	[Parameter(Mandatory)][string]$Rom,
@@ -29,10 +29,11 @@ Get-ChildItem $store -Directory | Where-Object Name -ne $pin | Remove-Item -Recu
 Copy-Item (Join-Path $Work "packages\$pin") $store -Recurse -Force
 
 $probe = Join-Path $Work 'probe.csv'
+$trace = Join-Path $Work 'trace.csv'
 $shots = Join-Path $Work 'shots'
-Remove-Item $probe, (Join-Path $RunDir 'crash.txt'), $shots -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item $probe, $trace, (Join-Path $RunDir 'crash.txt'), $shots -Recurse -Force -ErrorAction SilentlyContinue
 & (Join-Path $repo 'tools\decrypted\devrun.ps1') -Track -1 -Frames $Frames -From 1500 -Every 1500 -Exe $Exe -RunDir $RunDir -Out $shots `
-	-Env @{CTR_DEV_CUSTOM = $pin; CTR_DEV_AUTOPILOT = 1; CTR_DEV_COLL_PROBE = $probe; CTR_DEV_COLL_PROBE_IN = (Join-Path $Work "${Course}_probe.txt")} | Out-Null
+	-Env @{CTR_DEV_CUSTOM = $pin; CTR_DEV_AUTOPILOT = 3; CTR_DEV_TRACE = $trace; CTR_DEV_COLL_PROBE = $probe; CTR_DEV_COLL_PROBE_IN = (Join-Path $Work "${Course}_probe.txt")} | Out-Null
 
 $failed = @()
 # release builds put the version in the log's name
@@ -54,6 +55,11 @@ if (-not (Test-Path $probe)) { $failed += 'no collision probe output' }
 else {
 	python (Join-Path $PSScriptRoot 'collision_check.py') $probe $Rom $Course $Work
 	if ($LASTEXITCODE -ne 0) { $failed += 'collision holes or ground off its layer' }
+}
+if (-not (Test-Path $trace)) { $failed += 'no race trace' }
+else {
+	python (Join-Path $PSScriptRoot 'lap_check.py') $trace
+	if ($LASTEXITCODE -ne 0) { $failed += 'the autopilot finished no lap' }
 }
 "frames: $shots"
 if ($failed) { $failed | ForEach-Object { Write-Warning $_ }; exit 1 }

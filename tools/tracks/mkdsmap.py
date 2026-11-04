@@ -25,7 +25,8 @@ def kcl(data):
         ca, cb = np.cross(n1, n), np.cross(n2, n)
         b = a + cb * (h / np.dot(cb, n3))
         c = a + ca * (h / np.dot(ca, n3))
-        tris.append((a, b, c, n, attr))
+        if np.isfinite([a, b, c]).all():  # a degenerate prism has no corners
+            tris.append((a, b, c, n, attr))
     return tris
 
 
@@ -79,7 +80,16 @@ def paths(m, key):
 
 
 def cpu_route(m):
-    return [(vec32(e, 0), fx32(e, 12)) for e in m['EPOI']]
+    """-> one lap of the CPU route as (point, radius). EPOI holds sections in no driving order, and EPAT
+    links them, forking where a course does: follow each section's first link until the route closes."""
+    sections = paths(m, 'EPAT')
+    order, section = [], 0
+    while section not in order:
+        order.append(section)
+        section = sections[section][2][0]
+    order = order[order.index(section):]
+    points = [(vec32(e, 0), fx32(e, 12)) for e in m['EPOI']]
+    return [point for i in order for point in points[sections[i][0]:sections[i][0] + sections[i][1]]]
 
 
 def objects(m):

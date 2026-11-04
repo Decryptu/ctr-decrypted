@@ -4,9 +4,11 @@ check_track.ps1 runs it. Exits 1 on any hole or height problem.
 Every probe point stands on an MKDS ground layer. For each, compare what the game found:
   hole         no ground where MKDS has ground all around (within the kart's radius)
   edge         no ground, but the point is on the rim of the drivable area (wall foot, drop)
-  engine edge  no ground, but the point is inside a LEV triangle within 1 unit of its edge:
-               the engine's fixed-point triangle test, retail tracks have these too
-  height       ground found, but not on any MKDS layer within 64 units
+  engine edge  no ground, but a LEV ground triangle is within ENGINE_EDGE units: the engine's
+               fixed-point test misses next to an edge, retail tracks too, and a kart at any speed
+               crosses a gap this narrow in one frame
+  height       ground found, but not on any MKDS layer within 64 units, here or 3 units away
+               (a point on a wall's line can land on the top of the wall)
   wall footprint  the probe line ran down a wall face (point on the wall's base line)
 and how far the drawn surface is from the ground the game found.
 """
@@ -25,6 +27,8 @@ t = mkdsmap.kcl(nds.carc(nds.nitrofs(open(rom_path, 'rb').read())[f'data/Course/
 P = np.array([v for tr in t for v in tr[:3]])
 centre = (P.min(0) + P.max(0)) / 2
 LEV = 64 * scale
+ENGINE_EDGE = 3  # LEV units
+KILL_PLANE = 0x200  # the steep out-of-bounds curtains MKDS hangs round a course are fall surfaces, not ground
 
 
 def tri_grid(tris):
@@ -65,16 +69,12 @@ drawn_grid = tri_grid(faces)
 LV, LQ = levtri.load(lev_path)
 
 
-def edge_dist(x, z):
-    """Distance to the nearest edge of a LEV ground triangle containing (x, z), or None."""
-    best = None
-    for qi, tri_idx, (a, b, c) in levtri.containing(LV, LQ, x, z):
-        for u, w in ((a, b), (b, c), (c, a)):
-            p, u2, w2 = np.array([x, z], float), np.array([u[0], u[2]], float), np.array([w[0], w[2]], float)
-            tt = np.clip(np.dot(p - u2, w2 - u2) / max(np.dot(w2 - u2, w2 - u2), 1e-9), 0, 1)
-            d = np.linalg.norm(p - (u2 + tt * (w2 - u2)))
-            best = d if best is None else min(best, d)
-    return best
+def near_edge(x, z, y):
+    for a in np.linspace(0, 2 * np.pi, 8, endpoint=False):
+        px, pz = x + ENGINE_EDGE * np.cos(a), z + ENGINE_EDGE * np.sin(a)
+        if any(abs(sum(v[1] for v in tri) / 3 - y) < 0x80 for _, _, tri in levtri.containing(LV, LQ, px, pz)):
+            return True
+    return False
 
 
 counts = {'probes': 0, 'hole': 0, 'edge': 0, 'engine edge': 0, 'height': 0, 'wall footprint': 0}
@@ -93,17 +93,19 @@ for r in csv.DictReader(open(probe_csv)):
         ring = [heights(layers, mx + rad * np.cos(a), mz + rad * np.sin(a)) for a in np.linspace(0, 2 * np.pi, 8, endpoint=False)]
         if not all(any(abs(g2 - gy) < 0x80 / LEV for g2, _ in h) for h in ring):
             counts['edge'] += 1
-        elif (edge_dist(x, z) or 99) < 1.0:
+        elif near_edge(x, z, y):
             counts['engine edge'] += 1
         else:
             counts['hole'] += 1
             holes.append((x, y, z))
         continue
     hy = int(r['hitY'])
-    if min(abs((g - centre[1]) * LEV - hy) for g in here) > 64:
+    near = here + [g for a in np.linspace(0, 2 * np.pi, 8, endpoint=False)
+                   for g, _ in heights(layers, mx + 3 / LEV * np.cos(a), mz + 3 / LEV * np.sin(a))]
+    if min(abs((g - centre[1]) * LEV - hy) for g in near) > 64:
         # the line ran down a wall face: the point is on the wall's footprint, where no
         # kart centre can be (it stays its radius away)
-        if int(r['flags']) & 0x3000 == 0x2000:
+        if int(r['flags']) & 0x3000 == 0x2000 or int(r['flags']) & KILL_PLANE:
             counts['wall footprint'] += 1
             continue
         counts['height'] += 1
