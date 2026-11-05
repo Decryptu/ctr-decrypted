@@ -7866,11 +7866,8 @@ static int DrawLevelOvr1P_HasLowTexture(const struct QuadBlock *block)
 	return block->ptr_texture_low != NULL;
 }
 
-static struct TextureLayout *Ovr226_800a1058_PrepareFullDynamicLowUv(struct QuadBlock *block, struct DrawLevelOvr1PScratchVertex *projected)
+static void DrawLevelOvr1P_SetFullDynamicLowUv(struct DrawLevelOvr1PScratchVertex *projected, const int *indices, struct TextureLayout *texture)
 {
-	const int *indices = sDrawLevelOvr1PFullDynamicLowIndices;
-	struct TextureLayout *texture = block->ptr_texture_low;
-
 	// NOTE(aalhendi): Retail full-dynamic 0x800a0ef4 seeds low-LOD UVs before
 	// choosing either the direct low quad or the near/transition helper table.
 	DrawLevelOvr1P_Scratch()->selected4x1TableWord = 0;
@@ -7885,8 +7882,12 @@ static struct TextureLayout *Ovr226_800a1058_PrepareFullDynamicLowUv(struct Quad
 	projected[indices[1]].flags = (u16)uv1;
 	projected[indices[2]].flags = (u16)uv2;
 	projected[indices[3]].flags = (u16)(uv2 >> 16);
+}
 
-	return texture;
+static struct TextureLayout *Ovr226_800a1058_PrepareFullDynamicLowUv(struct QuadBlock *block, struct DrawLevelOvr1PScratchVertex *projected)
+{
+	DrawLevelOvr1P_SetFullDynamicLowUv(projected, sDrawLevelOvr1PFullDynamicLowIndices, block->ptr_texture_low);
+	return block->ptr_texture_low;
 }
 
 static u16 DrawLevelOvr1P_AverageFullDynamicUv(u16 uvA, u16 uvB)
@@ -8453,25 +8454,34 @@ static int Ovr226_800a1128_DispatchFullDynamicTransitionGrid(struct PushBuffer *
 // Each face as a far quad of its own, its corners and texture where the far
 // quad's are. No transition grid: that blends midpoints onto the block's
 // corners and reads the block's mid textures, which assumes a regular grid.
-static int DrawLevelOvr1P_EmitFarFaces(struct PushBuffer *pb, struct PrimMem *primMem, const struct QuadBlock *block, struct LevVertex *vertices)
+static int DrawLevelOvr1P_EmitFarFaces(struct PushBuffer *pb, struct PrimMem *primMem, struct QuadBlock *block, struct LevVertex *vertices)
 {
 	struct DrawLevelOvr1PScratchVertex *projected = DrawLevelOvr1P_GetScratchVertices();
 
+	Ovr226_800a0f78_ProjectFullDynamicLowQuad(vertices, block, projected);
+	Ovr226_800a1128_ProjectFullDynamicHighGrid(vertices, block, projected);
+
 	for (int faceIndex = 0; faceIndex < 4; faceIndex++)
 	{
-		struct QuadBlock face = *block;
+		const int *indices = sDrawLevelOvr1PGridFaceIndices[faceIndex];
+		struct TextureLayout *texture = block->ptr_texture_mid[faceIndex];
 
-		for (int corner = 0; corner < 4; corner++)
+		if (DrawLevelOvr1P_IsProjectedPolyOffscreenPacked(projected, indices, 4))
 		{
-			face.index[corner] = block->index[sDrawLevelOvr1PGridFaceIndices[faceIndex][corner]];
+			continue;
 		}
-		face.ptr_texture_low = block->ptr_texture_mid[faceIndex];
 
-		Ovr226_800a0f78_ProjectFullDynamicLowQuad(vertices, &face, projected);
-		struct TextureLayout *texture = Ovr226_800a1058_PrepareFullDynamicLowUv(&face, projected);
-		u32 maxDepth = DrawLevelOvr1P_GetProjectedMaxDepth(projected, sDrawLevelOvr1PFullDynamicLowIndices);
-		DrawLevelOvr1P_SetFullDynamicInheritedOtIndex(&face, projected, maxDepth, -1);
-		if (!Ovr226_800a1338_DispatchFullDynamicLowDirect(pb, primMem, &face, projected, texture))
+		u32 directMask = DrawLevelOvr1P_SelectDirectMask(block, projected, indices, 0, DRAW_LEVEL_OVR1P_DIRECT_QUAD);
+		DrawLevelOvr1P_Scratch()->directMask = directMask;
+		if (directMask == 0)
+		{
+			continue;
+		}
+
+		// A corner two faces share has a UV for each
+		DrawLevelOvr1P_SetFullDynamicLowUv(projected, indices, texture);
+		DrawLevelOvr1P_SetFullDynamicInheritedOtIndex(block, projected, DrawLevelOvr1P_GetProjectedMaxDepth(projected, indices), -1);
+		if (!Ovr226_800a1cc4_EmitFullDynamicDirectTail(pb, primMem, block, projected, indices, -1, texture))
 		{
 			return 0;
 		}

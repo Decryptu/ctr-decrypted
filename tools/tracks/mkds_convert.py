@@ -604,18 +604,45 @@ SCENERY = {
     0x132: 'OlgPipe1', 0x133: 'Of6Tree1', 0x134: 'om6Tree1', 0x136: 'mini_dokan', 0x138: 'GardenTree1',
     0x13a: 'CrossTree1', 0x13e: 'Bank_Tree1', 0x142: 'MarioTree3', 0x145: 'TownTree1', 0x146: 'Snow_Tree1',
     0x148: 'DeTree1', 0x14b: 'KinoHouse1', 0x14c: 'KinoHouse2', 0x14d: 'KinoMount1', 0x14e: 'KinoMount2',
-    0x14f: 'olaTree1c', 0x150: 'osaTree1c',
+    0x14f: 'olaTree1c', 0x150: 'osaTree1c', 0xcb: 'gear_black',
 }
+# Scenery that karts drive on, and the radius of its flat top in its model. Tick-Tock Clock's turning
+# cogs carry the road over a pit, in no collision of the course's own; here they stand still.
+FLOOR_OBJECTS = {0xcb: 300}
 FAR_EDGE = 8  # backdrops and water take blocks this many times longer: nothing rides on them
 WATER_OBJECTS = {0x01, 0x03, 0x06, 0x09}  # the sheet of water round a course, one per course
 TRUNK_RADIUS = 1 / 8  # of a billboard's width: its solid part, a pillar as high as half the object
 OBJECT_ABOVE_GROUND = 64
+KCL_ROAD = 0x00
 KCL_WALL = 0x08
 
 
 def rotate_y(p, degrees):
     a = math.radians(degrees)
     return np.array([p[0] * math.cos(a) + p[2] * math.sin(a), p[1], -p[0] * math.sin(a) + p[2] * math.cos(a)])
+
+
+def disc(pos, radius, others):
+    """A flat round floor at pos, as upward-facing KCL triangles. Floors overlap as cogs do, at different
+    heights, and each stops where it meets one of others (pos, radius), so a kart has one ground there."""
+    ring = []
+    for i in range(24):
+        way = np.array([math.cos(i * math.pi / 12), 0.0, math.sin(i * math.pi / 12)])
+        reach = radius
+        for other, other_radius in others:
+            apart = (other - pos) * (1.0, 0.0, 1.0)
+            length = np.linalg.norm(apart)
+            towards = way @ apart / length
+            if towards > 0:  # the two circles' common chord is this far from pos
+                reach = min(reach, (length ** 2 + radius ** 2 - other_radius ** 2) / (2 * length) / towards)
+        ring.append(pos + way * reach)
+    return [(pos, ring[(i + 1) % 24], ring[i], np.array([0.0, 1.0, 0.0]), KCL_ROAD << 8) for i in range(24)]
+
+
+def floor_discs(nkm):
+    """The FLOOR_OBJECTS a course places, as KCL triangles."""
+    floors = [(pos, FLOOR_OBJECTS[object_id] * size[0]) for object_id, pos, _, size in mkdsmap.placed_objects(nkm) if object_id in FLOOR_OBJECTS]
+    return [t for floor in floors for t in disc(*floor, [other for other in floors if other is not floor])]
 
 
 def pillar(pos, radius, height):
@@ -675,12 +702,14 @@ class Course:
                 self.triangles.append((first + mi, [(pos + rotate_y(np.array(v[0]) * MODEL_TO_WORLD * size, rot[1]), v[1], v[2], v[3]) for v in tri]))
 
     def add_backdrop(self, limit):
-        """Bake the backdrop: hills, woods, walls. A sky model of one texture is only a sky, which the
-        level's gradient stands for at no cost in blocks. A backdrop reaching past what LEV positions
+        """Bake the backdrop: hills, woods, walls, clouds. A model of one flat colour is only a sky, which
+        the level's gradient stands for at no cost in blocks. A backdrop reaching past what LEV positions
         hold is scaled round the course, so it keeps its shape."""
-        if self.sky is None or len(self.sky[0].mats) < 2:
+        if self.sky is None:
             return
         model, tex0 = self.sky
+        if len(model.mats) == 1 and len(np.unique(tex0.decode(model.mats[0].tex, model.mats[0].pal).reshape(-1, 4), axis=0)) == 1:
+            return
         tris = model.triangles()
         kcl = np.array([v for t in self.kcl[:self.ground_triangles] for v in t[:3]])
         centre = (kcl.min(0) + kcl.max(0)) / 2
@@ -734,6 +763,7 @@ class Course:
                 corners = np.array([v[0] for _, tri in tris for v in tri]) * MODEL_TO_WORLD * size
                 width, height = np.ptp(corners[:, 0]), np.ptp(corners[:, 1])
                 self.kcl += pillar(pos, width * TRUNK_RADIUS, height / 2)
+        self.kcl += floor_discs(self.nkm)
         for name in sorted(missing):
             print(f'scenery: no model {name} in this course')
 

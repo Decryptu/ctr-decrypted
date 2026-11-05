@@ -23,7 +23,7 @@ LEVEL_CONFIG_DEPTH_TESTED = 0x80000000  # include/platform/native_gpu.h
 LEVEL_CONFIG_ONE_TEXTURE_LOD = 0x40000000  # include/platform/native_draw_distance.h
 QUAD_FLAG_FAR_FACES = 0x0100  # include/namespace_Level.h
 SEAM_TEXELS = 3  # faces further apart than this at a shared corner are in different repeats of a texture
-UNEVEN_LEV = 8  # a midpoint further than this from the middle of its edge
+SHIFT_TEXELS = 4  # a grid so uneven that one quad over its corners moves the texture this far
 # The triangles COLL_FIXED_QUADBLK_GetNormVecs_HiLOD / _LoLOD build, in triNormalVecDividend order
 NORMAL_TRIS = [(0, 4, 5), (4, 6, 5), (6, 4, 1), (5, 6, 2), (8, 6, 7), (7, 3, 8), (1, 7, 6), (2, 6, 8), (0, 1, 2), (1, 3, 2)]
 TURNED_COS = 0.9  # fix_normals: about 25 degrees
@@ -231,10 +231,24 @@ def rebuild_checkpoints(data, mesh, lane, side):
     return nodes, seeded
 
 
+def grid_shift(p, uv, midpoints):
+    """The texels one quad over a block's corners moves its texture, at the worst of its midpoints.
+    p: the block's nine points. uv: its far texture's corners."""
+    across = [p[1][i] - p[0][i] for i in range(3)], [p[2][i] - p[0][i] for i in range(3)]
+    texels = [uv[1][i] - uv[0][i] for i in range(2)], [uv[2][i] - uv[0][i] for i in range(2)]
+    worst = 0.0
+    for m, a, b in midpoints:
+        off = [p[m][i] - (p[a][i] + p[b][i]) / 2 for i in range(3)]
+        share = [sum(x * y for x, y in zip(off, side)) / max(sum(x * x for x in side), 1) for side in across]
+        worst = max(worst, *(abs(share[0] * texels[0][i] + share[1] * texels[1][i]) for i in range(2)))
+    return worst
+
+
 def mark_far_faces(data, nq, qoff, voff):
     """A far block is one quad textured from its outer corners, and on its way there its midpoints
     slide to the middle of its edges. Mark the blocks that cannot take that, to be drawn by face: those
-    whose faces lie in different repeats of a texture, and those whose grid is uneven."""
+    whose faces lie in different repeats of a texture, and those whose grid is uneven enough to show.
+    By face costs four quads for one, so the rest stay one."""
     def layout(address):
         u0, v0, clut, u1, v1, tpage, u2, v2, u3, v3 = struct.unpack_from('<BBHBBHBBBB', data, address)
         return (clut, tpage), ((u0, v0), (u1, v1), (u2, v2), (u3, v3))
@@ -252,8 +266,7 @@ def mark_far_faces(data, nq, qoff, voff):
         p = [struct.unpack_from('<3h', data, voff + 16 * i) for i in index]
         seam = len({page for page, _ in faces}) > 1 or any(
             max(abs(a - b) for a, b in zip(faces[f][1][i], faces[g][1][j])) > SEAM_TEXELS for (f, i), (g, j) in shared)
-        uneven = any(abs(p[m][axis] * 2 - p[a][axis] - p[b][axis]) > UNEVEN_LEV * 2 for m, a, b in midpoints for axis in range(3))
-        if seam or uneven:
+        if seam or grid_shift(p, layout(struct.unpack_from('<I', data, o + 0x40)[0])[1], midpoints) > SHIFT_TEXELS:
             struct.pack_into('<H', data, o + 0x12, flags | QUAD_FLAG_FAR_FACES)
             marked += 1
     return marked

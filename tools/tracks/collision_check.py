@@ -15,7 +15,7 @@ and how far the drawn surface is from the ground the game found.
 import csv, os, sys
 import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import mkdsmap, levtri, nds
+import mkds_convert, mkdsmap, levtri, nds
 
 if len(sys.argv) < 5:
     sys.exit('usage: collision_check.py <probe.csv> <rom.nds> <course> <work folder> [scale, default 1/12]')
@@ -23,7 +23,8 @@ probe_csv, rom_path, course, work = sys.argv[1:5]
 scale = float(sys.argv[5]) if len(sys.argv) > 5 else 1 / 12
 obj_path = os.path.join(work, course + '.obj')
 lev_path = os.path.join(work, 'lev', course + '_patched.lev')
-t = mkdsmap.kcl(nds.carc(nds.nitrofs(open(rom_path, 'rb').read())[f'data/Course/{course}.carc'])['course_collision.kcl'])
+archive = nds.carc(nds.nitrofs(open(rom_path, 'rb').read())[f'data/Course/{course}.carc'])
+t = mkdsmap.kcl(archive['course_collision.kcl']) + mkds_convert.floor_discs(mkdsmap.nkm(archive['course_map.nkm']))
 P = np.array([v for tr in t for v in tr[:3]])
 centre = (P.min(0) + P.max(0)) / 2
 LEV = 64 * scale
