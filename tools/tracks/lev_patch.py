@@ -441,6 +441,12 @@ def add_items(data, ptrs, items, placed, collision_leaves):
             pointer(len(data) - 4, defs + INSTDEF_SIZE * n)
         data += bytes(HITBOX_SIZE)
         pointer(leaf + LEAF_HITBOXES, array)
+        # The kart's search only reaches a leaf its box touches: a road leaf ends at the road, so a kart
+        # in the air over an item would never see its hitbox. The leaf holds what it lists, as retail's do.
+        bounds = list(struct.unpack_from('<6h', data, leaf + 4))
+        for _, box, _, _ in entries:
+            bounds = [min(a, b) for a, b in zip(bounds[:3], box[:3])] + [max(a, b) for a, b in zip(bounds[3:], box[3:])]
+        struct.pack_into('<6h', data, leaf + 4, *bounds)
     return map_clut, {'instances': len(placements), 'leaves with hitboxes': len(hit), 'hitbox records': sum(len(e) for e in hit.values())}
 
 
@@ -509,6 +515,20 @@ def patch(lev_path, vrm_path, nav_path, out_path, out_vrm, zenith, horizon, item
 
     collision_leaves = [bsp + 0x20 * i for i, ok in collision_only.items() if ok and nodes[i][0] & 1]
     map_clut, item_stats = add_items(data, ptrs, items, placed, collision_leaves)
+
+    def refit(i):
+        """A branch's box holds its children's, which add_items grew. -> the node's box"""
+        o = bsp + 0x20 * i
+        box = list(struct.unpack_from('<6h', data, o + 4))
+        if nodes[i][0] & 1:
+            return box
+        for c in struct.unpack_from('<2H', data, o + 0x18):
+            if c != 0xffff:
+                child = refit(c & 0x3fff)
+                box = [min(a, b) for a, b in zip(box[:3], child[:3])] + [max(a, b) for a, b in zip(box[3:], child[3:])]
+        struct.pack_into('<6h', data, o + 4, *box)
+        return box
+    refit(0)
 
     lanes = json.load(open(nav_path))['lanes']
     cps, seeded_blocks = rebuild_checkpoints(data, mesh, lanes[0], lanes[1])

@@ -77,6 +77,7 @@ FRUIT_CLEAR_OF_CRATES = 500
 FRUIT_ROAD = {'col_road', 'col_boost'}
 # MKDS units: a route point may be this far under the road, and this far above it before it is a jump
 ROUTE_ABOVE_GROUND, ROUTE_IN_THE_AIR = 20, 60
+ROUTE_UNDER_BUMP = 80  # how far the top of a bump can stand above the route's line, MKDS units
 
 
 # The minimap, in screen pixels. The game draws it with its bottom right corner here (UI_RenderFrame).
@@ -698,8 +699,15 @@ class Course:
                 m.tex0 = tex0
                 self.far_mats.add(len(self.mats))
                 self.mats.append(m)
-            for mi, tri in model.triangles():
-                self.triangles.append((first + mi, [(pos + rotate_y(np.array(v[0]) * MODEL_TO_WORLD * size, rot[1]), v[1], v[2], v[3]) for v in tri]))
+            tris = model.triangles()
+            # A flat sheet rises and falls in MKDS: Cheep Cheep Beach's tide stands over the sand at its
+            # placed height. Baked, it stays out at low tide, under every floor of the course.
+            heights = [pos[1] + v[0][1] * MODEL_TO_WORLD * size[1] for _, tri in tris for v in tri]
+            drop = 0.0
+            if max(heights) - min(heights) < 1:
+                drop = max(0.0, max(heights) - min(v[1] for t in self.kcl if t[3][1] > 0.3 for v in t[:3]))
+            for mi, tri in tris:
+                self.triangles.append((first + mi, [(pos + rotate_y(np.array(v[0]) * MODEL_TO_WORLD * size, rot[1]) - (0, drop, 0), v[1], v[2], v[3]) for v in tri]))
 
     def add_backdrop(self, limit):
         """Bake the backdrop: hills, woods, walls, clouds. A model of one flat colour is only a sky, which
@@ -1263,6 +1271,13 @@ def convert(course, out_dir, name, scale, max_edge, crate, vram_share):
     stats['fruit rows dropped'] = dropped
     json.dump({'crates': crates, 'fruit': fruit, 'carriers': carriers, 'map': ui_map}, open(os.path.join(out_dir, name + '_items.json'), 'w'))
 
+    cells = {}
+    for t in ground:
+        if t[3][1] > 0:
+            xs, zs = [v[0] for v in t[:3]], [v[2] for v in t[:3]]
+            for gx in range(int(min(xs) // 256), int(max(xs) // 256) + 1):
+                for gz in range(int(min(zs) // 256), int(max(zs) // 256) + 1):
+                    cells.setdefault((gx, gz), []).append(t)
     lanes = [[], [], []]
     for k in range(count):
         s_ = (best[1] + total * k / count) % total
@@ -1274,7 +1289,13 @@ def convert(course, out_dir, name, scale, max_edge, crate, vram_share):
         side = np.array([-d[2], 0.0, d[0]])
         side /= max(np.linalg.norm(side), 1e-9)
         for lane, off in enumerate((0.0, -0.4, 0.4)):
-            lanes[lane].append([float(c) for c in to_cte(p + side * r * off)])
+            q = p + side * r * off
+            # A CPU kart holds the route's height, and MKDS's route floats over the road, over a bump by
+            # more: lanes lie on the ground. Over a gap there is none near, and the route's height stays.
+            found = ground_under(q[0], q[2], q[1] + ROUTE_UNDER_BUMP, cells.get((q[0] // 256, q[2] // 256), ()))
+            if found is not None and q[1] - found[0] <= ROUTE_IN_THE_AIR:
+                q = np.array([q[0], found[0], q[2]])
+            lanes[lane].append([float(c) for c in to_cte(q)])
     json.dump({'lanes': lanes}, open(os.path.join(out_dir, name + '_nav.json'), 'w'))
     stats['nav nodes'] = count
 

@@ -59,7 +59,7 @@ Where there is road or ground under such an object, it also gets a solid six-sid
 ### Backdrops and water
 `course_model_V` is MKDS's distant model, fixed in the world: hills, woods, a castle, Tick-Tock Clock's walls, clouds. `add_backdrop` bakes it into the drawn mesh, scaled round the course when it reaches past `MAX_COORD`, so it keeps its shape, unless its one texture is a single flat colour (N64 Frappe Snowland, Choco Mountain, Banshee Boardwalk), which the level's gradient stands for at no cost in blocks. It has no collision.
 
-The sheet of water round a course is an object in MKDS (ids in `WATER_OBJECTS`, 4 courses); `add_water` bakes its flat layer (`waterA`), or the moving one (`waterC`) where a course has no flat layer. The water does not move.
+The sheet of water round a course is an object in MKDS (ids in `WATER_OBJECTS`, 4 courses); `add_water` bakes its flat layer (`waterA`), or the moving one (`waterC`) where a course has no flat layer. The water does not move, and a flat sheet stays under every floor of the course, as at low tide: Cheep Cheep Beach's tide object is placed above its sand.
 
 Both take blocks `FAR_EDGE` times longer than the course's: at road size they were over half of a course's blocks and pushed `--max-edge` up for the road too. Tick-Tock Clock costs 21% more blocks, SNES Mario Circuit 1 9%, SNES Koopa Beach 2 4%.
 

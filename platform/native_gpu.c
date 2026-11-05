@@ -1176,8 +1176,49 @@ internal bool NativeGpu_HardwareSkipsTriangle(const VERTTYPE *a, const VERTTYPE 
 }
 
 // Commit a triangle written at the vertex cursor, unless the hardware skips it.
+// A depth-tested level is a converted track, whose blocks meet along edges that
+// round apart: a road's rim at a tile cut, a far block over a subdivided one.
+// Seen against a bright sky such a join is a line of holes. Each opaque polygon
+// grows by a fraction of a pixel (units of the 512-wide PS1 screen, about 0.9 of
+// a pixel at 1080p), so neighbours overlap, and the depth test hides the overlap.
+#define NATIVE_GPU_LEVEL_POLYGON_GROWTH 0.25f
+
+internal void NativeGpu_GrowLevelPolygon(int vertices)
+{
+	if (!s_gpu.levelPrim || !s_gpu.levelDepthTested || s_gpu.levelWater)
+	{
+		return;
+	}
+
+	GrVertex *v = &s_gpu.vertexBuffer[s_gpu.vertexIndex];
+	float centreX = 0.0f;
+	float centreY = 0.0f;
+
+	for (int i = 0; i < vertices; i++)
+	{
+		centreX += v[i].x;
+		centreY += v[i].y;
+	}
+	centreX /= vertices;
+	centreY /= vertices;
+
+	for (int i = 0; i < vertices; i++)
+	{
+		const float dx = v[i].x - centreX;
+		const float dy = v[i].y - centreY;
+		const float length = sqrtf(dx * dx + dy * dy);
+
+		if (length > 0.001f)
+		{
+			v[i].x += dx / length * NATIVE_GPU_LEVEL_POLYGON_GROWTH;
+			v[i].y += dy / length * NATIVE_GPU_LEVEL_POLYGON_GROWTH;
+		}
+	}
+}
+
 internal void NativeGpu_CommitTriangle(const VERTTYPE *p0, const VERTTYPE *p1, const VERTTYPE *p2)
 {
+	NativeGpu_GrowLevelPolygon(3);
 	NativeGpu_KeepDepthlessPolygonInOrder();
 	if (!NativeGpu_HardwareSkipsTriangle(p0, p1, p2))
 		s_gpu.vertexIndex += 3;
@@ -1188,6 +1229,7 @@ internal void NativeGpu_CommitTriangle(const VERTTYPE *p0, const VERTTYPE *p1, c
 // (p0, p1, p2) and (p1, p2, p3), and skips each one on its own.
 internal void NativeGpu_CommitQuad(const VERTTYPE *p0, const VERTTYPE *p1, const VERTTYPE *p2, const VERTTYPE *p3)
 {
+	NativeGpu_GrowLevelPolygon(4);
 	NativeGpu_KeepDepthlessPolygonInOrder();
 	TriangulateQuad();
 
