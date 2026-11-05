@@ -31,7 +31,9 @@ CAMERA_SEARCH, KILL_PLANE, GROUND, COLLISION_SURFACE = 0x0800, 0x0200, 0x1000, 0
 # ground a kart drives on: on those the game clips the kart's model at world height 0, as a retail
 # level has them there (COLL.c), and a converted course lies at any height, so the kart vanishes.
 _ROAD = GROUND | CAMERA_SEARCH
-_WALL = COLLISION_SURFACE | CAMERA_SEARCH
+# no CAMERA_SEARCH: the camera takes its height from what that flag marks, so a wall behind the kart
+# would lift it; 91% of retail's walls on Crash Cove go without
+_WALL = COLLISION_SURFACE
 _FALL = GROUND | KILL_PLANE | CAMERA_SEARCH
 # a collision triangle whose normal on the LEV grid is further than this from its source's is dropped
 TURNED_COS = 0.9  # about 25 degrees
@@ -86,7 +88,7 @@ MAP_UP = ((0, -1), (-1, 0), (0, 1), (1, 0))
 MAP_ICON_X, MAP_ICON_Y = 4, 2  # a kart icon's top left corner from the point it marks
 MAP_ROAD = {'col_road', 'col_boost'}
 MAP_CORRIDOR, MAP_TOO_MUCH = 1.1, 1.5  # of a route point's radius; of the corridor's area
-MAP_FILL, MAP_EDGE = (132, 132, 132, 255), (255, 255, 255, 255)  # lev_patch sets the fill to blend
+MAP_FILL, MAP_EDGE = (66, 66, 66, 255), (255, 255, 255, 255)  # lev_patch sets the fill to blend
 
 
 # ---------------------------------------------------------------- geometry helpers
