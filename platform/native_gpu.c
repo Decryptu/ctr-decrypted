@@ -91,8 +91,8 @@ typedef struct
 	bool psxDrawMaskSet;
 	NativeDepthMode depthMode;
 
-	u16 startVertex;
-	u16 numVerts;
+	int startVertex;
+	int numVerts;
 
 	const char *debugText;
 } GPUDrawSplit;
