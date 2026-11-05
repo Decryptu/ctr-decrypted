@@ -21,6 +21,9 @@ OFF_CLEAR_COLOR, OFF_CONFIG_FLAGS, OFF_NUM_CHECKPOINTS, OFF_CHECKPOINTS, OFF_NAV
 OFF_CLEAR_SPLIT = 0x160  # clearColor[0] above the horizon, [1] below: r, g, b, enable
 LEVEL_CONFIG_DEPTH_TESTED = 0x80000000  # include/platform/native_gpu.h
 LEVEL_CONFIG_ONE_TEXTURE_LOD = 0x40000000  # include/platform/native_draw_distance.h
+QUAD_FLAG_FAR_FACES = 0x0100  # include/namespace_Level.h
+SEAM_TEXELS = 3  # faces further apart than this at a shared corner are in different repeats of a texture
+UNEVEN_LEV = 8  # a midpoint further than this from the middle of its edge
 # The triangles COLL_FIXED_QUADBLK_GetNormVecs_HiLOD / _LoLOD build, in triNormalVecDividend order
 NORMAL_TRIS = [(0, 4, 5), (4, 6, 5), (6, 4, 1), (5, 6, 2), (8, 6, 7), (7, 3, 8), (1, 7, 6), (2, 6, 8), (0, 1, 2), (1, 3, 2)]
 TURNED_COS = 0.9  # fix_normals: about 25 degrees
@@ -228,6 +231,34 @@ def rebuild_checkpoints(data, mesh, lane, side):
     return nodes, seeded
 
 
+def mark_far_faces(data, nq, qoff, voff):
+    """A far block is one quad textured from its outer corners, and on its way there its midpoints
+    slide to the middle of its edges. Mark the blocks that cannot take that, to be drawn by face: those
+    whose faces lie in different repeats of a texture, and those whose grid is uneven."""
+    def layout(address):
+        u0, v0, clut, u1, v1, tpage, u2, v2, u3, v3 = struct.unpack_from('<BBHBBHBBBB', data, address)
+        return (clut, tpage), ((u0, v0), (u1, v1), (u2, v2), (u3, v3))
+    shared = (((0, 1), (1, 0)), ((0, 3), (1, 2)), ((0, 2), (2, 0)), ((0, 3), (2, 1)),
+              ((0, 3), (3, 0)), ((1, 3), (3, 1)), ((2, 3), (3, 2)))
+    midpoints = ((4, 0, 1), (5, 0, 2), (6, 1, 2), (7, 1, 3), (8, 2, 3))
+    marked = 0
+    for q in range(nq):
+        o = qoff + QUAD_SIZE * q
+        flags = struct.unpack_from('<H', data, o + 0x12)[0]
+        index = struct.unpack_from('<9H', data, o)
+        if flags & 0x3000 or len(set(index)) != 9:
+            continue
+        faces = [layout(f) for f in struct.unpack_from('<4I', data, o + 0x1c)]
+        p = [struct.unpack_from('<3h', data, voff + 16 * i) for i in index]
+        seam = len({page for page, _ in faces}) > 1 or any(
+            max(abs(a - b) for a, b in zip(faces[f][1][i], faces[g][1][j])) > SEAM_TEXELS for (f, i), (g, j) in shared)
+        uneven = any(abs(p[m][axis] * 2 - p[a][axis] - p[b][axis]) > UNEVEN_LEV * 2 for m, a, b in midpoints for axis in range(3))
+        if seam or uneven:
+            struct.pack_into('<H', data, o + 0x12, flags | QUAD_FLAG_FAR_FACES)
+            marked += 1
+    return marked
+
+
 def add_minimap(data, pointer, block, ui_map):
     """The minimap's icons, read from where CrashTeamEditor put its image, and a one-entry spawn table
     (the game's other entries are all behind `count` checks). -> the image's palette word."""
@@ -414,7 +445,7 @@ def patch(lev_path, vrm_path, nav_path, out_path, out_vrm, zenith, horizon, item
     # (2 bits per face at drawOrderLow bit 8 + 5*face + 3; 3 draws nothing).
     # CrashTeamEditor writes every face as drawn.
     mesh = struct.unpack_from('<I', data, 0)[0]
-    nq, _, _, qoff = struct.unpack_from('<4I', data, mesh)
+    nq, _, _, qoff, voff = struct.unpack_from('<5I', data, mesh)
     normal_error, normal_bad, normal_ignored = fix_normals(data, mesh)
     hidden = 0
     for q in range(nq):
@@ -496,6 +527,7 @@ def patch(lev_path, vrm_path, nav_path, out_path, out_vrm, zenith, horizon, item
     # MKDS draws with a depth buffer: billboards, fences and signs hang a few units in front of the
     # walls they are on, which the per-block ordering table sort swaps as the camera moves. And
     # CrashTeamEditor writes one layout to all four LOD slots of a texture group.
+    far_faces = mark_far_faces(data, nq, qoff, voff)
     struct.pack_into('<I', data, OFF_CONFIG_FLAGS,
                      struct.unpack_from('<I', data, OFF_CONFIG_FLAGS)[0] | LEVEL_CONFIG_DEPTH_TESTED | LEVEL_CONFIG_ONE_TEXTURE_LOD)
     # CrashTeamEditor reads the clear colour from a LEV but never writes it: without this the backdrop is black
@@ -505,7 +537,7 @@ def patch(lev_path, vrm_path, nav_path, out_path, out_vrm, zenith, horizon, item
     out = struct.pack('<I', len(data)) + bytes(data) + struct.pack('<I', 4 * len(ptrs)) + struct.pack(f'<{len(ptrs)}I', *ptrs)
     open(out_path, 'wb').write(out)
     open(out_vrm, 'wb').write(blend_map_palette(open(vrm_path, 'rb').read(), map_clut))
-    return {'lanes': len(lanes), 'checkpoints': ncp, 'blocks under the route': seeded_blocks, 'hidden quadblocks': hidden,
+    return {'lanes': len(lanes), 'far blocks drawn by face': far_faces, 'checkpoints': ncp, 'blocks under the route': seeded_blocks, 'hidden quadblocks': hidden,
             'culled bsp nodes': len(culled), 'of': nbsp, 'vis lists': len(vis_lists),
             'worst collision normal error': round(normal_error, 4), 'quadblocks over 2%': normal_bad,
             'collision triangles turned by the grid, ignored': normal_ignored, **item_stats}

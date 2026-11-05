@@ -173,6 +173,9 @@ enum
 	QUADBLOCK_FLAG_NO_COLLISION_RESPONSE = 0x0010,
 	QUADBLOCK_FLAG_TRIGGER = 0x0040,
 	QUADBLOCK_FLAG_ENGINE_ECHO = 0x0080,
+	// Converted tracks only (LEVEL_CONFIG_ONE_TEXTURE_LOD): far quads cannot stand for this block's
+	// faces, whose grid is uneven or whose textures do not run on, so draw the four faces.
+	QUADBLOCK_FLAG_FAR_FACES = 0x0100,
 	QUADBLOCK_FLAG_KILL_PLANE = 0x0200,
 	QUADBLOCK_FLAG_DOOR = 0x0400,
 	QUADBLOCK_FLAG_CAMERA_SEARCH = 0x0800,

@@ -8449,9 +8449,48 @@ static int Ovr226_800a1128_DispatchFullDynamicTransitionGrid(struct PushBuffer *
 	    pb, primMem, block, projected, DrawLevelOvr1P_GetNearSubdivisionHandlerAddress(nearMask, DRAW_LEVEL_OVR1P_CLIP_BYTES_LIST), texture, 0);
 }
 
+#ifdef CTR_NATIVE
+// Each face as a far quad of its own, its corners and texture where the far
+// quad's are. No transition grid: that blends midpoints onto the block's
+// corners and reads the block's mid textures, which assumes a regular grid.
+static int DrawLevelOvr1P_EmitFarFaces(struct PushBuffer *pb, struct PrimMem *primMem, const struct QuadBlock *block, struct LevVertex *vertices)
+{
+	struct DrawLevelOvr1PScratchVertex *projected = DrawLevelOvr1P_GetScratchVertices();
+
+	for (int faceIndex = 0; faceIndex < 4; faceIndex++)
+	{
+		struct QuadBlock face = *block;
+
+		for (int corner = 0; corner < 4; corner++)
+		{
+			face.index[corner] = block->index[sDrawLevelOvr1PGridFaceIndices[faceIndex][corner]];
+		}
+		face.ptr_texture_low = block->ptr_texture_mid[faceIndex];
+
+		Ovr226_800a0f78_ProjectFullDynamicLowQuad(vertices, &face, projected);
+		struct TextureLayout *texture = Ovr226_800a1058_PrepareFullDynamicLowUv(&face, projected);
+		u32 maxDepth = DrawLevelOvr1P_GetProjectedMaxDepth(projected, sDrawLevelOvr1PFullDynamicLowIndices);
+		DrawLevelOvr1P_SetFullDynamicInheritedOtIndex(&face, projected, maxDepth, -1);
+		if (!Ovr226_800a1338_DispatchFullDynamicLowDirect(pb, primMem, &face, projected, texture))
+		{
+			return 0;
+		}
+	}
+
+	return 1;
+}
+#endif
+
 static int Ovr226_800a0f78_EmitFullDynamicQuadBlock(struct PushBuffer *pb, struct PrimMem *primMem, struct QuadBlock *block, struct LevVertex *vertices)
 {
 	struct DrawLevelOvr1PScratchVertex *projected = DrawLevelOvr1P_GetScratchVertices();
+
+#ifdef CTR_NATIVE
+	if ((block->quadFlags & QUADBLOCK_FLAG_FAR_FACES) != 0 && (sdata->gGT->level1->configFlags & LEVEL_CONFIG_ONE_TEXTURE_LOD) != 0)
+	{
+		return DrawLevelOvr1P_EmitFarFaces(pb, primMem, block, vertices);
+	}
+#endif
 
 	if (!DrawLevelOvr1P_HasLowTexture(block))
 	{
