@@ -899,12 +899,69 @@ static void NativeDevRace_ModelDump(const struct GameTracker *gGT)
 }
 
 // Once per presented frame, from NativeDev_EndFrame.
+// The last ten seconds of player 1, kept in every build for an F7 capture: what a
+// kart just did (a launch, a fall) is gone by the time a player can press the key.
+#define NATIVE_DEV_KART_LOG_FRAMES 600
+
+typedef struct
+{
+	int raceMS;
+	int x, y, z;
+	int speed;
+	int vx, vy, vz;
+	int reserves;
+	int air;
+	int kartState;
+	int angle;
+	int collisionFlags;
+} NativeDevKartRow;
+
+static NativeDevKartRow s_devKartLog[NATIVE_DEV_KART_LOG_FRAMES];
+static unsigned int s_devKartLogCount;
+
+static void NativeDevRace_LogKart(const struct Driver *d)
+{
+	NativeDevKartRow *row = &s_devKartLog[s_devKartLogCount++ % NATIVE_DEV_KART_LOG_FRAMES];
+
+	row->raceMS = d->timeElapsedInRace;
+	row->x = d->posCurr.x >> 8;
+	row->y = d->posCurr.y >> 8;
+	row->z = d->posCurr.z >> 8;
+	row->speed = d->speedApprox;
+	row->vx = d->velocity.x;
+	row->vy = d->velocity.y;
+	row->vz = d->velocity.z;
+	row->reserves = d->reserves;
+	row->air = (d->actionsFlagSet & ACTION_TOUCH_GROUND) == 0;
+	row->kartState = d->kartState;
+	row->angle = d->angle & 0xfff;
+	row->collisionFlags = d->collisionFlags;
+}
+
+void NativeDev_RaceWriteKartLog(const char *path)
+{
+	FILE *f = fopen(path, "w");
+	if (f == NULL)
+		return;
+	fprintf(f, "raceMS,x,y,z,speed,vx,vy,vz,reserves,air,kart,angle,coll\n");
+	const unsigned int count = s_devKartLogCount < NATIVE_DEV_KART_LOG_FRAMES ? s_devKartLogCount : NATIVE_DEV_KART_LOG_FRAMES;
+	for (unsigned int i = s_devKartLogCount - count; i != s_devKartLogCount; i++)
+	{
+		const NativeDevKartRow *r = &s_devKartLog[i % NATIVE_DEV_KART_LOG_FRAMES];
+		fprintf(f, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n", r->raceMS, r->x, r->y, r->z, r->speed, r->vx, r->vy, r->vz, r->reserves, r->air, r->kartState,
+		        r->angle, r->collisionFlags);
+	}
+	fclose(f);
+}
+
 void NativeDev_RaceFrame(void)
 {
 	NativeDevRaceState *dev = NativeDevRace_State();
 	struct GameTracker *gGT = sdata->gGT;
 	struct Driver *d = NativeDevRace_Player(0);
 
+	if (d != NULL)
+		NativeDevRace_LogKart(d);
 	if (d != NULL)
 		NativeDevRace_CollProbe(gGT);
 	if (d != NULL)

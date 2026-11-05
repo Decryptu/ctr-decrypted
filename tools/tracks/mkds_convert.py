@@ -27,9 +27,9 @@ MODEL_TO_WORLD = 16.0  # course models are drawn 16 times larger than their stor
 CAMERA_SEARCH, KILL_PLANE, GROUND, COLLISION_SURFACE = 0x0800, 0x0200, 0x1000, 0x2000
 
 # KCL type -> (material name, terrain label, quad flags, pathable). Collision blocks are drawn
-# with nothing: navpatch sets their faces' draw mode to "none". Not Mud, Water or Fast Water on
-# ground a kart drives on: on those the game clips the kart's model at world height 0, as a retail
-# level has them there (COLL.c), and a converted course lies at any height, so the kart vanishes.
+# with nothing: navpatch sets their faces' draw mode to "none". Not Water or Fast Water on
+# ground a kart drives on: they clip the kart's model at world height 0, as a retail level has them
+# there (COLL.c), and a converted course lies at any height. Mud's same rules are off on one.
 _ROAD = GROUND | CAMERA_SEARCH
 # no CAMERA_SEARCH: the camera takes its height from what that flag marks, so a wall behind the kart
 # would lift it; 91% of retail's walls on Crash Cove go without
@@ -47,7 +47,7 @@ COLLISION = {
     0x03: ('col_offroad', 'Slow Grass', _ROAD, True),
     0x05: ('col_mud', 'Slow Dirt', _ROAD, True),
     0x07: ('col_boost', 'Asphalt', _ROAD, True),
-    0x12: ('col_boost', 'Asphalt', _ROAD, True),
+    0x12: ('col_ramp', 'Asphalt', _ROAD, True),  # a boost ramp, the jumps: a super turbo pad
     0x08: ('col_wall', 'Asphalt', _WALL, False),
     0x09: ('col_wall', 'Asphalt', _WALL, False),
     0x0e: ('col_wall', 'Asphalt', _WALL, False),
@@ -56,7 +56,13 @@ COLLISION = {
     0x0a: ('col_fall', 'Asphalt', _FALL, False),
     0x0b: ('col_fall', 'Asphalt', _FALL, False),
     0x11: ('col_river', 'River Asphalt', _ROAD, True),
+    'mud': ('col_soft', 'Mud', _ROAD, True),  # by variant: KCL_MUD
 }
+
+
+# The variant (bits 5 to 7 of a KCL attribute) names the ground where its type alone does not: these
+# (type, variant) are mud and dirt, for SNES Donut Plains 1's road, Wario Stadium, SNES Choco Island 2.
+KCL_MUD = {(0x02, 3), (0x03, 0), (0x03, 1)}
 
 
 SLIVER_WIDTH = 3  # LEV units: thinner than this, the grid turns a collision triangle's pieces any way
@@ -64,8 +70,8 @@ MAX_VERTICES = 65000  # quadblocks index vertices with 16 bits; a little under, 
 MAX_COORD = 500  # CrashTeamEditor units; 512 is the LEV's 16-bit limit, and the carrier blocks sit 8 past the course
 VRAM_SHARE = 0.85  # of the free texture pages, at first
 MAX_FIT_ATTEMPTS = 12
-BOOST_MATERIAL = 'col_boost'
-TRIGGER_TURBO_PAD = 1  # CrashTeamEditor's QuadblockTrigger
+BOOST_MATERIALS = {'col_boost', 'col_ramp'}
+TRIGGER_TURBO_PAD, TRIGGER_SUPER_TURBO_PAD = 1, 2  # CrashTeamEditor's QuadblockTrigger
 PRESET_TURBO_PAD = 4  # CrashTeamEditor's PresetHeader
 # LEV units from the ground up to a crate or fruit instance's origin (retail tracks: 0 to 8)
 CRATE_LIFT = 8
@@ -74,7 +80,7 @@ FRUIT_PER_ROW, FRUIT_SPACING = 4, 230
 FRUIT_ROW_GAP = 13000  # along the route, from one row to the next
 FRUIT_CLEAR_OF_START = 800  # no row this close to the finish line, either side
 FRUIT_CLEAR_OF_CRATES = 500
-FRUIT_ROAD = {'col_road', 'col_boost'}
+FRUIT_ROAD = {'col_road', 'col_boost', 'col_ramp'}
 # MKDS units: a route point may be this far under the road, and this far above it before it is a jump
 ROUTE_ABOVE_GROUND, ROUTE_IN_THE_AIR = 20, 60
 ROUTE_UNDER_BUMP = 80  # how far the top of a bump can stand above the route's line, MKDS units
@@ -87,7 +93,7 @@ MAP_PIXEL_ASPECT = 1.5  # screen pixels across per pixel down for the same dista
 # UIMap::mode -> (x, z) of what is up on the map, as UI_Map_GetIconPos draws it
 MAP_UP = ((0, -1), (-1, 0), (0, 1), (1, 0))
 MAP_ICON_X, MAP_ICON_Y = 4, 2  # a kart icon's top left corner from the point it marks
-MAP_ROAD = {'col_road', 'col_boost'}
+MAP_ROAD = {'col_road', 'col_boost', 'col_ramp'}
 MAP_CORRIDOR, MAP_TOO_MUCH = 1.1, 1.5  # of a route point's radius; of the corridor's area
 MAP_FILL, MAP_EDGE = (66, 66, 66, 255), (255, 255, 255, 255)  # lev_patch sets the fill to blend
 
@@ -1064,7 +1070,7 @@ def convert(course, out_dir, name, scale, max_edge, crate, vram_share):
         return -50 <= s <= seg_len + 50 and abs(p[1] - start_pos[1]) < 150
 
     start_quads, end_quads = [], []
-    boost_blocks = []
+    boost_blocks = {}
     collision = []
     for a, b, c, nrm, attr in course.kcl:
         ty = mkdsmap.kcl_type(attr)
@@ -1072,6 +1078,8 @@ def convert(course, out_dir, name, scale, max_edge, crate, vram_share):
         if info is None:
             stats[f'kcl skipped type {ty:#x}'] += 1
             continue
+        if (ty, (attr >> 5) & 7) in KCL_MUD:
+            info = COLLISION['mud']
         cname, _, _, pathable = info
         tri = [{'pos': np.array(p), 'uv': np.array(uv), 'col': np.array([.5, .5, .5])}
                for p, uv in zip((a, b, c), ((0, 0), (1, 0), (0, 1)))]
@@ -1125,8 +1133,8 @@ def convert(course, out_dir, name, scale, max_edge, crate, vram_share):
             bname = f'c{stats["collision"]:05d}'
             cte = [{'pos': v['pos'], 'uv': v['uv'], 'col': v['col']} for v in piece]
             write_triblock(bname, cname, cte, tri_normal(cte))
-            if cname == BOOST_MATERIAL:
-                boost_blocks.append(bname)
+            if cname in BOOST_MATERIALS:
+                boost_blocks[bname] = TRIGGER_SUPER_TURBO_PAD if cname == 'col_ramp' else TRIGGER_TURBO_PAD
             if crossing:
                 d = [np.dot(np.array([v['mk'][0], v['mk'][2]]) - line_a, fwd) for v in piece]
                 touches = min(abs(x) for x in d) < 1e-2
@@ -1205,8 +1213,8 @@ def convert(course, out_dir, name, scale, max_edge, crate, vram_share):
     json.dump(mats, open(os.path.join(pre, 'material.json'), 'w'), indent=1)
 
     # CrashTeamEditor raises a copy of each pad block as the trigger; the pad's look is the MKDS road
-    turbo = {'header': PRESET_TURBO_PAD, 'turbopads': boost_blocks}
-    turbo.update({b + '_trigger': TRIGGER_TURBO_PAD for b in boost_blocks})
+    turbo = {'header': PRESET_TURBO_PAD, 'turbopads': list(boost_blocks)}
+    turbo.update({b + '_trigger': trigger for b, trigger in boost_blocks.items()})
     pad_preset = os.path.join(pre, 'turbopad.json')
     if boost_blocks:
         json.dump(turbo, open(pad_preset, 'w'), indent=1)

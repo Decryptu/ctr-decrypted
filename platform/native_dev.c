@@ -476,6 +476,8 @@ void NativeDev_EndFrame(void)
 		char where[192];
 		snprintf(where, sizeof(where), "%s/where.txt", dev->captureDir);
 		NativeDev_RaceWriteWhere(where);
+		snprintf(where, sizeof(where), "%s/kart.csv", dev->captureDir);
+		NativeDev_RaceWriteKartLog(where);
 		printf("[CTR Dev] captured frame %d in %s\n", frame, dev->captureDir);
 	}
 

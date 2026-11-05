@@ -1,4 +1,5 @@
 #include "VehCommon.h"
+#include <platform/native_draw_distance.h>
 
 void VehPhysForce_ConvertSpeedToVec(struct Driver *driver, Vec3 *velocity)
 {
@@ -976,7 +977,7 @@ void VehPhysForce_OnApplyForces(struct Thread *thread, struct Driver *driver)
 	VehCalc_KeepLossPerFrameTime(&driver->velocity, CTR_MipsSll(driver->speed, 8));
 #endif
 
-	if ((driver->underDriver) && (driver->underDriver->terrain_type == TERRAIN_MUD))
+	if ((driver->underDriver) && (driver->underDriver->terrain_type == TERRAIN_MUD) && NativeLevel_MudAtWorldZero(sdata->gGT->level1->configFlags))
 	{
 		if (driver->posCurr.y > maxMudSinkYLevel)
 		{

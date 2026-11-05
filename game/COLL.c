@@ -1,5 +1,6 @@
 #include <common.h>
 #include <ctr_scratchpad.h>
+#include <platform/native_draw_distance.h>
 
 struct MetaDataMODEL *COLL_LevModelMeta(u32 id)
 {
@@ -939,7 +940,8 @@ void COLL_FIXED_PlayerSearch(struct Thread *t, struct Driver *d)
 		d->quadBlockHeight = CTR_MipsSll(sps->Union.QuadBlockColl.hitPos.y, 8);
 		d->collisionFlags |= DRIVER_COLL_FLAG_TOUCHED_QUADBLOCK;
 
-		if ((quad->terrain_type == TERRAIN_MUD) || (quad->terrain_type == TERRAIN_WATER) || (quad->terrain_type == TERRAIN_FASTWATER))
+		if (((quad->terrain_type == TERRAIN_MUD) && NativeLevel_MudAtWorldZero(level->configFlags)) || (quad->terrain_type == TERRAIN_WATER) ||
+		    (quad->terrain_type == TERRAIN_FASTWATER))
 		{
 			inst->vertSplit = 0;
 			inst->flags |= SPLIT_LINE;
@@ -977,7 +979,7 @@ void COLL_FIXED_PlayerSearch(struct Thread *t, struct Driver *d)
 
 		d->underDriver = quad;
 
-		if ((d->posCurr.y <= d->quadBlockHeight + 0x1000) || ((quad->terrain_type == TERRAIN_MUD) && (d->posCurr.y < 1)))
+		if ((d->posCurr.y <= d->quadBlockHeight + 0x1000) || ((quad->terrain_type == TERRAIN_MUD) && NativeLevel_MudAtWorldZero(level->configFlags) && (d->posCurr.y < 1)))
 		{
 			if ((quad->quadFlags & QUADBLOCK_FLAG_GROUND) != 0)
 			{

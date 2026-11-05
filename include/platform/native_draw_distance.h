@@ -28,6 +28,13 @@ static inline int NativeDrawDistance_Limit(int retail)
 // set the bit (docs/LEVEL-VISIBILITY.md#the-stages).
 #define LEVEL_CONFIG_ONE_TEXTURE_LOD 0x40000000u
 
+// Only a converted track sets the bit: such a course lies at any height, so what
+// retail hangs on world height 0 (mud's surface) does not hold on it.
+static inline int NativeLevel_MudAtWorldZero(unsigned int levelConfigFlags)
+{
+	return (levelConfigFlags & LEVEL_CONFIG_ONE_TEXTURE_LOD) == 0;
+}
+
 // A level LOD or subdivision depth (RenderAllLevelGeometry's scratch thresholds).
 static inline int NativeDrawDistance_LevelLod(int retail, unsigned int levelConfigFlags)
 {

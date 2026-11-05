@@ -220,6 +220,14 @@ def rebuild_checkpoints(data, mesh, lane, side):
             node = int(((apart - centres[q]) ** 2).sum(1).argmin())
         elif walked[q] > OFF_ROUTE * width[node]:
             node = NO_CHECKPOINT
+        elif walked[q] > width[node]:
+            # Off the road, where a bank rises between two parts of a lap: another part may lie nearer
+            # than the one the ground leads to. A node there would throw the kart forward along the lap.
+            apart_q = np.hypot(apart[:, 0] - centres[q][0], apart[:, 2] - centres[q][2])
+            lap_gap = np.abs(np.arange(count) - node)
+            lap_gap = np.minimum(lap_gap, count - lap_gap)
+            if ((apart_q < walked[q] + width[node]) & (lap_gap > count / 8)).any():
+                node = NO_CHECKPOINT
         data[qoff + QUAD_SIZE * q + QUAD_CHECKPOINT] = node
 
     while len(data) % 4: data.append(0)

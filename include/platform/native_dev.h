@@ -168,5 +168,6 @@ void NativeDev_RaceFrame(void);
 // F7: the level, player 1's position and heading, and the view settings, as text.
 void NativeDev_RaceWriteWhere(const char *path);
 void NativeDev_RaceShutdown(void);
+void NativeDev_RaceWriteKartLog(const char *path);
 
 #endif
