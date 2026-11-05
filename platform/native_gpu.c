@@ -1316,6 +1316,14 @@ internal void AddSplit(bool semiTrans, bool textured, bool framebufferFeedback)
 	TextureID sideloadTexture = trialLetter ? s_gpu.trialLetterTexture : s_gpu.apSideloadTexture;
 	bool apSideload = textured && (nativeTag != 0) && (nativeTag != NATIVE_TPAGE_RACER_BANK) && sideloadTexture != 0;
 
+	// A depth-tested level is a converted one, whose palettes have no STP texels:
+	// its faces' blend bit (see NativeGpu_LevelDepthMode) would only cost each
+	// polygon a split of its own and a second draw.
+	if (s_gpu.levelPrim && s_gpu.levelDepthTested)
+	{
+		semiTrans = false;
+	}
+
 	BlendMode blendMode = semiTrans ? GET_TPAGE_BLEND(tpage) : BM_NONE;
 	TexFormat texFormat = GetTPageFormat(tpage);
 	TextureID textureId = !textured ? NativeRenderer_GetWhiteTexture() : racerBank ? s_gpu.racerBankTexture : NativeRenderer_GetVRAMTexture();

@@ -5,8 +5,10 @@
 Each course converts in its own process, into C:/t/mkds-<course>, its output in convert.log there.
 With --check, the courses that converted race through check_track.ps1 (check.log). Courses left out
 of the command line all run. The exit code is 1 when any course failed.
+With --fps they then race one at a time through track_fps.ps1 at the owner's settings, and each prints
+its frame times and the place of its worst frames: run nothing else meanwhile.
 """
-import argparse, concurrent.futures, os, queue, re, subprocess, sys
+import argparse, concurrent.futures, csv, os, queue, re, subprocess, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -62,12 +64,43 @@ def check(rom, course, runs):
     return course, r.returncode == 0, detail if r.returncode == 0 else f'{detail}: {reason(r.stdout)}'
 
 
+BUDGET_MS = 1000 / 59.94
+WORST_FRAMES = 0.01  # the share of a course's frames its worst place is taken from
+
+
+def frame_times(course):
+    """-> a line of the race's frame times, and where its worst frames are. The trace starts with the
+    level's first frame and has one row per frame, so the perf rows of that level pair off with it."""
+    folder = f'C:/t/mkds-{course}/fps'
+    with open(f'{folder}/trace.csv', newline='') as f:
+        trace = list(csv.DictReader(f))
+    with open(f'{folder}/frame_times.csv', newline='') as f:
+        rows = [r for r in csv.DictReader(f) if r['level_id'] == trace[0]['level']][-len(trace):]
+    start = next(i for i, t in enumerate(trace[-len(rows):]) if int(t['raceMS']) > 0)
+    race = list(zip(rows, trace[-len(rows):]))[start:]
+    ms = sorted(float(r['work_ms']) for r, _ in race)
+    over = sum(m > BUDGET_MS for m in ms) / len(ms)
+    worst = sorted(race, key=lambda p: -float(p[0]['work_ms']))[:max(1, int(len(race) * WORST_FRAMES))]
+    x, y, z = (sorted(int(t[k]) for _, t in worst)[len(worst) // 2] for k in 'xyz')
+    return (f'median {ms[len(ms) // 2]:.1f} ms, 1% worst {ms[int(len(ms) * (1 - WORST_FRAMES))]:.1f} ms, max {ms[-1]:.1f} ms, '
+            f'{over:.0%} over {BUDGET_MS:.1f} ms; worst round ({x}, {y}, {z})')
+
+
+def fps(course):
+    r = subprocess.run(['pwsh', '-NoProfile', '-File', os.path.join(HERE, 'track_fps.ps1'), '-Course', course],
+                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors='replace')
+    if r.returncode != 0:
+        return course, False, reason(r.stdout)
+    return course, True, frame_times(course)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('rom')
     ap.add_argument('courses', nargs='*', help='default: all of them')
     ap.add_argument('--disc', required=True)
     ap.add_argument('--check', action='store_true', help='race the courses that converted')
+    ap.add_argument('--fps', action='store_true', help='time the courses that converted, one at a time')
     ap.add_argument('--no-convert', action='store_true', help='check what the last run converted')
     ap.add_argument('--jobs', type=int, default=6, help='conversions at one time')
     ap.add_argument('--races', type=int, default=4, help='races at one time, each with its own run folder')
@@ -95,6 +128,12 @@ def main():
                 course, ok, why = future.result()
                 print(f"check   {course:16} {'PASS ' if ok else 'FAIL '}{why}", flush=True)
                 failed |= not ok
+
+    if a.fps:
+        for c in converted:
+            course, ok, line = fps(c)
+            print(f"fps     {course:16} {'' if ok else 'FAIL '}{line}", flush=True)
+            failed |= not ok
     sys.exit(1 if failed else 0)
 
 
