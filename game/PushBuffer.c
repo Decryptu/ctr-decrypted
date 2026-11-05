@@ -413,6 +413,11 @@ void PushBuffer_SetMatrixVP(struct PushBuffer *pb)
 #include "PushBuffer/PushBuffer_SetFrustumPlane.c"
 
 
+static int PushBuffer_ClampToLevelRange(int value)
+{
+	return value < -0x8000 ? -0x8000 : (value > 0x7fff ? 0x7fff : value);
+}
+
 static void PushBuffer_UpdateFrustum_LoadV0(int xy, int z)
 {
 	MTC2((u32)xy, 0);
@@ -447,7 +452,6 @@ void PushBuffer_UpdateFrustum(struct PushBuffer *pb)
 	// Retail packs screen-space corner x/y into a single GTE VXY word.
 	struct FrustumCornerIN frustumCorner[4];
 
-	int iVar19;
 
 	int tx;
 	int ty;
@@ -544,111 +548,17 @@ void PushBuffer_UpdateFrustum(struct PushBuffer *pb)
 		posY = ty * farClip + cameraPosY;
 		posZ = tz * farClip + cameraPosZ;
 
-		iVar19 = 0x1000;
-
 		fcOUT->pos.x = tx + cameraPosX;
 		fcOUT->pos.y = ty + cameraPosY;
 		fcOUT->pos.z = tz + cameraPosZ;
 
-		// far clip: pos + dir*100
-		spf->clippedFarPos.x = posX;
-		spf->clippedFarPos.y = posY;
-		spf->clippedFarPos.z = posZ;
-
-		// === X Axis ===
-		if (((cameraPosX < -0x8000) && (-0x8000 < posX)) || ((-0x8000 < cameraPosX && (posX < -0x8000))))
-		{
-			ty = (-0x8000 - cameraPosX) * 0x1000;
-			tx = posX - cameraPosX;
-			tz = ty / tx;
-
-			if (tz < 0x1000)
-			{
-				spf->clippedFarPos.x = -0x8000;
-				spf->clippedFarPos.y = cameraPosY + (tz * (posY - cameraPosY) >> 0xc);
-				spf->clippedFarPos.z = cameraPosZ + (tz * (posZ - cameraPosZ) >> 0xc);
-				iVar19 = tz;
-			}
-		}
-
-		// === Y Axis ===
-		if (((cameraPosY < -0x8000) && (-0x8000 < posY)) || ((-0x8000 < cameraPosY && (posY < -0x8000))))
-		{
-			ty = (-0x8000 - cameraPosY) * 0x1000;
-			tx = posY - cameraPosY;
-			tz = ty / tx;
-
-			if (tz < iVar19)
-			{
-				spf->clippedFarPos.y = -0x8000;
-				spf->clippedFarPos.x = cameraPosX + (tz * (posX - cameraPosX) >> 0xc);
-				spf->clippedFarPos.z = cameraPosZ + (tz * (posZ - cameraPosZ) >> 0xc);
-				iVar19 = tz;
-			}
-		}
-
-		// === Z Axis ===
-		if (((cameraPosZ < -0x8000) && (-0x8000 < posZ)) || ((-0x8000 < cameraPosZ && (posZ < -0x8000))))
-		{
-			ty = (-0x8000 - cameraPosZ) * 0x1000;
-			tx = posZ - cameraPosZ;
-			tz = ty / tx;
-
-			if (tz < iVar19)
-			{
-				spf->clippedFarPos.z = -0x8000;
-				spf->clippedFarPos.x = cameraPosX + (tz * (posX - cameraPosX) >> 0xc);
-				spf->clippedFarPos.y = cameraPosY + (tz * (posY - cameraPosY) >> 0xc);
-				iVar19 = tz;
-			}
-		}
-
-		// === X Axis ===
-		if (((cameraPosX < 0x7fff) && (0x7fff < posX)) || ((0x7fff < cameraPosX && (posX < 0x7fff))))
-		{
-			ty = (0x7fff - cameraPosX) * 0x1000;
-			tx = posX - cameraPosX;
-			tz = ty / tx;
-
-			if (tz < iVar19)
-			{
-				spf->clippedFarPos.x = 0x7fff;
-				spf->clippedFarPos.y = cameraPosY + (tz * (posY - cameraPosY) >> 0xc);
-				spf->clippedFarPos.z = cameraPosZ + (tz * (posZ - cameraPosZ) >> 0xc);
-				iVar19 = tz;
-			}
-		}
-
-		// === Y Axis ===
-		if (((cameraPosY < 0x7fff) && (0x7fff < posY)) || ((0x7fff < cameraPosY && (posY < 0x7fff))))
-		{
-			ty = (0x7fff - cameraPosY) * 0x1000;
-			tx = posY - cameraPosY;
-			tz = ty / tx;
-
-			if (tz < iVar19)
-			{
-				spf->clippedFarPos.y = 0x7fff;
-				spf->clippedFarPos.x = cameraPosX + (tz * (posX - cameraPosX) >> 0xc);
-				spf->clippedFarPos.z = cameraPosZ + (tz * (posZ - cameraPosZ) >> 0xc);
-				iVar19 = tz;
-			}
-		}
-
-		// === Z Axis ===
-		if (((cameraPosZ < 0x7fff) && (0x7fff < posZ)) || ((0x7fff < cameraPosZ && (posZ < 0x7fff))))
-		{
-			tx = (0x7fff - cameraPosZ) * 0x1000;
-			posZ = posZ - cameraPosZ;
-			ty = tx / posZ;
-
-			if (ty < iVar19)
-			{
-				spf->clippedFarPos.z = 0x7fff;
-				spf->clippedFarPos.x = cameraPosX + (ty * (posX - cameraPosX) >> 0xc);
-				spf->clippedFarPos.y = cameraPosY + (ty * (posY - cameraPosY) >> 0xc);
-			}
-		}
+		// The box of everything in view: the far corners, held to the level's
+		// 16-bit range. Each far corner is kept whole rather than cut where its own
+		// ray leaves that range: rays between the corners can run on past those cuts,
+		// and a level reaching that far lost what lay beyond them.
+		spf->clippedFarPos.x = PushBuffer_ClampToLevelRange(posX);
+		spf->clippedFarPos.y = PushBuffer_ClampToLevelRange(posY);
+		spf->clippedFarPos.z = PushBuffer_ClampToLevelRange(posZ);
 
 		// === Set 6 Min/Max X,Y,Z variables ===
 
