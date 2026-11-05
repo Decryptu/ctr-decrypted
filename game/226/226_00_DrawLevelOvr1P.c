@@ -545,6 +545,23 @@ static int DrawLevelOvr1P_IsNativeLevelTexturePointer(u32 value)
 #endif
 }
 
+// The mosaic slot's first word: a pointer to a hi-res table, or that slot's own
+// UV and palette. A value alone cannot tell them apart here, as a palette word
+// can equal an address inside the level, so plain data reads as 0 (see
+// NativeLevelPointers_Query).
+static u32 DrawLevelOvr1P_ReadMosaicWord(const struct TextureLayout *texture)
+{
+	const u8 *slot = (const u8 *)texture + 0x24;
+	u32 word = DrawLevelOvr1P_ReadPackedWord(slot);
+#ifdef CTR_NATIVE
+	if ((s32)word > 0 && NativeLevelPointers_Query(slot) == 0)
+	{
+		return 0;
+	}
+#endif
+	return word;
+}
+
 static int DrawLevelOvr1P_TreatAsRetailNegativeTextureWord(u32 value)
 {
 	return (s32)value < 0 || DrawLevelOvr1P_IsNativeLevelTexturePointer(value);
@@ -698,7 +715,7 @@ static struct TextureLayout *DrawLevelOvr1P_GetProjectedMidTexture(const struct 
 		return NULL;
 	}
 
-	u32 mosaicWord = DrawLevelOvr1P_ReadPackedWord((const u8 *)texture + 0x24);
+	u32 mosaicWord = DrawLevelOvr1P_ReadMosaicWord(texture);
 
 	// NOTE(aalhendi): Retail stores texture+0x24 at scratch 0x84 for the
 	// deepest-frame UV reload path.
@@ -4831,7 +4848,7 @@ static struct TextureLayout *Ovr226_800a3e00_SelectGround4x1SelectorTexture(cons
 		return NULL;
 	}
 
-	u32 mosaicWord = DrawLevelOvr1P_ReadPackedWord((const u8 *)texture + 0x24);
+	u32 mosaicWord = DrawLevelOvr1P_ReadMosaicWord(texture);
 	DrawLevelOvr1P_Scratch()->mosaicTextureWord = mosaicWord;
 
 	if ((s32)maxDepth < DrawLevelOvr1P_RenderScratch()->textureLodDepthThreshold0)

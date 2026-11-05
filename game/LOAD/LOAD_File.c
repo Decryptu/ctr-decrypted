@@ -157,6 +157,12 @@ void LOAD_DramFileCallback(struct LoadQueueSlot *lqs)
 			struct DramPointerMap *dpm = (struct DramPointerMap *)&realFileBuf[ptrMapOffset];
 
 			LOAD_RunPtrMap(realFileBuf, (int *)DRAM_GETOFFSETS(dpm), dpm->numBytes >> 2);
+#if defined(CTR_NATIVE)
+			if (lqs->callbackFuncPtr == LOAD_Callback_LEV)
+			{
+				NativeLevelPointers_Note(realFileBuf, (int *)DRAM_GETOFFSETS(dpm), dpm->numBytes >> 2);
+			}
+#endif
 
 #if defined(CTR_NATIVE)
 			if ((lqs->flags & LT_MEMPACK) != 0)

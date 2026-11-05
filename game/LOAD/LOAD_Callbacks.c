@@ -73,6 +73,9 @@ void LOAD_Callback_PatchMem(struct LoadQueueSlot *lqs)
 	patchNum = patchMap->numBytes >> DRAM_POINTER_MAP_WORD_SHIFT;
 
 	LOAD_RunPtrMap((char *)sdata->ptrLevelFile, DRAM_GETOFFSETS(patchMap), patchNum);
+#if defined(CTR_NATIVE)
+	NativeLevelPointers_Note((char *)sdata->ptrLevelFile, DRAM_GETOFFSETS(patchMap), patchNum);
+#endif
 
 	MEMPACK_SwapPacks(0);
 	MEMPACK_ClearHighMem();
