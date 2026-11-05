@@ -70,6 +70,11 @@ def start_positions(m):
     return [(vec32(e, 0), vec32(e, 12)) for e in m['KTPS']]
 
 
+def cannons(m):
+    """-> the point each cannon shoots a kart at, by the KCL variant of its wall."""
+    return [vec32(e, 0) for e in m['KTPC']]
+
+
 def checkpoints(m):
     """-> list of ((x1, z1), (x2, z2), next section info)."""
     return [((fx32(e, 0), fx32(e, 4)), (fx32(e, 8), fx32(e, 12)), u16(e, 0x1c), s16(e, 0x1e)) for e in m['CPOI']]

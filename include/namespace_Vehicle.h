@@ -65,7 +65,8 @@ enum KartState
 	KS_BLASTED = 6,
 	KS_ANTIVSHIFT = 9,
 	KS_WARP_PAD = 10,
-	KS_FREEZE = 11
+	KS_FREEZE = 11,
+	KS_FLIGHT = 12 // VehFlight.c
 };
 
 enum
@@ -1930,6 +1931,16 @@ struct Driver
 
 		// state 10
 		struct DriverWarpState Warp;
+
+		// state 12
+		struct
+		{
+			s16 flight;    // which of the level's flights
+			s16 point;     // the path's record it is heading for
+			s32 speed;     // level units a second
+			float segment; // length of the segment it is on, in 1/256 of a level unit
+			s16 forward[3];
+		} Flight;
 
 	} KartStates;
 

@@ -48,6 +48,8 @@ COLLISION = {
     0x05: ('col_mud', 'Slow Dirt', _ROAD, True),
     0x07: ('col_boost', 'Asphalt', _ROAD, True),
     0x12: ('col_ramp', 'Asphalt', _ROAD, True),  # a boost ramp, the jumps: a super turbo pad
+    0x0c: ('col_jump', 'Asphalt', _ROAD, True),  # a jump pad: throws a kart over the gap past it
+    0x13: ('col_road', 'Asphalt', _ROAD, True),  # a loop's way in and out; what is steeper is a flight
     0x08: ('col_wall', 'Asphalt', _WALL, False),
     0x09: ('col_wall', 'Asphalt', _WALL, False),
     0x0e: ('col_wall', 'Asphalt', _WALL, False),
@@ -70,7 +72,7 @@ MAX_VERTICES = 65000  # quadblocks index vertices with 16 bits; a little under, 
 MAX_COORD = 500  # CrashTeamEditor units; 512 is the LEV's 16-bit limit, and the carrier blocks sit 8 past the course
 VRAM_SHARE = 0.85  # of the free texture pages, at first
 MAX_FIT_ATTEMPTS = 12
-BOOST_MATERIALS = {'col_boost', 'col_ramp'}
+BOOST_MATERIALS = {'col_boost', 'col_ramp', 'col_jump'}
 TRIGGER_TURBO_PAD, TRIGGER_SUPER_TURBO_PAD = 1, 2  # CrashTeamEditor's QuadblockTrigger
 PRESET_TURBO_PAD = 4  # CrashTeamEditor's PresetHeader
 # LEV units from the ground up to a crate or fruit instance's origin (retail tracks: 0 to 8)
@@ -81,6 +83,16 @@ FRUIT_ROW_GAP = 13000  # along the route, from one row to the next
 FRUIT_CLEAR_OF_START = 800  # no row this close to the finish line, either side
 FRUIT_CLEAR_OF_CRATES = 500
 FRUIT_ROAD = {'col_road', 'col_boost', 'col_ramp'}
+# Flights (docs/TRACK-CONVERTER.md#flights). MKDS units, but speeds in LEV units a second.
+KCL_CANNON, KCL_LOOP = 0x0f, 0x13
+LOOP_ROAD = 0.7  # a loop's triangle facing up this much a kart drives on; steeper, it rides a flight
+LOOP_REACH = 170  # how far from a loop's road its route may run
+FLIGHT_GAP = 600  # a stretch of route over nothing at all, longer than a kart jumps
+FLIGHT_STEP = 100  # ground rising this much at once, which only a moving floor climbs in MKDS
+CANNON_SPEED, GAP_SPEED, STEP_SPEED = 6000, 4000, 2500
+FLIGHT_SAMPLE = 16  # along the route
+FLIGHT_POINT = 48  # from one point of a flight's path to the next
+FLIGHT_LAND = 24  # above the ground, where a flight ends
 # MKDS units: a route point may be this far under the road, and this far above it before it is a jump
 ROUTE_ABOVE_GROUND, ROUTE_IN_THE_AIR = 20, 60
 ROUTE_UNDER_BUMP = 80  # how far the top of a bump can stand above the route's line, MKDS units
@@ -93,7 +105,7 @@ MAP_PIXEL_ASPECT = 1.5  # screen pixels across per pixel down for the same dista
 # UIMap::mode -> (x, z) of what is up on the map, as UI_Map_GetIconPos draws it
 MAP_UP = ((0, -1), (-1, 0), (0, 1), (1, 0))
 MAP_ICON_X, MAP_ICON_Y = 4, 2  # a kart icon's top left corner from the point it marks
-MAP_ROAD = {'col_road', 'col_boost', 'col_ramp'}
+MAP_ROAD = {'col_road', 'col_boost', 'col_ramp', 'col_jump'}
 MAP_CORRIDOR, MAP_TOO_MUCH = 1.1, 1.5  # of a route point's radius; of the corridor's area
 MAP_FILL, MAP_EDGE = (66, 66, 66, 255), (255, 255, 255, 255)  # lev_patch sets the fill to blend
 
@@ -567,6 +579,170 @@ def minimap(kcl, to_lev, forward, route):
                   int(round(start_x)), int(round(start_y)), mode]
 
 
+def route_line(route):
+    """The route as a smooth closed line, FLIGHT_SAMPLE apart. -> positions, radii, way along it."""
+    p = np.array([q for q, _ in route])
+    r = np.array([q for _, q in route])
+    n = len(p)
+    points, radii = [], []
+    for i in range(n):
+        a, b, c, d = p[i - 1], p[i], p[(i + 1) % n], p[(i + 2) % n]
+        steps = max(1, int(np.linalg.norm(c - b) / FLIGHT_SAMPLE))
+        for k in range(steps):
+            t = k / steps
+            points.append(0.5 * (2 * b + (c - a) * t + (2 * a - 5 * b + 4 * c - d) * t * t + (3 * b - a - 3 * c + d) * t ** 3))
+            radii.append(r[i] + (r[(i + 1) % n] - r[i]) * t)
+    points = np.array(points)
+    way = np.roll(points, -1, 0) - points
+    return points, np.array(radii), way / np.maximum(np.linalg.norm(way, axis=1, keepdims=True), 1e-9)
+
+
+def path_up(points):
+    """An up direction for each point of a path through the air: square to it, in the vertical plane."""
+    ups = []
+    for i, p in enumerate(points):
+        way = points[min(i + 1, len(points) - 1)] - points[max(i - 1, 0)]
+        way = way / max(np.linalg.norm(way), 1e-9)
+        side = np.cross(way, (0.0, 1.0, 0.0))
+        length = np.linalg.norm(side)
+        ups.append(np.cross(side / length, way) if length > 1e-3 else np.array([0.0, 1.0, 0.0]))
+    return ups
+
+
+def arc(start, end, lift):
+    """A path from start to end, rising lift over the straight line at its middle."""
+    count = max(8, int(np.linalg.norm(end - start) / (FLIGHT_POINT * 4)))
+    return [start + (end - start) * (i / count) + np.array([0.0, lift * 4 * (i / count) * (1 - i / count), 0.0]) for i in range(count + 1)]
+
+
+def find_flights(course, to_lev, scale):
+    """Everywhere a kart has to be carried. -> (flights for lev_patch, one line each for the log)."""
+    lev = 64 * scale
+    line, radii, way = route_line(course.route)
+    count = len(line)
+    solid = [t for t in course.kcl if (i := COLLISION.get(mkdsmap.kcl_type(t[4]))) and i[2] & GROUND and not i[2] & KILL_PLANE and t[3][1] > 0.1]
+    cells = defaultdict(list)
+    for t in solid:
+        xs, zs = [v[0] for v in t[:3]], [v[2] for v in t[:3]]
+        for gx in range(int(min(xs) // 128), int(max(xs) // 128) + 1):
+            for gz in range(int(min(zs) // 128), int(max(zs) // 128) + 1):
+                cells[(gx, gz)].append(t)
+
+    def under(p, top):
+        found = ground_under(p[0], p[2], top, cells.get((int(p[0] // 128), int(p[2] // 128)), ()))
+        return None if found is None else found[0]
+
+    def on_ground(i):
+        """The route's sample i put on the ground, a little above it."""
+        h = under(line[i % count], line[i % count][1] + ROUTE_UNDER_BUMP)
+        return np.array([line[i % count][0], (h if h is not None else line[i % count][1]) + FLIGHT_LAND, line[i % count][2]])
+
+    flights, log, taken = [], [], set()
+
+    def add(kind, gate_width, gate_height, speed, points, ups, first, last):
+        rows = [[*np.round(to_lev(p)).astype(int).tolist(), *np.round(u * 4096).astype(int).tolist()] for p, u in zip(points, ups)]
+        flights.append({'gate': [int(gate_width * lev), int(gate_height * lev), speed], 'points': rows})
+        length = sum(np.linalg.norm(b - a) for a, b in zip(points, points[1:]))
+        log.append(f'{kind} {length:.0f} long at {np.round(points[0]).astype(int).tolist()} to {np.round(points[-1]).astype(int).tolist()}')
+        i = first
+        while True:
+            taken.add(i)
+            if i == last:
+                break
+            i = (i + 1) % count
+
+    def landing(i):
+        """The first sample from i on that has ground under it."""
+        for k in range(count):
+            j = (i + k) % count
+            if under(line[j], line[j][1] + ROUTE_UNDER_BUMP) is not None:
+                return j
+        return i % count
+
+    def closing(j, path):
+        """The end of a path, running on along the road so the kart lands facing it."""
+        return path + [path[-1] + way[j] * FLIGHT_POINT]
+
+    # Loops: the road's own surface, turned as it turns, kept a little off it
+    rail = []
+    for i in range(count):
+        best = None
+        for a, b, c, n, _ in course.loops:
+            d = float(np.dot(line[i] - a, n))
+            if abs(d) > LOOP_REACH or (best is not None and abs(d) >= abs(best[0])):
+                continue
+            foot = line[i] - n * d
+            if all(np.dot(np.cross(v - u, foot - u), n) >= -8 for u, v in ((a, b), (b, c), (c, a))):
+                best = (d, foot, n)
+        rail.append(best)
+    i = 0
+    while i < count:
+        if rail[i] is None:
+            i += 1
+            continue
+        end = i
+        k = i
+        while k < count and k - end < 12:  # a route between two triangles finds neither for a moment
+            if rail[k] is not None:
+                end = k
+            k += 1
+        if (end - i) * FLIGHT_SAMPLE >= FLIGHT_GAP / 2:
+            found = [(k, rail[k]) for k in range(i, end + 1) if rail[k] is not None][::FLIGHT_POINT // FLIGHT_SAMPLE]
+            points = [f + n * 8 for _, (_, f, n) in found]
+            normals = [n for _, (_, _, n) in found]
+            ups = [sum(normals[max(0, k - 2):k + 3]) for k in range(len(normals))]
+            ups = [u / np.linalg.norm(u) for u in ups]
+            j = landing(end + 4)
+            points += [on_ground(j), on_ground(j) + way[j] * FLIGHT_POINT]
+            ups += [np.array([0.0, 1.0, 0.0])] * 2
+            add('loop', radii[i] * 2.5, 300, 0, points, ups, i, j)
+        i = end + 1
+
+    # Cannons: the wall of type KCL_CANNON a kart drives into, and the point it is shot at
+    targets = mkdsmap.cannons(course.nkm)
+    for variant in sorted({(t[4] >> 5) & 7 for t in course.cannons}):
+        wall = np.array([v for t in course.cannons if (t[4] >> 5) & 7 == variant for v in t[:3]])
+        middle = (wall.min(0) + wall.max(0)) / 2
+        first = int(((line - middle)[:, [0, 2]] ** 2).sum(1).argmin())
+        aim = int(((line - targets[variant]) ** 2).sum(1).argmin())
+        j = landing(aim)
+        h = under(middle, middle[1])
+        start = np.array([middle[0], h if h is not None else wall[:, 1].min(), middle[2]])
+        end = on_ground(j)
+        points = closing(j, arc(start, end, np.linalg.norm(end - start) * 0.06))
+        add('cannon', np.ptp(wall[:, [0, 2]], axis=0).max() / 2 + 40, np.ptp(wall[:, 1]) + 60, CANNON_SPEED, points, path_up(points), first, j)
+
+    # Gaps longer than a kart jumps, as MKDS's lighter karts fly: the jump over Bowser Castle's lava
+    bare = [under(line[i], 1e9) is None for i in range(count)]
+    i = 0
+    while i < count:
+        if not bare[i]:
+            i += 1
+            continue
+        j = i
+        while j < count and bare[j]:
+            j += 1
+        length = (j - i) * FLIGHT_SAMPLE
+        if length >= FLIGHT_GAP and not any(k in taken for k in range(i, j)):
+            land = landing(j)
+            start, end = on_ground(i - 2), on_ground(land)
+            points = closing(land, arc(start, end, length * 0.1))
+            add('gap', radii[i] * 2.5, 300, GAP_SPEED, points, path_up(points), i, land)
+        i = j
+
+    # Ground rising at once: a floor that lifts karts in MKDS
+    heights = [under(line[i], line[i][1] + ROUTE_UNDER_BUMP) for i in range(count)]
+    for i in range(count):
+        before, after = heights[i - 1], heights[i]
+        if before is not None and after is not None and after - before >= FLIGHT_STEP and i not in taken:
+            first, land = (i - 10) % count, (i + 10) % count
+            start = np.array([line[first][0], before + FLIGHT_LAND, line[first][2]])
+            end = on_ground(land)
+            points = closing(land, arc(start, end, FLIGHT_STEP))
+            add('step', radii[i] * 2.5, 300, STEP_SPEED, points, path_up(points), first, land)
+    return flights, log
+
+
 def fruit_rows(route_at, total, lev, crates, to_lev, ground):
     """Wumpa fruit positions in LEV units. route_at(s) is the route's point s MKDS units past the
     finish line. A row wanted somewhere it cannot lie (off the road, in the air, near a crate or the
@@ -616,6 +792,12 @@ SCENERY = {
 # Scenery that karts drive on, and the radius of its flat top in its model. Tick-Tock Clock's turning
 # cogs carry the road over a pit, in no collision of the course's own; here they stand still.
 FLOOR_OBJECTS = {0xcb: 300}
+# Bridges MKDS moves, which stand still here: Delfino Square's raised halves, lowered, each half the
+# object's own length and width. A floor that moves has no place in the game's static collision.
+LOWERED_BRIDGES = {0xcc: ('bridge', 180, 350)}
+ROTARY_BRIDGE, ROTARY_BRIDGE_WIDTH = 0xd0, 200  # Bowser Castle's turning log, its road on top of it
+ROTARY_BRIDGE_LENGTH, ROTARY_BRIDGE_RADIUS = 2150.0, 80.0  # of its model
+BRIDGE_RAIL = 64
 FAR_EDGE = 8  # backdrops and water take blocks this many times longer: nothing rides on them
 WATER_OBJECTS = {0x01, 0x03, 0x06, 0x09}  # the sheet of water round a course, one per course
 TRUNK_RADIUS = 1 / 8  # of a billboard's width: its solid part, a pillar as high as half the object
@@ -652,6 +834,23 @@ def floor_discs(nkm):
     return [t for floor in floors for t in disc(*floor, [other for other in floors if other is not floor])]
 
 
+def road_strip(start, end, width, rail=0):
+    """A flat road from start to end, as KCL triangles, between rails of height rail."""
+    way = (end - start) / np.linalg.norm(end - start)
+    side = np.array([-way[2], 0.0, way[0]]) * width / 2  # to the left of way, looking down
+    a, b, c, d = start + side, end + side, end - side, start - side
+    up = np.array([0.0, 1.0, 0.0])
+    tris = [(a, b, c, up, KCL_ROAD << 8), (a, c, d, up, KCL_ROAD << 8)]
+    tris = [t if np.cross(t[1] - t[0], t[2] - t[0])[1] > 0 else (t[0], t[2], t[1], t[3], t[4]) for t in tris]
+    if rail:
+        lift = np.array([0.0, rail, 0.0])
+        for p, q in ((a, b), (c, d)):
+            for t in ((p, q, q + lift), (p, q + lift, p + lift)):
+                n = np.cross(t[1] - t[0], t[2] - t[0])
+                tris.append((*t, n / np.linalg.norm(n), KCL_WALL << 8))
+    return tris
+
+
 def pillar(pos, radius, height):
     """Six outward-facing wall quads round pos, as KCL triangles, from below the ground up."""
     tris = []
@@ -671,7 +870,12 @@ class Course:
         tex = nds.carc(rom_files[f'data/Course/{name}Tex.carc'])
         self.model = nitro3d.Model(arc['course_model.nsbmd'])
         self.kcl = mkdsmap.kcl(arc['course_collision.kcl'])
+        # no collision: a flight carries a kart past these (find_flights)
+        self.loops = [t for t in self.kcl if mkdsmap.kcl_type(t[4]) == KCL_LOOP and t[3][1] < LOOP_ROAD]
+        self.kcl = [t for t in self.kcl if not (mkdsmap.kcl_type(t[4]) == KCL_LOOP and t[3][1] < LOOP_ROAD)]
+        self.cannons = [t for t in self.kcl if mkdsmap.kcl_type(t[4]) == KCL_CANNON]
         self.nkm = mkdsmap.nkm(arc['course_map.nkm'])
+        self.route = mkdsmap.cpu_route(self.nkm)
         self.item_boxes = mkdsmap.item_boxes(self.nkm)
         # some courses keep their textures inside the model file
         course_tex0 = nitro3d.load_tex0(tex['course_model.nsbtx'] if 'course_model.nsbtx' in tex else arc['course_model.nsbmd'])
@@ -778,8 +982,50 @@ class Course:
                 width, height = np.ptp(corners[:, 0]), np.ptp(corners[:, 1])
                 self.kcl += pillar(pos, width * TRUNK_RADIUS, height / 2)
         self.kcl += floor_discs(self.nkm)
+        self.add_bridges(arc)
         for name in sorted(missing):
             print(f'scenery: no model {name} in this course')
+
+    def bake(self, arc, name, place):
+        """Draw a course object's model. place: model position -> world position."""
+        model = nitro3d.Model(arc[f'MapObj/{name}.nsbmd'])
+        tex0 = nitro3d.load_tex0(arc[f'MapObj/{name}.nsbmd'])
+        first = len(self.mats)
+        for m in model.mats:
+            m.tex0 = tex0
+            self.mats.append(m)
+        for mi, tri in model.triangles():
+            self.triangles.append((first + mi, [(place(np.array(v[0]) * MODEL_TO_WORLD), v[1], v[2], v[3]) for v in tri]))
+
+    def add_bridges(self, arc):
+        """Bridges that move in MKDS and carry the route over a gap: drawn and solid, standing still."""
+        for object_id, pos, rot, size in mkdsmap.placed_objects(self.nkm):
+            if object_id in LOWERED_BRIDGES:
+                name, width, length = LOWERED_BRIDGES[object_id]
+                self.bake(arc, name, lambda p, pos=pos, size=size, turn=rot[1]: pos + rotate_y(p * size, turn))
+                self.kcl += road_strip(pos, pos + rotate_y(np.array([0.0, 0.0, length]), rot[1]), width, BRIDGE_RAIL)
+            elif object_id == ROTARY_BRIDGE:
+                route = self.route
+                nearest = sorted(range(len(route)), key=lambda i: np.linalg.norm(route[i][0] - pos))[:2]
+                ground = [t for t in self.kcl if mkdsmap.kcl_type(t[4]) == KCL_ROAD and t[3][1] > 0.5]
+                def road_end(i, step):
+                    while ground_under(route[i][0][0], route[i][0][2], route[i][0][1] + 40, ground) is None:
+                        i = (i + step) % len(route)
+                    return i
+                first, last = road_end(min(nearest), -1), road_end(max(nearest), 1)
+                # The route swings round the hub, which is a wall: the log follows it, piece by piece.
+                # The model stands along -y from its end: laid along the road, its top level with it.
+                for i in range(first, last):
+                    way = route[i + 1][0] - route[i][0]
+                    length = np.linalg.norm(way)
+                    way = way / length
+                    start = route[i][0] - way * ROTARY_BRIDGE_WIDTH / 4
+                    length += ROTARY_BRIDGE_WIDTH / 2
+                    self.kcl += road_strip(start, start + way * length, ROTARY_BRIDGE_WIDTH)
+                    side = np.array([-way[2], 0.0, way[0]])
+                    def lay(p, start=start, way=way, side=side, length=length):
+                        return start + way * (-p[1] / ROTARY_BRIDGE_LENGTH * length) + side * p[0] + np.array([0.0, p[2] - ROTARY_BRIDGE_RADIUS, 0.0])
+                    self.bake(arc, 'rotary_bridge', lay)
 
     def sky_colours(self):
         """(zenith, horizon) RGB from the skybox texture's top and bottom rows; a plain blue without one."""
@@ -854,7 +1100,7 @@ def convert(course, out_dir, name, scale, max_edge, crate, vram_share):
     m = course.nkm
     cps = mkdsmap.checkpoints(m)
     (x1, z1), (x2, z2), _, _ = cps[0]
-    route = mkdsmap.cpu_route(m)
+    route = course.route
     start_pos, start_rot = mkdsmap.start_positions(m)[0]
     line_a, line_b = np.array([x1, z1]), np.array([x2, z2])
     along = (line_b - line_a) / np.linalg.norm(line_b - line_a)
@@ -862,7 +1108,7 @@ def convert(course, out_dir, name, scale, max_edge, crate, vram_share):
     if np.dot(np.array([route[0][0][0], route[0][0][2]]) - line_a, fwd) < 0:
         fwd = -fwd
     seg_len = np.linalg.norm(line_b - line_a)
-    map_image, ui_map = minimap(course.kcl, to_lev, fwd, route)
+    map_image, ui_map = minimap(course.kcl + course.loops, to_lev, fwd, route)
     # what the game needs from the VRM besides the course: each gets a carrier block
     item_images = [g['image'] for g in crate.groups] + [map_image]
 
@@ -1071,6 +1317,7 @@ def convert(course, out_dir, name, scale, max_edge, crate, vram_share):
 
     start_quads, end_quads = [], []
     boost_blocks = {}
+    jump_pads = []  # where each pad's middle is: CrashTeamEditor knows two triggers, and lev_patch sets these
     collision = []
     for a, b, c, nrm, attr in course.kcl:
         ty = mkdsmap.kcl_type(attr)
@@ -1135,6 +1382,8 @@ def convert(course, out_dir, name, scale, max_edge, crate, vram_share):
             write_triblock(bname, cname, cte, tri_normal(cte))
             if cname in BOOST_MATERIALS:
                 boost_blocks[bname] = TRIGGER_SUPER_TURBO_PAD if cname == 'col_ramp' else TRIGGER_TURBO_PAD
+            if cname == 'col_jump':
+                jump_pads.append([int(round(c * 64)) for c in sum(v['pos'] for v in cte) / 3])
             if crossing:
                 d = [np.dot(np.array([v['mk'][0], v['mk'][2]]) - line_a, fwd) for v in piece]
                 touches = min(abs(x) for x in d) < 1e-2
@@ -1277,7 +1526,12 @@ def convert(course, out_dir, name, scale, max_edge, crate, vram_share):
     fruit, dropped = fruit_rows(route_at, total, 64 * scale, crates, to_lev, ground)
     stats['wumpa fruit'] = len(fruit)
     stats['fruit rows dropped'] = dropped
-    json.dump({'crates': crates, 'fruit': fruit, 'carriers': carriers, 'map': ui_map}, open(os.path.join(out_dir, name + '_items.json'), 'w'))
+    flights, flight_log = find_flights(course, to_lev, scale)
+    for line in flight_log:
+        print('flight', line)
+    stats['flights'] = len(flights)
+    json.dump({'crates': crates, 'fruit': fruit, 'carriers': carriers, 'map': ui_map, 'jump_pads': jump_pads, 'flights': flights},
+              open(os.path.join(out_dir, name + '_items.json'), 'w'))
 
     cells = {}
     for t in ground:

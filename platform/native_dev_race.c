@@ -29,6 +29,7 @@ typedef struct
 	int stuckX, stuckZ;
 	int reverseMS;
 	int wedges; // CTR_DEV_AUTOPILOT=3: in a row, near (wedgeX, wedgeZ)
+	int grabbed; // Aku Aku has the kart: a fall counts as a wedge, so it does not repeat for ever
 	int wedgeX, wedgeZ;
 	int wantAngle;
 	int steer;
@@ -510,6 +511,8 @@ int NativeDev_ModsTab(void)
 	return NativeDev_EnvInt("CTR_DEV_MODS", 0);
 }
 
+#define AUTOPILOT_MOST_CUT 160 // level units the line may stray from a straight to the point aimed at
+
 // Steer toward a nav point ahead on one of the AI's lines, with the throttle
 // held, so the kart stays on the road through the real driving physics.
 // Player 1 follows lane 0 (CTR_DEV_AUTOPILOT_LANE picks another); in VS each
@@ -558,7 +561,8 @@ int NativeDev_AutopilotPad(int player, unsigned short *buttons, unsigned char *l
 	// Nearest node: a full search on a new level, then a window around the
 	// last one so a lap boundary or a crossing section cannot make it jump.
 	int from = p->navIndex - 8, span = 40;
-	if (p->navLevel != gGT->levelID)
+	// A flight (VehFlight.c) ends far along the line.
+	if ((p->navLevel != gGT->levelID) || (d->kartState == KS_FLIGHT))
 	{
 		p->navLevel = gGT->levelID;
 		from = 0;
@@ -591,8 +595,27 @@ int NativeDev_AutopilotPad(int player, unsigned short *buttons, unsigned char *l
 	int target = best;
 	for (int k = 0; k < count; k++)
 	{
-		target = (best + k) % count;
-		int dx = frames[target].pos.x - x, dz = frames[target].pos.z - z;
+		const int next = (best + k) % count;
+		int dx = frames[next].pos.x - x, dz = frames[next].pos.z - z;
+
+		// A straight line to a point round a bend leaves the road on the inside
+		// of it: never aim where the line ahead strays from that straight.
+		long long length = (long long)dx * dx + (long long)dz * dz;
+		int cuts = 0;
+		for (int m = 1; (m < k) && (length > 0); m++)
+		{
+			const int between = (best + m) % count;
+			long long across = (long long)(frames[between].pos.x - x) * dz - (long long)(frames[between].pos.z - z) * dx;
+			if (across * across > AUTOPILOT_MOST_CUT * AUTOPILOT_MOST_CUT * length)
+			{
+				cuts = 1;
+				break;
+			}
+		}
+		if (cuts && (k > 1))
+			break;
+
+		target = next;
 		if (dx * dx + dz * dz > ahead * ahead)
 			break;
 	}
@@ -647,7 +670,23 @@ int NativeDev_AutopilotPad(int player, unsigned short *buttons, unsigned char *l
 	// CTR_DEV_AUTOPILOT=3: wedged twice in one place, hop on along the line, so
 	// a lap shows every place a kart gets stuck and not only the first. The
 	// jump in the trace marks the place (tools/tracks/lap_check.py).
-	if ((dev->autopilot == 3) && (p->wedges >= 2))
+	if (d->kartState == KS_MASK_GRABBED)
+	{
+		if (!p->grabbed)
+		{
+			long long mx = x - p->wedgeX, mz = z - p->wedgeZ;
+			if (mx * mx + mz * mz > 1000 * 1000)
+				p->wedges = 0;
+			p->wedgeX = x;
+			p->wedgeZ = z;
+			p->wedges++;
+		}
+		p->grabbed = 1;
+	}
+	else
+		p->grabbed = 0;
+
+	if ((dev->autopilot == 3) && (p->wedges >= 2) && (d->kartState != KS_MASK_GRABBED))
 	{
 		int to = (best + 6) % count;
 		int next = (to + 1) % count;
@@ -677,7 +716,7 @@ int NativeDev_AutopilotPad(int player, unsigned short *buttons, unsigned char *l
 		held = RAW_BTN_SQUARE | RAW_BTN_DOWN;
 		steer = (steer > 0) ? -127 : 127;
 	}
-	else if ((dev->autopilot == 3) && (speedAbs > 6000) && ((err > 0x180) || (err < -0x180)))
+	else if ((dev->autopilot == 3) && (speedAbs > 6000) && ((err > 0x100) || (err < -0x100)))
 		held = RAW_BTN_SQUARE; // a kart at full speed turns far wider than the corner
 	if (steer < -48)
 		held |= RAW_BTN_LEFT;

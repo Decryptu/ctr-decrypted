@@ -18,6 +18,9 @@ import json, math, struct
 
 FP_ONE_GEO = 64
 OFF_CLEAR_COLOR, OFF_CONFIG_FLAGS, OFF_NUM_CHECKPOINTS, OFF_CHECKPOINTS, OFF_NAV_TABLE = 0xD8, 0xDC, 0x148, 0x14C, 0x188
+OFF_NUM_FLIGHTS, OFF_FLIGHTS = 0x140, 0x144  # numSpawnType2_PosRot, game/Vehicle/VehFlight.c
+JUMP_PAD_HIGH = 0x20  # COLL_STEP_TRIGGER_JUMP_PAD_HIGH
+QUAD_TERRAIN = 0x38
 OFF_CLEAR_SPLIT = 0x160  # clearColor[0] above the horizon, [1] below: r, g, b, enable
 LEVEL_CONFIG_DEPTH_TESTED = 0x80000000  # include/platform/native_gpu.h
 LEVEL_CONFIG_ONE_TEXTURE_LOD = 0x40000000  # include/platform/native_draw_distance.h
@@ -192,11 +195,21 @@ def rebuild_checkpoints(data, mesh, lane, side):
             label[q] = 0
         elif index == old - 1:
             label[q] = count - 1
+    def covers(q, x, z):
+        """Whether a block lies under (x, z). Its box is not enough: a long thin triangle's holds the road
+        beside it, and where two parts of a lap run side by side that road would take the other's node."""
+        c = [struct.unpack_from('<3h', data, voff + 16 * i) for i in struct.unpack_from('<4H', data, qoff + QUAD_SIZE * q)]
+        for a, b, d in ((c[0], c[1], c[2]), (c[1], c[3], c[2])):
+            side = [(v[0] - u[0]) * (z - u[2]) - (v[2] - u[2]) * (x - u[0]) for u, v in ((a, b), (b, d), (d, a))]
+            if min(side) >= 0 or max(side) <= 0:
+                return True
+        return False
     for i, (x, y, z) in enumerate(route[:count * stride]):
         under = np.nonzero((bounds[:, 0] <= x) & (x <= bounds[:, 3]) & (bounds[:, 2] <= z) & (z <= bounds[:, 5]) &
                            (bounds[:, 1] - 64 <= y) & (y <= bounds[:, 4] + 64))[0]
         for k in under:
-            label.setdefault(ground[k], i // stride)
+            if covers(ground[k], x, z):
+                label.setdefault(ground[k], i // stride)
     seeded = len(label)
     heap = [(0.0, q, node) for q, node in label.items()]
     heapq.heapify(heap)
@@ -330,6 +343,39 @@ def blend_map_palette(vrm, clut):
     raise ValueError(f'the map palette {clut:#x} is not in the VRM')
 
 
+def add_flights(data, pointer, flights):
+    """The flights' table: a record for the gate, then one for each point of the path."""
+    while len(data) % 4:
+        data.append(0)
+    table = len(data)
+    data += bytes(8 * len(flights))
+    for i, flight in enumerate(flights):
+        records = [[*flight['gate'], 0, 0, 0]] + flight['points']
+        start = len(data)
+        for r in records:
+            data += struct.pack('<6h', *r)
+        while len(data) % 4:
+            data.append(0)
+        struct.pack_into('<i', data, table + 8 * i, len(records))
+        pointer(table + 8 * i + 4, start)
+    struct.pack_into('<I', data, OFF_NUM_FLIGHTS, len(flights))
+    pointer(OFF_FLIGHTS, table)
+
+
+def set_jump_pads(data, nq, qoff, pads):
+    """Turn the trigger blocks over the jump pads' blocks into jump pads. -> how many."""
+    done = 0
+    for q in range(nq):
+        o = qoff + QUAD_SIZE * q
+        if not struct.unpack_from('<H', data, o + 0x12)[0] & 0x40:
+            continue
+        x0, y0, z0, x1, y1, z1 = struct.unpack_from('<6h', data, o + QUAD_BBOX)
+        if any(x0 <= x <= x1 and z0 <= z <= z1 and abs(y - y0) < 128 for x, y, z in pads):
+            data[o + QUAD_TERRAIN] = JUMP_PAD_HIGH
+            done += 1
+    return done
+
+
 def add_items(data, ptrs, items, placed, collision_leaves):
     """Append the item models, their instances and hitboxes to the LEV. -> stats."""
     def align():
@@ -351,6 +397,11 @@ def add_items(data, ptrs, items, placed, collision_leaves):
         o = qoff + QUAD_SIZE * q
         x0, y0, z0, x1, y1, z1 = struct.unpack_from('<6h', data, o + QUAD_BBOX)
         carrier_quads.setdefault((x0, y0, z0, x1, z1), o)
+
+    if placed['flights']:
+        add_flights(data, pointer, placed['flights'])
+    if placed['jump_pads'] and not set_jump_pads(data, nq, qoff, placed['jump_pads']):
+        raise ValueError('no trigger block over a jump pad')
 
     # The textures: where CrashTeamEditor put each image (only the crate has any)
     crate = items['crates']

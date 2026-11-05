@@ -27,6 +27,10 @@ COURSES = {
 }
 
 
+# A course that shows more of itself at once than the game's 256 near blocks takes larger blocks
+MAX_EDGE = {'pinball_course': 48, 'airship_course': 32}
+
+
 def reason(text):
     """The last line that says why a run failed."""
     lines = [line.strip() for line in text.splitlines() if line.strip()]
@@ -40,7 +44,8 @@ def convert(rom, disc, course):
     pin = os.path.join(work, 'pin.txt')
     if os.path.exists(pin):
         os.remove(pin)
-    r = subprocess.run([sys.executable, os.path.join(HERE, 'mkds_convert.py'), rom, course, '--title', COURSES[course], '--disc', disc],
+    edge = ['--max-edge', str(MAX_EDGE[course])] if course in MAX_EDGE else []
+    r = subprocess.run([sys.executable, os.path.join(HERE, 'mkds_convert.py'), rom, course, '--title', COURSES[course], '--disc', disc, *edge],
                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors='replace')
     with open(os.path.join(work, 'convert.log'), 'w', encoding='utf-8') as f:
         f.write(r.stdout)

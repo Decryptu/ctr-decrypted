@@ -1085,6 +1085,21 @@ void VehPhysForce_CollideDrivers(struct Thread *thread, struct Driver *driver)
 	TurboPadDone:;
 	}
 
+#if defined(CTR_NATIVE)
+	if (!NativeLevel_MudAtWorldZero(GAME_TRACKER->level1->configFlags))
+	{
+		if ((stepFlagSet & COLL_STEP_TRIGGER_JUMP_PAD_HIGH) != 0)
+		{
+			driver->forcedJumpType = FORCED_JUMP_HIGH;
+		}
+		else if ((stepFlagSet & COLL_STEP_TRIGGER_JUMP_PAD_LOW) != 0)
+		{
+			driver->forcedJumpType = FORCED_JUMP_LOW;
+		}
+		VehFlight_CheckGates(driver);
+	}
+#endif
+
 	if ((stepFlagSet & COLL_STEP_FLAG_WATER_BSP) != 0)
 	{
 		struct Instance *inst = thread->inst;
