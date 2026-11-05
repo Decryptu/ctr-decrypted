@@ -3,6 +3,7 @@
 #ifdef CTR_NATIVE
 #include <math.h>
 #include <platform/native_dev.h>
+#include <platform/native_draw_distance.h>
 #endif
 
 #ifdef CTR_AP
@@ -1731,8 +1732,8 @@ void CAM_FollowDriver_Normal(struct CameraDC *cDC, struct Driver *d, SVec3 *push
 		{
 			state = (s8)quad->terrain_type;
 
-			// Mud, Water, or FastWater
-			if (((state == 0xe) || (state == 4)) || (state == 0xd))
+			// Mud, Water, or FastWater: retail's lie at world height 0, a converted course's anywhere
+			if ((((state == 0xe) || (state == 4)) || (state == 0xd)) && NativeLevel_MudAtWorldZero(sdata->gGT->level1->configFlags))
 			{
 				scratchWork->collision.terrainHeightFloor = 0;
 			}

@@ -876,6 +876,28 @@ internal b32 COLL_FIXED_PlayerSearch_CheckMaskGrabProgress(struct Driver *d, str
 
 	struct CheckpointNode *node = &level->ptr_restart_points[quad->checkpointIndex];
 
+#if defined(CTR_NATIVE)
+	// MKDS never lifts a kart off the road for a shortcut: where two parts of a lap
+	// share a wide road a kart may drive on either, and only its lap does not count.
+	// So on a converted course ground a quarter of a lap away from the kart's progress
+	// neither moves it nor calls Aku Aku, and a fall puts the kart back where it was.
+	if (!NativeLevel_MudAtWorldZero(level->configFlags) && ((d->actionsFlagSet & ACTION_BEHIND_START_LINE) == 0) && (d->lastValid != NULL))
+	{
+		const s32 lap = level->ptr_restart_points[0].distToFinish << 3;
+		s32 apart = (s32)(d->distanceToFinish_checkpoint - CTR_MipsMulLo(node->distToFinish, 8));
+
+		apart = (apart < 0) ? -apart : apart;
+		if (apart > lap / 2)
+		{
+			apart = lap - apart;
+		}
+		if (apart > lap / 4)
+		{
+			return 0;
+		}
+	}
+#endif
+
 	if (((d->actionsFlagSet & ACTION_BEHIND_START_LINE) == 0) && (node->nextIndex_forward > 1) &&
 	    ((((level->ptr_restart_points[0].distToFinish >> 2) << 3) < (s32)(d->distanceToFinish_checkpoint - CTR_MipsMulLo(node->distToFinish, 8)))))
 	{
@@ -1990,6 +2012,15 @@ void COLL_MOVED_PlayerSearch(struct Thread *t, struct Driver *d)
 				{
 					return;
 				}
+			}
+
+			// The kart got this far along its move, and the next pass moves the rest.
+			// Without this each thing touched in a frame (fruit in a row, a crate) adds
+			// a whole further frame of movement: the kart lurches forward as it collects.
+			multiplier = CTR_MipsSubLo(multiplier, CTR_MipsSra(CTR_MipsMulLo(multiplier, sps->hitFraction), 12));
+			if (multiplier < 100)
+			{
+				break;
 			}
 		}
 		else

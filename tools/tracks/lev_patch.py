@@ -146,6 +146,7 @@ def fix_normals(data, mesh):
 
 
 OFF_ROUTE = 1.5  # road half widths, walked over block centres
+FINISH_REACH = 3  # road half widths from the finish line's own nodes
 SIDE_LANE = 0.4  # how far out of the road's half width mkds_convert puts a side lane
 
 
@@ -190,11 +191,12 @@ def rebuild_checkpoints(data, mesh, lane, side):
     bounds = np.array([struct.unpack_from('<6h', data, qoff + QUAD_SIZE * q + QUAD_BBOX) for q in ground])
     label = {}
     for q in ground:
+        # CrashTeamEditor's walk leaves its last index on whatever it reached last too, anywhere on the
+        # course: only the blocks at the finish line are the ones that keep their nodes
         index = data[qoff + QUAD_SIZE * q + QUAD_CHECKPOINT]
-        if index == 0:
-            label[q] = 0
-        elif index == old - 1:
-            label[q] = count - 1
+        node = 0 if index == 0 else count - 1 if index == old - 1 else None
+        if node is not None and math.dist(centres[q], nodes[node]) < FINISH_REACH * width[node]:
+            label[q] = node
     def covers(q, x, z):
         """Whether a block lies under (x, z). Its box is not enough: a long thin triangle's holds the road
         beside it, and where two parts of a lap run side by side that road would take the other's node."""
@@ -589,7 +591,8 @@ def patch(lev_path, vrm_path, nav_path, out_path, out_vrm, zenith, horizon, item
         return box
     refit(0)
 
-    lanes = json.load(open(nav_path))['lanes']
+    nav = json.load(open(nav_path))
+    lanes = nav['lanes']
     cps, seeded_blocks = rebuild_checkpoints(data, mesh, lanes[0], lanes[1])
     ncp = len(cps)
     while len(data) % 4: data.append(0)
@@ -613,7 +616,7 @@ def patch(lev_path, vrm_path, nav_path, out_path, out_vrm, zenith, horizon, item
             struct.pack_into('<3h', fr, 0, *p)
             fr[7] = yaw >> 4
             struct.pack_into('<hhhhBB', fr, 0x0a, min(int(math.sqrt(dx*dx+dy*dy+dz*dz)), 32767),
-                             min(int(math.sqrt(dx*dx+dz*dz)), 32767), 0, 0x7fff, near, 0)
+                             min(int(math.sqrt(dx*dx+dz*dz)), 32767), nav['flags'][lane_i][i % n], 0x7fff, near, 0)
             data += fr
     struct.pack_into('<I', data, OFF_NAV_TABLE, table)
     # MKDS draws with a depth buffer: billboards, fences and signs hang a few units in front of the

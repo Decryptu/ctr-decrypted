@@ -28,7 +28,7 @@ COURSES = {
 
 
 # A course that shows more of itself at once than the game's 256 near blocks takes larger blocks
-MAX_EDGE = {'pinball_course': 48, 'airship_course': 32}
+MAX_EDGE = {'pinball_course': 48, 'airship_course': 48}
 
 
 def reason(text):

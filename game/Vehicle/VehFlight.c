@@ -13,8 +13,7 @@
 // plane through the first point, square to the path, crossed going forward, so
 // a fast kart cannot pass it between frames and a kart going back never fires it.
 //
-// CPU karts have no flight: they hold their lane's height, which runs through
-// the air in these places.
+// CPU karts have no flight: their lanes run along the same paths.
 
 #if defined(CTR_NATIVE)
 #include <math.h>
@@ -150,8 +149,10 @@ static void VehFlight_End(struct Driver *d)
 	const s16 *forward = d->KartStates.Flight.forward;
 	const int speed = d->KartStates.Flight.speed / VEH_FLIGHT_SPEED_TO_UNITS;
 
-	// The kart lands far along the lap, and that is no shortcut.
+	// The kart lands far along the lap, and that is no shortcut: the ground under it
+	// sets its progress afresh (COLL_FIXED_PlayerSearch_CheckMaskGrabProgress).
 	d->distanceToFinish_checkpoint = 0;
+	d->lastValid = NULL;
 	d->posPrev = d->posCurr;
 	d->velocity.x = forward[0] * speed >> 4;
 	d->velocity.y = forward[1] * speed >> 4;
