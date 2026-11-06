@@ -31,9 +31,10 @@ Copy-Item (Join-Path $Work "packages\$pin") $store -Recurse -Force
 $probe = Join-Path $Work 'probe.csv'
 $trace = Join-Path $Work 'trace.csv'
 $shots = Join-Path $Work 'shots'
-Remove-Item $probe, $trace, (Join-Path $RunDir 'crash.txt'), $shots -Recurse -Force -ErrorAction SilentlyContinue
+$moverLog = Join-Path $Work 'movers.log'
+Remove-Item $moverLog, $probe, $trace, (Join-Path $RunDir 'crash.txt'), $shots -Recurse -Force -ErrorAction SilentlyContinue
 & (Join-Path $repo 'tools\decrypted\devrun.ps1') -Track -1 -Frames $Frames -From 1500 -Every 1500 -Exe $Exe -RunDir $RunDir -Out $shots -TimeoutSec 1200 `
-	-Env @{CTR_DEV_CUSTOM = $pin; CTR_DEV_AUTOPILOT = 3; CTR_DEV_TRACE = $trace; CTR_DEV_COLL_PROBE = $probe; CTR_DEV_COLL_PROBE_IN = (Join-Path $Work "${Course}_probe.txt")} | Out-Null
+	-Env @{CTR_DEV_CUSTOM = $pin; CTR_DEV_AUTOPILOT = 3; CTR_DEV_TRACE = $trace; CTR_DEV_COLL_PROBE = $probe; CTR_DEV_COLL_PROBE_IN = (Join-Path $Work "${Course}_probe.txt"); CTR_DEV_MOVER_LOG = $moverLog} | Out-Null
 
 $failed = @()
 # release builds put the version in the log's name
@@ -50,6 +51,10 @@ else {
 	if ([int]$g[7].Value -ne 0) { $failed += 'rendered-quadblock list full: blocks were not drawn' }
 	if ([int]$g[8].Value -ne 0) { $failed += 'BSP records dropped: subtrees were not drawn' }
 }
+python (Join-Path $PSScriptRoot 'floor_check.py') $Work $Course
+if ($LASTEXITCODE -ne 0) { $failed += 'road with no drawn floor' }
+python (Join-Path $PSScriptRoot 'mover_check.py') $Work $Course
+if ($LASTEXITCODE -ne 0) { $failed += 'a moving object did not start or did not move' }
 if (Test-Path (Join-Path $RunDir 'crash.txt')) { $failed += "crash (see $RunDir\crash.txt)" }
 if (-not (Test-Path $probe)) { $failed += 'no collision probe output' }
 else {
@@ -59,7 +64,7 @@ else {
 if (-not (Test-Path $trace)) { $failed += 'no race trace' }
 else {
 	python (Join-Path $PSScriptRoot 'lap_check.py') $trace
-	if ($LASTEXITCODE -ne 0) { $failed += 'the autopilot finished no lap' }
+	if ($LASTEXITCODE -ne 0) { $failed += 'the autopilot finished no lap or hopped too often' }
 }
 "frames: $shots"
 if ($failed) { $failed | ForEach-Object { Write-Warning $_ }; exit 1 }

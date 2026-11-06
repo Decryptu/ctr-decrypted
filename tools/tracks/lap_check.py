@@ -3,11 +3,13 @@
   lap_check.py <trace.csv>
 
 CTR_DEV_AUTOPILOT=3 hops along its line when wedged, and each hop is a jump in the trace. Prints the
-laps finished and where it hopped (every place a kart stuck), and exits 1 when it finished no lap.
+laps finished and where it hopped (every place a kart stuck), and exits 1 when it finished no lap or
+hopped more than MOST_HOPS times.
 """
 import csv, math, sys
 
 JUMP = 500  # LEV units in one frame; a kart at top speed covers about 30
+MOST_HOPS = 4  # a mover or a fall can cost a hop or two a lap; more is a place the autopilot cannot pass
 
 rows = list(csv.DictReader(open(sys.argv[1])))
 if not rows:
@@ -22,3 +24,5 @@ for hop in sorted(set(hops))[:12]:
     print('  stuck at LEV', hop)
 if laps < 1:
     sys.exit('the autopilot finished no lap')
+if len(hops) > MOST_HOPS:
+    sys.exit(f'the autopilot hopped {len(hops)} times')

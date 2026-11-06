@@ -111,8 +111,28 @@ def object_settings(m, index=0):
     return [u16(e, 0x28 + 2 * index) for e in m['OBJI']]
 
 
-OBJ_ITEM_BOX = 0x65
+def object_paths(m):
+    """-> each object's path as (points, whether it loops), or None, in placed_objects' order."""
+    routes, start = [], 0
+    for e in m.get('PATH', []):
+        count = u16(e, 2)
+        routes.append(([vec32(p, 0) for p in m['POIT'][start:start + count]], bool(e[1])))
+        start += count
+    numbers = [s16(e, 0x26) for e in m['OBJI']]
+    return [routes[r] if 0 <= r < len(routes) else None for r in numbers]
+
+
+def all_object_settings(m):
+    return [[u16(e, 0x28 + 2 * i) for i in range(8)] for e in m['OBJI']]
+
+
+OBJ_ITEM_BOX, OBJ_MOVING_ITEM_BOX = 0x65, 0xc9
 
 
 def item_boxes(m):
     return [pos for obj, pos, _ in objects(m) if obj == OBJ_ITEM_BOX]
+
+
+def moving_item_boxes(m):
+    """-> the points of each moving item box's path."""
+    return [path[0] for (obj, _, _), path in zip(objects(m), object_paths(m)) if obj == OBJ_MOVING_ITEM_BOX and path]

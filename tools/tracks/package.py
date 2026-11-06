@@ -8,8 +8,8 @@ def canonical(manifest):
     return json.dumps(m, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode('utf-8')
 
 
-def build(lev, vrm, title, key, version, store, author='Decrypt'):
-    """Install into <store>/<pin>/ and return the pin."""
+def build(lev, vrm, title, key, version, store, author='Decrypt', picture=None):
+    """Install into <store>/<pin>/ and return the pin. picture: the Mods screen's, as bytes (track_picture)."""
     files = []
     blobs = {}
     source = json.dumps({'schema_version': 1, 'provider': 'ctr-decrypted', 'author': author},
@@ -17,6 +17,10 @@ def build(lev, vrm, title, key, version, store, author='Decrypt'):
     blobs['metadata/decrypted-source.json'] = source
     files.append({'role': 'presentation', 'path': 'metadata/decrypted-source.json',
                   'sha256': hashlib.sha256(source).hexdigest(), 'bytes': len(source)})
+    if picture:
+        blobs['metadata/picture.ctp'] = picture
+        files.append({'role': 'picture', 'path': 'metadata/picture.ctp',
+                      'sha256': hashlib.sha256(picture).hexdigest(), 'bytes': len(picture)})
     for role, src in (('lev', lev), ('vrm', vrm)):
         data = open(src, 'rb').read()
         path = f'original/{role}.{role}'

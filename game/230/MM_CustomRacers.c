@@ -174,6 +174,7 @@ static void MM_ModsRacers_PreviewTick(void)
         }
     s_pictureIcon = NativeRacers_TrackPicture(s_racerPreviewTexels, NATIVE_RACER_PORTRAIT_W, NATIVE_RACER_PORTRAIT_H);
     s_pictureShown = 0; /* the track picture that was in the slot is gone */
+    s_picturePackage[0] = 0;
     snprintf(s_racerPreviewShown, sizeof s_racerPreviewShown, "%s", s_pictureIcon ? id : "");
 }
 

@@ -308,9 +308,9 @@ internal bool NativeGpu_IsLevelPrim(const u8 *packet)
 // lining that crosses it). Depths are the PGXP ones NativeGpu_ApplyPgxp writes
 // to w, which it does only with perspective texturing on (TEXTURES or FULL);
 // otherwise the level keeps ordering table order.
-// A depth-tested level (NativeGpu_SetLevelDepthTested) tests everything. Every
-// level face sets the PS1 blend bit (only texels with STP blend), so it says
-// nothing about translucency and is not looked at.
+// A depth-tested level (NativeGpu_SetLevelDepthTested) tests everything, its
+// translucent surfaces too: what is behind one is drawn or not by the order of
+// the level's blocks.
 internal NativeDepthMode NativeGpu_LevelDepthMode(void)
 {
 	if (!s_gpu.levelPrim || !NATIVE_PGXP_TEXTURES_ACTIVE() || NativeDev_NoLevelDepth())
@@ -1358,10 +1358,11 @@ internal void AddSplit(bool semiTrans, bool textured, bool framebufferFeedback)
 	TextureID sideloadTexture = trialLetter ? s_gpu.trialLetterTexture : s_gpu.apSideloadTexture;
 	bool apSideload = textured && (nativeTag != 0) && (nativeTag != NATIVE_TPAGE_RACER_BANK) && sideloadTexture != 0;
 
-	// A depth-tested level is a converted one, whose palettes have no STP texels:
-	// its faces' blend bit (see NativeGpu_LevelDepthMode) would only cost each
-	// polygon a split of its own and a second draw.
-	if (s_gpu.levelPrim && s_gpu.levelDepthTested)
+	// A depth-tested level is a converted one. Its faces' blend bit (see
+	// NativeGpu_LevelDepthMode) would cost each polygon a split of its own and a
+	// second draw, so only a surface that blends keeps it: tools/tracks/lev_patch.py
+	// gives the others blend mode 3.
+	if (s_gpu.levelPrim && s_gpu.levelDepthTested && (((tpage >> 5) & 3) == 3))
 	{
 		semiTrans = false;
 	}

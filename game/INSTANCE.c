@@ -321,6 +321,12 @@ void INSTANCE_LevInitAll(struct InstDef *definitions, s32 count)
 			{
 				meta->LInB(inst);
 			}
+#if defined(CTR_NATIVE)
+			if (levInstDef->modelID == CONVERTED_MOVER_ID)
+			{
+				ConvertedMover_LInB(inst);
+			}
+#endif
 		}
 
 		// Time trials hide pickups and time crates; relic races count time crates.
@@ -412,6 +418,12 @@ void INSTANCE_LevDelayedLInBs(struct InstDef *instDef, s32 numInstances)
 		{
 			meta->LInB(instDef->ptrInstance);
 		}
+#if defined(CTR_NATIVE)
+		if (instDef->modelID == CONVERTED_MOVER_ID)
+		{
+			ConvertedMover_LInB(instDef->ptrInstance);
+		}
+#endif
 
 		instDef++;
 	}

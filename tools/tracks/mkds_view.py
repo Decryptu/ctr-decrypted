@@ -4,124 +4,135 @@
   python tools/tracks/mkds_view.py <rom.nds> <course> <out.png> eye_x eye_y eye_z at_x at_y at_z   (MKDS units)
 """
 import sys
-import numpy as np, nds, nitro3d, mkds_convert as mc
+import numpy as np, nds, nitro3d
 from PIL import Image
-rom, course, out = sys.argv[1:4]
-eye = np.array(list(map(float, sys.argv[4:7]))); at = np.array(list(map(float, sys.argv[7:10])))
-W, H, FOV = 800, 450, 108  # the game's far camera
-files = nds.nitrofs(open(rom, 'rb').read())
-a = nds.carc(files[f'data/Course/{course}.carc'])
-tex = nds.carc(files[f'data/Course/{course}Tex.carc']) if f'data/Course/{course}Tex.carc' in files else {}
-m = nitro3d.Model(a['course_model.nsbmd'])
-t0 = nitro3d.load_tex0(tex['course_model.nsbtx'] if 'course_model.nsbtx' in tex else a['course_model.nsbmd'])
-f = at - eye; f /= np.linalg.norm(f)
-r = np.cross(f, (0, 1, 0)); r /= np.linalg.norm(r)
-u = np.cross(r, f)
-focal = (W / 2) / np.tan(np.radians(FOV / 2))
-near = 2.0
+
+MODEL_TO_WORLD = 16.0  # mkds_convert's
+
+def render(files, course, eye, at, W=800, H=450, FOV=108, sky=None):  # the game's far camera
+    """-> the course from a camera, as an image. sky: (top colour, colour at the horizon), else black."""
+    a = nds.carc(files[f'data/Course/{course}.carc'])
+    tex = nds.carc(files[f'data/Course/{course}Tex.carc']) if f'data/Course/{course}Tex.carc' in files else {}
+    m = nitro3d.Model(a['course_model.nsbmd'])
+    t0 = nitro3d.load_tex0(tex['course_model.nsbtx'] if 'course_model.nsbtx' in tex else a['course_model.nsbmd'])
+    f = at - eye; f /= np.linalg.norm(f)
+    r = np.cross(f, (0, 1, 0)); r /= np.linalg.norm(r)
+    u = np.cross(r, f)
+    focal = (W / 2) / np.tan(np.radians(FOV / 2))
+    near = 2.0
 
 
-def clip(poly):
-    res = []
-    for i in range(len(poly)):
-        p, q = poly[i], poly[(i + 1) % len(poly)]
-        dp, dq = p[2] - near, q[2] - near
-        if dp >= 0:
-            res.append(p)
-        if dp * dq < 0:
-            res.append(p + (q - p) * dp / (dp - dq))
-    return res
+    def clip(poly):
+        res = []
+        for i in range(len(poly)):
+            p, q = poly[i], poly[(i + 1) % len(poly)]
+            dp, dq = p[2] - near, q[2] - near
+            if dp >= 0:
+                res.append(p)
+            if dp * dq < 0:
+                res.append(p + (q - p) * dp / (dp - dq))
+        return res
 
 
-textures = {}
-def texture(i):
-    if i not in textures:
-        mt = m.mats[i]
-        textures[i] = t0.decode(mt.tex, mt.pal).astype(float) if mt.tex else None
-    return textures[i]
+    textures = {}
+    def texture(i):
+        if i not in textures:
+            mt = m.mats[i]
+            textures[i] = t0.decode(mt.tex, mt.pal).astype(float) if mt.tex else None
+        return textures[i]
 
 
-zbuf = np.full((H, W), np.inf)
-colour = np.zeros((H, W, 3))
-tris = m.triangles()
+    zbuf = np.full((H, W), np.inf)
+    colour = np.zeros((H, W, 3))
+    if sky is not None:
+        for y in range(H):
+            colour[y] = np.array(sky[0]) + (np.array(sky[1]) - sky[0]) * min(y / (H * 0.55), 1)
+    tris = m.triangles()
 
 
-def raster(mi, tri, translucent):
-    mt = m.mats[mi]
-    T = texture(mi)
-    if T is None:
-        return
-    sx, sy, tx, ty = mt.texmtx
-    tw, th = T.shape[1], T.shape[0]
-    rows = []
-    for pos, uv, col, _ in tri:
-        d = np.array(pos) * mc.MODEL_TO_WORLD - eye
-        rows.append(np.array([d @ r, d @ u, d @ f, uv[0] * sx / mt.width + tx, uv[1] * sy / mt.height + ty, *col], float))
-    poly = clip(rows)
-    if len(poly) < 3:
-        return
-    for k in range(1, len(poly) - 1):
-        tr = np.array([poly[0], poly[k], poly[k + 1]])
-        z = tr[:, 2]
-        px = W / 2 + focal * tr[:, 0] / z
-        py = H / 2 - focal * tr[:, 1] / z
-        x0, x1 = max(int(px.min()), 0), min(int(px.max()) + 1, W - 1)
-        y0, y1 = max(int(py.min()), 0), min(int(py.max()) + 1, H - 1)
-        if x0 > x1 or y0 > y1:
-            continue
-        gx, gy = np.meshgrid(np.arange(x0, x1 + 1), np.arange(y0, y1 + 1))
-        den = (py[1] - py[2]) * (px[0] - px[2]) + (px[2] - px[1]) * (py[0] - py[2])
-        if abs(den) < 1e-9:
-            continue
-        l0 = ((py[1] - py[2]) * (gx + .5 - px[2]) + (px[2] - px[1]) * (gy + .5 - py[2])) / den
-        l1 = ((py[2] - py[0]) * (gx + .5 - px[2]) + (px[0] - px[2]) * (gy + .5 - py[2])) / den
-        l2 = 1 - l0 - l1
-        ok = (l0 >= 0) & (l1 >= 0) & (l2 >= 0)
-        if not ok.any():
-            continue
-        iz = l0 / z[0] + l1 / z[1] + l2 / z[2]
-        depth = 1 / np.maximum(iz, 1e-9)
-        ok &= depth < zbuf[gy, gx] + 0.5
-        if not ok.any():
-            continue
-        def attr(c):
-            return (l0 * tr[0, c] / z[0] + l1 * tr[1, c] / z[1] + l2 * tr[2, c] / z[2]) * depth
-        s = attr(3); t = attr(4)
-        teximg = mt.teximage
-        rs, rt, fs, ft = (teximg >> 16) & 1, (teximg >> 17) & 1, (teximg >> 18) & 1, (teximg >> 19) & 1
-        def wrap(c, rep, flip):
-            if not rep:
-                return np.clip(c, 0, 0.9999)
-            fl = np.floor(c)
-            fr = c - fl
-            return np.where(flip & (fl.astype(int) % 2 == 1), 0.9999 - fr, fr)
-        ix = (wrap(s, rs, fs) * tw).astype(int).clip(0, tw - 1)
-        iy = (wrap(t, rt, ft) * th).astype(int).clip(0, th - 1)
-        tc = T[iy, ix]
-        vc = np.dstack([attr(5), attr(6), attr(7)]) / 255.0
-        rgb = tc[..., :3] * vc
-        al = tc[..., 3] / 255.0 * (((mt.polygon_attr >> 16) & 31) / 31)
-        if translucent:
-            sel = ok & (al > 0.01)
-            yy, xx = gy[sel], gx[sel]
-            colour[yy, xx] = colour[yy, xx] * (1 - al[sel, None]) + rgb[sel] * al[sel, None]
-        else:
-            sel = ok & (al > 0.99)
-            yy, xx = gy[sel], gx[sel]
-            colour[yy, xx] = rgb[sel]
-            zbuf[yy, xx] = depth[sel]
+    def raster(mi, tri, translucent):
+        mt = m.mats[mi]
+        T = texture(mi)
+        if T is None:
+            return
+        sx, sy, tx, ty = mt.texmtx
+        tw, th = T.shape[1], T.shape[0]
+        rows = []
+        for pos, uv, col, _ in tri:
+            d = np.array(pos) * MODEL_TO_WORLD - eye
+            rows.append(np.array([d @ r, d @ u, d @ f, uv[0] * sx / mt.width + tx, uv[1] * sy / mt.height + ty, *col], float))
+        poly = clip(rows)
+        if len(poly) < 3:
+            return
+        for k in range(1, len(poly) - 1):
+            tr = np.array([poly[0], poly[k], poly[k + 1]])
+            z = tr[:, 2]
+            px = W / 2 + focal * tr[:, 0] / z
+            py = H / 2 - focal * tr[:, 1] / z
+            x0, x1 = max(int(px.min()), 0), min(int(px.max()) + 1, W - 1)
+            y0, y1 = max(int(py.min()), 0), min(int(py.max()) + 1, H - 1)
+            if x0 > x1 or y0 > y1:
+                continue
+            gx, gy = np.meshgrid(np.arange(x0, x1 + 1), np.arange(y0, y1 + 1))
+            den = (py[1] - py[2]) * (px[0] - px[2]) + (px[2] - px[1]) * (py[0] - py[2])
+            if abs(den) < 1e-9:
+                continue
+            l0 = ((py[1] - py[2]) * (gx + .5 - px[2]) + (px[2] - px[1]) * (gy + .5 - py[2])) / den
+            l1 = ((py[2] - py[0]) * (gx + .5 - px[2]) + (px[0] - px[2]) * (gy + .5 - py[2])) / den
+            l2 = 1 - l0 - l1
+            ok = (l0 >= 0) & (l1 >= 0) & (l2 >= 0)
+            if not ok.any():
+                continue
+            iz = l0 / z[0] + l1 / z[1] + l2 / z[2]
+            depth = 1 / np.maximum(iz, 1e-9)
+            ok &= depth < zbuf[gy, gx] + 0.5
+            if not ok.any():
+                continue
+            def attr(c):
+                return (l0 * tr[0, c] / z[0] + l1 * tr[1, c] / z[1] + l2 * tr[2, c] / z[2]) * depth
+            s = attr(3); t = attr(4)
+            teximg = mt.teximage
+            rs, rt, fs, ft = (teximg >> 16) & 1, (teximg >> 17) & 1, (teximg >> 18) & 1, (teximg >> 19) & 1
+            def wrap(c, rep, flip):
+                if not rep:
+                    return np.clip(c, 0, 0.9999)
+                fl = np.floor(c)
+                fr = c - fl
+                return np.where(flip & (fl.astype(int) % 2 == 1), 0.9999 - fr, fr)
+            ix = (wrap(s, rs, fs) * tw).astype(int).clip(0, tw - 1)
+            iy = (wrap(t, rt, ft) * th).astype(int).clip(0, th - 1)
+            tc = T[iy, ix]
+            vc = np.dstack([attr(5), attr(6), attr(7)]) / 255.0
+            rgb = tc[..., :3] * vc
+            al = tc[..., 3] / 255.0 * (((mt.polygon_attr >> 16) & 31) / 31)
+            if translucent:
+                sel = ok & (al > 0.01)
+                yy, xx = gy[sel], gx[sel]
+                colour[yy, xx] = colour[yy, xx] * (1 - al[sel, None]) + rgb[sel] * al[sel, None]
+            else:
+                sel = ok & (al > 0.99)
+                yy, xx = gy[sel], gx[sel]
+                colour[yy, xx] = rgb[sel]
+                zbuf[yy, xx] = depth[sel]
 
 
-def is_translucent(mi):
-    T = texture(mi)
-    return T is not None and (T[..., 3].min() < 250 or ((m.mats[mi].polygon_attr >> 16) & 31) < 31)
+    def is_translucent(mi):
+        T = texture(mi)
+        return T is not None and (T[..., 3].min() < 250 or ((m.mats[mi].polygon_attr >> 16) & 31) < 31)
 
 
-for mi, tri in tris:
-    if not is_translucent(mi):
-        raster(mi, tri, False)
-# real screenshots show decals over a board of even alpha
-rest = sorted([(mi, tri) for mi, tri in tris if is_translucent(mi)], key=lambda e: texture(e[0])[..., 3].min() < 100)
-for mi, tri in rest:
-    raster(mi, tri, True)
-Image.fromarray(colour.clip(0, 255).astype('uint8')).save(out)
+    for mi, tri in tris:
+        if not is_translucent(mi):
+            raster(mi, tri, False)
+    # real screenshots show decals over a board of even alpha
+    rest = sorted([(mi, tri) for mi, tri in tris if is_translucent(mi)], key=lambda e: texture(e[0])[..., 3].min() < 100)
+    for mi, tri in rest:
+        raster(mi, tri, True)
+    return Image.fromarray(colour.clip(0, 255).astype('uint8'))
+
+
+if __name__ == '__main__':
+    rom, course, out = sys.argv[1:4]
+    eye = np.array(list(map(float, sys.argv[4:7])))
+    at = np.array(list(map(float, sys.argv[7:10])))
+    render(nds.nitrofs(open(rom, 'rb').read()), course, eye, at).save(out)

@@ -185,8 +185,10 @@ the bar is too narrow it shrinks the padding, then uses the short names
 Select imports an xdelta patch, also when one is dropped on the window
 (`game/230/MM_CustomImport.c`, `platform/native_xdelta_import.cpp`).
 
-- **Track pictures.** Tracks and Installed show the selected track's Saphi
-  thumbnail at the panel's top left (`game/230/MM_CustomPicture.c`). The
+- **Track pictures.** Tracks and Installed show the selected track's picture
+  at the panel's top left (`game/230/MM_CustomPicture.c`): a package's own
+  `metadata/picture.ctp` (role `picture`, 112x42 PS1 texels) if it has one,
+  else its Saphi thumbnail. The
   catalogue keeps each track's one current `track_thumbnail`
   (`CustomSaphiRevision.picture`); a track with none, or with two, has no
   picture, as does a track that did not come from Saphi. Once the selection

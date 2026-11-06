@@ -344,6 +344,8 @@ struct ModelAnim
 	// then verts, then next ModelFrame, then verts, etc...
 };
 
+#define CONVERTED_MOVER_ID 0x766f4d43 // InstDef.modelID of a converted track's mover (game/ConvertedTrack/Mover.c)
+
 #define MODELANIM_GETFRAME(x) ((u32)x + sizeof(struct ModelAnim))
 
 struct ModelHeader

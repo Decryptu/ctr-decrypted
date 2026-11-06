@@ -35,11 +35,16 @@ OFF_TEX_LOOKUP, OFF_ICONS, OFF_SPAWN_TYPE1 = 0x3C, 0x40, 0x134
 QUAD_SIZE, QUAD_BBOX, QUAD_TEXTURE_LOW, QUAD_PVS = 0x5c, 0x2c, 0x40, 0x44
 PVS_SIZE, PVS_INSTANCES = 0x10, 8
 INSTDEF_SIZE = 0x40
+LAYOUT_SIZE, LAYOUTS_PER_FACE, ABR_MASK = 12, 4, 0x60
+MOVER_FLAGS = 7
+CONVERTED_MOVER_ID = 0x766f4d43  # include/namespace_Instance.h
+OFF_NUM_MOVER_LISTS, OFF_MOVER_LISTS = 0x138, 0x13c  # numSpawnType2, ptrSpawnType2
 HITBOX_SIZE = 0x20
 HITBOX_FLAG_TOUCH = 0x4c0  # BSP_HITBOX_COLLIDABLE | BSP_HITBOX_USE_Y_AXIS, class BSP_HITBOX_CLASS_TOUCH
 # Each kind as retail has it: placed key, name, MODEL_ID, InstDef flags, hitbox radius, height of the
 # hitbox's centre above the instance's origin
-KINDS = (('crates', 'crate', 8, 7, 76, 46), ('fruit', 'fruit', 2, 0xf, 64, 64))
+CRATE_RADIUS, CRATE_LIFT = 76, 46
+KINDS = (('crates', 'crate', 8, 7, CRATE_RADIUS, CRATE_LIFT), ('fruit', 'fruit', 2, 0xf, 64, 64))
 LEAF_HITBOXES = 0x14
 ICON_SIZE, ICON_LAYOUT = 0x20, 0x14
 ICON_MAP_TOP, ICON_MAP_BOTTOM = 3, 4  # gGT->ptrIcons
@@ -325,6 +330,11 @@ def add_minimap(data, pointer, block, ui_map):
 def blend_map_palette(vrm, clut):
     """Retail's map palettes (bytes of a VRM -> bytes): white is drawn solid, the rest blends. A PS1
     texel blends only with its top bit set, which CrashTeamEditor does not set."""
+    return blend_palette(vrm, clut, MAP_COLOURS, (0, MAP_WHITE))
+
+
+def blend_palette(vrm, clut, colours, solid=(0,)):
+    """Set the top bit of a palette's colours in a VRM, all but those in `solid`."""
     out = bytearray(vrm)
     cx, cy = (clut & 63) * 16, clut >> 6
     cur = 4
@@ -334,15 +344,48 @@ def blend_map_palette(vrm, clut):
         if size == 0:
             break
         x, y, w, h = struct.unpack_from('<4h', out, cur + 0xC)
-        if x <= cx and cx + MAP_COLOURS <= x + w and y <= cy < y + h:
-            for i in range(MAP_COLOURS):
+        if x <= cx and cx + colours <= x + w and y <= cy < y + h:
+            for i in range(colours):
                 o = cur + 0x14 + ((cy - y) * w + cx - x + i) * 2
                 c = struct.unpack_from('<H', out, o)[0]
-                if c & 0x7fff not in (0, MAP_WHITE):
+                if c & 0x7fff not in solid:
                     struct.pack_into('<H', out, o, c | STP)
             return bytes(out)
         cur += size & ~3
-    raise ValueError(f'the map palette {clut:#x} is not in the VRM')
+    raise ValueError(f'the palette {clut:#x} is not in the VRM')
+
+
+def opaque_level_layouts(data, nq, qoff, blended):
+    """Blend mode 3 on every level layout but those of a surface that blends: the renderer treats these as
+    opaque (platform/native_gpu.c), and a level's polygon that blends costs a draw of its own."""
+    layouts = set()
+    for q in range(nq):
+        o = qoff + QUAD_SIZE * q
+        layouts.add(struct.unpack_from('<I', data, o + QUAD_TEXTURE_LOW)[0])
+        for group in struct.unpack_from('<4I', data, o + 0x1c):
+            if group:
+                layouts.update(group + LAYOUT_SIZE * i for i in range(LAYOUTS_PER_FACE))
+    for at in layouts:
+        if at and struct.unpack_from('<H', data, at + 2)[0] not in blended:
+            data[at + 6] |= ABR_MASK
+
+
+def add_mover_lists(data, pointer, lists):
+    """One list per mover (game/ConvertedTrack/Mover.c), in the level's ptrSpawnType2."""
+    while len(data) % 4:
+        data.append(0)
+    table = len(data)
+    data += bytes(8 * len(lists))
+    for i, rows in enumerate(lists):
+        start = len(data)
+        for r in rows:
+            data += struct.pack('<3h', *r)
+        while len(data) % 4:
+            data.append(0)
+        struct.pack_into('<i', data, table + 8 * i, len(rows))
+        pointer(table + 8 * i + 4, start)
+    struct.pack_into('<I', data, OFF_NUM_MOVER_LISTS, len(lists))
+    pointer(OFF_MOVER_LISTS, table)
 
 
 def add_flights(data, pointer, flights):
@@ -414,6 +457,20 @@ def add_items(data, ptrs, items, placed, collision_leaves):
         crate.retarget(group, min(u0, u1, u2, u3), min(v0, v1, v2, v3), clut, tpage)
 
     map_clut = add_minimap(data, pointer, carrier_quads[tuple(placed['carriers'][len(crate.groups)])], placed['map'])
+    blends = []
+    for key in placed['blends']:
+        layout = struct.unpack_from('<I', data, carrier_quads[tuple(key)] + QUAD_TEXTURE_LOW)[0]
+        clut, tpage = struct.unpack_from('<H', data, layout + 2)[0], struct.unpack_from('<H', data, layout + 6)[0]
+        blends.append((clut, 16 << 4 * ((tpage >> 7) & 1)))
+    movers = items.get('movers', [])
+    at_carrier = len(crate.groups) + 1
+    for model in movers:
+        for group in model.groups:
+            block = carrier_quads[tuple(placed['carriers'][at_carrier])]
+            at_carrier += 1
+            layout = struct.unpack_from('<I', data, block + QUAD_TEXTURE_LOW)[0]
+            u0, v0, clut, u1, v1, tpage, u2, v2, u3, v3 = struct.unpack_from('<BBHBBHBBBB', data, layout)
+            model.retarget(group, min(u0, u1, u2, u3), min(v0, v1, v2, v3), clut, tpage)
 
     model_at = {}
     for kind, *_ in KINDS:
@@ -422,17 +479,35 @@ def add_items(data, ptrs, items, placed, collision_leaves):
         data += items[kind].blob
         for p in items[kind].pointers:
             pointer(model_at[kind] + p, struct.unpack_from('<I', items[kind].blob, p)[0] + model_at[kind])
+    mover_at = []
+    for model in movers:
+        align()
+        mover_at.append(len(data))
+        data += model.blob
+        for p in model.pointers:
+            pointer(mover_at[-1] + p, struct.unpack_from('<I', model.blob, p)[0] + mover_at[-1])
     align()
     models = len(data)
-    data += bytes(4 * len(KINDS))
-    for i, (kind, *_) in enumerate(KINDS):
-        pointer(models + 4 * i, model_at[kind])
+    data += bytes(4 * (len(KINDS) + len(mover_at)))
+    for i, at in enumerate([model_at[k[0]] for k in KINDS] + mover_at):
+        pointer(models + 4 * i, at)
     pointer(OFF_MODELS, models)
-    struct.pack_into('<I', data, OFF_NUM_MODELS, len(KINDS))
+    struct.pack_into('<I', data, OFF_NUM_MODELS, len(KINDS) + len(mover_at))
+    if placed['mover_lists']:
+        add_mover_lists(data, pointer, placed['mover_lists'])
+
+    def touches_leaf(pos):
+        cx, cy, cz, radius = pos[0], pos[1] + CRATE_LIFT, pos[2], CRATE_RADIUS
+        return any(x0 <= cx + radius and cx - radius <= x1 and z0 <= cz + radius and cz - radius <= z1 and y0 <= cy + radius and cy - radius - LEAF_REACH <= y1
+                   for x0, y0, z0, x1, y1, z1 in (struct.unpack_from('<6h', data, leaf + 4) for leaf in collision_leaves))
+    # a moving box that no leaf reaches, off in the air or over the sea, is left out
+    fixed = len(placed['crates']) - placed['moving_crates']
+    placed['crates'] = placed['crates'][:fixed] + [c for c in placed['crates'][fixed:] if touches_leaf(c)]
 
     # One InstDef per instance; a null-ended list of them for the game's pack and unpack
     placements = [(kind, i, pos) for kind, *_ in KINDS for i, pos in enumerate(placed[kind])]
     by_key = {k[0]: k for k in KINDS}
+    align()
     defs = len(data)
     for n, (kind, i, pos) in enumerate(placements):
         _, label, model_id, flags, _, _ = by_key[kind]
@@ -444,13 +519,24 @@ def add_items(data, ptrs, items, placed, collision_leaves):
         struct.pack_into('<i', d, 0x3c, model_id)
         data += d
         pointer(defs + INSTDEF_SIZE * n + 0x10, model_at[kind])
-    struct.pack_into('<I', data, OFF_NUM_INSTANCES, len(placements))
+    for n, mover in enumerate(placed['movers'], len(placements)):
+        d = bytearray(INSTDEF_SIZE)
+        d[:16] = (f'mover#{n}'.encode() + bytes(16))[:16]
+        struct.pack_into('<3h', d, 0x14, *mover['scale'])
+        struct.pack_into('<I', d, 0x20, MOVER_FLAGS)
+        struct.pack_into('<I', d, 0x28, mover['list'])
+        struct.pack_into('<3h', d, 0x30, *mover['pos'])
+        struct.pack_into('<I', d, 0x3c, CONVERTED_MOVER_ID)
+        data += d
+        pointer(defs + INSTDEF_SIZE * n + 0x10, mover_at[mover['model']])
+    total = len(placements) + len(placed['movers'])
+    struct.pack_into('<I', data, OFF_NUM_INSTANCES, total)
     pointer(OFF_INSTANCES, defs)
 
     def instance_list():
         start = len(data)
-        data.extend(bytes(4 * (len(placements) + 1)))
-        for i in range(len(placements)):
+        data.extend(bytes(4 * (total + 1)))
+        for i in range(total):
             pointer(start + 4 * i, defs + INSTDEF_SIZE * i)
         return start
     pointer(OFF_INSTANCE_LIST, instance_list())
@@ -508,7 +594,8 @@ def add_items(data, ptrs, items, placed, collision_leaves):
         for _, box, _, _ in entries:
             bounds = [min(a, b) for a, b in zip(bounds[:3], box[:3])] + [max(a, b) for a, b in zip(bounds[3:], box[3:])]
         struct.pack_into('<6h', data, leaf + 4, *bounds)
-    return map_clut, {'instances': len(placements), 'leaves with hitboxes': len(hit), 'hitbox records': sum(len(e) for e in hit.values())}
+    opaque_level_layouts(data, nq, qoff, {clut for clut, _ in blends})
+    return map_clut, blends, {'instances': total, 'leaves with hitboxes': len(hit), 'hitbox records': sum(len(e) for e in hit.values())}
 
 
 def patch(lev_path, vrm_path, nav_path, out_path, out_vrm, zenith, horizon, items, placed, below=None):
@@ -575,7 +662,7 @@ def patch(lev_path, vrm_path, nav_path, out_path, out_vrm, zenith, horizon, item
             struct.pack_into('<I', data, o, struct.unpack_from('<I', data, o)[0] & ~(1 << (31 - (i & 31))))
 
     collision_leaves = [bsp + 0x20 * i for i, ok in collision_only.items() if ok and nodes[i][0] & 1]
-    map_clut, item_stats = add_items(data, ptrs, items, placed, collision_leaves)
+    map_clut, blends, item_stats = add_items(data, ptrs, items, placed, collision_leaves)
 
     def refit(i):
         """A branch's box holds its children's, which add_items grew. -> the node's box"""
@@ -631,7 +718,10 @@ def patch(lev_path, vrm_path, nav_path, out_path, out_vrm, zenith, horizon, item
     data[OFF_CLEAR_SPLIT:OFF_CLEAR_SPLIT + 8] = b''.join(bytes(round(c) for c in rgb) + b'\1' for rgb in (zenith, below or horizon))
     out = struct.pack('<I', len(data)) + bytes(data) + struct.pack('<I', 4 * len(ptrs)) + struct.pack(f'<{len(ptrs)}I', *ptrs)
     open(out_path, 'wb').write(out)
-    open(out_vrm, 'wb').write(blend_map_palette(open(vrm_path, 'rb').read(), map_clut))
+    vram = blend_map_palette(open(vrm_path, 'rb').read(), map_clut)
+    for clut, colours in blends:
+        vram = blend_palette(vram, clut, colours)
+    open(out_vrm, 'wb').write(vram)
     return {'lanes': len(lanes), 'far blocks drawn by face': far_faces, 'checkpoints': ncp, 'blocks under the route': seeded_blocks, 'hidden quadblocks': hidden,
             'culled bsp nodes': len(culled), 'of': nbsp, 'vis lists': len(vis_lists),
             'worst collision normal error': round(normal_error, 4), 'quadblocks over 2%': normal_bad,

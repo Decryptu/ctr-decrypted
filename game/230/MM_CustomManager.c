@@ -591,7 +591,7 @@ static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, str
     else if (source || installed)
     {
         const char *author = source ? source->author : installed->author[0] ? installed->author : installed->local.author;
-        MM_ModsPicture_Draw(source ? source->trackID : installed->local.trackID, ot);
+        MM_ModsPicture_Draw(source ? source->trackID : installed->local.trackID, installed ? installed->manifestSha256 : source->decrypted ? source->pin : "", ot);
         /* Beside the picture, about 9 letters a line: the title (one or two
            lines), the version, then the author in what is left. */
         const char *title = source ? source->title : installed->title;

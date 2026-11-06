@@ -16,8 +16,11 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import ctr_items, nds, nitro3d, mkdsmap, lev_patch, package, winding_check
+import ctr_items, nds, nitro3d, mkdsmap, mkds_movers, mkds_view, lev_patch, package, track_picture, winding_check
 
+PICTURE_BACK, PICTURE_UP, PICTURE_AHEAD = 220, 150, 3  # MKDS units, and points of the route
+MOVING_BOX_OVER = 120  # MKDS units: how far over the ground a moving item box may stand
+TYRE_AT = 0.2  # of a length, from each end
 MODEL_TO_WORLD = 16.0  # course models are drawn 16 times larger than their stored size
 
 # Quadblock flags by the game's own names (include/namespace_Level.h). CrashTeamEditor's labels
@@ -71,6 +74,7 @@ DARK_HORIZON = 48
 # Blocks' joins can round a pixel apart, and on a white sky that pixel flashes: a walled-in course's ground colour
 BELOW_HORIZON = {'old_choco_64': (98, 66, 34)}
 WIDE_ROUGH = 7  # mean colour error of 16 colours past which a wide texture gives up width for colours
+BLEND_ALPHA = 24  # of 31: a surface MKDS draws this see-through or more blends here, half and half: the only mix a level has
 ALPHA_SOLID = 200  # a level texel is solid or clear: only a texel nearly solid in MKDS is solid here
 OVERLAY_MIN_ALPHA, OVERLAY_SHARE = 16, 0.02  # a decal on the floor: its texels this faint are clear, and this many of them lie between
 OVERLAY_GAP, OVERLAY_LIFT = 12, 1.0  # MKDS units: how far over the floor it lies, and how far it rises off it
@@ -849,12 +853,20 @@ SCENERY = {
 }
 # What MKDS draws as parts of one object: each part is an object of its own here, this far over the first
 SNOWMAN_HEAD, POKEY_BODY, POKEY_HEAD, PIRANHA_HEAD = range(0x10000, 0x10004)
+FIRE_PLANT_SHOT = 0x10004
 STACKED_ID = SNOWMAN_HEAD
 STACKED = {0x19d: [(SNOWMAN_HEAD, 19)], 0x1b2: [(POKEY_BODY, 40), (POKEY_BODY, 66), (POKEY_HEAD, 92)], 0x1aa: [(PIRANHA_HEAD, 70)]}
 SCENERY.update({SNOWMAN_HEAD: 'sman_top', POKEY_BODY: 'sanbo_b', POKEY_HEAD: 'sanbo_h', PIRANHA_HEAD: 'PakkunZHead'})
+# A Pokey walks its path as one, and a fire plant's shots run along its own
+POKEY_OBJECT = 0x1b2
+POKEY_MOVER = mkds_movers.Mover('sanbo_b', (mkds_movers.PATH, mkds_movers.BACK_AND_FORTH), mkds_movers.SPIN_DAMAGE, 3)
+POKEY_PARTS = {POKEY_BODY: POKEY_MOVER, POKEY_HEAD: POKEY_MOVER._replace(model='sanbo_h')}
+BULLET_LAUNCHER = 0x1a1  # stands where it is; the bullet flies
+FIRE_PLANT, FIRE_PLANT_SHOTS = 0x1aa, ('FireBall',)
+FIRE_PLANT_MOVER = mkds_movers.Mover('FireBall', (mkds_movers.PATH, mkds_movers.RESTART), mkds_movers.SPIN_DAMAGE, 0, fixed=900)
 WHITE_GEAR, WHITE_GEAR_SETTING = 0xfff0, 4  # Tick-Tock Clock's gears alternate by this setting of theirs
 SCENERY[WHITE_GEAR] = 'gear_white'
-HANGING_MODELS = {'chandelier', 'teresa', 'picture1', 'picture2', 'basabasa', 'kamome', 'sun', 'bakubaku'}  # the rest stand on the ground, however far under them their origin lies
+HANGING_MODELS = {'gear_black', 'gear_white', 'chandelier', 'teresa', 'picture1', 'picture2', 'basabasa', 'kamome', 'sun', 'bakubaku'}  # the rest stand on the ground, however far under them their origin lies
 NO_PILLAR_MODELS = {'teresa', 'basabasa', 'kamome', 'sun', 'poo', 'TownMonte', 'PakkunZHead', 'sanbo_h'}  # billboards no kart should stop at
 WALL_MODELS = {'picture2'}  # flat, but it hangs on a wall: not crossed like a billboard
 FLAT_MODEL = 1  # a model this thin is a billboard
@@ -867,9 +879,8 @@ STILL_OBJECTS = {
     0x1a8: ('bound', True, 0), 0xd: ('puddle', False, 1), 0x195: ('car_a', True, 0), 0x19a: ('bus_a', True, 0), 0x19c: ('truck_a', True, 0),
     0x192: ('rock', True, 0), 0x1b1: ('rock2', True, 0), 0x196: ('wanwan', True, 0), 0x1a5: ('wanwan', True, 0),
     0x1a3: ('move_tree', True, 0), 0x193: ('dossun', False, 120), 0x154: ('RainStar', False, 0), 0x158: ('airship', False, 0),
-    0x149: ('BankEgg1', False, 0), 0x13c: ('kanoke_64', False, 0),
+    0x149: ('BankEgg1', False, 0),
 }
-TRUNK_MODELS = {'move_tree': (16, 72)}  # only its trunk stops a kart, as its branches swing over the road: radius, half its height
 MIRRORED_BY_SETTING = {0x1a9}  # Waluigi Pinball's flippers: one model, a left and a right
 GROUNDED_STILL = {'wanwan': 28, 'rock': 28, 'rock2': 28, 'bound': 10}  # how far their origin is over their foot
 # Scenery that karts drive on, and the radius of its flat top in its model. Tick-Tock Clock's turning
@@ -887,7 +898,7 @@ OPEN_BRIDGE_LEFT_OUT = {'Bkusari'}
 # its height 0: half its width and depth.
 SLAB_OBJECT, SLAB_HALF_WIDTH, SLAB_HALF_DEPTH = 0xca, 400, 175
 # Bowser Castle's turning log: a kart rides along its top. Its model stands along -y from its end.
-ROTARY_BRIDGE, ROTARY_BRIDGE_RADIUS, ROTARY_BRIDGE_LENGTH = 0xd1, 80, 2150
+ROTARY_BRIDGE, ROTARY_BRIDGE_UP = 0xd1, 0.5
 BRIDGE_RAIL = 64
 FAR_EDGE = 8  # backdrops take blocks this many times longer: nothing rides on them
 WATER_EDGE = 3  # water too, away from the road
@@ -899,6 +910,11 @@ WATER_KEEPS_BELOW = 8
 TRUNK_RADIUS = 1 / 8  # of a billboard's width: its solid part, a pillar as high as half the object
 OBJECT_ABOVE_GROUND = 64
 KCL_ROAD = 0x00
+ROAD_KINDS = {0x00, 0x01, 0x06, 0x07, 0x0d, 0x12, 0x13, 0x14}
+# Rainbow Road's rising ring: road half as wide as a kart turns at speed, so it takes edges here
+EDGED_ROAD = {'rainbow_course': (-100, 2300, 800)}
+EDGE_HEIGHT = 40
+EDGE_PROBE = 12  # how far past an edge there is no road, for it to be open
 KCL_DASH = 0x07
 KCL_WALL = 0x08
 
@@ -958,6 +974,56 @@ def road_strip(start, end, width, rail=0, kind=None):
     return tris
 
 
+def log_road(arc, pos, rot):
+    """The road on Bowser Castle's turning log: its own upper faces, as KCL triangles. A flat strip as wide
+    as the log rides on air at its edges."""
+    out = []
+    for _, tri in nitro3d.Model(arc['MapObj/rotary_bridge.nsbmd']).triangles():
+        a, b, c = [pos + rotate(np.array(v[0]) * MODEL_TO_WORLD, rot) for v in tri]
+        n = np.cross(b - a, c - a)
+        n = n / max(np.linalg.norm(n), 1e-9)
+        if n[1] > ROTARY_BRIDGE_UP:
+            out.append((a, b, c, n, KCL_ROAD << 8))
+    return out
+
+
+def built_road(arc, nkm):
+    """Road the converter adds where MKDS has a moving thing: what collision_check takes as ground."""
+    out = floor_discs(nkm)
+    for object_id, pos, rot, _ in mkdsmap.placed_objects(nkm):
+        if object_id == ROTARY_BRIDGE:
+            out += log_road(arc, pos, rot)
+    return out
+
+
+def road_edges(kcl, loops, place):
+    """Low walls along the road's open edges inside place, (x, z, radius): KCL triangles. An edge is open
+    when no road lies just past it: neighbouring KCL triangles need not share their corners exactly, and
+    the road goes on into a loop, which has no collision (Course.loops)."""
+    if place is None:
+        return []
+    road = [t for t in kcl if mkdsmap.kcl_type(t[4]) in ROAD_KINDS]
+    ground = [t for t in road + loops if abs(t[3][1]) > 0.01]
+    walls = []
+    lift = np.array([0.0, EDGE_HEIGHT, 0.0])
+    for t in road:
+        for p, q, other in ((t[0], t[1], t[2]), (t[1], t[2], t[0]), (t[2], t[0], t[1])):
+            middle = (p + q) / 2
+            if math.hypot(middle[0] - place[0], middle[2] - place[1]) >= place[2]:
+                continue
+            along = q - p
+            out = np.array([along[2], 0.0, -along[0]]) / max(math.hypot(along[0], along[2]), 1e-9)
+            if np.dot(out, other - middle) > 0:
+                out = -out
+            past = middle + out * EDGE_PROBE
+            found = ground_under(past[0], past[2], middle[1] + EDGE_PROBE, ground)
+            if found is None or middle[1] - found[0] > EDGE_PROBE:
+                for w in ((p, q, q + lift), (p, q + lift, p + lift)):
+                    n = np.cross(w[1] - w[0], w[2] - w[0])
+                    walls.append((*w, n / max(np.linalg.norm(n), 1e-9), KCL_WALL << 8))
+    return walls
+
+
 def box_walls(corners):
     """The four sides of a box as KCL walls. corners: its eight corners, the bottom four first, round it."""
     tris = []
@@ -1002,10 +1068,28 @@ class LayeredWater:
         return out
 
 
+def with_tyres(arc, triangles, materials):
+    """A vehicle's model with its tyres: MKDS draws them as a model of their own, turning."""
+    tyre = nitro3d.Model(arc['MapObj/car_tire.nsbmd'])
+    tex0 = nitro3d.load_tex0(arc['MapObj/car_tire.nsbmd'])
+    for m in tyre.mats:
+        m.tex0 = tex0
+    points = np.array([v[0] for _, tri in triangles for v in tri])
+    low, high = points.min(0), points.max(0)
+    radius = np.ptp([v[0][1] for _, tri in tyre.triangles() for v in tri]) * MODEL_TO_WORLD / 2
+    first, out = len(materials), list(triangles)
+    for x in (low[0], high[0]):
+        for z in (low[2] + (high[2] - low[2]) * TYRE_AT, high[2] - (high[2] - low[2]) * TYRE_AT):
+            at = np.array([x, low[1] + radius, z])
+            out += [(first + mi, [(tuple(np.array(v[0]) * MODEL_TO_WORLD + at), v[1], v[2], v[3]) for v in tri]) for mi, tri in tyre.triangles()]
+    return out, list(materials) + list(tyre.mats)
+
+
 class Course:
     def __init__(self, rom_files, name, scale):
         arc = nds.carc(rom_files[f'data/Course/{name}.carc'])
         tex = nds.carc(rom_files[f'data/Course/{name}Tex.carc'])
+        self.name = name
         self.model = nitro3d.Model(arc['course_model.nsbmd'])
         self.kcl = mkdsmap.kcl(arc['course_collision.kcl'])
         # no collision: a flight carries a kart past these (find_flights)
@@ -1016,6 +1100,15 @@ class Course:
         self.nkm = mkdsmap.nkm(arc['course_map.nkm'])
         self.route = mkdsmap.cpu_route(self.nkm)
         self.item_boxes = mkdsmap.item_boxes(self.nkm)
+        # a moving box stands still where its path comes nearest the route, over ground a kart reaches
+        route_points = np.array([p for p, _ in self.route])
+        floor = [t for t in self.kcl if t[3][1] > 0.1]
+        self.moving_boxes = len(self.item_boxes)
+        for path in mkdsmap.moving_item_boxes(self.nkm):
+            low = [p for p in path if (g := ground_under(p[0], p[2], p[1] + MOVING_BOX_OVER, floor)) is not None and p[1] - g[0] < MOVING_BOX_OVER]
+            if low:
+                self.item_boxes.append(min(low, key=lambda p: np.linalg.norm(route_points - p, axis=1).min()))
+        self.moving_boxes = len(self.item_boxes) - self.moving_boxes
         # some courses keep their textures inside the model file
         course_tex0 = nitro3d.load_tex0(tex['course_model.nsbtx'] if 'course_model.nsbtx' in tex else arc['course_model.nsbmd'])
         for m in self.model.mats:
@@ -1195,7 +1288,7 @@ class Course:
         placed += [(part, p + (0.0, over * s[1], 0.0), r, s) for o, p, r, s in placed for part, over in STACKED.get(o, ())]
         for object_id, pos, rot, size in placed:
             name = SCENERY.get(object_id)
-            if name is None:
+            if name is None or (object_id in mkds_movers.MOVERS and object_id != BULLET_LAUNCHER) or object_id in POKEY_PARTS or object_id == POKEY_OBJECT:
                 continue
             file = f'MapObj/{name}.nsbmd'
             if file not in arc:
@@ -1227,13 +1320,14 @@ class Course:
                 corners = np.array([v[0] for _, tri in tris for v in tri]) * MODEL_TO_WORLD * size
                 width, height = np.ptp(corners[:, 0]), np.ptp(corners[:, 1])
                 self.kcl += pillar(pos, width * TRUNK_RADIUS, height / 2)
-        self.kcl += floor_discs(self.nkm)
+        self.kcl += floor_discs(self.nkm) + road_edges(self.kcl, self.loops, EDGED_ROAD.get(self.name))
         self.add_bridges(arc)
         self.add_still_objects(arc)
+        self.add_movers(arc)
         for name in sorted(missing):
             print(f'scenery: no model {name} in this course')
 
-    def bake(self, arc, name, place, left_out=(), top=math.inf, mirror=False):
+    def bake(self, arc, name, place, left_out=(), top=math.inf, mirror=False, draw=True):
         """Draw a course object's model. place: model position -> world position. left_out: its parts to
         leave off, by material; top: and all above this height of the model. mirror: x is turned over.
         -> the model's box, as (lowest corner, highest corner)."""
@@ -1250,7 +1344,8 @@ class Course:
             if model.mats[mi].name not in left_out and max(v[0][1] * MODEL_TO_WORLD for v in tri) <= top:
                 points += [np.array(v[0]) * MODEL_TO_WORLD for v in tri]
                 ordered = tri[::-1] if mirror else tri  # a mirrored triangle would face away
-                self.triangles.append((first + mi, [(place(np.array(v[0]) * MODEL_TO_WORLD), v[1], v[2], v[3]) for v in ordered]))
+                if draw:
+                    self.triangles.append((first + mi, [(place(np.array(v[0]) * MODEL_TO_WORLD), v[1], v[2], v[3]) for v in ordered]))
         points = np.array(points)
         return points.min(0), points.max(0)
 
@@ -1271,12 +1366,46 @@ class Course:
             mirror = bool(setting) and object_id in MIRRORED_BY_SETTING
             def place(p, at=at, rot=rot, size=size, x=-1.0 if mirror else 1.0):
                 return at + rotate(p * size * (x, 1.0, 1.0), rot)
-            low, high = self.bake(arc, name, place, mirror=mirror)
-            if name in TRUNK_MODELS:
-                self.kcl += pillar(pos, *TRUNK_MODELS[name])
-            elif solid:
+            moves = object_id in mkds_movers.MOVERS
+            if moves and name not in mkds_movers.SOLID_STILL:
+                continue
+            low, high = self.bake(arc, name, place, mirror=mirror, draw=not moves)
+            if solid:
                 corners = [np.array([x, y, z]) for y in (low[1], high[1]) for x, z in ((low[0], low[2]), (high[0], low[2]), (high[0], high[2]), (low[0], high[2]))]
                 self.kcl += box_walls([place(c) for c in corners])
+
+    def add_movers(self, arc):
+        """What moves in MKDS and moves here too: see mkds_movers. Left to `convert` to scale and write."""
+        self.movers, self.mover_models = [], {}
+        table = dict(mkds_movers.MOVERS)
+        table.update({POKEY_OBJECT: POKEY_MOVER, **POKEY_PARTS})
+        for (object_id, pos, rot, size), path, settings in zip(mkdsmap.placed_objects(self.nkm), mkdsmap.object_paths(self.nkm), mkdsmap.all_object_settings(self.nkm)):
+            shots = FIRE_PLANT_SHOTS if object_id == FIRE_PLANT else ()
+            parts = [(object_id, 0.0)] + [(part, over) for part, over in STACKED.get(object_id, ())] + [(FIRE_PLANT_SHOT, 0.0)] * (1 if shots else 0)
+            table[FIRE_PLANT_SHOT] = FIRE_PLANT_MOVER
+            for part, over in parts:
+                spec = table.get(part)
+                if spec is None:
+                    continue
+                if f'MapObj/{spec.model}.nsbmd' not in arc:
+                    print(f'mover: no model {spec.model} in this course')
+                    continue
+                if spec.kind[0] == mkds_movers.PATH and path is None:
+                    continue
+                mirror = bool(settings[0]) and object_id in MIRRORED_BY_SETTING
+                key = (spec.model, mirror)
+                if key not in self.mover_models:
+                    model = nitro3d.Model(arc[f'MapObj/{spec.model}.nsbmd'])
+                    tex0 = nitro3d.load_tex0(arc[f'MapObj/{spec.model}.nsbmd'])
+                    for m in model.mats:
+                        m.tex0 = tex0
+                    tris = [(mi, [(tuple(np.array(v[0]) * MODEL_TO_WORLD), v[1], v[2], v[3]) for v in tri]) for mi, tri in model.triangles()]
+                    if spec.model in mkds_movers.TYRED:
+                        tris, mats = with_tyres(arc, tris, model.mats)
+                    else:
+                        mats = model.mats
+                    self.mover_models[key] = (mats, tris)
+                self.movers.append({'key': key, 'spec': spec, 'pos': pos + (0.0, over * size[1], 0.0), 'rot': rot, 'size': size, 'path': path, 'settings': settings, 'over': over})
 
     def add_bridges(self, arc):
         """What MKDS moves to carry the road over a gap, solid and standing still. A kart rides on these,
@@ -1288,14 +1417,21 @@ class Course:
                 tip = pos + rotate(np.array([0.0, 0.0, OPEN_BRIDGE_LENGTH]), tilt)
                 self.kcl += road_strip(pos, tip, OPEN_BRIDGE_WIDTH, BRIDGE_RAIL, KCL_DASH)
             elif object_id == ROTARY_BRIDGE:
-                top = np.array([0.0, ROTARY_BRIDGE_RADIUS, 0.0])
                 self.bake(arc, 'rotary_bridge', lambda p, pos=pos, rot=rot: pos + rotate(p, rot))
-                end = pos + rotate(np.array([0.0, -ROTARY_BRIDGE_LENGTH, 0.0]), rot)
-                self.kcl += road_strip(pos + top, end + top, ROTARY_BRIDGE_RADIUS * 2)
+                self.kcl += log_road(arc, pos, rot)
             elif object_id == SLAB_OBJECT:
                 self.bake(arc, 'koopa_block', lambda p, pos=pos, size=size: pos + p * size)
                 half = np.array([0.0, 0.0, SLAB_HALF_DEPTH * size[2]])
                 self.kcl += road_strip(pos - half, pos + half, SLAB_HALF_WIDTH * 2 * size[0])
+
+    def picture_view(self):
+        """-> the Mods screen's camera, on the start line looking along the road, and the sky."""
+        start, _ = mkdsmap.start_positions(self.nkm)[0]
+        points = np.array([p for p, _ in self.route])
+        ahead = points[(np.argmin(np.linalg.norm(points - start, axis=1)) + PICTURE_AHEAD) % len(points)]
+        way = (ahead - start) * (1.0, 0.0, 1.0)
+        way = way / max(np.linalg.norm(way), 1.0)
+        return start - way * PICTURE_BACK + (0.0, PICTURE_UP, 0.0), ahead, self.sky_colours()
 
     def sky_colours(self):
         """(zenith, horizon) RGB from the skybox texture's top and bottom rows; a plain blue without one."""
@@ -1394,6 +1530,19 @@ def convert(course, out_dir, name, scale, max_edge, crate, vram_share):
     map_image, ui_map = minimap(course.kcl + course.loops, to_lev, fwd, route)
     # what the game needs from the VRM besides the course: each gets a carrier block
     item_images = [g['image'] for g in crate.groups] + [map_image]
+    lev_unit = scale * 64
+    first_mover_image = len(item_images)
+    mover_models, mover_halves, mover_index = [], [], {}
+    for key, (mats, tris) in course.mover_models.items():
+        flat = np.ptp([v[0][2] for _, tri in tris for v in tri]) < FLAT_MODEL
+        billboard = flat and key[0] not in mkds_movers.TWO_SIDED
+        two_sided = not billboard and (key[0] in mkds_movers.TWO_SIDED or any((m.polygon_attr >> 6) & 1 for m in mats))
+        model, *size = mkds_movers.build_model(key[0], tris, mats, lev_unit, key[1], billboard, two_sided)
+        mover_index[key] = len(mover_models)
+        mover_models.append(model)
+        mover_halves.append(size)
+        item_images += [g['image'] for g in model.groups]
+    course.mover_items = mover_models
 
     # ---- materials and textures
     mtl = []
@@ -1430,11 +1579,18 @@ def convert(course, out_dir, name, scale, max_edge, crate, vram_share):
             tiles[i][a] //= 2
         else:
             shrink[max(tiles, key=vram_words)] *= 2
+    blended = [i for i, m in enumerate(course.mats) if 0 < (m.polygon_attr >> 16) & 31 <= BLEND_ALPHA and m.tex]
     for i_mat, m in enumerate(course.mats):
         i = i_mat
         mname = f'v{i:02d}_{m.tex}'
         mat_names[i] = mname
         src = m.tex0.decode(m.tex, m.pal)[::shrink[i_mat], ::shrink[i_mat]]
+        if i_mat in blended:  # a palette of its own, from a surface with this texture that stays solid
+            src = src.copy()
+            src[0, 0, 2] ^= 8
+            # half of it is what shows, over the dark behind it: as bright as MKDS's own share of it
+            share = ((m.polygon_attr >> 16) & 31) / 31
+            src[..., :3] = np.clip(src[..., :3] * (share * 2), 0, 255).astype(np.uint8)
         if i_mat in course.overlays:
             alpha = src[..., 3:4].astype(float) / 255
             src = np.dstack([src[..., :3] * alpha + np.array(course.overlays[i_mat]) * (1 - alpha), np.where(src[..., 3] > OVERLAY_MIN_ALPHA, 255, 0)]).astype(np.uint8)
@@ -1463,9 +1619,15 @@ def convert(course, out_dir, name, scale, max_edge, crate, vram_share):
         mtl += [f'newmtl {cname}', 'map_Kd collision.png', '']
     # CrashTeamEditor packs only what a block uses
     item_mats = []
+    blend_mats = [f'blend{i}' for i in blended]
+    for i, mat in zip(blended, blend_mats):
+        mtl += [f'newmtl {mat}', f'map_Kd {mat_names[i]}.png', '']
     for i, image in enumerate(item_images):
         item_mats.append(f'item{i}')
-        Image.fromarray(image, 'RGBA').save(os.path.join(tex_dir, f'item{i}.png'))
+        if i >= first_mover_image:  # as the course's textures: what CrashTeamEditor is given is in the colours it keeps
+            quantize(np.ascontiguousarray(image))[0].save(os.path.join(tex_dir, f'item{i}.png'))
+        else:
+            Image.fromarray(image, 'RGBA').save(os.path.join(tex_dir, f'item{i}.png'))
         mtl += [f'newmtl item{i}', f'map_Kd item{i}.png', '']
 
     # ---- OBJ writer
@@ -1680,6 +1842,7 @@ def convert(course, out_dir, name, scale, max_edge, crate, vram_share):
     # blocks (lev_patch finds them by their bounds and reads where their textures landed)
     low = np.ceil(np.array(to_cte(kpts.min(0))) * 64) / 64 - 8
     carriers = []
+    item_mats = item_mats + blend_mats
     for i, mat in enumerate(item_mats):
         x0, x1, z0, z1 = low[0] + 4 * i, low[0] + 4 * i + 2, low[2], low[2] + 2
         corners = [np.array(c, float) for c in ((x0, low[1], z1), (x1, low[1], z1), (x1, low[1], z0), (x0, low[1], z0))]
@@ -1687,6 +1850,8 @@ def convert(course, out_dir, name, scale, max_edge, crate, vram_share):
         quad = [{'pos': c, 'uv': np.array(uv, float), 'col': np.array([.5, .5, .5])} for c, uv in zip(corners, uvs)]
         write_quadblock(f'i{i}', mat, quad, np.array([0.0, 1.0, 0.0]))
         carriers.append([int(round(c * 64)) for c in (x0, low[1], z0, x1, z1)])
+    item_carriers = carriers[:len(item_mats) - len(blend_mats)]
+    blend_carriers = carriers[len(item_carriers):]
 
     # ---- item boxes: one crate per MKDS box, on the ground under it
     ground = [t for t in course.kcl if (i := COLLISION.get(mkdsmap.kcl_type(t[4]))) and i[2] & GROUND and abs(t[3][1]) >= 0.3]
@@ -1703,7 +1868,7 @@ def convert(course, out_dir, name, scale, max_edge, crate, vram_share):
     # ---- probe points for CTR_DEV_COLL_PROBE_IN: every 64 LEV units on every MKDS ground layer
     lev = 64 * scale
     step = 64 / lev
-    pts = []
+    pts, road_points = [], []
     for a, b, c, nrm, attr in course.kcl:
         info = COLLISION.get(mkdsmap.kcl_type(attr))
         if info is None or not (info[2] & GROUND) or abs(nrm[1]) < 0.3:
@@ -1718,6 +1883,11 @@ def convert(course, out_dir, name, scale, max_edge, crate, vram_share):
                 y = a[1] - (nrm[0] * (gx - a[0]) + nrm[2] * (gz - a[2])) / nrm[1]
                 p = (np.array([gx, y, gz]) - centre) * lev
                 pts.append('%d %d %d' % tuple(np.round(p).astype(int)))
+                if not info[2] & KILL_PLANE:
+                    road_points.append(pts[-1])
+    json.dump([[*map(float, to_lev(p)), float(r) * lev] for p, r in route], open(os.path.join(out_dir, name + '_route.json'), 'w'))
+    with open(os.path.join(out_dir, name + '_road.txt'), 'w') as f:
+        f.write('\n'.join(road_points) + '\n')
     with open(os.path.join(out_dir, name + '_probe.txt'), 'w') as f:
         f.write('\n'.join(pts) + '\n')
     stats['probe points'] = len(pts)
@@ -1818,7 +1988,9 @@ def convert(course, out_dir, name, scale, max_edge, crate, vram_share):
     for line in flight_log:
         print('flight', line)
     stats['flights'] = len(flights)
-    json.dump({'crates': crates, 'fruit': fruit, 'carriers': carriers, 'map': ui_map, 'jump_pads': jump_pads, 'flights': flights},
+    movers, mover_lists = mkds_movers.place(course.movers, mover_index, mover_halves, to_lev, lev_unit, rotate)
+    stats['movers'], stats['blended materials'] = len(movers), len(blended)
+    json.dump({'crates': crates, 'fruit': fruit, 'moving_crates': course.moving_boxes, 'carriers': item_carriers, 'blends': blend_carriers, 'map': ui_map, 'jump_pads': jump_pads, 'flights': flights, 'movers': movers, 'mover_lists': mover_lists},
               open(os.path.join(out_dir, name + '_items.json'), 'w'))
 
     cells = {}
@@ -1989,6 +2161,7 @@ def main():
     patched = os.path.join(lev_dir, name + '_patched.lev')
     patched_vrm = os.path.join(lev_dir, name + '_patched.vrm')
     placed = json.load(open(os.path.join(work, name + '_items.json')))
+    items['movers'] = course.mover_items
     patched_stats = lev_patch.patch(lev, vrm, os.path.join(work, name + '_nav.json'), patched, patched_vrm, *course.sky_colours(), items, placed, BELOW_HORIZON.get(name) or course.sea_colour)
     print('lev_patch', patched_stats)
     if patched_stats['quadblocks over 2%']:
@@ -1997,8 +2170,10 @@ def main():
     print('winding', winding)
     if winding['flipped'] or winding['unmatched']:
         sys.exit('CrashTeamEditor turned drawn blocks over (they would vanish from the front)')
+    eye, at, sky = course.picture_view()
+    picture = track_picture.texels(mkds_view.render(files, a.course, eye, at, *track_picture.RENDER, sky=sky))
     pin = package.build(patched, patched_vrm, a.title, 'mkds/' + a.course, a.version, a.store,
-                       'Nintendo, converted by Decrypt')
+                       'Nintendo, converted by Decrypt', picture)
     # a re-conversion replaces the revision this work folder installed last
     pin_file = os.path.join(work, 'pin.txt')
     old = open(pin_file).read().strip() if os.path.exists(pin_file) else ''

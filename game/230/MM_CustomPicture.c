@@ -1,8 +1,9 @@
 /* The selected track's picture in the Mods screen (docs/CUSTOM_TRACKS.md).
    Included by MM_CustomManager.c.
 
-   Saphi's thumbnail of the track, cropped and shrunk to 112x42 by a background
-   job (include/platform/native_track_picture.h) and kept in
+   A package's own picture (metadata/picture.ctp), or else Saphi's thumbnail of
+   the track, cropped and shrunk to 112x42 by a background job
+   (include/platform/native_track_picture.h) and kept in
    assets/tracks/pictures, so a track seen once shows offline too. The job
    starts once the selection has rested on a track for a moment, so scrolling
    through the list asks Saphi for nothing. One picture is in VRAM at a time. */
@@ -20,6 +21,10 @@ static int s_pictureShown, s_pictureWanted, s_pictureWait, s_pictureBusy, s_pict
 /* The racer whose portrait preview holds the slot instead (MM_CustomRacers.c),
    or "". */
 static char s_racerPreviewShown[37];
+/* The pin of the package whose own picture is in VRAM, or "". */
+static char s_picturePackage[65];
+/* The pin of the package that has none, so its file is looked for once. */
+static char s_pictureNoPackage[65];
 
 /* Every frame of the Mods screen: finish the job. */
 static void MM_ModsPicture_Tick(void)
@@ -34,6 +39,7 @@ static void MM_ModsPicture_Tick(void)
         s_pictureIcon = NativeRacers_TrackPicture(s_pictureTexels, NATIVE_TRACK_PICTURE_WIDTH, NATIVE_TRACK_PICTURE_HEIGHT);
         s_pictureShown = s_pictureIcon ? trackID : 0;
         s_racerPreviewShown[0] = 0;
+        s_picturePackage[0] = 0;
     }
     else s_pictureFailed = trackID;
 }
@@ -53,10 +59,45 @@ static int MM_ModsPicture_Media(int trackID, const char **path)
     return 0;
 }
 
-/* The panel's top left corner: the picture of trackID (a Saphi track id, 0
-   for a track that did not come from Saphi), or a frame saying there is none. */
-static void MM_ModsPicture_Draw(int trackID, uint32_t *ot)
+/* Put a package's own picture in VRAM. 1 when it is there. */
+static int MM_ModsPicture_LoadPackage(const char *pin)
 {
+    char path[MODS_PATH_MAX];
+    size_t got = 0;
+
+    if (!strcmp(pin, s_picturePackage)) return 1;
+    if (!strcmp(pin, s_pictureNoPackage)) return 0;
+    snprintf(path, sizeof path, "%s/tracks/packages/%s/metadata/picture.ctp", NativeAssets_GetAssetDir(), pin);
+    FILE *file = fopen(path, "rb");
+    if (file)
+    {
+        got = fread(s_pictureTexels, sizeof s_pictureTexels[0], NATIVE_TRACK_PICTURE_TEXELS, file);
+        fclose(file);
+    }
+    if (got == NATIVE_TRACK_PICTURE_TEXELS) s_pictureIcon = NativeRacers_TrackPicture(s_pictureTexels, NATIVE_TRACK_PICTURE_WIDTH, NATIVE_TRACK_PICTURE_HEIGHT);
+    if (got != NATIVE_TRACK_PICTURE_TEXELS || !s_pictureIcon)
+    {
+        snprintf(s_pictureNoPackage, sizeof s_pictureNoPackage, "%s", pin);
+        return 0;
+    }
+    snprintf(s_picturePackage, sizeof s_picturePackage, "%s", pin);
+    s_pictureShown = 0;
+    s_racerPreviewShown[0] = 0;
+    return 1;
+}
+
+/* The panel's top left corner: the picture of the package pin ("" for a track
+   not installed) if it has one, else of trackID (a Saphi track id, 0 for a
+   track that did not come from Saphi), or a frame saying there is none. */
+static void MM_ModsPicture_Draw(int trackID, const char *pin, uint32_t *ot)
+{
+    if (pin[0] && MM_ModsPicture_LoadPackage(pin))
+    {
+        const Color color = MM_CHARACTER_SELECT_NEUTRAL_COLOR;
+        RECTMENU_DrawPolyGT4(s_pictureIcon, MODS_PICTURE_X, MODS_PICTURE_Y, &sdata->gGT->backBuffer->primMem, ot,
+                             color, color, color, color, 0, FP(1.0));
+        return;
+    }
     if (trackID != s_pictureWanted)
     {
         s_pictureWanted = trackID;

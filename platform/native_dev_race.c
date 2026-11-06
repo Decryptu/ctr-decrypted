@@ -686,7 +686,7 @@ int NativeDev_AutopilotPad(int player, unsigned short *buttons, unsigned char *l
 	else
 		p->grabbed = 0;
 
-	if ((dev->autopilot == 3) && (p->wedges >= 2) && (d->kartState != KS_MASK_GRABBED))
+	if ((dev->autopilot == 3) && (p->wedges >= 2) && (d->kartState != KS_MASK_GRABBED) && (d->kartState != KS_ENGINE_REVVING))
 	{
 		int to = (best + 6) % count;
 		int next = (to + 1) % count;
