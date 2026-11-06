@@ -3,6 +3,7 @@ check_track.ps1 runs it. Exits 1 on any hole or height problem.
 
 Every probe point stands on an MKDS ground layer. For each, compare what the game found:
   hole         no ground where MKDS has ground all around (within the kart's radius)
+  out of reach a hole on a hillside over OUT_OF_REACH from the route, where no kart comes
   edge         no ground, but the point is on the rim of the drivable area (wall foot, drop)
   engine edge  no ground, but a LEV ground triangle is within ENGINE_EDGE units: the engine's
                fixed-point test misses next to an edge, retail tracks too, and a kart at any speed
@@ -29,6 +30,8 @@ P = np.array([v for tr in t for v in tr[:3]])
 centre = (P.min(0) + P.max(0)) / 2
 LEV = 64 * scale
 ENGINE_EDGE = 3  # LEV units
+OUT_OF_REACH = 440  # MKDS units from the route; the widest road is half that
+route = np.array([p for p, _ in mkdsmap.cpu_route(mkdsmap.nkm(archive['course_map.nkm']))])
 KILL_PLANE = 0x200  # the steep out-of-bounds curtains MKDS hangs round a course are fall surfaces, not ground
 
 
@@ -78,7 +81,7 @@ def near_edge(x, z, y):
     return False
 
 
-counts = {'probes': 0, 'hole': 0, 'edge': 0, 'engine edge': 0, 'height': 0, 'wall footprint': 0}
+counts = {'probes': 0, 'hole': 0, 'out of reach': 0, 'edge': 0, 'engine edge': 0, 'height': 0, 'wall footprint': 0}
 holes = []; heights_off = []; dh_coll = []; dh_draw = []
 for r in csv.DictReader(open(probe_csv)):
     x, y, z = int(r['x']), int(r['y']), int(r['z'])
@@ -96,6 +99,8 @@ for r in csv.DictReader(open(probe_csv)):
             counts['edge'] += 1
         elif near_edge(x, z, y):
             counts['engine edge'] += 1
+        elif np.linalg.norm(route - (mx, ny, mz), axis=1).min() > OUT_OF_REACH:
+            counts['out of reach'] += 1
         else:
             counts['hole'] += 1
             holes.append((x, y, z))

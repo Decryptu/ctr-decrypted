@@ -869,6 +869,7 @@ STILL_OBJECTS = {
     0x1a3: ('move_tree', True, 0), 0x193: ('dossun', False, 120), 0x154: ('RainStar', False, 0), 0x158: ('airship', False, 0),
     0x149: ('BankEgg1', False, 0), 0x13c: ('kanoke_64', False, 0),
 }
+TRUNK_MODELS = {'move_tree': (16, 72)}  # only its trunk stops a kart, as its branches swing over the road: radius, half its height
 MIRRORED_BY_SETTING = {0x1a9}  # Waluigi Pinball's flippers: one model, a left and a right
 GROUNDED_STILL = {'wanwan': 28, 'rock': 28, 'rock2': 28, 'bound': 10}  # how far their origin is over their foot
 # Scenery that karts drive on, and the radius of its flat top in its model. Tick-Tock Clock's turning
@@ -1271,7 +1272,9 @@ class Course:
             def place(p, at=at, rot=rot, size=size, x=-1.0 if mirror else 1.0):
                 return at + rotate(p * size * (x, 1.0, 1.0), rot)
             low, high = self.bake(arc, name, place, mirror=mirror)
-            if solid:
+            if name in TRUNK_MODELS:
+                self.kcl += pillar(pos, *TRUNK_MODELS[name])
+            elif solid:
                 corners = [np.array([x, y, z]) for y in (low[1], high[1]) for x, z in ((low[0], low[2]), (high[0], low[2]), (high[0], high[2]), (low[0], high[2]))]
                 self.kcl += box_walls([place(c) for c in corners])
 
