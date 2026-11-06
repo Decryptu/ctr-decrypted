@@ -63,6 +63,19 @@ index f282bb1..a3b345c 100644
  	float perimeterLeft = ComputeBoundingBox(quadblocks, left).SemiPerimeter();
  	float perimeterRight = ComputeBoundingBox(quadblocks, right).SemiPerimeter();
  	return perimeterLeft + perimeterRight;
+diff --git a/src/level.cpp b/src/level.cpp
+index 5be77a8..c59ff7c 100644
+--- a/src/level.cpp
++++ b/src/level.cpp
+@@ -525,6 +525,8 @@ bool Level::LoadPreset(const std::filesystem::path& filename)
+ 		if (json.contains("turbopads"))
+ 		{
+ 			std::unordered_set<std::string> turboPads = json["turbopads"];
++			// ManageTurbopad adds a block for each pad: the loop below must not see the vector move
++			m_quadblocks.reserve(m_quadblocks.size() + turboPads.size());
+ 			for (Quadblock& quadblock : m_quadblocks)
+ 			{
+ 				const std::string& quadName = quadblock.GetName();
 diff --git a/src/level.h b/src/level.h
 index bf98ad3..9f68de7 100644
 --- a/src/level.h

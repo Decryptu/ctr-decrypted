@@ -10,9 +10,8 @@ Render geometry comes from course_model.nsbmd (textured, vertex coloured, drawn 
 Collision comes from course_collision.kcl (invisible quadblocks carrying terrain, walls and checkpoints).
 Start, finish line and route come from course_map.nkm.
 """
-import argparse, json, math, os, shutil, subprocess, sys
+import argparse, copy, json, math, os, shutil, subprocess, sys
 from collections import defaultdict
-from itertools import product
 import numpy as np
 from PIL import Image, ImageDraw
 
@@ -68,6 +67,14 @@ COLLISION = {
 KCL_MUD = {(0x02, 3), (0x03, 0), (0x03, 1)}
 
 
+DARK_HORIZON = 48
+# Blocks' joins can round a pixel apart, and on a white sky that pixel flashes: a walled-in course's ground colour
+BELOW_HORIZON = {'old_choco_64': (98, 66, 34)}
+WIDE_ROUGH = 7  # mean colour error of 16 colours past which a wide texture gives up width for colours
+ALPHA_SOLID = 200  # a level texel is solid or clear: only a texel nearly solid in MKDS is solid here
+OVERLAY_MIN_ALPHA, OVERLAY_SHARE = 16, 0.02  # a decal on the floor: its texels this faint are clear, and this many of them lie between
+OVERLAY_GAP, OVERLAY_LIFT = 12, 1.0  # MKDS units: how far over the floor it lies, and how far it rises off it
+# (Waluigi Pinball's floor) drawn solid is hard blocks of colour
 SLIVER_WIDTH = 3  # LEV units: thinner than this, the grid turns a collision triangle's pieces any way
 MAX_VERTICES = 65000  # quadblocks index vertices with 16 bits; a little under, as the OBJ's count is close, not exact
 MAX_COORD = 500  # CrashTeamEditor units; 512 is the LEV's 16-bit limit, and the carrier blocks sit 8 past the course
@@ -77,6 +84,7 @@ BOOST_MATERIALS = {'col_boost', 'col_ramp', 'col_jump'}
 LANE_FLAGS = {'col_boost': 0x1, 'col_ramp': 0x100}  # BOTS_NAV_FLAG_TURBO, BOTS_NAV_FLAG_SUPER_TURBO: a CPU kart's boost
 LANE_REACHES_RAMP = 180  # MKDS units over the route a ramp may rise
 LANE_SAMPLES = 6  # a pad is shorter than two nodes are apart
+LANE_CLEAR_PASSES = 4
 LANE_LAUNCHES = {'col_ramp': 0.2, 'col_jump': 0.6}  # the least rise per unit forward, off these
 KART_SPEED, KART_GRAVITY = 340, 618  # MKDS units a second, and a second squared: a kart's, off a ramp
 TRIGGER_TURBO_PAD, TRIGGER_SUPER_TURBO_PAD = 1, 2  # CrashTeamEditor's QuadblockTrigger
@@ -623,23 +631,25 @@ def arc(start, end, lift):
     return [start + (end - start) * (i / count) + np.array([0.0, lift * 4 * (i / count) * (1 - i / count), 0.0]) for i in range(count + 1)]
 
 
-def crossings(segments, triangles):
-    """How many of the triangles each straight segment runs through, in all."""
+def hit_by(p, q, triangles):
+    """Which triangles (three arrays of corners) the straight segment from p to q runs through."""
     a, b, c = triangles
-    total = 0
-    for p, q in segments:
-        d = q - p
-        e1, e2 = b - a, c - a
-        h = np.cross(d, e2)
-        det = (e1 * h).sum(1)
-        ok = np.abs(det) > 1e-9
-        s = p - a
-        u = (s * h).sum(1) / np.where(ok, det, 1)
-        g = np.cross(s, e1)
-        v = (g @ d) / np.where(ok, det, 1)
-        t = (e2 * g).sum(1) / np.where(ok, det, 1)
-        total += int((ok & (u >= 0) & (v >= 0) & (u + v <= 1) & (t >= 0) & (t <= 1)).sum())
-    return total
+    d = q - p
+    e1, e2 = b - a, c - a
+    h = np.cross(d, e2)
+    det = (e1 * h).sum(1)
+    ok = np.abs(det) > 1e-9
+    s = p - a
+    u = (s * h).sum(1) / np.where(ok, det, 1)
+    g = np.cross(s, e1)
+    v = (g @ d) / np.where(ok, det, 1)
+    t = (e2 * g).sum(1) / np.where(ok, det, 1)
+    return ok & (u >= 0) & (v >= 0) & (u + v <= 1) & (t >= 0) & (t <= 1)
+
+
+def crossings(segments, triangles):
+    """How many of the triangles the straight segments run through, in all."""
+    return sum(int(hit_by(p, q, triangles).sum()) for p, q in segments)
 
 
 def clear_arc(course, start, end):
@@ -753,7 +763,7 @@ def find_flights(course, to_lev, scale):
         j = landing(aim)
         h = under(middle, middle[1])
         start = np.array([middle[0], h if h is not None else wall[:, 1].min(), middle[2]])
-        end = on_ground(j)
+        end = np.maximum(on_ground(j), targets[variant])
         points = closing(j, clear_arc(course, start, end))
         add('cannon', np.ptp(wall[:, [0, 2]], axis=0).max() / 2 + 40, np.ptp(wall[:, 1]) + 60, CANNON_SPEED, points, path_up(points), first, j)
 
@@ -833,20 +843,33 @@ SCENERY = {
     0x13a: 'CrossTree1', 0x13e: 'Bank_Tree1', 0x142: 'MarioTree3', 0x145: 'TownTree1', 0x146: 'Snow_Tree1',
     0x148: 'DeTree1', 0x14b: 'KinoHouse1', 0x14c: 'KinoHouse2', 0x14d: 'KinoMount1', 0x14e: 'KinoMount2',
     0x14f: 'olaTree1c', 0x150: 'osaTree1c', 0xcb: 'gear_black', 0x191: 'kuribo', 0x1a6: 'ob_pakkun_sf', 0x153: 'cow',
-    0x199: 'choropu', 0x1ac: 'crab', 0x1ad: 'sanbo_b', 0x135: 'NsCannon1', 0x155: 'of6yoshi1', 0x19d: 'sman_bottom', 0x140: 'chandelier',
+    0x199: 'choropu', 0x1ac: 'crab', 0x1ad: 'sun', 0x135: 'NsCannon1', 0x155: 'of6yoshi1', 0x19d: 'sman_bottom', 0x140: 'chandelier',
+    0x1a7: 'poo', 0x67: 'woodbox1', 0x1a3: 'teresa', 0x152: 'picture1', 0x19e: 'bakubaku', 0x1a0: 'teresa', 0x157: 'TownMonte',
+    0x1a1: 'NsKiller1', 0x139: 'kamome', 0x1b2: 'sanbo_b', 0x1aa: 'PakkunBody',
 }
-STACKED = {0x19d: (0x19d0, 19)}  # the snowman's head: an object of its own here, this far over its body
-SCENERY[0x19d0] = 'sman_top'
+# What MKDS draws as parts of one object: each part is an object of its own here, this far over the first
+SNOWMAN_HEAD, POKEY_BODY, POKEY_HEAD, PIRANHA_HEAD = range(0x10000, 0x10004)
+STACKED_ID = SNOWMAN_HEAD
+STACKED = {0x19d: [(SNOWMAN_HEAD, 19)], 0x1b2: [(POKEY_BODY, 40), (POKEY_BODY, 66), (POKEY_HEAD, 92)], 0x1aa: [(PIRANHA_HEAD, 70)]}
+SCENERY.update({SNOWMAN_HEAD: 'sman_top', POKEY_BODY: 'sanbo_b', POKEY_HEAD: 'sanbo_h', PIRANHA_HEAD: 'PakkunZHead'})
+WHITE_GEAR, WHITE_GEAR_SETTING = 0xfff0, 4  # Tick-Tock Clock's gears alternate by this setting of theirs
+SCENERY[WHITE_GEAR] = 'gear_white'
+HANGING_MODELS = {'chandelier', 'teresa', 'picture1', 'kamome', 'sun', 'bakubaku'}  # the rest stand on the ground, however far under them their origin lies
+NO_PILLAR_MODELS = {'teresa', 'kamome', 'sun', 'poo', 'TownMonte', 'PakkunZHead', 'sanbo_h'}  # billboards no kart should stop at
+FLAT_MODEL = 1  # a model this thin is a billboard
+START_CLEAR = 700  # no solid object this close to the start line
 # What moves in MKDS stands still here, at its placed spot: the game's track collision is static, and a
 # course without its big obstacles is worse than one with them at rest. (id: model, solid, lift) in
 # STILL_OBJECTS: solid gives it walls round its box, lift raises it clear of the road.
 STILL_OBJECTS = {
     0xcd: ('second_hand', True, 0), 0xce: ('pendulum', True, 0), 0xd2: ('dram', True, 0), 0x1a9: ('flipper', True, 0),
-    0x1b0: ('bound', True, 0), 0x195: ('car_a', True, 0), 0x19a: ('bus_a', True, 0), 0x19c: ('truck_a', True, 0),
+    0x1a8: ('bound', True, 0), 0xd: ('puddle', False, 1), 0x195: ('car_a', True, 0), 0x19a: ('bus_a', True, 0), 0x19c: ('truck_a', True, 0),
     0x192: ('rock', True, 0), 0x1b1: ('rock2', True, 0), 0x196: ('wanwan', True, 0), 0x1a5: ('wanwan', True, 0),
     0x151: ('move_tree', True, 0), 0x193: ('dossun', False, 120), 0x154: ('RainStar', False, 0), 0x158: ('airship', False, 0),
     0x149: ('BankEgg1', False, 0), 0x13c: ('kanoke_64', False, 0),
 }
+MIRRORED_BY_SETTING = {0x1a9}  # Waluigi Pinball's flippers: one model, a left and a right
+GROUNDED_STILL = {'wanwan': 28, 'rock': 28, 'rock2': 28, 'bound': 10}  # how far their origin is over their foot
 # Scenery that karts drive on, and the radius of its flat top in its model. Tick-Tock Clock's turning
 # cogs carry the road over a pit, in no collision of the course's own, and Bowser Castle's turning
 # room is the floor of its first hall.
@@ -854,8 +877,9 @@ FLOOR_OBJECTS = {0xcb: 300, 0xcf: 300, 0xd0: 472}
 FLOOR_MODELS = {0xcf: 'test_cylinder', 0xd0: 'rotary_room'}
 # Delfino Square's drawbridge, which rises and falls in MKDS: its two halves stand a little open, each
 # a ramp of dash panels that throws a kart over the top. Each half's own width and length, and the
-# model's parts: the chains run up to towers the course does not have.
+# model's parts: its chains and posts run up to towers the course does not have, so only the deck stays.
 OPEN_BRIDGE, OPEN_BRIDGE_WIDTH, OPEN_BRIDGE_LENGTH, OPEN_BRIDGE_ANGLE = 0xcc, 180, 350, 12
+OPEN_BRIDGE_TOP = 60
 OPEN_BRIDGE_LEFT_OUT = {'Bkusari'}
 # Bowser Castle's slabs that slide over the lava, each a floor at its placed height. The model's top is at
 # its height 0: half its width and depth.
@@ -863,10 +887,13 @@ SLAB_OBJECT, SLAB_HALF_WIDTH, SLAB_HALF_DEPTH = 0xca, 400, 175
 # Bowser Castle's turning log: a kart rides along its top. Its model stands along -y from its end.
 ROTARY_BRIDGE, ROTARY_BRIDGE_RADIUS, ROTARY_BRIDGE_LENGTH = 0xd1, 80, 2150
 BRIDGE_RAIL = 64
-FAR_EDGE = 8  # backdrops and water take blocks this many times longer: nothing rides on them
+FAR_EDGE = 8  # backdrops take blocks this many times longer: nothing rides on them
+WATER_EDGE = 3  # water too, away from the road
+WATER_NEAR, WATER_NEAR_CELL = 700, 240  # MKDS units: how far from the route a sheet takes small blocks, and their size
 WATER_OBJECTS = {0x01, 0x03, 0x06, 0x09}  # the sheet of water round a course, one per course
 DEPTH_ONLY_WATER = {'Zwater'}  # a water model's part that MKDS draws for the depth buffer alone
 WATER_UNDER_ROUTE = 16
+WATER_KEEPS_BELOW = 8
 TRUNK_RADIUS = 1 / 8  # of a billboard's width: its solid part, a pillar as high as half the object
 OBJECT_ABOVE_GROUND = 64
 KCL_ROAD = 0x00
@@ -994,16 +1021,56 @@ class Course:
         self.mats = list(self.model.mats)
         self.triangles = [(mi, [(np.array(pos) * MODEL_TO_WORLD, uv, col, nrm) for pos, uv, col, nrm in tri])
                           for mi, tri in self.model.triangles()]
+        self.overlays = self.find_overlays()
         self.ground_triangles = len(self.kcl)  # the course is centred on these, without the scenery's pillars
         self.baked = {}  # model name: (model, its first material)
-        self.off_course = []  # scenery with no collision under it: (first triangle, last, position)
         self.add_scenery(arc)
         self.sky = None
         if 'course_model_V.nsbmd' in arc and 'course_model_V.nsbtx' in tex:
             self.sky = (nitro3d.Model(arc['course_model_V.nsbmd']), nitro3d.load_tex0(tex['course_model_V.nsbtx']))
         self.far_mats = set()
+        self.water_mats = set()
+        self.sea_colour = None  # what lies under the horizon, on a course with a sea
         self.add_water(arc)
         self.add_backdrop(MAX_COORD / scale)
+
+    def find_overlays(self):
+        """Translucent decals that lie on the course's floor: arrow panels, tree shadows. A level texel is
+        solid or clear, so such a texture is blended here over what lies under it. MKDS draws them in
+        the plane of that floor, which depth testing cannot, so those rise by OVERLAY_LIFT.
+        -> {material: the colour under it}"""
+        corners = np.array([[v[0] for v in tri] for _, tri in self.triangles])
+        materials = np.array([mi for mi, _ in self.triangles])
+        tint = np.array([np.mean([v[2] for v in tri], axis=0) for _, tri in self.triangles]) / 255
+        a, b, c = corners[:, 0], corners[:, 1], corners[:, 2]
+        area = (b[:, 2] - c[:, 2]) * (a[:, 0] - c[:, 0]) + (c[:, 0] - b[:, 0]) * (a[:, 2] - c[:, 2])
+        overlays = {}
+        for mi in np.unique(materials):
+            m = self.mats[mi]
+            alpha = m.tex0.decode(m.tex, m.pal)[..., 3]
+            if ((alpha > OVERLAY_MIN_ALPHA) & (alpha <= ALPHA_SOLID)).mean() < OVERLAY_SHARE:
+                continue
+            found = []
+            for centre in corners[materials == mi].mean(1):
+                with np.errstate(divide='ignore', invalid='ignore'):
+                    u = ((b[:, 2] - c[:, 2]) * (centre[0] - c[:, 0]) + (c[:, 0] - b[:, 0]) * (centre[2] - c[:, 2])) / area
+                    v = ((c[:, 2] - a[:, 2]) * (centre[0] - c[:, 0]) + (a[:, 0] - c[:, 0]) * (centre[2] - c[:, 2])) / area
+                    w = 1 - u - v
+                    gap = centre[1] - (u * a[:, 1] + v * b[:, 1] + w * c[:, 1])
+                inside = (u >= 0) & (v >= 0) & (w >= 0) & (materials != mi) & (np.abs(gap) < OVERLAY_GAP)
+                if inside.any():
+                    near = np.flatnonzero(inside)[np.abs(gap[inside]).argmin()]
+                    found.append((abs(gap[near]), near))
+            if len(found) * 2 < (materials == mi).sum():
+                continue
+            colours = []
+            for _, near in found:
+                under = self.mats[materials[near]]
+                colours.append(under.tex0.decode(under.tex, under.pal)[..., :3].reshape(-1, 3).mean(0) * tint[near])
+            overlays[int(mi)] = tuple(np.mean(colours, axis=0))
+            if np.median([g for g, _ in found]) < OVERLAY_LIFT:
+                self.triangles = [(i, [(p + (0.0, OVERLAY_LIFT, 0.0), *rest) for p, *rest in tri] if i == mi else tri) for i, tri in self.triangles]
+        return overlays
 
     def add_water(self, arc):
         """Bake the course's sheet of water: an object in MKDS, a flat layer (waterA) under a moving one (waterC)."""
@@ -1021,10 +1088,13 @@ class Course:
                 lower_mat = next(m for m in nitro3d.Model(arc[lower]).mats if m.name not in DEPTH_ONLY_WATER)
                 tex0 = LayeredWater(tex0, (nitro3d.load_tex0(arc[lower]), lower_mat))
             first = len(self.mats)
+            sea = next(m for m in model.mats if m.name not in DEPTH_ONLY_WATER)
+            self.sea_colour = tuple(tex0.decode(sea.tex, sea.pal)[..., :3].reshape(-1, 3).mean(0))
             for m in model.mats:
                 m.tex0 = tex0
                 m.polygon_attr |= 1 << 6  # seen from under it too: a kart falls in before it is lifted out
                 self.far_mats.add(len(self.mats))
+                self.water_mats.add(len(self.mats))
                 self.mats.append(m)
             tris = [(mi, tri) for mi, tri in model.triangles() if model.mats[mi].name not in DEPTH_ONLY_WATER]
             # A flat sheet rises and falls in MKDS: Cheep Cheep Beach's tide stands over the sand at its
@@ -1034,13 +1104,51 @@ class Course:
             drop = 0.0
             if max(heights) - min(heights) < 1:
                 drop = max(0.0, max(heights) - (min(p[1] for p, _ in self.route) - WATER_UNDER_ROUTE))
+                # What lies under the opaque sheet is never seen, unless a block of it fails beside the
+                # camera, and then it is a black floor where the sky under the horizon is the sea's colour.
+                surface = max(heights) - drop
+                self.triangles = [(mi, tri) for mi, tri in self.triangles if max(v[0][1] for v in tri) >= surface - WATER_KEEPS_BELOW]
+            # Where a kart comes near, a sheet takes road-sized blocks: a block larger than the near
+            # stage's depth has all its corners far from a camera over its middle, so it is drawn
+            # by the far stage, which does not clip, and the water vanishes as the view turns.
+            near = {}
             for mi, tri in tris:
-                self.triangles.append((first + mi, [(pos + rotate_y(np.array(v[0]) * MODEL_TO_WORLD * size, rot[1]) - (0, drop, 0), v[1], v[2], v[3]) for v in tri]))
+                placed = [(pos + rotate_y(np.array(v[0]) * MODEL_TO_WORLD * size, rot[1]) - (0, drop, 0), v[1], v[2], v[3]) for v in tri]
+                for piece, close in self.split_water(placed):
+                    index = first + mi
+                    if close:
+                        if mi not in near:
+                            near[mi] = len(self.mats)
+                            self.mats.append(copy.copy(self.mats[first + mi]))
+                            self.far_mats.discard(near[mi])
+                        index = near[mi]
+                    self.triangles.append((index, piece))
+
+    def split_water(self, tri):
+        """A triangle of a water sheet, halved until its pieces are WATER_NEAR_CELL long where a kart
+        comes within WATER_NEAR of them. -> (corners, whether a kart comes near), for each piece."""
+        route = np.array([p for p, _ in self.route])
+        route = np.array([a + (b - a) * t / 8 for a, b in zip(route, np.roll(route, -1, 0)) for t in range(8)])[:, [0, 2]]
+        done, todo = [], [tri]
+        while todo:
+            t = todo.pop()
+            corners = np.array([v[0] for v in t])[:, [0, 2]]
+            middle = corners.mean(0)
+            reach = np.linalg.norm(corners - middle, axis=1).max()
+            close = np.linalg.norm(route - middle, axis=1).min() - reach < WATER_NEAR
+            lengths = [np.linalg.norm(corners[i] - corners[i - 1]) for i in range(3)]
+            longest = int(np.argmax(lengths))
+            if not close or lengths[longest] <= WATER_NEAR_CELL:
+                done.append((t, close))
+                continue
+            a, b, c = t[longest - 1], t[longest], t[(longest + 1) % 3]
+            mid = tuple((np.array(p, float) + np.array(q, float)) / 2 for p, q in zip(a, b))
+            todo += [[a, mid, c], [mid, b, c]]
+        return done
 
     def add_backdrop(self, limit):
         """Bake the backdrop: hills, woods, walls, clouds. A model of one flat colour is only a sky, which
-        the level's gradient stands for at no cost in blocks. A backdrop reaching past what LEV positions
-        hold is scaled round the course, so it keeps its shape."""
+        the level's gradient stands for at no cost in blocks."""
         if self.sky is None:
             return
         model, tex0 = self.sky
@@ -1049,30 +1157,27 @@ class Course:
         tris = model.triangles()
         kcl = np.array([v for t in self.kcl[:self.ground_triangles] for v in t[:3]])
         centre = (kcl.min(0) + kcl.max(0)) / 2
-        reach = max(np.abs(np.array(v[0]) * MODEL_TO_WORLD - centre).max() for _, tri in tris for v in tri)
-        fit = min(1.0, 0.98 * limit / reach)
+        # What lies round the course stays where it is, so it keeps clear of the course as in MKDS; only
+        # what is past that closes in, on each axis, up to what LEV positions hold. Scaled evenly,
+        # a backdrop's walls came to stand in the course's rooms.
+        points = np.array([v[0] for _, tri in tris for v in tri]) * MODEL_TO_WORLD - centre
+        reach = np.abs(points).max(0)
+        edge = 0.98 * limit
+        near = np.minimum(np.abs(kcl - centre).max(0) * 1.02, edge * 0.95)
+
+        def fit(p):
+            d = p - centre
+            a = np.abs(d)
+            far = (a > near) & (reach > edge)
+            out = np.where(far, near + (a - near) * (edge - near) / np.maximum(reach - near, 1e-6), a)
+            return centre + np.sign(d) * out
         first = len(self.mats)
         for m in model.mats:
             m.tex0 = tex0
             self.far_mats.add(len(self.mats))
             self.mats.append(m)
-        low, high = kcl.min(0), kcl.max(0)
         for mi, tri in tris:
-            placed = [(centre + (np.array(v[0]) * MODEL_TO_WORLD - centre) * fit, v[1], v[2], v[3]) for v in tri]
-            box = np.array([v[0] for v in placed])
-            normal = np.cross(box[1] - box[0], box[2] - box[0])
-            sides = [float(normal @ (np.array(c) - box[0])) for c in product(*zip(low, high))]
-            # scaled in, a wall of it can come to stand across the course's own rooms: the sky round
-            # the course has the whole course on one side of it
-            if fit == 1.0 or not np.all((box.max(0) > low) & (box.min(0) < high)) or min(sides) > 0 or max(sides) < 0:
-                self.triangles.append((first + mi, placed))
-        # scenery off the course stands on the backdrop, and goes with it
-        starts = [start for start, _ in self.off_course] + [self.scenery_end]
-        for (start, pos), end in zip(self.off_course, starts[1:]):
-            shift = (centre + (pos - centre) * fit) - pos
-            for i in range(start, end):
-                mi, tri = self.triangles[i]
-                self.triangles[i] = (mi, [(p + shift, uv, col, nrm) for p, uv, col, nrm in tri])
+            self.triangles.append((first + mi, [(fit(np.array(v[0]) * MODEL_TO_WORLD), v[1], v[2], v[3]) for v in tri]))
 
     def add_scenery(self, arc):
         """Bake the static objects into the drawn mesh and give each a solid pillar.
@@ -1083,8 +1188,9 @@ class Course:
         loaded = {}
         ground = [t for t in self.kcl if t[3][1] > 0.1]
         missing = set()
-        placed = mkdsmap.placed_objects(self.nkm)
-        placed += [(STACKED[o][0], p + (0.0, STACKED[o][1] * s[1], 0.0), r, s) for o, p, r, s in placed if o in STACKED]
+        placed = [(WHITE_GEAR if o == 0xcb and not setting else o, p, r, s)
+                  for (o, p, r, s), setting in zip(mkdsmap.placed_objects(self.nkm), mkdsmap.object_settings(self.nkm, WHITE_GEAR_SETTING))]
+        placed += [(part, p + (0.0, over * s[1], 0.0), r, s) for o, p, r, s in placed for part, over in STACKED.get(o, ())]
         for object_id, pos, rot, size in placed:
             name = SCENERY.get(object_id)
             if name is None:
@@ -1098,7 +1204,7 @@ class Course:
                 first = len(self.mats)
                 tex0 = nitro3d.load_tex0(arc[file])
                 tris = model.triangles()
-                flat = all(abs(v[0][2]) < 1e-3 for _, tri in tris for v in tri)
+                flat = np.ptp([v[0][2] * MODEL_TO_WORLD for _, tri in tris for v in tri]) < FLAT_MODEL
                 for m in model.mats:
                     m.tex0 = tex0
                     if flat:
@@ -1106,28 +1212,29 @@ class Course:
                     self.mats.append(m)
                 loaded[name] = (first, tris, flat)
             first, tris, flat = loaded[name]
-            if ground_under(pos[0], pos[2], pos[1] + OBJECT_ABOVE_GROUND, ground) is None:
-                self.off_course.append((len(self.triangles), pos))
             turns = (rot[1], rot[1] + 90) if flat else (rot[1],)
+            base = np.array([0.0, 0.0, 0.0])
+            if name not in HANGING_MODELS and object_id < STACKED_ID:
+                base[1] = -min(0.0, min(v[0][1] for _, tri in tris for v in tri)) * MODEL_TO_WORLD * size[1]
             for turn in turns:
                 for mi, tri in tris:
-                    vs = [(pos + rotate_y(np.array(v[0]) * MODEL_TO_WORLD * size, turn), v[1], v[2], v[3]) for v in tri]
+                    vs = [(pos + base + rotate_y(np.array(v[0]) * MODEL_TO_WORLD * size, turn), v[1], v[2], v[3]) for v in tri]
                     self.triangles.append((first + mi, vs))
             # most stand outside the walls, where the course has no ground and no kart can come
-            if flat and ground_under(pos[0], pos[2], pos[1] + OBJECT_ABOVE_GROUND, ground) is not None:
+            if flat and name not in NO_PILLAR_MODELS and ground_under(pos[0], pos[2], pos[1] + OBJECT_ABOVE_GROUND, ground) is not None:
                 corners = np.array([v[0] for _, tri in tris for v in tri]) * MODEL_TO_WORLD * size
                 width, height = np.ptp(corners[:, 0]), np.ptp(corners[:, 1])
                 self.kcl += pillar(pos, width * TRUNK_RADIUS, height / 2)
-        self.scenery_end = len(self.triangles)
         self.kcl += floor_discs(self.nkm)
         self.add_bridges(arc)
         self.add_still_objects(arc)
         for name in sorted(missing):
             print(f'scenery: no model {name} in this course')
 
-    def bake(self, arc, name, place, left_out=()):
+    def bake(self, arc, name, place, left_out=(), top=math.inf, mirror=False):
         """Draw a course object's model. place: model position -> world position. left_out: its parts to
-        leave off, by material. -> the model's box, as (lowest corner, highest corner)."""
+        leave off, by material; top: and all above this height of the model. mirror: x is turned over.
+        -> the model's box, as (lowest corner, highest corner)."""
         if name not in self.baked:
             model = nitro3d.Model(arc[f'MapObj/{name}.nsbmd'])
             tex0 = nitro3d.load_tex0(arc[f'MapObj/{name}.nsbmd'])
@@ -1138,25 +1245,31 @@ class Course:
         model, first = self.baked[name]
         points = []
         for mi, tri in model.triangles():
-            if model.mats[mi].name not in left_out:
+            if model.mats[mi].name not in left_out and max(v[0][1] * MODEL_TO_WORLD for v in tri) <= top:
                 points += [np.array(v[0]) * MODEL_TO_WORLD for v in tri]
-                self.triangles.append((first + mi, [(place(np.array(v[0]) * MODEL_TO_WORLD), v[1], v[2], v[3]) for v in tri]))
+                ordered = tri[::-1] if mirror else tri  # a mirrored triangle would face away
+                self.triangles.append((first + mi, [(place(np.array(v[0]) * MODEL_TO_WORLD), v[1], v[2], v[3]) for v in ordered]))
         points = np.array(points)
         return points.min(0), points.max(0)
 
     def add_still_objects(self, arc):
         """What moves in MKDS, drawn where it is placed: see STILL_OBJECTS."""
-        for object_id, pos, rot, size in mkdsmap.placed_objects(self.nkm):
+        for (object_id, pos, rot, size), setting in zip(mkdsmap.placed_objects(self.nkm), mkdsmap.object_settings(self.nkm)):
             name, solid, lift = STILL_OBJECTS.get(object_id, FLOOR_MODELS.get(object_id) and (FLOOR_MODELS[object_id], False, 0) or (None, 0, 0))
             if name is None:
+                continue
+            if solid and np.linalg.norm(pos - mkdsmap.start_positions(self.nkm)[0][0]) < START_CLEAR:
                 continue
             if f'MapObj/{name}.nsbmd' not in arc:
                 print(f'still object: no model {name} in this course')
                 continue
             at = pos + (0.0, lift, 0.0)
-            def place(p, at=at, rot=rot, size=size):
-                return at + rotate(p * size, rot)
-            low, high = self.bake(arc, name, place)
+            if name in GROUNDED_STILL:
+                at = at + (0.0, GROUNDED_STILL[name] * size[1], 0.0)
+            mirror = bool(setting) and object_id in MIRRORED_BY_SETTING
+            def place(p, at=at, rot=rot, size=size, x=-1.0 if mirror else 1.0):
+                return at + rotate(p * size * (x, 1.0, 1.0), rot)
+            low, high = self.bake(arc, name, place, mirror=mirror)
             if solid:
                 corners = [np.array([x, y, z]) for y in (low[1], high[1]) for x, z in ((low[0], low[2]), (high[0], low[2]), (high[0], high[2]), (low[0], high[2]))]
                 self.kcl += box_walls([place(c) for c in corners])
@@ -1167,7 +1280,7 @@ class Course:
         for object_id, pos, rot, size in mkdsmap.placed_objects(self.nkm):
             if object_id == OPEN_BRIDGE:
                 tilt = (-OPEN_BRIDGE_ANGLE, rot[1])
-                self.bake(arc, 'bridge', lambda p, pos=pos, size=size: pos + rotate(p * size, tilt), OPEN_BRIDGE_LEFT_OUT)
+                self.bake(arc, 'bridge', lambda p, pos=pos, size=size: pos + rotate(p * size, tilt), OPEN_BRIDGE_LEFT_OUT, OPEN_BRIDGE_TOP)
                 tip = pos + rotate(np.array([0.0, 0.0, OPEN_BRIDGE_LENGTH]), tilt)
                 self.kcl += road_strip(pos, tip, OPEN_BRIDGE_WIDTH, BRIDGE_RAIL, KCL_DASH)
             elif object_id == ROTARY_BRIDGE:
@@ -1192,24 +1305,33 @@ class Course:
         m = max(model.mats, key=colourful)
         a = tex0.decode(m.tex, m.pal)[..., :3].astype(float)
         h = a.shape[0]
-        return tuple(a[:h // 8].reshape(-1, 3).mean(0)), tuple(a[-h // 8:].reshape(-1, 3).mean(0))
+        horizon = tuple(a[-h // 8:].reshape(-1, 3).mean(0))
+        # a sky texture can end in black under its horizon, where a course with a sea has water
+        if self.sea_colour is not None and max(horizon) < DARK_HORIZON:
+            horizon = self.sea_colour
+        return tuple(a[:h // 8].reshape(-1, 3).mean(0)), horizon
 
 
 def quantize(img):
     """RGBA uint8 array -> PIL image with at most 256 colours (16 when that loses little)."""
     im = Image.fromarray(img, 'RGBA')
     alpha = img[..., 3]
+    # a smooth wide gradient (Rainbow Road) turns to blotches in 16 colours: it takes 256 at half the width
+    if img.shape[1] > 128:
+        rough = np.array(im.quantize(15, method=Image.Quantize.FASTOCTREE).convert('RGBA'))
+        if np.abs(rough[..., :3].astype(int) - img[..., :3].astype(int))[alpha > ALPHA_SOLID].mean() > WIDE_ROUGH if (alpha > ALPHA_SOLID).any() else False:
+            return quantize(img[:, ::2])
     # one PS1 texture page is 64 VRAM words wide: 256 texels at 4 bits, 128 at 8. CTE refuses wider and
     # leaves the material with no texture, so transparency, a palette entry of its own, counts here
-    clear = int((alpha <= 127).any())
+    clear = int((alpha <= ALPHA_SOLID).any())
     for colours in ((16,) if img.shape[1] > 128 else (16, 256)):
         q = im.quantize(colours - clear, method=Image.Quantize.FASTOCTREE).convert('RGBA')
         qa = np.array(q)
-        err = np.abs(qa[..., :3].astype(int) - img[..., :3].astype(int))[alpha > 127].mean() if (alpha > 127).any() else 0
+        err = np.abs(qa[..., :3].astype(int) - img[..., :3].astype(int))[alpha > ALPHA_SOLID].mean() if (alpha > ALPHA_SOLID).any() else 0
         if err < 3.0 or colours == 256 or img.shape[1] > 128:
             break
     qa = np.array(q)
-    qa[..., 3] = np.where(alpha > 127, 255, 0)
+    qa[..., 3] = np.where(alpha > ALPHA_SOLID, 255, 0)
     return Image.fromarray(qa, 'RGBA'), colours
 
 
@@ -1305,6 +1427,9 @@ def convert(course, out_dir, name, scale, max_edge, crate, vram_share):
         mname = f'v{i:02d}_{m.tex}'
         mat_names[i] = mname
         src = m.tex0.decode(m.tex, m.pal)[::shrink[i_mat], ::shrink[i_mat]]
+        if i_mat in course.overlays:
+            alpha = src[..., 3:4].astype(float) / 255
+            src = np.dstack([src[..., :3] * alpha + np.array(course.overlays[i_mat]) * (1 - alpha), np.where(src[..., 3] > OVERLAY_MIN_ALPHA, 255, 0)]).astype(np.uint8)
         kx, ky = tiles[i_mat]
         fx, fy = (m.teximage >> 18) & 1, (m.teximage >> 19) & 1
         rows = []
@@ -1443,7 +1568,7 @@ def convert(course, out_dir, name, scale, max_edge, crate, vram_share):
                     if flip_t and tiles[mi][1] == 1 and tv % 2: fv = 1 - fv
                     out.append({'pos': p['pos'], 'uv': np.array([fu, 1 - fv]), 'col': p['col']})
                 render.append((out, mi))
-    refined = refine(render, lambda mi: max_edge * FAR_EDGE if mi in course.far_mats else max_edge, weld_tol=1.5 / 64)
+    refined = refine(render, lambda mi: max_edge * (WATER_EDGE if mi in course.water_mats else FAR_EDGE if mi in course.far_mats else 1), weld_tol=1.5 / 64)
     refined, stats['render corners moved over an edge'] = overlap_tjunctions(refined, 2 / 64, 1.5 / 64)
     refined = [(tri, mi) for tri, mi in refined if area(tri) >= 1e-9]
     quads, tris = pair_quads(refined, max_dev=2 / 64)
@@ -1557,9 +1682,10 @@ def convert(course, out_dir, name, scale, max_edge, crate, vram_share):
 
     # ---- item boxes: one crate per MKDS box, on the ground under it
     ground = [t for t in course.kcl if (i := COLLISION.get(mkdsmap.kcl_type(t[4]))) and i[2] & GROUND and abs(t[3][1]) >= 0.3]
+    crate_ground = [t for t in ground if not COLLISION[mkdsmap.kcl_type(t[4])][2] & KILL_PLANE]
     crates = []
     for pos in course.item_boxes:
-        found = ground_under(pos[0], pos[2], pos[1] + ROUTE_ABOVE_GROUND, ground)  # MKDS sinks some into the road
+        found = ground_under(pos[0], pos[2], pos[1] + ROUTE_ABOVE_GROUND, crate_ground)  # MKDS sinks some into the road
         if found is None:
             stats['item boxes with no ground under them, left at their height'] += 1
         q = to_lev((pos[0], found[0] if found else pos[1], pos[2]))
@@ -1642,11 +1768,12 @@ def convert(course, out_dir, name, scale, max_edge, crate, vram_share):
     # past the horizon. CAM_SkyboxGlow only clips bands in that order; lev_patch sets the clear colours behind them.
     top, horizon = course.sky_colours()
     middle = (np.array(top) + horizon) / 2
+    below = BELOW_HORIZON.get(name) or course.sea_colour or horizon  # a course with a sea has water under the horizon
     col = lambda c: {'r': c[0] / 255, 'g': c[1] / 255, 'b': c[2] / 255, 'a': 1.0}
     level = {'header': 1, 'configFlags': 1,
              'skyGradient': [{'posFrom': 160.0, 'posTo': 60.0, 'colorFrom': col(top), 'colorTo': col(middle)},
                              {'posFrom': 60.0, 'posTo': 0.0, 'colorFrom': col(middle), 'colorTo': col(horizon)},
-                             {'posFrom': 0.0, 'posTo': -100.0, 'colorFrom': col(horizon), 'colorTo': col(horizon)}]}
+                             {'posFrom': 0.0, 'posTo': -100.0, 'colorFrom': col(below), 'colorTo': col(below)}]}
     json.dump(level, open(os.path.join(pre, 'level.json'), 'w'), indent=1)
 
     path = {'header': 2, 'pathCount': 1, 'path0': {'index': 0, 'hasLeft': False, 'hasRight': False,
@@ -1748,6 +1875,23 @@ def convert(course, out_dir, name, scale, max_edge, crate, vram_share):
                     break
                 node[1] = y
         lane_flags[lane] = flags
+        # Between two nodes a CPU kart runs straight, and over a crest that is under the ground, where
+        # the depth test hides it: the nodes rise until the line clears the ground
+        path = lanes[lane]
+        for _ in range(LANE_CLEAR_PASSES):
+            moved = False
+            for k in range(count):
+                a, b = path[k], path[(k + 1) % count]
+                for sub_step in range(1, LANE_SAMPLES):
+                    at = a + (b - a) * sub_step / LANE_SAMPLES
+                    found = ground_at(at)
+                    if found is not None and found[0] - at[1] > 1:
+                        lift = found[0] - at[1]
+                        a[1] += lift
+                        b[1] += lift
+                        moved = True
+            if not moved:
+                break
     # Where a player is carried a CPU kart keeps its lane, along the same path
     for path in flight_paths:
         path = np.array(path)
@@ -1837,7 +1981,7 @@ def main():
     patched = os.path.join(lev_dir, name + '_patched.lev')
     patched_vrm = os.path.join(lev_dir, name + '_patched.vrm')
     placed = json.load(open(os.path.join(work, name + '_items.json')))
-    patched_stats = lev_patch.patch(lev, vrm, os.path.join(work, name + '_nav.json'), patched, patched_vrm, *course.sky_colours(), items, placed)
+    patched_stats = lev_patch.patch(lev, vrm, os.path.join(work, name + '_nav.json'), patched, patched_vrm, *course.sky_colours(), items, placed, BELOW_HORIZON.get(name) or course.sea_colour)
     print('lev_patch', patched_stats)
     if patched_stats['quadblocks over 2%']:
         sys.exit('collision normals the game cannot represent within 2% (the kart would stop against them)')

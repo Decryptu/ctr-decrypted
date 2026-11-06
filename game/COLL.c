@@ -881,7 +881,15 @@ internal b32 COLL_FIXED_PlayerSearch_CheckMaskGrabProgress(struct Driver *d, str
 	// share a wide road a kart may drive on either, and only its lap does not count.
 	// So on a converted course ground a quarter of a lap away from the kart's progress
 	// neither moves it nor calls Aku Aku, and a fall puts the kart back where it was.
-	if (!NativeLevel_MudAtWorldZero(level->configFlags) && ((d->actionsFlagSet & ACTION_BEHIND_START_LINE) == 0) && (d->lastValid != NULL))
+	if (!NativeLevel_MudAtWorldZero(level->configFlags) && (d->lastValid == NULL))
+	{
+		// Landed from a flight (VehFlight_End): the kart's progress starts afresh here.
+		d->lastValid = quad;
+		d->distanceToFinish_checkpoint = CTR_MipsMulLo(node->distToFinish, 8);
+		return 0;
+	}
+
+	if (!NativeLevel_MudAtWorldZero(level->configFlags) && ((d->actionsFlagSet & ACTION_BEHIND_START_LINE) == 0))
 	{
 		const s32 lap = level->ptr_restart_points[0].distToFinish << 3;
 		s32 apart = (s32)(d->distanceToFinish_checkpoint - CTR_MipsMulLo(node->distToFinish, 8));
@@ -2017,10 +2025,14 @@ void COLL_MOVED_PlayerSearch(struct Thread *t, struct Driver *d)
 			// The kart got this far along its move, and the next pass moves the rest.
 			// Without this each thing touched in a frame (fruit in a row, a crate) adds
 			// a whole further frame of movement: the kart lurches forward as it collects.
-			multiplier = CTR_MipsSubLo(multiplier, CTR_MipsSra(CTR_MipsMulLo(multiplier, sps->hitFraction), 12));
-			if (multiplier < 100)
+			// A kart already inside the hitbox has a fraction below zero, and has not moved.
+			if (sps->hitFraction > 0)
 			{
-				break;
+				multiplier = CTR_MipsSubLo(multiplier, CTR_MipsSra(CTR_MipsMulLo(multiplier, sps->hitFraction), 12));
+				if (multiplier < 100)
+				{
+					break;
+				}
 			}
 		}
 		else

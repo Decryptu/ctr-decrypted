@@ -106,6 +106,11 @@ def placed_objects(m):
     return [(u16(e, 0x24), vec32(e, 0), vec32(e, 12), vec32(e, 0x18)) for e in m['OBJI']]
 
 
+def object_settings(m, index=0):
+    """-> a setting of each object, in placed_objects' order."""
+    return [u16(e, 0x28 + 2 * index) for e in m['OBJI']]
+
+
 OBJ_ITEM_BOX = 0x65
 
 

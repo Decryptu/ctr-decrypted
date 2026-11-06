@@ -511,7 +511,7 @@ def add_items(data, ptrs, items, placed, collision_leaves):
     return map_clut, {'instances': len(placements), 'leaves with hitboxes': len(hit), 'hitbox records': sum(len(e) for e in hit.values())}
 
 
-def patch(lev_path, vrm_path, nav_path, out_path, out_vrm, zenith, horizon, items, placed):
+def patch(lev_path, vrm_path, nav_path, out_path, out_vrm, zenith, horizon, items, placed, below=None):
     lev = open(lev_path, 'rb').read()
     data_len = struct.unpack_from('<I', lev, 0)[0]
     data = bytearray(lev[4:4 + data_len])
@@ -628,7 +628,7 @@ def patch(lev_path, vrm_path, nav_path, out_path, out_vrm, zenith, horizon, item
     # CrashTeamEditor reads the clear colour from a LEV but never writes it: without this the backdrop is black
     data[OFF_CLEAR_COLOR:OFF_CLEAR_COLOR + 4] = bytes(round(c) for c in horizon) + b'\0'
     # The clear split above and below the horizon, as retail levels set it (the bands blend across it)
-    data[OFF_CLEAR_SPLIT:OFF_CLEAR_SPLIT + 8] = b''.join(bytes(round(c) for c in rgb) + b'\1' for rgb in (zenith, horizon))
+    data[OFF_CLEAR_SPLIT:OFF_CLEAR_SPLIT + 8] = b''.join(bytes(round(c) for c in rgb) + b'\1' for rgb in (zenith, below or horizon))
     out = struct.pack('<I', len(data)) + bytes(data) + struct.pack('<I', 4 * len(ptrs)) + struct.pack(f'<{len(ptrs)}I', *ptrs)
     open(out_path, 'wb').write(out)
     open(out_vrm, 'wb').write(blend_map_palette(open(vrm_path, 'rb').read(), map_clut))

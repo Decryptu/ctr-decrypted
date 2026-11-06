@@ -71,7 +71,7 @@ int VehPickState_NewState(struct Driver *victimDriver, int damageType, struct Dr
 	    // If player is using mask weapon
 	    ((victimDriver->actionsFlagSet & ACTION_MASK_WEAPON) != 0) ||
 
-	    (victimDriver->invincibleTimer != 0))
+	    (victimDriver->invincibleTimer != 0) || (victimDriver->kartState == KS_FLIGHT))
 	{
 		voiceType = VEH_PICK_VOICELINE_VICTIM_LAUGH;
 		characterIDs = GAME_CHARACTER_IDS;

@@ -23,7 +23,6 @@ enum
 	VEH_FLIGHT_MIN_SPEED = 2500,       // level units a second: enough to round a loop
 	VEH_FLIGHT_JOIN_DISTANCE = 500,    // a kart joins the path this far on, so one at the road's edge drifts in
 	VEH_FLIGHT_UPRIGHT = 2867,         // up.y, 4096 is one: at or above it the kart's heading follows the path
-	VEH_FLIGHT_INVINCIBLE_MS = 0x1000, // refreshed all the way: nothing can knock a kart off its path
 	VEH_FLIGHT_MAX_KARTS = 8,
 	VEH_FLIGHT_SPEED_TO_UNITS = 30,    // Driver.speed is 1/256 of a level unit per 30th of a second
 };
@@ -155,12 +154,12 @@ static void VehFlight_End(struct Driver *d)
 	d->lastValid = NULL;
 	d->posPrev = d->posCurr;
 	d->velocity.x = forward[0] * speed >> 4;
-	d->velocity.y = forward[1] * speed >> 4;
+	// A path ends on the road, where it may still climb: the kart settles on it, it is not thrown.
+	d->velocity.y = (forward[1] > 0) ? 0 : (forward[1] * speed >> 4);
 	d->velocity.z = forward[2] * speed >> 4;
 	d->AxisAngle1_normalVec.x = d->AxisAngle2_normalVec.x = 0;
 	d->AxisAngle1_normalVec.y = d->AxisAngle2_normalVec.y = 0x1000;
 	d->AxisAngle1_normalVec.z = d->AxisAngle2_normalVec.z = 0;
-	d->invincibleTimer = 0;
 	d->funcPtrs[DRIVER_FUNC_INIT] = VehPhysProc_Driving_Init;
 }
 
@@ -172,8 +171,6 @@ void VehFlight_PhysLinear(struct Thread *t, struct Driver *d)
 	const struct SpawnPosRot *r = VehFlight_Records(level, flight);
 	const int last = VehFlight_LastRecord(level, flight);
 	float step = d->KartStates.Flight.speed * GAME_TRACKER->elapsedTimeMS / 1000.0f * 256.0f;
-
-	d->invincibleTimer = VEH_FLIGHT_INVINCIBLE_MS;
 
 	if (d->funcPtrs[DRIVER_FUNC_INIT] != NULL)
 	{
