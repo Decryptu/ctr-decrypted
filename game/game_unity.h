@@ -302,7 +302,7 @@
 #include "Vehicle/VehPickState.c"
 
 #include "Vehicle/VehStuckProc.c"
-#include "Vehicle/VehFlight.c"
+#include "ConvertedTrack/VehFlight.c"
 
 #include "Vehicle/VehTurbo.c"
 #include "Vehicle/VehTalkMask.c"

@@ -844,7 +844,7 @@ SCENERY = {
     0x148: 'DeTree1', 0x14b: 'KinoHouse1', 0x14c: 'KinoHouse2', 0x14d: 'KinoMount1', 0x14e: 'KinoMount2',
     0x14f: 'olaTree1c', 0x150: 'osaTree1c', 0xcb: 'gear_black', 0x191: 'kuribo', 0x1a6: 'ob_pakkun_sf', 0x153: 'cow',
     0x199: 'choropu', 0x1ac: 'crab', 0x1ad: 'sun', 0x135: 'NsCannon1', 0x155: 'of6yoshi1', 0x19d: 'sman_bottom', 0x140: 'chandelier',
-    0x1a7: 'poo', 0x67: 'woodbox1', 0x1a3: 'teresa', 0x152: 'picture1', 0x19e: 'bakubaku', 0x1a0: 'teresa', 0x157: 'TownMonte',
+    0x1a7: 'poo', 0x67: 'woodbox1', 0x13d: 'teresa', 0x151: 'picture1', 0x152: 'picture2', 0x19e: 'bakubaku', 0x1a0: 'basabasa', 0x157: 'TownMonte',
     0x1a1: 'NsKiller1', 0x139: 'kamome', 0x1b2: 'sanbo_b', 0x1aa: 'PakkunBody',
 }
 # What MKDS draws as parts of one object: each part is an object of its own here, this far over the first
@@ -854,8 +854,9 @@ STACKED = {0x19d: [(SNOWMAN_HEAD, 19)], 0x1b2: [(POKEY_BODY, 40), (POKEY_BODY, 6
 SCENERY.update({SNOWMAN_HEAD: 'sman_top', POKEY_BODY: 'sanbo_b', POKEY_HEAD: 'sanbo_h', PIRANHA_HEAD: 'PakkunZHead'})
 WHITE_GEAR, WHITE_GEAR_SETTING = 0xfff0, 4  # Tick-Tock Clock's gears alternate by this setting of theirs
 SCENERY[WHITE_GEAR] = 'gear_white'
-HANGING_MODELS = {'chandelier', 'teresa', 'picture1', 'kamome', 'sun', 'bakubaku'}  # the rest stand on the ground, however far under them their origin lies
-NO_PILLAR_MODELS = {'teresa', 'kamome', 'sun', 'poo', 'TownMonte', 'PakkunZHead', 'sanbo_h'}  # billboards no kart should stop at
+HANGING_MODELS = {'chandelier', 'teresa', 'picture1', 'picture2', 'basabasa', 'kamome', 'sun', 'bakubaku'}  # the rest stand on the ground, however far under them their origin lies
+NO_PILLAR_MODELS = {'teresa', 'basabasa', 'kamome', 'sun', 'poo', 'TownMonte', 'PakkunZHead', 'sanbo_h'}  # billboards no kart should stop at
+WALL_MODELS = {'picture2'}  # flat, but it hangs on a wall: not crossed like a billboard
 FLAT_MODEL = 1  # a model this thin is a billboard
 START_CLEAR = 700  # no solid object this close to the start line
 # What moves in MKDS stands still here, at its placed spot: the game's track collision is static, and a
@@ -865,7 +866,7 @@ STILL_OBJECTS = {
     0xcd: ('second_hand', True, 0), 0xce: ('pendulum', True, 0), 0xd2: ('dram', True, 0), 0x1a9: ('flipper', True, 0),
     0x1a8: ('bound', True, 0), 0xd: ('puddle', False, 1), 0x195: ('car_a', True, 0), 0x19a: ('bus_a', True, 0), 0x19c: ('truck_a', True, 0),
     0x192: ('rock', True, 0), 0x1b1: ('rock2', True, 0), 0x196: ('wanwan', True, 0), 0x1a5: ('wanwan', True, 0),
-    0x151: ('move_tree', True, 0), 0x193: ('dossun', False, 120), 0x154: ('RainStar', False, 0), 0x158: ('airship', False, 0),
+    0x1a3: ('move_tree', True, 0), 0x193: ('dossun', False, 120), 0x154: ('RainStar', False, 0), 0x158: ('airship', False, 0),
     0x149: ('BankEgg1', False, 0), 0x13c: ('kanoke_64', False, 0),
 }
 MIRRORED_BY_SETTING = {0x1a9}  # Waluigi Pinball's flippers: one model, a left and a right
@@ -1212,7 +1213,7 @@ class Course:
                     self.mats.append(m)
                 loaded[name] = (first, tris, flat)
             first, tris, flat = loaded[name]
-            turns = (rot[1], rot[1] + 90) if flat else (rot[1],)
+            turns = (rot[1], rot[1] + 90) if flat and name not in WALL_MODELS else (rot[1],)
             base = np.array([0.0, 0.0, 0.0])
             if name not in HANGING_MODELS and object_id < STACKED_ID:
                 base[1] = -min(0.0, min(v[0][1] for _, tri in tris for v in tri)) * MODEL_TO_WORLD * size[1]
@@ -1312,26 +1313,30 @@ class Course:
         return tuple(a[:h // 8].reshape(-1, 3).mean(0)), horizon
 
 
+def reduce_colours(im, colours):
+    """An RGB image in so many colours. k-means after the median cut halves the error of a fast octree
+    over the 439 textures of the 32 courses, and a road in 16 colours no longer falls apart in blotches."""
+    return im.quantize(colours, method=Image.Quantize.MEDIANCUT, kmeans=8).convert('RGB')
+
+
 def quantize(img):
     """RGBA uint8 array -> PIL image with at most 256 colours (16 when that loses little)."""
-    im = Image.fromarray(img, 'RGBA')
+    im = Image.fromarray(img[..., :3], 'RGB')
     alpha = img[..., 3]
     # a smooth wide gradient (Rainbow Road) turns to blotches in 16 colours: it takes 256 at half the width
     if img.shape[1] > 128:
-        rough = np.array(im.quantize(15, method=Image.Quantize.FASTOCTREE).convert('RGBA'))
+        rough = np.array(reduce_colours(im, 15))
         if np.abs(rough[..., :3].astype(int) - img[..., :3].astype(int))[alpha > ALPHA_SOLID].mean() > WIDE_ROUGH if (alpha > ALPHA_SOLID).any() else False:
             return quantize(img[:, ::2])
     # one PS1 texture page is 64 VRAM words wide: 256 texels at 4 bits, 128 at 8. CTE refuses wider and
     # leaves the material with no texture, so transparency, a palette entry of its own, counts here
     clear = int((alpha <= ALPHA_SOLID).any())
     for colours in ((16,) if img.shape[1] > 128 else (16, 256)):
-        q = im.quantize(colours - clear, method=Image.Quantize.FASTOCTREE).convert('RGBA')
-        qa = np.array(q)
+        qa = np.array(reduce_colours(im, colours - clear).convert('RGBA'))
         err = np.abs(qa[..., :3].astype(int) - img[..., :3].astype(int))[alpha > ALPHA_SOLID].mean() if (alpha > ALPHA_SOLID).any() else 0
         if err < 3.0 or colours == 256 or img.shape[1] > 128:
             break
-    qa = np.array(q)
-    qa[..., 3] = np.where(alpha > ALPHA_SOLID, 255, 0)
+    qa[alpha <= ALPHA_SOLID] = 0  # all clear texels are one palette entry
     return Image.fromarray(qa, 'RGBA'), colours
 
 

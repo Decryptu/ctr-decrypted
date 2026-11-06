@@ -18,7 +18,7 @@ import json, math, struct
 
 FP_ONE_GEO = 64
 OFF_CLEAR_COLOR, OFF_CONFIG_FLAGS, OFF_NUM_CHECKPOINTS, OFF_CHECKPOINTS, OFF_NAV_TABLE = 0xD8, 0xDC, 0x148, 0x14C, 0x188
-OFF_NUM_FLIGHTS, OFF_FLIGHTS = 0x140, 0x144  # numSpawnType2_PosRot, game/Vehicle/VehFlight.c
+OFF_NUM_FLIGHTS, OFF_FLIGHTS = 0x140, 0x144  # numSpawnType2_PosRot, game/ConvertedTrack/VehFlight.c
 JUMP_PAD_HIGH = 0x20  # COLL_STEP_TRIGGER_JUMP_PAD_HIGH
 QUAD_TERRAIN = 0x38
 OFF_CLEAR_SPLIT = 0x160  # clearColor[0] above the horizon, [1] below: r, g, b, enable
