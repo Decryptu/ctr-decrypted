@@ -36,6 +36,11 @@ struct MetaDataMODEL *COLL_LevModelMeta(u32 id)
 	return NULL;
 }
 
+void ConvertedMover_LInB(struct Instance *inst)
+{
+	(void)inst;
+}
+
 void ConvertRotToMatrix(MATRIX *m, const SVec3 *rot)
 {
 	(void)m;
