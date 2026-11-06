@@ -16,6 +16,17 @@
 
 // F7 in a running game: each press gets its own folder in here.
 #define NATIVE_DEV_CAPTURE_DIR "debug/captures"
+#define NATIVE_DEV_MAX_TOUR 1024
+
+static int s_tourMover[NATIVE_DEV_MAX_TOUR][3];
+
+// Where a mover is now, for CTR_DEV_CAMERA_TOUR.
+void NativeDev_TrackMover(int list, int x, int y, int z)
+{
+	s_tourMover[list % NATIVE_DEV_MAX_TOUR][0] = x;
+	s_tourMover[list % NATIVE_DEV_MAX_TOUR][1] = y;
+	s_tourMover[list % NATIVE_DEV_MAX_TOUR][2] = z;
+}
 
 // Reads the main render target (the frame at render scale) as bottom-up RGBA.
 // Defined in platform/native_renderer.c. Returns a malloc'd buffer or NULL.
@@ -56,6 +67,12 @@ typedef struct
 	int nudgedFrame; // the frame the nudge was applied in, so it applies once
 	int camera; // CTR_DEV_CAMERA was given
 	short cameraPos[3], cameraRot[3];
+	struct
+	{
+		int list;
+		short offset[3], rot[3];
+	} * tour; // CTR_DEV_CAMERA_TOUR: views of movers, a line each
+	int tourCount, tourFrom, tourEvery;
 	int vramShot; // this frame was presented straight from VRAM (vramX..vramH)
 	int vramX, vramY, vramW, vramH;
 } NativeDevState;
@@ -119,6 +136,28 @@ static NativeDevState *NativeDev_State(void)
 					s_dev.cameraPos[i] = (short)v[i];
 					s_dev.cameraRot[i] = (short)v[3 + i];
 				}
+			}
+		}
+		{
+			const char *path = getenv("CTR_DEV_CAMERA_TOUR");
+			FILE *file = (path != NULL) ? fopen(path, "r") : NULL;
+			if (file != NULL)
+			{
+				int v[7];
+				s_dev.tour = calloc(NATIVE_DEV_MAX_TOUR, sizeof(*s_dev.tour));
+				while ((s_dev.tourCount < NATIVE_DEV_MAX_TOUR) && (fscanf(file, "%d %d %d %d %d %d %d", &v[0], &v[1], &v[2], &v[3], &v[4], &v[5], &v[6]) == 7))
+				{
+					s_dev.tour[s_dev.tourCount].list = v[0];
+					for (int i = 0; i < 3; i++)
+					{
+						s_dev.tour[s_dev.tourCount].offset[i] = (short)v[1 + i];
+						s_dev.tour[s_dev.tourCount].rot[i] = (short)v[4 + i];
+					}
+					s_dev.tourCount++;
+				}
+				fclose(file);
+				s_dev.tourFrom = NativeDev_EnvInt("CTR_DEV_CAMERA_TOUR_FROM", 1500);
+				s_dev.tourEvery = NativeDev_EnvInt("CTR_DEV_CAMERA_TOUR_EVERY", 20);
 			}
 		}
 		NativeRenderer_EnablePresentCapture(s_dev.presentedShot && s_dev.shotDir != NULL);
@@ -254,6 +293,20 @@ const char *NativeDev_UpdateAs(void)
 int NativeDev_PinCamera(int cameraID, short *pos, short *rot)
 {
 	NativeDevState *dev = NativeDev_State();
+	if ((dev->tourCount > 0) && (cameraID == 0) && (dev->frame >= dev->tourFrom))
+	{
+		const int view = (dev->frame - dev->tourFrom) / dev->tourEvery;
+		if (view < dev->tourCount)
+		{
+			const int list = dev->tour[view].list;
+			for (int i = 0; i < 3; i++)
+			{
+				pos[i] = (short)(s_tourMover[list % NATIVE_DEV_MAX_TOUR][i] + dev->tour[view].offset[i]);
+				rot[i] = dev->tour[view].rot[i];
+			}
+			return 1;
+		}
+	}
 	if (!dev->camera || (cameraID != 0))
 		return 0;
 	for (int i = 0; i < 3; i++)

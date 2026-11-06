@@ -572,6 +572,13 @@ void VehPhysForce_OnGravity(struct Driver *driver, Vec3 *velocity)
 		perpendicularProduct = CTR_MipsMulLo(perpendicularFriction, frictionElapsedTimeMS);
 		forwardProduct = CTR_MipsMulLo(forwardFriction, frictionElapsedTimeMS);
 		terrainFrictionScale = driver->terrainMeta1->groundFrictionScale;
+#ifdef CTR_NATIVE
+		// Mud's double friction stops a kart that lets go of the gas, and a converted course's mud is the road
+		if ((driver->currentTerrain == TERRAIN_MUD) && !NativeLevel_MudAtWorldZero(sdata->gGT->level1->configFlags))
+		{
+			terrainFrictionScale = VEH_PHYS_FORCE_TERRAIN_SCALE_NEUTRAL;
+		}
+#endif
 		terrainNeutralScale = VEH_PHYS_FORCE_TERRAIN_SCALE_NEUTRAL;
 		perpendicularFriction = CTR_MipsSra(perpendicularProduct, 5);
 		CTR_PSX_KEEP_VALUE(forwardProduct);

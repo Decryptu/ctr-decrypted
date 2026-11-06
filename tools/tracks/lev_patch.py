@@ -44,7 +44,7 @@ HITBOX_FLAG_TOUCH = 0x4c0  # BSP_HITBOX_COLLIDABLE | BSP_HITBOX_USE_Y_AXIS, clas
 # Each kind as retail has it: placed key, name, MODEL_ID, InstDef flags, hitbox radius, height of the
 # hitbox's centre above the instance's origin
 CRATE_RADIUS, CRATE_LIFT = 76, 46
-KINDS = (('crates', 'crate', 8, 7, CRATE_RADIUS, CRATE_LIFT), ('fruit', 'fruit', 2, 0xf, 64, 64))
+KINDS = (('crates', 'crate', 8, 7, CRATE_RADIUS, CRATE_LIFT), ('fruit', 'fruit', 2, 0xf, 64, 64), ('fruit_crates', 'fruitcrate', 7, 7, CRATE_RADIUS, CRATE_LIFT))
 LEAF_HITBOXES = 0x14
 ICON_SIZE, ICON_LAYOUT = 0x20, 0x14
 ICON_MAP_TOP, ICON_MAP_BOTTOM = 3, 4  # gGT->ptrIcons
@@ -472,8 +472,17 @@ def add_items(data, ptrs, items, placed, collision_leaves):
             u0, v0, clut, u1, v1, tpage, u2, v2, u3, v3 = struct.unpack_from('<BBHBBHBBBB', data, layout)
             model.retarget(group, min(u0, u1, u2, u3), min(v0, v1, v2, v3), clut, tpage)
 
+    kinds = [k for k in KINDS if k[0] != 'fruit_crates' or placed['fruit_crates']]
+    if placed['fruit_crates']:
+        for group in items['fruit_crates'].groups:
+            block = carrier_quads[tuple(placed['carriers'][at_carrier])]
+            at_carrier += 1
+            layout = struct.unpack_from('<I', data, block + QUAD_TEXTURE_LOW)[0]
+            u0, v0, clut, u1, v1, tpage, u2, v2, u3, v3 = struct.unpack_from('<BBHBBHBBBB', data, layout)
+            items['fruit_crates'].retarget(group, min(u0, u1, u2, u3), min(v0, v1, v2, v3), clut, tpage)
+
     model_at = {}
-    for kind, *_ in KINDS:
+    for kind, *_ in kinds:
         align()
         model_at[kind] = len(data)
         data += items[kind].blob
@@ -488,11 +497,11 @@ def add_items(data, ptrs, items, placed, collision_leaves):
             pointer(mover_at[-1] + p, struct.unpack_from('<I', model.blob, p)[0] + mover_at[-1])
     align()
     models = len(data)
-    data += bytes(4 * (len(KINDS) + len(mover_at)))
-    for i, at in enumerate([model_at[k[0]] for k in KINDS] + mover_at):
+    data += bytes(4 * (len(kinds) + len(mover_at)))
+    for i, at in enumerate([model_at[k[0]] for k in kinds] + mover_at):
         pointer(models + 4 * i, at)
     pointer(OFF_MODELS, models)
-    struct.pack_into('<I', data, OFF_NUM_MODELS, len(KINDS) + len(mover_at))
+    struct.pack_into('<I', data, OFF_NUM_MODELS, len(kinds) + len(mover_at))
     if placed['mover_lists']:
         add_mover_lists(data, pointer, placed['mover_lists'])
 
@@ -505,8 +514,8 @@ def add_items(data, ptrs, items, placed, collision_leaves):
     placed['crates'] = placed['crates'][:fixed] + [c for c in placed['crates'][fixed:] if touches_leaf(c)]
 
     # One InstDef per instance; a null-ended list of them for the game's pack and unpack
-    placements = [(kind, i, pos) for kind, *_ in KINDS for i, pos in enumerate(placed[kind])]
-    by_key = {k[0]: k for k in KINDS}
+    placements = [(kind, i, pos) for kind, *_ in kinds for i, pos in enumerate(placed[kind])]
+    by_key = {k[0]: k for k in kinds}
     align()
     defs = len(data)
     for n, (kind, i, pos) in enumerate(placements):

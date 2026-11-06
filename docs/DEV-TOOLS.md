@@ -35,7 +35,9 @@ All are read once, by `platform/native_dev.c` (`include/platform/native_dev.h`).
 | `CTR_DEV_DEMO=<LevelID>` | The title menu starts the attract demo on that track as soon as it settles, skipping the Oxide intro and idle wait |
 | `CTR_DEV_FAST=1` | VBlanks are emitted without waiting for wall-clock time. SPU and XA audio are driven from the VBlank clock (the replay system's deterministic mode) instead of SDL's callback, because the game waits on them. Audio is muted. Game logic is unchanged |
 | `CTR_DEV_HIDDEN=1` | Create the window hidden. Rendering still goes to the main render target |
-| `CTR_DEV_MOVER_LOG=<file>` | Append each converted-track mover's place and turn every 293 frames, a prime so that no period is sampled at one phase (`tools/tracks/mover_check.py`) |
+| `CTR_DEV_MOVER_LOG=<file>` | Append each converted-track mover's place and turn every 293 frames, a prime so that no period is sampled at one phase, and a line per hit on a kart (`tools/tracks/mover_check.py`) |
+| `CTR_DEV_CAMERA_TOUR=<file>` | Views of converted-track movers: lines of `list dx dy dz rx ry rz`, a camera that follows that mover at that offset (`tools/tracks/mover_tour.py`). `CTR_DEV_CAMERA_TOUR_FROM` is the first frame, `CTR_DEV_CAMERA_TOUR_EVERY` the frames a view lasts |
+| `CTR_DEV_MOVERS_ONLY=1`, `CTR_DEV_HIDE_MOVERS=1` | Draw no level, so nothing hides a mover; draw no mover, for frames to compare with (`tools/tracks/mover_view.py`) |
 | `CTR_DEV_SHOT_DIR=<dir>` | Capture frames from the main render target (at render scale) as `fNNNNNN.bmp` |
 | `CTR_DEV_SHOT_EVERY=<n>`, `CTR_DEV_SHOT_FROM=<n>` | Capture interval (default 60) and first captured frame (default 0) |
 | `CTR_DEV_SHOT_PRESENTED=1` | Capture what reaches the window instead: the presentation viewport after the screen filter, at window size. Presents then go through a window-sized target copied to the window, so a hidden window still captures. The Archipelago tracker overlay is drawn later and is not captured |

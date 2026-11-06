@@ -3,7 +3,7 @@
   python tools/tracks/floor_check.py <work folder> <course>
 
 Takes every collision ground point the converter wrote (<course>_road.txt, every 64 LEV units, no kill
-planes) that lies on the CPU route's road, and looks for a drawn triangle of the OBJ at it. A point with none within GAP
+planes, nothing a mover draws) that lies on the CPU route's road, and looks for a drawn triangle of the OBJ at it. A point with none within GAP
 under it, or with drawn road hanging over it within COVERED, is a kart on an invisible floor or under its
 own road. Exit 1 when more than ALLOWED of the points are so, and it prints the worst places.
 """

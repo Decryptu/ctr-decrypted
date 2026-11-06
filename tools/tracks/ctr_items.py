@@ -15,7 +15,7 @@ from ctrmodel import Layout, parse_vram  # noqa: E402
 
 SOURCE_LEVEL = 0  # Dingo Canyon
 BIG_VRM, BIG_LEV = SOURCE_LEVEL * 8, SOURCE_LEVEL * 8 + 1  # the 1P files of the level's group
-PU_WUMPA_FRUIT, PU_RANDOM_CRATE = 2, 8  # enum MODEL_ID
+PU_WUMPA_FRUIT, PU_FRUIT_CRATE, PU_RANDOM_CRATE = 2, 7, 8  # enum MODEL_ID
 OFF_NUM_MODELS, OFF_MODELS = 0x14, 0x18
 MODEL_HEADER_SIZE = 0x40
 LAYOUT_SIZE = 12
@@ -61,13 +61,13 @@ def decode(vram, layout, x0, y0, w, h):
 
 
 def read(disc_path):
-    """{'crates': the weapon crate, 'fruit': the Wumpa fruit} of the player's disc, as ItemModels."""
+    """{'crates': the weapon crate, 'fruit': the Wumpa fruit, 'fruit_crates': the Wumpa crate} of the player's disc, as ItemModels."""
     disc = Disc(disc_path)
     big = BigFile(disc)
     raw, vrm = big.read(BIG_LEV), big.read(BIG_VRM)
     disc.close()
     vram, _ = parse_vram(vrm)
-    return {'crates': _model(raw, vram, PU_RANDOM_CRATE), 'fruit': _model(raw, vram, PU_WUMPA_FRUIT)}
+    return {'crates': _model(raw, vram, PU_RANDOM_CRATE), 'fruit': _model(raw, vram, PU_WUMPA_FRUIT), 'fruit_crates': _model(raw, vram, PU_FRUIT_CRATE)}
 
 
 def _model(raw, vram, model_id):

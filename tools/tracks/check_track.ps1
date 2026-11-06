@@ -54,7 +54,24 @@ else {
 python (Join-Path $PSScriptRoot 'floor_check.py') $Work $Course
 if ($LASTEXITCODE -ne 0) { $failed += 'road with no drawn floor' }
 python (Join-Path $PSScriptRoot 'mover_check.py') $Work $Course
-if ($LASTEXITCODE -ne 0) { $failed += 'a moving object did not start or did not move' }
+if ($LASTEXITCODE -ne 0) { $failed += 'a moving object did not start or move, or a kart was held' }
+# Each mover from all round it, with no level in the way, then the same frames with no movers
+$tour = Join-Path $Work 'tour.txt'
+python (Join-Path $PSScriptRoot 'mover_tour.py') (Join-Path $Work "${Course}_items.json") $tour
+$views = @(Get-Content $tour | Where-Object { $_ }).Count
+if ($views -gt 0) {
+	$tourFrom, $tourEvery = 1580, 20
+	$tourFolders = foreach ($hide in 0, 1) {
+		$folder = Join-Path $Work "view$hide"
+		Remove-Item $folder -Recurse -Force -ErrorAction SilentlyContinue
+		$tourEnv = @{CTR_DEV_CUSTOM = $pin; CTR_DEV_CAMERA_TOUR = $tour; CTR_DEV_CAMERA_TOUR_FROM = $tourFrom; CTR_DEV_CAMERA_TOUR_EVERY = $tourEvery; CTR_DEV_MOVERS_ONLY = 1}
+		if ($hide) { $tourEnv.CTR_DEV_HIDE_MOVERS = 1 }
+		& (Join-Path $repo 'tools\decrypted\devrun.ps1') -Track -1 -Frames ($tourFrom + $tourEvery * $views + 10) -From ($tourFrom + 10) -Every $tourEvery -Exe $Exe -RunDir $RunDir -Out $folder -TimeoutSec 600 -Env $tourEnv | Out-Null
+		$folder
+	}
+	python (Join-Path $PSScriptRoot 'mover_view.py') "$tour.json" $tourFolders[0] $tourFolders[1]
+	if ($LASTEXITCODE -ne 0) { $failed += 'a moving object is not drawn whole, from every side, where it is' }
+}
 if (Test-Path (Join-Path $RunDir 'crash.txt')) { $failed += "crash (see $RunDir\crash.txt)" }
 if (-not (Test-Path $probe)) { $failed += 'no collision probe output' }
 else {

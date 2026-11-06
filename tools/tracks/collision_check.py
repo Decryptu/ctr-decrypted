@@ -118,7 +118,7 @@ for r in csv.DictReader(open(probe_csv)):
         heights_off.append((x, y, z, hy))
     dh_coll.append(hy - (gy - centre[1]) * LEV)
     drawn = [dy for dy, _ in heights(drawn_grid, x, z)]
-    if drawn:
+    if drawn and not int(r['flags']) & KILL_PLANE:  # nothing is drawn on a fall surface
         dh_draw.append(min(drawn, key=lambda dy: abs(dy - hy)) - hy)
 
 print(counts)

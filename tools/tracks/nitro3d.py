@@ -130,16 +130,23 @@ def s10(v):
     return v - 1024 if v & 512 else v
 
 
-def run_display_list(dl, emit):
-    """Decode a GX display list. emit(prim_type, [(pos, uv, color, normal), ...]) per BEGIN..END."""
+def s32le(v):
+    return v - (1 << 32) if v & (1 << 31) else v
+
+
+def run_display_list(dl, emit, matrix=None, stack=None):
+    """Decode a GX display list. emit(prim_type, [(pos, uv, color, normal), ...]) per BEGIN..END. matrix,
+    stack: the position matrix and matrix stack a model's render commands left, which transform each
+    vertex as it is given: a skinned mesh restores a stack slot between its vertices."""
     p = 0
     pos = [0.0, 0.0, 0.0]
     uv = (0.0, 0.0)
-    col = (255, 255, 255)
-    nrm = (0.0, 1.0, 0.0)
+    col = None
+    nrm = None
     prim = None
     verts = []
-    restore = 0
+    current = np.eye(4) if matrix is None else matrix
+    stack = {} if stack is None else stack
     while p + 4 <= len(dl):
         cmds = dl[p:p + 4]; p += 4
         for c in cmds:
@@ -150,9 +157,18 @@ def run_display_list(dl, emit):
             if c == 0x40:
                 prim = a[0] & 3; verts = []
             elif c == 0x41:
-                emit(prim, verts, restore); prim = None
+                emit(prim, verts); prim = None
+            elif c == 0x13:
+                stack[a[0] & 31] = current.copy()
             elif c == 0x14:
-                restore = a[0] & 31
+                current = stack.get(a[0] & 31, current)
+            elif c == 0x15:
+                current = np.eye(4)
+            elif c == 0x1b:
+                current = current @ np.diag([s32le(x) / 4096 for x in a] + [1.0])
+            elif c == 0x1c:
+                move = np.eye(4); move[:3, 3] = [s32le(x) / 4096 for x in a]
+                current = current @ move
             elif c == 0x20:
                 col = bgr555(a[0])
             elif c == 0x21:
@@ -176,7 +192,9 @@ def run_display_list(dl, emit):
                     if c == 0x25: pos = [lo, hi, pos[2]]
                     if c == 0x26: pos = [lo, pos[1], hi]
                     if c == 0x27: pos = [pos[0], lo, hi]
-                verts.append((tuple(pos), uv, col, nrm))
+                world = current @ np.array([pos[0], pos[1], pos[2], 1.0])
+                turned = None if nrm is None else tuple(current[:3, :3] @ np.array(nrm))
+                verts.append((tuple(world[:3]), uv, col, turned))
 
 
 def triangles(prim, verts):
@@ -210,26 +228,23 @@ class Model:
         self.name = name
         sbc_off, mat_off, mesh_off = u32(b, m + 4), u32(b, m + 8), u32(b, m + 0x0c)
         self.num_objs, self.num_mats, self.num_meshes = b[m + 0x17], b[m + 0x18], b[m + 0x19]
-        self.scale = fx32(b, m + 0x1c)
-        # objects (node transforms)
+        self.up_scale, self.down_scale = fx32(b, m + 0x1c), fx32(b, m + 0x20)
+        self.scale = self.up_scale
+        self.box = [fx16(b, m + 0x2c + 2 * i) for i in range(3)], [fx16(b, m + 0x32 + 2 * i) for i in range(3)]
+        # objects: a node's matrix, its parent's by way of the render commands
         self.objs = []
         objs_dict = m + 0x40
         for oname, oe in nitro_dict(b, objs_dict):
-            o = objs_dict + u32(oe, 0)
-            flags = u16(b, o); q = o + 4
-            t = (0.0, 0.0, 0.0); r = np.eye(3); s = (1.0, 1.0, 1.0)
-            m0 = fx16(b, o + 2)
-            if not flags & 1:
-                t = (fx32(b, q), fx32(b, q + 4), fx32(b, q + 8)); q += 12
-            if not flags & 2:
-                if flags & 8:
-                    q += 4  # pivot rotation: not expected in courses
-                else:
-                    vals = [m0] + [fx16(b, q + 2 * i) for i in range(8)]; q += 16
-                    r = np.array(vals).reshape(3, 3)
-            if not flags & 4:
-                s = (fx32(b, q), fx32(b, q + 4), fx32(b, q + 8))
-            self.objs.append((oname, t, r, s))
+            self.objs.append((oname, node_matrix(b, objs_dict + u32(oe, 0))))
+        inv_at = m + u32(b, m + 0x10)
+        self.inv_binds = []
+        for i in range(self.num_objs):
+            at = inv_at + 84 * i
+            if at + 48 > len(b):
+                break
+            bind = np.eye(4)
+            bind[:3, :4] = np.array([fx32(b, at + 4 * k) for k in range(12)]).reshape(4, 3).T
+            self.inv_binds.append(bind)
         # materials
         md = m + mat_off
         tex_map_off, pal_map_off = u16(b, md), u16(b, md + 2)
@@ -238,7 +253,7 @@ class Model:
             o = md + u32(me, 0)
             mat = Material()
             mat.name = mname
-            mat.dif_amb = u32(b, o + 4)
+            mat.dif_amb, mat.spe_emi = u32(b, o + 4), u32(b, o + 8)
             mat.polygon_attr = u32(b, o + 0x0c)
             mat.teximage = u32(b, o + 0x14)
             mat.flags = u16(b, o + 0x1e)
@@ -269,51 +284,134 @@ class Model:
             o = mshd + u32(se, 0)
             dl = o + u32(b, o + 8)
             self.meshes.append((sname, b[dl:dl + u32(b, o + 12)]))
-        # render commands: which material each mesh is drawn with, and its node
-        self.draws = []
-        p = m + sbc_off
-        cur_mat, cur_node = 0, 0
-        ARGS = {0x00: 0, 0x01: 0, 0x02: 2, 0x03: 1, 0x04: 1, 0x05: 1, 0x06: 3, 0x07: 1, 0x08: 1, 0x09: None,
-                0x0b: 0, 0x0c: 2, 0x0d: 2}
-        while True:
-            cmd = b[p]; op = cmd & 0x1f; p += 1
-            if op == 0x01:
-                break
-            if op == 0x04:
-                cur_mat = b[p]; p += 1
-            elif op == 0x05:
-                self.draws.append((b[p], cur_mat, cur_node)); p += 1
-            elif op == 0x06:
-                cur_node = b[p]; p += 3
-                if cmd == 0x26 or cmd == 0x46: p += 1
-                if cmd == 0x66: p += 2
-            elif op == 0x03:
-                cur_node = b[p]; p += 1
-            elif op == 0x09:
-                n = b[p + 1]; p += 2 + 3 * n
-            elif op == 0x02:
-                p += 2
-            elif op in (0x07, 0x08):
-                p += 1
-            elif op in (0x0c, 0x0d):
-                p += 2
-            elif op in (0x00, 0x0b):
-                pass
-            else:
-                raise ValueError(f'SBC op {cmd:#x} at {p - 1 - m:#x}')
+        self.ops = render_commands(b, m + sbc_off)
 
-    def triangles(self):
-        """-> list of (mat_index, [(pos, uv, color, normal) * 3]) in model space (scale applied)."""
+    def default_colour(self, mat):
+        """A vertex's colour before any colour command: the material's diffuse, where it says so."""
+        return bgr555(mat.dif_amb & 0x7fff) if mat.dif_amb & 0x8000 else (255, 255, 255)
+
+    def lit_colour(self, mat, normal):
+        """What the DS's lights make of a vertex with a normal, for one white light from above and in front."""
+        strength = LIT_BACK + (1 - LIT_BACK) * max(0.0, float(np.dot(LIGHT, normal / max(np.linalg.norm(normal), 1e-6))))
+        diffuse = np.array(bgr555(mat.dif_amb & 0x7fff), float)
+        ambient = np.array(bgr555((mat.dif_amb >> 16) & 0x7fff), float)
+        emission = np.array(bgr555((mat.spe_emi >> 16) & 0x7fff), float)
+        return tuple(np.clip(emission + ambient + diffuse * strength, 0, 255))
+
+    def triangles(self, lit=False):
+        """-> list of (mat_index, [(pos, uv, color, normal) * 3]) in model space (scale applied), the model
+        in its rest pose. lit: colours as the DS's lights make them, for what has normals: an object."""
         out = []
-        for mesh_i, mat_i, node in self.draws:
-            _, t, r, s = self.objs[node]
-            def emit(prim, verts, restore):
-                for tri in triangles(prim, verts):
-                    vv = []
-                    for i in tri:
-                        pos, uv, col, nrm = verts[i]
-                        pv = (r @ (np.array(pos) * s)) + t
-                        vv.append((tuple(pv * self.scale), uv, col, nrm))
-                    out.append((mat_i, vv))
-            run_display_list(self.meshes[mesh_i][1], emit)
+        current, stack, mat_i = np.eye(4), {}, 0
+        scaled = any(op[0] == 'up' for op in self.ops)
+        for op in self.ops:
+            kind = op[0]
+            if kind == 'load':
+                current = stack.get(op[1], np.eye(4)).copy()
+            elif kind == 'store':
+                stack[op[1]] = current.copy()
+            elif kind == 'node':
+                current = current @ self.objs[op[1]][1]
+            elif kind == 'skin':
+                current = sum(weight * stack.get(slot, np.eye(4)) @ self.inv_binds[bind] for slot, bind, weight in op[1])
+            elif kind == 'up':
+                current = current @ np.diag([self.up_scale] * 3 + [1.0])
+            elif kind == 'down':
+                current = current @ np.diag([self.down_scale] * 3 + [1.0])
+            elif kind == 'material':
+                mat_i = op[1]
+            elif kind == 'draw':
+                mat = self.mats[mat_i]
+                final = 1.0 if scaled else self.scale
+
+                def emit(prim, verts, mat=mat, mat_i=mat_i):
+                    for tri in triangles(prim, verts):
+                        vv = []
+                        for i in tri:
+                            pos, uv, col, nrm = verts[i]
+                            if col is None:
+                                col = self.default_colour(mat) if lit else (255, 255, 255)
+                            if lit and nrm is not None and mat.polygon_attr & 15:
+                                col = self.lit_colour(mat, np.array(nrm))
+                            vv.append((tuple(np.array(pos) * final), uv, col, nrm if nrm is not None else (0.0, 1.0, 0.0)))
+                        out.append((mat_i, vv))
+                run_display_list(self.meshes[op[1]][1], emit, current.copy(), stack)
         return out
+
+
+LIGHT = np.array([0.0, 0.7071, 0.7071])
+LIT_BACK = 0.55  # what a face turned from the light keeps: the game has no light on it either way, and a black side reads as a hole
+
+
+def pivot_matrix(select, neg, a, b):
+    """A node's rotation stored as two values: one axis is +-1, and the rest are a, b, c, d."""
+    o = -1.0 if neg & 1 else 1.0
+    c = -b if neg & 2 else b
+    d = -a if neg & 4 else a
+    columns = np.zeros((3, 3))
+    major, minor = select // 3, select % 3
+    rest = iter((a, b, c, d))
+    for i in range(3):
+        for j in range(3):
+            columns[i, j] = o if (i, j) == (major, minor) else 0.0 if i == major or j == minor else next(rest)
+    return columns.T
+
+
+def node_matrix(b, o):
+    """A node's rest transform, translation * rotation * scale. Rotations are stored by columns."""
+    flags = u16(b, o)
+    m0 = fx16(b, o + 2)
+    q = o + 4
+    translation, rotation, scale = (0.0, 0.0, 0.0), np.eye(3), (1.0, 1.0, 1.0)
+    if not flags & 1:
+        translation = (fx32(b, q), fx32(b, q + 4), fx32(b, q + 8)); q += 12
+    if flags & 8:
+        rotation = pivot_matrix((flags >> 4) & 15, (flags >> 8) & 15, fx16(b, q), fx16(b, q + 2)); q += 4
+    elif not flags & 2:
+        rotation = np.array([m0] + [fx16(b, q + 2 * i) for i in range(8)]).reshape(3, 3).T; q += 16
+    if not flags & 4:
+        scale = (fx32(b, q), fx32(b, q + 4), fx32(b, q + 8))
+    out = np.eye(4)
+    out[:3, :3] = rotation @ np.diag(scale)
+    out[:3, 3] = translation
+    return out
+
+
+def render_commands(b, p):
+    """A model's render commands as steps for Model.triangles."""
+    ops = []
+    sizes = {0x00: 0, 0x02: 2, 0x07: 1, 0x08: 1, 0x0c: 2, 0x0d: 2, 0x40: 0, 0x47: 2, 0x80: 0}
+    while True:
+        cmd = b[p]; p += 1
+        if cmd == 0x01:
+            return ops
+        if cmd == 0x03:
+            ops.append(('load', b[p])); p += 1
+        elif cmd in (0x04, 0x24, 0x44):
+            ops.append(('material', b[p])); p += 1
+        elif cmd == 0x05:
+            ops.append(('draw', b[p])); p += 1
+        elif cmd in (0x06, 0x26, 0x46, 0x66):
+            node = b[p]
+            store = b[p + 3] if cmd in (0x26, 0x66) else None
+            load = b[p + 3] if cmd == 0x46 else b[p + 4] if cmd == 0x66 else None
+            p += {0x06: 3, 0x26: 4, 0x46: 4, 0x66: 5}[cmd]
+            if load is not None:
+                ops.append(('load', load))
+            ops.append(('node', node))
+            if store is not None:
+                ops.append(('store', store))
+        elif cmd == 0x09:
+            count = b[p + 1]
+            terms = [(b[p + 2 + 3 * i], b[p + 3 + 3 * i], b[p + 4 + 3 * i] / 256) for i in range(count)]
+            ops.append(('skin', terms))
+            ops.append(('store', b[p]))
+            p += 2 + 3 * count
+        elif cmd == 0x0b:
+            ops.append(('up',))
+        elif cmd == 0x2b:
+            ops.append(('down',))
+        elif cmd in sizes:
+            p += sizes[cmd]
+        else:
+            raise ValueError(f'render command {cmd:#x}')
