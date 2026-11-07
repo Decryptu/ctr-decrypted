@@ -16,10 +16,16 @@
 // less than 0 the other way round; with a record after the fixed ones, it turns
 // for that many ticks, speeds up and slows down over y ticks, stops for z, and
 // turns back, as MKDS's cogs do.
-// SWING: axis, period in ms, angle at its peak. HOP: period in ms, profile, phase
-// in ms. ORBIT: radius, less than 0 the other way round, period in ms, phase in ms.
+// SWING: axis, period in ms, angle at its peak. HOP: period in ms, 0, phase in ms. ORBIT: radius, period in ms, phase in ms, in its own x, y plane.
 // PULSE: period in ms, how long it is out, phase in ms: it grows out of its origin
 // and hits only then, as a flame jet.
+// KEYS: where it is over time, worked out by tools/tracks/mkds_motion.py from the
+// object's update code. Speed: ms a key. a: the key it runs on from after the last,
+// b: laps added to a gate's each time it comes round, c: the key it starts at.
+// Record 7: its scale grows by x (4096 is its placed size) a second up to y; z gates.
+// Then two records a gate: the key that waits, how near a kart must come, the lap the
+// race must reach; the point it must come near. Then the keys; MOVER_KEY_HIDDEN in y:
+// it is not there.
 
 #if defined(CTR_NATIVE)
 #include <math.h>
@@ -34,32 +40,33 @@ enum
 	MOVER_HOP,
 	MOVER_ORBIT,
 	MOVER_PULSE,
+	MOVER_KEYS,
 
 	MOVER_PATH_LOOP = 0,
 	MOVER_PATH_BACK_AND_FORTH = 1,
 	MOVER_PATH_RESTART = 2,
 
-	MOVER_HOP_ARC = 0,  // up and down, as a fish leaps
-	MOVER_HOP_SLAM = 1, // waits at its peak, falls fast, rises slowly: a Thwomp
-
 	MOVER_FLAG_FACE_PATH = 0x100,
 	MOVER_FLAG_ROLL = 0x200,
-	MOVER_FLAG_UPRIGHT = 0x400,  // an ORBIT stands in its own x, y plane, a hoop
-	MOVER_FLAG_OUT_ONLY = 0x800, // a HOP hits only in its upper half: it hides under the ground
 	MOVER_FLAG_SOLID = 0x1000,   // a kart stops at its box, and cannot be caught inside
 	MOVER_FLAG_CARRIES = 0x2000, // a floor: a kart on it turns with it
 	MOVER_FLAG_ONE_WAY = 0x4000, // a SPIN's cycle does not turn back
+	MOVER_FLAG_DROPS = 0x8000,   // KEYS: hurts only when it drops, and is merely solid otherwise
+	MOVER_ITEM_BOX = 4,          // in place of a damage: it breaks as a weapon crate does
 	MOVER_MOST_LISTS = 512,
 	MOVER_DAMAGE_MASK = 0xff,
 
 	MOVER_RECORD_MIDDLE = 6,
 	MOVER_RECORD_POINTS = 7,
+	MOVER_RECORD_GATES = 8,
+	MOVER_KEY_HIDDEN = -32768,
+	MOVER_DROP_KEY = 64,         // level units a key: what is slower does not crush
+	MOVER_SCALE_ONE = 4096,
 	MOVER_KART_RADIUS = 48,
 	MOVER_TURN_MS = 250,
 	MOVER_HIT_SOUND = 0x71,
 	MOVER_HIT_GRACE = 120,	// frames: a kart just hit is let through, or what turns would carry it round for good
 	MOVER_LEVEL_AXIS = 2048, // an axis this far from the vertical pushes a kart along the ground
-	MOVER_HALF_OUT = 2048,
 	MOVER_FLAME_GROW = 550,
 	MOVER_FLAME_SHRINK = 1667,
 	MOVER_ON_FLOOR = 96, // level units over a turning floor's top that a kart rides it
@@ -76,9 +83,11 @@ struct ConvertedMover
 	float faceX, faceZ;
 	s32 rollAngle;
 	s32 homeX, homeY, homeZ; // a shot: how far its path is from where it was fired
+	s32 hitShare;            // of its hit box, 4096 is as placed; 0 is the same
+	s32 harmless;            // this frame it hurts nothing
 };
 
-CTR_STATIC_ASSERT(sizeof(struct ConvertedMover) <= 0x48);
+CTR_STATIC_ASSERT(sizeof(struct ConvertedMover) <= 0x50);
 
 static const SVec3 *Mover_Records(const struct ConvertedMover *mover)
 {
@@ -240,10 +249,49 @@ static void Mover_Carry(const struct Instance *inst, const SVec3 *records, s32 t
 		dz = driver->instSelf->matrix.t[2] - inst->matrix.t[2];
 		if ((abs(dy) < MOVER_ON_FLOOR) && ((float)dx * dx + (float)dz * dz < reach * reach))
 		{
-			driver->posCurr.x += ((dx * c + dz * s) >> 12) - dx << 8;
-			driver->posCurr.z += ((dz * c - dx * s) >> 12) - dz << 8;
+			driver->posCurr.x += (((dx * c + dz * s) >> 12) - dx) << 8;
+			driver->posCurr.z += (((dz * c - dx * s) >> 12) - dz) << 8;
 			driver->angle += turn;
 		}
+	}
+}
+
+// Turns towards the way it goes, over MOVER_TURN_MS.
+static void Mover_Face(struct ConvertedMover *mover, int flags, s32 m[3][3], float wantX, float wantZ, s32 dt)
+{
+	const float share = (dt < MOVER_TURN_MS) ? ((float)dt / MOVER_TURN_MS) : 1.0f;
+	float size;
+
+	if (!(flags & MOVER_FLAG_FACE_PATH))
+	{
+		return;
+	}
+
+	mover->faceX += (wantX - mover->faceX) * share;
+	mover->faceZ += (wantZ - mover->faceZ) * share;
+	size = sqrtf(mover->faceX * mover->faceX + mover->faceZ * mover->faceZ);
+	if (size > 0.001f)
+	{
+		const s32 fx = (s32)(mover->faceX / size * 4096), fz = (s32)(mover->faceZ / size * 4096);
+
+		Mover_Identity(m);
+		m[0][0] = fz;
+		m[0][2] = fx;
+		m[2][0] = -fx;
+		m[2][2] = fz;
+	}
+}
+
+static void Mover_Roll(struct ConvertedMover *mover, const SVec3 *records, int flags, s32 m[3][3], float distance)
+{
+	if (flags & MOVER_FLAG_ROLL)
+	{
+		s32 roll[3][3];
+		const s32 radius = records[1].y ? records[1].y : 64;
+
+		mover->rollAngle = (mover->rollAngle + (s32)(distance * 4096 / (6.283f * radius))) & 0xfff;
+		Mover_AxisTurn(roll, 0, mover->rollAngle);
+		Mover_Multiply(m, m, roll);
 	}
 }
 
@@ -288,62 +336,168 @@ static void Mover_FollowPath(struct Instance *inst, struct ConvertedMover *mover
 	}
 
 	Mover_Base(records, m);
-	if ((flags & MOVER_FLAG_FACE_PATH) && (length > 0))
+	if (length > 0)
 	{
-		const float wantX = ((float)to->x - from->x) / length;
-		const float wantZ = ((float)to->z - from->z) / length;
-		const float share = (dt < MOVER_TURN_MS) ? ((float)dt / MOVER_TURN_MS) : 1.0f;
-		float size;
-
-		mover->faceX += (wantX - mover->faceX) * share;
-		mover->faceZ += (wantZ - mover->faceZ) * share;
-		size = sqrtf(mover->faceX * mover->faceX + mover->faceZ * mover->faceZ);
-		if (size > 0.001f)
-		{
-			const s32 fx = (s32)(mover->faceX / size * 4096), fz = (s32)(mover->faceZ / size * 4096);
-
-			Mover_Identity(m);
-			m[0][0] = fz;
-			m[0][2] = fx;
-			m[2][0] = -fx;
-			m[2][2] = fz;
-		}
+		Mover_Face(mover, flags, m, ((float)to->x - from->x) / length, ((float)to->z - from->z) / length, dt);
 	}
-
-	if (flags & MOVER_FLAG_ROLL)
-	{
-		s32 roll[3][3];
-		const s32 radius = records[1].y ? records[1].y : 64;
-
-		mover->rollAngle = (mover->rollAngle + (s32)(distance * 4096 / (6.283f * radius))) & 0xfff;
-		Mover_AxisTurn(roll, 0, mover->rollAngle);
-		Mover_Multiply(m, m, roll);
-	}
+	Mover_Roll(mover, records, flags, m, distance);
 }
 
-static s32 Mover_HopProfile(u32 time, int period, int profile)
+// tools/tracks/mover_view.py and mover_sheet.py: what waits or hides is brought out and held.
+static int Mover_DevHeld(void)
 {
-	const s32 phase = (s32)(time % (u32)period) * 4096 / period;
+	return (getenv("CTR_DEV_MOVERS_ONLY") != NULL) || (getenv("CTR_DEV_MOVERS_HELD") != NULL);
+}
 
-	if (profile == MOVER_HOP_SLAM)
+// The lap the race has reached, from 1, by its leading kart.
+static int Mover_RaceLap(void)
+{
+	int lap = 0;
+
+	for (int i = 0; i < 8; i++)
 	{
-		// away for half the time, a tenth to come home, a tenth there, the rest to go back
-		if (phase < 2048)
+		const struct Driver *driver = GAME_TRACKER->drivers[i];
+
+		if ((driver != NULL) && (driver->lapIndex > lap))
 		{
-			return 4096;
+			lap = driver->lapIndex;
 		}
-		if (phase < 2458)
-		{
-			return 4096 - (phase - 2048) * 10;
-		}
-		if (phase < 2867)
-		{
-			return 0;
-		}
-		return (phase - 2867) * 4096 / (4096 - 2867);
+	}
+	return lap + 1;
+}
+
+static int Mover_GateOpen(const struct ConvertedMover *mover, const SVec3 *gate, const SVec3 *records)
+{
+	if (Mover_DevHeld())
+	{
+		return 1;
+	}
+	if (Mover_RaceLap() < gate[0].z + mover->direction * records[2].y)
+	{
+		return 0;
+	}
+	if (gate[0].y == 0)
+	{
+		return 1;
 	}
 
-	return MATH_Sin(phase / 2);
+	for (int i = 0; i < 8; i++)
+	{
+		const struct Driver *driver = GAME_TRACKER->drivers[i];
+
+		if (driver != NULL)
+		{
+			const float dx = (float)driver->instSelf->matrix.t[0] - gate[1].x;
+			const float dz = (float)driver->instSelf->matrix.t[2] - gate[1].z;
+
+			if (dx * dx + dz * dz < (float)gate[0].y * gate[0].y)
+			{
+				return 1;
+			}
+		}
+	}
+	return 0;
+}
+
+// Runs the clock on, held at any gate not open yet. mover->segment is the next gate,
+// mover->direction how many times the keys have come round.
+static u32 Mover_KeyClock(struct ConvertedMover *mover, const SVec3 *records, int count)
+{
+	const SVec3 *gates = &records[MOVER_RECORD_GATES];
+	const int numGates = records[MOVER_RECORD_POINTS].z;
+	const u32 step = records[0].y;
+	const u32 restart = (u32)records[2].x * step;
+	const u32 last = (u32)(count - 1) * step;
+
+	while (mover->segment < numGates)
+	{
+		const SVec3 *gate = &gates[2 * mover->segment];
+		const u32 at = (u32)gate[0].x * step;
+
+		if (mover->timeMS < at)
+		{
+			break;
+		}
+		if (!Mover_GateOpen(mover, gate, records))
+		{
+			mover->timeMS = at; // it waits here
+			return at;
+		}
+		mover->segment++;
+	}
+
+	if (mover->timeMS >= last)
+	{
+		mover->timeMS = restart + mover->timeMS - last;
+		mover->direction++;
+		mover->segment = 0;
+		while ((mover->segment < numGates) && ((u32)gates[2 * mover->segment].x * step < restart))
+		{
+			mover->segment++;
+		}
+	}
+	return mover->timeMS;
+}
+
+// -> whether it is not there just now.
+static int Mover_FollowKeys(struct Instance *inst, struct ConvertedMover *mover, const SVec3 *records, s32 m[3][3], s32 dt)
+{
+	const int numGates = records[MOVER_RECORD_POINTS].z;
+	const SVec3 *keys = &records[MOVER_RECORD_GATES + 2 * numGates];
+	const int count = GAME_TRACKER->level1->ptrSpawnType2[mover->list].numCoords - MOVER_RECORD_GATES - 2 * numGates;
+	const int flags = (u16)records[0].z;
+	const u32 step = records[0].y;
+	const u32 clock = Mover_KeyClock(mover, records, count);
+	const u32 key = clock / step;
+	const SVec3 *from = &keys[key];
+	const SVec3 *to = &keys[(key + 1 < (u32)count) ? (key + 1) : key];
+	const float part = (float)(clock % step) / step;
+	const float dx = (float)to->x - from->x, dy = (float)to->y - from->y, dz = (float)to->z - from->z;
+	const float flat = sqrtf(dx * dx + dz * dz);
+
+	Mover_Base(records, m);
+	if ((from->y == MOVER_KEY_HIDDEN) || (to->y == MOVER_KEY_HIDDEN))
+	{
+		inst->flags |= HIDE_MODEL;
+		if (Mover_DevHeld())
+		{
+			mover->timeMS += step * 16; // on to where it shows
+		}
+		return 1;
+	}
+
+	if (Mover_DevHeld())
+	{
+		mover->timeMS -= dt; // it stays where it shows, to be looked at
+	}
+
+	inst->flags &= ~HIDE_MODEL;
+	inst->matrix.t[0] = (s32)(from->x + dx * part);
+	inst->matrix.t[1] = (s32)(from->y + dy * part);
+	inst->matrix.t[2] = (s32)(from->z + dz * part);
+	mover->harmless = (flags & MOVER_FLAG_DROPS) && (dy > -MOVER_DROP_KEY);
+	if (flat > 0)
+	{
+		Mover_Face(mover, flags, m, dx / flat, dz / flat, dt);
+	}
+	Mover_Roll(mover, records, flags, m, sqrtf(dx * dx + dy * dy + dz * dz) * dt / step);
+
+	if (records[MOVER_RECORD_POINTS].x != 0)
+	{
+		const u32 from_start = (u32)records[2].x * step;
+		const s32 ran = (clock > from_start) ? (s32)(clock - from_start) : 0;
+		s32 share = MOVER_SCALE_ONE + records[MOVER_RECORD_POINTS].x * ran / 1000;
+
+		if (share > records[MOVER_RECORD_POINTS].y)
+		{
+			share = records[MOVER_RECORD_POINTS].y;
+		}
+		mover->hitShare = share;
+		inst->scale.x = (s16)((inst->instDef->scale.x * share) >> 12);
+		inst->scale.y = (s16)((inst->instDef->scale.y * share) >> 12);
+		inst->scale.z = (s16)((inst->instDef->scale.z * share) >> 12);
+	}
+	return 0;
 }
 
 // CTR_DEV_MOVER_LOG: which kinds of mover hit a kart.
@@ -387,9 +541,10 @@ static void Mover_PushOut(struct Driver *driver, s32 m[3][3], const s32 local[3]
 
 static int s_moverGraceUntil[8];
 
-static void Mover_HitKarts(struct Instance *inst, const SVec3 *records, s32 m[3][3])
+static void Mover_HitKarts(struct ConvertedMover *mover, struct Instance *inst, const SVec3 *records, s32 m[3][3])
 {
-	const int damage = records[0].z & MOVER_DAMAGE_MASK;
+	const int damage = mover->harmless ? 0 : (records[0].z & MOVER_DAMAGE_MASK);
+	const s32 share = mover->hitShare ? mover->hitShare : MOVER_SCALE_ONE;
 
 	if ((records[1].x == 0) || ((damage == 0) && !((u16)records[0].z & MOVER_FLAG_SOLID)))
 	{
@@ -415,13 +570,25 @@ static void Mover_HitKarts(struct Instance *inst, const SVec3 *records, s32 m[3]
 			const SVec3 *middle = &records[MOVER_RECORD_MIDDLE];
 			const s32 centre = (axis == 0) ? middle->x : (axis == 1) ? middle->y : middle->z;
 
-			half[axis] = ((axis == 0) ? records[1].x : (axis == 1) ? records[1].y : records[1].z) + MOVER_KART_RADIUS;
-			local[axis] = ((dx * m[0][axis] + dy * m[1][axis] + dz * m[2][axis]) >> 12) - centre;
+			half[axis] = ((((axis == 0) ? records[1].x : (axis == 1) ? records[1].y : records[1].z) * share) >> 12) + MOVER_KART_RADIUS;
+			local[axis] = ((dx * m[0][axis] + dy * m[1][axis] + dz * m[2][axis]) >> 12) - ((centre * share) >> 12);
 			inside = inside && (local[axis] > -half[axis]) && (local[axis] < half[axis]);
 		}
 
 		if (!inside)
 		{
+			continue;
+		}
+
+		if (damage == MOVER_ITEM_BOX)
+		{
+			struct ScratchpadStruct sps;
+
+			sps.Input1.modelID = DYNAMIC_PLAYER;
+			if (RB_CrateWeapon_LInC(inst, driver->instSelf->thread, &sps))
+			{
+				Mover_LogHit(records);
+			}
 			continue;
 		}
 
@@ -499,6 +666,10 @@ static void ConvertedMover_ThTick(struct Thread *t)
 		Mover_FollowPath(inst, mover, records, m, dt);
 		break;
 
+	case MOVER_KEYS:
+		hidden = Mover_FollowKeys(inst, mover, records, m, dt);
+		break;
+
 	case MOVER_SPIN:
 	{
 		const float speed = (Mover_NumPoints(mover) > 0) ? Mover_CycleSpeed(mover->timeMS, &records[MOVER_RECORD_POINTS], ((u16)records[0].z & MOVER_FLAG_ONE_WAY) != 0) : 1.0f;
@@ -536,12 +707,12 @@ static void ConvertedMover_ThTick(struct Thread *t)
 	case MOVER_HOP:
 	{
 		const SVec3 *way = &records[MOVER_RECORD_POINTS];
-		const s32 share = Mover_HopProfile(mover->timeMS + records[2].z, records[2].x, records[2].y);
+		const s32 phase = (s32)((mover->timeMS + records[2].z) % (u32)records[2].x) * 4096 / records[2].x;
+		const s32 share = MATH_Sin(phase / 2);
 
 		inst->matrix.t[0] = mover->homeX + ((way->x * share) >> 12);
 		inst->matrix.t[1] = mover->homeY + ((way->y * share) >> 12);
 		inst->matrix.t[2] = mover->homeZ + ((way->z * share) >> 12);
-		hidden = ((u16)records[0].z & MOVER_FLAG_OUT_ONLY) && (share < MOVER_HALF_OUT);
 		break;
 	}
 
@@ -550,18 +721,10 @@ static void ConvertedMover_ThTick(struct Thread *t)
 		const s32 angle = (s32)((mover->timeMS + records[2].z) % (u32)records[2].y) * 4096 / records[2].y;
 		const s32 across = (records[2].x * MATH_Sin(angle)) >> 12, along = (records[2].x * MATH_Cos(angle)) >> 12;
 
-		if ((u16)records[0].z & MOVER_FLAG_UPRIGHT)
-		{
-			inst->matrix.t[0] = mover->homeX + ((m[0][0] * across + m[0][1] * along) >> 12);
-			inst->matrix.t[1] = mover->homeY + ((m[1][0] * across + m[1][1] * along) >> 12);
-			inst->matrix.t[2] = mover->homeZ + ((m[2][0] * across + m[2][1] * along) >> 12);
-			Mover_Identity(m); // a picture: the game turns it to the camera
-		}
-		else
-		{
-			inst->matrix.t[0] = mover->homeX + across;
-			inst->matrix.t[2] = mover->homeZ + along;
-		}
+		inst->matrix.t[0] = mover->homeX + ((m[0][0] * across + m[0][1] * along) >> 12);
+		inst->matrix.t[1] = mover->homeY + ((m[1][0] * across + m[1][1] * along) >> 12);
+		inst->matrix.t[2] = mover->homeZ + ((m[2][0] * across + m[2][1] * along) >> 12);
+		Mover_Identity(m); // a picture: the game turns it to the camera
 		break;
 	}
 	}
@@ -610,8 +773,22 @@ static void ConvertedMover_ThTick(struct Thread *t)
 	}
 	if (!hidden)
 	{
-		Mover_HitKarts(inst, records, m);
+		Mover_HitKarts(mover, inst, records, m);
 	}
+}
+
+// An item box's own thread is the crate's, from its first break to its regrowth, so
+// its mover's is not in inst->thread.
+static int Mover_HasThread(const struct Instance *inst)
+{
+	for (struct Thread *t = GAME_TRACKER->threadBuckets[STATIC].thread; t != NULL; t = t->siblingThread)
+	{
+		if ((t->inst == inst) && (t->funcThTick == ConvertedMover_ThTick))
+		{
+			return 1;
+		}
+	}
+	return 0;
 }
 
 void ConvertedMover_LInB(struct Instance *inst)
@@ -619,14 +796,14 @@ void ConvertedMover_LInB(struct Instance *inst)
 	struct ConvertedMover *mover;
 	struct Thread *t;
 	const SVec3 *records;
+	int itemBox;
 
-	if (inst->thread != NULL)
+	if ((inst->thread != NULL) || Mover_HasThread(inst))
 	{
 		return;
 	}
 
 	t = PROC_BirthWithObject(SIZE_RELATIVE_POOL_BUCKET(sizeof(struct ConvertedMover), NONE, SMALL, STATIC), ConvertedMover_ThTick, "mover", NULL);
-	inst->thread = t;
 	if (t == NULL)
 	{
 		const char *path = getenv("CTR_DEV_MOVER_LOG");
@@ -644,12 +821,19 @@ void ConvertedMover_LInB(struct Instance *inst)
 	t->inst = inst;
 	memset(mover, 0, sizeof(struct ConvertedMover));
 	mover->list = inst->instDef->unk28;
+	itemBox = (Mover_Records(mover)[0].z & MOVER_DAMAGE_MASK) == MOVER_ITEM_BOX;
+	inst->thread = itemBox ? NULL : t;
 	mover->direction = 1;
 	mover->homeX = inst->matrix.t[0];
 	mover->homeY = inst->matrix.t[1];
 	mover->homeZ = inst->matrix.t[2];
 
 	records = Mover_Records(mover);
+	if (records[0].x == MOVER_KEYS)
+	{
+		mover->direction = 0;
+		mover->timeMS = (u32)records[2].z * records[0].y;
+	}
 	if (records[0].x == MOVER_PATH)
 	{
 		if (records[2].z != 0)

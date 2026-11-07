@@ -1,5 +1,6 @@
 """MKDS course data: KCL collision and NKM map (start, checkpoints, CPU route, objects)."""
 import struct
+from collections import namedtuple
 import numpy as np
 
 
@@ -111,13 +112,24 @@ def object_settings(m, index=0):
     return [u16(e, 0x28 + 2 * index) for e in m['OBJI']]
 
 
-def object_paths(m):
-    """-> each object's path as (points, whether it loops), or None, in placed_objects' order."""
+# points; whether it loops; each point's wait, which some objects read as a speed or a kind; its action; the
+# high byte of its index, set on the points of a stretch where the object does not show
+ObjectPath = namedtuple('ObjectPath', 'points loop waits actions high')
+
+
+def all_object_paths(m):
+    """-> the course's object paths, by their number."""
     routes, start = [], 0
     for e in m.get('PATH', []):
-        count = u16(e, 2)
-        routes.append(([vec32(p, 0) for p in m['POIT'][start:start + count]], bool(e[1])))
-        start += count
+        rows = m['POIT'][start:start + u16(e, 2)]
+        routes.append(ObjectPath([vec32(p, 0) for p in rows], bool(e[1]), [s16(p, 0xe) for p in rows], [s16(p, 0x10) for p in rows], [p[0xd] for p in rows]))
+        start += u16(e, 2)
+    return routes
+
+
+def object_paths(m):
+    """-> each object's ObjectPath, or None, in placed_objects' order."""
+    routes = all_object_paths(m)
     numbers = [s16(e, 0x26) for e in m['OBJI']]
     return [routes[r] if 0 <= r < len(routes) else None for r in numbers]
 
@@ -126,13 +138,10 @@ def all_object_settings(m):
     return [[u16(e, 0x28 + 2 * i) for i in range(8)] for e in m['OBJI']]
 
 
-OBJ_ITEM_BOX, OBJ_MOVING_ITEM_BOX = 0x65, 0xc9
+OBJ_ITEM_BOX = 0x65
 
 
 def item_boxes(m):
     return [pos for obj, pos, _ in objects(m) if obj == OBJ_ITEM_BOX]
 
 
-def moving_item_boxes(m):
-    """-> the points of each moving item box's path."""
-    return [path[0] for (obj, _, _), path in zip(objects(m), object_paths(m)) if obj == OBJ_MOVING_ITEM_BOX and path]

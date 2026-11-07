@@ -19,7 +19,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ctr_items, nds, nitro3d, mkdsmap, mkds_movers, mkds_objects, mkds_view, lev_patch, package, track_picture, winding_check
 
 PICTURE_BACK, PICTURE_UP, PICTURE_AHEAD = 220, 150, 3  # MKDS units, and points of the route
-MOVING_BOX_OVER = 120  # MKDS units: how far over the ground a moving item box may stand
 TYRE_AT = 0.2  # of a length, from each end
 MODEL_TO_WORLD = 16.0  # course models are drawn 16 times larger than their stored size
 
@@ -862,7 +861,10 @@ POKEY_OBJECT = 0x1b2
 POKEY_MOVER = mkds_movers.Mover('sanbo_b', (mkds_movers.PATH, mkds_movers.BACK_AND_FORTH), mkds_movers.SPIN_DAMAGE, 3)
 POKEY_PARTS = {POKEY_BODY: POKEY_MOVER, POKEY_HEAD: POKEY_MOVER._replace(model='sanbo_h')}
 FIRE_PLANT, FIRE_PLANT_SHOTS = 0x1aa, ('FireBall',)
-FIRE_PLANT_MOVER = mkds_movers.Mover('FireBall', (mkds_movers.PATH, mkds_movers.RESTART), mkds_movers.SPIN_DAMAGE, 0, fixed=2400)
+FIRE_PLANT_MOVER = mkds_movers.Mover('FireBall', (mkds_movers.KEYS, 'fire_plant'), mkds_movers.SPIN_DAMAGE)
+CHAIN_CHOMPS = {0x196, 0x1a5}
+SUN = 0x1ad
+FLARE_MODEL, FLARE_COURSE = 'fireball2', 'stadium_course'  # a sun's flares are effects with no model: Wario Stadium's fire stands in
 BOUND = 0x1a8
 GEAR, WHITE_GEAR_SETTING = 0xcb, 5  # a Tick-Tock Clock gear is white where this setting of it is 0
 HANGING_MODELS = {'gear_black', 'gear_white', 'chandelier', 'teresa', 'picture1', 'picture2', 'basabasa', 'kamome', 'sun', 'bakubaku'}  # the rest stand on the ground, however far under them their origin lies
@@ -872,7 +874,7 @@ BURNER = 0x1a4
 WOOD_BOX = 0x67
 TYRE_TEXTURE = (1.0, 2.0, 0.0, 1.0)  # half a tyre, mirrored at its hub: the quad spans it from one rim to the other
 HOLE_LIFT = 1
-HOLES = {0x1a7: 'hole', 0x199: 'hole'}  # what a Rocky Wrench and a Monty Mole come out of, flat on the ground
+HOLES = {0x1a7: 'hole', 0x199: 'hole', 0x196: 'wanwan_kui'}  # what a Rocky Wrench and a Monty Mole come out of, flat on the ground, and a Chain Chomp's stake
 START_CLEAR = 700  # no solid object this close to the start line
 # What moves in MKDS stands still here, at its placed spot: the game's track collision is static, and a
 # course without its big obstacles is worse than one with them at rest. (id: model, solid, lift) in
@@ -882,7 +884,7 @@ STILL_OBJECTS = {
     0x1a8: ('bound', True, 0), 0xd: ('puddle', False, 1), 0x195: ('bus_a', True, 0), 0x19a: ('car_a', True, 0), 0x19c: ('truck_a', True, 0),
     0x192: ('rock', True, 0), 0x1b1: ('rock2', True, 0), 0x196: ('wanwan', True, 0), 0x1a5: ('wanwan', True, 0),
     0x1a3: ('move_tree', True, 0), 0x193: ('dossun', False, 0), 0x154: ('RainStar', False, 0), 0x158: ('airship', False, 0),
-    0x149: ('BankEgg1', False, 0),
+    0x149: ('BankEgg1', False, 0), 0x19e: ('kanoke_64', True, 0),
 }
 MIRRORED_BY_SETTING = {0x1a9}  # Waluigi Pinball's flippers: one model, a left and a right
 GROUNDED_STILL = {'wanwan': 28, 'rock': 28, 'rock2': 28, 'bound': 10}  # how far their origin is over their foot
@@ -1105,6 +1107,7 @@ class Course:
         arc = nds.carc(rom_files[f'data/Course/{name}.carc'])
         tex = nds.carc(rom_files[f'data/Course/{name}Tex.carc'])
         self.name = name
+        self.flare_arc = nds.carc(rom_files[f'data/Course/{FLARE_COURSE}.carc'])
         self.model = nitro3d.Model(arc['course_model.nsbmd'])
         self.kcl = mkdsmap.kcl(arc['course_collision.kcl'])
         # no collision: a flight carries a kart past these (find_flights)
@@ -1116,15 +1119,6 @@ class Course:
         self.route = mkdsmap.cpu_route(self.nkm)
         self.item_boxes = mkdsmap.item_boxes(self.nkm)
         self.wood_boxes = [pos for object_id, pos, _, _ in mkdsmap.placed_objects(self.nkm) if object_id == WOOD_BOX]
-        # a moving box stands still where its path comes nearest the route, over ground a kart reaches
-        route_points = np.array([p for p, _ in self.route])
-        floor = [t for t in self.kcl if t[3][1] > 0.1]
-        self.moving_boxes = len(self.item_boxes)
-        for path in mkdsmap.moving_item_boxes(self.nkm):
-            low = [p for p in path if (g := ground_under(p[0], p[2], p[1] + MOVING_BOX_OVER, floor)) is not None and p[1] - g[0] < MOVING_BOX_OVER]
-            if low:
-                self.item_boxes.append(min(low, key=lambda p: np.linalg.norm(route_points - p, axis=1).min()))
-        self.moving_boxes = len(self.item_boxes) - self.moving_boxes
         # some courses keep their textures inside the model file
         course_tex0 = nitro3d.load_tex0(tex['course_model.nsbtx'] if 'course_model.nsbtx' in tex else arc['course_model.nsbmd'])
         for m in self.model.mats:
@@ -1416,6 +1410,9 @@ class Course:
                     spec = spec._replace(model='gear_white')
                 if spec is None:
                     continue
+                if spec.model is None:
+                    self.movers.append({'bullet': None, 'key': None, 'spec': spec, 'pos': pos, 'rot': rot, 'size': size, 'path': path, 'settings': settings, 'over': 0.0, 'id': part})
+                    continue
                 if f'MapObj/{spec.model}.nsbmd' not in arc:
                     print(f'mover: no model {spec.model} in this course')
                     continue
@@ -1439,13 +1436,21 @@ class Course:
                 bullet = None
                 if spec.model == 'NsKiller1':
                     bullet = ('NsKiller2', False)
-                    if bullet not in self.mover_models:
-                        model = nitro3d.Model(arc['MapObj/NsKiller2.nsbmd'])
-                        tex0 = nitro3d.load_tex0(arc['MapObj/NsKiller2.nsbmd'])
-                        for m in model.mats:
-                            m.tex0 = tex0
-                        self.mover_models[bullet] = (model.mats, [(mi, [(tuple(np.array(v[0]) * MODEL_TO_WORLD), v[1], v[2], v[3]) for v in tri]) for mi, tri in model.triangles(lit=True)])
+                    self.load_part_model('NsKiller2', arc)
+                if part in CHAIN_CHOMPS:
+                    self.load_part_model('wanwan_chain', arc)
+                if part == SUN:
+                    self.load_part_model(FLARE_MODEL, self.flare_arc)
                 self.movers.append({'bullet': bullet, 'key': key, 'spec': spec, 'pos': pos + (0.0, over * size[1], 0.0), 'rot': rot, 'size': size, 'path': path, 'settings': settings, 'over': over, 'id': part})
+
+    def load_part_model(self, name, arc):
+        """A model an object brings with it: a cannon's shot, a chain's link."""
+        if (name, False) not in self.mover_models:
+            model = nitro3d.Model(arc[f'MapObj/{name}.nsbmd'])
+            tex0 = nitro3d.load_tex0(arc[f'MapObj/{name}.nsbmd'])
+            for m in model.mats:
+                m.tex0 = tex0
+            self.mover_models[(name, False)] = (model.mats, [(mi, [(tuple(np.array(v[0]) * MODEL_TO_WORLD), v[1], v[2], v[3]) for v in tri]) for mi, tri in model.triangles(lit=True)])
 
     def add_bridges(self, arc):
         """What MKDS moves to carry the road over a gap, solid and standing still. A kart rides on these,
@@ -2041,9 +2046,20 @@ def convert(course, out_dir, name, scale, max_edge, crate, fruit_crate, vram_sha
     def settle(p, standing=[t for t in course.kcl if t[3][1] > 0.1]):
         found = ground_under(p[0], p[2], p[1] + OBJECT_ABOVE_GROUND, standing)
         return p if found is None else np.array([p[0], found[0], p[2]])
-    movers, mover_lists = mkds_movers.place(course.movers, mover_index, mover_halves, to_lev, lev_unit, rotate, settle)
+    def ground_height(p, floor=[t for t in course.kcl if t[3][1] > 0.1]):
+        found = ground_under(p[0], p[2], p[1] + 40, floor)
+        return None if found is None else found[0]
+    routes = mkdsmap.all_object_paths(course.nkm)
+    route_points = np.array([p for p, _ in course.route])
+    motion_context = {
+        'ground': ground_height, 'settled': settle, 'chain': 'wanwan_chain', 'flare': FLARE_MODEL, 'crate': mkds_movers.ITEM_BOX,
+        'forward': lambda m: rotate(np.array([0.0, 0.0, 1.0]), m['rot']),
+        'nearest_route': lambda p: route_points[np.argmin(np.linalg.norm(route_points - p, axis=1))],
+        'fire_paths': lambda m: [routes[n].points for n in m['settings'][:7] if n < len(routes)],
+    }
+    movers, mover_lists = mkds_movers.place(course.movers, mover_index, mover_halves, to_lev, lev_unit, rotate, settle, motion_context)
     stats['movers'], stats['blended materials'] = len(movers), len(blended)
-    json.dump({'crates': crates, 'fruit': fruit, 'fruit_crates': fruit_crates, 'moving_crates': course.moving_boxes, 'carriers': item_carriers, 'blends': blend_carriers, 'map': ui_map, 'jump_pads': jump_pads, 'flights': flights, 'movers': movers, 'mover_lists': mover_lists},
+    json.dump({'crates': crates, 'fruit': fruit, 'fruit_crates': fruit_crates, 'carriers': item_carriers, 'blends': blend_carriers, 'map': ui_map, 'jump_pads': jump_pads, 'flights': flights, 'movers': movers, 'mover_lists': mover_lists},
               open(os.path.join(out_dir, name + '_items.json'), 'w'))
 
     cells = {}

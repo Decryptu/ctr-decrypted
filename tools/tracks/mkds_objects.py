@@ -82,7 +82,7 @@ OBJECTS = {
     0x19b: Object('pukupuku', ('pukupuku',), 'sphere', 10, 0, 0),
     0x19c: Object('truck', ('truck_a', 'car_tire'), 'custom', 50, 0, 0),
     0x19d: Object('snowman', ('sman_bottom', 'sman_top'), 'cylinder', 4, 15, 0),
-    0x19e: Object('coffin', ('kanoke_64',), 'box', 50, 40, 25),
+    0x19e: Object('coffin', ('kanoke_64', 'basabasa'), 'box', 50, 40, 25),
     0x19f: Object('basabasa (spawned by 0x1a0)', ('basabasa',), 'sphere', 8, 0, 0),
     0x1a0: Object('basabasa group', ('basabasa',), 'none', 0, 0, 0),
     0x1a1: Object('Bullet cannon', ('NsKiller1', 'NsKiller2', 'NsKiller2_s'), 'none', 0, 0, 0),

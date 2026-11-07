@@ -505,14 +505,6 @@ def add_items(data, ptrs, items, placed, collision_leaves):
     if placed['mover_lists']:
         add_mover_lists(data, pointer, placed['mover_lists'])
 
-    def touches_leaf(pos):
-        cx, cy, cz, radius = pos[0], pos[1] + CRATE_LIFT, pos[2], CRATE_RADIUS
-        return any(x0 <= cx + radius and cx - radius <= x1 and z0 <= cz + radius and cz - radius <= z1 and y0 <= cy + radius and cy - radius - LEAF_REACH <= y1
-                   for x0, y0, z0, x1, y1, z1 in (struct.unpack_from('<6h', data, leaf + 4) for leaf in collision_leaves))
-    # a moving box that no leaf reaches, off in the air or over the sea, is left out
-    fixed = len(placed['crates']) - placed['moving_crates']
-    placed['crates'] = placed['crates'][:fixed] + [c for c in placed['crates'][fixed:] if touches_leaf(c)]
-
     # One InstDef per instance; a null-ended list of them for the game's pack and unpack
     placements = [(kind, i, pos) for kind, *_ in kinds for i, pos in enumerate(placed[kind])]
     by_key = {k[0]: k for k in kinds}
@@ -537,7 +529,7 @@ def add_items(data, ptrs, items, placed, collision_leaves):
         struct.pack_into('<3h', d, 0x30, *mover['pos'])
         struct.pack_into('<I', d, 0x3c, CONVERTED_MOVER_ID)
         data += d
-        pointer(defs + INSTDEF_SIZE * n + 0x10, mover_at[mover['model']])
+        pointer(defs + INSTDEF_SIZE * n + 0x10, model_at['crates'] if mover['model'] == 'crate' else mover_at[mover['model']])
     total = len(placements) + len(placed['movers'])
     struct.pack_into('<I', data, OFF_NUM_INSTANCES, total)
     pointer(OFF_INSTANCES, defs)

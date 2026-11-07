@@ -19,7 +19,7 @@ MOST_OFF = 0.12  # of the frame's height, from the middle
 CELL = 8  # pixels: parts of one model this close are one thing
 SWEEPS = {1, 2, 4}  # SPIN, SWING, ORBIT: they go round, so the frame's middle says nothing, and a thin one turns edge on
 COMES_AND_GOES = {5}  # PULSE: out of sight for part of its time
-OUT_ONLY = 0x800
+CROWDS = {'wanwan_chain', 'basabasa'}  # one of several close together: the frame's middle says nothing
 
 
 def frames(folder):
@@ -70,10 +70,10 @@ def main():
         faults = []
         if max(areas) < FEWEST:
             faults.append('not drawn')
-        elif view['kind'] not in COMES_AND_GOES and not view['flags'] & OUT_ONLY:
+        elif view['kind'] not in COMES_AND_GOES:
             if min(areas) < FEWEST or (view['kind'] not in SWEEPS and min(areas) < SIDES_ALIKE * max(areas)):
                 faults.append('missing from a side')
-        if view['kind'] not in SWEEPS | COMES_AND_GOES and max(areas) >= FEWEST and max(o for a, o in sides if a >= FEWEST) > MOST_OFF:
+        if view['kind'] not in SWEEPS | COMES_AND_GOES and name not in CROWDS and max(areas) >= FEWEST and max(o for a, o in sides if a >= FEWEST) > MOST_OFF:
             faults.append('drawn away from its place')
         print(f"{name}: {' '.join(f'{a * 100:.2f}%' for a in areas)}, off {max(o for _, o in sides):.2f}{'  ' + ', '.join(faults) if faults else ''}")
         failed += bool(faults)
