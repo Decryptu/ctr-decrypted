@@ -20,9 +20,12 @@
 
 static int s_tourMover[NATIVE_DEV_MAX_TOUR][3];
 
-// Where a mover is now, for CTR_DEV_CAMERA_TOUR.
+void NativeDevRam_Mover(int list, int x, int y, int z); // platform/native_dev_race.c
+
+// Where a mover is now, for CTR_DEV_CAMERA_TOUR and CTR_DEV_RAM.
 void NativeDev_TrackMover(int list, int x, int y, int z)
 {
+	NativeDevRam_Mover(list, x, y, z);
 	s_tourMover[list % NATIVE_DEV_MAX_TOUR][0] = x;
 	s_tourMover[list % NATIVE_DEV_MAX_TOUR][1] = y;
 	s_tourMover[list % NATIVE_DEV_MAX_TOUR][2] = z;

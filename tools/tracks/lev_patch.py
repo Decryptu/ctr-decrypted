@@ -464,10 +464,13 @@ def add_items(data, ptrs, items, placed, collision_leaves):
         blends.append((clut, 16 << 4 * ((tpage >> 7) & 1)))
     movers = items.get('movers', [])
     at_carrier = len(crate.groups) + 1
+    carrier_of = {}  # the pieces of one mover's model share its images, and so their carriers
     for model in movers:
         for group in model.groups:
-            block = carrier_quads[tuple(placed['carriers'][at_carrier])]
-            at_carrier += 1
+            if id(group['image']) not in carrier_of:
+                carrier_of[id(group['image'])] = at_carrier
+                at_carrier += 1
+            block = carrier_quads[tuple(placed['carriers'][carrier_of[id(group['image'])]])]
             layout = struct.unpack_from('<I', data, block + QUAD_TEXTURE_LOW)[0]
             u0, v0, clut, u1, v1, tpage, u2, v2, u3, v3 = struct.unpack_from('<BBHBBHBBBB', data, layout)
             model.retarget(group, min(u0, u1, u2, u3), min(v0, v1, v2, v3), clut, tpage)
@@ -525,8 +528,10 @@ def add_items(data, ptrs, items, placed, collision_leaves):
         d[:16] = (f'mover#{n}'.encode() + bytes(16))[:16]
         struct.pack_into('<3h', d, 0x14, *mover['scale'])
         struct.pack_into('<I', d, 0x20, MOVER_FLAGS)
+        struct.pack_into('<h', d, 0x1a, int(mover.get('drawn_only', False)))  # a piece of a big model that its first piece moves (Mover.c)
         struct.pack_into('<I', d, 0x28, mover['list'])
         struct.pack_into('<3h', d, 0x30, *mover['pos'])
+        struct.pack_into('<3h', d, 0x36, *mover.get('offset', (0, 0, 0)))  # a piece of a big model: where it is from the mover's origin
         struct.pack_into('<I', d, 0x3c, CONVERTED_MOVER_ID)
         data += d
         pointer(defs + INSTDEF_SIZE * n + 0x10, model_at['crates'] if mover['model'] == 'crate' else mover_at[mover['model']])

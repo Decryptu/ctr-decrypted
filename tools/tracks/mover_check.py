@@ -26,7 +26,7 @@ def longest_stop(trace):
 def main():
     work, course = sys.argv[1:3]
     with open(os.path.join(work, course + '_items.json')) as f:
-        wanted = len(json.load(f)['movers'])
+        wanted = len({m['list'] for m in json.load(f)['movers']})  # a big model's pieces share a list
     log = os.path.join(work, 'movers.log')
     seen = collections.defaultdict(set)
     unborn = hits = 0

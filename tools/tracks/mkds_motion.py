@@ -124,6 +124,8 @@ def rock(m, c):
 
 
 def ball_speed(kind, fast, slow):
+    """A ball's speed from a path point's kind; a bumper's (100 to 199) and a flipper's (200 to 299) are
+    where it is struck, and slow by BALL_SLOWING a tick from there (0x20a95a8)."""
     if kind < 2:
         return fast
     if kind < 4:
@@ -131,16 +133,23 @@ def ball_speed(kind, fast, slow):
     return {10: 8.0, 11: 5.0}.get(kind, 15.0 if kind < 200 else 30.0)
 
 
+BALL_SLOWING, BALL_SLOWEST = 0.1, 10.0
+BALL_LOOPS = 4  # times round a path's last loop a ball's keys hold before they repeat
+
+
 def ball(m, c):
     """0x1b0: runs its path each time the race's lead reaches a lap, s[3] ticks later. y is on the path; a
-    point of kind 10 or 11 drops it to the next point, where it bounces."""
+    point of kind 10 or 11 drops it to the next point, where it bounces. A path that ends going back to
+    an earlier point keeps it there for good, as Waluigi Pinball's table at its end does."""
     path, st, rng = m['path'], m['settings'], c['rng']
     if path is None:
         return []
     fast, slow, n = st[0] * 10 / 100, st[0] * 5 / 100, len(path.points)
     lift, run = 1.0 + c['foot'], []
     i, jump, vjump, part = 0, 0.0, 0.0, 0.0
-    while len(run) < 8000:
+    speed = ball_speed(path.waits[0], fast, slow)
+    loop_at, loops, loop_start = path.actions[n - 1], 0, None
+    while len(run) < 20000:
         next_point = i + 1
         if next_point >= n:
             break
@@ -154,7 +163,9 @@ def ball(m, c):
             if abs(vjump) < 1:
                 vjump = 0.0
         run.append(None if hidden else a + (b - a) * part + (0.0, lift + jump, 0.0))
-        part += ball_speed(path.waits[i], fast, slow) / length
+        part += speed / length
+        if path.waits[i] >= 100:
+            speed = max(speed - BALL_SLOWING, BALL_SLOWEST)
         if part >= 1:
             part, i = 0.0, next_point
             action, kind = path.actions[i], path.waits[i]
@@ -163,9 +174,20 @@ def ball(m, c):
             elif kind in (10, 11) and i + 1 < n:
                 jump, vjump = float(path.points[i][1] - path.points[i + 1][1]), 10.0 if kind == 10 else -3.0
                 i += 1
+            kind = path.waits[i]
+            speed = ball_speed(kind, fast, slow)  # struck again at a bumper or a flipper
+            if loop_at >= 0 and i == loop_at:
+                if loop_start is None:
+                    loop_start = len(run)
+                loops += 1
+                if loops > BALL_LOOPS:
+                    break
     lap = (st[1] + 5999) // 6000 + 1
-    ticks = [None] * st[3] + run + [None] * 12
+    ticks = [None] * st[3] + run
     gates = [(0, 0, lap, None)]
+    if loop_start is not None:
+        return [Track(ticks, restart=st[3] + loop_start, gates=gates, step=6)]  # round the table for good
+    ticks += [None] * 12
     if st[2]:
         return [Track(ticks, gates=gates, lap_step=1, step=6)]
     return [Track(ticks, gates=gates + [(len(ticks) - 1, 0, LAP_ONCE, None)], step=6)]
@@ -494,9 +516,24 @@ def cheep_cheep(m, c):
     return [Track(ticks)]
 
 
+BUBBLE_DEPTH, BUBBLE_LEAP, BUBBLE_GRAVITY, BUBBLE_FASTEST = 16.0, 4.7, 0.1, 3.0
+
+
+def bubble(m, c):
+    """0x198: leaps out of the lava BUBBLE_DEPTH under its place, falls back, and once under where it left
+    hides for s[0] ticks, then leaps again (0x20df938, 0x20df890, 0x20df83c)."""
+    base = plain(m['pos']) - (0.0, BUBBLE_DEPTH, 0.0)
+    y, vy, run = base[1], BUBBLE_LEAP, []
+    while y >= base[1]:
+        run.append(np.array([base[0], y, base[2]]))
+        vy = max(vy - BUBBLE_GRAVITY, -BUBBLE_FASTEST)
+        y += vy
+    return [Track(run + [None] * (m['settings'][0] + 1), hit=15)]
+
+
 MOTIONS = {'thwomp': thwomp, 'rock': rock, 'ball': ball, 'airship': airship, 'sun': sun, 'chain_path': chain_path, 'chain_staked': chain_staked,
            'bakubaku': bakubaku, 'bats': bats, 'coffin': coffin, 'moving_box': moving_box, 'fire_plant': fire_plant, 'rocky_wrench': rocky_wrench,
-           'monty_mole': monty_mole, 'cheep_cheep': cheep_cheep}
+           'monty_mole': monty_mole, 'cheep_cheep': cheep_cheep, 'bubble': bubble}
 
 
 def tracks(name, mover, context):

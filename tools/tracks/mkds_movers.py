@@ -31,7 +31,7 @@ MAX_TILES = 4  # of a repeating texture, each way, in a model's image
 MAX_WIDTH, MAX_HEIGHT = 128, 256  # texels: wider, it would have to give up colours or be halved, and its layouts would miss
 NEUTRAL = 128  # a texture is multiplied by a vertex colour over this
 
-PATH, SPIN, SWING, HOP, ORBIT, PULSE, KEYS = range(7)
+PATH, SPIN, SWING, HOP, ORBIT, PULSE, KEYS, STILL = range(8)
 LOOP, BACK_AND_FORTH, RESTART = range(3)
 FACE_PATH, ROLL, SOLID, CARRIES, ONE_WAY, DROPS = 0x100, 0x200, 0x1000, 0x2000, 0x4000, 0x8000  # Mover.c's MOVER_FLAG_
 TICKS = 60  # a second: the game's objects
@@ -43,59 +43,74 @@ KEY_HIDDEN = -32768
 KEY_MS = 50  # three ticks
 CRATE_MIDDLE = np.array([0.0, 48.0, 0.0])  # level units over its origin, which is its underside
 
-# model; (kind, its arguments); damage; level units a second per unit of the speed setting; flags; how many
-# share the object's path or centre; which setting is its speed; its speed in level units a second where the
-# setting is 0. A model stands on the ground by its own lowest point, unless it is in FLYING.
+# model; (kind, its arguments); what a hit does, where it is not the game's own (REACTIONS); level units a
+# second per unit of the speed setting; flags; how many share the object's path or centre; which setting is
+# its speed; its speed in level units a second where the setting is 0. A model stands on the ground by its own
+# lowest point, unless it is in FLYING.
 BULLETS, BULLET_REACH, BULLET_UP = 3, 3600, 42  # a cannon's shots in the air at once; how far one flies, and how high over the cannon it starts
-Mover = namedtuple('Mover', 'model kind damage factor flags count setting fixed', defaults=(0, 0.0, 0, 1, 0, 600))
+Mover = namedtuple('Mover', 'model kind damage factor flags count setting fixed', defaults=(None, 0.0, 0, 1, 0, 600))
 MOVERS = {
-    0x195: Mover('bus_a', (PATH, LOOP), BLAST, 3 * PATH_UNITS, FACE_PATH),
-    0x19a: Mover('car_a', (PATH, LOOP), BLAST, 3 * PATH_UNITS, FACE_PATH),
-    0x19c: Mover('truck_a', (PATH, LOOP), BLAST, 3 * PATH_UNITS, FACE_PATH),
-    0x192: Mover('rock', (KEYS, 'rock'), BLAST, flags=ROLL),
-    0x1b1: Mover('rock2', (KEYS, 'rock'), BLAST, flags=ROLL),
-    0x1b0: Mover('IronBall', (KEYS, 'ball'), BLAST),
-    0x191: Mover('kuribo', (PATH, BACK_AND_FORTH), SPIN_DAMAGE, 0.25 * PATH_UNITS),  # s0 / 200 a tick, half its time
-    0x1ac: Mover('crab', (PATH, BACK_AND_FORTH), SPIN_DAMAGE, 0, fixed=50 * PATH_UNITS),
-    0x1a5: Mover('wanwan', (KEYS, 'chain_path'), BLAST, flags=FACE_PATH),
-    0x158: Mover('airship', (KEYS, 'airship'), 0, flags=FACE_PATH),
-    0x1ad: Mover('sun', (KEYS, 'sun'), SPIN_DAMAGE),
-    0x19e: Mover('basabasa', (KEYS, 'coffin'), SPIN_DAMAGE),
+    0x195: Mover('bus_a', (PATH, LOOP), None, 3 * PATH_UNITS, FACE_PATH),
+    0x19a: Mover('car_a', (PATH, LOOP), None, 3 * PATH_UNITS, FACE_PATH),
+    0x19c: Mover('truck_a', (PATH, LOOP), None, 3 * PATH_UNITS, FACE_PATH),
+    0x192: Mover('rock', (KEYS, 'rock'), flags=ROLL),
+    0x1b1: Mover('rock2', (KEYS, 'rock'), flags=ROLL),
+    0x1b0: Mover('IronBall', (KEYS, 'ball')),
+    0x191: Mover('kuribo', (PATH, BACK_AND_FORTH), None, 0.25 * PATH_UNITS),  # s0 / 200 a tick, half its time
+    0x1ac: Mover('crab', (PATH, BACK_AND_FORTH), None, 0, fixed=50 * PATH_UNITS),
+    0x1a5: Mover('wanwan', (KEYS, 'chain_path'), flags=FACE_PATH),
+    0x158: Mover('airship', (KEYS, 'airship'), flags=FACE_PATH),
+    0x1ad: Mover('sun', (KEYS, 'sun')),
+    0x19e: Mover('basabasa', (KEYS, 'coffin')),
     0xc9: Mover(None, (KEYS, 'moving_box'), ITEM_BOX),
-    0x1a1: Mover('NsKiller1', (PATH, LOOP), 0, 0, fixed=200 * PATH_UNITS),
-    0x1a4: Mover('mkd_ef_burner', (PULSE,), SPIN_DAMAGE),
-    0xcb: Mover('gear_black', (SPIN, 1, 0), 0, flags=CARRIES),
-    0xce: Mover('test_cylinder', (SPIN, 1, 0), 0),
-    0xd0: Mover('rotary_room', (SPIN, 1, 0), 0, flags=CARRIES),
-    0xd1: Mover('rotary_bridge', (SPIN, 1, 0), 0),
-    0xcd: Mover('second_hand', (SPIN, 1, 0), SPIN_DAMAGE, flags=SOLID),
-    0xcf: Mover('pendulum', (SWING, 2, 0, 0), SPIN_DAMAGE, flags=SOLID),
-    0xd2: Mover('dram', (SPIN, 0, 0), 0, flags=ONE_WAY),
-    0x1a9: Mover('flipper', (SWING, 1, 0, 0), SPIN_DAMAGE, flags=SOLID),
-    0x1a3: Mover('move_tree', (PATH, LOOP), 0, 2, flags=SOLID),
+    0x1a1: Mover('NsKiller1', (PATH, LOOP), None, 0, fixed=200 * PATH_UNITS),
+    0x1a4: Mover('mkd_ef_burner', (PULSE,)),
+    0xcb: Mover('gear_black', (SPIN, 1, 0), flags=CARRIES),
+    0xce: Mover('test_cylinder', (SPIN, 1, 0), flags=CARRIES),
+    0xd0: Mover('rotary_room', (SPIN, 1, 0), flags=CARRIES),
+    0xd1: Mover('rotary_bridge', (SPIN, 1, 0), flags=CARRIES),
+    0xcd: Mover('second_hand', (SPIN, 1, 0)),
+    0xcf: Mover('pendulum', (SWING, 2, 0, 0)),
+    0xd2: Mover('dram', (SPIN, 0, 0), flags=ONE_WAY),
+    0x1a9: Mover('flipper', (SWING, 1, 0, 0)),
+    0x1a3: Mover('move_tree', (PATH, LOOP), None, 2),
     0x154: Mover('RainStar', (SPIN, 1, 500)),
-    0x193: Mover('dossun', (KEYS, 'thwomp'), SQUISH, flags=SOLID | DROPS),
-    0x19b: Mover('pukupuku', (KEYS, 'cheep_cheep'), SPIN_DAMAGE),
-    0x13c: Mover('bakubaku', (KEYS, 'bakubaku'), BLAST),
-    0x1a7: Mover('poo', (KEYS, 'rocky_wrench'), SPIN_DAMAGE),
-    0x199: Mover('choropu', (KEYS, 'monty_mole'), SPIN_DAMAGE),
+    0x193: Mover('dossun', (KEYS, 'thwomp'), SQUISH, flags=DROPS),  # a wall, and it crushes from under while it falls
+    0x19b: Mover('pukupuku', (KEYS, 'cheep_cheep')),
+    0x13c: Mover('bakubaku', (KEYS, 'bakubaku')),
+    0x1a7: Mover('poo', (KEYS, 'rocky_wrench')),
+    0x199: Mover('choropu', (KEYS, 'monty_mole')),
     0x13d: Mover('teresa', (HOP, 3000)),
-    0x196: Mover('wanwan', (KEYS, 'chain_staked'), BLAST),
-    0x1a0: Mover('basabasa', (KEYS, 'bats'), SPIN_DAMAGE),
-    0x1af: Mover('fireball2', (ORBIT,), SPIN_DAMAGE),
+    0x196: Mover('wanwan', (KEYS, 'chain_staked')),
+    0x1a0: Mover('basabasa', (KEYS, 'bats')),
+    0x1af: Mover('fireball2', (ORBIT,)),
+    0x19d: Mover('sman_bottom', (STILL,)),
+    0x1a6: Mover('ob_pakkun_sf', (STILL,)),
+    0xd: Mover('puddle', (STILL,)),
+    0x1a8: Mover('bound', (STILL,)),
+    0x198: Mover('mkd_ef_bubble', (KEYS, 'bubble')),
 }
-BOUND_ON_PATH = Mover('bound', (PATH, LOOP), SPIN_DAMAGE, 0, SOLID, fixed=300 * PATH_UNITS)
-BULLET = Mover('NsKiller2', (PATH, RESTART), BLAST, 0, FACE_PATH, count=BULLETS, fixed=600 * PATH_UNITS)
-BURNER_ON_PATH = Mover('mkd_ef_burner', (PATH, BACK_AND_FORTH), SPIN_DAMAGE, PATH_UNITS, setting=3)  # sweeps along its path, always lit
+# What a kart that touches an object gets, by the game's reaction to it (mkds_objects.REACTION): (damage,
+# flags). 2 is a wall; 3 to 7 spin a kart; 8 knocks it away; 9 and 10 throw it; 11 crushes it; 12 bounces it.
+REACTIONS = {2: (0, SOLID), 3: (SPIN_DAMAGE, 0), 4: (SPIN_DAMAGE, 0), 5: (SPIN_DAMAGE, 0), 6: (SPIN_DAMAGE, 0), 7: (SPIN_DAMAGE, 0),
+             8: (SPIN_DAMAGE, SOLID), 9: (BLAST, 0), 10: (BLAST, 0), 11: (SQUISH, 0), 12: (0, SOLID)}
+# What an object brings that the game reacts to as another object: a sun's flares
+PART_REACTS = {'fireball2': 0x1ae}
+BOUND_ON_PATH = Mover('bound', (PATH, LOOP), None, 0, fixed=300 * PATH_UNITS)
+BULLET = Mover('NsKiller2', (PATH, RESTART), None, 0, FACE_PATH, count=BULLETS, fixed=600 * PATH_UNITS)
+BULLET_REACTS = 0x1a2
+BURNER_ON_PATH = Mover('mkd_ef_burner', (PATH, BACK_AND_FORTH), None, PATH_UNITS, setting=3)  # sweeps along its path, always lit
 TYRED = {'car_a', 'bus_a', 'truck_a'}
 SOLID_STILL = {'dram', 'test_cylinder', 'kanoke_64'}  # stays where it is and keeps its walls
 PENDULUM_BOB = (100, 100, 50), (0, -500, 0)  # half its hit box and where it is: only the weight hits
 # Hangs or flies where it is placed, by its own origin
-FLYING = {'FireBall', 'kamome', 'airship', 'sun', 'NsKiller2', 'mkd_ef_burner', 'teresa', 'basabasa', 'bakubaku', 'pukupuku', 'fireball2', 'kanoke_64', 'second_hand', 'pendulum', 'test_cylinder', 'gear_black', 'gear_white', 'rotary_room', 'rotary_bridge', 'flipper', 'dram', 'RainStar'}
+FLYING = {'mkd_ef_bubble', 'FireBall', 'kamome', 'airship', 'sun', 'NsKiller2', 'mkd_ef_burner', 'teresa', 'basabasa', 'bakubaku', 'pukupuku', 'fireball2', 'kanoke_64', 'second_hand', 'pendulum', 'test_cylinder', 'gear_black', 'gear_white', 'rotary_room', 'rotary_bridge', 'flipper', 'dram', 'RainStar'}
 HIT_SHARE = {'fireball2': 0.5}  # of its box: a ball is round
 ROUND_SHARE = 0.7  # the box of what is round or a picture
 HOP_HEIGHT = {'teresa': 24}  # MKDS units up
 FLIPPER_REST, FLIPPER_STROKE, FLIPPER_WAIT = 512, 660, 110  # 45 degrees; 58 degrees out in 29 ticks and back; ticks between, on average
+PIECE_MOST = 1900  # level units: the largest a model may be drawn, all of it at once (2040 is where it saturates)
+PIECE_CELL, PIECE_EDGE = 1600, 300  # how big a piece of a larger one is, and the longest edge of a polygon in it
 FLAT_SHARE = 0.11  # a model this thin for its size is a picture: MKDS turns it to the camera
 
 
@@ -148,16 +163,97 @@ def _colour_table(colours):
     return np.array(image)[0], [int(r) | int(g) << 8 | int(b) << 16 for r, g, b in palette]
 
 
+def _midpoint(a, b):
+    """The vertex half way along an edge: place, texture coordinate, colour and normal."""
+    def mix(p, q):
+        return None if p is None or q is None else tuple((np.array(p, float) + np.array(q, float)) / 2)
+    return (mix(a[0], b[0]), mix(a[1], b[1]), mix(a[2], b[2]), mix(a[3], b[3]))
+
+
+def tessellate(triangles, longest):
+    """Triangles cut in two across their longest edge until no edge is longer than `longest` (in the
+    triangles' own units). A model drawn close by loses whole polygons at the near plane, and the game
+    maps a texture across a polygon without perspective, so a big object drawn near needs small ones."""
+    out, todo = [], list(triangles)
+    while todo:
+        mi, tri = todo.pop()
+        edges = [np.linalg.norm(np.array(tri[(k + 1) % 3][0]) - np.array(tri[k][0])) for k in range(3)]
+        k = int(np.argmax(edges))
+        if edges[k] <= longest:
+            out.append((mi, tri))
+            continue
+        a, b, c = tri[k], tri[(k + 1) % 3], tri[(k + 2) % 3]
+        m = _midpoint(a, b)
+        todo += [(mi, [a, m, c]), (mi, [m, b, c])]
+    return out
+
+
+def chunks(triangles, lev_per_unit):
+    """A model too big for one instance, in pieces of it: the game holds a model's scale in 16 bits and
+    multiplies it by the instance's, and four times over for one near the camera, so a model over
+    PIECE_MOST level units is drawn squashed close up, or not at all. -> lists
+    of triangles, one per piece; one list when it fits."""
+    points = np.array([v[0] for _, tri in triangles for v in tri], float) * lev_per_unit
+    if np.ptp(points, axis=0).max() <= PIECE_MOST:
+        return [triangles]
+    unit = lev_per_unit
+    cut = tessellate(triangles, PIECE_EDGE / unit)
+    low, extent = points.min(0), np.ptp(points, axis=0)
+    cell = extent / np.maximum(np.ceil(extent / PIECE_CELL), 1) + 1e-6  # as few pieces as fit, of one size each way
+    cells = {}
+    for mi, tri in cut:
+        middle = np.mean([v[0] for v in tri], axis=0) * unit
+        cells.setdefault(tuple(np.floor((middle - low) / cell).astype(int)), []).append((mi, tri))
+    return [cells[k] for k in sorted(cells)]
+
+
 def build_model(name, triangles, materials, lev_per_unit, mirror=False, billboard=False, two_sided=False):
     """A CTR model of an MKDS model. triangles: (material index, [(pos, uv, colour, normal) * 3]) in MKDS
-    units. two_sided: seen from behind too. -> (ctr_items.ItemModel, half its size in level units as x, y,
-    z, the middle of it, what an instance's scale takes on, as a model scale is 16 bits, and its lowest
-    corner in level units)."""
+    units. two_sided: seen from behind too. -> (the
+    pieces, each (ctr_items.ItemModel, where its origin is from the object's, in level units at scale 1,
+    what an instance's scale takes on, as a model scale is 16 bits), half its size in level units as x, y,
+    z, the middle of it, and its lowest corner in level units). The pieces share their textures."""
     if two_sided:
         triangles = triangles + [(mi, tri[::-1]) for mi, tri in triangles]
-    points = np.array([v[0] for _, tri in triangles for v in tri], float) * lev_per_unit
     if mirror:
-        points[:, 0] = -points[:, 0]
+        triangles = [(mi, [((-v[0][0], v[0][1], v[0][2]), *v[1:]) for v in tri]) for mi, tri in triangles]
+    points = np.array([v[0] for _, tri in triangles for v in tri], float) * lev_per_unit
+    low, high = points.min(0), points.max(0)
+    extent = np.maximum(high - low, 1.0)
+    pieces = [triangles] if billboard else chunks(triangles, lev_per_unit)
+    turn = (0, 1, 2) if mirror else (0, 2, 1)  # the game's front faces wind the other way round
+
+    def folded_uv(mi, tri):
+        material = materials[mi]
+        sx, sy, tx, ty = material.texmtx
+        uv = np.array([tri[c][1] for c in turn], float) * (sx, sy) / (max(material.width, 1), max(material.height, 1)) - (tx, ty)  # its offset is in whole textures
+        repeats, flips = ((material.teximage >> 16) & 1, (material.teximage >> 17) & 1), ((material.teximage >> 18) & 1, (material.teximage >> 19) & 1)
+        return np.stack([fold(uv[:, axis], repeats[axis], flips[axis]) for axis in (0, 1)], 1)
+
+    every = [t for piece in pieces for t in piece]
+    used = sorted({mi for mi, _ in every})
+    tiles = {mi: [1, 1] for mi in used}
+    for mi, tri in every:
+        uv = folded_uv(mi, tri)
+        for axis in (0, 1):
+            tiles[mi][axis] = min(max(tiles[mi][axis], math.ceil(uv[:, axis].max() - UV_SLACK)), MAX_TILES)
+    images = {}
+    for mi in used:
+        material = materials[mi]
+        whole = tiled(image_of(material), tiles[mi], ((material.teximage >> 18) & 1, (material.teximage >> 19) & 1))
+        images[mi] = whole[::math.ceil(whole.shape[0] / MAX_HEIGHT), ::math.ceil(whole.shape[1] / MAX_WIDTH)]
+
+    built = []
+    for piece in pieces:
+        piece_points = np.array([v[0] for _, tri in piece for v in tri], float) * lev_per_unit
+        centre = np.zeros(3) if len(pieces) == 1 else np.round((piece_points.min(0) + piece_points.max(0)) / 2)
+        built.append((_piece_model(name, piece, piece_points - centre, materials, images, tiles, turn, billboard, folded_uv), centre))
+    return [(model, centre, up) for (model, up), centre in built], extent / 2, (low + high) / 2, low
+
+
+def _piece_model(name, triangles, points, materials, images, tiles, turn, billboard, folded_uv):
+    """One instance's model. points: its vertices in level units from its own origin. -> (ctr_items.ItemModel,
+    what an instance's scale takes on)."""
     low, high = points.min(0), points.max(0)
     extent = np.maximum(high - low, 1.0)
     scale_up = max(1, math.ceil(extent.max() * SCALE_ONE / 255 / MAX_MODEL_SCALE))
@@ -175,31 +271,18 @@ def build_model(name, triangles, materials, lev_per_unit, mirror=False, billboar
         table.append(0)
 
     used = sorted({mi for mi, _ in triangles})
-    turn = (0, 1, 2) if mirror else (0, 2, 1)  # the game's front faces wind the other way round
-    folded, tiles = [], {mi: [1, 1] for mi in used}
-    for mi, tri in triangles:
-        material = materials[mi]
-        sx, sy, tx, ty = material.texmtx
-        uv = np.array([tri[c][1] for c in turn], float) * (sx, sy) / (max(material.width, 1), max(material.height, 1)) - (tx, ty)  # its offset is in whole textures
-        repeats, flips = ((material.teximage >> 16) & 1, (material.teximage >> 17) & 1), ((material.teximage >> 18) & 1, (material.teximage >> 19) & 1)
-        uv = np.stack([fold(uv[:, axis], repeats[axis], flips[axis]) for axis in (0, 1)], 1)
-        folded.append(uv)
-        for axis in (0, 1):
-            tiles[mi][axis] = min(max(tiles[mi][axis], math.ceil(uv[:, axis].max() - UV_SLACK)), MAX_TILES)
-    images = {}
-    for mi in used:
-        material = materials[mi]
-        whole = tiled(image_of(material), tiles[mi], ((material.teximage >> 18) & 1, (material.teximage >> 19) & 1))
-        images[mi] = whole[::math.ceil(whole.shape[0] / MAX_HEIGHT), ::math.ceil(whole.shape[1] / MAX_WIDTH)]
-    layouts, commands, order = {}, [], []
+    layouts, commands, order, crowded = {}, [], [], []
     for n, (mi, tri) in enumerate(triangles):
         image = images[mi]
         h, w = image.shape[:2]
-        uv = folded[n] / tiles[mi]
+        uv = folded_uv(mi, tri) / tiles[mi]
         texels = np.clip(np.round(uv * (w, h)), 0, (w - 1, h - 1)).astype(int)
         key = (mi, *texels.ravel().tolist())
         if key not in layouts:
             if len(layouts) == MAX_LAYOUTS:
+                if not crowded:
+                    print(f'mover model {name}: over {MAX_LAYOUTS} texture layouts, the rest share the nearest')
+                    crowded.append(1)
                 key = min(layouts, key=lambda k: (k[0] != mi, sum(abs(a - b) for a, b in zip(k[1:], key[1:]))))
             else:
                 layouts[key] = len(layouts) + 1
@@ -247,7 +330,7 @@ def build_model(name, triangles, materials, lev_per_unit, mirror=False, billboar
         struct.pack_into('<I', blob, table_at + 4 * (index - 1), at)
         pointers.append(table_at + 4 * (index - 1))
         groups[key[0]]['layouts'].append(at)
-    return ctr_items.ItemModel(blob, sorted(pointers), [g for g in groups.values() if g['layouts']]), extent / 2, (low + high) / 2, scale_up, low
+    return ctr_items.ItemModel(blob, sorted(pointers), [g for g in groups.values() if g['layouts']]), scale_up
 
 
 def records(kind, speed, damage_flags, half, middle, base, mode_args, points):
@@ -259,7 +342,12 @@ def records(kind, speed, damage_flags, half, middle, base, mode_args, points):
     return rows
 
 
-def key_records(track, spec, half, middle, base, flags, to_lev, lev_unit, size):
+def reaction(object_id):
+    """(damage, flags) of a kart touching the object: REACTIONS of the game's own reaction to it."""
+    return REACTIONS.get(mkds_objects.REACTION.get(object_id, 0), (0, 0))
+
+
+def key_records(track, damage, half, middle, base, flags, to_lev, lev_unit, size):
     """A MOVER_KEYS list, from a mkds_motion.Track. half: the object's own hit box."""
     step = track.step
     keys = [[0, KEY_HIDDEN, 0] if p is None else [int(round(c)) for c in to_lev(p)] for p in track.ticks[::step]]
@@ -273,29 +361,46 @@ def key_records(track, spec, half, middle, base, flags, to_lev, lev_unit, size):
         half = np.full(3, track.hit * lev_unit) * np.abs(size)
         if not track.hit:
             middle = np.zeros(3)
-    damage = spec.damage if track.damage is None else track.damage
+    if track.damage is not None:
+        damage = track.damage
     args = (track.restart // step, track.lap_step, track.start // step)
     return records(KEYS, KEY_MS * step // 3, damage | flags, half, middle, base, args, grow + gates + keys), track.ticks
+
+
+def instances(pieces, pos, size, scale_up_size, listed, reach, name):
+    """One instance of each piece of a model (build_model), all on one record list: the first tests the
+    karts, the rest are drawn where they are from it."""
+    out = []
+    for n, (model, centre, up) in enumerate(pieces):
+        out.append({'model': model, 'pos': [int(round(c)) for c in pos], 'scale': [int(round(c * SCALE_ONE * up)) for c in scale_up_size], 'list': listed,
+                    'reach': reach, 'name': name, 'offset': [int(round(c)) for c in centre * size], 'drawn_only': n > 0})
+    return out
 
 
 def place(movers, model_index, halves, to_lev, lev_unit, rotate, settle, context):
     """-> (one entry per instance, the record lists). An object on a path that several share gets a start
     spaced along it; one on a centre, a phase round it. settle: a point -> that point on the ground there.
-    context: what mkds_motion's objects need of the course."""
+    context: what mkds_motion's objects need of the course. halves[model_index[key]]: (half its size, its
+    middle, its pieces, its lowest corner, whether it is a picture)."""
     placed, lists = [], []
     for mover in movers:
         spec, pos, rot, size = mover['spec'], mover['pos'], mover['rot'], mover['size']
         if spec.model is None:
             base = np.eye(3)
             for track in mkds_motion.tracks(spec.kind[1], mover, context):
-                listed, ticks = key_records(track, spec, np.zeros(3), CRATE_MIDDLE, base, 0, to_lev, lev_unit, np.ones(3))
+                listed, ticks = key_records(track, spec.damage, np.zeros(3), CRATE_MIDDLE, base, 0, to_lev, lev_unit, np.ones(3))
                 at = next(p for p in ticks if p is not None)
-                placed.append({'model': 'crate', 'pos': [int(round(c)) for c in to_lev(at)], 'scale': [SCALE_ONE] * 3, 'list': len(lists), 'reach': 64.0, 'name': 'crate'})
+                placed.append({'model': 'crate', 'pos': [int(round(c)) for c in to_lev(at)], 'scale': [SCALE_ONE] * 3, 'list': len(lists), 'reach': 64.0, 'name': 'crate',
+                               'offset': [0, 0, 0], 'drawn_only': False})
                 lists.append(listed)
             continue
-        half, middle, scale_up, low, flat = halves[model_index[mover['key']]]
+        half, middle, pieces, low, flat = halves[model_index[mover['key']]]
         base = np.eye(3) if flat and spec.kind[0] != ORBIT else np.array([rotate(np.array(axis, float), rot) for axis in np.eye(3)]).T
-        flags = spec.flags & ~(FACE_PATH | ROLL) if flat else spec.flags  # the game turns a picture itself
+        damage, solid = reaction(mover.get('reacts', mover['id']))
+        if spec.damage is not None:
+            damage = spec.damage
+        flags = spec.flags | (0 if spec.flags & CARRIES else solid)  # a floor a kart drives on is not a wall to push it off
+        flags = flags & ~(FACE_PATH | ROLL) if flat else flags  # the game turns a picture itself
         half, middle = half * np.abs(size), middle * size
         reach = float(half.max())
         if flat:
@@ -307,25 +412,24 @@ def place(movers, model_index, halves, to_lev, lev_unit, rotate, settle, context
             half = np.array(sides, float) * np.abs(size) * lev_unit
         if spec.model == 'pendulum':
             half, middle = np.array(PENDULUM_BOB[0], float) * np.abs(size) * lev_unit, np.array(PENDULUM_BOB[1], float) * size * lev_unit
-        if spec.damage == 0 and not spec.flags & (SOLID | CARRIES):
-            half = half * 0
+        if (damage == 0 and not flags & (SOLID | CARRIES)) or (known is not None and known.shape == 'none'):
+            half = half * 0  # the game never tests a kart against it
         setting = mover['settings'][spec.setting]
         speed = setting * spec.factor if setting and spec.factor else spec.fixed
         kind, args = spec.kind[0], spec.kind[1:]
         if kind == KEYS:
-            own_scale = [int(round(c * SCALE_ONE * scale_up)) for c in size]
             foot = -low[1] / lev_unit * size[1]
             for n, track in enumerate(mkds_motion.tracks(args[0], mover, {**context, 'foot': foot})):
-                model = model_index[(track.model, False)] if track.model else model_index[mover['key']]
                 other = track.model is not None
-                if other:
-                    other_half, other_middle, other_up, _, other_flat = halves[model]
-                    scale = [int(round(c * SCALE_ONE * other_up)) for c in (size if track.hit == 0 else np.ones(3))]
-                else:
-                    scale = own_scale
-                listed, ticks = key_records(track, spec, half, middle, base, flags, to_lev, lev_unit, size)
+                own = halves[model_index[(track.model, False)]] if other else halves[model_index[mover['key']]]
+                track_damage, track_flags = damage, flags
+                if other and track.model in PART_REACTS:
+                    track_damage, part_solid = reaction(PART_REACTS[track.model])
+                    track_flags = (flags & ~SOLID) | part_solid
+                listed, ticks = key_records(track, track_damage, half, middle, base, track_flags, to_lev, lev_unit, size)
                 at = next(p for p in ticks if p is not None)
-                placed.append({'model': model, 'pos': [int(round(c)) for c in to_lev(at)], 'scale': scale, 'list': len(lists), 'reach': reach, 'name': track.model or spec.model})
+                drawn = size if not other or track.hit == 0 else np.ones(3)
+                placed += instances(own[2], to_lev(at), np.ones(3) if other and track.hit != 0 else size, drawn, len(lists), reach, track.model or spec.model)
                 lists.append(listed)
             continue
         standing = spec.model not in FLYING
@@ -368,6 +472,9 @@ def place(movers, model_index, halves, to_lev, lev_unit, rotate, settle, context
                 mode_args = (args[0], 0, (hash_phase(pos) % args[0]))
                 points = [way * lev_unit]
                 at = (settle(pos) if standing else pos) + lift
+            elif kind == STILL:
+                mode_args = (0, 0, 0)
+                at = (settle(pos) if standing else pos) + lift
             else:
                 # hoops a kart goes through: s0 balls a hoop, s3 + 1 hoops, s1 the outer radius, s2 their speed
                 per_ring, rings = max(settings[0], 1), settings[3] + 1
@@ -375,8 +482,8 @@ def place(movers, model_index, halves, to_lev, lev_unit, rotate, settle, context
                 period = int(65536 * 100 * 1000 / (max(settings[2], 1) * 364 * TICKS))
                 mode_args = (int(radius * lev_unit), period, period * (i % per_ring) // per_ring)
                 at = pos + lift
-            placed.append({'model': model_index[mover['key']], 'pos': [int(round(c)) for c in to_lev(at)], 'scale': [int(round(c * SCALE_ONE * scale_up)) for c in size], 'list': len(lists), 'reach': reach, 'name': spec.model})
-            lists.append(records(kind, speed, spec.damage | flags, half, middle, base, mode_args, points))
+            placed += instances(pieces, to_lev(at), size, size, len(lists), reach, spec.model)
+            lists.append(records(kind, speed, damage | flags, half, middle, base, mode_args, points))
             if spec.model == 'NsKiller1':
                 parent = len(lists) - 1
                 start = pos + (0.0, BULLET_UP, 0.0)
@@ -384,8 +491,9 @@ def place(movers, model_index, halves, to_lev, lev_unit, rotate, settle, context
                 flight = [to_lev(start + way * n) for n in range(BULLETS + 1)]
                 bullet_half = np.array([15.0, 15.0, 15.0]) * lev_unit
                 for n in range(BULLETS):
-                    placed.append({'model': model_index[mover['bullet']], 'pos': [int(round(c)) for c in flight[n]], 'scale': [SCALE_ONE] * 3, 'list': len(lists), 'reach': 200.0, 'name': BULLET.model})
-                    lists.append(records(PATH, BULLET.fixed, BULLET.damage | BULLET.flags, bullet_half, np.zeros(3), base, (RESTART, n, parent + 1), flight))
+                    placed += instances(halves[model_index[mover['bullet']]][2], flight[n], np.ones(3), np.ones(3), len(lists), 200.0, BULLET.model)
+                    bullet_damage, bullet_solid = reaction(BULLET_REACTS)
+                    lists.append(records(PATH, BULLET.fixed, bullet_damage | BULLET.flags | bullet_solid, bullet_half, np.zeros(3), base, (RESTART, n, parent + 1), flight))
     return placed, lists
 
 

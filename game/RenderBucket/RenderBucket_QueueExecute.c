@@ -2756,6 +2756,17 @@ static int RenderBucket_CheckProjectedPrim(struct RenderBucketDrawContext *ctx, 
 		return 0;
 	}
 
+#ifdef CTR_NATIVE
+	// A converted track's mover can be big enough to reach past the camera, which no
+	// retail model does: a corner nearer than half the projection distance (GTE divide
+	// overflow) projects to the edge of the screen, a spike across the view. Its
+	// polygons are small (tools/tracks/mkds_movers.py, PIECE_EDGE), so it loses that one.
+	if (((gteFlag & (1u << 17)) != 0) && (ctx->inst != NULL) && (ctx->inst->instDef != NULL) && (ctx->inst->instDef->modelID == CONVERTED_MOVER_ID))
+	{
+		return 0;
+	}
+#endif
+
 	if ((s32)(command << 3) < 0)
 	{
 		int opZ;

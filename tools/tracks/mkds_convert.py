@@ -19,7 +19,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ctr_items, nds, nitro3d, mkdsmap, mkds_movers, mkds_objects, mkds_view, lev_patch, package, track_picture, winding_check
 
 PICTURE_BACK, PICTURE_UP, PICTURE_AHEAD = 220, 150, 3  # MKDS units, and points of the route
-TYRE_AT = 0.2  # of a length, from each end
+# A vehicle's tyres, from its object's config (0x21589a8 car, 0x2158a18 bus, 0x21589e0 truck): the axle's
+# width, its height and how far before and behind the middle it is, in world units, and its size
+TYRES = {'car_a': (12.3, 4.2, 11.0, 1.0), 'bus_a': (22.2, 7.5, 31.0, 2.0), 'truck_a': (13.6, 4.7, 20.0, 1.2)}
 MODEL_TO_WORLD = 16.0  # course models are drawn 16 times larger than their stored size
 
 # Quadblock flags by the game's own names (include/namespace_Level.h). CrashTeamEditor's labels
@@ -42,7 +44,7 @@ TURNED_COS = 0.9  # about 25 degrees
 COLLISION = {
     0x00: ('col_road', 'Asphalt', _ROAD, True),
     0x01: ('col_road', 'Asphalt', _ROAD, True),
-    0x06: ('col_road', 'Asphalt', _ROAD, True),
+    0x06: ('col_soft', 'Mud', _ROAD, True),  # deep mud: Luigi's Mansion's bog, SNES Choco Island 2's
     0x0d: ('col_road', 'Asphalt', _ROAD, True),
     0x14: ('col_road', 'Asphalt', _ROAD, True),
     0x02: ('col_grass', 'Grass', _ROAD, True),
@@ -76,7 +78,7 @@ WIDE_ROUGH = 7  # mean colour error of 16 colours past which a wide texture give
 BLEND_ALPHA = 24  # of 31: a surface MKDS draws this see-through or more blends here, half and half: the only mix a level has
 ALPHA_SOLID = 200  # a level texel is solid or clear: only a texel nearly solid in MKDS is solid here
 OVERLAY_MIN_ALPHA, OVERLAY_SHARE = 16, 0.02  # a decal on the floor: its texels this faint are clear, and this many of them lie between
-OVERLAY_GAP, OVERLAY_LIFT = 12, 1.0  # MKDS units: how far over the floor it lies, and how far it rises off it
+OVERLAY_GAP, OVERLAY_LIFT = 12, 3.0  # MKDS units: how far over the floor it lies, and how far it rises off it
 # (Waluigi Pinball's floor) drawn solid is hard blocks of colour
 SLIVER_WIDTH = 3  # LEV units: thinner than this, the grid turns a collision triangle's pieces any way
 MAX_VERTICES = 65000  # quadblocks index vertices with 16 bits; a little under, as the OBJ's count is close, not exact
@@ -858,11 +860,14 @@ STACKED = {0x19d: [(SNOWMAN_HEAD, 19)], 0x1b2: [(POKEY_BODY, 40), (POKEY_BODY, 6
 SCENERY.update({SNOWMAN_HEAD: 'sman_top', POKEY_BODY: 'sanbo_b', POKEY_HEAD: 'sanbo_h', PIRANHA_HEAD: 'PakkunZHead'})
 # A Pokey walks its path as one, and a fire plant's shots run along its own
 POKEY_OBJECT = 0x1b2
-POKEY_MOVER = mkds_movers.Mover('sanbo_b', (mkds_movers.PATH, mkds_movers.BACK_AND_FORTH), mkds_movers.SPIN_DAMAGE, 3)
+POKEY_MOVER = mkds_movers.Mover('sanbo_b', (mkds_movers.PATH, mkds_movers.BACK_AND_FORTH), None, 3)
 POKEY_PARTS = {POKEY_BODY: POKEY_MOVER, POKEY_HEAD: POKEY_MOVER._replace(model='sanbo_h')}
 FIRE_PLANT, FIRE_PLANT_SHOTS = 0x1aa, ('FireBall',)
-FIRE_PLANT_MOVER = mkds_movers.Mover('FireBall', (mkds_movers.KEYS, 'fire_plant'), mkds_movers.SPIN_DAMAGE)
+FIRE_PLANT_MOVER = mkds_movers.Mover('FireBall', (mkds_movers.KEYS, 'fire_plant'))
 CHAIN_CHOMPS = {0x196, 0x1a5}
+# What a kart hitting it gets is the game's reaction to another object: bats are let out by their spawners,
+# a fire plant's shot and a Pokey's parts are of the object they belong to (mkds_objects.REACTION)
+REACTS_AS = {0x1a0: 0x19f, 0x19e: 0x19f, FIRE_PLANT_SHOT: 0x1ab, POKEY_BODY: POKEY_OBJECT, POKEY_HEAD: POKEY_OBJECT, SNOWMAN_HEAD: 0x19d}
 SUN = 0x1ad
 FLARE_MODEL, FLARE_COURSE = 'fireball2', 'stadium_course'  # a sun's flares are effects with no model: Wario Stadium's fire stands in
 BOUND = 0x1a8
@@ -892,6 +897,9 @@ GROUNDED_STILL = {'wanwan': 28, 'rock': 28, 'rock2': 28, 'bound': 10}  # how far
 # cogs carry the road over a pit, in no collision of the course's own, and Bowser Castle's turning
 # room is the floor of its first hall.
 FLOOR_OBJECTS = {0xcb: 300, 0xd0: 472}
+# Tick-Tock Clock's two upright wheels at its end, which a kart may drive onto: their radius and thickness,
+# from the object's own collision (0x20e0764)
+WHEELS = {0xce: (299, 50)}
 FLOOR_MODELS = {}
 # Delfino Square's drawbridge, which rises and falls in MKDS: its two halves stand a little open, each
 # a ramp of dash panels that throws a kart over the top. Each half's own width and length, and the
@@ -953,6 +961,39 @@ def disc(pos, radius, others):
 
 
 TURNING_ROAD = 1 << 16  # on a KCL triangle's attribute: static collision under a mover that draws it
+WHEEL_SIDES = 32
+
+
+def wheel(top, axis, radius, thickness):
+    """A wheel turning on its axis, as KCL triangles: its rim, road where it faces up and wall where it
+    faces sideways, and its two flat faces as walls. Turning about its axis it keeps its shape, so static
+    collision holds it while its model turns (MKDS: 0x20e0764, the top face at the object's position)."""
+    axis = axis / np.linalg.norm(axis)
+    side = np.cross(axis, (0.0, 1.0, 0.0) if abs(axis[1]) < 0.9 else (1.0, 0.0, 0.0))
+    side /= np.linalg.norm(side)
+    other = np.cross(axis, side)
+    bottom = top - axis * thickness
+    ring = [math.cos(2 * math.pi * i / WHEEL_SIDES) * side + math.sin(2 * math.pi * i / WHEEL_SIDES) * other for i in range(WHEEL_SIDES)]
+    tris = []
+
+    def face(a, b, c, outward, kind):
+        n = np.cross(b - a, c - a)
+        if np.dot(n, outward) < 0:
+            b, c, n = c, b, -n
+        tris.append((a, b, c, n / max(np.linalg.norm(n), 1e-9), kind << 8))
+
+    for i in range(WHEEL_SIDES):
+        r0, r1 = ring[i], ring[(i + 1) % WHEEL_SIDES]
+        out = (r0 + r1) / 2
+        if out[1] < -0.5:
+            continue  # its underside is never reached
+        kind = KCL_ROAD if out[1] > 0.5 else KCL_WALL
+        a, b, c, d = bottom + r0 * radius, bottom + r1 * radius, top + r1 * radius, top + r0 * radius
+        face(a, b, c, out, kind)
+        face(a, c, d, out, kind)
+        face(top, top + r0 * radius, top + r1 * radius, axis, KCL_WALL)
+        face(bottom, bottom + r1 * radius, bottom + r0 * radius, -axis, KCL_WALL)
+    return tris
 
 
 def turning(triangles):
@@ -1084,21 +1125,19 @@ class LayeredWater:
         return out
 
 
-def with_tyres(arc, triangles, materials):
-    """A vehicle's model with its tyres: MKDS draws them as a model of their own, turning."""
+def with_tyres(arc, name, triangles, materials):
+    """A vehicle's model with its tyres. MKDS draws one car_tire model, an axle, twice under the body: at
+    (0, height, +along) and (0, height, -along), stretched across by width and grown by size (TYRES)."""
     tyre = nitro3d.Model(arc['MapObj/car_tire.nsbmd'])
     tex0 = nitro3d.load_tex0(arc['MapObj/car_tire.nsbmd'])
     for m in tyre.mats:
         m.tex0 = tex0
         m.texmtx = TYRE_TEXTURE
-    points = np.array([v[0] for _, tri in triangles for v in tri])
-    low, high = points.min(0), points.max(0)
-    radius = np.ptp([v[0][1] for _, tri in tyre.triangles() for v in tri]) * MODEL_TO_WORLD / 2
+    width, height, along, size = TYRES[name]
     first, out = len(materials), list(triangles)
-    for x in (low[0], high[0]):
-        for z in (low[2] + (high[2] - low[2]) * TYRE_AT, high[2] - (high[2] - low[2]) * TYRE_AT):
-            at = np.array([x, low[1] + radius, z])
-            out += [(first + mi, [(tuple(np.array(v[0]) * MODEL_TO_WORLD + at), v[1], v[2], v[3]) for v in tri]) for mi, tri in tyre.triangles()]
+    for z in (along, -along):
+        at = np.array([0.0, height, z])
+        out += [(first + mi, [(tuple(np.array(v[0]) * MODEL_TO_WORLD * (width, size, size) + at), v[1], v[2], v[3]) for v in tri]) for mi, tri in tyre.triangles()]
     return out, list(materials) + list(tyre.mats)
 
 
@@ -1387,7 +1426,10 @@ class Course:
             if moves and name not in mkds_movers.SOLID_STILL:
                 continue
             low, high = self.bake(arc, name, place, mirror=mirror, draw=not moves)
-            if solid:
+            if object_id in WHEELS:
+                radius, thickness = WHEELS[object_id]
+                self.kcl += turning(wheel(pos, rotate(np.array([0.0, 1.0, 0.0]), rot), radius * size[0], thickness * size[1]))
+            elif solid:
                 corners = [np.array([x, y, z]) for y in (low[1], high[1]) for x, z in ((low[0], low[2]), (high[0], low[2]), (high[0], high[2]), (low[0], high[2]))]
                 self.kcl += box_walls([place(c) for c in corners])
 
@@ -1429,7 +1471,7 @@ class Course:
                         m.tex0 = tex0
                     tris = [(mi, [(tuple(np.array(v[0]) * MODEL_TO_WORLD), v[1], v[2], v[3]) for v in tri]) for mi, tri in model.triangles(lit=True)]
                     if spec.model in mkds_movers.TYRED:
-                        tris, mats = with_tyres(arc, tris, model.mats)
+                        tris, mats = with_tyres(arc, spec.model, tris, model.mats)
                     else:
                         mats = model.mats
                     self.mover_models[key] = (mats, tris)
@@ -1441,7 +1483,8 @@ class Course:
                     self.load_part_model('wanwan_chain', arc)
                 if part == SUN:
                     self.load_part_model(FLARE_MODEL, self.flare_arc)
-                self.movers.append({'bullet': bullet, 'key': key, 'spec': spec, 'pos': pos + (0.0, over * size[1], 0.0), 'rot': rot, 'size': size, 'path': path, 'settings': settings, 'over': over, 'id': part})
+                self.movers.append({'bullet': bullet, 'key': key, 'spec': spec, 'pos': pos + (0.0, over * size[1], 0.0), 'rot': rot, 'size': size, 'path': path, 'settings': settings, 'over': over, 'id': part,
+                                    'reacts': REACTS_AS.get(part, part)})
 
     def load_part_model(self, name, arc):
         """A model an object brings with it: a cannon's shot, a chain's link."""
@@ -1576,15 +1619,24 @@ def convert(course, out_dir, name, scale, max_edge, crate, fruit_crate, vram_sha
     item_images = [g['image'] for g in crate.groups] + [map_image]
     lev_unit = scale * 64
     first_mover_image = len(item_images)
-    mover_models, mover_halves, mover_index = [], [], {}
+    mover_models, mover_halves, mover_index, images_in = [], [], {}, set()
     for key, (mats, tris) in course.mover_models.items():
         billboard = mkds_movers.is_flat([v[0] for _, tri in tris for v in tri])
         two_sided = any((m.polygon_attr >> 6) & 1 for m in mats)  # a picture may be wound away from the camera it turns to
-        model, *size = mkds_movers.build_model(key[0], tris, mats, lev_unit, key[1], billboard, two_sided)
-        mover_index[key] = len(mover_models)
-        mover_models.append(model)
-        mover_halves.append((*size, billboard))
-        item_images += [g['image'] for g in model.groups]
+        # built at its largest placed size, so no instance scales it up: the game multiplies a model's
+        # scale by its instance's in 16 bits, and a big one overflows (Waluigi Pinball's bumpers are 10 times)
+        largest = max([float(np.abs(m['size']).max()) for m in course.movers if m['key'] == key] + [1.0])
+        grown = [(mi, [(tuple(np.array(v[0]) * largest), *v[1:]) for v in tri]) for mi, tri in tris]
+        pieces, half, middle, low = mkds_movers.build_model(key[0], grown, mats, lev_unit, key[1], billboard, two_sided)
+        mover_index[key] = len(mover_halves)
+        mover_halves.append((half / largest, middle / largest, [(len(mover_models) + n, centre / largest, up / largest) for n, (_, centre, up) in enumerate(pieces)],
+                             low / largest, billboard))
+        for model, _, _ in pieces:
+            mover_models.append(model)
+            for g in model.groups:
+                if id(g['image']) not in images_in:  # the pieces of a model share its textures
+                    images_in.add(id(g['image']))
+                    item_images.append(g['image'])
     course.mover_items = mover_models
     if course.wood_boxes:
         item_images += [g['image'] for g in fruit_crate.groups]

@@ -511,6 +511,8 @@ int NativeDev_ModsTab(void)
 	return NativeDev_EnvInt("CTR_DEV_MODS", 0);
 }
 
+static int NativeDevRam_Pad(unsigned short *buttons, unsigned char *leftX);
+
 #define AUTOPILOT_MOST_CUT 160 // level units the line may stray from a straight to the point aimed at
 
 // Steer toward a nav point ahead on one of the AI's lines, with the throttle
@@ -524,6 +526,8 @@ int NativeDev_AutopilotPad(int player, unsigned short *buttons, unsigned char *l
 	struct GameTracker *gGT = sdata->gGT;
 	struct Driver *d;
 
+	if ((player == 0) && NativeDevRam_Pad(buttons, leftX))
+		return 1;
 	if ((player == 0) && NativeDev_ScriptedPad(dev->autopilot, buttons, leftX))
 		return 1;
 
@@ -993,6 +997,286 @@ void NativeDev_RaceWriteKartLog(const char *path)
 	fclose(f);
 }
 
+// CTR_DEV_RAM=<log>: player 1 drives into each moving object of a converted track
+// in turn, from the road behind it, and the log gets a line for each: what the
+// object did to the kart (tools/tracks/ram_check.py). An object's own hit code
+// reports what it did through NativeDev_MoverHit.
+#define RAM_MOST 512
+#define RAM_SETTLE_MS 1500 // of race time before the first, for every object to have a place
+#define RAM_HOLD_MS 2500 // at rest first, past the grace a hit gives (Mover.c, MOVER_HIT_GRACE)
+#define RAM_AFTER_MS 700 // driving on after a hit, to see what the kart does
+#define RAM_DRIVE_MS 6000 // mud, or a hand that comes round, takes a while
+#define RAM_BACK 500 // level units behind it along the road that the kart starts, past its own hit box
+#define RAM_STAGGER_MS 900 // longer at rest each try: a Monty Mole is not met at the same point of its round again
+#define RAM_PAST 300 // and past it that it has gone through
+#define RAM_UP 40
+#define RAM_TRIES 3
+#define RAM_MOVING 2 // level units a frame: faster than that, the kart meets it head-on in its path
+
+typedef struct
+{
+	int seen;
+	int pos[3];
+	int vel[3]; // from its last place, a frame
+	int events;
+} NativeDevRamTarget;
+
+static NativeDevRamTarget s_ram[RAM_MOST];
+static struct
+{
+	int loaded;
+	FILE *log;
+	const struct Level *level;
+	int target; // the list being rammed, -1 none yet
+	int phaseMS;
+	int dir[2]; // the road's way at it, 4096 long
+	int start[3]; // a point of the AI's line about back before it
+	int back;     // RAM_BACK past its hit box
+	int holdMS;   // RAM_HOLD_MS, and RAM_STAGGER_MS more each try
+	int above;    // how far over the kart it was when the kart came nearest
+	int worstState, nearest, passed;
+	int anyEvents; // from any object while this one is rammed: a Pokey's lowest part hits for its upper ones
+	int eventMS;   // when the first was
+	int tries;     // a moving one is missed now and then: again, up to RAM_TRIES
+	int done;
+} s_ramRun;
+
+static int NativeDevRam_On(void)
+{
+	if (!s_ramRun.loaded)
+	{
+		const char *path = getenv("CTR_DEV_RAM");
+		s_ramRun.loaded = 1;
+		s_ramRun.log = (path != NULL) ? fopen(path, "w") : NULL;
+		s_ramRun.target = -1;
+	}
+	return s_ramRun.log != NULL;
+}
+
+void NativeDevRam_Mover(int list, int x, int y, int z)
+{
+	if (!NativeDevRam_On() || (list < 0) || (list >= RAM_MOST))
+		return;
+	if (s_ram[list].seen)
+	{
+		s_ram[list].vel[0] = x - s_ram[list].pos[0];
+		s_ram[list].vel[1] = y - s_ram[list].pos[1];
+		s_ram[list].vel[2] = z - s_ram[list].pos[2];
+	}
+	s_ram[list].seen = 1;
+	s_ram[list].pos[0] = x;
+	s_ram[list].pos[1] = y;
+	s_ram[list].pos[2] = z;
+}
+
+void NativeDev_MoverHit(int list, int driver, int what)
+{
+	if ((driver == 0) && (list >= 0) && (list < RAM_MOST))
+	{
+		s_ram[list].events |= what;
+		if (s_ramRun.anyEvents == 0)
+			s_ramRun.eventMS = s_ramRun.phaseMS;
+		s_ramRun.anyEvents |= what;
+	}
+}
+
+// Whether that list's object does anything to a kart: a hit box (Mover.c's record 1),
+// and a damage or the solid flag (record 0's z), not a floor that only carries karts.
+static int NativeDevRam_Hits(const struct GameTracker *gGT, int list)
+{
+	const SVec3 *records;
+
+	if ((gGT->level1 == NULL) || (list >= gGT->level1->numSpawnType2))
+		return 0;
+	records = gGT->level1->ptrSpawnType2[list].coords.positions;
+	return (records[1].x != 0) && (((u16)records[0].z & 0x10ff) != 0);
+}
+
+// The road's heading at a place: the nearest point of the AI's first lane, to the next;
+// and where the kart starts: the point of that lane about back before it, on the road.
+static void NativeDevRam_RoadWay(const int pos[3], int dir[2])
+{
+	struct NavHeader *nh = sdata->NavPath_ptrHeader[0];
+	dir[0] = 0;
+	dir[1] = 4096;
+	s_ramRun.start[0] = pos[0];
+	s_ramRun.start[1] = pos[1];
+	s_ramRun.start[2] = pos[2] - s_ramRun.back;
+	if ((nh == NULL) || (nh->numPoints <= 1))
+		return;
+	struct NavFrame *frames = NAVHEADER_GETFRAME(nh);
+	int best = 0;
+	long long bestDist = -1;
+	for (int i = 0; i < nh->numPoints; i++)
+	{
+		long long dx = frames[i].pos.x - pos[0], dy = frames[i].pos.y - pos[1], dz = frames[i].pos.z - pos[2];
+		long long dist = dx * dx + dy * dy + dz * dz;
+		if ((bestDist < 0) || (dist < bestDist))
+		{
+			bestDist = dist;
+			best = i;
+		}
+	}
+	for (int k = 1; k < nh->numPoints; k++)
+	{
+		const struct NavFrame *f = &frames[(best - k + nh->numPoints) % nh->numPoints];
+		const double fx = f->pos.x - pos[0], fz = f->pos.z - pos[2];
+		if ((fx * fx + fz * fz >= (double)s_ramRun.back * s_ramRun.back) || (k == nh->numPoints - 1))
+		{
+			s_ramRun.start[0] = f->pos.x;
+			s_ramRun.start[1] = f->pos.y;
+			s_ramRun.start[2] = f->pos.z;
+			break;
+		}
+	}
+	const struct NavFrame *a = &frames[best], *b = &frames[(best + 1) % nh->numPoints];
+	const double dx = b->pos.x - a->pos.x, dz = b->pos.z - a->pos.z, length = sqrt(dx * dx + dz * dz);
+	if (length > 0)
+	{
+		dir[0] = (int)(dx / length * 4096);
+		dir[1] = (int)(dz / length * 4096);
+	}
+}
+
+// A moving one is met head-on: the kart starts back ahead of it on its way,
+// and "through" is past it along the line the kart drove.
+static int NativeDevRam_HeadOn(const NativeDevRamTarget *t)
+{
+	const double vx = t->vel[0], vz = t->vel[2], speed = sqrt(vx * vx + vz * vz);
+	if ((speed < RAM_MOVING) || (speed > s_ramRun.back))
+		return 0;
+	s_ramRun.start[0] = t->pos[0] + (int)(vx / speed * s_ramRun.back);
+	s_ramRun.start[1] = t->pos[1];
+	s_ramRun.start[2] = t->pos[2] + (int)(vz / speed * s_ramRun.back);
+	s_ramRun.dir[0] = (int)(-vx / speed * 4096);
+	s_ramRun.dir[1] = (int)(-vz / speed * 4096);
+	return 1;
+}
+
+static void NativeDevRam_Report(int list)
+{
+	const NativeDevRamTarget *t = &s_ram[list];
+	fprintf(s_ramRun.log, "ram %d events %d state %d nearest %d passed %d at %d %d %d any %d above %d\n", list, t->events, s_ramRun.worstState,
+	        s_ramRun.nearest, s_ramRun.passed, t->pos[0], t->pos[1], t->pos[2], s_ramRun.anyEvents, s_ramRun.above);
+	fflush(s_ramRun.log);
+}
+
+static void NativeDevRam_Frame(NativeDevRaceState *dev, struct GameTracker *gGT, struct Driver *d)
+{
+	if (!NativeDevRam_On() || s_ramRun.done || (d == NULL) || (gGT->trafficLightsTimer > 0) || (dev->raceClock < RAM_SETTLE_MS))
+		return;
+
+	if (s_ramRun.level != gGT->level1)
+	{
+		s_ramRun.level = gGT->level1;
+		s_ramRun.target = -1;
+	}
+
+	s_ramRun.phaseMS += gGT->elapsedTimeMS;
+	if (s_ramRun.target >= 0)
+	{
+		NativeDevRamTarget *t = &s_ram[s_ramRun.target];
+		const int kx = d->posCurr.x >> 8, kz = d->posCurr.z >> 8;
+		const int dx = kx - t->pos[0], dz = kz - t->pos[2];
+		const int along = (dx * s_ramRun.dir[0] + dz * s_ramRun.dir[1]) >> 12;
+		const int dist = (int)sqrt((double)dx * dx + (double)dz * dz);
+
+		if (s_ramRun.phaseMS < s_ramRun.holdMS)
+		{
+			// at rest on the road behind it, or in its way, facing it
+			NativeDevRam_HeadOn(t);
+			d->posCurr.x = d->posPrev.x = s_ramRun.start[0] << 8;
+			d->posCurr.y = d->posPrev.y = (s_ramRun.start[1] + RAM_UP) << 8;
+			d->posCurr.z = d->posPrev.z = s_ramRun.start[2] << 8;
+			d->velocity.x = d->velocity.y = d->velocity.z = 0;
+			d->xSpeed = d->ySpeed = d->zSpeed = 0;
+			d->speed = d->speedApprox = 0;
+			d->angle = (s16)(ratan2(t->pos[0] - s_ramRun.start[0], t->pos[2] - s_ramRun.start[2]) & 0xfff);
+			d->lastValid = NULL;
+			d->distanceToFinish_checkpoint = 0;
+			t->events = 0;
+			s_ramRun.anyEvents = 0;
+			s_ramRun.worstState = 0;
+			s_ramRun.nearest = 0x7fffffff;
+			s_ramRun.passed = 0;
+			return;
+		}
+
+		if ((d->kartState != KS_NORMAL) && (d->kartState != KS_DRIFTING) && (d->kartState != KS_ENGINE_REVVING) && (s_ramRun.worstState == 0))
+			s_ramRun.worstState = d->kartState;
+		if (dist < s_ramRun.nearest)
+		{
+			s_ramRun.nearest = dist;
+			s_ramRun.above = t->pos[1] - (d->posCurr.y >> 8);
+		}
+		if (along > RAM_PAST)
+			s_ramRun.passed = 1;
+		if ((s_ramRun.phaseMS < s_ramRun.holdMS + RAM_DRIVE_MS) && !s_ramRun.passed && (s_ramRun.anyEvents == 0))
+			return;
+		if ((s_ramRun.anyEvents != 0) && (s_ramRun.phaseMS < s_ramRun.eventMS + RAM_AFTER_MS))
+			return;
+		if ((s_ramRun.anyEvents == 0) && (++s_ramRun.tries < RAM_TRIES))
+		{
+			s_ramRun.phaseMS = 0;
+			s_ramRun.holdMS += RAM_STAGGER_MS;
+			NativeDevRam_RoadWay(t->pos, s_ramRun.dir);
+			if (s_ramRun.tries == RAM_TRIES - 1)
+			{
+				// the AI's line may pass it on another level: straight back from it, at its height
+				s_ramRun.start[0] = t->pos[0] - ((s_ramRun.back * s_ramRun.dir[0]) >> 12);
+				s_ramRun.start[1] = t->pos[1];
+				s_ramRun.start[2] = t->pos[2] - ((s_ramRun.back * s_ramRun.dir[1]) >> 12);
+			}
+			return;
+		}
+		NativeDevRam_Report(s_ramRun.target);
+	}
+
+	// the next object that can touch a kart
+	int next = s_ramRun.target + 1;
+	while ((next < RAM_MOST) && !(s_ram[next].seen && NativeDevRam_Hits(gGT, next)))
+		next++;
+	if (next >= RAM_MOST)
+	{
+		fprintf(s_ramRun.log, "done\n");
+		fflush(s_ramRun.log);
+		s_ramRun.done = 1;
+		return;
+	}
+	s_ramRun.target = next;
+	s_ramRun.phaseMS = 0;
+	s_ramRun.tries = 0;
+	s_ramRun.holdMS = RAM_HOLD_MS;
+	{
+		const SVec3 *half = &gGT->level1->ptrSpawnType2[next].coords.positions[1];
+		s_ramRun.back = RAM_BACK + ((half->x > half->z) ? half->x : half->z);
+	}
+	NativeDevRam_RoadWay(s_ram[next].pos, s_ramRun.dir);
+}
+
+// While ramming, player 1 holds the throttle and steers at the object.
+static int NativeDevRam_Pad(unsigned short *buttons, unsigned char *leftX)
+{
+	struct Driver *d = NativeDevRace_Player(0);
+	if (!NativeDevRam_On() || s_ramRun.done || (s_ramRun.target < 0) || (d == NULL))
+		return 0;
+	const NativeDevRamTarget *t = &s_ram[s_ramRun.target];
+	const int want = ratan2(t->pos[0] - (d->posCurr.x >> 8), t->pos[2] - (d->posCurr.z >> 8)) & 0xfff;
+	const int err = ((want - (d->angle & 0xfff) + 0x800) & 0xfff) - 0x800;
+	int steer = -err / 3;
+	if (steer > 0)
+		steer += 40;
+	if (steer < 0)
+		steer -= 40;
+	if (steer > 127)
+		steer = 127;
+	if (steer < -127)
+		steer = -127;
+	*buttons = (unsigned short)~RAW_BTN_CROSS;
+	*leftX = (unsigned char)(0x80 + steer);
+	return 1;
+}
+
 void NativeDev_RaceFrame(void)
 {
 	NativeDevRaceState *dev = NativeDevRace_State();
@@ -1043,6 +1327,7 @@ void NativeDev_RaceFrame(void)
 	// demo's player 1) do not count their own timeElapsedInRace.
 	if (gGT->trafficLightsTimer <= 0)
 		dev->raceClock += gGT->elapsedTimeMS;
+	NativeDevRam_Frame(dev, gGT, d);
 
 	if ((dev->driverDumpPath != NULL) && (dev->driverDump == NULL))
 		dev->driverDump = fopen(dev->driverDumpPath, "wb");

@@ -31,9 +31,9 @@ def main():
     placed = json.load(open(sys.argv[1]))
     lines, views, seen = [], [], set()
     for mover in placed['movers']:
-        if mover['model'] in seen:
+        if mover['name'] in seen or mover.get('drawn_only'):  # one of each model, by its first piece
             continue
-        seen.add(mover['model'])
+        seen.add(mover['name'])
         records = placed['mover_lists'][mover['list']]
         base = [[c / TURN for c in row] for row in records[3:6]]
         middle = [sum(a * b for a, b in zip(row, records[6])) for row in base]
