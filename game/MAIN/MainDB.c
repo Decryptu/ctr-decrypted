@@ -81,3 +81,14 @@ void MainDB_OTMem(struct OTMem *otMem, u32 sizeInput)
 	end = allocation + size;
 	otMem->end = (u32 *)end;
 }
+
+#if defined(CTR_NATIVE)
+// MainDB_OTMem over a buffer the caller owns instead of a MEMPACK allocation.
+void MainDB_OTMemAt(struct OTMem *otMem, void *buffer, u32 size)
+{
+	otMem->capacityBytes = size;
+	otMem->cursor = (u32 *)buffer;
+	otMem->start = (u32 *)buffer;
+	otMem->end = (u32 *)((u8 *)buffer + ((size >> 2) << 2));
+}
+#endif

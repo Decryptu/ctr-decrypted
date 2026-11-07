@@ -1,4 +1,5 @@
 #include "platform/native_dev.h"
+#include "platform/native_memory.h"
 #include "platform/native_config.h"
 #include "platform/native_memcard.h"
 #ifdef CTR_CUSTOM_PACKAGES
@@ -77,6 +78,8 @@ typedef struct
 	int warpHeldMS;
 	u32 primPeak; // most primitive-arena bytes one frame used, printed at exit
 	int primPeakLevel;
+	u32 otPeak; // most instance ordering-table bytes one frame used
+	int otPeakLevel;
 	int profile;      // CTR_DEV_PROFILE, -1 if unset
 	int profileToHub; // no race asked for: start in the profile's hub
 } NativeDevRaceState;
@@ -1309,6 +1312,13 @@ void NativeDev_RaceFrame(void)
 			dev->primPeak = used;
 			dev->primPeakLevel = gGT->levelID;
 		}
+		const struct OTMem *om = &gGT->backBuffer->otMem;
+		const u32 otUsed = (u32)((u8 *)om->cursor - (u8 *)om->start);
+		if (otUsed > dev->otPeak)
+		{
+			dev->otPeak = otUsed;
+			dev->otPeakLevel = gGT->levelID;
+		}
 	}
 
 	if (d == NULL)
@@ -1431,6 +1441,8 @@ void NativeDev_RaceFrame(void)
 void NativeDev_RaceShutdown(void)
 {
 	Platform_Log("[CTR Dev] primitive arena peak %u of %u bytes (level %d)\n", s_devRace.primPeak, Platform_GetPrimArenaSize(), s_devRace.primPeakLevel);
+	Platform_Log("[CTR Dev] instance ordering table peak %u of %u bytes (level %d), %u instances found it full\n", s_devRace.otPeak,
+	             Platform_GetOTArenaSize(), s_devRace.otPeakLevel, gNativeOTRefused);
 #ifdef CTR_CUSTOM_TRACKS
 	CustomTrackDiag_FlushLevelLoad(); // the custom level's render report, normally written at the next level load
 #endif

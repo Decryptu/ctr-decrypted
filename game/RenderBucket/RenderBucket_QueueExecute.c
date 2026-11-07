@@ -7,6 +7,7 @@
 #endif
 #ifdef CTR_NATIVE
 #include <platform/native_dev.h>
+#include <platform/native_memory.h>
 #endif
 
 #include "RenderBucket_ProjectedBounds.h"
@@ -1677,6 +1678,11 @@ static struct RenderBucketSplitState RenderBucket_BuildSplitState(struct Instanc
 	return split;
 }
 
+#ifdef CTR_NATIVE
+// Instances refused an ordering-table range since the game started (Platform_GetOTArena).
+u32 gNativeOTRefused;
+#endif
+
 static int RenderBucket_AllocateOTRange(struct RenderBucketQueueState *queueState, struct PushBuffer *pb, int minDepth, int maxDepth, int viewDepth,
                                         int depthBias, int usePushBuffer)
 {
@@ -1725,6 +1731,9 @@ static int RenderBucket_AllocateOTRange(struct RenderBucketQueueState *queueStat
 	// QueueDraw rejects when `(end - 4) - newCurr <= 0` at 0x80071230-0x80071234.
 	if (RenderBucket_AddressSub(queueState->otEndMinusOne, newCurr) <= 0)
 	{
+#ifdef CTR_NATIVE
+		gNativeOTRefused++;
+#endif
 		return 0;
 	}
 

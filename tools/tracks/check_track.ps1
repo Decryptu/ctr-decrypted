@@ -51,6 +51,13 @@ else {
 	if ([int]$g[7].Value -ne 0) { $failed += 'rendered-quadblock list full: blocks were not drawn' }
 	if ([int]$g[8].Value -ne 0) { $failed += 'BSP records dropped: subtrees were not drawn' }
 }
+# NativeDev_RaceShutdown's: an instance that finds the ordering table full is not drawn (the karts first)
+$ot = [regex]::Match($text, 'instance ordering table peak (\d+) of (\d+) bytes \(level -?\d+\), (\d+) instances found it full')
+if (-not $ot.Success) { $failed += 'no instance ordering table report' }
+else {
+	"instance ordering table: peak $($ot.Groups[1]) of $($ot.Groups[2]) bytes, $($ot.Groups[3]) instances found it full"
+	if ([int]$ot.Groups[3].Value -ne 0) { $failed += 'instance ordering table full: objects or karts were not drawn' }
+}
 python (Join-Path $PSScriptRoot 'floor_check.py') $Work $Course
 if ($LASTEXITCODE -ne 0) { $failed += 'road with no drawn floor' }
 python (Join-Path $PSScriptRoot 'mover_check.py') $Work $Course

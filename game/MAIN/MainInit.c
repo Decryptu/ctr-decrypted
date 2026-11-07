@@ -297,8 +297,17 @@ void MainInit_OTMem(struct GameTracker *gGT)
 
 EndFunc:
 
+#if defined(CTR_NATIVE)
+	// Host memory, one size for every mode (Platform_GetOTArena): a converted
+	// track's large moving models fill retail's table, and what does not fit
+	// is not drawn. MEMPACK keeps its retail layout minus these bytes.
+	(void)size;
+	MainDB_OTMemAt(&gGT->db[0].otMem, Platform_GetOTArena(0), Platform_GetOTArenaSize());
+	MainDB_OTMemAt(&gGT->db[1].otMem, Platform_GetOTArena(1), Platform_GetOTArenaSize());
+#else
 	MainDB_OTMem(&gGT->db[0].otMem, size);
 	MainDB_OTMem(&gGT->db[1].otMem, size);
+#endif
 
 	// 0x1000 per player, plus 0x18 for linking
 	size = ((gGT->numPlyrCurrGame) << 0xC) | 0x18;

@@ -1000,6 +1000,12 @@ def turning(triangles):
     return [(a, b, c, n, attr | TURNING_ROAD) for a, b, c, n, attr in triangles]
 
 
+def placed_wheel(object_id, pos, rot, size):
+    """A WHEELS object as it is placed, as KCL triangles."""
+    radius, thickness = WHEELS[object_id]
+    return turning(wheel(pos, rotate(np.array([0.0, 1.0, 0.0]), rot), radius * size[0], thickness * size[1]))
+
+
 def floor_discs(nkm):
     """The FLOOR_OBJECTS a course places, as KCL triangles."""
     floors = [(pos, FLOOR_OBJECTS[object_id] * size[0]) for object_id, pos, _, size in mkdsmap.placed_objects(nkm) if object_id in FLOOR_OBJECTS]
@@ -1050,9 +1056,11 @@ def log_road(arc, pos, rot):
 def built_road(arc, nkm):
     """Road the converter adds where MKDS has a moving thing: what collision_check takes as ground."""
     out = floor_discs(nkm)
-    for object_id, pos, rot, _ in mkdsmap.placed_objects(nkm):
+    for object_id, pos, rot, size in mkdsmap.placed_objects(nkm):
         if object_id == ROTARY_BRIDGE:
             out += log_road(arc, pos, rot)
+        elif object_id in WHEELS:
+            out += placed_wheel(object_id, pos, rot, size)
     return out
 
 
@@ -1427,8 +1435,7 @@ class Course:
                 continue
             low, high = self.bake(arc, name, place, mirror=mirror, draw=not moves)
             if object_id in WHEELS:
-                radius, thickness = WHEELS[object_id]
-                self.kcl += turning(wheel(pos, rotate(np.array([0.0, 1.0, 0.0]), rot), radius * size[0], thickness * size[1]))
+                self.kcl += placed_wheel(object_id, pos, rot, size)
             elif solid:
                 corners = [np.array([x, y, z]) for y in (low[1], high[1]) for x, z in ((low[0], low[2]), (high[0], low[2]), (high[0], high[2]), (low[0], high[2]))]
                 self.kcl += box_walls([place(c) for c in corners])

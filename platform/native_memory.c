@@ -74,6 +74,13 @@ global_variable struct PlatformMempackArena s_mempackArena;
 // increase_draw_distance peaks at about 820 KB.
 #define CTR_NATIVE_PRIM_ARENA_BYTES 0x200000u
 global_variable u8 s_primArena[2][CTR_NATIVE_PRIM_ARENA_BYTES];
+// The two instance ordering tables (MainInit_OTMem). An instance takes a slot
+// per 32 depth units it spans, and retail's 8 KiB (one player) fits retail's
+// models. A converted track's turning floors, cogs and clock hands span
+// thousands of units each; once the table is full no later instance is drawn,
+// the karts among them, as they are queued after the level's own instances.
+#define CTR_NATIVE_OT_ARENA_BYTES 0x40000u
+global_variable u32 s_otArena[2][CTR_NATIVE_OT_ARENA_BYTES / sizeof(u32)];
 global_variable union NativeScratchpadStorage s_scratchpadMemory;
 u8 *gCTRNativeScratchpadBase;
 
@@ -128,6 +135,16 @@ void *Platform_GetPrimArena(int index)
 u32 Platform_GetPrimArenaSize(void)
 {
 	return CTR_NATIVE_PRIM_ARENA_BYTES;
+}
+
+void *Platform_GetOTArena(int index)
+{
+	return &s_otArena[index & 1][0];
+}
+
+u32 Platform_GetOTArenaSize(void)
+{
+	return CTR_NATIVE_OT_ARENA_BYTES;
 }
 
 void *Platform_GetSpawnPoolReserve(void)

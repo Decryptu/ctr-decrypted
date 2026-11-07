@@ -25,8 +25,10 @@ scale = float(sys.argv[5]) if len(sys.argv) > 5 else 1 / 12
 obj_path = os.path.join(work, course + '.obj')
 lev_path = os.path.join(work, 'lev', course + '_patched.lev')
 archive = nds.carc(nds.nitrofs(open(rom_path, 'rb').read())[f'data/Course/{course}.carc'])
-t = mkdsmap.kcl(archive['course_collision.kcl']) + mkds_convert.built_road(archive, mkdsmap.nkm(archive['course_map.nkm']))
-P = np.array([v for tr in t for v in tr[:3]])
+kcl = mkdsmap.kcl(archive['course_collision.kcl'])
+t = kcl + mkds_convert.built_road(archive, mkdsmap.nkm(archive['course_map.nkm']))
+# centred as the converter centres the course: on MKDS's own collision (Tick-Tock's wheels stand past it)
+P = np.array([v for tr in kcl for v in tr[:3]])
 centre = (P.min(0) + P.max(0)) / 2
 LEV = 64 * scale
 ENGINE_EDGE = 3  # LEV units

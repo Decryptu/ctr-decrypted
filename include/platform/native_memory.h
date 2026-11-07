@@ -12,5 +12,10 @@ int Platform_GetSpawnPoolReserveSize(void);
 // The two primitive arenas, in host memory rather than MEMPACK.
 void *Platform_GetPrimArena(int index);
 u32 Platform_GetPrimArenaSize(void);
+// The two instance ordering tables (MainInit_OTMem), in host memory too, and
+// how many instances found no room left in one (RenderBucket_QueueExecute.c).
+void *Platform_GetOTArena(int index);
+u32 Platform_GetOTArenaSize(void);
+extern u32 gNativeOTRefused;
 
 #endif

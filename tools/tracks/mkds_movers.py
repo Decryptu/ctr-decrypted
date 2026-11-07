@@ -188,6 +188,38 @@ def tessellate(triangles, longest):
     return out
 
 
+def fit_tiles(triangles, materials):
+    """Triangles cut in two across the edge that crosses the most repeats of their texture until each
+    spans no more repeats than the model's image holds of it at full size (MAX_WIDTH by MAX_HEIGHT, at
+    most MAX_TILES): past that, its corners are clamped to the image's edge and the texture smears into
+    stripes (Bowser Castle's log repeats its rivets 12 times along each face)."""
+    def reach(material):
+        return [max(1, min(MAX_TILES, most // max(size, 1)) - 1)
+                for most, size in ((MAX_WIDTH, material.width), (MAX_HEIGHT, material.height))]
+
+    out, todo = [], list(triangles)
+    while todo:
+        mi, tri = todo.pop()
+        material = materials[mi]
+        repeats = ((material.teximage >> 16) & 1, (material.teximage >> 17) & 1)
+        if not material.tex or not any(repeats):
+            out.append((mi, tri))
+            continue
+        sx, sy, _, _ = material.texmtx
+        uv = np.array([v[1] for v in tri], float) * (sx, sy) / (max(material.width, 1), max(material.height, 1))
+        limit = reach(material)
+        over = [repeats[a] and np.ptp(uv[:, a]) > limit[a] + UV_SLACK for a in (0, 1)]
+        if not any(over):
+            out.append((mi, tri))
+            continue
+        axis = 0 if over[0] and (not over[1] or np.ptp(uv[:, 0]) / limit[0] >= np.ptp(uv[:, 1]) / limit[1]) else 1
+        k = int(np.argmax([abs(uv[(e + 1) % 3, axis] - uv[e, axis]) for e in range(3)]))
+        a, b, c = tri[k], tri[(k + 1) % 3], tri[(k + 2) % 3]
+        m = _midpoint(a, b)
+        todo += [(mi, [a, m, c]), (mi, [m, b, c])]
+    return out
+
+
 def chunks(triangles, lev_per_unit):
     """A model too big for one instance, in pieces of it: the game holds a model's scale in 16 bits and
     multiplies it by the instance's, and four times over for one near the camera, so a model over
@@ -217,7 +249,8 @@ def build_model(name, triangles, materials, lev_per_unit, mirror=False, billboar
         triangles = triangles + [(mi, tri[::-1]) for mi, tri in triangles]
     if mirror:
         triangles = [(mi, [((-v[0][0], v[0][1], v[0][2]), *v[1:]) for v in tri]) for mi, tri in triangles]
-    points = np.array([v[0] for _, tri in triangles for v in tri], float) * lev_per_unit
+    triangles = fit_tiles(triangles, materials)
+    points =np.array([v[0] for _, tri in triangles for v in tri], float) * lev_per_unit
     low, high = points.min(0), points.max(0)
     extent = np.maximum(high - low, 1.0)
     pieces = [triangles] if billboard else chunks(triangles, lev_per_unit)

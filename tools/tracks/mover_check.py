@@ -8,6 +8,7 @@ longer than a hit lasts: something holds it.
 """
 import collections, csv, json, os, sys
 
+STILL = 7  # mkds_movers.STILL, the log's second field
 STOPPED = 300  # a kart's speed
 LONGEST_STOP = 300  # frames
 
@@ -40,7 +41,8 @@ def main():
                     hits += 1
                 else:
                     seen[int(parts[0])].add(tuple(parts[1:]))
-    still = sorted(i for i, poses in seen.items() if len(poses) < 2)
+    # a STILL mover (mkds_movers: a piranha plant, a snowman, a bumper) stays put by design
+    still = sorted(i for i, poses in seen.items() if len(poses) < 2 and next(iter(poses))[0] != str(STILL))
     missing = wanted - len(seen)
     print(f'movers: {wanted} placed, {len(seen)} ran, {unborn} found no thread, {len(still)} never moved {still[:12]}, {hits} hit a kart')
     stop, at = longest_stop(os.path.join(work, 'trace.csv'))
