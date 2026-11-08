@@ -118,7 +118,7 @@ ROUND_SHARE = 0.7  # the box of what is round or a picture
 HOP_HEIGHT = {'teresa': 24}  # MKDS units up
 FLIPPER_REST, FLIPPER_STROKE, FLIPPER_WAIT = 512, 660, 110  # 45 degrees; 58 degrees out in 29 ticks and back; ticks between, on average
 PIECE_MOST = 1900  # level units: the largest a model may be drawn, all of it at once (2040 is where it saturates)
-PIECE_CELL, PIECE_EDGE = 1600, 300  # how big a piece of a larger one is, and the longest edge of a polygon in it
+PIECE_CELL = 1600  # level units: how big a piece of a larger one is
 FLAT_SHARE = 0.11  # a model this thin for its size is a picture: MKDS turns it to the camera
 FLAT_THIN = 0.5  # and thinner than this against its narrower side too
 
@@ -174,28 +174,52 @@ def _colour_table(colours):
     return np.array(image)[0], [int(r) | int(g) << 8 | int(b) << 16 for r, g, b in palette]
 
 
-def _midpoint(a, b):
-    """The vertex half way along an edge: place, texture coordinate, colour and normal."""
+def _between(a, b, t):
+    """The vertex `t` of the way along an edge: place, texture coordinate, colour and normal."""
     def mix(p, q):
-        return None if p is None or q is None else tuple((np.array(p, float) + np.array(q, float)) / 2)
+        return None if p is None or q is None else tuple(np.array(p, float) + (np.array(q, float) - np.array(p, float)) * t)
     return (mix(a[0], b[0]), mix(a[1], b[1]), mix(a[2], b[2]), mix(a[3], b[3]))
 
 
-def tessellate(triangles, longest):
-    """Triangles cut in two across their longest edge until no edge is longer than `longest` (in the
-    triangles' own units). A model drawn close by loses whole polygons at the near plane, and the game
-    maps a texture across a polygon without perspective, so a big object drawn near needs small ones."""
-    out, todo = [], list(triangles)
-    while todo:
-        mi, tri = todo.pop()
-        edges = [np.linalg.norm(np.array(tri[(k + 1) % 3][0]) - np.array(tri[k][0])) for k in range(3)]
-        k = int(np.argmax(edges))
-        if edges[k] <= longest:
-            out.append((mi, tri))
-            continue
-        a, b, c = tri[k], tri[(k + 1) % 3], tri[(k + 2) % 3]
-        m = _midpoint(a, b)
-        todo += [(mi, [a, m, c]), (mi, [m, b, c])]
+def _midpoint(a, b):
+    return _between(a, b, 0.5)
+
+
+def cut_at_cells(triangles, low, cell):
+    """Triangles cut along the planes between a grid's cells (low: its corner, cell: its size each way,
+    in the triangles' own units), so each lies in one cell, then fanned back into triangles. The game
+    draws a polygon close by clipped at the near plane and PGXP maps its texture with perspective, so
+    nothing needs them smaller: cut into small ones regardless, Bowser Castle's log was 10,000 polygons."""
+    out = []
+    for mi, tri in triangles:
+        polygons = [list(tri)]
+        for axis in range(3):
+            done = []
+            for polygon in polygons:
+                values = [v[0][axis] for v in polygon]
+                first = math.floor((min(values) - low[axis]) / cell[axis]) + 1
+                last = math.ceil((max(values) - low[axis]) / cell[axis]) - 1
+                for k in range(first, last + 1):
+                    plane = low[axis] + k * cell[axis]
+                    below, above = [], []
+                    for i, a in enumerate(polygon):
+                        b = polygon[(i + 1) % len(polygon)]
+                        da, db = a[0][axis] - plane, b[0][axis] - plane
+                        (below if da < 0 else above).append(a)
+                        if (da < 0) != (db < 0):
+                            v = _between(a, b, da / (da - db))
+                            below.append(v)
+                            above.append(v)
+                    if len(below) >= 3:
+                        done.append(below)
+                    polygon = above
+                    if len(polygon) < 3:
+                        break
+                if len(polygon) >= 3:
+                    done.append(polygon)
+            polygons = done
+        for polygon in polygons:
+            out += [(mi, [polygon[0], polygon[i], polygon[i + 1]]) for i in range(1, len(polygon) - 1)]
     return out
 
 
@@ -241,9 +265,9 @@ def chunks(triangles, lev_per_unit):
     if np.ptp(points, axis=0).max() <= PIECE_MOST:
         return [triangles]
     unit = lev_per_unit
-    cut = tessellate(triangles, PIECE_EDGE / unit)
     low, extent = points.min(0), np.ptp(points, axis=0)
     cell = extent / np.maximum(np.ceil(extent / PIECE_CELL), 1) + 1e-6  # as few pieces as fit, of one size each way
+    cut = cut_at_cells(triangles, low / unit, cell / unit)
     cells = {}
     for mi, tri in cut:
         middle = np.mean([v[0] for v in tri], axis=0) * unit

@@ -517,10 +517,18 @@ static int Mover_DevHeld(void)
 	return (getenv("CTR_DEV_MOVERS_ONLY") != NULL) || (getenv("CTR_DEV_MOVERS_HELD") != NULL);
 }
 
-// The lap the race has reached, from 1, by its leading kart.
+// The lap the race has reached, from 1, by its leading kart; 0 before the lights go
+// green, so what waits for lap 1 (Waluigi Pinball's balls) counts its delay from the
+// start. Counted from the load, the countdown put the rail ball 9000 units ahead of
+// the karts, faster than them, never seen (docs/TRACK-CONVERTER.md).
 static int Mover_RaceLap(void)
 {
 	int lap = 0;
+
+	if (GAME_TRACKER->trafficLightsTimer > 0)
+	{
+		return 0;
+	}
 
 	for (int i = 0; i < 8; i++)
 	{
@@ -804,13 +812,15 @@ static void Mover_HitKarts(struct ConvertedMover *mover, struct Instance *inst, 
 	}
 }
 
-// CTR_DEV_MOVER_LOG=<file>: each mover's place and turn every 300 frames, for
-// tools/tracks/mover_check.py.
+// CTR_DEV_MOVER_LOG=<file>: each mover's place and turn every 293 frames (or
+// CTR_DEV_MOVER_LOG_EVERY), for tools/tracks/mover_check.py.
 static void Mover_Log(const struct ConvertedMover *mover, const struct Instance *inst, const SVec3 *records)
 {
 	const char *path = getenv("CTR_DEV_MOVER_LOG");
+	const char *every = getenv("CTR_DEV_MOVER_LOG_EVERY");
+	const int period = (every != NULL) ? atoi(every) : 293;
 
-	if ((path != NULL) && ((GAME_TRACKER->framesInThisLEV % 293) == 0))
+	if ((path != NULL) && (period > 0) && ((GAME_TRACKER->framesInThisLEV % period) == 0))
 	{
 		FILE *file = fopen(path, "a");
 
