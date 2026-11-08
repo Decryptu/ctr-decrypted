@@ -717,7 +717,7 @@ static void Mover_PushOut(struct Driver *driver, s32 m[3][3], const s32 local[3]
 		const s32 dx = ((push * m[0][best]) >> 12) << 8, dz = ((push * m[2][best]) >> 12) << 8;
 
 		// a player's kart through its sweep, as Mover_Carry does: written straight to the
-		// position, a push up a slope (Waluigi Pinball's iron ball rolling up the table)
+		// position, a push up a slope (driving into Waluigi Pinball's bumpers)
 		// put the kart under the ground, and it fell through the course
 		if (driver->actionsFlagSet & ACTION_BOT)
 		{
