@@ -8,6 +8,7 @@
 #ifdef CTR_NATIVE
 #include <platform/native_dev.h>
 #include <platform/native_memory.h>
+#include <platform/native_gpu.h>
 #endif
 
 #include "RenderBucket_ProjectedBounds.h"
@@ -1683,9 +1684,16 @@ static struct RenderBucketSplitState RenderBucket_BuildSplitState(struct Instanc
 u32 gNativeOTRefused;
 #endif
 
+// spread: RB_NO_SPREAD, or the instance's RenderBucket_DepthShift, to put each of
+// its depth steps into the frame's table at its own slot (RenderBucket_SpreadsOverOT).
+#define RB_NO_SPREAD 0x7fff
+
 static int RenderBucket_AllocateOTRange(struct RenderBucketQueueState *queueState, struct PushBuffer *pb, int minDepth, int maxDepth, int viewDepth,
-                                        int depthBias, int usePushBuffer)
+                                        int depthBias, int usePushBuffer, int spread)
 {
+#ifndef CTR_NATIVE
+	(void)spread;
+#endif
 	u32 *rangeStart;
 	u32 *rangeEnd;
 	u32 *newCurr;
@@ -1743,6 +1751,25 @@ static int RenderBucket_AllocateOTRange(struct RenderBucketQueueState *queueStat
 	queueState->otCurr = newCurr;
 
 	byteOffset = RenderBucket_ClampOTByteOffset(RenderBucket_MipsAdd(viewDepth >> 6, depthBias));
+
+#ifdef CTR_NATIVE
+	if ((usePushBuffer == 0) && (spread != RB_NO_SPREAD))
+	{
+		// Each of the range's depth steps (32 of the instance's units) goes into
+		// the frame's table at its own slot (64 world units), as the level's quads
+		// do, instead of the whole range at the instance's middle.
+		for (u32 *entry = rangeStart; entry != newCurr; entry++)
+		{
+			const int step = minDepth + (int)(entry - rangeStart);
+			const int world = (spread >= 0) ? (step >> spread) : (step << -spread);
+
+			otSlot = RenderBucket_OTSlotAtByteOffset(queueState->otBase, RenderBucket_ClampOTByteOffset((world >> 1) + depthBias));
+			entry[0] = otSlot[0];
+			otSlot[0] = RenderBucket_OTAddress(entry);
+		}
+		return RenderBucket_AddressSubOffset(rangeStart, RenderBucket_MipsSll(minDepth, 2));
+	}
+#endif
 
 	if (usePushBuffer != 0)
 	{
@@ -1820,17 +1847,91 @@ static int RenderBucket_ShouldAllocateSecondaryRange(u32 instFlags, const struct
 	return RenderBucket_HasSplitOutput(split);
 }
 
+// A retail instance goes into the frame's ordering table as one block at its middle's
+// depth, and its polygons are sorted among themselves only: right for retail's models,
+// which are small. A converted track's mover may span thousands of units and is drawn
+// in pieces (game/ConvertedTrack/Mover.c): one block each, a cog's piece nearer than the
+// kart standing on it is drawn over the kart, and a turning wheel's pieces under the road
+// over the road. Its polygons go into the frame's table each at its own depth instead,
+// as the level's do.
+static int RenderBucket_SpreadsOverOT(const struct Instance *inst)
+{
+#ifdef CTR_NATIVE
+	return (inst->instDef != NULL) && (inst->instDef->modelID == CONVERTED_MOVER_ID);
+#else
+	(void)inst;
+	return 0;
+#endif
+}
+
+// How far an instance's view-space units are shifted left of the world's: an
+// instance nearer than 0x1000 is transformed four times larger for precision, and
+// DRAW_HUGE shifts that back (RenderBucket_AdjustViewPositionForMvp). Its depth
+// steps and PGXP depths are in those units.
+static int RenderBucket_DepthShift(const struct Instance *inst, int viewDepth)
+{
+	return (((s32)((u32)viewDepth - 0x1000u) < 0) ? 2 : 0) - (((inst->flags & DRAW_HUGE) != 0) ? 2 : 0);
+}
+
+#ifdef CTR_NATIVE
+// A spread instance's depth shift, from its queueing to its drawing in the same
+// frame, keyed by its per-player draw record (InstDrawPerPlayer has no field free).
+#define RB_SHIFT_SLOTS 1024
+static struct
+{
+	const struct InstDrawPerPlayer *idpp;
+	s8 shift;
+} s_rbDepthShift[RB_SHIFT_SLOTS];
+
+static int RenderBucket_ShiftSlot(const struct InstDrawPerPlayer *idpp)
+{
+	return (int)(((uintptr_t)idpp >> 4) % RB_SHIFT_SLOTS);
+}
+
+static void RenderBucket_KeepDepthShift(const struct InstDrawPerPlayer *idpp, int shift)
+{
+	for (int i = 0, slot = RenderBucket_ShiftSlot(idpp); i < RB_SHIFT_SLOTS; i++, slot = (slot + 1) % RB_SHIFT_SLOTS)
+	{
+		if ((s_rbDepthShift[slot].idpp == idpp) || (s_rbDepthShift[slot].idpp == NULL))
+		{
+			s_rbDepthShift[slot].idpp = idpp;
+			s_rbDepthShift[slot].shift = (s8)shift;
+			return;
+		}
+	}
+	// full of earlier levels' instances
+	memset(s_rbDepthShift, 0, sizeof(s_rbDepthShift));
+	RenderBucket_KeepDepthShift(idpp, shift);
+}
+
+static int RenderBucket_KeptDepthShift(const struct InstDrawPerPlayer *idpp)
+{
+	for (int i = 0, slot = RenderBucket_ShiftSlot(idpp); i < RB_SHIFT_SLOTS; i++, slot = (slot + 1) % RB_SHIFT_SLOTS)
+	{
+		if (s_rbDepthShift[slot].idpp == idpp)
+		{
+			return s_rbDepthShift[slot].shift;
+		}
+		if (s_rbDepthShift[slot].idpp == NULL)
+		{
+			break;
+		}
+	}
+	return 0;
+}
+#endif
+
 static int RenderBucket_BuildDepthRange(struct Instance *inst, struct ModelFrame *frame, struct ModelFrame *nextFrame, struct PushBuffer *pb,
                                         struct InstDrawPerPlayer *idpp, struct RenderBucketQueueState *queueState, int viewDepth, int normalDepthBias,
                                         int secondaryDepthBias, u32 *instFlags, const struct RenderBucketSplitState *split, const MATRIX *projectionMvp)
 {
-	(void)inst;
 	struct RenderBucketBounds bounds;
 	int primaryRange;
 	int secondaryRange;
 	int geomScreenHalf;
 	int minDepth;
 	int maxDepth;
+	int spread;
 
 	RenderBucket_ProjectFrameBounds(frame, nextFrame, pb, projectionMvp, &bounds, &geomScreenHalf);
 	RenderBucket_UpdatePushBufferMetadata(pb, &bounds, instFlags);
@@ -1858,7 +1959,14 @@ static int RenderBucket_BuildDepthRange(struct Instance *inst, struct ModelFrame
 	idpp->depthOffset[0] = minDepth;
 	idpp->depthOffset[1] = maxDepth;
 
-	primaryRange = RenderBucket_AllocateOTRange(queueState, pb, minDepth, maxDepth, viewDepth, normalDepthBias, (*instFlags & PUSHBUFFER_EXISTS) != 0);
+	spread = RenderBucket_SpreadsOverOT(inst) ? RenderBucket_DepthShift(inst, viewDepth) : RB_NO_SPREAD;
+#ifdef CTR_NATIVE
+	if (spread != RB_NO_SPREAD)
+	{
+		RenderBucket_KeepDepthShift(idpp, spread);
+	}
+#endif
+	primaryRange = RenderBucket_AllocateOTRange(queueState, pb, minDepth, maxDepth, viewDepth, normalDepthBias, (*instFlags & PUSHBUFFER_EXISTS) != 0, spread);
 	if (primaryRange == 0)
 	{
 		return 0;
@@ -1873,7 +1981,7 @@ static int RenderBucket_BuildDepthRange(struct Instance *inst, struct ModelFrame
 		// reflected/split OT range at 0x80071320-0x800713b4 with signed
 		// Instance.depthBiasSecondary as the second depth bias. The allocation predicate is
 		// source-backed through RenderBucketSplitState.
-		secondaryRange = RenderBucket_AllocateOTRange(queueState, pb, minDepth, maxDepth, viewDepth, secondaryDepthBias, 0);
+		secondaryRange = RenderBucket_AllocateOTRange(queueState, pb, minDepth, maxDepth, viewDepth, secondaryDepthBias, 0, spread);
 		if (secondaryRange == 0)
 		{
 			return 0;
@@ -5405,6 +5513,10 @@ void RenderBucket_Execute(void *param_1, struct PrimMem *param_2)
 		RenderBucket_DispatchDrawFunc(&ctx);
 #ifdef CTR_NATIVE
 		NativeDev_NamePrims(namedStart, param_2->cursor, entry->inst->name);
+		if (RenderBucket_SpreadsOverOT(entry->inst))
+		{
+			NativeGpu_AddMoverRange(namedStart, param_2->cursor, RenderBucket_KeptDepthShift(ctx.idpp));
+		}
 #endif
 #if defined(CTR_NATIVE) && defined(CTR_AP)
 		// Terrain, wheels and other GTE users retain their existing policy.

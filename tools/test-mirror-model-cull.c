@@ -24,6 +24,8 @@ struct sData sdata_static;
 int AP_TrapMirrorCullFlip(void) { return mirrored; }
 // The polygon-dump labels (platform/native_dev.c) are a developer view only.
 void NativeDev_NamePrims(const void *start, const void *end, const char *name) { (void)start; (void)end; (void)name; }
+// Only a converted track's movers report their runs (platform/native_gpu.c).
+void NativeGpu_AddMoverRange(const void *start, const void *end, int depthShift) { (void)start; (void)end; (void)depthShift; }
 
 // PGXP off: the cull is checked as retail computes it. The GTE calls these
 // entry points only while PGXP is on, so they only have to link; reaching one

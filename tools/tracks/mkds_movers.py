@@ -102,6 +102,10 @@ BULLET_REACTS = 0x1a2
 BURNER_ON_PATH = Mover('mkd_ef_burner', (PATH, BACK_AND_FORTH), None, PATH_UNITS, setting=3)  # sweeps along its path, always lit
 TYRED = {'car_a', 'bus_a', 'truck_a'}
 SOLID_STILL = {'dram', 'test_cylinder', 'kanoke_64'}  # stays where it is and keeps its walls
+# A rim a kart rides lets it go where its surface leans further than this from level, in 4096ths of the
+# up component of its normal (MKDS 0x20e04f0 against the object's +0x120): 60 degrees on Bowser Castle's
+# log, 85 on Tick-Tock Clock's wheels
+RIM_FALL = {'rotary_bridge': 0x800, 'test_cylinder': 0x165}
 PENDULUM_BOB = (100, 100, 50), (0, -500, 0)  # half its hit box and where it is: only the weight hits
 # Hangs or flies where it is placed, by its own origin
 FLYING = {'mkd_ef_bubble', 'FireBall', 'kamome', 'airship', 'sun', 'NsKiller2', 'mkd_ef_burner', 'teresa', 'basabasa', 'bakubaku', 'pukupuku', 'fireball2', 'kanoke_64', 'second_hand', 'pendulum', 'test_cylinder', 'gear_black', 'gear_white', 'rotary_room', 'rotary_bridge', 'flipper', 'dram', 'RainStar'}
@@ -112,12 +116,15 @@ FLIPPER_REST, FLIPPER_STROKE, FLIPPER_WAIT = 512, 660, 110  # 45 degrees; 58 deg
 PIECE_MOST = 1900  # level units: the largest a model may be drawn, all of it at once (2040 is where it saturates)
 PIECE_CELL, PIECE_EDGE = 1600, 300  # how big a piece of a larger one is, and the longest edge of a polygon in it
 FLAT_SHARE = 0.11  # a model this thin for its size is a picture: MKDS turns it to the camera
+FLAT_THIN = 0.5  # and thinner than this against its narrower side too
 
 
 def is_flat(points):
-    """Whether a model's points lie in its z = constant plane, near enough: a picture, not a body."""
+    """Whether a model's points lie in its z = constant plane, near enough: a picture, not a body. A
+    picture is thin against both its sides; a pole is thin against its length alone (Bowser Castle's
+    log, 160 by 160 by 2150, is a body)."""
     extent = np.ptp(np.array(points), axis=0)
-    return bool(extent[2] < FLAT_SHARE * max(extent[0], extent[1]))
+    return bool(extent[2] < FLAT_SHARE * max(extent[0], extent[1]) and extent[2] < FLAT_THIN * min(extent[0], extent[1]))
 
 
 def image_of(material):
@@ -400,13 +407,15 @@ def key_records(track, damage, half, middle, base, flags, to_lev, lev_unit, size
     return records(KEYS, KEY_MS * step // 3, damage | flags, half, middle, base, args, grow + gates + keys), track.ticks
 
 
-def instances(pieces, pos, size, scale_up_size, listed, reach, name):
+def instances(pieces, pos, size, scale_up_size, listed, reach, name, rot=None):
     """One instance of each piece of a model (build_model), all on one record list: the first tests the
-    karts, the rest are drawn where they are from it."""
+    karts, the rest are drawn where they are from it. rot: the turn the map places it at, which it keeps
+    at rest (mover_pose_check.py); None where it faces its way itself (a picture, a path, keys)."""
     out = []
     for n, (model, centre, up) in enumerate(pieces):
         out.append({'model': model, 'pos': [int(round(c)) for c in pos], 'scale': [int(round(c * SCALE_ONE * up)) for c in scale_up_size], 'list': listed,
-                    'reach': reach, 'name': name, 'offset': [int(round(c)) for c in centre * size], 'drawn_only': n > 0})
+                    'reach': reach, 'name': name, 'offset': [int(round(c)) for c in centre * size], 'drawn_only': n > 0,
+                    'rot': None if rot is None else [float(r) for r in rot]})
     return out
 
 
@@ -489,7 +498,7 @@ def place(movers, model_index, halves, to_lev, lev_unit, rotate, settle, context
                 mode_args = ((off + on) * 1000 // TICKS, on * 1000 // TICKS, settings[2] * 1000 // TICKS)
             elif kind == SPIN:
                 rate = args[1] or int(settings[0] * SPIN_RATE)
-                mode_args = (args[0], -rate if settings[4] else rate, 0)  # Tick-Tock Clock's neighbours turn opposite ways
+                mode_args = (args[0], -rate if settings[4] else rate, RIM_FALL.get(spec.model, 0))  # Tick-Tock Clock's neighbours turn opposite ways
                 if not args[1] and settings[1]:
                     points = [(settings[1], settings[2], settings[3])]  # ticks at speed, to speed up or slow down, stopped; then it turns back
             elif kind == SWING:
@@ -515,7 +524,7 @@ def place(movers, model_index, halves, to_lev, lev_unit, rotate, settle, context
                 period = int(65536 * 100 * 1000 / (max(settings[2], 1) * 364 * TICKS))
                 mode_args = (int(radius * lev_unit), period, period * (i % per_ring) // per_ring)
                 at = pos + lift
-            placed += instances(pieces, to_lev(at), size, size, len(lists), reach, spec.model)
+            placed += instances(pieces, to_lev(at), size, size, len(lists), reach, spec.model, None if flat or kind in (PATH, ORBIT) else rot)
             lists.append(records(kind, speed, damage | flags, half, middle, base, mode_args, points))
             if spec.model == 'NsKiller1':
                 parent = len(lists) - 1

@@ -920,7 +920,10 @@ internal b32 COLL_FIXED_PlayerSearch_CheckMaskGrabProgress(struct Driver *d, str
 	// lastValid, and cannot mirror PS1 low-memory null-space reads.
 	if (d->lastValid == NULL)
 	{
-		d->lastValid = d->currBlockTouching;
+		// a converted course's respawn is never a kill plane (see below)
+		d->lastValid = (NativeLevel_MudAtWorldZero(level->configFlags) || ((d->currBlockTouching != NULL) && ((d->currBlockTouching->quadFlags & QUADBLOCK_FLAG_KILL_PLANE) == 0)))
+		                   ? d->currBlockTouching
+		                   : quad;
 		return 0;
 	}
 #endif
@@ -931,6 +934,17 @@ internal b32 COLL_FIXED_PlayerSearch_CheckMaskGrabProgress(struct Driver *d, str
 		return 1;
 	}
 
+#if defined(CTR_NATIVE)
+	// The quad tested here is ground and no kill plane, but the one the kart touches
+	// may be: a kart on the edge of Bowser Castle's slabs touches the lava. A respawn
+	// from a kill plane puts the kart back in it (VehStuckProc_MaskGrab_FindDestPos
+	// falls back to its middle), for good.
+	if (!NativeLevel_MudAtWorldZero(level->configFlags) && (d->currBlockTouching != NULL) && ((d->currBlockTouching->quadFlags & QUADBLOCK_FLAG_KILL_PLANE) != 0))
+	{
+		d->lastValid = quad;
+		return 0;
+	}
+#endif
 	d->lastValid = d->currBlockTouching;
 	return 0;
 }

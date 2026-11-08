@@ -62,6 +62,14 @@ void NativeGpu_AddLevelWaterRange(const void *start, const void *end);
 // wrote, the same way: the GPU draws them however large (NativeGpu_HardwareSkipsTriangle).
 void NativeGpu_AddLevelClippedRange(const void *start, const void *end);
 
+// RenderBucket_Execute reports the runs of primitives a converted track's mover
+// drew (game/ConvertedTrack/Mover.c). In a depth-tested level they test and write
+// depth as the level's own polygons do, so a cog, the column through it and the
+// road over a wheel hide each other where they are, not by ordering table order.
+// depthShift: how far the instance's units are shifted left of the world's
+// (RenderBucket_DepthShift), which its PGXP depths carry.
+void NativeGpu_AddMoverRange(const void *start, const void *end, int depthShift);
+
 // A level whose configFlags carry LEVEL_CONFIG_DEPTH_TESTED was made for a
 // depth buffer (a converted Mario Kart DS course: fences, billboards and signs
 // a few units in front of the walls they hang on), which the per-block sort

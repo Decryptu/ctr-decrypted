@@ -79,6 +79,16 @@ if ($views -gt 0) {
 	python (Join-Path $PSScriptRoot 'mover_view.py') "$tour.json" $tourFolders[0] $tourFolders[1]
 	if ($LASTEXITCODE -ne 0) { $failed += 'a moving object is not drawn whole, from every side, where it is' }
 }
+# Each mover at rest, placed and turned as the map places it in MKDS (mover_pose_check.py)
+$poses = Join-Path $Work 'poses.txt'
+Remove-Item $poses -ErrorAction SilentlyContinue
+& (Join-Path $repo 'tools\decrypted\devrun.ps1') -Track -1 -Frames 1700 -From 1690 -Every 100 -Exe $Exe -RunDir $RunDir -Out (Join-Path $Work 'rest') -TimeoutSec 600 `
+	-Env @{CTR_DEV_CUSTOM = $pin; CTR_DEV_MOVERS_REST = 1; CTR_DEV_MOVER_POSES = $poses; CTR_DEV_MOVER_POSES_FRAME = 100} | Out-Null
+if (-not (Test-Path $poses)) { if (@((Get-Content (Join-Path $Work "${Course}_items.json") -Raw | ConvertFrom-Json).movers).Count) { $failed += 'no mover poses' } }
+else {
+	python (Join-Path $PSScriptRoot 'mover_pose_check.py') (Join-Path $Work "${Course}_items.json") $poses
+	if ($LASTEXITCODE -ne 0) { $failed += 'a moving object is not placed or turned as MKDS places it' }
+}
 if (Test-Path (Join-Path $RunDir 'crash.txt')) { $failed += "crash (see $RunDir\crash.txt)" }
 if (-not (Test-Path $probe)) { $failed += 'no collision probe output' }
 else {

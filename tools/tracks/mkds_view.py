@@ -1,20 +1,47 @@
 """Draw a Mario Kart DS course as the ROM holds it: the reference a converted course is compared with
-(docs/TRACK-CONVERTER.md). Textures, vertex colours, texel and polygon alpha; no objects and no sky.
+(docs/TRACK-CONVERTER.md). Textures, vertex colours, texel and polygon alpha; no sky. With --objects,
+the objects that move (mkds_movers.MOVERS) stand where the course's map places them, at rest.
 
-  python tools/tracks/mkds_view.py <rom.nds> <course> <out.png> eye_x eye_y eye_z at_x at_y at_z   (MKDS units)
+  python tools/tracks/mkds_view.py <rom.nds> <course> <out.png> eye_x eye_y eye_z at_x at_y at_z [--objects]   (MKDS units)
 """
 import sys
 import numpy as np, nds, nitro3d
+
 from PIL import Image
 
 MODEL_TO_WORLD = 16.0  # mkds_convert's
 
-def render(files, course, eye, at, W=800, H=450, FOV=108, sky=None):  # the game's far camera
+
+def placed_movers(arc):
+    """-> (model, tex0, a function from a model point to the world) for each moving object the course's
+    map places, as mkds_convert.add_movers picks its model."""
+    import mkds_convert, mkds_movers, mkdsmap
+    nkm = mkdsmap.nkm(arc['course_map.nkm'])
+    out, models = [], {}
+    for (object_id, pos, rot, size), settings in zip(mkdsmap.placed_objects(nkm), mkdsmap.all_object_settings(nkm)):
+        spec = mkds_movers.MOVERS.get(object_id)
+        if spec is None or spec.model is None:
+            continue
+        name = 'gear_white' if object_id == mkds_convert.GEAR and not settings[mkds_convert.WHITE_GEAR_SETTING] else spec.model
+        if f'MapObj/{name}.nsbmd' not in arc:
+            continue
+        if name not in models:
+            models[name] = (nitro3d.Model(arc[f'MapObj/{name}.nsbmd']), nitro3d.load_tex0(arc[f'MapObj/{name}.nsbmd']))
+        mirror = -1.0 if settings[0] and object_id in mkds_convert.MIRRORED_BY_SETTING else 1.0
+        out.append((*models[name], lambda p, pos=pos, rot=rot, size=size, mirror=mirror:
+                    pos + mkds_convert.rotate(np.array(p) * MODEL_TO_WORLD * size * (mirror, 1.0, 1.0), rot)))
+    return out
+
+
+def render(files, course, eye, at, W=800, H=450, FOV=108, sky=None, objects=False):  # the game's far camera
     """-> the course from a camera, as an image. sky: (top colour, colour at the horizon), else black."""
     a = nds.carc(files[f'data/Course/{course}.carc'])
     tex = nds.carc(files[f'data/Course/{course}Tex.carc']) if f'data/Course/{course}Tex.carc' in files else {}
-    m = nitro3d.Model(a['course_model.nsbmd'])
-    t0 = nitro3d.load_tex0(tex['course_model.nsbtx'] if 'course_model.nsbtx' in tex else a['course_model.nsbmd'])
+    course_model = nitro3d.Model(a['course_model.nsbmd'])
+    course_tex = nitro3d.load_tex0(tex['course_model.nsbtx'] if 'course_model.nsbtx' in tex else a['course_model.nsbmd'])
+    drawn = [(course_model, course_tex, lambda p: np.array(p) * MODEL_TO_WORLD)]
+    if objects:
+        drawn += placed_movers(a)
     f = at - eye; f /= np.linalg.norm(f)
     r = np.cross(f, (0, 1, 0)); r /= np.linalg.norm(r)
     u = np.cross(r, f)
@@ -35,11 +62,11 @@ def render(files, course, eye, at, W=800, H=450, FOV=108, sky=None):  # the game
 
 
     textures = {}
-    def texture(i):
-        if i not in textures:
+    def texture(m, t0, i):
+        if (id(m), i) not in textures:
             mt = m.mats[i]
-            textures[i] = t0.decode(mt.tex, mt.pal).astype(float) if mt.tex else None
-        return textures[i]
+            textures[id(m), i] = t0.decode(mt.tex, mt.pal).astype(float) if mt.tex else None
+        return textures[id(m), i]
 
 
     zbuf = np.full((H, W), np.inf)
@@ -47,19 +74,16 @@ def render(files, course, eye, at, W=800, H=450, FOV=108, sky=None):  # the game
     if sky is not None:
         for y in range(H):
             colour[y] = np.array(sky[0]) + (np.array(sky[1]) - sky[0]) * min(y / (H * 0.55), 1)
-    tris = m.triangles()
 
 
-    def raster(mi, tri, translucent):
-        mt = m.mats[mi]
-        T = texture(mi)
+    def raster(mt, T, tri, translucent):
         if T is None:
             return
         sx, sy, tx, ty = mt.texmtx
         tw, th = T.shape[1], T.shape[0]
         rows = []
-        for pos, uv, col, _ in tri:
-            d = np.array(pos) * MODEL_TO_WORLD - eye
+        for world, uv, col in tri:
+            d = world - eye
             rows.append(np.array([d @ r, d @ u, d @ f, uv[0] * sx / mt.width + tx, uv[1] * sy / mt.height + ty, *col], float))
         poly = clip(rows)
         if len(poly) < 3:
@@ -116,18 +140,20 @@ def render(files, course, eye, at, W=800, H=450, FOV=108, sky=None):  # the game
                 zbuf[yy, xx] = depth[sel]
 
 
-    def is_translucent(mi):
-        T = texture(mi)
-        return T is not None and (T[..., 3].min() < 250 or ((m.mats[mi].polygon_attr >> 16) & 31) < 31)
-
-
-    for mi, tri in tris:
-        if not is_translucent(mi):
-            raster(mi, tri, False)
+    solid, rest = [], []
+    for m, t0, place in drawn:
+        for mi, tri in m.triangles():
+            T = texture(m, t0, mi)
+            item = (m.mats[mi], T, [(place(pos), uv, col if col is not None else (255, 255, 255)) for pos, uv, col, _ in tri])
+            if T is not None and (T[..., 3].min() < 250 or ((m.mats[mi].polygon_attr >> 16) & 31) < 31):
+                rest.append(item)
+            else:
+                solid.append(item)
+    for item in solid:
+        raster(*item, False)
     # real screenshots show decals over a board of even alpha
-    rest = sorted([(mi, tri) for mi, tri in tris if is_translucent(mi)], key=lambda e: texture(e[0])[..., 3].min() < 100)
-    for mi, tri in rest:
-        raster(mi, tri, True)
+    for item in sorted(rest, key=lambda e: e[1][..., 3].min() < 100):
+        raster(*item, True)
     return Image.fromarray(colour.clip(0, 255).astype('uint8'))
 
 
@@ -135,4 +161,4 @@ if __name__ == '__main__':
     rom, course, out = sys.argv[1:4]
     eye = np.array(list(map(float, sys.argv[4:7])))
     at = np.array(list(map(float, sys.argv[7:10])))
-    render(nds.nitrofs(open(rom, 'rb').read()), course, eye, at).save(out)
+    render(nds.nitrofs(open(rom, 'rb').read()), course, eye, at, objects='--objects' in sys.argv).save(out)

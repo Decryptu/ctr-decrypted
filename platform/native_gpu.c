@@ -98,9 +98,10 @@ typedef struct
 } GPUDrawSplit;
 
 #define MAX_DRAW_SPLITS 4096
-// Runs of level primitives per frame: two water buckets for each of up to four
-// viewports, or each viewport's near-plane clipped faces.
-#define NATIVE_GPU_MAX_LEVEL_RUNS 8
+// Runs of primitives per frame: two water buckets for each of up to four
+// viewports, each viewport's near-plane clipped faces, or a converted track's
+// movers, one run per instance drawn (adjacent ones merge).
+#define NATIVE_GPU_MAX_LEVEL_RUNS 128
 
 // Runs the level renderer reports in the frame whose level range was cleared
 // last, per double buffer; adjacent runs merge.
@@ -145,6 +146,8 @@ typedef struct
 	int levelRunDb;
 	NativeGpuLevelRuns water;
 	NativeGpuLevelRuns clipped;
+	// NativeGpu_AddMoverRange, by the instance's depth shift: 0, 2 (near), -2 (DRAW_HUGE)
+	NativeGpuLevelRuns movers[3];
 
 	// Slack past the uploaded capacity takes the writes of a primitive that
 	// does not fit; ParsePrimitive then drops it (see the budget header).
@@ -220,12 +223,16 @@ void NativeGpu_SetLevelPrimRange(int db, const void *start, const void *end)
 	s_gpu.levelPrimStart[db] = (const u8 *)start;
 	s_gpu.levelPrimEnd[db] = (const u8 *)end;
 
-	// The arena reset: this frame's water and clipped runs follow.
+	// The arena reset: this frame's water, clipped and mover runs follow.
 	if (start == NULL)
 	{
 		s_gpu.levelRunDb = db;
 		s_gpu.water.count[db] = 0;
 		s_gpu.clipped.count[db] = 0;
+		for (int i = 0; i < 3; i++)
+		{
+			s_gpu.movers[i].count[db] = 0;
+		}
 	}
 }
 
@@ -288,8 +295,43 @@ void NativeGpu_AddLevelClippedRange(const void *start, const void *end)
 	NativeGpu_AddLevelRun(&s_gpu.clipped, start, end);
 }
 
+internal int NativeGpu_MoverRunsOfShift(int depthShift)
+{
+	return (depthShift > 0) ? 1 : (depthShift < 0) ? 2 : 0;
+}
+
+void NativeGpu_AddMoverRange(const void *start, const void *end, int depthShift)
+{
+	NativeGpu_AddLevelRun(&s_gpu.movers[NativeGpu_MoverRunsOfShift(depthShift)], start, end);
+}
+
+// What a mover primitive's depths are multiplied by to be the level's, or 0 when
+// the packet is not a depth-tested level's mover's.
+internal float NativeGpu_MoverDepthScale(const u8 *packet)
+{
+	static const float scale[3] = {1.0f, 0.25f, 4.0f};
+
+	if (!s_gpu.levelDepthTested)
+	{
+		return 0.0f;
+	}
+	for (int i = 0; i < 3; i++)
+	{
+		if (NativeGpu_InLevelRun(&s_gpu.movers[i], packet))
+		{
+			return scale[i];
+		}
+	}
+	return 0.0f;
+}
+
 internal bool NativeGpu_IsLevelPrim(const u8 *packet)
 {
+	// A depth-tested level's movers test and write depth as its own polygons do
+	if (NativeGpu_MoverDepthScale(packet) != 0.0f)
+	{
+		return true;
+	}
 	for (int i = 0; i < 2; i++)
 	{
 		if ((packet >= s_gpu.levelPrimStart[i]) && (packet < s_gpu.levelPrimEnd[i]))
@@ -1732,16 +1774,26 @@ void ParsePrimitivesLinkedList(u32 *p, int singlePrimitive)
 				s_gpu.levelPrim = NativeGpu_IsLevelPrim(basePacket);
 				s_gpu.levelWater = s_gpu.levelPrim && NativeGpu_InLevelRun(&s_gpu.water, basePacket);
 				s_gpu.levelClipped = s_gpu.levelPrim && NativeGpu_InLevelRun(&s_gpu.clipped, basePacket);
+				const float moverDepthScale = s_gpu.levelPrim ? NativeGpu_MoverDepthScale(basePacket) : 0.0f;
+				const int firstVertex = s_gpu.vertexIndex;
 				if (currentPacket < endPacket)
 				{
 					primLength = ParsePrimitive((P_TAG *)currentPacket);
 					currentPacket += (primLength + P_LEN) * sizeof(u32);
 				}
-
 				while (currentPacket < endPacket)
 				{
 					primLength = ParseTaglessPrimitive((u32 *)currentPacket);
 					currentPacket += primLength * sizeof(u32);
+				}
+
+				// A near mover's depths are in its four-times units (RenderBucket_DepthShift)
+				if ((moverDepthScale != 0.0f) && (moverDepthScale != 1.0f))
+				{
+					for (int v = firstVertex; v < s_gpu.vertexIndex; v++)
+					{
+						s_gpu.vertexBuffer[v].w *= moverDepthScale;
+					}
 				}
 
 				if (currentPacket != endPacket)

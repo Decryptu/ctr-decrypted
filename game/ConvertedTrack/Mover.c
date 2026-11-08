@@ -13,7 +13,8 @@
 //   7+   MOVER_PATH: the path; MOVER_HOP: one record, the way it goes at its peak
 //
 // a, b, c: PATH: mode, first point, 0. SPIN: axis, 4096ths of a turn a second,
-// less than 0 the other way round; with a record after the fixed ones, it turns
+// less than 0 the other way round, and for a rim a kart rides how level the rim must be
+// under it to carry it (4096 is level); with a record after the fixed ones, it turns
 // for that many ticks, speeds up and slows down over y ticks, stops for z, and
 // turns back, as MKDS's cogs do.
 // SWING: axis, period in ms, angle at its peak. HOP: period in ms, 0, phase in ms. ORBIT: radius, period in ms, phase in ms, in its own x, y plane.
@@ -269,8 +270,17 @@ static void Mover_Carry(const struct Instance *inst, const SVec3 *records, s32 m
 			const float lb = (d[0] * m[0][b] + d[1] * m[1][b] + d[2] * m[2][b]) / 4096.0f;
 			across = sqrtf(la * la + lb * lb);
 		}
+		// a rim runs from the origin (the model's top face) through the thickness: measured
+		// from its middle, as the hit box is, and only a kart over it, not one beside it on
+		// the road (MKDS 0x20e0764: the flat faces are walls)
+		const SVec3 *middle = &records[MOVER_RECORD_MIDDLE];
+		const float rim = along - (float)((axis == 0) ? middle->x : (axis == 1) ? middle->y : middle->z);
+		// how level the rim is under the kart: the up part of the way out from the axis.
+		// MKDS lets a kart go where that falls under the object's limit (records[2].z).
+		const float level = (across > 0.0f) ? (d[1] - ay * along) / across : 0.0f;
+
 		if (upright ? ((fabsf(along) > MOVER_ON_FLOOR) || (across > radius + MOVER_KART_RADIUS))
-		            : ((fabsf(across - radius) > MOVER_ON_FLOOR) || (fabsf(along) > length + MOVER_KART_RADIUS) || (d[1] < 0)))
+		            : ((fabsf(across - radius) > MOVER_ON_FLOOR) || (fabsf(rim) > length) || (level * 4096.0f < (float)records[2].z) || (d[1] < 0)))
 		{
 			continue;
 		}
@@ -389,6 +399,15 @@ static void Mover_FollowPath(struct Instance *inst, struct ConvertedMover *mover
 // own axes.
 #define MOVER_MOST_PIECES 32
 
+// A mover's polygons go into the frame's ordering table each at its own depth
+// (RenderBucket_SpreadsOverOT), the middle of the polygon, and a kart, which does
+// not test depth, at its own middle. The level's floor goes in at each quad's
+// farthest corner, behind what stands on it. A floor a kart rides (MOVER_FLAG_CARRIES)
+// goes this many slots (64 units) back too, as much as its polygons' far corners
+// (mkds_movers.PIECE_EDGE, 300 level units) lie behind their middles: else the cog
+// a kart stands on is drawn over its wheels.
+#define MOVER_FLOOR_DEPTH_BIAS 4
+
 static struct
 {
 	const struct Level *level;
@@ -437,12 +456,39 @@ static void Mover_AtOffset(struct Instance *inst, s32 m[3][3], const s32 origin[
 	}
 }
 
+// CTR_DEV_MOVER_POSES=<file>: in frame CTR_DEV_MOVER_POSES_FRAME of the race (default 60),
+// each mover instance's list, piece, place, matrix and scale as the renderer gets them,
+// for tools/tracks/mover_pose_check.py.
+static void Mover_LogPose(int list, int piece, const struct Instance *inst)
+{
+	const char *path = getenv("CTR_DEV_MOVER_POSES");
+	const char *at = getenv("CTR_DEV_MOVER_POSES_FRAME");
+
+	if ((path == NULL) || (GAME_TRACKER->framesInThisLEV != ((at != NULL) ? atoi(at) : 60)))
+	{
+		return;
+	}
+	FILE *file = fopen(path, "a");
+
+	if (file != NULL)
+	{
+		fprintf(file, "%d %d %d %d %d", list, piece, (int)inst->matrix.t[0], (int)inst->matrix.t[1], (int)inst->matrix.t[2]);
+		for (int i = 0; i < 9; i++)
+		{
+			fprintf(file, " %d", inst->matrix.m[i / 3][i % 3]);
+		}
+		fprintf(file, " %d %d %d %d\n", inst->scale.x, inst->scale.y, inst->scale.z, (inst->flags & HIDE_MODEL) != 0);
+		fclose(file);
+	}
+}
+
 // Keeps where the object is, and puts it and its other pieces where they are drawn.
 static void Mover_Place(struct ConvertedMover *mover, struct Instance *inst, s32 m[3][3])
 {
 	const s32 origin[3] = {inst->matrix.t[0], inst->matrix.t[1], inst->matrix.t[2]};
 
 	Mover_AtOffset(inst, m, origin);
+	Mover_LogPose(mover->list, 0, inst);
 	if ((mover->list < 0) || (mover->list >= MOVER_MOST_LISTS) || (s_moverPieces[mover->list].level != GAME_TRACKER->level1))
 	{
 		return;
@@ -455,6 +501,8 @@ static void Mover_Place(struct ConvertedMover *mover, struct Instance *inst, s32
 		Mover_AtOffset(piece, m, origin);
 		piece->flags = (piece->flags & ~HIDE_MODEL) | (inst->flags & HIDE_MODEL);
 		piece->scale = inst->scale;
+		piece->depthBiasNormal = inst->depthBiasNormal;
+		Mover_LogPose(mover->list, i + 1, piece);
 	}
 }
 
@@ -761,8 +809,13 @@ static void Mover_Log(const struct ConvertedMover *mover, const struct Instance 
 
 		if (file != NULL)
 		{
-			fprintf(file, "%d %d %d %d %d %d %d %d\n", mover->list, records[0].x, inst->matrix.t[0], inst->matrix.t[1], inst->matrix.t[2], inst->matrix.m[0][0],
-			        inst->matrix.m[1][1], inst->scale.y);
+			// the whole matrix: a log turning about its own length keeps its diagonal
+			fprintf(file, "%d %d %d %d %d", mover->list, records[0].x, inst->matrix.t[0], inst->matrix.t[1], inst->matrix.t[2]);
+			for (int i = 0; i < 9; i++)
+			{
+				fprintf(file, " %d", inst->matrix.m[i / 3][i % 3]);
+			}
+			fprintf(file, " %d\n", inst->scale.y);
 			fclose(file);
 		}
 	}
@@ -787,7 +840,8 @@ static void ConvertedMover_ThTick(struct Thread *t)
 	struct ConvertedMover *mover = t->object;
 	struct Instance *inst = t->inst;
 	const SVec3 *records = Mover_Records(mover);
-	const s32 dt = GAME_TRACKER->elapsedTimeMS;
+	// CTR_DEV_MOVERS_REST: every mover holds its placed pose (mover_pose_check.py)
+	const s32 dt = (getenv("CTR_DEV_MOVERS_REST") != NULL) ? 0 : GAME_TRACKER->elapsedTimeMS;
 	s32 m[3][3], turn[3][3];
 	int hidden = 0;
 
@@ -977,6 +1031,10 @@ void ConvertedMover_LInB(struct Instance *inst)
 	mover->homeZ = inst->matrix.t[2];
 
 	records = Mover_Records(mover);
+	if ((u16)records[0].z & MOVER_FLAG_CARRIES)
+	{
+		inst->depthBiasNormal = MOVER_FLOOR_DEPTH_BIAS;
+	}
 	if (records[0].x == MOVER_KEYS)
 	{
 		mover->direction = 0;
