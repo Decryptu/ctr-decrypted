@@ -25,7 +25,7 @@ REPO_URL = "https://github.com/Decryptu/ctr-decrypted"
 
 SITE_URL = "https://decryptu.github.io/ctr-decrypted/"
 
-# Repository path -> page file. Every page except the home page must be in NAV.
+# Repository path -> page file.
 PAGES = {
     "README.md": "index.html",
     "SETUP.md": "guide.html",
@@ -46,17 +46,10 @@ HANDMADE = {
     "start.html": ("Start here", "An interactive checklist to join, host or play an Archipelago CTR seed solo."),
     "builder.html": ("YAML builder", "Make your Crash Team Racing player file for Archipelago."),
 }
-# The side menu: (group, [(page file or URL, label)]).
-NAV = [
-    ("Play", [("start.html", "Start here"), ("guide.html", "Setup guide"), ("builder.html", "YAML builder"),
-              ("world.html", "Archipelago world")]),
-    ("Features", [("custom-tracks.html", "Custom tracks"), ("custom-racers.html", "Custom racers"),
-                  ("60fps.html", "60 FPS"), ("pgxp.html", "PGXP anti-wobble"), ("screen-filters.html", "Screen filters"),
-                  ("extras.html", "Extras"), ("level-visibility.html", "Draw distance"), ("controls.html", "Controls"),
-                  ("steam-deck.html", "Linux and Steam Deck")]),
-    ("Project", [("dev-tools.html", "Dev tools"), (REPO_URL, "Source code"),
-                 (REPO_URL + "/issues/new/choose", "Report a problem")]),
-]
+# The side menu. A page that is not in it (a feature doc) lights up Features,
+# which goes to the feature list on the home page.
+NAV = [("start.html", "Start here"), ("guide.html", "Setup guide"), ("builder.html", "YAML builder"),
+       ("world.html", "Archipelago world"), ("index.html#features", "Features"), ("dev-tools.html", "Dev tools")]
 DESCRIPTION = "Crash Team Racing (PS1) as a native PC game with the Archipelago multiworld randomizer built in."
 
 LIST_ITEM = re.compile(r"^\s*(?:[-*+]|\d+\.)\s")
@@ -108,32 +101,18 @@ def rewrite_links(body, src, out_dir):
     return re.sub(r'\b(href|src)=(["\'])(.*?)\2', fix, body)
 
 
-def nav_html(current, toc):
-    """The side menu, with the current page's sections under it."""
-    out = []
-    for group, links in NAV:
-        out.append(f'<div class="nav-group">{html.escape(group)}</div>')
-        for href, label in links:
-            ext = href.startswith("http")
-            attrs = ' class="ext"' if ext else (" aria-current=page" if href == current else "")
-            out.append(f'<a href="{html.escape(href)}"{attrs}>{html.escape(label)}</a>')
-            if href == current and toc:
-                out.append('<ul class="toc">' + "".join(
-                    f'<li><a href="#{html.escape(i)}">{t}</a></li>' for i, t in toc) + "</ul>")
-    return "".join(out)
+def nav_html(current):
+    pages = {href for href, _ in NAV}
+    here = current if current in pages or current == "index.html" else "index.html#features"
+    return "".join(f'<a href="{html.escape(href)}"{" aria-current=page" if href == here else ""}>{html.escape(label)}</a>'
+                   for href, label in NAV)
 
 
-def page(template, title, current, body, head="", main_class="", body_class="", toc=(), description=DESCRIPTION):
-    return (template.replace("{{title}}", html.escape(title)).replace("{{nav}}", nav_html(current, toc))
+def page(template, title, current, body, head="", main_class="", body_class="", description=DESCRIPTION):
+    return (template.replace("{{title}}", html.escape(title)).replace("{{nav}}", nav_html(current))
             .replace("{{description}}", html.escape(description)).replace("{{head}}", head)
             .replace("{{main_class}}", main_class).replace("{{body_class}}", body_class)
             .replace("{{body}}", body))
-
-
-def sections(body):
-    """(id, text) of each h2, for the menu's list of sections."""
-    return [(m.group(1), re.sub("<[^>]+>", "", m.group(2)))
-            for m in re.finditer(r'<h2 id="([^"]+)">(.*?)</h2>', body)]
 
 
 def main():
@@ -144,10 +123,6 @@ def main():
     with open(os.path.join(SITE, "template.html"), encoding="utf-8") as f:
         template = f.read()
 
-    in_nav = {href for _, links in NAV for href, _ in links}
-    missing = [dest for dest in list(PAGES.values()) + list(HANDMADE) if dest != "index.html" and dest not in in_nav]
-    if missing:
-        sys.exit(f"pages missing from NAV: {', '.join(missing)}")
     with open(os.path.join(SITE, "home.html"), encoding="utf-8") as f:
         hero = f.read()
 
@@ -164,8 +139,7 @@ def main():
             out = page(template, "CTR Decrypted: Crash Team Racing with Archipelago", dest,
                        hero + f'<article class="box doc home-doc">{body}</article>', body_class="home")
         else:
-            out = page(template, f"{name} | CTR Decrypted", dest, f'<article class="box doc">{body}</article>',
-                       toc=sections(body))
+            out = page(template, f"{name} | CTR Decrypted", dest, f'<article class="box doc">{body}</article>')
         with open(os.path.join(out_dir, dest), "w", encoding="utf-8") as f:
             f.write(out)
 

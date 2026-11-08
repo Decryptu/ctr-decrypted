@@ -1,5 +1,5 @@
-// Every page: the side menu (a drawer under 960px), the latest release's
-// version and download links, and the "on this page" highlight.
+// Every page: the side menu (a drawer under 960px) and the latest release's
+// version and download links.
 (function () {
   "use strict";
   const REPO = "Decryptu/ctr-decrypted";
@@ -63,21 +63,4 @@
     return rel;
   }).catch(() => null);
 
-  // On this page -------------------------------------------------------------
-  const toc = [...side.querySelectorAll(".toc a")];
-  if (toc.length && "IntersectionObserver" in window) {
-    const byId = new Map(toc.map((a) => [decodeURIComponent(a.hash.slice(1)), a]));
-    const heads = [...byId.keys()].map((id) => document.getElementById(id)).filter(Boolean);
-    const seen = new Set();
-    const mark = () => {
-      let here = heads.find((h) => seen.has(h)) || null;
-      if (!here) here = heads.filter((h) => h.getBoundingClientRect().top < 0).pop() || null;
-      for (const a of toc) a.classList.toggle("here", !!here && byId.get(here.id) === a);
-    };
-    const io = new IntersectionObserver((entries) => {
-      for (const en of entries) en.isIntersecting ? seen.add(en.target) : seen.delete(en.target);
-      mark();
-    }, { rootMargin: "0px 0px -60% 0px" });
-    heads.forEach((h) => io.observe(h));
-  }
 })();

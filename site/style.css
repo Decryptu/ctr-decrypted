@@ -141,9 +141,7 @@ blockquote { margin: 1em 0; padding: 8px 16px; border-left: 4px solid var(--oran
 .scrim { position: fixed; inset: 0; z-index: 40; background: rgba(5, 4, 10, 0.6); backdrop-filter: blur(2px); }
 .side-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 18px 18px 10px; }
 .side-head .brand span { font-size: 1.55rem; }
-.side nav { flex: 1; padding: 4px 0 12px; }
-.nav-group { margin: 14px 0 4px; padding: 0 22px; font-family: var(--pixel-font); font-size: 0.72rem; letter-spacing: 0.16em; color: var(--frame); text-transform: uppercase; }
-.nav-group::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 8px; vertical-align: -1px; background: repeating-conic-gradient(var(--frame) 0 25%, transparent 0 50%) 0 0 / 5px 5px; }
+.side nav { flex: 1; padding: 10px 0 12px; }
 .side nav a {
   position: relative; display: block; margin: 1px 12px; padding: 7px 12px;
   color: var(--text); text-decoration: none; font-weight: 700; border-radius: 2px;
@@ -155,11 +153,6 @@ blockquote { margin: 1em 0; padding: 8px 16px; border-left: 4px solid var(--oran
   box-shadow: inset 0 0 0 2px rgba(255, 210, 63, 0.55);
 }
 .side nav a[aria-current]::after { content: "\25C0"; position: absolute; right: 10px; font-size: 0.7em; top: 50%; transform: translateY(-50%); }
-.side nav a.ext::after { content: "\2197"; margin-left: 6px; color: var(--muted); font-weight: 400; }
-.toc { list-style: none; margin: 4px 12px 8px 26px; padding: 0 0 0 10px; border-left: 2px solid var(--frame-dim); }
-.toc a { margin: 0 !important; padding: 3px 8px !important; font-weight: 600 !important; font-size: 0.88rem; color: var(--muted) !important; }
-.toc a:hover { color: #fff !important; }
-.toc a.here { color: var(--yellow) !important; }
 .side-foot { padding: 14px 18px 22px; display: grid; gap: 10px; border-top: 1px solid var(--line); }
 .side-gh { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--muted); text-decoration: none; font-weight: 700; }
 .side-gh svg { width: 20px; height: 20px; }
@@ -321,7 +314,7 @@ main > footer { margin-top: 48px; color: var(--muted); font-size: 0.85em; paddin
 .dl-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0; }
 .run-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; align-items: center; margin-top: 18px; color: var(--muted); font-size: 0.9rem; }
 
-.ap101 { margin: 0 0 22px; }
+.ap101 { margin-bottom: 22px; }
 .ap101 > summary { cursor: pointer; list-style: none; padding: 16px 20px; display: flex; gap: 12px; align-items: center; }
 .ap101 > summary::-webkit-details-marker { display: none; }
 .ap101 > summary .ps { width: 28px; height: 28px; flex: none; }
