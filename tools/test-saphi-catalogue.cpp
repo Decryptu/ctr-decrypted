@@ -55,6 +55,18 @@ int main(int argc,char **argv)
         CHECK(!fixtureRow->decrypted && !fixtureRow->packageUuid[0]);
     }
     CustomSaphi_Free(&c);
+    /* Its package's picture is listed: fetched from its folder in the catalogue.
+       A picture of another size is refused. */
+    own["tracks"][0]["picture"]={{"bytes",9408},{"crc32",77}};
+    CHECK(parse(j,&c));CHECK(add(c,own));
+    {
+        auto *row=CustomSaphi_Row(c,1);
+        CHECK(row->picture.id && row->picture.bytes==9408 && row->picture.crc32==77 &&
+              !strcmp(row->picture.path,"tracks/own-track-c2a1f7f0/metadata/picture.ctp"));
+    }
+    CustomSaphi_Free(&c);
+    own["tracks"][0]["picture"]["bytes"]=9000;CHECK(parse(j,&c));CHECK(!add(c,own));CustomSaphi_Free(&c);
+    own["tracks"][0].erase("picture");
     /* Saphi lists it by id, same version: one row, Saphi's, knowing the UUID. */
     own["tracks"][0]["saphi_track_id"]=7;own["tracks"][0]["title"]="Fixture Track";
     CHECK(parse(j,&c));CHECK(add(c,own));CHECK(CustomSaphi_Count(c)==1);

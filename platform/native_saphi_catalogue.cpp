@@ -249,6 +249,15 @@ extern "C" int CustomSaphi_AddDecrypted(CustomSaphiCatalogue *catalogue, const c
             row.manifestBytes = source_integer(track.at("manifest_bytes"), 65536);
             row.lev = listed_file(track.at("lev"));
             row.vrm = listed_file(track.at("vrm"));
+            /* The package's own picture (metadata/picture.ctp), fetched from
+               the catalogue for a track not installed yet. */
+            if (track.contains("picture"))
+            {
+                row.picture = listed_file(track["picture"]);
+                if (row.picture.bytes != 112 * 42 * 2) throw std::runtime_error("Invalid track picture");
+                row.picture.id = 1;
+                std::snprintf(row.picture.path, sizeof row.picture.path, "tracks/%s/metadata/picture.ctp", row.folder);
+            }
             row.modeTags = source_modes(track.at("modes"), nullptr);
             row.current = row.decrypted = 1;
             row.trackID = next--;
@@ -272,7 +281,7 @@ extern "C" int CustomSaphi_AddDecrypted(CustomSaphiCatalogue *catalogue, const c
                 {
                     if (other.decrypted || other.trackID != same) continue;
                     std::memcpy(other.packageUuid, row.packageUuid, sizeof row.packageUuid);
-                    row.picture = other.picture;
+                    if (other.picture.id) row.picture = other.picture;
                     if (!other.disabledReason[0] && !std::strcmp(other.version, row.version)) listed = true;
                 }
             }

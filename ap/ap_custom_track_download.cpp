@@ -1513,6 +1513,55 @@ void picture_worker(int trackID, int mediaID, std::string path, std::string cach
     }
     picture_finish(trackID, 1, std::move(texels));
 }
+
+/* A catalogue package's picture.ctp: texels as they are, so the cache holds
+   the same bytes and the CRC32 checks both. */
+void picture_catalogue_worker(int trackID, std::string path, unsigned int bytes, uint32_t crc, std::string cacheDir)
+{
+    const size_t texelBytes = NATIVE_TRACK_PICTURE_TEXELS * sizeof(uint16_t);
+    char name[32];
+    std::snprintf(name, sizeof name, "catalogue-%08x.bin", static_cast<unsigned>(crc));
+    const std::string cacheFile = join_path(cacheDir, name);
+    auto good = [&](const std::vector<unsigned char> &data) {
+        return data.size() == texelBytes && data.size() == bytes &&
+               crc32(0, data.data(), static_cast<uInt>(data.size())) == crc;
+    };
+    auto finish = [&](const std::vector<unsigned char> &data) {
+        std::vector<uint16_t> texels(NATIVE_TRACK_PICTURE_TEXELS);
+        std::memcpy(texels.data(), data.data(), texelBytes);
+        for (auto &texel : texels) if (!texel) texel = 1;
+        picture_finish(trackID, 1, std::move(texels));
+    };
+    std::vector<unsigned char> data;
+    {
+        std::ifstream file(cacheFile, std::ios::binary);
+        data.assign(std::istreambuf_iterator<char>(file), {});
+    }
+    if (good(data)) return finish(data);
+    std::string error;
+    if (path.compare(0, 7, "tracks/") != 0 || path.find("..") != std::string::npos ||
+        !track_catalogue_get(path, texelBytes, data, error) || !good(data))
+        return picture_finish(trackID, -2);
+    const size_t slash = cacheDir.find_last_of("/\\");
+    if ((slash == std::string::npos || make_directory(cacheDir.substr(0, slash))) && make_directory(cacheDir))
+    {
+        const std::string part = cacheFile + ".part";
+        if (!write_file(part, data) || !replace_file(part, cacheFile)) std::remove(part.c_str());
+    }
+    finish(data);
+}
+}
+
+extern "C" int NativeTrackPicture_StartCatalogue(int trackID, const char *path, unsigned int bytes, uint32_t crc,
+                                                 const char *cacheDir)
+{
+    if (!trackID || !path || !cacheDir || !*cacheDir) return 0;
+    auto &state = picture_state();
+    std::lock_guard<std::mutex> guard(state.mutex);
+    if (state.state != -1) return 0;
+    state.state = 0;
+    try { std::thread(picture_catalogue_worker, trackID, std::string(path), bytes, crc, std::string(cacheDir)).detach(); return 1; }
+    catch (const std::exception &) { state.state = -1; return 0; }
 }
 
 extern "C" int NativeTrackPicture_Start(int trackID, int mediaID, const char *path, const char *cacheDir)

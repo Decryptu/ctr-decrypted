@@ -19,7 +19,9 @@ two tracks with one id) and writes:
 - index.json: what the Mods screen downloads first, one entry per track with
   its folder, pin and LEV and VRM size and CRC32, so a client can fetch
   manifest.json, check it against the pin, then fetch the files it pins, and
-  can tell the same track on Saphi;
+  can tell the same track on Saphi; and its picture's size and CRC32 when the
+  package has one, so the Mods screen can show it before the track is
+  installed;
 - CREDITS.md: every track with its authors and source.
 """
 import hashlib
@@ -89,7 +91,7 @@ def entry(tracks, folder):
             data = f.read()
         if len(data) != file["bytes"] or hashlib.sha256(data).hexdigest() != file["sha256"]:
             sys.exit(f"{folder}: {file['path']} does not match manifest.json")
-        if file["role"] in ("lev", "vrm"):
+        if file["role"] in ("lev", "vrm", "picture"):
             result[file["role"]] = {"bytes": len(data), "crc32": zlib.crc32(data)}
     return result, listing
 

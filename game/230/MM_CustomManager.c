@@ -336,6 +336,9 @@ static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, str
             {
                 CustomSaphi_Free(&s_saphiCatalogue);
                 s_saphiCatalogue = fresh;
+                /* Catalogue rows' negative ids are handed out again. */
+                if (s_pictureShown < 0) s_pictureShown = 0;
+                if (s_pictureFailed < 0) s_pictureFailed = 0;
             }
         }
     }

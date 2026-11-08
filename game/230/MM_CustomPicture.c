@@ -3,8 +3,9 @@
 
    A package's own picture (metadata/picture.ctp), or else Saphi's thumbnail of
    the track, cropped and shrunk to 112x42 by a background job
-   (include/platform/native_track_picture.h) and kept in
-   assets/tracks/pictures, so a track seen once shows offline too. The job
+   (include/platform/native_track_picture.h), or for a Decrypted catalogue
+   track not installed, its package's picture.ctp from the catalogue. Both are
+   kept in assets/tracks/pictures, so a track seen once shows offline too. The job
    starts once the selection has rested on a track for a moment, so scrolling
    through the list asks Saphi for nothing. One picture is in VRAM at a time. */
 #include <platform/native_racers.h>
@@ -44,19 +45,29 @@ static void MM_ModsPicture_Tick(void)
     else s_pictureFailed = trackID;
 }
 
-/* The catalogue's picture of a track: its media id and path, or 0 without a
-   catalogue (the cache answers then). */
-static int MM_ModsPicture_Media(int trackID, const char **path)
+/* The catalogue's picture of a track, or NULL without a catalogue (for a Saphi
+   track the cache answers then). */
+static const struct CustomSaphiMedia *MM_ModsPicture_Media(int trackID)
 {
-    *path = "";
     for (size_t i = 0; s_saphiCatalogue && i < CustomSaphi_Count(s_saphiCatalogue); i++)
     {
         const struct CustomSaphiRevision *row = CustomSaphi_Row(s_saphiCatalogue, i);
-        if (row->trackID != trackID || !row->picture.id) continue;
-        *path = row->picture.path;
-        return row->picture.id;
+        if (row->trackID == trackID && row->picture.id) return &row->picture;
     }
-    return 0;
+    return NULL;
+}
+
+/* Start the job for trackID's picture. 1 when it runs. */
+static int MM_ModsPicture_Start(int trackID)
+{
+    char dir[MODS_PATH_MAX];
+    const struct CustomSaphiMedia *media = MM_ModsPicture_Media(trackID);
+    snprintf(dir, sizeof dir, "%s/tracks/pictures", NativeAssets_GetAssetDir());
+    /* A catalogue package's picture.ctp, rather than a Saphi download. */
+    if (media && !strncmp(media->path, "tracks/", 7))
+        return NativeTrackPicture_StartCatalogue(trackID, media->path, media->bytes, media->crc32, dir);
+    if (trackID < 0) return 0;
+    return NativeTrackPicture_Start(trackID, media ? media->id : 0, media ? media->path : "", dir);
 }
 
 /* Put a package's own picture in VRAM. 1 when it is there. */
@@ -87,8 +98,9 @@ static int MM_ModsPicture_LoadPackage(const char *pin)
 }
 
 /* The panel's top left corner: the picture of the package pin ("" for a track
-   not installed) if it has one, else of trackID (a Saphi track id, 0 for a
-   track that did not come from Saphi), or a frame saying there is none. */
+   not installed) if it has one, else of trackID (a Saphi track id, a
+   catalogue row's negative id, 0 for a track from neither), or a frame saying
+   there is none. */
 static void MM_ModsPicture_Draw(int trackID, const char *pin, uint32_t *ot)
 {
     if (pin[0] && MM_ModsPicture_LoadPackage(pin))
@@ -104,25 +116,21 @@ static void MM_ModsPicture_Draw(int trackID, const char *pin, uint32_t *ot)
         s_pictureWait = 0;
         s_pictureFailed = 0;
     }
-    if (trackID > 0 && s_pictureShown != trackID && !s_pictureBusy && s_pictureFailed != trackID &&
+    if (trackID && s_pictureShown != trackID && !s_pictureBusy && s_pictureFailed != trackID &&
         ++s_pictureWait >= MODS_PICTURE_WAIT)
     {
-        char dir[MODS_PATH_MAX];
-        const char *path;
-        const int mediaID = MM_ModsPicture_Media(trackID, &path);
-        snprintf(dir, sizeof dir, "%s/tracks/pictures", NativeAssets_GetAssetDir());
-        s_pictureBusy = NativeTrackPicture_Start(trackID, mediaID, path, dir);
+        s_pictureBusy = MM_ModsPicture_Start(trackID);
         if (!s_pictureBusy) s_pictureFailed = trackID;
     }
 
-    if (trackID > 0 && s_pictureShown == trackID)
+    if (trackID && s_pictureShown == trackID)
     {
         const Color color = MM_CHARACTER_SELECT_NEUTRAL_COLOR;
         RECTMENU_DrawPolyGT4(s_pictureIcon, MODS_PICTURE_X, MODS_PICTURE_Y, &sdata->gGT->backBuffer->primMem, ot,
                              color, color, color, color, 0, FP(1.0));
         return;
     }
-    if (trackID <= 0 || s_pictureFailed == trackID)
+    if (!trackID || s_pictureFailed == trackID)
         MM_CustomText_Draw("No picture", MODS_PICTURE_X + NATIVE_TRACK_PICTURE_WIDTH / 2, MODS_PICTURE_Y + 15,
                            NATIVE_TRACK_PICTURE_WIDTH, 1, JUSTIFY_CENTER | GRAY, ot);
     RECT frame = {MODS_PICTURE_X, MODS_PICTURE_Y, NATIVE_TRACK_PICTURE_WIDTH, NATIVE_TRACK_PICTURE_HEIGHT};

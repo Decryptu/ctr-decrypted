@@ -27,7 +27,10 @@ struct CustomSaphiRevision
     /* The track's picture (a JPEG thumbnail), shown in the Mods screen. Set on
        every row of the track when Saphi lists exactly one current picture;
        id zero otherwise. Saphi serves a smaller copy than its listed size
-       and checksum describe, so only the id and path are used. */
+       and checksum describe, so only the id and path are used. On a
+       Decrypted catalogue row without a Saphi picture it is the package's own
+       picture.ctp instead: path is "tracks/<folder>/metadata/picture.ctp" in
+       the catalogue, with its listed size and CRC32. */
     struct CustomSaphiMedia picture;
     unsigned int modeTags;
     int current;

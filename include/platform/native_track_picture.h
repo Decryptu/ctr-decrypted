@@ -29,6 +29,12 @@ int NativeTrackPicture_Decode(const unsigned char *jpeg, size_t size, uint16_t o
    holds. One job at a time. Poll: 0 running, 1 out filled, -2 failed, -1 idle. */
 int NativeTrackPicture_Start(int trackID, int mediaID, const char *path, const char *cacheDir);
 int NativeTrackPicture_Poll(int *trackID, uint16_t out[NATIVE_TRACK_PICTURE_TEXELS]);
+/* The same job for a Decrypted catalogue track not installed yet: its
+   package's picture.ctp (texels as they are), from path in the catalogue,
+   checked against the listed size and CRC32 and cached as
+   cacheDir/catalogue-<crc32>.bin. trackID is only handed back by Poll. */
+int NativeTrackPicture_StartCatalogue(int trackID, const char *path, unsigned int bytes, uint32_t crc32,
+                                      const char *cacheDir);
 
 #ifdef __cplusplus
 }

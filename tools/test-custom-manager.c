@@ -105,6 +105,7 @@ void NativeRacers_Reload(void) {}
 static struct Icon pictureIcon;
 struct Icon *NativeRacers_TrackPicture(const unsigned short *t,int w,int h) { (void)t;(void)w;(void)h; return &pictureIcon; }
 int NativeTrackPicture_Start(int id,int media,const char *path,const char *dir) { (void)id;(void)media;(void)path;(void)dir; pictureStarts++; return 1; }
+int NativeTrackPicture_StartCatalogue(int id,const char *path,unsigned int bytes,uint32_t crc,const char *dir) { (void)id;(void)path;(void)bytes;(void)crc;(void)dir; pictureStarts++; return 1; }
 int NativeTrackPicture_Poll(int *id,uint16_t out[NATIVE_TRACK_PICTURE_TEXELS]) { (void)id;(void)out; return -2; }
 void DecalHUD_DrawPolyGT4(struct Icon *i,s32 x,s32 y,struct PrimMem *p,u32 *ot,Color a,Color b,Color c,Color d,u8 t,s16 s)
 { (void)i;(void)x;(void)y;(void)p;(void)ot;(void)a;(void)b;(void)c;(void)d;(void)t;(void)s; }

@@ -191,7 +191,10 @@ Select imports an xdelta patch, also when one is dropped on the window
   else its Saphi thumbnail. The
   catalogue keeps each track's one current `track_thumbnail`
   (`CustomSaphiRevision.picture`); a track with none, or with two, has no
-  picture, as does a track that did not come from Saphi. Once the selection
+  picture. A Decrypted catalogue track not installed shows its package's
+  `picture.ctp` from the catalogue, whose index lists its size and CRC32
+  (`NativeTrackPicture_StartCatalogue`): the bytes must match both, and are
+  cached as `assets/tracks/pictures/catalogue-<crc32>.bin`. Once the selection
   has rested on a track for 12 frames, a worker
   (`NativeTrackPicture_Start`, `ap/ap_custom_track_download.cpp`) fetches the
   JPEG, and `platform/native_track_picture.c` decodes it with stb_image
@@ -287,7 +290,9 @@ it. It works like the racer catalogue ([CUSTOM_RACERS.md](CUSTOM_RACERS.md)).
     (`MM_CustomSourceRemoveTwins`). Time Trial records follow the UUID, so that
     track's records start over. A seed's own install from Saphi does not do
     this: a Decrypted copy stays beside it until it is removed by hand.
-- Catalogue tracks have no picture yet, unless they pair with a Saphi track.
+- A catalogue track's picture is its package's `metadata/picture.ctp`,
+  listed in `index.json` (`picture`: size and CRC32), unless it pairs with a
+  Saphi track that has one.
 
 To test without publishing, `CTR_DEV_TRACK_CATALOGUE=<folder>` reads the
 catalogue from a local copy, with that folder's `saphi.json` (if any) standing
