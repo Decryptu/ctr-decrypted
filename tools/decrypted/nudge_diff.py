@@ -46,6 +46,8 @@ def load(path):
         if f[0] == "T":
             polys[-1]["tex"] = tuple(f[1:])
             continue
+        if f[0] == "C":
+            continue  # the polygon's vertex colours
         tag, count = int(f[0]), int(f[1])
         verts = []
         for i in range(count):

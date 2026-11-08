@@ -39,6 +39,8 @@ def main():
                     unborn += 1
                 elif parts[0] == 'hit':
                     hits += 1
+                elif parts[0] == 'push':
+                    continue
                 else:
                     seen[int(parts[0])].add(tuple(parts[1:]))
     # a STILL mover (mkds_movers: a piranha plant, a snowman, a bumper) stays put by design

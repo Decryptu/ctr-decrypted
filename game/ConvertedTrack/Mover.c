@@ -678,15 +678,16 @@ static int Mover_FollowKeys(struct Instance *inst, struct ConvertedMover *mover,
 }
 
 // CTR_DEV_MOVER_LOG: which kinds of mover hit a kart.
-// "hit <kind> <list> <kart> <x> <y> <z>": the kart's place when the object hit it.
-static void Mover_LogHit(const struct ConvertedMover *mover, const SVec3 *records, int kart, const struct Driver *driver)
+// "<what> <kind> <list> <kart> <x> <y> <z>": the kart's place when the object hit it
+// ("hit") or pushed it out of its box ("push", each frame it does).
+static void Mover_LogHit(const struct ConvertedMover *mover, const SVec3 *records, int kart, const struct Driver *driver, const char *what)
 {
 	const char *path = getenv("CTR_DEV_MOVER_LOG");
 	FILE *file = (path != NULL) ? fopen(path, "a") : NULL;
 
 	if (file != NULL)
 	{
-		fprintf(file, "hit %d %d %d %d %d %d\n", records[0].x, mover->list, kart, (int)driver->instSelf->matrix.t[0], (int)driver->instSelf->matrix.t[1],
+		fprintf(file, "%s %d %d %d %d %d %d\n", what, records[0].x, mover->list, kart, (int)driver->instSelf->matrix.t[0], (int)driver->instSelf->matrix.t[1],
 		        (int)driver->instSelf->matrix.t[2]);
 		fclose(file);
 	}
@@ -713,8 +714,20 @@ static void Mover_PushOut(struct Driver *driver, s32 m[3][3], const s32 local[3]
 
 	if (best >= 0)
 	{
-		driver->posCurr.x += ((push * m[0][best]) >> 12) << 8;
-		driver->posCurr.z += ((push * m[2][best]) >> 12) << 8;
+		const s32 dx = ((push * m[0][best]) >> 12) << 8, dz = ((push * m[2][best]) >> 12) << 8;
+
+		// a player's kart through its sweep, as Mover_Carry does: written straight to the
+		// position, a push up a slope (Waluigi Pinball's iron ball rolling up the table)
+		// put the kart under the ground, and it fell through the course
+		if (driver->actionsFlagSet & ACTION_BOT)
+		{
+			driver->posCurr.x += dx;
+			driver->posCurr.z += dz;
+		}
+		else
+		{
+			COLL_MOVED_AddCarry(driver, dx, 0, dz);
+		}
 	}
 }
 
@@ -781,7 +794,7 @@ static void Mover_HitKarts(struct ConvertedMover *mover, struct Instance *inst, 
 			sps.Input1.modelID = DYNAMIC_PLAYER;
 			if (RB_CrateWeapon_LInC(inst, driver->instSelf->thread, &sps))
 			{
-				Mover_LogHit(mover, records, i, driver);
+				Mover_LogHit(mover, records, i, driver, "hit");
 				NativeDev_MoverHit(mover->list, i, MOVER_EVENT_CRATE);
 			}
 			continue;
@@ -790,6 +803,7 @@ static void Mover_HitKarts(struct ConvertedMover *mover, struct Instance *inst, 
 		if ((u16)records[0].z & MOVER_FLAG_SOLID)
 		{
 			Mover_PushOut(driver, m, local, half);
+			Mover_LogHit(mover, records, i, driver, "push");
 			NativeDev_MoverHit(mover->list, i, MOVER_EVENT_PUSH);
 		}
 
@@ -802,7 +816,7 @@ static void Mover_HitKarts(struct ConvertedMover *mover, struct Instance *inst, 
 		if (RB_Hazard_HurtDriver(driver, damage, 0, 0) && !wasSpinning)
 		{
 			s_moverGraceUntil[i] = GAME_TRACKER->framesInThisLEV + MOVER_HIT_GRACE;
-			Mover_LogHit(mover, records, i, driver);
+			Mover_LogHit(mover, records, i, driver, "hit");
 			NativeDev_MoverHit(mover->list, i, MOVER_EVENT_HURT);
 			if ((driver->actionsFlagSet & ACTION_BOT) == 0)
 			{

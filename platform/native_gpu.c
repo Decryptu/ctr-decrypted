@@ -1053,6 +1053,19 @@ void MakeTexcoordQuadZero(GrVertex *vertex, u8 dither)
 	vertex[3].clut = 0;
 }
 
+// CTR_DEV_DUMP_FRAME: a "C" line after a polygon's vertex line (and its "T"
+// line), with each vertex's colour as the GPU blends it (128 is the texture as is).
+static void NativeGpu_DumpColours(const GrVertex *vertex, int count)
+{
+	FILE *dump = NativeDev_DumpFile();
+	if (dump == NULL)
+		return;
+	fprintf(dump, "C");
+	for (int i = 0; i < count; i++)
+		fprintf(dump, " %d %d %d", vertex[i].r, vertex[i].g, vertex[i].b);
+	fprintf(dump, "\n");
+}
+
 void MakeColourNoShade(GrVertex *vertex, int n)
 {
 	--n;
@@ -1102,6 +1115,7 @@ void MakeColourTriangle(GrVertex *vertex, bool shadeTexOn, u8 *col0, u8 *col1, u
 	if (!shadeTexOn)
 	{
 		MakeColourNoShade(vertex, 3);
+		NativeGpu_DumpColours(vertex, 3);
 		NativeGpu_PgxpDebugTint(vertex, 3);
 		return;
 	}
@@ -1124,6 +1138,7 @@ void MakeColourTriangle(GrVertex *vertex, bool shadeTexOn, u8 *col0, u8 *col1, u
 	vertex[2].g = col2[1];
 	vertex[2].b = col2[2];
 	vertex[2].a = 255;
+	NativeGpu_DumpColours(vertex, 3);
 	NativeGpu_PgxpDebugTint(vertex, 3);
 }
 
@@ -1132,6 +1147,7 @@ void MakeColourQuad(GrVertex *vertex, bool shadeTexOn, u8 *col0, u8 *col1, u8 *c
 	if (!shadeTexOn)
 	{
 		MakeColourNoShade(vertex, 4);
+		NativeGpu_DumpColours(vertex, 4);
 		NativeGpu_PgxpDebugTint(vertex, 4);
 		return;
 	}
@@ -1160,6 +1176,7 @@ void MakeColourQuad(GrVertex *vertex, bool shadeTexOn, u8 *col0, u8 *col1, u8 *c
 	vertex[3].g = col3[1];
 	vertex[3].b = col3[2];
 	vertex[3].a = 255;
+	NativeGpu_DumpColours(vertex, 4);
 	NativeGpu_PgxpDebugTint(vertex, 4);
 }
 
@@ -1195,7 +1212,10 @@ void TriangulateQuad()
 // them itself, so their projection is right however large, and the native
 // view (widescreen, the far camera, a converted course's large faces) makes
 // pieces wider than the PS1 drew; skipping them left the floor by the camera
-// showing the clear colour.
+// showing the clear colour. So are a converted course's movers: RenderBucket
+// clips what crosses the near plane (RenderBucket_DrawNearClipped), so the
+// rest projects right, and a big turning model near the camera (Bowser
+// Castle's room) skipped showed the black pit under it.
 internal bool NativeGpu_HardwareSkipsTriangle(const VERTTYPE *a, const VERTTYPE *b, const VERTTYPE *c)
 {
 	if (s_gpu.levelClipped)
@@ -1773,8 +1793,8 @@ void ParsePrimitivesLinkedList(u32 *p, int singlePrimitive)
 				int primLength = 0;
 				s_gpu.levelPrim = NativeGpu_IsLevelPrim(basePacket);
 				s_gpu.levelWater = s_gpu.levelPrim && NativeGpu_InLevelRun(&s_gpu.water, basePacket);
-				s_gpu.levelClipped = s_gpu.levelPrim && NativeGpu_InLevelRun(&s_gpu.clipped, basePacket);
 				const float moverDepthScale = s_gpu.levelPrim ? NativeGpu_MoverDepthScale(basePacket) : 0.0f;
+				s_gpu.levelClipped = s_gpu.levelPrim && ((moverDepthScale != 0.0f) || NativeGpu_InLevelRun(&s_gpu.clipped, basePacket));
 				const int firstVertex = s_gpu.vertexIndex;
 				if (currentPacket < endPacket)
 				{
