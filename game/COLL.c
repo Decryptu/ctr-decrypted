@@ -1896,6 +1896,21 @@ internal void CollMoved_PlayerSearch_StoreHitbox(struct ScratchpadStruct *sps)
 	sps->numBspHitboxesHit++;
 }
 
+#if defined(CTR_NATIVE)
+// A converted track's turning floor carries a kart round (game/ConvertedTrack/Mover.c,
+// Mover_Carry): the way it is carried this frame, position units (world x 256), goes
+// into the kart's next sweep, so a wall stops it as it stops the kart's own motion.
+// Written straight to the position, it pushed karts through walls and off the course.
+static Vec3 sCollMovedCarry[8];
+
+void COLL_MOVED_AddCarry(const struct Driver *d, s32 dx, s32 dy, s32 dz)
+{
+	sCollMovedCarry[d->driverID].x += dx;
+	sCollMovedCarry[d->driverID].y += dy;
+	sCollMovedCarry[d->driverID].z += dz;
+}
+#endif
+
 #if CTR_NATIVE_60FPS
 static Vec3 sCollMovedStepLead[8];
 
@@ -1917,6 +1932,18 @@ void COLL_MOVED_PlayerSearch(struct Thread *t, struct Driver *d)
 	sCollMovedStepLead[d->driverID] = (Vec3){0, 0, 0};
 #else
 	const Vec3 lead = {0, 0, 0};
+#endif
+#if CTR_NATIVE_60FPS
+	// the carry as a speed: the sweep moves velocity * elapsed / 32 a frame
+	if (gGT->elapsedTimeMS > 0)
+	{
+		const Vec3 carry = sCollMovedCarry[d->driverID];
+
+		lead.x += carry.x * 32 / gGT->elapsedTimeMS;
+		lead.y += carry.y * 32 / gGT->elapsedTimeMS;
+		lead.z += carry.z * 32 / gGT->elapsedTimeMS;
+		sCollMovedCarry[d->driverID] = (Vec3){0, 0, 0};
+	}
 #endif
 
 	sps->Input1.hitRadius = hitRadius;

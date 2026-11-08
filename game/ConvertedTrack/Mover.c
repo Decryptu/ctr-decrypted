@@ -292,15 +292,26 @@ static void Mover_Carry(const struct Instance *inst, const SVec3 *records, s32 m
 			turned[1] = d[1] * c + cy * s + ay * along * (1 - c);
 			turned[2] = d[2] * c + cz * s + az * along * (1 - c);
 		}
-		driver->posCurr.x += (s32)((turned[0] - d[0]) * 256);
-		driver->posCurr.z += (s32)((turned[2] - d[2]) * 256);
+		{
+			const s32 dx = (s32)((turned[0] - d[0]) * 256), dz = (s32)((turned[2] - d[2]) * 256);
+			const s32 dy = upright ? 0 : (s32)((turned[1] - d[1]) * 256);
+
+			// a player's kart is carried through its sweep, so walls stop it
+			// (COLL_MOVED_AddCarry); a CPU kart keeps to its path and is placed
+			if (driver->actionsFlagSet & ACTION_BOT)
+			{
+				driver->posCurr.x += dx;
+				driver->posCurr.y += dy;
+				driver->posCurr.z += dz;
+			}
+			else
+			{
+				COLL_MOVED_AddCarry(driver, dx, dy, dz);
+			}
+		}
 		if (upright)
 		{
 			driver->angle += (ay > 0) ? turn : -turn;
-		}
-		else
-		{
-			driver->posCurr.y += (s32)((turned[1] - d[1]) * 256);
 		}
 	}
 }
@@ -410,7 +421,6 @@ static void Mover_FollowPath(struct Instance *inst, struct ConvertedMover *mover
 
 static struct
 {
-	const struct Level *level;
 	struct Instance *inst[MOVER_MOST_PIECES];
 	int count;
 } s_moverPieces[MOVER_MOST_LISTS];
@@ -427,11 +437,6 @@ static void Mover_AddPiece(struct Instance *inst)
 	if ((list < 0) || (list >= MOVER_MOST_LISTS))
 	{
 		return;
-	}
-	if (s_moverPieces[list].level != GAME_TRACKER->level1)
-	{
-		s_moverPieces[list].level = GAME_TRACKER->level1;
-		s_moverPieces[list].count = 0;
 	}
 	for (int i = 0; i < s_moverPieces[list].count; i++)
 	{
@@ -489,7 +494,7 @@ static void Mover_Place(struct ConvertedMover *mover, struct Instance *inst, s32
 
 	Mover_AtOffset(inst, m, origin);
 	Mover_LogPose(mover->list, 0, inst);
-	if ((mover->list < 0) || (mover->list >= MOVER_MOST_LISTS) || (s_moverPieces[mover->list].level != GAME_TRACKER->level1))
+	if ((mover->list < 0) || (mover->list >= MOVER_MOST_LISTS))
 	{
 		return;
 	}
@@ -665,14 +670,16 @@ static int Mover_FollowKeys(struct Instance *inst, struct ConvertedMover *mover,
 }
 
 // CTR_DEV_MOVER_LOG: which kinds of mover hit a kart.
-static void Mover_LogHit(const SVec3 *records)
+// "hit <kind> <list> <kart> <x> <y> <z>": the kart's place when the object hit it.
+static void Mover_LogHit(const struct ConvertedMover *mover, const SVec3 *records, int kart, const struct Driver *driver)
 {
 	const char *path = getenv("CTR_DEV_MOVER_LOG");
 	FILE *file = (path != NULL) ? fopen(path, "a") : NULL;
 
 	if (file != NULL)
 	{
-		fprintf(file, "hit %d\n", records[0].x);
+		fprintf(file, "hit %d %d %d %d %d %d\n", records[0].x, mover->list, kart, (int)driver->instSelf->matrix.t[0], (int)driver->instSelf->matrix.t[1],
+		        (int)driver->instSelf->matrix.t[2]);
 		fclose(file);
 	}
 }
@@ -766,7 +773,7 @@ static void Mover_HitKarts(struct ConvertedMover *mover, struct Instance *inst, 
 			sps.Input1.modelID = DYNAMIC_PLAYER;
 			if (RB_CrateWeapon_LInC(inst, driver->instSelf->thread, &sps))
 			{
-				Mover_LogHit(records);
+				Mover_LogHit(mover, records, i, driver);
 				NativeDev_MoverHit(mover->list, i, MOVER_EVENT_CRATE);
 			}
 			continue;
@@ -787,7 +794,7 @@ static void Mover_HitKarts(struct ConvertedMover *mover, struct Instance *inst, 
 		if (RB_Hazard_HurtDriver(driver, damage, 0, 0) && !wasSpinning)
 		{
 			s_moverGraceUntil[i] = GAME_TRACKER->framesInThisLEV + MOVER_HIT_GRACE;
-			Mover_LogHit(records);
+			Mover_LogHit(mover, records, i, driver);
 			NativeDev_MoverHit(mover->list, i, MOVER_EVENT_HURT);
 			if ((driver->actionsFlagSet & ACTION_BOT) == 0)
 			{
@@ -986,6 +993,16 @@ static int Mover_HasThread(const struct Instance *inst)
 		}
 	}
 	return 0;
+}
+
+// Every level loads at the same address, so what is kept of one level's movers is
+// cleared when the next level's instances are made (INSTANCE_LevInitAll): a list's
+// pieces kept from the last course were other instances of this one, moved with it.
+void ConvertedMover_LevelStart(void)
+{
+	memset(s_moverPieces, 0, sizeof(s_moverPieces));
+	memset(s_moverAt, 0, sizeof(s_moverAt));
+	memset(s_moverGraceUntil, 0, sizeof(s_moverGraceUntil));
 }
 
 void ConvertedMover_LInB(struct Instance *inst)

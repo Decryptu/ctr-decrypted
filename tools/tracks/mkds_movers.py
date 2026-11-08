@@ -28,6 +28,10 @@ MAX_MODEL_SCALE = 0x7fff
 STACK_SLOT = 0x57  # a vertex's scratch slot, as retail models write it: lower ones overlap the colours
 MAX_LAYOUTS = 511
 MAX_TILES = 4  # of a repeating texture, each way, in a model's image
+# Blend mode 3 in a layout's page: the instance renderer draws its polygons solid. No mover texel sets the
+# PS1's blend bit, so another mode blends nothing, and the renderer gives each of its polygons a draw of
+# its own (platform/native_gpu.c AddSplit): a cog's thousands of them slowed the frame.
+OPAQUE_PAGE = ctr_items.ABR_MASK
 MAX_WIDTH, MAX_HEIGHT = 128, 256  # texels: wider, it would have to give up colours or be halved, and its layouts would miss
 NEUTRAL = 128  # a texture is multiplied by a vertex colour over this
 
@@ -229,9 +233,10 @@ def fit_tiles(triangles, materials):
 
 def chunks(triangles, lev_per_unit):
     """A model too big for one instance, in pieces of it: the game holds a model's scale in 16 bits and
-    multiplies it by the instance's, and four times over for one near the camera, so a model over
-    PIECE_MOST level units is drawn squashed close up, or not at all. -> lists
-    of triangles, one per piece; one list when it fits."""
+    multiplies it by the instance's, so a model over PIECE_MOST level units is drawn squashed, or not at
+    all. (Retail draws a model near the camera four times larger, which no piece could take; the renderer
+    keeps movers at their size, RenderBucket_NearScale.) -> lists of triangles, one per piece; one list
+    when it fits."""
     points = np.array([v[0] for _, tri in triangles for v in tri], float) * lev_per_unit
     if np.ptp(points, axis=0).max() <= PIECE_MOST:
         return [triangles]
@@ -283,24 +288,46 @@ def build_model(name, triangles, materials, lev_per_unit, mirror=False, billboar
         whole = tiled(image_of(material), tiles[mi], ((material.teximage >> 18) & 1, (material.teximage >> 19) & 1))
         images[mi] = whole[::math.ceil(whole.shape[0] / MAX_HEIGHT), ::math.ceil(whole.shape[1] / MAX_WIDTH)]
 
-    built = []
+    built, step = [], None
+    if len(pieces) > 1:
+        # The pieces share one grid, a whole number of level units a step each way, with their origins on
+        # it: a corner two pieces share is then the same point in both. Each on a grid of its own, they
+        # rounded it apart by up to half a step, and the course showed through the seams.
+        sides = [np.ptp(np.array([v[0] for _, tri in piece for v in tri], float) * lev_per_unit, axis=0) for piece in pieces]
+        step = np.maximum(np.ceil(np.max(sides, axis=0) / (255 - 2)), 1)
+        anchor = np.floor(low)
     for piece in pieces:
         piece_points = np.array([v[0] for _, tri in piece for v in tri], float) * lev_per_unit
-        centre = np.zeros(3) if len(pieces) == 1 else np.round((piece_points.min(0) + piece_points.max(0)) / 2)
-        built.append((_piece_model(name, piece, piece_points - centre, materials, images, tiles, turn, billboard, folded_uv), centre))
+        if step is None:
+            centre = np.zeros(3)
+        else:
+            centre = anchor + np.round(((piece_points.min(0) + piece_points.max(0)) / 2 - anchor) / step) * step
+        built.append((_piece_model(name, piece, piece_points - centre, materials, images, tiles, turn, billboard, folded_uv, step), centre))
     return [(model, centre, up) for (model, up), centre in built], extent / 2, (low + high) / 2, low
 
 
-def _piece_model(name, triangles, points, materials, images, tiles, turn, billboard, folded_uv):
-    """One instance's model. points: its vertices in level units from its own origin. -> (ctr_items.ItemModel,
-    what an instance's scale takes on)."""
-    low, high = points.min(0), points.max(0)
-    extent = np.maximum(high - low, 1.0)
-    scale_up = max(1, math.ceil(extent.max() * SCALE_ONE / 255 / MAX_MODEL_SCALE))
-    scale = np.ceil(extent / scale_up * SCALE_ONE / 255).astype(int)
-    points = points / scale_up
-    origin = np.floor(points.min(0) * SCALE_ONE / scale).astype(int)
-    stored = np.clip(np.round(points * SCALE_ONE / scale) - origin, 0, 255).astype(int)
+def _piece_model(name, triangles, points, materials, images, tiles, turn, billboard, folded_uv, step=None):
+    """One instance's model. points: its vertices in level units from its own origin. step: the level units
+    a stored step is each way, whole numbers its origin is a multiple of (build_model); None fits the piece.
+    -> (ctr_items.ItemModel, what an instance's scale takes on)."""
+    if step is None:
+        low, high = points.min(0), points.max(0)
+        extent = np.maximum(high - low, 1.0)
+        scale_up = max(1, math.ceil(extent.max() * SCALE_ONE / 255 / MAX_MODEL_SCALE))
+        scale = np.ceil(extent / scale_up * SCALE_ONE / 255).astype(int)
+        points = points / scale_up
+        origin = np.floor(points.min(0) * SCALE_ONE / scale).astype(int)
+        stored = np.clip(np.round(points * SCALE_ONE / scale) - origin, 0, 255).astype(int)
+    else:
+        scale_up = 1
+        while (step * SCALE_ONE / scale_up).max() > MAX_MODEL_SCALE:
+            scale_up *= 2  # a power of two divides step * SCALE_ONE, so the scale stays whole
+        scale = (step * SCALE_ONE / scale_up).astype(int)
+        grid = np.round(points / step).astype(int)
+        origin = grid.min(0)
+        stored = grid - origin
+        if stored.max() > 255:
+            raise ValueError(f'mover model {name}: a piece is over 255 steps of its grid')
 
     colours = []
     for mi, tri in triangles:
@@ -366,7 +393,7 @@ def _piece_model(name, triangles, points, materials, images, tiles, turn, billbo
     for key, index in layouts.items():
         at = len(blob)
         t = key[1:]
-        blob += struct.pack('<BBHBBHBBBB', t[0], t[1], 0, t[2], t[3], 0, t[4], t[5], t[4], t[5])
+        blob += struct.pack('<BBHBBHBBBB', t[0], t[1], 0, t[2], t[3], OPAQUE_PAGE, t[4], t[5], t[4], t[5])
         struct.pack_into('<I', blob, table_at + 4 * (index - 1), at)
         pointers.append(table_at + 4 * (index - 1))
         groups[key[0]]['layouts'].append(at)

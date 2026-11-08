@@ -1167,13 +1167,33 @@ static void RenderBucket_GetViewPosition(struct Instance *inst, struct PushBuffe
 	viewPos->vz = MFC2(11);
 }
 
+// 2 when the instance is drawn four times larger: retail does that to one nearer than
+// 0x1000, for precision. A converted track's mover piece is up to mkds_movers.PIECE_MOST
+// (1900) units, and four times that saturates the GTE's model matrix past 510: the
+// piece's projection was garbage near the camera, a floor full of holes. It keeps its
+// size; PGXP gives its corners their precision.
+static int RenderBucket_NearScale(const struct Instance *inst, int viewDepth)
+{
+	if ((s32)((u32)viewDepth - 0x1000u) >= 0)
+	{
+		return 0;
+	}
+#ifdef CTR_NATIVE
+	if ((inst != NULL) && (inst->instDef != NULL) && (inst->instDef->modelID == CONVERTED_MOVER_ID))
+	{
+		return 0;
+	}
+#endif
+	return 2;
+}
+
 static void RenderBucket_AdjustViewPositionForMvp(struct Instance *inst, VECTOR *viewPos)
 {
 	// NOTE(aalhendi): Retail stores raw depth for LOD, then adjusts the MVP
 	// translation at 0x80070a8c-0x80070ac8. Near instances are shifted left by 2
 	// to match the full-scale model matrix; DRAW_HUGE shifts that translation
 	// back down.
-	if ((s32)((u32)viewPos->vz - 0x1000u) < 0)
+	if (RenderBucket_NearScale(inst, viewPos->vz) != 0)
 	{
 		viewPos->vx = RenderBucket_MipsSll(viewPos->vx, 2);
 		viewPos->vy = RenderBucket_MipsSll(viewPos->vy, 2);
@@ -1374,7 +1394,7 @@ static void RenderBucket_BuildM3x3(struct Instance *inst, struct ModelHeader *mh
 	m4 = RenderBucket_ReadMatrixWord(&inst->matrix, offsetof(MATRIX, m[2][2]));
 	RenderBucket_GteLoadRotMatrixWords(m0, m1, m2, m3, m4);
 
-	depthShift = (RenderBucket_MipsSub(viewDepth, 0x1000) < 0) ? 2 : 0;
+	depthShift = RenderBucket_NearScale(inst, viewDepth);
 	scaleXYShift = 0x12 - depthShift;
 	scaleZShift = 2 - depthShift;
 	packedScaleXY = RenderBucket_ReadPackedWord(&mh->scale.x);
@@ -1870,7 +1890,7 @@ static int RenderBucket_SpreadsOverOT(const struct Instance *inst)
 // steps and PGXP depths are in those units.
 static int RenderBucket_DepthShift(const struct Instance *inst, int viewDepth)
 {
-	return (((s32)((u32)viewDepth - 0x1000u) < 0) ? 2 : 0) - (((inst->flags & DRAW_HUGE) != 0) ? 2 : 0);
+	return RenderBucket_NearScale(inst, viewDepth) - (((inst->flags & DRAW_HUGE) != 0) ? 2 : 0);
 }
 
 #ifdef CTR_NATIVE
@@ -1935,7 +1955,17 @@ static int RenderBucket_BuildDepthRange(struct Instance *inst, struct ModelFrame
 
 	RenderBucket_ProjectFrameBounds(frame, nextFrame, pb, projectionMvp, &bounds, &geomScreenHalf);
 	RenderBucket_UpdatePushBufferMetadata(pb, &bounds, instFlags);
-	if (RenderBucket_AcceptProjectedBounds(&bounds, pb, geomScreenHalf) == 0)
+#ifdef CTR_NATIVE
+	// A mover can reach past the camera (the drum a kart drives inside): a corner of
+	// its box nearer than H / 2 projects clamped to the screen's edge or wrapped, so
+	// the box's screen rectangle says nothing and dropped pieces in full view. Such a
+	// piece is kept, and its triangles are tested and cut one by one
+	// (RenderBucket_DrawNearClipped).
+	const int reachesPastCamera = RenderBucket_SpreadsOverOT(inst) && (bounds.minZ < geomScreenHalf) && (bounds.maxZ >= geomScreenHalf);
+#else
+	const int reachesPastCamera = 0;
+#endif
+	if (!reachesPastCamera && (RenderBucket_AcceptProjectedBounds(&bounds, pb, geomScreenHalf) == 0))
 	{
 		return 0;
 	}
@@ -2282,7 +2312,7 @@ static struct RenderBucketEntry *RenderBucket_QueueDraw(struct Instance *inst, s
 	{
 		const s32 instPos[3] = {inst->matrix.t[0], inst->matrix.t[1], inst->matrix.t[2]};
 		const int cameraID = (int)(pb - sdata->gGT->pushBuffer);
-		int shift = ((s32)((u32)viewDepth - 0x1000u) < 0) ? 2 : 0;
+		int shift = RenderBucket_NearScale(inst, viewDepth);
 		if ((inst->flags & DRAW_HUGE) != 0)
 			shift -= 2;
 		if (RenderBucket_NeedsCustomMatrix(queuedFlags, mh) != 0)
@@ -2876,8 +2906,9 @@ static int RenderBucket_CheckProjectedPrim(struct RenderBucketDrawContext *ctx, 
 #ifdef CTR_NATIVE
 	// A converted track's mover can be big enough to reach past the camera, which no
 	// retail model does: a corner nearer than half the projection distance (GTE divide
-	// overflow) projects to the edge of the screen, a spike across the view. Its
-	// polygons are small (tools/tracks/mkds_movers.py, PIECE_EDGE), so it loses that one.
+	// overflow) projects to the edge of the screen, a spike across the view.
+	// RenderBucket_DrawFunc_Normal cuts such a triangle at that depth first
+	// (RenderBucket_DrawNearClipped); this drops one another draw function passes.
 	if (((gteFlag & (1u << 17)) != 0) && (ctx->inst != NULL) && (ctx->inst->instDef != NULL) && (ctx->inst->instDef->modelID == CONVERTED_MOVER_ID))
 	{
 		return 0;
@@ -4548,9 +4579,225 @@ static int RenderBucket_DrawWaterSplitClipped(struct RenderBucketDrawContext *ct
 	return RenderBucket_RestoreProjectedRegsAndReturn(&savedRegs, 0);
 }
 
+#ifdef CTR_NATIVE
+// A converted track's mover can reach past the camera, which no retail model does: a
+// cog, the drum a kart drives inside. A triangle with a corner nearer than half the
+// projection distance overflows the GTE's divide and CheckProjectedPrim drops it, so a
+// big floor under the camera opened holes. Such a triangle is cut at that depth
+// instead, in model space, where the cut is a straight blend of its corners, their
+// colours and texture corners; each piece goes through the instance's own writer like
+// any other triangle. Its corners are tested here, not by the GTE's flag: a strip's
+// next triangle projects only its new corner and would carry a clamped one unflagged.
+#define RB_NEAR_MARGIN 4
+
+struct RenderBucketNearVertex
+{
+	float x, y, z;
+	float depth; // view depth past the cut
+	float rgb[3];
+	float u, v;
+};
+
+// The model-view matrix's depth row and the cut, read once an instance.
+static struct
+{
+	s32 r31, r32, r33, trz, cut;
+} s_rbNear;
+
+// Only a mover piece whose box comes nearer than the cut (RenderBucket_BuildDepthRange
+// keeps its nearest depth step, less 2): the test costs every triangle it runs on.
+static int RenderBucket_ClipsAtNear(const struct RenderBucketDrawContext *ctx)
+{
+	const s32 half = (s32)((u16)CFC2(26) >> 1);
+	const s32 r3132 = (s32)CFC2(3);
+
+	if ((ctx->inst == NULL) || (ctx->inst->instDef == NULL) || (ctx->inst->instDef->modelID != CONVERTED_MOVER_ID) ||
+	    (ctx->idpp->depthOffset[0] + 2 > ((half + RB_NEAR_MARGIN) >> 5)))
+	{
+		return 0;
+	}
+	s_rbNear.r31 = (s16)r3132;
+	s_rbNear.r32 = (s16)(r3132 >> 16);
+	s_rbNear.r33 = (s16)CFC2(4);
+	s_rbNear.trz = (s32)CFC2(7);
+	s_rbNear.cut = half + RB_NEAR_MARGIN;
+	return 1;
+}
+
+// A corner's view depth past the cut.
+static s32 RenderBucket_NearDepth(struct RenderBucketPackedVertex packed)
+{
+	const s64 along = (s64)s_rbNear.r31 * (s16)packed.xy + (s64)s_rbNear.r32 * (s16)(packed.xy >> 16) + (s64)s_rbNear.r33 * (s16)packed.z;
+
+	return s_rbNear.trz + (s32)(along >> 12) - s_rbNear.cut;
+}
+
+static void RenderBucket_NearCorner(struct RenderBucketNearVertex *v, struct RenderBucketPackedVertex packed, int color, s32 depth)
+{
+	v->x = (float)(s16)packed.xy;
+	v->y = (float)(s16)(packed.xy >> 16);
+	v->z = (float)(s16)packed.z;
+	v->depth = (float)depth;
+	for (int i = 0; i < 3; i++)
+	{
+		v->rgb[i] = (float)((color >> (8 * i)) & 0xff);
+	}
+	v->u = v->v = 0;
+}
+
+static void RenderBucket_NearBlend(struct RenderBucketNearVertex *out, const struct RenderBucketNearVertex *a, const struct RenderBucketNearVertex *b)
+{
+	const float t = a->depth / (a->depth - b->depth);
+
+	out->x = a->x + (b->x - a->x) * t;
+	out->y = a->y + (b->y - a->y) * t;
+	out->z = a->z + (b->z - a->z) * t;
+	out->depth = 0;
+	for (int i = 0; i < 3; i++)
+	{
+		out->rgb[i] = a->rgb[i] + (b->rgb[i] - a->rgb[i]) * t;
+	}
+	out->u = a->u + (b->u - a->u) * t;
+	out->v = a->v + (b->v - a->v) * t;
+}
+
+static s32 RenderBucket_NearRound(float value)
+{
+	return (s32)((value < 0) ? (value - 0.5f) : (value + 0.5f));
+}
+
+// -> 0: no corner is too near, draw it as usual; 1: drawn or dropped here; -1: out of
+// primitive memory.
+static int RenderBucket_DrawNearClipped(struct RenderBucketDrawContext *ctx, u32 command, int useRtps, int reuseFirstVertex)
+{
+	struct RenderBucketNearVertex in[3], out[4];
+	struct RenderBucketProjectedRegs savedRegs;
+	struct TextureLayout *tex, copy;
+	int savedColor[3], isValidTexture, count = 0, near = 0, ret = 1;
+
+	s32 depth[3];
+
+	for (int i = 0; i < 3; i++)
+	{
+		depth[i] = RenderBucket_NearDepth(ctx->tempPacked[i + 1]);
+		near += depth[i] < 0;
+	}
+	if (near == 0)
+	{
+		return 0;
+	}
+	for (int i = 0; i < 3; i++)
+	{
+		RenderBucket_NearCorner(&in[i], ctx->tempPacked[i + 1], ctx->tempColor[i + 1], depth[i]);
+	}
+
+	// project as usual first: a strip's next triangle reuses these corners
+	if (useRtps != 0)
+	{
+		RenderBucket_LoadPrimRTPS(ctx, reuseFirstVertex);
+	}
+	else
+	{
+		RenderBucket_LoadPrimRTPT(ctx);
+	}
+	RenderBucket_StoreProjectedRegs(&savedRegs);
+	if (near == 3)
+	{
+		return 1;
+	}
+	tex = RenderBucket_GetCommandTexture(ctx, command, &isValidTexture);
+	if (isValidTexture == 0)
+	{
+		return 1;
+	}
+	if (tex != NULL)
+	{
+		const u8 uv[3][2] = {{tex->u0, tex->v0}, {tex->u1, tex->v1}, {tex->u2, tex->v2}};
+
+		for (int i = 0; i < 3; i++)
+		{
+			in[i].u = uv[i][0];
+			in[i].v = uv[i][1];
+		}
+		copy = *tex;
+	}
+
+	for (int i = 0; i < 3; i++)
+	{
+		const struct RenderBucketNearVertex *a = &in[i], *b = &in[(i + 1) % 3];
+
+		if (a->depth >= 0)
+		{
+			out[count++] = *a;
+		}
+		if ((a->depth >= 0) != (b->depth >= 0))
+		{
+			// from the corner in front, whichever way the triangle runs: the
+			// neighbour sharing this edge cuts it at the very same point
+			if (a->depth >= 0)
+			{
+				RenderBucket_NearBlend(&out[count++], a, b);
+			}
+			else
+			{
+				RenderBucket_NearBlend(&out[count++], b, a);
+			}
+		}
+	}
+
+	memcpy(savedColor, &ctx->tempColor[1], sizeof(savedColor));
+	for (int k = 1; (k + 1 < count) && (ret > 0); k++)
+	{
+		const struct RenderBucketNearVertex *corner[3] = {&out[0], &out[k], &out[k + 1]};
+		int depthMac0;
+
+		for (int i = 0; i < 3; i++)
+		{
+			const u32 x = (u16)RenderBucket_NearRound(corner[i]->x), y = (u16)RenderBucket_NearRound(corner[i]->y);
+
+			MTC2(x | (y << 16), 2 * i);
+			MTC2((u16)RenderBucket_NearRound(corner[i]->z), 2 * i + 1);
+		}
+		gte_rtpt();
+		if (RenderBucket_CheckProjectedPrim(ctx, command, CFC2(31), 0, &depthMac0) == 0)
+		{
+			continue;
+		}
+		for (int i = 0; i < 3; i++)
+		{
+			int color = savedColor[0] & 0xff000000;
+
+			for (int c = 0; c < 3; c++)
+			{
+				color |= (RenderBucket_NearRound(corner[i]->rgb[c]) & 0xff) << (8 * c);
+			}
+			ctx->tempColor[i + 1] = color;
+		}
+		if (tex != NULL)
+		{
+			copy.u0 = (u8)RenderBucket_NearRound(corner[0]->u);
+			copy.v0 = (u8)RenderBucket_NearRound(corner[0]->v);
+			copy.u1 = (u8)RenderBucket_NearRound(corner[1]->u);
+			copy.v1 = (u8)RenderBucket_NearRound(corner[1]->v);
+			copy.u2 = (u8)RenderBucket_NearRound(corner[2]->u);
+			copy.v2 = (u8)RenderBucket_NearRound(corner[2]->v);
+		}
+		if (RenderBucket_DispatchDrawInstPrim(ctx, command, (tex != NULL) ? &copy : NULL, depthMac0) < 0)
+		{
+			ret = -1;
+		}
+	}
+	memcpy(&ctx->tempColor[1], savedColor, sizeof(savedColor));
+	return RenderBucket_RestoreProjectedRegsAndReturn(&savedRegs, ret);
+}
+#endif
+
 void RenderBucket_DrawFunc_Normal(struct RenderBucketDrawContext *ctx)
 {
 	u32 *pCmd;
+#ifdef CTR_NATIVE
+	const int clipsAtNear = RenderBucket_ClipsAtNear(ctx);
+#endif
 
 	// Native uses the explicit RenderBucketDrawContext command/FIFO ABI.
 	pCmd = (u32 *)ctx->idpp->ptrCommandList;
@@ -4626,6 +4873,23 @@ void RenderBucket_DrawFunc_Normal(struct RenderBucketDrawContext *ctx)
 		// `0x10c` and restores it after the initial RTPT, so the first
 		// primitive in a strip is keyed by the first command, not the third.
 		drawCommand = (ctx->stripLength == 2) ? ctx->primCommand : command;
+
+#ifdef CTR_NATIVE
+		if (clipsAtNear)
+		{
+			const int clipped = RenderBucket_DrawNearClipped(ctx, drawCommand, useRtps, reuseFirstVertex);
+
+			if (clipped < 0)
+			{
+				return;
+			}
+			if (clipped > 0)
+			{
+				ctx->stripLength++;
+				continue;
+			}
+		}
+#endif
 
 		{
 			struct TextureLayout *tex;

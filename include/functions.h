@@ -811,6 +811,8 @@ void VehStuckProc_MaskGrab_Init(struct Thread *t, struct Driver *d);
 void VehFlight_CheckGates(struct Driver *d);
 void VehFlight_Init(struct Thread *t, struct Driver *d);
 void ConvertedMover_LInB(struct Instance *inst);
+void ConvertedMover_LevelStart(void);
+void COLL_MOVED_AddCarry(const struct Driver *d, s32 dx, s32 dy, s32 dz);
 
 void VehPhysProc_PowerSlide_PhysAngular(struct Thread *t, struct Driver *d);
 void VehPhysProc_PowerSlide_Finalize(struct Driver *d);

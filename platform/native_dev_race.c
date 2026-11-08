@@ -55,6 +55,7 @@ typedef struct
 	int players;
 	int laps;
 	const char *customPin; // CTR_DEV_CUSTOM
+	int customNextDone;     // CTR_DEV_CUSTOM_NEXT
 	int autopilot;
 	int hopEvery;
 	int autopilotLane;
@@ -1300,6 +1301,24 @@ void NativeDev_RaceFrame(void)
 		d = gGT->drivers[0];
 
 	NativeDevRace_AdventureHub(dev, gGT);
+#ifdef CTR_CUSTOM_PACKAGES
+	// CTR_DEV_CUSTOM_NEXT=<pin>: at CTR_DEV_CUSTOM_NEXT_AT frames of the first
+	// course (default 600), load that installed package in the same slot, as
+	// racing a second course from the menu does: what one course leaves behind
+	// meets the next.
+	{
+		const char *next = getenv("CTR_DEV_CUSTOM_NEXT");
+		if ((next != NULL) && !dev->customNextDone && (gGT != NULL) && (sdata->Loading.stage == LOAD_IDLE) &&
+		    ((int)gGT->framesInThisLEV >= NativeDev_EnvInt("CTR_DEV_CUSTOM_NEXT_AT", 600)) && ((gGT->gameMode1 & ARCADE_MODE) != 0))
+		{
+			dev->customNextDone = 1;
+			CustomOffline_EndRuntime(); // as the menu's level does between two races
+			NativeDevRace_BeginCustom(gGT, next);
+			gGT->gameMode1 &= ~PAUSE_1;
+			MainRaceTrack_RequestLoad(CTR_CUSTOM_ARCADE_HOST_LEVEL);
+		}
+	}
+#endif
 	NativeDevRace_Warp(dev, gGT);
 
 	// The frame just drawn is still in the back buffer's primitive arena.

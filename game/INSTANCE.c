@@ -265,6 +265,9 @@ void INSTANCE_LevInitAll(struct InstDef *definitions, s32 count)
 	struct MetaDataMODEL *meta;
 	s32 i;
 
+#if defined(CTR_NATIVE)
+	ConvertedMover_LevelStart();
+#endif
 	for (i = 0; i < count; i++, levInstDef++)
 	{
 		struct GameTracker *gGT;
