@@ -1,11 +1,15 @@
-# CTR-AP Setup
+# Setup guide
 
-This is a quickstart for playing CTR-AP, the Archipelago integration for the
-native PC port of Crash Team Racing. Follow the steps in order.
+This is the full setup guide for CTR Decrypted: Crash Team Racing as a native PC
+game with the Archipelago multiworld randomizer built in. For a first setup, the
+[Start here](https://decryptu.github.io/ctr-decrypted/start.html) page on the
+project site asks whether you are joining a room, hosting one, playing solo or
+just racing, and gives you a checklist for exactly that. This page is the
+reference behind it.
 
 ## What you need first
 
-CTR-AP ships no game data. You supply the game files from your own copy of the
+The game ships no game data. You supply the game files from your own copy of the
 disc. You will need:
 
 1. A disc image of your own NTSC-U (North American) Crash Team Racing
@@ -18,20 +22,34 @@ disc. You will need:
 
 That is everything you need on the game side when you are joining an existing
 room. With a raw `.bin` image you do not need Python and you do not need to
-extract the disc. A `.chd` image uses the extractor in the appendix. If you are
-generating the multiworld yourself, you also need the matching `ctr.apworld`
-and a CTR YAML file; see [Generating or hosting a multiworld](#generating-or-hosting-a-multiworld).
+extract the disc. A `.chd` image is unpacked first (Step 2). If you are
+generating the multiworld yourself, you also need Archipelago and the matching
+`ctr.apworld`; see [Generating or hosting a multiworld](#generating-or-hosting-a-multiworld).
 
-For a guided first setup, use the
-[CTR setup guide on AP-Pie](https://ap-pie.com/guides/ctr). To create a player
-file, open the [YAML builder](https://decryptu.github.io/ctr-decrypted/builder.html).
+**Choose your next step:**
 
-**Choose your next step:** if your room is already generated, install the
-client and connect using the host's details. If the host is still collecting
-players, make a YAML (your settings file) and send it to them. If you are
-generating the room, install the matching APWorld (the package that adds CTR
-to Archipelago) and follow the
-[hosting guide](https://ap-pie.com/guides/hosting-a-multiworld).
+- **Joining a room that is already generated:** do Steps 1 to 3 with the
+  details the host gives you.
+- **The host is still collecting players:** make your YAML (your options file)
+  with the [YAML builder](https://decryptu.github.io/ctr-decrypted/builder.html)
+  and send it to them, then do Steps 1 to 3 once the room is up.
+- **Generating or hosting the room:** follow
+  [Generating or hosting a multiworld](#generating-or-hosting-a-multiworld).
+- **Playing alone:** do Steps 1 and 2, then [Playing solo](#playing-solo-without-a-server).
+
+## New to Archipelago?
+
+Archipelago shuffles the things you unlock across several games played by
+several people at once: a race you win in CTR can hold another player's item,
+and their game can hold your next key. Every game runs through the same stages:
+each player writes a **YAML** (an options file naming their **slot**, the
+player name they connect with); the host **generates** a **seed** from all of
+them with Archipelago and the **APWorld** of each game that Archipelago does not
+ship with (`ctr.apworld` here); the seed runs in a **room** on a server
+(archipelago.gg or the host's own computer); everyone **connects** their game to
+the room's address with their slot name. Completing a **location** (a race, a
+relic, a token, an item box) sends the **item** it holds to whoever owns it.
+**Play Solo** does all of this inside the game for one player.
 
 ## Step 1: get the game executable
 
@@ -55,7 +73,7 @@ folder next to `ctr_native_ap.exe` (launching the game once creates that
 folder):
 
 ```
-CTR-AP/
+CTR-Decrypted/
   ctr_native_ap.exe
   assets/
     ctr-u.bin
@@ -69,8 +87,17 @@ step. The image must be the common single-track raw PlayStation BIN layout
 video sector data the game needs, so it will not work. PAL (European) and
 Japanese images are detected and refused with a message naming their boot id.
 
-Go straight to Step 3. If your image is a `.chd`, or you specifically want to
-save disk space, see the appendix at the end of this guide.
+Go straight to Step 3.
+
+A `.chd` image is compressed: unpack it once to `.bin` and `.cue` with
+`chdman`, which comes with the MAME tools, and use the `.bin`:
+
+```
+chdman extractcd -i "CTR.chd" -o "CTR.cue" -ob "CTR.bin"
+```
+
+To keep only the files the game uses instead, see the appendix at the end of
+this guide.
 
 ## Step 3: connect to your room
 
@@ -233,25 +260,71 @@ through [Reporting a crash or a stuck seed](#reporting-a-crash-or-a-stuck-seed).
 
 ## Generating or hosting a multiworld
 
+### Every player: make a YAML
+
 Create your player file with the [YAML builder](https://decryptu.github.io/ctr-decrypted/builder.html). Its
-options come from the `ctr.apworld` of the latest release. Download the
-resulting YAML and give it to the person generating the room. The builder only
-writes your player file; it does not generate the seed or host the server.
+options come from the `ctr.apworld` of the latest release. Pick a player name
+(your slot name: unique in the room, at most 16 characters, and typed with the
+same capitals when you connect), download the YAML and give it to the person
+generating the room. The builder only writes your player file; it does not
+generate the seed or host the server.
 
-Only the person generating the room needs the `ctr.apworld`. Download it from
-the same release as the client and install it by double-clicking it or placing
-it in Archipelago's `custom_worlds` folder. Add every player's YAML to the
-generator's `Players` folder, then generate and host the resulting multiworld
-through Archipelago as usual.
+Without the website, use **Generate Template Options** in the Archipelago
+Launcher after installing the matching `ctr.apworld`, then edit the generated
+Crash Team Racing YAML in a text editor.
 
-As an offline alternative to AP-Pie, use **Generate Template Options** in the
-Archipelago Launcher after installing the matching `ctr.apworld`, then edit the
-generated Crash Team Racing YAML locally.
+### The host: generate the seed
+
+1. Install Archipelago from its
+   [releases page](https://github.com/ArchipelagoMW/Archipelago/releases) (the
+   Windows installer, or the Linux AppImage). It installs the Archipelago
+   Launcher, which generates and hosts. On Windows it goes into
+   `C:\ProgramData\Archipelago` by default; the Launcher's **Browse Files**
+   opens the folder wherever it is.
+2. Install `ctr.apworld` from the same release as the players' game: double-click
+   it, use **Install APWorld** in the Launcher, or copy it into the
+   `custom_worlds` folder. Restart the Launcher. Only the person generating needs
+   it, and other games that Archipelago does not ship with need their own
+   APWorld the same way.
+3. Collect one YAML per slot, every slot name different. Agree on the release
+   first: the game, the YAMLs and the `ctr.apworld` must come from the same one.
+4. Put the YAMLs in the `Players` folder (remove files from earlier games) and
+   click **Generate** in the Launcher. The result is one file in the `output`
+   folder named like `AP_12345678901234567890.zip`: that zip is the whole
+   multiworld. Do not unzip it.
+
+Generate on your own computer: the generator and YAML checker on the
+archipelago.gg website do not include CTR. When generation fails, the error
+names the YAML or option at fault; ask that player for a corrected file.
+
+### The host: open the room
+
+- **On archipelago.gg** (easiest): upload the zip on the
+  [Host Game page](https://archipelago.gg/uploads), then click **Create New
+  Room** on the seed page. The room page shows the address with its port (for
+  example `archipelago.gg:38281`), every slot, a tracker and a console for
+  commands. A room sleeps when nobody is connected and wakes when its page is
+  opened; the port can change then, so players should copy the address from the
+  page each time.
+- **On your own computer**: click **Host** in the Launcher and pick the zip. The
+  console prints `Hosting game at …` once the room is up; keep it open while you
+  play. The port is 38281 unless you changed it. Players on the same computer use
+  `localhost:38281`, players on your home network use this computer's local
+  address (like `192.168.1.20:38281`), and players over the internet need your
+  public address with TCP port 38281 forwarded to this computer on your router
+  and allowed through its firewall. `0.0.0.0` in the console is not an address
+  to give anyone.
+
+Then send each player the address with its port (or the room page link), their
+exact slot name and the password if you set one. The room's console takes
+commands while the game runs (`/help` lists them): release the items of a
+player who leaves, or collect for one who has finished. Players ask for hints by
+typing `!hint <item>` in the Archipelago Text Client (in the Launcher).
 
 The released client and apworld are a pair. Update both together, even when a
 release appears to change only one side.
 
-### If an in-game update is interrupted
+## If an in-game update is interrupted
 
 The in-game updater (a prompt on the main menu appears when a newer stable
 release exists) installs `ctr.apworld`, the Cortex Vortex files (in the assets
@@ -490,13 +563,13 @@ You can also point it at a `.bin` or a `.chd`. By default it writes an `assets`
 folder in the current directory. To send it somewhere else, add `--out`:
 
 ```
-python extract_assets.py "path/to/your/CTR.bin" --out "path/to/CTR-AP/assets"
+python extract_assets.py "path/to/your/CTR.bin" --out "path/to/CTR-Decrypted/assets"
 ```
 
 When it finishes you should have this layout:
 
 ```
-CTR-AP/
+CTR-Decrypted/
   ctr_native_ap.exe
   assets/
     BIGFILE.BIG

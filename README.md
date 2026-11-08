@@ -11,7 +11,7 @@ A native PC version of **Crash Team Racing (PS1, 1999)** with the [Archipelago](
 
 CTR Decrypted is built on [dowlle/ctr-native-ap](https://github.com/dowlle/ctr-native-ap) and stays compatible with its seeds and `ctr.apworld`. It adds enhancements ported from [Crash Team Racing - High Octane](https://github.com/Rinnegatamante/Crash-Team-Racing-High-Octane) and fixes of its own. [ROADMAP.md](ROADMAP.md) has what is planned.
 
-The project site, [decryptu.github.io/ctr-decrypted](https://decryptu.github.io/ctr-decrypted/), has these docs as pages and the YAML builder.
+The project site, [decryptu.github.io/ctr-decrypted](https://decryptu.github.io/ctr-decrypted/), has an interactive [setup checklist](https://decryptu.github.io/ctr-decrypted/start.html) for joining, hosting or playing solo, these docs as pages, and the YAML builder.
 
 ## Features
 
@@ -59,7 +59,7 @@ CTR-Decrypted/
 - The person generating the room puts the release's `ctr.apworld` into Archipelago's `custom_worlds` folder and generates with every player's YAML.
 - Host the result on [archipelago.gg](https://archipelago.gg/uploads) or your own Archipelago server.
 
-[SETUP.md](SETUP.md) has the full walkthrough and troubleshooting.
+[Start here](https://decryptu.github.io/ctr-decrypted/start.html) turns this into a checklist for your case; [SETUP.md](SETUP.md) has the full walkthrough and troubleshooting.
 
 ## Building from source
 

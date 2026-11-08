@@ -1,23 +1,28 @@
-<article class="doc">
+<section class="box doc builder-intro">
 <h1>YAML builder</h1>
-<p>Make your player file for a Crash Team Racing seed. Every option, default and choice here comes from the <code>ctr.apworld</code> <span id="world-version"></span> shipped with the <a href="https://github.com/Decryptu/ctr-decrypted/releases/latest">latest release</a>, so the file matches the world the host generates with. Give the downloaded file to the person generating the room. The <a href="world.html">Archipelago world</a> page explains the bigger options, and the <a href="guide.html">guide</a> covers the rest of the setup.</p>
-<p>Changed options are highlighted. Options you leave alone keep their default.</p>
-</article>
+<p>Make your player file for a Crash Team Racing seed. Every option, default and choice here comes from the <code>ctr.apworld</code> <span id="world-version"></span> of the <a href="https://github.com/Decryptu/ctr-decrypted/releases/latest">latest release</a>, so the file matches the world the host generates with. Give the downloaded file to the person generating the room, or import it in the game's <strong>PLAY SOLO</strong>.</p>
+<p>Leave an option alone and it keeps its default; changed ones are marked in orange. First time? The <a href="start.html">Start here</a> checklist walks you through the rest, and the <a href="world.html">Archipelago world</a> page explains the bigger options.</p>
+</section>
 <noscript><p>The builder needs JavaScript.</p></noscript>
-<div id="builder" hidden>
-  <div class="builder-head">
-    <label>Player name <input type="text" id="player-name" maxlength="16" required pattern=".*\S.*" placeholder="Your slot name"></label>
-    <label>Description <input type="text" id="player-desc" placeholder="Optional"></label>
-  </div>
-  <div class="actions">
-    <button class="primary" id="download">Download YAML</button>
-    <button id="copy">Copy</button>
-    <label class="status">Preset <select id="preset"></select></label>
-    <button id="reset-all">Reset all to defaults</button>
-    <span class="status" id="status"></span>
-  </div>
+<div id="builder" class="builder-layout" hidden>
   <div id="groups"></div>
-  <h2>Your file</h2>
-  <pre id="yaml"></pre>
+  <aside class="box builder-side" aria-label="Your file">
+    <h2>Your file</h2>
+    <div class="builder-head">
+      <label>Player name <input type="text" id="player-name" maxlength="16" required pattern=".*\S.*" placeholder="Your slot name, 16 characters at most"></label>
+      <label>Description <input type="text" id="player-desc" placeholder="Optional"></label>
+    </div>
+    <div class="actions">
+      <button class="primary" id="download"><svg class="ps"><use href="#i-x"/></svg>Download YAML</button>
+      <button id="copy"><svg class="ps"><use href="#i-sq"/></svg>Copy</button>
+    </div>
+    <div class="actions">
+      <label class="status">Preset <select id="preset"></select></label>
+      <button class="small" id="reset-all"><svg class="ps"><use href="#i-o"/></svg>Reset all</button>
+      <span class="changed-count" id="changed-count"></span>
+      <span class="status" id="status" role="status"></span>
+    </div>
+    <pre id="yaml"></pre>
+  </aside>
 </div>
 <script id="options-data" type="application/json">{{options}}</script>

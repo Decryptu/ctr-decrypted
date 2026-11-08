@@ -236,6 +236,6 @@ later race rather than firing the moment they arrive.
 
 Download the paired client and apworld from the
 [CTR Archipelago releases page](https://github.com/Decryptu/ctr-decrypted/releases),
-then follow the [setup guide](https://github.com/Decryptu/ctr-decrypted/blob/main/SETUP.md)
-to play. Report bugs and stuck seeds on
+then follow the [Start here checklist](https://decryptu.github.io/ctr-decrypted/start.html)
+to join, host or play solo. Report bugs and stuck seeds on
 the [project issue tracker](https://github.com/Decryptu/ctr-decrypted/issues).

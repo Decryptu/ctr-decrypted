@@ -1,0 +1,383 @@
+<section class="box start-head">
+  <h1 class="title">Start here</h1>
+  <p>Answer three questions and you get a checklist for exactly your setup. Tick each step as you finish it: your progress stays in this browser, so you can close the page and come back.</p>
+  <p class="more">Want every detail instead? The <a href="guide.html">full setup guide</a> has it all on one page.</p>
+</section>
+
+<details class="box ap101" id="archipelago-101">
+  <summary><svg class="ps"><use href="#i-tri"/></svg><span><b>New to Archipelago? Read this first</b><small>One minute, and every word the checklist uses.</small></span></summary>
+  <div class="inner">
+    <p><strong>Archipelago</strong> is a randomizer that links games together. In a normal randomizer, the things you unlock (in CTR: trophies, keys, gems, relics, racers) are shuffled around your own game. In Archipelago, they are shuffled across <em>several</em> games played by several people at once. Winning a race in your CTR may unlock a sword in a friend's Zelda, and their dungeon may hold your next boss key. You help each other progress.</p>
+    <p>CTR Decrypted is the game with that link built in: no emulator, no patching, no separate client program. Every game in the session runs through these five stages:</p>
+    <ol class="flow">
+      <li><b>Options</b>Each player writes a small settings file, a YAML.</li>
+      <li><b>Generate</b>The host feeds every YAML to Archipelago, which shuffles the items into one seed.</li>
+      <li><b>Host</b>The seed runs on a server room, on archipelago.gg or a home PC.</li>
+      <li><b>Connect</b>Everyone points their game at the room with their slot name.</li>
+      <li><b>Play</b>Finish events to send items; receive the ones others find for you.</li>
+    </ol>
+    <p>Playing alone? The <strong>Play Solo</strong> mode does stages 2 to 4 for you, inside the game.</p>
+    <h3 class="pixel">Words you will meet</h3>
+    <dl class="gloss" id="glossary">
+      <div><dt id="t-multiworld">Multiworld</dt><dd>One shared Archipelago session. Each player's game in it is a "world".</dd></div>
+      <div><dt id="t-yaml">YAML</dt><dd>Your options file (a <code>.yaml</code> text file): your player name, the game, and how it is randomized. Make it with the YAML builder.</dd></div>
+      <div><dt id="t-slot">Slot</dt><dd>Your place in the room. Its name is the <code>name</code> in your YAML, and you must type it exactly, capitals included, to connect.</dd></div>
+      <div><dt id="t-apworld">APWorld</dt><dd>The <code>ctr.apworld</code> file that teaches Archipelago about CTR. Only the person generating needs it.</dd></div>
+      <div><dt id="t-seed">Seed</dt><dd>One generated shuffle: the <code>AP_….zip</code> Archipelago makes from everyone's YAML.</dd></div>
+      <div><dt id="t-room">Room</dt><dd>The server running a seed. Players connect to it with its address, like <code>archipelago.gg:38281</code>.</dd></div>
+      <div><dt id="t-location">Location / check</dt><dd>Something you do that sends an item: winning a Trophy race, a relic time trial, a CTR token, breaking an AP item box.</dd></div>
+      <div><dt id="t-item">Item</dt><dd>What a location holds: a key, a trophy, a racer, a kart upgrade, a trap. It can belong to you or to another player.</dd></div>
+      <div><dt id="t-logic">Logic</dt><dd>The rules that make sure every seed can be finished: an item you need is never locked behind itself.</dd></div>
+      <div><dt id="t-sync">Sync / async</dt><dd>Sync: everyone starts together at a countdown. Async: people play whenever they like over days or weeks.</dd></div>
+      <div><dt id="t-hint">Hint</dt><dd>Asking the server where one of your items is. It costs hint points you earn by checking locations.</dd></div>
+      <div><dt id="t-release">Release / collect</dt><dd>Release sends every item still in your world to its owner; collect takes all of yours at once. Used when someone finishes or leaves.</dd></div>
+      <div><dt id="t-deathlink">DeathLink</dt><dd>An optional link: when one linked player fails, everyone linked fails too. Off in CTR unless you turn it on.</dd></div>
+    </dl>
+  </div>
+</details>
+
+<div id="guide">
+<section class="box q">
+  <h2><b>1</b> Select mode</h2>
+  <div class="choices" role="radiogroup" aria-label="What are you doing?">
+    <label class="choice"><input type="radio" name="mode" value="join"><span><b>Join a room</b><small>Someone else is hosting: a friend, a Discord event, a community async.</small></span></label>
+    <label class="choice"><input type="radio" name="mode" value="host"><span><b>Host a multiworld</b><small>You make the room for others, and maybe play in it too.</small></span></label>
+    <label class="choice"><input type="radio" name="mode" value="solo"><span><b>Play solo</b><small>Archipelago CTR on your own. No server, no internet needed.</small></span></label>
+    <label class="choice"><input type="radio" name="mode" value="race"><span><b>Just race</b><small>The game with its enhancements, no randomizer.</small></span></label>
+  </div>
+</section>
+
+<section class="box q">
+  <h2><b>2</b> Your platform</h2>
+  <div class="choices small" role="radiogroup" aria-label="Your platform">
+    <label class="choice"><input type="radio" name="platform" value="windows"><span><b>Windows</b><small>10 or 11</small></span></label>
+    <label class="choice"><input type="radio" name="platform" value="linux"><span><b>Linux</b><small>Desktop PC</small></span></label>
+    <label class="choice"><input type="radio" name="platform" value="deck"><span><b>Steam Deck</b><small>SteamOS</small></span></label>
+  </div>
+</section>
+
+<section class="box q">
+  <h2><b>3</b> Your copy of the game</h2>
+  <p>The game ships no game data: it reads it from your own North American (NTSC-U) disc. What do you have?</p>
+  <div class="choices small" role="radiogroup" aria-label="Your copy of the game">
+    <label class="choice"><input type="radio" name="disc" value="bin"><span><b>A .bin file</b><small>With or without a .cue next to it</small></span></label>
+    <label class="choice"><input type="radio" name="disc" value="chd"><span><b>A .chd file</b><small>A compressed image</small></span></label>
+    <label class="choice"><input type="radio" name="disc" value="disc"><span><b>The disc only</b><small>The PlayStation CD itself</small></span></label>
+  </div>
+</section>
+
+<section class="box q" data-mode="join">
+  <h2><b>4</b> Is the room ready?</h2>
+  <div class="choices small" role="radiogroup" aria-label="Is the room ready?">
+    <label class="choice"><input type="radio" name="room" value="collecting"><span><b>Not yet</b><small>The host is collecting players' YAML files</small></span></label>
+    <label class="choice"><input type="radio" name="room" value="ready"><span><b>Yes</b><small>I have an address and a slot name</small></span></label>
+  </div>
+</section>
+
+<section class="box q" data-mode="host">
+  <h2><b>4</b> Where will the room run?</h2>
+  <div class="choices small" role="radiogroup" aria-label="Where will the room run?">
+    <label class="choice"><input type="radio" name="where" value="web"><span><b>archipelago.gg</b><small>Free, nothing to set up. Recommended.</small></span></label>
+    <label class="choice"><input type="radio" name="where" value="own"><span><b>My computer</b><small>Needs a port opened on your router for remote players.</small></span></label>
+  </div>
+</section>
+
+<section class="box run" id="checklist" hidden>
+  <div class="run-head">
+    <h2 class="title" id="run-title">Your checklist</h2>
+    <div class="hud" aria-live="polite">
+      <svg aria-hidden="true"><use href="#i-wumpa"/></svg>
+      <div><div class="hud-count title" id="hud-count">0/0</div><div class="hud-lap" id="hud-lap">Step 1</div></div>
+    </div>
+  </div>
+  <div class="meter" aria-hidden="true"><i id="meter"></i></div>
+  <div class="finish"><span class="title">Finish!</span><p id="finish-text">Every step is done. Have a great run.</p></div>
+
+  <ol class="steps">
+    <!-- Getting the game: every mode -->
+    <li class="step" data-id="download">
+      <div class="step-top"><label class="tick"><input type="checkbox" aria-label="Done"><span><svg><use href="#i-wumpa"/></svg></span></label><h3>Download the game</h3></div>
+      <div class="step-body">
+        <div data-platform="windows">
+          <div class="dl-row"><a class="btn btn-go" href="https://github.com/Decryptu/ctr-decrypted/releases/latest" data-download="windows"><svg class="ps"><use href="#i-x"/></svg>Download for Windows <small data-size></small></a></div>
+          <p>Right-click the <code>.zip</code>, choose <strong>Extract All</strong>, and extract it into a folder of its own, for example <code>Documents\CTR Decrypted</code>. Do not run the game from inside the zip, and avoid <code>Program Files</code>: the game writes its settings and saves next to itself.</p>
+        </div>
+        <div data-platform="linux">
+          <div class="dl-row"><a class="btn btn-go" href="https://github.com/Decryptu/ctr-decrypted/releases/latest" data-download="linux"><svg class="ps"><use href="#i-x"/></svg>Download for Linux <small data-size></small></a></div>
+          <p>Extract it into a folder of its own, for example <code>~/Games/CTR</code>:</p>
+          <pre><code>mkdir -p ~/Games/CTR &amp;&amp; tar -xzf ctr-decrypted-*-linux-x86.tar.gz -C ~/Games/CTR</code></pre>
+          <p class="more">The game is a 32-bit program. If it starts with no sound, see <a href="guide.html#troubleshooting">Troubleshooting</a>; <a href="steam-deck.html">Linux and Steam Deck</a> lists what it needs.</p>
+        </div>
+        <div data-platform="deck">
+          <p>Switch to <strong>Desktop Mode</strong> (Steam button, <strong>Power</strong>, <strong>Switch to Desktop</strong>) and open this page in the browser there.</p>
+          <div class="dl-row"><a class="btn btn-go" href="https://github.com/Decryptu/ctr-decrypted/releases/latest" data-download="linux"><svg class="ps"><use href="#i-x"/></svg>Download for Steam Deck <small data-size></small></a></div>
+          <p>Open the downloaded <code>.tar.gz</code> in the Dolphin file manager and extract it into a folder of its own, for example <code>Games/CTR</code> in your home folder.</p>
+        </div>
+        <p class="note">You only do this once. From then on the game updates itself: the main menu offers each new version, and your settings and saves stay.</p>
+      </div>
+    </li>
+
+    <li class="step" data-id="disc-bin" data-disc="bin">
+      <div class="step-top"><label class="tick"><input type="checkbox" aria-label="Done"><span><svg><use href="#i-wumpa"/></svg></span></label><h3>Check your disc image</h3></div>
+      <div class="step-body">
+        <p>The game reads your <code>.bin</code> directly: no extracting, no Python. It must be:</p>
+        <ul>
+          <li>the <strong>North American</strong> release (boot id <code>SCUS_944.26</code>). European and Japanese discs are recognised and refused;</li>
+          <li>a <strong>raw</strong> image (MODE2/2352), as disc-dumping tools make by default. A <code>.iso</code>, even renamed to <code>.bin</code>, lacks the music and video data and will not work.</li>
+        </ul>
+        <p>The file name does not matter, and the <code>.cue</code> is not needed.</p>
+      </div>
+    </li>
+    <li class="step" data-id="disc-chd" data-disc="chd">
+      <div class="step-top"><label class="tick"><input type="checkbox" aria-label="Done"><span><svg><use href="#i-wumpa"/></svg></span></label><h3>Turn your .chd into a .bin</h3></div>
+      <div class="step-body">
+        <p>The game reads raw <code>.bin</code> images, so unpack the <code>.chd</code> once with <code>chdman</code>, which comes with the MAME tools (on Linux, often in a <code>mame-tools</code> package):</p>
+        <pre><code>chdman extractcd -i "CTR.chd" -o "CTR.cue" -ob "CTR.bin"</code></pre>
+        <p>Keep <code>CTR.bin</code> and use it in the next step. It must be the North American release (<code>SCUS_944.26</code>).</p>
+        <p class="more">Prefer to keep only the game's files? The extractor in the <a href="guide.html#appendix-extracting-the-assets-most-people-should-skip-this">setup guide's appendix</a> reads a <code>.chd</code> directly (it needs Python and <code>chdman</code>).</p>
+      </div>
+    </li>
+    <li class="step" data-id="disc-dump" data-disc="disc">
+      <div class="step-top"><label class="tick"><input type="checkbox" aria-label="Done"><span><svg><use href="#i-wumpa"/></svg></span></label><h3>Make an image of your disc</h3></div>
+      <div class="step-body">
+        <p>Put the disc in a PC CD or DVD drive and copy it with a disc-dumping program that saves PlayStation discs as <strong>BIN/CUE</strong> in raw mode (MODE2/2352), the same format PlayStation emulators use.</p>
+        <ul>
+          <li>Choose BIN/CUE, never ISO: an ISO drops the music and video tracks.</li>
+          <li>Only the North American disc works (the label on the case says NTSC U/C; the boot id is <code>SCUS_944.26</code>).</li>
+        </ul>
+        <p>You end up with a <code>.bin</code> (and a <code>.cue</code>). The game needs only the <code>.bin</code>.</p>
+      </div>
+    </li>
+
+    <li class="step" data-id="first-launch">
+      <div class="step-top"><label class="tick"><input type="checkbox" aria-label="Done"><span><svg><use href="#i-wumpa"/></svg></span></label><h3>First launch: give the game your disc</h3></div>
+      <div class="step-body">
+        <div data-platform="deck">
+          <p>Still in Desktop Mode, open the game folder, create a folder named <code>assets</code> and copy your <code>.bin</code> into it:</p>
+          <pre><code>CTR/
+  ctr_native_ap
+  assets/
+    ctr-u.bin</code></pre>
+          <p>Then right-click <code>ctr_native_ap</code> and choose <strong>Add to Steam</strong>. Go back to <strong>Gaming Mode</strong> and start <em>ctr_native_ap</em> from your library (under Non-Steam). The first start on a Deck is fullscreen at 16:10, with the built-in controls as the controller.</p>
+        </div>
+        <div data-platform="windows linux">
+          <p>Start <code data-platform="windows">ctr_native_ap.exe</code><code data-platform="linux">./ctr_native_ap</code>. The first time, it searches the game folder, your Downloads, Desktop, Documents and Games folders for your disc. If it finds it, it asks whether to use it; if not, a file picker opens. It then offers to copy the image into the game folder, or to remember where it is.</p>
+          <p class="more">Or put it in place yourself: an <code>assets</code> folder next to the game, holding the <code>.bin</code> under any name.</p>
+        </div>
+        <p>A short <strong>setup screen</strong> then opens on the title screen. <span data-mode="join host">Its first page asks for your room: keep it open for the connect step.</span><span data-mode="solo race">Its first page asks for an Archipelago room: you can skip it.</span> The next pages pick fullscreen, aspect ratio, render scale, 60 FPS, skipping the intros and Discord status. Everything there can be changed later in <strong>OPTIONS</strong>.</p>
+      </div>
+    </li>
+
+    <!-- Join -->
+    <li class="step" data-id="join-yaml" data-mode="join" data-room="collecting">
+      <div class="step-top"><label class="tick"><input type="checkbox" aria-label="Done"><span><svg><use href="#i-wumpa"/></svg></span></label><h3>Make your <button type="button" class="term" data-term="yaml">YAML</button> and send it to the host</h3></div>
+      <div class="step-body">
+        <ol>
+          <li>Open the <a href="builder.html">YAML builder</a>.</li>
+          <li>Type a <strong>player name</strong>: it becomes your <button type="button" class="term" data-term="slot">slot</button> name. It must be unique in the room, at most 16 characters, and you will type it again later with the same capitals.</li>
+          <li>For a first game, leave the options at their defaults or pick a preset. Read an option's help to see what it does.</li>
+          <li>Press <strong>Download YAML</strong> and send the file to the host the way they asked (a Discord message, a collection website).</li>
+        </ol>
+        <p class="note">The builder always matches the newest release. If the host generates with an older version, ask them which one, and use that release's game too: the game, the YAML and the host's <button type="button" class="term" data-term="apworld">APWorld</button> must come from the same release.</p>
+      </div>
+    </li>
+    <li class="step" data-id="join-wait" data-mode="join" data-room="collecting">
+      <div class="step-top"><label class="tick"><input type="checkbox" aria-label="Done"><span><svg><use href="#i-wumpa"/></svg></span></label><h3>Wait for the room</h3></div>
+      <div class="step-body">
+        <p>The host generates the <button type="button" class="term" data-term="seed">seed</button> once everyone has sent a YAML, starts the <button type="button" class="term" data-term="room">room</button>, and shares its details. Meanwhile, try a race to check your controller and settings.</p>
+      </div>
+    </li>
+    <li class="step" data-id="join-details" data-mode="join">
+      <div class="step-top"><label class="tick"><input type="checkbox" aria-label="Done"><span><svg><use href="#i-wumpa"/></svg></span></label><h3>Get the room details</h3></div>
+      <div class="step-body">
+        <p>You need three things, usually from the room page the host links:</p>
+        <ul>
+          <li><strong>Server address</strong> with its port, like <code>archipelago.gg:38281</code>. The room page's own web link (<code>archipelago.gg/room/…</code>) is not the address: look for the line with the port number.</li>
+          <li>Your <strong>slot name</strong>: the name in your YAML, exactly, capitals included.</li>
+          <li>The <strong>password</strong>, if the room has one.</li>
+        </ul>
+        <p class="note">An archipelago.gg room goes to sleep when nobody plays. Opening its page wakes it up, and the port can change: copy the address from the page again if connecting stops working.</p>
+      </div>
+    </li>
+    <!-- Host -->
+    <li class="step" data-id="host-ap" data-mode="host">
+      <div class="step-top"><label class="tick"><input type="checkbox" aria-label="Done"><span><svg><use href="#i-wumpa"/></svg></span></label><h3>Install Archipelago</h3></div>
+      <div class="step-body">
+        <p>Archipelago is the program that generates seeds and runs rooms. Get the newest release from its <a href="https://github.com/ArchipelagoMW/Archipelago/releases">official releases page</a>: the Windows installer (<code>Setup.Archipelago…exe</code>), or the Linux AppImage or archive. It installs the <strong>Archipelago Launcher</strong>, which has everything you need: Generate, Host, Install APWorld.</p>
+        <p class="more">On Windows it installs into <code>C:\ProgramData\Archipelago</code> by default. The Launcher's <strong>Browse Files</strong> opens that folder wherever it is.</p>
+      </div>
+    </li>
+    <li class="step" data-id="host-apworld" data-mode="host">
+      <div class="step-top"><label class="tick"><input type="checkbox" aria-label="Done"><span><svg><use href="#i-wumpa"/></svg></span></label><h3>Add CTR to Archipelago</h3></div>
+      <div class="step-body">
+        <p>Archipelago does not know CTR until you give it the <button type="button" class="term" data-term="apworld">APWorld</button>:</p>
+        <div class="dl-row"><a class="btn btn-go" href="https://github.com/Decryptu/ctr-decrypted/releases/latest/download/ctr.apworld" data-download="apworld"><svg class="ps"><use href="#i-x"/></svg>Download ctr.apworld</a></div>
+        <p>Double-click it, or use <strong>Install APWorld</strong> in the Launcher, or copy it into the <code>custom_worlds</code> folder of your Archipelago install. Then close and reopen the Launcher.</p>
+        <p class="note">Only the person generating needs the APWorld. Use the one from the same release as everyone's game, and tell your players which release that is.</p>
+      </div>
+    </li>
+    <li class="step" data-id="host-yamls" data-mode="host">
+      <div class="step-top"><label class="tick"><input type="checkbox" aria-label="Done"><span><svg><use href="#i-wumpa"/></svg></span></label><h3>Collect everyone's YAML</h3></div>
+      <div class="step-body">
+        <p>Send your players this page with <em>Join a room</em> picked: <a href="start.html#join" id="join-link">start.html#join</a>. Each player makes a YAML with the <a href="builder.html">YAML builder</a> and sends it to you. Make one for yourself too if you play.</p>
+        <ul>
+          <li>One YAML per <button type="button" class="term" data-term="slot">slot</button>, and every slot name different, even when one person plays two games.</li>
+          <li>Players of other games make their YAML for their game. A game that is not built into Archipelago needs its APWorld installed on your side as well.</li>
+          <li>Agree on the dates and rules first: when YAMLs are due, <button type="button" class="term" data-term="sync">sync or async</button>, hint rules.</li>
+        </ul>
+      </div>
+    </li>
+    <li class="step" data-id="host-generate" data-mode="host">
+      <div class="step-top"><label class="tick"><input type="checkbox" aria-label="Done"><span><svg><use href="#i-wumpa"/></svg></span></label><h3>Generate the seed</h3></div>
+      <div class="step-body">
+        <ol>
+          <li>Put every YAML in the <code>Players</code> folder of your Archipelago install (<code>C:\ProgramData\Archipelago\Players</code> on Windows). Remove files left over from earlier games, and unzip YAMLs that came in a zip.</li>
+          <li>In the Launcher, click <strong>Generate</strong>.</li>
+          <li>When it finishes, the <code>output</code> folder holds a file named like <code>AP_12345678901234567890.zip</code>: that is the whole <button type="button" class="term" data-term="seed">seed</button>. Do not unzip it.</li>
+        </ol>
+        <p class="warn">Generate on your own computer. The generator and YAML checker on the archipelago.gg website do not include CTR, so they reject a CTR YAML.</p>
+        <p class="more">If generation fails, the error names the YAML or option at fault. Ask that player for a corrected file rather than editing their options yourself.</p>
+      </div>
+    </li>
+    <li class="step" data-id="host-web" data-mode="host" data-where="web">
+      <div class="step-top"><label class="tick"><input type="checkbox" aria-label="Done"><span><svg><use href="#i-wumpa"/></svg></span></label><h3>Open the room on archipelago.gg</h3></div>
+      <div class="step-body">
+        <ol>
+          <li>Go to <a href="https://archipelago.gg/uploads">archipelago.gg/uploads</a> and upload the <code>AP_….zip</code>.</li>
+          <li>The upload makes a seed page (with the spoiler log). Click <strong>Create New Room</strong> to start the server.</li>
+          <li>The room page shows the address with its port (<code>archipelago.gg:<em>port</em></code>), every slot, a tracker, and a console for host commands.</li>
+        </ol>
+        <p class="note">The room sleeps when nobody is connected, and wakes when someone opens its page. Its port can change then, so players should copy the address from the page.</p>
+      </div>
+    </li>
+    <li class="step" data-id="host-own" data-mode="host" data-where="own">
+      <div class="step-top"><label class="tick"><input type="checkbox" aria-label="Done"><span><svg><use href="#i-wumpa"/></svg></span></label><h3>Run the room on your computer</h3></div>
+      <div class="step-body">
+        <ol>
+          <li>In the Launcher, click <strong>Host</strong> and pick the <code>AP_….zip</code> (no need to unzip it).</li>
+          <li>A console window opens. When it prints <code>Hosting game at …</code>, the room is up. Keep that window open for the whole game.</li>
+        </ol>
+        <p>The port is <code>38281</code> unless you changed it. The address to give depends on where players are:</p>
+        <ul>
+          <li><strong>This computer</strong>: <code>localhost:38281</code>.</li>
+          <li><strong>Your home network</strong>: this computer's local address, like <code>192.168.1.20:38281</code> (Windows: <code>ipconfig</code>; Linux: <code>ip addr</code>).</li>
+          <li><strong>Over the internet</strong>: your public address, after forwarding TCP port 38281 on your router to this computer and allowing it through the firewall.</li>
+        </ul>
+        <p class="warn"><code>0.0.0.0</code> in the console is not an address to give anyone. If you cannot open a port, use archipelago.gg instead.</p>
+      </div>
+    </li>
+    <li class="step" data-id="host-share" data-mode="host">
+      <div class="step-top"><label class="tick"><input type="checkbox" aria-label="Done"><span><svg><use href="#i-wumpa"/></svg></span></label><h3>Share the room</h3></div>
+      <div class="step-body">
+        <p>Send every player <span data-where="web">the room page link (it lists the address and every slot), </span><span data-where="own">the address with its port, their exact slot name, </span>the password if you set one, and the checklist link: <a href="start.html#join/ready">start.html#join/ready</a>.</p>
+        <p>While the game runs, the room's console takes commands: <code>/help</code> lists them. Use them to <button type="button" class="term" data-term="release">release</button> a player who leaves, or to collect for one who is done. Players can ask for a <button type="button" class="term" data-term="hint">hint</button> by typing <code>!hint <em>item name</em></code> in the Archipelago Text Client (in the Launcher).</p>
+      </div>
+    </li>
+
+    <!-- Join, and a host who plays -->
+    <li class="step" data-id="join-connect" data-mode="join host">
+      <div class="step-top"><label class="tick"><input type="checkbox" aria-label="Done"><span><svg><use href="#i-wumpa"/></svg></span></label><h3><span data-mode="join">Connect to the room</span><span data-mode="host">Playing too? Connect to your room</span></h3></div>
+      <div class="step-body">
+        <p>In the setup screen, or later in <strong>OPTIONS → Connection</strong>, fill in:</p>
+        <ul>
+          <li><strong>Server</strong>: the address and port. <span data-mode="host">For a room on this same computer, <code>localhost:38281</code>.</span></li>
+          <li><strong>Slot</strong>: your slot name.</li>
+          <li><strong>Password</strong>: leave it empty if there is none.</li>
+        </ul>
+        <p>Select <strong>Connect</strong> (in the setup, <strong>Next</strong> connects too) and watch the status line until it says <strong>Connected</strong>. The game saves these settings and reconnects by itself next time.</p>
+        <p data-platform="deck" class="note">Selecting a field opens the Steam on-screen keyboard. X or START saves the field, TRIANGLE cancels it.</p>
+        <p class="more">Error? <code>InvalidSlot</code> means the slot name does not match: check the capitals. See <a href="guide.html#troubleshooting">Troubleshooting</a> for the rest.</p>
+      </div>
+    </li>
+    <li class="step" data-id="join-play" data-mode="join host">
+      <div class="step-top"><label class="tick"><input type="checkbox" aria-label="Done"><span><svg><use href="#i-wumpa"/></svg></span></label><h3>Race!</h3></div>
+      <div class="step-body">
+        <p>Go back to the main menu and start <strong>Adventure</strong>. In a <button type="button" class="term" data-term="sync">sync</button> game, wait for the host's countdown before your first race.</p>
+        <ul>
+          <li>Win a race, a relic, a token or a cup and continue past its results screen: that sends its <button type="button" class="term" data-term="location">check</button>.</li>
+          <li>Items you receive, and the ones you send, show in the feed during races and in the hub. Keys and trophies open warp pads and doors; traps arm quietly and fire in a later race.</li>
+          <li>Save at the hub's save station as usual. The server remembers your items and checks: if the connection drops, the game keeps what you did and sends it when it reconnects.</li>
+        </ul>
+        <p class="warn">A red <strong>SEED NOT COMPLETABLE</strong> on the hub means the seed is broken: stop and report it (see <em>Stuck?</em> below).</p>
+      </div>
+    </li>
+
+    <!-- Solo -->
+    <li class="step" data-id="solo-open" data-mode="solo">
+      <div class="step-top"><label class="tick"><input type="checkbox" aria-label="Done"><span><svg><use href="#i-wumpa"/></svg></span></label><h3>Open Play Solo</h3></div>
+      <div class="step-body">
+        <p>On the title screen, choose <strong>PLAY SOLO</strong> (it is also in <strong>OPTIONS → Connection → Play Solo</strong>). The game generates and hosts your seed itself, on a private server on your own computer: no Archipelago install, no account, no internet.</p>
+      </div>
+    </li>
+    <li class="step" data-id="solo-seed" data-mode="solo">
+      <div class="step-top"><label class="tick"><input type="checkbox" aria-label="Done"><span><svg><use href="#i-wumpa"/></svg></span></label><h3>Make a seed</h3></div>
+      <div class="step-body">
+        <p>Choose <strong>New solo seed</strong>, then a preset:</p>
+        <ul>
+          <li><strong>Quick</strong>: a shorter seed with few locks, ending when you beat Oxide. Good for a first try.</li>
+          <li><strong>Standard</strong>: the default options.</li>
+          <li><strong>Full Adventure</strong>: everything on, with Oxide's Final Challenge as the goal.</li>
+        </ul>
+        <p>The next screen shows the preset's main options: Left and Right change one, Square explains it. For every option, make a YAML in the <a href="builder.html">YAML builder</a> and choose <strong>Import YAML file</strong> (or drop it in the <code>solo/inbox</code> folder next to the game).</p>
+      </div>
+    </li>
+    <li class="step" data-id="solo-play" data-mode="solo">
+      <div class="step-top"><label class="tick"><input type="checkbox" aria-label="Done"><span><svg><use href="#i-wumpa"/></svg></span></label><h3>Race!</h3></div>
+      <div class="step-body">
+        <p>The game starts the seed and drops you in Adventure. Win races, relics, tokens and cups to find your items; keys and trophies open warp pads and doors.</p>
+        <p>To continue later, open <strong>PLAY SOLO</strong> again: your seeds are listed with their progress, and Cross resumes one. They live in the <code>solo</code> folder next to the game, and <strong>OPTIONS → Backups</strong> keeps earlier copies.</p>
+      </div>
+    </li>
+
+    <!-- Just race -->
+    <li class="step" data-id="race-play" data-mode="race">
+      <div class="step-top"><label class="tick"><input type="checkbox" aria-label="Done"><span><svg><use href="#i-wumpa"/></svg></span></label><h3>Race!</h3></div>
+      <div class="step-body">
+        <p>Skip the room page of the setup screen and play: Arcade, Time Trial, VS and Battle, with 60 FPS, widescreen and 200cc (on the SPEED screen of Arcade and VS).</p>
+      </div>
+    </li>
+    <li class="step" data-id="race-mods" data-mode="race solo">
+      <div class="step-top"><label class="tick"><input type="checkbox" aria-label="Done"><span><svg><use href="#i-wumpa"/></svg></span></label><h3>Optional: new tracks and racers</h3></div>
+      <div class="step-body">
+        <p>Choose <strong>MODS</strong> on the title screen. L1 and R1 switch tabs: <strong>Tracks</strong> lists community tracks to install with Cross, <strong>Racers</strong> lists custom characters. Installed tracks show on extra pages of the Arcade and Time Trial track lists (press Right past the last page). See <a href="custom-tracks.html">Custom tracks</a> and <a href="custom-racers.html">Custom racers</a>.</p>
+      </div>
+    </li>
+    <li class="step" data-id="race-tune" data-mode="race">
+      <div class="step-top"><label class="tick"><input type="checkbox" aria-label="Done"><span><svg><use href="#i-wumpa"/></svg></span></label><h3>Optional: make it look and feel right</h3></div>
+      <div class="step-body">
+        <ul>
+          <li><strong>OPTIONS → Video</strong>: <a href="60fps.html">60 FPS</a>, widescreen, render scale, <a href="pgxp.html">PGXP</a> (no wobbly polygons), <a href="screen-filters.html">screen filters</a> and <a href="level-visibility.html">draw distance</a>.</li>
+          <li><strong>OPTIONS → Controls</strong>: pick a controller, rebind buttons, set a stick deadzone (<a href="controls.html">Controls</a>).</li>
+          <li><strong>OPTIONS → Extras</strong>: the reserves meter, blue fire, colour filters and other small additions (<a href="extras.html">Extras</a>).</li>
+        </ul>
+      </div>
+    </li>
+  </ol>
+  <div class="run-foot">
+    <span>Progress is kept in this browser only.</span>
+    <button type="button" class="btn-small small" id="reset">Untick all</button>
+  </div>
+</section>
+</div>
+
+<section class="help-grid" id="stuck" aria-label="Help">
+  <div class="box">
+    <h3>Stuck?</h3>
+    <ul>
+      <li><strong>Slot not found</strong>: copy the slot name exactly, capitals included.</li>
+      <li><strong>Missing or incomplete assets</strong>: the <code>assets</code> folder holds no usable North American raw <code>.bin</code>.</li>
+      <li><strong>No music, black intro</strong>: the image is a cooked <code>.iso</code>. Re-dump it as BIN/CUE.</li>
+      <li><strong>Cannot connect</strong>: recopy the address and port from the room page.</li>
+    </ul>
+    <p class="more">More in <a href="guide.html#troubleshooting">Troubleshooting</a>.</p>
+  </div>
+  <div class="box">
+    <h3>Report a problem</h3>
+    <p>Run <code>support-bundle.bat</code> (Windows) or <code>./support-bundle.sh</code> (Linux, Steam Deck) in the game folder. It packs your logs, password removed and no game data, into one archive.</p>
+    <p>Attach it to a <a href="https://github.com/Decryptu/ctr-decrypted/issues/new/choose">GitHub issue</a> with a line about what happened. For a broken seed, add your YAML and the spoiler log.</p>
+  </div>
+  <div class="box">
+    <h3>Talk to people</h3>
+    <p>The <a href="https://discord.gg/8Z65BR2">Archipelago Discord</a> has a <a href="https://discord.com/channels/731205301247803413/1222304293751750777">Crash Team Racing channel</a> for questions, and is where most multiworlds are organised.</p>
+  </div>
+</section>

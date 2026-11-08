@@ -118,9 +118,12 @@
 
   // Page ------------------------------------------------------------------
   const fields = [];
+  const groupCounts = []; // [count span, option count, fields] per group
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   for (const group of data.groups) {
-    const box = el("details", { className: "group", open: true }, el("summary", { textContent: group.name }));
+    const count = el("span", { className: "count" });
+    const box = el("details", { className: "group box", open: true }, el("summary", null, group.name, count));
+    groupCounts.push([count, group.options.length, []]);
     for (const o of group.options) {
       const f = MAKERS[o.kind](o);
       f.set(o.default);
@@ -137,6 +140,7 @@
         f.row.append(help);
       }
       fields.push(f);
+      groupCounts[groupCounts.length - 1][2].push(f);
       box.append(f.row);
     }
     $("groups").append(box);
@@ -193,7 +197,17 @@
   }
 
   function update() {
-    for (const f of fields) f.row.classList.toggle("changed", !same(f.value(), f.def));
+    let changed = 0;
+    for (const f of fields) {
+      const c = !same(f.value(), f.def);
+      f.row.classList.toggle("changed", c);
+      changed += c;
+    }
+    for (const [span, n, fs] of groupCounts) {
+      const c = fs.filter((f) => f.row.classList.contains("changed")).length;
+      span.textContent = c ? `${c} changed / ${n}` : `${n} options`;
+    }
+    $("changed-count").textContent = changed ? `${changed} changed` : "All defaults";
     $("yaml").textContent = yamlText();
     $("status").textContent = "";
     save();

@@ -6,7 +6,7 @@
    Pages:
      Home     your solo seeds (Cross resumes, Square opens Details), then
               New solo seed, Import room file, Import YAML file, and the
-              AP-Pie YAML builder. Triangle leaves Play Solo.
+              online YAML builder. Triangle leaves Play Solo.
      New      bundled presets, saved YAMLs, then YAMLs in solo/inbox.
      Options  the curated options of a preset: Left / Right change, Square
               shows the help text. DeathLink is fixed off in solo.
@@ -22,7 +22,7 @@
 #define SOLO_ROWS 9
 #define SOLO_LIST_Y 0x38
 #define SOLO_ROW_H 0x0C
-#define SOLO_AP_PIE_URL "https://ap-pie.com/yaml-builder/ctr"
+#define SOLO_YAML_BUILDER_URL "https://decryptu.github.io/ctr-decrypted/builder.html"
 
 enum SoloPage
 {
@@ -231,7 +231,7 @@ static const char *const s_soloHomeActions[SOLO_HOME_ACTIONS] = {
 	"New solo seed",
 	"Import room file",
 	"Import YAML file",
-	"Build a YAML on AP-Pie",
+	"Build a YAML online",
 };
 
 static void MM_Solo_PageHome(uint32_t *ot, struct GamepadBuffer *pad)
@@ -261,7 +261,7 @@ static void MM_Solo_PageHome(uint32_t *ot, struct GamepadBuffer *pad)
 		else if (row == rooms + 2)
 			MM_Solo_Pick(SOLO_JOB_IMPORT_YAML);
 		else
-			Platform_OpenURL(SOLO_AP_PIE_URL);
+			Platform_OpenURL(SOLO_YAML_BUILDER_URL);
 		return;
 	}
 	if ((pad->buttonsTapped & BTN_SQUARE) != 0 && s_soloSel >= stopRow && s_soloSel - stopRow < rooms)
@@ -498,7 +498,7 @@ static void MM_Solo_PageOptions(uint32_t *ot, struct GamepadBuffer *pad)
 		DecalFont_DrawLineOT(fit, 0x100, 0xB4, FONT_SMALL, JUSTIFY_CENTER | (info.note[0] ? RED : GRAY), ot);
 	}
 	else
-		DecalFont_DrawLineOT("More options: build a YAML on AP-Pie and import it", 0x100, 0xB4, FONT_SMALL,
+		DecalFont_DrawLineOT("More options: build a YAML online and import it", 0x100, 0xB4, FONT_SMALL,
 		                     JUSTIFY_CENTER | GRAY, ot);
 	MM_Solo_Footer("LEFT/RIGHT: CHANGE   SQUARE: HELP   ^: BACK", ot);
 }
