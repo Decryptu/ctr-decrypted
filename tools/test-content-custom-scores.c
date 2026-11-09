@@ -40,6 +40,14 @@ const struct CustomTrackRaceContext *CustomTrack_StandaloneContext(int level)
     return custom_on && level == 6 ? &race : 0;
 }
 
+// game/TimeTrialRecords.c: a custom track's race stays off the memory card (no 200cc here).
+int TimeTrialRecords_OffCard(void) { return custom_on; }
+struct HighScoreEntry *TimeTrialRecords_HighScores(void)
+{
+    static struct HighScoreEntry entries[2 * 6];
+    return entries;
+}
+
 // The drawing calls RR_EndEvent_DrawHighScore makes once past its policy check.
 static int draws;
 void DecalFont_DrawLine(char *str, s16 posX, s16 posY, s16 fontType, s16 flags)
