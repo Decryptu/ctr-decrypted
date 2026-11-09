@@ -6,6 +6,8 @@ CTR Decrypted can run the game at 60 FPS. The feature is ported from
 AdHoc multiplayer, input-replay ghosts, leaderboard, alternative Tiger Temple
 and its own config file are left out.
 
+The game simulates at 60 Hz in this mode. A step that runs once per frame instead of per unit of time is fixed where it happens. A fixed 30 Hz simulation with interpolated rendering is not used: it would bring back 33 ms input steps and touch every rendered position.
+
 ## How it works
 
 - `include/macros.h` defines `CTR_NATIVE_60FPS_ACTIVE` for every native build;

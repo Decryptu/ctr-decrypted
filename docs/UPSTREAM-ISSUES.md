@@ -34,6 +34,8 @@ How far behind each one we are, and which High Octane commits we ported: `python
 ## High Octane
 **State:** Vita first, Windows releases since v1.3, latest v1.5 (2026-10-12). 709 files changed against the merge-base, about 78 with `__vita__` ifdefs. The Vita build can't be reproduced from the public repo (patched SDL3, private shader blobs).
 
+Ported feature by feature, never merged: a trial merge conflicts in 92 files, and it carries Vita, web and leaderboard code we don't want.
+
 **Features** (`tools/decrypted/highoctane.txt` records what we did with each commit):
 - Graphics: 60 FPS, 960x544 internal resolution, MSAA (Vita), FXAA (PC), PGXP, post-processing filters, dithering toggle, true widescreen, borderless window.
 - Modes: mirror, boss fights on any track, Super/Ultra Hard, relic races outside Adventure, reverse tracks and an alternative Tiger Temple, lap count 1–9, ghost replay tools (7 ghosts per track), online leaderboard.

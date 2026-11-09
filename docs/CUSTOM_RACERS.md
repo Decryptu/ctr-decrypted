@@ -10,6 +10,8 @@ In this order:
 2. N. Oxide, once unlocked (`GAME_UNLOCK_BIT_OXIDE`: beat him in Adventure, or the Spyro 2 demo code).
 3. The custom racers, in library order.
 
+Custom racers are new slots, not replacements. Each has its own icon, name, model and textures, and borrows a retail character ID (its template) only for systems keyed by that ID (voice, podium, records, Archipelago). Real IDs above 15 would touch about a hundred sites, save formats included (a memory card ghost packs the ID into 4 bits). Portraits go to a second VRAM bank, so the template keeps its own and can race in the same field.
+
 A locked retail racer keeps an empty place, as in retail, except in the last retail row, where gaps would push extra racers off-centre.
 
 ## The layout
@@ -94,7 +96,9 @@ The catalogue, [Decryptu/ctr-decrypted-racers](https://github.com/Decryptu/ctr-d
 Converted racers are static, vertex-coloured meshes with no textures or animations; a textured racer would use the same VRAM bank. Their kart textures, voices and code patches are not carried over.
 
 ## The Racers tab
-The Mods screen's Racers tab (`game/230/MM_CustomRacers.c`) lists every racer in the catalogue's `index.json` and every installed racer it doesn't list, by name, with `OWNED` on installed ones. The panel shows the portrait, the authors and the template racer. Cross downloads a racer, or asks to remove an installed one. L2 reloads the catalogue; R2 searches names and authors. The Installed tab lists installed racers after the tracks, with the same panel and Cross.
+The Mods screen's Racers tab (`game/230/MM_CustomRacers.c`) lists every racer in the catalogue's `index.json` and every installed racer it doesn't list, by name, with `OWNED` on installed ones. The panel shows the portrait, the authors and the template racer. Cross downloads a racer, or asks to remove an installed one. L2 reloads the catalogue; R2 searches names and authors. The Installed tab lists installed racers after the tracks, with the same panel and Cross. There is no Karts tab: a racer's model is driver and kart in one mesh, and wheels are shared sprites.
+
+A package holds only the mod's own model and portrait, nothing from the player's disc.
 
 - A listed racer's portrait shows before install. When the selection rests on it, `NativeRacerCatalogue_StartPreview` fetches its `racer.json` (checked against the index), then the portrait (checked against `racer.json`), and keeps it in `assets/racers/previews/<id>-<first 16 of the racer.json hash>.bin`, so a seen racer shows offline and an updated one is fetched again. It is drawn from the slot the track pictures use, so one hides the other (`game/230/MM_CustomPicture.c`).
 - Downloads come from `raw.githubusercontent.com`, the catalogue's `main` branch, through the same HTTPS code as Project Saphi (`ap/ap_custom_track_download.cpp`, `NativeRacerCatalogue_*`). The index pins each `racer.json` (size and SHA-256) and `racer.json` pins its files, so the catalogue's `.gitattributes` keeps `racer.json` byte for byte (`eol=lf`).
