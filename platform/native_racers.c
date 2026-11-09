@@ -1,3 +1,4 @@
+#include <platform/native_track_minimap.h>
 #include <platform/native_racers.h>
 #include <platform/native_assets.h>
 #include <platform/native_fs_utf8.h>
@@ -276,6 +277,30 @@ struct Icon *NativeRacers_TrackPicture(const u16 *texels, int width, int height)
 	t->tpage = (u16)(NATIVE_TPAGE_RACER_BANK | (2 << 7) | (1 << 4) | 8);
 	snprintf(picture.name, sizeof picture.name, "trackpicture");
 	return &picture;
+}
+
+void NativeRacers_TrackMinimap(const struct NativeTrackMinimap *map, struct Icon **top, struct Icon **bottom)
+{
+	static struct Icon halves[2];
+	const int h = map->topHeight + map->bottomHeight;
+	NativeRenderer_UploadVramBank(NativeRacers_Bank(), 640, 256, NATIVE_TRACK_MINIMAP_SIDE, h, map->texels);
+	for (int i = 0; i < 2; i++)
+	{
+		struct TextureLayout *t = &halves[i].texLayout;
+		const int w = i ? map->bottomWidth : map->topWidth;
+		const int v = i ? map->topHeight : 0;
+		const int vh = i ? map->bottomHeight : map->topHeight;
+		// u starts at 128: x 640 is 128 texels into page 8 (15-bit, 256 wide).
+		t->u0 = t->u2 = 128;
+		t->u1 = t->u3 = (u8)(128 + w);
+		t->v0 = t->v1 = (u8)v;
+		t->v2 = t->v3 = (u8)(v + vh);
+		t->clut = 0;
+		t->tpage = (u16)(NATIVE_TPAGE_RACER_BANK | (2 << 7) | (1 << 4) | 8);
+		snprintf(halves[i].name, sizeof halves[i].name, "trackmap%d", i);
+	}
+	*top = &halves[0];
+	*bottom = &halves[1];
 }
 
 // Every portrait into the racer bank, and an Icon per racer pointing at it.

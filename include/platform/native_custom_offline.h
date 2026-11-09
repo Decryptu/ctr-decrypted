@@ -43,7 +43,11 @@ int CustomOffline_BeginRuntime(struct CustomOfflineRequest **request, int hostLe
 int CustomOffline_RuntimeMode(void); /* CTR_OFFLINE_MODE_*, zero when inactive. */
 void CustomOffline_EndRuntime(void);
 int CustomOffline_RuntimeActive(void);
-int CustomOffline_RuntimeLaps(void); /* Authored standalone laps, zero when inactive. */
+int CustomOffline_RuntimeLaps(void); /* The race's laps, zero when inactive. */
+/* An Arcade race takes the lap box's count instead of the authored one
+   (1 to CTR_OFFLINE_MAX_LAPS); a Time Trial keeps the authored count, which
+   its records are keyed by. 0 when no runtime is active or laps is out of range. */
+int CustomOffline_SetRuntimeLaps(int laps);
 /* Monotonic run identity; survives teardown, increments only on BeginRuntime. */
 uint64_t CustomOffline_RuntimeGeneration(void);
 /* A load request keeps the runtime: the host slot's geometry stays resident,

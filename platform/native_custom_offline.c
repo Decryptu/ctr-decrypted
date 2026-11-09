@@ -213,6 +213,12 @@ void CustomOffline_EndRuntime(void)
 int CustomOffline_RuntimeActive(void) { return activeRequest != NULL; }
 uint64_t CustomOffline_RuntimeGeneration(void) { return runtimeGeneration; }
 int CustomOffline_RuntimeLaps(void) { return activeLaps; }
+int CustomOffline_SetRuntimeLaps(int laps)
+{
+    if (!activeLaps || laps < 1 || laps > CTR_OFFLINE_MAX_LAPS) return 0;
+    activeLaps = laps;
+    return 1;
+}
 
 void CustomOffline_OnLoadRequested(int levelID)
 {

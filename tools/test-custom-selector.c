@@ -119,6 +119,23 @@ void TimeTrialRecords_BeginFromTrackSelect(void)
 }
 int SpeedClass_TimeTrial(void) { return 0; }
 char *RECTMENU_DrawTime(int time) { static char t[16]; snprintf(t, sizeof t, "T%d", time); return t; }
+/* The retail lap box: lapAnswer is what its input returns next (1 Cross, -1 Back). */
+static int lapAnswer, lapBoxDrawn, overrideLaps;
+s32 RECTMENU_ProcessInput(struct RectMenu *m) { (void)m; int a = lapAnswer; lapAnswer = 0; return a; }
+void RECTMENU_DrawSelf(struct RectMenu *m, s16 x, s16 y, s16 w) { (void)m; (void)x; (void)y; (void)w; lapBoxDrawn++; }
+int CustomOffline_SetRuntimeLaps(int laps) { overrideLaps = laps; return 1; }
+/* Draw calls the stubbed screen never shows. */
+uint32_t NativeGpuLinks_FromHostPointer(const void *hostPtr) { return (uint32_t)(uintptr_t)hostPtr; }
+void DecalHUD_DrawPolyGT4(struct Icon *icon, s32 x, s32 y, struct PrimMem *pm, u32 *ot, Color c0, Color c1, Color c2, Color c3,
+                          u8 transparency, s16 scale)
+{ (void)icon; (void)x; (void)y; (void)pm; (void)ot; (void)c0; (void)c1; (void)c2; (void)c3; (void)transparency; (void)scale; }
+/* Picture and minimap: none, so only the frame and text are drawn. */
+static void MM_ModsPicture_Tick(void) {}
+static struct Icon *MM_ModsPicture_Icon(int trackID, const char *pin, int *none) { (void)trackID; (void)pin; *none = 1; return NULL; }
+int NativeTrackMinimap_LoadPackage(const char *dir, const char *pin, struct NativeTrackMinimap *out) { (void)dir; (void)pin; (void)out; return 0; }
+void NativeRacers_TrackMinimap(const struct NativeTrackMinimap *m, struct Icon **t, struct Icon **b) { (void)m; *t = *b = NULL; }
+void UI_Map_DrawMap(struct Icon *t, struct Icon *b, s32 x, s32 y, struct PrimMem *pm, u32 *ot, u8 c)
+{ (void)t; (void)b; (void)x; (void)y; (void)pm; (void)ot; (void)c; }
 #include "../game/230/MM_CustomTrackSelect.c"
 
 static int tick(int buttons)
@@ -165,15 +182,18 @@ int main(void)
     tick(BTN_RIGHT); tick(BTN_DOWN); CHECK(s_arcadeRows[1] == 1);
     tick(BTN_LEFT); CHECK(s_arcadeRows[0] == 7);
     tick(BTN_CROSS_one); CHECK(prepared == 1 && s_arcadePrepareBusy);
-    tick(BTN_TRIANGLE); CHECK(s_arcadeConfirm && !s_arcadePrepareBusy); /* Drain worker before Back. */
-    tick(BTN_TRIANGLE); CHECK(!s_arcadeConfirm && !s_arcadeRequest);
+    tick(0); CHECK(s_arcadeConfirm && D230.trackSelect.lapBoxOpen && !s_arcadePrepareBusy); /* the lap box */
+    lapBoxDrawn = 0; tick(0); CHECK(lapBoxDrawn == 1);
+    lapAnswer = -1; tick(0); CHECK(!s_arcadeConfirm && !D230.trackSelect.lapBoxOpen && !s_arcadeRequest);
     CHECK(D230.trackSelect.transition.state == IN_MENU);
     allowed = 0; tick(BTN_CROSS_one); CHECK(prepared == 1);
     allowed = 1; tracker.numPlyrNextGame = 2;
     tick(BTN_CROSS_one); CHECK(prepared == 1);
     tracker.numPlyrNextGame = 1;
-    tick(BTN_CROSS_one); tick(0); tick(BTN_CROSS_one);
-    CHECK(launched == 1 && beganHost == 6 && tracker.currLEV == 6 && tracker.numLaps == 7);
+    D230.lapCountByRow[1].lapCount = 5; D230.menuLapSel.rowSelected = 1; sdata->uselessLapRowCopy = 1;
+    tick(BTN_CROSS_one); tick(0); lapAnswer = 1; tick(0);
+    /* RuntimeLaps is stubbed to the package's 7; the lap box's 5 is handed over. */
+    CHECK(launched == 1 && beganHost == 6 && tracker.currLEV == 6 && overrideLaps == 5 && !D230.trackSelect.lapBoxOpen);
     CHECK(tracker.arcadeDifficulty == 123 && tracker.numPlyrNextGame == 1);
     CHECK(D230.trackSelect.transition.state == EXITING_MENU && D230.trackSelect.transition.startAfterExit == 1);
     tracker.gameMode1 = TIME_TRIAL | ARCADE_MODE; /* not a mode the pages know */
@@ -196,9 +216,10 @@ int main(void)
     D230.trackSelect.transition.state=IN_MENU;
     tick(BTN_RIGHT); CHECK(s_arcadePage==1);
     s_arcadeRows[0]=0; tick(0);
-    CHECK(drawnHas("No AI paths. Use\nTime Trial.\n") || drawnHas("No AI paths.\nUse Time\nTrial.\n"));
+    CHECK(!drawnHas("No AI paths"));
     { int before = prepared; tick(BTN_CROSS_one); CHECK(prepared == before && !s_arcadePrepareBusy); }
     CHECK(!strcmp(s_arcadeMessage, "No AI paths. Use Time Trial."));
+    tick(0); CHECK(drawnHas("No AI paths"));
     CHECK(!drawnHas("..."));
 
     /* A revision that can race beats a newer one that cannot. */
@@ -224,11 +245,10 @@ int main(void)
     CHECK(s_arcadeLibrary.count==2);
     tick(BTN_RIGHT); CHECK(s_arcadePage==1);
     s_arcadeRows[0]=0; tick(0);
-    CHECK(drawnHas("Installed\n")); /* Time Trial runs Track 00 (no records file) */
-    launched=0; prepared=0; beganMode=0;
-    tick(BTN_CROSS_one); tick(0); CHECK(s_arcadeConfirm && checkedMode == CTR_OFFLINE_MODE_TIME_TRIAL);
-    tick(BTN_CROSS_one);
-    CHECK(launched == 1 && beganMode == CTR_OFFLINE_MODE_TIME_TRIAL && tracker.currLEV == 6 && tracker.numLaps == 7);
+    launched=0; prepared=0; beganMode=0; overrideLaps=0;
+    tick(BTN_CROSS_one); tick(0);
+    CHECK(!D230.trackSelect.lapBoxOpen && checkedMode == CTR_OFFLINE_MODE_TIME_TRIAL);
+    CHECK(launched == 1 && beganMode == CTR_OFFLINE_MODE_TIME_TRIAL && tracker.currLEV == 6 && tracker.numLaps == 7 && !overrideLaps);
     CHECK(D230.trackSelect.transition.state == EXITING_MENU && D230.trackSelect.transition.startAfterExit == 1);
     /* Leaving the menu: the saved ghost comes from custom-records/, the memory
        card's ghost selection is skipped, and the load is queued. */
@@ -239,16 +259,16 @@ int main(void)
     CHECK(!MM_CustomTrackSelect_TimeTrialStart()); /* once per launch */
     /* Without a ghost file: an empty playing ghost, no replay, P2 model id 0. */
     MM_CustomTrackSelect_Init();D230.trackSelect.transition.state=IN_MENU;tick(0);tick(BTN_RIGHT);s_arcadeRows[0]=0;
-    tick(BTN_CROSS_one); tick(0); tick(BTN_CROSS_one); CHECK(launched == 2);
+    tick(BTN_CROSS_one); tick(0); CHECK(launched == 2);
     ghostOnFile = 0; sdata->boolReplayHumanGhost = 1;
     CHECK(MM_CustomTrackSelect_TimeTrialStart());
     CHECK(sdata->boolReplayHumanGhost == 0 && sdata->ptrGhostTapePlaying->characterID == 0 && data.characterIDs[1] == 0);
     /* The track that cannot run a Time Trial says why and does not start. */
     MM_CustomTrackSelect_Init();D230.trackSelect.transition.state=IN_MENU;tick(0);tick(BTN_RIGHT);
     s_arcadeRows[0]=1; tick(0);
-    CHECK(drawnHas("No lap\ncheckpoints\n"));
-    CHECK(!drawnHas("..."));
     { int before = prepared; tick(BTN_CROSS_one); CHECK(prepared == before); }
+    tick(0); CHECK(drawnHas("No lap") && !strcmp(s_arcadeMessage, "No lap checkpoints"));
+    CHECK(!drawnHas("..."));
     /* A retail Time Trial exit is left to the retail ghost selection. */
     CHECK(!MM_CustomTrackSelect_TimeTrialStart());
     tracker.gameMode1=ARCADE_MODE;

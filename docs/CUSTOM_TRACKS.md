@@ -135,7 +135,9 @@ immutable.
 **Sidecars.** `race_settings` is a flat JSON object
 `{"schema_version": 1, "lev_sha256", "vrm_sha256", "laps"}` bound to the
 package's own LEV and VRM; without it a race runs 3 laps, and more than 7 is
-refused (`CustomPackage_GetRaceLaps`, `CustomIdentity_RaceLaps`).
+refused (`CustomPackage_GetRaceLaps`, `CustomIdentity_RaceLaps`). A Time Trial
+runs these laps, as its records are keyed by them; an Arcade race runs the
+count picked in the track select's lap box (`CustomOffline_SetRuntimeLaps`).
 `relic_targets` carries sapphire, gold and platinum times in 1/960 s
 (`CustomPackage_GetRelicTargets`). `presentation` holds display metadata such
 as `metadata/saphi-source.json`. `sca` is the track's music (section 10).
@@ -312,15 +314,29 @@ In order:
 
 1. **Pick.** `game/230/MM_TrackSelect.c: MM_TrackSelect_Init,
    MM_TrackSelect_MenuProc` add custom pages after the retail page
-   (`game/230/MM_CustomTrackSelect.c`). Left and right change pages.
-2. **Prepare.** The first Cross starts `CustomOffline_StartPrepare`
+   (`game/230/MM_CustomTrackSelect.c`). Left and right change pages. A custom
+   page is laid out like the retail one, with nothing added: the curved rows,
+   SELECT LEVEL over the track's picture (the Mods screen's, stretched over the
+   video frame), the track's minimap under it, and the page name and number
+   under the map, queued before it so they draw on top. A track that cannot
+   run in this mode is dimmed; Cross on it says why in the picture frame.
+   The minimap is the race HUD's, read from the package before it loads
+   (`platform/native_track_minimap.c`): the LEV's icons 3 and 4 through
+   `levTexLookup`, their texels from the VRM through the palette, uploaded to
+   the racer VRAM bank at (640, 256) (`NativeRacers_TrackMinimap`). A converted
+   track points both icons at its whole map; it is kept once.
+   `tools/test-track-minimap.c` checks the reading.
+2. **Prepare.** Cross starts `CustomOffline_StartPrepare`
    (`platform/native_custom_offline.c`): a worker re-acquires
    `packages/<pin>/` into memory and verifies it. The game never reads the
    package directory again after this, so a file changed on disk mid-race
    cannot reach the engine. `CustomOffline_CheckStructure` then checks the
    mode.
-3. **Begin.** The second Cross calls `CustomOffline_BeginRuntime` with the host
-   slot and mode, sets the lap count from the package, and starts the normal
+3. **Begin.** In Arcade the retail lap box opens once the track is prepared,
+   and its Cross begins; Back closes it and drops the prepared track. A Time
+   Trial begins as soon as the track is prepared. `CustomOffline_BeginRuntime`
+   takes the host slot and mode, the Arcade lap count replaces the package's,
+   and the normal
    race load for the host slot. In the Archipelago builds this is refused while
    a seed is loaded (`AP_CustomOfflineLaunchAllowed`): a
    package race is not part of any Archipelago game. In the authoring client it
@@ -329,7 +345,7 @@ In order:
    tells the runtime a load was requested; a retry of the host slot keeps it.
 5. **Load start.** `MainRaceTrack_StartLoad` refuses the load (back to the
    main menu, with a log line) if the mode or files do not fit, applies the
-   package's laps, and ends the custom runtime if the level being loaded is
+   runtime's laps, and ends the custom runtime if the level being loaded is
    not the host slot. The custom identity therefore lasts exactly as long as
    the custom geometry is resident.
 6. **Bytes.** `game/LOAD/LOAD_File.c: LOAD_ReadFile_ex` asks

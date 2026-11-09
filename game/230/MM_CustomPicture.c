@@ -97,19 +97,15 @@ static int MM_ModsPicture_LoadPackage(const char *pin)
     return 1;
 }
 
-/* The panel's top left corner: the picture of the package pin ("" for a track
-   not installed) if it has one, else of trackID (a Saphi track id, a
-   catalogue row's negative id, 0 for a track from neither), or a frame saying
-   there is none. */
-static void MM_ModsPicture_Draw(int trackID, const char *pin, uint32_t *ot)
+/* The picture of the package pin ("" for a track not installed) if it has
+   one, else of trackID (a Saphi track id, a catalogue row's negative id, 0 for
+   a track from neither), once it is in VRAM; NULL until then or when there is
+   none (*none set). Asks for it once the selection has rested on it. Also used
+   by the track select (MM_CustomTrackSelect.c). */
+static struct Icon *MM_ModsPicture_Icon(int trackID, const char *pin, int *none)
 {
-    if (pin[0] && MM_ModsPicture_LoadPackage(pin))
-    {
-        const Color color = MM_CHARACTER_SELECT_NEUTRAL_COLOR;
-        RECTMENU_DrawPolyGT4(s_pictureIcon, MODS_PICTURE_X, MODS_PICTURE_Y, &sdata->gGT->backBuffer->primMem, ot,
-                             color, color, color, color, 0, FP(1.0));
-        return;
-    }
+    *none = 0;
+    if (pin[0] && MM_ModsPicture_LoadPackage(pin)) return s_pictureIcon;
     if (trackID != s_pictureWanted)
     {
         s_pictureWanted = trackID;
@@ -123,14 +119,24 @@ static void MM_ModsPicture_Draw(int trackID, const char *pin, uint32_t *ot)
         if (!s_pictureBusy) s_pictureFailed = trackID;
     }
 
-    if (trackID && s_pictureShown == trackID)
+    if (trackID && s_pictureShown == trackID) return s_pictureIcon;
+    *none = !trackID || s_pictureFailed == trackID;
+    return NULL;
+}
+
+/* The panel's top left corner: the picture, or a frame saying there is none. */
+static void MM_ModsPicture_Draw(int trackID, const char *pin, uint32_t *ot)
+{
+    int none;
+    struct Icon *icon = MM_ModsPicture_Icon(trackID, pin, &none);
+    if (icon)
     {
         const Color color = MM_CHARACTER_SELECT_NEUTRAL_COLOR;
-        RECTMENU_DrawPolyGT4(s_pictureIcon, MODS_PICTURE_X, MODS_PICTURE_Y, &sdata->gGT->backBuffer->primMem, ot,
+        RECTMENU_DrawPolyGT4(icon, MODS_PICTURE_X, MODS_PICTURE_Y, &sdata->gGT->backBuffer->primMem, ot,
                              color, color, color, color, 0, FP(1.0));
         return;
     }
-    if (!trackID || s_pictureFailed == trackID)
+    if (none)
         MM_CustomText_Draw("No picture", MODS_PICTURE_X + NATIVE_TRACK_PICTURE_WIDTH / 2, MODS_PICTURE_Y + 15,
                            NATIVE_TRACK_PICTURE_WIDTH, 1, JUSTIFY_CENTER | GRAY, ot);
     RECT frame = {MODS_PICTURE_X, MODS_PICTURE_Y, NATIVE_TRACK_PICTURE_WIDTH, NATIVE_TRACK_PICTURE_HEIGHT};

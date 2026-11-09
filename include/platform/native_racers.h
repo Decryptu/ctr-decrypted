@@ -44,6 +44,12 @@ struct Icon *NativeRacers_DriverIcon(int driverID, struct Icon *retailIcon);
 // at their own size.
 struct Icon *NativeRacers_TrackPicture(const unsigned short *texels, int width, int height);
 
+// The track select's custom minimap (include/platform/native_track_minimap.h)
+// into the racer bank at (640, 256), beside the track picture, replacing the
+// last one: its top and bottom halves as Icons for UI_Map_DrawMap.
+struct NativeTrackMinimap;
+void NativeRacers_TrackMinimap(const struct NativeTrackMinimap *map, struct Icon **top, struct Icon **bottom);
+
 // Raw PS1 texels into the racer bank at (x, y), for owners of an area the
 // portraits, their palettes and the track picture never reach: the title
 // screen's Roo uses x 512..895 of the first page row (ap/ap_title_roo.c).

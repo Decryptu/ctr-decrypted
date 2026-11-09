@@ -22,6 +22,8 @@
 
 #include <platform/native_custom_identity.h>
 #include <platform/native_custom_records.h>
+#include <platform/native_track_minimap.h>
+#include <platform/native_racers.h>
 #include <ctr_speed_class.h>
 
 /* The host slot (native_custom_identity.h); tools/test-custom-identity.c
@@ -59,9 +61,6 @@ static int s_arcadeMotion, s_arcadeMotionDirection;
 static struct CustomOfflineRequest *s_arcadeRequest;
 static char s_arcadeMessage[512];
 static int s_customTimeTrialPending;
-/* Best race time of the highlighted track (Time Trial), cached per row. */
-static char s_recordsPin[65];
-static char s_recordsLine[32];
 
 /* CTR_OFFLINE_MODE_ARCADE or _TIME_TRIAL, 0 where custom pages do not show. */
 static int MM_CustomTrackSelect_Mode(void)
@@ -96,26 +95,6 @@ static int MM_CustomTrackSelect_Eligible(const struct CustomTrackLibraryEntry *e
     return 0;
 }
 
-/* "Best 1:23.45" for the highlighted track in Time Trial at the picked speed
-   class, read from custom-records/ once per highlighted revision. */
-static const char *MM_CustomTrackSelect_BestTime(const struct CustomTrackLibraryEntry *entry)
-{
-    struct CustomRecordKey key;
-    struct CustomRecordTimes times;
-    if (!entry || MM_CustomTrackSelect_Mode() != CTR_OFFLINE_MODE_TIME_TRIAL) return "";
-    if (strcmp(s_recordsPin, entry->manifestSha256))
-    {
-        memcpy(s_recordsPin, entry->manifestSha256, sizeof s_recordsPin);
-        s_recordsLine[0] = 0;
-        if (CustomRecords_MakeKey(&key, entry->local.uuid, entry->local.levSha256, entry->local.vrmSha256,
-                                  entry->local.laps) &&
-            CustomRecords_SetClass(&key, SpeedClass_TimeTrial() ? SPEED_CLASS_200CC : SPEED_CLASS_CLASSIC) &&
-            CustomRecords_LoadTimes(CTR_RECORDS_DIR, &key, &times) && times.entry[1].time < 0x8c640)
-            snprintf(s_recordsLine, sizeof s_recordsLine, "Best %s", RECTMENU_DrawTime(times.entry[1].time));
-    }
-    return s_recordsLine;
-}
-
 /* MM_TrackSelect.c, leaving the menu with a Time Trial chosen: a custom
    track loads its saved ghost from custom-records/ into the retail playing
    buffer and goes straight to the load, skipping the memory card's ghost
@@ -137,17 +116,72 @@ static void MM_CustomTrackSelect_Init(void)
     s_arcadeMotion = 0;
     s_arcadeConfirm = 0;
     s_arcadeMessage[0] = 0;
-    s_recordsPin[0] = 0;
     s_customTimeTrialPending = 0;
     CustomOffline_Free(&s_arcadeRequest);
     MM_CustomLibrary_Tick(1);
     s_arcadeScanWasBusy = 1;
 }
 
-static void MM_CustomTrackSelect_Text(const char *text, int x, int y, size_t width,
-                                     size_t lines, int color, uint32_t *ot)
+/* The Vanilla page's preview frame and lap box (MM_TrackSelect.c's enum, which
+   comes after this file). */
+#define MM_CUSTOM_PREVIEW_X 0x134
+#define MM_CUSTOM_PREVIEW_W 0xb0
+#define MM_CUSTOM_PREVIEW_H 0x4b
+#define MM_CUSTOM_PICTURE_W 0xaa
+#define MM_CUSTOM_PICTURE_H 0x47
+#define MM_CUSTOM_LAP_MENU_WIDTH 0xa4
+
+/* The highlighted track's minimap, read from its package
+   (native_track_minimap.h) once per track and kept in VRAM. */
+static char s_mapPin[65];
+static int s_mapLoaded;
+static struct Icon *s_mapTop, *s_mapBottom;
+
+static int MM_CustomTrackSelect_Map(const struct CustomTrackLibraryEntry *entry, struct Icon **top, struct Icon **bottom)
 {
-    MM_CustomText_Draw(text, x, y, (int)width, lines, color, ot);
+    if (!entry->installed) return 0;
+    if (strcmp(s_mapPin, entry->manifestSha256))
+    {
+        static struct NativeTrackMinimap map;
+        snprintf(s_mapPin, sizeof s_mapPin, "%s", entry->manifestSha256);
+        s_mapLoaded = NativeTrackMinimap_LoadPackage(NativeAssets_GetAssetDir(), entry->manifestSha256, &map);
+        if (s_mapLoaded) NativeRacers_TrackMinimap(&map, &s_mapTop, &s_mapBottom);
+    }
+    *top = s_mapTop;
+    *bottom = s_mapBottom;
+    return s_mapLoaded;
+}
+
+/* Hand the prepared track to the loader and leave for the race. laps is the
+   lap box's count in Arcade, 0 for the package's own (Time Trial). */
+static void MM_CustomTrackSelect_Start(int laps)
+{
+    struct GameTracker *gGT = sdata->gGT;
+    const int host = MM_CUSTOM_ARCADE_HOST_LEVEL;
+    const int mode = MM_CustomTrackSelect_Mode();
+    s_arcadeConfirm = 0;
+    D230.trackSelect.lapBoxOpen = 0;
+    if (gGT->gameMode2 & CHEAT_ONELAP) laps = 1;
+    if (AP_CustomOfflineLaunchAllowed() && gGT->numPlyrNextGame == 1 &&
+        CustomOffline_BeginRuntime(&s_arcadeRequest, host, 0, mode))
+    {
+        /* Preserve the players, difficulty and characters chosen in Arcade. */
+        if (laps) CustomOffline_SetRuntimeLaps(laps);
+        gGT->currLEV = host;
+        gGT->numLaps = CustomOffline_RuntimeLaps();
+        D230.trackSelect.transition.startAfterExit = 1;
+        D230.trackSelect.transition.state = EXITING_MENU;
+        s_customTimeTrialPending = mode == CTR_OFFLINE_MODE_TIME_TRIAL;
+        fprintf(stderr, "[CustomSelector] custom track %d (bytes via group %d) mode=%s players=%d difficulty=%d laps=%d\n",
+            CTR_CUSTOM_LEVEL_ID, host, mode == CTR_OFFLINE_MODE_TIME_TRIAL ? "time trial" : "arcade",
+            gGT->numPlyrNextGame, gGT->arcadeDifficulty, gGT->numLaps);
+        OtherFX_Play(1, 1);
+    }
+    else
+    {
+        snprintf(s_arcadeMessage, sizeof s_arcadeMessage, "Could not start this track.");
+        CustomOffline_Free(&s_arcadeRequest);
+    }
 }
 
 /* Called after the retail transition state advances, before retail indexing.
@@ -163,6 +197,7 @@ static int MM_CustomTrackSelect_Tick(void)
     if (!MM_CustomTrackSelect_Enabled()) return 0;
 
     if (!s_arcadePrepareBusy) MM_CustomLibrary_Tick(0);
+    MM_ModsPicture_Tick();
     if (s_arcadeScanWasBusy && !MM_CustomLibrary_Busy())
     {
         /* Copy entries, not the manager's query/Current Seed filter. Every
@@ -204,12 +239,14 @@ static int MM_CustomTrackSelect_Tick(void)
         if (result != 0)
         {
             s_arcadePrepareBusy = 0;
-            s_arcadeConfirm = result == 1;
             if (result == 1 && !CustomOffline_CheckStructure(s_arcadeRequest, MM_CustomTrackSelect_Mode(),
                                                              s_arcadeMessage, sizeof s_arcadeMessage))
-            {
-                s_arcadeConfirm = 0;
                 CustomOffline_Free(&s_arcadeRequest);
+            else if (result == 1)
+            {
+                s_arcadeMessage[0] = 0;
+                if (MM_CustomTrackSelect_Mode() == CTR_OFFLINE_MODE_TIME_TRIAL) MM_CustomTrackSelect_Start(0);
+                else s_arcadeConfirm = D230.trackSelect.lapBoxOpen = 1;
             }
         }
         tapped = 0;
@@ -243,38 +280,22 @@ static int MM_CustomTrackSelect_Tick(void)
     first = (s_arcadePage - 1) * CTR_LIBRARY_PAGE_ROWS;
     if (s_arcadeConfirm)
     {
-        if (tapped & (BTN_TRIANGLE | BTN_SQUARE_one))
+        /* The retail lap box, as on the Vanilla page (MM_TrackSelect_MenuProc):
+           its laps replace the package's own for this Arcade race. */
+        int lapResult = 0;
+        D230.menuLapSel.rowSelected = sdata->uselessLapRowCopy;
+        if (D230.trackSelect.transition.state == IN_MENU) lapResult = (s16)RECTMENU_ProcessInput(&D230.menuLapSel);
+        RECTMENU_DrawSelf(&D230.menuLapSel, D230.trackTransitions.transitionMeta_trackSel[2].currX, D230.trackTransitions.transitionMeta_trackSel[2].currY,
+                          MM_CUSTOM_LAP_MENU_WIDTH);
+        sdata->uselessLapRowCopy = D230.menuLapSel.rowSelected;
+        if (lapResult == 1) MM_CustomTrackSelect_Start(D230.lapCountByRow[D230.menuLapSel.rowSelected].lapCount);
+        else if (lapResult == -1)
         {
             s_arcadeConfirm = 0;
+            D230.trackSelect.lapBoxOpen = 0;
             CustomOffline_Free(&s_arcadeRequest);
-            OtherFX_Play(2, 1);
         }
-        else if (tapped & (BTN_CROSS_one | BTN_CIRCLE))
-        {
-            const int host = MM_CUSTOM_ARCADE_HOST_LEVEL;
-            const int mode = MM_CustomTrackSelect_Mode();
-            if (AP_CustomOfflineLaunchAllowed() && gGT->numPlyrNextGame == 1 &&
-                CustomOffline_BeginRuntime(&s_arcadeRequest, host, 0, mode))
-            {
-                /* Preserve the players, difficulty and characters chosen in
-                   Arcade. Only the selected content and authored laps change. */
-                gGT->currLEV = host;
-                gGT->numLaps = CustomOffline_RuntimeLaps();
-                D230.trackSelect.transition.startAfterExit = 1;
-                D230.trackSelect.transition.state = EXITING_MENU;
-                s_customTimeTrialPending = mode == CTR_OFFLINE_MODE_TIME_TRIAL;
-                fprintf(stderr, "[CustomSelector] custom track %d (bytes via group %d) mode=%s players=%d difficulty=%d laps=%d\n",
-                    CTR_CUSTOM_LEVEL_ID, host, mode == CTR_OFFLINE_MODE_TIME_TRIAL ? "time trial" : "arcade",
-                    gGT->numPlyrNextGame, gGT->arcadeDifficulty, gGT->numLaps);
-                OtherFX_Play(1, 1);
-            }
-            else
-            {
-                snprintf(s_arcadeMessage, sizeof s_arcadeMessage, "Could not start this track.");
-                CustomOffline_Free(&s_arcadeRequest);
-            }
-            s_arcadeConfirm = 0;
-        }
+        tapped = 0;
     }
     else if (!s_arcadePrepareBusy)
     {
@@ -316,19 +337,10 @@ static int MM_CustomTrackSelect_Tick(void)
     entry = rows ? CustomTrackLibrary_Row(&s_arcadeLibrary, first + row) : NULL;
     RECTMENU_ClearInput();
 
-    /* Match the retail selector: curved big-font rows, translucent boxes,
-       three-frame scrolling and the same entrance/exit transition offsets. */
-    int dx = D230.trackTransitions.transitionMeta_trackSel[1].currX;
-    int dy = D230.trackTransitions.transitionMeta_trackSel[1].currY;
-    CustomTrackLibrary_PageLabel(&s_arcadeLibrary, s_arcadePage - 1, label, sizeof label);
-    snprintf(line, sizeof line, "Custom %s", label);
-    MM_CustomText_Draw(line, 394 + dx, 10 + dy, 192, 1, JUSTIFY_CENTER | ORANGE, ot);
-    {
-        int titleWidth = DecalFont_GetLineWidth(line, FONT_SMALL);
-        MM_CustomTrackSelect_DrawPageArrows(394 + dx, 10 + dy, titleWidth < 192 ? titleWidth : 192, ot);
-    }
-    snprintf(line, sizeof line, "Page %u/%u", (unsigned)s_arcadePage + 1, (unsigned)pages);
-    MM_CustomText_Draw(line, 394 + dx, 24 + dy, 192, 1, JUSTIFY_CENTER | WHITE, ot);
+    /* The Vanilla page's layout (MM_TrackSelect_MenuProc): curved big-font
+       rows, SELECT LEVEL over the track's picture, its minimap under it, and
+       the page under the map. */
+    struct TransitionMeta *t = D230.trackTransitions.transitionMeta_trackSel;
     for (size_t i = 0; i < rows; i++)
     {
         const struct CustomTrackLibraryEntry *item = CustomTrackLibrary_Row(&s_arcadeLibrary, first + i);
@@ -338,12 +350,10 @@ static int MM_CustomTrackSelect_Tick(void)
         if (offset == 4) offset = -4;
         int angle = offset * 0x73 + s_arcadeMotionDirection * s_arcadeMotion * 0x73 / 3;
         RECT box = {
-            D230.trackTransitions.transitionMeta_trackSel[0].currX + (MATH_Cos(angle) * 25 >> 9) - 180,
-            D230.trackTransitions.transitionMeta_trackSel[0].currY + (MATH_Sin(angle) * 200 >> 12) + 96,
+            t[0].currX + (MATH_Cos(angle) * 25 >> 9) - 180,
+            t[0].currY + (MATH_Sin(angle) * 200 >> 12) + 96,
             256, 25
         };
-        /* Keep the retail curve, but do not draw a row through the footer. */
-        if (box.y + box.h > 176) continue;
         MM_CustomText_DrawFont(item->title, box.x + 8, box.y + 5, 240, 1, FONT_BIG,
                                MM_CustomTrackSelect_Eligible(item, NULL, 0) ? ORANGE : ORANGE_DARKENED, ot);
         if (i == row && !s_arcadeMotion)
@@ -354,46 +364,78 @@ static int MM_CustomTrackSelect_Tick(void)
         RECTMENU_DrawInnerRect(&box, 0, ot);
     }
     if (s_arcadeMotion) s_arcadeMotion--;
-    DecalFont_DrawLineOT("SELECT", 394 + dx, 43 + dy, FONT_BIG, JUSTIFY_CENTER | ORANGE, ot);
-    DecalFont_DrawLineOT("LEVEL", 394 + dx, 61 + dy, FONT_BIG, JUSTIFY_CENTER | ORANGE, ot);
-    if (entry)
+
+    /* Queued before the map, as on the Vanilla page, so it draws over it. */
+    if (D230.trackSelect.transition.state == IN_MENU && !s_arcadeConfirm)
     {
-        snprintf(line, sizeof line, "v%.20s", entry->version);
-        MM_CustomTrackSelect_Text(entry->title, 309 + dx, 85 + dy, 174, 2, ORANGE, ot);
-        MM_CustomTrackSelect_Text(line, 309 + dx, 112 + dy, 174, 1, WHITE, ot);
-        
-        if (s_arcadeConfirm)
+        CustomTrackLibrary_PageLabel(&s_arcadeLibrary, s_arcadePage - 1, label, sizeof label);
+        snprintf(line, sizeof line, "Custom %s", label);
+        DecalFont_DrawLineOT(line, 394, 178, FONT_SMALL, JUSTIFY_CENTER | ORANGE, ot);
+        MM_CustomTrackSelect_DrawPageArrows(394, 178, DecalFont_GetLineWidth(line, FONT_SMALL), ot);
+        snprintf(line, sizeof line, "Page %u/%u", (unsigned)s_arcadePage + 1, (unsigned)pages);
+        DecalFont_DrawLineOT(line, 394, 190, FONT_SMALL, JUSTIFY_CENTER | WHITE, ot);
+    }
+
+    struct Icon *mapTop = NULL, *mapBottom = NULL;
+    const int hasMap = entry && !s_arcadeMotion && MM_CustomTrackSelect_Map(entry, &mapTop, &mapBottom);
+    RECT preview = {t[1].currX + MM_CUSTOM_PREVIEW_X, t[1].currY + (hasMap ? 5 : 0x3a), MM_CUSTOM_PREVIEW_W,
+                    MM_CUSTOM_PREVIEW_H};
+    DecalFont_DrawLineOT("SELECT", t[3].currX + 0x18c, t[3].currY + preview.y, FONT_BIG, JUSTIFY_CENTER | ORANGE, ot);
+    DecalFont_DrawLineOT("LEVEL", t[3].currX + 0x18c, t[3].currY + preview.y + 0x10, FONT_BIG, JUSTIFY_CENTER | ORANGE, ot);
+    preview.y += 0x22;
+    if (hasMap && !s_arcadeConfirm)
+    {
+        /* The six passes of the Vanilla page (shadow, outline, map), centred
+           in the box under the picture as there. */
+        const int mapW = mapTop->texLayout.u1 - mapTop->texLayout.u0 > mapBottom->texLayout.u1 - mapBottom->texLayout.u0 ?
+                         mapTop->texLayout.u1 - mapTop->texLayout.u0 : mapBottom->texLayout.u1 - mapBottom->texLayout.u0;
+        const int mapH = (mapTop->texLayout.v2 - mapTop->texLayout.v0) + (mapBottom->texLayout.v2 - mapBottom->texLayout.v0);
+        const int mapX = preview.x + t[2].currX - t[1].currX;
+        const int mapY = preview.y + t[2].currY - t[1].currY + 0x49;
+        for (int layer = 0; layer < 6; layer++)
         {
-            struct CustomPackageOwned *package = NULL;
-            unsigned int laps = 0;
-            if (CustomOffline_RetainPackage(s_arcadeRequest, &package))
+            const struct TrackSelectMapOffset *o = &D230.drawMapOffset[layer];
+            UI_Map_DrawMap(mapTop, mapBottom, o->offsetX + mapX + preview.w / 2 + mapW / 2,
+                           o->offsetY + mapY + 100 / 2 + mapH / 2, &gGT->backBuffer->primMem,
+                           gGT->pushBuffer_UI.ptrOT, o->type);
+        }
+    }
+    {
+        int none = 1;
+        struct Icon *picture = entry && !s_arcadeMotion ?
+            MM_ModsPicture_Icon(entry->local.trackID, entry->manifestSha256, &none) : NULL;
+        const char *message = s_arcadeMessage[0] ? s_arcadeMessage :
+            !entry ? (MM_CustomLibrary_Busy() ? "Loading tracks..." : "No tracks. Manage content in Options.") : NULL;
+        if (message)
+            MM_CustomText_Draw(message, preview.x + preview.w / 2, preview.y + 10, preview.w - 12, 4,
+                               JUSTIFY_CENTER | WHITE, ot);
+        else if (picture)
+        {
+            /* The picture fills the frame as the retail video does: one quad,
+               not an icon, which widescreen would narrow to keep it square. */
+            POLY_FT4 *p = (POLY_FT4 *)gGT->backBuffer->primMem.cursor;
+            if ((u32)p <= (u32)gGT->backBuffer->primMem.guardEnd)
             {
-                CustomOffline_PackageLaps(package, &laps, NULL, 0);
-                CustomPackage_Free(&package);
+                const int x = preview.x + 3, y = preview.y + 2;
+                const int w = MM_CUSTOM_PICTURE_W, h = MM_CUSTOM_PICTURE_H;
+                u32 *uiOT = gGT->pushBuffer_UI.ptrOT;
+                p->code = 0x2d;
+                CtrGpu_WritePackedUVWord(&p->u0, CTR_ReadU32LE(&picture->texLayout.u0));
+                CtrGpu_WritePackedUVWord(&p->u1, CTR_ReadU32LE(&picture->texLayout.u1));
+                CtrGpu_WritePackedUV(&p->u2, CTR_ReadU16LE(&picture->texLayout.u2));
+                CtrGpu_WritePackedUV(&p->u3, CTR_ReadU16LE(&picture->texLayout.u3));
+                CtrGpu_WritePackedXY(&p->x0, (u32)(u16)x | ((u32)y << 16));
+                CtrGpu_WritePackedXY(&p->x1, (u32)(u16)(x + w) | ((u32)y << 16));
+                CtrGpu_WritePackedXY(&p->x2, (u32)(u16)x | ((u32)(y + h) << 16));
+                CtrGpu_WritePackedXY(&p->x3, (u32)(u16)(x + w) | ((u32)(y + h) << 16));
+                p->tag = *uiOT | 0x09000000;
+                *uiOT = CtrGpu_PrimToOTLink24(p);
+                gGT->backBuffer->primMem.cursor = p + 1;
             }
-            snprintf(line, sizeof line, "%u laps", laps);
-            MM_CustomTrackSelect_Text(line, 309 + dx, 124 + dy, 174, 1, WHITE, ot);
-            MM_CustomTrackSelect_Text("Start race", 309 + dx, 143 + dy, 174, 1, ORANGE, ot);
         }
-        else
-        {
-            char why[80];
-            const char *best = MM_CustomTrackSelect_BestTime(entry);
-            int ok = MM_CustomTrackSelect_Eligible(entry, why, sizeof why);
-            MM_CustomTrackSelect_Text(s_arcadeMessage[0] ? s_arcadeMessage : !entry->installed ? "Not installed" :
-                !ok ? why : best[0] ? best : "Installed", 309 + dx, 129 + dy, 174, 3, WHITE, ot);
-        }
+        (void)none;
     }
-    else MM_CustomTrackSelect_Text(MM_CustomLibrary_Busy() ? "Loading tracks..." :
-        "No tracks. Manage content in Options.", 309 + dx, 88 + dy, 174, 5, WHITE, ot);
-    RECT details = {301 + dx, 82 + dy, 188, 87};
-    RECTMENU_DrawInnerRect(&details, 0, ot);
-    if (D230.trackSelect.transition.state == IN_MENU)
-    {
-        MM_CustomText_Draw(s_arcadeConfirm ? "Cross: Start  Back: Track list" :
-            "Left/Right: Pages  Up/Down: Tracks", 256, 181, 464, 1, JUSTIFY_CENTER | WHITE, ot);
-        if (!s_arcadeConfirm)
-            MM_CustomText_Draw("Cross: Select  Back: Characters", 256, 194, 464, 1, JUSTIFY_CENTER | WHITE, ot);
-    }
+    RECTMENU_DrawInnerRect(&preview, 1, gGT->backBuffer->otMem.uiOT);
+
     return 1;
 }
