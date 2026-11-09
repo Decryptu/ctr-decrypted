@@ -110,8 +110,13 @@ class TestTiziHelperWithItemsanity(CTRTestBase):
     options = {"tizi_helper": True, "itemsanity": True}
 
     def test_both_gate_items_are_in_the_pool(self) -> None:
+        # Receivable means in the pool, pinned on a check (content_fixed.place
+        # locks some items before fill, outside the pool) or a starting item.
         pool_names = [item.name for item in self.multiworld.itempool
                       if item.player == self.player]
+        pool_names += [loc.item.name for loc in self.multiworld.get_locations(self.player)
+                       if loc.item is not None and loc.item.player == self.player and loc.item.code is not None]
+        pool_names += [item.name for item in self.multiworld.precollected_items[self.player]]
         self.assertIn(TIZI_HELPER_ITEM, pool_names)
         self.assertIn(TIZI_ITEMSANITY_COMPANION, pool_names)
 
