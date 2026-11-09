@@ -24,7 +24,6 @@ What is in progress, what is next, and what was decided. A finished item is dele
   - Custom tracks are one-player only. If they ever get split screen, its far emitter (`DrawLevelOvr1P_EmitSplitGroundListAQuadBlock`) must draw by face too.
 
 ## Maybe
-- High Scores screen for 200cc ([SPEED-CLASS.md](docs/SPEED-CLASS.md)): the title menu's High Scores show the memory card's Classic tables only; 200cc times show at the end of a race and in `records/`.
 - Title screen: a drawn logo in place of the DECRYPTED text, and the release version in a corner. Owner idea, 2026-11-02.
 - Chaos effects as Archipelago traps. CTR Native Expanded has 38 race effects, harmful and helpful (reversed steering, low gravity, giant karts, no items...), with an external trigger file. They could be the trap and buff items dowlle's tracker asks for (#248, #455, #486), sent by the multiworld instead of a timer.
 - CTR Native Expanded's two-player co-op Adventure. The Archipelago client would need to know about a second player.

@@ -67,6 +67,17 @@ enum
 	MM_HIGHSCORE_TEXT_JUSTIFICATION_MASK = 0xffffc000u,
 };
 
+#ifdef CTR_NATIVE
+#include <ctr_speed_class.h>
+
+// The Time Trial page shows one speed class at a time: Classic is the memory
+// card's table, 200cc the records file's (docs/SPEED-CLASS.md). L1 and R1
+// switch it; it opens on the class last picked on the SPEED screen.
+static u8 s_highScore200cc;
+#define MM_HIGHSCORE_CLASS_X_OFFSET 0x1e0
+#define MM_HIGHSCORE_CLASS_Y_OFFSET 0x12
+#endif
+
 void MM_HighScore_Text3D(char *string, s32 posX, s32 posY, s16 font, u32 flags)
 {
 	u32 justificationMask;
@@ -413,7 +424,19 @@ void MM_HighScore_Draw(s16 trackIndex, s32 rowIndex, s32 posX, s32 posY)
 	             : "memory");
 #endif
 
+#ifdef CTR_NATIVE
+	// the class of the Time Trial page; no staff ghost stars at 200cc
 	if (((u32)draw.rowIndex << 0x10) == MM_HIGHSCORE_SCORE_MODE_TIME_TRIAL)
+	{
+		MM_HighScore_Text3D(s_highScore200cc ? "200CC" : "CLASSIC",
+		                    (s16)(MM_HIGHSCORE_TRANSITIONS[MM_HIGHSCORE_TITLE_META_INDEX].currX + offsetX + MM_HIGHSCORE_CLASS_X_OFFSET),
+		                    (s16)(MM_HIGHSCORE_TRANSITIONS[MM_HIGHSCORE_TITLE_META_INDEX].currY + offsetY + MM_HIGHSCORE_CLASS_Y_OFFSET), FONT_SMALL,
+		                    (u32)(JUSTIFY_RIGHT | (s_highScore200cc ? ORANGE : 0)));
+	}
+	if ((((u32)draw.rowIndex << 0x10) == MM_HIGHSCORE_SCORE_MODE_TIME_TRIAL) && !s_highScore200cc)
+#else
+	if (((u32)draw.rowIndex << 0x10) == MM_HIGHSCORE_SCORE_MODE_TIME_TRIAL)
+#endif
 	{
 		s16 ghostStarIndex;
 		register u32 ghostV0 CTR_PSX_REGISTER("$2");
@@ -522,6 +545,10 @@ void MM_HighScore_Draw(s16 trackIndex, s32 rowIndex, s32 posX, s32 posY)
 		// first entry: Time Trial or Relic
 		displayData = (struct MainMenu_LevelRow *)&GAME_PROGRESS.highScoreTracks[MM_ARCADE_TRACKS[(s16)draw.trackIndex].levID].scoreEntry[selectedScoreMode][0];
 		CTR_PSX_KEEP_VALUE_RELAXED(displayData);
+#ifdef CTR_NATIVE
+		if (s_highScore200cc && selectedScoreMode == MM_HIGHSCORE_SCORE_MODE_TIME_TRIAL)
+			displayData = (struct MainMenu_LevelRow *)TimeTrialRecords_RetailTable200cc(MM_ARCADE_TRACKS[(s16)draw.trackIndex].levID);
+#endif
 
 		MM_HighScore_Text3D(
 		    GAME_LANGUAGE_STRINGS[LNG_BEST_TRACK_TIMES],
@@ -1149,6 +1176,9 @@ void MM_HighScore_Init(void)
 	MM_HIGHSCORE_TRANSITION_MAIN_FRAME = MM_HIGHSCORE_MAIN_TRANSITION_MAX_FRAME;
 	MM_HIGHSCORE_TARGET_ROW = 0;
 	MM_HIGHSCORE_CURRENT_ROW = 0;
+#ifdef CTR_NATIVE
+	s_highScore200cc = (g_config.speedClass == SPEED_CLASS_200CC);
+#endif
 
 	// reset all video variables
 	MM_TrackSelect_Video_SetDefaults();
@@ -1239,6 +1269,14 @@ LAB_HIGHSCORE_PROCESS_INPUT:
 		OtherFX_Play(2, 1);
 		MM_HIGHSCORE_TRANSITION_STATE = EXITING_MENU;
 	}
+#ifdef CTR_NATIVE
+	else if (((MM_GAME_BUTTON_TAPS[0] & (BTN_L1 | BTN_R1)) != 0) && (MM_HIGHSCORE_CURRENT_ROW == MM_HIGHSCORE_SCORE_MODE_TIME_TRIAL) &&
+	         (MM_HIGHSCORE_TARGET_ROW == MM_HIGHSCORE_SCORE_MODE_TIME_TRIAL))
+	{
+		s_highScore200cc ^= 1;
+		OtherFX_Play(0, 1);
+	}
+#endif
 	else if ((MM_GAME_BUTTON_TAPS[0] & BTN_LEFT) != 0)
 	{
 		b32 trackOpen;

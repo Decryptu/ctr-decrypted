@@ -632,6 +632,9 @@ int main(void)
 		CHECK(CustomRecords_LoadTimes(CTR_RETAIL_RECORDS_DIR, &key, &times));
 		CHECK(times.entry[1].time == 50000 && strcmp(times.entry[1].name, "FAST") == 0);
 		CHECK(access(CTR_RETAIL_RECORDS_DIR "/track06-3l-200cc.times", F_OK) == 0);
+		// The High Scores screen's 200cc page shows that same table.
+		CHECK(TimeTrialRecords_RetailTable200cc(HOST) == sdata->ptrActiveHighScoreEntry);
+		CHECK(TimeTrialRecords_RetailTable200cc(-1)[1].time == 0x8c640);
 		// The run's ghost goes to records/ by itself and reads back, from the
 		// menu too, where the chosen track is currLEV.
 		remove(CTR_RETAIL_RECORDS_DIR "/track06-3l-200cc.ghost");

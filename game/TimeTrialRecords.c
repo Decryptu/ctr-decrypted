@@ -146,6 +146,27 @@ struct HighScoreEntry *TimeTrialRecords_HighScores(void)
 	return s_retailTables[key.retailLevel];
 }
 
+// The 200cc table of a retail track (three laps, as on the memory card), for
+// the title menu's High Scores screen. Shares the race's copy, so a time set
+// this session shows without reading the file again.
+struct HighScoreEntry *TimeTrialRecords_RetailTable200cc(int levelID)
+{
+	static struct HighScoreEntry s_none[12];
+	struct CustomRecordKey key;
+
+	if (!CustomRecords_MakeRetailKey(&key, levelID, 3, SPEED_CLASS_200CC))
+	{
+		TimeTrialRecords_Defaults(s_none);
+		return s_none;
+	}
+	if (!s_retailLoaded[levelID])
+	{
+		s_retailLoaded[levelID] = 1;
+		TimeTrialRecords_Load(s_retailTables[levelID], &key, CTR_RETAIL_RECORDS_DIR);
+	}
+	return s_retailTables[levelID];
+}
+
 void TimeTrialRecords_SaveHighScores(void)
 {
 	struct CustomRecordKey key;

@@ -17,7 +17,9 @@ A 200cc Time Trial never reads or writes the memory card's Time Trial data. Its 
 - **The ghost loads from the file.** Leaving the track select skips the memory card's ghost selection and races the saved 200cc ghost, if any; a run that beats it (or runs without one) replaces it. There is no Save Ghost row and the track select shows no memory card ghost count.
 - **SAVE writes the file.** The name entry after a record stores it in the table and its `.times` file.
 
-`TimeTrialRecords_OffCard` (no memory card data: custom track or 200cc) and `TimeTrialRecords_Active` (records in files) in `game/TimeTrialRecords.c` are the two checks every call site uses. The title menu's High Scores screen still shows Classic only (ROADMAP).
+`TimeTrialRecords_OffCard` (no memory card data: custom track or 200cc) and `TimeTrialRecords_Active` (records in files) in `game/TimeTrialRecords.c` are the two checks every call site uses.
+
+**High Scores screen.** The title menu's High Scores show CLASSIC or 200CC at the top right of the Time Trial page; L1 or R1 switches it, and it opens on the class last picked on the SPEED screen. The 200cc page reads `records/` (`TimeTrialRecords_RetailTable200cc`, the same table a race uses) and shows no staff ghost stars. The Relic Race page has no class. The switch is native code in `game/230/MM_HighScore.c`.
 
 ## What changes
 | Value | Scale | Code |
@@ -43,4 +45,5 @@ Rules are in `include/ctr_speed_class.h`, game code in `game/SpeedClass.c` (`Spe
 - A Time Trial with the autopilot (`CTR_DEV_RACE=3`, `CTR_DEV_MODE=tt`, `-Config @{'State.speed_class'=1}`): at 20 s the kart has covered about 19% more track than in Classic. Two runs in the same `-RunDir`: the first logs `[Records] ghost saved to records`, the second `[Records] saved ghost loaded` (the dev switch loads it as the track select does).
 - An Arcade race with the autopilot, Classic against 200cc (`-Config @{'State.speed_class'=1}`, `CTR_DEV_RACE=3`, `CTR_DEV_AUTOPILOT=1`, `CTR_DEV_NO_ITEMS=1`, `CTR_DEV_RESULTS`): every racer covers about 21% more track in 30 seconds and the ranks match. `CTR_DEV_PLAYERS=2` does the same for VS.
 - Ultimate Speed Fire: Turbo Track (`CTR_DEV_RACE=17`) with every pad a super turbo pad (`CTR_DEV_CHEATS=1048576`) and the autopilot, traced. At 200cc the speed peaks at 32767 and never goes below normal reversing; without the saturation it wrapped to -31000. The Classic trace is byte-identical with and without it.
-- The screen: `CTR_DEV_PAD` walks the title menu once it settles (about frame 2000 with `-Track -1`); `CTR_DEV_PLAYERS=2` connects a second pad so the VS player rows unlock. Go through it twice, with a race and Quit between: `MM_SpeedClass_Open` resets the menu because it lives outside overlay 230's data, which loading the menu level restores, and `MM_ResetAllMenus` cannot reach it once that data has dropped the link.
+- High Scores: with a `records/track03-3l-200cc.times` in the run folder, `-Track -1` and `CTR_DEV_PAD=2000:D,2030:D,2060:D,2090:D,2120:D,2150:X,2400:J` open Crash Cove's page in Classic, then switch it to 200cc.
+- The SPEED screen: `CTR_DEV_PAD` walks the title menu once it settles (about frame 2000 with `-Track -1`); `CTR_DEV_PLAYERS=2` connects a second pad so the VS player rows unlock. Go through it twice, with a race and Quit between: `MM_SpeedClass_Open` resets the menu because it lives outside overlay 230's data, which loading the menu level restores, and `MM_ResetAllMenus` cannot reach it once that data has dropped the link.

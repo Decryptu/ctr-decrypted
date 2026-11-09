@@ -737,6 +737,7 @@ int SpeedClass_TimeTrial(void);
 int TimeTrialRecords_Active(void);
 int TimeTrialRecords_OffCard(void);
 struct HighScoreEntry *TimeTrialRecords_HighScores(void);
+struct HighScoreEntry *TimeTrialRecords_RetailTable200cc(int levelID);
 void TimeTrialRecords_SaveHighScores(void);
 int TimeTrialRecords_LoadGhost(struct GhostHeader *dst);
 void TimeTrialRecords_SaveGhost(const struct GhostHeader *gh);
