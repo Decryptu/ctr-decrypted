@@ -7,9 +7,9 @@
 #   ported  ported by hand; the note is our commit
 #   have    already in our tree through ctr-native or dowlle
 #   own     we have our own version of it; the note says where
+#   planned on the ROADMAP Planned list; the note says which item
 #   maybe   on the ROADMAP Maybe list; the note says which item
 #   skip    not wanted; the note says why (Vita, web, AdHoc, leaderboard, docs...)
-#   open    not ported and not decided yet
 #
 16a95e6e2 skip   Vita                                                  | Changes for GCC 10.3.0 support.
 eaced1b8a skip   Vita                                                  | Move scratchpad on user mem.
@@ -36,27 +36,27 @@ b767d569f skip   Vita performance (renderer, disc, audio, input)       | Restore
 5300f0d25 have                                                         | Fix an edge case OOB crash with widescreen.
 a9978c09c own    controls screen (docs/CONTROLS.md)                    | Add left analog movement support and L2/R2 on right analog.
 bc78bbb80 ported d204cb8b6                                             | Enable Nitrous Oxide as playable character.
-b5adce252 open   widescreen HUD fix                                    | Properly scale stats bars to widescreen aspect ratio.
+b5adce252 planned High Octane fixes                                     | Properly scale stats bars to widescreen aspect ratio.
 96adb0a5a maybe  PAL data                                              | Use PAL stats for Penta Penguin.
-b061c03fa open   multilanguage text                                    | Add multilanguage support.
-760637238 open   multilanguage text                                    | Resize garage boxes based on actual text length.
-84cb88dbb open   multilanguage text                                    | Make language selection persistent.
-7eb76d830 open   scrapbook video playback                              | Make scrapbook playback not use emulated VRAM rendering path.
-276ad94fa open   scrapbook video playback                              | Add semi-corrupted scrapbook videos support.
+b061c03fa maybe  PAL disc support (text comes from PAL discs)          | Add multilanguage support.
+760637238 maybe  PAL disc support (text comes from PAL discs)          | Resize garage boxes based on actual text length.
+84cb88dbb maybe  PAL disc support (text comes from PAL discs)          | Make language selection persistent.
+7eb76d830 planned High Octane fixes                                     | Make scrapbook playback not use emulated VRAM rendering path.
+276ad94fa planned High Octane fixes                                     | Add semi-corrupted scrapbook videos support.
 6e906b20d ported d204cb8b6                                             | Backport playable Oxide mod mempack fix.
 5a09de82b ported d204cb8b6                                             | Make Oxide unlocked via Spyro 2 demo cheatcode.
-4677caa7d open   rendering precision fix                               | Fix incorrect TLUT indexing due to precision issues.
+4677caa7d planned High Octane fixes                                     | Fix incorrect TLUT indexing due to precision issues.
 c26abd6d8 ported 9faa660fe                                             | Add reserves meter.
 8e76825d2 skip   readme, changelog or housekeeping                     | Add Vita files to gitignore.
 f4d95e164 have                                                         | Fix Warp Orb losing target when spawned.
 40fe88fb5 skip   readme, changelog or housekeeping                     | Update readme.
 095b2b1bb maybe  extra arcade modes                                    | Add customizable cups.
-8ababf381 open   gameplay or menu fix                                  | Add a hack for broken PVS on Crash Cove sinked ship.
+8ababf381 planned High Octane fixes                                     | Add a hack for broken PVS on Crash Cove sinked ship.
 c2ba82a00 maybe  Super/Ultra Hard                                      | Add Super and Ultra Difficulty modes.
 211348f17 ported 9faa660fe                                             | MAke USF look similar to CTR: Nitro Fueled.
 a0e0688d3 maybe  mirror mode                                           | Add Mirror mode option.
 eda8a6cde skip   Vita performance (renderer, disc, audio, input)       | Optimize disc reading codepath.
-c8cae44bf open   rendering precision fix                               | Fix seam on minimap due to precision issues in shader.
+c8cae44bf planned High Octane fixes                                     | Fix seam on minimap due to precision issues in shader.
 f0dad3b99 skip   readme, changelog or housekeeping                     | Add screenshots.
 993307aa2 skip   readme, changelog or housekeeping                     | Typo fixes.
 0228fea52 skip   Vita                                                  | Raise clocks and init sceAppUtil on boot.
@@ -64,7 +64,7 @@ f0dad3b99 skip   readme, changelog or housekeeping                     | Add scr
 b0dd9152d maybe  ghost replay tools                                    | Make the ghosts limit per track dependant.
 cf212a23a maybe  ghost replay tools                                    | Add Ghost Replay feature.
 4c99d3c33 skip   High Octane's menu layout; our options live in the config menu | Refactor the main menu with some submenus.
-43c0c6fe7 open   stats viewer in character select                      | Add a stats viewer in character selection.
+43c0c6fe7 planned racer stats in the character select                   | Add a stats viewer in character selection.
 5e46d139b own    Skip Intros option                                    | Allow for early skipping intro.
 72851d323 maybe  boss fights on any track                              | Add Boss Fight mode.
 640fb90e5 skip   Vita performance (renderer, disc, audio, input)       | Move CLUT quantization to vertex shader.
@@ -75,7 +75,7 @@ afbfe3bdf skip   Vita performance (renderer, disc, audio, input)       | Revert 
 f471de518 skip   AdHoc netplay                                         | Add multilanguage support for adhoc lines.
 0df287bb9 skip   Vita                                                  | Remove distortion effect from missiles even in SP.
 7d501d87d skip   AdHoc netplay                                         | Use powerup bitmasks also for UI.
-2429e3790 open   gameplay or menu fix                                  | Always sync mask state with audio player.
+2429e3790 planned High Octane fixes                                     | Always sync mask state with audio player.
 95a4e0aa5 skip   readme, changelog or housekeeping                     | Update readme with v.1.1 details.
 591c20588 skip   readme, changelog or housekeeping                     | Remove debug leftovers.
 4c20bb3a7 skip   readme, changelog or housekeeping                     | Added missing early-skip change in the v.1.1 changelog.
@@ -86,12 +86,12 @@ c3dd437cf skip   Vita                                                  | Apply t
 c006261a4 skip   Vita performance (renderer, disc, audio, input)       | Optimized rendering pipeline
 32b077193 skip   Vita performance (renderer, disc, audio, input)       | Optimized audio mixing code
 f1f255e6d skip   Vita performance (renderer, disc, audio, input)       | Implement frontend/backend approach for renderer
-a02db3499 open   gameplay or menu fix                                  | Fixed enemy missiles not being homing
-714b2c9f8 open   split-screen fix                                      | Never use decals in MP view.
-7417c03b3 open   split-screen fix                                      | Fix PVS/LOD issues in 2P splitscreen
-c25fcd3b8 open   split-screen fix                                      | Fix Wumpas and viewports on splitscreen
+a02db3499 planned High Octane fixes                                     | Fixed enemy missiles not being homing
+714b2c9f8 planned High Octane fixes                                     | Never use decals in MP view.
+7417c03b3 planned High Octane fixes                                     | Fix PVS/LOD issues in 2P splitscreen
+c25fcd3b8 planned High Octane fixes                                     | Fix Wumpas and viewports on splitscreen
 24cf72eaf skip   Vita                                                  | Fix performance issues in splitscreen on some maps
-09c5f975e open   gameplay or menu fix                                  | Fix Blizzard Bluffs and Sewer Speedway hazards not being deterministic.
+09c5f975e planned High Octane fixes                                     | Fix Blizzard Bluffs and Sewer Speedway hazards not being deterministic.
 3bc9f14c3 skip   online leaderboard                                    | Added Online Leaderboard.
 dca935402 have                                                         | Enable multiple controllers support.
 c76836261 skip   Vita                                                  | Fix widescreen false positive primitive clips.
@@ -115,14 +115,14 @@ f2f93ffe7 skip   High Octane's own Windows platform layer              | Added W
 72da0e451 own    Mute When Unfocused option                            | [PC] Mute audio when window is not focused.
 7d9cf695a skip   High Octane's own Windows platform layer              | [PC] Rename executable to Crash Team Racing - High Octane.
 edbacf526 maybe  extra arcade modes                                    | Fix Relic Race keeping a stale mode reference.
-330d89d95 open   Discord presence                                      | [PC] Add Discord Rich Presence.
+330d89d95 own    Discord status (ap/ap_discord.c), Archipelago build only | [PC] Add Discord Rich Presence.
 7e2f2156d maybe  extra arcade modes                                    | Add ghosts support to Relic Race mode.
 efdead5a3 skip   online leaderboard                                    | Add Relic Race support for Online Leaderboard.
 e4daec0b4 maybe  reverse tracks                                        | Add reversed tracks to the tracks roster.
 382ca5864 skip   readme, changelog or housekeeping                     | Update readme with v.1.3 details.
 6871be715 skip   readme, changelog or housekeeping                     | Add Relic Race reference for the leaderboard.
-7f0b4aa70 open   default camera and HUD options                        | Add default camera option.
-b6e04dfba open   default camera and HUD options                        | Add default HUD element option.
+7f0b4aa70 planned default camera and HUD options                        | Add default camera option.
+b6e04dfba planned default camera and HUD options                        | Add default HUD element option.
 97eb62dd9 maybe  ghost replay tools                                    | Add right stick tracking for ghosts.
 d1d7c868d maybe  ghost replay tools                                    | Add proper analogs tracking in the input viewer overlay.
 2894a9ee4 skip   readme, changelog or housekeeping                     | Add v.1.3.1 changelog.
@@ -136,51 +136,51 @@ b4622851a skip   online leaderboard                                    | Add Sav
 2faab290b ported 9faa660fe                                             | Make the powerslide bar change color progressively.
 4c37c865e skip   Vita                                                  | [PSVita] Disable Tiger Temple heat warps also in 1P.
 f028f2803 maybe  reverse tracks; its 60 FPS rain part is bfc96d485     | Add alternative Tiger Temple in Time Trials and Relic Race.
-6cca59367 open   DualSense duplicate controller                        | [PC] Fix duplicate controller instance being created with Dualsense.
-5f2239506 open   cheats menu                                           | Move vanilla cheatcodes to a Cheats submenu.
-288e191ff open   cheats menu                                           | Move the Cheats menu in the Options submenu.
-4871e8312 open   lap count 1-9                                         | Extend lap selector for Arcade and add it to Cup mode.
-9f21a312f open   widescreen HUD fix                                    | Fix widescreen speedometer aspect ratio
-9d4da1f71 open   menu changes                                          | Add menu clamping in main menu.
+6cca59367 planned High Octane fixes                                     | [PC] Fix duplicate controller instance being created with Dualsense.
+5f2239506 planned cheats menu                                           | Move vanilla cheatcodes to a Cheats submenu.
+288e191ff planned cheats menu                                           | Move the Cheats menu in the Options submenu.
+4871e8312 planned lap count 1-9                                         | Extend lap selector for Arcade and add it to Cup mode.
+9f21a312f planned High Octane fixes                                     | Fix widescreen speedometer aspect ratio
+9d4da1f71 planned main menu: Exit Game, clamping                        | Add menu clamping in main menu.
 73f0fd5ed skip   web build                                             | Emscripten port
 aa16f23a9 skip   web build                                             | Added EmScripten build reference to readme.
-baa505759 open   gameplay or menu fix                                  | Fix shadows overlapping with menu rects.
-8e1ba8a5d open   bots pick unlockable and custom racers                | Make CPU be able to pick unlockable characters in Arcade.
+baa505759 planned High Octane fixes                                     | Fix shadows overlapping with menu rects.
+8e1ba8a5d planned bots pick unlockable and custom racers                | Make CPU be able to pick unlockable characters in Arcade.
 5bc765f14 maybe  ghost replay tools                                    | Add personal bests view during Time Trials.
 9df434eeb maybe  ghost replay tools                                    | Add Challenge Ghost feature in Ghost Replay.
 cd29f8471 skip   online leaderboard                                    | Separate Web client to PC one for the leaderboard.
-875fd120b open   lap count 1-9                                         | Fix 8-9 Lap races causing mempack overrun.
+875fd120b planned lap count 1-9                                         | Fix 8-9 Lap races causing mempack overrun.
 c0616f504 own    custom racers, own design (docs/CUSTOM_RACERS.md)     | Added custom characters support.
 67910d028 skip   Vita                                                  | Fix custom racers corrupting memory on PSVita.
-80fc42235 open   bots pick unlockable and custom racers                | Add an option to enable custom racers for enemy AI.
+80fc42235 planned bots pick unlockable and custom racers                | Add an option to enable custom racers for enemy AI.
 7109f4a1c own    custom racers, own design (docs/CUSTOM_RACERS.md)     | Make custom racers use their models during podium.
 63df65f4d skip   web build                                             | Integrate web build deployment on new releases.
 5609dbd6e skip   custom racer importer; our racers come from the racers index | Add xdelta executable.
 0ace89585 skip   readme, changelog or housekeeping                     | Add v.1.4 changelog
 7311e91f5 skip   readme, changelog or housekeeping                     | Added new major features in the features list.
 d033df4d6 skip   custom racer importer; our racers come from the racers index | Add modpacks support to the custom racer importer script.
-d358cc18a open   Discord presence                                      | Make Discord Rich Presence compatible use custom racers names.
+d358cc18a own    Discord status                                        | Make Discord Rich Presence compatible use custom racers names.
 e4a298ee1 own    custom racers, own design (docs/CUSTOM_RACERS.md)     | Fix custom characters portraits having wrong scale and wrong transparency.
 6f8afc5b3 own    custom racers, own design (docs/CUSTOM_RACERS.md)     | Properly show Penta stats in char select for custom chars overloading it.
 2d6af9558 own    custom racers, own design (docs/CUSTOM_RACERS.md)     | Add shadowing to the char select stats rect.
 2001e772e own    custom racers, own design (docs/CUSTOM_RACERS.md)     | Fix custom racers models being preserved across different modes.
-7a839ca99 open   rendering precision fix                               | Fix aspect ratio and wrong blending on track previews.
-6fe2af36f open   custom racer sounds, mask and wheels                  | Add sampled sounds support for custom racers.
-8e27b0011 open   gameplay or menu fix                                  | Fix wumpa fruits being visible in the end race screen in VS/Battle modes.
+7a839ca99 planned High Octane fixes                                     | Fix aspect ratio and wrong blending on track previews.
+6fe2af36f maybe  custom racer sounds, mask and wheels                  | Add sampled sounds support for custom racers.
+8e27b0011 planned High Octane fixes                                     | Fix wumpa fruits being visible in the end race screen in VS/Battle modes.
 c0e0a981d maybe  ghost replay tools                                    | Add stop, frame-by-frame and playback speed adjustments for ghost replays.
 ea16e1b6f own    custom racers, own design (docs/CUSTOM_RACERS.md)     | Fix boss battle voices getting overridden by custom racers ones.
-d1aafbc91 open   custom racer sounds, mask and wheels                  | Add support for mask and wheels settings for custom racers.
-d1f5de045 open   multiplayer character select                          | Allow for secondary players to change characters page.
-a03cd3810 open   multiplayer character select                          | Fix identation and allow for all players to select even same character.
-ab467eefd open   menu changes                                          | Add Exit Game option in main menu.
-bcf381c2d open   menu changes                                          | Invert Options and Exit voices in pause menu.
+d1aafbc91 maybe  custom racer sounds, mask and wheels                  | Add support for mask and wheels settings for custom racers.
+d1f5de045 planned multiplayer character select                          | Allow for secondary players to change characters page.
+a03cd3810 planned multiplayer character select                          | Fix identation and allow for all players to select even same character.
+ab467eefd planned main menu: Exit Game, clamping                        | Add Exit Game option in main menu.
+bcf381c2d skip   taste: retail pause menu order kept                   | Invert Options and Exit voices in pause menu.
 8349dcc83 maybe  ghost replay tools                                    | Replace Vita overlay with a Dualshock one on Web/PC builds.
 59b3f979b own    Audio volume options                                  | Add audio options in the main menu Options menu.
-091958baf open   multilanguage text                                    | USe small font on language menu.
-198f56a01 open   bots pick unlockable and custom racers                | Make AI Racers a three options selection.
+091958baf maybe  PAL disc support (text comes from PAL discs)          | USe small font on language menu.
+198f56a01 planned bots pick unlockable and custom racers                | Make AI Racers a three options selection.
 7f6b800e9 own    custom racers, own design (docs/CUSTOM_RACERS.md)     | Fixed inconsistency for XA voicelines in MP with custom racers.
 95f3a5878 skip   web build                                             | Explicitly request an opaque GL context on Emscripten.
-ca43755cf open   split-screen fix                                      | Fix rendered quadblock retry list overflow in native split-screen
+ca43755cf planned High Octane fixes                                     | Fix rendered quadblock retry list overflow in native split-screen
 1f9d08844 skip   Vita                                                  | Update Livearea assets.
 9369c5f11 own    Screen Filters and Colour Filter (docs/SCREEN-FILTERS.md); Hue and Gamma left out | Added post-processing shaders support.
 035997448 skip   Vita                                                  | Fix crash on game exit on PSVita.

@@ -2,7 +2,7 @@
 
     python tools/decrypted/upstream_status.py              # fetch the upstream remotes, then report
     python tools/decrypted/upstream_status.py --no-fetch
-    python tools/decrypted/upstream_status.py --ho open,maybe   # list High Octane commits by status
+    python tools/decrypted/upstream_status.py --ho planned,maybe   # list High Octane commits by status
     python tools/decrypted/upstream_status.py --all        # every new commit, not only the latest few
 
 An upstream commit counts as integrated when a commit with the same author time, author email and
@@ -34,15 +34,13 @@ HO_FILE = os.path.join(HERE, "highoctane.txt")
 FOLLOWED = [
     ("ctr-native", "master", None),
     ("dowlle", "main", None),
-    ("dowlle", "dev/custom-pad-0.3.0", None),
-    ("dowlle", "feat/xdelta-track-import", None),
-    ("apworld", "dev/custom-pad-0.3.0", "worlds/ctr"),
-    ("apworld", "dev/custom-pad-0.3.0", ".github/fuzz"),
+    ("apworld", "main", "worlds/ctr"),
+    ("apworld", "main", ".github/fuzz"),
 ]
 # Remotes whose other branches are scanned for work we don't follow yet.
 SCANNED = {"dowlle": None, "apworld": "worlds/ctr"}
 HO_REF, HO_BASE = "highoctane/vita", "ctr-native/master"
-HO_STATUSES = ("ported", "have", "own", "maybe", "open", "skip")
+HO_STATUSES = ("ported", "have", "own", "planned", "maybe", "skip")
 
 FMT = "%H%x1f%at%x1f%ae%x1f%s"
 
@@ -183,7 +181,8 @@ def main():
             ref = full[len("refs/"):]
             if ref in followed:
                 continue
-            excl = [f"^{f}" for f in followed if f.startswith(remote + "/")]
+            excl = [f"^{f}" for f in followed if f.startswith(remote + "/")
+                    and not subprocess.run(["git", "rev-parse", "--verify", "--quiet", f"refs/{f}"], capture_output=True).returncode]
             new = [c for c in commits(ref, *excl, path=path) if c[2] not in ours]
             if new:
                 others.append((new[0][1], ref, len(new)))

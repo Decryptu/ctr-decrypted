@@ -3,7 +3,7 @@
 Everything a new contributor needs. [ROADMAP.md](../ROADMAP.md) has what is in progress and planned; [UPSTREAM-ISSUES.md](UPSTREAM-ISSUES.md) summarizes the projects we draw from.
 
 ## What this is
-A fork of [dowlle/ctr-native-ap](https://github.com/dowlle/ctr-native-ap) (the native CTR port, CTR-native, with an Archipelago client compiled in), plus enhancements ported from [High Octane](https://github.com/Rinnegatamante/Crash-Team-Racing-High-Octane) and fixes for bugs reported upstream. The base is dowlle's `main` (v0.2.4) plus its unreleased 0.3.0 line (custom pad, the signed updater, Play Solo, the xdelta importer); seeds made with `ctr.apworld` 0.2.4 still work. Game, client and Archipelago world live in one repository so they are versioned together: the world in `apworld/ctr` was imported with its history from [dowlle/ctr-archipelago-apworld](https://github.com/dowlle/ctr-archipelago-apworld) (`worlds/ctr`). The game reads assets from the player's own NTSC-U disc image (`assets/ctr-u.bin`); nothing copyrighted is in the repo.
+A fork of [dowlle/ctr-native-ap](https://github.com/dowlle/ctr-native-ap) (the native CTR port, CTR-native, with an Archipelago client compiled in), plus enhancements ported from [High Octane](https://github.com/Rinnegatamante/Crash-Team-Racing-High-Octane) and fixes for bugs reported upstream. The base is dowlle's `main`; seeds made with `ctr.apworld` 0.2.4 still work. Game, client and Archipelago world live in one repository so they are versioned together: the world in `apworld/ctr` was imported with its history from [dowlle/ctr-archipelago-apworld](https://github.com/dowlle/ctr-archipelago-apworld) (`worlds/ctr`). The game reads assets from the player's own NTSC-U disc image (`assets/ctr-u.bin`); nothing copyrighted is in the repo.
 
 ## Repository layout (main parts)
 | Path | Contents |
@@ -68,20 +68,20 @@ The world comes from dowlle's Archipelago fork; we keep only `worlds/ctr`, moved
 ```
 git remote add apworld https://github.com/dowlle/ctr-archipelago-apworld.git   # once
 git config remote.apworld.fetch "+refs/heads/*:refs/apworld/*"                # once
-pwsh tools/decrypted/sync-upstream.ps1 -Remote apworld -Branch dev/custom-pad-0.3.0 -Path worlds/ctr -Prefix apworld/ctr
-git merge clean/apworld-dev/custom-pad-0.3.0
-pwsh tools/decrypted/sync-upstream.ps1 -Remote apworld -Branch dev/custom-pad-0.3.0 -Path .github/fuzz -Prefix apworld/fuzz -Name apworld-fuzz-dev/custom-pad-0.3.0
-git merge clean/apworld-fuzz-dev/custom-pad-0.3.0
+pwsh tools/decrypted/sync-upstream.ps1 -Remote apworld -Branch main -Path worlds/ctr -Prefix apworld/ctr
+git merge clean/apworld-main
+pwsh tools/decrypted/sync-upstream.ps1 -Remote apworld -Branch main -Path .github/fuzz -Prefix apworld/fuzz -Name apworld-fuzz-main
+git merge clean/apworld-fuzz-main
 ```
 
-We follow dowlle's 0.3.0 line: `dev/custom-pad-0.3.0` in both repositories, plus the client branch not merged there yet (`feat/xdelta-track-import`). Import each and merge its `clean/` ref.
+We follow `main` in both of dowlle's repositories. Import each and merge its `clean/` ref. When a followed branch is deleted upstream, the status script says so: move `FOLLOWED` and these commands to the branch that took its work.
 
 **After a merge:**
 - Upstream moves functions between files, so a merge can silently drop our edit to a function. Run `python tools/decrypted/merge_audit.py <merge-base> HEAD^1 --moved` (our changes in functions that moved) and again without `--moved` (every added line missing from the merged tree; most hits are renames). Carry each real loss to the function's new home, then build every variant (`tools/ci/build-clients.sh`) and run the harnesses; the `*-production` harnesses check that hooks sit where they must in upstream's code.
 - `python tools/decrypted/check_upstream_refs.py` (also in CI) fails on links to dowlle's releases, issues or docs, his repository named in a program or packaging string, and his release key. Point each hit at `Decryptu/ctr-decrypted`, or, when it names something only his repository has, add it to the script's exceptions with the reason.
 - His harnesses stub game functions with his headers' signatures, which differ from ours in places. Most are Linux only, so run `gh workflow run ci.yml --ref <branch>` before merging an import into `dev`. On Windows, `cc -m32 -fsyntax-only -Wno-implicit-function-declaration -DCTR_NATIVE -DCTR_AP -I ap -I include -I . <harness>` checks that one compiles against our headers.
 
-High Octane (`highoctane/vita`) is not merged. Cherry-pick its commits with `-x` and resolve conflicts by hand, keeping every `#ifdef CTR_AP` block. `tools/decrypted/highoctane.txt` has one line per High Octane commit not in ctr-native that was ported by hand or in part, already here, done our own way, on the Maybe list, skipped, or `open`; a full cherry-pick needs no line. The status script lists ported commits (`--ho ported`, the default; `--ho open,maybe` for the others) and every new commit with no line yet: review it and add its line.
+High Octane (`highoctane/vita`) is not merged. Cherry-pick its commits with `-x` and resolve conflicts by hand, keeping every `#ifdef CTR_AP` block. `tools/decrypted/highoctane.txt` has one line per High Octane commit not in ctr-native that was ported by hand or in part, already here, done our own way, on the roadmap's Planned or Maybe list, or skipped; a full cherry-pick needs no line. There is no "undecided" status: reviewing a commit means deciding it, and a `planned` or `maybe` line names the roadmap row that holds it, written in the same commit. The status script lists ported commits (`--ho ported`, the default; `--ho planned,maybe` for the others) and every new commit with no line yet: review it and add its line.
 
 ## Releases and updates
 Release steps: [RELEASING.md](../RELEASING.md). Players download the release's `ctr-decrypted-vX.Y.Z-windows-x86.zip` (or the Linux `.tar.gz`), which holds everything except the disc image; the release notes open with a **Download** line naming it. The other assets are for hosts (`ctr.apworld`, the YAML template), crash reports (`.debug`) and box authors.
