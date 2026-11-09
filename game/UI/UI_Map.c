@@ -327,9 +327,9 @@ void UI_Map_DrawGhosts(struct UIMap *map, struct Thread *bucket)
 		if (d->ghostID != 0)
 		{
 			s32 oxideOpen = (GAME_SAVE.progress.highScoreTracks[GAME_TRACKER->levelID].timeTrialFlags & TT_NTROPY_BEATEN) != 0;
-#ifdef CTR_CUSTOM_PACKAGES
-			// Custom tracks have no Oxide ghost, so N. Tropy never flickers there.
-			if (MainRaceTrack_OfflineCustomLoad())
+#ifdef CTR_NATIVE
+			// No staff ghost on a custom track or at 200cc (TimeTrialRecords_OffCard).
+			if (TimeTrialRecords_OffCard())
 			{
 				oxideOpen = 0;
 			}

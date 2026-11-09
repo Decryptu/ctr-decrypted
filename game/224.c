@@ -139,11 +139,12 @@ void TT_EndEvent_DrawHighScore(s16 startX, s32 startY, s16 scoreMode)
 		scoreModeCopy = scoreMode;
 
 		// 12 entries per track, 6 for Time Trial and 6 for Relic Race
-#ifdef CTR_CUSTOM_PACKAGES
-		// A custom track shows its own table (custom-records/), never the host slot's.
-		if (MainRaceTrack_OfflineCustomLoad())
+#ifdef CTR_NATIVE
+		// A custom track or a 200cc Time Trial shows its own table
+		// (game/TimeTrialRecords.c), never the memory card's.
+		if (TimeTrialRecords_OffCard())
 		{
-			scoreEntries = &MainRaceTrack_CustomHighScores()[MEMCARD_HIGH_SCORE_ENTRIES_PER_MODE * scoreModeCopy];
+			scoreEntries = &TimeTrialRecords_HighScores()[MEMCARD_HIGH_SCORE_ENTRIES_PER_MODE * scoreModeCopy];
 		}
 		else
 #endif
@@ -457,10 +458,10 @@ show_menu:
 		GAME_MENU_READY = (GAME_MENU_READY | TT_MENU_READY_SHOW_MENU) & ~TT_MENU_READY_HIGH_SCORE_EXIT;
 		TT_FLAGS = 0;
 
-#ifdef CTR_CUSTOM_PACKAGES
-		// No Save Ghost row on a custom track: its ghost is saved to
-		// custom-records/ automatically, and the row would open the memory card.
-		if ((TT_GHOST_TOO_BIG == 0) && !MainRaceTrack_OfflineCustomLoad())
+#ifdef CTR_NATIVE
+		// No Save Ghost row on a custom track or at 200cc: the ghost is saved
+		// to its records file automatically, and the row would open the memory card.
+		if ((TT_GHOST_TOO_BIG == 0) && !TimeTrialRecords_OffCard())
 #else
 		if (TT_GHOST_TOO_BIG == 0)
 #endif

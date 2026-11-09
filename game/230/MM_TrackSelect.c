@@ -541,6 +541,14 @@ void MM_TrackSelect_MenuProc(struct RectMenu *menu)
 						return;
 					}
 #endif
+#ifdef CTR_NATIVE
+					// So does a 200cc Time Trial's, from records/.
+					if (SpeedClass_TimeTrial())
+					{
+						TimeTrialRecords_BeginFromTrackSelect();
+						return;
+					}
+#endif
 					MM_GHOST_TAPE_PLAYING = MM_ALLOC_HIGH_MEM(MM_TRACK_SELECT_GHOST_TAPE_ALLOC_SIZE, MM_LOADED_GHOST_DATA);
 					memset(MM_GHOST_TAPE_PLAYING, 0, MM_TRACK_SELECT_GHOST_TAPE_CLEAR_SIZE);
 					MM_REPLAY_HUMAN_GHOST = 0;
@@ -1047,7 +1055,12 @@ trackSelectionMenuDone:
 			rowBaseY += MM_TRACK_SELECT_ROW_Y_OFFSET;
 			CTR_PSX_COPY_VALUE(rowY, rowBaseY);
 			rowRect.y = (s16)rowBaseY;
+#ifdef CTR_NATIVE
+			// 200cc has no staff ghosts: no N. Tropy or Oxide stars.
+			if (((rowTracker->gameMode1 & TIME_TRIAL) != 0) && !SpeedClass_TimeTrial())
+#else
 			if ((rowTracker->gameMode1 & TIME_TRIAL) != 0)
+#endif
 			{
 				// Draw the N. Tropy and Oxide stars earned for this track.
 				register s32 timeTrialTrackOffset CTR_PSX_REGISTER("$2");
@@ -1176,6 +1189,13 @@ trackSelectionMenuDone:
 					if ((CTR_PSX_PAGE_LVALUE(struct GameTracker *, gameTrackerPage, MM_GAME_TRACKER_PAGE_OFFSET, GAME_TRACKER)->gameMode1 & TIME_TRIAL) != 0)
 					{
 						s16 ghostProfileCount = RefreshCard_CountGhostProfilesForLEV(trackEntry->levID);
+#ifdef CTR_NATIVE
+						// The memory card's ghosts are Classic ones; 200cc reads records/.
+						if (SpeedClass_TimeTrial())
+						{
+							ghostProfileCount = 0;
+						}
+#endif
 						if (ghostProfileCount != 0)
 						{
 							register s32 ghostTextX CTR_PSX_REGISTER("$5");

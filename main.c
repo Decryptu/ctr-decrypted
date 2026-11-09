@@ -97,6 +97,8 @@
 #include "platform/native_config.c"
 #include "platform/native_custom_track_manager.c"
 #include "platform/native_custom_tracks.c"
+// Time Trial records kept in files (custom tracks, 200cc): every build.
+#include "platform/native_custom_records.c"
 
 #ifdef CTR_AP
 // Pure one-click-connect parser (issue #334, slice 1). AP-build-only, so the

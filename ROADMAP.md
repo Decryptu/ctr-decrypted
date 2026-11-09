@@ -13,6 +13,7 @@ What is in progress, what is next, and what was decided. A finished item is dele
 - **Tracks also ship from [Decryptu/ctr-decrypted-tracks](https://github.com/Decryptu/ctr-decrypted-tracks)**, listed with Saphi's on the Tracks tab, so a track need not wait for Saphi. A track both list shows once, with Saphi's row winning a tie ([CUSTOM_TRACKS.md](docs/CUSTOM_TRACKS.md#the-decrypted-track-catalogue)).
 - **The Mods screen has no Karts tab**: a racer's model is driver and kart in one mesh, and wheels are shared sprites (owner decision, 2026-10-31).
 - **60 FPS simulates at 60 Hz** (owner decision, 2026-11-02). A step that runs once per frame instead of per unit of time is fixed where it happens ([60FPS.md](docs/60FPS.md)). No fixed 30 Hz simulation with interpolated rendering: it would bring back 33 ms input steps and touch every rendered position.
+- **200cc stays out of Archipelago and Adventure** (owner decision, 2026-11-09). Relic times, bosses and the logic are tuned for retail speed, and a "200cc unlocked" item would do nothing in a seed ([SPEED-CLASS.md](docs/SPEED-CLASS.md#decisions)).
 - **High Octane is ported feature by feature, never merged.** A trial merge conflicts in 92 files, and it carries Vita, web and leaderboard code we don't want.
 
 ## In progress
@@ -22,7 +23,7 @@ What is in progress, what is next, and what was decided. A finished item is dele
   - Custom tracks are one-player only. If they ever get split screen, its far emitter (`DrawLevelOvr1P_EmitSplitGroundListAQuadBlock`) must draw by face too.
 
 ## Maybe
-- 200cc beyond Arcade and VS ([SPEED-CLASS.md](docs/SPEED-CLASS.md)): Time Trial with records and ghosts kept per class (a save format change), and whether Archipelago can require or place it.
+- High Scores screen for 200cc ([SPEED-CLASS.md](docs/SPEED-CLASS.md)): the title menu's High Scores show the memory card's Classic tables only; 200cc times show at the end of a race and in `records/`.
 - Title screen: a drawn logo in place of the DECRYPTED text, and the release version in a corner. Owner idea, 2026-11-02.
 - Chaos effects as Archipelago traps. CTR Native Expanded has 38 race effects, harmful and helpful (reversed steering, low gravity, giant karts, no items...), with an external trigger file. They could be the trap and buff items dowlle's tracker asks for (#248, #455, #486), sent by the multiworld instead of a timer.
 - CTR Native Expanded's two-player co-op Adventure. The Archipelago client would need to know about a second player.

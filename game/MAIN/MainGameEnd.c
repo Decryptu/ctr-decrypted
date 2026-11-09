@@ -67,10 +67,10 @@ void MainGameEnd_SoloRaceGetReward(int subtractTimeCrateBonus)
 
 	gGT->gameModeEnd |= 4;
 
-#ifdef CTR_CUSTOM_PACKAGES
-	// A custom track has no N. Tropy or Oxide ghost and no retail Time Trial
-	// flags: nothing below may touch the host slot's save data.
-	if (MainRaceTrack_OfflineCustomLoad())
+#ifdef CTR_NATIVE
+	// A custom track or a 200cc Time Trial has no N. Tropy or Oxide ghost:
+	// nothing below may touch the memory card's Time Trial flags or unlocks.
+	if (TimeTrialRecords_OffCard())
 	{
 		return;
 	}
@@ -538,13 +538,14 @@ static void MainGameEnd_CheckTimeTrialGhost(struct GameTracker *gGT, struct Driv
 
 	GhostTape_End();
 	gGT->gameModeEnd |= PLAYER_GHOST_BEAT;
-#ifdef CTR_CUSTOM_PACKAGES
-	// A custom track keeps its best ghost in custom-records/, never on the
-	// memory card: the run that beat the loaded ghost (or ran without one)
-	// replaces the file, provided the whole run fit the ghost buffer.
-	if (MainRaceTrack_OfflineCustomTimeTrial() && sdata->boolGhostTooBigToSave == 0)
+#ifdef CTR_NATIVE
+	// A custom track or a 200cc Time Trial keeps its best ghost in a records
+	// file, never on the memory card: the run that beat the loaded ghost (or
+	// ran without one) replaces the file, provided the whole run fit the
+	// ghost buffer.
+	if (TimeTrialRecords_Active() && sdata->boolGhostTooBigToSave == 0)
 	{
-		MainRaceTrack_CustomSaveGhost(sdata->GhostRecording.ptrGhost);
+		TimeTrialRecords_SaveGhost(sdata->GhostRecording.ptrGhost);
 	}
 #endif
 }

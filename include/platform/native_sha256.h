@@ -14,9 +14,8 @@
 // verification only, never for authentication, so a compact reference-shaped
 // implementation is the right amount of code.
 //
-// Shared by custom-track verification and AP retail-asset imports.
-
-#if defined(CTR_CUSTOM_TRACKS) || defined(CTR_AP)
+// Shared by custom-track verification, AP retail-asset imports and the Time
+// Trial records files (every build).
 
 #include <stddef.h>
 
@@ -224,7 +223,5 @@ static int NativeSha256_HexEquals(const char *expected, const char actual[NATIVE
 	// Reject a longer string: "<64 correct digits>garbage" is not a digest.
 	return expected[NATIVE_SHA256_DIGEST_BYTES * 2] == '\0';
 }
-
-#endif // CTR_CUSTOM_TRACKS
 
 #endif // NATIVE_SHA256_H

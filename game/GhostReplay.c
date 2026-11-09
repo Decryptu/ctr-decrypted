@@ -358,11 +358,11 @@ void GhostReplay_Init1(void)
 			tape->selectedHeader = GHOST_PLAYING;
 			break;
 		case 1:
-#ifdef CTR_CUSTOM_PACKAGES
-			// A custom track has no N. Tropy or Oxide ghost: its LEV carries none,
-			// and the host slot's flags are not its own. An empty tape is skipped
-			// by GhostReplay_Init2, like a retail ghost that is not open yet.
-			if (MainRaceTrack_OfflineCustomLoad())
+#ifdef CTR_NATIVE
+			// No N. Tropy or Oxide ghost on a custom track or at 200cc
+			// (TimeTrialRecords_OffCard). An empty tape is skipped by
+			// GhostReplay_Init2, like a retail ghost that is not open yet.
+			if (TimeTrialRecords_OffCard())
 			{
 				static struct GhostHeader s_customNoGhost;
 				tape->selectedHeader = &s_customNoGhost;
@@ -479,11 +479,12 @@ void GhostReplay_Init1(void)
 }
 
 
-// A custom track's host slot flags are not its own: treat it as never opened.
+// A custom track's host slot flags are not its own, and a 200cc Time Trial
+// has no staff ghosts: treat them as never opened.
 internal s32 GhostReplay_TimeTrialFlags(void)
 {
-#ifdef CTR_CUSTOM_PACKAGES
-	if (MainRaceTrack_OfflineCustomLoad())
+#ifdef CTR_NATIVE
+	if (TimeTrialRecords_OffCard())
 	{
 		return 0;
 	}

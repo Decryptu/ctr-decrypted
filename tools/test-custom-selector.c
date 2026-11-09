@@ -100,13 +100,24 @@ int CustomOffline_BeginRuntime(struct CustomOfflineRequest **r, int host, int se
 int CustomOffline_RuntimeMode(void) { return beganMode; }
 static unsigned char highMem[0x3e00];
 void *MEMPACK_AllocHighMem(s32 size, const char *name) { (void)name; CHECK(size == 0x3e00); memset(highMem, 0xee, sizeof highMem); return highMem; }
-int MainRaceTrack_CustomLoadGhost(struct GhostHeader *dst)
+int TimeTrialRecords_LoadGhost(struct GhostHeader *dst)
 {
     ghostLoads++;
     if (!ghostOnFile) return 0;
     dst->version = -4; dst->characterID = COCO_BANDICOOT; dst->size = 0x100; dst->timeElapsedInRace = 90000;
     return 1;
 }
+/* game/TimeTrialRecords.c, with the records file stubbed above. */
+void TimeTrialRecords_BeginFromTrackSelect(void)
+{
+    sdata->ptrGhostTapePlaying = MEMPACK_AllocHighMem(0x3e00, "TimeTrialRecordsGhost");
+    memset(sdata->ptrGhostTapePlaying, 0, 0x28);
+    sdata->boolReplayHumanGhost = TimeTrialRecords_LoadGhost(sdata->ptrGhostTapePlaying);
+    data.characterIDs[1] = sdata->ptrGhostTapePlaying->characterID;
+    sdata->ptrDesiredMenu = &data.menuQueueLoadTrack;
+    sdata->errorMessagePosIndex = 0;
+}
+int SpeedClass_TimeTrial(void) { return 0; }
 char *RECTMENU_DrawTime(int time) { static char t[16]; snprintf(t, sizeof t, "T%d", time); return t; }
 #include "../game/230/MM_CustomTrackSelect.c"
 

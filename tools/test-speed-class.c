@@ -26,12 +26,13 @@ enum
 	TIME_TRIAL = 0x20000,
 	ADVENTURE_MODE = 0x80000,
 	ARCADE_MODE = 0x400000,
+	RELIC_RACE = 0x4000000,
 	GAME_CUTSCENE = 0x20000000,
 };
 
 static int takes(unsigned gameMode1, int demo)
 {
-	return SpeedClass_ModeTakesClass(gameMode1, BATTLE_MODE | TIME_TRIAL | ADVENTURE_MODE, MAIN_MENU | GAME_CUTSCENE, demo);
+	return SpeedClass_ModeTakesClass(gameMode1, BATTLE_MODE | ADVENTURE_MODE | RELIC_RACE, MAIN_MENU | GAME_CUTSCENE, demo);
 }
 
 int main(void)
@@ -50,7 +51,8 @@ int main(void)
 
 	expect("Arcade takes the class", takes(ARCADE_MODE, 0), 1);
 	expect("VS takes the class", takes(0, 0), 1);
-	expect("Time Trial stays retail", takes(TIME_TRIAL, 0), 0);
+	expect("Time Trial takes the class", takes(TIME_TRIAL, 0), 1);
+	expect("Relic Race stays retail", takes(TIME_TRIAL | ADVENTURE_MODE | RELIC_RACE, 0), 0);
 	expect("Adventure stays retail", takes(ADVENTURE_MODE, 0), 0);
 	expect("Battle stays retail", takes(BATTLE_MODE, 0), 0);
 	expect("Attract demo stays retail", takes(ARCADE_MODE, 1), 0);

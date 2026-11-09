@@ -509,17 +509,16 @@ void MainFrame_GameLogic(struct GameTracker *gGT, struct GamepadSystem *gGamepad
 				// if SAVE
 				if (sVar2 == 1)
 				{
-#ifdef CTR_CUSTOM_PACKAGES
-					// A custom track's times go to custom-records/, not to the
-					// memory card: store them and finish as a completed save.
-					if (MainRaceTrack_OfflineCustomTimeTrial())
+					// A custom track's or a 200cc Time Trial's times go to a
+					// records file, not to the memory card: store them and
+					// finish as a completed save.
+					if (TimeTrialRecords_Active())
 					{
 						MainGameEnd_SoloRaceSaveHighScore();
-						MainRaceTrack_CustomSaveHighScores();
+						TimeTrialRecords_SaveHighScores();
 						gGT->gameModeEnd &= ~(NEW_NAME | NEW_HIGH_SCORE);
 						return;
 					}
-#endif
 					sdata->boolSaveCupProgress = 0;
 
 					SelectProfile_ToggleMode(SELECT_PROFILE_MODE_SLOT_SAVE);

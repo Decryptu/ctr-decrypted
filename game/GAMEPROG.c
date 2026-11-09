@@ -336,13 +336,14 @@ void GAMEPROG_NewGame_OnBoot(void)
 void GAMEPROG_GetPtrHighScoreTrack(void)
 {
 	struct GameTracker *gGT = GAME_TRACKER;
-#ifdef CTR_CUSTOM_PACKAGES
-	// A custom-page race never points at a retail track's high scores. It
-	// names the package's own table instead: a Time Trial reads and saves it
-	// through custom-records/ (MainRaceTrack.c), an Arcade race never uses it.
-	if (MainRaceTrack_OfflineCustomLoad())
+#ifdef CTR_NATIVE
+	// A custom-page race or a 200cc Time Trial never points at a retail
+	// track's high scores on the memory card. It names its own table instead,
+	// read from and saved to files (game/TimeTrialRecords.c); a custom Arcade
+	// race never uses it.
+	if (TimeTrialRecords_OffCard())
 	{
-		sdata->ptrActiveHighScoreEntry = &MainRaceTrack_CustomHighScores()[6 * ((gGT->gameMode1 & RELIC_RACE) != 0)];
+		sdata->ptrActiveHighScoreEntry = &TimeTrialRecords_HighScores()[6 * ((gGT->gameMode1 & RELIC_RACE) != 0)];
 		return;
 	}
 #endif

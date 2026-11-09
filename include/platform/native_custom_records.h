@@ -1,18 +1,21 @@
 #ifndef NATIVE_CUSTOM_RECORDS_H
 #define NATIVE_CUSTOM_RECORDS_H
-/* Time Trial records for custom tracks (box authoring build, CTR_CUSTOM_PACKAGES).
+/* Time Trial records kept in files instead of on the memory card: every
+   custom track, and a retail track raced at 200cc (docs/SPEED-CLASS.md).
 
-   A custom track's best times and its saved ghost never touch the memory card
-   or the retail save layout. They live in their own files in custom-records/
-   next to the authoring exe, one pair per track identity:
+   These best times and ghosts never touch the memory card or the retail save
+   layout. They live in their own files next to the exe, one pair per key:
 
-     custom-records/<uuid>-<lev 16 hex>-<vrm 16 hex>-<laps>l.times   text
-     custom-records/<uuid>-<lev 16 hex>-<vrm 16 hex>-<laps>l.ghost   binary
+     custom-records/<uuid>-<lev 16 hex>-<vrm 16 hex>-<laps>l[-200cc].times
+     custom-records/<uuid>-<lev 16 hex>-<vrm 16 hex>-<laps>l[-200cc].ghost
+     records/track<NN>-<laps>l-200cc.times and .ghost       (retail tracks)
 
-   The identity is the package UUID, the SHA-256 of its LEV and VRM and its
-   lap count, so a new version of a track's files, or a different lap count,
-   starts a fresh table and never races an old ghost. Both files repeat the
-   full identity and are refused if it differs from the one asked for.
+   A custom track's identity is its package UUID, the SHA-256 of its LEV and
+   VRM and its lap count, so a new version of a track's files, or a different
+   lap count, starts a fresh table and never races an old ghost. A retail
+   track's is its level id and lap count. Both add the speed class: a 200cc
+   table or ghost is never a Classic one. Both files repeat the full key and
+   are refused if it differs from the one asked for.
 
    The .times file holds the Time Trial half of the retail table: the best lap
    and the five best race times, each a time in engine units (1/960 s), a
@@ -28,6 +31,8 @@ extern "C" {
 #endif
 
 #define CTR_RECORDS_DIR "custom-records"
+#define CTR_RETAIL_RECORDS_DIR "records"
+#define CTR_RECORDS_RETAIL_TRACKS 18 /* level ids 0..17 */
 #define CTR_RECORDS_ENTRIES 6    /* [0] best lap, [1..5] best race times */
 #define CTR_RECORDS_NAME 18      /* engine HighScoreEntry name field */
 #define CTR_RECORDS_GHOST_MAX 0x3e00
@@ -39,6 +44,8 @@ struct CustomRecordKey
     char lev[65];
     char vrm[65];
     unsigned int laps;
+    int retailLevel;         /* -1 for a custom track, else its level id */
+    unsigned int speedClass; /* 0 Classic, 1 200cc (ctr_speed_class.h) */
 };
 
 struct CustomRecordEntry
@@ -53,10 +60,16 @@ struct CustomRecordTimes
     struct CustomRecordEntry entry[CTR_RECORDS_ENTRIES];
 };
 
-/* Canonical lowercase UUID and digests, laps 1..7. Returns 0 otherwise. */
+/* A custom track, Classic: canonical lowercase UUID and digests, laps 1..7.
+   Returns 0 otherwise. */
 int CustomRecords_MakeKey(struct CustomRecordKey *key, const char *uuid, const char *lev,
                           const char *vrm, unsigned int laps);
-/* "<uuid>-<lev 16>-<vrm 16>-<laps>l". Returns 0 for an invalid key. */
+/* A retail track: level id 0..17, laps 1..7, speed class 0 or 1. */
+int CustomRecords_MakeRetailKey(struct CustomRecordKey *key, int levelID, unsigned int laps,
+                                unsigned int speedClass);
+/* Sets the speed class (0 or 1) of a valid key. Returns 0 otherwise. */
+int CustomRecords_SetClass(struct CustomRecordKey *key, unsigned int speedClass);
+/* The file name without its extension (see above). Returns 0 for an invalid key. */
 int CustomRecords_Stem(const struct CustomRecordKey *key, char *out, size_t cap);
 /* Text form of a table. Returns the length written, 0 if it does not fit. */
 size_t CustomRecords_FormatTimes(const struct CustomRecordKey *key, const struct CustomRecordTimes *times,
@@ -72,7 +85,7 @@ int CustomRecords_ParseGhost(const struct CustomRecordKey *key, const unsigned c
                              void *ghost, size_t cap, size_t *ghostBytes);
 size_t CustomRecords_GhostFileMax(void);
 
-/* File I/O under dir (normally CTR_RECORDS_DIR). Saves write a temporary file
+/* File I/O under dir (CTR_RECORDS_DIR, or CTR_RETAIL_RECORDS_DIR for retail keys). Saves write a temporary file
    and then replace the old one, creating dir when needed. Loads return 0 when
    the file is missing or refused; the caller then uses its defaults. */
 int CustomRecords_LoadTimes(const char *dir, const struct CustomRecordKey *key, struct CustomRecordTimes *out);

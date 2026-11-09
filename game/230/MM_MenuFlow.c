@@ -22,8 +22,8 @@ void MM_Mods_DevOpen(int tab);     // MM_CustomManager.c
 #include <ctr_speed_class.h>
 
 // The SPEED screen (docs/SPEED-CLASS.md): Classic or 200cc, built like the
-// DIFFICULTY screen. It follows DIFFICULTY in Arcade and the player count in
-// VS, then leaves for the character select as those did.
+// DIFFICULTY screen. It follows DIFFICULTY in Arcade, the player count in VS
+// and the Time Trial row, then leaves for the character select as those did.
 static void MM_MenuProc_SpeedClass(struct RectMenu *menu);
 
 static struct MenuRow s_rowsSpeedClass[] = {
@@ -340,11 +340,13 @@ void MM_MenuProc_Main(struct RectMenu *menu)
 	case LNG_TIME_TRIAL:
 		timeTrialSetupTracker = (u32)GAME_TRACKER;
 		{
+#ifndef CTR_NATIVE
 			// Leave main menu hierarchy
 			MM_TITLE_MENU_STATE = TITLE_MENU_STATE_EXITING;
 
 			// Leave through the normal character-select flow.
 			MM_DESIRED_MENU_INDEX = MM_EXIT_ROUTE_CHARACTER_SELECT;
+#endif
 
 			// set game mode to Time Trial Mode
 			((struct GameTracker *)timeTrialSetupTracker)->numPlyrNextGame = 1;
@@ -355,6 +357,12 @@ void MM_MenuProc_Main(struct RectMenu *menu)
 			GAME_TRACKER->gameMode2 &= ~CHEAT_ENGINE;
 			GAME_TRACKER->gameMode2 &= ~CHEAT_BOMBS;
 
+#ifdef CTR_NATIVE
+			// Time Trial picks a speed class first; the SPEED screen then
+			// leaves for the character select. Records and ghosts are kept
+			// per class (game/TimeTrialRecords.c).
+			MM_SpeedClass_Open(mainMenu);
+#endif
 			return;
 		}
 

@@ -19,6 +19,9 @@
 //   LEV and VRM in Time Trial, and the load and the finish are observed
 //   (2026-09-25: the hooks passed the serving yes/no as the race mode, which
 //   matched Arcade only, so a custom Time Trial raced Roo's Tubes);
+// - a retail Time Trial at 200cc (docs/SPEED-CLASS.md) keeps its table and
+//   ghost in records/ and never touches the retail save data either, while a
+//   Relic Race and a Classic Time Trial still use the memory card's;
 // - a load the slot would not serve is refused with a log line and goes back
 //   to the track list instead of racing retail geometry;
 // - Time Trial and Arcade starts from the track list, a retry, a reload and
@@ -57,6 +60,12 @@ void CustomTrack_Log(const char *fmt, ...)
 #include "../game/GAMEPROG.c"
 #include "../game/MAIN/MainGameEnd.c"
 #include "../game/GhostTape.c"
+#include "../game/SpeedClass.c"
+#include "../game/TimeTrialRecords.c"
+
+NativeConfig g_config;
+void Platform_Log(const char *fmt, ...) { (void)fmt; }
+void Platform_LogWarn(const char *fmt, ...) { (void)fmt; }
 
 static int checks, failures;
 #define CHECK(x) do { checks++; if (!(x)) { failures++; printf("FAIL line %d: %s\n", __LINE__, #x); } } while (0)
@@ -336,7 +345,7 @@ int main(void)
 	// The table is the package's, not inside the retail save data.
 	CHECK((char *)sdata->ptrActiveHighScoreEntry < (char *)&GAME_PROGRESS ||
 	      (char *)sdata->ptrActiveHighScoreEntry >= (char *)(&GAME_PROGRESS + 1));
-	CHECK(sdata->ptrActiveHighScoreEntry == MainRaceTrack_CustomHighScores());
+	CHECK(sdata->ptrActiveHighScoreEntry == TimeTrialRecords_HighScores());
 	CHECK(sdata->ptrActiveHighScoreEntry[1].time == 0x8c640); // no file yet: defaults
 	CHECK(strcmp(sdata->ptrActiveHighScoreEntry[1].name, "NAME1") == 0);
 
@@ -355,7 +364,7 @@ int main(void)
 	// Saving the name stores the time in the package's table and its file.
 	strcpy(s_gt.prevNameEntered, "TESTRACER");
 	MainGameEnd_SoloRaceSaveHighScore();
-	MainRaceTrack_CustomSaveHighScores();
+	TimeTrialRecords_SaveHighScores();
 	CHECK(sdata->ptrActiveHighScoreEntry[1].time == 60000);
 	CHECK(strcmp(sdata->ptrActiveHighScoreEntry[1].name, "TESTRACER") == 0);
 	CHECK(sdata->ptrActiveHighScoreEntry[0].time == (u32)s_gt.lapTime[2]); // the fastest of the three
@@ -377,9 +386,9 @@ int main(void)
 		gh->size = 0x200;
 		gh->characterID = TINY_TIGER;
 		gh->timeElapsedInRace = 60000;
-		MainRaceTrack_CustomSaveGhost(gh);
+		TimeTrialRecords_SaveGhost(gh);
 		memset(s_ghostPlaying, 0, sizeof s_ghostPlaying);
-		CHECK(MainRaceTrack_CustomLoadGhost((struct GhostHeader *)s_ghostPlaying) == 1);
+		CHECK(TimeTrialRecords_LoadGhost((struct GhostHeader *)s_ghostPlaying) == 1);
 		CHECK(memcmp(s_ghostPlaying, s_ghostRecord, sizeof(struct GhostHeader) + 0x200) == 0);
 		CHECK(((struct GhostHeader *)s_ghostPlaying)->levelID == CTR_CUSTOM_LEVEL_ID);
 		// A damaged engine header in a file with a valid digest is still refused.
@@ -389,10 +398,10 @@ int main(void)
 			CHECK(CustomRecords_MakeKey(&key, UUID, LEV_SHA, VRM_SHA, CTR_CUSTOM_DEFAULT_LAPS));
 			CHECK(CustomRecords_SaveGhost(CTR_RECORDS_DIR, &key, gh, sizeof(struct GhostHeader) + 0x200));
 		}
-		CHECK(MainRaceTrack_CustomLoadGhost((struct GhostHeader *)s_ghostPlaying) == 0);
+		CHECK(TimeTrialRecords_LoadGhost((struct GhostHeader *)s_ghostPlaying) == 0);
 		CHECK(((struct GhostHeader *)s_ghostPlaying)->version == 0);
 		gh->version = -4;
-		MainRaceTrack_CustomSaveGhost(gh);
+		TimeTrialRecords_SaveGhost(gh);
 	}
 
 	// The engine's end of race (MainGameEnd_Initialize): with no ghost loaded,
@@ -415,7 +424,7 @@ int main(void)
 		s_gt.gameMode1 = TIME_TRIAL;
 		MainGameEnd_Initialize();
 		CHECK((s_gt.gameModeEnd & PLAYER_GHOST_BEAT) != 0);
-		CHECK(MainRaceTrack_CustomLoadGhost((struct GhostHeader *)s_ghostPlaying) == 1);
+		CHECK(TimeTrialRecords_LoadGhost((struct GhostHeader *)s_ghostPlaying) == 1);
 		CHECK(((struct GhostHeader *)s_ghostPlaying)->timeElapsedInRace == 58000);
 		CHECK(memcmp(&before, &GAME_PROGRESS, sizeof before) == 0);
 		// A run slower than the loaded ghost keeps the file as it was.
@@ -426,7 +435,7 @@ int main(void)
 		s_gt.gameMode1 = TIME_TRIAL;
 		MainGameEnd_Initialize();
 		CHECK((s_gt.gameModeEnd & PLAYER_GHOST_BEAT) == 0);
-		CHECK(MainRaceTrack_CustomLoadGhost((struct GhostHeader *)s_ghostPlaying) == 1);
+		CHECK(TimeTrialRecords_LoadGhost((struct GhostHeader *)s_ghostPlaying) == 1);
 		CHECK(((struct GhostHeader *)s_ghostPlaying)->timeElapsedInRace == 58000);
 		// A run too long for the ghost buffer is never written.
 		sdata->boolReplayHumanGhost = 0;
@@ -436,7 +445,7 @@ int main(void)
 		s_player.timeElapsedInRace = 50000;
 		s_gt.gameMode1 = TIME_TRIAL;
 		MainGameEnd_Initialize();
-		CHECK(MainRaceTrack_CustomLoadGhost((struct GhostHeader *)s_ghostPlaying) == 1);
+		CHECK(TimeTrialRecords_LoadGhost((struct GhostHeader *)s_ghostPlaying) == 1);
 		CHECK(((struct GhostHeader *)s_ghostPlaying)->timeElapsedInRace == 58000);
 		sdata->boolGhostTooBigToSave = 0;
 		s_gt.gameMode1 = TIME_TRIAL;
@@ -447,7 +456,7 @@ int main(void)
 	CHECK(!CustomOffline_RuntimeActive());
 	start_time_trial();
 	CHECK(sdata->ptrActiveHighScoreEntry[1].time == 60000);
-	CHECK(MainRaceTrack_CustomLoadGhost((struct GhostHeader *)s_ghostPlaying) == 1);
+	CHECK(TimeTrialRecords_LoadGhost((struct GhostHeader *)s_ghostPlaying) == 1);
 	end_race(70000); // slower: second place
 	CHECK((s8)s_gt.newHighScoreIndex == 1);
 	CHECK(memcmp(&before, &GAME_PROGRESS, sizeof before) == 0);
@@ -588,6 +597,76 @@ int main(void)
 			CHECK(strstr(s_lastLog, "but the race is Arcade") != NULL);
 		}
 		s_arcadeCapable = 0;
+	}
+
+	// ── a retail Time Trial at 200cc: records/, never the memory card ─────
+	{
+		struct CustomRecordKey key;
+		struct CustomRecordTimes times;
+		struct GhostHeader *gh = (struct GhostHeader *)s_ghostRecord;
+		g_config.speedClass = SPEED_CLASS_200CC;
+		s_gt.levelID = HOST;
+		s_gt.numPlyrCurrGame = 1;
+		s_gt.numLaps = 3;
+		s_gt.gameMode1 = TIME_TRIAL;
+		CHECK(!MainRaceTrack_OfflineCustomLoad());
+		CHECK(SpeedClass_Active() && SpeedClass_TimeTrial());
+		CHECK(TimeTrialRecords_Active() && TimeTrialRecords_OffCard());
+		GAMEPROG_GetPtrHighScoreTrack();
+		CHECK(sdata->ptrActiveHighScoreEntry == TimeTrialRecords_HighScores());
+		CHECK((char *)sdata->ptrActiveHighScoreEntry < (char *)&GAME_PROGRESS ||
+		      (char *)sdata->ptrActiveHighScoreEntry >= (char *)(&GAME_PROGRESS + 1));
+		CHECK(sdata->ptrActiveHighScoreEntry[1].time == 0x8c640); // no file yet: defaults
+		before = GAME_PROGRESS;
+		end_race(50000);
+		CHECK((s8)s_gt.newHighScoreIndex == 0);
+		// No N. Tropy or Oxide: flags, times and unlocks all as they were.
+		CHECK(memcmp(&before, &GAME_PROGRESS, sizeof before) == 0);
+		CHECK((s_gt.gameModeEnd & (NTROPY_JUST_OPENED | NTROPY_JUST_BEAT)) == 0);
+		strcpy(s_gt.prevNameEntered, "FAST");
+		MainGameEnd_SoloRaceSaveHighScore();
+		TimeTrialRecords_SaveHighScores();
+		CHECK(sdata->ptrActiveHighScoreEntry[1].time == 50000);
+		CHECK(memcmp(&before, &GAME_PROGRESS, sizeof before) == 0);
+		CHECK(CustomRecords_MakeRetailKey(&key, HOST, 3, SPEED_CLASS_200CC));
+		CHECK(CustomRecords_LoadTimes(CTR_RETAIL_RECORDS_DIR, &key, &times));
+		CHECK(times.entry[1].time == 50000 && strcmp(times.entry[1].name, "FAST") == 0);
+		CHECK(access(CTR_RETAIL_RECORDS_DIR "/track06-3l-200cc.times", F_OK) == 0);
+		// The run's ghost goes to records/ by itself and reads back, from the
+		// menu too, where the chosen track is currLEV.
+		remove(CTR_RETAIL_RECORDS_DIR "/track06-3l-200cc.ghost");
+		GhostTape_Start();
+		CHECK(gh->levelID == HOST);
+		gh->size = 0;
+		sdata->GhostRecording.ptrCurrOffset = sdata->GhostRecording.ptrStartOffset + 0x300;
+		memset(sdata->GhostRecording.ptrStartOffset, 0x44, 0x300);
+		sdata->boolReplayHumanGhost = 0;
+		sdata->boolGhostTooBigToSave = 0;
+		s_player.timeElapsedInRace = 50000;
+		s_gt.gameMode1 = TIME_TRIAL;
+		MainGameEnd_Initialize();
+		CHECK((s_gt.gameModeEnd & PLAYER_GHOST_BEAT) != 0);
+		CHECK(memcmp(&before, &GAME_PROGRESS, sizeof before) == 0);
+		s_gt.gameMode1 = TIME_TRIAL | MAIN_MENU;
+		s_gt.levelID = MENU;
+		s_gt.currLEV = HOST;
+		memset(s_ghostPlaying, 0, sizeof s_ghostPlaying);
+		CHECK(TimeTrialRecords_LoadGhost((struct GhostHeader *)s_ghostPlaying) == 1);
+		CHECK(((struct GhostHeader *)s_ghostPlaying)->timeElapsedInRace == 50000);
+		CHECK(((struct GhostHeader *)s_ghostPlaying)->levelID == HOST);
+		// Another track has no 200cc ghost; nor has the Classic class here.
+		s_gt.currLEV = HOST + 1;
+		CHECK(TimeTrialRecords_LoadGhost((struct GhostHeader *)s_ghostPlaying) == 0);
+		s_gt.currLEV = HOST;
+		s_gt.levelID = HOST;
+		// A Relic Race stays retail at 200cc: the memory card's table.
+		s_gt.gameMode1 = TIME_TRIAL | ADVENTURE_MODE | RELIC_RACE;
+		CHECK(!SpeedClass_Active() && !SpeedClass_TimeTrial() && !TimeTrialRecords_OffCard());
+		GAMEPROG_GetPtrHighScoreTrack();
+		CHECK(sdata->ptrActiveHighScoreEntry == &GAME_PROGRESS.highScoreTracks[HOST].scoreEntry[1][0]);
+		g_config.speedClass = SPEED_CLASS_CLASSIC;
+		s_gt.gameMode1 = TIME_TRIAL;
+		CHECK(!SpeedClass_TimeTrial() && !TimeTrialRecords_Active() && !TimeTrialRecords_OffCard());
 	}
 
 	// ── control: a retail Time Trial on the same slot writes retail data ──

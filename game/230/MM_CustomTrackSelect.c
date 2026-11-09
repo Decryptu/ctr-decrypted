@@ -22,6 +22,7 @@
 
 #include <platform/native_custom_identity.h>
 #include <platform/native_custom_records.h>
+#include <ctr_speed_class.h>
 
 /* The host slot (native_custom_identity.h); tools/test-custom-identity.c
    audits what the custom identity covers. */
@@ -95,8 +96,8 @@ static int MM_CustomTrackSelect_Eligible(const struct CustomTrackLibraryEntry *e
     return 0;
 }
 
-/* "Best 1:23.45" for the highlighted track in Time Trial, read from
-   custom-records/ once per highlighted revision. */
+/* "Best 1:23.45" for the highlighted track in Time Trial at the picked speed
+   class, read from custom-records/ once per highlighted revision. */
 static const char *MM_CustomTrackSelect_BestTime(const struct CustomTrackLibraryEntry *entry)
 {
     struct CustomRecordKey key;
@@ -108,6 +109,7 @@ static const char *MM_CustomTrackSelect_BestTime(const struct CustomTrackLibrary
         s_recordsLine[0] = 0;
         if (CustomRecords_MakeKey(&key, entry->local.uuid, entry->local.levSha256, entry->local.vrmSha256,
                                   entry->local.laps) &&
+            CustomRecords_SetClass(&key, SpeedClass_TimeTrial() ? SPEED_CLASS_200CC : SPEED_CLASS_CLASSIC) &&
             CustomRecords_LoadTimes(CTR_RECORDS_DIR, &key, &times) && times.entry[1].time < 0x8c640)
             snprintf(s_recordsLine, sizeof s_recordsLine, "Best %s", RECTMENU_DrawTime(times.entry[1].time));
     }
@@ -123,13 +125,7 @@ static int MM_CustomTrackSelect_TimeTrialStart(void)
     if (!s_customTimeTrialPending) return 0;
     s_customTimeTrialPending = 0;
     if (CustomOffline_RuntimeMode() != CTR_OFFLINE_MODE_TIME_TRIAL) return 0;
-    sdata->ptrGhostTapePlaying = MEMPACK_AllocHighMem(0x3e00, "CustomTimeTrialGhost");
-    memset(sdata->ptrGhostTapePlaying, 0, 0x28);
-    sdata->boolReplayHumanGhost = MainRaceTrack_CustomLoadGhost(sdata->ptrGhostTapePlaying);
-    /* The ghost's character is P2 (the Time Trial pack loads its model). */
-    data.characterIDs[1] = sdata->ptrGhostTapePlaying->characterID;
-    sdata->ptrDesiredMenu = &data.menuQueueLoadTrack;
-    sdata->errorMessagePosIndex = 0;
+    TimeTrialRecords_BeginFromTrackSelect();
     return 1;
 }
 

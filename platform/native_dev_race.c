@@ -383,6 +383,15 @@ int NativeDev_StartRace(struct GameTracker *gGT)
 		if (!sdata->boolReplayHumanGhost)
 			printf("[CTR Dev] could not read ghost %s\n", dev->ghostIn);
 	}
+	else if (SpeedClass_TimeTrial())
+	{
+		// A 200cc Time Trial races its saved ghost from records/, as the
+		// track select would load it (game/TimeTrialRecords.c).
+		gGT->currLEV = dev->raceTrack;
+		sdata->boolReplayHumanGhost = TimeTrialRecords_LoadGhost(sdata->ptrGhostTapePlaying);
+		if (sdata->boolReplayHumanGhost)
+			data.characterIDs[1] = sdata->ptrGhostTapePlaying->characterID;
+	}
 	return dev->raceTrack;
 }
 

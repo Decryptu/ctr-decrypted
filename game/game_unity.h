@@ -286,6 +286,7 @@
 #include "Vehicle/VehFire.c"
 #include "VehBlueFire.c"
 #include "SpeedClass.c"
+#include "TimeTrialRecords.c"
 #include "Vehicle/VehFrame.c"
 #include "Vehicle/VehLap.c"
 #include "Vehicle/VehPhysCrash.c"

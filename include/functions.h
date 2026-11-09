@@ -477,10 +477,8 @@ int MainRaceTrack_IdentityLevelID(void);
 const char *MainRaceTrack_OfflineCustomTitle(void);
 // Custom-track Time Trial records (custom-records/, native_custom_records.h).
 int MainRaceTrack_OfflineCustomTimeTrial(void);
-struct HighScoreEntry *MainRaceTrack_CustomHighScores(void);
-void MainRaceTrack_CustomSaveHighScores(void);
-int MainRaceTrack_CustomLoadGhost(struct GhostHeader *dst);
-void MainRaceTrack_CustomSaveGhost(const struct GhostHeader *gh);
+struct CustomRecordKey;
+int MainRaceTrack_CustomRecordKey(struct CustomRecordKey *key);
 // Custom-race music from the package's .sca (game/HOWL/HOWL_CustomMusic.c).
 void HOWL_CustomMusic_Reset(void);
 int HOWL_CustomMusic_LoadBank(struct Bank *thisBank);
@@ -733,6 +731,16 @@ void VehBlueFire_Tick(struct GameTracker *gGT);
 int SpeedClass_Active(void);
 int SpeedClass_Speed(int value);
 void SpeedClass_ApplyConsts(struct Driver *d);
+int SpeedClass_TimeTrial(void);
+
+// game/TimeTrialRecords.c
+int TimeTrialRecords_Active(void);
+int TimeTrialRecords_OffCard(void);
+struct HighScoreEntry *TimeTrialRecords_HighScores(void);
+void TimeTrialRecords_SaveHighScores(void);
+int TimeTrialRecords_LoadGhost(struct GhostHeader *dst);
+void TimeTrialRecords_SaveGhost(const struct GhostHeader *gh);
+void TimeTrialRecords_BeginFromTrackSelect(void);
 void LevSuperTurboPads_Mark(struct GameTracker *gGT);
 void LevSuperTurboPads_Cycle(struct GameTracker *gGT);
 #endif

@@ -411,11 +411,14 @@ NativeCheckpoint_Restore`). A refused restore shows a message in the race HUD.
 
 `platform/native_custom_records.c` keeps a custom track's best lap, five best
 times and one ghost in `custom-records/<uuid>-<lev 16 hex>-<vrm 16 hex>-<laps>l.times`
-and `.ghost`. Both files repeat the full identity and are refused if it
-differs, so a new revision or lap count starts a fresh table.
-The custom Time Trial page loads the ghost when the race starts
-(`MainRaceTrack_CustomLoadGhost`), and `game/MAIN/MainGameEnd.c:
-MainGameEnd_CheckTimeTrialGhost` saves a new one (`MainRaceTrack_CustomSaveGhost`).
+and `.ghost`, with `-200cc` before the extension for a 200cc run
+([SPEED-CLASS.md](SPEED-CLASS.md)). Both files repeat the full identity and
+class and are refused if they differ, so a new revision, lap count or class
+starts a fresh table. `game/TimeTrialRecords.c` holds the game side, shared
+with 200cc retail Time Trials: the custom Time Trial page loads the ghost when
+the race starts (`TimeTrialRecords_BeginFromTrackSelect`), and
+`game/MAIN/MainGameEnd.c: MainGameEnd_CheckTimeTrialGhost` saves a new one
+(`TimeTrialRecords_SaveGhost`).
 
 ## 10. Custom music
 

@@ -35,11 +35,11 @@ static inline int SpeedClass_ScaleTurn(int value, int active)
 	return active ? value * SPEED_CLASS_TURN_NUM / SPEED_CLASS_TURN_DEN : value;
 }
 
-// Which races take the picked class: Arcade and VS races. Adventure (its
-// relic times, bosses and the Archipelago logic are tuned for retail speed),
-// Time Trial (records and ghosts), Battle and the attract demo stay retail.
-// The flags are gameMode1's (include/namespace_Main.h); VS is a race with none
-// of the mode flags set.
+// Which races take the picked class: Arcade, VS and Time Trial races.
+// Adventure (its relic times, bosses and the Archipelago logic are tuned for
+// retail speed), Battle and the attract demo stay retail. The flags are
+// gameMode1's (include/namespace_Main.h); VS is a race with none of the mode
+// flags set.
 static inline int SpeedClass_ModeTakesClass(unsigned gameMode1, unsigned modeFlags, unsigned menuFlags, int demo)
 {
 	if (demo || (gameMode1 & menuFlags) != 0)

@@ -524,9 +524,10 @@ void UI_RaceEnd_MenuProc(struct RectMenu *menu)
 	// Save Ghost
 	case UI_RACE_END_OPTION_SAVE_GHOST:
 	{
-#ifdef CTR_CUSTOM_PACKAGES
-		// Never offered on a custom track (224.c); never opens the memory card there.
-		if (MainRaceTrack_OfflineCustomLoad())
+#ifdef CTR_NATIVE
+		// Never offered on a custom track or at 200cc (224.c); never opens the
+		// memory card there.
+		if (TimeTrialRecords_OffCard())
 		{
 			break;
 		}

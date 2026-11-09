@@ -1,4 +1,4 @@
-/* Time Trial records for custom tracks: see include/platform/native_custom_records.h. */
+/* Time Trial records kept in files: see include/platform/native_custom_records.h. */
 #include <platform/native_custom_records.h>
 #include <platform/native_sha256.h>
 #include <stdio.h>
@@ -14,8 +14,12 @@
 #endif
 
 #define RECORDS_TIMES_HEADER "CTR custom track records 1"
+/* A Classic custom track's ghost keeps the first layout; a retail track or a
+   200cc ghost adds its level id and class after the lap count. */
 #define RECORDS_GHOST_MAGIC "CTRCGHO1"
+#define RECORDS_GHOST_MAGIC_KEYED "CTRCGHO2"
 #define RECORDS_GHOST_HEAD (8 + 36 + 64 + 64 + 4 + 4 + 64)
+#define RECORDS_GHOST_HEAD_KEYED (RECORDS_GHOST_HEAD + 4 + 4)
 #define RECORDS_TIMES_TEXT_MAX 1024
 
 static int records_hex(const char *s, size_t n)
@@ -41,9 +45,18 @@ static int records_uuid(const char *s)
 
 static int records_key_valid(const struct CustomRecordKey *k)
 {
-    return k && memchr(k->uuid, 0, sizeof k->uuid) && memchr(k->lev, 0, sizeof k->lev) &&
-        memchr(k->vrm, 0, sizeof k->vrm) && records_uuid(k->uuid) && records_hex(k->lev, 64) &&
-        records_hex(k->vrm, 64) && k->laps >= 1 && k->laps <= 7;
+    if (!k || k->laps < 1 || k->laps > 7 || k->speedClass > 1 || !memchr(k->uuid, 0, sizeof k->uuid) ||
+        !memchr(k->lev, 0, sizeof k->lev) || !memchr(k->vrm, 0, sizeof k->vrm))
+        return 0;
+    if (k->retailLevel >= 0)
+        return k->retailLevel < CTR_RECORDS_RETAIL_TRACKS && !k->uuid[0] && !k->lev[0] && !k->vrm[0];
+    return k->retailLevel == -1 && records_uuid(k->uuid) && records_hex(k->lev, 64) && records_hex(k->vrm, 64);
+}
+
+/* The first file layouts, written before retail keys and speed classes. */
+static int records_key_first_layout(const struct CustomRecordKey *k)
+{
+    return k->retailLevel < 0 && k->speedClass == 0;
 }
 
 int CustomRecords_MakeKey(struct CustomRecordKey *key, const char *uuid, const char *lev,
@@ -56,9 +69,30 @@ int CustomRecords_MakeKey(struct CustomRecordKey *key, const char *uuid, const c
     memcpy(key->lev, lev, 64);
     memcpy(key->vrm, vrm, 64);
     key->laps = laps;
+    key->retailLevel = -1;
     if (records_key_valid(key)) return 1;
     memset(key, 0, sizeof *key);
     return 0;
+}
+
+int CustomRecords_MakeRetailKey(struct CustomRecordKey *key, int levelID, unsigned int laps,
+                                unsigned int speedClass)
+{
+    if (!key) return 0;
+    memset(key, 0, sizeof *key);
+    key->retailLevel = levelID;
+    key->laps = laps;
+    key->speedClass = speedClass;
+    if (records_key_valid(key)) return 1;
+    memset(key, 0, sizeof *key);
+    return 0;
+}
+
+int CustomRecords_SetClass(struct CustomRecordKey *key, unsigned int speedClass)
+{
+    if (!records_key_valid(key) || speedClass > 1) return 0;
+    key->speedClass = speedClass;
+    return 1;
 }
 
 int CustomRecords_Stem(const struct CustomRecordKey *key, char *out, size_t cap)
@@ -67,7 +101,11 @@ int CustomRecords_Stem(const struct CustomRecordKey *key, char *out, size_t cap)
     if (!out || !cap) return 0;
     out[0] = 0;
     if (!records_key_valid(key)) return 0;
-    n = snprintf(out, cap, "%s-%.16s-%.16s-%ul", key->uuid, key->lev, key->vrm, key->laps);
+    if (key->retailLevel >= 0)
+        n = snprintf(out, cap, "track%02d-%ul%s", key->retailLevel, key->laps, key->speedClass ? "-200cc" : "");
+    else
+        n = snprintf(out, cap, "%s-%.16s-%.16s-%ul%s", key->uuid, key->lev, key->vrm, key->laps,
+                     key->speedClass ? "-200cc" : "");
     if (n < 0 || (size_t)n >= cap) { out[0] = 0; return 0; }
     return 1;
 }
@@ -89,10 +127,19 @@ size_t CustomRecords_FormatTimes(const struct CustomRecordKey *key, const struct
     if (!out || !cap) return 0;
     out[0] = 0;
     if (!records_key_valid(key) || !times) return 0;
-    n = snprintf(out, cap, "%s\nuuid %s\nlev %s\nvrm %s\nlaps %u\n", RECORDS_TIMES_HEADER,
-                 key->uuid, key->lev, key->vrm, key->laps);
+    if (key->retailLevel >= 0)
+        n = snprintf(out, cap, "%s\ntrack %d\nlaps %u\n", RECORDS_TIMES_HEADER, key->retailLevel, key->laps);
+    else
+        n = snprintf(out, cap, "%s\nuuid %s\nlev %s\nvrm %s\nlaps %u\n", RECORDS_TIMES_HEADER,
+                     key->uuid, key->lev, key->vrm, key->laps);
     if (n < 0 || (size_t)n >= cap) { out[0] = 0; return 0; }
     used = (size_t)n;
+    if (key->speedClass)
+    {
+        n = snprintf(out + used, cap - used, "class 200cc\n");
+        if (n < 0 || (size_t)n >= cap - used) { out[0] = 0; return 0; }
+        used += (size_t)n;
+    }
     for (i = 0; i < CTR_RECORDS_ENTRIES; i++)
     {
         char name[CTR_RECORDS_NAME];
@@ -151,14 +198,24 @@ int CustomRecords_ParseTimes(const struct CustomRecordKey *key, const char *text
     if (!out || !text || !records_key_valid(key)) return 0;
     memset(&parsed, 0, sizeof parsed);
     if (!records_line(text, size, &at, line, sizeof line) || strcmp(line, RECORDS_TIMES_HEADER)) return 0;
-    snprintf(expect, sizeof expect, "uuid %s", key->uuid);
-    if (!records_line(text, size, &at, line, sizeof line) || strcmp(line, expect)) return 0;
-    snprintf(expect, sizeof expect, "lev %s", key->lev);
-    if (!records_line(text, size, &at, line, sizeof line) || strcmp(line, expect)) return 0;
-    snprintf(expect, sizeof expect, "vrm %s", key->vrm);
-    if (!records_line(text, size, &at, line, sizeof line) || strcmp(line, expect)) return 0;
+    if (key->retailLevel >= 0)
+    {
+        snprintf(expect, sizeof expect, "track %d", key->retailLevel);
+        if (!records_line(text, size, &at, line, sizeof line) || strcmp(line, expect)) return 0;
+    }
+    else
+    {
+        snprintf(expect, sizeof expect, "uuid %s", key->uuid);
+        if (!records_line(text, size, &at, line, sizeof line) || strcmp(line, expect)) return 0;
+        snprintf(expect, sizeof expect, "lev %s", key->lev);
+        if (!records_line(text, size, &at, line, sizeof line) || strcmp(line, expect)) return 0;
+        snprintf(expect, sizeof expect, "vrm %s", key->vrm);
+        if (!records_line(text, size, &at, line, sizeof line) || strcmp(line, expect)) return 0;
+    }
     snprintf(expect, sizeof expect, "laps %u", key->laps);
     if (!records_line(text, size, &at, line, sizeof line) || strcmp(line, expect)) return 0;
+    if (key->speedClass && (!records_line(text, size, &at, line, sizeof line) || strcmp(line, "class 200cc")))
+        return 0;
     for (i = 0; i < CTR_RECORDS_ENTRIES; i++)
     {
         char tag[8];
@@ -206,51 +263,78 @@ static void records_digest(const void *data, size_t n, char hex[NATIVE_SHA256_HE
     NativeSha256_ToHex(digest, hex);
 }
 
-size_t CustomRecords_GhostFileMax(void) { return RECORDS_GHOST_HEAD + CTR_RECORDS_GHOST_MAX; }
+static size_t records_ghost_head(const struct CustomRecordKey *key)
+{
+    return records_key_first_layout(key) ? RECORDS_GHOST_HEAD : RECORDS_GHOST_HEAD_KEYED;
+}
+
+size_t CustomRecords_GhostFileMax(void) { return RECORDS_GHOST_HEAD_KEYED + CTR_RECORDS_GHOST_MAX; }
 
 size_t CustomRecords_FormatGhost(const struct CustomRecordKey *key, const void *ghost, size_t ghostBytes,
                                  unsigned char *out, size_t cap)
 {
     char hex[NATIVE_SHA256_HEX_BYTES];
     unsigned char *p = out;
-    if (!records_key_valid(key) || !ghost || !out || !ghostBytes || ghostBytes > CTR_RECORDS_GHOST_MAX ||
-        cap < RECORDS_GHOST_HEAD + ghostBytes) return 0;
+    size_t head;
+    if (!records_key_valid(key) || !ghost || !out || !ghostBytes || ghostBytes > CTR_RECORDS_GHOST_MAX) return 0;
+    head = records_ghost_head(key);
+    if (cap < head + ghostBytes) return 0;
     records_digest(ghost, ghostBytes, hex);
-    memcpy(p, RECORDS_GHOST_MAGIC, 8); p += 8;
-    memcpy(p, key->uuid, 36); p += 36;
-    memcpy(p, key->lev, 64); p += 64;
-    memcpy(p, key->vrm, 64); p += 64;
+    memset(out, 0, head);
+    memcpy(p, head == RECORDS_GHOST_HEAD ? RECORDS_GHOST_MAGIC : RECORDS_GHOST_MAGIC_KEYED, 8); p += 8;
+    /* a retail key leaves these empty: zero-filled */
+    memcpy(p, key->uuid, strlen(key->uuid)); p += 36;
+    memcpy(p, key->lev, strlen(key->lev)); p += 64;
+    memcpy(p, key->vrm, strlen(key->vrm)); p += 64;
     records_put32(p, key->laps); p += 4;
+    if (head != RECORDS_GHOST_HEAD)
+    {
+        records_put32(p, (unsigned int)(key->retailLevel + 1)); p += 4;
+        records_put32(p, key->speedClass); p += 4;
+    }
     records_put32(p, (unsigned int)ghostBytes); p += 4;
     memcpy(p, hex, 64); p += 64;
     memcpy(p, ghost, ghostBytes);
-    return RECORDS_GHOST_HEAD + ghostBytes;
+    return head + ghostBytes;
 }
 
 int CustomRecords_ParseGhost(const struct CustomRecordKey *key, const unsigned char *file, size_t size,
                              void *ghost, size_t cap, size_t *ghostBytes)
 {
     char hex[NATIVE_SHA256_HEX_BYTES];
+    unsigned char field[64];
     const unsigned char *p = file;
-    size_t bytes;
+    size_t bytes, head;
     if (ghostBytes) *ghostBytes = 0;
-    if (!records_key_valid(key) || !file || !ghost || size < RECORDS_GHOST_HEAD) return 0;
-    if (memcmp(p, RECORDS_GHOST_MAGIC, 8)) return 0;
+    if (!records_key_valid(key) || !file || !ghost) return 0;
+    head = records_ghost_head(key);
+    if (size < head) return 0;
+    if (memcmp(p, head == RECORDS_GHOST_HEAD ? RECORDS_GHOST_MAGIC : RECORDS_GHOST_MAGIC_KEYED, 8)) return 0;
     p += 8;
-    if (memcmp(p, key->uuid, 36)) return 0;
+    /* identity fields, zero-filled where a retail key leaves them empty */
+    memset(field, 0, sizeof field); memcpy(field, key->uuid, strlen(key->uuid));
+    if (memcmp(p, field, 36)) return 0;
     p += 36;
-    if (memcmp(p, key->lev, 64)) return 0;
+    memset(field, 0, sizeof field); memcpy(field, key->lev, strlen(key->lev));
+    if (memcmp(p, field, 64)) return 0;
     p += 64;
-    if (memcmp(p, key->vrm, 64)) return 0;
+    memset(field, 0, sizeof field); memcpy(field, key->vrm, strlen(key->vrm));
+    if (memcmp(p, field, 64)) return 0;
     p += 64;
     if (records_get32(p) != key->laps) return 0;
     p += 4;
+    if (head != RECORDS_GHOST_HEAD)
+    {
+        if (records_get32(p) != (unsigned int)(key->retailLevel + 1) || records_get32(p + 4) != key->speedClass)
+            return 0;
+        p += 8;
+    }
     bytes = records_get32(p);
     p += 4;
-    if (!bytes || bytes > CTR_RECORDS_GHOST_MAX || bytes > cap || size != RECORDS_GHOST_HEAD + bytes) return 0;
-    records_digest(file + RECORDS_GHOST_HEAD, bytes, hex);
+    if (!bytes || bytes > CTR_RECORDS_GHOST_MAX || bytes > cap || size != head + bytes) return 0;
+    records_digest(file + head, bytes, hex);
     if (memcmp(p, hex, 64)) return 0;
-    memcpy(ghost, file + RECORDS_GHOST_HEAD, bytes);
+    memcpy(ghost, file + head, bytes);
     if (ghostBytes) *ghostBytes = bytes;
     return 1;
 }

@@ -149,6 +149,56 @@ int main(void)
 		CHECK(CustomRecords_FormatGhost(&key, file, CTR_RECORDS_GHOST_MAX + 1, file, sizeof file) == 0);
 	}
 
+	// Speed class and retail tracks (200cc Time Trial, docs/SPEED-CLASS.md):
+	// their own file names, a "track" or "class" line, a keyed ghost layout,
+	// and never read as one another.
+	{
+		struct CustomRecordKey fast = key, retail, retailClassic, retailOther;
+		unsigned char ghost[0x80], file[0x4000], out[0x3e00];
+		size_t got = 0, fileBytes;
+		CHECK(CustomRecords_SetClass(&fast, 1));
+		CHECK(!CustomRecords_SetClass(&fast, 2));
+		CHECK(CustomRecords_Stem(&fast, stem, sizeof stem));
+		CHECK(strcmp(stem, UUID "-8093b663855d3fd0-044024f265783dd2-3l-200cc") == 0);
+		n = CustomRecords_FormatTimes(&fast, &t, text, sizeof text);
+		CHECK(n && strstr(text, "laps 3\nclass 200cc\nlap 19900") != NULL);
+		CHECK(CustomRecords_ParseTimes(&fast, text, n, &back) && same(&back, &t));
+		CHECK(!CustomRecords_ParseTimes(&key, text, n, &back)); // 200cc is not Classic
+		n = CustomRecords_FormatTimes(&key, &t, text, sizeof text);
+		CHECK(!CustomRecords_ParseTimes(&fast, text, n, &back)); // nor the other way
+
+		CHECK(CustomRecords_MakeRetailKey(&retail, 5, 3, 1));
+		CHECK(CustomRecords_MakeRetailKey(&retailClassic, 5, 3, 0));
+		CHECK(CustomRecords_MakeRetailKey(&retailOther, 6, 3, 1));
+		CHECK(!CustomRecords_MakeRetailKey(&retailOther, 18, 3, 1));
+		CHECK(!CustomRecords_MakeRetailKey(&retailOther, -1, 3, 1));
+		CHECK(!CustomRecords_MakeRetailKey(&retailOther, 5, 0, 1));
+		CHECK(!CustomRecords_MakeRetailKey(&retailOther, 5, 3, 2));
+		CHECK(CustomRecords_MakeRetailKey(&retailOther, 6, 3, 1));
+		CHECK(CustomRecords_Stem(&retail, stem, sizeof stem) && strcmp(stem, "track05-3l-200cc") == 0);
+		CHECK(CustomRecords_Stem(&retailClassic, stem, sizeof stem) && strcmp(stem, "track05-3l") == 0);
+		n = CustomRecords_FormatTimes(&retail, &t, text, sizeof text);
+		CHECK(n && strncmp(text, "CTR custom track records 1\ntrack 5\nlaps 3\nclass 200cc\nlap ", 58) == 0);
+		CHECK(CustomRecords_ParseTimes(&retail, text, n, &back) && same(&back, &t));
+		CHECK(!CustomRecords_ParseTimes(&retailOther, text, n, &back));
+		CHECK(!CustomRecords_ParseTimes(&retailClassic, text, n, &back));
+		CHECK(!CustomRecords_ParseTimes(&fast, text, n, &back));
+
+		memset(ghost, 0x5a, sizeof ghost);
+		fileBytes = CustomRecords_FormatGhost(&retail, ghost, sizeof ghost, file, sizeof file);
+		CHECK(fileBytes == 8 + 36 + 64 + 64 + 4 + 4 + 4 + 4 + 64 + sizeof ghost);
+		CHECK(memcmp(file, "CTRCGHO2", 8) == 0 && file[8] == 0 && file[176] == 6 && file[180] == 1);
+		CHECK(CustomRecords_ParseGhost(&retail, file, fileBytes, out, sizeof out, &got) && got == sizeof ghost);
+		CHECK(!CustomRecords_ParseGhost(&retailOther, file, fileBytes, out, sizeof out, &got));
+		CHECK(!CustomRecords_ParseGhost(&retailClassic, file, fileBytes, out, sizeof out, &got));
+		fileBytes = CustomRecords_FormatGhost(&fast, ghost, sizeof ghost, file, sizeof file);
+		CHECK(memcmp(file, "CTRCGHO2", 8) == 0 && memcmp(file + 8, UUID, 36) == 0);
+		CHECK(CustomRecords_ParseGhost(&fast, file, fileBytes, out, sizeof out, &got));
+		CHECK(!CustomRecords_ParseGhost(&key, file, fileBytes, out, sizeof out, &got));
+		fileBytes = CustomRecords_FormatGhost(&key, ghost, sizeof ghost, file, sizeof file);
+		CHECK(!CustomRecords_ParseGhost(&fast, file, fileBytes, out, sizeof out, &got));
+	}
+
 	// Files: written under the directory, read back, refused for other keys.
 	{
 		char dir[] = "/tmp/ctr-records-XXXXXX", sub[64], path[256];
