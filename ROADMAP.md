@@ -18,7 +18,8 @@ What is in progress, what is next, and what was decided. A finished item is dele
 
 ## In progress
 - Mario Kart DS course converter ([TRACK-CONVERTER.md](docs/TRACK-CONVERTER.md)). All 32 race courses convert, were replayed by the owner and are published in the [track catalogue](https://github.com/Decryptu/ctr-decrypted-tracks), version 1.0.0. Left:
-  - Submit them to Saphi (the owner's account), then set `saphi_track_id` in the catalogue on any upload whose bytes differ.
+  - Submit them to Saphi (the owner's account; images and form text in [CUSTOM_TRACKS.md](docs/CUSTOM_TRACKS.md#submitting-to-saphi)), then set `saphi_track_id` in the catalogue for every one Saphi publishes, so a catalogue update that reaches us before Saphi's still pairs.
+  - Saphi's form takes a LEV of at most 3 MB: 22 of the 32 are over it (up to 6.8 MB; DK Pass, Shroom Ridge, Peach Gardens the largest). Either the converter gets a size budget, or Saphi raises the limit for them.
   - Object behaviour read in the game's code and not built: tyres turning; a fire plant's head turning to its path; Boos ringing the kart, where here they hover at their spots; a staked Chain Chomp aiming at the kart, where here it lunges at the route; Waluigi Pinball's drums taking one of three speeds in turn; what a star does to a Thwomp, a Chomp or a flare; animated models (paintings, the crowd, Pokey's sway, the coffin's lid). Bowser Castle's slabs and Delfino Square's drawbridge do not travel, as the engine's track collision is static.
   - Custom tracks are one-player only. If they ever get split screen, its far emitter (`DrawLevelOvr1P_EmitSplitGroundListAQuadBlock`) must draw by face too.
 

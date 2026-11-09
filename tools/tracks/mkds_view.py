@@ -1,5 +1,5 @@
 """Draw a Mario Kart DS course as the ROM holds it: the reference a converted course is compared with
-(docs/TRACK-CONVERTER.md). Textures, vertex colours, texel and polygon alpha; no sky. With --objects,
+(docs/TRACK-CONVERTER.md). Textures, vertex colours, texel and polygon alpha, and the sheet of water round the course; no sky. With --objects,
 the objects that move (mkds_movers.MOVERS) stand where the course's map places them, at rest.
 
   python tools/tracks/mkds_view.py <rom.nds> <course> <out.png> eye_x eye_y eye_z at_x at_y at_z [--objects]   (MKDS units)
@@ -10,6 +10,7 @@ import numpy as np, nds, nitro3d
 from PIL import Image
 
 MODEL_TO_WORLD = 16.0  # mkds_convert's
+DEPTH_ONLY_WATER = {'Zwater'}  # mkds_convert's: drawn for the depth buffer alone
 
 
 def placed_movers(arc):
@@ -33,13 +34,31 @@ def placed_movers(arc):
     return out
 
 
-def render(files, course, eye, at, W=800, H=450, FOV=108, sky=None, objects=False):  # the game's far camera
-    """-> the course from a camera, as an image. sky: (top colour, colour at the horizon), else black."""
+def placed_water(arc):
+    """-> (model, tex0, a function from a model point to the world) for the sheet of water round the
+    course: an object in MKDS (mkds_convert.WATER_OBJECTS), its flat layer (waterA) and the one under it
+    (waterC), where the course's map places it."""
+    import mkds_convert, mkdsmap
+    nkm = mkdsmap.nkm(arc['course_map.nkm'])
+    files = [f for f in arc if f.endswith(('waterA.nsbmd', 'waterC.nsbmd'))]
+    out = []
+    for object_id, pos, rot, size in mkdsmap.placed_objects(nkm):
+        if object_id not in mkds_convert.WATER_OBJECTS:
+            continue
+        for f in files:
+            out.append((nitro3d.Model(arc[f]), nitro3d.load_tex0(arc[f]), lambda p, pos=pos, rot=rot, size=size:
+                        pos + mkds_convert.rotate_y(np.array(p) * MODEL_TO_WORLD * size, rot[1])))
+    return out
+
+
+def render(files, course, eye, at, W=800, H=450, FOV=108, sky=None, objects=False, depth=False):  # the game's far camera
+    """-> the course from a camera, as an image. sky: (top colour, colour at the horizon), else black.
+    depth: also return each pixel's distance from the camera (inf where nothing is drawn)."""
     a = nds.carc(files[f'data/Course/{course}.carc'])
     tex = nds.carc(files[f'data/Course/{course}Tex.carc']) if f'data/Course/{course}Tex.carc' in files else {}
     course_model = nitro3d.Model(a['course_model.nsbmd'])
     course_tex = nitro3d.load_tex0(tex['course_model.nsbtx'] if 'course_model.nsbtx' in tex else a['course_model.nsbmd'])
-    drawn = [(course_model, course_tex, lambda p: np.array(p) * MODEL_TO_WORLD)]
+    drawn = [(course_model, course_tex, lambda p: np.array(p) * MODEL_TO_WORLD)] + placed_water(a)
     if objects:
         drawn += placed_movers(a)
     f = at - eye; f /= np.linalg.norm(f)
@@ -143,6 +162,8 @@ def render(files, course, eye, at, W=800, H=450, FOV=108, sky=None, objects=Fals
     solid, rest = [], []
     for m, t0, place in drawn:
         for mi, tri in m.triangles():
+            if m.mats[mi].name in DEPTH_ONLY_WATER:
+                continue
             T = texture(m, t0, mi)
             item = (m.mats[mi], T, [(place(pos), uv, col if col is not None else (255, 255, 255)) for pos, uv, col, _ in tri])
             if T is not None and (T[..., 3].min() < 250 or ((m.mats[mi].polygon_attr >> 16) & 31) < 31):
@@ -154,7 +175,8 @@ def render(files, course, eye, at, W=800, H=450, FOV=108, sky=None, objects=Fals
     # real screenshots show decals over a board of even alpha
     for item in sorted(rest, key=lambda e: e[1][..., 3].min() < 100):
         raster(*item, True)
-    return Image.fromarray(colour.clip(0, 255).astype('uint8'))
+    image = Image.fromarray(colour.clip(0, 255).astype('uint8'))
+    return (image, zbuf) if depth else image
 
 
 if __name__ == '__main__':

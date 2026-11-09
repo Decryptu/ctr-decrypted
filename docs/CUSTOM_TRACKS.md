@@ -294,6 +294,26 @@ it. It works like the racer catalogue ([CUSTOM_RACERS.md](CUSTOM_RACERS.md)).
   listed in `index.json` (`picture`: size and CRC32), unless it pairs with a
   Saphi track that has one.
 
+### Submitting to Saphi
+
+Saphi's upload form (`https://www.projectsaphi.com/tracks/upload`) wants a
+thumbnail (shown at 300x200), a banner (1400x200), a LEV of at most 3 MB and a
+VRM of at most 1 MB. `tools/tracks/saphi_art.py <rom.nds> <font.ttf> <out>`
+draws both images for every converted course from the ROM with
+`mkds_view.render`: the thumbnail is the Mods screen picture's start-line view,
+the banner the view from above the road that sees furthest, with the name in
+Lilita One (the site's title font, from Google Fonts) in CTR's yellow to orange.
+
+Form text for a Mario Kart DS course: the name is `[MKDS] <title>` (the
+catalogue's title, so `[MKDS] GCN Yoshi Circuit`), the author the owner's
+account, the version the catalogue's, modes Arcade and Time Trial on both
+files. The description says it is the Mario Kart DS course converted for CTR
+Decrypted, with its moving objects, and credits Nintendo. No em dashes.
+
+Once Saphi publishes a track, set its `saphi_track_id` in the catalogue
+(above): the byte match pairs the two only while both hold the same
+version, and the catalogue gets a new version before Saphi's review passes.
+
 To test without publishing, `CTR_DEV_TRACK_CATALOGUE=<folder>` reads the
 catalogue from a local copy, with that folder's `saphi.json` (if any) standing
 in for Saphi's pages ([DEV-TOOLS.md](DEV-TOOLS.md)).
