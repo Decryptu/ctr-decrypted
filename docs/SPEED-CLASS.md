@@ -19,7 +19,7 @@ A 200cc Time Trial never reads or writes the memory card's Time Trial data. Its 
 
 `TimeTrialRecords_OffCard` (no memory card data: custom track or 200cc) and `TimeTrialRecords_Active` (records in files) in `game/TimeTrialRecords.c` are the two checks every call site uses.
 
-**High Scores screen.** The title menu's High Scores show CLASSIC or 200CC at the top right of the Time Trial page; L1 or R1 switches it, and it opens on the class last picked on the SPEED screen. The 200cc page reads `records/` (`TimeTrialRecords_RetailTable200cc`, the same table a race uses) and shows no staff ghost stars. The Relic Race page has no class. The switch is native code in `game/230/MM_HighScore.c`.
+**High Scores screen.** The title menu's High Scores show CLASSIC or 200CC at the top right of the Time Trial page and the hint L1 R1 at the top left; L1 or R1 switches the class, and it opens on the class last picked on the SPEED screen. The 200cc page reads `records/` (`TimeTrialRecords_RetailTable200cc`, the same table a race uses) and shows no staff ghost stars. The Relic Race page has no class. The switch is native code in `game/230/MM_HighScore.c`.
 
 ## What changes
 | Value | Scale | Code |

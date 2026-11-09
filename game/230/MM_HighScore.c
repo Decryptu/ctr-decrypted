@@ -76,6 +76,7 @@ enum
 static u8 s_highScore200cc;
 #define MM_HIGHSCORE_CLASS_X_OFFSET 0x1e0
 #define MM_HIGHSCORE_CLASS_Y_OFFSET 0x12
+#define MM_HIGHSCORE_CLASS_HINT_X_OFFSET 0x20
 #endif
 
 void MM_HighScore_Text3D(char *string, s32 posX, s32 posY, s16 font, u32 flags)
@@ -428,6 +429,10 @@ void MM_HighScore_Draw(s16 trackIndex, s32 rowIndex, s32 posX, s32 posY)
 	// the class of the Time Trial page; no staff ghost stars at 200cc
 	if (((u32)draw.rowIndex << 0x10) == MM_HIGHSCORE_SCORE_MODE_TIME_TRIAL)
 	{
+		// the buttons that switch it, on the free left of the title row
+		MM_HighScore_Text3D("L1 R1",
+		                    (s16)(MM_HIGHSCORE_TRANSITIONS[MM_HIGHSCORE_TITLE_META_INDEX].currX + offsetX + MM_HIGHSCORE_CLASS_HINT_X_OFFSET),
+		                    (s16)(MM_HIGHSCORE_TRANSITIONS[MM_HIGHSCORE_TITLE_META_INDEX].currY + offsetY + MM_HIGHSCORE_CLASS_Y_OFFSET), FONT_SMALL, 0);
 		MM_HighScore_Text3D(s_highScore200cc ? "200CC" : "CLASSIC",
 		                    (s16)(MM_HIGHSCORE_TRANSITIONS[MM_HIGHSCORE_TITLE_META_INDEX].currX + offsetX + MM_HIGHSCORE_CLASS_X_OFFSET),
 		                    (s16)(MM_HIGHSCORE_TRANSITIONS[MM_HIGHSCORE_TITLE_META_INDEX].currY + offsetY + MM_HIGHSCORE_CLASS_Y_OFFSET), FONT_SMALL,
