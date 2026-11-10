@@ -116,10 +116,10 @@ jobs:
           update: true
           cache: true
           install: >-
-            git python
+            git python ccache
             mingw-w64-i686-gcc mingw-w64-i686-cmake
             mingw-w64-i686-ninja mingw-w64-i686-openssl
-            mingw-w64-i686-zlib mingw-w64-i686-ccache
+            mingw-w64-i686-zlib
       - name: Restore compiler cache
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

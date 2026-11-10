@@ -54,6 +54,9 @@ gem-cups-3-no-repeats            500     0  gem-cups-3-random_no_repeats        
 gem-cups-7-off                   500     0  gem-cups-7-off                                 -
 gem-cups-7-random                500   200  gem-cups-7-random                              -
 gem-cups-7-no-repeats            500     0  gem-cups-7-random_no_repeats                   -
+gem-cups-2-random-gauntlet       500     0  gem-cups-2-random-gauntlet                     -
+gem-cups-2-off-gauntlet          500     0  gem-cups-2-off-gauntlet                        -
+gem-cups-5-random-gauntlet       500     0  gem-cups-5-random-gauntlet                     -
 gem-cups-ut                      500     0  gem-cups-7-off                                 hooks.ctr_ut_hook:Hook
 pads-vanilla-vanilla             500     0  pads-vanilla-vanilla-full                      -
 pads-vanilla-within              500     0  pads-vanilla-shuffle_within_kind-full          -

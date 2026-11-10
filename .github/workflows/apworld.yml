@@ -256,8 +256,10 @@ jobs:
             check-ut-custom-tracks|content-plan|content-plan-cups|content-plan-bosses|content-plan-full|content-plan-030)
               cp "$fuzz/$CHECK_META-meta.yaml" ci_meta.yaml ;;
             gem-cups-*)
-              IFS=- read -r _ _ cups cup_tracks <<< "$CHECK_META"
-              sed -e "s/__COUNT__/$cups/" -e "s/__TRACKS__/$cup_tracks/" "$fuzz/content-plan-gem-cups-meta.yaml" > ci_meta.yaml ;;
+              IFS=- read -r _ _ cups cup_tracks gauntlet <<< "$CHECK_META"
+              gauntlet_enabled=false
+              if [[ "$gauntlet" == gauntlet ]]; then gauntlet_enabled=true; fi
+              sed -e "s/__COUNT__/$cups/" -e "s/__TRACKS__/$cup_tracks/" -e "s/__GAUNTLET__/$gauntlet_enabled/g" "$fuzz/content-plan-gem-cups-meta.yaml" > ci_meta.yaml ;;
             pads-*)
               IFS=- read -r _ unlock placement density fixed overlay <<< "$CHECK_META"
               sed -e "s/__UNLOCK__/$unlock/" -e "s/__PLACEMENT__/$placement/" -e "s/__DENSITY__/$density/" "$fuzz/content-plan-pads-meta.yaml" > ci_meta.yaml
