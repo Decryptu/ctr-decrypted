@@ -1,13 +1,11 @@
 name: VerifySweepC02
-
-description: Verifier sweep candidate 02. Vanilla unlock mode crossed with destination shuffle plus battle arenas and gem cups. Targets the crystal-arena key floor (verifier models hub floor, apworld keeps the vanilla plus-one-Key gate only in vanilla mode) and the vanilla trophy-floor re-key under destination shuffle (issue 80 territory). See the proposal note in this folder.
-
+description: 'Verifier sweep: profile-candidate-02. Exercises accessibility=full, warppad_unlock_requirements=vanilla,
+  oxide_goal=any_percent, oxide_final_challenge_unlock=sapphire_relics, pad_placement=shuffle, cup_count=5, crystal_challenge_count=4.'
 game: Crash Team Racing
 requires:
   version: 0.6.8
   game:
-    Crash Team Racing: 0.1.0
-
+    Crash Team Racing: 0.3.0
 Crash Team Racing:
   progression_balancing: normal
   accessibility: full
@@ -15,24 +13,30 @@ Crash Team Racing:
   oxide_final_challenge_unlock: sapphire_relics
   oxide_final_challenge_relic_count: 18
   shuffle_gems: 'true'
-  include_gem_cups: 'true'
   shuffle_keys: 'true'
   trap_fill_percentage: 0
-  include_battle_arenas: 'true'
-  warp_pad_shuffle_categories:
-    ['crystals', 'tracks', 'cups']
-  warp_pad_shuffle_grouping: merged
   warppad_unlock_requirements: vanilla
   two_stage_density: standard
-  requirement_variety: icebound_beta5
-  podium_placement_checks: 'true'
-  podium_finish_rungs: 'true'
-  podium_any_position_rung: 'true'
-  podium_held_rungs: 'true'
-  podium_held_fifth_rung: 'false'
   one_lap_cups: 'false'
   death_link: 'off'
   deathlink_amnesty: 1
-  sapphire_relic_count: 18
-  gold_relic_count: 18
-  platinum_relic_count: 18
+  pad_placement: shuffle
+  cup_count: 5
+  cup_tracks: 'off'
+  crystal_challenge_count: 4
+  crystal_arenas:
+  - Rocky Road
+  - Rampage Ruins
+  - Skull Rock
+  - Nitro Court
+  podium_rungs:
+  - finish_on_podium
+  - finish_any
+  - held_1st
+  - held_3rd
+  item_pool:
+    base:
+      relics:
+        sapphire: 18
+        gold: 18
+        platinum: 18

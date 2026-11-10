@@ -1,5 +1,9 @@
 name: VerifySweepGMIN
 game: Crash Team Racing
-description: Gap profile, accessibility minimal at otherwise default options. Unreachable non-goal locations are LEGAL here; the verifier's goal verdict must stay correct and the banner must not treat legal unreachability as a broken seed.
+description: 'Verifier sweep: profile-gap-minimal. Exercises accessibility=minimal.'
 Crash Team Racing:
   accessibility: minimal
+requires:
+  version: 0.6.8
+  game:
+    Crash Team Racing: 0.3.0
