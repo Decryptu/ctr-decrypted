@@ -1,6 +1,32 @@
 #ifndef NATIVE_RENDER_SCALE_H
 #define NATIVE_RENDER_SCALE_H
 
+#include <stdint.h>
+
+// Intersect logical draw/display rectangles, then map their shared edges.
+// Mapping widths separately can leave a one-pixel gap at fractional scales.
+static inline void NativeRenderScale_ClipBox(int x, int y, int w, int h,
+                                            int dx, int dy, int dw, int dh,
+                                            int tw, int th, int out[4])
+{
+	out[0] = out[1] = out[2] = out[3] = 0;
+	if (dw <= 0 || dh <= 0 || w <= 0 || h <= 0) return;
+	if (tw <= 0) tw = dw;
+	if (th <= 0) th = dh;
+	int64_t left = (int64_t)x - dx, right = left + w;
+	int64_t top = (int64_t)y - dy, bottom = top + h;
+	if (left < 0) left = 0;
+	if (top < 0) top = 0;
+	if (right > dw) right = dw;
+	if (bottom > dh) bottom = dh;
+	if (right <= left || bottom <= top) return;
+	const int l = (int)((left * tw + dw / 2) / dw);
+	const int r = (int)((right * tw + dw / 2) / dw);
+	const int b = (int)(((dh - bottom) * th + dh / 2) / dh);
+	const int t = (int)(((dh - top) * th + dh / 2) / dh);
+	out[0] = l; out[1] = b; out[2] = r - l; out[3] = t - b;
+}
+
 // Runtime internal render scale for the MAIN render target, selected by the
 // player through the options menu (g_config.renderScale; see
 // platform/native_config.c). Modes:

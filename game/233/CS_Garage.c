@@ -382,7 +382,7 @@ void CS_Garage_MenuProc(struct RectMenu *menu)
 		//
 		// The Garage still passes its OWN colour array, so nothing about its
 		// appearance depends on the AP copy the hub uses. The retail block below is
-		// preserved for the vanilla build, which is therefore byte-identical.
+		// retained for the vanilla build, with the same native aspect correction.
 		for (i = 0; i < 3; i++)
 		{
 			AP_StatBar_Draw(statBarPosX, GARAGE_STAT_BAR_SHADOW_Y - 1 + i * AP_STATBAR_ROW_PITCH, CS_GARAGE_STAT_LENGTHS[i], CS_GARAGE_STAT_COLORS,
@@ -395,6 +395,9 @@ void CS_Garage_MenuProc(struct RectMenu *menu)
 		rowIndex = 0;
 		for (statBarLength = CS_GARAGE_STAT_LENGTHS; i < 3; rowIndex++, statBarLength++, i++)
 		{
+#ifdef CTR_NATIVE
+			if (*statBarLength <= 0) continue;
+#endif
 			s32 segmentStart;
 			s32 segmentEnd;
 
@@ -402,6 +405,9 @@ void CS_Garage_MenuProc(struct RectMenu *menu)
 			scratch.rect.x = statBarPosX;
 			scratch.rect.y = statBarShadows_Y - 1;
 			scratch.rect.w = *statBarLength;
+#ifdef CTR_NATIVE
+			scratch.rect.w = Widescreen_CompressXAbout(*statBarLength, 0);
+#endif
 			scratch.rect.h = GARAGE_STAT_BAR_HEIGHT;
 
 			// Copy the white template before reusing the scratch color for shadows.
@@ -413,12 +419,18 @@ void CS_Garage_MenuProc(struct RectMenu *menu)
 			barRect.x = statBarPosX + 1;
 			barRect.y = statBarShadows_Y;
 			barRect.w = *statBarLength - 2;
+#ifdef CTR_NATIVE
+			barRect.w = Widescreen_CompressXAbout(*statBarLength, 0) - 2;
+#endif
 			barRect.h = GARAGE_STAT_BAR_SHADOW_HEIGHT;
 
 			// The shadow has the same code byte and black RGB.
 			scratch.color.r = 0;
 			scratch.color.g = 0;
 			scratch.color.b = 0;
+#ifdef CTR_NATIVE
+			if (barRect.w > 0)
+#endif
 			CTR_Box_DrawWireBox(&barRect, &scratch.color, GAME_TRACKER->pushBuffer_UI.ptrOT, &GAME_TRACKER->backBuffer->primMem);
 
 			{
@@ -480,6 +492,10 @@ void CS_Garage_MenuProc(struct RectMenu *menu)
 						p->y2 = bottom;
 						p->y3 = bottom;
 						p->x3 = p->x2 + currSegmentLen;
+#ifdef CTR_NATIVE
+						p->x0 = p->x2 = statBarPosX + Widescreen_CompressXAbout(segmentStart, 0);
+						p->x1 = p->x3 = statBarPosX + Widescreen_CompressXAbout(segmentStart + currSegmentLen, 0);
+#endif
 						{
 							u32 *ot = GAME_TRACKER->pushBuffer_UI.ptrOT;
 							u32 link = CtrGpu_PrimToOTLink24(p);

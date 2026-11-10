@@ -160,6 +160,7 @@ int g_cfg_bilinearFiltering = 0;
 global_variable GLuint s_packShader = 0;
 global_variable GLint s_packFlipYLoc = -1;
 global_variable GLuint s_presentVramShader = 0;
+global_variable ShaderID s_streamingPresentShader;
 global_variable GLint s_presentVramSourceRectLoc = -1;
 global_variable GLuint s_vramQuadVAO = 0;
 global_variable GLuint s_vramQuadVBO = 0;
@@ -497,6 +498,8 @@ void NativeRenderer_Shutdown(void)
 	NativeRenderer_DestroyTexture(s_rgLutTexture);
 	glDeleteProgram(s_packShader);
 	glDeleteProgram(s_presentVramShader);
+	glDeleteProgram(s_streamingPresentShader);
+	s_streamingPresentShader = 0;
 	glDeleteVertexArrays(1, &s_vramQuadVAO);
 	glDeleteBuffers(1, &s_vramQuadVBO);
 }
@@ -1740,49 +1743,11 @@ void NativeRenderer_SetupClipMode(const RECT16 *rect, const DISPENV *displayEnv,
 		return;
 	}
 
-	const float emuScreenAspect = 1.0f;
-
-	const float psxScreenWInv = 1.0f / (float)displayEnv->disp.w;
-	const float psxScreenHInv = 1.0f / (float)displayEnv->disp.h;
-
-	// first map to 0..1
-	float clipRectX = (float)(rect->x - displayEnv->disp.x) * psxScreenWInv;
-	float clipRectY = (float)(rect->y - displayEnv->disp.y) * psxScreenHInv;
-	float clipRectW = (float)(rect->w) * psxScreenWInv;
-	float clipRectH = (float)(rect->h) * psxScreenHInv;
-
-	// then map to screen
-	{
-		clipRectX -= 0.5f;
-
-		clipRectX *= emuScreenAspect;
-		clipRectW *= emuScreenAspect;
-
-		clipRectX += 0.5f;
-	}
-
-	// Normal game draws target the main framebuffer, whose raster is the PSX
-	// display size mapped through the render-scale mode (integer multiple, or
-	// the presentation viewport in Native mode). Host-window coordinates are
-	// introduced only by the final presentation pass. The scissor box is
-	// computed in logical display pixels and then magnified per axis into
-	// target pixels against the target raster actually bound this frame; this
-	// branch is only reached for on-screen draws, so the offscreen targets
-	// keep their PSX-sized spaces untouched.
-	const float viewportX = 0.0f;
-	const float viewportY = 0.0f;
-	const float viewportW = (float)displayEnv->disp.w;
-	const float viewportH = (float)displayEnv->disp.h;
-	const float flipOffset = viewportY + viewportH - clipRectH * viewportH;
-	const float crx = viewportX + clipRectX * viewportW;
-	const float cry = clipRectY * viewportH;
-	const float crw = clipRectW * viewportW;
-	const float crh = clipRectH * viewportH;
-
-	glScissor(NativeRenderScale_ScaleAxisCoord(crx, displayEnv->disp.w, s_mainRenderTarget.width),
-	          NativeRenderScale_ScaleAxisCoord(flipOffset - cry, displayEnv->disp.h, s_mainRenderTarget.height),
-	          NativeRenderScale_ScaleAxisCoord(crw, displayEnv->disp.w, s_mainRenderTarget.width),
-	          NativeRenderScale_ScaleAxisCoord(crh, displayEnv->disp.h, s_mainRenderTarget.height));
+	int box[4];
+	NativeRenderScale_ClipBox(rect->x, rect->y, rect->w, rect->h,
+	                          displayEnv->disp.x, displayEnv->disp.y, displayEnv->disp.w, displayEnv->disp.h,
+	                          s_mainRenderTarget.width, s_mainRenderTarget.height, box);
+	glScissor(box[0], box[1], box[2], box[3]);
 }
 
 internal void NativeRenderer_SetShader(const ShaderID shader)
@@ -3358,4 +3323,92 @@ void NativeRenderer_PopDebugLabel(void)
 		return;
 	}
 	glPopDebugGroup();
+}
+
+TextureID NativeRenderer_CreateStreamingTexture(int width, int height)
+{
+	TextureID texture = 0;
+
+	if ((width <= 0) || (height <= 0))
+	{
+		return 0;
+	}
+
+	glGenTextures(1, &texture);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, texture);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	s_lastBoundTexture = (TextureID)-1;
+	return texture;
+}
+
+void NativeRenderer_UpdateStreamingTexture(TextureID texture, int width, int height, const u8 *rgbaPixels)
+{
+	if ((texture == 0) || (width <= 0) || (height <= 0) || (rgbaPixels == NULL))
+	{
+		return;
+	}
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, texture);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, rgbaPixels);
+	s_lastBoundTexture = (TextureID)-1;
+}
+
+void NativeRenderer_DestroyStreamingTexture(TextureID texture)
+{
+	if (texture == 0)
+	{
+		return;
+	}
+
+	if (s_lastBoundTexture == texture)
+	{
+		s_lastBoundTexture = (TextureID)-1;
+	}
+	glDeleteTextures(1, &texture);
+}
+
+// CPU-decoded movie pixels have their first row at the top. Draw into the
+// main target so filters and deterministic captures use the same frame.
+void NativeRenderer_PresentStreamingTexture(TextureID texture, int contentHeight, int displayHeight)
+{
+	static const char *source =
+		"#ifdef VERTEX\nattribute vec2 a_position; varying vec2 v_uv;\n"
+		"void main(){ v_uv=vec2(a_position.x*.5+.5,.5-a_position.y*.5); gl_Position=vec4(a_position,0.,1.); }\n"
+		"#endif\n#ifdef FRAGMENT\nvarying vec2 v_uv; uniform sampler2D s_texture;\n"
+		"void main(){ fragColor=texture2D(s_texture,v_uv); }\n#endif\n";
+	if (!texture || contentHeight <= 0 || displayHeight < contentHeight || s_presentViewport.w <= 0 || s_presentViewport.h <= 0) return;
+	if (!s_streamingPresentShader) s_streamingPresentShader = NativeRenderer_Shader_Compile(source, false);
+	if (!s_streamingPresentShader) return;
+	NativeRenderer_SetScissorState(0);
+	NativeRenderer_SetDepthMode(NATIVE_DEPTH_OFF);
+	NativeRenderer_SetBlendMode(BM_NONE);
+	const GLboolean stencil = glIsEnabled(GL_STENCIL_TEST);
+	glDisable(GL_STENCIL_TEST);
+	glBindFramebuffer(GL_FRAMEBUFFER, s_mainRenderTarget.framebuffer);
+	glClearColor(0, 0, 0, 1);
+	glClear(GL_COLOR_BUFFER_BIT);
+	int width = s_mainRenderTarget.width, height = s_mainRenderTarget.height;
+	// Scrapbook is authored for a 4:3 display, irrespective of the race FOV.
+	int fitW, fitH;
+	Widescreen_LetterboxViewport(s_presentViewport.w, s_presentViewport.h, 4, 3, &fitW, &fitH);
+	const int w = (int)((int64_t)width * fitW / s_presentViewport.w);
+	const int h = (int)((int64_t)height * fitH * contentHeight / ((int64_t)s_presentViewport.h * displayHeight));
+	NativeRenderer_SetViewPort((width - w) / 2, (height - h) / 2, w, h);
+	glUseProgram(s_streamingPresentShader);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, texture);
+	glUniform1i(glGetUniformLocation(s_streamingPresentShader, "s_texture"), 0);
+	glBindVertexArray(s_vramQuadVAO);
+	NativeRenderer_DrawTriangles(0, 2);
+	glBindVertexArray(0);
+	if (stencil) glEnable(GL_STENCIL_TEST);
+	s_previousShader = (ShaderID)-1;
+	s_lastBoundTexture = (TextureID)-1;
+	NativeRenderer_PresentMainRenderTarget();
 }

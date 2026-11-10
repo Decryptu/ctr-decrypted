@@ -17,26 +17,10 @@ void MM_Scrapbook_Init(void)
 #include <platform/native_renderer.h>
 #include <platform/native_str.h>
 
-#define SCRAPBOOK_NATIVE_XA_PATH       "TEST.STR"
-#define SCRAPBOOK_NATIVE_XA_CHANNEL    1
-#define SCRAPBOOK_NATIVE_FRAME_Y_PAD   4
-#define SCRAPBOOK_NATIVE_DISPLAY_WIDTH SCREEN_WIDTH
+#define SCRAPBOOK_NATIVE_XA_CHANNEL 1
 
 global_variable s32 s_scrapbookNativeNextVBlank;
-
-static void MM_Scrapbook_GetNativeSource(s16 *srcX, s16 *srcY, s16 *displayY)
-{
-	DRAWENV *drawEnv;
-	struct GameTracker *gGT = sdata_static.gGT;
-	drawEnv = &gGT->db[1 - gGT->swapchainIndex].drawEnv;
-
-	// NOTE(aalhendi): Retail decodes Scrapbook into the inactive draw page.
-	// Native then presents that VRAM display page directly instead of drawing
-	// the movie back through a texture primitive.
-	*srcX = drawEnv->ofs[0];
-	*displayY = drawEnv->ofs[1];
-	*srcY = *displayY + SCRAPBOOK_NATIVE_FRAME_Y_PAD;
-}
+global_variable u32 s_scrapbookNativeSourceFrame;
 #endif
 
 void MM_Scrapbook_PlayMovie(struct RectMenu *menu)
@@ -78,6 +62,10 @@ void MM_Scrapbook_PlayMovie(struct RectMenu *menu)
 		fullyOffscreen = RaceFlag_IsFullyOffScreen();
 		if (fullyOffscreen != 1)
 		{
+#ifdef CTR_NATIVE
+			// Level finalization may bring the flag back after SCRAP_INIT ran.
+			if (RaceFlag_IsFullyOnScreen()) RaceFlag_BeginTransition(2);
+#endif
 			// quit, dont start video yet
 			return;
 		}
@@ -87,14 +75,13 @@ void MM_Scrapbook_PlayMovie(struct RectMenu *menu)
 #ifdef CTR_NATIVE
 		if (NativeSTR_StartScrapbook() != 0)
 		{
-			// NOTE(aalhendi): Native video decoding skips interleaved XA records;
-			// play the Scrapbook CD-XA channel from the same raw STR file.
-			if (NativeAudio_PlayXAFile(SCRAPBOOK_NATIVE_XA_PATH, SCRAPBOOK_NATIVE_XA_CHANNEL, sdata_static.vol_Music << 7, sdata_static.vol_Music << 7) == 0)
+			if (!NativeAudio_BeginInterleavedXA(SCRAPBOOK_NATIVE_XA_CHANNEL, sdata_static.vol_Music << 7, sdata_static.vol_Music << 7))
 			{
 				NativeSTR_Stop();
 				goto GO_BACK;
 			}
 			s_scrapbookNativeNextVBlank = Platform_GetVBlankCount() + SCRAPBOOK_FRAME_VBLANKS;
+			s_scrapbookNativeSourceFrame = 0;
 			D230.scrapbookState = SCRAP_PLAY;
 			return;
 		}
@@ -131,9 +118,6 @@ void MM_Scrapbook_PlayMovie(struct RectMenu *menu)
 		struct GameTracker *gameTracker;
 		u32 gameTrackerPage;
 		s32 nativeUploaded;
-		s16 nativeSrcX;
-		s16 nativeSrcY;
-		s16 nativeDisplayY;
 		int getButtonPress;
 
 #ifdef CTR_NATIVE
@@ -163,11 +147,9 @@ void MM_Scrapbook_PlayMovie(struct RectMenu *menu)
 		nativeUploaded = 0;
 
 
-		MM_Scrapbook_GetNativeSource(&nativeSrcX, &nativeSrcY, &nativeDisplayY);
 		if (getButtonPress == 0)
 		{
-			NativeRenderer_ClearVRAM(nativeSrcX, nativeDisplayY, SCRAPBOOK_NATIVE_DISPLAY_WIDTH, SCREEN_HEIGHT, 0, 0, 0);
-			nativeUploaded = NativeSTR_UploadNextFrame(nativeSrcX, nativeSrcY);
+			nativeUploaded = NativeSTR_UploadNextFrameToTexture();
 		}
 
 		if ((getButtonPress != 0) || (nativeUploaded == 0))
@@ -183,7 +165,7 @@ void MM_Scrapbook_PlayMovie(struct RectMenu *menu)
 #ifdef CTR_NATIVE
 		else
 		{
-			Platform_PinVRAMDisplayRect(nativeSrcX, nativeDisplayY, SCRAPBOOK_NATIVE_DISPLAY_WIDTH, SCREEN_HEIGHT, 1);
+			Platform_PinTextureDisplay(NativeSTR_GetTexture(), NativeSTR_GetHeight(), SCREEN_HEIGHT, 1);
 		}
 #endif
 
@@ -193,6 +175,11 @@ void MM_Scrapbook_PlayMovie(struct RectMenu *menu)
 			// NOTE(aalhendi): Native decodes this frame on the CPU. Count any
 			// elapsed decode vblanks toward the retail 15fps cadence instead of
 			// adding them on top of a fresh VSync(4).
+			const u32 sourceFrame = NativeSTR_GetSourceFrame();
+			// Missing video frames hold the last picture; XA stays on its clock.
+			if (sourceFrame > s_scrapbookNativeSourceFrame + 1 && sourceFrame - s_scrapbookNativeSourceFrame < SCRAPBOOK_STREAM_FRAMES)
+				s_scrapbookNativeNextVBlank += (sourceFrame - s_scrapbookNativeSourceFrame - 1) * SCRAPBOOK_FRAME_VBLANKS;
+			s_scrapbookNativeSourceFrame = sourceFrame;
 			Platform_WaitUntilVBlank(s_scrapbookNativeNextVBlank);
 			s_scrapbookNativeNextVBlank += SCRAPBOOK_FRAME_VBLANKS;
 		}

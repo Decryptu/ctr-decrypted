@@ -23,7 +23,7 @@ How far behind each one we are, and which High Octane commits we ported: `python
 **Open issues:**
 - #58: Mystery Caves left path crashes with 3–4 players. Fixed here (`226_00_DrawLevelOvr1P.c`).
 - #14: wrong pre-race camera flyover. Fixed here (`may_alias` GTE loads in `include/psx/inline_c.h`, `tools/test-138-camera-flyin.c`).
-- #45, #52: black screen and no scrapbook after the credits. Not reproduced here (`CTR_DEV_ENDING=1`); the Archipelago build sends a connected game to the hub instead.
+- #45, #52: black screen and no scrapbook after the credits. Native scrapbook playback uses a bounded STR/XA stream and direct texture presentation ([NATIVE-PRESENTATION.md](NATIVE-PRESENTATION.md)); the Archipelago build sends a connected game to the hub instead.
 - #61: unlock all characters including Oxide. Oxide is playable here; the others unlock as in retail.
 - #43: Steam Deck. Handled here ([STEAM-DECK.md](STEAM-DECK.md)).
 - #12: black screen and segfault on Manjaro after the audio stream opens.

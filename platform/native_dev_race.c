@@ -2,6 +2,10 @@
 #include "platform/native_memory.h"
 #include "platform/native_config.h"
 #include "platform/native_memcard.h"
+#ifdef CTR_AP
+#include "../ap/ap_charswap.h"
+#include "../ap/ap_tracker.h"
+#endif
 #ifdef CTR_CUSTOM_PACKAGES
 #include "platform/native_assets.h"
 #include "platform/native_custom_identity.h"
@@ -70,6 +74,8 @@ typedef struct
 	int resultsMS;
 	int resultsWritten;
 	int raceClock;
+	unsigned maskTestSteps;
+	u32 maskTestFlags;
 	FILE *trace;
 	int ghostWritten;
 	NativeDevPilot pilot[4];
@@ -216,6 +222,17 @@ int NativeDev_RacePlayers(void) { return NativeDevRace_State()->players; }
 
 int NativeDev_BootLevel(void)
 {
+	if (NativeDev_EnvInt("CTR_DEV_GARAGE", 0))
+	{
+		GAMEPROG_NewProfile_InsideAdv(&GAME_ADV_PROGRESS);
+		sdata->mainMenuState = MAIN_MENU_ADVENTURE;
+		return ADVENTURE_GARAGE;
+	}
+	if (NativeDev_EnvInt("CTR_DEV_SCRAPBOOK", 0))
+	{
+		sdata->mainMenuState = MAIN_MENU_SCRAPBOOK;
+		return SCRAPBOOK;
+	}
 	int ending = NativeDev_EnvInt("CTR_DEV_ENDING", 0);
 	if (ending <= 0)
 		return -1;
@@ -571,6 +588,12 @@ int NativeDev_AutopilotPad(int player, unsigned short *buttons, unsigned char *l
 		return 1;
 	}
 
+	if (gGT && (gGT->gameMode1 & END_OF_RACE) && player < dev->players)
+	{
+		*buttons = 0xffff;
+		*leftX = 0x80;
+		return 1;
+	}
 	if (((d = NativeDevRace_Player(player)) == NULL) || ((gGT->gameMode1 & END_OF_RACE) != 0))
 		return 0;
 
@@ -1281,6 +1304,7 @@ static void NativeDevRam_Frame(NativeDevRaceState *dev, struct GameTracker *gGT,
 static int NativeDevRam_Pad(unsigned short *buttons, unsigned char *leftX)
 {
 	struct Driver *d = NativeDevRace_Player(0);
+
 	if (!NativeDevRam_On() || s_ramRun.done || (s_ramRun.target < 0) || (d == NULL))
 		return 0;
 	const NativeDevRamTarget *t = &s_ram[s_ramRun.target];
@@ -1305,6 +1329,15 @@ void NativeDev_RaceFrame(void)
 	NativeDevRaceState *dev = NativeDevRace_State();
 	struct GameTracker *gGT = sdata->gGT;
 	struct Driver *d = NativeDevRace_Player(0);
+#ifdef CTR_AP
+	static int pickerRequested;
+	if (!pickerRequested && NativeDev_EnvInt("CTR_DEV_HUB_PICKER", 0) && AP_DevKeysEnabled() &&
+	    gGT && gGT->framesInThisLEV > FPS_DOUBLE(60) && AP_HubSafeForRequest(gGT))
+	{
+		AP_CharSwap_RequestPickerFromPause();
+		pickerRequested = 1;
+	}
+#endif
 
 	if (d != NULL)
 		NativeDevRace_LogKart(d);
@@ -1375,6 +1408,24 @@ void NativeDev_RaceFrame(void)
 	// demo's player 1) do not count their own timeElapsedInRace.
 	if (gGT->trafficLightsTimer <= 0)
 		dev->raceClock += gGT->elapsedTimeMS;
+	if (NativeDev_EnvInt("CTR_DEV_MASK", 0))
+	{
+		const int at[] = {2000, 5000, 8000};
+		for (int event = 0; event < 3; event++)
+		{
+			if (dev->raceClock < at[event] || (dev->maskTestSteps & (1u << event))) continue;
+			dev->maskTestSteps |= 1u << event;
+			const int player = event == 1 && gGT->numPlyrCurrGame > 1 ? 1 : 0;
+			struct Driver *owner = gGT->drivers[player];
+			if (owner) VehPickupItem_MaskUseWeapon(owner, 1);
+		}
+		const u32 flags = gGT->gameMode1 & (AKU_SONG | UKA_SONG);
+		if (flags != dev->maskTestFlags)
+		{
+			Platform_Log("[CTR Dev] mask music %08x at %d ms\n", (unsigned)flags, dev->raceClock);
+			dev->maskTestFlags = flags;
+		}
+	}
 	NativeDevRam_Frame(dev, gGT, d);
 
 	if ((dev->driverDumpPath != NULL) && (dev->driverDump == NULL))

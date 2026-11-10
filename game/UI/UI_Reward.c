@@ -108,6 +108,22 @@ void UI_ThTick_CountPickup(struct Thread *bucket)
 	{
 		inst->flags &= ~HIDE_MODEL;
 	}
+#ifdef CTR_NATIVE
+	if (inst->model->id == STATIC_FRUITDISP && GAME_TRACKER->numPlyrCurrGame > 1)
+	{
+		for (int i = 0; i < GAME_TRACKER->numPlyrCurrGame && i < 4; i++)
+		{
+			struct Driver *owner = GAME_TRACKER->drivers[i];
+			if (!owner || owner->instFruitDisp != inst) continue;
+			inst->alphaScale = owner->numWumpas >= DRIVER_WUMPA_JUICED_COUNT ?
+			    ((s32)CTR_ReadU16LE(&sdata->wumpaShineResult) - UI_REWARD_WUMPA_SHINE_CENTER) * (1 << UI_REWARD_WUMPA_SHINE_SHIFT) : 0;
+			if ((owner->actionsFlagSet & ACTION_RACE_FINISHED) || (GAME_TRACKER->gameMode1 & END_OF_RACE))
+				inst->flags |= HIDE_MODEL;
+			break;
+		}
+	}
+#endif
+
 }
 
 void UI_ThTick_Reward(struct Thread *bucket)

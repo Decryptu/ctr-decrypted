@@ -27,6 +27,10 @@ void NativeRenderer_SwapWindow(void);
 // Native UI canvas, composited after the PS1 framebuffer presentation.
 void NativeRenderer_PresentOverlayRGBA(const unsigned char *pixels, int width, int height);
 void NativeRenderer_StoreFrameBuffer(int x, int y, int w, int h);
+TextureID NativeRenderer_CreateStreamingTexture(int width, int height);
+void NativeRenderer_UpdateStreamingTexture(TextureID texture, int width, int height, const u8 *rgbaPixels);
+void NativeRenderer_DestroyStreamingTexture(TextureID texture);
+void NativeRenderer_PresentStreamingTexture(TextureID texture, int contentHeight, int displayHeight);
 void NativeRenderer_PresentVRAMDisplay(void);
 void NativeRenderer_PresentVRAMRect(int x, int y, int w, int h);
 // Present the main render target directly to the window viewport, skipping the

@@ -6,7 +6,6 @@ Open work only: what is in progress, what is planned, what may come, and what is
 - What the upstream trackers say: [docs/UPSTREAM-ISSUES.md](docs/UPSTREAM-ISSUES.md).
 
 ## In progress
-- High Octane fixes: source audit and ordered integration plan in [HIGH-OCTANE-FIXES.md](docs/HIGH-OCTANE-FIXES.md). Next: small UI fixes, multiplayer rendering and scrapbook playback. Crash Cove's geometry PVS workaround and VS/Battle results Wumpa suppression already have local equivalents; the remaining patches need adaptation or reproduction.
 - Mario Kart DS course converter ([TRACK-CONVERTER.md](docs/TRACK-CONVERTER.md)). All 32 race courses convert, were replayed by the owner and are published in the [track catalogue](https://github.com/Decryptu/ctr-decrypted-tracks), version 1.0.0. Left:
   - Object behaviour read in the game's code and not built: tyres turning; a fire plant's head turning to its path; Boos ringing the kart, where here they hover at their spots; a staked Chain Chomp aiming at the kart, where here it lunges at the route; Waluigi Pinball's drums taking one of three speeds in turn; what a star does to a Thwomp, a Chomp or a flare; animated models (paintings, the crowd, Pokey's sway, the coffin's lid). Bowser Castle's slabs and Delfino Square's drawbridge do not travel, as the engine's track collision is static.
   - Custom tracks are one-player only. If they ever get split screen, its far emitter (`DrawLevelOvr1P_EmitSplitGroundListAQuadBlock`) must draw by face too.

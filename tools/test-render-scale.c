@@ -17,6 +17,28 @@ static void expect(int condition, const char *name)
 
 int main(void)
 {
+	// Shared split-screen edges partition every target, including odd rasters.
+	for (int tw = 512; tw < 1030; tw += 7)
+	for (int th = 216; th < 630; th += 11)
+	{
+		int a[4], b[4], c[4], d[4];
+		NativeRenderScale_ClipBox(0, 0, 256, 108, 0, 0, 512, 216, tw, th, a);
+		NativeRenderScale_ClipBox(256, 0, 256, 108, 0, 0, 512, 216, tw, th, b);
+		NativeRenderScale_ClipBox(0, 108, 256, 108, 0, 0, 512, 216, tw, th, c);
+		NativeRenderScale_ClipBox(256, 108, 256, 108, 0, 0, 512, 216, tw, th, d);
+		expect(a[0] + a[2] == b[0] && b[0] + b[2] == tw, "horizontal shared edges meet exactly");
+		expect(c[1] + c[3] == a[1] && a[1] + a[3] == th, "vertical shared edges meet exactly");
+		expect(a[2]*a[3] + b[2]*b[3] + c[2]*c[3] + d[2]*d[3] == tw*th, "four quadrants cover target once");
+	}
+	{
+		int box[4];
+		NativeRenderScale_ClipBox(-40, 200, 600, 300, 0, 216, 512, 216, 1001, 563, box);
+		expect(box[0] == 0 && box[1] == 0 && box[2] == 1001 && box[3] == 563, "display offset and oversize clip intersect");
+		NativeRenderScale_ClipBox(900, 0, 20, 20, 0, 0, 512, 216, 1001, 563, box);
+		expect(box[2] == 0 && box[3] == 0, "outside clip is empty");
+		NativeRenderScale_ClipBox(0, 0, 0, 20, 0, 0, 512, 216, 1001, 563, box);
+		expect(box[2] == 0 && box[3] == 0, "collapsed clip is empty");
+	}
 	// Mode ladder clamping: 0 is Native, everything else snaps into 1..4.
 	expect(NativeRenderScale_ClampMode(0) == 0, "native mode survives the clamp");
 	expect(NativeRenderScale_ClampMode(1) == 1, "original mode survives the clamp");

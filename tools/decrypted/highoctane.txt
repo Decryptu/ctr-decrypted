@@ -36,13 +36,13 @@ b767d569f skip   Vita performance (renderer, disc, audio, input)       | Restore
 5300f0d25 have                                                         | Fix an edge case OOB crash with widescreen.
 a9978c09c own    controls screen (docs/CONTROLS.md)                    | Add left analog movement support and L2/R2 on right analog.
 bc78bbb80 ported d204cb8b6                                             | Enable Nitrous Oxide as playable character.
-b5adce252 planned High Octane fixes                                     | Properly scale stats bars to widescreen aspect ratio.
+b5adce252 own native garage/AP stat endpoints; docs/NATIVE-PRESENTATION.md | Properly scale stats bars to widescreen aspect ratio.
 96adb0a5a own    optional Penta PAL stats (docs/EXTRAS.md)             | Use PAL stats for Penta Penguin.
 b061c03fa maybe  PAL disc support (text comes from PAL discs)          | Add multilanguage support.
 760637238 maybe  PAL disc support (text comes from PAL discs)          | Resize garage boxes based on actual text length.
 84cb88dbb maybe  PAL disc support (text comes from PAL discs)          | Make language selection persistent.
-7eb76d830 planned High Octane fixes                                     | Make scrapbook playback not use emulated VRAM rendering path.
-276ad94fa planned High Octane fixes                                     | Add semi-corrupted scrapbook videos support.
+7eb76d830 own captured/filterable 4:3 texture playback; docs/NATIVE-PRESENTATION.md | Make scrapbook playback not use emulated VRAM rendering path.
+276ad94fa own bounded STR/XA, frame recovery/timing; docs/NATIVE-PRESENTATION.md | Add semi-corrupted scrapbook videos support.
 6e906b20d ported d204cb8b6                                             | Backport playable Oxide mod mempack fix.
 5a09de82b ported d204cb8b6                                             | Make Oxide unlocked via Spyro 2 demo cheatcode.
 4677caa7d skip   Vita-only texture sampling precision                  | Fix incorrect TLUT indexing due to precision issues.
@@ -56,7 +56,7 @@ c2ba82a00 maybe  Super/Ultra Hard                                      | Add Sup
 211348f17 ported 9faa660fe                                             | MAke USF look similar to CTR: Nitro Fueled.
 a0e0688d3 maybe  mirror mode                                           | Add Mirror mode option.
 eda8a6cde skip   Vita performance (renderer, disc, audio, input)       | Optimize disc reading codepath.
-c8cae44bf planned High Octane fixes                                     | Fix seam on minimap due to precision issues in shader.
+c8cae44bf own UV clamping/texel rounding, shared map edges; docs/NATIVE-PRESENTATION.md | Fix seam on minimap due to precision issues in shader.
 f0dad3b99 skip   readme, changelog or housekeeping                     | Add screenshots.
 993307aa2 skip   readme, changelog or housekeeping                     | Typo fixes.
 0228fea52 skip   Vita                                                  | Raise clocks and init sceAppUtil on boot.
@@ -87,9 +87,9 @@ c006261a4 skip   Vita performance (renderer, disc, audio, input)       | Optimiz
 32b077193 skip   Vita performance (renderer, disc, audio, input)       | Optimized audio mixing code
 f1f255e6d skip   Vita performance (renderer, disc, audio, input)       | Implement frontend/backend approach for renderer
 a02db3499 own    native inverse view and bot projection                 | Fixed enemy missiles not being homing
-714b2c9f8 planned High Octane fixes                                     | Never use decals in MP view.
-7417c03b3 planned High Octane fixes                                     | Fix PVS/LOD issues in 2P splitscreen
-c25fcd3b8 planned High Octane fixes                                     | Fix Wumpas and viewports on splitscreen
+714b2c9f8 own direct native karts/fruit HUD; docs/NATIVE-PRESENTATION.md | Never use decals in MP view.
+7417c03b3 own geometry PVS/distance rules retain 2P emitter; docs/LEVEL-VISIBILITY.md | Fix PVS/LOD issues in 2P splitscreen
+c25fcd3b8 own shared scissor edges/direct fruit HUD; docs/NATIVE-PRESENTATION.md | Fix Wumpas and viewports on splitscreen
 24cf72eaf skip   Vita                                                  | Fix performance issues in splitscreen on some maps
 09c5f975e own    native hazard cursor initialization                   | Fix Blizzard Bluffs and Sewer Speedway hazards not being deterministic.
 3bc9f14c3 skip   online leaderboard                                    | Added Online Leaderboard.
@@ -140,11 +140,11 @@ f028f2803 maybe  reverse tracks; its 60 FPS rain part is bfc96d485     | Add alt
 5f2239506 planned cheats menu                                           | Move vanilla cheatcodes to a Cheats submenu.
 288e191ff planned cheats menu                                           | Move the Cheats menu in the Options submenu.
 4871e8312 planned lap count 1-9                                         | Extend lap selector for Arcade and add it to Cup mode.
-9f21a312f planned High Octane fixes                                     | Fix widescreen speedometer aspect ratio
+9f21a312f own common dial/needle aspect correction; docs/NATIVE-PRESENTATION.md | Fix widescreen speedometer aspect ratio
 9d4da1f71 own    title menu Quit and cursor clamping                   | Add menu clamping in main menu.
 73f0fd5ed skip   web build                                             | Emscripten port
 aa16f23a9 skip   web build                                             | Added EmScripten build reference to readme.
-baa505759 planned High Octane fixes                                     | Fix shadows overlapping with menu rects.
+baa505759 own native hierarchy shadow clearance; docs/NATIVE-PRESENTATION.md | Fix shadows overlapping with menu rects.
 8e1ba8a5d planned bots pick unlockable and custom racers                | Make CPU be able to pick unlockable characters in Arcade.
 5bc765f14 maybe  ghost replay tools                                    | Add personal bests view during Time Trials.
 9df434eeb maybe  ghost replay tools                                    | Add Challenge Ghost feature in Ghost Replay.
@@ -164,7 +164,7 @@ e4a298ee1 own    custom racers, own design (docs/CUSTOM_RACERS.md)     | Fix cus
 6f8afc5b3 own    custom racers, own design (docs/CUSTOM_RACERS.md)     | Properly show Penta stats in char select for custom chars overloading it.
 2d6af9558 own    custom racers, own design (docs/CUSTOM_RACERS.md)     | Add shadowing to the char select stats rect.
 2001e772e own    custom racers, own design (docs/CUSTOM_RACERS.md)     | Fix custom racers models being preserved across different modes.
-7a839ca99 planned High Octane fixes                                     | Fix aspect ratio and wrong blending on track previews.
+7a839ca99 own opaque texture preview and aspect-correct frame; docs/NATIVE-PRESENTATION.md | Fix aspect ratio and wrong blending on track previews.
 6fe2af36f maybe  custom racer sounds, mask and wheels                  | Add sampled sounds support for custom racers.
 8e27b0011 own    UI_RenderFrame_Wumpa3D_2P3P4P END_OF_RACE gate            | Fix wumpa fruits being visible in the end race screen in VS/Battle modes.
 c0e0a981d maybe  ghost replay tools                                    | Add stop, frame-by-frame and playback speed adjustments for ghost replays.

@@ -2,6 +2,13 @@
 
 What decides which track faces, sky and kart wheels are drawn far away, and what the native version changes. Read this before touching level culling in `game/MAIN/MainFrame.c`, `game/MAIN/MainFrame_RenderFrame.c`, the level renderers (`game/226` to `game/229`), `game/DrawSky.c` or `game/DrawTires.c`.
 
+Native two-player rendering retains `DrawLevelOvr2P`. Geometry PVS overrides,
+draw-distance scaling, per-face visibility and native clip/retry storage apply
+to that path as well as 1P. A context-aware 1P replacement needs a reproduced
+remaining emitter defect before changing these contracts. Native multiplayer
+decals, HUD fruit and scissor rules are in
+[NATIVE-PRESENTATION.md](NATIVE-PRESENTATION.md#split-screen).
+
 ## The stages
 A level face is drawn only if it passes every stage, in this order:
 

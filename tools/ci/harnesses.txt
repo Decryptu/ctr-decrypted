@@ -327,4 +327,7 @@ tools/test-track-sources.c
 tools/test-custom-finish.c
 tools/test-missile-target.c
 
+tools/test-widescreen-ui.c
 tools/test-mask-song.py
+tools/test-native-str.c
+tools/test-interleaved-xa.py

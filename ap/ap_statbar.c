@@ -18,9 +18,8 @@ const unsigned int AP_STATBAR_COLORS[7] = {
     0xc80000, 0xA8700, 0xb428, 0xb4b4, 0x64dc, 0x28dc, 0xeb,
 };
 
-// Lifted verbatim from the bar block in CS_Garage_MenuProc, with gGarage.barLen
-// and the function's locals turned into arguments. Same primitives, same order
-// (outline, shadow, cells), same colour pairing, same OT link.
+// Shared garage/hub bar drawing. Stat lengths remain logical; drawing endpoints
+// are aspect-corrected together so adjacent cells meet after rounding.
 void AP_StatBar_Draw(int x, int y, int barLen, const unsigned int *colors, void *ot, struct PrimMem *primMem)
 {
 	RECT r;
@@ -30,20 +29,22 @@ void AP_StatBar_Draw(int x, int y, int barLen, const unsigned int *colors, void 
 
 	if ((colors == NULL) || (ot == NULL) || (primMem == NULL))
 		return;
+	if (barLen <= 0)
+		return;
 
 	// bar outline
 	r.x = (s16)x;
 	r.y = (s16)y;
-	r.w = (s16)barLen;
+	r.w = (s16)Widescreen_CompressXAbout(barLen, 0);
 	r.h = AP_STATBAR_HEIGHT;
 	CTR_Box_DrawWireBox(&r, &white, ot, primMem);
 
 	// bar shadows
 	r.x = (s16)(x + 1);
 	r.y = (s16)(y + 1);
-	r.w = (s16)(barLen - 2);
+	r.w = (s16)(Widescreen_CompressXAbout(barLen, 0) - 2);
 	r.h = AP_STATBAR_HEIGHT - 2;
-	CTR_Box_DrawWireBox(&r, &black, ot, primMem);
+	if (r.w > 0) CTR_Box_DrawWireBox(&r, &black, ot, primMem);
 
 	for (segmentIndex = 0; segmentIndex < AP_STATBAR_SEGMENTS; segmentIndex++)
 	{
@@ -58,7 +59,7 @@ void AP_StatBar_Draw(int x, int y, int barLen, const unsigned int *colors, void 
 		p = primMem->cursor;
 
 		// quit if prim mem runs out
-		if (primMem->end < (void *)p)
+		if ((u8 *)p + sizeof(*p) > (u8 *)primMem->end)
 			return;
 
 		primMem->cursor = p + 1;
@@ -69,14 +70,15 @@ void AP_StatBar_Draw(int x, int y, int barLen, const unsigned int *colors, void 
 		CtrGpu_WriteColorCode(&p->r2, barColor[0] | 0x38000000);
 		CtrGpu_WriteColorCode(&p->r3, barColor[1] | 0x38000000);
 
-		segmentX = x + segmentIndex * AP_STATBAR_SEGMENT_LEN;
+		segmentX = x + Widescreen_CompressXAbout(segmentIndex * AP_STATBAR_SEGMENT_LEN, 0);
+		const int segmentRight = x + Widescreen_CompressXAbout(segmentIndex * AP_STATBAR_SEGMENT_LEN + currSegmentLen, 0);
 
 		// top left
 		p->x0 = (s16)segmentX;
 		p->y0 = (s16)y;
 
 		// top right
-		p->x1 = (s16)(segmentX + currSegmentLen);
+		p->x1 = (s16)segmentRight;
 		p->y1 = (s16)y;
 
 		// bottom left
@@ -84,7 +86,7 @@ void AP_StatBar_Draw(int x, int y, int barLen, const unsigned int *colors, void 
 		p->y2 = (s16)(y + AP_STATBAR_HEIGHT);
 
 		// bottom right
-		p->x3 = (s16)(segmentX + currSegmentLen);
+		p->x3 = (s16)segmentRight;
 		p->y3 = (s16)(y + AP_STATBAR_HEIGHT);
 
 		*(int *)p = CtrGpu_PackOTTag(*(uint32_t *)ot, 0x8000000);

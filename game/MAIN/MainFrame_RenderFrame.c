@@ -111,10 +111,12 @@ void MainFrame_RenderFrame(struct GameTracker *gGT, struct GamepadSystem *gGamep
 		MAINFRAME_NAMED("stars", RenderStars(&gGT->pushBuffer[0], &gGT->backBuffer->primMem, &gGT->stars, gGT->numPlyrCurrGame));
 	}
 
+#ifndef CTR_NATIVE
 	if (((gGT->renderFlags & RENDER_FLAG_MULTIPLAYER_DECALS) != 0) && (gGT->numPlyrCurrGame > 1))
 	{
 		DecalMP_01(gGT);
 	}
+#endif
 	MAINFRAME_PERF_END(NATIVE_PERF_BUCKET_MAINFRAME_EFFECTS);
 
 	MAINFRAME_PERF_BEGIN(NATIVE_PERF_BUCKET_MAINFRAME_HUD);
@@ -136,10 +138,12 @@ void MainFrame_RenderFrame(struct GameTracker *gGT, struct GamepadSystem *gGamep
 
 	RenderDispEnv_World(gGT); // == RenderDispEnv_World ==
 
+#ifndef CTR_NATIVE
 	if (((gGT->renderFlags & RENDER_FLAG_MULTIPLAYER_DECALS) != 0) && (gGT->numPlyrCurrGame > 1))
 	{
 		DecalMP_02(gGT);
 	}
+#endif
 
 	MAINFRAME_NAMED("effects", RenderAllFlag0x40(gGT)); // I need a better name
 	MAINFRAME_NAMED("titleDPP", RenderAllTitleDPP(gGT));
@@ -178,10 +182,12 @@ void MainFrame_RenderFrame(struct GameTracker *gGT, struct GamepadSystem *gGamep
 			UI_RenderFrame_Wumpa3D_2P3P4P(gGT);
 		}
 
+#ifndef CTR_NATIVE
 		if (((gGT->renderFlags & RENDER_FLAG_MULTIPLAYER_DECALS) != 0) && (gGT->numPlyrCurrGame > 1))
 		{
 			DecalMP_03(gGT);
 		}
+#endif
 
 		int dotLightsLoadReady = sdata->Loading.stage != LOAD_REQUESTED;
 

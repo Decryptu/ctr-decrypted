@@ -25,6 +25,7 @@ int Platform_BeginScene(void);
 void Platform_EndScene(void);
 void Platform_EndFrame(void);
 void Platform_PresentVRAMDisplay(void);
+void Platform_PinTextureDisplay(unsigned int texture, int contentHeight, int displayHeight, int frameCount);
 void Platform_PinVRAMDisplayFrames(int frameCount);
 void Platform_PinVRAMDisplayRect(int x, int y, int w, int h, int frameCount);
 int Platform_GetVBlankCount(void);

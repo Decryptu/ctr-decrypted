@@ -45,6 +45,8 @@ global_variable int s_pinnedVramDisplayX = 0;
 global_variable int s_pinnedVramDisplayY = 0;
 global_variable int s_pinnedVramDisplayW = 0;
 global_variable int s_pinnedVramDisplayH = 0;
+global_variable unsigned int s_pinnedDisplayTexture;
+global_variable int s_pinnedTextureContentHeight, s_pinnedTextureDisplayHeight;
 // Whether the game window currently has input focus, for the "mute when
 // unfocused" option (g_config.muteWhenUnfocused). -1 = not read from SDL yet;
 // NativeFocusMute_GainPure treats that as focused, so a start-up frame before
@@ -473,6 +475,17 @@ void Platform_EndScene(void)
 
 	NativeRenderer_EndScene();
 
+	if (s_pinnedDisplayTexture && s_pinnedVramDisplayFrames > 0)
+	{
+		NativeRenderer_PresentStreamingTexture(s_pinnedDisplayTexture, s_pinnedTextureContentHeight, s_pinnedTextureDisplayHeight);
+		NativeRenderer_EndGpuFrame();
+		NativeDev_EndFrame();
+		NativeRenderer_SwapWindow();
+		if (--s_pinnedVramDisplayFrames == 0) s_pinnedDisplayTexture = 0;
+		NativePerf_EndScope(NATIVE_PERF_BUCKET_PLATFORM_END_SCENE);
+		return;
+	}
+
 	if (s_pinnedVramDisplayFrames > 0)
 	{
 		int shownX = activeDispEnv.disp.x, shownY = activeDispEnv.disp.y, shownW = activeDispEnv.disp.w, shownH = activeDispEnv.disp.h;
@@ -546,6 +559,7 @@ void Platform_PinVRAMDisplayFrames(int frameCount)
 	{
 		s_pinnedVramDisplayFrames = frameCount;
 		s_pinnedVramDisplayCustomRect = 0;
+		s_pinnedDisplayTexture = 0;
 	}
 }
 
@@ -562,6 +576,7 @@ void Platform_PinVRAMDisplayRect(int x, int y, int w, int h, int frameCount)
 	s_pinnedVramDisplayH = h;
 	s_pinnedVramDisplayFrames = frameCount;
 	s_pinnedVramDisplayCustomRect = 1;
+	s_pinnedDisplayTexture = 0;
 }
 
 // ---- In-game text entry (native connection manager) ---------------------
@@ -1298,3 +1313,13 @@ double Platform_PerfNowMs(void)
 	return (double)SDL_GetPerformanceCounter() * 1000.0 / (double)s_freq;
 }
 #endif // CTR_AP
+
+void Platform_PinTextureDisplay(unsigned int texture, int contentHeight, int displayHeight, int frameCount)
+{
+	if (!texture || contentHeight <= 0 || displayHeight < contentHeight || frameCount <= 0) return;
+	s_pinnedDisplayTexture = texture;
+	s_pinnedTextureContentHeight = contentHeight;
+	s_pinnedTextureDisplayHeight = displayHeight;
+	s_pinnedVramDisplayFrames = frameCount;
+	s_pinnedVramDisplayCustomRect = 0;
+}

@@ -340,3 +340,10 @@ void AddPrim(void *ot, void *p)
 	CTR_GPU_WriteTagWord(p, CtrGpu_PackOTTag(otTag, primTag & 0xff000000u));
 	CTR_GPU_WriteTagWord(ot, CtrGpu_PrimToOTLink24(p));
 }
+
+void SetPsyXTexture(DR_PSYX_TEX *p, u32 texture, int width, int height)
+{
+	p->code[0] = 0xB1000000u | (texture & 0x00ffffffu);
+	p->code[1] = ((u32)(height & 0xfff) << 16) | (u32)(width & 0xfff);
+	setlen(p, 2);
+}

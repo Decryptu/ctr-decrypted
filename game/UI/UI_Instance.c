@@ -385,7 +385,11 @@ void UI_INSTANCE_InitAll(void)
 
 	// used for multiplayer wumpa
 	sdata->ptrPushBufferUI = (int)NULL;
-	if (gGT->numPlyrCurrGame >= 2)
+	if (gGT->numPlyrCurrGame >= 2
+#ifdef CTR_NATIVE
+	    && (gameMode1 & MAIN_MENU) != 0
+#endif
+	)
 	{
 		sdata->ptrPushBufferUI = (int)&sdata->pushBuffer_DecalMP;
 	}

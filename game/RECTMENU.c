@@ -633,7 +633,12 @@ void RECTMENU_DrawSelf(struct RectMenu *menu, s16 posX, s16 posY, s16 menuWidth)
 	}
 	if (menu->state & DRAW_NEXT_MENU_IN_HIERARCHY)
 	{
-		RECTMENU_DrawSelf(menu->ptrNextBox_InHierarchy, (s16)(posX + menu->posX_prev), centerY + (offsetY + menu->posY_prev) + (s16)(rowHeight + 12),
+		int hierarchyGap = 12;
+#ifdef CTR_NATIVE
+		// Leave two pixels between the parent's shadow and the child's border.
+		hierarchyGap += 2;
+#endif
+		RECTMENU_DrawSelf(menu->ptrNextBox_InHierarchy, (s16)(posX + menu->posX_prev), centerY + (offsetY + menu->posY_prev) + (s16)(rowHeight + hierarchyGap),
 		                  menuWidth);
 	}
 	if (menu->state & ONLY_DRAW_TITLE)
