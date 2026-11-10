@@ -116,7 +116,7 @@ jobs:
           update: true
           cache: true
           install: >-
-            git python ccache
+            git python mingw-w64-x86_64-ccache
             mingw-w64-i686-gcc mingw-w64-i686-cmake
             mingw-w64-i686-ninja mingw-w64-i686-openssl
             mingw-w64-i686-zlib
@@ -131,9 +131,13 @@ jobs:
         env:
           CCACHE_DIR: ${{ runner.temp }}\ccache
         run: |
-          ccache -z
+          # Native CMake passes Windows compiler paths; use a native host
+          # launcher. Its architecture is independent of the compiler target.
+          export CMAKE_C_COMPILER_LAUNCHER="$(cygpath -m /mingw64/bin/ccache.exe)"
+          export CMAKE_CXX_COMPILER_LAUNCHER="$CMAKE_C_COMPILER_LAUNCHER"
+          /mingw64/bin/ccache.exe -z
           bash tools/ci/build-clients.sh windows ${{ matrix.variant }}
-          ccache -s
+          /mingw64/bin/ccache.exe -s
       - name: Save compiler cache
         if: ${{ github.event_name != 'pull_request' && startsWith(github.ref, 'refs/heads/') }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
