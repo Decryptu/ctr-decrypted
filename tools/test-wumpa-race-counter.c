@@ -9,6 +9,10 @@ struct sData sdata_static;
 ctr_seed_config ctr_cfg;
 AP_WumpaShopConfig ctr_wumpa_shop;
 static int onTrack = 1, credited, forcedLoss;
+int ap_net_wumpa_ready(void) { return 1; }
+long long ap_net_wumpa_balance(void) { return credited; }
+void DecalFont_DrawLine(char *s, s16 x, s16 y, s16 font, s16 flags)
+{ (void)s; (void)x; (void)y; (void)font; (void)flags; }
 int ctr_cfg_active(void) { return 1; }
 int LOAD_IsOpen_RacingOrBattle(void) { return onTrack; }
 int AP_RaceAttemptIsForcedLoss(void) { return forcedLoss; }

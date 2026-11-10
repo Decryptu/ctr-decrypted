@@ -24,7 +24,7 @@ void AP_AiDifficultyCommit(void) { committed++; }
 void MainFreeze_SafeAdvDestroy(void) { destroyed++; }
 struct RectMenu *MainFreeze_GetMenuPtr(void) { return &pause_menu; }
 char *NativeMenu_Labels(const char *text) { return (char *)text; }
-void DecalFont_DrawLine(char *text, int x, int y, s16 font, int flags) {}
+void DecalFont_DrawLine(char *text, s16 x, s16 y, s16 font, s16 flags) {}
 '''
 fixture += source[start:end]
 fixture += r'''
@@ -40,10 +40,10 @@ int main(void) {
             assert(ap_difficultyRows[j].rowOnPressUp == (j + AI_DIFF_COUNT - 1) % AI_DIFF_COUNT);
             assert(ap_difficultyRows[j].rowOnPressDown == (j + 1) % AI_DIFF_COUNT);
         }
-        ap_difficultyMenu.unk1e = 1;
+        ap_difficultyMenu.funcState = 1;
         MainFreeze_AiDifficultyProc(&ap_difficultyMenu);
         assert(saved == i && committed == i && destroyed == i + 1);
-        ap_difficultyMenu.unk1e = 0;
+        ap_difficultyMenu.funcState = 0;
         g_config.aiDifficulty = -1;
         MainFreeze_AiDifficultyProc(&ap_difficultyMenu);
         assert(g_config.aiDifficulty == s_aiDiffValues[i]);

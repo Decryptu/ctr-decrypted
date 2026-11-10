@@ -78,10 +78,12 @@ fixture += function(source("ap/ap_hooks_gates.c"), "int AP_BossGarageOpponent(in
 fixture += function(cups, "const char *AP_ContentCupName(void)")
 fixture += function(cups, "const char *AP_ContentCupTrackName(void)")
 ui = source("game/UI/UI_CupStandings.c")
-start = ui.index("\tint index = 0x22E;")
-fixture += "\nstatic const char *heading(void) { struct GameTracker *gGT=&tracker;\n"
+start = ui.index("\tint titleString = LNG_FINAL;")
+fixture += ("\nenum { LNG_FINAL = 0x22e, UI_CUP_STANDINGS_PAGE_TRACK_POINTS = 0x4,"
+            " UI_CUP_STANDINGS_TRACKS_PER_CUP = 4 };\n")
+fixture += "static const char *heading(void) { struct GameTracker *gGT=&tracker;\n"
 fixture += ui[start:ui.index("\t// title text", start)]
-fixture += "return ctCupName ? ctCupName : sdata->lngStrings[index]; }\n"
+fixture += "return ctCupName ? ctCupName : sdata->lngStrings[titleString]; }\n"
 gates = source("ap/ap_hooks_gates.c")
 fixture += function(gates, "int AP_BossRivalAdvert(int bossIdx, char *out, int cap)")
 fixture += function(gates, "int AP_BossChallengeTitle(int bossIdx, char *out, int cap)")
@@ -163,17 +165,17 @@ int main(void) {
 '''
 # Both garage title and the independent Oxide rival path must use these fixes.
 garage = source("game/232/AH_Garage.c")
-assert "AP_BossChallengeTitle(hubID - 1" in garage
+assert "AP_BossChallengeTitle((GAME_TRACKER->levelID - GEM_STONE_VALLEY) - 1" in garage
 assert "data.MetaDataCharacters[c].name_LNG_short" not in garage
 # The race-start banner of a garage boss race names the same racer as the
 # garage title (A2-44): only the single-race banner, after its retail string.
 flow = source("game/UI/UI_RaceFlow.c")
-banner = flow[flow.index("pcVar6 = sdata->lngStrings[textID];"):flow.index("sVar7 = gGT->pushBuffer[0].rect.y - (windowHeight + -7);")]
+banner = flow[flow.index("titleText = sdata->lngStrings[textID];"):flow.index("titleY = gGT->pushBuffer[0].rect.y")]
 assert "AP_BossChallengeTitle(gGT->bossID, apBossTitle" in banner and "ADVENTURE_BOSS" in banner
 assert flow.count("AP_BossChallengeTitle(") == 1
 # The cup banner of a content-plan cup (a boss cup: its boss) names itself through the one cup-name call the
 # standings use (A2-47), only on the adventure-cup branch.
-cupBanner = flow[flow.index("ctCupName = CustomTrack_CupDisplayName(gGT->cup.cupID, 1);"):flow.index("textID = txtArray[iVar2];")]
+cupBanner = flow[flow.index("ctCupName = CustomTrack_CupDisplayName(gGT->cup.cupID, 1);"):flow.index("textID = txtArray[textArrayIndex];")]
 # Every content-plan cup, Gem Cups included (A3-5), takes the plan name; the banner no longer
 # gates on a running garage cup.
 assert "ctCupName = AP_ContentCupName();" in cupBanner and "AP_ContentGarageCupRunning" not in cupBanner

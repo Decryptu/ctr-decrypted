@@ -36,7 +36,9 @@ part_a = source[source.index("namespace\n{\n"):source.index("#ifdef _WIN32\nstd:
 start_b = source.index("bool hash_matches(")
 part_b = source[start_b:source.index("#ifdef CTR_CUSTOM_PACKAGES\n// Track Manager", start_b)]
 start_c = source.index("#ifdef CTR_CUSTOM_PACKAGES\n// Track Manager", start_b)
-part_c = source[start_c:source.index("#endif // CTR_CUSTOM_PACKAGES", start_c) + len("#endif // CTR_CUSTOM_PACKAGES")]
+# Track installs end before the independent racer catalogue and preview workers.
+end_c = source.index("namespace {", source.index('extern "C" int CustomSaphi_PollInstall', start_c))
+part_c = source[start_c:end_c] + "\n#endif // CTR_CUSTOM_PACKAGES\n"
 
 prelude = r'''
 #include "ap_custom_track_download.h"
@@ -80,6 +82,13 @@ bool https_get(const std::string &path, size_t max_bytes, std::vector<unsigned c
 	body = it->second;
 	return true;
 }
+bool https_get(const std::string &host, const std::string &path, size_t max_bytes,
+               std::vector<unsigned char> &body, std::string &error)
+{
+    if (host != kSaphiHost) { error = "stub: not Project Saphi"; return false; }
+    return https_get(path, max_bytes, body, error);
+}
+
 '''
 
 tests = r'''

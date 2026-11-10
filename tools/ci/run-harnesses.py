@@ -25,8 +25,10 @@ Usage:
   tools/ci/run-harnesses.py            run the listed harnesses, fail on any failure
   tools/ci/run-harnesses.py --all      try every harness, report, never fail (discovery)
   tools/ci/run-harnesses.py --write-list  discovery, then rewrite harnesses.txt from the result
+  tools/ci/run-harnesses.py --shard K/N --results DIR  run a weighted shard, K from 0
+  tools/ci/run-harnesses.py --summary DIR --count N   check all shard results
 """
-import concurrent.futures, glob, os, re, shlex, shutil, subprocess, sys, time
+import concurrent.futures, glob, hashlib, os, re, shlex, shutil, subprocess, sys, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 LIST = os.path.join(ROOT, "tools", "ci", "harnesses.txt")
@@ -179,6 +181,86 @@ def install_nosan_shim():
     print("windows: harnesses build without -fsanitize (MinGW has no UBSan runtime)")
 
 
+WEIGHTS = os.path.join(ROOT, "tools", "ci", "harness-weights.txt")
+DEFAULT_WEIGHT = 0.7
+
+
+def read_weights():
+    weights = {}
+    if os.path.exists(WEIGHTS):
+        for ln in open(WEIGHTS):
+            ln = ln.strip()
+            if ln and not ln.startswith("#"):
+                name, _, secs = ln.rpartition("::")
+                weights[name.strip()] = float(secs)
+    return weights
+
+
+def shard_of(name, count, _cache={}):
+    key = count
+    if key not in _cache:
+        listed, _skipped, cmds = read_list()
+        names = [n for n in discover() if n in listed] + list(cmds)
+        weights = read_weights()
+        plan, load = {}, [0.0] * count
+        for n in names:
+            if n not in weights:
+                plan[n] = int(hashlib.sha1(n.encode()).hexdigest(), 16) % count
+                load[plan[n]] += DEFAULT_WEIGHT
+        for n in sorted((n for n in names if n in weights), key=lambda n: (-weights[n], n)):
+            plan[n] = min(range(count), key=lambda i: (load[i], i))
+            load[plan[n]] += weights[n]
+        _cache[key] = plan
+    return _cache[key].get(name, int(hashlib.sha1(name.encode()).hexdigest(), 16) % count)
+
+
+def flag_value(flag):
+    i = sys.argv.index(flag)
+    if i + 1 >= len(sys.argv):
+        sys.exit(f"{flag} needs a value")
+    return sys.argv[i + 1]
+
+
+def discover():
+    all_src = sorted(glob.glob(os.path.join(ROOT, "tools", "test-*.c")) +
+                     glob.glob(os.path.join(ROOT, "tools", "test-*.cpp")) +
+                     glob.glob(os.path.join(ROOT, "tools", "test-*.py")))
+    return [os.path.relpath(p, ROOT).replace(os.sep, "/") for p in all_src]
+
+
+def summarize(results_dir):
+    """Global verdict for sharded CI: every shard file present, nothing failed, nothing unlisted."""
+    listed, skipped, cmds = read_list()
+    all_rel = discover()
+    files = sorted(glob.glob(os.path.join(results_dir, "**", "shard-*.txt"), recursive=True))
+    passed, failed, seen, shards = 0, [], set(), set()
+    for f in files:
+        shards.add(int(re.search(r"shard-(\d+)\.txt$", f).group(1)))
+        for ln in open(f):
+            status, name, _secs = ln.rstrip("\n").split("\t")
+            seen.add(name)
+            if status == "pass":
+                passed += 1
+            else:
+                failed.append(name)
+    problems = []
+    if "--count" in sys.argv and shards != set(range(int(flag_value("--count")))):
+        problems.append(f"expected shards 0..{int(flag_value('--count')) - 1}, found {sorted(shards)}")
+    for name in sorted(p for p in listed if p not in all_rel):
+        problems.append(f"listed but missing from tools/: {name}")
+    for name in sorted(({p for p in all_rel if p in listed} | set(cmds)) - seen):
+        problems.append(f"not run by any shard: {name}")
+    unlisted = [r for r in all_rel if r not in listed and r not in skipped]
+    for r in unlisted:
+        print(f"unlisted    {r}  (add it to tools/ci/harnesses.txt, or `skip <reason>`)")
+    for r in failed:
+        print(f"failed      {r}")
+    for pr in problems:
+        print(pr)
+    print(f"\n{passed} passed, {len(failed)} failed, {len(skipped)} skipped, {len(unlisted)} unlisted")
+    return 1 if (failed or unlisted or problems) else 0
+
+
 def main():
     tmp = os.path.abspath("/tmp")
     before = set(os.listdir(tmp)) if os.path.isdir(tmp) else set()
@@ -200,6 +282,15 @@ def main():
 
 
 def run(mode):
+    if "--summary" in sys.argv:
+        return summarize(flag_value("--summary"))
+    shard = None
+    if "--shard" in sys.argv:
+        k, _, n = flag_value("--shard").partition("/")
+        shard = (int(k), int(n))
+        results_dir = flag_value("--results")
+        os.makedirs(results_dir, exist_ok=True)
+        mode = "ci"
     os.makedirs(OUT, exist_ok=True)
     install_nosan_shim()
     all_src = sorted(glob.glob(os.path.join(ROOT, "tools", "test-*.c")) +
@@ -208,14 +299,21 @@ def run(mode):
     # harnesses.txt uses forward slashes; Windows Python's relpath does not.
     all_rel = [os.path.relpath(p, ROOT).replace(os.sep, "/") for p in all_src]
     listed, skipped, cmds = read_list()
-    results = {}
-    targets = all_rel if mode in ("--all", "--write-list") else [p for p in all_rel if p in listed]
+    results, times = {}, {}
+    mine = (lambda name: True) if shard is None else (lambda name: shard_of(name, shard[1]) == shard[0])
+    targets = all_rel if mode in ("--all", "--write-list") else [p for p in all_rel if p in listed and mine(p)]
     # The `cmd` steps go first: they are the longest (one builds SDL), so they
     # start while the short harnesses fill the other workers.
-    jobs = [(name, run_cmd, command) for name, command in cmds.items()] if mode == "ci" else []
+    jobs = [(name, run_cmd, command) for name, command in cmds.items() if mine(name)] if mode == "ci" else []
     jobs += [(rel, run_one, rel) for rel in targets]
+    def timed(job):
+        start = time.time()
+        result = job[1](job[2])
+        return result, time.time() - start
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=JOBS) as pool:
-        for (name, _, _), result in zip(jobs, pool.map(lambda job: job[1](job[2]), jobs)):
+        for (name, _, _), (result, elapsed) in zip(jobs, pool.map(timed, jobs)):
+            times[name] = elapsed
             status, cmd, detail = result
             results[name] = result
             print(f"{status:11s} {name}", flush=True)
@@ -239,6 +337,13 @@ def run(mode):
     if mode == "--all":
         return 0
     failed = [r for r, v in results.items() if v[0] != "pass"]
+    if shard is not None:
+        # The summary job owns the global unlisted check and the totals.
+        with open(os.path.join(results_dir, f"shard-{shard[0]}.txt"), "w") as f:
+            for name, v in results.items():
+                f.write(f"{v[0]}\t{name}\t{times[name]:.1f}\n")
+        print(f"\nshard {shard[0]}/{shard[1]}: {len(results) - len(failed)} passed, {len(failed)} failed")
+        return 1 if failed else 0
     unlisted = [r for r in all_rel if r not in listed and r not in skipped]
     for r in unlisted:
         print(f"unlisted    {r}  (add it to tools/ci/harnesses.txt, or `skip <reason>`)")

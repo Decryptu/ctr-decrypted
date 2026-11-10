@@ -40,6 +40,7 @@ fixture = r'''
 #define ADVENTURE_CUP 0x10000000
 typedef short s16;
 typedef uint32_t u32;
+typedef int32_t s32;
 struct DB { struct { unsigned char isbg,r,g,b; } drawEnv; } db[2];
 struct GameTracker {
     struct { int numTrophies; } currAdvProfile;
@@ -63,7 +64,17 @@ static void DecalFont_DrawLineOT(char *s,int x,int y,int font,int flags,uint32_t
 static int CustomTrack_ServingLoad(int level,int cup,int id) { return custom; }
 static int MainRaceTrack_OfflineCustomLoad(void) { return offline; }
 '''
-fixture += function("game/UI/UI_DrawNum.c", "void UI_DrawNumTrophy(s16 posX, s16 posY)")
+fixture += r'''
+struct Driver;
+#define GAME_TRACKER (sdata->gGT)
+#define UI_NUM_X sdata->s_x
+#define UI_NUM_LONG sdata->s_longInt
+#define CTR_PRINTF_PSX_LONG(x) (x)
+#define UI_DRAWNUM_COUNTER_TEXT_BUFFER_SIZE 16
+#define UI_DRAWNUM_SMALL_X_OFFSET_Y 0
+#define UI_DRAWNUM_BIG_TEXT_OFFSET_X 0
+'''
+fixture += function("game/UI/UI_DrawNum.c", "void UI_DrawNumTrophy(s16 posX, s16 posY, struct Driver *driver)")
 fixture += function("ap/ap_hooks_feed.c", "static void AP_FeedTickAndDraw(int x, int baseY, int playableRace)")
 fixture += function("ap/ap_hooks_feed.c", "void AP_FeedDrawHub(void)")
 fixture += function("game/230/MM_ConfigMenu.c", "static void Config_DrawScrollIndicator(int top, int pageRows, uint32_t *ot)")
@@ -77,11 +88,11 @@ int main(void) {
     for(received=0;received<=255;received++) {
         char want[16];sprintf(want,"%d",received);
         for(game.gameMode2=0;game.gameMode2<2;game.gameMode2++) {
-            UI_DrawNumTrophy(10,20);assert(!strcmp(lastText,want));
+            UI_DrawNumTrophy(10,20,NULL);assert(!strcmp(lastText,want));
         }
     }
-    active=0;game.gameMode2=0;UI_DrawNumTrophy(10,20);assert(!strcmp(lastText,"16"));
-    game.gameMode2=INC_TROPHY;UI_DrawNumTrophy(10,20);assert(!strcmp(lastText,"15"));
+    active=0;game.gameMode2=0;UI_DrawNumTrophy(10,20,NULL);assert(!strcmp(lastText,"16"));
+    game.gameMode2=INC_TROPHY;UI_DrawNumTrophy(10,20,NULL);assert(!strcmp(lastText,"15"));
     for(active=0;active<2;active++)for(hidden=0;hidden<2;hidden++)for(enabled=0;enabled<2;enabled++) {
         AP_FeedLinesReset(&ap_feed);AP_FeedLinesEnqueue(&ap_feed,"WAITING",WHITE,0);
         draws=0;AP_FeedDrawHub();assert(draws==(active&&!hidden&&enabled));

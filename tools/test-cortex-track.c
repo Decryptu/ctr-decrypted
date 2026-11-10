@@ -371,8 +371,8 @@ static const struct guard_row rows[] = {
 	{"ap/ap_hooks_pads.c", "static int AP_GlowBitRewardGroup(", "cortexGroup", "if (globalBit >= AP_PODIUM_PSEUDO_BASE)"},
 	{"game/232/AH_WarpPad.c", "s16 *AH_WarpPad_GetSpawnPosRot(", "returned->physicalPad", "->levelID == exitedLevel"},
 	{"game/232/AH_WarpPad.c", "int physLevelID = ctr_cfg_warp_phys(levelID);", "host = AP_ContentPreparePad(physLevelID, mode);", "MainRaceTrack_RequestLoad(levelID);"},
-	{"game/UI/UI_CupStandings.c", "index = data.ArcadeCups[cupID].CupTrack[cupTrack].trackID;",
-	 "AP_CortexTrackPrepareLoad(index)", "MainRaceTrack_RequestLoad(index);"},
+	{"game/UI/UI_CupStandings.c", "nextLevelID = data.ArcadeCups[cupID].CupTrack[cupTrack].trackID;",
+	 "AP_CortexTrackPrepareLoad(nextLevelID)", "MainRaceTrack_RequestLoad(nextLevelID);"},
 	{"game/MAIN/MainRaceTrack.c", "void MainRaceTrack_RequestLoad(", "CustomTrack_CortexTrackOnRequestLoad(levelID)", "return;"},
 	{"platform/native_custom_tracks.c", "int CustomTrack_GetOverride(", "CustomTrack_CortexTrackServing(ctx->levelID",
 	 "if (!s_customTrackConfig.contentVerified)"},
@@ -397,7 +397,14 @@ static char *slurp(const char *path)
 	buf = malloc((size_t)len + 1);
 	if (fread(buf, 1, (size_t)len, f) != (size_t)len)
 		len = 0;
-	buf[len] = 0;
+	/* Source assertions accept either checkout line ending. */
+	{
+		size_t read, written = 0;
+		for (read = 0; read < (size_t)len; read++)
+			if (buf[read] != '\r')
+				buf[written++] = buf[read];
+		buf[written] = 0;
+	}
 	fclose(f);
 	return buf;
 }

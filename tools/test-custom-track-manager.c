@@ -6,7 +6,7 @@
 // AP log line: AP_LogLine is stubbed below to capture into s_apLogCaptured
 // instead of linking the real ap_hooks.c.
 //
-//   cc -Wall -Wextra -Werror -DCTR_CUSTOM_TRACKS -DCTR_AP -I include -I . tools/test-custom-track-manager.c -o /tmp/test-custom-track-manager
+//   cc -Wall -Wextra -Werror -DCTR_CUSTOM_TRACKS -DCTR_AP -I include -I . tools/test-custom-track-manager.c platform/native_custom_content_verify.c -o /tmp/test-custom-track-manager
 //   /tmp/test-custom-track-manager
 
 #include <stdio.h>
@@ -76,10 +76,10 @@ static void write_bytes(const char *path, const unsigned char *bytes, size_t len
 // table, whose s16 id at +0x10 is what the engine and the measurement read. The
 // InstDef's own +0x3C id is written equal by default, as retail does, and the
 // disagreement cases overwrite it.
-#define FIXTURE_LEV_MODELS 0x100
+#define FIXTURE_LEV_MODELS 0x200
 #define FIXTURE_LEV_MODEL_STRIDE 0x20
-#define FIXTURE_LEV_INSTDEFS 0x200
-#define FIXTURE_LEV_MAX (FIXTURE_LEV_INSTDEFS + 64 * 0x40 + 4)
+#define FIXTURE_LEV_INSTDEFS 0x300
+#define FIXTURE_LEV_MAX (FIXTURE_LEV_INSTDEFS + 64 * 0x40 + 4 + 65 * 4 + 4)
 
 static void put_u32(unsigned char *buf, size_t offset, unsigned long value)
 {
@@ -127,7 +127,7 @@ static size_t build_lev(unsigned char *buf, int fruitCrates, int looseFruit,
 	const int total = fruitCrates + looseFruit + others;
 	const size_t tableBytes = (size_t)total * 0x40;
 	const size_t ptrMapOffset = FIXTURE_LEV_INSTDEFS + tableBytes;
-	const size_t payload = ptrMapOffset + 4;
+	const size_t payload = ptrMapOffset + 4 + (size_t)(total + 1) * 4;
 	int i;
 	int written = 0;
 
@@ -135,6 +135,12 @@ static size_t build_lev(unsigned char *buf, int fruitCrates, int looseFruit,
 	put_u32(buf, 0, (unsigned long)ptrMapOffset);
 	put_u32(buf, 4 + 0x0C, (unsigned long)total);
 	put_u32(buf, 4 + 0x10, FIXTURE_LEV_INSTDEFS);
+	/* The exporter analyzes the same relocated pointer slots as the loader. */
+	put_u32(buf, 4 + ptrMapOffset, (unsigned long)(total + 1) * 4);
+	put_u32(buf, 8 + ptrMapOffset, 0x10);
+	for (i = 0; i < total; i++)
+		put_u32(buf, 12 + ptrMapOffset + (size_t)i * 4,
+		        FIXTURE_LEV_INSTDEFS + (size_t)i * 0x40 + 0x10);
 	for (i = 0; i < FIXTURE_MODEL_COUNT; i++)
 	{
 		const size_t model = 4 + fixture_model_offset(i);
@@ -319,14 +325,13 @@ int main(void)
 	expect_contains(yaml, "    author: \"Fixture Author\"\n", "YAML names the author");
 	// checkpoints (35) and ai_nav (true) are the boss venue facts; arcade needs
 	// AI paths and all 8 spawns (the fixture has 8); relic needs author times
-	// (tools/test-custom-relic-times.c), so it is false here. This build has no
-	// verifier (CTR_CUSTOM_PACKAGES off), so super_turbo_pads and weapon_crates
-	// are left out (tools/test-custom-export-facts.c measures them).
+	// (tools/test-custom-relic-times.c), so it is false here. The verifier
+	// measures three weapon crates and no super turbo pads in this fixture.
 	expect_contains(yaml, "capabilities: {time_trial: true, arcade: true, relic: false, ctr_tokens: true, "
-	                "wumpa: true, checkpoints: 35, ai_nav: true}",
+	                "wumpa: true, checkpoints: 35, ai_nav: true, super_turbo_pads: false, weapon_crates: 3}",
 	                "YAML carries the measured capabilities including checkpoints and ai_nav");
-	expect_int(strstr(yaml, "super_turbo_pads") == NULL && strstr(yaml, "weapon_crates") == NULL, 1,
-	           "without the verifier the optional facts are left out");
+	expect_contains(yaml, "super_turbo_pads: false, weapon_crates: 3",
+	                "export facts come from the verified bytes");
 	{
 		// Rulebook track package rule 2: arcade means 8 racers with AI
 		// driving lines. Seven spawns or no AI paths export arcade: false.
@@ -730,22 +735,35 @@ int main(void)
 		snprintf(ready.vrmPath, sizeof ready.vrmPath, "%s", "track.vrm");
 		snprintf(ready.actualLevSha256, sizeof ready.actualLevSha256, "%s", cur->levSha256);
 		snprintf(ready.actualVrmSha256, sizeof ready.actualVrmSha256, "%s", cur->vrmSha256);
+		/* Use local copies with real fixture bytes: a receipt alone cannot
+		   authorize export of files absent from disk. */
+		struct CustomTrackManagerPackage currentExport = *cur, legacyExport = *baby;
+		currentExport.levSha256 = legacyExport.levSha256 = s_fixtureLevSha;
+		currentExport.vrmSha256 = legacyExport.vrmSha256 = package.vrmSha256;
+		ready.levBytes = (unsigned long)s_fixtureLevLen;
+		ready.vrmBytes = 3;
+		snprintf(ready.levPath, sizeof ready.levPath, "%s/export.lev", tempRoot);
+		snprintf(ready.vrmPath, sizeof ready.vrmPath, "%s/export.vrm", tempRoot);
+		write_fixture_lev(ready.levPath);
+		write_file(ready.vrmPath, "def");
+		snprintf(ready.actualLevSha256, sizeof ready.actualLevSha256, "%s", s_fixtureLevSha);
+		snprintf(ready.actualVrmSha256, sizeof ready.actualVrmSha256, "%s", package.vrmSha256);
 		// A completed scan also records the package receipt (ScanPackage).
-		expect_int(Manager_PackageReceipt(cur, &ready, ready.verifiedPackageSha256), 1,
+		expect_int(Manager_PackageReceipt(&currentExport, &ready, ready.verifiedPackageSha256), 1,
 		           "1.0.2 scan receipt recorded");
-		expect_int(CustomTrackManager_RenderYaml(cur, &ready, NULL, yaml, sizeof yaml), 1,
+		expect_int(CustomTrackManager_RenderYaml(&currentExport, &ready, NULL, yaml, sizeof yaml), 1,
 		           "Ready 1.0.2 scan exports under the 1.0.2 handle");
 		expect_contains(yaml, "    revision: \"1.0.2\"\n", "1.0.2 export names 1.0.2");
-		expect_contains(yaml, cur->levSha256, "1.0.2 export carries the 1.0.2 LEV digest");
-		expect_int(CustomTrackManager_RenderYaml(baby, &ready, NULL, yaml, sizeof yaml), 0,
+		expect_contains(yaml, currentExport.levSha256, "1.0.2 export carries the 1.0.2 LEV digest");
+		expect_int(CustomTrackManager_RenderYaml(&legacyExport, &ready, NULL, yaml, sizeof yaml), 0,
 		           "Ready 1.0.2 scan cannot be exported as 1.0.0");
-		snprintf(ready.actualLevSha256, sizeof ready.actualLevSha256, "%s", baby->levSha256);
-		snprintf(ready.actualVrmSha256, sizeof ready.actualVrmSha256, "%s", baby->vrmSha256);
-		expect_int(Manager_PackageReceipt(baby, &ready, ready.verifiedPackageSha256), 1,
+		snprintf(ready.actualLevSha256, sizeof ready.actualLevSha256, "%s", legacyExport.levSha256);
+		snprintf(ready.actualVrmSha256, sizeof ready.actualVrmSha256, "%s", legacyExport.vrmSha256);
+		expect_int(Manager_PackageReceipt(&legacyExport, &ready, ready.verifiedPackageSha256), 1,
 		           "1.0.0 scan receipt recorded");
-		expect_int(CustomTrackManager_RenderYaml(baby, &ready, NULL, yaml, sizeof yaml), 1,
+		expect_int(CustomTrackManager_RenderYaml(&legacyExport, &ready, NULL, yaml, sizeof yaml), 1,
 		           "Ready 1.0.0 scan still exports as 1.0.0");
-		expect_int(CustomTrackManager_RenderYaml(cur, &ready, NULL, yaml, sizeof yaml), 0,
+		expect_int(CustomTrackManager_RenderYaml(&currentExport, &ready, NULL, yaml, sizeof yaml), 0,
 		           "Ready 1.0.0 scan cannot be exported as 1.0.2");
 	}
 	{

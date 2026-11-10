@@ -25,20 +25,43 @@ typedef int8_t s8;
 #define WARPBALL_HELD 16
 static int rng;
 static int MixRNG_Scramble(void) { return rng; }
-static int CTR_MipsSra(int a, int b) { return a >> b; }
-static int CTR_MipsSubLo(int a, int b) { return a - b; }
-static int CTR_MipsAddLo(int a, int b) { return a + b; }
-static int CTR_MipsMulLo(int a, int b) { return a * b; }
-static int CTR_MipsDiv(int a, int b) { return a / b; }
+static inline int CTR_MipsSra(int a, int b) { return a >> b; }
+static inline int CTR_MipsSubLo(int a, int b) { return a - b; }
+static inline int CTR_MipsAddLo(int a, int b) { return a + b; }
+static inline int CTR_MipsMulLo(int a, int b) { return a * b; }
+static inline int CTR_MipsDiv(int a, int b) { return a / b; }
 static int AP_BossRetailRulesLevel(int level) { return level; }
 static int AP_TiziFilterRoll(struct Driver *driver, int proposed) { (void)driver; return proposed; }
 '''
 source = (root / 'game/Vehicle/VehPhysGeneral.c').read_text()
 start = source.index('enum ItemSet\n')
-end = source.index('\nu8 *charPtr[8] =', start)
+end = source.index('\nenum\n{\n\tVEH_BASE_SPEED_MAX_WUMPA', start)
+# The engine's names the production slice reads (include/namespace_Vehicle.h,
+# include/common.h, game/Vehicle/VehCommon.h); the item tables are all zeros,
+# as in the retail-order fixture below.
+fixture += r'''
+#define CTR_PSX_REGISTER(r)
+#define CTR_PSX_OBSERVE_MEMORY(x) ((void)0)
+#define CTR_PSX_OBSERVE_VALUE(x) ((void)0)
+#define GAME_TRACKER (sdata->gGT)
+#define GAME_ADV_PROGRESS (sdata->advProgress)
+#define VEH_LOAD_GAME_TRACKER(g) ((g) = sdata->gGT)
+#define BATTLE_DEFAULT_WEAPON_FLAGS 0x34de
+enum { HELD_ITEM_TURBO = 0, HELD_ITEM_BOMB_1X = 1, HELD_ITEM_MISSILE_1X = 2, HELD_ITEM_TNT = 3,
+       HELD_ITEM_POTION = 4, HELD_ITEM_SPRING = 5, HELD_ITEM_SHIELD = 6, HELD_ITEM_MASK = 7,
+       HELD_ITEM_CLOCK = 8, HELD_ITEM_WARPBALL = 9, HELD_ITEM_BOMB_3X = 0xa, HELD_ITEM_MISSILE_3X = 0xb,
+       HELD_ITEM_INVISIBILITY = 0xc, HELD_ITEM_SUPER_ENGINE = 0xd, HELD_ITEM_NONE = 0xf,
+       HELD_ITEM_ROULETTE = 0x10, HELD_ITEM_STACK_COUNT = 3 };
+static u8 table[256]; /* larger than any retail set count */
+#define VEH_ITEM_SET_RACE1 table
+#define VEH_ITEM_SET_RACE2 table
+#define VEH_ITEM_SET_RACE3 table
+#define VEH_ITEM_SET_RACE4 table
+#define VEH_ITEM_SET_BOSS_RACE table
+#define VEH_ITEM_SET_BATTLE_DEFAULT table
+'''
 fixture += source[start:end]
 fixture += r'''
-static u8 table[20];
 u8 *charPtr[8] = {table, table, table, table, table, table, 0, table};
 u8 numWeapons[8] = {20, 20, 20, 20, 20, 20, 0, 20};
 int main(void) {

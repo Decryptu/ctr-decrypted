@@ -9,6 +9,10 @@
 
 struct sData sdata_static;
 struct Data data;
+void ap_net_statselect_set(const int *values, int n) { (void)values; (void)n; }
+int ap_net_statselect_known(int *out, int n) { (void)out; (void)n; return 0; }
+unsigned ap_net_statselect_revision(void) { return 0; }
+int AP_TrapWeakenedActive(struct Driver *driver) { (void)driver; return 0; }
 ctr_seed_config ctr_cfg;
 int ctr_cfg_active(void) { return ctr_cfg.schema_version > 0; }
 void AP_LogLine(const char *line) { (void)line; }

@@ -521,19 +521,6 @@ openGarage:
 			s32 hubID = GAME_TRACKER->levelID - GEM_STONE_VALLEY;
 			s32 raceLevel = raceLevels[hubID];
 
-			// #169 tier 2: the seed's drawn racer replaces the garage's boss
-			// as P2, in a boss race and through all four races of a boss cup.
-			// Seated here, before any branch: this block runs again on every
-			// frame until the load starts, and each pass first writes the
-			// retail boss above, so a seat inside one branch alone can be
-			// overwritten (A2-44).
-			if (hubID >= 1 && hubID <= 4)
-			{
-				int earlyOpponent = AP_BossGarageOpponent(hubID - 1);
-				if (earlyOpponent >= 0)
-					GAME_CHARACTER_IDS[1] = (s16)earlyOpponent;
-			}
-
 			// #169 boss track shuffle: the four ordinary garages race on the
 			// seed's drawn venue. The opponent above is still read from the home
 			// track and bossID stays the physical garage, so the Key, the
@@ -543,6 +530,18 @@ openGarage:
 			// slipped past it, and never substitutes the retail venue.
 			if (hubID >= 1 && hubID <= 4)
 			{
+				// #169 tier 2: the seed's drawn racer replaces the garage's boss
+				// as P2, in a boss race and through all four races of a boss cup.
+				// bossID stays physical; LOAD_DriverMPK keeps the boss's own pack
+				// and sideloads the racer's hi model. Seated here, before any
+				// branch: this block runs again on every frame until the load
+				// starts, and each pass first writes the retail boss above. A boss
+				// cup returns early once its first leg is staged, so a seat inside
+				// the cup branch was overwritten and the cup raced the retail boss
+				// under a garage naming the drawn racer (A2-44).
+				int opponent = AP_BossGarageOpponent(hubID - 1);
+				if (opponent >= 0)
+					GAME_CHARACTER_IDS[1] = (s16)opponent;
 #ifdef CTR_CUSTOM_TRACKS
 				// #133 PR 6b: a content-plan garage holding a boss cup runs it on
 				// the Adventure Cup machinery (engine cup 0) with boss mode kept:
@@ -559,12 +558,8 @@ openGarage:
 				{
 					int cupSlot;
 					const ctr_content_pad *cupPad = ap_content_plan_pad(AP_CONTENT_GARAGE_CUP_PAD + hubID - 1);
-					int cupOpponent = AP_BossGarageOpponent(hubID - 1);
 					GAME_ADD_CONFIG_0 |= ADVENTURE_CUP;
 					GAME_REMOVE_CONFIG_0 &= ~ADVENTURE_CUP;
-					// One drawn racer through all four races, as in a boss race.
-					if (cupOpponent >= 0)
-						GAME_CHARACTER_IDS[1] = (s16)cupOpponent;
 					GAME_TRACKER->cup.cupID = 0;
 					GAME_TRACKER->cup.trackIndex = 0;
 					for (cupSlot = 0; cupSlot < 8; cupSlot++)
@@ -578,7 +573,6 @@ openGarage:
 				}
 #endif
 				int venue = AP_BossGarageVenue(hubID - 1);
-				int opponent;
 				if (venue < 0)
 				{
 					GAME_TRACKER->pushBuffer_UI.fadeFromBlack_desiredResult = 0x1000;
@@ -586,12 +580,6 @@ openGarage:
 					return;
 				}
 				raceLevel = venue;
-				// #169 tier 2: the seed's drawn racer replaces the garage's boss
-				// as P2. bossID stays physical; LOAD_DriverMPK keeps the boss's
-				// own pack and sideloads the racer's hi model.
-				opponent = AP_BossGarageOpponent(hubID - 1);
-				if (opponent >= 0)
-					GAME_CHARACTER_IDS[1] = (s16)opponent;
 #ifdef CTR_CUSTOM_TRACKS
 				// The venue may be a custom track's host slot; this load is retail.
 				CustomTrack_SelectRetailRace();

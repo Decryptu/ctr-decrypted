@@ -721,3 +721,8 @@ int main(void)
 	printf("custom time trial: %d checks, %d failures\n", checks, failures);
 	return failures ? 1 : 0;
 }
+
+/* High-memory ghost allocation is outside these record tests. */
+void *MEMPACK_AllocHighMem(s32 size, const char *name)
+{ (void)name; return calloc(1, (size_t)size); }
+void MEMPACK_ClearHighMem(void) {}

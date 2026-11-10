@@ -6,6 +6,7 @@
 #include <platform/native_custom_finish.h>
 void AP_LapOnCrossing(struct GameTracker *, struct Driver *, int);
 #include "../game/PlayLevel.c"
+int gNative60FpsEnabled; /* 30 FPS: FPS_DOUBLE in PlayLevel.c is the identity */
 struct sData sdata_static;
 struct Data data;
 static struct GameTracker gt;

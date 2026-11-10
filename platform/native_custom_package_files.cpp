@@ -639,7 +639,7 @@ CustomPackageStoreEntry scan_entry(const std::string &prefix, const std::string 
             /* A Decrypted catalogue package only names its author. */
             if (!std::strcmp(file.role,"presentation") && !std::strcmp(file.path,"metadata/decrypted-source.json") && file.bytes<=4096)
             {
-                std::string bytes(file.bytes,' ');
+                std::string bytes(file.bytes,'\0');
                 if (!CustomPackage_CopyFile(package,"presentation",bytes.data(),bytes.size(),nullptr)) continue;
                 try {
                     auto source=nlohmann::json::parse(bytes);

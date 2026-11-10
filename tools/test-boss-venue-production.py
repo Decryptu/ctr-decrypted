@@ -306,8 +306,8 @@ require('ap/ap_tracker.c', 'AP_BossVenueAdvert(ap_tracker.hub - 1, n->pad')
 require('game/231/RB_Hazard.c', 'if (PickupBots_AdapterProtect(driverVictim))')
 require('game/BOTS.c', 'if (PickupBots_AdapterProtect(botDriver))')
 require('game/PickupBots.c', 'PickupBots_AdapterTick();', 'AP_BossAdapterReset(&s_apBossAdapter);',
-        'if (AP_BossAdapterIsAdvanced(bossMeta->weaponType))', 'PickupBots_UpdateBoss(gGT->drivers[1]);',
-        'PickupBots_UpdateBoss(attacker);')
+        'if (AP_BossAdapterIsAdvanced(bossMeta->weaponType))', 'PickupBots_UpdateBoss(gGT, gGT->drivers[1]);',
+        'PickupBots_UpdateBoss(gGT, attacker);')
 # One generator row 12 deleted the legacy reader's boss_encounters parse; the
 # plan admission reads the plan's bosses. Every parse still clears the table.
 require('ap/ap_seedcfg.cpp', 'std::memset(&ctr_boss_encounters, 0, sizeof ctr_boss_encounters);')

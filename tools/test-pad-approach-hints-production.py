@@ -22,9 +22,9 @@ def body(text, head):
 
 
 # The call sits right after the pad name is drawn, once, and nowhere else.
-name = warp.index("DecalFont_DrawLine(warppadLNG,")
-call = warp.index("AP_PadApproachHints(levelID);")
-assert name < call < warp.index("int apBoxesLeft = 0;", call)
+name = warp.index('pad->display_name : "No entry selected"')
+call = warp.index("AP_PadApproachHints(apLevelID);")
+assert name < call < warp.index("apBoxesLeft = AP_ContentBoxesLine(", call)
 assert warp.count("AP_PadApproachHints(") == 1
 assert '#include "ap_pad_hints_logic.h"' in hooks
 

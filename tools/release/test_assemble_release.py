@@ -194,7 +194,7 @@ class AssemblerFixtureTests(unittest.TestCase):
         artifact, _ = self.write_build_archive(
             "windows", extra={"LICENSE-xdelta3.txt": b"apache", "LICENSE-utf8proc.md": b"mit"}
         )
-        archive = next(artifact.glob("ctr-ap-windows-x86-*.zip"))
+        archive = next(artifact.glob("ctr-decrypted-windows-x86-*.zip"))
         binary, _, _ = ASSEMBLER.unpack_artifact(archive, "windows", self.root / "unpacked-licenses")
         self.assertTrue(binary.is_file())
 
@@ -408,7 +408,7 @@ class AssemblerFixtureTests(unittest.TestCase):
         package_client = ASSEMBLER.load_package_client(self.source)
         self.assertIsNotNone(package_client)
         artifact, debug = self.write_build_archive("windows")
-        archive = next(artifact.glob("ctr-ap-windows-x86-*.zip"))
+        archive = next(artifact.glob("ctr-decrypted-windows-x86-*.zip"))
         binary, metadata, _ = ASSEMBLER.unpack_artifact(archive, "windows", self.root / "unpacked")
         shutil.copy2(debug, binary.with_name(binary.name + ".debug"))
         # The tiny fixture binary is intentionally invalid. Stop inside the

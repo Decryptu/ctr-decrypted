@@ -154,15 +154,15 @@ check("AP_FastTravelFrame(gGT);" in onframe, "the trip runs from AP_OnFrame")
 
 birth = (root / "game/Vehicle/VehBirth.c").read_text()
 tele = birth[birth.index("void VehBirth_TeleportSelf("):]
-check("AP_FastTravelSpawnAt(level1, (int)gGT->levelID, &apTravelPos, &apTravelRot)" in tele,
+check("AP_FastTravelSpawnAt(GAME_TRACKER->level1, (int)GAME_TRACKER->levelID, &apTravelPos, &apTravelRot)" in tele,
       "the birth asks the trip for its save-screen spawn")
-check("ctr_cfg_active() && d == gGT->drivers[0]" in tele, "only the player, only in a seed")
+check("ctr_cfg_active() && d == GAME_TRACKER->drivers[0]" in tele, "only the player, only in a seed")
 check("if (doorInst == NULL && !spawnOutsideBoss)" in tele,
       "the door and boss-scene spawns win first")
-check("AP_FastTravelSpawnYield((int)gGT->levelID);" in tele,
+check("AP_FastTravelSpawnYield((int)GAME_TRACKER->levelID);" in tele,
       "a scene or door spawn disarms the armed trip instead of leaving it armed")
 poschain = tele[tele.index("if (doorInst != NULL)"):]
-check(poschain.index("else if (apTravel)") > poschain.index("else if (spawnOutsideBoss != 0)"),
+check(poschain.index("if (apTravel)") > poschain.index("if (shouldSpawnOutside)"),
       "the travel spawn follows the door and boss rules in the spawn chain")
 check("d->rotCurr.y = apTravelRot;" in tele, "the landing faces the save screen")
 

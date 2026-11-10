@@ -219,8 +219,8 @@ load = garage[garage.index('if (hubID >= 1 && hubID <= 4)'):garage.index('RaceFl
 # before the seat, which comes ahead of the boss cup branch (A2-44), and the
 # final racer for hub 0.
 seat = load[:load.index('AP_ContentGarageCupPrepare(hubID - 1)')]
-assert 'ap_content_plan' not in seat and 'data.characterIDs[1] = (s16)opponent;' in seat
-assert 'data.characterIDs[1] = (s16)finalOpponent;' in load
+assert 'ap_content_plan' not in seat and 'GAME_CHARACTER_IDS[1] = (s16)opponent;' in seat
+assert 'GAME_CHARACTER_IDS[1] = (s16)finalOpponent;' in load
 gates = text('ap/ap_hooks_gates.c')
 adv = extract(gates, 'int AP_BossVenueAdvert(int bossIdx, char *out, int cap)\n{')
 assert 'ctr_boss_encounters.custom[bossIdx]' in adv and 'pkg->display_name' in adv and '"Track: Cortex Vortex"' in adv

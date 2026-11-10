@@ -27,6 +27,8 @@
 struct sData sdata_static;
 struct Data data;
 NativeConfig g_config;
+/* CustomTrack_Log also writes to the platform log. */
+void Platform_Log(const char *fmt, ...) { (void)fmt; }
 
 static int failures;
 #define EXPECT(cond, what) do { if (!(cond)) { printf("FAIL %s\n", what); failures++; } } while (0)

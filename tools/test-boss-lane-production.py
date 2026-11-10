@@ -40,7 +40,7 @@ check(bots.count('AP_NavRecIdentity_ForLoad(') == 1, 'one identity answer per lo
 
 # 2. The search runs only in the boss branch, under the gate.
 boss = bots.index('if ((botFlags & (BOT_FLAG_BOSS_PATH_REQUESTED | BOT_FLAG_BOSS_PATH_ACTIVE)) == BOT_FLAG_BOSS_PATH_REQUESTED)')
-overtake = bots.index('if (BOTS_RACE_START_AI_COLLISION_DELAY_FRAMES < sdata->aiCollisionDelayFrameCount)', boss)
+overtake = bots.index('if (FPS_DOUBLE(BOTS_RACE_START_AI_COLLISION_DELAY_FRAMES) < sdata->aiCollisionDelayFrameCount)', boss)
 branch = bots[boss:overtake]
 check(bots.count('AP_BossLane_AheadIndex(') == 1, 'the search has one caller')
 check('AP_BossLane_AheadIndex(' in branch, 'the caller is the boss lane switch')

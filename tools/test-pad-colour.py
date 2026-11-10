@@ -114,13 +114,13 @@ beam_at = build.index('INSTANCE_Birth3D(beamModel, "beam", t);')
 pre = build[build.rindex('if (gGT->modelPtr[STATIC_BEAM] != 0)', 0, beam_at):beam_at]
 assert 'AP_PadLook(levelID, warppadObj->levelID)' in pre
 assert 'AH_WarpPad_ApBeamModel(beamModel, apBeamLook)' in pre
-beam = build[beam_at:build.index('warppadObj->inst[WPIS_OPEN_BEAM] = newInst;', beam_at)]
+beam = build[beam_at:build.index('warppadObj->slots.inst[WPIS_OPEN_BEAM] = newInst;', beam_at)]
 assert 'newInst->alphaScale = (s16)AP_PadLookBeamAlpha(apBeamLook);' in beam
 assert 'colorRGBA' not in beam, 'the shaped beam keeps the retail far colour'
 assert warp.count('"beam", t);') == 2, 'open beam birth and the Done replay beam'
 # The state beam's subtractive copy is born after the retail children (a full
 # pool drops only the copy), in the beam's place, at the filter strength, once.
-wisp_end = build.index('warppadObj->inst[WPIS_OPEN_RING1 + i] = newInst;')
+wisp_end = build.index('warppadObj->slots.inst[WPIS_OPEN_RING1 + i] = newInst;')
 filt_at = build.index('INSTANCE_Birth3D(filterModel, "beamFilter", t);')
 assert wisp_end < filt_at
 filt = build[build.rindex('#ifdef CTR_AP', 0, filt_at):filt_at + 400]
@@ -131,26 +131,26 @@ assert 'AH_WarpPad_ApFilterOf(t) == 0' in filt and 'if (f != 0)' in filt
 # births are not null-checked).
 assert 'gGT->JitPools.instance.free.count > AP_BEAM_FILTER_POOL_RESERVE' in filt
 assert '#define AP_BEAM_FILTER_POOL_RESERVE 3' in warp
-assert 'f->matrix = warppadObj->inst[WPIS_OPEN_BEAM]->matrix;' in filt and 'f->alphaScale = AP_PAD_BEAM_FILTER_ALPHA;' in filt
+assert 'f->matrix = warppadObj->slots.inst[WPIS_OPEN_BEAM]->matrix;' in filt and 'f->alphaScale = AP_PAD_BEAM_FILTER_ALPHA;' in filt
 assert warp.count('"beamFilter", t);') == 1, 'one filter birth'
 # No pointer to it outside the instance pool: it is found by thread and name.
 assert not re.search(r's_apBeamFilter\b', warp), 'no filter pointer table'
 finder = body(warp, 'static struct Instance *AH_WarpPad_ApFilterOf(struct Thread *t)\n{')
 assert 'JitPools.instance.taken.first' in finder and 'it->thread == t' in finder and '"beamFilter"' in finder
 # ...turns with the beam and dies with it.
-tick_spin = warp[warp.index('ConvertRotToMatrix(&instArr[WPIS_OPEN_BEAM]->matrix, &warppadObj->spinRot_Beam);'):]
-tick_spin = tick_spin[:tick_spin.index('wispRiseRate = 0x20;')]
+tick_spin = warp[warp.index('ConvertRotToMatrix(&warppadObj->slots.inst[WPIS_OPEN_BEAM]->matrix, &warppadObj->spinRot_Beam);'):]
+tick_spin = tick_spin[:tick_spin.index('wispRiseRate = FPS_HALF(')]
 assert 'AH_WarpPad_ApFilterOf(t)' in tick_spin and 'ConvertRotToMatrix(&apFilter->matrix, &warppadObj->spinRot_Beam);' in tick_spin
 # A savestate restore can bring back instances that point at copies built
 # later from another hub's models: a pad with a state beam rebuilds stale copies.
-assert 'AH_WarpPad_ApRefreshCopies(sdata->gGT);' in tick_spin
+assert 'AH_WarpPad_ApRefreshCopies(GAME_TRACKER);' in tick_spin
 refresh = body(warp, 'static void AH_WarpPad_ApRefreshCopies(struct GameTracker *gGT)\n{')
 assert 's_apBeamHueSource[slot][0] == (uintptr_t)retail' in refresh and 'retail->headers[0].ptrCommandList' in refresh
 assert 'AH_WarpPad_ApHueModel(retail, rgb, slot, use == AP_BEAM_USE_FILTER)' in refresh
 assert 's_apBeamHueModel[slot].numHeaders = 0;' in refresh
 destroy = body(warp, 'void AH_WarpPad_ThDestroy(struct Thread *t)')
 beam_death = destroy[destroy.index('INSTANCE_Death(instArr[WPIS_OPEN_BEAM]);'):]
-beam_death = beam_death[:beam_death.index('for (i = WPIS_OPEN_RING1')]
+beam_death = beam_death[:beam_death.index('WPIS_OPEN_RING1')]
 assert 'AH_WarpPad_ApFilterOf(t)' in beam_death and 'INSTANCE_Death(apFilter);' in beam_death
 # The wisps take the state wisp model; open and stage 2 open keep apart copies.
 assert 'AH_WarpPad_ApWispModel(wispModel, AP_PadLook(levelID, warppadObj->levelID))' in build
@@ -172,7 +172,7 @@ assert 'AP_PadDoneBeam(AP_PadLook(levelID, warppadObj->levelID),' in done
 assert 'AP_PadReplayable(levelID, warppadObj->levelID)' in done
 assert 'AH_WarpPad_ApBeamModel(gGT->modelPtr[STATIC_BEAM], AP_PAD_LOOK_DONE)' in done
 assert 'INSTANCE_Birth3D(doneBeam, "beam", t);' in done
-assert 'warppadObj->inst[WPIS_OPEN_BEAM] = newInst;' in done
+assert 'warppadObj->slots.inst[WPIS_OPEN_BEAM] = newInst;' in done
 assert 'colorRGBA' not in done and 'ApWispModel' not in done, 'shaped grey beam, no wisps'
 assert 'beamFilter' not in done and 'AP_PadLookBeamAlpha(AP_PAD_LOOK_DONE)' in done, 'Done strength, no filter'
 # The rebuild key follows enterability, so a Done pad that stops being enterable
@@ -186,7 +186,7 @@ guard = warp[warp.index('AP_PadState(ctr_cfg_warp_phys(warppadObj->levelID), war
 assert '!AP_PadReplayable(ctr_cfg_warp_phys(warppadObj->levelID), warppadObj->levelID)' in guard[:300], 'same condition as the Done guard'
 
 # Map: the AP block draws the table colour, not a font palette slot.
-warppads = body(amap, 'void AH_Map_Warppads(s16 *ptrMap, struct Thread *warppadThread, s16 *param_3)')
+warppads = body(amap, 'void AH_Map_Warppads(struct UIMap *map, struct Thread *warppadThread, s16 *arrowCounter)')
 ap_block = warppads[warppads.index('#ifdef CTR_AP\n\t\t// AP Warp-Pad State Model v2'):]
 ap_block = ap_block[:ap_block.index('#endif')]
 assert 'AP_PadLook(physLevelID, destLevelID)' in ap_block
@@ -194,7 +194,7 @@ assert 'AP_PadLookMapVertex(look, dim)' in ap_block
 assert 'AP_MapFlashOn()' in ap_block, 'Map Flash still governs the flicker'
 for slot in ('RED', 'LIGHT_GREEN', 'FOREST_GREEN', 'ORANGE', 'PERIWINKLE', 'BLUE', 'GRAY'):
     assert not re.search(r'color\s*=\s*' + slot + r'\b', ap_block), slot
-assert 'AH_Map_DrawPadIconRGB(ptrMap, (int *)&warppadInst->matrix.t[0], apMapVertex);' in warppads
+assert 'AH_Map_DrawPadIconRGB(map, &warppadInst->matrix.t[0], apMapVertex);' in warppads
 
 # Tracker: the node dot is the table colour.
 draw = body(tracker, 'static void AP_TrackerDraw(void)')

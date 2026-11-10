@@ -66,7 +66,7 @@ Ported feature by feature, never merged: a trial merge conflicts in 92 files, an
 Not a source: kkv0n/Gasmox-Launcher, a C# launcher for OnlineCTR in DuckStation; it shares no code with the native port.
 
 ## dowlle/ctr-native-ap (our base)
-**State:** very active, CI, signed releases (minisign manifest). The client is in `ap/` (apclientpp, websocketpp, asio, OpenSSL); hooks are `#ifdef CTR_AP` blocks in 58 `game/` files. 0.3.0 work is on `dev/custom-pad-0.3.0` in large stacked PRs (#520–#531) with matching apworld PRs.
+**State:** very active, CI, signed releases (minisign manifest). The client is in `ap/` (apclientpp, websocketpp, asio, OpenSSL); hooks are `#ifdef CTR_AP` blocks in 58 `game/` files. The `main` branches of the client and apworld carry the 0.3.0 content-plan format.
 
 **Open bugs:**
 - #499: vanilla unlock requirements ignore the stage-2 key count. Fixed in our apworld (PR #154).

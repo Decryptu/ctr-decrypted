@@ -30,6 +30,7 @@ common = r'''
 #include <common.h>
 struct sData sdata_static;
 struct Data data;
+int gNative60FpsEnabled; /* 30 FPS: the frame-count scalers are the identity */
 static struct GameTracker gt;
 int OtherFX_Play(u32 a, int b) { return 0; }
 int LOAD_IsOpen_AdvHub(void) { return 1; }

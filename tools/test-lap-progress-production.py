@@ -39,8 +39,8 @@ check('AP_LapProgress_IndexUsable(nodes[checkpointIndex].nextIndex_forward, leve
       'the progress node is checked')
 check('AP_LapProgress_IndexUsable(nodes[nodes[checkpointIndex].nextIndex_forward].nextIndex_forward, level->cnt_restart_points)' in body,
       'the next node is checked')
-nodes_decl = body.index('struct CheckpointNode *nodes = level->ptr_restart_points;')
-first_read = body.index('struct CheckpointNode *checkpointNode = &nodes[checkpointIndex];')
+nodes_decl = body.index('nodes = level->ptr_restart_points;')
+first_read = body.index('checkpointNode = &nodes[checkpointIndex];')
 check(nodes_decl < guard < first_read, 'the guard sits between the array and its first use')
 
 # 2. A refused index returns before any driver write.
@@ -52,7 +52,7 @@ check(first_write is not None and guard + ret < first_write.start(), 'the guard 
 # 3. AP only; retail index sources unchanged.
 pre = body[:guard]
 check(pre.rfind('#ifdef CTR_AP') > pre.rfind('#endif'), 'the guard is inside #ifdef CTR_AP')
-check('if ((quad != NULL) && (quad->checkpointIndex != 0xff))' in body, "the human 0xff skip is retail's")
+check('if ((quad != NULL) && (quad->checkpointIndex != VEH_LAP_INVALID_CHECKPOINT))' in body, "the human 0xff skip is retail's")
 check('checkpointIndex = driver->botData.ai_quadblock_checkpointIndex;' in body, 'a bot still takes its own index')
 check('botDriver->botData.ai_quadblock_checkpointIndex = sps->hit.ptrQuadblock->checkpointIndex;' in bots,
       'BOTS.c still takes the quad index off the nav line')

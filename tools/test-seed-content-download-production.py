@@ -138,6 +138,12 @@ bool https_get(const char *host, const std::string &path, size_t max_bytes, std:
 	body = it->second;
 	return true;
 }
+bool https_get(const std::string &path, size_t max_bytes,
+               std::vector<unsigned char> &body, std::string &error)
+{
+    return https_get(kSaphiHost, path, max_bytes, body, error);
+}
+
 '''
 
 tests = r'''

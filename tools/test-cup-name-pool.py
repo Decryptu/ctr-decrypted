@@ -47,7 +47,9 @@ def table(name):
 
 def font_icons():
     body = table("font_characterIconID")
-    body = body[:body.index("#if BUILD != EurRetail")]
+    # Retail ASCII only: a build with the PAL/JP block ends the table there.
+    if "#if BUILD != EurRetail" in body:
+        body = body[:body.index("#if BUILD != EurRetail")]
     out = []
     for line in body.splitlines():
         line = line.split("//")[0].strip().rstrip(",")

@@ -32,24 +32,27 @@ assert "ap_hub_hint_hold_evict(&s_apHubHintHold, gGT->levID_in_each_mempack[pack
 
 # LOAD_TalkingMask records the hub before it marks the pack empty.
 at_evict = mask.index("LOAD_Hub_ApMaskEvicts(packID);")
-assert at_evict < mask.index("sdata->gGT->levID_in_each_mempack[packID] = -1;") < mask.index("MEMPACK_ClearLowMem();")
+assert at_evict < mask.index("GAME_TRACKER->levID_in_each_mempack[packID] = -1;") < mask.index("MEMPACK_ClearLowMem();")
 assert "#ifdef CTR_AP" in mask[at_evict - 120:at_evict]
 
-# LOAD_Hub_Main: a held read goes first, after the queue-busy check, then a
-# held swap, only into a hub; a corridor swap during a hint is remembered by
-# the hold, not through retail's cutscene swap flag; a corridor read is held.
+# LOAD_Hub_Main: a held read goes first, while the loader is idle and before the
+# player loop, then a held swap, only into a hub; a corridor swap during a hint
+# is remembered by the hold, not through retail's cutscene swap flag; a corridor
+# read is held.
+PAIR = "LOAD_HUB_MEMPACK_PAIR_INDEX_SUM - "
+loop = main.index("for (i = 0; i < GAME_TRACKER->numPlyrCurrGame; i++)")
 release = main.index("ap_hub_hint_hold_release(&s_apHubHintHold, sdata->AkuAkuHintState, gGT->levelID);")
-assert main.index("if (sdata->Loading.stage != LOAD_IDLE)") < release < main.index("for (int i = 0; i < gGT->numPlyrCurrGame; i++)")
-assert "LOAD_Hub_ReadFile(bigfilePtr, heldLev, 3 - gGT->activeMempackIndex);\n\t\t\treturn;" in main
+assert main.index("if (GAME_LOADING_STAGE == LOAD_IDLE)") < release < loop
+assert "LOAD_Hub_ReadFile(bigfilePtr, heldLev, " + PAIR + "gGT->activeMempackIndex);\n\t\t\treturn;" in main
 swap_release = main.index("ap_hub_hint_hold_swap_release(&s_apHubHintHold, sdata->AkuAkuHintState, gGT->levelID,")
-assert release < swap_release < main.index("for (int i = 0; i < gGT->numPlyrCurrGame; i++)")
-assert "gGT->levID_in_each_mempack[3 - gGT->activeMempackIndex]))" in main[swap_release:swap_release + 200]
-assert "gGT->bool_AdvHub_NeedToSwapLEV = 0;\n\t\t\tLOAD_Hub_SwapNow();\n\t\t\treturn;" in main[swap_release:swap_release + 300]
-swap = main.index("if (ap_hub_hint_hold_swap(&s_apHubHintHold, sdata->AkuAkuHintState, gGT->levelID,\n\t\t\t\t                          gGT->levID_in_each_mempack[3 - gGT->activeMempackIndex]))\n\t\t\t\t\tcontinue;")
-assert swap < main.index("gGT->bool_AdvHub_NeedToSwapLEV = 0;\n\t\t\t\tLOAD_Hub_SwapNow();")
+assert release < swap_release < loop
+assert "gGT->levID_in_each_mempack[" + PAIR + "gGT->activeMempackIndex]))" in main[swap_release:swap_release + 220]
+assert "gGT->bool_AdvHub_NeedToSwapLEV = 0;\n\t\t\tLOAD_Hub_SwapNow();\n\t\t\treturn;" in main[swap_release:swap_release + 320]
+swap = main.index("if (ap_hub_hint_hold_swap(&s_apHubHintHold, sdata->AkuAkuHintState, GAME_TRACKER->levelID,\n\t\t\t\t                          GAME_TRACKER->levID_in_each_mempack[" + PAIR + "GAME_TRACKER->activeMempackIndex]))\n\t\t\t\t{\n\t\t\t\t\tcontinue;")
+assert swap < main.index("GAME_TRACKER->bool_AdvHub_NeedToSwapLEV = 0;\n\t\t\t\tLOAD_Hub_SwapNow();")
 assert main.count("bool_AdvHub_NeedToSwapLEV = 1") == 0
-held = main.index("if (ap_hub_hint_hold_read(&s_apHubHintHold, sdata->AkuAkuHintState,")
-assert main.index("if (currLevelID >= 5)") < held < main.index("LOAD_Hub_ReadFile(bigfilePtr, LOAD_HUB_CONNECTED_LEV(currLevelID, nextLevelID - 1), 3 - gGT->activeMempackIndex);")
+held = main.index("if (ap_hub_hint_hold_read(&s_apHubHintHold, sdata->AkuAkuHintState, levID, GAME_TRACKER->levelID))")
+assert main.index("if (currLevelID < LOAD_ADV_HUB_COUNT)") < held < main.index("LOAD_Hub_ReadFile(bigfilePtr, levID, " + PAIR + "GAME_TRACKER->activeMempackIndex);")
 
 # Only the corridor path holds: LOAD_Hub_ReadFile itself is unchanged, so the
 # cutscene thread and the character swap keep their own read handshakes.

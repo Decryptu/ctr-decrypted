@@ -35,8 +35,9 @@ struct Box { int x, y, w, h; char text[200]; };
 static struct Box boxes[64];
 static int nboxes, panels, page;
 static char drawn[8192];
-void DecalFont_DrawLineOT(char *s, int x, int y, s16 f, int flags, uint32_t *ot)
+void DecalFont_DrawLineOT(char *s, s16 posX, s16 posY, s16 f, s16 flags, u32 *ot)
 {
+	int x = posX, y = posY;
 	int w = DecalFont_GetLineWidth(s, f);
 	(void)ot;
 	CHECK(panels == 0); /* Later OT insertion puts the panel behind text. */
@@ -53,16 +54,22 @@ void DecalFont_DrawLineOT(char *s, int x, int y, s16 f, int flags, uint32_t *ot)
 	}
 	if (strlen(drawn) + strlen(s) + 2 < sizeof drawn) { strcat(drawn, s); strcat(drawn, "\n"); }
 }
-void RECTMENU_DrawInnerRect(RECT *r, int t, uint32_t *ot)
+void RECTMENU_DrawInnerRect(RECT *r, s16 t, u32 *ot)
 {
 	(void)ot;
 	CHECK(t == 0); /* Alpha2 dimmed list and help panel. */
 	CHECK(r->x == 0x14 && r->y == 0x32 && r->w == 0x1D8 && r->h == 0x8E);
 	panels++;
 }
-void CTR_Box_DrawClearBox(const RECT *r, const Color *c, int t, uint32_t *ot)
+/* Button glyphs inside a line (game/DecalFont.c) draw as icons. */
+void DecalHUD_DrawPolyGT4(struct Icon *i, s32 x, s32 y, struct PrimMem *p, u32 *ot, Color a, Color b, Color c, Color d,
+                          u8 t, s16 s)
 {
-	(void)c; (void)t; (void)ot;
+	(void)i; (void)x; (void)y; (void)p; (void)ot; (void)a; (void)b; (void)c; (void)d; (void)t; (void)s;
+}
+void CTR_Box_DrawClearBox(const RECT *r, const Color *c, s32 t, u32 *ot, struct PrimMem *primMem)
+{
+	(void)c; (void)t; (void)ot; (void)primMem;
 	CHECK(panels == 0); /* Highlights also remain in front of the panel. */
 	CHECK(r->x >= 0x18 && r->x + r->w <= 0x1E8 && r->y >= 0x30 && r->y + r->h <= 0xC2);
 }
@@ -334,6 +341,11 @@ static int full_once(const char *text, const char *all)
 
 int main(void)
 {
+	/* The highlight box draws into the back buffer's primitive memory. */
+	static struct GameTracker gameTracker;
+	static struct DB backBuffer;
+	gameTracker.backBuffer = &backBuffer;
+	sdata->gGT = &gameTracker;
 	data.font_charPixWidth[FONT_SMALL] = 13; data.font_charPixWidth[FONT_BIG] = 17;
 	data.font_puncPixWidth[FONT_SMALL] = 7; data.font_puncPixWidth[FONT_BIG] = 11;
 	data.font_buttonPixWidth[FONT_SMALL] = 2; data.font_buttonPixWidth[FONT_BIG] = 16;

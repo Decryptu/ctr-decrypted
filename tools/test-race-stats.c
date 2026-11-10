@@ -63,7 +63,13 @@ static char *slurp(const char *path)
 		buf = NULL;
 	}
 	if (buf)
-		buf[n] = 0;
+	{
+		long read, written = 0;
+		for (read = 0; read < n; read++)
+			if (buf[read] != '\r')
+				buf[written++] = buf[read];
+		buf[written] = 0;
+	}
 	fclose(f);
 	return buf;
 }

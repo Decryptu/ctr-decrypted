@@ -32,6 +32,7 @@ EXCEPTIONS = [
     ("apworld/ctr/README.md", "AI_USAGE.md"),  # his note about his own work
     ("docs/BOX_AUTHORING.md", "/issues/"),  # the issues the box tools were built for
     ("ap/ap_seedcfg.cpp", "ctr-native-ap#71"),  # a log line naming the upstream issue a seed field waits on
+    ("ap/ap_track_registry.h", "ctr-track-registry"),  # the Saphi track registry seeds resolve tracks from; only his repository has it
 ]
 
 RULES = [

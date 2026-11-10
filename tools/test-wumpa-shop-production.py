@@ -50,7 +50,7 @@ cheat = rb.index('CHEAT_WUMPA')
 bank = rb.find('AP_WumpaRaceModify(driver, wumpaDelta)')
 check('ModifyWumpa changes the full race count after cheat and mask protection', bank > cheat and bank > rb.index('ACTION_MASK_WEAPON'))
 check('the full race count handles losses as well as gains', bank > rb.index('driver->numTimesWumpa += wumpaDelta;'))
-check('the full race count is applied before the retail cap', bank < rb.index('driver->numWumpas > 10'))
+check('the full race count is applied before the retail cap', bank < rb.index('driver->numWumpas > DRIVER_WUMPA_MAX_COUNT'))
 
 wumpa = text('ap/ap_wumpa.c')
 recv = body(wumpa, 'void AP_WumpaReceive(int count)')
@@ -128,9 +128,9 @@ check('the save screen prepares the WUMPA SHOP row before showing the menu',
       '#define AH_SAVE_MENU               data.menuGreenLoadSave' in text('include/ovr_232.h'))
 proc = body(text('game/SelectProfile.c'), 'void SelectProfile_AdvPickMode_MenuProc(')
 check('the green menu procedure maps the shop row and the retail rows first',
-      proc.index('AP_WumpaShopGreenMenuRow(menu, row)') < proc.index('if ((row >= 0) && (row < 3))'))
+      proc.index('AP_WumpaShopGreenMenuRow(menu, row)') < proc.index('switch (row)'))
 check('LOAD, SAVE and DELETE toggle the mapped retail row, not rowSelected',
-      re.search(r'#ifdef CTR_AP\s*//[^\n]*\n\s*SelectProfile_ToggleMode\(\(u16\)row \| 0x20\);\s*#else', proc) is not None)
+      re.search(r'#ifdef CTR_AP\s*//[^\n]*\n\s*SelectProfile_ToggleMode\(\(s16\)\(\(u16\)row \| SELECT_PROFILE_SCREEN_GREEN_LOAD_SAVE\)\);\s*#else', proc) is not None)
 ui = text('ap/ap_wumpa_shop_ui.c')
 check('the shop rows come from the WUMPA SHOP first table',
       'ap_wshop_green_rows[AP_WSHOP_GREEN_ROWS + 1] = AP_WSHOP_GREEN_ROWS_INIT;' in ui)
@@ -144,9 +144,9 @@ frame = body(ui, 'int AP_WumpaShopMenuFrame(')
 check('leaving the shop keeps the cursor on WUMPA SHOP',
       'rowSelected' not in close and 'rowSelected' not in frame and
       re.search(r'if \(tap & \(BTN_TRIANGLE \| BTN_START\)\)\s*\{[^}]*AP_WShopClose\(\);\s*return 1;', frame) is not None)
-finalize = body(text('game/SelectProfile.c'), 'static void SelectProfile_FinalizeAdventure(')
+finalize = body(text('game/SelectProfile.c'), 'static __inline__ void SelectProfile_Finalize(struct RectMenu *menu)')
 check('returning from a save selects the visible EXIT row',
-      finalize.count('data.menuGreenLoadSave.rowSelected = AP_WumpaShopGreenExitRow(&data.menuGreenLoadSave);') == 2 and
+      finalize.count('SELECT_PROFILE_MENU_GREEN_LOAD_SAVE.rowSelected = AP_WumpaShopGreenExitRow(&SELECT_PROFILE_MENU_GREEN_LOAD_SAVE);') == 2 and
       'return (menu != 0 && menu->rows == ap_wshop_green_rows) ? AP_WSHOP_GREEN_EXIT : 3;' in body(ui, 'int AP_WumpaShopGreenExitRow('))
 check('the shop header reads COLLECTED',
       'AP_WumpaShopHeaderLine(line, (int)sizeof line, ap_net_wumpa_balance(), ap_net_wumpa_lifetime());' in ui and
