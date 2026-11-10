@@ -114,7 +114,7 @@ static void MM_MenuProc_Config(struct RectMenu *menu);
 // Page lookup built from g_configEntries at first use. A "section" in this menu
 // is a page from include/ctr_menu_pages.h, not a config.ini [section]: the page
 // table decides where a row is shown, the entry's section where it is saved.
-// Audio and State stay config-file-only (see CTR_MenuSectionHidden).
+// Audio and unlisted State entries stay config-file-only.
 static int s_sectionRows[CTR_MENU_PAGE_CAP][CTR_MENU_PAGE_ROW_CAP];
 static int s_sectionCount[CTR_MENU_PAGE_CAP];
 static const char *s_sectionName[CTR_MENU_PAGE_CAP];
@@ -636,6 +636,16 @@ static void Config_DrawRowHelp(const ConfigEntry *e, uint32_t *ot)
 	const char *first = 0;
 	const char *second = 0;
 
+	if (e->valuePtr == &g_config.cameraFar)
+	{
+		first = "Starting camera in single player.";
+		second = "L2 changes it during a race.";
+	}
+	if (e->valuePtr == &g_config.hudSpeedometer)
+	{
+		first = "Start races with this HUD.";
+		second = "Triangle changes it in a race.";
+	}
 	if (e->valuePtr == &g_config.itemBoxColours)
 	{
 		if (Config_RowLockedByItem(e))
@@ -733,7 +743,10 @@ static void Config_DrawValue(const ConfigEntry *e, const int valueX, int y, uint
 #endif
 	if (e->type == CFG_BOOL)
 	{
-		DecalFont_DrawLineOT(*(bool *)e->valuePtr ? "ON" : "OFF",
+		const char *label = *(bool *)e->valuePtr ? "ON" : "OFF";
+		if (e->valuePtr == &g_config.cameraFar) label = g_config.cameraFar ? "FAR" : "NEAR";
+		if (e->valuePtr == &g_config.hudSpeedometer) label = g_config.hudSpeedometer ? "SPEEDOMETER" : "MAP";
+		DecalFont_DrawLineOT((char *)label,
 			valueX, y, FONT_SMALL, JUSTIFY_RIGHT | WHITE, ot);
 	}
 	else if (e->type == CFG_ENUM)

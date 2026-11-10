@@ -11,19 +11,16 @@ Open work only: what is in progress, what is planned, what may come, and what is
   - Custom tracks are one-player only. If they ever get split screen, its far emitter (`DrawLevelOvr1P_EmitSplitGroundListAQuadBlock`) must draw by face too.
 
 ## Planned
-- Mods screen, Installed tab: a track a seed installed and the same track downloaded from the Tracks tab are listed twice. A seed install is stored under the room's package UUID with a `ctr-seed` source, and `MM_CustomSourceInstalled` (`game/230/MM_CustomManager.c`) only matches a Saphi track ID or the catalogue UUID. Match by LEV and VRM hashes as well, so the Tracks tab sees the seed's copy as installed.
 - The other High Octane features we want. Each `planned` line in `tools/decrypted/highoctane.txt` names its item here (`upstream_status.py --ho planned`):
-  - **High Octane fixes:** check each one against our tree and retail first, as some may be fixed already or change retail behaviour. Widescreen garage stat bars and speedometer; TLUT precision, minimap seam, track preview aspect; Crash Cove ship PVS; mask voice in step with the audio; homing enemy missiles; deterministic Blizzard Bluffs and Sewer Speedway hazards; shadows over menu boxes; Wumpa fruit on the VS/Battle end screen; DualSense showing as two pads; scrapbook video playback; split-screen decals, PVS/LOD, Wumpa and viewports, and the quadblock retry list overflow.
-  - **Default camera and HUD options:** the race starts with the chosen camera distance and HUD element.
+  - **High Octane fixes:** check each one against our tree and retail first, as some may be fixed already or change retail behaviour. Widescreen garage stat bars and speedometer; minimap seam, track preview aspect; Crash Cove ship PVS; mask voice in step with the audio; shadows over menu boxes; Wumpa fruit on the VS/Battle end screen; scrapbook video playback; split-screen decals, PVS/LOD, Wumpa and viewports, and the quadblock retry list overflow.
   - **Lap count 1-9** in Arcade and Cup, with High Octane's fix for the mempack overrun at 8 and 9 laps.
   - **Cheats menu:** the retail cheat codes as toggles in Options.
-  - **Main menu:** an Exit Game entry and cursor clamping.
   - **Bots racing as unlocked and custom racers:** a three-way AI Racers option (retail, unlocked, custom too).
   - **Multiplayer character select:** players 2-4 can change page, and players may pick the same racer.
 
 ## Maybe
 - Parts of dowlle's Options > Custom Tracks page that the Mods screen lacks ([CUSTOM_TRACKS.md](docs/CUSTOM_TRACKS.md#4-the-mods-screen-and-the-library)): an All / Installed / Browse filter, rescanning local files, opening a track's source page, and in the Seed tab the seed identity, per-track Resolve, required files and installed copies. Also its Baby T Park package tools: Verify / Setup, YAML export and the relic times editor.
-- Title screen: a drawn logo in place of the DECRYPTED text, and the release version in a corner.
+- Title screen: a drawn logo in place of the DECRYPTED text.
 - Chaos effects as Archipelago traps. CTR Native Expanded has 38 race effects, harmful and helpful (reversed steering, low gravity, giant karts, no items...), with an external trigger file. They could be the trap and buff items dowlle's tracker asks for (#248, #455, #486), sent by the multiworld instead of a timer.
 - CTR Native Expanded's two-player co-op Adventure. The Archipelago client would need to know about a second player.
 - More multiplayer from CTR Native Expanded: 3P/4P Arcade, eight racers in split screen, full-detail split screen, Oxide Station in multiplayer, race tracks in Battle, ending a race when one racer is left.

@@ -8,7 +8,7 @@
 //
 // Covers:
 //   * every menu-visible config row is on exactly one page, and Audio/State rows
-//     are on none
+//     are on none except the explicit Gameplay camera/HUD choices
 //   * no page is longer than the rows the panel can draw (rc1 drew twelve rows on
 //     Video & QoL and the last one fell off the panel)
 //   * the page order and row order agreed on 2026-09-22, with Extras after
@@ -84,7 +84,8 @@ int main(void)
 			for (int r = 0; r < s_counts[p]; r++)
 				if (s_rows[p][r] == i)
 					seen++;
-		if (CTR_MenuSectionHidden(g_configEntries[i].section))
+		if (CTR_MenuSectionHidden(g_configEntries[i].section) &&
+            strcmp(g_configEntries[i].key,"camera_far") && strcmp(g_configEntries[i].key,"hud_speedometer"))
 		{
 			snprintf(label, sizeof label, "%s/%s is not on any page",
 				g_configEntries[i].section, g_configEntries[i].key);
@@ -125,7 +126,7 @@ int main(void)
 			"disable_split_screen_lod", NULL};
 		static const char *const gameplay[] = {
 			"skip_intro", "skip_hints", "race_type_selector", "skip_podium", "skip_cutscenes",
-			"ai_difficulty", "mute_when_unfocused", "device_aware_labels", NULL};
+			"ai_difficulty", "mute_when_unfocused", "device_aware_labels", "camera_far", "hud_speedometer", NULL};
 		static const char *const extras[] = {
 			"character_stats", "penta_stats",
 			"reserves_meter", "reserve_fire", "blue_fire", "slide_meter_colours", "super_pad_colour", "colour_filter", NULL};
@@ -148,6 +149,8 @@ int main(void)
 		ExpectPage(7, "Authoring", authoring);
 	}
 
+	ExpectSection("camera_far", "State");
+	ExpectSection("hud_speedometer", "State");
 	ExpectSection("skip_intro", "Video & QoL");
 	ExpectSection("mute_when_unfocused", "Video & QoL");
 	ExpectSection("fps60", "Video & QoL");

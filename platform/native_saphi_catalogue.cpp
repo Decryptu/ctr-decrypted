@@ -113,6 +113,12 @@ CustomSaphiMedia listed_file(const json &file)
     const auto &crc = file.at("crc32");
     if (!crc.is_number_integer() || crc < 0 || crc > UINT32_MAX) throw std::runtime_error("Invalid track checksum");
     result.crc32 = crc.get<uint32_t>();
+    if (file.contains("sha256"))
+    {
+        lowercase_hex(file.at("sha256"), result.sha256, "Invalid track SHA-256");
+        if (std::strspn(result.sha256, "0123456789abcdef") != 64)
+            throw std::runtime_error("Invalid track SHA-256");
+    }
     return result;
 }
 bool same_file(const CustomSaphiMedia &a, const CustomSaphiMedia &b) { return a.bytes && a.bytes == b.bytes && a.crc32 == b.crc32; }
@@ -281,6 +287,12 @@ extern "C" int CustomSaphi_AddDecrypted(CustomSaphiCatalogue *catalogue, const c
                 {
                     if (other.decrypted || other.trackID != same) continue;
                     std::memcpy(other.packageUuid, row.packageUuid, sizeof row.packageUuid);
+                    /* Only identical bytes may lend their hashes to a Saphi row. */
+                    if (same_file(row.lev, other.lev) && same_file(row.vrm, other.vrm))
+                    {
+                        std::memcpy(other.lev.sha256, row.lev.sha256, sizeof other.lev.sha256);
+                        std::memcpy(other.vrm.sha256, row.vrm.sha256, sizeof other.vrm.sha256);
+                    }
                     if (other.picture.id) row.picture = other.picture;
                     if (!other.disabledReason[0] && !std::strcmp(other.version, row.version)) listed = true;
                 }

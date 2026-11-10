@@ -415,6 +415,11 @@ struct Driver *VehPickupItem_MissileGetTargetDriver(struct Driver *driver)
 
 	target = NULL;
 	closestDistance = MISSILE_TARGET_DISTANCE_SENTINEL;
+#ifdef CTR_NATIVE
+	// Bots have no player viewport; use the primary projection's dimensions.
+	struct PushBuffer *targetView = &GAME_TRACKER->pushBuffer[
+	    driver->instSelf->thread->modelIndex == DYNAMIC_PLAYER ? driver->driverID : 0];
+#endif
 
 	if (driver->instSelf->thread->modelIndex == DYNAMIC_PLAYER)
 	{
@@ -436,8 +441,14 @@ struct Driver *VehPickupItem_MissileGetTargetDriver(struct Driver *driver)
 
 		MATH_HitboxMatrix(&inverseMatrix, &matrix);
 
+#ifdef CTR_NATIVE
+		CTR_GteSetRotMatrix(&inverseMatrix);
+		CTR_GteSetTransMatrix(&inverseMatrix);
+		PushBuffer_SetPsyqGeom(targetView);
+#else
 		CTR_GteSetRotMatrix(&matrix);
 		CTR_GteSetTransMatrix(&matrix);
+#endif
 	}
 
 	i = 0;
@@ -524,7 +535,13 @@ struct Driver *VehPickupItem_MissileGetTargetDriver(struct Driver *driver)
 		{
 			continue;
 		}
-		if (screenX >= GAME_TRACKER->pushBuffer[driver->driverID].rect.w - MISSILE_TARGET_SCREEN_RIGHT_MARGIN)
+		if (screenX >=
+#ifdef CTR_NATIVE
+		    targetView->rect.w
+#else
+		    GAME_TRACKER->pushBuffer[driver->driverID].rect.w
+#endif
+		        - MISSILE_TARGET_SCREEN_RIGHT_MARGIN)
 		{
 			continue;
 		}
@@ -534,7 +551,13 @@ struct Driver *VehPickupItem_MissileGetTargetDriver(struct Driver *driver)
 		{
 			continue;
 		}
-		if (screenY >= GAME_TRACKER->pushBuffer[driver->driverID].rect.h - MISSILE_TARGET_SCREEN_BOTTOM_MARGIN)
+		if (screenY >=
+#ifdef CTR_NATIVE
+		    targetView->rect.h
+#else
+		    GAME_TRACKER->pushBuffer[driver->driverID].rect.h
+#endif
+		        - MISSILE_TARGET_SCREEN_BOTTOM_MARGIN)
 		{
 			continue;
 		}

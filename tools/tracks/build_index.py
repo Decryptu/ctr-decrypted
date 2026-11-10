@@ -92,7 +92,7 @@ def entry(tracks, folder):
         if len(data) != file["bytes"] or hashlib.sha256(data).hexdigest() != file["sha256"]:
             sys.exit(f"{folder}: {file['path']} does not match manifest.json")
         if file["role"] in ("lev", "vrm", "picture"):
-            result[file["role"]] = {"bytes": len(data), "crc32": zlib.crc32(data)}
+            result[file["role"]] = {"bytes": len(data), "crc32": zlib.crc32(data), "sha256": file["sha256"]}
     return result, listing
 
 

@@ -191,7 +191,16 @@ static const struct CustomTrackLibraryEntry *MM_CustomSourceInstalled(const stru
         const struct CustomTrackLibraryEntry *r=&s_contentLibrary.entries[i];
         const int fromSaphi=r->local.trackID>0 && r->local.trackID==source->trackID;
         const int fromCatalogue=source->packageUuid[0] && !strcmp(r->local.uuid,source->packageUuid);
-        if(!r->installed || (!fromSaphi && !fromCatalogue)) continue;
+        if(!r->installed) continue;
+        /* Seed packages have a room UUID, not either catalogue's identity. */
+        if(!fromSaphi && !fromCatalogue && source->lev.sha256[0] && source->vrm.sha256[0] &&
+           !strcmp(r->local.levSha256,source->lev.sha256) &&
+           !strcmp(r->local.vrmSha256,source->vrm.sha256))
+        {
+            exact=r;
+            continue;
+        }
+        if(!fromSaphi && !fromCatalogue) continue;
         /* The other source's copy of a track both list: the version decides. */
         if(fromSaphi ? source->decrypted : !source->decrypted)
         {

@@ -8,6 +8,7 @@
 // in that order.
 
 #ifdef CTR_AP
+#include "ap_version.h"
 
 // ---------------------------------------------------------------------------
 // AP ITEM FEED (display-only)
@@ -626,6 +627,7 @@ void AP_DrawTitleNameLine(uint32_t *ot)
 {
 	DecalFont_DrawLineOT(ap_title_name_line, Widescreen_CompressXAbout(AP_TITLE_NAME_LINE_CENTRE_X, 0x100), AP_TITLE_NAME_LINE_Y,
 	                     FONT_BIG, JUSTIFY_CENTER | ORANGE, ot);
+	DecalFont_DrawLineOT(CTR_AP_VERSION, 12, 12, FONT_SMALL, WHITE, ot);
 }
 
 void AP_DrawConnUpdateNotice(uint32_t *ot, int centreX, int y, int spacing)

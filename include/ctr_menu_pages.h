@@ -43,7 +43,7 @@ static const char *const s_ctrMenuPageVideo[] = {
 };
 static const char *const s_ctrMenuPageGameplay[] = {
 	"skip_intro", "skip_hints", "race_type_selector", "skip_podium", "skip_cutscenes",
-	"ai_difficulty", "mute_when_unfocused", "device_aware_labels", NULL,
+	"ai_difficulty", "mute_when_unfocused", "device_aware_labels", "camera_far", "hud_speedometer", NULL,
 };
 static const char *const s_ctrMenuPageExtras[] = {
 	"character_stats", "penta_stats", "reserves_meter", "reserve_fire", "blue_fire", "slide_meter_colours", "super_pad_colour", "colour_filter", NULL,
@@ -78,7 +78,8 @@ static const CtrMenuPage s_ctrMenuPages[] = {
 #define CTR_MENU_PAGE_COUNT ((int)(sizeof(s_ctrMenuPages) / sizeof(s_ctrMenuPages[0])))
 
 // Sections that are config-file-only and never get a page: Audio is edited on
-// the vanilla audio screen, State is remembered state rather than an option,
+// the vanilla audio screen, State holds remembered state (the camera and HUD
+// choices are explicitly listed on Gameplay),
 // Discord holds only a testing override for the Discord application ID.
 static inline int CTR_MenuSectionHidden(const char *section)
 {
@@ -114,8 +115,7 @@ static inline int CTR_MenuBuildPages(const ConfigEntry *entries, int numEntries,
 			const int i = CTR_MenuFindEntry(entries, numEntries, *k);
 			if (i < 0 || i >= (int)sizeof placed || placed[i] || n >= CTR_MENU_PAGE_ROW_CAP)
 				continue;
-			if (CTR_MenuSectionHidden(entries[i].section))
-				continue;
+			/* Explicit page keys may expose a saved State choice. */
 			placed[i] = 1;
 			rows[numPages][n++] = i;
 		}

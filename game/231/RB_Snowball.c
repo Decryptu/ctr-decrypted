@@ -150,6 +150,10 @@ void RB_Snowball_LInB(struct Instance *inst)
 	t->inst = inst;
 
 	snowObj = ((struct Snowball *)t->object);
+#ifdef CTR_NATIVE
+	// Pool objects retain their old contents; start at the first path point.
+	snowObj->pointIndex = 0;
+#endif
 	snowObj->rot_unused.x = 0;
 
 	snowObj->snowID = inst->name[strlen(inst->name) - 1] - '0';

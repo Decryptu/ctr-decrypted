@@ -102,6 +102,7 @@ tools/test-hit-roster-fixture.cpp
 tools/test-held-checks.cpp
 tools/test-held-race-rearm.c
 tools/test-instance-birth-production.c
+tools/test-snowball-path.c
 tools/test-item-aliases.c
 tools/test-itemsanity.c
 tools/test-itemsanity-unlocked.c
@@ -323,3 +324,4 @@ tools/test-track-registry-download-production.py
 tools/test-feed-trap-lines.c
 tools/test-track-sources.c
 tools/test-custom-finish.c
+tools/test-missile-target.c

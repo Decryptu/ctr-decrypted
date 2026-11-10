@@ -319,7 +319,12 @@ it. It works like the racer catalogue ([CUSTOM_RACERS.md](CUSTOM_RACERS.md)).
     is what the list shows.
   - Installed: a copy from either source counts for the other's row. The same
     version is `OWNED`; a newer one is "Update available"
-    (`MM_CustomSourceInstalled`).
+    (`MM_CustomSourceInstalled`). A seed package with a different room UUID
+    also counts as owned when both LEV and VRM SHA-256 hashes match. The index
+    builder includes these hashes; older indexes without them retain ID and
+    version matching. Hashes pass to a paired Saphi row only when both files
+    have matching sizes and CRC32. Existing source-ID matches keep their music
+    update checks.
   - The two sources have different package UUIDs, so after an update from one
     source the other's copy is removed, or the track would be listed twice
     (`MM_CustomSourceRemoveTwins`). Time Trial records follow the UUID, so that

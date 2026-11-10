@@ -14,6 +14,7 @@ struct CustomSaphiMedia
     unsigned int bytes;
     uint32_t crc32;
     char path[241];
+    char sha256[65]; /* Optional catalogue content identity; empty for Saphi. */
 };
 struct CustomSaphiRevision
 {

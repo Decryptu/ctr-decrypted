@@ -203,6 +203,20 @@ int main(void)
  rows[1].sca.id=77;CHECK(MM_CustomSourceInstalled(&rows[1],&older)==NULL && older==1);
  installed.local.scaID=77;CHECK(MM_CustomSourceInstalled(&rows[1],&older)==&installed && older==0);
  rows[1].sca.id=0;installed.local.scaID=0;
+ /* A seed's room UUID and version differ, but both content hashes match. */
+ {
+   struct CustomSaphiRevision source={0};
+   strcpy(source.packageUuid,"catalogue-uuid");source.decrypted=1;
+   memset(source.lev.sha256,'a',64);memset(source.vrm.sha256,'b',64);
+   strcpy(installed.local.levSha256,source.lev.sha256);
+   strcpy(installed.local.vrmSha256,source.vrm.sha256);
+   CHECK(MM_CustomSourceInstalled(&source,&older)==&installed && !older);
+   source.vrm.sha256[0]='c';CHECK(!MM_CustomSourceInstalled(&source,&older));
+   source.vrm.sha256[0]='b';source.lev.sha256[0]='c';CHECK(!MM_CustomSourceInstalled(&source,&older));
+   source.lev.sha256[0]=0;source.vrm.sha256[0]=0;
+   installed.local.levSha256[0]=installed.local.vrmSha256[0]=0;
+   CHECK(!MM_CustomSourceInstalled(&source,&older));
+ }
  /* Installed tab: which pages list the track, and why not Arcade (up to two lines). */
  tick(BTN_L1);CHECK(s_contentLibraryTab==1);s_saphiMessage[0]=0;
  installed.local.arcade=1;installed.local.timeTrial=1;tick(0);

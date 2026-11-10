@@ -280,6 +280,18 @@ int main(void)
 	assert(m.swaps == 0 && !m.stalled);
 	checks++;
 
+	// Cutscenes share LOAD_Hub_Main's swap path. Their non-hub packs must
+	// alternate normally, even with stale hint state from an earlier hub.
+	for (int hint = 0; hint <= 4; hint += 4)
+	{
+		ap_hub_hint_hold h = {-1, -1, 0, -1};
+		assert(ap_hub_hint_hold_swap(&h, hint, 36, 36) == 0);
+		assert(ap_hub_hint_hold_swap(&h, hint, 38, 38) == 0);
+		assert(ap_hub_hint_hold_swap(&h, hint, 44, 45) == 0);
+		assert(h.lev == -1 && h.from == -1 && h.swap == 0 && h.swapFrom == -1);
+		checks++;
+	}
+
 	printf("PASS: hub streaming waits for a mask hint (%d scenarios)\n", checks);
 	return 0;
 }

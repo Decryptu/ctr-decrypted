@@ -80,6 +80,14 @@ int main(int argc,char **argv)
     own=decrypted_index();own["tracks"][0]["version"]="1.0.0";
     own["tracks"][0]["lev"]={{"bytes",4096},{"crc32",4294967295u}};own["tracks"][0]["vrm"]=own["tracks"][0]["lev"];
     CHECK(parse(j,&c));CHECK(add(c,own));CHECK(CustomSaphi_Count(c)==1);CHECK(CustomSaphi_Row(c,0)->packageUuid[0]);CustomSaphi_Free(&c);
+    /* Paired identical files carry hashes through to the surviving Saphi row. */
+    own["tracks"][0]["lev"]["sha256"]=std::string(64,'a');
+    own["tracks"][0]["vrm"]["sha256"]=std::string(64,'b');
+    CHECK(parse(j,&c));CHECK(add(c,own));
+    CHECK(!strcmp(CustomSaphi_Row(c,0)->lev.sha256,std::string(64,'a').c_str()));
+    CHECK(!strcmp(CustomSaphi_Row(c,0)->vrm.sha256,std::string(64,'b').c_str()));CustomSaphi_Free(&c);
+    own["tracks"][0]["lev"]["sha256"]=std::string(64,'-');
+    CHECK(parse(j,&c));CHECK(!add(c,own));CHECK(CustomSaphi_Count(c)==1);CustomSaphi_Free(&c);
     /* A Saphi row that cannot be downloaded does not hide ours. */
     {
         auto gone=j;gone["data"][0]["downloads"][0]["file_size"]=0;gone["data"][0]["downloads"][0]["download_url"]=nullptr;

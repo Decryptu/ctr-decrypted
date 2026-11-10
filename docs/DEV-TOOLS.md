@@ -13,6 +13,8 @@ The script prints the capture folder (`%TEMP%\ctrdev\shots-HHmmss` unless `-Out`
 
 `devrun.ps1` runs from its own folder (`%TEMP%\ctrdev\run`) with a baseline `config.ini` (60 FPS, PGXP FULL, 16:9, render scale ORIGINAL), so the owner's install and saves are never touched.
 
+For an unattended intro smoke test, use `-Track -1 -Frames 16000 -From 15000 -Every 500 -Config @{skip_intro='true'}` with no `CTR_DEV_PAD` input; repeat with `fps60='false'`. The intro must swap its cutscene packs and return to the title menu. Adventure mask-hint streaming guards must allow these non-hub swaps.
+
 | Parameter | Meaning |
 |---|---|
 | `-Track` | `LevelID` for the attract demo (`include/namespace_Level.h`: 0 Dingo Canyon, 3 Crash Cove, 4 Tiger Temple, 14 Coco Park...). `-1` for no demo |

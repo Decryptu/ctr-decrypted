@@ -86,6 +86,10 @@ static inline int ap_hub_hint_hold_release(ap_hub_hint_hold *h, int hintState, i
 // LOAD_Hub_SwapNow would wait forever on it (only a hint can lead there).
 static inline int ap_hub_hint_hold_swap(ap_hub_hint_hold *h, int hintState, int currLevel, int packLev)
 {
+	// Intro and credits cutscenes share this swap path. Their packs contain
+	// cutscene levels, so the hub-only validity check must not block them.
+	if (!ap_hub_hint_hold_is_hub(currLevel))
+		return 0;
 	if (hintState == 0 && h->lev < 0)
 		return !ap_hub_hint_hold_is_hub(packLev);
 	h->swap = 1;
