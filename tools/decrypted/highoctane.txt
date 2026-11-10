@@ -75,7 +75,7 @@ afbfe3bdf skip   Vita performance (renderer, disc, audio, input)       | Revert 
 f471de518 skip   AdHoc netplay                                         | Add multilanguage support for adhoc lines.
 0df287bb9 skip   Vita                                                  | Remove distortion effect from missiles even in SP.
 7d501d87d skip   AdHoc netplay                                         | Use powerup bitmasks also for UI.
-2429e3790 planned High Octane fixes                                     | Always sync mask state with audio player.
+2429e3790 own live mask selection/song flags; docs/NATIVE-PRESENTATION.md | Always sync mask state with audio player.
 95a4e0aa5 skip   readme, changelog or housekeeping                     | Update readme with v.1.1 details.
 591c20588 skip   readme, changelog or housekeeping                     | Remove debug leftovers.
 4c20bb3a7 skip   readme, changelog or housekeeping                     | Added missing early-skip change in the v.1.1 changelog.

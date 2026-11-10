@@ -326,3 +326,5 @@ tools/test-feed-trap-lines.c
 tools/test-track-sources.c
 tools/test-custom-finish.c
 tools/test-missile-target.c
+
+tools/test-mask-song.py
