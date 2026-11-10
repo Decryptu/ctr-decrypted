@@ -6,13 +6,13 @@ Open work only: what is in progress, what is planned, what may come, and what is
 - What the upstream trackers say: [docs/UPSTREAM-ISSUES.md](docs/UPSTREAM-ISSUES.md).
 
 ## In progress
+- High Octane fixes: source audit and ordered integration plan in [HIGH-OCTANE-FIXES.md](docs/HIGH-OCTANE-FIXES.md). Next: isolate and bound native per-player quadblock retry lists, then small UI fixes, mask audio, multiplayer rendering and scrapbook playback. Crash Cove's geometry PVS workaround and VS/Battle results Wumpa suppression already have local equivalents; the remaining patches need adaptation or reproduction.
 - Mario Kart DS course converter ([TRACK-CONVERTER.md](docs/TRACK-CONVERTER.md)). All 32 race courses convert, were replayed by the owner and are published in the [track catalogue](https://github.com/Decryptu/ctr-decrypted-tracks), version 1.0.0. Left:
   - Object behaviour read in the game's code and not built: tyres turning; a fire plant's head turning to its path; Boos ringing the kart, where here they hover at their spots; a staked Chain Chomp aiming at the kart, where here it lunges at the route; Waluigi Pinball's drums taking one of three speeds in turn; what a star does to a Thwomp, a Chomp or a flare; animated models (paintings, the crowd, Pokey's sway, the coffin's lid). Bowser Castle's slabs and Delfino Square's drawbridge do not travel, as the engine's track collision is static.
   - Custom tracks are one-player only. If they ever get split screen, its far emitter (`DrawLevelOvr1P_EmitSplitGroundListAQuadBlock`) must draw by face too.
 
 ## Planned
-- The other High Octane features we want. Each `planned` line in `tools/decrypted/highoctane.txt` names its item here (`upstream_status.py --ho planned`):
-  - **High Octane fixes:** check each one against our tree and retail first, as some may be fixed already or change retail behaviour. Widescreen garage stat bars and speedometer; minimap seam, track preview aspect; Crash Cove ship PVS; mask voice in step with the audio; shadows over menu boxes; Wumpa fruit on the VS/Battle end screen; scrapbook video playback; split-screen decals, PVS/LOD, Wumpa and viewports, and the quadblock retry list overflow.
+- The other High Octane features we want. Each `planned` line in `tools/decrypted/highoctane.txt` names an item in this roadmap, including work in progress (`upstream_status.py --ho planned`):
   - **Lap count 1-9** in Arcade and Cup, with High Octane's fix for the mempack overrun at 8 and 9 laps.
   - **Cheats menu:** the retail cheat codes as toggles in Options.
   - **Bots racing as unlocked and custom racers:** a three-way AI Racers option (retail, unlocked, custom too).

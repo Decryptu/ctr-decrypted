@@ -51,7 +51,7 @@ c26abd6d8 ported 9faa660fe                                             | Add res
 f4d95e164 have                                                         | Fix Warp Orb losing target when spawned.
 40fe88fb5 skip   readme, changelog or housekeeping                     | Update readme.
 095b2b1bb maybe  extra arcade modes                                    | Add customizable cups.
-8ababf381 planned High Octane fixes                                     | Add a hack for broken PVS on Crash Cove sinked ship.
+8ababf381 own    native geometry PVS override; docs/LEVEL-VISIBILITY.md    | Add a hack for broken PVS on Crash Cove sinked ship.
 c2ba82a00 maybe  Super/Ultra Hard                                      | Add Super and Ultra Difficulty modes.
 211348f17 ported 9faa660fe                                             | MAke USF look similar to CTR: Nitro Fueled.
 a0e0688d3 maybe  mirror mode                                           | Add Mirror mode option.
@@ -166,7 +166,7 @@ e4a298ee1 own    custom racers, own design (docs/CUSTOM_RACERS.md)     | Fix cus
 2001e772e own    custom racers, own design (docs/CUSTOM_RACERS.md)     | Fix custom racers models being preserved across different modes.
 7a839ca99 planned High Octane fixes                                     | Fix aspect ratio and wrong blending on track previews.
 6fe2af36f maybe  custom racer sounds, mask and wheels                  | Add sampled sounds support for custom racers.
-8e27b0011 planned High Octane fixes                                     | Fix wumpa fruits being visible in the end race screen in VS/Battle modes.
+8e27b0011 own    UI_RenderFrame_Wumpa3D_2P3P4P END_OF_RACE gate            | Fix wumpa fruits being visible in the end race screen in VS/Battle modes.
 c0e0a981d maybe  ghost replay tools                                    | Add stop, frame-by-frame and playback speed adjustments for ghost replays.
 ea16e1b6f own    custom racers, own design (docs/CUSTOM_RACERS.md)     | Fix boss battle voices getting overridden by custom racers ones.
 d1aafbc91 maybe  custom racer sounds, mask and wheels                  | Add support for mask and wheels settings for custom racers.
