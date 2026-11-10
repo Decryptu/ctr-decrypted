@@ -24,6 +24,8 @@
 // NativeRacers_SetPlayer are written from it every frame.
 
 #include <platform/native_racers.h>
+#include <platform/native_controls.h>
+#include <ctr_penta.h>
 
 enum
 {
@@ -106,6 +108,7 @@ struct CsEntry
 static struct CsEntry s_entries[CS_MAX_ROSTER];
 static int s_entryCount;
 static int s_pageCount;
+static SVec2 s_statsWindow;
 static const struct CsLayout *s_activeLayout;
 static int s_limited; // 1P/2P with the last row empty: the grid moves down, as retail's unexpanded layout
 
@@ -493,6 +496,13 @@ void MM_Characters_SetMenuLayout(void)
 	MM_ACTIVE_CHARACTER_SELECT_META = MM_CHARACTER_SELECT_META_BY_LAYOUT[layoutIndex];
 	MM_CHARACTER_SELECT_WINDOW_WIDTH = MM_CHARACTER_SELECT_LAYOUT_WINDOW_W[layoutIndex];
 	MM_CHARACTER_SELECT_WINDOW_HEIGHT = MM_CHARACTER_SELECT_LAYOUT_WINDOW_H[layoutIndex];
+	if (g_config.characterStats && GAME_TRACKER->numPlyrNextGame == 1)
+	{
+		s_statsWindow = MM_ACTIVE_CHARACTER_SELECT_WINDOW_POS[0];
+		s_statsWindow.x = 24;
+		MM_ACTIVE_CHARACTER_SELECT_WINDOW_POS = &s_statsWindow;
+		MM_CHARACTER_SELECT_WINDOW_WIDTH = 224;
+	}
 	MM_CHARACTER_SELECT_NAME_TEXT_Y = MM_CHARACTER_SELECT_LAYOUT_TEXT_Y[layoutIndex];
 	MM_CHARACTER_SELECT_DRIVER_POS.y = MM_CHARACTER_SELECT_LAYOUT_DRIVER_POS_Y[layoutIndex];
 	MM_CHARACTER_SELECT_DRIVER_POS.z = MM_CHARACTER_SELECT_LAYOUT_DRIVER_POS_Z[layoutIndex];
@@ -608,7 +618,7 @@ void MM_Characters_DrawWindows(b32 showDrivers)
 
 		pb->rect.x = windowPos->x + t->currX;
 		pb->rect.y = windowPos->y + t->currY;
-		pb->rect.w = MM_CHARACTER_SELECT_WINDOW_WIDTH;
+		pb->rect.w = MM_CHARACTER_SELECT_WINDOW_WIDTH - (g_config.characterStats && gGT->numPlyrNextGame > 1 ? 80 : 0);
 		pb->rect.h = MM_CHARACTER_SELECT_WINDOW_HEIGHT;
 
 		// Clip the viewport to the screen while the window slides. The native
@@ -879,6 +889,48 @@ static void MM_CharacterGrid_DrawTitle(void)
 	                   t->currY + (is3P ? MM_CHARACTER_SELECT_3P_CHARACTER_Y : MM_CHARACTER_SELECT_4P_CHARACTER_Y), font, (JUSTIFY_CENTER | ORANGE));
 }
 
+// Class comparisons use the same engine lookup as VehBirth_SetConsts.
+// Lengths follow High Octane's class viewer; these are relative ratings,
+// not the misleading numbers printed in the retail garage.
+static void MM_CharacterGrid_DrawStats(int p)
+{
+	if (!g_config.characterStats)
+		return;
+	const struct CsEntry *e = &s_entries[s_entry[p]];
+	int engine = e->racer >= 0 ? NativeRacers_Engine(e->racer) : GAME_CHARACTER_METADATA[e->characterID].engineID;
+	if ((unsigned)engine >= NUM_CLASSES)
+		engine = BALANCED;
+	static const short ratings[NUM_CLASSES][3] = {{55, 55, 55}, {48, 80, 32}, {80, 32, 10}, {28, 48, 80}};
+	const int palPenta = Penta_UsePalStats(g_config.pentaStats, e->characterID == PENTA_PENGUIN, e->racer, 0);
+	const int solo = GAME_TRACKER->numPlyrNextGame == 1;
+	static char *classes[] = {"BALANCED", "ACCELERATION", "SPEED", "TURNING"};
+	static char *compactClasses[] = {"BAL", "ACCEL", "SPEED", "TURN"};
+	static char *labels[] = {"SPEED", "ACCEL", "TURN"};
+	static char *compactLabels[] = {"SPD", "ACC", "TRN"};
+	static const Color colours[] = {{240,120,40,0}, {100,220,80,0}, {80,170,255,0}};
+	struct GameTracker *gt = GAME_TRACKER;
+	const struct TransitionMeta *t = &s_chromeTransition[CS_CHROME_WINDOW_FIRST+p];
+	const SVec2 *w = &MM_ACTIVE_CHARACTER_SELECT_WINDOW_POS[p];
+	int x = solo ? 284 + t->currX : w->x + t->currX + MM_CHARACTER_SELECT_WINDOW_WIDTH - 76;
+	int y = w->y + t->currY + 4;
+	DecalFont_DrawLine(palPenta ? (solo ? "PAL PENTA" : "PAL") : (solo ? classes[engine] : compactClasses[engine]), x+(solo ? 98 : 36), y, FONT_SMALL, JUSTIFY_CENTER | ORANGE);
+	for (int i = 0; i < 3; i++)
+	{
+		int rowY = y+14+i*(solo ? 16 : 12);
+		DecalFont_DrawLine(solo ? labels[i] : compactLabels[i], x, rowY, FONT_SMALL, WHITE);
+		const int maxWidth = solo ? 96 : 32;
+		RECT bar = {x+(solo ? 88 : 40), rowY+2, (palPenta ? 80 : ratings[engine][i])*maxWidth/80, 5};
+		MM_DRAW_SOLID_BOX_WITH_PRIM_MEM(&bar, &colours[i], gt->backBuffer->otMem.uiOT, &gt->backBuffer->primMem);
+		Color dim = {35,45,60,0};
+		bar.w = maxWidth;
+		MM_DRAW_SOLID_BOX_WITH_PRIM_MEM(&bar, &dim, gt->backBuffer->otMem.uiOT, &gt->backBuffer->primMem);
+	}
+	RECT box = {x-(solo ? 8 : 4), y-4, solo ? 208 : 80,
+	            solo ? MM_CHARACTER_SELECT_WINDOW_HEIGHT : 50};
+	RECTMENU_DrawInnerRect(&box, 4, gt->backBuffer->otMem.uiOT);
+
+}
+
 void MM_Characters_MenuProc(struct RectMenu *unused)
 {
 	struct GameTracker *gGT = GAME_TRACKER;
@@ -937,7 +989,17 @@ void MM_Characters_MenuProc(struct RectMenu *unused)
 		break;
 	}
 
+	if (MM_CHARACTER_SELECT_MENU_STATE == IN_MENU && (MM_GAME_BUTTON_TAPS[0] & BTN_L2))
+	{
+		g_config.characterStats = !g_config.characterStats;
+		NativeConfig_Save();
+		OtherFX_Play(0, 1);
+	}
 	MM_CharacterGrid_DrawTitle();
+	char binding[64], hint[96];
+	NativeControls_GetBindingLabel(NativeControls_GetPlayerDevice(0), NATIVE_CONTROLS_BIND_L2, binding, sizeof(binding));
+	snprintf(hint, sizeof(hint), "%s: %s STATS", binding[0] ? binding : "L2", g_config.characterStats ? "HIDE" : "SHOW");
+	DecalFont_DrawLine(hint, gGT->numPlyrNextGame == 3 ? 150 : 256, 205, FONT_SMALL, JUSTIFY_CENTER | ORANGE);
 
 	const int numPlayers = gGT->numPlyrNextGame;
 	u32 *uiOT = gGT->backBuffer->otMem.uiOT;
@@ -1026,6 +1088,9 @@ void MM_Characters_MenuProc(struct RectMenu *unused)
 
 		MM_CHARACTER_SELECT_ANGLE[p] += FPS_HALF(MM_CHARACTER_SELECT_SPIN_STEP);
 	}
+
+	for (int p = 0; p < numPlayers; p++)
+		MM_CharacterGrid_DrawStats(p);
 
 	MM_CharacterGrid_DrawPageArrows(uiOT);
 

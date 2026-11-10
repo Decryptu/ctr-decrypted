@@ -440,6 +440,8 @@ static int TrapDuration_Index(int value)
 // entry edits (pointer identity, no string compare).
 static const char *Enum_Label(const ConfigEntry *e)
 {
+	if (e->valuePtr == &g_config.pentaStats)
+		return g_config.pentaStats == 1 ? "PAL" : "NTSC-U";
 	if (e->valuePtr == &g_config.aspectRatio)
 		return s_aspectNames[Aspect_Index(*(int *)e->valuePtr)];
 	if (e->valuePtr == &g_config.renderScale)
@@ -467,6 +469,12 @@ static const char *Enum_Label(const ConfigEntry *e)
 
 static void Enum_Step(const ConfigEntry *e, int dir)
 {
+	if (e->valuePtr == &g_config.pentaStats)
+	{
+		int value = (g_config.pentaStats == 1) + dir;
+		g_config.pentaStats = value < 0 ? 0 : value > 1 ? 1 : value;
+		return;
+	}
 	if (e->valuePtr == &g_config.aspectRatio)
 	{
 		int i = Aspect_Index(*(int *)e->valuePtr) + dir;

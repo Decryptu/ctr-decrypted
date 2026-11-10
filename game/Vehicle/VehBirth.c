@@ -1,7 +1,12 @@
 #include "VehCommon.h"
+#ifdef CTR_NATIVE
+#include <ctr_penta.h>
+#endif
 #ifdef CTR_AP
 #include "../../ap/ap_firstkey_freeze.h"
 #include "../../ap/ap_fasttravel.h"
+#include "../../ap/ap_seedcfg.h"
+#include "../../ap/ap_capability.h"
 #endif
 
 enum
@@ -770,6 +775,18 @@ void VehBirth_SetConsts(struct Driver *driver)
 	register u32 i CTR_PSX_REGISTER("$7");
 	struct MetaDataCHAR *characterMetadata;
 	register s16 *characterIDs;
+#ifdef CTR_NATIVE
+	int roomStats = 0;
+#ifdef CTR_AP
+	roomStats = ctr_cfg_active() && AP_CapabilityRoomStatsRace();
+#endif
+	const int palPenta = Penta_UsePalStats(g_config.pentaStats,
+	    GAME_CHARACTER_IDS[driver->driverID] == PENTA_PENGUIN,
+	    NativeRacers_Driver(driver->driverID), roomStats);
+	CTR_STATIC_ASSERT(PENTA_PAL_ACCEL_ROW == ACCEL_CLASS_STAT);
+	CTR_STATIC_ASSERT(PENTA_PAL_SPEED_ROW == SPEED_CLASS_STAT);
+	CTR_STATIC_ASSERT(PENTA_PAL_ACCEL_SPEED_ROW == ACCEL_SPEED_CLASS_STAT);
+#endif
 
 	i = 0;
 	characterMetadata = GAME_CHARACTER_METADATA;
@@ -783,6 +800,13 @@ void VehBirth_SetConsts(struct Driver *driver)
 		int driverFieldOffset;
 		u8 *metaPhysValue;
 		u8 *driverField;
+#ifdef CTR_NATIVE
+		if (palPenta && (i == PENTA_PAL_ACCEL_ROW || i == PENTA_PAL_SPEED_ROW || i == PENTA_PAL_ACCEL_SPEED_ROW))
+		{
+			*(VehBirthHalfword *)((u8 *)driver + metaPhys->offset) = (s16)Penta_PhysValue(1, i, 0);
+			continue;
+		}
+#endif
 
 		switch ((u32)metaPhys->size)
 		{
