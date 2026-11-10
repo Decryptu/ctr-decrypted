@@ -1275,124 +1275,7 @@ static void test_sky_primitive_budget(void)
 	free(arena);
 }
 
-// ---------------------------------------------------------------------------
-// The rendered-quadblock list stops at the end of its array.
-// ---------------------------------------------------------------------------
-//
-// The engine's own array length is tied to CTR_CT_RENDERED_QUADBLOCK_SLOTS by a
-// CTR_STATIC_ASSERT next to the bound in game/226/226_00_DrawLevelOvr1P.c, so
-// drift is a build failure rather than something this harness has to catch.
-// What it pins here is the BEHAVIOUR of the two call sites: that the pair of
-// predicate calls the engine makes stops writing at the array's end, and that
-// the same loop without them writes into what follows.
-//
-// The layout mirrors sdata_static: the array, and immediately after it the
-// GamepadSystem, which is what a 257th rendered quadblock actually overwrites.
-struct RenderedListImage
-{
-	void *slots[CTR_CT_RENDERED_QUADBLOCK_SLOTS];
-	unsigned char neighbour[512];
-};
-
-// The bounded call site, in the order the engine runs it: append until the
-// bucket is done, then terminate.
-static unsigned long rendered_list_append_bounded(struct RenderedListImage *image, unsigned long appends)
-{
-	void **cursor = &image->slots[0];
-	void **end = &image->slots[CTR_CT_RENDERED_QUADBLOCK_SLOTS];
-	unsigned long written = 0;
-	unsigned long i;
-
-	for (i = 0; i < appends; i++)
-	{
-		if (!CustomTrackPolicy_RenderedSlotsFit(cursor, end, sizeof *cursor, CTR_CT_RENDERED_APPEND_SLOTS))
-			continue;
-
-		*cursor = (void *)(uintptr_t)(i + 1);
-		cursor++;
-		written++;
-	}
-
-	if (CustomTrackPolicy_RenderedSlotsFit(cursor, end, sizeof *cursor, 1uL))
-		*cursor = NULL;
-
-	return written;
-}
-
-// The same loop with the bound removed: what this code did before, and what
-// retail's arena arithmetic used to make unreachable.
-static unsigned long rendered_list_append_unbounded(struct RenderedListImage *image, unsigned long appends)
-{
-	void **cursor = &image->slots[0];
-	unsigned long i;
-
-	for (i = 0; i < appends; i++)
-	{
-		*cursor = (void *)(uintptr_t)(i + 1);
-		cursor++;
-	}
-
-	*cursor = NULL;
-	return appends;
-}
-
-static int neighbour_is_clean(const struct RenderedListImage *image)
-{
-	size_t i;
-
-	for (i = 0; i < sizeof image->neighbour; i++)
-	{
-		if (image->neighbour[i] != 0xAA)
-			return 0;
-	}
-
-	return 1;
-}
-
-static void test_rendered_quadblock_bound(void)
-{
-	struct RenderedListImage image;
-	unsigned long written;
-
-	// A bucket that renders fewer than the array holds is untouched by the
-	// bound: every append lands, and the terminator lands after it. This is the
-	// retail-behaviour half, and it covers every frame of every retail level.
-	memset(&image, 0, sizeof image);
-	memset(image.neighbour, 0xAA, sizeof image.neighbour);
-	written = rendered_list_append_bounded(&image, 200uL);
-	expect_int(written == 200uL, 1, "200 rendered quadblocks all land");
-	expect_int(image.slots[199] == (void *)(uintptr_t)200uL, 1, "the last one is where it should be");
-	expect_int(image.slots[200] == NULL, 1, "and the terminator follows it");
-	expect_int(neighbour_is_clean(&image), 1, "nothing was written past the array");
-
-	// Exactly full: 255 entries plus the terminator fills all 256 slots. One
-	// less and the bound would be refusing work retail does.
-	memset(&image, 0, sizeof image);
-	memset(image.neighbour, 0xAA, sizeof image.neighbour);
-	written = rendered_list_append_bounded(&image, 255uL);
-	expect_int(written == 255uL, 1, "255 rendered quadblocks all land");
-	expect_int(image.slots[254] == (void *)(uintptr_t)255uL, 1, "the 255th is the last entry");
-	expect_int(image.slots[255] == NULL, 1, "and the terminator takes the final slot exactly");
-	expect_int(neighbour_is_clean(&image), 1, "still nothing past the array");
-
-	// Past the array: the appends are refused and the neighbour survives.
-	memset(&image, 0, sizeof image);
-	memset(image.neighbour, 0xAA, sizeof image.neighbour);
-	written = rendered_list_append_bounded(&image, 400uL);
-	expect_int(written == 255uL, 1, "400 rendered quadblocks stop at 255");
-	expect_int(image.slots[255] == NULL, 1, "the terminator still lands in the last slot");
-	expect_int(neighbour_is_clean(&image), 1, "and the array's neighbour is untouched");
-
-	// The same loop without the bound writes past the array and into the
-	// neighbour. That is the corruption the bound exists for, shown rather than
-	// asserted about. 300 rather than 400 only because the stand-in neighbour
-	// here is 512 bytes and the real one is a whole GamepadSystem.
-	memset(&image, 0, sizeof image);
-	memset(image.neighbour, 0xAA, sizeof image.neighbour);
-	rendered_list_append_unbounded(&image, 300uL);
-	expect_int(neighbour_is_clean(&image), 0, "unbounded, the neighbour IS overwritten");
-	expect_int(image.neighbour[0] != 0xAA, 1, "starting at its very first byte");
-}
+// Retry-list writers and resets are exercised by test-native-rendered-lists.py.
 
 // ---------------------------------------------------------------------------
 // The per-load render report says one thing per load.
@@ -1428,7 +1311,7 @@ static void test_render_report_is_one_line_per_load(void)
 	});
 	expect_int(log_line_count(), 1, "600 quiet frames produce exactly one line");
 	expect_log_contains("level 25 over 600 frames", "and it names the load that ended and its frame count");
-	expect_log_contains("reserve refused 0, rendered list peak 0 of 256, rendered list full 0, bsp records dropped 0",
+	expect_log_contains("reserve refused 0, rendered list peak 0 of 1024, rendered list full 0, bsp records dropped 0",
 	                    "with all three drop counters at zero");
 
 	// Two DIFFERENT levels that share an arena size are two loads, not one. Rung
@@ -1473,7 +1356,7 @@ static void test_render_report_is_one_line_per_load(void)
 		CustomTrackDiag_FlushLevelLoad();
 	});
 	expect_int(log_line_count(), 3, "a load with drops reports the summary plus two loud lines");
-	expect_log_contains("reserve refused 2, rendered list peak 0 of 256, rendered list full 1, bsp records dropped 2",
+	expect_log_contains("reserve refused 2, rendered list peak 0 of 1024, rendered list full 1, bsp records dropped 2",
 	                    "the summary carries every counter");
 	expect_log_contains("LOST LEVEL GEOMETRY: a bucket reserve was refused 2 times across 1 frames",
 	                    "the loud line names the prefix cut");
@@ -1498,7 +1381,7 @@ static void test_render_report_is_one_line_per_load(void)
 	});
 	expect_int(log_line_count(), 1, "and the load still reports as one line");
 	expect_log_contains("level 25 over 2 frames", "with both of its own frames counted");
-	expect_log_contains("reserve refused 0, rendered list peak 0 of 256, rendered list full 0, bsp records dropped 0",
+	expect_log_contains("reserve refused 0, rendered list peak 0 of 1024, rendered list full 0, bsp records dropped 0",
 	                    "drops outside an open frame reach no report");
 }
 
@@ -2015,7 +1898,6 @@ int main(void)
 	test_serve_time_size_recheck();
 	test_absent_camera_path();
 	test_sky_primitive_budget();
-	test_rendered_quadblock_bound();
 	test_render_report_is_one_line_per_load();
 	test_display_name_from_config();
 	test_event_roster();

@@ -936,10 +936,9 @@ static void test_prim_arena_bytes(void)
 
 static void test_rendered_slots_fit(void)
 {
-	// A stand-in for sdata_static.quadBlocksRendered. The engine's own array is
-	// asserted against CTR_CT_RENDERED_QUADBLOCK_SLOTS at its declaration in
-	// game/226/226_00_DrawLevelOvr1P.c, so the length used here is the length
-	// the call sites use.
+	// The generic predicate with the non-native 256-slot layout. Native
+	// per-player storage and production writers are exercised separately by
+	// tools/test-native-rendered-lists.py.
 	void *slots[CTR_CT_RENDERED_QUADBLOCK_SLOTS];
 	void **base = &slots[0];
 	void **end = &slots[CTR_CT_RENDERED_QUADBLOCK_SLOTS];
@@ -972,7 +971,7 @@ static void test_rendered_slots_fit(void)
 	expect_int(CustomTrackPolicy_RenderedSlotsFit(NULL, end, slotBytes, 1uL), 0, "a null cursor fits nothing");
 	expect_int(CustomTrackPolicy_RenderedSlotsFit(base, NULL, slotBytes, 1uL), 0, "nor does a null end");
 
-	// The split-screen bases point into the same array, which is why the bound
+	// In the non-native layout split-screen bases share an array, so the bound
 	// is the array's end and not the 0x40 per-player stride: clamping at the
 	// stride would refuse work retail does on ordinary 1P frames.
 	expect_int(CustomTrackPolicy_RenderedSlotsFit(&slots[0x40], end, slotBytes, 0xC0uL), 1,

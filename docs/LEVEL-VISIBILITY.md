@@ -17,6 +17,33 @@ They only saved PS1 time. Faces hidden behind nearer ones are still drawn, but t
 - Arena peak per frame at 16:9 with the far camera: 120 to 292 KB per track without the lists (79 to 130 KB with). With `increase_draw_distance` too: up to 586 KB in 1P, 820 KB in two-player split screen (N. Gin Labs) and 365 KB in four-player. The arena is 2 MB (`CTR_NATIVE_PRIM_ARENA_BYTES`, `platform/native_memory.c`). A dev run logs `[CTR Dev] primitive arena peak`.
 - With `increase_draw_distance` on N. Gin Labs, the heaviest track: about 1.5 ms a frame more than the retail limits in 1P and 2.7 ms in 2P. The option is off by default, Steam Deck included.
 
+## Retry lists
+
+Level buckets defer some near/water quadblocks to a NULL-terminated retry list.
+Every native player has separate storage with 1,024 pointers, including the
+terminator (`CTR_NATIVE_RENDERED_LIST_SLOTS`, `platform/native_rendered_list.h`).
+`CTR_ClearRenderLists_1P2P` and `CTR_ClearRenderLists_3P4P` install both pointer
+tables, clear each active player's first entry and bind the bucket lists to it.
+The 1P renderer also selects native player 0 storage; overlays 227-229 select
+the current player's base for every viewport bucket.
+
+`DrawLevelOvr1P_AppendRenderedQuadBlock` accepts an entry only when the active
+player has room for it and the terminator. The terminator checks its own slot.
+Unknown bases and out-of-range or misaligned scratch cursors write nothing.
+These bounds apply with custom tracks enabled or disabled; custom-track
+diagnostics report the same capacity, peak use and refused appends. The retail
+shared array and non-native paths stay intact. Larger native primitive arenas
+and wider views can exhaust retail's 64-pointer multiplayer slices before the
+primitive budget runs out, so those slices cannot provide memory isolation.
+
+Run `tools/test-native-rendered-lists.py` with a 32-bit host compiler to exercise
+the production writers and frame resets, with custom tracks on and off. It
+fills each list, overflows it, checks all other players' storage, and tests
+terminators, invalid cursors, diagnostics and reset after overflow. For a
+rendering regression, compare deterministic 1P/2P/3P/4P captures on water-heavy
+tracks at 16:9 with `increase_draw_distance` enabled, and check the dev run's
+primitive-arena and ordering-table peaks.
+
 ## The sky
 The sky (`game/DrawSky.c`) is a dome of large gouraud triangles around the camera, in eight 45-degree slices. Retail draws the four slices facing the camera and drops a face whole when the GTE flags a corner too close to the camera plane, and the GPU drops any triangle 512 or more pixels tall (`NativeGpu_HardwareSkipsTriangle`). From the far camera and in widescreen, a face still covering a screen corner hits one of those, and the clear colour shows through.
 

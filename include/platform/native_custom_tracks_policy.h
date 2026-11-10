@@ -181,28 +181,12 @@
 //    geometry before anything stops it. That makes a pre-existing unbounded
 //    write reachable.
 //
-//    DrawLevelOvr1P_AppendRenderedQuadBlock stores a pointer at the scratch
-//    cursor and advances it, with no end test. The cursor is seeded to
-//    sdata_static.quadBlocksRendered, which is struct QuadBlock *[0x100], and
-//    the next member of that struct is the GamepadSystem. Retail bounded this
-//    by arithmetic that no longer holds: the arena ran out first. Enlarge the
-//    arena and the 257th rendered quadblock in a bucket writes over the pad
-//    state instead.
-//
-//    The bound is the END OF THE ARRAY, not the 0x40 per-player stride. In 1P
-//    the base is &quadBlocksRendered[0] and retail lets that one list use all
-//    0x100 slots; clamping at 0x40 would refuse work retail does on every
-//    frame of every level. Split-screen bases at 0x40/0x80/0xC0 can still run
-//    into the next player's region exactly as retail does -- that is retail's
-//    own layout and this decision does not change it. What it stops is the
-//    write PAST the array, which is memory corruption in any build.
-//
-//    Two call sites, one predicate. The append asks for two slots, because the
-//    entry it is about to write must still leave room for the NULL terminator
-//    DrawLevelOvr1P_TerminateRenderedListCursor writes after the last entry;
-//    the terminator asks for one. Refusing at 0xFF entries rather than 0x100
-//    is the cost of keeping the terminator in bounds, and a bucket that
-//    renders 255 quadblocks has already lost the frame to the reserve checks.
+//    Native uses independent per-player retry arrays, each with
+//    CTR_NATIVE_RENDERED_LIST_SLOTS pointers. Every append reserves two slots:
+//    its entry and the NULL terminator. Both writes check the active player's
+//    bounds in all native builds; custom-track builds also report refused
+//    appends and the peak usage. Retail's shared array and non-native bound
+//    remain unchanged. See docs/LEVEL-VISIBILITY.md.
 //
 // 10. WHAT THE DISPLACED CUP IS CALLED (rung 3b). A displaced cup keeps the
 //    retail cup's identity everywhere the engine reasons about it -- cupID,
@@ -380,10 +364,14 @@
 // see decision 8 for the measurements behind it.
 #define CTR_CT_PRIM_ARENA_BYTES 0x200000uL
 
-// How many entries sdata_static.quadBlocksRendered holds. Decision 9 bounds
-// the append against the end of that array; tools/test-custom-track-load.c
-// asserts this against the engine's own declaration so the two cannot drift.
+// Retry-list capacity for diagnostics and bounds. Native's active per-player
+// storage is tied to this value by an assertion in the level renderer.
+#ifdef CTR_NATIVE
+#include <platform/native_rendered_list.h>
+#define CTR_CT_RENDERED_QUADBLOCK_SLOTS CTR_NATIVE_RENDERED_LIST_SLOTS
+#else
 #define CTR_CT_RENDERED_QUADBLOCK_SLOTS 0x100uL
+#endif
 
 // How many slots an append has to see free: the entry itself, plus the one the
 // NULL terminator will need after it.
@@ -1179,7 +1167,7 @@ static int CustomTrackPolicy_PrimFits(const void *cursor, unsigned long primSize
 //
 // `cursor` is the scratch cursor DrawLevelOvr1P_AppendRenderedQuadBlock is
 // about to write through and `listEnd` one past the last entry of
-// sdata_static.quadBlocksRendered, both passed as void * so this header stays
+// the active retry list, both passed as void * so this header stays
 // engine-free.
 //
 // Same shape and same edge behaviour as CustomTrackPolicy_PrimFits, for the

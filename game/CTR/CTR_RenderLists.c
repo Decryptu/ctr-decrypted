@@ -13,11 +13,17 @@ void CTR_ClearRenderLists_1P2P(struct GameTracker *gGT, int numPlyrCurrGame)
 		return;
 	}
 
+#ifdef CTR_NATIVE
+	DrawLevelOvr_InstallNativeRenderedStorage();
+#endif
 	i = 0;
 	rendered = data.ptrRenderedQuadblockDestination_forEachPlayer;
 	do
 	{
 		quadBlocksRendered = *rendered;
+#ifdef CTR_NATIVE
+		*(struct QuadBlock **)quadBlocksRendered = NULL;
+#endif
 		gGT->LevRenderLists[i].list[0].bspListStart = 0;
 		gGT->LevRenderLists[i].list[0].ptrQuadBlocksRendered = quadBlocksRendered;
 		quadBlocksRendered = *rendered;
@@ -51,11 +57,17 @@ void CTR_ClearRenderLists_3P4P(struct GameTracker *gGT, int numPlyrCurrGame)
 		return;
 	}
 
+#ifdef CTR_NATIVE
+	DrawLevelOvr_InstallNativeRenderedStorage();
+#endif
 	i = 0;
 	rendered = data.ptrRenderedQuadblockDestination_again;
 	do
 	{
 		quadBlocksRendered = *rendered;
+#ifdef CTR_NATIVE
+		*(struct QuadBlock **)quadBlocksRendered = NULL;
+#endif
 		gGT->LevRenderLists[i].list[0].bspListStart = 0;
 		gGT->LevRenderLists[i].list[0].ptrQuadBlocksRendered = quadBlocksRendered;
 		quadBlocksRendered = *rendered;

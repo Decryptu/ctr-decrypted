@@ -229,6 +229,31 @@ CTR_STATIC_ASSERT(sizeof(struct DrawLevelOvrBucketSetupRecord) == 0x64);
 CTR_STATIC_ASSERT(sizeof(((struct OverlayRDATA_226 *)0)->scratchInitTable) == 0x60);
 CTR_STATIC_ASSERT(sizeof(((struct OverlayRDATA_226 *)0)->clipRecordJumpTable) == 0x60);
 
+#ifdef CTR_NATIVE
+#include <platform/native_rendered_list.h>
+
+static struct QuadBlock *sDrawLevelOvrNativeRendered[CTR_NATIVE_RENDERED_LIST_PLAYERS][CTR_NATIVE_RENDERED_LIST_SLOTS];
+static struct QuadBlock **sDrawLevelOvr1P_RenderedOverflowEnd;
+
+static void DrawLevelOvr_InstallNativeRenderedStorage(void)
+{
+	for (int i = 0; i < CTR_NATIVE_RENDERED_LIST_PLAYERS; i++)
+	{
+		data.ptrRenderedQuadblockDestination_forEachPlayer[i] = sDrawLevelOvrNativeRendered[i];
+		data.ptrRenderedQuadblockDestination_again[i] = sDrawLevelOvrNativeRendered[i];
+	}
+}
+
+static int DrawLevelOvr1P_NativeRenderedSlotsFit(struct QuadBlock **cursor, unsigned long slots)
+{
+	uintptr_t c = (uintptr_t)cursor;
+	uintptr_t base = (uintptr_t)sDrawLevelOvr1P_RenderedOverflowBase;
+	uintptr_t end = (uintptr_t)sDrawLevelOvr1P_RenderedOverflowEnd;
+	return cursor != NULL && base != 0 && end != 0 && c >= base && c < end &&
+	       (c - base) % sizeof(*cursor) == 0 && slots <= (end - c) / sizeof(*cursor);
+}
+#endif
+
 #ifdef CTR_CUSTOM_TRACKS
 // Included here rather than at the top of the file on purpose. CTR_STATIC_ASSERT
 // builds its typedef name out of __LINE__, so anything added above the five
@@ -237,16 +262,21 @@ CTR_STATIC_ASSERT(sizeof(((struct OverlayRDATA_226 *)0)->clipRecordJumpTable) ==
 #include <platform/native_custom_tracks.h>
 #include <platform/native_custom_tracks_policy.h>
 
-// One past the last entry of the rendered-quadblock array. Every base the
-// engine seeds the cursor with -- sdata_static.quadBlocksRendered for 1P, and
-// the &[0x40]/&[0x80]/&[0xC0] split-screen bases -- points into this one array,
-// so this is the bound that matters for all of them. Decision 9.
+// Custom-track diagnostics use the same active bound as the native writer.
 static struct QuadBlock **DrawLevelOvr1P_RenderedListEnd(void)
 {
+#ifdef CTR_NATIVE
+	return sDrawLevelOvr1P_RenderedOverflowEnd;
+#else
 	return &sdata_static.quadBlocksRendered[len(sdata_static.quadBlocksRendered)];
+#endif
 }
 
+#ifdef CTR_NATIVE
+CTR_STATIC_ASSERT(CTR_NATIVE_RENDERED_LIST_SLOTS == CTR_CT_RENDERED_QUADBLOCK_SLOTS);
+#else
 CTR_STATIC_ASSERT(len(sdata_static.quadBlocksRendered) == CTR_CT_RENDERED_QUADBLOCK_SLOTS);
+#endif
 
 // A bucket's primitive reserve was refused, which means DrawLevelOvr1P is about
 // to return and leave the rest of this frame's level geometry undrawn. Recorded
@@ -7759,6 +7789,17 @@ static void DrawLevelOvr1P_SetRenderedListCursor(struct QuadBlock **renderedList
 static void DrawLevelOvr1P_SetRenderedOverflowBase(struct QuadBlock **renderedList)
 {
 	sDrawLevelOvr1P_RenderedOverflowBase = renderedList;
+#ifdef CTR_NATIVE
+	sDrawLevelOvr1P_RenderedOverflowEnd = NULL;
+	for (int i = 0; i < CTR_NATIVE_RENDERED_LIST_PLAYERS; i++)
+	{
+		if (renderedList == sDrawLevelOvrNativeRendered[i])
+		{
+			sDrawLevelOvr1P_RenderedOverflowEnd = sDrawLevelOvrNativeRendered[i] + CTR_NATIVE_RENDERED_LIST_SLOTS;
+			break;
+		}
+	}
+#endif
 }
 
 static void DrawLevelOvr1P_SetViewportScratchContext(struct PushBuffer *pb, const int *visFaceList, u8 *clipStart, u8 *clipCursor,
@@ -7799,7 +7840,11 @@ static struct QuadBlock **DrawLevelOvr1P_GetRenderedOverflowBase(void)
 		return sDrawLevelOvr1P_RenderedOverflowBase;
 	}
 
+#ifdef CTR_NATIVE
+	return sDrawLevelOvrNativeRendered[0];
+#else
 	return sdata_static.quadBlocksRendered;
+#endif
 }
 
 static struct QuadBlock **DrawLevelOvr1P_GetRenderedListCursor(void)
@@ -7816,12 +7861,18 @@ static void DrawLevelOvr1P_AppendRenderedQuadBlock(struct QuadBlock *block)
 		return;
 	}
 
+#ifdef CTR_NATIVE
+	// Leave the terminator in this player's storage even when appends overflow.
+	if (!DrawLevelOvr1P_NativeRenderedSlotsFit(renderedList, 2))
+	{
 #ifdef CTR_CUSTOM_TRACKS
-	// Retail bounded this by arithmetic rather than by a test: the primitive
-	// arena ran out long before a bucket could render 256 quadblocks. The
-	// measured-demand floor removes that accident, and the next member of
-	// sdata_static after this array is the GamepadSystem. Two slots, because the
-	// terminator still has to fit after the entry. Decision 9.
+		CustomTrackDiag_NoteRenderedListFull();
+#endif
+		return;
+	}
+#endif
+#ifdef CTR_CUSTOM_TRACKS
+	// Two slots: this entry and the terminator. Decision 9.
 	if (!CustomTrackPolicy_RenderedSlotsFit(renderedList, DrawLevelOvr1P_RenderedListEnd(), sizeof *renderedList, CTR_CT_RENDERED_APPEND_SLOTS))
 	{
 		CustomTrackDiag_NoteRenderedListFull();
@@ -7842,6 +7893,12 @@ static void DrawLevelOvr1P_TerminateRenderedListCursor(void)
 
 	if (renderedList != NULL)
 	{
+#ifdef CTR_NATIVE
+		if (!DrawLevelOvr1P_NativeRenderedSlotsFit(renderedList, 1))
+		{
+			return;
+		}
+#endif
 #ifdef CTR_CUSTOM_TRACKS
 		// The append above leaves a slot for this one, so the only way to arrive
 		// here with no room is a cursor the engine seeded past the array. Same
@@ -10363,7 +10420,12 @@ void DrawLevelOvr1P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspL
 	}
 
 	DrawLevelOvr1P_SetClipRecordStart(data.PtrClipBuffer[0]);
+#ifdef CTR_NATIVE
+	DrawLevelOvr_InstallNativeRenderedStorage();
+	DrawLevelOvr1P_SetRenderedOverflowBase(sDrawLevelOvrNativeRendered[0]);
+#else
 	DrawLevelOvr1P_SetRenderedOverflowBase(sdata_static.quadBlocksRendered);
+#endif
 	DrawLevelOvr1P_SetPrimReserveBias(0);
 	DrawLevelOvr1P_SetListHandlersSeedRenderedCursor(1);
 	Ovr226_800a0d20_SeedEntryScratchPointers(renderList, pb);

@@ -981,26 +981,11 @@ of the 1P load before it.
 
 ### The rendered-quadblock bound
 
-`DrawLevelOvr1P_AppendRenderedQuadBlock` stored a pointer at the scratch cursor
-and advanced it with **no end test**. The cursor is seeded to
-`sdata_static.quadBlocksRendered`, which is `struct QuadBlock *[0x100]`, and the
-next member of that struct is the `GamepadSystem`. Retail bounded this by
-arithmetic rather than by a test: the primitive arena ran out first. The floor
-above removes that accident, so the bound had to become explicit **before** the
-arena was widened, not after.
-
-The bound is the **end of the array**, not the `0x40` per-player stride. In 1P
-the base is `&quadBlocksRendered[0]` and retail lets that one list use all 256
-slots, so clamping at the stride would refuse work retail does on ordinary
-frames. Split-screen bases at `0x40`/`0x80`/`0xC0` can still run into the next
-player's region exactly as retail does — that is retail's own layout, and this
-does not change it. What it stops is the write *past* the array.
-
-Two call sites, one predicate (`CustomTrackPolicy_RenderedSlotsFit`). The append
-asks for two slots, because the entry it is about to write must leave room for
-the `NULL` terminator that follows the last one; the terminator asks for one.
-The array's length is tied to `CTR_CT_RENDERED_QUADBLOCK_SLOTS` by a
-`CTR_STATIC_ASSERT` beside the bound, so drift is a build failure.
+Native retry-list storage and bounds are described in
+[Level visibility](../docs/LEVEL-VISIBILITY.md#retry-lists). Every native player
+has an independent 1,024-pointer list, including its terminator. Custom-track
+diagnostics use that same capacity and count refused appends. Non-native code
+retains the retail array.
 
 `RenderLists_PushChild`'s silent 51-record drop was audited alongside it and is
 **orthogonal to the arena**: the BSP walk runs before any primitive is written,
@@ -1256,17 +1241,12 @@ expansion is a floor rather than a replacement on **both** reasons, the four
 ceilings above hold as arithmetic, and the hub measurement is recorded together
 with what it does not establish.
 
-The rendered-quadblock bound is pinned twice.
-`test-custom-track-policy` pins `CustomTrackPolicy_RenderedSlotsFit` itself:
-the 254th and 255th entries fit, the 256th is refused because its terminator
-would land past the array, the last slot still takes a terminator, a cursor at
-or past the end fits nothing, and both split-screen and 1P can still reach the
-end of the array — the assertion that would fail if the bound had been put at
-the `0x40` stride. `test-custom-track-load` drives the two call sites over an
-array with a canary behind it, in the layout `sdata_static` actually has, and
-asserts that 200 and 255 appends land untouched, that 400 stop at 255 with the
-canary clean, and that the same loop *without* the bound overwrites the canary
-from its first byte.
+The retry-list writers and reset paths are executed by
+`tools/test-native-rendered-lists.py` with custom tracks enabled and disabled.
+It checks exact capacity, overflow, player isolation, invalid cursors,
+terminators, diagnostics and frame reset. `test-custom-track-policy` also checks
+the generic non-native slot predicate; `test-custom-track-load` checks the
+capacity printed by the real diagnostic accumulator.
 
 The displaced cup's **name** is pinned on both halves. `test-custom-track-policy`
 pins the width rule against `DecalFont_GetLineWidthStrlen`'s own three constants,

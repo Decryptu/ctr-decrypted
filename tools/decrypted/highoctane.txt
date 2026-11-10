@@ -180,7 +180,7 @@ bcf381c2d skip   taste: retail pause menu order kept                   | Invert 
 198f56a01 planned bots pick unlockable and custom racers                | Make AI Racers a three options selection.
 7f6b800e9 own    custom racers, own design (docs/CUSTOM_RACERS.md)     | Fixed inconsistency for XA voicelines in MP with custom racers.
 95f3a5878 skip   web build                                             | Explicitly request an opaque GL context on Emscripten.
-ca43755cf planned High Octane fixes                                     | Fix rendered quadblock retry list overflow in native split-screen
+ca43755cf own    isolated native retry lists and bounds; docs/LEVEL-VISIBILITY.md | Fix rendered quadblock retry list overflow in native split-screen
 1f9d08844 skip   Vita                                                  | Update Livearea assets.
 9369c5f11 own    Screen Filters and Colour Filter (docs/SCREEN-FILTERS.md); Hue and Gamma left out | Added post-processing shaders support.
 035997448 skip   Vita                                                  | Fix crash on game exit on PSVita.

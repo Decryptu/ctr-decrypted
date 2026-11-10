@@ -437,8 +437,9 @@ every load in that build:
   `game/RenderStars.c: RenderStars` take their counts from the level file and
   had no bound, so they now stop when the arena is full instead of writing
   past it (decision 7). `game/226/226_00_DrawLevelOvr1P.c:
-  DrawLevelOvr1P_AppendRenderedQuadBlock` stops at the end of the 256-entry
-  rendered-quadblock array (decision 9), and `game/RenderLevel/RenderLists.c:
+  DrawLevelOvr1P_AppendRenderedQuadBlock` reserves a terminator inside each
+  native player's own 1,024-pointer retry list (decision 9,
+  [bounds](LEVEL-VISIBILITY.md#retry-lists)), and `game/RenderLevel/RenderLists.c:
   RenderLists_PushChild` counts dropped BSP records. Each custom level's run
   logs a `[CustomTracks] level ...` report of these at the next level load (and
   at the end of a dev run), with the list's peak use.
