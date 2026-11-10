@@ -99,4 +99,3 @@ int main(void)
     puts("missile targeting: all assertions passed");
     return 0;
 }
-
