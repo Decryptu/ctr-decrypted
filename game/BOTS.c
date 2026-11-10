@@ -10,6 +10,7 @@
 
 #ifdef CTR_CUSTOM_TRACKS
 #include <platform/native_custom_tracks.h> // the load's recording identity
+#include "../ap/ap_boss_lane_logic.h"      // boss lane switch on custom tracks (A2-28)
 #endif
 
 #ifndef BOT_NAV_HEADERS
@@ -113,6 +114,14 @@ static s16 BOTS_PathChangeCap(void)
 {
 	return (s16)CTR_MipsSll(BOTS_NAV_PATH_COUNT, BOTS_PATH_CHANGE_PATH_SHIFT);
 }
+
+#if (defined(CTR_AP) || defined(CTR_AI_LAP_RECORDER)) && defined(CTR_CUSTOM_TRACKS)
+// Set on every load next to the recording identity: nonzero when the load
+// serves custom bytes, so the boss lane switch lands ahead of the boss
+// (ap_boss_lane_logic.h). Zero on every retail load, which keeps the linked
+// frame exactly as retail does.
+static int s_bossLaneAhead;
+#endif
 
 int BOTS_Adv_NumTimesLostEvent(int numLost)
 {
@@ -825,7 +834,10 @@ void BOTS_Adv_AdjustDifficulty(void)
 		}
 #endif
 
-		switch (AP_NavRecIdentity_ForLoad(&facts))
+		int navrecOutcome = AP_NavRecIdentity_ForLoad(&facts);
+		s_bossLaneAhead = AP_BossLane_Applies(navrecOutcome);
+
+		switch (navrecOutcome)
 		{
 		case AP_NAVREC_LOAD_CUSTOM:
 			AP_NavRec_SetActiveCustomTrack(ctNavUuid, ctNavRevision);
@@ -1867,6 +1879,16 @@ UpdateTireColorTimer:
 				LIST_AddFront(&sdata->navBotList[newPathID], &botDriver->botData.item);
 
 				firstNavFrameOnPath = sdata->NavPath_ptrNavFrameArray[newPathID];
+#if (defined(CTR_AP) || defined(CTR_AI_LAP_RECORDER)) && defined(CTR_CUSTOM_TRACKS)
+				// Custom tracks only: take the first target-lane frame ahead of
+				// the boss, as every retail boss track's links already are.
+				if (s_bossLaneAhead)
+				{
+					newFrameIndex = (s16)AP_BossLane_AheadIndex(firstNavFrameOnPath, (int)sizeof(struct NavFrame),
+					                                            sdata->NavPath_ptrHeader[newPathID]->numPoints, newFrameIndex,
+					                                            CTR_MipsSra(botDriver->posCurr.x, 8), CTR_MipsSra(botDriver->posCurr.z, 8));
+				}
+#endif
 				botDriver->botData.botNavFrame = &firstNavFrameOnPath[newFrameIndex];
 
 				BOTS_SetRotation(botDriver, 0);
@@ -2416,6 +2438,10 @@ UpdateTireColorTimer:
 		{
 			deltaPosThisFrame = 0;
 		}
+#ifdef CTR_AP
+		// Rival Surge: AI racers move 50% faster while the trap runs.
+		deltaPosThisFrame = AP_TrapRivalProgress(deltaPosThisFrame);
+#endif
 		deltaPosThisFrame = CTR_MipsAddLo(deltaPosThisFrame, botDriver->botData.navProgressRemainder);
 	}
 	else

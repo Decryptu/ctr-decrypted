@@ -1,5 +1,59 @@
 #include <common.h>
 
+#ifdef CTR_AP
+#include "../../ap/ap_ai_difficulty.h"
+#include "../../ap/ap_pauserow.h"
+#include <platform/native_menu.h>
+#include <platform/native_renderer.h>
+
+// A4-14: a separate selector keeps title-only Options actions out of a live
+// adventure. Confirm saves the existing comfort setting; Back changes nothing.
+static struct MenuRow ap_difficultyRows[AI_DIFF_COUNT + 1];
+
+static void MainFreeze_AiDifficultyProc(struct RectMenu *menu)
+{
+	if (menu->funcState != 0)
+	{
+		MainFreeze_SafeAdvDestroy();
+		DecalFont_DrawLine("AI DIFFICULTY: NEXT RACE", 256, 40, FONT_SMALL, ORANGE | JUSTIFY_CENTER);
+		DecalFont_DrawLine(NativeMenu_Labels("* @ SELECT   ^ START BACK"), 256, 160, FONT_SMALL, WHITE | JUSTIFY_CENTER);
+		return;
+	}
+	if (menu->rowSelected >= 0 && menu->rowSelected < AI_DIFF_COUNT && AP_FastTravelAvailable())
+	{
+		g_config.aiDifficulty = s_aiDiffValues[menu->rowSelected];
+		NativeRenderer_CaptureWindowGeometry();
+		NativeConfig_Save();
+		AP_AiDifficultyCommit();
+	}
+	sdata->ptrDesiredMenu = MainFreeze_GetMenuPtr();
+}
+
+static struct RectMenu ap_difficultyMenu = {
+	.stringIndexTitle = 0xFFFF,
+	.posX_curr = 0x100,
+	.posY_curr = 0x6c,
+	.state = 0x8C83,
+	.rows = ap_difficultyRows,
+	.funcPtr = MainFreeze_AiDifficultyProc,
+	.drawStyle = 4,
+};
+
+static void MainFreeze_ShowAiDifficulty(void)
+{
+	for (int i = 0; i < AI_DIFF_COUNT; i++)
+	{
+		ap_difficultyRows[i].stringIndex = AP_LNG_AI_PRESET + i;
+		ap_difficultyRows[i].rowOnPressUp = (char)AP_PauseRow_Up(i, AI_DIFF_COUNT);
+		ap_difficultyRows[i].rowOnPressDown = (char)AP_PauseRow_Down(i, AI_DIFF_COUNT);
+		ap_difficultyRows[i].rowOnPressLeft = ap_difficultyRows[i].rowOnPressRight = (char)i;
+	}
+	ap_difficultyRows[AI_DIFF_COUNT].stringIndex = -1;
+	ap_difficultyMenu.rowSelected = (s16)AiDiff_NearestIndex(g_config.aiDifficulty);
+	sdata->ptrDesiredMenu = &ap_difficultyMenu;
+}
+#endif
+
 #ifdef CTR_CUSTOM_TRACKS
 #include <platform/native_custom_tracks.h>
 #endif
@@ -1573,6 +1627,22 @@ void MainFreeze_MenuPtrDefault(struct RectMenu *menu)
 #endif
 
 #ifdef CTR_AP
+	// A3-16: TRAVEL opens the hub selector, a menu of its own in the pause
+	// menu's place (the QUIT row's pattern). The trip itself starts only when
+	// a hub row is confirmed there.
+	if (stringID == AP_LNG_TRAVEL)
+	{
+		AP_FastTravelShowMenu();
+		return;
+	}
+	if (stringID == AP_LNG_AI_DIFFICULTY)
+	{
+		MainFreeze_ShowAiDifficulty();
+		return;
+	}
+#endif
+
+#ifdef CTR_AP
 	// #238: SELECT CHARACTER, only present on the AP row set built in
 	// MainFreeze_GetMenuPtr.
 	//
@@ -1921,8 +1991,9 @@ struct RectMenu *MainFreeze_GetMenuPtr(void)
 			static struct MenuRow apRowsAdvHub[AP_PAUSEROW_KINDS + 1];
 			signed char kinds[AP_PAUSEROW_KINDS];
 			int character = AP_CharSwap_PauseRowLive(), tracker = AP_TrackerAvailable();
-			int retailCount = AP_PauseRow_Build(0, 0, retailKinds);
-			int count = AP_PauseRow_Build(character, tracker, kinds);
+			int travel = AP_FastTravelAvailable();
+			int retailCount = AP_PauseRow_Build(0, 0, 0, retailKinds);
+			int count = AP_PauseRow_Build(character, tracker, travel, kinds);
 			int onAp = data.menuAdvHub.rows == &apRowsAdvHub[0];
 
 			if (count != retailCount)
@@ -1936,6 +2007,8 @@ struct RectMenu *MainFreeze_GetMenuPtr(void)
 					s16 string = kinds[r] == AP_PAUSEROW_RESUME      ? LNG_RESUME
 					             : kinds[r] == AP_PAUSEROW_CHARACTER ? LNG_SELECT_CHARACTER
 					             : kinds[r] == AP_PAUSEROW_TRACKER   ? AP_LNG_TRACKER
+					             : kinds[r] == AP_PAUSEROW_TRAVEL    ? AP_LNG_TRAVEL
+					             : kinds[r] == AP_PAUSEROW_DIFFICULTY ? AP_LNG_AI_DIFFICULTY
 					             : kinds[r] == AP_PAUSEROW_HINTS     ? (s16)hintString
 					             : kinds[r] == AP_PAUSEROW_QUIT      ? LNG_QUIT
 					                                                 : LNG_OPTIONS;
@@ -2030,6 +2103,11 @@ void MainFreeze_IfPressStart(void)
 	}
 
 #ifdef CTR_AP
+	// Closing the save menu does not finish its round-trip camera move. Do
+	// not open another modal while the hub save object still owns the kart.
+	if (LOAD_IsOpen_AdvHub() &&
+	    (gGT->cameraDC[0].flags & CAMERA_FLAG_TRANSITION_AWAY) != 0)
+		return;
 	// The character picker is a modal surface of its own: it holds VEH_FREEZE_DOOR
 	// and reads the pad directly, so letting Start raise the pause menu on top of
 	// it would give two surfaces the same input and the same freeze bit. That is

@@ -18,13 +18,30 @@ extern "C" {
 #define CTR_XDELTA_TITLE_MAX 641
 #define CTR_XDELTA_REASON_MAX 96
 
+/* Where an item's title came from (XdeltaImportItem.nameSource). */
+#define XDELTA_NAME_LABEL 0      /* A plain label, e.g. "Lego Adventure track 3"; the player edits it. */
+#define XDELTA_NAME_DESCRIPTOR 1 /* The pack descriptor (<patch>.ctrpack.json). */
+#define XDELTA_NAME_KNOWN 2      /* The table of tracks whose names were read from pack code. */
+#define XDELTA_NAME_EDITED 3     /* The player typed it at import. */
+#define XDELTA_NAME_TESTER 4     /* The curated table (patch hash and slot), from tester feedback. */
+
+/* What installing an item does to an older copy of the same patch track that
+   still has alpha1's generic "slot" title (XdeltaImportItem.oldCopy, A3-20). */
+#define XDELTA_OLD_NONE 0    /* No such copy. */
+#define XDELTA_OLD_REPLACE 1 /* The old copy is replaced by the new one. */
+#define XDELTA_OLD_KEEP 2    /* A room refers to the old copy: it stays. */
+
 struct XdeltaImportItem
 {
     int bigfileIndex;  /* -1 for a grouped line (code, other content). */
     int offered;       /* 1: an installable race track. */
+    int nameSource;    /* XDELTA_NAME_*; offered items only. */
+    int oldCopy;       /* XDELTA_OLD_*; set by the scan job for offered items. */
     char title[CTR_XDELTA_TITLE_MAX];
     char tags[48];     /* "Race TT Arcade Relic CTR", offered items only. */
     char reason[CTR_XDELTA_REASON_MAX]; /* Skip reason; "" when offered. */
+    unsigned long finishGap; /* Measured warning only, never an admission limit. */
+    char warning[CTR_XDELTA_REASON_MAX];
     char levSha256[65], vrmSha256[65];
     char pin[65];      /* Manifest pin of the built package, offered items only. */
     char trackKey[65]; /* Room folder: assets/tracks/<trackKey>/original, offered items only. */
@@ -37,6 +54,7 @@ struct XdeltaImportSummary
     char discSha256[65];
     char descriptorSha256[65]; /* "" when no descriptor was used. */
     char descriptorNote[CTR_XDELTA_REASON_MAX]; /* Why a descriptor was not used, or "". */
+    char history[CTR_XDELTA_REASON_MAX]; /* "Imported before: 3 of 5 tracks", or ""; set by StartScan's job. */
     unsigned int passes;
     unsigned int count;
     struct XdeltaImportItem items[CTR_XDELTA_ITEM_MAX];
@@ -62,10 +80,8 @@ const struct XdeltaImportSummary *XdeltaImport_Summary(const struct XdeltaImport
 /* Owned manifest bytes of an offered item, for harnesses and the corpus tool. */
 int XdeltaImport_CopyManifest(const struct XdeltaImportScan *scan, unsigned int item, void *destination,
                               size_t capacity, size_t *written);
-/* Where Install writes (decision 35, 2026-10-28). PACKAGES: the package
-   store ASSETS/tracks/packages the Track Manager reads (authoring builds).
-   ROOM: the LEV and VRM in ASSETS/tracks/<track key>/original, where rooms
-   and solo seeds find a custom track by its hashes (every build). */
+/* PACKAGES is the shared installed store for rooms, Solo and Arcade. ROOM
+   remains for compatibility with older installs and harness fixtures. */
 #define CTR_XDELTA_INSTALL_PACKAGES 1
 #define CTR_XDELTA_INSTALL_ROOM 2
 /* Install the selected offered items. selected has summary.count entries.
@@ -73,6 +89,20 @@ int XdeltaImport_CopyManifest(const struct XdeltaImportScan *scan, unsigned int 
    the first failing track). */
 int XdeltaImport_Install(const struct XdeltaImportScan *scan, const unsigned char *selected,
                          const char *assets, int where, char *error, size_t errorSize);
+/* The Play Solo descriptor of an offered item (ruling of 2026-11-02): one
+   complete custom_tracks package descriptor as JSON, the form solo/tracks
+   keeps and worlds/ctr/custom_packages.py admits. Every capability, the
+   optional super_turbo_pads, weapon_crates, checkpoints and ai_nav included,
+   is measured on the item's verified files with the rules the client checks
+   a descriptor against on load. Laps, author and relic times come from the
+   pack descriptor, except verified one-lap hash capabilities; they are never
+   guessed. The pack descriptor may also take
+   relic and ctr_tokens away. No author: "Unknown". Returns 1 with the JSON,
+   its track key and revision; 2 when the pack descriptor gives no laps (or
+   there is none): the JSON then has no "laps" and no relic, and the player
+   picks the laps on Play Solo's Custom Tracks page; 0 with a short reason. */
+int XdeltaImport_PlanDescriptor(const struct XdeltaImportScan *scan, unsigned int item, char *json, size_t capacity,
+                                char contentId[65], char revision[65], char *why, size_t whySize);
 /* The room folder of a track: the descriptor's track_key, otherwise the
    registry's key rule over the title (NFKD, ASCII only, lowercase, runs of
    anything else become one '-', at most 48 characters, "track" when empty).
@@ -104,6 +134,61 @@ int XdeltaImport_StartInstall(const unsigned char *selected, unsigned int count,
 /* -1 idle, 0 running, 1 done (installed set), -2 failed (error set). Drops the scan. */
 int XdeltaImport_PollInstall(int *installed, char *error, size_t errorSize);
 void XdeltaImport_DiscardScan(void);
+/* Names. The review list's titles are prefilled from the name sources
+   (see XDELTA_NAME_*); the player may change one before installing.
+   RenameItem rebuilds an offered item's package under the new title (1, or 0
+   with a short reason and nothing changed). SetItemTitle only remembers the
+   name for a review row; StartInstall applies it on the worker, and an
+   install whose name cannot be applied fails before it writes anything. */
+int XdeltaImport_RenameItem(struct XdeltaImportScan *scan, unsigned int item, const char *title, char *why, size_t whySize);
+int XdeltaImport_SetItemTitle(unsigned int item, const char *title);
+
+/* The record of applied patches (assets/tracks/import-record.json): what each
+   patch file in the folder has done before. A patch is found by its SHA-256, so
+   a renamed copy counts; only files whose size matches a record are hashed. */
+#define XDELTA_STATE_NEW 0      /* Not imported. */
+#define XDELTA_STATE_IMPORTED 1 /* Every offered track installed. */
+#define XDELTA_STATE_PARTLY 2   /* Some offered tracks installed. */
+#define XDELTA_STATE_FAILED 3   /* Scan or install failed; reason says why. */
+struct XdeltaPatchState
+{
+    int state, imported, offered;
+    char reason[CTR_XDELTA_REASON_MAX];
+};
+/* Synchronous: states for the folder files `names`; returns 0 when cancelled. */
+int XdeltaImport_PatchStates(const char *assets, char names[][CTR_XDELTA_NAME_MAX], int count,
+                             struct XdeltaPatchState *out, const volatile int *cancel);
+/* Worker version for the picker: Start, then Poll each frame (-1 idle, 0 running, 1 ready, out filled). */
+int XdeltaImport_StartPatchStates(const char *assets, char names[][CTR_XDELTA_NAME_MAX], int count);
+int XdeltaImport_PollPatchStates(struct XdeltaPatchState *out, int max);
+/* Harnesses: note an outcome the way an install does. */
+void XdeltaImport_RecordResult(const char *assets, const char *patchName, const struct XdeltaImportSummary *summary,
+                               const int *installedIndexes, int installedCount, const char *failure);
+
+/* After PollInstall reported done or failed: the Play Solo descriptors of the
+   tracks that install wrote to the room folders (CTR_XDELTA_INSTALL_ROOM), in
+   list order, kept until the next install starts. *needsLaps (may be NULL)
+   is 1 for a descriptor without laps (XdeltaImport_PlanDescriptor's 2). The
+   note names a track without a descriptor and why, otherwise a track whose
+   laps the player picks ("" when every track is complete). */
+int XdeltaImport_InstalledDescriptorCount(void);
+int XdeltaImport_InstalledDescriptor(int index, char contentId[65], char revision[65], char *json, size_t capacity,
+                                     int *needsLaps);
+void XdeltaImport_InstalledDescriptorNote(char *note, size_t size);
+
+/* A re-import replaces the old copy of the same patch track (same package
+   uuid, patch SHA-256 and slot) whose title is still alpha1's generic
+   "<name> slot <index>"; a copy with any other title stays, and so does a copy
+   a solo room refers to (its room.json names the uuid and the copy's track
+   key), which the review shows as XDELTA_OLD_KEEP. After PollInstall: the
+   copies removed, each with the track key and revision its Play Solo
+   descriptor used and the key and revision of the copy that took its place, and the number
+   kept. SetSoloRoot names the solo folder (default: "solo" beside the assets
+   folder). */
+void XdeltaImport_SetSoloRoot(const char *dir);
+int XdeltaImport_ReplacedCount(void);
+int XdeltaImport_ReplacedCopy(int index, char oldKey[65], char revision[65], char uuid[37], char newKey[65], char newRevision[65]);
+int XdeltaImport_KeptOldCopies(void);
 
 #ifdef __cplusplus
 }

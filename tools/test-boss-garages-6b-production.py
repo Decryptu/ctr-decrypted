@@ -101,6 +101,13 @@ block = garage[garage.index("AP_ContentGarageCupPrepare(hubID - 1)"):garage.inde
 check("GAME_ADD_CONFIG_0 |= ADVENTURE_CUP" in block and "GAME_REMOVE_CONFIG_0 |= ADVENTURE_BOSS" not in block
       and "GAME_ADD_CONFIG_0 |= ADVENTURE_BOSS" in garage[:garage.index("AP_ContentGarageCupPrepare(hubID - 1)")],
       "the boss cup keeps boss mode and adds cup mode")
+# A3-6: a boss cup leg races the laps its plan leg carries (three, or one with
+# one_lap_cups), on leg 1 and on every later leg, and the hub return restores three.
+check("GAME_TRACKER->numLaps = (char)cupPad->legs[0].laps;" in block, "the garage races leg 1 on its plan laps")
+check("else gGT->numLaps = (char)legLaps;" in read("game/UI/UI_CupStandings.c"), "a later leg races its plan laps")
+check("race->laps = l->laps;" in read("ap/ap_hooks_custom_content.c"), "the leg context carries the plan leg's laps")
+check("(ctr_cfg.one_lap_cups || ap_content_plan_active())" in read("ap/ap_hooks_frame.c"),
+      "a content-plan seed restores three laps on the hub return")
 bots = read("game/BOTS.c")
 check("(modeTracker->gameMode1 & ADVENTURE_CUP) != 0 && (modeTracker->gameMode1 & ADVENTURE_BOSS) == 0" in bots,
       "a boss cup leg takes the boss difficulty row")

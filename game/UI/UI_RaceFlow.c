@@ -54,6 +54,9 @@ void UI_RaceStart_IntroText1P(void)
 	int textID;
 	int titleTransition;
 	char trackText[24];
+#ifdef CTR_AP
+	char apBossTitle[96];
+#endif
 	RECT rect;
 	int colors[2];
 
@@ -143,6 +146,12 @@ void UI_RaceStart_IntroText1P(void)
 				// not about to race. Same redirect predicate as the leg counter
 				// below, so the banner's two halves cannot disagree.
 				ctCupName = CustomTrack_CupDisplayName(gGT->cup.cupID, 1);
+#ifdef CTR_AP
+				// A content-plan cup shows its plan name, and a boss cup is named
+				// for its boss (A2-47), through the call the standings use (A3-5).
+				if (AP_ContentCupName() != NULL)
+					ctCupName = AP_ContentCupName();
+#endif
 #endif
 			}
 
@@ -193,6 +202,13 @@ LAB_80055930:
 
 			// string of top title bar
 			titleText = sdata->lngStrings[textID];
+#ifdef CTR_AP
+			// #169 tier 2: a garage racing a drawn racer is that racer's
+			// challenge here too, as the garage title says (A2-44).
+			if ((gameMode & ADVENTURE_BOSS) != 0 &&
+			    AP_BossChallengeTitle(gGT->bossID, apBossTitle, (int)sizeof apBossTitle))
+				titleText = apBossTitle;
+#endif
 
 			// Y-value that transitions title text to off-screen
 			titleY = gGT->pushBuffer[0].rect.y - (barTransition - UI_RACE_START_TITLE_TOP_Y_BIAS);

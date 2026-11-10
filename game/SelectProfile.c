@@ -98,6 +98,21 @@
 #define SELECT_PROFILE_ROW_BACKUP sdata->unk_8008d73C_relatedToRowHighlighted
 #endif
 
+#ifdef CTR_AP
+#include "../ap/ap_charswap.h"
+// A profile belongs to the memory card, not necessarily the connected slot.
+// Apply the same authoritative racer as a new Adventure before loading its
+// models. The per-frame seat may already have consumed this server revision.
+static void SelectProfile_ApplyApRacer(void)
+{
+	int racer = AP_CharSwap_GarageRacer();
+	if (racer < 0)
+		return;
+	GAME_ADV_PROGRESS.characterID = (s16)racer;
+	GAME_CHARACTER_IDS[0] = (s16)racer;
+}
+#endif
+
 void SelectProfile_QueueLoadHub_MenuProc(struct RectMenu *menu)
 {
 	struct GameTracker *gGT = GAME_TRACKER;
@@ -106,6 +121,9 @@ void SelectProfile_QueueLoadHub_MenuProc(struct RectMenu *menu)
 	gGT->levelID = MAIN_MENU_LEVEL;
 
 	GAME_CHARACTER_IDS[0] = GAME_ADV_PROGRESS.characterID;
+#ifdef CTR_AP
+	SelectProfile_ApplyApRacer();
+#endif
 	MainRaceTrack_RequestLoad(gGT->currLEV);
 	RECTMENU_Hide(menu);
 	return;
@@ -487,7 +505,8 @@ void SelectProfile_AdvPickMode_MenuProc(struct RectMenu *menu)
 		s16 row = menu->rowSelected;
 
 #ifdef CTR_AP
-		// #249: WUMPA SHOP opens the shop page; EXIT maps back to retail row 3.
+		// #249: WUMPA SHOP (first row) opens the shop page; the rows below it
+		// map back to their retail rows.
 		row = (s16)AP_WumpaShopGreenMenuRow(menu, row);
 		if (row == AP_WSHOP_GREEN_HANDLED)
 			return;
@@ -498,7 +517,12 @@ void SelectProfile_AdvPickMode_MenuProc(struct RectMenu *menu)
 		case 0:
 		case 1:
 		case 2:
+#ifdef CTR_AP
+			// The retail row, not rowSelected: with the shop row first they differ.
+			SelectProfile_ToggleMode((s16)((u16)row | SELECT_PROFILE_SCREEN_GREEN_LOAD_SAVE));
+#else
 			SelectProfile_ToggleMode((s16)((u16)menu->rowSelected | SELECT_PROFILE_SCREEN_GREEN_LOAD_SAVE));
+#endif
 			SELECT_PROFILE_DESIRED_MENU = &SELECT_PROFILE_MENU_ADVENTURE;
 			break;
 		case -1:
@@ -855,6 +879,9 @@ static __inline__ void SelectProfile_LoadAdvProfile(struct RectMenu *menu)
 	GAMEPROG_SyncGameAndCard(&SelectProfile_MemcardProfile()->gameSave.progress, &GAME_SAVE.progress);
 	memcpy(&GAME_ADV_PROGRESS, &SelectProfile_MemcardProfile()->advProgress[menu->rowSelected], sizeof(GAME_ADV_PROGRESS));
 	GAME_CHARACTER_IDS[0] = GAME_ADV_PROGRESS.characterID;
+#ifdef CTR_AP
+	SelectProfile_ApplyApRacer();
+#endif
 	// Fork addition: a profile that beat Oxide before he was playable unlocks
 	// him too (the bit is set on the win since, game/222.c).
 	if (CHECK_ADV_BIT(GAME_ADV_PROGRESS.rewards, ADV_REWARD_BEAT_OXIDE_FIRST))

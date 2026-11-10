@@ -266,6 +266,22 @@ static void test_relic_targets(void)
 	EXPECT_EQ(AP_CortexRelicTiersBeaten(AP_CortexRelicTime(2)), 7, "exact platinum beats all tiers");
 	EXPECT_EQ(AP_CortexRelicTiersBeaten(AP_CortexRelicTime(1)), 3, "exact gold");
 	EXPECT_EQ(AP_CortexRelicTiersBeaten(AP_CortexRelicTime(0) + 1), 0, "too slow");
+	// A4-13 (ruled 2026-11-09): standalone races are two laps, so the targets
+	// scale by the laps raced. Every placeholder divides by three exactly.
+	EXPECT_EQ(AP_CortexRelicTime(0) % 3, 0, "sapphire divides by three exactly");
+	EXPECT_EQ(AP_CortexRelicTime(1) % 3, 0, "gold divides by three exactly");
+	EXPECT_EQ(AP_CortexRelicTime(2) % 3, 0, "platinum divides by three exactly");
+	EXPECT_EQ(AP_CortexRelicTimeForLaps(0, 2), 126080, "two-lap sapphire (2:11.33)");
+	EXPECT_EQ(AP_CortexRelicTimeForLaps(1, 2), 112640, "two-lap gold (1:57.33)");
+	EXPECT_EQ(AP_CortexRelicTimeForLaps(2, 2), 98560, "two-lap platinum (1:42.67)");
+	for (t = 0; t < 3; t++)
+		EXPECT_EQ(AP_CortexRelicTimeForLaps(t, 3), AP_CortexRelicTime(t),
+		          "three laps keeps the placeholder, so legacy and old-plan rooms are unchanged");
+	EXPECT_EQ(AP_CortexRelicTimeForLaps(0, 0), AP_CortexRelicTime(0) / 3, "laps clamp from below");
+	EXPECT_EQ(AP_CortexRelicTimeForLaps(0, 9), AP_CortexRelicTime(0) * 7 / 3, "laps clamp from above");
+	EXPECT_EQ(AP_CortexRelicTiersBeatenForLaps(AP_CortexRelicTimeForLaps(2, 2), 2), 7,
+	          "exact two-lap platinum beats all tiers");
+	EXPECT_EQ(AP_CortexRelicTiersBeatenForLaps(AP_CortexRelicTimeForLaps(0, 2) + 1, 2), 0, "too slow on two laps");
 	EXPECT_EQ(AP_CortexLetterItemIndexPure(199), -1, "trial letter item is not Cortex Vortex");
 	EXPECT_EQ(AP_CortexLetterItemIndexPure(200), 0, "C");
 	EXPECT_EQ(AP_CortexLetterItemIndexPure(202), 2, "R");
@@ -353,8 +369,8 @@ static const struct guard_row rows[] = {
 	{"ap/ap_hooks_race.c", "int AP_LetterTokenEarned(", "AP_CortexLetterTrack(track)", "ctr_cfg.lettersanity_locations[track],"},
 	{"ap/ap_hooks.c", "static long AP_LookupLocationCode(", "AP_CortexPseudoDecode(globalBit, 0)", "AP_PODIUM_PSEUDO_BASE"},
 	{"ap/ap_hooks_pads.c", "static int AP_GlowBitRewardGroup(", "cortexGroup", "if (globalBit >= AP_PODIUM_PSEUDO_BASE)"},
-	{"game/232/AH_WarpPad.c", "s16 *AH_WarpPad_GetSpawnPosRot(", "CustomTrack_CortexTrackPrevServed()", "->levelID == exitedLevel"},
-	{"game/232/AH_WarpPad.c", "WarpPad_RequestLoad:\n", "AP_CortexTrackPrepareLoad(levelID)", "MainRaceTrack_RequestLoad(levelID);"},
+	{"game/232/AH_WarpPad.c", "s16 *AH_WarpPad_GetSpawnPosRot(", "returned->physicalPad", "->levelID == exitedLevel"},
+	{"game/232/AH_WarpPad.c", "int physLevelID = ctr_cfg_warp_phys(levelID);", "host = AP_ContentPreparePad(physLevelID, mode);", "MainRaceTrack_RequestLoad(levelID);"},
 	{"game/UI/UI_CupStandings.c", "nextLevelID = data.ArcadeCups[cupID].CupTrack[cupTrack].trackID;",
 	 "AP_CortexTrackPrepareLoad(nextLevelID)", "MainRaceTrack_RequestLoad(nextLevelID);"},
 	{"game/MAIN/MainRaceTrack.c", "void MainRaceTrack_RequestLoad(", "CustomTrack_CortexTrackOnRequestLoad(levelID)", "return;"},
@@ -381,7 +397,14 @@ static char *slurp(const char *path)
 	buf = malloc((size_t)len + 1);
 	if (fread(buf, 1, (size_t)len, f) != (size_t)len)
 		len = 0;
-	buf[len] = 0;
+	/* Source assertions accept either checkout line ending. */
+	{
+		size_t read, written = 0;
+		for (read = 0; read < (size_t)len; read++)
+			if (buf[read] != '\r')
+				buf[written++] = buf[read];
+		buf[written] = 0;
+	}
 	fclose(f);
 	return buf;
 }

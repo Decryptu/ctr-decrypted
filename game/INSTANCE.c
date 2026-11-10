@@ -405,6 +405,7 @@ void INSTANCE_LevInitAll(struct InstDef *definitions, s32 count)
 	// above, because that loop is where the engine clears DRAW_COLLISION_MASK on
 	// the crates a mode disables, and the census reads exactly that flag.
 	AP_TrapLevelInstances(definitions, count);
+	AP_SanityLevelInstances(definitions, count);
 #endif
 }
 

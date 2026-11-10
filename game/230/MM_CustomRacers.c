@@ -226,12 +226,12 @@ static void MM_ModsRacers_DrawPanel(const struct NativeRacerCatalogueEntry *list
     if (s_racerConfirmRemove)
     {
         MM_CustomText_Draw("Remove this racer and its files?", MODS_PANEL_X, 124, MODS_PANEL_W, 2, WHITE, ot);
-        MM_CustomText_Draw("* Yes  ^ No", MODS_PANEL_X, 160, MODS_PANEL_W, 1, ORANGE, ot);
+        MM_CustomText_Draw(NativeMenu_Labels("* Yes  ^ No"), MODS_PANEL_X, 160, MODS_PANEL_W, 1, ORANGE, ot);
         return;
     }
     snprintf(line, sizeof line, "Based on %s", s_racerTemplateNames[templateID & 15]);
     MM_CustomText_Draw(line, MODS_PANEL_X, 124, MODS_PANEL_W, 1, WHITE, ot);
-    MM_CustomText_Draw(s_racerInstallBusy ? "Downloading..." : installed ? "* Remove" : "* Download", MODS_PANEL_X, 136, MODS_PANEL_W, 1, ORANGE, ot);
+    MM_CustomText_Draw(s_racerInstallBusy ? "Downloading..." : installed ? NativeMenu_Labels("* Remove") : NativeMenu_Labels("* Download"), MODS_PANEL_X, 136, MODS_PANEL_W, 1, ORANGE, ot);
     MM_CustomText_Draw(s_racerMessage[0] ? s_racerMessage : !installed ? "Not installed" :
                        listed ? "Installed" : "Installed, not in the list", MODS_PANEL_X, 150, MODS_PANEL_W, 2, WHITE, ot);
 }

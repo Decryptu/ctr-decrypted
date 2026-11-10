@@ -12,7 +12,7 @@ Open work only: what is in progress, what is planned, what may come, and what is
 
 ## Planned
 - Racer stats in the character select: a settings toggle that shows each racer's speed, acceleration and turning on the select screen, custom racers by their template. High Octane has a stats viewer to port from ([UPSTREAM-ISSUES.md](docs/UPSTREAM-ISSUES.md#high-octane)).
-- Sync dowlle: its 0.3.0 line went into `main`, which has about 230 client commits and 105 world commits we lack (`python tools/decrypted/upstream_status.py`). Import and merge as in [DEVELOPMENT.md](docs/DEVELOPMENT.md#syncing-upstream), then run the merge audit.
+- Mods screen, Installed tab: a track a seed installed and the same track downloaded from the Tracks tab are listed twice. A seed install is stored under the room's package UUID with a `ctr-seed` source, and `MM_CustomSourceInstalled` (`game/230/MM_CustomManager.c`) only matches a Saphi track ID or the catalogue UUID. Match by LEV and VRM hashes as well, so the Tracks tab sees the seed's copy as installed.
 - The other High Octane features we want. Each `planned` line in `tools/decrypted/highoctane.txt` names its item here (`upstream_status.py --ho planned`):
   - **High Octane fixes:** check each one against our tree and retail first, as some may be fixed already or change retail behaviour. Widescreen garage stat bars and speedometer; TLUT precision, minimap seam, track preview aspect; Crash Cove ship PVS; mask voice in step with the audio; homing enemy missiles; deterministic Blizzard Bluffs and Sewer Speedway hazards; shadows over menu boxes; Wumpa fruit on the VS/Battle end screen; DualSense showing as two pads; scrapbook video playback; split-screen decals, PVS/LOD, Wumpa and viewports, and the quadblock retry list overflow.
   - **Default camera and HUD options:** the race starts with the chosen camera distance and HUD element.
@@ -23,6 +23,7 @@ Open work only: what is in progress, what is planned, what may come, and what is
   - **Multiplayer character select:** players 2-4 can change page, and players may pick the same racer.
 
 ## Maybe
+- Parts of dowlle's Options > Custom Tracks page that the Mods screen lacks ([CUSTOM_TRACKS.md](docs/CUSTOM_TRACKS.md#4-the-mods-screen-and-the-library)): an All / Installed / Browse filter, rescanning local files, opening a track's source page, and in the Seed tab the seed identity, per-track Resolve, required files and installed copies. Also its Baby T Park package tools: Verify / Setup, YAML export and the relic times editor.
 - Title screen: a drawn logo in place of the DECRYPTED text, and the release version in a corner.
 - Chaos effects as Archipelago traps. CTR Native Expanded has 38 race effects, harmful and helpful (reversed steering, low gravity, giant karts, no items...), with an external trigger file. They could be the trap and buff items dowlle's tracker asks for (#248, #455, #486), sent by the multiworld instead of a timer.
 - CTR Native Expanded's two-player co-op Adventure. The Archipelago client would need to know about a second player.

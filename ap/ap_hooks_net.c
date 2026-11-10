@@ -82,6 +82,12 @@ static void AP_NetTick(struct GameTracker *gGT)
 	ap_net_poll();
 	AP_PerfSectionEnd(AP_PERF_SEC_POLL);
 
+	// A custom Arcade race holds the room: received items stay in the net queue
+	// and a reconnect's reset waits with them, so the race never sees the room's
+	// state change, and the feed and tallies see ordinary late receipts after it.
+	if (AP_ArcadeHoldsRoom())
+		return;
+
 	// On a fresh slot-connect (new seed, reconnect, or server switch) the server
 	// resends the FULL ReceivedItems list from index 0. Zero the per-session
 	// tallies + goal/notify state FIRST so everything rebuilds from the
@@ -247,7 +253,12 @@ static void AP_NetTick(struct GameTracker *gGT)
 	// fresh connect (above), so the resent full list rebuilds counts exactly.
 	// #299: resolve the room's effect markers (releasing held effects) before
 	// this frame's items are offered against them.
-	AP_FxStorageTick();
+	int fxReleased = AP_FxStorageTick();
+	// A3-17: rebase non-item changes the poll or a reconcile resolved since
+	// the last frame, before the first receipt can take credit for them. A
+	// tick that released held effect items counts as a receipt window: those
+	// releases are item-caused (review round 3).
+	AP_UnlockReasonsEndDrain(fxReleased);
 	long long items[32];
 	int n = ap_net_drain_items(items, 32);
 	AP_PerfNoteItemsReceived(n, n > 0 ? items[n - 1] : 0); // frame stall line context
@@ -573,6 +584,10 @@ static void AP_NetTick(struct GameTracker *gGT)
 			         "[AP ITEM] received item id %lld (filler/unmapped) | %s\n", items[i], st);
 		}
 		AP_AppendLog(msg);
+
+		// A3-17: with this receipt fully applied, toast what it opened (pads,
+		// stage 2, doors, garages; shop shelves follow in the per-frame call).
+		AP_UnlockReasonsAfterItem();
 	}
 	// Replay dedup high-water: after the batch, remember the highest server index
 	// drained (effects for anything at or below it must never run again) and
@@ -593,6 +608,7 @@ static void AP_NetTick(struct GameTracker *gGT)
 	}
 
 	AP_FeedEndDrain(n); // hub feed: prime once the initial inventory dump goes quiet
+	AP_UnlockReasonsEndDrain(n); // A3-17: batch-end watch (deferred Wumpa credit)
 
 	AP_PerfSectionEnd(AP_PERF_SEC_ITEM_APPLY);
 }

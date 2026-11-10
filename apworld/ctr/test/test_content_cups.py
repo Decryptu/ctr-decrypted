@@ -68,6 +68,12 @@ def cups_of(plan):
 
 
 class TestCupDraw(unittest.TestCase):
+    def test_profile_without_cups_is_unchanged(self):
+        opts=profile_options()
+        baseline=make_world(opts).fill_slot_data()
+        opts['cup_sweep_checks']=True
+        self.assertEqual(make_world(opts).fill_slot_data(),baseline)
+
     def test_varied_profiles_generate_validate_and_restore(self):
         generated = 0
         for seed in range(24):
@@ -130,7 +136,24 @@ class TestCupDraw(unittest.TestCase):
         plan = make_world(options).ctr_content_plan
         for cup in cups_of(plan):
             for leg in cup["legs"]:
-                self.assertRegex(leg["track_id"], r"^retail:(\d|1[0-5])$")
+                self.assertRegex(leg["track_id"], r"^retail:(\d|1[0-7])$")
+
+    def test_retired_names_are_never_drawn(self):
+        """Retired identities stay registered; every replacement is drawable."""
+        retired = {cup_checks.CUP_NAMES.index(name) for name in cup_checks.CUP_NAMES_RETIRED}
+        seen = set()
+        for seed in range(8):
+            plan = make_world(dict(cup_count=27, crystal_challenge_count=0,
+                                   accessibility="full"), seed=seed).ctr_content_plan
+            for cup in cups_of(plan):
+                if content_cups.gem_colour(cup["id"]) is None:
+                    seen.add(int(cup["id"].split(":")[1]))
+        self.assertFalse(seen & retired)
+        self.assertEqual(seen, set(cup_checks.CUP_DRAW_INDICES))
+        self.assertIn(cup_checks.CUP_NAMES.index("Dex Cup"), seen)
+        for name in ("Hiru Cup", "Spark Cup", "Sido Cup", "DM3 Productions Cup"):
+            self.assertIn(cup_checks.CUP_NAMES.index(name), seen)
+        self.assertEqual(len(cup_checks.CUP_DRAW_INDICES), 36)
 
     def test_feasible_pairs(self):
         spec = dict(bounds=(25, 27), repeats=dict(content_cups.DEFAULT_REPEATS), custom_legs=(0, 4))
@@ -169,7 +192,8 @@ class TestCupChecks(unittest.TestCase):
                     win = next(c for c in plan["checks"] if c["location"] == 35011200 + index)
                     self.assertEqual(win["display_name"], f"{cup_checks.GEM_CUPS[index]}: Gem")
                 else:
-                    win = next(c for c in plan["checks"] if c["location"] == 35027000 + index)
+                    code = cup_checks._pool_code(cup_checks.CUP_WIN_CODE_BASE, cup_checks.CUP_WIN_GROWTH_BASE, index)
+                    win = next(c for c in plan["checks"] if c["location"] == code)
                     self.assertEqual(win["display_name"], f"{cup_checks.CUP_NAMES[index]}: Win")
             victories = [c for c in plan["checks"] if c["kind"] == "cup_leg"]
             self.assertEqual({c["owner"] for c in victories}, legs - trophy)
@@ -329,9 +353,9 @@ class TestCupHitCharacter(unittest.TestCase):
                     packages=[dict(id="p", content_id="probe", capabilities=dict(weapon_crates=0, super_turbo_pads=True))],
                     capability=dict(boost_mode=2, shortcut_knowledge=0))
         world = NS(player=1, ctr_content_plan=plan, ctr_starting_character="Coco Bandicoot",
-                   ctr_hit_character_fallback={},
+                   ctr_hit_character_fallback={}, ctr_hit_character_encounters=dict(bosses={}),
                    options=NS(progressive_boost=NS(value=2), progressive_stats=NS(value=0),
-                              character_unlocks=NS(value=0)))
+                              character_unlocks=NS(value=0), pad_approach_hints=NS(value=0)))
         route = dict(own_pad_id="pad:0", entry_id="entry/cup:0", leg_id="leg:1", mode="cup")
         self.assertEqual(content_cups.prefix_boost(cup, "leg:1", {t["id"]: t for t in plan["tracks"]},
                                                    plan["capability"], {"p": plan["packages"][0]}), 2)

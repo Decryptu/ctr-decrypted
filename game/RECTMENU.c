@@ -22,6 +22,11 @@
 #define RECTMENU_DRAW_GT4         DecalHUD_DrawPolyGT4
 #endif
 
+#ifdef CTR_AP
+#include "../ap/ap_ai_difficulty.h"
+#include "../ap/ap_pauserow.h"
+#endif
+
 
 void RECTMENU_DrawPolyGT4(struct Icon *icon, s32 posX, s32 posY, struct PrimMem *primMem, u32 *ot, Color color0, Color color1, Color color2, Color color3,
                           u8 transparency, s16 scale)
@@ -402,6 +407,12 @@ static char *RECTMENU_RowString(int index)
 #ifdef CTR_AP
 	if (index == AP_LNG_TRACKER)
 		return (char *)"TRACKER";
+	if (index == AP_LNG_TRAVEL)
+		return (char *)"TRAVEL";
+	if (index == AP_LNG_AI_DIFFICULTY)
+		return (char *)"AI DIFFICULTY";
+	if (index >= AP_LNG_AI_PRESET && index < AP_LNG_AI_PRESET + AI_DIFF_COUNT)
+		return (char *)s_aiDiffNames[index - AP_LNG_AI_PRESET];
 	if (index == AP_LNG_WUMPA_SHOP)
 		return (char *)"WUMPA SHOP";
 	if (index == AP_LNG_PLAY_SOLO)
@@ -709,6 +720,17 @@ s32 RECTMENU_ProcessInput(struct RectMenu *m)
 		{
 			button = sdata->AnyPlayerTap;
 		}
+#ifdef CTR_AP
+		// A4-14's AP selector uses the shared AP convention. Other RectMenus
+		// retain retail input: Cross/Circle confirm, Triangle/Start go back here.
+		if ((m->rows && m->rows[0].stringIndex == AP_LNG_AI_PRESET) ||
+		    (m->stringIndexTitle == LNG_CHOOSE_RACE_TYPE && !(m->state & MENU_CANT_GO_BACK)))
+		{
+			if (button & BTN_START)
+				button |= BTN_TRIANGLE;
+			button &= ~(BTN_START | BTN_SQUARE_one);
+		}
+#endif
 		if (!(RECTMENU_PLAYER_HOLD[0] & (BTN_L1 | BTN_R1)))
 		{
 			if (button & RECTMENU_INPUT_MENU)

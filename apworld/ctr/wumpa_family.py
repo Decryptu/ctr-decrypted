@@ -7,7 +7,7 @@ global 10-wumpa location name the same way. A frozen name is a reserved id and
 nothing else: no option created any of them, no pool drew them, and the native
 half sat waiting. This module is the half that makes them real.
 
-THE RULING THIS IMPLEMENTS. Stef, 2026-08-10 16:28/16:30, walking the R-H
+THE RULING THIS IMPLEMENTS. Ruled 2026-08-10 16:28/16:30, walking the R-H
 dossier family by family: two bundles as FILLER, one `Progressive Starting
 Wumpa` name received up to ten times per the #12/#13 progressive convention
 (the dossier's separate "+5 / +10 wumpa useful items" folded into that ladder
@@ -43,7 +43,7 @@ WUMPA_BUNDLE_ITEMS: List[str] = [
     "Big Wumpa Bundle",
 ]
 
-#: The ruled progressive: ONE name, up to ten received copies (Stef, 16:30).
+#: The ruled progressive: ONE name, up to ten received copies (ruled 16:30).
 PROGRESSIVE_WUMPA_ITEM = "Progressive Starting Wumpa"
 
 #: The hard ceiling on that ladder. Ten is not an arbitrary option bound: a kart
@@ -88,12 +88,6 @@ def created_item_counts(world) -> Dict[str, int]:
     if ladder > 0:
         counts[PROGRESSIVE_WUMPA_ITEM] = min(ladder, PROGRESSIVE_WUMPA_MAX)
     return counts
-
-
-def created_item_total(world) -> int:
-    """Total supply this family spends on this seed. One number so the capacity
-    check does not have to re-sum the dict at its own call site."""
-    return sum(created_item_counts(world).values())
 
 
 def reserve_top_up_enabled(world) -> bool:
@@ -168,14 +162,3 @@ def fill_slot_data(world) -> Dict[str, object]:
     }
 
 
-def restore_slot_data(options, ctr_options) -> None:
-    """Universal Tracker restore for the two scalars above.
-
-    An absent key is a pre-activation seed and restores to off / zero, which is
-    the honest answer: such a seed created none of these items.
-    """
-    options.wumpa_bundles.value = int(bool(ctr_options.get("wumpa_bundles", 0)))
-    options.reserve_top_up.value = int(bool(ctr_options.get("reserve_top_up", 0)))
-    options.progressive_starting_wumpa.value = min(
-        PROGRESSIVE_WUMPA_MAX,
-        max(0, int(ctr_options.get("progressive_starting_wumpa", 0) or 0)))

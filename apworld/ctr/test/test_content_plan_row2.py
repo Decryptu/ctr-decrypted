@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 from Options import OptionError
 
-from .. import content_bosses, content_cups, content_item_pool, content_plan, cup_checks, gem_cup_legs
+from .. import content_bosses, content_cups, content_item_pool, content_plan, cup_checks
 from ..Options import CupCount, CupCustomLegs, CupTracks
 from .test_content_plan import make_world, profile_options
 from .test_track_modes import mode_pool
@@ -88,8 +88,8 @@ class TestGemCups(unittest.TestCase):
             self.assertEqual(win["routes"][0]["award"], "win")
         for cup in pool_cups(plan):
             index = int(cup["id"].split(":")[1])
-            self.assertIn(35027000 + index, checks)
-            self.assertIn(35027200 + index, checks)
+            self.assertIn(cup_checks._pool_code(35027000, 35027100, index), checks)
+            self.assertIn(cup_checks._pool_code(35027200, 35027300, index), checks)
 
     def test_gems_stay_shuffled_items(self):
         world = make_world(plan_options(), stop_before="pre_fill")
@@ -139,7 +139,7 @@ class TestCupTracks(unittest.TestCase):
         return [names[leg["track_id"]] for leg in cup["legs"]]
 
     def test_off_races_the_original_tracks_and_a_sixth_cup_draws(self):
-        table = gem_cup_legs.load_vanilla_cup_legs()
+        table = content_cups.load_vanilla_cup_legs()
         for seed in range(6):
             plan = make_world(plan_options(dict(count=7, tracks="off")), seed=seed).ctr_content_plan
             for cup in gems_of(plan):
@@ -161,12 +161,45 @@ class TestCupTracks(unittest.TestCase):
             seen |= any(len(set(self.legs(plan, cup))) < 4 for cup in cups_of(plan))
         self.assertTrue(seen)
 
-    def test_trial_tracks_are_never_cup_races(self):
+    def test_trial_tracks_can_be_cup_races(self):
+        # Slide Coliseum and Turbo Track are drawn like any other race track
+        # (ruled 2026-11-05). `off` keeps the original Gem Cups, which never
+        # race them; its sixth and seventh cups draw.
         for value in content_cups.CUP_TRACKS:
-            for seed in range(8):
+            seen = set()
+            for seed in range(16):
                 plan = make_world(plan_options(dict(count=7, tracks=value)), seed=seed).ctr_content_plan
-                legs = {leg["track_id"] for cup in cups_of(plan) for leg in cup["legs"]}
-                self.assertFalse(legs & set(TRIAL_IDS), value)
+                seen |= {leg["track_id"] for cup in cups_of(plan) for leg in cup["legs"]} & set(TRIAL_IDS)
+                if value == "off":
+                    gem = {leg["track_id"] for cup in gems_of(plan) for leg in cup["legs"]}
+                    self.assertFalse(gem & set(TRIAL_IDS))
+            self.assertEqual(seen, set(TRIAL_IDS), value)
+
+    def test_trial_tracks_stay_out_of_cups_outside_retail_tracks(self):
+        options = plan_options(dict(count=7, tracks="random_no_repeats"))
+        options["content_pool"]["tracks"]["retail"] = list(range(16))
+        for seed in range(8):
+            plan = make_world(options, seed=seed).ctr_content_plan
+            legs = {leg["track_id"] for cup in cups_of(plan) for leg in cup["legs"]}
+            self.assertFalse(legs & set(TRIAL_IDS))
+
+    def test_a_trial_track_without_a_trophy_race_gets_its_cup_leg_victory(self):
+        # Relic Races only, so no leg track has a standalone Trophy Race check.
+        names = {"retail:16": "Slide Coliseum", "retail:17": "Turbo Track"}
+        found = set()
+        options = plan_options(dict(count=7, tracks="random"), modes=("relic",))
+        options["content_pool"]["tracks"]["custom"] = []
+        options["content_pool"]["required_entries"] = []
+        for seed in range(12):
+            plan = make_world(options, seed=seed).ctr_content_plan
+            legs = {leg["track_id"] for cup in cups_of(plan) for leg in cup["legs"]}
+            victories = {c["owner"]: c for c in plan["checks"] if c["kind"] == content_cups.LEG_KIND}
+            for tid in legs & set(TRIAL_IDS):
+                check = victories[tid]
+                self.assertEqual(check["display_name"], names[tid] + ": Cup Leg Victory")
+                self.assertEqual(check["location"], content_cups.CTR_LOCATION_IDS[check["display_name"]])
+                found.add(tid)
+        self.assertEqual(found, set(TRIAL_IDS))
 
     def test_unknown_value_refuses(self):
         with self.assertRaises(KeyError):

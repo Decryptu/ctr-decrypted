@@ -33,8 +33,52 @@ class TestContentWumpaShop(unittest.TestCase):
 
     def test_record_features_and_goal(self):
         plan = self.plan
-        self.assertEqual(plan["wumpa_shop"], dict(slots=3, prices=150, progression="excluded", hints=True))
-        self.assertEqual(plan["required_features"][-3:], ["wumpa_shop_v1", "wumpa_goal_v1", "pad_client_v1"])
+        self.assertEqual(plan["wumpa_shop"], dict(slots=3, prices=150, progression="excluded", hints=True, logic_scale=100))
+        self.assertEqual(plan["required_features"][-4:], ["wumpa_shop_v1", "wumpa_shop_key_tiers_v1", "wumpa_goal_v1", "pad_client_v1"])
+
+    def test_key_budget_boundaries_and_scaling(self):
+        for amount, keys in ((0, 0), (100, 0), (101, 1), (300, 1), (301, 2),
+                             (600, 2), (601, 3), (900, 3), (901, 4), (1200, 4), (5000, 4)):
+            with self.subTest(amount=amount):
+                self.assertEqual(wumpa_shop.logic_key_floor(amount, 0), keys)
+                self.assertEqual(wumpa_shop.logic_key_floor(0, amount), keys)
+                self.assertEqual(wumpa_shop.logic_key_floor(amount * 2, 0, 200), keys)
+        self.assertEqual(wumpa_shop.logic_key_floor(26, 0, 25), 1)
+
+    def test_expensive_shelves_need_later_keys(self):
+        world = make_world(shop_options(slots=25, progression="allowed", wumpa_shop_prices=200),
+                           stop_before="pre_fill")
+        state = CollectionState(world.multiworld)
+        state.collect(world.create_event(content_wumpa.INCOME), True)
+        for keys in range(5):
+            for slot, floor in ((1, 0), (19, 2), (22, 3), (25, 4)):
+                loc = world.multiworld.get_location(f"N. Sanity Beach Shop: Slot {slot}", 1)
+                self.assertEqual(loc.access_rule(state), keys >= floor, (keys, slot))
+            state.collect(world.create_item("Key"), True)
+
+    def test_legacy_room_keeps_original_shop_logic(self):
+        world = make_world(shop_options(slots=25, wumpa_shop_prices=200), stop_before="pre_fill")
+        wire = copy.deepcopy(world.fill_slot_data())
+        plan = wire["content_plan"]
+        del plan["wumpa_shop"]["logic_scale"]
+        plan["required_features"].remove(content_wumpa.LOGIC_FEATURE)
+        tracker = make_world({}, passthrough=wire, stop_before="pre_fill")
+        state = CollectionState(tracker.multiworld)
+        state.collect(tracker.create_event(content_wumpa.INCOME), True)
+        self.assertTrue(tracker.multiworld.get_location("N. Sanity Beach Shop: Slot 25", 1).access_rule(state))
+        # A3-37b: shop slots have win_logic rows, and the tracker's follow the
+        # legacy rule it restored. This wire is a new room with the scale
+        # removed, so only its block's shop rows differ; a real legacy room
+        # never carried shop rows.
+        restored = tracker.fill_slot_data()
+        self.assertEqual({k: v for k, v in restored.items() if k != "win_logic"},
+                         {k: v for k, v in wire.items() if k != "win_logic"})
+        shop = {str(c["location"]) for c in plan["checks"] if c["kind"] == content_wumpa.KIND}
+        for key in ("version", "families", "regions", "start"):
+            self.assertEqual(restored["win_logic"][key], wire["win_logic"][key], key)
+        self.assertEqual({k: v for k, v in restored["win_logic"]["checks"].items() if k not in shop},
+                         {k: v for k, v in wire["win_logic"]["checks"].items() if k not in shop})
+        self.assertTrue(shop <= set(restored["win_logic"]["checks"]))
         self.assertEqual(plan["goal"]["op"], "all")
         self.assertEqual(plan["goal"]["terms"][-1], dict(op="wumpa_banked", count=750))
         self.assertEqual(plan["goal"]["terms"][0]["op"], "distinct")
@@ -89,10 +133,32 @@ class TestContentWumpaShop(unittest.TestCase):
         self.assertTrue(income.can_reach(state))
         self.assertTrue(citadel.can_reach(state))
 
-    def test_income_routes_are_retail_race_tracks_only(self):
+    def test_income_routes_are_retail_race_tracks_and_custom_tracks_with_wumpa(self):
         routes = content_wumpa.income_routes(self.plan)
         self.assertTrue(routes)
-        self.assertTrue(all(t["origin"] == "retail" and t["retail_id"] <= 15 for _e, _p, _m, t in routes))
+        packages = {p["id"]: p for p in self.plan["packages"]}
+        self.assertTrue(all(t["retail_id"] <= 15 if t["origin"] == "retail"
+                            else t["origin"] == "custom" and packages[t["package_id"]]["capabilities"]["wumpa"]
+                            for _e, _p, _m, t in routes))
+
+    def test_income_track(self):
+        self.assertTrue(content_wumpa.income_track(dict(origin="retail", retail_id=15)))
+        self.assertFalse(content_wumpa.income_track(dict(origin="retail", retail_id=16)))
+        self.assertFalse(content_wumpa.income_track(dict(origin="cortex_vortex")))
+        custom = dict(origin="custom", package_id="p")
+        self.assertFalse(content_wumpa.income_track(custom))
+        self.assertFalse(content_wumpa.income_track(custom, dict(capabilities=dict(wumpa=False))))
+        self.assertTrue(content_wumpa.income_track(custom, dict(capabilities=dict(wumpa=True))))
+
+    def test_earns_income_needs_a_trophy_or_ctr_mode(self):
+        # The first Key capacity check (banks_fruit) reads this: a Relic-only
+        # entry banks nothing in logic, also on a track with measured Wumpa.
+        packages = {"p": dict(capabilities=dict(wumpa=True))}
+        custom = dict(origin="custom", package_id="p")
+        self.assertTrue(content_wumpa.earns_income(dict(custom, modes=["trophy"]), packages))
+        self.assertTrue(content_wumpa.earns_income(dict(custom, modes=["ctr", "relic"]), packages))
+        self.assertFalse(content_wumpa.earns_income(dict(custom, modes=["relic"]), packages))
+        self.assertFalse(content_wumpa.earns_income(dict(origin="retail", retail_id=3, modes=["relic"]), {}))
 
     def test_shop_slots_never_count_as_starting_checks(self):
         off = make_world(shop_options(slots=0), seed=20261029, stop_before="pre_fill")
@@ -109,6 +175,20 @@ class TestContentWumpaShop(unittest.TestCase):
         self.assertEqual((o.wumpa_shop_slots.value, o.wumpa_shop_prices.value, o.wumpa_shop_progression.value,
                           o.wumpa_shop_hints.value, o.goal_wumpa.value), (3, 150, 1, 1, 750))
         self.assertEqual(tracker.fill_slot_data(), wire)
+
+    def test_tracker_restores_custom_logic_scale(self):
+        world = make_world(shop_options(wumpa_shop_logic_scale=50), stop_before="pre_fill")
+        wire = json.loads(json.dumps(world.fill_slot_data()))
+        tracker = make_world(dict(wumpa_shop_logic_scale=400), passthrough=wire, stop_before="pre_fill")
+        self.assertEqual(tracker.options.wumpa_shop_logic_scale.value, 50)
+        self.assertEqual(tracker.fill_slot_data(), wire)
+        state = CollectionState(tracker.multiworld)
+        state.collect(tracker.create_event(content_wumpa.INCOME), True)
+        # Slot 3's 75-fruit shelf exceeds the scaled starting budget of 50.
+        location = tracker.multiworld.get_location("N. Sanity Beach Shop: Slot 3", 1)
+        self.assertFalse(location.access_rule(state))
+        state.collect(tracker.create_item("Key"), True)
+        self.assertTrue(location.access_rule(state))
 
     def test_forged_plans_refuse(self):
         def mutate(change):
@@ -134,6 +214,9 @@ class TestContentWumpaShop(unittest.TestCase):
             prices=lambda p: p["wumpa_shop"].update(prices=100),
             progression=lambda p: p["wumpa_shop"].update(progression="sometimes"),
             hints=lambda p: p["wumpa_shop"].update(hints=1),
+            scale_low=lambda p: p["wumpa_shop"].update(logic_scale=24),
+            scale_bool=lambda p: p["wumpa_shop"].update(logic_scale=True),
+            no_logic_feature=lambda p: p["required_features"].remove(content_wumpa.LOGIC_FEATURE),
             no_record=lambda p: p.pop("wumpa_shop"),
             no_feature=lambda p: p["required_features"].remove("wumpa_shop_v1"),
             no_goal_feature=lambda p: p["required_features"].remove("wumpa_goal_v1"),
@@ -207,9 +290,13 @@ class TestContentWumpaRules(unittest.TestCase):
             content_plan.validate(plan)
         self.assertIn("excluded", str(caught.exception))
 
-    def test_no_retail_race_refuses(self):
+    def test_no_income_track_refuses(self):
+        # The profile's custom tracks have measured Wumpa, so they are income
+        # routes (ruling of 2026-11-02): without them and retail 0..15 it refuses.
         options = shop_options(slots=5, progression="allowed", goal=0)
         options["content_pool"]["tracks"]["retail"] = [16, 17]
+        options["content_pool"]["tracks"]["custom"] = []
+        options["content_pool"]["required_entries"] = []
         with self.assertRaises(OptionError) as caught:
             make_world(options, seed=7)
         self.assertIn("bank fruit", str(caught.exception))
@@ -229,22 +316,27 @@ class TestContentWumpaRules(unittest.TestCase):
             bare.collect(world.create_item("Key"), True)
         self.assertFalse(entrance.access_rule(bare))
 
-    def test_progression_slot_price_is_the_band_bottom(self):
+    def test_progression_slot_price_is_its_drawn_price(self):
+        """Ruling of 2026-11-02: a slot's price does not depend on what the fill
+        put there, so progression is priced across the whole band."""
         options = shop_options(slots=10, progression="allowed", goal=0, accessibility="full")
+        above_bottom = False
         for seed in range(1, 8):
+            drawn = {c["location"]: c["price"]
+                     for c in shop_checks(make_world(options, seed=seed, stop_before="pre_fill").ctr_content_plan)}
             world, wire = full_generation(options, seed)
             assert_complete(self, world)
             plan = wire["content_plan"]
             self.assertTrue(content_plan.validate(plan))
             mw = world.multiworld
-            progression = [c for c in shop_checks(plan)
-                           if mw.get_location(c["display_name"], 1).item.advancement]
-            for c in progression:
-                hub = c["display_name"].split(" Shop: ")[0]
-                self.assertEqual(c["price"], wumpa_shop.price_band(hub, 150)[0])
-            if progression:
+            self.assertEqual({c["location"]: c["price"] for c in shop_checks(plan)}, drawn)
+            for c in shop_checks(plan):
+                if mw.get_location(c["display_name"], 1).item.advancement:
+                    hub = c["display_name"].split(" Shop: ")[0]
+                    above_bottom |= c["price"] > wumpa_shop.price_band(hub, 150)[0]
+            if above_bottom:
                 return
-        self.fail("no seed placed progression in a shop slot")
+        self.fail("no seed priced a progression slot above its hub's lowest price")
 
     def test_full_generation_excluded(self):
         for seed in (1, 2, 3):

@@ -43,12 +43,6 @@
 // so a reconnect's replay (same indices) never re-toasts. All display-only and
 // gated on ctr_cfg_active(), so a clean / vanilla-config run is byte-identical.
 // ---------------------------------------------------------------------------
-// The *_FRAMES values below count 30 FPS frames; each use goes through
-// FPS_DOUBLE so the on-screen times are the same in 60 FPS mode.
-#define AP_FEED_LIFETIME_FRAMES    240 // per-line visible dwell (~4s), tunable
-#define AP_FEED_MAX_VISIBLE        5   // lines on screen at once
-#define AP_FEED_QUEUE_MAX          24  // pending (not-yet-visible) ring capacity
-#define AP_FEED_STAGGER_FRAMES     12  // min frames between promotions (cascade)
 #define AP_FEED_PRIME_QUIET_FRAMES 30  // no-new-item frames before going live
 #define AP_FEED_LINE_H             0xC // vertical spacing between lines
 #define AP_FEED_X                  0x10
@@ -68,7 +62,6 @@
 // lost) and shows them on the next 1P surface.
 // Storage cap: big enough that the "%s FROM %s" format below (item<=31 +
 // " FROM " + player<=23) can never be truncated, so no -Wformat-truncation.
-#define AP_FEED_TEXT_CAP           96
 #define AP_FEED_ITEM_CAP           32
 #define AP_FEED_PLAYER_CAP         24
 // Wording lives here (retunable), consistent with the ceremony block above.
@@ -77,20 +70,7 @@
 #define AP_FEED_FMT_SENT     "%s TO %s"     // we checked a location that feeds someone else
 #define AP_FEED_ITEM_UNKNOWN "AP ITEM"
 
-typedef struct
-{
-	char text[AP_FEED_TEXT_CAP];
-	int  color;      // DecalFontStyle index resolved from the item's AP class (#195)
-	int  framesLeft; // visible lifetime remaining
-	int  playCue;    // received-item cue, consumed only when promoted in a race
-} AP_FeedLine;
-
-static AP_FeedLine ap_feed_queue[AP_FEED_QUEUE_MAX]; // FIFO of pending lines
-static int ap_feed_qhead = 0;
-static int ap_feed_qcount = 0;
-static AP_FeedLine ap_feed_vis[AP_FEED_MAX_VISIBLE]; // [0]=oldest(top)..newest(bottom)
-static int ap_feed_vcount = 0;
-static int ap_feed_stagger = 0;
+static AP_FeedLines ap_feed; // pending ring + visible lines (ap_feed_lines_logic.h)
 
 static int       ap_feed_primed = 0;  // 0 while absorbing the initial inventory
 static long long ap_feed_hwm = -1;    // highest already-known server index
@@ -107,23 +87,17 @@ static int ap_hub_feed_on = 1; // ap-config.txt "hub_feed=" (default on; governs
                                // BOTH feed surfaces since #192, key name kept)
 int AP_HubFeedOn(void)
 {
+	// Options > Archipelago > Item Feed (ruling of 2026-11-02), with the same
+	// config.ini-over-ap-config.txt precedence as AP_MapFlashOn.
+	if (NativeConfig_HasIni())
+		return g_config.itemFeed;
 	return ap_hub_feed_on;
 }
 
 // Append a ready-formatted line to the pending queue. Oldest is dropped if full.
 static void AP_FeedEnqueue(const char *text, int color, int playCue)
 {
-	if (ap_feed_qcount >= AP_FEED_QUEUE_MAX)
-	{
-		ap_feed_qhead = (ap_feed_qhead + 1) % AP_FEED_QUEUE_MAX;
-		ap_feed_qcount--;
-	}
-	int slot = (ap_feed_qhead + ap_feed_qcount) % AP_FEED_QUEUE_MAX;
-	snprintf(ap_feed_queue[slot].text, AP_FEED_TEXT_CAP, "%s", text);
-	ap_feed_queue[slot].color = color;
-	ap_feed_queue[slot].framesLeft = 0;
-	ap_feed_queue[slot].playCue = playCue;
-	ap_feed_qcount++;
+	AP_FeedLinesEnqueue(&ap_feed, text, color, playCue);
 }
 
 static void AP_FeedRememberSelfRung(long long item)
@@ -163,10 +137,7 @@ void AP_FeedConnectReset(void)
 	ap_feed_primed = 0;
 	ap_feed_hwm = -1;
 	ap_feed_quiet = 0;
-	ap_feed_qhead = 0;
-	ap_feed_qcount = 0;
-	ap_feed_vcount = 0;
-	ap_feed_stagger = 0;
+	AP_FeedLinesReset(&ap_feed);
 	ap_feed_self_rung_count = 0;
 }
 
@@ -233,7 +204,7 @@ void AP_FeedOnItemReceived(long long item, int player, long long index, unsigned
 // Coloured as a trap so a warning reads the same as the receipt that produced it.
 // Deliberately outside the initial-inventory absorb window that gates the received
 // feed: an armed trap is live gameplay state, not a replayed receipt.
-void AP_FeedTrapLine(const char *text)
+void AP_FeedTrapLine(int trapSlot, unsigned int trapSeq, int stage, const char *text)
 {
 	char line[AP_FEED_TEXT_CAP];
 	if (!ctr_cfg_active() || text == 0)
@@ -241,7 +212,7 @@ void AP_FeedTrapLine(const char *text)
 	AP_CeremonySanitize(text, line, (int)sizeof line);
 	if (line[0] == '\0')
 		return;
-	AP_FeedEnqueue(line, CORTEX_RED, 1);
+	AP_FeedLinesTrapState(&ap_feed, trapSlot, trapSeq, stage, line, CORTEX_RED);
 }
 
 // One received-DeathLink line: a death applied (red) or ignored because it did not
@@ -357,65 +328,43 @@ void AP_FeedEndDrain(int drainedThisFrame)
 // most once per frame (see the block comment above).
 static void AP_FeedTickAndDraw(int x, int baseY, int playableRace)
 {
+	// The hub's persistent box warning occupies y=72 and y=84. Keep the
+	// newest three lines at 96..120 while it is present; new lines wait in
+	// the queue rather than being promoted into the warning's band.
+	const int visibleLimit = !playableRace && ctr_cfg.box_placement_refused ? 3 : AP_FEED_MAX_VISIBLE;
 	// Promote a pending line into a free slot, rate-limited so a deep queue
 	// cascades in rather than snapping full in one frame.
-	if (ap_feed_vcount < AP_FEED_MAX_VISIBLE && ap_feed_qcount > 0)
+	if (ap_feed.vcount < visibleLimit)
 	{
-		if (ap_feed_stagger > 0)
-		{
-			ap_feed_stagger--;
-		}
-		else
-		{
-			AP_FeedLine *q = &ap_feed_queue[ap_feed_qhead];
-			ap_feed_qhead = (ap_feed_qhead + 1) % AP_FEED_QUEUE_MAX;
-			ap_feed_qcount--;
-			AP_FeedLine *v = &ap_feed_vis[ap_feed_vcount];
-			snprintf(v->text, AP_FEED_TEXT_CAP, "%s", q->text);
-			v->color = q->color; // classification colour follows the line through the queue
-			v->framesLeft = FPS_DOUBLE(AP_FEED_LIFETIME_FRAMES); // lifetime starts now (visible)
-			v->playCue = 0;
-			if (playableRace && q->playCue)
-				OtherFX_Play(0x41, 1); // retail 10-Wumpa / juiced-up pickup cue
-			ap_feed_vcount++;
-			ap_feed_stagger = FPS_DOUBLE(AP_FEED_STAGGER_FRAMES);
-		}
+		if (AP_FeedLinesPromote(&ap_feed) && playableRace)
+			OtherFX_Play(0x41, 1); // retail 10-Wumpa / juiced-up pickup cue
 	}
 
 	// Age, then compact out expired lines (oldest reach 0 first).
-	int w = 0;
-	for (int i = 0; i < ap_feed_vcount; i++)
-	{
-		if (ap_feed_vis[i].framesLeft > 0)
-			ap_feed_vis[i].framesLeft--;
-		if (ap_feed_vis[i].framesLeft > 0)
-		{
-			if (w != i)
-				ap_feed_vis[w] = ap_feed_vis[i];
-			w++;
-		}
-	}
-	ap_feed_vcount = w;
+	AP_FeedLinesAge(&ap_feed);
 
 	// Draw: newest (last) at the bottom anchor, older lines stacked upward.
 	// Each line renders in its stored classification colour (issue #195); the
 	// old own/foreign orange-vs-white mapping is gone.
-	for (int i = 0; i < ap_feed_vcount; i++)
+	int first = ap_feed.vcount > visibleLimit ? ap_feed.vcount - visibleLimit : 0;
+	for (int i = first; i < ap_feed.vcount; i++)
 	{
-		int fromBottom = ap_feed_vcount - 1 - i;
+		int fromBottom = ap_feed.vcount - 1 - i;
 		int y = baseY - fromBottom * AP_FEED_LINE_H;
-		DecalFont_DrawLine(ap_feed_vis[i].text, x, y, FONT_SMALL,
-		                   ap_feed_vis[i].color);
+		DecalFont_DrawLine(ap_feed.vis[i].text, x, y, FONT_SMALL,
+		                   ap_feed.vis[i].color);
 	}
 }
 
-// Adventure-hub surface: the shipped anchor, bottom-left, unchanged.
+// Leave the bottom title/racer block clear, including while approaching a pad.
+// The picker owns the screen: keep both pending and visible feed lines until it
+// closes, just as the race feed waits while paused.
 void AP_FeedDrawHub(void)
 {
-	if (!ctr_cfg_active() || !ap_hub_feed_on)
+	if (!ctr_cfg_active() || !AP_HubFeedOn() || AP_CharSwap_HubHudHidden())
 		return;
 
-	AP_FeedTickAndDraw(AP_FEED_X, AP_FEED_BASE_Y, 0);
+	AP_FeedTickAndDraw(AP_FEED_X, 120, 0);
 }
 
 // In-race surface (issue #192): the same feed, on the race HUD, so an item sent
@@ -436,7 +385,7 @@ void AP_FeedDrawRace(void)
 {
 	struct GameTracker *gGT = sdata->gGT;
 
-	if (!ctr_cfg_active() || !ap_hub_feed_on)
+	if (!ctr_cfg_active() || !AP_HubFeedOn())
 		return;
 	if (gGT->numPlyrCurrGame != 1)
 		return;
@@ -452,7 +401,7 @@ void AP_FeedDrawResults(void)
 {
 	struct GameTracker *gGT = sdata->gGT;
 
-	if (!ctr_cfg_active() || !ap_hub_feed_on)
+	if (!ctr_cfg_active() || !AP_HubFeedOn())
 		return;
 	if (gGT->numPlyrCurrGame != 1)
 		return;

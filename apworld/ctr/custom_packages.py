@@ -42,12 +42,21 @@ Descriptor (YAML `custom_tracks[]`, wire `content_plan.packages[]`):
                   bytes (LEV at most 16 MiB, VRM at most 4 MiB), format
                   ctr-lev / ctr-vrm, format_version 1
     evidence      0 to 16 informational rows; every hash must be one of the pins
+    locator       optional; where an imported track comes from, so the client
+                  can name the patch to import ([[xdelta track importer
+                  design]]): kind "xdelta", patch_sha256 (64 lowercase hex),
+                  bigfile_index 0 to 4095, and optionally patch_name (1 to 64
+                  printable ASCII bytes, the file name to show) and source_url
+                  (an https:// link, at most 128 bytes, the wire
+                  string budget). Informational: it
+                  never changes logic, ids or admission
 
 Native (`ap/ap_content_plan_impl.hpp`) applies the same rules; the parity tool
 `tools/test-content-plan-parity.py` compares the two on forged descriptors.
 """
 import copy
 import re
+from typing import Dict
 
 CAPABILITIES = ("time_trial", "arcade", "relic", "ctr_tokens", "wumpa")
 #: Optional measured flags (#133 PR 4c). `super_turbo_pads`: the LEV has at
@@ -71,9 +80,12 @@ WEAPON_CRATES_MAX = 65536
 RELIC_TIERS = ("sapphire", "gold", "platinum")
 REQUIRED = ("id", "content_id", "uuid", "revision", "display_name", "author", "laps",
             "capabilities", "files", "evidence")
-OPTIONAL = ("relic_targets",)
-#: The most descriptors one content plan may list; also the generic slot count.
-MAX_PACKAGES = 32
+OPTIONAL = ("relic_targets", "locator")
+LOCATOR_REQUIRED = ("kind", "patch_sha256", "bigfile_index")
+LOCATOR_OPTIONAL = ("patch_name", "source_url")
+BIGFILE_INDEX_MAX = 4095
+#: The most descriptors one seed may list, one per generic slot.
+MAX_PACKAGES = 132
 MAX_LAPS = 7  # GameTracker.lapTime has seven entries
 LEV_MAX_BYTES = 16 * 1024 * 1024  # native_custom_content_verify.c LEV_MAX
 VRM_MAX_BYTES = 4 * 1024 * 1024  # native_custom_content_verify.c VRM_MAX
@@ -87,6 +99,8 @@ REVISION = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+-]*")
 UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 HEX64 = re.compile(r"[0-9a-f]{64}")
 KEY = re.compile(r"[A-Za-z0-9_.:/+\-]+")
+PATCH_NAME = re.compile(r"[\x20-\x7e]+")
+SOURCE_URL = re.compile(r"https://[\x21-\x7e]+")
 FILES = (("lev", "ctr-lev", LEV_MAX_BYTES), ("vrm", "ctr-vrm", VRM_MAX_BYTES))
 
 
@@ -182,6 +196,21 @@ def admit(descriptor, where="package"):
         if not ticks[0] > ticks[1] > ticks[2]:
             _fail(where + ".relic_targets", "sapphire must be slower than gold, and gold slower than platinum")
         out["relic_targets"] = dict(zip(RELIC_TIERS, ticks))
+    if "locator" in d:
+        loc = d["locator"]
+        at = where + ".locator"
+        _closed(loc, LOCATOR_REQUIRED, LOCATOR_OPTIONAL, at)
+        if loc["kind"] != "xdelta" or type(loc["kind"]) is not str:
+            _fail(at + ".kind", "must be 'xdelta'")
+        located = dict(kind="xdelta",
+                       patch_sha256=_string(loc["patch_sha256"], HEX64, 64, at + ".patch_sha256",
+                                            "64 lowercase hexadecimal characters"),
+                       bigfile_index=_integer(loc["bigfile_index"], 0, BIGFILE_INDEX_MAX, at + ".bigfile_index"))
+        if "patch_name" in loc:
+            located["patch_name"] = _string(loc["patch_name"], PATCH_NAME, 64, at + ".patch_name", "printable ASCII")
+        if "source_url" in loc:
+            located["source_url"] = _string(loc["source_url"], SOURCE_URL, 128, at + ".source_url", "an https:// link")
+        out["locator"] = located
     files = d["files"]
     if type(files) is not list or len(files) != 2:
         _fail(where + ".files", "must list exactly two files, the LEV then the VRM")
@@ -236,3 +265,64 @@ def admit_all(raw, where="tracks.custom"):
             seen[label, value] = i
         result.append(package)
     return sorted(result, key=lambda p: p["id"])
+
+
+# The two measured Baby T Park releases the content plan ships as known
+# packages (content_plan.PACKAGES). Moved from custom_tracks.py in one
+# generator row 12.
+#: The measured and release-approved Baby T Park descriptor (evidence note
+#: 2026-08-27, the actual downloaded v1.0.0 files). Alpha6 validates every
+#: generation-affecting field against this registry entry. This keeps the
+#: apworld and native acceptance sets identical.
+BABY_T_PARK_EXAMPLE: Dict[str, object] = {
+    "package_uuid": "60d5a8a8-b69a-4f6a-a0d8-9a43d91e3f2e",
+    "package_version": "1.0.0",
+    "minimum_client_version": "0.2.0-alpha6",
+    "minimum_apworld_version": "0.2.0-alpha6",
+    "lev_sha256":
+        "96ad9f74f51a02eafcc207cd02c97052d674c950e0f24b6440a227494a705fe8",
+    "vrm_sha256":
+        "2dcaa0fe93359c7ae00fb93842a581210e0dcc2db73f4de43508375834092e83",
+    "navigation": {
+        "uuid": "898a9315-693f-4ed3-b6a0-fbe50db8bc40",
+        "revision": 1,
+    },
+    "laps": 7,
+    "replaces": "purple_gem_cup",
+    "flags": {
+        "crates": True,
+        "ctr_letters": True,
+        "relic_crates": True,
+        "ai_nav": True,
+        "minimap": False,
+        "ghosts": False,
+        # MEASURED against the v1.0.0 LEV whose digest is above (2026-08-29):
+        # its instance table carries 8 instances of modelID 7 (PU_FRUIT_CRATE)
+        # and 0 loose PU_WUMPA_FRUIT. RB_Crate.c pays a fruit crate 5..8 fruit,
+        # so the guaranteed floor is 40 in one lap of a 7-lap race -- far above
+        # the 10 this capability asks about. Manager-light derives the same
+        # answer from the same bytes; see native_custom_track_manager.c.
+        "wumpa_collectible": True,
+        "spawns": 8,
+        "checkpoints": 35,
+    },
+    "boxes": False,
+}
+
+
+BABY_T_PARK_CURRENT = {
+    **BABY_T_PARK_EXAMPLE,
+    "package_uuid": "2c7c7846-2ead-5b8f-a218-beca5792106e",
+    "package_version": "1.0.2",
+    "minimum_client_version": "0.3.0-letters1",
+    "minimum_apworld_version": "0.3.0-letters1",
+    "lev_sha256": "be161e0b11aa03505c501b7db012d830405e69e171f84633c2e24ffe9cc3cbf8",
+    "vrm_sha256": "1a0ff56b51562292ecc30c14e7a2e6d315f641feaa00990d4242abe46434f692",
+    # UUID5(importer UUID, "embedded-navigation:" + exact LEV SHA-256).
+    # A new asset-bound identity, not reuse of the old revision's evidence.
+    "navigation": {"uuid": "07395277-d2c2-5544-9cde-5ad9976c06fd", "revision": 1},
+    "flags": dict(BABY_T_PARK_EXAMPLE["flags"]),
+}
+
+
+BABY_T_PARK_PROFILES = (BABY_T_PARK_EXAMPLE, BABY_T_PARK_CURRENT)

@@ -67,6 +67,7 @@ int CustomTrack_ApplySeedDescriptor(const struct CustomTrackSeedDescriptor *d) {
 '''
 fixture += function("ap/ap_hooks_custom_content.c", "static const struct CustomTrackManagerPackage *AP_CustomContentSelectedPackage(void)")
 fixture += function("ap/ap_hooks_custom_content.c", "const struct CustomTrackManagerPackage *AP_CustomContentPackage(void)")
+fixture += "static void CustomTrack_ForgetContentMusic(void) {}\n"
 fixture += function("platform/native_custom_tracks.c", "int CustomTrack_UseManagedPackage(")
 fixture += function("ap/ap_hooks_custom_content.c", "static int AP_CustomContentActivateReady(void)")
 fixture += r'''
@@ -78,6 +79,7 @@ int main(void) {
   assert(AP_CustomContentSelectedPackage()==chosen);
   assert(CustomTrackPolicy_ParseNavUuid(chosen->navigationUuid,expected));
   ap_custom_content_status.state=CTR_CT_MANAGER_READY;
+  ap_custom_content_status.levBytes=2558168; ap_custom_content_status.vrmBytes=458808;
   snprintf(ap_custom_content_status.levPath,sizeof ap_custom_content_status.levPath,"profile%d.lev",i);
   snprintf(ap_custom_content_status.vrmPath,sizeof ap_custom_content_status.vrmPath,"profile%d.vrm",i);
   snprintf(ap_custom_content_status.actualLevSha256,sizeof ap_custom_content_status.actualLevSha256,"%s",chosen->levSha256);
@@ -88,9 +90,9 @@ int main(void) {
   assert(Manager_PackageReceipt(chosen,&ap_custom_content_status,
          ap_custom_content_status.verifiedPackageSha256));
   assert(CustomTrackManager_RenderYaml(AP_CustomContentSelectedPackage(),
-         &ap_custom_content_status,yaml,sizeof yaml));
+         &ap_custom_content_status,NULL,yaml,sizeof yaml));
   assert(strstr(yaml,chosen->levSha256));
-  assert(!CustomTrackManager_RenderYaml(profiles[1-i],&ap_custom_content_status,yaml,sizeof yaml));
+  assert(!CustomTrackManager_RenderYaml(profiles[1-i],&ap_custom_content_status,NULL,yaml,sizeof yaml));
   s_haveDescriptor=1; resets=applied=0;
   assert(AP_CustomContentActivateReady());
   assert(memcmp(s_customTrackConfig.navTrackUuid,expected,16)==0);

@@ -50,14 +50,33 @@ def _reachable_empty(world, state) -> int:
                and loc.can_reach(state))
 
 
+def _own_item(world, item) -> bool:
+    """An item of this slot's opening: its own, or an item link group's copy of an
+    item this slot shares. Linked items leave the slot's pool before pre_fill, and
+    the group's copy is what the fill places."""
+    if item.player == world.player:
+        return True
+    group = getattr(world.multiworld, "groups", {}).get(item.player)
+    return group is not None and world.player in group["players"] and item.name in group["item_pool"]
+
+
+def _placed(world):
+    """Locations whose items count for this slot: its own, and its receipts of the
+    item link groups it shares in."""
+    mw, player = world.multiworld, world.player
+    placed = [loc for loc in mw.get_locations(player) if loc.item is not None]
+    for group_id, group in getattr(mw, "groups", {}).items():
+        if player in group["players"]:
+            placed += [loc for loc in mw.get_locations(group_id) if loc.item is not None and loc.item.player == player]
+    return placed
+
+
 def _base_state(world):
     from BaseClasses import CollectionState
     state = CollectionState(world.multiworld)
     # Locked rewards and goal events are already placed; collect what is
     # reachable of them, since the fill would too.
-    state.sweep_for_advancements(
-        locations=[loc for loc in world.multiworld.get_locations(world.player)
-                   if loc.item is not None])
+    state.sweep_for_advancements(locations=_placed(world))
     return state
 
 
@@ -421,11 +440,10 @@ def _room(world, state):
 
 def _collect(world, state, items):
     """`state` with `items` held and every placed item it now reaches."""
-    mw, player = world.multiworld, world.player
     probe = state.copy()
     for item in items:
         probe.collect(item, True)
-    probe.sweep_for_advancements(locations=[loc for loc in mw.get_locations(player) if loc.item is not None])
+    probe.sweep_for_advancements(locations=_placed(world))
     return probe
 
 
@@ -462,13 +480,12 @@ def _lock(world, chosen):
 def _first_key_tight(world, state, items):
     """Do the checks in front of a fixed first Key leave too few to spare, with
     `items` seated? Everything else held, the Key's own opening excluded."""
-    mw, player = world.multiworld, world.player
+    mw = world.multiworld
     probe = state.copy()
     for item in mw.itempool:
-        if item.player == player and item.advancement and item.name != "Key":
+        if _own_item(world, item) and item.advancement and item.name != "Key":
             probe.collect(item, True)
-    probe.sweep_for_advancements(locations=[loc for loc in mw.get_locations(player)
-                                            if loc.item is not None and loc.item.name != "Key"])
+    probe.sweep_for_advancements(locations=[loc for loc in _placed(world) if loc.item.name != "Key"])
     return len(_room(world, probe)) - len(items) < bootstrap_target(world)
 
 
@@ -478,18 +495,81 @@ def _seat_first_key(world, state):
     and the last items the garage asks for have nowhere to go, with vanilla or
     random requirements. So when few checks are to spare, the opening that reaches
     the Key is seated here, on the hub's Wumpa Shop when the pads run out. All of
-    it or nothing: it is reserved before any of it locks. Returns the state after."""
+    it or nothing: it is reserved before any of it locks. A pooled Key also pays
+    for its support path; reserve it when those copies crowd the initial cut,
+    only with a witness that leaves at least the initial room. Returns the state after."""
     mw, player = world.multiworld, world.player
-    if not world.ctr_content_plan.get("fixed_items", {}).get("keys"):
+    fixed = world.ctr_content_plan.get("fixed_items", {}).get("keys")
+    non_local = set(world.options.non_local_items.value)
+    if fixed:
+        items, _spots = plan_opening(world, state, 1, non_local, "Key")
+        tight = bool(items) and _first_key_tight(world, state, items)
+    else:
+        if state.has("Key", player):
+            return state
+        if "Key" in non_local or not any(_own_item(world, item) and item.name == "Key"
+                                         and item.location is None for item in mw.itempool):
+            return state
+        initial = len(_room(world, state))
+        target = bootstrap_target(world)
+        # A pooled Key can open no check alone. Pay for its real support path
+        # and leave at least the initial room, rather than consuming the cut.
+        items, _spots = plan_opening(world, state, max(target, initial), non_local, "Key")
+        if _spots < max(target, initial):
+            return state
+        # A Key path may use one more opening check than the ordinary route.
+        # Keep the Key reserved: otherwise reverse fill can spend its support
+        # checks before placing it. If that cost leaves exactly the target,
+        # let the ordinary bootstrap seek one spare check after this path.
+        needs_margin = initial < target and _spots < plan_opening(world, state, target, non_local)[1]
+        tight = initial - len(items) < target
+    if not items or not _collect(world, state, items).has("Key", player) or not tight:
         return state
-    items, _spots = plan_opening(world, state, 1, set(world.options.non_local_items.value), "Key")
-    if not items or not _collect(world, state, items).has("Key", player) or not _first_key_tight(world, state, items):
-        return state
+    draw = world.random.getstate() if not fixed else None
     chosen = _reserve(world, state, items)
     if chosen is None:
+        if draw is not None:
+            world.random.setstate(draw)
         return state
     _lock(world, chosen)
     world._ctr_start_bootstrap = [(item.name, location.name) for item, location in chosen]
+    if not fixed and needs_margin:
+        world._ctr_pooled_key_needs_margin = True
+    return _collect(world, state, [])
+
+
+def _seat_first_win(world, state):
+    """An auxiliary-only wide start still needs a paid route to a real win.
+
+    Held-position, Hit and Wumpa checks can fill the opening without making
+    a win reachable. Reserve a bounded, actually seatable winning prefix only
+    when it preserves the opening's free room after paying every copy.
+    """
+    from .content_plan import win_kinds
+    plan = world.ctr_content_plan
+    if not plan.get("checks"):
+        return state
+    kinds = win_kinds(plan)
+    wins = [loc for loc in world.multiworld.get_locations(world.player) if loc.address in kinds]
+    reached = lambda probe: any(loc.can_reach(probe) for loc in wins)
+    if not wins or reached(state):
+        return state
+    initial = len(_room(world, state))
+    if not initial:
+        return state
+    target = max(initial, bootstrap_target(world))
+    items, room = plan_opening(world, state, target, set(world.options.non_local_items.value),
+                               condition=reached)
+    if not items or room < target or not reached(_collect(world, state, items)):
+        return state
+    draw = world.random.getstate()
+    chosen = _reserve(world, state, items)
+    if chosen is None:
+        world.random.setstate(draw)
+        return state
+    _lock(world, chosen)
+    world._ctr_start_bootstrap = list(getattr(world, "_ctr_start_bootstrap", None) or ()) + [
+        (item.name, location.name) for item, location in chosen]
     return _collect(world, state, [])
 
 
@@ -505,7 +585,7 @@ def _place_openers(world, state, base, target, queue, non_local):
             break
         pool = {}
         for item in mw.itempool:
-            if (item.player == player and item.advancement and item.location is None
+            if (_own_item(world, item) and item.advancement and item.location is None
                     and item.name not in non_local
                     and item.name not in mw.early_items.get(player, {})):
                 pool.setdefault(item.name, []).append(item)
@@ -547,8 +627,7 @@ def _place_openers(world, state, base, target, queue, non_local):
             _lock(world, [(item, location)])
             placed.append((name, location.name))
         else:
-            state.sweep_for_advancements(
-                locations=[loc for loc in mw.get_locations(player) if loc.item is not None])
+            state.sweep_for_advancements(locations=_placed(world))
             continue
         break
     return placed
@@ -565,19 +644,21 @@ def _unlock(world, placed):
         item.location = None
 
 
-def plan_opening(world, state, target, non_local, reach=None):
+def plan_opening(world, state, target, non_local, reach=None, condition=None):
     """(items to seat, spots they leave) of the best opening on the real rules. With
-    `reach`, an item name, the opening has to hold it, on a fixed check or in `held`."""
+    `reach`, an item name, the opening has to hold it, on a fixed check or in `held`.
+    `condition`, when supplied, must hold on the same resulting real-rule state."""
     from .content_plan import ITEM_BY_CODE
     mw, player = world.multiworld, world.player
     plan = world.ctr_content_plan
     gates = content_opening.gate_names(plan, ITEM_BY_CODE, starting_boost_item(world)
                                        if plan.get("capability", {}).get("boost_mode") else None)
-    pool = {}
+    pool, spare = {}, {}
     for item in mw.itempool:
-        if (item.player == player and item.advancement and item.location is None and item.name in gates
-                and item.name not in non_local):
-            pool.setdefault(item.name, []).append(item)
+        if _own_item(world, item) and item.advancement and item.location is None and item.name not in non_local:
+            (pool if item.name in gates else spare).setdefault(item.name, []).append(item)
+    bundles = content_opening.letter_bundles(plan, {name: len(copies) for name, copies in spare.items()})
+    pool.update((name, spare[name]) for bundle in bundles for name in bundle)
 
     def held_items(held):
         taken = {}
@@ -594,9 +675,18 @@ def plan_opening(world, state, target, non_local, reach=None):
             states[held] = _collect(world, state, held_items(held))
         return states[held]
 
+    reached = None
+    if reach or condition is not None:
+        def reached(held):
+            probe = after(held)
+            return (not reach or probe.has(reach, player)) and (condition is None or condition(probe))
+
     names, room = content_opening.search({name: len(copies) for name, copies in pool.items()},
                                          lambda held: len(_room(world, after(held))), target,
-                                         (lambda held: after(held).has(reach, player)) if reach else None)
+                                         reached,
+                                         bundles=bundles,
+                                         goals=(("Key",),) if reach == "Key" and pool.get("Key") else (),
+                                         groups_with_singles=condition is not None)
     return held_items(names), room
 
 
@@ -608,6 +698,11 @@ def bootstrap_start(world) -> None:
     mw, player = world.multiworld, world.player
     target = bootstrap_target(world)
     state = _seat_first_key(world, _base_state(world))
+    # A narrow paid Key path may land exactly on the stop threshold. Seed 445
+    # then leaves Boost to reverse fill, where the remaining checks cannot
+    # take it. One more productive opener restores a spare non-shop check.
+    if getattr(world, "_ctr_pooled_key_needs_margin", False) and len(_open_empty(world, state)) <= target:
+        target += 1
     # The start as AP's early pass sees it: only event items (no address) are
     # swept, placed items never are.
     base = CollectionState(mw)
@@ -615,6 +710,7 @@ def bootstrap_start(world) -> None:
         locations=[loc for loc in mw.get_locations(player)
                    if loc.item is not None and loc.address is None])
     if len(_open_empty(world, state)) >= target:
+        _seat_first_win(world, state)
         return
     # A player's non_local_items stay out of their own start.
     non_local = set(world.options.non_local_items.value)

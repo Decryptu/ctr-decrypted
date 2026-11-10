@@ -17,6 +17,7 @@
 #include "ap_custom_trophy_ceremony_logic.h"
 #endif
 #include "ap_ceremony_logic.h"
+#include "ap_feed_lines_logic.h" // feed line store, trap lines change in place (A3-21)
 #include "ap_version.h"     // CTR_AP_VERSION -- this build's half of the shipped pair
 #include "ap_version_cmp.h" // freestanding pair-version comparator (#150)
 #include <ctr_menu_ux.h>     // connection-menu error guidance
@@ -31,6 +32,8 @@
 #include "ap_class_check_policy.h" // freestanding class-check send/toast guards (#319)
 #include "ap_relic_perfect.h" // freestanding Relic Race perfect decision (#49)
 #include "ap_glow_slots_logic.h"
+#include "ap_pad_hints_logic.h" // #124 Pad Approach Hints
+#include "ap_hint_filters_logic.h" // A2-23 hint filters
 #include "ap_pad_glow_items.h" // box / letter / Wumpa pad display identities
 #include "ap_trial_pad_glow.h" // SC/TT Trophy + CTR pad display identities (#343)
 #include "ap_trial_letters.h" // AP_TrialLetters_Prepare: can the SC/TT CTR Challenge be served
@@ -48,6 +51,8 @@ static ap_checkdiag_once_state ap_checkdiag_once; // [AP CHECK DIAG] once-per-co
 #include "ap_shortcut.h"  // Shortcutless mechanism (key poll + config trigger)
 #include "ap_wumpa.h"     // Wumpa Fruit filler grant (bank-on-receive, grant in-race)
 #include "ap_wumpa_dispatch.h" // freestanding "which Wumpa code does this crossing send"
+#include "ap_wumpa_shop.h" // shared Adventure/relic mode policy
+
 #include "ap_cup_box_policy.h" // AP_BoxPadAccessible: the shared individual-pad rule
 #include "ap_crash.h"     // crash reporter (support-bundle feature)
 #include "ap_perf.h"      // always-on frame-stall watchdog ([AP PERF] log lines)
@@ -83,6 +88,16 @@ static ap_checkdiag_once_state ap_checkdiag_once; // [AP CHECK DIAG] once-per-co
 #include "ap_oxide_cutscene.h" // Oxide Final-Challenge presentation readiness (WO-A4)
 #include "ap_goal_line.h"       // pure compact pause-menu goal checklist (#322)
 #include "ap_oxide_garage_advert.h" // pure multi-line garage panel (#322 repair, 2026-09-03)
+
+// Apply this before earning checks or changing producer dedup state. Network
+// retries and paid-shop recovery replay checks earned earlier and stay mode-free.
+int AP_LocationChecksAllowed(void)
+{
+	// Versus sets no mode bit of its own. The menu can retain RELIC_RACE,
+	// so its two-to-four-player races also need an explicit player-count guard.
+	return sdata && sdata->gGT && sdata->gGT->numPlyrCurrGame == 1 &&
+	       AP_WumpaBankRaceMode(sdata->gGT->gameMode1);
+}
 
 // ap_reward_policy.h stays freestanding by mirroring the engine's model ids
 // rather than including namespace_Instance.h. ap_trap_items.h mirrors AP_ITEM_BASE
@@ -384,6 +399,16 @@ static long AP_LookupLocationCode(int globalBit)
         // A cup's sweep and Cup Leg Victory checks (#133 PR 5).
         if (ap_content_cup_lap_bit_decode(globalBit, &contentPad, &contentTier)) {
             const int64_t code = ap_content_cup_lap_bit_code(ap_content_plan_pad(contentPad), contentTier);
+            return code > 0 && code <= 2147483647 ? (long)code : -1;
+        }
+        // A cup leg's own Reach 10 Wumpa check (row 10i).
+        if (ap_content_cup_wumpa_bit_decode(globalBit, &contentPad, &contentTier)) {
+            const int64_t code = ap_content_cup_wumpa_bit_code(ap_content_plan_pad(contentPad), contentTier);
+            return code > 0 && code <= 2147483647 ? (long)code : -1;
+        }
+        // A Gem Cup leg's own podium rungs (cup_only_podium_rungs).
+        if (ap_content_cup_rung_bit_decode(globalBit, &contentPad, &contentTier)) {
+            const int64_t code = ap_content_cup_rung_bit_code(ap_content_plan_pad(contentPad), contentTier);
             return code > 0 && code <= 2147483647 ? (long)code : -1;
         }
         if (ap_content_cup_bit_decode(globalBit, &contentPad, &contentTier)) {

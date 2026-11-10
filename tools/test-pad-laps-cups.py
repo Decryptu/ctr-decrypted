@@ -31,7 +31,8 @@ def function(text, signature):
 # The state counts every entry the enumerator can list, the display bits resolve.
 state = function(pads, "int AP_PadState(int physLevelID, int destLevelID)")
 assert "int bits[6+AP_CONTENT_CUP_TRACK_CHECKS];" in state
-assert "AP_PadUncollectedGlowBits(physLevelID,bits,6+AP_CONTENT_CUP_TRACK_CHECKS) ? 2 : 5" in state
+assert "AP_PadUncollectedGlowBits(physLevelID,bits,6+AP_CONTENT_CUP_TRACK_CHECKS)" in state
+assert "AP_SanityPadPending(physLevelID,0)" in state  # Sanity counts for state, separately from glow.
 assert "ap_content_cup_lap_bit_code(ap_content_plan_pad(contentPad), contentTier)" in hooks
 assert "if(ap_content_cup_lap_bit_decode(globalBit,&contentPad,&contentTier))\n            return 0;" in pads
 # The tracker names stage 2 and a cup's node counts its tracks.
@@ -39,16 +40,17 @@ assert "ap_content_requirement_text(pad->stage2_mask, pad->stage2_count, out->st
 node = function(tracker, "static void AP_TrackerDrawContentNode(")
 assert "ap_content_cup_track_checks(pad, ap_content_plan_pad, rows)" in node and "ap_content_cup_box_pending(" in node
 assert "ap_content_cup_wumpa_code(pad, ap_content_plan_pad, AP_ContentCodeChecked)" in node
-# A plan cup leg earns its track's Wumpa check; a leg's box gate reads the pad on that track.
+# A plan cup leg earns its track's Wumpa check, the leg's own code (row 10i:
+# also on a track with no pad); a leg's box gate reads the pad on that track.
 wumpa = function(race, "static long AP_StandaloneWumpaCode(void)")
-assert "cup->legs[leg].track_pad" in wumpa and "context && context->cup" in wumpa
+assert "cup->legs[leg].wumpa" in wumpa and "context && context->cup" in wumpa
 policy = function(boxes, "static int AP_BoxesPadRoutePolicy(")
 assert "pad->retail_id == level" in policy
 assert "cup->legs[race->leg].track_pad" in policy and "return AP_BOX_PRESENT_NONE;" in policy
 seat = function(boxes, "static void AP_BoxesSeatCustom(")
 assert "pad->legs[race->leg].track_pad" in seat
 footer = tracker[tracker.index("if(ap_tracker.pinned && ap_tracker.count) {"):]
-assert "ap_content_cup_box_pending(plan,ap_content_plan_pad,AP_ContentCodeChecked)" in footer and "int bits[96]" in footer
+assert "ap_content_cup_box_pending(plan,ap_content_plan_pad,AP_ContentCodeChecked)" in footer and "int bits[AP_PAD_DISPLAY_BITS_MAX]" in footer
 # Every cup pad knows its legs' track pads, boss cups too: 0 would be a real pad.
 parser = (root / "ap/ap_content_plan_impl.hpp").read_text(encoding="utf-8")
 assert "for (auto &cup : out.pads) seat_track_pads(cup);" in parser and "for (auto &cup : out.garage_cups) seat_track_pads(cup);" in parser
@@ -73,8 +75,13 @@ static int checkedFn(int64_t code) { return ap_net_location_checked((long)code);
 int AP_ContentModeOpen(const ctr_content_pad *p, int mode) { return ap_content_mode_open(p, mode, counts, checkedFn); }
 static int shut_b;
 int AP_ContentPadOpen(const ctr_content_pad *p) { return !(shut_b && p == &track_b); }
-""" + function(pads, "static int AP_ContentPadGlowBits(") + r"""
+""" + function(pads, "static int AP_GlowPush(") + function(pads, "static int AP_ContentPadGlowBits(") + r"""
 static int has(const int *bits, int n, int bit) { for (int i = 0; i < n; i++) if (bits[i] == bit) return 1; return 0; }
+static int64_t code_for(int bit, const int *bits, const int64_t *codes, int n)
+{
+    for (int i = 0; i < n; ++i) if (bits[i] == bit) return codes[i];
+    return -1;
+}
 static void track(ctr_content_pad *p, int physical, int64_t base)
 {
     memset(p, 0, sizeof *p);
@@ -93,13 +100,20 @@ static int count_of(int want_bit, const int *bits, int n) { int c = 0; for (int 
 int main(void)
 {
     int bits[96], n, physical, slot;
+    int64_t codes[96];
     char text[64], lines[2][112];
     track(&track_a, 3, 100); track(&track_b, 5, 200);
     /* Item 2: the first lap shows once, with the first race, and rides the race slot. */
-    n = AP_ContentPadGlowBits(3, bits, 96, 1);
+    n = AP_ContentPadGlowBits(3, bits, codes, 96, 1);
     assert(count_of(LAP_BIT(3), bits, n) == 1 && has(bits, n, AP_CONTENT_BIT_TROPHY + 3));
     assert(!has(bits, n, AP_CONTENT_BIT_CTR + 3));
-    n = AP_ContentPadGlowBits(3, bits, 96, 0);
+    /* The actual glow returns each bit's own location code for hint filtering. */
+    assert(code_for(AP_CONTENT_BIT_TROPHY + 3, bits, codes, n) == 100);
+    assert(code_for(LAP_BIT(3), bits, codes, n) == 102);
+    assert(code_for(WUMPA_BIT(3), bits, codes, n) == 103);
+    assert(code_for(BOX_BIT(3, 0), bits, codes, n) == 104);
+    assert(code_for(BOX_BIT(3, 1), bits, codes, n) == 105);
+    n = AP_ContentPadGlowBits(3, bits, NULL, 96, 0);
     assert(count_of(LAP_BIT(3), bits, n) == 1);
     assert(ap_content_family_bit_decode(LAP_BIT(3), &physical, &slot) && physical == 3 && slot == AP_CONTENT_FAMILY_LAP);
     assert(ap_content_family_bit_code(&track_a, slot) == 102 && ap_content_family_reward_group(slot) == 0);
@@ -107,7 +121,7 @@ int main(void)
       assert(ap_content_mode_family_codes(&track_a, AP_CONTENT_MODE_RELIC, codes, slots) == 1 && codes[0] == 102); }
     /* A checked lap leaves the glow. */
     done[doneCount++] = 102;
-    n = AP_ContentPadGlowBits(3, bits, 96, 0);
+    n = AP_ContentPadGlowBits(3, bits, NULL, 96, 0);
     assert(!has(bits, n, LAP_BIT(3)));
     doneCount = 0;
     /* Item 4: a cup lists each of its tracks once. */
@@ -117,8 +131,13 @@ int main(void)
     strcpy(cup.legs[1].track_id, "retail:1"); cup.legs[1].track_pad = 3; cup.legs[1].lap = 102;
     strcpy(cup.legs[2].track_id, "retail:2"); cup.legs[2].track_pad = 5; cup.legs[2].lap = 202;
     strcpy(cup.legs[3].track_id, "retail:3"); cup.legs[3].track_pad = -1; cup.legs[3].lap = 302;
-    n = AP_ContentPadGlowBits(100, bits, 96, 0);
+    n = AP_ContentPadGlowBits(100, bits, codes, 96, 0);
     assert(n == 1 + 3 + 2 + 4);
+    assert(code_for(AP_CONTENT_BIT_TROPHY + 100, bits, codes, n) == 300);
+    assert(code_for(CUP_LAP_BIT(0), bits, codes, n) == 102);
+    assert(code_for(CUP_LAP_BIT(3), bits, codes, n) == 302);
+    assert(code_for(WUMPA_BIT(5), bits, codes, n) == 203);
+    assert(code_for(BOX_BIT(5, 0), bits, codes, n) == 204);
     assert(has(bits, n, CUP_LAP_BIT(0)) && !has(bits, n, CUP_LAP_BIT(1)) && has(bits, n, CUP_LAP_BIT(2)) && has(bits, n, CUP_LAP_BIT(3)));
     assert(has(bits, n, WUMPA_BIT(3)) && has(bits, n, WUMPA_BIT(5)) && has(bits, n, BOX_BIT(3, 1)) && has(bits, n, BOX_BIT(5, 0)));
     assert(ap_content_cup_lap_bit_decode(CUP_LAP_BIT(3), &physical, &slot) && physical == 100 && slot == 3);
@@ -127,18 +146,18 @@ int main(void)
     assert(ap_content_family_bit_code(ap_content_plan_pad(5), 5) == 203);
     /* The pad state counts a shut pad's boxes; the glow keeps them hidden. */
     shut_b = 1;
-    n = AP_ContentPadGlowBits(100, bits, 96, 1);
+    n = AP_ContentPadGlowBits(100, bits, NULL, 96, 1);
     assert(!has(bits, n, BOX_BIT(5, 0)) && has(bits, n, BOX_BIT(3, 0)) && has(bits, n, WUMPA_BIT(5)));
-    n = AP_ContentPadGlowBits(100, bits, 96, 0);
+    n = AP_ContentPadGlowBits(100, bits, NULL, 96, 0);
     assert(has(bits, n, BOX_BIT(5, 0)));
     shut_b = 0;
     /* A cup with only a leg's box left still has a check: no grey X. */
     { int64_t all[] = {300, 102, 202, 302, 103, 203, 104, 105, 205};
       for (unsigned i = 0; i < sizeof all / sizeof all[0]; ++i) done[doneCount++] = all[i]; }
-    assert(AP_ContentPadGlowBits(100, bits, 96, 0) == 1);
+    assert(AP_ContentPadGlowBits(100, bits, NULL, 96, 0) == 1);
     assert(ap_content_cup_box_pending(&cup, ap_content_plan_pad, checkedFn) == 1);
     done[doneCount++] = 204;
-    assert(AP_ContentPadGlowBits(100, bits, 96, 0) == 0);
+    assert(AP_ContentPadGlowBits(100, bits, NULL, 96, 0) == 0);
     assert(ap_content_cup_box_pending(&cup, ap_content_plan_pad, checkedFn) == 0);
     doneCount = 0;
     /* The cup's tracker node: an open Wumpa check first, then a done one, none on a cup without one. */
@@ -155,10 +174,13 @@ int main(void)
     cup.physical = AP_CONTENT_GARAGE_CUP_PAD;
     { ap_content_cup_track_check rows[AP_CONTENT_CUP_TRACK_CHECKS];
       int c = ap_content_cup_track_checks(&cup, ap_content_plan_pad, rows);
-      for (int i = 0; i < c; ++i) assert(rows[i].bit < AP_CONTENT_BIT_CUP_LAP); }
+      for (int i = 0; i < c; ++i) {
+          int physical, leg;
+          assert(!ap_content_cup_lap_bit_decode(rows[i].bit, &physical, &leg));
+      } }
     cup.physical = 100;
     /* The worst cup fits the state's list and the glow. */
-    assert(AP_CONTENT_CUP_TRACK_CHECKS + 6 <= 96);
+    assert(AP_CONTENT_CUP_TRACK_CHECKS + 6 <= 256);
     /* Item 3: the row names stage 2. */
     { static const struct { unsigned mask; int count; const char *want; } cases[] = {
           {1u << 11, 2, "2 Blue Gems"}, {1u << 9, 2, "2 Red Gems"}, {1u << 9, 1, "1 Red Gem"},

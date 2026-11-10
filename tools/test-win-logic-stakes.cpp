@@ -15,6 +15,7 @@
 // AP_ComposedBossesWon, collected -> ap_net_location_checked.
 
 #include <cstdio>
+#include <fstream>
 #include <cstring>
 #include <map>
 #include <set>
@@ -89,7 +90,9 @@ static void parse_block(const nlohmann::json &block)
 	nlohmann::json b = block;
 	if (b.is_object() && !b.contains("start"))
 		b["start"] = nlohmann::json::object();
-	nlohmann::json j = {{"ctr_options", {{"schema_version", 16}}}, {"win_logic", b}};
+	std::ifstream input("tools/fixtures/content-plan/global-checks.json");
+	nlohmann::json j; input >> j;
+	j["win_logic"] = b;
 	ap_seedcfg_parse_json(j);
 }
 
@@ -552,7 +555,7 @@ int main(void)
 		ap_seedcfg_parse_json(J{{"ctr_options", {{"schema_version", 16}}}});
 		AP_WinStakes s = AP_WinStakesDecide(&ctr_win_logic, &e, dm, 1);
 		expect(s.stakes && s.why == AP_WS_WHY_NO_BLOCK, "absent block -> sends even when collected");
-		parse_block(J{{"version", 2}});
+		parse_block(J{{"version", AP_WL_VERSION_KNOWN + 1}});
 		s = AP_WinStakesDecide(&ctr_win_logic, &e, dm, 1);
 		expect(s.stakes && s.why == AP_WS_WHY_NEWER, "newer block -> sends");
 		parse_block(J{{"version", 1}, {"families", J::array()}, {"regions", arr({true})},
@@ -854,6 +857,26 @@ int main(void)
         expect(AP_WinStakesDecide(&ctr_win_logic,&e,wins,2).stakes,"open sweep keeps Cup stakes after Gem collected");
         w.collected.insert(35028300);
         expect(!AP_WinStakesDecide(&ctr_win_logic,&e,wins,2).stakes,"both Cup wins collected removes stakes");
+    }
+    // A3-37b: every seed exports a hint row for each non-win location. A hint
+    // row is never a win, so a win set code that has only a hint row stakes
+    // nothing, the same as no row, and the real win beside it still decides.
+    {
+        World w;AP_WinLogicEnv e=env_for(w);
+        J b=one_rule(true);b["version"]=2;b["checks"]=J::object();
+        b["checks"]["35011000"]={{"kind","trophy"},{"region",0},{"rule",true}};
+        b["checks"]["35028300"]={{"kind","hint"},{"region",0},{"rule",true}};
+        parse_block(b);
+        expect_int(ctr_win_logic.state, AP_WL_VALID, "version 2 block with a hint row -> VALID");
+        long hintOnly[1]={35028300};
+        AP_WinStakes s=AP_WinStakesDecide(&ctr_win_logic,&e,hintOnly,1);
+        expect(!s.stakes && s.why==AP_WS_WHY_NO_ENTRY,"an open in-logic hint row is no win: no stakes");
+        long both[2]={35028300,35011000};
+        s=AP_WinStakesDecide(&ctr_win_logic,&e,both,2);
+        expect(s.stakes && s.code==35011000,"the real win decides, not the hint row");
+        w.collected.insert(35011000);
+        s=AP_WinStakesDecide(&ctr_win_logic,&e,both,2);
+        expect(!s.stakes && s.why==AP_WS_WHY_COLLECTED,"win collected: the open hint row adds no stakes");
     }
 	std::printf("%s: %d checks, %d failure(s)\n", failures ? "FAIL" : "PASS", checks, failures);
 	return failures ? 1 : 0;

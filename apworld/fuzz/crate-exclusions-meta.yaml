@@ -1,0 +1,40 @@
+# Reviewed Ancient Lake and North Pole fallback exclusions, exact LEV and VRM bytes only.
+# Ancient Lake uses its xdelta-import LEV (256d1ed4...): the catalogue 1.1.0 LEV (21e1ffe3...)
+# has a community spot file since A3-45, so it no longer seats boxes on crates (community-spots arm).
+Crash Team Racing:
+  accessibility: full
+  box_locations: true
+  custom_tracks:
+    - id: package/ancient-lake/1.1.0
+      content_id: ancient-lake
+      uuid: 11111111-2222-4333-8444-555555555535
+      revision: "1.1.0"
+      display_name: Ancient Lake
+      author: Fuzz fixture
+      laps: 3
+      capabilities: {time_trial: true, arcade: true, relic: false, ctr_tokens: false, wumpa: false, super_turbo_pads: true, weapon_crates: 17, checkpoints: 58, ai_nav: true}
+      files:
+        - {role: lev, sha256: 256d1ed4597aacd081d2806130c28969681ce35df5a5ba53200545cbd1835eb8, bytes: 445556, format: ctr-lev, format_version: 1}
+        - {role: vrm, sha256: 57c14cc95b6080f0095f303817fbec8ca1cb885a2a254ed0e99d4536294ed0e2, bytes: 458808, format: ctr-vrm, format_version: 1}
+      evidence: []
+    - id: package/north-pole/1.1.0
+      content_id: north-pole
+      uuid: 11111111-2222-4333-8444-555555555536
+      revision: "1.1.0"
+      display_name: North Pole
+      author: Fuzz fixture
+      laps: 3
+      capabilities: {time_trial: true, arcade: true, relic: false, ctr_tokens: false, wumpa: false, super_turbo_pads: true, weapon_crates: 29, checkpoints: 151, ai_nav: true}
+      files:
+        - {role: lev, sha256: 17eafea4884285d2d1b6e684519081955347b96196783d06d984f06d72105e3c, bytes: 1636116, format: ctr-lev, format_version: 1}
+        - {role: vrm, sha256: fd5741d2b23843b1a868fc85799f5331c407b93c6f05e1529ae5e2f075bd67ea, bytes: 458808, format: ctr-vrm, format_version: 1}
+      evidence: []
+  required_entries: [ancient-lake, north-pole]
+  retail_tracks: [all]
+  track_modes: {default: [trophy]}
+  crystal_arenas: [Skull Rock, Rampage Ruins, Rocky Road, Nitro Court, Parking Lot, The North Bowl, Lab Basement]
+  boss_garages: true
+  purple_cup_boss_gauntlet: false
+  boss_character_pool: [Crash Bandicoot, Coco Bandicoot, Polar, Pura, Neo Cortex, N. Tropy, Ripper Roo, Papu Papu, Komodo Joe, Pinstripe, Dingodile, Tiny Tiger, N. Gin, Fake Crash, Penta Penguin]
+  boss_weapon_pool: [tnt, potion, bomb, missile, turbo, shield, mask, clock, warp_orb, invisibility]
+  oxide_weapon_pool: [tnt, potion, bomb, missile, turbo, shield, mask, clock, warp_orb, invisibility, super_engine]

@@ -32,15 +32,21 @@ expected = dict(retail=[dict(id=i, name=n, location=L[n + ": Trophy Race"], ctr=
                              relic=[L[f"{n}: {t} Time Trial"] for t in cp.RELIC_TIERS])
                         for i, n in sorted(cp.RETAIL.items())],
                 pads=[dict(physical=p, hub=h, keys=k) for p, h, k in cp.pad_registry()],
-                custom_locations=[L[f"Custom Track {i}: Trophy Race"] for i in range(1, 33)],
+                custom_locations=[L[f"Custom Track {i}: Trophy Race"] for i in range(1, 133)],
                 # Track modes (#133 PR 3): generic-slot CTR and relic tier codes.
-                custom_ctr_locations=[L[f"Custom Track {i}: CTR Token Challenge"] for i in range(1, 33)],
+                custom_ctr_locations=[L[f"Custom Track {i}: CTR Token Challenge"] for i in range(1, 133)],
                 custom_relic_locations=[[L[f"Custom Track {i}: {t} Time Trial"] for t in cp.RELIC_TIERS]
-                                        for i in range(1, 33)],
+                                        for i in range(1, 133)],
                 # The named-block table native binds track keys to (#133 PR 2
                 # review); tools/sync-content-registry.py rewrites it.
                 named_blocks=[dict(key=t.track_key, block=t.block_index, name=t.ap_name)
                               for t in sorted(cp.destinations.NAMED_TRACKS, key=lambda t: t.track_key)])
+expected["sanity"] = cp.sanity.CATALOG
+expected["sanity_exclusions"] = cp.sanity.crate_exclusions.EXCLUSIONS
+expected["sanity_locations"] = {t: [cp.sanity.code(dict(origin="retail", display_name=t), f, 1) for f in range(3)] for t in cp.sanity.BOX_TRACKS}
+expected["sanity_locations"]["Cortex Vortex"] = [35026100, 35026180, 35026200]
+expected["sanity_locations"].update({t.ap_name: [cp.sanity.code(dict(origin="custom", named_block=t.block_index), f, 1)
+                                                   for f in range(3)] for t in cp.destinations.NAMED_TRACKS})
 # Per-track check families (#133 PR 3b): rung, Wumpa and letter codes per
 # retail track and generic slot, and the one global Wumpa check.
 RUNGS = [cp.RUNG_SUFFIX[k] for k in cp.podium.SLOT_ORDER]
@@ -50,13 +56,13 @@ for row in expected["retail"]:
                letters=[L[f"{n}: Letter {x}"] for x in cp.LETTERS],
                letter_items=[cp.content_item_pool.ITEMS[f"Letter {x} ({n})"] for x in cp.LETTERS],
                perfect=L[f"{n}: Relic Race Perfect"])
-expected.update(custom_podium_locations=[[L[f"Custom Track {i}: {s}"] for s in RUNGS] for i in range(1, 33)],
-                custom_wumpa_locations=[L[f"Custom Track {i}: Reach 10 Wumpa"] for i in range(1, 33)],
-                custom_letter_locations=[[L[f"Custom Track {i}: Letter {x}"] for x in cp.LETTERS] for i in range(1, 33)],
-                custom_letter_items=[[cp.custom_check_code("letter_item", i, j) for j in range(3)] for i in range(1, 33)],
+expected.update(custom_podium_locations=[[L[f"Custom Track {i}: {s}"] for s in RUNGS] for i in range(1, 133)],
+                custom_wumpa_locations=[L[f"Custom Track {i}: Reach 10 Wumpa"] for i in range(1, 133)],
+                custom_letter_locations=[[L[f"Custom Track {i}: Letter {x}"] for x in cp.LETTERS] for i in range(1, 133)],
+                custom_letter_items=[[cp.custom_check_code("letter_item", i, j) for j in range(3)] for i in range(1, 133)],
                 # Relic Race Perfect per generic slot and Cortex Vortex as a
                 # track (#133 PR 3c).
-                custom_perfect_locations=[L[f"Custom Track {i}: Relic Race Perfect"] for i in range(1, 33)],
+                custom_perfect_locations=[L[f"Custom Track {i}: Relic Race Perfect"] for i in range(1, 133)],
                 wumpa_global=L["Wumpa: Reach 10 Wumpa"])
 CV = cp.destinations.CORTEX_VORTEX
 expected["cortex_vortex"] = dict(
@@ -64,7 +70,7 @@ expected["cortex_vortex"] = dict(
     location=L[CV + ": Trophy Race"], ctr=L[CV + ": CTR Token Challenge"],
     relic=[L[f"{CV}: {t} Time Trial"] for t in cp.RELIC_TIERS], perfect=L[CV + ": Relic Race Perfect"],
     podium=[L[f"{CV}: {s}"] for s in RUNGS], wumpa=L[CV + ": Reach 10 Wumpa"],
-    letters=[L[f"{CV}: Letter {x}"] for x in cp.LETTERS], letter_items=list(cp.cortex_vortex_track.LETTER_ITEM_CODES))
+    letters=[L[f"{CV}: Letter {x}"] for x in cp.LETTERS], letter_items=list(cp.cortex_vortex.LETTER_ITEM_CODES))
 # Global check families (#133 PR 4d): codes and frozen names in class order.
 from worlds.ctr import itemsanity as cits, hit_character as chit
 expected["itemsanity"] = [dict(location=c, name=n) for n, c, _r in cits.ITEMSANITY_CLASS.all_locations()]
@@ -75,7 +81,7 @@ from worlds.ctr.item_boxes import ITEM_BOX_CLASS as CBOX, PLACED_COUNTS as CBOX_
 for row in expected["retail"]:
     row["boxes"] = [[CBOX.slot_code(row["name"], s), CBOX_TIER.get((row["name"], s), 0)]
                     for s in range(1, CBOX_PLACED[row["name"]] + 1)]
-# Cups (#133 PR 5): the 27-name pool with its Win and Win All Legs codes, and
+# Cups (#133 PR 5): the named cup pool with its Win and Win All Legs codes, and
 # every track's Cup Leg Victory code (retail rows, Cortex Vortex, generic slots).
 from worlds.ctr import cup_checks as ccup
 for row in expected["retail"]:
@@ -83,12 +89,12 @@ for row in expected["retail"]:
 expected["cortex_vortex"]["cup_leg"] = ccup.CORTEX_VORTEX_CUP_LEG_CODE
 expected["cups"] = [dict(name=n, win=L[ccup.cup_win_name(n)], sweep=L[ccup.cup_sweep_name(n)]) for n in ccup.CUP_NAMES]
 expected["gem_cups"] = [dict(name=n, win=L[f"{n}: Gem"], sweep=L[ccup.cup_sweep_name(n)]) for n in ccup.GEM_CUPS]
-expected["custom_cup_leg_locations"] = [L[ccup.cup_leg_name(f"Custom Track {i}")] for i in range(1, 33)]
+expected["custom_cup_leg_locations"] = [L[ccup.cup_leg_name(f"Custom Track {i}")] for i in range(1, 133)]
 # Lap completion (#344): every track's Complete One Lap code.
 for row in expected["retail"]:
     row["lap"] = L[row["name"] + ": Complete One Lap"]
 expected["cortex_vortex"]["lap"] = L[CV + ": Complete One Lap"]
-expected["custom_lap_locations"] = [L[f"Custom Track {i}: Complete One Lap"] for i in range(1, 33)]
+expected["custom_lap_locations"] = [L[f"Custom Track {i}: Complete One Lap"] for i in range(1, 133)]
 expected["named_blocks"] = expected.pop("named_blocks")  # registry key order
 assert registry == expected, "native frozen registry differs from paired apworld; run tools/sync-content-registry.py"
 assert (root/'tools/fixtures/arcade-arenas-v1.json').read_bytes()==(args.apworld/'worlds/ctr/data/arcade_arenas_v1.json').read_bytes(), "arcade manifests differ across the pair"
@@ -176,6 +182,16 @@ for seed in range(30):
     cases.append((f"open-generated-{seed}", make_world(options_with(custom), seed=seed).fill_slot_data(), True))
 cases.append(("open-fixture", json.loads((root / "tools/fixtures/content-plan/open-packages.json").read_text()), True))
 
+# 132 custom tracks: generated plans on slots past 32 and past
+# the old 64 tracks. The forgeries are below.
+from worlds.ctr.test.test_custom_tracks_132 import fixtures, many_cups
+for seed in range(12):
+    last = fixtures(132)
+    required = [f"custom/{d['content_id']}/{d['revision']}" for d in last[-(seed % 5 + 1):]]
+    cases.append((f"high-slots-{seed}", make_world(options_with(last, required), seed=seed).fill_slot_data(), True))
+    cases.append((f"many-tracks-{seed}", make_world(many_cups(), seed=seed).fill_slot_data(), True))
+cases.append(("custom-132-fixture", json.loads((root / "tools/fixtures/content-plan/custom-132.json").read_text()), True))
+
 base = cases[0][1]
 def alter(name, change, source=None):
     case = copy.deepcopy(source or base)
@@ -186,6 +202,15 @@ def alter(name, change, source=None):
     except (ValueError, TypeError, KeyError, OverflowError, AttributeError):
         accepted = False
     cases.append((name, case, accepted))
+
+high_base = next(w for name, w, ok in cases if name == "custom-132-fixture")
+def high_slot(p, slot):
+    for track in p["tracks"]:
+        if track.get("custom_slot") == 132:
+            track["custom_slot"] = slot
+alter("high slot 133", lambda p: high_slot(p, 133), high_base)
+alter("high slot 131 taken or moved", lambda p: high_slot(p, 131), high_base)
+alter("high too many packages", lambda p: p["packages"].extend(copy.deepcopy(p["packages"][0]) for _ in range(120)), high_base)
 
 manual_base = next(w for name,w,ok in cases if name=="manual-fixture")
 def manual_req(plan, rid):
@@ -1151,15 +1176,6 @@ def bdrop_box(p, name):
     p["checks"].remove(bcheck(p, name))
     p["items"]["coded_checks"] -= 1
     p["items"]["filler_count"] -= 1
-def bgeneric_box(p):
-    extra = copy.deepcopy(bcheck(p, "Baby T Park: Item Box 1"))
-    extra.update(owner="custom/fixture-loop/2.1", location=35017000, display_name="Fixture Loop: Item Box 1")
-    extra["routes"] = [dict(r, entry_id="entry/custom/fixture-loop/2.1",
-                            own_pad_id=next(q["id"] for q in p["pads"] if q["entry_id"] == "entry/custom/fixture-loop/2.1"))
-                       for r in extra["routes"]]
-    p["checks"].append(extra)
-    p["items"]["coded_checks"] += 1
-    p["items"]["filler_count"] += 1
 for name, change, trusted in [
         ("unchanged copy", lambda p: None, False),
         ("record dropped, boxes kept", bdrop_record, False),
@@ -1173,7 +1189,8 @@ for name, change, trusted in [
         ("tier disagrees with the capability record", lambda p: p["capability"].__setitem__("shortcut_knowledge", 1), False),
         ("hard-tier box dropped", lambda p: bdrop_box(p, "Oxide Station: Item Box 6"), False),
         ("named box dropped", lambda p: bdrop_box(p, "Baby T Park: Item Box 8"), False),
-        ("box on the generic slot", bgeneric_box, False),
+        ("generic box dropped", lambda p: bdrop_box(p, "Fixture Loop: Item Box 1"), False),
+        ("generic box code", lambda p: bcheck(p, "Fixture Loop: Item Box 1").__setitem__("location", 35017000), False),
         ("box code", lambda p: bcheck(p, "N. Gin Labs: Item Box 1").__setitem__("location", 35014166), False),
         ("box route dropped", lambda p: bcheck(p, "N. Gin Labs: Item Box 1")["routes"].pop(), False),
         ("box routes reordered", lambda p: bcheck(p, "N. Gin Labs: Item Box 2")["routes"].reverse(), False),
@@ -1212,6 +1229,76 @@ def box_env(name, change, source=None):
     except (ValueError, TypeError, KeyError, OverflowError, AttributeError):
         accepted = False
     cases.append(("boxes-envelope-" + name, case, accepted))
+# Hand-placed box spots (A3-14): seeds generated with the apworld's test spot
+# files (Crash Cove with 18 spots, Baby T Park with 18 from 1) are admitted by
+# both; forged spot sets and spot fields are refused by both, except what
+# only the shipped file can tell (a moved position, another file digest, a pool
+# count that still fits the pick), which native reads as given.
+from worlds.ctr import box_spots as bspots
+from worlds.ctr.test.test_box_spots import spot_files
+with spot_files(retail=["CRASH_COVE"], custom=["baby-t-park"]):
+    spot_base = None
+    for seed in range(12):
+        options = box_options(custom=[btp()], tier=("easy", "medium", "hard")[seed % 3],
+                              progressive_boost=("off", "shared_global", "per_character")[(seed // 3) % 3],
+                              progressive_stats=("off", "shared_global")[seed % 2], itemsanity=seed % 4 == 1)
+        try:
+            world = box_world(options, seed=100 + seed)
+        except OptionError as exc:
+            print(f"spots-generated-{seed} refused by the generator: {str(exc)[:120]}")
+            continue
+        cases.append((f"spots-generated-{seed}", world.fill_slot_data(), True))
+        spot_base = spot_base or cases[-1][1]
+    assert spot_base is not None
+    def sset(p, track_id):
+        return next(s for s in p["item_boxes"]["spot_sets"] if s["track_id"] == track_id)
+    def sbox(p, track_id):
+        return next(c for c in p["checks"] if c["owner"] == track_id and "spot" in c)
+    for name, change, trusted in [
+            ("unchanged copy", lambda p: None, False),
+            ("feature dropped", lambda p: p["required_features"].remove(bspots.FEATURE), False),
+            ("set dropped", lambda p: p["item_boxes"]["spot_sets"].remove(sset(p, "retail:3")), False),
+            ("all sets dropped", lambda p: p["item_boxes"].pop("spot_sets"), False),
+            ("picks one short", lambda p: sset(p, "retail:3")["picked"].pop(), False),
+            ("picks reversed", lambda p: sset(p, "retail:3")["picked"].reverse(), False),
+            ("pool lowered", lambda p: sset(p, "retail:3").__setitem__("pool", 15), True),
+            ("custom LEV pin changed", lambda p: sset(p, "custom/baby-t-park/1.0.2").__setitem__("lev_sha256", "a" * 64), False),
+            ("spot dropped", lambda p: sbox(p, "retail:3").pop("spot"), False),
+            ("spot number changed", lambda p: sbox(p, "retail:3")["spot"].__setitem__("number", 49), False),
+            ("spot on a named box changed", lambda p: sbox(p, "custom/baby-t-park/1.0.2")["spot"].__setitem__("number", 50), False),
+            ("spot position moved", lambda p: sbox(p, "retail:3")["spot"]["pos"].__setitem__(1, 999), True),
+            ("spot angle changed", lambda p: sbox(p, "custom/baby-t-park/1.0.2")["spot"].__setitem__("rot_y", 7), True),
+            ("spot file digest changed", lambda p: sset(p, "retail:3").__setitem__("file_sha256", "0" * 64), True),
+            ]:
+        alter("spots-" + name, change, spot_base)
+        if trusted:
+            native_trusts.add("spots-" + name)
+            assert cases[-1][2] is False, name + ": the apworld must refuse a forged spot"
+# A3-35: actual generated Ancient Lake rooms, both measured LEV pins and a
+# small count fixture that crosses the 15-seat ceiling. No track bytes shipped.
+from worlds.ctr import crate_exclusions
+from unittest import mock
+from worlds.ctr.test.test_crate_exclusions import ancient
+from worlds.ctr.test.test_content_item_boxes import box_options, first_world
+# Test fallback exclusions without the later community spot override.
+with mock.patch.dict(bspots.CUSTOM_FILES, {}, clear=True):
+    for digest in list(crate_exclusions.EXCLUSIONS):
+        for count in (3, 17):
+            world = first_world(box_options(custom=[ancient(count, digest)]))
+            wire = world.fill_slot_data()
+            cases.append((f"excluded-{digest[:8]}-{count}", wire, True))
+            with mock.patch.dict(crate_exclusions.EXCLUSIONS, {}, clear=True):
+                legacy = first_world(box_options(custom=[ancient(count, digest)]))
+                legacy_wire = legacy.fill_slot_data()
+            cases.append((f"excluded-legacy-{digest[:8]}-{count}", legacy_wire, True))
+            for label, change in (
+                ("feature", lambda p: p["required_features"].remove(crate_exclusions.FEATURE)),
+                ("pin", lambda p: p["item_boxes"]["crate_exclusions"][0].__setitem__("lev_sha256", "0" * 64)),
+                ("ordinal", lambda p: p["item_boxes"]["crate_exclusions"][0]["crates"][0].__setitem__("ordinal", 0)),
+                ("position", lambda p: p["item_boxes"]["crate_exclusions"][0]["crates"][0]["pos"].__setitem__(0, 32768)),
+            ):
+                alter(f"excluded-{digest[:8]}-{count}-{label}", change, wire)
+
 box_env("unchanged copy", lambda c: None)
 box_env("box_locations false", lambda c: c["ctr_options"].__setitem__("box_locations", False))
 box_env("box_locations dropped", lambda c: c["ctr_options"].pop("box_locations"))
@@ -1640,6 +1727,24 @@ for name, change in [
         ("relic check dropped", row2_extra_relic_check),
         ]:
     row2_alter(name, change)
+# A3-25: with the boss gauntlet a seed short of five Gem Cups holds the Purple
+# Gem Cup first and then Red onward; a lineup that skips Red is still refused.
+gauntlet_base = None
+for count in (1, 2, 4, 5):
+    options = relic_options(dict(sapphire=18, gold=18, platinum=0))
+    options["content_pool"]["cups"] = dict(count=count, tracks="random")
+    options["content_pool"]["bosses"] = dict(enabled=True)
+    options["boss_kit_shuffle"] = True
+    options["purple_cup_boss_gauntlet"] = True
+    wire = json.loads(json.dumps(make_world(options, seed=count).fill_slot_data()))
+    cases.append((f"gauntlet-cups-{count}", wire, True))
+    if count == 2:
+        gauntlet_base = wire
+# These forgeries rename ids only, so native also refuses them on the display name
+# before the lineup check; the lineup predicate itself is covered by the generator
+# test and the review of all 32 colour subsets.
+alter("gauntlet-renamed-colour-1", lambda p: row2_rename(p, 0, "entry/gem_cup:1"), gauntlet_base)
+alter("gauntlet-renamed-purple-to-2", lambda p: row2_rename(p, 4, "entry/gem_cup:2"), gauntlet_base)
 # One generator row 3: every unlock mode, placement and stage density the
 # generator draws, then forged requirement records.
 row3_shape = dict(preset="mixed", tracks=dict(retail="all", modes=["trophy", "ctr", "relic"], custom=[]),
@@ -1761,8 +1866,20 @@ for name, source, change in [
 # J11: ctr_first, the Wumpa Shop and goal, boss opponent and kit shuffle. The
 # paired apworld's own fixtures, then forgeries of every new field; native and
 # the generator's validator must agree on each.
-for fixture in ("ctr-first", "wumpa-shop", "wumpa-goal-only", "boss-shuffle", "all-030"):
+for fixture in ("ctr-first", "wumpa-shop", "wumpa-goal-only", "boss-shuffle", "all-030", "chaos-final", "oxide-off-swap"):
     cases.append((fixture + "-fixture", json.loads((root / f"tools/fixtures/content-plan/{fixture}.json").read_text()), True))
+# Keep the published income-only fixtures as compatibility cases, and admit
+# the new versioned Key-budget record at both bounds and the default scale.
+for scale in (25, 100, 400, 24, 401, True, "100"):
+    case = copy.deepcopy(next(w for n, w, ok in cases if n == "wumpa-shop-fixture"))
+    p = case["content_plan"]
+    p["wumpa_shop"]["logic_scale"] = scale
+    index = p["required_features"].index("wumpa_shop_v1") + 1
+    p["required_features"].insert(index, "wumpa_shop_key_tiers_v1")
+    cases.append((f"shop-key-budget-{scale!r}", case, type(scale) is int and 25 <= scale <= 400))
+case = copy.deepcopy(next(w for n, w, ok in cases if n == "wumpa-shop-fixture"))
+case["content_plan"]["wumpa_shop"]["logic_scale"] = 100
+cases.append(("shop-key-budget-missing-feature", case, False))
 def j11_env(name, change, fixture):
     case = copy.deepcopy(next(w for n, w, ok in cases if n == fixture + "-fixture"))
     change(case)
@@ -1774,6 +1891,20 @@ def j11_env(name, change, fixture):
     except (ValueError, TypeError, KeyError, OverflowError, AttributeError, IndexError):
         accepted = False
     cases.append((f"j11-{fixture}-{name}", case, accepted))
+for name, change in (
+        ("false", lambda c: c["content_plan"]["bosses"].__setitem__("final_chaos", False)),
+        ("a number", lambda c: c["content_plan"]["bosses"].__setitem__("final_chaos", 1)),
+        ("without the feature", lambda c: c["content_plan"]["required_features"].remove("final_chaos_v1")),
+        ("Keys on a displaced boss", lambda c: c["hit_character_encounters"]["unlock_triggers"]["11"].__setitem__("fallback_keys", 3)),
+        ):
+    j11_env("chaos " + name, change, "chaos-final")
+# Fixes 2026-11-02: N. Oxide's races off on a random-boss seed race him from the start.
+for name, change in (
+        ("Keys back", lambda c: c["hit_character_encounters"]["unlock_triggers"]["15"].__setitem__("fallback_keys", 4)),
+        ("his races as wins", lambda c: c["hit_character_encounters"]["unlock_triggers"]["15"].__setitem__(
+            "any_of", [35011104, 35011105])),
+        ):
+    j11_env("oxide off " + name, change, "oxide-off-swap")
 def j_entry(c, eid):
     return next(e for e in c["content_plan"]["entries"] if e["id"] == eid)
 def j_check(c, code):
@@ -1892,7 +2023,7 @@ for name, change in [
         ("Hit route kept by the retail boss", lambda c: j_check(c, 35025010)["routes"].append(copy.deepcopy(j_check(c, 35025007)["routes"][-1]))),
         ("Hit route dropped from the drawn racer", lambda c: j_check(c, 35025007)["routes"].pop()),
         ("Hit table retail", j_hit_to_retail),
-        ("Hit fallback missing", lambda c: c["hit_character_encounters"]["unlock_triggers"]["8"].pop("fallback_keys")),
+        ("Hit fallback on a boss raced nowhere", lambda c: c["hit_character_encounters"]["unlock_triggers"]["8"].__setitem__("fallback_keys", 4)),
         ("Hit fallback on a drawn guest", lambda c: c["hit_character_encounters"]["unlock_triggers"]["13"].__setitem__("fallback_keys", 2)),
         ("Hit trigger keeps the retail win", lambda c: c["hit_character_encounters"]["unlock_triggers"].__setitem__(
             "10", dict(kind="boss", any_of=[35011100]))),
@@ -1934,7 +2065,9 @@ row5_sets = [dict(adventure_structure="ctr_first"), dict(adventure_structure="ct
              dict(goal_wumpa=1000, oxide_goal="disabled"),
              dict(wumpa_shop_slots=10, wumpa_shop_progression="excluded", shuffle_keys=False, shuffle_gems=False),
              dict(goal_wumpa=500, oxide_goal="101_percent", oxide_1_optional="filler"),
-             dict(spoiler_items=True), dict(spoiler_items=True, box_locations=True)]
+             dict(spoiler_items=True), dict(spoiler_items=True, box_locations=True),
+             # #124: the additive envelope flag, with and without Spoiler Items.
+             dict(pad_approach_hints=True), dict(pad_approach_hints=True, spoiler_items=True, box_locations=True)]
 def row5_options(unlock, extra):
     extra = dict(extra)
     options = row3_options(unlock, "shuffle", "full", **{k: v for k, v in extra.items() if k != "cups"})
@@ -1947,7 +2080,21 @@ for index, extra in enumerate(row5_sets):
             options = row5_options(unlock, extra)
             cases.append((f"row5-{index}-{unlock}-{seed}", make_world(options, seed=seed).fill_slot_data(), True))
             row5_cases += 1
-assert row5_cases == 128, row5_cases
+assert row5_cases == 144, row5_cases
+# A2-6 (alpha1 room refusal): AP Box Colours over the whole matrix of
+# color_boxes_by_item, spoiler_items, ap_item_type_colors and box_locations.
+# Native wanted the item whenever the plan had boxes; the apworld creates it
+# only for coloured boxes, so `color_boxes_by_item: false` with Spoiler Items
+# and boxes on was refused by the client.
+for colours in (False, True):
+    for spoiler in (False, True):
+        for type_colours in (False, True):
+            for boxes in (False, True):
+                room = make_world(row5_options("randomized", dict(color_boxes_by_item=colours, spoiler_items=spoiler,
+                                                                  ap_item_type_colors=type_colours, box_locations=boxes)),
+                                  seed=1).fill_slot_data()
+                assert ("ap_box_colours" in room["content_plan"].get("item_packs", {})) == (colours and spoiler and boxes)
+                cases.append((f"a2-6 colours={colours} spoiler={spoiler} type={type_colours} boxes={boxes}", room, True))
 row5_cup = make_world(row5_options("randomized", row5_sets[6]), seed=1).fill_slot_data()
 row5_gauntlet = make_world(row5_options("randomized", row5_sets[7]), seed=1).fill_slot_data()
 row5_first = make_world(row5_options("randomized", row5_sets[0]), seed=1).fill_slot_data()
@@ -1996,12 +2143,250 @@ def row6_old(p):
     p.pop("pad_client")
     p["required_features"].remove("pad_client_v1")
 alter("row6 plan from before the record", row6_old, row6_room)
+# Row 10f: Wumpa Income from a custom track with measured Wumpa capability
+# (ruling of 2026-11-02). Plans whose only income is such a track; without the
+# capability both validators refuse them, each for the missing income.
+from worlds.ctr.test.test_custom_tracks_132 import only_custom_income
+cases.append(("custom-income-fixture", json.loads((root / "tools/fixtures/content-plan/wumpa-custom-income.json").read_text()), True))
+for seed in (1, 2):
+    cases.append((f"custom-income-generated-{seed}", only_custom_income(True, seed=seed).fill_slot_data(), True))
+def lose_wumpa(p):
+    for package in p["packages"]:
+        package["capabilities"]["wumpa"] = False
+custom_income = next(w for name, w, ok in cases if name == "custom-income-fixture")
+for name, change in [
+        ("custom income loses its Wumpa capability", lose_wumpa),
+        ]:
+    alter("row10f " + name, change, custom_income)
 # The verifier's copy of the per-track USF finish rulings (#133 PR 8,
 # ap/ap_content_verify.hpp kUsfRulings) equals the apworld's table.
 from worlds.ctr import content_capability as ccap
-native_rulings = {k: v == "1" for k, v in re.findall(r'\{"([a-z0-9-]+)", ([01])\}',
-                  re.search(r"kUsfRulings\[\] = \{(.*?)\};", (root / "ap/ap_content_verify.hpp").read_text(), re.S)[1])}
+native_rows = [((k, r or None, h or None), int(v)) for k, r, h, v in re.findall(
+               r'\{"([a-z0-9-]+)", "([^"]*)", "([0-9a-f]*)", ([012])\}',
+               re.search(r"kUsfRulings\[\] = \{(.*?)\};", (root / "ap/ap_content_verify.hpp").read_text(), re.S)[1])]
+native_rulings = dict(native_rows)
+# finish_boost returns the first matching row, so a repeated key would hide a mismatch.
+assert len(native_rulings) == len(native_rows), native_rows
 assert native_rulings == ccap.USF_FINISH_RULINGS, (native_rulings, ccap.USF_FINISH_RULINGS)
+# Row 10i parity fixes: Reach 10 Wumpa from cup legs and boss races, rungs
+# from cup legs, vanilla garages free without Trophies, Turbo Track's five Gem
+# colours. Generated on the vanilla-shape plan with many cups, so some tracks
+# are raced only in cups, plus forged routes and records.
+row10i = []
+for seed in range(12):
+    o = {"wumpa_check": ["per_track", "global", "off"][seed % 3], "cup_count": [5, 8, 10][seed % 3 if seed < 9 else 1],
+         "accessibility": "full", "lap_completion_checks": seed % 4 == 1}
+    if seed % 2:
+        o["warppad_unlock_requirements"] = "vanilla"
+    if seed % 6 == 5:
+        o["item_pool"] = {"base": {"trophies": 0}}
+    try:
+        world = make_world(o, seed=seed)
+    except cp.OptionError:
+        continue
+    row10i.append((seed, world.fill_slot_data()))
+    cases.append((f"row10i-generated-{seed}", row10i[-1][1], True))
+assert len(row10i) >= 9, len(row10i)
+r10_base = next(v for seed, v in row10i if seed % 3 == 0)
+def r10_drop_cup_route(p):
+    c = next(c for c in p["checks"] if c["kind"] == "wumpa" and any(r["mode"] == "cup" for r in c["routes"]))
+    c["routes"] = [r for r in c["routes"] if r["mode"] != "cup"] or c["routes"][:1]
+alter("row10i wumpa cup route dropped", r10_drop_cup_route, r10_base)
+def r10_drop_boss_route(p):
+    c = next(c for c in p["checks"] if c["kind"] == "wumpa" and any(r["mode"] == "boss_race" for r in c["routes"]))
+    c["routes"] = [r for r in c["routes"] if r["mode"] != "boss_race"] or c["routes"][:1]
+alter("row10i wumpa boss route dropped", r10_drop_boss_route, r10_base)
+def r10_reorder(p):
+    c = next(c for c in p["checks"] if c["kind"] == "wumpa" and len(c["routes"]) > 2)
+    c["routes"].reverse()
+alter("row10i wumpa routes reordered", r10_reorder, r10_base)
+def r10_rung_cup_dropped(p):
+    c = next(c for c in p["checks"] if c["kind"] == "podium" and any(r["mode"] == "cup" for r in c["routes"]))
+    c["routes"] = c["routes"][:1]
+alter("row10i rung cup route dropped", r10_rung_cup_dropped, r10_base)
+def r10_rung_boss(p):
+    c = next(c for c in p["checks"] if c["kind"] == "podium")
+    e = p["encounters"][0]
+    c["routes"].append(dict(entry_id=e["entry_id"], mode="boss_race", leg_id=None, encounter_id=e["id"],
+                            own_pad_id=e["pad_id"], award=c["routes"][0]["award"]))
+alter("row10i rung boss route added", r10_rung_boss, r10_base)
+r10_free = next((v for seed, v in row10i if seed % 6 == 5), None)
+if r10_free is not None:
+    def r10_garage_asks(p):
+        next(r for r in p["requirements"] if r["id"] == "boss:0")["predicate"] = dict(op="count", item=35010000, count=1)
+    alter("row10i free vanilla garage asks a Trophy", r10_garage_asks, r10_free)
+r10_vanilla = next(v for seed, v in row10i if seed % 2 and seed % 6 != 5)
+def r10_turbo_sum(p):
+    r = next(r for r in p["requirements"] if r["predicate"].get("op") == "distinct")
+    r["predicate"]["op"] = "sum"
+alter("row10i Turbo Track as a Gem sum", r10_turbo_sum, r10_vanilla)
+def r10_garage_free(p):
+    next(r for r in p["requirements"] if r["id"] == "boss:0")["predicate"] = dict(op="always")
+alter("row10i free vanilla garage with Trophies", r10_garage_free, r10_vanilla)
+# cup_only_podium_rungs (ruling of 2026-11-02): a track raced only in Gem Cup legs
+# takes the seed's rungs from those legs; no plan field, the routes say it.
+cup_rungs = []
+for seed in range(4):
+    o = {"cup_only_podium_rungs": True, "cup_count": [8, 10][seed % 2], "accessibility": "full",
+         "wumpa_check": ["off", "per_track"][seed % 2]}
+    if seed == 1:
+        o["progressive_boost"] = "shared_global"
+    if seed == 2:
+        o["podium_rungs"] = ["held_1st", "finish_any"]
+    world = make_world(o, seed=seed)
+    cup_rungs.append(world.fill_slot_data())
+    cases.append((f"cup-only-rungs-generated-{seed}", cup_rungs[-1], True))
+def cup_only_rungs(p):
+    own = {e["track_id"] for e in p["entries"] if e["kind"] == "track"}
+    return [c for c in p["checks"] if c["kind"] == "podium" and c["owner"] not in own]
+assert all(cup_only_rungs(v["content_plan"]) for v in cup_rungs)
+def cr_one_track_dropped(p):
+    gone = cup_only_rungs(p)[0]["owner"]
+    p["checks"] = [c for c in p["checks"] if not (c["kind"] == "podium" and c["owner"] == gone)]
+alter("cup-only rungs of one track dropped", cr_one_track_dropped, cup_rungs[0])
+def cr_one_rung_dropped(p):
+    gone = cup_only_rungs(p)[0]["location"]
+    p["checks"] = [c for c in p["checks"] if c["location"] != gone]
+alter("cup-only rung dropped", cr_one_rung_dropped, cup_rungs[0])
+def cr_leg_dropped(p):
+    c = next(c for c in cup_only_rungs(p) if len(c["routes"]) > 1)
+    c["routes"] = c["routes"][1:]
+alter("cup-only rung leg route dropped", cr_leg_dropped, cup_rungs[0])
+def cr_boss_route(p):
+    c = cup_only_rungs(p)[0]
+    e = p["encounters"][0]
+    c["routes"].append(dict(entry_id=e["entry_id"], mode="boss_race", leg_id=None, encounter_id=e["id"],
+                            own_pad_id=e["pad_id"], award=c["routes"][0]["award"]))
+alter("cup-only rung boss route added", cr_boss_route, cup_rungs[0])
+def cr_award(p):
+    c = cup_only_rungs(p)[0]
+    for r in c["routes"]:
+        r["award"] = "finish_any" if r["award"] != "finish_any" else "held_1st"
+alter("cup-only rung award swapped", cr_award, cup_rungs[2])
+def cr_extra_rung(p):
+    # A rung the seed's podium_rungs does not list.
+    c = copy.deepcopy(cup_only_rungs(p)[0])
+    c["location"] += 2
+    c["display_name"] = c["display_name"].rsplit(": ", 1)[0] + ": Held 5th"
+    for r in c["routes"]:
+        r["award"] = "held_5th"
+    p["checks"].insert(p["checks"].index(cup_only_rungs(p)[0]), c)
+alter("cup-only rung outside podium_rungs", cr_extra_rung, cup_rungs[2])
+assert not any(ok for name, _case, ok in cases if name.startswith("cup-only rung")), "a cup-only rung forgery validates"
+# Ruling of 2026-11-02: with cup_only_podium_rungs on, a track whose pad
+# has no Trophy Race, raced in a cup, takes the seed's rungs from its legs too.
+NO_TROPHY = {"default": ["trophy", "ctr", "relic"], "Crash Cove": ["relic"], "Roo's Tubes": ["relic"],
+             "Mystery Caves": ["relic"], "Sewer Speedway": ["relic"]}
+pad_rungs = []
+for seed, on in ((1, True), (2, True), (3, False)):
+    o = {"cup_only_podium_rungs": on, "cup_count": 8, "accessibility": "full", "track_modes": NO_TROPHY,
+         "wumpa_check": ["off", "per_track"][seed % 2]}
+    world = make_world(o, seed=seed)
+    pad_rungs.append(world.fill_slot_data())
+    cases.append((f"pad-no-trophy-rungs-generated-{seed}-{'on' if on else 'off'}", pad_rungs[-1], True))
+def pad_no_trophy_rungs(p):
+    pads = {pad["entry_id"] for pad in p["pads"] if pad["entry_id"]}
+    bare = {e["track_id"] for e in p["entries"] if e["kind"] == "track" and e["id"] in pads and "trophy" not in e["modes"]}
+    return [c for c in p["checks"] if c["kind"] == "podium" and c["owner"] in bare]
+assert all(pad_no_trophy_rungs(v["content_plan"]) for v in pad_rungs[:2])
+assert not pad_no_trophy_rungs(pad_rungs[2]["content_plan"])
+def pr_one_track_dropped(p):
+    gone = pad_no_trophy_rungs(p)[0]["owner"]
+    p["checks"] = [c for c in p["checks"] if not (c["kind"] == "podium" and c["owner"] == gone)]
+alter("pad-no-trophy rungs of one track dropped", pr_one_track_dropped, pad_rungs[0])
+def pr_own_pad_route(p):
+    c = pad_no_trophy_rungs(p)[0]
+    pad = next(pad for pad in p["pads"] if pad["entry_id"] == "entry/" + c["owner"])
+    c["routes"].insert(0, dict(entry_id=pad["entry_id"], mode="trophy", leg_id=None, encounter_id=None,
+                               own_pad_id=pad["id"], award=c["routes"][0]["award"]))
+alter("pad-no-trophy rung routed from its own pad", pr_own_pad_route, pad_rungs[0])
+def pr_leg_dropped(p):
+    c = next(c for c in pad_no_trophy_rungs(p) if len(c["routes"]) > 1)
+    c["routes"] = c["routes"][1:]
+alter("pad-no-trophy rung leg route dropped", pr_leg_dropped, pad_rungs[0])
+def pr_forged_on(p):
+    # The option off, then one such track's rungs added by hand.
+    src = pad_no_trophy_rungs(pad_rungs[0]["content_plan"])
+    owner = src[0]["owner"]
+    legs = [(e["id"], leg["id"], pad["id"]) for e in p["entries"] if e["kind"] == "cup"
+            for pad in p["pads"] if pad["entry_id"] == e["id"] for leg in e["legs"] if leg["track_id"] == owner]
+    assert legs
+    for c in src:
+        if c["owner"] != owner:
+            continue
+        key = c["routes"][0]["award"]
+        p["checks"].append(dict(c, routes=[dict(entry_id=e, mode="cup", leg_id=l, encounter_id=None, own_pad_id=pad,
+                                                award=key) for e, l, pad in legs]))
+alter("pad-no-trophy rungs forged onto an off seed", pr_forged_on, pad_rungs[2])
+assert not any(ok for name, _case, ok in cases if name.startswith("pad-no-trophy rung")), "a pad rung forgery validates"
+# 27 cups (A3-7): no Trophy Race or CTR Challenge, so Itemsanity routes from
+# every cup leg and the shop and goal bank in the legs. A plan with a race
+# keeps its race routes: a cup leg route forged onto one is refused.
+all_cups = []
+for seed, extra in ((1, {}), (2, {"hit_character": True}), (3, {"goal_wumpa": 300, "hit_character": True}),
+                    (4, {"progressive_boost": "shared_global", "logic_difficulty": "hard", "racer_locked_pads": 4,
+                         "character_unlocks": True})):
+    o = dict({"cup_count": 27, "crystal_challenge_count": 0, "accessibility": "full", "itemsanity": True}, **extra)
+    all_cups.append(make_world(o, seed=seed).fill_slot_data())
+    cases.append((f"27-cups-generated-{seed}", all_cups[-1], True))
+cases.append(("27-cups-fixture", json.loads((root / "tools/fixtures/content-plan/twenty-seven-cups.json").read_text()), True))
+one_race = make_world({"cup_count": 26, "crystal_challenge_count": 0, "accessibility": "full", "itemsanity": True},
+                      seed=5).fill_slot_data()
+cases.append(("26-cups-generated", one_race, True))
+def ac_leg_dropped(p):
+    c = next(c for c in p["checks"] if c["kind"] == "itemsanity")
+    c["routes"] = c["routes"][1:]
+alter("27 cups itemsanity leg route dropped", ac_leg_dropped, all_cups[0])
+def ac_forged_on_race(p):
+    cup = next(e for e in p["entries"] if e["kind"] == "cup")
+    pad = next(pad for pad in p["pads"] if pad["entry_id"] == cup["id"])
+    c = next(c for c in p["checks"] if c["kind"] == "itemsanity")
+    c["routes"].append(dict(entry_id=cup["id"], mode="cup", leg_id=cup["legs"][0]["id"], encounter_id=None,
+                            own_pad_id=pad["id"], award=c["routes"][0]["award"]))
+alter("26 cups itemsanity cup leg route forged beside its race", ac_forged_on_race, one_race)
+assert not any(ok for name, _case, ok in cases if name.startswith(("27 cups itemsanity", "26 cups itemsanity"))), \
+    "an itemsanity route forgery validates"
+from worlds.ctr.test.test_item_box_count import fifty_spots, count_world
+with fifty_spots(custom=True):
+    for count in (0, 1, 15, 50):
+        wire = count_world(count).fill_slot_data()
+        assert make_world({}, passthrough=wire).fill_slot_data() == wire
+        cases.append((f"box-count-{count}", wire, True))
+        if count in (1, 50):
+            for bad in (0, 15, 51, True, "50"):
+                forged = copy.deepcopy(wire)
+                forged["content_plan"]["item_boxes"]["box_count"] = bad
+                cases.append((f"box-count-{count}-invalid-{bad}", forged, False))
+            forged = copy.deepcopy(wire)
+            forged["ctr_options"]["item_box_count"] = 50 if count == 1 else 1
+            cases.append((f"box-count-{count}-envelope", forged, False))
+            forged = copy.deepcopy(wire)
+            forged["content_plan"]["required_features"].remove("box_count_v1")
+            cases.append((f"box-count-{count}-feature", forged, False))
+for count, mode in ((5, "off"), (50, "both")):
+    wire = make_world(dict(profile_options(), itemboxsanity=count, wumpasanity=mode), seed=3).fill_slot_data()
+    assert cp.validate(wire["content_plan"])
+    cases.append((f"sanity-{count}-{mode}", wire, True))
+    for mutation in ("ordinal", "counts", "hash", "route", "feature"):
+        bad = copy.deepcopy(wire)
+        plan = bad["content_plan"]
+        if mutation == "ordinal":
+            plan["sanity"]["tracks"][0]["weapon_crate"][0] = 81
+        elif mutation == "counts":
+            plan["sanity"]["tracks"][0]["counts"][0] = True
+        elif mutation == "hash":
+            plan["sanity"]["tracks"][0]["lev_sha256"] = "0" * 64
+        elif mutation == "route":
+            next(c for c in plan["checks"] if c["kind"] == "weapon_crate")["routes"][0]["award"] = "box"
+        else:
+            plan["required_features"].remove("itemboxsanity_v1")
+        try:
+            cp.validate(plan)
+            expected_admit = True
+        except Exception:
+            expected_admit = False
+        assert not expected_admit, mutation
+        cases.append((f"sanity-{count}-{mode}-{mutation}", bad, False))
 run = subprocess.run([str(args.parser.resolve()), "--probe"], input="".join(json.dumps(v) + "\n" for _, v, _ in cases),
                      text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, cwd=root)
 answers = run.stdout.splitlines()

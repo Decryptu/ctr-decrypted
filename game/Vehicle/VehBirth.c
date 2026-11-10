@@ -1,6 +1,7 @@
 #include "VehCommon.h"
 #ifdef CTR_AP
 #include "../../ap/ap_firstkey_freeze.h"
+#include "../../ap/ap_fasttravel.h"
 #endif
 
 enum
@@ -40,6 +41,14 @@ void VehBirth_TeleportSelf(struct Driver *d, u32 spawnFlag, int spawnPosY)
 	struct InstDef *doorInst;
 	struct ScratchpadStruct *sps;
 	register struct GameTracker *initialTracker CTR_PSX_REGISTER("$4");
+#ifdef CTR_AP
+	/* A3-16 hub fast travel: the armed trip claims this spawn, ahead of the
+	 * door, boss and pad rules (it was armed from an idle hub with no podium
+	 * or door event in play). */
+	SVec3 apTravelPos;
+	s16 apTravelRot = 0;
+	int apTravel = 0;
+#endif
 
 	initialTracker = GAME_TRACKER;
 	doorInst = NULL;
@@ -190,6 +199,24 @@ void VehBirth_TeleportSelf(struct Driver *d, u32 spawnFlag, int spawnPosY)
 			spawnOutsideBoss = 1;
 		}
 
+#ifdef CTR_AP
+		/* A3-16 hub fast travel: claimed after the door and boss-scene rules
+		 * above win their spawn, so a first-Key door freeze or a pending boss
+		 * intro keeps its retail entry and the trip ends with the normal
+		 * spawn instead of skipping the scene. */
+		if (ctr_cfg_active() && d == GAME_TRACKER->drivers[0])
+		{
+			if (doorInst == NULL && !spawnOutsideBoss)
+			{
+				apTravel = AP_FastTravelSpawnAt(GAME_TRACKER->level1, (int)GAME_TRACKER->levelID, &apTravelPos, &apTravelRot);
+			}
+			else
+			{
+				AP_FastTravelSpawnYield((int)GAME_TRACKER->levelID);
+			}
+		}
+#endif
+
 		if (doorInst != NULL)
 		{
 			int trig;
@@ -230,6 +257,14 @@ void VehBirth_TeleportSelf(struct Driver *d, u32 spawnFlag, int spawnPosY)
 				posBottom.z = GAME_TRACKER->level1->ptrSpawnType2_PosRot[1].coords.posRot[1].pos.z;
 				goto VehBirth_PositionReady;
 			}
+
+#ifdef CTR_AP
+			if (apTravel)
+			{
+				posBottom = apTravelPos;
+				goto VehBirth_PositionReady;
+			}
+#endif
 
 			if ((GAME_TRACKER->gameMode1 & ADVENTURE_ARENA) != 0)
 			{
@@ -386,6 +421,14 @@ VehBirth_PositionReady:
 
 	if ((spawnFlag & VEH_BIRTH_SPAWN_USE_LEVEL_POSITION) != 0)
 	{
+#ifdef CTR_AP
+		/* A3-16: the fast-travel landing faces its save screen. */
+		if (apTravel)
+		{
+			d->rotCurr.y = apTravelRot;
+		}
+		else
+#endif
 		if (doorInst != NULL)
 		{
 			driver->rotCurr.y = ANG_MODULO_TWO_PI(doorInst->rot.y + ANG_PI);
@@ -652,6 +695,10 @@ typedef u32 VehBirthWord CTR_MAY_ALIAS;
 	 (((const VehBirthModelNameWord *)(model)->name)[2] == ((const VehBirthModelNameWord *)(search))[2]) && \
 	 (((const VehBirthModelNameWord *)(model)->name)[3] == ((const VehBirthModelNameWord *)(search))[3]))
 
+#ifdef CTR_AP
+struct Model *LOAD_ChaosSideModel(int i);
+#endif
+
 struct Model *VehBirth_GetModelByName(char *searchName)
 {
 	int i;
@@ -674,6 +721,18 @@ struct Model *VehBirth_GetModelByName(char *searchName)
 			return extraModel;
 		}
 	}
+
+#ifdef CTR_AP
+	// The chaos Final Challenge's two extra rivals beyond the three slots.
+	for (i = 0; (m = LOAD_ChaosSideModel(i)) != NULL; i++)
+	{
+		if (VEH_BIRTH_MODEL_NAME_EQUALS(m, searchName))
+		{
+			return m;
+		}
+	}
+	m = NULL;
+#endif
 
 	loadedModels = GAME_PLAYER_OBJECT_LIST;
 

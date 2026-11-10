@@ -245,6 +245,185 @@ static void test_options()
 	CHECK(AP_SoloBuildOptions(nlohmann::json::parse("{\"overlay\": 5}")).empty());
 }
 
+// Alpha2: every option is a row. Large ranges move by the overlay's step and
+// stop at both ends; help text drops its Markdown and hard line breaks.
+static void test_option_steps_and_help()
+{
+	const nlohmann::json d = nlohmann::json::parse(R"({
+	  "options": [
+	    {"name": "goal_wumpa", "display_name": "Goal Wumpa", "kind": "range", "default": 0, "range_start": 0, "range_end": 5000,
+	     "doc": "Bank this many Wumpa Fruit\nover the whole seed.\n\nUse `1000` for a **long** goal:\n- first item\n- second item\n\nLast line."},
+	    {"name": "wumpa_shop_prices", "display_name": "Prices", "kind": "range", "default": 100, "range_start": 25, "range_end": 400},
+	    {"name": "relic_count", "display_name": "Relics", "kind": "named_range", "default": 18, "range_start": 1, "range_end": 54},
+	    {"name": "plando", "display_name": "Plando", "kind": "list", "default": []},
+	    {"name": "tags", "display_name": "Tags", "kind": "set", "default": []}
+	  ],
+	  "overlay": {"groups": [{"label": "A", "options": ["goal_wumpa", "plando"]},
+	                         {"label": "B", "options": ["wumpa_shop_prices", "relic_count", "tags"]}],
+	              "rules": [{"option": "goal_wumpa", "step": 50}, {"option": "wumpa_shop_prices", "step": 25},
+	                        {"option": "relic_count", "label": "Short Relic Name"}]},
+	  "values": {"goal_wumpa": 0, "wumpa_shop_prices": 100, "relic_count": 18}
+	})");
+	std::vector<APSoloOption> rows = AP_SoloBuildOptions(d);
+	CHECK(rows.size() == 3); // lists and sets are never rows
+	APSoloOption *gw = find(rows, "goal_wumpa"), *pr = find(rows, "wumpa_shop_prices"), *rc = find(rows, "relic_count");
+	CHECK(gw && pr && rc);
+	if (!(gw && pr && rc))
+		return;
+	CHECK(gw->step == 50 && pr->step == 25 && rc->step == 1);
+	CHECK(rc->kind == "range" && rc->lo == 1 && rc->hi == 54);
+	CHECK(rc->label == "Short Relic Name" && gw->label == "Goal Wumpa"); // a rule may shorten a row name
+	AP_SoloOptionStep(*gw, 1);
+	CHECK(gw->value == "50");
+	for (int i = 0; i < 99; i++)
+		AP_SoloOptionStep(*gw, 1);
+	CHECK(gw->value == "5000");
+	AP_SoloOptionStep(*gw, 1); // past the top wraps to the bottom
+	CHECK(gw->value == "0");
+	AP_SoloOptionStep(*gw, -1);
+	CHECK(gw->value == "5000");
+	// A value off the grid still reaches the end instead of overshooting it.
+	gw->value = "4990";
+	AP_SoloOptionStep(*gw, 1);
+	CHECK(gw->value == "5000");
+	gw->value = "20";
+	AP_SoloOptionStep(*gw, -1);
+	CHECK(gw->value == "0");
+	// Prices: 25 to 400 in steps of 25, always inside the range.
+	pr->value = "25";
+	AP_SoloOptionStep(*pr, -1);
+	CHECK(pr->value == "400");
+	AP_SoloOptionStep(*pr, 1);
+	CHECK(pr->value == "25");
+	for (int i = 0; i < 40; i++)
+	{
+		AP_SoloOptionStep(*pr, 1);
+		const int v = atoi(pr->value.c_str());
+		CHECK(v >= 25 && v <= 400);
+	}
+	// A named range without a step moves by one.
+	AP_SoloOptionStep(*rc, 1);
+	CHECK(rc->value == "19");
+	// Help text.
+	CHECK(gw->doc == "Bank this many Wumpa Fruit over the whole seed.\nUse 1000 for a long goal:\n- first item\n- second item\nLast line.");
+	CHECK(AP_SoloHelpText("").empty());
+	CHECK(AP_SoloHelpText("\n\n  one  \n  two\n\n") == "one two");
+}
+
+// A2-41: a set option with a checklist is a row; its value is a JSON array in
+// row order; guards refuse what the world refuses.
+static void test_checklists_and_guards()
+{
+	const nlohmann::json d = nlohmann::json::parse(R"({
+	  "options": [
+	    {"name": "crystal_challenge_count", "display_name": "Crystal Challenge Count", "kind": "range", "default": 4,
+	     "range_start": 0, "range_end": 7},
+	    {"name": "crystal_arenas", "display_name": "Crystal Arenas", "kind": "set",
+	     "default": ["Nitro Court", "Rampage Ruins", "Rocky Road", "Skull Rock"]},
+	    {"name": "boss_opponent_shuffle", "display_name": "Boss Opponent Shuffle", "kind": "toggle", "default": false},
+	    {"name": "boss_track_pool", "display_name": "Boss Track Pool", "kind": "set", "default": []},
+	    {"name": "boss_weapon_pool", "display_name": "Boss Weapon Pool", "kind": "set", "default": ["bomb", "potion", "tnt"]},
+	    {"name": "start_hints", "display_name": "Start Hints", "kind": "set", "default": []}
+	  ],
+	  "overlay": {"groups": [{"label": "Cups", "options": ["crystal_challenge_count", "crystal_arenas"]},
+	                         {"label": "Bosses", "options": ["boss_opponent_shuffle", "boss_track_pool", "boss_weapon_pool",
+	                                                         "start_hints"]}],
+	              "rules": [],
+	              "checklists": {
+	                "crystal_arenas": [["Rocky Road"], ["Rampage Ruins"], ["Skull Rock"], ["Nitro Court"], ["Parking Lot"],
+	                                   ["The North Bowl"], ["Lab Basement"]],
+	                "boss_track_pool": [["Crash Cove"], ["Roo's Tubes"]],
+	                "boss_weapon_pool": [["tnt", "TNT"], ["potion", "Potion"], ["bomb", "Bomb"]]},
+	              "guards": [
+	                {"option": "crystal_challenge_count", "at_most_count_of": "crystal_arenas", "reason": "count"},
+	                {"option": "boss_weapon_pool", "when": {"boss_opponent_shuffle": [true]}, "at_least": 2, "reason": "two"},
+	                {"option": "boss_weapon_pool", "when": {"boss_opponent_shuffle": [true]}, "has": "tnt",
+	                 "needs_all": ["potion"], "reason": "potion"}]},
+	  "values": {"crystal_challenge_count": 4, "crystal_arenas": ["Rocky Road", "Rampage Ruins", "Skull Rock", "Nitro Court"],
+	             "boss_opponent_shuffle": false, "boss_track_pool": ["Crash Cove", "custom/my-track"],
+	             "boss_weapon_pool": ["tnt", "potion", "bomb"]}
+	})");
+	std::vector<APSoloOption> rows = AP_SoloBuildOptions(d);
+	CHECK(rows.size() == 5); // a set without a checklist is not a row
+	{
+		auto weighted = d;
+		weighted["unresolved"] = {"crystal_challenge_count"};
+		weighted["values"]["crystal_arenas"] = {"Rocky Road"};
+		auto preview = AP_SoloBuildOptions(weighted);
+		APSoloOption *number = find(preview, "crystal_challenge_count");
+		CHECK(number && number->previewOnly);
+		CHECK(AP_SoloFirstBlocked(preview) == -1); // default preview 4 is not the weighted count
+		if (number)
+		{
+			number->value = "2";
+			CHECK(AP_SoloFirstBlocked(preview) >= 0); // explicitly edited concrete count
+			number->value = number->initial;
+			CHECK(AP_SoloFirstBlocked(preview) == -1);
+			CHECK(AP_SoloSetArgs(preview).empty());
+		}
+	}
+	APSoloOption *count = find(rows, "crystal_challenge_count"), *arenas = find(rows, "crystal_arenas");
+	APSoloOption *shuffle = find(rows, "boss_opponent_shuffle"), *tracks = find(rows, "boss_track_pool");
+	APSoloOption *weapons = find(rows, "boss_weapon_pool");
+	CHECK(count && arenas && shuffle && tracks && weapons && !find(rows, "start_hints"));
+	if (!(count && arenas && shuffle && tracks && weapons))
+		return;
+	CHECK(arenas->kind == "set" && arenas->keys.size() == 7 && arenas->keyLabels[0] == "Rocky Road");
+	CHECK(weapons->keyLabels[0] == "TNT" && weapons->keys[0] == "tnt");
+	CHECK(arenas->value == R"(["Rocky Road","Rampage Ruins","Skull Rock","Nitro Court"])");
+	CHECK(AP_SoloSetSummary(*arenas) == "4 of 7");
+	// The default rows are marked.
+	CHECK(arenas->keyDefault.size() == 7 && arenas->keyDefault[0] && arenas->keyDefault[3] && !arenas->keyDefault[4]);
+	// A YAML entry without a row is kept as a row of its own.
+	CHECK(tracks->keys.size() == 3 && tracks->keys[2] == "custom/my-track" && tracks->keyLabels[2] == "custom/my-track");
+	CHECK(AP_SoloSetSummary(*tracks) == "2 of 3");
+	// Left / Right never change a set.
+	AP_SoloOptionStep(*arenas, 1);
+	CHECK(AP_SoloSetSummary(*arenas) == "4 of 7");
+
+	// Seven Crystal Challenges with four arenas: the count guard refuses, on
+	// the count row and on the arena row.
+	count->value = "7";
+	CHECK(AP_SoloGuardReason(rows, *count) == "count" && AP_SoloGuardReason(rows, *arenas) == "count");
+	CHECK(AP_SoloFirstBlocked(rows) == 0);
+	for (int i = 4; i < 7; i++)
+		AP_SoloSetToggle(*arenas, i);
+	CHECK(AP_SoloSetSummary(*arenas) == "All 7");
+	CHECK(AP_SoloGuardReason(rows, *count).empty() && AP_SoloFirstBlocked(rows) == -1);
+	// Checking in any order keeps row order; unchecking removes the key.
+	AP_SoloSetToggle(*arenas, 0);
+	CHECK(arenas->value == R"(["Rampage Ruins","Skull Rock","Nitro Court","Parking Lot","The North Bowl","Lab Basement"])");
+	CHECK(!AP_SoloGuardReason(rows, *count).empty()); // 7 > 6
+	AP_SoloSetToggle(*arenas, 0);
+	AP_SoloSetToggle(*arenas, 99); // out of range: nothing
+	CHECK(AP_SoloSetSummary(*arenas) == "All 7");
+
+	// Guards with `when`: only while the switch is on.
+	weapons->value = R"(["bomb"])";
+	CHECK(AP_SoloGuardReason(rows, *weapons).empty());
+	shuffle->value = "true";
+	CHECK(AP_SoloGuardReason(rows, *weapons) == "two");
+	weapons->value = R"(["tnt","bomb"])";
+	CHECK(AP_SoloGuardReason(rows, *weapons) == "potion"); // has tnt, misses potion
+	weapons->value = R"(["potion","bomb"])";
+	CHECK(AP_SoloGuardReason(rows, *weapons).empty()); // no tnt: the needs_all guard is off
+	weapons->value = "[]";
+	CHECK(AP_SoloSetSummary(*weapons) == "None" && AP_SoloGuardReason(rows, *weapons) == "two");
+	shuffle->value = "false";
+
+	// --set passes a changed set as its JSON array; unchanged sets stay out.
+	std::vector<std::string> sets = AP_SoloSetArgs(rows);
+	std::set<std::string> got(sets.begin(), sets.end());
+	CHECK(got.count("crystal_challenge_count=7") == 1);
+	CHECK(got.count(R"(crystal_arenas=["Rocky Road","Rampage Ruins","Skull Rock","Nitro Court","Parking Lot","The North Bowl","Lab Basement"])") == 1);
+	CHECK(got.count("boss_weapon_pool=[]") == 1);
+	CHECK(sets.size() == 3);
+	// Back to the preset's arenas: nothing to send for it.
+	for (int i = 4; i < 7; i++)
+		AP_SoloSetToggle(*arenas, i);
+	CHECK(arenas->value == arenas->initial);
+}
+
 // The custom-track step (decision 32): mode labels, the pick cycle and the
 // descriptor file name the client keeps in solo/tracks.
 static void test_tracks()
@@ -283,7 +462,7 @@ static void test_tracks()
 		CHECK(AP_SoloTrackStart(nlohmann::json{{"id", "x"}}) == 0);
 		// A preset's Custom Tracks page sits behind its options screen; a YAML's follows the start list.
 		CHECK(AP_SoloTracksViaOptions(true));
-		CHECK(!AP_SoloTracksViaOptions(false));
+		CHECK(AP_SoloTracksViaOptions(false));
 	}
 
 	CHECK(AP_SoloDescriptorFileName("baby-t-park", "1.0.2") == "baby-t-park__1.0.2.json");
@@ -302,6 +481,230 @@ static void test_tracks()
 	CHECK(!AP_SoloDescriptorFileName("a", std::string(64, '1')).empty());
 }
 
+// An imported track without laps (ruling of 2026-11-02): listed from
+// solo/needs-laps, laps picked 1 to 7 from 3, then kept with nothing else
+// changed.
+static void test_needs_laps()
+{
+	CHECK(AP_SOLO_LAPS_MIN == 1 && AP_SOLO_LAPS_MAX == 7 && AP_SOLO_LAPS_DEFAULT == 3);
+	CHECK(AP_SoloLapsStep(3, 1) == 4 && AP_SoloLapsStep(3, -1) == 2);
+	CHECK(AP_SoloLapsStep(7, 1) == 7 && AP_SoloLapsStep(1, -1) == 1); // stops at both ends
+	CHECK(AP_SoloLapsStep(0, 0) == 1 && AP_SoloLapsStep(99, 0) == 7);
+
+	const nlohmann::json d = {{"id", "package/long-road/1.0.0"}, {"content_id", "long-road"}, {"revision", "1.0.0"},
+	                          {"display_name", "Long Road"}, {"author", "Unknown"}, {"capabilities", {{"relic", false}}}};
+	const std::string name = "long-road__1.0.0.json";
+	CHECK(AP_SoloNeedsLapsDescriptor(d, name));
+	CHECK(!AP_SoloNeedsLapsDescriptor(d, "other__1.0.0.json")); // the file name must match
+	nlohmann::json bad = d;
+	bad["laps"] = 3;
+	CHECK(!AP_SoloNeedsLapsDescriptor(bad, name)); // already has laps
+	bad = d;
+	bad["id"] = "package/long-road/2.0.0";
+	CHECK(!AP_SoloNeedsLapsDescriptor(bad, name));
+	bad = d;
+	bad.erase("author");
+	CHECK(!AP_SoloNeedsLapsDescriptor(bad, name));
+	CHECK(!AP_SoloNeedsLapsDescriptor(nlohmann::json::array(), name));
+
+	CHECK(AP_SoloDescriptorWithLaps(d, 0).empty() && AP_SoloDescriptorWithLaps(d, 8).empty());
+	nlohmann::json kept = nlohmann::json::parse(AP_SoloDescriptorWithLaps(d, 5));
+	nlohmann::json want = d;
+	want["laps"] = 5;
+	CHECK(kept == want);
+	CHECK(AP_SoloDescriptorWithLaps(kept, 4).empty()); // never over laps it has
+}
+
+static void test_store_descriptor_rescan()
+{
+	nlohmann::json original = {{"files", {{{"role", "lev"}, {"sha256", "aa"}},
+	                                         {{"role", "vrm"}, {"sha256", "bb"}}}},
+	                           {"laps", 3}, {"author", "First"},
+	                           {"relic_targets", {{"gold", 500}}}};
+	CHECK(AP_SoloDescriptorUnchanged(original, original));
+	for (const char *field : {"laps", "author", "relic_targets"})
+	{
+		nlohmann::json changed = original;
+		changed[field] = "changed";
+		CHECK(!AP_SoloDescriptorUnchanged(original, changed));
+	}
+	CHECK(!AP_SoloDescriptorUnchanged(nlohmann::json(), original));
+	nlohmann::json reinstall = original;
+	reinstall.erase("laps");
+	reinstall["author"] = "New author";
+	reinstall["display_name"] = "New title";
+	reinstall["capabilities"] = {{"arcade", true}};
+	auto merged = AP_SoloMergeNeedsLaps(original, reinstall);
+	CHECK(merged.is_object() && merged["laps"] == 3 && merged["author"] == "New author" &&
+	      merged["display_name"] == "New title" && merged["capabilities"]["arcade"] == true);
+	CHECK(!AP_SoloDescriptorUnchanged(original, merged));
+	CHECK(AP_SoloDescriptorUnchanged(merged, AP_SoloMergeNeedsLaps(merged, reinstall)));
+	reinstall["files"][0]["sha256"] = "other";
+	CHECK(AP_SoloMergeNeedsLaps(original, reinstall).is_null());
+}
+
+// A3-29: one track installed again under another name is one Play Solo row.
+static void test_fold_store_copies()
+{
+	using Copy = APSoloStoreCopy;
+	// Two names of one track: the newest install stays, whatever the pin order.
+	std::vector<Copy> copies = {{"generic-slot", "1.0.0", "u1", "aa", 100}, {"my-name", "1.0.0", "u1", "bb", 200}};
+	auto into = AP_SoloFoldStoreCopies(copies);
+	CHECK(into[0] == 1 && into[1] == 1);
+	// Importing the earlier name again makes it the newest.
+	copies[0].installed = 300;
+	into = AP_SoloFoldStoreCopies(copies);
+	CHECK(into[0] == 0 && into[1] == 0);
+	// Same time: the larger pin stays, the same on every pass.
+	copies[0].installed = copies[1].installed = 5;
+	into = AP_SoloFoldStoreCopies(copies);
+	CHECK(into[0] == 1 && into[1] == 1);
+	// Three copies fold to one; another revision, another uuid and a copy without a uuid stay.
+	copies = {{"a", "1.0.0", "u1", "p1", 1}, {"b", "1.0.0", "u1", "p2", 3}, {"c", "1.0.0", "u1", "p3", 2},
+	          {"a", "1.1.0", "u1", "p4", 1}, {"d", "1.0.0", "u2", "p5", 1}, {"e", "1.0.0", "", "p6", 1},
+	          {"f", "1.0.0", "", "p7", 9}};
+	into = AP_SoloFoldStoreCopies(copies);
+	CHECK(into[0] == 1 && into[1] == 1 && into[2] == 1);
+	CHECK(into[3] == 3 && into[4] == 4 && into[5] == 5 && into[6] == 6);
+	CHECK(AP_SoloFoldStoreCopies({}).empty());
+}
+
+// A3-22: a dict option with weight_rows is one number row per trap. The rows
+// come from the runtime (the world's trap registry), start at the preset's or
+// the YAML's weights, and an untouched screen passes nothing to the runtime.
+static void test_trap_weights()
+{
+	const nlohmann::json d = nlohmann::json::parse(R"({
+	  "options": [
+	    {"name": "trap_fill_percentage", "display_name": "Trap Fill Percentage", "kind": "range", "default": 10,
+	     "range_start": 0, "range_end": 100},
+	    {"name": "trap_weights", "display_name": "Trap Weights", "kind": "dict",
+	     "default": {"icy_road": 5, "low_gravity": 5, "upside_down": 0},
+	     "weight_rows": [{"key": "icy_road", "label": "Icy Road"}, {"key": "low_gravity", "label": "Low Gravity"},
+	                     {"key": "upside_down", "label": "Upside Down"}],
+	     "weight_max": 100,
+	     "doc": "How often each trap is picked."},
+	    {"name": "item_pool", "display_name": "Item Pool", "kind": "dict", "default": {}}
+	  ],
+	  "overlay": {"groups": [{"label": "Items and Traps",
+	                          "options": ["trap_fill_percentage", "trap_weights", "item_pool"]}],
+	              "rules": []},
+	  "values": {"trap_fill_percentage": 10,
+	             "trap_weights": {"icy_road": 9, "low_gravity": 5, "upside_down": 0}}
+	})");
+	std::vector<APSoloOption> rows = AP_SoloBuildOptions(d);
+	// A dict without weight_rows is not a row.
+	CHECK(rows.size() == 2 && !find(rows, "item_pool"));
+	APSoloOption *weights = find(rows, "trap_weights");
+	CHECK(weights);
+	if (!weights)
+		return;
+	// One number row per trap, in registry order, with the labels and maximum.
+	CHECK(weights->kind == "weights" && weights->keys.size() == 3);
+	CHECK(weights->keys[0] == "icy_road" && weights->keyLabels[0] == "Icy Road");
+	CHECK(weights->keys[2] == "upside_down" && weights->keyLabels[2] == "Upside Down");
+	CHECK(weights->weightMax == 100);
+	// The rows start at the YAML's weights, overlaid on the option's defaults.
+	CHECK(weights->keyWeights.size() == 3 && weights->keyWeights[0] == 9 && weights->keyWeights[1] == 5 &&
+	      weights->keyWeights[2] == 0);
+	CHECK(weights->keyDefaultWeights.size() == 3 && weights->keyDefaultWeights[0] == 5 &&
+	      weights->keyDefaultWeights[2] == 0);
+	CHECK(weights->value == R"({"icy_road":9,"low_gravity":5,"upside_down":0})");
+	CHECK(weights->value == weights->initial);
+	CHECK(AP_SoloWeightsSummary(*weights) == "1 custom");
+
+	// An untouched screen passes nothing: the preset's YAML goes to the
+	// runtime exactly as it is, so the seed is the preset's (round trip).
+	CHECK(AP_SoloSetArgs(rows).empty());
+
+	// Left / Right move one weight and wrap between 0 and the maximum.
+	AP_SoloWeightStep(*weights, 1, -1);
+	CHECK(weights->keyWeights[1] == 4);
+	AP_SoloWeightStep(*weights, 2, -1);
+	CHECK(weights->keyWeights[2] == 100); // 0 wraps to the maximum
+	AP_SoloWeightStep(*weights, 2, 1);
+	CHECK(weights->keyWeights[2] == 0);
+	AP_SoloWeightStep(*weights, 99, 1); // out of range: nothing
+	CHECK(weights->value == R"({"icy_road":9,"low_gravity":4,"upside_down":0})");
+
+	// --set: the whole table goes, only while a weight differs from the start.
+	// (A partial table would drop weights a YAML set and the player left
+	// alone: apply_overrides replaces the option.)
+	std::vector<std::string> sets = AP_SoloSetArgs(rows);
+	CHECK(sets.size() == 1);
+	CHECK(sets[0] == R"(trap_weights={"icy_road":9,"low_gravity":4,"upside_down":0})");
+	// Back at the start: nothing is sent again.
+	AP_SoloWeightReset(*weights, 1); // low_gravity's default is its start here
+	CHECK(weights->value == weights->initial);
+	CHECK(AP_SoloSetArgs(rows).empty());
+	// Cross returns a row to the option's default weight, not to the YAML's:
+	// icy_road back to 5 still differs from the YAML's 9 and goes to the
+	// runtime, as it must (the YAML's 9 would otherwise stay).
+	AP_SoloWeightReset(*weights, 0);
+	CHECK(weights->keyWeights[0] == 5);
+	CHECK(weights->value != weights->initial);
+	CHECK(AP_SoloWeightsSummary(*weights) == "Defaults");
+	sets = AP_SoloSetArgs(rows);
+	CHECK(sets.size() == 1 && sets[0] == R"(trap_weights={"icy_road":5,"low_gravity":5,"upside_down":0})");
+
+	// Values outside 0..max from a YAML are clamped to what the world accepts,
+	// clamped before narrowing: huge values land on the right end, never wrap.
+	nlohmann::json clamped = d;
+	clamped["values"]["trap_weights"] = {{"icy_road", 900}, {"low_gravity", -3}, {"upside_down", 2}};
+	rows = AP_SoloBuildOptions(clamped);
+	weights = find(rows, "trap_weights");
+	CHECK(weights && weights->keyWeights[0] == 100 && weights->keyWeights[1] == 0 &&
+	      weights->keyWeights[2] == 2);
+	clamped["values"]["trap_weights"] = {{"icy_road", 2147483648.0}, {"low_gravity", -2147483649.0}, {"upside_down", 2}};
+	rows = AP_SoloBuildOptions(clamped);
+	weights = find(rows, "trap_weights");
+	CHECK(weights && weights->keyWeights[0] == 100 && weights->keyWeights[1] == 0 &&
+	      weights->keyWeights[2] == 2);
+
+	// The table keeps row order, also for keys that are not alphabetical.
+	const nlohmann::json orderD = nlohmann::json::parse(R"({
+	  "options": [{"name": "trap_weights", "display_name": "Trap Weights", "kind": "dict",
+	               "default": {"zeta_trap": 5, "alpha_trap": 2},
+	               "weight_rows": [{"key": "zeta_trap", "label": "Zeta"}, {"key": "alpha_trap", "label": "Alpha"}],
+	               "weight_max": 100}],
+	  "overlay": {"groups": [{"label": "Items and Traps", "options": ["trap_weights"]}], "rules": []},
+	  "values": {"trap_weights": {"zeta_trap": 5, "alpha_trap": 2}}
+	})");
+	rows = AP_SoloBuildOptions(orderD);
+	weights = find(rows, "trap_weights");
+	CHECK(weights && weights->value == R"({"zeta_trap":5,"alpha_trap":2})");
+
+	// Without the values block the option's default table is the start.
+	nlohmann::json noValues = d;
+	noValues.erase("values");
+	rows = AP_SoloBuildOptions(noValues);
+	weights = find(rows, "trap_weights");
+	CHECK(weights && weights->value == R"({"icy_road":5,"low_gravity":5,"upside_down":0})");
+	CHECK(weights->value == weights->initial && AP_SoloSetArgs(rows).empty());
+}
+
+static void test_large_hint_checklists()
+{
+	APSoloOption row;
+	row.kind = "set";
+	std::vector<std::string> checked;
+	for (int i = 0; i < 9000; ++i)
+	{
+		row.keys.push_back("Location " + std::to_string(i));
+		checked.push_back(row.keys.back());
+	}
+	row.value = row.initial = AP_SoloSetValue(row, checked);
+	CHECK(AP_SoloSetEntries(row).size() == 9000);
+	CHECK(AP_SoloSetHas(row, row.keys.front()) && AP_SoloSetHas(row, row.keys.back()));
+	AP_SoloSetToggle(row, 4499);
+	CHECK(!AP_SoloSetHas(row, row.keys[4499]) && AP_SoloSetEntries(row).size() == 8999);
+	CHECK(AP_SoloSetHas(row, row.keys[4500]));
+	AP_SoloSetToggle(row, 4499);
+	CHECK(row.value == row.initial && AP_SoloSetEntries(row).size() == 9000);
+	row.value = "[]"; // reset/import paths must invalidate cached membership too
+	CHECK(AP_SoloSetEntries(row).empty() && !AP_SoloSetHas(row, row.keys.front()));
+}
+
 int main()
 {
 	test_parse_lines();
@@ -312,7 +715,14 @@ int main()
 	test_stop_and_timeout();
 	test_error_text();
 	test_options();
+	test_option_steps_and_help();
+	test_checklists_and_guards();
+	test_large_hint_checklists();
+	test_trap_weights();
 	test_tracks();
+	test_needs_laps();
+	test_store_descriptor_rescan();
+	test_fold_store_copies();
 	if (g_fail)
 	{
 		std::printf("test-solo-logic: %d failure(s)\n", g_fail);

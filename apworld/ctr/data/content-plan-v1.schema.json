@@ -17,7 +17,7 @@
       "items": {
         "$ref": "#/$defs/Track"
       },
-      "maxItems": 132,
+      "maxItems": 151,
       "minItems": 0
     },
     "entries": {
@@ -85,6 +85,7 @@
           "capability_packs_v1",
           "global_checks_v1",
           "item_boxes_v1",
+          "crate_exclusions_v1",
           "cup_entries_v1",
           "boss_encounters_v1",
           "gem_cups_v1",
@@ -94,13 +95,17 @@
           "fixed_items_v1",
           "ctr_first_v1",
           "boss_opponents_v1",
+          "final_chaos_v1",
           "wumpa_shop_v1",
+          "wumpa_shop_key_tiers_v1",
           "wumpa_goal_v1",
           "pad_client_v1",
-          "lap_checks_v1"
+          "lap_checks_v1",
+          "box_spots_v1",
+          "box_count_v1"
         ]
       },
-      "maxItems": 28,
+      "maxItems": 33,
       "minItems": 1,
       "uniqueItems": true
     },
@@ -405,6 +410,47 @@
           "maxItems": 16,
           "minItems": 0,
           "description": "Informational. Every hash must be one of this package's file pins."
+        },
+        "locator": {
+          "description": "Optional (xdelta importer, 0.3.0): which xdelta patch and BIGFILE slot an imported track comes from, so the client can name the patch to import. Informational only: no logic, ids or admission depend on it.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "xdelta"
+              ]
+            },
+            "patch_sha256": {
+              "type": "string",
+              "minLength": 64,
+              "maxLength": 64,
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "bigfile_index": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4095
+            },
+            "patch_name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[\\x20-\\x7e]+$"
+            },
+            "source_url": {
+              "type": "string",
+              "minLength": 9,
+              "maxLength": 128,
+              "pattern": "^https://[\\x21-\\x7e]+$"
+            }
+          },
+          "required": [
+            "kind",
+            "patch_sha256",
+            "bigfile_index"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
@@ -641,6 +687,11 @@
               "minLength": 1,
               "maxLength": 64,
               "pattern": "^[A-Za-z0-9_.:/+\\-]+$"
+            },
+            "standalone_laps": {
+              "type": "integer",
+              "const": 2,
+              "description": "Laps of a standalone race on this track (A4-13, ruling of 2026-11-09). Absent on plans from before the ruling: those race the authored laps. Cup legs keep the authored laps either way."
             }
           },
           "required": [
@@ -1518,6 +1569,10 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 100000
+        },
+        "spot": {
+          "description": "Hand-placed box spots (A3-14): on an Item Box check from a spot file, the spot's permanent number and where the client stands the box (LEV world units, engine angle). content_item_boxes decides it; content_plan.validate recomputes it.",
+          "$ref": "#/$defs/BoxSpot"
         }
       },
       "required": [
@@ -1776,13 +1831,47 @@
       "additionalProperties": false
     },
     "ItemBoxes": {
-      "description": "Item Box Locations (#133 PR 4e), present exactly when they are on: the Shortcut Knowledge tier that decides which retail box slots exist (equal to capability.shortcut_knowledge when that record is present). Retail tracks carry their frozen box checks; a named-block custom track carries Item Box 1 to min(weapon_crates, 15); generic slots and Cortex Vortex carry none.",
+      "description": "Item Box Locations (#133 PR 4e), present exactly when they are on: the Shortcut Knowledge tier that decides which retail box slots exist (equal to capability.shortcut_knowledge when that record is present). Retail tracks carry their frozen box checks; a named-block custom track carries Item Box 1 to min(weapon_crates, 15); generic slots and Cortex Vortex carry none. With hand-placed box spots (A3-14, feature box_spots_v1), spot_sets names each pad track that has a spot file of this apworld: the file digest, the eligible pool and the picked numbers; those tracks take their box checks from the picked spots instead.",
       "type": "object",
       "properties": {
+        "box_count": {"type": "integer", "minimum": 1, "maximum": 50, "not": {"const": 15}},
+        "crate_exclusions": {
+          "description": "Reviewed fallback crate exclusions from data/crate_exclusions.json, only for affected pad tracks without spots. Requires crate_exclusions_v1.",
+          "type": "array", "minItems": 1, "maxItems": 160,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["track_id", "lev_sha256", "crates"],
+            "properties": {
+              "track_id": {"type": "string"},
+              "lev_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              "crates": {
+                "type": "array", "minItems": 1, "maxItems": 16,
+                "items": {
+                  "type": "object", "additionalProperties": false,
+                  "required": ["ordinal", "pos"],
+                  "properties": {
+                    "ordinal": {"type": "integer", "minimum": 1, "maximum": 65536},
+                    "pos": {"type": "array", "minItems": 3, "maxItems": 3,
+                      "items": {"type": "integer", "minimum": -32768, "maximum": 32767}}
+                  }
+                }
+              }
+            }
+          }
+        },
         "shortcut_knowledge": {
           "type": "integer",
           "minimum": 0,
           "maximum": 2
+        },
+        "spot_sets": {
+          "description": "Hand-placed box spots (A3-14): one spot set per pad track that has a spot file, in plan track order. box_spots.py decides it; content_plan.validate checks it against the shipped files.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpotSet"
+          },
+          "minItems": 1,
+          "maxItems": 160
         }
       },
       "required": [
@@ -1902,6 +1991,10 @@
             "character_home_track",
             "independent_track"
           ]
+        },
+        "final_chaos": {
+          "description": "Present only on a chaos Final Challenge: the five bosses race at once on the final encounter's attack schedule.",
+          "const": true
         }
       },
       "required": [
@@ -1921,6 +2014,12 @@
       "description": "The Wumpa Shop (job J11), present only with wumpa_shop_slots above 0: slots per hub, the price percentage, whether progression may sit in a slot, and shop hints. content_wumpa decides the shop checks; content_plan.validate recomputes them.",
       "type": "object",
       "properties": {
+        "logic_scale": {
+          "description": "Optional Key-budget percentage. Absent means legacy income-only shop logic.",
+          "type": "integer",
+          "minimum": 25,
+          "maximum": 400
+        },
         "slots": {
           "type": "integer",
           "minimum": 1,
@@ -1980,6 +2079,80 @@
           ]
         }
       }
+    },
+    "SpotSet": {
+      "description": "One track's box spots (A3-14): the shipped file's SHA-256, the custom LEV pin it applies to (custom tracks only), the eligible spot count at the seed's Shortcut Knowledge tier, and the picked spot numbers, sorted (all of them when 15 or fewer).",
+      "type": "object",
+      "properties": {
+        "track_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "file_sha256": {
+          "type": "string",
+          "pattern": "[0-9a-f]{64}",
+          "maxLength": 64
+        },
+        "lev_sha256": {
+          "type": "string",
+          "pattern": "[0-9a-f]{64}",
+          "maxLength": 64
+        },
+        "pool": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 50
+        },
+        "picked": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "maxItems": 50,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "track_id",
+        "file_sha256",
+        "pool",
+        "picked"
+      ],
+      "additionalProperties": false
+    },
+    "BoxSpot": {
+      "type": "object",
+      "properties": {
+        "number": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50
+        },
+        "pos": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": -32768,
+            "maximum": 32767
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "rot_y": {
+          "type": "integer",
+          "minimum": -32768,
+          "maximum": 32767
+        }
+      },
+      "required": [
+        "number",
+        "pos",
+        "rot_y"
+      ],
+      "additionalProperties": false
     }
   }
 }

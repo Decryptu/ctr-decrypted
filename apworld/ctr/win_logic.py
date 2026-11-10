@@ -97,14 +97,6 @@ def _unexportable(world, spot, message: str) -> WinLogicExportError:
     return WinLogicExportError(message)
 
 
-def win_kind(location_name: str) -> Optional[str]:
-    """The `win_logic` kind of a location name, or None for a non-win."""
-    for suffix, kind in _KIND_SUFFIXES:
-        if location_name.endswith(suffix):
-            return kind
-    return None
-
-
 def weapon_families():
     from .itemsanity import USEFUL_WEAPON_FAMILIES
     return tuple(tuple(f) for f in USEFUL_WEAPON_FAMILIES)
@@ -163,6 +155,10 @@ class _Encoder:
                 "USEFUL_WEAPON_FAMILIES")
         return ["families", int(count)]
 
+    def region(self, name):
+        region = self.world.multiworld.get_region(name, self.world.player)
+        return _region_wire(self.world, self, region, frozenset(), {})
+
     def ref(self, location):
         loc = (self.world.multiworld.get_location(location, self.world.player)
                if isinstance(location, str) else location)
@@ -188,7 +184,7 @@ def _mono(term):
     if tag == "items":
         return ("items", term[1], tuple(term[3])), term[2]
     if tag == "cap":
-        return ("cap", term[2]), term[1]
+        return ("cap", term[2], *term[3:]), term[1]
     return None
 
 
@@ -222,7 +218,7 @@ def _implies(x, y) -> bool:
         if mx[0] == my[0]:
             return mx[1] >= my[1]
         # A bound racer meeting the boost means some racer meets it.
-        if (mx[0][0] == "cap" == my[0][0] and my[0][1] == -1
+        if (mx[0][0] == "cap" == my[0][0] and my[0][1] == -1 and mx[0][2:] == my[0][2:]
                 and mx[1] >= my[1]):
             return True
         # Four colours summed never exceed all five summed.
@@ -242,7 +238,7 @@ def simplify(term):
         mono = _mono(term)
         if mono is not None and mono[1] <= 0 and tag != "cap":
             return True
-        if tag == "cap" and term[1] <= 0 and term[2] == -1:
+        if tag == "cap" and term[1] <= 0 and term[2] == -1 and (len(term) == 3 or term[3] == 0):
             return True
         return term
     is_all = tag == "all"
@@ -339,18 +335,24 @@ def _region_wire(world, enc, region, stack, memo):
 
 # --- the block ---------------------------------------------------------------
 
-def win_locations(world):
-    """[(location, kind)] for this slot's win checks, ordered by id. A content
-    plan names its own wins: a custom track or cup keeps no retail suffix."""
+def win_locations(world, include_hints: bool = True):
+    """Exported checks, ordered by id. Actual wins keep their win kind.
+
+    Every addressed non-win is exported too, with kind `hint` (A3-37b, ruling of
+    2026-11-07 12:35 CET "Yes, export all"): native colours a pad by whether
+    any open check behind it is in logic, boxes, Wumpa, letters and rungs
+    included, and Pad Approach Hints reads the same rows. `include_hints`
+    False gives the win-only graph, the block a seed carried before A3-37b.
+    """
     out = []
-    plan = getattr(world, "ctr_content_plan", None)
-    if plan is not None:
-        from .content_plan import win_kinds
-        kinds = win_kinds(plan)
+    from .content_plan import win_kinds
+    kinds = win_kinds(world.ctr_content_plan)
     for loc in world.multiworld.get_locations(world.player):
         if loc.address is None:
             continue
-        kind = kinds.get(loc.address) if plan is not None else win_kind(loc.name)
+        kind = kinds.get(loc.address)
+        if kind is None and include_hints:
+            kind = "hint"
         if kind is not None:
             out.append((loc, kind))
     return sorted(out, key=lambda pair: int(pair[0].address))
@@ -373,14 +375,18 @@ def start_counts(world) -> Dict[str, int]:
     return {str(code): counts[code] for code in sorted(counts)}
 
 
-def wire_block(world) -> Dict[str, object]:
-    """Build the `win_logic` block for this slot from the installed terms."""
+def wire_block(world, include_hints: bool = True) -> Dict[str, object]:
+    """Build the `win_logic` block for this slot from the installed terms.
+
+    With hint rows the block is version 2 (Contract 7m, schema changes of
+    2026-11-03 and 2026-11-07). The win-only graph keeps version 1, as before
+    A3-37b."""
     enc = _Encoder(world)
     memo: Dict = {}
     regions: List = []
     region_index: Dict[str, int] = {}
     checks: Dict[str, Dict[str, object]] = {}
-    for loc, kind in win_locations(world):
+    for loc, kind in win_locations(world, include_hints):
         term = term_of(loc)
         if term is None:
             raise _unexportable(
@@ -416,7 +422,7 @@ def wire_block(world) -> Dict[str, object]:
             raise WinLogicExportError(
                 f"CTR win_logic: check {key} nests {d} levels (limit {MAX_DEPTH})")
     return {
-        "version": WIN_LOGIC_VERSION,
+        "version": 2 if include_hints else WIN_LOGIC_VERSION,
         "families": [sorted(int(world.item_name_to_id[n]) for n in fam)
                      for fam in weapon_families()],
         "regions": regions,

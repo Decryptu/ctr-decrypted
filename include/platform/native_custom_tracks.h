@@ -157,6 +157,25 @@ int CustomTrack_CortexTrackServing(int levelID, int adventureBossActive);
 // The level being left (e.g. on a hub return) was Cortex Vortex.
 int CustomTrack_CortexTrackPrevServed(void);
 int CustomTrack_CortexTrackReady(void);
+// Cortex Vortex's bundled .sca music (the content-plan race, which arms the
+// bundled pair as a standalone package on host 13). CortexMusic gives the
+// verified bytes while that pair is armed, 0 when there are none (missing,
+// changed or unreadable), which leaves Oxide Station's music in place.
+// CortexMusicServing: this load is that race and the music is there.
+// Hold gives the same bytes and keeps them alive, even past a withdrawn seed,
+// until Release (the music player holds them from the bank to the song).
+// A content-plan package's own music (its pinned .sca) takes the same path:
+// CustomTrack_UseContentMusic, called right after UseContentFiles for the same
+// package, hands over the .sca's path, sha256, size and the package's LEV
+// sha256. The next descriptor application reads the file, keeps it only when
+// the digest matches, and CortexMusic/Serving/Hold then answer for that package
+// on its own host slot. Any later Use* call forgets it. Returns 0 when refused.
+int CustomTrack_UseContentMusic(const char *scaPath, const char *scaSha256, unsigned long scaBytes,
+                                const char *levSha256);
+int CustomTrack_CortexMusic(const void **data, size_t *size);
+int CustomTrack_CortexMusicServing(int levelID, int adventureCupActive, int cupID);
+int CustomTrack_CortexMusicHold(const void **data, size_t *size);
+void CustomTrack_CortexMusicRelease(void);
 
 // Read the [CustomTracks] section of config.ini, once, at startup. It carries
 // ONLY the two file paths now; the loader stays disarmed until a seed hands over
@@ -288,6 +307,8 @@ int CustomTrack_RaceFeatureEnabled(void);
 // MainInit_GetPrimMemSize, which has to size the frame's primitive arena for
 // whichever track is about to load and cannot wait for a subfile read to say so.
 int CustomTrack_ServingLoad(int levelID, int adventureCupActive, int cupID);
+/* Authored one-lap finish terrain, or -1 for ordinary circuit racing. */
+int CustomTrack_FinishTerrain(const struct CustomTrackLoadContext *ctx);
 
 // The retail trophy-track identity eligible for podium checks on this load, or
 // -1 while custom bytes are being served. A borrowed host levelID is a loading

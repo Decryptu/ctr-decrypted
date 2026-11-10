@@ -7,7 +7,7 @@ from Options import OptionError
 
 from .. import content_fixed, content_requirements
 from ..Options import ctrAPOptions, CustomTracks, CupTracks, CortexVortexTrack, ap_ctr_option_groups
-from ..custom_tracks import BABY_T_PARK_CURRENT
+from ..custom_packages import BABY_T_PARK_CURRENT
 from .test_content_plan import make_world
 from .test_content_plan_row3 import SHAPE  # noqa: F401, the module's inputs stay importable
 
@@ -22,16 +22,18 @@ oxide_goal oxide_1_optional bosses_required_goal gems_required_goal goal_wumpa o
 oxide_final_challenge_relic_count oxide_final_track
 pad_placement race_mode_order adventure_structure warppad_unlock_requirements requirement_weights two_stage_density
 warp_pad_rules racer_locked_pads shuffle_keys shuffle_gems
-podium_rungs relic_perfect_checks lettersanity letters_per_track cup_sweep_checks lap_completion_checks
-box_locations itemsanity
-crystalsanity wumpa_check hit_character wumpa_shop_slots wumpa_shop_prices wumpa_shop_progression wumpa_shop_hints
+podium_rungs cup_only_podium_rungs relic_perfect_checks lettersanity letters_per_track cup_sweep_checks
+lap_completion_checks box_locations item_box_count itemsanity
+crystalsanity wumpa_check hit_character wumpa_shop_slots wumpa_shop_prices wumpa_shop_logic_scale wumpa_shop_progression wumpa_shop_hints
 item_pool start_inventory_from_pool trap_fill_percentage trap_weights wumpa_bundles reserve_top_up
-progressive_starting_wumpa turbo_grant tizi_helper
+progressive_starting_wumpa turbo_grant tizi_helper trap_display
 starting_character starting_roster character_unlocks remove_playable_oxide starting_stat_class penta_stats editable_stats
 progressive_stats
 progressive_boost progressive_boost_blue_fire logic_difficulty shortcut_knowledge
 death_link death_link_send deathlink_amnesty
-warp_pad_item_display ap_item_type_colors color_boxes_by_item spoiler_items race_type_selector tracker_pad_launch
+warp_pad_item_display ap_item_type_colors color_boxes_by_item spoiler_items pad_approach_hints pad_hints_wait_for_spoiler pad_hints_progression_only
+shop_hints_progression_only race_type_selector
+tracker_pad_launch
 """.split()
 #: Plan section 2, what happens to every current option: the names that go.
 RETIRED = """
@@ -43,7 +45,8 @@ podium_placement_checks podium_held_rungs podium_held_fifth_rung podium_finish_r
 sapphire_relic_count gold_relic_count platinum_relic_count
 """.split()
 DEFAULTS = dict(cup_count=5, cup_custom_legs=4, crystal_challenge_count=4, boss_cups=0, boss_garages=1,
-                one_lap_cups=1, shuffle_keys=1, shuffle_gems=1, two_stage_density=4, wumpa_shop_slots=10)
+                one_lap_cups=1, shuffle_keys=1, shuffle_gems=1, two_stage_density=4, wumpa_shop_slots=10,
+                item_box_count=15)
 GARAGE_POOL = ["Crash Cove", "Roo's Tubes", "Mystery Caves", "Sewer Speedway"]
 
 
@@ -57,7 +60,7 @@ def own_options():
 class TestOptionSet(unittest.TestCase):
     def test_section_2_is_the_option_set(self):
         self.assertEqual(own_options(), set(SECTION_2))
-        self.assertEqual(len(SECTION_2), 90)
+        self.assertEqual(len(SECTION_2), 98)
 
     def test_every_retired_name_is_gone(self):
         self.assertFalse(own_options() & set(RETIRED))
@@ -66,7 +69,8 @@ class TestOptionSet(unittest.TestCase):
         grouped = [cls for classes in ap_ctr_option_groups.values() for cls in classes]
         self.assertEqual(len(grouped), len(set(grouped)))
         hints = ctrAPOptions.type_hints
-        self.assertEqual({cls for name, cls in hints.items() if name in SECTION_2} - {hints["start_inventory_from_pool"]},
+        self.assertEqual({cls for name, cls in hints.items() if name in SECTION_2} -
+                         {hints["start_inventory_from_pool"], hints["box_locations"]},
                          set(grouped))
 
     def test_defaults_are_the_plan_table(self):
@@ -84,7 +88,7 @@ class TestOptionSet(unittest.TestCase):
         self.assertEqual(len(hints["boss_weapon_pool"].default), 10)
         self.assertEqual(len(hints["oxide_weapon_pool"].default), 11)
         self.assertEqual(len(hints["crystal_arenas"].valid_keys), 7)
-        self.assertEqual(len(hints["crystal_arenas"].default), 4)
+        self.assertEqual(len(hints["crystal_arenas"].default), 7)
 
     def test_cup_tracks_takes_the_word_random(self):
         self.assertEqual(CupTracks.from_any("random").value, CupTracks.option_random_repeats)
@@ -207,7 +211,7 @@ class TestEntranceHints(unittest.TestCase):
         self.assertIn(content_requirements.KEY_BY_PHYSICAL[int(pad.split(":")[1])], text[check["location"]])
 
     def test_vanilla_placement_has_no_hints(self):
-        world = make_world(dict(pad_placement="vanilla"), 420)
+        world = make_world(dict(pad_placement="vanilla", crystal_arenas=["Rocky Road", "Rampage Ruins", "Skull Rock", "Nitro Court"]), 420)
         hints = {}
         world.extend_hint_information(hints)
         self.assertEqual(hints, {})

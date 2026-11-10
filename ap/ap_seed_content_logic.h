@@ -22,9 +22,10 @@
 extern "C" {
 #endif
 
-#define AP_SEED_ROWS_MAX 33 /* AP_CONTENT_MAX_PACKAGES plus Cortex Vortex */
+#define AP_SEED_ROWS_MAX 133 /* AP_CONTENT_MAX_PACKAGES plus Cortex Vortex */
 #define AP_SEED_TEXT_MAX 129
 #define AP_SEED_ID_MAX 65
+#define AP_SEED_HINT_MAX 192 /* a source sentence: file, slot, page and a second pack */
 /* The largest track file the Saphi downloader accepts (kTrackFileMax). A room
  * may pin a larger LEV; such a track is not downloadable. */
 #define AP_SEED_DOWNLOAD_FILE_MAX (8u * 1024u * 1024u)
@@ -47,8 +48,24 @@ enum
 enum
 {
 	AP_SEED_SOURCE_MANUAL = 0, /* no trusted download: the player adds the files */
-	AP_SEED_SOURCE_SAPHI,      /* a compiled release profile with a Project Saphi download */
+	AP_SEED_SOURCE_SAPHI,      /* a Project Saphi download: compiled profile or track registry */
 	AP_SEED_SOURCE_BUNDLED     /* Cortex Vortex, shipped with the client */
+};
+
+/* What the live track registry said about a package without a compiled
+ * profile (row 10k). The registry only locates a pinned track on Saphi; the
+ * room's hashes decide what installs. */
+enum
+{
+	AP_SEED_REGISTRY_NONE = 0,     /* compiled profile, Cortex Vortex, or not asked */
+	AP_SEED_REGISTRY_LIVE,         /* located on Saphi by the registry fetched this session */
+	AP_SEED_REGISTRY_CACHED,       /* located by the cached registry copy */
+	AP_SEED_REGISTRY_CHECKING,     /* the registry is being fetched */
+	AP_SEED_REGISTRY_OFFLINE,      /* no usable live registry (offline or refused) and no cached copy */
+	AP_SEED_REGISTRY_NOT_LISTED,   /* no registered revision has the room's hashes */
+	AP_SEED_REGISTRY_NOT_ON_SAPHI, /* registered, with no Saphi download */
+	AP_SEED_REGISTRY_CONFLICT,     /* registered hashes, but another size than the room pins */
+	AP_SEED_REGISTRY_TABLE         /* located on Saphi by the built-in source table (A4-2), no live registry match */
 };
 
 /* Row states the page shows. */
@@ -80,6 +97,10 @@ struct AP_SeedContentRow
 	int source; /* AP_SEED_SOURCE_* */
 	int index;  /* package index, -1 for Cortex Vortex */
 	struct AP_SeedContentLocator locator;
+	int registry; /* AP_SEED_REGISTRY_* */
+	/* The built-in source table's sentence for a missing track that comes from an
+	 * xdelta patch ("Import X.xdelta (slot 7) from <page>."), "" when unknown (A4-2). */
+	char source_hint[AP_SEED_HINT_MAX];
 };
 
 /* Copy room text for drawing: printable ASCII only (a UTF-8 sequence becomes
@@ -247,6 +268,26 @@ static inline void ap_seed_format_bytes(uint64_t bytes, char *out, size_t size)
 	}
 }
 
+/* Where the selected track comes from, for the line under the list. A
+ * location from the cached registry copy says so. */
+static inline const char *ap_seed_source_text(const struct AP_SeedContentRow *row)
+{
+	if (row->source == AP_SEED_SOURCE_BUNDLED) return "Comes with the client";
+	if (row->source == AP_SEED_SOURCE_SAPHI)
+		return row->registry == AP_SEED_REGISTRY_CACHED ? "Project Saphi (cached registry)" :
+		       row->registry == AP_SEED_REGISTRY_TABLE ? "Project Saphi (built-in list)" :
+		       row->registry == AP_SEED_REGISTRY_LIVE ? "Project Saphi (registry)" : "Project Saphi";
+	switch (row->registry)
+	{
+	case AP_SEED_REGISTRY_CHECKING: return "No download yet (checking registry)";
+	case AP_SEED_REGISTRY_OFFLINE: return "No download (registry unavailable)";
+	case AP_SEED_REGISTRY_NOT_LISTED: return "No download (not registered)";
+	case AP_SEED_REGISTRY_NOT_ON_SAPHI: return "No download (not on Saphi)";
+	case AP_SEED_REGISTRY_CONFLICT: return "No download (registry size differs)";
+	default: return "No download";
+	}
+}
+
 /* The per-track instruction under the list. */
 static inline void ap_seed_instruction(const struct AP_SeedContentRow *row, char *out, size_t size)
 {
@@ -269,8 +310,16 @@ static inline void ap_seed_instruction(const struct AP_SeedContentRow *row, char
 	case AP_SEED_SCAN_MISSING_FILE:
 		if (row->source == AP_SEED_SOURCE_SAPHI)
 			snprintf(out, size, "Downloads from Project Saphi with Install missing content.");
+		else if (row->registry == AP_SEED_REGISTRY_CHECKING)
+			snprintf(out, size, "Checking the track registry for a download...");
 		else if (row->locator.patch_sha256[0])
 			snprintf(out, size, "No download. Select: import the patch below, or drop it on the window.");
+		else if (row->source_hint[0])
+		{
+			char hint[AP_SEED_HINT_MAX];
+			ap_seed_plain_text(row->source_hint, hint, sizeof hint);
+			snprintf(out, size, "No download. %s Then Rescan.", hint);
+		}
 		else
 			snprintf(out, size, "No download. Put the v%s LEV and VRM in tracks/%s/original, then Rescan.", rev, folder);
 		return;

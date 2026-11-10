@@ -11,6 +11,7 @@
 #ifdef CTR_AP
 
 #include "ap_boss_adapter.h" // J03 boss adapter decisions and glue prototypes
+#include "ap_unlock_reasons_logic.h" // A3-17 unlock-reason watch, diff and wording
 
 int AP_GateCount(int itemType)
 {
@@ -432,23 +433,12 @@ int AP_BossReqMet(const ctr_req *r)
 	return AP_ReqMetCounts(r, ap_recv_count);
 }
 
-// Per-mode boss-garage gate for the four boss hubs (bossIdx 0..3 = Roo, Papu,
-// Komodo, Pinstripe). bossgarage_mode 0 (Original4Tracks) / 1 (SameHubTracks):
-// the garage opens once the player has WON each required race track for that boss
-// (ctr_cfg.boss_tracks[bossIdx][0..n-1], emitted by the apworld -- vanilla
-// LevelIDs for mode 0, destination-remapped LevelIDs for mode 1). A track counts
-// as WON when its trophy-race AP location has been checked --
-// AP_LocationCheckedByBit(trackLevelID + ADV_REWARD_FIRST_TROPHY), NOT
-// CHECK_ADV_BIT: in AP the AdvProgress trophy bit reflects RECEIVED items, not the
-// races the player actually won, so only the checked-location signal is correct
-// here. mode 2 (Trophies) and any boss with no track list fall back to the flat
-// trophy-count requirement via AP_BossReqMet. Oxide (bossIdx 4) is a key gate and
-// is never routed through this function.
+// The plan's garage requirement and venue admission. No normal track lists.
 int AP_BossGarageOpen(int bossIdx)
 {
 	// A content plan's garages are empty unless the plan has its `bosses`
-	// record (#133 PR 6); with it the parser filled boss_req and the venues
-	// like a normal room's, so the normal path below decides.
+	// record (#133 PR 6); with it the parser fills the shared boss_req and
+	// venue records used below.
 	if (ap_content_plan_active() && !ap_content_plan_bosses()->present) return 0;
 	if (bossIdx < 0 || bossIdx >= CTR_CFG_BOSS_COUNT)
 		return 1;
@@ -458,23 +448,7 @@ int AP_BossGarageOpen(int bossIdx)
 	if (bossIdx < AP_BOSS_VENUE_GARAGES && AP_BossGarageVenue(bossIdx) < 0)
 		return 0;
 
-	int mode = ctr_cfg.bossgarage_mode;
-	int n = ctr_cfg.boss_n_tracks[bossIdx];
-
-	if ((mode == 0 || mode == 1) && n > 0)
-	{
-		for (int i = 0; i < n; i++)
-		{
-			int track = ctr_cfg.boss_tracks[bossIdx][i];
-			if (track < 0)
-				continue;
-			if (!AP_LocationCheckedByBit(track + ADV_REWARD_FIRST_TROPHY))
-				return 0;
-		}
-		return 1;
-	}
-
-	// mode 2 (Trophies) or no track list -> flat trophy-count requirement.
+	// The plan mirrors the garage requirement into the shared runtime record.
 	return AP_BossReqMet(&ctr_cfg.boss_req[bossIdx]);
 }
 
@@ -560,7 +534,21 @@ int AP_BossRivalAdvert(int bossIdx, char *out, int cap)
 	c = AP_BossEncounterOpponent(&ctr_boss_encounters, bossIdx);
 	if (c < 0 || c >= 16)
 		return 0;
-	snprintf(out, (size_t)cap, "Rival: %s", sdata->lngStrings[data.MetaDataCharacters[c].name_LNG_short]);
+	snprintf(out, (size_t)cap, "Rival: %s", sdata->lngStrings[data.MetaDataCharacters[c].name_LNG_long]);
+	return 1;
+}
+
+int AP_BossChallengeTitle(int bossIdx, char *out, int cap)
+{
+	int c;
+	const char *name;
+	if (out == 0 || cap <= 0 || !ctr_cfg_active())
+		return 0;
+	c = AP_BossEncounterOpponent(&ctr_boss_encounters, bossIdx);
+	if (c < 0 || c >= 16)
+		return 0;
+	name = c == PENTA_PENGUIN ? "Penta" : sdata->lngStrings[data.MetaDataCharacters[c].name_LNG_long];
+	snprintf(out, (size_t)cap, "%s's Challenge", name);
 	return 1;
 }
 
@@ -906,12 +894,77 @@ static int AP_BossGauntletLegNow(void)
 	return leg;
 }
 
+// The gauntlet's Purple Gem Cup is loading or running, any leg: the cup half
+// of AP_BossGauntletLegNow. With Hit Character off and the bosses in place
+// only these legs draw the field (fixes 2026-11-02).
+int AP_BossGauntletCupNow(void)
+{
+	struct GameTracker *gGT = sdata->gGT;
+	const AP_BossEncounters *e = &ctr_boss_encounters;
+
+	if (gGT == NULL || !ctr_cfg_active() || e->state != AP_BOSS_ENC_VALID || !e->gauntletOn)
+		return 0;
+	if ((gGT->gameMode1 & (ADVENTURE_MODE | ADVENTURE_CUP | ADVENTURE_BOSS)) != (ADVENTURE_MODE | ADVENTURE_CUP))
+		return 0;
+#ifdef CTR_CUSTOM_TRACKS
+	{
+		const ctr_content_pad *pad = AP_ContentCupPad();
+		if (pad == NULL || pad->gem_cup != 104)
+			return 0;
+	}
+#else
+	if (gGT->cup.cupID != 4)
+		return 0;
+#endif
+	return 1;
+}
+
 int AP_BossGauntletAttacker(void)
 {
 	int leg = AP_BossGauntletLegNow();
 	if (leg < 0 || leg != s_apBossGauntletLeg)
 		return -1;
 	return ctr_boss_encounters.gauntletAttacker[leg];
+}
+
+// The load comes before race init, so it asks the leg alone, not whether the
+// schedule fitted: a seat without a fitting schedule costs nothing.
+int AP_BossGauntletLoadAttacker(void)
+{
+	int leg = AP_BossGauntletLegNow();
+	return leg < 0 ? -1 : ctr_boss_encounters.gauntletAttacker[leg];
+}
+
+// ── The chaos Final Challenge (ruled 2026-10-30) ───────────────────────────
+// bossID 5 with `bosses.final_chaos`: the check, the goal and the attack
+// schedule stay the Final Challenge's; only the field grows. N. Oxide's
+// Challenge (bossID 4) is never chaos.
+int AP_ChaosFinalNow(void)
+{
+	struct GameTracker *gGT = sdata->gGT;
+
+	return gGT != NULL && ctr_cfg_active() && ctr_cfg.oxide_final_venue.valid && ctr_cfg.oxide_final_venue.chaos &&
+	       (gGT->gameMode1 & ADVENTURE_BOSS) != 0 && (gGT->gameMode1 & ADVENTURE_CUP) == 0 && gGT->bossID == 5;
+}
+
+int AP_ChaosFinalLineup(int out[5])
+{
+	int i;
+
+	if (!AP_ChaosFinalNow())
+		return 0;
+	for (i = 0; i < 5; i++)
+		out[i] = ctr_cfg.oxide_final_venue.chaos_lineup[i];
+	return 1;
+}
+
+int AP_ChaosFinalAdvert(char *out, int cap)
+{
+	if (out == 0 || cap <= 0 || !ctr_cfg_active() || !ctr_cfg.oxide_final_venue.valid ||
+	    !ctr_cfg.oxide_final_venue.chaos)
+		return 0;
+	snprintf(out, (size_t)cap, "Final Challenge: 5 rivals");
+	return 1;
 }
 
 static struct MetaDataBOSS *AP_BossGauntletAttackSchedule(int fill)
@@ -1330,7 +1383,7 @@ int AP_BossGateAdvert(int bossIdx, char *out, int cap)
 #endif
 		    )
 		{
-			snprintf(out, (size_t)cap, "Boss track files missing: see Current Seed");
+			snprintf(out, (size_t)cap, "Boss track files missing: see OPTIONS > Mods");
 			return 1;
 		}
 		snprintf(out, (size_t)cap, "Boss track refused: %s",
@@ -1520,26 +1573,12 @@ int AP_GoalAdvert(char *out, int cap)
 		}
 		return AP_GoalLineAppendWumpa(out, cap, 0, ap_net_wumpa_lifetime(), ctr_wumpa_shop.goal);
 	}
-
-	// The Oxide segment is driven by goal_oxide alone, so `optional` (0) and
-	// `disabled` (3) both omit it: neither is a completion condition. Whether
-	// the Oxide race has been BEATEN is deliberately not shown -- under the
-	// approved encounter flow the enabled arms gate the selected finale, so
-	// winning it completes the composed goal in the same moment.
-	return AP_GoalLineAppendWumpa(out, cap,
-	                              AP_GoalLineFormat(out, cap, ctr_cfg.goal_oxide,
-	                                                ctr_cfg.goal_bosses, AP_ComposedBossesWon(),
-	                                                ctr_cfg.goal_gems, AP_GateCountGemSum()),
-	                              ap_net_wumpa_lifetime(), ctr_wumpa_shop.goal);
+	// One generator row 12: an active config is always a content plan; the
+	// normal-seed goal line was deleted.
+	return 0;
 }
 
-// Trophy-track warp pad LOAD gate. When a per-seed requirement applies use it;
-// otherwise fall back verbatim to the Phase-1 rule (received trophies vs the
-// per-track numTrophiesToOpen). levelID is the physical pad LevelID (retail
-// adventure numbering), valid for the 28-wide ctr_cfg arrays for trophy tracks.
-// Racer lock for a physical pad, or -1 when it has none (#54/#209). Dense pads
-// 0..27 via racer_lock, cup pads 100..104 via gem_cup_racer_lock -- the same
-// two-array routing warp_pad_unlock uses, for the same reason.
+// Racer lock mirrored from the physical content-plan pad by the parser.
 int ctr_cfg_racer_lock(int physPadLevelID)
 {
 	if (!ctr_cfg_active())
@@ -1563,74 +1602,230 @@ int ctr_cfg_racer_lock_met(int physPadLevelID)
 
 int ctr_cfg_warp_unlocked(int levelID)
 {
-	if (ctr_cfg_arena_pad_disabled(levelID))
+	if (ap_content_plan_active())
+		return AP_ContentPadOpen(ap_content_plan_pad(levelID));
+	if (ctr_cfg_active())
 		return 0;
-	// Racer lock (#54/#209): ANDed on top of whatever the pad already asks for,
-	// never in place of it -- the apworld's rule does exactly the same thing
-	// (Rules.add_racer_lock_rules captures the base rule and ANDs), and the two
-	// sides have to agree or the golden rule is broken. Checked first so a
-	// locked pad reads closed at every call site that goes through this gate:
-	// the load gate, the spawn visual and the map advert are all one source.
-	if (!ctr_cfg_racer_lock_met(levelID))
-		return 0;
-
-	if (ctr_cfg_active() && levelID >= 0 && levelID < CTR_CFG_PAD_COUNT &&
-	    ctr_cfg.warp_pad_unlock[levelID].stage1.type != 0)
-		return AP_BossReqMet(&ctr_cfg.warp_pad_unlock[levelID].stage1);
-
-	// Cup PHYSICAL pads (100..104) live outside the dense warp_pad_unlock array.
-	// Under `merged` destination shuffle a race destination can be hosted on a cup
-	// pad, so ThTick's load gate (AH_WarpPad.c:713) recovers physLevelID = a cup
-	// LevelID and calls this. Key by cup colour into gem_cup_unlock (randomized
-	// stage1) else the vanilla "4 tokens of the cup's colour" rule -- the SAME
-	// predicate AP_PadStage1Met's cup branch uses. MUST run before the trophy
-	// fallback below, which would read data.metaDataLEV[100] out of bounds.
 	if (levelID >= 100 && levelID <= 104)
-	{
-		int cupIdx = levelID - 100;
-		if (ctr_cfg_active() && ctr_cfg.gem_cup_unlock[cupIdx].stage1.type != 0)
-			return AP_BossReqMet(&ctr_cfg.gem_cup_unlock[cupIdx].stage1);
-		return AP_GateCountTokenColour(cupIdx) >= 4;
-	}
-
-	// Phase-1 fallback: received trophies >= per-track threshold.
+		return AP_GateCountTokenColour(levelID - 100) >= 4;
+	if (levelID < 0 || levelID >= CTR_CFG_PAD_COUNT)
+		return 0;
 	return AP_GateCount(AP_IDX_TROPHY) >= data.metaDataLEV[levelID].numTrophiesToOpen;
 }
 
-// Trophy-track warp pad STAGE-2 gate (open-rando two-stage). Mirrors
-// ctr_cfg_warp_unlocked but reads stage2: when active and the pad has a stage2
-// requirement (type != 0) it returns owned >= count via AP_BossReqMet
-// (colour-aware). type 0 (no stage2 / collapsed-to-stage1 / flat-v1 slot_data /
-// inactive) returns 1 (always open), so the relic-Time-Trial + CTR-Token
-// menu opens the moment stage1 is met -- identical to the pre-two-stage flow.
-// physPadLevelID is the PHYSICAL pad LevelID, the same key stage1 uses.
+// Diagnostic stage-2 item gate. Mode entry additionally requires the first win.
 int ctr_cfg_warp_stage2_unlocked(int physPadLevelID)
 {
-	const ctr_req *r = ctr_cfg_warp_stage2_req(physPadLevelID);
-	if (r != 0)
-		return AP_BossReqMet(r);
-
-	// No stage2 requirement -> tier 2 opens as soon as stage1 is satisfied.
-	return 1;
+	const ctr_content_pad *pad = ap_content_plan_active()
+	    ? ap_content_plan_pad(physPadLevelID) : 0;
+	return !pad || !pad->has_stage2 ||
+	       AP_ContentStage2Owned(pad) >= pad->stage2_count;
 }
 
-// The stage-2 requirement record for a physical pad, or NULL when it has none.
-// Cup PHYSICAL pads (100..104): under `merged` shuffle a cup pad hosting a
-// trophy-race destination carries a REAL stage2 (contract §2 stage-2 rule -- the
-// apworld emits it into gem_cup_unlock), so it resolves here too. Single source
-// for the stage-2 key logic; the load gate above and the LInB re-lock advert
-// (AH_WarpPad.c) both resolve through it so gate and display cannot diverge.
-const ctr_req *ctr_cfg_warp_stage2_req(int physPadLevelID)
+// ── A3-17: unlock reasons in the AP log feed ────────────────────────────────
+// The engine half of ap_unlock_reasons_logic.h: snapshot what is open (pads,
+// stage 2, hub doors, Wumpa Shop shelves, boss garages), diff against the last
+// snapshot, and queue at most one reason line per call. Runs after each
+// drained received item (AP_UnlockReasonsAfterItem, from the drain loop in
+// ap_hooks_net.c) and once per frame after AP_FeedEndDrain
+// (AP_UnlockReasonsEndDrain), so the reason line lands directly behind the
+// receipt line of the item that caused it. Everything the watch reads is a
+// received-item tally (ap_recv_count, the character unlocks, the Wumpa
+// lifetime), so a change between two snapshots is always the item just
+// drained -- the one exception is the shop shelf, whose lifetime also rises
+// from race finishes and whose AP-fruit credit lands after the loop
+// (AP_WumpaCommitReceived); shelves are therefore only diffed in the
+// per-frame call. While the feed is unprimed (initial inventory absorb) the
+// snapshot is rebased silently, so a reconnect's replay never re-toasts.
+
+static AP_UnlockWatch ap_unlock_watch;
+static int ap_unlock_watch_valid = 0;
+
+// What a pad leads to this seed, same naming as the tracker's map nodes: the
+// plan's room title, the shuffled destination's track or cup name, then the
+// physical pad's own name as the fallback. Never returns NULL.
+static const char *AP_UnlockPadName(int physLevelID)
 {
+	int dest;
+
+	if (ap_content_plan_active())
+	{
+		const ctr_content_pad *pad = ap_content_plan_pad(physLevelID);
+		if (pad && pad->occupied)
+			return pad->room_title[0] ? pad->room_title : pad->display_name;
+	}
+	dest = ctr_cfg_warp_dest(physLevelID);
+	if (dest >= 100 && dest < 105)
+	{
+		const char *custom = NULL;
+#ifdef CTR_CUSTOM_TRACKS
+		custom = CustomTrack_CupDisplayName(dest - 100, 1);
+#endif
+		if (custom)
+			return custom;
+		return sdata->lngStrings[data.AdvCups[dest - 100].lngIndex_CupName];
+	}
+	if (dest == AP_CORTEX_DEST)
+		return "CORTEX VORTEX";
+	if (dest >= 0 && dest < 65)
+		return sdata->lngStrings[data.metaDataLEV[dest].name_LNG];
+	if (physLevelID >= 0 && physLevelID < 65)
+		return sdata->lngStrings[data.metaDataLEV[physLevelID].name_LNG];
+	return "?";
+}
+
+// The hub a door leads to, in door-bit order (AP_DoorBitPure bits 1, 2, 4, 8).
+static const char *const ap_unlock_door_names[AP_UNLOCK_DOOR_COUNT] = {
+	"Gem Stone Valley", // beach -> Gem Stone Valley, 1 Key
+	"Glacier Park",     // beach and Lost Ruins -> Glacier Park, 2 Keys
+	"Citadel City",     // Glacier Park -> Citadel City, 3 Keys
+	"Cup Room",         // Gem Stone Valley -> the gem cup room, 2 Keys
+};
+
+static const char *const ap_unlock_garage_names[AP_UNLOCK_GARAGE_COUNT] = {
+	"Ripper Roo", "Papu Papu", "Komodo Joe", "Pinstripe", "Oxide",
+};
+
+// Shop hubs in the apworld's hub order (ap_wumpa_shop.h).
+static const char *const ap_unlock_shop_hub_names[AP_UNLOCK_SHOP_HUBS] = {
+	"N. Sanity Beach", "Gem Stone Valley", "The Lost Ruins", "Glacier Park",
+	"Citadel City",
+};
+
+static const char *AP_UnlockEventName(const AP_UnlockEvent *ev)
+{
+	switch (ev->kind)
+	{
+	case AP_UNLOCK_PAD:
+	case AP_UNLOCK_STAGE2:
+		return AP_UnlockPadName(AP_UnlockSlotPad(ev->index));
+	case AP_UNLOCK_DOOR:
+		return ap_unlock_door_names[ev->index];
+	case AP_UNLOCK_GARAGE:
+		return ap_unlock_garage_names[ev->index];
+	case AP_UNLOCK_SHOP:
+		return ap_unlock_shop_hub_names[ev->index];
+	}
+	return "?";
+}
+
+static void AP_UnlockWatchCapture(AP_UnlockWatch *w)
+{
+	int slot, d, g, h, s;
+	long long lifetime;
+
+	memset(w, 0, sizeof *w);
 	if (!ctr_cfg_active())
-		return 0;
-	if (physPadLevelID >= 0 && physPadLevelID < CTR_CFG_PAD_COUNT &&
-	    ctr_cfg.warp_pad_unlock[physPadLevelID].stage2.type != 0)
-		return &ctr_cfg.warp_pad_unlock[physPadLevelID].stage2;
-	if (physPadLevelID >= 100 && physPadLevelID <= 104 &&
-	    ctr_cfg.gem_cup_unlock[physPadLevelID - 100].stage2.type != 0)
-		return &ctr_cfg.gem_cup_unlock[physPadLevelID - 100].stage2;
-	return 0;
+		return;
+
+	for (slot = 0; slot < AP_UNLOCK_PAD_COUNT; slot++)
+	{
+		int phys = AP_UnlockSlotPad(slot);
+		const ctr_content_pad *pad = ap_content_plan_active()
+		                             ? ap_content_plan_pad(phys) : 0;
+		int open = ctr_cfg_warp_unlocked(phys) && ctr_cfg_racer_lock_met(phys);
+		if (open)
+			w->padOpen |= 1u << slot;
+		// Stage 2 counts as open only once the pad itself is open and the
+		// plan pad really has a second stage: receiving the stage-2 items
+		// while the pad is still locked announces nothing, and the later
+		// pad-opening item then raises both (the pad line reads "(+1 MORE)").
+		if (open && pad && pad->has_stage2 && ctr_cfg_warp_stage2_unlocked(phys))
+			w->padStage2 |= 1u << slot;
+	}
+
+	for (d = 0; d < AP_UNLOCK_DOOR_COUNT; d++)
+		if (AP_GateCount(AP_IDX_KEY) >= AP_DoorKeysPure(1u << d))
+			w->doorsReady |= 1u << d;
+
+	for (g = 0; g < AP_BOSS_VENUE_GARAGES && g < 4; g++)
+		if (AP_BossGarageOpen(g))
+			w->garagesOpen |= 1u << g;
+	if (AP_OxideGarageOpen())
+		w->garagesOpen |= 1u << 4;
+
+	// The lifetime total lives in room storage; until its Get reply lands the
+	// shop watch stays unknown so the first resolved read becomes the silent
+	// baseline rather than a burst of false "stock open" lines.
+	if (ap_net_wumpa_ready() && AP_WumpaShopUsable(&ctr_wumpa_shop))
+	{
+		w->shopKnown = 1;
+		lifetime = ap_net_wumpa_lifetime();
+		for (h = 0; h < AP_UNLOCK_SHOP_HUBS; h++)
+			for (s = 0; s < ctr_wumpa_shop.slots && s < AP_WUMPA_SHOP_MAX_SLOTS; s++)
+				if (ctr_wumpa_shop.slot[h][s].code != 0 &&
+				    lifetime >= ctr_wumpa_shop.slot[h][s].unlock)
+					w->shopOpen[h]++;
+	}
+}
+
+// Capture, diff against the last snapshot, queue the one reason line when
+// something newly opened, and adopt the new snapshot either way. Three modes:
+//
+//   ITEM (after each drained receipt): reports pads, stage 2, doors and
+//   garages behind the receipt that caused them. The shop half is held back
+//   (the batch's fruit credit is committed only after the loop), so a
+//   per-item diff can only contain item-caused transitions.
+//
+//   FRAME_QUIET (before the drain, and after it when nothing was drained):
+//   reports shop shelves only (race-finish banking is the one announced
+//   non-item opening) and silently adopts every other change. Running it
+//   right BEFORE the drain rebases whatever the poll or a reconcile resolved
+//   since the last frame (a boss win, a venue download finishing), so it can
+//   never surface behind an unrelated receipt.
+//
+//   FRAME_ITEMS (after a drain that drained items): reports every kind. What
+//   is left after the per-item calls is exactly the batch's deferred fruit
+//   credit, which is item-caused too: the shelves it opened, and Oxide's
+//   garage when the Wumpa goal arm was its last requirement.
+enum
+{
+	AP_UNLOCK_MODE_ITEM,
+	AP_UNLOCK_MODE_FRAME_QUIET,
+	AP_UNLOCK_MODE_FRAME_ITEMS
+};
+
+static void AP_UnlockReasonsUpdate(int mode)
+{
+	AP_UnlockWatch now;
+	AP_UnlockEvent ev[AP_UNLOCK_GARAGE_COUNT + AP_UNLOCK_DOOR_COUNT +
+	                  2 * AP_UNLOCK_PAD_COUNT + AP_UNLOCK_SHOP_HUBS];
+	int count;
+
+	AP_UnlockWatchCapture(&now);
+	if (mode == AP_UNLOCK_MODE_ITEM)
+	{
+		now.shopKnown = ap_unlock_watch.shopKnown;
+		memcpy(now.shopOpen, ap_unlock_watch.shopOpen, sizeof now.shopOpen);
+	}
+
+	count = ap_unlock_watch_valid
+	        ? AP_UnlockDiff(&ap_unlock_watch, &now, ev,
+	                        (int)(sizeof ev / sizeof ev[0]))
+	        : 0;
+	if (mode == AP_UNLOCK_MODE_FRAME_QUIET)
+		count = AP_UnlockEventsOnly(ev, count, AP_UNLOCK_SHOP);
+	if (count > 0 && ap_feed_primed && AP_HubFeedOn())
+	{
+		char line[AP_FEED_TEXT_CAP];
+		AP_UnlockReasonLine(line, (int)sizeof line, ev[0].kind,
+		                    AP_UnlockEventName(&ev[0]), count - 1);
+		AP_FeedEnqueue(line, LIGHT_GREEN, 1);
+	}
+
+	ap_unlock_watch = now;
+	ap_unlock_watch_valid = 1;
+}
+
+void AP_UnlockReasonsAfterItem(void)
+{
+	AP_UnlockReasonsUpdate(AP_UNLOCK_MODE_ITEM);
+}
+
+void AP_UnlockReasonsEndDrain(int drainedThisFrame)
+{
+	AP_UnlockReasonsUpdate(drainedThisFrame > 0 ? AP_UNLOCK_MODE_FRAME_ITEMS
+	                                            : AP_UNLOCK_MODE_FRAME_QUIET);
 }
 
 #endif // CTR_AP

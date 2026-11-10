@@ -1,3 +1,4 @@
+#include <platform/native_menu.h>
 #ifdef CTR_AP
 
 #include <common.h> // struct Driver / GameTracker / Level, sdata, data, LevelID, BTN_*
@@ -12,6 +13,7 @@
 #include "ap_charseat.h"   // deterministic stored-racer seat state machine
 #include "ap_pickerline.h" // the picker's info line, width-budgeted by the harness
 #include "ap_stat_select_logic.h" // Progressive rank selector rows (ruling 2026-09-11)
+#include "ap_editstat_rank_logic.h" // editable stats pick a rank value (ruling 2026-10-29)
 #include "ap_charswap.h"
 #include "ap_hooks.h" // AP_LogLine, AP_DevKeysEnabled
 
@@ -479,15 +481,42 @@ static int ap_cs_progDelta(int statIndex, int characterID)
 	return ap_cs_stats[statIndex].step * rank;
 }
 
+// The five rank values of one stat, weakest first, from the same ladder the
+// Progressive Stats physics writes. 0 when the stat has no ladder row.
+static int ap_cs_rankValues(int statIndex, int out[AP_EDITRANK_COUNT])
+{
+	int rank;
+
+	for (rank = 0; rank < AP_EDITRANK_COUNT; rank++)
+	{
+		out[rank] = AP_CapabilityRankValueForOffset(ap_cs_stats[statIndex].driverOffset, rank);
+		if (out[rank] < 0)
+			return 0;
+	}
+	return 1;
+}
+
 static int ap_cs_editDelta(int statIndex, int characterID)
 {
+	int stored, base, ranks[AP_EDITRANK_COUNT];
+
 	if (ap_cs_progMode != AP_CS_MODE_OFF)
 		return 0; // progressive takes precedence; editor is inert
 	if (ap_cs_editMode == AP_CS_MODE_GLOBAL)
-		return ap_cs_editGlobal[statIndex];
-	if (ap_cs_editMode == AP_CS_MODE_PERCHAR)
-		return ap_cs_editPerChar[characterID][statIndex];
-	return 0;
+		stored = ap_cs_editGlobal[statIndex];
+	else if (ap_cs_editMode == AP_CS_MODE_PERCHAR)
+		stored = ap_cs_editPerChar[characterID][statIndex];
+	else
+		return 0;
+	// A stat the player edits is always one of its rank values: a package
+	// written before that rule snaps to the nearest one. A stat with no row on
+	// screen (ACCSPD) is never edited and stays as stored.
+	base = ap_cs_vanillaValue(statIndex, characterID);
+	if (base < 0 || !AP_CharStatRow_IsShown(statIndex) || !ap_cs_rankValues(statIndex, ranks))
+		return stored;
+	if (ap_cs_editMode == AP_CS_MODE_GLOBAL)
+		return AP_EditRank_GlobalValue(ranks, stored, base) - base;
+	return AP_EditRank_Snap(ranks, base + stored) - base;
 }
 
 static int ap_cs_clamp(int statIndex, int value)
@@ -545,7 +574,17 @@ static int ap_cs_effectiveRank(int statIndex, int characterID)
 {
 	int chain, rank;
 
-	if (!ctr_cfg_active() || ap_cs_progMode == AP_CS_MODE_OFF)
+	if (ap_cs_progMode == AP_CS_MODE_OFF)
+	{
+		// Editable stats are rank values too, and the retail-spread bar cannot
+		// tell the two above vanilla from each other (#466).
+		int ranks[AP_EDITRANK_COUNT];
+		if (ap_cs_editMode == AP_CS_MODE_OFF || !ap_cs_rankValues(statIndex, ranks) ||
+		    !AP_CharStatRow_IsShown(statIndex))
+			return -1;
+		return AP_EditRank_Nearest(ranks, ap_cs_effectiveValue(statIndex, characterID));
+	}
+	if (!ctr_cfg_active())
 		return -1;
 	chain = ap_cs_progChainForStat(statIndex);
 	if (chain < 0)
@@ -614,6 +653,10 @@ void AP_CharSwap_ApplyStatPackage(struct Driver *driver)
 	if ((driver == NULL) || (gGT == NULL))
 		return;
 	if (!ap_cs_packageActive())
+		return;
+	// Outside Adventure a race drives vanilla stats (ruling of 2026-11-02): no
+	// editable package, Penta MAX table or class override over VehBirth_SetConsts.
+	if (!AP_CapabilityRoomStatsRace())
 		return;
 	if (driver->driverID != 0)
 		return; // local player only
@@ -826,6 +869,10 @@ static int ap_cs_hubTransitionIdle(struct GameTracker *gGT)
 static int ap_cs_safeToOpen(struct GameTracker *gGT)
 {
 	if (!ap_cs_hubTransitionIdle(gGT))
+		return 0;
+	// A save menu can be closed while its camera is still returning. The
+	// save object owns the kart until CAM clears the round-trip flag.
+	if ((gGT->cameraDC[0].flags & CAMERA_FLAG_TRANSITION_AWAY) != 0)
 		return 0;
 	if ((gGT->gameMode1 & (PAUSE_1 | LOADING | GAME_CUTSCENE)) != 0)
 		return 0;
@@ -1233,6 +1280,7 @@ static void ap_cs_adjust(struct GameTracker *gGT, int dir)
 	int characterID = ap_cs_tiles[ap_cs_cursor].characterID;
 	short *slot;
 	int base, next;
+	int ranks[AP_EDITRANK_COUNT];
 	int stat;
 	int row;
 
@@ -1261,12 +1309,13 @@ static void ap_cs_adjust(struct GameTracker *gGT, int dir)
 	slot = (ap_cs_editMode == AP_CS_MODE_GLOBAL) ? &ap_cs_editGlobal[stat] : &ap_cs_editPerChar[characterID][stat];
 
 	base = ap_cs_vanillaValue(stat, characterID);
-	if (base < 0)
+	if (base < 0 || !ap_cs_rankValues(stat, ranks))
 		return;
 
-	next = base + *slot + dir * ap_cs_stats[stat].step;
+	// One press moves to the next rank value, never to a free value.
+	next = AP_EditRank_Step(ranks, base + ap_cs_editDelta(stat, characterID), dir);
 	next = ap_cs_clamp(stat, next);
-	*slot = (short)(next - base);
+	*slot = (short)((ap_cs_editMode == AP_CS_MODE_GLOBAL) ? AP_EditRank_GlobalStore(ranks, next) : next - base);
 
 	// Only the character you are standing as can be applied live; the others
 	// take effect when you swap to them.
@@ -1350,7 +1399,7 @@ static void ap_cs_input(struct GameTracker *gGT)
 			ap_cs_adjust(gGT, -1);
 		else if ((tap & BTN_RIGHT) != 0)
 			ap_cs_adjust(gGT, 1);
-		else if ((tap & (BTN_SQUARE_one | BTN_TRIANGLE)) != 0)
+		else if ((tap & (BTN_TRIANGLE | BTN_START)) != 0)
 			ap_cs_editFocus = 0;
 
 		return;
@@ -1395,7 +1444,7 @@ static void ap_cs_input(struct GameTracker *gGT)
 			OtherFX_Play(2, 1); // locked: name + stats visible, confirm refused
 		}
 	}
-	else if ((tap & BTN_TRIANGLE) != 0)
+	else if ((tap & (BTN_TRIANGLE | BTN_START)) != 0)
 	{
 		ap_cs_open = 0;
 		ap_cs_setFreeze(gGT, 0);
@@ -2382,8 +2431,11 @@ void AP_CharPicker_Draw(void)
 		}
 	}
 
-	snprintf(line, sizeof line, "X CONFIRM   %s   TRIANGLE CLOSE",
-	         ap_cs_editorAvailable() ? "SQUARE EDIT" : "----");
+	if (ap_cs_editFocus)
+		snprintf(line, sizeof line, "%s", NativeMenu_Labels("LEFT/RIGHT: CHANGE   ^: BACK"));
+	else
+		snprintf(line, sizeof line, NativeMenu_Labels("*: CONFIRM   %s   ^: BACK"),
+		         ap_cs_editorAvailable() ? NativeMenu_Labels("[: EDIT") : "");
 	DecalFont_DrawLine(line, 0x100, panelY + 76, FONT_SMALL, (JUSTIFY_CENTER | ORANGE));
 
 	// Dim the hub behind the whole picker so the portraits and text stand out.

@@ -49,15 +49,11 @@ if(CTR_AUTHORING_CLIENT)
     set(CTR_AI_LAP_RECORDER ON)
 endif()
 if(CTR_AP)
-    set(_ctr_ap_packages OFF)
-    if(CTR_CUSTOM_TRACKS)
-        set(_ctr_ap_packages ON)
-    endif()
-    if((CTR_CUSTOM_PACKAGES AND NOT _ctr_ap_packages) OR (CTR_BOX_AUTHORING AND NOT CTR_AP_AUTHORING))
+    if((CTR_CUSTOM_PACKAGES AND NOT CTR_CUSTOM_TRACKS) OR (CTR_BOX_AUTHORING AND NOT CTR_AP_AUTHORING))
         message(FATAL_ERROR "With CTR_AP=ON, CTR_CUSTOM_PACKAGES comes from CTR_CUSTOM_TRACKS and "
             "CTR_BOX_AUTHORING from CTR_AP_AUTHORING. Do not set them directly.")
     endif()
-    set(CTR_CUSTOM_PACKAGES ${_ctr_ap_packages})
+    set(CTR_CUSTOM_PACKAGES ${CTR_CUSTOM_TRACKS})
     set(CTR_BOX_AUTHORING ${CTR_AP_AUTHORING})
     set(CTR_AI_LAP_RECORDER OFF) # always present in an AP build; no define needed
 elseif(CTR_AP_AUTHORING)
@@ -228,8 +224,8 @@ endif()
 
 # Custom-track packages (library, Track Manager, Arcade custom pages, the
 # offline package loader and Saphi install). CTR_CUSTOM_PACKAGES is the one
-# switch every guarded call site checks. The AP box authoring download builds
-# these sources inside the CTR_AP block below; the authoring client without
+# switch every guarded call site checks. The AP clients build these sources
+# inside the CTR_AP block below; the authoring client without
 # Archipelago builds them here, together with the Saphi downloader.
 set(CTR_CUSTOM_PACKAGE_SOURCES
     platform/native_custom_package.cpp
@@ -308,6 +304,33 @@ if(CTR_AP)
         set_target_properties(ctr_native PROPERTIES OUTPUT_NAME "ctr_native_ap")
     endif()
 
+    # The shipped Windows player has Explorer VERSIONINFO from the same header
+    # used by the client. RC is enabled only for this Windows executable.
+    if(WIN32 AND NOT CTR_AP_AUTHORING)
+        enable_language(RC)
+        set(_ap_version_header "${CMAKE_SOURCE_DIR}/ap/ap_version.h")
+        set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_ap_version_header}")
+        file(READ "${_ap_version_header}" _ap_version_header_text)
+        string(REGEX MATCH "#define CTR_AP_VERSION \"([^\"]+)\"" _ap_version_match "${_ap_version_header_text}")
+        if(NOT _ap_version_match)
+            message(FATAL_ERROR "Could not read CTR_AP_VERSION from ap/ap_version.h")
+        endif()
+        set(CTR_AP_FILE_VERSION_STRING "${CMAKE_MATCH_1}")
+        string(REGEX MATCH "#define CTR_AP_COMPAT_VERSION \"([^\"]+)\"" _ap_compat_match "${_ap_version_header_text}")
+        if(NOT _ap_compat_match)
+            message(FATAL_ERROR "Could not read CTR_AP_COMPAT_VERSION from ap/ap_version.h")
+        endif()
+        set(_ap_compat_version "${CMAKE_MATCH_1}")
+        string(REGEX MATCH "^v?([0-9]+)\\.([0-9]+)\\.([0-9]+)$" _ap_numeric_match "${_ap_compat_version}")
+        if(NOT _ap_numeric_match)
+            message(FATAL_ERROR "CTR_AP_COMPAT_VERSION must be vMAJOR.MINOR.PATCH for Windows VERSIONINFO")
+        endif()
+        set(CTR_AP_FILE_VERSION_NUMERIC "${CMAKE_MATCH_1},${CMAKE_MATCH_2},${CMAKE_MATCH_3},0")
+        configure_file("${CMAKE_SOURCE_DIR}/cmake/ctr_native_ap_version.rc.in"
+            "${CMAKE_CURRENT_BINARY_DIR}/ctr_native_ap_version.rc" @ONLY)
+        target_sources(ctr_native PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/ctr_native_ap_version.rc")
+    endif()
+
     # Archipelago networking (apclientpp). Compiled as an isolated C++17 static
     # library so the unity C build stays C; the only scope where exceptions /
     # RTTI / -mbig-obj live. wss:// (TLS) + permessage-deflate compression are
@@ -340,7 +363,7 @@ if(CTR_AP)
     target_sources(ap_net PRIVATE ap/ap_solo.cpp)
     target_link_libraries(ap_net PRIVATE SDL3::SDL3)
     if(CTR_CUSTOM_TRACKS)
-        target_sources(ap_net PRIVATE ap/ap_custom_track_download.cpp)
+        target_sources(ap_net PRIVATE ap/ap_custom_track_download.cpp ap/ap_track_registry.cpp)
         target_compile_definitions(ap_net PRIVATE CTR_CUSTOM_TRACKS)
     endif()
     set_target_properties(ap_net PROPERTIES
@@ -378,13 +401,13 @@ if(CTR_AP)
         target_include_directories(custom_package PRIVATE ${CMAKE_SOURCE_DIR}/include
             ${AP_VENDOR}/json/include ${CMAKE_SOURCE_DIR}/vendor/utf8proc)
         target_compile_definitions(custom_package PRIVATE
-            CTR_CUSTOM_TRACKS CTR_CUSTOM_PACKAGES UTF8PROC_STATIC)
-        if(CTR_AP_AUTHORING)
-            target_compile_definitions(custom_package PRIVATE CTR_AP_AUTHORING)
-        endif()
+            CTR_CUSTOM_TRACKS CTR_CUSTOM_PACKAGES UTF8PROC_STATIC
+            $<$<BOOL:${CTR_AP_AUTHORING}>:CTR_AP_AUTHORING>)
         target_compile_options(custom_package PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-fexceptions;-frtti>)
         target_link_libraries(custom_package PUBLIC Threads::Threads)
-        target_compile_definitions(ctr_native PRIVATE CTR_CUSTOM_PACKAGES)
+        # The xdelta importer (decision 35, 2026-10-28) rides in the package
+        # library, so the player and authoring clients build it the same way.
+        target_compile_definitions(ctr_native PRIVATE CTR_CUSTOM_PACKAGES CTR_XDELTA_IMPORT)
         target_compile_definitions(ap_net PRIVATE CTR_CUSTOM_PACKAGES)
         target_include_directories(ap_net PRIVATE ${CMAKE_SOURCE_DIR}/include)
         target_link_libraries(ap_net PUBLIC custom_package)

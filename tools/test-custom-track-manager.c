@@ -6,7 +6,7 @@
 // AP log line: AP_LogLine is stubbed below to capture into s_apLogCaptured
 // instead of linking the real ap_hooks.c.
 //
-//   cc -Wall -Wextra -Werror -DCTR_CUSTOM_TRACKS -DCTR_AP -I include -I . tools/test-custom-track-manager.c -o /tmp/test-custom-track-manager
+//   cc -Wall -Wextra -Werror -DCTR_CUSTOM_TRACKS -DCTR_AP -I include -I . tools/test-custom-track-manager.c platform/native_custom_content_verify.c -o /tmp/test-custom-track-manager
 //   /tmp/test-custom-track-manager
 
 #include <stdio.h>
@@ -76,10 +76,10 @@ static void write_bytes(const char *path, const unsigned char *bytes, size_t len
 // table, whose s16 id at +0x10 is what the engine and the measurement read. The
 // InstDef's own +0x3C id is written equal by default, as retail does, and the
 // disagreement cases overwrite it.
-#define FIXTURE_LEV_MODELS 0x100
+#define FIXTURE_LEV_MODELS 0x200
 #define FIXTURE_LEV_MODEL_STRIDE 0x20
-#define FIXTURE_LEV_INSTDEFS 0x200
-#define FIXTURE_LEV_MAX (FIXTURE_LEV_INSTDEFS + 64 * 0x40 + 4)
+#define FIXTURE_LEV_INSTDEFS 0x300
+#define FIXTURE_LEV_MAX (FIXTURE_LEV_INSTDEFS + 64 * 0x40 + 4 + 65 * 4 + 4)
 
 static void put_u32(unsigned char *buf, size_t offset, unsigned long value)
 {
@@ -127,7 +127,7 @@ static size_t build_lev(unsigned char *buf, int fruitCrates, int looseFruit,
 	const int total = fruitCrates + looseFruit + others;
 	const size_t tableBytes = (size_t)total * 0x40;
 	const size_t ptrMapOffset = FIXTURE_LEV_INSTDEFS + tableBytes;
-	const size_t payload = ptrMapOffset + 4;
+	const size_t payload = ptrMapOffset + 4 + (size_t)(total + 1) * 4;
 	int i;
 	int written = 0;
 
@@ -135,6 +135,12 @@ static size_t build_lev(unsigned char *buf, int fruitCrates, int looseFruit,
 	put_u32(buf, 0, (unsigned long)ptrMapOffset);
 	put_u32(buf, 4 + 0x0C, (unsigned long)total);
 	put_u32(buf, 4 + 0x10, FIXTURE_LEV_INSTDEFS);
+	/* The exporter analyzes the same relocated pointer slots as the loader. */
+	put_u32(buf, 4 + ptrMapOffset, (unsigned long)(total + 1) * 4);
+	put_u32(buf, 8 + ptrMapOffset, 0x10);
+	for (i = 0; i < total; i++)
+		put_u32(buf, 12 + ptrMapOffset + (size_t)i * 4,
+		        FIXTURE_LEV_INSTDEFS + (size_t)i * 0x40 + 0x10);
 	for (i = 0; i < FIXTURE_MODEL_COUNT; i++)
 	{
 		const size_t model = 4 + fixture_model_offset(i);
@@ -302,21 +308,60 @@ int main(void)
 	write_file(status.vrmPath, "def");
 	expect_int(CustomTrackManager_ScanPackage(assets, &package, &status),
 	           CTR_CT_MANAGER_MANIFEST_MISSING, "recognized pair awaits local manifest");
-	expect_int(CustomTrackManager_RenderYaml(&package, &status, yaml, sizeof yaml), 0,
+	expect_int(CustomTrackManager_RenderYaml(&package, &status, NULL, yaml, sizeof yaml), 0,
 	           "unfinalized package cannot export YAML");
 
 	expect_int(CustomTrackManager_FinalizePackage(assets, &package, &status), 1,
 	           "finalize writes the canonical manifest");
 	expect_int(status.state, CTR_CT_MANAGER_READY, "finalized package is Ready");
-	expect_int(CustomTrackManager_RenderYaml(&package, &status, yaml, sizeof yaml), 1,
+	expect_int(CustomTrackManager_RenderYaml(&package, &status, NULL, yaml, sizeof yaml), 1,
 	           "Ready package renders YAML");
-	expect_contains(yaml, "custom_tracks:\n  fixture-track:",
-	                "YAML is one combined custom_tracks mapping");
-	expect_contains(yaml, "boxes: false", "Alpha6 export fails boxes closed");
-	expect_contains(yaml, "package_uuid: 11111111-2222-4333-8444-555555555555",
+	expect_contains(yaml, "custom_tracks:\n  - id: \"package/fixture-track/1.2.3\"",
+	                "YAML is one plan descriptor in a custom_tracks list");
+	expect_contains(yaml, "    content_id: \"fixture-track\"\n", "YAML names the track key");
+	expect_contains(yaml, "    uuid: \"11111111-2222-4333-8444-555555555555\"",
 	                "YAML carries package provenance");
-	expect_contains(yaml, "navigation:\n      uuid: aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
-	                "YAML carries navigation identity separately");
+	expect_contains(yaml, "    revision: \"1.2.3\"\n", "revision is quoted so 1.0 stays text");
+	expect_contains(yaml, "    author: \"Fixture Author\"\n", "YAML names the author");
+	// checkpoints (35) and ai_nav (true) are the boss venue facts; arcade needs
+	// AI paths and all 8 spawns (the fixture has 8); relic needs author times
+	// (tools/test-custom-relic-times.c), so it is false here. The verifier
+	// measures three weapon crates and no super turbo pads in this fixture.
+	expect_contains(yaml, "capabilities: {time_trial: true, arcade: true, relic: false, ctr_tokens: true, "
+	                "wumpa: true, checkpoints: 35, ai_nav: true, super_turbo_pads: false, weapon_crates: 3}",
+	                "YAML carries the measured capabilities including checkpoints and ai_nav");
+	expect_contains(yaml, "super_turbo_pads: false, weapon_crates: 3",
+	                "export facts come from the verified bytes");
+	{
+		// Rulebook track package rule 2: arcade means 8 racers with AI
+		// driving lines. Seven spawns or no AI paths export arcade: false.
+		// The export receipt binds the flags, so each variant is finalized
+		// as its own Ready package first.
+		struct CustomTrackManagerPackage seven = package;
+		struct CustomTrackManagerPackage noNav = package;
+		struct CustomTrackManagerStatus variant;
+		seven.flagSpawns = 7;
+		noNav.flagAiNav = 0;
+		CustomTrackManager_ScanPackage(assets, &seven, &variant);
+		expect_int(CustomTrackManager_FinalizePackage(assets, &seven, &variant), 1, "a 7-spawn package is Ready");
+		expect_int(CustomTrackManager_RenderYaml(&seven, &variant, NULL, yaml, sizeof yaml), 1,
+		           "a 7-spawn package still exports");
+		expect_contains(yaml, "{time_trial: true, arcade: false,", "7 spawns export arcade: false");
+		CustomTrackManager_ScanPackage(assets, &noNav, &variant);
+		expect_int(CustomTrackManager_FinalizePackage(assets, &noNav, &variant), 1, "a package without AI paths is Ready");
+		expect_int(CustomTrackManager_RenderYaml(&noNav, &variant, NULL, yaml, sizeof yaml), 1,
+		           "a package without AI paths still exports");
+		expect_contains(yaml, "{time_trial: true, arcade: false,", "no AI paths export arcade: false");
+		CustomTrackManager_ScanPackage(assets, &package, &status);
+		expect_int(CustomTrackManager_FinalizePackage(assets, &package, &status), 1, "the 8-spawn package is Ready again");
+		expect_int(CustomTrackManager_RenderYaml(&package, &status, NULL, yaml, sizeof yaml), 1,
+		           "the 8-spawn package renders again");
+		expect_contains(yaml, "{time_trial: true, arcade: true,", "8 spawns with AI paths export arcade: true");
+	}
+	expect_int(strstr(yaml, "navigation") == NULL && strstr(yaml, "boxes:") == NULL &&
+	           strstr(yaml, "replaces") == NULL, 1, "the old Alpha6 mapping fields are gone");
+	expect_contains(yaml, "format: ctr-lev, format_version: 1}\n", "YAML pins the LEV file");
+	expect_contains(yaml, "    evidence: []\n", "YAML ends with an empty evidence list");
 	expect_contains(yaml, package.levSha256, "YAML carries verified LEV identity");
 	{
 		// Ready describes the bytes that were scanned. Exporting it under a
@@ -325,34 +370,34 @@ int main(void)
 		struct CustomTrackManagerPackage other = package;
 		struct CustomTrackManagerStatus crossed = status;
 		other.levSha256 = CustomTrackManager_BabyTPark()->levSha256;
-		expect_int(CustomTrackManager_RenderYaml(&other, &status, yaml, sizeof yaml), 0,
+		expect_int(CustomTrackManager_RenderYaml(&other, &status, NULL, yaml, sizeof yaml), 0,
 		           "Ready status cannot export another package's LEV identity");
-		expect_int(CustomTrackManager_SaveYaml(assets, &other, &status, &crossed), 0,
+		expect_int(CustomTrackManager_SaveYaml(assets, &other, &status, NULL, &crossed), 0,
 		           "Ready status cannot save another package's LEV identity");
 		other = package;
 		other.vrmSha256 = CustomTrackManager_BabyTPark()->vrmSha256;
-		expect_int(CustomTrackManager_RenderYaml(&other, &status, yaml, sizeof yaml), 0,
+		expect_int(CustomTrackManager_RenderYaml(&other, &status, NULL, yaml, sizeof yaml), 0,
 		           "Ready status cannot export another package's VRM identity");
-		expect_int(CustomTrackManager_RenderYaml(&package, &status, yaml, sizeof yaml), 1,
+		expect_int(CustomTrackManager_RenderYaml(&package, &status, NULL, yaml, sizeof yaml), 1,
 		           "refused cross export leaves the scanned package exportable");
 	}
 	{
 		struct CustomTrackManagerPackage other = package;
 		struct CustomTrackManagerStatus exported;
 		other.version = "2.0.0";
-		expect_int(CustomTrackManager_RenderYaml(&other, &status, yaml, sizeof yaml), 0,
+		expect_int(CustomTrackManager_RenderYaml(&other, &status, NULL, yaml, sizeof yaml), 0,
 		           "Ready receipt cannot export another revision even with identical bytes");
-		expect_int(CustomTrackManager_SaveYaml(assets, &other, &status, &exported), 0,
+		expect_int(CustomTrackManager_SaveYaml(assets, &other, &status, NULL, &exported), 0,
 		           "mismatched revision cannot be saved either");
 		other = package;
 		other.navigationRevision++;
-		expect_int(CustomTrackManager_RenderYaml(&other, &status, yaml, sizeof yaml), 0,
+		expect_int(CustomTrackManager_RenderYaml(&other, &status, NULL, yaml, sizeof yaml), 0,
 		           "Ready receipt binds navigation identity");
 		other = package;
 		other.laps++;
-		expect_int(CustomTrackManager_RenderYaml(&other, &status, yaml, sizeof yaml), 0,
+		expect_int(CustomTrackManager_RenderYaml(&other, &status, NULL, yaml, sizeof yaml), 0,
 		           "Ready receipt binds authored laps");
-		expect_int(CustomTrackManager_RenderYaml(&package, &status, yaml, sizeof yaml), 1,
+		expect_int(CustomTrackManager_RenderYaml(&package, &status, NULL, yaml, sizeof yaml), 1,
 		           "rejected exports leave the verified revision usable");
 	}
 
@@ -374,7 +419,7 @@ int main(void)
 	expect_int(CustomTrackManager_ScanPackage(assets, &package, &status),
 	           CTR_CT_MANAGER_READY, "fixture remains Ready after registry refusal tests");
 
-	expect_int(CustomTrackManager_SaveYaml(assets, &package, &status, &exported), 1,
+	expect_int(CustomTrackManager_SaveYaml(assets, &package, &status, NULL, &exported), 1,
 	           "Ready package saves YAML");
 	read_file(exported.yamlPath, saved, sizeof saved);
 	expect_int(strcmp(yaml, saved), 0, "clipboard-ready and file YAML are byte-identical");
@@ -633,11 +678,10 @@ int main(void)
 		read_file(wumpaStatus.manifestPath, saved, sizeof saved);
 		expect_contains(saved, "\"wumpa_collectible\": true",
 		                "the manifest exports the measured capability");
-		expect_int(CustomTrackManager_RenderYaml(&package, &wumpaStatus, yaml,
+		expect_int(CustomTrackManager_RenderYaml(&package, &wumpaStatus, NULL, yaml,
 		                                         sizeof yaml), 1,
 		           "Ready package still renders YAML");
-		expect_contains(yaml, "wumpa_collectible: true",
-		                "the YAML fragment exports the measured capability");
+		expect_contains(yaml, "wumpa: true", "the YAML exports the measured capability");
 
 		// A registry entry that claims a capability the installed bytes do not
 		// have is refused. The digests match, so this can only mean the registry
@@ -685,26 +729,41 @@ int main(void)
 		expect_contains(baby->version, "1.0.0", "legacy getter stays 1.0.0");
 		memset(&ready, 0, sizeof ready);
 		ready.state = CTR_CT_MANAGER_READY;
+		ready.levBytes = 2558168;
+		ready.vrmBytes = 458808;
 		snprintf(ready.levPath, sizeof ready.levPath, "%s", "track.lev");
 		snprintf(ready.vrmPath, sizeof ready.vrmPath, "%s", "track.vrm");
 		snprintf(ready.actualLevSha256, sizeof ready.actualLevSha256, "%s", cur->levSha256);
 		snprintf(ready.actualVrmSha256, sizeof ready.actualVrmSha256, "%s", cur->vrmSha256);
+		/* Use local copies with real fixture bytes: a receipt alone cannot
+		   authorize export of files absent from disk. */
+		struct CustomTrackManagerPackage currentExport = *cur, legacyExport = *baby;
+		currentExport.levSha256 = legacyExport.levSha256 = s_fixtureLevSha;
+		currentExport.vrmSha256 = legacyExport.vrmSha256 = package.vrmSha256;
+		ready.levBytes = (unsigned long)s_fixtureLevLen;
+		ready.vrmBytes = 3;
+		snprintf(ready.levPath, sizeof ready.levPath, "%s/export.lev", tempRoot);
+		snprintf(ready.vrmPath, sizeof ready.vrmPath, "%s/export.vrm", tempRoot);
+		write_fixture_lev(ready.levPath);
+		write_file(ready.vrmPath, "def");
+		snprintf(ready.actualLevSha256, sizeof ready.actualLevSha256, "%s", s_fixtureLevSha);
+		snprintf(ready.actualVrmSha256, sizeof ready.actualVrmSha256, "%s", package.vrmSha256);
 		// A completed scan also records the package receipt (ScanPackage).
-		expect_int(Manager_PackageReceipt(cur, &ready, ready.verifiedPackageSha256), 1,
+		expect_int(Manager_PackageReceipt(&currentExport, &ready, ready.verifiedPackageSha256), 1,
 		           "1.0.2 scan receipt recorded");
-		expect_int(CustomTrackManager_RenderYaml(cur, &ready, yaml, sizeof yaml), 1,
+		expect_int(CustomTrackManager_RenderYaml(&currentExport, &ready, NULL, yaml, sizeof yaml), 1,
 		           "Ready 1.0.2 scan exports under the 1.0.2 handle");
-		expect_contains(yaml, "package_version: 1.0.2", "1.0.2 export names 1.0.2");
-		expect_contains(yaml, cur->levSha256, "1.0.2 export carries the 1.0.2 LEV digest");
-		expect_int(CustomTrackManager_RenderYaml(baby, &ready, yaml, sizeof yaml), 0,
+		expect_contains(yaml, "    revision: \"1.0.2\"\n", "1.0.2 export names 1.0.2");
+		expect_contains(yaml, currentExport.levSha256, "1.0.2 export carries the 1.0.2 LEV digest");
+		expect_int(CustomTrackManager_RenderYaml(&legacyExport, &ready, NULL, yaml, sizeof yaml), 0,
 		           "Ready 1.0.2 scan cannot be exported as 1.0.0");
-		snprintf(ready.actualLevSha256, sizeof ready.actualLevSha256, "%s", baby->levSha256);
-		snprintf(ready.actualVrmSha256, sizeof ready.actualVrmSha256, "%s", baby->vrmSha256);
-		expect_int(Manager_PackageReceipt(baby, &ready, ready.verifiedPackageSha256), 1,
+		snprintf(ready.actualLevSha256, sizeof ready.actualLevSha256, "%s", legacyExport.levSha256);
+		snprintf(ready.actualVrmSha256, sizeof ready.actualVrmSha256, "%s", legacyExport.vrmSha256);
+		expect_int(Manager_PackageReceipt(&legacyExport, &ready, ready.verifiedPackageSha256), 1,
 		           "1.0.0 scan receipt recorded");
-		expect_int(CustomTrackManager_RenderYaml(baby, &ready, yaml, sizeof yaml), 1,
+		expect_int(CustomTrackManager_RenderYaml(&legacyExport, &ready, NULL, yaml, sizeof yaml), 1,
 		           "Ready 1.0.0 scan still exports as 1.0.0");
-		expect_int(CustomTrackManager_RenderYaml(cur, &ready, yaml, sizeof yaml), 0,
+		expect_int(CustomTrackManager_RenderYaml(&currentExport, &ready, NULL, yaml, sizeof yaml), 0,
 		           "Ready 1.0.0 scan cannot be exported as 1.0.2");
 	}
 	{
@@ -758,6 +817,35 @@ int main(void)
 		           (unsigned long)s_fixtureLevLen, vrmSha, 3, &open), CTR_CT_MANAGER_NOT_INSTALLED, "absent open package");
 		expect_contains(open.detail, "tracks/open-key/original", "absent open package names its folder");
 		expect_contains(open.detail, "Open Track 2.1", "absent open package names title and revision");
+		// A4-2: a LEV the source table knows names where it comes from; an unknown one keeps today's text.
+		{
+			const char *lockboxLev = "f59b5f953babac7b781916ef8aa0d5e9c1553d6056a8d760d46434c3c3c3ac86";
+			const char *sunkenLev = "286d6574d87e158d78cc89986f16b8b51e5b94f1b153574ea9358582e32c6ba1";
+			const char *lockboxVrm = "759df093516ba90ac36565a3529b634cfa77923cbaba7a122153ba027bac29c6";
+			const char *sunkenVrm = "bc19e0e64c89c4c6b7afbf3e33225bc640aeb10cf64f58a0cde7089620b016c4";
+			expect_int(CustomTrackManager_LocateContentFiles(root, "open-key", "Lockbox track", "1.0.0", lockboxLev,
+			           (unsigned long)s_fixtureLevLen, lockboxVrm, 3, &open), CTR_CT_MANAGER_NOT_INSTALLED, "absent xdelta track");
+			expect_contains(open.detail, "Import Lockbox_Adventure.xdelta (slot 7) from ctrcustomtracks.com/lockbox-adventure/.",
+			                "an xdelta track names its patch, slot and page");
+			expect_contains(open.detail, "tracks/open-key/original", "an xdelta track still names its folder");
+			expect_int(CustomTrackManager_LocateContentFiles(root, "open-key", "Sunken Sprint", "1.0.0", sunkenLev,
+			           (unsigned long)s_fixtureLevLen, sunkenVrm, 3, &open), CTR_CT_MANAGER_NOT_INSTALLED, "absent Saphi track");
+			expect_contains(open.detail, "Download from Project Saphi.", "a Saphi track says so");
+			// A known LEV with another VRM is another track: today's text.
+			expect_int(CustomTrackManager_LocateContentFiles(root, "open-key", "Lockbox track", "1.0.0", lockboxLev,
+			           (unsigned long)s_fixtureLevLen, vrmSha, 3, &open), CTR_CT_MANAGER_NOT_INSTALLED, "known LEV, other VRM");
+			expect_contains(open.detail, "Put the LEV and VRM of Lockbox track 1.0.0", "a known LEV with another VRM keeps today's text");
+			// The longest hint with the longest permitted names: never cut mid-sentence, always ends in Rescan.
+			expect_int(CustomTrackManager_LocateContentFiles(root, "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+			           "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT", "RRRRRRRRRRRRRRRRRRRRRRRR",
+			           "2ac59189d36c51c18dc02c59071f3e7019f0d8084d7d0136481c37d463b1a26e",
+			           (unsigned long)s_fixtureLevLen, "1c068f883d9a5eff33f8dda3318f60064ede78cae7e568dc668843e66a5e65d2", 3, &open),
+			           CTR_CT_MANAGER_NOT_INSTALLED, "absent St. Patrick track");
+			expect_contains(open.detail, "Import RELEASE_ST_PATRICK_ADVENTURE.xdelta (slot 7) from ctrcustomtracks.com/st-patricks-day-racing/.",
+			                "the long hint stays whole");
+			expect_contains(open.detail, "Then Rescan.", "the long message keeps its closing instruction");
+			expect_int(strlen(open.detail) < sizeof open.detail, 1, "the long message fits the detail buffer");
+		}
 		if (!Manager_CreateDirectory(root) || !Manager_CreateDirectory(tracks) || !Manager_CreateDirectory(keyDir) ||
 		    !Manager_CreateDirectory(original))
 			return 2;

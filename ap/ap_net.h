@@ -7,6 +7,7 @@
 // the transport is selected from the uri scheme passed to ap_net_init().
 
 #include "ap_editstat_bounds.h" // AP_NET_EDITSTAT_COUNT / _MIN / _MAX
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -27,6 +28,10 @@ int  ap_net_is_connected(void);
 // Game -> server.
 void ap_net_send_location(long long location_code); // LocationChecks([code])
 void ap_net_send_goal(void);                         // StatusUpdate(GOAL)
+// While held, ap_net_send_location and ap_net_send_goal do nothing: a custom
+// Arcade race has no room identity, so nothing it does may reach the room. The
+// resend of checks earned earlier does not pass through these two.
+void ap_net_hold_checks(int hold);
 
 // Drain newly-received item ids into out (capacity max). Returns count copied.
 int  ap_net_drain_items(long long *out, int max);
@@ -43,6 +48,13 @@ int  ap_net_identity_hash(unsigned long long *out); // FNV-1a of the full seed a
 
 // #89 solo mode: what says a Play Solo session runs. DeathLink stays off the wire then.
 void ap_net_set_solo_session_query(int (*active)(void));
+
+// Box Author Mode (ap/ap_author_gate.h): `reason` returns why no room may be
+// dialled right now, or NULL. ap_net_dial_blocked asks it; when it refuses,
+// the status turns ERROR with that reason (shown on the Connection page) and
+// it returns 1. ap_net_init asks it on every dial.
+void ap_net_set_dial_block_query(const char *(*reason)(void));
+int  ap_net_dial_blocked(void);
 
 // #89 solo mode: journal every check of the solo room to `path` and resend the
 // journalled checks the server still misses on each slot-connect to `seed`.
@@ -89,6 +101,8 @@ int  ap_net_item_text(long long item_id, int sender_slot, char *item_buf,
 // 1 if location_code has already been checked on the server (own slot). Drives
 // the "done / chill" warp-pad colouring vs the "new / available" glow.
 int  ap_net_location_checked(long long location_code);
+// Moves whenever the checked sets change, a server update included.
+unsigned ap_net_locations_revision(void);
 
 // 1 if location_code is a REAL location for our own slot this seed -- present in
 // either the server's checked_locations or missing_locations set (their union is
@@ -327,6 +341,11 @@ int ap_net_wumpa_bought(long long code);
 int ap_net_wumpa_pending(void);
 int ap_net_wumpa_buy(long long code, int price, int unlock);
 void ap_net_wumpa_hint(const long long *codes, int n);
+// #124 Pad Approach Hints (ap_pad_hints_logic.h). Ready once connected and
+// the room's latch of hinted codes is read. ap_net_pad_approach_hint hints the
+// given open codes that are not latched yet and latches them; returns how many.
+int ap_net_pad_hints_ready(void);
+int ap_net_pad_approach_hint(int physLevelID, const int64_t *open, int n);
 
 #ifdef __cplusplus
 }

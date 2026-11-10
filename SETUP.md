@@ -242,20 +242,25 @@ You can leave **Save AI Lap Recordings** off. To return to the track's normal
 AI lines, turn **Use Recorded AI Laps** off and start a new race. Your recordings
 remain on disk.
 
-**Current playback is experimental.** The loader searches newest files first,
-opens at most eight candidates and chooses up to three usable recordings,
-preferring different contributor names. Those recordings fill three shared AI
-lines. Names can repeat across opponents; fewer recordings can also produce
-offset copies of a line. The field is not randomly selected, and each racer
-does not yet own a distinct recording with vanilla AI filling the remaining
-places. If no usable recording loads, the track's own navigation remains in use.
+**Current playback is experimental.** Every recording for the track is in the
+pool. Each race picks up to three different contributors at random, one
+recording and one lap each. The engine still has three AI lines shared by the
+opponents: each picked recording replaces one of them, and the lines without a
+recording keep the track's own AI. Only the first opponent on a recorded line
+shows its contributor's name, so a name never appears twice. The finish line
+of each lap is blended so the line does not jump there, and recorded lines
+break crates where the track's own lines do. If no usable recording loads, the
+track's own navigation remains in use.
 
-Recorded lines do not guarantee the original lap time. Finish-line movement
-and ordinary-crate interactions still need improvement and gameplay testing.
-Independent racer assignment and vanilla fallback are planned corrections.
-For troubleshooting, search `ctr-ap.log` for `[AP NAVREC]`: it lists selected
-files, lane assignments and reasons recordings were skipped. Include that log,
-your client version, track and relevant recording when reporting a problem
+Recorded lines do not guarantee the original lap time. Crate contact and the
+finish blend still need gameplay testing. A separate recorded line for every
+opponent is planned for a later release. In 2P only player 1's laps are saved,
+and no names are shown.
+
+For troubleshooting, search `ctr-ap.log` for `[AP NAVREC]`: it lists the pool,
+the random seed, the picked file and lap for each line, and reasons recordings
+were skipped. Include that log, your client version, track and relevant
+recording when reporting a problem
 through [Reporting a crash or a stuck seed](#reporting-a-crash-or-a-stuck-seed).
 
 ## Generating or hosting a multiworld
@@ -324,6 +329,30 @@ typing `!hint <item>` in the Archipelago Text Client (in the Launcher).
 The released client and apworld are a pair. Update both together, even when a
 release appears to change only one side.
 
+### Choosing your options
+
+There is one list of options and no separate content setup. A YAML that sets
+nothing gets the original game's shape: the 18 race tracks, the 5 Gem Cups and
+the 4 Crystal Challenges on the 27 warp pads, plus the five boss garages. Each
+option you set changes that seed. The options come in the order you would fill
+them in:
+
+- **Content:** `retail_tracks`, `track_modes`, `custom_tracks`,
+  `cortex_vortex_track`, `required_entries`, the cups and arenas, and the boss
+  garages and boss cups.
+- **Goal:** `oxide_goal` and what it needs.
+- **Pads and requirements:** where content lands (`pad_placement`), what each
+  pad asks for (`warppad_unlock_requirements`, `requirement_weights`,
+  `two_stage_density`, `warp_pad_rules`) and whether Keys and Gems are shuffled.
+- **Checks:** which extra checks exist (podium rungs, relic perfects, letters,
+  lap checks, item boxes, Itemsanity and more).
+- **Items and traps, characters and stats, boost, DeathLink, display.**
+
+Every option explains itself in the YAML builder and in the generated template.
+Three presets give you a start: **Quick** (a short goal with few locks),
+**Standard** (the defaults) and **Full Adventure** (everything on, every
+location reachable). They are the same three that Play Solo offers.
+
 ## If an in-game update is interrupted
 
 The in-game updater (a prompt on the main menu appears when a newer stable
@@ -357,9 +386,12 @@ From 0.3.0 the client can make and host a single-player seed itself. Choose
 
 - **New solo seed** offers the bundled presets (Quick, Standard, Full
   Adventure), any YAML you imported, and any YAML you drop into the `solo/inbox`
-  folder next to the game (the screen shows the path). A preset opens a short
-  options screen; Square shows what an option does. DeathLink is off in solo,
-  because nobody else is in the room.
+  folder next to the game (the screen shows the path). A preset opens an
+  options screen with every setting of the world, in groups (Goal, Cups and
+  Arenas, Bosses and so on). Cross opens a group, Left and Right change a
+  value, Square shows what an option does, and Continue goes on. Settings that
+  are lists, such as the track and weapon pools, are not on the screen; set
+  them in a YAML. DeathLink is off in solo, because nobody else is in the room.
 - When custom tracks are installed, a preset or a YAML then shows **Custom
   Tracks**, with Cortex Vortex once its files are installed. Cross on a track
   cycles: not used, **In pool** (the seed may use it) and **Own pad** (it gets
@@ -452,6 +484,15 @@ The tracks are saved in `assets/tracks/<track>/original/`, where rooms and solo
 seeds look for custom tracks, and appear on the Mods screen's Installed tab and
 in Arcade and Time Trial. If a pack descriptor (`<patch name>.ctrpack.json`)
 sits next to the patch, it supplies the track names, laps and relic times.
+Every imported track is also listed on the Play Solo Custom Tracks page at
+once (a descriptor in `solo/tracks`). Its facts are measured from its files;
+laps, author and relic times come only from the pack descriptor. Without an
+author the page shows it as Unknown. Without laps (for example a patch with no
+pack descriptor) the page asks for them first: Left and Right pick 1 to 7 laps,
+starting at 3, and Cross keeps them with the track's Play Solo entry. Until
+then the track waits in `solo/needs-laps` and cannot be picked. Such a track
+has no relic, because relic times belong to the author's laps. The track files
+are never changed.
 Only race tracks are imported; arenas, game code and other changed files are
 listed but skipped.
 

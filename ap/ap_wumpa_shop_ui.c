@@ -1,10 +1,11 @@
+#include <platform/native_menu.h>
 #ifdef CTR_AP
 
 // ============================================================================
 // The Wumpa Shop page (#249). Opened from the WUMPA SHOP row of a hub's green
 // load/save menu. While open it owns input and drawing the way the enlarged
 // tracker does (RECTMENU_ProcessState returns early), so the load/save menu
-// underneath neither runs nor sees a press. Triangle or Circle goes back to
+// underneath neither runs nor sees a press. Triangle or Start goes back to
 // that menu.
 //
 // One line per slot of this hub: slot number, the item and its owner when it
@@ -20,9 +21,13 @@
 
 #include "ap_wumpa_shop.h"
 #include "ap_wumpa_shop_menu.h"
+#include "ap_text_clip.h"
+#include "ap_trap_display_logic.h" // Trap Display: how a trap location looks
 
 #define AP_WSHOP_VISIBLE 9
 #define AP_WSHOP_ROW_H 0xd
+#define AP_WSHOP_NAME_X 0x44
+#define AP_WSHOP_RIGHT_X 0x1d0
 #define AP_WSHOP_MSG_FRAMES 150
 
 static struct
@@ -32,22 +37,15 @@ static struct
 	int cursor;
 	int top;
 	int msgFrames;
+	int marqueeFrame; // frames the selected row has been shown, restarts on a move
 	char msg[48];
 	long long buying;     // code of the purchase in flight, -1 none
 	int hinted[AP_WUMPA_SHOP_HUBS];
 	char hintedSeed[96]; // the seed and slot the hinted flags belong to
-} ap_wshop = {0, 0, 0, 0, 0, "", -1, {0}, ""};
+} ap_wshop = {0, 0, 0, 0, 0, 0, "", -1, {0}, ""};
 
-// The green load/save rows with WUMPA SHOP above EXIT. Same wiring as retail:
-// up and down step, left and right stay.
-static struct MenuRow ap_wshop_green_rows[AP_WSHOP_GREEN_ROWS + 1] = {
-	{0xCB, 0, 1, 0, 0},                     // LOAD
-	{0xCC, 0, 2, 1, 1},                     // SAVE
-	{0xCD, 1, 3, 2, 2},                     // DELETE
-	{AP_LNG_WUMPA_SHOP, 2, 4, 3, 3},        // WUMPA SHOP
-	{0xCE, 3, 4, 4, 4},                     // EXIT
-	{-1, 0, 0, 0, 0},
-};
+// The green load/save rows with WUMPA SHOP first (ap_wumpa_shop_menu.h).
+static struct MenuRow ap_wshop_green_rows[AP_WSHOP_GREEN_ROWS + 1] = AP_WSHOP_GREEN_ROWS_INIT;
 
 int AP_WumpaShopRowShown(void)
 {
@@ -55,22 +53,21 @@ int AP_WumpaShopRowShown(void)
 	       ctr_wumpa_shop.state != AP_WUMPA_SHOP_ABSENT;
 }
 
+// Called right after SelectProfile_GetTrackID set the retail cursor (SAVE),
+// including on a second visit with the shop rows still in place.
 void AP_WumpaShopPrepareGreenMenu(struct RectMenu *menu)
 {
+	int showShop;
 	if (menu == 0)
 		return;
-	if (AP_WumpaShopRowShown())
+	showShop = AP_WumpaShopRowShown();
+	menu->rowSelected = (s16)AP_WumpaShopOpeningRow(menu->rowSelected, showShop);
+	if (showShop)
 	{
-		if (menu->rows != ap_wshop_green_rows && menu->rowSelected == 3)
-			menu->rowSelected = AP_WSHOP_GREEN_EXIT;
 		menu->rows = ap_wshop_green_rows;
 	}
 	else
-	{
-		if (menu->rows == ap_wshop_green_rows && menu->rowSelected >= AP_WSHOP_GREEN_SHOP)
-			menu->rowSelected = 3;
 		menu->rows = &data.rowsGreenLoadSave[0];
-	}
 }
 
 int AP_WumpaShopGreenExitRow(const struct RectMenu *menu)
@@ -106,7 +103,17 @@ static void AP_WShopHint(int hub)
 	for (k = 0; k < ctr_wumpa_shop.slots; k++)
 	{
 		long long code = ctr_wumpa_shop.slot[hub][k].code;
-		if (!ap_net_location_checked(code) && !ap_net_wumpa_bought(code))
+		unsigned flags = 0;
+		int known, keep;
+		if (ap_net_location_checked(code) || ap_net_wumpa_bought(code))
+			continue;
+		// A2-23: progression only. Items not scouted yet: try again next open.
+		// The lookup is its own statement: C leaves argument order unspecified.
+		known = ap_net_scout_known(code, NULL, NULL, &flags);
+		keep = AP_HintFilter_Progression(ctr_cfg.shop_hints_progression_only, known, flags);
+		if (keep == AP_HINT_LATER)
+			return;
+		if (keep == AP_HINT_KEEP)
 			codes[n++] = code;
 	}
 	ap_wshop.hinted[hub] = 1;
@@ -120,10 +127,8 @@ int AP_WumpaShopGreenMenuRow(struct RectMenu *menu, int row)
 	int hub;
 	if (menu == 0 || menu->rows != ap_wshop_green_rows)
 		return row;
-	if (row == AP_WSHOP_GREEN_EXIT)
-		return 3;
-	if (row != AP_WSHOP_GREEN_SHOP)
-		return row;
+	if (AP_WumpaShopGreenToRetail(row) != AP_WSHOP_GREEN_HANDLED)
+		return AP_WumpaShopGreenToRetail(row);
 	hub = gt ? AP_WumpaShopHubOfLevel(gt->levelID) : -1;
 	if (hub < 0)
 		return AP_WSHOP_GREEN_HANDLED;
@@ -131,6 +136,7 @@ int AP_WumpaShopGreenMenuRow(struct RectMenu *menu, int row)
 	ap_wshop.hub = hub;
 	ap_wshop.cursor = 0;
 	ap_wshop.top = 0;
+	ap_wshop.marqueeFrame = 0;
 	ap_wshop.msg[0] = '\0';
 	ap_wshop.msgFrames = 0;
 	AP_LogLine("[AP WUMPA SHOP] page opened\n");
@@ -163,6 +169,8 @@ int AP_WumpaShopHubTrackerLine(int level, char *out, int cap)
 
 static void AP_WShopBuy(void)
 {
+	if (!AP_LocationChecksAllowed() || !(sdata->gGT->gameMode1 & ADVENTURE_ARENA))
+		return;
 	int hub = ap_wshop.hub, k = ap_wshop.cursor, r;
 	const AP_WumpaShopSlot *s;
 	char line[48];
@@ -192,7 +200,7 @@ static void AP_WShopBuy(void)
 		AP_WShopSay("PLEASE WAIT");
 		break;
 	case 3:
-		snprintf(line, sizeof line, "ON SALE AT %d BANKED", s->unlock);
+		snprintf(line, sizeof line, "ON SALE AT %d COLLECTED", s->unlock);
 		AP_WShopSay(line);
 		break;
 	case 4:
@@ -211,10 +219,18 @@ static void AP_WShopClose(void)
 	ap_wshop.buying = -1;
 }
 
+// Width of `len` characters of `s` (the whole string for len < 0) in the shop's
+// font, from the font's own tables.
+static int AP_WShopTextWidth(const char *s, int len, void *ctx)
+{
+	(void)ctx;
+	return DecalFont_GetLineWidthStrlen((char *)s, len, FONT_SMALL);
+}
+
 static void AP_WShopDrawRow(int hub, int k, int y, int selected)
 {
 	const AP_WumpaShopSlot *s = &ctr_wumpa_shop.slot[hub][k];
-	char itemRaw[64], playerRaw[64], itemS[40], playerS[24], name[64], right[24];
+	char itemRaw[64], playerRaw[64], itemS[40], playerS[24], name[72], right[24];
 	long long item = 0;
 	int player = -1, state, color;
 	unsigned flags = 0;
@@ -235,20 +251,23 @@ static void AP_WShopDrawRow(int hub, int k, int y, int selected)
 		if (known && AP_ItemDisplayAlias(item, alias, (int)sizeof alias))
 			AP_CeremonySanitize(alias, itemS, (int)sizeof itemS);
 	}
+	state = AP_WShopSlotState(hub, k);
+	if (known)
+	{
+		const char *disguise = AP_TrapDisplayName(ctr_cfg.trap_display, ctr_cfg.trap_display_salt,
+		                                        s->code, flags, state == AP_WUMPA_SLOT_SOLD);
+		if (disguise)
+			snprintf(itemS, sizeof itemS, "%s", disguise);
+	}
 	if (AP_CeremonyNameIsBlank(itemS))
 		snprintf(itemS, sizeof itemS, "%s", "UNKNOWN ITEM");
 	if (known && player != ap_net_self_slot() && playerS[0] != '\0')
 		snprintf(name, sizeof name, "%s (%s)", itemS, playerS);
 	else
 		snprintf(name, sizeof name, "%s", itemS);
-	if ((int)strlen(name) > 34)
-	{
-		name[33] = '.';
-		name[34] = '\0';
-	}
-
-	state = AP_WShopSlotState(hub, k);
-	color = known ? AP_ClassFontColor(flags) : WHITE;
+	color = known ? AP_ClassFontColor(AP_TrapDisplayFlags(ctr_cfg.trap_display, ctr_cfg.trap_display_salt,
+	                                                      s->code, flags))
+	              : WHITE;
 	switch (state)
 	{
 	case AP_WUMPA_SLOT_SOLD:
@@ -272,8 +291,30 @@ static void AP_WShopDrawRow(int hub, int k, int y, int selected)
 		snprintf(num, sizeof num, "%d", k + 1);
 		DecalFont_DrawLine(num, 0x3c, y, FONT_SMALL, (selected ? WHITE : ORANGE) | JUSTIFY_RIGHT);
 	}
-	DecalFont_DrawLine(name, 0x44, y, FONT_SMALL, color);
-	DecalFont_DrawLine(right, 0x1d0, y, FONT_SMALL,
+	{
+		// The name column ends one character cell before the price column, so
+		// the name never prints over the price or SOLD. Unselected rows clip;
+		// the selected row scrolls its whole name.
+		int avail = AP_WSHOP_RIGHT_X - AP_WSHOP_NAME_X - AP_WShopTextWidth(right, -1, 0) -
+		            AP_WShopTextWidth(" ", 1, 0);
+		int len = (int)strlen(name), start = 0, shown, marked = 0;
+		char cut[72];
+		if (selected)
+		{
+			AP_TextMarquee(AP_WShopTextWidth, 0, name, len, avail, ap_wshop.marqueeFrame++, &start, &shown);
+		}
+		else
+			shown = AP_TextClipLen(AP_WShopTextWidth, 0, name, len, avail, &marked);
+		memcpy(cut, name + start, (size_t)shown);
+		cut[shown] = '\0';
+		if (marked && shown + 1 < (int)sizeof cut)
+		{
+			cut[shown] = '.';
+			cut[shown + 1] = '\0';
+		}
+		DecalFont_DrawLine(cut, AP_WSHOP_NAME_X, y, FONT_SMALL, color);
+	}
+	DecalFont_DrawLine(right, AP_WSHOP_RIGHT_X, y, FONT_SMALL,
 	                   (state == AP_WUMPA_SLOT_TOO_POOR ? RED : selected ? WHITE : ORANGE) | JUSTIFY_RIGHT);
 }
 
@@ -300,8 +341,7 @@ static void AP_WShopDraw(void)
 		else if (!ap_net_wumpa_ready())
 			snprintf(line, sizeof line, "LOADING YOUR WALLET");
 		else
-			snprintf(line, sizeof line, "BALANCE %lld   BANKED %lld",
-			         ap_net_wumpa_balance(), ap_net_wumpa_lifetime());
+			AP_WumpaShopHeaderLine(line, (int)sizeof line, ap_net_wumpa_balance(), ap_net_wumpa_lifetime());
 		DecalFont_DrawLine(line, 0x100, 0x36, FONT_SMALL, ORANGE | JUSTIFY_CENTER);
 
 		for (k = ap_wshop.top, y = 0x48; k < ctr_wumpa_shop.slots && k < ap_wshop.top + AP_WSHOP_VISIBLE;
@@ -321,14 +361,14 @@ static void AP_WShopDraw(void)
 		if (ap_wshop.top > 0)
 			DecalFont_DrawLine("^", 0x100, 0x40, FONT_SMALL, WHITE | JUSTIFY_CENTER);
 		if (ap_wshop.top + AP_WSHOP_VISIBLE < ctr_wumpa_shop.slots)
-			DecalFont_DrawLine("v", 0x100, 0x48 + AP_WSHOP_VISIBLE * AP_WSHOP_ROW_H, FONT_SMALL,
+			DecalFont_DrawLine("v", 0x1e0, 0xb0, FONT_SMALL,
 			                   WHITE | JUSTIFY_CENTER);
 	}
 
 	if (ap_wshop.msgFrames > 0)
 		DecalFont_DrawLine(ap_wshop.msg, 0x100, 0xc0, FONT_SMALL, WHITE | JUSTIFY_CENTER);
 	else
-		DecalFont_DrawLine("X BUY   TRIANGLE BACK", 0x100, 0xc0, FONT_SMALL, ORANGE | JUSTIFY_CENTER);
+		DecalFont_DrawLine(NativeMenu_Labels("*: BUY   ^: BACK"), 0x100, 0xc0, FONT_SMALL, ORANGE | JUSTIFY_CENTER);
 
 	if (gt != 0)
 	{
@@ -371,7 +411,7 @@ int AP_WumpaShopMenuFrame(void)
 	if (ap_wshop.msgFrames > 0)
 		ap_wshop.msgFrames--;
 
-	if (tap & (BTN_TRIANGLE | BTN_CIRCLE | BTN_START))
+	if (tap & (BTN_TRIANGLE | BTN_START))
 	{
 		OtherFX_Play(2, 1);
 		AP_WShopClose();
@@ -385,9 +425,10 @@ int AP_WumpaShopMenuFrame(void)
 			ap_wshop.top = ap_wshop.cursor;
 		if (ap_wshop.cursor >= ap_wshop.top + AP_WSHOP_VISIBLE)
 			ap_wshop.top = ap_wshop.cursor - AP_WSHOP_VISIBLE + 1;
+		ap_wshop.marqueeFrame = 0;
 		OtherFX_Play(0, 1);
 	}
-	if (tap & BTN_CROSS)
+	if (tap & (BTN_CROSS | BTN_CIRCLE))
 		AP_WShopBuy();
 
 	AP_WShopDraw();

@@ -11,8 +11,7 @@ from typing import Mapping
 
 from Options import OptionError
 
-from .Items import load_item_table
-from .item_creation import SURFACE_ITEM_NAMES
+from .Items import SURFACE_ITEM_NAMES, load_item_table
 
 COLOURS = ("red", "green", "blue", "yellow", "purple")
 TIERS = ("sapphire", "gold", "platinum")
@@ -66,6 +65,12 @@ def normalize(raw):
                     nested.get(part, defaults[part] if side == "base" else 0), f"{side}.{family}.{part}")
         if side == "base":
             gems = config.get("gems", list(COLOURS))
+            if isinstance(gems, dict):
+                fields(gems, COLOURS, "base.gems")
+                for colour, count in gems.items():
+                    if type(count) is not int or count not in (0, 1):
+                        fail(f"base.gems.{colour} must be an exact integer, 0 or 1.")
+                gems = [colour for colour in COLOURS if gems.get(colour, 0) == 1]
             if (not isinstance(gems, list) or any(type(x) is not str or x not in COLOURS for x in gems)
                     or len(set(gems)) != len(gems)):
                 fail("base.gems must be a list of distinct red/green/blue/yellow/purple colours.")

@@ -323,11 +323,24 @@ checkRewards:
 			{
 				char joined[192];
 				int c = AP_BossFinalGarageOpponent();
-				int used = snprintf(joined, sizeof joined, "Rival: %s", GAME_LANGUAGE_STRINGS[data.MetaDataCharacters[c].name_LNG_short]);
+				int used = snprintf(joined, sizeof joined, "Rival: %s", GAME_LANGUAGE_STRINGS[data.MetaDataCharacters[c].name_LNG_long]);
 				if (advertVisible && used < (int)sizeof joined)
 					snprintf(joined + used, sizeof joined - used, "\r%s", advert);
 				memcpy(advert, joined, sizeof advert);
 				advertVisible = 1;
+			}
+			// The chaos Final Challenge says so at the garage, open or shut.
+			if (advertBoss == 4)
+			{
+				char joined[192], chaosLine[64];
+				if (AP_ChaosFinalAdvert(chaosLine, (int)sizeof chaosLine))
+				{
+					int used = snprintf(joined, sizeof joined, "%s", chaosLine);
+					if (advertVisible && used < (int)sizeof joined)
+						snprintf(joined + used, sizeof joined - used, "\r%s", advert);
+					memcpy(advert, joined, sizeof advert);
+					advertVisible = 1;
+				}
 			}
 			if (advertVisible)
 			{
@@ -341,10 +354,18 @@ checkRewards:
 		// if aku is not giving a hint
 		if (AH_HINT_STATE == 0)
 		{
+			char *challenge = GAME_LANGUAGE_STRINGS[AH_BOSS_CHALLENGE_TEXT[challengeBosses[GAME_TRACKER->levelID - GEM_STONE_VALLEY]]];
+#ifdef CTR_AP
+			// #169 tier 2: a garage racing a drawn racer is that racer's challenge.
+			char drawnChallenge[96];
+			if (GAME_TRACKER->levelID != GEM_STONE_VALLEY &&
+			    AP_BossChallengeTitle((GAME_TRACKER->levelID - GEM_STONE_VALLEY) - 1, drawnChallenge, sizeof drawnChallenge))
+				challenge = drawnChallenge;
+#endif
 			// draw string, lng_challenge
 			DecalFont_DrawLine(
 
-			    GAME_LANGUAGE_STRINGS[AH_BOSS_CHALLENGE_TEXT[challengeBosses[GAME_TRACKER->levelID - GEM_STONE_VALLEY]]],
+			    challenge,
 
 			    view->rect.x + (view->rect.w >> 1), challengeY, FONT_BIG, JUSTIFY_CENTER | ORANGE);
 		}
@@ -509,6 +530,18 @@ openGarage:
 			// slipped past it, and never substitutes the retail venue.
 			if (hubID >= 1 && hubID <= 4)
 			{
+				// #169 tier 2: the seed's drawn racer replaces the garage's boss
+				// as P2, in a boss race and through all four races of a boss cup.
+				// bossID stays physical; LOAD_DriverMPK keeps the boss's own pack
+				// and sideloads the racer's hi model. Seated here, before any
+				// branch: this block runs again on every frame until the load
+				// starts, and each pass first writes the retail boss above. A boss
+				// cup returns early once its first leg is staged, so a seat inside
+				// the cup branch was overwritten and the cup raced the retail boss
+				// under a garage naming the drawn racer (A2-44).
+				int opponent = AP_BossGarageOpponent(hubID - 1);
+				if (opponent >= 0)
+					GAME_CHARACTER_IDS[1] = (s16)opponent;
 #ifdef CTR_CUSTOM_TRACKS
 				// #133 PR 6b: a content-plan garage holding a boss cup runs it on
 				// the Adventure Cup machinery (engine cup 0) with boss mode kept:
@@ -525,12 +558,8 @@ openGarage:
 				{
 					int cupSlot;
 					const ctr_content_pad *cupPad = ap_content_plan_pad(AP_CONTENT_GARAGE_CUP_PAD + hubID - 1);
-					int cupOpponent = AP_BossGarageOpponent(hubID - 1);
 					GAME_ADD_CONFIG_0 |= ADVENTURE_CUP;
 					GAME_REMOVE_CONFIG_0 &= ~ADVENTURE_CUP;
-					// One drawn racer through all four races, as in a boss race.
-					if (cupOpponent >= 0)
-						GAME_CHARACTER_IDS[1] = (s16)cupOpponent;
 					GAME_TRACKER->cup.cupID = 0;
 					GAME_TRACKER->cup.trackIndex = 0;
 					for (cupSlot = 0; cupSlot < 8; cupSlot++)
@@ -544,7 +573,6 @@ openGarage:
 				}
 #endif
 				int venue = AP_BossGarageVenue(hubID - 1);
-				int opponent;
 				if (venue < 0)
 				{
 					GAME_TRACKER->pushBuffer_UI.fadeFromBlack_desiredResult = 0x1000;
@@ -552,12 +580,6 @@ openGarage:
 					return;
 				}
 				raceLevel = venue;
-				// #169 tier 2: the seed's drawn racer replaces the garage's boss
-				// as P2. bossID stays physical; LOAD_DriverMPK keeps the boss's
-				// own pack and sideloads the racer's hi model.
-				opponent = AP_BossGarageOpponent(hubID - 1);
-				if (opponent >= 0)
-					GAME_CHARACTER_IDS[1] = (s16)opponent;
 #ifdef CTR_CUSTOM_TRACKS
 				// The venue may be a custom track's host slot; this load is retail.
 				CustomTrack_SelectRetailRace();
