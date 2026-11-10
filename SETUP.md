@@ -92,9 +92,17 @@ Go straight to Step 3.
 A `.chd` image is compressed: unpack it once to `.bin` and `.cue` with
 `chdman`, which comes with the MAME tools, and use the `.bin`:
 
-```
+```sh
 chdman extractcd -i "CTR.chd" -o "CTR.cue" -ob "CTR.bin"
 ```
+
+Open a terminal in the folder containing your image and `chdman` first. On
+Windows, open that folder in File Explorer, type `powershell` in its address
+bar and press Enter. If `chdman.exe` is in that folder, use `./chdman.exe` in
+place of `chdman`. On Linux or Steam Deck, right-click the folder and choose
+**Open Terminal Here** (on Deck, **Open Terminal** opens Konsole). Replace
+`CTR.chd` with your image's filename; keep the quotes if it contains spaces.
+The website's **Copy command** button copies the example without running it.
 
 To keep only the files the game uses instead, see the appendix at the end of
 this guide.
@@ -596,14 +604,14 @@ game up, and it needs no extra tools. Extract only if one of these applies:
 It needs Python 3.8 or newer, and `.chd` images additionally need the `chdman`
 tool on your PATH. From the folder that holds `ctr_native_ap.exe`, run:
 
-```
+```sh
 python extract_assets.py "path/to/your/CTR.cue"
 ```
 
 You can also point it at a `.bin` or a `.chd`. By default it writes an `assets`
 folder in the current directory. To send it somewhere else, add `--out`:
 
-```
+```sh
 python extract_assets.py "path/to/your/CTR.bin" --out "path/to/CTR-Decrypted/assets"
 ```
 

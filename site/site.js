@@ -4,6 +4,35 @@
   "use strict";
   const REPO = "Decryptu/ctr-decrypted";
 
+  // Copy only command examples, never folder layouts or the live YAML preview.
+  for (const code of document.querySelectorAll("pre > code.language-sh, pre > code.language-powershell")) {
+    const pre = code.parentElement;
+    const wrap = document.createElement("div");
+    wrap.className = "command-block";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "btn-small command-copy";
+    button.textContent = "Copy command";
+    const status = document.createElement("span");
+    status.className = "status";
+    status.setAttribute("role", "status");
+    pre.before(wrap);
+    wrap.append(button, status, pre);
+    button.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(code.textContent.replace(/\n$/, ""));
+        status.textContent = "Copied.";
+      } catch (e) {
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(code);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        status.textContent = "Press Ctrl+C (Command+C on Mac) to copy the selected command.";
+      }
+    });
+  }
+
   // Drawer -----------------------------------------------------------------
   const side = document.getElementById("side");
   const scrim = document.querySelector(".scrim");
