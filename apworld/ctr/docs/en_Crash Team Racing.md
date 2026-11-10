@@ -10,7 +10,8 @@ requirements or reduce the two-stage gate and trap settings.
 
 A YAML that sets no content gets the original game's shape: the 18 original race
 tracks, 5 Gem Cups, 4 Crystal Challenges and the five garages, shuffled onto the
-27 warp pads, with the cup races drawn. Custom tracks and Cortex Vortex join the
+27 warp pads, with the cup races drawn. The 4 Crystal Challenges are drawn from
+all 7 arenas, the 4 original ones and the 3 new ones. Custom tracks and Cortex Vortex join the
 same pool. YAML files from v0.2.x need a new look: option names that are gone are
 ignored without a message. A v0.2.x room plays on the v0.2.4 client only.
 
@@ -40,6 +41,12 @@ whole slot, which is useful for races. Players can also turn the colours off
 for themselves in the game under **OPTIONS → Archipelago → Item Box Colours**.
 When the YAML turned them off, that row shows **OFF (SEED)** and cannot be
 turned on.
+
+## Why do some weapon crates stay ordinary?
+
+On a custom track without hand-placed AP boxes, up to 15 eligible weapon crates become AP boxes. Crates at reviewed excluded positions stay normal weapon crates, including the origin crate in the reviewed Ancient Lake revisions.
+
+Hand-placed AP layouts keep every weapon crate ordinary and use their own spots. A saved room keeps the layout recorded in its seed.
 
 ## Options in detail
 
@@ -98,20 +105,31 @@ receive that would take you past 10 is banked too, even outside a race.
 Quitting or restarting a race banks nothing you hold, and neither does a race
 lost to a DeathLink. Race fruit banks only in Adventure races; Arcade, Time
 Trial and Battle bank nothing. While racing, the HUD shows only this race's
-fruit. In a hub, a line below the relic, key and trophy counters shows your
-spendable fruit and the total banked over the whole seed, and the tracker's
+fruit. In a hub, a line below the relic, key and trophy counters reads
+`WUMPA <spendable fruit>  COLLECTED <total banked over the whole seed>`, and the tracker's
 hub map shows how many shop slots that hub has left, how many are on sale and
 how many you can afford.
 
-Each hub's save screen has a WUMPA SHOP row. The shop lists that hub's slots
-with their item, its owner and the price. Buying spends banked fruit and sends
+Each hub's save screen has a WUMPA SHOP row, the first in its menu. The shop
+lists that hub's slots with their item, its owner and the price; its header
+shows the same two numbers as `BALANCE` and `COLLECTED`. Every slot's price is
+drawn from its hub's range the same way, so the price says nothing about the
+item. Buying spends banked fruit and sends
 the check. Later slots go on sale once enough fruit has been banked over the
 whole seed; spending never takes that back. A slot that the server checks for
 you, for example after a Collect, shows SOLD and costs nothing. Buying needs a
 connection to the server. Any slot may hold any item, unless
 `wumpa_shop_progression` is `excluded`: then the shop holds no progression
-items. In logic a shop slot needs its hub and one finished race on a trophy
-track; prices and shelf unlocks are not in logic.
+items. In logic a shop slot needs its hub and a repeatable Trophy or CTR race
+that banks fruit. Higher prices and shelf unlocks also need later Keys: at the
+default `wumpa_shop_logic_scale: 100`, up to 100 fruit needs 0 Keys, 300 needs
+1, 600 needs 2, and 900 needs 3. Larger amounts, including 1200 and above,
+need all 4 Keys. This uses the higher of the price and lifetime shelf unlock,
+and the hub's own Key requirement still applies. Lower logic scale values
+expect less farming early; higher values allow more. This option changes
+placement and tracker logic independently of prices. You may still farm and
+buy before the logic expects it. Previously generated rooms keep their original
+shop logic.
 
 Wumpa Goal counts the fruit you banked over the whole seed. With N. Oxide in
 your goal, his garage also waits for that count, so beating him completes the
@@ -137,7 +155,8 @@ needs four different tracks of its own.
 With `in_pool` the seed may use Cortex Vortex on a warp pad or as a cup race, or
 not at all. With `own_pad` it is sure to get a pad. It takes no other content's
 checks with it. With Progressive Boost on, its finish checks need two Progressive
-Boosts.
+Boosts. Standalone races on its own pad are two laps; cup races follow the cup
+lap setting.
 
 ### Starting Roster
 
@@ -206,7 +225,7 @@ a Relic tier, a Gem colour, and the sums `AnyCtrToken`, `AnyRelic` and
 `AnyGem`. Counts are whole numbers from 1 up to what the seed has of that item.
 Pads you leave out keep the randomized rule, and a track or cup shuffled onto a
 pad takes that pad's rule. Your rules ignore Requirement Weights, only set the
-first requirement of a pad (Two-Stage Gate Density still adds the second), and
+first requirement of a pad (Pads With Two Requirements still adds the second), and
 are never changed to make a seed work: a rule that cannot work stops
 generation with an error that names the pad, the item and the count. The
 option needs randomized or random_without_4_keys unlock requirements, and

@@ -44,6 +44,7 @@ import sys
 import tempfile
 import threading
 import time
+import unicodedata
 import zipfile
 
 # The runtime folder is read-only to the runtime: never write .pyc files.
@@ -305,6 +306,22 @@ def _clean_doc(text: str | None) -> str:
     return inspect.cleandoc(text or "").strip()
 
 
+def _weight_rows(name: str):
+    """Number rows for a dict option the screen can edit (A3-22), or None.
+
+    Keys, labels and the per-key maximum come from the world's own trap
+    registry, never a hard-coded list, so a trap the world adds appears on
+    the screen without a change here."""
+    if name != "trap_weights":
+        return None
+    try:
+        from worlds.ctr import traps
+    except ImportError:
+        return None
+    return ([{"key": entry.key, "label": entry.name} for entry in traps.TRAP_REGISTRY],
+            traps.MAX_TRAP_WEIGHT)
+
+
 def describe_option(name: str, option) -> dict:
     import Options
     kind = _option_kind(option)
@@ -339,11 +356,16 @@ def describe_option(name: str, option) -> dict:
         keys = getattr(option, "valid_keys", None)
         if keys:
             entry["valid_keys"] = sorted(keys)
+        rows = _weight_rows(name) if kind == "dict" else None
+        if rows is not None:
+            entry["weight_rows"], entry["weight_max"] = rows
     return entry
 
 
-def _canonical(option, raw):
-    """The value the options screen shows: choice name, bool or int."""
+def _canonical(option, raw, order=()):
+    """The value the options screen shows: choice name, bool, int, for a
+    set its entries in checklist order (`order`), then any others sorted,
+    and for a dict the default table overlaid with the YAML's entries."""
     import Options
     value = option.from_any(raw)
     if isinstance(value, Options.Choice):
@@ -352,7 +374,49 @@ def _canonical(option, raw):
         return bool(value.value)
     if isinstance(value, Options.Range):
         return int(value.value)
+    if isinstance(value, Options.OptionSet):
+        entries = {str(entry) for entry in value.value}
+        return [key for key in order if key in entries] + sorted(entries - set(order))
+    if isinstance(value, Options.OptionDict):
+        # A dict option (trap weights): the full table, so every row has a
+        # number. A key the YAML leaves out keeps the option's default. An
+        # entry that is no whole number (a YAML date, NaN, a nested mapping)
+        # cannot be a row and is skipped: the row keeps the default, and
+        # generating the untouched YAML refuses the value by name.
+        merged = dict(option.default) if isinstance(option.default, dict) else {}
+        for key, val in (value.value or {}).items():
+            if isinstance(val, bool):
+                continue
+            try:
+                # A float that is no whole number (1.9, NaN, .inf) is skipped
+                # too, instead of truncating or raising into the fallback of
+                # the whole table.
+                if isinstance(val, float) and not val.is_integer():
+                    continue
+                merged[str(key)] = int(val)
+            except (TypeError, ValueError, OverflowError):
+                continue
+        return merged
     return None
+
+
+def _preview_unresolved(name: str, option, raw) -> bool:
+    """Distinguish AP expressions from concrete values named random_*.
+
+    OptionSet mappings are literal iterables of keys, not weighted choices.
+    Cup Tracks also has a documented deterministic `random` alias which its
+    from_text override handles before the generic Choice random expression.
+    """
+    import Options
+    if isinstance(raw, (dict, list)):
+        return bool(option.supports_weighting)
+    if not isinstance(raw, str) or not raw.strip().lower().startswith("random"):
+        return False
+    text = raw.strip().lower()
+    if issubclass(option, Options.Choice):
+        if text in option.options or (name == "cup_tracks" and text == "random"):
+            return False
+    return True
 
 
 def overlay_values(yaml_path: str | None, overlay: dict) -> dict:
@@ -365,19 +429,23 @@ def overlay_values(yaml_path: str | None, overlay: dict) -> dict:
         section = doc.get(GAME) or {}
         if not isinstance(section, dict):
             section = {}
+    from worlds.ctr.legacy_yaml import migrate_box_count
+    section = migrate_box_count(dict(section))
     values = {}
+    checklists = overlay.get("checklists", {})
     for group in overlay.get("groups", []):
         for name in group.get("options", []):
             option = hints.get(name)
             if option is None:
                 continue
+            order = [row[0] for row in checklists.get(name, [])]
             raw = section.get(name, option.default)
-            if isinstance(raw, dict) or (isinstance(raw, str) and raw.strip().lower().startswith("random")):
+            if _preview_unresolved(name, option, raw):
                 raw = option.default
             try:
-                values[name] = _canonical(option, raw)
+                values[name] = _canonical(option, raw, order)
             except Exception:
-                values[name] = _canonical(option, option.default)
+                values[name] = _canonical(option, option.default, order)
     return values
 
 
@@ -386,15 +454,34 @@ def describe(paths: Paths, yaml_path: str | None = None) -> dict:
     options = [describe_option(name, option)
                for name, option in cls.options_dataclass.type_hints.items()]
     overlay = load_overlay(paths)
+    doc = read_player_yaml(yaml_path) if yaml_path else {}
+    from worlds.ctr.legacy_yaml import migrate_box_count
+    section = migrate_box_count(dict(_section(doc)))
+    modified_at_roll = bool(doc.get("linked_options") or doc.get("triggers") or section.get("triggers"))
+    unresolved = []
+    for group in overlay.get("groups", []):
+        for name in group.get("options", []):
+            option = cls.options_dataclass.type_hints[name]
+            raw = section.get(name, option.default)
+            if modified_at_roll or _preview_unresolved(name, option, raw):
+                unresolved.append(name)
     return {"game": GAME, "world_version": world_version(), "ap_version": ap_version(),
             "options": options, "overlay": overlay, "presets": list_presets(paths),
-            "values": overlay_values(yaml_path, overlay)}
+            "values": overlay_values(yaml_path, overlay), "unresolved": unresolved}
 
 
 def load_overlay(paths: Paths) -> dict:
     if not os.path.isfile(paths.overlay):
         return {}
-    return read_json(paths.overlay)
+    overlay = read_json(paths.overlay)
+    # Hint names come from the loaded world, including its registered custom
+    # names. Keep the existing checklist protocol used by the client.
+    cls = world_class()
+    for name, registry in (("start_hints", cls.item_name_to_id),
+                           ("start_location_hints", cls.location_name_to_id)):
+        if name in overlay.get("checklists", {}):
+            overlay["checklists"][name] = [[key] for key in sorted(registry)]
+    return overlay
 
 
 # ---------------------------------------------------------------------------
@@ -452,8 +539,9 @@ def read_player_yaml(path: str) -> dict:
 
 
 def apply_overrides(doc: dict, name: str | None, settings: list[str]) -> dict:
+    import copy
     import yaml
-    doc = json.loads(json.dumps(doc))  # deep copy, plain types only
+    doc = copy.deepcopy(doc)  # unknown keys may contain YAML dates or sets
     if name:
         doc["name"] = name
     section = doc.setdefault(GAME, {})
@@ -466,6 +554,8 @@ def apply_overrides(doc: dict, name: str | None, settings: list[str]) -> dict:
         if not sep or key not in known:
             raise SoloError("option", f"Unknown option {key!r}.", option=key)
         section[key] = yaml.safe_load(raw)
+        if key == "item_box_count":
+            section.pop("box_locations", None)
     return doc
 
 
@@ -623,6 +713,7 @@ def prepare_yaml(paths: Paths, source: str, name: str | None, settings: list[str
     """Read and override a YAML, add picked custom tracks, write the exact
     input to a temp file."""
     doc = read_player_yaml(source)
+    original = doc
     doc = apply_overrides(doc, name, settings)
     if tracks:
         doc = apply_tracks(paths, doc, tracks["assets"], tracks["picked"], tracks["guaranteed"], tracks["page"])
@@ -632,7 +723,11 @@ def prepare_yaml(paths: Paths, source: str, name: str | None, settings: list[str
         doc = stamp_requires(doc)  # a bundled preset is always this client's own YAML
     fd, tmp = tempfile.mkstemp(prefix="player-", suffix=".yaml", dir=paths.tmp)
     os.close(fd)
-    dump_yaml(doc, tmp)
+    if doc == original:
+        # Preserve even comments and spelling when the screen changed nothing.
+        shutil.copyfile(source, tmp)
+    else:
+        dump_yaml(doc, tmp)
     return doc, tmp
 
 
@@ -866,6 +961,13 @@ def list_all(paths: Paths) -> dict:
 #: may drop one in too (for example a descriptor exported from AP-Pie).
 DESCRIPTOR_MAX_BYTES = 64 * 1024
 TRACK_FILE_SUFFIX = {"lev": ".lev", "vrm": ".vrm"}
+PACKAGE_RESERVED_NAMES = {"con", "prn", "aux", "nul"} | {f"com{i}" for i in range(1, 10)} | {f"lpt{i}" for i in range(1, 10)}
+# Keep these schema-1 limits in step with native_custom_package.cpp. The
+# accepted/rejected cases in test/fixtures/package-manifests.json exercise both.
+PACKAGE_ROLE_LIMITS = {"lev": 16*1024*1024, "vrm": 4*1024*1024,
+                       "navigation": 16*1024*1024, "ap_boxes": 4*1024*1024,
+                       "ctr_letters": 1024*1024, "relic_targets": 1024*1024,
+                       "presentation": 4*1024*1024, "race_settings": 4096, "sca": 1024*1024}
 
 
 def _world_module(name: str):
@@ -875,11 +977,11 @@ def _world_module(name: str):
     return importlib.import_module(f"{module.__package__ or module.__name__}.{name}")
 
 
-#: A room.json is small (room facts and at most 32 descriptors).
+#: A room.json is small (room facts and at most 132 descriptors).
 ROOM_META_MAX_BYTES = 4 * 1024 * 1024
 
 
-def _small_json(path: str, limit: int, inside: str):
+def _small_json(path: str, limit: int, inside: str, unique_keys: bool = False):
     """A plain JSON file inside `inside`, at most `limit` bytes, or None. The
     files are player-writable: a link, a huge file or bad bytes is skipped."""
     try:
@@ -894,7 +996,14 @@ def _small_json(path: str, limit: int, inside: str):
             data = handle.read(limit + 1)
         if len(data) > limit:
             return None
-        return json.loads(data.decode("utf-8"))
+        def unique(pairs):
+            result = {}
+            for key, value in pairs:
+                if key in result:
+                    raise ValueError("duplicate JSON key")
+                result[key] = value
+            return result
+        return json.loads(data.decode("utf-8"), object_pairs_hook=unique if unique_keys else None)
     except (OSError, ValueError, RecursionError):  # UnicodeDecodeError is a ValueError
         return None
 
@@ -938,9 +1047,126 @@ def _pinned_file(folders: list, pin: dict) -> str | None:
     return None
 
 
+def _manifest_schema_valid(manifest: object, pin: str) -> bool:
+    """Mirror CustomPackage_ParseManifest's schema-1 admission and pin rule."""
+    def fields(value, names):
+        return isinstance(value, dict) and value.keys() == names
+
+    def text(value, limit):
+        return isinstance(value, str) and 0 < len(value.encode("utf-8")) <= limit and all(
+            ord(c) >= 32 and ord(c) != 127 for c in value)
+
+    def integer(value, limit):
+        return type(value) is int and 1 <= value <= limit
+
+    try:
+        if not fields(manifest, {"schema_version", "package_uuid", "version", "title", "files", "compatibility"}):
+            return False
+        if not integer(manifest["schema_version"], 65535) or manifest["schema_version"] != 1:
+            return False
+        uuid, version, title = manifest["package_uuid"], manifest["version"], manifest["title"]
+        if not text(uuid, 36) or not re.fullmatch(r"[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}", uuid) or uuid == "00000000-0000-0000-0000-000000000000":
+            return False
+        if not text(version, 64) or not re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?", version):
+            return False
+        # SemVer numeric prerelease identifiers cannot have leading zeroes.
+        prerelease = version.split("+", 1)[0].partition("-")[2]
+        if any(not part or (part.isascii() and part.isdigit() and len(part) > 1 and part[0] == "0")
+               for part in prerelease.split(".")) if prerelease else False:
+            return False
+        if "+" in version and any(not part for part in version.split("+", 1)[1].split(".")):
+            return False
+        if (not text(title, 640) or len(title) > 160 or unicodedata.normalize("NFC", title) != title or
+                any(unicodedata.category(c).startswith("C") for c in title) or title[0].isspace() or title[-1].isspace()):
+            return False
+        compatibility = manifest["compatibility"]
+        if not fields(compatibility, {"native_contract", "apworld_contract"}) or any(
+                not integer(compatibility[k], 65535) or compatibility[k] != 1 for k in compatibility):
+            return False
+        files = manifest["files"]
+        if not isinstance(files, list) or not 2 <= len(files) <= 32:
+            return False
+        roles, paths = set(), set()
+        for entry in files:
+            if not fields(entry, {"role", "path", "sha256", "bytes"}):
+                return False
+            role, path, sha, size = (entry[k] for k in ("role", "path", "sha256", "bytes"))
+            if not text(role, 23) or role not in PACKAGE_ROLE_LIMITS or role in roles or not integer(size, PACKAGE_ROLE_LIMITS[role]):
+                return False
+            if not text(path, 240) or path.lower() == "manifest.json" or path.lower().startswith("manifest.json/"):
+                return False
+            parts = path.split("/")
+            if any(not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,95}", part) or part.endswith(".") or
+                   part.split(".")[0].lower() in PACKAGE_RESERVED_NAMES for part in parts):
+                return False
+            folded = path.lower()
+            if any(folded == other or folded.startswith(other + "/") or other.startswith(folded + "/") for other in paths):
+                return False
+            if not text(sha, 64) or not re.fullmatch(r"[0-9a-f]{64}", sha):
+                return False
+            roles.add(role)
+            paths.add(folded)
+        if not {"lev", "vrm"} <= roles:
+            return False
+        canonical = dict(manifest)
+        canonical["files"] = sorted(files, key=lambda f: (f["role"], f["path"]))
+        digest = hashlib.sha256(json.dumps(canonical, sort_keys=True, separators=(",", ":"),
+                                           ensure_ascii=False).encode("utf-8")).hexdigest()
+        return digest == pin
+    except (KeyError, TypeError, ValueError, UnicodeError):
+        return False
+
+
+def _shared_package_folder(tracks_root: str, descriptor: dict) -> str | None:
+    """Find one installed revision whose manifest and every named file match."""
+    store = os.path.join(tracks_root, "packages")
+    try:
+        names = sorted(os.listdir(store))
+    except OSError:
+        return None
+    wanted = {(pin["role"], pin["sha256"], pin["bytes"]) for pin in descriptor["files"]}
+    for name in names[:1024]:
+        if len(name) != 64 or any(c not in "0123456789abcdef" for c in name):
+            continue
+        folder = os.path.join(store, name)
+        if os.path.islink(folder):
+            continue
+        manifest = _small_json(os.path.join(folder, "manifest.json"), DESCRIPTOR_MAX_BYTES, store, unique_keys=True)
+        if not isinstance(manifest, dict) or manifest.get("version") != descriptor["revision"]:
+            continue
+        if not _manifest_schema_valid(manifest, name):
+            continue
+        files = manifest.get("files")
+        pinned = {(f.get("role"), f.get("sha256"), f.get("bytes")): f.get("path")
+                  for f in files if isinstance(f, dict) and isinstance(f.get("role"), str)
+                  and isinstance(f.get("sha256"), str) and type(f.get("bytes")) is int}
+        if not wanted <= pinned.keys():
+            continue
+        try:
+            for entry in files:
+                if not isinstance(entry, dict) or not isinstance(entry.get("path"), str) or not isinstance(entry.get("sha256"), str) or type(entry.get("bytes")) is not int:
+                    raise ValueError("invalid manifest file")
+                path = entry["path"]
+                parts = path.split("/")
+                if len(path) > 240 or path.lower() == "manifest.json" or path.lower().startswith("manifest.json/") or any(
+                        not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,95}", part) or part.endswith(".") or
+                        part.split(".")[0].lower() in PACKAGE_RESERVED_NAMES for part in parts):
+                    raise ValueError("unsafe manifest path")
+                current = folder
+                for part in parts:
+                    current = os.path.join(current, part)
+                    if os.path.islink(current):
+                        raise ValueError("linked manifest path")
+                if not os.path.isfile(current) or os.path.getsize(current) != entry["bytes"] or sha256_file(current) != entry["sha256"]:
+                    raise ValueError("manifest file mismatch")
+            return folder
+        except (OSError, ValueError):
+            continue
+    return None
+
+
 def installed_tracks(paths: Paths, assets: str) -> list:
-    """Admitted descriptors whose LEV and VRM are in assets/tracks/<track key>/original
-    (or the folder the client keeps a built-in package in), one per package id."""
+    """Admitted revisions resolved from the shared store or legacy room folders."""
     admit = _world_module("custom_packages").admit
     supported = _world_module("content_plan").supported_modes
     tracks_root = os.path.join(assets, "tracks")
@@ -955,13 +1181,17 @@ def installed_tracks(paths: Paths, assets: str) -> list:
         key, revision = descriptor["content_id"], descriptor["revision"]
         folders = [os.path.join(tracks_root, key, "original"),
                    os.path.join(tracks_root, f"{key}-{revision}", "original")]
-        if not all(_pinned_file(folders, pin) for pin in descriptor["files"]):
+        shared = _shared_package_folder(tracks_root, descriptor)
+        if shared is None and not all(_pinned_file(folders, pin) for pin in descriptor["files"]):
             continue
         seen.add(descriptor["id"])
+        modes = supported("custom", descriptor)
         result.append({"id": descriptor["id"], "track_id": f"custom/{key}/{revision}", "content_id": key,
                        "revision": revision, "display_name": descriptor["display_name"],
                        "author": descriptor["author"], "laps": descriptor["laps"],
-                       "modes": supported("custom", descriptor), "source": source, "descriptor": descriptor})
+                       "modes": modes, "race_modes": modes + (["time_trial"] if descriptor["capabilities"]["time_trial"] else []),
+                       "time_trial": descriptor["capabilities"]["time_trial"], "seed_usable": bool(modes),
+                       "source": source, "descriptor": descriptor})
     result.sort(key=lambda t: (t["display_name"].lower(), t["revision"]))
     return result
 
@@ -984,8 +1214,14 @@ def list_tracks(paths: Paths, assets: str, yaml_path: str | None = None) -> dict
             for t in tracks]
     cortex = _cortex_pick(section)
     if cortex or _cortex_installed(assets):
+        # A downloaded Cortex Vortex is the same track as the bundled one: the page
+        # shows one Cortex Vortex row, which starts as the YAML has either copy.
+        copies = [row for row in rows if row["content_id"] == CORTEX_ID]
+        rows = [row for row in rows if row["content_id"] != CORTEX_ID]
+        cortex = max([cortex] + [row["start"] for row in copies])
         rows.insert(0, {"id": CORTEX_ID, "display_name": "Cortex Vortex", "revision": "", "author": "",
-                        "modes": ["trophy", "ctr", "relic"], "source": "built-in", "start": cortex})
+                        "modes": ["trophy", "ctr", "relic"], "race_modes": ["trophy", "ctr", "relic", "time_trial"],
+                        "time_trial": True, "seed_usable": True, "source": "built-in", "start": cortex})
     return {"tracks": rows, "tracks_path": paths.tracks}
 
 
@@ -994,9 +1230,22 @@ def _section(doc: dict | None) -> dict:
     return section if isinstance(section, dict) else {}
 
 
+def _pins(descriptor: dict) -> list:
+    files = descriptor.get("files")
+    return sorted((pin.get("role"), pin.get("sha256"), pin.get("bytes")) for pin in files
+                  if isinstance(pin, dict)) if isinstance(files, list) else []
+
+
+def _same_package(listed, descriptor: dict) -> bool:
+    """A YAML's entry for this installed package: the same id and files. The rest
+    of a descriptor, such as its author, does not name another package."""
+    return (isinstance(listed, dict) and listed.get("id") == descriptor["id"]
+            and _pins(listed) == _pins(descriptor))
+
+
 def _start_pick(section: dict, descriptor: dict) -> int:
     """How a YAML already has a custom track: 0 off, PICK_POOL or PICK_OWN_PAD."""
-    if descriptor not in _custom_tracks({GAME: section}):
+    if not any(_same_package(listed, descriptor) for listed in _custom_tracks({GAME: section})):
         return 0
     required = section.get("required_entries")
     names = {descriptor["content_id"], descriptor["display_name"]}
@@ -1023,11 +1272,18 @@ def apply_tracks(paths: Paths, doc: dict, assets: str, picked: list[str], guaran
     missing = [p for p in packages if p not in by_id]
     if missing:
         raise SoloError("track", f"This track is no longer installed: {missing[0]}", track=missing[0])
+    unusable = next((p for p in packages if not by_id[p]["seed_usable"]), None)
+    if unusable:
+        raise SoloError("track", f"{by_id[unusable]['display_name']} supports Time Trial only and cannot use an Adventure pad.", track=unusable)
     keys = [by_id[p]["content_id"] for p in packages]
+    if CORTEX_ID in keys and CORTEX_ID in picked:
+        raise SoloError("track", "Pick one Cortex Vortex: the one that comes with CTR AP is already picked.",
+                        track=packages[keys.index(CORTEX_ID)])
     twice = next((p for p in packages if keys.count(by_id[p]["content_id"]) > 1), None)
     if twice:
         raise SoloError("track", f"Pick one version of {by_id[twice]['display_name']}.", track=twice)
-    doc = json.loads(json.dumps(doc))
+    import copy
+    doc = copy.deepcopy(doc)
     section = doc.setdefault(GAME, {})
     start = _cortex_pick(section)
     cortex = PICK_OWN_PAD if CORTEX_ID in guaranteed else PICK_POOL if CORTEX_ID in picked else 0
@@ -1039,29 +1295,29 @@ def apply_tracks(paths: Paths, doc: dict, assets: str, picked: list[str], guaran
         custom = []
     if not isinstance(custom, list) or not isinstance(required, list):
         return doc  # the world refuses these with its own message
-    if page:  # a row the page showed leaves the YAML as the player set it
-        for entry in by_id.values():
-            if entry["id"] not in picked and entry["descriptor"] in custom:
-                custom.remove(entry["descriptor"])
-            if entry["id"] not in guaranteed:
-                names = (entry["content_id"], entry["display_name"])
-                required[:] = [name for name in required if name not in names]
     # A YAML that already lists a picked track must list exactly the installed
     # one: another version or other file pins is a conflict, refused rather
-    # than guessed at (round 2 decision 5). The same descriptor is not added
+    # than guessed at (round 2 decision 5). The same package is not added
     # twice, and a guarantee the YAML already has is not repeated.
     for track_id in packages:
-        key = by_id[track_id]["content_id"]
-        other = next((d for d in custom if isinstance(d, dict) and d.get("content_id") == key
-                      and d != by_id[track_id]["descriptor"]), None)
+        descriptor = by_id[track_id]["descriptor"]
+        other = next((d for d in custom if isinstance(d, dict) and d.get("content_id") == descriptor["content_id"]
+                      and not _same_package(d, descriptor)), None)
         if other is not None:
             raise SoloError("track", f"This YAML already lists {by_id[track_id]['display_name']} "
                             f"(version {other.get('revision', '?')}) differently from the installed version "
                             f"{by_id[track_id]['revision']}. Remove it from the YAML or leave the track off.",
                             track=track_id)
+    if page:  # a row the page showed leaves the YAML as the player set it
+        for entry in by_id.values():
+            if entry["id"] not in picked:
+                custom[:] = [d for d in custom if not _same_package(d, entry["descriptor"])]
+            if entry["id"] not in guaranteed:
+                names = (entry["content_id"], entry["display_name"])
+                required[:] = [name for name in required if name not in names]
     for track_id in packages:
         descriptor = by_id[track_id]["descriptor"]
-        if descriptor not in custom:
+        if not any(_same_package(d, descriptor) for d in custom):
             custom.append(descriptor)
     for track_id in guaranteed:
         if track_id == CORTEX_ID:
@@ -1381,7 +1637,7 @@ def _serve_locked(paths: Paths, room: str, room_id: str, meta: dict, game_pid: i
 
     room_file = room_file_path(room, meta)
     save_file = os.path.splitext(room_file)[0] + ".apsave"
-    password = password or secrets.token_hex(12)
+    password = password or None
 
     log = logging.getLogger()
     log.setLevel(logging.INFO)
@@ -1399,8 +1655,8 @@ def _serve_locked(paths: Paths, room: str, room_id: str, meta: dict, game_pid: i
     log.info("solo serve: room %s, save %s", room_id, save_state)
     load_save(ctx, save_file)
     # The room's embedded server options and a loaded save both set the
-    # passwords. A solo server always uses this session's password and has
-    # no admin password.
+    # passwords. Use only an explicitly requested session password; by
+    # default the loopback-only solo server has no password or admin password.
     ctx.password = password
     ctx.server_password = None
     # Save on every check batch, so a crash cannot lose a check.
@@ -1439,7 +1695,7 @@ def _serve_locked(paths: Paths, room: str, room_id: str, meta: dict, game_pid: i
         write_json_atomic(os.path.join(room, "session.lock"),
                           {"pid": os.getpid(), "port": port, "seed_name": ctx.seed_name,
                            "started": time.strftime("%Y-%m-%dT%H:%M:%S%z")})
-        emit("ready", port=port, password=password, seed_name=ctx.seed_name, slot=meta.get("slot"),
+        emit("ready", port=port, password=password or "", seed_name=ctx.seed_name, slot=meta.get("slot"),
              room_id=room_id)
         loop = asyncio.get_running_loop()
         lines: asyncio.Queue = asyncio.Queue()
@@ -1510,6 +1766,7 @@ def build_parser() -> argparse.ArgumentParser:
         cmd.add_argument("--yaml", required=True)
         cmd.add_argument("--name", default=None)
         cmd.add_argument("--set", action="append", default=[], metavar="OPTION=VALUE")
+        cmd.add_argument("--set-file", default=None, help="JSON list of OPTION=VALUE overrides")
         cmd.add_argument("--stamp-requires", action="store_true",
                          help="add requires: for a YAML this client wrote (presets, options screen)")
         cmd.add_argument("--assets", default=None, help="the client's assets folder (default <client>/assets)")
@@ -1557,6 +1814,11 @@ def main(argv: list[str] | None = None) -> int:
             clear_tmp(paths)
         bootstrap_core(paths, load_worlds=True)
         assets = os.path.abspath(getattr(args, "assets", None) or os.path.join(client, "assets"))
+        if args.command in ("validate", "generate") and args.set_file:
+            settings = read_json(args.set_file)
+            if not isinstance(settings, list) or not all(isinstance(s, str) for s in settings):
+                raise SoloError("option", "The options file must contain a list of overrides.")
+            args.set.extend(settings)
         tracks = ({"assets": assets, "picked": args.track, "guaranteed": args.guarantee,
                    "page": args.tracks_page}
                   if args.command in ("validate", "generate") else None)

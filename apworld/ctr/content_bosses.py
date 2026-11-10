@@ -39,7 +39,9 @@ his boss race on every leg; a points win completes the garage's encounter
 says. The legs are four different tracks of the garage's certified venue
 pool (the retail venues that carry its attack schedule, and the plan's
 certified custom tracks and Cortex Vortex as for Boss Track Shuffle), three
-laps each. Its check's boost is the strictest of its legs' boss win rules. Venue tracks are plan
+laps each, or one each with `one_lap_cups` (A3-6, ruled 2026-11-06: a boss
+cup follows the same lap setting as other cups; a boss leg's own laps are
+three, so it shortens to max(1, 3 // 2)). Its check's boost is the strictest of its legs' boss win rules. Venue tracks are plan
 tracks; a venue raced nowhere else lists the trophy mode only, like a track
 raced only in cups.
 
@@ -51,9 +53,9 @@ garage pad, award `win`). Its `boost` with Progressive Boost on is the legacy
 boss win rule (Rules.add_boss_garage_rules, add_oxide_access_contract): the
 first rank, and the venue's finish rank (content_capability.finish_boost,
 USF on Hot Air Skyway, Cortex Castle, Cortex Vortex and Oxide Station unless
-Shortcut Knowledge is hard). No Reach 10 Wumpa, podium, letter or Item Box
-route comes from a boss race, the same as cup legs since PR 5: the logic is
-stricter than the runtime there, never looser.
+Shortcut Knowledge is hard). A boss race is a route of its venue's Reach 10
+Wumpa check (content_race_routes, row 10i) and of its Complete One Lap check
+(content_laps); no podium, letter or Item Box route comes from a boss race.
 
 REQUIREMENTS. The garage pad takes its hub's Key gate (`keys:<g>`, Ripper
 Roo's `free`; the Oxide garage `keys:4`, its fixed door) once it holds an
@@ -68,7 +70,9 @@ unchanged. The encounter's own requirement:
     `very_high`, `chaotic`) and the garage's depth (`garage_band`); a family
     an earlier garage took is rerolled once (variety bias). Keys ask more
     than the garage's own hub Key gate and at most three. Vanilla pad
-    requirements ask 4, 8, 12 and 16 Trophies instead (one generator row 3).
+    requirements ask 4, 8, 12 and 16 Trophies instead (one generator row 3),
+    as far as the seed has Trophies, and open free (`always`) in a seed with
+    none (row 10i).
     Native validates the shape and the base supply, it does not redraw
     (`check_garage_requirement`);
   * N. Oxide's Challenge: `free`, or `oxide:first` with the goal's companion
@@ -99,6 +103,7 @@ from Options import OptionError
 from . import boss_track_shuffle, content_item_pool, destinations, logic_terms
 from .content_capability import finish_boost
 from .Locations import CTR_LOCATION_IDS
+from .Options import final_chaos
 from .content_cups import LEG_RETAIL_IDS
 from .usf_finish import FIRST_BOOST_COUNT
 
@@ -134,6 +139,8 @@ RECORD_KEYS = ("oxide_goal", "bosses_required", "oxide_1_optional", "oxide_final
 CUP_KIND = "boss_cup"
 CUP_MODE = "boss_cup"
 CUP_LEGS = 4
+#: A boss cup leg's laps with `one_lap_cups` (A3-6): the cup rule on LAPS.
+SHORT_LAPS = max(1, LAPS // 2)
 KINDS = (KIND, CUP_KIND)
 MODES = (MODE, CUP_MODE)
 #: garage_requirement_level (2026-09-01 Wayfinder ruling C3a).
@@ -213,14 +220,21 @@ def settings(world):
                   oxide_final_count=int(o.oxide_final_challenge_relic_count.value) if oxide else SINGLE_TIER_MAX,
                   track_shuffle=shuffle, repeats=False)
     record.update(encounter_settings(world, oxide))
+    # The chaos Final Challenge needs the race it changes; off is no key, so
+    # every other plan keeps its wire.
+    if oxide and final_chaos(o.oxide_final_track):
+        record[CHAOS_KEY] = True
     return record
 
 
 def check_settings(record):
     """Shape and values of a plan's `bosses` record."""
-    if not isinstance(record, dict) or set(record) not in (set(RECORD_KEYS), set(RECORD_KEYS + ENCOUNTER_KEYS)):
+    if not isinstance(record, dict) or set(record) - {CHAOS_KEY} not in (set(RECORD_KEYS), set(RECORD_KEYS + ENCOUNTER_KEYS)):
         error("bosses must be a mapping of exactly " + ", ".join(RECORD_KEYS) + ", plus "
-              + ", ".join(ENCOUNTER_KEYS) + " together when an opponent, kit or N. Oxide profile is drawn.")
+              + ", ".join(ENCOUNTER_KEYS) + " together when an opponent, kit or N. Oxide profile is drawn, plus "
+              + CHAOS_KEY + " on a chaos Final Challenge.")
+    if CHAOS_KEY in record and (record[CHAOS_KEY] is not True or record["oxide_goal"] == GOAL_DISABLED):
+        error("bosses.final_chaos is true when present, and needs N. Oxide's races (oxide_goal not disabled).")
     goal, bosses = record["oxide_goal"], record["bosses_required"]
     unlock, count = record["oxide_final_unlock"], record["oxide_final_count"]
     if type(goal) is not int or goal not in (GOAL_NONE, GOAL_ANY, GOAL_FINAL, GOAL_DISABLED):
@@ -412,6 +426,10 @@ def garage_options(by_name, garage, level):
     return [(label, names, weight / size[kind], lo, hi) for label, names, weight, lo, hi, kind in out]
 
 
+#: A vanilla garage's requirement in a seed without base Trophies.
+FREE_GARAGE = dict(op="always")
+
+
 def _predicate(by_name, names, count):
     if len(names) == 1:
         return dict(op="count", item=by_name[names[0]].item, count=count)
@@ -425,10 +443,11 @@ def draw_requirements(world, record, rows, vanilla=False):
     ask the Trophy table instead, as far as the seed has Trophies."""
     by_name = {row.name: row for row in rows}
     if vanilla:
+        # The Trophies that exist; a seed with none opens the garages free
+        # (Rulebook "Entering a boss garage" item 3, ruled 2026-10-30).
         supply = by_name["Trophy"].requirement_ceiling
         if not supply:
-            error("vanilla pad requirements ask Trophies at the boss garages, but the item pool holds no base "
-                  "Trophies. No content was changed.")
+            return {g: dict(FREE_GARAGE) for g in range(4)}
         return {g: _predicate(by_name, ("Trophy",), min(count, supply)) for g, count in enumerate(VANILLA_TROPHIES)}
     out, used = {}, set()
     for g in range(4):
@@ -455,6 +474,10 @@ def check_garage_requirement(predicate, rows, garage, mode=None):
     from . import warp_pad_rules
     ceiling = _ceilings(rows)
     items = content_item_pool.ITEMS
+    if mode == "vanilla" and not ceiling.get(items["Trophy"], 0):
+        if predicate != FREE_GARAGE:
+            error(f"garage {garage}: vanilla pad requirements open the garages free in a seed without Trophies")
+        return
     if not isinstance(predicate, dict) or predicate.get("op") not in ("count", "sum"):
         error(f"garage {garage}: a boss garage requirement is one item count or one family sum")
     count = predicate.get("count")
@@ -604,8 +627,33 @@ def encounter_rows(record, venues, final_track):
     return rows
 
 
+def cup_leg_laps(shortened):
+    """The laps of every boss cup leg: LAPS, or SHORT_LAPS with `one_lap_cups`."""
+    return SHORT_LAPS if shortened else LAPS
+
+
+def plan_shortened(plan):
+    """The plan-wide `one_lap_cups` switch its cup legs show: True, False, or
+    None when no leg tells. The plan has no envelope key; the legs carry it.
+    An ordinary cup leg tells when its track's laps shorten at all
+    (content_cups.leg_laps); a boss cup leg always tells (LAPS or SHORT_LAPS).
+    Legs that disagree are refused. A leg with other laps is left to the
+    entry checks."""
+    tracks = {t["id"]: t for t in plan["tracks"]}
+    seen = set()
+    for entry in plan["entries"]:
+        for leg in entry.get("legs", ()):
+            full = LAPS if entry.get("kind") == CUP_KIND else tracks[leg["track_id"]]["laps"]
+            short = max(1, full // 2)
+            if full != short and leg["laps"] in (full, short):
+                seen.add(leg["laps"] == short)
+    if len(seen) > 1:
+        error("cup legs shorten their laps in some legs and not in others")
+    return seen.pop() if seen else None
+
+
 def build(record, venues, final_track, rows, gem_term, capability, track_records, garage_reqs, cups=None,
-          opponents=None, mode=None):
+          opponents=None, mode=None, packages=None, shortened=False):
     """(encounters, entries, requirements, checks) of a `bosses` record.
 
     `venues` maps ordinary garages to track names, `final_track` is the Final
@@ -616,8 +664,12 @@ def build(record, venues, final_track, rows, gem_term, capability, track_records
     `cups` {garage: [leg venue]} of the garages holding a boss cup.
     `opponents` {garage: (engine id, schedule or None)} is the drawn racer
     and composed kit of each garage (OXIDE_GARAGE for both N. Oxide races,
-    job J11); None keeps the retail opponents and their inherited attacks."""
+    job J11); None keeps the retail opponents and their inherited attacks.
+    `packages` {package id: descriptor} lets a custom venue's finish rank read
+    its package (measured super turbo pads and the per-package rulings, A2-22).
+    `shortened` is `one_lap_cups`: boss cup legs race SHORT_LAPS (A3-6)."""
     cups = cups or {}
+    packages = packages or {}
     encounters, entries, requirements, checks = [], [], [], []
     companions = companion_terms(record, gem_term)
     for g, index, venue, opponent, code in encounter_rows(record, venues, final_track):
@@ -641,7 +693,8 @@ def build(record, venues, final_track, rows, gem_term, capability, track_records
         if cup:
             leg_ids = [track_id_of(leg) for leg in cups[g]]
             entries.append(dict(id=nid, kind=CUP_KIND,
-                                legs=[dict(id=f"{nid}/leg:{n}", track_id=tid, laps=LAPS) for n, tid in enumerate(leg_ids)],
+                                legs=[dict(id=f"{nid}/leg:{n}", track_id=tid, laps=cup_leg_laps(shortened))
+                                      for n, tid in enumerate(leg_ids)],
                                 opponent=opponent_record))
         else:
             leg_ids = [track_id_of(venue)]
@@ -652,7 +705,9 @@ def build(record, venues, final_track, rows, gem_term, capability, track_records
                      routes=[dict(entry_id=nid, mode=CUP_MODE if cup else MODE, leg_id=None, encounter_id=eid,
                                   own_pad_id=f"garage:{g}", award=AWARD)])
         if capability and capability.get("boost_mode"):
-            check["boost"] = max([FIRST_BOOST_COUNT] + [finish_boost(track_records[tid], capability) for tid in leg_ids])
+            check["boost"] = max([FIRST_BOOST_COUNT] + [
+                finish_boost(track_records[tid], capability, packages.get(track_records[tid].get("package_id")))
+                for tid in leg_ids])
         checks.append(check)
     return encounters, entries, requirements, checks
 
@@ -815,7 +870,12 @@ def restore_options(world, plan):
     venues, final, _cups = plan_venues(plan)
     o._boss_track_venues = {_venue_key(g): name for g, name in venues.items()}
     if final is not None:
-        o.oxide_final_track.value = 0 if final == destinations.CORTEX_VORTEX else 1
+        cortex = final == destinations.CORTEX_VORTEX
+        if record.get(CHAOS_KEY):
+            o.oxide_final_track.value = o.oxide_final_track.option_vortex_chaos if cortex \
+                else o.oxide_final_track.option_vanilla_chaos
+        else:
+            o.oxide_final_track.value = 0 if cortex else 1
 
 
 def expected(plan, retail, cortex):
@@ -846,7 +906,7 @@ def expected(plan, retail, cortex):
     built = build(record, venues, final, plan["items"]["rows"], gem, plan.get("capability", {}),
                   {tid: known.get(tid, venue) for tid, venue in tracks.items()},
                   {g: own.get(f"boss:{g}") for g in range(4)}, cups, opponents,
-                  plan.get("pad_requirements", {}).get("mode"))
+                  plan.get("pad_requirements", {}).get("mode"), packages, bool(plan_shortened(plan)))
     return built + (tracks,)
 
 
@@ -893,6 +953,14 @@ def expected(plan, retail, cortex):
 # retail race track certified for that garage carries no attack.
 
 OPPONENT_FEATURE = "boss_opponents_v1"
+#: The chaos Final Challenge (ruled 2026-10-30): `oxide_final_track`
+#: vanilla_chaos or vortex_chaos. The record gains `final_chaos: true` and
+#: nothing else: native seats the four garage racers and the final racer in one
+#: race on the final encounter's own attack schedule, so the check, the goal,
+#: the Hit identities and the draws stay as they are. N. Oxide's Challenge is
+#: not touched.
+CHAOS_FEATURE = "final_chaos_v1"
+CHAOS_KEY = "final_chaos"
 ENCOUNTER_KEYS = ("opponent_shuffle", "oxide_in_pool", "kit_shuffle", "gauntlet", "kit", "oxide_attack_profile",
                   "track_assignment")
 ATTACK_COMPOSED = "composed"
@@ -1246,14 +1314,33 @@ def identity(plan):
     return out
 
 
+def seats(plan):
+    """`identity` for the unlock triggers: who a boss win code actually seats.
+
+    With random bosses (an identity that differs from the retail one) a code
+    the plan races nowhere seats nobody (-1), so N. Oxide with `oxide_goal:
+    disabled` swaps slots like any original boss raced nowhere and races from
+    the start (ruled 2026-10-30: the fixed Key fallback goes on seeds with
+    random bosses). Retail bosses keep the retail table and its Keys. The
+    wire's `bosses` table stays `identity`."""
+    from .hit_character import BOSS_WIN_OPPONENTS
+    out = identity(plan)
+    if out == dict(BOSS_WIN_OPPONENTS):
+        return out
+    raced = {enc["completion_location"] for enc in plan["encounters"]}
+    return {code: (cid if code in raced else -1) for code, cid in out.items()}
+
+
 def spoiler_lines(plan):
     """The drawn encounters for the spoiler, as the ordinary room writes them;
     () without drawn encounters."""
     record = plan.get("bosses")
-    if not drawn(record):
-        return ()
+    chaos = chaos_lineup(plan)
     be = _be()
     by_id = _pool_by_id()
+    chaos_line = ("Final Challenge: chaos race against " + ", ".join(by_id[cid] for cid in chaos),) if chaos else ()
+    if not drawn(record):
+        return chaos_line
     entries = {e["id"]: e for e in plan["entries"]}
     tracks = {t["id"]: t for t in plan["tracks"]}
     lines = []
@@ -1274,7 +1361,18 @@ def spoiler_lines(plan):
     if record["gauntlet"]:
         racers = [by_id[entries[enc["entry_id"]]["opponent"]["character_id"]] for enc in plan["encounters"][:4]]
         lines.append(f"{be.PURPLE_CUP}: boss gauntlet, leg attackers " + ", ".join(racers))
-    return tuple(lines)
+    return tuple(lines) + chaos_line
+
+
+def chaos_lineup(plan):
+    """The chaos Final Challenge's five rivals as engine ids, the final racer
+    first (native seats it where a boss race seats its opponent), then the
+    four garages in order; () without the chaos record."""
+    record = plan.get("bosses")
+    if not record or not record.get(CHAOS_KEY):
+        return ()
+    table = identity(plan)
+    return (table[OXIDE_FINAL],) + tuple(table[code] for code in BOSS_CODES)
 
 
 def restore_encounter_options(o, record):

@@ -11,10 +11,11 @@ import json
 import pkgutil
 import unittest
 
-from test.general import setup_multiworld, gen_steps
+from test.general import gen_steps
+from . import setup_multiworld
 
 from .. import ctrAPWorld, traps
-from ..cup_checks import CUP_NAMES, GEM_CUPS
+from ..cup_checks import CUP_NAMES, CUP_NAMES_RETIRED, CUP_DRAW_INDICES, GEM_CUPS
 from ..crystal_checks import CRYSTAL_ARENAS
 from ..item_boxes import BOX_TRACKS
 from ..Locations import CTR_LOCATION_CLASSES
@@ -32,14 +33,39 @@ NEW_CLASSES = ("named_track", "cup_win", "cup_sweep", "cup_leg_victory", "lap_co
 
 class TestFixedFamilies(unittest.TestCase):
     def test_cup_checks(self):
-        self.assertEqual(len(CUP_NAMES), 27)
+        self.assertEqual(len(CUP_NAMES), 41)
         self.assertEqual(CUP_NAMES[0], "Patries Cup")
-        self.assertEqual(CUP_NAMES[-1], "Sphere Cup")
+        self.assertEqual(CUP_NAMES[26], "Sphere Cup")
+        self.assertEqual(CUP_NAMES[36:], ("Dex Cup", "Hiru Cup", "Spark Cup",
+                                        "Sido Cup", "DM3 Productions Cup"))
         for i, cup in enumerate(CUP_NAMES):
-            self.assertEqual(L[f"{cup}: Win"], 35027000 + i)
-            self.assertEqual(L[f"{cup}: Win All Legs"], 35027200 + i)
+            # Index 27 and up use the growth ranges; 35027027 is Cortex Vortex's leg.
+            win = 35027000 + i if i < 27 else 35027100 + i - 27
+            sweep = 35027200 + i if i < 27 else 35027300 + i - 27
+            self.assertEqual(L[f"{cup}: Win"], win)
+            self.assertEqual(L[f"{cup}: Win All Legs"], sweep)
         for i, cup in enumerate(GEM_CUPS):
             self.assertEqual(L[f"{cup}: Win All Legs"], 35028300 + i)
+
+    def test_retired_cup_names_keep_their_ids(self):
+        """Ruled 2026-11-09: a retired name stays in CUP_NAMES and the data
+        package with its ids (alpha3 rooms keep working) but leaves the draw.
+        Venusyprime's tester is credited as Dex, the appended "Dex Cup"."""
+        self.assertEqual(CUP_NAMES[12], "Venusyprime Cup")
+        self.assertEqual(L["Venusyprime Cup: Win"], 35027012)
+        self.assertEqual(L["Venusyprime Cup: Win All Legs"], 35027212)
+        self.assertEqual(L["Dex Cup: Win"], 35027109)
+        self.assertEqual(L["Dex Cup: Win All Legs"], 35027309)
+        self.assertEqual(CUP_NAMES_RETIRED, ("Venusyprime Cup", "Turbo Cup", "Relic Cup",
+                                            "Multiworld Cup", "Sphere Cup"))
+        for index, name in enumerate(CUP_NAMES[23:27], 23):
+            self.assertEqual(L[f"{name}: Win"], 35027000 + index)
+            self.assertEqual(L[f"{name}: Win All Legs"], 35027200 + index)
+        self.assertEqual(len(CUP_DRAW_INDICES), 36)
+        self.assertFalse({CUP_NAMES.index(name) for name in CUP_NAMES_RETIRED}
+                         & set(CUP_DRAW_INDICES))
+        self.assertEqual(CUP_NAMES.index("Dex Cup"), 36)
+        self.assertIn(36, CUP_DRAW_INDICES)
 
     def test_cup_leg_victory(self):
         self.assertEqual(L["Cortex Vortex: Cup Leg Victory"], 35027027)
@@ -94,8 +120,12 @@ class TestFixedFamilies(unittest.TestCase):
 class TestReservedNotMinted(unittest.TestCase):
     RESERVED = (
         (35019000, 35019191, "race v2 codes of slots 1..32, never used"),
-        (35027100, 35027199, "later cup names, Win"),
-        (35027300, 35027399, "later cup names, Win All Legs"),
+        # The nine alpha3 tester cup names (A3-42) took 35027100 to 35027108
+        # and 35027300 to 35027308, and Dex Cup (A4-16) took 35027109 and
+        # 35027309. A4-16c took 35027110..35027113 and 35027310..35027313.
+        # The rest of both growth ranges stays reserved.
+        (35027114, 35027199, "later cup names, Win"),
+        (35027314, 35027399, "later cup names, Win All Legs"),
         (35028503, 35028519, "arcade completion expansion"),
         (35028580, 35028599, "arcade crystal expansion"),
         (35028625, 35028639, "Wumpa Shop expansion, N. Sanity Beach"),
@@ -117,9 +147,9 @@ class TestReservedNotMinted(unittest.TestCase):
         for track in nt.NAMED_TRACKS:
             base = nt.NAMED_LOCATION_BASE + nt.LOCATION_BUDGET * track.block_index
             used = {code - base for _n, code in nt.track_locations(track)}
-            self.assertEqual(used, set(range(0, 17)) | set(range(20, 35)))
+            self.assertEqual(used, set(range(0, 17)) | set(range(20, 70)))
         self.assertEqual([(lo, hi) for lo, hi, _l in nt.RESERVED_LOCATION_OFFSETS],
-                         [(17, 19), (35, 119), (120, 140), (141, 199)])
+                         [(17, 19), (70, 119), (120, 140), (141, 199)])
 
     def test_arcade_names_belong_to_the_separate_259_mint(self):
         for a,arena in enumerate(("Parking Lot", "The North Bowl", "Lab Basement")):
@@ -210,7 +240,7 @@ class TestThirdPassLrg2Blocks(unittest.TestCase):
                 self.assertEqual(L[f"{name}: Item Box 15"], first_location + 34)
                 self.assertEqual([I[f"Letter {c} ({name})"] for c in "CTR"],
                                  [first_letter, first_letter + 1, first_letter + 2])
-                self.assertEqual(sum(1 for n in L if n.startswith(f"{name}: ")), 32)
+                self.assertEqual(sum(1 for n in L if n.startswith(f"{name}: ")), 67)  # 32, plus Item Box 16 to 50 (alpha3 data package)
 
     def test_sids_house_key_has_no_dash_before_the_s(self):
         self.assertIn("sids-house", {r.track_key for r in nt.NAMED_TRACKS})
@@ -228,30 +258,26 @@ class TestMintedItems(unittest.TestCase):
             ("AP Box Colours", 35010205, "useful"),
             ("Clocked Out", 35010206, "trap"),
             ("Reverse Camera", 35010207, "trap"),
+            ("Always Jumping", 35010208, "trap"),
+            ("No Drifting", 35010209, "trap"),
+            ("Rival Surge", 35010210, "trap"),
+            ("Mud Season", 35010211, "trap"),
+            ("Limp Mode", 35010212, "trap"),
+            ("Stuck Steering", 35010213, "trap"),
+            ("Wumpa Leak", 35010214, "trap"),
         ])
         for row in ITEM_DATA:
             self.assertEqual(I[row["name"]], row["code"])
             self.assertEqual(row["count"], 0)
 
-    def test_only_implemented_minted_traps_are_registered(self):
-        """No registry row until the feature PR: the trap_identities block and
-        the trap draw stay as they are."""
-        registered = {e.name for e in traps.TRAP_REGISTRY}
-        self.assertEqual(registered & set(MINTED_TRAP_KEYS), {"Clocked Out", "Reverse Camera"})
-        self.assertEqual({e.key for e in traps.TRAP_REGISTRY} & set(MINTED_TRAP_KEYS.values()), {"clocked_out", "reverse_camera"})
+    def test_every_minted_trap_is_registered(self):
+        """Every minted trap has its registry row with the minted key (the
+        alpha3 traps were minted and built in one change, ruled 2026-11-06)."""
+        registered = {e.name: e.key for e in traps.TRAP_REGISTRY}
+        self.assertEqual({n: registered[n] for n in MINTED_TRAP_KEYS}, MINTED_TRAP_KEYS)
         self.assertLessEqual(set(MINTED_TRAP_KEYS), set(ctrAPWorld.item_name_groups["Traps"]))
 
 
-class TestInert(unittest.TestCase):
-    def test_new_classes_create_nothing_in_a_default_seed(self):
-        mw = setup_multiworld(ctrAPWorld, gen_steps, seed=1503)
-        created = {loc.name for loc in mw.get_locations(1)}
-        for location_class in CTR_LOCATION_CLASSES:
-            if location_class.key in NEW_CLASSES:
-                with self.subTest(location_class.key):
-                    self.assertFalse(created & set(location_class.names()))
-        minted = {row["name"] for row in ITEM_DATA} - {"Clocked Out", "Reverse Camera", "Reserve Top-Up"}
-        self.assertFalse({item.name for item in mw.itempool} & minted)
 
 
 class TestBuildScript(unittest.TestCase):

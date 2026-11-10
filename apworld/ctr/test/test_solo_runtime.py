@@ -27,6 +27,27 @@ GAME = "Crash Team Racing"
 
 sys.path.insert(0, SOLO)
 import trim_core  # noqa: E402
+import ctr_solo  # noqa: E402
+
+MANIFEST_FIXTURE = os.path.join(HERE, "fixtures", "package-manifests.json")
+
+
+def manifest_cases():
+    with open(MANIFEST_FIXTURE, encoding="utf-8") as handle:
+        fixture = json.load(handle)
+    for case in fixture["cases"]:
+        manifest = json.loads(json.dumps(fixture["base"]))
+        for pointer, value in case.get("set", {}).items():
+            current = manifest
+            parts = pointer.strip("/").split("/")
+            for part in parts[:-1]:
+                current = current[int(part)] if isinstance(current, list) else current[part]
+            current[int(parts[-1]) if isinstance(current, list) else parts[-1]] = value
+        for pointer in case.get("erase", []):
+            manifest.pop(pointer.strip("/"))
+        manifest["files"].sort(key=lambda entry: (entry["role"], entry["path"]))
+        blob = json.dumps(manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+        yield case, manifest, blob, hashlib.sha256(blob).hexdigest()
 
 _CLIENT: str | None = None
 
@@ -160,9 +181,107 @@ class TestDescribe(SoloTestCase):
         for rule in overlay["rules"]:
             self.assertIn(rule["option"], names)
         self.assertEqual([p["id"] for p in result["presets"]], ["quick", "standard", "full_adventure"])
-        deathlink = next(r for r in overlay["rules"] if r["option"] == "death_link")
-        self.assertEqual(deathlink["forced"], "off")
+        # Solo forces DeathLink off (SOLO_FORCED), so the options screen has no
+        # DeathLink row (ruling of 2026-11-02).
+        self.assertNotIn("death_link", overlay_names)
+        self.assertNotIn("death_link", [r["option"] for r in overlay["rules"]])
         self.assertEqual(set(result["values"]), set(overlay_names))
+
+    def test_every_world_option_is_on_the_screen_or_left_out_with_a_reason(self):
+        """Alpha2: Play Solo offers every option that can be a row. A new world
+        option must be placed in a group or named in left_out with its reason."""
+        from worlds.ctr.Options import ctrAPOptions
+        events, code = self.call("describe")
+        self.assertEqual(code, 0, events)
+        result = last(events)
+        overlay = result["overlay"]
+        shown = [n for g in overlay["groups"] for n in g["options"]]
+        left_out = overlay["left_out"]
+        self.assertEqual(len(shown), len(set(shown)), "an option sits in two groups")
+        self.assertFalse(set(shown) & set(left_out), "an option is both shown and left out")
+        self.assertEqual(set(shown) | set(left_out), set(ctrAPOptions.type_hints),
+                         "place every new option in a group or give it a left_out reason")
+        for name, reason in left_out.items():
+            self.assertTrue(reason.strip(), name)
+        facts = {o["name"]: o for o in result["options"]}
+        checklists = overlay["checklists"]
+        for name in shown:
+            if name in checklists:
+                self.assertEqual(facts[name]["kind"], "set", name)
+            elif "weight_rows" in facts[name]:
+                # A dict is a row as one number row per key (A3-22, trap weights).
+                self.assertEqual(facts[name]["kind"], "dict", name)
+            else:
+                self.assertIn(facts[name]["kind"], ("toggle", "choice", "range", "named_range"), name)
+        # A set is a row only as a checklist (A2-41), a dict only with weight
+        # rows (A3-22); lists and other dictionaries never are.
+        for name, entry in facts.items():
+            if entry["kind"] in ("set", "list", "dict", "counter", "text", "other") \
+                    and name not in checklists and "weight_rows" not in entry:
+                self.assertIn(name, left_out, name)
+        rule_options = [r["option"] for r in overlay["rules"]]
+        self.assertEqual(len(rule_options), len(set(rule_options)), "one rule per option")
+        for rule in overlay["rules"]:
+            if "label" in rule:
+                self.assertLessEqual(len(rule["label"]), 30, "a row name must fit the screen")
+            elif rule["option"] in shown:
+                self.assertLessEqual(len(facts[rule["option"]]["display_name"]), 30,
+                                     "add a short label rule: the row name must fit the screen")
+            if "step" in rule:
+                self.assertIn(facts[rule["option"]]["kind"], ("range", "named_range"), rule)
+                self.assertGreaterEqual(rule["step"], 1)
+
+    def test_every_value_the_screen_can_pick_is_accepted_by_the_option(self):
+        from worlds.ctr.Options import ctrAPOptions
+        events, code = self.call("describe")
+        self.assertEqual(code, 0, events)
+        result = last(events)
+        hints = ctrAPOptions.type_hints
+        steps = {r["option"]: r["step"] for r in result["overlay"]["rules"] if "step" in r}
+        facts = {o["name"]: o for o in result["options"]}
+        for group in result["overlay"]["groups"]:
+            for name in group["options"]:
+                entry = facts[name]
+                if entry["kind"] == "toggle":
+                    values = [True, False]
+                elif entry["kind"] == "choice":
+                    values = [c["name"] for c in entry["choices"]]
+                elif entry["kind"] == "set":
+                    # Every row alone, none and all, in checklist order.
+                    keys = [row[0] for row in result["overlay"]["checklists"][name]]
+                    sample = keys if name not in ("start_hints", "start_location_hints") else keys[::max(1, len(keys) // 10)]
+                    for value in [[key] for key in sample] + [[], keys]:
+                        with self.subTest(option=name, value=value):
+                            self.assertEqual(ctr_solo._canonical(hints[name], value, keys), value)
+                    continue
+                elif entry["kind"] == "dict":
+                    # Every weight row at its ends and at the default (A3-22).
+                    keys = [row["key"] for row in entry["weight_rows"]]
+                    table = {key: entry["default"][key] for key in keys}
+                    for key in keys:
+                        for weight in {0, 1, entry["weight_max"], table[key]}:
+                            value = dict(table, **{key: weight})
+                            with self.subTest(option=name, key=key, weight=weight):
+                                self.assertEqual(ctr_solo._canonical(hints[name], value), value)
+                                hints[name](value).verify_keys()
+                    continue
+                else:
+                    step = steps.get(name, 1)
+                    values = sorted({entry["range_start"], entry["range_end"], entry["default"]} |
+                                    set(range(entry["range_start"], entry["range_end"] + 1, step)))
+                for value in values:
+                    with self.subTest(option=name, value=value):
+                        self.assertEqual(ctr_solo._canonical(hints[name], value), value)
+
+    def test_a_standard_seed_takes_options_from_every_group(self):
+        events, code = self.call(
+            "validate", "--yaml", self.preset("standard.yaml"),
+            "--set", "progressive_boost=\"shared_global\"", "--set", "progressive_boost_blue_fire=true",
+            "--set", "goal_wumpa=50", "--set", "wumpa_shop_prices=25", "--set", "accessibility=\"minimal\"",
+            "--set", "cup_tracks=\"off\"", "--set", "boss_cups=1", "--set", "spoiler_items=true",
+            "--set", "reserve_top_up=false", "--set", "wumpa_check=\"global\"")
+        self.assertEqual(code, 0, events)
+        self.assertEqual(last(events)["event"], "result", events)
 
     def test_describe_reports_preset_values(self):
         events, code = self.call("describe", "--yaml", self.preset("quick.yaml"))
@@ -172,6 +291,526 @@ class TestDescribe(SoloTestCase):
         self.assertEqual(values["two_stage_density"], "off")
         self.assertEqual(values["racer_locked_pads"], 0)
         self.assertIs(values["shuffle_keys"], True)
+
+
+CHECKLIST_SETS = ("crystal_arenas", "boss_track_pool", "boss_character_pool", "boss_weapon_pool",
+                  "oxide_weapon_pool", "podium_rungs")
+
+
+#: Boss Garages off, as the option allows it (no Oxide goal, a gem goal).
+NO_GARAGES = ["boss_garages=false", "oxide_goal=\"disabled\"", "bosses_required_goal=0", "gems_required_goal=1"]
+
+
+def guard_refuses(guard: dict, values: dict) -> bool:
+    """The overlay guard rule as native evaluates it (AP_SoloGuardActive)."""
+    for other, allowed in guard.get("when", {}).items():
+        if values[other] not in allowed:
+            return False
+    entries = values[guard["option"]] if isinstance(values[guard["option"]], list) else []
+    if "has" in guard and guard["has"] not in entries:
+        return False
+    if "at_most_count_of" in guard:
+        return values[guard["option"]] > len(values[guard["at_most_count_of"]])
+    if "at_least" in guard and len(entries) < guard["at_least"]:
+        return True
+    return any(key not in entries for key in guard.get("needs_all", []))
+
+
+class TestChecklists(SoloTestCase):
+    """A2-41: the set options are checklists on the options screen, and the
+    guards refuse on screen exactly what generation refuses."""
+
+    def describe(self, *args):
+        events, code = self.call("describe", *args)
+        self.assertEqual(code, 0, events)
+        return last(events)
+
+    def test_checklist_rows_are_the_option_keys_in_docstring_order(self):
+        from worlds.ctr.Options import ctrAPOptions
+        from worlds.ctr import boss_encounters, boss_track_shuffle, destinations
+        result = self.describe()
+        overlay = result["overlay"]
+        facts = {o["name"]: o for o in result["options"]}
+        shown = {n: g["id"] for g in overlay["groups"] for n in g["options"]}
+        checklists = overlay["checklists"]
+        self.assertEqual(set(checklists), set(CHECKLIST_SETS) | {"start_hints", "start_location_hints"})
+        groups = {"crystal_arenas": "cups", "podium_rungs": "checks"}
+        for name, rows in checklists.items():
+            if name in ("start_hints", "start_location_hints"):
+                continue  # registry-backed names have separate coverage below
+            with self.subTest(option=name):
+                self.assertEqual(shown.get(name), groups.get(name, "bosses"))
+                keys = [row[0] for row in rows]
+                self.assertEqual(len(keys), len(set(keys)))
+                for row in rows:
+                    self.assertIn(len(row), (1, 2), row)
+                    self.assertLessEqual(len(row[-1]), 18, "a checklist row must fit beside its mark")
+                option = ctrAPOptions.type_hints[name]
+                if option.valid_keys:
+                    self.assertEqual(set(keys), set(option.valid_keys))
+                self.assertLessEqual(set(facts[name]["default"]), set(keys))
+                self.assertLessEqual(len(facts[name]["display_name"]), 30)
+        # Rows follow the docstring where it lists the keys, else the source tables.
+        for name in ("crystal_arenas", "podium_rungs"):
+            doc = ctrAPOptions.type_hints[name].__doc__
+            spots = [doc.index(row[0]) for row in checklists[name]]
+            self.assertEqual(spots, sorted(spots), name)
+        self.assertEqual([r[0] for r in checklists["boss_character_pool"]],
+                         list(boss_encounters.OPPONENT_NAMES) + [boss_encounters.OXIDE_NAME])
+        self.assertEqual([r[0] for r in checklists["boss_weapon_pool"]], list(boss_encounters.GARAGE_FAMILIES))
+        self.assertEqual([r[0] for r in checklists["oxide_weapon_pool"]], list(boss_encounters.FAMILIES))
+        # No valid_keys: the boss venues and Cortex Vortex (a custom track is
+        # kept from a YAML, not offered as a row).
+        self.assertEqual({r[0] for r in checklists["boss_track_pool"]},
+                         set(boss_track_shuffle.VENUES) | {destinations.CORTEX_VORTEX})
+
+    def test_guards_name_real_options_and_values(self):
+        result = self.describe()
+        overlay = result["overlay"]
+        facts = {o["name"]: o for o in result["options"]}
+        shown = {n for g in overlay["groups"] for n in g["options"]}
+        for guard in overlay["guards"]:
+            with self.subTest(guard=guard):
+                self.assertIn(guard["option"], shown)
+                self.assertTrue(guard["reason"].strip())
+                self.assertLessEqual(len(guard["reason"]), 56, "the reason must fit the two help lines")
+                for other, allowed in guard.get("when", {}).items():
+                    self.assertIn(other, shown)
+                    fact = facts[other]
+                    legal = [True, False] if fact["kind"] == "toggle" else [c["name"] for c in fact["choices"]]
+                    self.assertLessEqual(set(allowed), set(legal), other)
+                keys = {r[0] for r in overlay["checklists"].get(guard["option"], [])}
+                if "at_most_count_of" in guard:
+                    self.assertIn(facts[guard["option"]]["kind"], ("range", "named_range"))
+                    self.assertIn(guard["at_most_count_of"], overlay["checklists"])
+                else:
+                    self.assertTrue(keys)
+                    self.assertLessEqual(set(guard.get("needs_all", [])) | ({guard["has"]} if "has" in guard else set()),
+                                         keys)
+
+    def check_guard_cases(self, cases):
+        """Each case: the --set list and whether generation accepts it. The
+        guard verdict must agree with the generator on both sides of the line."""
+        overlay = self.describe()["overlay"]
+        base = self.describe("--yaml", self.preset("standard.yaml"))["values"]
+        for settings, accepted in cases:
+            with self.subTest(settings=settings):
+                values = dict(base)
+                for item in settings:
+                    key, _, raw = item.partition("=")
+                    values[key] = json.loads(raw)
+                refused_on_screen = any(guard_refuses(g, values) for g in overlay["guards"])
+                self.assertEqual(not refused_on_screen, accepted, "guard verdict")
+                args = ["validate", "--yaml", self.preset("standard.yaml")]
+                for item in settings:
+                    args += ["--set", item]
+                events, code = self.call(*args)
+                self.assertEqual(code == 0, accepted, events[-3:])
+                if not accepted:
+                    self.assertEqual(last(events)["kind"], "option", last(events))
+
+    def test_crystal_count_guard_matches_generation(self):
+        four = json.dumps(["Rocky Road", "Rampage Ruins", "Skull Rock", "Nitro Court"])
+        self.check_guard_cases([
+            (["crystal_challenge_count=5", "crystal_arenas=" + four], False),
+            (["crystal_challenge_count=4", "crystal_arenas=" + four], True),
+            (["crystal_challenge_count=1", "crystal_arenas=[]"], False),
+            (["crystal_challenge_count=0", "crystal_arenas=[]"], True),
+        ])
+
+    def test_boss_racer_pool_guards_match_generation(self):
+        three = ["Crash Bandicoot", "Coco Bandicoot", "Polar"]
+        self.check_guard_cases([
+            (["boss_opponent_shuffle=true", "boss_character_pool=" + json.dumps(three)], False),
+            (["boss_opponent_shuffle=true", "boss_character_pool=" + json.dumps(three + ["Pura"])], True),
+            (["boss_opponent_shuffle=true", "oxide_goal=\"any_percent\"",
+              "boss_character_pool=" + json.dumps(three + ["Nitros Oxide"])], False),
+            (["boss_opponent_shuffle=true", "oxide_goal=\"any_percent\"",
+              "boss_character_pool=" + json.dumps(three + ["Pura", "Nitros Oxide"])], True),
+            (["boss_opponent_shuffle=true", "oxide_goal=\"disabled\"", "bosses_required_goal=2",
+              "boss_character_pool=" + json.dumps(three + ["Nitros Oxide"])], True),
+            (["boss_opponent_shuffle=false", "boss_character_pool=[]"], True),
+            # Boss Garages off: no boss is drawn, so any pool generates.
+            (NO_GARAGES + ["boss_opponent_shuffle=true", "boss_character_pool=[\"Crash Bandicoot\"]"], True),
+        ])
+
+    def test_boss_weapon_pool_guards_match_generation(self):
+        self.check_guard_cases([
+            (["boss_kit_shuffle=true", "boss_attack_assignment=\"mixed_loadouts\"", "boss_weapon_pool=[\"tnt\"]"],
+             False),
+            (["boss_kit_shuffle=true", "boss_attack_assignment=\"mixed_loadouts\"",
+              "boss_weapon_pool=[\"tnt\", \"mask\"]"], True),
+            (["boss_kit_shuffle=true", "boss_attack_assignment=\"signature_profiles\"",
+              "boss_weapon_pool=[\"tnt\", \"potion\", \"missile\", \"mask\"]"], False),
+            (["boss_kit_shuffle=true", "boss_attack_assignment=\"signature_profiles\"",
+              "boss_weapon_pool=[\"tnt\", \"potion\", \"bomb\"]"], True),
+            (["boss_kit_shuffle=false", "boss_weapon_pool=[]"], True),
+            (NO_GARAGES + ["boss_kit_shuffle=true", "boss_weapon_pool=[\"tnt\"]"], True),
+            (NO_GARAGES + ["boss_kit_shuffle=true", "boss_attack_assignment=\"signature_profiles\"",
+                           "boss_weapon_pool=[\"mask\"]"], True),
+        ])
+
+    def test_oxide_weapon_pool_guard_matches_generation(self):
+        self.check_guard_cases([
+            (["oxide_goal=\"any_percent\"", "oxide_attack_profile=\"all_compatible\"", "oxide_weapon_pool=[]"], False),
+            (["oxide_goal=\"any_percent\"", "oxide_attack_profile=\"all_compatible\"",
+              "oxide_weapon_pool=[\"super_engine\"]"], True),
+            (["oxide_attack_profile=\"retail\"", "oxide_weapon_pool=[]"], True),
+        ])
+
+    def test_pools_without_a_screen_guard_are_refused_by_name(self):
+        """No screen guard for Boss Track Pool or for the racer pool with
+        character_home_track: what fits depends on the custom tracks picked
+        after the options screen and on which garages draw a boss cup. The
+        world refuses them with an option error naming the option, so the
+        screen opens that row."""
+        overlay = self.describe()["overlay"]
+        base = self.describe("--yaml", self.preset("standard.yaml"))["values"]
+        cases = [
+            (["boss_track_shuffle=true", "boss_track_pool=[\"Crash Cove\"]"], "boss_track_pool"),
+            (["boss_track_shuffle=true", "boss_opponent_shuffle=true", "boss_track_assignment=\"character_home_track\"",
+              "boss_track_pool=" + json.dumps(["Crash Cove", "Tiger Temple", "Coco Park", "Mystery Caves", "Polar Pass"]),
+              "boss_character_pool=" + json.dumps(["Ripper Roo", "Papu Papu", "Komodo Joe", "Pinstripe"])],
+             "boss_character_pool"),
+        ]
+        for settings, option in cases:
+            with self.subTest(option=option):
+                values = dict(base)
+                for item in settings:
+                    key, _, raw = item.partition("=")
+                    values[key] = json.loads(raw)
+                self.assertFalse(any(guard_refuses(g, values) for g in overlay["guards"]))
+                args = ["validate", "--yaml", self.preset("standard.yaml")]
+                for item in settings:
+                    args += ["--set", item]
+                events, code = self.call(*args)
+                self.assertNotEqual(code, 0, events[-3:])
+                self.assertEqual(last(events)["kind"], "option", last(events))
+                self.assertIn(option, last(events)["options"], last(events))
+
+    def test_seven_crystal_challenges_on_seven_arenas_generate_and_round_trip(self):
+        import yaml
+        from worlds.ctr.Options import ARENA_NAMES
+        arenas = [r[0] for r in self.describe()["overlay"]["checklists"]["crystal_arenas"]]
+        rungs = ["held_1st", "finish_any"]
+        events, code = self.call("generate", "--yaml", self.preset("standard.yaml"), "--name", "Solo",
+                                 "--stamp-requires", "--preset", "standard",
+                                 "--set", "crystal_challenge_count=7", "--set", "crystal_arenas=" + json.dumps(arenas),
+                                 "--set", "podium_rungs=" + json.dumps(rungs))
+        self.assertEqual(code, 0, events[-3:])
+        room = os.path.join(self.solo, "rooms", last(events)["room_id"])
+        player = os.path.join(room, "player.yaml")
+        with open(player, encoding="utf-8") as handle:
+            section = yaml.safe_load(handle)[GAME]
+        self.assertEqual(sorted(section["crystal_arenas"]), sorted(ARENA_NAMES))
+        self.assertEqual(section["crystal_challenge_count"], 7)
+        # The room's YAML shows the same sets on the checklists, in row order.
+        values = self.describe("--yaml", player)["values"]
+        self.assertEqual(values["crystal_arenas"], arenas)
+        self.assertEqual(values["crystal_challenge_count"], 7)
+        self.assertEqual(values["podium_rungs"], rungs)
+
+    def test_a_yaml_set_shows_on_the_checklist_and_keeps_entries_without_a_row(self):
+        path = write_yaml(self.work, "lists.yaml", f"""name: Lists
+game: {GAME}
+{GAME}:
+  crystal_arenas: [Lab Basement, Rocky Road]
+  boss_track_pool: [Crash Cove, custom/some-track]
+  podium_rungs: []
+  boss_weapon_pool:
+    tnt: 1
+    potion: 0
+""")
+        result = self.describe("--yaml", path)
+        values = result["values"]
+        self.assertEqual(values["crystal_arenas"], ["Rocky Road", "Lab Basement"])
+        self.assertEqual(values["boss_track_pool"], ["Crash Cove", "custom/some-track"])
+        self.assertEqual(values["podium_rungs"], [])
+        # OptionSet has no weighting: a mapping is an iterable of literal keys.
+        self.assertEqual(values["boss_weapon_pool"], ["tnt", "potion"])
+        self.assertNotIn("boss_weapon_pool", result["unresolved"])
+
+
+class TestTrapWeights(SoloTestCase):
+    """A3-22: one number row per trap for trap_weights in Items and Traps,
+    from the world's own trap registry, starting at the preset's or the
+    imported YAML's weights."""
+
+    def describe(self, *args):
+        events, code = self.call("describe", *args)
+        self.assertEqual(code, 0, events)
+        return last(events)
+
+    def test_one_row_per_registered_trap(self):
+        from worlds.ctr import traps
+        result = self.describe()
+        facts = {o["name"]: o for o in result["options"]}
+        entry = facts["trap_weights"]
+        self.assertEqual(entry["kind"], "dict")
+        self.assertEqual([row["key"] for row in entry["weight_rows"]], list(traps.TRAP_WEIGHT_KEYS))
+        self.assertEqual([row["label"] for row in entry["weight_rows"]],
+                         [trap.name for trap in traps.TRAP_REGISTRY])
+        self.assertEqual(entry["weight_max"], traps.MAX_TRAP_WEIGHT)
+        self.assertEqual(entry["default"], traps.DEFAULT_TRAP_WEIGHTS)
+        groups = {g["id"]: g for g in result["overlay"]["groups"]}
+        items = groups["items"]["options"]
+        self.assertEqual(items[items.index("trap_weights") - 1], "trap_fill_percentage")
+        self.assertNotIn("trap_weights", result["overlay"]["left_out"])
+
+    def test_defaults_come_from_the_preset(self):
+        from worlds.ctr.traps import DEFAULT_TRAP_WEIGHTS
+        values = self.describe("--yaml", self.preset("standard.yaml"))["values"]
+        self.assertEqual(values["trap_weights"], DEFAULT_TRAP_WEIGHTS)
+
+    def test_an_imported_yaml_starts_at_its_own_weights(self):
+        from worlds.ctr.traps import DEFAULT_TRAP_WEIGHTS
+        path = write_yaml(self.work, "weights.yaml", f"""name: Weights
+game: {GAME}
+{GAME}:
+  trap_weights:
+    icy_road: 9
+    upside_down: 4
+""")
+        values = self.describe("--yaml", path)["values"]
+        self.assertEqual(values["trap_weights"], dict(DEFAULT_TRAP_WEIGHTS, icy_road=9, upside_down=4))
+
+    def test_a_value_that_is_no_mapping_falls_back_to_the_default(self):
+        from worlds.ctr.traps import DEFAULT_TRAP_WEIGHTS
+        path = write_yaml(self.work, "weights.yaml", f"""name: Weights
+game: {GAME}
+{GAME}:
+  trap_weights: 7
+""")
+        values = self.describe("--yaml", path)["values"]
+        self.assertEqual(values["trap_weights"], DEFAULT_TRAP_WEIGHTS)
+
+    def test_unusable_weights_show_the_default_instead_of_breaking(self):
+        """A date, NaN, a nested mapping or a word cannot be a row: the row
+        keeps the default and the JSON stays valid. Generation still refuses
+        the value by name."""
+        from worlds.ctr.traps import DEFAULT_TRAP_WEIGHTS
+        path = write_yaml(self.work, "weights.yaml", f"""name: Weights
+game: {GAME}
+{GAME}:
+  trap_weights:
+    icy_road: 2020-01-01
+    low_gravity: .nan
+    flatten:
+      nested: 1
+    forced_usf: not-a-number
+    forced_boost: yes
+    warpball_ambush: 1.9
+    demo_camera: .inf
+    mirror_mode: 9
+""")
+        values = self.describe("--yaml", path)["values"]
+        # Unusable entries fall back per row; a valid sibling keeps its value.
+        self.assertEqual(values["trap_weights"], dict(DEFAULT_TRAP_WEIGHTS, mirror_mode=9))
+
+    def test_writing_all_weights_round_trips_to_the_preset_seed(self):
+        """The screen writes the whole table when a weight changed (a partial
+        table would drop weights a YAML set). With nothing changed the table
+        equals the preset's effective weights, so the seed is identical: the
+        multidata content matches. (Room bytes are not compared: two plain
+        runs of one seed already differ in pickle ordering and zip times.)"""
+        from worlds.ctr.traps import DEFAULT_TRAP_WEIGHTS
+        standard = self.preset("standard.yaml")
+        base_args = ("generate", "--yaml", standard, "--name", "Solo", "--seed", "20261106",
+                     "--preset", "standard", "--stamp-requires")
+        events, code = self.call(*base_args)
+        self.assertEqual(code, 0, events[-3:])
+        plain = last(events)["room_id"]
+        other = tempfile.mkdtemp(prefix="solo-weights-", dir=self.work)
+        events, code = run(self.client, *base_args, "--set", "trap_weights=" + json.dumps(DEFAULT_TRAP_WEIGHTS),
+                           solo=os.path.join(other, "solo"), home=self.home)
+        self.assertEqual(code, 0, events[-3:])
+        written = last(events)["room_id"]
+
+        def multidata(room_id, solo):
+            folder = os.path.join(solo, "rooms", room_id)
+            room_zip = next(n for n in os.listdir(folder) if n.endswith(".zip"))
+            return ctr_solo.read_multidata(os.path.join(folder, room_zip))
+
+        self.assertEqual(multidata(plain, self.solo), multidata(written, os.path.join(other, "solo")))
+
+    def test_a_changed_weight_lands_in_the_room_and_describes_back(self):
+        import yaml
+        from worlds.ctr.traps import DEFAULT_TRAP_WEIGHTS
+        table = dict(DEFAULT_TRAP_WEIGHTS, flatten=9, upside_down=1)
+        events, code = self.call("generate", "--yaml", self.preset("standard.yaml"), "--name", "Solo",
+                                 "--seed", "20261107", "--preset", "standard", "--stamp-requires",
+                                 "--set", "trap_weights=" + json.dumps(table))
+        self.assertEqual(code, 0, events[-3:])
+        player = os.path.join(self.solo, "rooms", last(events)["room_id"], "player.yaml")
+        with open(player, encoding="utf-8") as handle:
+            section = yaml.safe_load(handle)[GAME]
+        self.assertEqual(section["trap_weights"], table)
+        values = self.describe("--yaml", player)["values"]
+        self.assertEqual(values["trap_weights"], table)
+
+    def test_all_zero_weights_are_refused_naming_trap_weights(self):
+        """No screen guard for the all-zero table: whether the world refuses
+        it depends on the plan having filler to trap at all. Generation
+        refuses with an option error naming trap_weights, so the screen
+        highlights the row."""
+        from worlds.ctr.traps import TRAP_WEIGHT_KEYS
+        zero = json.dumps({key: 0 for key in TRAP_WEIGHT_KEYS})
+        events, code = self.call("validate", "--yaml", self.preset("quick.yaml"),
+                                 "--set", "trap_fill_percentage=100", "--set", "trap_weights=" + zero)
+        if code == 0:
+            self.skipTest("this combination has no filler to turn into traps")
+        self.assertEqual(last(events)["kind"], "option", last(events))
+        self.assertIn("trap_weights", last(events)["options"], last(events))
+
+
+class TestImportedOptions(SoloTestCase):
+    def test_hint_rows_come_from_the_loaded_world(self):
+        events, code = self.call("describe")
+        self.assertEqual(code, 0, events)
+        result = last(events)
+        cls = ctr_solo.world_class()
+        for name, registry in (("start_hints", cls.item_name_to_id),
+                               ("start_location_hints", cls.location_name_to_id)):
+            self.assertEqual(result["overlay"]["checklists"][name], [[n] for n in sorted(registry)])
+            self.assertNotIn(name, result["overlay"]["left_out"])
+
+    def imported_yaml(self):
+        return write_yaml(self.work, "imported.yaml", f"""# Preserve this comment too.
+name: {{ImportedPlayer: 1}}
+game: {GAME}
+description: An imported file
+future_metadata:
+  date: 2026-11-06
+  nested: [one, two]
+{GAME}:
+  death_link: 'off'
+  death_link_send: [follow_death_link]
+  goal_wumpa: 150
+  crystal_challenge_count: {{1: 1}}
+  crystal_arenas: [Rocky Road]
+  trap_fill_percentage: {{0: 1, 5: 2}}
+  start_hints: [Key]
+  start_location_hints: [Crash Cove - Trophy]
+  priority_locations: []
+  future_option: {{nested: [a, b]}}
+""")
+
+    def test_imported_values_and_unsupported_data_survive_edits(self):
+        import yaml
+        path = self.imported_yaml()
+        # Use actual registry names, rather than requiring a seed-specific name.
+        doc = ctr_solo.read_player_yaml(path)
+        location = next(iter(ctr_solo.world_class().location_name_to_id))
+        doc[GAME]["start_location_hints"] = [location]
+        ctr_solo.dump_yaml(doc, path)
+        events, code = self.call("describe", "--yaml", path)
+        self.assertEqual(code, 0, events)
+        values = last(events)["values"]
+        self.assertEqual(values["goal_wumpa"], 150)
+        self.assertEqual(values["start_hints"], ["Key"])
+        self.assertEqual(values["start_location_hints"], [location])
+        self.assertIn("crystal_challenge_count", last(events)["unresolved"])
+        self.assertIn("trap_fill_percentage", last(events)["unresolved"])
+        paths = ctr_solo.Paths(os.path.join(self.client, "solo-runtime"), self.solo,
+                               os.path.join(self.client, "ctr.apworld"), REPO)
+        paths.ensure()
+        prepared, tmp = ctr_solo.prepare_yaml(paths, path, None,
+                                              ["goal_wumpa=200", 'start_hints=["Trophy"]'], False)
+        expected = ctr_solo.read_player_yaml(path)
+        expected[GAME].update(goal_wumpa=200, start_hints=["Trophy"])
+        self.assertEqual(prepared, expected)
+        self.assertEqual(ctr_solo.read_player_yaml(tmp), expected)
+        self.assertEqual(ctr_solo.read_player_yaml(path), doc)
+
+    def test_untouched_import_is_byte_identical_and_generates_the_same_seed(self):
+        path = self.imported_yaml()
+        doc = ctr_solo.read_player_yaml(path)
+        doc[GAME]["start_location_hints"] = []
+        ctr_solo.dump_yaml(doc, path)
+        with open(path, "a", encoding="utf-8") as handle:
+            handle.write("# A comment the options screen must keep.\n")
+        paths = ctr_solo.Paths(os.path.join(self.client, "solo-runtime"), self.solo,
+                               os.path.join(self.client, "ctr.apworld"), REPO)
+        paths.ensure()
+        _, prepared = ctr_solo.prepare_yaml(paths, path, None, [], False)
+        with open(path, "rb") as original, open(prepared, "rb") as written:
+            self.assertEqual(original.read(), written.read())
+        # Both sides use the same solo policy. Compare server-visible seed
+        # content, not ZIP timestamps or pickle insertion order.
+        def generate_and_read(source, folder):
+            events, code = run(self.client, "generate", "--yaml", source, "--seed", "2026110618",
+                               solo=folder, home=self.home)
+            self.assertEqual(code, 0, events[-3:])
+            room = os.path.join(folder, "rooms", last(events)["room_id"])
+            archive = next(n for n in os.listdir(room) if n.endswith(".zip"))
+            return ctr_solo.read_multidata(os.path.join(room, archive))
+        self.assertEqual(generate_and_read(path, os.path.join(self.work, "original")),
+                         generate_and_read(prepared, os.path.join(self.work, "untouched")))
+
+    def test_large_hint_selection_uses_a_short_file_argument(self):
+        cls = ctr_solo.world_class()
+        names = sorted(cls.location_name_to_id)[:-1]
+        overrides = os.path.join(self.work, "overrides.json")
+        with open(overrides, "w", encoding="utf-8") as handle:
+            json.dump(["start_location_hints=" + json.dumps(names)], handle)
+        self.assertGreater(os.path.getsize(overrides), 131072)
+        events, code = self.call("generate", "--yaml", self.preset("standard.yaml"),
+                                 "--set-file", overrides, "--seed", "2026110619")
+        self.assertEqual(code, 0, events[-3:])
+        player = os.path.join(self.solo, "rooms", last(events)["room_id"], "player.yaml")
+        self.assertEqual(ctr_solo.read_player_yaml(player)[GAME]["start_location_hints"], names)
+
+    def test_list_form_rolls_defer_guards_but_literal_checklists_do_not(self):
+        path = self.imported_yaml()
+        doc = ctr_solo.read_player_yaml(path)
+        doc[GAME]["crystal_challenge_count"] = [1]
+        doc[GAME]["start_location_hints"] = []
+        ctr_solo.dump_yaml(doc, path)
+        events, code = self.call("describe", "--yaml", path)
+        self.assertEqual(code, 0, events)
+        result = last(events)
+        self.assertIn("crystal_challenge_count", result["unresolved"])
+        self.assertNotIn("crystal_arenas", result["unresolved"])
+        self.assertNotIn("start_hints", result["unresolved"])
+        self.assertEqual(result["values"]["crystal_arenas"], ["Rocky Road"])
+        events, code = self.call("validate", "--yaml", path)
+        self.assertEqual(code, 0, events[-3:])
+
+    def test_registered_random_choices_keep_their_own_values(self):
+        import Options
+        cls = ctr_solo.world_class()
+        for name, option in cls.options_dataclass.type_hints.items():
+            if issubclass(option, Options.Choice):
+                for key in option.options:
+                    if key.startswith("random"):
+                        self.assertFalse(ctr_solo._preview_unresolved(name, option, key), (name, key))
+        path = write_yaml(self.work, "random-choices.yaml", f"""name: Choices
+game: {GAME}
+{GAME}:
+  cup_tracks: random_repeats
+  starting_character: random_any
+  warppad_unlock_requirements: random_without_4_keys
+  goal_wumpa: random-range-100-200
+""")
+        events, code = self.call("describe", "--yaml", path)
+        self.assertEqual(code, 0, events)
+        result = last(events)
+        for name, value in (("cup_tracks", "random_repeats"), ("starting_character", "random_any"),
+                            ("warppad_unlock_requirements", "random_without_4_keys")):
+            self.assertEqual(result["values"][name], value)
+            self.assertNotIn(name, result["unresolved"])
+        self.assertIn("goal_wumpa", result["unresolved"])
+        # Cup Tracks' documented `random` alias is concrete; Choice's generic
+        # `random` expression for Starting Character remains unresolved.
+        doc = ctr_solo.read_player_yaml(path)
+        doc[GAME].update(cup_tracks="random", starting_character="random")
+        ctr_solo.dump_yaml(doc, path)
+        events, code = self.call("describe", "--yaml", path)
+        self.assertEqual(code, 0, events)
+        result = last(events)
+        self.assertEqual(result["values"]["cup_tracks"], "random_repeats")
+        self.assertNotIn("cup_tracks", result["unresolved"])
+        self.assertIn("starting_character", result["unresolved"])
 
 
 class TestPresets(SoloTestCase):
@@ -275,7 +914,11 @@ class TestCustomTracks(SoloTestCase):
         shutil.rmtree(os.path.join(self.assets, "tracks", "fixture-gone"))
         changed = self.install("fixture-changed", "1.0", "Fixture Changed")
         with open(os.path.join(self.assets, "tracks", "fixture-changed", "original", "b-1.0.vrm"), "r+b") as handle:
-            handle.write(b"x")
+            # Flip the first byte: writing a fixed byte left the random file
+            # unchanged when it already started with that byte (1 in 256).
+            first = handle.read(1)[0]
+            handle.seek(0)
+            handle.write(bytes([first ^ 0xFF]))
         with open(os.path.join(self.descriptors, "junk.json"), "w", encoding="utf-8") as handle:
             handle.write("{not json")
         with open(os.path.join(self.descriptors, "foreign.json"), "w", encoding="utf-8") as handle:
@@ -397,7 +1040,10 @@ class TestCustomTracks(SoloTestCase):
         self.assertEqual(last(events)["kind"], "option")
         self.assertIn("required_entries", last(events)["message"])
 
-    def test_removed_options_are_ignored_silently(self):
+    def test_removed_options_are_refused_with_one_message(self):
+        # Ruled 2026-11-04: a 0.2.x YAML does not work in 0.3.0. It used to be
+        # skipped silently here; now it gets the one readable refusal
+        # (legacy_yaml.py), with and without a picked track.
         import yaml
         loop = self.install("fixture-loop", "2.1", "Fixture Loop")
         section = dict(include_battle_arenas=False, include_gem_cups=False, randomize_gem_cup_tracks=True,
@@ -408,9 +1054,12 @@ class TestCustomTracks(SoloTestCase):
         source = write_yaml(self.work, "old.yaml", yaml.safe_dump({"name": "Old", "game": GAME, GAME: section}))
         for extra in ([], ["--track", loop["id"]]):
             events, code = self.call("generate", "--yaml", source, "--assets", self.assets, "--seed", "6", *extra)
-            self.assertEqual(code, 0, events)
-            self.assertEqual([e for e in events if e["event"] == "error"], [])
-            self.assertEqual(last(events)["custom_tracks"], [loop] if extra else [])
+            self.assertNotEqual(code, 0, events)
+            self.assertEqual(last(events)["kind"], "option")
+            message = last(events)["message"]
+            self.assertIn("from 0.2.x", message)
+            self.assertIn("include_battle_arenas", message)
+            self.assertIn("0.3.0 release notes", message)
 
     def test_a_yaml_sets_the_starting_picks(self):
         import yaml
@@ -423,6 +1072,36 @@ class TestCustomTracks(SoloTestCase):
         self.assertEqual(code, 0, events)
         starts = {t["id"]: t["start"] for t in last(events)["tracks"]}
         self.assertEqual(starts, {"cortex-vortex": 2, hill["id"]: 2, loop["id"]: 1, "package/fixture-rock/1.0": 0})
+
+    def test_a_yaml_entry_with_another_author_is_the_same_track(self):
+        import yaml
+        loop = self.install("fixture-loop", "2.1", "Fixture Loop")
+        listed = dict(loop, author="Someone Else")
+        source = write_yaml(self.work, "author.yaml", yaml.safe_dump(
+            {"name": "Solo", "game": GAME, GAME: dict(custom_tracks=[listed])}))
+        events, code = self.call("tracks", "--assets", self.assets, "--yaml", source)
+        self.assertEqual(code, 0, events)
+        self.assertEqual(last(events)["tracks"][0]["start"], 1)
+        common = ("generate", "--yaml", source, "--assets", self.assets, "--seed", "4", "--tracks-page")
+        events, code = self.call(*common, "--track", loop["id"])
+        self.assertEqual(code, 0, events)
+        self.assertEqual(self.room_section(events)["custom_tracks"], [listed])
+        shutil.rmtree(os.path.join(self.solo, "rooms", last(events)["room_id"]))
+        events, code = self.call(*common)  # the page turned it off
+        self.assertEqual(code, 0, events)
+        self.assertNotIn("custom_tracks", self.room_section(events))
+
+    def test_picking_another_version_than_the_yaml_lists_is_refused(self):
+        import yaml
+        newer = self.install("fixture-loop", "2.1", "Fixture Loop")
+        older = self.install("fixture-loop", "2.0", "Fixture Loop")
+        source = write_yaml(self.work, "version.yaml", yaml.safe_dump(
+            {"name": "Solo", "game": GAME, GAME: dict(custom_tracks=[older])}))
+        events, code = self.call("validate", "--yaml", source, "--assets", self.assets, "--tracks-page",
+                                 "--track", newer["id"])
+        self.assertNotEqual(code, 0, events)
+        self.assertEqual(last(events)["kind"], "track")
+        self.assertIn("2.0", last(events)["message"])
 
     def test_cortex_vortex_is_a_row_once_its_files_are_there(self):
         self.install("fixture-loop", "2.1", "Fixture Loop")
@@ -441,6 +1120,35 @@ class TestCustomTracks(SoloTestCase):
                                      "--seed", "2", *args)
             self.assertEqual(code, 0, events)
             self.assertEqual(self.room_section(events)["cortex_vortex_track"], want)
+
+    def test_a_downloaded_cortex_vortex_is_the_same_row_as_the_bundled_one(self):
+        # A tester report (alpha2, 2026-11-04): Play Solo offered the bundled Cortex
+        # Vortex and a downloaded copy as two rows, and the seed got both.
+        import yaml
+        loop = self.install("fixture-loop", "2.1", "Fixture Loop")
+        saphi = self.install("cortex-vortex", "1.1.6", "Cortex Vortex")
+        folder = os.path.join(self.assets, "tracks", "cortex-vortex")
+        for name in ("CVortex Arcade All.lev", "CVortex Arcade All.vrm"):
+            with open(os.path.join(folder, name), "wb") as handle:
+                handle.write(b"x")
+        self.assertEqual([t["id"] for t in self.tracks()], ["cortex-vortex", loop["id"]])
+        source = write_yaml(self.work, "both.yaml", yaml.safe_dump({"name": "Solo", "game": GAME, GAME: dict(
+            custom_tracks=[saphi, loop], required_entries=["cortex-vortex"])}))
+        events, code = self.call("tracks", "--assets", self.assets, "--yaml", source)
+        self.assertEqual(code, 0, events)
+        self.assertEqual({t["id"]: t["start"] for t in last(events)["tracks"]}, {"cortex-vortex": 2, loop["id"]: 1})
+        events, code = self.call("generate", "--yaml", source, "--assets", self.assets, "--seed", "3",
+                                 "--tracks-page", "--track", "cortex-vortex", "--guarantee", "cortex-vortex",
+                                 "--track", loop["id"])
+        self.assertEqual(code, 0, events)
+        section = self.room_section(events)
+        self.assertEqual(section["custom_tracks"], [loop])
+        self.assertNotIn("required_entries", section)
+        self.assertEqual(section["cortex_vortex_track"], "own_pad")
+        events, code = self.call("validate", "--yaml", self.preset("standard.yaml"), "--assets", self.assets,
+                                 "--track", "cortex-vortex", "--track", saphi["id"])
+        self.assertNotEqual(code, 0, events)
+        self.assertEqual((last(events)["kind"], last(events)["track"]), ("track", saphi["id"]))
 
     def test_the_page_replaces_the_yaml_picks(self):
         import yaml
@@ -479,6 +1187,98 @@ class TestCustomTracks(SoloTestCase):
         self.install("fixture-loop", "2.1", "Fixture Loop", folder="fixture-loop-2.1", lev_name="track.lev")
         self.assertEqual([t["id"] for t in self.tracks()], ["package/fixture-loop/2.1"])
 
+    def test_shared_store_lists_each_revision_without_room_copies(self):
+        first = self.install("fixture-loop", "2.1.0", "Fixture Loop")
+        second = self.install("fixture-loop", "2.2.0", "Fixture Loop")
+        for descriptor in (first, second):
+            source = os.path.join(self.assets, "tracks", "fixture-loop", "original")
+            store = os.path.join(self.assets, "tracks", "packages")
+            files = []
+            for pin in descriptor["files"]:
+                name = "track." + pin["role"]
+                data = next(data for n in os.listdir(source)
+                            if n.lower().endswith("." + pin["role"])
+                            for data in [open(os.path.join(source, n), "rb").read()]
+                            if hashlib.sha256(data).hexdigest() == pin["sha256"])
+                files.append((name, data, pin))
+            settings = b'{"laps":3}'
+            manifest = {"schema_version": 1, "package_uuid": descriptor["uuid"],
+                        "version": descriptor["revision"], "title": descriptor["display_name"],
+                        "compatibility": {"native_contract": 1, "apworld_contract": 1}, "files": [
+                {"role": pin["role"], "path": "original/" + name, "sha256": pin["sha256"], "bytes": pin["bytes"]}
+                for name, _, pin in files] + [{"role": "race_settings", "path": "metadata/race.json",
+                                                 "sha256": hashlib.sha256(settings).hexdigest(), "bytes": len(settings)}]}
+            manifest["files"].sort(key=lambda item: (item["role"], item["path"]))
+            blob = json.dumps(manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+            folder = os.path.join(store, hashlib.sha256(blob).hexdigest())
+            os.makedirs(os.path.join(folder, "original"))
+            with open(os.path.join(folder, "manifest.json"), "wb") as handle:
+                handle.write(blob)
+            for name, data, _ in files:
+                with open(os.path.join(folder, "original", name), "wb") as handle:
+                    handle.write(data)
+            os.makedirs(os.path.join(folder, "metadata"))
+            with open(os.path.join(folder, "metadata", "race.json"), "wb") as handle:
+                handle.write(settings)
+            if descriptor is second:
+                second_settings = os.path.join(folder, "metadata", "race.json")
+        shutil.rmtree(os.path.join(self.assets, "tracks", "fixture-loop"))
+        self.assertEqual([t["revision"] for t in self.tracks()], ["2.1.0", "2.2.0"])
+        for damaged in (b'{"laps":4}', b'bad'):
+            with self.subTest(damaged=damaged):
+                with open(second_settings, "wb") as handle:
+                    handle.write(damaged)
+                self.assertEqual([t["revision"] for t in self.tracks()], ["2.1.0"])
+
+    def test_shared_manifest_admission_fixture(self):
+        for case, manifest, _, pin in manifest_cases():
+            with self.subTest(case=case["name"]):
+                self.assertEqual(ctr_solo._manifest_schema_valid(manifest, pin), case["accept"])
+
+    def test_shared_store_accepts_data_paths_and_rejects_unknown_role(self):
+        descriptor = self.install("fixture-track", "1.0.0", "Fixture Track")
+        fixture = next(manifest for case, manifest, _, _ in manifest_cases() if case["name"] == "original paths")
+        for pin in descriptor["files"]:
+            source = next(entry for entry in fixture["files"] if entry["role"] == pin["role"])
+            pin.update(sha256=source["sha256"], bytes=source["bytes"])
+        with open(os.path.join(self.descriptors, "fixture-track__1.0.0.json"), "w", encoding="utf-8") as handle:
+            json.dump(descriptor, handle)
+        shutil.rmtree(os.path.join(self.assets, "tracks", "fixture-track"))
+        store = os.path.join(self.assets, "tracks", "packages")
+        for case, manifest, _, _ in manifest_cases():
+            if case["name"] not in ("safe data paths", "unknown role"):
+                continue
+            manifest["package_uuid"] = descriptor["uuid"]
+            blob = json.dumps(manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+            folder = os.path.join(store, hashlib.sha256(blob).hexdigest())
+            for entry in manifest["files"]:
+                target = os.path.join(folder, entry["path"])
+                os.makedirs(os.path.dirname(target), exist_ok=True)
+                data = {"lev": b"L" * 3000, "vrm": b"V" * 2000,
+                        "race_settings": b"{}", "unknown": b"{}"}[entry["role"]]
+                with open(target, "wb") as handle:
+                    handle.write(data)
+            with open(os.path.join(folder, "manifest.json"), "wb") as handle:
+                handle.write(blob)
+            with self.subTest(case=case["name"]):
+                self.assertEqual(bool(self.tracks()), case["accept"])
+            shutil.rmtree(folder)
+
+    def test_time_trial_only_revision_is_visible_but_cannot_be_picked(self):
+        track = self.install("fixture-trial", "1.0", "Fixture Trial")
+        track["capabilities"].update(arcade=False, relic=False, ctr_tokens=False)
+        track.pop("relic_targets")
+        with open(os.path.join(self.descriptors, "fixture-trial__1.0.json"), "w", encoding="utf-8") as handle:
+            json.dump(track, handle)
+        row = self.tracks()[0]
+        self.assertEqual(row["modes"], [])
+        self.assertEqual(row["race_modes"], ["time_trial"])
+        self.assertFalse(row["seed_usable"])
+        events, code = self.call("validate", "--yaml", self.preset("quick.yaml"), "--assets", self.assets,
+                                 "--track", track["id"])
+        self.assertNotEqual(code, 0)
+        self.assertIn("Time Trial only", last(events)["message"])
+
     def test_picked_tracks_go_into_the_options(self):
         import yaml
         loop = self.install("fixture-loop", "2.1", "Fixture Loop")
@@ -493,7 +1293,8 @@ class TestCustomTracks(SoloTestCase):
         self.assertEqual(section["custom_tracks"], [loop, hill])
         self.assertEqual(section["required_entries"], ["fixture-hill"])
         self.assertEqual(section["death_link"], "off")
-        self.assertEqual(sorted(section), ["custom_tracks", "death_link", "death_link_send", "required_entries"])
+        self.assertEqual(section["item_box_count"], 0)
+        self.assertEqual(sorted(section), ["custom_tracks", "death_link", "death_link_send", "item_box_count", "required_entries"])
         # Its tracks are listed afterwards even without the descriptor files.
         shutil.rmtree(self.descriptors)
         self.assertEqual(sorted(t["source"] for t in self.tracks()), ["room", "room"])
@@ -687,11 +1488,13 @@ class TestServe(SoloTestCase):
         self.assertEqual(code, 0, events)
         return last(events)
 
-    def start(self, room_id: str, first: int, last_port: int) -> tuple[subprocess.Popen, dict]:
+    def start(self, room_id: str, first: int, last_port: int,
+              password: str | None = None) -> tuple[subprocess.Popen, dict]:
         script = os.path.join(self.client, "solo-runtime", "ctr_solo.py")
+        extra = ["--password", password] if password else []
         proc = subprocess.Popen([sys.executable, "-I", script, "--solo", self.solo, "serve", "--room", room_id,
                                  "--game-pid", str(os.getpid()), "--port-first", str(first),
-                                 "--port-last", str(last_port)],
+                                 "--port-last", str(last_port)] + extra,
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                                 text=True, env=env(self.home))
         line = []
@@ -798,12 +1601,30 @@ class TestServe(SoloTestCase):
         room = self.generate_room()
         base = free_ports(3)
         for _ in range(2):  # the second start loads the save written by the first
-            proc, ready = self.start(room["room_id"], base, base + 2)
+            proc, ready = self.start(room["room_id"], base, base + 2, "test-room-password")
             try:
                 self.assertEqual(ready["event"], "ready", ready)
+                self.assertEqual(ready["password"], "test-room-password")
                 self.assertEqual(self.try_connect(ready, ""), "ConnectionRefused")
                 self.assertEqual(self.try_connect(ready, "wrong"), "ConnectionRefused")
                 self.assertEqual(self.try_connect(ready, ready["password"]), "Connected")
+                proc.stdin.write("/exit\n")
+                proc.stdin.flush()
+                self.assertEqual(proc.wait(15), 0)
+            finally:
+                if proc.poll() is None:
+                    proc.kill()
+
+    def test_default_has_no_password_even_after_a_passworded_save(self):
+        room = self.generate_room()
+        base = free_ports(3)
+        # A password from an earlier session must not silently come back.
+        for password in ("old-room-password", None, None):
+            proc, ready = self.start(room["room_id"], base, base + 2, password)
+            try:
+                self.assertEqual(ready["event"], "ready", ready)
+                self.assertEqual(ready["password"], password or "")
+                self.assertEqual(self.try_connect(ready, password or ""), "Connected")
                 proc.stdin.write("/exit\n")
                 proc.stdin.flush()
                 self.assertEqual(proc.wait(15), 0)

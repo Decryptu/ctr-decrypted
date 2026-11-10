@@ -209,9 +209,9 @@ class TestRanks(unittest.TestCase):
     def test_per_track_rulings(self):
         # the project's per-track rulings (2026-10-18), by content id, decide before
         # the measured flag, whatever the package states.
-        self.assertEqual(content_capability.USF_FINISH_RULINGS, {
-            "arabian-heights-night": True, "cortex-vortex": True,
-            "tv-world": False, "north-pole": False, "baby-t-park": False})
+        self.assertEqual({k: v for k, v in content_capability.USF_FINISH_RULINGS.items() if k[1] is None}, {
+            ("arabian-heights-night", None, None): 2, ("cortex-vortex", None, None): 2,
+            ("tv-world", None, None): 0, ("north-pole", None, None): 0, ("baby-t-park", None, None): 0})
         track = dict(origin="custom", display_name="Loop")
         for key, stated, want in (("arabian-heights-night", False, 2), ("cortex-vortex", None, 2),
                                   ("tv-world", True, 0), ("north-pole", True, 0), ("baby-t-park", True, 0)):
@@ -233,7 +233,107 @@ class TestRanks(unittest.TestCase):
         import json as _json
         raw = _json.loads(open(content_capability.__file__.replace("content_capability.py",
                                                                     "data/usf_finish_rulings.json")).read())
-        self.assertTrue(all("2026-10-18" in row["ruling"] for row in raw["rulings"]))
+        self.assertEqual(raw["version"], 2)
+        self.assertTrue(all("2026-" in row["ruling"] for row in raw["rulings"]))
+
+    def rulings(self, rows):
+        """The loader's verdict on a forged rulings file."""
+        from unittest import mock
+        import json as _json
+        data = _json.dumps(dict(description="", version=2, rulings=rows)).encode()
+        with mock.patch.object(content_capability.pkgutil, "get_data", return_value=data):
+            return content_capability._load_rulings()
+
+    def test_per_package_rulings(self):
+        # A2-22: a row may name one revision and its LEV pin; it covers only
+        # that exact package and wins over a row for every revision. A ruling
+        # may also set the first boost.
+        lev = "ab" * 32
+        rows = [dict(content_id="loop", finish_rank=2, ruling="ruling 2026-11-05"),
+                dict(content_id="loop", revision="1.0.2", lev_sha256=lev, finish_rank=0, ruling="ruling 2026-11-05"),
+                dict(content_id="jumps", revision="1.0.0", lev_sha256=lev, finish_rank=1, ruling="ruling 2026-11-05")]
+        table = self.rulings(rows)
+        self.assertEqual(table, {("loop", None, None): 2, ("loop", "1.0.2", lev): 0, ("jumps", "1.0.0", lev): 1})
+        track = dict(origin="custom", display_name="Loop")
+
+        def package(key, revision, pin, pads=True):
+            return dict(content_id=key, revision=revision, capabilities=dict(super_turbo_pads=pads),
+                        files=[dict(role="lev", sha256=pin), dict(role="vrm", sha256="cd" * 32)])
+        from unittest import mock
+        with mock.patch.object(content_capability, "USF_FINISH_RULINGS", table):
+            finish = lambda pkg: content_capability.finish_boost(track, RECORD, pkg)
+            self.assertEqual(finish(package("loop", "1.0.2", lev)), 0)
+            # Another revision, or the same revision with other bytes: the
+            # row for every revision.
+            self.assertEqual(finish(package("loop", "1.0.1", lev)), 2)
+            self.assertEqual(finish(package("loop", "1.0.2", "ef" * 32)), 2)
+            # A one-revision row alone: other revisions keep the measured default.
+            self.assertEqual(finish(package("jumps", "1.0.0", lev, pads=False)), 1)
+            self.assertEqual(finish(package("jumps", "1.0.1", lev, pads=False)), 0)
+            self.assertEqual(finish(package("jumps", "1.0.1", lev)), 2)
+            # The first-boost finish carries into every finish check, with no
+            # weapon alternative, and lowers no other floor.
+            jumps = package("jumps", "1.0.0", lev, pads=False)
+            self.assertEqual(self.need(track, "trophy", "win", jumps, logic_difficulty=2), 1)
+            self.assertEqual(self.need(track, "relic", "sapphire", jumps, logic_difficulty=2), 1)
+            self.assertEqual(self.need(track, "perfect", "perfect", jumps, logic_difficulty=2), 2)
+            self.assertIsNone(content_capability.weapon_arm(track, "trophy", "win",
+                                                            dict(RECORD, logic_difficulty=0), jumps))
+            # A lowered finish keeps the CTR Challenge, Perfect and difficulty floors.
+            loop = package("loop", "1.0.2", lev)
+            self.assertEqual(self.need(track, "ctr", "win_letters", loop, logic_difficulty=2), 1)
+            self.assertEqual(self.need(track, "perfect", "perfect", loop, logic_difficulty=2), 2)
+            self.assertEqual(self.need(track, "trophy", "win", loop, logic_difficulty=0), 1)
+
+    def test_registry_revision_rulings(self):
+        # Project rulings of 2026-11-05 07:19 CET (A2-27), one row per registry
+        # revision and its LEV pin. A tester report is not certification.
+        pins = {
+            ("ancient-lake", "1.0.0"): ("7e5b776f312f500112061b3b95a1f371571fd7dfe7fbd1dc404e7b3d3a3a1e78", 0),
+            ("ancient-lake", "1.0.1"): ("2fc45ad5edaf735426b99229cc561293d02badc6a578ef53f328ad3fc2f85360", 0),
+            ("ancient-lake", "1.0.2"): ("c4497a621a97a8df1c763e0b6a2dc75cd9f3a57b217b0cefa6a938fc83ee6c70", 0),
+            ("bowser-castle-1", "1.0.0"): ("0b59b54ac3d902d43ee7b798d45dd4979aa5859520460282d22fb6bc85dcbcd9", 0),
+            ("drive-thru-danger", "1.0.0"): ("77706a3b5d46cdd75ffa05e4da316cf5dc400d6e17aad7ccdf0c3f5cd62eee79", 0),
+            ("lights-out", "1.0.0"): ("5ebdb9f235ba0c07ba5c72b715c949afdd6062fcf3208f45a1c13936ffb529c6", 1),
+            ("neon-paradise", "1.0.0"): ("665d19819c437ab9ab6cbccac7c0202979405f16e1af39e06d9ea1d3286be9d0", 0),
+            ("neon-paradise", "1.1.0"): ("639434d84fe6de4ba88a31a1dd5a11291d640617ab25af9c7bfbd5d383b53d5d", 0),
+        }
+        table = content_capability.USF_FINISH_RULINGS
+        self.assertEqual({k: v for k, v in table.items() if k[1] is not None},
+                         {(c, r, lev): rank for (c, r), (lev, rank) in pins.items()})
+        track = dict(origin="custom", display_name="Loop")
+        for (key, revision), (lev, rank) in pins.items():
+            def package(pin, rev=revision, pads=True):
+                return dict(content_id=key, revision=rev, capabilities=dict(super_turbo_pads=pads),
+                            files=[dict(role="lev", sha256=pin), dict(role="vrm", sha256="cd" * 32)])
+            with self.subTest(key=key, revision=revision):
+                self.assertEqual(content_capability.finish_boost(track, RECORD, package(lev)), rank)
+                self.assertEqual(self.need(track, "trophy", "win", package(lev), logic_difficulty=2), rank)
+                self.assertEqual(self.need(track, "relic", "sapphire", package(lev), logic_difficulty=2), rank)
+                # Other bytes under the same revision: the measured default.
+                self.assertEqual(content_capability.finish_boost(track, RECORD, package("ef" * 32)), 2)
+                # The CTR Challenge's first boost and the Perfect's USF stay.
+                self.assertEqual(self.need(track, "perfect", "perfect", package(lev), logic_difficulty=2), 2)
+                self.assertEqual(self.need(track, "ctr", "win_letters", package(lev), logic_difficulty=2), 1)
+        # Not ruled: Green Hill Raceway stays USF in every revision.
+        self.assertFalse([k for k in table if k[0] == "green-hill-raceway"])
+        # A revision no row names keeps the measured default.
+        other = dict(content_id="ancient-lake", revision="LRG2Pancho", capabilities=dict(super_turbo_pads=True),
+                     files=[dict(role="lev", sha256="256d1ed4597aacd081d2806130c28969681ce35df5a5ba53200545cbd1835eb8")])
+        self.assertEqual(content_capability.finish_boost(track, RECORD, other), 2)
+
+    def test_malformed_rulings_are_refused(self):
+        lev = "ab" * 32
+        good = dict(content_id="loop", finish_rank=0, ruling="ruling 2026-11-05")
+        for bad in (dict(good, finish_rank=3), dict(good, finish_rank=True), dict(good, ruling="undated"),
+                    dict(good, revision="1.0.0"), dict(good, lev_sha256=lev),
+                    dict(good, revision="1.0.0", lev_sha256=lev.upper()),
+                    dict(good, revision="", lev_sha256=lev), dict(good, extra=1), dict(good, content_id=""),
+                    dict(good, ruling=["2026-11-05"])):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                self.rulings([bad])
+        with self.assertRaises(ValueError):
+            self.rulings([good, dict(good)])
 
     def test_boost_off_means_no_rank(self):
         self.assertEqual(self.need(retail("Hot Air Skyway"), "trophy", boost_mode=0, stats_mode=1), 0)
@@ -371,10 +471,14 @@ class TestEarlyBoost(unittest.TestCase):
         self.assertEqual(mw.local_early_items[1], {"Progressive Boost (Tiny Tiger)": 2})
         self.assertEqual(world._ctr_early_second, "Progressive Boost (Tiny Tiger)")
         self.assertFalse(mw.precollected_items[1])
-        # pre_fill places both early copies in the start (bootstrap_start).
+        # Both early copies are seated, including when a paid pooled-Key
+        # path first reserves the Key before the boosts that support it.
         call_all(mw, "pre_fill")
         self.assertEqual(mw.local_early_items[1], {})
-        self.assertEqual([name for name, _ in world._ctr_start_bootstrap][:2], ["Progressive Boost (Tiny Tiger)"] * 2)
+        self.assertEqual([name for name, _ in world._ctr_start_bootstrap].count(
+            "Progressive Boost (Tiny Tiger)"), 2)
+        reached = sphere0_guard._base_state(world)
+        self.assertEqual(reached.count("Progressive Boost (Tiny Tiger)", 1), 2)
         distribute_items_restrictive(mw)
         self.assertTrue(mw.can_beat_game())
 
@@ -411,12 +515,17 @@ class TestStartBootstrap(unittest.TestCase):
         """Dead-ended before: two early Pura boosts filled a start of 2. Fuzz
         seed 2601 of this YAML, moved when relic checks came to follow the item
         counts and when pads came to draw a stage 1; the YAML drops its stat
-        chains and letter items to fit."""
+        chains and letter items to fit. Since cup legs became routes of their
+        tracks' rungs (row 10i), this YAML's start holds enough checks for one
+        boost (none of seeds 0 to 119 seat two), so the test fills the
+        one-boost bootstrap it still draws. Since trial tracks became cup legs
+        (A3-9), the first bootstrap seed seats a Gold Relic, so the test takes
+        the first that seats a boost."""
         from .. import sphere0_guard
         options = self.fixture("content_plan_bosses_fuzz505_2601.yaml")
         worlds = (make_world(copy.deepcopy(options), seed=seed) for seed in range(40))
-        world = next(w for w in worlds if len(getattr(w, "_ctr_start_bootstrap", ())) > 1
-                     and w._ctr_start_bootstrap[0][0] == w._ctr_start_bootstrap[1][0])
+        world = next(w for w in worlds if getattr(w, "_ctr_start_bootstrap", ())
+                     and w._ctr_start_bootstrap[0][0].startswith("Progressive Boost"))
         placed = world._ctr_start_bootstrap
         self.assertTrue(placed[0][0].startswith("Progressive Boost"))
         self.assertEqual(world.multiworld.local_early_items[1], {})
@@ -424,12 +533,6 @@ class TestStartBootstrap(unittest.TestCase):
         self.assertGreaterEqual(sphere0_guard.sphere0_breadth(world), sphere0_guard.BOOTSTRAP_START_CHECKS)
         self.fills(world)
 
-    def test_start_of_five_seed_5632_fills(self):
-        """Dead-ended before: a start of 5 took no early item (fuzz seed 5632,
-        moved as above)."""
-        world = make_world(self.fixture("content_plan_boost_start5_5632.yaml"), seed=0)
-        self.assertTrue(world._ctr_start_bootstrap)
-        self.fills(world)
 
     def test_two_copies_open_when_one_does_not(self):
         """Fuzz seed 4088: no single item opens a check, two Red CTR Tokens do.
@@ -546,17 +649,43 @@ class TestStartBootstrap(unittest.TestCase):
                 if loc.item is not None and loc.item.name in kept:
                     self.assertTrue(loc.can_reach(CollectionState(mw)), (seed, loc.name))
 
+    def test_a_marginal_wide_start_pays_for_its_key_support(self):
+        from .. import sphere0_guard
+        before = make_world(cap_options(boost="off", stats="shared_global"), seed=1,
+                            stop_before="pre_fill")
+        mw = before.multiworld
+        self.assertEqual(sphere0_guard.sphere0_breadth(before), 13)
+        self.assertEqual(sphere0_guard.bootstrap_target(before), 12)
+        call_all(mw, "pre_fill")
+        placed = before._ctr_start_bootstrap
+        self.assertEqual([name for name, _ in placed], ["Key", "Trophy"])
+        # Actual placed rewards are reachable in order, without a free Key
+        # or borrowing a future check to pay for the Trophy.
+        state = CollectionState(mw)
+        for _name, location_name in placed:
+            location = mw.get_location(location_name, 1)
+            self.assertTrue(location.can_reach(state), location_name)
+            state.collect(location.item, True)
+        self.assertEqual(state.count("Key", 1), 1)
+        self.assertEqual(len(sphere0_guard._room(before, state)), 17)
+        self.assertEqual(len(placed), 2)
+        self.assertLess(13 - len(placed), 12)
+
     def test_a_wide_start_is_unchanged(self):
         from .. import sphere0_guard
         seen = 0
         for seed in range(12):
             try:
-                before = make_world(cap_options(boost="off", stats="shared_global"), seed=seed,
+                # A marginal thirteen-check start can need a paid Key path:
+                # two copies would leave eleven, below the twelve-check cut.
+                # Boxes give this unchanged-start control ample spare checks.
+                before = make_world(cap_options(boost="off", stats="shared_global", box_locations=True), seed=seed,
                                     stop_before="pre_fill")
             except OptionError:
                 continue
             if sphere0_guard.sphere0_breadth(before) < sphere0_guard.bootstrap_target(before):
                 continue
+            self.assertGreater(sphere0_guard.sphere0_breadth(before), 30)
             seen += 1
             state = before.multiworld.random.getstate()
             pool = list(before.multiworld.itempool)

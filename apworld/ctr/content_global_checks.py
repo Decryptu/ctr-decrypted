@@ -13,7 +13,13 @@ on retail tracks, Cortex Vortex and custom tracks alike: a weapon can be fired
 in any race that rolls weapon crates. The 11 weapon items take one item ledger
 row each. The rule is the legacy one (Rules.add_itemsanity_rules): the weapon
 item, and for Turbo the first Progressive Boost rank when boost is on, ANDed
-with any route. Native keys the whole runtime (use hook, crate filter, the
+with any route. A plan with no such race (every normal pad a cup or an arena,
+the 27-cup seed of 0.3.0-alpha3 job A3-7, ruled 2026-11-05) routes every
+Itemsanity check from every cup leg instead, as Hit Character does: a cup leg
+is an Adventure race that rolls weapon crates, and native mints a use in any
+race. Such a leg route needs the finish of every earlier leg, bound to the cup
+pad's racer lock. A plan with a Trophy Race or CTR Challenge keeps its routes
+exactly. Native keys the whole runtime (use hook, crate filter, the
 Turbo Grant and Tizi Helper companions) on the server holding `35016000`, so a
 content-plan room needs no other wire for it.
 
@@ -36,7 +42,10 @@ one). With bosses off the four boss guests have no boss race, so they take the
 content-plan Key fallback (hit_character.CONTENT_PLAN_FALLBACK_KEYS); with
 bosses on (#133 PR 6) each joins through its own boss race win like a normal
 room, and a boss can also be hit in its boss race (one `boss_race` route per
-encounter, after the others). Before PR 5b a guest was routed
+encounter, after the others). With random bosses the slots swap (ruled
+2026-10-30): a racer drawn as a boss, default racers too, joins through that
+boss race win, and an original boss raced nowhere takes ordinary routes from
+the start, with no Key term. Before PR 5b a guest was routed
 from retail races only and a custom-served race kept the stock field of the
 player's arcade pack.
 
@@ -52,10 +61,11 @@ count keeps the earlier routes (every real package measured has crates).
 from Options import OptionError
 
 from . import characters, content_bosses, content_cups, hit_character, itemsanity, logic_terms, progressive_capability
-from .Locations import CTR_LOCATION_IDS
 
 FEATURE = "global_checks_v1"
 KEYS = ("itemsanity", "hit_character")
+#: The check kinds of the two families.
+KINDS = ("itemsanity", "hit")
 #: Modes whose race seats AI opponents and rolls weapon crates.
 RACE_MODES = ("trophy", "ctr")
 MODE_ORDER = ("trophy", "ctr", "relic", "cup")
@@ -157,13 +167,16 @@ def checks(record, tracks, entries, pads, packages=None, boss_hits=None):
     routes = race_routes(tracks, entries, pads, packages)
     out = []
     if record.get("itemsanity"):
-        if not routes:
-            error("itemsanity needs at least one Trophy Race or CTR Challenge in the plan; select the "
-                  "trophy or ctr mode, or turn itemsanity off. No content was changed.")
+        # Every Trophy Race and CTR Challenge; with none, every cup leg (A3-7).
+        use = ([(r[0], r[1], r[2], r[3], None) for r in routes] if routes
+               else cup_routes(tracks, entries, pads, packages))
+        if not use:
+            error("itemsanity needs at least one Trophy Race, CTR Challenge or cup in the plan; select the "
+                  "trophy or ctr mode or a cup, or turn itemsanity off. No content was changed.")
         for name, code, _region in itemsanity.ITEMSANITY_CLASS.all_locations():
             award = "use_juiced" if name.endswith("(Juiced)") else "use"
             out.append(dict(location=code, owner=OWNER, kind="itemsanity", display_name=name,
-                            routes=[_route(e, m, p, award) for _phys, e, p, m, _o in routes]))
+                            routes=[_route(e, m, p, award, leg) for _phys, e, p, m, leg in use]))
     if record.get("hit_character"):
         own = hit_routes(routes, cup_routes(tracks, entries, pads, packages))
         if not own:
@@ -188,9 +201,9 @@ def check_count(record, tracks, packages=None, cup_legs=()):
               and not no_crates(t, packages)]
     count = 0
     if record.get("itemsanity"):
-        if not racing:
-            error("itemsanity needs at least one Trophy Race or CTR Challenge in the plan; select the "
-                  "trophy or ctr mode, or turn itemsanity off. No content was changed.")
+        if not racing and all(no_crates(t, packages) for t in cup_legs):
+            error("itemsanity needs at least one Trophy Race, CTR Challenge or cup in the plan; select the "
+                  "trophy or ctr mode or a cup, or turn itemsanity off. No content was changed.")
         count += len(itemsanity.ITEMSANITY_CLASS.all_locations())
     if record.get("hit_character"):
         if not racing and all(no_crates(t, packages) for t in cup_legs):
@@ -207,8 +220,10 @@ def plan_codes(plan):
 def fallback(plan):
     """{guest engine id: Key count} for the guests with no unlock win in the
     plan. The unlock wins follow the racers the plan's boss races seat (job
-    J11, decision 9): a retail boss raced nowhere falls back to Keys too."""
-    triggers = hit_character.unlock_triggers_for(content_bosses.identity(plan))
+    J11, decision 9). With random bosses an original boss raced nowhere,
+    N. Oxide with his races disabled included, races from the start with no
+    Keys (`content_bosses.seats`)."""
+    triggers = hit_character.unlock_triggers_for(content_bosses.seats(plan))
     return hit_character.fallback_guests(plan_codes(plan), hit_character.CONTENT_PLAN_FALLBACK_KEYS, triggers)
 
 
@@ -225,9 +240,10 @@ def encounter_block(world, plan):
     with the plan's fallback and one order per cup. The block's only draw,
     taken only with Hit Character on; the cup orders derive from the seed."""
     seed = int(world.random.getrandbits(32))
-    bosses = content_bosses.identity(plan)
-    block = hit_character.build_encounters(seed, fallback(plan), cup_indices(plan), bosses)
-    hit_character._validate_block(block, hit_character.CONTENT_PLAN_FALLBACK_KEYS, cup_indices(plan), bosses)
+    bosses, seats = content_bosses.identity(plan), content_bosses.seats(plan)
+    block = hit_character.build_encounters(seed, fallback(plan), cup_indices(plan), bosses, seats)
+    hit_character._validate_block(block, hit_character.CONTENT_PLAN_FALLBACK_KEYS, cup_indices(plan), bosses,
+                                  seats)
     world.ctr_hit_character_seed = seed
     world.ctr_hit_character_encounters = block
     world.ctr_hit_character_fallback = fallback(plan)
@@ -248,7 +264,7 @@ def check_encounter_block(plan, slot_data):
     block = slot_data.get("hit_character_encounters")
     block = hit_character._tuples_to_lists(block) if hit_character._has_tuple(block) else block
     hit_character._validate_block(block, hit_character.CONTENT_PLAN_FALLBACK_KEYS, cup_indices(plan),
-                                  content_bosses.identity(plan))
+                                  content_bosses.identity(plan), content_bosses.seats(plan))
     got = {int(g): e["fallback_keys"] for g, e in block["unlock_triggers"].items() if "fallback_keys" in e}
     if got != fallback(plan):
         error("hit_character_encounters fallback disagrees with the plan's unlock wins")
@@ -271,10 +287,23 @@ def _appearance(target, lock):
 
 def install(world, check, location, route_tests):
     """Set the access rule of one global check. `route_tests` is
-    [(entry region name, stage-2 test or None, route)] for the check's routes."""
+    [(entry region name, stage-2 Term or None, route)] for the check's routes."""
     player = world.player
     kind = check["kind"]
+    route_terms = tuple(route_tests)
+    route_tests = tuple((entry, None if term is None else term.compile(), route)
+                        for entry, term, route in route_terms)
     opens = tuple((entry, test) for entry, test, _route in route_tests)
+
+    def alternatives(terms):
+        terms = tuple(terms)
+        return logic_terms.FALSE if not terms else terms[0] if len(terms) == 1 else logic_terms.Or(*terms)
+
+    def route_term(entry, stage, need_racer=(0, None)):
+        region = logic_terms.ReachRegion(world, entry)
+        term = region if stage is None else logic_terms.And(region, stage)
+        need, racer = need_racer
+        return term if not need else logic_terms.And(term, logic_terms.Cap(world, need, racer))
 
     def any_route(state):
         return any(state.can_reach(entry, "Region", player) and (test is None or test(state))
@@ -283,12 +312,45 @@ def install(world, check, location, route_tests):
     if kind == "itemsanity":
         weapon = check["display_name"].removeprefix("Itemsanity: ").removesuffix(" (Juiced)")
         boost = weapon == "Turbo" and bool(world.options.progressive_boost.value)
+        if any(route["mode"] == content_cups.MODE for _entry, _test, route in route_tests):
+            # Cup leg routes (A3-7): the finish of every earlier leg, bound
+            # to the cup pad's racer lock, as a Cup Leg Victory route.
+            plan = world.ctr_content_plan
+            pad_by_id = {pad["id"]: pad for pad in plan["pads"]}
+            entry_by_id = {entry["id"]: entry for entry in plan["entries"]}
+            tracks = {track["id"]: track for track in plan["tracks"]}
+            packages = {package["id"]: package for package in plan["packages"]}
+            capability = plan.get("capability", {})
+
+            def leg_need(route):
+                if route["mode"] != content_cups.MODE:
+                    return 0, None
+                lock = pad_by_id[route["own_pad_id"]]["racer_lock"]
+                return (content_cups.prefix_boost(entry_by_id[route["entry_id"]], route["leg_id"], tracks, capability,
+                                                  packages),
+                        characters.CHARACTER_ID_TO_NAME[lock] if lock is not None else None)
+            needs = tuple(leg_need(route) for _entry, _test, route in route_tests)
+
+            def any_route(state):
+                return any(state.can_reach(entry, "Region", player) and (test is None or test(state))
+                           and (not need or progressive_capability.gate_satisfied(world, state, player, boost_min=need,
+                                                                                 required_character=racer))
+                           for (entry, test), (need, racer) in zip(opens, needs))
+
+            route_terms = tuple((entry, stage, route, need) for (entry, stage, route), need in zip(route_terms, needs))
+        else:
+            route_terms = tuple((entry, stage, route, (0, None)) for entry, stage, route in route_terms)
 
         def rule(state, weapon=weapon, boost=boost):
             return (state.has(weapon, player)
                     and (not boost or progressive_capability.gate_satisfied(world, state, player, boost_min=1))
                     and any_route(state))
         location.access_rule = rule
+        terms = [logic_terms.Has(weapon, 1, player),
+                 alternatives(route_term(entry, stage, need) for entry, stage, _route, need in route_terms)]
+        if boost:
+            terms.append(logic_terms.Cap(world, 1, None))
+        logic_terms.set_term(location, logic_terms.SerializedRule(rule, logic_terms.all_of(*terms)))
         return
     target = check["location"] - hit_character.HIT_CHARACTER_CODE_BASE
     plan = world.ctr_content_plan
@@ -298,14 +360,15 @@ def install(world, check, location, route_tests):
     packages = {package["id"]: package for package in plan["packages"]}
     capability = plan.get("capability", {})
     legs = []
+    leg_terms = []
     # Boss races (#133 PR 6): the boss can be hit in its own boss race once
-    # that race is in logic, whether or not it joined the draw
-    # (hit_character._boss_predicate on the legacy path).
-    by_code = {code: name for name, code in CTR_LOCATION_IDS.items()}
-    encounters = {enc["id"]: enc for enc in plan.get("encounters", ())}
-    boss = tuple(world.multiworld.get_location(by_code[encounters[route["encounter_id"]]["completion_location"]], player)
-                 for _entry, _test, route in route_tests if route["mode"] in content_bosses.MODES)
-    for entry, test, route in route_tests:
+    # the player can enter that race, whether or not it joined the draw
+    # (hit_character._boss_predicate on the legacy path). Entering is the
+    # encounter's region (garage gate and the race's own requirement); the win
+    # check's boost rank is not needed to hit the racer (Rulebook: the player
+    # does not need to beat the boss first).
+    boss = tuple(entry for entry, _test, route in route_tests if route["mode"] in content_bosses.MODES)
+    for (entry, test, route), (_entry, stage, _route) in zip(route_tests, route_terms):
         if route["mode"] in content_bosses.MODES:
             continue
         lock = pads[route["own_pad_id"]]["racer_lock"]
@@ -318,15 +381,27 @@ def install(world, check, location, route_tests):
                 if route["mode"] == content_cups.MODE else 0)
         if players:
             legs.append((entry, test, players, need))
+            racers = []
+            for name in players:
+                selected = (logic_terms.TRUE if not characters.unlocks_enabled(world)
+                            or name == world.ctr_starting_character else
+                            logic_terms.Has(characters.unlock_item_name(name), 1, player))
+                racers.append(selected if not need else logic_terms.And(selected, logic_terms.Cap(world, need, name)))
+            leg_terms.append(logic_terms.And(route_term(entry, stage), alternatives(racers)))
     legs = tuple(legs)
     fallback_keys = world.ctr_hit_character_fallback.get(target)
     triggers = ()
-    if target not in hit_character.DEFAULT_RACER_IDS and fallback_keys is None:
-        names = hit_character._location_name_by_code(world)
-        present = {c["location"] for c in plan["checks"]}
-        triggers = tuple(world.multiworld.get_location(names[code], player)
-                         for code in hit_character.unlock_triggers_for(
-                             world.ctr_hit_character_encounters["bosses"])[target][0] if code in present)
+    if fallback_keys is None:
+        table = world.ctr_hit_character_encounters["bosses"]
+        # The roster swap: a default racer drawn as a boss waits for that boss
+        # race like a guest does. An original boss raced nowhere has no term,
+        # N. Oxide with his races disabled too: his codes are not in the plan.
+        wins = (hit_character.boss_codes(table, target) if target in hit_character.DEFAULT_RACER_IDS
+                else hit_character.unlock_triggers_for(table)[target][0])
+        if wins:
+            names = hit_character._location_name_by_code(world)
+            present = {c["location"] for c in plan["checks"]}
+            triggers = tuple(world.multiworld.get_location(names[code], player) for code in wins if code in present)
     weapons = bool(plan.get("global_checks", {}).get("itemsanity"))
     unlocks = characters.unlocks_enabled(world)
 
@@ -337,7 +412,7 @@ def install(world, check, location, route_tests):
     def rule(state):
         if weapons and not state.has_any(hit_character.HIT_METHOD_ITEMS, player):
             return False
-        if boss and any(location.can_reach(state) for location in boss):
+        if boss and any(state.can_reach(region, "Region", player) for region in boss):
             return True
         if fallback_keys is not None:
             if not state.has(hit_character.KEY_ITEM, player, fallback_keys):
@@ -351,6 +426,15 @@ def install(world, check, location, route_tests):
                            for name in players)
                    for entry, test, players, need in legs)
     location.access_rule = rule
+    guest = (logic_terms.Has(hit_character.KEY_ITEM, fallback_keys, player) if fallback_keys is not None
+             else alternatives(logic_terms.Ref(trigger, player) for trigger in triggers) if triggers
+             else logic_terms.TRUE)
+    ordinary = logic_terms.And(guest, alternatives(leg_terms))
+    paths = [ordinary] + [logic_terms.ReachRegion(world, region) for region in boss]
+    term = alternatives(paths)
+    if weapons:
+        term = logic_terms.And(logic_terms.HasAny(hit_character.HIT_METHOD_ITEMS, player), term)
+    logic_terms.set_term(location, logic_terms.SerializedRule(rule, term))
 
 
 def tiger_temple_door(world):
@@ -358,8 +442,8 @@ def tiger_temple_door(world):
     Itemsanity on, picking it up needs one of the door-opener weapons
     (Rules.add_lettersanity_rules, item_boxes.TIGER_TEMPLE_DOOR_OPENERS): on its
     Letter R check, and on its CTR Token Challenge unless Lettersanity 2 left the
-    R undrawn. Item Box 5 sits behind the same door (item_boxes.BOX_RULES,
-    #133 PR 4e) and takes the same term. Applies to the retail Tiger Temple
+    R undrawn. Item Box 5 sits behind the same door (its spot's `door` field,
+    #133 PR 4e, A3-14) and takes the same term. Applies to the retail Tiger Temple
     only."""
     plan = world.ctr_content_plan
     if not plan.get("global_checks", {}).get("itemsanity"):
@@ -375,9 +459,12 @@ def tiger_temple_door(world):
         names.append(letter_r)
     if CTR_LOCATION_IDS[token] in codes and (mode != 2 or CTR_LOCATION_IDS[letter_r] in codes):
         names.append(token)
-    door_box = "Tiger Temple: Item Box 5"
-    if CTR_LOCATION_IDS[door_box] in codes:
-        names.append(door_box)
+    # The boxes behind the door are the spots marked `door` (A3-14).
+    from .item_boxes import TIGER_TEMPLE_DOOR_BOXES
+    for track, number in TIGER_TEMPLE_DOOR_BOXES:
+        door_box = f"{track}: Item Box {number}"
+        if CTR_LOCATION_IDS.get(door_box) in codes:
+            names.append(door_box)
     for name in names:
         location = world.multiworld.get_location(name, player)
         logic_terms.and_term(location, logic_terms.HasAny(TIGER_TEMPLE_DOOR_OPENERS, player))
