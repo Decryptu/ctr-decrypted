@@ -11,6 +11,7 @@ Open work only: what is in progress, what is planned, what may come, and what is
   - Custom tracks are one-player only. If they ever get split screen, its far emitter (`DrawLevelOvr1P_EmitSplitGroundListAQuadBlock`) must draw by face too.
 
 ## Planned
+- **PAL fixes across the game:** replace Penta's NTSC-U placeholder voice clips with his finished PAL clips, then audit regional differences for other bug fixes and unfinished-content corrections to apply globally in both clients. This extends beyond the existing Penta stats option and is separate from full PAL disc support.
 - The other High Octane features we want. Each `planned` line in `tools/decrypted/highoctane.txt` names an item in this roadmap, including work in progress (`upstream_status.py --ho planned`):
   - **Lap count 1-9** in Arcade and Cup, with High Octane's fix for the mempack overrun at 8 and 9 laps.
   - **Cheats menu:** the retail cheat codes as toggles in Options.
@@ -27,7 +28,7 @@ Open work only: what is in progress, what is planned, what may come, and what is
 - Custom racer sounds, mask and wheels: High Octane lets a custom racer bring sampled voice lines and choose its mask and wheels.
 - Racers from other games (low priority): Mario Kart DS karts and drivers, or other PS1 formats, as custom racers.
 - Better bots (low priority): smarter driving, item use, lines and shortcuts, with no stat advantage.
-- PAL disc support (low priority), which would also bring High Octane's multilanguage text and PAL voices, read from the PAL disc. Upstream removed it on purpose (ctr-native #51, #54).
+- Full PAL disc support (low priority), separate from the planned PAL fixes above, which would also bring High Octane's multilanguage text and PAL voices, read from the PAL disc. Upstream removed it on purpose (ctr-native #51, #54).
 - macOS (low priority). First a clean 64-bit/arm64 build (builds are 32-bit x86 MinGW32 today), then a macOS platform layer: window, GL context, audio, controllers. Until then the Windows exe runs under CrossOver/Wine with GL 3.x (ctr-native #20, #33).
 
 ## Not planned
