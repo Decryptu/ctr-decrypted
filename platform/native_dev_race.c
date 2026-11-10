@@ -544,6 +544,16 @@ int NativeDev_AutopilotPad(int player, unsigned short *buttons, unsigned char *l
 	if ((player == 0) && NativeDev_ScriptedPad(dev->autopilot, buttons, leftX))
 		return 1;
 
+	// Keep idle virtual pads connected for unattended multiplayer menu captures.
+	// Scripted player-1 input above still owns its buttons.
+	if (NativeDev_EnvInt("CTR_DEV_CHARACTER_SELECT", 0) && player < dev->players &&
+	    gGT && gGT->levelID == MAIN_MENU_LEVEL)
+	{
+		*buttons = 0xffff;
+		*leftX = 0x80;
+		return 1;
+	}
+
 	if (!dev->autopilot)
 		return 0;
 

@@ -1,6 +1,6 @@
 # Character select and custom racers
 
-The native character select is built from a roster list instead of retail's hand-made icon tables, so it can hold N. Oxide and any number of custom racers. With only the retail racers, it draws, animates and navigates exactly like retail.
+The native character select is built from a roster list instead of retail's hand-made icon tables, so it can hold N. Oxide and any number of custom racers. With only the retail racers and Character Select Stats off, it draws, animates and navigates exactly like retail.
 
 Code: `game/230/MM_CharacterGrid.c` (included from `MM_Characters.c`; the PS1 build keeps the retail functions there). Racers: `platform/native_racers.c` (models, portraits, the players' picks) and `platform/native_racer_library.cpp` (installed packages).
 
@@ -36,6 +36,12 @@ Entries flow into the rows, and every row is centred, so 15 racers land exactly 
 - Off the end of a row, left and right turn the page; so do L1 and R1. The page is shared: any player who has not chosen can turn it. A cursor whose racer is on another page is hidden until its next d-pad press brings it onto the shown page.
 
 Players are tracked by roster entry. `GAME_CHARACTER_IDS` gets the entry's character ID, and `NativeRacers_SetPlayer` its racer index (-1 for a retail racer).
+
+## Character stats
+
+OPTIONS > Extras > Character Select Stats enables a comparison panel beside each player's model, for one to four players. Player 1 can also toggle it on the select screen with L2 (the prompt shows the bound keyboard or controller button). The choice is saved as `[Extras] character_stats`, off by default.
+
+The panel follows the highlighted roster entry, including while turning pages. Retail racers use their metadata engine class; custom racers use `NativeRacers_Engine`, including a package's explicit engine override. Penta uses the NTSC-U turning class or three full PAL bars according to OPTIONS > Extras > Penta (Next Race); Oxide uses the balanced class. The Penta choice also changes his driving stats ([EXTRAS.md](EXTRAS.md#penta-stats)) and never overrides a custom racer's engine. Speed, acceleration and turning bars are relative class comparisons based on High Octane's viewer, not physical units or the retail garage's ratings. They describe the base engine, before Archipelago progressive stats or race modifiers.
 
 ## Racer packages
 A racer is a folder under `assets/racers/` (any name) holding `racer.json` and the files it lists. Package builds only (`CTR_CUSTOM_PACKAGES`, with the Mods screen). The library reads every folder once, when the character select first needs it. A folder whose manifest or files don't check out is skipped with a `[Racers]` log line.
@@ -120,4 +126,6 @@ Everything else keyed by character ID uses the template: voice, podium, records,
 `CTR_DEV_RACER=n` with `CTR_DEV_RACE` puts player 1 in a race as the nth installed racer. Through the menus: `CTR_DEV_CHARACTER_SELECT=1` with `CTR_DEV_MODE=tt` opens the Time Trial character select, and `CTR_DEV_PAD` picks the racer, track and ghost.
 
 ## Checking
-`CTR_DEV_CHARACTER_SELECT=1` opens the screen ([DEV-TOOLS.md](DEV-TOOLS.md)). `CTR_DEV_FAKE_RACERS=n` replaces the installed racers with n placeholders that borrow the first eight retail racers' looks, to fill pages. To check retail is unchanged, A/B the screen against an older build with `CTR_DEV_UNLOCKS=0` and `=1` at 1 to 4 players, with `CTR_DEV_PAD` scripts that hit taken icons and row ends. Every frame should match except the exit slide-out, which older builds did not animate.
+`CTR_DEV_CHARACTER_SELECT=1` opens the screen ([DEV-TOOLS.md](DEV-TOOLS.md)). `CTR_DEV_FAKE_RACERS=n` replaces the installed racers with n placeholders that borrow the first eight retail racers' looks, to fill pages. To check retail is unchanged, A/B the screen against an older build with `CTR_DEV_UNLOCKS=0` and `=1` at 1 to 4 players, with `CTR_DEV_PAD` scripts that hit taken icons and row ends. With Character Select Stats off, every frame should match apart from the bottom stats prompt and the exit slide-out, which older builds did not animate.
+
+For the stats panel, capture one to four players with `[Extras] character_stats` on and off, at 4:3 and 16:9. Page onto an installed racer and check its engine against `racer.json`; change the engine in a throwaway copy to check an override independent of its template. `CTR_DEV_PAD=1500:2,1900:2` toggles the panel twice and leaves `character_stats = false` saved.

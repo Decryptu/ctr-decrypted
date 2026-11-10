@@ -37,7 +37,7 @@ b767d569f skip   Vita performance (renderer, disc, audio, input)       | Restore
 a9978c09c own    controls screen (docs/CONTROLS.md)                    | Add left analog movement support and L2/R2 on right analog.
 bc78bbb80 ported d204cb8b6                                             | Enable Nitrous Oxide as playable character.
 b5adce252 planned High Octane fixes                                     | Properly scale stats bars to widescreen aspect ratio.
-96adb0a5a maybe  PAL data                                              | Use PAL stats for Penta Penguin.
+96adb0a5a own    optional Penta PAL stats (docs/EXTRAS.md)             | Use PAL stats for Penta Penguin.
 b061c03fa maybe  PAL disc support (text comes from PAL discs)          | Add multilanguage support.
 760637238 maybe  PAL disc support (text comes from PAL discs)          | Resize garage boxes based on actual text length.
 84cb88dbb maybe  PAL disc support (text comes from PAL discs)          | Make language selection persistent.
@@ -64,7 +64,7 @@ f0dad3b99 skip   readme, changelog or housekeeping                     | Add scr
 b0dd9152d maybe  ghost replay tools                                    | Make the ghosts limit per track dependant.
 cf212a23a maybe  ghost replay tools                                    | Add Ghost Replay feature.
 4c99d3c33 skip   High Octane's menu layout; our options live in the config menu | Refactor the main menu with some submenus.
-43c0c6fe7 planned racer stats in the character select                   | Add a stats viewer in character selection.
+43c0c6fe7 own    racer stats, own layout (docs/CUSTOM_RACERS.md)       | Add a stats viewer in character selection.
 5e46d139b own    Skip Intros option                                    | Allow for early skipping intro.
 72851d323 maybe  boss fights on any track                              | Add Boss Fight mode.
 640fb90e5 skip   Vita performance (renderer, disc, audio, input)       | Move CLUT quantization to vertex shader.

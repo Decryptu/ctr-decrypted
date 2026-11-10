@@ -70,6 +70,8 @@ typedef struct
 	                            // load.
 	// Extras: optional HUD and effect mods from the CTR-ModSDK modules, as
 	// High Octane ships them. All read live, so a change applies at once.
+	int pentaStats;            // 0 NTSC-U, 1 PAL; applied at driver birth.
+	bool characterStats;        // Character-select engine comparison panel.
 	bool reservesMeter;         // Extras: reserves meter under the powerslide bar
 	                            // (UI_DrawReservesMeter, game/UI/UI_Meter.c).
 	                            // Default on in the Archipelago build, which
