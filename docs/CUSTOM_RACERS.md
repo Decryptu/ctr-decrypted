@@ -114,16 +114,32 @@ A package holds only the mod's own model and portrait, nothing from the player's
 `CTR_DEV_MODS=2` opens the tab ([DEV-TOOLS.md](DEV-TOOLS.md)); `CTR_DEV_PAD` presses then drive it. The catalogue loads within about 300 frames of a fast-forwarded run.
 
 ## In a race
-A driver races as a custom racer when it is a human player who picked one, outside Adventure and the menus, and its character ID is still the racer's template (`NativeRacers_Driver`). Anything that changed the ID since (Archipelago's character swap, the garage) changed the racer too. Then:
+A driver races as a custom racer when it is a human player who picked one or an Arcade/Cup bot assigned one, outside Adventure and the menus, and its character ID is still the racer's template (`NativeRacers_Driver`). Anything that changed the ID since (Archipelago's character swap, the garage) changed the racer too. Then:
 
 - `VehBirth_NonGhost` births it with the racer's model, at every split-screen size. In Time Trial, `MainInit_Drivers` then gives player 1 the template's high-detail model but leaves a custom racer's alone.
 - `VehBirth_TireSprites` gives it wheels or not by `wheels`.
 - `VehBirth_SetConsts` reads the racer's engine class (`VEH_BIRTH_ENGINE_ID`, `include/common.h`). Engine sound stays the template's.
 - The HUD portraits use the racer's (`VEH_DRIVER_ICON`): race rank list, cup standings, race results, VS and battle standings.
 
-Everything else keyed by character ID uses the template: voice, podium, records, ghosts, Archipelago. Bots never pick a custom racer.
+Everything else keyed by character ID uses the template: voice, podium, records, ghosts, Archipelago. OPTIONS > Extras > Opponent Roster controls the Arcade/Cup field (see below).
 
 `CTR_DEV_RACER=n` with `CTR_DEV_RACE` puts player 1 in a race as the nth installed racer. Through the menus: `CTR_DEV_CHARACTER_SELECT=1` with `CTR_DEV_MODE=tt` opens the Time Trial character select, and `CTR_DEV_PAD` picks the racer, track and ghost.
+
+## Opponent roster
+
+OPTIONS > Extras > Opponent Roster is saved as `[Extras] ai_racers`:
+
+- **ORIGINAL** (`0`, default): the original opponent roster.
+- **UNLOCKED** (`1`): draw opponents from the eight starting racers and the secret racers unlocked in the current save, including N. Oxide when unlocked.
+- **INCLUDE CUSTOM** (`2`): also draw from installed custom racers whose race model loads successfully.
+
+This applies to one-player and two-player Arcade and Cup races. Offline custom courses use it in their supported single-player mode. Adventure, Archipelago encounter rosters, bosses, demos, Time Trial and Battle retain their own rules. A cup keeps the same opponents across its legs. A new single race or cup draws a new field.
+
+The draw is without replacement by roster entry, excluding the human players' picks. A custom racer and its retail template are separate entries and may race together, as may different custom racers sharing a template. Each driver keeps its own model, engine, wheels and portrait; voices and records still use the template. N. Oxide's boss head start and damage advantages apply only in boss races.
+
+`game/LOAD/LOAD_NativeBots.c` retains the retail pack for shared assets and loads each opponent's medium-detail template model into an owned buffer through `LT_DRAM`. Driver birth uses that driver's model, then the custom model when assigned. The buffers and bot picks are cleared at every driver-pack load, including return to menus; the library owns custom models. This avoids enlarging the fixed retail mempack or resolving a shared template to another driver's model.
+
+`tools/test-ai-racers.c` exercises the production loader with a disc stub: locked and unlocked pools, human exclusions, distinct custom entries sharing a template, empty libraries, Cup continuity, mode exclusions, the eight-slot load queue and buffer cleanup. It runs as CTest `ctr_ai_racers`.
 
 ## Checking
 `CTR_DEV_CHARACTER_SELECT=1` opens the screen ([DEV-TOOLS.md](DEV-TOOLS.md)). `CTR_DEV_FAKE_RACERS=n` replaces the installed racers with n placeholders that borrow the first eight retail racers' looks, to fill pages. To check retail is unchanged, A/B the screen against an older build with `CTR_DEV_UNLOCKS=0` and `=1` at 1 to 4 players, with `CTR_DEV_PAD` scripts that hit taken icons and row ends. With Character Select Stats off, every frame should match apart from the bottom stats prompt and the exit slide-out, which older builds did not animate.

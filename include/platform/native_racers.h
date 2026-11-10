@@ -30,8 +30,11 @@ struct Model *NativeRacers_RaceModel(int racer);
 // retail character in GAME_CHARACTER_IDS).
 void NativeRacers_SetPlayer(int player, int racer);
 int NativeRacers_Player(int player);
+// Set by the Arcade/Cup loader; cleared on every driver-pack load.
+void NativeRacers_SetBot(int driver, int racer);
+struct Model *NativeRacers_BotModel(int driver);
 
-// The custom racer a driver races as, or -1: a human player's pick, outside
+// The custom racer a driver races as, or -1: a human pick or assigned bot, outside
 // Adventure and the menus, while their character ID is still the racer's
 // template (anything that changed the ID since, changed the racer too).
 int NativeRacers_Driver(int driverID);

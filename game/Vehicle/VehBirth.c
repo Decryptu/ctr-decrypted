@@ -980,6 +980,9 @@ void VehBirth_NonGhost(struct Thread *t, int index)
 	// A custom racer drives its own model (docs/CUSTOM_RACERS.md).
 	if ((GAME_TRACKER->gameMode1 & MAIN_MENU) == 0)
 	{
+		struct Model *botModel = NativeRacers_BotModel(playerIndex);
+		if (botModel != NULL)
+			m = botModel;
 		struct Model *racerModel = NativeRacers_RaceModel(NativeRacers_Driver(playerIndex));
 		if (racerModel != NULL)
 			m = racerModel;

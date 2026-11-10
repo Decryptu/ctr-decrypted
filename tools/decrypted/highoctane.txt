@@ -145,14 +145,14 @@ f028f2803 maybe  reverse tracks; its 60 FPS rain part is bfc96d485     | Add alt
 73f0fd5ed skip   web build                                             | Emscripten port
 aa16f23a9 skip   web build                                             | Added EmScripten build reference to readme.
 baa505759 own native hierarchy shadow clearance; docs/NATIVE-PRESENTATION.md | Fix shadows overlapping with menu rects.
-8e1ba8a5d planned bots pick unlockable and custom racers                | Make CPU be able to pick unlockable characters in Arcade.
+8e1ba8a5d own    Opponent Roster and per-driver models (docs/CUSTOM_RACERS.md) | Make CPU be able to pick unlockable characters in Arcade.
 5bc765f14 maybe  ghost replay tools                                    | Add personal bests view during Time Trials.
 9df434eeb maybe  ghost replay tools                                    | Add Challenge Ghost feature in Ghost Replay.
 cd29f8471 skip   online leaderboard                                    | Separate Web client to PC one for the leaderboard.
 875fd120b planned lap count 1-9                                         | Fix 8-9 Lap races causing mempack overrun.
 c0616f504 own    custom racers, own design (docs/CUSTOM_RACERS.md)     | Added custom characters support.
 67910d028 skip   Vita                                                  | Fix custom racers corrupting memory on PSVita.
-80fc42235 planned bots pick unlockable and custom racers                | Add an option to enable custom racers for enemy AI.
+80fc42235 own    Opponent Roster and per-driver models (docs/CUSTOM_RACERS.md) | Add an option to enable custom racers for enemy AI.
 7109f4a1c own    custom racers, own design (docs/CUSTOM_RACERS.md)     | Make custom racers use their models during podium.
 63df65f4d skip   web build                                             | Integrate web build deployment on new releases.
 5609dbd6e skip   custom racer importer; our racers come from the racers index | Add xdelta executable.
@@ -177,7 +177,7 @@ bcf381c2d skip   taste: retail pause menu order kept                   | Invert 
 8349dcc83 maybe  ghost replay tools                                    | Replace Vita overlay with a Dualshock one on Web/PC builds.
 59b3f979b own    Audio volume options                                  | Add audio options in the main menu Options menu.
 091958baf maybe  PAL disc support (text comes from PAL discs)          | USe small font on language menu.
-198f56a01 planned bots pick unlockable and custom racers                | Make AI Racers a three options selection.
+198f56a01 own    Opponent Roster and per-driver models (docs/CUSTOM_RACERS.md) | Make AI Racers a three options selection.
 7f6b800e9 own    custom racers, own design (docs/CUSTOM_RACERS.md)     | Fixed inconsistency for XA voicelines in MP with custom racers.
 95f3a5878 skip   web build                                             | Explicitly request an opaque GL context on Emscripten.
 ca43755cf own    isolated native retry lists and bounds; docs/LEVEL-VISIBILITY.md | Fix rendered quadblock retry list overflow in native split-screen

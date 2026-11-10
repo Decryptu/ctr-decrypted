@@ -30,6 +30,7 @@ NativeConfig g_config = {
 	false, // muteWhenUnfocused (default off: a single-game setup keeps today's behaviour)
 	true,  // fps60 (default on: 60 FPS mode)
 	0,     // pentaStats (NTSC-U)
+	0,     // aiRacers (retail)
 	false, // characterStats (retail layout until enabled)
 #ifdef CTR_AP
 	true,  // reservesMeter (on: the Archipelago build always drew it)
@@ -145,6 +146,7 @@ const ConfigEntry g_configEntries[] = {
 	// each behind its own row so the retail look stays the default. See
 	// docs/EXTRAS.md.
 	{"Extras",      "penta_stats",              "Penta (Next Race)",            CFG_ENUM, &g_config.pentaStats, 0, 1, 1},
+	{"Extras",      "ai_racers",                "Opponent Roster",              CFG_ENUM, &g_config.aiRacers, 0, 2, 1},
 	{"Extras",      "character_stats",          "Character Select Stats",       CFG_BOOL, &g_config.characterStats, 0, 0, 0},
 	{"Extras",      "reserves_meter",           "Reserves Meter",               CFG_BOOL, &g_config.reservesMeter, 0, 0, 0},
 	{"Extras",      "reserve_fire",             "Keep Reserve Fire",            CFG_BOOL, &g_config.reserveFire, 0, 0, 0},
@@ -437,6 +439,8 @@ void NativeConfig_Load(void)
 	}
 
 	fclose(f);
+
+	g_config.aiRacers = g_config.aiRacers < 0 ? 0 : g_config.aiRacers > 2 ? 2 : g_config.aiRacers;
 
 	// Snap a hand-edited render_scale onto the supported ladder at load, the
 	// same clamp the renderer applies every frame. This keeps the menu row and

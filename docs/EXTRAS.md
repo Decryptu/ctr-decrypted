@@ -2,12 +2,13 @@
 
 OPTIONS → Extras holds optional character, HUD and effect changes. Each row is saved in `config.ini` under `[Extras]`. Visual changes apply at once, except Cyan Super Pads, which applies at the next track load. Penta changes driving stats on the next race or driver birth.
 
-`tools/test-options-pages.c` checks the Extras row order, panel capacity and saved sections, including both character options.
+`tools/test-options-pages.c` checks the Extras row order, panel capacity and saved sections, including the character and AI roster options.
 
 | Row | Key | Default | What it does | Code |
 |---|---|---|---|---|
 | Character Select Stats | `character_stats` | Off | Engine class and relative speed, acceleration and turning beside each player on the character select; L2 also toggles it there. Custom racers use their configured engine. | [CUSTOM_RACERS.md](CUSTOM_RACERS.md#character-stats), `game/230/MM_CharacterGrid.c` |
 | Penta (Next Race) | `penta_stats` | NTSC-U (`0`) | NTSC-U uses the turning class; PAL (`1`) combines speed-class top speed, acceleration-class acceleration and turning-class handling. Changes the real Penta, including bots, while custom racers keep their engine. A loaded Archipelago Adventure seed owns its own Penta/stat rules. | `include/ctr_penta.h`, `game/Vehicle/VehBirth.c` |
+| Opponent Roster | `ai_racers` | Original (`0`) | Arcade/Cup opponents: Original, Unlocked (`1`), or Include Custom (`2`). Takes effect for the next race or new cup. | [CUSTOM_RACERS.md](CUSTOM_RACERS.md#opponent-roster), `game/LOAD/LOAD_NativeBots.c` |
 | Reserves Meter | `reserves_meter` | On in the Archipelago build, off in vanilla | A 49×3 bar under the powerslide bar showing the boost reserves you hold, in 1P races and crystal challenges. Red, yellow, green by amount; blue once it overruns the bar; purple once the value has wrapped past 0x7FFF and no longer drains ("Saffi fire"). | `UI_DrawReservesMeter` in `game/UI/UI_Meter.c`, maths in `ap/ap_reserves_meter_logic.h` |
 | Keep Reserve Fire | `reserve_fire` | Off | While a driver holds reserves, powerslide fire stays visible. Retail kills it after two frames or hides it for the visibility cooldown, so chained slides with no start boost show no fire. | `VehFire_KeepReserveFire` in `game/Vehicle/VehFire.c` |
 | Blue Fire At USF | `blue_fire` | Off | Player 1's exhaust turns blue at Ultimate Speed Fire, as in Nitro-Fueled. | `game/VehBlueFire.c` |

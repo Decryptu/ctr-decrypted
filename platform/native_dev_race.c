@@ -290,6 +290,11 @@ int NativeDev_StartRace(struct GameTracker *gGT)
 {
 	NativeDevRaceState *dev = NativeDevRace_State();
 
+	const int unlocks = NativeDev_EnvInt("CTR_DEV_UNLOCKS", 0);
+	for (int bit = 5; unlocks >= 1 && bit <= 11; bit++)
+		UNLOCK_ADV_BIT(GAME_PROGRESS.unlocks, bit);
+	if (unlocks >= 2)
+		UNLOCK_ADV_BIT(GAME_PROGRESS.unlocks, GAME_UNLOCK_BIT_OXIDE);
 	gGT->boolDemoMode = 0;
 	gGT->numPlyrNextGame = 1;
 	// CTR_DEV_CHEATS: gameMode2 cheat bits for the race, as the title-screen
@@ -318,6 +323,8 @@ int NativeDev_StartRace(struct GameTracker *gGT)
 	// VS: no Arcade flag, two to four players.
 	if (dev->players > 1)
 	{
+		if (NativeDev_EnvInt("CTR_DEV_ARCADE", 0) && dev->players == 2)
+			gGT->gameMode1 |= ARCADE_MODE;
 		gGT->numPlyrNextGame = (u8)dev->players;
 		if (dev->laps > 0)
 			gGT->numLaps = (char)dev->laps;

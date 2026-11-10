@@ -509,6 +509,9 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(ctr_ai_racers_test tools/test-ai-racers.c)
+    target_include_directories(ctr_ai_racers_test PRIVATE include)
+    add_test(NAME ctr_ai_racers COMMAND ctr_ai_racers_test)
     add_test(NAME ctr_native_version COMMAND $<TARGET_FILE:ctr_native> --version)
     set_tests_properties(ctr_native_version PROPERTIES PASS_REGULAR_EXPRESSION "^CTR Native ")
 

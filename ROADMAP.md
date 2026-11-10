@@ -14,7 +14,6 @@ Open work only: what is in progress, what is planned, what may come, and what is
 - The other High Octane features we want. Each `planned` line in `tools/decrypted/highoctane.txt` names an item in this roadmap, including work in progress (`upstream_status.py --ho planned`):
   - **Lap count 1-9** in Arcade and Cup, with High Octane's fix for the mempack overrun at 8 and 9 laps.
   - **Cheats menu:** the retail cheat codes as toggles in Options.
-  - **Bots racing as unlocked and custom racers:** a three-way AI Racers option (retail, unlocked, custom too).
   - **Multiplayer character select:** players 2-4 can change page, and players may pick the same racer.
 
 ## Maybe

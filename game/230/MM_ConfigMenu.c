@@ -440,6 +440,11 @@ static int TrapDuration_Index(int value)
 // entry edits (pointer identity, no string compare).
 static const char *Enum_Label(const ConfigEntry *e)
 {
+	if (e->valuePtr == &g_config.aiRacers)
+	{
+		static const char *names[] = {"ORIGINAL", "UNLOCKED", "INCLUDE CUSTOM"};
+		return names[g_config.aiRacers >= 0 && g_config.aiRacers <= 2 ? g_config.aiRacers : 0];
+	}
 	if (e->valuePtr == &g_config.pentaStats)
 		return g_config.pentaStats == 1 ? "PAL" : "NTSC-U";
 	if (e->valuePtr == &g_config.aspectRatio)
@@ -469,6 +474,12 @@ static const char *Enum_Label(const ConfigEntry *e)
 
 static void Enum_Step(const ConfigEntry *e, int dir)
 {
+	if (e->valuePtr == &g_config.aiRacers)
+	{
+		int value = g_config.aiRacers + dir;
+		g_config.aiRacers = value < 0 ? 0 : value > 2 ? 2 : value;
+		return;
+	}
 	if (e->valuePtr == &g_config.pentaStats)
 	{
 		int value = (g_config.pentaStats == 1) + dir;
@@ -635,6 +646,13 @@ static void Config_DrawRowHelp(const ConfigEntry *e, uint32_t *ot)
 {
 	const char *first = 0;
 	const char *second = 0;
+	if (e->valuePtr == &g_config.aiRacers)
+	{
+		first = g_config.aiRacers == 2 ? "Unlocked and installed racers." :
+		        g_config.aiRacers == 1 ? "Adds racers unlocked in this save." :
+		                                "The game's original opponents.";
+		second = "Applies to Arcade and Cup races.";
+	}
 
 	if (e->valuePtr == &g_config.cameraFar)
 	{

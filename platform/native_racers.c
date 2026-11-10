@@ -69,6 +69,7 @@ static struct NativeRacer s_racers[NATIVE_RACERS_MAX];
 static int s_racerCount = -1;
 static int s_portraitsUploaded;
 static signed char s_playerRacer[4] = {-1, -1, -1, -1};
+static signed char s_botRacer[8] = {-1, -1, -1, -1, -1, -1, -1, -1};
 
 static void NativeRacers_Load(void)
 {
@@ -128,6 +129,8 @@ void NativeRacers_Reload(void)
 	s_portraitsUploaded = 0;
 	for (int p = 0; p < 4; p++)
 		s_playerRacer[p] = -1;
+	for (int p = 0; p < 8; p++)
+		s_botRacer[p] = -1;
 }
 
 static int NativeRacers_Valid(int racer)
@@ -383,11 +386,17 @@ int NativeRacers_Player(int player)
 int NativeRacers_Driver(int driverID)
 {
 	struct GameTracker *gGT = sdata->gGT;
-	if ((gGT == NULL) || (driverID < 0) || (driverID >= gGT->numPlyrCurrGame) || (driverID >= 4) ||
+	if ((gGT == NULL) || (driverID < 0) || (driverID >= 8) ||
 	    ((gGT->gameMode1 & (ADVENTURE_MODE | MAIN_MENU)) != 0))
 		return -1;
-	const int racer = s_playerRacer[driverID];
+	const int racer = driverID < gGT->numPlyrCurrGame && driverID < 4 ? s_playerRacer[driverID] : s_botRacer[driverID];
 	return (NativeRacers_Valid(racer) && (s_racers[racer].templateID == GAME_CHARACTER_IDS[driverID])) ? racer : -1;
+}
+
+void NativeRacers_SetBot(int driver, int racer)
+{
+	if (driver >= 0 && driver < 8)
+		s_botRacer[driver] = (signed char)(NativeRacers_Valid(racer) ? racer : -1);
 }
 
 int NativeRacers_DriverEngine(int driverID, int retailEngine)

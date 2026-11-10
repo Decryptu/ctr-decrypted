@@ -12,6 +12,10 @@
 #include "../../ap/ap_net.h" // ap_net_checked_count for the [AP HIT] roster line
 #endif
 
+#ifdef CTR_NATIVE
+#include "LOAD_NativeBots.c"
+#endif
+
 void LOAD_RunPtrMap(char *origin, int *patchArr, int numPtrs)
 {
 	int *ptrCurrOffset = patchArr;
@@ -284,6 +288,10 @@ int LOAD_DriverMPK(struct BigHeader *bigfile, int levelLOD, void (*callback)(str
 {
 	int gameMode1;
 	struct GameTracker *gGT;
+
+#ifdef CTR_NATIVE
+	LOAD_NativeBotsReset();
+#endif
 
 #ifdef CTR_AP
 	// Every load entry clears the previous load's Hit-encounter extras, not just
@@ -584,6 +592,10 @@ int LOAD_DriverMPK(struct BigHeader *bigfile, int levelLOD, void (*callback)(str
 
 		// arcade mpk
 		LOAD_AppendQueue(bigfile, LT_GETADDR, BI_1PARCADEPACK + GAME_CHARACTER_IDS[0], NULL, callback);
+#ifdef CTR_NATIVE
+		if (LOAD_NativeBotsEnabled())
+			LOAD_NativeBots(bigfile, 1, 8);
+#endif
 		return sdata->ptrMPK;
 	}
 
@@ -652,6 +664,10 @@ CheckHighAndPack:
 		LOAD_AppendQueue(bigfile, LT_GETADDR, BI_RACERMODELMED + GAME_CHARACTER_IDS[1], &GAME_DRIVER_MODEL_EXTRAS[1].fileBase, LOAD_DriverMPK_SetPointer);
 
 		LOAD_Robots2P(bigfile, GAME_CHARACTER_IDS[0], GAME_CHARACTER_IDS[1], callback);
+#ifdef CTR_NATIVE
+		if (LOAD_NativeBotsEnabled())
+			LOAD_NativeBots(bigfile, 2, 6);
+#endif
 		return sdata->ptrMPK;
 	}
 }
