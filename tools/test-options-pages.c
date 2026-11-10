@@ -127,6 +127,7 @@ int main(void)
 			"skip_intro", "skip_hints", "race_type_selector", "skip_podium", "skip_cutscenes",
 			"ai_difficulty", "mute_when_unfocused", "device_aware_labels", NULL};
 		static const char *const extras[] = {
+			"character_stats", "penta_stats",
 			"reserves_meter", "reserve_fire", "blue_fire", "slide_meter_colours", "super_pad_colour", "colour_filter", NULL};
 		static const char *const controls[] = {NULL};
 		static const char *const connection[] = {"uri", "slot", "password", NULL};
@@ -153,6 +154,8 @@ int main(void)
 	ExpectSection("skip_podium", "Video & QoL");
 	ExpectSection("skip_cutscenes", "Video & QoL");
 	ExpectSection("reserves_meter", "Extras");
+	ExpectSection("character_stats", "Extras");
+	ExpectSection("penta_stats", "Extras");
 	ExpectSection("skip_hints", "Archipelago");
 	ExpectSection("race_type_selector", "Archipelago");
 	ExpectSection("ai_difficulty", "Archipelago");

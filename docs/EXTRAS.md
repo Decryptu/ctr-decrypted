@@ -2,6 +2,8 @@
 
 OPTIONS → Extras holds optional character, HUD and effect changes. Each row is saved in `config.ini` under `[Extras]`. Visual changes apply at once, except Cyan Super Pads, which applies at the next track load. Penta changes driving stats on the next race or driver birth.
 
+`tools/test-options-pages.c` checks the Extras row order, panel capacity and saved sections, including both character options.
+
 | Row | Key | Default | What it does | Code |
 |---|---|---|---|---|
 | Character Select Stats | `character_stats` | Off | Engine class and relative speed, acceleration and turning beside each player on the character select; L2 also toggles it there. Custom racers use their configured engine. | [CUSTOM_RACERS.md](CUSTOM_RACERS.md#character-stats), `game/230/MM_CharacterGrid.c` |
