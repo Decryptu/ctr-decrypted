@@ -57,6 +57,8 @@ typedef struct
 	int dumpEvery; // CTR_DEV_DUMP_EVERY: and every this many frames after it
 	FILE *dump;
 	int frame;
+	int hostKey;
+	int hostKeyFrame;
 	int presentedShot; // capture what reaches the window, after the screen filter
 	int vramDumpFrame; // CTR_DEV_VRAM_DUMP: save all of VRAM at this frame
 	int captureFrame; // F7: polygons, image and VRAM of this frame into captureDir
@@ -96,6 +98,9 @@ static NativeDevState *NativeDev_State(void)
 		s_dev.loaded = 1;
 		s_dev.demoTrack = NativeDev_EnvInt("CTR_DEV_DEMO", -1);
 		s_dev.fast = NativeDev_EnvInt("CTR_DEV_FAST", 0);
+		const char *hostKey = getenv("CTR_DEV_HOST_KEY");
+		s_dev.hostKey = hostKey ? SDL_GetScancodeFromName(hostKey) : SDL_SCANCODE_UNKNOWN;
+		s_dev.hostKeyFrame = NativeDev_EnvInt("CTR_DEV_HOST_KEY_FRAME", 300);
 		s_dev.hidden = NativeDev_EnvInt("CTR_DEV_HIDDEN", 0);
 		s_dev.noItems = NativeDev_EnvInt("CTR_DEV_NO_ITEMS", 0);
 		s_dev.noLevelDepth = NativeDev_EnvInt("CTR_DEV_NO_LEVEL_DEPTH", 0);
@@ -483,6 +488,18 @@ void NativeDev_EndFrame(void)
 		dev->dump = NULL;
 	}
 	const int frame = dev->frame++;
+	// Inject into this process's SDL queue only; never synthesize OS input.
+	if (dev->hostKey != SDL_SCANCODE_UNKNOWN && frame == dev->hostKeyFrame)
+	{
+		SDL_Event key = {0};
+		key.type = SDL_EVENT_KEY_DOWN;
+		key.key.scancode = dev->hostKey;
+		key.key.down = true;
+		SDL_PushEvent(&key);
+		key.type = SDL_EVENT_KEY_UP;
+		key.key.down = false;
+		SDL_PushEvent(&key);
+	}
 	// CTR_DEV_LOAD_STATE=N: load debug/states/quick.ctrstates (F5 in game) at
 	// frame N, to start a run from a spot a player saved. CTR_DEV_SAVE_STATE=N
 	// writes it at frame N.

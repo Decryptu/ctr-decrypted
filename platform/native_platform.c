@@ -29,7 +29,6 @@ int g_dbg_polygonSelected = 0;
 
 extern int g_cfg_bilinearFiltering;
 extern int g_dbg_emulatorPaused;
-extern int g_dbg_texturelessMode;
 extern int g_dbg_wireframeMode;
 extern int g_windowHeight;
 extern int g_windowWidth;
@@ -236,10 +235,6 @@ internal void Platform_HandleKey(int key, char down)
 			Platform_LogWarn("[CTR Native] wireframe mode: %d\n", g_dbg_wireframeMode);
 			break;
 
-		case SDL_SCANCODE_F2:
-			g_dbg_texturelessMode ^= 1;
-			Platform_LogWarn("[CTR Native] textureless mode: %d\n", g_dbg_texturelessMode);
-			break;
 		case SDL_SCANCODE_UP:
 		case SDL_SCANCODE_DOWN:
 			if (g_dbg_emulatorPaused)

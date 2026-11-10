@@ -151,7 +151,6 @@ global_variable int s_presentAspectH = 3;
 global_variable SDL_Rect s_presentViewport = {0, 0, 0, 0};
 
 int g_dbg_wireframeMode = 0;
-int g_dbg_texturelessMode = 0;
 
 int g_cfg_bilinearFiltering = 0;
 
@@ -1809,11 +1808,6 @@ void NativeRenderer_SetTexture(TextureID texture, TexFormat texFormat)
 		u_disableDitherLoc = s_gteShader32Rgba.disableDitherLoc;
 		u_depthPullLoc = s_gteShader32Rgba.depthPullLoc;
 		break;
-	}
-
-	if (g_dbg_texturelessMode)
-	{
-		texture = s_whiteTexture;
 	}
 
 	// NOTE(penta3): s_texture (unit 0) and s_rgLut (unit 1) sampler bindings are baked

@@ -1,5 +1,11 @@
 # Native UI, split screen and movie playback
 
+## Texture rendering
+
+Texture selection follows each draw's material. Keyboard input cannot replace
+all textures with white; render diagnostics belong in explicit developer runs,
+so an unexpected host key event cannot silently change a player's materials.
+
 ## Widescreen widgets
 
 Garage bars keep their logical stat lengths. Both `CS_Garage_MenuProc` and the
@@ -81,6 +87,8 @@ decode refusal return through the normal flag/menu transition and stop XA.
 
 Use the hidden [developer runner](DEV-TOOLS.md), with explicit scratch folders:
 
+- `CTR_DEV_HOST_KEY=F2` injects an SDL key event at frame 300 inside the game.
+  Intro and Oxide cutscene captures must match a run without that event exactly.
 - `CTR_DEV_GARAGE=1` enters the Adventure garage. For the AP hub picker use
   `CTR_DEV_RACE=26`, `CTR_DEV_MODE=adv`, `CTR_DEV_HUB_PICKER=1` and `dev_keys=1`
   in the run folder's `ap-config.txt`; its request waits for any mask hint.
