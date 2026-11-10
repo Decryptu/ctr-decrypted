@@ -8,12 +8,14 @@ import importlib.util
 import json
 import io
 import os
+import shutil
 import subprocess
 import tarfile
 import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from unittest.mock import patch
 
 
 SCRIPT = Path(__file__).with_name("assemble-release.py")
@@ -187,6 +189,14 @@ class AssemblerFixtureTests(unittest.TestCase):
         self.assertEqual([name for _, name in assets], list(self.ASSET_MEMBERS))
         self.assertFalse((unpacked / "BUILD-NOTICE.txt").exists())
         self.assertEqual(binary.stat().st_mode & 0o777, 0o755)
+
+    def test_vendor_license_members_are_accepted(self) -> None:
+        artifact, _ = self.write_build_archive(
+            "windows", extra={"LICENSE-xdelta3.txt": b"apache", "LICENSE-utf8proc.md": b"mit"}
+        )
+        archive = next(artifact.glob("ctr-ap-windows-x86-*.zip"))
+        binary, _, _ = ASSEMBLER.unpack_artifact(archive, "windows", self.root / "unpacked-licenses")
+        self.assertTrue(binary.is_file())
 
     def test_unexpected_nested_directory_is_rejected(self) -> None:
         artifact, _ = self.write_build_archive("windows", extra={"secrets/key.txt": b"nope"})
@@ -389,6 +399,40 @@ class AssemblerFixtureTests(unittest.TestCase):
         binary, metadata, _ = ASSEMBLER.unpack_artifact(archive, "linux", unpacked)
         with self.assertRaises(ASSEMBLER.AssemblyError):
             ASSEMBLER.validate_build(self.source, "linux", archive, debug, binary, metadata)
+
+    def test_validate_build_calls_real_package_client_verify(self) -> None:
+        """A changed verify signature must fail at the assembler call site."""
+        package_script = self.source / "tools" / "ci" / "package-client.py"
+        package_script.parent.mkdir(parents=True)
+        shutil.copy2(SCRIPT.parent.parent / "ci" / "package-client.py", package_script)
+        package_client = ASSEMBLER.load_package_client(self.source)
+        self.assertIsNotNone(package_client)
+        artifact, debug = self.write_build_archive("windows")
+        archive = next(artifact.glob("ctr-ap-windows-x86-*.zip"))
+        binary, metadata, _ = ASSEMBLER.unpack_artifact(archive, "windows", self.root / "unpacked")
+        shutil.copy2(debug, binary.with_name(binary.name + ".debug"))
+        # The tiny fixture binary is intentionally invalid. Stop inside the
+        # real verify() at its first ABI check after validating the call shape.
+        with patch.object(ASSEMBLER, "load_package_client", return_value=package_client), \
+             patch.object(package_client, "output", return_value=" .debug_info"), \
+             patch.object(package_client, "verify", wraps=package_client.verify) as verify:
+            with self.assertRaisesRegex(
+                ASSEMBLER.AssemblyError,
+                "package-client validation failed: Shipped executable still contains debug sections",
+            ):
+                ASSEMBLER.validate_build(self.source, "windows", archive, debug, binary, metadata)
+            verify.assert_called_once_with("windows", binary, "ap")
+
+    def test_rehearsal_label_keeps_real_source_identity_checks(self) -> None:
+        apworld, template = self.prepare_assemble_inputs()
+        args = self.assemble_args(self.root / "release", apworld, template)
+        args.version = "0.0.0-rehearsal"
+        args.rehearsal = True
+        with self.assertRaisesRegex(ASSEMBLER.AssemblyError, "windows AP archive"):
+            ASSEMBLER.assemble(args)
+        args.rehearsal = False
+        with self.assertRaisesRegex(ASSEMBLER.AssemblyError, "requested '0.0.0-rehearsal'"):
+            ASSEMBLER.assemble(args)
 
     def test_traversal_member_is_rejected(self) -> None:
         archive = self.root / "bad.zip"

@@ -36,9 +36,22 @@ All options are in `CMakeLists.txt`.
 | `CTR_AUTHORING_CLIENT` | All four of the above, without Archipelago; exe `ctr_native_authoring`, window title `AUTHORING CLIENT (no Archipelago)` | `CTR_AP=OFF` |
 
 With `CTR_AP=ON`, packages follow `CTR_CUSTOM_TRACKS`, so the player client
-and the box authoring download (`ctr_native_ap_authoring`) both have them, and
-Box Author Mode comes only from `CTR_AP_AUTHORING`. Box Author Mode on custom
-tracks needs both (`AP_AUTHOR_CUSTOM` in `ap/ap_author.c`).
+and the box authoring download (`ctr_native_ap_authoring`, built with
+`CTR_AP_AUTHORING`) both have them. Box Author Mode is in both; the box
+authoring download keeps it on between starts. Box Author Mode on custom
+tracks needs packages (`AP_AUTHOR_CUSTOM` in `ap/ap_author.c`). Every client with packages has the
+Mods screen (section 4) and the custom pages for Single Race and Time Trial.
+Rooms, Play Solo and Arcade read the same installed copy in the shared track
+store.
+
+Every race outside Adventure drives vanilla kart stats, in a room or not:
+Arcade (retail and the custom pages), Time Trial, Versus and Battle. Adventure
+keeps the room's stats (`ap/ap_race_stats_logic.h`).
+
+An Arcade custom race in a room holds that room (`AP_ArcadeHoldsRoom`): nothing
+the race does sends a check or a goal, received items stay queued, and their
+effects and a reconnect's reset wait until the race is left. Checks earned before
+the race can still go out through their own resend paths.
 
 Linux, from a checkout:
 
@@ -212,6 +225,26 @@ Select imports an xdelta patch, also when one is dropped on the window
   `platform/native_racers.c`). `tools/test-track-picture.c` checks the crop,
   the colours and the refusals on two fixtures of plain colour blocks.
 
+The Mods screen is the only custom content screen; upstream's Options >
+Custom Tracks page (`MM_CustomTracks.c`) is not built. The Mods screen also
+installs racers, lists the Decrypted track catalogue beside Saphi, and opens
+from the title screen, none of which that page does. Fixes to upstream's page
+are carried to the Mods screen by hand.
+
+**Import.** The folder list tags each patch file Done, Part or Fail from
+`assets/tracks/import-record.json` (found by the patch's SHA-256, so a renamed
+copy counts) and the detail panel shows the full file name and what the patch
+did before. Confirm opens review; its last row is Import all valid tracks.
+Track names come from the pack descriptor, then the curated table of names from
+tester feedback (`curated_track_name`, keyed by the patch's SHA-256 and the
+track's BIGFILE index), then the known-track table (`known_track_name` in
+`platform/native_xdelta_import.cpp`), then a label such as "Lego Adventure
+track 3"; Select in the review list types a name. While naming, Left / Right
+on the pad (or the arrow keys) move a text cursor through the name. In the
+player client an imported track with laps goes into Play Solo's track list at
+once (`MM_CustomImport_KeepSoloDescriptors`); one without asks for its laps
+there first.
+
 - **Store scan.** `CustomPackage_StartStoreScan` walks
   `assets/tracks/packages/` on a worker thread, re-acquires and re-verifies
   every directory whose name is a lowercase 64-hex pin, and ignores staging and
@@ -336,11 +369,11 @@ In order:
    and its Cross begins; Back closes it and drops the prepared track. A Time
    Trial begins as soon as the track is prepared. `CustomOffline_BeginRuntime`
    takes the host slot and mode, the Arcade lap count replaces the package's,
-   and the normal
-   race load for the host slot. In the Archipelago builds this is refused while
-   a seed is loaded (`AP_CustomOfflineLaunchAllowed`): a
-   package race is not part of any Archipelago game. In the authoring client it
-   is always allowed (`ap/ap_authoring_host.c`).
+   and the normal race load for the host slot starts. In the Archipelago box
+   authoring download this is refused while a seed is loaded
+   (`AP_CustomOfflineLaunchAllowed`), in the player client only while a pad
+   race owns the loader, and in the authoring client it is always allowed
+   (`ap/ap_authoring_host.c`).
 4. **Load request.** `game/MAIN/MainRaceTrack.c: MainRaceTrack_RequestLoad`
    tells the runtime a load was requested; a retry of the host slot keeps it.
 5. **Load start.** `MainRaceTrack_StartLoad` refuses the load (back to the
@@ -448,7 +481,34 @@ sectors from the package (`game/HOWL/HOWL_CustomMusic.c:
 HOWL_CustomMusic_ServeSectors`), and `game/HOWL/HOWL_Music.c:
 Music_AsyncParseBanks` takes the level bank and song from the `.sca`
 (`HOWL_CustomMusic_LoadBank`, `HOWL_CustomMusic_SetSong`). A missing or refused `.sca` keeps the
-default: Crash Cove's song and sound bank.
+default: Crash Cove's song and sound bank. A package imported from an xdelta
+patch has no `.sca`; it falls back to the retail bank and song of the arcade
+track whose BIGFILE group holds the patched LEV
+(`CustomMusic_ReplacedLevel`, set by the custom page), or Crash Cove's when
+that is not one of the 18 arcade tracks.
+
+**Where the `.sca` comes from.** The Track Manager install stores it with the
+package (role `sca`, section 5). The Seed tab's install into the
+shared package store (`ap_custom_track_download_start_shared`) also fetches the
+one current `.sca` Saphi lists for the same version as the LEV, up to 1 MiB, and
+pins it in the package manifest as `original/sca-<id>.sca`. Music is optional:
+a missing, ambiguous, oversized or failed `.sca` installs the track without it.
+A seed does not pin the `.sca`; the package manifest does, and the race reads
+the file only when its size and SHA-256 match that pin
+(`CustomTrack_UseContentMusic`). Tracks installed before this change have no
+`.sca` in the store; install them again to add it.
+
+**Which races play it.** The Arcade and Time Trial custom pages, and a
+content-plan race (a room pad or cup leg) on the package's own host
+slot. Cortex Vortex keeps its bundled music. A content-plan package without a
+pinned `.sca` plays its host slot's own music, as before.
+
+**Sound memory.** Builds with `CTR_CUSTOM_PACKAGES`, which includes the
+player client built with `CTR_CUSTOM_TRACKS`, have 1 MiB of SPU memory
+(`include/platform/native_spu_memory.h`). Before a `.sca` replaces the level
+bank, `CustomMusic_Admit` checks that it fits next to bank 0, bank 54 and the
+character banks; if not, the race keeps the default music and logs
+`[CUSTOM MUSIC] track music refused, default music`.
 
 ## 11. Box Author Mode and the AI lap recorder
 
@@ -506,17 +566,22 @@ searched too: a `packages/<pin>/` whose `manifest.json` names both digests is
 hashed, and the first whose bytes and sizes match is used
 (`platform/native_custom_track_manager.c: Manager_FindInPackages`), so a track
 installed from Tracks needs no second download. The Seed tab's Install
-missing content downloads into the package store too, as the same package
-Tracks would make for that Saphi revision
-(`ap/ap_custom_track_download.cpp: saphi_install_library`), so Installed lists
-it with Off, Remove and Check files. It can download only the compiled
-profiles (Baby T Park); any other track of a room is added from Tracks or an
-xdelta patch. On connect and
+missing content downloads into the package store too
+(`ap/ap_custom_track_download.cpp: ap_custom_track_download_start_shared`),
+under the room descriptor's package UUID, revision, title, author, laps and
+relic times, so Installed lists it with Off, Remove and Check files. It
+downloads the compiled profiles (Baby T Park) and any track the live track
+registry names by Saphi download ids; any other track of a room is added from
+Tracks or an xdelta patch. On connect and
 again at pad entry the client runs the structural verifier on those exact
 bytes (`ap/ap_content_capability.h`) and refuses the package when a flag the
 descriptor sets to true is not there; the loader then hashes the files once
 more before it arms. These loads carry no navigation identity, so recorded AI
 lanes are blocked for them.
+
+### Where a missing track comes from
+
+`include/platform/native_track_sources.inc` lists, by LEV SHA-256, the Project Saphi download or the xdelta patch (file name, patch SHA-256, slot, public page) each known track was published in. `include/platform/native_track_sources.h` reads it. The Seed tab and the seed preflight use it to say "Download from Project Saphi" (and to offer the existing download when the live registry does not list the track) or "Import <patch file> (slot N) from <page>". The first row for a LEV wins: Saphi rows come first, and a LEV that two patches share names the pack players most likely have, with the other pack after "Also in". The table holds no track bytes, rehosts nothing, and never decides what installs: the room's pinned hashes still do. A LEV that is not listed keeps the plain "put the LEV and VRM in tracks/<key>/original" text.
 
 ## 13. The authoring-client branch
 

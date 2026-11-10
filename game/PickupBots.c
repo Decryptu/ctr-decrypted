@@ -9,6 +9,28 @@
 // or a failed load never carries a use or a timer into the next race.
 static AP_BossAdapterState s_apBossAdapter;
 static struct Driver *s_apBossAdapterDriver;
+// The chaos Final Challenge: whose turn it is, and set when this update used the
+// turn: the rival fired, skipped the segment or left its use to the next rival.
+// One schedule, one cooldown, five rivals taking turns.
+static int s_apChaosCursor;
+static int s_apChaosFired;
+
+// The kart whose lap and checkpoints pace a chaos schedule: the final racer,
+// or the first drawn rival when a stand-in for the player's own racer holds
+// that seat (it is no boss).
+static struct Driver *PickupBots_ChaosPace(void)
+{
+	struct GameTracker *gGT = GAME_TRACKER;
+	int lineup[AP_ROSTER_CHAOS_RIVALS], seated[AP_ROSTER_CHAOS_RIVALS], i;
+	struct Driver *d;
+
+	if (!AP_ChaosFinalLineup(lineup))
+		return gGT->drivers[1];
+	for (i = 0; i < AP_ROSTER_CHAOS_RIVALS; i++)
+		seated[i] = (int)GAME_CHARACTER_IDS[1 + i];
+	d = gGT->drivers[1 + AP_RosterChaosPaceSeat(lineup, seated)];
+	return d != NULL ? d : gGT->drivers[1];
+}
 #endif
 
 #if defined(CTR_AP) && defined(CTR_CUSTOM_TRACKS)
@@ -57,6 +79,7 @@ void PickupBots_Init(void)
 	// earlier race survives into a custom-page race (review round 1).
 	AP_BossAdapterReset(&s_apBossAdapter);
 	s_apBossAdapterDriver = NULL;
+	s_apChaosCursor = 0;
 #endif
 
 #ifdef CTR_CUSTOM_PACKAGES
@@ -494,13 +517,17 @@ static void PickupBots_FireAdvanced(struct Driver *boss, struct Driver *player, 
 
 	PickupBots_AdapterSegment(bossMeta, &f.segment, &f.lastSegment);
 	f.weapon = bossMeta->weaponType;
-	f.lap = boss->lapIndex;
+	// A segment's one use belongs to the schedule: in a chaos race its lap is
+	// the pacing kart's, not the lap of whichever rival has the turn.
+	f.lap = AP_ChaosFinalNow() ? PickupBots_ChaosPace()->lapIndex : boss->lapIndex;
 	f.numLaps = (s8)gGT->numLaps;
 	AP_BossAdapterEnter(&s_apBossAdapter, f.lap, f.segment);
 	if (s_apBossAdapter.used)
 		return;
-	// Only one driver is armed per race.
-	if (s_apBossAdapterDriver != NULL && s_apBossAdapterDriver != boss)
+	// Only one driver is armed per race. In a chaos race that holds for the
+	// weapons that need the timers: the attack waits for them to run out.
+	if (s_apBossAdapterDriver != NULL && s_apBossAdapterDriver != boss &&
+	    (!AP_ChaosFinalNow() || AP_BossAdapterNeedsTimers(bossMeta->weaponType)))
 		return;
 	f.bossRank = boss->driverRank;
 	f.playerRank = player->driverRank;
@@ -513,9 +540,11 @@ static void PickupBots_FireAdvanced(struct Driver *boss, struct Driver *player, 
 	f.superAllowed = AP_BossFinalComposedNow();
 	decision = AP_BossAdapterDecide(&s_apBossAdapter, &f);
 	AP_BossAdapterCommit(&s_apBossAdapter, &f, decision);
+	s_apChaosFired = 1;
 	if (decision != AP_BA_FIRE)
 		return;
-	s_apBossAdapterDriver = boss;
+	if (!AP_ChaosFinalNow() || AP_BossAdapterNeedsTimers(f.weapon))
+		s_apBossAdapterDriver = boss;
 
 	// The juice bit picks the retail juiced duration (invisibility only).
 	oldWumpa = boss->numWumpas;
@@ -556,6 +585,21 @@ static void PickupBots_AdapterTick(void)
 	struct Driver *d = s_apBossAdapterDriver;
 	int ms, rule, timer;
 	int live = 0, i;
+
+	// A chaos rival's shield has no armed driver behind it. Its thread pops it
+	// at that rival's finish, and the race can end first.
+	if ((gGT->gameMode1 & END_OF_RACE) != 0 && AP_ChaosFinalNow())
+	{
+		for (i = 1; i <= AP_ROSTER_CHAOS_RIVALS; i++)
+		{
+			struct Driver *rival = gGT->drivers[i];
+			if (rival != NULL && rival->instBubbleHold != NULL && rival->instBubbleHold->thread != NULL)
+			{
+				((struct Shield *)rival->instBubbleHold->thread->object)->flags |= SHIELD_FLAG_POP_ON_DAMAGE;
+				rival->instBubbleHold = NULL;
+			}
+		}
+	}
 
 	if (!s_apBossAdapter.armed || d == NULL)
 		return;
@@ -636,6 +680,18 @@ static void PickupBots_AdapterTick(void)
 // check, no DeathLink).
 int PickupBots_AdapterProtect(struct Driver *victim)
 {
+	// A chaos rival's shield needs no timer, so it may sit on any rival. It
+	// pops as usual, with no pop invincibility: that timer is the armed
+	// driver's alone.
+	if (victim != NULL && victim != s_apBossAdapterDriver && (victim->actionsFlagSet & ACTION_BOT) != 0 &&
+	    victim->instBubbleHold != NULL && victim->kartState != KS_MASK_GRABBED && AP_ChaosFinalNow())
+	{
+		struct Shield *shieldObj = victim->instBubbleHold->thread->object;
+		shieldObj->flags |= SHIELD_FLAG_POP_ON_DAMAGE;
+		victim->instBubbleHold = NULL;
+		Voiceline_RequestPlay(2, GAME_CHARACTER_IDS[victim->driverID], 0x10);
+		return 1;
+	}
 	if (!s_apBossAdapter.armed || victim == NULL || victim != s_apBossAdapterDriver)
 		return 0;
 	if (victim->kartState == KS_MASK_GRABBED)
@@ -706,12 +762,23 @@ static inline void PickupBots_UpdateBoss(struct GameTracker *gGT)
 
 	{
 		struct MetaDataBOSS *nextMeta = &bossMeta[1];
+		struct Driver *paceDriver = boss;
+
+#ifdef CTR_AP
+		// A chaos schedule keeps to one kart's lap, the final racer's (or the
+		// first drawn rival's when a stand-in holds that seat): the turn passes
+		// between karts all over the track.
+		if (AP_ChaosFinalNow())
+		{
+			paceDriver = PickupBots_ChaosPace();
+		}
+#endif
 
 		if (nextMeta->throwFlag == 0)
 		{
 			int threshold = gGT->level1->ptr_restart_points[bossMeta->trackCheckpoint].distToFinish << PICKUPBOTS_BOSS_CHECKPOINT_DISTANCE_SHIFT;
 
-			if (threshold < (int)boss->distanceToFinish_curr)
+			if (threshold < (int)paceDriver->distanceToFinish_curr)
 			{
 				s16 preservedThrow = -1;
 
@@ -733,7 +800,7 @@ static inline void PickupBots_UpdateBoss(struct GameTracker *gGT)
 		{
 			int threshold = gGT->level1->ptr_restart_points[nextMeta->trackCheckpoint].distToFinish << PICKUPBOTS_BOSS_CHECKPOINT_DISTANCE_SHIFT;
 
-			if ((int)boss->distanceToFinish_curr < threshold)
+			if ((int)paceDriver->distanceToFinish_curr < threshold)
 			{
 				s16 preservedThrow = -1;
 
@@ -757,8 +824,9 @@ static inline void PickupBots_UpdateBoss(struct GameTracker *gGT)
 
 #ifdef CTR_AP
 	// J03: the boss lane requests belong to the garage boss race only; a
-	// gauntlet attacker keeps its ordinary race lanes.
-	if ((bossMeta->pathChangeDisabled == 0) && ((gGT->gameMode1 & ADVENTURE_BOSS) != 0))
+	// gauntlet attacker keeps its ordinary race lanes, and so does a chaos
+	// rival, whose turn moves on with every shot.
+	if ((bossMeta->pathChangeDisabled == 0) && ((gGT->gameMode1 & ADVENTURE_BOSS) != 0) && !AP_ChaosFinalNow())
 #else
 	if (bossMeta->pathChangeDisabled == 0)
 #endif
@@ -992,6 +1060,9 @@ BossJuiceDone:
 	{
 		register u8 rawWumpa CTR_PSX_REGISTER("v1") = *(volatile u8 *)&boss->numWumpas;
 		register int oldWumpa CTR_PSX_REGISTER("s4") = (s8)rawWumpa;
+#ifdef CTR_AP
+		s_apChaosFired = 1;
+#endif
 		if ((bossMeta->juiceFlag & BOSS_WEAPON_JUICED) != 0)
 		{
 			newWumpa = DRIVER_WUMPA_JUICED_COUNT;
@@ -1055,6 +1126,50 @@ BossCooldown:
 	PickupBots_SetBossCooldown(bossMeta);
 }
 
+#ifdef CTR_AP
+// The chaos Final Challenge: the schedule runs once for the whole field, and
+// its next attack is fired by the next rival who can. The adapter keeps its
+// timers for one driver, so while a rival's mask, invisibility or super engine
+// runs, another of those three waits. Every other weapon fires on its turn.
+static void PickupBots_UpdateChaos(struct GameTracker *gGT)
+{
+	unsigned char canFire[AP_ROSTER_CHAOS_RIVALS];
+	struct Driver *rival[AP_ROSTER_CHAOS_RIVALS];
+	struct Driver *armed;
+	int lineup[AP_ROSTER_CHAOS_RIVALS];
+	int i, owner;
+
+	if (!AP_ChaosFinalLineup(lineup))
+		return;
+	for (i = 0; i < AP_ROSTER_CHAOS_RIVALS; i++)
+	{
+		struct Driver *d = gGT->drivers[1 + i];
+		rival[i] = d;
+		// A stand-in for the player's own racer is no boss and never fires.
+		canFire[i] = d != NULL && !AP_RosterChaosStandIn(lineup, i, (int)GAME_CHARACTER_IDS[1 + i]) &&
+		             (d->actionsFlagSet & ACTION_BOT) != 0 &&
+		             (d->botData.botFlags & BOT_FLAG_DAMAGE_ACTIVE) == 0 &&
+		             (d->actionsFlagSet & ACTION_RACE_FINISHED) == 0 && d->instTntRecv == NULL &&
+		             d->clockReceive == 0 && d->botData.aiPhysics.speedLinear >= PICKUPBOTS_BOSS_SPEED_MIN;
+	}
+	owner = AP_RosterChaosOwner(s_apChaosCursor, canFire, AP_ROSTER_CHAOS_RIVALS);
+	armed = s_apBossAdapterDriver;
+	if (armed != NULL && !AP_BossAdapterBusy(s_apBossAdapter.maskOn, armed->invisibleTimer != 0,
+	                                         armed->superEngineTimer != 0, armed->invincibleTimer != 0))
+	{
+		// Keeps the segment's use: only the driver binding is released.
+		s_apBossAdapterDriver = NULL;
+		s_apBossAdapter.armed = 0;
+	}
+	if (owner < 0)
+		return;
+	s_apChaosFired = 0;
+	PickupBots_UpdateBoss(gGT, rival[owner]);
+	if (s_apChaosFired)
+		s_apChaosCursor = (owner + 1) % AP_ROSTER_CHAOS_RIVALS;
+}
+#endif
+
 void PickupBots_Update(void)
 {
 	register struct GameTracker *initialGT CTR_PSX_REGISTER("v1") = GAME_TRACKER;
@@ -1083,7 +1198,14 @@ void PickupBots_Update(void)
 	if ((gGT->gameMode1 & (ADVENTURE_BOSS | END_OF_RACE)) == ADVENTURE_BOSS)
 	{
 #ifdef CTR_AP
-		PickupBots_UpdateBoss(gGT, gGT->drivers[1]);
+		if (AP_ChaosFinalNow())
+		{
+			PickupBots_UpdateChaos(gGT);
+		}
+		else
+		{
+			PickupBots_UpdateBoss(gGT, gGT->drivers[1]);
+		}
 #else
 		PickupBots_UpdateBoss(gGT);
 #endif

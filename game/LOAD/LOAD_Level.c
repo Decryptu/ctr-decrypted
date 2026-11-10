@@ -13,6 +13,11 @@ void LOAD_TalkingMask(int packID, int maskID)
 
 	sdata->modelMaskHints3D = 0;
 
+#ifdef CTR_AP
+	// A3-12: the hub read into this pack is re-read once the hint is over.
+	LOAD_Hub_ApMaskEvicts(packID);
+#endif
+
 	// invalidate alternative-hub, because
 	// the mask will load in that level's RAM
 	GAME_TRACKER->levID_in_each_mempack[packID] = -1;

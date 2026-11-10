@@ -323,11 +323,24 @@ checkRewards:
 			{
 				char joined[192];
 				int c = AP_BossFinalGarageOpponent();
-				int used = snprintf(joined, sizeof joined, "Rival: %s", GAME_LANGUAGE_STRINGS[data.MetaDataCharacters[c].name_LNG_short]);
+				int used = snprintf(joined, sizeof joined, "Rival: %s", GAME_LANGUAGE_STRINGS[data.MetaDataCharacters[c].name_LNG_long]);
 				if (advertVisible && used < (int)sizeof joined)
 					snprintf(joined + used, sizeof joined - used, "\r%s", advert);
 				memcpy(advert, joined, sizeof advert);
 				advertVisible = 1;
+			}
+			// The chaos Final Challenge says so at the garage, open or shut.
+			if (advertBoss == 4)
+			{
+				char joined[192], chaosLine[64];
+				if (AP_ChaosFinalAdvert(chaosLine, (int)sizeof chaosLine))
+				{
+					int used = snprintf(joined, sizeof joined, "%s", chaosLine);
+					if (advertVisible && used < (int)sizeof joined)
+						snprintf(joined + used, sizeof joined - used, "\r%s", advert);
+					memcpy(advert, joined, sizeof advert);
+					advertVisible = 1;
+				}
 			}
 			if (advertVisible)
 			{
@@ -341,10 +354,18 @@ checkRewards:
 		// if aku is not giving a hint
 		if (AH_HINT_STATE == 0)
 		{
+			char *challenge = GAME_LANGUAGE_STRINGS[AH_BOSS_CHALLENGE_TEXT[challengeBosses[GAME_TRACKER->levelID - GEM_STONE_VALLEY]]];
+#ifdef CTR_AP
+			// #169 tier 2: a garage racing a drawn racer is that racer's challenge.
+			char drawnChallenge[96];
+			if (GAME_TRACKER->levelID != GEM_STONE_VALLEY &&
+			    AP_BossChallengeTitle((GAME_TRACKER->levelID - GEM_STONE_VALLEY) - 1, drawnChallenge, sizeof drawnChallenge))
+				challenge = drawnChallenge;
+#endif
 			// draw string, lng_challenge
 			DecalFont_DrawLine(
 
-			    GAME_LANGUAGE_STRINGS[AH_BOSS_CHALLENGE_TEXT[challengeBosses[GAME_TRACKER->levelID - GEM_STONE_VALLEY]]],
+			    challenge,
 
 			    view->rect.x + (view->rect.w >> 1), challengeY, FONT_BIG, JUSTIFY_CENTER | ORANGE);
 		}
@@ -499,6 +520,19 @@ openGarage:
 		{
 			s32 hubID = GAME_TRACKER->levelID - GEM_STONE_VALLEY;
 			s32 raceLevel = raceLevels[hubID];
+
+			// #169 tier 2: the seed's drawn racer replaces the garage's boss
+			// as P2, in a boss race and through all four races of a boss cup.
+			// Seated here, before any branch: this block runs again on every
+			// frame until the load starts, and each pass first writes the
+			// retail boss above, so a seat inside one branch alone can be
+			// overwritten (A2-44).
+			if (hubID >= 1 && hubID <= 4)
+			{
+				int earlyOpponent = AP_BossGarageOpponent(hubID - 1);
+				if (earlyOpponent >= 0)
+					GAME_CHARACTER_IDS[1] = (s16)earlyOpponent;
+			}
 
 			// #169 boss track shuffle: the four ordinary garages race on the
 			// seed's drawn venue. The opponent above is still read from the home

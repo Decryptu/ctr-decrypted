@@ -29,11 +29,24 @@
 namespace content_verify {
 using J = nlohmann::json;
 
-// worlds/ctr/data/usf_finish_rulings.json, by package content id: 1 needs USF
-// to finish, 0 takes the generic terms only. tools/test-content-verify-parity.py
-// compares this table with the paired apworld's.
-static const struct { const char *content_id; int usf; } kUsfRulings[] = {
-    {"arabian-heights-night", 1}, {"baby-t-park", 0}, {"cortex-vortex", 1}, {"north-pole", 0}, {"tv-world", 0},
+// worlds/ctr/data/usf_finish_rulings.json: the finish rank (2 USF, 1 the
+// first boost, 0 the generic terms only) by package content id. A row with a
+// revision ("" for every revision) also names the LEV pin and covers only that
+// exact package; it wins over the row for every revision (A2-22).
+// tools/test-content-plan-parity.py compares this table with the paired
+// apworld's.
+static const struct { const char *content_id, *revision, *lev_sha256; int rank; } kUsfRulings[] = {
+    {"arabian-heights-night", "", "", 2}, {"baby-t-park", "", "", 0}, {"cortex-vortex", "", "", 2},
+    {"north-pole", "", "", 0}, {"tv-world", "", "", 0},
+    // Project rulings of 2026-11-05 07:19 CET (A2-27), per registry revision and LEV pin.
+    {"ancient-lake", "1.0.0", "7e5b776f312f500112061b3b95a1f371571fd7dfe7fbd1dc404e7b3d3a3a1e78", 0},
+    {"ancient-lake", "1.0.1", "2fc45ad5edaf735426b99229cc561293d02badc6a578ef53f328ad3fc2f85360", 0},
+    {"ancient-lake", "1.0.2", "c4497a621a97a8df1c763e0b6a2dc75cd9f3a57b217b0cefa6a938fc83ee6c70", 0},
+    {"bowser-castle-1", "1.0.0", "0b59b54ac3d902d43ee7b798d45dd4979aa5859520460282d22fb6bc85dcbcd9", 0},
+    {"drive-thru-danger", "1.0.0", "77706a3b5d46cdd75ffa05e4da316cf5dc400d6e17aad7ccdf0c3f5cd62eee79", 0},
+    {"lights-out", "1.0.0", "5ebdb9f235ba0c07ba5c72b715c949afdd6062fcf3208f45a1c13936ffb529c6", 1},
+    {"neon-paradise", "1.0.0", "665d19819c437ab9ab6cbccac7c0202979405f16e1af39e06d9ea1d3286be9d0", 0},
+    {"neon-paradise", "1.1.0", "639434d84fe6de4ba88a31a1dd5a11291d640617ab25af9c7bfbd5d383b53d5d", 0},
 };
 static const int64_t kItemBase = 35010000, kKeyItem = 35010014;
 static const int64_t kItemsanityFirst = 35016000, kItemsanityLast = 35016021;
@@ -48,7 +61,7 @@ struct Node { Op op; int count; std::vector<int64_t> codes; std::vector<int> kid
 struct Region { std::vector<int> gates; int lock = -1; bool income = false; };
 struct Route { int region = -1, stage = -1, lock = -1, need = 0, encounter = -1; bool boss = false; std::vector<int64_t> first; };
 // SHOP: a Wumpa Shop slot, its hub's Key floor (`target`) and income.
-enum Kind { PAD, SHARED, LEG, ENCOUNTER, ITEMSANITY, HIT, SHOP, LAP };
+enum Kind { PAD, SHARED, LEG, ENCOUNTER, ITEMSANITY, HIT, SHOP, LAP, RACE };
 enum Arm { ARM_NONE, ARM_FAMILIES, ARM_PAPU };
 struct Loc {
     int64_t code = 0;
@@ -69,8 +82,10 @@ struct Model {
     std::vector<int> encounter_loc;   // encounter index -> locs index
     std::vector<int64_t> items;       // every item code the plan pools
     // Wumpa Income (J11, apworld content plan): a Trophy Race or CTR
-    // Challenge route on a normal pad racing a retail race track 0..15, with
-    // its pad's gates and the track's finish rank bound to the racer lock.
+    // Challenge route on a normal pad racing a retail race track 0..15 or a
+    // custom track whose package has measured Wumpa capability (ruling of
+    // 2026-11-02), with its pad's gates and the track's finish rank bound to
+    // the racer lock.
     std::vector<Route> income;
     int goal = -1;
     bool itemsanity = false;
@@ -121,8 +136,14 @@ static int finish_boost(const J &track, const std::map<std::string, const J *> &
     }
     const J *pkg = packages.count(track.value("package_id", "")) ? packages.at(track.value("package_id", "")) : nullptr;
     if (pkg) {
-        const std::string content = pkg->value("content_id", "");
-        for (const auto &r : kUsfRulings) if (content == r.content_id) return r.usf ? kUsf : 0;
+        const std::string content = pkg->value("content_id", ""), revision = pkg->value("revision", "");
+        std::string lev;
+        for (const auto &pin : pkg->at("files"))
+            if (pin.value("role", "") == "lev") lev = pin.value("sha256", "");
+        for (const auto &r : kUsfRulings)
+            if (*r.revision && !lev.empty() && content == r.content_id && revision == r.revision && lev == r.lev_sha256)
+                return r.rank;
+        for (const auto &r : kUsfRulings) if (!*r.revision && content == r.content_id) return r.rank;
         const J &caps = pkg->at("capabilities");
         // A package that does not state super_turbo_pads is treated as having one.
         if (caps.contains("super_turbo_pads") && caps["super_turbo_pads"] == false) return 0;
@@ -259,7 +280,7 @@ static Model build() {
     std::set<int64_t> door;
     std::set<int64_t> present;
     for (const auto &c : p.at("checks")) present.insert(c.at("location").get<int64_t>());
-    if (m.itemsanity)
+    if (m.itemsanity) {
         for (const auto &pad : state.pads) {
             if (!pad.occupied || pad.cortex || pad.retail_id != kTigerTemple || pad.mode_count == 0) continue;
             const int64_t letter_r = pad.letter_locations[2];
@@ -267,17 +288,42 @@ static Model build() {
             if (pad.ctr_location > 0 && present.count(pad.ctr_location) &&
                 (state.families.lettersanity != 2 || (letter_r > 0 && present.count(letter_r))))
                 door.insert(pad.ctr_location);
-            if (pad.box_locations[4] > 0 && present.count(pad.box_locations[4])) door.insert(pad.box_locations[4]);
+            for (int b = 0; b < pad.box_count; ++b)
+                if ((pad.box_spots ? pad.box_number[b] == 5 : b == 4) &&
+                    pad.box_locations[b] > 0 && present.count(pad.box_locations[b])) door.insert(pad.box_locations[b]);
         }
+        // Selected ordinary pickups share the exact catalog door flags used
+        // by the admitted plan. Their rank alone does not open the door.
+        const auto sanity = state.sanity.find("retail:4");
+        if (sanity != state.sanity.end()) {
+            static const J needs = J::parse(kContentRegistryJSON).at("sanity").at("retail:4").at("needs");
+            static const char *const kinds[] = {"weapon_crate", "wumpa_crate", "wumpa_fruit"};
+            static const int budgets[] = {80, 16, 32};
+            for (int family = 0; family < 3; ++family) {
+                const J rules = needs.value(kinds[family], J::object());
+                for (int n = 0; n < budgets[family]; ++n) {
+                    const int64_t code = sanity->second.locations[family][n];
+                    if (code > 0 && present.count(code) &&
+                        rules.value(std::to_string(n + 1), J::object()).value("door", false)) door.insert(code);
+                }
+            }
+        }
+    }
 
     // Wumpa Income routes (J11): every Trophy Race and CTR Challenge of a
-    // track entry on a retail race track, in its pad's region.
+    // track entry on a retail race track 0..15 or a custom track with measured
+    // Wumpa capability (apworld content_wumpa.income_track), in its pad's
+    // region.
     for (const auto &pad : p.at("pads")) {
         if (pad.at("entry_id").is_null() || pad.at("kind") != "normal") continue;
         const J &entry = *entries.at(pad["entry_id"].get<std::string>());
         if (entry.at("kind") != "track") continue;
         const J &track = *tracks.at(entry.at("track_id").get<std::string>());
-        if (track.at("origin") != "retail" || track.at("retail_id").get<int>() > 15) continue;
+        const std::string origin = track.at("origin").get<std::string>();
+        const J *pkg = packages.count(track.value("package_id", "")) ? packages.at(track.value("package_id", "")) : nullptr;
+        const bool banks = origin == "retail" ? track.at("retail_id").get<int>() <= 15
+                                              : origin == "custom" && pkg && pkg->at("capabilities").value("wumpa", false);
+        if (!banks) continue;
         for (const auto &mode : entry.at("modes")) {
             if (mode != "trophy" && mode != "ctr") continue;
             Route R;
@@ -291,6 +337,29 @@ static Model build() {
             m.income.push_back(R);
         }
     }
+    // A plan with no such race banks in its cup legs (A3-7, apworld
+    // content_wumpa.cup_income_routes): every leg on a track that banks, in
+    // its cup's region, needing the finish of every leg up to its own.
+    if (m.income.empty())
+        for (const auto &pad : p.at("pads")) {
+            if (pad.at("entry_id").is_null() || pad.at("kind") != "normal") continue;
+            const J &entry = *entries.at(pad["entry_id"].get<std::string>());
+            if (entry.at("kind") != "cup") continue;
+            for (const auto &leg : entry.at("legs")) {
+                const J &track = *tracks.at(leg.at("track_id").get<std::string>());
+                const std::string origin = track.at("origin").get<std::string>();
+                const J *pkg = packages.count(track.value("package_id", "")) ? packages.at(track.value("package_id", "")) : nullptr;
+                const bool banks = origin == "retail" ? track.at("retail_id").get<int>() <= 15
+                                                      : origin == "custom" && pkg && pkg->at("capabilities").value("wumpa", false);
+                if (!banks) continue;
+                Route R;
+                R.region = region_of(entry.at("id").get<std::string>());
+                R.lock = lock_of(pad);
+                R.need = std::max(finish_boost(track, packages, o),
+                                  leg_boost(entry, leg.at("id").get<std::string>(), false, tracks, packages, o));
+                m.income.push_back(R);
+            }
+        }
     for (const auto &c : p.at("checks")) {
         Loc L;
         L.code = c.at("location").get<int64_t>();
@@ -302,7 +371,17 @@ static Model build() {
             // Wumpa Income.
             static const std::map<std::string, int> floors = {{"hub:26", 0}, {"hub:25", 1}, {"hub:27", 1}, {"hub:28", 2}, {"hub:29", 3}};
             L.kind = SHOP;
-            L.target = floors.at(c.at("owner").get<std::string>());
+            // Logical farming budget (paired with wumpa_shop.logic_key_floor).
+            // Native affordability stays wallet/lifetime-based, so farming
+            // ahead remains possible without making it expected early logic.
+            const int amount = std::max(c.at("price").get<int>(), c.at("unlock_banked").get<int>());
+            int budget_floor = 0; // Old rooms retain their original income-only logic.
+            if (p.at("wumpa_shop").contains("logic_scale")) {
+                const int scale = p.at("wumpa_shop").at("logic_scale").get<int>();
+                budget_floor = amount * 100 <= 100 * scale ? 0 : amount * 100 <= 300 * scale ? 1
+                    : amount * 100 <= 600 * scale ? 2 : amount * 100 <= 900 * scale ? 3 : 4;
+            }
+            L.target = std::max(floors.at(c.at("owner").get<std::string>()), budget_floor);
             m.locs.push_back(L);
             continue;
         }
@@ -350,6 +429,29 @@ static Model build() {
             m.locs.push_back(L);
             continue;
         }
+        // Ordinary pickup sanity, plus Reach 10 Wumpa and rungs with a cup leg or boss race route (row 10i,
+        // content_plan.create_regions): any route. A pad route keeps its
+        // stage gate and first race; a cup route needs the finish of every
+        // earlier leg; a boss route its encounter. The check's rank is on top,
+        // bound to the route pad's racer lock.
+        if (kind == "weapon_crate" || kind == "wumpa_crate" || kind == "wumpa_fruit" ||
+            ((kind == "wumpa" || kind == "podium") &&
+             std::any_of(routes.begin(), routes.end(), [](const J &r) { return !r.at("leg_id").is_null() || !r.at("encounter_id").is_null(); }))) {
+            L.kind = RACE;
+            for (const auto &r : routes) {
+                Route R;
+                R.region = region_of(r.at("entry_id").get<std::string>());
+                R.lock = lock_of(*pads.at(r.at("own_pad_id").get<std::string>()));
+                R.need = L.boost;
+                if (!r.at("leg_id").is_null())
+                    R.need = std::max(R.need, leg_boost(*entries.at(r["entry_id"].get<std::string>()),
+                                                        r.at("leg_id").get<std::string>(), false, tracks, packages, o));
+                else if (r.at("encounter_id").is_null()) { R.stage = stage_of(r); R.first = first_of(r); }
+                L.routes.push_back(R);
+            }
+            m.locs.push_back(L);
+            continue;
+        }
         // Complete One Lap (#344, content_plan.create_regions): any route; a
         // standalone route needs its mode's stage-2 gate and the track's
         // finish rank, a cup route the finish of every leg up to its own, a
@@ -372,7 +474,9 @@ static Model build() {
         }
         std::set<std::string> pads_of;
         for (const auto &r : routes) pads_of.insert(r.at("own_pad_id").get<std::string>());
-        if (pads_of.size() == 1) {
+        // Itemsanity and Hit checks keep their own rule also when every route
+        // is on one pad (apworld content_plan.create_regions, A3-7).
+        if (pads_of.size() == 1 && kind != "itemsanity" && kind != "hit") {
             L.kind = PAD;
             const J &pad = *pads.at(*pads_of.begin());
             L.region = pad.at("entry_id").is_null() ? -1 : region_of(pad["entry_id"].get<std::string>());
@@ -396,7 +500,7 @@ static Model build() {
             const std::string mode = r.at("mode").get<std::string>();
             R.boss = mode == "boss_race" || mode == "boss_cup";
             if (R.boss) R.encounter = encounter.at(r.at("encounter_id").get<std::string>());
-            if (L.kind == HIT && mode == "cup")
+            if ((L.kind == HIT || L.kind == ITEMSANITY) && mode == "cup")
                 R.need = leg_boost(*entries.at(r["entry_id"].get<std::string>()), r.at("leg_id").get<std::string>(), false,
                                    tracks, packages, o);
             L.routes.push_back(R);
@@ -414,6 +518,12 @@ static Model build() {
                     for (int k = 0; k < t.count && k < CTR_CFG_HIT_TRIGGER_MAX; ++k)
                         if (present.count(t.any_of[k])) L.triggers.push_back(t.any_of[k]);
             }
+            // The roster swap: a default racer drawn as a boss waits for that
+            // boss race like a guest does.
+            if (L.target < kFirstGuest && ctr_cfg.hit.valid)
+                for (int k = 0; k < AP_HIT_BOSS_CODES; ++k)
+                    if (ctr_cfg.hit.boss_identity[k] == L.target && present.count(AP_HIT_BOSS_WIN_CODES[k]))
+                        L.triggers.push_back(AP_HIT_BOSS_WIN_CODES[k]);
         }
         m.locs.push_back(L);
     }
@@ -489,6 +599,16 @@ struct Sweep {
         if (L.arm == ARM_PAPU) return AP_VerifyWeaponOwned(dense, kTurbo) || AP_VerifyWeaponOwned(dense, kMask);
         return false;
     }
+    // with_boost for one route of a RACE check (row 10i): the route's rank on
+    // its pad's racer lock; the weapon alternative only at the check's rank.
+    bool route_boost(const Loc &L, const Route &r) const {
+        if (!r.need && !L.stats) return true;
+        if (AP_VerifyCapabilityGate(&o, dense, r.lock, r.need, L.stats)) return true;
+        if (r.need != L.boost) return false;
+        if (L.arm == ARM_FAMILIES) return AP_VerifyUsefulWeaponFamilies(dense) >= L.arm_families;
+        if (L.arm == ARM_PAPU) return AP_VerifyWeaponOwned(dense, kTurbo) || AP_VerifyWeaponOwned(dense, kMask);
+        return false;
+    }
     bool letters(const Loc &L) const {
         for (auto c : L.letters) if (count(c) <= 0) return false;
         return true;
@@ -547,6 +667,9 @@ struct Sweep {
                 ok = ok || (region(r.region) && (r.stage < 0 || eval(r.stage)) &&
                             (!r.need || AP_VerifyCapabilityGate(&o, dense, r.lock, r.need, 0)));
             break;
+        case RACE:
+            for (const auto &r : L.routes) ok = ok || (route(r) && route_boost(L, r));
+            break;
         case ENCOUNTER:
             ok = region(L.region) && boost(L);
             break;
@@ -555,7 +678,10 @@ struct Sweep {
                  (L.weapon != kTurbo || !o.boost_mode || AP_VerifyCapabilityGate(&o, dense, -1, 1, 0));
             if (ok) {
                 bool any = false;
-                for (const auto &r : L.routes) any = any || route(r);
+                // A cup leg route (A3-7) needs the finish of every earlier
+                // leg, bound to the cup pad's racer lock.
+                for (const auto &r : L.routes)
+                    any = any || (route(r) && (!r.need || AP_VerifyCapabilityGate(&o, dense, r.lock, r.need, 0)));
                 ok = any;
             }
             break;
@@ -639,4 +765,3 @@ extern "C" int ap_content_plan_verify(const ap_content_verify_io *io, ap_content
         return 0;
     }
 }
-

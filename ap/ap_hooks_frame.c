@@ -380,7 +380,8 @@ static void AP_DumpState(struct GameTracker *gGT)
 			        ", \"rungs\": [%lld, %lld, %lld, %lld, %lld], \"wumpa\": %lld, \"wumpa_modes\": %u, "
 			        "\"letters\": [%lld, %lld, %lld], \"letter_items\": [%lld, %lld, %lld], "
 			        "\"letters_received\": [%d, %d, %d], \"perfect\": %lld, \"cortex\": %d, "
-			        "\"cup\": %d, \"cup_sweep\": %lld, \"cup_legs\": [%lld, %lld, %lld, %lld]}",
+			        "\"cup\": %d, \"cup_sweep\": %lld, \"cup_legs\": [%lld, %lld, %lld, %lld], "
+			        "\"cup_leg_wumpa\": [%lld, %lld, %lld, %lld]",
 			        (long long)pad->rung_locations[0], (long long)pad->rung_locations[1],
 			        (long long)pad->rung_locations[2], (long long)pad->rung_locations[3],
 			        (long long)pad->rung_locations[4], (long long)pad->wumpa_location, pad->wumpa_modes,
@@ -396,7 +397,18 @@ static void AP_DumpState(struct GameTracker *gGT)
 			        // (trophy_location); the sweep and each leg's Cup Leg Victory.
 			        pad->cup, (long long)pad->sweep_location,
 			        (long long)pad->legs[0].victory, (long long)pad->legs[1].victory,
-			        (long long)pad->legs[2].victory, (long long)pad->legs[3].victory);
+			        (long long)pad->legs[2].victory, (long long)pad->legs[3].victory,
+			        // Row 10i: each leg's own Reach 10 Wumpa code (0 none).
+			        (long long)pad->legs[0].wumpa, (long long)pad->legs[1].wumpa,
+			        (long long)pad->legs[2].wumpa, (long long)pad->legs[3].wumpa);
+			// cup_only_podium_rungs: each leg's own rung codes (0 none).
+			AP_TextBufPuts(f, ", \"cup_leg_rungs\": [");
+			for (int leg = 0; leg < AP_CONTENT_CUP_LEGS; ++leg)
+				AP_TextBufPrintf(f, "%s[%lld, %lld, %lld, %lld, %lld]", leg ? ", " : "",
+				        (long long)pad->legs[leg].rungs[0], (long long)pad->legs[leg].rungs[1],
+				        (long long)pad->legs[leg].rungs[2], (long long)pad->legs[leg].rungs[3],
+				        (long long)pad->legs[leg].rungs[4]);
+			AP_TextBufPuts(f, "]}");
 			first = 0;
 		}
 		AP_TextBufPuts(f, "\n  ],\n");
@@ -488,6 +500,7 @@ static void ap_onframe_body(struct GameTracker *gGT)
 	// it does), and the loader has not run yet, so a box added this frame is born
 	// this frame rather than next.
 	AP_Boxes_OnFrame(gGT);
+	AP_SanityTick(gGT);
 	AP_Spawn_OnFrame(gGT);
 	// Seed completability verification: recomputes only when the AP state
 	// generation moved (connect / received item / location check), so this is a
@@ -649,6 +662,12 @@ static void ap_onframe_body(struct GameTracker *gGT)
 	// transition is never missed by the throttle below. Observation-only.
 	AP_RaceListenerTick(gGT);
 
+	// Custom Arcade race in a room: no check leaves until it ends. Box Author
+	// Mode (ap/ap_author_gate.h): no check or goal leaves, or is kept for a
+	// later reconnect, while it is on, even with a seed from a room the
+	// player left still loaded.
+	ap_net_hold_checks(AP_ArcadeHoldsRoom() || AP_Author_Enabled());
+
 	// Network: connect once + pump every frame, in all game modes.
 	AP_NetTick(gGT);
 	// Room links (issue #334): claim handed-over requests, expire, notices.
@@ -658,18 +677,23 @@ static void ap_onframe_body(struct GameTracker *gGT)
 	// Trap framework: advance prime->fire->clear lifecycle + apply the FP camera,
 	// and poll the Shortcutless debug keys. Runs every frame / all modes (the tick
 	// gates its own race-only logic). Physics effects apply at their engine sites.
-	AP_TrapTick(gGT);
+	// A custom Arcade race gets no item effects: they wait with the items.
+	if (!AP_ArcadeHoldsRoom())
+		AP_TrapTick(gGT);
 	// Demo Camera: holds or force-clears the cinematic-camera
 	// engagement. Shares AP_TrapTick's placement for the same reason -- it runs
 	// before the camera PROC ticks this frame, so a clear lands while the camera
 	// the snapshot describes is still the live one.
 	AP_DemoCamTick(gGT);
-	AP_WumpaTick(gGT); // Wumpa Fruit filler: drain banked fruit into drivers[0] in-race (#11)
-	AP_UsefulTick(gGT); // H-dossier: apply queued shield, mask and invisibility
-	AP_TiziTick(gGT);  // #223: expire a forced Mask whose item roll never resolved
-	AP_ReserveTopUpTick(gGT); // #451: apply one owed copy to positive live reserves
-	AP_TurboGrantTick(gGT); // #224: requeue a lost in-flight Turbo, then deliver
-	                        // one pending grant into an empty in-race weapon slot
+	if (!AP_ArcadeHoldsRoom())
+	{
+		AP_WumpaTick(gGT); // Wumpa Fruit filler: drain banked fruit into drivers[0] in-race (#11)
+		AP_UsefulTick(gGT); // H-dossier: apply queued shield, mask and invisibility
+		AP_TiziTick(gGT);  // #223: expire a forced Mask whose item roll never resolved
+		AP_ReserveTopUpTick(gGT); // #451: apply one owed copy to positive live reserves
+		AP_TurboGrantTick(gGT); // #224: requeue a lost in-flight Turbo, then deliver
+		                        // one pending grant into an empty in-race weapon slot
+	}
 	AP_ShortcutKeys();
 	AP_NavRec_Tick(gGT);      // AI lap recorder; inert unless nav_record is on
 	AP_ShortcutSkipTick(gGT); // layer-2 checkpoint-% gap-skip detector (Shortcutless)
@@ -690,7 +714,9 @@ static void ap_onframe_body(struct GameTracker *gGT)
 	// write itself runs on the background writer (ap_file_writer.h), so a slow disk
 	// no longer shows up here. One frame in 60 pays for it.
 	static int dumpTick = 0;
-	if ((++dumpTick % 60) == 0)
+	// Not while Box Author Mode is on: the dump is the seed's state, and the
+	// mode never writes AP state.
+	if ((++dumpTick % 60) == 0 && !AP_Author_Enabled())
 	{
 		AP_PerfSectionBegin(AP_PERF_SEC_STATE_DUMP);
 		AP_DumpState(gGT);
@@ -757,6 +783,9 @@ void AP_OnFrame(struct GameTracker *gGT)
 	AP_ArcadeCrystals_OnFrame(gGT);
 	// #375: a tracker start waits for its pad's hub, then for the pad.
 	AP_TrackerLaunchFrame(gGT);
+	// A3-16: a hub fast travel waits for an idle hub, then the destination's
+	// own birth places the kart at its save screen.
+	AP_FastTravelFrame(gGT);
 	ap_onframe_body(gGT);
 	// Discord Rich Presence (#366): outside the body so its early returns do
 	// not skip it. Returns at once unless the option was ever switched on.

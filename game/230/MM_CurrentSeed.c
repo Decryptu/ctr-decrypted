@@ -129,7 +129,7 @@ static void MM_CurrentSeed_DrawOverview(const struct AP_SeedContentRow *rows, in
 		         manual, manual == 1 ? "" : "s", manual == 1 ? "s" : "");
 		MM_Seed_DrawWrapped(line, 0x20, 0xB4, MM_SEED_WIDTH, 1, WHITE, ot);
 	}
-	MM_Seed_DrawCentered("* Install   ^ Cancel", 0xC4, WHITE, ot);
+	MM_Seed_DrawCentered(NativeMenu_Labels("* Install   ^ Cancel"), 0xC4, WHITE, ot);
 }
 
 /* The Seed tab's body, below the Mods screen's title and tabs. */
@@ -267,7 +267,8 @@ static void MM_CurrentSeed_Page(uint32_t *ot, struct GamepadBuffer *pad)
 	/* The bottom three lines match Browse: a message, Select, the buttons. */
 	if (s_seedMessage[0]) MM_Seed_DrawCentered(s_seedMessage, 0xB4, WHITE, ot);
 	MM_Seed_DrawCentered("Select: Import track files", 0xBC, ORANGE, ot);
-	snprintf(line, sizeof line, "%s   [ Rescan   Back: %s",
-	         AP_SeedContentInstallBusy() ? "Installing..." : "* Install missing", s_modsFromTitle ? "Title" : "Options");
+	snprintf(line, sizeof line, "%s   %s",
+	         AP_SeedContentInstallBusy() ? "Installing..." : NativeMenu_Labels("* Install missing"),
+	         NativeMenu_Labels(s_modsFromTitle ? "[ Rescan   ^: Title" : "[ Rescan   ^: Options"));
 	MM_Seed_DrawCentered(line, 0xC4, WHITE, ot);
 }

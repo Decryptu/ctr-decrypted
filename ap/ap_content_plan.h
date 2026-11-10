@@ -16,15 +16,30 @@ extern "C" {
 #define AP_CONTENT_MODE_CTR 1
 #define AP_CONTENT_MODE_RELIC 2
 #define AP_CONTENT_MODE_COUNT 3
+/* Ordinary pickup checks, resolved from the room's exact LEV revision. */
+typedef struct ctr_content_sanity {
+    char track_id[65], lev_sha256[65];
+    int counts[3];
+    int64_t locations[3][80];
+} ctr_content_sanity;
+const ctr_content_sanity *ap_content_plan_sanity(const char *track_id);
+const ctr_content_sanity *ap_content_plan_sanity_boss(int boss);
+int ap_content_plan_sanity_pad(int physical, int family, int64_t *out, int capacity);
 /* One leg of a content-plan cup (#133 PR 5). */
 #define AP_CONTENT_CUP_LEGS 4
 typedef struct ctr_content_leg {
-    int retail_id;     /* engine track 0..15, or -1 */
+    int retail_id;     /* engine track 0..17, or -1 */
     int cortex;        /* 1 for Cortex Vortex */
     int package_index; /* custom package, or -1 */
     int custom_slot, named_block, laps;
     int64_t victory;   /* `<Track>: Cup Leg Victory`, 0 when none */
     int64_t lap;       /* `<Track>: Complete One Lap` (#344), 0 when none */
+    int64_t wumpa;     /* `<Track>: Reach 10 Wumpa` with per_track, 0 when none (row 10i) */
+    /* cup_only_podium_rungs (rulings of 2026-11-02): the podium rungs of a cup
+     * leg on a track with no rungs of its own (no pad, or a pad without a
+     * Trophy Race), in SLOT_ORDER, 0 when none. A leg on a track whose pad
+     * has rungs earns that pad's rungs instead. */
+    int64_t rungs[5];
     /* The physical pad of the standalone race on this track, or -1. Its boxes
      * and Wumpa check are the leg's too, for the cup's glow and state. */
     int track_pad;
@@ -37,9 +52,12 @@ typedef struct ctr_content_pad {
      * rule is met when the received counts of the masked items sum to at least
      * rule_count (one bit is a concrete item, several are an Any rule over the
      * items the seed has as base items). has_rule 0 is a free pad: only the hub
-     * Key floor (`keys`) applies. */
+     * Key floor (`keys`) applies. rule_distinct 1 counts one copy of each
+     * masked item instead: Turbo Track's vanilla five Gems, one of each colour
+     * (`distinct`, row 10i). */
     int has_rule, rule_count;
     unsigned rule_mask;
+    int rule_distinct;
     int retail_id; /* -1 custom or Cortex Vortex, otherwise engine track/arena LevelID */
     /* Cortex Vortex (#133 PR 3c): the bundled pair under its own identity,
      * raced on AP_CONTENT_CORTEX_HOST with no package row and no custom slot
@@ -108,17 +126,31 @@ typedef struct ctr_content_pad {
     /* Item Box Locations (#133 PR 4e): the track's box checks, by 0-based
      * slot (the name is "Item Box <slot + 1>"), 0 where the slot has none.
      * Retail tracks keep their frozen codes (35014000 block), a named-block
-     * custom track uses offsets 20..34 for its first box_count slots, and a
-     * generic slot or Cortex Vortex has none. box_count is the highest slot
-     * with a code. A custom track's boxes stand on its own weapon crates
+     * custom track uses offsets 20..34 for its first box_count slots; a
+     * generic custom slot uses its reserved codes. Cortex Vortex has none.
+     * box_count is the highest slot with a code. A custom track's boxes stand
+     * on its own weapon crates
      * (ap_box_seat_logic.h); box_crates is the package's measured weapon
      * crate count those seats are taken from (0 when it has no boxes). */
     int box_count, box_crates;
-    int64_t box_locations[15];
+    /* Reviewed fallback exclusions carried by the world, one-based original
+     * crate ordinals. Authored spots bypass these entirely. */
+    int box_excluded_count;
+    int box_excluded[16];
+    short box_excluded_pos[16][3];
+    int64_t box_locations[50];
+    /* Hand-placed box spots (A3-14): 1 when the track's boxes come from its
+     * spot file. box_locations then lists the picked spots in number order,
+     * box_number their permanent numbers (1 to 50, the name is
+     * "Item Box <number>"), box_pos and box_rot_y where each stands (LEV
+     * world units, engine angle). No weapon crate is hidden on such a track. */
+    int box_spots;
+    int box_number[50];
+    short box_pos[50][3], box_rot_y[50];
     char entry_id[65], track_id[65], display_name[129];
     char room_title[129]; /* what the room and Universal Tracker call this track */
     /* Cups (#133 PR 5): a four-leg cup entry. cup_index is its name in the
-     * 27-name pool; trophy_location is then `<Cup>: Win` (trophy_boost its
+     * named cup pool; trophy_location is then `<Cup>: Win` (trophy_boost its
      * rank), sweep_location `<Cup>: Win All Legs` or 0, and track_id the
      * check owner `cup:<index>`. mode_count is 0. Each leg names the track it
      * races (as a standalone pad would: retail_id, cortex, or package_index
@@ -136,7 +168,10 @@ typedef struct ctr_content_pad {
 /* Open admission (#133 PR 2): any complete descriptor, not only compiled
  * revisions. Bytes are located and verified on load, and a claimed capability
  * the bytes do not have refuses the package (ap_content_capability.h). */
-#define AP_CONTENT_MAX_PACKAGES 32
+#define AP_CONTENT_MAX_PACKAGES 132
+/* Every retail race track, every package and Cortex Vortex (cups add tracks
+ * raced only as legs). */
+#define AP_CONTENT_MAX_TRACKS (18 + AP_CONTENT_MAX_PACKAGES + 1)
 /* Descriptor capability flags (worlds/ctr/custom_packages.py CAPABILITIES). */
 #define AP_CONTENT_CAP_TIME_TRIAL 0x01u
 #define AP_CONTENT_CAP_ARCADE 0x02u
@@ -149,6 +184,8 @@ typedef struct ctr_content_pad {
  * native measures the bytes and refuses a stated value they disagree with. */
 #define AP_CONTENT_SUPER_PADS_UNSTATED (-1)
 #define AP_CONTENT_RETAIL_LAPS 3 /* retail tracks race their authored three laps */
+/* A boss cup leg with one_lap_cups (A3-6): max(1, 3 / 2), the cup rule on a boss leg's three laps */
+#define AP_CONTENT_BOSS_CUP_SHORT_LAPS 1
 /* Engine hosts of non-retail track entries: a custom package borrows Roo's
  * Tubes; Cortex Vortex keeps the Oxide Station slot its bundled pair is
  * served on by the legacy pad track and the Oxide 2 venue. */
@@ -173,6 +210,7 @@ typedef struct ctr_content_package {
      * AP_CONTENT_WEAPON_CRATES_UNSTATED. Native counts them on load and
      * refuses a stated count the bytes disagree with. */
     int weapon_crates;
+    int fruit_crates, loose_fruit; /* optional measured sanity counts, -1 unstated */
     /* Optional measured `checkpoints` and `ai_nav` (#133 PR 6b): the LEV's
      * restart point count (1..255) and whether it has AI navigation paths,
      * or AP_CONTENT_UNSTATED. Native measures both on load and refuses a
@@ -201,7 +239,7 @@ typedef struct ctr_content_capability {
  * is 0 when they are off; `shortcut_knowledge` (0 easy to 2 hard) decides
  * which retail box slots exist. */
 typedef struct ctr_content_item_boxes {
-    int present, shortcut_knowledge;
+    int present, shortcut_knowledge, box_count;
 } ctr_content_item_boxes;
 
 /* Boss garages (#133 PR 6): the plan's `bosses` record. `present` is 0 when
@@ -244,10 +282,16 @@ typedef struct ctr_content_bosses {
     int extended, opponent_shuffle, oxide_in_pool, kit_shuffle, gauntlet, oxide_profile_all, home_venues;
     int kit_assignment, kit_intensity, loss_easing;
     int opponent[4], final_opponent;
+    /* The chaos Final Challenge (`bosses.final_chaos`). */
+    int final_chaos;
     /* Complete One Lap (#344): the venue's lap check of each encounter, by
      * gGT->bossID (0 to 3 the garages, 4 and 5 N. Oxide's two races), 0 for a
      * boss cup, whose legs carry theirs, or a seed without lap checks. */
     int64_t lap[6];
+    /* Reach 10 Wumpa (row 10i): the venue's per-track check of each boss
+     * race, by gGT->bossID as `lap`; 0 for a boss cup (its legs carry theirs),
+     * a venue that cannot reach ten fruit, or a seed without per_track. */
+    int64_t wumpa[6];
 } ctr_content_bosses;
 
 /* Wumpa Shop and Wumpa goal on a content plan (J11). The plan's `wumpa_shop`
@@ -303,7 +347,7 @@ static inline int ap_content_rule_owned(const ctr_content_pad *pad, const int *c
 {
     int i, owned = 0;
     for (i = 0; i < 15; ++i)
-        if (pad->rule_mask & (1u << i)) owned += counts[i];
+        if (pad->rule_mask & (1u << i)) owned += pad->rule_distinct ? counts[i] > 0 : counts[i];
     return owned;
 }
 static inline int ap_content_pad_open(const ctr_content_pad *pad, const int *counts)

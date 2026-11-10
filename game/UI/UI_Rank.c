@@ -143,6 +143,13 @@ void UI_DrawRankedDrivers(void)
 		{
 			// Show 2 racers
 			visibleRankCount = UI_RANK_VISIBLE_BOSS_COUNT;
+#ifdef CTR_AP
+			// A chaos final races a full field: show the arcade count.
+			if (AP_ChaosFinalNow())
+			{
+				visibleRankCount = UI_RANK_VISIBLE_ARCADE_COUNT;
+			}
+#endif
 		}
 
 		// height to draw rank (this bitshifts later)

@@ -4,8 +4,12 @@ import json
 import re
 import subprocess
 import tempfile
+import ap_hooks_unit
 
 root=Path(__file__).resolve().parents[1]
+hooks=ap_hooks_unit.read()
+policy_start=hooks.index('int AP_LocationChecksAllowed(void)\n{')
+policy=hooks[policy_start:hooks.index('\n}\n',policy_start)+3]
 data=json.loads((root/'tools/fixtures/arcade-arenas-v1.json').read_text())
 header=(root/'ap/ap_arena_content.h').read_text().split('ap_arcade_anchors[3][20][3] = {',1)[1]
 anchors=[list(map(int,p)) for p in re.findall(r'\{(-?\d+),(-?\d+),(-?\d+)\}',header)]
@@ -24,6 +28,7 @@ fixture=r'''
 #include "ap_content_plan.h"
 #include "ap_crystal_checks.h"
 #include "ap_arena_content.h"
+#include "ap_wumpa_shop.h"
 #define ADVENTURE_BOSS 0x80000000u
 typedef int16_t s16;
 #define CTR_AP 1
@@ -106,6 +111,15 @@ int main(void){
   }
   assert(!AP_NotifyContentCrystalComplete());driver.numCrystals=20;blocked=1;assert(!AP_NotifyContentCrystalComplete());blocked=0;
   assert(AP_NotifyContentCrystalComplete());assert(lastCode==AP_ArenaCompletionCode(g.levelID));assert(!AP_NotifyContentCrystalComplete());
+  /* A new attempt spawns every crystal again but keeps this room's checks.
+   * Cover a lost replay and a later successful retry. */
+  {int saved[256],before=sent;memcpy(saved,checked,sizeof saved);
+   setup(&g,20+2*a);memcpy(checked,saved,sizeof saved);AP_ArcadeCrystals_Spawn(&g);assert(born==20);
+   for(int n=0;n<20;n++)AP_NotifyContentCrystalPickup(&instances[n],0);
+   assert(sent==before&&!AP_NotifyContentCrystalComplete());
+   driver.numCrystals=20;assert(!AP_NotifyContentCrystalComplete()&&sent==before);
+   assert(!memcmp(checked,saved,sizeof saved));
+  }
  }
  assert(collided==60&&perf==60&&feed==60&&ap_state_gen==60);
  for(int phase=0;phase<2;phase++)for(int fail=0;fail<20;fail++){
@@ -122,19 +136,36 @@ int main(void){
  DENY(context.timeLimitTicks=1,context.timeLimitTicks=pad.time_limit_ticks);
  DENY(context.entryID[0]='x',context.entryID[0]='e');
  DENY(g.gameMode1=CRYSTAL_CHALLENGE,g.gameMode1=ADVENTURE_MODE|CRYSTAL_CHALLENGE);
+ for(int players=2;players<=4;players++){
+  DENY(g.numPlyrCurrGame=players,g.numPlyrCurrGame=1);
+ }
+ {unsigned modes[]={0,ARCADE_MODE,TIME_TRIAL,BATTLE_MODE,
+    ARCADE_MODE|RELIC_RACE,TIME_TRIAL|RELIC_RACE,BATTLE_MODE|RELIC_RACE,
+    ARCADE_MODE|ADVENTURE_MODE,TIME_TRIAL|ADVENTURE_MODE,BATTLE_MODE|ADVENTURE_MODE};
+  for(unsigned i=0;i<sizeof modes/sizeof *modes;i++) {
+   DENY(g.gameMode1=modes[i]|CRYSTAL_CHALLENGE,g.gameMode1=ADVENTURE_MODE|CRYSTAL_CHALLENGE);
+  }
+ }
  DENY(bound=0,bound=1);
  {int before=sent;AP_NotifyContentCrystalPickup(&instances[0],1);assert(sent==before);}
  for(int a=0;a<4;a++){
   int levels[]={21,19,23,18};struct InstDef defs[80]={0};struct Level lev={80,defs};struct Instance crystal={0};
   setup(&g,levels[a]);g.level1=&lev;g.numCrystalsInLEV=20;
   for(int n=0;n<20;n++){int before=sent;crystal.instDef=&defs[AP_CrystalInstanceBase(a,1)+n];AP_NotifyContentCrystalPickup(&crystal,0);assert(sent==before+1&&lastCode==AP_ArenaPickupCode(levels[a],n));}
+  driver.numCrystals=20;assert(AP_NotifyContentCrystalComplete());
+  {int saved[256],before=sent;memcpy(saved,checked,sizeof saved);
+   setup(&g,levels[a]);g.level1=&lev;g.numCrystalsInLEV=20;memcpy(checked,saved,sizeof saved);
+   for(int n=0;n<20;n++){crystal.instDef=&defs[AP_CrystalInstanceBase(a,1)+n];AP_NotifyContentCrystalPickup(&crystal,0);}
+   assert(!AP_NotifyContentCrystalComplete());driver.numCrystals=20;
+   assert(!AP_NotifyContentCrystalComplete()&&sent==before&&!memcmp(checked,saved,sizeof saved));
+  }
  }
  return 0;
 }
 '''
 with tempfile.TemporaryDirectory() as tmp:
     src,exe=Path(tmp)/'arcade.c',Path(tmp)/'arcade'
-    src.write_text(mode_enum+fixture+source+tests)
+    src.write_text(mode_enum+fixture+policy+source+tests)
     subprocess.run(['cc','-std=c11','-Wall','-Wextra','-fsanitize=undefined','-I',str(root/'ap'),str(src),'-o',str(exe)],check=True)
     subprocess.run([str(exe)],check=True)
 print('Arcade production construction/collision/dispatch passed: 60 authored + 80 retail identities, 40 instance/thread allocation failure points and missing model, context guards')

@@ -1,5 +1,6 @@
 #ifdef CTR_CUSTOM_TRACKS
 #include <platform/native_custom_offline.h>
+#include <platform/native_custom_finish.h>
 #include <platform/native_custom_identity.h>
 #include <platform/native_custom_state_identity.h>
 #include <platform/native_custom_content_verify.h>
@@ -11,8 +12,23 @@
 struct CustomOfflineRequest { struct CustomPackageOwned *package; };
 static struct CustomOfflineRequest *activeRequest;
 static int activeHost = -1;
+/* Retail arcade track the active package replaces (xdelta import), or -1. */
+static int musicFallbackLevel = -1;
 static int activeMode;
 static int activeLaps;
+static int activeFinishTerrain = -1;
+
+static int package_finish_terrain(const struct CustomPackageManifest *manifest)
+{
+    const char *lev = NULL, *vrm = NULL;
+    unsigned int i;
+    for (i = 0; i < manifest->count; i++)
+    {
+        if (!strcmp(manifest->files[i].role, "lev")) lev = manifest->files[i].sha256;
+        if (!strcmp(manifest->files[i].role, "vrm")) vrm = manifest->files[i].sha256;
+    }
+    return CustomFinish_Terrain(lev, vrm);
+}
 static uint64_t runtimeGeneration;
 static unsigned int servedRoles;
 static int targetLoaded;
@@ -114,6 +130,7 @@ int CustomOffline_PackageLaps(const struct CustomPackageOwned *package, unsigned
             return hasSettings && !pinnedOk ? 0 :
                 offline_error(error, errorSize, "Authored laps exceed the engine's seven-lap timing storage");
     }
+    if (package_finish_terrain(&manifest) >= 0) *laps = 1;
     offline_error(error, errorSize, "");
     return 1;
 }
@@ -187,6 +204,11 @@ int CustomOffline_BeginRuntime(struct CustomOfflineRequest **request, int hostLe
     activeHost = hostLevelID;
     activeMode = mode;
     activeLaps = (int)laps;
+    {
+        struct CustomPackageManifest manifest;
+        activeFinishTerrain = CustomOffline_GetManifest(activeRequest, &manifest) ?
+                              package_finish_terrain(&manifest) : -1;
+    }
     ++runtimeGeneration;
     clear_observations();
     return 1;
@@ -204,6 +226,7 @@ void CustomOffline_EndRuntime(void)
 {
     release_runtime_audio();
     CustomOffline_Free(&activeRequest);
+    musicFallbackLevel = -1;
     activeHost = -1;
     activeMode = 0;
     activeLaps = 0;
@@ -211,6 +234,8 @@ void CustomOffline_EndRuntime(void)
 }
 
 int CustomOffline_RuntimeActive(void) { return activeRequest != NULL; }
+int CustomOffline_MusicFallbackLevel(void) { return musicFallbackLevel; }
+void CustomOffline_SetMusicFallbackLevel(int level) { musicFallbackLevel = activeRequest && level >= 0 && level < 18 ? level : -1; }
 uint64_t CustomOffline_RuntimeGeneration(void) { return runtimeGeneration; }
 int CustomOffline_RuntimeLaps(void) { return activeLaps; }
 int CustomOffline_SetRuntimeLaps(int laps)
@@ -219,6 +244,7 @@ int CustomOffline_SetRuntimeLaps(int laps)
     activeLaps = laps;
     return 1;
 }
+int CustomOffline_RuntimeFinishTerrain(void) { return activeRequest ? activeFinishTerrain : -1; }
 
 void CustomOffline_OnLoadRequested(int levelID)
 {

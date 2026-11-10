@@ -64,6 +64,16 @@ static std::set<int64_t> reachable_set(Room &room, ap_content_verify_result &r) 
 static bool admit(const J &slot, const std::vector<int64_t> &locations) {
     ap_seedcfg_parse_json(slot);
     if (ap_seedcfg_rejected() || !ap_content_plan_present()) return false;
+    // The same current generated room must drive both runtime capability
+    // mirrors and the verifier's exported reachability. Keep this contract
+    // here for every checked-in fixture and every generated --probe row.
+    const J &options = slot.at("ctr_options");
+    expect(ctr_cfg.boost_mode == options.at("progressive_boost").get<int>(),
+           "admitted room mirrors boost_mode before reachability");
+    expect(ctr_cfg.starting_character == options.value("starting_character", 0),
+           "admitted room mirrors starting_character before reachability");
+    expect((ctr_cfg.character_unlocks != 0) == options.value("character_unlocks", false),
+           "admitted room mirrors character_unlocks before reachability");
     return ap_content_plan_bind("verify-seed", 0, 1, locations.data(), locations.size()) == 1;
 }
 static std::vector<int64_t> plan_locations(const J &slot) {
@@ -94,7 +104,11 @@ static void fixtures() {
                                   "global-checks", "item-boxes", "cups", "cup-hits", "bosses", "bosses-custom",
                                   "bosses-final", "bosses-cups",
                                   // J11: ctr_first, the Wumpa Shop and goal, boss opponent and kit shuffle
-                                  "ctr-first", "wumpa-shop", "wumpa-goal-only", "boss-shuffle", "all-030", "boss-cups-gauntlet"};
+                                  "ctr-first", "wumpa-shop", "wumpa-goal-only", "boss-shuffle", "all-030", "boss-cups-gauntlet",
+                                  // Row 10f: the only Wumpa Income is a custom track with measured Wumpa
+                                  "wumpa-custom-income",
+                                  // A3-7: 27 cups, no Trophy Race: Itemsanity and Wumpa Income from the cup legs
+                                  "twenty-seven-cups", "one-race-pad", "sanity"};
     for (const char *name : names) {
         std::ifstream in(std::string("tools/fixtures/content-plan/") + name + ".json");
         if (!in) { expect(false, std::string("fixture missing: ") + name); continue; }
@@ -104,7 +118,7 @@ static void fixtures() {
         if (!ap_content_plan_active()) continue;
         Room all;
         for (auto id : ids) all.present.insert(id);
-        for (int64_t code = 35010000; code < 35010210; ++code) all.foreign[code] = 99;
+        for (int64_t code = 35010000; code < 35010215; ++code) all.foreign[code] = 99;
         for (const auto &row : slot["content_plan"]["items"]["rows"]) all.foreign[row["item"].get<int64_t>()] = 99;
         auto r = run(all);
         expect(r.goal && r.total == (int)ids.size() && r.reachable == r.total,
@@ -200,7 +214,7 @@ static void checked_is_not_reached() {
     expect(boss && hit, "bosses has a Hit check routed through a keyed garage");
     Room room;
     for (auto id : ids) room.present.insert(id);
-    for (int64_t code = 35010000; code < 35010210; ++code) room.foreign[code] = 99;
+    for (int64_t code = 35010000; code < 35010215; ++code) room.foreign[code] = 99;
     room.foreign.erase(35010014);
     room.checked.insert(boss);
     std::set<int64_t> miss;
@@ -260,6 +274,26 @@ static void probe(const char *path) {
 // One generator row 3: with `pad_requirements_v1` a later race counts only once
 // the pad's first race is reached. The capability fixture has first races that
 // need a boost rank and later checks that do not.
+// One race pad among cups (A3-7): every Itemsanity route is on that pad, and
+// the check still needs its weapon, as in the apworld. Before, the sweep took
+// it for a pad check and reached it without the weapon.
+static void one_race_pad() {
+    std::ifstream in("tools/fixtures/content-plan/one-race-pad.json");
+    const J slot = J::parse(in);
+    const auto ids = plan_locations(slot);
+    expect(admit(slot, ids), "one race pad: admitted");
+    const int64_t beaker_use = 35016008, beaker = 35010099;
+    Room all;
+    for (auto id : ids) all.present.insert(id);
+    for (int64_t code = 35010000; code < 35010210; ++code) all.foreign[code] = 99;
+    for (const auto &row : slot["content_plan"]["items"]["rows"]) all.foreign[row["item"].get<int64_t>()] = 99;
+    Room without = all;
+    without.foreign.erase(beaker);
+    ap_content_verify_result r;
+    expect(reachable_set(all, r).count(beaker_use) != 0, "one race pad: the Beaker use check with Beaker");
+    expect(reachable_set(without, r).count(beaker_use) == 0, "one race pad: no Beaker use check without Beaker");
+}
+
 static void first_race_won() {
     std::ifstream in("tools/fixtures/content-plan/capability.json");
     J slot = J::parse(in);
@@ -289,9 +323,50 @@ static void first_race_won() {
         if (!before.count(code)) expect(later.count(code) != 0, "only a later race closes: " + std::to_string(code));
 }
 
+// A 200-fruit beach shelf is early physically, but its logical budget moves
+// with the configured scale. Preserve the published income-only room too.
+static void shop_key_budgets() {
+    std::ifstream in("tools/fixtures/content-plan/wumpa-shop.json");
+    const J original = J::parse(in);
+    for (const auto &setting : std::vector<std::pair<int, int>>{{0, 0}, {25, 3}, {50, 2}, {100, 1}, {400, 0}}) {
+        J slot = original;
+        J &p = slot["content_plan"];
+        p["wumpa_shop"]["prices"] = 400;
+        const std::map<std::string, int> prices = {{"hub:26", 40}, {"hub:25", 80}, {"hub:27", 80}, {"hub:28", 120}, {"hub:29", 160}};
+        for (auto &c : p["checks"]) if (c["kind"] == "wumpa_shop") {
+            c["price"] = prices.at(c["owner"].get<std::string>());
+            c["unlock_banked"] = c["unlock_banked"].get<int>() ? 200 : 0;
+        }
+        if (setting.first) {
+            p["wumpa_shop"]["logic_scale"] = setting.first;
+            auto &features = p["required_features"];
+            auto pos = std::find(features.begin(), features.end(), J("wumpa_shop_v1"));
+            features.insert(pos + 1, "wumpa_shop_key_tiers_v1");
+        }
+        const auto ids = plan_locations(slot);
+        expect(admit(slot, ids), "shop budget fixture admitted");
+        for (int keys = 0; keys <= 4; ++keys) {
+            Room room;
+            for (auto id : ids) room.present.insert(id);
+            for (int64_t code = 35010000; code < 35010215; ++code)
+                if (code != 35010014) room.foreign[code] = 99;
+            for (const auto &row : p["items"]["rows"])
+                if (row["item"] != 35010014) room.foreign[row["item"].get<int64_t>()] = 99;
+            room.foreign[35010014] = keys;
+            ap_content_verify_result r;
+            const auto reached = reachable_set(room, r);
+            expect((reached.count(35028602) != 0) == (keys >= setting.second),
+                   "200-fruit beach shelf follows received Keys at scale " + std::to_string(setting.first));
+            expect((reached.count(35028762) != 0) == (keys >= std::max(3, setting.second)),
+                   "shop budget keeps Citadel's hub floor");
+        }
+    }
+}
+
 int main(int argc, char **argv) {
     if (argc > 2 && std::string(argv[1]) == "--probe") probe(argv[2]);
-    else { fixtures(); chain(); checked_is_not_reached(); first_race_won(); }
+    else { fixtures(); chain(); checked_is_not_reached(); first_race_won(); shop_key_budgets(); one_race_pad();
+           probe("tools/fixtures/content-plan/sanity-verify.jsonl"); }
     std::cout << checks << " checks, " << failures << " failures\n";
     return failures ? 1 : 0;
 }

@@ -13,8 +13,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: clients-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: clients-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Each variant builds in its own job, so the four run side by side instead of
 # one after another. Compiler output is reused between runs through ccache,

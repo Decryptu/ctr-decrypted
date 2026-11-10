@@ -1,6 +1,7 @@
 #include <common.h>
 #include <stdio.h>
 #include <ctr_menu_ux.h>
+#include <platform/native_menu.h>
 #include <ctr_menu_pages.h>
 #include <ctr_menu_strings.h>
 #include <platform/native_renderer.h> // NativeRenderer_CaptureWindowGeometry, ahead of the NativeConfig_Save calls below
@@ -44,8 +45,8 @@
 // connection manager (AP) and the Track Manager search box (packages). Why the
 // pad buffer cannot be used is explained above MM_ConfigProc_Connection.
 #if defined(CTR_AP) || defined(CTR_CUSTOM_PACKAGES)
-#define CONN_PAD_COMMIT (RAW_BTN_CROSS | RAW_BTN_START)
-#define CONN_PAD_CANCEL (RAW_BTN_TRIANGLE)
+#define CONN_PAD_COMMIT (RAW_BTN_CROSS | RAW_BTN_CIRCLE)
+#define CONN_PAD_CANCEL (RAW_BTN_TRIANGLE | RAW_BTN_START)
 #endif
 
 // In-game options menu. Ported from thecodingbob/ctr-native (branch
@@ -141,6 +142,36 @@ static const ConfigEntry *Section_Entry(int sec, int row)
 }
 
 static int s_currentSection = -1; // -1 = section selector, 0+ = submenu
+
+// A page with more rows than fit above the two help lines (0xB8) scrolls: nine
+// rows from CONFIG_ROW_START_Y show at a time. The Archipelago page has eleven
+// config rows since Item Feed (2026-11-03), twelve with Room links.
+#define CONFIG_PAGE_WINDOW 9
+static int s_configTop;
+static void Config_DrawScrollIndicator(int top, int pageRows, uint32_t *ot)
+{
+	if (pageRows > CONFIG_PAGE_WINDOW)
+	{
+		char range[64];
+		int last = top + CONFIG_PAGE_WINDOW;
+		if (last > pageRows) last = pageRows;
+		snprintf(range, sizeof range, "%d-%d/%d  %s", top + 1, last, pageRows,
+		         top == 0 ? "DOWN: MORE" : last == pageRows ? "UP: MORE" : "UP/DOWN: MORE");
+		DecalFont_DrawLineOT(range, 0x100, 0x30, FONT_SMALL, JUSTIFY_CENTER | WHITE, ot);
+	}
+}
+
+static void Config_KeepInView(int selected, int pageRows)
+{
+	if (selected < s_configTop)
+		s_configTop = selected;
+	if (selected >= s_configTop + CONFIG_PAGE_WINDOW)
+		s_configTop = selected - CONFIG_PAGE_WINDOW + 1;
+	if (s_configTop > pageRows - CONFIG_PAGE_WINDOW)
+		s_configTop = pageRows - CONFIG_PAGE_WINDOW;
+	if (s_configTop < 0)
+		s_configTop = 0;
+}
 
 // Row geometry and option-row helpers shared with the Controls page
 // (MM_ControlsConfig.c, ported from CTR Native Expanded by thecodingbob, PR 54
@@ -256,9 +287,7 @@ static void Config_UpdateSlider(const struct GamepadBuffer *pad, const int rowSe
 // the fixed presets from the reference difficulty menu. The raw value is what gets
 // stored + synced, so an out-of-ladder value from slot_data still applies as-is;
 // the menu only snaps to the nearest entry for display and left/right stepping.
-static const int   s_aiDiffValues[] = {0, 0x50, 0xA0, 0xF0, 0x140, 0x280};
-static const char *s_aiDiffNames[]  = {"VANILLA", "EASY", "MEDIUM", "HARD", "SUPER HARD", "ULTRA HARD"};
-#define AI_DIFF_COUNT ((int)(sizeof(s_aiDiffValues) / sizeof(s_aiDiffValues[0])))
+#include "../../ap/ap_ai_difficulty.h"
 
 // Aspect-ratio preset ladder (CFG_ENUM), ported from thecodingbob/ctr-native
 // (branch widescreen-option). 0 = 4:3 (vanilla), 1 = 16:9, 2 = 16:10,
@@ -336,41 +365,6 @@ static int Aspect_Index(int value)
 		if (s_aspectValues[i] == value)
 			return i;
 	return 0; // out-of-range persisted value renders and steps as 4:3
-}
-
-// Nearest ladder index for an arbitrary value (exact match, else closest).
-static int AiDiff_NearestIndex(int value)
-{
-	int best = 0;
-	int bestDist = -1;
-	for (int i = 0; i < AI_DIFF_COUNT; i++)
-	{
-		int d = value - s_aiDiffValues[i];
-		if (d < 0)
-			d = -d;
-		if (bestDist < 0 || d < bestDist)
-		{
-			bestDist = d;
-			best = i;
-		}
-	}
-	return best;
-}
-
-static const char *AiDiff_Label(int value)
-{
-	return s_aiDiffNames[AiDiff_NearestIndex(value)];
-}
-
-// Step to the adjacent preset (dir -1/+1), clamped to the ladder ends.
-static void AiDiff_Step(int *value, int dir)
-{
-	int i = AiDiff_NearestIndex(*value) + dir;
-	if (i < 0)
-		i = 0;
-	if (i > AI_DIFF_COUNT - 1)
-		i = AI_DIFF_COUNT - 1;
-	*value = s_aiDiffValues[i];
 }
 
 #ifdef CTR_AP
@@ -662,6 +656,11 @@ static void Config_DrawRowHelp(const ConfigEntry *e, uint32_t *ot)
 		first = "When race pads ask which race.";
 		second = "SEED uses the seed's setting.";
 	}
+	if (e->valuePtr == &g_config.itemFeed)
+	{
+		first = "Items sent and received,";
+		second = "shown at the bottom left.";
+	}
 	if (first == 0)
 		return;
 	Config_DrawHelpLines(first, second, ot);
@@ -682,6 +681,26 @@ static void Config_DrawLinkRow(int y, int labelX, int valueX, uint32_t *ot)
 {
 	DecalFont_DrawLineOT("Room links", labelX, y, FONT_SMALL, ORANGE, ot);
 	DecalFont_DrawLineOT((char *)AP_LinkRegStatusText(), valueX, y, FONT_SMALL, JUSTIFY_RIGHT | WHITE, ot);
+}
+
+// Box Author Mode in the player client (ap/ap_author_gate.h): an action row
+// after the Authoring page's config rows. Not a config entry: it is a switch
+// for this session only, and turning it on can be refused.
+static int Config_AuthorRow(int sec, int numRows)
+{
+#ifdef AP_AUTHOR_SESSION_SWITCH
+	if (strcmp(s_sectionName[sec], "Authoring") == 0)
+		return numRows;
+#endif
+	(void)sec;
+	(void)numRows;
+	return -1;
+}
+
+static void Config_DrawAuthorRow(int y, int labelX, int valueX, uint32_t *ot)
+{
+	DecalFont_DrawLineOT("Box Author Mode", labelX, y, FONT_SMALL, ORANGE, ot);
+	DecalFont_DrawLineOT(AP_Author_Enabled() ? "ON" : "OFF", valueX, y, FONT_SMALL, JUSTIFY_RIGHT | WHITE, ot);
 }
 #endif
 
@@ -982,7 +1001,7 @@ static void Conn_DrawLongStatus(const char *status, int labelY, int valueX, int 
 // game/DecalFont.c).
 static void TextEdit_DrawHint(int y, uint32_t *ot)
 {
-	DecalFont_DrawLineOT("* OR START: SAVE   ^: CANCEL",
+	DecalFont_DrawLineOT(NativeMenu_Labels("*: SAVE   ^: CANCEL"),
 		0x100, y, FONT_SMALL, JUSTIFY_CENTER | WHITE, ot);
 }
 
@@ -1244,6 +1263,8 @@ static int s_contentInstallBusy;
 static char s_contentInstallPin[65];
 static char s_contentInstallMessage[512];
 static int s_contentStoreBusy, s_contentStoreWanted;
+static int s_contentPublishBusy; /* Play Solo publication after a store scan, on a worker */
+static unsigned int s_contentStoreGeneration; /* Bumped by every finished scan and by the Mods screen off switch. */
 static char s_contentStoreMessage[512];
 static struct CustomSaphiCatalogue *s_saphiCatalogue;
 static int s_saphiRefreshBusy, s_saphiLoaded, s_saphiDownloading;
@@ -1276,17 +1297,47 @@ static void MM_CustomLibrary_Tick(int reload)
             {
                 CustomTrackLibrary_MarkInstalled(&s_contentLibrary, s_contentInstallPin);
                 s_contentStoreWanted = 1;
+#ifdef CTR_AP
+                char publicationError[256];
+                if (!AP_Solo_PublishInstalledStore(s_contentInstallPin, publicationError, sizeof publicationError))
+                    snprintf(s_contentInstallMessage, sizeof s_contentInstallMessage,
+                             "Files installed, but Play Solo publication failed: %.170s", publicationError);
+                else
+#endif
                 snprintf(s_contentInstallMessage, sizeof s_contentInstallMessage,
-                         "Installed. Choose custom tracks from Arcade.");
+                         "Installed. Listed in Play Solo and Arcade.");
             }
         }
     }
     if (s_contentStoreBusy)
     {
         int result = CustomPackage_PollStoreScan(&s_contentLibrary, s_contentStoreMessage, sizeof s_contentStoreMessage);
-        if (result == 1 || result == -2) s_contentStoreBusy = 0;
-        if (result == 1) s_contentInstallPin[0] = 0; /* Fresh store evidence supersedes an old action message. */
+        if (result == 1 || result == -2)
+        {
+            s_contentStoreBusy = 0;
+            s_contentStoreGeneration++;
+        }
+        if (result == 1)
+        {
+#ifdef CTR_AP
+            /* Verified on a worker, one descriptor per frame (A3-46): with 100+
+               packages a synchronous run froze the screen for over a second. */
+            s_contentPublishBusy = AP_Solo_PublishInstalledStoreStart();
+#endif
+            s_contentInstallPin[0] = 0; /* Fresh store evidence supersedes an old action message. */
+        }
     }
+#ifdef CTR_AP
+    if (s_contentPublishBusy)
+    {
+        char publicationError[256];
+        int published = AP_Solo_PublishInstalledStorePoll(publicationError, sizeof publicationError);
+        if (published != 0) s_contentPublishBusy = 0;
+        if (published == -2 && !s_contentStoreMessage[0])
+            snprintf(s_contentStoreMessage, sizeof s_contentStoreMessage,
+                     "Play Solo publication failed: %.170s", publicationError);
+    }
+#endif
     if (s_contentStoreWanted && !s_contentStoreBusy && !s_contentInstallBusy)
     {
         int length = snprintf(path, sizeof path, "%s/tracks/packages", NativeAssets_GetAssetDir());
@@ -1361,7 +1412,8 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 	    && !MM_Backups_ConsumesBack()
 #ifdef CTR_CUSTOM_PACKAGES
 	    // Drain a package or Saphi worker before leaving; Back first leaves
-	    // the Versions list of one track.
+	    // the Versions list of one track, the xdelta import screen or a
+	    // track's actions.
 	    && !MM_CustomLibrary_Busy() && !s_saphiVersionTrack && !MM_CustomImport_Active() && !MM_Mods_ConsumesBack()
 #if defined(CTR_AP) && !defined(CTR_AP_AUTHORING)
 	    // Back first closes the Install missing content overview (#133 PR 7).
@@ -1435,6 +1487,7 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 		// host keyboard is mapped onto a pad slot, so typing would navigate.
 		const int textBusy = TextEdit_Update() || s_connEditing;
 		const int linkRow = Config_LinkRow(sec, numRows);
+		const int authorRow = Config_AuthorRow(sec, numRows);
 		if (linkRow >= 0)
 			AP_LinkRegPageFrame();
 #else
@@ -1450,8 +1503,9 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 #endif
 		const int textBusy = 0;
 		const int linkRow = -1;
+		const int authorRow = -1;
 #endif
-		const int pageRows = numRows + (linkRow >= 0 ? 1 : 0);
+		const int pageRows = numRows + (linkRow >= 0 ? 1 : 0) + (authorRow >= 0 ? 1 : 0);
 
 		if (!textBusy)
 		{
@@ -1466,8 +1520,31 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 			OtherFX_Play(0, 1);
 		}
 
-		// The selected config entry; NULL on the Room links action row.
+		Config_KeepInView(menu->rowSelected, pageRows);
+
+		// The selected config entry; NULL on the Room links and Box Author Mode
+		// action rows.
 		const ConfigEntry *selEntry = (menu->rowSelected < numRows) ? Section_Entry(sec, menu->rowSelected) : NULL;
+#ifdef AP_AUTHOR_SESSION_SWITCH
+		// A refusal on the Box Author Mode row lasts while the row keeps focus.
+		if (menu->rowSelected != authorRow)
+			AP_Author_MenuLeave();
+		// One action per frame on the row: Cross (below) wins over Left/Right,
+		// so a single frame can never be the refusal and the second press.
+		if (menu->rowSelected == authorRow && (pad->buttonsTapped & (BTN_CROSS | BTN_CIRCLE)) == 0)
+		{
+			if ((pad->buttonsTapped & BTN_LEFT) != 0)
+			{
+				AP_Author_MenuPress(0);
+				OtherFX_Play(0, 1);
+			}
+			else if ((pad->buttonsTapped & BTN_RIGHT) != 0)
+			{
+				AP_Author_MenuPress(1);
+				OtherFX_Play(0, 1);
+			}
+		}
+#endif
 
 		// Cross/Circle acts on every row type: a boolean toggles, an enum moves to
 		// its next value (wrapping), a text row opens the editor.
@@ -1476,6 +1553,11 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 			OtherFX_Play(1, 1);
 			const ConfigEntry *e = selEntry;
 #ifdef CTR_AP
+#ifdef AP_AUTHOR_SESSION_SWITCH
+			if (e == NULL && menu->rowSelected == authorRow)
+				AP_Author_MenuPress(!AP_Author_Enabled());
+			else
+#endif
 			if (e == NULL)
 				AP_LinkRegAction(); // Room links: use this client for ctr-ap:// links, or stop
 			else if (Config_RowLockedBySeed(e))
@@ -1491,7 +1573,7 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 #ifdef CTR_AP
 			else if (e->type == CFG_STRING)
 				TextEdit_Begin(e, menu->rowSelected,
-					CONN_ROW_START_Y + menu->rowSelected * CONN_ROW_SPACING - 2);
+					CONN_ROW_START_Y + (menu->rowSelected - s_configTop) * CONN_ROW_SPACING - 2);
 #endif
 		}
 
@@ -1557,10 +1639,12 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 		int startY = 0x3C;
 		int rowSpacing = 0x0E;
 
-		for (int j = 0; j < numRows; j++)
+		Config_DrawScrollIndicator(s_configTop, pageRows, ot);
+
+		for (int j = s_configTop; j < numRows && j < s_configTop + CONFIG_PAGE_WINDOW; j++)
 		{
 			const ConfigEntry *e = Section_Entry(sec, j);
-			int y = startY + j * rowSpacing;
+			int y = startY + (j - s_configTop) * rowSpacing;
 #ifdef CTR_AP
 			const int editing = s_connEditing && s_connEditEntry == e;
 #else
@@ -1581,9 +1665,9 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 			}
 		}
 #ifdef CTR_AP
-		if (linkRow >= 0)
+		if (linkRow >= 0 && linkRow >= s_configTop && linkRow < s_configTop + CONFIG_PAGE_WINDOW)
 		{
-			int y = startY + linkRow * rowSpacing;
+			int y = startY + (linkRow - s_configTop) * rowSpacing;
 			Config_DrawLinkRow(y, labelX, valueX, ot);
 			if (menu->rowSelected == linkRow)
 			{
@@ -1592,8 +1676,27 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 			}
 		}
 
+		if (authorRow >= 0 && authorRow >= s_configTop && authorRow < s_configTop + CONFIG_PAGE_WINDOW)
+		{
+			int y = startY + (authorRow - s_configTop) * rowSpacing;
+			Config_DrawAuthorRow(y, labelX, valueX, ot);
+			if (menu->rowSelected == authorRow)
+			{
+				RECT sel = {0x30, y - 2, 0x1B0, 0x0C};
+				CTR_Box_DrawClearBox(&sel, &sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot, &GAME_TRACKER->backBuffer->primMem);
+			}
+		}
+
 		if (s_connEditing)
 			TextEdit_DrawHint(0xC0, ot);
+#ifdef AP_AUTHOR_SESSION_SWITCH
+		else if (menu->rowSelected == authorRow)
+		{
+			const char *first, *second;
+			AP_Author_MenuHelp(&first, &second);
+			Config_DrawHelpLines(first, second, ot);
+		}
+#endif
 		else if (menu->rowSelected == linkRow)
 			Config_DrawHelpLines("Which program opens room links.", AP_LinkRegActionHint(), ot);
 		else if (numRows > 0 && menu->rowSelected < numRows)
@@ -1622,6 +1725,9 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 			OtherFX_Play(1, 1);
 			s_currentSection = menu->rowSelected;
 			menu->rowSelected = 0;
+#ifdef AP_AUTHOR_SESSION_SWITCH
+			AP_Author_MenuLeave(); // a refusal from an earlier visit never carries over
+#endif
 		}
 
 		DecalFont_DrawLineOT(sdata->lngStrings[LNG_OPTIONS],

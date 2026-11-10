@@ -18,12 +18,14 @@ the game runs:
   5. freeing a seat gives the crate its bits back, but never after a pool reset;
   6. a crate whose instance pointer is not a pool instance pointing back at it
      (a raw LEV value left when INSTANCE_LevInitAll ran out of pool) still
-     stands its box but is never written.
+     stands its box but is never written;
+  7. a pad with hand-placed spots (A3-14) stands its boxes at the spots, by
+     spot number, whatever the crate table holds, and never touches a crate.
 
 A source scan then checks the wiring that cannot be called out of engine: every
 path that ends a live box frees its seat, the pool-reset path drops seats
-without writing to old instances, a seated box spawns at the crate position
-without the ground lift, and a custom-bytes race never falls through to the
+without writing to old instances, a seated box uses the shared AP model lift
+at the crate anchor, and a custom-bytes race never falls through to the
 host's retail placements.
 
 Run: python3 tools/test-box-seat-production.py
@@ -46,6 +48,7 @@ record = boxes[boxes.index("struct ApBoxLive\n{"): boxes.index("};", boxes.index
 units = "\n".join(lift(s) for s in (
     "static struct InstDef *AP_BoxesCrateDef(",
     "static void AP_BoxesFreeSeat(int i)",
+    "static void AP_BoxesStandSpots(",
     "static void AP_BoxesSeatCustom(",
 ))
 
@@ -57,6 +60,7 @@ typedef unsigned int u32;
 typedef int AP_SpawnHandle;
 #define AP_SPAWN_INVALID (-1)
 #define AP_BOX_SLOTS_PER_TRACK 15
+#define AP_BOX_LIVE_MAX 50
 #define PU_RANDOM_CRATE 8
 #define DRAW_COLLISION_MASK 0xf
 struct Model { short id; };
@@ -71,10 +75,10 @@ struct CustomTrackRaceContext { int physicalPad; int retail; int leg; };
 #include "ap/ap_content_plan.h"
 #include "ap/ap_box_seat_logic.h"
 
-static int g_gen, g_active = 1, g_spawned[15];
+static int g_gen, g_active = 1, g_spawned[50];
 static char g_log[8192];
 static ctr_content_pad g_pad;
-static long g_room[32], g_checked[32];
+static long g_room[50], g_checked[50];
 static int g_rooms, g_checks;
 static int s_level = 6, s_liveCount;
 int AP_Spawn_Generation(void) { return g_gen; }
@@ -84,10 +88,14 @@ const ctr_content_pad *ap_content_plan_pad(int p) { return p == g_pad.physical ?
 static int AP_BoxInSeed(long code, void *ctx) { int i; (void)ctx; for (i = 0; i < g_rooms; i++) if (g_room[i] == code) return 1; return 0; }
 static int AP_BoxChecked(long code, void *ctx) { int i; (void)ctx; for (i = 0; i < g_checks; i++) if (g_checked[i] == code) return 1; return 0; }
 static void AP_BoxProbeSeedClass(void) {}
+#define AP_PLACEMENT_SRC_FILE 1
+#define AP_PLACEMENT_FILE "ap-box-placements.json"
+static int g_placement_source;
+static int AP_Author_PlacementSource(void) { return g_placement_source; }
 """
 
 after_record = r"""
-static struct ApBoxLive s_live[AP_BOX_SLOTS_PER_TRACK];
+static struct ApBoxLive s_live[AP_BOX_LIVE_MAX];
 static void AP_BoxesSpawnOne(struct GameTracker *gGT, int i) { (void)gGT; g_spawned[i]++; }
 """
 
@@ -134,7 +142,7 @@ static void reset(int crates, int boxes_in_plan) {
     g_pad.physical = 12; g_pad.occupied = 1; g_pad.box_count = boxes_in_plan; g_pad.box_crates = crates;
     g_rooms = g_checks = 0;
     for (b = 0; b < boxes_in_plan; b++) { g_pad.box_locations[b] = 35201620 + b; g_room[g_rooms++] = 35201620 + b; }
-    for (b = 0; b < AP_BOX_SLOTS_PER_TRACK; b++) s_live[b].spawn = AP_SPAWN_INVALID;
+    for (b = 0; b < AP_BOX_LIVE_MAX; b++) s_live[b].spawn = AP_SPAWN_INVALID;
 }
 static int untouched(int n) {
     int k;
@@ -144,6 +152,53 @@ static int untouched(int n) {
 
 int main(void) {
     int n, i;
+    n = table(30); reset(30, 1);
+    AP_BoxesSeatCustom(&gGT, &race);
+    expect(s_liveCount == 1 && s_live[0].seatInst == &insts[crate_index(0, n)], "count one seats one crate");
+    n = table(30); reset(30, 5);
+    AP_BoxesSeatCustom(&gGT, &race);
+    expect(s_liveCount == 5, "count below fifteen reduces crate seating");
+    for (i = 0; i < 5; ++i)
+        expect(s_live[i].seatInst == &insts[crate_index(i * 30 / 5, n)], "reduced seats spread over the whole table");
+    n = table(8); reset(8, 50); g_pad.box_spots = 1;
+    for (i = 0; i < 50; ++i) { g_pad.box_number[i] = i + 1; g_pad.box_pos[i][0] = i + 100; }
+    AP_BoxesStandSpots(&gGT, &g_pad);
+    expect(s_liveCount == 50 && g_spawned[49] == 1 && s_live[49].slot == 49 && untouched(n),
+           "fifty spot boxes stand without replacing any crate");
+    /* A3-35: Ancient Lake's original crate 1 stays ordinary. Spread among
+       the 16 eligible crates, then map back to original table ordinals. */
+    n = table(17); reset(17, 15);
+    defs[0].pos.x = defs[0].pos.y = defs[0].pos.z = 0;
+    g_pad.box_excluded_count = 1; g_pad.box_excluded[0] = 1;
+    AP_BoxesSeatCustom(&gGT, &race);
+    expect(s_liveCount == 15 && insts[0].flags == (0x7u | 0x100u), "excluded origin crate remains ordinary");
+    for (i = 0; i < 15; ++i) {
+        int original = 1 + i * 16 / 15;
+        int k = crate_index(original, n);
+        expect(s_live[i].code == 35201620 + i && s_live[i].seatInst == &insts[k],
+               "spread uses remaining crates and preserves original ordinals and contiguous box names");
+    }
+    /* A3-35c: North Pole's origin crate, 29 crates, 28 eligible. */
+    n = table(29); reset(29, 15);
+    defs[0].pos.x = defs[0].pos.y = defs[0].pos.z = 0;
+    g_pad.box_excluded_count = 1; g_pad.box_excluded[0] = 1;
+    AP_BoxesSeatCustom(&gGT, &race);
+    expect(s_liveCount == 15 && insts[0].flags == (0x7u | 0x100u), "north pole: excluded origin crate remains ordinary");
+    for (i = 0; i < 15; ++i) {
+        int original = 1 + i * 28 / 15;
+        int k = crate_index(original, n);
+        expect(s_live[i].code == 35201620 + i && s_live[i].seatInst == &insts[k] && s_live[i].seatInst != &insts[crate_index(0, n)],
+               "north pole: seating skips ordinal 1, keeps the other ordinals and contiguous box names");
+    }
+    n = table(17); reset(17, 15);
+    g_pad.box_excluded_count = 1; g_pad.box_excluded[0] = 1;
+    AP_BoxesSeatCustom(&gGT, &race);
+    expect(!s_liveCount && untouched(n), "excluded position mismatch refuses before hiding any crate");
+    n = table(3); reset(3, 2);
+    g_pad.box_excluded_count = 1; g_pad.box_excluded[0] = 2;
+    for (i = 0; i < 3; ++i) g_pad.box_excluded_pos[0][i] = defs[crate_index(1, n)].pos.v[i];
+    AP_BoxesSeatCustom(&gGT, &race);
+    expect(s_liveCount == 2 && s_live[1].seatInst == &insts[crate_index(2, n)], "interior exclusion maps back to original ordinal");
     /* 1. Eight crates, eight boxes: every crate seated, in order. */
     n = table(8); reset(8, 8);
     AP_BoxesSeatCustom(&gGT, &race);
@@ -240,6 +295,27 @@ int main(void) {
     n = table(8); reset(8, 8); lev.ptrInstDefs = 0;
     AP_BoxesSeatCustom(&gGT, &race);
     expect(s_liveCount == 0 && untouched(n), "no instance table stands nothing");
+    /* 7. Hand-placed spots (A3-14): boxes at the spots, numbered by spot,
+       no crate touched, even with a crate count the seed did not state. */
+    n = table(9); reset(0, 3);
+    g_pad.box_spots = 1;
+    for (i = 0; i < 3; i++) {
+        g_pad.box_number[i] = (int[]){2, 16, 50}[i];
+        g_pad.box_pos[i][0] = (short)(1000 + i); g_pad.box_pos[i][1] = (short)(-20 - i); g_pad.box_pos[i][2] = (short)(300 * i);
+        g_pad.box_rot_y[i] = (short)(1024 * i);
+    }
+    g_checked[g_checks++] = 35201621; /* the second spot box is already checked */
+    g_placement_source = AP_PLACEMENT_SRC_FILE;
+    AP_BoxesSeatCustom(&gGT, &race);
+    expect(s_liveCount == 2 && untouched(n), "two spot boxes stand and no crate is touched");
+    expect(s_live[0].used && s_live[0].slot == 1 && s_live[0].code == 35201620 && s_live[0].x == 1000 &&
+           s_live[0].y == -20 && s_live[0].z == 0 && s_live[0].rotY == 0 && !s_live[0].seated, "spot 2 stands at its spot");
+    expect(s_live[1].used && s_live[1].slot == 49 && s_live[1].code == 35201622 && s_live[1].x == 1002 &&
+           s_live[1].z == 600 && s_live[1].rotY == 2048 && !s_live[1].seated, "spot 50 stands at its spot, slot 49");
+    expect(g_spawned[0] == 1 && g_spawned[1] == 1 && g_spawned[2] == 0, "each standing spot box is spawned once");
+    expect(strstr(g_log, "2 of 3 Item Box(es) standing at hand-placed spots") != 0 &&
+           strstr(g_log, "not used for them") != 0, "one log line, naming the unused placement file");
+    g_placement_source = 0;
     (void)n;
     printf("%s: %d checks, %d failures\n", failures ? "FAIL" : "PASS", checks, failures);
     return failures ? 1 : 0;
@@ -276,9 +352,8 @@ forget = body("static void AP_BoxesForget(void)")
 assert "s_live[i].seated = 0" in forget and "seatInst = 0" in forget and "flags" not in forget, \
     "a pool reset drops the seats without writing to old instances"
 spawn = body("static void AP_BoxesSpawnOne(")
-seated = spawn[spawn.index("if (s_live[i].seated)"):]
-assert seated.index("pos.y = s_live[i].y;") < seated.index("else") < seated.index("AP_BoxModel_SpawnPos"), \
-    "a seated box spawns at the crate position, without the ground-anchor lift"
+assert "if (s_live[i].seated)" not in spawn and spawn.count("AP_BoxModel_SpawnPos") == 1, \
+    "custom seats and authored anchors share one measured AP model lift"
 rebuild = body("static void AP_BoxesRebuild(")
 branch = rebuild.index("CustomTrack_StandaloneContext(level)")
 assert branch < rebuild.index("AP_CortexTrackActive()") < rebuild.index("AP_BoxMap_BuildSet"), \
@@ -286,3 +361,11 @@ assert branch < rebuild.index("AP_CortexTrackActive()") < rebuild.index("AP_BoxM
 assert re.search(r"race != 0 && !race->retail\)\s*\{\s*AP_BoxesSeatCustom\(gGT, race\);\s*return;", rebuild), \
     "a custom-bytes race returns after seating, never falling through to the host identity"
 print("PASS wiring: break, server-checked removal, clear and pool reset free seats; seated spawn; custom branch first")
+rebuild = body("static void AP_BoxesRebuild(")
+assert rebuild.index("CustomTrack_GarageVenueServing(level") < rebuild.index("AP_BoxesPlanRetailPad(level)"), \
+    "a custom boss venue never stands the retail host's boxes"
+assert rebuild.index("AP_BoxesPlanRetailPad(level)") < rebuild.index("AP_BoxesSnapshotPlacements()"), \
+    "a plan retail track with spots stands them before the placement table is read"
+seat = body("static void AP_BoxesSeatCustom(")
+assert seat.index("pad->box_spots") < seat.index("pad->box_excluded_count"), \
+    "a custom track with spots never counts or hides crates"

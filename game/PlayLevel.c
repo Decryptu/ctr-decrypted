@@ -2,6 +2,9 @@
 #ifdef CTR_CUSTOM_PACKAGES
 #include <platform/native_custom_offline.h>
 #endif
+#ifdef CTR_CUSTOM_TRACKS
+#include <platform/native_custom_tracks.h>
+#endif
 
 enum PlayLevelConstants
 {
@@ -44,6 +47,20 @@ void PlayLevel_UpdateLapStats(void)
 	int finishedHumanCount;
 	int currRank;
 	struct GameTracker *gGT = sdata->gGT;
+	int finishTerrain = -1;
+#ifdef CTR_CUSTOM_TRACKS
+	struct CustomTrackLoadContext finishContext;
+	finishContext.levelID = gGT->levelID;
+	finishContext.adventureCupActive = (gGT->gameMode1 & ADVENTURE_CUP) != 0;
+	finishContext.cupID = gGT->cup.cupID;
+	finishContext.bossID = gGT->bossID;
+	finishContext.adventureBossActive = (gGT->gameMode1 & ADVENTURE_BOSS) != 0;
+	finishTerrain = CustomTrack_FinishTerrain(&finishContext);
+#endif
+#ifdef CTR_CUSTOM_PACKAGES
+	if (MainRaceTrack_OfflineCustomLoad()) finishTerrain = CustomOffline_RuntimeFinishTerrain();
+#endif
+	if (finishTerrain >= 0) gGT->numLaps = 1;
 
 	finishedHumanCount = 0;
 	currRank = 0;
@@ -104,12 +121,16 @@ void PlayLevel_UpdateLapStats(void)
 		// Part B: 32000 distToFinish -> 1200 distToFinish
 		// Part C: 1200 distToFinish -> Finish-line
 
-		if (
+		if (finishTerrain >= 0 ?
+		    /* Use the ordinary lap/finish path so timing and AP hooks run once. */
+		    (currDriver->currBlockTouching && currDriver->currBlockTouching->terrain_type == finishTerrain &&
+		     !(currDriver->actionsFlagSet & ACTION_RACE_FINISHED)) :
 		    // crossed finishline (forwards)
 		    (distToFinish_prev < PLAYLEVEL_FINISHLINE_NEAR_DISTANCE) && (distToFinish_curr > PLAYLEVEL_FINISHLINE_FAR_DISTANCE))
 		{
 			// Set racer's distance driven backwards to zero
 			currDriver->distanceDrivenBackwards = 0;
+			if (finishTerrain >= 0) currDriver->actionsFlagSet &= ~ACTION_BEHIND_START_LINE;
 
 			if ((currDriver->actionsFlagSet & ACTION_BEHIND_START_LINE) != 0)
 			{

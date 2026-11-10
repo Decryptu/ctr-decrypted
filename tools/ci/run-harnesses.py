@@ -26,7 +26,7 @@ Usage:
   tools/ci/run-harnesses.py --all      try every harness, report, never fail (discovery)
   tools/ci/run-harnesses.py --write-list  discovery, then rewrite harnesses.txt from the result
 """
-import concurrent.futures, glob, os, re, shlex, shutil, subprocess, sys
+import concurrent.futures, glob, os, re, shlex, shutil, subprocess, sys, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 LIST = os.path.join(ROOT, "tools", "ci", "harnesses.txt")
@@ -122,19 +122,21 @@ def run_one(src):
     if src.endswith(".py"):
         return run_py(src)
     cmd, out = build_command(src)
+    t0 = time.time()
     try:
         b = subprocess.run(shlex.split(cmd), cwd=ROOT, capture_output=True, text=True, timeout=600)
     except Exception as e:  # noqa: BLE001
         return "build-error", cmd, str(e)
     if b.returncode != 0:
         return "build-fail", cmd, (b.stderr or b.stdout)[-1500:]
+    built = time.time() - t0
     try:
         r = subprocess.run([out], cwd=ROOT, capture_output=True, text=True, timeout=600)
     except Exception as e:  # noqa: BLE001
         return "run-error", cmd, str(e)
     if r.returncode != 0:
         return "run-fail", cmd, (r.stdout + r.stderr)[-1500:]
-    return "pass", cmd, ""
+    return "pass", cmd, f"build {built:.1f}s run {time.time() - t0 - built:.1f}s"
 
 
 def read_list():

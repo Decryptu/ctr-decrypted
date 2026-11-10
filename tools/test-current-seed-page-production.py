@@ -64,6 +64,8 @@ void DecalFont_DrawLineOT(char *s, int x, int y, int font, int flags, uint32_t *
 	}
 	draws++;
 }
+/* Button hints keep their PlayStation glyphs here (platform/native_menu.c maps them). */
+char *NativeMenu_Labels(const char *hint) { return (char *)hint; }
 void OtherFX_Play(int a, int b) { (void)a; (void)b; }
 void CTR_Box_DrawClearBox(RECT *r, int *c, int t, uint32_t *ot, struct PrimMem *pm) { (void)r; (void)c; (void)t; (void)ot; (void)pm; }
 static int s_customContentSection = 5;

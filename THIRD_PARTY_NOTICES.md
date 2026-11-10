@@ -304,12 +304,13 @@ License (icon design): CC BY-NC 4.0.
 ## Cortex Vortex track (AP build only)
 
 Paths: `assets/tracks/cortex-vortex/CVortex Arcade All.lev`,
-`assets/tracks/cortex-vortex/CVortex Arcade All.vrm`
+`assets/tracks/cortex-vortex/CVortex Arcade All.vrm`,
+`assets/tracks/cortex-vortex/CVortex Arcade All.sca` (the track's music)
 
 Cortex Vortex was created by **Lockheart**. These exact author-supplied files
-are bundled for use as the N. Oxide Final Challenge venue with the author's
-permission. They are redistributed unchanged and are not relicensed by this
-project.
+are bundled for use as the N. Oxide Final Challenge venue, as a randomized
+track and for its own music, with the author's permission. They are
+redistributed unchanged and are not relicensed by this project.
 
 License: author permission for redistribution inside CTR AP for the described
 Final Challenge and randomized-track uses. No broader license is claimed.
@@ -317,6 +318,8 @@ Final Challenge and randomized-track uses. No broader license is claimed.
 LEV SHA-256: `4e3a2daf56c67be3ac645d3bb5375e516c828a0bca24c35ac69b3366c466fe13`
 
 VRM SHA-256: `4131444b9d1d53971befcfd11349efceaf887c20b795c8890fdcb2c36bdff07d`
+
+SCA SHA-256: `ddde81cf1be8042400c717edeeded0d8727e3bb8ba24f0100201708372ef8b1c`
 
 ## CTR ModSDK Retro-Fueled mechanics and Blue Fire palette
 
@@ -395,13 +398,13 @@ Python parts ship as unmodified source files (plus precompiled bytecode).
   under their own licenses; see
   https://github.com/astral-sh/python-build-standalone and the CPython
   `LICENSE.txt` shipped beside the interpreter.
-- Archipelago 0.6.7 core (trimmed: core modules, Generic world, rule_builder),
+- Archipelago 0.6.8 core (trimmed: core modules, Generic world, rule_builder),
   MIT License, Copyright (c) 2017 LLCoolDave, Copyright (c) 2025 Berserker66,
   Copyright (c) 2022 CaitSith2, Copyright (c) 2021 LegendaryLinux and
   contributors. https://github.com/ArchipelagoMW/Archipelago
 - PyYAML 6.0.3, MIT. websockets 13.1, BSD-3-Clause. jellyfish 1.2.1, MIT.
   Jinja2 3.1.6 and MarkupSafe 3.0.3, BSD-3-Clause. schema 0.7.8, MIT.
-  typing_extensions 4.15.0, PSF-2.0. platformdirs 4.9.4, MIT.
+  typing_extensions 4.15.0, PSF-2.0. platformdirs 4.10.1, MIT.
   colorama 0.4.6, BSD-3-Clause. bsdiff4 1.2.6, BSD-2-Clause.
 - pathspec 1.0.4, Mozilla Public License 2.0. The files are unmodified; the
   source is the shipped `.py` files and https://github.com/cpburnz/python-pathspec.

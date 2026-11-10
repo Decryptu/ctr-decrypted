@@ -4,14 +4,14 @@
 
 #include "ap_custom_track_download.h"
 #include "ap_seed_content_logic.h" // ap_seed_size_agrees, ap_seed_root_safe (Current Seed, #133 PR 7)
+#include "ap_track_registry.h"     // ap_https_get (row 10k)
 #ifdef CTR_CUSTOM_PACKAGES
-// Authoring build only: the Track Manager's Saphi catalogue and package install.
+// The Track Manager's Saphi catalogue and package install.
 #include <platform/native_saphi_catalogue.h>
 #include <platform/native_custom_package.h>
 #include <platform/native_racer_library.h>
 #include <platform/native_track_picture.h>
 #include <zlib.h>
-#include <chrono>
 #include <future>
 #endif
 
@@ -20,10 +20,13 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <map>
+#include <memory>
 #include <mutex>
 #include <stdexcept>
 #include <string>
@@ -39,6 +42,18 @@
 #ifdef _WIN32
 #include <windows.h>
 #include <winhttp.h>
+#ifndef WINHTTP_OPTION_REDIRECT_POLICY
+#define WINHTTP_OPTION_REDIRECT_POLICY 88
+#endif
+#ifndef WINHTTP_OPTION_REDIRECT_POLICY_NEVER
+#define WINHTTP_OPTION_REDIRECT_POLICY_NEVER 0
+#endif
+#ifndef WINHTTP_QUERY_RETRY_AFTER
+#define WINHTTP_QUERY_RETRY_AFTER 36
+#endif
+#ifndef ERROR_WINHTTP_TIMEOUT
+#define ERROR_WINHTTP_TIMEOUT 12002
+#endif
 #include <direct.h>
 #else
 #include <asio.hpp>
@@ -51,8 +66,22 @@ namespace
 constexpr size_t kMetadataMax = 256 * 1024;
 constexpr size_t kTrackFileMax = 8 * 1024 * 1024;
 constexpr const char *kSaphiHost = "www.projectsaphi.com";
-constexpr const char *kCatalogueHost = "raw.githubusercontent.com";
+// The only hosts the transport talks to (row 10k): Project Saphi for track
+// files, GitHub raw for the public track registry and the Decrypted track
+// catalogue (kTrackRoot). Redirects are not followed.
+constexpr const char *kRegistryHost = "raw.githubusercontent.com";
+constexpr const char *kCatalogueHost = kRegistryHost;
 constexpr const char *kTrackRoot = "/Decryptu/ctr-decrypted-tracks/main/";
+
+bool host_allowed(const std::string &host)
+{
+	return host == kSaphiHost || host == kRegistryHost;
+}
+
+std::string host_label(const std::string &host)
+{
+	return host == kSaphiHost ? "Project Saphi" : "the track registry";
+}
 
 struct DownloadState
 {
@@ -94,32 +123,232 @@ std::string lower_ascii(std::string value)
 	return value;
 }
 
-// What error messages call a host.
-std::string server_name(const char *host)
+// What one HTTPS GET learned besides its body: the HTTP status (0 when no
+// response arrived), the server's Retry-After in seconds (-1 when absent),
+// and whether a 200 body was cut off. Saphi answers 429 with a Retry-After
+// of a few seconds once a client asks for files faster than its download
+// limit, which a seed install of several tracks reaches.
+struct HttpOutcome
 {
-	return std::strcmp(host, kSaphiHost) == 0 ? std::string("Project Saphi") : std::string(host);
+	int status = 0;
+	int retry_after = -1;
+	bool interrupted = false;
+};
+
+// The player-facing text for a failed transfer. The HTTP status is always
+// named; the log line of the request has the path and request number.
+std::string transfer_error(const std::string &label, const HttpOutcome &outcome)
+{
+	const std::string http = "(HTTP " + std::to_string(outcome.status) + ")";
+	if (outcome.status == 429)
+		return label + " is busy " + http + ". Retry in a minute.";
+	if (outcome.status >= 500)
+		return label + " is unavailable " + http + ". Retry later.";
+	if (outcome.interrupted)
+		return label + " stopped sending the file " + http + ". Retry.";
+	return label + " refused the file " + http + ".";
 }
 
-bool decode_http_response(const char *host, const std::vector<unsigned char> &raw, size_t max_bytes,
-	                      std::vector<unsigned char> &body, std::string &error)
+// A briefly unavailable server, or a 200 cut off mid-file, is asked again up
+// to kTransferAttempts times; a refusal, a timeout or a file that fails its
+// checks is not. A 429 is the server's queue, not a failure: live, Saphi
+// serves about 20 files at once and then one per 6 s, and answers 429 with
+// the seconds until the next one is free (1 to 5). It is asked again up to
+// kRateLimitAttempts times within kRateLimitBudget seconds of waiting, so a
+// seed install of many tracks finishes slowly instead of stopping.
+constexpr int kTransferAttempts = 4;
+constexpr int kRateLimitAttempts = 12;
+constexpr int kRateLimitBudget = 120;
+bool transfer_retryable(const HttpOutcome &outcome)
 {
+	return outcome.status == 429 || outcome.status == 502 || outcome.status == 503 ||
+	       outcome.status == 504 || outcome.interrupted;
+}
+
+// Seconds before attempt `attempt` + 1: the server's Retry-After when given,
+// else 2, 4, 6; never under 1 or over 60. An HTTP-date Retry-After is not
+// read and falls back to 2, 4, 6 (Saphi sends seconds).
+int transfer_retry_delay(const HttpOutcome &outcome, int attempt)
+{
+	const int seconds = outcome.retry_after >= 0 ? outcome.retry_after : 2 * attempt;
+	return std::max(1, std::min(60, seconds));
+}
+
+// The earliest time any request to Saphi may start. Every transfer thread
+// (catalogue refresh, Track Manager install, Current Seed install) to one host
+// shares that server's limit, so a 429 for one holds the others back instead of each
+// spending its attempts on it.
+struct RateGate
+{
+	std::mutex mutex;
+	long long until_ms = 0;
+	long long (*clock)() = nullptr;
+	long long now() const
+	{
+		return clock ? clock() : std::chrono::duration_cast<std::chrono::milliseconds>(
+			std::chrono::steady_clock::now().time_since_epoch()).count();
+	}
+	int pending_seconds()
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		const long long left = until_ms - now();
+		return left > 0 ? static_cast<int>((left + 999) / 1000) : 0;
+	}
+	void hold(int seconds)
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		until_ms = std::max(until_ms, now() + 1000LL * seconds);
+	}
+};
+// One gate per host: the track registry's host has its own limits.
+RateGate &gate_for(const std::string &host)
+{
+	static std::mutex mutex;
+	static auto *gates = new std::map<std::string, std::unique_ptr<RateGate>>();
+	std::lock_guard<std::mutex> lock(mutex);
+	auto &gate = (*gates)[host];
+	if (!gate) gate.reset(new RateGate());
+	return *gate;
+}
+
+struct BusyState
+{
+	std::mutex mutex;
+	std::map<RateGate *, unsigned> waits;
+};
+BusyState &busy_state()
+{
+	// Detached download workers may still be sleeping when the game exits.
+	static auto *state = new BusyState();
+	return *state;
+}
+
+// Register only the sleep itself, not an unused hold left by a failed worker.
+// Counts keep simultaneous waits on the same gate visible until both leave.
+struct SaphiWait
+{
+	RateGate *gate;
+	explicit SaphiWait(RateGate *value) : gate(value)
+	{
+		if (!gate) return;
+		auto &state = busy_state();
+		std::lock_guard<std::mutex> lock(state.mutex);
+		state.waits[gate]++;
+	}
+	~SaphiWait()
+	{
+		if (!gate) return;
+		auto &state = busy_state();
+		std::lock_guard<std::mutex> lock(state.mutex);
+		if (--state.waits[gate] == 0) state.waits.erase(gate);
+	}
+};
+
+// Runs `fetch` (one GET into a cleared body) until it succeeds or the retry
+// policy above is spent. Every failed attempt is logged with a client request
+// number, the host and path, the HTTP status and Retry-After, so a tester's
+// log tells a rate limit from a missing file or a network failure. Saphi
+// sends no request id of its own.
+template <typename Fetch, typename Wait>
+bool transfer_with_retries(const std::string &host, const std::string &path, Fetch fetch, Wait wait,
+	                       std::string &error, RateGate *shared = nullptr)
+{
+	RateGate &gate = shared ? *shared : gate_for(host);
+	static std::mutex request_mutex;
+	static unsigned next_request = 0;
+	int rate_limited = 0, rate_waited = 0, other = 0;
+	for (int attempt = 1;; attempt++)
+	{
+		// Time spent behind the gate counts against the same budget, so threads
+		// that keep extending it cannot hold this transfer past kRateLimitBudget.
+		while (const int hold = gate.pending_seconds())
+		{
+			if (rate_waited + hold > kRateLimitBudget)
+			{
+				HttpOutcome busy;
+				busy.status = 429;
+				error = transfer_error(host_label(host), busy);
+				std::fprintf(stderr, "[Saphi] GET %s%s waited %d s behind the rate limit pause: %s\n",
+				             host.c_str(), path.c_str(), rate_waited, error.c_str());
+				return false;
+			}
+			rate_waited += hold;
+			SaphiWait busy(host == kSaphiHost ? &gate : nullptr);
+			wait(hold);
+		}
+		unsigned request;
+		{
+			std::lock_guard<std::mutex> lock(request_mutex);
+			request = ++next_request;
+		}
+		HttpOutcome outcome;
+		std::string failure;
+		if (fetch(outcome, failure))
+			return true;
+		const bool limited = outcome.status == 429;
+		const int delay = transfer_retryable(outcome) ? transfer_retry_delay(outcome, attempt) : 0;
+		if (limited) rate_limited++; else other++;
+		if (limited) gate.hold(delay);
+		const bool again = transfer_retryable(outcome) &&
+		    (limited ? rate_limited < kRateLimitAttempts && rate_waited + delay <= kRateLimitBudget
+		             : other < kTransferAttempts);
+		std::fprintf(stderr, "[Saphi] request %u failed: GET %s%s http=%d retry_after=%d attempt=%d: %s%s\n",
+		             request, host.c_str(), path.c_str(), outcome.status, outcome.retry_after, attempt,
+		             failure.c_str(),
+		             again ? (" Retrying in " + std::to_string(delay) + " s.").c_str() : "");
+		if (!again)
+		{
+			error = failure;
+			return false;
+		}
+		// A 429 already holds the gate, which the next pass waits out and budgets.
+		if (!limited) wait(delay);
+	}
+}
+
+bool decode_http_response(const std::vector<unsigned char> &raw, size_t max_bytes,
+	                      std::vector<unsigned char> &body, std::string &error,
+	                      const std::string &label = "Project Saphi", HttpOutcome *outcome = nullptr)
+{
+	HttpOutcome ignored;
+	HttpOutcome &result = outcome ? *outcome : ignored;
 	const std::string marker = "\r\n\r\n";
 	auto header_end = std::search(raw.begin(), raw.end(), marker.begin(), marker.end());
 	if (header_end == raw.end())
 	{
-		error = server_name(host) + " returned an invalid HTTP response.";
+		error = label + " returned an invalid HTTP response.";
 		return false;
 	}
 	const size_t header_bytes = static_cast<size_t>(header_end - raw.begin());
 	const std::string headers(reinterpret_cast<const char *>(raw.data()), header_bytes);
 	const size_t line_end = headers.find("\r\n");
-	if (line_end == std::string::npos || headers.substr(0, line_end).find(" 200 ") == std::string::npos)
+	const std::string status_line = headers.substr(0, line_end == std::string::npos ? headers.size() : line_end);
+	const size_t status_at = status_line.find(' ');
+	if (status_at != std::string::npos && status_line.compare(0, 5, "HTTP/") == 0)
 	{
-		error = server_name(host) + " did not return the requested file.";
+		char *end = nullptr;
+		const long status = std::strtol(status_line.c_str() + status_at + 1, &end, 10);
+		if (end && end != status_line.c_str() + status_at + 1 && status >= 100 && status <= 999 &&
+		    (*end == ' ' || *end == '\0'))
+			result.status = static_cast<int>(status);
+	}
+	const std::string lower = lower_ascii(headers);
+	const size_t retry_at = lower.find("\r\nretry-after:");
+	if (retry_at != std::string::npos)
+	{
+		const char *value = lower.c_str() + retry_at + 14;
+		while (*value == ' ') value++;
+		char *end = nullptr;
+		const long seconds = std::strtol(value, &end, 10);
+		if (end != value && seconds >= 0)
+			result.retry_after = static_cast<int>(std::min(seconds, 3600L));
+	}
+	if (result.status != 200)
+	{
+		error = result.status ? transfer_error(label, result) : label + " returned an invalid HTTP response.";
 		return false;
 	}
 
-	const std::string lower = lower_ascii(headers);
 	const size_t body_start = header_bytes + marker.size();
 	if (body_start > raw.size())
 		return false;
@@ -127,8 +356,21 @@ bool decode_http_response(const char *host, const std::vector<unsigned char> &ra
 	{
 		if (raw.size() - body_start > max_bytes)
 		{
-			error = server_name(host) + " returned a file larger than this client accepts.";
+			error = label + " returned a file larger than this client accepts.";
 			return false;
+		}
+		// A connection closed before Content-Length is a cut-off file.
+		const size_t length_at = lower.find("\r\ncontent-length:");
+		if (length_at != std::string::npos)
+		{
+			char *end = nullptr;
+			const unsigned long long length = std::strtoull(lower.c_str() + length_at + 17, &end, 10);
+			if (end != lower.c_str() + length_at + 17 && length != raw.size() - body_start)
+			{
+				result.interrupted = length > raw.size() - body_start;
+				error = label + (result.interrupted ? " returned an incomplete download." : " returned an invalid HTTP response.");
+				return false;
+			}
 		}
 		body.assign(raw.begin() + body_start, raw.end());
 		return true;
@@ -161,7 +403,8 @@ bool decode_http_response(const char *host, const std::vector<unsigned char> &ra
 			break;
 		cursor += 2;
 	}
-	error = server_name(host) + " returned an incomplete download.";
+	result.interrupted = true;
+	error = label + " returned an incomplete download.";
 	return false;
 }
 
@@ -171,9 +414,15 @@ std::wstring widen_ascii(const std::string &text)
 	return std::wstring(text.begin(), text.end());
 }
 
-bool https_get(const char *host, const std::string &path, size_t max_bytes,
-	           std::vector<unsigned char> &body, std::string &error)
+bool https_get_host(const std::string &host, const std::string &path, size_t max_bytes,
+	                std::vector<unsigned char> &body, std::string &error, HttpOutcome &outcome)
 {
+	if (!host_allowed(host))
+	{
+		error = "This client does not download from " + host + ".";
+		return false;
+	}
+	const std::string label = host_label(host);
 	HINTERNET session = WinHttpOpen(L"CTR-Decrypted/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
 	                                WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
 	if (!session)
@@ -181,7 +430,25 @@ bool https_get(const char *host, const std::string &path, size_t max_bytes,
 		error = "Could not start Windows HTTPS.";
 		return false;
 	}
-	WinHttpSetTimeouts(session, 10000, 10000, 15000, 30000);
+	if (!WinHttpSetTimeouts(session, 10000, 10000, 15000, 30000))
+	{
+		WinHttpCloseHandle(session);
+		error = "Could not set up Windows HTTPS safely.";
+		return false;
+	}
+	// The host allow-list holds only if a redirect cannot leave the host:
+	// without that policy, no request.
+	DWORD redirects = WINHTTP_OPTION_REDIRECT_POLICY_NEVER;
+	if (!WinHttpSetOption(session, WINHTTP_OPTION_REDIRECT_POLICY, &redirects, sizeof redirects))
+	{
+		WinHttpCloseHandle(session);
+		error = "Could not set up Windows HTTPS safely.";
+		return false;
+	}
+	// The timeouts above are per operation; this bounds the read loop like
+	// the Linux transport's 35 seconds. Connect, send and the response
+	// headers keep their own timeouts, so the worst case is about a minute.
+	const ULONGLONG deadline = GetTickCount64() + 35000;
 	const std::wstring wide_host = widen_ascii(host);
 	HINTERNET connection = WinHttpConnect(session, wide_host.c_str(),
 	                                      INTERNET_DEFAULT_HTTPS_PORT, 0);
@@ -196,14 +463,30 @@ bool https_get(const char *host, const std::string &path, size_t max_bytes,
 	DWORD status = 0;
 	DWORD status_size = sizeof status;
 	if (ok)
+	{
 		ok = WinHttpQueryHeaders(request, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
 		                         WINHTTP_HEADER_NAME_BY_INDEX, &status, &status_size,
 		                         WINHTTP_NO_HEADER_INDEX) && status == 200;
+		outcome.status = static_cast<int>(status);
+		DWORD retry_after = 0;
+		DWORD retry_size = sizeof retry_after;
+		if (WinHttpQueryHeaders(request, WINHTTP_QUERY_RETRY_AFTER | WINHTTP_QUERY_FLAG_NUMBER,
+		                        WINHTTP_HEADER_NAME_BY_INDEX, &retry_after, &retry_size,
+		                        WINHTTP_NO_HEADER_INDEX))
+			outcome.retry_after = static_cast<int>(std::min<DWORD>(retry_after, 3600));
+	}
 	while (ok)
 	{
 		DWORD available = 0;
+		if (GetTickCount64() > deadline)
+		{
+			error = label + " request timed out; check connection and retry.";
+			ok = false;
+			break;
+		}
 		if (!WinHttpQueryDataAvailable(request, &available))
 		{
+			outcome.interrupted = GetLastError() != ERROR_WINHTTP_TIMEOUT;
 			ok = false;
 			break;
 		}
@@ -211,7 +494,7 @@ bool https_get(const char *host, const std::string &path, size_t max_bytes,
 			break;
 		if (body.size() + available > max_bytes)
 		{
-			error = server_name(host) + " returned a file larger than this client accepts.";
+			error = label + " returned a file larger than this client accepts.";
 			ok = false;
 			break;
 		}
@@ -220,13 +503,24 @@ bool https_get(const char *host, const std::string &path, size_t max_bytes,
 		DWORD read = 0;
 		if (!WinHttpReadData(request, body.data() + old_size, available, &read))
 		{
+			outcome.interrupted = GetLastError() != ERROR_WINHTTP_TIMEOUT;
 			ok = false;
 			break;
 		}
 		body.resize(old_size + read);
 	}
+	// A body shorter than its Content-Length is a cut-off file.
+	DWORD length = 0;
+	DWORD length_size = sizeof length;
+	if (ok && WinHttpQueryHeaders(request, WINHTTP_QUERY_CONTENT_LENGTH | WINHTTP_QUERY_FLAG_NUMBER,
+	                              WINHTTP_HEADER_NAME_BY_INDEX, &length, &length_size,
+	                              WINHTTP_NO_HEADER_INDEX) && body.size() != length)
+	{
+		outcome.interrupted = body.size() < length;
+		ok = false;
+	}
 	if (!ok && error.empty())
-		error = status == 0 ? "Could not reach " + server_name(host) + "." : server_name(host) + " did not return the requested file.";
+		error = status == 0 ? "Could not reach " + label + "." : transfer_error(label, outcome);
 	if (request) WinHttpCloseHandle(request);
 	if (connection) WinHttpCloseHandle(connection);
 	WinHttpCloseHandle(session);
@@ -234,10 +528,10 @@ bool https_get(const char *host, const std::string &path, size_t max_bytes,
 }
 #else
 #ifdef CTR_CUSTOM_PACKAGES
-// The authoring build carries the CA-trust and timeout fixes from the custom
-// content campaign (SteamOS lacks the build host's OPENSSLDIR, and a stalled
-// catalogue request must not hold the Track Manager forever). The player build
-// keeps the resolver it was tested with, below.
+// Package builds carry the CA-trust and timeout fixes from the custom content
+// campaign (SteamOS lacks the build host's OPENSSLDIR, and a stalled catalogue
+// request must not hold the Track Manager forever). A build without packages
+// keeps the plain resolver below.
 bool load_ca_store(asio::ssl::context &context)
 {
 	asio::error_code ec;
@@ -330,9 +624,15 @@ bool load_ca_store(asio::ssl::context &context)
 
 #endif
 
-bool https_get(const char *host, const std::string &path, size_t max_bytes,
-	           std::vector<unsigned char> &body, std::string &error)
+bool https_get_host(const std::string &host, const std::string &path, size_t max_bytes,
+	                std::vector<unsigned char> &body, std::string &error, HttpOutcome &outcome)
 {
+	if (!host_allowed(host))
+	{
+		error = "This client does not download from " + host + ".";
+		return false;
+	}
+	const std::string label = host_label(host);
 	try
 	{
 		asio::io_context io;
@@ -343,7 +643,7 @@ bool https_get(const char *host, const std::string &path, size_t max_bytes,
 			return false;
 		}
 		asio::ssl::stream<asio::ip::tcp::socket> stream(io, context);
-		if (!SSL_set_tlsext_host_name(stream.native_handle(), host))
+		if (!SSL_set_tlsext_host_name(stream.native_handle(), host.c_str()))
 			throw std::runtime_error("TLS host setup failed");
 		stream.set_verify_mode(asio::ssl::verify_peer);
 		stream.set_verify_callback(asio::ssl::host_name_verification(host));
@@ -379,7 +679,7 @@ bool https_get(const char *host, const std::string &path, size_t max_bytes,
 			{
 				if (raw.size() + got > max_bytes + 64 * 1024)
 				{
-					error = server_name(host) + " returned a file larger than this client accepts.";
+					error = label + " returned a file larger than this client accepts.";
 					return false;
 				}
 				raw.insert(raw.end(), chunk, chunk + got);
@@ -389,15 +689,41 @@ bool https_get(const char *host, const std::string &path, size_t max_bytes,
 			if (ec)
 				throw asio::system_error(ec);
 		}
-		return decode_http_response(host, raw, max_bytes, body, error);
+		return decode_http_response(raw, max_bytes, body, error, label, &outcome);
 	}
 	catch (const std::exception &e)
 	{
-		error = "Could not reach " + server_name(host) + ": " + e.what();
+		error = "Could not reach " + label + ": " + e.what();
 		return false;
 	}
 }
 #endif
+
+// One allow-listed GET with the retry and logging policy above.
+bool https_get_retrying(const std::string &host, const std::string &path, size_t max_bytes,
+	                    std::vector<unsigned char> &body, std::string &error)
+{
+	return transfer_with_retries(host, path,
+		[&](HttpOutcome &outcome, std::string &failure) {
+			body.clear();
+			return https_get_host(host, path, max_bytes, body, failure, outcome);
+		},
+		[](int seconds) { std::this_thread::sleep_for(std::chrono::seconds(seconds)); }, error);
+}
+
+bool https_get(const std::string &path, size_t max_bytes,
+	           std::vector<unsigned char> &body, std::string &error)
+{
+	return https_get_retrying(kSaphiHost, path, max_bytes, body, error);
+}
+
+// The same GET on another allow-listed host: the Decrypted track and racer
+// catalogues on GitHub raw, Saphi's track pictures.
+bool https_get(const std::string &host, const std::string &path, size_t max_bytes,
+	           std::vector<unsigned char> &body, std::string &error)
+{
+	return https_get_retrying(host, path, max_bytes, body, error);
+}
 
 bool hash_matches(const std::vector<unsigned char> &bytes, const std::string &expected)
 {
@@ -492,33 +818,30 @@ struct MediaFile
 	size_t size = 0;
 };
 
-// The package-library parts between here and the Track Manager section are
-// spelled `#if defined(...)`: test-seed-content-download-production.py cuts
-// the pinned downloader out of this file at the next `#ifdef` of it.
-#if defined(CTR_CUSTOM_PACKAGES)
-// Install verified LEV and VRM bytes into the package library as the package
-// Browse makes for the same Saphi revision (defined with the Browse installer
-// below). Returns an empty string, or why nothing was installed.
-std::string saphi_install_library(const std::string &assets, const std::string &api_path,
-                                  const MediaFile &lev_media, const MediaFile &vrm_media,
-                                  const std::string &version, const std::string &title,
-                                  const std::string &author, int laps,
-                                  const std::vector<unsigned char> &lev, const std::vector<unsigned char> &vrm);
-#endif
-
-bool find_media(const nlohmann::json &root, const std::string &type,
-	            const std::string &version, MediaFile &media)
+// One file in Saphi's listing for a track. `prefix` is the track's own
+// downloads path plus '/'; a file elsewhere is never taken. A registry lookup
+// names the Saphi download id (row 10k); a compiled profile picks by version.
+bool find_media(const nlohmann::json &root, const std::string &prefix, const std::string &type,
+	            const std::string &version, int download_id, MediaFile &media)
 {
 	if (!root.contains("data") || !root["data"].is_array())
 		return false;
 	int matches = 0;
 	for (const auto &row : root["data"])
 	{
-		if (!row.is_object() || row.value("type", "") != type || row.value("version", "") != version)
+		if (!row.is_object() || !row.contains("type") || !row["type"].is_string() || row["type"] != type)
+			continue;
+		if (download_id > 0)
+		{
+			if (!row.contains("id") || !row["id"].is_number_integer() || row["id"].get<long long>() != download_id)
+				continue;
+		}
+		else if (row.value("version", "") != version)
 			continue;
 		const std::string path = row.value("download_url", "");
 		const long long size = row.value("file_size", 0LL);
-		if (path.rfind("/api/v2/tracks/101/downloads/", 0) != 0 || size <= 0 || size > static_cast<long long>(kTrackFileMax))
+		if (path.rfind(prefix, 0) != 0 || size <= 0 || size > static_cast<long long>(kTrackFileMax) ||
+		    (download_id > 0 && path != prefix + std::to_string(download_id)))
 			continue;
 		media.path = path;
 		media.size = static_cast<size_t>(size);
@@ -526,6 +849,58 @@ bool find_media(const nlohmann::json &root, const std::string &type,
 	}
 	return matches == 1;
 }
+
+#ifdef CTR_CUSTOM_PACKAGES
+// The track's own music for the LEV just picked: Saphi's one current .sca whose
+// version is the LEV's. More than one, none, another version or a file past the
+// .sca cap means no music, never an error: the race plays its fallback music.
+// `lev_id` is the registry's LEV download id, 0 to take the LEV by `version`.
+constexpr size_t kScaMax = 1024 * 1024;
+bool find_music(const nlohmann::json &root, const std::string &prefix, const std::string &version,
+	            int lev_id, MediaFile &media, int &media_id)
+{
+	std::string lev_version = version;
+	if (!root.contains("data") || !root["data"].is_array())
+		return false;
+	if (lev_id > 0)
+	{
+		lev_version.clear();
+		for (const auto &row : root["data"])
+			if (row.is_object() && row.contains("type") && row["type"] == "lev" && row.contains("id") &&
+			    row["id"].is_number_integer() && row["id"].get<long long>() == lev_id && row.contains("version") &&
+			    row["version"].is_string())
+				lev_version = row["version"].get<std::string>();
+		if (lev_version.empty())
+			return false;
+	}
+	int matches = 0;
+	for (const auto &row : root["data"])
+	{
+		if (!row.is_object() || !row.contains("type") || !row["type"].is_string() || row["type"] != "sca" ||
+		    !row.contains("is_current") ||
+		    row["is_current"] != true || !row.contains("version") || !row["version"].is_string() ||
+		    row["version"].get<std::string>() != lev_version || !row.contains("id") ||
+		    !row["id"].is_number_integer())
+			continue;
+		const long long id = row["id"].get<long long>();
+		const bool typed = row.contains("download_url") && row["download_url"].is_string() &&
+		                   row.contains("file_size") && row["file_size"].is_number_integer();
+		const std::string path = typed ? row["download_url"].get<std::string>() : std::string();
+		const long long size = typed ? row["file_size"].get<long long>() : 0LL;
+		matches++;
+		if (!typed || id <= 0 || id > 2147483647LL || path != prefix + std::to_string(id) || size <= 0 ||
+		    size > static_cast<long long>(kScaMax))
+		{
+			matches = 2; // a row that cannot be taken counts as ambiguous
+			break;
+		}
+		media.path = path;
+		media.size = static_cast<size_t>(size);
+		media_id = static_cast<int>(id);
+	}
+	return matches == 1;
+}
+#endif
 
 // Publish a verified pinned install (Current Seed, #133 PR 7). It never
 // writes through a link, never replaces or removes a file it did not write,
@@ -688,70 +1063,154 @@ void publish_pinned(const std::string &tracks, const std::string &folder,
 		                                    : done[0] || done[1] ? "" : " Nothing was installed."));
 }
 
-// `lev_bytes` / `vrm_bytes` are the room's size pins and `tracks` the folder
-// the package root must sit in (Current Seed, #133 PR 7); all zero / empty for
-// the legacy single-package download, which keeps its old behaviour.
-// One install. `tracks` set: a pinned Current Seed install; with `library`
-// set too (the assets folder) it goes into the package library instead of
-// <tracks>/<folder>, under `title`, `author` and `laps`.
-struct LibraryTarget
-{
-	std::string assets, title, author;
-	int laps = 0;
-};
-
+// `lev_bytes` / `vrm_bytes` are the seed's size pins. A seed UUID publishes
+// the verified pair in tracks/packages; old callers without one retain the
+// room-folder path for existing installs and compatibility harnesses.
+// `lev_id` / `vrm_id` are the Saphi download ids a registry lookup named
+// (row 10k), 0 to pick the files by `version`.
 void worker(std::string package_root, std::string api_url, std::string version,
 	        std::string lev_hash, std::string vrm_hash,
-	        uint32_t lev_pin, uint32_t vrm_pin, std::string tracks, LibraryTarget library)
+	        uint32_t lev_pin, uint32_t vrm_pin, std::string tracks, int lev_id, int vrm_id,
+	        std::string seed_uuid, std::string seed_title, std::string seed_author, unsigned int seed_laps,
+	        int relic_sapphire, int relic_gold, int relic_platinum)
 {
 	const bool pinned = !tracks.empty();
+#ifndef CTR_CUSTOM_PACKAGES
+	(void)seed_uuid; (void)seed_title; (void)seed_author; (void)seed_laps;
+	(void)relic_sapphire; (void)relic_gold; (void)relic_platinum;
+#endif
 	try
 	{
 		std::string api_path;
 		if (!saphi_url_path(api_url, api_path))
 			throw std::runtime_error("The release registry has an invalid Saphi API URL.");
-		if (pinned && library.assets.empty() && !ap_seed_root_safe(tracks.c_str(), package_root.c_str()))
+		if (pinned && !ap_seed_root_safe(tracks.c_str(), package_root.c_str()))
 			throw std::runtime_error("The track folder is not a safe place to install. Nothing was changed.");
 		set_state(AP_CT_DOWNLOAD_RUNNING, "Contacting Project Saphi...");
 		std::vector<unsigned char> metadata;
 		std::string error;
-		if (!https_get(kSaphiHost, api_path, kMetadataMax, metadata, error))
+		if (!https_get(api_path, kMetadataMax, metadata, error))
 			throw std::runtime_error(error);
 		nlohmann::json root = nlohmann::json::parse(metadata.begin(), metadata.end());
 		MediaFile lev;
 		MediaFile vrm;
-		if (!find_media(root, "lev", version, lev) || !find_media(root, "vrm", version, vrm))
+		if (!find_media(root, api_path + "/", "lev", version, lev_id, lev) ||
+		    !find_media(root, api_path + "/", "vrm", version, vrm_id, vrm))
 			throw std::runtime_error("Saphi does not list exactly one matching LEV and VRM for this release.");
 		if (!ap_seed_size_agrees(lev_pin, lev.size) || !ap_seed_size_agrees(vrm_pin, vrm.size))
 			throw std::runtime_error("Saphi lists another file size than this seed pins. Nothing was changed.");
 
 		std::vector<unsigned char> lev_bytes;
 		std::vector<unsigned char> vrm_bytes;
-		set_state(AP_CT_DOWNLOAD_RUNNING, "Downloading the track (LEV) from Saphi...");
-		if (!https_get(kSaphiHost, lev.path, kTrackFileMax, lev_bytes, error) || lev_bytes.size() != lev.size)
+		set_state(AP_CT_DOWNLOAD_RUNNING, "Downloading the LEV from Project Saphi...");
+		if (!https_get(lev.path, kTrackFileMax, lev_bytes, error) || lev_bytes.size() != lev.size)
 			throw std::runtime_error(error.empty() ? "The Saphi LEV download was incomplete." : error);
 		if (!hash_matches(lev_bytes, lev_hash))
-			throw std::runtime_error("The downloaded LEV does not match this release registry.");
+			throw std::runtime_error("The downloaded LEV does not match the pinned file. Nothing was installed.");
 
-		set_state(AP_CT_DOWNLOAD_RUNNING, "Downloading the track (VRM) from Saphi...");
-		if (!https_get(kSaphiHost, vrm.path, kTrackFileMax, vrm_bytes, error) || vrm_bytes.size() != vrm.size)
+		set_state(AP_CT_DOWNLOAD_RUNNING, "Downloading the VRM from Project Saphi...");
+		if (!https_get(vrm.path, kTrackFileMax, vrm_bytes, error) || vrm_bytes.size() != vrm.size)
 			throw std::runtime_error(error.empty() ? "The Saphi VRM download was incomplete." : error);
 		if (!hash_matches(vrm_bytes, vrm_hash))
-			throw std::runtime_error("The downloaded VRM does not match this release registry.");
+			throw std::runtime_error("The downloaded VRM does not match the pinned file. Nothing was installed.");
 		if (!ap_seed_size_agrees(lev_pin, lev_bytes.size()) || !ap_seed_size_agrees(vrm_pin, vrm_bytes.size()))
 			throw std::runtime_error("The downloaded files are not the size this seed pins. Nothing was changed.");
 
-#if defined(CTR_CUSTOM_PACKAGES)
-		if (pinned && !library.assets.empty())
+#ifdef CTR_CUSTOM_PACKAGES
+		if (pinned && !seed_uuid.empty())
 		{
-			set_state(AP_CT_DOWNLOAD_RUNNING, "Download verified. Adding it to the library...");
-			const std::string failure = saphi_install_library(library.assets, api_path, lev, vrm, version, library.title,
-			                                                  library.author, library.laps, lev_bytes, vrm_bytes);
-			if (!failure.empty()) throw std::runtime_error(failure);
-			set_state(AP_CT_DOWNLOAD_SUCCEEDED, "Download verified. Installed in the library.");
+			const std::string key = package_root.substr(tracks.size() + 1);
+			const std::string assets = tracks.substr(0, tracks.size() - 7); // /tracks
+			if (tracks.size() < 8 || tracks.compare(tracks.size() - 7, 7, "/tracks"))
+				throw std::runtime_error("The shared package store path is invalid");
+			const std::string packageTitle = CustomPackage_ValidateTitle(seed_title.data(), seed_title.size()) ? seed_title : key;
+			// The track's own music rides along when Saphi lists one for this
+			// LEV. Music is optional: a missing, odd or failed .sca installs
+			// the track without it (the race then plays its fallback music).
+			std::vector<unsigned char> sca_bytes;
+			int sca_id = 0;
+			try
+			{
+				MediaFile sca;
+				std::string sca_error;
+				if (find_music(root, api_path + "/", version, lev_id, sca, sca_id))
+				{
+					set_state(AP_CT_DOWNLOAD_RUNNING, "Downloading the track's music from Project Saphi...");
+					if (!https_get(sca.path, kScaMax, sca_bytes, sca_error) || sca_bytes.size() != sca.size)
+						sca_bytes.clear();
+				}
+			}
+			catch (const std::exception &)
+			{
+				sca_bytes.clear(); // a malformed music row costs the music only
+			}
+			nlohmann::json files = nlohmann::json::array({
+				{{"role", "lev"}, {"path", "original/track.lev"}, {"sha256", lev_hash}, {"bytes", lev_bytes.size()}},
+				{{"role", "vrm"}, {"path", "original/track.vrm"}, {"sha256", vrm_hash}, {"bytes", vrm_bytes.size()}}});
+			const std::string source = nlohmann::json({{"schema_version", 1}, {"provider", "ctr-seed"},
+				{"track_key", key}, {"author", seed_author}}).dump();
+			std::string settings;
+			std::string relicTargets;
+			if (seed_laps >= 1 && seed_laps <= 7)
+				settings = nlohmann::json({{"schema_version", 1}, {"laps", seed_laps},
+					{"lev_sha256", lev_hash}, {"vrm_sha256", vrm_hash}}).dump();
+			if (!settings.empty() && relic_sapphire > relic_gold && relic_gold > relic_platinum && relic_platinum > 0)
+				relicTargets = nlohmann::json({{"schema_version", 1}, {"laps", seed_laps},
+					{"lev_sha256", lev_hash}, {"vrm_sha256", vrm_hash}, {"ticks_per_second", 960},
+					{"sapphire", relic_sapphire}, {"gold", relic_gold}, {"platinum", relic_platinum}}).dump();
+			auto sha = [](const std::string &bytes) {
+				unsigned char hash[32]; unsigned int count = 0;
+				if (!EVP_Digest(bytes.data(), bytes.size(), hash, &count, EVP_sha256(), nullptr) || count != 32)
+					throw std::runtime_error("Could not hash shared package metadata");
+				static const char digits[] = "0123456789abcdef";
+				std::string out;
+				for (unsigned int i = 0; i < count; i++) { out += digits[hash[i] >> 4]; out += digits[hash[i] & 15]; }
+				return out;
+			};
+			// A bare braced list in files.insert would add each pair as its own
+			// array element; build each entry as one json object.
+			files.insert(files.begin() + 1, nlohmann::json{{"role", "presentation"}, {"path", "metadata/seed-source.json"},
+				{"sha256", sha(source)}, {"bytes", source.size()}});
+			if (!settings.empty())
+				files.insert(files.begin() + 2, nlohmann::json{{"role", "race_settings"}, {"path", "metadata/race-settings.json"},
+					{"sha256", sha(settings)}, {"bytes", settings.size()}});
+			if (!relicTargets.empty())
+				files.insert(files.end() - 1, nlohmann::json{{"role", "relic_targets"}, {"path", "metadata/relic-targets.json"},
+					{"sha256", sha(relicTargets)}, {"bytes", relicTargets.size()}});
+			if (!sca_bytes.empty())
+				files.insert(files.end() - 1, nlohmann::json{{"role", "sca"},
+					{"path", "original/sca-" + std::to_string(sca_id) + ".sca"},
+					{"sha256", sha(std::string(sca_bytes.begin(), sca_bytes.end()))}, {"bytes", sca_bytes.size()}});
+			const std::string manifest = nlohmann::json({{"schema_version", 1}, {"package_uuid", seed_uuid},
+				{"version", version}, {"title", packageTitle},
+				{"compatibility", {{"native_contract", 1}, {"apworld_contract", 1}}},
+				{"files", files}}).dump();
+			unsigned char digest[EVP_MAX_MD_SIZE];
+			unsigned int digestSize = 0;
+			if (!EVP_Digest(manifest.data(), manifest.size(), digest, &digestSize, EVP_sha256(), nullptr) || digestSize != 32)
+				throw std::runtime_error("Could not pin the downloaded package manifest");
+			static const char hex[] = "0123456789abcdef";
+			std::string pin;
+			for (unsigned int i = 0; i < digestSize; i++) { pin += hex[digest[i] >> 4]; pin += hex[digest[i] & 15]; }
+			CustomPackageOwned *owned = nullptr;
+			std::vector<CustomPackageInput> inputs = {{"lev", lev_bytes.data(), lev_bytes.size()},
+				{"presentation", source.data(), source.size()}};
+			if (!settings.empty()) inputs.push_back({"race_settings", settings.data(), settings.size()});
+			if (!relicTargets.empty()) inputs.push_back({"relic_targets", relicTargets.data(), relicTargets.size()});
+			if (!sca_bytes.empty()) inputs.push_back({"sca", sca_bytes.data(), sca_bytes.size()});
+			inputs.push_back({"vrm", vrm_bytes.data(), vrm_bytes.size()});
+			char detail[512] = {};
+			if (!CustomPackage_AcquireBuffers(manifest.data(), manifest.size(), pin.c_str(), inputs.data(), inputs.size(),
+			                                   &owned, detail, sizeof detail))
+				throw std::runtime_error(detail);
+			const int installed = CustomPackage_InstallAssets(owned, assets.c_str(), detail, sizeof detail);
+			CustomPackage_Free(&owned);
+			if (!installed) throw std::runtime_error(detail);
+			set_state(AP_CT_DOWNLOAD_SUCCEEDED, "Download verified. Shared package installed.");
 			return;
 		}
 #endif
+
 		const std::string original = join_path(package_root, "original");
 		const std::string lev_temp = join_path(original, ".saphi-track.lev.part");
 		const std::string vrm_temp = join_path(original, ".saphi-track.vrm.part");
@@ -816,8 +1275,10 @@ int existing_target(const std::string &path, const std::string &expected)
 
 int start_worker(const char *package_root, const char *download_api_url, const char *package_version,
 	             const char *lev_sha256, const char *vrm_sha256,
-	             uint32_t lev_bytes, uint32_t vrm_bytes, const char *tracks,
-	             LibraryTarget library = LibraryTarget())
+	             uint32_t lev_bytes, uint32_t vrm_bytes, const char *tracks, int lev_id = 0, int vrm_id = 0,
+	             const char *seed_uuid = nullptr, const char *seed_title = nullptr,
+	             const char *seed_author = nullptr, unsigned int seed_laps = 0,
+	             int relic_sapphire = 0, int relic_gold = 0, int relic_platinum = 0)
 {
 	DownloadState &shared = download_state();
 	{
@@ -831,7 +1292,10 @@ int start_worker(const char *package_root, const char *download_api_url, const c
 	{
 		std::thread(worker, std::string(package_root), std::string(download_api_url), std::string(package_version),
 		            std::string(lev_sha256), std::string(vrm_sha256), lev_bytes, vrm_bytes,
-		            std::string(tracks ? tracks : ""), library).detach();
+		            std::string(tracks ? tracks : ""), lev_id, vrm_id,
+		            std::string(seed_uuid ? seed_uuid : ""), std::string(seed_title ? seed_title : ""),
+		            std::string(seed_author ? seed_author : ""), seed_laps,
+		            relic_sapphire, relic_gold, relic_platinum).detach();
 		return 1;
 	}
 	catch (const std::exception &e)
@@ -841,6 +1305,21 @@ int start_worker(const char *package_root, const char *download_api_url, const c
 	}
 }
 } // namespace
+
+extern "C" int ap_custom_track_download_busy(char *detail, int detail_bytes)
+{
+	auto &state = busy_state();
+	std::lock_guard<std::mutex> lock(state.mutex);
+	int seconds = 0;
+	for (const auto &entry : state.waits)
+		seconds = std::max(seconds, std::max(1, entry.first->pending_seconds()));
+	if (detail && detail_bytes > 0)
+	{
+		if (seconds) std::snprintf(detail, detail_bytes, "Project Saphi is busy, waiting %ds", seconds);
+		else detail[0] = 0;
+	}
+	return seconds;
+}
 
 extern "C" int ap_custom_track_download_start(const char *package_root,
 	                                           const char *download_api_url,
@@ -869,28 +1348,56 @@ extern "C" int ap_custom_track_download_start_pinned(const char *tracks_dir,
 	                    lev_bytes, vrm_bytes, tracks_dir);
 }
 
-#if defined(CTR_CUSTOM_PACKAGES)
-extern "C" int ap_custom_track_download_start_library(const char *assets,
-	                                                   const char *package_root,
-	                                                   const char *download_api_url,
-	                                                   const char *package_version,
-	                                                   const char *lev_sha256, uint32_t lev_bytes,
-	                                                   const char *vrm_sha256, uint32_t vrm_bytes,
-	                                                   const char *title, const char *author, int laps)
+extern "C" int ap_custom_track_download_start_registry(const char *tracks_dir,
+	                                                    const char *package_root,
+	                                                    int saphi_track_id, int lev_download_id, int vrm_download_id,
+	                                                    const char *lev_sha256, uint32_t lev_bytes,
+	                                                    const char *vrm_sha256, uint32_t vrm_bytes)
 {
-	LibraryTarget library;
-	if (!assets || !*assets || !title || !*title || !package_root || !*package_root || !download_api_url ||
-	    !*download_api_url || !package_version || !*package_version || !lev_sha256 || !vrm_sha256 ||
-	    !lev_bytes || !vrm_bytes)
+	char api[96];
+	if (saphi_track_id <= 0 || lev_download_id <= 0 || vrm_download_id <= 0 || lev_download_id == vrm_download_id)
 		return 0;
-	library.assets = assets;
-	library.title = title;
-	library.author = author ? author : "";
-	library.laps = laps;
-	return start_worker(package_root, download_api_url, package_version, lev_sha256, vrm_sha256,
-	                    lev_bytes, vrm_bytes, package_root, library);
+	std::snprintf(api, sizeof api, "https://%s/api/v2/tracks/%d/downloads", kSaphiHost, saphi_track_id);
+	if (!tracks_dir || !*tracks_dir || !package_root || !*package_root || !lev_sha256 || !vrm_sha256 ||
+	    !lev_bytes || !vrm_bytes || !ap_seed_root_safe(tracks_dir, package_root))
+		return 0;
+	// The version is unused when download ids are named.
+	return start_worker(package_root, api, "registry", lev_sha256, vrm_sha256, lev_bytes, vrm_bytes, tracks_dir,
+	                    lev_download_id, vrm_download_id);
 }
+
+extern "C" int ap_custom_track_download_start_shared(const char *tracks_dir, const char *package_root,
+    const char *download_api_url, const char *revision, const char *uuid,
+    const char *title, const char *author, unsigned int laps,
+    int relic_sapphire, int relic_gold, int relic_platinum,
+    const char *lev_sha256, uint32_t lev_bytes, const char *vrm_sha256, uint32_t vrm_bytes,
+    int saphi_track_id, int lev_download_id, int vrm_download_id)
+{
+#ifndef CTR_CUSTOM_PACKAGES
+    (void)tracks_dir; (void)package_root; (void)download_api_url; (void)revision; (void)uuid;
+    (void)title; (void)author; (void)laps; (void)relic_sapphire; (void)relic_gold; (void)relic_platinum;
+    (void)lev_sha256; (void)lev_bytes; (void)vrm_sha256; (void)vrm_bytes;
+    (void)saphi_track_id; (void)lev_download_id; (void)vrm_download_id;
+    return 0;
+#else
+    char api[96];
+    if (!tracks_dir || !package_root || !revision || !*revision || !uuid || !*uuid ||
+        !title || !*title || !author || !*author || laps < 1 || laps > 7 ||
+        !lev_sha256 || !vrm_sha256 || !lev_bytes || !vrm_bytes ||
+        !ap_seed_root_safe(tracks_dir, package_root)) return 0;
+    if (saphi_track_id)
+    {
+        if (saphi_track_id <= 0 || lev_download_id <= 0 || vrm_download_id <= 0 || lev_download_id == vrm_download_id)
+            return 0;
+        std::snprintf(api, sizeof api, "https://%s/api/v2/tracks/%d/downloads", kSaphiHost, saphi_track_id);
+        download_api_url = api;
+    }
+    if (!download_api_url || !*download_api_url) return 0;
+    return start_worker(package_root, download_api_url, revision, lev_sha256, vrm_sha256,
+                        lev_bytes, vrm_bytes, tracks_dir, lev_download_id, vrm_download_id,
+                        uuid, title, author, laps, relic_sapphire, relic_gold, relic_platinum);
 #endif
+}
 
 extern "C" int ap_custom_track_download_status(char *detail, int detail_bytes)
 {
@@ -903,7 +1410,7 @@ extern "C" int ap_custom_track_download_status(char *detail, int detail_bytes)
 
 #ifdef CTR_CUSTOM_PACKAGES
 // Track Manager: the Saphi catalogue refresh and the explicit install of one
-// catalogue revision into the package store. Authoring build only.
+// catalogue revision into the package store.
 namespace {
 // A file of the Decrypted track catalogue, or of the local copy of one that
 // CTR_DEV_TRACK_CATALOGUE names.
@@ -1158,67 +1665,6 @@ void saphi_install_worker(CustomSaphiRevision revision, std::string assets)
     state.state = error.empty() ? 1 : -2;
 }
 }
-namespace {
-// The id after the last '/' of a Saphi path, or 0.
-int saphi_path_id(const std::string &path, size_t from)
-{
-    int id = 0;
-    for (size_t i = from; i < path.size() && path[i] != '/'; i++)
-    {
-        if (path[i] < '0' || path[i] > '9' || id > 100000000) return 0;
-        id = id * 10 + (path[i] - '0');
-    }
-    return id;
-}
-
-std::string saphi_install_library(const std::string &assets, const std::string &api_path,
-                                  const MediaFile &lev_media, const MediaFile &vrm_media,
-                                  const std::string &version, const std::string &title,
-                                  const std::string &author, int laps,
-                                  const std::vector<unsigned char> &lev, const std::vector<unsigned char> &vrm)
-{
-    /* The same package Browse installs for this revision: same UUID, so the
-       Installed tab shows the track once, and the same provenance, so it
-       names the author and Browse knows it is installed. */
-    const size_t tracksAt = api_path.find("/tracks/");
-    const int track = tracksAt == std::string::npos ? 0 : saphi_path_id(api_path, tracksAt + 8);
-    const int levID = saphi_path_id(lev_media.path, lev_media.path.rfind('/') + 1);
-    const int vrmID = saphi_path_id(vrm_media.path, vrm_media.path.rfind('/') + 1);
-    if (track <= 0 || levID <= 0 || vrmID <= 0) return "Saphi listed the track in an unexpected form. Nothing was installed.";
-    const auto levHash = saphi_digest(lev.data(), lev.size(), EVP_sha256());
-    const auto vrmHash = saphi_digest(vrm.data(), vrm.size(), EVP_sha256());
-    nlohmann::json files = nlohmann::json::array();
-    files.push_back({{"role","lev"},{"path","original/lev-" + std::to_string(levID) + ".lev"},{"sha256",levHash},{"bytes",lev.size()}});
-    const std::string presentation = nlohmann::json({{"schema_version",1},{"provider","projectsaphi"},
-        {"track_id",track},{"lev_media_id",levID},{"vrm_media_id",vrmID},{"version",version},{"author",author}}).dump();
-    files.push_back({{"role","presentation"},{"path","metadata/saphi-source.json"},
-        {"sha256",saphi_digest(presentation.data(),presentation.size(),EVP_sha256())},{"bytes",presentation.size()}});
-    std::string settings;
-    if (laps >= 1 && laps <= 127)
-    {
-        settings = nlohmann::json({{"schema_version",1},{"laps",laps},{"lev_sha256",levHash},{"vrm_sha256",vrmHash}}).dump();
-        files.push_back({{"role","race_settings"},{"path","metadata/race-settings.json"},
-            {"sha256",saphi_digest(settings.data(),settings.size(),EVP_sha256())},{"bytes",settings.size()}});
-    }
-    files.push_back({{"role","vrm"},{"path","original/vrm-" + std::to_string(vrmID) + ".vrm"},{"sha256",vrmHash},{"bytes",vrm.size()}});
-    const std::string manifest = nlohmann::json({{"schema_version",1},{"package_uuid",saphi_import_uuid(track)},
-        {"version",version},{"title",title},
-        {"compatibility",{{"native_contract",1},{"apworld_contract",1}}},{"files",files}}).dump();
-    const std::string pin = saphi_digest(manifest.data(),manifest.size(),EVP_sha256());
-    std::vector<CustomPackageInput> inputs = {{"lev",lev.data(),lev.size()},{"vrm",vrm.data(),vrm.size()},
-        {"presentation",presentation.data(),presentation.size()}};
-    if (!settings.empty()) inputs.push_back({"race_settings",settings.data(),settings.size()});
-    CustomPackageOwned *owned = nullptr;
-    char detail[512];
-    std::string failure;
-    if (!CustomPackage_AcquireBuffers(manifest.data(),manifest.size(),pin.c_str(),inputs.data(),inputs.size(),&owned,detail,sizeof detail) ||
-        !CustomPackage_InstallAssets(owned, assets.c_str(), detail, sizeof detail))
-        failure = detail;
-    CustomPackage_Free(&owned);
-    return failure;
-}
-}
-
 extern "C" int CustomSaphi_StartInstall(const CustomSaphiRevision *revision, const char *assets)
 {
     if (!revision || !assets || !*assets || std::strlen(assets) > 31000 || revision->disabledReason[0] ||
@@ -1586,3 +2032,12 @@ extern "C" int NativeTrackPicture_Poll(int *trackID, uint16_t out[NATIVE_TRACK_P
     return result;
 }
 #endif // CTR_CUSTOM_PACKAGES
+
+// The transport for other units (the track registry, row 10k). Only the
+// allow-listed hosts answer; see https_get_host.
+bool ap_https_get(const char *host, const std::string &path, size_t max_bytes,
+                  std::vector<unsigned char> &body, std::string &error)
+{
+	body.clear();
+	return host && https_get_retrying(host, path, max_bytes, body, error);
+}

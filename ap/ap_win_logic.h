@@ -25,15 +25,17 @@
 extern "C" {
 #endif
 
-#define AP_WL_VERSION_KNOWN 1
+#define AP_WL_VERSION_KNOWN 2
 
-// Pool sizes. The apworld keeps the serialised block under 32 KiB and the spec
-// asks native to accept up to 64 KiB; even 64 KiB of the smallest term ("true,")
-// stays under these. A block that does not fit is refused as a whole.
-#define AP_WL_MAX_NODES    16384
-#define AP_WL_MAX_KIDS     16384
+// Pool sizes. Version 1 retains its historical 32 KiB export budget. Version 2
+// includes hint-only checks and may exceed that budget; generated all-family
+// and wide-pool graphs are verified against these tables by native roundtrip.
+// A block that does not fit is refused as a whole, never partially evaluated.
+// Sanity rules in wide cup rooms can exceed 16,384 nodes and child indices.
+#define AP_WL_MAX_NODES    65536
+#define AP_WL_MAX_KIDS     65536
 #define AP_WL_MAX_IDS      16384
-#define AP_WL_MAX_CHECKS   1024
+#define AP_WL_MAX_CHECKS   16384 // content-plan check bound, including sanity hint-only checks
 #define AP_WL_MAX_REGIONS  1024
 #define AP_WL_MAX_FAMILIES 256
 #define AP_WL_MAX_START    512 // distinct precollected progression ids
@@ -64,7 +66,8 @@ enum
 	AP_WL_T_CAP,            // a = boost, b = racer (-1 = no racer bound)
 	AP_WL_T_BOSSES,         // a = count
 	AP_WL_T_FAMILIES,       // a = count
-	AP_WL_T_REF             // a = location code; b = resolved check index
+	AP_WL_T_REF,            // a = location code; b = resolved check index
+	AP_WL_T_STATCAP         // a = boost, b = racer, c = stats mode (1 shared, 2 per-racer)
 };
 
 enum
@@ -78,7 +81,8 @@ enum
 	AP_WL_KIND_GEM,
 	AP_WL_KIND_CRYSTAL,
 	AP_WL_KIND_OXIDE,
-	AP_WL_KIND_OXIDE_FINAL
+	AP_WL_KIND_OXIDE_FINAL,
+	AP_WL_KIND_HINT // non-win location (every seed since A3-37b; before, Pad Approach Hints only)
 };
 
 typedef struct
@@ -139,6 +143,7 @@ static inline const char *AP_WinLogicKindName(int kind)
 	case AP_WL_KIND_CRYSTAL:     return "crystal";
 	case AP_WL_KIND_OXIDE:       return "oxide";
 	case AP_WL_KIND_OXIDE_FINAL: return "oxide_final";
+	case AP_WL_KIND_HINT:        return "hint";
 	}
 	return 0;
 }
@@ -349,6 +354,28 @@ static inline int AP_WinLogicCap(const AP_WinLogic *wl, const AP_WinLogicEnv *en
 	return 0;
 }
 
+// Hint-only cap extension: all three stat chains must be held for the same
+// driveable racer that satisfies the boost requirement.
+static inline int AP_WinLogicStatCap(const AP_WinLogic *wl, const AP_WinLogicEnv *env,
+                                     int boost, int racer, int stats_mode)
+{
+	int c, first = racer >= 0 ? racer : 0, last = racer >= 0 ? racer + 1 : 16;
+	if (stats_mode == 0)
+		return AP_WinLogicCap(wl, env, boost, racer);
+	if (first < 0 || last > 16 || stats_mode < 1 || stats_mode > 2)
+		return 0;
+	for (c = first; c < last; c++)
+	{
+		long base = stats_mode == 1 ? 35010027L : AP_WL_BOOST_ITEM[c];
+		if (AP_WinLogicDriveable(wl, env, c) && AP_WinLogicBoostOk(wl, env, boost, c) &&
+		    AP_WinLogicCount(wl, env, base + 1) >= 1 &&
+		    AP_WinLogicCount(wl, env, base + 2) >= 1 &&
+		    AP_WinLogicCount(wl, env, base + 3) >= 1)
+			return 1;
+	}
+	return 0;
+}
+
 // The req leaf: the Contract section 2 Req meaning (the same type and colour
 // table as AP_ReqMetCounts), counted from the received counts by item id
 // rather than the gate counters. Ids: Trophy 35010000, Relics 35010001..3
@@ -440,6 +467,8 @@ static inline int AP_WinLogicEval(const AP_WinLogic *wl, const AP_WinLogicEnv *e
 		return sum >= n->a;
 	case AP_WL_T_CAP:
 		return AP_WinLogicCap(wl, env, (int)n->a, (int)n->b);
+	case AP_WL_T_STATCAP:
+		return AP_WinLogicStatCap(wl, env, (int)n->a, (int)n->b, (int)n->c);
 	case AP_WL_T_BOSSES:
 		return env->bosses_won(env->user) >= n->a;
 	case AP_WL_T_FAMILIES:
@@ -534,7 +563,10 @@ static inline AP_WinStakes AP_WinStakesDecide(const AP_WinLogic *wl, const AP_Wi
 	for (i = 0; i < n; i++)
 	{
 		int idx = AP_WinLogicFindCheck(wl, winSet[i]);
-		if (idx < 0)
+		// A hint row is never a win (SCHEMA.md 2026-11-03): since A3-37b every
+		// seed exports one for every non-win location, and a race whose win
+		// code has only a hint row keeps the stakes it had without that row.
+		if (idx < 0 || wl->checks[idx].kind == AP_WL_KIND_HINT)
 			continue;
 		entries++;
 		if (env->collected(env->user, winSet[i]))
@@ -846,6 +878,11 @@ struct GameTracker;
 // the connected seed and slot (AP_WinStakesConnect).
 void AP_WinLogicTallyReset(void);
 void AP_WinLogicTallyItem(long long itemId, long long location, unsigned flags);
+// Current exported reachability, including the region and location rule.
+int AP_LocationInLogic(long long code);
+// The same question as three answers (AP_PAD_LOGIC_*, ap_pad_logic_look.h): in
+// logic, out of logic, or no usable logic entry for the code.
+int AP_LocationLogicState(long long code);
 // Cup entry from the hub (AP_CupEnterFromHub) arms the cup decision.
 void AP_WinStakesOnCupEnter(void);
 // Every level start (AP_RaceAttempt_OnLevelStart): decide the race's stakes.

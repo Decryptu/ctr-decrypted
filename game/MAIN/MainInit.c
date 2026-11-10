@@ -565,6 +565,12 @@ void MainInit_Drivers(struct GameTracker *gGT)
 		if (gameMode < 0)
 		{
 			numDrivers = numPlyrCurrGame + 1;
+#ifdef CTR_AP
+			if (AP_ChaosFinalNow())
+			{
+				numDrivers = numPlyrCurrGame + AP_ROSTER_CHAOS_RIVALS;
+			}
+#endif
 		}
 
 		// Purple Gem Cup
@@ -601,6 +607,16 @@ void MainInit_Drivers(struct GameTracker *gGT)
 		{
 			numDrivers = 6;
 		}
+
+#ifdef CTR_AP
+		// The roster swap: a field that could not fill without a racer held
+		// behind its garage races with fewer karts (ruled 2026-10-30,
+		// dispatcher 2026-11-02). Set by this race's load, else -1.
+		if (gameMode >= 0 && AP_HitFieldShortSeats() >= 0 && numPlyrCurrGame + AP_HitFieldShortSeats() < numDrivers)
+		{
+			numDrivers = numPlyrCurrGame + AP_HitFieldShortSeats();
+		}
+#endif
 
 		// Spawn AIs
 		for (int i = numPlyrCurrGame; i < numDrivers; i++)
@@ -866,8 +882,24 @@ void MainInit_FinalizeInit(struct GameTracker *gGT)
 #endif
 
 	// Used in Coco Park, encoded as Blue
-	*(int *)&gGT->db[0].drawEnv.isbg = lev1->clearColorRGBA << 8;
-	*(int *)&gGT->db[1].drawEnv.isbg = lev1->clearColorRGBA << 8;
+	u32 clearColor = lev1->clearColorRGBA;
+#ifdef CTR_NATIVE
+	// Parking Lot's sky mesh has an open top, whose rim is RGB(4,59,255).
+	// Its black clear colour exposes that opening when the camera looks up.
+	// Match the rim without changing the disc data or a custom track borrowing
+	// this level slot.
+	if (gGT->levelID == PARKING_LOT
+#ifdef CTR_CUSTOM_TRACKS
+	    && !CustomTrack_ServingLoad(gGT->levelID, (gGT->gameMode1 & ADVENTURE_CUP) != 0, gGT->cup.cupID)
+#endif
+#ifdef CTR_CUSTOM_PACKAGES
+	    && !MainRaceTrack_OfflineCustomLoad()
+#endif
+	)
+		clearColor = 0x00ff3b04;
+#endif
+	*(int *)&gGT->db[0].drawEnv.isbg = clearColor << 8;
+	*(int *)&gGT->db[1].drawEnv.isbg = clearColor << 8;
 
 	if ((gGT->numPlyrCurrGame == 1) && (lev1->clearColor[0].enable != 0) && (lev1->clearColor[1].enable != 0))
 	{

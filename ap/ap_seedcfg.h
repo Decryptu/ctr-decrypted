@@ -182,6 +182,10 @@ typedef struct
 	long wumpa_location;
 	char lev_sha256[65];
 	char vrm_sha256[65];
+	// The chaos Final Challenge: the seed's five bosses in one race, the final
+	// racer first (ap_roster_swap.h). Content plans only.
+	int chaos;
+	int chaos_lineup[5];
 } ctr_oxide_final_venue;
 
 // The exact Lockheart Cortex Vortex pair. One definition for the Oxide 2 venue
@@ -435,9 +439,11 @@ typedef struct
 #define CTR_CFG_HIT_CHARACTER_COUNT    16 // engine character ids 0..15
 #define CTR_CFG_HIT_TRACK_COUNT        18 // ordinary destinations 0..17
 #define CTR_CFG_HIT_CUP_COUNT          5  // cup LevelIDs 100..104
-// Content-plan cups (#133 PR 5b): one order per cup name index 0..26, in the
-// block's optional `content_cups`; their draw destinations are 200..226.
-#define CTR_CFG_HIT_CONTENT_CUP_COUNT  27
+// Content-plan cups (#133 PR 5b): one order per cup name index 0..40, in the
+// block's optional `content_cups`; their draw destinations are 200..240. The
+// count is the size of the named cup pool (apworld cup_checks.CUP_NAMES, 41
+// since A4-16c); a pool name past it would be refused at connect.
+#define CTR_CFG_HIT_CONTENT_CUP_COUNT  41
 #define CTR_CFG_HIT_CONTENT_CUP_DEST   200
 #define CTR_CFG_HIT_BOSS_COUNT         6  // canonical boss-win codes, see below
 #define CTR_CFG_HIT_TRIGGER_COUNT      8  // guest engine ids 8..15
@@ -598,6 +604,21 @@ typedef struct
 	// wait for Warp Pad Preview and AP box colours wait for AP Box Colours
 	// (ap_spoiler_items_logic.h). Display only: no gate, location or item.
 	int spoiler_items;
+	// Pad Approach Hints (#124, ctr_options.pad_approach_hints, content-plan
+	// envelope, present only when true). Absent is off. On, approaching an open
+	// pad hints its open, unchecked locations once ever (ap_pad_hints_logic.h).
+	int pad_approach_hints;
+	// Hint filters (A2-23, ctr_options.<name>, content-plan envelope, present only
+	// when true, absent is off; ap_hint_filters_logic.h). Policy only: they narrow
+	// which locations the auto hints name and never change a location or item.
+	int pad_hints_wait_for_spoiler;
+	int pad_hints_progression_only;
+	int shop_hints_progression_only;
+	// Trap Display (ruled 2026-11-06; ctr_options.trap_display, content-plan
+	// envelope, present only when not `shown`; ap_trap_display_logic.h). 0 shown,
+	// 1 as_progression, 2 mixed with trap_display_salt. Display only.
+	int trap_display;
+	unsigned trap_display_salt;
 	// ctr_options.box_locations (always emitted on ordinary rooms, present on a
 	// content-plan envelope exactly with its item_boxes record). Absent is off.
 	// Read only so Spoiler Items knows the seed has AP boxes, and therefore an
@@ -932,21 +953,8 @@ static inline int AP_CustomLetterNamedBlock(void)
 	return ctr_cfg.custom_tracks_ok ? ctr_cfg.custom_track.named_block : -1;
 }
 
-// Is a warp pad's stage-1 LOAD gate satisfied? levelID is the PHYSICAL pad. When
-// active and the pad has a per-seed requirement (type != 0), compares owned >=
-// count for that requirement (colour-aware for tokens/gems). Otherwise falls back
-// to that pad class's Phase-1 rule. Accepts BOTH the dense-array pads (0..27,
-// vanilla fallback = received trophies >= numTrophiesToOpen) and cup pads
-// (100..104 -> gem_cup_unlock[phys-100], vanilla fallback = 4 tokens of the cup's
-// colour) -- required because under destination shuffle a race destination can be
-// hosted on a cup PHYSICAL pad, and ThTick's load gate then calls this with a
-// physical cup LevelID. Used by the load-time gate in AH_WarpPad_ThTick so the
-// spawn visual and the load gate read one source.
-//
-// IMPLEMENTED C-SIDE in ap_hooks.c (not ap_seedcfg.cpp): it needs AP_GateCount*
-// (received-item counters live in the C unity build) and the per-track
-// numTrophiesToOpen threshold from data.metaDataLEV[] for the Phase-1 fallback,
-// neither of which is reachable from the isolated C++ static lib.
+// Physical content-plan pad entry. Without an AP room, retains the retail
+// trophy/cup threshold for compatibility with inactive diagnostic callers.
 int ctr_cfg_warp_unlocked(int levelID);
 
 // The ENGINE character id a physical pad demands, or -1 when it carries no
@@ -960,25 +968,9 @@ int ctr_cfg_racer_lock(int physPadLevelID);
 // without re-deriving the rule. IMPLEMENTED C-SIDE in ap_hooks.c.
 int ctr_cfg_racer_lock_met(int physPadLevelID);
 
-// Is a trophy-track warp pad's STAGE-2 satisfied (open the relic Time Trials +
-// CTR Token Challenge menu)? When active and the pad has a stage2 requirement
-// (type != 0), compares owned >= count for stage2 (colour-aware for tokens/gems
-// via AP_BossReqMet). type 0 (no stage2 / collapsed / flat-v1 slot_data) returns
-// 1 (always open) so the tier-2 menu opens as soon as stage1 is met -- exactly
-// the pre-two-stage behaviour. physPadLevelID is the PHYSICAL pad LevelID, the
-// same key ctr_cfg_warp_unlocked uses. Accepts cup pads 100..104
-// (-> gem_cup_unlock[phys-100].stage2): under `merged` shuffle a cup PHYSICAL pad
-// can host a trophy-race destination, which per the contract §2 stage-2 rule
-// carries a real stage2, so the cup pad's stage2 must be honoured here.
-// IMPLEMENTED C-SIDE in ap_hooks.c.
+// Whether the physical plan pad's stage-2 item mask is satisfied. The mode
+// selector also requires the pad's first race check. No plan means no stage 2.
 int ctr_cfg_warp_stage2_unlocked(int physPadLevelID);
-
-// The stage-2 requirement record for a physical pad, or NULL when it has none
-// (type 0 / invalid id / slot_data inactive). Single source for the stage-2
-// key logic: dense pads 0..27 via warp_pad_unlock, cup pads 100..104 via
-// gem_cup_unlock. ctr_cfg_warp_stage2_unlocked and the LInB re-lock advert
-// both resolve through it. IMPLEMENTED C-SIDE in ap_hooks.c.
-const ctr_req *ctr_cfg_warp_stage2_req(int physPadLevelID);
 
 // Slide Coliseum (trial pad 16) stage-1 requirement. The retail gate is 10
 // Sapphire Relics (CTR_CFG_SLIDE_COLISEUM_RETAIL_SAPPHIRES), which native applies
@@ -1104,6 +1096,7 @@ int AP_BossVenueAdvert(int bossIdx, char *out, int cap);
 // #169 tier 3: "Kit: <families>" for one with a composed kit. 0 otherwise.
 // IMPLEMENTED C-SIDE in ap_hooks_gates.c.
 int AP_BossRivalAdvert(int bossIdx, char *out, int cap);
+int AP_BossChallengeTitle(int bossIdx, char *out, int cap);
 int AP_BossKitAdvert(int bossIdx, char *out, int cap);
 
 // #169 tier 2: the engine character garage bossIdx races (the garage load
@@ -1119,6 +1112,17 @@ int AP_BossRaceOpponentModels(int player, int *extra);
 // Oxide races when the seed drew one (boss_oxide_in_pool), else -1. bossID
 // stays 4 or 5. IMPLEMENTED in ap_seedcfg.cpp.
 int AP_BossFinalGarageOpponent(void);
+// The chaos Final Challenge race is being loaded or run.
+int AP_ChaosFinalNow(void);
+// Its five rivals, the final racer first; 0 when this is no such race.
+int AP_ChaosFinalLineup(int out[5]);
+// "Chaos: N rivals" for the garage and the tracker; 0 without a chaos final.
+int AP_ChaosFinalAdvert(char *out, int cap);
+// The gauntlet leg being loaded: the racer who must be seated, or -1.
+int AP_BossGauntletLoadAttacker(void);
+// A gauntlet's Purple Gem Cup is being loaded or run, any leg. With Hit
+// Character off and bosses in place, only these legs draw the field.
+int AP_BossGauntletCupNow(void);
 
 // #169 tier 3: 0 when the running garage race has a composed kit with
 // boss_loss_easing off; 1 otherwise (retail per-loss cooldown easing).

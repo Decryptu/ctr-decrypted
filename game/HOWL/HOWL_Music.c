@@ -148,8 +148,12 @@ u32 Music_AsyncParseBanks(void)
 			{
 				if (HOWL_CustomMusic_LoadBank(&thisBank))
 					goto LEVEL_FX_DONE;
-				bankID = CTR_CUSTOM_FX_BANK;
+				bankID = HOWL_CustomMusic_FallbackFXBank();
 			}
+			// The Cortex Vortex race: its bundled music when it fits,
+			// Oxide Station's bank (the host level) otherwise.
+			else if (HOWL_CustomMusic_CortexLoadBank(level, &thisBank))
+				goto LEVEL_FX_DONE;
 			else
 #endif
 			if (level < INTRO_RACE_TODAY)
@@ -388,8 +392,12 @@ u32 Music_AsyncParseBanks(void)
 			{
 				if (HOWL_CustomMusic_SetSong())
 					goto LEVEL_SONG_DONE;
-				songID = CTR_CUSTOM_SONG_BANK;
+				songID = HOWL_CustomMusic_FallbackSongBank();
 			}
+			// Cortex Vortex's song goes with its bank: SetSong answers 0
+			// unless stage 0 loaded the bundled bank.
+			else if (HOWL_CustomMusic_SetSong())
+				goto LEVEL_SONG_DONE;
 			else
 #endif
 			if (level < INTRO_RACE_TODAY)

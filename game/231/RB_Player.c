@@ -168,12 +168,13 @@ void RB_Player_ModifyWumpa(struct Driver *driver, int wumpaDelta)
 	{
 		// for end-of-race comments
 		driver->numTimesWumpa += wumpaDelta;
-#ifdef CTR_AP
-		// #249: fruit past 10 goes into the Wumpa bank.
-		AP_WumpaBankKart(driver, numWumpaOriginal, wumpaDelta);
-#endif
 	}
 
+#ifdef CTR_AP
+	// Keep ten held fruit and bank overflow in Adventure races.
+	if (!AP_WumpaRaceModify(driver, wumpaDelta))
+#endif
+	{
 	// works for positive and negative delta
 	driver->numWumpas += wumpaDelta;
 
@@ -187,6 +188,7 @@ void RB_Player_ModifyWumpa(struct Driver *driver, int wumpaDelta)
 	if (driver->numWumpas > DRIVER_WUMPA_MAX_COUNT)
 	{
 		driver->numWumpas = DRIVER_WUMPA_MAX_COUNT;
+	}
 	}
 
 	if (

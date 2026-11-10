@@ -3,10 +3,10 @@
 
 // The Wumpa Shop and the Wumpa goal (#249): pure state and decisions.
 //
-// BANKING. In an Adventure race, every fruit the local player collects while
-// already holding 10 is banked at once, and so is the fruit held at a
-// legitimate race finish (decision 22, 2026-10-28: Adventure only). AP fruit
-// that would pass 10 also banks at once, in or out of a race. A banked
+// BANKING. In an Adventure race, hold ten and bank overflow immediately.
+// Hits reduce only held fruit. A finish banks remaining held fruit once;
+// exit, restart and a received DeathLink loss exclude the starting fruit.
+// Outside a race, all received AP fruit banks at once. A banked
 // fruit adds once to the LIFETIME total, which the Wumpa goal counts and which
 // never goes down. The wallet balance is lifetime minus the prices of the
 // distinct purchases (design note, "Wallet accounting"). Banking runs when
@@ -118,8 +118,9 @@ static inline int AP_WumpaBankOverflow(int held, int delta)
 
 // The held-at-finish payout, once per race attempt. A new attempt (observed
 // countdown, which a pause-menu restart also produces) arms it; the finish
-// edge takes it. A forced DeathLink loss, a quit or a restart pays nothing:
-// the first is refused here, the other two never reach a finish edge.
+// edge or the attempt's abandonment takes it, whichever comes first. A forced
+// DeathLink loss, an exit to the map and a restart take the abandoned payout
+// below instead of the held count (ruled 2026-11-04).
 typedef struct AP_WumpaFinishLatch
 {
 	int armed;
@@ -133,7 +134,24 @@ static inline int AP_WumpaFinishTake(AP_WumpaFinishLatch *l, int held, int force
 	l->armed = 0;
 	if (!armed || forcedLoss || held <= 0)
 		return 0;
-	return held > AP_WUMPA_KART_MAX ? AP_WUMPA_KART_MAX : held;
+	return held;
+}
+
+// The abandoned-attempt payout (ruled 2026-11-04): the fruit picked up in the
+// race minus hits taken, which is the surviving count minus the fruit the
+// attempt started with (the kart's own start plus Progressive Starting Wumpa),
+// so a restart loop can never bank starting fruit. count < 0 means the attempt
+// never touched its fruit. Takes the same latch, so an exit followed by the
+// forced reload, or a finish followed by RETRY, pays once.
+static inline int AP_WumpaLeaveTake(AP_WumpaFinishLatch *l, int count, int start)
+{
+	int armed = l->armed;
+	l->armed = 0;
+	if (!armed || count < 0)
+		return 0;
+	if (start < 0)
+		start = 0;
+	return count > start ? count - start : 0;
 }
 
 // What a shop row shows and whether Cross buys it.
@@ -191,11 +209,49 @@ static inline int AP_WumpaShopTrackerLine(char *out, int cap, AP_WumpaShopTally 
 	                t.left, t.left == 1 ? "" : "S", t.open, t.affordable);
 }
 
+// The log line of a received Wumpa Fruit item (AP_WumpaReceive): `held` fruit
+// waits for the kart (`pending` in all), `banked` went past 10 into the Wumpa
+// bank, `discarded` went past 10 with banking off. "banked" is only ever the
+// Wumpa bank (2026-11-02).
+static inline int AP_WumpaReceiveLine(char *out, int cap, int held, int pending, int banked,
+                                      int discarded, int max)
+{
+	if (held > 0 && banked > 0)
+		return snprintf(out, (size_t)cap, "[AP WUMPA] held for the kart +%d (pending %d), banked +%d past %d\n",
+		                held, pending, banked, max);
+	if (banked > 0)
+		return snprintf(out, (size_t)cap, "[AP WUMPA] banked +%d past %d (kart full)\n", banked, max);
+	if (discarded == 0)
+		return snprintf(out, (size_t)cap, "[AP WUMPA] held for the kart +%d (pending %d)\n", held, pending);
+	if (held == 0)
+		return snprintf(out, (size_t)cap, "[AP WUMPA] discarded +%d (kart full at %d)\n", discarded, max);
+	return snprintf(out, (size_t)cap, "[AP WUMPA] held for the kart +%d, discarded +%d (kart full at %d)\n",
+	                held, discarded, max);
+}
+
 // The hub counter (decision 20, 2026-10-28): spendable balance and lifetime
-// banked total.
+// banked total, labelled COLLECTED (ruling of 2026-11-02). FONT_SMALL is 13 px a
+// glyph on the 512 px wide screen, so 39 glyphs fit; six-digit numbers take
+// 32 here and 34 in the shop header.
 static inline int AP_WumpaHubLine(char *out, int cap, long long balance, long long lifetime)
 {
-	return snprintf(out, (size_t)cap, "WUMPA %lld   BANKED %lld", balance, lifetime);
+	int n = snprintf(out, (size_t)cap, "WUMPA %lld  COLLECTED %lld", balance, lifetime);
+	if (n <= 39) return n;
+	return snprintf(out, (size_t)cap, "WUMPA %.4g COLLECTED %.4g", (double)balance, (double)lifetime);
+}
+
+// The shop page header: the same two numbers.
+static inline int AP_WumpaShopHeaderLine(char *out, int cap, long long balance, long long lifetime)
+{
+	int n = snprintf(out, (size_t)cap, "BALANCE %lld  COLLECTED %lld", balance, lifetime);
+	if (n <= 35) return n;
+	// The panel is 464 pixels wide: at most 35 small glyphs. Preserve exact
+	// totals where possible; unusually large totals use significant digits.
+	n = snprintf(out, (size_t)cap, "BALANCE %lld COLLECTED %lld", balance, lifetime);
+	if (n <= 35) return n;
+	n = snprintf(out, (size_t)cap, "BALANCE %.3g COLLECTED %.3g", (double)balance, (double)lifetime);
+	if (n <= 35) return n;
+	return snprintf(out, (size_t)cap, "BALANCE %.2g COLLECTED %.2g", (double)balance, (double)lifetime);
 }
 
 // Goal arm: off, or the lifetime total reached the target. An unreadable

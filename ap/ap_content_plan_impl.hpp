@@ -12,6 +12,7 @@
 #include "ap_content_plan.h"
 #include "ap_content_registry.hpp"
 #include "ap_named_blocks.h"
+#include "ap_box_spot_logic.h"
 #include "ap_arena_content.h"
 #include "ap_wumpa_shop.h"
 #include <array>
@@ -42,12 +43,23 @@ struct State {
     ctr_content_capability capability{};
     std::map<int64_t, int> boosts, starts;
     std::set<int64_t> checks;
+    std::map<std::string, ctr_content_sanity> sanity;
+    std::map<int, std::array<std::set<int64_t>, 3>> sanity_pads;
+    std::array<std::string, 6> sanity_boss_tracks;
     // Global check families (#133 PR 4d): the `global_checks` record.
     bool itemsanity = false, hit = false;
     // Item Box Locations (#133 PR 4e): the `item_boxes` record, and the box
     // checks that carry the hard-tier stat term (`stats`).
     ctr_content_item_boxes item_boxes{};
     std::set<int64_t> stat_checks;
+    // Hand-placed box spots (A3-14): `item_boxes.spot_sets` by track id, and
+    // each spot box's number and position by location code (`spot`).
+    struct SpotSet { int pool = 0; std::vector<int> picked; std::string lev_sha256; bool used = false; };
+    std::map<std::string, SpotSet> spot_sets;
+    struct CrateExclusions { std::string lev; std::vector<int> ordinals; std::vector<std::array<short, 3>> positions; bool used = false; };
+    std::map<std::string, CrateExclusions> crate_exclusions;
+    struct BoxSpot { int number = 0; bool seen = false; short x = 0, y = 0, z = 0, rot_y = 0; };
+    std::map<int64_t, BoxSpot> box_spots;
     // Boss garages (#133 PR 6): the `bosses` record and the venues its
     // encounters race (engine LevelIDs; the Final Challenge on Cortex Vortex
     // or Oxide Station). goal_count is 0 when the goal has no Gem arm.
@@ -216,6 +228,15 @@ static void package_record(const J &pkg, ctr_content_package &target) {
     if (mode_caps.is_object() && mode_caps.contains("weapon_crates")) {
         target.weapon_crates = number(mode_caps["weapon_crates"], 0, AP_CONTENT_WEAPON_CRATES_MAX);
         mode_caps.erase("weapon_crates");
+    }
+    target.fruit_crates = target.loose_fruit = AP_CONTENT_WEAPON_CRATES_UNSTATED;
+    if (mode_caps.is_object() && mode_caps.contains("fruit_crates")) {
+        target.fruit_crates = number(mode_caps["fruit_crates"], 0, AP_CONTENT_WEAPON_CRATES_MAX);
+        mode_caps.erase("fruit_crates");
+    }
+    if (mode_caps.is_object() && mode_caps.contains("loose_fruit")) {
+        target.loose_fruit = number(mode_caps["loose_fruit"], 0, AP_CONTENT_WEAPON_CRATES_MAX);
+        mode_caps.erase("loose_fruit");
     }
     // `checkpoints` and `ai_nav` (#133 PR 6b) are optional: the restart point
     // count and whether the LEV has AI paths, measured and compared on load.
@@ -439,10 +460,62 @@ static std::map<int64_t, int> capability_rows(const ctr_content_capability &c) {
 // Item Box Locations (#133 PR 4e), apworld content_item_boxes.check_settings:
 // exactly `shortcut_knowledge` 0 to 2, equal to the capability record's when
 // that is present (checked by the caller once both are read).
+// Hand-placed box spots (A3-14, apworld content_item_boxes.check_spot_sets):
+// with `spot_sets`, one record per pad track that has a spot file. Which
+// numbers are eligible only the apworld knows, so the client checks the shape
+// (ap_box_spot_logic.h) and that each named track exists with a box identity.
 static void item_box_settings(const J &t, State &out) {
-    fields(t, {"shortcut_knowledge"});
+    need(t.is_object() && t.contains("shortcut_knowledge") && t.size() == 1u + t.count("spot_sets") + t.count("crate_exclusions") + t.count("box_count"),
+         "unsupported or incomplete record fields");
     out.item_boxes.present = 1;
+    out.item_boxes.box_count = t.contains("box_count") ? number(t["box_count"], 1, 50) : 15;
+    need(!t.contains("box_count") || out.item_boxes.box_count != 15, "default box_count must be omitted");
     out.item_boxes.shortcut_knowledge = number(t["shortcut_knowledge"], 0, 2);
+    if (t.contains("crate_exclusions")) {
+        const auto &sets = t["crate_exclusions"];
+        need(sets.is_array() && !sets.empty() && sets.size() <= AP_CONTENT_MAX_PACKAGES, "crate exclusions must be a nonempty list");
+        for (const auto &set : sets) {
+            fields(set, {"track_id", "lev_sha256", "crates"});
+            need(set["track_id"].is_string() && set["lev_sha256"].is_string() &&
+                 lower_hex(set["lev_sha256"].get<std::string>(), 64), "crate exclusions need a track and LEV digest");
+            State::CrateExclusions ex;
+            ex.lev = set["lev_sha256"].get<std::string>();
+            need(set["crates"].is_array() && !set["crates"].empty() && set["crates"].size() <= 16, "crate exclusions need 1 to 16 crates");
+            int previous = 0;
+            for (const auto &crate : set["crates"]) {
+                fields(crate, {"ordinal", "pos"});
+                int n = number(crate["ordinal"], 1, 65536);
+                need(n > previous, "excluded crate ordinals must be strictly increasing");
+                previous = n;
+                need(crate["pos"].is_array() && crate["pos"].size() == 3, "excluded crate needs three coordinates");
+                std::array<short, 3> pos;
+                for (int axis = 0; axis < 3; ++axis) pos[axis] = (short)number(crate["pos"][axis], -32768, 32767);
+                ex.ordinals.push_back(n); ex.positions.push_back(pos);
+            }
+            need(out.crate_exclusions.emplace(set["track_id"].get<std::string>(), ex).second, "duplicate excluded track");
+        }
+    }
+    if (!t.contains("spot_sets")) return;
+    const J &sets = t["spot_sets"];
+    need(sets.is_array() && !sets.empty() && sets.size() <= 160, "item_boxes.spot_sets must be a nonempty list");
+    for (const auto &set : sets) {
+        need(set.is_object() && set.contains("track_id") && set.contains("file_sha256") && set.contains("pool") &&
+             set.contains("picked") && set.size() == (set.contains("lev_sha256") ? 5u : 4u),
+             "a box spot set holds track_id, file_sha256, pool, picked and a custom track's lev_sha256");
+        need(set["track_id"].is_string() && set["file_sha256"].is_string() && lower_hex(set["file_sha256"].get<std::string>(), 64),
+             "a box spot set names its track and spot file digest");
+        State::SpotSet spots;
+        spots.pool = number(set["pool"], 0, AP_BOX_SPOT_MAX_NUMBER);
+        need(set["picked"].is_array(), "box spot picks must be a list");
+        for (const auto &n : set["picked"]) spots.picked.push_back(number(n, 1, AP_BOX_SPOT_MAX_NUMBER));
+        need(AP_BoxSpot_PickShapeCount(spots.pool, spots.picked.data(), (int)spots.picked.size(), out.item_boxes.box_count) != 0,
+             "box spot picks disagree with box_count or the pool");
+        if (set.contains("lev_sha256")) {
+            need(set["lev_sha256"].is_string() && lower_hex(set["lev_sha256"].get<std::string>(), 64), "a box spot LEV pin is a SHA-256");
+            spots.lev_sha256 = set["lev_sha256"].get<std::string>();
+        }
+        need(out.spot_sets.emplace(set["track_id"].get<std::string>(), spots).second, "two box spot sets for one track");
+    }
 }
 // The seats a custom track's boxes take: min(crates, 15), spread over the
 // crate table (ap_box_seat_logic.h computes which).
@@ -482,12 +555,19 @@ static void boss_settings(const J &b, ctr_content_bosses &out) {
     // J11: the opponent and kit keys come together, present exactly when the
     // seed draws an opponent or a kit or composes N. Oxide's profile.
     out.extended = b.is_object() && b.contains("opponent_shuffle") ? 1 : 0;
+    // The chaos Final Challenge: one optional key, true when present.
+    out.final_chaos = b.is_object() && b.contains("final_chaos") ? 1 : 0;
+    J base = b;
+    if (out.final_chaos) {
+        need(b["final_chaos"].is_boolean() && b["final_chaos"].get<bool>(), "bosses.final_chaos is true when present");
+        base.erase("final_chaos");
+    }
     if (out.extended)
-        fields(b, {"oxide_goal", "bosses_required", "oxide_1_optional", "oxide_final_unlock", "oxide_final_count", "track_shuffle",
-                   "repeats", "requirement_level", "cups", "opponent_shuffle", "oxide_in_pool", "kit_shuffle", "gauntlet", "kit",
-                   "oxide_attack_profile", "track_assignment"});
+        fields(base, {"oxide_goal", "bosses_required", "oxide_1_optional", "oxide_final_unlock", "oxide_final_count", "track_shuffle",
+                      "repeats", "requirement_level", "cups", "opponent_shuffle", "oxide_in_pool", "kit_shuffle", "gauntlet", "kit",
+                      "oxide_attack_profile", "track_assignment"});
     else
-        fields(b, {"oxide_goal", "bosses_required", "oxide_1_optional", "oxide_final_unlock", "oxide_final_count", "track_shuffle", "repeats", "requirement_level", "cups"});
+        fields(base, {"oxide_goal", "bosses_required", "oxide_1_optional", "oxide_final_unlock", "oxide_final_count", "track_shuffle", "repeats", "requirement_level", "cups"});
     out.present = 1;
     // #133 PR 6b: the ordinary garages holding a boss cup, distinct and in order.
     need(b["cups"].is_array() && b["cups"].size() <= 4, "bosses.cups must list ordinary garages");
@@ -507,6 +587,7 @@ static void boss_settings(const J &b, ctr_content_bosses &out) {
         need(out.requirement_level >= 0, "bosses.requirement_level must be standard, high, very_high or chaotic");
     }
     out.oxide_goal = number(b["oxide_goal"], 0, 3);
+    need(!out.final_chaos || out.oxide_goal != 3, "bosses.final_chaos needs N. Oxide's races");
     out.bosses_required = number(b["bosses_required"], 0, 4);
     for (const char *key : {"oxide_1_optional", "track_shuffle", "repeats"})
         need(b[key].is_boolean(), std::string("bosses.") + key + " must be true or false");
@@ -674,12 +755,16 @@ static void vanilla_pads(const State &out)
     for (const auto &row : rows)
         for (const auto &pad : out.pads) {
             if (pad.physical != row.physical || !pad.occupied) continue;
+            // Turbo Track asks one Gem of each colour (row 10i): its supply is
+            // the colours the seed has.
+            const bool distinct = row.physical == 17;
             unsigned mask = 0;
             long long supply = 0;
             for (int i = row.first; i <= row.last; ++i)
-                if (out.items[i].base) { mask |= 1u << i; supply += out.items[i].base; }
+                if (out.items[i].base) { mask |= 1u << i; supply += distinct ? 1 : out.items[i].base; }
             const long long want = std::min<long long>(row.count, supply);
-            need(want ? pad.has_rule && pad.rule_mask == mask && pad.rule_count == want : !pad.has_rule,
+            need(want ? pad.has_rule && pad.rule_mask == mask && pad.rule_count == want && pad.rule_distinct == (distinct ? 1 : 0)
+                      : !pad.has_rule,
                  "vanilla stage 1 requirements do not match the physical pads");
             const int keys = pad.physical >= 100 ? 3 : (pad.physical == 16 || pad.physical == 17) ? 2 : pad.keys + 1;
             if (pad.mode_count > 1 && any_stage2)
@@ -689,6 +774,9 @@ static void vanilla_pads(const State &out)
 }
 // The flag ap_seedcfg strips from the envelope before admission.
 static bool envelope_spoiler_items = false;
+// The envelope's `color_boxes_by_item`, set by parse_content_plan before
+// validate(): AP Box Colours exists only when the plan's boxes are coloured.
+static bool envelope_box_colours = false;
 static const int64_t kWarpPadPreviewItem = 35010204, kApBoxColoursItem = 35010205;
 static const int64_t kFirstSurfaceItem = 35010021, kLastSurfaceItem = 35010025; // the useful surface items
 static const int kPurpleGemCup = 104;     // the Purple Gem Cup's engine LevelID
@@ -706,6 +794,7 @@ static Table table(const J &rows, size_t maximum) {
     }
     return result;
 }
+#include "ap_content_sanity_impl.hpp"
 static void validate(const J &p, State &out) {
     size_t nodes = 0, bytes = 0;
     budget(p, 0, nodes, bytes);
@@ -719,6 +808,7 @@ static void validate(const J &p, State &out) {
     const bool has_capability = p.is_object() && p.contains("capability");
     const bool has_global = p.is_object() && p.contains("global_checks");
     const bool has_boxes = p.is_object() && p.contains("item_boxes");
+    const bool has_sanity = p.is_object() && p.contains("sanity");
     const bool has_bosses = p.is_object() && p.contains("bosses"); // #133 PR 6
     // Row 5: `adventure_structure` (ctr_first) and the `wumpa_shop` record.
     const bool has_structure = p.is_object() && p.contains("adventure_structure");
@@ -735,7 +825,7 @@ static void validate(const J &p, State &out) {
     need(p.is_object() && p.size() == 11u + (has_families ? 1u : 0u) + (has_packs ? 1u : 0u) + (has_racers ? 1u : 0u) +
                                          (has_capability ? 1u : 0u) + (has_global ? 1u : 0u) + (has_boxes ? 1u : 0u) +
                                          (has_bosses ? 1u : 0u) + (has_pad_requirements ? 1u : 0u) + (has_fixed ? 1u : 0u) +
-                                         (has_structure ? 1u : 0u) + (has_shop ? 1u : 0u) + (has_pad_client ? 1u : 0u),
+                                         (has_structure ? 1u : 0u) + (has_shop ? 1u : 0u) + (has_pad_client ? 1u : 0u) + (has_sanity ? 1u : 0u),
          "unsupported or incomplete record fields");
     if (has_structure) need(p["adventure_structure"] == "ctr_first", "adventure_structure must be ctr_first when present");
     out.ctr_first = has_structure;
@@ -753,7 +843,12 @@ static void validate(const J &p, State &out) {
     out.wumpa = ctr_content_wumpa{};
     if (has_shop) {
         const J &w = p["wumpa_shop"];
-        fields(w, {"slots", "prices", "progression", "hints"});
+        J shape = w;
+        if (w.contains("logic_scale")) {
+            number(w["logic_scale"], 25, 400);
+            shape.erase("logic_scale");
+        }
+        fields(shape, {"slots", "prices", "progression", "hints"});
         out.wumpa.shop_slots = number(w["slots"], 1, AP_WUMPA_SHOP_MAX_SLOTS);
         out.wumpa.prices = number(w["prices"], 25, 400);
         need(w["progression"] == "allowed" || w["progression"] == "excluded", "wumpa_shop.progression must be allowed or excluded");
@@ -778,10 +873,11 @@ static void validate(const J &p, State &out) {
     if (has_families) family_settings(p["track_checks"], fam);
     const std::map<int64_t, int> packs = has_packs ? item_packs(p["item_packs"], has_boxes) : std::map<int64_t, int>{};
     // Spoiler Items: the envelope flag agrees with the reveal items, and AP Box
-    // Colours exists exactly with AP item boxes (apworld check_spoiler_envelope).
+    // Colours exists exactly with coloured AP item boxes, so not with
+    // `color_boxes_by_item` false (apworld check_spoiler_envelope).
     need(envelope_spoiler_items == (packs.count(kWarpPadPreviewItem) != 0), "spoiler_items envelope disagrees with the plan's item_packs");
-    need((packs.count(kApBoxColoursItem) != 0) == (envelope_spoiler_items && has_boxes),
-         "item_packs.ap_box_colours disagrees with the plan's item boxes");
+    need((packs.count(kApBoxColoursItem) != 0) == (envelope_spoiler_items && has_boxes && envelope_box_colours),
+         "item_packs.ap_box_colours disagrees with the plan's coloured item boxes");
     // Character unlocks (#133 PR 4b): one ledger row per unlock racer.
     std::map<int64_t, int> racer_rows;
     if (has_racers) {
@@ -822,9 +918,8 @@ static void validate(const J &p, State &out) {
     for (const auto &row : named_table) reserved_titles.insert(fold(row.second.name));
     reserved_titles.insert(fold(registry["cortex_vortex"]["name"].get<std::string>()));
     const auto packages = table(p.at("packages"), AP_CONTENT_MAX_PACKAGES);
-    // Cups (#133 PR 5) add tracks raced only as legs: at most every retail
-    // race track, every package and Cortex Vortex.
-    const auto tracks = table(p.at("tracks"), 64);
+    // Cups (#133 PR 5) add tracks raced only as legs.
+    const auto tracks = table(p.at("tracks"), AP_CONTENT_MAX_TRACKS);
     const auto entries = table(p.at("entries"), 33); // 27 pads and six boss encounters
     const auto pads = table(p.at("pads"), 32);
     const auto requirements = table(p.at("requirements"), 70); // 5 hub, 27 manual or stage-1, 27 stage-2, 6 boss
@@ -917,7 +1012,7 @@ static void validate(const J &p, State &out) {
                 }
         }
     }
-    need(p["checks"].is_array() && p["checks"].size()<=4096,"check array bounds");
+    need(p["checks"].is_array() && p["checks"].size()<=16384,"check array bounds");
     bool plan_laps = false; // #344: lap checks exist for every raced track or none
     for(const auto &check:p["checks"]) { pickups |= check.at("kind")=="crystal_pickup"; plan_laps |= check.at("kind")=="lap"; }
     J features=J::array({"content_plan_v1"});
@@ -935,6 +1030,9 @@ static void validate(const J &p, State &out) {
     if(has_capability)features.push_back("capability_packs_v1");
     if(has_global)features.push_back("global_checks_v1");
     if(has_boxes)features.push_back("item_boxes_v1"); // #133 PR 4e
+    if(has_boxes&&p["item_boxes"].is_object()&&p["item_boxes"].contains("spot_sets"))features.push_back("box_spots_v1"); // A3-14
+    if(has_boxes&&p["item_boxes"].is_object()&&p["item_boxes"].contains("crate_exclusions"))features.push_back("crate_exclusions_v1");
+    if(has_boxes&&p["item_boxes"].is_object()&&p["item_boxes"].contains("box_count"))features.push_back("box_count_v1");
     if(cups)features.push_back("cup_entries_v1");      // #133 PR 5
     if(has_bosses)features.push_back("boss_encounters_v1"); // #133 PR 6
     if(gem_cups)features.push_back("gem_cups_v1");          // one generator row 2
@@ -945,7 +1043,14 @@ static void validate(const J &p, State &out) {
     // Row 5, after every earlier feature and in this order.
     if(has_structure)features.push_back("ctr_first_v1");
     if(out.bosses.extended)features.push_back("boss_opponents_v1");
+    if(out.bosses.final_chaos)features.push_back("final_chaos_v1");
+    if(has_sanity) {
+        need(p["sanity"].is_object() && p["sanity"].contains("itemboxsanity") && p["sanity"].contains("wumpasanity"), "sanity settings missing");
+        if(number(p["sanity"]["itemboxsanity"],0,50))features.push_back("itemboxsanity_v1");
+        if(number(p["sanity"]["wumpasanity"],0,3))features.push_back("wumpasanity_v1");
+    }
     if(has_shop)features.push_back("wumpa_shop_v1");
+    if(has_shop && p["wumpa_shop"].contains("logic_scale"))features.push_back("wumpa_shop_key_tiers_v1");
     if(wumpa_goal)features.push_back("wumpa_goal_v1");
     if(has_pad_client)features.push_back("pad_client_v1"); // one generator row 6
     if(plan_laps)features.push_back("lap_checks_v1");             // #344
@@ -1038,13 +1143,24 @@ static void validate(const J &p, State &out) {
         lt.title = title;
         if (track.at("origin") == "retail") {
             fields(track, {"id", "origin", "retail_id", "display_name", "laps", "modes", "capabilities", "field_size"});
+            // Every retail race track 0..17 can be a leg, Slide Coliseum (16)
+            // and Turbo Track (17) too (ruled 2026-11-05); a boss cup still
+            // races the 16 Trophy tracks only (checked with its legs below).
             const int rid = number(track["retail_id"], 0, 17);
-            need(rid < 16 && track_id == "retail:" + std::to_string(rid) && title == registry["retail"][rid]["name"] &&
+            need(track_id == "retail:" + std::to_string(rid) && title == registry["retail"][rid]["name"] &&
                  track["laps"] == AP_CONTENT_RETAIL_LAPS, "a retail cup leg is not a race track or its metadata differs");
             leg.retail_id = rid;
             leg.victory = registry["retail"][rid]["cup_leg"].get<int64_t>();
         } else if (track.at("origin") == "cortex_vortex") {
-            fields(track, {"id", "origin", "package_id", "display_name", "laps", "modes", "capabilities", "field_size"});
+            // `standalone_laps` (A4-13) is inert for a cup leg: a leg races
+            // the track's authored laps, shortened by one_lap_cups as before.
+            // Accept it bounds-checked, then set it aside.
+            J held = track;
+            if (held.contains("standalone_laps")) {
+                number(held["standalone_laps"], 2, 2);
+                held.erase("standalone_laps");
+            }
+            fields(held, {"id", "origin", "package_id", "display_name", "laps", "modes", "capabilities", "field_size"});
             const J &row = registry["cortex_vortex"];
             need(track_id == row["id"].get<std::string>() && track["package_id"] == row["package_id"] &&
                  title == row["name"].get<std::string>() && track["laps"] == row["laps"], "Cortex Vortex metadata mismatch");
@@ -1102,6 +1218,26 @@ static void validate(const J &p, State &out) {
         if (named_block >= 0) return ap_named_location_code(named_block, AP_NAMED_OFF_LAP);
         need(custom_slot >= 1 && custom_slot <= AP_CONTENT_MAX_PACKAGES, "a lap check names no track identity");
         return registry["custom_lap_locations"][custom_slot - 1].get<int64_t>();
+    };
+    // Row 10i (apworld content_race_routes): a route per cup leg and boss
+    // race of a track's Reach 10 Wumpa check, and per cup leg of its rungs.
+    struct RaceUse { std::string track, title, entry, pad, mode, leg, encounter; int64_t code; };
+    std::vector<RaceUse> wumpa_uses;
+    struct RungUse { std::string track, entry, pad, leg; };
+    std::vector<RungUse> rung_uses;
+    // A plan track's per-track Reach 10 Wumpa code and room title, 0 without
+    // per_track or on a track that cannot reach ten fruit (a custom package
+    // without its measured `wumpa` capability).
+    auto wumpa_code = [&](const std::string &track_id, std::string &title) -> int64_t {
+        if (fam.wumpa != 2) return 0;
+        const J &track = *tracks.at(track_id);
+        title = text(track.contains("room_title") ? track["room_title"] : track.at("display_name"), false);
+        if (track.at("origin") == "retail") return registry["retail"][number(track["retail_id"], 0, 17)]["wumpa"].get<int64_t>();
+        if (track.at("origin") == "cortex_vortex") return registry["cortex_vortex"]["wumpa"].get<int64_t>();
+        if (!(out.packages[package_index.at(text(track.at("package_id")))].capabilities & AP_CONTENT_CAP_WUMPA)) return 0;
+        if (track.contains("named_block"))
+            return ap_named_location_code(number(track["named_block"], 0, AP_NAMED_BLOCK_LIMIT - 1), AP_NAMED_OFF_WUMPA);
+        return registry["custom_wumpa_locations"][number(track["custom_slot"], 1, AP_CONTENT_MAX_PACKAGES) - 1].get<int64_t>();
     };
     // A boss venue's lap code and room title, from its plan track record.
     auto venue_lap = [&](const std::string &track_id, std::string &title) -> int64_t {
@@ -1196,6 +1332,13 @@ static void validate(const J &p, State &out) {
                     const ctr_content_leg &l = dest.legs[n];
                     dest.legs[n].lap = lap_code(l.retail_id, l.cortex, l.named_block, l.custom_slot);
                     lap_uses.push_back(LapUse{l.track_id, info.title, entry_id, id, "cup", leg_id, "", dest.legs[n].lap});
+                }
+                {
+                    std::string title;
+                    dest.legs[n].wumpa = wumpa_code(dest.legs[n].track_id, title);
+                    if (dest.legs[n].wumpa)
+                        wumpa_uses.push_back(RaceUse{dest.legs[n].track_id, title, entry_id, id, "cup", leg_id, "", dest.legs[n].wumpa});
+                    if (fam.podium) rung_uses.push_back(RungUse{dest.legs[n].track_id, entry_id, id, leg_id});
                 }
                 if (dest.legs[n].package_index < 0 || out.packages[dest.legs[n].package_index].weapon_crates != 0)
                     cup_hit_routes.push_back(CupHitRoute{physical, entry_id, id, leg_id});
@@ -1305,6 +1448,7 @@ static void validate(const J &p, State &out) {
         std::string check_title = title;
         int64_t codes[AP_CONTENT_MODE_COUNT][3] = {};
         unsigned supported = 0;
+        int standalone_laps = -1; // `standalone_laps` of a Cortex Vortex record (A4-13), -1 when absent
         if (track.at("origin") == "retail") {
             fields(track, {"id", "origin", "retail_id", "display_name", "laps", "modes", "capabilities", "field_size"});
             const int rid = number(track["retail_id"], 0, 17);
@@ -1319,7 +1463,15 @@ static void validate(const J &p, State &out) {
             // Cortex Vortex (#133 PR 3c): the bundled Lockheart pair under its
             // own frozen identity, with no package row and no custom slot. Its
             // bytes are located and hashed on load (ap_hooks_custom_content.c).
-            fields(track, {"id", "origin", "package_id", "display_name", "laps", "modes", "capabilities", "field_size"});
+            // `standalone_laps` (A4-13, ruled 2026-11-09): this pad's races run
+            // that many laps. A plan from before the ruling carries no key and
+            // races the authored three, as it did.
+            J held = track;
+            if (held.contains("standalone_laps")) {
+                standalone_laps = number(held["standalone_laps"], 2, 2);
+                held.erase("standalone_laps");
+            }
+            fields(held, {"id", "origin", "package_id", "display_name", "laps", "modes", "capabilities", "field_size"});
             const J &row = registry["cortex_vortex"];
             need(!cortex_seen && track_id == row["id"].get<std::string>() && track["package_id"] == row["package_id"] &&
                  title == row["name"].get<std::string>() && track["laps"] == row["laps"] && row["laps"] == AP_CONTENT_CORTEX_LAPS,
@@ -1381,7 +1533,8 @@ static void validate(const J &p, State &out) {
             }
         }
         need((track_bits & ~supported) == 0, "a track mode its capabilities do not allow");
-        dest.occupied = 1; dest.laps = number(track["laps"], 1, 7);
+        dest.occupied = 1;
+        dest.laps = standalone_laps > 0 ? standalone_laps : number(track["laps"], 1, 7);
         copy(dest.entry_id, entry["id"]); copy(dest.track_id, track["id"]); copy(dest.display_name, track["display_name"]);
         copy(dest.room_title, J(check_title));
         dest.trophy_location = (track_bits & (1u << AP_CONTENT_MODE_TROPHY)) ? codes[AP_CONTENT_MODE_TROPHY][0] : 0;
@@ -1500,11 +1653,43 @@ static void validate(const J &p, State &out) {
         }
         // Item Box Locations (#133 PR 4e), after the track's other checks: a
         // retail track's frozen slots its tier creates (registry `boxes`, one
-        // [code, tier] per placed slot), a named-block custom track's Item
-        // Box 1 to min(weapon_crates, 15); a route per mode in the pad's order.
+        // [code, tier] per placed slot), or a custom track's Item Box 1 to
+        // min(weapon_crates, 15); a route per mode in the pad's order.
         if (out.item_boxes.present) {
             int slots = 0;
-            if (dest.retail_id >= 0) {
+            const auto spots = out.spot_sets.find(dest.track_id);
+            if (spots != out.spot_sets.end()) {
+                // Hand-placed spots (A3-14): the picked numbers, each code
+                // re-derived from the track and number; no crate seats.
+                const bool custom = dest.retail_id < 0;
+                need(dest.retail_id >= 0 || (dest.package_index >= 0 && dest.named_block >= 0),
+                     "box spots need a retail track or a named custom track");
+                need(custom == !spots->second.lev_sha256.empty() &&
+                     (!custom || spots->second.lev_sha256 == out.packages[dest.package_index].lev_sha256),
+                     "a box spot set's LEV pin does not match its custom track");
+                int track = -1;
+                if (!custom) {
+                    const J &rows = registry["retail"][dest.retail_id]["boxes"];
+                    need(rows.is_array() && !rows.empty(), "a retail track with box spots has no frozen box block");
+                    track = (int)((rows[0][0].get<int64_t>() - AP_BOX_SPOT_RETAIL_BASE) / AP_BOX_SPOT_RETAIL_STRIDE);
+                }
+                for (int n : spots->second.picked) {
+                    const int64_t code = custom ? ap_named_location_code(dest.named_block, AP_BoxSpot_NamedOffset(n))
+                                                : (int64_t)AP_BoxSpot_RetailCode(track, n);
+                    need(code > 0 && slots < AP_BOX_SPOT_MAX_NUMBER, "a box spot number has no location code");
+                    dest.box_locations[slots] = code;
+                    dest.box_number[slots] = n;
+                    State::BoxSpot spot;
+                    spot.number = n;
+                    need(out.box_spots.emplace(code, spot).second, "two box spots share a location");
+                    ++slots;
+                }
+                dest.box_spots = 1;
+                spots->second.used = true;
+            } else if (dest.retail_id >= 0) {
+                // Every retail track ships a spot file, so a plan with spot
+                // sets names all of its retail pad tracks (A3-14).
+                need(out.spot_sets.empty(), "a retail pad track has no box spot set");
                 const J &rows = registry["retail"][dest.retail_id]["boxes"];
                 need(rows.is_array() && rows.size() <= AP_NAMED_ITEM_BOX_SLOTS, "registry box rows exceed the slot ceiling");
                 for (size_t b = 0; b < rows.size(); ++b)
@@ -1512,18 +1697,34 @@ static void validate(const J &p, State &out) {
                         dest.box_locations[b] = rows[b][0].get<int64_t>();
                         slots = (int)b + 1;
                     }
-            } else if (dest.named_block >= 0 && dest.package_index >= 0) {
-                slots = box_seats(out.packages[dest.package_index].weapon_crates);
-                dest.box_crates = slots ? out.packages[dest.package_index].weapon_crates : 0;
+            } else if (dest.package_index >= 0) {
+                const auto &pkg = out.packages[dest.package_index];
+                const auto excluded = out.crate_exclusions.find(dest.track_id);
+                if (excluded != out.crate_exclusions.end()) {
+                    auto &ex = excluded->second;
+                    need(ex.lev == pkg.lev_sha256 && pkg.weapon_crates >= ex.ordinals.back(), "crate exclusions disagree with package");
+                    dest.box_excluded_count = (int)ex.ordinals.size();
+                    for (int n = 0; n < dest.box_excluded_count; ++n) {
+                        dest.box_excluded[n] = ex.ordinals[n];
+                        for (int axis = 0; axis < 3; ++axis) dest.box_excluded_pos[n][axis] = ex.positions[n][axis];
+                    }
+                    ex.used = true;
+                }
+                slots = box_seats(pkg.weapon_crates - dest.box_excluded_count);
+                slots = std::min(slots, out.item_boxes.box_count);
+                dest.box_crates = slots ? pkg.weapon_crates : 0;
                 for (int b = 0; b < slots; ++b)
-                    dest.box_locations[b] = ap_named_location_code(dest.named_block, AP_NAMED_OFF_ITEM_BOX_1 + b);
+                    dest.box_locations[b] = dest.named_block >= 0
+                        ? ap_named_location_code(dest.named_block, AP_NAMED_OFF_ITEM_BOX_1 + b)
+                        : 35017000 + 15 * (dest.custom_slot - 1) + b;
             }
             dest.box_count = slots;
             for (int b = 0; b < slots; ++b) {
                 if (!dest.box_locations[b]) continue;
                 J routes = J::array();
                 for (int k = 0; k < dest.mode_count; ++k) routes.push_back(route_record(entry_id, mode_names[dest.modes[k]], id, "box"));
-                family_check(dest.box_locations[b], "box", "Item Box " + std::to_string(b + 1), routes);
+                family_check(dest.box_locations[b], "box",
+                             "Item Box " + std::to_string(dest.box_spots ? dest.box_number[b] : b + 1), routes);
             }
         }
         // Complete One Lap (#344): every mode of the pad has laps.
@@ -1555,8 +1756,16 @@ static void validate(const J &p, State &out) {
     for (const auto &pair : leg_tracks)
         if (pair.second.leg.package_index >= 0) used_packages.insert(out.packages[pair.second.leg.package_index].id);
     // The first five cups are the Gem Cups, Red first (one generator row 2).
-    need((gem_colours.empty() || *gem_colours.rbegin() == (int)gem_colours.size() - 1) &&
-         (cup_names.empty() || gem_colours.size() == 5), "a plan's first five cups are the Gem Cups, Red first");
+    // A seed with fewer than five may hold the Purple Gem Cup first and then
+    // Red onward (A3-25, the boss gauntlet); the pads are per colour, so the
+    // order of the colours changes nothing else here.
+    {
+        std::set<int> rest = gem_colours;
+        const bool purple_first = gem_colours.size() < 5 && rest.erase(4) != 0 &&
+                                  (rest.empty() || *rest.rbegin() == (int)rest.size() - 1);
+        need((gem_colours.empty() || *gem_colours.rbegin() == (int)gem_colours.size() - 1 || purple_first) &&
+             (cup_names.empty() || gem_colours.size() == 5), "a plan's first five cups are the Gem Cups, Red first");
+    }
     // `Cup Leg Victory`: a route per occurrence, in the plan's entry order,
     // then leg order (apworld content_cups.leg_victories).
     {
@@ -1608,7 +1817,10 @@ static void validate(const J &p, State &out) {
             // Boss cups (#133 PR 6b): four legs against the garage's own boss
             // alone, boss AI on every leg; a points win completes the garage.
             // Each leg is a certified venue for this garage (as a Boss Track
-            // Shuffle venue), the four are different, three laps each. The
+            // Shuffle venue), the four are different, three laps each, or one
+            // each with one_lap_cups (A3-6, ruled 2026-11-06: a boss cup
+            // follows the same lap setting as other cups, on its own three
+            // laps; the same plan-wide switch as the ordinary cup legs). The
             // garage's cup pad (ap_content_plan_pad(AP_CONTENT_GARAGE_CUP_PAD
             // + g)) carries the legs into the content-cup machinery.
             const bool cup_garage = g < 4 && out.bosses.cup[g];
@@ -1644,8 +1856,16 @@ static void validate(const J &p, State &out) {
                     fields(leg, {"id", "track_id", "laps"});
                     const std::string lid = nid + "/leg:" + std::to_string(n);
                     const std::string ltrack = text(leg["track_id"]);
-                    need(leg["id"] == lid && leg["laps"] == AP_CONTENT_RETAIL_LAPS && seen_legs.insert(ltrack).second,
-                         "a boss cup leg is not its garage's leg, three laps, or repeats a track");
+                    need(leg["id"] == lid && seen_legs.insert(ltrack).second,
+                         "a boss cup leg is not its garage's leg, or repeats a track");
+                    const int leg_laps = number(leg["laps"], 1, 7);
+                    need(leg_laps == AP_CONTENT_RETAIL_LAPS || leg_laps == AP_CONTENT_BOSS_CUP_SHORT_LAPS,
+                         "a boss cup leg races neither three laps nor the shortened-cup lap");
+                    {
+                        const int now = leg_laps == AP_CONTENT_BOSS_CUP_SHORT_LAPS ? 1 : 0;
+                        need(shortened < 0 || shortened == now, "cup legs shorten their laps in some legs and not in others");
+                        shortened = now;
+                    }
                     int points = -1;
                     if (ltrack == "cortex_vortex") points = kCortexRestartPoints;
                     else if (ltrack.rfind("custom/", 0) == 0) {
@@ -1659,6 +1879,7 @@ static void validate(const J &p, State &out) {
                              (digits.size() == 1 || digits[0] != '0'), "unknown boss venue");
                         const int lv = std::stoi(digits);
                         need(lv < 18 && AP_BossVenueTrackKnown(lv), "unknown boss venue");
+                        need(lv < 16, "a boss cup leg is not a Trophy track");
                         points = AP_BOSS_VENUE_RESTART_POINTS[lv];
                     } else need(false, "unknown boss venue");
                     need(points >= 1 && AP_BossVenueScheduleFits(g, points), "a boss cup leg that cannot carry the boss's attack");
@@ -1667,7 +1888,14 @@ static void validate(const J &p, State &out) {
                         const J &track = *tracks.at(ltrack);
                         if (ltrack == "cortex_vortex") {
                             const J &row = registry["cortex_vortex"];
-                            need(!cortex_seen && track == J{{"id", row["id"]}, {"origin", "cortex_vortex"}, {"package_id", row["package_id"]},
+                            // `standalone_laps` (A4-13) is inert on a venue raced
+                            // nowhere else; accept it bounds-checked, then compare.
+                            J held = track;
+                            if (held.contains("standalone_laps")) {
+                                number(held["standalone_laps"], 2, 2);
+                                held.erase("standalone_laps");
+                            }
+                            need(!cortex_seen && held == J{{"id", row["id"]}, {"origin", "cortex_vortex"}, {"package_id", row["package_id"]},
                                                             {"display_name", row["name"]}, {"laps", row["laps"]}, {"modes", J::array({"trophy"})},
                                                             {"capabilities", J::array({"trophy"})}, {"field_size", 8}},
                                  "a boss venue raced nowhere else is not its trophy-only record");
@@ -1684,12 +1912,17 @@ static void validate(const J &p, State &out) {
                     }
                     if (ltrack == "cortex_vortex") out.cortex = true;
                     ctr_content_leg l = leg_track(ltrack).leg;
-                    l.victory = 0; l.laps = AP_CONTENT_RETAIL_LAPS;
+                    l.victory = 0; l.laps = leg_laps;
                     copy(l.leg_id, J(lid));
                     if (plan_laps) {
                         std::string title;
                         l.lap = venue_lap(ltrack, title);
                         lap_uses.push_back(LapUse{ltrack, title, nid, pad, "boss_cup", lid, eid, l.lap});
+                    }
+                    {
+                        std::string title;
+                        l.wumpa = wumpa_code(ltrack, title);
+                        if (l.wumpa) wumpa_uses.push_back(RaceUse{ltrack, title, nid, pad, "boss_cup", lid, eid, l.wumpa});
                     }
                     cp.legs[n] = l;
                     out.bosses.cup_points[g][n] = points;
@@ -1790,7 +2023,14 @@ static void validate(const J &p, State &out) {
                 const J &track = *tracks.at(track_id);
                 if (level == kCortexVenue) {
                     const J &row = registry["cortex_vortex"];
-                    need(!cortex_seen && track == J{{"id", row["id"]}, {"origin", "cortex_vortex"}, {"package_id", row["package_id"]},
+                    // `standalone_laps` (A4-13) is inert on a venue raced
+                    // nowhere else; accept it bounds-checked, then compare.
+                    J held = track;
+                    if (held.contains("standalone_laps")) {
+                        number(held["standalone_laps"], 2, 2);
+                        held.erase("standalone_laps");
+                    }
+                    need(!cortex_seen && held == J{{"id", row["id"]}, {"origin", "cortex_vortex"}, {"package_id", row["package_id"]},
                                                     {"display_name", row["name"]}, {"laps", row["laps"]}, {"modes", J::array({"trophy"})},
                                                     {"capabilities", J::array({"trophy"})}, {"field_size", 8}},
                          "a boss venue raced nowhere else is not its trophy-only record");
@@ -1808,6 +2048,12 @@ static void validate(const J &p, State &out) {
                 std::string title;
                 out.bosses.lap[k] = venue_lap(track_id, title);
                 lap_uses.push_back(LapUse{track_id, title, nid, pad, "boss_race", "", eid, out.bosses.lap[k]});
+            }
+            {
+                std::string title;
+                out.bosses.wumpa[k] = wumpa_code(track_id, title);
+                if (out.bosses.wumpa[k])
+                    wumpa_uses.push_back(RaceUse{track_id, title, nid, pad, "boss_race", "", eid, out.bosses.wumpa[k]});
             }
             const J route{{"entry_id", nid}, {"mode", "boss_race"}, {"leg_id", nullptr}, {"encounter_id", eid}, {"own_pad_id", pad}, {"award", "win"}};
             need(expected_checks.emplace(kBossCodes[k], J{{"location", kBossCodes[k]}, {"owner", eid}, {"kind", "boss_race"},
@@ -1861,6 +2107,103 @@ static void validate(const J &p, State &out) {
         for (const auto &track : order)
             need(expected_checks.emplace(lap_checks[track]["location"].get<int64_t>(), lap_checks[track]).second, "duplicate check identity");
     }
+    // Row 10i (apworld content_race_routes.extend): after a check's own pad
+    // routes, a route per cup leg and boss race in plan entry order, then leg
+    // order. Reach 10 Wumpa takes every cup leg and boss race on a track that
+    // can reach ten fruit, and a track no pad reaches takes its check here.
+    // The rungs of a track with a Trophy Race take its cup legs, never a boss
+    // race. A cup leg track with no rungs of its own (no pad, or a pad without
+    // a Trophy Race) has none, unless cup_only_podium_rungs is on (rulings of
+    // 2026-11-02): then it takes the seed's rungs, routed from those legs
+    // only. The plan carries no flag for it: a
+    // podium check whose routes are all cup leg routes is the option on
+    // (apworld content_race_routes.cup_only_on).
+    {
+        bool cup_only_rungs = false;
+        if (fam.podium && p["checks"].is_array())
+            for (const auto &c : p["checks"]) {
+                if (!c.is_object() || !c.contains("kind") || c["kind"] != "podium" || !c.contains("routes") ||
+                    !c["routes"].is_array() || c["routes"].empty())
+                    continue;
+                bool all_legs = true;
+                for (const auto &r : c["routes"])
+                    all_legs = all_legs && r.is_object() && r.contains("leg_id") && !r["leg_id"].is_null();
+                cup_only_rungs = cup_only_rungs || all_legs;
+            }
+        // A plan track's five rung codes in SLOT_ORDER: retail rows, the
+        // named block's offsets, or the generic slot's family.
+        auto rung_codes = [&](const std::string &track_id, int64_t codes[5]) {
+            const J &track = *tracks.at(track_id);
+            if (track.at("origin") == "retail" || track.at("origin") == "cortex_vortex") {
+                const J &row = track.at("origin") == "cortex_vortex" ? registry["cortex_vortex"]
+                                                                     : registry["retail"][number(track["retail_id"], 0, 17)];
+                for (int k = 0; k < 5; ++k) codes[k] = row["podium"][k].get<int64_t>();
+            } else if (track.contains("named_block")) {
+                const int block = number(track["named_block"], 0, AP_NAMED_BLOCK_LIMIT - 1);
+                for (int k = 0; k < 5; ++k) codes[k] = ap_named_location_code(block, AP_NAMED_OFF_HELD_1ST + k);
+            } else {
+                const int s = number(track["custom_slot"], 1, AP_CONTENT_MAX_PACKAGES) - 1;
+                for (int k = 0; k < 5; ++k) codes[k] = registry["custom_podium_locations"][s][k].get<int64_t>();
+            }
+        };
+        std::map<std::string, size_t> entry_order;
+        for (size_t i = 0; i < p["entries"].size(); ++i) entry_order[p["entries"][i].at("id").get<std::string>()] = i;
+        std::stable_sort(wumpa_uses.begin(), wumpa_uses.end(), [&](const RaceUse &a, const RaceUse &b) {
+            return entry_order.at(a.entry) < entry_order.at(b.entry); });
+        std::stable_sort(rung_uses.begin(), rung_uses.end(), [&](const RungUse &a, const RungUse &b) {
+            return entry_order.at(a.entry) < entry_order.at(b.entry); });
+        auto leg_route = [](const std::string &entry, const char *mode, const std::string &leg, const std::string &encounter,
+                            const std::string &pad, const char *award) {
+            return J{{"entry_id", entry}, {"mode", mode}, {"leg_id", leg.empty() ? J(nullptr) : J(leg)},
+                     {"encounter_id", encounter.empty() ? J(nullptr) : J(encounter)}, {"own_pad_id", pad}, {"award", award}};
+        };
+        for (const auto &use : rung_uses) {
+            bool own_rungs = false;
+            for (const auto &pad : out.pads) {
+                if (!pad.occupied || pad.cup || pad.crystal || use.track != pad.track_id) continue;
+                for (int r = 0; r < 5; ++r) {
+                    if (!pad.rung_locations[r]) continue;
+                    own_rungs = true;
+                    const auto it = expected_checks.find(pad.rung_locations[r]);
+                    need(it != expected_checks.end(), "a rung code without its check");
+                    it->second["routes"].push_back(leg_route(use.entry, "cup", use.leg, "", use.pad, rung_keys[r]));
+                }
+            }
+            if (own_rungs || !cup_only_rungs) continue;
+            // A cup leg track with no rungs of its own: its rungs, created at
+            // its first leg, and the leg's own codes for the runtime.
+            int64_t codes[5] = {};
+            rung_codes(use.track, codes);
+            const J &track = *tracks.at(use.track);
+            const std::string title = text(track.contains("room_title") ? track["room_title"] : track.at("display_name"), false);
+            ctr_content_leg *leg = nullptr;
+            for (auto &cup : out.pads)
+                if (cup.occupied && cup.cup && use.entry == cup.entry_id)
+                    for (int n = 0; n < AP_CONTENT_CUP_LEGS; ++n)
+                        if (use.leg == cup.legs[n].leg_id) leg = &cup.legs[n];
+            need(leg != nullptr, "a cup leg rung route names no leg");
+            for (int r = 0; r < 5; ++r) {
+                if (!(fam.podium & (1 << r))) continue;
+                auto it = expected_checks.find(codes[r]);
+                if (it == expected_checks.end())
+                    it = expected_checks.emplace(codes[r], J{{"location", codes[r]}, {"owner", use.track}, {"kind", "podium"},
+                                                             {"display_name", title + ": " + rung_suffixes[r]},
+                                                             {"routes", J::array()}}).first;
+                need(it->second["kind"] == "podium" && it->second["owner"] == use.track, "a track's rung has two codes");
+                it->second["routes"].push_back(leg_route(use.entry, "cup", use.leg, "", use.pad, rung_keys[r]));
+                leg->rungs[r] = codes[r];
+            }
+        }
+        for (const auto &use : wumpa_uses) {
+            auto it = expected_checks.find(use.code);
+            if (it == expected_checks.end())
+                it = expected_checks.emplace(use.code, J{{"location", use.code}, {"owner", use.track}, {"kind", "wumpa"},
+                                                         {"display_name", use.title + ": Reach 10 Wumpa"},
+                                                         {"routes", J::array()}}).first;
+            need(it->second["kind"] == "wumpa" && it->second["owner"] == use.track, "a track's Wumpa check has two codes");
+            it->second["routes"].push_back(leg_route(use.entry, use.mode.c_str(), use.leg, use.encounter, use.pad, "wumpa"));
+        }
+    }
     // A cup leg's track pad: the standalone pad on the same track, whose boxes
     // and Wumpa check the cup's glow, state and legs also reach. Boss cups too.
     auto seat_track_pads = [&](ctr_content_pad &cup) {
@@ -1892,8 +2235,11 @@ static void validate(const J &p, State &out) {
     // Itemsanity and Hit Character (#133 PR 4d): global checks with a route
     // per Trophy Race and CTR Challenge, in physical pad order, then mode
     // order. A Hit check also routes from every cup leg (#133 PR 5b), in leg
-    // order on its pad, and every Hit target has the same routes. The codes
-    // and names are the registry's (the apworld's frozen class order).
+    // order on its pad, and every Hit target has the same routes. A plan with
+    // no Trophy Race or CTR Challenge routes Itemsanity from every cup leg
+    // instead (A3-7, a 27-cup seed; apworld content_global_checks.checks).
+    // The codes and names are the registry's (the apworld's frozen class
+    // order).
     std::sort(race_routes.begin(), race_routes.end(),
               [](const RaceRoute &a, const RaceRoute &b) { return a.physical < b.physical; });
     std::vector<std::pair<int, J>> hit_route_list;
@@ -1919,6 +2265,11 @@ static void validate(const J &p, State &out) {
             for (const auto &r : race_routes)
                 for (int m = 0; m < 2; ++m)
                     if (r.modes & (1u << m)) routes.push_back(route_record(r.entry, m ? "ctr" : "trophy", r.pad, award));
+        if (!hit && routes.empty())
+            for (const auto &r : hit_route_list) {
+                J use = r.second; use["award"] = award;
+                routes.push_back(use);
+            }
         need(!routes.empty(), std::string("global check without a race to earn it: ") + row["name"].get<std::string>());
         const int64_t code = row["location"].get<int64_t>();
         need(expected_checks.emplace(code, J{{"location", code}, {"owner", "global"}, {"kind", kind},
@@ -1954,15 +2305,28 @@ static void validate(const J &p, State &out) {
             }
     }
     // Banking (J11): the shop and the Wumpa goal need Wumpa Income, a Trophy
-    // Race or CTR Challenge on a retail race track (apworld wumpa_shop.
-    // create_locations refuses a seed without one).
+    // Race or CTR Challenge on a retail race track 0..15 or on a custom track
+    // whose package has measured Wumpa capability (ruling of 2026-11-02; apworld
+    // content_wumpa.check_income refuses a seed without one). A plan with no
+    // such race banks in a cup leg on such a track instead (A3-7, apworld
+    // content_wumpa.cup_income_routes).
     if (out.wumpa.shop_slots || wumpa_goal) {
         bool income = false;
-        for (const auto &pad : out.pads)
-            income |= pad.occupied && !pad.crystal && !pad.cup && !pad.cortex && pad.retail_id >= 0 && pad.retail_id <= 15 &&
+        for (const auto &pad : out.pads) {
+            income |= pad.occupied && !pad.crystal && !pad.cup && !pad.cortex &&
+                      ((pad.retail_id >= 0 && pad.retail_id <= 15) ||
+                       (pad.package_index >= 0 && (record_caps(out, pad) & AP_CONTENT_CAP_WUMPA))) &&
                       (ap_content_mode_slot(&pad, AP_CONTENT_MODE_TROPHY) >= 0 || ap_content_mode_slot(&pad, AP_CONTENT_MODE_CTR) >= 0);
-        need(income, "the Wumpa Shop and the Wumpa goal need a retail race to bank fruit");
+            if (pad.occupied && pad.cup)
+                for (int n = 0; n < AP_CONTENT_CUP_LEGS; ++n) {
+                    const ctr_content_leg &leg = pad.legs[n];
+                    income |= (leg.retail_id >= 0 && leg.retail_id <= 15) ||
+                              (leg.package_index >= 0 && (out.packages[leg.package_index].capabilities & AP_CONTENT_CAP_WUMPA));
+                }
+        }
+        need(income, "the Wumpa Shop and the Wumpa goal need a retail or Wumpa-capable custom race or cup leg to bank fruit");
     }
+    if (has_sanity) sanity_checks(p, out, registry, expected_checks);
     // Two checks never share a name, so a room cannot show two identical rows.
     std::set<std::string> check_names;
     for (const auto &pair : expected_checks)
@@ -2010,15 +2374,47 @@ static void validate(const J &p, State &out) {
             out.boosts[id] = number(bare["boost"], 1, boost_ceiling);
             bare.erase("boost");
         }
+        // A hand-placed box's spot (A3-14): exactly on the box checks of a
+        // track with a spot set, its number the one the code was derived
+        // from; the position is read as given (LEV width checks only).
+        if (bare.is_object() && bare.contains("spot")) {
+            const auto found = out.box_spots.find(id);
+            const J &spot = bare["spot"];
+            need(found != out.box_spots.end() && !found->second.seen && bare.contains("kind") && bare["kind"] == "box",
+                 "a box spot on a check that is not a spot box");
+            fields(spot, {"number", "pos", "rot_y"});
+            need(number(spot["number"], 1, AP_BOX_SPOT_MAX_NUMBER) == found->second.number, "a box spot's number differs from its location");
+            need(spot["pos"].is_array() && spot["pos"].size() == 3, "a box spot position is three LEV units");
+            found->second.x = (short)number(spot["pos"][0], -32768, 32767);
+            found->second.y = (short)number(spot["pos"][1], -32768, 32767);
+            found->second.z = (short)number(spot["pos"][2], -32768, 32767);
+            found->second.rot_y = (short)number(spot["rot_y"], -32768, 32767);
+            found->second.seen = true;
+            bare.erase("spot");
+        }
         // An Item Box check's stat term (#133 PR 4e): true only, only on a box
         // check, only with Progressive Stats on. Read as given, like `boost`.
         if (bare.is_object() && bare.contains("stats")) {
-            need(bare["stats"] == true && out.capability.stats_mode && bare.contains("kind") && bare["kind"] == "box",
+            need(bare["stats"] == true && out.capability.stats_mode && bare.contains("kind") &&
+                 (bare["kind"] == "box" || bare["kind"] == "weapon_crate" || bare["kind"] == "wumpa_crate" || bare["kind"] == "wumpa_fruit"),
                  "a check stat term must be true, on an Item Box check, with Progressive Stats on");
             out.stat_checks.insert(id);
             bare.erase("stats");
         }
         need(out.checks.insert(id).second && expected_checks.count(id) && bare == expected_checks.at(id), "check identity or route ownership mismatch");
+    }
+    // Hand-placed box spots (A3-14): every set names a pad track, every spot
+    // box carried its spot, and the pads take the positions.
+    for (const auto &pair : out.spot_sets) need(pair.second.used, "a box spot set names no pad track");
+    for (const auto &pair : out.crate_exclusions) need(pair.second.used, "crate exclusions name no fallback pad track");
+    for (const auto &pair : out.box_spots) need(pair.second.seen, "a box spot check carries no spot");
+    for (auto &pad : out.pads) {
+        if (!pad.box_spots) continue;
+        for (int b = 0; b < pad.box_count && b < AP_BOX_SPOT_MAX_NUMBER; ++b) {
+            const auto &spot = out.box_spots.at(pad.box_locations[b]);
+            pad.box_pos[b][0] = spot.x; pad.box_pos[b][1] = spot.y; pad.box_pos[b][2] = spot.z;
+            pad.box_rot_y[b] = spot.rot_y;
+        }
     }
     for (auto &pad : out.pads) {
         if (!pad.occupied) continue;
@@ -2090,10 +2486,20 @@ static void validate(const J &p, State &out) {
         ctr_content_pad &target = *(pass ? stage2_pad : manual_pad).at(pair.first);
         long long supply = 0;
         unsigned mask = 0;
+        bool distinct = false;
         if (pred.is_object() && pred.contains("op") && pred["op"] == "count") {
             fields(pred, {"op", "item", "count"});
             const int item = number(pred["item"], 35010000, 35010014) - 35010000;
             mask = 1u << item; supply = out.items[item].base;
+        } else if (pred.is_object() && pred.contains("op") && pred["op"] == "distinct") {
+            // Turbo Track's vanilla five Gems, one of each colour (row 10i):
+            // a stage 1 over exactly the base Gem colours, counted once each.
+            fields(pred, {"op", "items", "count"});
+            need(!pass && pad_mode == PAD_REQ_VANILLA, "a distinct rule is only a vanilla stage 1");
+            J eligible = J::array();
+            for (int i = 9; i <= 13; ++i) if (out.items[i].base) { eligible.push_back(35010000 + i); mask |= 1u << i; ++supply; }
+            need(pred["items"] == eligible, "distinct rule items are not the base Gem colours");
+            distinct = true;
         } else {
             need(pred.is_object() && pred.contains("op") && pred["op"] == "sum", "unsupported manual predicate");
             fields(pred, {"op", "items", "count"});
@@ -2113,7 +2519,7 @@ static void validate(const J &p, State &out) {
         const int count = number(pred["count"], 1);
         need(mask && count <= supply, "pad rule count outside the base supply");
         if (pass) { target.stage2_count = count; target.stage2_mask = mask; }
-        else { target.has_rule = 1; target.rule_count = count; target.rule_mask = mask; }
+        else { target.has_rule = 1; target.rule_count = count; target.rule_mask = mask; target.rule_distinct = distinct ? 1 : 0; }
         // A drawn requirement of this mode never asks 4 Keys; a manual rule is
         // refused at generation, and Key rules on the wire fall under the same bar.
         need(pad_mode != PAD_REQ_NO_FOUR_KEYS || mask != (1u << 14) || count < 4, "random_without_4_keys asks for 4 Keys");
@@ -2167,7 +2573,7 @@ static void validate(const J &p, State &out) {
         if (out.racers) need(locks == std::min(out.requested_locks, eligible), "racer lock count is not min(requested_locks, eligible pads)");
     }
     for (int i = 9; i <= 13; ++i) if (out.items[i].base) { gems.push_back(35010000 + i); out.goal_mask |= 1 << (i - 9); }
-    const int filler = number(items["filler_count"], 0, 4096);
+    const int filler = number(items["filler_count"], 0, 16384);
     // Boss garages (#133 PR 6): the Oxide goal check holds filler only (issue
     // #27), so a plan whose goal is an Oxide challenge keeps one filler slot.
     need(!out.bosses.present || (out.bosses.oxide_goal != 1 && out.bosses.oxide_goal != 2) || filler >= 1,
@@ -2181,7 +2587,7 @@ static void validate(const J &p, State &out) {
              filler + pack_supply >= (int64_t)AP_WUMPA_SHOP_HUBS * out.wumpa.shop_slots + reserve,
              "wumpa_shop excluded: not enough non-progression copies for the shop slots");
     }
-    need(number(items["coded_checks"], 0, 4096) == (int)out.checks.size() && items["locked_checks"] == locked_checks && remaining + filler + locked_checks == (int64_t)out.checks.size() && number(items["trap_count"], 0, 4096) <= filler, "item/check capacity mismatch");
+    need(number(items["coded_checks"], 0, 16384) == (int)out.checks.size() && items["locked_checks"] == locked_checks && remaining + filler + locked_checks == (int64_t)out.checks.size() && number(items["trap_count"], 0, 16384) <= filler, "item/check capacity mismatch");
     need(!out.bosses.gauntlet || entries.count("entry/gem_cup:4"), "bosses.gauntlet needs the Purple Gem Cup");
     // What the record fixes must exist: garages, all five Gem Cups, and the Final
     // Challenge goal with the optional first race.
@@ -2253,6 +2659,16 @@ static void validate(const J &p, State &out) {
             need(requirements.count(rid) != 0, "a boss garage has no requirement record");
             fields(*requirements.at(rid), {"id", "predicate"});
             const J &pred = requirements.at(rid)->at("predicate");
+            // Vanilla garages ask the Trophies that exist, and open free in a
+            // seed without base Trophies (row 10i): type 0, always met.
+            if (pad_mode == PAD_REQ_VANILLA && !out.items[0].base) {
+                need(pred == J{{"op", "always"}}, "vanilla garages open free without base Trophies");
+                out.bosses.garage_req_type[g] = 0;
+                out.bosses.garage_req_count[g] = 0;
+                out.bosses.garage_req_colour[g] = -1;
+                want[rid] = pred;
+                continue;
+            }
             need(pred.is_object() && pred.contains("op") && (pred["op"] == "count" || pred["op"] == "sum"),
                  "a boss garage requirement is one item count or one family sum");
             int type = 0, colour = -1;
@@ -2390,7 +2806,9 @@ static int parse_content_plan(const nlohmann::json &j) {
         const bool box_flag = co.contains("box_locations"), box_colours = co.contains("color_boxes_by_item");
         need(!box_flag || co["box_locations"] == true, "box_locations must be true when present");
         need(!box_colours || co["color_boxes_by_item"].is_boolean(), "color_boxes_by_item must be true or false");
-        for(const char *key:{"box_locations","color_boxes_by_item"})base.erase(key);
+        const bool has_box_count = co.contains("item_box_count");
+        const int box_count = has_box_count ? number(co["item_box_count"], 1, 50) : 15;
+        for(const char *key:{"box_locations","color_boxes_by_item","item_box_count"})base.erase(key);
         const bool relic_progression = co.contains("relic_progression");
         if(relic_progression) {
             const J &map = co["relic_progression"];
@@ -2407,6 +2825,7 @@ static int parse_content_plan(const nlohmann::json &j) {
         const int boost_mode = number(co["progressive_boost"], 0, 2), stats_mode = number(co["progressive_stats"], 0, 2);
         size_t nodes = 0, bytes = 0; budget(co, 0, nodes, bytes);
         State candidate;
+        envelope_box_colours = box_colours && co["color_boxes_by_item"] == true;
         validate(j["content_plan"], candidate);
         bool arenas=false,arcade=false,pickups=false;
         for(const auto &pad:candidate.pads)if(pad.occupied && pad.crystal) {
@@ -2430,9 +2849,11 @@ static int parse_content_plan(const nlohmann::json &j) {
              "a Progressive Stats plan must send stat_source 1 with its mode as stat_owner");
         need(box_flag == (candidate.item_boxes.present != 0) && box_colours == box_flag,
              "box envelope disagrees with the plan's item_boxes record");
+        need(has_box_count == (candidate.item_boxes.present && candidate.item_boxes.box_count != 15) &&
+             (!has_box_count || box_count == candidate.item_boxes.box_count), "item_box_count envelope disagrees with plan");
         const size_t optional = (send ? 1u : 0u) + (display ? 1u : 0u) + (colors ? 1u : 0u) +
                                 (stat_class ? 1u : 0u) + (penta ? 1u : 0u) + (trio ? 3u : 0u) +
-                                (box_flag ? 2u : 0u) + (relic_progression ? 1u : 0u);
+                                (box_flag ? 2u : 0u) + (has_box_count ? 1u : 0u) + (relic_progression ? 1u : 0u);
         if(arenas) {
             need(co.size()==base.size()+3+optional && co.at("include_battle_arenas")==true &&
                  co.at("include_arcade_arenas")==arcade && co.at("crystalsanity")==pickups,"arena options disagree with plan");
@@ -2526,6 +2947,7 @@ static int parse_content_plan(const nlohmann::json &j) {
                 }
                 e.oxideProfileAll = (unsigned char)b.oxide_profile_all;
                 e.finalPresent = (unsigned char)(b.oxide_goal != 3 && (b.oxide_in_pool || b.oxide_profile_all));
+                e.oxideDisabled = (unsigned char)(b.oxide_goal == 3);
                 e.finalOpponent = (signed char)(e.finalPresent ? b.final_opponent : AP_BOSS_OXIDE_CHARACTER);
                 e.finalComposed = (unsigned char)(e.finalPresent && b.oxide_profile_all);
                 if (e.finalComposed) std::memcpy(e.finalSchedule, candidate.final_kit, sizeof e.finalSchedule);
@@ -2541,6 +2963,15 @@ static int parse_content_plan(const nlohmann::json &j) {
                 ctr_oxide_final_venue &v = ctr_cfg.oxide_final_venue;
                 v.seen = v.valid = 1;
                 v.track = b.final_track;
+                // The chaos Final Challenge: this seed's five bosses, with or
+                // without drawn encounters.
+                v.chaos = b.final_chaos;
+                {
+                    int ident[AP_HIT_BOSS_CODES];
+                    for (int g = 0; g < 4; ++g) ident[g] = b.opponent[g];
+                    ident[4] = ident[5] = b.final_opponent;
+                    AP_RosterChaosLineup(ident, v.chaos_lineup);
+                }
                 v.host_level_id = CTR_CFG_CORTEX_HOST_LEVEL;
                 v.location = 35011105;
                 std::snprintf(v.lev_sha256, sizeof v.lev_sha256, "%s", CTR_CFG_CORTEX_LEV_SHA256);
@@ -2599,7 +3030,7 @@ static int parse_content_plan(const nlohmann::json &j) {
                 const ctr_hit_trigger &t = ctr_cfg.hit.triggers[g];
                 bool present = false;
                 for (int k = 0; k < t.count; ++k) present |= candidate.checks.count(t.any_of[k]) != 0;
-                need((t.fallback_keys > 0) == !present, "hit_character_encounters fallback disagrees with the plan's unlock wins");
+                need((t.fallback_keys > 0) == (t.count > 0 && !present), "hit_character_encounters fallback disagrees with the plan's unlock wins");
             }
             // Content-plan cups (#133 PR 5b): one draw order per cup of the
             // plan, by name index, and none for any other index.
@@ -2663,6 +3094,22 @@ extern "C" const ctr_content_pad *ap_content_plan_pad(int physical) {
     return nullptr;
 }
 extern "C" int ap_content_plan_cortex(void) { return ap_content_plan_active() && content_plan::state.cortex; }
+extern "C" const ctr_content_sanity *ap_content_plan_sanity(const char *track_id) {
+    if (!ap_content_plan_active() || !track_id) return nullptr;
+    const auto it = content_plan::state.sanity.find(track_id);
+    return it == content_plan::state.sanity.end() ? nullptr : &it->second;
+}
+extern "C" const ctr_content_sanity *ap_content_plan_sanity_boss(int boss) {
+    return boss >= 0 && boss < 6 ? ap_content_plan_sanity(content_plan::state.sanity_boss_tracks[boss].c_str()) : nullptr;
+}
+extern "C" int ap_content_plan_sanity_pad(int physical, int family, int64_t *out, int capacity) {
+    if (!ap_content_plan_active() || family < 0 || family > 2 || capacity < 0) return 0;
+    const auto it = content_plan::state.sanity_pads.find(physical);
+    if (it == content_plan::state.sanity_pads.end()) return 0;
+    int n = 0;
+    for (int64_t code : it->second[family]) { if (n >= capacity) break; if (out) out[n] = code; ++n; }
+    return n;
+}
 extern "C" const ctr_content_package *ap_content_plan_package(int index) {
     return ap_content_plan_active() && index >= 0 && index < content_plan::state.package_count ? &content_plan::state.packages[index] : nullptr;
 }

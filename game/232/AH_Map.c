@@ -621,6 +621,28 @@ void AH_Map_HubItems(struct UIMap *map, s16 *arrowCounter)
 	}
 }
 
+#ifdef CTR_AP
+// UI_Map_DrawRawIcon with one exact vertex colour (0x00BBGGRR) on all four
+// corners instead of a font palette slot: the pad dot of the shared pad colour
+// table (ap_pad_colour.h). Same icon, position and scale as the retail call.
+static void AH_Map_DrawPadIconRGB(struct UIMap *map, const s32 *pos, u32 vertex)
+{
+	struct GameTracker *gGT = GAME_TRACKER;
+	s32 posX = pos[0];
+	s32 posY = pos[2];
+	struct Icon **iconPtrArray = ICONGROUP_GETICONS(gGT->iconGroup[5]);
+
+	Color c = {0};
+
+	c.r = (u8)(vertex & 0xFF);
+	c.g = (u8)((vertex >> 8) & 0xFF);
+	c.b = (u8)((vertex >> 16) & 0xFF);
+	UI_Map_GetIconPos(map, &posX, &posY);
+	DecalHUD_DrawPolyGT4(iconPtrArray[AH_MAP_ICON_WARPPAD], posX, posY, &gGT->backBuffer->primMem, gGT->pushBuffer_UI.ptrOT,
+	                     c, c, c, c, 0, 0x1000);
+}
+#endif
+
 void AH_Map_Warppads(struct UIMap *map, struct Thread *warppadThread, s16 *arrowCounter)
 {
 	struct Instance *closestWarppadInst = NULL;
@@ -637,6 +659,9 @@ void AH_Map_Warppads(struct UIMap *map, struct Thread *warppadThread, s16 *arrow
 
 		struct Instance *warppadInst = warppadThread->inst;
 		s16 color;
+#ifdef CTR_AP
+		u32 apMapVertex;
+#endif
 
 		switch ((u32)visualState)
 		{
@@ -670,57 +695,43 @@ void AH_Map_Warppads(struct UIMap *map, struct Thread *warppadThread, s16 *arrow
 
 #ifdef CTR_AP
 		// AP Warp-Pad State Model v2: one honest map, always on. Whenever slot_data
-		// is active, EVERY warp-pad icon (locked ones included) is coloured from
-		// the unified AP_PadState of its DESTINATION track, so the player reads
-		// the pad's state off the map without a mode switch. Pure colour
-		// override -- no geometry change, and skipSound still governs the
-		// proximity-sound distance check below (gameplay untouched).
-		//   1 Locked      -> RED
-		//   2 Raceable    -> GREEN, vanilla-style two-tone flicker (timer & 2)
-		//   3 Re-locked   -> ORANGE (did something here, more items needed)
-		//   4 Tier-2 open -> PERIWINKLE, slow two-tone pulse (timer & 4)
-		//   5 Done        -> GRAY (hard-locked, nothing left)
+		// is active, EVERY warp-pad icon (locked ones included -- vanilla skipped
+		// them via skipDistance) is coloured from its pad's display state
+		// (AP_PadLook: AP_PadState of its DESTINATION track plus the racer fact),
+		// so the player reads the pad's state off the map without a mode switch.
+		// Pure colour override -- no geometry change, and skipDistance still
+		// governs the proximity-sound distance check below (gameplay untouched).
+		//
+		// Alpha4: the colours are the shared green/red/grey table of
+		// ap_pad_colour.h, the same as the warp pad beam and the tracker node, so
+		// they are drawn as exact vertex colours rather than font palette slots.
+		// Closed and waiting red, both open phases green while a displayed
+		// check is in logic, Done grey.
 		//
 		// Animated-cue vocabulary (issue #60 -- keep these distinct):
 		//   static colour        = nothing actionable here right now
 		//   GREEN fast flicker    = trophy check is open (race it)
-		//   BLUE slow pulse       = trophy done, but tier-2 checks (relic/CTR)
+		//   GREEN slow pulse     = trophy done, but tier-2 checks (relic/CTR)
 		//                           remain -- pad stays "alive" instead of going
 		//                           quiet the moment the trophy is checked
-		//   quiet (static) GREEN  never happens; a checked trophy leaves state 4/5,
-		//   so "green stopped" still reads as "trophy done" -- the blue pulse then
-		//   tells you whether more checks are left (pulsing) or not (static GRAY).
-		// AP_PadState returns 0 in vanilla mode / for an unrecognised destination, so
-		// the vanilla colour switch above is left entirely untouched there.
+		// The flicker alternates the state colour with a darker shade of the same
+		// hue. The map_flash option (ap-config.txt / Options) turns it off;
+		// AP_MapFlashOn() defaults to 1 (flicker on).
+		// AP_PadLook returns AP_PAD_LOOK_NONE in vanilla mode / for an
+		// unrecognised destination, so the vanilla colour switch above is left
+		// entirely untouched there.
+		apMapVertex = 0;
 		{
 			int destLevelID = ((struct WarpPad *)warppadThread->object)->levelID;
 			int physLevelID = ctr_cfg_warp_phys(destLevelID);
-			int st = AP_PadState(physLevelID, destLevelID);
-			if (st == 1)
-				color = RED;
-			else if (st == 2)
-			{
-				// GREEN inherits the vanilla-style two-tone availability flicker.
-				// The map_flash option (ap-config.txt) turns the flicker off ->
-				// static GREEN. AP_MapFlashOn() defaults to 1 (flicker on).
-				color = LIGHT_GREEN;
-				if (AP_MapFlashOn() && (FPS_HALF(GAME_TRACKER->timer) & 2) != 0)
-					color = FOREST_GREEN;
-			}
-			else if (st == 3)
-				color = ORANGE;
-			else if (st == 4)
-			{
-				// Trophy checked but tier-2 checks remain: slow PERIWINKLE<->BLUE
-				// pulse. timer & 4 toggles half as fast as GREEN's timer & 2, so
-				// the cadence alone separates "race open" from "checks remain".
-				// Honours the map_flash opt-out exactly like GREEN.
-				color = PERIWINKLE;
-				if (AP_MapFlashOn() && (FPS_HALF(GAME_TRACKER->timer) & 4) != 0)
-					color = BLUE;
-			}
-			else if (st == 5)
-				color = GRAY;
+			int look = AP_PadLook(physLevelID, destLevelID);
+			int dim = 0;
+			if (look == AP_PAD_LOOK_OPEN)
+				dim = AP_MapFlashOn() && (FPS_HALF(GAME_TRACKER->timer) & 2) != 0;
+			else if (look == AP_PAD_LOOK_STAGE2_OPEN)
+				dim = AP_MapFlashOn() && (FPS_HALF(GAME_TRACKER->timer) & 4) != 0;
+			if (look != AP_PAD_LOOK_NONE)
+				apMapVertex = AP_PadLookMapVertex(look, dim);
 		}
 #endif
 
@@ -742,6 +753,11 @@ void AH_Map_Warppads(struct UIMap *map, struct Thread *warppadThread, s16 *arrow
 				*arrowCounter = *arrowCounter + 1;
 			}
 
+#ifdef CTR_AP
+			if (apMapVertex != 0)
+				AH_Map_DrawPadIconRGB(map, &warppadInst->matrix.t[0], apMapVertex);
+			else
+#endif
 			UI_Map_DrawRawIcon(map, &warppadInst->matrix.t[0], AH_MAP_ICON_WARPPAD, color, 0, 0x1000);
 		}
 

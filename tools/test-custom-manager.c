@@ -1,23 +1,26 @@
-// cc -m32 -ffunction-sections -fdata-sections -Wl,--gc-sections -DCTR_NATIVE -DCTR_CUSTOM_TRACKS -DCTR_CUSTOM_PACKAGES -DBUILD=926 -I include -I . tools/test-custom-manager.c -o /tmp/test-custom-manager
+// cc -m32 -ffunction-sections -fdata-sections -Wl,--gc-sections -DCTR_NATIVE -DCTR_AP -DCTR_AP_AUTHORING -DCTR_CUSTOM_TRACKS -DCTR_CUSTOM_PACKAGES -DBUILD=926 -I include -I . tools/test-custom-manager.c -o /tmp/test-custom-manager
 /* Production manager input and font-bound checks; workers/rendering are stubbed. */
 #include <stdio.h>
+#include "menu-label-stub.h"
 #include <string.h>
 #include <common.h>
 #include <platform/native_input.h>
 #include <platform/native_assets.h>
 #include <platform/native_custom_track_library.h>
 #include <platform/native_saphi_catalogue.h>
+#include "../ap/ap_solo.h"
 struct sData sdata_static;
 struct Data data;
 #define DecalFont_DrawLineOT UnusedDraw
 #include "../game/DecalFont.c"
 #undef DecalFont_DrawLineOT
 #include "../game/230/MM_CustomText.c"
-#define CONN_PAD_COMMIT (RAW_BTN_CROSS | RAW_BTN_START)
-#define CONN_PAD_CANCEL RAW_BTN_TRIANGLE
+#define CONN_PAD_COMMIT (RAW_BTN_CROSS | RAW_BTN_CIRCLE)
+#define CONN_PAD_CANCEL (RAW_BTN_TRIANGLE | RAW_BTN_START)
 static struct CustomTrackLibrary s_contentLibrary;
 static int s_contentLibraryTab, s_contentSearchEditing, s_contentSearchPadPrev, s_contentStoreWanted;
 static int s_modsSeed, s_modsFromTitle, s_modsRacers;
+static unsigned int s_contentStoreGeneration;
 /* MM_ConfigMenu.c and 230.c, around the manager in the game. */
 void MM_Mods_OpenFromTitle(void) { s_modsFromTitle=1; }
 static Color neutralColor;
@@ -31,6 +34,7 @@ static int s_saphiRefreshBusy, s_saphiLoaded, s_saphiDownloading;
 static char s_saphiMessage[512], s_saphiQuery[81];
 static size_t s_saphiSelection[2];
 static int checks, failures, refreshResult, installResult, starts, textResult;
+static int publishOK=1, publishCalls;
 static struct CustomSaphiRevision rows[9];
 #define CHECK(x) do { checks++; if (!(x)) { failures++; printf("FAIL %d: %s\n",__LINE__,#x); } } while (0)
 static void MM_CustomLibrary_Tick(int reload) { (void)reload; }
@@ -39,9 +43,17 @@ int Platform_InputRawGamepadButtons(void) { return 0; }
 int NativeText_Result(void) { return textResult; }
 void NativeText_Resolve(int result) { textResult=result; }
 void NativeText_End(void) { textResult=0; }
+int NativeText_Cursor(void) { return 0; }
+void NativeText_MoveCursor(int dir) { (void)dir; }
+void NativeText_EnableCursor(void) { }
 void NativeText_Begin(char *b,int c,int x,int y,int w,int h,int p)
 { (void)b;(void)c;(void)x;(void)y;(void)w;(void)h;(void)p; }
 const char *NativeAssets_GetAssetDir(void) { return "/test"; }
+const char *NativeAssets_GetBaseDir(void) { return "/test"; }
+void XdeltaImport_SetSoloRoot(const char *dir) { (void)dir; }
+int XdeltaImport_ReplacedCount(void) { return 0; }
+int XdeltaImport_ReplacedCopy(int i,char a[65],char b[65],char c[37],char d[65],char e[65]) { (void)i;(void)a;(void)b;(void)c;(void)d;(void)e; return 0; }
+int XdeltaImport_KeptOldCopies(void) { return 0; }
 int OtherFX_Play(u32 a,int b) { (void)a;(void)b;return 0; }
 int CustomSaphi_StartRefresh(void) { return 1; }
 int CustomSaphi_PollRefresh(struct CustomSaphiCatalogue **out,char *error,size_t n)
@@ -54,6 +66,8 @@ int CustomSaphi_StartInstall(const struct CustomSaphiRevision *r,const char *a)
 { (void)r;(void)a;starts++;return 1; }
 int CustomSaphi_PollInstall(char pin[65],char *e,size_t n)
 { (void)e;(void)n;if(installResult==1)strcpy(pin,"fixture");return installResult; }
+int AP_Solo_PublishInstalledStore(const char *pin,char *error,size_t n)
+{ (void)pin;publishCalls++;if(!publishOK)snprintf(error,n,"Index unavailable");return publishOK; }
 static char drawn[4096];
 void DecalFont_DrawLineOT(char *s,s16 x,s16 y,s16 f,s16 flags,u32 *ot)
 { (void)ot; int w=DecalFont_GetLineWidth(s,f);if(flags&JUSTIFY_CENTER)x-=w/2;CHECK(x>=0&&x+w<=512&&y>=0&&y+8<=216);
@@ -78,6 +92,9 @@ int XdeltaImport_StartScan(const char *p,const char *d,const char *a) { (void)p;
 int XdeltaImport_PollScan(int *progress,struct XdeltaImportSummary *s,char *e,size_t n)
 { *progress=37; if(scanState==1) *s=fakeSummary; if(scanState==-2) snprintf(e,n,"Patch does not match this disc"); return scanState; }
 void XdeltaImport_DiscardScan(void) { discards++; scanState=-1; }
+int XdeltaImport_StartPatchStates(const char *a,char names[][CTR_XDELTA_NAME_MAX],int count) { (void)a;(void)names;(void)count; return 1; }
+int XdeltaImport_PollPatchStates(struct XdeltaPatchState *out,int max) { memset(out,0,sizeof(*out)*(size_t)max); return 1; }
+int XdeltaImport_SetItemTitle(unsigned item,const char *title) { (void)item;(void)title; return 1; }
 static int lastWhere, dropState;
 int XdeltaImport_StartInstall(const unsigned char *sel,unsigned count,const char *a,int where)
 { (void)a; memcpy(lastSelected,sel,count); lastWhere=where; installStarts++; installState=0; return 1; }
@@ -111,6 +128,9 @@ void DecalHUD_DrawPolyGT4(struct Icon *i,s32 x,s32 y,struct PrimMem *p,u32 *ot,C
 { (void)i;(void)x;(void)y;(void)p;(void)ot;(void)a;(void)b;(void)c;(void)d;(void)t;(void)s; }
 void RECTMENU_DrawPolyGT4(struct Icon *i,s32 x,s32 y,struct PrimMem *p,u32 *ot,Color a,Color b,Color c,Color d,u8 t,s16 s)
 { (void)i;(void)p;(void)ot;(void)a;(void)b;(void)c;(void)d;(void)t;(void)s;CHECK(x>=0&&x+NATIVE_TRACK_PICTURE_WIDTH<=512&&y+NATIVE_TRACK_PICTURE_HEIGHT<=216); }
+static int saphiBusy;
+int ap_custom_track_download_busy(char *text, int size)
+{ if (text && size > 0) snprintf(text, size, "%s", saphiBusy ? "Project Saphi is busy, waiting 60s" : ""); return saphiBusy; }
 #include "../game/230/MM_CustomManager.c"
 static void tick(int buttons) { struct GamepadBuffer pad={0};pad.buttonsTapped=buttons;drawn[0]=0;MM_ConfigProc_CustomContent(NULL,NULL,&pad); }
 int main(void)
@@ -122,13 +142,18 @@ int main(void)
  data.font_buttonPixWidth[FONT_SMALL]=2;data.font_buttonPixWidth[FONT_BIG]=16;
  for(int i=0;i<9;i++){rows[i].trackID=i+1;memset(rows[i].title,'W',640);strcpy(rows[i].version,"1.0.0");strcpy(rows[i].author,"Very long author display name");}
  tick(0);CHECK(s_saphiRefreshBusy);
+ saphiBusy=60;tick(0);CHECK(strstr(drawn,"Project Saphi is busy, waiting 60s"));
+ saphiBusy=0;tick(0);CHECK(!strstr(drawn,"Project Saphi is busy"));
  refreshResult=1;tick(0);CHECK(s_saphiCatalogue==(void*)2);
  tick(BTN_UP);CHECK(s_saphiSelection[0]==8);tick(BTN_DOWN);CHECK(s_saphiSelection[0]==0);
  tick(BTN_L2);refreshResult=-2;tick(0);CHECK(s_saphiCatalogue==(void*)2&&!s_saphiRefreshBusy);
  strcpy(rows[0].disabledReason,"Files not hosted");tick(BTN_CROSS);CHECK(starts==0);
  rows[0].disabledReason[0]=0;tick(BTN_CROSS);CHECK(starts==1&&s_saphiDownloading);
  tick(BTN_CROSS);CHECK(starts==1);
- installResult=1;tick(0);CHECK(!s_saphiDownloading&&s_contentStoreWanted);
+ installResult=1;tick(0);CHECK(!s_saphiDownloading&&s_contentStoreWanted&&publishCalls==1);
+ s_saphiDownloading=1;publishOK=0;installResult=1;tick(0);
+ CHECK(strstr(s_saphiMessage,"publication failed")!=NULL);
+ publishOK=1;
  /* Tabs in order: Tracks, Racers, Installed, drawn as one bar. */
  tick(0);CHECK(strstr(drawn,"L1\n")&&strstr(drawn,"Tracks\n")&&strstr(drawn,"Racers\n")&&strstr(drawn,"Installed\n")&&strstr(drawn,"R1\n"));
  tick(BTN_R1);CHECK(s_modsRacers&&MM_Mods_Tab()==2);
@@ -189,6 +214,12 @@ int main(void)
  CHECK(strstr(drawn,"\nNo races\n")&&strstr(drawn,"\nNo lap checkpoints\n"));
  strcpy(installed.local.timeTrialReason,"Files failed checks");tick(0);
  CHECK(strstr(drawn,"\nFiles failed\nchecks\n"));
+ /* A revision the store scan refused stays listed with its reason; a row
+    that is only in the catalogue does not. */
+ installed.installed=0;installed.scanFailed=1;strcpy(installed.disabledReason,"Hash mismatch");tick(0);
+ CHECK(strstr(drawn,"\nNot installed\n")&&(strstr(drawn,"Hash\nmismatch\n")||strstr(drawn,"Hash mismatch\n"))&&!strstr(drawn,"verified"));
+ installed.scanFailed=0;strcpy(installed.disabledReason,"Catalogue only");tick(0);
+ CHECK(strstr(drawn,"Nothing")&&!strstr(drawn,"Catalogue only"));
  /* Import track files: Select opens it, back closes it before Options can. */
  s_saphiDownloading=0;tick(BTN_SELECT);CHECK(MM_CustomImport_Active());
  folderCount=2;tick(BTN_SQUARE);tick(0);CHECK(strstr(drawn,"Choose a file")&&strstr(drawn,"Pack 1.xdelta"));
@@ -205,8 +236,16 @@ int main(void)
  strcpy(fakeSummary.items[2].title,"LRG2Pancho slot 169");strcpy(fakeSummary.items[2].reason,"Arena: not supported yet");
  scanState=1;tick(0);CHECK(strstr(drawn,"[x] Snowy")&&strstr(drawn,"2 tracks"));
  tick(BTN_DOWN);tick(BTN_DOWN);tick(BTN_SQUARE);tick(0);CHECK(strstr(drawn,"Skipped")&&strstr(drawn,"Arena: not"));
+ {
+  unsigned char selection[sizeof s_importSelected];
+  memcpy(selection,s_importSelected,sizeof selection);memset(s_importSelected,0,sizeof s_importSelected);
+  tick(BTN_CROSS);CHECK(strstr(s_importMessage,"Nothing selected")&&strstr(drawn,"Nothing")&&strstr(drawn,"selected."));
+  tick(BTN_UP);CHECK(!s_importMessage[0]);
+  tick(BTN_DOWN);CHECK(!s_importMessage[0]&&strstr(drawn,"Skipped")&&strstr(drawn,"Arena: not"));
+  memcpy(s_importSelected,selection,sizeof selection);
+ }
  tick(BTN_UP);tick(BTN_SQUARE);tick(BTN_CROSS);CHECK(installStarts==1&&lastSelected[0]&&!lastSelected[1]&&!lastSelected[2]);
- CHECK(lastWhere==(CTR_XDELTA_INSTALL_PACKAGES|CTR_XDELTA_INSTALL_ROOM));
+ CHECK(lastWhere==CTR_XDELTA_INSTALL_PACKAGES);
  installState=1;s_contentStoreWanted=0;tick(0);CHECK(strstr(s_importMessage,"Installed 2 tracks")&&s_contentStoreWanted);
  s_contentLibraryTab=0;tick(BTN_CROSS);CHECK(!MM_CustomImport_Active()&&s_contentLibraryTab==1);
  tick(BTN_SELECT);scanState=-1;tick(BTN_CROSS);pickState=1;tick(0);scanState=-2;tick(0);

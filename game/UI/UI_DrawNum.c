@@ -38,8 +38,15 @@ void UI_DrawNumWumpa(s16 posX, s16 posY, struct Driver *d)
 	{
 		DecalFont_DrawLine(UI_NUM_X, posX, posY + UI_DRAWNUM_SMALL_X_OFFSET_Y, FONT_SMALL, ORANGE);
 
+#ifdef CTR_AP
+		sprintf(message, UI_NUM_INT, AP_WumpaRaceCount(d));
+#else
 		sprintf(message, UI_NUM_INT, d->numWumpas);
+#endif
 		DecalFont_DrawLine(message, posX + UI_DRAWNUM_BIG_TEXT_OFFSET_X, posY, FONT_BIG, ORANGE);
+#ifdef CTR_AP
+		AP_WumpaDrawRaceBank(d, posX, posY);
+#endif
 	}
 	else
 	{
@@ -145,10 +152,23 @@ void UI_DrawNumTrophy(s16 posX, s16 posY, struct Driver *driver)
 	DecalFont_DrawLine(UI_NUM_X, posX, posY + UI_DRAWNUM_SMALL_X_OFFSET_Y, FONT_SMALL, ORANGE);
 
 	gGT = GAME_TRACKER;
-	num = gGT->currAdvProfile.numTrophies;
-	if ((gGT->gameMode2 & INC_TROPHY) != 0)
+#ifdef CTR_AP
+	// AP: Trophies are a received currency, so a seed with extra Trophies in
+	// the pool must count past the 16 retail reward bits the profile mirror
+	// saturates at (Discord M06: the counter stayed at 16). Same AP truth the
+	// relic counter above and the podium (ap_hooks_ceremony.c) already read.
+	if (ctr_cfg_active())
 	{
-		num--;
+		num = AP_GateCount(AP_IDX_TROPHY);
+	}
+	else
+#endif
+	{
+		num = gGT->currAdvProfile.numTrophies;
+		if ((gGT->gameMode2 & INC_TROPHY) != 0)
+		{
+			num--;
+		}
 	}
 
 	sprintf(string, UI_NUM_LONG, CTR_PRINTF_PSX_LONG(num));

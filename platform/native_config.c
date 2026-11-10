@@ -51,12 +51,14 @@ NativeConfig g_config = {
 	-1,    // volVoice
 	-1,    // stereo
 #ifdef CTR_AP
+	true,  // deviceAwareLabels (off forces PlayStation symbols)
 	false, // skipHints
 	false, // skipPodium (default off: ceremonies play unless the player opts out)
 	false, // skipCutscenes (default off: boss and Oxide scenes play unless the player opts out)
 	true,  // mapFlash (default on: vanilla-style Raceable flicker)
 	true,  // itemBoxColours (default on: follow the seed's item box colours)
 	true,  // itemBoxNumbers (default on: show the authored location number)
+	true,  // itemFeed (default on: the item feed shows, as before)
 	0,     // aiDifficulty (0 = vanilla)
 	-1,    // deathLink (-1 = follow the seed option)
 	-1,    // dlSendFall (-1 = follow the seed's send triggers)
@@ -90,6 +92,9 @@ NativeConfig g_config = {
 };
 
 const ConfigEntry g_configEntries[] = {
+#ifdef CTR_AP
+	{"Video & QoL", "device_aware_labels",      "Device-aware Button Labels",   CFG_BOOL, &g_config.deviceAwareLabels, 0, 0, 0},
+#endif
 	{"Video & QoL", "skip_intro",               "Skip Intros",                  CFG_BOOL, &g_config.skipIntro, 0, 0, 0},
 	{"Video & QoL", "increase_draw_distance",   "Increase Draw Distance",       CFG_BOOL, &g_config.increaseDrawDistance, 0, 0, 0},
 	{"Video & QoL", "disable_split_screen_lod", "Hi-Res Models in Multiplayer", CFG_BOOL, &g_config.disableSplitScreenLod, 0, 0, 0},
@@ -200,6 +205,7 @@ const ConfigEntry g_configEntries[] = {
 	// shows "OFF (SEED)" and ignores input while a loaded seed has colours off.
 	{"Archipelago", "item_box_colours",         "Item Box Colours",             CFG_BOOL, &g_config.itemBoxColours, 0, 0, 0},
 	{"Archipelago", "item_box_numbers",         "Item Box Numbers",             CFG_BOOL, &g_config.itemBoxNumbers, 0, 0, 0},
+	{"Archipelago", "item_feed",                "Item Feed",                    CFG_BOOL, &g_config.itemFeed, 0, 0, 0},
 	// CFG_ENUM: AI-difficulty preset, stepped through a fixed value ladder and
 	// rendered as a preset name (see MM_ConfigMenu.c). Stored as its raw value.
 	{"Archipelago", "ai_difficulty",            "AI Difficulty",                CFG_ENUM, &g_config.aiDifficulty, 0, 0, 0},
@@ -237,11 +243,12 @@ const ConfigEntry g_configEntries[] = {
 	// finishes or skips it, never by a menu row.
 	{"State",       "setup_done",               "Setup Done",                   CFG_BOOL, &g_config.setupDone, 0, 0, 0},
 #endif
-	// Box placement editing is absent from ordinary public builds. Keeping the
-	// row out of g_configEntries means NativeConfig_Load cannot revive it from a
-	// stale box_author=true, while ap_author.c independently forces the runtime
-	// gate off as defence in depth. Dedicated authoring builds opt in explicitly
-	// (CTR_BOX_AUTHORING: the AP box authoring download and the authoring client).
+	// Box Author Mode is a saved option only in the dedicated authoring builds
+	// (CTR_BOX_AUTHORING: the AP box authoring download and the authoring
+	// client). The player client has it as a session switch on the Authoring
+	// page instead (ap/ap_author_gate.h): keeping the row out of
+	// g_configEntries there means NativeConfig_Load cannot revive it from a
+	// stale box_author=true and every launch starts with it off.
 #ifdef CTR_BOX_AUTHORING
 	{"Authoring",   "box_author",               "Box Author Mode",              CFG_BOOL, &g_config.boxAuthor, 0, 0, 0},
 #endif

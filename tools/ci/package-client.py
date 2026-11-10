@@ -35,7 +35,64 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def verify(platform, exe):
+def require_version_resource(pe):
+    """Require a nonempty RT_VERSION (16) in a PE32 executable's resource tree."""
+    try:
+        pe_header = struct.unpack_from('<I', pe, 0x3c)[0]
+        sections = struct.unpack_from('<H', pe, pe_header + 6)[0]
+        optional_size = struct.unpack_from('<H', pe, pe_header + 20)[0]
+        resource_rva = struct.unpack_from('<I', pe, pe_header + 24 + 96 + 16)[0]
+        if not resource_rva:
+            raise ValueError('Windows client has no VERSIONINFO resource')
+
+        def file_offset(rva):
+            for i in range(sections):
+                section = pe_header + 24 + optional_size + 40 * i
+                virtual_size, virtual_address, raw_size, raw_offset = struct.unpack_from('<IIII', pe, section + 8)
+                if virtual_address <= rva < virtual_address + max(virtual_size, raw_size):
+                    offset = raw_offset + rva - virtual_address
+                    if offset >= len(pe):
+                        break
+                    return offset
+            raise ValueError('Windows resource RVA is outside the executable')
+
+        base = file_offset(resource_rva)
+
+        def entries(relative):
+            directory = base + relative
+            named, numbered = struct.unpack_from('<HH', pe, directory + 12)
+            if named + numbered > 1024:
+                raise ValueError('Windows resource directory is malformed')
+            return [struct.unpack_from('<II', pe, directory + 16 + 8 * i)
+                    for i in range(named + numbered)]
+
+        for resource_type, child in entries(0):
+            if resource_type != 16 or not child & 0x80000000:
+                continue
+            for _, language_dir in entries(child & 0x7fffffff):
+                if not language_dir & 0x80000000:
+                    continue
+                for _, data_entry in entries(language_dir & 0x7fffffff):
+                    if data_entry & 0x80000000:
+                        continue
+                    data_rva, size = struct.unpack_from('<II', pe, base + data_entry)
+                    if size and file_offset(data_rva) + size <= len(pe):
+                        return
+    except (struct.error, IndexError) as error:
+        raise ValueError('Windows resource directory is malformed') from error
+    raise ValueError('Windows client has no VERSIONINFO resource')
+
+
+INTERNAL_TITLE_MARKER = b' | Internal'
+
+
+def require_release_title(binary):
+    """A CI release build must not carry the dev-only window title suffix."""
+    if INTERNAL_TITLE_MARKER in binary:
+        raise ValueError('Release build window title still contains the Internal dev marker')
+
+
+def verify(platform, exe, variant):
     debug = Path(str(exe) + '.debug')
     if not exe.is_file() or not debug.is_file():
         raise ValueError('Missing executable or exact debug sidecar')
@@ -56,6 +113,7 @@ def verify(platform, exe):
         raise ValueError('Debuglink name/size mismatch')
     if struct.unpack_from('<I', data, crc_at)[0] != zlib.crc32(debug.read_bytes()):
         raise ValueError('Debuglink CRC does not match the exact sidecar')
+    require_release_title(exe.read_bytes())
     result = {}
     if platform == 'windows':
         pe = exe.read_bytes()
@@ -71,6 +129,8 @@ def verify(platform, exe):
         # base because savestates and replays hold raw pointers (CMakeLists.txt).
         if flags & 0x100 != 0x100:
             raise ValueError('Windows NX flag missing')
+        if variant == 'ap':
+            require_version_resource(pe)
         imports = re.findall(r'DLL Name:\s*(\S+)', output('objdump', '-p', str(exe)))
         system = {'advapi32.dll', 'bcrypt.dll', 'cfgmgr32.dll', 'crypt32.dll',
                   'dinput8.dll', 'dwmapi.dll', 'gdi32.dll', 'hid.dll', 'imm32.dll',
@@ -105,7 +165,7 @@ def main():
     if platform not in ('windows', 'linux') or variant not in ('ap', 'vanilla', 'authoring', 'authoring-client'):
         raise ValueError('Invalid platform/configuration')
     exe, out = Path(executable), Path(destination)
-    checks = verify(platform, exe)
+    checks = verify(platform, exe, variant)
     commit = output('git', 'rev-parse', 'HEAD').strip()
     if output('git', 'diff', '--name-only', 'HEAD').strip():
         raise ValueError('Tracked source differs from the recorded commit')
@@ -140,13 +200,15 @@ def main():
         if variant in ('ap', 'authoring'):
             cortex = root / 'assets' / 'tracks' / 'cortex-vortex'
             cortex.mkdir(parents=True)
-            for file in ('CVortex Arcade All.lev', 'CVortex Arcade All.vrm'):
+            for file in ('CVortex Arcade All.lev', 'CVortex Arcade All.vrm', 'CVortex Arcade All.sca'):
                 source = Path('assets/tracks/cortex-vortex') / file
                 shutil.copy2(source, cortex / file)
             if digest(cortex / 'CVortex Arcade All.lev') != '4e3a2daf56c67be3ac645d3bb5375e516c828a0bca24c35ac69b3366c466fe13':
                 raise ValueError('Bundled Cortex Vortex LEV hash mismatch')
             if digest(cortex / 'CVortex Arcade All.vrm') != '4131444b9d1d53971befcfd11349efceaf887c20b795c8890fdcb2c36bdff07d':
                 raise ValueError('Bundled Cortex Vortex VRM hash mismatch')
+            if digest(cortex / 'CVortex Arcade All.sca') != 'ddde81cf1be8042400c717edeeded0d8727e3bb8ba24f0100201708372ef8b1c':
+                raise ValueError('Bundled Cortex Vortex music hash mismatch')
         for file in (('support-bundle.bat', 'support-bundle.ps1') if platform == 'windows' else ('support-bundle.sh',)):
             shutil.copy2(file, root / file)
         (root / 'versions.txt').write_text(output('bash', 'tools/release-versions.sh'))

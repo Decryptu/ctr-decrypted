@@ -1,3 +1,4 @@
+#include <platform/native_menu.h>
 /* Adventure map tracker. A read-only native overlay, drawn after presentation
  * so its text and pins are not reduced through the PS1 framebuffer. */
 #include "ap_tracker.h"
@@ -577,6 +578,10 @@ static void AP_TrackerBuildNodes(void)
 			if (!ap_tracker.hub && AP_BossFinalGarageOpponent() >= 0)
 				snprintf(n->pad, sizeof n->pad, "Rival: %s",
 				         sdata->lngStrings[data.MetaDataCharacters[AP_BossFinalGarageOpponent()].name_LNG_short]);
+			/* The chaos Final Challenge names itself: its rivals do not fit here. */
+			if (!ap_tracker.hub) { char chaos[48]; size_t used = strlen(n->pad);
+				if (AP_ChaosFinalAdvert(chaos, (int)sizeof chaos) && used + 3 < sizeof n->pad)
+					snprintf(n->pad + used, sizeof n->pad - used, "%s%s", used ? ", " : "", chaos); }
 			AP_TrackerProject(AP_TRACKER_MARK_GARAGE, item->posX, item->posY, &n->x, &n->y);
 			order[ap_tracker.count] = ap_tracker.count; ap_tracker.count++; break;
 		}
@@ -758,7 +763,7 @@ static void AP_TrackerDrawActivities(void)
 			}
 		}
 	}
-	AP_TrackerText("* START   ^ BACK", x + 16, y + h - 26, 14, TRACKER_WHITE, w - 32);
+	AP_TrackerText(NativeMenu_Labels("* START   ^ BACK"), x + 16, y + h - 26, 14, TRACKER_WHITE, w - 32);
 }
 static void AP_TrackerDraw(void)
 {
@@ -766,8 +771,8 @@ static void AP_TrackerDraw(void)
 	if (ap_tracker.tab == AP_TRACKER_TAB_RACERS) AP_TrackerDrawRacers();
 	else if (ap_tracker.tab == AP_TRACKER_TAB_ITEMS) AP_TrackerDrawItems();
 	if (ap_tracker.tab >= AP_TRACKER_TAB_HUBS) {
-		AP_TrackerText(AP_TrackerTabShown(AP_TRACKER_TAB_RACERS) ? "L1/R1 HUBS, RACERS, ITEMS   MOUSE < > TABS   ^ BACK"
-			: "L1/R1 HUBS, ITEMS   MOUSE < > TABS   ^ BACK", 32, 744, 16, TRACKER_WHITE, 1210);
+		AP_TrackerText(AP_TrackerTabShown(AP_TRACKER_TAB_RACERS) ? NativeMenu_Labels("L1/R1 HUBS, RACERS, ITEMS   MOUSE < > TABS   ^ BACK")
+			: NativeMenu_Labels("L1/R1 HUBS, ITEMS   MOUSE < > TABS   ^ BACK"), 32, 744, 16, TRACKER_WHITE, 1210);
 		return;
 	}
 	AP_TrackerFrame(sdata->lngStrings[data.metaDataLEV[GEM_STONE_VALLEY+ap_tracker.hub].name_LNG]);
@@ -775,10 +780,13 @@ static void AP_TrackerDraw(void)
 	AP_TrackerBlit(h->pixels,h->width,h->height,ap_tracker.map_x,ap_tracker.map_y,ap_tracker.map_w,ap_tracker.map_h,TRACKER_WHITE);
 	for(i=0;i<ap_tracker.count;i++) {
 		AP_TrackerNode *n=&ap_tracker.nodes[i]; int edge=n->cx<640?n->cx+n->cw:n->cx;
-		int st=n->physical>=0?AP_PadState(n->physical,n->destination):0;
-		if(n->kind==3) st=AP_TrackerBossNodeState(AP_TrackerBitState(n->bit),
-			ap_tracker.hub?AP_BossGarageOpen(ap_tracker.hub-1):AP_OxideGarageOpen());
-		uint32_t color=st==5?TRACKER_GRAY:st==1?AP_TrackerRGBA(255,57,43,255):st==3?TRACKER_GOLD:st==4?AP_TrackerRGBA(140,160,255,255):TRACKER_GREEN;
+		int look=n->physical>=0?AP_PadLook(n->physical,n->destination):AP_PAD_LOOK_NONE;
+		if(n->kind==3) look=AP_PadLookFromState(AP_TrackerBossNodeState(AP_TrackerBitState(n->bit),
+			ap_tracker.hub?AP_BossGarageOpen(ap_tracker.hub-1):AP_OxideGarageOpen()),0);
+		/* The shared pad colour table (ap_pad_colour.h), the same colours as
+		   the hub map dot and the warp pad beam. Gold only for a beaten garage. */
+		uint32_t rgb=AP_PadLookRGB(AP_TrackerNodeColour(look));
+		uint32_t color=AP_TrackerRGBA(AP_PadLookR(rgb),AP_PadLookG(rgb),AP_PadLookB(rgb),255);
 		AP_TrackerLine(n->x,n->y,edge,n->cy+24,TRACKER_MINT,2);
 		AP_TrackerCircle(n->x,n->y,12,AP_TrackerRGBA(0,0,0,255),0);
 		AP_TrackerCircle(n->x,n->y,8,color,0);
@@ -798,25 +806,35 @@ static void AP_TrackerDraw(void)
 		AP_TrackerArrow(x,y,sdata->gGT->drivers[0]->rotCurr.y+0x800,10,TRACKER_GOLD);
 	}
 	for(i=0;i<ap_tracker.count;i++) AP_TrackerDrawNode(i);
+	/* M08: always show the configured Wumpa target, also without a shop.
+	   A dedicated line cannot be clipped off a composed pause-menu goal. */
+	if (ctr_wumpa_shop.goal > 0) {
+		long long have = ap_net_wumpa_lifetime();
+		snprintf(line, sizeof line, "WUMPA GOAL: %lld/%d COLLECTED",
+			have > ctr_wumpa_shop.goal ? ctr_wumpa_shop.goal : have, ctr_wumpa_shop.goal);
+		AP_TrackerText(line,32,668,14,TRACKER_GOLD,1210);
+	}
 	/* #249: this hub's Wumpa Shop slots left, open and affordable (decision 21). */
 	if(AP_WumpaShopHubTrackerLine(GEM_STONE_VALLEY+ap_tracker.hub,line,(int)sizeof line))
 		AP_TrackerText(line,32,692,14,TRACKER_GOLD,1210);
 	if(ap_tracker.pinned && ap_tracker.count) {
-		AP_TrackerNode *n=&ap_tracker.nodes[ap_tracker.focus]; int bits[96], remaining=n->physical>=0?AP_PadUncollectedGlowBits(n->destination,bits,96):0;
+		AP_TrackerNode *n=&ap_tracker.nodes[ap_tracker.focus]; int bits[AP_PAD_DISPLAY_BITS_MAX], remaining=n->physical>=0?AP_PadUncollectedGlowBits(n->destination,bits,AP_PAD_DISPLAY_BITS_MAX):0;
 		const ctr_content_pad *plan=ap_content_plan_active()&&n->physical>=0?ap_content_plan_pad(n->physical):NULL;
 		int boxes=plan?(plan->cup?ap_content_cup_box_pending(plan,ap_content_plan_pad,AP_ContentCodeChecked):ap_content_box_pending(plan,AP_ContentCodeChecked)):AP_PadUncollectedBoxCount(n->destination), letters=0, k;
 		if(plan) { for(k=0;k<3;k++) letters+=plan->letter_locations[k]>0 && !AP_ContentCodeChecked(plan->letter_locations[k]); }
-		else letters=AP_PadUncollectedLetterCount(n->destination);
 		if(plan) remaining-=boxes+letters; /* the plan's list holds both */
-		snprintf(line,sizeof line,"%s: %d RACE CHECKS, %d BOXES, %d LETTERS LEFT",n->title,remaining,boxes,letters);
+		if (plan && (ap_content_plan_sanity_pad(n->physical,0,NULL,320) || ap_content_plan_sanity_pad(n->physical,1,NULL,320) || ap_content_plan_sanity_pad(n->physical,2,NULL,320)))
+			snprintf(line,sizeof line,"LEFT: %d RACE, %d BOX, %d LETTER | %d WEAPON CRATES, %d WUMPA CRATES, %d FRUIT",remaining,boxes,letters,
+			         AP_SanityPadPending(n->physical,0),AP_SanityPadPending(n->physical,1),AP_SanityPadPending(n->physical,2));
+		else snprintf(line,sizeof line,"%s: %d RACE CHECKS, %d BOXES, %d LETTERS LEFT",n->title,remaining,boxes,letters);
 	} else snprintf(line,sizeof line,"CHECK: O PENDING / TICK DONE    LETTER: ORANGE OWNED / LOCK NEEDED / - OFF%s",ap_net_is_connected()?"":"    OFFLINE");
 	AP_TrackerText(line,32,718,14,TRACKER_WHITE,1210);
 	{
 		/* #375: Cross opens the activity list when the seed allows starts. */
 		int launch = AP_TrackerLaunchEnabled();
 		AP_TrackerText(AP_TrackerTabShown(AP_TRACKER_TAB_RACERS)
-			? (launch ? "L1/R1 HUBS, RACERS, ITEMS   D-PAD FOCUS   * ACTIVITIES   ^ BACK" : "L1/R1 HUBS, RACERS, ITEMS   D-PAD FOCUS   * INSPECT   ^ BACK")
-			: (launch ? "L1/R1 HUBS, ITEMS   D-PAD FOCUS   * ACTIVITIES   ^ BACK" : "L1/R1 HUBS, ITEMS   D-PAD FOCUS   * INSPECT   ^ BACK"),
+			? (launch ? NativeMenu_Labels("L1/R1 HUBS, RACERS, ITEMS   D-PAD FOCUS   * ACTIVITIES   ^ BACK") : NativeMenu_Labels("L1/R1 HUBS, RACERS, ITEMS   D-PAD FOCUS   * INSPECT   ^ BACK"))
+			: (launch ? NativeMenu_Labels("L1/R1 HUBS, ITEMS   D-PAD FOCUS   * ACTIVITIES   ^ BACK") : NativeMenu_Labels("L1/R1 HUBS, ITEMS   D-PAD FOCUS   * INSPECT   ^ BACK")),
 			32,744,16,TRACKER_WHITE,1210);
 	}
 	if (ap_tracker.acts_open && ap_tracker.count) AP_TrackerDrawActivities();
@@ -846,6 +864,9 @@ int AP_TrackerMenuFrame(void)
 		sdata->ptrActiveMenu->funcPtr==MainFreeze_MenuPtrDefault && !sdata->ptrDesiredMenu;
 	float mx,my; unsigned buttons;
 	if(!context) { ap_tracker_request=0; if(ap_tracker.open) AP_TrackerClose(); return 0; }
+	/* MainFrame reads this aggregate after the overlay. An owned Start must
+	 * not also unpause the retail menu after going back one tracker level. */
+	if(ap_tracker.open) sdata->AnyPlayerTap &= ~BTN_START;
 	buttons=SDL_GetMouseState(&mx,&my);
 	if(!ap_tracker.open) {
 		/* Square in the hub pause menu, or its TRACKER row. */
@@ -853,6 +874,7 @@ int AP_TrackerMenuFrame(void)
 		if(!(tap&BTN_SQUARE) && !requested) return 0;
 		if(!AP_TrackerLoadAssets()) { AP_TrackerShutdown(); return 0; }
 		AH_Pause_Destroy(); ap_tracker.open=1; ap_tracker.hub=gt->levelID-GEM_STONE_VALLEY;
+		sdata->AnyPlayerTap &= ~BTN_START; /* The successful opening frame owns it too. */
 		if(ap_tracker.hub<0 || ap_tracker.hub>=5) ap_tracker.hub=0;
 		ap_tracker.tab=ap_tracker.hub;
 		ap_tracker.focus=0; ap_tracker.pinned=0; ap_tracker.acts_open=0; AP_TrackerBuildNodes();
@@ -862,11 +884,10 @@ int AP_TrackerMenuFrame(void)
 		AP_TrackerNode *n=&ap_tracker.nodes[ap_tracker.focus];
 		AP_TrackerActivitiesBuild(); /* live: a received item updates the rows */
 		if(ap_tracker.acts_cursor>=ap_tracker.acts.count) ap_tracker.acts_cursor=0;
-		if(tap&BTN_START) { AP_TrackerClose(); return 1; }
-		if(tap&(BTN_TRIANGLE|BTN_CIRCLE|BTN_SQUARE) || !AP_TrackerLaunchEnabled() || ap_tracker.count<=0) ap_tracker.acts_open=0;
+		if(tap&(BTN_TRIANGLE|BTN_START) || !AP_TrackerLaunchEnabled() || ap_tracker.count<=0) ap_tracker.acts_open=0;
 		else if(tap&(BTN_UP|BTN_DOWN) && ap_tracker.acts.count)
 			ap_tracker.acts_cursor=(ap_tracker.acts_cursor+((tap&BTN_UP)?ap_tracker.acts.count-1:1))%ap_tracker.acts.count;
-		else if((tap&BTN_CROSS) && ap_tracker.acts.count && ap_tracker.acts.reason[ap_tracker.acts_cursor]==AP_PADACT_OPEN) {
+		else if((tap&(BTN_CROSS|BTN_CIRCLE)) && ap_tracker.acts.count && ap_tracker.acts.reason[ap_tracker.acts_cursor]==AP_PADACT_OPEN) {
 			int row=ap_tracker.acts_cursor;
 			if(AP_TrackerLaunchBegin(ap_tracker.hub,n->kind==3?-1:n->physical,n->kind==3?-1:n->destination,
 			                         ap_tracker.acts.activity[row],ap_tracker.acts.launchMode[row])) {
@@ -874,7 +895,7 @@ int AP_TrackerMenuFrame(void)
 			}
 		}
 	} else {
-		if(tap&(BTN_TRIANGLE|BTN_CIRCLE|BTN_START|BTN_SQUARE)) { AP_TrackerClose(); return 1; }
+		if(tap&(BTN_TRIANGLE|BTN_START)) { AP_TrackerClose(); return 1; }
 		int racersOn=AP_TrackerRacersOn(), step=0;
 		/* A seed swap while open can take the RACERS tab away; land on the map. */
 		ap_tracker.tab=AP_TrackerTabSettlePure(ap_tracker.tab,ap_tracker.hub,racersOn,1);
@@ -899,13 +920,13 @@ int AP_TrackerMenuFrame(void)
 			if(tap&(BTN_UP|BTN_DOWN|BTN_LEFT|BTN_RIGHT)) {
 				ap_tracker.focus=(ap_tracker.focus+((tap&(BTN_UP|BTN_LEFT))?ap_tracker.count-1:1))%ap_tracker.count; ap_tracker.pinned=0;
 			}
-			if((tap&BTN_CROSS) && AP_TrackerLaunchEnabled() && ap_tracker.count) {
+			if((tap&(BTN_CROSS|BTN_CIRCLE)) && AP_TrackerLaunchEnabled() && ap_tracker.count) {
 				/* #375: open the focused node's activities; the summary line
 				 * below the map shows its counts meanwhile. */
 				ap_tracker.pinned=1; ap_tracker.acts_open=1; AP_TrackerActivitiesBuild();
 				ap_tracker.acts_cursor=AP_PadActivityCursor(&ap_tracker.acts);
 			}
-			else if(tap&BTN_CROSS) ap_tracker.pinned=!ap_tracker.pinned;
+			else if(tap&(BTN_CROSS|BTN_CIRCLE)) ap_tracker.pinned=!ap_tracker.pinned;
 			if(mx!=ap_tracker.mouse_x || my!=ap_tracker.mouse_y || (buttons&SDL_BUTTON_LMASK)) {
 				int vx,vy,vw,vh;
 				if(NativeRenderer_DisplayRectToWindow(0,0,activeDispEnv.disp.w,activeDispEnv.disp.h,&vx,&vy,&vw,&vh) && vw>0 && vh>0) {

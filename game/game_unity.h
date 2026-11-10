@@ -14,6 +14,7 @@
 #include "../ap/ap_hit_policy.h"    // freestanding Hit Character encounter decisions (ticket 06)
 #include "../ap/ap_hit_chooser.h"   // freestanding ordinary chooser state machine (ticket 06)
 #include "../ap/ap_hit_encounter.h" // Hit Character gather: roster + dispatch (ticket 06)
+#include "../ap/ap_roster_swap.h"   // roster swap: guest racers, gauntlet seat, chaos field
 #include "../ap/ap_traps.h"    // trap-effect framework (declares the engine hooks)
 #include "../ap/ap_democam.h"  // Demo Camera trap: CAM.c skips the L2 zoom toggle while engaged (#454)
 #include "../ap/ap_shortcut.h" // Shortcutless mechanism
@@ -31,8 +32,9 @@
 #include "../ap/ap_spoiler_items.h" // reveal items for pad previews and box colours (#459)
 #include "../ap/ap_spoiler_items_logic.h"
 #include "../ap/ap_useful.h"     // queued one-shot useful grants
-#include "../ap/ap_pauserow.h"   // hub pause menu SELECT CHARACTER / TRACKER row wiring (#238)
+#include "../ap/ap_pauserow.h"   // hub pause menu SELECT CHARACTER / TRACKER / TRAVEL row wiring (#238, A3-16)
 #include "../ap/ap_tracker.h"    // hub pause menu TRACKER row
+#include "../ap/ap_fasttravel.h" // hub fast travel (A3-16)
 #include "../ap/ap_garageskip.h" // adventure-start garage skip session latch (#54/#209)
 #include "../ap/ap_oxide_cutscene.h" // Oxide Final-Challenge presentation readiness (WO-A4)
 #include "../ap/ap_oxide_weapon_schedule.h"
@@ -411,6 +413,7 @@
 #include "../ap/ap_hooks_cup_sweeps.c"
 #include "../ap/ap_hooks_content_cups.c" // #133 PR 5 content-plan cups
 #include "../ap/ap_hooks_laps.c" // #344 lap completion checks
+#include "../ap/ap_hooks_sanity.c"
 #include "../ap/ap_podium_skip.c"  // #285 podium-skip runtime (host-linkable)
 #include "../ap/ap_oxide_scene.c"  // #377 once-per-seed Oxide scene decision (host-linkable)
 #include "../ap/ap_boss_door_scene.c" // #377 once-per-hub boss-door scene decision (host-linkable)
@@ -453,6 +456,7 @@
 #include "../ap/ap_navrec.c"
 #include "../ap/ap_tracker.c"
 #include "../ap/ap_tracker_launch.c" // #375 tracker pad start
+#include "../ap/ap_fasttravel.c"     // A3-16 hub fast travel (after the tracker: refuses while a start is pending)
 #include "../ap/ap_link.c"     // one-click-connect glue (#334 slice 3)
 #include "../ap/ap_update.c"   // signed in-game updater (#301)
 #else

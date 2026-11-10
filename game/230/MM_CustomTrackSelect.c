@@ -1,4 +1,6 @@
-/* Custom pages at the normal track selector in Arcade and Time Trial.
+#include <platform/native_menu.h>
+/* Custom pages at the normal track selector in Arcade and Time Trial, in
+   every client with packages (MM_CUSTOM_TIME_TRIAL).
    Included by MM_TrackSelect.c inside CTR_CUSTOM_PACKAGES. Custom pages use
    owned library metadata, never indices into retail track/ghost tables.
 
@@ -10,15 +12,19 @@
    which group that is, is a loading detail below and never the track's
    identity. Leaving the race ends the custom runtime; Retry keeps it.
 
-   Every installed track is listed, except one turned off on the Mods screen
-   (MM_Mods_IsOff). One that cannot run in this mode is drawn dimmed and says
-   why (native_custom_content_verify.h). A Time Trial reads
+   Every listed revision shows, Ready or not, except a track turned off on
+   the Mods screen (MM_Mods_IsOff). One that cannot race in this mode is drawn
+   dimmed and says why (CustomTrackLibrary_Admission). In a room a race runs
+   under AP_ArcadeHoldsRoom: its checks and items stay out of the room, and it
+   never touches the room's pins. A Time Trial reads
    and writes its best times and ghost in custom-records/
    (native_custom_records.h), never the memory card. */
 #include <platform/native_custom_track_library.h>
 #include <platform/native_custom_offline.h>
+#include <platform/native_custom_music.h>
 #include <platform/native_assets.h>
 #include <platform/native_custom_revision.h>
+#include <platform/native_input.h> // Platform_InputRawGamepadButtons
 
 #include <platform/native_custom_identity.h>
 #include <platform/native_custom_records.h>
@@ -51,10 +57,20 @@ static void MM_CustomTrackSelect_DrawPageArrows(int centerX, int y, int titleWid
     }
 }
 
+/* Every client with packages has the Time Trial pages: the player client got
+   them on the ruling of 2026-11-02 (the plan's "Single Race and Time Trial
+   both"). Best times and the ghost live in custom-records/ there as in the
+   authoring builds. 0 would close the Time Trial pages again. */
+#define MM_CUSTOM_TIME_TRIAL 1
+
 static struct CustomTrackLibrary s_arcadeLibrary;
 static size_t s_arcadePage;
 static size_t s_arcadeRows[CTR_LIBRARY_MAX / CTR_LIBRARY_PAGE_ROWS + 1];
-static int s_arcadeScanWasBusy;
+/* The scan the page's rows were built from. A menu entry reuses them, so only
+   a scan that really ran costs a rebuild. */
+static unsigned int s_arcadeGeneration = ~0u;
+static int s_arcadeSearching, s_arcadeSearchPadPrev;
+static char s_arcadeQuery[CTR_LIBRARY_QUERY_MAX + 1], s_arcadeQueryBackup[CTR_LIBRARY_QUERY_MAX + 1];
 static int s_arcadePrepareBusy;
 static int s_arcadeConfirm;
 static int s_arcadeMotion, s_arcadeMotionDirection;
@@ -68,7 +84,7 @@ static int MM_CustomTrackSelect_Mode(void)
     u32 mode1 = sdata->gGT->gameMode1;
     if ((mode1 & (BATTLE_MODE | ADVENTURE_MODE | ADVENTURE_CUP)) || (sdata->gGT->gameMode2 & CUP_ANY_KIND)) return 0;
     if ((mode1 & (ARCADE_MODE | TIME_TRIAL)) == ARCADE_MODE) return CTR_OFFLINE_MODE_ARCADE;
-    if ((mode1 & (ARCADE_MODE | TIME_TRIAL)) == TIME_TRIAL) return CTR_OFFLINE_MODE_TIME_TRIAL;
+    if (MM_CUSTOM_TIME_TRIAL && (mode1 & (ARCADE_MODE | TIME_TRIAL)) == TIME_TRIAL) return CTR_OFFLINE_MODE_TIME_TRIAL;
     return 0;
 }
 
@@ -77,17 +93,20 @@ static int MM_CustomTrackSelect_Enabled(void)
     return MM_CustomTrackSelect_Mode() != 0;
 }
 
-/* Whether an installed track can run in this page's mode, and if not, a
+/* Whether a listed revision is Ready for this page's mode, and if not, a
    sentence for the detail panel (three 13-character lines at most). */
 static int MM_CustomTrackSelect_Eligible(const struct CustomTrackLibraryEntry *entry, char *why, size_t whySize)
 {
     int timeTrial = MM_CustomTrackSelect_Mode() == CTR_OFFLINE_MODE_TIME_TRIAL;
+    enum CustomTrackAdmission admission = CustomTrackLibrary_Admission(entry, timeTrial);
     if (why && whySize) why[0] = 0;
-    if (!entry || !entry->installed) return 0;
-    if (timeTrial ? entry->local.timeTrial : entry->local.arcade) return 1;
+    if (!entry) return 0;
+    if (admission == CTR_ADMISSION_READY) return 1;
     if (why && whySize)
     {
-        if (!timeTrial && entry->local.timeTrial)
+        if (admission == CTR_ADMISSION_DISCOVERED)
+            snprintf(why, whySize, "%s", entry->disabledReason[0] ? entry->disabledReason : "Not installed");
+        else if (!timeTrial && entry->local.timeTrial && MM_CUSTOM_TIME_TRIAL)
             snprintf(why, whySize, "%s. Use Time Trial.", entry->local.arcadeReason);
         else
             snprintf(why, whySize, "%s", timeTrial ? entry->local.timeTrialReason : entry->local.arcadeReason);
@@ -117,9 +136,49 @@ static void MM_CustomTrackSelect_Init(void)
     s_arcadeConfirm = 0;
     s_arcadeMessage[0] = 0;
     s_customTimeTrialPending = 0;
+    s_arcadeSearching = 0;
+    s_arcadeQuery[0] = 0;
+    CustomTrackLibrary_Filter(&s_arcadeLibrary, s_arcadeQuery, 0, 0);
     CustomOffline_Free(&s_arcadeRequest);
-    MM_CustomLibrary_Tick(1);
-    s_arcadeScanWasBusy = 1;
+    /* The first entry loads and scans; later ones keep the cached rows. An
+       install or the page's own L2 asks for a new scan. */
+    MM_CustomLibrary_Tick(0);
+}
+
+/* After new rows or a new filter: the remembered revision's page and row, by
+   pin. A revision that left the list leaves the page as it was. */
+static void MM_CustomTrackSelect_FollowPin(void)
+{
+    const struct CustomTrackLibraryEntry *held = CustomTrackLibrary_Selected(&s_arcadeLibrary);
+    size_t at = s_arcadeLibrary.selected;
+    if (!held || strcmp(held->manifestSha256, s_arcadeLibrary.rememberedPin)) return;
+    s_arcadeRows[at / CTR_LIBRARY_PAGE_ROWS] = at % CTR_LIBRARY_PAGE_ROWS;
+    if (s_arcadePage) s_arcadePage = at / CTR_LIBRARY_PAGE_ROWS + 1;
+}
+
+/* The search box: the same keyboard entry and pad exits as the Track Manager. */
+static void MM_CustomTrackSelect_SearchTick(void)
+{
+    int rawPad = Platform_InputRawGamepadButtons();
+    int rawTapped = rawPad & ~s_arcadeSearchPadPrev;
+    s_arcadeSearchPadPrev = rawPad;
+    if (!s_arcadeSearching) return;
+    if (!NativeText_Result())
+    {
+        if (rawTapped & (RAW_BTN_TRIANGLE | RAW_BTN_START)) NativeText_Resolve(2);
+        else if (rawTapped & (RAW_BTN_CROSS | RAW_BTN_CIRCLE)) NativeText_Resolve(1);
+    }
+    if (NativeText_Result())
+    {
+        if (NativeText_Result() == 2) strcpy(s_arcadeQuery, s_arcadeQueryBackup);
+        NativeText_End();
+        s_arcadeSearching = 0;
+    }
+    if (strcmp(s_arcadeQuery, s_arcadeLibrary.query))
+    {
+        CustomTrackLibrary_Filter(&s_arcadeLibrary, s_arcadeQuery, 0, 0);
+        MM_CustomTrackSelect_FollowPin();
+    }
 }
 
 /* The Vanilla page's preview frame and lap box (MM_TrackSelect.c's enum, which
@@ -169,6 +228,18 @@ static void MM_CustomTrackSelect_Start(int laps)
         if (laps) CustomOffline_SetRuntimeLaps(laps);
         gGT->currLEV = host;
         gGT->numLaps = CustomOffline_RuntimeLaps();
+        /* No .sca: an imported track plays the retail music of the track it
+           replaces, any other plays Crash Cove's. */
+        {
+            const size_t page = s_arcadePage ? s_arcadePage - 1 : 0;
+            const struct CustomTrackLibraryEntry *chosen =
+                CustomTrackLibrary_Row(&s_arcadeLibrary, page * CTR_LIBRARY_PAGE_ROWS + s_arcadeRows[page]);
+            struct CustomPackageManifest running;
+            /* Only for the entry that was prepared (same pin). */
+            CustomOffline_SetMusicFallbackLevel(chosen && chosen->local.xdelta &&
+                CustomOffline_RuntimeManifest(&running) && !strcmp(running.sha256, chosen->manifestSha256) ?
+                CustomMusic_ReplacedLevel(chosen->local.bigfileIndex) : -1);
+        }
         D230.trackSelect.transition.startAfterExit = 1;
         D230.trackSelect.transition.state = EXITING_MENU;
         s_customTimeTrialPending = mode == CTR_OFFLINE_MODE_TIME_TRIAL;
@@ -198,11 +269,12 @@ static int MM_CustomTrackSelect_Tick(void)
 
     if (!s_arcadePrepareBusy) MM_CustomLibrary_Tick(0);
     MM_ModsPicture_Tick();
-    if (s_arcadeScanWasBusy && !MM_CustomLibrary_Busy())
+    if (s_arcadeGeneration != s_contentStoreGeneration && !MM_CustomLibrary_Busy())
     {
-        /* Copy entries, not the manager's query/Current Seed filter. Every
-           installed track shows, one row per track: the newest revision that
-           can run in this mode, else the newest revision. */
+        /* Copy entries, not the manager's query/Current Seed filter. One row
+           per track: the newest revision that can run in this mode, else the
+           newest revision. A revision with no track id keeps its own row, so
+           one that failed its checks still shows with its reason. */
         struct CustomTrackLibraryEntry *eligible = calloc(s_contentLibrary.count ? s_contentLibrary.count : 1, sizeof *eligible);
         size_t count = 0;
         if (eligible)
@@ -210,7 +282,7 @@ static int MM_CustomTrackSelect_Tick(void)
             for (size_t i=0;i<s_contentLibrary.count;i++)
             {
                 const struct CustomTrackLibraryEntry *item=&s_contentLibrary.entries[i];
-                if (!item->installed || MM_Mods_IsOff(item)) continue;
+                if (MM_Mods_IsOff(item)) continue;
                 size_t at=0;
                 for (;at<count;at++)
                     if (item->local.uuid[0] && !strcmp(item->local.uuid,eligible[at].local.uuid)) break;
@@ -224,10 +296,15 @@ static int MM_CustomTrackSelect_Tick(void)
                 }
             }
             CustomTrackLibrary_Replace(&s_arcadeLibrary, eligible, count);
+            MM_CustomTrackSelect_FollowPin();
             free(eligible);
         }
-        s_arcadeScanWasBusy = 0;
+        s_arcadeGeneration = s_contentStoreGeneration;
     }
+    /* The frame that ends the entry belongs to it too: its Cross or Triangle
+       must not also pick a track or leave the page. */
+    if (s_arcadeSearching) tapped = 0;
+    MM_CustomTrackSelect_SearchTick();
     pages = CustomTrackLibrary_PageCount(&s_arcadeLibrary) + 1;
     if (s_arcadePage >= pages) s_arcadePage = pages - 1;
     if (D230.trackSelect.transition.state != IN_MENU || D230.trackSelect.lapBoxOpen ||
@@ -307,7 +384,19 @@ static int MM_CustomTrackSelect_Tick(void)
             s_arcadeMessage[0] = 0;
             OtherFX_Play(0, 1);
         }
-        if (!MM_CustomLibrary_Busy() && (tapped & (BTN_TRIANGLE | BTN_SQUARE_one)))
+        if (tapped & BTN_R2)
+        {
+            strcpy(s_arcadeQueryBackup, s_arcadeQuery);
+            NativeText_Begin(s_arcadeQuery, sizeof s_arcadeQuery, 28, 180, 456, 12, 0);
+            s_arcadeSearching = 1;
+            tapped = 0;
+        }
+        if ((tapped & BTN_L2) && !MM_CustomLibrary_Busy())
+        {
+            MM_CustomLibrary_Tick(1);
+            s_arcadeMessage[0] = 0;
+        }
+        if (!MM_CustomLibrary_Busy() && (tapped & (BTN_TRIANGLE | BTN_START)))
         {
             D230.trackSelect.transition.startAfterExit = 0;
             D230.trackSelect.transition.state = EXITING_MENU;
@@ -316,13 +405,11 @@ static int MM_CustomTrackSelect_Tick(void)
         entry = rows ? CustomTrackLibrary_Row(&s_arcadeLibrary, first + row) : NULL;
         if (entry && !MM_CustomLibrary_Busy() && (tapped & (BTN_CROSS_one | BTN_CIRCLE)))
         {
-            char why[80];
-            if (!entry->installed)
-                snprintf(s_arcadeMessage, sizeof s_arcadeMessage, "Install this track from MODS on the title screen.");
-            else if (!MM_CustomTrackSelect_Eligible(entry, why, sizeof why))
+            char why[260];
+            if (!MM_CustomTrackSelect_Eligible(entry, why, sizeof why))
                 snprintf(s_arcadeMessage, sizeof s_arcadeMessage, "%s", why);
             else if (!AP_CustomOfflineLaunchAllowed())
-                snprintf(s_arcadeMessage, sizeof s_arcadeMessage, "Disconnect from Archipelago to race custom tracks here.");
+                snprintf(s_arcadeMessage, sizeof s_arcadeMessage, "A room race is still loaded. Try again from the hub.");
             else if (gGT->numPlyrNextGame != 1)
                 snprintf(s_arcadeMessage, sizeof s_arcadeMessage, "Custom tracks are one player only. Choose one player.");
             else
@@ -335,6 +422,7 @@ static int MM_CustomTrackSelect_Tick(void)
     }
     s_arcadeRows[s_arcadePage - 1] = row;
     entry = rows ? CustomTrackLibrary_Row(&s_arcadeLibrary, first + row) : NULL;
+    if (entry) memcpy(s_arcadeLibrary.rememberedPin, entry->manifestSha256, sizeof s_arcadeLibrary.rememberedPin);
     RECTMENU_ClearInput();
 
     /* The Vanilla page's layout (MM_TrackSelect_MenuProc): curved big-font
@@ -374,6 +462,13 @@ static int MM_CustomTrackSelect_Tick(void)
         MM_CustomTrackSelect_DrawPageArrows(394, 178, DecalFont_GetLineWidth(line, FONT_SMALL), ot);
         snprintf(line, sizeof line, "Page %u/%u", (unsigned)s_arcadePage + 1, (unsigned)pages);
         DecalFont_DrawLineOT(line, 394, 190, FONT_SMALL, JUSTIFY_CENTER | WHITE, ot);
+        /* The search box's text, or the two page controls: 248 pixels, to
+           the screen's right edge, hold "R2 Search L2 Rescan". */
+        if (s_arcadeSearching || s_arcadeQuery[0])
+            snprintf(line, sizeof line, "Search: %s%s", s_arcadeQuery, s_arcadeSearching ? "_" : "");
+        else
+            snprintf(line, sizeof line, "R2 Search L2 Rescan");
+        MM_CustomText_Draw(line, 386, 202, 248, 1, JUSTIFY_CENTER | GRAY, ot);
     }
 
     struct Icon *mapTop = NULL, *mapBottom = NULL;
@@ -404,8 +499,12 @@ static int MM_CustomTrackSelect_Tick(void)
         int none = 1;
         struct Icon *picture = entry && !s_arcadeMotion ?
             MM_ModsPicture_Icon(entry->local.trackID, entry->manifestSha256, &none) : NULL;
-        const char *message = s_arcadeMessage[0] ? s_arcadeMessage :
-            !entry ? (MM_CustomLibrary_Busy() ? "Loading tracks..." : "No tracks. Manage content in Options.") : NULL;
+        /* In a room the lap box's race stays out of it (AP_ArcadeHoldsRoom):
+           the note says so over the picture. */
+        const char *note = s_arcadeConfirm ? AP_CustomOfflineRoomNote() : "";
+        const char *message = s_arcadeMessage[0] ? s_arcadeMessage : note[0] ? note :
+            !entry ? (MM_CustomLibrary_Busy() ? "Loading tracks..." : s_arcadeQuery[0] ? "No search matches" :
+                      "No tracks. Get them from MODS on the title screen.") : NULL;
         if (message)
             MM_CustomText_Draw(message, preview.x + preview.w / 2, preview.y + 10, preview.w - 12, 4,
                                JUSTIFY_CENTER | WHITE, ot);

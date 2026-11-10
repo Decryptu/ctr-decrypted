@@ -326,6 +326,9 @@ void LOAD_AppendQueue(struct BigHeader *bigfile, int type, int fileIndex, void *
 int LOAD_DriverMPK(struct BigHeader *bigfile, int levelLOD, void (*callback)(struct LoadQueueSlot *));
 void LOAD_Hub_Main(struct BigHeader *bigfilePtr);
 void LOAD_Hub_ReadFile(struct BigHeader *bigfile, int levID, int packID);
+#ifdef CTR_AP
+void LOAD_Hub_ApMaskEvicts(int packID);
+#endif
 void LIST_Init(struct LinkedList *L, struct Item *item, int itemSize, int numItems);
 struct Item *LIST_RemoveBack(struct LinkedList *L);
 struct Item *LIST_RemoveFront(struct LinkedList *L);
@@ -479,12 +482,16 @@ const char *MainRaceTrack_OfflineCustomTitle(void);
 int MainRaceTrack_OfflineCustomTimeTrial(void);
 struct CustomRecordKey;
 int MainRaceTrack_CustomRecordKey(struct CustomRecordKey *key);
-// Custom-race music from the package's .sca (game/HOWL/HOWL_CustomMusic.c).
+// Custom-race music from the package's .sca, and Cortex Vortex's bundled .sca
+// (game/HOWL/HOWL_CustomMusic.c).
 void HOWL_CustomMusic_Reset(void);
 int HOWL_CustomMusic_LoadBank(struct Bank *thisBank);
+int HOWL_CustomMusic_CortexLoadBank(int level, struct Bank *thisBank);
 void HOWL_CustomMusic_BankDone(void);
 int HOWL_CustomMusic_ServeSectors(void *destination, int firstSector, int numSector);
 int HOWL_CustomMusic_SetSong(void);
+int HOWL_CustomMusic_FallbackFXBank(void);
+int HOWL_CustomMusic_FallbackSongBank(void);
 #endif
 
 int MATH_Sin(u32 angle);

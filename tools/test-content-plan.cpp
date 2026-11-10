@@ -1,5 +1,5 @@
 // Production content-plan admission and retained room identity.
-// g++ -m32 -std=c++17 -DCTR_AP -fsanitize=undefined -fno-sanitize-recover=all -Iap -Iap/vendor/json/include tools/test-content-plan.cpp ap/ap_seedcfg.cpp -o /tmp/test-content-plan
+// g++ -m32 -std=c++17 -O2 -DCTR_AP -fsanitize=undefined -fno-sanitize-recover=all -Iap -Iap/vendor/json/include tools/test-content-plan.cpp ap/ap_seedcfg.cpp -o /tmp/test-content-plan
 #include "ap_seedcfg.h"
 #include "ap_content_plan.h"
 #include "ap_content_modes.h"
@@ -96,6 +96,35 @@ int main(int argc, char **argv) {
             catch (const std::exception &) { std::cout << "REFUSE" << std::endl; }
         }
         return 0;
+    }
+    {
+        J sanity;
+        std::ifstream("tools/fixtures/content-plan/sanity.json") >> sanity;
+        expect(parse(sanity) && bind_room(sanity), "sanity room parses and binds");
+        int total = 0;
+        for (const auto &row : sanity["content_plan"]["sanity"]["tracks"]) {
+            const auto *record = ap_content_plan_sanity(row["track_id"].get<std::string>().c_str());
+            expect(record != nullptr, "sanity track is retained");
+            if (record) for (int f = 0; f < 3; ++f) {
+                expect(record->counts[f] == row["counts"][f], "sanity counts retained");
+                for (const auto &ordinal : row[f == 0 ? "weapon_crate" : f == 1 ? "wumpa_crate" : "wumpa_fruit"])
+                    expect(record->locations[f][ordinal.get<int>() - 1] > 0, "sanity ordinal has frozen code");
+            }
+        }
+        for (int pad = 0; pad < 27; ++pad) total += ap_content_plan_sanity_pad(pad, 0, nullptr, 320);
+        expect(total > 0, "sanity checks contribute to pad counts");
+        auto bad = sanity;
+        bad["content_plan"]["sanity"]["tracks"][0]["weapon_crate"][0] = 81;
+        refuse(bad, "sanity out-of-budget ordinal refuses");
+        bad = sanity; bad["content_plan"]["sanity"]["tracks"][0]["counts"][0] = true;
+        refuse(bad, "sanity boolean count refuses");
+        bad = sanity; bad["content_plan"]["sanity"]["tracks"][0]["lev_sha256"] = std::string(64, '0');
+        refuse(bad, "sanity LEV mismatch refuses");
+        bad = sanity; bad["content_plan"].erase("sanity");
+        refuse(bad, "sanity feature without record refuses");
+        bad = sanity;
+        for (auto &check : bad["content_plan"]["checks"]) if (check["kind"] == "weapon_crate") { check["routes"][0]["award"] = "box"; break; }
+        refuse(bad, "sanity forged route refuses");
     }
     J base, extras;
     std::ifstream("tools/fixtures/content-plan/baseline.json") >> base;
@@ -289,6 +318,45 @@ int main(int argc, char **argv) {
         expect(named == 1 && generic == 1, "one named and one generic open package");
         expect(ap_content_plan_package(1) && !ap_content_plan_package(2) && !ap_content_plan_package(AP_CONTENT_MAX_PACKAGES),
                "package lookup bounded by the plan");
+    }
+    // 132 custom tracks per YAML: slots past 32 race on the
+    // race family v2 ids, and a plan holds more than the old 64 tracks.
+    J high;
+    std::ifstream("tools/fixtures/content-plan/custom-132.json") >> high;
+    expect(high["content_plan"]["tracks"].size() > 64 && high["content_plan"]["packages"].size() > 32,
+           "the fixture is past the old limits");
+    expect(parse(high) && bind_room(high, "seed-132") && ap_content_plan_active(), "a plan past the old limits binds");
+    {
+        int top = 0, leg_top = 0;
+        for (int id = 0; id <= 110; ++id) {
+            const auto *p = ap_content_plan_pad(id);
+            if (!p || !p->occupied) continue;
+            for (int l = 0; p->cup && l < AP_CONTENT_CUP_LEGS; ++l) {
+                const auto &leg = p->legs[l];
+                if (leg.package_index < 0 || leg.named_block >= 0) continue;
+                leg_top = std::max(leg_top, leg.custom_slot);
+                if (leg.custom_slot > 32)
+                    expect(ap_content_plan_package(leg.package_index) != nullptr, "a high slot leg names its package");
+                expect(leg.lap == 0 || leg.lap == 35028100 + leg.custom_slot - 1, "a generic leg uses its slot's lap code");
+            }
+            if (p->retail_id >= 0 || p->cup || p->cortex || p->package_index < 0 || p->named_block >= 0) continue;
+            top = std::max(top, p->custom_slot);
+            if (p->custom_slot > 32)
+                expect(p->trophy_location == 35019000 + 6 * (p->custom_slot - 1), "a high slot pad uses race family v2");
+        }
+        expect(std::max(top, leg_top) == 132, "the fixture races the last slot");
+        expect(!ap_content_plan_package(AP_CONTENT_MAX_PACKAGES), "package lookup bounded at 132");
+    }
+    {
+        J bad = high;
+        for (auto &t : bad["content_plan"]["tracks"])
+            if (t.contains("custom_slot") && t["custom_slot"] == 132) t["custom_slot"] = 133;
+        refuse(bad, "a slot past 132");
+        bad = high;
+        J &packages = bad["content_plan"]["packages"];
+        const J first = packages[0];
+        while (packages.size() <= AP_CONTENT_MAX_PACKAGES) packages.push_back(first);
+        refuse(bad, "more than 132 packages");
     }
     mutations(open, open, J::json_pointer(""));
     auto package_refuses = [&](const std::string &why, const std::function<void(J &)> &change) {
@@ -741,6 +809,14 @@ int main(int argc, char **argv) {
             auto &f = p["required_features"];
             for (size_t i = 0; i < f.size(); ++i) if (f[i] == "relic_perfect_v1") { f.erase(i); return; } });
         cv_refuse("Cortex Vortex laps", [&](J &p) { cv_track(p)["laps"] = 5; });
+        cv_refuse("Cortex Vortex standalone laps above 7", [&](J &p) { cv_track(p)["standalone_laps"] = 8; });
+        cv_refuse("Cortex Vortex standalone laps below 1", [&](J &p) { cv_track(p)["standalone_laps"] = 0; });
+        cv_refuse("Cortex Vortex standalone laps one", [&](J &p) { cv_track(p)["standalone_laps"] = 1; });
+        cv_refuse("Cortex Vortex standalone laps three", [&](J &p) { cv_track(p)["standalone_laps"] = 3; });
+        cv_refuse("Cortex Vortex standalone laps seven", [&](J &p) { cv_track(p)["standalone_laps"] = 7; });
+        cv_refuse("Cortex Vortex standalone laps not an integer", [&](J &p) { cv_track(p)["standalone_laps"] = 2.5; });
+        cv_refuse("standalone laps on a retail track", [&](J &p) {
+            for (auto &t : p["tracks"]) if (t["origin"] == "retail") { t["standalone_laps"] = 2; return; } });
         cv_refuse("Cortex Vortex package", [&](J &p) { cv_track(p)["package_id"] = "package/cortex-vortex/1.1.2"; });
         cv_refuse("Cortex Vortex name", [&](J &p) { cv_track(p)["display_name"] = "Oxide Station"; });
         cv_refuse("Cortex Vortex with a custom slot", [&](J &p) { cv_track(p)["custom_slot"] = 9; });
@@ -758,6 +834,26 @@ int main(int argc, char **argv) {
                     c["display_name"] = "Cortex Vortex" + name.substr(old.size());
                 }
             } });
+    }
+    // A4-13 (ruled 2026-11-09): a plan whose Cortex Vortex record carries
+    // standalone_laps races the pad at that count, its relic targets scaled
+    // (the production tests). A plan without the key, every room from before
+    // the ruling, keeps the authored three (the pin above).
+    {
+        J two = cvp;
+        for (auto &t : two["content_plan"]["tracks"])
+            if (t["origin"] == "cortex_vortex") t["standalone_laps"] = 2;
+        expect(parse(two) && bind_room(two, "seed-C") && ap_content_plan_active() && ap_content_plan_cortex(),
+               "two-lap Cortex Vortex plan binds");
+        bool found = false;
+        for (int id = 0; id <= 110; ++id) {
+            const auto *p = ap_content_plan_pad(id);
+            if (p && p->occupied && p->cortex) {
+                found = true;
+                expect(p->laps == 2, "standalone_laps sets the Cortex Vortex pad's laps");
+            }
+        }
+        expect(found, "the two-lap plan keeps its Cortex Vortex pad");
     }
     // Pool-only packs and the content-plan envelope (#133 PR 4a): an apworld-
     // emitted room with Progressive Starting Wumpa 3, Turbo Grant, Tizi
@@ -1104,17 +1200,49 @@ int main(int argc, char **argv) {
         J legacy = glob;
         legacy.erase("content_plan"); legacy["ctr_options"].erase("content_plan");
         ap_seedcfg_parse_json(legacy);
-        expect(ap_seedcfg_rejected(), "global checks: a normal room refuses the content-plan boss fallback");
+        expect(!ctr_cfg_active() && !ap_content_plan_present(), "global checks: a planless room stays inactive");
     }
     // Item Box Locations (#133 PR 4e): an apworld-emitted room at Shortcut
     // Knowledge hard with shared boost and stats, on N. Gin Labs (pad 15),
     // Tiger Temple (pad 18), Papu's Pyramid (pad 11), Oxide Station (Gem Cup
     // seat 100), Cortex Vortex (pad 8, no boxes), Baby T Park (pad 21, 8
     // stated weapon crates), Acid Lake (pad 10, named, 20 crates: 15 boxes)
-    // and the B+ fixture-loop (pad 23, 12 crates, generic slot: no boxes).
+    // and the B+ fixture-loop (pad 23, 12 crates, generic slot).
     // Item Box Colours off in the seed.
     J boxes;
     std::ifstream("tools/fixtures/content-plan/item-boxes.json") >> boxes;
+    {
+        // A3-35: list comes from the world. Existing 20-crate fixture stays
+        // at 15 boxes after one exclusion, but native must retain the entry.
+        J ex = boxes;
+        auto &plan = ex["content_plan"];
+        const auto &packages = plan["packages"];
+        std::string hash, track;
+        for (const auto &p : packages) if (p["content_id"] == "acid-lake") {
+            hash = p["files"][0]["sha256"].get<std::string>();
+            for (const auto &t : plan["tracks"]) if (t.value("package_id", "") == p["id"].get<std::string>()) track = t["id"].get<std::string>();
+        }
+        plan["item_boxes"]["crate_exclusions"] = J::array({{{"track_id", track}, {"lev_sha256", hash},
+            {"crates", J::array({{{"ordinal", 1}, {"pos", J::array({0, 0, 0})}}})}}});
+        auto &features = plan["required_features"];
+        for (auto it = features.begin(); it != features.end(); ++it) if (*it == "item_boxes_v1") {
+            features.insert(it + 1, "crate_exclusions_v1"); break;
+        }
+        expect(parse(ex) && bind_room(ex), "exclusions: valid world list binds");
+        const auto *p = ap_content_plan_pad(10);
+        expect(p && p->box_count == 15 && p->box_crates == 20 && p->box_excluded_count == 1 && p->box_excluded[0] == 1,
+               "exclusions: parser carries original ordinal and raw count to seating");
+        auto bad = [&](const std::string &why, std::function<void(J &)> change) {
+            J j = ex; change(j["content_plan"]); refuse(j, "exclusions: " + why);
+        };
+        bad("mismatched LEV", [](J &p) { p["item_boxes"]["crate_exclusions"][0]["lev_sha256"] = std::string(64, '0'); });
+        bad("ordinal outside crate count", [](J &p) { p["item_boxes"]["crate_exclusions"][0]["crates"][0]["ordinal"] = 21; });
+        bad("duplicate ordinal", [](J &p) { auto &c = p["item_boxes"]["crate_exclusions"][0]["crates"]; c.push_back(c[0]); });
+        bad("bad position", [](J &p) { p["item_boxes"]["crate_exclusions"][0]["crates"][0]["pos"][0] = 32768; });
+        bad("unknown track", [](J &p) { p["item_boxes"]["crate_exclusions"][0]["track_id"] = "absent"; });
+        bad("missing feature", [](J &p) { auto &fs = p["required_features"]; for (auto i = fs.begin(); i != fs.end(); ++i) if (*i == "crate_exclusions_v1") { fs.erase(i); break; } });
+        bad("extra field", [](J &p) { p["item_boxes"]["crate_exclusions"][0]["unexpected"] = true; });
+    }
     expect(parse(boxes) && bind_room(boxes) && ap_content_plan_active(), "item-boxes room binds");
     {
         const ctr_content_item_boxes *b = ap_content_plan_item_boxes();
@@ -1141,7 +1269,10 @@ int main(int argc, char **argv) {
         expect(named, "boxes: Baby T Park takes Item Box 1 to 8 on its named block");
         expect(acid && acid->box_count == 15 && acid->box_crates == 20 && acid->box_locations[14] == 35200000 + 20 + 14,
                "boxes: twenty crates seat fifteen boxes");
-        expect(loop && loop->box_count == 0 && loop->box_locations[0] == 0, "boxes: a generic slot has none");
+        bool generic = loop && loop->box_count == 12 && loop->box_crates == 12;
+        for (int i = 0; generic && i < 15; ++i)
+            generic = loop->box_locations[i] == (i < 12 ? 35017030 + i : 0);
+        expect(generic, "boxes: a generic slot seats its twelve crates on reserved codes");
         expect(cv && cv->box_count == 0, "boxes: Cortex Vortex has none");
         expect(ap_content_plan_package(0) && ap_content_plan_package(0)->weapon_crates == 20, "boxes: the stated crate count is kept");
         expect(parse(caps) && ap_content_plan_item_boxes()->present == 0 && ctr_cfg.color_boxes_by_item == 0,
@@ -1214,11 +1345,12 @@ int main(int argc, char **argv) {
             auto &c = j["content_plan"]["checks"];
             for (size_t i = 0; i < c.size(); ++i) if (c[i]["display_name"] == "Baby T Park: Item Box 8") { c.erase(i); break; }
             shrink(j, 1); });
-        b_refuse("box on the generic slot", [&](J &j) {
-            J extra = box(j, "Baby T Park: Item Box 1");
-            extra["owner"] = "custom/fixture-loop/2.1"; extra["location"] = 35017000;
-            extra["display_name"] = "Fixture Loop: Item Box 1";
-            j["content_plan"]["checks"].push_back(extra); shrink(j, -1); });
+        b_refuse("generic box dropped", [&](J &j) {
+            auto &c = j["content_plan"]["checks"];
+            for (size_t i = 0; i < c.size(); ++i) if (c[i]["display_name"] == "Fixture Loop: Item Box 1") { c.erase(i); break; }
+            shrink(j, 1); });
+        b_refuse("generic box code", [&](J &j) { box(j, "Fixture Loop: Item Box 1")["location"] = 35017000; });
+        b_refuse("generic crate count", [&](J &j) { package(j, "fixture-loop")["capabilities"]["weapon_crates"] = 11; });
         b_refuse("weapon crates raised", [&](J &j) { package(j, "baby-t-park")["capabilities"]["weapon_crates"] = 9; });
         b_refuse("weapon crates lowered", [&](J &j) { package(j, "baby-t-park")["capabilities"]["weapon_crates"] = 7; });
         b_refuse("weapon crates unstated", [&](J &j) { package(j, "baby-t-park")["capabilities"].erase("weapon_crates"); });
@@ -1268,6 +1400,157 @@ int main(int argc, char **argv) {
                 c["routes"] = kept;
             }
         expect(parse(crateless), "crates: without its routes the crateless track is admitted");
+    }
+    // Hand-placed box spots (A3-14): a room generated with the A3-14 test spot
+    // files, Crash Cove with its 10 built-in spots plus 8 test spots 16 to 23
+    // and Baby T Park (named block 8) with 18 spots from 1, both picking 15;
+    // every other retail track takes its built-in spots.
+    J spots;
+    std::ifstream("tools/fixtures/content-plan/box-spots.json") >> spots;
+    expect(parse(spots) && bind_room(spots) && ap_content_plan_active(), "box-spots room binds");
+    {
+        std::map<std::string, J> sets;
+        for (const auto &set : spots["content_plan"]["item_boxes"]["spot_sets"]) sets[set["track_id"]] = set;
+        std::map<int64_t, J> checks;
+        for (const auto &c : spots["content_plan"]["checks"]) if (c.contains("spot")) checks[c["location"]] = c;
+        int spot_pads = 0, crash = 0, btp = 0;
+        bool fields_ok = true;
+        for (int p = 0; p < 111; ++p) {
+            const ctr_content_pad *pad = ap_content_plan_pad(p);
+            if (!pad || !pad->occupied || !pad->box_spots) continue;
+            ++spot_pads;
+            const J &set = sets.at(pad->track_id);
+            fields_ok &= pad->box_count == (int)set["picked"].size() && pad->box_crates == 0;
+            for (int b = 0; b < pad->box_count; ++b) {
+                const J &c = checks.at(pad->box_locations[b]);
+                fields_ok &= pad->box_number[b] == set["picked"][b].get<int>() && c["spot"]["number"] == pad->box_number[b] &&
+                             c["spot"]["pos"][0] == pad->box_pos[b][0] && c["spot"]["pos"][1] == pad->box_pos[b][1] &&
+                             c["spot"]["pos"][2] == pad->box_pos[b][2] && c["spot"]["rot_y"] == pad->box_rot_y[b];
+                if (pad->retail_id == 3) {
+                    ++crash;
+                    const int n = pad->box_number[b];
+                    fields_ok &= pad->box_locations[b] == (n <= 15 ? 35014000 + 15 * 0 + n - 1 : 35014300 + 35 * 0 + n - 16);
+                } else if (pad->named_block == 8) {
+                    ++btp;
+                    fields_ok &= pad->box_locations[b] == 35200000 + 200 * 8 + 19 + pad->box_number[b];
+                }
+            }
+        }
+        expect(spot_pads == (int)sets.size() && spot_pads > 2, "spots: every spot set stands on its pad");
+        expect(crash == 15 && btp == 15, "spots: Crash Cove and Baby T Park each pick 15");
+        expect(fields_ok, "spots: codes, numbers and positions match the room's checks");
+        auto set_of = [](J &j, const std::string &id) -> J & {
+            for (auto &s : j["content_plan"]["item_boxes"]["spot_sets"]) if (s["track_id"] == id) return s;
+            throw std::runtime_error("no spot set " + id);
+        };
+        auto spot_check = [](J &j, int64_t code) -> J & {
+            for (auto &c : j["content_plan"]["checks"]) if (c["location"] == code) return c;
+            throw std::runtime_error("no check");
+        };
+        const ctr_content_pad *cc = 0;
+        for (int p = 0; p < 111 && !cc; ++p) {
+            const ctr_content_pad *pad = ap_content_plan_pad(p);
+            if (pad && pad->occupied && pad->retail_id == 3 && !pad->cup) cc = pad;
+        }
+        const int64_t first = cc ? cc->box_locations[0] : 0;
+        auto s_refuse = [&](const std::string &why, const std::function<void(J &)> &change) {
+            J bad = spots; change(bad); refuse(bad, "spots: " + why);
+        };
+        s_refuse("feature dropped", [](J &j) {
+            auto &f = j["content_plan"]["required_features"];
+            for (size_t i = 0; i < f.size(); ++i) if (f[i] == "box_spots_v1") { f.erase(i); break; }
+        });
+        s_refuse("spot set dropped", [&](J &j) {
+            auto &v = j["content_plan"]["item_boxes"]["spot_sets"];
+            for (size_t i = 0; i < v.size(); ++i) if (v[i]["track_id"] == "retail:3") { v.erase(i); break; }
+        });
+        s_refuse("picks one short", [&](J &j) { set_of(j, "retail:3")["picked"].erase(14); });
+        s_refuse("picks not ascending", [&](J &j) { std::swap(set_of(j, "retail:3")["picked"][0], set_of(j, "retail:3")["picked"][1]); });
+        s_refuse("number past 50", [&](J &j) { set_of(j, "retail:3")["picked"][14] = 51; });
+        s_refuse("pool smaller than the pick", [&](J &j) { set_of(j, "retail:3")["pool"] = 10; });
+        s_refuse("spot set for a track without a pad", [&](J &j) {
+            J extra = set_of(j, "retail:3"); extra["track_id"] = "retail:99"; j["content_plan"]["item_boxes"]["spot_sets"].push_back(extra);
+        });
+        s_refuse("a retail set dropped, its boxes rewritten to the frozen rows", [&](J &j) {
+            auto &v = j["content_plan"]["item_boxes"]["spot_sets"];
+            for (size_t i = 0; i < v.size(); ++i) if (v[i]["track_id"] == "retail:4") { v.erase(i); break; }
+            for (auto &c : j["content_plan"]["checks"]) if (c["owner"] == "retail:4") c.erase("spot");
+        });
+        s_refuse("LEV pin of another revision", [&](J &j) { set_of(j, "custom/baby-t-park/1.0.2")["lev_sha256"] = std::string(64, 'a'); });
+        s_refuse("LEV pin on a retail set", [&](J &j) { set_of(j, "retail:3")["lev_sha256"] = std::string(64, 'a'); });
+        s_refuse("unknown spot set field", [&](J &j) { set_of(j, "retail:3")["credit"] = "x"; });
+        s_refuse("spot dropped from a box", [&](J &j) { spot_check(j, first).erase("spot"); });
+        s_refuse("spot number differs from its code", [&](J &j) { spot_check(j, first)["spot"]["number"] = 24; });
+        s_refuse("spot position outside 16 bits", [&](J &j) { spot_check(j, first)["spot"]["pos"][0] = 40000; });
+        s_refuse("unknown spot field", [&](J &j) { spot_check(j, first)["spot"]["needs"] = "boost"; });
+        s_refuse("spot on a check that is not a box", [&](J &j) {
+            for (auto &c : j["content_plan"]["checks"]) if (c["kind"] == "trophy") { c["spot"] = spot_check(j, first)["spot"]; break; }
+        });
+        // The pre-A3-14 shape of the same room stays readable: no spot sets,
+        // no spot fields, the feature gone; boxes come from the registry rows.
+        J legacy = spots;
+        legacy["content_plan"]["item_boxes"].erase("spot_sets");
+        auto &f = legacy["content_plan"]["required_features"];
+        for (size_t i = 0; i < f.size(); ++i) if (f[i] == "box_spots_v1") { f.erase(i); break; }
+        for (auto &c : legacy["content_plan"]["checks"]) c.erase("spot");
+        expect(!parse(legacy), "spots: a picked community number has no registry slot without its spot set");
+    }
+    // The first community spot files (A3-45): a room from the paired apworld
+    // with DK Pass 1.0.0 (named block 25) and Ancient Lake 1.1.0 (named block
+    // 1) from the shared YAML package records. Each file has 15 spots, so all
+    // 15 stand and no crate is hidden or excluded on either track.
+    J community;
+    std::ifstream("tools/fixtures/content-plan/box-spots-community.json") >> community;
+    expect(parse(community) && bind_room(community) && ap_content_plan_active(), "community spots room binds");
+    {
+        std::map<std::string, J> sets;
+        for (const auto &set : community["content_plan"]["item_boxes"]["spot_sets"]) sets[set["track_id"]] = set;
+        std::map<int64_t, J> checks;
+        for (const auto &c : community["content_plan"]["checks"]) if (c.contains("spot")) checks[c["location"]] = c;
+        expect(!community["content_plan"]["item_boxes"].contains("crate_exclusions"),
+               "community spots: Ancient Lake 1.1.0 carries no crate exclusion");
+        std::map<int, int> stood;
+        bool fields_ok = true;
+        for (int p = 0; p < 111; ++p) {
+            const ctr_content_pad *pad = ap_content_plan_pad(p);
+            if (!pad || !pad->occupied || (pad->named_block != 1 && pad->named_block != 25)) continue;
+            const J &set = sets.at(pad->track_id);
+            fields_ok &= pad->box_spots && pad->box_crates == 0 && pad->box_count == 15 && set["pool"] == 15;
+            for (int b = 0; b < pad->box_count; ++b) {
+                const J &c = checks.at(pad->box_locations[b]);
+                fields_ok &= pad->box_number[b] == b + 1 && c["spot"]["number"] == b + 1 &&
+                             pad->box_locations[b] == 35200000 + 200 * pad->named_block + 19 + b + 1 &&
+                             c["spot"]["pos"][0] == pad->box_pos[b][0] && c["spot"]["pos"][1] == pad->box_pos[b][1] &&
+                             c["spot"]["pos"][2] == pad->box_pos[b][2] && c["spot"]["rot_y"] == pad->box_rot_y[b];
+                ++stood[pad->named_block];
+            }
+        }
+        expect(stood[1] == 15 && stood[25] == 15, "community spots: Ancient Lake and DK Pass stand all 15");
+        expect(fields_ok, "community spots: codes, numbers and positions match the room's checks");
+        auto set_of = [](J &j, const std::string &id) -> J & {
+            for (auto &s : j["content_plan"]["item_boxes"]["spot_sets"]) if (s["track_id"] == id) return s;
+            throw std::runtime_error("no spot set " + id);
+        };
+        J bad = community;
+        set_of(bad, "custom/dk-pass/1.0.0")["lev_sha256"] = std::string(64, 'a');
+        refuse(bad, "community spots: DK Pass set pinned to another LEV");
+        bad = community;
+        set_of(bad, "custom/ancient-lake/1.1.0")["picked"].erase(0);
+        refuse(bad, "community spots: Ancient Lake picks one short");
+        // A room from before DK Pass's file shipped: no set, no spot fields;
+        // the same Item Box 1 to 15 codes are crate seats there (D1).
+        J before = community;
+        auto &v = before["content_plan"]["item_boxes"]["spot_sets"];
+        for (size_t i = 0; i < v.size(); ++i) if (v[i]["track_id"] == "custom/dk-pass/1.0.0") { v.erase(i); break; }
+        for (auto &c : before["content_plan"]["checks"]) if (c["owner"] == "custom/dk-pass/1.0.0") c.erase("spot");
+        expect(parse(before) && bind_room(before), "community spots: a room from before the DK Pass file binds");
+        bool crates = false;
+        for (int p = 0; p < 111; ++p) {
+            const ctr_content_pad *pad = ap_content_plan_pad(p);
+            if (pad && pad->occupied && pad->named_block == 25)
+                crates = !pad->box_spots && pad->box_crates > 0 && pad->box_count == 15;
+        }
+        expect(crates, "community spots: without its set DK Pass keeps crate seating");
     }
     // Cups (#133 PR 5): nine cups over retail, custom (named and generic) and
     // Cortex Vortex legs, shortened laps, sweeps and Cup Leg Victory checks.
@@ -1327,6 +1610,47 @@ int main(int argc, char **argv) {
         for (auto &e : forged["content_plan"]["entries"])
             if (e["kind"] == "cup") { e["legs"][0]["laps"] = 6; break; }
         expect(!parse(forged), "cups: a leg with neither its laps nor the shortened laps (6) refuses");
+    }
+    // Trial tracks in cups (A3-9, ruled 2026-11-05): cups-trial-legs.json is a
+    // room the paired apworld generated with nine cups and Turbo Track narrowed
+    // to [relic]. Slide Coliseum (16) has its own Trophy pad and races four
+    // legs; Turbo Track (17) has no pad and races one leg, so it carries its
+    // frozen Cup Leg Victory (35016817). Legs run on their own LevelID, at the
+    // shortened one lap. The room has no box, Wumpa or lap checks, so those
+    // codes are not checked here.
+    J trials;
+    std::ifstream("tools/fixtures/content-plan/cups-trial-legs.json") >> trials;
+    expect(parse(trials) && bind_room(trials) && ap_content_plan_active(), "trial legs: room binds");
+    {
+        int on[18]{}, pad16 = -1, pad17 = -1;
+        for (int phys = 0; phys < 200; ++phys) {
+            const ctr_content_pad *p = ap_content_plan_pad(phys);
+            if (!p || !p->occupied) continue;
+            if (!p->cup && p->retail_id == 16) pad16 = p->physical;
+            if (!p->cup && p->retail_id == 17) pad17 = p->physical;
+            for (int n = 0; p->cup && n < AP_CONTENT_CUP_LEGS; ++n) {
+                const ctr_content_leg &l = p->legs[n];
+                if (l.retail_id < 16) continue;
+                ++on[l.retail_id];
+                expect(ap_content_leg_host(&l) == l.retail_id && l.laps == 1 && !l.cortex && l.package_index < 0,
+                       "trial legs: a trial leg runs on its own LevelID at one lap");
+                expect(std::string(l.track_id) == "retail:" + std::to_string(l.retail_id), "trial legs: leg track identity");
+            }
+        }
+        expect(on[16] == 4 && on[17] == 1, "trial legs: Slide Coliseum four legs, Turbo Track one");
+        expect(pad16 >= 0 && pad17 < 0, "trial legs: Slide Coliseum has a pad, Turbo Track only cup legs");
+        for (int phys = 0; phys < 200; ++phys) {
+            const ctr_content_pad *p = ap_content_plan_pad(phys);
+            for (int n = 0; p && p->occupied && p->cup && n < AP_CONTENT_CUP_LEGS; ++n) {
+                const ctr_content_leg &l = p->legs[n];
+                if (l.retail_id == 16)
+                    expect(l.victory == 0 && l.track_pad == pad16, "trial legs: Slide Coliseum has its Trophy Race, no Cup Leg Victory");
+                if (l.retail_id == 17)
+                    expect(l.victory == 35016817 && l.track_pad == -1, "trial legs: Turbo Track's frozen Cup Leg Victory");
+            }
+        }
+        // A boss cup still races the 16 Trophy tracks only: bosses-cups below
+        // refuses "a leg on a trial track".
     }
     // One generator row 2: forged Gem Cups, surface rows and relic checks.
     {
@@ -1414,11 +1738,54 @@ int main(int argc, char **argv) {
         legacy.erase("content_plan"); legacy["ctr_options"].erase("content_plan");
         for (auto &t : legacy["hit_character_encounters"]["unlock_triggers"]) t.erase("fallback_keys");
         ap_seedcfg_parse_json(legacy);
-        expect(ap_seedcfg_rejected() && std::string(ctr_cfg.seed_reject_reason).find("expected 7") != std::string::npos,
-               "cup hits: a normal room refuses content_cups");
+        expect(!ctr_cfg_active() && !ap_content_plan_present(),
+               "cup hits: deleting the old reader leaves a planless room inactive");
         expect(parse(cuphits), "cup hits: the room parses again after the forgeries");
         // Without content_cups and Hit Character the cups room keeps its PR 5 shape.
         expect(parse(cups) && !ap_seedcfg_hit_encounters(), "cup hits: the cups room has no encounter block");
+    }
+    // 27 cups (A3-7): twenty-seven-cups.json fills every normal pad with a
+    // cup, so the plan has no Trophy Race or CTR Challenge. Itemsanity then
+    // routes from every cup leg, the Hit routes with the use award, and the
+    // Wumpa Shop and goal bank in the cup legs.
+    J allcups;
+    std::ifstream("tools/fixtures/content-plan/twenty-seven-cups.json") >> allcups;
+    expect(parse(allcups) && bind_room(allcups) && ap_content_plan_active(), "27 cups: room binds");
+    {
+        const J &plan = allcups["content_plan"];
+        int cups = 0, tracks = 0;
+        for (const auto &e : plan["entries"]) { cups += e["kind"] == "cup"; tracks += e["kind"] == "track"; }
+        expect(cups == 27 && tracks == 0, "27 cups: every pad a cup, no track entry");
+        const J *hit = nullptr;
+        int items = 0;
+        for (const auto &c : plan["checks"]) if (c["kind"] == "hit") { hit = &c; break; }
+        expect(hit != nullptr, "27 cups: Hit Character on");
+        for (const auto &c : plan["checks"]) {
+            if (c["kind"] != "itemsanity" || !hit) continue;
+            ++items;
+            bool same = c["routes"].size() == (*hit)["routes"].size();
+            for (size_t i = 0; same && i < c["routes"].size(); ++i) {
+                J use = (*hit)["routes"][i];
+                use["award"] = c["location"].get<int64_t>() % 2 ? "use_juiced" : "use";
+                same = c["routes"][i] == use && use["mode"] == "cup";
+            }
+            expect(same, "27 cups: an Itemsanity check routes from every cup leg, in leg order");
+        }
+        expect(items == 22, "27 cups: all 22 Itemsanity checks");
+        auto a_refuse = [&](const std::string &why, const std::function<void(J &)> &change) {
+            J bad = allcups; change(bad); refuse(bad, "27 cups: " + why);
+        };
+        auto check = [](J &j, int64_t code) -> J & {
+            for (auto &c : j["content_plan"]["checks"]) if (c["location"] == code) return c;
+            throw std::runtime_error("no check");
+        };
+        a_refuse("an Itemsanity cup leg route dropped", [&](J &j) { check(j, 35016000)["routes"].erase(0); });
+        a_refuse("an Itemsanity cup leg route with the hit award", [&](J &j) { check(j, 35016001)["routes"][0]["award"] = "use"; });
+        a_refuse("an Itemsanity cup leg route without its leg", [&](J &j) { check(j, 35016002)["routes"][1]["leg_id"] = nullptr; });
+        // The race fallback is for a plan with no Trophy Race or CTR
+        // Challenge only (tools/test-content-plan-parity.py forges a cup leg
+        // route onto a plan that has one).
+        expect(parse(allcups), "27 cups: the room parses again after the forgeries");
     }
     // Boss garages (#133 PR 6): bosses.json (Boss Track Shuffle, any_percent
     // with the Boss and Gem companions, the Final Challenge on Cortex Vortex,
@@ -1461,7 +1828,50 @@ int main(int argc, char **argv) {
         k_refuse("three legs", [&](J &j) { cup(j, 0)["legs"].erase(3); });
         k_refuse("a repeated leg", [&](J &j) { cup(j, 0)["legs"][1]["track_id"] = cup(j, 0)["legs"][0]["track_id"]; });
         k_refuse("a leg on a trial track", [&](J &j) { cup(j, 1)["legs"][2]["track_id"] = "retail:16"; });
-        k_refuse("a leg with other laps", [&](J &j) { cup(j, 0)["legs"][0]["laps"] = 1; });
+        // A3-6 (ruled 2026-11-06): a boss cup follows one_lap_cups. Off, the
+        // fixture's legs race three laps (checked above); on, every leg races
+        // one; the switch is plan-wide, so a mix refuses.
+        {
+            J short_room = cuproom;
+            for (int g = 0; g < 2; ++g)
+                for (auto &leg : cup(short_room, g)["legs"]) leg["laps"] = 1;
+            expect(parse(short_room) && bind_room(short_room) && ap_content_plan_active(), "bosses-cups: one-lap legs bind");
+            const ctr_content_pad *sroo = ap_content_plan_pad(AP_CONTENT_GARAGE_CUP_PAD + 0);
+            const ctr_content_pad *spapu = ap_content_plan_pad(AP_CONTENT_GARAGE_CUP_PAD + 1);
+            bool one = sroo && spapu;
+            for (int n = 0; one && n < AP_CONTENT_CUP_LEGS; ++n)
+                one = sroo->legs[n].laps == 1 && spapu->legs[n].laps == 1;
+            expect(one, "bosses-cups: one_lap_cups races every boss cup leg one lap");
+        }
+        k_refuse("one leg shortened, the others not", [&](J &j) { cup(j, 0)["legs"][0]["laps"] = 1; });
+        k_refuse("one cup shortened, the other not", [&](J &j) { for (auto &leg : cup(j, 1)["legs"]) leg["laps"] = 1; });
+        // A4-13 (ruled 2026-11-09): standalone_laps on the shared Cortex
+        // Vortex record moves its standalone pad to two laps; every cup and
+        // boss cup leg keeps its own laps, and the Final Challenge keeps its
+        // entry's three.
+        {
+            J keyed = cuproom;
+            for (auto &t : keyed["content_plan"]["tracks"])
+                if (t["origin"] == "cortex_vortex") t["standalone_laps"] = 2;
+            expect(parse(keyed) && bind_room(keyed) && ap_content_plan_active(), "bosses-cups: standalone_laps binds");
+            const ctr_content_pad *kroo = ap_content_plan_pad(AP_CONTENT_GARAGE_CUP_PAD + 0);
+            const ctr_content_pad *kpapu = ap_content_plan_pad(AP_CONTENT_GARAGE_CUP_PAD + 1);
+            bool legs3 = kroo && kpapu;
+            for (int n = 0; legs3 && n < AP_CONTENT_CUP_LEGS; ++n)
+                legs3 = kroo->legs[n].laps == 3 && kpapu->legs[n].laps == 3;
+            expect(legs3, "bosses-cups: standalone_laps leaves the boss cup legs at three laps");
+            // The boss race entry's laps are pinned to three by the parser,
+            // so the bound room proves the Final Challenge is untouched.
+            bool pad2 = false;
+            for (int id = 0; id <= 110; ++id) {
+                const auto *p = ap_content_plan_pad(id);
+                if (p && p->occupied && p->cortex) pad2 = p->laps == 2;
+            }
+            expect(pad2, "bosses-cups: the standalone Cortex Vortex pad races two laps");
+        }
+        k_refuse("a leg with two laps", [&](J &j) { cup(j, 0)["legs"][0]["laps"] = 2; });
+        k_refuse("a leg with the custom track's own laps", [&](J &j) {
+            for (auto &leg : cup(j, 0)["legs"]) if (leg["track_id"] == "custom/baby-t-park/1.0.2") leg["laps"] = 7; });
         k_refuse("a cup garage missing from the record", [](J &j) { j["content_plan"]["bosses"]["cups"] = J::array({0}); });
         k_refuse("a race garage listed as a cup", [](J &j) { j["content_plan"]["bosses"]["cups"] = J::array({0, 1, 2}); });
         k_refuse("the cup check as a boss race", [&](J &j) {
@@ -1671,6 +2081,21 @@ int main(int argc, char **argv) {
         expect(parse(started), "fixed items: a started Key is not pinned again");
         expect(parse(bosses), "bosses: the room parses again after the forgeries");
     }
+    // A4-13 (ruled 2026-11-09): a venue-only Cortex Vortex record (the Final
+    // Challenge venue here) may carry standalone_laps, bounds-checked; a venue
+    // races its boss entry's laps, so the room is unaffected.
+    {
+        J venue2 = bosses;
+        for (auto &t : venue2["content_plan"]["tracks"])
+            if (t["origin"] == "cortex_vortex") t["standalone_laps"] = 2;
+        expect(parse(venue2) && bind_room(venue2) && ap_content_plan_active() &&
+               ap_content_plan_bosses()->final_track == CTR_CFG_OXIDE_FINAL_CORTEX_VORTEX,
+               "bosses: standalone_laps on a venue-only Cortex Vortex binds");
+        J venue9 = bosses;
+        for (auto &t : venue9["content_plan"]["tracks"])
+            if (t["origin"] == "cortex_vortex") t["standalone_laps"] = 9;
+        refuse(venue9, "bosses: standalone_laps out of range on a venue");
+    }
     {
         // `oxide_1_optional: filler`: a Wumpa Fruit on N. Oxide's Challenge takes a
         // locked check and no ledger row, so one filler slot goes.
@@ -1747,6 +2172,44 @@ int main(int argc, char **argv) {
         expect(ap_content_mode_open(&pad, AP_CONTENT_MODE_CTR, counts, won_check), "a first race with no check proves nothing");
         pad.first_race_rule = 0; pad.modes[0] = AP_CONTENT_MODE_TROPHY; pad.trophy_location = 5001;
         expect(ap_content_mode_open(&pad, AP_CONTENT_MODE_CTR, counts, won_check), "a plan without the feature keeps its gates");
+    }
+    // Paired real generation with synthetic 50-spot retail and named tracks.
+    for (int count : {0, 1, 15, 50}) {
+        J room;
+        std::ifstream("tools/fixtures/content-plan/box-count-" + std::to_string(count) + ".json") >> room;
+        expect(parse(room) && bind_room(room), "box count fixture parses and binds");
+        int capacity_tracks = 0;
+        for (int physical = 0; physical < 111; ++physical) {
+            const auto *pad = ap_content_plan_pad(physical);
+            if (!pad || !pad->occupied || (pad->retail_id != 3 && pad->named_block != 8)) continue;
+            ++capacity_tracks;
+            expect(pad->box_count == count, "retail and named pads carry every picked box");
+            for (int b = 0; b < count; ++b)
+                expect(pad->box_number[b] >= 1 && pad->box_number[b] <= 50 && pad->box_pos[b][0] != 0,
+                       "all fifty spot numbers and coordinates survive binding");
+        }
+        expect(capacity_tracks == 2, "both capacity tracks are present");
+        if (count && count != 15) {
+            J forged = room;
+            forged["ctr_options"]["item_box_count"] = count == 1 ? 50 : 1;
+            expect(!parse(forged), "count envelope mismatch refused");
+            for (const J &bad : {J(0), J(15), J(51), J(true), J("50")}) {
+                forged = room; forged["content_plan"]["item_boxes"]["box_count"] = bad;
+                expect(!parse(forged), "invalid count refused");
+            }
+            forged = room;
+            auto &features = forged["content_plan"]["required_features"];
+            for (size_t i = 0; i < features.size(); ++i)
+                if (features[i] == "box_count_v1") { features.erase(i); break; }
+            expect(!parse(forged), "count without feature refused");
+            forged = room;
+            forged["content_plan"]["item_boxes"].erase("box_count");
+            expect(!parse(forged), "feature without count refused");
+            forged = room;
+            auto &picked = forged["content_plan"]["item_boxes"]["spot_sets"][0]["picked"];
+            picked.erase(picked.size() - 1);
+            expect(!parse(forged), "short count pick refused");
+        }
     }
     std::cout << checks << " checks, " << failures << " failures\n";
     return failures ? 1 : 0;
