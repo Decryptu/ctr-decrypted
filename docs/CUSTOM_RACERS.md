@@ -1,6 +1,6 @@
 # Character select and custom racers
 
-The native character select is built from a roster list instead of retail's hand-made icon tables, so it can hold N. Oxide and any number of custom racers. With only the retail racers and Character Select Stats off, it draws, animates and navigates exactly like retail.
+The native character select builds its layout from a roster that can include N. Oxide and custom racers. With only the retail racers and Character Select Stats off, it uses retail's icon positions and animations.
 
 Code: `game/230/MM_CharacterGrid.c` (included from `MM_Characters.c`; the PS1 build keeps the retail functions there). Racers: `platform/native_racers.c` (models, portraits, the players' picks) and `platform/native_racer_library.cpp` (installed packages).
 
@@ -31,11 +31,21 @@ Entries flow into the rows, and every row is centred, so 15 racers land exactly 
 
 ## Navigation
 - Left and right move along the row. Up and down go to the nearest row with an icon at most half a column aside; on a tie, down goes right and up goes left. Retail's own links follow these rules.
-- Icons taken by another player are passed over.
-- At a dead end (every icon that way taken, or none), the cursor first steps one place across, then moves from there. Across is down then up for left and right, and left then right for up and down, like retail's fallback directions.
+- Multiple players can highlight and confirm the same racer. A shared portrait shows each player's number in white while choosing and orange once confirmed. The menu remembers each player's pick, including shared picks.
+- At a dead end, the cursor first steps one place across, then moves from there. Across is down then up for left and right, and left then right for up and down, like retail's fallback directions.
 - Off the end of a row, left and right turn the page; so do L1 and R1. The page is shared: any player who has not chosen can turn it. A cursor whose racer is on another page is hidden until its next d-pad press brings it onto the shown page.
 
 Players are tracked by roster entry. `GAME_CHARACTER_IDS` gets the entry's character ID, and `NativeRacers_SetPlayer` its racer index (-1 for a retail racer).
+
+## Regional Fake Crash assets
+
+Use the Japanese release (SCPS-10118) as the source for the revised face and paler kart. Its Fake Crash models use the same set of VRAM words as the NTSC-U models at each detail level. The PAL release packs the shared palettes elsewhere in VRAM.
+
+Time Trial loads the player's standalone high-detail model at BIGFILE entry 256. In PAL, its one-based texture slots 100 and 101 share the same UV layout, while the Arcade pack (entry 274) gives them distinct layouts. In the Japanese release, both slots in the standalone model match their respective Arcade layouts. Keep the Japanese model and texture data together.
+
+The race and character-select import needs three standalone models (256, 322, 346), Fake Crash's model in five driver packs (259, 274, 290, 306, 362), and 192 changed VRAM words in shared entry 258 sampled by those models. Preserve the NTSC-U models for TNT, Nitro and tokens inside the packs, since the Japanese packs rename those models. Keep the pointer maps consistent with the replacement model's size.
+
+Check a front view of Fake Crash in Crash Cove Time Trial and Arcade, and the character select, in both clients. Use `CTR_DEV_RACE=3`, `CTR_DEV_CHARACTER=14`, `CTR_DEV_UNLOCKS=1`, `CTR_DEV_WARP=-657,757,-4658,3070` and `CTR_DEV_CAMERA=-780,812,-4658,2098,3069,0` with Skip Intro enabled. Capture frame 1100 with `CTR_DEV_MODE=tt` and frame 620 in Arcade. The revised eyes should remain visible, and the kart should be paler.
 
 ## Character stats
 

@@ -17,8 +17,7 @@
 //   retail, except in the last retail row, where the extra racers join it.
 // - Navigation is by position: up and down go to the nearest icon in the next
 //   row that has one, left and right along the row, and off a row's end to the
-//   next or previous page. L1 and R1 also turn the page. Icons taken by another
-//   player are skipped.
+//   next or previous page. L1 and R1 also turn the page. Players can share icons.
 //
 // Players are tracked by roster entry (s_entry), and GAME_CHARACTER_IDS and
 // NativeRacers_SetPlayer are written from it every frame.
@@ -296,30 +295,15 @@ static int MM_CharacterGrid_FindEntry(int characterID, int racer)
 	return -1;
 }
 
-static int MM_CharacterGrid_TakenByOther(int entry, int player)
-{
-	for (int p = 0; p < GAME_TRACKER->numPlyrNextGame; p++)
-	{
-		if ((p != player) && (s_entry[p] == entry))
-			return 1;
-	}
-	return 0;
-}
-
-static int MM_CharacterGrid_Selectable(int entry, int player)
-{
-	return (entry >= 0) && (entry < s_entryCount) && s_entries[entry].visible && !MM_CharacterGrid_TakenByOther(entry, player);
-}
-
-// The free icon on `page` nearest to (x, y), rows weighing more than columns
+// The visible icon on `page` nearest to (x, y), rows weighing more than columns
 // so the cursor keeps its row when it can.
-static int MM_CharacterGrid_Nearest(int page, int x, int y, int player)
+static int MM_CharacterGrid_Nearest(int page, int x, int y)
 {
 	int best = -1;
 	int bestScore = 0x7fffffff;
 	for (int i = 0; i < s_entryCount; i++)
 	{
-		if ((s_entries[i].page != page) || !MM_CharacterGrid_Selectable(i, player))
+		if ((s_entries[i].page != page) || !s_entries[i].visible)
 			continue;
 		const int dx = s_entries[i].x - x;
 		const int dy = s_entries[i].y - y;
@@ -337,9 +321,8 @@ static int MM_CharacterGrid_Nearest(int page, int x, int y, int player)
 // along the row for left and right, and for up and down the nearest row with
 // an icon at most half a column aside (retail's links never go further, so
 // an edge column has no way down to a shorter row). On a tie between two
-// columns, down goes right and up goes left, as retail's links do. Icons
-// taken by another player than `player` are passed over; -1 counts them.
-static int MM_CharacterGrid_Step(int from, int direction, int player)
+// columns, down goes right and up goes left, as retail's links do.
+static int MM_CharacterGrid_Step(int from, int direction)
 {
 	const struct CsEntry *f = &s_entries[from];
 	const int horizontal = (direction == CHARACTER_SELECT_DIR_LEFT) || (direction == CHARACTER_SELECT_DIR_RIGHT);
@@ -349,7 +332,7 @@ static int MM_CharacterGrid_Step(int from, int direction, int player)
 	for (int i = 0; i < s_entryCount; i++)
 	{
 		const struct CsEntry *e = &s_entries[i];
-		if ((e->page != f->page) || (i == from) || !e->visible || ((player >= 0) && !MM_CharacterGrid_Selectable(i, player)))
+		if ((e->page != f->page) || (i == from) || !e->visible)
 			continue;
 
 		const int dx = e->x - f->x;
@@ -381,35 +364,21 @@ static int MM_CharacterGrid_Step(int from, int direction, int player)
 
 // Retail's way out of a dead end: one step across (down then up for left and
 // right, left then right for up and down), then the move from there.
-static int MM_CharacterGrid_StepAround(int from, int direction, int player)
+static int MM_CharacterGrid_StepAround(int from, int direction)
 {
 	const int horizontal = (direction == CHARACTER_SELECT_DIR_LEFT) || (direction == CHARACTER_SELECT_DIR_RIGHT);
 	const int across[2] = {horizontal ? CHARACTER_SELECT_DIR_DOWN : CHARACTER_SELECT_DIR_LEFT,
 	                       horizontal ? CHARACTER_SELECT_DIR_UP : CHARACTER_SELECT_DIR_RIGHT};
 	for (int k = 0; k < 2; k++)
 	{
-		const int side = MM_CharacterGrid_Step(from, across[k], -1);
+		const int side = MM_CharacterGrid_Step(from, across[k]);
 		if (side < 0)
 			continue;
-		const int to = MM_CharacterGrid_Step(side, direction, player);
+		const int to = MM_CharacterGrid_Step(side, direction);
 		if ((to >= 0) && (to != from))
 			return to;
 	}
 	return -1;
-}
-
-// Whether the row of `from` has any icon further that way, free or not.
-static int MM_CharacterGrid_RowContinues(int from, int direction)
-{
-	const struct CsEntry *f = &s_entries[from];
-	for (int i = 0; i < s_entryCount; i++)
-	{
-		const struct CsEntry *e = &s_entries[i];
-		if ((e->page == f->page) && e->visible && (e->y == f->y) &&
-		    ((direction == CHARACTER_SELECT_DIR_LEFT) ? (e->x < f->x) : (e->x > f->x)))
-			return 1;
-	}
-	return 0;
 }
 
 static void MM_CharacterGrid_TurnPage(int delta)
@@ -550,21 +519,6 @@ void MM_Characters_RestoreIDs(void)
 		if (entry < 0)
 			entry = MM_CharacterGrid_FindEntry(CRASH_BANDICOOT, -1);
 		s_entry[p] = (s16)entry;
-
-		// Two players on one icon: the later one takes the first free
-		// default racer, as retail's PreventOverlap.
-		if (MM_CharacterGrid_TakenByOther(entry, p))
-		{
-			for (int id = 0; id < MM_CHARACTER_SELECT_DEFAULT_DRIVER_COUNT; id++)
-			{
-				const int candidate = MM_CharacterGrid_FindEntry(id, -1);
-				if (MM_CharacterGrid_Selectable(candidate, p))
-				{
-					s_entry[p] = (s16)candidate;
-					break;
-				}
-			}
-		}
 	}
 	MM_CharacterGrid_WritePlayers();
 
@@ -735,7 +689,7 @@ static void MM_CharacterGrid_Input(int p)
 			{
 				const struct CsEntry *f = &s_entries[from];
 				MM_CharacterGrid_TurnPage(delta);
-				const int nearest = MM_CharacterGrid_Nearest(page, (f->page == page - delta) ? f->x : s_activeLayout->centerX, f->y, p);
+				const int nearest = MM_CharacterGrid_Nearest(page, (f->page == page - delta) ? f->x : s_activeLayout->centerX, f->y);
 				if (nearest >= 0)
 					to = nearest;
 			}
@@ -759,29 +713,29 @@ static void MM_CharacterGrid_Input(int p)
 			if (s_entries[from].page != s_page)
 			{
 				// The cursor is on another page: bring it onto this one.
-				const int nearest = MM_CharacterGrid_Nearest(s_page, s_activeLayout->centerX, s_activeLayout->rows[0].y, p);
+				const int nearest = MM_CharacterGrid_Nearest(s_page, s_activeLayout->centerX, s_activeLayout->rows[0].y);
 				if (nearest >= 0)
 					to = nearest;
 			}
 			else
 			{
-				to = MM_CharacterGrid_Step(from, direction, p);
+				to = MM_CharacterGrid_Step(from, direction);
 				if ((to < 0) && ((direction == CHARACTER_SELECT_DIR_LEFT) || (direction == CHARACTER_SELECT_DIR_RIGHT)))
 				{
 					// Off the end of a row: the next or previous page, on
 					// the same row's far side.
 					const int delta = (direction == CHARACTER_SELECT_DIR_RIGHT) ? 1 : -1;
 					const int page = s_page + delta;
-					if (!MM_CharacterGrid_RowContinues(from, direction) && (page >= 0) && (page < s_pageCount))
+					if ((page >= 0) && (page < s_pageCount))
 					{
 						const int edgeX = (delta > 0) ? 0 : 0x200;
-						to = MM_CharacterGrid_Nearest(page, edgeX, s_entries[from].y, p);
+						to = MM_CharacterGrid_Nearest(page, edgeX, s_entries[from].y);
 						if (to >= 0)
 							MM_CharacterGrid_TurnPage(delta);
 					}
 				}
 				if (to < 0)
-					to = MM_CharacterGrid_StepAround(from, direction, p);
+					to = MM_CharacterGrid_StepAround(from, direction);
 				if (to < 0)
 					to = from;
 			}
@@ -1004,12 +958,12 @@ void MM_Characters_MenuProc(struct RectMenu *unused)
 	const int numPlayers = gGT->numPlyrNextGame;
 	u32 *uiOT = gGT->backBuffer->otMem.uiOT;
 
-	// Input, then each player's cursor: the outline and number while
-	// choosing, a dark outline once chosen.
 	for (int p = 0; p < numPlayers; p++)
-	{
 		MM_CharacterGrid_Input(p);
 
+	// Draw cursors after all players have moved, since they share the page.
+	for (int p = 0; p < numPlayers; p++)
+	{
 		const struct CsEntry *e = &s_entries[s_entry[p]];
 		if (e->page != s_page)
 			continue;
@@ -1024,7 +978,19 @@ void MM_Characters_MenuProc(struct RectMenu *unused)
 		r.y = t->currY + e->y;
 		r.w = MM_CHARACTER_SELECT_ICON_RECT_W;
 		r.h = MM_CHARACTER_SELECT_ICON_RECT_H;
-		if (!selected)
+		int occupants = 0;
+		int labelSlot = 0;
+		for (int other = 0; other < numPlayers; other++)
+		{
+			if (s_entry[other] != s_entry[p])
+				continue;
+			occupants++;
+			labelSlot += (other < p);
+		}
+		if (occupants > 1)
+			DecalFont_DrawLine(MM_PLAYER_NUMBER_STRINGS[p], r.x + r.w * (2 * labelSlot + 1) / (2 * occupants),
+			                   r.y + r.h - 12, FONT_SMALL, JUSTIFY_CENTER | (selected ? ORANGE : WHITE));
+		else if (!selected)
 			DecalFont_DrawLine(MM_PLAYER_NUMBER_STRINGS[p], r.x + MM_CHARACTER_SELECT_CURSOR_LABEL_OFFSET_X, r.y + MM_CHARACTER_SELECT_CURSOR_LABEL_OFFSET_Y,
 			                   FONT_BIG, WHITE);
 		RECTMENU_DrawOuterRect_HighLevel(&r, selected ? &MM_CHARACTER_SELECT_OUTLINE_COLOR : &playerColor, 0, uiOT);
@@ -1032,7 +998,7 @@ void MM_Characters_MenuProc(struct RectMenu *unused)
 
 	MM_CharacterGrid_WritePlayers();
 
-	// Portraits, darkened once a player has chosen them.
+	// Keep a shared portrait visible while any of its players is choosing.
 	for (int i = 0; i < s_entryCount; i++)
 	{
 		const struct CsEntry *e = &s_entries[i];
@@ -1041,8 +1007,14 @@ void MM_Characters_MenuProc(struct RectMenu *unused)
 		const Color *color = &MM_CHARACTER_SELECT_NEUTRAL_COLOR;
 		for (int p = 0; p < numPlayers; p++)
 		{
-			if ((s_entry[p] == i) && ((MM_CHARACTER_SELECT_FLAGS >> p) & 1))
-				color = &MM_CHARACTER_SELECT_CHOSEN_COLOR;
+			if (s_entry[p] != i)
+				continue;
+			if (((MM_CHARACTER_SELECT_FLAGS >> p) & 1) == 0)
+			{
+				color = &MM_CHARACTER_SELECT_NEUTRAL_COLOR;
+				break;
+			}
+			color = &MM_CHARACTER_SELECT_CHOSEN_COLOR;
 		}
 		const struct TransitionMeta *t = &s_iconTransition[e->slot];
 		RECTMENU_DrawPolyGT4(MM_CharacterGrid_Portrait(e), t->currX + e->x + MM_CHARACTER_SELECT_ICON_DECAL_OFFSET_X,

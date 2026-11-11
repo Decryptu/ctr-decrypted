@@ -170,8 +170,8 @@ e4a298ee1 own    custom racers, own design (docs/CUSTOM_RACERS.md)     | Fix cus
 c0e0a981d maybe  ghost replay tools                                    | Add stop, frame-by-frame and playback speed adjustments for ghost replays.
 ea16e1b6f own    custom racers, own design (docs/CUSTOM_RACERS.md)     | Fix boss battle voices getting overridden by custom racers ones.
 d1aafbc91 maybe  custom racer sounds, mask and wheels                  | Add support for mask and wheels settings for custom racers.
-d1f5de045 planned multiplayer character select                          | Allow for secondary players to change characters page.
-a03cd3810 planned multiplayer character select                          | Fix identation and allow for all players to select even same character.
+d1f5de045 own    shared roster pages (docs/CUSTOM_RACERS.md)             | Allow for secondary players to change characters page.
+a03cd3810 own    shared racer picks (docs/CUSTOM_RACERS.md)              | Fix identation and allow for all players to select even same character.
 ab467eefd own    title menu Quit and cursor clamping                   | Add Exit Game option in main menu.
 bcf381c2d skip   taste: retail pause menu order kept                   | Invert Options and Exit voices in pause menu.
 8349dcc83 maybe  ghost replay tools                                    | Replace Vita overlay with a Dualshock one on Web/PC builds.
