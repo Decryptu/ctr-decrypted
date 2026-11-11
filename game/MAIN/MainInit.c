@@ -521,6 +521,10 @@ void MainInit_Drivers(struct GameTracker *gGT)
 	u8 numDrivers;
 	int gameMode = gGT->gameMode1;
 
+#ifdef CTR_NATIVE
+	UI_LapTime_Reset();
+#endif
+
 	for (int i = 0; i < 8; i++)
 	{
 		gGT->drivers[i] = NULL;

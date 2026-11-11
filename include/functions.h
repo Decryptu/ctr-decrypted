@@ -771,6 +771,12 @@ void UI_CupStandings_UpdateCupRanks(void);
 void UI_CupStandings_InputAndDraw(void);
 
 void UI_SaveLapTime(s32 lapIndex, s32 lapTime, s16 driverID);
+#ifdef CTR_NATIVE
+void UI_LapTime_Reset(void);
+s32 UI_LapTime_Get(s32 lapIndex, s16 driverID);
+void UI_LapTime_Format(char *text, s32 lapTime);
+int UI_RaceClock_LapColumnStep(void);
+#endif
 
 void UI_Map_GetIconPos(struct UIMap *map, s32 *posX, s32 *posY);
 void UI_Map_DrawMap(struct Icon *mapTop, struct Icon *mapBottom, s32 posX, s32 posY, struct PrimMem *primMem, u32 *otMem, u8 colorID);
@@ -939,6 +945,10 @@ b16 MM_TrackSelect_boolTrackOpen(struct MainMenu_LevelRow *menuSelect);
 void MM_TrackSelect_Init(void);
 void MM_TrackSelect_MenuProc(struct RectMenu *menu);
 struct RectMenu *MM_TrackSelect_GetMenuPtr(void);
+#ifdef CTR_NATIVE
+void MM_LapSelect_Prepare(struct RectMenu *menu);
+s32 MM_LapSelect_LapCount(s16 row);
+#endif
 void MM_CupSelect_Init(void);
 void MM_CupSelect_MenuProc(struct RectMenu *menu);
 void MM_Battle_CloseSubMenu(struct RectMenu *menu);

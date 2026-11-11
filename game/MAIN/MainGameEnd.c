@@ -47,9 +47,14 @@ void MainGameEnd_SoloRaceGetReward(int subtractTimeCrateBonus)
 
 	for (s16 i = 0; i < gGT->numLaps; i++)
 	{
-		if (gGT->lapTime[i] < gGT->bestLapTime)
+#ifdef CTR_NATIVE
+		s32 lapTime = UI_LapTime_Get(i, gGT->drivers[0]->driverID);
+#else
+		s32 lapTime = gGT->lapTime[i];
+#endif
+		if (lapTime < gGT->bestLapTime)
 		{
-			gGT->bestLapTime = gGT->lapTime[i];
+			gGT->bestLapTime = lapTime;
 			gGT->lapIndexNewBest = i;
 			gGT->gameModeEnd |= 0x8c000000;
 		}

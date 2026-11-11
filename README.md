@@ -26,6 +26,7 @@ On top of the Archipelago client:
 - **Custom racers** (**MODS → Racers**): community characters in the character select, beside the retail racers and N. Oxide ([docs/CUSTOM_RACERS.md](docs/CUSTOM_RACERS.md)).
 - **Play Solo** (title screen): generate and play a one-player seed on your own machine, with no room to host.
 - **200cc** (Arcade, VS and Time Trial): every racer, bots included, about 20% faster, picked on the SPEED screen after the difficulty, player count or Time Trial row. Time Trial keeps its 200cc records and ghosts apart from Classic ones ([docs/SPEED-CLASS.md](docs/SPEED-CLASS.md)).
+- **1 to 9 laps** (Arcade and VS, single races and cups): the LAPS box offers every count from 1 to 9 instead of 3, 5 and 7, and picking a cup opens it too ([docs/LAP-COUNT.md](docs/LAP-COUNT.md)).
 
 And in OPTIONS:
 

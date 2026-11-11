@@ -14,7 +14,6 @@ Open work only: what is in progress, what is planned, what may come, and what is
 - **PAL fixes across the game:** replace Penta's NTSC-U placeholder voice clips with his finished PAL clips, then audit regional differences for other bug fixes and unfinished-content corrections to apply globally in both clients. This extends beyond the existing Penta stats option and is separate from full PAL disc support.
 - **Fake Crash regional textures across both clients:** Add a local asset import for the Japanese release's corrected PAL-style model and textures. Use the NTSC-U disc as the base and extract the replacement assets from the player's Japanese disc. See [regional Fake Crash assets](docs/CUSTOM_RACERS.md#regional-fake-crash-assets).
 - The other High Octane features we want. Each `planned` line in `tools/decrypted/highoctane.txt` names an item in this roadmap, including work in progress (`upstream_status.py --ho planned`):
-  - **Lap count 1-9** in Arcade and Cup, with High Octane's fix for the mempack overrun at 8 and 9 laps.
   - **Cheats menu:** the retail cheat codes as toggles in Options.
 
 ## Maybe

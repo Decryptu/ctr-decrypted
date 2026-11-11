@@ -13,5 +13,7 @@
 #define CTR_LNG_SPEED     0x7f04 // Arcade/VS speed class screen title: SPEED
 #define CTR_LNG_CLASSIC   0x7f05 // speed class row: CLASSIC
 #define CTR_LNG_200CC     0x7f06 // speed class row: 200CC
+#define CTR_LNG_LAP_1     0x7f20 // lap count rows "1" to "9": 0x7f20 to 0x7f28
+#define CTR_LNG_LAP_COUNT 9
 
 #endif

@@ -29,6 +29,64 @@ enum
 
 #define UI_REWARD_PICKUP_COLOR 0xffff0000u
 
+#ifdef CTR_NATIVE
+// Retail keeps lap digits for two players and seven laps (14 slots), and
+// gGT->lapTime has seven entries; a longer race wrote past both. Native
+// keeps every lap time here, up to 9 laps (index 9 is the lap in progress
+// after the finish line) for every driver, and writes the retail slots only
+// when the index fits them.
+enum
+{
+	UI_LAP_TIME_NATIVE_MAX_LAPS = 10,
+	UI_LAP_TIME_NATIVE_MAX_DRIVERS = 8,
+	UI_LAP_TIME_RETAIL_SLOTS = 2 * UI_LAP_TIME_LAPS_PER_PLAYER,
+};
+
+static s32 s_nativeLapTimes[UI_LAP_TIME_NATIVE_MAX_DRIVERS][UI_LAP_TIME_NATIVE_MAX_LAPS];
+
+void UI_LapTime_Reset(void)
+{
+	memset(s_nativeLapTimes, 0, sizeof(s_nativeLapTimes));
+}
+
+s32 UI_LapTime_Get(s32 lapIndex, s16 driverID)
+{
+	if ((driverID < 0) || (driverID >= UI_LAP_TIME_NATIVE_MAX_DRIVERS) || (lapIndex < 0) || (lapIndex >= UI_LAP_TIME_NATIVE_MAX_LAPS))
+	{
+		return 0;
+	}
+
+	return s_nativeLapTimes[driverID][lapIndex];
+}
+
+// Same digits as UI_SaveLapTime, as " M:SS:CC".
+void UI_LapTime_Format(char *text, s32 lapTime)
+{
+	s32 minutes = lapTime / UI_LAP_TIME_TICKS_PER_MINUTE;
+	s32 tenSeconds = lapTime / UI_LAP_TIME_TICKS_PER_TEN_SECONDS;
+	s32 seconds = lapTime / UI_LAP_TIME_TICKS_PER_SECOND;
+
+	text[0] = ' ';
+	text[2] = ':';
+	text[5] = ':';
+	if (UI_LAP_TIME_MAX_MINUTES < minutes)
+	{
+		text[1] = '0' + UI_LAP_TIME_MAX_MINUTES;
+		text[3] = '0' + UI_LAP_TIME_SECONDS_TENS_MOD - 1;
+		text[4] = '0' + UI_LAP_TIME_DECIMAL_BASE - 1;
+		text[6] = '0' + UI_LAP_TIME_DECIMAL_BASE - 1;
+		text[7] = '0' + UI_LAP_TIME_DECIMAL_BASE - 1;
+		return;
+	}
+
+	text[1] = (char)('0' + minutes);
+	text[3] = (char)('0' + tenSeconds - minutes * UI_LAP_TIME_SECONDS_TENS_MOD);
+	text[4] = (char)('0' + seconds - tenSeconds * UI_LAP_TIME_DECIMAL_BASE);
+	text[6] = (char)('0' + lapTime / UI_LAP_TIME_TICKS_PER_TENTH_SECOND - seconds * UI_LAP_TIME_DECIMAL_BASE);
+	text[7] = (char)('0' + ((s32)((u32)lapTime * UI_LAP_TIME_CENTISECOND_SCALE) / UI_LAP_TIME_TICKS_PER_SECOND) % UI_LAP_TIME_DECIMAL_BASE);
+}
+#endif
+
 void UI_SaveLapTime(s32 lapIndex, s32 lapTime, s16 driverID)
 {
 	s32 *minuteSlots = GAME_LAP_MINUTE_UNITS;
@@ -36,6 +94,18 @@ void UI_SaveLapTime(s32 lapIndex, s32 lapTime, s16 driverID)
 	s32 numMinutes;
 	s32 tenSeconds;
 	s32 seconds;
+
+#ifdef CTR_NATIVE
+	if ((driverID >= 0) && (driverID < UI_LAP_TIME_NATIVE_MAX_DRIVERS) && (lapIndex >= 0) && (lapIndex < UI_LAP_TIME_NATIVE_MAX_LAPS))
+	{
+		s_nativeLapTimes[driverID][lapIndex] = lapTime;
+	}
+
+	if ((playerLapIndex < 0) || (playerLapIndex >= UI_LAP_TIME_RETAIL_SLOTS))
+	{
+		return;
+	}
+#endif
 
 	numMinutes = (minuteSlots[playerLapIndex] = lapTime / UI_LAP_TIME_TICKS_PER_MINUTE);
 

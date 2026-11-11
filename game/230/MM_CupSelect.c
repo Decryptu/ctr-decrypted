@@ -12,6 +12,83 @@ static inline s32 MM_CupSelect_GetStarY(s16 starIndex, s32 startY)
 	return (s16)startY + starY;
 }
 
+#ifdef CTR_NATIVE
+// Native lap box for cups: picking a cup opens it, and the laps chosen hold
+// for every race of the cup. Circle goes back to the cup list. The one-lap
+// cheat and Archipelago's one-lap cups keep their single lap and skip it.
+static void MM_CupSelect_LapMenuProc(struct RectMenu *menu);
+static s16 s_cupLapPendingCup;
+
+static struct RectMenu s_cupLapMenu =
+{
+	.stringIndexTitle = LNG_LAPS,
+	.posX_curr = 0x100,
+	.posY_curr = 0x6c,
+	.state = CENTER_ON_COORDS | USE_SMALL_FONT | BIG_TEXT_IN_TITLE | EXECUTE_FUNCPTR,
+	.funcPtr = MM_CupSelect_LapMenuProc,
+};
+
+static b32 MM_CupSelect_SingleLapCup(void)
+{
+	if ((GAME_TRACKER->gameMode2 & CHEAT_ONELAP) != 0)
+	{
+		return true;
+	}
+#ifdef CTR_AP
+	if (ctr_cfg_active() && ctr_cfg.one_lap_cups)
+	{
+		return true;
+	}
+#endif
+	return false;
+}
+
+static void MM_CupSelect_LapMenuProc(struct RectMenu *menu)
+{
+	if (menu->funcState != RECTMENU_FUNC_STATE_INPUT)
+	{
+		return;
+	}
+
+	if (menu->rowSelected < 0)
+	{
+		MM_MENU_CUP_SELECT.rowSelected = s_cupLapPendingCup;
+		MM_CupSelect_Init();
+		MM_DESIRED_MENU = &MM_MENU_CUP_SELECT;
+		return;
+	}
+
+	sdata->uselessLapRowCopy = menu->rowSelected;
+	GAME_TRACKER->numLaps = MM_LapSelect_LapCount(menu->rowSelected);
+	GAME_TRACKER->cup.cupID = s_cupLapPendingCup;
+	GAME_TRACKER->cup.trackIndex = 0;
+
+	for (s32 driverIndex = 0; driverIndex < MM_CUP_SELECT_DRIVER_SLOT_COUNT; driverIndex++)
+	{
+		GAME_TRACKER->cup.points[driverIndex] = 0;
+	}
+
+	GAME_TRACKER->currLEV = MM_ARCADE_CUPS[GAME_TRACKER->cup.cupID].CupTrack[0].trackID;
+	MM_DESIRED_MENU = &MM_MENU_QUEUE_LOAD_TRACK;
+}
+
+static b32 MM_CupSelect_OpenLapMenu(s16 cupID)
+{
+	if (MM_CupSelect_SingleLapCup())
+	{
+		return false;
+	}
+
+	s_cupLapPendingCup = cupID;
+	s_cupLapMenu.state = CENTER_ON_COORDS | USE_SMALL_FONT | BIG_TEXT_IN_TITLE | EXECUTE_FUNCPTR;
+	s_cupLapMenu.ptrNextBox_InHierarchy = NULL;
+	s_cupLapMenu.ptrPrevBox_InHierarchy = NULL;
+	MM_LapSelect_Prepare(&s_cupLapMenu);
+	MM_DESIRED_MENU = &s_cupLapMenu;
+	return true;
+}
+#endif
+
 void MM_CupSelect_Init(void)
 {
 	// reset transition data
@@ -86,6 +163,12 @@ void MM_CupSelect_MenuProc(struct RectMenu *menu)
 			// if cup selected
 			if (MM_CUP_TRANSITION_START_AFTER_EXIT != 0)
 			{
+#ifdef CTR_NATIVE
+				if (MM_CupSelect_OpenLapMenu(menuState->rowSelected))
+				{
+					return;
+				}
+#endif
 				// set cupID to the cup selected
 				GAME_TRACKER->cup.cupID = menuState->rowSelected;
 

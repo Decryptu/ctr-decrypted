@@ -22,7 +22,22 @@ enum
 	UI_RACE_CLOCK_RELIC_HUD_LABEL_Y_OFFSET = 0x18,
 	UI_RACE_CLOCK_RELIC_HUD_TIME_Y_OFFSET = 0x20,
 	UI_RACE_CLOCK_RELIC_RESULTS_Y_OFFSET = 0x11,
+#ifdef CTR_NATIVE
+	UI_RACE_CLOCK_TWO_COLUMN_LAPS = 8,
+	UI_RACE_CLOCK_COLUMN_GAP = 8,
+#endif
 };
+
+#ifdef CTR_NATIVE
+// How far left the first column of an 8 or 9 lap results list sits: one
+// small-font entry ("LAP" + digit + " 9:59:99") and a gap. The results box
+// in AA_EndEvent_DisplayTime widens left by the same amount.
+int UI_RaceClock_LapColumnStep(void)
+{
+	return DecalFont_GetLineWidth(sdata->lngStrings[LNG_LAP], FONT_SMALL) + data.font_charPixWidth[FONT_SMALL] +
+	       DecalFont_GetLineWidth((char *)" 9:59:99", FONT_SMALL) + UI_RACE_CLOCK_COLUMN_GAP;
+}
+#endif
 
 
 // used for both finished lap time and current race time
@@ -88,7 +103,12 @@ void UI_DrawRaceClock(s16 labelPosX, s16 labelPosY, u32 flags, struct Driver *dr
 	// Race timer units elapsed.
 	timeElapsed = driver->timeElapsedInRace;
 
+#ifdef CTR_NATIVE
+	// Races of 7 laps or more (native offers up to 9) get the tens-of-minutes digit.
+	if (gGT->numLaps >= UI_RACE_CLOCK_EXTENDED_MINUTE_LAP_COUNT)
+#else
 	if (gGT->numLaps == UI_RACE_CLOCK_EXTENDED_MINUTE_LAP_COUNT)
+#endif
 	{
 		// less than 99:59:99
 		if (timeElapsed / UI_RACE_CLOCK_TICKS_PER_TEN_MINUTES < UI_RACE_CLOCK_MAX_DISPLAY_DIGIT)
@@ -177,7 +197,11 @@ void UI_DrawRaceClock(s16 labelPosX, s16 labelPosY, u32 flags, struct Driver *dr
 		timeColor = (u16)((FPS_HALF(gGT->timer) & 2) == 0) << 2;
 	}
 
+#ifdef CTR_NATIVE
+	if (gGT->numLaps >= UI_RACE_CLOCK_EXTENDED_MINUTE_LAP_COUNT)
+#else
 	if (gGT->numLaps == UI_RACE_CLOCK_EXTENDED_MINUTE_LAP_COUNT)
+#endif
 	{
 		// String for amount of time in total race
 		totalTimeString = rdata.s_timeString_empty;
@@ -251,6 +275,11 @@ void UI_DrawRaceClock(s16 labelPosX, s16 labelPosY, u32 flags, struct Driver *dr
 			{
 				UI_SaveLapTime(lapIndex, gGT->elapsedEventTime - driver->lapTime, (u32)driver->driverID);
 
+#ifdef CTR_NATIVE
+				// The retail digit slots stop at lap 7 and player 2; the
+				// native store has every lap of every player.
+				UI_LapTime_Format(rdata.s_timeString_empty, UI_LapTime_Get(numLaps, driver->driverID));
+#else
 				// custom code for optimization using this unrelated variable
 				iVar5 = (u32)driver->driverID * UI_RACE_CLOCK_LAP_TIME_SLOTS_PER_PLAYER + numLaps;
 
@@ -265,6 +294,7 @@ void UI_DrawRaceClock(s16 labelPosX, s16 labelPosY, u32 flags, struct Driver *dr
 				rdata.s_timeString_empty[4] = GAME_LAP_SECOND_UNITS[iVar5] + '0';
 				rdata.s_timeString_empty[6] = GAME_LAP_CENTISECOND_TENS[iVar5] + '0';
 				rdata.s_timeString_empty[7] = GAME_LAP_CENTISECOND_UNITS[iVar5] + '0';
+#endif
 
 				// default
 				lapOrRelicColor = PERIWINKLE;
@@ -323,6 +353,25 @@ void UI_DrawRaceClock(s16 labelPosX, s16 labelPosY, u32 flags, struct Driver *dr
 					sprintf(lapNumberString, &sdata->s_int[0], numParamY);
 					lapTextHeight = (s16 *)(&data.font_charPixHeight[lapFontType]);
 
+#ifdef CTR_NATIVE
+					// 8 and 9 laps would climb off the top of the screen in one
+					// column: laps 1-5 go left of the usual column, the rest in it.
+					if (gGT->numLaps >= UI_RACE_CLOCK_TWO_COLUMN_LAPS)
+					{
+						int rows = (gGT->numLaps + 1) / 2;
+						int rightColumn = numLaps >= rows;
+						int lapDrawX = (s16)textPosX - (rightColumn ? 0 : UI_RaceClock_LapColumnStep());
+						int lapDrawY = (s16)textPosY - (rows - (rightColumn ? numLaps - rows : numLaps)) * (int)*lapTextHeight;
+
+						DecalFont_DrawLine(lapNumberString, lapDrawX, lapDrawY, lapFontType, (JUSTIFY_RIGHT | RED));
+						DecalFont_DrawLine(sdata->lngStrings[LNG_LAP], lapDrawX - (int)data.font_charPixWidth[lapFontType], lapDrawY, lapFontType, (JUSTIFY_RIGHT | RED));
+						stringColor = (int)(s16)lapOrRelicColor;
+						iVar7 = lapDrawY;
+						iVar5 = lapDrawX;
+						goto drawLapTime;
+					}
+#endif
+
 					// draw string
 					DecalFont_DrawLine(lapNumberString, unbitshiftTextPosX,
 					                   (int)(((u32)textPosY - (gGT->numLaps - numLaps) * (int)*lapTextHeight) * 0x10000) >> 0x10, lapFontType,
@@ -336,6 +385,9 @@ void UI_DrawRaceClock(s16 labelPosX, s16 labelPosY, u32 flags, struct Driver *dr
 					iVar7 = (int)(((u32)textPosY - (gGT->numLaps - numLaps) * (int)*lapTextHeight) * 0x10000) >> 0x10;
 					iVar5 = unbitshiftTextPosX;
 				}
+#ifdef CTR_NATIVE
+			drawLapTime:
+#endif
 
 				// draw string for total amount of time in race
 				DecalFont_DrawLine(rdata.s_timeString_empty, iVar5, iVar7, lapFontType, stringColor);

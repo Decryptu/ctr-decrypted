@@ -360,12 +360,12 @@ static int MM_CustomTrackSelect_Tick(void)
         /* The retail lap box, as on the Vanilla page (MM_TrackSelect_MenuProc):
            its laps replace the package's own for this Arcade race. */
         int lapResult = 0;
-        D230.menuLapSel.rowSelected = sdata->uselessLapRowCopy;
+        MM_LapSelect_Prepare(&D230.menuLapSel);
         if (D230.trackSelect.transition.state == IN_MENU) lapResult = (s16)RECTMENU_ProcessInput(&D230.menuLapSel);
         RECTMENU_DrawSelf(&D230.menuLapSel, D230.trackTransitions.transitionMeta_trackSel[2].currX, D230.trackTransitions.transitionMeta_trackSel[2].currY,
                           MM_CUSTOM_LAP_MENU_WIDTH);
         sdata->uselessLapRowCopy = D230.menuLapSel.rowSelected;
-        if (lapResult == 1) MM_CustomTrackSelect_Start(D230.lapCountByRow[D230.menuLapSel.rowSelected].lapCount);
+        if (lapResult == 1) MM_CustomTrackSelect_Start(MM_LapSelect_LapCount(D230.menuLapSel.rowSelected));
         else if (lapResult == -1)
         {
             s_arcadeConfirm = 0;

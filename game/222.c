@@ -45,6 +45,7 @@ enum ArcadeAdventureEndMenuConstants
 	AA_TIME_BOX_HEIGHT_7_LAPS = 0x49,
 	AA_TIME_BOX_HEIGHT_5_LAPS = 0x39,
 	AA_TIME_BOX_HEIGHT_DEFAULT = 0x44,
+	AA_TIME_BOX_LAP_ROW_HEIGHT = (AA_TIME_BOX_HEIGHT_7_LAPS - AA_TIME_BOX_HEIGHT_5_LAPS) / 2,
 	AA_ADD_CONFIG_0_PAGE_OFFSET = -0x2f00,
 };
 
@@ -895,6 +896,19 @@ void AA_EndEvent_DisplayTime(s16 driverId, s16 timeOffsetFrames)
 		{
 			timeBoxHeight = AA_TIME_BOX_HEIGHT_5_LAPS;
 		}
+#ifdef CTR_NATIVE
+		// Native lap counts: from 4 laps the rows use the small font, one
+		// row per lap, as retail's 5 and 7 lap boxes. 8 and 9 laps take two
+		// columns of 5 rows (UI_DrawRaceClock).
+		else if (hudGT->numLaps >= 8)
+		{
+			timeBoxHeight = AA_TIME_BOX_HEIGHT_5_LAPS;
+		}
+		else if (hudGT->numLaps > 3)
+		{
+			timeBoxHeight = AA_TIME_BOX_HEIGHT_5_LAPS + (hudGT->numLaps - 5) * AA_TIME_BOX_LAP_ROW_HEIGHT;
+		}
+#endif
 	}
 
 	bigNumY = 0x41;
@@ -1004,6 +1018,19 @@ void AA_EndEvent_DisplayTime(s16 driverId, s16 timeOffsetFrames)
 	timeBoxRect.y = (pos.y - timeBoxHeight) + 0xd;
 	timeBoxRect.w = DecalFont_GetLineWidth(GAME_LANGUAGE_STRINGS[LNG_TOTAL], FONT_BIG) + 0x94;
 	timeBoxRect.h = timeBoxHeight + 6;
+#ifdef CTR_NATIVE
+	// Two-column lap list (8 and 9 laps): widen the box left over the first column.
+	if (GAME_TRACKER->numLaps >= 8)
+	{
+		s32 lapLeft = pos.x - UI_RaceClock_LapColumnStep() - data.font_charPixWidth[FONT_SMALL] -
+		              DecalFont_GetLineWidth(GAME_LANGUAGE_STRINGS[LNG_LAP], FONT_SMALL) - 6;
+		if (lapLeft < timeBoxRect.x)
+		{
+			timeBoxRect.w += timeBoxRect.x - lapLeft;
+			timeBoxRect.x = lapLeft;
+		}
+	}
+#endif
 
 	// Draw 2D Menu rectangle background
 	RECTMENU_DrawInnerRect(&timeBoxRect, 4, GAME_TRACKER->backBuffer->otMem.uiOT);

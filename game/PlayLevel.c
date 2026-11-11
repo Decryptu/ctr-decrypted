@@ -162,6 +162,10 @@ void PlayLevel_UpdateLapStats(void)
 				{
 					UI_SaveLapTime(currDriver->lapIndex, gGT->elapsedEventTime - currDriver->lapTime, currDriver->driverID);
 
+#ifdef CTR_NATIVE
+					// gGT->lapTime holds seven laps; UI_SaveLapTime keeps all nine.
+					if ((u32)currDriver->lapIndex < (sizeof(gGT->lapTime) / sizeof(gGT->lapTime[0])))
+#endif
 					gGT->lapTime[currDriver->lapIndex] = gGT->elapsedEventTime - currDriver->lapTime;
 				}
 

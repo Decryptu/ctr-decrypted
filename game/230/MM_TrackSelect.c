@@ -1,4 +1,53 @@
 #include <common.h>
+#ifdef CTR_NATIVE
+#include <ctr_menu_strings.h>
+
+// Native lap box: every count from 1 to 9 laps, where retail offers 3, 5
+// and 7. The row is the lap count minus one. uselessLapRowCopy keeps the
+// last row picked, so the first use starts it at 3 laps.
+enum
+{
+	MM_LAP_SELECT_DEFAULT_ROW = 2,
+};
+
+static struct MenuRow s_lapSelectRows[CTR_LNG_LAP_COUNT + 1] =
+{
+	{CTR_LNG_LAP_1 + 0, 0, 1, 0, 0},
+	{CTR_LNG_LAP_1 + 1, 0, 2, 1, 1},
+	{CTR_LNG_LAP_1 + 2, 1, 3, 2, 2},
+	{CTR_LNG_LAP_1 + 3, 2, 4, 3, 3},
+	{CTR_LNG_LAP_1 + 4, 3, 5, 4, 4},
+	{CTR_LNG_LAP_1 + 5, 4, 6, 5, 5},
+	{CTR_LNG_LAP_1 + 6, 5, 7, 6, 6},
+	{CTR_LNG_LAP_1 + 7, 6, 8, 7, 7},
+	{CTR_LNG_LAP_1 + 8, 7, 8, 8, 8},
+	{RECTMENU_STRING_NONE},
+};
+
+static b32 s_lapSelectRowSet;
+
+void MM_LapSelect_Prepare(struct RectMenu *menu)
+{
+	if (!s_lapSelectRowSet || sdata->uselessLapRowCopy >= CTR_LNG_LAP_COUNT)
+	{
+		sdata->uselessLapRowCopy = MM_LAP_SELECT_DEFAULT_ROW;
+		s_lapSelectRowSet = true;
+	}
+
+	menu->rows = s_lapSelectRows;
+	menu->rowSelected = sdata->uselessLapRowCopy;
+}
+
+s32 MM_LapSelect_LapCount(s16 row)
+{
+	if ((row < 0) || (row >= CTR_LNG_LAP_COUNT))
+	{
+		row = MM_LAP_SELECT_DEFAULT_ROW;
+	}
+
+	return row + 1;
+}
+#endif
 #ifdef CTR_CUSTOM_PACKAGES
 #include "MM_CustomTrackSelect.c"
 #endif
@@ -800,6 +849,9 @@ void MM_TrackSelect_MenuProc(struct RectMenu *menu)
 			}
 		trackLapMenu:
 			lapSelTransitionState = 0;
+#ifdef CTR_NATIVE
+			MM_LapSelect_Prepare(&MM_MENU_LAP_SELECT);
+#endif
 			MM_MENU_LAP_SELECT.rowSelected = MM_USELESS_LAP_ROW_COPY;
 			if (MM_TRACK_TRANSITION_STATE == IN_MENU)
 			{
@@ -807,7 +859,11 @@ void MM_TrackSelect_MenuProc(struct RectMenu *menu)
 			}
 			RECTMENU_DrawSelf(&MM_MENU_LAP_SELECT, MM_TRACK_TRANSITIONS[2].currX, MM_TRACK_TRANSITIONS[2].currY, MM_TRACK_SELECT_LAP_MENU_WIDTH);
 			MM_USELESS_LAP_ROW_COPY = MM_MENU_LAP_SELECT.rowSelected;
+#ifdef CTR_NATIVE
+			GAME_TRACKER->numLaps = MM_LapSelect_LapCount(MM_MENU_LAP_SELECT.rowSelected);
+#else
 			GAME_TRACKER->numLaps = MM_LAP_COUNT_BY_ROW[MM_MENU_LAP_SELECT.rowSelected].lapCount;
+#endif
 			{
 				s32 lapResult;
 				lapResult = (s16)lapSelTransitionState;
