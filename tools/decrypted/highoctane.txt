@@ -139,7 +139,7 @@ f028f2803 maybe  reverse tracks; its 60 FPS rain part is bfc96d485     | Add alt
 6cca59367 own    device enumeration replaces controller slot mapping   | [PC] Fix duplicate controller instance being created with Dualsense.
 5f2239506 planned cheats menu                                           | Move vanilla cheatcodes to a Cheats submenu.
 288e191ff planned cheats menu                                           | Move the Cheats menu in the Options submenu.
-4871e8312 planned lap count 1-9                                         | Extend lap selector for Arcade and add it to Cup mode.
+4871e8312 ported 8a0d59299                                              | Extend lap selector for Arcade and add it to Cup mode.
 9f21a312f own common dial/needle aspect correction; docs/NATIVE-PRESENTATION.md | Fix widescreen speedometer aspect ratio
 9d4da1f71 own    title menu Quit and cursor clamping                   | Add menu clamping in main menu.
 73f0fd5ed skip   web build                                             | Emscripten port
@@ -149,7 +149,7 @@ baa505759 own native hierarchy shadow clearance; docs/NATIVE-PRESENTATION.md | F
 5bc765f14 maybe  ghost replay tools                                    | Add personal bests view during Time Trials.
 9df434eeb maybe  ghost replay tools                                    | Add Challenge Ghost feature in Ghost Replay.
 cd29f8471 skip   online leaderboard                                    | Separate Web client to PC one for the leaderboard.
-875fd120b planned lap count 1-9                                         | Fix 8-9 Lap races causing mempack overrun.
+875fd120b ported 8a0d59299                                              | Fix 8-9 Lap races causing mempack overrun.
 c0616f504 own    custom racers, own design (docs/CUSTOM_RACERS.md)     | Added custom characters support.
 67910d028 skip   Vita                                                  | Fix custom racers corrupting memory on PSVita.
 80fc42235 own    Opponent Roster and per-driver models (docs/CUSTOM_RACERS.md) | Add an option to enable custom racers for enemy AI.

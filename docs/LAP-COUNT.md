@@ -22,7 +22,7 @@ High Octane has the same feature (commits `4871e8312` and `875fd120b` on `highoc
 
 ## Lap times past lap 7
 
-Retail stores lap time digits for two players and seven laps (`sdata->LapTimes`, 14 slots), and `gGT->lapTime` has seven entries. An 8 or 9 lap race would write past both. The native build keeps every lap time of every driver in its own table (`UI_LapTime_Get`), writes the retail slots only where the index fits, and the race clock, the results lap list and the best-lap check read that table. From 7 laps on, the total time shows the tens-of-minutes digit, as retail's 7 lap races do. From 4 laps the results box lists the laps in the small font, one row each, and grows with the count.
+Retail stores lap time digits for two players and seven laps (`sdata->LapTimes`, 14 slots), and `gGT->lapTime` has seven entries. An 8 or 9 lap race would write past both. The native build keeps every lap time of every driver in its own table (`UI_LapTime_Get`), writes the retail slots only where the index fits, and the race clock, the results lap list and the best-lap check read that table. From 7 laps on, the total time shows the tens-of-minutes digit, as retail's 7 lap races do. From 4 laps the results box lists the laps in the small font, one row each, and grows with the count up to 7. 8 and 9 laps take two columns of up to 5 rows (laps 1 to 5 on the left), with the box widened left, since a single column would push lap 1 off the top of the screen (`UI_RaceClock_LapColumnStep`).
 
 ## Checking
 
