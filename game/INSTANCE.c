@@ -266,7 +266,7 @@ void INSTANCE_LevInitAll(struct InstDef *definitions, s32 count)
 	s32 i;
 
 #if defined(CTR_NATIVE)
-	ConvertedMover_LevelStart();
+	ConvertedMover_LevelStart(definitions, count);
 #endif
 	for (i = 0; i < count; i++, levInstDef++)
 	{

@@ -23,14 +23,8 @@ enum
 	VEH_FLIGHT_MIN_SPEED = 2500,       // level units a second: enough to round a loop
 	VEH_FLIGHT_JOIN_DISTANCE = 500,    // a kart joins the path this far on, so one at the road's edge drifts in
 	VEH_FLIGHT_UPRIGHT = 2867,         // up.y, 4096 is one: at or above it the kart's heading follows the path
-	VEH_FLIGHT_MAX_KARTS = 8,
 	VEH_FLIGHT_SPEED_TO_UNITS = 30,    // Driver.speed is 1/256 of a level unit per 30th of a second
 };
-
-static struct
-{
-	int x, z, level;
-} s_flightLast[VEH_FLIGHT_MAX_KARTS];
 
 static const struct SpawnPosRot *VehFlight_Records(const struct Level *level, int flight)
 {
@@ -45,19 +39,15 @@ static int VehFlight_LastRecord(const struct Level *level, int flight)
 void VehFlight_CheckGates(struct Driver *d)
 {
 	const struct Level *level = GAME_TRACKER->level1;
-	const int id = d->driverID & (VEH_FLIGHT_MAX_KARTS - 1);
-	const int x = d->posCurr.x >> 8, y = d->posCurr.y >> 8, z = d->posCurr.z >> 8;
-	const int fromX = s_flightLast[id].x, fromZ = s_flightLast[id].z;
-	const int fresh = s_flightLast[id].level == GAME_TRACKER->levelID + 1;
-
-	s_flightLast[id].x = x;
-	s_flightLast[id].z = z;
-	s_flightLast[id].level = GAME_TRACKER->levelID + 1;
-
-	if (!fresh || (d->funcPtrs[DRIVER_FUNC_INIT] != NULL) || ((d->kartState != KS_NORMAL) && (d->kartState != KS_DRIFTING)))
+	if ((d->funcPtrs[DRIVER_FUNC_INIT] != NULL) || ((d->kartState != KS_NORMAL) && (d->kartState != KS_DRIFTING)))
 	{
 		return;
 	}
+
+	// Driving snapshots posPrev before moving. Use this step only, including the
+	// first step after a flight or a course change in the same host slot.
+	const float fromX = d->posPrev.x / 256.0f, fromY = d->posPrev.y / 256.0f, fromZ = d->posPrev.z / 256.0f;
+	const float x = d->posCurr.x / 256.0f, y = d->posCurr.y / 256.0f, z = d->posCurr.z / 256.0f;
 
 	for (int flight = 0; flight < level->numSpawnType2_PosRot; flight++)
 	{
@@ -71,7 +61,11 @@ void VehFlight_CheckGates(struct Driver *d)
 		{
 			continue;
 		}
-		if ((fabsf((x - r[1].pos.x) * wayZ - (z - r[1].pos.z) * wayX) / length > r[0].pos.x) || (abs(y - r[1].pos.y) > r[0].pos.y))
+		const float crossing = -before / (after - before);
+		const float gateX = fromX + (x - fromX) * crossing - r[1].pos.x;
+		const float gateY = fromY + (y - fromY) * crossing - r[1].pos.y;
+		const float gateZ = fromZ + (z - fromZ) * crossing - r[1].pos.z;
+		if ((fabsf(gateX * wayZ - gateZ * wayX) / length > r[0].pos.x) || (fabsf(gateY) > r[0].pos.y))
 		{
 			continue;
 		}
@@ -87,9 +81,9 @@ void VehFlight_CheckGates(struct Driver *d)
 static void VehFlight_Face(struct Driver *d, const struct SpawnPosRot *from, const struct SpawnPosRot *to, float along)
 {
 	float forward[3], up[3], right[3];
-	forward[0] = (float)((to->pos.x << 8) - d->posCurr.x);
-	forward[1] = (float)((to->pos.y << 8) - d->posCurr.y);
-	forward[2] = (float)((to->pos.z << 8) - d->posCurr.z);
+	forward[0] = (float)(to->pos.x - from->pos.x);
+	forward[1] = (float)(to->pos.y - from->pos.y);
+	forward[2] = (float)(to->pos.z - from->pos.z);
 	up[0] = from->rot.x + (to->rot.x - from->rot.x) * along;
 	up[1] = from->rot.y + (to->rot.y - from->rot.y) * along;
 	up[2] = from->rot.z + (to->rot.z - from->rot.z) * along;
@@ -160,6 +154,9 @@ static void VehFlight_End(struct Driver *d)
 	d->AxisAngle1_normalVec.x = d->AxisAngle2_normalVec.x = 0;
 	d->AxisAngle1_normalVec.y = d->AxisAngle2_normalVec.y = 0x1000;
 	d->AxisAngle1_normalVec.z = d->AxisAngle2_normalVec.z = 0;
+	// Driving rebuilds velocity from speed and axisRotation on its first frame.
+	VehPhysCrash_ConvertVecToSpeed(d, &d->velocity);
+	d->rotCurr.w = d->rotPrev.w = 0;
 	d->funcPtrs[DRIVER_FUNC_INIT] = VehPhysProc_Driving_Init;
 }
 
@@ -190,7 +187,7 @@ void VehFlight_PhysLinear(struct Thread *t, struct Driver *d)
 			d->posCurr.x += (int)(toX * step / distance);
 			d->posCurr.y += (int)(toY * step / distance);
 			d->posCurr.z += (int)(toZ * step / distance);
-			VehFlight_Face(d, &r[point - 1], &r[point], 1.0f - distance / d->KartStates.Flight.segment);
+			VehFlight_Face(d, &r[point - 1], &r[point], 1.0f - (distance - step) / d->KartStates.Flight.segment);
 			return;
 		}
 
@@ -201,6 +198,7 @@ void VehFlight_PhysLinear(struct Thread *t, struct Driver *d)
 
 		if (point == last)
 		{
+			VehFlight_Face(d, &r[point - 1], &r[point], 1.0f);
 			VehFlight_End(d);
 			return;
 		}

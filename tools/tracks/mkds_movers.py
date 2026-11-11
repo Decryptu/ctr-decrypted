@@ -4,7 +4,7 @@ An object in MOVERS is not baked into the course: its MKDS model becomes a CTR m
 game/ConvertedTrack/Mover.c moves it and hits karts through the game's hazard code. `Mover` says how an
 object moves; `build_model` writes the model; `records` writes the list the thread reads.
 """
-import math, struct
+import copy, math, struct
 from collections import namedtuple
 
 import numpy as np
@@ -34,6 +34,7 @@ MAX_TILES = 4  # of a repeating texture, each way, in a model's image
 OPAQUE_PAGE = ctr_items.ABR_MASK
 MAX_WIDTH, MAX_HEIGHT = 128, 256  # texels: wider, it would have to give up colours or be halved, and its layouts would miss
 NEUTRAL = 128  # a texture is multiplied by a vertex colour over this
+LAYERED_BILLBOARD_SIZE = 128  # a square page region at 8 bits
 
 PATH, SPIN, SWING, HOP, ORBIT, PULSE, KEYS, STILL = range(8)
 LOOP, BACK_AND_FORTH, RESTART = range(3)
@@ -139,6 +140,68 @@ def image_of(material):
         out = np.full((4, 4, 4), 255, np.uint8)
     out[..., 3] = np.where(out[..., 3] > 127, 255, 0)
     return out
+
+
+def composite_billboard(triangles, materials):
+    """Bake coplanar cutouts over their soft effects so both draw paths see the same layer order."""
+    used = sorted({mi for mi, _ in triangles})
+    points = np.array([v[0] for _, tri in triangles for v in tri])
+    if len(used) < 2 or np.ptp(points[:, 2]) != 0 or any(not materials[mi].tex for mi in used):
+        return None
+    textures = {mi: materials[mi].tex0.decode(materials[mi].tex, materials[mi].pal) for mi in used}
+    soft = {mi for mi, image in textures.items() if np.any((image[..., 3] > 0) & (image[..., 3] < 255))}
+    if not soft or len(soft) == len(used):
+        return None
+
+    low, high = points.min(0), points.max(0)
+    size = LAYERED_BILLBOARD_SIZE
+    yy, xx = np.mgrid[:size, :size]
+    grid = np.stack((low[0] + (xx + .5) / size * (high[0] - low[0]),
+                     high[1] - (yy + .5) / size * (high[1] - low[1])), axis=-1)
+    image = np.zeros((size, size, 4), dtype=np.uint8)
+    winding = 0
+    for mi, tri in sorted(triangles, key=lambda item: item[0] not in soft):
+        positions = np.array([v[0][:2] for v in tri])
+        edges = positions[1:] - positions[0]
+        det = np.linalg.det(edges)
+        if abs(det) < 1e-9:
+            continue
+        if winding and np.sign(det) != winding:
+            return None  # keep the original faces if the layers have different front sides
+        winding = np.sign(det)
+        weights = (grid - positions[0]) @ np.linalg.inv(edges)
+        weights = np.dstack((1 - weights.sum(axis=-1), weights))
+        inside = (weights >= -1e-9).all(axis=-1)
+        mat, texture = materials[mi], textures[mi]
+        sx, sy, tx, ty = mat.texmtx
+        uv = (weights[inside] @ np.array([v[1] for v in tri])) * (sx / mat.width, sy / mat.height) - (tx, ty)
+        for axis in range(2):
+            if mat.teximage & (1 << (16 + axis)):
+                tile = np.floor(uv[:, axis])
+                uv[:, axis] -= tile
+                if mat.teximage & (1 << (18 + axis)):
+                    uv[:, axis] = np.where(tile % 2 == 1, 1 - uv[:, axis], uv[:, axis])
+        w, h = texture.shape[1], texture.shape[0]
+        u, v = (np.clip(uv, 0, 1) * (w, h)).astype(int).T
+        texels = texture[np.minimum(v, h - 1), np.minimum(u, w - 1)].copy()
+        lit = weights[inside] @ np.array([corner[2] if corner[2] is not None else (255, 255, 255) for corner in tri])
+        texels[:, :3] = np.round(texels[:, :3] * lit / 255).clip(0, 255)
+        covered = texels[:, 3] > 127
+        texels[:, 3] = 255
+        y, x = np.nonzero(inside)
+        image[y[covered], x[covered]] = texels[covered]
+
+    z = low[2]
+    corners = [((x, y, z), (u, v), (255, 255, 255), None)
+               for x, y, u, v in ((low[0], low[1], 0, size), (high[0], low[1], size, size),
+                                  (high[0], high[1], size, 0), (low[0], high[1], 0, 0))]
+    if winding < 0:
+        corners.reverse()
+    material = copy.copy(materials[used[0]])
+    material.width = material.height = size
+    material.teximage = 0
+    material.texmtx = (1, 1, 0, 0)
+    return [(0, corners[:3]), (0, [corners[0], corners[2], corners[3]])], [material], image
 
 
 def fold(values, repeats, flips):
@@ -281,6 +344,9 @@ def build_model(name, triangles, materials, lev_per_unit, mirror=False, billboar
     pieces, each (ctr_items.ItemModel, where its origin is from the object's, in level units at scale 1,
     what an instance's scale takes on, as a model scale is 16 bits), half its size in level units as x, y,
     z, the middle of it, and its lowest corner in level units). The pieces share their textures."""
+    composite = composite_billboard(triangles, materials) if billboard else None
+    if composite is not None:
+        triangles, materials, composite_image = composite
     if two_sided:
         triangles = triangles + [(mi, tri[::-1]) for mi, tri in triangles]
     if mirror:
@@ -309,7 +375,8 @@ def build_model(name, triangles, materials, lev_per_unit, mirror=False, billboar
     images = {}
     for mi in used:
         material = materials[mi]
-        whole = tiled(image_of(material), tiles[mi], ((material.teximage >> 18) & 1, (material.teximage >> 19) & 1))
+        whole = composite_image if composite is not None else tiled(
+            image_of(material), tiles[mi], ((material.teximage >> 18) & 1, (material.teximage >> 19) & 1))
         images[mi] = whole[::math.ceil(whole.shape[0] / MAX_HEIGHT), ::math.ceil(whole.shape[1] / MAX_WIDTH)]
 
     built, step = [], None

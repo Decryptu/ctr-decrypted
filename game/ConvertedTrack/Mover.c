@@ -408,7 +408,6 @@ static void Mover_FollowPath(struct Instance *inst, struct ConvertedMover *mover
 // which alone has a thread: it moves, tests karts and carries them, and puts the others
 // where they are drawn. InstDef rot is where a piece is from the object's origin, in its
 // own axes.
-#define MOVER_MOST_PIECES 32
 
 // A mover's polygons go into the frame's ordering table each at its own depth
 // (RenderBucket_SpreadsOverOT), the middle of the polygon, and a kart, which does
@@ -419,11 +418,16 @@ static void Mover_FollowPath(struct Instance *inst, struct ConvertedMover *mover
 // a kart stands on is drawn over its wheels.
 #define MOVER_FLOOR_DEPTH_BIAS 4
 
-static struct
+struct MoverPiece
 {
-	struct Instance *inst[MOVER_MOST_PIECES];
-	int count;
-} s_moverPieces[MOVER_MOST_LISTS];
+	struct Instance *inst;
+	struct MoverPiece *next;
+};
+
+static struct MoverPiece *s_moverPieceHead[MOVER_MOST_LISTS];
+static struct MoverPiece *s_moverPieceTail[MOVER_MOST_LISTS];
+static struct MoverPiece *s_moverPieceFree;
+static int s_moverPieceRemaining;
 
 static int Mover_DrawnOnly(const struct Instance *inst)
 {
@@ -438,17 +442,31 @@ static void Mover_AddPiece(struct Instance *inst)
 	{
 		return;
 	}
-	for (int i = 0; i < s_moverPieces[list].count; i++)
+	for (struct MoverPiece *piece = s_moverPieceHead[list]; piece != NULL; piece = piece->next)
 	{
-		if (s_moverPieces[list].inst[i] == inst)
+		if (piece->inst == inst)
 		{
 			return;
 		}
 	}
-	if (s_moverPieces[list].count < MOVER_MOST_PIECES)
+	if (s_moverPieceRemaining == 0)
 	{
-		s_moverPieces[list].inst[s_moverPieces[list].count++] = inst;
+		return;
 	}
+
+	struct MoverPiece *piece = s_moverPieceFree++;
+	s_moverPieceRemaining--;
+	piece->inst = inst;
+	piece->next = NULL;
+	if (s_moverPieceTail[list] == NULL)
+	{
+		s_moverPieceHead[list] = piece;
+	}
+	else
+	{
+		s_moverPieceTail[list]->next = piece;
+	}
+	s_moverPieceTail[list] = piece;
 }
 
 static void Mover_AtOffset(struct Instance *inst, s32 m[3][3], const s32 origin[3])
@@ -498,16 +516,17 @@ static void Mover_Place(struct ConvertedMover *mover, struct Instance *inst, s32
 	{
 		return;
 	}
-	for (int i = 0; i < s_moverPieces[mover->list].count; i++)
+	int i = 1;
+	for (struct MoverPiece *entry = s_moverPieceHead[mover->list]; entry != NULL; entry = entry->next)
 	{
-		struct Instance *piece = s_moverPieces[mover->list].inst[i];
+		struct Instance *piece = entry->inst;
 
 		memcpy(piece->matrix.m, inst->matrix.m, sizeof(piece->matrix.m));
 		Mover_AtOffset(piece, m, origin);
 		piece->flags = (piece->flags & ~HIDE_MODEL) | (inst->flags & HIDE_MODEL);
 		piece->scale = inst->scale;
 		piece->depthBiasNormal = inst->depthBiasNormal;
-		Mover_LogPose(mover->list, i + 1, piece);
+		Mover_LogPose(mover->list, i++, piece);
 	}
 }
 
@@ -1022,9 +1041,17 @@ static int Mover_HasThread(const struct Instance *inst)
 // Every level loads at the same address, so what is kept of one level's movers is
 // cleared when the next level's instances are made (INSTANCE_LevInitAll): a list's
 // pieces kept from the last course were other instances of this one, moved with it.
-void ConvertedMover_LevelStart(void)
+void ConvertedMover_LevelStart(const struct InstDef *definitions, int count)
 {
-	memset(s_moverPieces, 0, sizeof(s_moverPieces));
+	int pieces = 0;
+	for (int i = 0; i < count; i++)
+	{
+		pieces += (definitions[i].modelID == CONVERTED_MOVER_ID) && (definitions[i]._pad_scale != 0);
+	}
+	s_moverPieceFree = pieces ? MEMPACK_AllocMem(pieces * sizeof(struct MoverPiece), "Mover pieces") : NULL;
+	s_moverPieceRemaining = (s_moverPieceFree != NULL) ? pieces : 0;
+	memset(s_moverPieceHead, 0, sizeof(s_moverPieceHead));
+	memset(s_moverPieceTail, 0, sizeof(s_moverPieceTail));
 	memset(s_moverAt, 0, sizeof(s_moverAt));
 	memset(s_moverGraceUntil, 0, sizeof(s_moverGraceUntil));
 }

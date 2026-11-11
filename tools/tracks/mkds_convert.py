@@ -19,6 +19,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ctr_items, nds, nitro3d, mkdsmap, mkds_movers, mkds_objects, mkds_view, lev_patch, package, track_picture, winding_check
 
 PICTURE_BACK, PICTURE_UP, PICTURE_AHEAD = 220, 150, 3  # MKDS units, and points of the route
+# The start camera looks into the underside of the cannon ramp on this course.
+PICTURE_VIEWS = {'pinball_course': ((-21, 1471, 1681), (-323, 1221, 2465))}
 # A vehicle's tyres, from its object's config (0x21589a8 car, 0x2158a18 bus, 0x21589e0 truck): the axle's
 # width, its height and how far before and behind the middle it is, in world units, and its size
 TYRES = {'car_a': (12.3, 4.2, 11.0, 1.0), 'bus_a': (22.2, 7.5, 31.0, 2.0), 'truck_a': (13.6, 4.7, 20.0, 1.2)}
@@ -673,7 +675,7 @@ def clear_arc(course, start, end):
 
 
 def find_flights(course, to_lev, scale):
-    """Everywhere a kart has to be carried. -> (flights for lev_patch, one line each for the log)."""
+    """Find forced paths, their log lines and preview geometry, and the walls guarding their exits."""
     lev = 64 * scale
     line, radii, way = route_line(course.route)
     count = len(line)
@@ -694,7 +696,7 @@ def find_flights(course, to_lev, scale):
         h = under(line[i % count], line[i % count][1] + ROUTE_UNDER_BUMP)
         return np.array([line[i % count][0], (h if h is not None else line[i % count][1]) + FLIGHT_LAND, line[i % count][2]])
 
-    flights, log, taken, paths = [], [], set(), []
+    flights, log, taken, paths, exit_walls = [], [], set(), [], []
 
     def add(kind, gate_width, gate_height, speed, points, ups, first, last):
         rows = [[*np.round(to_lev(p)).astype(int).tolist(), *np.round(u * 4096).astype(int).tolist()] for p, u in zip(points, ups)]
@@ -756,6 +758,7 @@ def find_flights(course, to_lev, scale):
             points += [on_ground(j), on_ground(j) + way[j] * FLIGHT_POINT]
             ups += [np.array([0.0, 1.0, 0.0])] * 2
             add('loop', radii[i] * 2.5, 300, 0, points, ups, i, j)
+            exit_walls += loop_exit_walls(course, rail[end][1], way[j])
         i = end + 1
 
     # Cannons: the wall of type KCL_CANNON a kart drives into, and the point it is shot at
@@ -800,7 +803,7 @@ def find_flights(course, to_lev, scale):
             end = on_ground(land)
             points = closing(land, arc(start, end, FLIGHT_STEP))
             add('step', radii[i] * 2.5, 300, STEP_SPEED, points, path_up(points), first, land)
-    return flights, log, paths
+    return flights, log, paths, exit_walls
 
 
 def fruit_rows(route_at, total, lev, crates, to_lev, ground):
@@ -929,6 +932,9 @@ EDGE_HEIGHT = 120  # a boost pad on the turn throws a kart this high off the roa
 EDGE_PROBE = 12  # how far past an edge there is no road, for it to be open
 KCL_DASH = 0x07
 KCL_WALL = 0x08
+# LEV bounds of the jump across Rainbow Road's last bend, from the F7 capture.
+# The course-wide fall plane lies below this opening.
+SHORTCUT_OPENINGS = {'rainbow_course': ((9000, -2200, -200), (11200, 0, 2200))}
 
 
 def rotate_y(p, degrees):
@@ -1020,6 +1026,48 @@ def wall_quad(p, q, lift, inside):
         tris = ((q, p, q + lift), (q + lift, p, p + lift))
         n = -n
     return [(*t, n / max(np.linalg.norm(n), 1e-9), KCL_WALL << 8) for t in tris]
+
+
+def loop_exit_walls(course, exit_point, forward):
+    """Block reverse entry where the drivable exit meets the collisionless part of a loop."""
+    walls = []
+    steep_edges = [(a, b) for t in course.loops if t[3][1] > 0
+                   for a, b in ((t[0], t[1]), (t[1], t[2]), (t[2], t[0]))]
+    for a, b, c, normal, _ in course.loop_road:
+        if normal[1] < LOOP_ROAD:
+            continue
+        for p, q, inside in ((a, b, c), (b, c, a), (c, a, b)):
+            middle = (p + q) / 2
+            offset = middle - exit_point
+            if np.linalg.norm(offset) > 400 or offset @ forward > 0:
+                continue
+            wall = wall_quad(p, q, np.array([0.0, EDGE_HEIGHT, 0.0]), inside)
+            if wall[0][3] @ forward <= 0.5:
+                continue
+            # KCL reconstructs the corners of each triangle independently.
+            if any(np.linalg.norm(p - v) < 2 and np.linalg.norm(q - u) < 2 for u, v in steep_edges):
+                walls += wall
+    return walls
+
+
+def open_shortcut(kcl, low, high):
+    """Cut an opening in the local rescue surfaces while retaining the rest of each triangle."""
+    for t in kcl:
+        vertices = np.array(t[:3])
+        info = COLLISION.get(mkdsmap.kcl_type(t[4]))
+        if (info is None or not info[2] & KILL_PLANE or
+                np.any(vertices.max(0) <= low) or np.any(vertices.min(0) >= high)):
+            yield t
+            continue
+        inside = [{'pos': p} for p in vertices]
+        outside = []
+        for axis in range(3):
+            for bound, keep_above in ((low[axis], True), (high[axis], False)):
+                outside.extend(fan(clip(inside, 'pos', axis, bound, not keep_above)))
+                inside = clip(inside, 'pos', axis, bound, keep_above)
+        for tri in outside:
+            if len(tri) == 3:
+                yield (*(v['pos'] for v in tri), *t[3:])
 
 
 def road_strip(start, end, width, rail=0, kind=None):
@@ -1519,13 +1567,22 @@ class Course:
                 self.kcl += road_strip(pos - half, pos + half, SLAB_HALF_WIDTH * 2 * size[0])
 
     def picture_view(self):
-        """-> the Mods screen's camera, on the start line looking along the road, and the sky."""
+        """-> the Mods screen's camera and sky. The default looks down the road from the start."""
+        if self.name in PICTURE_VIEWS:
+            eye, at = np.array(PICTURE_VIEWS[self.name], dtype=float)
+            return eye, at, self.sky_colours()
         start, _ = mkdsmap.start_positions(self.nkm)[0]
         points = np.array([p for p, _ in self.route])
         ahead = points[(np.argmin(np.linalg.norm(points - start, axis=1)) + PICTURE_AHEAD) % len(points)]
         way = (ahead - start) * (1.0, 0.0, 1.0)
         way = way / max(np.linalg.norm(way), 1.0)
         return start - way * PICTURE_BACK + (0.0, PICTURE_UP, 0.0), ahead, self.sky_colours()
+
+    def picture(self, files):
+        eye, at, sky = self.picture_view()
+        image = mkds_view.render(files, self.name, eye, at, *track_picture.RENDER, sky=sky,
+                                 objects=self.name in PICTURE_VIEWS)
+        return track_picture.texels(image)
 
     def sky_colours(self):
         """(zenith, horizon) RGB from the skybox texture's top and bottom rows; a plain blue without one."""
@@ -1609,6 +1666,11 @@ def convert(course, out_dir, name, scale, max_edge, crate, fruit_crate, vram_sha
         return (q[0], q[1], q[2])  # OBJ and MKDS share axes (right-handed, Y up)
 
     to_lev = lambda p: np.array(to_cte(p)) * 64
+    flights, flight_log, flight_paths, exit_walls = find_flights(course, to_lev, scale)
+    collision_kcl = course.kcl
+    if name in SHORTCUT_OPENINGS:
+        low, high = np.array(SHORTCUT_OPENINGS[name]) / (64 * scale) + centre
+        collision_kcl = list(open_shortcut(collision_kcl, low, high))
     # the start line, and the way across it
     m = course.nkm
     cps = mkdsmap.checkpoints(m)
@@ -1874,7 +1936,7 @@ def convert(course, out_dir, name, scale, max_edge, crate, fruit_crate, vram_sha
     boost_blocks = {}
     jump_pads = []  # where each pad's middle is: CrashTeamEditor knows two triggers, and lev_patch sets these
     collision = []
-    for a, b, c, nrm, attr in course.kcl:
+    for a, b, c, nrm, attr in collision_kcl + exit_walls:
         ty = mkdsmap.kcl_type(attr)
         info = COLLISION.get(ty)
         if info is None:
@@ -1983,7 +2045,7 @@ def convert(course, out_dir, name, scale, max_edge, crate, fruit_crate, vram_sha
     lev = 64 * scale
     step = 64 / lev
     pts, road_points = [], []
-    for a, b, c, nrm, attr in course.kcl:
+    for a, b, c, nrm, attr in collision_kcl:
         info = COLLISION.get(mkdsmap.kcl_type(attr))
         if info is None or not (info[2] & GROUND) or abs(nrm[1]) < 0.3:
             continue
@@ -2098,7 +2160,6 @@ def convert(course, out_dir, name, scale, max_edge, crate, fruit_crate, vram_sha
     fruit, dropped = fruit_rows(route_at, total, 64 * scale, crates, to_lev, ground)
     stats['wumpa fruit'] = len(fruit)
     stats['fruit rows dropped'] = dropped
-    flights, flight_log, flight_paths = find_flights(course, to_lev, scale)
     for line in flight_log:
         print('flight', line)
     stats['flights'] = len(flights)
@@ -2298,10 +2359,8 @@ def main():
     print('winding', winding)
     if winding['flipped'] or winding['unmatched']:
         sys.exit('CrashTeamEditor turned drawn blocks over (they would vanish from the front)')
-    eye, at, sky = course.picture_view()
-    picture = track_picture.texels(mkds_view.render(files, a.course, eye, at, *track_picture.RENDER, sky=sky))
     pin = package.build(patched, patched_vrm, a.title, 'mkds/' + a.course, a.version, a.store,
-                       'Nintendo, converted by Decrypt', picture)
+                       'Nintendo, converted by Decrypt', course.picture(files))
     # a re-conversion replaces the revision this work folder installed last
     pin_file = os.path.join(work, 'pin.txt')
     old = open(pin_file).read().strip() if os.path.exists(pin_file) else ''
