@@ -93,6 +93,48 @@ struct rData rdata;
 struct Data data;
 NativeConfig g_config;
 
+// These scenarios use the retail roster. LOAD_DriverMPK clears any
+// native bot picks before loading the retail models.
+void NativeRacers_SetBot(int driver, int racer)
+{
+	if (driver < 0 || driver >= 8 || racer != -1)
+		abort();
+}
+
+int NativeRacers_Player(int player)
+{
+	(void)player;
+	abort();
+}
+
+int NativeRacers_Count(void)
+{
+	abort();
+}
+
+int NativeRacers_Template(int racer)
+{
+	(void)racer;
+	abort();
+}
+
+struct Model *NativeRacers_RaceModel(int racer)
+{
+	(void)racer;
+	abort();
+}
+
+s32 Timer_GetTime_Total(void)
+{
+	abort();
+}
+
+void Platform_Fatal(const char *title, const char *message)
+{
+	fprintf(stderr, "%s: %s\n", title, message);
+	abort();
+}
+
 // The loader's own log line goes to the run log through Platform_Log; the log
 // module is not linked here, so its lines go to stdout, where a failing run
 // shows them next to the assertion.

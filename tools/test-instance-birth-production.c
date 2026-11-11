@@ -41,8 +41,10 @@ void ConvertedMover_LInB(struct Instance *inst)
 	(void)inst;
 }
 
-void ConvertedMover_LevelStart(void)
+void ConvertedMover_LevelStart(const struct InstDef *definitions, int count)
 {
+	(void)definitions;
+	(void)count;
 }
 
 void ConvertRotToMatrix(MATRIX *m, const SVec3 *rot)
