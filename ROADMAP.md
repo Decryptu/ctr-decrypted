@@ -24,11 +24,11 @@ Open work only: what is in progress, what is planned, what may come, and what is
 - Custom racer sounds, mask and wheels: High Octane lets a custom racer bring sampled voice lines and choose its mask and wheels.
 - Racers from other games (low priority): Mario Kart DS karts and drivers, or other PS1 formats, as custom racers.
 - Better bots (low priority): smarter driving, item use, lines and shortcuts, with no stat advantage.
-- Full PAL disc support (low priority), separate from the planned PAL fixes above, which would also bring High Octane's multilanguage text and PAL voices, read from the PAL disc. Upstream removed it on purpose (ctr-native #51, #54).
+- PAL disc support (low priority): the port boots and plays from a PAL dump, with High Octane's multilanguage text and PAL voices. This is not taking single PAL assets or fixes onto the NTSC-U disc. Upstream removed it on purpose (ctr-native #51, #54).
 - macOS (low priority). First a clean 64-bit/arm64 build (builds are 32-bit x86 MinGW32 today), then a macOS platform layer: window, GL context, audio, controllers. Until then the Windows exe runs under CrossOver/Wine with GL 3.x (ctr-native #20, #33).
 
 ## Not planned
 - PS Vita and web builds, AdHoc netplay.
 - High Octane's online leaderboard, which depends on its author's server.
-- JP disc support. Upstream removed it on purpose (ctr-native #51).
+- JP disc support: the port booting and playing from a Japanese dump. Upstream removed it on purpose (ctr-native #51). Single Japanese assets on the NTSC-U disc, such as Fake Crash ([CUSTOM_RACERS.md](docs/CUSTOM_RACERS.md)), are a separate thing.
 - Upstream's MSVC build (`build-msvc.bat`, the MSVC presets in `CMakePresets.json`). The client and our platform code use GCC extensions; Windows builds use MSYS2 MinGW32.
