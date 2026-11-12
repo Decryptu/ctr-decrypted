@@ -548,6 +548,17 @@ int NativeDev_ModsTab(void)
 	return NativeDev_EnvInt("CTR_DEV_MODS", 0);
 }
 
+const char *NativeDev_OptionsPage(void)
+{
+	static int s_done;
+	const char *page;
+	if (s_done)
+		return NULL;
+	s_done = 1;
+	page = getenv("CTR_DEV_OPTIONS");
+	return (page && page[0]) ? page : NULL;
+}
+
 static int NativeDevRam_Pad(unsigned short *buttons, unsigned char *leftX);
 
 #define AUTOPILOT_MOST_CUT 160 // level units the line may stray from a straight to the point aimed at

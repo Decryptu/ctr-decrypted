@@ -257,6 +257,7 @@ static int Config_IsBackupsSection(int sec)
 }
 
 #include "MM_Backups.c"
+#include "MM_Cheats.c"
 
 struct RectMenu g_configMenu = {
 	.stringIndexTitle = -1,
@@ -1397,6 +1398,13 @@ static int MM_CustomLibrary_Busy(void)
 #include "MM_CustomManager.c"
 #endif // CTR_CUSTOM_PACKAGES
 
+/* CTR_DEV_OPTIONS (game/230/MM_MenuFlow.c): the menu opens on this page. */
+static const char *s_devOpenPage;
+void MM_Config_DevOpenPage(const char *page)
+{
+	s_devOpenPage = page;
+}
+
 static void MM_MenuProc_Config(struct RectMenu *menu)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -1406,6 +1414,13 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 
 	if (s_numSections == 0)
 		BuildSectionMap();
+	if (s_devOpenPage != NULL)
+	{
+		for (int sec = 0; sec < s_numSections; sec++)
+			if (strcmp(s_sectionName[sec], s_devOpenPage) == 0)
+				s_currentSection = sec;
+		s_devOpenPage = NULL;
+	}
 
 #if defined(CTR_AP) && !defined(CTR_AP_AUTHORING)
 	// The first-launch setup owns the whole menu while it is open.
@@ -1500,6 +1515,10 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 	else if (Config_IsBackupsSection(s_currentSection))
 	{
 		MM_ConfigProc_Backups(menu, ot, pad);
+	}
+	else if (Config_IsCheatsSection(s_currentSection))
+	{
+		MM_ConfigProc_Cheats(menu, ot, pad);
 	}
 	else if (s_currentSection >= 0)
 	{

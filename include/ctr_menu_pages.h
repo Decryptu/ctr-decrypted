@@ -17,6 +17,8 @@
 // (game/230/MM_ControlsConfig.c) edits controls.ini, so it is a bespoke page
 // that is always shown even though no key lists it. Backups is bespoke the same
 // way (game/230/MM_Backups.c): it lists the save backups, not config rows.
+// Cheats is bespoke too (game/230/MM_Cheats.c): its rows are the retail
+// gameMode2 cheat bits, which last until the game closes and are not saved.
 
 // Rows that fit between the title rule and the bottom of the panel at the
 // menu's 0x0E spacing from 0x3C. A twelfth row is drawn past the panel edge.
@@ -35,6 +37,7 @@ typedef struct
 
 #define CTR_MENU_PAGE_CONTROLS "Controls"
 #define CTR_MENU_PAGE_BACKUPS "Backups"
+#define CTR_MENU_PAGE_CHEATS "Cheats"
 
 static const char *const s_ctrMenuPageVideo[] = {
 	"fullscreen", "aspect_ratio", "render_scale", "vsync", "fps60", "screen_filter",
@@ -54,6 +57,9 @@ static const char *const s_ctrMenuPageControls[] = {
 static const char *const s_ctrMenuPageBackups[] = {
 	NULL,
 };
+static const char *const s_ctrMenuPageCheats[] = {
+	NULL,
+};
 static const char *const s_ctrMenuPageConnection[] = {
 	"uri", "slot", "password", NULL,
 };
@@ -69,6 +75,7 @@ static const CtrMenuPage s_ctrMenuPages[] = {
 	{"Video", s_ctrMenuPageVideo, 0},
 	{"Gameplay", s_ctrMenuPageGameplay, 0},
 	{"Extras", s_ctrMenuPageExtras, 0},
+	{CTR_MENU_PAGE_CHEATS, s_ctrMenuPageCheats, 1},
 	{CTR_MENU_PAGE_CONTROLS, s_ctrMenuPageControls, 1},
 	{"Connection", s_ctrMenuPageConnection, 0},
 	{"Archipelago", s_ctrMenuPageArchipelago, 0},

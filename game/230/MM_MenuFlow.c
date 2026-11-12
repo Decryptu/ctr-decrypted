@@ -8,6 +8,7 @@ extern struct MenuRow s_rowsMainMenuBasicConfig[];
 extern struct MenuRow s_rowsMainMenuWithSBConfig[];
 extern struct RectMenu g_configMenu;
 void MM_MainRows_Link(struct MenuRow *rows);
+void MM_Config_DevOpenPage(const char *page); // MM_ConfigMenu.c
 #if defined(CTR_AP) && !defined(CTR_AP_AUTHORING)
 void MM_Solo_OpenFromTitle(void); // MM_ConfigMenu.c (#89)
 int MM_Setup_ShouldOpen(void);    // MM_Setup.c, first-launch setup
@@ -197,6 +198,13 @@ void MM_MenuProc_Main(struct RectMenu *menu)
 		if ((MM_MENU_MAIN.state & DRAW_NEXT_MENU_IN_HIERARCHY) == 0)
 		{
 			GAME_TRACKER->numPlyrNextGame = 1;
+			// CTR_DEV_OPTIONS=<page>: open OPTIONS on that page, once.
+			const char *devOptionsPage = NativeDev_OptionsPage();
+			if (devOptionsPage != NULL)
+			{
+				MM_Config_DevOpenPage(devOptionsPage);
+				sdata->ptrDesiredMenu = &g_configMenu;
+			}
 #ifdef CTR_CUSTOM_PACKAGES
 			// CTR_DEV_MODS=<tab>: open the Mods screen on that tab, once.
 			const int devModsTab = NativeDev_ModsTab();

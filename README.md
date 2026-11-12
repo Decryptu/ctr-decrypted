@@ -36,6 +36,7 @@ And in OPTIONS:
 - **PGXP anti-wobble** and perspective-correct textures ([docs/PGXP.md](docs/PGXP.md)).
 - **Screen filters**: Sharp Bilinear, FXAA, Scanlines, CRT, LCD, and colour filters including colour-blind corrections ([docs/SCREEN-FILTERS.md](docs/SCREEN-FILTERS.md)).
 - **Extras**: character-select stats, NTSC-U/PAL Penta stats, reserves meter, kept reserve fire, blue fire at Ultimate Speed Fire, slide meter gradient, cyan super pads ([docs/EXTRAS.md](docs/EXTRAS.md)).
+- **Cheats**: the retail cheat codes as toggles in **OPTIONS → Cheats** ([docs/CHEATS.md](docs/CHEATS.md)).
 - **Playable N. Oxide**, unlocked by beating him in Adventure.
 - Widescreen, render scale, increased draw distance ([docs/LEVEL-VISIBILITY.md](docs/LEVEL-VISIBILITY.md)), remappable controls, and native Switch 2 Pro Controller support (with Steam closed).
 - **Options > Gameplay** lets you choose Camera Distance (Near/Far) and Race HUD (Map/Speedometer). The one-player camera distance (`L2`) and the map or speedometer (`Triangle`) you pick are kept across races and sessions (`camera_far` and `hud_speedometer` under `[State]` in `config.ini`). Split screen starts near, as the original does.

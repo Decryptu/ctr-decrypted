@@ -134,6 +134,10 @@ int NativeDev_CharacterSelect(void);
 // 2 Racers, 3 Installed). Returns the tab the first time, then 0.
 int NativeDev_ModsTab(void);
 
+// CTR_DEV_OPTIONS=<page>: the title opens OPTIONS on the page with that name
+// (Video, Extras, Cheats...). Returns the name the first time, then NULL.
+const char *NativeDev_OptionsPage(void);
+
 // CTR_DEV_ENDING=1: boot into Oxide's true ending, which runs into the
 // credits, with every sapphire relic so the credits end in the Scrapbook.
 // CTR_DEV_ENDING=2: the same without the relics, so they end in the hub.
