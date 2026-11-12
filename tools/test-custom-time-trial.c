@@ -155,6 +155,8 @@ void CustomPackage_Free(struct CustomPackageOwned **package)
 void howl_StopAudio(b32 a, b32 b, b32 c) { (void)a, (void)b, (void)c; }
 void ElimBG_Deactivate(struct GameTracker *gGT) { (void)gGT; }
 int RaceFlag_IsFullyOffScreen(void) { return 0; }
+/* UI_Reward.c keeps every lap in a native table; this harness sets the retail one. */
+s32 UI_LapTime_Get(s32 lapIndex, s16 driverID) { (void)driverID; return s_gt.lapTime[lapIndex]; }
 void RaceFlag_BeginTransition(int direction) { (void)direction; }
 void RaceFlag_ResetTextAnim(void) {}
 void CustomTrack_CortexTrackOnRequestLoad(int levelID) { (void)levelID; }

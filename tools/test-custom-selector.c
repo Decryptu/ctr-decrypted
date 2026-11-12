@@ -53,6 +53,9 @@ const char *NativeAssets_GetAssetDir(void) { return "/unused"; }
 int OtherFX_Play(u32 sound, int flags) { (void)sound; (void)flags; return 0; }
 void RECTMENU_ClearInput(void) { memset(sdata->buttonTapPerPlayer, 0, sizeof sdata->buttonTapPerPlayer); }
 void MM_TrackSelect_Video_State(int state) { (void)state; }
+/* The LAPS box (MM_TrackSelect.c): rows 1 to 9 laps. */
+void MM_LapSelect_Prepare(struct RectMenu *menu) { menu->rowSelected = 2; }
+s32 MM_LapSelect_LapCount(s16 row) { return row + 1; }
 /* Every string drawn this tick, for the reason and hint checks. */
 static char drawn[4096];
 static int drawnHas(const char *text) { return strstr(drawn, text) != NULL; }

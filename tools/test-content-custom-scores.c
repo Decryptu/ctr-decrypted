@@ -74,6 +74,8 @@ static void expect(int good, const char *why)
 }
 
 static struct GameTracker gt;
+/* UI_Reward.c keeps every lap in a native table; this harness sets the retail one. */
+s32 UI_LapTime_Get(s32 lapIndex, s16 driverID) { (void)driverID; return gt.lapTime[lapIndex]; }
 static struct Driver driver;
 static struct Thread thread;
 
