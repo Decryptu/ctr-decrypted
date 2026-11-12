@@ -11,7 +11,6 @@ Open work only: what is in progress, what is planned, what may come, and what is
   - Custom tracks are one-player only. If they ever get split screen, its far emitter (`DrawLevelOvr1P_EmitSplitGroundListAQuadBlock`) must draw by face too.
 
 ## Maybe
-- Title screen: a drawn logo in place of the DECRYPTED text.
 - CTR Native Expanded's two-player co-op Adventure. The Archipelago client would need to know about a second player.
 - More multiplayer from CTR Native Expanded: 3P/4P Arcade, eight racers in split screen, full-detail split screen, Oxide Station in multiplayer, race tracks in Battle, ending a race when one racer is left.
 - Mirror mode, reverse tracks, Super/Ultra Hard, extra arcade modes, boss fights on any track (High Octane; CTR Native Expanded also has Super/Ultra Hard in Adventure, with matching relic and crystal times). Less useful for Archipelago play.
