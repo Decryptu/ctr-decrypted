@@ -1050,3 +1050,43 @@ int NativeAssets_Validate(void)
 
 	return ok;
 }
+
+// Japanese Fake Crash (tools/decrypted/extract_fakecrash_jp.py): replacement
+// BIGFILE entries read once from assets/FAKECRASH-JP. All or none are used,
+// since the models and the shared VRM's texels go together.
+internal const int s_fakeCrashJpIndices[] = {216, 256, 258, 259, 274, 290, 306, 322, 346, 362};
+#define NATIVE_ASSETS_FAKECRASH_JP_COUNT ((int)(sizeof(s_fakeCrashJpIndices) / sizeof(s_fakeCrashJpIndices[0])))
+internal struct NativeAssetsByteBuffer s_fakeCrashJp[NATIVE_ASSETS_FAKECRASH_JP_COUNT];
+internal int s_fakeCrashJpState; // 0 unread, 1 loaded, -1 absent
+
+internal void NativeAssets_LoadFakeCrashJp(void)
+{
+	char relative[64];
+	int i;
+
+	s_fakeCrashJpState = -1;
+	for (i = 0; i < NATIVE_ASSETS_FAKECRASH_JP_COUNT; i++)
+	{
+		snprintf(relative, sizeof(relative), "FAKECRASH-JP/%d.BIN", s_fakeCrashJpIndices[i]);
+		if (!NativeAssets_ReadHostBytes(relative, &s_fakeCrashJp[i]))
+		{
+			if (i > 0) fprintf(stderr, "[CTR Native] FAKECRASH-JP is incomplete (%s missing); using NTSC-U Fake Crash\n", relative);
+			while (i >= 0) NativeAssets_FreeBytes(&s_fakeCrashJp[i--]);
+			return;
+		}
+	}
+	s_fakeCrashJpState = 1;
+	fprintf(stderr, "[CTR Native] Using the Japanese Fake Crash from FAKECRASH-JP\n");
+}
+
+const struct NativeAssetsByteBuffer *NativeAssets_BigfileOverride(int subfileIndex)
+{
+	int i;
+
+	if (subfileIndex < 216 || subfileIndex > 362) return NULL;
+	if (s_fakeCrashJpState == 0) NativeAssets_LoadFakeCrashJp();
+	if (s_fakeCrashJpState != 1) return NULL;
+	for (i = 0; i < NATIVE_ASSETS_FAKECRASH_JP_COUNT; i++)
+		if (s_fakeCrashJpIndices[i] == subfileIndex) return &s_fakeCrashJp[i];
+	return NULL;
+}

@@ -40,5 +40,8 @@ int NativeAssets_Validate(void);
 // skip the disc picker when no .bin is needed (#444); NativeAssets_Validate
 // still runs afterwards and reports anything missing, XA tracks included.
 int NativeAssets_HasExtractedCoreFiles(void);
+// A BIGFILE entry served from a local asset pack instead of the disc (the
+// Japanese Fake Crash), or NULL.
+const struct NativeAssetsByteBuffer *NativeAssets_BigfileOverride(int subfileIndex);
 
 #endif

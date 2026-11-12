@@ -26,6 +26,7 @@ void LOAD_StringToUpper(char *path)
 
 #ifdef CTR_NATIVE
 #include <platform/native_cd.h>
+#include <platform/native_assets.h>
 #endif
 
 #ifdef CTR_CUSTOM_TRACKS
@@ -420,11 +421,29 @@ void *LOAD_ReadFile_ex(struct BigHeader *bigfile, u32 loadType, int subfileIndex
 	ctOverride = CustomTrack_GetOverride(subfileIndex, &ctCtx, &ctOverridePath, &ctOverrideSize);
 #endif
 
+#if defined(CTR_NATIVE)
+	// A local asset pack (the Japanese Fake Crash) replaces a retail entry.
+	const struct NativeAssetsByteBuffer *localEntry = NativeAssets_BigfileOverride(subfileIndex);
+#endif
+
 	// get size and offset of subfile
 	entry = BIG_GETENTRY((struct BigHeader *)((char *)bigfile + subfileIndex * sizeof(struct BigEntry)));
 	// NOTE(aalhendi): Publish size before reading offset; sizePtr may alias the entry.
 	*sizePtr = entry->size;
 	commandSuccess = 0;
+
+#if defined(CTR_NATIVE)
+	// A caller may pass a buffer sized for the retail entry, so a local entry
+	// is never larger (the Japanese Fake Crash entries are all smaller).
+	if (localEntry && (u32)localEntry->size > entry->size)
+	{
+		localEntry = NULL;
+	}
+	if (localEntry)
+	{
+		*sizePtr = localEntry->size;
+	}
+#endif
 
 #ifdef CTR_CUSTOM_TRACKS
 	if (ctOverride)
@@ -507,6 +526,21 @@ void *LOAD_ReadFile_ex(struct BigHeader *bigfile, u32 loadType, int subfileIndex
 			if (callback != NULL)
 			{
 				LOAD_ReadFileASyncCallback((u8)(ctOk ? CdlComplete : CdlDiskError), NULL);
+			}
+			break;
+		}
+#endif
+
+#if defined(CTR_NATIVE)
+		if (localEntry)
+		{
+			// Same contract as a CD read: fill the sector-rounded buffer, zero the tail.
+			int localBytes = ((*sizePtr + LOAD_CD_DATA_SECTOR_ROUND_MASK) >> LOAD_CD_DATA_SECTOR_SHIFT) << LOAD_CD_DATA_SECTOR_SHIFT;
+			memcpy(ptrDst, localEntry->data, (size_t)localEntry->size);
+			memset((char *)ptrDst + localEntry->size, 0, (size_t)(localBytes - localEntry->size));
+			if (callback != NULL)
+			{
+				LOAD_ReadFileASyncCallback(CdlComplete, NULL);
 			}
 			break;
 		}

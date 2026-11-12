@@ -39,13 +39,15 @@ Players are tracked by roster entry. `GAME_CHARACTER_IDS` gets the entry's chara
 
 ## Regional Fake Crash assets
 
-Use the Japanese release (SCPS-10118) as the source for the revised face and paler kart. Its Fake Crash models use the same set of VRAM words as the NTSC-U models at each detail level. The PAL release packs the shared palettes elsewhere in VRAM.
+The Japanese release (SCPS-10118) fixes Fake Crash's face and gives him a paler kart. To use it, run `python tools/decrypted/extract_fakecrash_jp.py "<NTSC-U disc.bin>" "<JP disc.bin>" "<game folder>/assets"`. It writes `assets/FAKECRASH-JP/<BIGFILE index>.BIN`, and both clients serve those entries in place of the disc's (`NativeAssets_BigfileOverride` in `platform/native_assets.c`, called from `LOAD_ReadFile_ex`). The game still boots from the NTSC-U disc. The set is all or nothing: with a file missing, the log says so and Fake Crash stays NTSC-U.
 
-Time Trial loads the player's standalone high-detail model at BIGFILE entry 256. In PAL, its one-based texture slots 100 and 101 share the same UV layout, while the Arcade pack (entry 274) gives them distinct layouts. In the Japanese release, both slots in the standalone model match their respective Arcade layouts. Keep the Japanese model and texture data together.
+What the tool builds, and why:
+- **Standalone models 256, 322, 346** (high, medium, low) are the Japanese files as they are. In the Japanese release both one-based texture slots 100 and 101 match their Arcade layouts (in PAL they share one layout), so a Japanese model always goes with Japanese texels.
+- **Driver packs 259, 274, 290, 306, 362** stay NTSC-U except for the `fake` model, which is swapped for the Japanese one. The Japanese packs rename TNT, Nitro and token models, so the rest must not come from them. The model is self-contained (no pointer leaves it, and only the pack's model array points at it); the tool checks this, shifts the pointers after it and keeps the pointer map the same size.
+- **Main-menu level 216** gets the same swap; the character select draws this copy. The Japanese menu keeps Fake Crash's texels in its own VRM at places where the NTSC-U menu has other textures, so the tool points each of the menu model's texture slots at the matching slot of the standalone model instead. Those sample the shared VRM, which the menu loads too.
+- **Shared VRM 258**: the 192 words the Japanese models sample and that differ from NTSC-U. The models sample the same set of VRAM words on both discs at each detail level. PAL packs these palettes elsewhere, so PAL is no source.
 
-The race and character-select import needs three standalone models (256, 322, 346), Fake Crash's model in five driver packs (259, 274, 290, 306, 362), and 192 changed VRAM words in shared entry 258 sampled by those models. Preserve the NTSC-U models for TNT, Nitro and tokens inside the packs, since the Japanese packs rename those models. Keep the pointer maps consistent with the replacement model's size.
-
-Check a front view of Fake Crash in Crash Cove Time Trial and Arcade, and the character select, in both clients. Use `CTR_DEV_RACE=3`, `CTR_DEV_CHARACTER=14`, `CTR_DEV_UNLOCKS=1`, `CTR_DEV_WARP=-657,757,-4658,3070` and `CTR_DEV_CAMERA=-780,812,-4658,2098,3069,0` with Skip Intro enabled. Capture frame 1100 with `CTR_DEV_MODE=tt` and frame 620 in Arcade. The revised eyes should remain visible, and the kart should be paler.
+Check: an A/B capture with and without the folder in the run's `assets`. Use `CTR_DEV_RACE=3`, `CTR_DEV_CHARACTER=14`, `CTR_DEV_UNLOCKS=1`, `CTR_DEV_WARP=-657,757,-4658,3070`, `CTR_DEV_CAMERA=-780,812,-4658,2098,3069,0`, `CTR_DEV_MODE=tt` and Skip Intro, frame 1100; and frame 1300 with `CTR_DEV_CHARACTER_SELECT=1` (the select turns him to face the camera). Only Fake Crash's pixels change (about 5,600 and 1,500 at 800x450): his eyes are half-closed and the kart is paler. Don't judge Arcade from that warp: it drops him onto the Crash bot's grid slot, so the two karts are drawn on top of each other. A `CTR_DEV_DUMP_FRAME` dump shows that Arcade draws Fake Crash with the same pages, palettes and UVs as Time Trial.
 
 ## Character stats
 
