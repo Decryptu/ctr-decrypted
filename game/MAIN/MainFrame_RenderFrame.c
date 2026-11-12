@@ -673,6 +673,22 @@ void RenderAllHUD(struct GameTracker *gGT)
 					{
 						AH_Map_Main();
 
+#ifdef CTR_NATIVE
+						// PAL hub title, shown once the playable hub is visible.
+						if (gGT->hubTitleFrames > 0 &&
+						    (u32)(gGT->levelID - GEM_STONE_VALLEY) <= CITADEL_CITY - GEM_STONE_VALLEY &&
+						    (gameMode1 & PAUSE_ALL) == 0 && RaceFlag_IsFullyOffScreen()
+#ifdef CTR_AP
+						    && !AP_CharSwap_HubHudHidden()
+#endif
+						)
+						{
+							int name = GAME_LEVEL_METADATA[gGT->levelID].name_LNG;
+							DecalFont_DrawLine(GAME_LANGUAGE_STRINGS[name], 0x100, 0xc0, FONT_BIG, JUSTIFY_CENTER | ORANGE);
+							gGT->hubTitleFrames--;
+						}
+#endif
+
 						if (sdata->AkuHint_RequestedHint != -1)
 						{
 							AH_MaskHint_Start(sdata->AkuHint_RequestedHint, sdata->AkuHint_boolInterruptWarppad);

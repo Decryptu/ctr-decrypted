@@ -253,7 +253,7 @@ void howl_UnPauseChannel(struct ChannelStats *stats)
 		howl_InitChannelAttr_OtherFX(&GAME_PLAYBACK_OTHER_FX_METADATA[(u16)stats->soundID], &attr, stats->vol, stats->LR, stats->distort);
 		break;
 	case HOWL_CHANNEL_TYPE_ENGINE_FX:
-		howl_InitChannelAttr_EngineFX(&GAME_PLAYBACK_ENGINE_FX_METADATA[(u16)stats->soundID], &attr, stats->vol, stats->LR, stats->distort);
+		howl_InitChannelAttr_EngineFX(&GAME_PLAYBACK_ENGINE_FX_METADATA[EngineAudio_MetadataID((u16)stats->soundID)], &attr, stats->vol, stats->LR, stats->distort);
 		break;
 	case HOWL_CHANNEL_TYPE_MUSIC:
 		howl_InitChannelAttr_Music(&GAME_SONG_SEQUENCES[stats->soundID], &attr, stats->drumIndex_pitchIndex, stats->vol);

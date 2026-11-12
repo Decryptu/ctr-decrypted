@@ -858,18 +858,24 @@ void VehBirth_EngineAudio_AllPlayers(void)
 	struct GameTracker *gGT = GAME_TRACKER;
 	struct Thread *th;
 	struct Driver *d;
+#ifndef CTR_NATIVE
 	register u32 driverID CTR_PSX_REGISTER("$3");
 	register int engine CTR_PSX_REGISTER("$4");
+#endif
 
 	for (th = gGT->threadBuckets[PLAYER].thread; th != 0; th = th->siblingThread)
 	{
 		d = th->object;
+#ifdef CTR_NATIVE
+		EngineAudio_InitOnce(EngineAudio_PlayerSoundID(d), HOWL_SFX_CENTER_NO_DISTORTION);
+#else
 		driverID = d->driverID;
 		engine = GAME_CHARACTER_METADATA[GAME_CHARACTER_IDS[driverID]].engineID;
 		CTR_PSX_MEMORY_BARRIER();
 		engine = (engine * 4) + driverID;
 
 		EngineAudio_InitOnce((u16)engine, HOWL_SFX_CENTER_NO_DISTORTION);
+#endif
 	}
 }
 

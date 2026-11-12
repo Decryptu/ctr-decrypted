@@ -336,6 +336,15 @@ void Audio_Update1(void)
 		// from 0x3840 to zero
 		if (GAME_TRACKER->trafficLightsTimer < 1)
 		{
+#ifdef CTR_NATIVE
+			// PAL starts a one-lap race at final-lap tempo, without the lap-change jingle.
+			if (GAME_TRACKER->numLaps == 1)
+			{
+				Audio_SetState_Safe(AUDIO_POST_LAST_LAP);
+				Audio_SetMaskSong(20);
+				break;
+			}
+#endif
 			// 9 means intro cutscene
 			// 10 means traffic lights
 			// 11 means racing
@@ -485,9 +494,20 @@ void Audio_Update1(void)
 		{
 			break;
 		}
+
+		// A one-lap custom finish can be away from the usual finish-line approach.
+		if ((GAME_TRACKER->numLaps == 1) && ((d->actionsFlagSet & ACTION_RACE_FINISHED) != 0))
+		{
+			Audio_SetState_Safe(AUDIO_LAST_LAP);
+			break;
+		}
 #endif
 
 		if (
+#ifdef CTR_NATIVE
+		    // The grid can be within the finish threshold before lap one starts.
+		    ((d->actionsFlagSet & ACTION_BEHIND_START_LINE) == 0) &&
+#endif
 		    // if driver's lap is the last lap
 		    (d->lapIndex == GAME_TRACKER->numLaps - 1) &&
 
@@ -499,6 +519,10 @@ void Audio_Update1(void)
 
 		break;
 	case AUDIO_LAST_LAP - 1:
+#ifdef CTR_NATIVE
+		// Keep the final-lap tempo through the approach, including mask song changes.
+		Audio_SetMaskSong(20);
+#endif
 		raceOrderIndex = -1;
 
 		// human driver in the lead

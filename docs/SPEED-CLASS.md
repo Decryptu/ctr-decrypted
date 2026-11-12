@@ -5,6 +5,9 @@ Arcade, VS and Time Trial races can run at **200cc**: every racer, bots included
 Adventure (relic races included), Battle and the attract demo always run at retail speed.
 
 ## Time Trial records
+
+New Classic Time Trial tables use the PAL defaults for the 18 retail tracks. The best-lap entry starts at the N. Tropy target plus 15.1 seconds, divided by three. The five race entries start 15 seconds above the target and step by 30 seconds. Existing memory-card tables retain their saved times.
+
 A 200cc Time Trial never reads or writes the memory card's Time Trial data. Its best lap, five best times and ghost live in files next to the exe (`include/platform/native_custom_records.h`):
 
 | Track | Files |

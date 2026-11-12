@@ -176,6 +176,16 @@ void GAMEPROG_ResetHighScores(struct GameProgress *gameProg)
 				((struct HighScoreEntry *)(entryBase + OFFSETOF(struct GameProgress, highScoreTracks)))[1].characterID = characterID;
 				((struct HighScoreEntry *)(entryBase + OFFSETOF(struct GameProgress, highScoreTracks)))[1].time = MEMCARD_HIGH_SCORE_DEFAULT_TIME;
 			}
+#ifdef CTR_NATIVE
+			if (mode == 0) // Classic Time Trial
+			{
+				// SCES-02105 seeds the table from the track's N. Tropy target.
+				const u32 target = GAME_LEVEL_METADATA[trackID].timeTrial;
+				track->scoreEntry[mode][0].time = (target + 0x38a0) / 3;
+				for (k = 1; k < MEMCARD_HIGH_SCORE_ENTRIES_PER_MODE; k++)
+					track->scoreEntry[mode][k].time = target + 0x3840 + (k - 1) * 0x7080;
+			}
+#endif
 			// NOTE(aalhendi): Retain track values through both modes; the name seed,
 			// not either track value, is the temporary spilled across name copies.
 			CTR_PSX_ORDER_VALUES(trackOffset, trackID);

@@ -1,4 +1,7 @@
 #include <common.h>
+#ifdef CTR_NATIVE
+#include <platform/native_audio.h>
+#endif
 #ifndef HOWL_VOICE_ENABLED
 #define HOWL_VOICE_ENABLED (sdata->boolCanPlayVoicelines)
 #endif
@@ -367,6 +370,13 @@ void Voiceline_StartPlay(struct Item *voiceLine)
 	{
 		voiceSetIndex = HOWL_VOICE_TYPES[voiceLineItem->voiceID];
 	}
+#ifdef CTR_NATIVE
+	// PAL uses the first pair for events assigned to sets 8–10 in NTSC-U.
+	if (voiceLineItem->characterID == PENTA_PENGUIN && voiceSetIndex >= 8 && NativeAudio_HasPalPentaVoices())
+	{
+		voiceSetIndex = 0;
+	}
+#endif
 	// NOTE(aalhendi): Keep this entry across XAPlay, then reread its sample pointer.
 	voiceSet = (__typeof__(voiceSet))HOWL_VOICE_SETS[voiceLineItem->characterID] + voiceSetIndex;
 	numVoiceIDs = (u16)voiceSet->num;

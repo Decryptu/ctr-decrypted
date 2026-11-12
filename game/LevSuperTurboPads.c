@@ -11,8 +11,8 @@
 // recolours those texels (platform/native_renderer.c). Which faces show a
 // super pad is read from the level's own trigger quads (rules and
 // measurements in include/ctr_extras.h), so no track needs a special case,
-// and the all-super-turbo-pads cheat turns every pad cyan, as it makes every
-// pad a super pad. Visual only: collision reads trigger quads, never textures.
+// and the all-super-turbo-pads cheat turns every pad cyan outside Time Trial.
+// Visual only: collision reads trigger quads, never textures.
 //
 // The copies live in the level's memory pack, where the level renderer
 // expects level texture data (DrawLevelOvr1P_IsNativeLevelSpan). Applied at
@@ -105,7 +105,7 @@ void LevSuperTurboPads_Mark(struct GameTracker *gGT)
 	struct mesh_info *mesh = level->ptr_mesh_info;
 	struct QuadBlock *quads = mesh->ptrQuadBlockArray;
 	const int numQuads = mesh->numQuadBlock;
-	const int allPadsSuper = (gGT->gameMode2 & CHEAT_TURBOPAD) != 0;
+	const int allPadsSuper = GameMode_SuperTurboPadsCheatActive(gGT->gameMode1, gGT->gameMode2);
 	const int superMask = allPadsSuper ? COLL_STEP_TRIGGER_TURBO_PAD_MASK : COLL_STEP_TRIGGER_SUPER_TURBO_PAD;
 
 	const struct QuadBlock *triggers[SUPER_PAD_MAX_TRIGGERS];

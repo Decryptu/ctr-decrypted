@@ -2253,7 +2253,9 @@ void VehStuckProc_Warp_PhysAngular(struct Thread *th, struct Driver *d)
 
 void VehStuckProc_Warp_Init(struct Thread *th, struct Driver *d)
 {
+#ifndef CTR_NATIVE
 	int engine;
+#endif
 	struct Instance *inst;
 	struct DriverWarpState *warp;
 
@@ -2280,9 +2282,12 @@ void VehStuckProc_Warp_Init(struct Thread *th, struct Driver *d)
 	OtherFX_Stop1((int)d->driverAudioPtrs[0]);
 	d->driverAudioPtrs[0] = 0;
 
+#ifdef CTR_NATIVE
+	EngineAudio_Stop(EngineAudio_PlayerSoundID(d));
+#else
 	engine = GAME_CHARACTER_METADATA[GAME_CHARACTER_IDS[d->driverID]].engineID;
-
 	EngineAudio_Stop((u16)((engine * VEH_WARP_ENGINE_AUDIO_STRIDE) + d->driverID));
+#endif
 
 	// driver -> instSelf
 	inst = d->instSelf;

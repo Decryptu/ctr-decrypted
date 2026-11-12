@@ -10,9 +10,6 @@ Open work only: what is in progress, what is planned, what may come, and what is
   - Object behaviour read in the game's code and not built: tyres turning; a fire plant's head turning to its path; Boos ringing the kart, where here they hover at their spots; a staked Chain Chomp aiming at the kart, where here it lunges at the route; Waluigi Pinball's drums taking one of three speeds in turn; what a star does to a Thwomp, a Chomp or a flare; animated models (paintings, the crowd, Pokey's sway, the coffin's lid). Bowser Castle's slabs and Delfino Square's drawbridge do not travel, as the engine's track collision is static.
   - Custom tracks are one-player only. If they ever get split screen, its far emitter (`DrawLevelOvr1P_EmitSplitGroundListAQuadBlock`) must draw by face too.
 
-## Planned
-- **PAL fixes across the game:** replace Penta's NTSC-U placeholder voice clips with his finished PAL clips, then audit regional differences for other bug fixes and unfinished-content corrections to apply globally in both clients. This extends beyond the existing Penta stats option and is separate from full PAL disc support.
-
 ## Maybe
 - Title screen: a drawn logo in place of the DECRYPTED text.
 - CTR Native Expanded's two-player co-op Adventure. The Archipelago client would need to know about a second player.

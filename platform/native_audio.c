@@ -317,6 +317,7 @@ struct NativeAudioXaTrackInfo
 	int fileNumber;
 	int channelFilter;
 	int numSectors;
+	int palPenta;
 };
 
 struct NativeAudioVoiceState
@@ -1825,11 +1826,15 @@ internal void NativeAudio_SelectDriverHint(void)
 	}
 }
 
-internal int NativeAudio_BuildXAPath(char *path, size_t pathSize, int categoryID, int fileNumber)
+internal int NativeAudio_BuildXAPath(char *path, size_t pathSize, int categoryID, const struct NativeAudioXaTrackInfo *info)
 {
 	const char *dir = NULL;
 
-	if (categoryID == 0)
+	if (info->palPenta)
+	{
+		dir = "XA/PENTA-PAL";
+	}
+	else if (categoryID == 0)
 	{
 		dir = "XA/MUSIC";
 	}
@@ -1846,11 +1851,11 @@ internal int NativeAudio_BuildXAPath(char *path, size_t pathSize, int categoryID
 		return 0;
 	}
 
-	int written = snprintf(path, pathSize, "%s/S%02d.XA", dir, fileNumber);
+	int written = snprintf(path, pathSize, "%s/S%02d.XA", dir, info->fileNumber);
 	return (written > 0) && ((size_t)written < pathSize);
 }
 
-internal int NativeAudio_LookupXATrackInfo(int categoryID, int xaID, struct NativeAudioXaTrackInfo *info)
+internal int NativeAudio_ReadXATrackInfo(const char *manifest, int categoryID, int xaID, struct NativeAudioXaTrackInfo *info)
 {
 	struct NativeAudioByteBuffer xnf;
 
@@ -1859,7 +1864,7 @@ internal int NativeAudio_LookupXATrackInfo(int categoryID, int xaID, struct Nati
 		return 0;
 	}
 
-	if (!NativeAudio_ReadFileBytes("XA/ENG.XNF", &xnf))
+	if (!NativeAudio_ReadFileBytes(manifest, &xnf))
 	{
 		return 0;
 	}
@@ -1921,6 +1926,34 @@ internal int NativeAudio_LookupXATrackInfo(int categoryID, int xaID, struct Nati
 
 	NativeAudio_FreeByteBuffer(&xnf);
 	return info->numSectors > 0;
+}
+
+internal int NativeAudio_LookupXATrackInfo(int categoryID, int xaID, struct NativeAudioXaTrackInfo *info)
+{
+	info->palPenta = 0;
+	if (categoryID == 2 && xaID >= 247 && xaID <= 262)
+	{
+		int palID = 208 + xaID - 247;
+		char path[128];
+		char resolved[512];
+		if (NativeAudio_ReadXATrackInfo("XA/PENTA-PAL/ENG.XNF", categoryID, palID, info))
+		{
+			info->palPenta = 1;
+			if (NativeAudio_BuildXAPath(path, sizeof(path), categoryID, info) &&
+			    NativeAssets_ResolvePath(path, resolved, sizeof(resolved)))
+			{
+				return 1;
+			}
+			info->palPenta = 0;
+		}
+	}
+	return NativeAudio_ReadXATrackInfo("XA/ENG.XNF", categoryID, xaID, info);
+}
+
+int NativeAudio_HasPalPentaVoices(void)
+{
+	struct NativeAudioXaTrackInfo info;
+	return NativeAudio_LookupXATrackInfo(2, 247, &info) && info.palPenta;
 }
 
 internal int NativeAudio_GetXASectorLayout(int byteCount, int *sectorSizeOut, int *sectorBaseOut, int *totalSectorsOut)
@@ -2809,7 +2842,7 @@ int NativeAudio_RestoreState(const void *src, int srcSize)
 	if (snapshot->xa.active && snapshot->xa.hasTrackIdentity)
 	{
 		if (!NativeAudio_LookupXATrackInfo(snapshot->xa.categoryID, snapshot->xa.xaID, &xaInfo) ||
-		    !NativeAudio_BuildXAPath(xaPath, sizeof(xaPath), snapshot->xa.categoryID, xaInfo.fileNumber) || !NativeAudio_XaSourceOpen(xaPath, &xaSource))
+		    !NativeAudio_BuildXAPath(xaPath, sizeof(xaPath), snapshot->xa.categoryID, &xaInfo) || !NativeAudio_XaSourceOpen(xaPath, &xaSource))
 		{
 			return 0;
 		}
@@ -3636,7 +3669,7 @@ int NativeAudio_PlayXATrack(int categoryID, int xaID, int volumeLeft, int volume
 	{
 		return 0;
 	}
-	if (!NativeAudio_BuildXAPath(path, sizeof(path), categoryID, info.fileNumber))
+	if (!NativeAudio_BuildXAPath(path, sizeof(path), categoryID, &info))
 	{
 		return 0;
 	}

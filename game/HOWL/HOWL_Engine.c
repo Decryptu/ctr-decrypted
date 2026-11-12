@@ -9,6 +9,36 @@
 #define GAME_ENGINE_PAN_DEFAULTS      (&sdata->audioDefaults[4])
 #endif
 
+#ifdef CTR_NATIVE
+enum
+{
+	HOWL_ENGINE_AI_FIRST = 16,
+	HOWL_ENGINE_PENTA_FIRST = 20,
+	HOWL_ENGINE_PLAYER_COUNT = 4,
+};
+
+u32 EngineAudio_PlayerSoundID(const struct Driver *driver)
+{
+	s32 characterID = GAME_CHARACTER_IDS[driver->driverID];
+	if (characterID == PENTA_PENGUIN)
+	{
+		return HOWL_ENGINE_PENTA_FIRST + driver->driverID;
+	}
+	return (u32)GAME_CHARACTER_METADATA[characterID].engineID * HOWL_ENGINE_PLAYER_COUNT + driver->driverID;
+}
+
+u32 EngineAudio_MetadataID(u32 soundID)
+{
+	// PAL Penta uses engine class 4. The NTSC-U bank already has that sample
+	// for AI, so give Penta separate channel IDs while reusing its metadata.
+	if (soundID >= HOWL_ENGINE_PENTA_FIRST && soundID < HOWL_ENGINE_PENTA_FIRST + HOWL_ENGINE_PLAYER_COUNT)
+	{
+		return HOWL_ENGINE_AI_FIRST + soundID - HOWL_ENGINE_PENTA_FIRST;
+	}
+	return soundID;
+}
+#endif
+
 // Initialize car engine audio system for one driver
 b32 EngineAudio_InitOnce(u32 soundID, u32 flags)
 {
@@ -25,11 +55,12 @@ b32 EngineAudio_InitOnce(u32 soundID, u32 flags)
 		return 0;
 	}
 	id = soundID & 0xffff;
-	if (id >= (u32)GAME_HOWL_HEADER->numEngineFX)
+	u32 metadataID = EngineAudio_MetadataID(id);
+	if (metadataID >= (u32)GAME_HOWL_HEADER->numEngineFX)
 	{
 		return 0;
 	}
-	ptrEngineFX = &GAME_ENGINE_FX_METADATA[id];
+	ptrEngineFX = &GAME_ENGINE_FX_METADATA[metadataID];
 	if (GAME_HOWL_SPU_ADDRS[ptrEngineFX->spuIndex].spuAddr == 0)
 	{
 		return 0;
@@ -74,12 +105,13 @@ s16 EngineAudio_Recalculate(u32 soundID, u32 sfx)
 		return 0;
 	}
 	id = soundID & 0xffff;
-	if ((u32)GAME_HOWL_HEADER->numEngineFX <= id)
+	u32 metadataID = EngineAudio_MetadataID(id);
+	if ((u32)GAME_HOWL_HEADER->numEngineFX <= metadataID)
 	{
 		return 0;
 	}
 	volume = HowlSfx_Volume(sfx);
-	ptrEngineFX = &GAME_ENGINE_FX_METADATA[id];
+	ptrEngineFX = &GAME_ENGINE_FX_METADATA[metadataID];
 	echo = HowlSfx_Echo(sfx);
 	distortion = HowlSfx_Distortion(sfx);
 	gGT = GAME_TRACKER;
@@ -117,7 +149,11 @@ s16 EngineAudio_Recalculate(u32 soundID, u32 sfx)
 
 void EngineSound_Player(struct Driver *driver)
 {
+#ifdef CTR_NATIVE
+	u32 soundID = EngineAudio_PlayerSoundID(driver);
+#else
 	u32 soundID = (u32)GAME_CHARACTER_METADATA[GAME_CHARACTER_IDS[driver->driverID]].engineID * 4u + driver->driverID;
+#endif
 	u32 volume;
 	// NOTE(aalhendi): Retail keeps mapped distortion in a1 while forming signed pan.
 	register u32 distortion CTR_PSX_REGISTER("$5");
@@ -728,7 +764,7 @@ void EngineAudio_Stop(u32 soundID)
 	}
 
 	id = soundID & 0xffff;
-	if ((u32)GAME_HOWL_HEADER->numEngineFX <= id)
+	if ((u32)GAME_HOWL_HEADER->numEngineFX <= EngineAudio_MetadataID(id))
 	{
 		return;
 	}

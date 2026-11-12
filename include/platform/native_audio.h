@@ -24,6 +24,7 @@ int NativeAudio_BeginInterleavedXA(int channelFilter, int volumeLeft, int volume
 int NativeAudio_FeedInterleavedXASector(const void *sector, int sectorSize);
 int NativeAudio_PlayXAFile(const char *relativePath, int channelFilter, int volumeLeft, int volumeRight);
 int NativeAudio_GetXATrackLength(int categoryID, int xaID);
+int NativeAudio_HasPalPentaVoices(void);
 int NativeAudio_IsXAPlaying(void);
 int NativeAudio_GetXACurrOffset(void);
 int NativeAudio_GetXAMaxSample(void);

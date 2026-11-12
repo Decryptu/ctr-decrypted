@@ -144,6 +144,9 @@ void LOAD_Hub_SwapNow()
 
 	GAME_TRACKER->framesInThisLEV = 0;
 	GAME_TRACKER->msInThisLEV = 0;
+#ifdef CTR_NATIVE
+	GAME_TRACKER->hubTitleFrames = FPS_DOUBLE(HUB_TITLE_FRAMES_AT_30FPS);
+#endif
 }
 
 void LOAD_Hub_Main(struct BigHeader *bigfilePtr)

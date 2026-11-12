@@ -226,6 +226,12 @@ enum GameMode2Masks
 	GAME_MODE2_VEH_FREEZE_MASK = VEH_FREEZE_PODIUM | VEH_FREEZE_DOOR,
 };
 
+#ifdef CTR_NATIVE
+static inline int GameMode_SuperTurboPadsCheatActive(u32 gameMode1, u32 gameMode2)
+{
+	return (gameMode1 & TIME_TRIAL) == 0 && (gameMode2 & CHEAT_TURBOPAD) != 0;
+}
+#endif
 
 enum CharacterUnlock
 {
@@ -1387,10 +1393,18 @@ struct GameTracker
 	//  determines if you see Oxide Intro,
 	//  or Demo Mode, from main menu inactivity
 	u8 boolSeenOxideIntro;
+#ifdef CTR_NATIVE
+	u8 hubTitleFrames; // visible frames remaining for the entry title
+#else
 	u8 pad_boolSeenOxideIntro;
+#endif
 
 	// 2584
 };
+
+#ifdef CTR_NATIVE
+enum { HUB_TITLE_FRAMES_AT_30FPS = 90 };
+#endif
 
 #ifndef CTR_NATIVE
 CTR_STATIC_ASSERT(sizeof(struct GameTracker) == 0x2584);

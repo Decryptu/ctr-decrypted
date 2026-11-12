@@ -86,10 +86,12 @@ void UI_Weapon_DrawSelf(s16 posX, s16 posY, s16 scale, struct Driver *d)
 		quantityText = GAME_SDATA_NAME(s_spacebar);
 		if (d->heldItemID == HELD_ITEM_MASK)
 		{
+#ifdef CTR_NATIVE
+			if (!VehPickupItem_MaskBoolGoodGuy(d))
+#else
 			s32 characterID = GAME_CHARACTER_IDS[d->driverID];
-
-			// Only Crash, Coco, Polar and Pura use the Aku Aku icon; Penta uses Uka Uka.
 			if (characterID != CRASH_BANDICOOT && characterID != COCO_BANDICOOT && characterID != POLAR && characterID != PURA)
+#endif
 			{
 				iconID = UI_WEAPON_MASK_UKA_ICON;
 			}

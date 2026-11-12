@@ -298,7 +298,7 @@ int NativeDev_StartRace(struct GameTracker *gGT)
 	gGT->boolDemoMode = 0;
 	gGT->numPlyrNextGame = 1;
 	// CTR_DEV_CHEATS: gameMode2 cheat bits for the race, as the title-screen
-	// codes set them (0x100000 = every turbo pad is a super turbo pad).
+	// codes set them (0x100000 upgrades every turbo pad outside Time Trial).
 	gGT->gameMode2 |= (u32)NativeDev_EnvInt("CTR_DEV_CHEATS", 0);
 	for (int i = 0; i < 8; i++)
 		data.characterIDs[i] = i;

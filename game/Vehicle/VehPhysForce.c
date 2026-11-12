@@ -1075,7 +1075,11 @@ void VehPhysForce_CollideDrivers(struct Thread *thread, struct Driver *driver)
 			goto TurboPadDone;
 		}
 		reserves = VEH_PHYS_FORCE_TURBO_PAD_RESERVES;
+#ifdef CTR_NATIVE
+		if (!GameMode_SuperTurboPadsCheatActive(GAME_TRACKER->gameMode1, GAME_TRACKER->gameMode2))
+#else
 		if ((GAME_TRACKER->gameMode2 & CHEAT_TURBOPAD) == 0)
+#endif
 		{
 			goto ApplyNormalTurboPad;
 		}

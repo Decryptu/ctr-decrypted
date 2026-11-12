@@ -126,7 +126,8 @@ void UpdateChannelVol_EngineFX_All(void)
 		if (curr->type == HOWL_CHANNEL_TYPE_ENGINE_FX)
 		{
 			HOWL_CHANNEL_UPDATES[curr->channelID] |= HOWL_CHANNEL_UPDATE_VOLUME;
-			UpdateChannelVol_EngineFX(&sdata->howl_metaEngineFX[curr->soundID & 0xffff], &HOWL_CHANNEL_ATTRS[curr->channelID], curr->vol, curr->LR);
+			UpdateChannelVol_EngineFX(&sdata->howl_metaEngineFX[EngineAudio_MetadataID(curr->soundID & 0xffff)],
+			                          &HOWL_CHANNEL_ATTRS[curr->channelID], curr->vol, curr->LR);
 		}
 		else if (curr->type == HOWL_CHANNEL_TYPE_OTHER_FX)
 		{

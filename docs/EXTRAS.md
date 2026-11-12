@@ -14,13 +14,19 @@ OPTIONS → Extras holds optional character, HUD and effect changes. Each row is
 | Blue Fire At USF | `blue_fire` | Off | Player 1's exhaust turns blue at Ultimate Speed Fire, as in Nitro-Fueled. | `game/VehBlueFire.c` |
 | Slide Meter Gradient | `slide_meter_colours` | Off | The powerslide bar fades green to yellow as it fills, then orange to red across the boost window, instead of flat green then red. | `UI_DrawSlideMeter`, maths in `include/ctr_extras.h` |
 | Colour Filter | `colour_filter` | Off | Greyscale, sepia, negative, vignette, or a protanopia or deuteranopia correction, on top of any screen filter. | [SCREEN-FILTERS.md](SCREEN-FILTERS.md#colour-filter), `platform/native_renderer.c` |
-| Cyan Super Pads (Next Load) | `super_pad_colour` | Off | Super turbo pads are drawn cyan, as in Nitro-Fueled. With the all-super-turbo-pads cheat every pad is cyan. | `game/LevSuperTurboPads.c`, the shader in `platform/native_renderer.c`, rules in `include/ctr_extras.h` |
+| Cyan Super Pads (Next Load) | `super_pad_colour` | Off | Super turbo pads are drawn cyan, as in Nitro-Fueled. The all-super-turbo-pads cheat turns every pad cyan outside Time Trial. | `game/LevSuperTurboPads.c`, the shader in `platform/native_renderer.c`, rules in `include/ctr_extras.h` |
 
 ## Penta stats
 
-The local choice is NTSC-U or PAL, not a region switch for the whole game. It leaves voices, engine sound, timing, other racers and disc support unchanged. The PAL values match High Octane's full 65-row Penta table: the NTSC-U turning class already supplies 62 rows; only acceleration (544), top speed (13900) and accelerated top speed (15400) differ. The loader changes those three halfwords without changing the shared engine metadata or table layout, so another racer using the turning class is unaffected.
+The local choice controls Penta's driving stats. The PAL values match High Octane's full 65-row Penta table. The NTSC-U turning class already supplies 62 rows. Acceleration (544), top speed (13900) and accelerated top speed (15400) differ. The loader changes those three halfwords without changing the shared engine metadata or table layout, so another racer using the turning class is unaffected.
 
 Outside a loaded Archipelago Adventure seed, the local option applies to Penta in every mode. In Archipelago Adventure the seed's `penta_stats`, progressive or editable stats and starting-class rules take precedence; the local option does not change slot data. The 200cc modifier is applied after the base Penta choice. Custom racers retain their engine setting even when their template is Penta. The character-select panel shows PAL Penta with three full bars, or the NTSC-U turning-class bars.
+
+## Penta mask and audio
+
+Both clients show Aku Aku in Penta's item HUD and use his PAL kart engine sound with either stats setting. The engine sample is already on the NTSC-U disc. Penta's player channels use separate IDs so the same sample can play for AI karts independently.
+
+To use Penta's finished English PAL race voice clips, run `python tools/decrypted/extract_penta_pal.py "<PAL disc.bin>" "<game folder>/assets"`. The game loads the resulting `assets/XA/PENTA-PAL` folder automatically and uses the NTSC-U clips when the pack is absent. Both clients still boot from the NTSC-U disc. The three events with extra clips in NTSC-U use the first pair of PAL clips, as on the PAL disc. Penta's two immediate sound effects are identical on the two discs.
 
 ## Decisions
 - **Retail defaults.** Character-select stats and effect changes default off, and Penta defaults to NTSC-U. The reserves meter defaults on in the Archipelago build only because that build always drew it.
@@ -43,6 +49,6 @@ Outside a loaded Archipelago Adventure seed, the local option applies to Penta i
 ## Checking
 - `tools/test-penta.c` calls the real driver-constant loader and checks both styles, unaffected racers, custom engines, bots, seed ownership, stat-package order and 200cc order.
 - `tools/test-extras.c`: the gradient's colours at each stage, that it never brightens again inside the window, the retail fallback for a driver with no room set, and the blue-fire rule.
-- Turbo Track with the all-super-turbo-pads cheat (`CTR_DEV_CHEATS=1048576`) and the autopilot, which hits the first pad at USF: Blue Fire turns the exhaust blue, the reserves meter draws, and the race trace is identical with every row on and off.
+- Arcade on Turbo Track with the all-super-turbo-pads cheat (`CTR_DEV_CHEATS=1048576`) and the autopilot, which hits the first pad at USF: Blue Fire turns the exhaust blue, the reserves meter draws, and the race trace is identical with every row on and off.
 - Cyan Super Pads: `CTR_DEV_QUAD_DUMP` after marking (palette words with 0x8000) lists the cyan faces. Hot Air Skyway has two super pads and ordinary ones, Oxide Station five super-pad quads, Cortex Castle two pad quads plus wooden tiles under super triggers that must stay unchanged, Turbo Track 30 pads, all super.
 - The gradient and the kept fire need a player: the autopilot doesn't powerslide.

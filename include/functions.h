@@ -156,6 +156,12 @@ void OtherFX_Stop2(int soundID_count);
 void OtherFX_RecycleNew(u32 *soundID_Count, u32 newSoundID, u32 modifyFlags);
 void OtherFX_RecycleMute(u32 *soundID_Count);
 b32 EngineAudio_InitOnce(u32 soundID, u32 flags);
+#ifdef CTR_NATIVE
+u32 EngineAudio_PlayerSoundID(const struct Driver *driver);
+u32 EngineAudio_MetadataID(u32 soundID);
+#else
+#define EngineAudio_MetadataID(soundID) (soundID)
+#endif
 s16 EngineAudio_Recalculate(u32 soundID, u32 sfx);
 void EngineAudio_Stop(u32 soundID);
 void SetReverbMode(u16 newReverbMode);

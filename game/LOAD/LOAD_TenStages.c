@@ -938,6 +938,9 @@ int LOAD_TenStages(struct GameTracker *unusedGameTracker, int loadingStage, stru
 		GAME_TRACKER->hudFlags |= HUD_FLAG_INTRO_RACE_TITLE_BARS;
 		GAME_TRACKER->framesInThisLEV = 0;
 		GAME_TRACKER->msInThisLEV = 0;
+#ifdef CTR_NATIVE
+		GAME_TRACKER->hubTitleFrames = FPS_DOUBLE(HUB_TITLE_FRAMES_AT_30FPS);
+#endif
 
 		ElimBG_Deactivate(GAME_TRACKER);
 		loadingStage = -2;
