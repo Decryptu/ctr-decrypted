@@ -36,9 +36,9 @@ MAX_WIDTH, MAX_HEIGHT = 128, 256  # texels: wider, it would have to give up colo
 NEUTRAL = 128  # a texture is multiplied by a vertex colour over this
 LAYERED_BILLBOARD_SIZE = 128  # a square page region at 8 bits
 
-PATH, SPIN, SWING, HOP, ORBIT, PULSE, KEYS, STILL = range(8)
+PATH, SPIN, SWING, HOP, ORBIT, PULSE, KEYS, STILL, TURNS = range(9)
 LOOP, BACK_AND_FORTH, RESTART = range(3)
-FACE_PATH, ROLL, SOLID, CARRIES, ONE_WAY, DROPS = 0x100, 0x200, 0x1000, 0x2000, 0x4000, 0x8000  # Mover.c's MOVER_FLAG_
+FACE_PATH, ROLL, SOLID, CARRIES, DROPS = 0x100, 0x200, 0x1000, 0x2000, 0x8000  # Mover.c's MOVER_FLAG_
 TICKS = 60  # a second: the game's objects
 SPIN_RATE = 4.8  # 4096ths of a turn a second per unit of a spinner's speed setting: (s << 7) / 100 of 65536 a tick
 PATH_UNITS = 3.2  # level units a second per hundredth of a world unit a tick
@@ -46,6 +46,7 @@ SPIN_DAMAGE, BLAST, SQUISH = 1, 2, 3  # RB_Hazard_HurtDriver
 ITEM_BOX = 4  # Mover.c: it breaks as a weapon crate does
 KEY_HIDDEN = -32768
 KEY_MS = 50  # three ticks
+TURN_KEY_TICKS = 3
 CRATE_MIDDLE = np.array([0.0, 48.0, 0.0])  # level units over its origin, which is its underside
 
 # model; (kind, its arguments); what a hit does, where it is not the game's own (REACTIONS); level units a
@@ -76,7 +77,7 @@ MOVERS = {
     0xd1: Mover('rotary_bridge', (SPIN, 1, 0), flags=CARRIES),
     0xcd: Mover('second_hand', (SPIN, 1, 0)),
     0xcf: Mover('pendulum', (SWING, 2, 0, 0)),
-    0xd2: Mover('dram', (SPIN, 0, 0), flags=ONE_WAY),
+    0xd2: Mover('dram', (TURNS, 'drums', 0, 0)),
     0x1a9: Mover('flipper', (SWING, 1, 0, 0)),
     0x1a3: Mover('move_tree', (PATH, LOOP), None, 2),
     0x154: Mover('RainStar', (SPIN, 1, 500)),
@@ -106,6 +107,8 @@ BULLET = Mover('NsKiller2', (PATH, RESTART), None, 0, FACE_PATH, count=BULLETS, 
 BULLET_REACTS = 0x1a2
 BURNER_ON_PATH = Mover('mkd_ef_burner', (PATH, BACK_AND_FORTH), None, PATH_UNITS, setting=3)  # sweeps along its path, always lit
 TYRED = {'car_a', 'bus_a', 'truck_a'}
+WHEEL = 2  # an instance's drawn_only: a piece that turns about its own x as well, a vehicle's tyre (Mover.c)
+FIRE_PLANT_HEAD = Mover('PakkunZHead', (TURNS, 'fire_plant_head', 1, 0))  # turns to a path, nods
 SOLID_STILL = {'dram', 'test_cylinder', 'kanoke_64'}  # stays where it is and keeps its walls
 # A rim a kart rides lets it go where its surface leans further than this from level, in 4096ths of the
 # up component of its normal (MKDS 0x20e04f0 against the object's +0x120): 60 degrees on Bowser Castle's
@@ -577,6 +580,15 @@ def place(movers, model_index, halves, to_lev, lev_unit, rotate, settle, context
         setting = mover['settings'][spec.setting]
         speed = setting * spec.factor if setting and spec.factor else spec.fixed
         kind, args = spec.kind[0], spec.kind[1:]
+        if kind == TURNS:
+            standing = spec.model not in FLYING
+            foot = low[1] / lev_unit * size[1]
+            at = (settle(pos) if standing else pos) + np.array([0.0, mover['over'] * size[1] - (foot if standing else 0.0), 0.0])
+            angles = mkds_motion.turns(args[0], mover, context)[::TURN_KEY_TICKS]
+            keys = [[round(a * TURN / mkds_motion.TURN) % TURN, round(b * TURN / mkds_motion.TURN) % TURN, 0] for a, b in angles]
+            placed += instances(pieces, to_lev(at), size, size, len(lists), reach, spec.model, rot)
+            lists.append(records(kind, KEY_MS * TURN_KEY_TICKS // 3, damage | flags, half, middle, base, (args[1], args[2], 0), keys))
+            continue
         if kind == KEYS:
             foot = -low[1] / lev_unit * size[1]
             for n, track in enumerate(mkds_motion.tracks(args[0], mover, {**context, 'foot': foot})):
@@ -643,6 +655,12 @@ def place(movers, model_index, halves, to_lev, lev_unit, rotate, settle, context
                 mode_args = (int(radius * lev_unit), period, period * (i % per_ring) // per_ring)
                 at = pos + lift
             placed += instances(pieces, to_lev(at), size, size, len(lists), reach, spec.model, None if flat or kind in (PATH, ORBIT) else rot)
+            if mover.get('tyres') is not None:
+                height, along = mover['tyres'][1]
+                for z in (along, -along):
+                    for tyre in instances(halves[model_index[mover['tyres'][0]]][2], to_lev(at), size, size, len(lists), reach, spec.model):
+                        tyre.update(drawn_only=WHEEL, offset=[int(round(c)) for c in np.array([0.0, height, z]) * size * lev_unit])
+                        placed.append(tyre)
             lists.append(records(kind, speed, damage | flags, half, middle, base, mode_args, points))
             if spec.model == 'NsKiller1':
                 parent = len(lists) - 1

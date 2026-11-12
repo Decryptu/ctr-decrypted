@@ -28,6 +28,10 @@
 // race must reach; the point it must come near. Then the keys; MOVER_KEY_HIDDEN in y:
 // it is not there.
 // STILL: stays where it is placed, and only hits.
+// TURNS: stays where it is placed and turns by keys, worked out by mkds_motion.py (a fire
+// plant's head, Waluigi Pinball's drums). Speed: ms a key. a, b: the axes of its first and
+// second turn. Records 7+: the keys, its first and second angle, 4096ths of a turn. The
+// last key is where the first starts again.
 
 #if defined(CTR_NATIVE)
 #include <math.h>
@@ -52,6 +56,7 @@ enum
 	MOVER_PULSE,
 	MOVER_KEYS,
 	MOVER_STILL,
+	MOVER_TURNS,
 
 	MOVER_PATH_LOOP = 0,
 	MOVER_PATH_BACK_AND_FORTH = 1,
@@ -61,7 +66,6 @@ enum
 	MOVER_FLAG_ROLL = 0x200,
 	MOVER_FLAG_SOLID = 0x1000,   // a kart stops at its box, and cannot be caught inside
 	MOVER_FLAG_CARRIES = 0x2000, // a floor: a kart on it turns with it
-	MOVER_FLAG_ONE_WAY = 0x4000, // a SPIN's cycle does not turn back
 	MOVER_FLAG_DROPS = 0x8000,   // KEYS: hurts only when it drops, and is merely solid otherwise
 	MOVER_ITEM_BOX = 4,          // in place of a damage: it breaks as a weapon crate does
 	MOVER_MOST_LISTS = 512,
@@ -82,6 +86,8 @@ enum
 	MOVER_FLAME_SHRINK = 1667,
 	MOVER_ON_FLOOR = 96, // level units over a turning floor's top that a kart rides it
 	MOVER_TICK_MS_X3 = 50, // three ticks of the game's objects
+	MOVER_PIECE_WHEEL = 2,  // InstDef _pad_scale: a piece that turns about its own x too, a tyre
+	MOVER_WHEEL_TURN = 5760, // 4096ths of a turn a second: MKDS's 0x600 of 65536 a tick
 };
 
 struct ConvertedMover
@@ -218,12 +224,12 @@ static void Mover_Walk(struct ConvertedMover *mover, const SVec3 *points, int co
 
 // The speed of a cog in its cycle, 0 to 1, and which way: speeds up, turns, slows
 // down, waits, then the same the other way.
-static float Mover_CycleSpeed(u32 timeMS, const SVec3 *cycle, int oneWay)
+static float Mover_CycleSpeed(u32 timeMS, const SVec3 *cycle)
 {
 	const u32 cruise = cycle->x * MOVER_TICK_MS_X3 / 3, ramp = cycle->y * MOVER_TICK_MS_X3 / 3, pause = cycle->z * MOVER_TICK_MS_X3 / 3;
 	const u32 length = ramp + cruise + ramp + pause;
 	const u32 number = timeMS / length, at = timeMS % length;
-	const float way = ((number & 1) && !oneWay) ? -1.0f : 1.0f;
+	const float way = (number & 1) ? -1.0f : 1.0f;
 
 	if (at < ramp)
 	{
@@ -314,6 +320,35 @@ static void Mover_Carry(const struct Instance *inst, const SVec3 *records, s32 m
 			driver->angle += (ay > 0) ? turn : -turn;
 		}
 	}
+}
+
+// The way between two angles of a turn, 4096 a turn, the short way round.
+static s32 Mover_AngleBetween(s32 from, s32 to)
+{
+	return ((to - from + 2048) & 0xfff) - 2048;
+}
+
+static void Mover_TurnByKeys(const struct ConvertedMover *mover, const SVec3 *records, s32 m[3][3])
+{
+	const SVec3 *keys = &records[MOVER_RECORD_POINTS];
+	const int count = Mover_NumPoints(mover);
+	const u32 step = (u32)records[0].y;
+	const u32 period = (count > 1) ? (u32)(count - 1) * step : 1;
+	const u32 clock = mover->timeMS % period;
+	const u32 key = clock / step;
+	const s32 part = (s32)((clock % step) * 4096 / step);
+	s32 turn[3][3];
+
+	if (count == 0)
+	{
+		return;
+	}
+	const SVec3 *from = &keys[key], *to = &keys[(key + 1 < (u32)count) ? (key + 1) : key];
+
+	Mover_AxisTurn(turn, records[2].x, (from->x + ((Mover_AngleBetween(from->x, to->x) * part) >> 12)) & 0xfff);
+	Mover_Multiply(m, m, turn);
+	Mover_AxisTurn(turn, records[2].y, (from->y + ((Mover_AngleBetween(from->y, to->y) * part) >> 12)) & 0xfff);
+	Mover_Multiply(m, m, turn);
 }
 
 // Turns towards the way it goes, over MOVER_TURN_MS.
@@ -521,7 +556,20 @@ static void Mover_Place(struct ConvertedMover *mover, struct Instance *inst, s32
 	{
 		struct Instance *piece = entry->inst;
 
-		memcpy(piece->matrix.m, inst->matrix.m, sizeof(piece->matrix.m));
+		if (piece->instDef->_pad_scale == MOVER_PIECE_WHEEL)
+		{
+			// a vehicle's tyre turns about its axle as the vehicle goes, at one rate
+			const u32 ms = mover->timeMS;
+			s32 wheel[3][3], turn[3][3];
+
+			Mover_AxisTurn(turn, 0, (s32)(((ms / 1000) * MOVER_WHEEL_TURN + (ms % 1000) * MOVER_WHEEL_TURN / 1000) & 0xfff));
+			Mover_Multiply(wheel, m, turn);
+			Mover_Store(piece, wheel);
+		}
+		else
+		{
+			memcpy(piece->matrix.m, inst->matrix.m, sizeof(piece->matrix.m));
+		}
 		Mover_AtOffset(piece, m, origin);
 		piece->flags = (piece->flags & ~HIDE_MODEL) | (inst->flags & HIDE_MODEL);
 		piece->scale = inst->scale;
@@ -896,7 +944,7 @@ static void ConvertedMover_ThTick(struct Thread *t)
 	int hidden = 0;
 
 	mover->timeMS += dt;
-	if ((records[0].x == MOVER_SPIN) || (records[0].x == MOVER_SWING) || (records[0].x == MOVER_PULSE) || (records[0].x == MOVER_STILL))
+	if ((records[0].x == MOVER_SPIN) || (records[0].x == MOVER_SWING) || (records[0].x == MOVER_PULSE) || (records[0].x == MOVER_STILL) || (records[0].x == MOVER_TURNS))
 	{
 		// it stays where it was placed; the last tick drew it at its first piece's place
 		inst->matrix.t[0] = mover->homeX;
@@ -917,7 +965,7 @@ static void ConvertedMover_ThTick(struct Thread *t)
 
 	case MOVER_SPIN:
 	{
-		const float speed = (Mover_NumPoints(mover) > 0) ? Mover_CycleSpeed(mover->timeMS, &records[MOVER_RECORD_POINTS], ((u16)records[0].z & MOVER_FLAG_ONE_WAY) != 0) : 1.0f;
+		const float speed = (Mover_NumPoints(mover) > 0) ? Mover_CycleSpeed(mover->timeMS, &records[MOVER_RECORD_POINTS]) : 1.0f;
 		const s32 before = mover->rollAngle;
 
 		mover->along += speed * records[2].y * dt / 1000.0f;
@@ -930,6 +978,10 @@ static void ConvertedMover_ThTick(struct Thread *t)
 		}
 		break;
 	}
+
+	case MOVER_TURNS:
+		Mover_TurnByKeys(mover, records, m);
+		break;
 
 	case MOVER_SWING:
 		if (records[2].y == 0)

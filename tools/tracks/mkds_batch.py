@@ -38,14 +38,14 @@ def reason(text):
     return (wanted or lines or ['no output'])[-1][:150]
 
 
-def convert(rom, disc, course):
+def convert(rom, disc, course, version):
     work = f'C:/t/mkds-{course}'
     os.makedirs(work, exist_ok=True)
     pin = os.path.join(work, 'pin.txt')
     if os.path.exists(pin):
         os.remove(pin)
     edge = ['--max-edge', str(MAX_EDGE[course])] if course in MAX_EDGE else []
-    r = subprocess.run([sys.executable, os.path.join(HERE, 'mkds_convert.py'), rom, course, '--title', COURSES[course], '--disc', disc, *edge],
+    r = subprocess.run([sys.executable, os.path.join(HERE, 'mkds_convert.py'), rom, course, '--title', COURSES[course], '--disc', disc, '--version', version, *edge],
                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors='replace')
     with open(os.path.join(work, 'convert.log'), 'w', encoding='utf-8') as f:
         f.write(r.stdout)
@@ -110,6 +110,7 @@ def main():
     ap.add_argument('--check', action='store_true', help='race the courses that converted')
     ap.add_argument('--fps', action='store_true', help='time the courses that converted, one at a time')
     ap.add_argument('--no-convert', action='store_true', help='check what the last run converted')
+    ap.add_argument('--version', default='1.0.0', help='package version every course gets (semver): the catalogue gives all its tracks one')
     ap.add_argument('--jobs', type=int, default=6, help='conversions at one time')
     ap.add_argument('--races', type=int, default=4, help='races at one time, each with its own run folder')
     a = ap.parse_args()
@@ -120,7 +121,7 @@ def main():
     if not a.no_convert:
         converted = []
         with concurrent.futures.ThreadPoolExecutor(a.jobs) as pool:
-            for future in concurrent.futures.as_completed([pool.submit(convert, a.rom, a.disc, c) for c in courses]):
+            for future in concurrent.futures.as_completed([pool.submit(convert, a.rom, a.disc, c, a.version) for c in courses]):
                 course, ok, why = future.result()
                 print(f"convert {course:16} {'ok' if ok else 'FAIL ' + why}", flush=True)
                 failed |= not ok

@@ -418,39 +418,144 @@ def moving_box(m, c):
     return [Track(ticks, start=first, step=6, hit=15, damage=c['crate'])]
 
 
-def fire_plant(m, c):
-    """0x1aa: picks one of its paths at random, turns to it, and half the time fires down it. A shot bounces
-    along the path and goes at its end. One track a path, in one long round of the game's timing."""
-    rng, routes = c['rng'], c['fire_paths'](m)
+FIRE_TURN = 0x6d  # the head's turn a tick, of TURN
+FIRE_TILT, FIRE_TILT_TICKS = 0xa4, 31  # it nods this much a tick before a shot, and back after
+FIRE_ROUND = 2400  # ticks of the game's timing drawn before it repeats
+FIRE_BOB, FIRE_PULSE, FIRE_AT, FIRE_AFTER = 21, 29, 10, 19  # ticks: waiting for its bob, its swell, the shot into its mouth's animation, the rest of it
+
+
+def _turn_by(at, want, most):
+    """An angle of TURN a tick nearer want, by most at the most."""
+    gap = (want - at + TURN // 2) % TURN - TURN // 2
+    return want if abs(gap) <= most else at + (most if gap > 0 else -most)
+
+
+def fire_plant_plan(m, c):
+    """0x1aa's state machine (0x20983c4): picks another of its paths at random, turns its head to it, and half
+    the time nods, swells and fires down it, then nods back. -> (the head's (turn, nod) a tick, of TURN, its
+    turn from the object's own; the ticks each path fires; the ticks a round lasts, a multiple of 3), or None
+    without paths. Drawn once from the object's place, so the head and its shots agree."""
+    routes = c['fire_paths'](m)
     if not routes:
-        return []
-    times, tick, aim = [[] for _ in routes], 0, 0
-    while tick < 2400:
+        return None
+    rng = random.Random(int(abs(m['pos'][0]) * 7 + abs(m['pos'][2]) * 13))
+    own = math.radians(m['rot'][1])
+    yaws = [round((math.atan2(*(plain(r[1]) - plain(r[0]))[[0, 2]]) - own) / (2 * math.pi) * TURN) % TURN for r in routes]
+    aims, times, yaw, aim = [], [[] for _ in routes], 0, 0
+
+    def hold(n, nod=0):
+        aims.extend([(yaw, nod)] * n)
+
+    while len(aims) < FIRE_ROUND:
         aim = (aim + 1 + rng.randrange(max(len(routes) - 1, 1))) % len(routes)
-        tick += 1 + 40
+        hold(1)
+        while yaw != yaws[aim]:
+            yaw = _turn_by(yaw, yaws[aim], FIRE_TURN)
+            hold(1)
         if rng.random() < 0.5:
-            tick += 21 + 31 + 21 + 29 + 10
-            times[aim].append(tick)
-            tick += 19 + 31
+            hold(FIRE_BOB)
+            aims.extend((yaw, FIRE_TILT * (n + 1)) for n in range(FIRE_TILT_TICKS))
+            top = FIRE_TILT * FIRE_TILT_TICKS
+            hold(FIRE_BOB + FIRE_PULSE + FIRE_AT, top)
+            times[aim].append(len(aims))
+            hold(FIRE_AFTER, top)
+            aims.extend((yaw, top - FIRE_TILT * (n + 1)) for n in range(FIRE_TILT_TICKS))
+    while yaw != 0:  # back to where it started, so the round repeats without a jump
+        yaw = _turn_by(yaw, 0, FIRE_TURN)
+        hold(1)
+    return aims, times, routes
+
+
+def _flight(m, route):
+    """A shot's places a tick: it bounces down the path at 7.5 a tick and goes at its end."""
+    run = [p for p, _ in along(route, lambda i: 7.5, False)]
+    high, speed, flight = float(m['pos'][1] - route[0][1]) + 70, -5.0, []
+    for place in run:
+        flight.append(place + (0.0, 15 + high, 0.0))
+        high += speed
+        speed -= 1
+        if high <= 0:
+            high, speed = 0.0, 5.5
+    return flight
+
+
+def _round_length(aims, ends):
+    """Ticks a round of a plan lasts: past every shot's flight, a whole number of keys."""
+    ticks = max([len(aims)] + ends)
+    return ticks + (-ticks) % 3
+
+
+def fire_plant(m, c):
+    """0x1aa's shots, one track a path, in its plan's round (fire_plant_plan)."""
+    plan = fire_plant_plan(m, c)
+    if plan is None:
+        return []
+    aims, times, routes = plan
+    flights = [_flight(m, route) for route in routes]
+    rounds = _round_length(aims, [t + len(f) for shots, f in zip(times, flights) for t in shots])
     tracks = []
-    for route, shots in zip(routes, times):
+    for flight, shots in zip(flights, times):
         if not shots:
             continue
-        run = [p for p, _ in along(route, lambda i: 7.5, False)]
-        high, speed, flight = float(m['pos'][1] - route[0][1]) + 70, -5.0, []
-        for place in run:
-            flight.append(place + (0.0, 15 + high, 0.0))
-            high += speed
-            speed -= 1
-            if high <= 0:
-                high, speed = 0.0, 5.5
         ticks, at = [], 0
         for shot in shots:
             shot = max(shot, at)
             ticks += [None] * (shot - at) + flight
             at = shot + len(flight)
-        tracks.append(Track(ticks + [None] * (max(tick - at, 0) + 2), hit=15))
+        tracks.append(Track(ticks + [None] * (rounds + 1 - at), hit=15))
     return tracks
+
+
+def fire_plant_head(m, c):
+    """0x1aa's head: its (turn, nod) a tick through its plan's round, the last the same as the first."""
+    plan = fire_plant_plan(m, c)
+    if plan is None:
+        return [(0, 0)]
+    aims, times, routes = plan
+    flights = [len(_flight(m, route)) for route in routes]
+    rounds = _round_length(aims, [t + f for shots, f in zip(times, flights) for t in shots])
+    return aims + [aims[-1]] * (rounds + 1 - len(aims))
+
+
+# 0xd2's speed slots by row (0x215a0a8): six rows of which drum takes which. Slot 0 is s[0], 2 is s[4],
+# 1 their mean (ctor 0x20ffb1d)
+DRUM_SLOTS = ((0, 1, 2), (2, 0, 1), (1, 2, 0), (0, 2, 1), (1, 0, 2), (2, 1, 0))
+DRUM_CREEP, DRUM_FACE = 0x96, 0x1999  # its least speed a tick, and a tenth of a turn: it stops with a face up
+DRUM_ROUNDS = 6
+
+
+def drums(m, c):
+    """0xd2 (states 0x216c740): when every drum on the course stands still, a random row of DRUM_SLOTS
+    gives each a speed; each waits s[3] ticks, speeds up over s[2], turns s[1], slows over s[2] to
+    DRUM_CREEP, creeps to its next face and stops. -> its turn a tick, of TURN, the last a whole number of
+    faces from the first."""
+    every = c['drums']
+    mine = next(i for i, d in enumerate(every) if np.allclose(d[0], m['pos']))
+    rng = random.Random(int(abs(every[0][0][0]) * 7 + abs(every[0][0][2]) * 13))
+    angles = [0] * len(every)
+    out = [0]
+    for _ in range(DRUM_ROUNDS):
+        row = DRUM_SLOTS[rng.randrange(len(DRUM_SLOTS))]
+        runs = []
+        for i, (_, st) in enumerate(every):
+            fast, slow = (st[0] << 7) // 100, (st[4] << 7) // 100
+            top = (fast, (fast + slow) // 2, slow)[row[i % 3]]
+            ramp, angle, run = max(st[2], 1), angles[i], []
+            speeds = [0] * st[3] + [top * (k + 1) // ramp for k in range(ramp)] + [top] * st[1] + [max(top * (ramp - k - 1) // ramp, DRUM_CREEP) for k in range(ramp)]
+            for v in speeds:
+                angle += v
+                run.append(angle)
+            face = -(-angle // DRUM_FACE) * DRUM_FACE
+            while angle < face:
+                angle = min(angle + DRUM_CREEP, face)
+                run.append(angle)
+            angles[i] = angle
+            runs.append(run)
+        longest = max(len(r) for r in runs)
+        run = runs[mine]
+        out += run + [run[-1]] * (longest - len(run))
+    out += [out[-1]] * ((-(len(out) - 1)) % 3)
+    return out
 
 
 def rocky_wrench(m, c):
@@ -534,6 +639,14 @@ def bubble(m, c):
 MOTIONS = {'thwomp': thwomp, 'rock': rock, 'ball': ball, 'airship': airship, 'sun': sun, 'chain_path': chain_path, 'chain_staked': chain_staked,
            'bakubaku': bakubaku, 'bats': bats, 'coffin': coffin, 'moving_box': moving_box, 'fire_plant': fire_plant, 'rocky_wrench': rocky_wrench,
            'monty_mole': monty_mole, 'cheep_cheep': cheep_cheep, 'bubble': bubble}
+
+
+# What turns where it stands, a tick at a time: name -> its (first, second) angles a tick, of TURN
+TURNS = {'fire_plant_head': fire_plant_head, 'drums': lambda m, c: [(a, 0) for a in drums(m, c)]}
+
+
+def turns(name, mover, context):
+    return TURNS[name](mover, context)
 
 
 def tracks(name, mover, context):

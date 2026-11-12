@@ -858,6 +858,7 @@ SCENERY = {
 # What MKDS draws as parts of one object: each part is an object of its own here, this far over the first
 SNOWMAN_HEAD, POKEY_BODY, POKEY_HEAD, PIRANHA_HEAD = range(0x10000, 0x10004)
 FIRE_PLANT_SHOT = 0x10004
+DRUM = 0xd2
 STACKED_ID = SNOWMAN_HEAD
 STACKED = {0x19d: [(SNOWMAN_HEAD, 19)], 0x1b2: [(POKEY_BODY, 40), (POKEY_BODY, 66), (POKEY_HEAD, 92)], 0x1aa: [(PIRANHA_HEAD, 70)]}
 SCENERY.update({SNOWMAN_HEAD: 'sman_top', POKEY_BODY: 'sanbo_b', POKEY_HEAD: 'sanbo_h', PIRANHA_HEAD: 'PakkunZHead'})
@@ -1181,20 +1182,18 @@ class LayeredWater:
         return out
 
 
-def with_tyres(arc, name, triangles, materials):
-    """A vehicle's model with its tyres. MKDS draws one car_tire model, an axle, twice under the body: at
-    (0, height, +along) and (0, height, -along), stretched across by width and grown by size (TYRES)."""
+def tyre_model(arc, name):
+    """A vehicle's tyres. MKDS draws one car_tire model, an axle, twice under the body: at (0, height, +along)
+    and (0, height, -along), stretched across by width and grown by size (TYRES), and turns it about its
+    own x 0x600 a tick (0x20e2a00). -> (its materials, its triangles about its own middle, (height, along))."""
     tyre = nitro3d.Model(arc['MapObj/car_tire.nsbmd'])
     tex0 = nitro3d.load_tex0(arc['MapObj/car_tire.nsbmd'])
     for m in tyre.mats:
         m.tex0 = tex0
         m.texmtx = TYRE_TEXTURE
     width, height, along, size = TYRES[name]
-    first, out = len(materials), list(triangles)
-    for z in (along, -along):
-        at = np.array([0.0, height, z])
-        out += [(first + mi, [(tuple(np.array(v[0]) * MODEL_TO_WORLD * (width, size, size) + at), v[1], v[2], v[3]) for v in tri]) for mi, tri in tyre.triangles()]
-    return out, list(materials) + list(tyre.mats)
+    tris = [(mi, [(tuple(np.array(v[0]) * MODEL_TO_WORLD * (width, size, size)), v[1], v[2], v[3]) for v in tri]) for mi, tri in tyre.triangles()]
+    return list(tyre.mats), tris, (height, along)
 
 
 class Course:
@@ -1392,7 +1391,7 @@ class Course:
         placed += [(part, p + (0.0, over * s[1], 0.0), r, s) for o, p, r, s in placed for part, over in STACKED.get(o, ())]
         for object_id, pos, rot, size in placed:
             name = SCENERY.get(object_id)
-            if name is None or object_id in mkds_movers.MOVERS or object_id in POKEY_PARTS or object_id == POKEY_OBJECT:
+            if name is None or object_id in mkds_movers.MOVERS or object_id in POKEY_PARTS or object_id in (POKEY_OBJECT, PIRANHA_HEAD):
                 continue
             file = f'MapObj/{name}.nsbmd'
             if object_id < STACKED_ID:
@@ -1497,6 +1496,7 @@ class Course:
             shots = FIRE_PLANT_SHOTS if object_id == FIRE_PLANT else ()
             parts = [(object_id, 0.0)] + [(part, over) for part, over in STACKED.get(object_id, ())] + [(FIRE_PLANT_SHOT, 0.0)] * (1 if shots else 0)
             table[FIRE_PLANT_SHOT] = FIRE_PLANT_MOVER
+            table[PIRANHA_HEAD] = mkds_movers.FIRE_PLANT_HEAD
             for part, over in parts:
                 spec = table.get(part)
                 if part == BURNER and path is not None:
@@ -1525,11 +1525,12 @@ class Course:
                     for m in model.mats:
                         m.tex0 = tex0
                     tris = [(mi, [(tuple(np.array(v[0]) * MODEL_TO_WORLD), v[1], v[2], v[3]) for v in tri]) for mi, tri in model.triangles(lit=True)]
-                    if spec.model in mkds_movers.TYRED:
-                        tris, mats = with_tyres(arc, spec.model, tris, model.mats)
-                    else:
-                        mats = model.mats
-                    self.mover_models[key] = (mats, tris)
+                    self.mover_models[key] = (model.mats, tris)
+                tyres = None
+                if spec.model in mkds_movers.TYRED:
+                    tyre_mats, tyre_tris, axles = tyre_model(arc, spec.model)
+                    tyres = ('car_tire ' + spec.model, False), axles
+                    self.mover_models.setdefault(tyres[0], (tyre_mats, tyre_tris))
                 bullet = None
                 if spec.model == 'NsKiller1':
                     bullet = ('NsKiller2', False)
@@ -1538,7 +1539,7 @@ class Course:
                     self.load_part_model('wanwan_chain', arc)
                 if part == SUN:
                     self.load_part_model(FLARE_MODEL, self.flare_arc)
-                self.movers.append({'bullet': bullet, 'key': key, 'spec': spec, 'pos': pos + (0.0, over * size[1], 0.0), 'rot': rot, 'size': size, 'path': path, 'settings': settings, 'over': over, 'id': part,
+                self.movers.append({'tyres': tyres, 'bullet': bullet, 'key': key, 'spec': spec, 'pos': pos + (0.0, over * size[1], 0.0), 'rot': rot, 'size': size, 'path': path, 'settings': settings, 'over': over, 'id': part,
                                     'reacts': REACTS_AS.get(part, part)})
 
     def load_part_model(self, name, arc):
@@ -1694,7 +1695,7 @@ def convert(course, out_dir, name, scale, max_edge, crate, fruit_crate, vram_sha
         two_sided = any((m.polygon_attr >> 6) & 1 for m in mats)  # a picture may be wound away from the camera it turns to
         # built at its largest placed size, so no instance scales it up: the game multiplies a model's
         # scale by its instance's in 16 bits, and a big one overflows (Waluigi Pinball's bumpers are 10 times)
-        largest = max([float(np.abs(m['size']).max()) for m in course.movers if m['key'] == key] + [1.0])
+        largest = max([float(np.abs(m['size']).max()) for m in course.movers if key in (m['key'], (m.get('tyres') or (None,))[0])] + [1.0])
         grown = [(mi, [(tuple(np.array(v[0]) * largest), *v[1:]) for v in tri]) for mi, tri in tris]
         pieces, half, middle, low = mkds_movers.build_model(key[0], grown, mats, lev_unit, key[1], billboard, two_sided)
         mover_index[key] = len(mover_halves)
@@ -2176,6 +2177,7 @@ def convert(course, out_dir, name, scale, max_edge, crate, fruit_crate, vram_sha
         'forward': lambda m: rotate(np.array([0.0, 0.0, 1.0]), m['rot']),
         'nearest_route': lambda p: route_points[np.argmin(np.linalg.norm(route_points - p, axis=1))],
         'fire_paths': lambda m: [routes[n].points for n in m['settings'][:7] if n < len(routes)],
+        'drums': [(np.array(p, float), st) for (o, p, _, _), st in zip(mkdsmap.placed_objects(course.nkm), mkdsmap.all_object_settings(course.nkm)) if o == DRUM],
     }
     movers, mover_lists = mkds_movers.place(course.movers, mover_index, mover_halves, to_lev, lev_unit, rotate, settle, motion_context)
     stats['movers'], stats['blended materials'] = len(movers), len(blended)
