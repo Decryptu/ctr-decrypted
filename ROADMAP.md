@@ -16,7 +16,6 @@ Open work only: what is in progress, what is planned, what may come, and what is
 ## Maybe
 - Parts of dowlle's Options > Custom Tracks page that the Mods screen lacks ([CUSTOM_TRACKS.md](docs/CUSTOM_TRACKS.md#4-the-mods-screen-and-the-library)): an All / Installed / Browse filter, rescanning local files, opening a track's source page, and in the Seed tab the seed identity, per-track Resolve, required files and installed copies. Also its Baby T Park package tools: Verify / Setup, YAML export and the relic times editor.
 - Title screen: a drawn logo in place of the DECRYPTED text.
-- Chaos effects as Archipelago traps. CTR Native Expanded has 38 race effects, harmful and helpful (reversed steering, low gravity, giant karts, no items...), with an external trigger file. They could be the trap and buff items dowlle's tracker asks for (#248, #455, #486), sent by the multiworld instead of a timer.
 - CTR Native Expanded's two-player co-op Adventure. The Archipelago client would need to know about a second player.
 - More multiplayer from CTR Native Expanded: 3P/4P Arcade, eight racers in split screen, full-detail split screen, Oxide Station in multiplayer, race tracks in Battle, ending a race when one racer is left.
 - Mirror mode, reverse tracks, Super/Ultra Hard, extra arcade modes, boss fights on any track (High Octane; CTR Native Expanded also has Super/Ultra Hard in Adventure, with matching relic and crystal times). Less useful for Archipelago play.
@@ -29,6 +28,7 @@ Open work only: what is in progress, what is planned, what may come, and what is
 
 ## Not planned
 - PS Vita and web builds, AdHoc netplay.
+- Chaos effects as Archipelago traps or buffs (CTR Native Expanded's race effects). Trap items and their ids come from dowlle's apworld, which we follow; we add none of our own.
 - High Octane's online leaderboard, which depends on its author's server.
 - JP disc support: the port booting and playing from a Japanese dump. Upstream removed it on purpose (ctr-native #51). Single Japanese assets on the NTSC-U disc, such as Fake Crash ([CUSTOM_RACERS.md](docs/CUSTOM_RACERS.md)), are a separate thing.
 - Upstream's MSVC build (`build-msvc.bat`, the MSVC presets in `CMakePresets.json`). The client and our platform code use GCC extensions; Windows builds use MSYS2 MinGW32.
