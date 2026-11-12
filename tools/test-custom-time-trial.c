@@ -311,7 +311,7 @@ int main(void)
 	s_gt.threadBuckets[PLAYER].thread = &s_playerThread;
 	sdata->GhostRecording.ptrEndOffset = (char *)s_ghostRecord + sizeof s_ghostRecord;
 	s_playerThread.object = &s_player;
-	data.metaDataLEV[HOST].timeTrial = 0x7fffffff; // N. Tropy would always be beaten
+	data.metaDataLEV[HOST].timeTrial = 0x1000000; // N. Tropy would always be beaten; the Classic defaults (target + 15 s) must not overflow
 	sdata->GhostRecording.ptrGhost = (struct GhostHeader *)s_ghostRecord;
 	sdata->GhostRecording.ptrStartOffset = GHOSTHEADER_GETRECORDBUFFER(s_ghostRecord);
 	sdata->ptrGhostTapePlaying = (struct GhostHeader *)s_ghostPlaying;
