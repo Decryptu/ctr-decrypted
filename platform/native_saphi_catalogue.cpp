@@ -144,6 +144,9 @@ extern "C" int CustomSaphi_ParseCatalogue(const char *input, size_t size,
             if (!track.at("is_active").is_boolean()) throw std::runtime_error("Invalid Saphi active flag");
             if (!track["is_active"].get<bool>()) continue;
             if (track.at("type") != "race" && track.at("type") != "battle") continue;
+            // Saphi's "original" collection is the retail game's own tracks and
+            // arenas: already on the disc, and their files are not hosted.
+            if (track.contains("collection") && track["collection"] == "original") continue;
             CustomSaphiRevision base{};
             base.trackID = id;
             source_text(track.at("name"), base.title);

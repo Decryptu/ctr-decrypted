@@ -29,6 +29,7 @@
 
 #if defined(CTR_CUSTOM_PACKAGES)
 #include <platform/native_racer_library.h>
+#include <platform/native_mods_off.h>
 #endif
 
 enum
@@ -97,6 +98,9 @@ static void NativeRacers_Load(void)
 	const int count = NativeRacerLibrary_Scan(dir, entries, NATIVE_RACERS_MAX);
 	for (int r = 0; r < count; r++)
 	{
+		// Turned off on the Mods screen: installed, but not on the character select.
+		if (NativeModsOff_Is(NATIVE_MODS_RACER, entries[r].id))
+			continue;
 		struct NativeRacer *racer = &s_racers[s_racerCount++];
 		racer->templateID = entries[r].templateID;
 		racer->engine = entries[r].engine;

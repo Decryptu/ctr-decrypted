@@ -127,8 +127,9 @@ tracks are made for Time Trial only: they have no paths for the computer
 racers, so they cannot run an Arcade race with seven opponents. The Arcade page
 then says `No AI paths. Use Time Trial.` Other reasons are `Grid: 3 of 8` (fewer
 than eight start positions), `No lap checkpoints` and `Files failed checks`. In
-the Mods screen, the Installed tab shows `Arcade`, `Time Trial` (Time Trial
-only) or `No races` for each track, with the reason under it.
+the Mods screen, the Installed tab shows `Arcade, Time Trial`, `Arcade`,
+`Time Trial` (Time Trial only) or `No races` for each track, with the reason
+under it.
 
 In Time Trial on a custom track, your best times and your best ghost are saved
 in the `custom-records` folder next to the game, never on the memory

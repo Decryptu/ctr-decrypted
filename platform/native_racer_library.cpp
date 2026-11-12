@@ -223,6 +223,14 @@ extern "C" int NativeRacerLibrary_Scan(const char *racersDir, NativeRacerEntry *
         std::snprintf(e.modelPath, sizeof e.modelPath, "%s", model.u8string().c_str());
         std::snprintf(e.portraitPath, sizeof e.portraitPath, "%s", portrait.u8string().c_str());
         std::snprintf(e.folder, sizeof e.folder, "%s", folder.c_str());
+        {
+            NativeSha256Ctx ctx;
+            unsigned char digest[NATIVE_SHA256_DIGEST_BYTES];
+            NativeSha256_Init(&ctx);
+            NativeSha256_Update(&ctx, text.data(), text.size());
+            NativeSha256_Final(&ctx, digest);
+            NativeSha256_ToHex(digest, e.manifestSha256);
+        }
         found.push_back(e);
     }
 

@@ -450,18 +450,28 @@ Choose **MODS** on the title screen (or **OPTIONS → Mods** from anywhere). L1
 and R1 switch tabs:
 
 - **Seed**, in a room that uses custom tracks: what the room needs, each track
-  marked Ready or Missing. **Cross** downloads every missing track from Project
-  Saphi in one go, after showing what it will download.
+  marked READY or MISSING. **Cross** downloads every missing track from Project
+  Saphi in one go, after asking.
 - **Tracks**: the tracks from Project Saphi and the CTR Decrypted track
-  catalogue in one list, with **OWNED** on the ones you have. **Cross** installs the selected track, **Square** lists its other
-  versions, **R2** searches.
-- **Racers**: the custom racer catalogue, with each racer's portrait and
-  **OWNED** on the ones you have. **Cross** downloads the selected racer, or
-  removes one you have. A downloaded racer is in the character select at once.
+  catalogue in one list. **Square** lists a track's other versions.
+- **Racers**: the custom racer catalogue, with each racer's portrait. A
+  downloaded racer is in the character select at once.
 - **Installed**: everything you have, tracks first, then racers (tagged
-  **RACER**). **Cross** on a track opens its options: turn it off (it stays
-  installed but leaves the Arcade and Time Trial lists), remove it, or check its
-  files. **Cross** on a racer removes it.
+  **RACER**).
+
+Every tab works the same way. The list tags what you have **OWNED**, what has
+a new version **UPDATE**, and what you turned off **OFF**. **Cross** downloads
+what you don't have and updates what has a new version; on something you have,
+it opens its options:
+
+- **Turn off**: it stays installed but the game leaves it out (a track leaves
+  the Arcade and Time Trial lists, a racer leaves the character select).
+  **Turn on** brings it back.
+- **Remove**: deletes it, after asking.
+- **Check files** (tracks): checks the installed files again.
+
+**L2** refreshes the lists, **R2** searches, and on the track tabs **Select**
+imports track files.
 
 Installed tracks appear on extra pages after the normal tracks in a one-player
 Arcade race and in Time Trial: at the track list, press Right past the last

@@ -138,6 +138,9 @@ int main(int argc,char **argv)
     CHECK(parse(j,&c));CHECK(CustomSaphi_Row(c,0)->disabledReason[0]);CHECK(!CustomSaphi_Row(c,0)->lev.path[0]);CustomSaphi_Free(&c);
     j=fixture();j["data"][0]["name"]="Bad\nTitle";CHECK(!parse(j,&c));
     j=fixture();j["data"][0]["is_active"]=false;CHECK(parse(j,&c));CHECK(!CustomSaphi_Count(c));CustomSaphi_Free(&c);
+    /* The retail tracks Saphi lists in its "original" collection are left out. */
+    j=fixture();j["data"][0]["collection"]="original";CHECK(parse(j,&c));CHECK(!CustomSaphi_Count(c));CustomSaphi_Free(&c);
+    j=fixture();j["data"][0]["collection"]="community";CHECK(parse(j,&c));CHECK(CustomSaphi_Count(c)==1);CustomSaphi_Free(&c);
     /* Track audio: one current .sca goes to the current revision only; none,
        two current, an old one, or a bad row leaves it off without failing. */
     auto withSca=[](std::initializer_list<json> scas){

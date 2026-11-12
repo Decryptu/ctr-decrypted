@@ -114,7 +114,10 @@ The catalogue, [Decryptu/ctr-decrypted-racers](https://github.com/Decryptu/ctr-d
 Converted racers are static, vertex-coloured meshes with no textures or animations; a textured racer would use the same VRAM bank. Their kart textures, voices and code patches are not carried over.
 
 ## The Racers tab
-The Mods screen's Racers tab (`game/230/MM_CustomRacers.c`) lists every racer in the catalogue's `index.json` and every installed racer it doesn't list, by name, with `OWNED` on installed ones. The panel shows the portrait, the authors and the template racer. Cross downloads a racer, or asks to remove an installed one. L2 reloads the catalogue; R2 searches names and authors. The Installed tab lists installed racers after the tracks, with the same panel and Cross. There is no Karts tab: a racer's model is driver and kart in one mesh, and wheels are shared sprites.
+The Mods screen's Racers tab (`game/230/MM_CustomRacers.c`) lists every racer in the catalogue's `index.json` and every installed racer it doesn't list, by name, tagged `OWNED`, `UPDATE` or `OFF`. It follows the screen's shared layout and buttons ([CUSTOM_TRACKS.md](CUSTOM_TRACKS.md#4-the-mods-screen-and-the-library)): the panel shows the portrait, name, version, authors and template racer; Cross downloads a racer or its update, and on an installed one opens its options (Turn off or on, Remove). L2 reloads the catalogue; R2 searches names and authors. The Installed tab lists installed racers after the tracks, with the same panel and Cross. There is no Karts tab: a racer's model is driver and kart in one mesh, and wheels are shared sprites.
+
+- **Updates.** `NativeRacerLibrary_Scan` keeps the SHA-256 of each installed `racer.json`; when the index pins a different one, the racer has an update. Installing it replaces the old folder (below).
+- **Off.** An off racer is listed in `assets/racers/mods-off.txt` (`platform/native_mods_off.c`). `NativeRacers_Load` skips it, so it is not on the character select or in the Opponent Roster, and a player's pick of it is cleared like a removed one's. Its portrait on the Mods screen is read from its own file, since it is not loaded. Removing a racer takes it off the list too.
 
 A package holds only the mod's own model and portrait, nothing from the player's disc.
 

@@ -3,13 +3,17 @@
 
    One list: every racer in the catalogue (github.com/Decryptu/ctr-decrypted-
    racers, read from its index.json), and every installed racer the catalogue
-   does not list. Cross downloads the selected racer, or offers to remove an
-   installed one. The panel shows the racer's portrait (a listed racer's is
-   fetched on its own before any download), its authors and the retail racer
-   it borrows. The Installed tab lists the installed racers too and uses the
-   same panel and Cross (MM_ModsRacers_DrawPanel, MM_ModsRacers_Input). L2 reads the catalogue again; R2
-   searches names and authors. An install or remove reloads the racers, so the
-   character select has them at once. */
+   does not list, tagged OWNED, UPDATE or OFF. Cross downloads the selected
+   racer or its update; on an installed racer it opens the options every mod
+   has (MM_Mods_ActionsInput): turn it off or on, remove it. An off racer stays
+   installed but leaves the character select (assets/racers/mods-off.txt,
+   platform/native_mods_off.c). The panel is the one the tracks use: the
+   racer's portrait (a listed racer's is fetched on its own before any
+   download), name, version, authors and the retail racer it borrows. The
+   Installed tab lists the installed racers too and uses the same panel and
+   Cross (MM_ModsRacers_DrawPanel, MM_ModsRacers_Input). An install, update,
+   remove or switch reloads the racers, so the character select has them at
+   once. */
 #include <platform/native_racer_library.h>
 
 #define MODS_RACERS_INDEX_MAX 256
@@ -19,7 +23,6 @@ static int s_racerIndexCount, s_racerIndexLoaded, s_racerRefreshBusy, s_racerIns
 static struct NativeRacerEntry s_racerInstalled[NATIVE_RACER_MAX];
 static int s_racerInstalledCount, s_racerInstalledStale = 1;
 static size_t s_racerSelection;
-static int s_racerConfirmRemove;
 static char s_racerMessage[256];
 
 /* A row: a catalogue entry, an installed racer, or both. */
@@ -38,9 +41,39 @@ static void MM_ModsRacers_Dir(char *dir, size_t size)
     snprintf(dir, size, "%s/racers", NativeAssets_GetAssetDir());
 }
 
-static int MM_ModsRacers_ConsumesBack(void)
+static int MM_ModsRacers_IsOff(const struct NativeRacerEntry *racer)
 {
-    return s_racerConfirmRemove;
+    return NativeModsOff_Is(NATIVE_MODS_RACER, racer->id);
+}
+
+/* The character select reads the racers again without an off one. */
+static int MM_ModsRacers_SetOff(const struct NativeRacerEntry *racer, int off)
+{
+    const int saved = NativeModsOff_Set(NATIVE_MODS_RACER, racer->id, off);
+    NativeRacers_Reload();
+    return saved;
+}
+
+static void MM_ModsRacers_Remove(const struct NativeRacerEntry *racer, char *message, size_t size)
+{
+    char dir[MODS_PATH_MAX], error[160] = {0}, id[sizeof racer->id];
+    MM_ModsRacers_Dir(dir, sizeof dir);
+    snprintf(id, sizeof id, "%s", racer->id);
+    if (NativeRacerLibrary_Remove(dir, racer->folder, error, sizeof error))
+    {
+        NativeModsOff_Set(NATIVE_MODS_RACER, id, 0);
+        NativeRacers_Reload();
+        snprintf(message, size, "Removed.");
+    }
+    else snprintf(message, size, "%s", error);
+    s_racerInstalledStale = 1;
+}
+
+/* The catalogue lists a newer racer.json than the installed one. */
+static int MM_ModsRacers_HasUpdate(const struct NativeRacerCatalogueEntry *listed, const struct NativeRacerEntry *installed)
+{
+    return listed && installed && installed->manifestSha256[0] && listed->manifestSha256[0] &&
+           strcmp(listed->manifestSha256, installed->manifestSha256) != 0;
 }
 
 /* Every frame of the Mods screen, on any tab: finish background jobs. */
@@ -148,20 +181,10 @@ static int s_racerPreviewWait;
 static unsigned char s_racerPreviewFile[NATIVE_RACER_PORTRAIT_BYTES];
 static uint16_t s_racerPreviewTexels[NATIVE_RACER_PORTRAIT_W * NATIVE_RACER_PORTRAIT_H];
 
-/* Every frame of the Mods screen: finish the job. */
-static void MM_ModsRacers_PreviewTick(void)
+/* Put the CDP1 portrait in s_racerPreviewFile (16 palette words, then 4-bit
+   texels, the low nibble first) in the picture slot, as racer `id`. */
+static void MM_ModsRacers_ShowPortrait(const char *id)
 {
-    char id[37];
-    if (!s_racerPreviewBusy) return;
-    const int result = NativeRacerCatalogue_PollPreview(id, s_racerPreviewFile);
-    if (result == 0 || result == -1) return;
-    s_racerPreviewBusy = 0;
-    if (result != 1)
-    {
-        snprintf(s_racerPreviewFailed, sizeof s_racerPreviewFailed, "%s", id);
-        return;
-    }
-    /* CDP1: 16 palette words, then 4-bit texels, the low nibble first. */
     const uint8_t *palette = &s_racerPreviewFile[8];
     const uint8_t *texels = &s_racerPreviewFile[8 + 32];
     for (int y = 0; y < NATIVE_RACER_PORTRAIT_H; y++)
@@ -176,6 +199,36 @@ static void MM_ModsRacers_PreviewTick(void)
     s_pictureShown = 0; /* the track picture that was in the slot is gone */
     s_picturePackage[0] = 0;
     snprintf(s_racerPreviewShown, sizeof s_racerPreviewShown, "%s", s_pictureIcon ? id : "");
+}
+
+/* Every frame of the Mods screen: finish the job. */
+static void MM_ModsRacers_PreviewTick(void)
+{
+    char id[37];
+    if (!s_racerPreviewBusy) return;
+    const int result = NativeRacerCatalogue_PollPreview(id, s_racerPreviewFile);
+    if (result == 0 || result == -1) return;
+    s_racerPreviewBusy = 0;
+    if (result != 1)
+    {
+        snprintf(s_racerPreviewFailed, sizeof s_racerPreviewFailed, "%s", id);
+        return;
+    }
+    MM_ModsRacers_ShowPortrait(id);
+}
+
+/* An off racer is not loaded, so its portrait comes from its own file. */
+static struct Icon *MM_ModsRacers_FilePortrait(const struct NativeRacerEntry *installed)
+{
+    FILE *f;
+    if (!strcmp(s_racerPreviewShown, installed->id)) return s_pictureIcon;
+    if (!strcmp(s_racerPreviewFailed, installed->id) || s_racerPreviewBusy) return NULL;
+    f = fopen(installed->portraitPath, "rb");
+    if (!f || fread(s_racerPreviewFile, 1, sizeof s_racerPreviewFile, f) != sizeof s_racerPreviewFile)
+        snprintf(s_racerPreviewFailed, sizeof s_racerPreviewFailed, "%s", installed->id);
+    else MM_ModsRacers_ShowPortrait(installed->id);
+    if (f) fclose(f);
+    return strcmp(s_racerPreviewShown, installed->id) ? NULL : s_pictureIcon;
 }
 
 /* The preview of a listed racer, or NULL while it is not there yet. */
@@ -198,17 +251,15 @@ static struct Icon *MM_ModsRacers_Preview(const struct NativeRacerCatalogueEntry
     return NULL;
 }
 
-/* One racer's panel, on the Racers and Installed tabs: portrait, name,
-   authors, the racer it borrows, then Cross and the state, or the Remove
-   question. */
+/* One racer's panel, on the Racers and Installed tabs: the panel every tab
+   has (MM_Mods_DrawPanelHead), with the racer it borrows as its info line. */
 static void MM_ModsRacers_DrawPanel(const struct NativeRacerCatalogueEntry *listed, const struct NativeRacerEntry *installed, uint32_t *ot)
 {
-    char line[256];
-    const char *name = listed ? listed->name : installed->name;
-    const char *authors = listed ? listed->authors : installed->authors;
-    const int templateID = listed ? listed->templateID : installed->templateID;
-    struct Icon *portrait = installed ? MM_ModsRacers_Portrait(installed) : MM_ModsRacers_Preview(listed);
-    const int textX = MODS_PANEL_X + NATIVE_RACER_PORTRAIT_W + 8, textW = MODS_PANEL_W - NATIVE_RACER_PORTRAIT_W - 8;
+    char info[64];
+    const int off = installed && MM_ModsRacers_IsOff(installed);
+    const int update = MM_ModsRacers_HasUpdate(listed, installed);
+    struct Icon *portrait = installed ? (off ? MM_ModsRacers_FilePortrait(installed) : MM_ModsRacers_Portrait(installed))
+                                      : MM_ModsRacers_Preview(listed);
     if (portrait)
     {
         struct GameTracker *gGT = sdata->gGT;
@@ -221,66 +272,42 @@ static void MM_ModsRacers_DrawPanel(const struct NativeRacerCatalogueEntry *list
         RECT frame = {MODS_PANEL_X, 70, NATIVE_RACER_PORTRAIT_W, NATIVE_RACER_PORTRAIT_H};
         RECTMENU_DrawInnerRect(&frame, 0, ot);
     }
-    MM_CustomText_Draw(name, textX, 70, textW, 2, ORANGE, ot);
-    MM_CustomText_Draw(authors, MODS_PANEL_X, 100, MODS_PANEL_W, 2, WHITE, ot);
-    if (s_racerConfirmRemove)
+    MM_Mods_DrawPanelHead(MODS_PANEL_X + NATIVE_RACER_PORTRAIT_W + 8, listed ? listed->name : installed->name,
+                          installed ? installed->version : "", listed ? listed->authors : installed->authors, ot);
+    if (installed && s_modsActions != MODS_ACTIONS_CLOSED)
     {
-        MM_CustomText_Draw("Remove this racer and its files?", MODS_PANEL_X, 124, MODS_PANEL_W, 2, WHITE, ot);
-        MM_CustomText_Draw(NativeMenu_Labels("* Yes  ^ No"), MODS_PANEL_X, 160, MODS_PANEL_W, 1, ORANGE, ot);
+        MM_Mods_DrawActions(NULL, installed, ot);
         return;
     }
-    snprintf(line, sizeof line, "Based on %s", s_racerTemplateNames[templateID & 15]);
-    MM_CustomText_Draw(line, MODS_PANEL_X, 124, MODS_PANEL_W, 1, WHITE, ot);
-    MM_CustomText_Draw(s_racerInstallBusy ? "Downloading..." : installed ? NativeMenu_Labels("* Remove") : NativeMenu_Labels("* Download"), MODS_PANEL_X, 136, MODS_PANEL_W, 1, ORANGE, ot);
-    MM_CustomText_Draw(s_racerMessage[0] ? s_racerMessage : !installed ? "Not installed" :
-                       listed ? "Installed" : "Installed, not in the list", MODS_PANEL_X, 150, MODS_PANEL_W, 2, WHITE, ot);
+    snprintf(info, sizeof info, "Based on %s", s_racerTemplateNames[(listed ? listed->templateID : installed->templateID) & 15]);
+    MM_Mods_DrawPanelBody(info,
+                          s_racerMessage[0] ? s_racerMessage : !installed ? "Not installed" :
+                          off ? "Off: hidden from character select" : update ? "Update available" :
+                          listed ? "Installed" : "Installed, not in the list",
+                          s_racerInstallBusy ? "Downloading..." : installed && !update ? "* Options" : update ? "* Update" : "* Download", ot);
 }
 
-/* Cross on one racer and the Remove question. Returns the taps it left. */
+/* Cross on one racer: download it or its update, or open its options.
+   Returns the taps it left. */
 static int MM_ModsRacers_Input(const struct NativeRacerCatalogueEntry *listed, const struct NativeRacerEntry *installed, int tapped)
 {
     char dir[MODS_PATH_MAX];
+    if (!(tapped & (BTN_CROSS | BTN_CIRCLE))) return tapped;
     MM_ModsRacers_Dir(dir, sizeof dir);
-    if (!installed) s_racerConfirmRemove = 0;
-    if (s_racerConfirmRemove)
+    if (s_racerInstallBusy) snprintf(s_racerMessage, sizeof s_racerMessage, "Wait for the download to finish.");
+    else if (installed && !MM_ModsRacers_HasUpdate(listed, installed))
     {
-        if (tapped & (BTN_TRIANGLE | BTN_START))
-        {
-            s_racerConfirmRemove = 0;
-            OtherFX_Play(2, 1);
-        }
-        else if (tapped & (BTN_CROSS | BTN_CIRCLE))
-        {
-            char error[160] = {0};
-            if (NativeRacerLibrary_Remove(dir, installed->folder, error, sizeof error))
-            {
-                NativeRacers_Reload();
-                snprintf(s_racerMessage, sizeof s_racerMessage, "Removed.");
-            }
-            else snprintf(s_racerMessage, sizeof s_racerMessage, "%s", error);
-            s_racerInstalledStale = 1;
-            s_racerConfirmRemove = 0;
-            OtherFX_Play(1, 1);
-        }
-        return 0;
+        s_modsActions = MODS_ACTIONS_OPEN;
+        s_modsActionRow = MODS_ACTION_SWITCH;
+        s_racerMessage[0] = 0;
     }
-    if (tapped & (BTN_CROSS | BTN_CIRCLE))
+    else if (listed)
     {
-        if (s_racerInstallBusy) snprintf(s_racerMessage, sizeof s_racerMessage, "Wait for the download to finish.");
-        else if (installed)
-        {
-            s_racerConfirmRemove = 1;
-            s_racerMessage[0] = 0;
-        }
-        else if (listed)
-        {
-            s_racerInstallBusy = NativeRacerCatalogue_StartInstall(listed, dir);
-            snprintf(s_racerMessage, sizeof s_racerMessage, "%s", s_racerInstallBusy ? "Files are checked first." : "Could not start the download.");
-        }
-        OtherFX_Play(1, 1);
-        tapped &= ~(BTN_CROSS | BTN_CIRCLE);
+        s_racerInstallBusy = NativeRacerCatalogue_StartInstall(listed, dir);
+        snprintf(s_racerMessage, sizeof s_racerMessage, "%s", s_racerInstallBusy ? "Files are checked first." : "Could not start the download.");
     }
-    return tapped;
+    OtherFX_Play(1, 1);
+    return tapped & ~(BTN_CROSS | BTN_CIRCLE);
 }
 
 /* The Installed tab's racers: the installed ones matching the search, by name. */
@@ -306,7 +333,6 @@ static const struct NativeRacerCatalogueEntry *MM_ModsRacers_Listed(const struct
 static void MM_ModsRacers_Page(uint32_t *ot, int tapped)
 {
     static struct ModsRacerRow rows[MODS_RACERS_INDEX_MAX + NATIVE_RACER_MAX];
-    char line[256];
 
     if ((!s_racerIndexLoaded || (tapped & BTN_L2)) && !s_racerRefreshBusy)
     {
@@ -320,6 +346,8 @@ static void MM_ModsRacers_Page(uint32_t *ot, int tapped)
     if (s_racerSelection >= count) s_racerSelection = 0;
     const struct ModsRacerRow *row = count ? &rows[s_racerSelection] : NULL;
 
+    if (!row || !row->installed) s_modsActions = MODS_ACTIONS_CLOSED;
+    tapped = MM_Mods_ActionsInput(tapped, NULL, row ? row->installed : NULL, s_racerMessage, sizeof s_racerMessage);
     tapped = MM_ModsRacers_Input(row ? row->listed : NULL, row ? row->installed : NULL, tapped);
     if (count && (tapped & (BTN_UP | BTN_DOWN)))
     {
@@ -333,21 +361,19 @@ static void MM_ModsRacers_Page(uint32_t *ot, int tapped)
     for (size_t i = first; i < first + 7 && i < count; i++)
     {
         RECT box = MM_Mods_RowBox((int)(i - first));
-        const char *name = rows[i].listed ? rows[i].listed->name : rows[i].installed->name;
-        MM_CustomText_Draw(name, 32, box.y + 2, rows[i].installed ? MODS_LIST_TEXT_W - 64 : MODS_LIST_TEXT_W, 1, i == s_racerSelection ? ORANGE : WHITE, ot);
-        if (rows[i].installed) MM_CustomText_Draw("OWNED", MODS_LIST_RIGHT, box.y + 2, 80, 1, JUSTIFY_RIGHT | GRAY, ot);
+        const struct NativeRacerEntry *installed = rows[i].installed;
+        const int off = installed && MM_ModsRacers_IsOff(installed);
+        const char *tag = off ? "OFF" : MM_ModsRacers_HasUpdate(rows[i].listed, installed) ? "UPDATE" : installed ? "OWNED" : NULL;
+        const char *name = rows[i].listed ? rows[i].listed->name : installed->name;
+        MM_CustomText_Draw(name, 32, box.y + 2, tag ? MODS_LIST_TEXT_W - 64 : MODS_LIST_TEXT_W, 1,
+                           i == s_racerSelection ? ORANGE : off ? GRAY : WHITE, ot);
+        if (tag) MM_CustomText_Draw(tag, MODS_LIST_RIGHT, box.y + 2, 80, 1, JUSTIFY_RIGHT | GRAY, ot);
         if (i == s_racerSelection) CTR_Box_DrawClearBox(&box, &sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot, &GAME_TRACKER->backBuffer->primMem);
     }
     if (!count)
         MM_CustomText_Draw(s_racerRefreshBusy ? "Loading racers..." : *s_saphiQuery ? "No search matches" :
                            s_racerMessage[0] ? s_racerMessage : "Racer list unavailable", 32, 84, MODS_LIST_TEXT_W, 3, WHITE, ot);
     if (row) MM_ModsRacers_DrawPanel(row->listed, row->installed, ot);
-
-    snprintf(line, sizeof line, "R2 Search: %s%s", s_saphiQuery, s_contentSearchEditing ? "_" : "");
-    MM_CustomText_Draw(line, 256, 180, 456, 1, JUSTIFY_CENTER | WHITE, ot);
-    MM_CustomText_Draw("Select: Import track files", 256, 188, 456, 1, JUSTIFY_CENTER | ORANGE, ot);
-    snprintf(line, sizeof line, "%u/%u   L2 Refresh   Back: %s", count ? (unsigned)s_racerSelection + 1 : 0, (unsigned)count,
-             s_modsFromTitle ? "Title" : "Options");
-    MM_CustomText_Draw(line, 256, 196, 456, 1, JUSTIFY_CENTER | WHITE, ot);
+    MM_Mods_DrawFooter(NULL, "R2 Search", 0, s_racerSelection, count, NULL, ot);
     MM_Mods_DrawBoxes(ot);
 }

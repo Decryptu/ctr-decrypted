@@ -36,6 +36,7 @@ struct NativeRacerEntry
 	char modelPath[NATIVE_RACER_PATH_BYTES];
 	char portraitPath[NATIVE_RACER_PATH_BYTES];
 	char folder[64];   // its folder under assets/racers (set by Scan)
+	char manifestSha256[65]; // of its racer.json (set by Scan): the catalogue lists a newer one when they differ
 };
 
 // One racer in the catalogue's index.json (github.com/Decryptu/ctr-decrypted-racers).

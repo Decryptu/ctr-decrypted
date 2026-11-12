@@ -85,7 +85,8 @@ directory, the same place as `config.ini`.
 | `assets/tracks/packages/<pin>/` | Saphi install, inbox import | One installed package revision. Never modified after install |
 | `assets/tracks/packages/.pending-<pin>-…` | an install in progress | Staging; a failed one is kept for review and never treated as installed |
 | `assets/tracks/inbox/<pin>/` | you | A package to import by hand |
-| `assets/tracks/mods-off.txt` | the Mods screen | Tracks turned off: one package UUID (or pin, for a package without one) per line. Off tracks stay installed and leave the Arcade and Time Trial pages; seeds ignore the list |
+| `assets/tracks/mods-off.txt` | the Mods screen | Tracks turned off: one package UUID (or pin, for a package without one) per line. Off tracks stay installed and leave the Arcade and Time Trial pages; seeds ignore the list (`platform/native_mods_off.c`) |
+| `assets/racers/mods-off.txt` | the Mods screen | Racers turned off, one racer id per line: installed, but not on the character select ([CUSTOM_RACERS.md](CUSTOM_RACERS.md#the-racers-tab)) |
 | `assets/tracks/library.catalog` | an external tool, optional | Metadata-only cache (`CTRLB001`), never treated as installed or verified |
 | `custom-records/` | Time Trial on a custom track | Best times and ghost per track identity (section 9) |
 | `ap-box-placements-authoring.json` | Box Author Mode | Placements on the 18 retail tracks and 7 arenas |
@@ -173,23 +174,43 @@ MM_ConfigProc_CustomContent`; the title row is `CTR_LNG_MODS`,
 
 - **Seed** (Archipelago player client, in a room whose content plan names
   custom tracks; the screen opens on it there): `game/230/MM_CurrentSeed.c`,
-  the room's tracks and Install missing content (section 12). On connecting
-  to such a room with tracks missing, the settled title menu also asks once
-  per room: it says how many are missing and, when Project Saphi has them,
-  Cross runs the same Install missing content (`ap/ap_seed_prompt.c`, wording
-  in `ap_seed_prompt_text`, `ap/ap_seed_content_logic.h`). Triangle puts it
-  off until the next room.
+  the room's tracks tagged READY, MISSING or CHECK, and Install missing
+  content (section 12). The footer's message line names the slot and how many
+  tracks are ready. On connecting to such a room with tracks missing, the
+  settled title menu also asks once per room: it says how many are missing
+  and, when Project Saphi has them, Cross runs the same Install missing
+  content (`ap/ap_seed_prompt.c`, wording in `ap_seed_prompt_text`,
+  `ap/ap_seed_content_logic.h`). Triangle puts it off until the next room.
 - **Tracks**: the Saphi and Decrypted catalogues in one list (section 5),
-  `OWNED` on installed tracks.
-  Search on R2.
+  tagged `OWNED`, `UPDATE` or `OFF`. Square lists a track's versions.
 - **Racers**: the custom racer catalogue and the installed racers
-  ([CUSTOM_RACERS.md](CUSTOM_RACERS.md#the-racers-tab)).
+  ([CUSTOM_RACERS.md](CUSTOM_RACERS.md#the-racers-tab)), tagged the same way.
 - **Installed**: one row per track (its newest revision), then the installed
-  racers, tagged `RACER`, with the Racers tab's panel and Cross. Cross on a
-  track opens its actions: turn it off or on (`assets/tracks/mods-off.txt`),
-  Remove (`CustomPackage_RemoveInstalled`: every revision of the track; each pin
-  folder is renamed out of the store, then deleted, so a removal cut short is
-  never read as a package), and Check files.
+  racers, tagged `RACER` (or `OFF`).
+
+**One layout and one set of buttons on every tab.** A new tab or a new kind
+of mod follows it; a player who learned one tab knows them all.
+
+- The list box on the left (seven rows, a tag on the right), the panel on the
+  right, and three footer lines, all in `game/230/MM_ModsPanel.c`. The panel:
+  the picture (a track's 112x42, a racer's portrait) at the top left with the
+  name and version beside it, the author under it, then one info line (the
+  modes a track races in, the racer a racer borrows, the size and source of a
+  seed's track), a two-line state, and the Cross prompt at the bottom. The
+  footer: a message, or the search, or the tab's other buttons; then Select
+  (import track files; blank on Racers, as no racer comes as a patch); then
+  the count, L2 and Back.
+- Cross does the one obvious thing: download what is not installed, update
+  what has a newer version, and on anything installed open its options. The
+  options are the same for every mod (`MM_Mods_ActionsInput`): Turn off or
+  on, Remove (asked first), and for a track Check files. An off mod stays
+  installed but the game leaves it out: a track leaves the Arcade and Time
+  Trial pages, a racer leaves the character select. The lists are
+  `assets/tracks/mods-off.txt` and `assets/racers/mods-off.txt`
+  (`platform/native_mods_off.c`).
+- L2 refreshes everywhere: the catalogues, the installed files, and on Seed
+  the room's tracks. R2 searches names and authors. Triangle backs out of the
+  options or a question first, then leaves the screen.
 
 The tabs are drawn by the shared tab bar (`game/230/MM_TabBar.c`, layout in
 `include/ctr_tab_bar.h`): each tab in its own box, the active one filled. When
@@ -225,11 +246,17 @@ Select imports an xdelta patch, also when one is dropped on the window
   `platform/native_racers.c`). `tools/test-track-picture.c` checks the crop,
   the colours and the refusals on two fixtures of plain colour blocks.
 
-The Mods screen is the only custom content screen; upstream's Options >
+The Mods screen is the only custom content screen; dowlle's Options >
 Custom Tracks page (`MM_CustomTracks.c`) is not built. The Mods screen also
 installs racers, lists the Decrypted track catalogue beside Saphi, and opens
-from the title screen, none of which that page does. Fixes to upstream's page
-are carried to the Mods screen by hand.
+from the title screen, none of which that page does. Its other parts are left
+out on purpose, to keep the screen light: an All / Installed / Browse filter
+(the tabs are those filters), a separate rescan of local files (L2 does it),
+opening a track's web page (it leaves the game for what the panel already
+shows), per-track Resolve, Required files and Installed copies on the seed
+page (Install missing and Check files cover them), and the Baby T Park
+package tools (author tools, not a player's). Fixes to dowlle's page are
+carried to the Mods screen by hand.
 
 **Import.** The folder list tags each patch file Done, Part or Fail from
 `assets/tracks/import-record.json` (found by the patch's SHA-256, so a renamed
@@ -269,7 +296,9 @@ for history; it has no Archipelago dependency) and
   `https://www.projectsaphi.com/api/v3/tracks?per_page=100&include_standards=0&include_events=0&include_downloads=1&page=N`
   on a worker thread. `CustomSaphi_ParseCatalogue` builds one row per track
   version and requires exactly one LEV and one VRM per version and mode
-  signature; ambiguous rows stay visible but disabled. HTTPS only: WinHTTP on
+  signature; ambiguous rows stay visible but disabled. Tracks in Saphi's
+  `original` collection are skipped: they are the retail tracks, arenas and
+  hubs, already on the disc, and Saphi does not host their files. HTTPS only: WinHTTP on
   Windows, asio with OpenSSL on Linux, which looks for the system CA file
   itself because a static OpenSSL carries the build host's default paths.
 - **Install.** `CustomSaphi_StartInstall` downloads the selected revision's

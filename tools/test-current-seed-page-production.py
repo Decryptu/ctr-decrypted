@@ -15,10 +15,11 @@ Cases:
   5. on another tab of the Mods screen (s_modsSeed 0) Back is never held,
   6. the overview closes itself when the room changes under it,
   7. Up / Down wrap through the rows; leaving and coming back starts clean,
-  8. Square rescans, except while an install runs,
-  9. every line of the page and of the overview, with long names and
-     messages, fits the Mods screen's frame: x 24 to 488 at the retail small
-     font's 13 pixels a letter, and nothing below y 196,
+  8. L2 rescans, as it refreshes on every tab, except while an install runs,
+  9. every line of the page and of the install question, with long names
+     and messages, fits the Mods screen's frame: x 24 to 488 at the retail
+     small font's 13 pixels a letter, and nothing below y 196. The page draws
+     through the real shared layout (game/230/MM_ModsPanel.c, MM_CustomText.c),
  10. an install that finishes asks for a rescan of the package library, so
      the Installed tab lists what the Seed tab installed; an idle frame does not.
 """
@@ -28,6 +29,10 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 page = (root / "game/230/MM_CurrentSeed.c").read_text(encoding="utf-8")
+# The page includes ap/ap_net.h by its game path; the prelude stubs what it uses.
+page = page.replace('#include "../../ap/ap_net.h"', "", 1)
+layout = ((root / "game/230/MM_CustomText.c").read_text(encoding="utf-8") +
+          (root / "game/230/MM_ModsPanel.c").read_text(encoding="utf-8"))
 
 prelude = r'''
 #include <stdio.h>
@@ -36,9 +41,9 @@ prelude = r'''
 #include "ap/ap_seed_content_logic.h"
 typedef struct { short x, y, w, h; } RECT;
 enum { FONT_BIG = 1, FONT_SMALL = 2 };
-enum { ORANGE = 0, WHITE = 4, RED = 3, JUSTIFY_CENTER = 0x8000, JUSTIFY_RIGHT = 0x4000, TRANS_50_DECAL = 1 };
+enum { ORANGE = 0, WHITE = 4, RED = 3, GRAY = 5, JUSTIFY_CENTER = 0x8000, JUSTIFY_RIGHT = 0x4000, TRANS_50_DECAL = 1 };
 enum { BTN_UP = 0x1, BTN_DOWN = 0x2, BTN_CROSS = 0x10 | 0x4000, BTN_SQUARE = 0x20 | 0x8000, BTN_CIRCLE = 0x40,
-       BTN_R1 = 0x400, BTN_L1 = 0x800, BTN_START = 0x1000, BTN_TRIANGLE = 0x40000 };
+       BTN_R1 = 0x400, BTN_L1 = 0x800, BTN_L2 = 0x100, BTN_START = 0x1000, BTN_TRIANGLE = 0x40000 };
 struct GamepadBuffer { int buttonsTapped; };
 struct PrimMem { int unused; };
 struct DB { struct PrimMem primMem; };
@@ -68,10 +73,20 @@ void DecalFont_DrawLineOT(char *s, int x, int y, int font, int flags, uint32_t *
 char *NativeMenu_Labels(const char *hint) { return (char *)hint; }
 void OtherFX_Play(int a, int b) { (void)a; (void)b; }
 void CTR_Box_DrawClearBox(RECT *r, int *c, int t, uint32_t *ot, struct PrimMem *pm) { (void)r; (void)c; (void)t; (void)ot; (void)pm; }
+void RECTMENU_DrawInnerRect(RECT *r, int x, uint32_t *ot) { (void)r; (void)x; (void)ot; }
+static int s_contentSearchEditing;
+static char s_saphiQuery[81];
+/* ap/ap_net.h: the slot the footer names. */
+#define AP_NET_H
+int ap_net_slot_name(char *buf, int n) { snprintf(buf, (size_t)n, "%s", "Decrypt"); return 1; }
 static int s_customContentSection = 5;
 static int s_modsSeed = 1; /* the Mods screen shows the Seed tab */
 static int s_modsFromTitle = 1; /* opened from the title screen */
 static int s_contentStoreWanted; /* the Installed list rescans */
+'''
+
+layout_end = r'''
+
 
 /* The stub room. */
 static int active = 1, busy, starts, rescans, plan_result = AP_SEED_PLAN_OK;
@@ -183,9 +198,11 @@ int main(void)
 
 	/* 8. Rescan. */
 	frame(BTN_SQUARE);
-	expect(rescans == 1 && strstr(s_seedMessage, "Rescanned") != NULL, "Square rescans");
+	expect(rescans == 0, "Square does nothing here");
+	frame(BTN_L2);
+	expect(rescans == 1 && strstr(s_seedMessage, "Rescanned") != NULL, "L2 rescans");
 	busy = 1;
-	frame(BTN_SQUARE);
+	frame(BTN_L2);
 	expect(rescans == 1 && strstr(s_seedMessage, "Wait") != NULL, "no rescan while an install runs");
 	gt.timer += 100;
 	frame(0);
@@ -210,7 +227,7 @@ int main(void)
 	outside = 0;
 	frame(BTN_CROSS);
 	frame(0);
-	expect(s_seedOverview && outside == 0, "the overview fits the frame");
+	expect(s_seedOverview && outside == 0, "the install question fits the frame");
 	if (outside) printf("  first outside: %s\n", outside_text);
 
 	/* 10. A finished install rescans the library. */
@@ -232,10 +249,10 @@ int main(void)
 
 with tempfile.TemporaryDirectory() as tmp:
     src, exe = Path(tmp) / "seed_page.c", Path(tmp) / "seed_page"
-    src.write_text(prelude + page + tests, encoding="utf-8")
+    src.write_text(prelude + layout + layout_end + page + tests, encoding="utf-8")
     subprocess.run(["cc", "-std=gnu99", "-Wall", "-Wextra", "-Werror", "-Wno-unused-function",
                     "-fsanitize=undefined,address", "-fno-sanitize-recover=all",
                     "-I" + str(root), str(src), "-o", str(exe)], check=True, cwd=root)
     subprocess.run([str(exe)], check=True, cwd=root)
-print("PASS: Seed tab: off without a plan, Back held only by the open overview on its tab, one install per confirm, "
-      "self-closing overview, selection bounds, fresh visits, rescan")
+print("PASS: Seed tab: off without a plan, Back held only by the open install question on its tab, one install per "
+      "confirm, self-closing question, selection bounds, fresh visits, L2 rescan, fits the frame")

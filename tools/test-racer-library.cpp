@@ -104,6 +104,17 @@ int main()
     CHECK(NativeRacerLibrary_Scan(dir.c_str(), found, 4) == 1);
     CHECK(!std::strcmp(found[0].id, id) && !std::strcmp(found[0].folder, "test-racer"));
     CHECK(found[0].engine == 2 && found[0].wheels == 0);
+    // The installed racer.json's SHA-256, matched against the catalogue's to offer an update.
+    {
+        NativeSha256Ctx ctx;
+        unsigned char digest[NATIVE_SHA256_DIGEST_BYTES];
+        char hex[NATIVE_SHA256_HEX_BYTES];
+        NativeSha256_Init(&ctx);
+        NativeSha256_Update(&ctx, manifest.data(), manifest.size());
+        NativeSha256_Final(&ctx, digest);
+        NativeSha256_ToHex(digest, hex);
+        CHECK(!std::strcmp(found[0].manifestSha256, hex));
+    }
     CHECK(!std::filesystem::exists(root / ".test-racer.part"));
 
     // An update under another folder name replaces the racer, not adds one.

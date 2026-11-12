@@ -131,6 +131,7 @@ void RECTMENU_DrawPolyGT4(struct Icon *i,s32 x,s32 y,struct PrimMem *p,u32 *ot,C
 static int saphiBusy;
 int ap_custom_track_download_busy(char *text, int size)
 { if (text && size > 0) snprintf(text, size, "%s", saphiBusy ? "Project Saphi is busy, waiting 60s" : ""); return saphiBusy; }
+#include "../platform/native_mods_off.c"
 #include "../game/230/MM_CustomManager.c"
 static void tick(int buttons) { struct GamepadBuffer pad={0};pad.buttonsTapped=buttons;drawn[0]=0;MM_ConfigProc_CustomContent(NULL,NULL,&pad); }
 int main(void)
@@ -157,8 +158,10 @@ int main(void)
  /* Tabs in order: Tracks, Racers, Installed, drawn as one bar. */
  tick(0);CHECK(strstr(drawn,"L1\n")&&strstr(drawn,"Tracks\n")&&strstr(drawn,"Racers\n")&&strstr(drawn,"Installed\n")&&strstr(drawn,"R1\n"));
  tick(BTN_R1);CHECK(s_modsRacers&&MM_Mods_Tab()==2);
+ /* Racers: no racer comes as a patch, so Select neither shows nor opens the import. */
+ tick(0);CHECK(!strstr(drawn,"Import track files"));tick(BTN_SELECT);CHECK(!MM_CustomImport_Active());
  tick(BTN_R1);CHECK(s_contentLibraryTab==1&&!s_modsRacers&&MM_Mods_Tab()==3);
- struct CustomTrackLibraryEntry installed={0};installed.installed=1;strcpy(installed.title,"Installed track");
+ struct CustomTrackLibraryEntry installed={0};installed.installed=1;strcpy(installed.title,"Installed track");strcpy(installed.manifestSha256,"pin-installed");
  s_contentLibrary.entries=&installed;s_contentLibrary.count=1;s_contentStoreWanted=0;
  /* Installed: Cross opens the track's actions, which own the pad until closed. */
  tick(BTN_CROSS);CHECK(s_modsActions==MODS_ACTIONS_OPEN&&starts==1&&MM_Mods_ConsumesBack());
@@ -177,12 +180,21 @@ int main(void)
  tick(BTN_CROSS);CHECK(!MM_Mods_IsOff(&installed));
  tick(BTN_R2);CHECK(s_contentSearchEditing);strcpy(s_saphiQuery,"no match");textResult=2;tick(0);CHECK(!s_contentSearchEditing&&!s_saphiQuery[0]);
  /* Installed lists the installed racers after the tracks, tagged RACER;
-    Cross on one asks to remove it, as on Racers. */
+    Cross on one opens its options, as on Racers: off and Remove, no file check. */
  racerInstalledStub=1;s_racerInstalledStale=1;tick(0);tick(BTN_DOWN);
- CHECK(s_saphiSelection[1]==1&&strstr(drawn,"Test Racer\n")&&strstr(drawn,"RACER\n")&&strstr(drawn,"* Remove"));
- tick(BTN_CROSS);CHECK(s_racerConfirmRemove&&MM_Mods_ConsumesBack());
+ CHECK(s_saphiSelection[1]==1&&strstr(drawn,"Test Racer\n")&&strstr(drawn,"RACER\n")&&strstr(drawn,"* Options"));
+ tick(BTN_CROSS);CHECK(s_modsActions==MODS_ACTIONS_OPEN&&MM_Mods_ConsumesBack());
+ tick(0);CHECK(strstr(drawn,"Turn off")&&strstr(drawn,"Remove")&&!strstr(drawn,"Check files"));
  tick(BTN_R1);CHECK(MM_Mods_Tab()==3);
- tick(BTN_TRIANGLE);CHECK(!s_racerConfirmRemove);
+ /* Off: the racer stays listed, tagged OFF, and its options say Turn on. */
+ tick(BTN_CROSS);CHECK(s_modsActions==MODS_ACTIONS_CLOSED&&NativeModsOff_Is(NATIVE_MODS_RACER,"r1"));
+ tick(0);CHECK(strstr(drawn,"OFF\n")&&strstr(drawn,"Could not save"));
+ tick(BTN_CROSS);tick(0);CHECK(strstr(drawn,"Turn on"));tick(BTN_CROSS);CHECK(!NativeModsOff_Is(NATIVE_MODS_RACER,"r1"));
+ /* Remove asks first; Triangle goes back to the options, then closes them. */
+ tick(BTN_CROSS);tick(BTN_DOWN);tick(BTN_CROSS);CHECK(s_modsActions==MODS_ACTIONS_CONFIRM_REMOVE);
+ tick(0);CHECK(strstr(drawn,"Remove this racer"));
+ tick(BTN_TRIANGLE);CHECK(s_modsActions==MODS_ACTIONS_OPEN);
+ tick(BTN_TRIANGLE);CHECK(s_modsActions==MODS_ACTIONS_CLOSED&&!MM_Mods_ConsumesBack());
  racerInstalledStub=0;s_racerInstalledStale=1;tick(0);s_saphiSelection[1]=0;
  /* L1 goes back to Racers, R1 on to Installed and round to Tracks. */
  tick(BTN_L1);CHECK(s_modsRacers&&MM_Mods_Tab()==2);tick(BTN_R1);CHECK(!s_modsRacers&&s_contentLibraryTab==1);
@@ -198,7 +210,9 @@ int main(void)
  tick(BTN_UP);CHECK(s_saphiSelection[0]==1);tick(BTN_TRIANGLE);CHECK(!s_saphiVersionTrack&&s_saphiSelection[0]==0);
  installed.local.trackID=rows[1].trackID;installed.local.levID=42;installed.local.vrmID=43;strcpy(installed.version,"1.10.0");
  int older;CHECK(MM_CustomSourceInstalled(&rows[1],&older)==&installed);
- int before=starts;tick(BTN_CROSS);CHECK(starts==before);
+ /* An installed revision: Cross opens its options instead of downloading it. */
+ int before=starts;tick(BTN_CROSS);CHECK(starts==before&&s_modsActions==MODS_ACTIONS_OPEN);
+ tick(BTN_TRIANGLE);CHECK(s_modsActions==MODS_ACTIONS_CLOSED);
  /* Same track files, but Saphi now lists the track's music: an update, not installed. */
  rows[1].sca.id=77;CHECK(MM_CustomSourceInstalled(&rows[1],&older)==NULL && older==1);
  installed.local.scaID=77;CHECK(MM_CustomSourceInstalled(&rows[1],&older)==&installed && older==0);
@@ -220,7 +234,7 @@ int main(void)
  /* Installed tab: which pages list the track, and why not Arcade (up to two lines). */
  tick(BTN_L1);CHECK(s_contentLibraryTab==1);s_saphiMessage[0]=0;
  installed.local.arcade=1;installed.local.timeTrial=1;tick(0);
- CHECK(strstr(drawn,"\nArcade\n")&&strstr(drawn,"\nFiles verified\n"));
+ CHECK(strstr(drawn,"\nArcade, Time Trial\n")&&strstr(drawn,"\nFiles verified\n"));
  installed.local.arcade=0;strcpy(installed.local.arcadeReason,"No AI paths");tick(0);
  CHECK(strstr(drawn,"\nTime Trial\n")&&strstr(drawn,"\nNo AI paths\n")&&!strstr(drawn,"verified"));
  strcpy(installed.local.arcadeReason,"Grid: 3 of 8");tick(0);CHECK(strstr(drawn,"\nGrid: 3 of 8\n"));
