@@ -285,56 +285,7 @@ def chain_path(m, c):
     return tracks
 
 
-PATH_LINKS, STAKE_LINKS = 4, 7
-
-
-def chain_staked(m, c):
-    """0x196: wanders round its stake and lunges at the road when a kart comes near. The game aims at the
-    kart; here it aims at the nearest of the route, reach s[0] from the stake."""
-    st, rng, stake = m['settings'], c['rng'], plain(m['pos'])
-    rest, back = chomp_rest(m)
-    leash = float(st[0])
-    flat = np.array([1.0, 0.0, 1.0])
-
-    def clamp(p):
-        off = (p - stake) * flat
-        size = np.linalg.norm(off)
-        return stake + off * min(1.0, leash / max(size, 1e-3))
-
-    place, ticks = stake + (60.0, 0.0, 0.0), []
-    for _ in range(3):  # wandering
-        angle, radius = rng.random() * 2 * math.pi, 45 + rng.random() * (0.75 * leash - 45)
-        ticks += towards(place, stake + (radius * math.cos(angle), 0.0, radius * math.sin(angle)), lambda t: 1.0)
-        place = ticks[-1]
-    gate = len(ticks)
-    aim = clamp(c['nearest_route'](stake))
-    velocity = np.zeros(3)
-    for _ in range(181):  # the lunge
-        velocity += (aim - place) * flat / 128
-        size = np.linalg.norm(velocity)
-        if size > 8:
-            velocity *= 0.7
-        if np.linalg.norm((aim - place) * flat) < 15:
-            velocity *= 0.5
-        place = clamp(place + velocity)
-        ticks.append(place)
-    home = 0.75 * leash - 60 * m['size'][1]
-    velocity = np.zeros(3)
-    for _ in range(181):  # back
-        if np.linalg.norm((place - stake) * flat) > home:
-            velocity += (stake - place) * flat / 1024
-            if np.linalg.norm(velocity) > 1:
-                velocity *= 0.9
-            place = place + velocity
-        ticks.append(place)
-    ticks = [p * flat + (0.0, rest + chomp_hop(t), 0.0) for t, p in enumerate(ticks)]
-    tracks = [Track(ticks, gates=[(gate, int(st[1]), 0, stake)])]
-    for link in range(STAKE_LINKS):
-        share = (link + 0.5) / STAKE_LINKS
-        sag = 4 * share * (1 - share) * 16
-        tracks.append(Track([stake * flat + (p - stake) * flat * share + (0.0, rest + (float(stake[1]) + 10 - rest) * (1 - share) - sag, 0.0) for p in ticks],
-                            model=c['chain'], gates=[(gate, int(st[1]), 0, stake)], hit=0))
-    return tracks
+PATH_LINKS = 4
 
 
 def bakubaku(m, c):
@@ -636,7 +587,7 @@ def bubble(m, c):
     return [Track(run + [None] * (m['settings'][0] + 1), hit=15)]
 
 
-MOTIONS = {'thwomp': thwomp, 'rock': rock, 'ball': ball, 'airship': airship, 'sun': sun, 'chain_path': chain_path, 'chain_staked': chain_staked,
+MOTIONS = {'thwomp': thwomp, 'rock': rock, 'ball': ball, 'airship': airship, 'sun': sun, 'chain_path': chain_path,
            'bakubaku': bakubaku, 'bats': bats, 'coffin': coffin, 'moving_box': moving_box, 'fire_plant': fire_plant, 'rocky_wrench': rocky_wrench,
            'monty_mole': monty_mole, 'cheep_cheep': cheep_cheep, 'bubble': bubble}
 

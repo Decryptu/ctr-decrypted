@@ -36,7 +36,7 @@ MAX_WIDTH, MAX_HEIGHT = 128, 256  # texels: wider, it would have to give up colo
 NEUTRAL = 128  # a texture is multiplied by a vertex colour over this
 LAYERED_BILLBOARD_SIZE = 128  # a square page region at 8 bits
 
-PATH, SPIN, SWING, HOP, ORBIT, PULSE, KEYS, STILL, TURNS = range(9)
+PATH, SPIN, SWING, _HOP, ORBIT, PULSE, KEYS, STILL, TURNS, CHOMP, LINK, GHOST = range(12)
 LOOP, BACK_AND_FORTH, RESTART = range(3)
 FACE_PATH, ROLL, SOLID, CARRIES, DROPS = 0x100, 0x200, 0x1000, 0x2000, 0x8000  # Mover.c's MOVER_FLAG_
 STAR_WALL, STRIKE_SHIFT = 0x400, 4  # Mover.c's MOVER_FLAG_STAR_WALL, MOVER_STRIKE_SHIFT
@@ -87,8 +87,8 @@ MOVERS = {
     0x13c: Mover('bakubaku', (KEYS, 'bakubaku')),
     0x1a7: Mover('poo', (KEYS, 'rocky_wrench')),
     0x199: Mover('choropu', (KEYS, 'monty_mole')),
-    0x13d: Mover('teresa', (HOP, 3000)),
-    0x196: Mover('wanwan', (KEYS, 'chain_staked')),
+    0x13d: Mover('teresa', (GHOST,)),
+    0x196: Mover('wanwan', (CHOMP,)),
     0x1a0: Mover('basabasa', (KEYS, 'bats')),
     0x1af: Mover('fireball2', (ORBIT,)),
     0x19d: Mover('sman_bottom', (STILL,)),
@@ -126,7 +126,8 @@ PENDULUM_BOB = (100, 100, 50), (0, -500, 0)  # half its hit box and where it is:
 FLYING = {'mkd_ef_bubble', 'FireBall', 'kamome', 'airship', 'sun', 'NsKiller2', 'mkd_ef_burner', 'teresa', 'basabasa', 'bakubaku', 'pukupuku', 'fireball2', 'kanoke_64', 'second_hand', 'pendulum', 'test_cylinder', 'gear_black', 'gear_white', 'rotary_room', 'rotary_bridge', 'flipper', 'dram', 'RainStar'}
 HIT_SHARE = {'fireball2': 0.5}  # of its box: a ball is round
 ROUND_SHARE = 0.7  # the box of what is round or a picture
-HOP_HEIGHT = {'teresa': 24}  # MKDS units up
+GHOSTS = 6  # Boos a group shows at most (MKDS 0x13d)
+STAKE_LINKS, LINK_SAG = 7, 16  # a staked Chain Chomp's chain: links, and world units its middle sags
 FLIPPER_REST, FLIPPER_STROKE, FLIPPER_WAIT = 512, 660, 110  # 45 degrees; 58 degrees out in 29 ticks and back; ticks between, on average
 PIECE_MOST = 1900  # level units: the largest a model may be drawn, all of it at once (2040 is where it saturates)
 PIECE_CELL = 1600  # level units: how big a piece of a larger one is
@@ -604,6 +605,18 @@ def place(movers, model_index, halves, to_lev, lev_unit, rotate, settle, context
             placed += instances(pieces, to_lev(at), size, size, len(lists), reach, spec.model, rot)
             lists.append(records(kind, KEY_MS * TURN_KEY_TICKS // 3, damage | flags, half, middle, base, (args[1], args[2], 0), keys))
             continue
+        if kind == CHOMP:
+            placed_chomp, lists_chomp = staked_chomp(mover, spec, pieces, halves[model_index[(context['chain'], False)]][2], damage | flags, half, middle, base,
+                                                     reach, size, to_lev, lev_unit, len(lists))
+            placed += placed_chomp
+            lists += lists_chomp
+            continue
+        if kind == GHOST:
+            unit = unit_256(lev_unit)
+            for n in range(GHOSTS):
+                placed += instances(pieces, to_lev(pos), size, size, len(lists), reach, spec.model)
+                lists.append(records(GHOST, 0, damage | flags, half, middle, base, (round(mover['settings'][0] * lev_unit), n, unit), [to_lev(pos)]))
+            continue
         if kind == KEYS:
             foot = -low[1] / lev_unit * size[1]
             for n, track in enumerate(mkds_motion.tracks(args[0], mover, {**context, 'foot': foot})):
@@ -656,11 +669,6 @@ def place(movers, model_index, halves, to_lev, lev_unit, rotate, settle, context
                 else:
                     period, peak = settings[0] * 40, settings[1] * TURN * 24 // 36000  # s0 * 2.4 ticks; 100 is 24 degrees
                     mode_args = (args[0], period, peak)
-            elif kind == HOP:
-                way = np.array([0.0, HOP_HEIGHT[spec.model] * size[1], 0.0])
-                mode_args = (args[0], 0, (hash_phase(pos) % args[0]))
-                points = [way * lev_unit]
-                at = (settle(pos) if standing else pos) + lift
             elif kind == STILL:
                 mode_args = (0, 0, 0)
                 at = (settle(pos) if standing else pos) + lift
@@ -692,9 +700,34 @@ def place(movers, model_index, halves, to_lev, lev_unit, rotate, settle, context
     return placed, lists
 
 
-def hash_phase(pos):
-    """A start in a cycle that differs from one object to the next, the same each run."""
-    return int(abs(pos[0]) * 7 + abs(pos[2]) * 13) & 0x7fff
+def unit_256(lev_unit):
+    """Level units a world unit, times 256, as Mover.c reads it."""
+    unit = int(round(lev_unit * 256))
+    if not 0 < unit <= 0x7fff:
+        raise ValueError(f'a world unit is {lev_unit} level units: more than a record holds')
+    return unit
+
+
+def staked_chomp(mover, spec, pieces, chain, damage_flags, half, middle, base, reach, size, to_lev, lev_unit, first):
+    """MKDS 0x196, run by Mover.c (MOVER_CHOMP): the head's list, then its chain's links (MOVER_LINK), which
+    hang from the stake's top to it. -> (instances, lists)."""
+    st, sy = mover['settings'], size[1]
+    stake = np.array(mover['pos'], float)
+    rest, _ = mkds_motion.chomp_rest(mover)
+    leash = float(st[0])
+    plane = to_lev((stake[0], rest, stake[2]))
+    head_args = (round(leash * lev_unit), round(st[1] * lev_unit), round((0.75 * leash - 60 * sy) * lev_unit))
+    wander = (45 * lev_unit, 0.75 * leash * lev_unit, unit_256(lev_unit))
+    placed = instances(pieces, to_lev((stake[0] + 60, rest, stake[2])), size, size, first, reach, spec.model)
+    lists = [records(CHOMP, 0, damage_flags, half, middle, base, head_args, [plane, wander])]
+    top = to_lev(stake + (0.0, 10.0, 0.0))
+    links = damage_flags & ~(0xf << STRIKE_SHIFT) & ~(SOLID | STAR_WALL)  # the head is what is struck
+    for link in range(STAKE_LINKS):
+        share = (link + 0.5) / STAKE_LINKS
+        sag = 4 * share * (1 - share) * LINK_SAG * lev_unit
+        placed += instances(chain, top, size, size, first + len(lists), reach, 'wanwan_chain')
+        lists.append(records(LINK, 0, links & ~0xf, np.zeros(3), np.zeros(3), base, (first, round(share * SCALE_ONE), round(sag)), [top, (plane[1], 0, 0)]))
+    return placed, lists
 
 
 def path_start(points, pos):

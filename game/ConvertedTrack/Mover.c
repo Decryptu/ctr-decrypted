@@ -10,14 +10,14 @@
 //   2  a, b, c, by kind (below)
 //   3-5  its placed rotation, rows, 4096 is one
 //   6  the middle of the hit box, from the origin, in its own axes
-//   7+   MOVER_PATH: the path; MOVER_HOP: one record, the way it goes at its peak
+//   7+   MOVER_PATH: the path
 //
 // a, b, c: PATH: mode, first point, 0. SPIN: axis, 4096ths of a turn a second,
 // less than 0 the other way round, and for a rim a kart rides how level the rim must be
 // under it to carry it (4096 is level); with a record after the fixed ones, it turns
 // for that many ticks, speeds up and slows down over y ticks, stops for z, and
 // turns back, as MKDS's cogs do.
-// SWING: axis, period in ms, angle at its peak. HOP: period in ms, 0, phase in ms. ORBIT: radius, period in ms, phase in ms, in its own x, y plane.
+// SWING: axis, period in ms, angle at its peak. ORBIT: radius, period in ms, phase in ms, in its own x, y plane.
 // PULSE: period in ms, how long it is out, phase in ms: it grows out of its origin
 // and hits only then, as a flame jet.
 // KEYS: where it is over time, worked out by tools/tracks/mkds_motion.py from the
@@ -35,6 +35,16 @@
 // plant's head, Waluigi Pinball's drums). Speed: ms a key. a, b: the axes of its first and
 // second turn. Records 7+: the keys, its first and second angle, 4096ths of a turn. The
 // last key is where the first starts again.
+// CHOMP: a staked Chain Chomp, run here tick by tick as MKDS's 0x196 (Mover_Chomp). a, b,
+// c: its leash, how near the player's kart comes for it to lunge, how far from the stake
+// it stops coming back. Record 7: the stake, at the height of the plane it hops on.
+// Record 8: the nearest and farthest it wanders from the stake, level units a world unit
+// times 256.
+// LINK: a chain's link, between a stake and its Chomp. a: the Chomp's list, b: how far
+// along (4096ths), c: how far it sags. Record 7: the stake's top. Record 8: the plane's height.
+// GHOST: a Boo, MKDS's 0x13b, one of a group's six (Mover_Ghost). a: how near the player's
+// kart comes for the group to show, b: which of the six, c: level units a world unit
+// times 256. Record 7: the group's point.
 
 #if defined(CTR_NATIVE)
 #include <math.h>
@@ -55,12 +65,15 @@ enum
 	MOVER_PATH,
 	MOVER_SPIN,
 	MOVER_SWING,
-	MOVER_HOP,
+	MOVER_HOP_UNUSED, // keeps the numbers the converter writes
 	MOVER_ORBIT,
 	MOVER_PULSE,
 	MOVER_KEYS,
 	MOVER_STILL,
 	MOVER_TURNS,
+	MOVER_CHOMP,
+	MOVER_LINK,
+	MOVER_GHOST,
 
 	MOVER_PATH_LOOP = 0,
 	MOVER_PATH_BACK_AND_FORTH = 1,
@@ -1439,6 +1452,409 @@ static void Mover_HitKarts(struct ConvertedMover *mover, struct Instance *inst, 
 	}
 }
 
+// What a staked Chain Chomp or a Boo does is aimed at the player's kart, so it runs here,
+// one MKDS tick (1/60 s) at a time, in level units (numbers as the game's, in world units
+// times the course's scale). Read from the game: docs/TRACK-CONVERTER.md#movers.
+enum
+{
+	CHASE_TICK_MS_X3 = 50,
+	CHOMP_WANDER = 0,
+	CHOMP_LUNGE = 1,
+	CHOMP_BACK = 2,
+	CHOMP_STATE_TICKS = 181,
+	CHOMP_HOP_TICKS = 24,
+	CHOMP_LEAD_TICKS = 20, // how far ahead of the kart it aims: the game's lead is not read
+	GHOST_OFF = 0,
+	GHOST_SHOWN = 1,
+	GHOST_FADING = 2,
+	GHOST_GROW_TICKS = 40,
+	GHOST_FADE_TICKS = 16,
+	GHOST_SWELL = 20, // world units the height swings: the game's is not read
+};
+
+struct MoverChase
+{
+	s32 acc3;   // ms times three not yet run as ticks
+	u32 seed;
+	s32 state, count, hop;
+	float x, z, vx, vz, tx, tz;          // where it is, its speed, where it goes
+	float kartX, kartZ, kartVX, kartVZ;  // the player's kart last tick, and its speed
+	float fwdX, fwdZ;                    // the way the kart last went
+	// a Boo
+	s32 life, delay, share, yaw, swing, phase, phaseStep, rise, riseStep, lift;
+	float ox, oz, radius;
+};
+
+static struct MoverChase s_moverChase[MOVER_MOST_LISTS];
+
+static s32 Chase_Rand(struct MoverChase *c, s32 below)
+{
+	c->seed = c->seed * 1103515245u + 12345u;
+	return (s32)((c->seed >> 16) % (u32)below);
+}
+
+static const struct Driver *Chase_Player(void)
+{
+	return GAME_TRACKER->drivers[0];
+}
+
+// The player's kart this tick: where it is and how fast it goes, and the way it last went.
+static void Chase_Kart(struct MoverChase *c)
+{
+	const struct Driver *kart = Chase_Player();
+	float x, z, dx, dz, size;
+
+	if (kart == NULL)
+	{
+		return;
+	}
+	x = (float)kart->instSelf->matrix.t[0];
+	z = (float)kart->instSelf->matrix.t[2];
+	dx = x - c->kartX;
+	dz = z - c->kartZ;
+	if (dx * dx + dz * dz < 64 * 64) // not the first tick, nor a respawn
+	{
+		c->kartVX = dx;
+		c->kartVZ = dz;
+		size = sqrtf(dx * dx + dz * dz);
+		if (size > 0.5f)
+		{
+			c->fwdX = dx / size;
+			c->fwdZ = dz / size;
+		}
+	}
+	c->kartX = x;
+	c->kartZ = z;
+}
+
+static int Chase_Near(const struct MoverChase *c, float x, float z, float reach)
+{
+	const float dx = c->kartX - x, dz = c->kartZ - z;
+
+	if (Mover_DevHeld() || (getenv("CTR_DEV_MOVERS_OPEN") != NULL))
+	{
+		return 1;
+	}
+	return (Chase_Player() != NULL) && (dx * dx + dz * dz < reach * reach);
+}
+
+// -> how many ticks of the game's objects this frame runs.
+static int Chase_Ticks(struct MoverChase *c, s32 dt)
+{
+	int ticks = 0;
+
+	c->acc3 += dt * 3;
+	while (c->acc3 >= CHASE_TICK_MS_X3)
+	{
+		c->acc3 -= CHASE_TICK_MS_X3;
+		ticks++;
+	}
+	return ticks;
+}
+
+static void Chomp_Clamp(float *x, float *z, float sx, float sz, float leash, float *vx, float *vz)
+{
+	const float dx = *x - sx, dz = *z - sz, size = sqrtf(dx * dx + dz * dz);
+
+	if (size > leash)
+	{
+		const float nx = dx / size, nz = dz / size, out = *vx * nx + *vz * nz;
+
+		*x = sx + nx * leash;
+		*z = sz + nz * leash;
+		if (out > 0) // the chain stops it going further out
+		{
+			*vx -= nx * out;
+			*vz -= nz * out;
+		}
+	}
+}
+
+static void Chomp_Tick(struct MoverChase *c, const SVec3 *records)
+{
+	const float sx = records[MOVER_RECORD_POINTS].x, sz = records[MOVER_RECORD_POINTS].z;
+	const float leash = records[2].x, home = records[2].z, unit = records[MOVER_RECORD_POINTS + 1].z / 256.0f;
+	const float nearest = records[MOVER_RECORD_POINTS + 1].x, farthest = records[MOVER_RECORD_POINTS + 1].y;
+	float dx, dz, size;
+
+	c->hop = (c->hop + 1) % CHOMP_HOP_TICKS;
+	switch (c->state)
+	{
+	case CHOMP_WANDER:
+		if (Chase_Near(c, sx, sz, records[2].y))
+		{
+			// it aims once, where the kart will be, as far as its chain lets it
+			float zero = 0;
+			c->state = CHOMP_LUNGE;
+			c->count = 0;
+			c->vx = c->vz = 0;
+			c->tx = c->kartX + c->kartVX * CHOMP_LEAD_TICKS;
+			c->tz = c->kartZ + c->kartVZ * CHOMP_LEAD_TICKS;
+			Chomp_Clamp(&c->tx, &c->tz, sx, sz, leash, &zero, &zero);
+			break;
+		}
+		dx = c->tx - c->x;
+		dz = c->tz - c->z;
+		size = sqrtf(dx * dx + dz * dz);
+		if (size <= unit)
+		{
+			// a new point on the disc round the stake, away from the last
+			for (int tries = 0; tries < 5; tries++)
+			{
+				const s32 angle = Chase_Rand(c, 4096);
+				const float r = nearest + (farthest - nearest) * Chase_Rand(c, 4096) / 4096.0f;
+				const float nx = sx + r * MATH_Cos(angle) / 4096.0f, nz = sz + r * MATH_Sin(angle) / 4096.0f;
+
+				c->tx = nx;
+				c->tz = nz;
+				if ((nx - c->x) * (nx - c->x) + (nz - c->z) * (nz - c->z) >= nearest * nearest)
+				{
+					break;
+				}
+			}
+			break;
+		}
+		c->vx = dx / size * unit;
+		c->vz = dz / size * unit;
+		c->x += c->vx;
+		c->z += c->vz;
+		break;
+
+	case CHOMP_LUNGE:
+		c->vx += (c->tx - c->x) / 128;
+		c->vz += (c->tz - c->z) / 128;
+		if (c->vx * c->vx + c->vz * c->vz > 64 * unit * unit)
+		{
+			c->vx *= 0.7f;
+			c->vz *= 0.7f;
+		}
+		dx = c->tx - c->x;
+		dz = c->tz - c->z;
+		if (dx * dx + dz * dz < 225 * unit * unit)
+		{
+			c->vx *= 0.5f;
+			c->vz *= 0.5f;
+		}
+		c->x += c->vx;
+		c->z += c->vz;
+		Chomp_Clamp(&c->x, &c->z, sx, sz, leash, &c->vx, &c->vz);
+		if (++c->count >= CHOMP_STATE_TICKS)
+		{
+			c->state = CHOMP_BACK;
+			c->count = 0;
+			c->vx = c->vz = 0;
+		}
+		break;
+
+	case CHOMP_BACK:
+		dx = c->x - sx;
+		dz = c->z - sz;
+		if (dx * dx + dz * dz > home * home)
+		{
+			c->vx += (sx - c->x) / 1024;
+			c->vz += (sz - c->z) / 1024;
+			if (c->vx * c->vx + c->vz * c->vz > unit * unit)
+			{
+				c->vx *= 0.9f;
+				c->vz *= 0.9f;
+			}
+			c->x += c->vx;
+			c->z += c->vz;
+		}
+		if (++c->count >= CHOMP_STATE_TICKS)
+		{
+			c->state = CHOMP_WANDER;
+			c->tx = c->x;
+			c->tz = c->z;
+		}
+		break;
+	}
+}
+
+// A staked Chain Chomp: wanders round its stake, lunges at the player's kart when it
+// comes near, comes back. It hops on a flat plane, whatever is under it.
+static void Mover_Chomp(struct Instance *inst, struct ConvertedMover *mover, const SVec3 *records, s32 m[3][3], s32 dt)
+{
+	struct MoverChase *c = &s_moverChase[mover->list];
+	const float unit = records[MOVER_RECORD_POINTS + 1].z / 256.0f;
+	const int ticks = Chase_Ticks(c, dt);
+	float hop;
+
+	if (c->seed == 0)
+	{
+		c->seed = (u32)mover->list * 2654435761u + 1;
+		c->x = c->tx = (float)mover->homeX;
+		c->z = c->tz = (float)mover->homeZ;
+	}
+	if (Mover_StruckHolds(mover))
+	{
+		// struck, it lies, then comes back to its stake
+		c->state = CHOMP_BACK;
+		c->count = 0;
+		c->vx = c->vz = 0;
+	}
+	for (int i = 0; i < ticks; i++)
+	{
+		Chase_Kart(c);
+		Chomp_Tick(c, records);
+	}
+
+	hop = (float)c->hop;
+	inst->matrix.t[0] = (s32)c->x;
+	inst->matrix.t[1] = records[MOVER_RECORD_POINTS].y + (s32)((3.0f * hop - 0.125f * hop * hop) * unit);
+	inst->matrix.t[2] = (s32)c->z;
+	if ((c->vx != 0) || (c->vz != 0))
+	{
+		const float size = sqrtf(c->vx * c->vx + c->vz * c->vz);
+		Mover_Face(mover, MOVER_FLAG_FACE_PATH, m, c->vx / size, c->vz / size, dt);
+	}
+	else
+	{
+		Mover_Face(mover, MOVER_FLAG_FACE_PATH, m, mover->faceX, mover->faceZ, 0);
+	}
+}
+
+// A link of its chain, on a line from the stake's top to the Chomp, sagging.
+static void Mover_Link(struct Instance *inst, const SVec3 *records)
+{
+	const int head = records[2].x;
+	const float share = records[2].y / 4096.0f;
+	const SVec3 *top = &records[MOVER_RECORD_POINTS];
+	const float rest = records[MOVER_RECORD_POINTS + 1].x;
+
+	if ((head < 0) || (head >= MOVER_MOST_LISTS))
+	{
+		return;
+	}
+	inst->matrix.t[0] = top->x + (s32)((s_moverAt[head][0] - top->x) * share);
+	inst->matrix.t[1] = (s32)(rest + (top->y - rest) * (1 - share)) - records[2].z;
+	inst->matrix.t[2] = top->z + (s32)((s_moverAt[head][2] - top->z) * share);
+}
+
+static void Ghost_Spawn(struct MoverChase *c, const SVec3 *records)
+{
+	const float unit = records[2].z / 256.0f;
+	const s32 angle = Chase_Rand(c, 4096);
+	const float r = Chase_Rand(c, 10) * unit;
+	const s32 kartYaw = (s32)(atan2f(c->fwdX, c->fwdZ) * 4096 / 6.2831853f);
+
+	c->state = GHOST_SHOWN;
+	c->share = 0;
+	c->life = 300 + Chase_Rand(c, 150);
+	c->ox = r * MATH_Sin(angle) / 4096.0f;
+	c->oz = r * MATH_Cos(angle) / 4096.0f;
+	c->radius = (60 + Chase_Rand(c, 13)) * unit;
+	// ahead of the kart, as the game's are of its camera, within 60 degrees either way
+	c->yaw = (kartYaw + Chase_Rand(c, 0x555) - 0x2aa) * 16;
+	c->swing = 0x1000 + Chase_Rand(c, 0x1000);
+	c->phase = 0;
+	c->phaseStep = 96 + Chase_Rand(c, 48);
+	c->lift = 25 + Chase_Rand(c, 26);
+	c->rise = 0;
+	c->riseStep = 256 + Chase_Rand(c, 128);
+}
+
+static void Ghost_Tick(struct MoverChase *c, const SVec3 *records)
+{
+	const SVec3 *group = &records[MOVER_RECORD_POINTS];
+	const int near = Chase_Near(c, group->x, group->z, records[2].x);
+
+	switch (c->state)
+	{
+	case GHOST_OFF:
+		if (!near)
+		{
+			// the next time the kart comes, four at once, then the last two a while apart
+			c->delay = (records[2].y < 4) ? Chase_Rand(c, 15) : (records[2].y - 3) * (1 + Chase_Rand(c, 20));
+			break;
+		}
+		if (c->delay-- <= 0)
+		{
+			Ghost_Spawn(c, records);
+		}
+		break;
+
+	case GHOST_SHOWN:
+		c->share += 4096 / GHOST_GROW_TICKS;
+		if (c->share > 4096)
+		{
+			c->share = 4096;
+		}
+		if (!near || (--c->life <= 0))
+		{
+			c->state = GHOST_FADING;
+		}
+		break;
+
+	case GHOST_FADING:
+		c->share -= 4096 / GHOST_FADE_TICKS;
+		if (c->share <= 0)
+		{
+			c->share = 0;
+			c->state = GHOST_OFF;
+			c->delay = Chase_Rand(c, 20);
+		}
+		break;
+	}
+	c->phase += c->phaseStep;
+	c->rise += c->riseStep;
+}
+
+// A Boo: when the player's kart comes near its group, it rings the kart, swaying from
+// side to side and bobbing, for a few seconds, then fades and comes again.
+// -> whether it is not there just now.
+static int Mover_Ghost(struct Instance *inst, struct ConvertedMover *mover, const SVec3 *records, s32 dt)
+{
+	struct MoverChase *c = &s_moverChase[mover->list];
+	const float unit = records[2].z / 256.0f;
+	const int ticks = Chase_Ticks(c, dt);
+	const struct Driver *kart = Chase_Player();
+	float cx, cy, cz;
+	s32 theta, height;
+
+	if (c->seed == 0)
+	{
+		c->seed = (u32)mover->list * 2654435761u + 1;
+		c->fwdZ = 1;
+		c->delay = -1;
+	}
+	for (int i = 0; i < ticks; i++)
+	{
+		Chase_Kart(c);
+		Ghost_Tick(c, records);
+	}
+	if ((c->share == 0) || ((kart == NULL) && !Mover_DevHeld()))
+	{
+		inst->flags |= HIDE_MODEL;
+		return 1;
+	}
+
+	if (Mover_DevHeld())
+	{
+		// held to be looked at: round its group's point
+		cx = records[MOVER_RECORD_POINTS].x;
+		cy = records[MOVER_RECORD_POINTS].y;
+		cz = records[MOVER_RECORD_POINTS].z;
+	}
+	else
+	{
+		cx = c->kartX;
+		cy = (float)kart->instSelf->matrix.t[1];
+		cz = c->kartZ;
+	}
+	theta = (c->yaw + ((c->swing * MATH_Cos((u32)(c->phase >> 4) & 0xfff)) >> 12)) >> 4;
+	height = c->lift + ((GHOST_SWELL * (4096 - MATH_Cos((u32)(c->rise >> 4) & 0xfff))) >> 13);
+	inst->flags &= ~HIDE_MODEL;
+	inst->matrix.t[0] = (s32)(cx + c->ox + c->radius * MATH_Sin(theta & 0xfff) / 4096.0f);
+	inst->matrix.t[1] = (s32)(cy + (10 + height) * unit);
+	inst->matrix.t[2] = (s32)(cz + c->oz + c->radius * MATH_Cos(theta & 0xfff) / 4096.0f);
+	inst->scale.x = (s16)((inst->instDef->scale.x * c->share) >> 12);
+	inst->scale.y = (s16)((inst->instDef->scale.y * c->share) >> 12);
+	inst->scale.z = (s16)((inst->instDef->scale.z * c->share) >> 12);
+	mover->hitShare = c->share ? c->share : 1;
+	return 0;
+}
+
 // CTR_DEV_MOVER_LOG=<file>: each mover's place and turn every 293 frames (or
 // CTR_DEV_MOVER_LOG_EVERY), for tools/tracks/mover_check.py.
 static void Mover_Log(const struct ConvertedMover *mover, const struct Instance *inst, const SVec3 *records)
@@ -1492,9 +1908,9 @@ static void ConvertedMover_ThTick(struct Thread *t)
 	int hidden = 0, struck;
 
 	mover->timeMS += dt;
-	if (records[0].x != MOVER_KEYS)
+	if ((records[0].x != MOVER_KEYS) && (records[0].x != MOVER_GHOST))
 	{
-		inst->flags &= ~HIDE_MODEL; // a struck reaction hides it a while; keys say for themselves
+		inst->flags &= ~HIDE_MODEL; // a struck reaction hides it a while; keys and a Boo say for themselves
 	}
 	if ((records[0].x == MOVER_SPIN) || (records[0].x == MOVER_SWING) || (records[0].x == MOVER_PULSE) || (records[0].x == MOVER_STILL) || (records[0].x == MOVER_TURNS))
 	{
@@ -1535,6 +1951,18 @@ static void ConvertedMover_ThTick(struct Thread *t)
 		Mover_TurnByKeys(mover, records, m);
 		break;
 
+	case MOVER_CHOMP:
+		Mover_Chomp(inst, mover, records, m, dt);
+		break;
+
+	case MOVER_LINK:
+		Mover_Link(inst, records);
+		break;
+
+	case MOVER_GHOST:
+		hidden = Mover_Ghost(inst, mover, records, dt);
+		break;
+
 	case MOVER_SWING:
 		if (records[2].y == 0)
 		{
@@ -1552,18 +1980,6 @@ static void ConvertedMover_ThTick(struct Thread *t)
 		}
 		Mover_Multiply(m, m, turn);
 		break;
-
-	case MOVER_HOP:
-	{
-		const SVec3 *way = &records[MOVER_RECORD_POINTS];
-		const s32 phase = (s32)((mover->timeMS + records[2].z) % (u32)records[2].x) * 4096 / records[2].x;
-		const s32 share = MATH_Sin(phase / 2);
-
-		inst->matrix.t[0] = mover->homeX + ((way->x * share) >> 12);
-		inst->matrix.t[1] = mover->homeY + ((way->y * share) >> 12);
-		inst->matrix.t[2] = mover->homeZ + ((way->z * share) >> 12);
-		break;
-	}
 
 	case MOVER_ORBIT:
 	{
@@ -1660,6 +2076,7 @@ void ConvertedMover_LevelStart(const struct InstDef *definitions, int count)
 	memset(s_moverAt, 0, sizeof(s_moverAt));
 	memset(s_moverGraceUntil, 0, sizeof(s_moverGraceUntil));
 	memset(s_moverStruck, 0, sizeof(s_moverStruck));
+	memset(s_moverChase, 0, sizeof(s_moverChase));
 }
 
 void ConvertedMover_LInB(struct Instance *inst)

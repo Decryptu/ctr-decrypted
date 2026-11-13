@@ -18,7 +18,7 @@ SIDES_ALIKE = 0.12  # a view may show this little of the fullest view of a model
 MOST_OFF = 0.12  # of the frame's height, from the middle
 CELL = 8  # pixels: parts of one model this close are one thing
 SWEEPS = {1, 2, 4, 8}  # SPIN, SWING, ORBIT, TURNS: they go round, so the frame's middle says nothing, and a thin one turns edge on
-COMES_AND_GOES = {5}  # PULSE: out of sight for part of its time
+COMES_AND_GOES = {5, 11}  # PULSE, GHOST: out of sight for part of its time
 CROWDS = {'wanwan_chain', 'basabasa', 'crate'}  # one of several close together: the frame's middle says nothing
 
 
