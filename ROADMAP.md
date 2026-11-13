@@ -7,7 +7,7 @@ Open work only: what is in progress, what is planned, what may come, and what is
 
 ## In progress
 - Mario Kart DS course converter ([TRACK-CONVERTER.md](docs/TRACK-CONVERTER.md)). All 32 race courses convert and are available in the [track catalogue](https://github.com/Decryptu/ctr-decrypted-tracks). Left:
-  - Object behaviour read in the game's code and not built: Boos ringing the kart, where here they hover at their spots; a staked Chain Chomp aiming at the kart, where here it lunges at the route; a Thwomp, a Chomp or a flare reacting to an invincible kart as MKDS's objects do to a kart with a Star (here a kart with the Aku Aku or Uka Uka mask is simply not hurt, and the object does nothing); animated models (paintings, the crowd, Pokey's sway, the coffin's lid).
+  - Object behaviour read in the game's code and not built: Boos ringing the kart, where here they hover at their spots; a staked Chain Chomp aiming at the kart, where here it lunges at the route; animated models (paintings, the crowd, Pokey's sway, the coffin's lid).
   - Custom tracks are one-player only. If they ever get split screen, its far emitter (`DrawLevelOvr1P_EmitSplitGroundListAQuadBlock`) must draw by face too.
 
 ## Maybe

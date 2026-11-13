@@ -1236,6 +1236,21 @@ static void NativeDevRam_Frame(NativeDevRaceState *dev, struct GameTracker *gGT,
 		s_ramRun.target = -1;
 	}
 
+	// CTR_DEV_RAM_STAR: player 1 wears the mask the whole time, CTR's Star, to see what strikes.
+	// A worn mask has its time topped up, as one that ran out leaves the kart bare for a frame or
+	// two; its thread is left alone, since Aku Aku lifting the kart from a fall is the same thread
+	if (getenv("CTR_DEV_RAM_STAR") != NULL)
+	{
+		struct Thread *mask = d->instSelf->thread->childThread;
+
+		while ((mask != NULL) && ((u32)((u16)mask->modelIndex - STATIC_AKUAKU) >= MASK_MODEL_COUNT))
+			mask = mask->siblingThread;
+		if ((mask != NULL) && (mask->funcThTick == RB_MaskWeapon_ThTick))
+			((struct MaskHeadWeapon *)mask->object)->duration = MASK_HEAD_DURATION_NORMAL;
+		else if ((mask == NULL) && (d->kartState != KS_MASK_GRABBED))
+			VehPickupItem_MaskUseWeapon(d, 0);
+	}
+
 	s_ramRun.phaseMS += gGT->elapsedTimeMS;
 	if (s_ramRun.target >= 0)
 	{
@@ -1256,7 +1271,7 @@ static void NativeDevRam_Frame(NativeDevRaceState *dev, struct GameTracker *gGT,
 			d->xSpeed = d->ySpeed = d->zSpeed = 0;
 			d->speed = d->speedApprox = 0;
 			d->angle = (s16)(ratan2(t->pos[0] - s_ramRun.start[0], t->pos[2] - s_ramRun.start[2]) & 0xfff);
-			d->lastValid = NULL;
+			// lastValid stays: a fall's Aku Aku takes the kart back to it, and with none it crashed
 			d->distanceToFinish_checkpoint = 0;
 			t->events = 0;
 			s_ramRun.anyEvents = 0;

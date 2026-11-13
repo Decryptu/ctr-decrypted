@@ -39,6 +39,7 @@ LAYERED_BILLBOARD_SIZE = 128  # a square page region at 8 bits
 PATH, SPIN, SWING, HOP, ORBIT, PULSE, KEYS, STILL, TURNS = range(9)
 LOOP, BACK_AND_FORTH, RESTART = range(3)
 FACE_PATH, ROLL, SOLID, CARRIES, DROPS = 0x100, 0x200, 0x1000, 0x2000, 0x8000  # Mover.c's MOVER_FLAG_
+STAR_WALL, STRIKE_SHIFT = 0x400, 4  # Mover.c's MOVER_FLAG_STAR_WALL, MOVER_STRIKE_SHIFT
 TICKS = 60  # a second: the game's objects
 SPIN_RATE = 4.8  # 4096ths of a turn a second per unit of a spinner's speed setting: (s << 7) / 100 of 65536 a tick
 PATH_UNITS = 3.2  # level units a second per hundredth of a world unit a tick
@@ -100,6 +101,12 @@ MOVERS = {
 # flags). 2 is a wall; 3 to 7 spin a kart; 8 knocks it away; 9 and 10 throw it; 11 crushes it; 12 bounces it.
 REACTIONS = {2: (0, SOLID), 3: (SPIN_DAMAGE, 0), 4: (SPIN_DAMAGE, 0), 5: (SPIN_DAMAGE, 0), 6: (SPIN_DAMAGE, 0), 7: (SPIN_DAMAGE, 0),
              8: (SPIN_DAMAGE, SOLID), 9: (BLAST, 0), 10: (BLAST, 0), 11: (SQUISH, 0), 12: (0, SOLID)}
+# What a kart with the mask, CTR's Star, does to the objects the game lets a Star kart strike
+# (mkds_objects.STRUCK): Mover.c's MOVER_STRUCK_*, which play each object's own struck reaction.
+SPIN_AWAY, FLIP, FLIP_LIE, FLY_OFF, FALL, POP, BREAK, TUMBLE, KNOCK, KNOCK_GONE, KNOCK_CRAB, BURST, BURST_HEAD, BOUNCE = range(1, 15)
+STRUCK = {0x193: SPIN_AWAY, 0x1a5: FLIP, 0x196: FLIP_LIE, 0x1ae: FLY_OFF, 0x1a2: FALL, 0x191: POP, 0x192: BREAK, 0x1b1: BREAK,
+          0x1ab: BREAK, 0x195: TUMBLE, 0x19a: TUMBLE, 0x19c: TUMBLE, 0x19b: KNOCK, 0x1a6: KNOCK_GONE, 0x1ac: KNOCK_CRAB, 0x19d: BURST,
+          0x1b0: BOUNCE}
 # What an object brings that the game reacts to as another object: a sun's flares
 PART_REACTS = {'fireball2': 0x1ae}
 BOUND_ON_PATH = Mover('bound', (PATH, LOOP), None, 0, fixed=300 * PATH_UNITS)
@@ -508,6 +515,13 @@ def reaction(object_id):
     return REACTIONS.get(mkds_objects.REACTION.get(object_id, 0), (0, 0))
 
 
+def star(object_id, struck=None):
+    """The bits of what a kart with the mask, CTR's Star, does to the object, and whether it stops that kart:
+    MKDS's own column for a Star kart (mkds_objects.STAR_REACTION, STRUCK). struck: a kind in place of the id's."""
+    kind = struck if struck is not None else (STRUCK.get(object_id, 0) if object_id in mkds_objects.STRUCK else 0)
+    return (kind << STRIKE_SHIFT) | (STAR_WALL if mkds_objects.STAR_REACTION.get(object_id) in (2, 12) else 0)
+
+
 def key_records(track, damage, half, middle, base, flags, to_lev, lev_unit, size):
     """A MOVER_KEYS list, from a mkds_motion.Track. half: the object's own hit box."""
     step = track.step
@@ -563,6 +577,7 @@ def place(movers, model_index, halves, to_lev, lev_unit, rotate, settle, context
         if spec.damage is not None:
             damage = spec.damage
         flags = spec.flags | (0 if spec.flags & CARRIES else solid)  # a floor a kart drives on is not a wall to push it off
+        flags |= star(mover.get('reacts', mover['id']), mover.get('struck'))
         flags = flags & ~(FACE_PATH | ROLL) if flat else flags  # the game turns a picture itself
         half, middle = half * np.abs(size), middle * size
         reach = float(half.max())
@@ -597,7 +612,9 @@ def place(movers, model_index, halves, to_lev, lev_unit, rotate, settle, context
                 track_damage, track_flags = damage, flags
                 if other and track.model in PART_REACTS:
                     track_damage, part_solid = reaction(PART_REACTS[track.model])
-                    track_flags = (flags & ~SOLID) | part_solid
+                    track_flags = (flags & ~(SOLID | STAR_WALL | (0xf << STRIKE_SHIFT))) | part_solid | star(PART_REACTS[track.model])
+                elif other:
+                    track_flags = flags & ~(0xf << STRIKE_SHIFT)  # a chain's links: the head is what is struck
                 listed, ticks = key_records(track, track_damage, half, middle, base, track_flags, to_lev, lev_unit, size)
                 at = next(p for p in ticks if p is not None)
                 drawn = size if not other or track.hit == 0 else np.ones(3)
@@ -671,7 +688,7 @@ def place(movers, model_index, halves, to_lev, lev_unit, rotate, settle, context
                 for n in range(BULLETS):
                     placed += instances(halves[model_index[mover['bullet']]][2], flight[n], np.ones(3), np.ones(3), len(lists), 200.0, BULLET.model)
                     bullet_damage, bullet_solid = reaction(BULLET_REACTS)
-                    lists.append(records(PATH, BULLET.fixed, bullet_damage | BULLET.flags | bullet_solid, bullet_half, np.zeros(3), base, (RESTART, n, parent + 1), flight))
+                    lists.append(records(PATH, BULLET.fixed, bullet_damage | BULLET.flags | bullet_solid | star(BULLET_REACTS), bullet_half, np.zeros(3), base, (RESTART, n, parent + 1), flight))
     return placed, lists
 
 
