@@ -8,7 +8,6 @@ Open work only: what is in progress, what is planned, what may come, and what is
 ## In progress
 - Mario Kart DS course converter ([TRACK-CONVERTER.md](docs/TRACK-CONVERTER.md)). All 32 race courses convert and are available in the [track catalogue](https://github.com/Decryptu/ctr-decrypted-tracks). Left:
   - Animated models (paintings, the crowd, Pokey's sway, the coffin's lid): read in the game's code and not built.
-  - Republish Luigi's Mansion, Banshee Boardwalk and GCN Luigi Circuit in the catalogue: their packages predate the Boos and the staked Chain Chomp aiming at the kart, so until then their Boos stand still at their spots and the Chomp lunges at the route.
   - Custom tracks are one-player only. If they ever get split screen, its far emitter (`DrawLevelOvr1P_EmitSplitGroundListAQuadBlock`) must draw by face too.
 
 ## Maybe
