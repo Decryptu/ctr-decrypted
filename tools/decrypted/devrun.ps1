@@ -87,6 +87,8 @@ $vars = @{
 	CTR_DEV_DEMO = $Track; CTR_DEV_EXIT_FRAME = $Frames
 	CTR_DEV_SHOT_DIR = $Out; CTR_DEV_SHOT_EVERY = $Every; CTR_DEV_SHOT_FROM = $From
 	CTR_DEV_HIDDEN = [int](-not $Visible); CTR_DEV_FAST = [int](-not $RealTime)
+	# HIDAPI over libusb claims a USB pad for one process: a test run must never take the owner's controller
+	SDL_JOYSTICK_HIDAPI = 0
 }
 foreach ($k in $Env.Keys) { $vars[$k] = $Env[$k] }
 foreach ($k in $vars.Keys) { $psi.EnvironmentVariables[$k] = "$($vars[$k])" }
