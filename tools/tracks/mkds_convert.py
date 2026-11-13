@@ -871,6 +871,9 @@ FIRE_PLANT_MOVER = mkds_movers.Mover('FireBall', (mkds_movers.KEYS, 'fire_plant'
 CHAIN_CHOMPS = {0x196, 0x1a5}
 # What a kart hitting it gets is the game's reaction to another object: bats are let out by their spawners,
 # a fire plant's shot and a Pokey's parts are of the object they belong to (mkds_objects.REACTION)
+# A snowman's head stands on its body and bursts with it (Mover.c, MOVER_STRUCK_BURST_HEAD)
+SNOWMAN_HEAD_MOVER = mkds_movers.Mover('sman_top', (mkds_movers.STILL,), 0)  # the body's cylinder is the whole snowman's
+STRUCK_AS = {SNOWMAN_HEAD: mkds_movers.BURST_HEAD}
 REACTS_AS = {0x1a0: 0x19f, 0x19e: 0x19f, FIRE_PLANT_SHOT: 0x1ab, POKEY_BODY: POKEY_OBJECT, POKEY_HEAD: POKEY_OBJECT, SNOWMAN_HEAD: 0x19d}
 SUN = 0x1ad
 FLARE_MODEL, FLARE_COURSE = 'fireball2', 'stadium_course'  # a sun's flares are effects with no model: Wario Stadium's fire stands in
@@ -1391,7 +1394,7 @@ class Course:
         placed += [(part, p + (0.0, over * s[1], 0.0), r, s) for o, p, r, s in placed for part, over in STACKED.get(o, ())]
         for object_id, pos, rot, size in placed:
             name = SCENERY.get(object_id)
-            if name is None or object_id in mkds_movers.MOVERS or object_id in POKEY_PARTS or object_id in (POKEY_OBJECT, PIRANHA_HEAD):
+            if name is None or object_id in mkds_movers.MOVERS or object_id in POKEY_PARTS or object_id in (POKEY_OBJECT, PIRANHA_HEAD, SNOWMAN_HEAD):
                 continue
             file = f'MapObj/{name}.nsbmd'
             if object_id < STACKED_ID:
@@ -1497,6 +1500,7 @@ class Course:
             parts = [(object_id, 0.0)] + [(part, over) for part, over in STACKED.get(object_id, ())] + [(FIRE_PLANT_SHOT, 0.0)] * (1 if shots else 0)
             table[FIRE_PLANT_SHOT] = FIRE_PLANT_MOVER
             table[PIRANHA_HEAD] = mkds_movers.FIRE_PLANT_HEAD
+            table[SNOWMAN_HEAD] = SNOWMAN_HEAD_MOVER
             for part, over in parts:
                 spec = table.get(part)
                 if part == BURNER and path is not None:
@@ -1540,7 +1544,7 @@ class Course:
                 if part == SUN:
                     self.load_part_model(FLARE_MODEL, self.flare_arc)
                 self.movers.append({'tyres': tyres, 'bullet': bullet, 'key': key, 'spec': spec, 'pos': pos + (0.0, over * size[1], 0.0), 'rot': rot, 'size': size, 'path': path, 'settings': settings, 'over': over, 'id': part,
-                                    'reacts': REACTS_AS.get(part, part)})
+                                    'reacts': REACTS_AS.get(part, part), 'struck': STRUCK_AS.get(part)})
 
     def load_part_model(self, name, arc):
         """A model an object brings with it: a cannon's shot, a chain's link."""

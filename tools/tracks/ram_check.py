@@ -9,25 +9,29 @@ a Pokey's lowest part hits for the parts above it.
 Each prints what it did: hurt (the hazard code took the kart), pushed (solid, the kart was stopped at it),
 crate (an item box broke), or nothing; out of reach when it was over or under the kart as it passed (a shot in
 its arc). Exit 1 when one did nothing within reach.
+
+With --star player 1 wears the mask the whole time (CTR_DEV_RAM_STAR), CTR's Star: what MKDS lets a Star kart
+strike must show struck, what stops a Star kart must push it, and nothing may hurt it.
 """
 import argparse, json, os, subprocess, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
 EXE = os.path.join(REPO, 'build-mrg-client', 'ctr_native_authoring.exe')
-PUSH, HURT, CRATE = 1, 2, 4  # Mover.c's MOVER_EVENT_
+PUSH, HURT, CRATE, STRUCK = 1, 2, 4, 8  # Mover.c's MOVER_EVENT_
+SOLID, STAR_WALL, STRIKE_MASK = 0x1000, 0x400, 0xf0  # Mover.c's MOVER_FLAG_SOLID, MOVER_FLAG_STAR_WALL, MOVER_STRIKE_MASK
 KART = 48  # Mover.c's MOVER_KART_RADIUS
 FRAMES_EACH = 1800  # presented frames one object may take: three tries of a hold and a drive
 SETTLE = 1700
 
 
-def run(course, exe, run_dir, count):
+def run(course, exe, run_dir, count, star):
     work = f'C:/t/mkds-{course}'
     log = f'{work}/ram.log'
     pin = open(f'{work}/pin.txt').read().strip()
     if os.path.exists(log):
         os.remove(log)
-    env = f"@{{CTR_DEV_CUSTOM='{pin}'; CTR_DEV_RAM='{log}'; CTR_DEV_MOVERS_OPEN=1}}"
+    env = f"@{{CTR_DEV_CUSTOM='{pin}'; CTR_DEV_RAM='{log}'; CTR_DEV_MOVERS_OPEN=1{"; CTR_DEV_RAM_STAR=1" if star else ""}}}"
     script = (f"$p='{run_dir}\\assets\\tracks\\packages'; New-Item -ItemType Directory -Force $p | Out-Null; "
               f"Get-ChildItem $p -Directory | Where-Object Name -ne '{pin}' | Remove-Item -Recurse -Force; "
               f"Copy-Item '{work}/packages/{pin}' $p -Recurse -Force; "
@@ -42,11 +46,13 @@ def main():
     ap.add_argument('course')
     ap.add_argument('--exe', default=EXE)
     ap.add_argument('--run', default='C:\\t\\ram-run')
+    ap.add_argument('--star', action='store_true', help="player 1 wears the mask, CTR's Star")
     a = ap.parse_args()
     items = json.load(open(f'C:/t/mkds-{a.course}/{a.course}_items.json'))
     names = {m['list']: m['name'] for m in items['movers']}
     halves = {n: max(abs(h) for h in rows[1]) for n, rows in enumerate(items['mover_lists'])}
-    lines = run(a.course, a.exe, a.run, len(names))
+    flags = {n: rows[0][2] & 0xffff for n, rows in enumerate(items['mover_lists'])}
+    lines = run(a.course, a.exe, a.run, len(names), a.star)
     bad, seen = [], 0
     for line in lines:
         parts = line.split()
@@ -54,15 +60,23 @@ def main():
             continue
         seen += 1
         listed, state, nearest, passed, events, above = int(parts[1]), int(parts[5]), int(parts[7]), int(parts[9]), int(parts[15]), int(parts[17])
-        what = [w for bit, w in ((HURT, 'hurt'), (PUSH, 'pushed'), (CRATE, 'crate')) if events & bit] or ['nothing']
+        what = [w for bit, w in ((HURT, 'hurt'), (PUSH, 'pushed'), (CRATE, 'crate'), (STRUCK, 'struck')) if events & bit] or ['nothing']
         reach = halves.get(listed, 0) + KART
         out_of_reach = events == 0 and nearest < reach and abs(above) > reach  # it passed over or under the kart
         print(f'{a.course:16} {listed:4} {names.get(listed, "?"):16} {"+".join(what):12} kart state {state} nearest {nearest} {above:+d} up'
               f'{" went through" if passed else ""}{" out of reach" if out_of_reach else ""}')
-        if events == 0 and not out_of_reach:
+        if a.star:
+            # events is anyEvents (any mover hit while driving at this one, a neighbour's solid wall
+            # included, as the plain check also takes): a hurt is never right for a masked kart, from
+            # whatever hit it, but an extra push beside the one this object wants proves nothing.
+            f = flags.get(listed, 0)
+            wanted = (STRUCK if f & STRIKE_MASK else 0) | (PUSH if f & SOLID and f & STAR_WALL else 0)
+            if events & HURT or (wanted & ~events and not out_of_reach):
+                bad.append(names.get(listed, '?'))
+        elif events == 0 and not out_of_reach:
             bad.append(names.get(listed, '?'))
     done = any(line.strip() == 'done' for line in lines)
-    print(f'{a.course}: {seen} rammed, {len(bad)} did nothing {sorted(set(bad))}{"" if done else ", run ended before the last"}')
+    print(f'{a.course}: {seen} rammed, {len(bad)} {"wrong for a Star kart" if a.star else "did nothing"} {sorted(set(bad))}{"" if done else ", run ended before the last"}')
     sys.exit(1 if bad or not done else 0)
 
 

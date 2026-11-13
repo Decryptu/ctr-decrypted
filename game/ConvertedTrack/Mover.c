@@ -28,6 +28,9 @@
 // race must reach; the point it must come near. Then the keys; MOVER_KEY_HIDDEN in y:
 // it is not there.
 // STILL: stays where it is placed, and only hits.
+// Bits 4-7 of the damage word: what it does when a kart with the mask, CTR's Star,
+// strikes it (MOVER_STRUCK_*); MOVER_FLAG_STAR_WALL: SOLID stops that kart too, else
+// it rams through.
 // TURNS: stays where it is placed and turns by keys, worked out by mkds_motion.py (a fire
 // plant's head, Waluigi Pinball's drums). Speed: ms a key. a, b: the axes of its first and
 // second turn. Records 7+: the keys, its first and second angle, 4096ths of a turn. The
@@ -44,6 +47,7 @@ enum
 	MOVER_EVENT_PUSH = 1,
 	MOVER_EVENT_HURT = 2,
 	MOVER_EVENT_CRATE = 4,
+	MOVER_EVENT_STRUCK = 8,
 };
 
 enum
@@ -69,7 +73,10 @@ enum
 	MOVER_FLAG_DROPS = 0x8000,   // KEYS: hurts only when it drops, and is merely solid otherwise
 	MOVER_ITEM_BOX = 4,          // in place of a damage: it breaks as a weapon crate does
 	MOVER_MOST_LISTS = 512,
-	MOVER_DAMAGE_MASK = 0xff,
+	MOVER_DAMAGE_MASK = 0x0f,
+	MOVER_STRIKE_SHIFT = 4,      // what a kart with the mask does to it (MOVER_STRUCK_*), CTR's Star
+	MOVER_STRIKE_MASK = 0xf0,
+	MOVER_FLAG_STAR_WALL = 0x400, // SOLID stops a kart with the mask too; else it rams through
 
 	MOVER_RECORD_MIDDLE = 6,
 	MOVER_RECORD_POINTS = 7,
@@ -815,6 +822,527 @@ static int Mover_InGrace(int driver)
 	return left > 0;
 }
 
+// A kart with the mask, CTR's Star, strikes what MKDS lets a Star kart strike
+// (docs/TRACK-CONVERTER.md#movers): each plays its own struck reaction, read in the
+// game's code, over what it does anyway. Its numbers are the game's, in world units
+// and ticks (60 a second); MOVER_LEV_X3 level units are three world units.
+enum
+{
+	MOVER_STRUCK_NONE,
+	MOVER_STRUCK_SPIN_AWAY,  // a Thwomp spins about its height, slowing, until it faces its way again
+	MOVER_STRUCK_FLIP,       // a Chain Chomp hops up on its back and turns over again, and runs on
+	MOVER_STRUCK_FLIP_LIE,   // a staked one too, and lies there 120 ticks
+	MOVER_STRUCK_FLY_OFF,    // a sun's flare rises, spirals down and is gone
+	MOVER_STRUCK_FALL,       // a Bullet Bill drops
+	MOVER_STRUCK_POP,        // a Goomba swells, shrinks away, and springs back 300 ticks later
+	MOVER_STRUCK_BREAK,      // a rock or snowball breaks, a fire plant's shot goes out: back with its next run
+	MOVER_STRUCK_TUMBLE,     // a car flies up turning over, and lands on its path
+	MOVER_STRUCK_KNOCK,      // a Cheep Cheep is knocked aside spinning, and is back 300 ticks after it lands
+	MOVER_STRUCK_KNOCK_GONE, // a piranha plant is too, for good
+	MOVER_STRUCK_KNOCK_CRAB, // a crab falls away, and starts its path again 300 ticks later
+	MOVER_STRUCK_BURST,      // a snowman bursts and builds itself again
+	MOVER_STRUCK_BURST_HEAD, // its head, after its body
+	MOVER_STRUCK_BOUNCE,     // an iron ball bounces, and rolls on
+
+	MOVER_LEV_X3 = 16,      // level units in three world units (tools/tracks: 64 a world unit, scaled 1/12)
+	MOVER_STAR_SOUND = 0x71,
+	MOVER_STRUCK_RESPAWN = 300,
+	MOVER_BURST_FALL = 70,  // the head's flight: up at 8 from 15.2, 0.25 down a tick, down at 6 at most
+	MOVER_BURST_WAIT = 354,
+	MOVER_BURST_GROW = 64,
+	MOVER_BURST_HEAD_AFTER = 10,
+};
+
+struct MoverStruck
+{
+	s32 kind;
+	s32 ticks;       // since it was struck
+	s32 ms;          // what is left of a tick
+	s32 cycle;       // the keys' round, or the path's segment, when it was struck
+	s32 at[3];       // where it was struck, level units
+	float pos[3];    // a flight's place from there, world units
+	float vel[3];    // world units a tick
+	float spin;      // 65536ths of a turn a tick
+	s32 angle;       // 65536ths of a turn
+	float axis[3];   // a car's turn
+	float scale;     // 1 is its size
+	float scaleVel;
+	s32 stage;
+	s32 gone;        // hidden for good
+};
+
+static struct MoverStruck s_moverStruck[MOVER_MOST_LISTS];
+
+static int Mover_StrikeKind(const SVec3 *records)
+{
+	return ((u16)records[0].z & MOVER_STRIKE_MASK) >> MOVER_STRIKE_SHIFT;
+}
+
+// The kart's sideways way, towards the object, and its velocity, world units a tick;
+// -> which side of the kart it is on, 1 its right.
+static float Mover_StrikeWay(const struct Driver *driver, const struct Instance *inst, float side[3], float kartVel[3])
+{
+	const float fx = MATH_Sin(driver->angle & 0xfff) / 4096.0f, fz = MATH_Cos(driver->angle & 0xfff) / 4096.0f;
+	const float dx = (float)(inst->matrix.t[0] - driver->instSelf->matrix.t[0]), dz = (float)(inst->matrix.t[2] - driver->instSelf->matrix.t[2]);
+	const float way = (dx * fz - dz * fx >= 0) ? 1.0f : -1.0f;
+	const s32 frameMS = (GAME_TRACKER->elapsedTimeMS > 0) ? GAME_TRACKER->elapsedTimeMS : 33;
+
+	side[0] = fz * way;
+	side[1] = 0;
+	side[2] = -fx * way;
+	// posCurr is level units * 256; a tick is 1000/60 ms
+	kartVel[0] = (float)(driver->posCurr.x - driver->posPrev.x) / 256.0f * 3 / MOVER_LEV_X3 * (1000.0f / 60) / frameMS;
+	kartVel[1] = 0;
+	kartVel[2] = (float)(driver->posCurr.z - driver->posPrev.z) / 256.0f * 3 / MOVER_LEV_X3 * (1000.0f / 60) / frameMS;
+	return way;
+}
+
+static void Mover_Strike(struct ConvertedMover *mover, struct Instance *inst, const SVec3 *records, const struct Driver *driver)
+{
+	struct MoverStruck *s = &s_moverStruck[mover->list];
+	const int kind = Mover_StrikeKind(records);
+	float side[3], kartVel[3], way;
+
+	if ((kind == MOVER_STRUCK_NONE) || (kind == MOVER_STRUCK_BURST_HEAD) || (s->kind != MOVER_STRUCK_NONE) || s->gone)
+	{
+		return;
+	}
+	way = Mover_StrikeWay(driver, inst, side, kartVel);
+	memset(s, 0, sizeof(*s));
+	s->kind = kind;
+	s->scale = 1;
+	s->cycle = (records[0].x == MOVER_KEYS) ? mover->direction : mover->segment;
+	s->at[0] = inst->matrix.t[0];
+	s->at[1] = inst->matrix.t[1];
+	s->at[2] = inst->matrix.t[2];
+
+	switch (kind)
+	{
+	case MOVER_STRUCK_SPIN_AWAY:
+		s->spin = 7000.0f * way; // its way round from the kart's side
+		break;
+	case MOVER_STRUCK_FLIP:
+	case MOVER_STRUCK_FLIP_LIE:
+		s->vel[1] = 8;
+		break;
+	case MOVER_STRUCK_FLY_OFF:
+		s->vel[1] = 3;
+		break;
+	case MOVER_STRUCK_TUMBLE:
+	{
+		// it flies away from the kart, turning about that way
+		const float fx = MATH_Sin(driver->angle & 0xfff) / 4096.0f, fz = MATH_Cos(driver->angle & 0xfff) / 4096.0f;
+		const float ax = side[0] * 2 + fx, az = side[2] * 2 + fz, ay = 2.0f;
+		const float size = sqrtf(ax * ax + ay * ay + az * az);
+
+		s->axis[0] = ax / size;
+		s->axis[1] = ay / size;
+		s->axis[2] = az / size;
+		s->vel[1] = 7;
+		s->spin = 900;
+		break;
+	}
+	case MOVER_STRUCK_KNOCK:
+	case MOVER_STRUCK_KNOCK_GONE:
+	case MOVER_STRUCK_KNOCK_CRAB:
+		for (int i = 0; i < 3; i += 2)
+		{
+			s->vel[i] = side[i] * 1.5f + kartVel[i] / 2;
+		}
+		s->vel[1] = 4;
+		s->spin = (kind == MOVER_STRUCK_KNOCK) ? 0x400 : (kind == MOVER_STRUCK_KNOCK_GONE) ? 0x800 : 0x71c;
+		s->spin *= way;
+		break;
+	case MOVER_STRUCK_BOUNCE:
+		s->vel[1] = 10;
+		break;
+	case MOVER_STRUCK_BURST:
+		s->scale = 0;
+		break;
+	}
+
+	if ((driver->actionsFlagSet & ACTION_BOT) == 0)
+	{
+		OtherFX_Play_Echo(MOVER_STAR_SOUND, 1, (driver->actionsFlagSet & ACTION_ENGINE_ECHO) != 0);
+	}
+}
+
+// One tick of a struck reaction; -> 0 when it is over.
+static int Mover_StruckTick(struct MoverStruck *s, struct ConvertedMover *mover)
+{
+	const int t = ++s->ticks;
+
+	switch (s->kind)
+	{
+	case MOVER_STRUCK_SPIN_AWAY:
+	{
+		const s32 before = s->angle & 0xffff;
+		s32 after;
+
+		if (fabsf(s->spin) > 1000)
+		{
+			s->spin *= 0xfa00 / 65536.0f;
+		}
+		s->angle += (s32)s->spin;
+		after = s->angle & 0xffff;
+		// slowed, it stops as it comes round to face its way again
+		if ((fabsf(s->spin) <= 1000) && ((s->spin > 0) ? (after < before) : (after > before)))
+		{
+			s->angle = 0;
+			return 0;
+		}
+		return 1;
+	}
+
+	case MOVER_STRUCK_FLIP:
+	case MOVER_STRUCK_FLIP_LIE:
+		if (s->stage == 0)
+		{
+			s->pos[1] += s->vel[1];
+			s->vel[1] -= (t <= 40) ? 0.4f : 0.25f;
+			if (s->pos[1] <= 0)
+			{
+				s->pos[1] = 0;
+				s->stage = 1;
+			}
+		}
+		s->angle = (t * 0x200 < 0x3000) ? (s32)(0xd000 + t * 0x200) : 0;
+		return (s->stage == 0) || ((s->kind == MOVER_STRUCK_FLIP_LIE) && (t < 120));
+
+	case MOVER_STRUCK_FLY_OFF:
+		if (t > 360)
+		{
+			s->gone = 1; // until its keys bring the next flare
+			return 1;
+		}
+		s->vel[1] -= 0.05f;
+		if (s->vel[1] < -2)
+		{
+			s->vel[1] = -2;
+		}
+		if (s->vel[1] < 0)
+		{
+			// it spirals down, turning 20 degrees a tick
+			if (s->stage == 0)
+			{
+				s->angle = (s32)(rand() & 0xffff);
+				s->stage = 1;
+			}
+			s->angle += 0xe39;
+			s->pos[0] += 2 * MATH_Sin((s->angle >> 4) & 0xfff) / 4096.0f;
+			s->pos[2] += 2 * MATH_Cos((s->angle >> 4) & 0xfff) / 4096.0f;
+		}
+		s->pos[1] += s->vel[1];
+		return 1;
+
+	case MOVER_STRUCK_FALL:
+		s->vel[1] -= 0.25f;
+		s->pos[1] += s->vel[1];
+		if (s->pos[1] < -400)
+		{
+			s->gone = 1; // until it is fired again
+		}
+		return 1;
+
+	case MOVER_STRUCK_POP:
+		if (s->stage == 0)
+		{
+			s->scale *= 1.15f;
+			s->stage = s->scale > 1.5f;
+		}
+		else if (s->stage == 1)
+		{
+			s->scale *= 0.85f;
+			if (s->scale < 0.2f)
+			{
+				s->scale = 0;
+				s->stage = 2;
+				s->ticks = 0;
+			}
+		}
+		else if (s->stage == 2)
+		{
+			if (t >= MOVER_STRUCK_RESPAWN)
+			{
+				s->stage = 3;
+				s->ticks = 0;
+			}
+		}
+		else
+		{
+			s->scaleVel += (1 - s->scale) / 8;
+			s->scaleVel *= 0.85f;
+			s->scale += s->scaleVel;
+			return t < 60;
+		}
+		return 1;
+
+	case MOVER_STRUCK_BREAK:
+		s->gone = 1; // until its next run
+		return 1;
+
+	case MOVER_STRUCK_TUMBLE:
+		s->angle += (s32)s->spin;
+		if (s->stage < 2)
+		{
+			s->pos[1] += s->vel[1];
+			s->vel[1] -= 0.35f;
+			if (s->pos[1] <= 0)
+			{
+				s->pos[1] = 0;
+				s->stage++;
+				s->vel[1] = (s->stage == 1) ? -s->vel[1] * 0.075f : 0;
+				s->spin = (s->stage == 1) ? -800.0f : -600.0f; // it turns back as it lands
+				s->ticks = 0;
+			}
+			return 1;
+		}
+		// then 15 ticks at that, and on at 150 until it stands as it was
+		if (t > 15)
+		{
+			const s32 left = s->angle & 0xffff;
+
+			s->spin = -150;
+			if ((left > 0) && (left <= 150))
+			{
+				s->angle = 0;
+				return 0;
+			}
+		}
+		return 1;
+
+	case MOVER_STRUCK_KNOCK:
+	case MOVER_STRUCK_KNOCK_GONE:
+	case MOVER_STRUCK_KNOCK_CRAB:
+		if (s->stage == 0)
+		{
+			const float floor = (s->kind == MOVER_STRUCK_KNOCK) ? -30.0f : (s->kind == MOVER_STRUCK_KNOCK_GONE) ? -24.0f : -1e9f;
+
+			s->angle += (s32)s->spin;
+			s->vel[1] -= 0.25f;
+			for (int i = 0; i < 3; i++)
+			{
+				s->pos[i] += s->vel[i];
+			}
+			if ((s->kind == MOVER_STRUCK_KNOCK_CRAB) ? (t >= MOVER_STRUCK_RESPAWN) : (s->pos[1] < floor))
+			{
+				s->stage = 1;
+				s->ticks = 0;
+				if (s->kind == MOVER_STRUCK_KNOCK_GONE)
+				{
+					s->gone = 1;
+				}
+				if (s->kind == MOVER_STRUCK_KNOCK_CRAB)
+				{
+					// it starts its path again
+					mover->segment = 0;
+					mover->along = 0;
+					mover->direction = 1;
+					return 0;
+				}
+			}
+			return 1;
+		}
+		return (s->kind == MOVER_STRUCK_KNOCK_GONE) || (t < MOVER_STRUCK_RESPAWN);
+
+	case MOVER_STRUCK_BURST:
+		if (t <= MOVER_BURST_FALL + MOVER_BURST_WAIT)
+		{
+			return 1;
+		}
+		s->scale = (float)(t - MOVER_BURST_FALL - MOVER_BURST_WAIT) / MOVER_BURST_GROW;
+		if (s->scale >= 1)
+		{
+			s->scale = 1;
+		}
+		// whole when its head is
+		return t < MOVER_BURST_FALL + MOVER_BURST_WAIT + MOVER_BURST_GROW + MOVER_BURST_HEAD_AFTER + MOVER_BURST_GROW;
+
+	case MOVER_STRUCK_BOUNCE:
+		s->pos[1] += s->vel[1];
+		s->vel[1] -= 1;
+		if (s->pos[1] <= 0)
+		{
+			s->pos[1] = 0;
+			s->vel[1] = -s->vel[1] / 2;
+			return s->vel[1] >= 1;
+		}
+		return 1;
+	}
+	return 0;
+}
+
+// A snowman's head: the body it stands on, a burst list at its place.
+static const struct MoverStruck *Mover_HeadsBody(const struct ConvertedMover *mover)
+{
+	const int numLists = GAME_TRACKER->level1->numSpawnType2;
+
+	for (int list = 0; (list < numLists) && (list < MOVER_MOST_LISTS); list++)
+	{
+		const SVec3 *records = GAME_TRACKER->level1->ptrSpawnType2[list].coords.positions;
+
+		if ((Mover_StrikeKind(records) == MOVER_STRUCK_BURST) && (s_moverAt[list][0] == mover->homeX) && (s_moverAt[list][2] == mover->homeZ))
+		{
+			return &s_moverStruck[list];
+		}
+	}
+	return NULL;
+}
+
+// What a struck reaction does to it this frame, after its own motion: where it is, how
+// it is turned and how large, and whether it is there. -> whether it hits nothing now.
+static int Mover_Struck(struct ConvertedMover *mover, struct Instance *inst, const SVec3 *records, s32 m[3][3], s32 dt, int *hidden)
+{
+	struct MoverStruck *s = &s_moverStruck[mover->list];
+	s32 turn[3][3];
+
+	if (Mover_StrikeKind(records) == MOVER_STRUCK_BURST_HEAD)
+	{
+		const struct MoverStruck *body = Mover_HeadsBody(mover);
+		const s32 grow = MOVER_BURST_FALL + MOVER_BURST_WAIT + MOVER_BURST_GROW + MOVER_BURST_HEAD_AFTER;
+		float share;
+
+		if ((body == NULL) || (body->kind != MOVER_STRUCK_BURST))
+		{
+			inst->scale = inst->instDef->scale;
+			return 0;
+		}
+		share = (body->ticks <= grow) ? 0 : (float)(body->ticks - grow) / MOVER_BURST_GROW;
+		inst->scale.x = (s16)(inst->instDef->scale.x * share);
+		inst->scale.y = (s16)(inst->instDef->scale.y * share);
+		inst->scale.z = (s16)(inst->instDef->scale.z * share);
+		if (share <= 0)
+		{
+			*hidden = 1;
+			inst->flags |= HIDE_MODEL;
+		}
+		return 1;
+	}
+
+	if (s->kind == MOVER_STRUCK_NONE)
+	{
+		return 0;
+	}
+
+	// a reaction that waits for its next run ends with that run
+	if (s->gone && (s->kind != MOVER_STRUCK_KNOCK_GONE))
+	{
+		const s32 cycle = (records[0].x == MOVER_KEYS) ? mover->direction : mover->segment;
+		const int again = (records[0].x == MOVER_KEYS) ? (cycle != s->cycle) || *hidden : (cycle < s->cycle);
+
+		s->cycle = cycle;
+		if (again)
+		{
+			s->kind = MOVER_STRUCK_NONE;
+			s->gone = 0;
+			return 0;
+		}
+	}
+
+	s->ms += dt * 60;
+	while (s->ms >= 1000)
+	{
+		s->ms -= 1000;
+		if (!Mover_StruckTick(s, mover))
+		{
+			s->kind = MOVER_STRUCK_NONE;
+			inst->scale = inst->instDef->scale;
+			return 0;
+		}
+	}
+
+	if (s->gone)
+	{
+		*hidden = 1;
+		inst->flags |= HIDE_MODEL;
+		return 1;
+	}
+
+	switch (s->kind)
+	{
+	case MOVER_STRUCK_SPIN_AWAY:
+		Mover_AxisTurn(turn, 1, (s->angle >> 4) & 0xfff);
+		Mover_Multiply(m, m, turn);
+		break;
+
+	case MOVER_STRUCK_FLIP:
+	case MOVER_STRUCK_FLIP_LIE:
+		inst->matrix.t[1] += (s32)(s->pos[1] * MOVER_LEV_X3 / 3);
+		Mover_AxisTurn(turn, 0, (s->angle >> 4) & 0xfff);
+		Mover_Multiply(m, m, turn);
+		break;
+
+	case MOVER_STRUCK_FLY_OFF:
+	case MOVER_STRUCK_KNOCK:
+	case MOVER_STRUCK_KNOCK_GONE:
+	case MOVER_STRUCK_KNOCK_CRAB:
+		if (s->stage != 0 && s->kind != MOVER_STRUCK_FLY_OFF)
+		{
+			*hidden = 1;
+			inst->flags |= HIDE_MODEL; // away until it comes back
+			return 1;
+		}
+		// it flies from where it was struck, whatever its own motion does
+		for (int i = 0; i < 3; i++)
+		{
+			inst->matrix.t[i] = s->at[i] + (s32)(s->pos[i] * MOVER_LEV_X3 / 3);
+		}
+		Mover_AxisTurn(turn, 1, (s->angle >> 4) & 0xfff);
+		Mover_Multiply(m, m, turn);
+		break;
+
+	case MOVER_STRUCK_FALL:
+	case MOVER_STRUCK_BOUNCE:
+		inst->matrix.t[1] += (s32)(s->pos[1] * MOVER_LEV_X3 / 3);
+		break;
+
+	case MOVER_STRUCK_TUMBLE:
+	{
+		// turned about its way off, in the world's axes (Rodrigues)
+		const float a = (float)(s->angle & 0xffff) * 6.2831853f / 65536.0f, c = cosf(a), sn = sinf(a), k = 1 - c;
+		const float *u = s->axis;
+		s32 r[3][3];
+
+		r[0][0] = (s32)((c + u[0] * u[0] * k) * 4096);
+		r[0][1] = (s32)((u[0] * u[1] * k - u[2] * sn) * 4096);
+		r[0][2] = (s32)((u[0] * u[2] * k + u[1] * sn) * 4096);
+		r[1][0] = (s32)((u[1] * u[0] * k + u[2] * sn) * 4096);
+		r[1][1] = (s32)((c + u[1] * u[1] * k) * 4096);
+		r[1][2] = (s32)((u[1] * u[2] * k - u[0] * sn) * 4096);
+		r[2][0] = (s32)((u[2] * u[0] * k - u[1] * sn) * 4096);
+		r[2][1] = (s32)((u[2] * u[1] * k + u[0] * sn) * 4096);
+		r[2][2] = (s32)((c + u[2] * u[2] * k) * 4096);
+		Mover_Multiply(m, r, m);
+		inst->matrix.t[1] += (s32)(s->pos[1] * MOVER_LEV_X3 / 3);
+		break;
+	}
+
+	case MOVER_STRUCK_POP:
+	case MOVER_STRUCK_BURST:
+		inst->scale.x = (s16)(inst->instDef->scale.x * s->scale);
+		inst->scale.y = (s16)(inst->instDef->scale.y * s->scale);
+		inst->scale.z = (s16)(inst->instDef->scale.z * s->scale);
+		if (s->scale <= 0)
+		{
+			*hidden = 1;
+			inst->flags |= HIDE_MODEL;
+		}
+		break;
+	}
+
+	// the iron ball keeps rolling into karts; the rest hit nothing until they are themselves again
+	return s->kind != MOVER_STRUCK_BOUNCE;
+}
+
+// Whether a reaction holds its own motion meanwhile: a Goomba and a crab stand, a staked
+// Chomp lies, a snowman rebuilds where it is.
+static int Mover_StruckHolds(const struct ConvertedMover *mover)
+{
+	const struct MoverStruck *s = &s_moverStruck[mover->list];
+
+	return (s->kind == MOVER_STRUCK_POP) || (s->kind == MOVER_STRUCK_KNOCK_CRAB) || ((s->kind == MOVER_STRUCK_FLIP_LIE) && (s->stage == 1));
+}
+
 static void Mover_HitKarts(struct ConvertedMover *mover, struct Instance *inst, const SVec3 *records, s32 m[3][3])
 {
 	const int damage = mover->harmless ? 0 : (records[0].z & MOVER_DAMAGE_MASK);
@@ -851,6 +1379,24 @@ static void Mover_HitKarts(struct ConvertedMover *mover, struct Instance *inst, 
 
 		if (!inside)
 		{
+			continue;
+		}
+
+		// the mask, CTR's Star: what MKDS lets a Star kart strike plays its struck
+		// reaction, and only what stops a Star kart stops it; nothing hurts it
+		if ((driver->actionsFlagSet & ACTION_MASK_WEAPON) && (damage != MOVER_ITEM_BOX))
+		{
+			if (((u16)records[0].z & MOVER_FLAG_SOLID) && ((u16)records[0].z & MOVER_FLAG_STAR_WALL))
+			{
+				Mover_PushOut(driver, m, local, half);
+				NativeDev_MoverHit(mover->list, i, MOVER_EVENT_PUSH);
+			}
+			if ((Mover_StrikeKind(records) != MOVER_STRUCK_NONE) && (s_moverStruck[mover->list].kind == MOVER_STRUCK_NONE))
+			{
+				Mover_Strike(mover, inst, records, driver);
+				Mover_LogHit(mover, records, i, driver, "struck");
+				NativeDev_MoverHit(mover->list, i, MOVER_EVENT_STRUCK);
+			}
 			continue;
 		}
 
@@ -939,11 +1485,17 @@ static void ConvertedMover_ThTick(struct Thread *t)
 	struct Instance *inst = t->inst;
 	const SVec3 *records = Mover_Records(mover);
 	// CTR_DEV_MOVERS_REST: every mover holds its placed pose (mover_pose_check.py)
-	const s32 dt = (getenv("CTR_DEV_MOVERS_REST") != NULL) ? 0 : GAME_TRACKER->elapsedTimeMS;
+	const s32 frameMS = (getenv("CTR_DEV_MOVERS_REST") != NULL) ? 0 : GAME_TRACKER->elapsedTimeMS;
+	// a struck reaction may hold its own motion meanwhile
+	const s32 dt = Mover_StruckHolds(mover) ? 0 : frameMS;
 	s32 m[3][3], turn[3][3];
-	int hidden = 0;
+	int hidden = 0, struck;
 
 	mover->timeMS += dt;
+	if (records[0].x != MOVER_KEYS)
+	{
+		inst->flags &= ~HIDE_MODEL; // a struck reaction hides it a while; keys say for themselves
+	}
 	if ((records[0].x == MOVER_SPIN) || (records[0].x == MOVER_SWING) || (records[0].x == MOVER_PULSE) || (records[0].x == MOVER_STILL) || (records[0].x == MOVER_TURNS))
 	{
 		// it stays where it was placed; the last tick drew it at its first piece's place
@@ -1026,6 +1578,7 @@ static void ConvertedMover_ThTick(struct Thread *t)
 	}
 	}
 
+	struck = Mover_Struck(mover, inst, records, m, frameMS, &hidden);
 	Mover_Store(inst, m);
 	Mover_Log(mover, inst, records);
 	NativeDev_TrackMover(mover->list, inst->matrix.t[0], inst->matrix.t[1], inst->matrix.t[2]);
@@ -1069,7 +1622,7 @@ static void ConvertedMover_ThTick(struct Thread *t)
 			return;
 		}
 	}
-	if (!hidden)
+	if (!hidden && !struck)
 	{
 		Mover_HitKarts(mover, inst, records, m);
 	}
@@ -1106,6 +1659,7 @@ void ConvertedMover_LevelStart(const struct InstDef *definitions, int count)
 	memset(s_moverPieceTail, 0, sizeof(s_moverPieceTail));
 	memset(s_moverAt, 0, sizeof(s_moverAt));
 	memset(s_moverGraceUntil, 0, sizeof(s_moverGraceUntil));
+	memset(s_moverStruck, 0, sizeof(s_moverStruck));
 }
 
 void ConvertedMover_LInB(struct Instance *inst)
