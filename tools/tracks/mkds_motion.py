@@ -20,7 +20,7 @@ LAP_ONCE = 99  # a race never reaches it: what runs once stays gone
 # scale's (rise a tick, top), as a share of its placed size; gates: (tick, how near a kart must come, the
 # lap the race must reach, the point it must come near); hit: its radius, world units: None is the
 # object's own, 0 none; step: ticks a key; damage: None is the object's own.
-Track = namedtuple('Track', 'ticks model restart lap_step start grow gates hit step damage', defaults=(None, 0, 0, 0, None, (), None, 3, None))
+Track = namedtuple('Track', 'ticks model restart lap_step start grow gates hit step damage anim', defaults=(None, 0, 0, 0, None, (), None, 3, None, None))
 
 
 def plain(p):
@@ -209,18 +209,24 @@ def airship(m, c):
     return [Track(rise + ticks, restart=len(rise), gates=[(0, 0, 2, None)], step=6)]
 
 
+SUN_FRAMES, SUN_THROW = 180, 37  # its animation's frames; the ticks of its pulse it throws in (state 3)
+
+
 def sun(m, c):
     """0x1ad: from lap 2 flies to each stop of its path, a point with a wait, waits for a kart to come near,
-    throws two flares that bounce away, shakes, and flies on."""
+    throws two flares that bounce away, shakes, and flies on. Its animation speeds up by a tenth of a frame
+    a tick to 8 while it throws, and slows back to 1 (SUN_FRAMES)."""
     path, rng = m['path'], c['rng']
     if path is None:
         return []
     n, ticks, gates, flares = len(path.points), [plain(path.points[0])], [(0, 0, 2, None)], []
+    throwing = [False]
     for i in range(n):
         at, to = plain(path.points[i]), plain(path.points[(i + 1) % n])
         if path.waits[i]:
             gates.append((len(ticks), 1200, 0, at))
             for t in range(66):
+                throwing.append(t < SUN_THROW)
                 radius = 20 * (1 - math.cos(0x222 * t * 2 * math.pi / TURN))
                 angle = 0xe39 * t * 2 * math.pi / TURN
                 ticks.append(at + (radius * math.cos(angle), radius * math.sin(angle), 0.0))
@@ -228,8 +234,48 @@ def sun(m, c):
                 angle = rng.random() * 2 * math.pi + turn
                 flares.append(Track([None] * delay + flare(at - (0.0, 30.0, 0.0), angle, c['ground'], rng) + [None] * 2,
                                     model=c['flare'], gates=[(0, 1200, 2, at)], lap_step=1, hit=10))
-        ticks += towards(at, to, lambda t: 60.0)
-    return [Track(ticks, restart=1, gates=gates, hit=0)] + flares
+        travel = towards(at, to, lambda t: 60.0)
+        ticks += travel
+        throwing += [False] * len(travel)
+    frame, speed, anim = 0.0, 1.0, []
+    for _ in range(2):  # the second time round starts where the first ends, as the loop does
+        anim = []
+        for fast in throwing:
+            anim.append(frame / SUN_FRAMES)
+            speed = min(speed + 0.1, 8.0) if fast else max(speed - 0.1, 1.0)
+            frame = (frame + speed) % SUN_FRAMES
+    return [Track(ticks, restart=1, gates=gates, hit=0, anim=anim)] + flares
+
+
+TREE_FRAMES = 60  # move_tree.nsbca
+
+
+def move_tree(m, c):
+    """0x1a3 (0x2095a3c): walks its path at s[0]/100 a tick, playing its animation a frame a tick; at each
+    point stands that point's wait and a tick more, its animation running on to its first frame and
+    holding there. A path that does not loop it walks back. A kart that touches it shakes it at two frames
+    a tick for 30 ticks, which is left out."""
+    path, st = m['path'], m['settings']
+    if path is None:
+        return []
+    points, waits = [plain(p) for p in path.points], list(path.waits)
+    if not path.loop:  # there and back
+        points += points[-2:0:-1]
+        waits += waits[-2:0:-1]
+    n, speed = len(points), max(st[0], 1) / 100
+    ticks, frames, frame = [], [], 0
+    for i in range(n):
+        for place, _ in along([points[i], points[(i + 1) % n]], lambda k: speed, False):
+            ticks.append(place)
+            frames.append(frame)
+            frame = (frame + 1) % TREE_FRAMES
+        for _ in range(waits[(i + 1) % n] + 1):
+            ticks.append(points[(i + 1) % n])
+            frames.append(frame)
+            frame = (frame + 1) % TREE_FRAMES if frame else 0
+    ticks.append(ticks[0])
+    frames.append(frame)
+    return [Track(ticks, anim=[f / TREE_FRAMES for f in frames])]
 
 
 def flare(at, angle, ground, rng):
@@ -597,13 +643,30 @@ def bubble(m, c):
     return [Track(run + [None] * (m['settings'][0] + 1), hit=15)]
 
 
-MOTIONS = {'coffin_lid': coffin_lid, 'thwomp': thwomp, 'rock': rock, 'ball': ball, 'airship': airship, 'sun': sun, 'chain_path': chain_path,
+MOTIONS = {'coffin_lid': coffin_lid, 'move_tree': move_tree, 'thwomp': thwomp, 'rock': rock, 'ball': ball, 'airship': airship, 'sun': sun, 'chain_path': chain_path,
            'bakubaku': bakubaku, 'bats': bats, 'coffin': coffin, 'moving_box': moving_box, 'fire_plant': fire_plant, 'rocky_wrench': rocky_wrench,
            'monty_mole': monty_mole, 'cheep_cheep': cheep_cheep, 'bubble': bubble}
 
 
 # What turns where it stands, a tick at a time: name -> its (first, second) angles a tick, of TURN
-TURNS = {'fire_plant_head': fire_plant_head, 'drums': lambda m, c: [(a, 0) for a in drums(m, c)]}
+FIRE_MOUTH_FRAMES, FIRE_MOUTH_TICKS = 30, 29  # its mouth's animation, and the ticks it plays from FIRE_AT before a shot
+
+
+def fire_plant_mouth(m, c):
+    """0x1aa's head itself (PakkunMouth): turns as fire_plant_head, and opens its mouth round each shot.
+    -> (turn, nod, how far through its animation) a tick."""
+    aims = fire_plant_head(m, c)
+    plan = fire_plant_plan(m, c)
+    frames = [0] * len(aims)
+    for shots in (plan[1] if plan else []):
+        for shot in shots:
+            for k in range(FIRE_MOUTH_TICKS):
+                if 0 <= shot - FIRE_AT + k < len(frames):
+                    frames[shot - FIRE_AT + k] = k
+    return [(turn, nod, frame / FIRE_MOUTH_FRAMES) for (turn, nod), frame in zip(aims, frames)]
+
+
+TURNS = {'fire_plant_head': fire_plant_head, 'fire_plant_mouth': fire_plant_mouth, 'drums': lambda m, c: [(a, 0) for a in drums(m, c)]}
 
 
 def turns(name, mover, context):

@@ -36,10 +36,11 @@ OPAQUE_PAGE = ctr_items.ABR_MASK
 MAX_WIDTH, MAX_HEIGHT = 128, 256  # texels: wider, it would have to give up colours or be halved, and its layouts would miss
 NEUTRAL = 128  # a texture is multiplied by a vertex colour over this
 LAYERED_BILLBOARD_SIZE = 128  # a square page region at 8 bits
+CUTOUT_LIFT = -2.0  # world units along z, which a picture turns away from the camera: an animated picture's cutouts over its soft layers (lift_cutouts)
 
 PATH, SPIN, SWING, _HOP, ORBIT, PULSE, KEYS, STILL, TURNS, CHOMP, LINK, GHOST = range(12)
 LOOP, BACK_AND_FORTH, RESTART = range(3)
-FACE_PATH, ROLL, SOLID, CARRIES, DROPS = 0x100, 0x200, 0x1000, 0x2000, 0x8000  # Mover.c's MOVER_FLAG_
+FACE_PATH, ROLL, SOLID, CARRIES, ANIM_KEYS, DROPS = 0x100, 0x200, 0x1000, 0x2000, 0x4000, 0x8000  # Mover.c's MOVER_FLAG_
 STAR_WALL, STRIKE_SHIFT = 0x400, 4  # Mover.c's MOVER_FLAG_STAR_WALL, MOVER_STRIKE_SHIFT
 TICKS = 60  # a second: the game's objects
 SPIN_RATE = 4.8  # 4096ths of a turn a second per unit of a spinner's speed setting: (s << 7) / 100 of 65536 a tick
@@ -81,7 +82,7 @@ MOVERS = {
     0xcf: Mover('pendulum', (SWING, 2, 0, 0)),
     0xd2: Mover('dram', (TURNS, 'drums', 0, 0)),
     0x1a9: Mover('flipper', (SWING, 1, 0, 0)),
-    0x1a3: Mover('move_tree', (PATH, LOOP), None, 2),
+    0x1a3: Mover('move_tree', (KEYS, 'move_tree')),
     0x154: Mover('RainStar', (SPIN, 1, 500)),
     0x193: Mover('dossun', (KEYS, 'thwomp'), SQUISH, flags=DROPS),  # a wall, and it crushes from under while it falls
     0x19b: Mover('pukupuku', (KEYS, 'cheep_cheep')),
@@ -103,8 +104,9 @@ MOVERS = {
 }
 # Models whose joint animation (MapObj/<model>.nsbca) plays, one frame a tick (animate). A STILL one loops
 # from the tick START_TICK draws (first, and how many more at random), or anywhere in its loop; a KEYS one
-# plays with its keys' clock and stands at its first frame while a gate holds it.
-ANIMATED = {'picture1', 'picture2', 'chandelier', 'kanoke_64'}
+# plays with its keys' clock and stands at its first frame while a gate holds it, unless its track says how
+# far through its animation it is each tick (mkds_motion.Track.anim; a TURNS one, a third item a tick).
+ANIMATED = {'picture1', 'picture2', 'chandelier', 'kanoke_64', 'sun', 'PakkunMouth', 'move_tree'}
 START_TICK = {'chandelier': (60, 60)}  # MKDS 0x209f338
 # What a kart that touches an object gets, by the game's reaction to it (mkds_objects.REACTION): (damage,
 # flags). 2 is a wall; 3 to 7 spin a kart; 8 knocks it away; 9 and 10 throw it; 11 crushes it; 12 bounces it.
@@ -125,6 +127,8 @@ BURNER_ON_PATH = Mover('mkd_ef_burner', (PATH, BACK_AND_FORTH), None, PATH_UNITS
 TYRED = {'car_a', 'bus_a', 'truck_a'}
 WHEEL = 2  # an instance's drawn_only: a piece that turns about its own x as well, a vehicle's tyre (Mover.c)
 FIRE_PLANT_HEAD = Mover('PakkunZHead', (TURNS, 'fire_plant_head', 1, 0))  # turns to a path, nods
+AT_ORIGIN = {'PakkunZHead', 'PakkunMouth'}  # TURNS: its origin, not its lowest point, is so far over the ground (MKDS 0x2098b68)
+FIRE_PLANT_MOUTH = FIRE_PLANT_HEAD._replace(model='PakkunMouth', kind=(TURNS, 'fire_plant_mouth', 1, 0))  # with it, and opens to fire
 SOLID_STILL = {'dram', 'test_cylinder', 'kanoke_64'}  # stays where it is and keeps its walls
 # A rim a kart rides lets it go where its surface leans further than this from level, in 4096ths of the
 # up component of its normal (MKDS 0x20e04f0 against the object's +0x120): 60 degrees on Bowser Castle's
@@ -162,8 +166,9 @@ def image_of(material):
     return out
 
 
-def composite_billboard(triangles, materials):
-    """Bake coplanar cutouts over their soft effects so both draw paths see the same layer order."""
+def soft_layers(triangles, materials):
+    """A flat picture's materials with soft edges, when it lays cutouts over them: (the soft ones, their
+    textures), or None."""
     used = sorted({mi for mi, _ in triangles})
     points = np.array([v[0] for _, tri in triangles for v in tri])
     if len(used) < 2 or np.ptp(points[:, 2]) != 0 or any(not materials[mi].tex for mi in used):
@@ -172,6 +177,26 @@ def composite_billboard(triangles, materials):
     soft = {mi for mi, image in textures.items() if np.any((image[..., 3] > 0) & (image[..., 3] < 255))}
     if not soft or len(soft) == len(used):
         return None
+    return soft, textures
+
+
+def lift_cutouts(triangles, materials):
+    """An animated picture's layers move apart, so they cannot be baked into one (composite_billboard): its
+    cutouts are lifted towards the camera instead, in every frame, so they draw over its soft effects."""
+    layers = soft_layers(triangles, materials)
+    if layers is None:
+        return triangles
+    lift = np.array([0.0, 0.0, CUTOUT_LIFT])
+    return [(mi, tri if mi in layers[0] else [((*(np.asarray(v[0]) + lift),), *v[1:4], np.asarray(v[4]) + lift) for v in tri]) for mi, tri in triangles]
+
+
+def composite_billboard(triangles, materials):
+    """Bake coplanar cutouts over their soft effects so both draw paths see the same layer order."""
+    layers = soft_layers(triangles, materials)
+    if layers is None:
+        return None
+    soft, textures = layers
+    points = np.array([v[0] for _, tri in triangles for v in tri])
 
     low, high = points.min(0), points.max(0)
     size = LAYERED_BILLBOARD_SIZE
@@ -370,6 +395,8 @@ def build_model(name, triangles, materials, lev_per_unit, mirror=False, billboar
     z, the middle of it, and its lowest corner in level units). The pieces share their textures."""
     animated = len(triangles[0][1][0]) > 4
     composite = composite_billboard(triangles, materials) if billboard and not animated else None
+    if billboard and animated:
+        triangles = lift_cutouts(triangles, materials)
     if composite is not None:
         triangles, materials, composite_image = composite
     if two_sided:
@@ -574,8 +601,9 @@ def star(object_id, struck=None):
     return (kind << STRIKE_SHIFT) | (STAR_WALL if mkds_objects.STAR_REACTION.get(object_id) in (2, 12) else 0)
 
 
-def key_records(track, damage, half, middle, base, flags, to_lev, lev_unit, size):
-    """A MOVER_KEYS list, from a mkds_motion.Track. half: the object's own hit box."""
+def key_records(track, damage, half, middle, base, flags, to_lev, lev_unit, size, loop=0):
+    """A MOVER_KEYS list, from a mkds_motion.Track. half: the object's own hit box. loop: its model's
+    animation's ticks (animate), which a track's anim (how far through it, a tick) plays."""
     step = track.step
     keys = [[0, KEY_HIDDEN, 0] if p is None else [int(round(c)) for c in to_lev(p)] for p in track.ticks[::step]]
     ticks_a_second = mkds_motion.TICKS
@@ -590,6 +618,9 @@ def key_records(track, damage, half, middle, base, flags, to_lev, lev_unit, size
             middle = np.zeros(3)
     if track.damage is not None:
         damage = track.damage
+    if track.anim is not None and loop:
+        flags |= ANIM_KEYS
+        keys += [[int(round(a * loop)) % loop, 0, 0] for a in track.anim[::step]]
     args = (track.restart // step, track.lap_step, track.start // step)
     return records(KEYS, KEY_MS * step // 3, damage | flags, half, middle, base, args, grow + gates + keys), track.ticks
 
@@ -673,10 +704,11 @@ def place(movers, model_index, halves, to_lev, lev_unit, rotate, settle, context
         kind, args = spec.kind[0], spec.kind[1:]
         if kind == TURNS:
             standing = spec.model not in FLYING
-            foot = low[1] / lev_unit * size[1]
+            foot = 0.0 if spec.model in AT_ORIGIN else low[1] / lev_unit * size[1]
             at = (settle(pos) if standing else pos) + np.array([0.0, mover['over'] * size[1] - (foot if standing else 0.0), 0.0])
             angles = mkds_motion.turns(args[0], mover, context)[::TURN_KEY_TICKS]
-            keys = [[round(a * TURN / mkds_motion.TURN) % TURN, round(b * TURN / mkds_motion.TURN) % TURN, 0] for a, b in angles]
+            keys = [[round(a[0] * TURN / mkds_motion.TURN) % TURN, round(a[1] * TURN / mkds_motion.TURN) % TURN, round(a[2] * loop) % loop if len(a) > 2 and loop else 0]
+                    for a in angles]
             placed += instances(pieces, to_lev(at), size, size, len(lists), reach, spec.model, rot)
             lists.append(records(kind, KEY_MS * TURN_KEY_TICKS // 3, damage | flags, half, middle, base, (args[1], args[2], 0), keys))
             continue
@@ -703,7 +735,7 @@ def place(movers, model_index, halves, to_lev, lev_unit, rotate, settle, context
                     track_flags = (flags & ~(SOLID | STAR_WALL | (0xf << STRIKE_SHIFT))) | part_solid | star(PART_REACTS[track.model])
                 elif other:
                     track_flags = flags & ~(0xf << STRIKE_SHIFT)  # a chain's links: the head is what is struck
-                listed, ticks = key_records(track, track_damage, half, middle, base, track_flags, to_lev, lev_unit, size)
+                listed, ticks = key_records(track, track_damage, half, middle, base, track_flags, to_lev, lev_unit, size, own[5])
                 at = next(p for p in ticks if p is not None)
                 drawn = size if not other or track.hit == 0 else np.ones(3)
                 placed += instances(own[2], to_lev(at), np.ones(3) if other and track.hit != 0 else size, drawn, len(lists), reach, track.model or spec.model)

@@ -26,7 +26,9 @@
 // Record 7: its scale grows by x (4096 is its placed size) a second up to y; z gates.
 // Then two records a gate: the key that waits, how near a kart must come, the lap the
 // race must reach; the point it must come near. Then the keys; MOVER_KEY_HIDDEN in y:
-// it is not there.
+// it is not there. With MOVER_FLAG_ANIM_KEYS, as many records again after them: the tick of
+// its animation at each key, in x, which it plays forward between them, and on
+// at a tick a tick while a gate holds it.
 // STILL: stays where it is placed, and only hits. a: the tick its animation starts at
 // (Mover_Animate), for a model that has one.
 // Bits 4-7 of the damage word: what it does when a kart with the mask, CTR's Star,
@@ -34,8 +36,9 @@
 // it rams through.
 // TURNS: stays where it is placed and turns by keys, worked out by mkds_motion.py (a fire
 // plant's head, Waluigi Pinball's drums). Speed: ms a key. a, b: the axes of its first and
-// second turn. Records 7+: the keys, its first and second angle, 4096ths of a turn. The
-// last key is where the first starts again.
+// second turn. Records 7+: the keys, its first and second angle, 4096ths of a turn, and
+// the tick of its animation, for a model that has one. The last key is where the first
+// starts again.
 // CHOMP: a staked Chain Chomp, run here tick by tick as MKDS's 0x196 (Mover_Chomp). a, b,
 // c: its leash, how near the player's kart comes for it to lunge, how far from the stake
 // it stops coming back. Record 7: the stake, at the height of the plane it hops on.
@@ -85,6 +88,7 @@ enum
 	MOVER_FLAG_SOLID = 0x1000,   // a kart stops at its box, and cannot be caught inside
 	MOVER_FLAG_CARRIES = 0x2000, // a floor: a kart on it turns with it
 	MOVER_FLAG_DROPS = 0x8000,   // KEYS: hurts only when it drops, and is merely solid otherwise
+	MOVER_FLAG_ANIM_KEYS = 0x4000, // KEYS: the second half of its keys are its animation's tick at each key
 	MOVER_ITEM_BOX = 4,          // in place of a damage: it breaks as a weapon crate does
 	MOVER_MOST_LISTS = 512,
 	MOVER_DAMAGE_MASK = 0x0f,
@@ -123,6 +127,7 @@ struct ConvertedMover
 	s32 homeX, homeY, homeZ; // a shot: how far its path is from where it was fired
 	s32 hitShare;            // of its hit box, 4096 is as placed; 0 is the same
 	s32 harmless;            // this frame it hurts nothing
+	u32 heldMS;              // KEYS: how long gates have held it, its animation playing on meanwhile
 };
 
 // A thread's object comes from the small pool, which refuses one this big or bigger.
@@ -349,8 +354,11 @@ static s32 Mover_AngleBetween(s32 from, s32 to)
 	return ((to - from + 2048) & 0xfff) - 2048;
 }
 
-static void Mover_TurnByKeys(const struct ConvertedMover *mover, const SVec3 *records, s32 m[3][3])
+static u32 Mover_AnimLoop(const struct Instance *inst);
+
+static void Mover_TurnByKeys(struct Instance *inst, const struct ConvertedMover *mover, const SVec3 *records, s32 m[3][3])
 {
+	const u32 loop = Mover_AnimLoop(inst);
 	const SVec3 *keys = &records[MOVER_RECORD_POINTS];
 	const int count = Mover_NumPoints(mover);
 	const u32 step = (u32)records[0].y;
@@ -370,6 +378,13 @@ static void Mover_TurnByKeys(const struct ConvertedMover *mover, const SVec3 *re
 	Mover_Multiply(m, m, turn);
 	Mover_AxisTurn(turn, records[2].y, (from->y + ((Mover_AngleBetween(from->y, to->y) * part) >> 12)) & 0xfff);
 	Mover_Multiply(m, m, turn);
+	if (loop != 0)
+	{
+		const u32 ahead = ((u16)to->z + loop - (u16)from->z % loop) % loop;
+
+		inst->animIndex = 0;
+		inst->animFrame = (s16)(((u16)from->z % loop + ((ahead * part) >> 12)) % loop);
+	}
 }
 
 // Turns towards the way it goes, over MOVER_TURN_MS.
@@ -666,7 +681,7 @@ static int Mover_GateOpen(const struct ConvertedMover *mover, const SVec3 *gate,
 
 // Runs the clock on, held at any gate not open yet. mover->segment is the next gate,
 // mover->direction how many times the keys have come round.
-static u32 Mover_KeyClock(struct ConvertedMover *mover, const SVec3 *records, int count)
+static u32 Mover_KeyClock(struct ConvertedMover *mover, const SVec3 *records, int count, int *held)
 {
 	const SVec3 *gates = &records[MOVER_RECORD_GATES];
 	const int numGates = records[MOVER_RECORD_POINTS].z;
@@ -686,6 +701,7 @@ static u32 Mover_KeyClock(struct ConvertedMover *mover, const SVec3 *records, in
 		if (!Mover_GateOpen(mover, gate, records))
 		{
 			mover->timeMS = at; // it waits here
+			*held = 1;
 			return at;
 		}
 		mover->segment++;
@@ -709,18 +725,29 @@ static int Mover_FollowKeys(struct Instance *inst, struct ConvertedMover *mover,
 {
 	const int numGates = records[MOVER_RECORD_POINTS].z;
 	const SVec3 *keys = &records[MOVER_RECORD_GATES + 2 * numGates];
-	const int count = GAME_TRACKER->level1->ptrSpawnType2[mover->list].numCoords - MOVER_RECORD_GATES - 2 * numGates;
 	const int flags = (u16)records[0].z;
+	const int count = (GAME_TRACKER->level1->ptrSpawnType2[mover->list].numCoords - MOVER_RECORD_GATES - 2 * numGates) / ((flags & MOVER_FLAG_ANIM_KEYS) ? 2 : 1);
 	const u32 step = records[0].y;
-	const u32 clock = Mover_KeyClock(mover, records, count);
+	int held = 0;
+	const u32 clock = Mover_KeyClock(mover, records, count, &held);
 	const u32 key = clock / step;
 	const SVec3 *from = &keys[key];
 	const SVec3 *to = &keys[(key + 1 < (u32)count) ? (key + 1) : key];
 	const float part = (float)(clock % step) / step;
 	const float dx = (float)to->x - from->x, dy = (float)to->y - from->y, dz = (float)to->z - from->z;
 	const float flat = sqrtf(dx * dx + dz * dz);
+	const u32 loop = Mover_AnimLoop(inst);
 
 	Mover_Base(records, m);
+	if ((flags & MOVER_FLAG_ANIM_KEYS) && (loop != 0))
+	{
+		const u32 at = (u16)keys[count + key].x % loop;
+		const u32 ahead = ((u16)keys[count + ((to == from) ? key : key + 1)].x + loop - at) % loop;
+
+		mover->heldMS += held ? dt : 0;
+		inst->animIndex = 0;
+		inst->animFrame = (s16)((at + (u32)(ahead * part) + mover->heldMS * 60 / 1000) % loop);
+	}
 	if ((from->y == MOVER_KEY_HIDDEN) || (to->y == MOVER_KEY_HIDDEN))
 	{
 		inst->flags |= HIDE_MODEL;
@@ -1899,20 +1926,27 @@ static void Mover_DevView(struct Instance *inst)
 // An animated model's frame (tools/tracks/mkds_movers.py animate). Its count is of half frames,
 // and a half frame is one of MKDS's ticks, 60 a second; the renderer eases the odd ones. It loops:
 // on its keys' clock, or for anything else from the level's start and the tick it starts at (a).
-static void Mover_Animate(struct Instance *inst, const struct ConvertedMover *mover, const SVec3 *records)
+// The ticks of an instance's animation's loop, 0 for a model with none.
+static u32 Mover_AnimLoop(const struct Instance *inst)
 {
 	const struct Model *model = inst->model;
-	u32 loop, ticks;
 
 	if ((model == NULL) || (model->numHeaders <= 0) || (model->headers[0].numAnimations == 0) || (model->headers[0].ptrAnimations == NULL) ||
 	    (model->headers[0].ptrAnimations[0] == NULL))
 	{
-		return;
+		return 0;
 	}
-	loop = model->headers[0].ptrAnimations[0]->numFrames & 0x7fff;
-	if (loop == 0)
+	return model->headers[0].ptrAnimations[0]->numFrames & 0x7fff;
+}
+
+static void Mover_Animate(struct Instance *inst, const struct ConvertedMover *mover, const SVec3 *records)
+{
+	const u32 loop = Mover_AnimLoop(inst);
+	u32 ticks;
+
+	if ((loop == 0) || (records[0].x == MOVER_TURNS) || ((records[0].x == MOVER_KEYS) && ((u16)records[0].z & MOVER_FLAG_ANIM_KEYS)))
 	{
-		return;
+		return; // none, or its keys say (Mover_TurnByKeys, Mover_FollowKeys)
 	}
 	ticks = mover->timeMS * 60 / 1000;
 	if (records[0].x == MOVER_STILL)
@@ -1976,7 +2010,7 @@ static void ConvertedMover_ThTick(struct Thread *t)
 	}
 
 	case MOVER_TURNS:
-		Mover_TurnByKeys(mover, records, m);
+		Mover_TurnByKeys(inst, mover, records, m);
 		break;
 
 	case MOVER_CHOMP:

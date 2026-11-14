@@ -859,9 +859,10 @@ SCENERY = {
 SNOWMAN_HEAD, POKEY_BODY, POKEY_HEAD, PIRANHA_HEAD = range(0x10000, 0x10004)
 FIRE_PLANT_SHOT = 0x10004
 COFFIN = 0x10005  # a coffin's own box, its lid opening while its bats come out; the object itself is its bats
+PIRANHA_MOUTH = 0x10006  # a fire plant's head itself: PakkunZHead is only a flat disc behind it
 DRUM = 0xd2
 STACKED_ID = SNOWMAN_HEAD
-STACKED = {0x19d: [(SNOWMAN_HEAD, 19)], 0x1b2: [(POKEY_BODY, 40), (POKEY_BODY, 66), (POKEY_HEAD, 92)], 0x1aa: [(PIRANHA_HEAD, 70)], 0x19e: [(COFFIN, 0)]}
+STACKED = {0x19d: [(SNOWMAN_HEAD, 19)], 0x1b2: [(POKEY_BODY, 40), (POKEY_BODY, 66), (POKEY_HEAD, 92)], 0x1aa: [(PIRANHA_HEAD, 70), (PIRANHA_MOUTH, 70)], 0x19e: [(COFFIN, 0)]}
 SCENERY.update({SNOWMAN_HEAD: 'sman_top', POKEY_BODY: 'sanbo_b', POKEY_HEAD: 'sanbo_h', PIRANHA_HEAD: 'PakkunZHead'})
 # A Pokey walks its path as one, and a fire plant's shots run along its own
 POKEY_OBJECT = 0x1b2
@@ -1502,6 +1503,7 @@ class Course:
             parts = [(object_id, 0.0)] + [(part, over) for part, over in STACKED.get(object_id, ())] + [(FIRE_PLANT_SHOT, 0.0)] * (1 if shots else 0)
             table[FIRE_PLANT_SHOT] = FIRE_PLANT_MOVER
             table[PIRANHA_HEAD] = mkds_movers.FIRE_PLANT_HEAD
+            table[PIRANHA_MOUTH] = mkds_movers.FIRE_PLANT_MOUTH
             table[SNOWMAN_HEAD] = SNOWMAN_HEAD_MOVER
             table[COFFIN] = COFFIN_MOVER
             for part, over in parts:
