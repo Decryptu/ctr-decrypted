@@ -117,7 +117,7 @@ START_TICK = {'chandelier': (60, 60)}  # MKDS 0x209f338
 # its tick count (0x20e5c78), a bat a frame a tick (0x20927ac), a bumper on a path 1 to 29 (0x209c254).
 TIMED_PATTERNS = {'kuribo': list(range(20)) + [(t, True) for t in range(20)], 'crab': [t // 8 for t in range(16)], 'crab_hand': [t // 8 for t in range(16)],
                   'ob_pakkun_sf': [(t >> 4) & 1 for t in range(32)], 'basabasa': list(range(13)), 'bound': list(range(1, 30))}
-KEYED_PATTERNS = {'poo'}  # a frame a key, from its track (mkds_motion.Track.pattern)
+KEYED_PATTERNS = {'poo', 'choropu'}  # a frame a key, from its track (mkds_motion.Track.pattern); a Monty Mole's dazed face while flung (Mover.c)
 # One frame an instance keeps: a car's or truck's colour is its setting 2 (0x20e2b7c); a Boo's face
 # alternates through its group (0x2094c34), and the other is a model of its own (GHOSTS).
 SETTING_PATTERNS = {'car_a': 2, 'truck_a': 2}
@@ -148,7 +148,9 @@ REACTIONS = {2: (0, SOLID), 3: (SPIN_DAMAGE, 0), 4: (SPIN_DAMAGE, 0), 5: (SPIN_D
              8: (SPIN_DAMAGE, SOLID), 9: (BLAST, 0), 10: (BLAST, 0), 11: (SQUISH, 0), 12: (0, SOLID)}
 # What a kart with the mask, CTR's Star, does to the objects the game lets a Star kart strike
 # (mkds_objects.STRUCK): Mover.c's MOVER_STRUCK_*, which play each object's own struck reaction.
-SPIN_AWAY, FLIP, FLIP_LIE, FLY_OFF, FALL, POP, BREAK, TUMBLE, KNOCK, KNOCK_GONE, KNOCK_CRAB, BURST, BURST_HEAD, BOUNCE = range(1, 15)
+SPIN_AWAY, FLIP, FLIP_LIE, FLY_OFF, FALL, POP, BREAK, TUMBLE, KNOCK, KNOCK_GONE, KNOCK_CRAB, BURST, BURST_HEAD, BOUNCE, TOUCHED = range(1, 16)
+# What any kart's touch sets off, not only a Star's (TOUCHED, Mover.c's Mover_Touched): a moving tree shakes, a Monty Mole is flung
+TOUCHED_BY_ANY = {0x1a3, 0x199}
 STRUCK = {0x193: SPIN_AWAY, 0x1a5: FLIP, 0x196: FLIP_LIE, 0x1ae: FLY_OFF, 0x1a2: FALL, 0x191: POP, 0x192: BREAK, 0x1b1: BREAK,
           0x1ab: BREAK, 0x195: TUMBLE, 0x19a: TUMBLE, 0x19c: TUMBLE, 0x19b: KNOCK, 0x1a6: KNOCK_GONE, 0x1ac: KNOCK_CRAB, 0x19d: BURST,
           0x1b0: BOUNCE}
@@ -674,7 +676,7 @@ def reaction(object_id):
 def star(object_id, struck=None):
     """The bits of what a kart with the mask, CTR's Star, does to the object, and whether it stops that kart:
     MKDS's own column for a Star kart (mkds_objects.STAR_REACTION, STRUCK). struck: a kind in place of the id's."""
-    kind = struck if struck is not None else (STRUCK.get(object_id, 0) if object_id in mkds_objects.STRUCK else 0)
+    kind = struck if struck is not None else TOUCHED if object_id in TOUCHED_BY_ANY else (STRUCK.get(object_id, 0) if object_id in mkds_objects.STRUCK else 0)
     return (kind << STRIKE_SHIFT) | (STAR_WALL if mkds_objects.STAR_REACTION.get(object_id) in (2, 12) else 0)
 
 

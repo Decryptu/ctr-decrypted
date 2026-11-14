@@ -33,8 +33,9 @@
 // STILL: stays where it is placed, and only hits. a: the tick its animation starts at
 // (Mover_Animate), for a model that has one.
 // Bits 4-7 of the damage word: what it does when a kart with the mask, CTR's Star,
-// strikes it (MOVER_STRUCK_*); MOVER_FLAG_STAR_WALL: SOLID stops that kart too, else
-// it rams through.
+// strikes it (MOVER_STRUCK_*), or MOVER_STRUCK_TOUCHED: what it does when any kart touches
+// it; MOVER_FLAG_STAR_WALL: SOLID stops that kart too, else it rams through. A Pokey's part
+// (MOVER_FLAG_SWAY) breaks the whole Pokey apart when such a kart strikes it.
 // TURNS: stays where it is placed and turns by keys, worked out by mkds_motion.py (a fire
 // plant's head, Waluigi Pinball's drums). Speed: ms a key. a, b: the axes of its first and
 // second turn. Records 7+: the keys, its first and second angle, 4096ths of a turn, and
@@ -872,6 +873,18 @@ static int Mover_InGrace(int driver)
 	return left > 0;
 }
 
+// 0 to 65535, a mover's own on this frame: rand() gives 15 bits, and the movers' threads
+// draw it in no order that makes parts of one object differ.
+static u32 Mover_Random(const struct ConvertedMover *mover, u32 salt)
+{
+	u32 x = (u32)mover->list * 0x9e3779b9u ^ (u32)GAME_TRACKER->framesInThisLEV * 0x85ebca6bu ^ salt * 0xc2b2ae35u;
+
+	x ^= x >> 15;
+	x *= 0x2c1b3c6du;
+	x ^= x >> 12;
+	return (x >> 8) & 0xffff;
+}
+
 // A kart with the mask, CTR's Star, strikes what MKDS lets a Star kart strike
 // (docs/TRACK-CONVERTER.md#movers): each plays its own struck reaction, read in the
 // game's code, over what it does anyway. Its numbers are the game's, in world units
@@ -893,14 +906,20 @@ enum
 	MOVER_STRUCK_BURST,      // a snowman bursts and builds itself again
 	MOVER_STRUCK_BURST_HEAD, // its head, after its body
 	MOVER_STRUCK_BOUNCE,     // an iron ball bounces, and rolls on
+	MOVER_STRUCK_TOUCHED,    // any kart's touch, not only a Star's (Mover_Touched): a moving tree shakes, a Monty Mole is flung
 
-	MOVER_LEV_X3 = 16,      // level units in three world units (tools/tracks: 64 a world unit, scaled 1/12)
+	MOVER_LEV_X3 = 16,     // level units in three world units (tools/tracks: 64 a world unit, scaled 1/12)
 	MOVER_STAR_SOUND = 0x71,
 	MOVER_STRUCK_RESPAWN = 300,
 	MOVER_BURST_FALL = 70,  // the head's flight: up at 8 from 15.2, 0.25 down a tick, down at 6 at most
 	MOVER_BURST_WAIT = 354,
 	MOVER_BURST_GROW = 64,
 	MOVER_BURST_HEAD_AFTER = 10,
+	MOLE_FLUNG = 4,         // world units a tick up, then 0.25 down a tick
+	MOLE_SPIN = 0x400,      // 65536ths of a turn a tick
+	MOLE_DEPTH = 17,        // world units under where it was flung: back in its hole
+	MOLE_DAZED = 1,         // its texture pattern's step while flung: choropu.nsbtp's dazed face
+	TREE_SHAKE_TICKS = 30,  // a moving tree's animation runs a frame a tick faster this long after a touch
 };
 
 struct MoverStruck
@@ -953,7 +972,7 @@ static void Mover_Strike(struct ConvertedMover *mover, struct Instance *inst, co
 	const int kind = Mover_StrikeKind(records);
 	float side[3], kartVel[3], way;
 
-	if ((kind == MOVER_STRUCK_NONE) || (kind == MOVER_STRUCK_BURST_HEAD) || (s->kind != MOVER_STRUCK_NONE) || s->gone)
+	if ((kind == MOVER_STRUCK_NONE) || (kind == MOVER_STRUCK_BURST_HEAD) || (kind == MOVER_STRUCK_TOUCHED) || (s->kind != MOVER_STRUCK_NONE) || s->gone)
 	{
 		return;
 	}
@@ -1075,7 +1094,7 @@ static int Mover_StruckTick(struct MoverStruck *s, struct ConvertedMover *mover)
 			// it spirals down, turning 20 degrees a tick
 			if (s->stage == 0)
 			{
-				s->angle = (s32)(rand() & 0xffff);
+				s->angle = (s32)Mover_Random(mover, 1);
 				s->stage = 1;
 			}
 			s->angle += 0xe39;
@@ -1208,6 +1227,18 @@ static int Mover_StruckTick(struct MoverStruck *s, struct ConvertedMover *mover)
 		// whole when its head is
 		return t < MOVER_BURST_FALL + MOVER_BURST_WAIT + MOVER_BURST_GROW + MOVER_BURST_HEAD_AFTER + MOVER_BURST_GROW;
 
+	case MOVER_STRUCK_TOUCHED:
+		// a Monty Mole flung (0x20e329c): straight up, turning, down into its hole, and
+		// gone until its next run
+		s->angle += (s32)s->spin;
+		s->vel[1] -= 0.25f;
+		s->pos[1] += s->vel[1];
+		if (s->pos[1] < -MOLE_DEPTH)
+		{
+			s->gone = 1;
+		}
+		return 1;
+
 	case MOVER_STRUCK_BOUNCE:
 		s->pos[1] += s->vel[1];
 		s->vel[1] -= 1;
@@ -1283,6 +1314,10 @@ static int Mover_Struck(struct ConvertedMover *mover, struct Instance *inst, con
 		s->cycle = cycle;
 		if (again)
 		{
+			if (s->kind == MOVER_STRUCK_TOUCHED)
+			{
+				mover->patternStep = 0; // its own face again
+			}
 			s->kind = MOVER_STRUCK_NONE;
 			s->gone = 0;
 			return 0;
@@ -1322,6 +1357,9 @@ static int Mover_Struck(struct ConvertedMover *mover, struct Instance *inst, con
 		Mover_Multiply(m, m, turn);
 		break;
 
+	case MOVER_STRUCK_TOUCHED:
+		mover->patternStep = MOLE_DAZED;
+		// fall through - it flies from where it was flung
 	case MOVER_STRUCK_FLY_OFF:
 	case MOVER_STRUCK_KNOCK:
 	case MOVER_STRUCK_KNOCK_GONE:
@@ -1410,6 +1448,10 @@ enum
 	SWAY_EASED = 0x38e,
 	SWAY_PEAK = 0x71c,
 	SWAY_HIT_TICKS = 60,
+	SWAY_FLY_UP = 4,          // world units a tick: a struck Pokey's parts fly up
+	SWAY_FLY_OUT = 2,         // and out, each its own way
+	SWAY_FLY_SPIN = 0xaab,    // 65536ths of a turn a tick, either way
+	SWAY_FLY_GONE = 150,      // world units under where it flew from: under the ground, gone
 };
 
 struct MoverSway
@@ -1419,6 +1461,12 @@ struct MoverSway
 	s16 delay, angle; // angle: 4096ths of a turn
 	s16 hitTicks;     // the bottom part's: what is left of a hit's faster sway
 	s16 started;
+	s16 broken;       // the bottom part's: a kart with the mask has struck it
+	s16 flying;       // this part flies off
+	s32 from[3];      // where it flew from, level units
+	s32 flyAngle;     // 65536ths of a turn about the object's z
+	s32 spin;
+	float pos[3], vel[3]; // world units, and a tick
 };
 
 static struct MoverSway s_moverSway[MOVER_MOST_LISTS];
@@ -1435,6 +1483,8 @@ static int Mover_SwayBottom(const struct ConvertedMover *mover)
 	return ((bottom >= 0) && (mover->list < MOVER_MOST_LISTS)) ? bottom : -1;
 }
 
+static void Mover_SwayFly(struct Instance *inst, struct MoverSway *own, s32 m[3][3], s32 dt);
+
 static void Mover_Sway(struct Instance *inst, struct ConvertedMover *mover, s32 m[3][3], s32 dt)
 {
 	const SVec3 *record = Mover_SwayRecord(mover);
@@ -1447,6 +1497,12 @@ static void Mover_Sway(struct Instance *inst, struct ConvertedMover *mover, s32 
 		return;
 	}
 	own = &s_moverSway[mover->list];
+	mover->harmless = s_moverSway[bottom].broken;
+	if (own->flying)
+	{
+		Mover_SwayFly(inst, own, m, dt);
+		return;
+	}
 	if (!own->started)
 	{
 		own->started = 1;
@@ -1516,6 +1572,112 @@ static void Mover_Sway(struct Instance *inst, struct ConvertedMover *mover, s32 
 	}
 	Mover_AxisTurn(turn, 2, angle & 0xfff);
 	Mover_Multiply(m, m, turn);
+
+	if (s_moverSway[bottom].broken)
+	{
+		// struck: it flies off from where it stands now, turned as it is (0x20a8098)
+		const u32 way = Mover_Random(mover, 1);
+
+		own->flying = 1;
+		memcpy(own->from, inst->matrix.t, sizeof(own->from));
+		own->flyAngle = angle << 4;
+		own->spin = (Mover_Random(mover, 2) & 0x8000) ? SWAY_FLY_SPIN : -SWAY_FLY_SPIN;
+		own->vel[0] = SWAY_FLY_OUT * MATH_Sin(way >> 4) / 4096.0f;
+		own->vel[1] = SWAY_FLY_UP;
+		own->vel[2] = SWAY_FLY_OUT * MATH_Cos(way >> 4) / 4096.0f;
+	}
+}
+
+// A struck Pokey's part (state 2 of 0x20a73b0): it flies, falling 0.25 a tick and turning
+// 15 degrees a tick, down through the ground. Every placed Pokey has s[1] 1, which keeps
+// it broken for the rest of the race (0x20a7750), so it does not grow back.
+static void Mover_SwayFly(struct Instance *inst, struct MoverSway *own, s32 m[3][3], s32 dt)
+{
+	s32 turn[3][3];
+
+	for (own->tickMS60 += (u32)dt * 60; own->tickMS60 >= 1000; own->tickMS60 -= 1000)
+	{
+		for (int i = 0; i < 3; i++)
+		{
+			own->pos[i] += own->vel[i];
+		}
+		own->vel[1] -= 0.25f;
+		own->flyAngle += own->spin;
+	}
+	if (own->pos[1] < -SWAY_FLY_GONE)
+	{
+		inst->flags |= HIDE_MODEL;
+		return;
+	}
+	for (int i = 0; i < 3; i++)
+	{
+		inst->matrix.t[i] = own->from[i] + (s32)(own->pos[i] * MOVER_LEV_X3 / 3);
+	}
+	Mover_AxisTurn(turn, 2, (own->flyAngle >> 4) & 0xfff);
+	Mover_Multiply(m, m, turn);
+}
+
+// Any kart's touch on a MOVER_STRUCK_TOUCHED mover. A moving tree (0x1a3, 0x2095ef4), solid,
+// shakes: its animation runs a frame a tick faster for 30 ticks from the last touch. A Monty
+// Mole (0x199), which hurts, is flung straight up turning (0x20e329c), dazed, and drops into
+// its hole until its next run.
+struct MoverShake
+{
+	u32 tickMS60;
+	s16 left;   // ticks of the faster shake still to run
+	s16 extra;  // frames its animation is ahead of its keys'
+};
+
+static struct MoverShake s_moverShake[MOVER_MOST_LISTS];
+
+static void Mover_Touched(struct ConvertedMover *mover, struct Instance *inst, const SVec3 *records)
+{
+	struct MoverStruck *s = &s_moverStruck[mover->list];
+
+	if ((records[0].z & MOVER_DAMAGE_MASK) == 0)
+	{
+		s_moverShake[mover->list].left = TREE_SHAKE_TICKS;
+		return;
+	}
+	if ((s->kind != MOVER_STRUCK_NONE) || s->gone)
+	{
+		return;
+	}
+	memset(s, 0, sizeof(*s));
+	s->kind = MOVER_STRUCK_TOUCHED;
+	s->scale = 1;
+	s->cycle = mover->direction;
+	memcpy(s->at, inst->matrix.t, sizeof(s->at));
+	s->vel[1] = MOLE_FLUNG;
+	s->spin = (Mover_Random(mover, 1) & 0x8000) ? MOLE_SPIN : -MOLE_SPIN;
+}
+
+// A shaken tree's animation, ahead of its keys': a frame a tick more while it shakes. Where
+// its keys hold it at its first frame, standing, it runs on two frames a tick to there, as
+// the game's runs on at the speed it shook at (0x2095af4).
+static void Mover_Shake(struct Instance *inst, struct ConvertedMover *mover, s32 dt)
+{
+	struct MoverShake *k = &s_moverShake[mover->list];
+	const u32 loop = Mover_AnimLoop(inst);
+
+	if ((loop == 0) || ((k->left == 0) && (k->extra == 0)))
+	{
+		return;
+	}
+	for (k->tickMS60 += (u32)dt * 60; k->tickMS60 >= 1000; k->tickMS60 -= 1000)
+	{
+		if (k->left > 0)
+		{
+			k->left--;
+			k->extra = (s16)((k->extra + 1) % loop);
+		}
+		else if ((k->extra != 0) && (inst->animFrame == 0))
+		{
+			// its keys stand it at its first frame
+			k->extra = (s16)((k->extra + 2 >= (s32)loop) ? 0 : k->extra + 2);
+		}
+	}
+	inst->animFrame = (s16)((inst->animFrame + k->extra) % loop);
 }
 
 static void Mover_HitKarts(struct ConvertedMover *mover, struct Instance *inst, const SVec3 *records, s32 m[3][3])
@@ -1566,6 +1728,23 @@ static void Mover_HitKarts(struct ConvertedMover *mover, struct Instance *inst, 
 				Mover_PushOut(driver, m, local, half);
 				NativeDev_MoverHit(mover->list, i, MOVER_EVENT_PUSH);
 			}
+			if (Mover_StrikeKind(records) == MOVER_STRUCK_TOUCHED)
+			{
+				Mover_Touched(mover, inst, records);
+				continue;
+			}
+			if (((u16)records[0].z & MOVER_FLAG_SWAY) && (Mover_SwayBottom(mover) >= 0) && !s_moverSway[Mover_SwayBottom(mover)].broken)
+			{
+				// a Pokey breaks apart, every part flying off (0x20a8098)
+				s_moverSway[Mover_SwayBottom(mover)].broken = 1;
+				Mover_LogHit(mover, records, i, driver, "struck");
+				NativeDev_MoverHit(mover->list, i, MOVER_EVENT_STRUCK);
+				if ((driver->actionsFlagSet & ACTION_BOT) == 0)
+				{
+					OtherFX_Play_Echo(MOVER_STAR_SOUND, 1, (driver->actionsFlagSet & ACTION_ENGINE_ECHO) != 0);
+				}
+				continue;
+			}
 			if ((Mover_StrikeKind(records) != MOVER_STRUCK_NONE) && (s_moverStruck[mover->list].kind == MOVER_STRUCK_NONE))
 			{
 				Mover_Strike(mover, inst, records, driver);
@@ -1593,6 +1772,10 @@ static void Mover_HitKarts(struct ConvertedMover *mover, struct Instance *inst, 
 			Mover_PushOut(driver, m, local, half);
 			Mover_LogHit(mover, records, i, driver, "push");
 			NativeDev_MoverHit(mover->list, i, MOVER_EVENT_PUSH);
+		}
+		if (Mover_StrikeKind(records) == MOVER_STRUCK_TOUCHED)
+		{
+			Mover_Touched(mover, inst, records);
 		}
 
 		if (damage == 0)
@@ -2166,6 +2349,7 @@ static void ConvertedMover_ThTick(struct Thread *t)
 
 	case MOVER_KEYS:
 		hidden = Mover_FollowKeys(inst, mover, records, m, dt);
+		Mover_Shake(inst, mover, dt);
 		break;
 
 	case MOVER_SPIN:
@@ -2338,6 +2522,7 @@ void ConvertedMover_LevelStart(const struct InstDef *definitions, int count)
 	memset(s_moverStruck, 0, sizeof(s_moverStruck));
 	memset(s_moverChase, 0, sizeof(s_moverChase));
 	memset(s_moverSway, 0, sizeof(s_moverSway));
+	memset(s_moverShake, 0, sizeof(s_moverShake));
 }
 
 void ConvertedMover_LInB(struct Instance *inst)
