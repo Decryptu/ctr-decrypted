@@ -7,7 +7,7 @@ Open work only: what is in progress, what is planned, what may come, and what is
 
 ## In progress
 - Mario Kart DS course converter ([TRACK-CONVERTER.md](docs/TRACK-CONVERTER.md)). All 32 race courses convert and are available in the [track catalogue](https://github.com/Decryptu/ctr-decrypted-tracks). Left:
-  - Animated models (paintings, the crowd, Pokey's sway, the coffin's lid): read in the game's code and not built.
+  - More animated models. Joint animations play on the paintings, chandeliers and coffin ([Animation](docs/TRACK-CONVERTER.md#movers)); not yet on Luigi's Mansion's moving trees (they shake standing, then walk), Desert Hills' sun (its speed changes as it throws flares) or a fire plant's mouth (timed by `fire_plant_plan`). Texture-pattern animations (`.nsbtp`: Delfino Square's crowd, Goombas, crabs, Monty Moles, Boos, cars) need a model's texture swapped over time, which `Mover.c` cannot do yet. Pokey's sway is the game's code, a damped sine per segment.
   - Custom tracks are one-player only. If they ever get split screen, its far emitter (`DrawLevelOvr1P_EmitSplitGroundListAQuadBlock`) must draw by face too.
 
 ## Maybe

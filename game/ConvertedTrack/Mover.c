@@ -27,7 +27,8 @@
 // Then two records a gate: the key that waits, how near a kart must come, the lap the
 // race must reach; the point it must come near. Then the keys; MOVER_KEY_HIDDEN in y:
 // it is not there.
-// STILL: stays where it is placed, and only hits.
+// STILL: stays where it is placed, and only hits. a: the tick its animation starts at
+// (Mover_Animate), for a model that has one.
 // Bits 4-7 of the damage word: what it does when a kart with the mask, CTR's Star,
 // strikes it (MOVER_STRUCK_*); MOVER_FLAG_STAR_WALL: SOLID stops that kart too, else
 // it rams through.
@@ -1875,7 +1876,7 @@ static void Mover_Log(const struct ConvertedMover *mover, const struct Instance 
 			{
 				fprintf(file, " %d", inst->matrix.m[i / 3][i % 3]);
 			}
-			fprintf(file, " %d\n", inst->scale.y);
+			fprintf(file, " %d %d\n", inst->scale.y, inst->animFrame); // an animated model that stays put moves too
 			fclose(file);
 		}
 	}
@@ -1893,6 +1894,33 @@ static void Mover_DevView(struct Instance *inst)
 	{
 		inst->flags |= HIDE_MODEL;
 	}
+}
+
+// An animated model's frame (tools/tracks/mkds_movers.py animate). Its count is of half frames,
+// and a half frame is one of MKDS's ticks, 60 a second; the renderer eases the odd ones. It loops:
+// on its keys' clock, or for anything else from the level's start and the tick it starts at (a).
+static void Mover_Animate(struct Instance *inst, const struct ConvertedMover *mover, const SVec3 *records)
+{
+	const struct Model *model = inst->model;
+	u32 loop, ticks;
+
+	if ((model == NULL) || (model->numHeaders <= 0) || (model->headers[0].numAnimations == 0) || (model->headers[0].ptrAnimations == NULL) ||
+	    (model->headers[0].ptrAnimations[0] == NULL))
+	{
+		return;
+	}
+	loop = model->headers[0].ptrAnimations[0]->numFrames & 0x7fff;
+	if (loop == 0)
+	{
+		return;
+	}
+	ticks = mover->timeMS * 60 / 1000;
+	if (records[0].x == MOVER_STILL)
+	{
+		ticks += (u16)records[2].x;
+	}
+	inst->animIndex = 0;
+	inst->animFrame = (s16)(ticks % loop);
 }
 
 static void ConvertedMover_ThTick(struct Thread *t)
@@ -1995,6 +2023,7 @@ static void ConvertedMover_ThTick(struct Thread *t)
 	}
 
 	struck = Mover_Struck(mover, inst, records, m, frameMS, &hidden);
+	Mover_Animate(inst, mover, records);
 	Mover_Store(inst, m);
 	Mover_Log(mover, inst, records);
 	NativeDev_TrackMover(mover->list, inst->matrix.t[0], inst->matrix.t[1], inst->matrix.t[2]);

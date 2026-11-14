@@ -1,5 +1,5 @@
-"""Read Nitro 3D files: NSBMD models (geometry from GX display lists) and NSBTX textures."""
-import struct
+"""Read Nitro 3D files: NSBMD models (geometry from GX display lists), NSBTX textures and NSBCA joint animations."""
+import math, struct
 import numpy as np
 
 def u8(b, o): return b[o]
@@ -298,9 +298,11 @@ class Model:
         emission = np.array(bgr555((mat.spe_emi >> 16) & 0x7fff), float)
         return tuple(np.clip(emission + ambient + diffuse * strength, 0, 255))
 
-    def triangles(self, lit=False):
+    def triangles(self, lit=False, pose=None):
         """-> list of (mat_index, [(pos, uv, color, normal) * 3]) in model space (scale applied), the model
-        in its rest pose. lit: colours as the DS's lights make them, for what has normals: an object."""
+        in its rest pose, or with pose's node transforms (JointAnimation.pose) in place of their rest ones.
+        lit: colours as the DS's lights make them, for what has normals: an object."""
+        pose = pose or {}
         out = []
         current, stack, mat_i = np.eye(4), {}, 0
         scaled = any(op[0] == 'up' for op in self.ops)
@@ -311,7 +313,7 @@ class Model:
             elif kind == 'store':
                 stack[op[1]] = current.copy()
             elif kind == 'node':
-                current = current @ self.objs[op[1]][1]
+                current = current @ pose.get(op[1], self.objs[op[1]][1])
             elif kind == 'skin':
                 current = sum(weight * stack.get(slot, np.eye(4)) @ self.inv_binds[bind] for slot, bind, weight in op[1])
             elif kind == 'up':
@@ -415,3 +417,144 @@ def render_commands(b, p):
             p += sizes[cmd]
         else:
             raise ValueError(f'render command {cmd:#x}')
+
+
+def _signed(v, bits):
+    return (v - (1 << bits) if v & (1 << (bits - 1)) else v) / 4096.0
+
+
+def basis_matrix(b, o):
+    """A rotation an animation stores in five 16-bit words: the top 13 bits of each are the first column
+    and two terms of the second. The second's last term is what makes it a unit vector square to the
+    first, and the third column is their cross product. (The low 3 bits of the words are not that term:
+    read as one, move_tree's matrices are far from rotations.)"""
+    w = [u16(b, o + 2 * i) for i in range(5)]
+    first = np.array([_signed(w[0] >> 3, 13), _signed(w[1] >> 3, 13), _signed(w[2] >> 3, 13)])
+    x, y = _signed(w[3] >> 3, 13), _signed(w[4] >> 3, 13)
+    z = math.sqrt(max(0.0, 1.0 - x * x - y * y))
+    second = min((np.array([x, y, z]), np.array([x, y, -z])), key=lambda v: abs(float(np.dot(v, first))))
+    first, second = first / np.linalg.norm(first), second / np.linalg.norm(second)
+    return np.array([first, second, np.cross(first, second)]).T
+
+
+class JointAnimation:
+    """A model's joint animation (an .nsbca's): each node's transform at any frame. MKDS objects play
+    one frame a game tick, and a value stored every 2nd or 4th frame is eased between."""
+
+    def __init__(self, data, index=0):
+        b = data
+        jnt = sections(data)[b'JNT0']
+        name, e = nitro_dict(b, jnt + 8)[index]
+        o = jnt + u32(e, 0)
+        if b[o:o + 4] != b'J\x00AC':
+            raise ValueError(f'{name}: not a joint animation')
+        self.name, self.frames = name, u16(b, o + 4)
+        pivots, bases = o + u32(b, o + 12), o + u32(b, o + 16)
+        self.nodes = []
+        for i in range(u16(b, o + 6)):
+            q = o + u16(b, o + 20 + 2 * i)
+            flags = u32(b, q)
+            q += 4
+            node = {}
+            if flags & 1:  # the node keeps its rest transform
+                self.nodes.append(node)
+                continue
+            # bits 1, 6, 9: identity (None here); 2, 7, 10: the rest transform's
+            node['t'] = node['r'] = node['s'] = None
+            if flags & 4:
+                node['t'] = 'rest'
+            elif not flags & 2:
+                node['t'] = []
+                for axis in range(3):
+                    if flags & (8 << axis):
+                        node['t'].append(_still(fx32(b, q)))
+                        q += 4
+                    else:
+                        node['t'].append(self._curve(b, o, u32(b, q), u32(b, q + 4), 1))
+                        q += 8
+            if flags & 0x80:
+                node['r'] = 'rest'
+            elif not flags & 0x40:
+                if flags & 0x100:
+                    node['r'] = _still(self._rotation(b, pivots, bases, u16(b, q)))
+                    q += 4
+                else:
+                    node['r'] = self._rotations(b, o, pivots, bases, u32(b, q), u32(b, q + 4))
+                    q += 8
+            if flags & 0x400:
+                node['s'] = 'rest'
+            elif not flags & 0x200:
+                node['s'] = []
+                for axis in range(3):
+                    if flags & (0x800 << axis):
+                        node['s'].append(_still(fx32(b, q)))
+                        q += 8  # a scale and its inverse
+                    else:
+                        node['s'].append(self._curve(b, o, u32(b, q), u32(b, q + 4), 2))
+                        q += 8
+            self.nodes.append(node)
+
+    @staticmethod
+    def _where(info, frame):
+        """(index of the stored value at or before the frame, share of the way to the next, how many are stored).
+        info: first frame (16 bits), frame it ends at (12), values in 16 bits (bit 29), a value every
+        1, 2 or 4 frames (bits 30, 31)."""
+        first, end, step = info & 0xffff, (info >> 16) & 0xfff, 1 << ((info >> 30) & 3)
+        count = max(1, -(-(end - first) // step))
+        x = (min(max(frame, first), end - 1) - first) / step
+        i = min(int(x), count - 1)
+        return i, x - i, count
+
+    def _curve(self, b, o, info, at, stride):
+        size = 2 if info & 0x20000000 else 4
+        read = fx16 if size == 2 else fx32
+
+        def value(frame):
+            i, t, count = self._where(info, frame)
+            j = min(i + 1, count - 1)
+            here, there = read(b, o + at + size * stride * i), read(b, o + at + size * stride * j)
+            return here + (there - here) * t
+        return value
+
+    @staticmethod
+    def _rotation(b, pivots, bases, index):
+        if index & 0x8000:
+            p = pivots + 6 * (index & 0x7fff)
+            flags = u16(b, p)
+            return pivot_matrix(flags & 15, (flags >> 4) & 15, fx16(b, p + 2), fx16(b, p + 4))  # in a node these are bits 4-11
+        return basis_matrix(b, bases + 10 * index)
+
+    def _rotations(self, b, o, pivots, bases, info, at):
+        def value(frame):
+            i, t, count = self._where(info, frame)
+            here = self._rotation(b, pivots, bases, u16(b, o + at + 2 * i))
+            if not t:
+                return here
+            there = self._rotation(b, pivots, bases, u16(b, o + at + 2 * min(i + 1, count - 1)))
+            u, _, vt = np.linalg.svd(here * (1 - t) + there * t)
+            return u @ vt
+        return value
+
+    def pose(self, model, frame):
+        """{node index: its transform at the frame}, for Model.triangles. What a node does not animate
+        is its rest transform's; what it sets to identity is identity."""
+        out = {}
+        for i, node in enumerate(self.nodes):
+            if not node or i >= len(model.objs):
+                continue
+            rest = model.objs[i][1]
+            rest_turn = rest[:3, :3]
+            rest_scale = np.linalg.norm(rest_turn, axis=0)
+            turn = rest_turn / np.maximum(rest_scale, 1e-9)
+            m = np.eye(4)
+            t = rest[:3, 3] if node.get('t', 'rest') == 'rest' else [v(frame) for v in node['t']] if node['t'] else (0.0, 0.0, 0.0)
+            r = turn if node.get('r', 'rest') == 'rest' else node['r'](frame) if node['r'] else np.eye(3)
+            s = rest_scale if node.get('s', 'rest') == 'rest' else [v(frame) for v in node['s']] if node['s'] else (1.0, 1.0, 1.0)
+            m[:3, :3] = r @ np.diag(s)
+            m[:3, 3] = t
+            out[i] = m
+        return out
+
+
+def _still(value):
+    return lambda frame: value

@@ -4,7 +4,7 @@ An object in MOVERS is not baked into the course: its MKDS model becomes a CTR m
 game/ConvertedTrack/Mover.c moves it and hits karts through the game's hazard code. `Mover` says how an
 object moves; `build_model` writes the model; `records` writes the list the thread reads.
 """
-import copy, math, struct
+import copy, math, random, struct
 from collections import namedtuple
 
 import numpy as np
@@ -17,6 +17,7 @@ import mkds_objects
 MODEL_ID = -1  # no slot in the game's model table
 HEADER_SIZE, LAYOUT_SIZE, MODEL_SIZE = 0x40, 12, 0x18
 FRAME_SIZE = 0x1c
+HALF_FRAMES = 0x8000  # ModelAnim.numFrames: it counts half frames, the odd ones eased
 SCALE_ONE = 4096
 TURN = 4096
 LOD_ALWAYS = 0x7fff
@@ -96,7 +97,15 @@ MOVERS = {
     0xd: Mover('puddle', (STILL,)),
     0x1a8: Mover('bound', (STILL,)),
     0x198: Mover('mkd_ef_bubble', (KEYS, 'bubble')),
+    0x140: Mover('chandelier', (STILL,)),
+    0x151: Mover('picture1', (STILL,)),
+    0x152: Mover('picture2', (STILL,)),
 }
+# Models whose joint animation (MapObj/<model>.nsbca) plays, one frame a tick (animate). A STILL one loops
+# from the tick START_TICK draws (first, and how many more at random), or anywhere in its loop; a KEYS one
+# plays with its keys' clock and stands at its first frame while a gate holds it.
+ANIMATED = {'picture1', 'picture2', 'chandelier', 'kanoke_64'}
+START_TICK = {'chandelier': (60, 60)}  # MKDS 0x209f338
 # What a kart that touches an object gets, by the game's reaction to it (mkds_objects.REACTION): (damage,
 # flags). 2 is a wall; 3 to 7 spin a kart; 8 knocks it away; 9 and 10 throw it; 11 crushes it; 12 bounces it.
 REACTIONS = {2: (0, SOLID), 3: (SPIN_DAMAGE, 0), 4: (SPIN_DAMAGE, 0), 5: (SPIN_DAMAGE, 0), 6: (SPIN_DAMAGE, 0), 7: (SPIN_DAMAGE, 0),
@@ -123,7 +132,7 @@ SOLID_STILL = {'dram', 'test_cylinder', 'kanoke_64'}  # stays where it is and ke
 RIM_FALL = {'rotary_bridge': 0x800, 'test_cylinder': 0x165}
 PENDULUM_BOB = (100, 100, 50), (0, -500, 0)  # half its hit box and where it is: only the weight hits
 # Hangs or flies where it is placed, by its own origin
-FLYING = {'mkd_ef_bubble', 'FireBall', 'kamome', 'airship', 'sun', 'NsKiller2', 'mkd_ef_burner', 'teresa', 'basabasa', 'bakubaku', 'pukupuku', 'fireball2', 'kanoke_64', 'second_hand', 'pendulum', 'test_cylinder', 'gear_black', 'gear_white', 'rotary_room', 'rotary_bridge', 'flipper', 'dram', 'RainStar'}
+FLYING = {'chandelier', 'picture1', 'picture2', 'mkd_ef_bubble','FireBall', 'kamome', 'airship', 'sun', 'NsKiller2', 'mkd_ef_burner', 'teresa', 'basabasa', 'bakubaku', 'pukupuku', 'fireball2', 'kanoke_64', 'second_hand', 'pendulum', 'test_cylinder', 'gear_black', 'gear_white', 'rotary_room', 'rotary_bridge', 'flipper', 'dram', 'RainStar'}
 HIT_SHARE = {'fireball2': 0.5}  # of its box: a ball is round
 ROUND_SHARE = 0.7  # the box of what is round or a picture
 GHOSTS = 6  # Boos a group shows at most (MKDS 0x13d)
@@ -252,7 +261,10 @@ def _between(a, b, t):
     """The vertex `t` of the way along an edge: place, texture coordinate, colour and normal."""
     def mix(p, q):
         return None if p is None or q is None else tuple(np.array(p, float) + (np.array(q, float) - np.array(p, float)) * t)
-    return (mix(a[0], b[0]), mix(a[1], b[1]), mix(a[2], b[2]), mix(a[3], b[3]))
+    out = (mix(a[0], b[0]), mix(a[1], b[1]), mix(a[2], b[2]), mix(a[3], b[3]))
+    if len(a) > 4:  # its place in each frame of an animation
+        out += (np.asarray(a[4], float) + (np.asarray(b[4], float) - np.asarray(a[4], float)) * t,)
+    return out
 
 
 def _midpoint(a, b):
@@ -351,22 +363,27 @@ def chunks(triangles, lev_per_unit):
 
 def build_model(name, triangles, materials, lev_per_unit, mirror=False, billboard=False, two_sided=False):
     """A CTR model of an MKDS model. triangles: (material index, [(pos, uv, colour, normal) * 3]) in MKDS
-    units. two_sided: seen from behind too. -> (the
+    units; an animated one's vertices carry a fifth item, their place in each of its frames (animate),
+    an array of frames by x, y, z. two_sided: seen from behind too. -> (the
     pieces, each (ctr_items.ItemModel, where its origin is from the object's, in level units at scale 1,
     what an instance's scale takes on, as a model scale is 16 bits), half its size in level units as x, y,
     z, the middle of it, and its lowest corner in level units). The pieces share their textures."""
-    composite = composite_billboard(triangles, materials) if billboard else None
+    animated = len(triangles[0][1][0]) > 4
+    composite = composite_billboard(triangles, materials) if billboard and not animated else None
     if composite is not None:
         triangles, materials, composite_image = composite
     if two_sided:
         triangles = triangles + [(mi, tri[::-1]) for mi, tri in triangles]
     if mirror:
-        triangles = [(mi, [((-v[0][0], v[0][1], v[0][2]), *v[1:]) for v in tri]) for mi, tri in triangles]
+        flip = np.array([-1.0, 1.0, 1.0])
+        triangles = [(mi, [((-v[0][0], v[0][1], v[0][2]), *v[1:4], *([np.asarray(v[4]) * flip] if animated else [])) for v in tri]) for mi, tri in triangles]
     triangles = fit_tiles(triangles, materials)
     points =np.array([v[0] for _, tri in triangles for v in tri], float) * lev_per_unit
     low, high = points.min(0), points.max(0)
     extent = np.maximum(high - low, 1.0)
     pieces = [triangles] if billboard else chunks(triangles, lev_per_unit)
+    if animated and len(pieces) > 1:
+        raise ValueError(f'mover model {name}: an animated model must fit one piece')
     turn = (0, 1, 2) if mirror else (0, 2, 1)  # the game's front faces wind the other way round
 
     def folded_uv(mi, tri):
@@ -404,22 +421,31 @@ def build_model(name, triangles, materials, lev_per_unit, mirror=False, billboar
             centre = np.zeros(3)
         else:
             centre = anchor + np.round(((piece_points.min(0) + piece_points.max(0)) / 2 - anchor) / step) * step
-        built.append((_piece_model(name, piece, piece_points - centre, materials, images, tiles, turn, billboard, folded_uv, step), centre))
+        frames = None
+        if animated:
+            frames = np.array([v[4] for _, tri in piece for v in tri], float).transpose(1, 0, 2) * lev_per_unit - centre
+        built.append((_piece_model(name, piece, piece_points - centre, materials, images, tiles, turn, billboard, folded_uv, step, frames), centre))
     return [(model, centre, up) for (model, up), centre in built], extent / 2, (low + high) / 2, low
 
 
-def _piece_model(name, triangles, points, materials, images, tiles, turn, billboard, folded_uv, step=None):
+def _piece_model(name, triangles, points, materials, images, tiles, turn, billboard, folded_uv, step=None, frames=None):
     """One instance's model. points: its vertices in level units from its own origin. step: the level units
     a stored step is each way, whole numbers its origin is a multiple of (build_model); None fits the piece.
-    -> (ctr_items.ItemModel, what an instance's scale takes on)."""
+    frames: an animation's frames, each its vertices as points are (animate). -> (ctr_items.ItemModel,
+    what an instance's scale takes on)."""
+    stored_frames = []
     if step is None:
-        low, high = points.min(0), points.max(0)
+        every = points if frames is None else np.concatenate([points, *frames])  # one scale and origin fit every frame
+        low, high = every.min(0), every.max(0)
         extent = np.maximum(high - low, 1.0)
         scale_up = max(1, math.ceil(extent.max() * SCALE_ONE / 255 / MAX_MODEL_SCALE))
         scale = np.ceil(extent / scale_up * SCALE_ONE / 255).astype(int)
-        points = points / scale_up
-        origin = np.floor(points.min(0) * SCALE_ONE / scale).astype(int)
-        stored = np.clip(np.round(points * SCALE_ONE / scale) - origin, 0, 255).astype(int)
+        origin = np.floor(every.min(0) / scale_up * SCALE_ONE / scale).astype(int)
+
+        def store(p):
+            return np.clip(np.round(p / scale_up * SCALE_ONE / scale) - origin, 0, 255).astype(int)
+        stored = store(points)
+        stored_frames = [store(f) for f in frames] if frames is not None else []
     else:
         scale_up = 1
         while (step * SCALE_ONE / scale_up).max() > MAX_MODEL_SCALE:
@@ -499,7 +525,32 @@ def _piece_model(name, triangles, points, materials, images, tiles, turn, billbo
         struct.pack_into('<I', blob, table_at + 4 * (index - 1), at)
         pointers.append(table_at + 4 * (index - 1))
         groups[key[0]]['layouts'].append(at)
-    return ctr_items.ItemModel(blob, sorted(pointers), [g for g in groups.values() if g['layouts']]), scale_up
+    if stored_frames:
+        # One animation of uncompressed frames, all with the rest frame's commands. Its count is of half
+        # frames, flagged: the renderer eases between two stored frames on an odd one, at 30 and 60 FPS
+        # alike, and a half frame is one of MKDS's ticks (animate).
+        struct.pack_into('<I', blob, head + 0x34, 1)
+        field(0x38)
+        table_at = len(blob)
+        blob += bytes(4)
+        struct.pack_into('<I', blob, table_at, len(blob))
+        pointers.append(table_at)
+        frame_size = FRAME_SIZE + len(vertices)
+        blob += blob[:16] + struct.pack('<HhI', HALF_FRAMES | (2 * len(stored_frames) - 1), frame_size, 0)
+        for frame_stored in stored_frames:
+            frame = bytearray(FRAME_SIZE)
+            struct.pack_into('<3h', frame, 0, int(origin[0]), int(origin[1]), int(origin[2]))
+            struct.pack_into('<I', frame, 0x18, FRAME_SIZE)
+            these = bytearray()
+            for i in order:
+                x, y, z = frame_stored[i]
+                these += bytes((x, z, y))
+            while len(these) % 4:
+                these.append(0)
+            blob += frame + these
+    built = ctr_items.ItemModel(blob, sorted(pointers), [g for g in groups.values() if g['layouts']])
+    built.loop = 2 * len(stored_frames) - 1 if stored_frames else 0  # ticks
+    return built, scale_up
 
 
 def records(kind, speed, damage_flags, half, middle, base, mode_args, points):
@@ -543,6 +594,30 @@ def key_records(track, damage, half, middle, base, flags, to_lev, lev_unit, size
     return records(KEYS, KEY_MS * step // 3, damage | flags, half, middle, base, args, grow + gates + keys), track.ticks
 
 
+def animate(model, animation):
+    """An MKDS model's joint animation as frames for build_model: the model's triangles posed at every
+    other tick of its loop, eased between by the renderer. The loop is stretched by a tick when it is even:
+    a flagged count of half frames is always odd. -> (each vertex's place in each frame, an array of
+    frames by x, y, z, in the order of model.triangles; the loop's length in ticks)."""
+    length = animation.frames
+    ticks = length if length % 2 else length + 1
+    frames = [model.triangles(lit=True, pose=animation.pose(model, (2 * k * length / ticks) % length)) for k in range((ticks + 1) // 2)]
+    places = np.array([[v[0] for _, tri in tris for v in tri] for tris in frames], float)
+    if places.ndim != 3:
+        raise ValueError(f'{model.name}: its frames draw different triangles')
+    return places.transpose(1, 0, 2), ticks
+
+
+def start_tick(name, mover, loop):
+    """The tick of its loop a STILL animated model starts at, drawn once from its place as mkds_motion
+    draws, so the copies of one model do not move as one. 0 for one with no animation."""
+    if not loop:
+        return 0
+    first, more = START_TICK.get(name, (0, loop))
+    seed = int(abs(mover['pos'][0]) * 7 + abs(mover['pos'][2]) * 13)
+    return (first + random.Random(seed).randrange(more)) % loop
+
+
 def instances(pieces, pos, size, scale_up_size, listed, reach, name, rot=None):
     """One instance of each piece of a model (build_model), all on one record list: the first tests the
     karts, the rest are drawn where they are from it. rot: the turn the map places it at, which it keeps
@@ -559,7 +634,7 @@ def place(movers, model_index, halves, to_lev, lev_unit, rotate, settle, context
     """-> (one entry per instance, the record lists). An object on a path that several share gets a start
     spaced along it; one on a centre, a phase round it. settle: a point -> that point on the ground there.
     context: what mkds_motion's objects need of the course. halves[model_index[key]]: (half its size, its
-    middle, its pieces, its lowest corner, whether it is a picture)."""
+    middle, its pieces, its lowest corner, whether it is a picture, its animation's loop in ticks or 0)."""
     placed, lists = [], []
     for mover in movers:
         spec, pos, rot, size = mover['spec'], mover['pos'], mover['rot'], mover['size']
@@ -572,7 +647,7 @@ def place(movers, model_index, halves, to_lev, lev_unit, rotate, settle, context
                                'offset': [0, 0, 0], 'drawn_only': False})
                 lists.append(listed)
             continue
-        half, middle, pieces, low, flat = halves[model_index[mover['key']]]
+        half, middle, pieces, low, flat, loop = halves[model_index[mover['key']]]
         base = np.eye(3) if flat and spec.kind[0] != ORBIT else np.array([rotate(np.array(axis, float), rot) for axis in np.eye(3)]).T
         damage, solid = reaction(mover.get('reacts', mover['id']))
         if spec.damage is not None:
@@ -670,7 +745,7 @@ def place(movers, model_index, halves, to_lev, lev_unit, rotate, settle, context
                     period, peak = settings[0] * 40, settings[1] * TURN * 24 // 36000  # s0 * 2.4 ticks; 100 is 24 degrees
                     mode_args = (args[0], period, peak)
             elif kind == STILL:
-                mode_args = (0, 0, 0)
+                mode_args = (start_tick(spec.model, mover, loop), 0, 0)
                 at = (settle(pos) if standing else pos) + lift
             else:
                 # hoops a kart goes through: s0 balls a hoop, s3 + 1 hoops, s1 the outer radius, s2 their speed

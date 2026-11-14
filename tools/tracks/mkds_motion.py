@@ -351,6 +351,16 @@ def coffin(m, c):
     return released(m, c, 10, 41, 3, 10, 1500, (0.5, 1.5), 0.096, (2.125, 2.375), 25, (40, 2), (80, 5))
 
 
+COFFIN_OPEN = 9 * 41  # ticks: its lid's 41-frame animation, 9 times over, from a kart coming near (0x20919e8)
+
+
+def coffin_lid(m, c):
+    """0x19e's own box: stands where it is, and opens and shuts its lid while it lets its bats out
+    (coffin). Its animation runs on this clock (mkds_movers.ANIMATED), shut while the gate holds it."""
+    pos = plain(m['pos'])
+    return [Track([pos] * (COFFIN_OPEN + 1), gates=[(0, 1500, 0, pos)], hit=0)]
+
+
 def moving_box(m, c):
     """0xc9: an item box on its path, from the point s[4]. A point with an action sends it back to the first."""
     path, st = m['path'], m['settings']
@@ -587,7 +597,7 @@ def bubble(m, c):
     return [Track(run + [None] * (m['settings'][0] + 1), hit=15)]
 
 
-MOTIONS = {'thwomp': thwomp, 'rock': rock, 'ball': ball, 'airship': airship, 'sun': sun, 'chain_path': chain_path,
+MOTIONS = {'coffin_lid': coffin_lid, 'thwomp': thwomp, 'rock': rock, 'ball': ball, 'airship': airship, 'sun': sun, 'chain_path': chain_path,
            'bakubaku': bakubaku, 'bats': bats, 'coffin': coffin, 'moving_box': moving_box, 'fire_plant': fire_plant, 'rocky_wrench': rocky_wrench,
            'monty_mole': monty_mole, 'cheep_cheep': cheep_cheep, 'bubble': bubble}
 

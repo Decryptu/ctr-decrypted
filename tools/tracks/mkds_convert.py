@@ -858,9 +858,10 @@ SCENERY = {
 # What MKDS draws as parts of one object: each part is an object of its own here, this far over the first
 SNOWMAN_HEAD, POKEY_BODY, POKEY_HEAD, PIRANHA_HEAD = range(0x10000, 0x10004)
 FIRE_PLANT_SHOT = 0x10004
+COFFIN = 0x10005  # a coffin's own box, its lid opening while its bats come out; the object itself is its bats
 DRUM = 0xd2
 STACKED_ID = SNOWMAN_HEAD
-STACKED = {0x19d: [(SNOWMAN_HEAD, 19)], 0x1b2: [(POKEY_BODY, 40), (POKEY_BODY, 66), (POKEY_HEAD, 92)], 0x1aa: [(PIRANHA_HEAD, 70)]}
+STACKED = {0x19d: [(SNOWMAN_HEAD, 19)], 0x1b2: [(POKEY_BODY, 40), (POKEY_BODY, 66), (POKEY_HEAD, 92)], 0x1aa: [(PIRANHA_HEAD, 70)], 0x19e: [(COFFIN, 0)]}
 SCENERY.update({SNOWMAN_HEAD: 'sman_top', POKEY_BODY: 'sanbo_b', POKEY_HEAD: 'sanbo_h', PIRANHA_HEAD: 'PakkunZHead'})
 # A Pokey walks its path as one, and a fire plant's shots run along its own
 POKEY_OBJECT = 0x1b2
@@ -868,6 +869,7 @@ POKEY_MOVER = mkds_movers.Mover('sanbo_b', (mkds_movers.PATH, mkds_movers.BACK_A
 POKEY_PARTS = {POKEY_BODY: POKEY_MOVER, POKEY_HEAD: POKEY_MOVER._replace(model='sanbo_h')}
 FIRE_PLANT, FIRE_PLANT_SHOTS = 0x1aa, ('FireBall',)
 FIRE_PLANT_MOVER = mkds_movers.Mover('FireBall', (mkds_movers.KEYS, 'fire_plant'))
+COFFIN_MOVER = mkds_movers.Mover('kanoke_64', (mkds_movers.KEYS, 'coffin_lid'))
 CHAIN_CHOMPS = {0x196, 0x1a5}
 # What a kart hitting it gets is the game's reaction to another object: bats are let out by their spawners,
 # a fire plant's shot and a Pokey's parts are of the object they belong to (mkds_objects.REACTION)
@@ -1501,6 +1503,7 @@ class Course:
             table[FIRE_PLANT_SHOT] = FIRE_PLANT_MOVER
             table[PIRANHA_HEAD] = mkds_movers.FIRE_PLANT_HEAD
             table[SNOWMAN_HEAD] = SNOWMAN_HEAD_MOVER
+            table[COFFIN] = COFFIN_MOVER
             for part, over in parts:
                 spec = table.get(part)
                 if part == BURNER and path is not None:
@@ -1529,6 +1532,10 @@ class Course:
                     for m in model.mats:
                         m.tex0 = tex0
                     tris = [(mi, [(tuple(np.array(v[0]) * MODEL_TO_WORLD), v[1], v[2], v[3]) for v in tri]) for mi, tri in model.triangles(lit=True)]
+                    if spec.model in mkds_movers.ANIMATED:
+                        places, _ = mkds_movers.animate(model, nitro3d.JointAnimation(arc[f'MapObj/{spec.model}.nsbca']))
+                        places = iter(places * MODEL_TO_WORLD)
+                        tris = [(mi, [(*v, next(places)) for v in tri]) for mi, tri in tris]
                     self.mover_models[key] = (model.mats, tris)
                 tyres = None
                 if spec.model in mkds_movers.TYRED:
@@ -1695,16 +1702,16 @@ def convert(course, out_dir, name, scale, max_edge, crate, fruit_crate, vram_sha
     first_mover_image = len(item_images)
     mover_models, mover_halves, mover_index, images_in = [], [], {}, set()
     for key, (mats, tris) in course.mover_models.items():
-        billboard = mkds_movers.is_flat([v[0] for _, tri in tris for v in tri])
+        billboard = mkds_movers.is_flat([v[0] for _, tri in tris for v in tri]) and key[0] not in WALL_MODELS
         two_sided = any((m.polygon_attr >> 6) & 1 for m in mats)  # a picture may be wound away from the camera it turns to
         # built at its largest placed size, so no instance scales it up: the game multiplies a model's
         # scale by its instance's in 16 bits, and a big one overflows (Waluigi Pinball's bumpers are 10 times)
         largest = max([float(np.abs(m['size']).max()) for m in course.movers if key in (m['key'], (m.get('tyres') or (None,))[0])] + [1.0])
-        grown = [(mi, [(tuple(np.array(v[0]) * largest), *v[1:]) for v in tri]) for mi, tri in tris]
+        grown = [(mi, [(tuple(np.array(v[0]) * largest), *v[1:4], *[np.asarray(f) * largest for f in v[4:]]) for v in tri]) for mi, tri in tris]
         pieces, half, middle, low = mkds_movers.build_model(key[0], grown, mats, lev_unit, key[1], billboard, two_sided)
         mover_index[key] = len(mover_halves)
         mover_halves.append((half / largest, middle / largest, [(len(mover_models) + n, centre / largest, up / largest) for n, (_, centre, up) in enumerate(pieces)],
-                             low / largest, billboard))
+                             low / largest, billboard, pieces[0][0].loop))
         for model, _, _ in pieces:
             mover_models.append(model)
             for g in model.groups:

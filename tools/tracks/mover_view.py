@@ -20,6 +20,7 @@ CELL = 8  # pixels: parts of one model this close are one thing
 SWEEPS = {1, 2, 4, 8, 10}  # SPIN, SWING, ORBIT, TURNS, LINK: they go round, so the frame's middle says nothing, and a thin one turns edge on
 COMES_AND_GOES = {5, 11}  # PULSE, GHOST: out of sight for part of its time
 CROWDS = {'wanwan_chain', 'basabasa', 'crate'}  # one of several close together: the frame's middle says nothing
+ONE_SIDED = {'picture2'}  # mkds_convert.WALL_MODELS: it hangs on a wall, and MKDS draws its face alone
 
 
 def frames(folder):
@@ -67,11 +68,14 @@ def main():
     failed = 0
     for name, (view, sides) in seen.items():
         areas = [a for a, _ in sides]
+        if name in ONE_SIDED:  # its back is never seen: only the views of its face count
+            sides = sorted(sides)[len(sides) // 2:]
+        faces = [a for a, _ in sides]
         faults = []
         if max(areas) < FEWEST:
             faults.append('not drawn')
         elif view['kind'] not in COMES_AND_GOES:
-            if min(areas) < FEWEST or (view['kind'] not in SWEEPS and min(areas) < SIDES_ALIKE * max(areas)):
+            if min(faces) < FEWEST or (view['kind'] not in SWEEPS and min(faces) < SIDES_ALIKE * max(faces)):
                 faults.append('missing from a side')
         if view['kind'] not in SWEEPS | COMES_AND_GOES and name not in CROWDS and max(areas) >= FEWEST and max(o for a, o in sides if a >= FEWEST) > MOST_OFF:
             faults.append('drawn away from its place')
