@@ -12,7 +12,7 @@
 //   6  the middle of the hit box, from the origin, in its own axes
 //   7+   MOVER_PATH: the path
 //
-// a, b, c: PATH: mode, first point, 0. SPIN: axis, 4096ths of a turn a second,
+// a, b, c: PATH: mode, first point, 0; with MOVER_FLAG_SWAY its last record is its sway's (Mover_Sway). SPIN: axis, 4096ths of a turn a second,
 // less than 0 the other way round, and for a rim a kart rides how level the rim must be
 // under it to carry it (4096 is level); with a record after the fixed ones, it turns
 // for that many ticks, speeds up and slows down over y ticks, stops for z, and
@@ -96,6 +96,7 @@ enum
 	MOVER_STRIKE_SHIFT = 4,      // what a kart with the mask does to it (MOVER_STRUCK_*), CTR's Star
 	MOVER_STRIKE_MASK = 0xf0,
 	MOVER_FLAG_STAR_WALL = 0x400, // SOLID stops a kart with the mask too; else it rams through
+	MOVER_FLAG_SWAY = 0x800,     // PATH: a Pokey's part, swaying on the parts under it (Mover_Sway)
 
 	MOVER_RECORD_MIDDLE = 6,
 	MOVER_RECORD_POINTS = 7,
@@ -145,7 +146,9 @@ static s32 s_moverAt[MOVER_MOST_LISTS][3];
 
 static int Mover_NumPoints(const struct ConvertedMover *mover)
 {
-	return GAME_TRACKER->level1->ptrSpawnType2[mover->list].numCoords - MOVER_RECORD_POINTS;
+	const int sway = ((u16)Mover_Records(mover)[0].z & MOVER_FLAG_SWAY) != 0; // its last record is its sway's
+
+	return GAME_TRACKER->level1->ptrSpawnType2[mover->list].numCoords - MOVER_RECORD_POINTS - sway;
 }
 
 static void Mover_Identity(s32 m[3][3])
@@ -1390,6 +1393,131 @@ static int Mover_StruckHolds(const struct ConvertedMover *mover)
 	return (s->kind == MOVER_STRUCK_POP) || (s->kind == MOVER_STRUCK_KNOCK_CRAB) || ((s->kind == MOVER_STRUCK_FLIP_LIE) && (s->stage == 1));
 }
 
+// A Pokey sways, MKDS's 0x1b2 (0x20a74dc): each of its parts tilts about the object's own
+// z by 10 degrees times the sine of its phase, which goes on 4 degrees a tick, each part
+// starting 20 ticks after the one under it. A part turns on the top of the one under it,
+// so each tilt carries the parts above it. A hit (0x20a7f64) runs every phase at 16
+// degrees a tick for 60 ticks, then 1 degree a tick slower down to 5, and back to 4.
+// The sway record, a part's last: its part, from the bottom, and how far over the part
+// under it the first part above the bottom stands, and every one after it, level units.
+enum
+{
+	SWAY_PARTS = 4,
+	SWAY_DELAY = 20,          // ticks, a part over the one under it
+	SWAY_SPEED = 0x2d8,       // 65536ths of a turn a tick
+	SWAY_HIT_SPEED = 0xb61,
+	SWAY_EASE = 0xb6,
+	SWAY_EASED = 0x38e,
+	SWAY_PEAK = 0x71c,
+	SWAY_HIT_TICKS = 60,
+};
+
+struct MoverSway
+{
+	u32 tickMS60;  // ms times 60 not yet a tick
+	u16 phase, speed;
+	s16 delay, angle; // angle: 4096ths of a turn
+	s16 hitTicks;     // the bottom part's: what is left of a hit's faster sway
+	s16 started;
+};
+
+static struct MoverSway s_moverSway[MOVER_MOST_LISTS];
+
+static const SVec3 *Mover_SwayRecord(const struct ConvertedMover *mover)
+{
+	return &Mover_Records(mover)[GAME_TRACKER->level1->ptrSpawnType2[mover->list].numCoords - 1];
+}
+
+static int Mover_SwayBottom(const struct ConvertedMover *mover)
+{
+	const int bottom = mover->list - Mover_SwayRecord(mover)->x;
+
+	return ((bottom >= 0) && (mover->list < MOVER_MOST_LISTS)) ? bottom : -1;
+}
+
+static void Mover_Sway(struct Instance *inst, struct ConvertedMover *mover, s32 m[3][3], s32 dt)
+{
+	const SVec3 *record = Mover_SwayRecord(mover);
+	const int part = record->x, bottom = Mover_SwayBottom(mover);
+	struct MoverSway *own;
+	s32 angle = 0, back[3][3], turn[3][3], w[3][3];
+
+	if (bottom < 0)
+	{
+		return;
+	}
+	own = &s_moverSway[mover->list];
+	if (!own->started)
+	{
+		own->started = 1;
+		own->speed = SWAY_SPEED;
+		own->delay = (s16)(SWAY_DELAY * part);
+	}
+	for (own->tickMS60 += (u32)dt * 60; own->tickMS60 >= 1000; own->tickMS60 -= 1000)
+	{
+		struct MoverSway *base = &s_moverSway[bottom];
+
+		if (base->hitTicks > 0)
+		{
+			own->speed = SWAY_HIT_SPEED;
+		}
+		else
+		{
+			own->speed = (own->speed > SWAY_EASED) ? (u16)(own->speed - SWAY_EASE) : SWAY_SPEED;
+		}
+		if (own->delay > 0)
+		{
+			own->delay--;
+		}
+		else
+		{
+			own->phase = (u16)(own->phase + own->speed);
+			own->angle = (s16)((SWAY_PEAK * MATH_Sin(own->phase >> 4)) >> 12 >> 4);
+		}
+		if ((part == 0) && (base->hitTicks > 0))
+		{
+			base->hitTicks--;
+		}
+	}
+
+	// where the part would stand unswayed, less each gap under it, plus that gap turned
+	// by every tilt under and at it, in the mover's own axes
+	for (int k = 0; k < 3; k++)
+	{
+		for (int j = 0; j < 3; j++)
+		{
+			back[k][j] = m[j][k];
+		}
+	}
+	for (int j = 0; j <= part; j++)
+	{
+		const s32 gap = (j == 1) ? record->y : record->z;
+		s32 up[3], turned[3];
+
+		angle += s_moverSway[bottom + j].angle;
+		if (j == 0)
+		{
+			continue;
+		}
+		Mover_AxisTurn(turn, 2, angle & 0xfff);
+		Mover_Multiply(w, m, turn);
+		Mover_Multiply(w, w, back);
+		for (int k = 0; k < 3; k++)
+		{
+			up[k] = (k == 1) ? gap : 0;
+		}
+		for (int k = 0; k < 3; k++)
+		{
+			turned[k] = (w[k][0] * up[0] + w[k][1] * up[1] + w[k][2] * up[2]) >> 12;
+		}
+		inst->matrix.t[0] += turned[0] - up[0];
+		inst->matrix.t[1] += turned[1] - up[1];
+		inst->matrix.t[2] += turned[2] - up[2];
+	}
+	Mover_AxisTurn(turn, 2, angle & 0xfff);
+	Mover_Multiply(m, m, turn);
+}
+
 static void Mover_HitKarts(struct ConvertedMover *mover, struct Instance *inst, const SVec3 *records, s32 m[3][3])
 {
 	const int damage = mover->harmless ? 0 : (records[0].z & MOVER_DAMAGE_MASK);
@@ -1478,6 +1606,10 @@ static void Mover_HitKarts(struct ConvertedMover *mover, struct Instance *inst, 
 			s_moverGraceUntil[i] = GAME_TRACKER->framesInThisLEV + MOVER_HIT_GRACE;
 			Mover_LogHit(mover, records, i, driver, "hit");
 			NativeDev_MoverHit(mover->list, i, MOVER_EVENT_HURT);
+			if (((u16)records[0].z & MOVER_FLAG_SWAY) && (Mover_SwayBottom(mover) >= 0))
+			{
+				s_moverSway[Mover_SwayBottom(mover)].hitTicks = SWAY_HIT_TICKS;
+			}
 			if ((driver->actionsFlagSet & ACTION_BOT) == 0)
 			{
 				OtherFX_Play_Echo(MOVER_HIT_SOUND, 1, (driver->actionsFlagSet & ACTION_ENGINE_ECHO) != 0);
@@ -2026,6 +2158,10 @@ static void ConvertedMover_ThTick(struct Thread *t)
 	{
 	case MOVER_PATH:
 		Mover_FollowPath(inst, mover, records, m, dt);
+		if ((u16)records[0].z & MOVER_FLAG_SWAY)
+		{
+			Mover_Sway(inst, mover, m, dt);
+		}
 		break;
 
 	case MOVER_KEYS:
@@ -2201,6 +2337,7 @@ void ConvertedMover_LevelStart(const struct InstDef *definitions, int count)
 	memset(s_moverGraceUntil, 0, sizeof(s_moverGraceUntil));
 	memset(s_moverStruck, 0, sizeof(s_moverStruck));
 	memset(s_moverChase, 0, sizeof(s_moverChase));
+	memset(s_moverSway, 0, sizeof(s_moverSway));
 }
 
 void ConvertedMover_LInB(struct Instance *inst)

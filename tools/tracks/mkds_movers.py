@@ -42,6 +42,7 @@ PATH, SPIN, SWING, _HOP, ORBIT, PULSE, KEYS, STILL, TURNS, CHOMP, LINK, GHOST = 
 LOOP, BACK_AND_FORTH, RESTART = range(3)
 FACE_PATH, ROLL, SOLID, CARRIES, ANIM_KEYS, DROPS = 0x100, 0x200, 0x1000, 0x2000, 0x4000, 0x8000  # Mover.c's MOVER_FLAG_
 STAR_WALL, STRIKE_SHIFT = 0x400, 4  # Mover.c's MOVER_FLAG_STAR_WALL, MOVER_STRIKE_SHIFT
+SWAY = 0x800  # Mover.c's MOVER_FLAG_SWAY: a Pokey's part, its last record its part and the gaps under it
 TICKS = 60  # a second: the game's objects
 SPIN_RATE = 4.8  # 4096ths of a turn a second per unit of a spinner's speed setting: (s << 7) / 100 of 65536 a tick
 PATH_UNITS = 3.2  # level units a second per hundredth of a world unit a tick
@@ -876,7 +877,13 @@ def place(movers, model_index, halves, to_lev, lev_unit, rotate, settle, context
                     for tyre in instances(halves[model_index[mover['tyres'][0]]][2], to_lev(at), size, size, len(lists), reach, spec.model):
                         tyre.update(drawn_only=WHEEL, offset=[int(round(c)) for c in np.array([0.0, height, z]) * size * lev_unit])
                         placed.append(tyre)
-            lists.append(records(kind, speed, damage | flags, half, middle, base, mode_args, points))
+            sway = 0
+            if kind == PATH and mover.get('sway') is not None:
+                part, overs = mover['sway']
+                gap = [to_lev(at + np.array([0.0, (overs[j] - overs[j - 1]) * size[1], 0.0]))[1] - to_lev(at)[1] for j in (1, 2)]
+                points = points + [(part, int(round(gap[0])), int(round(gap[1])))]
+                sway = SWAY
+            lists.append(records(kind, speed, damage | flags | sway, half, middle, base, mode_args, points))
             if spec.model == 'NsKiller1':
                 parent = len(lists) - 1
                 start = pos + (0.0, BULLET_UP, 0.0)

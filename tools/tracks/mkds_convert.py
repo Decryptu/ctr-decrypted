@@ -1517,7 +1517,7 @@ class Course:
             table[PIRANHA_MOUTH] = mkds_movers.FIRE_PLANT_MOUTH
             table[SNOWMAN_HEAD] = SNOWMAN_HEAD_MOVER
             table[COFFIN] = COFFIN_MOVER
-            for part, over in parts:
+            for index, (part, over) in enumerate(parts):
                 spec = table.get(part)
                 if part == BURNER and path is not None:
                     spec = mkds_movers.BURNER_ON_PATH
@@ -1557,7 +1557,8 @@ class Course:
                 if part == SUN:
                     self.load_part_model(FLARE_MODEL, self.flare_arc)
                 self.movers.append({'tyres': tyres, 'bullet': bullet, 'key': key, 'spec': spec, 'pos': pos + (0.0, over * size[1], 0.0), 'rot': rot, 'size': size, 'path': path, 'settings': settings, 'over': over, 'id': part,
-                                    'reacts': REACTS_AS.get(part, part), 'struck': STRUCK_AS.get(part)})
+                                    'reacts': REACTS_AS.get(part, part), 'struck': STRUCK_AS.get(part),
+                                    'sway': (index, [o for _, o in parts]) if object_id == POKEY_OBJECT else None})
 
     def load_mover_model(self, arc, key):
         """A mover's model, by its key: (model, mirrored) and what of its texture pattern it shows
