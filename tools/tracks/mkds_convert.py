@@ -10,7 +10,7 @@ Render geometry comes from course_model.nsbmd (textured, vertex coloured, drawn 
 Collision comes from course_collision.kcl (invisible quadblocks carrying terrain, walls and checkpoints).
 Start, finish line and route come from course_map.nkm.
 """
-import argparse, copy, json, math, os, shutil, subprocess, sys
+import argparse, copy, json, math, os, random, shutil, subprocess, sys
 from collections import defaultdict
 import numpy as np
 from PIL import Image, ImageDraw
@@ -863,6 +863,9 @@ PIRANHA_MOUTH = 0x10006  # a fire plant's head itself: PakkunZHead is only a fla
 DRUM = 0xd2
 STACKED_ID = SNOWMAN_HEAD
 STACKED = {0x19d: [(SNOWMAN_HEAD, 19)], 0x1b2: [(POKEY_BODY, 40), (POKEY_BODY, 66), (POKEY_HEAD, 92)], 0x1aa: [(PIRANHA_HEAD, 70), (PIRANHA_MOUTH, 70)], 0x19e: [(COFFIN, 0)]}
+# A scenery model's texture pattern frame (MapObj/<model>.nsbtp): a cow's is its setting 0 (0x209192c), a
+# Delfino Square onlooker's one at random (0x209f928, None here)
+SCENERY_PATTERNS = {'cow': 0, 'TownMonte': None}
 SCENERY.update({SNOWMAN_HEAD: 'sman_top', POKEY_BODY: 'sanbo_b', POKEY_HEAD: 'sanbo_h', PIRANHA_HEAD: 'PakkunZHead'})
 # A Pokey walks its path as one, and a fire plant's shots run along its own
 POKEY_OBJECT = 0x1b2
@@ -1393,9 +1396,10 @@ class Course:
         loaded = {}
         ground = [t for t in self.kcl if t[3][1] > 0.1]
         missing = set()
-        placed = mkdsmap.placed_objects(self.nkm)
-        placed += [(part, p + (0.0, over * s[1], 0.0), r, s) for o, p, r, s in placed for part, over in STACKED.get(o, ())]
-        for object_id, pos, rot, size in placed:
+        placed = list(zip(mkdsmap.placed_objects(self.nkm), mkdsmap.all_object_settings(self.nkm)))
+        placed += [((part, p + (0.0, over * s[1], 0.0), r, s), st) for (o, p, r, s), st in placed for part, over in STACKED.get(o, ())]
+        crowd = random.Random(self.name)
+        for (object_id, pos, rot, size), settings in placed:
             name = SCENERY.get(object_id)
             if name is None or object_id in mkds_movers.MOVERS or object_id in POKEY_PARTS or object_id in (POKEY_OBJECT, PIRANHA_HEAD, SNOWMAN_HEAD):
                 continue
@@ -1405,7 +1409,12 @@ class Course:
             if file not in arc:
                 missing.add(name)
                 continue
-            if name not in loaded:
+            frame, pattern = None, None
+            if name in SCENERY_PATTERNS and f'MapObj/{name}.nsbtp' in arc:
+                pattern = nitro3d.TexturePattern(arc[f'MapObj/{name}.nsbtp'])
+                setting = SCENERY_PATTERNS[name]
+                frame = crowd.randrange(pattern.frames) if setting is None else settings[setting]
+            if (name, frame) not in loaded:
                 model = nitro3d.Model(arc[file])
                 first = len(self.mats)
                 tex0 = nitro3d.load_tex0(arc[file])
@@ -1416,8 +1425,10 @@ class Course:
                     if flat:
                         m.polygon_attr |= 1 << 6  # both sides
                     self.mats.append(m)
-                loaded[name] = (first, tris, flat)
-            first, tris, flat = loaded[name]
+                if pattern is not None:
+                    mkds_movers.show_pattern_frame(model.mats, pattern, frame)
+                loaded[(name, frame)] = (first, tris, flat)
+            first, tris, flat = loaded[(name, frame)]
             turns = (rot[1], rot[1] + 90) if flat and name not in WALL_MODELS else (rot[1],)
             base = np.array([0.0, 0.0, 0.0])
             if name not in HANGING_MODELS and object_id < STACKED_ID:
@@ -1495,7 +1506,7 @@ class Course:
 
     def add_movers(self, arc):
         """What moves in MKDS and moves here too: see mkds_movers. Left to `convert` to scale and write."""
-        self.movers, self.mover_models = [], {}
+        self.movers, self.mover_models, self.mover_patterns = [], {}, {}
         table = dict(mkds_movers.MOVERS)
         table.update({POKEY_OBJECT: POKEY_MOVER, **POKEY_PARTS})
         for (object_id, pos, rot, size), path, settings in zip(mkdsmap.placed_objects(self.nkm), mkdsmap.object_paths(self.nkm), mkdsmap.all_object_settings(self.nkm)):
@@ -1525,20 +1536,13 @@ class Course:
                 if spec.kind[0] == mkds_movers.PATH and path is None:
                     continue
                 mirror = bool(settings[0]) and object_id in MIRRORED_BY_SETTING
-                key = (spec.model, mirror)
-                if key not in self.mover_models:
-                    if part < STACKED_ID:
-                        mkds_objects.check(part, spec.model)
-                    model = nitro3d.Model(arc[f'MapObj/{spec.model}.nsbmd'])
-                    tex0 = nitro3d.load_tex0(arc[f'MapObj/{spec.model}.nsbmd'])
-                    for m in model.mats:
-                        m.tex0 = tex0
-                    tris = [(mi, [(tuple(np.array(v[0]) * MODEL_TO_WORLD), v[1], v[2], v[3]) for v in tri]) for mi, tri in model.triangles(lit=True)]
-                    if spec.model in mkds_movers.ANIMATED:
-                        places, _ = mkds_movers.animate(model, nitro3d.JointAnimation(arc[f'MapObj/{spec.model}.nsbca']))
-                        places = iter(places * MODEL_TO_WORLD)
-                        tris = [(mi, [(*v, next(places)) for v in tri]) for mi, tri in tris]
-                    self.mover_models[key] = (model.mats, tris)
+                variant = mkds_movers.pattern_variant(spec, settings, path is not None) if f'MapObj/{spec.model}.nsbtp' in arc else None
+                key = (spec.model, mirror) if variant is None else (spec.model, mirror, variant)
+                if part < STACKED_ID:
+                    mkds_objects.check(part, spec.model)
+                self.load_mover_model(arc, key)
+                if spec.model == 'teresa':
+                    self.load_mover_model(arc, (spec.model, mirror, 1))  # every other Boo's face
                 tyres = None
                 if spec.model in mkds_movers.TYRED:
                     tyre_mats, tyre_tris, axles = tyre_model(arc, spec.model)
@@ -1554,6 +1558,29 @@ class Course:
                     self.load_part_model(FLARE_MODEL, self.flare_arc)
                 self.movers.append({'tyres': tyres, 'bullet': bullet, 'key': key, 'spec': spec, 'pos': pos + (0.0, over * size[1], 0.0), 'rot': rot, 'size': size, 'path': path, 'settings': settings, 'over': over, 'id': part,
                                     'reacts': REACTS_AS.get(part, part), 'struck': STRUCK_AS.get(part)})
+
+    def load_mover_model(self, arc, key):
+        """A mover's model, by its key: (model, mirrored) and what of its texture pattern it shows
+        (mkds_movers.pattern_variant): a frame of it, or TIMED, which mover_patterns then holds."""
+        if key in self.mover_models:
+            return
+        name = key[0]
+        model = nitro3d.Model(arc[f'MapObj/{name}.nsbmd'])
+        tex0 = nitro3d.load_tex0(arc[f'MapObj/{name}.nsbmd'])
+        for m in model.mats:
+            m.tex0 = tex0
+        if len(key) > 2:
+            pattern = nitro3d.TexturePattern(arc[f'MapObj/{name}.nsbtp'])
+            if key[2] == mkds_movers.TIMED:
+                self.mover_patterns[key] = (pattern, mkds_movers.TIMED_PATTERNS.get(name))
+            else:
+                mkds_movers.show_pattern_frame(model.mats, pattern, key[2])
+        tris = [(mi, [(tuple(np.array(v[0]) * MODEL_TO_WORLD), v[1], v[2], v[3]) for v in tri]) for mi, tri in model.triangles(lit=True)]
+        if name in mkds_movers.ANIMATED:
+            places, _ = mkds_movers.animate(model, nitro3d.JointAnimation(arc[f'MapObj/{name}.nsbca']))
+            places = iter(places * MODEL_TO_WORLD)
+            tris = [(mi, [(*v, next(places)) for v in tri]) for mi, tri in tris]
+        self.mover_models[key] = (model.mats, tris)
 
     def load_part_model(self, name, arc):
         """A model an object brings with it: a cannon's shot, a chain's link."""
@@ -1708,9 +1735,9 @@ def convert(course, out_dir, name, scale, max_edge, crate, fruit_crate, vram_sha
         two_sided = any((m.polygon_attr >> 6) & 1 for m in mats)  # a picture may be wound away from the camera it turns to
         # built at its largest placed size, so no instance scales it up: the game multiplies a model's
         # scale by its instance's in 16 bits, and a big one overflows (Waluigi Pinball's bumpers are 10 times)
-        largest = max([float(np.abs(m['size']).max()) for m in course.movers if key in (m['key'], (m.get('tyres') or (None,))[0])] + [1.0])
+        largest = max([float(np.abs(m['size']).max()) for m in course.movers if key[:2] in ((m['key'] or (None,))[:2], (m.get('tyres') or (None,))[0])] + [1.0])  # a model's faces too (load_mover_model)
         grown = [(mi, [(tuple(np.array(v[0]) * largest), *v[1:4], *[np.asarray(f) * largest for f in v[4:]]) for v in tri]) for mi, tri in tris]
-        pieces, half, middle, low = mkds_movers.build_model(key[0], grown, mats, lev_unit, key[1], billboard, two_sided)
+        pieces, half, middle, low = mkds_movers.build_model(key[0], grown, mats, lev_unit, key[1], billboard, two_sided, course.mover_patterns.get(key))
         mover_index[key] = len(mover_halves)
         mover_halves.append((half / largest, middle / largest, [(len(mover_models) + n, centre / largest, up / largest) for n, (_, centre, up) in enumerate(pieces)],
                              low / largest, billboard, pieces[0][0].loop))

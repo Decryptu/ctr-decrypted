@@ -108,6 +108,39 @@ MOVERS = {
 # far through its animation it is each tick (mkds_motion.Track.anim; a TURNS one, a third item a tick).
 ANIMATED = {'picture1', 'picture2', 'chandelier', 'kanoke_64', 'sun', 'PakkunMouth', 'move_tree'}
 START_TICK = {'chandelier': (60, 60)}  # MKDS 0x209f338
+# Texture patterns (MapObj/<model>.nsbtp): which of its frames a model shows, read from each object's code.
+# A timed one shows these frames a tick, round and round on its mover's clock (build_model writes them
+# as the model's pattern), (frame, True) mirrored: a Goomba its step clock's tick in each half of its 40,
+# the second half turned over, as the game draws it with its width negated (0x20db108); a crab's body
+# and hands their animations' frame at an eighth of a frame a tick (0x209b124), a piranha plant bit 4 of
+# its tick count (0x20e5c78), a bat a frame a tick (0x20927ac), a bumper on a path 1 to 29 (0x209c254).
+TIMED_PATTERNS = {'kuribo': list(range(20)) + [(t, True) for t in range(20)], 'crab': [t // 8 for t in range(16)], 'crab_hand': [t // 8 for t in range(16)],
+                  'ob_pakkun_sf': [(t >> 4) & 1 for t in range(32)], 'basabasa': list(range(13)), 'bound': list(range(1, 30))}
+KEYED_PATTERNS = {'poo'}  # a frame a key, from its track (mkds_motion.Track.pattern)
+# One frame an instance keeps: a car's or truck's colour is its setting 2 (0x20e2b7c); a Boo's face
+# alternates through its group (0x2094c34), and the other is a model of its own (GHOSTS).
+SETTING_PATTERNS = {'car_a': 2, 'truck_a': 2}
+TIMED = 'timed'
+
+
+def pattern_variant(spec, settings, has_path):
+    """What of a mover's model's texture pattern it shows: None, a frame it keeps, or TIMED (its frames a
+    tick, or its keys')."""
+    if spec.model in SETTING_PATTERNS:
+        return settings[SETTING_PATTERNS[spec.model]]
+    if spec.model == 'teresa':
+        return 0
+    if spec.model in KEYED_PATTERNS or (spec.model in TIMED_PATTERNS and (spec.model != 'bound' or has_path)):
+        return TIMED  # a bumper that stands still shows its first frame for good
+    return None
+
+
+def show_pattern_frame(materials, pattern, frame):
+    """Draw materials with the textures a pattern shows at one of its frames."""
+    for m in materials:
+        names = pattern.at(m.name, frame)
+        if names is not None:
+            m.tex, m.pal = names
 # What a kart that touches an object gets, by the game's reaction to it (mkds_objects.REACTION): (damage,
 # flags). 2 is a wall; 3 to 7 spin a kart; 8 knocks it away; 9 and 10 throw it; 11 crushes it; 12 bounces it.
 REACTIONS = {2: (0, SOLID), 3: (SPIN_DAMAGE, 0), 4: (SPIN_DAMAGE, 0), 5: (SPIN_DAMAGE, 0), 6: (SPIN_DAMAGE, 0), 7: (SPIN_DAMAGE, 0),
@@ -386,16 +419,17 @@ def chunks(triangles, lev_per_unit):
     return [cells[k] for k in sorted(cells)]
 
 
-def build_model(name, triangles, materials, lev_per_unit, mirror=False, billboard=False, two_sided=False):
+def build_model(name, triangles, materials, lev_per_unit, mirror=False, billboard=False, two_sided=False, pattern=None):
     """A CTR model of an MKDS model. triangles: (material index, [(pos, uv, colour, normal) * 3]) in MKDS
     units; an animated one's vertices carry a fifth item, their place in each of its frames (animate),
-    an array of frames by x, y, z. two_sided: seen from behind too. -> (the
+    an array of frames by x, y, z. two_sided: seen from behind too. pattern: (nitro3d.TexturePattern, the
+    frame it shows each tick of its loop, or None for a frame a key) for one whose textures change. -> (the
     pieces, each (ctr_items.ItemModel, where its origin is from the object's, in level units at scale 1,
     what an instance's scale takes on, as a model scale is 16 bits), half its size in level units as x, y,
     z, the middle of it, and its lowest corner in level units). The pieces share their textures."""
     animated = len(triangles[0][1][0]) > 4
-    composite = composite_billboard(triangles, materials) if billboard and not animated else None
-    if billboard and animated:
+    composite = composite_billboard(triangles, materials) if billboard and not animated and pattern is None else None
+    if billboard and (animated or pattern is not None):
         triangles = lift_cutouts(triangles, materials)
     if composite is not None:
         triangles, materials, composite_image = composite
@@ -427,12 +461,40 @@ def build_model(name, triangles, materials, lev_per_unit, mirror=False, billboar
         uv = folded_uv(mi, tri)
         for axis in (0, 1):
             tiles[mi][axis] = min(max(tiles[mi][axis], math.ceil(uv[:, axis].max() - UV_SLACK)), MAX_TILES)
-    images = {}
-    for mi in used:
+    def fitted(mi):
         material = materials[mi]
         whole = composite_image if composite is not None else tiled(
             image_of(material), tiles[mi], ((material.teximage >> 18) & 1, (material.teximage >> 19) & 1))
-        images[mi] = whole[::math.ceil(whole.shape[0] / MAX_HEIGHT), ::math.ceil(whole.shape[1] / MAX_WIDTH)]
+        return whole[::math.ceil(whole.shape[0] / MAX_HEIGHT), ::math.ceil(whole.shape[1] / MAX_WIDTH)]
+
+    images = {mi: fitted(mi) for mi in used}
+    steps = None
+    if pattern is not None:
+        # a step is one set of textures it shows, each maybe mirrored: those of the frames its loop
+        # shows, or of every frame for keys
+        texture_pattern, frames = pattern
+        frames = [f if isinstance(f, tuple) else (f, False) for f in frames] if frames is not None else None
+        shown = sorted(set(frames)) if frames is not None else [(f, False) for f in range(texture_pattern.frames)]
+        sets = [(tuple(texture_pattern.at(materials[mi].name, f) for mi in used), mirrored) for f, mirrored in shown]
+        order = sets if frames is None else list(dict.fromkeys(sets))
+        step_of = {f: order.index(t) for f, t in zip(shown, sets)}
+        steps = {'ticks': [step_of[f] for f in frames] if frames is not None else [], 'images': []}
+        rest = [(materials[mi].tex, materials[mi].pal) for mi in used]
+        for chosen, mirrored in order:
+            step_images = {}
+            for mi, names in zip(used, chosen):
+                if names is None and not mirrored:
+                    step_images[mi] = images[mi]
+                    continue
+                if names is not None:
+                    materials[mi].tex, materials[mi].pal = names
+                step_images[mi] = fitted(mi)[:, ::-1] if mirrored else fitted(mi)
+                materials[mi].tex, materials[mi].pal = rest[used.index(mi)]
+                if step_images[mi].shape != images[mi].shape:
+                    raise ValueError(f'mover model {name}: a pattern texture is not the size of the one it stands for')
+            steps['images'].append(step_images)
+        for mi, (tex, pal) in zip(used, rest):
+            materials[mi].tex, materials[mi].pal = tex, pal
 
     built, step = [], None
     if len(pieces) > 1:
@@ -451,15 +513,17 @@ def build_model(name, triangles, materials, lev_per_unit, mirror=False, billboar
         frames = None
         if animated:
             frames = np.array([v[4] for _, tri in piece for v in tri], float).transpose(1, 0, 2) * lev_per_unit - centre
-        built.append((_piece_model(name, piece, piece_points - centre, materials, images, tiles, turn, billboard, folded_uv, step, frames), centre))
+        built.append((_piece_model(name, piece, piece_points - centre, materials, images, tiles, turn, billboard, folded_uv, step, frames, steps), centre))
     return [(model, centre, up) for (model, up), centre in built], extent / 2, (low + high) / 2, low
 
 
-def _piece_model(name, triangles, points, materials, images, tiles, turn, billboard, folded_uv, step=None, frames=None):
+def _piece_model(name, triangles, points, materials, images, tiles, turn, billboard, folded_uv, step=None, frames=None, steps=None):
     """One instance's model. points: its vertices in level units from its own origin. step: the level units
     a stored step is each way, whole numbers its origin is a multiple of (build_model); None fits the piece.
-    frames: an animation's frames, each its vertices as points are (animate). -> (ctr_items.ItemModel,
-    what an instance's scale takes on)."""
+    frames: an animation's frames, each its vertices as points are (animate). steps: a texture pattern's
+    (build_model): a table of layouts a step, one after another, each step's textures its own, and the
+    pattern, which the header's word 0x10 points to (Mover.c's MoverPattern). -> (ctr_items.ItemModel, what an instance's scale
+    takes on)."""
     stored_frames = []
     if step is None:
         every = points if frames is None else np.concatenate([points, *frames])  # one scale and origin fit every frame
@@ -543,15 +607,27 @@ def _piece_model(name, triangles, points, materials, images, tiles, turn, billbo
     blob += struct.pack(f'<{len(table)}I', *table)
     field(0x28)
     table_at = len(blob)
-    blob += bytes(4 * len(layouts))
-    groups = {mi: {'layouts': [], 'u': 0, 'v': 0, 'image': images[mi]} for mi in used}
-    for key, index in layouts.items():
-        at = len(blob)
-        t = key[1:]
-        blob += struct.pack('<BBHBBHBBBB', t[0], t[1], 0, t[2], t[3], OPAQUE_PAGE, t[4], t[5], t[4], t[5])
-        struct.pack_into('<I', blob, table_at + 4 * (index - 1), at)
-        pointers.append(table_at + 4 * (index - 1))
-        groups[key[0]]['layouts'].append(at)
+    step_images = steps['images'] if steps is not None else [images]
+    blob += bytes(4 * len(layouts) * len(step_images))
+    groups = {(mi, n): {'layouts': [], 'u': 0, 'v': 0, 'image': these[mi]} for n, these in enumerate(step_images) for mi in used}
+    for n, these in enumerate(step_images):
+        for key, index in layouts.items():
+            slot = table_at + 4 * (len(layouts) * n + index - 1)
+            if n and these[key[0]] is step_images[0][key[0]]:
+                struct.pack_into('<I', blob, slot, struct.unpack_from('<I', blob, table_at + 4 * (index - 1))[0])  # the pattern leaves it alone
+            else:
+                at = len(blob)
+                t = key[1:]
+                blob += struct.pack('<BBHBBHBBBB', t[0], t[1], 0, t[2], t[3], OPAQUE_PAGE, t[4], t[5], t[4], t[5])
+                struct.pack_into('<I', blob, slot, at)
+                groups[(key[0], n)]['layouts'].append(at)
+            pointers.append(slot)
+    if steps is not None:
+        field(0x10)
+        ticks = steps['ticks']
+        blob += struct.pack('<HH', len(layouts), len(ticks)) + bytes(ticks)
+        while len(blob) % 4:
+            blob.append(0)
     if stored_frames:
         # One animation of uncompressed frames, all with the rest frame's commands. Its count is of half
         # frames, flagged: the renderer eases between two stored frames on an odd one, at 30 and 60 FPS
@@ -603,7 +679,8 @@ def star(object_id, struck=None):
 
 def key_records(track, damage, half, middle, base, flags, to_lev, lev_unit, size, loop=0):
     """A MOVER_KEYS list, from a mkds_motion.Track. half: the object's own hit box. loop: its model's
-    animation's ticks (animate), which a track's anim (how far through it, a tick) plays."""
+    animation's ticks (animate), which a track's anim (how far through it, a tick) plays; a track's
+    pattern is the frame of its model's texture pattern a tick."""
     step = track.step
     keys = [[0, KEY_HIDDEN, 0] if p is None else [int(round(c)) for c in to_lev(p)] for p in track.ticks[::step]]
     ticks_a_second = mkds_motion.TICKS
@@ -618,9 +695,14 @@ def key_records(track, damage, half, middle, base, flags, to_lev, lev_unit, size
             middle = np.zeros(3)
     if track.damage is not None:
         damage = track.damage
-    if track.anim is not None and loop:
+    anim = track.anim if track.anim is not None and loop else None
+    if anim is not None or track.pattern is not None:
+        # a key's animation tick, and the frame of its texture pattern it shows (KEYED_PATTERNS)
         flags |= ANIM_KEYS
-        keys += [[int(round(a * loop)) % loop, 0, 0] for a in track.anim[::step]]
+        count = len(track.ticks[::step])
+        animated = [int(round(a * loop)) % loop for a in anim[::step]] if anim is not None else [0] * count
+        shown = list(track.pattern[::step]) if track.pattern is not None else [0] * count
+        keys += [[a, f, 0] for a, f in zip(animated, shown)]
     args = (track.restart // step, track.lap_step, track.start // step)
     return records(KEYS, KEY_MS * step // 3, damage | flags, half, middle, base, args, grow + gates + keys), track.ticks
 
@@ -721,7 +803,8 @@ def place(movers, model_index, halves, to_lev, lev_unit, rotate, settle, context
         if kind == GHOST:
             unit = unit_256(lev_unit)
             for n in range(GHOSTS):
-                placed += instances(pieces, to_lev(pos), size, size, len(lists), reach, spec.model)
+                face = halves[model_index.get(mover['key'][:2] + (n & 1,), model_index[mover['key']])][2]  # every other one shows the other face
+                placed += instances(face, to_lev(pos), size, size, len(lists), reach, spec.model)
                 lists.append(records(GHOST, 0, damage | flags, half, middle, base, (round(mover['settings'][0] * lev_unit), n, unit), [to_lev(pos)]))
             continue
         if kind == KEYS:

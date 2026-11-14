@@ -28,7 +28,8 @@
 // race must reach; the point it must come near. Then the keys; MOVER_KEY_HIDDEN in y:
 // it is not there. With MOVER_FLAG_ANIM_KEYS, as many records again after them: the tick of
 // its animation at each key, in x, which it plays forward between them, and on
-// at a tick a tick while a gate holds it.
+// at a tick a tick while a gate holds it; in y, the step of its texture pattern it shows
+// from that key (Mover_Pattern).
 // STILL: stays where it is placed, and only hits. a: the tick its animation starts at
 // (Mover_Animate), for a model that has one.
 // Bits 4-7 of the damage word: what it does when a kart with the mask, CTR's Star,
@@ -128,6 +129,7 @@ struct ConvertedMover
 	s32 hitShare;            // of its hit box, 4096 is as placed; 0 is the same
 	s32 harmless;            // this frame it hurts nothing
 	u32 heldMS;              // KEYS: how long gates have held it, its animation playing on meanwhile
+	u32 patternStep;         // which of its model's texture pattern's tables it draws with (Mover_Pattern)
 };
 
 // A thread's object comes from the small pool, which refuses one this big or bigger.
@@ -747,6 +749,10 @@ static int Mover_FollowKeys(struct Instance *inst, struct ConvertedMover *mover,
 		mover->heldMS += held ? dt : 0;
 		inst->animIndex = 0;
 		inst->animFrame = (s16)((at + (u32)(ahead * part) + mover->heldMS * 60 / 1000) % loop);
+	}
+	if (flags & MOVER_FLAG_ANIM_KEYS)
+	{
+		mover->patternStep = (u16)keys[count + key].y;
 	}
 	if ((from->y == MOVER_KEY_HIDDEN) || (to->y == MOVER_KEY_HIDDEN))
 	{
@@ -1903,7 +1909,7 @@ static void Mover_Log(const struct ConvertedMover *mover, const struct Instance 
 			{
 				fprintf(file, " %d", inst->matrix.m[i / 3][i % 3]);
 			}
-			fprintf(file, " %d %d\n", inst->scale.y, inst->animFrame); // an animated model that stays put moves too
+			fprintf(file, " %d %d %u\n", inst->scale.y, inst->animFrame, mover->patternStep); // an animated model that stays put moves too; last, its texture pattern's step
 			fclose(file);
 		}
 	}
@@ -1955,6 +1961,39 @@ static void Mover_Animate(struct Instance *inst, const struct ConvertedMover *mo
 	}
 	inst->animIndex = 0;
 	inst->animFrame = (s16)(ticks % loop);
+}
+
+// A model whose textures change (tools/tracks/mkds_movers.py, TIMED_PATTERNS and KEYED_PATTERNS) has
+// a table of texture layouts a step of its pattern, one after another from its header's, and this,
+// which its header's unk1 points to: nothing reads that word of a model. Not animtex: the level's
+// model list holds a mover's model, and CTR_CycleTex would run it. ticks: its loop, the step it shows each
+// tick on its mover's clock; 0: its keys say (Mover_FollowKeys).
+struct MoverPattern
+{
+	u16 layouts;
+	u16 ticks;
+	u8 step[];
+};
+
+static const struct MoverPattern *Mover_PatternOf(const struct Instance *inst)
+{
+	const struct Model *model = inst->model;
+
+	if ((model == NULL) || (model->numHeaders <= 0))
+	{
+		return NULL;
+	}
+	return (const struct MoverPattern *)(uintptr_t)model->headers[0].unk1;
+}
+
+static void Mover_Pattern(struct Instance *inst, struct ConvertedMover *mover)
+{
+	const struct MoverPattern *pattern = Mover_PatternOf(inst);
+
+	if ((pattern != NULL) && (pattern->ticks != 0))
+	{
+		mover->patternStep = pattern->step[(mover->timeMS * 60 / 1000) % pattern->ticks];
+	}
 }
 
 static void ConvertedMover_ThTick(struct Thread *t)
@@ -2058,6 +2097,7 @@ static void ConvertedMover_ThTick(struct Thread *t)
 
 	struck = Mover_Struck(mover, inst, records, m, frameMS, &hidden);
 	Mover_Animate(inst, mover, records);
+	Mover_Pattern(inst, mover);
 	Mover_Store(inst, m);
 	Mover_Log(mover, inst, records);
 	NativeDev_TrackMover(mover->list, inst->matrix.t[0], inst->matrix.t[1], inst->matrix.t[2]);
@@ -2106,6 +2146,27 @@ static void ConvertedMover_ThTick(struct Thread *t)
 		Mover_HitKarts(mover, inst, records, m);
 	}
 	Mover_Place(mover, inst, m);
+}
+
+// The texture layouts an instance draws with this frame: its model's, or for a mover whose
+// textures change, its pattern step's table (struct MoverPattern). The renderer asks as it
+// queues the instance.
+struct TextureLayout **ConvertedMover_TexLayout(const struct Instance *inst, const struct ModelHeader *mh)
+{
+	const struct MoverPattern *pattern;
+	const struct ConvertedMover *mover;
+
+	if ((inst->thread == NULL) || (inst->thread->funcThTick != ConvertedMover_ThTick))
+	{
+		return mh->ptrTexLayout; // and a retail model's unk1 is not ours to read
+	}
+	pattern = (const struct MoverPattern *)(uintptr_t)mh->unk1;
+	if (pattern == NULL)
+	{
+		return mh->ptrTexLayout;
+	}
+	mover = inst->thread->object;
+	return mh->ptrTexLayout + mover->patternStep * pattern->layouts;
 }
 
 // An item box's own thread is the crate's, from its first break to its regrowth, so

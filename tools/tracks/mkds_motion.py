@@ -20,7 +20,7 @@ LAP_ONCE = 99  # a race never reaches it: what runs once stays gone
 # scale's (rise a tick, top), as a share of its placed size; gates: (tick, how near a kart must come, the
 # lap the race must reach, the point it must come near); hit: its radius, world units: None is the
 # object's own, 0 none; step: ticks a key; damage: None is the object's own.
-Track = namedtuple('Track', 'ticks model restart lap_step start grow gates hit step damage anim', defaults=(None, 0, 0, 0, None, (), None, 3, None, None))
+Track = namedtuple('Track', 'ticks model restart lap_step start grow gates hit step damage anim pattern', defaults=(None, 0, 0, 0, None, (), None, 3, None, None, None))
 
 
 def plain(p):
@@ -566,12 +566,14 @@ def drums(m, c):
 
 
 def rocky_wrench(m, c):
-    """0x1a7: peeks out of its hole, sinks, comes right out, stays and goes down again."""
+    """0x1a7: peeks out of its hole, sinks, comes right out, stays and goes down again: its face's
+    second frame (poo.nsbtp) as it goes (states 4 and 5, 0x2096ab4)."""
     rng, ground = c['rng'], c['settled'](m['pos'])[1]
-    st, ticks = m['settings'], []
+    st, ticks, face = m['settings'], [], []
 
-    def at(height):
+    def at(height, going=0):
         ticks.append(None if height <= 0 else np.array([m['pos'][0], ground + height - 15, m['pos'][2]]))
+        face.append(going)
 
     for _ in range(4):
         for _ in range(max(st[0] + rng.randrange(60) - 30, 1)):
@@ -591,9 +593,9 @@ def rocky_wrench(m, c):
         for _ in range(68 + rng.randrange(90)):
             at(height)
         while height > 0:
-            at(height)
+            at(height, 1)
             height -= 0.75
-    return [Track(ticks)]
+    return [Track(ticks, pattern=face)]
 
 
 def monty_mole(m, c):

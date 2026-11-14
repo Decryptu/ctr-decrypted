@@ -2337,7 +2337,12 @@ static struct RenderBucketEntry *RenderBucket_QueueDraw(struct Instance *inst, s
 	idpp->unkF0 = uncompressFunc;
 	RenderBucket_WriteInstanceCallbackLabels(inst, queuedFlags);
 	idpp->ptrCommandList = mh->ptrCommandList;
+#ifdef CTR_NATIVE
+	// a converted track's mover may show another step of its texture pattern
+	idpp->ptrTexLayout = ConvertedMover_TexLayout(inst, mh);
+#else
 	idpp->ptrTexLayout = mh->ptrTexLayout;
+#endif
 	idpp->ptrColorLayout = (u32)mh->ptrColors;
 	idpp->instFlags = queuedFlags;
 	return rbi + 1;

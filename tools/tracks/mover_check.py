@@ -4,7 +4,8 @@
 
 Reads the log of CTR_DEV_MOVER_LOG, which check_track.ps1 sets, against the movers the converter placed.
 Exit 1 when one never ran, or stayed in one place and pose over the race, or a kart stood still for
-longer than a hit lasts: something holds it.
+longer than a hit lasts: something holds it. Each line ends with the step of its texture pattern it
+shows; the count of those whose textures changed is reported.
 """
 import collections, csv, json, os, sys
 
@@ -30,6 +31,7 @@ def main():
         wanted = len({m['list'] for m in json.load(f)['movers']})  # a big model's pieces share a list
     log = os.path.join(work, 'movers.log')
     seen = collections.defaultdict(set)
+    steps = collections.defaultdict(set)
     unborn = hits = 0
     if os.path.exists(log):
         with open(log) as f:
@@ -42,11 +44,13 @@ def main():
                 elif parts[0] == 'push':
                     continue
                 else:
-                    seen[int(parts[0])].add(tuple(parts[1:]))
+                    seen[int(parts[0])].add(tuple(parts[1:-1]))
+                    steps[int(parts[0])].add(parts[-1])
     # a STILL mover (mkds_movers: a piranha plant, a snowman, a bumper) stays put by design
     still = sorted(i for i, poses in seen.items() if len(poses) < 2 and next(iter(poses))[0] != str(STILL))
     missing = wanted - len(seen)
     print(f'movers: {wanted} placed, {len(seen)} ran, {unborn} found no thread, {len(still)} never moved {still[:12]}, {hits} hit a kart')
+    print(f'texture patterns: {sum(len(s) > 1 for s in steps.values())} movers changed theirs')
     stop, at = longest_stop(os.path.join(work, 'trace.csv'))
     print(f'longest stop {stop} frames, to frame {at}')
     sys.exit(1 if missing or unborn or still or stop > LONGEST_STOP else 0)

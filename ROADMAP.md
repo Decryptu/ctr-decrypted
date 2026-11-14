@@ -7,7 +7,7 @@ Open work only: what is in progress, what is planned, what may come, and what is
 
 ## In progress
 - Mario Kart DS course converter ([TRACK-CONVERTER.md](docs/TRACK-CONVERTER.md)). All 32 race courses convert and are available in the [track catalogue](https://github.com/Decryptu/ctr-decrypted-tracks). Left:
-  - More animated models ([Animation](docs/TRACK-CONVERTER.md#movers)). A moving tree's faster shake when a kart touches it (30 ticks at two frames a tick) needs a mover to react to a hit by its animation. Texture-pattern animations (`.nsbtp`: Delfino Square's crowd, Goombas, crabs, Monty Moles, Boos, cars) need a model's texture swapped over time, which `Mover.c` cannot do yet. Pokey's sway is the game's code, a damped sine per segment.
+  - More animated models ([Animation](docs/TRACK-CONVERTER.md#movers)). A moving tree's faster shake when a kart touches it (30 ticks at two frames a tick) needs a mover to react to a hit by its animation. A Monty Mole's dazed face (its texture pattern's second frame) shows only while a kart has flung it, which the converter does not play. The flippers' and the courses' own texture patterns (`flipper.nsbtp`, `course_model.nsbtp`: Donut Plains' sea, Waluigi Pinball, Banshee Boardwalk and two more) are not read. Pokey's sway is the game's code, a damped sine per segment.
   - Custom tracks are one-player only. If they ever get split screen, its far emitter (`DrawLevelOvr1P_EmitSplitGroundListAQuadBlock`) must draw by face too.
 
 ## Maybe

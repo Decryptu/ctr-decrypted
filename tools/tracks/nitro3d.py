@@ -558,3 +558,32 @@ class JointAnimation:
 
 def _still(value):
     return lambda frame: value
+
+
+class TexturePattern:
+    """A model's texture pattern animation (an .nsbtp's): at each frame, the texture and palette a
+    material draws with. MKDS objects set its frame from their own state, and each frame shows the
+    texture of the last key at or before it."""
+
+    def __init__(self, data, index=0):
+        b = data
+        pat = sections(data)[b'PAT0']
+        name, e = nitro_dict(b, pat + 8)[index]
+        o = pat + u32(e, 0)
+        if b[o:o + 4] != b'M\x00PT':
+            raise ValueError(f'{name}: not a texture pattern')
+        self.name, self.frames = name, u16(b, o + 4)
+        names = lambda at, count: [b[o + at + 16 * i:o + at + 16 * i + 16].rstrip(b'\0').decode() for i in range(count)]
+        self.textures, self.palettes = names(u16(b, o + 8), b[o + 6]), names(u16(b, o + 10), b[o + 7])
+        self.keys = {}  # material -> [(frame, texture index, palette index)]
+        for material, d in nitro_dict(b, o + 12):
+            at = o + u16(d, 6)
+            self.keys[material] = [(u16(b, at + 4 * i), b[at + 4 * i + 2], b[at + 4 * i + 3]) for i in range(u16(d, 0))]
+
+    def at(self, material, frame):
+        """(texture, palette) names the material shows at a frame; None for one the pattern leaves alone."""
+        keys = self.keys.get(material)
+        if not keys:
+            return None
+        _, tex, pal = [k for k in keys if k[0] <= frame % self.frames][-1]
+        return self.textures[tex], self.palettes[pal]
