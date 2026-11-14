@@ -70,7 +70,7 @@ def check(rom, course, runs):
 
 
 BUDGET_MS = 1000 / 59.94
-STALL_MS = 50  # a frame waiting this long on the driver in Platform_BeginScene: see TRACK-CONVERTER.md#checks
+STALL_MS = 50  # a frame waiting this long on the driver at its first clear or at present: see TRACK-CONVERTER.md#checks
 WORST_FRAMES = 0.01  # the share of a course's frames its worst place is taken from
 
 
@@ -84,8 +84,9 @@ def frame_times(course):
         rows = [r for r in csv.DictReader(f) if r['level_id'] == trace[0]['level']][-len(trace):]
     start = next(i for i, t in enumerate(trace[-len(rows):]) if int(t['raceMS']) > 0)
     race = list(zip(rows, trace[-len(rows):]))[start:]
-    stalls = sum(float(r['platform_begin_scene_ms']) > STALL_MS for r, _ in race)
-    race = [p for p in race if float(p[0]['platform_begin_scene_ms']) <= STALL_MS]
+    stalled = lambda r: max(float(r['platform_begin_scene_ms']), float(r['platform_end_scene_ms'])) > STALL_MS
+    stalls = sum(stalled(r) for r, _ in race)
+    race = [p for p in race if not stalled(p[0])]
     ms = sorted(float(r['work_ms']) for r, _ in race)
     over = sum(m > BUDGET_MS for m in ms) / len(ms)
     worst = sorted(race, key=lambda p: -float(p[0]['work_ms']))[:max(1, int(len(race) * WORST_FRAMES))]
