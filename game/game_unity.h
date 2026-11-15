@@ -307,6 +307,7 @@
 #include "Vehicle/VehStuckProc.c"
 #include "ConvertedTrack/VehFlight.c"
 #include "ConvertedTrack/Mover.c"
+#include "ConvertedTrack/TexPattern.c"
 
 #include "Vehicle/VehTurbo.c"
 #include "Vehicle/VehTalkMask.c"

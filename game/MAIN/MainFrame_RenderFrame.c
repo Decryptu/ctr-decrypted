@@ -82,6 +82,12 @@ void MainFrame_RenderFrame(struct GameTracker *gGT, struct GamepadSystem *gGamep
 				LevSuperTurboPads_Cycle(gGT); // cyan copies follow the pad animation
 #endif
 			}
+#ifdef CTR_NATIVE
+			if ((lev != 0) && (lev->texPatterns != 0))
+			{
+				ConvertedTrack_TexPatterns(lev, gGT->timer);
+			}
+#endif
 		}
 	}
 

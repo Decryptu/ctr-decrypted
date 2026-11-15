@@ -10,7 +10,8 @@
 - the sky colours CrashTeamEditor has no field for: the clear colour and the clear split behind the
   sky's bands;
 - the item boxes and Wumpa fruit: their models, an instance for each, their hitboxes and the visible list;
-- the minimap: its two icons, its entry in the spawn table and its palette in the VRM."""
+- the minimap: its two icons, its entry in the spawn table and its palette in the VRM;
+- the course model's texture patterns, as the level's animated textures (add_patterns)."""
 import heapq
 from collections import defaultdict
 import numpy as np
@@ -32,6 +33,7 @@ NORMAL_TRIS = [(0, 4, 5), (4, 6, 5), (6, 4, 1), (5, 6, 2), (8, 6, 7), (7, 3, 8),
 TURNED_COS = 0.9  # fix_normals: about 25 degrees
 OFF_NUM_INSTANCES, OFF_INSTANCES, OFF_NUM_MODELS, OFF_MODELS, OFF_INSTANCE_LIST = 0xC, 0x10, 0x14, 0x18, 0x24
 OFF_TEX_LOOKUP, OFF_ICONS, OFF_SPAWN_TYPE1 = 0x3C, 0x40, 0x134
+OFF_TEX_PATTERNS = 0x2c  # struct Level texPatterns, null in retail
 QUAD_SIZE, QUAD_BBOX, QUAD_TEXTURE_LOW, QUAD_PVS = 0x5c, 0x2c, 0x40, 0x44
 PVS_SIZE, PVS_INSTANCES = 0x10, 8
 INSTDEF_SIZE = 0x40
@@ -421,6 +423,16 @@ def set_jump_pads(data, nq, qoff, pads):
     return done
 
 
+def find_carriers(data, nq, qoff):
+    """The blocks by their bounds: a carrier block's are its key (mkds_convert, carriers)."""
+    carrier_quads = {}
+    for q in range(nq):
+        o = qoff + QUAD_SIZE * q
+        x0, y0, z0, x1, y1, z1 = struct.unpack_from('<6h', data, o + QUAD_BBOX)
+        carrier_quads.setdefault((x0, y0, z0, x1, z1), o)
+    return carrier_quads
+
+
 def add_items(data, ptrs, items, placed, collision_leaves):
     """Append the item models, their instances and hitboxes to the LEV. -> stats."""
     def align():
@@ -437,11 +449,7 @@ def add_items(data, ptrs, items, placed, collision_leaves):
 
     mesh = struct.unpack_from('<I', data, 0)[0]
     nq, _, _, qoff = struct.unpack_from('<4I', data, mesh)
-    carrier_quads = {}
-    for q in range(nq):
-        o = qoff + QUAD_SIZE * q
-        x0, y0, z0, x1, y1, z1 = struct.unpack_from('<6h', data, o + QUAD_BBOX)
-        carrier_quads.setdefault((x0, y0, z0, x1, z1), o)
+    carrier_quads = find_carriers(data, nq, qoff)
 
     if placed['flights']:
         add_flights(data, pointer, placed['flights'])
@@ -604,6 +612,45 @@ def add_items(data, ptrs, items, placed, collision_leaves):
     return map_clut, blends, {'instances': total, 'leaves with hitboxes': len(hit), 'hitbox records': sum(len(e) for e in hit.values())}
 
 
+def add_patterns(data, ptrs, carrier_quads, patterns):
+    """The course model's texture patterns (mkds_convert, PATTERN_SKIP) as the level's texPatterns
+    (game/ConvertedTrack/TexPattern.c): the game copies each frame's image and palette over the material's.
+    A pattern's carriers say where the material's image and each frame's landed in the VRM.
+    -> (blends: (clut, colours) of each frame of a pattern that blends, stats)"""
+    if not patterns:
+        return [], {'texture patterns': 0}
+    def place(key, size):
+        """A carrier's image and palette in VRAM words: (x, y, w, h), (x, y, w)."""
+        layout = struct.unpack_from('<I', data, carrier_quads[tuple(key)] + QUAD_TEXTURE_LOW)[0]
+        u0, v0, clut, u1, v1, tpage, u2, v2, u3, v3 = struct.unpack_from('<BBHBBHBBBB', data, layout)
+        per_word = 4 if (tpage >> 7) & 3 == 0 else 2  # 4-bit texels or 8-bit
+        u, v = min(u0, u1, u2, u3), min(v0, v1, v2, v3)
+        if u % per_word:
+            raise ValueError(f'a pattern image at texel {u} does not start on a VRAM word')
+        image = ((tpage & 0xf) * 64 + u // per_word, ((tpage >> 4) & 1) * 256 + v, size[0] // per_word, size[1])
+        return image, ((clut & 0x3f) * 16, clut >> 6, 16 if per_word == 4 else 256)
+    while len(data) % 4: data.append(0)
+    table = len(data)
+    data += struct.pack('<I', len(patterns))
+    blends = []
+    for pattern in patterns:
+        (image, clut), *frames = [place(key, pattern['size']) for key in pattern['carriers']]
+        for frame_image, frame_clut in frames:
+            if frame_image[2:] != image[2:] or frame_clut[2] != clut[2]:
+                raise ValueError('a pattern frame is not the size or colour depth of its material\'s image')
+        if pattern['blend']:
+            blends += [((x // 16) | (y << 6), 16 if w == 16 else 256) for _, (x, y, w) in frames]
+        data += struct.pack('<4h4h4H', *image, *clut, 1, len(pattern['frames']), pattern['skip'], len(frames), 0xffff)
+        for (x, y, _, _), (cx, cy, _) in frames:
+            data += struct.pack('<4H', x, y, cx, cy)
+        data += bytes(k - 1 for k in pattern['frames'])
+        while len(data) % 4: data.append(0)
+    struct.pack_into('<I', data, OFF_TEX_PATTERNS, table)
+    if OFF_TEX_PATTERNS not in ptrs:
+        ptrs.append(OFF_TEX_PATTERNS)
+    return blends, {'texture patterns': len(patterns), 'their bytes': len(data) - table}
+
+
 def patch(lev_path, vrm_path, nav_path, out_path, out_vrm, zenith, horizon, items, placed, below=None):
     lev = open(lev_path, 'rb').read()
     data_len = struct.unpack_from('<I', lev, 0)[0]
@@ -716,6 +763,8 @@ def patch(lev_path, vrm_path, nav_path, out_path, out_vrm, zenith, horizon, item
     # walls they are on, which the per-block ordering table sort swaps as the camera moves. And
     # CrashTeamEditor writes one layout to all four LOD slots of a texture group.
     far_faces = mark_far_faces(data, nq, qoff, voff)
+    pattern_blends, pattern_stats = add_patterns(data, ptrs, find_carriers(data, nq, qoff), placed.get('patterns', []))
+    blends += pattern_blends
     struct.pack_into('<I', data, OFF_CONFIG_FLAGS,
                      struct.unpack_from('<I', data, OFF_CONFIG_FLAGS)[0] | LEVEL_CONFIG_DEPTH_TESTED | LEVEL_CONFIG_ONE_TEXTURE_LOD)
     # CrashTeamEditor reads the clear colour from a LEV but never writes it: without this the backdrop is black
@@ -731,4 +780,4 @@ def patch(lev_path, vrm_path, nav_path, out_path, out_vrm, zenith, horizon, item
     return {'lanes': len(lanes), 'far blocks drawn by face': far_faces, 'checkpoints': ncp, 'blocks under the route': seeded_blocks, 'hidden quadblocks': hidden,
             'culled bsp nodes': len(culled), 'of': nbsp, 'vis lists': len(vis_lists),
             'worst collision normal error': round(normal_error, 4), 'quadblocks over 2%': normal_bad,
-            'collision triangles turned by the grid, ignored': normal_ignored, **item_stats}
+            'collision triangles turned by the grid, ignored': normal_ignored, **item_stats, **pattern_stats}

@@ -77,6 +77,11 @@ DARK_HORIZON = 48
 # Blocks' joins can round a pixel apart, and on a white sky that pixel flashes: a walled-in course's ground colour
 BELOW_HORIZON = {'old_choco_64': (98, 66, 34)}
 WIDE_ROUGH = 7  # mean colour error of 16 colours past which a wide texture gives up width for colours
+# The course model's own texture pattern (course_model.nsbtp: Donut Plains 1's and Koopa Beach 1's sea, Banshee
+# Boardwalk's water, Bowser Castle 2's lava, dash panels and walls, Waluigi Pinball's flags) plays one frame an MKDS
+# tick, round and round. The game (game/ConvertedTrack/TexPattern.c) steps it every 2 << PATTERN_SKIP MKDS
+# ticks: its keys are 9 ticks apart or more, so a frame shows at most a tick or two late.
+PATTERN_SKIP = 1
 BLEND_ALPHA = 24  # of 31: a surface MKDS draws this see-through or more blends here, half and half: the only mix a level has
 ALPHA_SOLID = 200  # a level texel is solid or clear: only a texel nearly solid in MKDS is solid here
 OVERLAY_MIN_ALPHA, OVERLAY_SHARE = 16, 0.02  # a decal on the floor: its texels this faint are clear, and this many of them lie between
@@ -1227,6 +1232,8 @@ class Course:
         for m in self.model.mats:
             m.tex0 = course_tex0
         self.mats = list(self.model.mats)
+        pattern = nitro3d.TexturePattern(arc['course_model.nsbtp']) if 'course_model.nsbtp' in arc else None
+        self.patterns = {mi: pattern for mi, m in enumerate(self.mats) if pattern is not None and pattern.keys.get(m.name)}
         self.triangles = [(mi, [(np.array(pos) * MODEL_TO_WORLD, uv, col, nrm) for pos, uv, col, nrm in tri])
                           for mi, tri in self.model.triangles()]
         self.overlays = self.find_overlays()
@@ -1651,8 +1658,9 @@ def reduce_colours(im, colours):
     return im.quantize(colours, method=Image.Quantize.MEDIANCUT, kmeans=8).convert('RGB')
 
 
-def quantize(img):
-    """RGBA uint8 array -> PIL image with at most 256 colours (16 when that loses little)."""
+def quantize(img, colours_of=None):
+    """RGBA uint8 array -> PIL image with at most 256 colours (16 when that loses little). colours_of: an
+    image whose colour depth it takes (a texture pattern's frame, copied over its material's image)."""
     im = Image.fromarray(img[..., :3], 'RGB')
     alpha = img[..., 3]
     # a smooth wide gradient (Rainbow Road) turns to blotches in 16 colours: it takes 256 at half the width
@@ -1663,10 +1671,13 @@ def quantize(img):
     # one PS1 texture page is 64 VRAM words wide: 256 texels at 4 bits, 128 at 8. CTE refuses wider and
     # leaves the material with no texture, so transparency, a palette entry of its own, counts here
     clear = int((alpha <= ALPHA_SOLID).any())
-    for colours in ((16,) if img.shape[1] > 128 else (16, 256)):
+    depths = (16,) if img.shape[1] > 128 else (16, 256)
+    if colours_of is not None:
+        depths = (16,) if len(colours_of.getcolors(256) or range(257)) <= 16 else (256,)
+    for colours in depths:
         qa = np.array(reduce_colours(im, colours - clear).convert('RGBA'))
         err = np.abs(qa[..., :3].astype(int) - img[..., :3].astype(int))[alpha > ALPHA_SOLID].mean() if (alpha > ALPHA_SOLID).any() else 0
-        if err < 3.0 or colours == 256 or img.shape[1] > 128:
+        if err < 3.0 or colours == depths[-1]:
             break
     qa[alpha <= ALPHA_SOLID] = 0  # all clear texels are one palette entry
     return Image.fromarray(qa, 'RGBA'), colours
@@ -1779,7 +1790,14 @@ def convert(course, out_dir, name, scale, max_edge, crate, fruit_crate, vram_sha
         return math.ceil(w / 4) * h  # 4-bit worst case; 8-bit textures are at most 128 wide
     budget = 14 * 64 * 256 * vram_share  # 14 free texture pages in a CTE VRM, less room for palettes
     budget -= sum(math.ceil(image.shape[1] / 4) * image.shape[0] for image in item_images)
-    while sum(vram_words(i) for i in tiles) > budget:
+    def pattern_frames(i):
+        """The (texture, palette) a patterned material shows at each MKDS tick of its loop."""
+        pattern = course.patterns[i]
+        return [pattern.at(course.mats[i].name, f) for f in range(pattern.frames)]
+    copies = defaultdict(lambda: 1)  # a patterned material's other frames are images of the same size
+    for i in course.patterns:
+        copies[i] += len(set(pattern_frames(i)))
+    while sum(vram_words(i) * copies[i] for i in tiles) > budget:
         repeated = [i for i in tiles if max(tiles[i]) > 1]
         if repeated:
             i = max(repeated, key=vram_words)
@@ -1788,10 +1806,8 @@ def convert(course, out_dir, name, scale, max_edge, crate, fruit_crate, vram_sha
         else:
             shrink[max(tiles, key=vram_words)] *= 2
     blended = [i for i, m in enumerate(course.mats) if 0 < (m.polygon_attr >> 16) & 31 <= BLEND_ALPHA and m.tex]
-    for i_mat, m in enumerate(course.mats):
-        i = i_mat
-        mname = f'v{i:02d}_{m.tex}'
-        mat_names[i] = mname
+    def material_image(i_mat, m, colours_of=None):
+        """The image CrashTeamEditor is given for a material, as it shows its texture and palette now."""
         src = m.tex0.decode(m.tex, m.pal)[::shrink[i_mat], ::shrink[i_mat]]
         if i_mat in blended:  # a palette of its own, from a surface with this texture that stays solid
             src = src.copy()
@@ -1816,10 +1832,36 @@ def convert(course, out_dir, name, scale, max_edge, crate, fruit_crate, vram_sha
         tiled = np.concatenate(rows, 0)
         # a texture page is 256 texels each way: CTE refuses more, and the material ends up with no texture
         tiled = tiled[::math.ceil(tiled.shape[0] / 256), ::math.ceil(tiled.shape[1] / 256)]
-        img, colours = quantize(np.ascontiguousarray(tiled))
+        return quantize(np.ascontiguousarray(tiled), colours_of)[0]
+    pattern_mats, patterns = [], []
+    for i_mat, m in enumerate(course.mats):
+        mname = f'v{i_mat:02d}_{m.tex}'
+        mat_names[i_mat] = mname
+        img = material_image(i_mat, m)
         fn = f'{mname}.png'
         img.save(os.path.join(tex_dir, fn))
         mtl += [f'newmtl {mname}', f'map_Kd {fn}', '']
+        if i_mat in course.patterns:
+            # a carrier of its own image finds where its faces' texture landed, and one of each frame's
+            # where that frame did (lev_patch.add_patterns)
+            frames = pattern_frames(i_mat)
+            shown = list(dict.fromkeys(frames))
+            first = len(pattern_mats)
+            pattern_mats.append(f'p{i_mat:02d}_base')
+            mtl += [f'newmtl {pattern_mats[-1]}', f'map_Kd {fn}', '']
+            rest = m.tex, m.pal
+            for k, names in enumerate(shown):
+                m.tex, m.pal = names
+                frame = material_image(i_mat, m, img)
+                m.tex, m.pal = rest
+                if frame.size != img.size:
+                    sys.exit(f'{mname}: its pattern frame {names[0]} is not the size of its own texture')
+                frame.save(os.path.join(tex_dir, f'{mname}_p{k}.png'))
+                pattern_mats.append(f'p{i_mat:02d}_{k}')
+                mtl += [f'newmtl {pattern_mats[-1]}', f'map_Kd {mname}_p{k}.png', '']
+            step = 2 << PATTERN_SKIP
+            patterns.append({'carriers': list(range(first, len(pattern_mats))), 'skip': PATTERN_SKIP, 'blend': i_mat in blended, 'size': img.size,
+                             'frames': [1 + shown.index(frames[t]) for t in range(0, len(frames), step)]})
     # collision blocks: fully transparent (colour 0 on the PS1), so no draw path shows them
     grey = Image.new('RGBA', (16, 16), (0, 0, 0, 0))
     grey.save(os.path.join(tex_dir, 'collision.png'))
@@ -2053,7 +2095,7 @@ def convert(course, out_dir, name, scale, max_edge, crate, fruit_crate, vram_sha
     # blocks (lev_patch finds them by their bounds and reads where their textures landed)
     low = np.ceil(np.array(to_cte(kpts.min(0))) * 64) / 64 - 8
     carriers = []
-    item_mats = item_mats + blend_mats
+    item_mats = item_mats + blend_mats + pattern_mats
     for i, mat in enumerate(item_mats):
         x0, x1, z0, z1 = low[0] + 4 * i, low[0] + 4 * i + 2, low[2], low[2] + 2
         corners = [np.array(c, float) for c in ((x0, low[1], z1), (x1, low[1], z1), (x1, low[1], z0), (x0, low[1], z0))]
@@ -2061,8 +2103,11 @@ def convert(course, out_dir, name, scale, max_edge, crate, fruit_crate, vram_sha
         quad = [{'pos': c, 'uv': np.array(uv, float), 'col': np.array([.5, .5, .5])} for c, uv in zip(corners, uvs)]
         write_quadblock(f'i{i}', mat, quad, np.array([0.0, 1.0, 0.0]))
         carriers.append([int(round(c * 64)) for c in (x0, low[1], z0, x1, z1)])
-    item_carriers = carriers[:len(item_mats) - len(blend_mats)]
-    blend_carriers = carriers[len(item_carriers):]
+    item_carriers = carriers[:len(item_mats) - len(blend_mats) - len(pattern_mats)]
+    blend_carriers = carriers[len(item_carriers):len(item_mats) - len(pattern_mats)]
+    pattern_carriers = carriers[len(item_mats) - len(pattern_mats):]
+    for pattern in patterns:
+        pattern['carriers'] = [pattern_carriers[c] for c in pattern['carriers']]
 
     # ---- item boxes: one crate per MKDS box, on the ground under it
     ground = [t for t in course.kcl if (i := COLLISION.get(mkdsmap.kcl_type(t[4]))) and i[2] & GROUND and abs(t[3][1]) >= 0.3]
@@ -2222,7 +2267,7 @@ def convert(course, out_dir, name, scale, max_edge, crate, fruit_crate, vram_sha
     }
     movers, mover_lists = mkds_movers.place(course.movers, mover_index, mover_halves, to_lev, lev_unit, rotate, settle, motion_context)
     stats['movers'], stats['blended materials'] = len(movers), len(blended)
-    json.dump({'crates': crates, 'fruit': fruit, 'fruit_crates': fruit_crates, 'carriers': item_carriers, 'blends': blend_carriers, 'map': ui_map, 'jump_pads': jump_pads, 'flights': flights, 'movers': movers, 'mover_lists': mover_lists},
+    json.dump({'crates': crates, 'fruit': fruit, 'fruit_crates': fruit_crates, 'carriers': item_carriers, 'blends': blend_carriers, 'patterns': patterns, 'map': ui_map, 'jump_pads': jump_pads, 'flights': flights, 'movers': movers, 'mover_lists': mover_lists},
               open(os.path.join(out_dir, name + '_items.json'), 'w'))
 
     cells = {}

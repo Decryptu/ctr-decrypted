@@ -114,9 +114,12 @@ START_TICK = {'chandelier': (60, 60)}  # MKDS 0x209f338
 # as the model's pattern), (frame, True) mirrored: a Goomba its step clock's tick in each half of its 40,
 # the second half turned over, as the game draws it with its width negated (0x20db108); a crab's body
 # and hands their animations' frame at an eighth of a frame a tick (0x209b124), a piranha plant bit 4 of
-# its tick count (0x20e5c78), a bat a frame a tick (0x20927ac), a bumper on a path 1 to 29 (0x209c254).
+# its tick count (0x20e5c78), a bat a frame a tick (0x20927ac), a bumper on a path 1 to 29 (0x209c254), a
+# flipper 1 to 32 a tick while its stroke pushes (out, and the first 15 ticks back) and 0 at rest (0x20978b0):
+# its loop is one stroke, which Mover.c holds at its last step (rest) through the wait.
 TIMED_PATTERNS = {'kuribo': list(range(20)) + [(t, True) for t in range(20)], 'crab': [t // 8 for t in range(16)], 'crab_hand': [t // 8 for t in range(16)],
-                  'ob_pakkun_sf': [(t >> 4) & 1 for t in range(32)], 'basabasa': list(range(13)), 'bound': list(range(1, 30))}
+                  'ob_pakkun_sf': [(t >> 4) & 1 for t in range(32)], 'basabasa': list(range(13)), 'bound': list(range(1, 30)),
+                  'flipper': [1 + t % 32 for t in range(44)] + [0]}
 KEYED_PATTERNS = {'poo', 'choropu'}  # a frame a key, from its track (mkds_motion.Track.pattern); a Monty Mole's dazed face while flung (Mover.c)
 # One frame an instance keeps: a car's or truck's colour is its setting 2 (0x20e2b7c); a Boo's face
 # alternates through its group (0x2094c34), and the other is a model of its own (GHOSTS).

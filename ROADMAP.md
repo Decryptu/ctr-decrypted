@@ -7,7 +7,6 @@ Open work only: what is in progress, what is planned, what may come, and what is
 
 ## In progress
 - Mario Kart DS course converter ([TRACK-CONVERTER.md](docs/TRACK-CONVERTER.md)). All 32 race courses convert and are available in the [track catalogue](https://github.com/Decryptu/ctr-decrypted-tracks). Left:
-  - More animated models ([Animation](docs/TRACK-CONVERTER.md#movers)). The flippers' and the courses' own texture patterns (`flipper.nsbtp`, `course_model.nsbtp`: Donut Plains' sea, Waluigi Pinball, Banshee Boardwalk and two more) are not read.
   - Custom tracks are one-player only. If they ever get split screen, its far emitter (`DrawLevelOvr1P_EmitSplitGroundListAQuadBlock`) must draw by face too.
 
 ## Maybe

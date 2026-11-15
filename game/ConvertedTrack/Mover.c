@@ -2301,13 +2301,14 @@ static const struct MoverPattern *Mover_PatternOf(const struct Instance *inst)
 	return (const struct MoverPattern *)(uintptr_t)model->headers[0].unk1;
 }
 
-static void Mover_Pattern(struct Instance *inst, struct ConvertedMover *mover)
+// tick: where its loop is, its mover's clock in ticks unless its motion says otherwise (a flipper's stroke)
+static void Mover_Pattern(struct Instance *inst, struct ConvertedMover *mover, u32 tick)
 {
 	const struct MoverPattern *pattern = Mover_PatternOf(inst);
 
 	if ((pattern != NULL) && (pattern->ticks != 0))
 	{
-		mover->patternStep = pattern->step[(mover->timeMS * 60 / 1000) % pattern->ticks];
+		mover->patternStep = pattern->step[tick % pattern->ticks];
 	}
 }
 
@@ -2322,8 +2323,10 @@ static void ConvertedMover_ThTick(struct Thread *t)
 	const s32 dt = Mover_StruckHolds(mover) ? 0 : frameMS;
 	s32 m[3][3], turn[3][3];
 	int hidden = 0, struck;
+	u32 patternTick;
 
 	mover->timeMS += dt;
+	patternTick = mover->timeMS * 60 / 1000;
 	if ((records[0].x != MOVER_KEYS) && (records[0].x != MOVER_GHOST))
 	{
 		inst->flags &= ~HIDE_MODEL; // a struck reaction hides it a while; keys and a Boo say for themselves
@@ -2394,6 +2397,12 @@ static void ConvertedMover_ThTick(struct Thread *t)
 			const s32 share = (at < out) ? (s32)(at * 4096 / out) : (at < out + out) ? (s32)((out + out - at) * 4096 / out) : 0;
 
 			Mover_AxisTurn(turn, records[2].x, stroke->x - ((stroke->y * share) >> 12));
+			// its lights: the pattern's loop is one stroke, held at its last step until the next
+			patternTick = at * 60 / 1000;
+			if ((Mover_PatternOf(inst) != NULL) && (patternTick >= Mover_PatternOf(inst)->ticks))
+			{
+				patternTick = Mover_PatternOf(inst)->ticks - 1;
+			}
 		}
 		else
 		{
@@ -2417,7 +2426,7 @@ static void ConvertedMover_ThTick(struct Thread *t)
 
 	struck = Mover_Struck(mover, inst, records, m, frameMS, &hidden);
 	Mover_Animate(inst, mover, records);
-	Mover_Pattern(inst, mover);
+	Mover_Pattern(inst, mover, patternTick);
 	Mover_Store(inst, m);
 	Mover_Log(mover, inst, records);
 	NativeDev_TrackMover(mover->list, inst->matrix.t[0], inst->matrix.t[1], inst->matrix.t[2]);

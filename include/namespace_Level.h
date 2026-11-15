@@ -734,8 +734,9 @@ struct Level
 	int *visOVertSrc;
 
 	// 0x2c
-	// assumed to be reserved
-	void *null1;
+	// null in retail; a converted track's texture patterns
+	// (game/ConvertedTrack/TexPattern.c)
+	struct TexPatterns *texPatterns;
 
 	// 0x30
 	// assumed to be reserved

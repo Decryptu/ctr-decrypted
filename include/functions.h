@@ -839,6 +839,7 @@ void VehStuckProc_MaskGrab_Init(struct Thread *t, struct Driver *d);
 void VehFlight_CheckGates(struct Driver *d);
 void VehFlight_Init(struct Thread *t, struct Driver *d);
 void ConvertedMover_LInB(struct Instance *inst);
+void ConvertedTrack_TexPatterns(struct Level *level, int timer);
 void ConvertedMover_LevelStart(const struct InstDef *definitions, int count);
 struct TextureLayout **ConvertedMover_TexLayout(const struct Instance *inst, const struct ModelHeader *mh);
 void COLL_MOVED_AddCarry(const struct Driver *d, s32 dx, s32 dy, s32 dz);
