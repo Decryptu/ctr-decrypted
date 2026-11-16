@@ -6,6 +6,7 @@
 #include <platform/native_focus_mute.h>
 #include <platform/native_perf.h>
 #include <platform/native_spu_memory.h>
+#include <platform/native_voices.h>
 
 #include <SDL3/SDL.h>
 #include <limits.h>
@@ -317,7 +318,7 @@ struct NativeAudioXaTrackInfo
 	int fileNumber;
 	int channelFilter;
 	int numSectors;
-	int palPenta;
+	const char *voiceDir; // imported language pack (native_voices.c), or NULL for the NTSC-U disc
 };
 
 struct NativeAudioVoiceState
@@ -1829,10 +1830,12 @@ internal void NativeAudio_SelectDriverHint(void)
 internal int NativeAudio_BuildXAPath(char *path, size_t pathSize, int categoryID, const struct NativeAudioXaTrackInfo *info)
 {
 	const char *dir = NULL;
+	char voiceDir[48];
 
-	if (info->palPenta)
+	if (info->voiceDir != NULL && (categoryID == 1 || categoryID == 2))
 	{
-		dir = "XA/PENTA-PAL";
+		snprintf(voiceDir, sizeof(voiceDir), "XA/VOICES/%s/%s", info->voiceDir, categoryID == 1 ? "EXTRA" : "GAME");
+		dir = voiceDir;
 	}
 	else if (categoryID == 0)
 	{
@@ -1930,30 +1933,21 @@ internal int NativeAudio_ReadXATrackInfo(const char *manifest, int categoryID, i
 
 internal int NativeAudio_LookupXATrackInfo(int categoryID, int xaID, struct NativeAudioXaTrackInfo *info)
 {
-	info->palPenta = 0;
-	if (categoryID == 2 && xaID >= 247 && xaID <= 262)
+	int packID;
+	const char *pack = NativeVoices_Map(categoryID, xaID, &packID);
+
+	info->voiceDir = NULL;
+	if (pack != NULL)
 	{
-		int palID = 208 + xaID - 247;
-		char path[128];
-		char resolved[512];
-		if (NativeAudio_ReadXATrackInfo("XA/PENTA-PAL/ENG.XNF", categoryID, palID, info))
+		char manifest[48];
+		snprintf(manifest, sizeof(manifest), "XA/VOICES/%s/%s.XNF", pack, pack);
+		if (NativeAudio_ReadXATrackInfo(manifest, categoryID, packID, info))
 		{
-			info->palPenta = 1;
-			if (NativeAudio_BuildXAPath(path, sizeof(path), categoryID, info) &&
-			    NativeAssets_ResolvePath(path, resolved, sizeof(resolved)))
-			{
-				return 1;
-			}
-			info->palPenta = 0;
+			info->voiceDir = pack;
+			return 1;
 		}
 	}
 	return NativeAudio_ReadXATrackInfo("XA/ENG.XNF", categoryID, xaID, info);
-}
-
-int NativeAudio_HasPalPentaVoices(void)
-{
-	struct NativeAudioXaTrackInfo info;
-	return NativeAudio_LookupXATrackInfo(2, 247, &info) && info.palPenta;
 }
 
 internal int NativeAudio_GetXASectorLayout(int byteCount, int *sectorSizeOut, int *sectorBaseOut, int *totalSectorsOut)

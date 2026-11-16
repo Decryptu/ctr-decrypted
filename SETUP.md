@@ -15,7 +15,8 @@ disc. You will need:
 1. A disc image of your own NTSC-U (North American) Crash Team Racing
    PlayStation disc. A `.cue` plus `.bin`, a single `.bin`, or a `.chd` all
    work. Only the North American release is supported right now. PAL (European)
-   and Japanese discs are detected and refused.
+   and Japanese discs are detected and refused. A raw `.bin` of either can sit
+   in `assets` as an extra: OPTIONS > Extras > Voices imports their voices.
 2. The release archive for your platform from the
    [releases page](https://github.com/Decryptu/ctr-decrypted/releases): the Windows
    `.zip`, or the Linux and Steam Deck `.tar.gz`.

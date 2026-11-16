@@ -60,6 +60,7 @@
 #include "platform/native_disc_search.c"
 #include "platform/native_disc_image.c"
 #include "platform/native_assets.c"
+#include "platform/native_voices.c"
 #include "platform/native_audio.c"
 #include "platform/native_clip_scratch.c"
 #include "platform/native_memory.c"
@@ -499,6 +500,10 @@ int main(int argc, char *argv[])
 	// controls.ini sits beside config.ini and is read the same way. Devices are
 	// enumerated later, by Platform_InputInit, once the gamepad subsystem is up.
 	NativeControls_Init();
+
+	// Voice language packs (platform/native_voices.c): import the chosen PAL or
+	// Japanese voices, and Penta's PAL English clips, from a disc image in assets/.
+	NativeVoices_Init();
 
 #ifdef CTR_CUSTOM_TRACKS
 	// Parse [CustomTracks] and hash-verify the configured track once, before the

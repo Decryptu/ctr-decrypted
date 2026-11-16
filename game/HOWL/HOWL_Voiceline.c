@@ -1,6 +1,7 @@
 #include <common.h>
 #ifdef CTR_NATIVE
 #include <platform/native_audio.h>
+#include <platform/native_voices.h>
 #endif
 #ifndef HOWL_VOICE_ENABLED
 #define HOWL_VOICE_ENABLED (sdata->boolCanPlayVoicelines)
@@ -371,8 +372,9 @@ void Voiceline_StartPlay(struct Item *voiceLine)
 		voiceSetIndex = HOWL_VOICE_TYPES[voiceLineItem->voiceID];
 	}
 #ifdef CTR_NATIVE
-	// PAL uses the first pair for events assigned to sets 8–10 in NTSC-U.
-	if (voiceLineItem->characterID == PENTA_PENGUIN && voiceSetIndex >= 8 && NativeAudio_HasPalPentaVoices())
+	// PAL and Japanese voices have no sets 8–10: those discs use the first
+	// pair for the events NTSC-U gives their own sets.
+	if (voiceSetIndex >= 8 && NativeVoices_ForCharacter(voiceLineItem->characterID) != NATIVE_VOICES_US)
 	{
 		voiceSetIndex = 0;
 	}

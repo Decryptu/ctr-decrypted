@@ -71,6 +71,7 @@ typedef struct
 	// Extras: optional HUD and effect mods from the CTR-ModSDK modules, as
 	// High Octane ships them. All read live, so a change applies at once.
 	int pentaStats;            // 0 NTSC-U, 1 PAL; applied at driver birth.
+	int voices;                // Voice language, enum NativeVoiceLang (platform/native_voices.c).
 	int aiRacers;              // Arcade/Cup: 0 retail, 1 unlocked, 2 custom too.
 	bool characterStats;        // Character-select engine comparison panel.
 	bool reservesMeter;         // Extras: reserves meter under the powerslide bar

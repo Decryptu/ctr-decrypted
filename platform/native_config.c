@@ -30,6 +30,7 @@ NativeConfig g_config = {
 	false, // muteWhenUnfocused (default off: a single-game setup keeps today's behaviour)
 	true,  // fps60 (default on: 60 FPS mode)
 	0,     // pentaStats (NTSC-U)
+	0,     // voices (NTSC-U English)
 	0,     // aiRacers (retail)
 	false, // characterStats (retail layout until enabled)
 #ifdef CTR_AP
@@ -146,6 +147,9 @@ const ConfigEntry g_configEntries[] = {
 	// each behind its own row so the retail look stays the default. See
 	// docs/EXTRAS.md.
 	{"Extras",      "penta_stats",              "Penta (Next Race)",            CFG_ENUM, &g_config.pentaStats, 0, 1, 1},
+	// Voice language (CFG_ENUM, enum NativeVoiceLang): PAL and Japanese voices
+	// are imported from the player's own disc image (platform/native_voices.c).
+	{"Extras",      "voices",                   "Voices",                       CFG_ENUM, &g_config.voices, 0, 7, 1},
 	{"Extras",      "ai_racers",                "Opponent Roster",              CFG_ENUM, &g_config.aiRacers, 0, 2, 1},
 	{"Extras",      "character_stats",          "Character Select Stats",       CFG_BOOL, &g_config.characterStats, 0, 0, 0},
 	{"Extras",      "reserves_meter",           "Reserves Meter",               CFG_BOOL, &g_config.reservesMeter, 0, 0, 0},

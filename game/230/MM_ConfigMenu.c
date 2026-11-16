@@ -7,6 +7,7 @@
 #include <platform/native_renderer.h> // NativeRenderer_CaptureWindowGeometry, ahead of the NativeConfig_Save calls below
 #include <platform/native_controls.h> // the Controls page (MM_ControlsConfig.c)
 #include <platform/native_screen_filter.h> // the Screen Filter row
+#include <platform/native_voices.h> // the Voices row
 #ifdef CTR_AP
 // Platform_InputRawGamepadButtons: physical-pad-only button mask, used by the
 // connection manager's controller commit / cancel (not in common.h's platform set).
@@ -437,6 +438,17 @@ static int TrapDuration_Index(int value)
 }
 #endif
 
+// Voices row: whether the chosen language's disc image is in assets/, checked
+// when the row changes and when its page opens.
+static int s_voicesDiscFound;
+
+// Leaving a page: import the chosen voice language if its pack is missing.
+static void Config_ImportVoices(void)
+{
+	if (!NativeVoices_Installed(g_config.voices) && s_voicesDiscFound)
+		NativeVoices_Ensure(g_config.voices);
+}
+
 // CFG_ENUM dispatch: each enum entry owns a ladder; picked by the field the
 // entry edits (pointer identity, no string compare).
 static const char *Enum_Label(const ConfigEntry *e)
@@ -448,6 +460,14 @@ static const char *Enum_Label(const ConfigEntry *e)
 	}
 	if (e->valuePtr == &g_config.pentaStats)
 		return g_config.pentaStats == 1 ? "PAL" : "NTSC-U";
+	if (e->valuePtr == &g_config.voices)
+	{
+		static char label[32];
+		if (NativeVoices_Installed(g_config.voices))
+			return NativeVoices_Label(g_config.voices);
+		snprintf(label, sizeof label, "%s: %s", NativeVoices_Label(g_config.voices), s_voicesDiscFound ? "IMPORT" : "NO DISC");
+		return label;
+	}
 	if (e->valuePtr == &g_config.aspectRatio)
 		return s_aspectNames[Aspect_Index(*(int *)e->valuePtr)];
 	if (e->valuePtr == &g_config.renderScale)
@@ -485,6 +505,16 @@ static void Enum_Step(const ConfigEntry *e, int dir)
 	{
 		int value = (g_config.pentaStats == 1) + dir;
 		g_config.pentaStats = value < 0 ? 0 : value > 1 ? 1 : value;
+		return;
+	}
+	if (e->valuePtr == &g_config.voices)
+	{
+		int value = NativeVoices_Clamp(g_config.voices) + dir;
+		g_config.voices = value < 0 ? 0 : value > NATIVE_VOICES_COUNT - 1 ? NATIVE_VOICES_COUNT - 1 : value;
+		// Look for the disc now so the help lines can say what to do; the
+		// copy itself waits until the page is left (Config_ImportVoices), so
+		// stepping past a language never imports it.
+		s_voicesDiscFound = NativeVoices_Installed(g_config.voices) || NativeVoices_HasSourceDisc(g_config.voices);
 		return;
 	}
 	if (e->valuePtr == &g_config.aspectRatio)
@@ -655,6 +685,35 @@ static void Config_DrawRowHelp(const ConfigEntry *e, uint32_t *ot)
 		second = "Applies to Arcade and Cup races.";
 	}
 
+	if (e->valuePtr == &g_config.voices)
+	{
+		const int jp = NativeVoices_NeedsJapaneseDisc(g_config.voices) == 1;
+		if (NativeVoices_NeedsJapaneseDisc(g_config.voices) < 0)
+		{
+			first = "Voices from your US disc.";
+			second = "Others need a PAL or JP disc.";
+		}
+		else if (NativeVoices_LastImport(g_config.voices) == NATIVE_VOICES_IMPORT_FAILED)
+		{
+			first = "Import failed, see the log.";
+			second = "Check the disc image in assets.";
+		}
+		else if (NativeVoices_Installed(g_config.voices))
+		{
+			first = jp ? "Imported from your Japanese disc." : "Imported from your PAL disc.";
+			second = "Missing lines stay US English.";
+		}
+		else if (s_voicesDiscFound)
+		{
+			first = jp ? "Japanese disc found in assets." : "PAL disc found in assets.";
+			second = "Imports when you leave the page.";
+		}
+		else
+		{
+			first = jp ? "Needs your Japanese CTR .bin" : "Needs your European CTR .bin";
+			second = "in assets, then pick it again.";
+		}
+	}
 	if (e->valuePtr == &g_config.cameraFar)
 	{
 		first = "Starting camera in single player.";
@@ -1488,6 +1547,7 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 #endif
 		if (s_currentSection >= 0)
 		{
+			Config_ImportVoices();
 			if (inControls)
 				NativeControls_Save();
 			menu->rowSelected = s_currentSection;
