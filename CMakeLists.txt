@@ -4,6 +4,12 @@ include(CheckCCompilerFlag)
 
 set(CTR_NATIVE_VERSION "0.1.0-beta.7.1")
 
+# asio/ssl.hpp pulls in the deprecated rfc2818_verification, which reads OpenSSL
+# structs that OpenSSL 4 made opaque (it fails to compile there). We verify
+# hosts with host_name_verification (X509_check_host), so its include guard is
+# predefined and the vendored asio stays untouched.
+set(AP_ASIO_SKIP_RFC2818 ASIO_SSL_RFC2818_VERIFICATION_HPP)
+
 # Archipelago integration: OFF = clean vanilla build; ON = AP mod build.
 # Build clean:  cmake -S . -B build
 # Build mod:    cmake -S . -B build-ap -DCTR_AP=ON   (outputs ctr_native_ap.exe)
@@ -266,7 +272,7 @@ if(NOT CTR_AP)
             ${CMAKE_SOURCE_DIR}/ap ${AP_VENDOR}/json/include ${AP_VENDOR}/asio/include
             ${CMAKE_SOURCE_DIR}/vendor/utf8proc)
         target_compile_definitions(custom_package PRIVATE
-            CTR_CUSTOM_TRACKS CTR_CUSTOM_PACKAGES UTF8PROC_STATIC ASIO_STANDALONE)
+            CTR_CUSTOM_TRACKS CTR_CUSTOM_PACKAGES UTF8PROC_STATIC ASIO_STANDALONE ${AP_ASIO_SKIP_RFC2818})
         if(WIN32)
             target_compile_definitions(custom_package PRIVATE _WIN32_WINNT=0x0601 WIN32_LEAN_AND_MEAN)
         endif()
@@ -381,7 +387,7 @@ if(CTR_AP)
     target_compile_definitions(ap_net PRIVATE
         CTR_AP
         AP_NO_SCHEMA
-        ASIO_STANDALONE _WEBSOCKETPP_CPP11_THREAD_=1 _WEBSOCKETPP_CPP11_STL_=1)
+        ASIO_STANDALONE ${AP_ASIO_SKIP_RFC2818} _WEBSOCKETPP_CPP11_THREAD_=1 _WEBSOCKETPP_CPP11_STL_=1)
     # wss:// TLS + permessage-deflate stay enabled on every target (release
     # requirement); the Windows networking headers only apply to the mingw target.
     if(WIN32)
