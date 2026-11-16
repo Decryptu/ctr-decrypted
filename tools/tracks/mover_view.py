@@ -20,7 +20,7 @@ CELL = 8  # pixels: parts of one model this close are one thing
 SWEEPS = {1, 2, 4, 8, 10}  # SPIN, SWING, ORBIT, TURNS, LINK: they go round, so the frame's middle says nothing, and a thin one turns edge on
 COMES_AND_GOES = {5, 11}  # PULSE, GHOST: out of sight for part of its time
 CROWDS = {'wanwan_chain', 'basabasa', 'crate'}  # one of several close together: the frame's middle says nothing
-ONE_SIDED = {'picture2'}  # mkds_convert.WALL_MODELS: it hangs on a wall, and MKDS draws its face alone
+ONE_SIDED = {'picture1', 'picture2'}  # mkds_convert.WALL_MODELS: it hangs on a wall, and MKDS draws its face alone
 
 
 def frames(folder):

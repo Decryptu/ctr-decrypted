@@ -891,11 +891,10 @@ FLARE_MODEL, FLARE_COURSE = 'fireball2', 'stadium_course'  # a sun's flares are 
 BOUND = 0x1a8
 GEAR, WHITE_GEAR_SETTING = 0xcb, 5  # a Tick-Tock Clock gear is white where this setting of it is 0
 HANGING_MODELS = {'gear_black', 'gear_white', 'chandelier', 'teresa', 'picture1', 'picture2', 'basabasa', 'kamome', 'sun', 'bakubaku'}  # the rest stand on the ground, however far under them their origin lies
-WALL_MODELS = {'picture2'}  # flat, but it hangs on a wall: not crossed like a billboard
+WALL_MODELS = {'picture1', 'picture2'}  # flat, but they hang on a wall (MKDS's 0x209ec80 only animates them): turned, they sank into it
 FLAT_MODEL = 1  # a model this thin is a billboard
 BURNER = 0x1a4
 WOOD_BOX = 0x67
-TYRE_TEXTURE = (1.0, 2.0, 0.0, 1.0)  # half a tyre, mirrored at its hub: the quad spans it from one rim to the other
 HOLE_LIFT = 1
 HOLES = {0x1a7: 'hole', 0x199: 'hole', 0x196: 'wanwan_kui'}  # what a Rocky Wrench and a Monty Mole come out of, flat on the ground, and a Chain Chomp's stake
 START_CLEAR = 700  # no solid object this close to the start line
@@ -1203,8 +1202,7 @@ def tyre_model(arc, name):
     tyre = nitro3d.Model(arc['MapObj/car_tire.nsbmd'])
     tex0 = nitro3d.load_tex0(arc['MapObj/car_tire.nsbmd'])
     for m in tyre.mats:
-        m.tex0 = tex0
-        m.texmtx = TYRE_TEXTURE
+        m.tex0 = tex0  # its own texture matrix: a quarter tyre, mirrored both ways into a whole one
     width, height, along, size = TYRES[name]
     tris = [(mi, [(tuple(np.array(v[0]) * MODEL_TO_WORLD * (width, size, size)), v[1], v[2], v[3]) for v in tri]) for mi, tri in tyre.triangles()]
     return list(tyre.mats), tris, (height, along)
@@ -1524,6 +1522,7 @@ class Course:
             table[PIRANHA_MOUTH] = mkds_movers.FIRE_PLANT_MOUTH
             table[SNOWMAN_HEAD] = SNOWMAN_HEAD_MOVER
             table[COFFIN] = COFFIN_MOVER
+            under = None  # the object's own model, which its stacked parts stand where it stands
             for index, (part, over) in enumerate(parts):
                 spec = table.get(part)
                 if part == BURNER and path is not None:
@@ -1563,7 +1562,9 @@ class Course:
                     self.load_part_model('wanwan_chain', arc)
                 if part == SUN:
                     self.load_part_model(FLARE_MODEL, self.flare_arc)
-                self.movers.append({'tyres': tyres, 'bullet': bullet, 'key': key, 'spec': spec, 'pos': pos + (0.0, over * size[1], 0.0), 'rot': rot, 'size': size, 'path': path, 'settings': settings, 'over': over, 'id': part,
+                if index == 0:
+                    under = key
+                self.movers.append({'under': under if index else None, 'tyres': tyres, 'bullet': bullet, 'key': key, 'spec': spec, 'pos': pos + (0.0, over * size[1], 0.0), 'rot': rot, 'size': size, 'path': path, 'settings': settings, 'over': over, 'id': part,
                                     'reacts': REACTS_AS.get(part, part), 'struck': STRUCK_AS.get(part),
                                     'sway': (index, [o for _, o in parts]) if object_id == POKEY_OBJECT else None})
 

@@ -90,6 +90,8 @@ typedef struct
 	bool psxTextureOutputSTP;
 	bool psxDrawMaskSet;
 	NativeDepthMode depthMode;
+	bool level;        // the level's own polygons
+	bool levelBlended; // a depth-tested level's translucent ones, drawn after its last level split
 
 	int startVertex;
 	int numVerts;
@@ -1452,12 +1454,21 @@ internal void AddSplit(bool semiTrans, bool textured, bool framebufferFeedback)
 		psxTexturedSemiTrans = false;
 	}
 
-	const NativeDepthMode depthMode = NativeGpu_LevelDepthMode();
+	// A depth-tested level's translucent surface (Yoshi Falls' river) wrote depth
+	// in block order: drawn before the bed under it, it hid the bed, and the
+	// floor showed through and flickered as the camera moved. It tests without
+	// writing, after the level's solid polygons (DrawPendingSplits).
+	const bool levelBlended = s_gpu.levelPrim && s_gpu.levelDepthTested && semiTrans && !s_gpu.levelWater;
+	NativeDepthMode depthMode = NativeGpu_LevelDepthMode();
+	if (levelBlended && (depthMode == NATIVE_DEPTH_TEST_WRITE))
+	{
+		depthMode = NATIVE_DEPTH_TEST;
+	}
 
 	// FIXME: compare drawing environment too?
 	if (!psxTexturedSemiTrans && curSplit->blendMode == blendMode && curSplit->texFormat == texFormat && curSplit->textureId == textureId &&
 	    curSplit->drawPrimMode == s_gpu.drawPrimMode && curSplit->psxTexturedSemiTrans == psxTexturedSemiTrans &&
-	    curSplit->psxTextureOutputSTP == psxTextureOutputSTP && curSplit->psxDrawMaskSet == s_gpu.psxDrawMaskSet && curSplit->depthMode == depthMode &&
+	    curSplit->psxTextureOutputSTP == psxTextureOutputSTP && curSplit->psxDrawMaskSet == s_gpu.psxDrawMaskSet && curSplit->depthMode == depthMode && curSplit->levelBlended == levelBlended && curSplit->level == s_gpu.levelPrim &&
 	    curSplit->drawenv.clip.x == activeDrawEnv.clip.x && curSplit->drawenv.clip.y == activeDrawEnv.clip.y &&
 	    curSplit->drawenv.clip.w == activeDrawEnv.clip.w && curSplit->drawenv.clip.h == activeDrawEnv.clip.h && curSplit->drawenv.dfe == activeDrawEnv.dfe &&
 	    curSplit->debugText == s_gpu.currentSplitDebugText)
@@ -1481,6 +1492,8 @@ internal void AddSplit(bool semiTrans, bool textured, bool framebufferFeedback)
 	split->psxTextureOutputSTP = psxTextureOutputSTP;
 	split->psxDrawMaskSet = s_gpu.psxDrawMaskSet;
 	split->depthMode = depthMode;
+	split->level = s_gpu.levelPrim;
+	split->levelBlended = levelBlended && (depthMode == NATIVE_DEPTH_TEST);
 	split->drawenv = activeDrawEnv;
 	split->dispenv = activeDispEnv;
 	split->debugText = s_gpu.currentSplitDebugText;
@@ -1628,9 +1641,32 @@ internal void DrawPendingSplits(bool earlyFlush)
 	// next code ideally should be called before EndScene
 	NativeRenderer_UpdateVertexBuffer(s_gpu.vertexBuffer, s_gpu.vertexIndex);
 
+	// A depth-tested level's translucent splits wait for its last level split
+	// (AddSplit): the solid surfaces behind them are then in the depth buffer.
+	int lastLevel = 0;
 	for (int i = 1; i <= s_gpu.splitIndex; i++)
 	{
-		DrawSplit(&s_gpu.splits[i]);
+		if (s_gpu.splits[i].level)
+		{
+			lastLevel = i;
+		}
+	}
+	for (int i = 1; i <= s_gpu.splitIndex; i++)
+	{
+		if (!s_gpu.splits[i].levelBlended)
+		{
+			DrawSplit(&s_gpu.splits[i]);
+		}
+		if (i == lastLevel)
+		{
+			for (int j = 1; j <= lastLevel; j++)
+			{
+				if (s_gpu.splits[j].levelBlended)
+				{
+					DrawSplit(&s_gpu.splits[j]);
+				}
+			}
+		}
 	}
 	// Draws outside the split table (VRAM copies, presentation) never test depth.
 	NativeRenderer_SetDepthMode(NATIVE_DEPTH_OFF);

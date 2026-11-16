@@ -537,6 +537,11 @@ def _piece_model(name, triangles, points, materials, images, tiles, turn, billbo
         extent = np.maximum(high - low, 1.0)
         scale_up = max(1, math.ceil(extent.max() * SCALE_ONE / 255 / MAX_MODEL_SCALE))
         scale = np.ceil(extent / scale_up * SCALE_ONE / 255).astype(int)
+        if billboard:
+            # The game turns a camera-facing model with a matrix that scales its depth as it does its
+            # width: a depth stored at its own finer scale came out far behind, and a sun's fire ring
+            # slid off its face whenever the sun was off the middle of the screen
+            scale[:] = scale.max()
         origin = np.floor(every.min(0) / scale_up * SCALE_ONE / scale).astype(int)
 
         def store(p):
@@ -767,6 +772,9 @@ def place(movers, model_index, halves, to_lev, lev_unit, rotate, settle, context
                 lists.append(listed)
             continue
         half, middle, pieces, low, flat, loop = halves[model_index[mover['key']]]
+        # A part stacked on an object (a snowman's head, a Pokey's body) stands where the object stands:
+        # lifted by the object's lowest point, not its own, or a head centred on its origin floats
+        stands_on = halves[model_index[mover['under']]][3] if mover.get('under') in model_index else low
         base = np.eye(3) if flat and spec.kind[0] != ORBIT else np.array([rotate(np.array(axis, float), rot) for axis in np.eye(3)]).T
         damage, solid = reaction(mover.get('reacts', mover['id']))
         if spec.damage is not None:
@@ -792,7 +800,7 @@ def place(movers, model_index, halves, to_lev, lev_unit, rotate, settle, context
         kind, args = spec.kind[0], spec.kind[1:]
         if kind == TURNS:
             standing = spec.model not in FLYING
-            foot = 0.0 if spec.model in AT_ORIGIN else low[1] / lev_unit * size[1]
+            foot = 0.0 if spec.model in AT_ORIGIN else stands_on[1] / lev_unit * size[1]
             at = (settle(pos) if standing else pos) + np.array([0.0, mover['over'] * size[1] - (foot if standing else 0.0), 0.0])
             angles = mkds_motion.turns(args[0], mover, context)[::TURN_KEY_TICKS]
             keys = [[round(a[0] * TURN / mkds_motion.TURN) % TURN, round(a[1] * TURN / mkds_motion.TURN) % TURN, round(a[2] * loop) % loop if len(a) > 2 and loop else 0]
@@ -831,7 +839,7 @@ def place(movers, model_index, halves, to_lev, lev_unit, rotate, settle, context
                 lists.append(listed)
             continue
         standing = spec.model not in FLYING
-        foot = low[1] / lev_unit * size[1]  # MKDS units from its origin down to its lowest point
+        foot = stands_on[1] / lev_unit * size[1]  # MKDS units from its origin down to its lowest point
         lift = np.array([0.0, mover['over'] * size[1] - (foot if standing else 0.0), 0.0])
         count, phases = spec.count, []
         settings = mover['settings']

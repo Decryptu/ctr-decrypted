@@ -2080,21 +2080,36 @@ static void Mover_Link(struct Instance *inst, const SVec3 *records)
 	inst->matrix.t[2] = top->z + (s32)((s_moverAt[head][2] - top->z) * share);
 }
 
+// The way player 1's camera looks, in 4096ths of a turn, as MKDS's Boos take their
+// camera's yaw each tick (0x2094000): from the camera to the kart, so a Boo stays
+// in view through a turn. Fixed at its first tick, Boos lagged to the outside of
+// every bend and left the screen.
+static s32 Ghost_LookYaw(const struct MoverChase *c, float kartX, float kartZ)
+{
+	const struct PushBuffer *pb = &GAME_TRACKER->pushBuffer[0];
+	float lookX = kartX - (float)pb->pos.x, lookZ = kartZ - (float)pb->pos.z;
+
+	if (lookX * lookX + lookZ * lookZ < 1.0f)
+	{
+		lookX = c->fwdX;
+		lookZ = c->fwdZ;
+	}
+	return (s32)(atan2f(lookX, lookZ) * 4096 / 6.2831853f);
+}
+
 static void Ghost_Spawn(struct MoverChase *c, const SVec3 *records)
 {
 	const float unit = records[2].z / 256.0f;
 	const s32 angle = Chase_Rand(c, 4096);
 	const float r = Chase_Rand(c, 10) * unit;
-	const s32 kartYaw = (s32)(atan2f(c->fwdX, c->fwdZ) * 4096 / 6.2831853f);
-
 	c->state = GHOST_SHOWN;
 	c->share = 0;
 	c->life = 300 + Chase_Rand(c, 150);
 	c->ox = r * MATH_Sin(angle) / 4096.0f;
 	c->oz = r * MATH_Cos(angle) / 4096.0f;
 	c->radius = (60 + Chase_Rand(c, 13)) * unit;
-	// ahead of the kart, as the game's are of its camera, within 60 degrees either way
-	c->yaw = (kartYaw + Chase_Rand(c, 0x555) - 0x2aa) * 16;
+	// within 60 degrees either way of where the camera looks, kept as it turns (Mover_Ghost)
+	c->yaw = (Chase_Rand(c, 0x555) - 0x2aa) * 16;
 	c->swing = 0x1000 + Chase_Rand(c, 0x1000);
 	c->phase = 0;
 	c->phaseStep = 96 + Chase_Rand(c, 48);
@@ -2187,12 +2202,20 @@ static int Mover_Ghost(struct Instance *inst, struct ConvertedMover *mover, cons
 	}
 	else
 	{
-		cx = c->kartX;
+		// where the kart is drawn this frame, not where it was at the last tick
+		cx = (float)kart->instSelf->matrix.t[0];
 		cy = (float)kart->instSelf->matrix.t[1];
-		cz = c->kartZ;
+		cz = (float)kart->instSelf->matrix.t[2];
 	}
-	theta = (c->yaw + ((c->swing * MATH_Cos((u32)(c->phase >> 4) & 0xfff)) >> 12)) >> 4;
-	height = c->lift + ((GHOST_SWELL * (4096 - MATH_Cos((u32)(c->rise >> 4) & 0xfff))) >> 13);
+	// eased between ticks by the share of the next one this frame has run, so a Boo
+	// glides at any frame rate instead of stepping on the game's 60 ticks a second
+	{
+		const s32 part = c->acc3 * 4096 / CHASE_TICK_MS_X3;
+		const s32 phase = c->phase + ((c->phaseStep * part) >> 12);
+		const s32 rise = c->rise + ((c->riseStep * part) >> 12);
+		theta = (Ghost_LookYaw(c, cx, cz) * 16 + c->yaw + ((c->swing * MATH_Cos((u32)(phase >> 4) & 0xfff)) >> 12)) >> 4;
+		height = c->lift + ((GHOST_SWELL * (4096 - MATH_Cos((u32)(rise >> 4) & 0xfff))) >> 13);
+	}
 	inst->flags &= ~HIDE_MODEL;
 	inst->matrix.t[0] = (s32)(cx + c->ox + c->radius * MATH_Sin(theta & 0xfff) / 4096.0f);
 	inst->matrix.t[1] = (s32)(cy + (10 + height) * unit);

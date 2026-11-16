@@ -1547,6 +1547,19 @@ static void RenderBucket_BuildCustomMatrix(struct InstDrawPerPlayer *idpp, u32 i
 	RenderBucket_GteLoadRotMatrixWords(0x1000, 0, 0xfffff600, 0, 0x1000);
 	RenderBucket_GteScaleMatrixColumns(&m0, &m1, &m2, &m3, &m4);
 	RenderBucket_StoreMatrixWords(&idpp->mvp, m0, m1, m2, m3, m4);
+#ifdef CTR_NATIVE
+	// The view-facing basis replaces the view-projection, so it takes the
+	// widescreen X scale PushBuffer_SetMatrixVP gives that matrix: without it a
+	// camera-facing model was a third too wide at 16:9.
+	if (g_config.aspectRatio != 0)
+	{
+		const int ws = Widescreen_GetFovScale();
+		for (int i = 0; i < 3; i++)
+		{
+			idpp->mvp.m[0][i] = (s16)(idpp->mvp.m[0][i] * ws / 0x800);
+		}
+	}
+#endif
 	*projectionMvp = idpp->mvp;
 #if defined(CTR_NATIVE) && defined(CTR_AP)
 	// The view-facing basis replaces the view-projection. Its fixed negative
