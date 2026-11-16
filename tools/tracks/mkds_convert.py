@@ -1195,6 +1195,18 @@ class LayeredWater:
         return out
 
 
+class WholeTyre:
+    """A tyre's quarter texture, mirrored into the whole tyre (tyre_model)."""
+    def __init__(self, tex0):
+        self.tex0 = tex0
+
+    def decode(self, tex, pal):
+        q = np.asarray(self.tex0.decode(tex, pal))
+        # the quarter's hub is at its right edge and its top edge: mirrored right and above
+        bottom = np.concatenate([q, q[:, ::-1]], axis=1)
+        return np.concatenate([bottom[::-1], bottom], axis=0)
+
+
 def tyre_model(arc, name):
     """A vehicle's tyres. MKDS draws one car_tire model, an axle, twice under the body: at (0, height, +along)
     and (0, height, -along), stretched across by width and grown by size (TYRES), and turns it about its
@@ -1202,7 +1214,11 @@ def tyre_model(arc, name):
     tyre = nitro3d.Model(arc['MapObj/car_tire.nsbmd'])
     tex0 = nitro3d.load_tex0(arc['MapObj/car_tire.nsbmd'])
     for m in tyre.mats:
-        m.tex0 = tex0  # its own texture matrix: a quarter tyre, mirrored both ways into a whole one
+        # Its texture is a quarter tyre that MKDS mirrors both ways into a whole one. Mirrored by
+        # the item model's tiling, the halves met back to front: the whole tyre is baked instead.
+        m.tex0 = WholeTyre(tex0)
+        m.width, m.height = 2 * m.width, 2 * m.height
+        m.teximage &= ~0xf0000  # no repeat, no mirror
     width, height, along, size = TYRES[name]
     tris = [(mi, [(tuple(np.array(v[0]) * MODEL_TO_WORLD * (width, size, size)), v[1], v[2], v[3]) for v in tri]) for mi, tri in tyre.triangles()]
     return list(tyre.mats), tris, (height, along)
