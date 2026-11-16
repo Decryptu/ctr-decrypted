@@ -26,6 +26,8 @@ int AP_TrapMirrorCullFlip(void) { return mirrored; }
 void NativeDev_NamePrims(const void *start, const void *end, const char *name) { (void)start; (void)end; (void)name; }
 // Only a converted track's movers report their runs (platform/native_gpu.c).
 void NativeGpu_AddMoverRange(const void *start, const void *end, int depthShift) { (void)start; (void)end; (void)depthShift; }
+// The widescreen X scale (game/widescreen.c): 4:3, where it changes nothing.
+int Widescreen_GetFovScale(void) { return 0x800; }
 
 // PGXP off: the cull is checked as retail computes it. The GTE calls these
 // entry points only while PGXP is on, so they only have to link; reaching one
