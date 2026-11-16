@@ -101,11 +101,35 @@ def rewrite_links(body, src, out_dir):
     return re.sub(r'\b(href|src)=(["\'])(.*?)\2', fix, body)
 
 
+# The feature docs, listed under Features in a submenu that opens and closes.
+FEATURES = [("custom-tracks.html", "Custom tracks"), ("custom-racers.html", "Custom racers"),
+            ("60fps.html", "60 FPS mode"), ("pgxp.html", "PGXP"), ("screen-filters.html", "Screen filters"),
+            ("extras.html", "Extras"), ("level-visibility.html", "Level visibility"),
+            ("controls.html", "Controls"), ("steam-deck.html", "Linux and Steam Deck")]
+
+
 def nav_html(current):
     pages = {href for href, _ in NAV}
+    feature_pages = {href for href, _ in FEATURES}
     here = current if current in pages or current == "index.html" else "index.html#features"
-    return "".join(f'<a href="{html.escape(href)}"{" aria-current=page" if href == here else ""}>{html.escape(label)}</a>'
-                   for href, label in NAV)
+
+    def link(href, label, cur, cls=""):
+        return (f'<a href="{html.escape(href)}"{f" class={cls}" if cls else ""}'
+                f'{" aria-current=page" if cur else ""}>{html.escape(label)}</a>')
+
+    out = []
+    for href, label in NAV:
+        if href != "index.html#features":
+            out.append(link(href, label, href == here))
+            continue
+        open_ = current in feature_pages
+        subs = "".join(link(h, l, h == current, "sub") for h, l in FEATURES)
+        out.append(f'<div class="nav-group{" open" if open_ else ""}"><div class="nav-row">'
+                   f'{link(href, label, href == here and not open_)}'
+                   f'<button type="button" class="nav-toggle" aria-expanded="{str(open_).lower()}" '
+                   f'aria-controls="nav-features" aria-label="Show or hide the feature pages"></button></div>'
+                   f'<div class="nav-sub" id="nav-features"{"" if open_ else " hidden"}>{subs}</div></div>')
+    return "".join(out)
 
 
 def page(template, title, current, body, head="", main_class="", body_class="", description=DESCRIPTION):

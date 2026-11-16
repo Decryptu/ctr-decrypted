@@ -54,6 +54,16 @@
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && side.classList.contains("open")) setOpen(false); });
   side.addEventListener("click", (e) => { if (e.target.closest("a") && !wide.matches) setOpen(false); });
   wide.addEventListener("change", () => setOpen(false));
+  // Submenus open and close with their arrow button.
+  for (const btn of side.querySelectorAll(".nav-toggle")) {
+    btn.addEventListener("click", () => {
+      const group = btn.closest(".nav-group");
+      const open = !group.classList.contains("open");
+      group.classList.toggle("open", open);
+      document.getElementById(btn.getAttribute("aria-controls")).hidden = !open;
+      btn.setAttribute("aria-expanded", String(open));
+    });
+  }
   // Keep the current page in view in a long menu.
   const cur = side.querySelector("nav a[aria-current]");
   if (cur && cur.offsetTop > side.clientHeight * 0.6) side.scrollTop = cur.offsetTop - side.clientHeight / 3;
