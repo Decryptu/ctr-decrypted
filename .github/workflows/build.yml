@@ -48,7 +48,14 @@ jobs:
         run: |
           dpkg --add-architecture i386
           apt-get update -q
-          apt-get install -y --no-install-recommends \
+          # libc6-dev:i386 needs linux-libc-dev:i386 at the very version of the
+          # amd64 one, and a security update can reach one architecture first:
+          # take the newest version both have.
+          apt-cache madison linux-libc-dev | awk '{print $3}' | sort -u > /tmp/kh64
+          apt-cache madison linux-libc-dev:i386 | awk '{print $3}' | sort -u > /tmp/kh32
+          khv=$(comm -12 /tmp/kh64 /tmp/kh32 | sort -V | tail -n 1)
+          apt-get install -y --no-install-recommends --allow-downgrades \
+            linux-libc-dev=$khv linux-libc-dev:i386=$khv \
             ca-certificates git python3 cmake ninja-build pkg-config ccache \
             gcc-multilib g++-multilib libssl-dev:i386 zlib1g-dev:i386 \
             libx11-dev:i386 libxext-dev:i386 libxrandr-dev:i386 \

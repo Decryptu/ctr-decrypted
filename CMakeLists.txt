@@ -263,6 +263,11 @@ if(NOT CTR_AP)
         set(OPENSSL_USE_STATIC_LIBS TRUE)
         set(ZLIB_USE_STATIC_LIBS TRUE)
         find_package(OpenSSL REQUIRED)
+    if(WIN32 AND TARGET OpenSSL::Crypto)
+        # OpenSSL 4's static libcrypto draws its random numbers from BCryptGenRandom:
+        # on the crypto target, bcrypt always links after it
+        set_property(TARGET OpenSSL::Crypto APPEND PROPERTY INTERFACE_LINK_LIBRARIES bcrypt)
+    endif()
         find_package(ZLIB REQUIRED)
         find_package(Threads REQUIRED)
         add_library(custom_package STATIC ${CTR_CUSTOM_PACKAGE_SOURCES}
@@ -281,7 +286,7 @@ if(NOT CTR_AP)
         target_compile_definitions(ctr_native PRIVATE CTR_CUSTOM_PACKAGES CTR_XDELTA_IMPORT)
         target_link_libraries(ctr_native custom_package)
         if(WIN32)
-            target_link_libraries(ctr_native winhttp ws2_32 crypt32 bcrypt)
+            target_link_libraries(ctr_native winhttp ws2_32 crypt32)
         endif()
         target_link_options(ctr_native PRIVATE -static-libstdc++)
     endif()
@@ -356,6 +361,11 @@ if(CTR_AP)
     set(OPENSSL_USE_STATIC_LIBS TRUE)
     set(ZLIB_USE_STATIC_LIBS TRUE)
     find_package(OpenSSL REQUIRED)
+    if(WIN32 AND TARGET OpenSSL::Crypto)
+        # OpenSSL 4's static libcrypto draws its random numbers from BCryptGenRandom:
+        # on the crypto target, bcrypt always links after it
+        set_property(TARGET OpenSSL::Crypto APPEND PROPERTY INTERFACE_LINK_LIBRARIES bcrypt)
+    endif()
     find_package(ZLIB REQUIRED)
 
     add_library(ap_net STATIC ap/ap_net.cpp ap/ap_seedcfg.cpp ap/ap_crash_terminate.cpp
@@ -438,8 +448,7 @@ if(CTR_AP)
     # is why ap_net.cpp resolves the CA store itself before connecting, #170).
     target_link_libraries(ctr_native ap_net)
     if(WIN32)
-        # bcrypt: OpenSSL 4's static libcrypto draws its random numbers from BCryptGenRandom.
-        target_link_libraries(ctr_native ws2_32 crypt32 bcrypt)
+        target_link_libraries(ctr_native ws2_32 crypt32)
         # WinHTTP: the custom-track downloader and the signed updater (#301).
         if(CTR_CUSTOM_TRACKS OR NOT CTR_AP_AUTHORING)
             target_link_libraries(ctr_native winhttp)
