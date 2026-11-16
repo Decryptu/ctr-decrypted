@@ -281,7 +281,7 @@ if(NOT CTR_AP)
         target_compile_definitions(ctr_native PRIVATE CTR_CUSTOM_PACKAGES CTR_XDELTA_IMPORT)
         target_link_libraries(ctr_native custom_package)
         if(WIN32)
-            target_link_libraries(ctr_native winhttp ws2_32 crypt32)
+            target_link_libraries(ctr_native winhttp ws2_32 crypt32 bcrypt)
         endif()
         target_link_options(ctr_native PRIVATE -static-libstdc++)
     endif()
@@ -438,7 +438,8 @@ if(CTR_AP)
     # is why ap_net.cpp resolves the CA store itself before connecting, #170).
     target_link_libraries(ctr_native ap_net)
     if(WIN32)
-        target_link_libraries(ctr_native ws2_32 crypt32)
+        # bcrypt: OpenSSL 4's static libcrypto draws its random numbers from BCryptGenRandom.
+        target_link_libraries(ctr_native ws2_32 crypt32 bcrypt)
         # WinHTTP: the custom-track downloader and the signed updater (#301).
         if(CTR_CUSTOM_TRACKS OR NOT CTR_AP_AUTHORING)
             target_link_libraries(ctr_native winhttp)
