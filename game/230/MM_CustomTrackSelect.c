@@ -1,12 +1,12 @@
 #include <platform/native_menu.h>
-/* Custom pages at the normal track selector in Arcade and Time Trial, in
+/* Custom pages at the normal track selector in Arcade, VS and Time Trial, in
    every client with packages (MM_CUSTOM_TIME_TRIAL).
    Included by MM_TrackSelect.c inside CTR_CUSTOM_PACKAGES. Custom pages use
    owned library metadata, never indices into retail track/ghost tables.
 
    One custom track at a time: Cross prepares the chosen installed package,
    the second Cross hands it to the offline loader (native_custom_offline.h)
-   and starts a one-player Arcade single race or a Time Trial under the track's
+   and starts an Arcade or VS single race (one to four players) or a Time Trial under the track's
    own identity, CTR_CUSTOM_LEVEL_ID (native_custom_identity.h). The engine
    reads the package's LEV and VRM through one arcade BIGFILE subfile group;
    which group that is, is a loading detail below and never the track's
@@ -84,6 +84,8 @@ static int MM_CustomTrackSelect_Mode(void)
     u32 mode1 = sdata->gGT->gameMode1;
     if ((mode1 & (BATTLE_MODE | ADVENTURE_MODE | ADVENTURE_CUP)) || (sdata->gGT->gameMode2 & CUP_ANY_KIND)) return 0;
     if ((mode1 & (ARCADE_MODE | TIME_TRIAL)) == ARCADE_MODE) return CTR_OFFLINE_MODE_ARCADE;
+    /* VS: no mode flag, two to four players; the same race as Arcade without bots. */
+    if (!(mode1 & (ARCADE_MODE | TIME_TRIAL)) && sdata->gGT->numPlyrNextGame >= 2) return CTR_OFFLINE_MODE_ARCADE;
     if (MM_CUSTOM_TIME_TRIAL && (mode1 & (ARCADE_MODE | TIME_TRIAL)) == TIME_TRIAL) return CTR_OFFLINE_MODE_TIME_TRIAL;
     return 0;
 }
@@ -221,7 +223,7 @@ static void MM_CustomTrackSelect_Start(int laps)
     s_arcadeConfirm = 0;
     D230.trackSelect.lapBoxOpen = 0;
     if (gGT->gameMode2 & CHEAT_ONELAP) laps = 1;
-    if (AP_CustomOfflineLaunchAllowed() && gGT->numPlyrNextGame == 1 &&
+    if (AP_CustomOfflineLaunchAllowed() &&
         CustomOffline_BeginRuntime(&s_arcadeRequest, host, 0, mode))
     {
         /* Preserve the players, difficulty and characters chosen in Arcade. */
@@ -410,8 +412,6 @@ static int MM_CustomTrackSelect_Tick(void)
                 snprintf(s_arcadeMessage, sizeof s_arcadeMessage, "%s", why);
             else if (!AP_CustomOfflineLaunchAllowed())
                 snprintf(s_arcadeMessage, sizeof s_arcadeMessage, "A room race is still loaded. Try again from the hub.");
-            else if (gGT->numPlyrNextGame != 1)
-                snprintf(s_arcadeMessage, sizeof s_arcadeMessage, "Custom tracks are one player only. Choose one player.");
             else
             {
                 s_arcadePrepareBusy = CustomOffline_StartPrepare(NativeAssets_GetAssetDir(), entry->manifestSha256);

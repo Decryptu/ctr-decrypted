@@ -8721,6 +8721,15 @@ static int DrawLevelOvr1P_EmitSplitGroundListAQuadBlock(struct PushBuffer *pb, s
 	u32 nearMask = Ovr226_800a10dc_SelectFullDynamicTopNearMask(projected);
 	if (nearMask == 0)
 	{
+#ifdef CTR_NATIVE
+		// As the 1P far list does (Ovr226_800a0f78_EmitFullDynamicQuadBlock).
+		// Only for a block wholly far: this list also gets near blocks, and
+		// those go through the subdivision below, which clips them.
+		if ((block->quadFlags & QUADBLOCK_FLAG_FAR_FACES) != 0 && (sdata->gGT->level1->configFlags & LEVEL_CONFIG_ONE_TEXTURE_LOD) != 0)
+		{
+			return DrawLevelOvr1P_EmitFarFaces(pb, primMem, block, vertices);
+		}
+#endif
 		return Ovr226_800a1338_DispatchFullDynamicLowDirect(pb, primMem, block, projected, texture);
 	}
 

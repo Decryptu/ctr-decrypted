@@ -373,9 +373,12 @@ int main(void)
     lapAnswer = -1; tick(0); CHECK(!s_arcadeConfirm && !D230.trackSelect.lapBoxOpen && !s_arcadeRequest);
     CHECK(D230.trackSelect.transition.state == IN_MENU);
     allowed = 0; tick(BTN_CROSS_one); CHECK(prepared == 1);
-    allowed = 1; tracker.numPlyrNextGame = 2;
-    tick(BTN_CROSS_one); CHECK(prepared == 1);
-    tracker.numPlyrNextGame = 1;
+    allowed = 1;
+    /* Split screen: two-player Arcade and VS (no mode flag, two to four players) are Arcade races. */
+    tracker.numPlyrNextGame = 2; CHECK(MM_CustomTrackSelect_Mode() == CTR_OFFLINE_MODE_ARCADE);
+    tracker.gameMode1 = 0; tracker.numPlyrNextGame = 4; CHECK(MM_CustomTrackSelect_Mode() == CTR_OFFLINE_MODE_ARCADE);
+    tracker.numPlyrNextGame = 1; CHECK(MM_CustomTrackSelect_Mode() == 0);
+    tracker.gameMode1 = ARCADE_MODE;
     D230.menuLapSel.rowSelected = 4; sdata->uselessLapRowCopy = 4; /* 5 laps */
     tick(BTN_CROSS_one); tick(0); lapAnswer = 1; tick(0);
     /* RuntimeLaps is stubbed to the package's 7; the lap box's 5 is handed over. */

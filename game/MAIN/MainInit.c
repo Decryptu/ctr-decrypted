@@ -62,6 +62,48 @@ static void *MainInit_NativeSpawnPools(struct GameTracker *gGT, const struct Nat
 #endif
 
 #ifdef CTR_NATIVE
+// A level made with CrashTeamEditor (every custom track) carries VisMem lists
+// for player 1 only; retail LEVs carry all four. Give each missing player its
+// own lists from host memory, sized for this level, so split screen has
+// somewhere to put that player's visibility and render lists.
+// One player's list k, zeroed and at least bytes long; kept across levels.
+static void *MainInit_VisMemHostList(int player, int k, size_t bytes)
+{
+	static void *s_lists[4][3];
+	static size_t s_sizes[4][3];
+
+	if (s_sizes[player][k] < bytes)
+	{
+		void *grown = realloc(s_lists[player][k], bytes);
+		if (grown == NULL)
+			return NULL;
+		s_lists[player][k] = grown;
+		s_sizes[player][k] = bytes;
+	}
+	memset(s_lists[player][k], 0, bytes);
+	return s_lists[player][k];
+}
+
+static void MainInit_FillMissingVisMem(struct VisMem *visMem, const struct mesh_info *mesh, int numPlyr)
+{
+	if (mesh == NULL)
+		return;
+
+	const size_t leafBytes = ((size_t)((mesh->numBspNodes + 0x1f) >> 5) << 2) + 4;
+	const size_t faceBytes = ((size_t)((mesh->numQuadBlock + 0x1f) >> 5) << 2) + 4;
+	const size_t bspBytes = (size_t)mesh->numBspNodes * sizeof(struct VisMemBspListNode) + 4;
+
+	for (int i = 1; i < numPlyr && i < 4; i++)
+	{
+		if (visMem->visLeafList[i] == NULL)
+			visMem->visLeafList[i] = MainInit_VisMemHostList(i, 0, leafBytes);
+		if (visMem->visFaceList[i] == NULL)
+			visMem->visFaceList[i] = MainInit_VisMemHostList(i, 1, faceBytes);
+		if (visMem->bspList[i] == NULL)
+			visMem->bspList[i] = MainInit_VisMemHostList(i, 2, bspBytes);
+	}
+}
+
 static void MainInit_InitVisMemBspListNodes(struct VisMem *visMem, struct mesh_info *mesh)
 {
 	if (mesh == NULL || mesh->bspRoot == NULL)
@@ -107,6 +149,7 @@ void MainInit_VisMem(struct GameTracker *gGT)
 	}
 
 #ifdef CTR_NATIVE
+	MainInit_FillMissingVisMem(visMem, gGT->level1->ptr_mesh_info, gGT->numPlyrCurrGame);
 	MainInit_InitVisMemBspListNodes(visMem, gGT->level1->ptr_mesh_info);
 	MainFrame_BuildEverVisibleLeafs(gGT->level1->ptr_mesh_info);
 #endif

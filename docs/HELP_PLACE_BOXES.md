@@ -107,7 +107,7 @@ boxes on them before they are in a release. One custom track at a time.
      download it. Square shows its other versions. R2 searches, L2 refreshes.
    - **Installed** lists what you have. L1 and R1 switch tabs.
    - Downloaded tracks are checked and stored under `assets/tracks/packages`.
-2. Start an Arcade single race for **one player**, or a Time Trial. Pick your
+2. Start an Arcade or VS single race (any number of players), or a Time Trial. Pick your
    racer (and in Arcade the difficulty), and at the track list press Right to go
    past the normal tracks to the **Custom** pages.
 3. Pick the track and press Cross. In Arcade the lap box opens: pick the laps

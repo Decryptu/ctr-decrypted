@@ -473,8 +473,8 @@ it opens its options:
 **L2** refreshes the lists, **R2** searches, and on the track tabs **Select**
 imports track files.
 
-Installed tracks appear on extra pages after the normal tracks in a one-player
-Arcade race and in Time Trial: at the track list, press Right past the last
+Installed tracks appear on extra pages after the normal tracks in an Arcade or
+VS race (split screen too) and in Time Trial: at the track list, press Right past the last
 page. They race outside Archipelago, so disconnect from a room first. A room
 that needs a track you installed from Tracks finds it without downloading it
 again.

@@ -12,17 +12,18 @@
 CTR_STATIC_ASSERT(sizeof(((struct GameTracker *)0)->lapTime) / sizeof(int) == CTR_OFFLINE_MAX_LAPS);
 
 // A package chosen on the Arcade or Time Trial custom
-// pages races only as a one-player Arcade single race or a Time Trial on its
-// host slot, and only in the mode it was started for. Every other mode on that
-// slot loads retail bytes.
+// pages races only as a single race on its host slot (Arcade with one or two
+// players, VS with two to four, both CTR_OFFLINE_MODE_ARCADE) or a Time Trial,
+// and only in the mode it was started for. Every other mode on that slot loads
+// retail bytes. VS is the race with no mode flag of its own.
 static int MainRaceTrack_OfflineModeOf(u32 gameMode1, u32 gameMode2, int numPlayers)
 {
-	if (numPlayers != 1 || (gameMode2 & CUP_ANY_KIND))
+	if (numPlayers < 1 || numPlayers > 4 || (gameMode2 & CUP_ANY_KIND))
 		return 0;
-	if ((gameMode1 & ARCADE_MODE) &&
+	if (((gameMode1 & ARCADE_MODE) || numPlayers >= 2) &&
 	    !(gameMode1 & (ADVENTURE_MODE | ADVENTURE_CUP | ADVENTURE_ARENA | TIME_TRIAL | BATTLE_MODE)))
 		return CTR_OFFLINE_MODE_ARCADE;
-	if ((gameMode1 & TIME_TRIAL) &&
+	if ((gameMode1 & TIME_TRIAL) && numPlayers == 1 &&
 	    !(gameMode1 & (ADVENTURE_MODE | ADVENTURE_CUP | ADVENTURE_ARENA | ARCADE_MODE | BATTLE_MODE |
 	                   RELIC_RACE | CRYSTAL_CHALLENGE)))
 		return CTR_OFFLINE_MODE_TIME_TRIAL;

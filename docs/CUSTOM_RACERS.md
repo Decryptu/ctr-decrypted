@@ -148,7 +148,7 @@ OPTIONS > Extras > Opponent Roster is saved as `[Extras] ai_racers`:
 - **UNLOCKED** (`1`): draw opponents from the eight starting racers and the secret racers unlocked in the current save, including N. Oxide when unlocked.
 - **INCLUDE CUSTOM** (`2`): also draw from installed custom racers whose race model loads successfully.
 
-This applies to one-player and two-player Arcade and Cup races. Offline custom courses use it in their supported single-player mode. Adventure, Archipelago encounter rosters, bosses, demos, Time Trial and Battle retain their own rules. A cup keeps the same opponents across its legs. A new single race or cup draws a new field.
+This applies to one-player and two-player Arcade and Cup races. Offline custom courses use it in Arcade. Adventure, Archipelago encounter rosters, bosses, demos, Time Trial and Battle retain their own rules. A cup keeps the same opponents across its legs. A new single race or cup draws a new field.
 
 The draw is without replacement by roster entry, excluding the human players' picks. A custom racer and its retail template are separate entries and may race together, as may different custom racers sharing a template. Each driver keeps its own model, engine, wheels and portrait; voices and records still use the template. N. Oxide's boss head start and damage advantages apply only in boss races.
 

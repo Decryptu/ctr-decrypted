@@ -326,6 +326,11 @@ int NativeDev_StartRace(struct GameTracker *gGT)
 		if (NativeDev_EnvInt("CTR_DEV_ARCADE", 0) && dev->players == 2)
 			gGT->gameMode1 |= ARCADE_MODE;
 		gGT->numPlyrNextGame = (u8)dev->players;
+#ifdef CTR_CUSTOM_PACKAGES
+		// Arcade (two players) or VS: both are the custom pages' Arcade race.
+		if (dev->customPin != NULL)
+			NativeDevRace_BeginCustom(gGT, dev->customPin);
+#endif
 		if (dev->laps > 0)
 			gGT->numLaps = (char)dev->laps;
 		return dev->raceTrack;

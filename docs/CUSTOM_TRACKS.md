@@ -369,8 +369,12 @@ in for Saphi's pages ([DEV-TOOLS.md](DEV-TOOLS.md)).
 
 ## 6. Racing a package: the loading path
 
-Custom tracks race only as a one-player Arcade single race or a one-kart Time
-Trial. The package's LEV and VRM are served through the BIGFILE subfile group
+Custom tracks race only as a single race (Arcade with one or two players, or VS
+with two to four; both are `CTR_OFFLINE_MODE_ARCADE`, VS being the race with no
+mode flag) or a one-kart Time Trial. A level made with CrashTeamEditor carries
+VisMem lists for player 1 only, so `MainInit_VisMem` gives each further split-screen
+player its own lists from host memory (`MainInit_FillMissingVisMem`); without
+them the second view's visibility copy writes through NULL. The package's LEV and VRM are served through the BIGFILE subfile group
 of one arcade slot, the **host slot** (level 6, Roo's Tubes,
 `game/230/MM_CustomTrackSelect.c: MM_CUSTOM_ARCADE_HOST_LEVEL`). The BIGFILE
 index cannot grow and every race-mode rule in the engine is a range test on
