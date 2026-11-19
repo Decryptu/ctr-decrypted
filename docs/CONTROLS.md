@@ -28,6 +28,11 @@ plugged in, players 2 to 4 follow in order, and the keyboard is the last
 fallback. You do not need to touch this for most setups: plug a controller in
 and whoever was waiting for one gets it. Assignment is re-sorted whenever a
 controller is plugged in or unplugged, including in the middle of a race.
+The log names each controller as it connects or disconnects.
+
+A Switch 2 controller over USB can only be used by one program at a time. If
+the game does not see it, close whatever else has it open (Steam, Dolphin or
+another emulator), then unplug it and plug it back in.
 
 To take control of the assignment yourself, open **DEVICE** with `Cross`. A **SELECT DEVICE** popup lists:
 

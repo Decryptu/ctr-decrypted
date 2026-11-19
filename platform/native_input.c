@@ -667,13 +667,14 @@ void Platform_InputControllerAdded(int deviceIndex)
 {
 	// The controls module re-enumerates and re-assigns from SDL state, so there is
 	// nothing to do here beyond picking the change up promptly.
-	(void)deviceIndex;
+	const char *name = SDL_GetGamepadNameForID((SDL_JoystickID)deviceIndex);
+	Platform_LogWarn("[CTR Native] Controller connected: %s\n", (name != NULL) ? name : "unknown");
 	NativeControls_Refresh();
 }
 
 void Platform_InputControllerRemoved(int instanceId)
 {
-	(void)instanceId;
+	Platform_LogWarn("[CTR Native] Controller disconnected (id %d)\n", instanceId);
 	NativeControls_Refresh();
 }
 
