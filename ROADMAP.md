@@ -9,6 +9,8 @@ Open work only: what is in progress, what is planned, what may come, and what is
 - Japanese Fake Crash imported by the game: an Extras row that takes the Japanese `.bin` from `assets`, with the same help lines as Voices ([EXTRAS.md](docs/EXTRAS.md#voices)), instead of running `extract_fakecrash_jp.py` ([CUSTOM_RACERS.md](docs/CUSTOM_RACERS.md)).
 - Japanese voices: match the 12 racer clips outside the voice set tables (NTSC-U 190, 191, 304–313). They play in US English today ([EXTRAS.md](docs/EXTRAS.md#voices)).
 
+- Archipelago chat in game: a text box (from the pause menu, and wherever the client is connected) that sends a line to the room as chat or a `!command` (`!hint`, `!getitem`, `!release`...), with the recent room messages shown above it, so nobody needs the Archipelago Text Client open alongside. It reuses the SDL text input the Connection page already has, and needs an on-screen prompt for the key or button that opens it.
+
 ## Maybe
 - CTR Native Expanded's two-player co-op Adventure. The Archipelago client would need to know about a second player.
 - More multiplayer from CTR Native Expanded: 3P/4P Arcade, eight racers in split screen, full-detail split screen, Oxide Station in multiplayer, race tracks in Battle, ending a race when one racer is left.
