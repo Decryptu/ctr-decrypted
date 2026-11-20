@@ -6,7 +6,7 @@ Open work only: what is in progress, what is planned, what may come, and what is
 - What the upstream trackers say: [docs/UPSTREAM-ISSUES.md](docs/UPSTREAM-ISSUES.md).
 
 ## Planned
-- 60 FPS jumps fall short: the "T" and "R" of the CTR Challenge on Oxide Station can't be reached at 60 FPS, even with a top-speed racer and a turbo; at 30 FPS they can. Compare the jump with `fps-drive.ps1` at both rates (airtime, apex, air speed; [60FPS.md](docs/60FPS.md#checking)) and fix the 60 FPS side.
+- Oxide Station CTR Challenge: the "T" (9277, 422, 18400) and "R" (7168, 498, 11648) are reported unreachable at 60 FPS in play. Scripted `fps-drive.ps1` runs of the R launch (`CTR_DEV_WARP=6900,150,17600,2048`, throttle, hop at the lip) reach it as closely at 60 as at 30, so the cause is not found yet: get the player's exact line (an input replay, [REPLAYS.md](docs/REPLAYS.md)) and compare it at both rates and against retail in PCSX-Redux. Letter positions come from the token-race level (`CTR_DEV_MODE=adv`, `CTR_DEV_CHEATS=8`).
 - Japanese Fake Crash imported by the game: an Extras row that takes the Japanese `.bin` from `assets`, with the same help lines as Voices ([EXTRAS.md](docs/EXTRAS.md#voices)), instead of running `extract_fakecrash_jp.py` ([CUSTOM_RACERS.md](docs/CUSTOM_RACERS.md)).
 - Japanese voices: match the 12 racer clips outside the voice set tables (NTSC-U 190, 191, 304–313). They play in US English today ([EXTRAS.md](docs/EXTRAS.md#voices)).
 
