@@ -898,6 +898,28 @@ static void NativeDevRace_Warp(NativeDevRaceState *dev, struct GameTracker *gGT)
 	d->distanceToFinish_checkpoint = 0;
 }
 
+// CTR_DEV_BOOST=<ms>:<reserves>:<fireLevel>: once, at that race time, give
+// player 1 a boost as a turbo pad or powerslide would (VehFire_Increment), so a
+// scripted run can reach a launch with the reserves and fire a player carries
+// (fireLevel 0x100 a pad, 0x800 a super pad's Ultimate Speed Fire).
+static void NativeDevRace_Boost(struct GameTracker *gGT)
+{
+	static int parsed, done, atMS, reserves, fireLevel;
+
+	if (!parsed)
+	{
+		const char *s = getenv("CTR_DEV_BOOST");
+
+		parsed = 1;
+		done = (s == NULL) || (sscanf(s, "%d:%d:%i", &atMS, &reserves, &fireLevel) != 3);
+	}
+	if (done || (gGT == NULL) || (gGT->drivers[0] == NULL) || (sdata->Loading.stage != LOAD_IDLE) || (gGT->elapsedEventTime < atMS) ||
+	    (gGT->elapsedEventTime == 0))
+		return;
+	done = 1;
+	VehFire_Increment(gGT->drivers[0], reserves, 0, fireLevel);
+}
+
 // CTR_DEV_COLL_PROBE=<csv>: once a race's level is loaded, run the kart's own
 // ground search (COLL_FIXED_PlayerSearch: same flags, probe span and BSP walk,
 // without the previous-frame quadblock shortcut) straight down at every node of
@@ -1410,6 +1432,7 @@ void NativeDev_RaceFrame(void)
 	}
 #endif
 	NativeDevRace_Warp(dev, gGT);
+	NativeDevRace_Boost(gGT);
 
 	// The frame just drawn is still in the back buffer's primitive arena.
 	if ((gGT != NULL) && (gGT->backBuffer != NULL))
