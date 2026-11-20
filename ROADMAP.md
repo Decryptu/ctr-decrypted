@@ -6,6 +6,7 @@ Open work only: what is in progress, what is planned, what may come, and what is
 - What the upstream trackers say: [docs/UPSTREAM-ISSUES.md](docs/UPSTREAM-ISSUES.md).
 
 ## Planned
+- Gem Cup last leg logged as 8th: winning all four legs of a Gem Cup once logged the last leg as `[AP RACE] track=1 final_place=8` (the cup's Win was still sent); the same cup raced again logged 1st. `AP_RaceListenerTick` reads `driverRank` on the rising edge of `ACTION_RACE_FINISHED`; find what set the flag or the rank at the last leg (likely the cup standings), so a leg check that depends on the place is never lost.
 - Japanese Fake Crash imported by the game: an Extras row that takes the Japanese `.bin` from `assets`, with the same help lines as Voices ([EXTRAS.md](docs/EXTRAS.md#voices)), instead of running `extract_fakecrash_jp.py` ([CUSTOM_RACERS.md](docs/CUSTOM_RACERS.md)).
 - Japanese voices: match the 12 racer clips outside the voice set tables (NTSC-U 190, 191, 304–313). They play in US English today ([EXTRAS.md](docs/EXTRAS.md#voices)).
 
