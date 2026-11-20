@@ -1465,6 +1465,9 @@ void VehPhysCrash_AnyTwoCars(struct Thread *thread, struct DriverCollisionSearch
 void VehPhysForce_CollideDrivers(struct Thread *thread, struct Driver *driver);
 void VehPhysForce_TranslateMatrix(struct Thread *thread, struct Driver *driver);
 int VehPhysGeneral_JumpGetVelY(s16 *normalVec, Vec3 *speedXYZ);
+#if CTR_NATIVE_60FPS
+extern SVec3 VehPhysGeneral_JumpNormalOlder[8];
+#endif
 void VehPhysGeneral_JumpAndFriction(struct Thread *thread, struct Driver *driver);
 void CS_LoadBoss(const struct BossCutsceneData *bcd);
 

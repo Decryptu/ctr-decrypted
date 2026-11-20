@@ -6,7 +6,6 @@ Open work only: what is in progress, what is planned, what may come, and what is
 - What the upstream trackers say: [docs/UPSTREAM-ISSUES.md](docs/UPSTREAM-ISSUES.md).
 
 ## Planned
-- Oxide Station CTR Challenge: the "T" (9277, 422, 18400) and "R" (7168, 498, 11648) are hard to reach at 60 FPS in play: the player's T hop off the super pads peaks at 810–873 at 60 FPS and 1040 at 30 (F7 `kart.csv`). The height comes from a hop timed within a few frames of the lip. In a scripted sweep (`CTR_DEV_BOOST` row in [DEV-TOOLS.md](docs/DEV-TOOLS.md)) the best apex is about the same at both rates (939 at 30, 961 at 60), but the best hop moves about 50 ms later at 60, so a hop timed by feel from 30 FPS lands on the lip, where it lifts less. Find why the window moves (on the lip `speed` reads 32767 at 30 and about 29500 at 60, because it includes half a pad impulse at 60; [60FPS.md](docs/60FPS.md#known-differences-from-30-fps)) and make the window match 30 FPS. Letter positions come from the token-race level (`CTR_DEV_MODE=adv`, `CTR_DEV_CHEATS=8`).
 - Japanese Fake Crash imported by the game: an Extras row that takes the Japanese `.bin` from `assets`, with the same help lines as Voices ([EXTRAS.md](docs/EXTRAS.md#voices)), instead of running `extract_fakecrash_jp.py` ([CUSTOM_RACERS.md](docs/CUSTOM_RACERS.md)).
 - Japanese voices: match the 12 racer clips outside the voice set tables (NTSC-U 190, 191, 304–313). They play in US English today ([EXTRAS.md](docs/EXTRAS.md#voices)).
 

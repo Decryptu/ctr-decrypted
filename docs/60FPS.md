@@ -114,7 +114,17 @@ either mode are identical and work in both:
     change across `VehPhysForce_OnGravity` (impulses such as jumps and turbo
     kicks arrive through speed and are not led). The lead loses its part into
     a surface the sweep hits, as the velocity does.
-  - Both do nothing in a 32 ms frame: 30 FPS stays retail bit for bit.
+  - Hop off a kicker (`VehPhysGeneral_JumpAndFriction`). A hop's lift off a
+    slope comes from the surface normal of the frame before
+    (`AxisAngle4_normalVec`), so a hop in the first airborne frame after a
+    ramp's lip still lifts off the ramp: the big jump to Oxide Station's T and
+    R. That memory is one frame, 32 ms in retail; at 60 FPS the jump also reads
+    the normal of the frame before that (`VehPhysGeneral_JumpNormalOlder`), so
+    the window stays 32 ms. Check: `fps-drive.ps1 -Track 13` with
+    `CTR_DEV_WARP=16194,13,18306,3372`, `CTR_DEV_BOOST=200:4800:0x800` and a
+    hop swept in 16 ms steps around 1050 ms: two hop times reach an apex near
+    950 at each rate.
+  - All of these do nothing in a 32 ms frame: 30 FPS stays retail bit for bit.
 - The checkered flag's "LOADING..." letters move every frame, each odd frame
   halfway between two 30 FPS positions.
 

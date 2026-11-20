@@ -1043,6 +1043,11 @@ int VehPhysGeneral_LerpToForwards(struct Driver *d, int currentAngle, int curren
 	return velocity;
 }
 
+#if CTR_NATIVE_60FPS
+// AxisAngle4_normalVec as it was a frame earlier (VehPhysProc_Driving_Update).
+SVec3 VehPhysGeneral_JumpNormalOlder[8];
+#endif
+
 int VehPhysGeneral_JumpGetVelY(s16 *normalVec, Vec3 *speedXYZ)
 {
 	int normalY;
@@ -1484,6 +1489,22 @@ PROCESS_JUMP:
 			normalIndex = CTR_MipsAddLo(normalIndex, 1);
 		} while (normalIndex < 1);
 	}
+#if CTR_NATIVE_60FPS
+	// A hop just after leaving a ramp lifts off the ramp's slope, which the jump
+	// reads from the surface the kart touched a frame ago (AxisAngle4_normalVec,
+	// above). A frame is 32 ms in retail; at 60 FPS that memory would last only
+	// 16 ms, halving the window for the big jump off a kicker (Oxide Station's
+	// C-T-R letters). The frame before is still within 32 ms: read it too.
+	if ((GAME_TRACKER->elapsedTimeMS > 0) && (GAME_TRACKER->elapsedTimeMS < 32) && (d->driverID < 8))
+	{
+		const int olderJumpVelY = VehPhysGeneral_JumpGetVelY(CTR_VECTOR_DATA(&VehPhysGeneral_JumpNormalOlder[d->driverID]), &movement);
+
+		if (VehPhysGeneral_Jump_Abs(bestJumpVelY) < VehPhysGeneral_Jump_Abs(olderJumpVelY))
+		{
+			bestJumpVelY = olderJumpVelY;
+		}
+	}
+#endif
 
 	normalVec = CTR_VECTOR_DATA(&(d->AxisAngle1_normalVec));
 	if ((d->actionsFlagSet & ACTION_TOUCH_GROUND) == 0)

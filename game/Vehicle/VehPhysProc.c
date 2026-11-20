@@ -704,6 +704,11 @@ itemRollDone:
 		normalVecIndex = 0;
 	}
 	normalDestination = (s16 *)((u8 *)&driver->AxisAngle4_normalVec + CTR_MipsSll(normalVecIndex, 3));
+#if CTR_NATIVE_60FPS
+	// The jump keeps one frame of surface history (VehPhysGeneral_JumpAndFriction):
+	// keep the frame before too, so a 16 ms frame remembers 32 ms as retail does.
+	VehPhysGeneral_JumpNormalOlder[driver->driverID] = driver->AxisAngle4_normalVec;
+#endif
 
 	if ((actionsFlagSetCopy & ACTION_TOUCH_GROUND) != 0)
 	{
