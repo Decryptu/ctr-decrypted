@@ -43,7 +43,7 @@ typedef int16_t s16;
 #define AP_RESULT_PRODUCER_ADV_REWARD 0
 #define CTR_MipsSra(a,b) ((a)>>(b))
 #define CTR_MipsAddLo(a,b) ((a)+(b))
-typedef struct {union {struct {short x,y,z;};short v[3];};} SVec3;
+typedef struct {short x,y,z;} SVec3; // the engine's shape (include/ctr_math.h)
 struct BoundingBox {SVec3 min,max;};
 struct Thread;
 struct Model {int id;};

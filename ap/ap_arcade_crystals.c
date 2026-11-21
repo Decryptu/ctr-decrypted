@@ -101,8 +101,8 @@ void AP_ArcadeCrystals_Spawn(struct GameTracker *g)
         if(!inst->thread)goto refused;
         inst->thread->funcThTick=AP_ArcadeCrystalTick;
         // Centered retail crystal touch envelope, including its vertical bob.
-        ap_arcade_boxes[i].min=(SVec3){{def->pos.x-46,def->pos.y-86,def->pos.z-46}};
-        ap_arcade_boxes[i].max=(SVec3){{def->pos.x+46,def->pos.y+178,def->pos.z+46}};
+        ap_arcade_boxes[i].min=(SVec3){def->pos.x-46,def->pos.y-86,def->pos.z-46};
+        ap_arcade_boxes[i].max=(SVec3){def->pos.x+46,def->pos.y+178,def->pos.z+46};
     }
     ap_arcade_epoch=ap_content_plan_epoch();ap_arcade_level=g->levelID;
     AP_LogLine("[AP ARENA] authored twenty-crystal set ready; timer is provisional\n");
@@ -111,7 +111,7 @@ refused:
     ap_arcade_failed=1;
     for(i=0;i<20;++i)if(ap_arcade_defs[i].ptrInstance) {
         struct Instance *inst=ap_arcade_defs[i].ptrInstance;
-        inst->scale=(SVec3){{0,0,0}};
+        inst->scale=(SVec3){0,0,0};
         if(inst->thread)inst->thread->flags |= THREAD_FLAG_DEAD;
     }
     AP_LogLine("[AP ARENA] crystal construction failed; returning without a reward\n");
