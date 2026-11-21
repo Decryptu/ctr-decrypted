@@ -6,6 +6,11 @@ Open work only: what is in progress, what is planned, what may come, and what is
 - What the upstream trackers say: [docs/UPSTREAM-ISSUES.md](docs/UPSTREAM-ISSUES.md).
 
 ## Planned
+- Tracker: a beaten boss race still offers START instead of REPLAY, like a won Gem Cup. A cup counts as done only when every check of its tracks is (its item boxes included, `AP_TrackerDrawContentNode`, `AP_PadActivityRow` with `padState != 5`); check whether the boss row uses the same rule and whether a player should see REPLAY once the race itself is won, with what is left shown apart.
+- Tracker: the right page arrow at the top right is missing (the left one shows). The Mods and custom track pages had the same bug with their pagination; reuse that fix.
+- Tracker: the controller button icons in the bottom help line are too small and look broken at that size; draw them at a readable size or use the button glyphs the menus use.
+- HUD: under the speedometer, the bottom pixel row shows two short groups of black pixels that change while driving, as if text were drawn hidden beneath the gauge. Find what draws there (polygon dump of a race frame, `CTR_DEV_DUMP_FRAME`).
+- Adventure: the tunnel between N. Oxide's hub area and the snow hub (Glacier Park) draws garbled, multicolored textures on its walls and floor.
 - Dragon Mines lap not counted: in a Gem Cup leg on Dragon Mines one lap did not register, so the player (1st) had to drive a fourth lap and was logged `[AP RACE] track=1 final_place=8` (the cup's Win was still sent; the same cup raced again finished normally). Find where the lap's checkpoint progress was lost (a shortcut or respawn skipping a checkpoint, or the lap counter at the finish line).
 - Japanese Fake Crash imported by the game: an Extras row that takes the Japanese `.bin` from `assets`, with the same help lines as Voices ([EXTRAS.md](docs/EXTRAS.md#voices)), instead of running `extract_fakecrash_jp.py` ([CUSTOM_RACERS.md](docs/CUSTOM_RACERS.md)).
 - Japanese voices: match the 12 racer clips outside the voice set tables (NTSC-U 190, 191, 304–313). They play in US English today ([EXTRAS.md](docs/EXTRAS.md#voices)).
