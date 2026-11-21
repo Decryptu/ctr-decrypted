@@ -62,6 +62,7 @@ int NativeDiscImage_ReadRawSectors(const struct NativeDiscImageFile *file, u32 s
 
 // The dev switches (platform/native_dev.c): off, as in a normal run.
 int NativeDev_Fast(void) { return 0; }
+int NativeDev_Hidden(void) { return 0; }
 void NativeDev_AudioFrames(const short *frames, int frameCount) { (void)frames; (void)frameCount; }
 // The voice language (platform/native_voices.c): NTSC-U, every clip as asked.
 const char *NativeVoices_Map(int categoryID, int usID, int *idOut) { (void)categoryID; (void)usID; (void)idOut; return NULL; }
