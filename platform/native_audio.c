@@ -3217,6 +3217,14 @@ internal int NativeAudio_OpenDevice(void)
 	printf("[CTR Native] SDL audio stream opened: driver=%s src=%d Hz/%d ch dst=%d Hz/%d ch device=%d Hz/%d ch sampleFrames=%d\n", SDL_GetCurrentAudioDriver(),
 	       srcSpec.freq, srcSpec.channels, dstSpec.freq, dstSpec.channels, deviceSpec.freq, deviceSpec.channels, deviceSampleFrames);
 	NativeAudio_ClearOutputQueueNoLock();
+	// A hidden or fast-forwarded dev run is silent from its first sample: the
+	// per-frame focus mute only starts once frames draw, after the boot logo.
+	if (NativeDev_Hidden() || NativeDev_Fast())
+	{
+		SDL_SetAudioStreamGain(s_audio.output.stream, NATIVE_FOCUS_MUTE_GAIN_MUTED);
+		s_focusMuteAppliedStream = s_audio.output.stream;
+		s_focusMuteAppliedGain = NATIVE_FOCUS_MUTE_GAIN_MUTED;
+	}
 	if (!SDL_ResumeAudioStreamDevice(s_audio.output.stream))
 	{
 		fprintf(stderr, "[CTR Native] SDL audio stream resume failed: %s\n", SDL_GetError());
