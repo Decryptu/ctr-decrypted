@@ -6,7 +6,7 @@ Open work only: what is in progress, what is planned, what may come, and what is
 - What the upstream trackers say: [docs/UPSTREAM-ISSUES.md](docs/UPSTREAM-ISSUES.md).
 
 ## Planned
-- Tracker: a beaten boss race still offers START instead of REPLAY, like a won Gem Cup. A cup counts as done only when every check of its tracks is (its item boxes included, `AP_TrackerDrawContentNode`, `AP_PadActivityRow` with `padState != 5`); check whether the boss row uses the same rule and whether a player should see REPLAY once the race itself is won, with what is left shown apart.
+- Tracker: a won Gem Cup (and a beaten boss race) still offers START, its CUP CHECK stays open and its node shows "BOX 28". The cup counts its tracks' item boxes as its own checks (`ap_content_cup_track_checks`, `box_pad`), but in a cup leg (and a boss race) the boxes stand translucent and cannot be broken: they are earned only in the track's own races. Leave boxes out of a cup's and a boss race's count, done state and START/REPLAY (`AP_TrackerDrawContentNode`, `AP_PadActivityRow` with `padState != 5`), and check the boss row's rule.
 - Tracker: the right page arrow at the top right is missing (the left one shows). The Mods and custom track pages had the same bug with their pagination; reuse that fix.
 - Tracker: the controller button icons in the bottom help line are too small and look broken at that size; draw them at a readable size or use the button glyphs the menus use.
 - HUD: under the speedometer, the bottom pixel row shows two short groups of black pixels that change while driving, as if text were drawn hidden beneath the gauge. Find what draws there (polygon dump of a race frame, `CTR_DEV_DUMP_FRAME`).
