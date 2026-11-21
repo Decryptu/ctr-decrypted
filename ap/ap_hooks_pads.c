@@ -175,8 +175,7 @@ static int AP_ContentPadGlowBits(int destLevelID, int *outBits, int64_t *outCode
         if(pad->cup) {
             // Cups (#133 PR 5): the Win, the sweep and each leg track's Cup
             // Leg Victory once, then each track's first lap, Wumpa check and
-            // boxes once. A leg breaks a box only while the track's own pad
-            // is open, so the glow keeps a shut pad's boxes hidden.
+            // rungs once (its boxes glow on the track's own pad).
             int64_t codes[6]; int slots[6], k, c=ap_content_cup_codes(pad,codes,slots);
             ap_content_cup_track_check rows[AP_CONTENT_CUP_TRACK_CHECKS];
             for(k=0;k<c && count<cap;++k)
@@ -188,7 +187,6 @@ static int AP_ContentPadGlowBits(int destLevelID, int *outBits, int64_t *outCode
             c=ap_content_cup_track_checks(pad,ap_content_plan_pad,rows);
             for(k=0;k<c && count<cap;++k) {
                 if(ap_net_location_checked((long)rows[k].code))continue;
-                if(openOnly && rows[k].box_pad>=0 && !AP_ContentPadOpen(ap_content_plan_pad(rows[k].box_pad)))continue;
                 count=AP_GlowPush(outBits,outCodes,count,rows[k].bit,rows[k].code);
             }
             return count;

@@ -109,12 +109,14 @@ static void menu_parity(void)
 static void single_and_garage(void)
 {
  for (int keys = 0; keys < 2; keys++)
- for (int open = 0; open < 2; open++) {
+ for (int open = 0; open < 2; open++)
+ for (int left = 0; left < 2; left++) {
   ap_padact_facts f; ap_padact_list l;
   memset(&f, 0, sizeof f);
-  f.node = AP_PADACT_NODE_GARAGE; f.keysHave = keys; f.keysNeed = 1; f.garageOpen = open;
+  f.node = AP_PADACT_NODE_GARAGE; f.keysHave = keys; f.keysNeed = 1; f.garageOpen = open; f.garageLeft = left;
   AP_PadActivityDecide(&f, &l);
   assert(l.count == 1 && l.activity[0] == AP_PADACT_BOSS);
+  assert(l.left[0] == left); /* a beaten boss offers a replay */
   assert(l.reason[0] == (!keys ? AP_PADACT_LOCK_HUB : open ? AP_PADACT_OPEN : AP_PADACT_LOCK_BOSS));
  }
  {

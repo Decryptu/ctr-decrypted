@@ -62,8 +62,7 @@ static void cup_capacity_case(void)
         for (b = 0; b < 50; ++b) own->box_locations[b] = 5000 + 50 * k + b;
     }
     n = ap_content_cup_track_checks(&cup, capacity_lookup, rows);
-    expect(n == 248 && rows[247].code == 5199, "four full legs fit all 248 track checks");
-    expect(ap_content_cup_box_pending(&cup, capacity_lookup, checked) == 200, "tracker counts all 200 cup boxes");
+    expect(n == 48 && rows[47].code == 3034, "four full legs fit all 48 track checks, boxes left to their pads");
 }
 static const ctr_content_pad *cup_lookup(int physical) { return physical == 3 ? &cup_own : NULL; }
 static void cup_track_checks_case(void)

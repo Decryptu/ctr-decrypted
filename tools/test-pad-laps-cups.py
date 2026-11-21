@@ -38,7 +38,8 @@ assert "if(ap_content_cup_lap_bit_decode(globalBit,&contentPad,&contentTier))\n 
 # The tracker names stage 2 and a cup's node counts its tracks.
 assert "ap_content_requirement_text(pad->stage2_mask, pad->stage2_count, out->stage2, sizeof out->stage2);" in launch
 node = function(tracker, "static void AP_TrackerDrawContentNode(")
-assert "ap_content_cup_track_checks(pad, ap_content_plan_pad, rows)" in node and "ap_content_cup_box_pending(" in node
+# A cup's track boxes are counted on their own pads, never on the cup.
+assert "ap_content_cup_track_checks(pad, ap_content_plan_pad, rows)" in node and "ap_content_cup_box_pending(" not in node
 assert "ap_content_cup_wumpa_code(pad, ap_content_plan_pad, AP_ContentCodeChecked)" in node
 # A plan cup leg earns its track's Wumpa check, the leg's own code (row 10i:
 # also on a track with no pad); a leg's box gate reads the pad on that track.
@@ -50,7 +51,7 @@ assert "cup->legs[race->leg].track_pad" in policy and "return AP_BOX_PRESENT_NON
 seat = function(boxes, "static void AP_BoxesSeatCustom(")
 assert "pad->legs[race->leg].track_pad" in seat
 footer = tracker[tracker.index("if(ap_tracker.pinned && ap_tracker.count) {"):]
-assert "ap_content_cup_box_pending(plan,ap_content_plan_pad,AP_ContentCodeChecked)" in footer and "int bits[AP_PAD_DISPLAY_BITS_MAX]" in footer
+assert "plan->cup?0:ap_content_box_pending(plan,AP_ContentCodeChecked)" in footer and "int bits[AP_PAD_DISPLAY_BITS_MAX]" in footer
 # Every cup pad knows its legs' track pads, boss cups too: 0 would be a real pad.
 parser = (root / "ap/ap_content_plan_impl.hpp").read_text(encoding="utf-8")
 assert "for (auto &cup : out.pads) seat_track_pads(cup);" in parser and "for (auto &cup : out.garage_cups) seat_track_pads(cup);" in parser
@@ -132,33 +133,23 @@ int main(void)
     strcpy(cup.legs[2].track_id, "retail:2"); cup.legs[2].track_pad = 5; cup.legs[2].lap = 202;
     strcpy(cup.legs[3].track_id, "retail:3"); cup.legs[3].track_pad = -1; cup.legs[3].lap = 302;
     n = AP_ContentPadGlowBits(100, bits, codes, 96, 0);
-    assert(n == 1 + 3 + 2 + 4);
+    assert(n == 1 + 3 + 2); /* the Win, three laps, two Wumpa checks: no box */
     assert(code_for(AP_CONTENT_BIT_TROPHY + 100, bits, codes, n) == 300);
     assert(code_for(CUP_LAP_BIT(0), bits, codes, n) == 102);
     assert(code_for(CUP_LAP_BIT(3), bits, codes, n) == 302);
     assert(code_for(WUMPA_BIT(5), bits, codes, n) == 203);
-    assert(code_for(BOX_BIT(5, 0), bits, codes, n) == 204);
     assert(has(bits, n, CUP_LAP_BIT(0)) && !has(bits, n, CUP_LAP_BIT(1)) && has(bits, n, CUP_LAP_BIT(2)) && has(bits, n, CUP_LAP_BIT(3)));
-    assert(has(bits, n, WUMPA_BIT(3)) && has(bits, n, WUMPA_BIT(5)) && has(bits, n, BOX_BIT(3, 1)) && has(bits, n, BOX_BIT(5, 0)));
+    assert(has(bits, n, WUMPA_BIT(3)) && has(bits, n, WUMPA_BIT(5)) && !has(bits, n, BOX_BIT(3, 1)) && !has(bits, n, BOX_BIT(5, 0)));
     assert(ap_content_cup_lap_bit_decode(CUP_LAP_BIT(3), &physical, &slot) && physical == 100 && slot == 3);
     assert(ap_content_cup_lap_bit_code(&cup, 3) == 302 && ap_content_cup_lap_bit_code(&track_a, 3) == -1);
     assert(ap_content_box_bit_code(ap_content_plan_pad(5), 0) == 204);
     assert(ap_content_family_bit_code(ap_content_plan_pad(5), 5) == 203);
-    /* The pad state counts a shut pad's boxes; the glow keeps them hidden. */
-    shut_b = 1;
-    n = AP_ContentPadGlowBits(100, bits, NULL, 96, 1);
-    assert(!has(bits, n, BOX_BIT(5, 0)) && has(bits, n, BOX_BIT(3, 0)) && has(bits, n, WUMPA_BIT(5)));
-    n = AP_ContentPadGlowBits(100, bits, NULL, 96, 0);
-    assert(has(bits, n, BOX_BIT(5, 0)));
-    shut_b = 0;
-    /* A cup with only a leg's box left still has a check: no grey X. */
-    { int64_t all[] = {300, 102, 202, 302, 103, 203, 104, 105, 205};
+    /* A cup whose own checks are all done is done with its tracks' boxes
+       left: a leg cannot break a shut pad's box, and the boxes are the
+       track pad's checks. */
+    { int64_t all[] = {300, 102, 202, 302, 103, 203};
       for (unsigned i = 0; i < sizeof all / sizeof all[0]; ++i) done[doneCount++] = all[i]; }
-    assert(AP_ContentPadGlowBits(100, bits, NULL, 96, 0) == 1);
-    assert(ap_content_cup_box_pending(&cup, ap_content_plan_pad, checkedFn) == 1);
-    done[doneCount++] = 204;
     assert(AP_ContentPadGlowBits(100, bits, NULL, 96, 0) == 0);
-    assert(ap_content_cup_box_pending(&cup, ap_content_plan_pad, checkedFn) == 0);
     doneCount = 0;
     /* The cup's tracker node: an open Wumpa check first, then a done one, none on a cup without one. */
     assert(ap_content_cup_wumpa_code(&cup, ap_content_plan_pad, checkedFn) == 103);

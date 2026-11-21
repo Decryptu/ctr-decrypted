@@ -405,13 +405,14 @@ static inline int64_t ap_content_cup_rung_bit_code(const ctr_content_pad *pad, i
 // The checks of a cup's tracks, each track once: every leg's first lap, the
 // track's Reach 10 Wumpa check (row 10i: also on a track without a pad), and
 // the podium rungs (row 10i, a Gem Cup only; with cup_only_podium_rungs also
-// the leg's own on a track whose pad has none, or with no pad) and Item Boxes of the track's
-// standalone pad. `box_pad` is that pad on a box, whose check a leg can only
-// earn while the pad is open, else -1. A track raced only in cups owns no box.
-#define AP_CONTENT_CUP_TRACK_CHECKS (AP_CONTENT_CUP_LEGS * 62) // lap, Wumpa, both 5-rung sources, 50 boxes
+// the leg's own on a track whose pad has none, or with no pad). Not the track's
+// Item Boxes: a leg breaks them only while the track's own pad is open (else
+// they stand translucent), and they are that pad's checks, counted there, so a
+// won cup is done without them.
+#define AP_CONTENT_CUP_TRACK_CHECKS (AP_CONTENT_CUP_LEGS * 12) // lap, Wumpa, both 5-rung sources
 typedef struct ap_content_cup_track_check {
     int64_t code;
-    int bit, box_pad;
+    int bit;
 } ap_content_cup_track_check;
 typedef const ctr_content_pad *(*ap_content_pad_fn)(int physical);
 static inline int ap_content_cup_track_checks(const ctr_content_pad *pad, ap_content_pad_fn lookup,
@@ -426,31 +427,26 @@ static inline int ap_content_cup_track_checks(const ctr_content_pad *pad, ap_con
         for (j = 0; j < k; ++j) seen |= !strcmp(pad->legs[j].track_id, leg->track_id);
         if (seen) continue;
         if (leg->lap > 0 && pad->physical < AP_CONTENT_GARAGE_CUP_PAD) { // a garage has no glow
-            out[n].code = leg->lap; out[n].box_pad = -1;
+            out[n].code = leg->lap;
             out[n++].bit = AP_CONTENT_BIT_CUP_LAP + pad->physical * AP_CONTENT_CUP_LAP_STRIDE + k;
         }
         if (own && own->wumpa_location > 0) {
-            out[n].code = own->wumpa_location; out[n].box_pad = -1;
+            out[n].code = own->wumpa_location;
             out[n++].bit = AP_CONTENT_BIT_FAMILY + own->physical * AP_CONTENT_FAMILY_STRIDE + 5;
         } else if (leg->wumpa > 0 && pad->physical < AP_CONTENT_GARAGE_CUP_PAD) {
-            out[n].code = leg->wumpa; out[n].box_pad = -1;
+            out[n].code = leg->wumpa;
             out[n++].bit = AP_CONTENT_BIT_CUP_WUMPA + pad->physical * AP_CONTENT_CUP_LAP_STRIDE + k;
         }
         for (b = 0; pad->physical < AP_CONTENT_GARAGE_CUP_PAD && b < 5; ++b)
             if (leg->rungs[b] > 0) {
-                out[n].code = leg->rungs[b]; out[n].box_pad = -1;
+                out[n].code = leg->rungs[b];
                 out[n++].bit = AP_CONTENT_BIT_CUP_RUNG + pad->physical * AP_CONTENT_CUP_RUNG_STRIDE + k * 5 + b;
             }
         if (!own) continue;
         for (b = 0; pad->physical < AP_CONTENT_GARAGE_CUP_PAD && b < 5; ++b)
             if (own->rung_locations[b] > 0) {
-                out[n].code = own->rung_locations[b]; out[n].box_pad = -1;
+                out[n].code = own->rung_locations[b];
                 out[n++].bit = AP_CONTENT_BIT_FAMILY + own->physical * AP_CONTENT_FAMILY_STRIDE + b;
-            }
-        for (b = 0; b < own->box_count && b < 50; ++b)
-            if (own->box_locations[b] > 0) {
-                out[n].code = own->box_locations[b]; out[n].box_pad = own->physical;
-                out[n++].bit = AP_CONTENT_BIT_BOX + own->physical * AP_CONTENT_BOX_STRIDE + b;
             }
     }
     return n;
@@ -471,15 +467,6 @@ static inline int64_t ap_content_cup_wumpa_code(const ctr_content_pad *pad, ap_c
             if (!checked(code)) return code;
         }
     return code;
-}
-// The Item Boxes still unchecked on a cup's tracks.
-static inline int ap_content_cup_box_pending(const ctr_content_pad *pad, ap_content_pad_fn lookup,
-                                             ap_content_checked_fn checked)
-{
-    ap_content_cup_track_check rows[AP_CONTENT_CUP_TRACK_CHECKS];
-    int i, left = 0, n = ap_content_cup_track_checks(pad, lookup, rows);
-    for (i = 0; i < n; ++i) left += rows[i].box_pad >= 0 && !checked(rows[i].code);
-    return left;
 }
 // What a requirement asks for, as the tracker row names it: `2 Red Gems`,
 // `1 Key`, or `3 Any Relics` for a whole family. Items are the ledger's 15

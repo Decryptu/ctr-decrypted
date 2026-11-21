@@ -6,10 +6,6 @@ Open work only: what is in progress, what is planned, what may come, and what is
 - What the upstream trackers say: [docs/UPSTREAM-ISSUES.md](docs/UPSTREAM-ISSUES.md).
 
 ## Planned
-- Tracker: a won Gem Cup (and a beaten boss race) still offers START, its CUP CHECK stays open and its node shows "BOX 28". The cup counts its tracks' item boxes as its own checks (`ap_content_cup_track_checks`, `box_pad`), but in a cup leg (and a boss race) the boxes stand translucent and cannot be broken: they are earned only in the track's own races. Leave boxes out of a cup's and a boss race's count, done state and START/REPLAY (`AP_TrackerDrawContentNode`, `AP_PadActivityRow` with `padState != 5`), and check the boss row's rule.
-- Tracker: the right page arrow at the top right is missing (the left one shows). The Mods and custom track pages had the same bug with their pagination; reuse that fix.
-- Tracker: the controller button icons in the bottom help line are too small and look broken at that size; draw them at a readable size or use the button glyphs the menus use.
-- HUD: under the speedometer, the bottom pixel row shows two short groups of black pixels that change while driving, as if text were drawn hidden beneath the gauge. Find what draws there (polygon dump of a race frame, `CTR_DEV_DUMP_FRAME`).
 - Adventure: the tunnel between N. Oxide's hub area and the snow hub (Glacier Park) draws garbled, multicolored textures on its walls and floor.
 - Dragon Mines lap not counted: in a Gem Cup leg on Dragon Mines one lap did not register, so the player (1st) had to drive a fourth lap and was logged `[AP RACE] track=1 final_place=8` (the cup's Win was still sent; the same cup raced again finished normally). Find where the lap's checkpoint progress was lost (a shortcut or respawn skipping a checkpoint, or the lap counter at the finish line).
 - Japanese Fake Crash imported by the game: an Extras row that takes the Japanese `.bin` from `assets`, with the same help lines as Voices ([EXTRAS.md](docs/EXTRAS.md#voices)), instead of running `extract_fakecrash_jp.py` ([CUSTOM_RACERS.md](docs/CUSTOM_RACERS.md)).

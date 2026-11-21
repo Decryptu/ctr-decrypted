@@ -49,7 +49,7 @@ The game asks for every voice clip by its NTSC-U number (category 1 "extra": Aku
 ## Decisions
 - **Retail defaults.** Character-select stats and effect changes default off, and Penta defaults to NTSC-U. The reserves meter defaults on in the Archipelago build only because that build always drew it.
 - **One implementation for both builds.** The Archipelago build's reserves meter, fire tweak and blue fire are the same code as these rows:
-  - The reserves meter draws whenever the option is on. The speed readout under it is Archipelago only.
+  - The reserves meter draws whenever the option is on. The Archipelago speed readout sits left of the boost bar, its baseline on the bar's: the bar is at the bottom of the screen, so a readout under it would be cut off.
   - The fire tweak reads the option. With no `config.ini`, the Archipelago build honours `hud_reserves_fx=1` in `ap-config.txt` (`AP_HudReservesFx`, same precedence as `map_flash`).
   - The blue palette has one writer, `VehBlueFire_Tick`, run every frame from `MainMain`. It turns blue when the option or the Archipelago Progressive Boost capstone asks (`AP_BlueFireWanted`), so the two never fight over the same VRAM cells.
 - **The fire tweak is the whole ModSDK tweak:** it stops the visibility-cooldown hide and keeps a powerslide's first flame alive past two frames.

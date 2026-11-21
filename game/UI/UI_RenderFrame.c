@@ -223,10 +223,13 @@ void UI_RenderFrame_Racing()
 					}
 #endif
 #ifdef CTR_AP
-					// AP HUD: a numeric speed readout under it in an AP session.
+					// AP HUD: a numeric speed readout left of the boost bar in an AP
+					// session, its baseline on the bar's: the bar sits at the bottom of
+					// the screen, so a readout under it was drawn off screen.
 					if (ctr_cfg_active() && numPlyr == 1)
 					{
-						UI_DrawSpeedNum(hudStructPtr[UI_HUD_SLOT_SLIDE_METER].x + offset - 49, hudStructPtr[UI_HUD_SLOT_SLIDE_METER].y + 9, playerStruct);
+						UI_DrawSpeedNum(hudStructPtr[UI_HUD_SLOT_SLIDE_METER].x + offset - 49,
+						                hudStructPtr[UI_HUD_SLOT_SLIDE_METER].y - data.font_charPixHeight[FONT_BIG] + 2, playerStruct);
 					}
 #endif
 				}

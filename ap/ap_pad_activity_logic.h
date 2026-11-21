@@ -88,6 +88,7 @@ typedef struct
 	int stage2Open;  // the pad's stage 2 is met
 	// GARAGE
 	int garageOpen;
+	int garageLeft; // the boss race's check is not collected yet
 } ap_padact_facts;
 
 typedef struct
@@ -181,7 +182,7 @@ static inline void AP_PadActivityDecideRows(const ap_padact_facts *f, ap_padact_
 	switch (f->node)
 	{
 	case AP_PADACT_NODE_GARAGE:
-		AP_PadActivityRow(out, AP_PADACT_BOSS, f->garageOpen ? AP_PADACT_OPEN : AP_PADACT_LOCK_BOSS, 1, -1);
+		AP_PadActivityRow(out, AP_PADACT_BOSS, f->garageOpen ? AP_PADACT_OPEN : AP_PADACT_LOCK_BOSS, f->garageLeft, -1);
 		break;
 	case AP_PADACT_NODE_CONTENT:
 		for (m = 0; m < f->modeCount && m < AP_PADACT_MAX_ROWS; m++)

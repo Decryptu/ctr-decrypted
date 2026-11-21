@@ -20,7 +20,7 @@ Lap checks are plan checks of kind `lap`, owner the track id, with one route per
 
 ## Display
 
-A pad's first lap shows in its glow and rides the race slot (family slot 10). A cup lists each of its tracks' first lap, Wumpa check and boxes once. The cup's state counts them too, so it wears no grey X while one is left. A leg can break a box only while the track's own pad is open, so a shut pad's boxes stay out of the cup's glow.
+A pad's first lap shows in its glow and rides the race slot (family slot 10). A cup lists each of its tracks' first lap, Wumpa check and podium rungs once. The cup's state counts them too, so it wears no grey X while one is left. The tracks' Item Boxes are not the cup's: a leg breaks a box only while the track's own pad is open (else it stands translucent), and the boxes are that pad's checks, counted and glowing there. So a won cup with every lap and Wumpa check done offers REPLAY, whatever boxes its tracks still hold.
 
 ## Logic
 

@@ -109,6 +109,9 @@ int AP_GarageActivities(int hub, ap_padact_list *out)
 	f.keysNeed = AP_PadActivityHubKeys(hub, -1);
 	/* The garage's own gates, the ones AH_Garage_ThTick asks. */
 	f.garageOpen = hub == 0 ? AP_OxideGarageOpen() : AP_BossGarageOpen(hub - 1);
+	/* A beaten boss offers a replay, as a won race does (the tracker's boss node bit). */
+	f.garageLeft = hub == 0 || !(AP_LocationExistsByBit(ADV_REWARD_FIRST_BOSS_KEY + hub - 1) &&
+	                             AP_LocationCheckedByBit(ADV_REWARD_FIRST_BOSS_KEY + hub - 1));
 	AP_PadActivityDecide(&f, out);
 	return 1;
 }

@@ -85,6 +85,32 @@ static void AP_TrackerBlit(const uint32_t *pixels, int sw, int sh, int x, int y,
 			src[1] * mod[1] / 255, src[2] * mod[2] / 255, src[3]);
 	}
 }
+/* The font's face buttons ('*' Cross, '@' Circle, '[' Square, '^' Triangle,
+ * NativeMenu_Labels) are tiny icons that lose their shape when the overlay
+ * scales and whitens them: draw a round button with its coloured symbol. */
+static int AP_TrackerIsButton(const char *text, const char *p)
+{
+	unsigned ch = (unsigned char)*p;
+	/* Only a lone symbol is a button ("* START"), never one inside a word ("10W*"). */
+	return (ch == '*' || ch == '@' || ch == '[' || ch == '^') && (p == text || p[-1] == ' ') && (p[1] == ' ' || !p[1]);
+}
+static void AP_TrackerButton(unsigned ch, int x, int y, int size)
+{
+	int r = size / 2, cx = x + r, cy = y + r, s = r * 5 / 10, t = size >= 20 ? 3 : 2;
+	AP_TrackerCircle(cx + 1, cy + 1, r, AP_TrackerRGBA(0, 0, 0, 255), 0);
+	AP_TrackerCircle(cx, cy, r, AP_TrackerRGBA(40, 40, 48, 255), 0);
+	AP_TrackerCircle(cx, cy, r, AP_TrackerRGBA(200, 200, 210, 255), 1);
+	if (ch == '*') {
+		uint32_t c = AP_TrackerRGBA(120, 170, 255, 255);
+		AP_TrackerLine(cx - s, cy - s, cx + s, cy + s, c, t); AP_TrackerLine(cx - s, cy + s, cx + s, cy - s, c, t);
+	} else if (ch == '@') AP_TrackerCircle(cx, cy, s, AP_TrackerRGBA(255, 90, 90, 255), t);
+	else if (ch == '[') AP_TrackerBorder(cx - s, cy - s, 2 * s + 1, 2 * s + 1, AP_TrackerRGBA(255, 130, 210, 255), t);
+	else {
+		uint32_t c = AP_TrackerRGBA(90, 220, 170, 255);
+		AP_TrackerLine(cx, cy - s, cx - s, cy + s * 7 / 10, c, t); AP_TrackerLine(cx - s, cy + s * 7 / 10, cx + s, cy + s * 7 / 10, c, t);
+		AP_TrackerLine(cx + s, cy + s * 7 / 10, cx, cy - s, c, t);
+	}
+}
 static void AP_TrackerText(const char *text, int x, int y, int height, uint32_t color, int max_width)
 {
 	int index = height >= 25 ? 1 : 0, start = x;
@@ -94,13 +120,19 @@ static void AP_TrackerText(const char *text, int x, int y, int height, uint32_t 
 		if(ch>='a' && ch<='z') ch-='a'-'A';
 		if(ch<32 || ch>127) ch='?';
 		g=&ap_tracker.glyphs[index][ch-32];
-		natural += ch==' ' ? height/3 : (g->w ? g->w*height*3/(4*(g->h?g->h:height)) : height/3)+1;
+		natural += AP_TrackerIsButton(text, p) ? height + 3 : ch==' ' ? height/3 : (g->w ? g->w*height*3/(4*(g->h?g->h:height)) : height/3)+1;
 	}
 	if(natural>max_width) height=height*max_width/natural;
-	for (; *text; text++) {
-		unsigned ch = (unsigned char)*text; AP_TrackerSprite *g; int w;
+	for (p = text; *p; p++) {
+		unsigned ch = (unsigned char)*p; AP_TrackerSprite *g; int w;
 		if (ch >= 'a' && ch <= 'z') ch -= 'a' - 'A';
 		if (ch < 32 || ch > 127) ch = '?';
+		if (AP_TrackerIsButton(text, p)) {
+			if (x + height - start > max_width) break;
+			AP_TrackerButton(ch, x, y - 1, height + 2);
+			x += height + 3;
+			continue;
+		}
 		g = &ap_tracker.glyphs[index][ch - 32];
 		w = ch == ' ' ? height / 3 : (g->w ? g->w * height * 3 / (4 * (g->h ? g->h : height)) : height / 3);
 		if (x + w - start > max_width) break;
@@ -245,8 +277,9 @@ static void AP_TrackerFrame(const char *title)
 	AP_TrackerBorder(16, 24, 1248, 744, TRACKER_MINT, 3);
 	AP_TrackerLine(16, 96, 1264, 96, TRACKER_MINT, 2);
 	AP_TrackerText(title, 280, 45, 36, TRACKER_GOLD, 750);
-	AP_TrackerText("<", 220, 47, 32, AP_TrackerRGBA(255, 52, 30, 255), 50);
-	AP_TrackerText(">", 1050, 47, 32, AP_TrackerRGBA(255, 52, 30, 255), 50);
+	/* The font's '>' is a dash: both tab arrows are drawn, tip out (0x400 left, 0xC00 right). */
+	AP_TrackerArrow(232, 62, 0x400, 13, AP_TrackerRGBA(255, 52, 30, 255));
+	AP_TrackerArrow(1066, 62, 0xC00, 13, AP_TrackerRGBA(255, 52, 30, 255));
 	AP_TrackerLine(16, 708, 1264, 708, TRACKER_MINT, 2);
 }
 static void AP_TrackerLockIcon(int x, int y)
@@ -656,9 +689,9 @@ static void AP_TrackerDrawContentNode(const AP_TrackerNode *n, int x, int y)
 	}
 	wumpa = n->kind == 0 && pad->wumpa_modes ? (long)(wumpaGlobal ? fam->wumpa_global : pad->wumpa_location) : 0;
 	if (pad->cup) wumpa = (long)ap_content_cup_wumpa_code(pad, ap_content_plan_pad, AP_ContentCodeChecked);
-	snprintf(text,sizeof text,"BOX %d",pad->cup ? ap_content_cup_box_pending(pad,ap_content_plan_pad,AP_ContentCodeChecked)
-	                                            : ap_content_box_pending(pad,AP_ContentCodeChecked));
-	AP_TrackerText(text,x+12,y+96,16,TRACKER_WHITE,110);
+	/* A cup's track boxes are counted on their own pads (ap_content_cup_track_checks). */
+	snprintf(text,sizeof text,"BOX %d",pad->cup ? 0 : ap_content_box_pending(pad,AP_ContentCodeChecked));
+	if (!pad->cup) AP_TrackerText(text,x+12,y+96,16,TRACKER_WHITE,110);
 	AP_TrackerText(wumpaGlobal ? "10W*" : "10W",x+130,y+96,16,TRACKER_GOLD,55); AP_TrackerTick(x+179,y+99,AP_TrackerCodeState(wumpa>0?wumpa:-1));
 	if (n->kind == 0) for (i = 0; i < 3; i++) {
 		long code = pad->letter_locations[i] > 0 ? (long)pad->letter_locations[i] : -1;
@@ -820,7 +853,7 @@ static void AP_TrackerDraw(void)
 	if(ap_tracker.pinned && ap_tracker.count) {
 		AP_TrackerNode *n=&ap_tracker.nodes[ap_tracker.focus]; int bits[AP_PAD_DISPLAY_BITS_MAX], remaining=n->physical>=0?AP_PadUncollectedGlowBits(n->destination,bits,AP_PAD_DISPLAY_BITS_MAX):0;
 		const ctr_content_pad *plan=ap_content_plan_active()&&n->physical>=0?ap_content_plan_pad(n->physical):NULL;
-		int boxes=plan?(plan->cup?ap_content_cup_box_pending(plan,ap_content_plan_pad,AP_ContentCodeChecked):ap_content_box_pending(plan,AP_ContentCodeChecked)):AP_PadUncollectedBoxCount(n->destination), letters=0, k;
+		int boxes=plan?(plan->cup?0:ap_content_box_pending(plan,AP_ContentCodeChecked)):AP_PadUncollectedBoxCount(n->destination), letters=0, k;
 		if(plan) { for(k=0;k<3;k++) letters+=plan->letter_locations[k]>0 && !AP_ContentCodeChecked(plan->letter_locations[k]); }
 		if(plan) remaining-=boxes+letters; /* the plan's list holds both */
 		if (plan && (ap_content_plan_sanity_pad(n->physical,0,NULL,320) || ap_content_plan_sanity_pad(n->physical,1,NULL,320) || ap_content_plan_sanity_pad(n->physical,2,NULL,320)))
