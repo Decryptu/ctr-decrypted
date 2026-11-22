@@ -30,6 +30,7 @@
 //   (2026-09-25: the refusal read that count at MainRaceTrack_StartLoad and
 //   sent every custom start back to the track list).
 #define _XOPEN_SOURCE 700
+#include "harness-support/posix_compat.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -714,12 +715,8 @@ int main(void)
 	MainGameEnd_SoloRaceSaveHighScore();
 	CHECK(GAME_PROGRESS.highScoreTracks[HOST].scoreEntry[0][1].time == 60000);
 
-	{
-		char cmd[128];
-		snprintf(cmd, sizeof cmd, "rm -rf %s", dir);
-		if (chdir("/") != 0 || system(cmd) != 0)
-			printf("note: could not remove %s\n", dir);
-	}
+	if (chdir("/") != 0 || harness_remove_tree(dir) != 0)
+		printf("note: could not remove %s\n", dir);
 	printf("custom time trial: %d checks, %d failures\n", checks, failures);
 	return failures ? 1 : 0;
 }

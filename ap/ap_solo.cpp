@@ -5,6 +5,7 @@
 // AP_Solo_Shutdown at quit. A child is only ever ended through its own
 // SDL_Process handle, never by name or PID lookup.
 #include "ap_solo.h"
+#include <platform/native_fs_link.hpp>
 #include "ap_solo_logic.hpp"
 #include "ap_net.h"
 #ifdef CTR_CUSTOM_PACKAGES
@@ -103,7 +104,7 @@ bool SoloRootIsLink()
 {
 	std::error_code ec;
 	std::string root = BaseDir() + "solo";
-	return fs::is_symlink(fs::u8path(root), ec);
+	return NativeFs_IsLink(fs::u8path(root));
 }
 
 bool FileExists(const std::string &path)
@@ -120,7 +121,7 @@ std::string ReadSmallPlainFile(const fs::path &path, size_t limit)
 #ifdef _WIN32
 	std::error_code ec;
 	const fs::file_status st = fs::symlink_status(path, ec);
-	if (ec || !fs::is_regular_file(st) || fs::file_size(path, ec) > limit || ec)
+	if (ec || !fs::is_regular_file(st) || NativeFs_IsLink(path) || fs::file_size(path, ec) > limit || ec)
 		return std::string();
 	std::ifstream in(path, std::ios::binary);
 	std::string data(limit + 1, '\0');
@@ -380,14 +381,25 @@ std::vector<APSoloTrackInfo> g_tracks; // the custom-track step (decision 32)
 std::map<std::string, int> g_trackStarts; // original YAML picks, before edits
 std::string g_optionOverridesFile;
 
+// Sidecars that could not be deleted yet. On Windows a file still open (the
+// generator just killed on Cancel, which closes its handles a moment later)
+// cannot be deleted, so each later clear tries again instead of leaving it.
+std::vector<std::string> g_staleOverrideFiles;
+
 void ClearOptionOverrides()
 {
 	if (!g_optionOverridesFile.empty())
+		g_staleOverrideFiles.push_back(g_optionOverridesFile);
+	g_optionOverridesFile.clear();
+	std::vector<std::string> left;
+	for (const std::string &path : g_staleOverrideFiles)
 	{
 		std::error_code ec;
-		fs::remove(fs::u8path(g_optionOverridesFile), ec);
-		g_optionOverridesFile.clear();
+		fs::remove(fs::u8path(path), ec);
+		if (ec && fs::exists(fs::u8path(path), ec))
+			left.push_back(path);
 	}
+	g_staleOverrideFiles = std::move(left);
 }
 
 bool AddOptionOverrides(const std::vector<std::string> &sets, std::vector<std::string> &args)
@@ -991,7 +1003,7 @@ bool KeepDescriptorFile(const char *folder, const std::string &name, const std::
 		return refuse("the solo folder is a link; make it a normal folder", "solo is a link");
 	std::error_code ec;
 	const fs::path dir = fs::u8path(SoloPath(folder));
-	if (fs::is_symlink(dir, ec))
+	if (NativeFs_IsLink(dir))
 		return refuse(std::string("solo/") + folder + " is a link; make it a normal folder",
 		              std::string("solo/") + folder + " is a link");
 	fs::create_directories(dir, ec);
@@ -1004,7 +1016,7 @@ bool KeepDescriptorFile(const char *folder, const std::string &name, const std::
 	const fs::file_status st = fs::symlink_status(target, ec);
 	if (fs::exists(st))
 	{
-		if (!fs::is_regular_file(st) || fs::file_size(target, ec) > kDescriptorMax || ec)
+		if (!fs::is_regular_file(st) || NativeFs_IsLink(target) || fs::file_size(target, ec) > kDescriptorMax || ec)
 			return refuse(std::string("its file in solo/") + folder + " is not a plain file; delete it", "not a plain descriptor file, left alone");
 		if (ReadSmallPlainFile(target, kDescriptorMax) == json)
 			return true;
@@ -1065,10 +1077,10 @@ void DropNeedsLaps(const std::string &name)
 {
 	std::error_code ec;
 	const fs::path dir = fs::u8path(SoloPath("needs-laps"));
-	if (name.empty() || SoloRootIsLink() || fs::is_symlink(dir, ec))
+	if (name.empty() || SoloRootIsLink() || NativeFs_IsLink(dir))
 		return;
 	const fs::path target = dir / fs::u8path(name);
-	if (fs::is_regular_file(fs::symlink_status(target, ec)))
+	if (NativeFs_IsPlainFile(target, ec))
 		fs::remove(target, ec);
 }
 
@@ -1106,7 +1118,7 @@ bool PinnedFilePresent(const std::string &key, const nlohmann::json &pin)
 			c = (char)std::tolower((unsigned char)c);
 		std::error_code fe;
 		if (name.size() > 4 && name.compare(name.size() - 4, 4, "." + role) == 0 &&
-		    fs::is_regular_file(it->symlink_status(fe)) && fs::file_size(it->path(), fe) == size && !fe)
+		    NativeFs_IsPlainFile(it->path(), fe) && fs::file_size(it->path(), fe) == size && !fe)
 			return true;
 	}
 	return false;
@@ -1119,7 +1131,7 @@ void AddNeedsLapsRows(std::vector<APSoloTrackInfo> &rows)
 {
 	std::error_code ec;
 	const fs::path dir = fs::u8path(SoloPath("needs-laps"));
-	if (SoloRootIsLink() || fs::is_symlink(dir, ec) || !fs::is_directory(dir, ec))
+	if (SoloRootIsLink() || NativeFs_IsLink(dir) || !fs::is_directory(dir, ec))
 		return;
 	std::vector<std::string> names;
 	for (fs::directory_iterator it(dir, ec), end; !ec && it != end && names.size() < 256; it.increment(ec))
@@ -1232,7 +1244,7 @@ bool MayReplace(const nlohmann::json &kept, const std::string &key, const std::s
 bool RemoveDescriptorFile(const fs::path &target, std::string &detail)
 {
 	std::error_code ec;
-	if (!fs::is_regular_file(fs::symlink_status(target, ec)))
+	if (!NativeFs_IsPlainFile(target, ec))
 		return true;
 	if (fs::remove(target, ec) || !fs::exists(fs::symlink_status(target, ec)))
 		return true;
@@ -1262,7 +1274,7 @@ bool RetireDescriptor(const std::string &key, const std::string &revision, const
 	for (const char *folder : {"tracks", "needs-laps"})
 	{
 		const fs::path dir = fs::u8path(SoloPath(folder));
-		if (fs::is_symlink(dir, ec))
+		if (NativeFs_IsLink(dir))
 			continue;
 		const fs::path target = dir / fs::u8path(name);
 		const auto d = nlohmann::json::parse(ReadSmallPlainFile(target, kDescriptorMax), nullptr, false);
@@ -1326,7 +1338,7 @@ bool RecordDescriptor(int kind, const char *contentId, const char *revision, con
 		return refuse("the solo folder is a link; make it a normal folder", "solo is a link");
 	std::error_code ec;
 	const fs::path tracks = fs::u8path(SoloPath("tracks"));
-	if (fs::is_symlink(tracks, ec))
+	if (NativeFs_IsLink(tracks))
 		return refuse("solo/tracks is a link; make it a normal folder", "solo/tracks is a link");
 	const nlohmann::json kept = nlohmann::json::parse(ReadSmallPlainFile(tracks / fs::u8path(name), kDescriptorMax),
 	                                                  nullptr, false);
@@ -2036,7 +2048,7 @@ extern "C" int AP_Solo_TrackKeepLaps(int index)
 	const std::string name = NeedsLapsFileName(g_tracks[index]);
 	std::error_code ec;
 	const fs::path dir = fs::u8path(SoloPath("needs-laps"));
-	if (name.empty() || SoloRootIsLink() || fs::is_symlink(dir, ec))
+	if (name.empty() || SoloRootIsLink() || NativeFs_IsLink(dir))
 		return 0;
 	const nlohmann::json d =
 	    nlohmann::json::parse(ReadSmallPlainFile(dir / fs::u8path(name), kDescriptorMax), nullptr, false);
@@ -2079,9 +2091,9 @@ extern "C" int AP_Solo_RoomDelete(const char *roomId)
 		return 0;
 	std::error_code ec;
 	fs::path folder = fs::u8path(SoloPath(std::string("rooms/") + roomId));
-	if (!fs::is_directory(folder, ec))
+	if (NativeFs_IsLink(folder) || !fs::is_directory(folder, ec))
 		return 0;
-	fs::remove_all(folder, ec);
+	NativeFs_RemoveAll(folder, ec);
 	Log(std::string("deleted solo room ") + roomId + (ec ? " (incomplete: " + ec.message() + ")" : ""));
 	for (size_t i = 0; i < g_lists.rooms.size(); i++)
 		if (std::strcmp(g_lists.rooms[i].roomId, roomId) == 0)

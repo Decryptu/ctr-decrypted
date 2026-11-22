@@ -27,6 +27,16 @@ SPEC.loader.exec_module(ASSEMBLER)
 import release_policy  # noqa: E402
 
 
+def symlink_or_skip(test, target, link):
+    """Make a symlink, or skip: Windows refuses one without Developer Mode."""
+    try:
+        os.symlink(target, link)
+    except OSError as error:
+        if getattr(error, "winerror", None) == 1314:
+            test.skipTest("Windows creates symlinks only with Developer Mode on")
+        raise
+
+
 class AssemblerFixtureTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
@@ -188,7 +198,10 @@ class AssemblerFixtureTests(unittest.TestCase):
         binary, _, assets = ASSEMBLER.unpack_artifact(tarball, "linux", unpacked)
         self.assertEqual([name for _, name in assets], list(self.ASSET_MEMBERS))
         self.assertFalse((unpacked / "BUILD-NOTICE.txt").exists())
-        self.assertEqual(binary.stat().st_mode & 0o777, 0o755)
+        # Windows files have no executable bit; the release is assembled on Linux.
+        if os.name != "nt":
+            self.assertEqual(binary.stat().st_mode & 0o777, 0o755)
+        self.assertTrue(binary.is_file())
 
     def test_vendor_license_members_are_accepted(self) -> None:
         artifact, _ = self.write_build_archive(
@@ -309,7 +322,7 @@ class AssemblerFixtureTests(unittest.TestCase):
         (output / "ctr-decrypted-v1.2.3-linux-x86.tar.gz").write_bytes(b"l")
         outside = self.root / "outside" / "escaped.json"
         outside.parent.mkdir()
-        os.symlink(outside, output / "manifest.json")
+        symlink_or_skip(self, outside, output / "manifest.json")
 
         with self.assertRaises(ASSEMBLER.AssemblyError):
             ASSEMBLER.write_manifest(output, "1.2.3")
@@ -322,7 +335,7 @@ class AssemblerFixtureTests(unittest.TestCase):
         output.mkdir()
         outside = self.root / "outside" / "escaped.json"
         outside.parent.mkdir()
-        os.symlink(outside, output / "manifest.json")
+        symlink_or_skip(self, outside, output / "manifest.json")
 
         with self.assertRaises(ASSEMBLER.AssemblyError):
             ASSEMBLER.refuse_existing_entries(
@@ -374,7 +387,7 @@ class AssemblerFixtureTests(unittest.TestCase):
         output.mkdir()
         outside = self.root / "outside" / "escaped.json"
         outside.parent.mkdir()
-        os.symlink(outside, output / "manifest.json")
+        symlink_or_skip(self, outside, output / "manifest.json")
         with self.assertRaises(ASSEMBLER.AssemblyError):
             ASSEMBLER.assemble(self.assemble_args(output, apworld, template))
         self.assertFalse(os.path.lexists(outside))

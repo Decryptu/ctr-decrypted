@@ -21,12 +21,19 @@
 // Steam acceptance checks; this harness proves the state machine and the
 // concurrency behaviour independently of the game.
 
+#include "harness-support/posix_compat.h"
+#include "harness-support/posix_links.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#ifdef _WIN32
+#include <process.h>
+#include <windows.h>
+#else
 #include <sys/wait.h>
+#endif
 #include <unistd.h>
 
 #include "platform/native_launch_request.c"
@@ -755,49 +762,13 @@ static void RealOps(NativeLinkHost *host, NativeLinkFsOps *ops)
 	NativeLinkHost_Ops(host, ops);
 }
 
-static void TestPrimaryLock(void)
-{
-	NativeLinkHost host;
-	NativeLinkHost other;
-	int pipefd[2];
-	pid_t pid;
-	char ready;
-	int status;
-
-	expect(NativeLinkHost_Init(&host, g_dir) && NativeLinkHost_Init(&other, g_dir), "hosts open");
-	expect(NativeLinkHost_TryPrimary(&host), "first client becomes primary");
-	expect(!NativeLinkHost_TryPrimary(&other), "second client in the same install is not primary");
-	NativeLinkHost_ReleasePrimary(&host);
-	expect(NativeLinkHost_TryPrimary(&other), "primary lock free after release");
-	NativeLinkHost_ReleasePrimary(&other);
-
-	// A primary that dies without releasing leaves no stale lock.
-	if (pipe(pipefd) != 0)
-	{
-		expect(0, "pipe");
-		return;
-	}
-	pid = fork();
-	if (pid == 0)
-	{
-		NativeLinkHost child;
-		close(pipefd[0]);
-		if (!NativeLinkHost_Init(&child, g_dir) || !NativeLinkHost_TryPrimary(&child))
-			_exit(2);
-		if (write(pipefd[1], "r", 1) != 1)
-			_exit(3);
-		sleep(1);
-		_exit(0); // no release: the process just ends
-	}
-	close(pipefd[1]);
-	expect(read(pipefd[0], &ready, 1) == 1, "child took the primary lock");
-	expect(!NativeLinkHost_TryPrimary(&host), "running primary in another process blocks a second one");
-	waitpid(pid, &status, 0);
-	close(pipefd[0]);
-	expect(WIFEXITED(status) && WEXITSTATUS(status) == 0, "child exited");
-	expect(NativeLinkHost_TryPrimary(&host), "lock of a dead primary is free again");
-	NativeLinkHost_ReleasePrimary(&host);
-}
+// Several processes on one store. A child is this harness again, running one
+// role (ChildMain): fork() on POSIX, the executable started again on Windows.
+// A child reports through its exit code, and the primary-lock child says it
+// holds the lock with a ready file.
+#ifdef _WIN32
+static char g_self[1024];
+#endif
 
 static NativeLinkRecord ChildRecord(int child, int n)
 {
@@ -807,10 +778,172 @@ static NativeLinkRecord ChildRecord(int child, int n)
 	           NativeLinkHost_NowUnixMs());
 }
 
+static void ReadyPath(char *out, size_t cap)
+{
+	snprintf(out, cap, "%s/child-ready", g_dir);
+}
+
+static void SleepMs(int ms)
+{
+#ifdef _WIN32
+	Sleep((DWORD)ms);
+#else
+	usleep((useconds_t)ms * 1000);
+#endif
+}
+
+enum { ROLE_PRIMARY, ROLE_PUBLISH, ROLE_RACE, RACE_EACH = 60 };
+
+static int ChildMain(int role, int index)
+{
+	NativeLinkHost h;
+	NativeLinkFsOps o;
+	int n;
+	if (!NativeLinkHost_Init(&h, g_dir))
+		return 2;
+	if (role == ROLE_PRIMARY)
+	{
+		char ready[600];
+		FILE *f;
+		if (!NativeLinkHost_TryPrimary(&h))
+			return 2;
+		ReadyPath(ready, sizeof ready);
+		f = fopen(ready, "wb");
+		if (f == NULL)
+			return 3;
+		fclose(f);
+		SleepMs(1000);
+		return 0; // no release: the process just ends
+	}
+	NativeLinkHost_Ops(&h, &o);
+	if (role == ROLE_PUBLISH)
+	{
+		NativeLinkRecord r = ChildRecord(index, 0);
+		NativeLinkPendingStatus st = NativeLinkPending_Publish(&o, &r, r.createdUnixMs);
+		return (st == NATIVE_LINK_PENDING_PUBLISHED || st == NATIVE_LINK_PENDING_REPLACED) ? 0 : 1;
+	}
+	// The race: publishes back to back against three other publishers and a
+	// polling primary. The lock is polled, not queued, and a publish waits for
+	// it at most NATIVE_LINK_STORE_LOCK_WAIT_MS, then refuses with ERR_LOCK
+	// (main.c reports it; the player clicks again). Under this load a refusal
+	// can happen, and is the contract; anything else (an I/O error, a torn
+	// file) is a failure, and every publisher must get some through.
+	{
+		int published = 0;
+		for (n = 0; n < RACE_EACH; n++)
+		{
+			NativeLinkRecord r = ChildRecord(index, n);
+			NativeLinkPendingStatus st = NativeLinkPending_Publish(&o, &r, r.createdUnixMs);
+			if (st == NATIVE_LINK_PENDING_PUBLISHED || st == NATIVE_LINK_PENDING_REPLACED)
+				published++;
+			else if (st != NATIVE_LINK_PENDING_ERR_LOCK)
+				return 1;
+		}
+		return published > 0 ? 0 : 1;
+	}
+}
+
+typedef struct
+{
+#ifdef _WIN32
+	intptr_t handle;
+#else
+	pid_t pid;
+#endif
+	int running;
+} Child;
+
+static int SpawnChild(int role, int index, Child *c)
+{
+	c->running = 0;
+#ifdef _WIN32
+	{
+		char roleText[16], indexText[16];
+		snprintf(roleText, sizeof roleText, "%d", role);
+		snprintf(indexText, sizeof indexText, "%d", index);
+		c->handle = _spawnl(_P_NOWAIT, g_self, g_self, "--child", roleText, indexText, g_dir, NULL);
+		if (c->handle == -1)
+			return 0;
+	}
+#else
+	fflush(stdout);
+	c->pid = fork();
+	if (c->pid < 0)
+		return 0;
+	if (c->pid == 0)
+		_exit(ChildMain(role, index));
+#endif
+	c->running = 1;
+	return 1;
+}
+
+// 1 once the child has ended (its exit code in *code), 0 while it runs.
+static int WaitChild(Child *c, int block, int *code)
+{
+#ifdef _WIN32
+	DWORD exitCode = 1;
+	if (WaitForSingleObject((HANDLE)c->handle, block ? INFINITE : 0) != WAIT_OBJECT_0)
+		return 0;
+	GetExitCodeProcess((HANDLE)c->handle, &exitCode);
+	CloseHandle((HANDLE)c->handle);
+	*code = (int)exitCode;
+#else
+	int status;
+	if (waitpid(c->pid, &status, block ? 0 : WNOHANG) != c->pid)
+		return 0;
+	*code = WIFEXITED(status) ? WEXITSTATUS(status) : 99;
+#endif
+	c->running = 0;
+	return 1;
+}
+
+static void TestPrimaryLock(void)
+{
+	NativeLinkHost host;
+	NativeLinkHost other;
+	Child child;
+	char ready[600];
+	int code = 1;
+	int waited;
+
+	expect(NativeLinkHost_Init(&host, g_dir) && NativeLinkHost_Init(&other, g_dir), "hosts open");
+	expect(NativeLinkHost_TryPrimary(&host), "first client becomes primary");
+	expect(!NativeLinkHost_TryPrimary(&other), "second client in the same install is not primary");
+	NativeLinkHost_ReleasePrimary(&host);
+	expect(NativeLinkHost_TryPrimary(&other), "primary lock free after release");
+	NativeLinkHost_ReleasePrimary(&other);
+
+	// A primary that dies without releasing leaves no stale lock.
+	ReadyPath(ready, sizeof ready);
+	remove(ready);
+	if (!SpawnChild(ROLE_PRIMARY, 0, &child))
+	{
+		expect(0, "start the primary child");
+		return;
+	}
+	for (waited = 0; waited < 10000; waited += 10)
+	{
+		FILE *f = fopen(ready, "rb");
+		if (f != NULL)
+		{
+			fclose(f);
+			break;
+		}
+		SleepMs(10);
+	}
+	expect(waited < 10000, "child took the primary lock");
+	expect(!NativeLinkHost_TryPrimary(&host), "running primary in another process blocks a second one");
+	WaitChild(&child, 1, &code);
+	remove(ready);
+	expect(code == 0, "child exited");
+	expect(NativeLinkHost_TryPrimary(&host), "lock of a dead primary is free again");
+	NativeLinkHost_ReleasePrimary(&host);
+}
+
 static void TestSimultaneousPublishers(void)
 {
 	enum { KIDS = 8 };
-	pid_t pids[KIDS];
+	Child kids[KIDS];
 	int i;
 	int ok = 1;
 	NativeLinkHost host;
@@ -818,26 +951,13 @@ static void TestSimultaneousPublishers(void)
 	NativeLinkRecord out;
 
 	for (i = 0; i < KIDS; i++)
-	{
-		pids[i] = fork();
-		if (pids[i] == 0)
-		{
-			NativeLinkHost h;
-			NativeLinkFsOps o;
-			NativeLinkRecord r = ChildRecord(i, 0);
-			NativeLinkPendingStatus s;
-			if (!NativeLinkHost_Init(&h, g_dir))
-				_exit(2);
-			NativeLinkHost_Ops(&h, &o);
-			s = NativeLinkPending_Publish(&o, &r, r.createdUnixMs);
-			_exit((s == NATIVE_LINK_PENDING_PUBLISHED || s == NATIVE_LINK_PENDING_REPLACED) ? 0 : 1);
-		}
-	}
+		ok = SpawnChild(ROLE_PUBLISH, i, &kids[i]) && ok;
 	for (i = 0; i < KIDS; i++)
 	{
-		int status;
-		waitpid(pids[i], &status, 0);
-		ok = ok && WIFEXITED(status) && WEXITSTATUS(status) == 0;
+		int code = 1;
+		if (kids[i].running)
+			WaitChild(&kids[i], 1, &code);
+		ok = ok && code == 0;
 	}
 	expect(ok, "every simultaneous publisher succeeded");
 
@@ -853,13 +973,13 @@ static void TestSimultaneousPublishers(void)
 
 static void TestPublisherRacingConsumer(void)
 {
-	enum { KIDS = 4, EACH = 60 };
-	pid_t pids[KIDS];
+	enum { KIDS = 4 };
+	Child kids[KIDS];
 	int i;
 	int ok = 1;
 	int claimed = 0;
 	int invalid = 0;
-	int running = KIDS;
+	int running = 0;
 	NativeLinkHost host;
 	NativeLinkFsOps ops;
 	NativeLinkRecord out;
@@ -867,29 +987,19 @@ static void TestPublisherRacingConsumer(void)
 	RealOps(&host, &ops);
 	for (i = 0; i < KIDS; i++)
 	{
-		pids[i] = fork();
-		if (pids[i] == 0)
-		{
-			NativeLinkHost h;
-			NativeLinkFsOps o;
-			int n;
-			if (!NativeLinkHost_Init(&h, g_dir))
-				_exit(2);
-			NativeLinkHost_Ops(&h, &o);
-			for (n = 0; n < EACH; n++)
-			{
-				NativeLinkRecord r = ChildRecord(i, n);
-				NativeLinkPendingStatus s = NativeLinkPending_Publish(&o, &r, r.createdUnixMs);
-				if (s != NATIVE_LINK_PENDING_PUBLISHED && s != NATIVE_LINK_PENDING_REPLACED)
-					_exit(1);
-			}
-			_exit(0);
-		}
+		if (SpawnChild(ROLE_RACE, i, &kids[i]))
+			running++;
+		else
+			ok = 0;
 	}
 
-	// The primary polls without waiting for the lock, as the game loop does.
+	// The primary polls without waiting for the lock, as the game loop does,
+	// once a frame there; here every millisecond. A poll with no pause at all
+	// would hold the lock almost all the time and starve the publishers past
+	// their bounded wait (NATIVE_LINK_STORE_LOCK_WAIT_MS), which no game does.
 	while (running > 0)
 	{
+		SleepMs(1);
 		NativeLinkPendingStatus s = NativeLinkPending_Claim(&ops, &out, NativeLinkHost_NowUnixMs());
 		if (s == NATIVE_LINK_PENDING_CLAIMED)
 			claimed++;
@@ -897,11 +1007,10 @@ static void TestPublisherRacingConsumer(void)
 			invalid++;
 		for (i = 0; i < KIDS; i++)
 		{
-			int status;
-			if (pids[i] > 0 && waitpid(pids[i], &status, WNOHANG) == pids[i])
+			int code = 1;
+			if (kids[i].running && WaitChild(&kids[i], 0, &code))
 			{
-				ok = ok && WIFEXITED(status) && WEXITSTATUS(status) == 0;
-				pids[i] = 0;
+				ok = ok && code == 0;
 				running--;
 			}
 		}
@@ -946,9 +1055,24 @@ static void TestRealFileHasNoSecrets(void)
 	}
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
+	// A child process: --child <role> <index> <store folder>.
+	if (argc == 5 && strcmp(argv[1], "--child") == 0)
+	{
+		snprintf(g_dir, sizeof g_dir, "%s", argv[4]);
+		return ChildMain(atoi(argv[2]), atoi(argv[3]));
+	}
+#ifdef _WIN32
+	GetModuleFileNameA(NULL, g_self, sizeof g_self);
+	{
+		const char *temp = getenv("TEMP");
+		snprintf(g_dir, sizeof g_dir, "%s/ctr-link-harness-%d", temp ? temp : ".", (int)getpid());
+	}
+#else
+	(void)argv;
 	snprintf(g_dir, sizeof g_dir, "/tmp/ctr-link-harness-%d", (int)getpid());
+#endif
 
 	TestRecordFormat();
 	TestIdentity();
@@ -967,8 +1091,16 @@ int main(void)
 	TestRealFileHasNoSecrets();
 
 	{
-		char cmd[320];
+		char cmd[1200];
+#ifdef _WIN32
+		snprintf(cmd, sizeof cmd, "rmdir /s /q \"%s\"", g_dir);
+		for (char *p = cmd; *p; p++)
+			if (*p == '/')
+				*p = '\\';
+		memcpy(cmd, "rmdir /s /q", 11); // the switches keep their slash
+#else
 		snprintf(cmd, sizeof cmd, "rm -rf %s", g_dir);
+#endif
 		if (system(cmd) != 0)
 			printf("note: could not remove %s\n", g_dir);
 	}

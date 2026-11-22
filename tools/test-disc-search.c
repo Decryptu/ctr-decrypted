@@ -8,6 +8,7 @@
 //
 // Exit 0 = every assertion held; failures are printed otherwise.
 
+#include "harness-support/posix_compat.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -88,10 +89,21 @@ static int search(const char *const *rels, int count, char *out, size_t size)
 	return NativeDiscSearch_Walk(list, count, acceptGood, NULL, out, size);
 }
 
+// Paths are compared with either separator: the search joins with the
+// platform's own (NATIVE_DISC_SEARCH_SEP), "\\" on Windows.
 static int endsWith(const char *s, const char *suffix)
 {
 	const size_t n = strlen(s), m = strlen(suffix);
-	return n >= m && strcmp(s + n - m, suffix) == 0;
+	if (n < m)
+		return 0;
+	for (size_t i = 0; i < m; i++)
+	{
+		const char a = s[n - m + i] == '\\' ? '/' : s[n - m + i];
+		const char b = suffix[i] == '\\' ? '/' : suffix[i];
+		if (a != b)
+			return 0;
+	}
+	return 1;
 }
 
 #define BIG (NATIVE_DISC_SEARCH_MIN_BYTES + 1)
@@ -176,20 +188,16 @@ int main(void)
 		int n = NativeDiscSearch_Roots("/opt/games/ctr", "/home/p", roots, NATIVE_DISC_SEARCH_ROOTS_MAX);
 		expect(n == 8, "roots: game, parent and six home folders");
 		expect(n >= 3 && strcmp(roots[0], "/opt/games/ctr") == 0 && strcmp(roots[1], "/opt/games") == 0 &&
-		       strcmp(roots[2], "/home/p/Downloads") == 0, "roots: order");
-		expect(n == 8 && strcmp(roots[7], "/home/p/OneDrive/Documents") == 0, "roots: OneDrive last");
+		       strcmp(roots[2], "/home/p" NATIVE_DISC_SEARCH_SEP "Downloads") == 0, "roots: order");
+		expect(n == 8 && strcmp(roots[7], "/home/p" NATIVE_DISC_SEARCH_SEP "OneDrive" NATIVE_DISC_SEARCH_SEP "Documents") == 0, "roots: OneDrive last");
 		expect(NativeDiscSearch_Roots(NULL, "/home/p", roots, NATIVE_DISC_SEARCH_ROOTS_MAX) == 6, "roots: no game folder");
 		expect(NativeDiscSearch_Roots("/opt/games/ctr", NULL, roots, NATIVE_DISC_SEARCH_ROOTS_MAX) == 2, "roots: no home");
 		expect(NativeDiscSearch_Roots("ctr", NULL, roots, NATIVE_DISC_SEARCH_ROOTS_MAX) == 1, "roots: relative game folder has no parent");
 		expect(NativeDiscSearch_Roots("/opt/games/ctr", "/home/p", roots, 3) == 3, "roots: capped at max");
 	}
 
-	{
-		char cmd[300];
-		snprintf(cmd, sizeof cmd, "rm -rf '%s'", g_root);
-		if (system(cmd) != 0)
-			printf("note: could not remove %s\n", g_root);
-	}
+	if (harness_remove_tree(g_root) != 0)
+		printf("note: could not remove %s\n", g_root);
 
 	printf("%d checks, %d failures\n", g_checks, g_failures);
 	return g_failures == 0 ? 0 : 1;

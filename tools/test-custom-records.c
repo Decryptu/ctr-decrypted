@@ -5,6 +5,7 @@
 // names, the exact .times text, the .ghost layout, and every refusal: another
 // track, another version of its files, another lap count, a damaged file.
 #define _XOPEN_SOURCE 700
+#include "harness-support/posix_compat.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -229,11 +230,7 @@ int main(void)
 			fclose(f);
 		}
 		CHECK(!CustomRecords_LoadTimes(sub, &key, &back)); // damaged: the caller uses its defaults
-		{
-			char cmd[128];
-			snprintf(cmd, sizeof cmd, "rm -rf %s", dir);
-			CHECK(system(cmd) == 0);
-		}
+		CHECK(harness_remove_tree(dir) == 0);
 	}
 
 	printf("custom records: %d checks, %d failures\n", checks, failures);

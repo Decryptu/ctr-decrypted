@@ -37,6 +37,14 @@ static char *slurp(const char *path)
 	}
 	buf[n] = '\0';
 	fclose(f);
+	// Compare source as LF text: a Windows checkout may hold CRLF.
+	{
+		char *w = buf;
+		for (const char *r = buf; *r; r++)
+			if (*r != '\r')
+				*w++ = *r;
+		*w = '\0';
+	}
 	return buf;
 }
 

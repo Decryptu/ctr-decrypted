@@ -29,6 +29,7 @@ fixture = r'''
 #include <vector>
 #include "ap/ap_solo.h"
 #include "ap/ap_solo_logic.hpp"
+#include "include/platform/native_fs_link.hpp"
 #define CTR_CUSTOM_PACKAGES
 enum JobKind { JOB_NONE, JOB_TRACKS };
 static const uint64_t kQuickLimitMs = 60000;
@@ -41,6 +42,7 @@ static struct {
 static bool runtime = true, link = false;
 namespace fs = std::filesystem;
 static std::string g_optionOverridesFile;
+static std::vector<std::string> g_staleOverrideFiles;
 extern "C" int AP_Solo_RuntimePresent(void) { return runtime; }
 static bool SoloRootIsLink() { return link; }
 static std::string AssetsDir() { return "test-assets"; }

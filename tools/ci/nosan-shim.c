@@ -2,7 +2,7 @@
 //
 // MinGW ships no UBSan runtime, so every harness built with -fsanitize=undefined
 // fails to link there, and that failure hides whether the harness itself passes.
-// run-harnesses.py builds this program as cc.exe, gcc.exe and g++.exe in a folder
+// run-harnesses.py builds this program as cc.exe, gcc.exe, g++.exe and c++.exe in a folder
 // it puts first on PATH. Each copy runs the real compiler of its own name from
 // NOSAN_REAL_DIR with every -fsanitize / -fno-sanitize argument removed. CI runs
 // on Linux with the sanitizer and never uses this.

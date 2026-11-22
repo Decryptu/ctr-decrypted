@@ -12,6 +12,7 @@
 // - every failure names itself; failed verification uses the Rulebook's words;
 // - a Steam launch never relaunches, a direct launch does;
 // - the rollback copy is confirmed only when the new build reaches the menu.
+#include "harness-support/posix_compat.h"
 #include <stdio.h>
 #include "menu-label-stub.h"
 #include <stdlib.h>

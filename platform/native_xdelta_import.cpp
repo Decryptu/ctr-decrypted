@@ -14,6 +14,7 @@
 #define _FILE_OFFSET_BITS 64
 #endif
 #include <platform/native_xdelta_import.h>
+#include <platform/native_fs_link.hpp>
 #include <platform/native_custom_finish.h>
 #include <platform/native_lev_normalize.hpp>
 #include <platform/native_xdelta_decode.h>
@@ -1954,7 +1955,7 @@ bool generic_slot_title(const std::string &title, int bigfileIndex, const std::s
 bool read_plain_file(const std::filesystem::path &path, size_t max, std::string &out)
 {
     std::error_code ec;
-    if (!std::filesystem::is_regular_file(std::filesystem::symlink_status(path, ec)) || ec) return false;
+    if (!NativeFs_IsPlainFile(path, ec) || ec) return false;
     const auto size = std::filesystem::file_size(path, ec);
     if (ec || size > max) return false;
     FILE *f = std::fopen(path.string().c_str(), "rb");
@@ -2018,7 +2019,7 @@ std::vector<OldCopy> generic_old_copies(const std::string &assets, const std::st
     {
         const std::string pin = it->path().filename().string();
         std::error_code de;
-        if (pin.size() != 64 || pin == newPin || !std::filesystem::is_directory(it->symlink_status(de)) ||
+        if (pin.size() != 64 || pin == newPin || !std::filesystem::is_directory(it->symlink_status(de)) || NativeFs_IsLink(it->path()) ||
             pin.find_first_not_of("0123456789abcdef") != std::string::npos)
             continue;
         std::string manifestText, sourceText;
@@ -2104,7 +2105,7 @@ void replace_old_copies(const std::string &assets, const XdeltaImportSummary &su
         {
             std::error_code de;
             if (staged_name(it->path().filename().string()) && std::filesystem::is_directory(it->symlink_status(de)))
-                std::filesystem::remove_all(it->path(), de);
+                NativeFs_RemoveAll(it->path(), de);
         }
     }
     for (const OldCopy &c : copies)
@@ -2125,7 +2126,7 @@ void replace_old_copies(const std::string &assets, const XdeltaImportSummary &su
         if (staged.empty()) continue;
         std::filesystem::rename(store / c.pin, staged, ec);
         if (ec) continue;
-        std::filesystem::remove_all(staged, ec);
+        NativeFs_RemoveAll(staged, ec);
         out.replaced.push_back({c.key, c.revision, uuid, item.trackKey, b.version});
     }
 }

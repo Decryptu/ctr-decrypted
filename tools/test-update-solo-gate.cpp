@@ -1,5 +1,6 @@
 // g++ -m32 -std=c++17 -Wall -Wextra -pthread -DASIO_STANDALONE -I . -I ap -I ap/vendor/json/include -I ap/vendor/asio/include -o /tmp/test-update-solo-gate tools/test-update-solo-gate.cpp ap/ap_update_core.cpp -lssl -lcrypto -lz
 // /tmp/test-update-solo-gate
+// windows: -lwinhttp
 //
 // The signed updater and Play Solo (issues #301 and #89). The real worker
 // (ap/ap_update_net.cpp) and trust core run on a temporary install with a
@@ -11,6 +12,7 @@
 //   * a finished, failed or idle job and no session do not hold it back
 //   * the install then replaces solo-runtime/ as one folder and leaves the
 //     player's solo/ folder alone
+#include "harness-support/posix_compat.h"
 #include "ap/ap_update_net.cpp"
 
 #include <fstream>
@@ -129,8 +131,7 @@ int main()
 	expect(get(dir + "/solo-runtime.old/stale.py") == "OLD RUNTIME FILE", "the old runtime waits as .old");
 	expect(get(dir + "/solo/room.archipelago") == "PLAYER SEED", "the player's solo folder is untouched");
 
-	std::string rm = "rm -rf '" + dir + "'";
-	if (std::system(rm.c_str()) != 0)
+	if (harness_remove_tree(dir.c_str()) != 0)
 		std::printf("note: could not remove %s\n", dir.c_str());
 	std::printf("%d checks, %d failures\n", checks, failures);
 	return failures ? 1 : 0;

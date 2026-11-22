@@ -15,6 +15,16 @@ import unittest
 import zipfile
 from pathlib import Path
 
+
+def symlink_or_skip(test, target, link):
+    """Make a symlink, or skip: Windows refuses one without Developer Mode."""
+    try:
+        os.symlink(target, link)
+    except OSError as error:
+        if getattr(error, "winerror", None) == 1314:
+            test.skipTest("Windows creates symlinks only with Developer Mode on")
+        raise
+
 HERE = Path(__file__).resolve().parent
 
 
@@ -80,7 +90,7 @@ class SoloRuntimeReleaseTests(unittest.TestCase):
 
     def test_entries_refuse_a_symlink(self) -> None:
         runtime = self.runtime("linux")
-        os.symlink("python3.12", runtime / "python" / "bin" / "python3")
+        symlink_or_skip(self, "python3.12", runtime / "python" / "bin" / "python3")
         with self.assertRaises(ASSEMBLER.AssemblyError):
             ASSEMBLER.solo_runtime_entries(runtime, "linux", self.apworld)
 

@@ -24,6 +24,7 @@
 // Explorer and browser dispatch of ctr-ap:// and the steam:// hand-off are
 // Windows acceptance checks and are not exercised here.
 
+#include "harness-support/posix_compat.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -88,7 +89,7 @@ static void TestSteamGameId(void)
 	}
 }
 
-static void WriteFile(const char *dir, const char *name, const char *text)
+static void WriteText(const char *dir, const char *name, const char *text)
 {
 	char path[512];
 	FILE *f;
@@ -104,7 +105,6 @@ static void WriteFile(const char *dir, const char *name, const char *text)
 static void TestSteamRouteStore(void)
 {
 	char dir[256];
-	char cmd[320];
 	unsigned long long id = 5;
 
 	snprintf(dir, sizeof dir, "/tmp/ctr-steam-route-%d", (int)getpid());
@@ -117,25 +117,24 @@ static void TestSteamRouteStore(void)
 	expect(NativeSteamRoute_Load(dir, &id) && id == 42, "replacement loads back");
 	expect(!NativeSteamRoute_Save(dir, 0), "zero is never recorded");
 
-	WriteFile(dir, NATIVE_STEAM_ROUTE_FILE ".tmp", "junk");
+	WriteText(dir, NATIVE_STEAM_ROUTE_FILE ".tmp", "junk");
 	expect(NativeSteamRoute_Save(dir, 43), "save clears a crashed temp file");
 	expect(NativeSteamRoute_Load(dir, &id) && id == 43, "and saves");
 
 	id = 5;
-	WriteFile(dir, NATIVE_STEAM_ROUTE_FILE, "0\n");
+	WriteText(dir, NATIVE_STEAM_ROUTE_FILE, "0\n");
 	expect(!NativeSteamRoute_Load(dir, &id), "stored zero refused");
-	WriteFile(dir, NATIVE_STEAM_ROUTE_FILE, "123");
+	WriteText(dir, NATIVE_STEAM_ROUTE_FILE, "123");
 	expect(!NativeSteamRoute_Load(dir, &id), "missing newline refused");
-	WriteFile(dir, NATIVE_STEAM_ROUTE_FILE, "123\n456\n");
+	WriteText(dir, NATIVE_STEAM_ROUTE_FILE, "123\n456\n");
 	expect(!NativeSteamRoute_Load(dir, &id), "extra line refused");
-	WriteFile(dir, NATIVE_STEAM_ROUTE_FILE, "18446744073709551616\n");
+	WriteText(dir, NATIVE_STEAM_ROUTE_FILE, "18446744073709551616\n");
 	expect(!NativeSteamRoute_Load(dir, &id), "overflow refused");
-	WriteFile(dir, NATIVE_STEAM_ROUTE_FILE, "123456789012345678901234567890123456789\n");
+	WriteText(dir, NATIVE_STEAM_ROUTE_FILE, "123456789012345678901234567890123456789\n");
 	expect(!NativeSteamRoute_Load(dir, &id), "overlong file refused");
 	expect(id == 5, "damaged file leaves the output untouched");
 
-	snprintf(cmd, sizeof cmd, "rm -rf %s", dir);
-	if (system(cmd) != 0)
+	if (harness_remove_tree(dir) != 0)
 		printf("note: could not remove %s\n", dir);
 }
 

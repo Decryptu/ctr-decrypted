@@ -20,8 +20,19 @@ jobs="${CONTROLS_TEST_JOBS:-2}"
 
 mkdir -p "$out"
 
+# Ninja where it is installed (MSYS2 ships it, not make), else make.
+generator="Unix Makefiles"
+command -v ninja >/dev/null 2>&1 && generator="Ninja"
+# MinGW (Windows): no libdl; SDL's static library needs the Win32 libraries.
+case "$(uname -s)" in
+	MINGW*|MSYS*) libs=(-lm -lsetupapi -lwinmm -limm32 -lversion -lole32 -loleaut32 -luuid -lgdi32 -lshell32 -luser32 -lcfgmgr32) ;;
+	*) libs=(-lm -lpthread -ldl) ;;
+esac
+
 if [ ! -f "$sdl_build/libSDL3.a" ]; then
-	cmake -S "$root/externals/SDL" -B "$sdl_build" -G "Unix Makefiles" \
+	# No library yet: any folder there is a failed earlier attempt, maybe with another generator.
+	rm -rf "$sdl_build"
+	cmake -S "$root/externals/SDL" -B "$sdl_build" -G "$generator" \
 		-DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS=-m32 -DCMAKE_CXX_FLAGS=-m32 \
 		-DSDL_SHARED=OFF -DSDL_STATIC=ON -DSDL_TEST_LIBRARY=OFF -DSDL_TESTS=OFF \
 		-DSDL_EXAMPLES=OFF -DSDL_INSTALL=OFF \
@@ -38,6 +49,6 @@ fi
 cc -m32 -std=gnu17 -Wall -Wextra -Wno-unused-function -DCTR_AP \
 	-I "$root" -I "$root/include" -I "$root/externals/SDL/include" \
 	"$root/tools/controls/test_native_controls.c" "$sdl_build/libSDL3.a" \
-	-o "$out/test_native_controls" -lm -lpthread -ldl
+	-o "$out/test_native_controls" "${libs[@]}"
 
 "$out/test_native_controls"

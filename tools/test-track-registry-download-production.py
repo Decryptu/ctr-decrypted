@@ -33,6 +33,10 @@ start_b = source.index("bool hash_matches(")
 part_b = source[start_b:source.index("#ifdef CTR_CUSTOM_PACKAGES\n// Track Manager", start_b)]
 
 prelude = r'''
+#include "tools/harness-support/posix_compat.h"
+#ifdef _WIN32
+#include <windows.h>
+#endif
 #include "ap_custom_track_download.h"
 #include "ap_seed_content_logic.h"
 #include <nlohmann/json.hpp>
@@ -89,7 +93,11 @@ static std::string sha(const std::vector<unsigned char> &b)
 	for (unsigned i = 0; i < n; i++) { out += hex[d[i] >> 4]; out += hex[d[i] & 15]; }
 	return out;
 }
+#ifdef _WIN32
+static bool exists(const std::string &p) { return GetFileAttributesA(p.c_str()) != INVALID_FILE_ATTRIBUTES; }
+#else
 static bool exists(const std::string &p) { struct stat st; return lstat(p.c_str(), &st) == 0; }
+#endif
 static std::vector<unsigned char> slurp(const std::string &p)
 {
 	std::ifstream f(p, std::ios::binary);
@@ -375,7 +383,7 @@ with tempfile.TemporaryDirectory() as tmp:
     src, exe = Path(tmp) / "registry_download.cpp", Path(tmp) / "registry_download"
     src.write_text(prelude + part_a + stub + part_b + tests, encoding="utf-8")
     subprocess.run(["g++", "-m32", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-Wno-unused-function",
-                    "-I" + str(root / "ap"), "-I" + str(root / "ap/vendor/json/include"),
+                    "-I" + str(root), "-I" + str(root / "ap"), "-I" + str(root / "ap/vendor/json/include"),
                     str(src), "-o", str(exe), "-lcrypto", "-pthread"], check=True, cwd=root)
     subprocess.run([str(exe)], check=True, cwd=root)
 print("PASS: registry download: start refusals, clean install of the named Saphi ids, tampered or foreign bytes, "

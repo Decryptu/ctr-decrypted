@@ -37,6 +37,7 @@ hooks_src = (root / "ap/ap_hooks_seed_content.c").read_text(encoding="utf-8")
 hooks = hooks_src[hooks_src.index('#include "ap_seed_content.h"'):hooks_src.index("#endif // CTR_CUSTOM_TRACKS")]
 
 prelude = r'''
+#include "tools/harness-support/posix_compat.h"
 #define _XOPEN_SOURCE 700
 #define CTR_AP 1
 #define CTR_CUSTOM_TRACKS 1
@@ -460,8 +461,7 @@ int main(void)
 	n = AP_SeedContentRows(rows, AP_SEED_ROWS_MAX);
 	expect(reg_refreshes == 1, "a cached copy is refreshed for a new room");
 
-	snprintf(path, sizeof path, "rm -rf '%s'", assets_root);
-	if (system(path) != 0) return 2;
+	if (harness_remove_tree(assets_root) != 0) return 2;
 	printf("%d checks, %d failures\n", checks, failures);
 	return failures ? 1 : 0;
 }

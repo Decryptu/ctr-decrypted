@@ -32,6 +32,16 @@ from release_policy import (  # noqa: E402
 )
 
 
+def symlink_or_skip(test, target, link):
+    """Make a symlink, or skip: Windows refuses one without Developer Mode."""
+    try:
+        os.symlink(target, link)
+    except OSError as error:
+        if getattr(error, "winerror", None) == 1314:
+            test.skipTest("Windows creates symlinks only with Developer Mode on")
+        raise
+
+
 def load_module(name: str, path: Path):
     spec = importlib.util.spec_from_file_location(name, path)
     assert spec and spec.loader
@@ -362,7 +372,7 @@ class ProductionBoundaryTests(unittest.TestCase):
         )
         real = self.root / "real.zip"
         target.replace(real)
-        os.symlink(real, target)
+        symlink_or_skip(self, real, target)
         result = self.fixture.run_verifier("--public-key", str(self.fixture.public_key))
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("symlink", result.stderr)

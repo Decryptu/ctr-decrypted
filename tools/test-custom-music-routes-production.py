@@ -41,6 +41,10 @@ end_c = source.index("namespace {", source.index('extern "C" int CustomSaphi_Pol
 part_c = source[start_c:end_c] + "\n#endif // CTR_CUSTOM_PACKAGES\n"
 
 prelude = r'''
+#include "tools/harness-support/posix_compat.h"
+#ifdef _WIN32
+#include <windows.h>
+#endif
 #include "ap_custom_track_download.h"
 #include "ap_seed_content_logic.h"
 #include <platform/native_saphi_catalogue.h>
@@ -107,7 +111,11 @@ static std::string sha(const std::vector<unsigned char> &b)
 	for (unsigned i = 0; i < n; i++) { out += hex[d[i] >> 4]; out += hex[d[i] & 15]; }
 	return out;
 }
+#ifdef _WIN32
+static bool exists(const std::string &p) { return GetFileAttributesA(p.c_str()) != INVALID_FILE_ATTRIBUTES; }
+#else
 static bool exists(const std::string &p) { struct stat st; return lstat(p.c_str(), &st) == 0; }
+#endif
 static std::vector<unsigned char> slurp(const std::string &p)
 {
 	std::ifstream f(p, std::ios::binary);
@@ -129,8 +137,8 @@ static std::vector<unsigned char> make_vrm()
 }
 static std::vector<unsigned char> lev = make_lev(), vrm = make_vrm();
 static std::vector<unsigned char> music(5000, 0x5a);
-static const std::string UUID = "11111111-2222-5333-8444-555555555555";
-static std::string seed_uuid = UUID;
+static const std::string kUuid = "11111111-2222-5333-8444-555555555555";
+static std::string seed_uuid = kUuid;
 
 struct Sca { int id; const char *version; bool current; long long size; };
 static bool malformed_url, malformed_size, malformed_type;
@@ -201,7 +209,16 @@ static std::string fresh(const char *name)
 	std::string dir = std::string("/tmp/ctr-music-routes-") + name + "-XXXXXX";
 	std::vector<char> t(dir.begin(), dir.end()); t.push_back(0);
 	if (!mkdtemp(t.data())) std::exit(2);
+#ifdef _WIN32
+	// The package store takes a drive-qualified path on Windows ("C:/tmp/...").
+	char full[MAX_PATH];
+	if (!_fullpath(full, t.data(), sizeof full)) std::exit(2);
+	std::string out = full;
+	for (char &c : out) if (c == '\\') c = '/';
+	return out;
+#else
 	return t.data();
+#endif
 }
 static int install_seed(const std::string &assets, bool by_ids, std::string &detail)
 {
@@ -340,7 +357,7 @@ int main()
 		Found b = find_music_for(assets, "1.0.0", "bbbbbbbb-2222-5333-8444-555555555555");
 		expect(a.ok && a.sha == sha(music) && b.ok && b.sha == sha(other), "each UUID finds its own music");
 		expect(find_music_for(assets).ok, "no UUID finds one of them");
-		seed_uuid = UUID; sca_body_override.clear();
+		seed_uuid = kUuid; sca_body_override.clear();
 	}
 
 	// e. Track Manager install of a catalogue revision with a .sca.

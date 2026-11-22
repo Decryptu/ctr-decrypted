@@ -20,6 +20,7 @@
 //
 // Exit 0 = every assertion held; failures are printed otherwise.
 
+#include "harness-support/posix_compat.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

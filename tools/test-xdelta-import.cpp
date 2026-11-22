@@ -2,6 +2,7 @@
 // -x c++ tools/test-xdelta-import.cpp platform/native_xdelta_import.cpp platform/native_custom_package.cpp platform/native_custom_package_files.cpp
 // -x c platform/native_xdelta_decode.c platform/native_custom_package_owned.c platform/native_custom_content_verify.c platform/native_custom_offline.c platform/native_custom_unicode.c platform/native_custom_track_manager.c vendor/utf8proc/utf8proc.c -x none
 // -lstdc++ -lm -lpthread -o /tmp/test-xdelta-import
+// windows: -shared-libgcc
 //
 // xdelta track importer (0.3.0). Everything here is synthetic: a small
 // generated "disc" with an ISO 9660 directory and a fake BIGFILE, and VCDIFF
@@ -15,11 +16,16 @@
 // cutting; race, arena and other classification with every skip text; the
 // descriptor (titles, laps, relic targets, wrong patch); determinism of pins
 // and hashes; install and reinstall; the package UUID recipe.
+#include "harness-support/posix_compat.h"
+#include "harness-support/posix_links.h"
+#include <utime.h>
 #include <platform/native_xdelta_import.h>
 #include <platform/native_xdelta_decode.h>
 #include <platform/native_lev_normalize.hpp>
 #include <platform/native_xdelta_review_layout.h>
 #include <platform/native_custom_package.h>
+#include <platform/native_fs_link.hpp>
+#include <filesystem>
 extern "C" {
 #include <platform/native_custom_track_manager.h>
 #include <platform/native_custom_content_verify.h>
@@ -411,8 +417,11 @@ static const XdeltaImportItem *line_with(const XdeltaImportSummary *s, const cha
 
 static bool scratch_clean()
 {
-    std::string cmd = "ls -a " + root + " | grep -q '^\\.import-'";
-    return std::system(cmd.c_str()) != 0;
+    std::error_code ec;
+    for (const auto &entry : std::filesystem::directory_iterator(std::filesystem::u8path(root), ec))
+        if (entry.path().filename().u8string().rfind(".import-", 0) == 0)
+            return false;
+    return true;
 }
 
 static void test_manifest_fixture()
@@ -460,6 +469,10 @@ int main()
     char tmpl[] = "/tmp/ctr-xdelta-XXXXXX";
     if (!mkdtemp(tmpl)) return 2;
     root = tmpl;
+#ifdef _WIN32
+    // The package store takes a drive-qualified path on Windows ("C:/tmp/...").
+    root = std::filesystem::absolute(std::filesystem::u8path(root)).generic_u8string();
+#endif
 
     /* Base disc: 12 groups of VRM, LEV plus filler entries up to the overlay range. */
     DiscSpec base;
@@ -1121,7 +1134,7 @@ int main()
             mkdir(linked.c_str(), 0755);
             mkdir((linked + "/tracks").c_str(), 0755);
             mkdir((root + "/elsewhere").c_str(), 0755);
-            symlink((root + "/elsewhere").c_str(), (linked + "/tracks/pack-track-1").c_str());
+            harness_dirlink((root + "/elsewhere").c_str(), (linked + "/tracks/pack-track-1").c_str());
             CHECK(XdeltaImport_Install(a.scan, selected.data(), linked.c_str(), CTR_XDELTA_INSTALL_ROOM, error, sizeof error) == -1 &&
                   std::strstr(error, "is a link"), "a linked track folder is refused");
             CHECK(stat((root + "/elsewhere/original").c_str(), &info) != 0, "nothing written through the link");
@@ -1162,7 +1175,7 @@ int main()
             std::string viaLink = root + "/assets-tracks-link";
             mkdir(viaLink.c_str(), 0755);
             mkdir((root + "/shared-tracks").c_str(), 0755);
-            symlink((root + "/shared-tracks").c_str(), (viaLink + "/tracks").c_str());
+            harness_dirlink((root + "/shared-tracks").c_str(), (viaLink + "/tracks").c_str());
             CHECK(XdeltaImport_Install(a.scan, selected.data(), viaLink.c_str(), CTR_XDELTA_INSTALL_ROOM, error, sizeof error) == 2 &&
                   !stat((root + "/shared-tracks/pack-track-1/original/" + stem + ".lev").c_str(), &info), "a linked tracks folder is followed");
         }
@@ -1240,8 +1253,8 @@ int main()
         ScanResult first = scan(patchPath, swapPath);
         std::string firstHash = first.ok ? XdeltaImport_Summary(first.scan)->discSha256 : "";
         write_file("swap.bin", edited);
-        struct timeval times[2] = {{info.st_atime, 0}, {info.st_mtime, 0}};
-        utimes(swapPath.c_str(), times);
+        struct utimbuf times = {info.st_atime, info.st_mtime};
+        utime(swapPath.c_str(), &times);
         ScanResult second = scan(write_file("Swap.xdelta", encode(edited, patchedDisc)), swapPath);
         CHECK(first.ok && second.ok && firstHash == sha_hex(baseDisc) &&
               !std::strcmp(XdeltaImport_Summary(second.scan)->discSha256, sha_hex(edited).c_str()),
@@ -1384,7 +1397,10 @@ int main()
                 NativeSha256_Init(&ctx); NativeSha256_Update(&ctx, text.data(), text.size());
                 NativeSha256_Final(&ctx, digest); NativeSha256_ToHex(digest, copyPin);
                 const std::string to = store + "/" + copyPin;
-                CHECK(std::system(("cp -r '" + from + "' '" + to + "'").c_str()) == 0, "A3-46 copy of a verified revision");
+                std::error_code copied;
+                std::filesystem::copy(std::filesystem::u8path(from), std::filesystem::u8path(to),
+                                      std::filesystem::copy_options::recursive, copied);
+                CHECK(!copied, "A3-46 copy of a verified revision");
                 std::ofstream(to + "/manifest.json", std::ios::binary | std::ios::trunc) << text;
                 const CustomPackageFile *lev = nullptr, *vrm = nullptr;
                 for (unsigned int i = 0; i < base.manifest.count; i++)
@@ -1417,7 +1433,7 @@ int main()
                     std::fstream file(damaged, std::ios::in | std::ios::out | std::ios::binary);
                     file.seekp(0); file.put(original);
                 }
-                std::system(("rm -rf '" + to + "'").c_str());
+                { std::error_code removed; NativeFs_RemoveAll(std::filesystem::u8path(to), removed); }
                 CHECK(find(nullptr, found) && found == base.pin, "A3-46 the store is whole again");
             }
 
@@ -1703,8 +1719,8 @@ int main()
             return stat((assets + "/tracks/packages/" + pin + "/manifest.json").c_str(), &info) ? 0 : (long long)info.st_mtime;
         };
         auto age = [&](const char *pin) {
-            struct timeval times[2] = {{time(nullptr) - 7200, 0}, {time(nullptr) - 7200, 0}};
-            utimes((assets + "/tracks/packages/" + pin + "/manifest.json").c_str(), times);
+            struct utimbuf times = {time(nullptr) - 7200, time(nullptr) - 7200};
+            utime((assets + "/tracks/packages/" + pin + "/manifest.json").c_str(), &times);
         };
         char firstPin[65] = {}, secondPin[65] = {}, againPin[65] = {}, uuid[37] = {};
         importAs(nullptr, firstPin, uuid);
@@ -2142,8 +2158,7 @@ int main()
               !std::strcmp(error, "Your disc is not the retail NTSC-U image this patch needs"), "non-retail disc refused");
     }
 
-    std::string cleanup = "rm -rf " + root;
-    if (std::system(cleanup.c_str())) {}
+    { std::error_code removed; NativeFs_RemoveAll(std::filesystem::u8path(root), removed); }
     std::printf("%d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

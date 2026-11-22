@@ -13,6 +13,7 @@
 // What only play can prove: that the song and bank actually sound right on the
 // host level. This pins the file handling and the choice that decide whether
 // they are tried.
+#include "harness-support/posix_compat.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -39,9 +40,16 @@ static int failures;
 static char s_dir[] = "/tmp/ctr-cortex-music-XXXXXX";
 static char s_lev[512], s_vrm[512], s_sca[512];
 
-static int run(const char *cmd)
+#define BUNDLED "assets/tracks/cortex-vortex/CVortex Arcade All."
+
+// The package fixture: a byte-changed copy of the bundled LEV.
+static int copy_with_tail(const char *from, const char *to)
 {
-	return system(cmd);
+	FILE *f;
+	if (harness_copy_file(from, to) != 0 || (f = fopen(to, "ab")) == NULL)
+		return -1;
+	fputc('Z', f);
+	return fclose(f) == 0 ? 0 : -1;
 }
 
 // The bundled pins, as the content plan arms them (AP_ContentArmTrack).
@@ -142,8 +150,7 @@ static void loader(void)
 	EXPECT(CustomTrack_CortexMusicServing(HOST, 0, 0) == 0, "no serving after the seed goes");
 
 	// A changed file: the track still arms and races, the music is refused.
-	snprintf(cmd, sizeof cmd, "printf 'x' | dd of='%s' bs=1 seek=100 conv=notrunc 2>/dev/null", s_sca);
-	run(cmd);
+	harness_poke_byte(s_sca, 100, 'x');
 	EXPECT(arm() == 1, "track arms with changed music");
 	EXPECT(CustomTrack_CortexMusic(&bytes, &size) == 0, "changed music is refused");
 	{
@@ -166,8 +173,7 @@ static void loader(void)
 	// An ordinary package entry (a custom slot, not the plan's Cortex Vortex
 	// entry) that carries the very same files: the track races, the music does
 	// not play.
-	snprintf(cmd, sizeof cmd, "cp 'assets/tracks/cortex-vortex/CVortex Arcade All.sca' '%s'", s_sca);
-	run(cmd);
+	harness_copy_file(BUNDLED "sca", s_sca);
 	EXPECT(arm() == 1, "same files arm");
 	{
 		struct CustomTrackRaceContext race = pad_race();
@@ -221,14 +227,21 @@ static char s_pkgLev[512], s_pkgVrm[512], s_pkgSca[512], s_pkgLevSha[65], s_pkgS
 
 static void sha_of(const char *path, char out[65])
 {
-	char cmd[1200], line[200] = "";
-	FILE *p;
-	snprintf(cmd, sizeof cmd, "sha256sum '%s'", path);
-	p = popen(cmd, "r");
-	if (p && fgets(line, sizeof line, p))
-		snprintf(out, 65, "%.64s", line);
-	if (p)
-		pclose(p);
+	struct NativeSha256Ctx ctx;
+	unsigned char digest[NATIVE_SHA256_DIGEST_BYTES], buf[65536];
+	char hex[NATIVE_SHA256_HEX_BYTES];
+	FILE *f = fopen(path, "rb");
+	size_t n;
+	out[0] = '\0';
+	if (f == NULL)
+		return;
+	NativeSha256_Init(&ctx);
+	while ((n = fread(buf, 1, sizeof buf, f)) > 0)
+		NativeSha256_Update(&ctx, buf, n);
+	fclose(f);
+	NativeSha256_Final(&ctx, digest);
+	NativeSha256_ToHex(digest, hex);
+	snprintf(out, 65, "%.64s", hex);
 }
 
 static int arm_package(int withMusic, const char *musicLevSha)
@@ -274,15 +287,12 @@ static void package_music(void)
 {
 	const void *bytes;
 	size_t size;
-	char cmd[2400];
-
 	snprintf(s_pkgLev, sizeof s_pkgLev, "%s/pkg.lev", s_dir);
 	snprintf(s_pkgVrm, sizeof s_pkgVrm, "%s/pkg.vrm", s_dir);
 	snprintf(s_pkgSca, sizeof s_pkgSca, "%s/pkg.sca", s_dir);
-	snprintf(cmd, sizeof cmd, "cp 'assets/tracks/cortex-vortex/CVortex Arcade All.lev' '%s' && printf 'Z' >> '%s' && "
-	         "cp 'assets/tracks/cortex-vortex/CVortex Arcade All.vrm' '%s' && cp 'assets/tracks/cortex-vortex/CVortex Arcade All.sca' '%s'",
-	         s_pkgLev, s_pkgLev, s_pkgVrm, s_pkgSca);
-	EXPECT(run(cmd) == 0, "package fixture");
+	EXPECT(copy_with_tail(BUNDLED "lev", s_pkgLev) == 0 && harness_copy_file(BUNDLED "vrm", s_pkgVrm) == 0 &&
+	           harness_copy_file(BUNDLED "sca", s_pkgSca) == 0,
+	       "package fixture");
 	sha_of(s_pkgLev, s_pkgLevSha);
 	sha_of(s_pkgSca, s_pkgScaSha);
 
@@ -330,8 +340,7 @@ static void package_music(void)
 	CustomTrack_ClearSeedDescriptor();
 
 	// A changed or missing file costs the music only.
-	snprintf(cmd, sizeof cmd, "printf 'x' | dd of='%s' bs=1 seek=100 conv=notrunc 2>/dev/null", s_pkgSca);
-	run(cmd);
+	harness_poke_byte(s_pkgSca, 100, 'x');
 	EXPECT(arm_package(1, s_pkgLevSha) == 1, "package arms with changed music");
 	EXPECT(CustomTrack_CortexMusic(&bytes, &size) == 0, "changed package music is refused");
 	serve_package_race(0, "changed music");
@@ -359,8 +368,7 @@ static void package_music(void)
 		snprintf(d.levSha256, sizeof d.levSha256, "%s", s_pkgLevSha);
 		snprintf(d.vrmSha256, sizeof d.vrmSha256, "%s", vrmSha);
 		// Restore the file the changed-music case removed.
-		snprintf(cmd, sizeof cmd, "cp 'assets/tracks/cortex-vortex/CVortex Arcade All.sca' '%s'", s_pkgSca);
-		run(cmd);
+		harness_copy_file(BUNDLED "sca", s_pkgSca);
 		EXPECT(CustomTrack_UseContentMusic(s_pkgSca, s_pkgScaSha, SCA_BYTES, s_pkgLevSha) == 1, "pin handed over for a shared package");
 		EXPECT(CustomTrack_UseManagedPackage(&managed, &status) == 1, "managed package selected next");
 		EXPECT(CustomTrack_ApplySeedDescriptor(&d) == 1 && CustomTrack_CortexMusic(&bytes, &size) == 0,
@@ -432,25 +440,35 @@ static void selection(void)
 
 int main(void)
 {
-	char cmd[1024];
+	char tracks[600], folder[600];
 
 	if (!mkdtemp(s_dir))
 		return 2;
-	snprintf(cmd, sizeof cmd, "mkdir -p '%s/tracks/cortex-vortex' && cp assets/tracks/cortex-vortex/* '%s/tracks/cortex-vortex/'",
-	         s_dir, s_dir);
-	if (run(cmd) != 0)
+	snprintf(tracks, sizeof tracks, "%s/tracks", s_dir);
+	snprintf(folder, sizeof folder, "%s/tracks/cortex-vortex", s_dir);
+	mkdir(tracks, 0700);
+	mkdir(folder, 0700);
+	snprintf(s_lev, sizeof s_lev, "%s/CVortex Arcade All.lev", folder);
+	snprintf(s_vrm, sizeof s_vrm, "%s/CVortex Arcade All.vrm", folder);
+	snprintf(s_sca, sizeof s_sca, "%s/CVortex Arcade All.sca", folder);
+	if (harness_copy_file(BUNDLED "lev", s_lev) != 0 || harness_copy_file(BUNDLED "vrm", s_vrm) != 0 ||
+	    harness_copy_file(BUNDLED "sca", s_sca) != 0)
 		return 2;
-	snprintf(s_lev, sizeof s_lev, "%s/tracks/cortex-vortex/CVortex Arcade All.lev", s_dir);
-	snprintf(s_vrm, sizeof s_vrm, "%s/tracks/cortex-vortex/CVortex Arcade All.vrm", s_dir);
-	snprintf(s_sca, sizeof s_sca, "%s/tracks/cortex-vortex/CVortex Arcade All.sca", s_dir);
 
 	loader();
 	package_music();
 	pins();
 	selection();
 
-	snprintf(cmd, sizeof cmd, "rm -rf '%s'", s_dir);
-	run(cmd);
+	remove(s_lev);
+	remove(s_vrm);
+	remove(s_sca);
+	remove(s_pkgLev);
+	remove(s_pkgVrm);
+	remove(s_pkgSca);
+	rmdir(folder);
+	rmdir(tracks);
+	rmdir(s_dir);
 	printf("%s: %d failures\n", failures ? "FAIL" : "PASS", failures);
 	return failures != 0;
 }

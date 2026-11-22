@@ -39,7 +39,10 @@
 //     build confirms its start
 //   * the redirect and host allowlist
 
+#include "harness-support/posix_compat.h"
+#include "harness-support/posix_links.h"
 #include "ap_update_core.h"
+#include "../include/platform/native_fs_link.hpp"
 
 #include <openssl/evp.h>
 #include <zlib.h>
@@ -48,6 +51,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <map>
 #include <string>
 #include <vector>
@@ -845,10 +849,38 @@ struct Faults
 };
 
 static Faults g_faults;
+static void RemoveAll(const std::string &path);
+
+// The same file whichever separator built the path: the updater joins with
+// '\\' on Windows (TargetPath), these tests with '/'.
+static bool Executable(const std::string &path)
+{
+	struct stat st;
+#ifdef _WIN32
+	return stat(path.c_str(), &st) == 0; // Windows files carry no executable bit
+#else
+	return stat(path.c_str(), &st) == 0 && (st.st_mode & 0111) == 0111;
+#endif
+}
+
+static bool SamePath(std::string a, std::string b)
+{
+	std::replace(a.begin(), a.end(), '\\', '/');
+	std::replace(b.begin(), b.end(), '\\', '/');
+	return a == b;
+}
+
+static bool FailsFrom(const std::string &from)
+{
+	for (const std::string &f : g_faults.failRenameFrom)
+		if (SamePath(f, from))
+			return true;
+	return false;
+}
 
 static bool FWrite(void *ctx, const std::string &path, const Bytes &d)
 {
-	if (path == g_faults.failWriteOf)
+	if (SamePath(path, g_faults.failWriteOf))
 	{
 		FILE *f = std::fopen(path.c_str(), "wb");
 		if (f)
@@ -858,7 +890,7 @@ static bool FWrite(void *ctx, const std::string &path, const Bytes &d)
 		}
 		return false;
 	}
-	if (path == g_faults.corruptWriteOf && !d.empty())
+	if (SamePath(path, g_faults.corruptWriteOf) && !d.empty())
 	{
 		Bytes bad = d;
 		bad[0] ^= 1;
@@ -869,8 +901,7 @@ static bool FWrite(void *ctx, const std::string &path, const Bytes &d)
 
 static bool FRename(void *ctx, const std::string &from, const std::string &to)
 {
-	if (to == g_faults.failRenameTo ||
-	    std::find(g_faults.failRenameFrom.begin(), g_faults.failRenameFrom.end(), from) != g_faults.failRenameFrom.end())
+	if (SamePath(to, g_faults.failRenameTo) || FailsFrom(from))
 		return false;
 	return RealFsOps().renameFile(ctx, from, to);
 }
@@ -878,22 +909,31 @@ static bool FRename(void *ctx, const std::string &from, const std::string &to)
 // The atomic executable path uses link and replace; the same faults apply.
 static bool FLink(void *ctx, const std::string &existing, const std::string &newLink)
 {
-	if (newLink == g_faults.failRenameTo)
+	if (SamePath(newLink, g_faults.failRenameTo))
 		return false;
 	return RealFsOps().linkFile(ctx, existing, newLink);
 }
 
 static bool FReplace(void *ctx, const std::string &from, const std::string &to)
 {
-	if (to == g_faults.failRenameTo ||
-	    std::find(g_faults.failRenameFrom.begin(), g_faults.failRenameFrom.end(), from) != g_faults.failRenameFrom.end())
+	if (SamePath(to, g_faults.failRenameTo) || FailsFrom(from))
 		return false;
 	return RealFsOps().replaceFile(ctx, from, to);
+}
+
+// The atomic executable swap (hard link + replace) exists where the real
+// operations do: POSIX. Windows has neither, so there only the rename
+// strategy runs; wrapping a missing operation would call a null pointer.
+static bool AtomicExeAvailable()
+{
+	const FsOps real = RealFsOps();
+	return real.linkFile != nullptr && real.replaceFile != nullptr;
 }
 
 static FsOps FaultOps(bool atomicExe = true)
 {
 	FsOps ops = RealFsOps();
+	atomicExe = atomicExe && AtomicExeAvailable();
 	ops.writeFile = FWrite;
 	ops.renameFile = FRename;
 	ops.linkFile = atomicExe ? FLink : nullptr;
@@ -1026,8 +1066,7 @@ static void TestInstall()
 	CHECK(ReadText(OldPath(in.exe)) == "OLD EXE" && ReadText(OldPath(in.apworld)) == "OLD WORLD" &&
 	      ReadText(OldPath(in.lev)) == "OLD LEV" && !real.exists(nullptr, OldPath(in.vrm)));
 	CHECK(Untouched(in) && NoLeftovers(in, true));
-	struct stat st;
-	CHECK(stat(in.exe.c_str(), &st) == 0 && (st.st_mode & 0111) != 0);
+	CHECK(Executable(in.exe));
 	CHECK(ReadText(MarkerPath(in.exe)) == "v0.3.1\nctr.apworld\n" + std::string(kLev) + "\nctr_native_ap\n");
 	CHECK_EQ(StartupCheck(real, in.exe, "v0.3.1"), STARTUP_UPDATED);
 	CHECK(real.exists(nullptr, OldPath(in.lev)));
@@ -1082,8 +1121,9 @@ static void TestInstall()
 		}
 	}
 
-	// Undo itself failing for one file: that file's previous copy stays as
-	// .old (the manual rollback copy) and the others are restored.
+	// Undo itself failing for one file: the new copy stays in place (a path is
+	// never left empty), its previous copy stays as .old (the manual rollback
+	// copy) and the others are restored.
 	in = MakeInstall(dir);
 	CHECK_EQ(Stage(real, in.exe, NewSet(), staged), OK);
 	g_faults = Faults();
@@ -1091,7 +1131,7 @@ static void TestInstall()
 	g_faults.failRenameFrom = {StagedPath(in.exe), OldPath(in.apworld)};
 	CHECK_EQ(Apply(faulty, in.exe, staged, "v0.3.1"), ERR_UNDO_FAILED);
 	CHECK(ReadText(in.exe) == "OLD EXE" && ReadText(in.lev) == "OLD LEV" && !real.exists(nullptr, in.vrm));
-	CHECK(ReadText(OldPath(in.apworld)) == "OLD WORLD" && !real.exists(nullptr, in.apworld));
+	CHECK(ReadText(OldPath(in.apworld)) == "OLD WORLD" && ReadText(in.apworld) == "NEW WORLD");
 	CHECK(Untouched(in));
 	// The journal stays; the next launch (no fault now) puts the apworld back.
 	CHECK(real.exists(nullptr, SwapJournalPath(in.exe)));
@@ -1195,11 +1235,11 @@ static void TestInstall()
 		in = MakeInstall(dir);
 		real.removeFile(nullptr, in.lev);
 		rmdir((dir + "/assets/tracks/cortex-vortex").c_str());
-		CHECK(symlink(sh, (dir + "/assets/tracks/cortex-vortex").c_str()) == 0);
+		CHECK(harness_dirlink(sh, (dir + "/assets/tracks/cortex-vortex").c_str()) == 0);
 		CHECK_EQ(Stage(real, in.exe, NewSet(), staged), ERR_IO);
 		CHECK(ReadText(in.exe) == "OLD EXE" && ReadText(in.apworld) == "OLD WORLD" && NoLeftovers(in, false));
 		CHECK(!real.exists(nullptr, std::string(sh) + "/CVortex Arcade All.lev.update.part"));
-		unlink((dir + "/assets/tracks/cortex-vortex").c_str());
+		harness_unlink_link((dir + "/assets/tracks/cortex-vortex").c_str());
 		rmdir(sh);
 		Clean(in);
 	}
@@ -1263,6 +1303,7 @@ static bool CReplace(void *c, const std::string &a, const std::string &b) { retu
 static FsOps CrashOps(bool atomicExe)
 {
 	FsOps ops = RealFsOps();
+	atomicExe = atomicExe && AtomicExeAvailable();
 	ops.writeFile = CWrite;
 	ops.renameFile = CRename;
 	ops.removeFile = CRemove;
@@ -1289,7 +1330,7 @@ static void TestCrashRecovery()
 	int crashPoints = 0;
 	for (int strategy = 0; strategy < 2; strategy++)
 	{
-		const bool atomicExe = strategy == 0;
+		const bool atomicExe = strategy == 0 && AtomicExeAvailable();
 		for (int limit = 0; limit < 64; limit++)
 		{
 			Install in = MakeInstall(dir);
@@ -1480,10 +1521,10 @@ static void TestStagingAndMarker()
 	// The staged executable is executable before it is swapped in.
 	CHECK_EQ(Stage(real, in.exe, NewSet(), staged), OK);
 	struct stat st;
-	CHECK(stat(StagedPath(in.exe).c_str(), &st) == 0 && (st.st_mode & 0111) == 0111);
+	CHECK(Executable(StagedPath(in.exe)));
 	CHECK(stat(StagedPath(in.apworld).c_str(), &st) == 0 && (st.st_mode & 0111) == 0);
 	CHECK_EQ(Apply(real, in.exe, staged, "v0.3.1"), OK);
-	CHECK(stat(in.exe.c_str(), &st) == 0 && (st.st_mode & 0111) == 0111);
+	CHECK(Executable(in.exe));
 	CHECK(stat(OldPath(in.exe).c_str(), &st) == 0 && ReadText(OldPath(in.exe)) == "OLD EXE");
 	ConfirmStarted(real, in.exe);
 	Clean(in);
@@ -1517,8 +1558,8 @@ static void TestStagingAndMarker()
 		const std::string exe = game + "/ctr_native_ap";
 		WriteText(exe, "OLD EXE");
 		SetAssetDir(alt + "/");
-		CHECK(TargetPath(exe, kLev) == alt + "/tracks/cortex-vortex/CVortex Arcade All.lev");
-		CHECK(TargetPath(exe, "ctr.apworld") == game + "/ctr.apworld");
+		CHECK(SamePath(TargetPath(exe, kLev), alt + "/tracks/cortex-vortex/CVortex Arcade All.lev"));
+		CHECK(SamePath(TargetPath(exe, "ctr.apworld"), game + "/ctr.apworld"));
 		CHECK_EQ(Stage(real, exe, NewSet(), staged), OK);
 		CHECK(ReadText(StagedPath(alt + "/tracks/cortex-vortex/CVortex Arcade All.lev")) == "NEW LEV");
 		CHECK(!real.exists(nullptr, game + "/assets"));
@@ -1526,9 +1567,9 @@ static void TestStagingAndMarker()
 		CHECK(ReadText(alt + "/tracks/cortex-vortex/CVortex Arcade All.vrm") == "NEW VRM");
 		CHECK(!real.exists(nullptr, game + "/assets"));
 		SetAssetDir("");
-		CHECK(TargetPath(exe, kLev) == game + "/" + kLev);
-		const std::string rm = "rm -rf '" + dir + "/game' '" + alt + "'";
-		CHECK(std::system(rm.c_str()) == 0);
+		CHECK(SamePath(TargetPath(exe, kLev), game + "/" + kLev));
+		RemoveAll(dir + "/game");
+		RemoveAll(alt);
 	}
 	Clean(in);
 	rmdir((dir + "/assets/tracks/cortex-vortex").c_str());
@@ -1626,7 +1667,6 @@ static void TestExecutableSwapFallbacks()
 	const std::string dir = dirp;
 	const FsOps real = RealFsOps();
 	std::vector<StagedFile> staged;
-	struct stat st;
 
 	// No hard links (exFAT, some shares): the running executable is copied to
 	// .old and the new one renamed over it. The path never goes missing.
@@ -1638,56 +1678,61 @@ static void TestExecutableSwapFallbacks()
 	CHECK_EQ(Apply(noLink, in.exe, staged, "v0.3.1"), OK);
 	CHECK(NewState(in));
 	CHECK(ReadText(OldPath(in.exe)) == "OLD EXE");
-	CHECK(stat(OldPath(in.exe).c_str(), &st) == 0 && (st.st_mode & 0111) == 0111); // the rollback copy runs
+	CHECK(Executable(OldPath(in.exe))); // the rollback copy runs
 	CHECK_EQ(StartupCheck(real, in.exe, "v0.3.1"), STARTUP_UPDATED);
 	ConfirmStarted(real, in.exe);
 	CHECK(NoLeftovers(in, false));
 	Clean(in);
 
-	// Neither a link nor a copy: the update stops, everything as before, and
-	// the executable is never moved aside (the old two-rename fallback).
-	in = MakeInstall(dir);
-	CHECK_EQ(Stage(real, in.exe, NewSet(), staged), OK);
+	// The copy fallback belongs to the atomic executable swap, which needs a
+	// link and an atomic replace: POSIX. Windows swaps by rename instead.
+	if (AtomicExeAvailable())
 	{
-		FsOps ops = FaultOps();
-		ops.linkFile = NoLink;
-		g_faults = Faults();
-		g_faults.failWriteOf = OldPath(in.exe);
-		CHECK_EQ(Apply(ops, in.exe, staged, "v0.3.1"), ERR_IO);
-		CHECK(OldState(in) && NoLeftovers(in, false));
-		CHECK(!real.exists(nullptr, MarkerPath(in.exe)));
-	}
-	Clean(in);
-
-	// Power loss at every step with the copy fallback: the executable path
-	// always holds a file, and recovery lands on the old or the new install.
-	int points = 0;
-	for (int limit = 0; limit < 64; limit++)
-	{
+		// Neither a link nor a copy: the update stops, everything as before, and
+		// the executable is never moved aside (the old two-rename fallback).
 		in = MakeInstall(dir);
 		CHECK_EQ(Stage(real, in.exe, NewSet(), staged), OK);
-		FsOps ops = CrashOps(true);
-		ops.linkFile = NoLink;
-		g_crash = Crash();
-		g_crash.limit = limit;
-		const Result r = Apply(ops, in.exe, staged, "v0.3.1");
-		if (!g_crash.dead)
 		{
-			CHECK_EQ(r, OK);
-			Clean(in);
-			break;
+			FsOps ops = FaultOps();
+			ops.linkFile = NoLink;
+			g_faults = Faults();
+			g_faults.failWriteOf = OldPath(in.exe);
+			CHECK_EQ(Apply(ops, in.exe, staged, "v0.3.1"), ERR_IO);
+			CHECK(OldState(in) && NoLeftovers(in, false));
+			CHECK(!real.exists(nullptr, MarkerPath(in.exe)));
 		}
-		points++;
-		CHECK(real.exists(nullptr, in.exe));
-		const bool newExe = ReadText(in.exe) == "NEW EXE";
-		const StartupState stt = StartupCheck(real, in.exe, newExe ? "v0.3.1" : "v0.3.0");
-		if (newExe)
-			CHECK(stt == STARTUP_UPDATED && NewState(in));
-		else
-			CHECK((stt == STARTUP_RECOVERED || stt == STARTUP_CLEAN) && OldState(in) && NoLeftovers(in, false));
 		Clean(in);
+
+		// Power loss at every step with the copy fallback: the executable path
+		// always holds a file, and recovery lands on the old or the new install.
+		int points = 0;
+		for (int limit = 0; limit < 64; limit++)
+		{
+			in = MakeInstall(dir);
+			CHECK_EQ(Stage(real, in.exe, NewSet(), staged), OK);
+			FsOps ops = CrashOps(true);
+			ops.linkFile = NoLink;
+			g_crash = Crash();
+			g_crash.limit = limit;
+			const Result r = Apply(ops, in.exe, staged, "v0.3.1");
+			if (!g_crash.dead)
+			{
+				CHECK_EQ(r, OK);
+				Clean(in);
+				break;
+			}
+			points++;
+			CHECK(real.exists(nullptr, in.exe));
+			const bool newExe = ReadText(in.exe) == "NEW EXE";
+			const StartupState stt = StartupCheck(real, in.exe, newExe ? "v0.3.1" : "v0.3.0");
+			if (newExe)
+				CHECK(stt == STARTUP_UPDATED && NewState(in));
+			else
+				CHECK((stt == STARTUP_RECOVERED || stt == STARTUP_CLEAN) && OldState(in) && NoLeftovers(in, false));
+			Clean(in);
+		}
+		CHECK(points > 15);
 	}
-	CHECK(points > 15);
 
 	// A marker from an earlier update that cannot be removed stops the swap
 	// before the journal is written: nothing changes.
@@ -1739,7 +1784,7 @@ static void TestExecutableSwapFallbacks()
 
 	// A folder that cannot be flushed fails the write (here: it cannot even
 	// be opened for reading), so staging stops before anything is replaced.
-	if (geteuid() != 0)
+	if (harness_folder_modes_apply())
 	{
 		const std::string locked = dir + "/locked";
 		mkdir(locked.c_str(), 0700);
@@ -1815,11 +1860,10 @@ static bool OldRuntime(const Install &in)
 
 static bool NewRuntime(const Install &in)
 {
-	struct stat st;
 	return ReadText(in.dir + "/" + kRtId) == "NEW RT" && ReadText(in.dir + "/" + kRtPy) == "NEW PY" &&
 	       ReadText(in.dir + "/" + kRtMs) == "NEW MS" &&
 	       !RealFsOps().exists(nullptr, in.dir + "/solo-runtime/stale.py") &&
-	       stat((in.dir + "/" + kRtPy).c_str(), &st) == 0 && (st.st_mode & 0111) != 0;
+	       Executable(in.dir + "/" + kRtPy);
 }
 
 static bool NoRuntimeLeftovers(const Install &in, bool allowOld)
@@ -1831,8 +1875,8 @@ static bool NoRuntimeLeftovers(const Install &in, bool allowOld)
 
 static void RemoveAll(const std::string &path)
 {
-	const std::string rm = "rm -rf '" + path + "'";
-	CHECK(std::system(rm.c_str()) == 0);
+	std::error_code ec;
+	CHECK(NativeFs_RemoveAll(std::filesystem::u8path(path), ec) >= 0);
 }
 
 static void CleanRuntime(const Install &in)
@@ -1931,8 +1975,8 @@ static void TestSoloRuntime()
 		Put(base, "solo/room.archipelago", "SEED");
 		SetBaseDir(base + "/");
 		SetAssetDir(base + "/assets");
-		CHECK(TargetPath(exe, "ctr.apworld") == base + "/ctr.apworld");
-		CHECK(TargetPath(exe, kRtPy) == base + "/" + kRtPy);
+		CHECK(SamePath(TargetPath(exe, "ctr.apworld"), base + "/ctr.apworld"));
+		CHECK(SamePath(TargetPath(exe, kRtPy), base + "/" + kRtPy));
 		CHECK_EQ(Stage(real, exe, RuntimeSet(), staged), OK);
 		CHECK(!real.exists(nullptr, game + "/solo-runtime.update"));
 		CHECK_EQ(Apply(real, exe, staged, "v0.3.1"), OK);
@@ -1948,8 +1992,8 @@ static void TestSoloRuntime()
 		CHECK(!real.exists(nullptr, base + "/solo-runtime.old") && !real.exists(nullptr, base + "/ctr.apworld.old"));
 		SetBaseDir("");
 		SetAssetDir("");
-		CHECK(TargetPath(exe, "ctr.apworld") == game + "/ctr.apworld");
-		CHECK(std::system(("rm -rf '" + base + "'").c_str()) == 0);
+		CHECK(SamePath(TargetPath(exe, "ctr.apworld"), game + "/ctr.apworld"));
+		RemoveAll(base);
 	}
 
 	// A failure at either folder rename, or at the executable after the
@@ -2000,15 +2044,15 @@ static void TestSoloRuntime()
 		CHECK(sh != nullptr);
 		in = MakeInstall(dir);
 		WriteText(std::string(sh) + "/RUNTIME.txt", "SHARED");
-		CHECK(symlink(sh, (dir + "/solo-runtime").c_str()) == 0);
+		CHECK(harness_dirlink(sh, (dir + "/solo-runtime").c_str()) == 0);
 		CHECK_EQ(Stage(real, in.exe, RuntimeSet(), staged), ERR_IO);
 		CHECK(ReadText(std::string(sh) + "/RUNTIME.txt") == "SHARED" && OldState(in));
 		CHECK(NoLeftovers(in, false) && NoRuntimeLeftovers(in, false));
-		unlink((dir + "/solo-runtime").c_str());
+		harness_unlink_link((dir + "/solo-runtime").c_str());
 		// A link inside an old rollback folder is removed, never followed.
 		Put(dir, "solo-runtime/RUNTIME.txt", "OLD RT");
 		MakeDirs(dir + "/solo-runtime.old");
-		CHECK(symlink(sh, (dir + "/solo-runtime.old/escape").c_str()) == 0);
+		CHECK(harness_dirlink(sh, (dir + "/solo-runtime.old/escape").c_str()) == 0);
 		CHECK_EQ(Stage(real, in.exe, RuntimeSet(), staged), OK);
 		CHECK_EQ(Apply(real, in.exe, staged, "v0.3.1"), OK);
 		CHECK(ReadText(std::string(sh) + "/RUNTIME.txt") == "SHARED");
@@ -2036,6 +2080,7 @@ static void TestSoloRuntime()
 	in = MakeInstall(dir);
 	AddRuntime(in);
 	CHECK_EQ(Stage(real, in.exe, RuntimeSet(), staged), OK);
+	if (real.syncDir != nullptr) // folders are flushed on POSIX only; Windows has no such step
 	{
 		FsOps ops = real;
 		ops.syncDir = [](const std::string &) { return false; };
@@ -2105,11 +2150,10 @@ static void TestSoloRuntime()
 		const char *sh = mkdtemp(shared);
 		CHECK(sh != nullptr);
 		Put(sh, "deep/keep.txt", "KEEP");
-		CHECK(symlink(sh, (dir + "/solo-runtime.old").c_str()) == 0);
+		CHECK(harness_dirlink(sh, (dir + "/solo-runtime.old").c_str()) == 0);
 		CHECK(real.removeTree(nullptr, dir + "/solo-runtime.old"));
 		CHECK(ReadText(std::string(sh) + "/deep/keep.txt") == "KEEP");
-		char lb[8];
-		CHECK(readlink((dir + "/solo-runtime.old").c_str(), lb, sizeof lb) < 0);
+		CHECK(!harness_is_symlink((dir + "/solo-runtime.old").c_str()));
 		RemoveAll(sh);
 	}
 

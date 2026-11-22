@@ -149,9 +149,11 @@ extern "C" int ap_file_writer_last_ok(int slot)
 	return g_writer->lastOk[slot].load();
 }
 
+// Binary: the exact bytes, as on POSIX. Text mode would turn every "\n" into
+// "\r\n" on Windows.
 static int write_whole(const char *path, const void *data, size_t len)
 {
-	FILE *f = std::fopen(path, "w");
+	FILE *f = std::fopen(path, "wb");
 	if (f == nullptr)
 		return 0;
 	int ok = std::fwrite(data, 1, len, f) == len;

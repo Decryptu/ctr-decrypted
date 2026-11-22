@@ -21,11 +21,13 @@ fixture = r'''
 #include <unistd.h>
 #include "ap/ap_solo.h"
 #include "ap/ap_solo_logic.hpp"
+#include "include/platform/native_fs_link.hpp"
 static std::vector<APSoloTrackInfo> g_tracks;
 static std::map<std::string, int> g_trackStarts;
 static std::vector<APSoloOption> g_options;
 namespace fs = std::filesystem;
 static std::string g_optionOverridesFile;
+static std::vector<std::string> g_staleOverrideFiles;
 static struct { int state = AP_SOLO_JOB_IDLE; } g_job;
 static bool TrackPublicationBusy() { return false; }
 static bool StorePublicationBusy() { return false; }
@@ -130,11 +132,16 @@ int main() {
     assert(AP_Solo_GenerateStart("imported.yaml", "", "", 1));
     assert(childArgs.size() == 7 && childArgs[5] == "--set-file");
     const std::string sidecar = childArgs[6];
-    std::ifstream input(sidecar);
-    nlohmann::json saved; input >> saved;
-    assert(saved == nlohmann::json(AP_SoloSetArgs(g_options)));
+    {
+        // Held open during the clear, as a just-killed generator may hold it:
+        // Windows refuses the delete, so the next clear must try again.
+        std::ifstream input(sidecar);
+        nlohmann::json saved; input >> saved;
+        assert(saved == nlohmann::json(AP_SoloSetArgs(g_options)));
+        ClearOptionOverrides();
+    }
     ClearOptionOverrides();
-    assert(!fs::exists(sidecar));
+    assert(!fs::exists(sidecar) && g_staleOverrideFiles.empty());
 }
 '''
 with tempfile.TemporaryDirectory() as directory:

@@ -2,6 +2,7 @@
 #define _POSIX_C_SOURCE 200809L
 #endif
 #include <platform/native_custom_package.h>
+#include <platform/native_fs_link.hpp>
 #include <platform/native_custom_offline.h>
 extern "C" {
 #include <platform/native_custom_content_verify.h>
@@ -527,10 +528,10 @@ extern "C" int CustomPackage_RemoveInstalled(const char *assets, const char *pin
         const auto status = std::filesystem::symlink_status(installed, ec);
         if (ec || !std::filesystem::is_directory(status))
             throw std::runtime_error("This track is not installed any more");
-        std::filesystem::remove_all(removing, ec);
+        NativeFs_RemoveAll(removing, ec);
         std::filesystem::rename(installed, removing, ec);
         if (ec) throw std::runtime_error("Could not remove the track: " + ec.message());
-        std::filesystem::remove_all(removing, ec);
+        NativeFs_RemoveAll(removing, ec);
         if (ec) throw std::runtime_error("The track was removed, but some files are left: " + ec.message());
         return 1;
     }

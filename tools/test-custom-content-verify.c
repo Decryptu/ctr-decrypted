@@ -3,6 +3,8 @@
 // Add tools/test-custom-content-verify.c and choose an output path.
 
 #define _XOPEN_SOURCE 700
+#include "harness-support/posix_compat.h"
+#include "harness-support/posix_links.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -382,8 +384,10 @@ int main(void)
 	{
 		char linkPath[256];
 		snprintf(linkPath, sizeof linkPath, "%s/link.lev", root);
-		expect(symlink(lev, linkPath) == 0, "symlink fixture created");
-		expect(!CustomContentVerify_AcquirePair(linkPath, vrm, &pair, error, sizeof error), "symlinked LEV refused before acquisition");
+		if (harness_symlink(lev, linkPath) == 0)
+			expect(!CustomContentVerify_AcquirePair(linkPath, vrm, &pair, error, sizeof error), "symlinked LEV refused before acquisition");
+		else
+			printf("skip: symlinked LEV (this Windows creates symlinks only with Developer Mode on)\n");
 	}
 
 	super_turbo_pad_quads();

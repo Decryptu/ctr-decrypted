@@ -96,6 +96,13 @@ def build_command(src):
             if needle in text:
                 # g++ would compile a .c unit as C++, with mangled names
                 cmd += f" -x c {unit} -x none" if src.endswith(".cpp") and unit.endswith(".c") else " " + unit
+    # A `// windows: <args>` line in the leading comment adds those arguments
+    # on Windows only, for what MinGW needs and Linux does not (-lwinhttp).
+    if os.name == "nt":
+        for ln in open(os.path.join(ROOT, src), encoding="utf-8", errors="replace").read().splitlines()[:40]:
+            m = re.match(r"^//\s*windows:\s*(.+)$", ln)
+            if m:
+                cmd += " " + m.group(1).strip()
     return cmd, out
 
 
@@ -110,14 +117,62 @@ def run_py(src):
     return "pass", cmd, ""
 
 
+def msys_bash():
+    """MSYS2's bash.exe for the MinGW gcc on PATH (<msys>/usr/bin/bash.exe), or None."""
+    real = os.environ.get("NOSAN_REAL_DIR") or os.path.dirname(shutil.which("gcc") or "")
+    if not real:
+        return None
+    candidate = os.path.join(os.path.dirname(os.path.dirname(real)), "usr", "bin", "bash.exe")
+    return candidate if os.path.exists(candidate) else None
+
+
 def run_cmd(cmd):
+    # `python3` steps run on this interpreter, as the .py harnesses do. On
+    # Windows the shell's python3 is MinGW's, which starts the real compilers
+    # from its own folder by bare name; gcc then finds its install through
+    # PATH, where the nosan shims come first, and cannot find cc1.
+    args = [sys.executable] + shlex.split(cmd[len("python3 "):]) if cmd.startswith("python3 ") else cmd
+    # `bash` steps run on MSYS2's bash, beside the MinGW toolchain: the shell's
+    # first `bash` on Windows is often WSL's, a different system.
+    env = None
+    if os.name == "nt" and cmd.startswith("bash ") and msys_bash():
+        args = [msys_bash()] + shlex.split(cmd[len("bash "):])
+        # Its own tools (dirname, mktemp) after the shims and compilers.
+        env = dict(os.environ, MSYSTEM="MINGW32", CHERE_INVOKING="1",
+                   PATH=os.environ["PATH"] + os.pathsep + os.path.dirname(msys_bash()))
     try:
-        r = subprocess.run(cmd, shell=True, cwd=ROOT, capture_output=True, text=True, timeout=1200)
+        r = subprocess.run(args, shell=isinstance(args, str), cwd=ROOT, capture_output=True, text=True,
+                           timeout=1200, env=env)
     except Exception as e:  # noqa: BLE001
         return "run-error", cmd, str(e)
     if r.returncode != 0:
         return "run-fail", cmd, (r.stdout + r.stderr)[-1500:]
     return "pass", cmd, ""
+
+
+def unreached_stubs(src, out, log):
+    """Windows: a stub for each symbol a C harness links to but never calls.
+
+    A harness compiles game files whole, and their functions name others the
+    harness never runs. Linux drops those functions with --gc-sections before
+    resolving their references; MinGW's linker resolves them first and fails.
+    When the link failed on undefined references alone, this writes a unit
+    with one stub per name, each printing its name and aborting, so a stub
+    that does run fails the harness loudly. Returns its path, or None."""
+    if not src.endswith(".c") or re.search(r"\.(c|h|inc):\d+:\d+: error:", log):
+        return None
+    names = sorted(set(re.findall(r"undefined reference to `([A-Za-z_][A-Za-z0-9_]*)'", log)))
+    if not names:
+        return None
+    path = out + "-unreached.c"
+    with open(path, "w") as f:
+        f.write("#include <stdio.h>\n#include <stdlib.h>\n")
+        f.write("static void unreached(const char *name)\n{\n"
+                "\tfprintf(stderr, \"harness called %s, which only links on Windows as a stub\\n\", name);\n"
+                "\tabort();\n}\n")
+        for name in names:
+            f.write(f"void {name}(void) {{ unreached(\"{name}\"); }}\n")
+    return path
 
 
 def run_one(src):
@@ -127,6 +182,11 @@ def run_one(src):
     t0 = time.time()
     try:
         b = subprocess.run(shlex.split(cmd), cwd=ROOT, capture_output=True, text=True, timeout=600)
+        if b.returncode != 0 and os.name == "nt":
+            stubbed = unreached_stubs(src, out, b.stderr + b.stdout)
+            if stubbed:
+                cmd += " " + stubbed
+                b = subprocess.run(shlex.split(cmd), cwd=ROOT, capture_output=True, text=True, timeout=600)
     except Exception as e:  # noqa: BLE001
         return "build-error", cmd, str(e)
     if b.returncode != 0:
@@ -174,7 +234,7 @@ def install_nosan_shim():
     os.makedirs(shim_dir, exist_ok=True)
     first = os.path.join(shim_dir, "cc.exe")
     subprocess.run([real, "-O2", "-o", first, os.path.join(ROOT, "tools", "ci", "nosan-shim.c")], check=True)
-    for name in ("gcc.exe", "g++.exe"):
+    for name in ("gcc.exe", "g++.exe", "c++.exe"):
         shutil.copyfile(first, os.path.join(shim_dir, name))
     os.environ["NOSAN_REAL_DIR"] = os.path.dirname(real)
     os.environ["PATH"] = shim_dir + os.pathsep + os.environ["PATH"]

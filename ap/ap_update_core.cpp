@@ -1627,6 +1627,26 @@ struct Step
 };
 } // namespace
 
+// Put a file's previous copy back over the new one without an atomic replace
+// (Windows). The new copy is parked under its staged name and removed only
+// once the previous copy is in place; if that rename fails the new copy goes
+// back, so the path is never left empty and the executable stays launchable,
+// as the atomic replace guarantees elsewhere.
+static bool RestoreFile(const FsOps &fs, const std::string &target)
+{
+	const std::string parked = StagedPath(target);
+	fs.removeFile(fs.ctx, parked); // the staged copy was renamed into place; nothing needed is there
+	if (!fs.renameFile(fs.ctx, target, parked))
+		return false;
+	if (!fs.renameFile(fs.ctx, OldPath(target), target))
+	{
+		fs.renameFile(fs.ctx, parked, target);
+		return false;
+	}
+	fs.removeFile(fs.ctx, parked);
+	return true;
+}
+
 // Undo swap steps newest first: the new file goes, the previous one returns.
 static bool Undo(const FsOps &fs, const std::vector<Step> &steps)
 {
@@ -1637,6 +1657,12 @@ static bool Undo(const FsOps &fs, const std::vector<Step> &steps)
 		if (st.atomic)
 		{
 			if (!fs.replaceFile(fs.ctx, OldPath(st.target), st.target))
+				ok = false;
+			continue;
+		}
+		if (st.hadOld && !st.folder)
+		{
+			if (!RestoreFile(fs, st.target))
 				ok = false;
 			continue;
 		}
@@ -1960,8 +1986,15 @@ static int RecoverSwap(const FsOps &fs, const std::string &exe)
 							complete = false;
 						continue;
 					}
+					// A file: the new copy steps aside, and comes back if the old one cannot.
+					if (!folder)
+					{
+						if (!RestoreFile(fs, target))
+							complete = false;
+						continue;
+					}
 					// Only the new copy may be cleared to make room for the old one.
-					if (!(folder ? fs.removeTree(fs.ctx, target) : fs.removeFile(fs.ctx, target)))
+					if (!fs.removeTree(fs.ctx, target))
 					{
 						complete = false;
 						continue;

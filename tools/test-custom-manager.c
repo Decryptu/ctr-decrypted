@@ -28,6 +28,7 @@ static Color neutralColor;
 static int removes;
 int CustomPackage_RemoveInstalled(const char *a,const char *pin,char *e,size_t n)
 { (void)a;(void)pin;(void)e;(void)n;removes++;return 1; }
+int CustomPackage_IsBuiltin(const char *uuid) { return uuid && !strcmp(uuid,"builtin-uuid"); }
 static char s_contentSearchBackup[81], s_contentInstallPin[65];
 static struct CustomSaphiCatalogue *s_saphiCatalogue;
 static int s_saphiRefreshBusy, s_saphiLoaded, s_saphiDownloading;
@@ -178,6 +179,12 @@ int main(void)
  tick(0);CHECK(strstr(drawn,"OFF\n")&&strstr(drawn,"\nOff\n"));
  tick(BTN_CROSS);CHECK(strstr(drawn,"Turn on"));
  tick(BTN_CROSS);CHECK(!MM_Mods_IsOff(&installed));
+ /* A built-in track: Turn off and Check files, no Remove; Down from Turn off is Check files. */
+ strcpy(installed.local.uuid,"builtin-uuid");s_saphiMessage[0]=0;
+ tick(0);CHECK(strstr(drawn,"Built in, cannot")!=NULL);
+ tick(BTN_CROSS);tick(0);CHECK(strstr(drawn,"Turn off")&&!strstr(drawn,"Remove")&&strstr(drawn,"Check files"));
+ tick(BTN_DOWN);tick(BTN_CROSS);CHECK(s_contentStoreWanted&&removes==1&&s_modsActions==MODS_ACTIONS_CLOSED);
+ s_contentStoreWanted=0;installed.local.uuid[0]=0;
  tick(BTN_R2);CHECK(s_contentSearchEditing);strcpy(s_saphiQuery,"no match");textResult=2;tick(0);CHECK(!s_contentSearchEditing&&!s_saphiQuery[0]);
  /* Installed lists the installed racers after the tracks, tagged RACER;
     Cross on one opens its options, as on Racers: off and Remove, no file check. */

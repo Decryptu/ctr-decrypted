@@ -17,6 +17,8 @@
 //
 // Exit 0 = every assertion held; failures are printed otherwise.
 
+#include "harness-support/posix_compat.h"
+#include "harness-support/posix_links.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -456,7 +458,6 @@ static void TestPreexistingTmpSymlink(void)
 	char victim[512];
 	char tmp[512];
 	char tempPath[600];
-	struct stat info;
 	NativeDiscCopyResult result;
 
 	joinPath(dir, sizeof(dir), "tmpsym");
@@ -466,12 +467,16 @@ static void TestPreexistingTmpSymlink(void)
 	snprintf(tmp, sizeof(tmp), "%s.tmp", dest);
 
 	expect(writeFile(victim, "VICTIM", 6), "tmpsym: create victim");
-	expect(symlink(victim, tmp) == 0, "tmpsym: symlink .tmp to victim");
+	if (harness_symlink(victim, tmp) != 0)
+	{
+		printf("skip: tmpsym (this Windows creates symlinks only with Developer Mode on)\n");
+		return;
+	}
 
 	result = runReal(g_source, dest, tempPath, sizeof(tempPath));
 	expect(result == NATIVE_DISC_COPY_OK, "tmpsym: copy succeeds");
 	expect(fileEqualsString(victim, "VICTIM"), "tmpsym: symlink target untouched");
-	expect(lstat(tmp, &info) == 0 && S_ISLNK(info.st_mode), "tmpsym: symlink itself untouched");
+	expect(harness_is_symlink(tmp), "tmpsym: symlink itself untouched");
 }
 
 static void TestWriteFailure(void)

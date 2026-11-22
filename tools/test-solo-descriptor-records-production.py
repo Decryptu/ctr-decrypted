@@ -32,6 +32,7 @@ fixture = r'''
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
+#include <cstdlib>
 #include <fcntl.h>
 #include <filesystem>
 #include <fstream>
@@ -44,7 +45,34 @@ fixture = r'''
 #include <vector>
 #include "ap/ap_solo.h"
 #include "ap/ap_solo_logic.hpp"
+#include "include/platform/native_fs_link.hpp"
 #include "include/platform/native_custom_package.h"
+
+// A link to a folder: a symlink on POSIX, a junction on Windows (what any
+// player can make there without rights, and what the client must see).
+static void MakeFolderLink(const std::string &target, const std::string &link)
+{
+#ifdef _WIN32
+    std::string from = link, to = target;
+    for (char &c : from) if (c == '/') c = '\\';
+    for (char &c : to) if (c == '/') c = '\\';
+    const std::string command = "cmd /c mklink /J \"" + from + "\" \"" + to + "\" >NUL";
+    assert(std::system(command.c_str()) == 0);
+#else
+    std::filesystem::create_directory_symlink(target, link);
+#endif
+}
+
+// A folder made read-only with fs::permissions refuses writes only on POSIX,
+// and not for root: Windows ignores the read-only attribute on folders.
+static bool FolderLocksApply()
+{
+#ifdef _WIN32
+    return false;
+#else
+    return geteuid() != 0;
+#endif
+}
 namespace fs = std::filesystem;
 #define AP_SOLO_GETPID() getpid()
 static const size_t kDescriptorMax = 64 * 1024;
@@ -173,7 +201,7 @@ int main(int, char **argv) {
     // written, so only one state is left.
     clean(); write(std::string("tracks/") + name, oldA);
     fs::permissions(base + "/solo/tracks", fs::perms::owner_read | fs::perms::owner_exec);
-    if (geteuid() != 0) {
+    if (FolderLocksApply()) {
         assert(!ApplyStoreDescriptor(entry(2, "Nina", waitB, "b"), scan, message));
         assert(message == "Nina 1.0.0: its file in solo/tracks is read-only or in use (antivirus?)");
         assert(!fs::exists(base + "/solo/needs-laps/" + name) && loggedFile(name));
@@ -183,7 +211,7 @@ int main(int, char **argv) {
     // 8. A read-only solo/tracks folder: refused with the reason and file name.
     clean(); fs::create_directories(base + "/solo/tracks");
     fs::permissions(base + "/solo/tracks", fs::perms::owner_read | fs::perms::owner_exec);
-    if (geteuid() != 0) {
+    if (FolderLocksApply()) {
         assert(!ApplyStoreDescriptor(entry(1, "Nina", newB, "b"), scan, message));
         assert(message.find("could not write in solo/tracks (read-only") != std::string::npos);
         assert(loggedFile(name));
@@ -198,7 +226,7 @@ int main(int, char **argv) {
 
     // 10. A linked solo/tracks folder is named.
     clean(); fs::create_directories(base + "/elsewhere"); fs::create_directories(base + "/solo");
-    fs::create_directory_symlink(base + "/elsewhere", base + "/solo/tracks");
+    MakeFolderLink(base + "/elsewhere", base + "/solo/tracks");
     assert(!ApplyStoreDescriptor(entry(1, "Nina", newB, "b"), scan, message));
     assert(message.find("solo/tracks is a link") != std::string::npos && loggedFile(name));
     fs::remove(base + "/solo/tracks");

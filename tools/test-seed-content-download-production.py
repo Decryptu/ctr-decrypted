@@ -34,6 +34,7 @@ Cases, each checked against the file system afterwards:
      reports success with other bytes, and no temporary name is left.
 """
 from pathlib import Path
+import os
 import subprocess
 import tempfile
 
@@ -44,12 +45,16 @@ start_b = source.index("bool hash_matches(")
 part_b = source[start_b:source.index("#ifdef CTR_CUSTOM_PACKAGES\n// Track Manager", start_b)]
 
 prelude = r'''
+#include "tools/harness-support/posix_compat.h"
+#include "tools/harness-support/posix_links.h"
 #include "ap_custom_track_download.h"
 #include "ap_seed_content_logic.h"
 #include <nlohmann/json.hpp>
 #include <openssl/evp.h>
 #include <sys/stat.h>
+#ifndef _WIN32
 #include <sys/syscall.h>
+#endif
 #include <fcntl.h>
 #include <unistd.h>
 #include <algorithm>
@@ -67,9 +72,10 @@ prelude = r'''
 #include <vector>
 #include <fcntl.h>
 #include <stdio.h>
-#include <dlfcn.h>
 #include <dirent.h>
 #include <cstdarg>
+#ifndef _WIN32
+#include <dlfcn.h>
 // File-operation hooks for the race and failure cases (8, 9, 11): the worker
 // publishes with linkat, creates folders with mkdirat and its unnamed files
 // with openat(O_TMPFILE); each hook runs at its named boundary (returning
@@ -120,6 +126,7 @@ extern "C" int mkdirat(int dir, const char *name, mode_t mode)
 	if (before_mkdir && before_mkdir(name)) before_mkdir = nullptr;
 	return real(dir, name, mode);
 }
+#endif
 '''
 
 stub = r'''
@@ -162,8 +169,12 @@ static std::string sha(const std::vector<unsigned char> &b)
 	for (unsigned i = 0; i < n; i++) { out += hex[d[i] >> 4]; out += hex[d[i] & 15]; }
 	return out;
 }
+#ifdef _WIN32
+static bool exists(const std::string &p) { return GetFileAttributesA(p.c_str()) != INVALID_FILE_ATTRIBUTES; }
+#else
 static bool exists(const std::string &p) { struct stat st; return lstat(p.c_str(), &st) == 0; }
-static bool is_link(const std::string &p) { struct stat st; return lstat(p.c_str(), &st) == 0 && S_ISLNK(st.st_mode); }
+#endif
+static bool is_link(const std::string &p) { return harness_is_symlink(p.c_str()); }
 static int entries(const std::string &dir)
 {
 	int n = 0; DIR *d = opendir(dir.c_str());
@@ -315,20 +326,23 @@ int main()
 		mkdir(outside.c_str(), 0755);
 		const std::vector<unsigned char> keep(55, 0x07);
 		spit(victim, keep);
-		expect(symlink(outside.c_str(), pkg.c_str()) == 0, "link the package folder outside");
+		expect(harness_dirlink(outside.c_str(), pkg.c_str()) == 0, "link the package folder outside");
 		serve(lb, vb);
 		ap_custom_track_download_start_pinned(tracks.c_str(), pkg.c_str(), api, "1.0.2", ls.c_str(), lb, vs.c_str(), vb);
 		expect(finish(detail) == AP_CT_DOWNLOAD_FAILED && detail.find("link") != std::string::npos, "a linked package folder refuses: " + detail);
 		expect(!exists(outside + "/original") && !exists(outside + "/track.lev"), "nothing written through it");
-		unlink(pkg.c_str());
+		harness_unlink_link(pkg.c_str());
 		mkdir(pkg.c_str(), 0755);
-		expect(symlink(outside.c_str(), orig.c_str()) == 0, "link the original folder outside");
+		expect(harness_dirlink(outside.c_str(), orig.c_str()) == 0, "link the original folder outside");
 		ap_custom_track_download_start_pinned(tracks.c_str(), pkg.c_str(), api, "1.0.2", ls.c_str(), lb, vs.c_str(), vb);
 		expect(finish(detail) == AP_CT_DOWNLOAD_FAILED && !exists(outside + "/track.lev") && !exists(outside + "/track.vrm"),
 		       "a linked original folder refuses, nothing written through it");
-		unlink(orig.c_str());
+		harness_unlink_link(orig.c_str());
 		mkdir(orig.c_str(), 0755);
-		expect(symlink(victim.c_str(), (orig + "/.saphi-track.lev.part").c_str()) == 0, "plant a link at the old .part name");
+		if (harness_symlink(victim.c_str(), (orig + "/.saphi-track.lev.part").c_str()) != 0)
+			std::printf("skip: file links (this Windows creates symlinks only with Developer Mode on)\n");
+		else
+		{
 		spit(orig + "/.saphi-track.vrm.part", player);
 		ap_custom_track_download_start_pinned(tracks.c_str(), pkg.c_str(), api, "1.0.2", ls.c_str(), lb, vs.c_str(), vb);
 		expect(finish(detail) == AP_CT_DOWNLOAD_SUCCEEDED && slurp(victim) == keep && slurp(tlev) == lev && slurp(tvrm) == vrm &&
@@ -336,10 +350,14 @@ int main()
 		       "other files and links in the folder are never touched; no temporary name is left");
 		unlink((orig + "/.saphi-track.lev.part").c_str()); unlink((orig + "/.saphi-track.vrm.part").c_str());
 		unlink(tlev.c_str()); unlink(tvrm.c_str());
-		expect(symlink(victim.c_str(), tlev.c_str()) == 0, "link track.lev to a player file");
+		expect(harness_symlink(victim.c_str(), tlev.c_str()) == 0, "link track.lev to a player file");
 		ap_custom_track_download_start_pinned(tracks.c_str(), pkg.c_str(), api, "1.0.2", ls.c_str(), lb, vs.c_str(), vb);
 		expect(finish(detail) == AP_CT_DOWNLOAD_FAILED && slurp(victim) == keep && !exists(tvrm), "a linked track.lev refuses");
 		unlink(tlev.c_str());
+		}
+
+#ifndef _WIN32
+		// Cases 9 to 11 need the libc hooks above, or POSIX file names: POSIX only.
 
 		// 9. VRM publish fails: the verified LEV stays, nothing else is touched, and installing again completes it.
 		spit(orig + "/other.bin", player);
@@ -452,6 +470,9 @@ int main()
 		const std::string sibling = tracks + "\\sibling";
 		expect(!ap_custom_track_download_start_pinned(tracks.c_str(), sibling.c_str(), api, "1.0.2", ls.c_str(), lb, vs.c_str(), vb) &&
 		       !exists(sibling), "tracks\\sibling is refused at start");
+#else
+		rmdir(orig.c_str()); rmdir(pkg.c_str());
+#endif
 		unlink(victim.c_str()); rmdir(outside.c_str());
 	}
 	rmdir(tracks.c_str()); rmdir(assets.c_str());
@@ -463,9 +484,10 @@ int main()
 with tempfile.TemporaryDirectory() as tmp:
     src, exe = Path(tmp) / "seed_download.cpp", Path(tmp) / "seed_download"
     src.write_text(prelude + part_a + stub + part_b + tests, encoding="utf-8")
+    libs = ["-lcrypto", "-pthread"] + ([] if os.name == "nt" else ["-ldl"])
     subprocess.run(["g++", "-m32", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-Wno-unused-function",
-                    "-I" + str(root / "ap"), "-I" + str(root / "ap/vendor/json/include"),
-                    str(src), "-o", str(exe), "-lcrypto", "-pthread", "-ldl"], check=True, cwd=root)
+                    "-I" + str(root), "-I" + str(root / "ap"), "-I" + str(root / "ap/vendor/json/include"),
+                    str(src), "-o", str(exe)] + libs, check=True, cwd=root)
     subprocess.run([str(exe)], check=True, cwd=root)
 print("PASS: Current Seed download: unsafe roots, size pins, network failures, hash mismatches, links and an existing "
       "different file all refuse with no folder or file changed; a failed VRM keeps only the verified LEV; races never "

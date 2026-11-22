@@ -39,6 +39,7 @@ seed_start = tracks_header.index("struct CustomTrackSeedDescriptor\n{")
 seed_struct = tracks_header[seed_start:tracks_header.index("};", seed_start) + 2]
 
 prelude = r'''
+#include "tools/harness-support/posix_compat.h"
 #define _XOPEN_SOURCE 700
 #define CTR_AP 1
 #define CTR_CUSTOM_TRACKS 1
@@ -322,9 +323,11 @@ int main(void)
 		ap_content_cortex_ready = 1; /* stale flag from an earlier scan: entry scans again */
 		expect(AP_ContentPreparePad(5, AP_CONTENT_MODE_RELIC) == -1 && !ap_content_cortex_ready &&
 		       ap_cortex_track_content_required && used_files == 0, "entry rescans and refuses missing files");
-		snprintf(cmd, sizeof cmd, "cp '%s/assets/tracks/cortex-vortex/CVortex Arcade All.lev' '%s' && "
-		         "cp '%s/assets/tracks/cortex-vortex/CVortex Arcade All.vrm' '%s'", CTR_REPO_ROOT, cvLev, CTR_REPO_ROOT, cvVrm);
-		expect(system(cmd) == 0, "bundled pair copied");
+		snprintf(cmd, sizeof cmd, "%s/assets/tracks/cortex-vortex/CVortex Arcade All.lev", CTR_REPO_ROOT);
+		int copied = harness_copy_file(cmd, cvLev) == 0;
+		snprintf(cmd, sizeof cmd, "%s/assets/tracks/cortex-vortex/CVortex Arcade All.vrm", CTR_REPO_ROOT);
+		copied = copied && harness_copy_file(cmd, cvVrm) == 0;
+		expect(copied, "bundled pair copied");
 		reset_calls();
 		ap_content_cortex_ready = AP_ContentScanCortex();
 		expect(ap_content_cortex_ready && AP_ContentPadReady(5), "pinned bundled pair is Ready");
@@ -345,8 +348,7 @@ int main(void)
 		       CustomRaceContext_Valid(&staged_race) &&
 		       strcmp(staged_race.levSha256, CTR_CFG_CORTEX_LEV_SHA256) == 0, "a valid Cortex Vortex race context is staged");
 		/* A changed byte after admission: same size, other hash. */
-		snprintf(cmd, sizeof cmd, "printf 'X' | dd of='%s' bs=1 seek=100 conv=notrunc status=none", cvLev);
-		expect(system(cmd) == 0, "bundled LEV changed in place");
+		expect(harness_poke_byte(cvLev, 100, 'X') == 0, "bundled LEV changed in place");
 		reset_calls(); ap_cortex_track_content_required = 0;
 		expect(AP_ContentPreparePad(5, AP_CONTENT_MODE_TROPHY) == -1 && !ap_content_cortex_ready &&
 		       ap_cortex_track_content_required && used_files == 0 && applied == 0 && staged == 0,
@@ -370,7 +372,7 @@ with tempfile.TemporaryDirectory() as tmp:
     src, exe = Path(tmp) / "content_hooks.c", Path(tmp) / "content_hooks"
     src.write_text(prelude + seed_struct + "\n" + lev_helper + stubs + hooks + tests, encoding="utf-8")
     subprocess.run(["cc", "-std=gnu99", "-Wall", "-Wextra", "-Werror", "-Wno-unused-function", "-Wno-format-truncation",
-                    "-DCTR_REPO_ROOT=\"" + str(root) + "\"",
+                    "-DCTR_REPO_ROOT=\"" + root.as_posix() + "\"",
                     "-fsanitize=undefined", "-fno-sanitize-recover=all",
                     "-I" + str(root), "-I" + str(root / "include"), "-I" + str(root / "ap"),
                     str(src), "-o", str(exe)], check=True, cwd=root)

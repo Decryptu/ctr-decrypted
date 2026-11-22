@@ -1,4 +1,5 @@
 #include <platform/native_racer_library.h>
+#include <platform/native_fs_link.hpp>
 #include <platform/native_sha256.h>
 extern "C" {
 #include <platform/native_fs_utf8.h>
@@ -188,7 +189,7 @@ extern "C" int NativeRacerLibrary_Scan(const char *racersDir, NativeRacerEntry *
 
     for (const auto &item : std::filesystem::directory_iterator(root, ec))
     {
-        if (!item.is_directory(ec) || item.is_symlink(ec)) continue;
+        if (!item.is_directory(ec) || NativeFs_IsLink(item.path())) continue;
         const std::filesystem::path manifestPath = item.path() / "racer.json";
         FILE *f = NativeFs_OpenRead(manifestPath.u8string().c_str());
         if (!f) continue;
@@ -304,13 +305,13 @@ extern "C" int NativeRacerLibrary_Install(const char *racersDir, const char *fol
     const std::filesystem::path target = root / std::filesystem::u8path(folder);
     const std::filesystem::path staging = root / std::filesystem::u8path(std::string(".") + folder + ".part");
     std::filesystem::create_directories(root, ec);
-    std::filesystem::remove_all(staging, ec);
+    NativeFs_RemoveAll(staging, ec);
     if (!std::filesystem::create_directory(staging, ec) ||
         !WriteFile(staging / "racer.json", manifest, manifestSize) ||
         !WriteFile(staging / std::filesystem::u8path(e.modelPath), model, modelSize) ||
         !WriteFile(staging / std::filesystem::u8path(e.portraitPath), portrait, portraitSize))
     {
-        std::filesystem::remove_all(staging, ec);
+        NativeFs_RemoveAll(staging, ec);
         return Fail(error, errorSize, "could not write the racer's files"), 0;
     }
 
@@ -318,14 +319,14 @@ extern "C" int NativeRacerLibrary_Install(const char *racersDir, const char *fol
     for (const auto &item : std::filesystem::directory_iterator(root, ec))
     {
         const std::string name = item.path().filename().u8string();
-        if (item.is_directory(ec) && !item.is_symlink(ec) && name[0] != '.' && FolderRacerId(item.path()) == e.id)
-            std::filesystem::remove_all(item.path(), ec);
+        if (item.is_directory(ec) && !NativeFs_IsLink(item.path()) && name[0] != '.' && FolderRacerId(item.path()) == e.id)
+            NativeFs_RemoveAll(item.path(), ec);
     }
-    std::filesystem::remove_all(target, ec);
+    NativeFs_RemoveAll(target, ec);
     std::filesystem::rename(staging, target, ec);
     if (ec)
     {
-        std::filesystem::remove_all(staging, ec);
+        NativeFs_RemoveAll(staging, ec);
         return Fail(error, errorSize, "could not move the racer into place"), 0;
     }
     return 1;
@@ -336,9 +337,9 @@ extern "C" int NativeRacerLibrary_Remove(const char *racersDir, const char *fold
     if (!ValidFolder(folder)) return Fail(error, errorSize, "bad folder name"), 0;
     std::error_code ec;
     const std::filesystem::path target = std::filesystem::u8path(racersDir) / std::filesystem::u8path(folder);
-    if (std::filesystem::is_symlink(target, ec) || !std::filesystem::is_directory(target, ec))
+    if (NativeFs_IsLink(target) || !std::filesystem::is_directory(target, ec))
         return Fail(error, errorSize, "the racer's folder is not there"), 0;
-    std::filesystem::remove_all(target, ec);
+    NativeFs_RemoveAll(target, ec);
     if (ec) return Fail(error, errorSize, "could not delete the racer's files"), 0;
     return 1;
 }
