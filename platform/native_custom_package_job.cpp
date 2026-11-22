@@ -54,6 +54,10 @@ extern "C" int CustomPackage_StartStoreScan(const char *store)
         std::string path(store);
         storeJob = std::async(std::launch::async, [path] {
             StoreResult result;
+            /* The store is <assets>/tracks/packages: put the built-in tracks in first. */
+            const auto cut = path.size() >= 16 ? path.size() - 16 : std::string::npos;
+            if (cut != std::string::npos && path.compare(cut, 16, "/tracks/packages") == 0)
+                CustomPackage_EnsureBuiltins(path.substr(0, cut).c_str(), nullptr, 0);
             result.ok = CustomPackage_ScanStore(path.c_str(), collect_store, &result, result.error, sizeof result.error);
             return result;
         });

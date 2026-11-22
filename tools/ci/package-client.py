@@ -200,7 +200,8 @@ def main():
         if variant in ('ap', 'authoring'):
             cortex = root / 'assets' / 'tracks' / 'cortex-vortex'
             cortex.mkdir(parents=True)
-            for file in ('CVortex Arcade All.lev', 'CVortex Arcade All.vrm', 'CVortex Arcade All.sca'):
+            for file in ('CVortex Arcade All.lev', 'CVortex Arcade All.vrm', 'CVortex Arcade All.sca',
+                         'CVortex Picture.ctp'):
                 source = Path('assets/tracks/cortex-vortex') / file
                 shutil.copy2(source, cortex / file)
             if digest(cortex / 'CVortex Arcade All.lev') != '4e3a2daf56c67be3ac645d3bb5375e516c828a0bca24c35ac69b3366c466fe13':

@@ -47,6 +47,22 @@ enum { MODS_ACTIONS_CLOSED, MODS_ACTIONS_OPEN, MODS_ACTIONS_CONFIRM_REMOVE };
 enum { MODS_ACTION_SWITCH, MODS_ACTION_REMOVE, MODS_ACTION_CHECK, MODS_ACTION_COUNT };
 static int s_modsActions, s_modsActionRow;
 
+/* A built-in track (CustomPackage_IsBuiltin) has no Remove: it would come back. */
+static int MM_Mods_Builtin(const struct CustomTrackLibraryEntry *entry)
+{
+    return entry && CustomPackage_IsBuiltin(entry->local.uuid);
+}
+
+/* The options a mod lists, in order: a racer has no Check files. */
+static int MM_Mods_ActionRows(const struct CustomTrackLibraryEntry *track, const struct NativeRacerEntry *racer, int *actions)
+{
+    int n = 0;
+    actions[n++] = MODS_ACTION_SWITCH;
+    if (racer || !MM_Mods_Builtin(track)) actions[n++] = MODS_ACTION_REMOVE;
+    if (!racer) actions[n++] = MODS_ACTION_CHECK;
+    return n;
+}
+
 /* ---- Mods that are off (platform/native_mods_off.c) ---- */
 #define MODS_PATH_MAX 4096
 
@@ -231,14 +247,15 @@ static void MM_Mods_DrawTabs(int seedTab, uint32_t *ot)
 static int MM_Mods_ActionsInput(int tapped, const struct CustomTrackLibraryEntry *track,
                                 const struct NativeRacerEntry *racer, char *message, size_t size)
 {
-    const int rows = racer ? MODS_ACTION_CHECK : MODS_ACTION_COUNT;
+    int actions[MODS_ACTION_COUNT];
+    const int rows = MM_Mods_ActionRows(track, racer, actions);
     if (s_modsActions == MODS_ACTIONS_CLOSED) return tapped;
     if (!track && !racer)
     {
         s_modsActions = MODS_ACTIONS_CLOSED;
         return tapped;
     }
-    if (s_modsActionRow >= rows) s_modsActionRow = MODS_ACTION_SWITCH;
+    if (s_modsActionRow >= rows) s_modsActionRow = 0;
     const int off = racer ? MM_ModsRacers_IsOff(racer) : MM_Mods_IsOff(track);
     if (tapped & (BTN_TRIANGLE | BTN_START))
     {
@@ -262,7 +279,7 @@ static int MM_Mods_ActionsInput(int tapped, const struct CustomTrackLibraryEntry
             else MM_Mods_Remove(track, message, size);
             s_modsActions = MODS_ACTIONS_CLOSED;
         }
-        else if (s_modsActionRow == MODS_ACTION_SWITCH)
+        else if (actions[s_modsActionRow] == MODS_ACTION_SWITCH)
         {
             const int saved = racer ? MM_ModsRacers_SetOff(racer, !off) : MM_Mods_SetOff(track, !off);
             snprintf(message, size, "%s", !saved ? "Could not save the change." :
@@ -270,7 +287,7 @@ static int MM_Mods_ActionsInput(int tapped, const struct CustomTrackLibraryEntry
                      off ? "On: in Arcade and Time Trial." : "Off: not in Arcade or Time Trial.");
             s_modsActions = MODS_ACTIONS_CLOSED;
         }
-        else if (s_modsActionRow == MODS_ACTION_REMOVE) s_modsActions = MODS_ACTIONS_CONFIRM_REMOVE;
+        else if (actions[s_modsActionRow] == MODS_ACTION_REMOVE) s_modsActions = MODS_ACTIONS_CONFIRM_REMOVE;
         else
         {
             s_contentStoreWanted = 1;
@@ -291,12 +308,13 @@ static void MM_Mods_DrawActions(const struct CustomTrackLibraryEntry *track, con
         return;
     }
     const int off = racer ? MM_ModsRacers_IsOff(racer) : MM_Mods_IsOff(track);
-    const int rows = racer ? MODS_ACTION_CHECK : MODS_ACTION_COUNT;
+    int actions[MODS_ACTION_COUNT];
+    const int rows = MM_Mods_ActionRows(track, racer, actions);
     for (int i = 0; i < rows; i++)
     {
         static const char *const labels[MODS_ACTION_COUNT] = {NULL, "Remove", "Check files"};
         RECT box = {MODS_PANEL_X - 4,MODS_PANEL_INFO_Y + i * 12,MODS_PANEL_W + 6,12};
-        MM_CustomText_Draw(i == MODS_ACTION_SWITCH ? (off ? "Turn on" : "Turn off") : labels[i],
+        MM_CustomText_Draw(actions[i] == MODS_ACTION_SWITCH ? (off ? "Turn on" : "Turn off") : labels[actions[i]],
                            MODS_PANEL_X,box.y + 1,MODS_PANEL_W,1,i == s_modsActionRow ? ORANGE : WHITE,ot);
         if (i == s_modsActionRow) CTR_Box_DrawClearBox(&box,&sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot, &GAME_TRACKER->backBuffer->primMem);
     }
@@ -637,7 +655,8 @@ static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, str
             MM_Mods_DrawPanelBody(!installed->installed ? "Not installed" : off ? "Off" :
                                   MM_Mods_ModesText(installed->local.arcade, installed->local.timeTrial),
                                   s_saphiMessage[0] ? s_saphiMessage : !installed->installed ? installed->disabledReason :
-                                  off ? "Not in Arcade or Time Trial" : why[0] ? why : "Files verified",
+                                  off ? "Not in Arcade or Time Trial" : why[0] ? why :
+                                  MM_Mods_Builtin(installed) ? "Built in, cannot be removed" : "Files verified",
                                   "* Options", ot);
         }
     }

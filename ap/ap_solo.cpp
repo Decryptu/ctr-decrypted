@@ -1466,6 +1466,8 @@ void PublishStoreEntry(const CustomPackageStoreEntry *entry, void *opaque)
 	if (entry->verified)
 		result.live.insert(StoreSignature(entry->manifest));
 	if (!result.pin.empty() && result.pin != entry->pin) return;
+	// A built-in track is not a custom track to a seed: cortex_vortex_track adds it.
+	if (entry->verified && CustomPackage_IsBuiltin(entry->manifest.uuid)) return;
 	result.published++;
 	if (!entry->verified)
 	{

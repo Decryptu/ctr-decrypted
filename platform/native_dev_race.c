@@ -263,7 +263,7 @@ static int NativeDevRace_EnterCup(struct GameTracker *gGT, NativeDevRaceState *d
 // CTR_DEV_CUSTOM: acquire the installed package synchronously (the custom
 // pages do it on a worker) and arm the offline loader for the host slot. A
 // refusal is logged and the race runs on the host slot's retail track.
-static void NativeDevRace_BeginCustom(struct GameTracker *gGT, const char *pin)
+static void NativeDevRace_BeginCustom(struct GameTracker *gGT, const char *pin, int mode)
 {
 	char path[1024], error[256] = "";
 	struct CustomPackageOwned *package = NULL;
@@ -273,8 +273,8 @@ static void NativeDevRace_BeginCustom(struct GameTracker *gGT, const char *pin)
 		snprintf(error, sizeof error, "package path too long");
 	if ((error[0] != 0) || !CustomPackage_AcquireDirectory(path, pin, &package, error, sizeof error) ||
 		!CustomOffline_Prepare(&package, pin, &request, error, sizeof error) ||
-		!CustomOffline_CheckStructure(request, CTR_OFFLINE_MODE_ARCADE, error, sizeof error) ||
-		!CustomOffline_BeginRuntime(&request, CTR_CUSTOM_ARCADE_HOST_LEVEL, 0, CTR_OFFLINE_MODE_ARCADE))
+		!CustomOffline_CheckStructure(request, mode, error, sizeof error) ||
+		!CustomOffline_BeginRuntime(&request, CTR_CUSTOM_ARCADE_HOST_LEVEL, 0, mode))
 	{
 		Platform_Log("[CTR Dev] custom track %s refused: %s\n", pin, error);
 		CustomOffline_Free(&request);
@@ -329,7 +329,7 @@ int NativeDev_StartRace(struct GameTracker *gGT)
 #ifdef CTR_CUSTOM_PACKAGES
 		// Arcade (two players) or VS: both are the custom pages' Arcade race.
 		if (dev->customPin != NULL)
-			NativeDevRace_BeginCustom(gGT, dev->customPin);
+			NativeDevRace_BeginCustom(gGT, dev->customPin, CTR_OFFLINE_MODE_ARCADE);
 #endif
 		if (dev->laps > 0)
 			gGT->numLaps = (char)dev->laps;
@@ -383,7 +383,7 @@ int NativeDev_StartRace(struct GameTracker *gGT)
 		gGT->gameMode1 |= ARCADE_MODE;
 #ifdef CTR_CUSTOM_PACKAGES
 		if (dev->customPin != NULL)
-			NativeDevRace_BeginCustom(gGT, dev->customPin);
+			NativeDevRace_BeginCustom(gGT, dev->customPin, CTR_OFFLINE_MODE_ARCADE);
 #endif
 		if (dev->laps > 0)
 			gGT->numLaps = (char)dev->laps;
@@ -393,6 +393,11 @@ int NativeDev_StartRace(struct GameTracker *gGT)
 	// The same setup MM_TrackSelect does before the ghost menu.
 	gGT->gameMode1 |= TIME_TRIAL;
 	gGT->numLaps = 3;
+#ifdef CTR_CUSTOM_PACKAGES
+	// The Time Trial custom page: the package's own laps, through the host slot.
+	if (dev->customPin != NULL)
+		NativeDevRace_BeginCustom(gGT, dev->customPin, CTR_OFFLINE_MODE_TIME_TRIAL);
+#endif
 	sdata->ptrGhostTapePlaying = MEMPACK_AllocHighMem(0x3e00, "DevRace");
 	memset(sdata->ptrGhostTapePlaying, 0, 0x28);
 	sdata->boolReplayHumanGhost = 0;
@@ -1425,7 +1430,7 @@ void NativeDev_RaceFrame(void)
 		{
 			dev->customNextDone = 1;
 			CustomOffline_EndRuntime(); // as the menu's level does between two races
-			NativeDevRace_BeginCustom(gGT, next);
+			NativeDevRace_BeginCustom(gGT, next, CTR_OFFLINE_MODE_ARCADE);
 			gGT->gameMode1 &= ~PAUSE_1;
 			MainRaceTrack_RequestLoad(CTR_CUSTOM_ARCADE_HOST_LEVEL);
 		}

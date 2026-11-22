@@ -180,6 +180,12 @@ int CustomPackage_StartStoreScan(const char *store);
 int CustomPackage_PollStoreScan(struct CustomTrackLibrary *library, char *error, size_t errorSize);
 /* Delete assets/tracks/packages/<pin>. 1 removed, 0 refused with error. */
 int CustomPackage_RemoveInstalled(const char *assets, const char *pin, char *error, size_t errorSize);
+/* Built-in packages (platform/native_custom_builtin.cpp): put the tracks the
+   release ships into the store when missing, and drop their older revisions.
+   1 when every built-in is in the store, 0 with the first reason otherwise. */
+int CustomPackage_EnsureBuiltins(const char *assets, char *error, size_t errorSize);
+/* 1 for a built-in package's UUID: it can be turned off, never removed. */
+int CustomPackage_IsBuiltin(const char *uuid);
 
 #ifdef __cplusplus
 }

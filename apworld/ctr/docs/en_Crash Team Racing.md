@@ -158,6 +158,10 @@ checks with it. With Progressive Boost on, its finish checks need two Progressiv
 Boosts. Standalone races on its own pad are two laps; cup races follow the cup
 lap setting.
 
+Outside a seed, Cortex Vortex is on the Arcade and Time Trial custom track
+pages like any installed track. The Mods screen can turn it off there; it
+cannot be removed.
+
 ### Starting Roster
 
 With `vanilla_eight` a new Adventure opens the original character select with

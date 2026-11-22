@@ -237,6 +237,7 @@ set(CTR_CUSTOM_PACKAGE_SOURCES
     platform/native_custom_package.cpp
     platform/native_custom_package_files.cpp
     platform/native_custom_package_job.cpp
+    platform/native_custom_builtin.cpp
     platform/native_custom_package_owned.c
     platform/native_custom_content_verify.c
     platform/native_custom_offline.c

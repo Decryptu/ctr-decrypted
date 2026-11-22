@@ -156,6 +156,23 @@ count picked in the track select's lap box (`CustomOffline_SetRuntimeLaps`).
 (`CustomPackage_GetRelicTargets`). `presentation` holds display metadata such
 as `metadata/saphi-source.json`. `sca` is the track's music (section 10).
 
+**Built-in packages.** Cortex Vortex, which the release ships for Archipelago
+in `assets/tracks/cortex-vortex/`, is also an ordinary package, so it races on
+the Arcade and Time Trial custom pages with its music, picture and records.
+Before each store scan, `platform/native_custom_builtin.cpp:
+CustomPackage_EnsureBuiltins` builds it from that folder when the store lacks
+it, and removes older built-in revisions (same UUID, other pin). The folder
+stays the source because the in-game updater replaces exactly that folder, and
+the seed path reads it (section 12). The manifest is a constant in the game,
+checked against its pin like any package: files that differ from the release's
+install nothing. A changed file needs a new manifest and pin from
+`tools/tracks/builtin_manifest.py`; `tools/test-builtin-manifest.py` fails
+until they match. The UUID stays, so records and the off switch carry over.
+The Mods screen offers Turn off and Check files but no Remove, since the track
+would come back at the next scan (`CustomPackage_IsBuiltin`), and Play Solo
+leaves it out of its custom track list, as seeds add it with
+`cortex_vortex_track`.
+
 **Structural checks.** Before a package can race, the LEV and VRM are checked
 structurally from the owned bytes (`platform/native_custom_content_verify.c`):
 an Arcade race needs detected Arcade structures and eight measured spawns, a
