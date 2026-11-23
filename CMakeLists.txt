@@ -72,8 +72,7 @@ endif()
 
 if(NOT CMAKE_C_COMPILER_TARGET MATCHES "i.86" AND NOT CMAKE_SYSTEM_PROCESSOR MATCHES "i.86")
     set(CMAKE_C_FLAGS "-m32 ${CMAKE_C_FLAGS}")
-    # The AP mod enables CXX (apclientpp/asio); it must be -m32 too or its
-    # objects are 64-bit and fail to link against the 32-bit engine.
+    # C++ asset and network code has to match the 32-bit engine.
     set(CMAKE_CXX_FLAGS "-m32 ${CMAKE_CXX_FLAGS}")
     set(CMAKE_EXE_LINKER_FLAGS "-m32 ${CMAKE_EXE_LINKER_FLAGS}")
 endif()
@@ -121,7 +120,7 @@ function(ctr_native_add_label_warning_if_supported target warning flag_check)
     set(CMAKE_REQUIRED_FLAGS "${saved_required_flags}")
 
     if(${flag_check})
-        target_compile_options(${target} PRIVATE "${warning}")
+        target_compile_options(${target} PRIVATE "$<$<COMPILE_LANGUAGE:C>:${warning}>")
     endif()
 endfunction()
 
@@ -177,7 +176,10 @@ endif()
 add_subdirectory(externals/SDL)
 
 # CTR Native
-add_executable(ctr_native main.c platform/native_build_id.c platform/native_crash_log.c)
+enable_language(CXX)
+add_executable(ctr_native main.c platform/native_build_id.c platform/native_crash_log.c
+    platform/native_fakecrash.cpp)
+target_compile_features(ctr_native PRIVATE cxx_std_17)
 set_target_properties(ctr_native PROPERTIES
     C_STANDARD 17
     C_STANDARD_REQUIRED ON
@@ -255,7 +257,6 @@ set(CTR_CUSTOM_PACKAGE_SOURCES
 
 if(NOT CTR_AP)
     if(CTR_CUSTOM_PACKAGES)
-        enable_language(CXX)
         set(AP_VENDOR ${CMAKE_SOURCE_DIR}/ap/vendor)
         include(${CMAKE_SOURCE_DIR}/cmake/CustomPackageDeps.cmake)
         # The Saphi downloader needs TLS (OpenSSL on Linux, WinHTTP on Windows),
@@ -349,7 +350,6 @@ if(CTR_AP)
     # RTTI / -mbig-obj live. wss:// (TLS) + permessage-deflate compression are
     # enabled: the transport is chosen from the URI scheme at runtime, so plain
     # ws:// (e.g. ws://127.0.0.1) keeps working with no behaviour change.
-    enable_language(CXX)
     set(AP_VENDOR ${CMAKE_SOURCE_DIR}/ap/vendor)
 
     # Reproducible-build gate (issue #78): refuse to configure a vendor tree that

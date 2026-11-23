@@ -12,12 +12,9 @@
 #include <platform/native_assets.h>
 #include <platform/native_config.h>
 #include <platform/native_fs_utf8.h>
-#include <platform/native_path.h>
+#include <platform/native_disc_source.h>
 
 #include "native_voice_map.inc"
-
-#define NATIVE_VOICES_RAW_SECTOR 2352
-#define NATIVE_VOICES_FORM1_OFFSET 24
 
 static const struct
 {
@@ -82,97 +79,6 @@ enum NativeVoicesImport NativeVoices_LastImport(int lang)
 	return s_voiceLastImport[NativeVoices_Clamp(lang)];
 }
 
-// --- Reading a second disc image ------------------------------------------
-// The NTSC-U disc stays mounted (native_disc_image.c); the source disc is read
-// here through its own FILE, with the same ISO 9660 record helpers.
-
-static int NativeVoices_ReadSector(FILE *f, u32 lba, u8 *out)
-{
-	return fseek(f, (long)lba * NATIVE_VOICES_RAW_SECTOR + NATIVE_VOICES_FORM1_OFFSET, SEEK_SET) == 0 &&
-	       fread(out, 1, 2048, f) == 2048;
-}
-
-// Finds name in the directory at (lba, size). Returns 1 with the entry's lba and size.
-static int NativeVoices_FindEntry(FILE *f, u32 lba, u32 size, const char *name, u32 *lbaOut, u32 *sizeOut)
-{
-	u8 sector[2048];
-	for (u32 done = 0; done < size; done += 2048, lba++)
-	{
-		if (!NativeVoices_ReadSector(f, lba, sector))
-			return 0;
-		for (u32 pos = 0; pos + 34 <= 2048 && sector[pos] != 0; pos += sector[pos])
-		{
-			struct NativeDiscImageDirRecord record;
-			if (!NativeDiscImage_ParseDirRecord(&sector[pos], 2048 - pos, &record))
-				break;
-			if (NativeDiscImage_NameEquals(&record, NativeStr8_FromCString(name)))
-			{
-				*lbaOut = record.lba;
-				*sizeOut = record.size;
-				return 1;
-			}
-		}
-	}
-	return 0;
-}
-
-// Resolves "A/B/C" from the root. Returns 1 with the file's lba and size.
-static int NativeVoices_FindPath(FILE *f, const char *path, u32 *lbaOut, u32 *sizeOut)
-{
-	u8 pvd[2048];
-	struct NativeDiscImageDirRecord root;
-	char part[64];
-	if (!NativeVoices_ReadSector(f, 16, pvd) || memcmp(&pvd[1], "CD001", 5) != 0 ||
-	    !NativeDiscImage_ParseDirRecord(&pvd[156], 34, &root))
-		return 0;
-	u32 lba = root.lba, size = root.size;
-	while (*path)
-	{
-		size_t n = strcspn(path, "/");
-		if (n == 0 || n >= sizeof part)
-			return 0;
-		memcpy(part, path, n);
-		part[n] = 0;
-		if (!NativeVoices_FindEntry(f, lba, size, part, &lba, &size))
-			return 0;
-		path += n + (path[n] == '/');
-	}
-	*lbaOut = lba;
-	*sizeOut = size;
-	return 1;
-}
-
-// Opens the first .bin in assets/ whose boot executable is bootName.
-static FILE *NativeVoices_OpenSourceDisc(const char *bootName, char *pathOut, size_t pathOutSize)
-{
-	const char *assetsDir = NativeAssets_GetAssetDir();
-	NativeFsDir *dir = assetsDir ? NativeFs_OpenDir(assetsDir) : NULL;
-	char entry[512];
-	if (dir == NULL)
-		return NULL;
-	while (NativeFs_ReadDir(dir, entry, sizeof entry))
-	{
-		size_t len = strlen(entry);
-		u32 lba, size;
-		if (len < 5 || NativeStr8_ToUpperAscii(entry[len - 3]) != 'B' || NativeStr8_ToUpperAscii(entry[len - 2]) != 'I' ||
-		    NativeStr8_ToUpperAscii(entry[len - 1]) != 'N' || entry[len - 4] != '.')
-			continue;
-		if (!NativePath_Join(pathOut, pathOutSize, NativeStr8_FromCString(assetsDir), NativeStr8_FromCString(entry)))
-			continue;
-		FILE *f = NativeFs_OpenRead(pathOut);
-		if (f == NULL)
-			continue;
-		if (NativeVoices_FindPath(f, bootName, &lba, &size))
-		{
-			NativeFs_CloseDir(dir);
-			return f;
-		}
-		fclose(f);
-	}
-	NativeFs_CloseDir(dir);
-	return NULL;
-}
-
 static const char *NativeVoices_BootName(int lang)
 {
 	return s_voiceLangs[lang].japanese ? "SCPS_101.18" : "SCES_021.05";
@@ -184,7 +90,7 @@ int NativeVoices_HasSourceDisc(int lang)
 	lang = NativeVoices_Clamp(lang);
 	if (lang == NATIVE_VOICES_US)
 		return 1;
-	FILE *f = NativeVoices_OpenSourceDisc(NativeVoices_BootName(lang), path, sizeof path);
+	FILE *f = NativeDiscSource_Open(NativeVoices_BootName(lang), path, sizeof path);
 	if (f != NULL)
 		fclose(f);
 	return f != NULL;
@@ -194,19 +100,19 @@ int NativeVoices_HasSourceDisc(int lang)
 static int NativeVoices_CopyFile(FILE *f, u32 lba, u32 size, int raw, const char *dst)
 {
 	char part[1100];
-	u8 buffer[NATIVE_VOICES_RAW_SECTOR];
+	u8 buffer[NATIVE_DISC_SOURCE_RAW_SECTOR];
 	u32 sectors = (size + 2047) / 2048;
 	snprintf(part, sizeof part, "%s.part", dst);
 	NativeFs_Delete(part);
 	FILE *out = NativeFs_CreateExclusive(part);
 	if (out == NULL)
 		return 0;
-	int ok = fseek(f, (long)lba * NATIVE_VOICES_RAW_SECTOR, SEEK_SET) == 0;
+	int ok = fseek(f, (long)lba * NATIVE_DISC_SOURCE_RAW_SECTOR, SEEK_SET) == 0;
 	for (u32 i = 0; ok && i < sectors; i++)
 	{
-		u32 keep = raw ? NATIVE_VOICES_RAW_SECTOR : (i + 1 < sectors ? 2048 : size - i * 2048);
+		u32 keep = raw ? NATIVE_DISC_SOURCE_RAW_SECTOR : (i + 1 < sectors ? 2048 : size - i * 2048);
 		ok = fread(buffer, 1, sizeof buffer, f) == sizeof buffer &&
-		     fwrite(raw ? buffer : buffer + NATIVE_VOICES_FORM1_OFFSET, 1, keep, out) == keep;
+		     fwrite(raw ? buffer : buffer + NATIVE_DISC_SOURCE_FORM1_OFFSET, 1, keep, out) == keep;
 	}
 	ok = (fclose(out) == 0) && ok;
 	ok = ok && NativeFs_Replace(part, dst);
@@ -248,7 +154,7 @@ static enum NativeVoicesImport NativeVoices_Import(int lang)
 	u32 lba, size;
 	int ok = 1;
 
-	FILE *f = NativeVoices_OpenSourceDisc(boot, discPath, sizeof discPath);
+	FILE *f = NativeDiscSource_Open(boot, discPath, sizeof discPath);
 	if (f == NULL)
 		return NATIVE_VOICES_IMPORT_NO_DISC;
 
@@ -259,14 +165,14 @@ static enum NativeVoicesImport NativeVoices_Import(int lang)
 		for (int n = 0; ok && n < 100; n++)
 		{
 			snprintf(rel, sizeof rel, "XA/%s/%s/S%02d.XA", code, sub, n);
-			if (!NativeVoices_FindPath(f, rel, &lba, &size))
+			if (!NativeDiscSource_FindPath(f, rel, &lba, &size))
 				continue;
 			snprintf(rel, sizeof rel, "%s/S%02d.XA", sub, n);
 			ok = NativeVoices_PackPath(lang, rel, dst, sizeof dst) && NativeVoices_CopyFile(f, lba, size, 1, dst);
 		}
 	}
 	snprintf(rel, sizeof rel, "XA/%s.XNF", code);
-	ok = ok && NativeVoices_FindPath(f, rel, &lba, &size);
+	ok = ok && NativeDiscSource_FindPath(f, rel, &lba, &size);
 	snprintf(rel, sizeof rel, "%s.XNF", code);
 	ok = ok && NativeVoices_PackPath(lang, rel, dst, sizeof dst) && NativeVoices_CopyFile(f, lba, size, 0, dst);
 	fclose(f);

@@ -23,6 +23,18 @@ from ctrdisc import Disc  # noqa: E402
 
 NONE = 0xFFFF
 
+# Both regional manifests list these two clips directly before Ripper Roo's
+# voice set clips. The eight boss lines are referenced by PLAY_XA in overlay
+# 233 on all three discs. NTSC-U 306 and 307 are absent from those scripts
+# and the racer voice sets, so leave them unmapped.
+REGIONAL_GAME_CLIPS = (
+    (190, 160), (191, 161),
+    (304, 256), (305, 257),  # Ripper Roo
+    (308, 258), (309, 259),  # Papu Papu
+    (310, 260), (311, 261),  # Komodo Joe
+    (312, 262), (313, 263),  # Pinstripe
+)
+
 
 def tracks(disc, manifest):
     m = disc.file(manifest)
@@ -109,10 +121,10 @@ def main():
                 extra[k] = k if k <= 61 else k - 2 if 64 <= k <= 82 else NONE
             else:
                 extra[k] = k if k <= 29 else 31 if k == 30 else k + 1 if k <= 60 else 63 if k == 61 else k if 64 <= k <= 82 else NONE
+        for us_id, regional_id in REGIONAL_GAME_CLIPS:
+            assert game[us_id] == NONE and regional_id not in game, (tag, us_id, regional_id)
+            game[us_id] = regional_id
         if tag == "pal":
-            # Clips outside the voice set table that the PAL disc kept.
-            for us_id, pal_id in ((190, 160), (191, 161), (304, 256), (305, 257)) + tuple((308 + i, 258 + i) for i in range(6)):
-                game[us_id] = pal_id
             for cat, table in ((1, extra), (2, game)):
                 for us_id, pal_id in enumerate(table):
                     if pal_id != NONE:

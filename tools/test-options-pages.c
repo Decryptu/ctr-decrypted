@@ -128,7 +128,7 @@ int main(void)
 			"skip_intro", "skip_hints", "race_type_selector", "skip_podium", "skip_cutscenes",
 			"ai_difficulty", "mute_when_unfocused", "device_aware_labels", "camera_far", "hud_speedometer", NULL};
 		static const char *const extras[] = {
-			"character_stats", "penta_stats", "voices", "ai_racers",
+			"character_stats", "penta_stats", "voices", "fakecrash_jp", "ai_racers",
 			"reserves_meter", "reserve_fire", "blue_fire", "slide_meter_colours", "super_pad_colour", "colour_filter", NULL};
 		static const char *const cheats[] = {NULL};
 		static const char *const controls[] = {NULL};
@@ -162,6 +162,7 @@ int main(void)
 	ExpectSection("character_stats", "Extras");
 	ExpectSection("penta_stats", "Extras");
 	ExpectSection("voices", "Extras");
+	EXPECT_TRUE("Fake Crash import is a menu action", !FindConfigEntry("Extras", "fakecrash_jp", NULL));
 	ExpectSection("skip_hints", "Archipelago");
 	ExpectSection("race_type_selector", "Archipelago");
 	ExpectSection("ai_difficulty", "Archipelago");

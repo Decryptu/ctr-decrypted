@@ -61,15 +61,19 @@ void NativeLevelPointers_Note(const char *origin, const int *offsets, int count)
 	record->bits = bits;
 }
 
-int NativeLevelPointers_Query(const void *address)
+int NativeLevelPointers_Query(const void *origin, const void *address)
 {
-	// newest first: a level's old record can still span a newer level's memory
+	const uintptr_t at = (uintptr_t)address;
+	const uintptr_t start = (uintptr_t)origin;
+	if (at < start)
+		return -1;
+
+	// Hub reloads can move the subpacks, leaving a cached map for an older
+	// level whose address range overlaps the current one.
 	for (int i = 0; i < NATIVE_LEVEL_POINTER_RECORDS; i++)
 	{
-		const struct NativeLevelPointerRecord *record = &sRecords[(sNewest + NATIVE_LEVEL_POINTER_RECORDS - i) % NATIVE_LEVEL_POINTER_RECORDS];
-		uintptr_t at = (uintptr_t)address;
-		uintptr_t start = (uintptr_t)record->origin;
-		if (record->bits == NULL || at < start || (at - start) >> 2 >= record->words)
+		const struct NativeLevelPointerRecord *record = &sRecords[i];
+		if (record->origin != origin || record->bits == NULL || (at - start) >> 2 >= record->words)
 		{
 			continue;
 		}

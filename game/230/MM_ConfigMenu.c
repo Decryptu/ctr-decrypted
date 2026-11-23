@@ -8,6 +8,7 @@
 #include <platform/native_controls.h> // the Controls page (MM_ControlsConfig.c)
 #include <platform/native_screen_filter.h> // the Screen Filter row
 #include <platform/native_voices.h> // the Voices row
+#include <platform/native_fakecrash.h>
 #ifdef CTR_AP
 // Platform_InputRawGamepadButtons: physical-pad-only button mask, used by the
 // connection manager's controller commit / cancel (not in common.h's platform set).
@@ -640,6 +641,37 @@ static void Enum_Advance(const ConfigEntry *e)
 // clear of the longest label this menu has.
 #define CFG_STRING_INLINE_MAX 20
 
+static void Config_DrawHelpLines(const char *first, const char *second, uint32_t *ot)
+{
+	DecalFont_DrawLineOT((char *)first, 0x100, 0xB8, FONT_SMALL, JUSTIFY_CENTER | WHITE, ot);
+	DecalFont_DrawLineOT((char *)second, 0x100, 0xC6, FONT_SMALL, JUSTIFY_CENTER | WHITE, ot);
+}
+
+static enum NativeFakeCrashStatus s_fakeCrashStatus;
+static int s_fakeCrashChecked;
+
+static void Config_DrawFakeCrashHelp(uint32_t *ot)
+{
+	switch (s_fakeCrashStatus)
+	{
+	case NATIVE_FAKECRASH_READY:
+		Config_DrawHelpLines("Japanese disc found in assets.", "Confirm to import Fake Crash.", ot);
+		break;
+	case NATIVE_FAKECRASH_INSTALLED:
+		Config_DrawHelpLines("Japanese Fake Crash is in use.", "Applied in menus and races.", ot);
+		break;
+	case NATIVE_FAKECRASH_RESTART:
+		Config_DrawHelpLines("Japanese Fake Crash imported.", "Restart the game to use it.", ot);
+		break;
+	case NATIVE_FAKECRASH_FAILED:
+		Config_DrawHelpLines("Import failed, see the log.", "Check the image, then confirm.", ot);
+		break;
+	case NATIVE_FAKECRASH_NO_DISC:
+		Config_DrawHelpLines("Place your Japanese CTR .bin", "in assets, then confirm.", ot);
+		break;
+	}
+}
+
 #ifdef CTR_AP
 // The Item Box Colours row is the player's opt-out of the seed's item box
 // colours. While a loaded seed has them off, it reads "OFF (SEED)" in grey and
@@ -662,12 +694,6 @@ static int Config_RowLockedBySolo(const ConfigEntry *e)
 static int Config_RowLockedByItem(const ConfigEntry *e)
 {
 	return e->valuePtr == &g_config.itemBoxColours && AP_Boxes_ColourRowState() == AP_BOX_COLOUR_ROW_ITEM_LOCKED;
-}
-
-static void Config_DrawHelpLines(const char *first, const char *second, uint32_t *ot)
-{
-	DecalFont_DrawLineOT((char *)first, 0x100, 0xB8, FONT_SMALL, JUSTIFY_CENTER | WHITE, ot);
-	DecalFont_DrawLineOT((char *)second, 0x100, 0xC6, FONT_SMALL, JUSTIFY_CENTER | WHITE, ot);
 }
 
 // Two help lines under the page for the selected row, in the footer style the
@@ -819,6 +845,21 @@ static void Config_DrawValue(const ConfigEntry *e, const int valueX, int y, uint
 		return;
 	}
 #endif
+	if (e->type == CFG_ACTION)
+	{
+		const char *label = "IMPORT";
+		if (s_fakeCrashStatus == NATIVE_FAKECRASH_NO_DISC)
+			label = "NO DISC";
+		else if (s_fakeCrashStatus == NATIVE_FAKECRASH_FAILED)
+			label = "RETRY";
+		else if (s_fakeCrashStatus == NATIVE_FAKECRASH_INSTALLED)
+			label = "INSTALLED";
+		else if (s_fakeCrashStatus == NATIVE_FAKECRASH_RESTART)
+			label = "RESTART";
+		DecalFont_DrawLineOT((char *)label, valueX, y, FONT_SMALL, JUSTIFY_RIGHT | WHITE, ot);
+		return;
+	}
+
 	if (e->type == CFG_BOOL)
 	{
 		const char *label = *(bool *)e->valuePtr ? "ON" : "OFF";
@@ -867,7 +908,7 @@ static void Config_DrawValue(const ConfigEntry *e, const int valueX, int y, uint
 }
 
 #ifdef CTR_AP
-// ── Archipelago connection manager ──────────────────────────────────────────
+// â”€â”€ Archipelago connection manager â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // The "Connection" section is not a plain toggle/slider group: it has three
 // editable text rows (Server / Slot / Password), a Connect action row, and a
 // read-only status row. It gets its own submenu proc (MM_ConfigProc_Connection)
@@ -1548,6 +1589,7 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 		if (s_currentSection >= 0)
 		{
 			Config_ImportVoices();
+			s_fakeCrashChecked = 0;
 			if (inControls)
 				NativeControls_Save();
 			menu->rowSelected = s_currentSection;
@@ -1684,7 +1726,9 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 				; // no DeathLink in a solo session: nothing to toggle
 			else
 #endif
-			if (e->type == CFG_BOOL)
+			if (e->type == CFG_ACTION)
+				s_fakeCrashStatus = NativeFakeCrash_Import();
+			else if (e->type == CFG_BOOL)
 				*(bool *)e->valuePtr ^= 1;
 			else if (e->type == CFG_ENUM)
 				Enum_Advance(e);
@@ -1749,6 +1793,14 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 		}
 		} // !textBusy
 
+		const ConfigEntry *drawEntry = menu->rowSelected < numRows ? Section_Entry(sec, menu->rowSelected) : NULL;
+		const int onFakeCrash = drawEntry != NULL && drawEntry->type == CFG_ACTION;
+		if (!s_fakeCrashChecked && strcmp(s_sectionName[sec], "Extras") == 0)
+		{
+			s_fakeCrashStatus = NativeFakeCrash_Status();
+			s_fakeCrashChecked = 1;
+		}
+
 		DecalFont_DrawLineOT((char *)s_sectionName[sec],
 			0x100, 0x18, FONT_BIG, JUSTIFY_CENTER | ORANGE, ot);
 
@@ -1782,6 +1834,8 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 				CTR_Box_DrawClearBox(&sel, &sdata->menuRowHighlight_Normal, TRANS_50_DECAL, ot, &GAME_TRACKER->backBuffer->primMem);
 			}
 		}
+		if (onFakeCrash)
+			Config_DrawFakeCrashHelp(ot);
 #ifdef CTR_AP
 		if (linkRow >= 0 && linkRow >= s_configTop && linkRow < s_configTop + CONFIG_PAGE_WINDOW)
 		{
@@ -1817,7 +1871,7 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 #endif
 		else if (menu->rowSelected == linkRow)
 			Config_DrawHelpLines("Which program opens room links.", AP_LinkRegActionHint(), ot);
-		else if (numRows > 0 && menu->rowSelected < numRows)
+		else if (!onFakeCrash && numRows > 0 && menu->rowSelected < numRows)
 			Config_DrawRowHelp(Section_Entry(sec, menu->rowSelected), ot);
 		} // end generic (non-Connection) section
 #elif defined(CTR_CUSTOM_PACKAGES)

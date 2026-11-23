@@ -60,6 +60,7 @@
 #include "platform/native_disc_search.c"
 #include "platform/native_disc_image.c"
 #include "platform/native_assets.c"
+#include "platform/native_disc_source.c"
 #include "platform/native_voices.c"
 #include "platform/native_audio.c"
 #include "platform/native_clip_scratch.c"

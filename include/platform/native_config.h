@@ -259,6 +259,7 @@ typedef enum
 	CFG_BOOL,
 	CFG_INT,
 	CFG_STRING,
+	CFG_ACTION, // menu command, no config value
 	CFG_ENUM   // int value chosen from a fixed ladder; rendered as a name, stepped
 	           // left/right (see the AI-difficulty ladder in game/230/MM_ConfigMenu.c).
 	           // Persists as its raw int value, same as CFG_INT.

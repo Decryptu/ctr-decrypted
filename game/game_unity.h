@@ -458,6 +458,7 @@
 #include "../ap/ap_tracker.c"
 #include "../ap/ap_tracker_launch.c" // #375 tracker pad start
 #include "../ap/ap_fasttravel.c"     // A3-16 hub fast travel (after the tracker: refuses while a start is pending)
+#include "../ap/ap_chat.c"
 #include "../ap/ap_link.c"     // one-click-connect glue (#334 slice 3)
 #include "../ap/ap_update.c"   // signed in-game updater (#301)
 #else

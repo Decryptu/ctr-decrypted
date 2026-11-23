@@ -3,6 +3,7 @@
 #include <macros.h>
 
 #include <platform/native_disc_image.h>
+#include <platform/native_fakecrash.h>
 #include <platform/native_path.h>
 
 #if defined(_WIN32)
@@ -1051,13 +1052,47 @@ int NativeAssets_Validate(void)
 	return ok;
 }
 
-// Japanese Fake Crash (tools/decrypted/extract_fakecrash_jp.py): replacement
-// BIGFILE entries read once from assets/FAKECRASH-JP. All or none are used,
-// since the models and the shared VRM's texels go together.
-internal const int s_fakeCrashJpIndices[] = {216, 256, 258, 259, 274, 290, 306, 322, 346, 362};
-#define NATIVE_ASSETS_FAKECRASH_JP_COUNT ((int)(sizeof(s_fakeCrashJpIndices) / sizeof(s_fakeCrashJpIndices[0])))
-internal struct NativeAssetsByteBuffer s_fakeCrashJp[NATIVE_ASSETS_FAKECRASH_JP_COUNT];
+// Japanese Fake Crash: replacement
+// Read the replacement BIGFILE entries once, from the pack or legacy folder.
+// The models and the shared VRM must come from the same set.
+const int g_fakeCrashIndices[NATIVE_FAKECRASH_COUNT] = {216, 256, 258, 259, 274, 290, 306, 322, 346, 362};
+internal struct NativeAssetsByteBuffer s_fakeCrashJp[NATIVE_FAKECRASH_COUNT];
 internal int s_fakeCrashJpState; // 0 unread, 1 loaded, -1 absent
+
+// The entry views keep the backing pack alive for the session.
+internal int NativeAssets_LoadFakeCrashPack(void)
+{
+	static struct NativeAssetsByteBuffer pack;
+	struct NativeAssetsByteBuffer entries[NATIVE_FAKECRASH_COUNT];
+	const char magic[] = NATIVE_FAKECRASH_MAGIC;
+	size_t pos = sizeof magic - 1;
+
+	if (!NativeAssets_ReadHostBytes(NATIVE_FAKECRASH_PACK, &pack))
+		return 0;
+	if ((size_t)pack.size < pos || memcmp(pack.data, magic, pos) != 0)
+		goto invalid;
+	for (int i = 0; i < NATIVE_FAKECRASH_COUNT; i++)
+	{
+		if ((size_t)pack.size - pos < 4)
+			goto invalid;
+		const u32 size = NativeAssets_ReadLE32(pack.data + pos);
+		pos += 4;
+		if (size == 0 || size > (size_t)pack.size - pos)
+			goto invalid;
+		entries[i].data = pack.data + pos;
+		entries[i].size = size;
+		pos += size;
+	}
+	if (pos != (size_t)pack.size)
+		goto invalid;
+	memcpy(s_fakeCrashJp, entries, sizeof entries);
+	return 1;
+
+invalid:
+	fprintf(stderr, "[CTR Native] Invalid Japanese Fake Crash pack\n");
+	NativeAssets_FreeBytes(&pack);
+	return 0;
+}
 
 internal void NativeAssets_LoadFakeCrashJp(void)
 {
@@ -1065,9 +1100,15 @@ internal void NativeAssets_LoadFakeCrashJp(void)
 	int i;
 
 	s_fakeCrashJpState = -1;
-	for (i = 0; i < NATIVE_ASSETS_FAKECRASH_JP_COUNT; i++)
+	if (NativeAssets_LoadFakeCrashPack())
 	{
-		snprintf(relative, sizeof(relative), "FAKECRASH-JP/%d.BIN", s_fakeCrashJpIndices[i]);
+		s_fakeCrashJpState = 1;
+		fprintf(stderr, "[CTR Native] Using the imported Japanese Fake Crash pack\n");
+		return;
+	}
+	for (i = 0; i < NATIVE_FAKECRASH_COUNT; i++)
+	{
+		snprintf(relative, sizeof(relative), "FAKECRASH-JP/%d.BIN", g_fakeCrashIndices[i]);
 		if (!NativeAssets_ReadHostBytes(relative, &s_fakeCrashJp[i]))
 		{
 			if (i > 0) fprintf(stderr, "[CTR Native] FAKECRASH-JP is incomplete (%s missing); using NTSC-U Fake Crash\n", relative);
@@ -1086,7 +1127,7 @@ const struct NativeAssetsByteBuffer *NativeAssets_BigfileOverride(int subfileInd
 	if (subfileIndex < 216 || subfileIndex > 362) return NULL;
 	if (s_fakeCrashJpState == 0) NativeAssets_LoadFakeCrashJp();
 	if (s_fakeCrashJpState != 1) return NULL;
-	for (i = 0; i < NATIVE_ASSETS_FAKECRASH_JP_COUNT; i++)
-		if (s_fakeCrashJpIndices[i] == subfileIndex) return &s_fakeCrashJp[i];
+	for (i = 0; i < NATIVE_FAKECRASH_COUNT; i++)
+		if (g_fakeCrashIndices[i] == subfileIndex) return &s_fakeCrashJp[i];
 	return NULL;
 }

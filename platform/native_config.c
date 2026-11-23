@@ -150,6 +150,7 @@ const ConfigEntry g_configEntries[] = {
 	// Voice language (CFG_ENUM, enum NativeVoiceLang): PAL and Japanese voices
 	// are imported from the player's own disc image (platform/native_voices.c).
 	{"Extras",      "voices",                   "Voices",                       CFG_ENUM, &g_config.voices, 0, 7, 1},
+	{"Extras",      "fakecrash_jp",             "Japanese Fake Crash",          CFG_ACTION, NULL, 0, 0, 0},
 	{"Extras",      "ai_racers",                "Opponent Roster",              CFG_ENUM, &g_config.aiRacers, 0, 2, 1},
 	{"Extras",      "character_stats",          "Character Select Stats",       CFG_BOOL, &g_config.characterStats, 0, 0, 0},
 	{"Extras",      "reserves_meter",           "Reserves Meter",               CFG_BOOL, &g_config.reservesMeter, 0, 0, 0},
@@ -424,7 +425,7 @@ void NativeConfig_Load(void)
 		for (int i = 0; i < g_numConfigEntries; i++)
 		{
 			const ConfigEntry *e = &g_configEntries[i];
-			if (strcmp(section, e->section) == 0 &&
+			if (e->type != CFG_ACTION && strcmp(section, e->section) == 0 &&
 			    strcmp(key, e->key) == 0)
 			{
 				if (e->type == CFG_BOOL)
@@ -471,7 +472,7 @@ static bool FindConfigEntry(const char *section, const char *key, int *outIndex)
 {
 	for (int i = 0; i < g_numConfigEntries; i++)
 	{
-		if (strcmp(section, g_configEntries[i].section) == 0 &&
+		if (g_configEntries[i].type != CFG_ACTION && strcmp(section, g_configEntries[i].section) == 0 &&
 		    strcmp(key, g_configEntries[i].key) == 0)
 		{
 			if (outIndex)
@@ -537,6 +538,8 @@ void NativeConfig_Save(void)
 		for (int i = 0; i < g_numConfigEntries; i++)
 		{
 			const ConfigEntry *e = &g_configEntries[i];
+			if (e->type == CFG_ACTION)
+				continue;
 			if (lastSection == NULL || strcmp(e->section, lastSection) != 0)
 			{
 				if (lastSection != NULL)
@@ -629,6 +632,8 @@ void NativeConfig_Save(void)
 		if (i < (int)(sizeof(written) / sizeof(written[0])) && written[i])
 			continue;
 		const ConfigEntry *e = &g_configEntries[i];
+		if (e->type == CFG_ACTION)
+			continue;
 		if (lastSection == NULL || strcmp(e->section, lastSection) != 0)
 		{
 			fprintf(f, "\n[%s]\n", e->section);

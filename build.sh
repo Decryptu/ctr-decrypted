@@ -1,12 +1,12 @@
 #!/bin/bash
 # CTR Native Build Script (Linux)
-# Requires gcc-multilib and X11/GL/ALSA dev packages
+# Requires gcc-multilib, g++-multilib and X11/GL/ALSA dev packages
 
 set -e
 
-if ! command -v gcc &>/dev/null; then
-    echo "ERROR: gcc not found"
-    echo "Install: sudo apt install gcc-multilib"
+if ! command -v gcc &>/dev/null || ! command -v g++ &>/dev/null; then
+    echo "ERROR: gcc and g++ are required"
+    echo "Install: sudo apt install gcc-multilib g++-multilib"
     echo "         sudo apt install libx11-dev libxext-dev libgl1-mesa-dev libasound2-dev libudev-dev libdbus-1-dev"
     exit 1
 fi

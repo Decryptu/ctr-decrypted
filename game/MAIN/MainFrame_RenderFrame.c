@@ -1,6 +1,10 @@
 #include <common.h>
 #include <platform/native_draw_distance.h>
 
+#ifdef CTR_AP
+#include "../../ap/ap_chat.h"
+#endif
+
 #if defined(CTR_NATIVE)
 #include <platform/native_gpu.h>
 #endif
@@ -91,6 +95,9 @@ void MainFrame_RenderFrame(struct GameTracker *gGT, struct GamepadSystem *gGamep
 		}
 	}
 
+#ifdef CTR_AP
+	AP_ChatCheckMenu();
+#endif
 	if ((sdata->ptrActiveMenu != 0) || ((gGT->gameMode1 & END_OF_RACE) != 0))
 	{
 		RECTMENU_CollectInput();

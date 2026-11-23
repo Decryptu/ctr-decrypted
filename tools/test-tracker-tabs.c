@@ -84,26 +84,36 @@ static void racers(void)
 static void pause_rows(void)
 {
 	signed char retail[AP_PAUSEROW_KINDS];
-	int retailCount = AP_PauseRow_Build(0, 0, 0, retail), character, tracker, travel;
+	int retailCount = AP_PauseRow_Build(0, 0, 0, 0, retail), character, tracker, travel, chat;
 	EXPECT(retailCount == 4 && retail[0] == AP_PAUSEROW_RESUME && retail[1] == AP_PAUSEROW_HINTS &&
 		retail[2] == AP_PAUSEROW_QUIT && retail[3] == AP_PAUSEROW_OPTIONS, "no AP rows is the retail menu");
 	for (character = 0; character < 2; character++) for (tracker = 0; tracker < 2; tracker++)
-	for (travel = 0; travel < 2; travel++) {
+	for (travel = 0; travel < 2; travel++) for (chat = 0; chat < 2; chat++) {
 		signed char kinds[AP_PAUSEROW_KINDS];
-		int count = AP_PauseRow_Build(character, tracker, travel, kinds), r, at = 0, trackerRow = -1, travelRow = -1;
-		EXPECT(count == 4 + character + tracker + 2 * travel, "live hub adds travel and difficulty rows");
+		int count = AP_PauseRow_Build(character, tracker, travel, chat, kinds), r, at = 0;
+		int trackerRow = -1, travelRow = -1, chatRow = -1;
+		EXPECT(count == 4 + character + tracker + 2 * travel + chat, "all available hub rows are present");
 		for (r = 0; r < count; r++) {
 			EXPECT(AP_PauseRow_Up(AP_PauseRow_Down(r, count), count) == r, "up undoes down");
 			EXPECT(AP_PauseRow_Down(r, count) != r, "no row traps the cursor");
 			if (kinds[r] == AP_PAUSEROW_TRACKER) trackerRow = r;
 			if (kinds[r] == AP_PAUSEROW_TRAVEL) travelRow = r;
+			if (kinds[r] == AP_PAUSEROW_CHAT) chatRow = r;
 		}
 		for (r = 0; r < count; r++) at = AP_PauseRow_Down(at, count);
 		EXPECT(at == 0, "walking down visits every row and wraps to RESUME");
 		EXPECT(tracker ? trackerRow == 1 + character : trackerRow < 0,
 			"TRACKER sits below SELECT CHARACTER, or below RESUME without it");
-		EXPECT(travel ? travelRow == 1 + character + tracker : travelRow < 0,
-			"TRAVEL sits below TRACKER, in the same order without it");
+		EXPECT(chat ? chatRow == 1 + character + tracker : chatRow < 0,
+			"CHAT sits after TRACKER when connected");
+		EXPECT(travel ? travelRow == 1 + character + tracker + chat : travelRow < 0,
+			"TRAVEL sits after optional TRACKER and CHAT rows");
+		if (chat) {
+			signed char withoutChat[AP_PAUSEROW_KINDS];
+			int withoutCount = AP_PauseRow_Build(character, tracker, travel, 0, withoutChat);
+			EXPECT(AP_PauseRow_Carry(kinds, count, chatRow, withoutChat, withoutCount) == 0,
+				"disconnect restores RESUME if chat was highlighted");
+		}
 		if (travel) {
 			EXPECT(kinds[travelRow + 1] == AP_PAUSEROW_DIFFICULTY, "AI DIFFICULTY follows TRAVEL");
 			EXPECT(AP_PauseRow_Carry(kinds, count, travelRow + 1, retail, retailCount) == 0,
@@ -125,7 +135,7 @@ static void pause_rows(void)
 	 * keeps the player on the same kind of row. */
 	{
 		signed char five[AP_PAUSEROW_KINDS], six[AP_PAUSEROW_KINDS];
-		int n5 = AP_PauseRow_Build(1, 0, 0, five), n6 = AP_PauseRow_Build(1, 1, 0, six);
+		int n5 = AP_PauseRow_Build(1, 0, 0, 0, five), n6 = AP_PauseRow_Build(1, 1, 0, 0, six);
 		EXPECT(six[AP_PauseRow_Carry(five, n5, 3, six, n6)] == AP_PAUSEROW_QUIT, "QUIT stays QUIT when TRACKER appears");
 		EXPECT(AP_PauseRow_Carry(six, n6, 1, five, n5) == 1, "SELECT CHARACTER stays selected");
 	}
@@ -135,13 +145,14 @@ static void pause_rows(void)
 	       "the PLAY SOLO label index (#89) is clear of retail strings, the lock bit and TRACKER");
 	{
 		/* Every owned row string resolves to its own label. */
-		const int owned[] = {AP_LNG_TRACKER, AP_LNG_WUMPA_SHOP, AP_LNG_PLAY_SOLO, CTR_LNG_MODS};
+		const int owned[] = {AP_LNG_TRACKER, AP_LNG_WUMPA_SHOP, AP_LNG_PLAY_SOLO, CTR_LNG_MODS,
+			AP_LNG_TRAVEL, AP_LNG_AI_DIFFICULTY, AP_LNG_CHAT};
 		const int n = (int)(sizeof owned / sizeof owned[0]);
 		int distinct = 1;
 		for (int i = 0; i < n; i++)
 			for (int j = i + 1; j < n; j++)
 				distinct &= owned[i] != owned[j];
-		EXPECT(distinct, "TRACKER, WUMPA SHOP, PLAY SOLO and MODS have different label indices");
+		EXPECT(distinct, "every owned pause and title row has a distinct label index");
 	}
 	EXPECT(AP_LNG_TRAVEL > 0x1000 && AP_LNG_TRAVEL < 0x8000 &&
 	       AP_LNG_TRAVEL != AP_LNG_TRACKER && AP_LNG_TRAVEL != AP_LNG_PLAY_SOLO && AP_LNG_TRAVEL != AP_LNG_WUMPA_SHOP,

@@ -3,6 +3,8 @@
 #ifdef CTR_AP
 #include "../../ap/ap_ai_difficulty.h"
 #include "../../ap/ap_pauserow.h"
+#include "../../ap/ap_chat.h"
+#include "../../ap/ap_net.h"
 #include <platform/native_menu.h>
 #include <platform/native_renderer.h>
 
@@ -1624,6 +1626,11 @@ void MainFreeze_MenuPtrDefault(struct RectMenu *menu)
 		AP_TrackerRequestOpen();
 		return;
 	}
+	if (signedStringID == AP_LNG_CHAT)
+	{
+		AP_ChatOpen();
+		return;
+	}
 #endif
 
 #ifdef CTR_AP
@@ -1942,6 +1949,28 @@ void MainFreeze_MenuPtrDefault(struct RectMenu *menu)
 	}
 }
 
+#ifdef CTR_AP
+static void MainFreeze_SetRaceChatRow(struct RectMenu *menu, struct MenuRow *retail,
+                                     struct MenuRow *withChat, int count)
+{
+	if (ap_net_is_connected())
+	{
+		memcpy(withChat, retail, count * sizeof(*retail));
+		withChat[0].rowOnPressUp = (char)count;
+		withChat[count - 1].rowOnPressDown = (char)count;
+		withChat[count] = (struct MenuRow){AP_LNG_CHAT, count - 1, 0, count, count};
+		withChat[count + 1] = (struct MenuRow){.stringIndex = -1};
+		menu->rows = withChat;
+	}
+	else
+	{
+		if (menu->rowSelected >= count)
+			menu->rowSelected = 0;
+		menu->rows = retail;
+	}
+}
+#endif
+
 struct RectMenu *MainFreeze_GetMenuPtr(void)
 {
 	struct GameTracker *gGT = GAME_TRACKER;
@@ -1992,8 +2021,8 @@ struct RectMenu *MainFreeze_GetMenuPtr(void)
 			signed char kinds[AP_PAUSEROW_KINDS];
 			int character = AP_CharSwap_PauseRowLive(), tracker = AP_TrackerAvailable();
 			int travel = AP_FastTravelAvailable();
-			int retailCount = AP_PauseRow_Build(0, 0, 0, retailKinds);
-			int count = AP_PauseRow_Build(character, tracker, travel, kinds);
+			int retailCount = AP_PauseRow_Build(0, 0, 0, 0, retailKinds);
+			int count = AP_PauseRow_Build(character, tracker, travel, ap_net_is_connected(), kinds);
 			int onAp = data.menuAdvHub.rows == &apRowsAdvHub[0];
 
 			if (count != retailCount)
@@ -2007,6 +2036,7 @@ struct RectMenu *MainFreeze_GetMenuPtr(void)
 					s16 string = kinds[r] == AP_PAUSEROW_RESUME      ? LNG_RESUME
 					             : kinds[r] == AP_PAUSEROW_CHARACTER ? LNG_SELECT_CHARACTER
 					             : kinds[r] == AP_PAUSEROW_TRACKER   ? AP_LNG_TRACKER
+					             : kinds[r] == AP_PAUSEROW_CHAT      ? AP_LNG_CHAT
 					             : kinds[r] == AP_PAUSEROW_TRAVEL    ? AP_LNG_TRAVEL
 					             : kinds[r] == AP_PAUSEROW_DIFFICULTY ? AP_LNG_AI_DIFFICULTY
 					             : kinds[r] == AP_PAUSEROW_HINTS     ? (s16)hintString
@@ -2048,9 +2078,19 @@ struct RectMenu *MainFreeze_GetMenuPtr(void)
 	{
 		if ((gameMode & ADVENTURE_CUP) != 0)
 		{
+#ifdef CTR_AP
+			static struct MenuRow cupRows[sizeof data.rowsAdvCup / sizeof data.rowsAdvCup[0] + 1];
+			MainFreeze_SetRaceChatRow(&data.menuAdvCup, data.rowsAdvCup, cupRows,
+			                         sizeof data.rowsAdvCup / sizeof data.rowsAdvCup[0] - 1);
+#endif
 			return &data.menuAdvCup;
 		}
 
+#ifdef CTR_AP
+		static struct MenuRow raceRows[sizeof data.rowsAdvRace / sizeof data.rowsAdvRace[0] + 1];
+		MainFreeze_SetRaceChatRow(&data.menuAdvRace, data.rowsAdvRace, raceRows,
+		                         sizeof data.rowsAdvRace / sizeof data.rowsAdvRace[0] - 1);
+#endif
 		return &data.menuAdvRace;
 	}
 

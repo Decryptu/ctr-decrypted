@@ -5,14 +5,6 @@ Open work only: what is in progress, what is planned, what may come, and what is
 - How to work on the project: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 - What the upstream trackers say: [docs/UPSTREAM-ISSUES.md](docs/UPSTREAM-ISSUES.md).
 
-## Planned
-- Adventure: the Glacier Park tunnel (around `CTR_DEV_WARP=11416,859,9026,986`) draws garbled textures in an Archipelago session after a hub racer swap (Lost Ruins, to Pinstripe). VRAM is intact: the level polygons carry wrong texture references (tpage values like `2ce9`, one CLUT `0258`), so the level's texture layout data in RAM was overwritten. Not reproduced in vanilla or the AP build starting in Lost Ruins as Pinstripe without a swap. The owner's F7 savestate reproduces it on the v1.14.1 exe (`debug/captures/20261121-111546/state.ctrstates`, `CTR_DEV_LOAD_STATE=1300`): find what wrote over the level's texture layouts (the swap's hub reload, AP spawn pools or the item box seats).
-- Dragon Mines lap not counted: cutting tight on the left of the start/finish flag poles skips the lap, so the player drives an extra lap (once logged `final_place=8` in a Gem Cup leg). The owner's F7 is `debug/captures/20261121-112203` (level 1, `CTR_DEV_WARP=-7,189,-1610,2122`, `kart.csv` holds the line). Drive that line in PCSX-Redux retail first: if retail counts the lap, find where the port's lap or checkpoint test differs (the finish trigger's width, or the progress check that refuses a lap).
-- Japanese Fake Crash imported by the game: an Extras row that takes the Japanese `.bin` from `assets`, with the same help lines as Voices ([EXTRAS.md](docs/EXTRAS.md#voices)), instead of running `extract_fakecrash_jp.py` ([CUSTOM_RACERS.md](docs/CUSTOM_RACERS.md)).
-- Japanese voices: match the 12 racer clips outside the voice set tables (NTSC-U 190, 191, 304–313). They play in US English today ([EXTRAS.md](docs/EXTRAS.md#voices)).
-
-- Archipelago chat in game: a text box (from the pause menu, and wherever the client is connected) that sends a line to the room as chat or a `!command` (`!hint`, `!getitem`, `!release`...), with the recent room messages shown above it, so nobody needs the Archipelago Text Client open alongside. It reuses the SDL text input the Connection page already has, and needs an on-screen prompt for the key or button that opens it.
-
 ## Maybe
 - CTR Native Expanded's two-player co-op Adventure. The Archipelago client would need to know about a second player.
 - More multiplayer from CTR Native Expanded: 3P/4P Arcade, eight racers in split screen, full-detail split screen, Oxide Station in multiplayer, race tracks in Battle, ending a race when one racer is left.

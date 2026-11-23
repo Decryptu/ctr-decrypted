@@ -412,6 +412,8 @@ static char *RECTMENU_RowString(int index)
 #ifdef CTR_AP
 	if (index == AP_LNG_TRACKER)
 		return (char *)"TRACKER";
+	if (index == AP_LNG_CHAT)
+		return (char *)"ARCHIPELAGO CHAT";
 	if (index == AP_LNG_TRAVEL)
 		return (char *)"TRAVEL";
 	if (index == AP_LNG_AI_DIFFICULTY)

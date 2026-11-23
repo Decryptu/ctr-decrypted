@@ -9,7 +9,7 @@
 void NativeLevelPointers_Note(const char *origin, const int *offsets, int count);
 
 // 1 when the word at `address` is a pointer, 0 when it is plain data, -1 when
-// no noted level holds that address.
-int NativeLevelPointers_Query(const void *address);
+// the specified level has no map covering that address.
+int NativeLevelPointers_Query(const void *origin, const void *address);
 
 #endif

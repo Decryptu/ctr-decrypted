@@ -575,26 +575,32 @@ static int DrawLevelOvr1P_IsNativeLevelTexturePointer(u32 value)
 #endif
 }
 
-// The mosaic slot's first word: a pointer to a hi-res table, or that slot's own
-// UV and palette. A value alone cannot tell them apart here, as a palette word
-// can equal an address inside the level, so plain data reads as 0 (see
-// NativeLevelPointers_Query).
+// The mosaic slot starts with either a hi-res table pointer or inline UV
+// and palette data. A mapped pointer leads to a table, whose first words
+// need not form a valid TextureLayout.
 static u32 DrawLevelOvr1P_ReadMosaicWord(const struct TextureLayout *texture)
 {
 	const u8 *slot = (const u8 *)texture + 0x24;
 	u32 word = DrawLevelOvr1P_ReadPackedWord(slot);
 #ifdef CTR_NATIVE
-	if ((s32)word > 0 && NativeLevelPointers_Query(slot) == 0)
-	{
-		return 0;
-	}
-#endif
+	int mapped = NativeLevelPointers_Query(GAME_TRACKER->level1, slot);
+	if (mapped == 1)
+		return (word & 3) == 0 && DrawLevelOvr1P_IsNativeLevelSpan(word, sizeof(struct TextureLayout)) ? word : 0;
+	// Keep the legacy fallback when no pointer map covers this address,
+	// for example immediately after loading a checkpoint into a fresh run.
+	return mapped < 0 && DrawLevelOvr1P_IsNativeLevelTexturePointer(word) ? word : 0;
+#else
 	return word;
+#endif
 }
 
-static int DrawLevelOvr1P_TreatAsRetailNegativeTextureWord(u32 value)
+static int DrawLevelOvr1P_MosaicUsesTable(u32 word)
 {
-	return (s32)value < 0 || DrawLevelOvr1P_IsNativeLevelTexturePointer(value);
+#ifdef CTR_NATIVE
+	return word != 0;
+#else
+	return (s32)word < 0;
+#endif
 }
 
 static int DrawLevelOvr1P_IsRetailOtActiveSlotWord(u32 slotWord)
@@ -766,7 +772,7 @@ static struct TextureLayout *DrawLevelOvr1P_GetProjectedMidTexture(const struct 
 		// NOTE(aalhendi): Retail tests this word as signed PS1 data. Pointer-map
 		// rebasing turns valid 0x80xxxxxx hi-texture pointers into positive native
 		// addresses, so keep those on the retail negative path.
-		if (!DrawLevelOvr1P_TreatAsRetailNegativeTextureWord(mosaicWord))
+		if (!DrawLevelOvr1P_MosaicUsesTable(mosaicWord))
 		{
 			texture++;
 		}
@@ -948,19 +954,10 @@ static void DrawLevelOvr1P_PrepareDeepestMosaicUv(const struct DrawLevelOvr1PScr
 
 	u32 mosaicBase = DrawLevelOvr1P_Scratch()->mosaicTextureWord;
 #ifdef CTR_NATIVE
-	// NOTE(aalhendi): Retail uses scratch 0x84 directly. Native can inherit
-	// host-rebased pointer words when a wide slot preserves texture state, so
-	// only dereference values that are valid level texture data.
-	if (mosaicBase == 0 || ((s32)mosaicBase < 0 && !DrawLevelOvr1P_IsNativeLevelTexturePointer(mosaicBase)))
-	{
-		DrawLevelOvr1P_RestoreProjectedUvScratch();
-		return;
-	}
+	if (mosaicBase == 0)
+#else
+	if ((s32)mosaicBase > 0)
 #endif
-	// NOTE(aalhendi): Retail 0x800a8714/0x800aa334 restores saved UV scratch
-	// for positive inline sentinels, but rebased native hi-texture pointers must
-	// still follow PS1's negative-pointer reload path.
-	if ((s32)mosaicBase > 0 && !DrawLevelOvr1P_IsNativeLevelTexturePointer(mosaicBase))
 	{
 		DrawLevelOvr1P_RestoreProjectedUvScratch();
 		return;
@@ -4891,7 +4888,7 @@ static struct TextureLayout *Ovr226_800a3e00_SelectGround4x1SelectorTexture(cons
 		texture++;
 	}
 
-	if ((s32)maxDepth < DrawLevelOvr1P_RenderScratch()->topLevelNearDepthThreshold && !DrawLevelOvr1P_TreatAsRetailNegativeTextureWord(mosaicWord))
+	if ((s32)maxDepth < DrawLevelOvr1P_RenderScratch()->topLevelNearDepthThreshold && !DrawLevelOvr1P_MosaicUsesTable(mosaicWord))
 	{
 		texture++;
 	}
@@ -4934,16 +4931,10 @@ static void Ovr226_800a3f74_PrepareGround4x1DeepestUv(const struct DrawLevelOvr1
 
 	u32 mosaicBase = DrawLevelOvr1P_Scratch()->mosaicTextureWord;
 #ifdef CTR_NATIVE
-	// NOTE(aalhendi): Retail dereferences scratch 0x84 directly. Native can
-	// carry host-rebased level words here, so only follow pointer-shaped
-	// values that belong to level texture data.
-	if (mosaicBase == 0 || ((s32)mosaicBase < 0 && !DrawLevelOvr1P_IsNativeLevelTexturePointer(mosaicBase)))
-	{
-		DrawLevelOvr1P_RestoreProjectedUvScratch();
-		return;
-	}
+	if (mosaicBase == 0)
+#else
+	if ((s32)mosaicBase > 0)
 #endif
-	if ((s32)mosaicBase > 0 && !DrawLevelOvr1P_IsNativeLevelTexturePointer(mosaicBase))
 	{
 		DrawLevelOvr1P_RestoreProjectedUvScratch();
 		return;
@@ -5272,15 +5263,10 @@ static void Ovr226_800a4b54_PrepareGround4x1RenderedDeepestUv(const struct DrawL
 
 	u32 mosaicBase = DrawLevelOvr1P_Scratch()->mosaicTextureWord;
 #ifdef CTR_NATIVE
-	// NOTE(aalhendi): Native keeps this as a data-boundary guard for
-	// host-rebased level texture words; non-native code follows retail.
-	if (mosaicBase == 0 || ((s32)mosaicBase < 0 && !DrawLevelOvr1P_IsNativeLevelTexturePointer(mosaicBase)))
-	{
-		DrawLevelOvr1P_RestoreProjectedUvScratch();
-		return;
-	}
+	if (mosaicBase == 0)
+#else
+	if ((s32)mosaicBase > 0)
 #endif
-	if ((s32)mosaicBase > 0 && !DrawLevelOvr1P_IsNativeLevelTexturePointer(mosaicBase))
 	{
 		DrawLevelOvr1P_RestoreProjectedUvScratch();
 		return;

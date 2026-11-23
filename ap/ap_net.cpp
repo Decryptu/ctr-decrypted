@@ -13,6 +13,7 @@
 
 #include "apclient.hpp" // pulls wswrap + websocketpp + asio + nlohmann/json
 #include "ap_net.h"
+#include "ap_chat.h"
 #include "ap_retry_budget.h" // bounded pre-connect reconnect budget (pure logic)
 #include "ap_received_batch_logic.h"
 #include "ap_seedcfg.h"   // ap_seedcfg_parse_json() -- per-seed slot_data (Phase 2)
@@ -77,6 +78,7 @@ static void ap_fx_store_clear()
 }
 
 #include <deque>
+#include <tuple>
 #include <vector>
 #include <algorithm>
 #include <cctype>
@@ -767,6 +769,73 @@ static const char *kHitGuestNames[CTR_CFG_HIT_TRIGGER_COUNT] = {
 	"N. Tropy",  "Penta Penguin", "Fake Crash", "Nitros Oxide",
 };
 
+struct ChatMessage
+{
+	std::string text;
+	bool highlight;
+};
+
+// All callbacks and menu reads run on the game thread.
+static std::deque<ChatMessage> g_chat;
+static unsigned g_chatNewest;
+static unsigned g_chatRoomRevision;
+static std::tuple<std::string, std::string, int, int> g_chatRoom;
+
+static void ap_chat_clear()
+{
+	g_chat.clear();
+	g_chatNewest = 0;
+	++g_chatRoomRevision;
+}
+
+extern "C" unsigned AP_ChatRoomRevision(void) { return g_chatRoomRevision; }
+extern "C" unsigned AP_ChatNewest(void) { return g_chatNewest; }
+
+extern "C" const char *AP_ChatMessage(unsigned id, int *highlight)
+{
+	const unsigned age = g_chatNewest - id;
+	if (id == 0 || age >= g_chat.size())
+		return nullptr;
+	const ChatMessage &message = g_chat[g_chat.size() - 1 - age];
+	*highlight = message.highlight;
+	return message.text.c_str();
+}
+
+extern "C" int AP_ChatSend(const char *text)
+{
+	const std::string draft = text;
+	return ap_net_is_connected() && draft.size() < AP_CHAT_DRAFT_BYTES &&
+	       draft.find_first_not_of(' ') != std::string::npos && g_ap->Say(draft);
+}
+
+static void ap_chat_receive(const APClient::PrintJSONArgs &args)
+{
+	if (!ap_net_is_connected())
+		return;
+	try
+	{
+		std::string line = g_ap->render_json(args.data);
+		if (line.empty())
+			return;
+		if (line.size() >= AP_CHAT_MESSAGE_BYTES)
+		{
+			size_t end = AP_CHAT_MESSAGE_BYTES - 4;
+			while ((static_cast<unsigned char>(line[end]) & 0xc0) == 0x80)
+				--end;
+			line.resize(end);
+			line += "...";
+		}
+		if (g_chat.size() == AP_CHAT_HISTORY)
+			g_chat.pop_front();
+		g_chat.push_back({std::move(line), args.type == "Chat" || args.type == "ServerChat" || args.type == "Hint"});
+		++g_chatNewest;
+	}
+	catch (const std::logic_error &)
+	{
+		// An invalid player, item or location ID in a print node is display-only.
+	}
+}
+
 extern "C" int ap_net_init(const char *uuid, const char *game, const char *uri)
 {
 	if (g_ap)
@@ -923,6 +992,7 @@ extern "C" int ap_net_init(const char *uuid, const char *game, const char *uri)
 		// items_handling 0b111 = remote items + own world + starting inventory.
 		g_ap->ConnectSlot(g_slot, g_password, 7, {"AP"}, APClient::Version{0, 6, 7});
 	});
+	g_ap->set_print_json_handler(std::function<void(const APClient::PrintJSONArgs &)>(ap_chat_receive));
 	g_ap->set_slot_connected_handler([](const nlohmann::json &slotData) {
 		// ADMISSION FIRST (ticket 05). Clear the accepted latch BEFORE parsing so
 		// the client is never observable as connected while the seed is still
@@ -1014,6 +1084,13 @@ extern "C" int ap_net_init(const char *uuid, const char *game, const char *uri)
 		}
 		g_rejected = false;
 		g_connected = true;
+		const auto chatRoom = std::make_tuple(g_room_endpoint, g_ap->get_seed(),
+			g_ap->get_team_number(), g_ap->get_player_number());
+		if (chatRoom != g_chatRoom)
+		{
+			ap_chat_clear();
+			g_chatRoom = chatRoom;
+		}
 		g_status = AP_NET_STATUS_CONNECTED;
 		g_last_error.clear();
 		// One line per Key-fallback guest, once at connect. Eligibility itself is
@@ -2795,6 +2872,8 @@ extern "C" int ap_net_deathlink_take_dropped(void)
 
 extern "C" void ap_net_shutdown(void)
 {
+	ap_chat_clear();
+	g_chatRoom = {};
 	if (g_ap)
 	{
 		// This closes a live socket and polls it down (wswrap_websocketpp.hpp:

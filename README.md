@@ -56,6 +56,8 @@ CTR-Decrypted/
 
 **3. Connect to your Archipelago room.** The first launch opens a short setup: enter the server address (for example `archipelago.gg:38281`), your slot name and the password, then pick a few options. Change them later in **OPTIONS → Connection**.
 
+In a connected Adventure, pause and choose **Archipelago Chat** to read recent room messages. Use Up and Down to scroll, Cross to type, or Square to start with `!hint` in the message field. Enter or Cross sends the message. Escape or Triangle cancels editing, and Triangle returns to the pause menu. Chat uses the host keyboard or the system on-screen keyboard where available.
+
 ## Making a multiworld
 
 - Each player makes a YAML options file with the [YAML builder](https://decryptu.github.io/ctr-decrypted/builder.html), which always matches the latest release's `ctr.apworld`.

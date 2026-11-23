@@ -70,6 +70,12 @@ public:
 		nlohmann::json value;
 	};
 
+	struct PrintJSONArgs
+	{
+		std::string data;
+		std::string type;
+	};
+
 	// Everything the test needs to observe about outbound traffic.
 	struct Calls
 	{
@@ -87,6 +93,7 @@ public:
 		std::vector<long long> checked_codes;
 		std::vector<std::string> set_keys;
 		std::vector<std::string> get_keys;
+		std::vector<std::string> chat;
 		void reset()
 		{
 			location_checks = location_scouts = data_set = data_get = 0;
@@ -96,6 +103,7 @@ public:
 			checked_codes.clear();
 			set_keys.clear();
 			get_keys.clear();
+			chat.clear();
 		}
 	};
 	Calls calls;
@@ -112,6 +120,7 @@ public:
 	void set_socket_disconnected_handler(std::function<void()> h) { socket_disconnected_ = std::move(h); }
 	void set_socket_error_handler(std::function<void(const std::string &)> h) { socket_error_ = std::move(h); }
 	void set_room_info_handler(std::function<void()> h) { room_info_ = std::move(h); }
+	void set_print_json_handler(std::function<void(const PrintJSONArgs &)> h) { print_json_ = std::move(h); }
 	void set_slot_connected_handler(std::function<void(const nlohmann::json &)> h) { slot_connected_ = std::move(h); }
 	void set_location_info_handler(std::function<void(const std::list<NetworkItem> &)> h) { location_info_ = std::move(h); }
 	void set_slot_refused_handler(std::function<void(const std::list<std::string> &)> h) { slot_refused_ = std::move(h); }
@@ -147,6 +156,8 @@ public:
 	}
 	void LocationScouts(std::list<int64_t>, int) { calls.location_scouts++; }
 	void StatusUpdate(ClientStatus) { calls.status_update++; }
+	bool Say(const std::string &text) { calls.chat.push_back(text); return true; }
+	std::string render_json(const std::string &data) const { return data; }
 	bool Set(const std::string &key, const nlohmann::json &, bool, std::list<DataStorageOperation>)
 	{
 		calls.data_set++;
@@ -213,6 +224,10 @@ public:
 		if (room_info_)
 			room_info_();
 	}
+	void emit_print_json(const std::string &text, const std::string &type)
+	{
+		print_json_({text, type});
+	}
 	void emit_slot_connected(const nlohmann::json &sd)
 	{
 		state_ = State::SLOT_CONNECTED;
@@ -273,6 +288,7 @@ private:
 	std::function<void()> socket_disconnected_;
 	std::function<void(const std::string &)> socket_error_;
 	std::function<void()> room_info_;
+	std::function<void(const PrintJSONArgs &)> print_json_;
 	std::function<void(const nlohmann::json &)> slot_connected_;
 	std::function<void(const std::list<NetworkItem> &)> location_info_;
 	std::function<void(const std::list<std::string> &)> slot_refused_;

@@ -154,6 +154,8 @@ Runs are bit-exact only while nothing depends on where the executable is loaded.
 
 The game is linked without ASLR (`--disable-dynamicbase` on Windows, `-no-pie` on Linux, in `CMakeLists.txt`), so every run of one build loads at the same address. Savestates and input replays store raw pointers and depend on this. A state loads only in the exact build that made it, since any code change moves addresses.
 
+The level renderer uses the active LEV's pointer map to tell a hi-res texture table address from inline UV and palette data. Hub reloads can move the subpacks, so cached pointer maps are matched by LEV base address. If a level's textures look garbled with intact VRAM, check its polygon dump for tpage values above `0x1ff`. A CLUT matching the high half of a rebased address is a clue that a table pointer was drawn as a texture layout.
+
 To check for address dependence, build at two fixed bases and compare races with `CTR_DEV_DRIVER_DUMP` and `driver_diff.py --delta`:
 
 ```sh

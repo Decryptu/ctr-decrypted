@@ -13,6 +13,10 @@
 #define CTR_LNG_SPEED     0x7f04 // Arcade/VS speed class screen title: SPEED
 #define CTR_LNG_CLASSIC   0x7f05 // speed class row: CLASSIC
 #define CTR_LNG_200CC     0x7f06 // speed class row: 200CC
+#define AP_LNG_TRAVEL     0x7f07 // hub pause menu: TRAVEL
+#define AP_LNG_AI_DIFFICULTY 0x7f10
+#define AP_LNG_AI_PRESET     0x7f11 // six consecutive preset labels
+#define AP_LNG_CHAT          0x7f17 // Adventure pause menu: ARCHIPELAGO CHAT
 #define CTR_LNG_LAP_1     0x7f20 // lap count rows "1" to "9": 0x7f20 to 0x7f28
 #define CTR_LNG_LAP_COUNT 9
 

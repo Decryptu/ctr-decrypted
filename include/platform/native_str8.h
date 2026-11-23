@@ -16,7 +16,7 @@ typedef struct NativeStr8
 
 static inline NativeStr8 NativeStr8_FromCString(const char *text)
 {
-	NativeStr8 result = {0};
+	NativeStr8 result = {NULL, 0};
 
 	if (text == NULL)
 	{

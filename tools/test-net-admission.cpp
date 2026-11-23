@@ -191,6 +191,40 @@ static void test_accepted_side_effects(void)
 	ap_net_shutdown();
 }
 
+static void test_room_chat(void)
+{
+	APClient *m = start("2101");
+	if (!m)
+		return;
+	m->emit_print_json("before admission", "Chat");
+	expect(AP_ChatNewest() == 0 && !AP_ChatSend("!hint"), "chat: admission required");
+	room_missing(m, {35025001});
+	m->emit_slot_connected(g_fixture);
+	const unsigned room = AP_ChatRoomRevision();
+	expect(!AP_ChatSend("   "), "chat: blank draft ignored");
+	expect(AP_ChatSend("!hint Crash Cove") && m->calls.chat.size() == 1 &&
+	       m->calls.chat[0] == "!hint Crash Cove", "chat: Say gets exact command");
+
+	for (int i = 0; i < AP_CHAT_HISTORY; i++)
+		m->emit_print_json("room activity", "ItemSend");
+	m->emit_print_json("Harness: Hello", "Chat");
+	int highlight;
+	const char *last = AP_ChatMessage(AP_ChatNewest(), &highlight);
+	expect(last && std::string(last) == "Harness: Hello" && highlight, "chat: renders newest message");
+	expect(AP_ChatMessage(1, &highlight) == nullptr && AP_ChatMessage(2, &highlight) && !highlight,
+	       "chat: evicts oldest message");
+
+	m->emit_socket_disconnected();
+	expect(!AP_ChatSend("draft"), "chat: disconnected send refused");
+	m->emit_slot_connected(g_fixture);
+	expect(AP_ChatRoomRevision() == room && AP_ChatNewest() == AP_CHAT_HISTORY + 1,
+	       "chat: same-room reconnect keeps history");
+	ap_mock_seed() = "other-room";
+	m->emit_slot_connected(g_fixture);
+	expect(AP_ChatRoomRevision() != room && AP_ChatNewest() == 0, "chat: room switch clears history");
+	ap_net_shutdown();
+}
+
 static void test_same_seed_held_flush(void)
 {
 	// Establish the held-check identity for seed 2101 / slot Harness.
@@ -558,6 +592,7 @@ int main(int argc, char **argv)
 
 	test_rejected_zero_side_effects();
 	test_accepted_side_effects();
+	test_room_chat();
 	test_same_seed_held_flush();
 	test_different_seed_discard();
 	test_reconnect_after_refusal();
