@@ -472,6 +472,7 @@ void MM_MenuProc_Main(struct RectMenu *menu)
 		AP_Solo_Shutdown(); // #89: let a solo server save and exit first
 		AP_Net_Shutdown();
 #endif
+		Platform_Shutdown();
 		exit(0);
 
 	default:

@@ -710,9 +710,8 @@ extern "C" int CustomPackage_ScanStore(const char *path, CustomPackageStoreVisit
     return CustomPackage_ScanStoreMatching(path, nullptr, visitor, context, error, errorSize);
 }
 
-extern "C" int CustomPackage_ScanStoreMatching(const char *path, CustomPackageStoreFilter want,
-                                              CustomPackageStoreVisitor visitor, void *context,
-                                              char *error, size_t errorSize)
+static int scan_store(const char *path, CustomPackageStoreFilter want, int (*stop)(void),
+                      CustomPackageStoreVisitor visitor, void *context, char *error, size_t errorSize)
 {
     if (error && errorSize) error[0] = 0;
     try
@@ -724,6 +723,7 @@ extern "C" int CustomPackage_ScanStoreMatching(const char *path, CustomPackageSt
         if (prefix.back() != '/' && prefix.back() != '\\') prefix += '/';
         for (const auto &pin : store.revisions())
         {
+            if (stop && stop()) return 0;
             if (want && !want(pin.c_str(), store_manifest(prefix, pin).get(), context)) continue;
             const CustomPackageStoreEntry entry = scan_entry(prefix, pin);
             visitor(&entry, context);
@@ -735,6 +735,19 @@ extern "C" int CustomPackage_ScanStoreMatching(const char *path, CustomPackageSt
         if (error && errorSize) std::snprintf(error, errorSize, "%s", exception.what());
         return 0;
     }
+}
+
+extern "C" int CustomPackage_ScanStoreMatching(const char *path, CustomPackageStoreFilter want,
+                                              CustomPackageStoreVisitor visitor, void *context,
+                                              char *error, size_t errorSize)
+{
+    return scan_store(path, want, nullptr, visitor, context, error, errorSize);
+}
+
+extern "C" int CustomPackage_ScanStoreInterruptible(const char *path, int (*stop)(void),
+    CustomPackageStoreVisitor visitor, void *context, char *error, size_t errorSize)
+{
+    return scan_store(path, nullptr, stop, visitor, context, error, errorSize);
 }
 
 namespace {

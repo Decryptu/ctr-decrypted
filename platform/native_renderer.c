@@ -3159,7 +3159,7 @@ void NativeRenderer_SetDepthMode(NativeDepthMode mode)
 	// Per program, so set it for whichever program the split bound.
 	if (u_depthPullLoc >= 0)
 	{
-		glUniform1f(u_depthPullLoc, (mode == NATIVE_DEPTH_TEST) ? NATIVE_DEPTH_TOLERANCE : ((mode == NATIVE_DEPTH_WRITE) || (mode == NATIVE_DEPTH_TEST_WRITE)) ? -1.0f : 0.0f);
+		glUniform1f(u_depthPullLoc, (mode == NATIVE_DEPTH_TEST) ? NATIVE_DEPTH_TOLERANCE : (mode != NATIVE_DEPTH_OFF) ? -1.0f : 0.0f);
 	}
 
 	if (s_previousDepthMode == (int)mode)
@@ -3167,6 +3167,8 @@ void NativeRenderer_SetDepthMode(NativeDepthMode mode)
 		return;
 	}
 
+	if (s_previousDepthMode == NATIVE_DEPTH_ONLY)
+		glEnable(GL_STENCIL_TEST);
 	s_previousDepthMode = (int)mode;
 
 	switch (mode)
@@ -3197,6 +3199,13 @@ void NativeRenderer_SetDepthMode(NativeDepthMode mode)
 		glDepthFunc(GL_LEQUAL);
 		glDepthMask(GL_TRUE);
 		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+		break;
+	case NATIVE_DEPTH_ONLY:
+		glDisable(GL_STENCIL_TEST);
+		glEnable(GL_DEPTH_TEST);
+		glDepthFunc(GL_LEQUAL);
+		glDepthMask(GL_TRUE);
+		glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 		break;
 	}
 }

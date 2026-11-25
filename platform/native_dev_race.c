@@ -1589,6 +1589,7 @@ void NativeDev_RaceFrame(void)
 	if (dev->exitAfterRace && ((gGT->gameMode1 & END_OF_RACE) != 0) && (++dev->endFrames >= 60))
 	{
 		NativeDev_RaceShutdown();
+		Platform_Shutdown();
 		exit(0);
 	}
 }

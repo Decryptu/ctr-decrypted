@@ -1687,6 +1687,9 @@ static void TestIniRoundTrip(void)
 	      "keyboard cross came back");
 	Check(NativeControls_GetBinding(reloadedPads[0], NATIVE_CONTROLS_BIND_L2) == SDL_GAMEPAD_BUTTON_DPAD_UP,
 	      "gamepad L2 came back as a button");
+	char label[64];
+	NativeControls_GetBindingLabel(reloadedPads[0], NATIVE_CONTROLS_BIND_L2, label, sizeof(label));
+	Check(strcmp(label, "D-Pad Up") == 0, "display names follow the physical button after rebinding");
 	Check(NativeControls_GetBinding(reloadedPads[0], NATIVE_CONTROLS_BIND_AXIS_LEFT_Y) ==
 	          (SDL_GAMEPAD_AXIS_RIGHTY | NATIVE_CONTROLS_BINDING_FLAG_AXIS),
 	      "gamepad axis came back with its axis flag");
@@ -1831,6 +1834,9 @@ static void TestUnknownNamesKeepDefaults(void)
 	Check(NativeControls_GetBinding(pads[0], NATIVE_CONTROLS_BIND_L2) ==
 	          (SDL_GAMEPAD_AXIS_LEFT_TRIGGER | NATIVE_CONTROLS_BINDING_FLAG_AXIS),
 	      "an axis inversion marker no longer names a control, so the default stands");
+	char label[64];
+	NativeControls_GetBindingLabel(pads[0], NATIVE_CONTROLS_BIND_L2, label, sizeof(label));
+	Check(strcmp(label, "L2") == 0, "the trigger uses the menu label rather than the file token");
 }
 
 static void TestFileRefusesToDisablePlayerOne(void)

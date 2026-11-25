@@ -1411,9 +1411,7 @@ static int s_saphiRefreshBusy, s_saphiLoaded, s_saphiDownloading;
 static char s_saphiMessage[512], s_saphiQuery[CTR_LIBRARY_QUERY_MAX + 1];
 static size_t s_saphiSelection[2];
 
-/* Shared metadata/store projection for Options and Arcade. The UI that starts
-   a worker drains it before leaving; neither screen takes ownership of the
-   other screen's search or selection. */
+/* Shared metadata/store projection for Options and track selection. */
 static void MM_CustomLibrary_Tick(int reload)
 {
     char path[CTR_CT_MANAGER_PATH_MAX];
@@ -1478,7 +1476,7 @@ static void MM_CustomLibrary_Tick(int reload)
                      "Play Solo publication failed: %.170s", publicationError);
     }
 #endif
-    if (s_contentStoreWanted && !s_contentStoreBusy && !s_contentInstallBusy)
+    if (s_contentStoreWanted && !s_contentStoreBusy && !s_contentInstallBusy && !s_saphiDownloading)
     {
         int length = snprintf(path, sizeof path, "%s/tracks/packages", NativeAssets_GetAssetDir());
         s_contentStoreMessage[0] = 0;
@@ -1496,6 +1494,14 @@ static int MM_CustomLibrary_Busy(void)
 }
 
 #include "MM_CustomManager.c"
+
+/* Publish completed work on the game thread even after a menu closes. */
+void MM_CustomContent_PollBackground(void)
+{
+    MM_CustomManager_Poll();
+    if (s_contentLibraryLoaded || s_contentStoreWanted)
+        MM_CustomLibrary_Tick(0);
+}
 #endif // CTR_CUSTOM_PACKAGES
 
 /* CTR_DEV_OPTIONS (game/230/MM_MenuFlow.c): the menu opens on this page. */
@@ -1565,10 +1571,9 @@ static void MM_MenuProc_Config(struct RectMenu *menu)
 	    // Back first closes the restore question or message on the Backups page.
 	    && !MM_Backups_ConsumesBack()
 #ifdef CTR_CUSTOM_PACKAGES
-	    // Drain a package or Saphi worker before leaving; Back first leaves
-	    // the Versions list of one track, the xdelta import screen or a
-	    // track's actions.
-	    && !MM_CustomLibrary_Busy() && !s_saphiVersionTrack && !MM_CustomImport_Active() && !MM_Mods_ConsumesBack()
+	    // Back first closes a Mods subpage that handles its own input.
+	    && (s_currentSection != s_customContentSection ||
+	        (!s_saphiVersionTrack && !MM_CustomImport_Active() && !MM_Mods_ConsumesBack()))
 #if defined(CTR_AP) && !defined(CTR_AP_AUTHORING)
 	    // Back first closes the Install missing content overview (#133 PR 7).
 	    && !MM_CurrentSeed_ConsumesBack(s_currentSection)

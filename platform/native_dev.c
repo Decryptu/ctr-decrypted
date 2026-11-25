@@ -1,6 +1,7 @@
 #include "platform/native_dev.h"
 #include "platform/native_savestate.h"
 #include "platform/native_audio.h"
+#include <platform.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -557,6 +558,7 @@ void NativeDev_EndFrame(void)
 	if (dev->exitFrame > 0 && frame + 1 >= dev->exitFrame)
 	{
 		NativeDev_RaceShutdown();
+		Platform_Shutdown();
 		exit(0);
 	}
 }

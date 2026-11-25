@@ -269,9 +269,8 @@ static int MM_CustomTrackSelect_Tick(void)
     char line[256], label[16];
     if (!MM_CustomTrackSelect_Enabled()) return 0;
 
-    if (!s_arcadePrepareBusy) MM_CustomLibrary_Tick(0);
     MM_ModsPicture_Tick();
-    if (s_arcadeGeneration != s_contentStoreGeneration && !MM_CustomLibrary_Busy())
+    if (s_arcadeGeneration != s_contentStoreGeneration && !s_arcadePrepareBusy && !s_arcadeConfirm)
     {
         /* Copy entries, not the manager's query/Current Seed filter. One row
            per track: the newest revision that can run in this mode, else the
@@ -300,8 +299,8 @@ static int MM_CustomTrackSelect_Tick(void)
             CustomTrackLibrary_Replace(&s_arcadeLibrary, eligible, count);
             MM_CustomTrackSelect_FollowPin();
             free(eligible);
+            s_arcadeGeneration = s_contentStoreGeneration;
         }
-        s_arcadeGeneration = s_contentStoreGeneration;
     }
     /* The frame that ends the entry belongs to it too: its Cross or Triangle
        must not also pick a track or leave the page. */
@@ -348,8 +347,6 @@ static int MM_CustomTrackSelect_Tick(void)
             snprintf(line, sizeof line, "Page 1/%u", (unsigned)pages);
             DecalFont_DrawLineOT(line, 394, 190, FONT_SMALL, JUSTIFY_CENTER | WHITE, ot);
         }
-        /* Drain an in-flight store scan before leaving this menu. */
-        if (MM_CustomLibrary_Busy()) RECTMENU_ClearInput();
         return 0;
     }
 
@@ -398,14 +395,14 @@ static int MM_CustomTrackSelect_Tick(void)
             MM_CustomLibrary_Tick(1);
             s_arcadeMessage[0] = 0;
         }
-        if (!MM_CustomLibrary_Busy() && (tapped & (BTN_TRIANGLE | BTN_START)))
+        entry = rows ? CustomTrackLibrary_Row(&s_arcadeLibrary, first + row) : NULL;
+        if (tapped & (BTN_TRIANGLE | BTN_START))
         {
             D230.trackSelect.transition.startAfterExit = 0;
             D230.trackSelect.transition.state = EXITING_MENU;
             OtherFX_Play(2, 1);
         }
-        entry = rows ? CustomTrackLibrary_Row(&s_arcadeLibrary, first + row) : NULL;
-        if (entry && !MM_CustomLibrary_Busy() && (tapped & (BTN_CROSS_one | BTN_CIRCLE)))
+        else if (entry && (tapped & (BTN_CROSS_one | BTN_CIRCLE)))
         {
             char why[260];
             if (!MM_CustomTrackSelect_Eligible(entry, why, sizeof why))

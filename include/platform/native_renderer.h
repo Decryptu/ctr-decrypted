@@ -71,6 +71,7 @@ typedef enum
 	NATIVE_DEPTH_WRITE, // ordering table order, writing depth
 	NATIVE_DEPTH_TEST,  // test with tolerance, without writing depth
 	NATIVE_DEPTH_TEST_WRITE, // test and write true depth
+	NATIVE_DEPTH_ONLY, // test and write true depth without colour or stencil
 } NativeDepthMode;
 void NativeRenderer_SetDepthMode(NativeDepthMode mode);
 void NativeRenderer_SetOffscreenState(const RECT16 *offscreenRect, int enable);

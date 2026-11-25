@@ -294,7 +294,11 @@ there first.
   every directory whose name is a lowercase 64-hex pin, and ignores staging and
   unrelated names. Damaged entries stay visible with their reason. The result
   replaces the library in one step (`platform/native_custom_track_library.c:
-  CustomTrackLibrary_ApplyStore`).
+  CustomTrackLibrary_ApplyStore`). The game loop consumes finished jobs even
+  after leaving Mods or the track selector. The selector keeps its current list
+  and controls during a rescan. A Ready track's pinned package can be acquired
+  while the scanner verifies other entries. On quit, the scanner stops between
+  revisions and package jobs finish before the C++ runtime tears down.
 - **Library.** `struct CustomTrackLibrary` is a UI projection only: title,
   version, author, supported modes and the reason a mode is refused. It never
   authorises a load; the offline loader re-acquires the pinned directory

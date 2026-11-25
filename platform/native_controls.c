@@ -478,6 +478,42 @@ enum NativeControlsNameStyle
 	NATIVE_CONTROLS_NAME_DISPLAY,
 };
 
+static const char *NativeControls_GamepadDisplayName(s32 value)
+{
+	const int index = value & ~NATIVE_CONTROLS_BINDING_FLAG_MASK;
+	if (value & NATIVE_CONTROLS_BINDING_FLAG_AXIS)
+	{
+		switch (index)
+		{
+		case SDL_GAMEPAD_AXIS_LEFT_TRIGGER: return "L2";
+		case SDL_GAMEPAD_AXIS_RIGHT_TRIGGER: return "R2";
+		case SDL_GAMEPAD_AXIS_LEFTX: return "Left Stick X";
+		case SDL_GAMEPAD_AXIS_LEFTY: return "Left Stick Y";
+		case SDL_GAMEPAD_AXIS_RIGHTX: return "Right Stick X";
+		case SDL_GAMEPAD_AXIS_RIGHTY: return "Right Stick Y";
+		default: return NULL;
+		}
+	}
+	switch (index)
+	{
+	case SDL_GAMEPAD_BUTTON_SOUTH: return "*";
+	case SDL_GAMEPAD_BUTTON_EAST: return "@";
+	case SDL_GAMEPAD_BUTTON_WEST: return "[";
+	case SDL_GAMEPAD_BUTTON_NORTH: return "^";
+	case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER: return "L1";
+	case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER: return "R1";
+	case SDL_GAMEPAD_BUTTON_LEFT_STICK: return "L3";
+	case SDL_GAMEPAD_BUTTON_RIGHT_STICK: return "R3";
+	case SDL_GAMEPAD_BUTTON_DPAD_UP: return "D-Pad Up";
+	case SDL_GAMEPAD_BUTTON_DPAD_DOWN: return "D-Pad Down";
+	case SDL_GAMEPAD_BUTTON_DPAD_LEFT: return "D-Pad Left";
+	case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: return "D-Pad Right";
+	case SDL_GAMEPAD_BUTTON_BACK: return "Select";
+	case SDL_GAMEPAD_BUTTON_START: return "Start";
+	default: return NULL;
+	}
+}
+
 // The axis flag is not part of the control index, so it comes off before the value is
 // used as one.
 internal void NativeControls_BindingToText(int kind, s32 value, char *dst, size_t dstSize,
@@ -1431,8 +1467,36 @@ void NativeControls_GetBindingLabel(int device, int binding, char *dst, size_t d
 		return;
 	}
 
-	NativeControls_BindingToText(s_devices[device].kind, NativeControls_GetBinding(device, binding), dst, dstSize,
-	                             NATIVE_CONTROLS_NAME_DISPLAY);
+	const int kind = s_devices[device].kind;
+	const s32 value = NativeControls_GetBinding(device, binding);
+	if (kind == NATIVE_CONTROLS_DEVICE_GAMEPAD && value >= 0)
+	{
+		const char *name = NativeControls_GamepadDisplayName(value);
+		if (value >= SDL_GAMEPAD_BUTTON_SOUTH && value <= SDL_GAMEPAD_BUTTON_NORTH)
+		{
+			SDL_Gamepad *pad = NativeControls_GetGamepadHandle(device);
+			const SDL_GamepadButtonLabel label = pad ? SDL_GetGamepadButtonLabel(pad, (SDL_GamepadButton)value)
+			                                        : SDL_GAMEPAD_BUTTON_LABEL_UNKNOWN;
+			switch (label)
+			{
+			case SDL_GAMEPAD_BUTTON_LABEL_A: name = "A"; break;
+			case SDL_GAMEPAD_BUTTON_LABEL_B: name = "B"; break;
+			case SDL_GAMEPAD_BUTTON_LABEL_X: name = "X"; break;
+			case SDL_GAMEPAD_BUTTON_LABEL_Y: name = "Y"; break;
+			case SDL_GAMEPAD_BUTTON_LABEL_CROSS: name = "*"; break;
+			case SDL_GAMEPAD_BUTTON_LABEL_CIRCLE: name = "@"; break;
+			case SDL_GAMEPAD_BUTTON_LABEL_SQUARE: name = "["; break;
+			case SDL_GAMEPAD_BUTTON_LABEL_TRIANGLE: name = "^"; break;
+			default: break;
+			}
+		}
+		if (name)
+		{
+			snprintf(dst, dstSize, "%s", name);
+			return;
+		}
+	}
+	NativeControls_BindingToText(kind, value, dst, dstSize, NATIVE_CONTROLS_NAME_DISPLAY);
 }
 
 void NativeControls_SetBinding(int device, int binding, s32 value)

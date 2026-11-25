@@ -154,6 +154,9 @@ typedef int (*CustomPackageStoreFilter)(const char *pin, const struct CustomPack
 int CustomPackage_ScanStoreMatching(const char *store, CustomPackageStoreFilter want,
                                     CustomPackageStoreVisitor visitor, void *context,
                                     char *error, size_t errorSize);
+/* Stop between revisions; the caller discards the partial result. */
+int CustomPackage_ScanStoreInterruptible(const char *store, int (*stop)(void),
+    CustomPackageStoreVisitor visitor, void *context, char *error, size_t errorSize);
 /* Resolve one verified installed revision by its exact seed pins. Both paths
    always come from the same acquired package; the caller rechecks them when
    arming the race. Returns 1 when found, 0 when absent or on scan failure. */
@@ -178,6 +181,8 @@ struct CustomTrackLibrary;
 int CustomPackage_StartStoreScan(const char *store);
 /* -1 idle, 0 running, 1 applied, -2 failed (old library retained). */
 int CustomPackage_PollStoreScan(struct CustomTrackLibrary *library, char *error, size_t errorSize);
+/* Stop scanning and join package workers before process teardown. */
+void CustomPackage_FinishJobs(void);
 /* Delete assets/tracks/packages/<pin>. 1 removed, 0 refused with error. */
 int CustomPackage_RemoveInstalled(const char *assets, const char *pin, char *error, size_t errorSize);
 /* Built-in packages (platform/native_custom_builtin.cpp): put the tracks the

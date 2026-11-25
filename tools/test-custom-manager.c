@@ -18,7 +18,7 @@ struct Data data;
 #define CONN_PAD_COMMIT (RAW_BTN_CROSS | RAW_BTN_CIRCLE)
 #define CONN_PAD_CANCEL (RAW_BTN_TRIANGLE | RAW_BTN_START)
 static struct CustomTrackLibrary s_contentLibrary;
-static int s_contentLibraryTab, s_contentSearchEditing, s_contentSearchPadPrev, s_contentStoreWanted;
+static int s_contentLibraryLoaded, s_contentLibraryTab, s_contentSearchEditing, s_contentSearchPadPrev, s_contentStoreWanted;
 static int s_modsSeed, s_modsFromTitle, s_modsRacers;
 static unsigned int s_contentStoreGeneration;
 /* MM_ConfigMenu.c and 230.c, around the manager in the game. */
@@ -134,7 +134,7 @@ int ap_custom_track_download_busy(char *text, int size)
 { if (text && size > 0) snprintf(text, size, "%s", saphiBusy ? "Project Saphi is busy, waiting 60s" : ""); return saphiBusy; }
 #include "../platform/native_mods_off.c"
 #include "../game/230/MM_CustomManager.c"
-static void tick(int buttons) { struct GamepadBuffer pad={0};pad.buttonsTapped=buttons;drawn[0]=0;MM_ConfigProc_CustomContent(NULL,NULL,&pad); }
+static void tick(int buttons) { struct GamepadBuffer pad={0};pad.buttonsTapped=buttons;drawn[0]=0;MM_CustomManager_Poll();MM_ConfigProc_CustomContent(NULL,NULL,&pad); }
 int main(void)
 {
  static struct GameTracker gt; static struct DB db;

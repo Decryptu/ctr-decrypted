@@ -137,6 +137,7 @@ static void MM_Backups_Restart(void)
 #ifdef CTR_AP
 		AP_Net_Shutdown();
 #endif
+		Platform_Shutdown();
 		exit(0);
 	}
 	s_bkMessage = "The game could not start again by itself. Quit and start it again to load the backup.";

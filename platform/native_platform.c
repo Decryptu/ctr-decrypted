@@ -14,6 +14,9 @@
 #include "platform/native_dev.h"
 #include "platform/native_replay_scheduler.h"
 #include "platform/native_savestate.h"
+#ifdef CTR_CUSTOM_PACKAGES
+#include <platform/native_custom_package.h>
+#endif
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
@@ -164,9 +167,7 @@ internal void Platform_ExitClean(void)
 {
 	NativeRenderer_CaptureWindowGeometry();
 	NativeConfig_Save();
-#ifdef CTR_AP
-	AP_Solo_Shutdown(); // #89: let a solo server save and exit
-#endif
+	Platform_Shutdown();
 	exit(0);
 }
 
@@ -352,7 +353,11 @@ void Platform_Shutdown(void)
 	}
 
 	s_platformInitialized = 0;
+#ifdef CTR_CUSTOM_PACKAGES
+	CustomPackage_FinishJobs();
+#endif
 #ifdef CTR_AP
+	AP_Solo_Shutdown(); // Finish publication and let a solo server save and exit.
 	AP_ShutdownFiles(); // last queued ap-state.json snapshot reaches the disk
 	AP_Discord_Shutdown(); // clear the Discord activity (no-op if never enabled)
 #endif

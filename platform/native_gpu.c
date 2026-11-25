@@ -92,6 +92,8 @@ typedef struct
 	NativeDepthMode depthMode;
 	bool level;        // the level's own polygons
 	bool levelBlended; // a depth-tested level's translucent ones, drawn after its last level split
+	bool levelDepthPrepass;
+	bool worldInstance;
 
 	int startVertex;
 	int numVerts;
@@ -101,9 +103,9 @@ typedef struct
 
 #define MAX_DRAW_SPLITS 4096
 // Runs of primitives per frame: two water buckets for each of up to four
-// viewports, each viewport's near-plane clipped faces, or a converted track's
-// movers, one run per instance drawn (adjacent ones merge).
-#define NATIVE_GPU_MAX_LEVEL_RUNS 128
+// viewports, each viewport's near-plane clipped faces, or 3D instances,
+// one run per instance drawn (adjacent ones merge).
+#define NATIVE_GPU_MAX_LEVEL_RUNS 512
 
 // Runs the level renderer reports in the frame whose level range was cleared
 // last, per double buffer; adjacent runs merge.
@@ -145,11 +147,16 @@ typedef struct
 	bool levelWater;
 	bool levelClipped;
 	bool levelDepthTested; // NativeGpu_SetLevelDepthTested
+	bool characterPreviewPrim;
+	bool worldInstancePrim;
 	int levelRunDb;
 	NativeGpuLevelRuns water;
 	NativeGpuLevelRuns clipped;
+	NativeGpuLevelRuns characterPreviews;
 	// NativeGpu_AddMoverRange, by the instance's depth shift: 0, 2 (near), -2 (DRAW_HUGE)
 	NativeGpuLevelRuns movers[3];
+	// NativeGpu_AddWorldInstanceRange, by the instance's depth shift: 0, 2 (near), -2 (DRAW_HUGE)
+	NativeGpuLevelRuns worldInstances[3];
 
 	// Slack past the uploaded capacity takes the writes of a primitive that
 	// does not fit; ParsePrimitive then drops it (see the budget header).
@@ -225,15 +232,17 @@ void NativeGpu_SetLevelPrimRange(int db, const void *start, const void *end)
 	s_gpu.levelPrimStart[db] = (const u8 *)start;
 	s_gpu.levelPrimEnd[db] = (const u8 *)end;
 
-	// The arena reset: this frame's water, clipped and mover runs follow.
+	// The arena reset: this frame's primitive runs follow.
 	if (start == NULL)
 	{
 		s_gpu.levelRunDb = db;
 		s_gpu.water.count[db] = 0;
 		s_gpu.clipped.count[db] = 0;
+		s_gpu.characterPreviews.count[db] = 0;
 		for (int i = 0; i < 3; i++)
 		{
 			s_gpu.movers[i].count[db] = 0;
+			s_gpu.worldInstances[i].count[db] = 0;
 		}
 	}
 }
@@ -297,6 +306,11 @@ void NativeGpu_AddLevelClippedRange(const void *start, const void *end)
 	NativeGpu_AddLevelRun(&s_gpu.clipped, start, end);
 }
 
+void NativeGpu_AddCharacterPreviewRange(const void *start, const void *end)
+{
+	NativeGpu_AddLevelRun(&s_gpu.characterPreviews, start, end);
+}
+
 internal int NativeGpu_MoverRunsOfShift(int depthShift)
 {
 	return (depthShift > 0) ? 1 : (depthShift < 0) ? 2 : 0;
@@ -305,6 +319,11 @@ internal int NativeGpu_MoverRunsOfShift(int depthShift)
 void NativeGpu_AddMoverRange(const void *start, const void *end, int depthShift)
 {
 	NativeGpu_AddLevelRun(&s_gpu.movers[NativeGpu_MoverRunsOfShift(depthShift)], start, end);
+}
+
+void NativeGpu_AddWorldInstanceRange(const void *start, const void *end, int depthShift)
+{
+	NativeGpu_AddLevelRun(&s_gpu.worldInstances[NativeGpu_MoverRunsOfShift(depthShift)], start, end);
 }
 
 // What a mover primitive's depths are multiplied by to be the level's, or 0 when
@@ -320,6 +339,22 @@ internal float NativeGpu_MoverDepthScale(const u8 *packet)
 	for (int i = 0; i < 3; i++)
 	{
 		if (NativeGpu_InLevelRun(&s_gpu.movers[i], packet))
+		{
+			return scale[i];
+		}
+	}
+	return 0.0f;
+}
+
+// What a 3D world instance's depths are multiplied by to be in world units,
+// or 0 when the packet is not a tracked world instance.
+internal float NativeGpu_WorldInstanceDepthScale(const u8 *packet)
+{
+	static const float scale[3] = {1.0f, 0.25f, 4.0f};
+
+	for (int i = 0; i < 3; i++)
+	{
+		if (NativeGpu_InLevelRun(&s_gpu.worldInstances[i], packet))
 		{
 			return scale[i];
 		}
@@ -349,9 +384,9 @@ internal bool NativeGpu_IsLevelPrim(const u8 *packet)
 // sorts whole blocks, so a distant face can otherwise paint over a nearer one.
 // Water tests without writing. Other retail translucency keeps its blend order
 // because some art depends on it (for example the cave walls in Adventure).
-internal NativeDepthMode NativeGpu_LevelDepthMode(void)
+internal NativeDepthMode NativeGpu_PrimDepthMode(void)
 {
-	if (!s_gpu.levelPrim || !NATIVE_PGXP_TEXTURES_ACTIVE() || NativeDev_NoLevelDepth())
+	if ((!s_gpu.levelPrim && !s_gpu.worldInstancePrim && !s_gpu.characterPreviewPrim) || !NATIVE_PGXP_TEXTURES_ACTIVE() || NativeDev_NoLevelDepth())
 	{
 		return NATIVE_DEPTH_OFF;
 	}
@@ -379,7 +414,8 @@ internal void NativeGpu_KeepDepthlessPolygonInOrder(void)
 	curSplit->numVerts = s_gpu.vertexIndex - curSplit->startVertex;
 	GPUDrawSplit *split = &s_gpu.splits[++s_gpu.splitIndex];
 	*split = *curSplit;
-	split->depthMode = s_gpu.levelDepthTested ? NATIVE_DEPTH_WRITE : NATIVE_DEPTH_OFF;
+	split->depthMode = (s_gpu.levelPrim && s_gpu.levelDepthTested) ? NATIVE_DEPTH_WRITE : NATIVE_DEPTH_OFF;
+	split->levelDepthPrepass = false;
 	split->startVertex = s_gpu.vertexIndex;
 	split->numVerts = 0;
 }
@@ -670,7 +706,7 @@ void MakeVertexTriangle(GrVertex *vertex, VERTTYPE *p0, VERTTYPE *p1, VERTTYPE *
 
 	vertex[2].x = p2[0] + ofsX;
 	vertex[2].y = p2[1] + ofsY;
-	if (NATIVE_PGXP_GEOMETRY_ACTIVE() || (textured && NATIVE_PGXP_TEXTURES_ACTIVE()))
+	if (NATIVE_PGXP_GEOMETRY_ACTIVE() || ((textured || s_gpu.levelPrim || s_gpu.worldInstancePrim || s_gpu.characterPreviewPrim) && NATIVE_PGXP_TEXTURES_ACTIVE()))
 	{
 		VERTTYPE *points[3] = {p0, p1, p2};
 		NativeGpu_ApplyPgxp(vertex, points, 3, ofsX, ofsY);
@@ -700,7 +736,7 @@ void MakeVertexQuad(GrVertex *vertex, VERTTYPE *p0, VERTTYPE *p1, VERTTYPE *p2, 
 
 	vertex[3].x = p3[0] + ofsX;
 	vertex[3].y = p3[1] + ofsY;
-	if (NATIVE_PGXP_GEOMETRY_ACTIVE() || (textured && NATIVE_PGXP_TEXTURES_ACTIVE()))
+	if (NATIVE_PGXP_GEOMETRY_ACTIVE() || ((textured || s_gpu.levelPrim || s_gpu.worldInstancePrim || s_gpu.characterPreviewPrim) && NATIVE_PGXP_TEXTURES_ACTIVE()))
 	{
 		VERTTYPE *points[4] = {p0, p1, p2, p3};
 		NativeGpu_ApplyPgxp(vertex, points, 4, ofsX, ofsY);
@@ -1414,7 +1450,7 @@ internal void AddSplit(bool semiTrans, bool textured, bool framebufferFeedback)
 	bool apSideload = textured && (nativeTag != 0) && (nativeTag != NATIVE_TPAGE_RACER_BANK) && sideloadTexture != 0;
 
 	// A depth-tested level is a converted one. Its faces' blend bit (see
-	// NativeGpu_LevelDepthMode) would cost each polygon a split of its own and a
+	// NativeGpu_PrimDepthMode) would cost each polygon a split of its own and a
 	// second draw, so only a surface that blends keeps it: tools/tracks/lev_patch.py
 	// gives the others blend mode 3.
 	if (s_gpu.levelPrim && s_gpu.levelDepthTested && (((tpage >> 5) & 3) == 3))
@@ -1450,20 +1486,22 @@ internal void AddSplit(bool semiTrans, bool textured, bool framebufferFeedback)
 	// floor showed through and flickered as the camera moved. It tests without
 	// writing, after the level's solid polygons (DrawPendingSplits).
 	const bool levelBlended = s_gpu.levelPrim && s_gpu.levelDepthTested && semiTrans && !s_gpu.levelWater;
-	NativeDepthMode depthMode = NativeGpu_LevelDepthMode();
+	NativeDepthMode depthMode = NativeGpu_PrimDepthMode();
 	if (levelBlended && (depthMode == NATIVE_DEPTH_TEST_WRITE))
 	{
 		depthMode = NATIVE_DEPTH_TEST;
 	}
 	else if (semiTrans && !psxTexturedSemiTrans && (depthMode == NATIVE_DEPTH_TEST_WRITE))
 	{
-		depthMode = NATIVE_DEPTH_OFF;
+		depthMode = s_gpu.worldInstancePrim ? NATIVE_DEPTH_TEST : NATIVE_DEPTH_OFF;
 	}
+	const bool levelDepthPrepass = (s_gpu.levelPrim || s_gpu.worldInstancePrim) && !s_gpu.levelDepthTested &&
+	                               depthMode == NATIVE_DEPTH_TEST_WRITE && activeDrawEnv.dfe;
 
 	// FIXME: compare drawing environment too?
 	if (!psxTexturedSemiTrans && curSplit->blendMode == blendMode && curSplit->texFormat == texFormat && curSplit->textureId == textureId &&
 	    curSplit->drawPrimMode == s_gpu.drawPrimMode && curSplit->psxTexturedSemiTrans == psxTexturedSemiTrans &&
-	    curSplit->psxTextureOutputSTP == psxTextureOutputSTP && curSplit->psxDrawMaskSet == s_gpu.psxDrawMaskSet && curSplit->depthMode == depthMode && curSplit->levelBlended == levelBlended && curSplit->level == s_gpu.levelPrim &&
+	    curSplit->psxTextureOutputSTP == psxTextureOutputSTP && curSplit->psxDrawMaskSet == s_gpu.psxDrawMaskSet && curSplit->depthMode == depthMode && curSplit->levelBlended == levelBlended && curSplit->level == s_gpu.levelPrim && curSplit->levelDepthPrepass == levelDepthPrepass && curSplit->worldInstance == s_gpu.worldInstancePrim &&
 	    curSplit->drawenv.clip.x == activeDrawEnv.clip.x && curSplit->drawenv.clip.y == activeDrawEnv.clip.y &&
 	    curSplit->drawenv.clip.w == activeDrawEnv.clip.w && curSplit->drawenv.clip.h == activeDrawEnv.clip.h && curSplit->drawenv.dfe == activeDrawEnv.dfe &&
 	    curSplit->debugText == s_gpu.currentSplitDebugText)
@@ -1489,6 +1527,8 @@ internal void AddSplit(bool semiTrans, bool textured, bool framebufferFeedback)
 	split->depthMode = depthMode;
 	split->level = s_gpu.levelPrim;
 	split->levelBlended = levelBlended && (depthMode == NATIVE_DEPTH_TEST);
+	split->levelDepthPrepass = levelDepthPrepass;
+	split->worldInstance = s_gpu.worldInstancePrim;
 	split->drawenv = activeDrawEnv;
 	split->dispenv = activeDispEnv;
 	split->debugText = s_gpu.currentSplitDebugText;
@@ -1508,7 +1548,7 @@ internal void AddSplit(bool semiTrans, bool textured, bool framebufferFeedback)
 	split->numVerts = 0;
 }
 
-void DrawSplit(const GPUDrawSplit *split)
+static void DrawSplit(const GPUDrawSplit *split, bool depthOnly)
 {
 	if (split->debugText)
 	{
@@ -1546,9 +1586,15 @@ void DrawSplit(const GPUDrawSplit *split)
 	NativeRenderer_SetOffscreenState(&split->drawenv.clip, !drawOnScreen);
 	NativeRenderer_SetProjection(&split->drawenv.clip, &split->dispenv, !drawOnScreen);
 
-	NativeRenderer_SetDepthMode(split->depthMode);
-
-	if (split->psxTexturedSemiTrans)
+	const NativeDepthMode depth = depthOnly ? NATIVE_DEPTH_ONLY : split->levelDepthPrepass ? NATIVE_DEPTH_TEST : split->depthMode;
+	NativeRenderer_SetDepthMode(depth);
+	if (depthOnly)
+	{
+		NativeRenderer_SetBlendMode(BM_NONE);
+		NativeRenderer_SetPSXTextureSemiTransPass(split->psxTexturedSemiTrans ? 1 : 0);
+		NativeRenderer_DrawTriangles(split->startVertex, split->numVerts / 3);
+	}
+	else if (split->psxTexturedSemiTrans)
 	{
 		// NOTE(aalhendi): CTR native renderer divergence from upstream PsyCross.
 		// PS1 textured ABE only blends texels whose sampled 16-bit color has STP
@@ -1562,7 +1608,7 @@ void DrawSplit(const GPUDrawSplit *split)
 		// face. Only the opaque pass contributes to the depth buffer.
 		if (split->depthMode == NATIVE_DEPTH_TEST_WRITE)
 		{
-			NativeRenderer_SetDepthMode(NATIVE_DEPTH_OFF);
+			NativeRenderer_SetDepthMode(split->worldInstance ? NATIVE_DEPTH_TEST : NATIVE_DEPTH_OFF);
 		}
 		NativeRenderer_SetBlendMode(split->blendMode);
 		NativeRenderer_SetPSXTextureSemiTransPass(2);
@@ -1649,12 +1695,18 @@ internal void DrawPendingSplits(bool earlyFlush)
 		{
 			lastLevel = i;
 		}
+		// Compare retail colour against the nearest opaque depth, rather than
+		// replacing it as the OT is painted. Near ties retain the authored
+		// order of overlapping wall trim and pads, even across quads.
+		if (s_gpu.splits[i].levelDepthPrepass)
+			DrawSplit(&s_gpu.splits[i], true);
 	}
+	NativeRenderer_SetDepthMode(NATIVE_DEPTH_OFF);
 	for (int i = 1; i <= s_gpu.splitIndex; i++)
 	{
 		if (!s_gpu.splits[i].levelBlended)
 		{
-			DrawSplit(&s_gpu.splits[i]);
+			DrawSplit(&s_gpu.splits[i], false);
 		}
 		if (i == lastLevel)
 		{
@@ -1662,7 +1714,7 @@ internal void DrawPendingSplits(bool earlyFlush)
 			{
 				if (s_gpu.splits[j].levelBlended)
 				{
-					DrawSplit(&s_gpu.splits[j]);
+					DrawSplit(&s_gpu.splits[j], false);
 				}
 			}
 		}
@@ -1794,6 +1846,8 @@ void ParsePrimitivesLinkedList(u32 *p, int singlePrimitive)
 	s_gpu.levelPrim = false;
 	s_gpu.levelWater = false;
 	s_gpu.levelClipped = false;
+	s_gpu.characterPreviewPrim = false;
+	s_gpu.worldInstancePrim = false;
 
 	if (singlePrimitive)
 	{
@@ -1827,8 +1881,12 @@ void ParsePrimitivesLinkedList(u32 *p, int singlePrimitive)
 				u8 *endPacket = basePacket + (tagLength + P_LEN) * sizeof(u32);
 				int primLength = 0;
 				s_gpu.levelPrim = NativeGpu_IsLevelPrim(basePacket);
+				s_gpu.characterPreviewPrim = NativeGpu_InLevelRun(&s_gpu.characterPreviews, basePacket);
+				const float worldInstanceDepthScale = (!s_gpu.levelPrim && !s_gpu.characterPreviewPrim) ? NativeGpu_WorldInstanceDepthScale(basePacket) : 0.0f;
+				s_gpu.worldInstancePrim = (worldInstanceDepthScale != 0.0f);
 				s_gpu.levelWater = s_gpu.levelPrim && NativeGpu_InLevelRun(&s_gpu.water, basePacket);
 				const float moverDepthScale = s_gpu.levelPrim ? NativeGpu_MoverDepthScale(basePacket) : 0.0f;
+				const float instanceDepthScale = (moverDepthScale != 0.0f) ? moverDepthScale : worldInstanceDepthScale;
 				s_gpu.levelClipped = s_gpu.levelPrim && ((moverDepthScale != 0.0f) || NativeGpu_InLevelRun(&s_gpu.clipped, basePacket));
 				const int firstVertex = s_gpu.vertexIndex;
 				if (currentPacket < endPacket)
@@ -1842,12 +1900,12 @@ void ParsePrimitivesLinkedList(u32 *p, int singlePrimitive)
 					currentPacket += primLength * sizeof(u32);
 				}
 
-				// A near mover's depths are in its four-times units (RenderBucket_DepthShift)
-				if ((moverDepthScale != 0.0f) && (moverDepthScale != 1.0f))
+				// A near or huge instance's depths are scaled by RenderBucket_DepthShift.
+				if ((instanceDepthScale != 0.0f) && (instanceDepthScale != 1.0f))
 				{
 					for (int v = firstVertex; v < s_gpu.vertexIndex; v++)
 					{
-						s_gpu.vertexBuffer[v].w *= moverDepthScale;
+						s_gpu.vertexBuffer[v].w *= instanceDepthScale;
 					}
 				}
 

@@ -1,6 +1,7 @@
 #include <platform/native_custom_package.h>
 #include <platform/native_custom_track_library.h>
 #include <platform/native_custom_offline.h>
+#include <atomic>
 #include <chrono>
 #include <cstdio>
 #include <cstring>
@@ -14,6 +15,7 @@ struct InstallResult { int result = 0; char pin[65] = {}; char error[512] = {}; 
 std::future<InstallResult> installJob;
 struct StoreResult { int ok = 0; std::vector<CustomPackageStoreEntry> rows; char error[512] = {}; };
 std::future<StoreResult> storeJob;
+std::atomic<bool> stopStoreScan{false};
 struct OfflineDeleter { void operator()(CustomOfflineRequest *p) const { CustomOffline_Free(&p); } };
 struct PackageDeleter { void operator()(CustomPackageOwned *p) const { CustomPackage_Free(&p); } };
 struct OfflineResult
@@ -25,6 +27,11 @@ std::future<OfflineResult> offlineJob;
 void collect_store(const CustomPackageStoreEntry *entry, void *context)
 {
     static_cast<StoreResult *>(context)->rows.push_back(*entry);
+}
+
+int scan_should_stop()
+{
+    return stopStoreScan.load(std::memory_order_relaxed);
 }
 }
 
@@ -48,22 +55,35 @@ extern "C" int CustomPackage_StartInboxInstall(const char *assets, const char *p
 
 extern "C" int CustomPackage_StartStoreScan(const char *store)
 {
-    if (!store || std::strlen(store) > 32000 || installJob.valid() || storeJob.valid() || offlineJob.valid()) return 0;
+    if (!store || std::strlen(store) > 32000 || installJob.valid() || storeJob.valid()) return 0;
     try
     {
         std::string path(store);
+        stopStoreScan.store(false, std::memory_order_relaxed);
         storeJob = std::async(std::launch::async, [path] {
             StoreResult result;
             /* The store is <assets>/tracks/packages: put the built-in tracks in first. */
             const auto cut = path.size() >= 16 ? path.size() - 16 : std::string::npos;
             if (cut != std::string::npos && path.compare(cut, 16, "/tracks/packages") == 0)
                 CustomPackage_EnsureBuiltins(path.substr(0, cut).c_str(), nullptr, 0);
-            result.ok = CustomPackage_ScanStore(path.c_str(), collect_store, &result, result.error, sizeof result.error);
+            result.ok = CustomPackage_ScanStoreInterruptible(path.c_str(), scan_should_stop, collect_store,
+                                                             &result, result.error, sizeof result.error);
             return result;
         });
         return 1;
     }
     catch (const std::exception &) { return 0; }
+}
+
+extern "C" void CustomPackage_FinishJobs(void)
+{
+    stopStoreScan.store(true, std::memory_order_relaxed);
+    if (storeJob.valid()) storeJob.wait();
+    if (installJob.valid()) installJob.wait();
+    if (offlineJob.valid()) offlineJob.wait();
+    storeJob = {};
+    installJob = {};
+    offlineJob = {};
 }
 
 extern "C" int CustomPackage_PollStoreScan(CustomTrackLibrary *library, char *error, size_t errorSize)
@@ -116,7 +136,8 @@ extern "C" int CustomPackage_PollInboxInstall(int *result, char pin[65], char *e
 
 extern "C" int CustomOffline_StartPrepare(const char *assets, const char *pin)
 {
-    if (installJob.valid() || storeJob.valid() || offlineJob.valid() || !assets || !pin ||
+    // A scan can verify other pins while this request acquires its own snapshot.
+    if (installJob.valid() || offlineJob.valid() || !assets || !pin ||
         std::strlen(assets) > 31000 || std::strlen(pin) != 64 ||
         std::strspn(pin, "0123456789abcdef") != 64) return 0;
     try

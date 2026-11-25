@@ -1907,9 +1907,9 @@ static int RenderBucket_DepthShift(const struct Instance *inst, int viewDepth)
 }
 
 #ifdef CTR_NATIVE
-// A spread instance's depth shift, from its queueing to its drawing in the same
+// An instance's depth shift, from its queueing to its drawing in the same
 // frame, keyed by its per-player draw record (InstDrawPerPlayer has no field free).
-#define RB_SHIFT_SLOTS 1024
+#define RB_SHIFT_SLOTS 2048
 static struct
 {
 	const struct InstDrawPerPlayer *idpp;
@@ -1983,6 +1983,10 @@ static int RenderBucket_BuildDepthRange(struct Instance *inst, struct ModelFrame
 		return 0;
 	}
 
+#ifdef CTR_NATIVE
+	RenderBucket_KeepDepthShift(idpp, RenderBucket_DepthShift(inst, viewDepth));
+#endif
+
 	if ((*instFlags & RB_INSTANCE_SKIP_OT_RANGE) != 0)
 	{
 		// NOTE(aalhendi): Source-backs QueueDraw 0x800711f4-0x80071200. Retail
@@ -2003,12 +2007,6 @@ static int RenderBucket_BuildDepthRange(struct Instance *inst, struct ModelFrame
 	idpp->depthOffset[1] = maxDepth;
 
 	spread = RenderBucket_SpreadsOverOT(inst) ? RenderBucket_DepthShift(inst, viewDepth) : RB_NO_SPREAD;
-#ifdef CTR_NATIVE
-	if (spread != RB_NO_SPREAD)
-	{
-		RenderBucket_KeepDepthShift(idpp, spread);
-	}
-#endif
 	primaryRange = RenderBucket_AllocateOTRange(queueState, pb, minDepth, maxDepth, viewDepth, normalDepthBias, (*instFlags & PUSHBUFFER_EXISTS) != 0, spread);
 	if (primaryRange == 0)
 	{
@@ -5795,9 +5793,26 @@ void RenderBucket_Execute(void *param_1, struct PrimMem *param_2)
 		RenderBucket_DispatchDrawFunc(&ctx);
 #ifdef CTR_NATIVE
 		NativeDev_NamePrims(namedStart, param_2->cursor, entry->inst->name);
+		int isCharacterPreview = 0;
+		if ((GAME_TRACKER->gameMode1 & MAIN_MENU) && sdata->ptrActiveMenu == &D230.menuCharacterSelect)
+		{
+			for (int player = 0; player < GAME_TRACKER->numPlyrNextGame; player++)
+			{
+				if (GAME_TRACKER->drivers[player] && GAME_TRACKER->drivers[player]->instSelf == entry->inst)
+				{
+					NativeGpu_AddCharacterPreviewRange(namedStart, param_2->cursor);
+					isCharacterPreview = 1;
+					break;
+				}
+			}
+		}
 		if (RenderBucket_SpreadsOverOT(entry->inst))
 		{
 			NativeGpu_AddMoverRange(namedStart, param_2->cursor, RenderBucket_KeptDepthShift(ctx.idpp));
+		}
+		else if (!isCharacterPreview && ((ctx.idpp->instFlags & (SCREENSPACE_INSTANCE | PUSHBUFFER_EXISTS | SPLIT_LINE | REFLECTIVE)) == 0))
+		{
+			NativeGpu_AddWorldInstanceRange(namedStart, param_2->cursor, RenderBucket_KeptDepthShift(ctx.idpp));
 		}
 #endif
 #if defined(CTR_NATIVE) && defined(CTR_AP)

@@ -321,8 +321,7 @@ static void MM_Mods_DrawActions(const struct CustomTrackLibraryEntry *track, con
     MM_CustomText_Draw(NativeMenu_Labels("* OK  ^ Close"),MODS_PANEL_X,MODS_PANEL_PROMPT_Y,MODS_PANEL_W,1,ORANGE,ot);
 }
 
-/* Drain the catalogue refresh and the track download, every frame the
-   Mods screen is open. */
+/* Publish completed catalogue and download results on the game thread. */
 static int s_saphiRefreshFailed; /* the last refresh failed; an older catalogue may remain */
 static int s_saphiFailed; /* s_saphiMessage holds a refresh or install failure, drawn in full */
 static void MM_CustomManager_Poll(void)
@@ -404,7 +403,7 @@ static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, str
     }
     s_modsLastFrame = now;
     if (!seedTab) s_modsSeed = 0;
-    MM_CustomLibrary_Tick(0);
+    if (!s_contentLibraryLoaded) MM_CustomLibrary_Tick(0);
     MM_ModsRacers_Tick();
     MM_ModsPicture_Tick();
     MM_ModsRacers_PreviewTick();
@@ -415,7 +414,6 @@ static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, str
 #endif
     if (!s_contentSearchEditing && !MM_CustomLibrary_Busy() && !s_saphiDownloading && !seedBusy) MM_CustomImport_TakeDrop();
     if (MM_CustomImport_Active()) { MM_CustomImport_Proc(ot, pad); return; }
-    MM_CustomManager_Poll();
     if (s_contentSearchEditing)
     {
         if (!NativeText_Result())
@@ -564,7 +562,7 @@ static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, str
     }
     /* Cross: download a track not installed or an update; on an installed
        track, its options (MM_Mods_ActionsInput). */
-    if ((tapped & (BTN_CROSS | BTN_CIRCLE)) && !racer && !MM_CustomLibrary_Busy())
+    if ((tapped & (BTN_CROSS | BTN_CIRCLE)) && !racer)
     {
         if (owned)
         {
@@ -573,7 +571,7 @@ static void MM_ConfigProc_CustomContent(struct RectMenu *menu, uint32_t *ot, str
             s_saphiMessage[0] = 0;
             s_saphiFailed = 0;
         }
-        else if (source && !source->disabledReason[0] && !s_saphiDownloading)
+        else if (source && !source->disabledReason[0] && !MM_CustomLibrary_Busy())
         {
             s_saphiInstalling = *source;
             s_saphiDownloading = CustomSaphi_StartInstall(source,NativeAssets_GetAssetDir());

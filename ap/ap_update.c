@@ -156,6 +156,7 @@ static void AP_UpdateDraw(const char *title, const char *l1, const char *l2, con
 static void AP_UpdateQuit(void)
 {
 	AP_Net_Shutdown();
+	Platform_Shutdown();
 	exit(0);
 }
 

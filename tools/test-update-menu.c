@@ -83,6 +83,7 @@ void DecalFont_DrawLineOT(char *str, s16 posX, s16 posY, s16 fontType, s16 flags
 void RECTMENU_DrawInnerRect(RECT *r, s16 x, u32 *ot) { (void)r; (void)x; (void)ot; }
 void AP_AppendLog(const char *line) { (void)line; }
 void NativeConfig_Save(void) { ++saves; }
+void Platform_Shutdown(void) {}
 NativeLinkHost *AP_LinkHost(void) { return NULL; }
 void NativeLinkHost_ReleasePrimary(NativeLinkHost *host) { (void)host; }
 const char *NativeAssets_GetAssetDir(void) { return "assets"; }

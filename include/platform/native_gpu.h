@@ -58,6 +58,14 @@ void NativeGpu_AddLevelWaterRange(const void *start, const void *end);
 // The near-plane clip records' consumer reports the runs of primitives it
 // wrote, the same way: the GPU draws them however large (NativeGpu_HardwareSkipsTriangle).
 void NativeGpu_AddLevelClippedRange(const void *start, const void *end);
+void NativeGpu_AddCharacterPreviewRange(const void *start, const void *end);
+
+// RenderBucket_Execute reports the runs of primitives a 3D world instance drew
+// (excluding UI/screenspace, split-line, reflective and character-preview models).
+// On PGXP TEXTURES/FULL they join the level depth pass using their world-scaled
+// depth (depthShift from RenderBucket_DepthShift), so models behind walls are
+// occluded and models in front of walls are not overwritten by OT bias.
+void NativeGpu_AddWorldInstanceRange(const void *start, const void *end, int depthShift);
 
 // RenderBucket_Execute reports the runs of primitives a converted track's mover
 // drew (game/ConvertedTrack/Mover.c). In a depth-tested level they test and write

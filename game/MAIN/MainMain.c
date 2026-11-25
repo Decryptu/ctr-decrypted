@@ -128,6 +128,9 @@ u32 main(void)
 #endif
 		LOAD_NextQueuedFile();
 		CDSYS_XAPauseAtEnd();
+#ifdef CTR_CUSTOM_PACKAGES
+		MM_CustomContent_PollBackground();
+#endif
 
 		switch (sdata->mainGameState)
 		{
