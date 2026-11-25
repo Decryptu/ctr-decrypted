@@ -62,22 +62,15 @@ TextureID NativeRenderer_GetWhiteTexture(void);
 void NativeRenderer_SetBlendMode(BlendMode blendMode);
 void NativeRenderer_SetStencilMode(int drawPrim);
 
-// Level depth (see NativeGpu_SetLevelPrimRange). The PS1 draws in ordering
-// table order only; with PGXP each level vertex also has its view depth. The
-// level still draws in ordering table order, since its art relies on it (a
-// cave's translucent wall blended over a lining that crosses it), and leaves
-// the depth of whatever ends up on screen. Only its water tests that depth, so
-// water the ordering table sorted late no longer paints over a nearer surface.
-//
-// The test uses a depth pulled a little nearer (NATIVE_DEPTH_TOLERANCE of the
-// distance) and writes none, so water lying on a surface still wins as in the
-// original.
+// Opaque level texels with PGXP depth test and write true depth. Water and
+// converted translucent surfaces test with a small pull toward the camera
+// (NATIVE_DEPTH_TOLERANCE) so a later draw wins near ties.
 typedef enum
 {
-	NATIVE_DEPTH_OFF,   // ordering table order only (everything but the level)
-	NATIVE_DEPTH_WRITE, // ordering table order, writing true depth (the level but its water)
-	NATIVE_DEPTH_TEST,  // colour, tested with the tolerance, no depth write (the level's water)
-	NATIVE_DEPTH_TEST_WRITE, // tested and writing true depth (a depth-tested level, NativeGpu_SetLevelDepthTested)
+	NATIVE_DEPTH_OFF,   // ordering table order only
+	NATIVE_DEPTH_WRITE, // ordering table order, writing depth
+	NATIVE_DEPTH_TEST,  // test with tolerance, without writing depth
+	NATIVE_DEPTH_TEST_WRITE, // test and write true depth
 } NativeDepthMode;
 void NativeRenderer_SetDepthMode(NativeDepthMode mode);
 void NativeRenderer_SetOffscreenState(const RECT16 *offscreenRect, int enable);

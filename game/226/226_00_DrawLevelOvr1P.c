@@ -7918,6 +7918,14 @@ static void DrawLevelOvr1P_SetFullDynamicLowUv(struct DrawLevelOvr1PScratchVerte
 	u32 uv0 = DrawLevelOvr1P_ReadWord(texture, 0);
 	u32 uv1 = DrawLevelOvr1P_ReadWord(texture, 4);
 	u32 uv2 = DrawLevelOvr1P_ReadWord(texture, 8);
+#ifdef CTR_NATIVE
+	// Split-screen recursion can reach the shared deepest UV reload code.
+	// This low texture has no mosaic table. Clear the preceding block's
+	// table and keep this block's palette when the reload restores the UVs.
+	DrawLevelOvr1P_Scratch()->mosaicTextureWord = 0;
+	DrawLevelOvr1P_Scratch()->uv.savedUv0 = uv0;
+	DrawLevelOvr1P_Scratch()->uv.savedUv1 = uv1;
+#endif
 	DrawLevelOvr1P_Scratch()->uv.uv0.packed = uv0;
 	DrawLevelOvr1P_Scratch()->uv.uv1.packed = uv1;
 	DrawLevelOvr1P_Scratch()->uv.uv2.packed = uv2;

@@ -281,6 +281,17 @@ void NativePgxp_ViewFollowDriver(int cameraID, const struct NativePgxpFollowCame
 	cam->hasPose = 1;
 }
 
+void NativePgxp_ViewScriptedCamera(const SVec3 *pbPos, const SVec3 *pbRot, const double pos[3], const double rot[3])
+{
+	NativePgxpViewCamera *cam = &s_viewCameras[0];
+	NativePgxp_ViewForgetCamera(0);
+	memcpy(cam->pos, pos, sizeof(cam->pos));
+	memcpy(cam->rot, rot, sizeof(cam->rot));
+	cam->intPos = *pbPos;
+	cam->intRot = *pbRot;
+	cam->hasPose = 1;
+}
+
 int NativePgxp_ViewGetPose(int cameraID, double pos[3], double rot[3])
 {
 	if ((cameraID < 0) || (cameraID >= NATIVE_PGXP_VIEW_CAMERAS) || !s_viewCameras[cameraID].hasPose)

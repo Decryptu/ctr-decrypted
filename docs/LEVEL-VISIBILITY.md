@@ -20,11 +20,17 @@ A level face is drawn only if it passes every stage, in this order:
 ## Why the lists are off
 The lists were baked for the retail view: 4:3, the retail draw distance and the camera positions the developers sampled. With widescreen, the far camera (`L2`) or `increase_draw_distance`, the camera sees past them, so stretches of far road and scenery vanish until the camera reaches a quadblock with other lists. A split-screen camera can even lose the floor under its kart.
 
-They only saved PS1 time. Faces hidden behind nearer ones are still drawn, but the ordering table puts them first, so nearer faces paint over them. The cost is primitive-arena space and frame time:
+They only saved PS1 time. Faces hidden behind nearer ones are still submitted. With PGXP TEXTURES or FULL, [per-pixel depth](PGXP.md#level-depth-test) resolves overlapping solid faces even when their blocks are sorted out of order. The cost is primitive-arena space and frame time:
 - Arena peak per frame at 16:9 with the far camera: 120 to 292 KB per track without the lists (79 to 130 KB with). With `increase_draw_distance` too: up to 586 KB in 1P, 820 KB in two-player split screen (N. Gin Labs) and 365 KB in four-player. The arena is 2 MB (`CTR_NATIVE_PRIM_ARENA_BYTES`, `platform/native_memory.c`). A dev run logs `[CTR Dev] primitive arena peak`.
 - With `increase_draw_distance` on N. Gin Labs, the heaviest track: about 1.5 ms a frame more than the retail limits in 1P and 2.7 ms in 2P. The option is off by default, Steam Deck included.
 
 ## Retry lists
+
+The split-screen full-dynamic ground path subdivides the low-LOD texture.
+When it seeds that texture, it clears the high-resolution mosaic pointer and
+saves the active palette words for the deepest emitter. That emitter shares
+scratch with the high-resolution path, so its UV reload must use the current
+block's state.
 
 Level buckets defer some near/water quadblocks to a NULL-terminated retry list.
 Every native player has separate storage with 1,024 pointers, including the
@@ -63,3 +69,4 @@ A kart's tires are four camera-facing sprites (`game/DrawTires.c`), drawn only a
 - `CTR_DEV_RETAIL_CULL=1` keeps the retail lists and sky, for A/B captures ([DEV-TOOLS.md](DEV-TOOLS.md)). Every differing pixel should be far geometry the lists dropped or sky that was missing, never a near face overdrawn. The clear colour must not show in any frame with the sky; Hot Air Skyway at `CTR_DEV_WARP=10799,325,-2381,2271` with the far camera shows it with the retail sky and not without.
 - Distant wheels: where wheels fit, no pixel changes. On Dingo Canyon (frame 3390 of a `CTR_DEV_RACE=0` autopilot run) the far karts have wheels; `CTR_DEV_DUMP_FRAME` lists them as `@tires` quads next to the karts' polygons.
 - A spot a player reports: they press `F7` there, and `where.txt` in the capture gives the `CTR_DEV_WARP` line. Warp there with `CTR_DEV_PAD=2400:2` for the far camera and capture both ways.
+- For a depth-order regression, run Crash Cove at `CTR_DEV_WARP=-1427,793,-4334,2821` with `CTR_DEV_CAMERA=-1233,875,-4249,1948,765,-8`, widescreen and PGXP FULL. With `CTR_DEV_NO_LEVEL_DEPTH=1`, grass from the far bank draws over the rail and road. With depth enabled, both surfaces cover it.

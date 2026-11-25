@@ -345,16 +345,10 @@ internal bool NativeGpu_IsLevelPrim(const u8 *packet)
 	return false;
 }
 
-// The level keeps ordering table order and writes depth, and its water tests
-// that depth, so water sorted after a nearer surface no longer paints over it.
-// Opaque and translucent polygons outside the water keep the PS1's order among
-// themselves: the art relies on it (a cave's translucent wall blended over a
-// lining that crosses it). Depths are the PGXP ones NativeGpu_ApplyPgxp writes
-// to w, which it does only with perspective texturing on (TEXTURES or FULL);
-// otherwise the level keeps ordering table order.
-// A depth-tested level (NativeGpu_SetLevelDepthTested) tests everything, its
-// translucent surfaces too: what is behind one is drawn or not by the order of
-// the level's blocks.
+// With PGXP depth, opaque level texels test per pixel. The ordering table
+// sorts whole blocks, so a distant face can otherwise paint over a nearer one.
+// Water tests without writing. Other retail translucency keeps its blend order
+// because some art depends on it (for example the cave walls in Adventure).
 internal NativeDepthMode NativeGpu_LevelDepthMode(void)
 {
 	if (!s_gpu.levelPrim || !NATIVE_PGXP_TEXTURES_ACTIVE() || NativeDev_NoLevelDepth())
@@ -367,14 +361,11 @@ internal NativeDepthMode NativeGpu_LevelDepthMode(void)
 		return NATIVE_DEPTH_TEST;
 	}
 
-	return s_gpu.levelDepthTested ? NATIVE_DEPTH_TEST_WRITE : NATIVE_DEPTH_WRITE;
+	return NATIVE_DEPTH_TEST_WRITE;
 }
 
-// A depth-tested level's polygon that PGXP gave no depth (a vertex nearer than
-// 64, or a lookup miss) would test as the far plane and vanish: it moves to its
-// own split that keeps ordering table order (NATIVE_DEPTH_WRITE), which the next
-// primitive's AddSplit closes again. Called after the polygon's vertices are
-// written at the vertex cursor and before they are committed.
+// A polygon without usable PGXP depth falls back to ordering-table order.
+// Retail faces leave the known depth intact so later faces still test against it.
 internal void NativeGpu_KeepDepthlessPolygonInOrder(void)
 {
 	GPUDrawSplit *curSplit = &s_gpu.splits[s_gpu.splitIndex];
@@ -388,7 +379,7 @@ internal void NativeGpu_KeepDepthlessPolygonInOrder(void)
 	curSplit->numVerts = s_gpu.vertexIndex - curSplit->startVertex;
 	GPUDrawSplit *split = &s_gpu.splits[++s_gpu.splitIndex];
 	*split = *curSplit;
-	split->depthMode = NATIVE_DEPTH_WRITE;
+	split->depthMode = s_gpu.levelDepthTested ? NATIVE_DEPTH_WRITE : NATIVE_DEPTH_OFF;
 	split->startVertex = s_gpu.vertexIndex;
 	split->numVerts = 0;
 }
@@ -1464,6 +1455,10 @@ internal void AddSplit(bool semiTrans, bool textured, bool framebufferFeedback)
 	{
 		depthMode = NATIVE_DEPTH_TEST;
 	}
+	else if (semiTrans && !psxTexturedSemiTrans && (depthMode == NATIVE_DEPTH_TEST_WRITE))
+	{
+		depthMode = NATIVE_DEPTH_OFF;
+	}
 
 	// FIXME: compare drawing environment too?
 	if (!psxTexturedSemiTrans && curSplit->blendMode == blendMode && curSplit->texFormat == texFormat && curSplit->textureId == textureId &&
@@ -1551,8 +1546,6 @@ void DrawSplit(const GPUDrawSplit *split)
 	NativeRenderer_SetOffscreenState(&split->drawenv.clip, !drawOnScreen);
 	NativeRenderer_SetProjection(&split->drawenv.clip, &split->dispenv, !drawOnScreen);
 
-	// Opaque level polygons draw in order and leave their depth; translucent
-	// ones test it (NativeDepthMode).
 	NativeRenderer_SetDepthMode(split->depthMode);
 
 	if (split->psxTexturedSemiTrans)
@@ -1565,6 +1558,12 @@ void DrawSplit(const GPUDrawSplit *split)
 		NativeRenderer_SetPSXTextureSemiTransPass(1);
 		NativeRenderer_DrawTriangles(split->startVertex, split->numVerts / 3);
 
+		// Retail textures can contain both opaque and blended texels in one
+		// face. Only the opaque pass contributes to the depth buffer.
+		if (split->depthMode == NATIVE_DEPTH_TEST_WRITE)
+		{
+			NativeRenderer_SetDepthMode(NATIVE_DEPTH_OFF);
+		}
 		NativeRenderer_SetBlendMode(split->blendMode);
 		NativeRenderer_SetPSXTextureSemiTransPass(2);
 		NativeRenderer_DrawTriangles(split->startVertex, split->numVerts / 3);

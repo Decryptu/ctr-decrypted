@@ -14,6 +14,9 @@ void CAM_ClearScreen(struct GameTracker *gGT);
 void CAM_Init(struct CameraDC *cDC, s32 cameraID, struct Driver *d, struct PushBuffer *pb);
 int CAM_Path_GetNumPoints(void);
 u8 CAM_Path_Move(int frameIndex, s16 *position, s16 *rotation, s16 *pathFlagsOut);
+#ifdef CTR_NATIVE
+u8 CAM_Path_MovePodium(int frameIndex, double fraction, SVec3 *position, SVec3 *rotation, s16 *pathFlagsOut);
+#endif
 int CAM_MapRange_PosPoints(SVec3 *pos1, SVec3 *pos2, SVec3 *currPos);
 void CAM_SetDesiredPosRot(struct CameraDC *cDC, const SVec3 *pos, const SVec3 *rot);
 

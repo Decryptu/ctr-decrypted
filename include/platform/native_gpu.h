@@ -47,11 +47,8 @@ int NativeGpu_HasPendingSplits(void);
 // Level depth. DrawLevelOvr1P..4P write all of the level's primitives in one
 // run of the frame's primitive arena; the frame code reports that run here
 // (db is the double-buffer index, NULL/NULL clears it, and the water runs,
-// when the arena resets). When PGXP gave them depths, the level's water
-// polygons test depth against the rest of the level (NativeRenderer_SetDepthMode),
-// so the PS1 ordering table's coarse per-block sort can no longer paint water
-// over a nearer surface (the N. Sanity Beach dock). Every other polygon keeps
-// ordering table order.
+// when the arena resets). With PGXP depth, solid texels test and write depth,
+// and water tests that depth without writing (NativeRenderer_SetDepthMode).
 void NativeGpu_SetLevelPrimRange(int db, const void *start, const void *end);
 
 // The water buckets report the runs of primitives they wrote, in the frame
@@ -72,10 +69,9 @@ void NativeGpu_AddMoverRange(const void *start, const void *end, int depthShift)
 
 // A level whose configFlags carry LEVEL_CONFIG_DEPTH_TESTED was made for a
 // depth buffer (a converted Mario Kart DS course: fences, billboards and signs
-// a few units in front of the walls they hang on), which the per-block sort
-// gets wrong as the camera moves. Its polygons then test depth and write it
-// (NATIVE_DEPTH_TEST_WRITE), its water tests only, and a polygon PGXP gave no
-// depth keeps ordering table order. Retail levels never set the bit.
+// a few units in front of the walls they hang on). Movers join the level depth
+// pass, and translucent surfaces test depth after the solid geometry.
+// Retail levels never set the bit.
 #define LEVEL_CONFIG_DEPTH_TESTED 0x80000000u
 void NativeGpu_SetLevelDepthTested(int depthTested);
 

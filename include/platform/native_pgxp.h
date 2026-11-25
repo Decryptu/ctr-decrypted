@@ -113,8 +113,9 @@ struct NativePgxpFollowCamera
 };
 
 void NativePgxp_ViewFollowDriver(int cameraID, const struct NativePgxpFollowCamera *in, const SVec3 *pbPos, const SVec3 *pbRot);
+void NativePgxp_ViewScriptedCamera(const SVec3 *pbPos, const SVec3 *pbRot, const double pos[3], const double rot[3]);
 void NativePgxp_ViewForgetCamera(int cameraID);
-// The follow camera's precise pose, for the race trace; 0 when it has none.
+// The camera's precise pose, for the race trace; 0 when it has none.
 int NativePgxp_ViewGetPose(int cameraID, double pos[3], double rot[3]);
 // The precise angles of the view registered this frame, for screen-space
 // effects placed from the camera's angles; 0 when the view is integer.

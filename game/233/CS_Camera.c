@@ -302,7 +302,12 @@ void CS_Camera_ThTick_Podium(struct Thread *th)
 			CS_PODIUM_CAMERA_FRAME = frame;
 			podium->pathFrame32 = frameTime;
 
+#ifdef CTR_NATIVE
+			const double fraction = (frameTime & (CS_PODIUM_PATH_FRAME_UNIT - 1)) / (double)CS_PODIUM_PATH_FRAME_UNIT;
+			CAM_Path_MovePodium(frame, fraction, &pos, &rot, camPath);
+#else
 			CAM_Path_Move(frame, CTR_VECTOR_DATA(&(pos)), CTR_VECTOR_DATA(&(rot)), camPath);
+#endif
 
 			{
 				struct GameTracker *cameraTracker;

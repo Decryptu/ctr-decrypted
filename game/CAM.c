@@ -571,7 +571,11 @@ s32 CAM_Path_GetNumPoints(void)
 	}
 }
 
+#ifdef CTR_NATIVE
+static u8 CAM_Path_MoveImpl(s32 frameIndex, s16 *position, s16 *rotation, s16 *pathFlagsOut, const double *fraction)
+#else
 u8 CAM_Path_Move(s32 frameIndex, s16 *position, s16 *rotation, s16 *pathFlagsOut)
+#endif
 {
 	s16 frame = (s16)frameIndex;
 	s16 numPos = CAM_Path_GetNumPoints();
@@ -626,12 +630,42 @@ u8 CAM_Path_Move(s32 frameIndex, s16 *position, s16 *rotation, s16 *pathFlagsOut
 			rotation[0] = (((s16)sample[0] >> 4) + 0x800U) & 0xfff;
 			rotation[1] = (u16)sample[1] >> 4;
 			rotation[2] = (u16)sample[2] >> 4;
+#ifdef CTR_NATIVE
+			if (fraction != NULL && NATIVE_PGXP_GEOMETRY_ACTIVE())
+			{
+				// A new path segment may cut to another shot.
+				const u16 *next = frame + 1 < pathNumNode ? sample + 6 : sample;
+				const u16 *nextPosition = next - 3;
+				double precisePos[3], preciseRot[3];
+				for (int i = 0; i < 3; i++)
+				{
+					precisePos[i] = position[i] + ((s16)nextPosition[i] - position[i]) * *fraction;
+					const s16 delta = (s16)(next[i] - sample[i]);
+					preciseRot[i] = rotation[i] + ((sample[i] & 0xf) + delta * *fraction) / 16.0;
+				}
+				const SVec3 pos = {position[0], position[1], position[2]};
+				const SVec3 rot = {rotation[0], rotation[1], rotation[2]};
+				NativePgxp_ViewScriptedCamera(&pos, &rot, precisePos, preciseRot);
+			}
+#endif
 			return 1;
 		}
 	}
 failed:
 	return 0;
 }
+
+#ifdef CTR_NATIVE
+u8 CAM_Path_Move(s32 frameIndex, s16 *position, s16 *rotation, s16 *pathFlagsOut)
+{
+	return CAM_Path_MoveImpl(frameIndex, position, rotation, pathFlagsOut, NULL);
+}
+
+u8 CAM_Path_MovePodium(s32 frameIndex, double fraction, SVec3 *position, SVec3 *rotation, s16 *pathFlagsOut)
+{
+	return CAM_Path_MoveImpl(frameIndex, CTR_VECTOR_DATA(position), CTR_VECTOR_DATA(rotation), pathFlagsOut, &fraction);
+}
+#endif
 
 void CAM_StartOfRace(struct CameraDC *cDC)
 {
