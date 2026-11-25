@@ -55,7 +55,7 @@ jobs:
             python3 - "$expected" "$mode" run.json "$repo" <<'PY'
           import json
           import sys
-          expected, mode, path = sys.argv[1:]
+          expected, mode, path, repo = sys.argv[1:]
           run = json.load(open(path, encoding="utf-8"))
           if run.get("status") != "completed" or run.get("conclusion") != "success":
               raise SystemExit(f"run is not successful: {run}")
@@ -66,7 +66,7 @@ jobs:
           if mode == "apworld" and run.get("headSha") != expected:
               import subprocess
               cmp_json = subprocess.check_output(
-                  ["gh", "api", f"repos/{sys.argv[4]}/compare/{run.get('headSha')}...{expected}"],
+                  ["gh", "api", f"repos/{repo}/compare/{run.get('headSha')}...{expected}"],
                   text=True,
               )
               cmp_data = json.loads(cmp_json)
