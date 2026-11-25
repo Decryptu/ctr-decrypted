@@ -90,8 +90,9 @@ typedef struct
 	bool psxTextureOutputSTP;
 	bool psxDrawMaskSet;
 	NativeDepthMode depthMode;
-	bool level;        // the level's own polygons
-	bool levelBlended; // a depth-tested level's translucent ones, drawn after its last level split
+	bool level;                 // the level's own polygons
+	bool levelBlended;          // a depth-tested level's translucent ones, drawn after its last level split
+	bool levelAdditiveDeferred; // retail level additive pass, drawn after the last level split with depth test
 	bool levelDepthPrepass;
 	bool worldInstance;
 
@@ -219,6 +220,7 @@ void ClearSplits(void)
 	s_gpu.splits[0].psxTextureOutputSTP = false;
 	s_gpu.splits[0].psxDrawMaskSet = false;
 	s_gpu.splits[0].depthMode = NATIVE_DEPTH_OFF;
+	s_gpu.splits[0].levelAdditiveDeferred = false;
 	s_gpu.framebufferFeedbackRunActive = false;
 }
 
@@ -416,6 +418,7 @@ internal void NativeGpu_KeepDepthlessPolygonInOrder(void)
 	*split = *curSplit;
 	split->depthMode = (s_gpu.levelPrim && s_gpu.levelDepthTested) ? NATIVE_DEPTH_WRITE : NATIVE_DEPTH_OFF;
 	split->levelDepthPrepass = false;
+	split->levelAdditiveDeferred = false;
 	split->startVertex = s_gpu.vertexIndex;
 	split->numVerts = 0;
 }
@@ -1485,8 +1488,16 @@ internal void AddSplit(bool semiTrans, bool textured, bool framebufferFeedback)
 	// in block order: drawn before the bed under it, it hid the bed, and the
 	// floor showed through and flickered as the camera moved. It tests without
 	// writing, after the level's solid polygons (DrawPendingSplits).
-	const bool levelBlended = s_gpu.levelPrim && s_gpu.levelDepthTested && semiTrans && !s_gpu.levelWater;
+	// Retail additive level geometry (such as Tiny Arena's neon sign) can also
+	// sort before smaller opaque polygons behind it in the ordering table; defer
+	// its additive pass to after the level's solid splits with a depth test so
+	// nearer walls still occlude it while farther walls behind it cannot erase it.
 	NativeDepthMode depthMode = NativeGpu_PrimDepthMode();
+	const bool retailAdditive = s_gpu.levelPrim && !s_gpu.levelDepthTested && semiTrans && !s_gpu.levelWater &&
+	                            (blendMode == BM_ADD) && (depthMode == NATIVE_DEPTH_TEST_WRITE) && activeDrawEnv.dfe;
+	const bool levelBlended = (s_gpu.levelPrim && s_gpu.levelDepthTested && semiTrans && !s_gpu.levelWater) ||
+	                          (retailAdditive && !psxTexturedSemiTrans);
+	const bool levelAdditiveDeferred = retailAdditive && psxTexturedSemiTrans;
 	if (levelBlended && (depthMode == NATIVE_DEPTH_TEST_WRITE))
 	{
 		depthMode = NATIVE_DEPTH_TEST;
@@ -1501,7 +1512,7 @@ internal void AddSplit(bool semiTrans, bool textured, bool framebufferFeedback)
 	// FIXME: compare drawing environment too?
 	if (!psxTexturedSemiTrans && curSplit->blendMode == blendMode && curSplit->texFormat == texFormat && curSplit->textureId == textureId &&
 	    curSplit->drawPrimMode == s_gpu.drawPrimMode && curSplit->psxTexturedSemiTrans == psxTexturedSemiTrans &&
-	    curSplit->psxTextureOutputSTP == psxTextureOutputSTP && curSplit->psxDrawMaskSet == s_gpu.psxDrawMaskSet && curSplit->depthMode == depthMode && curSplit->levelBlended == levelBlended && curSplit->level == s_gpu.levelPrim && curSplit->levelDepthPrepass == levelDepthPrepass && curSplit->worldInstance == s_gpu.worldInstancePrim &&
+	    curSplit->psxTextureOutputSTP == psxTextureOutputSTP && curSplit->psxDrawMaskSet == s_gpu.psxDrawMaskSet && curSplit->depthMode == depthMode && curSplit->levelBlended == levelBlended && curSplit->levelAdditiveDeferred == levelAdditiveDeferred && curSplit->level == s_gpu.levelPrim && curSplit->levelDepthPrepass == levelDepthPrepass && curSplit->worldInstance == s_gpu.worldInstancePrim &&
 	    curSplit->drawenv.clip.x == activeDrawEnv.clip.x && curSplit->drawenv.clip.y == activeDrawEnv.clip.y &&
 	    curSplit->drawenv.clip.w == activeDrawEnv.clip.w && curSplit->drawenv.clip.h == activeDrawEnv.clip.h && curSplit->drawenv.dfe == activeDrawEnv.dfe &&
 	    curSplit->debugText == s_gpu.currentSplitDebugText)
@@ -1527,6 +1538,7 @@ internal void AddSplit(bool semiTrans, bool textured, bool framebufferFeedback)
 	split->depthMode = depthMode;
 	split->level = s_gpu.levelPrim;
 	split->levelBlended = levelBlended && (depthMode == NATIVE_DEPTH_TEST);
+	split->levelAdditiveDeferred = levelAdditiveDeferred;
 	split->levelDepthPrepass = levelDepthPrepass;
 	split->worldInstance = s_gpu.worldInstancePrim;
 	split->drawenv = activeDrawEnv;
@@ -1548,7 +1560,14 @@ internal void AddSplit(bool semiTrans, bool textured, bool framebufferFeedback)
 	split->numVerts = 0;
 }
 
-static void DrawSplit(const GPUDrawSplit *split, bool depthOnly)
+enum DrawSplitPass
+{
+	DRAW_SPLIT_NORMAL = 0,
+	DRAW_SPLIT_DEPTH_ONLY = 1,
+	DRAW_SPLIT_DEFERRED_BLEND = 2,
+};
+
+static void DrawSplit(const GPUDrawSplit *split, enum DrawSplitPass pass)
 {
 	if (split->debugText)
 	{
@@ -1586,13 +1605,22 @@ static void DrawSplit(const GPUDrawSplit *split, bool depthOnly)
 	NativeRenderer_SetOffscreenState(&split->drawenv.clip, !drawOnScreen);
 	NativeRenderer_SetProjection(&split->drawenv.clip, &split->dispenv, !drawOnScreen);
 
-	const NativeDepthMode depth = depthOnly ? NATIVE_DEPTH_ONLY : split->levelDepthPrepass ? NATIVE_DEPTH_TEST : split->depthMode;
+	const NativeDepthMode depth = (pass == DRAW_SPLIT_DEPTH_ONLY) ? NATIVE_DEPTH_ONLY :
+	                              (pass == DRAW_SPLIT_DEFERRED_BLEND) ? NATIVE_DEPTH_TEST :
+	                              split->levelDepthPrepass ? NATIVE_DEPTH_TEST : split->depthMode;
 	NativeRenderer_SetDepthMode(depth);
-	if (depthOnly)
+	if (pass == DRAW_SPLIT_DEPTH_ONLY)
 	{
 		NativeRenderer_SetBlendMode(BM_NONE);
 		NativeRenderer_SetPSXTextureSemiTransPass(split->psxTexturedSemiTrans ? 1 : 0);
 		NativeRenderer_DrawTriangles(split->startVertex, split->numVerts / 3);
+	}
+	else if (pass == DRAW_SPLIT_DEFERRED_BLEND)
+	{
+		NativeRenderer_SetBlendMode(split->blendMode);
+		NativeRenderer_SetPSXTextureSemiTransPass(2);
+		NativeRenderer_DrawTriangles(split->startVertex, split->numVerts / 3);
+		NativeRenderer_SetPSXTextureSemiTransPass(0);
 	}
 	else if (split->psxTexturedSemiTrans)
 	{
@@ -1604,15 +1632,18 @@ static void DrawSplit(const GPUDrawSplit *split, bool depthOnly)
 		NativeRenderer_SetPSXTextureSemiTransPass(1);
 		NativeRenderer_DrawTriangles(split->startVertex, split->numVerts / 3);
 
-		// Retail textures can contain both opaque and blended texels in one
-		// face. Only the opaque pass contributes to the depth buffer.
-		if (split->depthMode == NATIVE_DEPTH_TEST_WRITE)
+		if (!split->levelAdditiveDeferred)
 		{
-			NativeRenderer_SetDepthMode(split->worldInstance ? NATIVE_DEPTH_TEST : NATIVE_DEPTH_OFF);
+			// Retail textures can contain both opaque and blended texels in one
+			// face. Only the opaque pass contributes to the depth buffer.
+			if (split->depthMode == NATIVE_DEPTH_TEST_WRITE)
+			{
+				NativeRenderer_SetDepthMode(split->worldInstance ? NATIVE_DEPTH_TEST : NATIVE_DEPTH_OFF);
+			}
+			NativeRenderer_SetBlendMode(split->blendMode);
+			NativeRenderer_SetPSXTextureSemiTransPass(2);
+			NativeRenderer_DrawTriangles(split->startVertex, split->numVerts / 3);
 		}
-		NativeRenderer_SetBlendMode(split->blendMode);
-		NativeRenderer_SetPSXTextureSemiTransPass(2);
-		NativeRenderer_DrawTriangles(split->startVertex, split->numVerts / 3);
 
 		NativeRenderer_SetPSXTextureSemiTransPass(0);
 	}
@@ -1699,14 +1730,14 @@ internal void DrawPendingSplits(bool earlyFlush)
 		// replacing it as the OT is painted. Near ties retain the authored
 		// order of overlapping wall trim and pads, even across quads.
 		if (s_gpu.splits[i].levelDepthPrepass)
-			DrawSplit(&s_gpu.splits[i], true);
+			DrawSplit(&s_gpu.splits[i], DRAW_SPLIT_DEPTH_ONLY);
 	}
 	NativeRenderer_SetDepthMode(NATIVE_DEPTH_OFF);
 	for (int i = 1; i <= s_gpu.splitIndex; i++)
 	{
 		if (!s_gpu.splits[i].levelBlended)
 		{
-			DrawSplit(&s_gpu.splits[i], false);
+			DrawSplit(&s_gpu.splits[i], DRAW_SPLIT_NORMAL);
 		}
 		if (i == lastLevel)
 		{
@@ -1714,7 +1745,11 @@ internal void DrawPendingSplits(bool earlyFlush)
 			{
 				if (s_gpu.splits[j].levelBlended)
 				{
-					DrawSplit(&s_gpu.splits[j], false);
+					DrawSplit(&s_gpu.splits[j], DRAW_SPLIT_NORMAL);
+				}
+				else if (s_gpu.splits[j].levelAdditiveDeferred)
+				{
+					DrawSplit(&s_gpu.splits[j], DRAW_SPLIT_DEFERRED_BLEND);
 				}
 			}
 		}
