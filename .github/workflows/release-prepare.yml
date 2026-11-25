@@ -16,7 +16,7 @@ on:
         required: true
         type: string
       apworld_run_id:
-        description: "Successful CTR world run ID on the same source commit (its ctr.apworld artifact ships)"
+        description: "Successful CTR world run ID on the same source commit (or an earlier commit with identical apworld/)"
         required: true
         type: string
 
@@ -52,7 +52,7 @@ jobs:
           check_run() {
             local run_id="$1" repo="$2" expected="$3" mode="$4"
             gh run view "$run_id" --repo "$repo" --json status,conclusion,headSha,workflowName > run.json
-            python3 - "$expected" "$mode" run.json <<'PY'
+            python3 - "$expected" "$mode" run.json "$repo" <<'PY'
           import json
           import sys
           expected, mode, path = sys.argv[1:]
@@ -64,9 +64,22 @@ jobs:
           if mode == "apworld" and run.get("workflowName") != "CTR world":
               raise SystemExit(f"apworld run is a {run.get('workflowName')!r} run, not CTR world")
           if mode == "apworld" and run.get("headSha") != expected:
-              raise SystemExit(
-                  f"apworld run head {run.get('headSha')} does not match {expected}"
+              import subprocess
+              cmp_json = subprocess.check_output(
+                  ["gh", "api", f"repos/{sys.argv[4]}/compare/{run.get('headSha')}...{expected}"],
+                  text=True,
               )
+              cmp_data = json.loads(cmp_json)
+              changed_apworld = [
+                  f["filename"] for f in cmp_data.get("files", [])
+                  if f.get("filename", "").startswith("apworld/")
+              ]
+              if changed_apworld or cmp_data.get("status") not in ("ahead", "identical"):
+                  raise SystemExit(
+                      f"apworld run head {run.get('headSha')} cannot be reused for {expected}: "
+                      f"status={cmp_data.get('status')!r}, changed apworld files={changed_apworld}"
+                  )
+              print(f"apworld/ unchanged between {run.get('headSha')} and {expected}; reusing CTR world run")
           # Native pull_request runs may build GitHub's synthetic merge commit;
           # BUILD.json and the archive name are checked against the source
           # checkout by the assembler below.

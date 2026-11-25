@@ -31,13 +31,14 @@ as a development base.
 
 ## 1. Gates (nothing ships red)
 
-- [ ] The CTR world workflow (`.github/workflows/apworld.yml`) green on the
-      release commit: the world's pytest suite and every fuzz arm, zero
-      failures (the fuzzer randomizes all options, so option-combo corners are
-      covered). Pushes run only the quick set of arms, so start a full run
-      on the release commit: Actions, CTR world, Run workflow, tier `full`
-      (`gh workflow run apworld.yml --ref <branch> -f tier=full`). Its run ID
-      is the `apworld_run_id` that `release-prepare.yml` asks for.
+- [ ] The CTR world workflow (`.github/workflows/apworld.yml`) green with tier `full`
+      (`gh workflow run apworld.yml --ref <branch> -f tier=full`): the world's pytest
+      suite and every fuzz arm, zero failures. Its run ID is the `apworld_run_id`
+      that `release-prepare.yml` asks for. For a client-only release where `apworld/`
+      has no changes since the last green full `CTR world` run, that earlier run ID
+      may be reused; `release-prepare.yml` verifies `apworld/` is unchanged and still
+      checks the downloaded `ctr.apworld` byte-for-byte against a fresh repack of
+      the release commit.
 - [ ] Build clients (`.github/workflows/build.yml`) green on the release
       commit, including its release assembly check, which runs the same
       assembly as `release-prepare.yml` on that run's archives. Its run ID is

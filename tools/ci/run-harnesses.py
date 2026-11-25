@@ -23,6 +23,7 @@ run leaves in /tmp is deleted when it ends. Results print in a fixed order.
 
 Usage:
   tools/ci/run-harnesses.py            run the listed harnesses, fail on any failure
+  tools/ci/run-harnesses.py --only P   run only listed harnesses/commands matching substring P (repeatable)
   tools/ci/run-harnesses.py --all      try every harness, report, never fail (discovery)
   tools/ci/run-harnesses.py --write-list  discovery, then rewrite harnesses.txt from the result
   tools/ci/run-harnesses.py --shard K/N --results DIR  run a weighted shard, K from 0
@@ -341,9 +342,20 @@ def main():
                         pass
 
 
+def flag_values(flag):
+    out = []
+    for i, arg in enumerate(sys.argv):
+        if arg == flag and i + 1 < len(sys.argv):
+            out.append(sys.argv[i + 1])
+    return out
+
+
 def run(mode):
     if "--summary" in sys.argv:
         return summarize(flag_value("--summary"))
+    only = flag_values("--only")
+    if only:
+        mode = "ci"
     shard = None
     if "--shard" in sys.argv:
         k, _, n = flag_value("--shard").partition("/")
@@ -351,6 +363,8 @@ def run(mode):
         results_dir = flag_value("--results")
         os.makedirs(results_dir, exist_ok=True)
         mode = "ci"
+    if mode not in ("ci", "--all", "--write-list"):
+        raise SystemExit(f"unknown argument: {mode} (expected --only, --all, --write-list, --shard, or --summary)")
     os.makedirs(OUT, exist_ok=True)
     install_nosan_shim()
     all_src = sorted(glob.glob(os.path.join(ROOT, "tools", "test-*.c")) +
@@ -361,11 +375,14 @@ def run(mode):
     listed, skipped, cmds = read_list()
     results, times = {}, {}
     mine = (lambda name: True) if shard is None else (lambda name: shard_of(name, shard[1]) == shard[0])
-    targets = all_rel if mode in ("--all", "--write-list") else [p for p in all_rel if p in listed and mine(p)]
+    matches = (lambda name: True) if not only else (lambda name: any(p in name for p in only))
+    targets = all_rel if mode in ("--all", "--write-list") else [p for p in all_rel if p in listed and mine(p) and matches(p)]
     # The `cmd` steps go first: they are the longest (one builds SDL), so they
     # start while the short harnesses fill the other workers.
-    jobs = [(name, run_cmd, command) for name, command in cmds.items() if mine(name)] if mode == "ci" else []
+    jobs = [(name, run_cmd, command) for name, command in cmds.items() if mine(name) and matches(name)] if mode == "ci" else []
     jobs += [(rel, run_one, rel) for rel in targets]
+    if only and not jobs:
+        raise SystemExit(f"no listed harness or command matched --only {only!r}")
     def timed(job):
         start = time.time()
         result = job[1](job[2])
@@ -403,6 +420,9 @@ def run(mode):
             for name, v in results.items():
                 f.write(f"{v[0]}\t{name}\t{times[name]:.1f}\n")
         print(f"\nshard {shard[0]}/{shard[1]}: {len(results) - len(failed)} passed, {len(failed)} failed")
+        return 1 if failed else 0
+    if only:
+        print(f"\n{len(results) - len(failed)} passed, {len(failed)} failed (filtered by --only)")
         return 1 if failed else 0
     unlisted = [r for r in all_rel if r not in listed and r not in skipped]
     for r in unlisted:
