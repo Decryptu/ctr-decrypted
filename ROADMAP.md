@@ -5,6 +5,13 @@ Open work only: what is in progress, what is planned, what may come, and what is
 - How to work on the project: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 - What the upstream trackers say: [docs/UPSTREAM-ISSUES.md](docs/UPSTREAM-ISSUES.md).
 
+## Planned
+- Nitro-Fueled gameplay enhancements as opt-in options/toggles (off by default; physics-changing toggles stay separated from Classic Time Trial records and Archipelago rules):
+  - **Revamped USF / Blue Fire & reserves:** powersliding, ordinary turbo pads, boost ramps and jump/hang-time boosts feed reserves without cancelling or downgrading USF / higher fire tiers (instead of retail's reset on drift or lower-tier boost).
+  - **U-turn reserve preservation:** air-braking and ground U-turning (Down + Brake + steer with gas released) keep reserves and active fire tier instead of wiping them on brake.
+  - **Perfect-boost reserve weighting:** late/perfect powerslide boosts grant stronger reserve gains relative to early boosts, matching Nitro-Fueled's risk/reward.
+- **Circular drift-boost ring** (opt-in HUD option): a Breath of the Wild-style circular stamina ring drawn near the top-right of the kart (near screen center) instead of having to watch the bottom-right bar. Only shown while drifting (`driftMeter > 0`), fills circularly with the green-to-red progression, and marks the boost threshold zones with splits/ticks so the Good/Perfect window is easy to read without taking eyes off the track.
+
 ## Maybe
 - CTR Native Expanded's two-player co-op Adventure. The Archipelago client would need to know about a second player.
 - More multiplayer from CTR Native Expanded: 3P/4P Arcade, eight racers in split screen, full-detail split screen, Oxide Station in multiplayer, race tracks in Battle, ending a race when one racer is left.
@@ -23,3 +30,4 @@ Open work only: what is in progress, what is planned, what may come, and what is
 - JP disc support: the port booting and playing from a Japanese dump. Upstream removed it on purpose (ctr-native #51). Single Japanese assets on the NTSC-U disc, such as Fake Crash ([CUSTOM_RACERS.md](docs/CUSTOM_RACERS.md)), are a separate thing.
 - Travelling floors on converted courses (Bowser Castle's slabs, Delfino Square's drawbridge): the engine's track collision is static, so they keep a fixed shape ([TRACK-CONVERTER.md](docs/TRACK-CONVERTER.md)).
 - Upstream's MSVC build (`build-msvc.bat`, the MSVC presets in `CMakePresets.json`). The client and our platform code use GCC extensions; Windows builds use MSYS2 MinGW32.
+- Nitro-Fueled Engine Swap, Drift driving class and Ring Rally mode.
