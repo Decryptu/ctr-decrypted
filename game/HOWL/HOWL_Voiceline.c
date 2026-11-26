@@ -1,6 +1,7 @@
 #include <common.h>
 #ifdef CTR_NATIVE
 #include <platform/native_audio.h>
+#include <platform/native_racers.h>
 #include <platform/native_voices.h>
 #endif
 #ifndef HOWL_VOICE_ENABLED
@@ -187,6 +188,21 @@ static inline u32 Voiceline_RequestPlay_NextAudioRNG(void)
 	return rng;
 }
 
+void Voiceline_RequestPlayDriver(u32 voiceID, int driverID, u32 characterID2)
+{
+	if ((driverID < 0) || (driverID >= 8))
+	{
+		return;
+	}
+#ifdef CTR_NATIVE
+	NativeRacers_SetActiveVoiceDriver(driverID);
+#endif
+	Voiceline_RequestPlay(voiceID, GAME_CHARACTER_IDS[driverID], characterID2);
+#ifdef CTR_NATIVE
+	NativeRacers_SetActiveVoiceDriver(-1);
+#endif
+}
+
 void Voiceline_RequestPlay(u32 voiceID, u32 characterID, u32 characterID2)
 {
 	// NOTE(aalhendi): Retail keeps the type and decision flags in the argument registers.
@@ -283,6 +299,14 @@ void Voiceline_RequestPlay(u32 voiceID, u32 characterID, u32 characterID2)
 playImmediate:
 	// NOTE(aalhendi): Retain the decision flags until the immediate playback branch.
 	CTR_PSX_OBSERVE_VALUE(canQueue);
+#ifdef CTR_NATIVE
+	if ((voiceType < NATIVE_RACERS_SAMPLED_VOICE_COUNT) &&
+	    NativeRacers_PlayActiveSampledVoice((int)voiceType, (int)characterID))
+	{
+		HOWL_VOICE_TIMES2[characterID] = GAME_TRACKER->frameTimer_MainFrame_ResetDB;
+		return;
+	}
+#endif
 	if (voiceType == 0)
 	{
 		OtherFX_Play((characterID + 0x1c) & 0xffff, 2);

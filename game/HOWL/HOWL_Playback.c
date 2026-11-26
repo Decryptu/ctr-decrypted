@@ -1,5 +1,8 @@
 #include <common.h>
 #include <platform/native_spu_memory.h>
+#ifdef CTR_NATIVE
+#include <platform/native_racers.h>
+#endif
 
 #ifndef GAME_PLAYBACK_VOLUME_FX
 #define GAME_PLAYBACK_VOLUME_FX          (sdata->vol_FX)
@@ -250,7 +253,13 @@ void howl_UnPauseChannel(struct ChannelStats *stats)
 	switch (stats->type)
 	{
 	case HOWL_CHANNEL_TYPE_OTHER_FX:
-		howl_InitChannelAttr_OtherFX(&GAME_PLAYBACK_OTHER_FX_METADATA[(u16)stats->soundID], &attr, stats->vol, stats->LR, stats->distort);
+#ifdef CTR_NATIVE
+		if ((stats->unk2 == 0) ||
+		    !NativeRacers_InitSampledVoiceChannelAttr((int)stats->unk2 - 1, (u16)stats->soundID, &attr, stats->vol, stats->LR, stats->distort))
+#endif
+		{
+			howl_InitChannelAttr_OtherFX(&GAME_PLAYBACK_OTHER_FX_METADATA[(u16)stats->soundID], &attr, stats->vol, stats->LR, stats->distort);
+		}
 		break;
 	case HOWL_CHANNEL_TYPE_ENGINE_FX:
 		howl_InitChannelAttr_EngineFX(&GAME_PLAYBACK_ENGINE_FX_METADATA[EngineAudio_MetadataID((u16)stats->soundID)], &attr, stats->vol, stats->LR, stats->distort);

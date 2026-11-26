@@ -129,6 +129,43 @@ int main()
     CHECK(NativeRacerLibrary_Remove(dir.c_str(), "test-racer-v2", error, sizeof error));
     CHECK(NativeRacerLibrary_Scan(dir.c_str(), found, 4) == 0);
 
+    // Mask override ("aku"/"uka") and optional sampled voice files ("voice_0"/"voice_1").
+    std::vector<unsigned char> v0(0x40, 0x11), v1(0x30, 0x22);
+    char voiceManifest[4096];
+    std::snprintf(voiceManifest, sizeof voiceManifest,
+                  "{\"schema_version\":1,\"id\":\"55555555-5555-5555-8555-555555555555\",\"name\":\"VOICE RACER\","
+                  "\"short_name\":\"VOICE\",\"authors\":[\"Someone\"],\"template\":\"cortex\",\"engine\":\"accel\","
+                  "\"wheels\":true,\"mask\":\"aku\",\"files\":{"
+                  "\"model\":{\"path\":\"model.ctr\",\"bytes\":%u,\"sha256\":\"%s\"},"
+                  "\"portrait\":{\"path\":\"portrait.bin\",\"bytes\":%u,\"sha256\":\"%s\"},"
+                  "\"voice_0\":{\"path\":\"v0.adpcm\",\"bytes\":%u,\"sha256\":\"%s\",\"volume\":200,\"pitch\":1024,\"duration\":80,\"flags\":4},"
+                  "\"voice_1\":{\"path\":\"v1.adpcm\",\"bytes\":%u,\"sha256\":\"%s\"}}}",
+                  (unsigned)model.size(), Sha(model).c_str(), (unsigned)portrait.size(), Sha(portrait).c_str(),
+                  (unsigned)v0.size(), Sha(v0).c_str(), (unsigned)v1.size(), Sha(v1).c_str());
+    const void *voiceData[NATIVE_RACER_SAMPLED_VOICE_COUNT] = {v0.data(), v1.data()};
+    const size_t voiceSizes[NATIVE_RACER_SAMPLED_VOICE_COUNT] = {v0.size(), v1.size()};
+    // Missing voice payload must be rejected.
+    CHECK(!NativeRacerLibrary_Install(dir.c_str(), "voice-racer", voiceManifest, std::strlen(voiceManifest),
+                                      model.data(), model.size(), portrait.data(), portrait.size(), error, sizeof error));
+    // Valid voice payloads install and scan back with mask + metadata intact.
+    CHECK(NativeRacerLibrary_InstallWithVoices(dir.c_str(), "voice-racer", voiceManifest, std::strlen(voiceManifest),
+                                               model.data(), model.size(), portrait.data(), portrait.size(),
+                                               voiceData, voiceSizes, error, sizeof error));
+    CHECK(NativeRacerLibrary_Scan(dir.c_str(), found, 4) == 1);
+    CHECK(found[0].mask == 1);
+    CHECK(found[0].sampledVoices[0].bytes == v0.size() && found[0].sampledVoices[0].volume == 200 &&
+          found[0].sampledVoices[0].pitch == 1024 && found[0].sampledVoices[0].duration == 80 && found[0].sampledVoices[0].flags == 4);
+    CHECK(found[0].sampledVoices[1].bytes == v1.size() && found[0].sampledVoices[1].volume == 255 &&
+          found[0].sampledVoices[1].pitch == 0x0400 && found[0].sampledVoices[1].duration >= 30 && found[0].sampledVoices[1].flags == 4);
+    // Reject unknown mask and unaligned voice sample size.
+    {
+        NativeRacerEntry bad;
+        char ms[65], ps[65];
+        size_t mb = 0, pb = 0;
+        const std::string badMask = std::string(voiceManifest).replace(std::string(voiceManifest).find("\"aku\""), 5, "\"nope\"");
+        CHECK(!NativeRacerLibrary_ParseManifest(badMask.data(), badMask.size(), &bad, ms, ps, &mb, &pb, error, sizeof error));
+    }
+
     std::filesystem::remove_all(root, ec);
     std::printf("%d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;

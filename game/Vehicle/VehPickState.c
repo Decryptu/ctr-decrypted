@@ -109,7 +109,11 @@ int VehPickState_NewState(struct Driver *victimDriver, int damageType, struct Dr
 	}
 
 VictimLaugh:
+#ifdef CTR_NATIVE
+	Voiceline_RequestPlayDriver(voiceType, victimID, VEH_PICK_VOICELINE_PRIORITY);
+#else
 	Voiceline_RequestPlay(voiceType, characterIDs[victimID], VEH_PICK_VOICELINE_PRIORITY);
+#endif
 ReturnZero:
 	return 0;
 
@@ -209,7 +213,11 @@ CommonDamageVoice:
 	register s16 *characterEntry CTR_PSX_REGISTER("$2");
 
 	CTR_PSX_ADD_POINTER_OFFSET_OFFSET_FIRST(characterEntry, characterIDs, CTR_MipsSll((u32)victimID, voiceType));
+#ifdef CTR_NATIVE
+	Voiceline_RequestPlayDriver(voiceType, victimID, VEH_PICK_VOICELINE_PRIORITY);
+#else
 	Voiceline_RequestPlay(voiceType, *characterEntry, VEH_PICK_VOICELINE_PRIORITY);
+#endif
 }
 	goto DamageApplied;
 
@@ -217,7 +225,11 @@ Burn:
 	if (victimDriver->burnTimer == 0)
 	{
 		OtherFX_Play(VEH_PICK_SOUND_BURN, 1);
+#ifdef CTR_NATIVE
+		Voiceline_RequestPlayDriver(VEH_PICK_VOICELINE_COMMON_DAMAGE, victimDriver->driverID, VEH_PICK_VOICELINE_PRIORITY);
+#else
 		Voiceline_RequestPlay(VEH_PICK_VOICELINE_COMMON_DAMAGE, GAME_CHARACTER_IDS[victimDriver->driverID], VEH_PICK_VOICELINE_PRIORITY);
+#endif
 	}
 
 	victimDriver->burnTimer = VEH_PICK_BURN_TIMER;
@@ -228,7 +240,11 @@ Squish:
 	if (victimState != KS_SPINNING)
 	{
 		OtherFX_Play_Echo(VEH_PICK_SOUND_SQUISH, 1, (u16)(victimDriver->actionsFlagSet >> 16) & 1);
+#ifdef CTR_NATIVE
+		Voiceline_RequestPlayDriver(VEH_PICK_VOICELINE_SQUISH, victimDriver->driverID, VEH_PICK_VOICELINE_PRIORITY);
+#else
 		Voiceline_RequestPlay(VEH_PICK_VOICELINE_SQUISH, GAME_CHARACTER_IDS[victimDriver->driverID], VEH_PICK_VOICELINE_PRIORITY);
+#endif
 	}
 
 	victimDriver->squishTimer = VEH_PICK_SQUISH_TIMER;

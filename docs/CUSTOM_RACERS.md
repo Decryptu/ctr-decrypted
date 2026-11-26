@@ -73,9 +73,12 @@ A racer is a folder under `assets/racers/` (any name) holding `racer.json` and t
   "template": "crash",
   "engine": "balanced",
   "wheels": true,
+  "mask": "aku",
   "files": {
     "model": {"path": "model.ctr", "bytes": 14536, "sha256": "..."},
-    "portrait": {"path": "portrait.bin", "bytes": 612, "sha256": "..."}
+    "portrait": {"path": "portrait.bin", "bytes": 612, "sha256": "..."},
+    "voice_0": {"path": "voice_0.adpcm", "bytes": 8192, "sha256": "...", "volume": 255, "pitch": 1024, "duration": 90, "flags": 4},
+    "voice_1": {"path": "voice_1.adpcm", "bytes": 6144, "sha256": "..."}
   }
 }
 ```
@@ -83,9 +86,11 @@ A racer is a folder under `assets/racers/` (any name) holding `racer.json` and t
 - `name` and `short_name`: printable ASCII, drawn with the game's font (under 32 and 16 bytes).
 - `template`: the retail racer whose character ID it borrows: `crash cortex tiny coco ngin dingodile polar pura pinstripe papu roo komodo tropy penta fakecrash oxide`.
 - `engine`: `balanced`, `accel`, `speed` or `turn`. `wheels`: whether the game draws its tires.
+- `mask` (optional): `"aku"` (Aku Aku) or `"uka"` (Uka Uka). When omitted, the racer keeps its template's mask.
 - `model.ctr`: a racer model as the BIGFILE stores one (a u32 pointer-map offset, the model, the pointer map), at most 512 KiB. The character select draws a racer with wheels at race size, since the menu's wheels sit where the race's do; one without wheels is scaled 5/8 to fit, like N. Oxide's hovercraft.
 - Converted models have no animations and can use all 256 vertex slots of a command list. Retail models stay under the 88 that fit the scratchpad's vertex cache, so slots past it live in their own array (`RenderBucket_PackedVertexScratch`, `game/RenderBucket/RenderBucket_QueueExecute.c`). Past the scratchpad lies the first draw buffer, so a slot written there cuts its draw list short (the HUD and loading flag flicker every other frame).
 - `portrait.bin`: `CDP1`, u16 width 44, u16 height 26, 16 palette words, then 26 rows of 11 words of 4-bit texels. PS1 15-bit colours, word 0 transparent.
+- `voice_0` and `voice_1` (optional): raw 16-byte-aligned PS1 SPU ADPCM samples (up to 128 KiB each) for the racer's two sampled voice slots (`voice_0`: jump/boost/laugh, retail `characterID + 0x1c`; `voice_1`: hurt/spinout, retail `characterID + 0x2c`). Optional metadata fields: `volume` (`0..255`, default `255`), `pitch` (PS1 SPU pitch, default `1024` = 11025 Hz), `duration` (HOWL ticks at 150/s; computed from sample length and pitch when omitted), and `flags` (bit 2 = Voice slider, default `4`). When omitted, the slot uses the template's retail sample.
 - Every file's size and SHA-256 must match. The id is unique: a second folder with the same id is skipped.
 
 ## Portraits: the racer VRAM bank
@@ -134,11 +139,13 @@ A package holds only the mod's own model and portrait, nothing from the player's
 A driver races as a custom racer when it is a human player who picked one or an Arcade/Cup bot assigned one, outside Adventure and the menus, and its character ID is still the racer's template (`NativeRacers_Driver`). Anything that changed the ID since (Archipelago's character swap, the garage) changed the racer too. Then:
 
 - `VehBirth_NonGhost` births it with the racer's model, at every split-screen size. In Time Trial, `MainInit_Drivers` then gives player 1 the template's high-detail model but leaves a custom racer's alone.
-- `VehBirth_TireSprites` gives it wheels or not by `wheels`.
+- `VehBirth_TireSprites` and `GhostReplay_Init2` give it wheels or not by `wheels`.
+- `VehPickupItem_MaskBoolGoodGuy` chooses Aku Aku or Uka Uka by `mask` (falling back to the template's mask when omitted), covering mask pickups, HUD icons, wrong-way lines and talking masks.
 - `VehBirth_SetConsts` reads the racer's engine class (`VEH_BIRTH_ENGINE_ID`, `include/common.h`). Engine sound stays the template's.
+- Sampled voice lines (`voice_0` and `voice_1`) are uploaded into a dedicated 1 MiB SPU extension above `CTR_SPU_BYTES` (`include/platform/native_spu_memory.h`) during `Music_AsyncParseBanks` so they never compete with retail banks or custom track Saphi banks, and played per-driver through `Voiceline_RequestPlayDriver` and `OptionsMenu_TestSound` (with pause/unpause and volume-slider hooks in `HOWL_Playback.c` and `HOWL_Settings.c`).
 - The HUD portraits use the racer's (`VEH_DRIVER_ICON`): race rank list, cup standings, race results, VS and battle standings.
 
-Everything else keyed by character ID uses the template: voice, podium, records, ghosts, Archipelago. OPTIONS > Extras > Opponent Roster controls the Arcade/Cup field (see below).
+Everything else keyed by character ID uses the template: XA voicelines, podium, records, ghosts, Archipelago. OPTIONS > Extras > Opponent Roster controls the Arcade/Cup field (see below).
 
 `CTR_DEV_RACER=n` with `CTR_DEV_RACE` puts player 1 in a race as the nth installed racer. Through the menus: `CTR_DEV_CHARACTER_SELECT=1` with `CTR_DEV_MODE=tt` opens the Time Trial character select, and `CTR_DEV_PAD` picks the racer, track and ghost.
 

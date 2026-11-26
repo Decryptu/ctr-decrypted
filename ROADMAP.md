@@ -9,7 +9,6 @@ Open work only: what is in progress, what is planned, what may come, and what is
 - CTR Native Expanded's two-player co-op Adventure. The Archipelago client would need to know about a second player.
 - More multiplayer from CTR Native Expanded: 3P/4P Arcade, eight racers in split screen, full-detail split screen, Oxide Station in multiplayer, race tracks in Battle, ending a race when one racer is left.
 - Mirror mode, reverse tracks, Super/Ultra Hard, extra arcade modes, boss fights on any track (High Octane; CTR Native Expanded also has Super/Ultra Hard in Adventure, with matching relic and crystal times). Less useful for Archipelago play.
-- Custom racer sounds, mask and wheels: High Octane lets a custom racer bring sampled voice lines and choose its mask and wheels.
 - Racers from other games (low priority): Mario Kart DS karts and drivers, or other PS1 formats, as custom racers.
 - Better bots (low priority): smarter driving, item use, lines and shortcuts, with no stat advantage.
 - PAL disc support (low priority): the port boots and plays from a PAL dump, with High Octane's multilanguage text. This is not taking single PAL assets or fixes onto the NTSC-U disc. Upstream removed it on purpose (ctr-native #51, #54).

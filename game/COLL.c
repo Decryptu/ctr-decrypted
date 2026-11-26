@@ -2355,7 +2355,11 @@ u32 COLL_MOVED_ScrubImpact(struct Driver *d, struct Thread *t, struct Scratchpad
 					u32 soundFlags = HowlSfx_Pack(HOWL_SFX_LR_CENTER, HOWL_SFX_DISTORTION_NONE, HOWL_SFX_VOLUME_MAX, echo);
 
 					OtherFX_Play_LowLevel(6, 1, soundFlags);
+#ifdef CTR_NATIVE
+					Voiceline_RequestPlayDriver(6, d->driverID, 0x10);
+#else
 					Voiceline_RequestPlay(6, data.characterIDs[d->driverID], 0x10);
+#endif
 					GAMEPAD_ShockFreq(d, 8, 0);
 					GAMEPAD_ShockForce1(d, 8, 0x7f);
 

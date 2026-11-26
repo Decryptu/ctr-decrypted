@@ -1761,8 +1761,19 @@ void racer_install_worker(NativeRacerCatalogueEntry entry, std::string racersDir
     if (!https_get(kRacerHost, folder + parsed.modelPath, NATIVE_RACER_MODEL_MAX_BYTES, model, error) ||
         !https_get(kRacerHost, folder + parsed.portraitPath, 4096, portrait, error))
         return racer_finish(state, -2, error);
-    if (!NativeRacerLibrary_Install(racersDir.c_str(), entry.folder, manifest.data(), manifest.size(), model.data(),
-                                    model.size(), portrait.data(), portrait.size(), detail, sizeof detail))
+    std::vector<unsigned char> voices[NATIVE_RACER_SAMPLED_VOICE_COUNT];
+    const void *voiceData[NATIVE_RACER_SAMPLED_VOICE_COUNT] = {nullptr, nullptr};
+    size_t voiceSizes[NATIVE_RACER_SAMPLED_VOICE_COUNT] = {0, 0};
+    for (int i = 0; i < NATIVE_RACER_SAMPLED_VOICE_COUNT; i++)
+    {
+        if (parsed.sampledVoices[i].bytes == 0) continue;
+        if (!https_get(kRacerHost, folder + parsed.sampledVoices[i].path, NATIVE_RACER_VOICE_MAX_BYTES, voices[i], error))
+            return racer_finish(state, -2, error);
+        voiceData[i] = voices[i].data();
+        voiceSizes[i] = voices[i].size();
+    }
+    if (!NativeRacerLibrary_InstallWithVoices(racersDir.c_str(), entry.folder, manifest.data(), manifest.size(), model.data(),
+                                              model.size(), portrait.data(), portrait.size(), voiceData, voiceSizes, detail, sizeof detail))
         return racer_finish(state, -2, detail);
     racer_finish(state, 1, "");
 }

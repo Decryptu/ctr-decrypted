@@ -6,7 +6,11 @@ void UI_JumpMeter_Update(struct Driver *driver)
 	{
 		if ((UI_JUMP_METER_LANDING_VOICELINE_MIN < driver->jump_LandingBoost) && (driver->jumpMeter < UI_JUMP_METER_LANDING_VOICELINE_CUTOFF))
 		{
+#ifdef CTR_NATIVE
+			Voiceline_RequestPlayDriver(UI_JUMP_METER_LANDING_VOICELINE_ID, driver->driverID, UI_JUMP_METER_LANDING_VOICELINE_FLAGS);
+#else
 			Voiceline_RequestPlay(UI_JUMP_METER_LANDING_VOICELINE_ID, GAME_CHARACTER_IDS[driver->driverID], UI_JUMP_METER_LANDING_VOICELINE_FLAGS);
+#endif
 		}
 
 		// NOTE(aalhendi): Sample landing boost after the voice provider, not before it.

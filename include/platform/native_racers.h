@@ -7,6 +7,9 @@
 // (voice, podium, records, Archipelago); the racer index rides alongside it.
 // Racer indices are 0..NativeRacers_Count()-1; -1 means "the retail character".
 
+#define NATIVE_RACERS_SAMPLED_VOICE_COUNT 2
+
+struct ChannelAttr;
 struct Icon;
 struct Model;
 
@@ -17,6 +20,8 @@ void NativeRacers_Reload(void);
 // enum EngineClass; the template's unless the racer names one.
 int NativeRacers_Engine(int racer);
 int NativeRacers_Wheels(int racer);
+// Aku Aku (1) or Uka Uka (0); falls back to `fallback` when the racer has no mask override.
+int NativeRacers_MaskGoodGuy(int racer, int fallback);
 // The racer's names, or NULL to use the template's.
 const char *NativeRacers_Name(int racer);
 const char *NativeRacers_ShortName(int racer);
@@ -25,6 +30,14 @@ const char *NativeRacers_ShortName(int racer);
 struct Icon *NativeRacers_Portrait(int racer);
 struct Model *NativeRacers_MenuModel(int racer);
 struct Model *NativeRacers_RaceModel(int racer);
+
+// Sampled voice lines (SPU ADPCM, up to 2 per racer: 0 = boost/jump/laugh, 1 = hurt/spin).
+void NativeRacers_LoadSelectedSamplesToSpu(void);
+void NativeRacers_SetActiveVoiceDriver(int driverID);
+int NativeRacers_InitSampledVoiceChannelAttr(int racer, int soundID, struct ChannelAttr *attr, int vol, int LR, int distort);
+int NativeRacers_UpdateSampledVoiceVolume(int racer, int soundID, struct ChannelAttr *attr, int vol, int LR);
+int NativeRacers_PlayDriverSampledVoice(int driverID, int voiceType, int characterID, int antiSpam, int *soundIDCount);
+int NativeRacers_PlayActiveSampledVoice(int voiceType, int characterID);
 
 // The racer each human player picked on the character select (-1: the
 // retail character in GAME_CHARACTER_IDS).

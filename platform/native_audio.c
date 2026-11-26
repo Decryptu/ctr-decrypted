@@ -18,8 +18,10 @@
 #define NATIVE_AUDIO_SAMPLE_RATE             44100
 #define NATIVE_AUDIO_CHANNELS                2
 #define NATIVE_AUDIO_SPU_VOICE_COUNT         24
-// 512 KB retail, 1 MiB in the box authoring build (native_spu_memory.h)
-#define NATIVE_AUDIO_SPU_MEMSIZE             CTR_SPU_BYTES
+// 512 KB retail, 1 MiB HOWL-managed in package builds, plus an extra 1 MiB
+// above CTR_SPU_BYTES for custom racer sampled voices (native_spu_memory.h).
+#define NATIVE_AUDIO_SPU_HW_MEMSIZE          CTR_SPU_BYTES
+#define NATIVE_AUDIO_SPU_MEMSIZE             CTR_SPU_TOTAL_BYTES
 // streaming ADPCM decode like the real SPU: 16-byte blocks decoded on the fly
 // per voice, reading SPU RAM live (psx-spx "SPU ADPCM Samples/Pitch") -penta3
 #define NATIVE_AUDIO_ADPCM_BLOCK_BYTES       16
@@ -369,7 +371,7 @@ struct NativeAudioSnapshot
 	SpuCommonAttr commonAttr;
 	struct NativeAudioVoiceState voices[NATIVE_AUDIO_SPU_VOICE_COUNT];
 	struct NativeAudioXAState xa;
-	u8 spuSampleMem[NATIVE_AUDIO_SPU_MEMSIZE];
+	u8 spuSampleMem[NATIVE_AUDIO_SPU_HW_MEMSIZE];
 };
 
 global_variable struct NativeAudioState s_audio;
@@ -2865,8 +2867,10 @@ int NativeAudio_RestoreState(const void *src, int srcSize)
 	s_audio.reverbAttr = snapshot->reverbAttr;
 	s_audio.reverb = snapshot->reverb;
 	s_audio.commonAttr = snapshot->commonAttr;
-	memcpy(s_audio.spu.memory, snapshot->spuSampleMem, sizeof(s_audio.spu.memory));
-	NativeAudio_AuditUpload(0, sizeof(s_audio.spu.memory));
+	// Snapshots only cover the HOWL-managed region; custom racer samples live
+	// above CTR_SPU_BYTES and are immutable once loaded from their packages.
+	memcpy(s_audio.spu.memory, snapshot->spuSampleMem, sizeof(snapshot->spuSampleMem));
+	NativeAudio_AuditUpload(0, sizeof(snapshot->spuSampleMem));
 	s_audio.spu.transferOffset = snapshot->spuTransferOffset;
 	for (i = 0; i < NATIVE_AUDIO_SPU_VOICE_COUNT; i++)
 	{

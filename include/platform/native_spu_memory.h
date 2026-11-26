@@ -28,13 +28,19 @@
 #define CTR_SPU_WIDE_CEILING   (CTR_SPU_WIDE_BYTES - (CTR_SPU_RETAIL_BYTES - CTR_SPU_RETAIL_CEILING))
 
 #ifdef CTR_CUSTOM_PACKAGES
-#define CTR_SPU_BYTES      CTR_SPU_WIDE_BYTES
-#define CTR_SPU_CEILING    CTR_SPU_WIDE_CEILING
-#define CTR_SPU_ADDR_SHIFT 4
+#define CTR_SPU_BYTES       CTR_SPU_WIDE_BYTES
+#define CTR_SPU_CEILING     CTR_SPU_WIDE_CEILING
+#define CTR_SPU_ADDR_SHIFT  4
+// Extra 1 MiB above the HOWL-managed region for custom racer sampled voices,
+// so they never compete with retail banks or custom track Saphi banks.
+#define CTR_SPU_RACER_START CTR_SPU_BYTES
+#define CTR_SPU_TOTAL_BYTES (CTR_SPU_BYTES * 2)
 #else
-#define CTR_SPU_BYTES      CTR_SPU_RETAIL_BYTES
-#define CTR_SPU_CEILING    CTR_SPU_RETAIL_CEILING
-#define CTR_SPU_ADDR_SHIFT 3
+#define CTR_SPU_BYTES       CTR_SPU_RETAIL_BYTES
+#define CTR_SPU_CEILING     CTR_SPU_RETAIL_CEILING
+#define CTR_SPU_ADDR_SHIFT  3
+#define CTR_SPU_RACER_START CTR_SPU_BYTES
+#define CTR_SPU_TOTAL_BYTES CTR_SPU_BYTES
 #endif
 
 // Byte count to address units, address units to bytes, and a disc spuSize

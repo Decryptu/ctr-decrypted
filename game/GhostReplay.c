@@ -1,4 +1,7 @@
 #include <common.h>
+#ifdef CTR_NATIVE
+#include <platform/native_racers.h>
+#endif
 
 #if defined(CTR_NATIVE)
 // NOTE(aalhendi): Allocation labels live in resident read-only data on PSX;
@@ -557,7 +560,15 @@ void GhostReplay_Init2(void)
 			continue;
 		}
 #endif
-		driver->wheelSize = (GAME_CHARACTER_IDS[characterIndex] != NITROS_OXIDE) ? 0xccc : 0;
+		b32 showWheels = GAME_CHARACTER_IDS[characterIndex] != NITROS_OXIDE;
+#ifdef CTR_NATIVE
+		{
+			const int racer = NativeRacers_Driver(driver->driverID);
+			if (racer >= 0)
+				showWheels = NativeRacers_Wheels(racer);
+		}
+#endif
+		driver->wheelSize = showWheels ? 0xccc : 0;
 		if (driver->ghostID != 0)
 		{
 			name = GHOST_NAME_STAFF;

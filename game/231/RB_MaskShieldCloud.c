@@ -572,7 +572,11 @@ void RB_ShieldDark_ThTick_Grow(struct Thread *th)
 #endif
 	if (!(player->actionsFlagSet & ACTION_BOT))
 	{
+#ifdef CTR_NATIVE
+		Voiceline_RequestPlayDriver(13, player->driverID, 0x10);
+#else
 		Voiceline_RequestPlay(13, GAME_CHARACTER_IDS[player->driverID], 0x10);
+#endif
 	}
 
 	// Inherit the complete world transform before initializing the projectile's motion.

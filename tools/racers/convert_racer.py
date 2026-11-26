@@ -214,6 +214,8 @@ def convert(args):
                     "wheels": over.get("wheels", t != 15),
                     "files": manifest_files,
                 }
+                if over.get("mask") in ("aku", "uka"):
+                    manifest["mask"] = over["mask"]
                 with open(os.path.join(out, "racer.json"), "w", encoding="utf-8", newline="\n") as f:
                     json.dump(manifest, f, indent=2, ensure_ascii=False)
                     f.write("\n")

@@ -176,7 +176,11 @@ static inline void PickupBots_SetCooldown(struct Driver *bot)
 
 static inline void PickupBots_PlayVoice(u32 voiceID, struct Driver *attacker, struct Driver *victim)
 {
+#ifdef CTR_NATIVE
+	Voiceline_RequestPlayDriver(voiceID, attacker->driverID, GAME_CHARACTER_IDS[victim->driverID]);
+#else
 	Voiceline_RequestPlay(voiceID, GAME_CHARACTER_IDS[attacker->driverID], GAME_CHARACTER_IDS[victim->driverID]);
+#endif
 }
 
 static inline void PickupBots_UpdateArcade(struct GameTracker *initialGT)
@@ -689,7 +693,11 @@ int PickupBots_AdapterProtect(struct Driver *victim)
 		struct Shield *shieldObj = victim->instBubbleHold->thread->object;
 		shieldObj->flags |= SHIELD_FLAG_POP_ON_DAMAGE;
 		victim->instBubbleHold = NULL;
+#ifdef CTR_NATIVE
+		Voiceline_RequestPlayDriver(2, victim->driverID, 0x10);
+#else
 		Voiceline_RequestPlay(2, GAME_CHARACTER_IDS[victim->driverID], 0x10);
+#endif
 		return 1;
 	}
 	if (!s_apBossAdapter.armed || victim == NULL || victim != s_apBossAdapterDriver)
@@ -698,7 +706,11 @@ int PickupBots_AdapterProtect(struct Driver *victim)
 		return 0;
 	if ((s_apBossAdapter.maskOn && (victim->actionsFlagSet & ACTION_MASK_WEAPON) != 0) || victim->invincibleTimer != 0)
 	{
+#ifdef CTR_NATIVE
+		Voiceline_RequestPlayDriver(2, victim->driverID, 0x10);
+#else
 		Voiceline_RequestPlay(2, GAME_CHARACTER_IDS[victim->driverID], 0x10);
+#endif
 		return 1;
 	}
 	if (victim->instBubbleHold != NULL)
@@ -707,7 +719,11 @@ int PickupBots_AdapterProtect(struct Driver *victim)
 		shieldObj->flags |= SHIELD_FLAG_POP_ON_DAMAGE;
 		victim->invincibleTimer = 0x2a0;
 		victim->instBubbleHold = NULL;
+#ifdef CTR_NATIVE
+		Voiceline_RequestPlayDriver(2, victim->driverID, 0x10);
+#else
 		Voiceline_RequestPlay(2, GAME_CHARACTER_IDS[victim->driverID], 0x10);
+#endif
 		return 1;
 	}
 	return 0;

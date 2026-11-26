@@ -3839,7 +3839,11 @@ u32 BOTS_ChangeState(struct Driver *driverVictim, int damageType, struct Driver 
 			CTR_PSX_FORGET_VALUE(characters);
 			victimOffset = (u32)CTR_MipsSll(victimID, voiceKind);
 			CTR_PSX_ADD_POINTER_OFFSET_OFFSET_FIRST(characterEntry, characters, victimOffset);
+#ifdef CTR_NATIVE
+			Voiceline_RequestPlayDriver(voiceKind, driverVictim->driverID, 0x10);
+#else
 			Voiceline_RequestPlay(voiceKind, *characterEntry, 0x10);
+#endif
 		}
 		break;
 	}

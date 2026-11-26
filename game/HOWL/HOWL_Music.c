@@ -1,4 +1,7 @@
 #include <common.h>
+#ifdef CTR_NATIVE
+#include <platform/native_racers.h>
+#endif
 #ifdef CTR_CUSTOM_PACKAGES
 #include <platform/native_custom_identity.h>
 #include "HOWL_CustomMusic.c"
@@ -376,6 +379,9 @@ u32 Music_AsyncParseBanks(void)
 		s32 level;
 		if (Bank_AssignSpuAddrs() == 0)
 			goto PARSE_FINISH;
+#ifdef CTR_NATIVE
+		NativeRacers_LoadSelectedSamplesToSpu();
+#endif
 		gGT = GAME_TRACKER;
 		if (IS_BOSS_RACE(gGT->gameMode1))
 		{

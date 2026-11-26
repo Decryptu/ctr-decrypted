@@ -151,6 +151,17 @@ extern "C" int NativeRacerLibrary_ParseManifest(const char *text, size_t size, N
         e.engine = IndexOf(kEngines, 4, m.at("engine").get<std::string>());
         if (e.engine < 0) return Fail(error, errorSize, "unknown engine"), 0;
         e.wheels = m.value("wheels", true) ? 1 : 0;
+        e.mask = -1;
+        if (m.contains("mask") && !m.at("mask").is_null())
+        {
+            const std::string mask = m.at("mask").get<std::string>();
+            if (mask == "aku")
+                e.mask = 1;
+            else if (mask == "uka")
+                e.mask = 0;
+            else
+                return Fail(error, errorSize, "unknown mask (expected \"aku\" or \"uka\")"), 0;
+        }
 
         const json &files = m.at("files");
         const json &model = files.at("model");
@@ -169,6 +180,44 @@ extern "C" int NativeRacerLibrary_ParseManifest(const char *text, size_t size, N
         if (ms.size() != 64 || ps.size() != 64) return Fail(error, errorSize, "bad sha256"), 0;
         std::memcpy(modelSha256, ms.c_str(), 65);
         std::memcpy(portraitSha256, ps.c_str(), 65);
+
+        static const char *const kVoiceKeys[NATIVE_RACER_SAMPLED_VOICE_COUNT] = {"voice_0", "voice_1"};
+        for (int i = 0; i < NATIVE_RACER_SAMPLED_VOICE_COUNT; i++)
+        {
+            if (!files.contains(kVoiceKeys[i]) || files.at(kVoiceKeys[i]).is_null())
+                continue;
+            const json &vf = files.at(kVoiceKeys[i]);
+            const std::string vpath = vf.at("path").get<std::string>();
+            if (!ValidFileName(vpath)) return Fail(error, errorSize, "bad voice file path"), 0;
+            const size_t vbytes = vf.at("bytes").get<size_t>();
+            if (vbytes < 16 || vbytes > NATIVE_RACER_VOICE_MAX_BYTES || (vbytes & 15u) != 0)
+                return Fail(error, errorSize, "voice sample size must be 16-byte aligned and in range"), 0;
+            const std::string vs = vf.at("sha256").get<std::string>();
+            if (vs.size() != 64) return Fail(error, errorSize, "bad voice sha256"), 0;
+            const int flags = vf.value("flags", 4);
+            const int volume = vf.value("volume", 255);
+            const int pitch = vf.value("pitch", 0x0400);
+            if (flags < 0 || flags > 255 || volume < 0 || volume > 255 || pitch <= 0 || pitch > 0x4000)
+                return Fail(error, errorSize, "voice sample parameters out of range"), 0;
+            int duration = vf.value("duration", 0);
+            if (duration <= 0)
+            {
+                // 28 PCM samples per 16-byte ADPCM block; 150 HOWL ticks/sec (5 per 30 Hz frame).
+                const double samples = (double)(vbytes / 16) * 28.0;
+                const double rate = 44100.0 * ((double)pitch / 4096.0);
+                const int est = (int)((samples / rate) * 150.0) + 15;
+                duration = std::max(30, std::min(1500, est));
+            }
+            if (duration > 65535) return Fail(error, errorSize, "voice duration out of range"), 0;
+            NativeRacerSampledVoice &sv = e.sampledVoices[i];
+            std::snprintf(sv.path, sizeof sv.path, "%s", vpath.c_str());
+            sv.bytes = vbytes;
+            std::memcpy(sv.sha256, vs.c_str(), 65);
+            sv.flags = (unsigned char)flags;
+            sv.volume = (unsigned char)volume;
+            sv.pitch = (unsigned short)pitch;
+            sv.duration = (unsigned short)duration;
+        }
 
         *out = e;
         return 1;
@@ -211,7 +260,17 @@ extern "C" int NativeRacerLibrary_Scan(const char *racersDir, NativeRacerEntry *
         }
         const std::filesystem::path model = item.path() / std::filesystem::u8path(e.modelPath);
         const std::filesystem::path portrait = item.path() / std::filesystem::u8path(e.portraitPath);
-        if (!HashFile(model, modelBytes, modelSha) || !HashFile(portrait, portraitBytes, portraitSha))
+        bool filesOk = HashFile(model, modelBytes, modelSha) && HashFile(portrait, portraitBytes, portraitSha);
+        for (int i = 0; filesOk && i < NATIVE_RACER_SAMPLED_VOICE_COUNT; i++)
+        {
+            if (e.sampledVoices[i].bytes == 0) continue;
+            const std::filesystem::path vfile = item.path() / std::filesystem::u8path(e.sampledVoices[i].path);
+            if (!HashFile(vfile, e.sampledVoices[i].bytes, e.sampledVoices[i].sha256))
+                filesOk = false;
+            else
+                std::snprintf(e.sampledVoices[i].path, sizeof e.sampledVoices[i].path, "%s", vfile.u8string().c_str());
+        }
+        if (!filesOk)
         {
             std::fprintf(stderr, "[Racers] %s: a file is missing or does not match racer.json\n", folder.c_str());
             continue;
@@ -286,9 +345,11 @@ extern "C" int NativeRacerLibrary_ParseIndex(const char *text, size_t size, Nati
     }
 }
 
-extern "C" int NativeRacerLibrary_Install(const char *racersDir, const char *folder, const void *manifest, size_t manifestSize,
-                                          const void *model, size_t modelSize, const void *portrait, size_t portraitSize,
-                                          char *error, size_t errorSize)
+extern "C" int NativeRacerLibrary_InstallWithVoices(const char *racersDir, const char *folder, const void *manifest, size_t manifestSize,
+                                                    const void *model, size_t modelSize, const void *portrait, size_t portraitSize,
+                                                    const void *const voiceData[NATIVE_RACER_SAMPLED_VOICE_COUNT],
+                                                    const size_t voiceSizes[NATIVE_RACER_SAMPLED_VOICE_COUNT],
+                                                    char *error, size_t errorSize)
 {
     if (!ValidFolder(folder)) return Fail(error, errorSize, "bad folder name"), 0;
     NativeRacerEntry e;
@@ -299,6 +360,13 @@ extern "C" int NativeRacerLibrary_Install(const char *racersDir, const char *fol
         return 0;
     if (!HashBytes(model, modelSize, modelBytes, modelSha) || !HashBytes(portrait, portraitSize, portraitBytes, portraitSha))
         return Fail(error, errorSize, "a downloaded file does not match racer.json"), 0;
+    for (int i = 0; i < NATIVE_RACER_SAMPLED_VOICE_COUNT; i++)
+    {
+        if (e.sampledVoices[i].bytes == 0) continue;
+        if (!voiceData || !voiceSizes || !voiceData[i] ||
+            !HashBytes(voiceData[i], voiceSizes[i], e.sampledVoices[i].bytes, e.sampledVoices[i].sha256))
+            return Fail(error, errorSize, "a downloaded voice file does not match racer.json"), 0;
+    }
 
     std::error_code ec;
     const std::filesystem::path root = std::filesystem::u8path(racersDir);
@@ -306,10 +374,16 @@ extern "C" int NativeRacerLibrary_Install(const char *racersDir, const char *fol
     const std::filesystem::path staging = root / std::filesystem::u8path(std::string(".") + folder + ".part");
     std::filesystem::create_directories(root, ec);
     NativeFs_RemoveAll(staging, ec);
-    if (!std::filesystem::create_directory(staging, ec) ||
-        !WriteFile(staging / "racer.json", manifest, manifestSize) ||
-        !WriteFile(staging / std::filesystem::u8path(e.modelPath), model, modelSize) ||
-        !WriteFile(staging / std::filesystem::u8path(e.portraitPath), portrait, portraitSize))
+    bool wrote = std::filesystem::create_directory(staging, ec) &&
+                 WriteFile(staging / "racer.json", manifest, manifestSize) &&
+                 WriteFile(staging / std::filesystem::u8path(e.modelPath), model, modelSize) &&
+                 WriteFile(staging / std::filesystem::u8path(e.portraitPath), portrait, portraitSize);
+    for (int i = 0; wrote && i < NATIVE_RACER_SAMPLED_VOICE_COUNT; i++)
+    {
+        if (e.sampledVoices[i].bytes == 0) continue;
+        wrote = WriteFile(staging / std::filesystem::u8path(e.sampledVoices[i].path), voiceData[i], voiceSizes[i]);
+    }
+    if (!wrote)
     {
         NativeFs_RemoveAll(staging, ec);
         return Fail(error, errorSize, "could not write the racer's files"), 0;
@@ -330,6 +404,14 @@ extern "C" int NativeRacerLibrary_Install(const char *racersDir, const char *fol
         return Fail(error, errorSize, "could not move the racer into place"), 0;
     }
     return 1;
+}
+
+extern "C" int NativeRacerLibrary_Install(const char *racersDir, const char *folder, const void *manifest, size_t manifestSize,
+                                          const void *model, size_t modelSize, const void *portrait, size_t portraitSize,
+                                          char *error, size_t errorSize)
+{
+    return NativeRacerLibrary_InstallWithVoices(racersDir, folder, manifest, manifestSize, model, modelSize, portrait, portraitSize,
+                                                nullptr, nullptr, error, errorSize);
 }
 
 extern "C" int NativeRacerLibrary_Remove(const char *racersDir, const char *folder, char *error, size_t errorSize)

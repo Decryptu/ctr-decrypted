@@ -4,6 +4,7 @@
 #include <platform/native_fs_utf8.h>
 #include <platform/native_gpu.h>
 #include <platform/native_renderer.h>
+#include <platform/native_spu_memory.h>
 
 // Custom racers at run time (docs/CUSTOM_RACERS.md): the installed library,
 // each racer's models and its portrait.
@@ -45,15 +46,28 @@ enum
 	NATIVE_RACERS_PORTRAIT_TPAGE = 0x60,
 };
 
+struct NativeRacerSample
+{
+	char path[512];
+	u32 bytes;
+	u8 flags;
+	u8 volume;
+	u16 pitch;
+	u16 duration;
+};
+
 struct NativeRacer
 {
 	int templateID;
 	int engine;
 	int wheels;
+	int mask; // -1 template default, 0 Uka Uka, 1 Aku Aku
 	char name[32];
 	char shortName[16];
 	char modelPath[512];
 	char portraitPath[512];
+	struct NativeRacerSample sampledVoices[NATIVE_RACERS_SAMPLED_VOICE_COUNT];
+	u32 sampledVoiceSpuAddr[NATIVE_RACERS_SAMPLED_VOICE_COUNT];
 	struct Model *menuModel;
 	struct Model *raceModel;
 	struct Icon portrait;
@@ -71,6 +85,7 @@ static int s_racerCount = -1;
 static int s_portraitsUploaded;
 static signed char s_playerRacer[4] = {-1, -1, -1, -1};
 static signed char s_botRacer[8] = {-1, -1, -1, -1, -1, -1, -1, -1};
+static int s_activeVoiceDriver = -1;
 
 static void NativeRacers_Load(void)
 {
@@ -87,6 +102,7 @@ static void NativeRacers_Load(void)
 			s_racers[r].templateID = r % 8;
 			s_racers[r].engine = -1;
 			s_racers[r].wheels = 1;
+			s_racers[r].mask = -1;
 		}
 		return;
 	}
@@ -105,10 +121,22 @@ static void NativeRacers_Load(void)
 		racer->templateID = entries[r].templateID;
 		racer->engine = entries[r].engine;
 		racer->wheels = entries[r].wheels;
+		racer->mask = entries[r].mask;
 		snprintf(racer->name, sizeof racer->name, "%s", entries[r].name);
 		snprintf(racer->shortName, sizeof racer->shortName, "%s", entries[r].shortName);
 		snprintf(racer->modelPath, sizeof racer->modelPath, "%s", entries[r].modelPath);
 		snprintf(racer->portraitPath, sizeof racer->portraitPath, "%s", entries[r].portraitPath);
+		for (int v = 0; v < NATIVE_RACERS_SAMPLED_VOICE_COUNT; v++)
+		{
+			if (entries[r].sampledVoices[v].bytes == 0)
+				continue;
+			snprintf(racer->sampledVoices[v].path, sizeof racer->sampledVoices[v].path, "%s", entries[r].sampledVoices[v].path);
+			racer->sampledVoices[v].bytes = (u32)entries[r].sampledVoices[v].bytes;
+			racer->sampledVoices[v].flags = entries[r].sampledVoices[v].flags;
+			racer->sampledVoices[v].volume = entries[r].sampledVoices[v].volume;
+			racer->sampledVoices[v].pitch = entries[r].sampledVoices[v].pitch;
+			racer->sampledVoices[v].duration = entries[r].sampledVoices[v].duration;
+		}
 	}
 	if (count > 0)
 		printf("[Racers] %d custom racer(s) from %s\n", count, dir);
@@ -163,6 +191,13 @@ int NativeRacers_Engine(int racer)
 int NativeRacers_Wheels(int racer)
 {
 	return NativeRacers_Valid(racer) ? s_racers[racer].wheels : 1;
+}
+
+int NativeRacers_MaskGoodGuy(int racer, int fallback)
+{
+	if (!NativeRacers_Valid(racer) || (s_racers[racer].mask < 0))
+		return fallback != 0;
+	return s_racers[racer].mask != 0;
 }
 
 const char *NativeRacers_Name(int racer)
@@ -413,4 +448,180 @@ struct Icon *NativeRacers_DriverIcon(int driverID, struct Icon *retailIcon)
 {
 	struct Icon *icon = NativeRacers_Portrait(NativeRacers_Driver(driverID));
 	return icon ? icon : retailIcon;
+}
+
+static int NativeRacers_SampledVoiceSlotForSound(const struct NativeRacer *racer, int soundID)
+{
+	if (racer == NULL)
+		return -1;
+	if (soundID == racer->templateID + 0x1c)
+		return 0;
+	if (soundID == racer->templateID + 0x2c)
+		return 1;
+	return -1;
+}
+
+void NativeRacers_SetActiveVoiceDriver(int driverID)
+{
+	s_activeVoiceDriver = ((driverID >= 0) && (driverID < 8)) ? driverID : -1;
+}
+
+void NativeRacers_LoadSelectedSamplesToSpu(void)
+{
+	NativeRacers_Load();
+	for (int r = 0; r < s_racerCount; r++)
+		memset(s_racers[r].sampledVoiceSpuAddr, 0, sizeof s_racers[r].sampledVoiceSpuAddr);
+
+#if CTR_SPU_TOTAL_BYTES > CTR_SPU_RACER_START
+	u64 selectedMask = 0;
+	for (int driverID = 0; driverID < 8; driverID++)
+	{
+		const int racer = NativeRacers_Driver(driverID);
+		if ((racer < 0) || (racer >= s_racerCount))
+			continue;
+		for (int v = 0; v < NATIVE_RACERS_SAMPLED_VOICE_COUNT; v++)
+		{
+			if (s_racers[racer].sampledVoices[v].bytes != 0)
+			{
+				selectedMask |= (u64)1 << racer;
+				break;
+			}
+		}
+	}
+	if (selectedMask == 0)
+		return;
+
+	u32 cursor = CTR_SPU_RACER_START;
+	for (int r = 0; r < s_racerCount; r++)
+	{
+		if ((selectedMask & ((u64)1 << r)) == 0)
+			continue;
+		struct NativeRacer *racer = &s_racers[r];
+		for (int v = 0; v < NATIVE_RACERS_SAMPLED_VOICE_COUNT; v++)
+		{
+			const struct NativeRacerSample *sample = &racer->sampledVoices[v];
+			if ((sample->bytes == 0) || !sample->path[0])
+				continue;
+			const u32 alignedSize = (sample->bytes + 15u) & ~15u;
+			if ((cursor >= (u32)CTR_SPU_TOTAL_BYTES) || (alignedSize > (u32)CTR_SPU_TOTAL_BYTES - cursor))
+			{
+				fprintf(stderr, "[Racers] Not enough SPU RAM for sampled voice %d of %s; using retail audio.\n", v, racer->name);
+				continue;
+			}
+			FILE *f = NativeFs_OpenRead(sample->path);
+			u8 *buf = f ? (u8 *)malloc(sample->bytes) : NULL;
+			const size_t got = (f && buf) ? fread(buf, 1, sample->bytes, f) : 0;
+			if (f)
+				fclose(f);
+			if ((buf != NULL) && (got == sample->bytes) &&
+			    (SpuSetTransferStartAddr(cursor) != 0) && (SpuWrite(buf, sample->bytes) == sample->bytes))
+			{
+				racer->sampledVoiceSpuAddr[v] = cursor;
+				printf("[Racers] Loaded sampled voice %d for %s at SPU 0x%x (%u bytes)\n", v, racer->name, cursor, sample->bytes);
+				cursor += alignedSize;
+			}
+			free(buf);
+		}
+	}
+#endif
+}
+
+int NativeRacers_InitSampledVoiceChannelAttr(int racerIndex, int soundID, struct ChannelAttr *attr, int vol, int LR, int distort)
+{
+	if (!NativeRacers_Valid(racerIndex) || (attr == NULL))
+		return 0;
+	const struct NativeRacer *racer = &s_racers[racerIndex];
+	const int slot = NativeRacers_SampledVoiceSlotForSound(racer, soundID);
+	if ((slot < 0) || (racer->sampledVoices[slot].bytes == 0) || (racer->sampledVoiceSpuAddr[slot] == 0))
+		return 0;
+
+	const struct NativeRacerSample *sample = &racer->sampledVoices[slot];
+	const u32 masterVol = (sample->flags & 4) != 0 ? (u32)sdata->vol_Voice : (u32)sdata->vol_FX;
+	Channel_SetVolume(attr, (masterVol * sample->volume * (u32)vol) >> 10, LR);
+
+	u32 pitch = sample->pitch;
+	if (distort != HOWL_SFX_DISTORTION_NONE)
+		pitch = (pitch * (u32)GAME_DISTORT_CONST_OTHER_FX[distort]) >> 16;
+	attr->pitch = (u16)pitch;
+	attr->ad = 0x80ff;
+	attr->sr = 0x1fc2;
+	attr->spuStartAddr = (void *)(uintptr_t)racer->sampledVoiceSpuAddr[slot];
+	return 1;
+}
+
+int NativeRacers_UpdateSampledVoiceVolume(int racerIndex, int soundID, struct ChannelAttr *attr, int vol, int LR)
+{
+	if (!NativeRacers_Valid(racerIndex) || (attr == NULL))
+		return 0;
+	const struct NativeRacer *racer = &s_racers[racerIndex];
+	const int slot = NativeRacers_SampledVoiceSlotForSound(racer, soundID);
+	if ((slot < 0) || (racer->sampledVoices[slot].bytes == 0))
+		return 0;
+
+	const struct NativeRacerSample *sample = &racer->sampledVoices[slot];
+	const u32 masterVol = (sample->flags & 4) != 0 ? (u32)sdata->vol_Voice : (u32)sdata->vol_FX;
+	Channel_SetVolume(attr, (masterVol * sample->volume * (u32)vol) >> 10, LR);
+	return 1;
+}
+
+int NativeRacers_PlayDriverSampledVoice(int driverID, int voiceType, int characterID, int antiSpam, int *soundIDCount)
+{
+	if ((voiceType < 0) || (voiceType >= NATIVE_RACERS_SAMPLED_VOICE_COUNT) || (driverID < 0) || (driverID >= 8))
+		return 0;
+	if (GAME_AUDIO_ENABLED == 0)
+		return 0;
+
+	const int racerIndex = NativeRacers_Driver(driverID);
+	if (!NativeRacers_Valid(racerIndex))
+		return 0;
+	const struct NativeRacer *racer = &s_racers[racerIndex];
+	if (racer->templateID != characterID)
+		return 0;
+
+	const int soundID = characterID + (voiceType == 0 ? 0x1c : 0x2c);
+	struct ChannelAttr channelAttr;
+	const u32 flags = HOWL_SFX_DEFAULT_FLAGS;
+	const u32 LR = HowlSfx_LR(flags);
+	const u32 distortion = HowlSfx_Distortion(flags);
+	const u32 volume = HowlSfx_Volume(flags);
+	const u16 echo = (u16)HowlSfx_Echo(flags);
+	if (!NativeRacers_InitSampledVoiceChannelAttr(racerIndex, soundID, &channelAttr, (int)volume, (int)LR, (int)distortion))
+		return 0;
+	channelAttr.reverb = echo;
+
+	Smart_EnterCriticalSection();
+	if ((antiSpam == 2) && (Channel_FindSound(soundID) != 0))
+	{
+		Smart_ExitCriticalSection();
+		return 1;
+	}
+
+	struct ChannelStats *channel = Channel_AllocSlot_AntiSpam((u16)soundID, (u8)antiSpam, HOWL_CHANNEL_UPDATE_ALL_ATTRS, &channelAttr);
+	if (channel == NULL)
+	{
+		Smart_ExitCriticalSection();
+		return 1;
+	}
+
+	const struct NativeRacerSample *sample = &racer->sampledVoices[voiceType];
+	if ((sample->flags & 2) != 0)
+		channel->flags |= 4;
+	channel->type = HOWL_CHANNEL_TYPE_OTHER_FX;
+	channel->unk2 = (u8)(racerIndex + 1);
+	channel->echo = echo;
+	channel->vol = (u8)volume;
+	channel->distort = (u8)distortion;
+	channel->LR = (u8)LR;
+	channel->timeLeft = (s16)sample->duration;
+	channel->soundID = (CountSounds() << 16) | (soundID & 0xffff);
+	channel->startFrame = GAME_TRACKER->frameTimer_MainFrame_ResetDB;
+	if (soundIDCount != NULL)
+		*soundIDCount = channel->soundID;
+	Smart_ExitCriticalSection();
+	return 1;
+}
+
+int NativeRacers_PlayActiveSampledVoice(int voiceType, int characterID)
+{
+	return NativeRacers_PlayDriverSampledVoice(s_activeVoiceDriver, voiceType, characterID, 2, NULL);
 }

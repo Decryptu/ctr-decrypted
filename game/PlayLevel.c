@@ -440,10 +440,14 @@ void PlayLevel_UpdateLapStats(void)
 		if ((PLAYLEVEL_UNSORTED_RANK < currRank) && (PLAYLEVEL_PASS_VOICELINE_DELAY < gGT->elapsedEventTime) &&
 		    ((s8)gGT->humanPlayerPositions[driverIndex] < currRank))
 		{
+#ifdef CTR_NATIVE
+			Voiceline_RequestPlayDriver(PLAYLEVEL_PASS_VOICELINE, gGT->driversInRaceOrder[currRank - 1]->driverID, PLAYLEVEL_VOICELINE_FLAGS);
+#else
 			int characterID = data.characterIDs[gGT->driversInRaceOrder[currRank - 1]->driverID];
 
 			// Make driver talk
 			Voiceline_RequestPlay(PLAYLEVEL_PASS_VOICELINE, characterID, PLAYLEVEL_VOICELINE_FLAGS);
+#endif
 		}
 		gGT->humanPlayerPositions[driverIndex] = currRank;
 	}

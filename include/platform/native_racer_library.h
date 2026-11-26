@@ -22,6 +22,19 @@ extern "C" {
 #define NATIVE_RACER_PORTRAIT_ROW_WORDS (NATIVE_RACER_PORTRAIT_W / 4)
 #define NATIVE_RACER_PORTRAIT_BYTES (4 + 4 + 16 * 2 + NATIVE_RACER_PORTRAIT_ROW_WORDS * NATIVE_RACER_PORTRAIT_H * 2)
 #define NATIVE_RACER_MODEL_MAX_BYTES (512 * 1024)
+#define NATIVE_RACER_SAMPLED_VOICE_COUNT 2
+#define NATIVE_RACER_VOICE_MAX_BYTES (128 * 1024)
+
+struct NativeRacerSampledVoice
+{
+	char path[NATIVE_RACER_PATH_BYTES];
+	size_t bytes; // 0 when the racer keeps the template's retail sample
+	char sha256[65];
+	unsigned char flags;  // bit 2 (0x04): Voice slider (default), else FX; bit 1 (0x02): loop
+	unsigned char volume; // 0..255
+	unsigned short pitch; // PS1 SPU pitch (0x1000 = 44100 Hz, 0x0400 = 11025 Hz)
+	unsigned short duration;
+};
 
 struct NativeRacerEntry
 {
@@ -33,8 +46,10 @@ struct NativeRacerEntry
 	int templateID;    // retail character ID it borrows
 	int engine;        // 0 balanced, 1 accel, 2 speed, 3 turn (enum EngineClass)
 	int wheels;
+	int mask;          // -1 template default, 0 Uka Uka, 1 Aku Aku
 	char modelPath[NATIVE_RACER_PATH_BYTES];
 	char portraitPath[NATIVE_RACER_PATH_BYTES];
+	struct NativeRacerSampledVoice sampledVoices[NATIVE_RACER_SAMPLED_VOICE_COUNT];
 	char folder[64];   // its folder under assets/racers (set by Scan)
 	char manifestSha256[65]; // of its racer.json (set by Scan): the catalogue lists a newer one when they differ
 };
@@ -73,6 +88,11 @@ int NativeRacerLibrary_ParseIndex(const char *json, size_t size, struct NativeRa
 int NativeRacerLibrary_Install(const char *racersDir, const char *folder, const void *manifest, size_t manifestSize,
                                const void *model, size_t modelSize, const void *portrait, size_t portraitSize,
                                char *error, size_t errorSize);
+int NativeRacerLibrary_InstallWithVoices(const char *racersDir, const char *folder, const void *manifest, size_t manifestSize,
+                                         const void *model, size_t modelSize, const void *portrait, size_t portraitSize,
+                                         const void *const voiceData[NATIVE_RACER_SAMPLED_VOICE_COUNT],
+                                         const size_t voiceSizes[NATIVE_RACER_SAMPLED_VOICE_COUNT],
+                                         char *error, size_t errorSize);
 
 // Delete racersDir/<folder> and everything in it. Returns 1 on success.
 int NativeRacerLibrary_Remove(const char *racersDir, const char *folder, char *error, size_t errorSize);

@@ -1,4 +1,7 @@
 #include "VehCommon.h"
+#ifdef CTR_NATIVE
+#include <platform/native_racers.h>
+#endif
 
 typedef s16 VehPickupItemSignedHalfword CTR_MAY_ALIAS;
 
@@ -185,6 +188,14 @@ b32 VehPickupItem_MaskBoolGoodGuy(struct Driver *d)
 	{
 		isGoodGuy = true;
 	}
+
+#ifdef CTR_NATIVE
+	{
+		const int racer = NativeRacers_Driver(d->driverID);
+		if (racer >= 0)
+			isGoodGuy = NativeRacers_MaskGoodGuy(racer, isGoodGuy);
+	}
+#endif
 
 	return isGoodGuy;
 }
@@ -870,7 +881,11 @@ void VehPickupItem_ShootNow(struct Driver *d, s32 weaponID, s32 flags)
 			PlaySound3D(SOUND_BOMB_LAUNCH, weaponInst);
 			if ((d->actionsFlagSet & ACTION_BOT) == 0)
 			{
+#ifdef CTR_NATIVE
+				Voiceline_RequestPlayDriver(VOICELINE_BOMB_LAUNCH, d->driverID, VOICELINE_WEAPON_PRIORITY);
+#else
 				Voiceline_RequestPlay(VOICELINE_BOMB_LAUNCH, GAME_CHARACTER_IDS[d->driverID], VOICELINE_WEAPON_PRIORITY);
+#endif
 			}
 		}
 		else
@@ -892,7 +907,11 @@ void VehPickupItem_ShootNow(struct Driver *d, s32 weaponID, s32 flags)
 			PlaySound3D(SOUND_MISSILE_LAUNCH, weaponInst);
 			if ((d->actionsFlagSet & ACTION_BOT) == 0)
 			{
+#ifdef CTR_NATIVE
+				Voiceline_RequestPlayDriver(VOICELINE_MISSILE_LAUNCH, d->driverID, VOICELINE_WEAPON_PRIORITY);
+#else
 				Voiceline_RequestPlay(VOICELINE_MISSILE_LAUNCH, GAME_CHARACTER_IDS[d->driverID], VOICELINE_WEAPON_PRIORITY);
+#endif
 			}
 		}
 
@@ -949,7 +968,11 @@ void VehPickupItem_ShootNow(struct Driver *d, s32 weaponID, s32 flags)
 
 		if ((d->actionsFlagSet & ACTION_BOT) == 0)
 		{
+#ifdef CTR_NATIVE
+			Voiceline_RequestPlayDriver(VOICELINE_CLOCK, d->driverID, VOICELINE_WEAPON_PRIORITY);
+#else
 			Voiceline_RequestPlay(VOICELINE_CLOCK, GAME_CHARACTER_IDS[d->driverID], VOICELINE_WEAPON_PRIORITY);
+#endif
 		}
 
 		for (i = 0; i < CLOCK_DRIVER_COUNT; i++)
@@ -1133,7 +1156,11 @@ void VehPickupItem_ShootNow(struct Driver *d, s32 weaponID, s32 flags)
 		// if human and not AI (AIs can not use Warpball)
 		if ((d->actionsFlagSet & ACTION_BOT) == 0)
 		{
+#ifdef CTR_NATIVE
+			Voiceline_RequestPlayDriver(VOICELINE_WARPBALL, d->driverID, VOICELINE_WEAPON_PRIORITY);
+#else
 			Voiceline_RequestPlay(VOICELINE_WARPBALL, GAME_CHARACTER_IDS[d->driverID], VOICELINE_WEAPON_PRIORITY);
+#endif
 		}
 
 		tw = weaponInst->thread->object;
@@ -1286,7 +1313,11 @@ void VehPickupItem_ShootNow(struct Driver *d, s32 weaponID, s32 flags)
 
 		if ((d->actionsFlagSet & ACTION_BOT) == 0)
 		{
+#ifdef CTR_NATIVE
+			Voiceline_RequestPlayDriver(VOICELINE_MINE_DROP, d->driverID, VOICELINE_WEAPON_PRIORITY);
+#else
 			Voiceline_RequestPlay(VOICELINE_MINE_DROP, GAME_CHARACTER_IDS[d->driverID], VOICELINE_WEAPON_PRIORITY);
+#endif
 		}
 
 		mw = weaponInst->thread->object;
@@ -1477,7 +1508,11 @@ void VehPickupItem_ShootNow(struct Driver *d, s32 weaponID, s32 flags)
 
 		if ((d->actionsFlagSet & ACTION_BOT) == 0)
 		{
+#ifdef CTR_NATIVE
+			Voiceline_RequestPlayDriver(VOICELINE_MINE_DROP, d->driverID, VOICELINE_WEAPON_PRIORITY);
+#else
 			Voiceline_RequestPlay(VOICELINE_MINE_DROP, GAME_CHARACTER_IDS[d->driverID], VOICELINE_WEAPON_PRIORITY);
+#endif
 		}
 
 		RB_MinePool_Add(mw);

@@ -1,4 +1,7 @@
 #include <common.h>
+#ifdef CTR_NATIVE
+#include <platform/native_racers.h>
+#endif
 
 #ifndef HOWL_AUDIO_ENABLED
 #define HOWL_AUDIO_ENABLED   sdata->boolAudioEnabled
@@ -132,7 +135,13 @@ void UpdateChannelVol_EngineFX_All(void)
 		else if (curr->type == HOWL_CHANNEL_TYPE_OTHER_FX)
 		{
 			HOWL_CHANNEL_UPDATES[curr->channelID] |= HOWL_CHANNEL_UPDATE_VOLUME;
-			UpdateChannelVol_OtherFX(&sdata->howl_metaOtherFX[curr->soundID & 0xffff], &HOWL_CHANNEL_ATTRS[curr->channelID], curr->vol, curr->LR);
+#ifdef CTR_NATIVE
+			if ((curr->unk2 == 0) ||
+			    !NativeRacers_UpdateSampledVoiceVolume((int)curr->unk2 - 1, curr->soundID & 0xffff, &HOWL_CHANNEL_ATTRS[curr->channelID], curr->vol, curr->LR))
+#endif
+			{
+				UpdateChannelVol_OtherFX(&sdata->howl_metaOtherFX[curr->soundID & 0xffff], &HOWL_CHANNEL_ATTRS[curr->channelID], curr->vol, curr->LR);
+			}
 		}
 	}
 }
@@ -173,7 +182,13 @@ void UpdateChannelVol_OtherFX_All(void)
 		HOWL_CHANNEL_UPDATES[curr->channelID] |= HOWL_CHANNEL_UPDATE_VOLUME;
 
 		attr = &HOWL_CHANNEL_ATTRS[curr->channelID];
-		UpdateChannelVol_OtherFX(&sdata->howl_metaOtherFX[curr->soundID & 0xffff], attr, curr->vol, curr->LR);
+#ifdef CTR_NATIVE
+		if ((curr->unk2 == 0) ||
+		    !NativeRacers_UpdateSampledVoiceVolume((int)curr->unk2 - 1, curr->soundID & 0xffff, attr, curr->vol, curr->LR))
+#endif
+		{
+			UpdateChannelVol_OtherFX(&sdata->howl_metaOtherFX[curr->soundID & 0xffff], attr, curr->vol, curr->LR);
+		}
 	}
 }
 
@@ -360,13 +375,15 @@ void OptionsMenu_TestSound(s32 newRow, b32 newBoolPlay)
 		u32 frames = gGT->frameTimer_MainFrame_ResetDB;
 		if (frames == (frames / 25) * 25)
 		{
-			if (frames == (frames / 50) * 50)
+			const int driverID = gGT->cameraDC[0].driverToFollow->driverID;
+			const int characterID = GAME_CHARACTER_IDS[driverID];
+			const int voiceType = (frames == (frames / 50) * 50) ? 0 : 1;
+			const u16 sampleVoiceID = (u16)(characterID + (voiceType == 0 ? 0x1c : 0x2c));
+#ifdef CTR_NATIVE
+			if (!NativeRacers_PlayDriverSampledVoice(driverID, voiceType, characterID, 0, &HOWL_SLIDER_SOUND))
+#endif
 			{
-				HOWL_SLIDER_SOUND = OtherFX_Play((u16)((u16)GAME_CHARACTER_IDS[gGT->cameraDC[0].driverToFollow->driverID] + 0x1c), 0);
-			}
-			else
-			{
-				HOWL_SLIDER_SOUND = OtherFX_Play((u16)((u16)GAME_CHARACTER_IDS[gGT->cameraDC[0].driverToFollow->driverID] + 0x2c), 0);
+				HOWL_SLIDER_SOUND = OtherFX_Play(sampleVoiceID, 0);
 			}
 		}
 	}
