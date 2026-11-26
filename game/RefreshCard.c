@@ -1,8 +1,106 @@
 #include <common.h>
 
+#if defined(CTR_NATIVE)
+#define REFRESH_CARD_NATIVE_GHOST_TRACK_COUNT 32
+
+static struct GhostProfile s_nativeGhostProfiles[REFRESH_CARD_NATIVE_GHOST_TRACK_COUNT][SELECT_PROFILE_GHOST_SLOT_COUNT];
+static u8 s_nativeGhostProfileCounts[REFRESH_CARD_NATIVE_GHOST_TRACK_COUNT];
+static u8 s_nativeGhostProfileModern[REFRESH_CARD_NATIVE_GHOST_TRACK_COUNT][SELECT_PROFILE_GHOST_SLOT_COUNT];
+static u8 s_nativeActiveGhostProfileModern[SELECT_PROFILE_GHOST_SLOT_COUNT];
+static b32 s_nativeGhostProfileIndexValid;
+
+static b32 RefreshCard_NativeRebuildGhostProfileIndex(void)
+{
+	char *fileName;
+
+	if (sdata->memcard_stage != MC_STAGE_IDLE)
+	{
+		return false;
+	}
+
+	memset(s_nativeGhostProfileCounts, 0, sizeof(s_nativeGhostProfileCounts));
+	memset(s_nativeGhostProfileModern, 0, sizeof(s_nativeGhostProfileModern));
+	fileName = MEMCARD_FindFirstGhost(0, data.s_BASCUS_94426G_Star);
+
+	while (fileName != NULL)
+	{
+		struct GhostProfile profile = {0};
+		RefreshCard_GhostDecodeProfile(&profile, fileName);
+
+		if ((u16)profile.trackID < REFRESH_CARD_NATIVE_GHOST_TRACK_COUNT)
+		{
+			u8 count = s_nativeGhostProfileCounts[profile.trackID];
+			if (count < SELECT_PROFILE_GHOST_SLOT_COUNT)
+			{
+				s_nativeGhostProfiles[profile.trackID][count] = profile;
+				s_nativeGhostProfileModern[profile.trackID][count] = NativeGhostInput_IsModernGhost(profile.profile_name) ? 1 : 0;
+				s_nativeGhostProfileCounts[profile.trackID] = count + 1;
+			}
+		}
+
+		fileName = MEMCARD_FindNextGhost();
+	}
+
+	s_nativeGhostProfileIndexValid = true;
+	return true;
+}
+
+void RefreshCard_ActivateGhostProfilesForLEV(u16 trackID)
+{
+	if ((trackID >= REFRESH_CARD_NATIVE_GHOST_TRACK_COUNT) ||
+	    ((!s_nativeGhostProfileIndexValid) && !RefreshCard_NativeRebuildGhostProfileIndex()))
+	{
+		return;
+	}
+
+	int count = s_nativeGhostProfileCounts[trackID];
+	memset(s_nativeActiveGhostProfileModern, 0, sizeof(s_nativeActiveGhostProfileModern));
+	if (count != 0)
+	{
+		memcpy(GAME_MEMCARD_STATE.ghostProfile_memcard, s_nativeGhostProfiles[trackID], count * sizeof(struct GhostProfile));
+		memcpy(s_nativeActiveGhostProfileModern, s_nativeGhostProfileModern[trackID], count);
+	}
+
+	GAME_MEMCARD_STATE.numGhostProfilesSaved = (s16)count;
+}
+
+s16 RefreshCard_CountModernGhostProfilesForLEV(u16 trackID)
+{
+	if ((trackID >= REFRESH_CARD_NATIVE_GHOST_TRACK_COUNT) ||
+	    ((!s_nativeGhostProfileIndexValid) && !RefreshCard_NativeRebuildGhostProfileIndex()))
+	{
+		return 0;
+	}
+
+	s16 count = 0;
+	for (int i = 0; i < s_nativeGhostProfileCounts[trackID]; i++)
+	{
+		count += s_nativeGhostProfileModern[trackID][i] != 0;
+	}
+	return count;
+}
+
+b32 RefreshCard_IsGhostProfileModern(int row)
+{
+	return (row >= 0) && (row < SELECT_PROFILE_GHOST_SLOT_COUNT) && (s_nativeActiveGhostProfileModern[row] != 0);
+}
+
+void RefreshCard_InvalidateGhostProfileIndex(void)
+{
+	s_nativeGhostProfileIndexValid = false;
+}
+#endif
+
 
 s16 RefreshCard_CountGhostProfilesForLEV(s16 trackID)
 {
+#if defined(CTR_NATIVE)
+	if (((u16)trackID < REFRESH_CARD_NATIVE_GHOST_TRACK_COUNT) &&
+	    (s_nativeGhostProfileIndexValid || RefreshCard_NativeRebuildGhostProfileIndex()))
+	{
+		return s_nativeGhostProfileCounts[trackID];
+	}
+#endif
 	s16 i;
 	s16 count = 0;
 	s16 numGhosts;
@@ -450,6 +548,9 @@ __asm__(".section .RefreshCard_Unknown2,\"ax\",@progbits\n"
 void RefreshCard_GetNumGhostsTotal(void)
 {
 	CTR_PSX_STORE_ABSOLUTE_HALF(sdata->memcard.numGhostProfilesSaved, OFFSETOF_SDATA(memcard.numGhostProfilesSaved), 0);
+#if defined(CTR_NATIVE)
+	RefreshCard_InvalidateGhostProfileIndex();
+#endif
 }
 
 
@@ -852,6 +953,9 @@ void RefreshCard_Unknown3(void)
 			struct MemcardState *card = &GAME_MEMCARD_STATE;
 			if (card->ghostProfile_rowSelect >= 0)
 			{
+#if defined(CTR_NATIVE)
+				NativeGhostInput_RemoveForGhost(REFRESHCARD_GHOST_FILENAME);
+#endif
 				card->ghostProfile_rowSelect = -1;
 				RefreshCard_SetScreenText(MC_SCREEN_SAVING);
 				RefreshCard_QueueGhostSave();
@@ -885,6 +989,10 @@ void RefreshCard_Unknown3(void)
 					destination = (u32 *)(card->ghostProfile_indexSave * sizeof(struct GhostProfile) + (u32)profiles);
 					card->numGhostProfilesSaved++;
 					memcpy(destination, source, sizeof(struct GhostProfile));
+#if defined(CTR_NATIVE)
+					NativeGhostInput_SaveRecordingForGhost(card->ghostProfile_current.profile_name);
+					RefreshCard_InvalidateGhostProfileIndex();
+#endif
 					screenText = MC_SCREEN_NULL;
 				}
 			}

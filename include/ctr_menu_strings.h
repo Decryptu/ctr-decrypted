@@ -14,6 +14,8 @@
 #define CTR_LNG_CLASSIC   0x7f05 // speed class row: CLASSIC
 #define CTR_LNG_200CC     0x7f06 // speed class row: 200CC
 #define AP_LNG_TRAVEL     0x7f07 // hub pause menu: TRAVEL
+#define CTR_LNG_GHOST_REPLAY    0x7f08 // title screen: GHOST REPLAY
+#define CTR_LNG_CHALLENGE_GHOST 0x7f09 // ghost replay end menu: CHALLENGE GHOST
 #define AP_LNG_AI_DIFFICULTY 0x7f10
 #define AP_LNG_AI_PRESET     0x7f11 // six consecutive preset labels
 #define AP_LNG_CHAT          0x7f17 // Adventure pause menu: ARCHIPELAGO CHAT

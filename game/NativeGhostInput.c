@@ -1,0 +1,866 @@
+#include <common.h>
+#include <platform/native_memcard.h>
+
+#if defined(CTR_NATIVE)
+
+// Ghost input recording and deterministic playback (ported from Crash Team
+// Racing: High Octane). Each saved Time Trial ghost on the memory card gets a
+// companion .rpl file under replays/slot0/ holding per-frame inputs and
+// elapsedTimeMS, so Ghost Replay can drive player 1 deterministically with
+// pause, single-frame stepping, playback speed scaling and a live DualShock
+// input viewer.
+
+enum
+{
+	NATIVE_GHOST_INPUT_MAGIC = 0x3152474e, // "NGR1"
+	NATIVE_GHOST_INPUT_VERSION = 1,
+	NATIVE_GHOST_INPUT_MAX_FRAMES = 32768,
+	NATIVE_GHOST_INPUT_META_BUTTONS = BTN_START | BTN_SELECT,
+	NATIVE_GHOST_INPUT_FLAG_60FPS = 1 << 0,
+	NATIVE_GHOST_INPUT_FLAG_RIGHT_STICK_Y = 1 << 2,
+	NATIVE_GHOST_INPUT_FLAG_RIGHT_STICK_X_5BIT = 1 << 3,
+	NATIVE_GHOST_INPUT_FLAG_STICK_OVERLAY_SOURCE = 1 << 4,
+	NATIVE_GHOST_INPUT_FLAG_TIMING_METADATA = 1 << 15,
+	NATIVE_GHOST_INPUT_BUTTON_MASK = 0x0007ffff,
+	NATIVE_GHOST_INPUT_STICK_RX_SHIFT = 19,
+	NATIVE_GHOST_INPUT_STICK_RX_MASK = 0x1f,
+	NATIVE_GHOST_INPUT_STICK_LX_PHYSICAL_SHIFT = 19,
+	NATIVE_GHOST_INPUT_STICK_LY_PHYSICAL_SHIFT = 20,
+	NATIVE_GHOST_INPUT_STICK_RX_3BIT_SHIFT = 21,
+	NATIVE_GHOST_INPUT_STICK_RX_3BIT_MASK = 0x7,
+	NATIVE_GHOST_INPUT_STICK_RY_SHIFT = 24,
+	NATIVE_GHOST_INPUT_TIMER_PHASE_MASK = 7,
+};
+
+struct NativeGhostInputHeader
+{
+	u32 magic;
+	u16 version;
+	u16 headerSize;
+	u16 trackID;
+	u16 characterID;
+	u32 frameCount;
+	u16 frameSize;
+	u16 flags;
+	u32 totalTimeMS;
+	u32 reserved[2];
+};
+
+struct NativeGhostInputFrame
+{
+	u32 buttonsHeld;
+	u8 stickLX;
+	u8 stickLY;
+	u16 elapsedTimeMS;
+};
+
+CTR_STATIC_ASSERT(sizeof(struct NativeGhostInputHeader) == 0x20);
+CTR_STATIC_ASSERT(sizeof(struct NativeGhostInputFrame) == 0x8);
+
+int gNativeGhostReplayMode = 0;
+int gNativeGhostReplayFpsOverride = -1;
+
+enum NativeGhostReplaySpeedIndex
+{
+	NATIVE_GHOST_REPLAY_SPEED_QUARTER,
+	NATIVE_GHOST_REPLAY_SPEED_HALF,
+	NATIVE_GHOST_REPLAY_SPEED_NORMAL,
+	NATIVE_GHOST_REPLAY_SPEED_ONE_HALF,
+	NATIVE_GHOST_REPLAY_SPEED_DOUBLE,
+	NATIVE_GHOST_REPLAY_SPEED_COUNT,
+};
+
+struct NativeGhostReplaySpeed
+{
+	int numerator;
+	int denominator;
+	const char *speedText;
+};
+
+static const struct NativeGhostReplaySpeed s_nativeGhostReplaySpeeds[NATIVE_GHOST_REPLAY_SPEED_COUNT] = {
+	{1, 4, "0.25X"},
+	{1, 2, "0.50X"},
+	{1, 1, "1.00X"},
+	{3, 2, "1.50X"},
+	{2, 1, "2.00X"},
+};
+
+static char s_nativeGhostReplayStatusText[32];
+
+static int s_nativeGhostReplaySpeedIndex = NATIVE_GHOST_REPLAY_SPEED_NORMAL;
+static b32 s_nativeGhostReplayPaused;
+static b32 s_nativeGhostReplayStepInProgress;
+static b32 s_nativeGhostReplayPauseOwned;
+static b32 s_nativeGhostReplayAudioPauseOwned;
+static u32 s_nativeGhostReplayPhysicalHeldPrev;
+static b32 s_nativeGhostReplayPhysicalHeldPrevValid;
+
+static struct NativeGhostInputFrame s_nativeGhostInputFrames[NATIVE_GHOST_INPUT_MAX_FRAMES];
+static struct NativeGhostInputFrame s_nativeGhostInputPending;
+static u32 s_nativeGhostInputFrameCount;
+static u32 s_nativeGhostInputPlaybackIndex;
+static u32 s_nativeGhostInputTotalTimeMS;
+static u16 s_nativeGhostInputTrackID;
+static u16 s_nativeGhostInputCharacterID;
+static u16 s_nativeGhostInputRecordingFlags;
+static u32 s_nativeGhostInputStartTimerPhase;
+static u32 s_nativeGhostInputPlaybackTimerPhase;
+static b32 s_nativeGhostInputPlaybackTimerPhasePending;
+static b32 s_nativeGhostInputRecording;
+static b32 s_nativeGhostInputRecordingInvalid;
+static b32 s_nativeGhostInputPendingValid;
+static b32 s_nativeGhostInputPlaybackActive;
+static b32 s_nativeGhostInputDisplayValid;
+static struct NativeGhostInputFrame s_nativeGhostInputDisplayFrame;
+static char s_nativeGhostInputSelectedName[0x40];
+
+static void NativeGhostInput_ApplyReplaySpeed(void)
+{
+	const struct NativeGhostReplaySpeed *speed = &s_nativeGhostReplaySpeeds[s_nativeGhostReplaySpeedIndex];
+	Platform_SetVBlankPacingScale(speed->numerator, speed->denominator);
+}
+
+static void NativeGhostInput_ResetReplayControls(void)
+{
+	if (s_nativeGhostReplayPauseOwned && (sdata != NULL) && (sdata->gGT != NULL))
+	{
+		sdata->gGT->gameMode1 &= ~PAUSE_1;
+	}
+
+	if (s_nativeGhostReplayAudioPauseOwned && (sdata != NULL) && sdata->boolSoundPaused)
+	{
+		MainFrame_TogglePauseAudio(0);
+	}
+
+	s_nativeGhostReplaySpeedIndex = NATIVE_GHOST_REPLAY_SPEED_NORMAL;
+	s_nativeGhostReplayPaused = false;
+	s_nativeGhostReplayStepInProgress = false;
+	s_nativeGhostReplayPauseOwned = false;
+	s_nativeGhostReplayAudioPauseOwned = false;
+	s_nativeGhostReplayPhysicalHeldPrev = 0;
+	s_nativeGhostReplayPhysicalHeldPrevValid = false;
+	Platform_SetVBlankPacingScale(1, 1);
+}
+
+static void NativeGhostInput_SetReplayPaused(b32 paused)
+{
+	struct GameTracker *gGT = sdata->gGT;
+
+	if (paused == s_nativeGhostReplayPaused)
+	{
+		return;
+	}
+
+	if (paused)
+	{
+		s_nativeGhostReplayPauseOwned = (gGT->gameMode1 & PAUSE_1) == 0;
+		if (s_nativeGhostReplayPauseOwned)
+		{
+			gGT->gameMode1 |= PAUSE_1;
+		}
+
+		s_nativeGhostReplayAudioPauseOwned = !sdata->boolSoundPaused;
+		if (s_nativeGhostReplayAudioPauseOwned)
+		{
+			MainFrame_TogglePauseAudio(1);
+		}
+
+		s_nativeGhostReplayPaused = true;
+		s_nativeGhostReplayStepInProgress = false;
+		Platform_SetVBlankPacingScale(1, 1);
+		return;
+	}
+
+	if (s_nativeGhostReplayPauseOwned)
+	{
+		gGT->gameMode1 &= ~PAUSE_1;
+	}
+	if (s_nativeGhostReplayAudioPauseOwned && sdata->boolSoundPaused)
+	{
+		MainFrame_TogglePauseAudio(0);
+	}
+
+	s_nativeGhostReplayPaused = false;
+	s_nativeGhostReplayStepInProgress = false;
+	s_nativeGhostReplayPauseOwned = false;
+	s_nativeGhostReplayAudioPauseOwned = false;
+	NativeGhostInput_ApplyReplaySpeed();
+}
+
+static void NativeGhostInput_ChangeReplaySpeed(int direction)
+{
+	int nextSpeed = s_nativeGhostReplaySpeedIndex + direction;
+	if (nextSpeed < 0)
+	{
+		nextSpeed = 0;
+	}
+	else if (nextSpeed >= NATIVE_GHOST_REPLAY_SPEED_COUNT)
+	{
+		nextSpeed = NATIVE_GHOST_REPLAY_SPEED_COUNT - 1;
+	}
+
+	s_nativeGhostReplaySpeedIndex = nextSpeed;
+	if (!s_nativeGhostReplayPaused)
+	{
+		NativeGhostInput_ApplyReplaySpeed();
+	}
+}
+
+static void NativeGhostInput_BeginReplayFrameStep(void)
+{
+	if (!s_nativeGhostReplayPaused || s_nativeGhostReplayStepInProgress)
+	{
+		return;
+	}
+
+	if (s_nativeGhostReplayPauseOwned)
+	{
+		sdata->gGT->gameMode1 &= ~PAUSE_1;
+	}
+	s_nativeGhostReplayStepInProgress = true;
+	Platform_SetVBlankPacingScale(1, 1);
+}
+
+static void NativeGhostInput_NeutralizePausedPhysicalInput(struct GamepadSystem *gGamepads)
+{
+	if (gGamepads->numGamepadsConnected <= 0)
+	{
+		return;
+	}
+
+	struct GamepadBuffer *pad = &gGamepads->gamepad[0];
+
+	// While the replay itself is stopped, physical controls must not leak into
+	// HUD/gameplay code. The recorded frame shown by the overlay stays unchanged.
+	pad->buttonsHeldPrevFrame = 0;
+	pad->buttonsHeldCurrFrame = 0;
+	pad->buttonsTapped = 0;
+	pad->buttonsReleased = 0;
+	pad->stickLX = 0x80;
+	pad->stickLY = 0x80;
+	pad->inputStickLX = 0x80;
+	pad->inputStickLY = 0x80;
+	pad->stickRX = 0x80;
+	pad->stickRY = 0x80;
+	gGamepads->anyoneHeldCurr = 0;
+	gGamepads->anyoneTapped = 0;
+	gGamepads->anyoneReleased = 0;
+	gGamepads->anyoneHeldPrev = 0;
+}
+
+const char *NativeGhostInput_GetReplayControlStatus(void)
+{
+	if ((gNativeGhostReplayMode == 0) || !s_nativeGhostInputPlaybackActive)
+	{
+		return NULL;
+	}
+
+	const struct NativeGhostReplaySpeed *speed = &s_nativeGhostReplaySpeeds[s_nativeGhostReplaySpeedIndex];
+	if (s_nativeGhostReplayPaused)
+	{
+		snprintf(s_nativeGhostReplayStatusText, sizeof(s_nativeGhostReplayStatusText), "REPLAY PAUSED %s", speed->speedText);
+	}
+	else
+	{
+		snprintf(s_nativeGhostReplayStatusText, sizeof(s_nativeGhostReplayStatusText), "REPLAY %s", speed->speedText);
+	}
+	return s_nativeGhostReplayStatusText;
+}
+
+b32 NativeGhostInput_ShouldRunSimulationFrame(void)
+{
+	if ((gNativeGhostReplayMode == 0) || !s_nativeGhostInputPlaybackActive)
+	{
+		return true;
+	}
+
+	return !s_nativeGhostReplayPaused || s_nativeGhostReplayStepInProgress;
+}
+
+void NativeGhostInput_EndReplaySimulationFrame(void)
+{
+	if ((gNativeGhostReplayMode == 0) || !s_nativeGhostInputPlaybackActive)
+	{
+		return;
+	}
+
+	if ((s_nativeGhostInputPlaybackIndex >= s_nativeGhostInputFrameCount) ||
+	    ((sdata->gGT->gameMode1 & END_OF_RACE) != 0))
+	{
+		s_nativeGhostInputPlaybackActive = false;
+		s_nativeGhostInputDisplayValid = false;
+		NativeGhostInput_ResetReplayControls();
+		return;
+	}
+
+	if (s_nativeGhostReplayStepInProgress)
+	{
+		s_nativeGhostReplayStepInProgress = false;
+		if (s_nativeGhostReplayPaused && s_nativeGhostReplayPauseOwned)
+		{
+			sdata->gGT->gameMode1 |= PAUSE_1;
+		}
+	}
+}
+
+static b32 NativeGhostInput_HeaderUses60Fps(const struct NativeGhostInputHeader *header)
+{
+	if ((header->flags & NATIVE_GHOST_INPUT_FLAG_TIMING_METADATA) == 0)
+	{
+		return false;
+	}
+
+	return (header->flags & NATIVE_GHOST_INPUT_FLAG_60FPS) != 0;
+}
+
+static b32 NativeGhostInput_ValidateHeader(const struct NativeGhostInputHeader *header)
+{
+	if ((header->magic != NATIVE_GHOST_INPUT_MAGIC) ||
+	    (header->version != NATIVE_GHOST_INPUT_VERSION) ||
+	    (header->headerSize != sizeof(struct NativeGhostInputHeader)) ||
+	    (header->frameSize != sizeof(struct NativeGhostInputFrame)) ||
+	    (header->frameCount == 0) ||
+	    (header->frameCount > NATIVE_GHOST_INPUT_MAX_FRAMES))
+	{
+		return false;
+	}
+
+	return true;
+}
+
+int NativeGhostInput_GetGhostFps(const char *ghostName)
+{
+	struct NativeGhostInputHeader header;
+
+	if ((ghostName == NULL) || (ghostName[0] == '\0'))
+	{
+		return 0;
+	}
+
+	if (NativeMemcard_ReadReplayData(0, ghostName, &header, sizeof(header), 0) != NATIVE_MEMCARD_OK)
+	{
+		return 0;
+	}
+
+	if (!NativeGhostInput_ValidateHeader(&header))
+	{
+		return 0;
+	}
+
+	int expectedSize = header.headerSize + (int)(header.frameCount * header.frameSize);
+	if (NativeMemcard_ReplaySize(0, ghostName) < expectedSize)
+	{
+		return 0;
+	}
+
+	return NativeGhostInput_HeaderUses60Fps(&header) ? 60 : 30;
+}
+
+b32 NativeGhostInput_IsModernGhost(const char *ghostName)
+{
+	return NativeGhostInput_GetGhostFps(ghostName) != 0;
+}
+
+void NativeGhostInput_ClearSelection(void)
+{
+	NativeGhostInput_ResetReplayControls();
+	s_nativeGhostInputSelectedName[0] = '\0';
+	s_nativeGhostInputPlaybackActive = false;
+	s_nativeGhostInputPlaybackIndex = 0;
+	s_nativeGhostInputPlaybackTimerPhasePending = false;
+	s_nativeGhostInputDisplayValid = false;
+	gNativeGhostReplayFpsOverride = -1;
+}
+
+static u8 NativeGhostInput_DequantizeRightStickX(u8 value)
+{
+	value &= NATIVE_GHOST_INPUT_STICK_RX_MASK;
+	if (value < 16)
+	{
+		return (u8)(((u32)value * 128u + 8u) / 16u);
+	}
+	if (value == 16)
+	{
+		return 0x80;
+	}
+	return (u8)(128u + (((u32)value - 16u) * 127u + 7u) / 15u);
+}
+
+static u8 NativeGhostInput_QuantizeRightStickX3Bit(u8 value)
+{
+	return (u8)(((u32)value * 6u + 127u) / 255u);
+}
+
+static u8 NativeGhostInput_DequantizeRightStickX3Bit(u8 value)
+{
+	value &= NATIVE_GHOST_INPUT_STICK_RX_3BIT_MASK;
+	if (value > 6u)
+	{
+		value = 6u;
+	}
+	return (u8)(((u32)value * 255u + 3u) / 6u);
+}
+
+static b32 NativeGhostInput_PhysicalAxisActive(u8 value)
+{
+	int delta = (int)value - 0x80;
+	return (delta < -8) || (delta > 8);
+}
+
+static void NativeGhostInput_StoreHeaderMetadata(struct NativeGhostInputHeader *header)
+{
+	header->reserved[0] = s_nativeGhostInputStartTimerPhase & NATIVE_GHOST_INPUT_TIMER_PHASE_MASK;
+}
+
+static void NativeGhostInput_LoadHeaderMetadata(const struct NativeGhostInputHeader *header)
+{
+	s_nativeGhostInputStartTimerPhase = header->reserved[0] & NATIVE_GHOST_INPUT_TIMER_PHASE_MASK;
+}
+
+b32 NativeGhostInput_GetReplayOverlayState(u32 *buttonsHeld, u8 *stickLX, u8 *stickLY, u8 *stickRX, u8 *stickRY)
+{
+	if ((gNativeGhostReplayMode == 0) || !s_nativeGhostInputPlaybackActive || !s_nativeGhostInputDisplayValid ||
+	    (sdata == NULL) || (sdata->gGT == NULL) || (sdata->Loading.stage != LOAD_IDLE) ||
+	    ((sdata->gGT->renderFlags & RENDER_FLAG_CHECKERED_FLAG) != 0) ||
+	    ((sdata->gGT->gameMode1 & (END_OF_RACE | MAIN_MENU | LOADING | GAME_CUTSCENE)) != 0) ||
+	    (((sdata->gGT->gameMode1 & PAUSE_ALL) != 0) && !s_nativeGhostReplayPaused))
+	{
+		return false;
+	}
+
+	if (buttonsHeld != NULL)
+	{
+		*buttonsHeld = s_nativeGhostInputDisplayFrame.buttonsHeld & NATIVE_GHOST_INPUT_BUTTON_MASK;
+	}
+
+	b32 hasPhysicalStickSource =
+	    (s_nativeGhostInputRecordingFlags & NATIVE_GHOST_INPUT_FLAG_STICK_OVERLAY_SOURCE) != 0;
+
+	if (stickLX != NULL)
+	{
+		*stickLX = !hasPhysicalStickSource ||
+		           (((s_nativeGhostInputDisplayFrame.buttonsHeld >> NATIVE_GHOST_INPUT_STICK_LX_PHYSICAL_SHIFT) & 1u) != 0)
+		    ? s_nativeGhostInputDisplayFrame.stickLX
+		    : 0x80;
+	}
+	if (stickLY != NULL)
+	{
+		*stickLY = !hasPhysicalStickSource ||
+		           (((s_nativeGhostInputDisplayFrame.buttonsHeld >> NATIVE_GHOST_INPUT_STICK_LY_PHYSICAL_SHIFT) & 1u) != 0)
+		    ? s_nativeGhostInputDisplayFrame.stickLY
+		    : 0x80;
+	}
+	if (stickRX != NULL)
+	{
+		if (hasPhysicalStickSource)
+		{
+			*stickRX = NativeGhostInput_DequantizeRightStickX3Bit(
+			    (u8)(s_nativeGhostInputDisplayFrame.buttonsHeld >> NATIVE_GHOST_INPUT_STICK_RX_3BIT_SHIFT));
+		}
+		else
+		{
+			*stickRX = (s_nativeGhostInputRecordingFlags & NATIVE_GHOST_INPUT_FLAG_RIGHT_STICK_X_5BIT) != 0
+			    ? NativeGhostInput_DequantizeRightStickX((u8)(s_nativeGhostInputDisplayFrame.buttonsHeld >> NATIVE_GHOST_INPUT_STICK_RX_SHIFT))
+			    : 0x80;
+		}
+	}
+	if (stickRY != NULL)
+	{
+		*stickRY = (s_nativeGhostInputRecordingFlags & NATIVE_GHOST_INPUT_FLAG_RIGHT_STICK_Y) != 0
+		    ? (u8)(s_nativeGhostInputDisplayFrame.buttonsHeld >> NATIVE_GHOST_INPUT_STICK_RY_SHIFT)
+		    : 0x80;
+	}
+	return true;
+}
+
+b32 NativeGhostInput_SelectGhost(const char *ghostName, u16 trackID, u16 characterID)
+{
+	struct NativeGhostInputHeader header;
+
+	NativeGhostInput_ClearSelection();
+
+	if (NativeMemcard_ReadReplayData(0, ghostName, &header, sizeof(header), 0) != NATIVE_MEMCARD_OK)
+	{
+		return false;
+	}
+
+	if (!NativeGhostInput_ValidateHeader(&header) ||
+	    (header.trackID != trackID) ||
+	    (header.characterID != characterID))
+	{
+		return false;
+	}
+
+	snprintf(s_nativeGhostInputSelectedName, sizeof(s_nativeGhostInputSelectedName), "%s", ghostName);
+	gNativeGhostReplayFpsOverride = NativeGhostInput_HeaderUses60Fps(&header) ? 1 : 0;
+	return true;
+}
+
+void NativeGhostInput_StartRecording(void)
+{
+	struct GameTracker *gGT = sdata->gGT;
+	struct Driver *driver = gGT->drivers[0];
+
+	gNativeGhostReplayFpsOverride = -1;
+	s_nativeGhostInputRecording = true;
+	s_nativeGhostInputRecordingInvalid = false;
+	s_nativeGhostInputPendingValid = false;
+	s_nativeGhostInputPlaybackActive = false;
+	s_nativeGhostInputDisplayValid = false;
+	s_nativeGhostInputFrameCount = 0;
+	s_nativeGhostInputPlaybackIndex = 0;
+	s_nativeGhostInputTotalTimeMS = 0;
+	s_nativeGhostInputTrackID = (u16)gGT->levelID;
+	s_nativeGhostInputCharacterID = (u16)data.characterIDs[driver->driverID];
+	s_nativeGhostInputRecordingFlags = NATIVE_GHOST_INPUT_FLAG_TIMING_METADATA |
+	                                   NATIVE_GHOST_INPUT_FLAG_RIGHT_STICK_Y |
+	                                   NATIVE_GHOST_INPUT_FLAG_STICK_OVERLAY_SOURCE;
+	if (CTR_NATIVE_60FPS_ACTIVE)
+	{
+		s_nativeGhostInputRecordingFlags |= NATIVE_GHOST_INPUT_FLAG_60FPS;
+	}
+	s_nativeGhostInputStartTimerPhase = 0;
+}
+
+void NativeGhostInput_DiscardRecording(void)
+{
+	s_nativeGhostInputRecording = false;
+	s_nativeGhostInputRecordingInvalid = true;
+	s_nativeGhostInputPendingValid = false;
+	s_nativeGhostInputFrameCount = 0;
+	s_nativeGhostInputTotalTimeMS = 0;
+}
+
+void NativeGhostInput_StopRecording(void)
+{
+	s_nativeGhostInputRecording = false;
+	s_nativeGhostInputPendingValid = false;
+}
+
+static void NativeGhostInput_SetReplayPad(struct GamepadSystem *gGamepads)
+{
+	struct GamepadBuffer *pad = &gGamepads->gamepad[0];
+	u32 physicalHeld = pad->buttonsHeldCurrFrame & NATIVE_GHOST_INPUT_META_BUTTONS;
+	u32 physicalPrev = pad->buttonsHeldPrevFrame & NATIVE_GHOST_INPUT_META_BUTTONS;
+	u32 replayHeld = 0;
+	u32 replayPrev = 0;
+	u8 stickLX = 0x80;
+	u8 stickLY = 0x80;
+	u8 stickRY = 0x80;
+
+	if (s_nativeGhostInputPlaybackActive && (s_nativeGhostInputPlaybackIndex < s_nativeGhostInputFrameCount))
+	{
+		struct NativeGhostInputFrame *frame = &s_nativeGhostInputFrames[s_nativeGhostInputPlaybackIndex];
+		replayHeld = frame->buttonsHeld & NATIVE_GHOST_INPUT_BUTTON_MASK;
+		stickLX = frame->stickLX;
+		stickLY = frame->stickLY;
+		if ((s_nativeGhostInputRecordingFlags & NATIVE_GHOST_INPUT_FLAG_RIGHT_STICK_Y) != 0)
+		{
+			stickRY = (u8)(frame->buttonsHeld >> NATIVE_GHOST_INPUT_STICK_RY_SHIFT);
+		}
+		s_nativeGhostInputDisplayFrame = *frame;
+		s_nativeGhostInputDisplayValid = true;
+
+		if (s_nativeGhostInputPlaybackIndex != 0)
+		{
+			replayPrev = s_nativeGhostInputFrames[s_nativeGhostInputPlaybackIndex - 1].buttonsHeld & NATIVE_GHOST_INPUT_BUTTON_MASK;
+		}
+	}
+
+	pad->buttonsHeldPrevFrame = replayPrev | physicalPrev;
+	pad->buttonsHeldCurrFrame = replayHeld | physicalHeld;
+	pad->buttonsTapped = ~pad->buttonsHeldPrevFrame & pad->buttonsHeldCurrFrame;
+	pad->buttonsReleased = pad->buttonsHeldPrevFrame & ~pad->buttonsHeldCurrFrame;
+	pad->stickLX = stickLX;
+	pad->stickLY = stickLY;
+	pad->inputStickLX = stickLX;
+	pad->inputStickLY = stickLY;
+	pad->stickRX = 0x80;
+	pad->stickRY = stickRY;
+
+	gGamepads->anyoneHeldCurr = pad->buttonsHeldCurrFrame;
+	gGamepads->anyoneTapped = pad->buttonsTapped;
+	gGamepads->anyoneReleased = pad->buttonsReleased;
+	gGamepads->anyoneHeldPrev = pad->buttonsHeldPrevFrame;
+}
+
+void NativeGhostInput_ProcessGamepad(struct GamepadSystem *gGamepads)
+{
+	if ((gNativeGhostReplayMode == 0) &&
+	    (s_nativeGhostReplayPaused || (s_nativeGhostReplaySpeedIndex != NATIVE_GHOST_REPLAY_SPEED_NORMAL)))
+	{
+		NativeGhostInput_ResetReplayControls();
+	}
+
+	if ((gNativeGhostReplayMode != 0) && s_nativeGhostInputPlaybackActive)
+	{
+		if ((s_nativeGhostInputPlaybackIndex >= s_nativeGhostInputFrameCount) ||
+		    ((sdata->gGT->gameMode1 & END_OF_RACE) != 0))
+		{
+			s_nativeGhostInputPlaybackActive = false;
+			s_nativeGhostInputDisplayValid = false;
+			NativeGhostInput_ResetReplayControls();
+			return;
+		}
+
+		u32 physicalTapped = 0;
+		if (gGamepads->numGamepadsConnected > 0)
+		{
+			u32 physicalHeld = gGamepads->gamepad[0].buttonsHeldCurrFrame;
+			if (s_nativeGhostReplayPhysicalHeldPrevValid)
+			{
+				physicalTapped = ~s_nativeGhostReplayPhysicalHeldPrev & physicalHeld;
+			}
+			s_nativeGhostReplayPhysicalHeldPrev = physicalHeld;
+			s_nativeGhostReplayPhysicalHeldPrevValid = true;
+		}
+		else
+		{
+			s_nativeGhostReplayPhysicalHeldPrev = 0;
+			s_nativeGhostReplayPhysicalHeldPrevValid = false;
+		}
+
+		// A normal Start-menu pause keeps its physical input and always runs at
+		// normal wall speed. Replay controls only own PAUSE_1 when Cross paused it.
+		if (((sdata->gGT->gameMode1 & PAUSE_ALL) != 0) && !s_nativeGhostReplayPaused)
+		{
+			Platform_SetVBlankPacingScale(1, 1);
+			return;
+		}
+
+		if (gGamepads->numGamepadsConnected > 0)
+		{
+			if ((physicalTapped & BTN_CROSS_one) != 0)
+			{
+				NativeGhostInput_SetReplayPaused(!s_nativeGhostReplayPaused);
+			}
+			else
+			{
+				if ((physicalTapped & BTN_L1) != 0)
+				{
+					NativeGhostInput_ChangeReplaySpeed(-1);
+				}
+				if ((physicalTapped & BTN_R1) != 0)
+				{
+					NativeGhostInput_ChangeReplaySpeed(1);
+				}
+				if (s_nativeGhostReplayPaused && ((physicalTapped & BTN_SQUARE_one) != 0))
+				{
+					NativeGhostInput_BeginReplayFrameStep();
+				}
+			}
+		}
+
+		if (s_nativeGhostReplayPaused && !s_nativeGhostReplayStepInProgress)
+		{
+			NativeGhostInput_NeutralizePausedPhysicalInput(gGamepads);
+			return;
+		}
+
+		if (!s_nativeGhostReplayPaused)
+		{
+			NativeGhostInput_ApplyReplaySpeed();
+		}
+
+		if ((sdata->gGT->gameMode1 & PAUSE_ALL) == 0)
+		{
+			NativeGhostInput_SetReplayPad(gGamepads);
+		}
+		return;
+	}
+
+	if (!s_nativeGhostInputRecording || (gGamepads->numGamepadsConnected <= 0))
+	{
+		return;
+	}
+
+	struct GamepadBuffer *pad = &gGamepads->gamepad[0];
+	struct ControllerPacket *packet = pad->ptrControllerPacket;
+	u8 physicalLX = 0x80;
+	u8 physicalLY = 0x80;
+	u8 physicalRX = (u8)pad->stickRX;
+	if ((packet != NULL) && (packet->plugged == PLUGGED))
+	{
+		physicalLX = packet->payload.analog.leftX;
+		physicalLY = packet->payload.analog.leftY;
+		physicalRX = packet->payload.analog.rightX;
+	}
+
+	u32 overlayStickBits =
+	    ((u32)NativeGhostInput_QuantizeRightStickX3Bit(physicalRX) << NATIVE_GHOST_INPUT_STICK_RX_3BIT_SHIFT);
+	if (NativeGhostInput_PhysicalAxisActive(physicalLX))
+	{
+		overlayStickBits |= 1u << NATIVE_GHOST_INPUT_STICK_LX_PHYSICAL_SHIFT;
+	}
+	if (NativeGhostInput_PhysicalAxisActive(physicalLY))
+	{
+		overlayStickBits |= 1u << NATIVE_GHOST_INPUT_STICK_LY_PHYSICAL_SHIFT;
+	}
+
+	s_nativeGhostInputPending.buttonsHeld =
+	    ((u32)pad->buttonsHeldCurrFrame & ~NATIVE_GHOST_INPUT_META_BUTTONS & NATIVE_GHOST_INPUT_BUTTON_MASK) |
+	    overlayStickBits |
+	    ((u32)(u8)pad->stickRY << NATIVE_GHOST_INPUT_STICK_RY_SHIFT);
+	s_nativeGhostInputPending.stickLX = (u8)pad->stickLX;
+	s_nativeGhostInputPending.stickLY = (u8)pad->stickLY;
+	s_nativeGhostInputPending.elapsedTimeMS = 0;
+	s_nativeGhostInputPendingValid = true;
+}
+
+void NativeGhostInput_ProcessFrameTiming(s32 *elapsedTimeMS)
+{
+	if (gNativeGhostReplayMode != 0)
+	{
+		if (s_nativeGhostInputPlaybackActive && (s_nativeGhostInputPlaybackIndex < s_nativeGhostInputFrameCount))
+		{
+			if (s_nativeGhostInputPlaybackTimerPhasePending)
+			{
+				u32 timer = (u32)sdata->gGT->timer;
+				timer = (timer & ~((u32)NATIVE_GHOST_INPUT_TIMER_PHASE_MASK)) | s_nativeGhostInputPlaybackTimerPhase;
+				sdata->gGT->timer = (s32)timer;
+				s_nativeGhostInputPlaybackTimerPhasePending = false;
+			}
+
+			*elapsedTimeMS = s_nativeGhostInputFrames[s_nativeGhostInputPlaybackIndex].elapsedTimeMS;
+#if CTR_NATIVE_60FPS
+			if (CTR_NATIVE_60FPS_ACTIVE)
+			{
+				s32 replayVBlanks = (*elapsedTimeMS + 15) / 16;
+				if (replayVBlanks < 1)
+				{
+					replayVBlanks = 1;
+				}
+				sdata->vsyncTillFlip = replayVBlanks;
+			}
+#endif
+			s_nativeGhostInputPlaybackIndex++;
+		}
+		return;
+	}
+
+	if (!s_nativeGhostInputRecording || !s_nativeGhostInputPendingValid)
+	{
+		return;
+	}
+
+	u32 gameMode = (u32)sdata->gGT->gameMode1;
+	b32 timeTrialGameplay = (gameMode & GAME_MODE_TIME_TRIAL_GAMEPLAY_MASK) == TIME_TRIAL;
+	if (((gameMode & DEBUG_MENU) != 0) || !timeTrialGameplay)
+	{
+		s_nativeGhostInputRecordingInvalid = true;
+		s_nativeGhostInputPendingValid = false;
+		return;
+	}
+
+	if (s_nativeGhostInputFrameCount >= NATIVE_GHOST_INPUT_MAX_FRAMES)
+	{
+		s_nativeGhostInputRecordingInvalid = true;
+		s_nativeGhostInputPendingValid = false;
+		return;
+	}
+
+	if (s_nativeGhostInputFrameCount == 0)
+	{
+		s_nativeGhostInputStartTimerPhase = (u32)sdata->gGT->timer & NATIVE_GHOST_INPUT_TIMER_PHASE_MASK;
+	}
+
+	s_nativeGhostInputPending.elapsedTimeMS = (u16)*elapsedTimeMS;
+	s_nativeGhostInputFrames[s_nativeGhostInputFrameCount++] = s_nativeGhostInputPending;
+	s_nativeGhostInputTotalTimeMS += (u32)*elapsedTimeMS;
+	s_nativeGhostInputPendingValid = false;
+}
+
+b32 NativeGhostInput_SaveRecordingForGhost(const char *ghostName)
+{
+	struct NativeGhostInputHeader header;
+
+	if ((s_nativeGhostInputFrameCount == 0) || s_nativeGhostInputRecordingInvalid)
+	{
+		NativeMemcard_RemoveReplay(0, ghostName);
+		return false;
+	}
+
+	memset(&header, 0, sizeof(header));
+	header.magic = NATIVE_GHOST_INPUT_MAGIC;
+	header.version = NATIVE_GHOST_INPUT_VERSION;
+	header.headerSize = sizeof(header);
+	header.trackID = s_nativeGhostInputTrackID;
+	header.characterID = s_nativeGhostInputCharacterID;
+	header.frameCount = s_nativeGhostInputFrameCount;
+	header.frameSize = sizeof(struct NativeGhostInputFrame);
+	header.flags = s_nativeGhostInputRecordingFlags;
+	header.totalTimeMS = s_nativeGhostInputTotalTimeMS;
+	NativeGhostInput_StoreHeaderMetadata(&header);
+
+	return NativeMemcard_WriteReplayData(0, ghostName, &header, sizeof(header), s_nativeGhostInputFrames,
+	                                     (int)(s_nativeGhostInputFrameCount * sizeof(struct NativeGhostInputFrame))) == NATIVE_MEMCARD_OK;
+}
+
+void NativeGhostInput_RemoveForGhost(const char *ghostName)
+{
+	NativeMemcard_RemoveReplay(0, ghostName);
+}
+
+b32 NativeGhostInput_BeginPlayback(void)
+{
+	struct NativeGhostInputHeader header;
+	int expectedSize;
+	int actualSize;
+
+	NativeGhostInput_ResetReplayControls();
+	s_nativeGhostInputPlaybackActive = false;
+	s_nativeGhostInputPlaybackIndex = 0;
+	s_nativeGhostInputDisplayValid = false;
+
+	if (s_nativeGhostInputSelectedName[0] == '\0')
+	{
+		return false;
+	}
+
+	if (NativeMemcard_ReadReplayData(0, s_nativeGhostInputSelectedName, &header, sizeof(header), 0) != NATIVE_MEMCARD_OK)
+	{
+		return false;
+	}
+
+	if (!NativeGhostInput_ValidateHeader(&header) ||
+	    (header.trackID != (u16)sdata->gGT->levelID) ||
+	    (header.characterID != (u16)data.characterIDs[0]) ||
+	    ((sdata->gGT->gameMode1 & TIME_TRIAL) == 0) ||
+	    ((sdata->gGT->gameMode1 & RELIC_RACE) != 0))
+	{
+		return false;
+	}
+
+	expectedSize = header.headerSize + (int)(header.frameCount * header.frameSize);
+	actualSize = NativeMemcard_ReplaySize(0, s_nativeGhostInputSelectedName);
+	if (actualSize < expectedSize)
+	{
+		return false;
+	}
+
+	if (NativeMemcard_ReadReplayData(0, s_nativeGhostInputSelectedName, s_nativeGhostInputFrames,
+	                                 (int)(header.frameCount * sizeof(struct NativeGhostInputFrame)), header.headerSize) != NATIVE_MEMCARD_OK)
+	{
+		return false;
+	}
+
+	s_nativeGhostInputFrameCount = header.frameCount;
+	s_nativeGhostInputTotalTimeMS = header.totalTimeMS;
+	s_nativeGhostInputRecordingFlags = header.flags;
+	NativeGhostInput_LoadHeaderMetadata(&header);
+	b32 use60Fps = NativeGhostInput_HeaderUses60Fps(&header);
+	gNativeGhostReplayFpsOverride = use60Fps ? 1 : 0;
+	if (use60Fps && ((header.flags & NATIVE_GHOST_INPUT_FLAG_TIMING_METADATA) != 0))
+	{
+		s_nativeGhostInputPlaybackTimerPhase = s_nativeGhostInputStartTimerPhase & NATIVE_GHOST_INPUT_TIMER_PHASE_MASK;
+		s_nativeGhostInputPlaybackTimerPhasePending = true;
+	}
+	else
+	{
+		s_nativeGhostInputPlaybackTimerPhasePending = false;
+	}
+	s_nativeGhostInputPlaybackActive = true;
+	return true;
+}
+
+#endif

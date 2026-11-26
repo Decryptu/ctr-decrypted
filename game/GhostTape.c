@@ -1,6 +1,6 @@
 #include <common.h>
 
-void GhostTape_Start(void)
+static void GhostTape_StartInternal(b32 startNativeInputRecording)
 {
 	struct GhostRecording *recording = &GHOST_RECORDING;
 	s16 characterID;
@@ -48,7 +48,41 @@ void GhostTape_Start(void)
 	recording->instanceFlags = 0;
 	recording->turboPadBoostCooldownFrames = 0;
 	recording->ptrCurrOffset = recording->ptrStartOffset;
+#if defined(CTR_NATIVE)
+	if (startNativeInputRecording)
+	{
+		NativeGhostInput_StartRecording();
+	}
+#else
+	(void)startNativeInputRecording;
+#endif
 }
+
+void GhostTape_Start(void)
+{
+	GhostTape_StartInternal(true);
+}
+
+#if defined(CTR_NATIVE)
+void GhostTape_StartReplayCapture(void)
+{
+	if (gNativeGhostReplayMode == 0)
+	{
+		return;
+	}
+	if (GHOST_RECORDING.ptrGhost == NULL)
+	{
+		GHOST_RECORDING.ptrGhost = MEMPACK_AllocMem(GHOST_RECORD_BUFFER_SIZE, "GhostReplayCapture");
+		if (GHOST_RECORDING.ptrGhost == NULL)
+		{
+			return;
+		}
+		GHOST_RECORDING.ptrStartOffset = (char *)GHOST_RECORDING.ptrGhost + sizeof(struct GhostHeader);
+		GHOST_RECORDING.ptrEndOffset = (char *)GHOST_RECORDING.ptrGhost + GHOST_RECORD_BUFFER_SIZE - 0x40;
+	}
+	GhostTape_StartInternal(false);
+}
+#endif
 
 
 void GhostTape_End(void)
@@ -59,6 +93,12 @@ void GhostTape_End(void)
 	// Overflowed or inactive recordings have no final packet to write.
 	if (GHOST_CAN_SAVE == 0)
 	{
+#if defined(CTR_NATIVE)
+		if (gNativeGhostReplayMode == 0)
+		{
+			NativeGhostInput_DiscardRecording();
+		}
+#endif
 		return;
 	}
 
@@ -72,6 +112,12 @@ void GhostTape_End(void)
 	gh->speedApprox = d->speedApprox;
 	gh->timeElapsedInRace = GAME_TRACKER->drivers[0]->timeElapsedInRace;
 	GHOST_CAN_SAVE = 0;
+#if defined(CTR_NATIVE)
+	if (gNativeGhostReplayMode == 0)
+	{
+		NativeGhostInput_StopRecording();
+	}
+#endif
 }
 
 

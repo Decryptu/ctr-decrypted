@@ -595,7 +595,7 @@ void MM_TrackSelect_MenuProc(struct RectMenu *menu)
 #endif
 #ifdef CTR_NATIVE
 					// So does a 200cc Time Trial's, from records/.
-					if (SpeedClass_TimeTrial())
+					if ((gNativeGhostReplayMode == 0) && SpeedClass_TimeTrial())
 					{
 						TimeTrialRecords_BeginFromTrackSelect();
 						return;
@@ -611,6 +611,15 @@ void MM_TrackSelect_MenuProc(struct RectMenu *menu)
 				MM_DESIRED_MENU = &MM_MENU_QUEUE_LOAD_TRACK;
 				return;
 			}
+#if defined(CTR_NATIVE)
+			if (gNativeGhostReplayMode != 0)
+			{
+				gNativeGhostReplayMode = 0;
+				NativeGhostInput_ClearSelection();
+				MM_JumpTo_Title_Returning();
+				return;
+			}
+#endif
 			MM_DESIRED_MENU = &MM_MENU_CHARACTER_SELECT;
 			MM_Characters_RestoreIDs();
 			return;
@@ -760,6 +769,14 @@ void MM_TrackSelect_MenuProc(struct RectMenu *menu)
 								}
 								else if ((buttonTap & MM_TRACK_SELECT_INPUT_CONFIRM) != 0)
 								{
+#if defined(CTR_NATIVE)
+									if ((gNativeGhostReplayMode != 0) &&
+									    (RefreshCard_CountModernGhostProfilesForLEV((u16)selectMenu[currTrack].levID) == 0))
+									{
+										OtherFX_Play(5, 1);
+										break;
+									}
+#endif
 									OtherFX_Play(1, 1);
 									{
 										u32 gameMode = GAME_TRACKER->gameMode1;

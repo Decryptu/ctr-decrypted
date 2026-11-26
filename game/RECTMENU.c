@@ -400,6 +400,10 @@ static char *RECTMENU_RowString(int index)
 		return (char *)"CLASSIC";
 	if (index == CTR_LNG_200CC)
 		return (char *)"200CC";
+	if (index == CTR_LNG_GHOST_REPLAY)
+		return (char *)"GHOST REPLAY";
+	if (index == CTR_LNG_CHALLENGE_GHOST)
+		return (char *)"CHALLENGE GHOST";
 	if (index >= CTR_LNG_LAP_1 && index < CTR_LNG_LAP_1 + CTR_LNG_LAP_COUNT)
 	{
 		static const char *const lapDigits[CTR_LNG_LAP_COUNT] = {"1", "2", "3", "4", "5", "6", "7", "8", "9"};

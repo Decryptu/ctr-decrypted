@@ -18,6 +18,11 @@
 #include "platform/native_config.h"
 #include "platform/native_window_geometry.h"
 #include "platform/native_vsync.h"
+#include "platform/native_dualshock_overlay.h"
+#include <namespace_Gamepad.h>
+
+extern b32 NativeGhostInput_GetReplayOverlayState(u32 *buttonsHeld, u8 *stickLX, u8 *stickLY, u8 *stickRX, u8 *stickRY);
+internal void NativeRenderer_DestroyGhostReplayOverlay(void);
 
 #include <assert.h>
 #include <string.h>
@@ -495,6 +500,7 @@ void NativeRenderer_Shutdown(void)
 
 	NativeRenderer_DestroyTexture(s_whiteTexture);
 	NativeRenderer_DestroyTexture(s_rgLutTexture);
+	NativeRenderer_DestroyGhostReplayOverlay();
 	glDeleteProgram(s_packShader);
 	glDeleteProgram(s_presentVramShader);
 	glDeleteProgram(s_streamingPresentShader);
@@ -2895,9 +2901,227 @@ internal GLuint NativeRenderer_PresentFramebuffer(void)
 	return s_presentCapture.framebuffer;
 }
 
+// Ghost Replay DualShock input viewer overlay (ported from High Octane).
+global_variable GLuint s_ghostReplayShader;
+global_variable TextureID s_ghostReplayControllerTexture;
+global_variable TextureID s_ghostReplayHighlightTexture;
+global_variable int s_ghostReplayControllerWidth;
+global_variable int s_ghostReplayControllerHeight;
+global_variable b32 s_ghostReplayOverlayLoadAttempted;
+
+internal void NativeRenderer_DestroyGhostReplayOverlay(void)
+{
+	if (s_ghostReplayControllerTexture != 0)
+	{
+		NativeRenderer_DestroyTexture(s_ghostReplayControllerTexture);
+		s_ghostReplayControllerTexture = 0;
+	}
+	if (s_ghostReplayHighlightTexture != 0)
+	{
+		NativeRenderer_DestroyTexture(s_ghostReplayHighlightTexture);
+		s_ghostReplayHighlightTexture = 0;
+	}
+	if (s_ghostReplayShader != 0)
+	{
+		glDeleteProgram(s_ghostReplayShader);
+		s_ghostReplayShader = 0;
+	}
+	s_ghostReplayControllerWidth = 0;
+	s_ghostReplayControllerHeight = 0;
+	s_ghostReplayOverlayLoadAttempted = false;
+}
+
+internal TextureID NativeRenderer_CreateGhostReplayTexture(int width, int height, const u8 *rgba)
+{
+	GLuint tex = 0;
+	glGenTextures(1, &tex);
+	glBindTexture(GL_TEXTURE_2D, tex);
+	glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+	s_lastBoundTexture = (TextureID)-1;
+	return (TextureID)tex;
+}
+
+internal b32 NativeRenderer_LoadGhostReplayOverlay(void)
+{
+	static const char *source =
+		"#ifdef VERTEX\n"
+		"attribute vec2 a_position; varying vec2 v_uv;\n"
+		"void main(){ v_uv=vec2(a_position.x*.5+.5,.5-a_position.y*.5); gl_Position=vec4(a_position,0.,1.); }\n"
+		"#endif\n#ifdef FRAGMENT\n"
+		"varying vec2 v_uv; uniform sampler2D s_texture;\n"
+		"void main(){ fragColor=texture2D(s_texture,v_uv); }\n#endif\n";
+
+	if (s_ghostReplayOverlayLoadAttempted)
+	{
+		return (s_ghostReplayShader != 0) && (s_ghostReplayControllerTexture != 0) && (s_ghostReplayHighlightTexture != 0);
+	}
+	s_ghostReplayOverlayLoadAttempted = true;
+
+	s_ghostReplayShader = NativeRenderer_Shader_Compile(source, false);
+	if (s_ghostReplayShader == 0)
+	{
+		return false;
+	}
+
+	int imageWidth = 0;
+	int imageHeight = 0;
+	u8 *pixels = NativeDualshockOverlay_DecodeRGBA(&imageWidth, &imageHeight);
+	if (pixels == NULL)
+	{
+		return false;
+	}
+	s_ghostReplayControllerWidth = imageWidth;
+	s_ghostReplayControllerHeight = imageHeight;
+	s_ghostReplayControllerTexture = NativeRenderer_CreateGhostReplayTexture(imageWidth, imageHeight, pixels);
+	NativeDualshockOverlay_Free(pixels);
+
+	u8 highlight[32 * 32 * 4];
+	for (int y = 0; y < 32; y++)
+	{
+		for (int x = 0; x < 32; x++)
+		{
+			float dx = ((float)x + 0.5f - 16.0f) / 16.0f;
+			float dy = ((float)y + 0.5f - 16.0f) / 16.0f;
+			float distSq = dx * dx + dy * dy;
+			u8 alpha = 0;
+			if (distSq <= 1.0f)
+			{
+				float factor = 1.0f - distSq;
+				alpha = (u8)(220.0f * (0.45f + 0.55f * factor));
+			}
+			int idx = (y * 32 + x) * 4;
+			highlight[idx + 0] = 255;
+			highlight[idx + 1] = 200;
+			highlight[idx + 2] = 40;
+			highlight[idx + 3] = alpha;
+		}
+	}
+	s_ghostReplayHighlightTexture = NativeRenderer_CreateGhostReplayTexture(32, 32, highlight);
+
+	return (s_ghostReplayControllerTexture != 0) && (s_ghostReplayHighlightTexture != 0);
+}
+
+internal void NativeRenderer_DrawGhostReplayQuad(TextureID texture, int x, int y, int w, int h)
+{
+	if ((w <= 0) || (h <= 0))
+	{
+		return;
+	}
+	NativeRenderer_SetViewPort(x, y, w, h);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, texture);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+}
+
+internal void NativeRenderer_DrawGhostReplayHighlight(int overlayX, int overlayY, int overlayW, int overlayH,
+                                                      int refCenterX, int refCenterY, int refW, int refH)
+{
+	// Reference coordinates are in 1672x941 top-origin image space.
+	const int kRefW = 1672;
+	const int kRefH = 941;
+	int drawW = (refW * overlayW) / kRefW;
+	int drawH = (refH * overlayH) / kRefH;
+	if (drawW < 4) drawW = 4;
+	if (drawH < 4) drawH = 4;
+	int centerX = overlayX + (refCenterX * overlayW) / kRefW;
+	int centerY = overlayY + overlayH - (refCenterY * overlayH) / kRefH;
+	NativeRenderer_DrawGhostReplayQuad(s_ghostReplayHighlightTexture, centerX - (drawW / 2), centerY - (drawH / 2), drawW, drawH);
+}
+
+internal void NativeRenderer_DrawGhostReplayOverlay(void)
+{
+	u32 buttonsHeld = 0;
+	u8 stickLX = 0x80;
+	u8 stickLY = 0x80;
+	u8 stickRX = 0x80;
+	u8 stickRY = 0x80;
+
+	if (!s_glInitialised || (s_presentViewport.w <= 0) || (s_presentViewport.h <= 0))
+	{
+		return;
+	}
+	if (!NativeGhostInput_GetReplayOverlayState(&buttonsHeld, &stickLX, &stickLY, &stickRX, &stickRY))
+	{
+		return;
+	}
+	if (!NativeRenderer_LoadGhostReplayOverlay())
+	{
+		return;
+	}
+
+	int overlayW = (s_presentViewport.w * 22) / 100;
+	if (overlayW < 120) overlayW = 120;
+	if (overlayW > s_presentViewport.w - 24) overlayW = s_presentViewport.w - 24;
+	int overlayH = (overlayW * s_ghostReplayControllerHeight) / s_ghostReplayControllerWidth;
+	if ((overlayW <= 0) || (overlayH <= 0))
+	{
+		return;
+	}
+	int overlayX = s_presentViewport.x + 12;
+	int overlayY = s_presentViewport.y + 12;
+
+	glBindFramebuffer(GL_FRAMEBUFFER, NativeRenderer_PresentFramebuffer());
+	NativeRenderer_SetScissorState(0);
+	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_STENCIL_TEST);
+	glEnable(GL_BLEND);
+	glBlendEquation(GL_FUNC_ADD);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glUseProgram(s_ghostReplayShader);
+	glUniform1i(glGetUniformLocation(s_ghostReplayShader, "s_texture"), 0);
+	glBindVertexArray(s_vramQuadVAO);
+
+	NativeRenderer_DrawGhostReplayQuad(s_ghostReplayControllerTexture, overlayX, overlayY, overlayW, overlayH);
+
+	if ((buttonsHeld & BTN_UP) != 0)       NativeRenderer_DrawGhostReplayHighlight(overlayX, overlayY, overlayW, overlayH, 418, 312, 104, 104);
+	if ((buttonsHeld & BTN_DOWN) != 0)     NativeRenderer_DrawGhostReplayHighlight(overlayX, overlayY, overlayW, overlayH, 418, 461, 104, 104);
+	if ((buttonsHeld & BTN_LEFT) != 0)     NativeRenderer_DrawGhostReplayHighlight(overlayX, overlayY, overlayW, overlayH, 342, 387, 104, 104);
+	if ((buttonsHeld & BTN_RIGHT) != 0)    NativeRenderer_DrawGhostReplayHighlight(overlayX, overlayY, overlayW, overlayH, 494, 387, 104, 104);
+	if ((buttonsHeld & BTN_TRIANGLE) != 0) NativeRenderer_DrawGhostReplayHighlight(overlayX, overlayY, overlayW, overlayH, 1253, 277, 112, 112);
+	if ((buttonsHeld & BTN_CIRCLE) != 0)   NativeRenderer_DrawGhostReplayHighlight(overlayX, overlayY, overlayW, overlayH, 1369, 387, 112, 112);
+	if ((buttonsHeld & BTN_CROSS) != 0)    NativeRenderer_DrawGhostReplayHighlight(overlayX, overlayY, overlayW, overlayH, 1253, 500, 112, 112);
+	if ((buttonsHeld & BTN_SQUARE) != 0)   NativeRenderer_DrawGhostReplayHighlight(overlayX, overlayY, overlayW, overlayH, 1138, 387, 112, 112);
+
+	if ((buttonsHeld & (BTN_L1 | BTN_L2)) != 0) NativeRenderer_DrawGhostReplayHighlight(overlayX, overlayY, overlayW, overlayH, 418, 70, 170, 64);
+	if ((buttonsHeld & (BTN_R1 | BTN_R2)) != 0) NativeRenderer_DrawGhostReplayHighlight(overlayX, overlayY, overlayW, overlayH, 1248, 70, 170, 64);
+
+	if ((buttonsHeld & BTN_SELECT) != 0) NativeRenderer_DrawGhostReplayHighlight(overlayX, overlayY, overlayW, overlayH, 742, 407, 86, 54);
+	if ((buttonsHeld & BTN_START) != 0)  NativeRenderer_DrawGhostReplayHighlight(overlayX, overlayY, overlayW, overlayH, 929, 408, 88, 58);
+
+	const int stickTravel = 45;
+	const int leftStickX = 623 + (((int)stickLX - 128) * stickTravel) / 127;
+	const int leftStickY = 613 + (((int)stickLY - 128) * stickTravel) / 127;
+	const int rightStickX = 1047 + (((int)stickRX - 128) * stickTravel) / 127;
+	const int rightStickY = 613 + (((int)stickRY - 128) * stickTravel) / 127;
+	NativeRenderer_DrawGhostReplayHighlight(overlayX, overlayY, overlayW, overlayH, leftStickX, leftStickY, 58, 58);
+	NativeRenderer_DrawGhostReplayHighlight(overlayX, overlayY, overlayW, overlayH, rightStickX, rightStickY, 58, 58);
+	if ((buttonsHeld & BTN_L3) != 0) NativeRenderer_DrawGhostReplayHighlight(overlayX, overlayY, overlayW, overlayH, leftStickX, leftStickY, 116, 116);
+	if ((buttonsHeld & BTN_R3) != 0) NativeRenderer_DrawGhostReplayHighlight(overlayX, overlayY, overlayW, overlayH, rightStickX, rightStickY, 116, 116);
+
+	glBindVertexArray(0);
+	glDisable(GL_BLEND);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	s_previousShader = (ShaderID)-1;
+	s_lastBoundTexture = (TextureID)-1;
+	s_previousBlendMode = (BlendMode)-1;
+	s_previousDepthMode = -1;
+	s_previousStencilMode = -1;
+	s_previousScissorState = -1;
+	s_boundVertexBuffer = -1;
+	glEnable(GL_STENCIL_TEST);
+}
+
 // Show a captured present in the window too.
 internal void NativeRenderer_ResolvePresentCapture(void)
 {
+	NativeRenderer_DrawGhostReplayOverlay();
 	if (!s_presentCaptureEnabled)
 	{
 		return;

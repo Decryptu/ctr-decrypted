@@ -143,6 +143,16 @@ HANDLE_EXITING:
 		MM_Characters_RestoreIDs();
 		break;
 
+#if defined(CTR_NATIVE)
+	case MM_EXIT_ROUTE_GHOST_REPLAY:
+
+		MM_Title_CameraReset();
+		MM_Title_KillThread();
+		MM_DESIRED_MENU = &MM_MENU_TRACK_SELECT;
+		MM_TrackSelect_Init();
+		break;
+#endif
+
 	// high score menu
 	case MM_EXIT_ROUTE_HIGH_SCORE:
 

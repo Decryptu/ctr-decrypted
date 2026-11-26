@@ -61,8 +61,8 @@ f0dad3b99 skip   readme, changelog or housekeeping                     | Add scr
 993307aa2 skip   readme, changelog or housekeeping                     | Typo fixes.
 0228fea52 skip   Vita                                                  | Raise clocks and init sceAppUtil on boot.
 360852acd skip   readme, changelog or housekeeping                     | Add known issues and control bindings references.
-b0dd9152d maybe  ghost replay tools                                    | Make the ghosts limit per track dependant.
-cf212a23a maybe  ghost replay tools                                    | Add Ghost Replay feature.
+b0dd9152d own    ghost replay tools (docs/GHOST-REPLAY.md)             | Make the ghosts limit per track dependant.
+cf212a23a own    ghost replay tools (docs/GHOST-REPLAY.md)             | Add Ghost Replay feature.
 4c99d3c33 skip   High Octane's menu layout; our options live in the config menu | Refactor the main menu with some submenus.
 43c0c6fe7 own    racer stats, own layout (docs/CUSTOM_RACERS.md)       | Add a stats viewer in character selection.
 5e46d139b own    Skip Intros option                                    | Allow for early skipping intro.
@@ -96,7 +96,7 @@ c25fcd3b8 own shared scissor edges/direct fruit HUD; docs/NATIVE-PRESENTATION.md
 dca935402 have                                                         | Enable multiple controllers support.
 c76836261 skip   Vita                                                  | Fix widescreen false positive primitive clips.
 2549eff51 skip   readme, changelog or housekeeping                     | Add v.1.2 changelog.
-386f81ebb maybe  ghost replay tools                                    | Add a Vita overlay with input presses during ghost replays.
+386f81ebb own    ghost replay tools (docs/GHOST-REPLAY.md)             | Add a Vita overlay with input presses during ghost replays.
 21c7ac560 skip   online leaderboard                                    | Use executable checksum as version for the leaderboard.
 973f8eda4 skip   AdHoc netplay                                         | Fix collission sounds not being local in AdHoc.
 af15a2069 skip   AdHoc netplay                                         | Fix "Final Lap" text not showing during AdHoc.
@@ -123,8 +123,8 @@ e4daec0b4 maybe  reverse tracks                                        | Add rev
 6871be715 skip   readme, changelog or housekeeping                     | Add Relic Race reference for the leaderboard.
 7f0b4aa70 own    saved camera and HUD choices in Gameplay              | Add default camera option.
 b6e04dfba own    saved camera and HUD choices in Gameplay              | Add default HUD element option.
-97eb62dd9 maybe  ghost replay tools                                    | Add right stick tracking for ghosts.
-d1d7c868d maybe  ghost replay tools                                    | Add proper analogs tracking in the input viewer overlay.
+97eb62dd9 own    ghost replay tools (docs/GHOST-REPLAY.md)             | Add right stick tracking for ghosts.
+d1d7c868d own    ghost replay tools (docs/GHOST-REPLAY.md)             | Add proper analogs tracking in the input viewer overlay.
 2894a9ee4 skip   readme, changelog or housekeeping                     | Add v.1.3.1 changelog.
 be6eeb1b4 own    Dithering option                                      | [PC] Make dithering an option.
 450e185c1 skip   Vita                                                  | [PSVita] Revert to original analogs handling.
@@ -146,8 +146,8 @@ f028f2803 maybe  reverse tracks; its 60 FPS rain part is bfc96d485     | Add alt
 aa16f23a9 skip   web build                                             | Added EmScripten build reference to readme.
 baa505759 own native hierarchy shadow clearance; docs/NATIVE-PRESENTATION.md | Fix shadows overlapping with menu rects.
 8e1ba8a5d own    Opponent Roster and per-driver models (docs/CUSTOM_RACERS.md) | Make CPU be able to pick unlockable characters in Arcade.
-5bc765f14 maybe  ghost replay tools                                    | Add personal bests view during Time Trials.
-9df434eeb maybe  ghost replay tools                                    | Add Challenge Ghost feature in Ghost Replay.
+5bc765f14 own    ghost replay tools (docs/GHOST-REPLAY.md)             | Add personal bests view during Time Trials.
+9df434eeb own    ghost replay tools (docs/GHOST-REPLAY.md)             | Add Challenge Ghost feature in Ghost Replay.
 cd29f8471 skip   online leaderboard                                    | Separate Web client to PC one for the leaderboard.
 875fd120b ported 8a0d59299                                              | Fix 8-9 Lap races causing mempack overrun.
 c0616f504 own    custom racers, own design (docs/CUSTOM_RACERS.md)     | Added custom characters support.
@@ -167,14 +167,14 @@ e4a298ee1 own    custom racers, own design (docs/CUSTOM_RACERS.md)     | Fix cus
 7a839ca99 own opaque texture preview and aspect-correct frame; docs/NATIVE-PRESENTATION.md | Fix aspect ratio and wrong blending on track previews.
 6fe2af36f maybe  custom racer sounds, mask and wheels                  | Add sampled sounds support for custom racers.
 8e27b0011 own    UI_RenderFrame_Wumpa3D_2P3P4P END_OF_RACE gate            | Fix wumpa fruits being visible in the end race screen in VS/Battle modes.
-c0e0a981d maybe  ghost replay tools                                    | Add stop, frame-by-frame and playback speed adjustments for ghost replays.
+c0e0a981d own    ghost replay tools (docs/GHOST-REPLAY.md)             | Add stop, frame-by-frame and playback speed adjustments for ghost replays.
 ea16e1b6f own    custom racers, own design (docs/CUSTOM_RACERS.md)     | Fix boss battle voices getting overridden by custom racers ones.
 d1aafbc91 maybe  custom racer sounds, mask and wheels                  | Add support for mask and wheels settings for custom racers.
 d1f5de045 own    shared roster pages (docs/CUSTOM_RACERS.md)             | Allow for secondary players to change characters page.
 a03cd3810 own    shared racer picks (docs/CUSTOM_RACERS.md)              | Fix identation and allow for all players to select even same character.
 ab467eefd own    title menu Quit and cursor clamping                   | Add Exit Game option in main menu.
 bcf381c2d skip   taste: retail pause menu order kept                   | Invert Options and Exit voices in pause menu.
-8349dcc83 maybe  ghost replay tools                                    | Replace Vita overlay with a Dualshock one on Web/PC builds.
+8349dcc83 own    ghost replay tools (docs/GHOST-REPLAY.md)             | Replace Vita overlay with a Dualshock one on Web/PC builds.
 59b3f979b own    Audio volume options                                  | Add audio options in the main menu Options menu.
 091958baf maybe  PAL disc support (text comes from PAL discs)          | USe small font on language menu.
 198f56a01 own    Opponent Roster and per-driver models (docs/CUSTOM_RACERS.md) | Make AI Racers a three options selection.

@@ -30,6 +30,7 @@ void Platform_PinVRAMDisplayFrames(int frameCount);
 void Platform_PinVRAMDisplayRect(int x, int y, int w, int h, int frameCount);
 int Platform_GetVBlankCount(void);
 void Platform_WaitUntilVBlank(int targetVBlank);
+void Platform_SetVBlankPacingScale(int speedNumerator, int speedDenominator);
 void Platform_PollHostEvents(void);
 int Platform_PollInput(void);
 int Platform_SetClipboardText(const char *text);

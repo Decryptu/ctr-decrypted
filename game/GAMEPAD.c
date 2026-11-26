@@ -1084,6 +1084,10 @@ s32 GAMEPAD_ProcessAnyoneVars(struct GamepadSystem *gGamepads)
 	}
 #endif
 
+#ifdef CTR_NATIVE
+	NativeGhostInput_ProcessGamepad(gGamepads);
+#endif
+
 	return heldAny;
 }
 

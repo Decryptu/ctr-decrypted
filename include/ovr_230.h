@@ -40,6 +40,9 @@ enum
 	MM_EXIT_ROUTE_HIGH_SCORE = 3,
 	MM_EXIT_ROUTE_DEMO = 4,
 	MM_EXIT_ROUTE_SCRAPBOOK = 5,
+#if defined(CTR_NATIVE)
+	MM_EXIT_ROUTE_GHOST_REPLAY = 6,
+#endif
 };
 typedef s32 MainMenuExitRoute;
 

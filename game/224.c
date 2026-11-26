@@ -37,6 +37,9 @@ global_variable Color s_highScoreIconColor224;
 
 extern struct RectMenu menu224;
 extern struct RectMenu menu224NoSave;
+#if defined(CTR_NATIVE)
+extern struct RectMenu menu224GhostReplay;
+#endif
 
 #ifndef TT_FLAGS
 #define TT_FLAGS         (sdata->flags_timeTrialEndOfRace)
@@ -459,12 +462,11 @@ show_menu:
 		TT_FLAGS = 0;
 
 #ifdef CTR_NATIVE
-		// No Save Ghost row on a custom track or at 200cc: the ghost is saved
-		// to its records file automatically, and the row would open the memory card.
-		if ((TT_GHOST_TOO_BIG == 0) && !TimeTrialRecords_OffCard())
-#else
-		if (TT_GHOST_TOO_BIG == 0)
-#endif
+		if (gNativeGhostReplayMode != 0)
+		{
+			RECTMENU_Show(&menu224GhostReplay);
+		}
+		else if ((TT_GHOST_TOO_BIG == 0) && !TimeTrialRecords_OffCard())
 		{
 			RECTMENU_Show(&menu224);
 		}
@@ -472,6 +474,16 @@ show_menu:
 		{
 			RECTMENU_Show(&menu224NoSave);
 		}
+#else
+		if (TT_GHOST_TOO_BIG == 0)
+		{
+			RECTMENU_Show(&menu224);
+		}
+		else
+		{
+			RECTMENU_Show(&menu224NoSave);
+		}
+#endif
 	}
 }
 
@@ -605,5 +617,50 @@ struct RectMenu menu224NoSave = {
 
     // rest of variables all default zero
 };
+
+#if defined(CTR_NATIVE)
+struct MenuRow rowsGhostReplay[4] = {
+    {
+        .stringIndex = LNG_RESTART,
+        .rowOnPressUp = 2,
+        .rowOnPressDown = 1,
+        .rowOnPressLeft = 0,
+        .rowOnPressRight = 0,
+    },
+    {
+        .stringIndex = CTR_LNG_CHALLENGE_GHOST,
+        .rowOnPressUp = 0,
+        .rowOnPressDown = 2,
+        .rowOnPressLeft = 1,
+        .rowOnPressRight = 1,
+    },
+    {
+        .stringIndex = LNG_QUIT,
+        .rowOnPressUp = 1,
+        .rowOnPressDown = 0,
+        .rowOnPressLeft = 2,
+        .rowOnPressRight = 2,
+    },
+    {
+        .stringIndex = RECTMENU_STRING_NONE,
+        .rowOnPressUp = 0,
+        .rowOnPressDown = 0,
+        .rowOnPressLeft = 0,
+        .rowOnPressRight = 0,
+    }};
+
+struct RectMenu menu224GhostReplay = {
+    .stringIndexTitle = RECTMENU_STRING_NONE,
+    .posX_curr = 0x100,
+    .posY_curr = 0xA0,
+
+    .unk1 = 0,
+
+    .state = RECTMENU_STATE_SMALL_EXEC_CENTERED,
+    .rows = rowsGhostReplay,
+    .funcPtr = UI_RaceEnd_MenuProc,
+    .drawStyle = 4,
+};
+#endif
 
 global_variable Color s_highScoreIconColor224 = COLOR_CODE_PACKED_INIT(0x808080);

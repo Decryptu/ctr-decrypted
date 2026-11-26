@@ -178,7 +178,7 @@ add_subdirectory(externals/SDL)
 # CTR Native
 enable_language(CXX)
 add_executable(ctr_native main.c platform/native_build_id.c platform/native_crash_log.c
-    platform/native_fakecrash.cpp)
+    platform/native_dualshock_overlay.c platform/native_fakecrash.cpp)
 target_compile_features(ctr_native PRIVATE cxx_std_17)
 set_target_properties(ctr_native PROPERTIES
     C_STANDARD 17

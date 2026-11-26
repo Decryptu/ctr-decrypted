@@ -74,6 +74,63 @@ static void MM_MenuProc_SpeedClass(struct RectMenu *menu)
 	MM_DESIRED_MENU_INDEX = MM_EXIT_ROUTE_CHARACTER_SELECT;
 	menu->state |= ONLY_DRAW_TITLE;
 }
+
+// Time Trial submenu: Classic, 200cc, or Ghost Replay (replays saved Classic
+// Time Trial ghosts with playback controls and the live input viewer).
+static void MM_MenuProc_TimeTrial(struct RectMenu *menu);
+
+static struct MenuRow s_rowsTimeTrial[] = {
+	{CTR_LNG_CLASSIC, 0, 1, 0, 0},
+	{CTR_LNG_200CC, 0, 2, 1, 1},
+	{CTR_LNG_GHOST_REPLAY, 1, 2, 2, 2},
+	{RECTMENU_STRING_NONE},
+};
+
+static struct RectMenu s_menuTimeTrial = {
+	.stringIndexTitle = RECTMENU_STRING_NONE,
+	.state = CENTER_ON_X,
+	.rows = s_rowsTimeTrial,
+	.funcPtr = MM_MenuProc_TimeTrial,
+};
+
+static void MM_TimeTrial_Open(struct RectMenu *menu)
+{
+	s_menuTimeTrial.state = CENTER_ON_X;
+	s_menuTimeTrial.rowSelected = (g_config.speedClass == SPEED_CLASS_200CC) ? 1 : 0;
+	menu->ptrNextBox_InHierarchy = &s_menuTimeTrial;
+	menu->state |= ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY;
+}
+
+static void MM_MenuProc_TimeTrial(struct RectMenu *menu)
+{
+	s16 row = menu->rowSelected;
+
+	if (row == -1)
+	{
+		menu->ptrPrevBox_InHierarchy->state &= ~(ONLY_DRAW_TITLE | DRAW_NEXT_MENU_IN_HIERARCHY);
+		return;
+	}
+	if (row == 2)
+	{
+		gNativeGhostReplayMode = 1;
+		NativeGhostInput_ClearSelection();
+		MM_TITLE_MENU_STATE = TITLE_MENU_STATE_EXITING;
+		MM_DESIRED_MENU_INDEX = MM_EXIT_ROUTE_GHOST_REPLAY;
+		menu->state |= ONLY_DRAW_TITLE;
+		return;
+	}
+	if (row < 0 || row >= SPEED_CLASS_COUNT)
+	{
+		return;
+	}
+
+	g_config.speedClass = row;
+	NativeConfig_Save();
+
+	MM_TITLE_MENU_STATE = TITLE_MENU_STATE_EXITING;
+	MM_DESIRED_MENU_INDEX = MM_EXIT_ROUTE_CHARACTER_SELECT;
+	menu->state |= ONLY_DRAW_TITLE;
+}
 #endif
 
 s32 MM_TransitionInOut(struct TransitionMeta *meta, s32 framesPassed, s32 numFrames)
@@ -319,6 +376,11 @@ void MM_MenuProc_Main(struct RectMenu *menu)
 	// get LNG index of row selected
 	choose = mainMenu->rows[mainMenu->rowSelected].stringIndex;
 
+#if defined(CTR_NATIVE)
+	gNativeGhostReplayMode = 0;
+	NativeGhostInput_ClearSelection();
+#endif
+
 	switch (choose)
 	{
 	// Adventure Mode
@@ -366,10 +428,8 @@ void MM_MenuProc_Main(struct RectMenu *menu)
 			GAME_TRACKER->gameMode2 &= ~CHEAT_BOMBS;
 
 #ifdef CTR_NATIVE
-			// Time Trial picks a speed class first; the SPEED screen then
-			// leaves for the character select. Records and ghosts are kept
-			// per class (game/TimeTrialRecords.c).
-			MM_SpeedClass_Open(mainMenu);
+			// Time Trial picks Classic, 200cc, or Ghost Replay.
+			MM_TimeTrial_Open(mainMenu);
 #endif
 			return;
 		}

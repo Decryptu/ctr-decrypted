@@ -3,6 +3,30 @@
 #include <platform/native_checkpoint.h>
 #endif
 
+#if defined(CTR_NATIVE)
+static void UI_RenderFrame_DrawReplayControls(const char *status)
+{
+	char *line1 = (char *)"* PLAY/PAUSE   [ STEP";
+	char *line2 = (char *)"L - SPEED + R";
+	int width1 = DecalFont_GetLineWidth(line1, FONT_SMALL);
+	int width2 = DecalFont_GetLineWidth(line2, FONT_SMALL);
+	int panelWidth = ((width1 > width2) ? width1 : width2) + 0xc;
+	int lineHeight = data.PlayerCommentBoxParams[FONT_SMALL];
+	int textYOffset = data.PlayerCommentBoxParams[4 + FONT_SMALL];
+	RECT panel;
+
+	panel.x = (s16)(0x100 - (panelWidth >> 1));
+	panel.y = 0xb7;
+	panel.w = (s16)panelWidth;
+	panel.h = (s16)(lineHeight * 2);
+
+	DecalFont_DrawLine((char *)status, 0x100, 4, FONT_SMALL, JUSTIFY_CENTER | ORANGE);
+	DecalFont_DrawLine(line1, 0x100, panel.y + textYOffset, FONT_SMALL, JUSTIFY_CENTER | WHITE);
+	DecalFont_DrawLine(line2, 0x100, panel.y + lineHeight + textYOffset, FONT_SMALL, JUSTIFY_CENTER | WHITE);
+	RECTMENU_DrawInnerRect(&panel, 0, sdata->gGT->backBuffer->otMem.uiOT);
+}
+#endif
+
 // To do: add a header
 
 // CTR_NATIVE only adds an ST1 map-metadata null guard below.
@@ -46,6 +70,16 @@ void UI_RenderFrame_Racing()
 
 	int numPlyr = gGT->numPlyrCurrGame;
 	int gameMode1 = gGT->gameMode1;
+
+#if defined(CTR_NATIVE)
+	{
+		const char *replayControlStatus = NativeGhostInput_GetReplayControlStatus();
+		if (replayControlStatus != NULL)
+		{
+			UI_RenderFrame_DrawReplayControls(replayControlStatus);
+		}
+	}
+#endif
 
 	// Get pointer to array of HUD structs
 	hudStructPtr = (struct UiElement2D *)data.hudStructPtr[numPlyr - 1];

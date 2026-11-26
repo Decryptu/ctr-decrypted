@@ -82,6 +82,7 @@ static int s_customTimeTrialPending;
 static int MM_CustomTrackSelect_Mode(void)
 {
     u32 mode1 = sdata->gGT->gameMode1;
+    if (gNativeGhostReplayMode != 0) return 0;
     if ((mode1 & (BATTLE_MODE | ADVENTURE_MODE | ADVENTURE_CUP)) || (sdata->gGT->gameMode2 & CUP_ANY_KIND)) return 0;
     if ((mode1 & (ARCADE_MODE | TIME_TRIAL)) == ARCADE_MODE) return CTR_OFFLINE_MODE_ARCADE;
     /* VS: no mode flag, two to four players; the same race as Arcade without bots. */

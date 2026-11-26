@@ -116,6 +116,8 @@
 
 #include "FLARE.c"
 
+#include "NativeGhostInput.c"
+
 #include "GAMEPAD.c"
 
 #include "GAMEPROG.c"

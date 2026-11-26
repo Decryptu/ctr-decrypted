@@ -25,10 +25,91 @@ enum
 #ifdef CTR_NATIVE
 	UI_RACE_CLOCK_TWO_COLUMN_LAPS = 8,
 	UI_RACE_CLOCK_COLUMN_GAP = 8,
+	UI_RACE_CLOCK_PB_TIME_X_OFFSET = 0x44,
+	UI_RACE_CLOCK_PB_TOP_GAP = 4,
+	UI_RACE_CLOCK_PB_ROW_Y_STEP = 8,
+	UI_RACE_CLOCK_PB_SLOW_ONE_SECOND = UI_RACE_CLOCK_TICKS_PER_SECOND,
+	UI_RACE_CLOCK_PB_SLOW_TWO_SECONDS = UI_RACE_CLOCK_TICKS_PER_SECOND * 2,
 #endif
 };
 
 #ifdef CTR_NATIVE
+static const char s_timeTrialPbRaceLabel[] = "PB 3L";
+static const char s_timeTrialPbLapLabel[] = "PB L";
+
+static int UI_TimeTrialLapColor(struct GameTracker *gGT, struct Driver *driver, int lapIndex)
+{
+	if ((sdata->ptrActiveHighScoreEntry == NULL) ||
+	    (sdata->ptrActiveHighScoreEntry[0].time >= MEMCARD_HIGH_SCORE_DEFAULT_TIME))
+	{
+		return PERIWINKLE;
+	}
+
+	int lapTime;
+	if (lapIndex == driver->lapIndex)
+	{
+		lapTime = gGT->elapsedEventTime - driver->lapTime;
+	}
+	else if (lapIndex < driver->lapIndex)
+	{
+		lapTime = UI_LapTime_Get(lapIndex, driver->driverID);
+	}
+	else
+	{
+		return PERIWINKLE;
+	}
+
+	int delta = lapTime - (s32)sdata->ptrActiveHighScoreEntry[0].time;
+	if (delta <= 0)
+	{
+		return PAPU_YELLOW;
+	}
+
+	if (delta <= UI_RACE_CLOCK_PB_SLOW_ONE_SECOND)
+	{
+		return LIGHT_GREEN;
+	}
+
+	if (delta < UI_RACE_CLOCK_PB_SLOW_TWO_SECONDS)
+	{
+		return ORANGE;
+	}
+
+	return RED;
+}
+
+static void UI_DrawTimeTrialPersonalBests(s16 labelPosX, s16 labelPosY, struct GameTracker *gGT)
+{
+	if (sdata->ptrActiveHighScoreEntry == NULL)
+	{
+		return;
+	}
+
+	int pbRaceY = (int)labelPosY + UI_RACE_CLOCK_LAP_ROW_Y_OFFSET +
+	              (gGT->numLaps + 1) * UI_RACE_CLOCK_LAP_ROW_Y_STEP + UI_RACE_CLOCK_PB_TOP_GAP;
+	int pbLapY = pbRaceY + UI_RACE_CLOCK_PB_ROW_Y_STEP;
+	int timeX = (int)labelPosX + UI_RACE_CLOCK_PB_TIME_X_OFFSET;
+
+	DecalFont_DrawLine((char *)s_timeTrialPbRaceLabel, (int)labelPosX, pbRaceY, FONT_SMALL, ORANGE);
+	if (sdata->ptrActiveHighScoreEntry[1].time < MEMCARD_HIGH_SCORE_DEFAULT_TIME)
+	{
+		DecalFont_DrawLine(RECTMENU_DrawTime(sdata->ptrActiveHighScoreEntry[1].time), timeX, pbRaceY, FONT_SMALL, PERIWINKLE);
+	}
+	else
+	{
+		DecalFont_DrawLine((char *)"--:--:--", timeX, pbRaceY, FONT_SMALL, PERIWINKLE);
+	}
+
+	DecalFont_DrawLine((char *)s_timeTrialPbLapLabel, (int)labelPosX, pbLapY, FONT_SMALL, ORANGE);
+	if (sdata->ptrActiveHighScoreEntry[0].time < MEMCARD_HIGH_SCORE_DEFAULT_TIME)
+	{
+		DecalFont_DrawLine(RECTMENU_DrawTime(sdata->ptrActiveHighScoreEntry[0].time), timeX, pbLapY, FONT_SMALL, PERIWINKLE);
+	}
+	else
+	{
+		DecalFont_DrawLine((char *)"--:--:--", timeX, pbLapY, FONT_SMALL, PERIWINKLE);
+	}
+}
 // How far left the first column of an 8 or 9 lap results list sits: one
 // small-font entry ("LAP" + digit + " 9:59:99") and a gap. The results box
 // in AA_EndEvent_DisplayTime widens left by the same amount.
@@ -263,6 +344,12 @@ void UI_DrawRaceClock(s16 labelPosX, s16 labelPosY, u32 flags, struct Driver *dr
 
 		if (lapIndex == 0xffffffff)
 		{
+#if defined(CTR_NATIVE)
+			if (((flags & UI_RACE_CLOCK_SHOW_RESULTS) == 0) && ((gGT->gameMode1 & TIME_TRIAL) != 0))
+			{
+				UI_DrawTimeTrialPersonalBests(labelPosX, labelPosY, gGT);
+			}
+#endif
 			return;
 		}
 
@@ -333,6 +420,12 @@ void UI_DrawRaceClock(s16 labelPosX, s16 labelPosY, u32 flags, struct Driver *dr
 
 					lapFontType = FONT_SMALL;
 					stringColor = PERIWINKLE;
+#if defined(CTR_NATIVE)
+					if ((gGT->gameMode1 & TIME_TRIAL) != 0)
+					{
+						stringColor = UI_TimeTrialLapColor(gGT, driver, numLaps);
+					}
+#endif
 					iVar5 = (int)(((u32)textPosX + UI_RACE_CLOCK_LAP_TIME_X_OFFSET) * 0x10000) >> 0x10;
 				}
 				else
@@ -400,6 +493,12 @@ void UI_DrawRaceClock(s16 labelPosX, s16 labelPosY, u32 flags, struct Driver *dr
 			numParamY = numParamY + 1;
 			if ((int)(lapIndex + 1) <= numLaps)
 			{
+#if defined(CTR_NATIVE)
+				if (((flags & UI_RACE_CLOCK_SHOW_RESULTS) == 0) && ((gGT->gameMode1 & TIME_TRIAL) != 0))
+				{
+					UI_DrawTimeTrialPersonalBests(labelPosX, labelPosY, gGT);
+				}
+#endif
 				return;
 			}
 		} while (1);

@@ -581,7 +581,19 @@ void SelectProfile_DrawGhostProfile(struct GhostProfile *profile, int posX, int 
 
 	if (profile != NULL)
 	{
+#if defined(CTR_NATIVE)
+		int modernRow = unused;
+		if ((profile >= &GAME_MEMCARD_STATE.ghostProfile_memcard[0]) &&
+		    (profile < &GAME_MEMCARD_STATE.ghostProfile_memcard[SELECT_PROFILE_GHOST_SLOT_COUNT]))
+		{
+			modernRow = (int)(profile - &GAME_MEMCARD_STATE.ghostProfile_memcard[0]);
+		}
+		b32 modern = RefreshCard_IsGhostProfileModern(modernRow);
+		DecalFont_DrawLine((char *)(modern ? "MODERN" : "LEGACY"), x + 0x64, y + 0x1e, FONT_SMALL,
+		                   JUSTIFY_CENTER | (modern ? LIGHT_GREEN : SILVER));
+#else
 		DecalFont_DrawLine(GAME_LANGUAGE_STRINGS[GAME_LEVEL_METADATA[profile->trackID].name_LNG], x + 0x64, y + 0x1e, FONT_SMALL, JUSTIFY_CENTER | LIGHT_GREEN);
+#endif
 		DecalFont_DrawLine(RECTMENU_DrawTime(profile->trackTime), x + 0x78, y + 10, FONT_BIG, JUSTIFY_CENTER | PERIWINKLE);
 		RECTMENU_DrawPolyGT4(GAME_TRACKER->ptrIcons[GAME_CHARACTER_METADATA[profile->characterID].iconID], x + 8, y + 5, &GAME_TRACKER->backBuffer->primMem,
 		                     GAME_TRACKER->pushBuffer_UI.ptrOT, ColorCode_Load(&SELECT_PROFILE_GHOST_COLOR), ColorCode_Load(&SELECT_PROFILE_GHOST_COLOR),
@@ -639,6 +651,13 @@ void SelectProfile_ToggleMode(u32 mode)
 
 	// High nibble selects the profile screen, low nibble selects the action.
 	*SelectProfile_Mode() = mode & SELECT_PROFILE_SCREEN_MASK;
+#if defined(CTR_NATIVE)
+	if (*SelectProfile_Mode() == SELECT_PROFILE_SCREEN_GHOST)
+	{
+		u16 trackID = (u16)(((mode & SELECT_PROFILE_ACTION_MASK) == SELECT_PROFILE_ACTION_SAVE) ? GAME_TRACKER->levelID : GAME_TRACKER->currLEV);
+		RefreshCard_ActivateGhostProfilesForLEV(trackID);
+	}
+#endif
 	SELECT_PROFILE_EXIT_TO_PREVIOUS = 0;
 	SELECT_PROFILE_ACTION_DONE = 0;
 	SELECT_PROFILE_OVERWRITE_PROMPT = 0;
@@ -960,8 +979,20 @@ static __inline__ u16 SelectProfile_GhostRowCount(u16 *savedCount, b16 *canChoos
 	}
 	else
 	{
+#if defined(CTR_NATIVE)
+		if (gNativeGhostReplayMode != 0)
+		{
+			*canChooseEmptySlot = false;
+		}
+		else
+		{
+			*canChooseEmptySlot = true;
+			count++;
+		}
+#else
 		*canChooseEmptySlot = true;
 		count++;
+#endif
 	}
 	return count;
 }
@@ -1134,8 +1165,12 @@ static __inline__ void SelectProfile_DrawGhostRows(struct RectMenu *menu, u32 ro
 
 			SelectProfile_DrawGhostProfile(profile, x, y, (s16)index == menu->rowSelected, (s16)index, ((s16)menu->drawStyle | (useLargeRows ? 0 : 0x40)),
 			                               SELECT_PROFILE_ACTION == SELECT_PROFILE_ACTION_LOAD,
-			                               (profile != NULL) && (profile->trackID != GAME_TRACKER->currLEV) &&
-			                                   (SELECT_PROFILE_ACTION != SELECT_PROFILE_ACTION_SAVE));
+			                               ((profile != NULL) && (profile->trackID != GAME_TRACKER->currLEV) &&
+			                                (SELECT_PROFILE_ACTION != SELECT_PROFILE_ACTION_SAVE))
+#if defined(CTR_NATIVE)
+			                                   || ((gNativeGhostReplayMode != 0) && (profile != NULL) && !RefreshCard_IsGhostProfileModern((int)index))
+#endif
+			);
 			if ((s16)index++ == (s16)rowCount)
 			{
 				break;
@@ -1226,6 +1261,31 @@ static __inline__ void SelectProfile_DrawOverwriteGhost(struct RectMenu *menu)
 
 static __inline__ void SelectProfile_StartLoadGhost(struct RectMenu *menu, s16 rowCount)
 {
+#if defined(CTR_NATIVE)
+	if (gNativeGhostReplayMode != 0)
+	{
+		if ((menu->rowSelected < 0) || (menu->rowSelected >= GAME_MEMCARD_STATE.numGhostProfilesSaved) ||
+		    !RefreshCard_IsGhostProfileModern(menu->rowSelected))
+		{
+			OtherFX_Play(5, 1);
+			return;
+		}
+
+		struct GhostProfile *profile = &GAME_MEMCARD_STATE.ghostProfile_memcard[menu->rowSelected];
+		if (!NativeGhostInput_SelectGhost(profile->profile_name, (u16)profile->trackID, (u16)profile->characterID))
+		{
+			OtherFX_Play(5, 1);
+			return;
+		}
+
+		GAME_MEMCARD_STATE.ghostProfile_indexLoad = menu->rowSelected;
+		GAME_CHARACTER_IDS[0] = profile->characterID;
+		*SelectProfile_AllProfiles_ActionActive() = 1;
+		*SelectProfile_AllProfiles_ActionDone() = 1;
+		SELECT_PROFILE_ERROR_FLAG = 1;
+		return;
+	}
+#endif
 	if (menu->rowSelected >= rowCount - 1)
 	{
 		*SelectProfile_AllProfiles_ActionActive() = 1;
@@ -1576,6 +1636,12 @@ static __inline__ void SelectProfile_Finalize(struct RectMenu *menu)
 		}
 		if (*SelectProfile_AllProfiles_ExitToPrevious() != 0)
 		{
+#if defined(CTR_NATIVE)
+			if (gNativeGhostReplayMode != 0)
+			{
+				NativeGhostInput_ClearSelection();
+			}
+#endif
 			GhostTape_Destroy();
 			SELECT_PROFILE_DESIRED_MENU = MM_TrackSelect_GetMenuPtr();
 			MM_TrackSelect_Init();
@@ -1712,9 +1778,20 @@ void SelectProfile_AllProfiles_MenuProc(struct RectMenu *menu)
 		{
 #if defined(CTR_NATIVE)
 			savedGhostCount = SelectProfile_ClampNativeGhostCount(savedGhostCount);
-#endif
+			if (gNativeGhostReplayMode != 0)
+			{
+				canChooseEmptySlot = false;
+				rowCount = savedGhostCount;
+			}
+			else
+			{
+				canChooseEmptySlot = true;
+				rowCount = savedGhostCount + 1;
+			}
+#else
 			canChooseEmptySlot = true;
 			rowCount = savedGhostCount + 1;
+#endif
 		}
 		SelectProfile_ClampRow(menu, (s16)rowCount);
 	}

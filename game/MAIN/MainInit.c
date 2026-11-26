@@ -580,7 +580,23 @@ void MainInit_Drivers(struct GameTracker *gGT)
 		BOTS_Adv_AdjustDifficulty();
 	}
 
+#if defined(CTR_NATIVE)
+	if (gNativeGhostReplayMode == 0)
+	{
+		GhostReplay_Init1();
+	}
+	else
+	{
+		sdata->boolCanSaveGhost = 0;
+		sdata->boolGhostsDrawing = 0;
+		sdata->boolReplayHumanGhost = 0;
+		sdata->ptrGhostTape[0] = NULL;
+		sdata->ptrGhostTape[1] = NULL;
+		sdata->GhostRecording.ptrGhost = NULL;
+	}
+#else
 	GhostReplay_Init1();
+#endif
 
 	if (LOAD_IsOpen_RacingOrBattle())
 	{
@@ -730,20 +746,31 @@ void MainInit_Drivers(struct GameTracker *gGT)
 	// basically, if you're in time trial gameplay
 	if ((gameMode & GAME_MODE_TIME_TRIAL_GAMEPLAY_MASK) == TIME_TRIAL)
 	{
+#if defined(CTR_NATIVE)
+		if (gNativeGhostReplayMode == 0)
+		{
+			GhostReplay_Init2();
+
+			GhostTape_Start();
+
+			struct Model **humanPlyrDriverModel = &gGT->threadBuckets[PLAYER].thread->inst->model;
+
+			// that's characterIDs[1] from the MPK
+			// humanGhost = *humanPlyrDriverModel,
+
+			// then replace with intended P1 model, unless P1 is a custom racer,
+			// which VehBirth_NonGhost already gave its own model
+			if (NativeRacers_Driver(0) < 0)
+				*humanPlyrDriverModel = data.driverModelExtras[0].model;
+		}
+		else
+		{
+			GhostTape_StartReplayCapture();
+		}
+#else
 		GhostReplay_Init2();
 
 		GhostTape_Start();
-
-#if defined(CTR_NATIVE)
-		struct Model **humanPlyrDriverModel = &gGT->threadBuckets[PLAYER].thread->inst->model;
-
-		// that's characterIDs[1] from the MPK
-		// humanGhost = *humanPlyrDriverModel,
-
-		// then replace with intended P1 model, unless P1 is a custom racer,
-		// which VehBirth_NonGhost already gave its own model
-		if (NativeRacers_Driver(0) < 0)
-			*humanPlyrDriverModel = data.driverModelExtras[0].model;
 #endif
 	}
 }
@@ -897,6 +924,12 @@ void MainInit_FinalizeInit(struct GameTracker *gGT)
 	if (gGT->Debug_ToggleNormalSpawn != 0)
 	{
 		MainGameStart_Initialize(gGT, 1);
+#if defined(CTR_NATIVE)
+		if (gNativeGhostReplayMode != 0)
+		{
+			NativeGhostInput_BeginPlayback();
+		}
+#endif
 #ifdef CTR_AP
 		// #286 attempt boundary: clear the forced-loss latch only when this newly
 		// loaded level is an eligible racing level. Hub, menu, cutscene and battle

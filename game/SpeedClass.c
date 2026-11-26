@@ -11,7 +11,7 @@ int SpeedClass_Active(void)
 {
 	struct GameTracker *gGT = sdata->gGT;
 
-	if (g_config.speedClass != SPEED_CLASS_200CC || gGT == NULL)
+	if (g_config.speedClass != SPEED_CLASS_200CC || gGT == NULL || gNativeGhostReplayMode != 0)
 		return 0;
 	return SpeedClass_ModeTakesClass(gGT->gameMode1, SPEED_CLASS_RETAIL_MODES, MAIN_MENU | GAME_CUTSCENE,
 	                                 gGT->boolDemoMode != 0);
@@ -24,7 +24,7 @@ int SpeedClass_TimeTrial(void)
 {
 	struct GameTracker *gGT = sdata->gGT;
 
-	if (g_config.speedClass != SPEED_CLASS_200CC || gGT == NULL || gGT->boolDemoMode != 0)
+	if (g_config.speedClass != SPEED_CLASS_200CC || gGT == NULL || gGT->boolDemoMode != 0 || gNativeGhostReplayMode != 0)
 		return 0;
 	return (gGT->gameMode1 & TIME_TRIAL) != 0 && (gGT->gameMode1 & SPEED_CLASS_RETAIL_MODES) == 0;
 }

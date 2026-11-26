@@ -147,6 +147,27 @@ void GhostTape_End(void);
 void GhostTape_Start(void);
 void GhostTape_WriteBoosts(s32 addReserve, u32 type, s32 speedCap);
 void GhostTape_WriteMoves(s16 raceFinished);
+#if defined(CTR_NATIVE)
+void GhostTape_StartReplayCapture(void);
+extern int gNativeGhostReplayMode;
+extern int gNativeGhostReplayFpsOverride;
+int NativeGhostInput_GetGhostFps(const char *ghostName);
+b32 NativeGhostInput_IsModernGhost(const char *ghostName);
+void NativeGhostInput_ClearSelection(void);
+b32 NativeGhostInput_SelectGhost(const char *ghostName, u16 trackID, u16 characterID);
+void NativeGhostInput_StartRecording(void);
+void NativeGhostInput_DiscardRecording(void);
+void NativeGhostInput_StopRecording(void);
+void NativeGhostInput_ProcessGamepad(struct GamepadSystem *gGamepads);
+void NativeGhostInput_ProcessFrameTiming(s32 *elapsedTimeMS);
+void NativeGhostInput_EndReplaySimulationFrame(void);
+b32 NativeGhostInput_ShouldRunSimulationFrame(void);
+const char *NativeGhostInput_GetReplayControlStatus(void);
+b32 NativeGhostInput_GetReplayOverlayState(u32 *buttonsHeld, u8 *stickLX, u8 *stickLY, u8 *stickRX, u8 *stickRY);
+b32 NativeGhostInput_SaveRecordingForGhost(const char *ghostName);
+void NativeGhostInput_RemoveForGhost(const char *ghostName);
+b32 NativeGhostInput_BeginPlayback(void);
+#endif
 
 // howl
 int CountSounds(void);
@@ -568,6 +589,12 @@ void RaceConfig_SaveGameOptions(void);
 
 void RefreshCard_Entry(void);
 s16 RefreshCard_CountGhostProfilesForLEV(s16 trackID);
+#if defined(CTR_NATIVE)
+void RefreshCard_ActivateGhostProfilesForLEV(u16 trackID);
+s16 RefreshCard_CountModernGhostProfilesForLEV(u16 trackID);
+b32 RefreshCard_IsGhostProfileModern(int row);
+void RefreshCard_InvalidateGhostProfileIndex(void);
+#endif
 void RefreshCard_GhostEncodeProfile(u32 slotIndex, s16 characterID, s16 levelID, int time, char *name);
 int RefreshCard_GhostDecodeByte(int value);
 void RefreshCard_GhostDecodeProfile(struct GhostProfile *profile, char *fileName);

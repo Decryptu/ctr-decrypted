@@ -440,6 +440,47 @@ void UI_RaceEnd_MenuProc(struct RectMenu *menu)
 	}
 
 	option = menu->rows[row].stringIndex;
+#if defined(CTR_NATIVE)
+	if ((gNativeGhostReplayMode != 0) && (option == CTR_LNG_CHALLENGE_GHOST))
+	{
+		struct GhostHeader *challengeGhost = sdata->GhostRecording.ptrGhost;
+
+		if ((challengeGhost == NULL) || (sdata->boolGhostTooBigToSave != 0) || (challengeGhost->size == 0))
+		{
+			OtherFX_Play(5, 1);
+			return;
+		}
+
+		if (sdata->ptrGhostTapePlaying == NULL)
+		{
+			sdata->ptrGhostTapePlaying = MEMPACK_AllocHighMem(GHOST_RECORD_BUFFER_SIZE, "ChallengeGhostTape");
+			if (sdata->ptrGhostTapePlaying == NULL)
+			{
+				OtherFX_Play(5, 1);
+				return;
+			}
+		}
+		memcpy(sdata->ptrGhostTapePlaying, challengeGhost, GHOST_RECORD_BUFFER_SIZE);
+
+		gNativeGhostReplayMode = 0;
+		NativeGhostInput_ClearSelection();
+
+		gGT->currLEV = gGT->levelID;
+		gGT->numPlyrNextGame = 1;
+		gGT->gameMode1 &= ~RELIC_RACE;
+		gGT->gameMode1 |= TIME_TRIAL;
+		gGT->gameModeEnd &= ~PLAYER_GHOST_BEAT;
+		sdata->boolReplayHumanGhost = 1;
+		data.characterIDs[1] = sdata->ptrGhostTapePlaying->characterID;
+		sdata->boolGhostsDrawing = 0;
+
+		option = UI_RACE_END_OPTION_RETRY;
+	}
+	if ((gNativeGhostReplayMode != 0) && (option == LNG_RESTART))
+	{
+		option = UI_RACE_END_OPTION_RETRY;
+	}
+#endif
 
 	// if not SAVE GHOST
 	if (option != UI_RACE_END_OPTION_SAVE_GHOST)

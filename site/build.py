@@ -36,6 +36,7 @@ PAGES = {
     "docs/PGXP.md": "pgxp.html",
     "docs/SCREEN-FILTERS.md": "screen-filters.html",
     "docs/EXTRAS.md": "extras.html",
+    "docs/GHOST-REPLAY.md": "ghost-replay.html",
     "docs/LEVEL-VISIBILITY.md": "level-visibility.html",
     "docs/CONTROLS.md": "controls.html",
     "docs/STEAM-DECK.md": "steam-deck.html",
