@@ -152,13 +152,13 @@ void UI_DrawDriftRing(struct Driver *driver)
 
 	const int factor = Widescreen_GetFactor();
 	const int isSplit = (gGT->numPlyrCurrGame >= 2 || pb->rect.h < 180);
-	const float ryOuter = isSplit ? 9.5f : 13.5f;
-	const float ryInner = isSplit ? 5.5f : 8.0f;
-	const float ryRimOut = ryOuter + 1.5f;
-	const float ryRimIn = ryInner - 1.5f;
+	const float ryOuter = isSplit ? 7.0f : 9.5f;
+	const float ryInner = isSplit ? 4.0f : 5.5f;
+	const float ryRimOut = ryOuter + 1.0f;
+	const float ryRimIn = ryInner - 1.0f;
 	const float xPerY = (16.0f * (float)factor) / 9000.0f;
-	const float cx = (float)(pb->rect.x + pb->rect.w / 2) + (isSplit ? 34.0f : 48.0f) * ((float)factor / 1000.0f);
-	const float cy = (float)(pb->rect.y + pb->rect.h / 2) - (isSplit ? 2.0f : 4.0f);
+	const float cx = (float)(pb->rect.x + pb->rect.w / 2) + (isSplit ? 28.0f : 42.0f) * ((float)factor / 1000.0f);
+	const float cy = (float)(pb->rect.y + pb->rect.h / 2) - (isSplit ? 1.0f : 2.0f);
 
 	const float kTwoPi = 6.28318530718f;
 	const float kStartAngle = -1.57079632679f; // 12 o'clock, filling clockwise
@@ -187,20 +187,20 @@ void UI_DrawDriftRing(struct Driver *driver)
 	if (goodMilli > 0 && goodMilli < 1000)
 	{
 		const float a = kStartAngle + goodFrac * kTwoPi;
-		const float innerHalf = 0.009f * kTwoPi;
-		const float outerHalf = 0.016f * kTwoPi;
+		const float innerHalf = 0.010f * kTwoPi;
+		const float outerHalf = 0.018f * kTwoPi;
 		UI_DriftRing_AddQuad(cx, cy, xPerY, a - innerHalf, a + innerHalf,
-		                     ryInner - 1.0f, ryOuter + 1.0f, goodTickColor, ot);
+		                     ryInner - 0.75f, ryOuter + 0.75f, goodTickColor, ot);
 		UI_DriftRing_AddQuad(cx, cy, xPerY, a - outerHalf, a + outerHalf,
 		                     ryRimIn, ryRimOut, rimColor, ot);
 	}
 	if (perfectMilli > 0 && perfectMilli < 1000)
 	{
 		const float a = kStartAngle + perfectFrac * kTwoPi;
-		const float innerHalf = 0.009f * kTwoPi;
-		const float outerHalf = 0.016f * kTwoPi;
+		const float innerHalf = 0.010f * kTwoPi;
+		const float outerHalf = 0.018f * kTwoPi;
 		UI_DriftRing_AddQuad(cx, cy, xPerY, a - innerHalf, a + innerHalf,
-		                     ryInner - 1.0f, ryOuter + 1.0f, perfectTickColor, ot);
+		                     ryInner - 0.75f, ryOuter + 0.75f, perfectTickColor, ot);
 		UI_DriftRing_AddQuad(cx, cy, xPerY, a - outerHalf, a + outerHalf,
 		                     ryRimIn, ryRimOut, rimColor, ot);
 	}
