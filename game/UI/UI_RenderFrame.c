@@ -213,6 +213,10 @@ void UI_RenderFrame_Racing()
 					UI_DrawSlideMeter(hudStructPtr[UI_HUD_SLOT_SLIDE_METER].x + offset, hudStructPtr[UI_HUD_SLOT_SLIDE_METER].y, playerStruct);
 
 #ifdef CTR_NATIVE
+					if (g_config.driftRing)
+					{
+						UI_DrawDriftRing(playerStruct);
+					}
 					// Extras "Reserves Meter": 5px under the boost bar, 1P only. Sits
 					// inside the not-finished / not-battle gate so it inherits the
 					// boost bar's visibility (hidden after the finish line and in
@@ -1031,6 +1035,10 @@ void UI_RenderFrame_CrystChall(void)
 	UI_DrawSlideMeter(hudStructPtr[UI_HUD_SLOT_SLIDE_METER].x, hudStructPtr[UI_HUD_SLOT_SLIDE_METER].y, player);
 
 #ifdef CTR_NATIVE
+	if (g_config.driftRing)
+	{
+		UI_DrawDriftRing(player);
+	}
 	// Extras "Reserves Meter" in crystal arenas too (the ModSDK demo build
 	// hooked this render path as well). CrystChall is always 1P.
 	if (g_config.reservesMeter)

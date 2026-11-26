@@ -1,4 +1,7 @@
 #include "VehCommon.h"
+#ifdef CTR_NATIVE
+#include <ctr_extras.h>
+#endif
 #ifdef CTR_AP
 #include "../../ap/ap_retro_fueled_logic.h"
 #endif
@@ -994,6 +997,13 @@ CheckJumpDone:
 	           AP_CapabilityRetroFueled(driver),
 	           (buttonsHeld & BTN_DOWN) != 0, driver->jump_LandingBoost)
 #endif
+#ifdef CTR_NATIVE
+	    // Extras "NF U-Turn Reserves": air-braking and ground U-turning keep
+	    // reserves and active fire tier (auto-disabled in Time Trial).
+	    && !CtrExtras_ShouldKeepReservesOnUturn(
+	           g_config.nfUturn && CtrExtras_NitroFueledAllowed(GAME_TRACKER->gameMode1, TIME_TRIAL),
+	           (buttonsHeld & BTN_DOWN) != 0, driver->jump_LandingBoost)
+#endif
 	    )
 	{
 		// Set Reserves to zero
@@ -1065,23 +1075,45 @@ CheckJumpDone:
 
 		// Assume you're holding Cross, because
 		// you have Reserves and you aren't slowing down
+#if defined(CTR_AP) || defined(CTR_NATIVE)
+		{
+			int suppressForcedCross = 0;
 #ifdef CTR_AP
-		// Retro-Fueled U-turn, second half: keeping reserves through the
-		// U-turn (above) is not enough on its own. While reserves are
-		// nonzero this line pretends the player is holding Cross, and the
-		// Square-held brake/reverse path below only engages when cross is
-		// zero -- so the retained reserves would lock the kart to the
-		// accelerator and the U-turn could never start. The reference
-		// module patches this same immediate (holdingX_withReserves) to
-		// zero while the U-turn input is held without Cross; mirror that.
-		if (!AP_RetroFueledShouldSuppressForcedCross(
-		        AP_CapabilityRetroFueled(driver), square != 0,
-		        (buttonsHeld & BTN_DOWN) != 0, driver->jump_LandingBoost,
-		        cross != 0))
+			// Retro-Fueled U-turn, second half: keeping reserves through the
+			// U-turn (above) is not enough on its own. While reserves are
+			// nonzero this line pretends the player is holding Cross, and the
+			// Square-held brake/reverse path below only engages when cross is
+			// zero -- so the retained reserves would lock the kart to the
+			// accelerator and the U-turn could never start. The reference
+			// module patches this same immediate (holdingX_withReserves) to
+			// zero while the U-turn input is held without Cross; mirror that.
+			if (AP_RetroFueledShouldSuppressForcedCross(
+			        AP_CapabilityRetroFueled(driver), square != 0,
+			        (buttonsHeld & BTN_DOWN) != 0, driver->jump_LandingBoost,
+			        cross != 0))
+			{
+				suppressForcedCross = 1;
+			}
 #endif
+#ifdef CTR_NATIVE
+			if (CtrExtras_ShouldSuppressForcedCrossOnUturn(
+			        g_config.nfUturn && CtrExtras_NitroFueledAllowed(GAME_TRACKER->gameMode1, TIME_TRIAL),
+			        square != 0, (buttonsHeld & BTN_DOWN) != 0, driver->jump_LandingBoost,
+			        cross != 0))
+			{
+				suppressForcedCross = 1;
+			}
+#endif
+			if (!suppressForcedCross)
+			{
+				cross = (u32)approximateSpeedRaw;
+			}
+		}
+#else
 		{
 			cross = (u32)approximateSpeedRaw;
 		}
+#endif
 	}
 
 
@@ -2572,8 +2604,18 @@ void VehPhysProc_PowerSlide_Update(struct Thread *t, struct Driver *d)
 
 			if (meterLeft < highMeter)
 			{
-				int incrementReserves =
-				    VehCalc_MapToRange(meterLeft, 0, highMeter, CTR_MipsSll((u8)d->const_turboFullBarReserveGain, VEH_PHYS_PROC_FRAME_TIME_SHIFT), 0);
+				int fullReserveGain = CTR_MipsSll((u8)d->const_turboFullBarReserveGain, VEH_PHYS_PROC_FRAME_TIME_SHIFT);
+				int incrementReserves;
+#ifdef CTR_NATIVE
+				if (g_config.nfPerfectBoost && CtrExtras_NitroFueledAllowed(GAME_TRACKER->gameMode1, TIME_TRIAL))
+				{
+					incrementReserves = CtrExtras_PerfectBoostReserves(meterLeft, highMeter, fullReserveGain);
+				}
+				else
+#endif
+				{
+					incrementReserves = VehCalc_MapToRange(meterLeft, 0, highMeter, fullReserveGain, 0);
+				}
 
 				VehFire_Increment(d, incrementReserves, POWER_SLIDE_HANG_TIME,
 				                  CTR_MipsSll(d->KartStates.Drifting.numBoostsSuccess, VEH_PHYS_PROC_DRIFT_FIRE_LEVEL_SHIFT));

@@ -85,8 +85,21 @@ typedef struct
 	bool slideMeterColours;     // Extras: powerslide bar fades green to yellow
 	                            // to red instead of two flat colours
 	                            // (UI_DrawSlideMeter).
+	bool driftRing;             // Extras: circular drift-boost ring drawn near
+	                            // the top-right of the kart while drifting
+	                            // (UI_DrawDriftRing, game/UI/UI_Meter.c).
 	bool superPadColour;        // Extras: super turbo pads drawn cyan, applied at
 	                            // level load (game/LevSuperTurboPads.c).
+	// Nitro-Fueled gameplay enhancements (opt-in, off by default; auto-disabled
+	// in Time Trial mode, active in all other modes including Archipelago).
+	bool nfBlueFire;            // Extras: powerslides, ordinary pads, ramps and
+	                            // jump boosts feed reserves without downgrading
+	                            // USF / higher fire tiers (VehFire_Increment).
+	bool nfUturn;               // Extras: air-braking and ground U-turning keep
+	                            // reserves and active fire tier (VehPhysProc.c).
+	bool nfPerfectBoost;        // Extras: late/perfect powerslide boosts grant
+	                            // stronger reserve gains than early boosts
+	                            // (VehPhysProc_PowerSlide_Update).
 	// Remembered window position/size (issue: "remember window position and size
 	// between sessions" -- streaming setups want the same window every launch).
 	// Config-file-only, [State] section, the update_last_seen precedent: this is

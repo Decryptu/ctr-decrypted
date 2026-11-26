@@ -86,6 +86,54 @@ int main(void)
 	expect("a level above is not", CtrExtras_QuadAtTriggerHeight(-944 + -584, -944 + -584 + 2 * 600), 0);
 	expect("cyan bit is free in PSX palette words", (0x7FFF & CTR_EXTRAS_CYAN_CLUT_BIT) == 0, 1);
 
+	// Nitro-Fueled physics rules: auto-disabled in Time Trial, allowed elsewhere.
+	const unsigned kTimeTrial = 0x20000u;
+	expect("NF allowed in Arcade", CtrExtras_NitroFueledAllowed(0x400000u, kTimeTrial), 1);
+	expect("NF disabled in Time Trial", CtrExtras_NitroFueledAllowed(kTimeTrial, kTimeTrial), 0);
+	expect("NF Blue Fire keeps USF cap", CtrExtras_ShouldKeepFireCap(1, 0x4800, 0x1000), 1);
+	expect("NF Blue Fire off drops USF cap", CtrExtras_ShouldKeepFireCap(0, 0x4800, 0x1000), 0);
+	expect("NF Blue Fire ignores sacred fire", CtrExtras_ShouldKeepFireCap(1, 0x1000, 0x1000), 0);
+
+	// NF U-turn reserve preservation and forced-Cross suppression.
+	expect("U-turn keeps reserves with Down", CtrExtras_ShouldKeepReservesOnUturn(1, 1, 0), 1);
+	expect("U-turn keeps reserves airborne", CtrExtras_ShouldKeepReservesOnUturn(1, 0, 120), 1);
+	expect("normal brake clears reserves", CtrExtras_ShouldKeepReservesOnUturn(1, 0, 0), 0);
+	expect("U-turn off clears reserves", CtrExtras_ShouldKeepReservesOnUturn(0, 1, 120), 0);
+	expect("U-turn suppresses forced Cross", CtrExtras_ShouldSuppressForcedCrossOnUturn(1, 1, 1, 0, 0), 1);
+	expect("air-brake suppresses forced Cross", CtrExtras_ShouldSuppressForcedCrossOnUturn(1, 1, 0, 64, 0), 1);
+	expect("holding Cross does not suppress", CtrExtras_ShouldSuppressForcedCrossOnUturn(1, 1, 1, 0, 1), 0);
+	expect("without Square does not suppress", CtrExtras_ShouldSuppressForcedCrossOnUturn(1, 0, 1, 0, 0), 0);
+
+	// NF Perfect Boost Weight: early/Good weaker than retail linear, Perfect stronger.
+	const int fullGain = 480;
+	expect("outside window grants 0", CtrExtras_PerfectBoostReserves(readyRoom, readyRoom, fullGain), 0);
+	expect("early Good (20%) is weaker than linear", CtrExtras_PerfectBoostReserves(240, readyRoom, fullGain), 72);
+	expect("mid Good (50%) is weaker than linear", CtrExtras_PerfectBoostReserves(150, readyRoom, fullGain), 180);
+	expect("Perfect threshold (60%) jumps up", CtrExtras_PerfectBoostReserves(120, readyRoom, fullGain), 360);
+	expect("frame-perfect (100%) grants 1.5x", CtrExtras_PerfectBoostReserves(0, readyRoom, fullGain), 720);
+	int prevRes = -1, resMono = 1;
+	for (int left = readyRoom; left >= 0; left--)
+	{
+		int res = CtrExtras_PerfectBoostReserves(left, readyRoom, fullGain);
+		if (res < prevRes)
+			resMono = 0;
+		prevRes = res;
+	}
+	expect("Perfect boost reserves are monotonic", resMono, 1);
+
+	// Circular drift ring progress and tick positions.
+	int fillMilli = 0, goodMilli = 0, perfectMilli = 0;
+	expect("ring hidden when meterLeft == 0",
+	       CtrExtras_DriftRingProgress(0, maxRoom, readyRoom, &fillMilli, &goodMilli, &perfectMilli), 0);
+	expect("ring shown at drift start",
+	       CtrExtras_DriftRingProgress(maxRoom, maxRoom, readyRoom, &fillMilli, &goodMilli, &perfectMilli), 1);
+	expect("drift start fill is 0", fillMilli, 0);
+	expect("Good tick at 70% of bar", goodMilli, 700);
+	expect("Perfect tick at 88% of bar", perfectMilli, 880);
+	expect("ring shown mid-Perfect",
+	       CtrExtras_DriftRingProgress(60, maxRoom, readyRoom, &fillMilli, &goodMilli, &perfectMilli), 1);
+	expect("mid-Perfect fill is 940", fillMilli, 940);
+
 	printf(failures ? "\n%d FAILED\n" : "\nall passed\n", failures);
 	return failures != 0;
 }

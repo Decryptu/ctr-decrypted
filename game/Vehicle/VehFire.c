@@ -1,4 +1,7 @@
 #include "VehCommon.h"
+#ifdef CTR_NATIVE
+#include <ctr_extras.h>
+#endif
 #ifdef CTR_AP
 #include "../../ap/ap_retro_fueled_logic.h"
 #endif
@@ -406,6 +409,17 @@ void VehFire_Increment(struct Driver *driverArg, int reservesArg, u32 typeArg, i
 	        && !AP_RetroFueledShouldKeepFireCap(
 	               AP_CapabilityRetroFueled(driver), driver->fireSpeedCap,
 	               driver->const_SacredFireSpeed)
+#endif
+#ifdef CTR_NATIVE
+	        // Extras "NF Blue Fire & Reserves": powerslides, ordinary pads, boost
+	        // ramps and jump boosts feed reserves without downgrading USF / higher
+	        // fire tiers (human players only; auto-disabled in Time Trial).
+	        && !CtrExtras_ShouldKeepFireCap(
+	               g_config.nfBlueFire &&
+	                   CtrExtras_NitroFueledAllowed(GAME_TRACKER->gameMode1, TIME_TRIAL) &&
+	                   driver->instSelf != NULL && driver->instSelf->thread != NULL &&
+	                   driver->instSelf->thread->modelIndex == DYNAMIC_PLAYER,
+	               driver->fireSpeedCap, driver->const_SacredFireSpeed)
 #endif
 	        ))
 

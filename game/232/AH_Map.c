@@ -887,6 +887,12 @@ void AH_Map_Main(void)
 		               &GAME_TRACKER->backBuffer->primMem, GAME_TRACKER->pushBuffer_UI.ptrOT, 1);
 
 		UI_DrawSlideMeter(hud[AH_MAP_HUD_SLOT_SLIDE_METER].x, hud[AH_MAP_HUD_SLOT_SLIDE_METER].y, advDriver);
+#ifdef CTR_NATIVE
+		if (g_config.driftRing)
+		{
+			UI_DrawDriftRing(advDriver);
+		}
+#endif
 	}
 
 #ifdef CTR_AP

@@ -102,9 +102,9 @@ int main(void)
 	for (int p = 0; p < numPages; p++)
 	{
 		char label[128];
-		snprintf(label, sizeof label, "%s fits the panel (%d rows, limit %d)",
-			s_names[p], s_counts[p], CTR_MENU_PAGE_VISIBLE_ROWS);
-		EXPECT_TRUE(label, s_counts[p] <= CTR_MENU_PAGE_VISIBLE_ROWS);
+		snprintf(label, sizeof label, "%s fits the page cap (%d rows, limit %d)",
+			s_names[p], s_counts[p], CTR_MENU_PAGE_ROW_CAP);
+		EXPECT_TRUE(label, s_counts[p] <= CTR_MENU_PAGE_ROW_CAP);
 	}
 
 	for (int p = 0; p < CTR_MENU_PAGE_COUNT; p++)
@@ -129,7 +129,8 @@ int main(void)
 			"ai_difficulty", "mute_when_unfocused", "device_aware_labels", "camera_far", "hud_speedometer", NULL};
 		static const char *const extras[] = {
 			"character_stats", "penta_stats", "voices", "fakecrash_jp", "ai_racers",
-			"reserves_meter", "reserve_fire", "blue_fire", "slide_meter_colours", "super_pad_colour", "colour_filter", NULL};
+			"reserves_meter", "reserve_fire", "blue_fire", "slide_meter_colours", "drift_ring",
+			"super_pad_colour", "colour_filter", "nf_blue_fire", "nf_uturn", "nf_perfect_boost", NULL};
 		static const char *const cheats[] = {NULL};
 		static const char *const controls[] = {NULL};
 		static const char *const connection[] = {"uri", "slot", "password", NULL};
@@ -159,6 +160,10 @@ int main(void)
 	ExpectSection("skip_podium", "Video & QoL");
 	ExpectSection("skip_cutscenes", "Video & QoL");
 	ExpectSection("reserves_meter", "Extras");
+	ExpectSection("drift_ring", "Extras");
+	ExpectSection("nf_blue_fire", "Extras");
+	ExpectSection("nf_uturn", "Extras");
+	ExpectSection("nf_perfect_boost", "Extras");
 	ExpectSection("character_stats", "Extras");
 	ExpectSection("penta_stats", "Extras");
 	ExpectSection("voices", "Extras");

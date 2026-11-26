@@ -783,6 +783,26 @@ static void Config_DrawRowHelp(const ConfigEntry *e, uint32_t *ot)
 		first = "Items sent and received,";
 		second = "shown at the bottom left.";
 	}
+	if (e->valuePtr == &g_config.driftRing)
+	{
+		first = "Circular drift ring near the kart.";
+		second = "Shows Good and Perfect boost zones.";
+	}
+	if (e->valuePtr == &g_config.nfBlueFire)
+	{
+		first = "Keep USF/Blue Fire on boosts.";
+		second = "Auto-disabled in Time Trial.";
+	}
+	if (e->valuePtr == &g_config.nfUturn)
+	{
+		first = "Keep reserves during U-turns.";
+		second = "Auto-disabled in Time Trial.";
+	}
+	if (e->valuePtr == &g_config.nfPerfectBoost)
+	{
+		first = "Reward late/perfect drift boosts.";
+		second = "Auto-disabled in Time Trial.";
+	}
 	if (first == 0)
 		return;
 	Config_DrawHelpLines(first, second, ot);

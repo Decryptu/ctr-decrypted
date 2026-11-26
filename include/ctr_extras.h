@@ -92,4 +92,95 @@ static inline int CtrExtras_QuadAtTriggerHeight(int quadCenterY2, int triggerCen
 // and recolours the texel cyan (platform/native_renderer.c).
 #define CTR_EXTRAS_CYAN_CLUT_BIT 0x8000u
 
+// Percentage into the powerslide boost window where the Perfect zone begins.
+// Shared between the Slide Meter Gradient colour transition, the Circular Drift
+// Ring's Perfect tick mark, and NF Perfect Boost Weight.
+#define CTR_EXTRAS_PERFECT_WINDOW_PCT 60
+
+// Nitro-Fueled gameplay enhancements are auto-disabled in Time Trial so classic
+// Time Trial records and ghosts stay retail-accurate. Active in all other modes,
+// including Archipelago.
+static inline int CtrExtras_NitroFueledAllowed(unsigned gameMode1, unsigned timeTrialMask)
+{
+	return (gameMode1 & timeTrialMask) == 0;
+}
+
+// "NF Blue Fire & Reserves": keep an already-held USF / blue-fire speed cap
+// when powersliding, hitting an ordinary turbo pad / boost ramp, or landing
+// from a jump boost, instead of downgrading it to the lower boost tier.
+static inline int CtrExtras_ShouldKeepFireCap(int enabled, int currentCap, int sacredCap)
+{
+	return enabled && currentCap > sacredCap;
+}
+
+// "NF U-Turn Reserves": air-braking (jump_LandingBoost != 0) and ground
+// U-turning (holding Down + Brake) keep reserves and active fire tier instead
+// of wiping reserves on brake.
+static inline int CtrExtras_ShouldKeepReservesOnUturn(int enabled, int holdingDown, int landingBoost)
+{
+	return enabled && (holdingDown || landingBoost);
+}
+
+// Companion to CtrExtras_ShouldKeepReservesOnUturn: while reserves are nonzero,
+// retail forces Cross held, which prevents Square from entering the brake /
+// U-turn branch. Suppress forced Cross while U-turning with gas released.
+static inline int CtrExtras_ShouldSuppressForcedCrossOnUturn(int enabled,
+                                                             int holdingSquare,
+                                                             int holdingDown,
+                                                             int landingBoost,
+                                                             int holdingCross)
+{
+	return enabled && holdingSquare && (holdingDown || landingBoost) && !holdingCross;
+}
+
+// "NF Perfect Boost Weight": non-linear powerslide reserve weighting.
+// Early ("Good") boosts in the first 60% of the boost window grant 0..45% of
+// fullGain (weaker than retail's linear 0..60%); late ("Perfect") boosts in the
+// last 40% of the window jump to 75..150% of fullGain.
+static inline int CtrExtras_PerfectBoostReserves(int meterLeft, int highMeter, int fullGain)
+{
+	if (highMeter <= 0 || fullGain <= 0 || meterLeft >= highMeter)
+		return 0;
+	if (meterLeft < 0)
+		meterLeft = 0;
+
+	int window = ((highMeter - meterLeft) * 100) / highMeter;
+	if (window < CTR_EXTRAS_PERFECT_WINDOW_PCT)
+		return (fullGain * window * 3) / 400;
+
+	int pct = 75 + ((window - CTR_EXTRAS_PERFECT_WINDOW_PCT) * 75) / (100 - CTR_EXTRAS_PERFECT_WINDOW_PCT);
+	return (fullGain * pct) / 100;
+}
+
+// "Circular Drift Ring": normalized 0..1000 clockwise fill fraction and the
+// Good / Perfect zone tick positions around the ring. Returns 1 when the ring
+// should draw (valid driver constants and meterLeft > 0), 0 otherwise.
+static inline int CtrExtras_DriftRingProgress(int meterLeft, int maxRoom, int readyRoom,
+                                              int *fillMilli, int *goodMilli, int *perfectMilli)
+{
+	if (meterLeft <= 0 || maxRoom <= 0)
+		return 0;
+
+	int clampedLeft = meterLeft > maxRoom ? maxRoom : meterLeft;
+	int fill = ((maxRoom - clampedLeft) * 1000) / maxRoom;
+	if (fill < 0)
+		fill = 0;
+	if (fill > 1000)
+		fill = 1000;
+	*fillMilli = fill;
+
+	if (readyRoom > 0 && readyRoom < maxRoom)
+	{
+		*goodMilli = ((maxRoom - readyRoom) * 1000) / maxRoom;
+		int perfectLeft = (readyRoom * (100 - CTR_EXTRAS_PERFECT_WINDOW_PCT)) / 100;
+		*perfectMilli = ((maxRoom - perfectLeft) * 1000) / maxRoom;
+	}
+	else
+	{
+		*goodMilli = 0;
+		*perfectMilli = 0;
+	}
+	return 1;
+}
+
 #endif

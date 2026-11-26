@@ -100,8 +100,8 @@ int main(void)
 
 	for (int p = 0; p < numPages; p++)
 	{
-		snprintf(label, sizeof label, "%s fits the panel (%d rows)", s_names[p], s_counts[p]);
-		EXPECT_TRUE(label, s_counts[p] <= CTR_MENU_PAGE_VISIBLE_ROWS);
+		snprintf(label, sizeof label, "%s fits the page cap (%d rows)", s_names[p], s_counts[p]);
+		EXPECT_TRUE(label, s_counts[p] <= CTR_MENU_PAGE_ROW_CAP);
 	}
 
 	printf("%d checks, %d failures\n", g_checks, g_failures);

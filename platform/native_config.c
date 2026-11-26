@@ -41,7 +41,11 @@ NativeConfig g_config = {
 	false, // reserveFire (off: retail hides powerslide fire)
 	false, // blueFire (off: retail red fire)
 	false, // slideMeterColours (off: retail two-colour bar)
+	false, // driftRing (off: retail bottom-right bar only)
 	false, // superPadColour (off: retail pads)
+	false, // nfBlueFire (off: retail USF reset on non-STP boost)
+	false, // nfUturn (off: retail brake clears reserves)
+	false, // nfPerfectBoost (off: retail linear slide boost reserves)
 	NATIVE_WINDOW_GEOMETRY_POS_UNSET, // windowX  (unset = never saved)
 	NATIVE_WINDOW_GEOMETRY_POS_UNSET, // windowY
 	0,     // windowWidth  (0 = never saved)
@@ -157,7 +161,11 @@ const ConfigEntry g_configEntries[] = {
 	{"Extras",      "reserve_fire",             "Keep Reserve Fire",            CFG_BOOL, &g_config.reserveFire, 0, 0, 0},
 	{"Extras",      "blue_fire",                "Blue Fire At USF",             CFG_BOOL, &g_config.blueFire, 0, 0, 0},
 	{"Extras",      "slide_meter_colours",      "Slide Meter Gradient",         CFG_BOOL, &g_config.slideMeterColours, 0, 0, 0},
+	{"Extras",      "drift_ring",               "Circular Drift Ring",          CFG_BOOL, &g_config.driftRing, 0, 0, 0},
 	{"Extras",      "super_pad_colour",         "Cyan Super Pads (Next Load)",  CFG_BOOL, &g_config.superPadColour, 0, 0, 0},
+	{"Extras",      "nf_blue_fire",             "NF Blue Fire Reserves",        CFG_BOOL, &g_config.nfBlueFire, 0, 0, 0},
+	{"Extras",      "nf_uturn",                 "NF U-Turn Reserves",           CFG_BOOL, &g_config.nfUturn, 0, 0, 0},
+	{"Extras",      "nf_perfect_boost",         "NF Perfect Boost Weight",      CFG_BOOL, &g_config.nfPerfectBoost, 0, 0, 0},
 	// Colour-filter ladder (CFG_ENUM), include/platform/native_screen_filter.h.
 	// Applied by the renderer at the next present, like the Screen Filter.
 	{"Extras",      "colour_filter",            "Colour Filter",                CFG_ENUM, &g_config.colourFilter, 0, 0, 0},
