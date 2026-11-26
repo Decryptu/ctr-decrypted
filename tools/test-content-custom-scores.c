@@ -32,6 +32,7 @@ struct sData sdata_static;
 struct Data data;
 // The results screen runs at retail's 30 FPS timing.
 int gNative60FpsEnabled = 0;
+int gNativeGhostReplayMode = 0;
 
 static struct CustomTrackRaceContext race;
 static int custom_on;

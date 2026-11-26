@@ -28,6 +28,7 @@ void UI_SaveLapTime(int n, int t, s16 id) {(void)n;(void)t;(void)id;}
 int OtherFX_Play(u32 id, int flags) {(void)id;(void)flags;return 0;}
 void Voiceline_ClearTimeStamp(void) {}
 void Voiceline_RequestPlay(u32 a, u32 b, u32 c) {(void)a;(void)b;(void)c;}
+void Voiceline_RequestPlayDriver(u32 a, int b, u32 c) {(void)a;(void)b;(void)c;}
 void BOTS_Driver_Convert(struct Driver *d) {(void)d;}
 int VehPickState_NewState(struct Driver *a, int b, struct Driver *c, int d)
 {(void)a;(void)b;(void)c;(void)d;return 0;}

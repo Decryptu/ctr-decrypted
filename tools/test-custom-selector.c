@@ -18,6 +18,7 @@
 
 struct sData sdata_static;
 struct Data data;
+int gNativeGhostReplayMode = 0;
 #define DecalFont_DrawLineOT HarnessUnusedDrawLineOT
 #include "../game/DecalFont.c"
 #undef DecalFont_DrawLineOT

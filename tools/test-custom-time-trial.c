@@ -47,6 +47,10 @@
 
 struct sData sdata_static; // common.h binds sdata to it
 struct Data data;
+int gNativeGhostReplayMode = 0;
+void NativeGhostInput_StartRecording(void) {}
+void NativeGhostInput_StopRecording(void) {}
+void NativeGhostInput_DiscardRecording(void) {}
 static struct GameTracker s_gt;
 static char s_lastLog[512];
 void CustomTrack_Log(const char *fmt, ...)

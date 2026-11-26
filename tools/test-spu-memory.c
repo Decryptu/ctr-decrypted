@@ -206,9 +206,10 @@ int main(void)
 	u32 expect;
 	int i, nonzero;
 
-	// Sizes: 1 MiB here, 512 KB retail; u16 address units reach both.
-	CHECK(CTR_SPU_BYTES == 1024 * 1024 && NATIVE_AUDIO_SPU_MEMSIZE == 1024 * 1024);
-	CHECK(sizeof(s_audio.spu.memory) == 1024 * 1024);
+	// Sizes: 1 MiB HOWL-managed here (+ 1 MiB custom-racer extension above CTR_SPU_BYTES),
+	// 512 KB retail; u16 address units reach the HOWL-managed region.
+	CHECK(CTR_SPU_BYTES == 1024 * 1024 && NATIVE_AUDIO_SPU_MEMSIZE == 2 * 1024 * 1024);
+	CHECK(sizeof(s_audio.spu.memory) == 2 * 1024 * 1024);
 	CHECK(CTR_SPU_CEILING == 0xfe000 && CTR_SPU_RETAIL_CEILING == 0x7e000);
 	CHECK(CTR_SPU_WIDE_BYTES - CTR_SPU_WIDE_CEILING == CTR_SPU_RETAIL_BYTES - CTR_SPU_RETAIL_CEILING);
 	CHECK(CTR_SPU_UNITS(CTR_SPU_WIDE_BYTES - 16) <= 0xffff);
@@ -257,17 +258,18 @@ int main(void)
 	CHECK(s_table[10].spuAddr == 0 && s_table[11].spuAddr == 0 && s_table[7].spuAddr != 0);
 	CHECK((u32)CTR_SPU_BYTES_AT((u32)sdata->audioAllocPtr) == expect);
 
-	// SPU emulation above 512 KB: masking, transfer bounds, voice bounds.
+	// SPU emulation above 512 KB and in the 1 MiB custom-racer extension: masking, transfer bounds, voice bounds.
 	CHECK(NativeAudio_WrapSpuAddr(0x80010) == 0x80010);
 	CHECK(NativeAudio_WrapSpuAddr(0xffff0) == 0xffff0);
-	CHECK(NativeAudio_WrapSpuAddr(0x100010) == 0x10);
+	CHECK(NativeAudio_WrapSpuAddr(0x100010) == 0x100010);
+	CHECK(NativeAudio_WrapSpuAddr(0x200010) == 0x10);
 	CHECK(NativeAudio_SpuSetTransferStartAddr(0xf0000) == 1);
 	{
 		unsigned char blob[32];
 		memset(blob, 0x77, sizeof blob);
 		CHECK(NativeAudio_SpuWrite(blob, sizeof blob) == sizeof blob && s_audio.spu.memory[0xf001f] == 0x77);
-		CHECK(NativeAudio_SpuSetTransferStartAddr(0xffff0) == 1 && NativeAudio_SpuWrite(blob, sizeof blob) == 0);
-		CHECK(NativeAudio_SpuSetTransferStartAddr(0x100001) == 0);
+		CHECK(NativeAudio_SpuSetTransferStartAddr(0x1ffff0) == 1 && NativeAudio_SpuWrite(blob, sizeof blob) == 0);
+		CHECK(NativeAudio_SpuSetTransferStartAddr(0x200001) == 0);
 	}
 	{
 		struct NativeAudioVoiceState v;
@@ -276,9 +278,9 @@ int main(void)
 		v.attr.addr = 0xc0000; v.attr.loop_addr = 0xc0000;
 		v.stream.currentAddr = 0xfffff0; v.stream.repeatAddr = 0xc0000;
 		CHECK(!NativeAudio_ValidateVoiceSnapshot(&v));
-		v.stream.currentAddr = 0xffff0;
+		v.stream.currentAddr = 0x1ffff0;
 		CHECK(NativeAudio_ValidateVoiceSnapshot(&v));
-		v.attr.addr = 0x100000;
+		v.attr.addr = 0x200000;
 		CHECK(!NativeAudio_ValidateVoiceSnapshot(&v));
 	}
 
@@ -296,7 +298,7 @@ int main(void)
 
 	// Reverb keeps its own buffer: running it leaves SPU memory alone.
 	{
-		static unsigned char before[1024 * 1024];
+		static unsigned char before[NATIVE_AUDIO_SPU_MEMSIZE];
 		SpuReverbAttr rev;
 		memcpy(before, s_audio.spu.memory, sizeof before);
 		memset(&rev, 0, sizeof rev);
@@ -312,15 +314,17 @@ int main(void)
 		NativeAudio_SpuSetReverb(0);
 	}
 
-	// Savestates: the snapshot carries all 1 MiB, round-trips, and an old
-	// 512 KB snapshot is refused before anything is restored.
+	// Savestates: the snapshot carries the 1 MiB HOWL-managed region, round-trips,
+	// leaves custom-racer samples above CTR_SPU_BYTES intact, and refuses an old 512 KB snapshot.
 	CHECK(NativeAudio_GetStateSize() == (int)sizeof(struct NativeAudioSnapshot));
 	CHECK(sizeof(((struct NativeAudioSnapshot *)0)->spuSampleMem) == 1024 * 1024);
 	s_audio.spu.memory[0xfabcd] = 0x42;
+	s_audio.spu.memory[CTR_SPU_RACER_START + 0x10] = 0x99;
 	CHECK(NativeAudio_CaptureState(snap, (int)sizeof snap));
 	CHECK(((struct NativeAudioSnapshot *)snap)->spuSampleMem[0xfabcd] == 0x42);
 	s_audio.spu.memory[0xfabcd] = 0x00;
 	CHECK(NativeAudio_RestoreState(snap, (int)sizeof snap) && s_audio.spu.memory[0xfabcd] == 0x42);
+	CHECK(s_audio.spu.memory[CTR_SPU_RACER_START + 0x10] == 0x99);
 	{
 		const int oldSize = (int)sizeof(struct NativeAudioSnapshot) - (CTR_SPU_WIDE_BYTES - CTR_SPU_RETAIL_BYTES);
 		s_audio.spu.memory[0xfabcd] = 0x13;
