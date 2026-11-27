@@ -511,7 +511,7 @@ static int MM_CustomTrackSelect_Tick(void)
             /* The picture fills the frame as the retail video does: one quad,
                not an icon, which widescreen would narrow to keep it square. */
             POLY_FT4 *p = (POLY_FT4 *)gGT->backBuffer->primMem.cursor;
-            if ((u32)p <= (u32)gGT->backBuffer->primMem.guardEnd)
+            if ((u8 *)p <= (u8 *)gGT->backBuffer->primMem.guardEnd)
             {
                 const int x = preview.x + 3, y = preview.y + 2;
                 const int w = MM_CUSTOM_PICTURE_W, h = MM_CUSTOM_PICTURE_H;

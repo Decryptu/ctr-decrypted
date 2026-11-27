@@ -256,6 +256,63 @@ static USHORT ap_crash_walk_x86(DWORD eip, DWORD ebp, DWORD esp,
 	}
 	return n;
 }
+#elif defined(_WIN64)
+#if defined(_M_ARM64) || defined(__aarch64__)
+#define AP_CRASH_PC(c) ((c)->Pc)
+#define AP_CRASH_SP(c) ((c)->Sp)
+#else
+#define AP_CRASH_PC(c) ((c)->Rip)
+#define AP_CRASH_SP(c) ((c)->Rsp)
+#endif
+// Walk the faulting thread's stack with the image's unwind tables (x86_64 and
+// arm64 code has no frame-pointer chain to follow). A function without an
+// unwind entry is a leaf that never moved its stack: its caller's address is
+// at the stack pointer on x86_64 (read with ReadProcessMemory, so a bad stack
+// ends the walk) and in the link register on arm64. The walk stops when the
+// stack pointer stops rising.
+static USHORT ap_crash_walk_unwind(const CONTEXT *fault, void **frames, USHORT cap)
+{
+	static CONTEXT c;
+	USHORT n = 0;
+
+	c = *fault;
+	while (n < cap)
+	{
+		const DWORD64 pc = AP_CRASH_PC(&c);
+		const DWORD64 sp = AP_CRASH_SP(&c);
+		DWORD64 imageBase = 0;
+		PRUNTIME_FUNCTION entry;
+
+		if (pc == 0)
+			break;
+		frames[n++] = (void *)(uintptr_t)pc;
+		entry = RtlLookupFunctionEntry(pc, &imageBase, NULL);
+		if (entry != NULL)
+		{
+			PVOID handlerData = NULL;
+			DWORD64 establisherFrame = 0;
+			RtlVirtualUnwind(UNW_FLAG_NHANDLER, imageBase, pc, entry, &c,
+			                 &handlerData, &establisherFrame, NULL);
+		}
+		else
+		{
+#if defined(_M_ARM64) || defined(__aarch64__)
+			c.Pc = c.Lr;
+#else
+			DWORD64 ret = 0;
+			SIZE_T got = 0;
+			if (!ReadProcessMemory(GetCurrentProcess(), (const void *)(uintptr_t)sp,
+			                       &ret, sizeof ret, &got) || got != sizeof ret)
+				break;
+			c.Rip = ret;
+			c.Rsp = sp + sizeof ret;
+#endif
+		}
+		if (AP_CRASH_SP(&c) < sp || (AP_CRASH_SP(&c) == sp && AP_CRASH_PC(&c) == pc))
+			break;
+	}
+	return n;
+}
 #endif
 
 // Append the shared tail of a Windows crash block: module base, stack (raw
@@ -333,9 +390,20 @@ static LONG WINAPI ap_crash_seh(EXCEPTION_POINTERS *ep)
 			n = ap_crash_walk_x86(c->Eip, c->Ebp, c->Esp,
 			                      frames, AP_CRASH_MAX_FRAMES);
 		}
+#elif defined(_WIN64)
+		if (ep && ep->ContextRecord)
+		{
+			const CONTEXT *c = ep->ContextRecord;
+			len = ap_crash_clamp(len + snprintf(buf + len, sizeof buf - len,
+			                                    "context: pc=0x%llx sp=0x%llx\n",
+			                                    (unsigned long long)AP_CRASH_PC(c),
+			                                    (unsigned long long)AP_CRASH_SP(c)),
+			                     sizeof buf);
+			n = ap_crash_walk_unwind(c, frames, AP_CRASH_MAX_FRAMES);
+		}
 #endif
-		// No usable context (or non-x86 build): fall back to the old
-		// handler-stack capture rather than reporting nothing.
+		// No usable context: fall back to the handler-stack capture rather
+		// than reporting nothing.
 		if (n == 0)
 			n = CaptureStackBackTrace(0, AP_CRASH_MAX_FRAMES, frames, NULL);
 		len = ap_crash_append_stack(buf, len, sizeof buf, frames, n);

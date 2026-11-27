@@ -12,7 +12,15 @@ int gNativePgxpIntegerNclipEnabled = 0;
 
 #define NATIVE_PGXP_RECENT_COUNT 64
 #define NATIVE_PGXP_RECENT_BUCKET_COUNT 256
-#define NATIVE_PGXP_CACHE_BITS   12
+// Precise vertices the GTE stored outside the primitive buffer, and the level
+// renderer's precise positions, are kept per host address for one frame in
+// open-addressed tables that never evict a key during the frame. Whether a
+// vertex keeps its precise value then depends only on which addresses the
+// frame stored to, never on where the host placed them: a direct-mapped table
+// dropped vertices on hash collisions, which differ between 32-bit and 64-bit
+// builds and changed the drawn picture. A table half full takes no new key
+// until the next frame.
+#define NATIVE_PGXP_CACHE_BITS   15
 #define NATIVE_PGXP_CACHE_COUNT  (1u << NATIVE_PGXP_CACHE_BITS)
 
 typedef struct
@@ -31,7 +39,8 @@ typedef struct
 {
 	const void *key;
 	NativePgxpVertex vertex;
-	u32 generation;
+	u32 generation; // the frame that took this slot; another frame's slot is free
+	b32 valid;      // cleared keeps the slot, so later keys' probes still pass it
 } NativePgxpCacheSlot;
 
 global_variable NativePgxpRegister s_pgxpFifo[3];
@@ -48,6 +57,13 @@ global_variable NativePgxpPrimSlot *s_pgxpPrimSlots;
 global_variable uintptr_t s_pgxpPrimStart;
 global_variable uintptr_t s_pgxpPrimSize;
 global_variable u32 s_pgxpGeneration = 1;
+global_variable u32 s_pgxpCacheUsed;
+global_variable u32 s_pgxpCacheUsedGeneration;
+
+internal u32 NativePgxp_KeyHash(const void *key, u32 bits)
+{
+	return (u32)(((u64)(uintptr_t)key * 0x9e3779b97f4a7c15ull) >> (64 - bits));
+}
 
 void NativePgxp_SetPrimRegion(const void *start, size_t size)
 {
@@ -77,11 +93,36 @@ internal NativePgxpPrimSlot *NativePgxp_PrimSlot(const void *addr)
 	return &s_pgxpPrimSlots[offset / sizeof(u32)];
 }
 
-internal NativePgxpCacheSlot *NativePgxp_CacheSlot(const void *addr)
+// The slot this frame gave the key, or with insert a new one for it (NULL when
+// the table is half full). Linear probing; another frame's slot is free.
+internal NativePgxpCacheSlot *NativePgxp_CacheSlot(const void *key, int insert)
 {
-	const u32 hash = (u32)((uintptr_t)addr >> 1) * 2654435761u;
+	u32 probe = NativePgxp_KeyHash(key, NATIVE_PGXP_CACHE_BITS);
 
-	return &s_pgxpCache[hash >> (32 - NATIVE_PGXP_CACHE_BITS)];
+	for (;;)
+	{
+		NativePgxpCacheSlot *slot = &s_pgxpCache[probe];
+		if (slot->generation != s_pgxpGeneration)
+		{
+			if (!insert)
+				return NULL;
+			if (s_pgxpCacheUsedGeneration != s_pgxpGeneration)
+			{
+				s_pgxpCacheUsedGeneration = s_pgxpGeneration;
+				s_pgxpCacheUsed = 0;
+			}
+			if (s_pgxpCacheUsed >= NATIVE_PGXP_CACHE_COUNT / 2)
+				return NULL;
+			s_pgxpCacheUsed++;
+			slot->key = key;
+			slot->generation = s_pgxpGeneration;
+			slot->valid = 0;
+			return slot;
+		}
+		if (slot->key == key)
+			return slot;
+		probe = (probe + 1) & (NATIVE_PGXP_CACHE_COUNT - 1);
+	}
 }
 
 internal void NativePgxp_SetShadow(const void *dst, NativePgxpVertex vertex)
@@ -95,10 +136,12 @@ internal void NativePgxp_SetShadow(const void *dst, NativePgxpVertex vertex)
 		return;
 	}
 
-	NativePgxpCacheSlot *cacheSlot = NativePgxp_CacheSlot(dst);
-	cacheSlot->key = dst;
-	cacheSlot->vertex = vertex;
-	cacheSlot->generation = s_pgxpGeneration;
+	NativePgxpCacheSlot *cacheSlot = NativePgxp_CacheSlot(dst, 1);
+	if (cacheSlot != NULL)
+	{
+		cacheSlot->vertex = vertex;
+		cacheSlot->valid = 1;
+	}
 }
 
 internal void NativePgxp_ClearShadow(const void *dst)
@@ -111,10 +154,10 @@ internal void NativePgxp_ClearShadow(const void *dst)
 		return;
 	}
 
-	NativePgxpCacheSlot *cacheSlot = NativePgxp_CacheSlot(dst);
-	if (cacheSlot->key == dst)
+	NativePgxpCacheSlot *cacheSlot = NativePgxp_CacheSlot(dst, 0);
+	if (cacheSlot != NULL)
 	{
-		cacheSlot->generation = 0;
+		cacheSlot->valid = 0;
 	}
 }
 
@@ -131,8 +174,8 @@ internal const NativePgxpVertex *NativePgxp_FindShadow(const void *addr, u32 val
 		return NULL;
 	}
 
-	const NativePgxpCacheSlot *cacheSlot = NativePgxp_CacheSlot(addr);
-	if ((cacheSlot->key == addr) && (cacheSlot->generation == s_pgxpGeneration) && (cacheSlot->vertex.value == value))
+	const NativePgxpCacheSlot *cacheSlot = NativePgxp_CacheSlot(addr, 0);
+	if ((cacheSlot != NULL) && cacheSlot->valid && (cacheSlot->vertex.value == value))
 	{
 		return &cacheSlot->vertex;
 	}
@@ -373,15 +416,17 @@ void NativePgxp_CopyXY(const void *dst, const void *src, u32 value)
 	}
 }
 
-#define NATIVE_PGXP_POSITION_BITS  13
+#define NATIVE_PGXP_POSITION_BITS  14
 #define NATIVE_PGXP_POSITION_COUNT (1u << NATIVE_PGXP_POSITION_BITS)
 
+// Same scheme as NativePgxpCacheSlot.
 typedef struct
 {
 	const void *key;
 	s16 vector[3];
 	float precise[3];
 	u32 generation;
+	b32 valid;
 } NativePgxpPositionSlot;
 
 typedef struct
@@ -392,48 +437,75 @@ typedef struct
 } NativePgxpInput;
 
 global_variable NativePgxpPositionSlot s_pgxpPositions[NATIVE_PGXP_POSITION_COUNT];
+global_variable u32 s_pgxpPositionsUsed;
+global_variable u32 s_pgxpPositionsUsedGeneration;
 global_variable NativePgxpInput s_pgxpInputs[3];
 global_variable NativePgxpInput s_pgxpMvmvaResult;
 global_variable s32 s_pgxpTranslationInt[3];
 global_variable double s_pgxpTranslation[3];
 global_variable b32 s_pgxpTranslationValid;
 
-internal NativePgxpPositionSlot *NativePgxp_PositionSlot(const void *key)
+// As NativePgxp_CacheSlot.
+internal NativePgxpPositionSlot *NativePgxp_PositionSlot(const void *key, int insert)
 {
-	const u32 hash = (u32)((uintptr_t)key >> 1) * 2654435761u;
+	u32 probe = NativePgxp_KeyHash(key, NATIVE_PGXP_POSITION_BITS);
 
-	return &s_pgxpPositions[hash >> (32 - NATIVE_PGXP_POSITION_BITS)];
+	for (;;)
+	{
+		NativePgxpPositionSlot *slot = &s_pgxpPositions[probe];
+		if (slot->generation != s_pgxpGeneration)
+		{
+			if (!insert)
+				return NULL;
+			if (s_pgxpPositionsUsedGeneration != s_pgxpGeneration)
+			{
+				s_pgxpPositionsUsedGeneration = s_pgxpGeneration;
+				s_pgxpPositionsUsed = 0;
+			}
+			if (s_pgxpPositionsUsed >= NATIVE_PGXP_POSITION_COUNT / 2)
+				return NULL;
+			s_pgxpPositionsUsed++;
+			slot->key = key;
+			slot->generation = s_pgxpGeneration;
+			slot->valid = 0;
+			return slot;
+		}
+		if (slot->key == key)
+			return slot;
+		probe = (probe + 1) & (NATIVE_PGXP_POSITION_COUNT - 1);
+	}
 }
 
 void NativePgxp_SetPosition(const void *key, const s16 *vector, const float *precise)
 {
-	NativePgxpPositionSlot *slot = NativePgxp_PositionSlot(key);
+	NativePgxpPositionSlot *slot = NativePgxp_PositionSlot(key, 1);
 
-	slot->key = key;
+	if (slot == NULL)
+		return;
 	slot->vector[0] = vector[0];
 	slot->vector[1] = vector[1];
 	slot->vector[2] = vector[2];
 	slot->precise[0] = precise[0];
 	slot->precise[1] = precise[1];
 	slot->precise[2] = precise[2];
-	slot->generation = s_pgxpGeneration;
+	slot->valid = 1;
 }
 
 void NativePgxp_ClearPosition(const void *key)
 {
-	NativePgxpPositionSlot *slot = NativePgxp_PositionSlot(key);
+	NativePgxpPositionSlot *slot = NativePgxp_PositionSlot(key, 0);
 
-	if (slot->key == key)
+	if (slot != NULL)
 	{
-		slot->generation = 0;
+		slot->valid = 0;
 	}
 }
 
 int NativePgxp_GetPosition(const void *key, const s16 *vector, float *out)
 {
-	const NativePgxpPositionSlot *slot = NativePgxp_PositionSlot(key);
+	const NativePgxpPositionSlot *slot = NativePgxp_PositionSlot(key, 0);
 
-	if ((slot->key == key) && (slot->generation == s_pgxpGeneration) && (slot->vector[0] == vector[0]) && (slot->vector[1] == vector[1]) &&
+	if ((slot != NULL) && slot->valid && (slot->vector[0] == vector[0]) && (slot->vector[1] == vector[1]) &&
 	    (slot->vector[2] == vector[2]))
 	{
 		out[0] = slot->precise[0];

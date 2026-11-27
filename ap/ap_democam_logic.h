@@ -1,6 +1,7 @@
 #ifndef AP_DEMOCAM_LOGIC_H
 #define AP_DEMOCAM_LOGIC_H
 
+#include <stdint.h>
 #include <string.h>
 
 // ============================================================================
@@ -78,7 +79,7 @@ struct ApDemoCamFields
 	// Mode selection and the "which authored camera is in use" latch.
 	int cameraMode;      // CameraDC 0x9a
 	int cameraModePrev;  // 0x9c
-	unsigned long currEOR; // 0xa0, an ST1_CAMERA_EOR entry pointer
+	uintptr_t currEOR; // 0xa0, an ST1_CAMERA_EOR entry pointer
 
 	// Written by authored mode 3 (CAM.c:1979-1984).
 	unsigned action;   // 0x04
@@ -99,7 +100,7 @@ struct ApDemoCamFields
 
 	// Track-path cursor, advanced every frame by modes 9/12/13.
 	int trackPathProgress;      // 0x94
-	unsigned long trackPathNode; // 0x88
+	uintptr_t trackPathNode; // 0x88
 
 	// Authored target pose (modes 7, 9, 10, 11, 12, 13) and the Battle spin.
 	int transitionToPos[3]; // 0xa4
@@ -142,9 +143,9 @@ struct ApDemoCamFields
 // must never be written back over the fresh state.
 struct ApDemoCamIdentity
 {
-	unsigned long cameraDC;
-	unsigned long pushBuffer;
-	unsigned long driver;
+	uintptr_t cameraDC;
+	uintptr_t pushBuffer;
+	uintptr_t driver;
 	int levelID;
 };
 

@@ -28,6 +28,8 @@ static LONG CALLBACK NativeCrashLog_Handler(EXCEPTION_POINTERS *info)
 	fprintf(f, "exception 0x%08lx at 0x%p\n", (unsigned long)code, info->ExceptionRecord->ExceptionAddress);
 #if defined(_M_IX86) || defined(__i386__)
 	const ULONG_PTR *sp = (const ULONG_PTR *)info->ContextRecord->Esp;
+#elif defined(_M_ARM64) || defined(__aarch64__)
+	const ULONG_PTR *sp = (const ULONG_PTR *)info->ContextRecord->Sp;
 #else
 	const ULONG_PTR *sp = (const ULONG_PTR *)info->ContextRecord->Rsp;
 #endif

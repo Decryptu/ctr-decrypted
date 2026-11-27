@@ -63,7 +63,7 @@ static void AP_DemoCamRead(const struct CameraDC *cDC, const struct PushBuffer *
 
 	f->cameraMode = cDC->cameraMode;
 	f->cameraModePrev = cDC->cameraModePrev;
-	f->currEOR = (unsigned long)cDC->currEOR;
+	f->currEOR = (uintptr_t)cDC->currEOR;
 
 	f->action = (unsigned)cDC->action;
 	f->mode = cDC->mode;
@@ -76,7 +76,7 @@ static void AP_DemoCamRead(const struct CameraDC *cDC, const struct PushBuffer *
 	f->spin360Angle = cDC->spin360Angle;
 
 	f->trackPathProgress = cDC->trackPathProgress;
-	f->trackPathNode = (unsigned long)cDC->trackPathNode;
+	f->trackPathNode = (uintptr_t)cDC->trackPathNode;
 
 	f->transitionToPos[0] = cDC->transitionTo.pos.x;
 	f->transitionToPos[1] = cDC->transitionTo.pos.y;
@@ -142,7 +142,7 @@ static void AP_DemoCamWrite(struct CameraDC *cDC, struct PushBuffer *pb,
 
 	cDC->cameraMode = (s16)f->cameraMode;
 	cDC->cameraModePrev = (s16)f->cameraModePrev;
-	cDC->currEOR = (void *)(unsigned long)f->currEOR;
+	cDC->currEOR = (void *)(uintptr_t)f->currEOR;
 
 	cDC->action = (u32)f->action;
 	cDC->mode = (u16)f->mode;
@@ -155,7 +155,7 @@ static void AP_DemoCamWrite(struct CameraDC *cDC, struct PushBuffer *pb,
 	cDC->spin360Angle = (s16)f->spin360Angle;
 
 	cDC->trackPathProgress = f->trackPathProgress;
-	cDC->trackPathNode = (struct CheckpointNode *)(unsigned long)f->trackPathNode;
+	cDC->trackPathNode = (struct CheckpointNode *)(uintptr_t)f->trackPathNode;
 
 	cDC->transitionTo.pos.x = (s16)f->transitionToPos[0];
 	cDC->transitionTo.pos.y = (s16)f->transitionToPos[1];
@@ -267,9 +267,9 @@ static void AP_DemoCamCollect(struct GameTracker *gGT, struct ApDemoCamIdentity 
 	if (!gate->cameraPresent)
 		return;
 
-	ident->cameraDC = (unsigned long)cDC;
-	ident->pushBuffer = (unsigned long)pb;
-	ident->driver = (unsigned long)d;
+	ident->cameraDC = (uintptr_t)cDC;
+	ident->pushBuffer = (uintptr_t)pb;
+	ident->driver = (uintptr_t)d;
 
 	*outCDC = cDC;
 	*outPB = pb;

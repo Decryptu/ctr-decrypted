@@ -90,6 +90,11 @@ if(CMAKE_C_COMPILER_ID STREQUAL "MSVC" OR CMAKE_C_SIMULATE_ID STREQUAL "MSVC")
     set(CTR_NATIVE_MSVC_FRONTEND ON)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
+# Plain char is signed, as on the PS1 and x86 (and with MSVC); arm64 Linux
+# compilers make it unsigned unless told (docs/64BIT.md).
+if(NOT CTR_NATIVE_MSVC_FRONTEND)
+    add_compile_options(-fsigned-char)
+endif()
 
 set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY NEVER)
@@ -287,7 +292,7 @@ if(NOT CTR_AP)
             ${CMAKE_SOURCE_DIR}/ap ${AP_VENDOR}/json/include ${AP_VENDOR}/asio/include
             ${CMAKE_SOURCE_DIR}/vendor/utf8proc)
         target_compile_definitions(custom_package PRIVATE
-            CTR_CUSTOM_TRACKS CTR_CUSTOM_PACKAGES UTF8PROC_STATIC ASIO_STANDALONE ${AP_ASIO_SKIP_RFC2818})
+            CTR_NATIVE CTR_CUSTOM_TRACKS CTR_CUSTOM_PACKAGES UTF8PROC_STATIC ASIO_STANDALONE ${AP_ASIO_SKIP_RFC2818})
         if(WIN32)
             target_compile_definitions(custom_package PRIVATE _WIN32_WINNT=0x0601 WIN32_LEAN_AND_MEAN)
         endif()
@@ -404,6 +409,7 @@ if(CTR_AP)
     find_package(Threads REQUIRED)
     target_link_libraries(ap_net PUBLIC OpenSSL::SSL OpenSSL::Crypto ZLIB::ZLIB Threads::Threads)
     target_compile_definitions(ap_net PRIVATE
+        CTR_NATIVE
         CTR_AP
         AP_NO_SCHEMA
         ASIO_STANDALONE ${AP_ASIO_SKIP_RFC2818} _WEBSOCKETPP_CPP11_THREAD_=1 _WEBSOCKETPP_CPP11_STL_=1)
@@ -427,7 +433,7 @@ if(CTR_AP)
         target_include_directories(custom_package PRIVATE ${CMAKE_SOURCE_DIR}/include
             ${AP_VENDOR}/json/include ${CMAKE_SOURCE_DIR}/vendor/utf8proc)
         target_compile_definitions(custom_package PRIVATE
-            CTR_CUSTOM_TRACKS CTR_CUSTOM_PACKAGES UTF8PROC_STATIC
+            CTR_NATIVE CTR_CUSTOM_TRACKS CTR_CUSTOM_PACKAGES UTF8PROC_STATIC
             $<$<BOOL:${CTR_AP_AUTHORING}>:CTR_AP_AUTHORING>)
         target_compile_options(custom_package PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-fexceptions;-frtti>)
         target_link_libraries(custom_package PUBLIC Threads::Threads)
@@ -486,8 +492,10 @@ else()
     if(NOT CTR_64BIT)
         target_compile_options(ctr_native PRIVATE -msse2 -mfpmath=sse)
     else()
-        # A pointer kept in a 32-bit integer loses its top half (docs/64BIT.md).
-        target_compile_options(ctr_native PRIVATE $<$<COMPILE_LANGUAGE:C>:-Werror=pointer-to-int-cast -Werror=int-to-pointer-cast>)
+        # A pointer kept in a 32-bit integer loses its top half, and a 64-bit
+        # value passed to a 32-bit format shifts every later argument
+        # (docs/64BIT.md).
+        target_compile_options(ctr_native PRIVATE $<$<COMPILE_LANGUAGE:C>:-Werror=pointer-to-int-cast -Werror=int-to-pointer-cast -Werror=format -Wno-error=format-truncation>)
     endif()
     target_compile_options(ctr_native PRIVATE
         -Wenum-conversion
