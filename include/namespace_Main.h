@@ -252,9 +252,11 @@ enum MainRenderLevelGeometryScratchConstants
 
 // NOTE(aalhendi): Retail seeds scratchpad 0x14..0x2c here before RenderLists/226;
 // later 226 paths can reuse part of this range for split-ground thresholds.
+// The level renderer keeps its five clip cursors in front of the thresholds
+// (DrawLevelOvr1PStableScratch.entry.clip), so that space holds five pointers.
 struct MainRenderLevelGeometryScratch
 {
-	u8 reserved0[0x14];
+	void *reserved0[5];
 
 	s32 depthScale;
 	s32 bspLodDistanceThreshold;
@@ -265,14 +267,14 @@ struct MainRenderLevelGeometryScratch
 	s32 fullDynamicFadeDepthStart;
 };
 
-CTR_STATIC_ASSERT(offsetof(struct MainRenderLevelGeometryScratch, depthScale) == 0x14);
-CTR_STATIC_ASSERT(offsetof(struct MainRenderLevelGeometryScratch, bspLodDistanceThreshold) == 0x18);
-CTR_STATIC_ASSERT(offsetof(struct MainRenderLevelGeometryScratch, textureLodDepthThreshold0) == 0x1c);
-CTR_STATIC_ASSERT(offsetof(struct MainRenderLevelGeometryScratch, textureLodDepthThreshold1) == 0x20);
-CTR_STATIC_ASSERT(offsetof(struct MainRenderLevelGeometryScratch, topLevelNearDepthThreshold) == 0x24);
-CTR_STATIC_ASSERT(offsetof(struct MainRenderLevelGeometryScratch, recursiveNearDepthThreshold) == 0x28);
-CTR_STATIC_ASSERT(offsetof(struct MainRenderLevelGeometryScratch, fullDynamicFadeDepthStart) == 0x2c);
-CTR_STATIC_ASSERT(sizeof(struct MainRenderLevelGeometryScratch) == 0x30);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct MainRenderLevelGeometryScratch, depthScale) == 0x14);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct MainRenderLevelGeometryScratch, bspLodDistanceThreshold) == 0x18);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct MainRenderLevelGeometryScratch, textureLodDepthThreshold0) == 0x1c);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct MainRenderLevelGeometryScratch, textureLodDepthThreshold1) == 0x20);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct MainRenderLevelGeometryScratch, topLevelNearDepthThreshold) == 0x24);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct MainRenderLevelGeometryScratch, recursiveNearDepthThreshold) == 0x28);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct MainRenderLevelGeometryScratch, fullDynamicFadeDepthStart) == 0x2c);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct MainRenderLevelGeometryScratch) == 0x30);
 
 // real ND name
 struct RngDeadCoedState

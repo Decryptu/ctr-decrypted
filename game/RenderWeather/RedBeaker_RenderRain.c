@@ -22,14 +22,19 @@ static u32 RedBeaker_ReadWord(const void *base, int offset)
 	return *(const u32 *)(const void *)((const char *)base + offset);
 }
 
-static s16 RedBeaker_ReadS16(const void *base, int offset)
+// Retail reads the cloud's depth bias at byte 0x50 of the instance shifted by one
+// per-player record per player: depthBiasNormal for player 1, and for player n+1
+// the low byte of player n's lodIndex.
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Instance, depthBiasNormal) == 0x50);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct Instance) + offsetof(struct InstDrawPerPlayer, lodIndex) - sizeof(struct InstDrawPerPlayer) == 0x50);
+static s8 RedBeaker_CloudDepthBias(const struct Instance *cloud, int playerIndex)
 {
-	return *(const s16 *)(const void *)((const char *)base + offset);
-}
+	if (playerIndex == 0)
+	{
+		return (s8)cloud->depthBiasNormal;
+	}
 
-static s8 RedBeaker_ReadS8(const void *base, int offset)
-{
-	return *(const s8 *)(const void *)((const char *)base + offset);
+	return (s8)(u8)INST_GETIDPP(cloud)[playerIndex - 1].lodIndex;
 }
 
 static u32 RedBeaker_NextRngByte(u32 *state0, u32 *state1)
@@ -200,7 +205,6 @@ void RedBeaker_RenderRain(struct PushBuffer *pb, struct PrimMem *primMem, struct
 		struct RainLocal *rainLocal;
 		u32 screenBounds;
 		u32 *otBase;
-		int playerOffset;
 
 		CTC2(RedBeaker_ReadWord(&pb->matrix_ViewProj, 0x00), 0);
 		CTC2(RedBeaker_ReadWord(&pb->matrix_ViewProj, 0x04), 1);
@@ -212,13 +216,12 @@ void RedBeaker_RenderRain(struct PushBuffer *pb, struct PrimMem *primMem, struct
 		CTC2((u32)(s32)pb->rect.h << 15, 25);
 		CTC2((u32)pb->distanceToScreen_PREV, 26);
 
-		screenBounds = RedBeaker_ReadWord(pb, 0x20);
+		screenBounds = RedBeaker_ReadWord(&pb->rect.w, 0); // width and height
 		otBase = pb->ptrOT;
-		playerOffset = playerIndex * sizeof(struct InstDrawPerPlayer);
 
 		for (rainLocal = firstRain; rainLocal != NULL; rainLocal = rainLocal->next)
 		{
-			char *instBase;
+			const struct InstDrawPerPlayer *cloudView;
 			s32 cloudZ;
 			u32 scrollXY;
 			s32 scrollZ;
@@ -249,10 +252,11 @@ void RedBeaker_RenderRain(struct PushBuffer *pb, struct PrimMem *primMem, struct
 				rainLocal->scroll.z = (s16)nextScrollZ;
 			}
 
-			instBase = (char *)rainLocal->cloudInst + playerOffset;
-			CTC2((u32)(s32)RedBeaker_ReadS16(instBase, 0x8c), 5);
-			CTC2((u32)(s32)RedBeaker_ReadS16(instBase, 0x90), 6);
-			cloudZ = RedBeaker_ReadS16(instBase, 0x94);
+			// The cloud's position in this player's view: the low halves of its translation.
+			cloudView = &INST_GETIDPP(rainLocal->cloudInst)[playerIndex];
+			CTC2((u32)(s32)(s16)cloudView->mvp.t[0], 5);
+			CTC2((u32)(s32)(s16)cloudView->mvp.t[1], 6);
+			cloudZ = (s16)cloudView->mvp.t[2];
 			CTC2((u32)cloudZ, 7);
 
 			if (cloudZ < 0 || cloudZ >= 0xc00)
@@ -273,7 +277,7 @@ void RedBeaker_RenderRain(struct PushBuffer *pb, struct PrimMem *primMem, struct
 			scratch->colorTop = (u32)top | ((u32)top << 8) | ((u32)fade << 16);
 			scratch->colorBottom = (u32)fade | ((u32)fade << 8) | ((u32)fade << 16);
 
-			otOffset = ((cloudZ >> 7) + RedBeaker_ReadS8(instBase, 0x50) - 6);
+			otOffset = ((cloudZ >> 7) + RedBeaker_CloudDepthBias(rainLocal->cloudInst, playerIndex) - 6);
 			if (otOffset < 0)
 			{
 				otOffset = 0;

@@ -178,11 +178,10 @@ static void DrawLevelOvr4P_CopyClipRecordJumpTable(void)
 	}
 }
 
-static int DrawLevelOvr4P_DrawViewportBucket(struct DrawLevelOvr1PRenderList *renderList, s32 renderListOffset, struct PushBuffer *pb, struct mesh_info *mesh,
+static int DrawLevelOvr4P_DrawViewportBucket(struct DrawLevelOvr1PRenderList *renderList, u32 bucketIndex, struct PushBuffer *pb, struct mesh_info *mesh,
                                              struct PrimMem *primMem, const int *visFaceList, u8 **clipCursor, int playerIndex, int applySetup,
                                              int *didDispatch)
 {
-	u32 bucketIndex = (u32)renderListOffset / sizeof(u32);
 	const struct DrawLevelOvr1PBucket *bucket = &sDrawLevelOvr1PBuckets[bucketIndex];
 	void *bucketValue = DrawLevelOvr1P_GetRenderListBucketValue(renderList, bucket);
 	u32 setupAddress = R229.bucketSetupAddresses[bucketIndex];
@@ -217,35 +216,35 @@ static int DrawLevelOvr4P_DispatchBucketTable(struct DrawLevelOvr1PRenderList *r
                                               struct PrimMem *primMem, const int *visFaceList0, const int *visFaceList1, const int *visFaceList2,
                                               const int *visFaceList3, u8 **clipCursors)
 {
-	for (s32 renderListOffset = DRAW_LEVEL_OVR1P_RENDER_LIST_OFFSET_4X1_LIST; renderListOffset >= 0; renderListOffset -= (s32)sizeof(u32))
+	for (s32 role = DRAW_LEVEL_OVR1P_BUCKET_4X1_LIST; role >= 0; role--)
 	{
 		int setupApplied = 0;
 		int didDispatch = 0;
 
-		DrawLevelOvr1P_Scratch()->currentBucketOffset = (u32)renderListOffset;
+		DrawLevelOvr1P_Scratch()->currentBucketOffset = DRAW_LEVEL_OVR1P_BUCKET_RETAIL_OFFSET(role);
 
-		if (!DrawLevelOvr4P_DrawViewportBucket(&renderLists[0], renderListOffset, &pushBuffers[0], mesh, primMem, visFaceList0, &clipCursors[0], 0, 1,
+		if (!DrawLevelOvr4P_DrawViewportBucket(&renderLists[0], (u32)role, &pushBuffers[0], mesh, primMem, visFaceList0, &clipCursors[0], 0, 1,
 		                                       &didDispatch))
 		{
 			return 0;
 		}
 		setupApplied |= didDispatch;
 
-		if (!DrawLevelOvr4P_DrawViewportBucket(&renderLists[1], renderListOffset, &pushBuffers[1], mesh, primMem, visFaceList1, &clipCursors[1], 1,
+		if (!DrawLevelOvr4P_DrawViewportBucket(&renderLists[1], (u32)role, &pushBuffers[1], mesh, primMem, visFaceList1, &clipCursors[1], 1,
 		                                       !setupApplied, &didDispatch))
 		{
 			return 0;
 		}
 		setupApplied |= didDispatch;
 
-		if (!DrawLevelOvr4P_DrawViewportBucket(&renderLists[2], renderListOffset, &pushBuffers[2], mesh, primMem, visFaceList2, &clipCursors[2], 2,
+		if (!DrawLevelOvr4P_DrawViewportBucket(&renderLists[2], (u32)role, &pushBuffers[2], mesh, primMem, visFaceList2, &clipCursors[2], 2,
 		                                       !setupApplied, &didDispatch))
 		{
 			return 0;
 		}
 		setupApplied |= didDispatch;
 
-		if (!DrawLevelOvr4P_DrawViewportBucket(&renderLists[3], renderListOffset, &pushBuffers[3], mesh, primMem, visFaceList3, &clipCursors[3], 3,
+		if (!DrawLevelOvr4P_DrawViewportBucket(&renderLists[3], (u32)role, &pushBuffers[3], mesh, primMem, visFaceList3, &clipCursors[3], 3,
 		                                       !setupApplied, &didDispatch))
 		{
 			return 0;

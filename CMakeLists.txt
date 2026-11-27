@@ -479,10 +479,12 @@ if(CTR_NATIVE_MSVC_FRONTEND)
         /wd5287
     )
 else()
-    # 32-bit x86 needs -msse for the SSE intrinsics; x86_64 always has SSE2
-    # and arm64 has none.
+    # Every build rounds floats the same way (docs/64BIT.md#floats): 32-bit x86
+    # does its float math in SSE registers like x86_64 (the x87 FPU keeps
+    # wider intermediates), and no compiler fuses a multiply and an add.
+    target_compile_options(ctr_native PRIVATE -ffp-contract=off)
     if(NOT CTR_64BIT)
-        target_compile_options(ctr_native PRIVATE -msse)
+        target_compile_options(ctr_native PRIVATE -msse2 -mfpmath=sse)
     else()
         # A pointer kept in a 32-bit integer loses its top half (docs/64BIT.md).
         target_compile_options(ctr_native PRIVATE $<$<COMPILE_LANGUAGE:C>:-Werror=pointer-to-int-cast -Werror=int-to-pointer-cast>)

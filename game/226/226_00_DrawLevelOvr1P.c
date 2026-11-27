@@ -1566,14 +1566,14 @@ static u32 DrawLevelOvr1P_GetProjectedNearMaskAtScratchOffset(const struct DrawL
 
 static u32 DrawLevelOvr1P_GetProjectedNearMask(const struct DrawLevelOvr1PScratchVertex *projected, const int *indices)
 {
-	return DrawLevelOvr1P_GetProjectedNearMaskAtScratchOffset(projected, indices, 0x24);
+	return DrawLevelOvr1P_GetProjectedNearMaskAtScratchOffset(projected, indices, DRAW_LEVEL_OVR1P_TOP_LEVEL_NEAR_THRESHOLD_OFFSET);
 }
 
 static u32 DrawLevelOvr1P_GetProjectedRecursiveNearMask(const struct DrawLevelOvr1PScratchVertex *projected, const int *indices)
 {
 	// NOTE(aalhendi): Retail helper recursion switches from the top-level
 	// 0x24 threshold to scratch 0x28 before selecting the next child handler.
-	return DrawLevelOvr1P_GetProjectedNearMaskAtScratchOffset(projected, indices, 0x28);
+	return DrawLevelOvr1P_GetProjectedNearMaskAtScratchOffset(projected, indices, DRAW_LEVEL_OVR1P_RECURSIVE_NEAR_THRESHOLD_OFFSET);
 }
 
 static u32 DrawLevelOvr1P_GetProjectedWaterNearMask(const struct DrawLevelOvr1PScratchVertex *projected, const int *indices)
@@ -4734,7 +4734,7 @@ static int Ovr226_800a3b90_Ground4x1DirectPreflight(struct PushBuffer *pb, struc
 		return Ovr226_800a3f74_DispatchGround4x1Deepest(pb, primMem, block, projected, indices, faceIndex, texture, inheritedOtIndex);
 	}
 
-	return Ovr226_800a3eb0_Ground4x1NearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, depth, 0x28, inheritedOtIndex);
+	return Ovr226_800a3eb0_Ground4x1NearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, depth, DRAW_LEVEL_OVR1P_RECURSIVE_NEAR_THRESHOLD_OFFSET, inheritedOtIndex);
 }
 
 static int Ovr226_800a39c4_DispatchGround4x1HelperWrappers(struct PushBuffer *pb, struct PrimMem *primMem, const struct QuadBlock *block,
@@ -5065,7 +5065,7 @@ static int Ovr226_800a3c70_Ground4x1SelectorNearGate(struct PushBuffer *pb, stru
 		Ovr226_800a3e44_WriteGround4x1SelectorUv(projected, indices, texture, tableWord);
 	}
 
-	return Ovr226_800a3eb0_Ground4x1NearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, 0, 0x24, inheritedOtIndex);
+	return Ovr226_800a3eb0_Ground4x1NearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, 0, DRAW_LEVEL_OVR1P_TOP_LEVEL_NEAR_THRESHOLD_OFFSET, inheritedOtIndex);
 }
 
 static u32 *Ovr226_800a4978_ResolveGround4x1RenderedOtEntry(struct PushBuffer *pb, const struct QuadBlock *block,
@@ -5319,7 +5319,7 @@ static int Ovr226_800a46d0_Ground4x1RenderedPreflight(struct PushBuffer *pb, str
 		return Ovr226_800a4b54_DispatchGround4x1RenderedDeepest(pb, primMem, block, projected, indices, faceIndex, texture, inheritedOtEntry);
 	}
 
-	return Ovr226_800a4ad0_Ground4x1RenderedNearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, depth, 0x28, inheritedOtEntry);
+	return Ovr226_800a4ad0_Ground4x1RenderedNearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, depth, DRAW_LEVEL_OVR1P_RECURSIVE_NEAR_THRESHOLD_OFFSET, inheritedOtEntry);
 }
 
 static int Ovr226_800a44e0_DispatchGround4x1RenderedHelperWrappers(struct PushBuffer *pb, struct PrimMem *primMem, const struct QuadBlock *block,
@@ -5411,7 +5411,7 @@ static int Ovr226_800a47f4_Ground4x1RenderedSelectorNearGate(struct PushBuffer *
 		Ovr226_800a4a28_WriteGround4x1RenderedUv(projected, indices, texture, tableWord);
 	}
 
-	return Ovr226_800a4ad0_Ground4x1RenderedNearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, 0, 0x24, inheritedOtEntry);
+	return Ovr226_800a4ad0_Ground4x1RenderedNearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, 0, DRAW_LEVEL_OVR1P_TOP_LEVEL_NEAR_THRESHOLD_OFFSET, inheritedOtEntry);
 }
 
 static int Ovr226_800a52bc_DispatchGround4x2HelperWrappers(struct PushBuffer *pb, struct PrimMem *primMem, const struct QuadBlock *block,
@@ -5443,7 +5443,7 @@ static int Ovr226_800a580c_Ground4x2DirectPreflight(struct PushBuffer *pb, struc
 		return Ovr226_800a5c54_DispatchGround4x2Deepest(pb, primMem, block, projected, indices, faceIndex, texture, inheritedOtIndex);
 	}
 
-	return Ovr226_800a5b2c_Ground4x2NearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, depth, 0x28, inheritedOtIndex);
+	return Ovr226_800a5b2c_Ground4x2NearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, depth, DRAW_LEVEL_OVR1P_RECURSIVE_NEAR_THRESHOLD_OFFSET, inheritedOtIndex);
 }
 
 static int Ovr226_800a52bc_DispatchGround4x2DeepestCompact(struct PushBuffer *pb, struct PrimMem *primMem, const struct QuadBlock *block,
@@ -5781,7 +5781,7 @@ static int Ovr226_800a58ec_Ground4x2SelectorNearGate(struct PushBuffer *pb, stru
 		DrawLevelOvr1P_WriteProjectedUv(projected, indices, texture, tableWord);
 	}
 
-	return Ovr226_800a5b2c_Ground4x2NearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, 0, 0x24, inheritedOtIndex);
+	return Ovr226_800a5b2c_Ground4x2NearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, 0, DRAW_LEVEL_OVR1P_TOP_LEVEL_NEAR_THRESHOLD_OFFSET, inheritedOtIndex);
 }
 
 static int Ovr226_800a725c_DispatchDynamicListHelperWrappers(struct PushBuffer *pb, struct PrimMem *primMem, const struct QuadBlock *block,
@@ -5813,7 +5813,7 @@ static int Ovr226_800a7588_DynamicListDirectPreflight(struct PushBuffer *pb, str
 		return Ovr226_800a79a0_DispatchDynamicListDeepest(pb, primMem, block, projected, indices, faceIndex, texture, inheritedOtIndex);
 	}
 
-	return Ovr226_800a78a8_DynamicListNearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, depth, 0x28, inheritedOtIndex);
+	return Ovr226_800a78a8_DynamicListNearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, depth, DRAW_LEVEL_OVR1P_RECURSIVE_NEAR_THRESHOLD_OFFSET, inheritedOtIndex);
 }
 
 static int Ovr226_800a725c_DispatchDynamicListHelperWrappers(struct PushBuffer *pb, struct PrimMem *primMem, const struct QuadBlock *block,
@@ -6079,7 +6079,7 @@ static int Ovr226_800a7668_DynamicListSelectorNearGate(struct PushBuffer *pb, st
 		DrawLevelOvr1P_WriteProjectedUv(projected, indices, texture, tableWord);
 	}
 
-	return Ovr226_800a78a8_DynamicListNearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, 0, 0x24, inheritedOtIndex);
+	return Ovr226_800a78a8_DynamicListNearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, 0, DRAW_LEVEL_OVR1P_TOP_LEVEL_NEAR_THRESHOLD_OFFSET, inheritedOtIndex);
 }
 
 static int Ovr226_800a8e7c_DispatchWideDynamicHelperWrappers(struct PushBuffer *pb, struct PrimMem *primMem, const struct QuadBlock *block,
@@ -6111,7 +6111,7 @@ static int Ovr226_800a91a8_WideDynamicDirectPreflight(struct PushBuffer *pb, str
 		return Ovr226_800a95c0_DispatchWideDynamicDeepest(pb, primMem, block, projected, indices, faceIndex, texture, inheritedOtIndex);
 	}
 
-	return Ovr226_800a94c8_WideDynamicNearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, depth, 0x28, inheritedOtIndex);
+	return Ovr226_800a94c8_WideDynamicNearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, depth, DRAW_LEVEL_OVR1P_RECURSIVE_NEAR_THRESHOLD_OFFSET, inheritedOtIndex);
 }
 
 static int Ovr226_800a8e7c_DispatchWideDynamicHelperWrappers(struct PushBuffer *pb, struct PrimMem *primMem, const struct QuadBlock *block,
@@ -6377,7 +6377,7 @@ static int Ovr226_800a9288_WideDynamicSelectorNearGate(struct PushBuffer *pb, st
 		DrawLevelOvr1P_WriteProjectedUv(projected, indices, texture, tableWord);
 	}
 
-	return Ovr226_800a94c8_WideDynamicNearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, 0, 0x24, inheritedOtIndex);
+	return Ovr226_800a94c8_WideDynamicNearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, 0, DRAW_LEVEL_OVR1P_TOP_LEVEL_NEAR_THRESHOLD_OFFSET, inheritedOtIndex);
 }
 
 static int Ovr226_800a661c_Ground4x2RenderedPreflight(struct PushBuffer *pb, struct PrimMem *primMem, const struct QuadBlock *block,
@@ -6615,7 +6615,7 @@ static int Ovr226_800a661c_Ground4x2RenderedPreflight(struct PushBuffer *pb, str
 		return Ovr226_800a6af4_DispatchGround4x2RenderedDeepest(pb, primMem, block, projected, indices, faceIndex, texture, inheritedOtEntry);
 	}
 
-	return Ovr226_800a69dc_Ground4x2RenderedNearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, depth, 0x28, inheritedOtEntry);
+	return Ovr226_800a69dc_Ground4x2RenderedNearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, depth, DRAW_LEVEL_OVR1P_RECURSIVE_NEAR_THRESHOLD_OFFSET, inheritedOtEntry);
 }
 
 static int Ovr226_800a6260_DispatchGround4x2RenderedDeepestCompact(struct PushBuffer *pb, struct PrimMem *primMem, const struct QuadBlock *block,
@@ -6846,7 +6846,7 @@ static int Ovr226_800a6740_Ground4x2RenderedSelectorNearGate(struct PushBuffer *
 		Ovr226_800a6970_WriteGround4x2RenderedUv(projected, indices, texture, tableWord);
 	}
 
-	return Ovr226_800a69dc_Ground4x2RenderedNearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, 0, 0x24, inheritedOtEntry);
+	return Ovr226_800a69dc_Ground4x2RenderedNearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, 0, DRAW_LEVEL_OVR1P_TOP_LEVEL_NEAR_THRESHOLD_OFFSET, inheritedOtEntry);
 }
 
 static int Ovr226_800a825c_DynamicRenderedPreflight(struct PushBuffer *pb, struct PrimMem *primMem, const struct QuadBlock *block,
@@ -7085,7 +7085,7 @@ static int Ovr226_800a825c_DynamicRenderedPreflight(struct PushBuffer *pb, struc
 		return Ovr226_800a8714_DispatchDynamicRenderedDeepest(pb, primMem, block, projected, indices, faceIndex, texture, inheritedOtEntry);
 	}
 
-	return Ovr226_800a861c_DynamicRenderedNearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, depth, 0x28, inheritedOtEntry);
+	return Ovr226_800a861c_DynamicRenderedNearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, depth, DRAW_LEVEL_OVR1P_RECURSIVE_NEAR_THRESHOLD_OFFSET, inheritedOtEntry);
 }
 
 static int Ovr226_800a7f0c_DispatchDynamicRenderedHelperWrappers(struct PushBuffer *pb, struct PrimMem *primMem, const struct QuadBlock *block,
@@ -7283,7 +7283,7 @@ static int Ovr226_800a8380_DynamicRenderedSelectorNearGate(struct PushBuffer *pb
 		Ovr226_800a85b0_WriteDynamicRenderedUv(projected, indices, texture, tableWord);
 	}
 
-	return Ovr226_800a861c_DynamicRenderedNearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, 0, 0x24, inheritedOtEntry);
+	return Ovr226_800a861c_DynamicRenderedNearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, 0, DRAW_LEVEL_OVR1P_TOP_LEVEL_NEAR_THRESHOLD_OFFSET, inheritedOtEntry);
 }
 
 static int Ovr226_800a9e7c_Quad4x4RenderedPreflight(struct PushBuffer *pb, struct PrimMem *primMem, const struct QuadBlock *block,
@@ -7521,7 +7521,7 @@ static int Ovr226_800a9e7c_Quad4x4RenderedPreflight(struct PushBuffer *pb, struc
 		return Ovr226_800aa334_DispatchQuad4x4RenderedDeepest(pb, primMem, block, projected, indices, faceIndex, texture, inheritedOtEntry);
 	}
 
-	return Ovr226_800aa23c_Quad4x4RenderedNearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, depth, 0x28, inheritedOtEntry);
+	return Ovr226_800aa23c_Quad4x4RenderedNearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, depth, DRAW_LEVEL_OVR1P_RECURSIVE_NEAR_THRESHOLD_OFFSET, inheritedOtEntry);
 }
 
 static int Ovr226_800a9b2c_DispatchQuad4x4RenderedHelperWrappers(struct PushBuffer *pb, struct PrimMem *primMem, const struct QuadBlock *block,
@@ -7719,7 +7719,7 @@ static int Ovr226_800a9fa0_Quad4x4RenderedSelectorNearGate(struct PushBuffer *pb
 		Ovr226_800aa1d0_WriteQuad4x4RenderedUv(projected, indices, texture, tableWord);
 	}
 
-	return Ovr226_800aa23c_Quad4x4RenderedNearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, 0, 0x24, inheritedOtEntry);
+	return Ovr226_800aa23c_Quad4x4RenderedNearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, 0, DRAW_LEVEL_OVR1P_TOP_LEVEL_NEAR_THRESHOLD_OFFSET, inheritedOtEntry);
 }
 
 static int DrawLevelOvr1P_Emit4x1ListSelectedFace(struct PushBuffer *pb, struct PrimMem *primMem, struct DrawLevelOvr1PScratchVertex *projected,
@@ -8070,7 +8070,7 @@ static int DrawLevelOvr1P_EmitFullDynamicTerminalFaceSlotMode(struct PushBuffer 
 		return Ovr226_800a1cc4_EmitFullDynamicDeepestDirectTail(pb, primMem, block, projected, indices, faceIndex, texture);
 	}
 
-	return Ovr226_800a1be8_DispatchFullDynamicNearSubdivision(pb, primMem, block, projected, indices, faceIndex, texture, depth, gate.directMask, 0x28);
+	return Ovr226_800a1be8_DispatchFullDynamicNearSubdivision(pb, primMem, block, projected, indices, faceIndex, texture, depth, gate.directMask, DRAW_LEVEL_OVR1P_RECURSIVE_NEAR_THRESHOLD_OFFSET);
 }
 
 static int DrawLevelOvr1P_EmitFullDynamicTerminalFacePreserveSlot(struct PushBuffer *pb, struct PrimMem *primMem, struct QuadBlock *block,
@@ -8124,7 +8124,7 @@ static int DrawLevelOvr1P_EmitFullDynamicSelectorFace(struct PushBuffer *pb, str
 		return 1;
 	}
 
-	return Ovr226_800a1be8_DispatchFullDynamicNearSubdivision(pb, primMem, block, projected, indices, faceIndex, texture, depth, directMask, 0x24);
+	return Ovr226_800a1be8_DispatchFullDynamicNearSubdivision(pb, primMem, block, projected, indices, faceIndex, texture, depth, directMask, DRAW_LEVEL_OVR1P_TOP_LEVEL_NEAR_THRESHOLD_OFFSET);
 }
 
 static int Ovr226_800a1534_EmitFullDynamicFace0(struct PushBuffer *pb, struct PrimMem *primMem, struct QuadBlock *block,
@@ -8399,7 +8399,7 @@ static int DrawLevelOvr1P_DispatchFullDynamicHelperSequence(struct PushBuffer *p
 
 static u32 Ovr226_800a10dc_SelectFullDynamicTopNearMask(const struct DrawLevelOvr1PScratchVertex *projected)
 {
-	return DrawLevelOvr1P_GetProjectedNearMaskAtScratchOffset(projected, sDrawLevelOvr1PFullDynamicLowIndices, 0x14);
+	return DrawLevelOvr1P_GetProjectedNearMaskAtScratchOffset(projected, sDrawLevelOvr1PFullDynamicLowIndices, DRAW_LEVEL_OVR1P_FULL_DYNAMIC_NEAR_THRESHOLD_OFFSET);
 }
 
 static int Ovr226_800a1338_DispatchFullDynamicLowDirect(struct PushBuffer *pb, struct PrimMem *primMem, struct QuadBlock *block,
@@ -10328,15 +10328,15 @@ static int Ovr226_800a0e78_DispatchBucketHandler(u32 handlerAddress, void *bucke
 static int Ovr226_800a0e10_DispatchBucketTable(struct DrawLevelOvr1PRenderList *renderList, struct PushBuffer *pb, struct mesh_info *mesh,
                                                struct PrimMem *primMem, const int *visFaceList)
 {
-	for (s32 renderListOffset = DRAW_LEVEL_OVR1P_RENDER_LIST_OFFSET_FULL_DYNAMIC_LIST; renderListOffset >= 0; renderListOffset -= (s32)sizeof(u32))
+	for (s32 role = DRAW_LEVEL_OVR1P_BUCKET_FULL_DYNAMIC_LIST; role >= 0; role--)
 	{
-		u32 bucketIndex = (u32)renderListOffset / sizeof(u32);
+		u32 bucketIndex = (u32)role;
 		const struct DrawLevelOvr1PBucket *bucket = &sDrawLevelOvr1PBuckets[bucketIndex];
 		void *bucketValue = DrawLevelOvr1P_GetRenderListBucketValue(renderList, bucket);
 		u32 setupAddress = R226.bucketSetupAddresses[bucketIndex];
 		u32 handlerAddress = R226.bucketHandlerAddresses[bucketIndex];
 
-		DrawLevelOvr1P_Scratch()->currentBucketOffset = (u32)renderListOffset;
+		DrawLevelOvr1P_Scratch()->currentBucketOffset = DRAW_LEVEL_OVR1P_BUCKET_RETAIL_OFFSET(role);
 
 		if (bucketValue == NULL)
 		{

@@ -24,13 +24,13 @@ enum
 #define VEH_GROUND_SKIDS_COLOR_SENTINEL   0xffffffffu
 
 #ifdef CTR_NATIVE
-#define VehGroundSkids_LoadOriginTransform()                                                        \
-	do                                                                                              \
-	{                                                                                               \
-		const VehGroundSkidsWord *originWords = CTR_SCRATCHPAD_PTR(const VehGroundSkidsWord, 0xb8); \
-		CTC2(originWords[0], 5);                                                                    \
-		CTC2(originWords[1], 6);                                                                    \
-		CTC2(originWords[2], 7);                                                                    \
+#define VehGroundSkids_LoadOriginTransform()                                                                                                  \
+	do                                                                                                                                        \
+	{                                                                                                                                         \
+		const VehGroundSkidsWord *originWords = CTR_SCRATCHPAD_PTR(const VehGroundSkidsWord, offsetof(struct VehGroundSkidsScratch, origin)); \
+		CTC2(originWords[0], 5);                                                                                                              \
+		CTC2(originWords[1], 6);                                                                                                              \
+		CTC2(originWords[2], 7);                                                                                                              \
 	} while (0)
 #else
 #define VehGroundSkids_LoadOriginTransform()                                                                                                        \
@@ -160,7 +160,7 @@ void VehGroundSkids_Main(struct Thread *thread, struct PushBuffer *pb)
 	register u32 prevFlags;
 	register int frameOffset CTR_PSX_REGISTER("$22");
 	register union VehEmitterSkidmark *frame CTR_PSX_REGISTER("$16");
-	register s32 value CTR_PSX_REGISTER("$4");
+	register CtrPsxSReg value CTR_PSX_REGISTER("$4"); // also carries the fourth segment's currXY
 	register s32 geomX CTR_PSX_REGISTER("$3");
 	register s32 geomY CTR_PSX_REGISTER("$2");
 	register union VehEmitterSkidmark *initialFrame CTR_PSX_REGISTER("$5");
@@ -402,7 +402,7 @@ void VehGroundSkids_Main(struct Thread *thread, struct PushBuffer *pb)
 									// predicate preserves retail's branch-delay-slot scheduling.
 									if ((flags & prevFlags & DRIVER_SKIDMARK_FRONT_RIGHT) != 0 && currDepth[6] > VEH_GROUND_SKIDS_MIN_VISIBLE_DEPTH &&
 									    currDepth[7] > VEH_GROUND_SKIDS_MIN_VISIBLE_DEPTH && prevDepth[6] > VEH_GROUND_SKIDS_MIN_VISIBLE_DEPTH &&
-									    (value = (s32)(size_t)&currXY[6], prevDepth[7] > VEH_GROUND_SKIDS_MIN_VISIBLE_DEPTH))
+									    (value = (CtrPsxSReg)&currXY[6], prevDepth[7] > VEH_GROUND_SKIDS_MIN_VISIBLE_DEPTH))
 									{
 										register struct VehGroundSkidsScratch *callScratch CTR_PSX_REGISTER("$7");
 
@@ -417,7 +417,7 @@ void VehGroundSkids_Main(struct Thread *thread, struct PushBuffer *pb)
 										depth = (currDepth[6] >> VEH_GROUND_SKIDS_DEPTH_SHIFT) +
 										        (markBytes[offsetof(struct Driver, skidmarks) + 3 * sizeof(union VehEmitterSkidmark) + 6]
 										         << VEH_GROUND_SKIDS_OT_DEPTH_SHIFT);
-										VehGroundSkids_Subset1((u32 *)(size_t)(u32)value, (u32 *)initialFrame, depth, callScratch);
+										VehGroundSkids_Subset1((u32 *)value, (u32 *)initialFrame, depth, callScratch);
 									}
 								}
 
