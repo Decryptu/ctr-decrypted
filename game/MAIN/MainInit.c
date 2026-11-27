@@ -476,6 +476,11 @@ void MainInit_JitPoolsNew(struct GameTracker *gGT)
 		req.retailSmall = (poolScale * 0x19) >> 10;
 		req.retailMedium = poolScale >> 7;
 		req.instanceItemSize = (uint32_t)instanceItemSize;
+		req.threadItemSize = sizeof(struct Thread);
+		req.smallItemSize = THREAD_SMALL_STACK_SIZE;
+		req.mediumItemSize = THREAD_MEDIUM_STACK_SIZE;
+		req.bucketEntrySize = 2 * sizeof(struct Instance *);
+		req.alignment = sizeof(void *);
 		req.numPlayers = gGT->numPlyrCurrGame;
 		req.retailBucketBytes = (uint32_t)renderBucketSize;
 		nativeBucket = MainInit_NativeSpawnPools(gGT, &req);
@@ -498,16 +503,19 @@ void MainInit_JitPoolsNew(struct GameTracker *gGT)
 
 	int numParticle = poolScale >> 5;
 	JitPool_Init(&gGT->JitPools.particle, numParticle, sizeof(struct Particle), rdata.s_ParticlePool);
-	JitPool_Init(&gGT->JitPools.oscillator, numParticle, 0x18, rdata.s_OscillatorPool);
+	JitPool_Init(&gGT->JitPools.oscillator, numParticle, sizeof(struct ParticleOscillator), rdata.s_OscillatorPool);
 	JitPool_Init(&gGT->JitPools.rain, poolScale >> 9, sizeof(struct RainLocal), rdata.s_RainPool);
 
 #ifndef CTR_NATIVE
 	gGT->ptrRenderBucketInstance = MEMPACK_AllocMem(renderBucketSize, NULL);
 #else
-	// NOTE(aalhendi): Native reuses static RDATA scratch for existing PC memory headroom.
-	gGT->ptrRenderBucketInstance = (void *)((uintptr_t)&rdata.s_STATIC_GNORMALZ[0] + 148);
-	// Issue #205: that scratch holds renderBucketSize bytes, sized for the
-	// retail instance pool. The enlarged pool brings its own bucket.
+	// The bucket for the retail instance pool: retail's largest, 0x1000 bytes
+	// of two-pointer entries, in pointers. Issue #205: the enlarged pool
+	// brings its own.
+	{
+		static struct Instance *s_renderBucket[0x1000 / sizeof(u32)];
+		gGT->ptrRenderBucketInstance = s_renderBucket;
+	}
 	if (nativeBucket != NULL)
 		gGT->ptrRenderBucketInstance = nativeBucket;
 #endif

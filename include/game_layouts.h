@@ -3,9 +3,9 @@
 
 // Game layout and namespace headers.
 #include <namespace_Bots.h>
+#include <namespace_Coll.h> // before Camera: its scratch starts with the collision search
 #include <namespace_Camera.h>
 #include <namespace_Cdsys.h>
-#include <namespace_Coll.h>
 #include <namespace_Decal.h>
 #include <namespace_Display.h>
 #include <namespace_Gamepad.h>

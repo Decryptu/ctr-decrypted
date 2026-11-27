@@ -1767,10 +1767,10 @@ void CAM_FollowDriver_Normal(struct CameraDC *cDC, struct Driver *d, SVec3 *push
 			// Mud, Water, or FastWater: retail's lie at world height 0, a converted course's anywhere
 			if ((((state == 0xe) || (state == 4)) || (state == 0xd)) && NativeLevel_MudAtWorldZero(sdata->gGT->level1->configFlags))
 			{
-				scratchWork->collision.terrainHeightFloor = 0;
+				scratchWork->collision.sps.Union.QuadBlockColl.hitPos.y = 0;
 			}
 
-			x = (s32)scratchWork->collision.terrainHeightFloor + (s32)zoom->vertDistance;
+			x = (s32)scratchWork->collision.sps.Union.QuadBlockColl.hitPos.y + (s32)zoom->vertDistance;
 			if (cam->pos.y < x)
 			{
 				cam->pos.y = x;

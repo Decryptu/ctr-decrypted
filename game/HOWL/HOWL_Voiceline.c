@@ -69,7 +69,7 @@ void Voiceline_PoolInit(void)
 	LIST_Clear(&GAME_CHANNEL_FREE);
 	LIST_Clear(&GAME_CHANNEL_TAKEN);
 
-	LIST_Init(&GAME_CHANNEL_FREE, &HOWL_VOICE_STATS[0].link.item, 0x20, 0x18);
+	LIST_Init(&GAME_CHANNEL_FREE, &HOWL_VOICE_STATS[0].link.item, sizeof(HOWL_VOICE_STATS[0]), 0x18);
 
 	SpuSetReverbVoice(0, 0xffffff);
 

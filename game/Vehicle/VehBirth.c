@@ -572,6 +572,10 @@ VehBirth_RotationReady:
 
 	if (driver->instSelf->thread->modelIndex == DYNAMIC_PLAYER)
 	{
+#if defined(CTR_NATIVE)
+		for (int funcIndex = DRIVER_FUNC_COUNT - 1; funcIndex >= 0; funcIndex--)
+			driver->funcPtrs[funcIndex] = NULL;
+#else
 		register int funcIndex CTR_PSX_REGISTER("$6");
 		register u8 *funcCursor CTR_PSX_REGISTER("$2");
 
@@ -585,6 +589,7 @@ VehBirth_RotationReady:
 			funcIndex--;
 			funcCursor -= sizeof(DriverFunc);
 		} while (funcIndex >= 0);
+#endif
 
 		CAM_StartOfRace(&GAME_TRACKER->cameraDC[driver->driverID]);
 
@@ -803,7 +808,7 @@ void VehBirth_SetConsts(struct Driver *driver)
 #ifdef CTR_NATIVE
 		if (palPenta && (i == PENTA_PAL_ACCEL_ROW || i == PENTA_PAL_SPEED_ROW || i == PENTA_PAL_ACCEL_SPEED_ROW))
 		{
-			*(VehBirthHalfword *)((u8 *)driver + metaPhys->offset) = (s16)Penta_PhysValue(1, i, 0);
+			*(VehBirthHalfword *)DRIVER_META_PHYS_FIELD(driver, metaPhys->offset) = (s16)Penta_PhysValue(1, i, 0);
 			continue;
 		}
 #endif
@@ -815,7 +820,7 @@ void VehBirth_SetConsts(struct Driver *driver)
 			engineValueOffset = VEH_BIRTH_ENGINE_ID(characterMetadata, characterIDs, driver) * sizeof(s32);
 			engineValueOffset += metaPhysByteOffset;
 			metaPhysValue = (u8 *)((size_t)engineValueOffset + (size_t)metaPhysBase);
-			driverField = (u8 *)driver + driverFieldOffset;
+			driverField = DRIVER_META_PHYS_FIELD(driver, driverFieldOffset);
 			driverField[0] = metaPhysValue[offsetof(struct MetaPhys, value)];
 			break;
 
@@ -824,7 +829,7 @@ void VehBirth_SetConsts(struct Driver *driver)
 			engineValueOffset = VEH_BIRTH_ENGINE_ID(characterMetadata, characterIDs, driver) * sizeof(s32);
 			engineValueOffset += metaPhysByteOffset;
 			metaPhysValue = (u8 *)((size_t)engineValueOffset + (size_t)metaPhysBase);
-			driverField = (u8 *)driver + driverFieldOffset;
+			driverField = DRIVER_META_PHYS_FIELD(driver, driverFieldOffset);
 			*(VehBirthHalfword *)driverField = *(VehBirthHalfword *)(metaPhysValue + offsetof(struct MetaPhys, value));
 			break;
 
@@ -833,7 +838,7 @@ void VehBirth_SetConsts(struct Driver *driver)
 			engineValueOffset = VEH_BIRTH_ENGINE_ID(characterMetadata, characterIDs, driver) * sizeof(s32);
 			engineValueOffset += metaPhysByteOffset;
 			metaPhysValue = (u8 *)((size_t)engineValueOffset + (size_t)metaPhysBase);
-			driverField = (u8 *)driver + driverFieldOffset;
+			driverField = DRIVER_META_PHYS_FIELD(driver, driverFieldOffset);
 			*(VehBirthWord *)driverField = *(VehBirthWord *)(metaPhysValue + offsetof(struct MetaPhys, value));
 			break;
 		}

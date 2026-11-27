@@ -1980,10 +1980,9 @@ struct Driver
 	// 0x670 - size of pool object
 };
 
-enum
-{
-	DRIVER_NTSC_RETAIL_SIZE = 0x62c,
-};
+// The driver up to the fields native adds after retail's: what a driver birth
+// asks the pool for and clears. 0x62c where pointers are four bytes.
+#define DRIVER_NTSC_RETAIL_SIZE ((int)offsetof(struct Driver, ghostTape))
 
 CTR_STATIC_ASSERT(sizeof(struct MetaPhys) == 0x1C);
 CTR_STATIC_ASSERT(sizeof(DriverFunc) == sizeof(void *));
@@ -2056,7 +2055,13 @@ CTR_STATIC_ASSERT(sizeof(RevEngineChargeState) == 0x1);
 CTR_STATIC_ASSERT(sizeof(RevEngineLockoutFlags) == 0x1);
 CTR_STATIC_ASSERT(sizeof(EngineSoundMode) == 0x1);
 
-CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Driver, ghostTape) == DRIVER_NTSC_RETAIL_SIZE);
+CTR_RETAIL_LAYOUT_ASSERT(DRIVER_NTSC_RETAIL_SIZE == 0x62c);
+// A metaPhys row names its Driver field by retail offset (GRAVITY_OFFSET...);
+// the constant block they fall in has no pointers, so it moves as one piece.
+#define DRIVER_META_PHYS_FIELD(driver, retailOffset) \
+	((u8 *)&(driver)->const_Gravity + ((retailOffset) - GRAVITY_OFFSET))
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Driver, const_Gravity) == GRAVITY_OFFSET);
+CTR_STATIC_ASSERT(sizeof(struct Driver) < THREAD_LARGE_STACK_SIZE - sizeof(struct Item)); // a driver fits its pool record
 CTR_STATIC_ASSERT(sizeof(((struct Driver *)0)->funcPtrs) == DRIVER_FUNC_COUNT * sizeof(DriverFunc));
 CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Driver, funcPtrs) == 0x54);
 CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Driver, velocity) == 0x88);

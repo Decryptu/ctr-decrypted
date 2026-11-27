@@ -815,7 +815,7 @@ int AP_CapabilityRankValueForOffset(int offset, int rank)
 // to an engine write and no field is named twice.
 static void AP_CapabilityWriteStat(struct Driver *driver, const struct MetaPhys *row, int value)
 {
-	u8 *dst = (u8 *)driver + row->offset;
+	u8 *dst = DRIVER_META_PHYS_FIELD(driver, row->offset);
 	u32 raw = (u32)value;
 
 	if (row->size == 1)

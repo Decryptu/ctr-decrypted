@@ -65,6 +65,11 @@ static struct NativeSpawnPoolRequest shape(uint32_t reserve, int renderBucketSiz
 	r.retailSmall = (poolScale * 0x19) >> 10;
 	r.retailMedium = poolScale >> 7;
 	r.instanceItemSize = 0x74u + 0x88u * (uint32_t)players;
+	r.threadItemSize = 0x48u;
+	r.smallItemSize = 0x48u;
+	r.mediumItemSize = 0x88u;
+	r.bucketEntrySize = 8u;
+	r.alignment = 4u;
 	r.numPlayers = players;
 	r.retailBucketBytes = (uint32_t)renderBucketSize;
 	return r;
@@ -72,12 +77,12 @@ static struct NativeSpawnPoolRequest shape(uint32_t reserve, int renderBucketSiz
 
 static int layout_ok(const struct NativeSpawnPoolRequest *r, const struct NativeSpawnPoolPlan *p)
 {
-	uint32_t threadEnd = p->threadOffset + (uint32_t)p->threadItems * CTR_NATIVE_SPAWN_THREAD_ITEM_SIZE;
+	uint32_t threadEnd = p->threadOffset + (uint32_t)p->threadItems * r->threadItemSize;
 	uint32_t instEnd = p->instanceOffset + (uint32_t)p->instanceItems * r->instanceItemSize;
-	uint32_t smallEnd = p->smallOffset + (uint32_t)p->smallItems * CTR_NATIVE_SPAWN_SMALL_ITEM_SIZE;
-	uint32_t mediumEnd = p->mediumOffset + (uint32_t)p->mediumItems * CTR_NATIVE_SPAWN_MEDIUM_ITEM_SIZE;
+	uint32_t smallEnd = p->smallOffset + (uint32_t)p->smallItems * r->smallItemSize;
+	uint32_t mediumEnd = p->mediumOffset + (uint32_t)p->mediumItems * r->mediumItemSize;
 	uint32_t bucketEnd = p->bucketOffset + p->bucketBytes;
-	uint32_t need = ((uint32_t)p->instanceItems * (uint32_t)r->numPlayers + 1u) * CTR_NATIVE_SPAWN_BUCKET_ENTRY_SIZE;
+	uint32_t need = ((uint32_t)p->instanceItems * (uint32_t)r->numPlayers + 1u) * r->bucketEntrySize;
 
 	return (threadEnd <= p->instanceOffset) && (instEnd <= p->smallOffset) && (smallEnd <= p->mediumOffset) &&
 	       (mediumEnd <= p->bucketOffset) && (bucketEnd == p->totalBytes) && (p->totalBytes <= r->reserveBytes) &&

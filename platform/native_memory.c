@@ -25,9 +25,12 @@
 #if CTR_NATIVE_MEMPACK_RETAIL_PRESSURE
 // NOTE(aalhendi): Retail pressure mode exposes the NTSC-U 926 mempack window
 // inside a 2 MiB backing store.
-#define CTR_NATIVE_MEMPACK_BUFFER_SIZE  0x200000u
+// The arena also holds runtime pools, at most twice retail's size on a 64-bit
+// host (docs/64BIT.md), so there it is twice as long. It starts where retail's
+// does, so level data keeps retail's RAM addresses on every host.
 #define CTR_NATIVE_MEMPACK_START_OFFSET 0xba9f0u
-#define CTR_NATIVE_MEMPACK_SIZE         0x144e10u
+#define CTR_NATIVE_MEMPACK_SIZE         ((u32)(0x144e10u * (sizeof(void *) / 4u)))
+#define CTR_NATIVE_MEMPACK_BUFFER_SIZE  (CTR_NATIVE_MEMPACK_START_OFFSET + CTR_NATIVE_MEMPACK_SIZE + MEMPACK_PS1_END_GUARD_SIZE)
 #else
 // The expanded arena keeps retail's 2 KiB tail guard. Retail computes its pack
 // size as ramSize - startOffset - 0x800 (game/MEMPACK.c), and every read path

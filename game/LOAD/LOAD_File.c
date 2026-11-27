@@ -198,7 +198,7 @@ void LOAD_DramFileCallback(struct LoadQueueSlot *lqs)
 	GAME_LOAD_QUEUE_READY = 1;
 }
 
-void *LOAD_DramFile(void *bigfilePtr, int subfileIndex, void *ptrDestination, u32 *sizePtr, int callbackOrFlags)
+void *LOAD_DramFile(void *bigfilePtr, int subfileIndex, void *ptrDestination, u32 *sizePtr, intptr_t callbackOrFlags)
 {
 	struct LoadQueueSlot lqs;
 	void *loadedFile;
@@ -270,7 +270,7 @@ void LOAD_VramFileCallback(struct LoadQueueSlot *lqs)
 	GAME_LOAD_VRAM_FINISHED = GAME_TRACKER->frameTimer_VsyncCallback;
 }
 
-void *LOAD_VramFile(void *bigfilePtr, int subfileIndex, void *ptrDestination, u32 *sizePtr, int callbackOrFlags)
+void *LOAD_VramFile(void *bigfilePtr, int subfileIndex, void *ptrDestination, u32 *sizePtr, intptr_t callbackOrFlags)
 {
 	struct LoadQueueSlot lqs;
 	void *loadedFile;

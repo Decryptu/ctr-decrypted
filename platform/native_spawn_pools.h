@@ -40,11 +40,6 @@
 // counts do not, so the caller can fall back to the retail MEMPACK path.
 #define CTR_NATIVE_SPAWN_POOL_HEADROOM 3
 
-#define CTR_NATIVE_SPAWN_THREAD_ITEM_SIZE 0x48u
-#define CTR_NATIVE_SPAWN_SMALL_ITEM_SIZE 0x48u
-#define CTR_NATIVE_SPAWN_MEDIUM_ITEM_SIZE 0x88u
-#define CTR_NATIVE_SPAWN_BUCKET_ENTRY_SIZE 8u
-
 struct NativeSpawnPoolRequest
 {
 	uint32_t reserveBytes;
@@ -54,6 +49,11 @@ struct NativeSpawnPoolRequest
 	int retailSmall;            // (poolScale * 0x19) >> 10
 	int retailMedium;           // poolScale >> 7
 	uint32_t instanceItemSize;  // sizeof(Instance) + sizeof(InstDrawPerPlayer) * players
+	uint32_t threadItemSize;    // sizeof(struct Thread)
+	uint32_t smallItemSize;     // THREAD_SMALL_STACK_SIZE
+	uint32_t mediumItemSize;    // THREAD_MEDIUM_STACK_SIZE
+	uint32_t bucketEntrySize;   // sizeof(struct RenderBucketEntry): two pointers
+	uint32_t alignment;         // a host pointer's size; every pool starts on it
 	int numPlayers;
 	uint32_t retailBucketBytes; // renderBucketSize
 };
@@ -74,17 +74,17 @@ struct NativeSpawnPoolPlan
 	uint32_t totalBytes;
 };
 
-static inline uint32_t NativeSpawnPools_Align4(uint32_t value)
+static inline uint64_t NativeSpawnPools_Align(uint64_t value, uint32_t alignment)
 {
-	return (value + 3u) & ~3u;
+	return (value + alignment - 1u) & ~(uint64_t)(alignment - 1u);
 }
 
 // Bytes a render bucket needs for `instances` drawn by every player, plus the
 // terminator word, never less than the retail bucket.
-static inline uint32_t NativeSpawnPools_BucketBytes(int instances, int numPlayers, uint32_t retailBytes)
+static inline uint32_t NativeSpawnPools_BucketBytes(int instances, int numPlayers, uint32_t retailBytes, uint32_t entrySize)
 {
 	uint32_t players = (numPlayers > 0) ? (uint32_t)numPlayers : 1u;
-	uint32_t bytes = ((uint32_t)instances * players + 1u) * CTR_NATIVE_SPAWN_BUCKET_ENTRY_SIZE;
+	uint32_t bytes = ((uint32_t)instances * players + 1u) * entrySize;
 	return (bytes > retailBytes) ? bytes : retailBytes;
 }
 
@@ -92,7 +92,8 @@ static inline uint32_t NativeSpawnPools_BucketBytes(int instances, int numPlayer
 // or 0 when not even the retail counts fit (caller keeps the retail path).
 static inline int NativeSpawnPools_Plan(const struct NativeSpawnPoolRequest *req, struct NativeSpawnPoolPlan *plan)
 {
-	if ((req == 0) || (plan == 0) || (req->instanceItemSize == 0u) || ((req->instanceItemSize & 3u) != 0u))
+	if ((req == 0) || (plan == 0) || (req->alignment == 0u) || ((req->alignment & (req->alignment - 1u)) != 0u) ||
+	    (req->instanceItemSize == 0u) || ((req->instanceItemSize % req->alignment) != 0u))
 		return 0;
 
 	for (int headroom = CTR_NATIVE_SPAWN_POOL_HEADROOM; headroom >= 0; headroom--)
@@ -107,15 +108,15 @@ static inline int NativeSpawnPools_Plan(const struct NativeSpawnPoolRequest *req
 		p.mediumItems = req->retailMedium * (1 + headroom);
 
 		p.threadOffset = (uint32_t)offset;
-		offset += NativeSpawnPools_Align4((uint32_t)p.threadItems * CTR_NATIVE_SPAWN_THREAD_ITEM_SIZE);
+		offset = NativeSpawnPools_Align(offset + (uint64_t)(uint32_t)p.threadItems * req->threadItemSize, req->alignment);
 		p.instanceOffset = (uint32_t)offset;
-		offset += (uint64_t)(uint32_t)p.instanceItems * req->instanceItemSize;
+		offset = NativeSpawnPools_Align(offset + (uint64_t)(uint32_t)p.instanceItems * req->instanceItemSize, req->alignment);
 		p.smallOffset = (uint32_t)offset;
-		offset += (uint64_t)(uint32_t)p.smallItems * CTR_NATIVE_SPAWN_SMALL_ITEM_SIZE;
+		offset = NativeSpawnPools_Align(offset + (uint64_t)(uint32_t)p.smallItems * req->smallItemSize, req->alignment);
 		p.mediumOffset = (uint32_t)offset;
-		offset += (uint64_t)(uint32_t)p.mediumItems * CTR_NATIVE_SPAWN_MEDIUM_ITEM_SIZE;
+		offset = NativeSpawnPools_Align(offset + (uint64_t)(uint32_t)p.mediumItems * req->mediumItemSize, req->alignment);
 		p.bucketOffset = (uint32_t)offset;
-		p.bucketBytes = NativeSpawnPools_BucketBytes(p.instanceItems, req->numPlayers, req->retailBucketBytes);
+		p.bucketBytes = NativeSpawnPools_BucketBytes(p.instanceItems, req->numPlayers, req->retailBucketBytes, req->bucketEntrySize);
 		offset += p.bucketBytes;
 
 		if (offset <= (uint64_t)req->reserveBytes)

@@ -766,7 +766,7 @@ void RenderAllBoxSceneSplitLines(struct GameTracker *gGT)
 void RenderBucket_QueueAllInstances(struct GameTracker *gGT)
 {
 	int lod;
-	int *RBI;
+	struct Instance **RBI; // the bucket entry being written: its first field is the instance
 	int numPlyrCurrGame = gGT->numPlyrCurrGame;
 
 	if ((gGT->renderFlags & RENDER_FLAG_RENDER_BUCKET) == 0)
@@ -787,7 +787,7 @@ void RenderBucket_QueueAllInstances(struct GameTracker *gGT)
 	                                        gGT->gameMode1 & PAUSE_ALL);
 
 	// null terminator at end of list
-	*RBI = 0;
+	*RBI = NULL; // the terminator
 }
 
 void RenderAllNormalParticles(struct GameTracker *gGT)

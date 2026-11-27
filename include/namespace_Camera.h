@@ -14,15 +14,15 @@ enum CameraPathFlags
 
 // Camera scratchpad overlay rooted at retail scratchpad 0x1f800108.
 // Camera-owned fields begin at work+0x20c, absolute scratchpad 0x1f800314.
+// The camera's scratch starts with the collision search it runs
+// (CAM_FindClosestQuadblock): that is a ScratchpadStruct, which holds
+// pointers, so the camera's own fields follow it wherever it ends.
 struct CameraCollisionScratch
 {
-	u8 pad_000[0x1e];
-	s16 terrainHeightFloor;
-	u8 pad_020[0x20c - 0x20];
+	struct ScratchpadStruct sps;
 };
 
-CTR_STATIC_ASSERT(offsetof(struct CameraCollisionScratch, terrainHeightFloor) == 0x01e);
-CTR_STATIC_ASSERT(sizeof(struct CameraCollisionScratch) == 0x20c);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct CameraCollisionScratch) == 0x20c);
 
 struct CameraAngleAxisScratchCamera
 {
@@ -68,9 +68,8 @@ struct CameraAngleAxisScratch
 };
 
 CTR_STATIC_ASSERT(offsetof(struct CameraAngleAxisScratch, collision) == 0x0);
-CTR_STATIC_ASSERT(offsetof(struct CameraAngleAxisScratch, collision.terrainHeightFloor) == 0x01e);
-CTR_STATIC_ASSERT(offsetof(struct CameraAngleAxisScratch, camera) == 0x20c);
-CTR_STATIC_ASSERT(sizeof(struct CameraAngleAxisScratch) == 0x258);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct CameraAngleAxisScratch, camera) == 0x20c);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct CameraAngleAxisScratch) == 0x258);
 
 struct CameraScratchWork
 {
@@ -85,11 +84,10 @@ struct CameraScratchWork
 };
 
 CTR_STATIC_ASSERT(offsetof(struct CameraScratchWork, collision) == 0x0);
-CTR_STATIC_ASSERT(offsetof(struct CameraScratchWork, collision.terrainHeightFloor) == 0x01e);
-CTR_STATIC_ASSERT(offsetof(struct CameraScratchWork, camera) == 0x20c);
-CTR_STATIC_ASSERT(offsetof(struct CameraScratchWork, sideOffset) == 0x27c);
-CTR_STATIC_ASSERT(offsetof(struct CameraScratchWork, trackPathPos) == 0x288);
-CTR_STATIC_ASSERT(offsetof(struct CameraScratchWork, trackPathLookaheadPos) == 0x290);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct CameraScratchWork, camera) == 0x20c);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct CameraScratchWork, sideOffset) == 0x27c);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct CameraScratchWork, trackPathPos) == 0x288);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct CameraScratchWork, trackPathLookaheadPos) == 0x290);
 
 static inline struct CameraAngleAxisScratch *CameraScratchWork_AsAngleAxis(struct CameraScratchWork *work)
 {
