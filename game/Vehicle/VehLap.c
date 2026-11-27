@@ -71,7 +71,7 @@ void VehLap_UpdateProgress(struct Driver *driver)
 		return;
 	}
 
-	nodes = level->ptr_restart_points;
+	nodes = PSX_GET(level->ptr_restart_points);
 #ifdef CTR_AP
 	// A3-26: a bot off its nav line takes the checkpoint of the quad under it,
 	// and retail does not skip a quad without one (0xff) for a bot as it does
@@ -149,7 +149,7 @@ void VehLap_UpdateProgress(struct Driver *driver)
 	// NOTE(aalhendi): Retail publishes the projected distance before wrapping
 	// it by the track length, so preserve both writes.
 	CTR_PSX_OBSERVE_MEMORY(driver->distanceToFinish_curr);
-	trackLength = (s32)gameTracker->level1->ptr_restart_points[0].distToFinish << VEH_LAP_TRACK_DISTANCE_SCALE_SHIFT;
+	trackLength = (s32)PSX_GET(gameTracker->level1->ptr_restart_points)[0].distToFinish << VEH_LAP_TRACK_DISTANCE_SCALE_SHIFT;
 	// NOTE(aalhendi): Retail uses signed div/mfhi for this remainder.
 	driver->distanceToFinish_curr = progress % trackLength;
 

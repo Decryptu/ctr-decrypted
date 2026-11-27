@@ -58,17 +58,15 @@ void UI_DrawNumWumpa(s16 posX, s16 posY, struct Driver *d)
 		s32 tens = (s8)(currWumpa / UI_DRAWNUM_DECIMAL_BASE);
 		s32 ones = currWumpa - tens * UI_DRAWNUM_DECIMAL_BASE;
 
-		firstIcons += tens * sizeof(struct Icon *);
-		UI_NUM_DRAW_POLY_GT4(*(struct Icon **)(firstIcons + sizeof(struct IconGroup)), posX, posY, &gGT->backBuffer->primMem, gGT->pushBuffer_UI.ptrOT,
+		UI_NUM_DRAW_POLY_GT4(ICONGROUP_GETICON(firstIcons, tens), posX, posY, &gGT->backBuffer->primMem, gGT->pushBuffer_UI.ptrOT,
 		                     ((Color *)UI_NUM_COLORS[ORANGE])[0], ((Color *)UI_NUM_COLORS[ORANGE])[1], ((Color *)UI_NUM_COLORS[ORANGE])[2],
 		                     ((Color *)UI_NUM_COLORS[ORANGE])[3], 0, FP(1.0));
 
 		// NOTE(aalhendi): Each digit takes a fresh tracker and palette snapshot.
 		{
 			struct GameTracker *nextGT = GAME_TRACKER;
-			s32 byteOffset = ones * sizeof(struct Icon *);
 			struct IconGroup *nextGroup = nextGT->iconGroup[UI_DRAWNUM_DIGIT_ICON_GROUP];
-			UI_NUM_DRAW_POLY_GT4(*(struct Icon **)((u8 *)nextGroup + byteOffset + sizeof(struct IconGroup)), posX + UI_DRAWNUM_WUMPA_DIGIT_SPACING_X, posY,
+			UI_NUM_DRAW_POLY_GT4(ICONGROUP_GETICON(nextGroup, ones), posX + UI_DRAWNUM_WUMPA_DIGIT_SPACING_X, posY,
 			                     &nextGT->backBuffer->primMem, nextGT->pushBuffer_UI.ptrOT, ((Color *)UI_NUM_COLORS[ORANGE])[0],
 			                     ((Color *)UI_NUM_COLORS[ORANGE])[1], ((Color *)UI_NUM_COLORS[ORANGE])[2], ((Color *)UI_NUM_COLORS[ORANGE])[3], 0, FP(1.0));
 		}

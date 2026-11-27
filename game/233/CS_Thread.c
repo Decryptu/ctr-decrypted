@@ -664,7 +664,7 @@ afterCameraAndSkipChecks:
 			if (instance != 0)
 			{
 				s32 numHeaders = instance->model->numHeaders;
-				if (numHeaders != 0 && (modelHeader = instance->model->headers) != 0)
+				if (numHeaders != 0 && (modelHeader = PSX_GET(instance->model->headers)) != 0)
 				{
 					lodIndexState = opcodeMeta->arg1.i;
 					if (lodIndexState >= numHeaders)
@@ -1128,8 +1128,8 @@ void CS_Thread_MoveOnPath(struct Thread *t)
 		register s32 cocoFraction CTR_PSX_REGISTER("$7");
 		if (cocoLevel->numSpawnType2 <= 0)
 			return;
-		entry = cocoLevel->ptrSpawnType2;
-		points = entry->coords.positions;
+		entry = PSX_GET(cocoLevel->ptrSpawnType2);
+		points = PSX_GET(entry->coords.positions);
 		staticPath = entry;
 		if (!points)
 			return;
@@ -1172,8 +1172,8 @@ void CS_Thread_MoveOnPath(struct Thread *t)
 			return;
 		}
 
-		spawnEntry = &level->ptrSpawnType2[pathIndex];
-		pathPoints = spawnEntry->coords.positions;
+		spawnEntry = &PSX_GET(level->ptrSpawnType2)[pathIndex];
+		pathPoints = PSX_GET(spawnEntry->coords.positions);
 
 		if (pathPoints == 0)
 		{
@@ -1246,8 +1246,8 @@ void CS_Thread_MoveOnPath(struct Thread *t)
 			return;
 		}
 
-		staticPath = &level->ptrSpawnType2_PosRot[pathIndex];
-		posRot = staticPath->coords.posRot;
+		staticPath = &PSX_GET(level->ptrSpawnType2_PosRot)[pathIndex];
+		posRot = PSX_GET(staticPath->coords.posRot);
 
 		if (posRot == 0)
 		{

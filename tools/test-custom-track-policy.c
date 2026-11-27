@@ -713,16 +713,16 @@ enum
 //                    and ST1_CREDITS NULL. The full-width-table-with-holes
 //                    encoding no retail level uses.
 //
-// A non-NULL entry's actual value is irrelevant to the predicate, so these use
-// a single dummy address to stand for "present".
+// A non-zero entry's actual value is irrelevant to the predicate, so these use
+// a single dummy PSX address to stand for "present".
 static void test_st1_entry_present(void)
 {
-	static const int present = 0;
-	const void *const *entries;
+	enum { present = 0x80100000 };
+	const uint32_t *entries;
 
-	const void *retailArcade[4] = { &present, NULL, &present, &present };
-	const void *retailBattle[1] = { NULL }; // count 0; the array is never indexed
-	const void *babyTPark[7] = { NULL, &present, NULL, NULL, &present, &present, NULL };
+	const uint32_t retailArcade[4] = { present, 0, present, present };
+	const uint32_t retailBattle[1] = { 0 }; // count 0; the array is never indexed
+	const uint32_t babyTPark[7] = { 0, present, 0, 0, present, present, 0 };
 
 	// --- the shape the crash was reported on -------------------------------
 	entries = babyTPark;

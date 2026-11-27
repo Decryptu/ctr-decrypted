@@ -38,7 +38,7 @@ static void reset(void)
     memset(&gt, 0, sizeof gt); memset(&driver, 0, sizeof driver); memset(&quad, 0, sizeof quad);
     sdata->gGT = &gt; sdata->numPlayersFinishedRace = 0;
     gt.drivers[0] = gt.driversInRaceOrder[0] = &driver; gt.numPlyrCurrGame = 1;
-    level.ptr_restart_points = &node; node.distToFinish = 17000; gt.level1 = &level;
+    PSX_SET(level.ptr_restart_points, &node); node.distToFinish = 17000; gt.level1 = &level;
     driver.instSelf = &instance; instance.thread = &thread; thread.modelIndex = DYNAMIC_PLAYER;
     gt.numLaps = 3; driver.driverRank = -1; terrain = 4; laps = finishes = ends = 0;
     nextProgress = 500;

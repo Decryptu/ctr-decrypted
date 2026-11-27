@@ -362,13 +362,13 @@ static int AP_TrapEligibleCrates(int epoch)
 	for (i = 0; i < g_trap_lev_count; i++, def++)
 	{
 		int modelID;
-		if (def->model == 0 || def->ptrInstance == 0)
+		if (PSX_GET(def->model) == 0 || PSX_GET(def->ptrInstance) == 0)
 			continue;
 		// Same low-half mask the Tizi census uses on model->id.
-		modelID = (int)(def->model->id & 0xffff);
+		modelID = (int)(PSX_GET(def->model)->id & 0xffff);
 		if (modelID != PU_RANDOM_CRATE && modelID != PU_FRUIT_CRATE)
 			continue;
-		if ((def->ptrInstance->flags & DRAW_COLLISION_MASK) == 0)
+		if ((PSX_GET(def->ptrInstance)->flags & DRAW_COLLISION_MASK) == 0)
 			continue;
 		g_trap_crate_present = 1;
 		break;

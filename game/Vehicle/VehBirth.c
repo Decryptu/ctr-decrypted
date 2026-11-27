@@ -62,7 +62,7 @@ void VehBirth_TeleportSelf(struct Driver *d, u32 spawnFlag, int spawnPosY)
 		return;
 	}
 
-	if (initialTracker->level1->ptr_mesh_info == NULL)
+	if (PSX_GET(initialTracker->level1->ptr_mesh_info) == NULL)
 	{
 		return;
 	}
@@ -75,7 +75,7 @@ void VehBirth_TeleportSelf(struct Driver *d, u32 spawnFlag, int spawnPosY)
 	{
 		sps->Union.QuadBlockColl.searchFlags = COLL_SEARCH_HIGH_LOD;
 	}
-	sps->ptr_mesh_info = initialTracker->level1->ptr_mesh_info;
+	sps->ptr_mesh_info = PSX_GET(initialTracker->level1->ptr_mesh_info);
 
 	initialTracker->gameMode2 &= ~VEH_FREEZE_DOOR;
 
@@ -100,7 +100,7 @@ void VehBirth_TeleportSelf(struct Driver *d, u32 spawnFlag, int spawnPosY)
 			// NOTE(aalhendi): Retail compares the fixed-width door name as four
 			// words; the may-alias type keeps those loads valid in native C.
 			numInstances = (int)GAME_TRACKER->level1->numInstances;
-			doorInst = GAME_TRACKER->level1->ptrInstDefs;
+			doorInst = PSX_GET(GAME_TRACKER->level1->ptrInstDefs);
 			if (numInstances > 0)
 			{
 				instIndex = 0;
@@ -257,9 +257,9 @@ void VehBirth_TeleportSelf(struct Driver *d, u32 spawnFlag, int spawnPosY)
 
 			if (shouldSpawnOutside)
 			{
-				posBottom.x = GAME_TRACKER->level1->ptrSpawnType2_PosRot[1].coords.posRot[1].pos.x;
-				posBottom.y = GAME_TRACKER->level1->ptrSpawnType2_PosRot[1].coords.posRot[1].pos.y + VEH_BIRTH_DRIVER_BOTTOM_Y_OFFSET;
-				posBottom.z = GAME_TRACKER->level1->ptrSpawnType2_PosRot[1].coords.posRot[1].pos.z;
+				posBottom.x = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2_PosRot)[1].coords.posRot)[1].pos.x;
+				posBottom.y = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2_PosRot)[1].coords.posRot)[1].pos.y + VEH_BIRTH_DRIVER_BOTTOM_Y_OFFSET;
+				posBottom.z = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2_PosRot)[1].coords.posRot)[1].pos.z;
 				goto VehBirth_PositionReady;
 			}
 
@@ -275,9 +275,9 @@ void VehBirth_TeleportSelf(struct Driver *d, u32 spawnFlag, int spawnPosY)
 			{
 				if (GAME_TRACKER->podiumRewardID != NOFUNC)
 				{
-					posBottom.x = GAME_TRACKER->level1->ptrSpawnType2_PosRot[1].coords.posRot[0].pos.x;
-					posBottom.y = GAME_TRACKER->level1->ptrSpawnType2_PosRot[1].coords.posRot[0].pos.y + VEH_BIRTH_DRIVER_BOTTOM_Y_OFFSET;
-					posBottom.z = GAME_TRACKER->level1->ptrSpawnType2_PosRot[1].coords.posRot[0].pos.z;
+					posBottom.x = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2_PosRot)[1].coords.posRot)[0].pos.x;
+					posBottom.y = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2_PosRot)[1].coords.posRot)[0].pos.y + VEH_BIRTH_DRIVER_BOTTOM_Y_OFFSET;
+					posBottom.z = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2_PosRot)[1].coords.posRot)[0].pos.z;
 					goto VehBirth_PositionReady;
 				}
 
@@ -344,7 +344,7 @@ void VehBirth_TeleportSelf(struct Driver *d, u32 spawnFlag, int spawnPosY)
 
 			driver->actionsFlagSet |= ACTION_BEHIND_START_LINE;
 #ifdef CTR_NATIVE
-			if (tracker->level1->ptr_restart_points == NULL)
+			if (PSX_GET(tracker->level1->ptr_restart_points) == NULL)
 			{
 				// NOTE(aalhendi): Retail does an unguarded low-address read here;
 				// native cannot dereference PS1 null-space for menu/hub-style LEVs.
@@ -353,7 +353,7 @@ void VehBirth_TeleportSelf(struct Driver *d, u32 spawnFlag, int spawnPosY)
 			else
 #endif
 			{
-				driver->distanceToFinish_checkpoint = tracker->level1->ptr_restart_points[0].distToFinish << 3;
+				driver->distanceToFinish_checkpoint = PSX_GET(tracker->level1->ptr_restart_points)[0].distToFinish << 3;
 			}
 			posBottom.x = tracker->level1->DriverSpawn[spawnIndex].pos.x;
 			posBottom.y = tracker->level1->DriverSpawn[spawnIndex].pos.y + VEH_BIRTH_DRIVER_BOTTOM_Y_OFFSET;
@@ -450,7 +450,7 @@ VehBirth_PositionReady:
 				register u32 updatedRotY CTR_PSX_REGISTER("$2");
 
 				bossTracker = GAME_TRACKER;
-				updatedRotY = (u16)bossTracker->level1->ptrSpawnType2_PosRot[1].coords.posRot[1].rot.y;
+				updatedRotY = (u16)PSX_GET(PSX_GET(bossTracker->level1->ptrSpawnType2_PosRot)[1].coords.posRot)[1].rot.y;
 				updatedRotY += ANG_HALF_PI;
 				rotY = ANG_MODULO_TWO_PI(updatedRotY);
 
@@ -495,7 +495,7 @@ VehBirth_PositionReady:
 			{
 				if (GAME_TRACKER->podiumRewardID != NOFUNC)
 				{
-					driver->rotCurr.y = ANG_MODULO_TWO_PI(GAME_TRACKER->level1->ptrSpawnType2_PosRot[1].coords.posRot[0].rot.y);
+					driver->rotCurr.y = ANG_MODULO_TWO_PI(PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2_PosRot)[1].coords.posRot)[0].rot.y);
 					goto VehBirth_RotationReady;
 				}
 
@@ -708,9 +708,9 @@ struct Model *VehBirth_GetModelByName(char *searchName)
 {
 	int i;
 	register struct Model *m CTR_PSX_REGISTER("$6");
-	register struct Model **loadedModels CTR_PSX_REGISTER("$2");
+	register PsxModelPtr *loadedModels CTR_PSX_REGISTER("$2");
 	struct Model *extraModel;
-	struct Model **models;
+	PsxModelPtr *models;
 
 	m = NULL;
 	i = (s32)(size_t)m;
@@ -744,7 +744,7 @@ struct Model *VehBirth_GetModelByName(char *searchName)
 	if (loadedModels != NULL)
 	{
 		models = loadedModels;
-		m = models[0];
+		m = PSX_GET(models[0]);
 		if (m != NULL)
 		{
 			do
@@ -755,7 +755,7 @@ struct Model *VehBirth_GetModelByName(char *searchName)
 				}
 
 				models++;
-				m = models[0];
+				m = PSX_GET(models[0]);
 			} while (m != NULL);
 		}
 	}
@@ -893,7 +893,7 @@ void VehBirth_TireSprites(struct Thread *t)
 	int battleLifeLimit;
 	int driverID = d->driverID;
 
-	struct Icon **tire = ICONGROUP_GETICONS(tireAnim);
+	PsxIconPtr *tire = ICONGROUP_GETICONS(tireAnim);
 	d->wheelSprites = tire;
 
 	d->wheelSize = VEH_BIRTH_WHEEL_SIZE;

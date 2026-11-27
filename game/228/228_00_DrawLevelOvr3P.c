@@ -360,7 +360,7 @@ void DrawLevelOvr3P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspL
 	DrawLevelOvr1P_Scratch()->waterEnvMapPtr32 = (u32)(u32)waterEnvMap;
 	DrawLevelOvr1P_Scratch()->primMemEndPtr32 = (u32)(u32)primMem->end;
 
-	if (mesh->ptrQuadBlockArray == NULL)
+	if (PSX_GET(mesh->ptrQuadBlockArray) == NULL)
 	{
 		return;
 	}

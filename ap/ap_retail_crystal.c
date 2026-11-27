@@ -54,6 +54,7 @@
 #include "ap_retail_crystal.h"
 #include "ap_retail_asset.h" // AP_RetailAsset_ReadSubfile (shared with #256)
 #include "ap_hooks.h"        // AP_LogLine
+#include <platform/native_psx_space.h>
 
 // Character 0's 1P arcade pack. The pack is per-racer (BI_1PARCADEPACK +
 // characterID, LOAD_Assets.c:164) but the crystal is a shared object: all
@@ -69,7 +70,8 @@
 
 #define MODELHEADER_STRIDE 0x40 // CTR_STATIC_ASSERT'd in RenderBucket_QueueExecute.c
 
-static u8  s_packBuf[AP_CRYSTAL_PACK_BUF]; // retained: the model points into it
+// Retained: the model points into it. In PSX space, as disc-format data.
+static u8 *s_packBuf;
 static int s_harvestState;                 // 0 = untried, 1 = ready, 2 = failed (do not retry)
 
 static struct Model *s_crystalModel;
@@ -106,8 +108,8 @@ static struct Model *AP_CrystalFindModel(const u8 *body, int size, int wantID)
 
 		if (m->id == (s16)wantID)
 		{
-			if (m->numHeaders <= 0 || m->headers == 0 || (const u8 *)m->headers < body ||
-			    (const u8 *)m->headers + (u32)m->numHeaders * MODELHEADER_STRIDE > body + size)
+			if (m->numHeaders <= 0 || PSX_GET(m->headers) == 0 || (const u8 *)PSX_GET(m->headers) < body ||
+			    (const u8 *)PSX_GET(m->headers) + (u32)m->numHeaders * MODELHEADER_STRIDE > body + size)
 				return 0;
 			return m;
 		}
@@ -125,7 +127,9 @@ static void AP_CrystalHarvest(void)
 
 	AP_LogLine("[AP CRYSTAL] harvesting the retail crystal from the game data...\n");
 
-	body = AP_RetailAsset_ReadSubfile(AP_CRYSTAL_SRC_PACK, 1, s_packBuf, AP_CRYSTAL_PACK_BUF, &size);
+	if (s_packBuf == 0)
+		s_packBuf = PsxSpace_Alloc(AP_CRYSTAL_PACK_BUF);
+	body = (s_packBuf != 0) ? AP_RetailAsset_ReadSubfile(AP_CRYSTAL_SRC_PACK, 1, s_packBuf, AP_CRYSTAL_PACK_BUF, &size) : 0;
 	if (body == 0)
 	{
 		AP_LogLine("[AP CRYSTAL] could not read the source model pack; progression keeps the marker\n");

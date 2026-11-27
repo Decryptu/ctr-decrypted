@@ -1,4 +1,5 @@
 #include <common.h>
+#include <platform/native_psx_space.h>
 
 enum
 {
@@ -111,8 +112,10 @@ enum
 #if defined(CTR_NATIVE)
 // Oxide's menu model. The main-menu level carries the 15 retail racers only,
 // so his racer model is read from the player's disc on first use (the
-// BIGFILE's high-detail model), relocated like any DRAM file, and kept.
-static u32 s_oxideMenuModelFile[0xC000 / sizeof(u32)];
+// BIGFILE's high-detail model), relocated like any DRAM file, and kept, in
+// PSX space as disc-format data.
+#define MM_OXIDE_MENU_MODEL_BYTES 0xC000
+static u32 *s_oxideMenuModelFile;
 
 static struct Model *MM_Characters_GetOxideModel(void)
 {
@@ -127,9 +130,14 @@ static struct Model *MM_Characters_GetOxideModel(void)
 	struct BigHeader *bigfile = sdata->ptrBigfile1;
 	struct BigEntry *entry = BIG_GETENTRY(bigfile);
 	u32 size = 0;
-	char *file = (char *)s_oxideMenuModelFile;
+	char *file;
 	s_failed = 1;
-	if ((bigfile == NULL) || (((entry[fileIndex].size + 0x7ffu) & ~0x7ffu) > sizeof(s_oxideMenuModelFile)) ||
+	if (s_oxideMenuModelFile == NULL)
+	{
+		s_oxideMenuModelFile = PsxSpace_Alloc(MM_OXIDE_MENU_MODEL_BYTES);
+	}
+	file = (char *)s_oxideMenuModelFile;
+	if ((file == NULL) || (bigfile == NULL) || (((entry[fileIndex].size + 0x7ffu) & ~0x7ffu) > MM_OXIDE_MENU_MODEL_BYTES) ||
 	    (LOAD_ReadFile_ex(bigfile, LT_GETADDR, fileIndex, file, &size, NULL) == NULL))
 	{
 		return NULL;
@@ -151,7 +159,7 @@ static struct Model *MM_Characters_GetOxideModel(void)
 	// Octane's value, fits his hovercraft in the window like the others.
 	for (int i = 0; i < s_model->numHeaders; i++)
 	{
-		struct ModelHeader *header = &s_model->headers[i];
+		struct ModelHeader *header = &PSX_GET(s_model->headers)[i];
 		header->scale.x = (s16)((header->scale.x * 5) >> 3);
 		header->scale.y = (s16)((header->scale.y * 5) >> 3);
 		header->scale.z = (s16)((header->scale.z * 5) >> 3);
@@ -273,8 +281,8 @@ b32 MM_Characters_boolIsInvalid(s16 *iconPerPlayer, s16 characterID, s32 player)
 // specific to main menu lev, altered in oxide mod
 struct Model *MM_Characters_GetModelByName(const char *name)
 {
-	struct Model **models;
-	struct Model **modelList;
+	PsxModelPtr *models;
+	PsxModelPtr *modelList;
 	struct Model *model;
 	struct Level *level1 = GAME_TRACKER->level1;
 
@@ -283,7 +291,7 @@ struct Model *MM_Characters_GetModelByName(const char *name)
 	// if LEV is valid
 	if (level1 != NULL)
 	{
-		modelList = level1->ptrModelsPtrArray;
+		modelList = PSX_GET(level1->ptrModelsPtrArray);
 
 		if (modelList != NULL)
 		{
@@ -292,7 +300,7 @@ struct Model *MM_Characters_GetModelByName(const char *name)
 
 			// loop through all models in array
 			// of model pointers, until nullptr
-			for (model = models[0]; model != NULL; models++, model = models[0])
+			for (model = PSX_GET(models[0]); model != NULL; models++, model = PSX_GET(models[0]))
 			{
 				if ((CTR_ReadU32AlignedLE(&model->name[0]) == CTR_ReadU32AlignedLE(&name[0])) &&
 				    (CTR_ReadU32AlignedLE(&model->name[4]) == CTR_ReadU32AlignedLE(&name[4])) &&

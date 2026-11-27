@@ -2,7 +2,7 @@
 
 static inline const struct SpawnPosRot *RB_Snowball_GetFrame(struct Snowball *snowObj, s32 index)
 {
-	const struct SpawnPosRot *base = GAME_TRACKER->level1->ptrSpawnType2_PosRot[snowObj->snowID].coords.posRot;
+	const struct SpawnPosRot *base = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2_PosRot)[snowObj->snowID].coords.posRot);
 	// NOTE(aalhendi): Keep the byte stride before the base in this 32-bit address calculation.
 	return (const struct SpawnPosRot *)(index * sizeof(struct SpawnPosRot) + (u32)base);
 }
@@ -158,7 +158,7 @@ void RB_Snowball_LInB(struct Instance *inst)
 
 	snowObj->snowID = inst->name[strlen(inst->name) - 1] - '0';
 
-	snowObj->numPoints = GAME_TRACKER->level1->ptrSpawnType2_PosRot[snowObj->snowID].numCoords - 1;
+	snowObj->numPoints = PSX_GET(GAME_TRACKER->level1->ptrSpawnType2_PosRot)[snowObj->snowID].numCoords - 1;
 
 	inst->scale.x = 0x1000;
 	inst->scale.y = 0x1000;

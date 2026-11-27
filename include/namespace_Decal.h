@@ -169,7 +169,8 @@ struct IconGroup
 	// 0x14
 	// struct Icon* icons[0];
 };
-#define ICONGROUP_GETICONS(x) (struct Icon **)((u32)x + sizeof(struct IconGroup))
+#define ICONGROUP_GETICONS(x)    ((PsxIconPtr *)((char *)(x) + sizeof(struct IconGroup)))
+#define ICONGROUP_GETICON(x, i)  PSX_GET(ICONGROUP_GETICONS(x)[i])
 
 CTR_STATIC_ASSERT(sizeof(struct TextureLayout) == 0xC);
 CTR_STATIC_ASSERT(sizeof(struct Icon) == 0x20);

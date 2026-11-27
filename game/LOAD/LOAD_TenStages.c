@@ -441,13 +441,13 @@ int LOAD_TenStages(struct GameTracker *unusedGameTracker, int loadingStage, stru
 	case 5:
 	{
 		struct LevTexLookup *icons;
-		register void *mpkForIcons CTR_PSX_REGISTER("$5");
+		register struct ModelPack *mpkForIcons CTR_PSX_REGISTER("$5");
 		// clear and reset
 		LibraryOfModels_Clear(GAME_TRACKER);
 
 		if (sdata->ptrMPK != 0)
 		{
-			GAME_PLAYER_OBJECT_LIST = (struct Model **)((u32)sdata->ptrMPK + 4);
+			GAME_PLAYER_OBJECT_LIST = ((struct ModelPack *)sdata->ptrMPK)->models;
 		}
 		else
 		{
@@ -467,11 +467,11 @@ int LOAD_TenStages(struct GameTracker *unusedGameTracker, int loadingStage, stru
 		LOAD_GlobalModelPtrs_MPK();
 		DecalGlobal_Clear(GAME_TRACKER);
 
-		mpkForIcons = (void *)sdata->ptrMPK;
-		if ((mpkForIcons != 0) && ((icons = *(struct LevTexLookup **)mpkForIcons) != 0))
+		mpkForIcons = sdata->ptrMPK;
+		if ((mpkForIcons != 0) && ((icons = PSX_GET(mpkForIcons->icons)) != 0))
 		{
 			DecalGlobal_Store(GAME_TRACKER, icons);
-			GAME_TRACKER->mpkIcons = *(int *)sdata->ptrMPK;
+			GAME_TRACKER->mpkIcons = icons;
 		}
 		else
 		{
@@ -687,12 +687,12 @@ int LOAD_TenStages(struct GameTracker *unusedGameTracker, int loadingStage, stru
 			struct GameTracker *levelStoreTracker = GAME_TRACKER;
 			struct Level *lev = sdata->ptrLevelFile;
 			levelStoreTracker->level1 = lev;
-			levelStoreTracker->visMem1 = lev->visMem;
+			levelStoreTracker->visMem1 = PSX_GET(lev->visMem);
 		}
 
 		if (GAME_TRACKER->level1 != 0)
 		{
-			DecalGlobal_Store(GAME_TRACKER, GAME_TRACKER->level1->levTexLookup);
+			DecalGlobal_Store(GAME_TRACKER, PSX_GET(GAME_TRACKER->level1->levTexLookup));
 		}
 
 		DebugFont_Init(GAME_TRACKER);
@@ -700,7 +700,7 @@ int LOAD_TenStages(struct GameTracker *unusedGameTracker, int loadingStage, stru
 		// if level is not nullptr
 		if (GAME_TRACKER->level1 != 0)
 		{
-			LibraryOfModels_Store(GAME_TRACKER, GAME_TRACKER->level1->numModels, GAME_TRACKER->level1->ptrModelsPtrArray);
+			LibraryOfModels_Store(GAME_TRACKER, GAME_TRACKER->level1->numModels, PSX_GET(GAME_TRACKER->level1->ptrModelsPtrArray));
 
 			GAME_TRACKER->ptrCircle = (u32)DecalGlobal_FindInLEV(GAME_TRACKER->level1, GAME_RDATA_NAME(s_circle));
 			GAME_TRACKER->ptrClod = (u32)DecalGlobal_FindInLEV(GAME_TRACKER->level1, GAME_RDATA_NAME(s_clod));
@@ -712,10 +712,10 @@ int LOAD_TenStages(struct GameTracker *unusedGameTracker, int loadingStage, stru
 		// if linked list of icons exists
 		if (GAME_TRACKER->mpkIcons != 0)
 		{
-			GAME_TRACKER->trafficLights.all[0] = DecalGlobal_FindInMPK((struct Icon *)*(u32 *)(GAME_TRACKER->mpkIcons + 4), GAME_RDATA_NAME(s_lightredoff));
-			GAME_TRACKER->trafficLights.all[1] = DecalGlobal_FindInMPK((struct Icon *)*(u32 *)(GAME_TRACKER->mpkIcons + 4), GAME_RDATA_NAME(s_lightredon));
-			GAME_TRACKER->trafficLights.all[2] = DecalGlobal_FindInMPK((struct Icon *)*(u32 *)(GAME_TRACKER->mpkIcons + 4), GAME_RDATA_NAME(s_lightgreenoff));
-			GAME_TRACKER->trafficLights.all[3] = DecalGlobal_FindInMPK((struct Icon *)*(u32 *)(GAME_TRACKER->mpkIcons + 4), GAME_RDATA_NAME(s_lightgreenon));
+			GAME_TRACKER->trafficLights.all[0] = DecalGlobal_FindInMPK(PSX_GET(GAME_TRACKER->mpkIcons->firstIcon), GAME_RDATA_NAME(s_lightredoff));
+			GAME_TRACKER->trafficLights.all[1] = DecalGlobal_FindInMPK(PSX_GET(GAME_TRACKER->mpkIcons->firstIcon), GAME_RDATA_NAME(s_lightredon));
+			GAME_TRACKER->trafficLights.all[2] = DecalGlobal_FindInMPK(PSX_GET(GAME_TRACKER->mpkIcons->firstIcon), GAME_RDATA_NAME(s_lightgreenoff));
+			GAME_TRACKER->trafficLights.all[3] = DecalGlobal_FindInMPK(PSX_GET(GAME_TRACKER->mpkIcons->firstIcon), GAME_RDATA_NAME(s_lightgreenon));
 		}
 
 		GAME_TRACKER->gameMode1_prevFrame = 1;

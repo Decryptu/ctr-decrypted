@@ -6,6 +6,42 @@ struct LngFile
 	s32 offsetToPtrArr;
 };
 
+#if defined(CTR_NATIVE)
+// The file's table holds each string's offset in the file. Retail turns the
+// offsets into pointers in place; native leaves the file as it is and points a
+// host table at the strings, since a 64-bit pointer does not fit the file's
+// 4-byte slots. Also rebuilt after a checkpoint restore moves the file.
+void LOAD_LangFile_IndexStrings(void *file)
+{
+	static char **s_strings;
+	static s32 s_capacity;
+	const struct LngFile *lngFile = file;
+	const u32 *offsets = (const u32 *)((const u8 *)lngFile + lngFile->offsetToPtrArr);
+	s32 count = lngFile->numStrings;
+
+	if (count < 0)
+	{
+		count = 0;
+	}
+	if (count > s_capacity)
+	{
+		char **grown = realloc(s_strings, (size_t)count * sizeof(*grown));
+		if (grown == NULL)
+		{
+			Platform_Fatal("CTR Native - Language", "Could not allocate the language string table.");
+		}
+		s_strings = grown;
+		s_capacity = count;
+	}
+	for (s32 i = 0; i < count; i++)
+	{
+		s_strings[i] = (char *)lngFile + offsets[i];
+	}
+	GAME_LANGUAGE_STRING_COUNT = count;
+	GAME_LANGUAGE_STRINGS = s_strings;
+}
+#endif
+
 // Language index: 0 ja, 1 en, 2 en2, 3 fr, 4 de, 5 it, 6 es, 7 ne.
 void LOAD_LangFile(s32 bigfilePtr, s32 lang)
 {
@@ -35,6 +71,12 @@ void LOAD_LangFile(s32 bigfilePtr, s32 lang)
 		return;
 	}
 
+#if defined(CTR_NATIVE)
+	(void)i;
+	(void)numStrings;
+	(void)strArray;
+	LOAD_LangFile_IndexStrings(lngFile);
+#else
 	{
 		register char **loadedStrings CTR_PSX_REGISTER("$2");
 		register s32 loadedCount CTR_PSX_REGISTER("$3");
@@ -60,4 +102,5 @@ void LOAD_LangFile(s32 bigfilePtr, s32 lang)
 		strArray[i] = (char *)((u32)strArray[i] + (u32)lngFile);
 		i++;
 	} while (i < numStrings);
+#endif
 }

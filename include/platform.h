@@ -16,6 +16,9 @@ void Platform_Shutdown(void);
 // load failure detected mid-stage (e.g. a required driver model that will not
 // load). Platform_Shutdown is idempotent and also registered with atexit, so a
 // double teardown is safe.
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((noreturn))
+#endif
 void Platform_Fatal(const char *title, const char *message);
 void Platform_InitScratchpad(void);
 const struct PlatformMempackArena *Platform_InitMempackArena(void);

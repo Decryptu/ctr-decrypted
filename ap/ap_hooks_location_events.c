@@ -19,13 +19,13 @@ void AP_NotifyCrystalPickup(struct Instance *inst, int driverID)
     if (!ctr_cfg_active() || ctr_crystal_checks.state != 1 || driverID != 0 ||
         !gGT || (gGT->gameMode1 & (ADVENTURE_MODE | CRYSTAL_CHALLENGE)) !=
                     (ADVENTURE_MODE | CRYSTAL_CHALLENGE) || !gGT->level1 || !inst ||
-        !inst->instDef || !gGT->level1->ptrInstDefs) return;
+        !inst->instDef || !PSX_GET(gGT->level1->ptrInstDefs)) return;
 #ifdef CTR_CUSTOM_TRACKS
     if (CustomTrack_ServingLoad(gGT->levelID,
             (gGT->gameMode1 & ADVENTURE_CUP) != 0, gGT->cup.cupID)) return;
 #endif
     for (i=0; i<(int)gGT->level1->numInstances; ++i)
-        if (&gGT->level1->ptrInstDefs[i] == inst->instDef) { index=i; break; }
+        if (&PSX_GET(gGT->level1->ptrInstDefs)[i] == inst->instDef) { index=i; break; }
     if (index < 0) return;
     code=AP_CrystalPickupCode(&ctr_crystal_checks, gGT->levelID,
                              gGT->numPlyrCurrGame, index);

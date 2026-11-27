@@ -1,5 +1,6 @@
 #include <platform/native_track_minimap.h>
 #include <platform/native_racers.h>
+#include <platform/native_psx_space.h>
 #include <platform/native_assets.h>
 #include <platform/native_fs_utf8.h>
 #include <platform/native_gpu.h>
@@ -152,9 +153,9 @@ void NativeRacers_Reload(void)
 	{
 		// A model is the file buffer less its leading u32 pointer-map offset.
 		if (s_racers[r].menuModel)
-			free((u32 *)s_racers[r].menuModel - 1);
+			PsxSpace_Free((u32 *)s_racers[r].menuModel - 1);
 		if (s_racers[r].raceModel)
-			free((u32 *)s_racers[r].raceModel - 1);
+			PsxSpace_Free((u32 *)s_racers[r].raceModel - 1);
 	}
 	memset(s_racers, 0, sizeof s_racers);
 	s_racerCount = -1;
@@ -211,7 +212,8 @@ const char *NativeRacers_ShortName(int racer)
 }
 
 // Read a racer model file and relocate it, as the game loads a DRAM file:
-// a u32 pointer-map offset, the model, then the pointer map.
+// a u32 pointer-map offset, the model, then the pointer map. The buffer is in
+// PSX space, since the model's pointers are PSX addresses.
 static struct Model *NativeRacers_ReadModel(const char *path, int menuScale)
 {
 	FILE *f = NativeFs_OpenRead(path);
@@ -220,11 +222,11 @@ static struct Model *NativeRacers_ReadModel(const char *path, int menuScale)
 	fseek(f, 0, SEEK_END);
 	const long size = ftell(f);
 	fseek(f, 0, SEEK_SET);
-	u32 *file = (size > 8) ? (u32 *)calloc(1, (size_t)size + 4) : NULL;
+	u32 *file = (size > 8) ? (u32 *)PsxSpace_Alloc((size_t)size + 4) : NULL;
 	if ((file == NULL) || (fread(file, 1, (size_t)size, f) != (size_t)size))
 	{
 		fclose(f);
-		free(file);
+		PsxSpace_Free(file);
 		return NULL;
 	}
 	fclose(f);
@@ -233,13 +235,13 @@ static struct Model *NativeRacers_ReadModel(const char *path, int menuScale)
 	char *model = (char *)&file[1];
 	if ((ptrMapOffset <= 0) || ((long)ptrMapOffset + 8 > size - 4))
 	{
-		free(file);
+		PsxSpace_Free(file);
 		return NULL;
 	}
 	struct DramPointerMap *dpm = (struct DramPointerMap *)&model[ptrMapOffset];
 	if ((long)ptrMapOffset + 4 + (long)dpm->numBytes > size - 4)
 	{
-		free(file);
+		PsxSpace_Free(file);
 		return NULL;
 	}
 	LOAD_RunPtrMap(model, (int *)DRAM_GETOFFSETS(dpm), dpm->numBytes >> 2);
@@ -249,7 +251,7 @@ static struct Model *NativeRacers_ReadModel(const char *path, int menuScale)
 	{
 		for (int i = 0; i < m->numHeaders; i++)
 		{
-			struct ModelHeader *header = &m->headers[i];
+			struct ModelHeader *header = &PSX_GET(m->headers)[i];
 			header->scale.x = (s16)((header->scale.x * NATIVE_RACERS_MENU_SCALE_NUM) >> NATIVE_RACERS_MENU_SCALE_SHIFT);
 			header->scale.y = (s16)((header->scale.y * NATIVE_RACERS_MENU_SCALE_NUM) >> NATIVE_RACERS_MENU_SCALE_SHIFT);
 			header->scale.z = (s16)((header->scale.z * NATIVE_RACERS_MENU_SCALE_NUM) >> NATIVE_RACERS_MENU_SCALE_SHIFT);

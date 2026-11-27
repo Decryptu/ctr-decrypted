@@ -65,6 +65,7 @@
 #include "platform/native_audio.c"
 #include "platform/native_clip_scratch.c"
 #include "platform/native_memory.c"
+#include "platform/native_psx_space.c"
 #include "platform/native_level_pointers.c"
 #include "platform/native_checkpoint.c"
 #include "platform/native_checkpoint_file.c"

@@ -2,7 +2,7 @@
 
 void COLL_FIXED_BSPLEAF_TestInstance(struct BSP *node, struct ScratchpadStruct *sps)
 {
-	struct BSP *hitboxes = node->data.leaf.bspHitboxArray;
+	struct BSP *hitboxes = PSX_GET(node->data.leaf.bspHitboxArray);
 	struct BSP *hitbox;
 
 	if (hitboxes == NULL)
@@ -34,9 +34,9 @@ void COLL_FIXED_BSPLEAF_TestInstance(struct BSP *node, struct ScratchpadStruct *
 
 		// Instance-backed collidable hitboxes require an active view flag.
 		// Unbound or noncollidable records still use the geometric test.
-		if ((((*(const u8 *)&hitbox->flag & BSP_HITBOX_COLLIDABLE) == 0) || (hitbox->data.hitbox.instDef == NULL) ||
-		     (hitbox->data.hitbox.instDef->ptrInstance != NULL &&
-		      (hitbox->data.hitbox.instDef->ptrInstance->flags & DRAW_COLLISION_MASK) != 0)) &&
+		if ((((*(const u8 *)&hitbox->flag & BSP_HITBOX_COLLIDABLE) == 0) || (PSX_GET(hitbox->data.hitbox.instDef) == NULL) ||
+		     (PSX_GET(PSX_GET(hitbox->data.hitbox.instDef)->ptrInstance) != NULL &&
+		      (PSX_GET(PSX_GET(hitbox->data.hitbox.instDef)->ptrInstance)->flags & DRAW_COLLISION_MASK) != 0)) &&
 		    (sps->bbox.min.x <= bounds->max.x) && (bounds->min.x <= sps->bbox.max.x) && (sps->bbox.min.y <= bounds->max.y) &&
 		    (bounds->min.y <= sps->bbox.max.y) && (sps->bbox.min.z <= bounds->max.z) && (bounds->min.z <= sps->bbox.max.z))
 		{
@@ -103,5 +103,5 @@ void COLL_FIXED_BotsSearch(const SVec3 *posCurr, const SVec3 *posPrev, struct Sc
 	sps->hitFraction = COLL_FRACTION_ONE;
 	sps->collision.stepFlags = 0;
 	sps->numBspHitboxesHit = 0;
-	COLL_SearchBSP_CallbackPARAM(sps->ptr_mesh_info->bspRoot, &sps->bbox, COLL_FIXED_BSPLEAF_TestInstance, sps);
+	COLL_SearchBSP_CallbackPARAM(PSX_GET(sps->ptr_mesh_info->bspRoot), &sps->bbox, COLL_FIXED_BSPLEAF_TestInstance, sps);
 }

@@ -22,7 +22,7 @@ void RB_Default_LInB(struct Instance *inst)
 	scratch->sps.Union.QuadBlockColl.quadFlagsWanted = QUADBLOCK_FLAG_GROUND | QUADBLOCK_FLAG_COLLISION_SURFACE;
 	scratch->sps.Union.QuadBlockColl.quadFlagsIgnored = 0;
 	scratch->sps.Union.QuadBlockColl.searchFlags = COLL_SEARCH_HIGH_LOD;
-	scratch->sps.ptr_mesh_info = GAME_TRACKER->level1->ptr_mesh_info;
+	scratch->sps.ptr_mesh_info = PSX_GET(GAME_TRACKER->level1->ptr_mesh_info);
 
 	// NOTE(aalhendi): Both ends of the vertical probe reuse each truncated
 	// position component, preserving retail's single load per axis.

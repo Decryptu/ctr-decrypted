@@ -2450,7 +2450,7 @@ struct sData
 	// ============================
 
 	// 8008d088
-	int ptrMPK; // maybe is `void*` instead of `int`
+	void *ptrMPK;
 
 	// 8008d08c
 	// ptrLEV, stored here during loading,
@@ -3429,7 +3429,7 @@ struct sData
 
 	// 8008d870
 	// ptr to array of model pointers (real ND name)
-	struct Model **PLYROBJECTLIST;
+	PsxModelPtr *PLYROBJECTLIST;
 
 	// 8008d874
 	// activated in FUN_80035e20,

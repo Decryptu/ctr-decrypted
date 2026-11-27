@@ -41,7 +41,7 @@ From PowerShell, set `MSYSTEM=MINGW32` and `CHERE_INVOKING=1` and call `C:\msys6
 ### Windows gotchas
 - **Line endings.** Text files are stored with LF (`* text=auto`). `.gitattributes` forces LF on `*.sh`, `*.py`, `*.yml`, `*.patch` and `*.lock`, since the vendor patch hashes depend on it. `fetch-deps.sh` clones with your global git config, so if its tree-hash check fails under `core.autocrlf=true`, run it with `GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.autocrlf GIT_CONFIG_VALUE_0=false`.
 - **Path length.** Keep the checkout at a short path. The repo uses `core.longpaths=true`.
-- **32-bit only.** The engine still assumes 32-bit pointers.
+- **Pointer size.** Releases build as 32-bit x86. Disc-format structs hold PSX addresses, never host pointers: read [64BIT.md](64BIT.md) before touching level, model or nav data.
 
 ## Branches
 - `main`: stable, always builds.

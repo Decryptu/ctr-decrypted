@@ -205,7 +205,7 @@ u32 main(void)
 
 			// ignore threads, because we PopState,
 			// so the threadpool will reset anyway
-			LevInstDef_RePack(gGT->level1->ptr_mesh_info, 0);
+			LevInstDef_RePack(PSX_GET(gGT->level1->ptr_mesh_info), 0);
 
 			sdata->mainGameState = 1;
 			break;

@@ -163,13 +163,13 @@ void RB_Burst_CollLevInst(struct ScratchpadStruct *sps, void *hitObject)
 	struct InstDef *instdef;
 	struct MetaDataMODEL *meta;
 
-	instdef = bspHitbox->data.hitbox.instDef;
+	instdef = PSX_GET(bspHitbox->data.hitbox.instDef);
 	if (instdef == NULL)
 	{
 		return;
 	}
 
-	inst = instdef->ptrInstance;
+	inst = PSX_GET(instdef->ptrInstance);
 	if (inst == NULL)
 	{
 		return;
@@ -261,7 +261,7 @@ void RB_Burst_Init(struct Instance *weaponInst)
 	RB_Burst_SetPosition(currInst, weaponInst);
 	CTR_MatrixSetRotIdentity(&currInst->matrix);
 	{
-		struct ModelHeader *headers = currInst->model->headers;
+		struct ModelHeader *headers = PSX_GET(currInst->model->headers);
 		headers[0].flags |= 2;
 	}
 
@@ -286,7 +286,7 @@ void RB_Burst_Init(struct Instance *weaponInst)
 	currInst->matrix.m[2][1] = 0;
 	currInst->matrix.m[2][2] = 0x1000;
 	{
-		struct ModelHeader *headers = currInst->model->headers;
+		struct ModelHeader *headers = PSX_GET(currInst->model->headers);
 		headers[0].flags |= 2;
 	}
 #if defined(CTR_NATIVE)
@@ -304,11 +304,11 @@ void RB_Burst_Init(struct Instance *weaponInst)
 	RB_Burst_SetPosition(currInst, weaponInst);
 	CTR_MatrixSetRotIdentity(&currInst->matrix);
 	{
-		struct ModelHeader *headers = currInst->model->headers;
+		struct ModelHeader *headers = PSX_GET(currInst->model->headers);
 		headers[0].flags |= 2;
 	}
 	{
-		struct ModelHeader *headers = currInst->model->headers;
+		struct ModelHeader *headers = PSX_GET(currInst->model->headers);
 		headers[1].flags |= 2;
 	}
 #if defined(CTR_NATIVE)

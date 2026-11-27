@@ -225,7 +225,7 @@ void MainFreeze_ConfigDrawArrows(s16 offsetX, s16 offsetY, char *str)
 	// Draw left arrow
 	DecalHUD_Arrow2D(
 	    // largeFont
-	    (ICONGROUP_GETICONS(GAME_TRACKER->iconGroup[4]))[0x38],
+	    ICONGROUP_GETICON(GAME_TRACKER->iconGroup[4], 0x38),
 
 	    (arrowX - lineWidth) - 0x14, (int)offsetY + 7,
 
@@ -243,7 +243,7 @@ void MainFreeze_ConfigDrawArrows(s16 offsetX, s16 offsetY, char *str)
 	// Draw right arrow
 	DecalHUD_Arrow2D(
 	    // largeFont
-	    (ICONGROUP_GETICONS(GAME_TRACKER->iconGroup[4]))[0x38],
+	    ICONGROUP_GETICON(GAME_TRACKER->iconGroup[4], 0x38),
 
 	    (arrowX + lineWidth) + 0x12, (int)offsetY + 7,
 

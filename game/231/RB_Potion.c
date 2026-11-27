@@ -10,10 +10,10 @@ void RB_Potion_OnShatter_TeethCallback(struct ScratchpadStruct *sps, void *hitOb
 	bspHitbox = hitObject;
 
 
-	instDef = bspHitbox->data.hitbox.instDef;
+	instDef = PSX_GET(bspHitbox->data.hitbox.instDef);
 	if (instDef != NULL)
 	{
-		if (teethInst = instDef->ptrInstance, teethInst != NULL)
+		if (teethInst = PSX_GET(instDef->ptrInstance), teethInst != NULL)
 		{
 			if ((s16)instDef->modelID == STATIC_TEETH) // tiger temple door
 			{
@@ -99,7 +99,7 @@ void RB_Potion_ThTick_InAir(struct Thread *t)
 		sps->Union.QuadBlockColl.searchFlags = COLL_SEARCH_TEST_INSTANCES | COLL_SEARCH_HIGH_LOD | COLL_SEARCH_FORCE_INSTANCE_HIT;
 	}
 
-	sps->ptr_mesh_info = collisionTracker->level1->ptr_mesh_info;
+	sps->ptr_mesh_info = PSX_GET(collisionTracker->level1->ptr_mesh_info);
 
 	COLL_SearchBSP_CallbackQUADBLK(&posBottom, &posTop, sps, 0);
 
@@ -116,8 +116,8 @@ void RB_Potion_ThTick_InAir(struct Thread *t)
 		// A closed temple door shatters the potion; an already-open door does not.
 		b32 destroy = 1;
 		bspHitbox = sps->bspHitbox;
-		if ((((u8)bspHitbox->flag & 0x80) != 0) && (instDef = bspHitbox->data.hitbox.instDef, instDef != NULL) && ((s16)instDef->modelID == STATIC_TEETH) &&
-		    (instDef->ptrInstance != NULL))
+		if ((((u8)bspHitbox->flag & 0x80) != 0) && (instDef = PSX_GET(bspHitbox->data.hitbox.instDef), instDef != NULL) && ((s16)instDef->modelID == STATIC_TEETH) &&
+		    (PSX_GET(instDef->ptrInstance) != NULL))
 		{
 			if ((sdata->doorAccessFlags & 1) != 0)
 			{
@@ -125,7 +125,7 @@ void RB_Potion_ThTick_InAir(struct Thread *t)
 			}
 			else
 			{
-				RB_Teeth_OpenDoor(instDef->ptrInstance);
+				RB_Teeth_OpenDoor(PSX_GET(instDef->ptrInstance));
 			}
 		}
 		if (destroy)

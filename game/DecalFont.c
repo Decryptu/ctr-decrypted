@@ -134,8 +134,8 @@ void DecalFont_DrawLineStrlen(char *str, s16 len, s16 posX, s16 posY, s16 fontTy
 			{
 				if (iconID < group->numIcons)
 				{
-					struct Icon **icons = ICONGROUP_GETICONS(group);
-					FONT_DRAW_POLY_GT4(icons[iconID], x + extraX, posY + extraY, &gGT->backBuffer->primMem, gGT->pushBuffer_UI.ptrOT, colors[0], colors[1],
+					PsxIconPtr *icons = ICONGROUP_GETICONS(group);
+					FONT_DRAW_POLY_GT4(PSX_GET(icons[iconID]), x + extraX, posY + extraY, &gGT->backBuffer->primMem, gGT->pushBuffer_UI.ptrOT, colors[0], colors[1],
 					                   colors[2], colors[3], 0, iconScale);
 				}
 			}

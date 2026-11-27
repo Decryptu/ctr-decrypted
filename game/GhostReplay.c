@@ -374,11 +374,11 @@ void GhostReplay_Init1(void)
 #endif
 			if (GAME_SAVE.progress.highScoreTracks[GAME_TRACKER->levelID].timeTrialFlags & TT_NTROPY_BEATEN)
 			{
-				tape->selectedHeader = (ST1_GETPOINTERS(GAME_TRACKER->level1->ptrSpawnType1))[ST1_NOXIDE];
+				tape->selectedHeader = ST1_GETPOINTER(PSX_GET(GAME_TRACKER->level1->ptrSpawnType1), ST1_NOXIDE);
 			}
 			else
 			{
-				tape->selectedHeader = (ST1_GETPOINTERS(GAME_TRACKER->level1->ptrSpawnType1))[ST1_NTROPY];
+				tape->selectedHeader = ST1_GETPOINTER(PSX_GET(GAME_TRACKER->level1->ptrSpawnType1), ST1_NTROPY);
 			}
 			break;
 		}

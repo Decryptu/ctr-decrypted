@@ -1,6 +1,7 @@
 #include <platform.h>
 #include "ctr_scratchpad.h"
 #include "platform/native_memory.h"
+#include "platform/native_psx_space.h"
 #if defined(CTR_INTERNAL)
 #include "platform/native_checkpoint.h"
 #endif
@@ -35,7 +36,7 @@
 // 0x3F04, LOAD_Assets.c), so a read at the very top of the pack can legally
 // overrun by up to 2047 bytes. Under retail pressure that lands in the unused
 // tail of the backing array; without this subtraction endOfAllocator would sit
-// exactly at the end of s_mempackMemory and the same overrun would write past
+// exactly at the end of the mempack backing and the same overrun would write past
 // the array into whatever .bss follows it.
 //
 // The spawn-pool reserve (below) sits in front of the arena, so the backing
@@ -52,7 +53,7 @@ CTR_STATIC_ASSERT(CTR_NATIVE_MEMPACK_START_OFFSET + CTR_NATIVE_MEMPACK_SIZE + ME
 // render bucket live in this reserve at the front of the backing store, never
 // in the arena. Under retail pressure it is exactly the PS1 kernel and
 // executable span below the arena start, which native never used; in the
-// expanded arena it is added in front. Being inside s_mempackMemory keeps it in
+// expanded arena it is added in front. Being inside the mempack backing keeps it in
 // the MPAK checkpoint region, so checkpoints capture and relocate pool
 // pointers as before. See platform/native_spawn_pools.h.
 CTR_STATIC_ASSERT(CTR_NATIVE_SPAWN_POOL_RESERVE <= CTR_NATIVE_MEMPACK_START_OFFSET);
@@ -65,7 +66,9 @@ union NativeScratchpadStorage
 
 CTR_STATIC_ASSERT(sizeof(union NativeScratchpadStorage) == CTR_SCRATCHPAD_SIZE);
 
-global_variable char s_mempackMemory[CTR_NATIVE_MEMPACK_BUFFER_SIZE];
+// The backing is the start of PSX space (platform/native_psx_space.c), so a
+// PSX_PTR can point anywhere in it.
+CTR_STATIC_ASSERT(CTR_NATIVE_MEMPACK_BUFFER_SIZE <= CTR_PSX_SPACE_MEMPACK_BYTES);
 global_variable struct PlatformMempackArena s_mempackArena;
 // The two primitive arenas (MainInit_PrimMem), in host memory instead of
 // MEMPACK. 2 MiB each, sized by decision 8 in native_custom_tracks_policy.h
@@ -94,16 +97,16 @@ void Platform_InitScratchpad(void)
 
 void Platform_ConfigureMempackArena(void)
 {
-	s_mempackArena.base = &s_mempackMemory[0];
-	s_mempackArena.start = &s_mempackMemory[CTR_NATIVE_MEMPACK_START_OFFSET];
-	s_mempackArena.endOfMemory = &s_mempackMemory[CTR_NATIVE_MEMPACK_BUFFER_SIZE];
+	s_mempackArena.base = &gPsxSpace[0];
+	s_mempackArena.start = &gPsxSpace[CTR_NATIVE_MEMPACK_START_OFFSET];
+	s_mempackArena.endOfMemory = &gPsxSpace[CTR_NATIVE_MEMPACK_BUFFER_SIZE];
 	s_mempackArena.size = CTR_NATIVE_MEMPACK_SIZE;
 	s_mempackArena.backingSize = CTR_NATIVE_MEMPACK_BUFFER_SIZE;
 }
 
 const struct PlatformMempackArena *Platform_InitMempackArena(void)
 {
-	memset(s_mempackMemory, 0, sizeof(s_mempackMemory));
+	memset(gPsxSpace, 0, CTR_NATIVE_MEMPACK_BUFFER_SIZE);
 	Platform_ConfigureMempackArena();
 #if defined(CTR_INTERNAL)
 	NativeCheckpoint_OnMempackArenaReset();
@@ -119,12 +122,12 @@ const struct PlatformMempackArena *Platform_GetMempackArena(void)
 
 void *Platform_GetMempackBacking(void)
 {
-	return &s_mempackMemory[0];
+	return &gPsxSpace[0];
 }
 
 int Platform_GetMempackBackingSize(void)
 {
-	return (int)sizeof(s_mempackMemory);
+	return (int)CTR_NATIVE_MEMPACK_BUFFER_SIZE;
 }
 
 void *Platform_GetPrimArena(int index)
@@ -149,7 +152,7 @@ u32 Platform_GetOTArenaSize(void)
 
 void *Platform_GetSpawnPoolReserve(void)
 {
-	return &s_mempackMemory[0];
+	return &gPsxSpace[0];
 }
 
 int Platform_GetSpawnPoolReserveSize(void)
@@ -175,3 +178,4 @@ void Platform_RepairResidentPointers(s32 activeMempackIndex)
 	sdata_static.ptrToMemcardBuffer1 = &sdata_static.memcardBytes[0];
 	sdata_static.ptrToMemcardBuffer2 = &sdata_static.memcardBytes[0];
 }
+

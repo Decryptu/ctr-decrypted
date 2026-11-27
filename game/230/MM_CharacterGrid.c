@@ -798,7 +798,7 @@ static void MM_CharacterGrid_DrawPageArrows(u32 *ot)
 	const int right = left + (capacity - 1) * CS_PITCH_X + MM_CHARACTER_SELECT_ICON_RECT_W;
 	const int y = (top + bottom + MM_CHARACTER_SELECT_ICON_RECT_H) / 2 + (s_limited ? CS_LIMITED_SHIFT_Y : 0);
 
-	struct Icon **icons = ICONGROUP_GETICONS(gGT->iconGroup[4]);
+	PsxIconPtr *icons = ICONGROUP_GETICONS(gGT->iconGroup[4]);
 	u32 *colors = data.ptrColor[ORANGE];
 	const int x[2] = {left - CS_ARROW_GAP, right + CS_ARROW_GAP};
 	const int rotation[2] = {0x800, 0};
@@ -807,7 +807,7 @@ static void MM_CharacterGrid_DrawPageArrows(u32 *ot)
 	{
 		if (!shown[i])
 			continue;
-		DecalHUD_Arrow2D(icons[0x38], x[i], y, &gGT->backBuffer->primMem, ot, ColorCode_Load(&colors[0]), ColorCode_Load(&colors[1]),
+		DecalHUD_Arrow2D(PSX_GET(icons[0x38]), x[i], y, &gGT->backBuffer->primMem, ot, ColorCode_Load(&colors[0]), ColorCode_Load(&colors[1]),
 		                 ColorCode_Load(&colors[2]), ColorCode_Load(&colors[3]), 0, 0x1000, rotation[i]);
 	}
 }

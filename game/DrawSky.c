@@ -250,7 +250,7 @@ static void DrawSky_ClipFace(struct DrawSkyContext *ctx, const struct SkyboxFace
 static u32 *DrawSky_Piece(struct Skybox *skybox, struct DrawSkyContext *ctx, int faceIndex, int countIndex, u32 *prim)
 {
 	u32 numFaces = (u16)skybox->numFaces[countIndex];
-	const struct SkyboxFace *face = skybox->ptrFaces[faceIndex];
+	const struct SkyboxFace *face = PSX_GET(skybox->ptrFaces[faceIndex]);
 
 	if (numFaces == 0)
 	{
@@ -338,7 +338,7 @@ void DrawSky_Full(void *skybox, struct PushBuffer *pb, struct PrimMem *primMem)
 		scratch->baseFaceOffset = baseFaceOffset;
 		scratch->baseCountOffset = baseCountOffset;
 
-		ctx.verts = sky->ptrVertex;
+		ctx.verts = PSX_GET(sky->ptrVertex);
 		ctx.ot = &pb->ptrOT[0x3ff];
 		ctx.screenBounds = DrawSky_ReadWord(pb, 0x20);
 #ifdef CTR_CUSTOM_TRACKS

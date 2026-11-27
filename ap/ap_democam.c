@@ -224,13 +224,13 @@ static int AP_DemoCamRaceActive(struct GameTracker *gGT)
 // effect armed for.
 static int AP_DemoCamEorTableUsable(struct GameTracker *gGT)
 {
-	if (gGT == 0 || gGT->level1 == 0 || gGT->level1->ptrSpawnType1 == 0)
+	if (gGT == 0 || gGT->level1 == 0 || PSX_GET(gGT->level1->ptrSpawnType1) == 0)
 		return 0;
 	if ((gGT->gameMode1 & BATTLE_MODE) != 0)
 		return 0;
 	if (gGT->numPlyrCurrGame >= 3)
 		return 0;
-	return gGT->level1->ptrSpawnType1->count >= 3;
+	return PSX_GET(gGT->level1->ptrSpawnType1)->count >= 3;
 }
 
 static void AP_DemoCamCollect(struct GameTracker *gGT, struct ApDemoCamIdentity *ident,

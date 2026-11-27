@@ -528,15 +528,14 @@ s32 CAM_Path_GetNumPoints(void)
 		goto done;
 	}
 
-	ptrSpawnType1 = level1->ptrSpawnType1;
+	ptrSpawnType1 = PSX_GET(level1->ptrSpawnType1);
 	if (ptrSpawnType1->count < 3)
 	{
 		goto done;
 	}
 
 	{
-		void **ptrs = ST1_GETPOINTERS(ptrSpawnType1);
-		introCam = ptrs[ST1_CAMERA_PATH];
+		introCam = ST1_GETPOINTER(ptrSpawnType1, ST1_CAMERA_PATH);
 		if (introCam == NULL)
 		{
 			goto done;
@@ -590,8 +589,7 @@ u8 CAM_Path_Move(s32 frameIndex, s16 *position, s16 *rotation, s16 *pathFlagsOut
 	}
 
 	{
-		void **ptrs = ST1_GETPOINTERS(GAME_TRACKER->level1->ptrSpawnType1);
-		u16 *cursor = ptrs[ST1_CAMERA_PATH];
+		u16 *cursor = ST1_GETPOINTER(PSX_GET(GAME_TRACKER->level1->ptrSpawnType1), ST1_CAMERA_PATH);
 		u16 pathNumNode = *cursor++;
 		u16 pathFlags = *cursor++;
 
@@ -675,7 +673,7 @@ void CAM_StartOfRace(struct CameraDC *cDC)
 	// Initialize the fly-in when the level has camera restart data.
 	if (2 < level1->cnt_restart_points)
 	{
-		s32 flyInData = (s32)level1->ptr_restart_points;
+		s32 flyInData = (s32)PSX_GET(level1->ptr_restart_points);
 		cDC->trackPathProgress = 0;
 		cDC->transitionBlend = 0;
 
@@ -745,11 +743,11 @@ void CAM_EndOfRace(struct CameraDC *cDC, struct Driver *d)
 	// frame the first driver crosses the line. Note the term is a strict
 	// tightening of count > 1: ST1_CAMERA_EOR is index 2, so the predicate also
 	// requires count > 2, which no retail level fails.
-	if (((gGT->gameMode1 & BATTLE_MODE) == 0) && (1 < gGT->level1->ptrSpawnType1->count) && (gGT->numPlyrCurrGame < 3) &&
-	    CustomTrackPolicy_St1EntryPresent(gGT->level1->ptrSpawnType1->count, ST1_CAMERA_EOR,
-	                                      (const void *const *)ST1_GETPOINTERS(gGT->level1->ptrSpawnType1)))
+	if (((gGT->gameMode1 & BATTLE_MODE) == 0) && (1 < PSX_GET(gGT->level1->ptrSpawnType1)->count) && (gGT->numPlyrCurrGame < 3) &&
+	    CustomTrackPolicy_St1EntryPresent(PSX_GET(gGT->level1->ptrSpawnType1)->count, ST1_CAMERA_EOR,
+	                                      (const u32 *)ST1_GETPOINTERS(PSX_GET(gGT->level1->ptrSpawnType1))))
 #else
-	if (((gGT->gameMode1 & BATTLE_MODE) == 0) && (1 < gGT->level1->ptrSpawnType1->count) && (gGT->numPlyrCurrGame < 3))
+	if (((gGT->gameMode1 & BATTLE_MODE) == 0) && (1 < PSX_GET(gGT->level1->ptrSpawnType1)->count) && (gGT->numPlyrCurrGame < 3))
 #endif
 	{
 		// Activate end-of-race cDC flag in CameraDC struct
@@ -852,9 +850,9 @@ void CAM_FindClosestQuadblock(struct ScratchpadStruct *sps, struct CameraDC *cDC
 		sps->Union.QuadBlockColl.searchFlags = 0;
 		camera->quadBlockSearchHit = false;
 
-		if ((GAME_TRACKER->level1 != NULL) && (GAME_TRACKER->level1->ptr_mesh_info != NULL) && (GAME_TRACKER->level1->ptr_mesh_info->bspRoot != NULL))
+		if ((GAME_TRACKER->level1 != NULL) && (PSX_GET(GAME_TRACKER->level1->ptr_mesh_info) != NULL) && (PSX_GET(PSX_GET(GAME_TRACKER->level1->ptr_mesh_info)->bspRoot) != NULL))
 		{
-			sps->ptr_mesh_info = GAME_TRACKER->level1->ptr_mesh_info;
+			sps->ptr_mesh_info = PSX_GET(GAME_TRACKER->level1->ptr_mesh_info);
 
 			if (camera->ptrQuadBlock != NULL)
 			{
@@ -863,7 +861,7 @@ void CAM_FindClosestQuadblock(struct ScratchpadStruct *sps, struct CameraDC *cDC
 
 			if (sps->boolDidTouchQuadblock == 0)
 			{
-				COLL_SearchBSP_CallbackPARAM(sps->ptr_mesh_info->bspRoot, &sps->bbox, COLL_FIXED_BSPLEAF_TestQuadblocks, sps);
+				COLL_SearchBSP_CallbackPARAM(PSX_GET(sps->ptr_mesh_info->bspRoot), &sps->bbox, COLL_FIXED_BSPLEAF_TestQuadblocks, sps);
 			}
 
 			if (sps->boolDidTouchQuadblock != 0)
@@ -871,7 +869,7 @@ void CAM_FindClosestQuadblock(struct ScratchpadStruct *sps, struct CameraDC *cDC
 				camera->quadBlockSearchHit = true;
 				quad = sps->hit.ptrQuadblock;
 				camera->ptrQuadBlock = quad;
-				GAME_TRACKER->unk1cac[0] = quad - GAME_TRACKER->level1->ptr_mesh_info->ptrQuadBlockArray;
+				GAME_TRACKER->unk1cac[0] = quad - PSX_GET(PSX_GET(GAME_TRACKER->level1->ptr_mesh_info)->ptrQuadBlockArray);
 			}
 			else
 			{
@@ -889,7 +887,7 @@ struct ScratchpadStruct *CAM_StartLine_FlyIn_FixY(SVec3 *posRot)
 {
 	struct ScratchpadStruct *setupSps = &GAME_COLLISION_WORK;
 	struct ScratchpadStruct *sps;
-	struct mesh_info *meshInfo = GAME_TRACKER->level1->ptr_mesh_info;
+	struct mesh_info *meshInfo = PSX_GET(GAME_TRACKER->level1->ptr_mesh_info);
 	SVec3 pos;
 	SVec3 posTop;
 	SVec3 posBottom;
@@ -1163,7 +1161,7 @@ static s32 CAM_SmoothFrame(s32 old, s32 target, s32 keep, s32 give)
 
 static struct CheckpointNode *CAM_FollowDriver_TrackPath_GetNode(struct CameraDC *cDC, struct CheckpointNode *node, s32 speed)
 {
-	struct CheckpointNode *nodes = sdata->gGT->level1->ptr_restart_points;
+	struct CheckpointNode *nodes = PSX_GET(sdata->gGT->level1->ptr_restart_points);
 	u8 nodeIndex;
 
 	if (speed > 0)
@@ -1961,9 +1959,8 @@ void CAM_FollowDriver_Normal(struct CameraDC *cDC, struct Driver *d, SVec3 *push
 			// if startline camera
 			else
 			{
-				struct SpawnType1 *st1 = gGT->level1->ptrSpawnType1;
-				void **pointers = ST1_GETPOINTERS(st1);
-				u8 *cameraPath = pointers[ST1_CAMERA_PATH];
+				struct SpawnType1 *st1 = PSX_GET(gGT->level1->ptrSpawnType1);
+				u8 *cameraPath = ST1_GETPOINTER(st1, ST1_CAMERA_PATH);
 				s32 flyInDone = 0;
 
 				// No camera + No ghosts (battle maps)
@@ -1977,7 +1974,7 @@ void CAM_FollowDriver_Normal(struct CameraDC *cDC, struct Driver *d, SVec3 *push
 				// threshold and then hands CAM_StartLine_FlyIn ptrEnd == 0x354 to
 				// dereference. Asking whether the entry is really there covers both
 				// encodings and is identical to count < 4 whenever it is not NULL.
-				if (!CustomTrackPolicy_St1EntryPresent(st1->count, ST1_CAMERA_PATH, (const void *const *)pointers))
+				if (!CustomTrackPolicy_St1EntryPresent(st1->count, ST1_CAMERA_PATH, (const u32 *)ST1_GETPOINTERS(st1)))
 #else
 				if (st1->count < 4)
 #endif
@@ -2193,7 +2190,7 @@ void CAM_ThTick(struct Thread *t)
 	u32 uVar10;
 	struct PVS *psVar11;
 	s32 *piVar12;
-	struct Instance **ppsVar13;
+	PsxInstancePtr *ppsVar13;
 	struct SpawnType1 *psVar14;
 	struct CheckpointNode *psVar15;
 	u32 uVar16;
@@ -2273,7 +2270,7 @@ void CAM_ThTick(struct Thread *t)
 			goto SkipNewCameraEOR;
 		}
 
-		psVar14 = gGT->level1->ptrSpawnType1;
+		psVar14 = PSX_GET(gGT->level1->ptrSpawnType1);
 
 		psVar21 = 0;
 		if (psVar14->count < 3)
@@ -2282,8 +2279,7 @@ void CAM_ThTick(struct Thread *t)
 		}
 
 		{
-			void **ptrs = ST1_GETPOINTERS(psVar14);
-			psVar19 = ptrs[ST1_CAMERA_EOR];
+			psVar19 = ST1_GETPOINTER(psVar14, ST1_CAMERA_EOR);
 
 #ifdef CTR_CUSTOM_TRACKS
 			// CAM_EndOfRace already refuses to arm this block for a level whose
@@ -2295,7 +2291,7 @@ void CAM_ThTick(struct Thread *t)
 			// that path safe too. Skipping leaves psVar21 at 0, which is the same "no
 			// end-of-race camera was picked" outcome the count check above already
 			// produces.
-			if (!CustomTrackPolicy_St1EntryPresent(psVar14->count, ST1_CAMERA_EOR, (const void *const *)ptrs))
+			if (!CustomTrackPolicy_St1EntryPresent(psVar14->count, ST1_CAMERA_EOR, (const u32 *)ST1_GETPOINTERS(psVar14)))
 			{
 				goto SkipNewCameraEOR;
 			}
@@ -2329,7 +2325,7 @@ void CAM_ThTick(struct Thread *t)
 					// +2 to include respawnPoint and modeID
 					psVar20 = (s16 *)((s32)psVar19 + data.EndOfRace_Camera_Size[iVar7] + 2);
 
-					psVar15 = &gGT->level1->ptr_restart_points[uVar16];
+					psVar15 = &PSX_GET(gGT->level1->ptr_restart_points)[uVar16];
 
 					if ((uVar22 == uVar16) || (uVar22 == psVar15->nextIndex_forward) || (uVar22 == psVar15->nextIndex_left) ||
 					    (uVar22 == psVar15->nextIndex_backward) || (uVar22 == psVar15->nextIndex_right))
@@ -2427,7 +2423,7 @@ void CAM_ThTick(struct Thread *t)
 			case 9:
 			case 13:
 				sVar6 = *psVar19;
-				psVar15 = gGT->level1->ptr_restart_points;
+				psVar15 = PSX_GET(gGT->level1->ptr_restart_points);
 				cDC->trackPathProgress = 0;
 				cDC->trackPathNode = psVar15 + sVar6;
 				(cDC->transitionTo).pos.x = psVar21[2];
@@ -2748,27 +2744,27 @@ void CAM_ThTick(struct Thread *t)
 
 			if (cDC->ptrQuadBlock != 0)
 			{
-				psVar11 = cDC->ptrQuadBlock->pvs;
-				if ((psVar11 != 0) && (piVar12 = psVar11->visLeafSrc, piVar12 != 0))
+				psVar11 = PSX_GET(cDC->ptrQuadBlock->pvs);
+				if ((psVar11 != 0) && (piVar12 = PSX_GET(psVar11->visLeafSrc), piVar12 != 0))
 				{
 					cDC->visLeafSrc = piVar12;
-					gGT->unk1cac[1] = cDC->ptrQuadBlock - gGT->level1->ptr_mesh_info->ptrQuadBlockArray;
+					gGT->unk1cac[1] = cDC->ptrQuadBlock - PSX_GET(PSX_GET(gGT->level1->ptr_mesh_info)->ptrQuadBlockArray);
 				}
 				if (cDC->ptrQuadBlock != 0)
 				{
-					psVar11 = cDC->ptrQuadBlock->pvs;
-					if ((psVar11 != 0) && (piVar12 = psVar11->visFaceSrc, piVar12 != 0))
+					psVar11 = PSX_GET(cDC->ptrQuadBlock->pvs);
+					if ((psVar11 != 0) && (piVar12 = PSX_GET(psVar11->visFaceSrc), piVar12 != 0))
 					{
 						cDC->visFaceSrc = piVar12;
 					}
 					if (cDC->ptrQuadBlock != 0)
 					{
-						psVar11 = cDC->ptrQuadBlock->pvs;
-						if ((psVar11 != 0) && (ppsVar13 = psVar11->visInstSrc, ppsVar13 != 0))
+						psVar11 = PSX_GET(cDC->ptrQuadBlock->pvs);
+						if ((psVar11 != 0) && (ppsVar13 = PSX_GET(psVar11->visInstSrc), ppsVar13 != 0))
 						{
 							cDC->visInstSrc = ppsVar13;
 						}
-						if (((cDC->ptrQuadBlock != 0) && (psVar11 = cDC->ptrQuadBlock->pvs, psVar11 != 0)) && (piVar12 = psVar11->visExtraSrc, piVar12 != 0))
+						if (((cDC->ptrQuadBlock != 0) && (psVar11 = PSX_GET(cDC->ptrQuadBlock->pvs), psVar11 != 0)) && (piVar12 = PSX_GET(psVar11->visExtraSrc), piVar12 != 0))
 						{
 							if ((gGT->level1->configFlags & 4) == 0)
 							{

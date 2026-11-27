@@ -1,5 +1,6 @@
 #include <common.h>
 #include <platform/native_dev.h>
+#include <platform/native_psx_space.h>
 
 #ifdef CTR_AP
 #include "../ap/ap_boss_adapter.h" // J03 boss adapter protection
@@ -16,7 +17,34 @@
 #ifndef BOT_NAV_HEADERS
 #define BOT_NAV_HEADERS         (sdata->NavPath_ptrHeader)
 #define BOT_NAV_FRAMES          (sdata->NavPath_ptrNavFrameArray)
+#if defined(CTR_NATIVE)
+// The template that cancels the AIs on a track without nav data: retail's
+// sdata->blank_NavHeader and the blank frame after it. Native keeps the pair in
+// PSX space, since the header's last is a PSX_PTR to that frame.
+struct BotNavTemplate
+{
+	struct NavHeader header;
+	struct NavFrame frame;
+};
+
+static struct NavHeader *BOTS_NavTemplate(void)
+{
+	static struct BotNavTemplate *s_template;
+
+	if (s_template == NULL)
+	{
+		s_template = PsxSpace_Alloc(sizeof(*s_template));
+		if (s_template == NULL)
+		{
+			Platform_Fatal("CTR Native - Bots", "Could not allocate the blank nav path.");
+		}
+	}
+	return &s_template->header;
+}
+#define BOT_NAV_FALLBACK_HEADER (*BOTS_NavTemplate())
+#else
 #define BOT_NAV_FALLBACK_HEADER (sdata->blank_NavHeader)
+#endif
 #define BOT_NAV_NUM_POINTS      (sdata->nav_NumPointsOnPath)
 #define BOT_NAV_LAST_PATH       (sdata->lastPathIndex)
 #endif
@@ -184,10 +212,10 @@ void BOTS_InitNavPath(struct GameTracker *gGT, s16 index)
 	struct NavHeader *pathHeader;
 	struct NavFrame *lastPoint;
 	struct NavFrame *firstPoint;
-	struct NavHeader **LevNavTable;
-	struct NavHeader **navSlot;
+	PsxNavHeaderPtr *LevNavTable;
+	PsxNavHeaderPtr *navSlot;
 	(void)gGT;
-	LevNavTable = GAME_TRACKER->level1->LevNavTable;
+	LevNavTable = PSX_GET(GAME_TRACKER->level1->LevNavTable);
 	CTR_PSX_CAPTURE_REGISTER(incomingIndex, index);
 	CTR_PSX_OBSERVE_VALUE(incomingIndex);
 	pathIndex = incomingIndex;
@@ -196,7 +224,7 @@ void BOTS_InitNavPath(struct GameTracker *gGT, s16 index)
 	{
 		// nullptr on Nitro Court
 		CTR_PSX_ADD_POINTER_OFFSET(navSlot, LevNavTable, pathIndex * (s32)sizeof(*LevNavTable));
-		nh = *navSlot;
+		nh = PSX_GET(*navSlot);
 	}
 	else
 	{
@@ -238,7 +266,7 @@ void BOTS_InitNavPath(struct GameTracker *gGT, s16 index)
 	lastPoint = &BOT_NAV_FRAMES[pathIndex][(s16)BOT_NAV_NUM_POINTS];
 
 	// header last point
-	pathHeader->last = lastPoint;
+	PSX_SET(pathHeader->last, lastPoint);
 
 	// global first point
 	firstPoint = BOT_NAV_FRAMES[pathIndex];
@@ -441,13 +469,13 @@ internal s32 BOTS_GetTrackDistanceToFinish(struct GameTracker *gGT)
 	// NOTE(aalhendi): Menu-storage/wrong-warp can leave stale bot threads in
 	// levels without restart points. Retail blind-loads from low PSX memory;
 	// native uses zero so only stale AI spacing/rubberband math is affected.
-	if ((gGT->level1 == NULL) || (gGT->level1->ptr_restart_points == NULL))
+	if ((gGT->level1 == NULL) || (PSX_GET(gGT->level1->ptr_restart_points) == NULL))
 	{
 		return 0;
 	}
 #endif
 
-	return CTR_MipsSll(gGT->level1->ptr_restart_points->distToFinish, 3);
+	return CTR_MipsSll(PSX_GET(gGT->level1->ptr_restart_points)->distToFinish, 3);
 }
 
 void BOTS_Adv_AdjustDifficulty(void)
@@ -1279,7 +1307,7 @@ void BOTS_LevInstColl(struct Thread *botThread)
 	struct Driver *driver = (struct Driver *)botThread->object;
 	struct ScratchpadStruct *sps = CTR_SCRATCHPAD_PTR(struct ScratchpadStruct, 0x108);
 
-	sps->ptr_mesh_info = GAME_TRACKER->level1->ptr_mesh_info;
+	sps->ptr_mesh_info = PSX_GET(GAME_TRACKER->level1->ptr_mesh_info);
 	sps->Union.QuadBlockColl.searchFlags = COLL_SEARCH_TEST_INSTANCES;
 	sps->Input1.modelID = DYNAMIC_ROBOT_CAR;
 	sps->Union.QuadBlockColl.quadFlagsWanted = 0;
@@ -1307,8 +1335,8 @@ void BOTS_LevInstColl(struct Thread *botThread)
 		return;
 	}
 
-	instDef = sps->bspHitbox->data.hitbox.instDef;
-	inst = instDef->ptrInstance;
+	instDef = PSX_GET(sps->bspHitbox->data.hitbox.instDef);
+	inst = PSX_GET(instDef->ptrInstance);
 	if (inst == NULL)
 	{
 		return;
@@ -1383,7 +1411,7 @@ void BOTS_MaskGrab(struct Thread *botThread)
 	register struct NavFrame *nextFrame CTR_PSX_REGISTER("$7") = frame + 1;
 
 	// if the next nav point is a farther address than last point
-	if (BOT_NAV_HEADERS[bot->botData.botPath]->last <= nextFrame)
+	if (PSX_GET(BOT_NAV_HEADERS[bot->botData.botPath]->last) <= nextFrame)
 	{
 		// set next nav point to first nav point
 		nextFrame = BOT_NAV_FRAMES[bot->botData.botPath];
@@ -1540,7 +1568,7 @@ void BOTS_Killplane(struct Thread *botThread)
 				if (frame < BOT_NAV_FRAMES[i])
 				{
 					// go to last nav point
-					register struct NavFrame *last CTR_PSX_REGISTER("$2") = BOT_NAV_HEADERS[i]->last;
+					register struct NavFrame *last CTR_PSX_REGISTER("$2") = PSX_GET(BOT_NAV_HEADERS[i]->last);
 					CTR_PSX_OBSERVE_VALUE(last);
 					frame = &last[-1];
 				}
@@ -1582,7 +1610,7 @@ void BOTS_Killplane(struct Thread *botThread)
 			if (frame < BOT_NAV_FRAMES[i])
 			{
 				// loop back to last navFrame
-				register struct NavFrame *last CTR_PSX_REGISTER("$2") = BOT_NAV_HEADERS[i]->last;
+				register struct NavFrame *last CTR_PSX_REGISTER("$2") = PSX_GET(BOT_NAV_HEADERS[i]->last);
 				CTR_PSX_OBSERVE_VALUE(last);
 				frame = &last[-1];
 			}
@@ -1778,7 +1806,7 @@ UpdateTireColorTimer:
 
 		pathID = botDriver->botData.botPath;
 
-		if (navFrameNext >= sdata->NavPath_ptrHeader[pathID]->last)
+		if (navFrameNext >= PSX_GET(sdata->NavPath_ptrHeader[pathID]->last))
 		{
 			navFrameNext = sdata->NavPath_ptrNavFrameArray[pathID];
 		}
@@ -2536,7 +2564,7 @@ UpdateTireColorTimer:
 
 		iVar15 = CTR_MipsSubLo(iVar15, iVar3);
 
-		if (navFrameNext >= sdata->NavPath_ptrHeader[index]->last)
+		if (navFrameNext >= PSX_GET(sdata->NavPath_ptrHeader[index]->last))
 		{
 			navFrameNext = sdata->NavPath_ptrNavFrameArray[index];
 		}
@@ -2725,7 +2753,7 @@ UpdateTireColorTimer:
 
 		navFrameNext = NAVFRAME_GETNEXTFRAME(navFrameCurr);
 
-		if (navFrameNext >= sdata->NavPath_ptrHeader[botPath]->last)
+		if (navFrameNext >= PSX_GET(sdata->NavPath_ptrHeader[botPath]->last))
 		{
 			navFrameNext = sdata->NavPath_ptrNavFrameArray[botPath];
 		}
@@ -2889,7 +2917,7 @@ UpdateTireColorTimer:
 		probeBottom.y = (s16)CTR_MipsAddLo(probeY, 0x80);
 		probeBottom.z = probeZ;
 
-		sps->ptr_mesh_info = gGT->level1->ptr_mesh_info;
+		sps->ptr_mesh_info = PSX_GET(gGT->level1->ptr_mesh_info);
 		sps->Union.QuadBlockColl.quadFlagsWanted = QUADBLOCK_FLAG_GROUND;
 		sps->Union.QuadBlockColl.quadFlagsIgnored = QUADBLOCK_FLAG_NO_COLLISION_RESPONSE;
 		sps->Union.QuadBlockColl.searchFlags = COLL_SEARCH_HIGH_LOD;
@@ -3696,7 +3724,7 @@ FinishHazardTimerUpdate:
 		probeBottom.y = (s16)CTR_MipsAddLo(probeY, 0x40);
 		probeBottom.z = probeZ;
 
-		sps->ptr_mesh_info = gGT->level1->ptr_mesh_info;
+		sps->ptr_mesh_info = PSX_GET(gGT->level1->ptr_mesh_info);
 		sps->Union.QuadBlockColl.quadFlagsWanted = QUADBLOCK_FLAG_GROUND;
 		sps->Union.QuadBlockColl.quadFlagsIgnored = 0;
 		sps->Union.QuadBlockColl.searchFlags = COLL_SEARCH_HIGH_LOD;
@@ -3973,7 +4001,7 @@ void BOTS_CollideWithOtherAI(struct Driver *robot_1, struct Driver *robot_2)
 		navSegmentStartPos = &navFrameCurr->pos;
 
 		// if you go out of bounds
-		if (BOT_NAV_HEADERS[botPathIndex]->last <= navFrameNext)
+		if (PSX_GET(BOT_NAV_HEADERS[botPathIndex]->last) <= navFrameNext)
 		{
 			// loop back to first navFrame
 			navFrameNext = BOT_NAV_FRAMES[botPathIndex];

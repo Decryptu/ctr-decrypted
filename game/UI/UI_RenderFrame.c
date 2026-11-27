@@ -154,13 +154,12 @@ void UI_RenderFrame_Racing()
 
 #ifdef CTR_NATIVE
 	// NOTE(aalhendi): Native can load levels before ST1 map metadata is present.
-	if ((gGT->level1->ptrSpawnType1 != 0) && (gGT->level1->ptrSpawnType1->count != 0))
+	if ((PSX_GET(gGT->level1->ptrSpawnType1) != 0) && (PSX_GET(gGT->level1->ptrSpawnType1)->count != 0))
 #else
-	if (gGT->level1->ptrSpawnType1->count != 0)
+	if (PSX_GET(gGT->level1->ptrSpawnType1)->count != 0)
 #endif
 	{
-		void **pointers = ST1_GETPOINTERS(gGT->level1->ptrSpawnType1);
-		levPtrMap = pointers[ST1_MAP];
+		levPtrMap = ST1_GETPOINTER(PSX_GET(gGT->level1->ptrSpawnType1), ST1_MAP);
 	}
 
 	// If you are not in Relic Race, and not in battle mode,
@@ -335,10 +334,10 @@ void UI_RenderFrame_Racing()
 						playerStruct->PickupWumpaHUD.cooldown = partTimeVariable1;
 					}
 
-					struct Icon **iconPtrArray = ICONGROUP_GETICONS(gGT->iconGroup[0xB]);
+					PsxIconPtr *iconPtrArray = ICONGROUP_GETICONS(gGT->iconGroup[0xB]);
 
 					// "wumpaposter" icon group
-					DecalHUD_DrawPolyFT4(iconPtrArray[0], (int)wumpaModelPos.x, (int)wumpaModelPos.y,
+					DecalHUD_DrawPolyFT4(PSX_GET(iconPtrArray[0]), (int)wumpaModelPos.x, (int)wumpaModelPos.y,
 
 					                     // pointer to PrimMem struct
 					                     &gGT->backBuffer->primMem,

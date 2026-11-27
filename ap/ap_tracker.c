@@ -513,13 +513,13 @@ static int AP_TrackerLoadAssets(void)
 	for (font = 0; font < 2; font++) {
 		int type = font ? FONT_BIG : FONT_SMALL;
 		struct IconGroup *group = sdata->gGT->iconGroup[data.font_IconGroupID[type]];
-		struct Icon **icons;
+		PsxIconPtr *icons;
 		if (!group) { free(vram); return 0; } icons = ICONGROUP_GETICONS(group);
 		for (ch = 33; ch < 128; ch++) {
 			unsigned id = data.font_characterIconID[ch - 33]; AP_TrackerSprite *g = &ap_tracker.glyphs[font][ch - 32];
 			int x, y; const unsigned char *t;
 			if (id >= (unsigned)group->numIcons) continue;
-			t = (const unsigned char *)&icons[id]->texLayout;
+			t = (const unsigned char *)&PSX_GET(icons[id])->texLayout;
 			g->w = (int)t[4] - t[0] + 1; g->h = (int)t[9] - t[1] + 1;
 			if (g->w <= 0 || g->h <= 0 || g->w > 128 || g->h > 128) continue;
 			g->pixels = (uint32_t *)malloc((size_t)g->w * g->h * 4); if (!g->pixels) { free(vram); return 0; }

@@ -44,14 +44,14 @@
 static void MM_CustomTrackSelect_DrawPageArrows(int centerX, int y, int titleWidth, u32 *ot)
 {
     struct GameTracker *gGT = sdata->gGT;
-    struct Icon **icons = ICONGROUP_GETICONS(gGT->iconGroup[4]);
+    PsxIconPtr *icons = ICONGROUP_GETICONS(gGT->iconGroup[4]);
     u32 *colors = data.ptrColor[ORANGE];
     const int x[2] = {centerX - titleWidth / 2 - MM_CUSTOM_PAGE_ARROW_GAP, centerX + titleWidth / 2 + MM_CUSTOM_PAGE_ARROW_GAP};
     const int rotation[2] = {0x800, 0};
 
     for (int i = 0; i < 2; i++)
     {
-        DecalHUD_Arrow2D(icons[0x38], x[i], y + data.font_charPixHeight[FONT_SMALL] / 2, &gGT->backBuffer->primMem, ot,
+        DecalHUD_Arrow2D(PSX_GET(icons[0x38]), x[i], y + data.font_charPixHeight[FONT_SMALL] / 2, &gGT->backBuffer->primMem, ot,
                          ColorCode_Load(&colors[0]), ColorCode_Load(&colors[1]), ColorCode_Load(&colors[2]),
                          ColorCode_Load(&colors[3]), 0, 0x1000, rotation[i]);
     }

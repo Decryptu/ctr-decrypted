@@ -24,8 +24,8 @@ void CS_Instance_GetFrameData(struct Instance *inst, int animIndex, s32 animFram
 	u32 boneTargetX, boneTargetY, boneTargetZ;
 	struct ModelHeader *headers;
 
-	headers = inst->model->headers;
-	ptrAnim = headers->ptrAnimations[animIndex];
+	headers = PSX_GET(inst->model->headers);
+	ptrAnim = PSX_GET(PSX_GET(headers->ptrAnimations)[animIndex]);
 
 	if (animFrame < 0)
 	{
@@ -153,7 +153,7 @@ int CS_Instance_GetNumAnimFrames(struct Instance *modelInst, int animIndex, int 
 		return 0;
 	}
 
-	header = &model->headers[LOD];
+	header = &PSX_GET(model->headers)[LOD];
 	if (header == NULL)
 	{
 		return 0;
@@ -164,12 +164,12 @@ int CS_Instance_GetNumAnimFrames(struct Instance *modelInst, int animIndex, int 
 		return 0;
 	}
 
-	if (header->ptrAnimations == NULL)
+	if (PSX_GET(header->ptrAnimations) == NULL)
 	{
 		return 0;
 	}
 
-	anim = header->ptrAnimations[animIndex];
+	anim = PSX_GET(PSX_GET(header->ptrAnimations)[animIndex]);
 	if (anim == NULL)
 	{
 		return 0;
@@ -209,7 +209,7 @@ int CS_Instance_SafeCheckAnimFrame(struct Instance *inst, int animIndex, int LOD
 
 b32 CS_Instance_BoolPlaySound(struct CutsceneObj *cs, struct Instance *desiredInst)
 {
-	struct Instance **visInstSrc;
+	PsxInstancePtr *visInstSrc;
 	struct Instance *visible;
 	struct InstDrawPerPlayer *idpp;
 
@@ -230,7 +230,7 @@ b32 CS_Instance_BoolPlaySound(struct CutsceneObj *cs, struct Instance *desiredIn
 	}
 #endif
 
-	visible = *visInstSrc;
+	visible = PSX_GET(*visInstSrc);
 	while (visible != NULL)
 	{
 		visInstSrc++;
@@ -238,7 +238,7 @@ b32 CS_Instance_BoolPlaySound(struct CutsceneObj *cs, struct Instance *desiredIn
 		{
 			break;
 		}
-		visible = *visInstSrc;
+		visible = PSX_GET(*visInstSrc);
 	}
 
 	if (visible == NULL)

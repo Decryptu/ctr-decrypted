@@ -60,23 +60,23 @@ u32 VehFrameInst_GetNumAnimFrames(struct Instance *inst, int animIndex)
 	{
 		return 0;
 	}
-	if (inst->model->headers == NULL)
+	if (PSX_GET(inst->model->headers) == NULL)
 	{
 		return 0;
 	}
 
-	mh = inst->model->headers;
+	mh = PSX_GET(inst->model->headers);
 
 	if (animIndex >= (int)mh->numAnimations)
 	{
 		return 0;
 	}
-	if (mh->ptrAnimations == NULL)
+	if (PSX_GET(mh->ptrAnimations) == NULL)
 	{
 		return 0;
 	}
 
-	anim = mh->ptrAnimations[animIndex];
+	anim = PSX_GET(PSX_GET(mh->ptrAnimations)[animIndex]);
 
 	if (anim == NULL)
 	{

@@ -200,6 +200,14 @@ enum LoadTenStagesConstants
 
 CTR_STATIC_ASSERT((u16)LOAD_NO_LEVEL_IN_MEMPACK == 0xffff);
 
+// A model pack file (MPK, after its pointer-map offset): the icons the models
+// use, then a NULL-terminated list of the models.
+struct ModelPack
+{
+	PSX_PTR(struct LevTexLookup) icons;
+	PsxModelPtr models[];
+};
+
 struct DramPointerMap
 {
 	int numBytes;

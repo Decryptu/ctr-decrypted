@@ -1,8 +1,13 @@
 #include <common.h>
 
+#if defined(CTR_NATIVE)
+// The PSX address of an AnimTex's frame-th texture (its array follows it).
+#define CYCLE_TEX_FRAME(animtex, frame) PSX_ADDR(ANIMTEX_GETARRAY(animtex)[(s16)(frame)])
+#else
 // NOTE(aalhendi): Index from the AnimTex base so GCC preserves retail's signed 16-bit frame index and pointer-add order.
 #define CYCLE_TEX_FRAME(animtex, frame) \
-	(((struct IconGroup4 **)((u32)(animtex) + ((u32)(s16)(frame) << 2)))[sizeof(struct AnimTex) / sizeof(struct IconGroup4 *)])
+	((u32)((struct IconGroup4 **)((u32)(animtex) + ((u32)(s16)(frame) << 2)))[sizeof(struct AnimTex) / sizeof(struct IconGroup4 *)])
+#endif
 
 void CTR_CycleTex_LEV(struct AnimTex *animtex, int timer)
 {
@@ -10,7 +15,7 @@ void CTR_CycleTex_LEV(struct AnimTex *animtex, int timer)
 	struct AnimTex *curAnimTex = animtex;
 
 	// Termination is determined by pointer to First AnimTex
-	while (*(int *)curAnimTex != (int)animtex)
+	while (PSX_ADDR(curAnimTex->ptrActiveTex) != PsxSpace_FromHost(animtex))
 	{
 		// which texture to draw this frame
 		frameCurr = FPS_HALF(timer) + curAnimTex->frameOffset;
@@ -26,7 +31,7 @@ void CTR_CycleTex_LEV(struct AnimTex *animtex, int timer)
 
 		// Save new frame
 		// For levels, this is just a pointer
-		curAnimTex->ptrActiveTex = (int *)CYCLE_TEX_FRAME(curAnimTex, frameCurr);
+		PSX_ADDR(curAnimTex->ptrActiveTex) = CYCLE_TEX_FRAME(curAnimTex, frameCurr);
 
 		// Go to next AnimTex, which comes after this AnimTex's ptrarray
 		curAnimTex = (struct AnimTex *)&(ANIMTEX_GETARRAY(curAnimTex))[curAnimTex->numFrames];
@@ -39,7 +44,7 @@ void CTR_CycleTex_Model(struct AnimTex *animtex, int timer)
 	struct AnimTex *curAnimTex = animtex;
 
 	// Termination is determined by pointer to First AnimTex
-	while (*(int *)curAnimTex != (int)animtex)
+	while (PSX_ADDR(curAnimTex->ptrActiveTex) != PsxSpace_FromHost(animtex))
 	{
 		// which texture to draw this frame
 		frameCurr = FPS_HALF(timer) + curAnimTex->frameOffset;
@@ -55,14 +60,14 @@ void CTR_CycleTex_Model(struct AnimTex *animtex, int timer)
 
 		// Save new frame
 		// For Model, this is a pointer to a pointer
-		*curAnimTex->ptrActiveTex = (int)CYCLE_TEX_FRAME(curAnimTex, frameCurr);
+		*PSX_GET(curAnimTex->ptrActiveTex) = (int)CYCLE_TEX_FRAME(curAnimTex, frameCurr);
 
 		// Go to next AnimTex, which comes after this AnimTex's ptrarray
 		curAnimTex = (struct AnimTex *)&(ANIMTEX_GETARRAY(curAnimTex))[curAnimTex->numFrames];
 	}
 }
 
-void CTR_CycleTex_AllModels(u32 numModels, struct Model **pModelArray, int timer)
+void CTR_CycleTex_AllModels(u32 numModels, PsxModelPtr *pModelArray, int timer)
 {
 	struct Model *pModel;
 	struct ModelHeader *pHeader;
@@ -81,7 +86,7 @@ void CTR_CycleTex_AllModels(u32 numModels, struct Model **pModelArray, int timer
 
 	while (true)
 	{
-		pModel = *pModelArray;
+		pModel = PSX_GET(*pModelArray);
 		if (pModel == NULL)
 		{
 			return;
@@ -90,13 +95,13 @@ void CTR_CycleTex_AllModels(u32 numModels, struct Model **pModelArray, int timer
 		headerCount = pModel->numHeaders;
 		// NOTE(aalhendi): Keep the short-lived count distinct from the header end pointer for retail register allocation.
 		CTR_PSX_KEEP_VALUE(headerCount);
-		pHeader = pModel->headers;
+		pHeader = PSX_GET(pModel->headers);
 		pHeaderEnd = pHeader + headerCount;
 		while (pHeader < pHeaderEnd)
 		{
-			if ((pHeader->animtex != NULL) && ((pHeader->flags & 2) == 0))
+			if ((PSX_GET(pHeader->animtex) != NULL) && ((pHeader->flags & 2) == 0))
 			{
-				CTR_CycleTex_Model(pHeader->animtex, timer);
+				CTR_CycleTex_Model(PSX_GET(pHeader->animtex), timer);
 			}
 			pHeader++;
 		}

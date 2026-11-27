@@ -29,16 +29,16 @@ void DecalGlobal_Store(struct GameTracker *gGT, struct LevTexLookup *LTL)
 {
 	struct Icon *currIcon;
 	struct Icon *endIcon;
-	struct IconGroup **currGroup;
-	struct IconGroup **endGroup;
+	PsxIconGroupPtr *currGroup;
+	PsxIconGroupPtr *endGroup;
 
 	if (LTL == 0)
 	{
 		return;
 	}
 
-	currIcon = LTL->firstIcon;
-	endIcon = &LTL->firstIcon[LTL->numIcon];
+	currIcon = PSX_GET(LTL->firstIcon);
+	endIcon = &PSX_GET(LTL->firstIcon)[LTL->numIcon];
 	for (; currIcon < endIcon; currIcon++)
 	{
 		// Unsigned comparison rejects negative IDs as well as oversized ones.
@@ -48,11 +48,11 @@ void DecalGlobal_Store(struct GameTracker *gGT, struct LevTexLookup *LTL)
 		}
 	}
 
-	currGroup = LTL->firstIconGroupPtr;
-	endGroup = &LTL->firstIconGroupPtr[LTL->numIconGroup];
+	currGroup = PSX_GET(LTL->firstIconGroupPtr);
+	endGroup = currGroup + LTL->numIconGroup;
 	for (; currGroup < endGroup; currGroup++)
 	{
-		struct IconGroup *group = *currGroup;
+		struct IconGroup *group = PSX_GET(*currGroup);
 		if ((u32)group->groupID < len(gGT->iconGroup))
 		{
 			gGT->iconGroup[group->groupID] = group;
@@ -63,18 +63,18 @@ void DecalGlobal_Store(struct GameTracker *gGT, struct LevTexLookup *LTL)
 
 struct IconGroup *DecalGlobal_FindInLEV(struct Level *level, const char *name)
 {
-	struct LevTexLookup *ltl = level->levTexLookup;
-	struct IconGroup **curr;
-	struct IconGroup **end;
+	struct LevTexLookup *ltl = PSX_GET(level->levTexLookup);
+	PsxIconGroupPtr *curr;
+	PsxIconGroupPtr *end;
 
 	if (ltl != NULL)
 	{
-		curr = ltl->firstIconGroupPtr;
-		end = &ltl->firstIconGroupPtr[ltl->numIconGroup];
+		curr = PSX_GET(ltl->firstIconGroupPtr);
+		end = curr + ltl->numIconGroup;
 
 		for (; curr < end; curr++)
 		{
-			struct IconGroup *group = *curr;
+			struct IconGroup *group = PSX_GET(*curr);
 
 			if (DECAL_NAME_EQUALS(group->name, name))
 			{

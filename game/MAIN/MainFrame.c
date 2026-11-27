@@ -259,8 +259,8 @@ void MainFrame_GameLogic(struct GameTracker *gGT, struct GamepadSystem *gGamepad
 			gGT->elapsedEventTime = 0;
 		}
 
-		CTR_CycleTex_AllModels(-1, (struct Model **)sdata->PLYROBJECTLIST, gGT->timer);
-		CTR_CycleTex_AllModels(gGT->level1->numModels, gGT->level1->ptrModelsPtrArray, gGT->timer);
+		CTR_CycleTex_AllModels(-1, sdata->PLYROBJECTLIST, gGT->timer);
+		CTR_CycleTex_AllModels(gGT->level1->numModels, PSX_GET(gGT->level1->ptrModelsPtrArray), gGT->timer);
 
 		psVar8 = 0;
 		psVar9 = 0;
@@ -666,13 +666,13 @@ void MainFrame_BuildEverVisibleLeafs(struct mesh_info *mesh)
 	memset(s_everVisibleLeafs, 0, sizeof(s_everVisibleLeafs));
 	for (int i = 0; i < mesh->numQuadBlock; i++)
 	{
-		struct PVS *pvs = mesh->ptrQuadBlockArray[i].pvs;
+		struct PVS *pvs = PSX_GET(PSX_GET(mesh->ptrQuadBlockArray)[i].pvs);
 
 		// neighbouring quadblocks usually share one list: skip the repeat
-		if ((pvs == NULL) || (pvs->visLeafSrc == NULL) || (pvs->visLeafSrc == last))
+		if ((pvs == NULL) || (PSX_GET(pvs->visLeafSrc) == NULL) || (PSX_GET(pvs->visLeafSrc) == last))
 			continue;
-		last = pvs->visLeafSrc;
-		MainFrame_OrPackedVisList(s_everVisibleLeafs, pvs->visLeafSrc, ((mesh->numBspNodes + 0x1f) >> 5) << 2);
+		last = PSX_GET(pvs->visLeafSrc);
+		MainFrame_OrPackedVisList(s_everVisibleLeafs, PSX_GET(pvs->visLeafSrc), ((mesh->numBspNodes + 0x1f) >> 5) << 2);
 		s_everVisibleLeafsValid = 1;
 	}
 }
@@ -680,7 +680,7 @@ void MainFrame_BuildEverVisibleLeafs(struct mesh_info *mesh)
 
 static int MainFrame_VisMemHasQuad(const int *visFaceList, const struct QuadBlock *quad, const struct mesh_info *mesh)
 {
-	int quadIndex = (int)(quad - mesh->ptrQuadBlockArray);
+	int quadIndex = (int)(quad - PSX_GET(mesh->ptrQuadBlockArray));
 
 	return (visFaceList[quadIndex >> 5] & (1 << (quadIndex & 0x1f))) != 0;
 }
@@ -688,7 +688,7 @@ static int MainFrame_VisMemHasQuad(const int *visFaceList, const struct QuadBloc
 static void MainFrame_VisMemAddDriverPVS(struct GameTracker *gGT, int playerIndex)
 {
 	struct Driver *driver = gGT->drivers[playerIndex];
-	struct mesh_info *mesh = gGT->level1->ptr_mesh_info;
+	struct mesh_info *mesh = PSX_GET(gGT->level1->ptr_mesh_info);
 	struct QuadBlock *quad = driver->underDriver;
 	struct PVS *pvs;
 
@@ -697,20 +697,20 @@ static void MainFrame_VisMemAddDriverPVS(struct GameTracker *gGT, int playerInde
 		return;
 	}
 
-	pvs = quad->pvs;
+	pvs = PSX_GET(quad->pvs);
 	if (pvs == NULL)
 	{
 		return;
 	}
 
-	if (pvs->visLeafSrc != NULL)
+	if (PSX_GET(pvs->visLeafSrc) != NULL)
 	{
-		MainFrame_OrPackedVisList(gGT->visMem1->visLeafList[playerIndex], pvs->visLeafSrc, ((mesh->numBspNodes + 0x1f) >> 5) << 2);
+		MainFrame_OrPackedVisList(PSX_GET(gGT->visMem1->visLeafList[playerIndex]), PSX_GET(pvs->visLeafSrc), ((mesh->numBspNodes + 0x1f) >> 5) << 2);
 	}
 
-	if (pvs->visFaceSrc != NULL)
+	if (PSX_GET(pvs->visFaceSrc) != NULL)
 	{
-		MainFrame_OrPackedVisList(gGT->visMem1->visFaceList[playerIndex], pvs->visFaceSrc, ((mesh->numQuadBlock + 0x1f) >> 5) << 2);
+		MainFrame_OrPackedVisList(PSX_GET(gGT->visMem1->visFaceList[playerIndex]), PSX_GET(pvs->visFaceSrc), ((mesh->numQuadBlock + 0x1f) >> 5) << 2);
 	}
 }
 
@@ -736,7 +736,7 @@ void MainFrame_VisMemFullFrame(struct GameTracker *gGT, struct Level *level)
 		return;
 	}
 
-	mesh = level->ptr_mesh_info;
+	mesh = PSX_GET(level->ptr_mesh_info);
 
 	for (playerIndex = 0; playerIndex < gGT->numPlyrCurrGame; playerIndex++)
 	{
@@ -747,40 +747,40 @@ void MainFrame_VisMemFullFrame(struct GameTracker *gGT, struct Level *level)
 
 		if (driverQuad != NULL)
 		{
-			driverPVS = driverQuad->pvs;
+			driverPVS = PSX_GET(driverQuad->pvs);
 		}
 
 		camDC->flags &= ~0x4000;
 
 		if (camDC->visLeafSrc == NULL)
 		{
-			if ((driverPVS != NULL) && (driverPVS->visLeafSrc != NULL))
+			if ((driverPVS != NULL) && (PSX_GET(driverPVS->visLeafSrc) != NULL))
 			{
-				visMem->visLeafSrc[playerIndex] = driverPVS->visLeafSrc;
-				MainFrame_ReplacePackedVisList(visMem->visLeafList[playerIndex], driverPVS->visLeafSrc, ((mesh->numBspNodes + 0x1f) >> 5) << 2);
+				PSX_SET(visMem->visLeafSrc[playerIndex], PSX_GET(driverPVS->visLeafSrc));
+				MainFrame_ReplacePackedVisList(PSX_GET(visMem->visLeafList[playerIndex]), PSX_GET(driverPVS->visLeafSrc), ((mesh->numBspNodes + 0x1f) >> 5) << 2);
 			}
 		}
-		else if (visMem->visLeafSrc[playerIndex] != camDC->visLeafSrc)
+		else if (PSX_GET(visMem->visLeafSrc[playerIndex]) != camDC->visLeafSrc)
 		{
-			visMem->visLeafSrc[playerIndex] = camDC->visLeafSrc;
-			MainFrame_ReplacePackedVisList(visMem->visLeafList[playerIndex], camDC->visLeafSrc, ((mesh->numBspNodes + 0x1f) >> 5) << 2);
+			PSX_SET(visMem->visLeafSrc[playerIndex], camDC->visLeafSrc);
+			MainFrame_ReplacePackedVisList(PSX_GET(visMem->visLeafList[playerIndex]), camDC->visLeafSrc, ((mesh->numBspNodes + 0x1f) >> 5) << 2);
 		}
 
 		if (camDC->visFaceSrc == NULL)
 		{
-			if ((driverPVS != NULL) && (driverPVS->visFaceSrc != NULL))
+			if ((driverPVS != NULL) && (PSX_GET(driverPVS->visFaceSrc) != NULL))
 			{
-				visMem->visFaceSrc[playerIndex] = driverPVS->visFaceSrc;
-				MainFrame_ReplacePackedVisList(visMem->visFaceList[playerIndex], driverPVS->visFaceSrc, ((mesh->numQuadBlock + 0x1f) >> 5) << 2);
+				PSX_SET(visMem->visFaceSrc[playerIndex], PSX_GET(driverPVS->visFaceSrc));
+				MainFrame_ReplacePackedVisList(PSX_GET(visMem->visFaceList[playerIndex]), PSX_GET(driverPVS->visFaceSrc), ((mesh->numQuadBlock + 0x1f) >> 5) << 2);
 			}
 		}
-		else if (visMem->visFaceSrc[playerIndex] != camDC->visFaceSrc)
+		else if (PSX_GET(visMem->visFaceSrc[playerIndex]) != camDC->visFaceSrc)
 		{
-			visMem->visFaceSrc[playerIndex] = camDC->visFaceSrc;
-			MainFrame_ReplacePackedVisList(visMem->visFaceList[playerIndex], camDC->visFaceSrc, ((mesh->numQuadBlock + 0x1f) >> 5) << 2);
+			PSX_SET(visMem->visFaceSrc[playerIndex], camDC->visFaceSrc);
+			MainFrame_ReplacePackedVisList(PSX_GET(visMem->visFaceList[playerIndex]), camDC->visFaceSrc, ((mesh->numQuadBlock + 0x1f) >> 5) << 2);
 
-			if ((driverPVS == NULL) || (driverPVS->visLeafSrc == NULL) || (driverPVS->visFaceSrc == NULL) || (driverPVS->visInstSrc == NULL) ||
-			    MainFrame_VisMemHasQuad(visMem->visFaceList[playerIndex], driverQuad, mesh))
+			if ((driverPVS == NULL) || (PSX_GET(driverPVS->visLeafSrc) == NULL) || (PSX_GET(driverPVS->visFaceSrc) == NULL) || (PSX_GET(driverPVS->visInstSrc) == NULL) ||
+			    MainFrame_VisMemHasQuad(PSX_GET(visMem->visFaceList[playerIndex]), driverQuad, mesh))
 			{
 				camDC->flags &= ~0x2000;
 			}
@@ -801,16 +801,16 @@ void MainFrame_VisMemFullFrame(struct GameTracker *gGT, struct Level *level)
 			MainFrame_VisMemAddDriverPVS(gGT, playerIndex);
 		}
 
-		if ((camDC->cameraMode == 0) && ((camDC->flags & 0x2000) != 0) && (driverPVS != NULL) && (driverPVS->visInstSrc != NULL))
+		if ((camDC->cameraMode == 0) && ((camDC->flags & 0x2000) != 0) && (driverPVS != NULL) && (PSX_GET(driverPVS->visInstSrc) != NULL))
 		{
-			camDC->visInstSrc = driverPVS->visInstSrc;
+			camDC->visInstSrc = PSX_GET(driverPVS->visInstSrc);
 		}
 
 		if ((level->configFlags & 4) == 0)
 		{
-			if (visMem->visOVertSrc[playerIndex] != camDC->visOVertSrc)
+			if (PSX_GET(visMem->visOVertSrc[playerIndex]) != camDC->visOVertSrc)
 			{
-				visMem->visOVertSrc[playerIndex] = camDC->visOVertSrc;
+				PSX_SET(visMem->visOVertSrc[playerIndex], camDC->visOVertSrc);
 
 #if defined(CTR_NATIVE)
 				// Retail replays even a NULL source (reads PSX low memory);
@@ -818,29 +818,29 @@ void MainFrame_VisMemFullFrame(struct GameTracker *gGT, struct Level *level)
 				// default is copied in on the next frame below.
 				if (camDC->visOVertSrc != NULL)
 #endif
-				MainFrame_ReplacePackedVisList(visMem->visOVertList[playerIndex], camDC->visOVertSrc, ((level->numWaterVertices + 0x1f) >> 5) << 2);
+				MainFrame_ReplacePackedVisList(PSX_GET(visMem->visOVertList[playerIndex]), camDC->visOVertSrc, ((level->numWaterVertices + 0x1f) >> 5) << 2);
 			}
-			else if (visMem->visOVertSrc[playerIndex] == NULL)
+			else if (PSX_GET(visMem->visOVertSrc[playerIndex]) == NULL)
 			{
-				memcpy(visMem->visOVertList[playerIndex], level->visOVertSrc, ((level->numWaterVertices + 0x1f) >> 5) << 2);
+				memcpy(PSX_GET(visMem->visOVertList[playerIndex]), PSX_GET(level->visOVertSrc), ((level->numWaterVertices + 0x1f) >> 5) << 2);
 			}
 		}
 		else
 		{
-			if (visMem->visSCVertSrc[playerIndex] != camDC->visSCVertSrc)
+			if (PSX_GET(visMem->visSCVertSrc[playerIndex]) != camDC->visSCVertSrc)
 			{
-				visMem->visSCVertSrc[playerIndex] = camDC->visSCVertSrc;
+				PSX_SET(visMem->visSCVertSrc[playerIndex], camDC->visSCVertSrc);
 
 #if defined(CTR_NATIVE)
 				// Retail replays even a NULL source (reads PSX low memory);
 				// skip the replay on native instead of faulting.
 				if (camDC->visSCVertSrc != NULL)
 #endif
-				MainFrame_ReplacePackedVisList(visMem->visSCVertList[playerIndex], camDC->visSCVertSrc, ((level->numSCVert + 0x1f) >> 5) << 2);
+				MainFrame_ReplacePackedVisList(PSX_GET(visMem->visSCVertList[playerIndex]), camDC->visSCVertSrc, ((level->numSCVert + 0x1f) >> 5) << 2);
 			}
-			else if (visMem->visSCVertSrc[playerIndex] == NULL)
+			else if (PSX_GET(visMem->visSCVertSrc[playerIndex]) == NULL)
 			{
-				memcpy(visMem->visSCVertList[playerIndex], level->visSCVertSrc, ((level->numSCVert + 0x1f) >> 5) << 2);
+				memcpy(PSX_GET(visMem->visSCVertList[playerIndex]), PSX_GET(level->visSCVertSrc), ((level->numSCVert + 0x1f) >> 5) << 2);
 			}
 		}
 
@@ -859,14 +859,14 @@ void MainFrame_VisMemFullFrame(struct GameTracker *gGT, struct Level *level)
 		if (!NativeDev_RetailCull())
 		{
 			if (s_everVisibleLeafsValid)
-				memcpy(visMem->visLeafList[playerIndex], s_everVisibleLeafs, ((mesh->numBspNodes + 0x1f) >> 5) << 2);
+				memcpy(PSX_GET(visMem->visLeafList[playerIndex]), s_everVisibleLeafs, ((mesh->numBspNodes + 0x1f) >> 5) << 2);
 			else
-				memset(visMem->visLeafList[playerIndex], 0xff, ((mesh->numBspNodes + 0x1f) >> 5) << 2);
-			memset(visMem->visFaceList[playerIndex], 0xff, ((mesh->numQuadBlock + 0x1f) >> 5) << 2);
-			if (((level->configFlags & 4) == 0) && (visMem->visOVertList[playerIndex] != NULL))
-				memset(visMem->visOVertList[playerIndex], 0xff, ((level->numWaterVertices + 0x1f) >> 5) << 2);
-			if (((level->configFlags & 4) != 0) && (visMem->visSCVertList[playerIndex] != NULL))
-				memset(visMem->visSCVertList[playerIndex], 0xff, ((level->numSCVert + 0x1f) >> 5) << 2);
+				memset(PSX_GET(visMem->visLeafList[playerIndex]), 0xff, ((mesh->numBspNodes + 0x1f) >> 5) << 2);
+			memset(PSX_GET(visMem->visFaceList[playerIndex]), 0xff, ((mesh->numQuadBlock + 0x1f) >> 5) << 2);
+			if (((level->configFlags & 4) == 0) && (PSX_GET(visMem->visOVertList[playerIndex]) != NULL))
+				memset(PSX_GET(visMem->visOVertList[playerIndex]), 0xff, ((level->numWaterVertices + 0x1f) >> 5) << 2);
+			if (((level->configFlags & 4) != 0) && (PSX_GET(visMem->visSCVertList[playerIndex]) != NULL))
+				memset(PSX_GET(visMem->visSCVertList[playerIndex]), 0xff, ((level->numSCVert + 0x1f) >> 5) << 2);
 		}
 #endif
 	}

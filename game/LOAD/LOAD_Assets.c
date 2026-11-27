@@ -24,12 +24,10 @@ void LOAD_RunPtrMap(char *origin, int *patchArr, int numPtrs)
 	for (; ptrCurrOffset < ptrEndOffset; ptrCurrOffset++)
 	{
 		int offset = (*ptrCurrOffset >> 2) << 2;
-		// NOTE(aalhendi): Retail adds the aligned offset before the 32-bit base address.
-		int *location = (int *)((u32)offset + (u32)origin);
-		*location = *location + (int)origin;
-#if defined(CTR_NATIVE) && defined(CTR_INTERNAL)
-		NativeCheckpoint_RegisterPointerSlot((char *)location);
-#endif
+		// A slot holds an offset into this file; adding the file's PSX address
+		// makes it a PSX_PTR (include/ctr_psx_ptr.h).
+		u32 *location = (u32 *)&origin[offset];
+		*location = *location + PsxSpace_FromHost(origin);
 	}
 }
 
@@ -284,7 +282,7 @@ static void LOAD_HitLogRoster(int level, int isCup, int player, int fresh,
 #endif
 
 // NOTE(aalhendi): Retail queues fixed LOD slots and pack files in branch-local calls.
-int LOAD_DriverMPK(struct BigHeader *bigfile, int levelLOD, void (*callback)(struct LoadQueueSlot *))
+void *LOAD_DriverMPK(struct BigHeader *bigfile, int levelLOD, void (*callback)(struct LoadQueueSlot *))
 {
 	int gameMode1;
 	struct GameTracker *gGT;

@@ -25,7 +25,6 @@
 #define NATIVE_CHECKPOINT_ADDRESS_RANGE_CAP  19u
 #define NATIVE_CHECKPOINT_POINTER_SLOT_CAP   65536u
 #define NATIVE_CHECKPOINT_CREDITS_STRING_CAP 4096u
-#define NATIVE_CHECKPOINT_LNG_STRING_CAP     4096u
 
 enum NativeCheckpointRegionKind
 {
@@ -1492,15 +1491,11 @@ internal void NativeCheckpoint_RelocateDataPointers(const struct NativeCheckpoin
 internal void NativeCheckpoint_RelocateLanguagePointers(const struct NativeCheckpointHeader *oldHeader, const struct NativeCheckpointHeader *liveHeader)
 {
 	NativeCheckpoint_RelocatePointerSlot(oldHeader, liveHeader, &sdata_static.lngFile);
-	NativeCheckpoint_RelocatePointerSlot(oldHeader, liveHeader, &sdata_static.lngStrings);
 
-	if ((sdata_static.numLngStrings > 0) && ((u32)sdata_static.numLngStrings <= NATIVE_CHECKPOINT_LNG_STRING_CAP) &&
-	    NativeCheckpoint_IsLivePointer(liveHeader, sdata_static.lngStrings))
+	// The string table is host memory pointing into the file: rebuild it.
+	if ((sdata_static.lngFile != NULL) && (sdata_static.numLngStrings > 0))
 	{
-		for (s32 i = 0; i < sdata_static.numLngStrings; i++)
-		{
-			NativeCheckpoint_RelocatePointerSlot(oldHeader, liveHeader, &sdata_static.lngStrings[i]);
-		}
+		LOAD_LangFile_IndexStrings(sdata_static.lngFile);
 	}
 }
 
@@ -1637,7 +1632,6 @@ internal void NativeCheckpoint_RelocateSDataPointers(const struct NativeCheckpoi
 	NativeCheckpoint_RelocatePointerSlot(oldHeader, liveHeader, &sdata_static.ptrHudC);
 	NativeCheckpoint_RelocatePointerSlot(oldHeader, liveHeader, &sdata_static.ptrToken);
 	NativeCheckpoint_RelocatePointerSlot(oldHeader, liveHeader, &sdata_static.ptrTimebox1);
-	NativeCheckpoint_RelocatePointerSlot(oldHeader, liveHeader, &sdata_static.blank_NavHeader.last);
 
 	// Pointer-or-image for the same reason as nav_ptrFirstPoint above: these
 	// slots address the LEV's nav data normally and an image static when a

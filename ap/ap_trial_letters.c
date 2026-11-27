@@ -8,13 +8,17 @@
 #include "ap_seedcfg.h"
 #include "ap_hooks.h"
 #include <platform/native_gpu.h>
+#include <platform/native_psx_space.h>
 #include <platform/native_renderer.h>
 #ifdef CTR_CUSTOM_TRACKS
 #include <platform/native_custom_tracks.h>
 #endif
 
 // Process-owned, aligned storage, never MEMPACK or a borrowed track buffer.
-static u32 s_trialLev[768000/4];
+// The trial letters' level, retained (its models stay in use). In PSX space,
+// as disc-format data.
+#define AP_TRIAL_LEV_BUF 768000
+static u32 *s_trialLev;
 static struct Model *s_trialModels[3];
 static struct BoundingBox s_trialLetterBoxOffset[3];
 static struct BoundingBox s_trialLetterBox[3];
@@ -23,28 +27,28 @@ static int s_trialAssets; // 0 untried, 1 ready, -1 refused (logged once)
 static int AP_TrialLetters_FindRetailBoxes(unsigned char *body, unsigned map)
 {
     struct Level *level=(struct Level *)body;
-    struct mesh_info *mesh=level->ptr_mesh_info;
-    struct InstDef *defs=level->ptrInstDefs;
+    struct mesh_info *mesh=PSX_GET(level->ptr_mesh_info);
+    struct InstDef *defs=PSX_GET(level->ptrInstDefs);
     struct InstDef *letterDefs[3]={0};
     uintptr_t lo=(uintptr_t)body, hi=lo+map;
     int found[3]={0}, i, j, k;
     if (!mesh || !defs || (uintptr_t)mesh<lo || (uintptr_t)(mesh+1)>hi ||
         (uintptr_t)defs<lo || level->numInstances>65536 ||
-        (uintptr_t)(defs+level->numInstances)>hi || !mesh->bspRoot ||
-        (uintptr_t)mesh->bspRoot<lo || mesh->numBspNodes<=0 || mesh->numBspNodes>65536 ||
-        (uintptr_t)(mesh->bspRoot+mesh->numBspNodes)>hi) return 0;
+        (uintptr_t)(defs+level->numInstances)>hi || !PSX_GET(mesh->bspRoot) ||
+        (uintptr_t)PSX_GET(mesh->bspRoot)<lo || mesh->numBspNodes<=0 || mesh->numBspNodes>65536 ||
+        (uintptr_t)(PSX_GET(mesh->bspRoot)+mesh->numBspNodes)>hi) return 0;
     for (i=0; i<(int)level->numInstances; ++i)
         if (defs[i].modelID>=STATIC_C && defs[i].modelID<=STATIC_R)
             letterDefs[defs[i].modelID-STATIC_C]=&defs[i];
     for (i=0; i<3; ++i) if (!letterDefs[i]) return 0;
     for (i=0; i<mesh->numBspNodes; ++i) {
-        struct BSP *node=&mesh->bspRoot[i], *hit;
-        if (!(node->flag & BSP_NODE_FLAG_LEAF) || !node->data.leaf.bspHitboxArray) continue;
-        hit=node->data.leaf.bspHitboxArray;
+        struct BSP *node=&PSX_GET(mesh->bspRoot)[i], *hit;
+        if (!(node->flag & BSP_NODE_FLAG_LEAF) || !PSX_GET(node->data.leaf.bspHitboxArray)) continue;
+        hit=PSX_GET(node->data.leaf.bspHitboxArray);
         if ((uintptr_t)hit<lo || (uintptr_t)(hit+1)>hi) return 0;
         for (j=0; j<2048 && (uintptr_t)(hit+j+1)<=hi && hit[j].flag; ++j) {
             if ((hit[j].flag>>8)!=BSP_HITBOX_CLASS_TOUCH) continue;
-            for (k=0; k<3; ++k) if (!found[k] && hit[j].data.hitbox.instDef==letterDefs[k]) {
+            for (k=0; k<3; ++k) if (!found[k] && PSX_GET(hit[j].data.hitbox.instDef)==letterDefs[k]) {
                 s_trialLetterBoxOffset[k]=hit[j].box;
                 s_trialLetterBoxOffset[k].min.x-=letterDefs[k]->pos.x;
                 s_trialLetterBoxOffset[k].min.y-=letterDefs[k]->pos.y;
@@ -61,7 +65,7 @@ static int AP_TrialLetters_FindRetailBoxes(unsigned char *body, unsigned map)
 
 int AP_TrialLetters_Prepare(void)
 {
-    unsigned char *raw=(unsigned char *)s_trialLev, *vrm;
+    unsigned char *raw, *vrm;
     unsigned char rgba[64*2*4];
     unsigned texture;
     int size=0, i, j;
@@ -69,8 +73,11 @@ int AP_TrialLetters_Prepare(void)
     // Don't latch a failure before the directory has been read at startup.
     if (!sdata->ptrBigfile1) return 0;
     s_trialAssets=-1;
+    if (!s_trialLev) s_trialLev=(u32 *)PsxSpace_Alloc(AP_TRIAL_LEV_BUF);
+    if (!s_trialLev) goto refused;
+    raw=(unsigned char *)s_trialLev;
     // Raw read first, including DRAM header; authenticate BEFORE relocation.
-    if (!AP_RetailAsset_ReadSubfile(25,0,raw,sizeof(s_trialLev),&size) ||
+    if (!AP_RetailAsset_ReadSubfile(25,0,raw,AP_TRIAL_LEV_BUF,&size) ||
         size!=AP_TRIAL_LEV_SIZE || !AP_TrialDigest(raw,size,AP_TRIAL_LEV_SHA) ||
         !AP_TrialPointerMapValid(raw,size)) goto refused;
     vrm=(unsigned char *)malloc(460800);
@@ -93,7 +100,7 @@ int AP_TrialLetters_Prepare(void)
             // Audited texture tables: C 72, T 27, R 68 triangles; both
             // palette ramps use separate halves of this tiny owned atlas.
             for (j=0; j<(int)AP_TRIAL_LAYOUT_COUNT[i]; ++j) {
-                struct TextureLayout *t=m->headers[0].ptrTexLayout[j];
+                struct TextureLayout *t=PSX_GET(PSX_GET(PSX_GET(m->headers)[0].ptrTexLayout)[j]);
                 t->v0-=244; t->v1-=244; t->v2-=244; t->v3-=244;
                 t->tpage=(t->tpage & 0x60) | AP_TPAGE_TRIAL_LETTER_BIT;
             }

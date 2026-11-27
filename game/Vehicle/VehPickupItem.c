@@ -1176,7 +1176,7 @@ void VehPickupItem_ShootNow(struct Driver *d, s32 weaponID, s32 flags)
 
 		RB_Warpball_SeekDriver(tw, d->checkpoint.currentIndex, d);
 
-		checkpoints = GAME_TRACKER->level1->ptr_restart_points;
+		checkpoints = PSX_GET(GAME_TRACKER->level1->ptr_restart_points);
 		tw->nodeNextIndex = tw->nodeCurrIndex;
 		tw->ptrNodeCurr = &checkpoints[tw->nodeCurrIndex];
 		tw->flags = 0;
@@ -1358,7 +1358,7 @@ void VehPickupItem_ShootNow(struct Driver *d, s32 weaponID, s32 flags)
 				sps->Union.QuadBlockColl.searchFlags = COLL_SEARCH_TEST_INSTANCES | COLL_SEARCH_HIGH_LOD;
 			}
 		}
-		sps->ptr_mesh_info = GAME_TRACKER->level1->ptr_mesh_info;
+		sps->ptr_mesh_info = PSX_GET(GAME_TRACKER->level1->ptr_mesh_info);
 		COLL_SearchBSP_CallbackQUADBLK(&shootScratch.mineProbeTop, &mineProbeBottom, sps, MINE_COLL_CALLBACK_FLAGS);
 
 		if ((u16)sps->boolDidTouchHitbox != 0)
@@ -1366,7 +1366,7 @@ void VehPickupItem_ShootNow(struct Driver *d, s32 weaponID, s32 flags)
 			sps->Input1.modelID = weaponInst->model->id | COLL_MODELID_BLOCKAGE_FLAG;
 			RB_Hazard_CollLevInst(sps, weaponInst->thread);
 
-			instDef = sps->bspHitbox->data.hitbox.instDef;
+			instDef = PSX_GET(sps->bspHitbox->data.hitbox.instDef);
 			CTR_PSX_LOAD_SIGNED_HALF_VOLATILE(modelTouched, instDef, offsetof(struct InstDef, modelID), *(VehPickupItemSignedHalfword *)&instDef->modelID);
 			if (modelTouched == MINE_HITBOX_FRUIT_MODEL)
 			{
@@ -1378,7 +1378,7 @@ void VehPickupItem_ShootNow(struct Driver *d, s32 weaponID, s32 flags)
 			}
 
 		MineHitCrate:
-			mw->crateInst = instDef->ptrInstance;
+			mw->crateInst = PSX_GET(instDef->ptrInstance);
 			goto MineHitboxDone;
 
 		MineDestroy:
@@ -1480,7 +1480,7 @@ void VehPickupItem_ShootNow(struct Driver *d, s32 weaponID, s32 flags)
 			VehPickupItem_CopyInstanceMatrix(weaponInst, copySource);
 		}
 
-		modelHeader = weaponInst->model->headers;
+		modelHeader = PSX_GET(weaponInst->model->headers);
 		CTR_PSX_KEEP_VALUE(modelHeader);
 		soundID = SOUND_MINE_DROP;
 		CTR_PSX_KEEP_VALUE(soundID);
@@ -1559,7 +1559,7 @@ void VehPickupItem_ShootNow(struct Driver *d, s32 weaponID, s32 flags)
 				sps->Union.QuadBlockColl.searchFlags = COLL_SEARCH_TEST_INSTANCES | COLL_SEARCH_HIGH_LOD;
 			}
 		}
-		sps->ptr_mesh_info = GAME_TRACKER->level1->ptr_mesh_info;
+		sps->ptr_mesh_info = PSX_GET(GAME_TRACKER->level1->ptr_mesh_info);
 		COLL_SearchBSP_CallbackQUADBLK(&beakerProbeTop, &beakerProbeBottom, sps, MINE_COLL_CALLBACK_FLAGS);
 
 		if ((u16)sps->boolDidTouchHitbox != 0)
@@ -1567,7 +1567,7 @@ void VehPickupItem_ShootNow(struct Driver *d, s32 weaponID, s32 flags)
 			sps->Input1.modelID = weaponInst->model->id;
 			RB_Hazard_CollLevInst(sps, weaponInst->thread);
 
-			instDef = sps->bspHitbox->data.hitbox.instDef;
+			instDef = PSX_GET(sps->bspHitbox->data.hitbox.instDef);
 			CTR_PSX_LOAD_SIGNED_HALF_VOLATILE(modelTouched, instDef, offsetof(struct InstDef, modelID), *(VehPickupItemSignedHalfword *)&instDef->modelID);
 			if (modelTouched == MINE_HITBOX_FRUIT_MODEL)
 			{
@@ -1579,7 +1579,7 @@ void VehPickupItem_ShootNow(struct Driver *d, s32 weaponID, s32 flags)
 			}
 
 		BeakerHitCrate:
-			mw->crateInst = instDef->ptrInstance;
+			mw->crateInst = PSX_GET(instDef->ptrInstance);
 			goto BeakerHitboxDone;
 
 		BeakerDestroy:

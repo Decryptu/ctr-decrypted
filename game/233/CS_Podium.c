@@ -731,13 +731,13 @@ void CS_Podium_FullScene_Init(void)
 	// position and rotation of podium scene
 	// Y coordinate (podiumPos.y) has added height
 
-	InitData.podiumPos.x = gGT->level1->ptrSpawnType2_PosRot[1].coords.posRot->pos.x;
+	InitData.podiumPos.x = PSX_GET(PSX_GET(gGT->level1->ptrSpawnType2_PosRot)[1].coords.posRot)->pos.x;
 	init = &InitData;
-	init->podiumPos.y = gGT->level1->ptrSpawnType2_PosRot[1].coords.posRot->pos.y + PODIUM_SCENE_SPAWN_Y_OFFSET;
-	init->podiumPos.z = gGT->level1->ptrSpawnType2_PosRot[1].coords.posRot->pos.z;
-	init->rot.x = gGT->level1->ptrSpawnType2_PosRot[1].coords.posRot->rot.x;
-	init->rot.y = gGT->level1->ptrSpawnType2_PosRot[1].coords.posRot->rot.y;
-	init->rot.z = gGT->level1->ptrSpawnType2_PosRot[1].coords.posRot->rot.z;
+	init->podiumPos.y = PSX_GET(PSX_GET(gGT->level1->ptrSpawnType2_PosRot)[1].coords.posRot)->pos.y + PODIUM_SCENE_SPAWN_Y_OFFSET;
+	init->podiumPos.z = PSX_GET(PSX_GET(gGT->level1->ptrSpawnType2_PosRot)[1].coords.posRot)->pos.z;
+	init->rot.x = PSX_GET(PSX_GET(gGT->level1->ptrSpawnType2_PosRot)[1].coords.posRot)->rot.x;
+	init->rot.y = PSX_GET(PSX_GET(gGT->level1->ptrSpawnType2_PosRot)[1].coords.posRot)->rot.y;
+	init->rot.z = PSX_GET(PSX_GET(gGT->level1->ptrSpawnType2_PosRot)[1].coords.posRot)->rot.z;
 
 	// convert 3 rotation shorts into rotation matrix
 	ConvertRotToMatrix(&podiumMatrix, SVec3Slot_AsVec3(&init->rot));

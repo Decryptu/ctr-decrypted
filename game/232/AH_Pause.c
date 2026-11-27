@@ -182,12 +182,12 @@ void AH_Pause_Draw(s32 pageID, s32 inputPosX)
 		titleWidth = DecalFont_GetLineWidth(GAME_LANGUAGE_STRINGS[lngIndex], FONT_BIG);
 		titleHalfWidth = titleWidth / 2;
 		posX = (s16)posX;
-		AH_DECALHUD_ARROW_2D((ICONGROUP_GETICONS(GAME_TRACKER->iconGroup[AH_PAUSE_ICON_GROUP_HUD]))[AH_PAUSE_HUD_ICON_PAGE_ARROW],
+		AH_DECALHUD_ARROW_2D(ICONGROUP_GETICON(GAME_TRACKER->iconGroup[AH_PAUSE_ICON_GROUP_HUD], AH_PAUSE_HUD_ICON_PAGE_ARROW),
 		                     posX - titleHalfWidth + AH_PAUSE_ARROW_LEFT_X_OFFSET, AH_PAUSE_ARROW_Y, &GAME_TRACKER->backBuffer->primMem,
 		                     GAME_TRACKER->pushBuffer_UI.ptrOT, ((Color *)AH_COLOR_POINTERS[colorIndex])[0], ((Color *)AH_COLOR_POINTERS[colorIndex])[1],
 		                     ((Color *)AH_COLOR_POINTERS[colorIndex])[2], ((Color *)AH_COLOR_POINTERS[colorIndex])[3], 0, AH_PAUSE_ARROW_SCALE,
 		                     AH_PAUSE_ARROW_LEFT_ROT_Y);
-		AH_DECALHUD_ARROW_2D((ICONGROUP_GETICONS(GAME_TRACKER->iconGroup[AH_PAUSE_ICON_GROUP_HUD]))[AH_PAUSE_HUD_ICON_PAGE_ARROW],
+		AH_DECALHUD_ARROW_2D(ICONGROUP_GETICON(GAME_TRACKER->iconGroup[AH_PAUSE_ICON_GROUP_HUD], AH_PAUSE_HUD_ICON_PAGE_ARROW),
 		                     titleHalfWidth + posX + AH_PAUSE_ARROW_RIGHT_X_OFFSET, AH_PAUSE_ARROW_Y, &GAME_TRACKER->backBuffer->primMem,
 		                     GAME_TRACKER->pushBuffer_UI.ptrOT, ((Color *)AH_COLOR_POINTERS[colorIndex])[0], ((Color *)AH_COLOR_POINTERS[colorIndex])[1],
 		                     ((Color *)AH_COLOR_POINTERS[colorIndex])[2], ((Color *)AH_COLOR_POINTERS[colorIndex])[3], 0, AH_PAUSE_ARROW_SCALE, 0);
@@ -302,7 +302,7 @@ void AH_Pause_Draw(s32 pageID, s32 inputPosX)
 			s16 colorIndex = AH_PAUSE_BOSS_STAR_LOCKED_COLOR;
 			if (CHECK_ADV_BIT(GAME_ADV_PROGRESS.rewards, AH_BOSS_REWARDS[0]))
 				colorIndex = AH_PAUSE_BOSS_STAR_UNLOCKED_COLOR;
-			AH_DECALHUD_DRAW_POLY_GT4((ICONGROUP_GETICONS(GAME_TRACKER->iconGroup[AH_PAUSE_ICON_GROUP_MISC]))[AH_PAUSE_HUD_ICON_BOSS_STAR],
+			AH_DECALHUD_DRAW_POLY_GT4(ICONGROUP_GETICON(GAME_TRACKER->iconGroup[AH_PAUSE_ICON_GROUP_MISC], AH_PAUSE_HUD_ICON_BOSS_STAR),
 			                          savedPosX + iconX + AH_PAUSE_BOSS_STAR_X_OFFSET, rowY + AH_PAUSE_BOSS_STAR_Y_OFFSET, &GAME_TRACKER->backBuffer->primMem,
 			                          GAME_TRACKER->pushBuffer_UI.ptrOT, ((Color *)AH_COLOR_POINTERS[colorIndex])[0],
 			                          ((Color *)AH_COLOR_POINTERS[colorIndex])[1], ((Color *)AH_COLOR_POINTERS[colorIndex])[2],

@@ -131,7 +131,6 @@ void RB_Armadillo_LInB(struct Instance *inst)
 	struct Armadillo *armObj;
 	SVECTOR rot;
 	u8 *delays;
-	void **pointers;
 	struct Thread *t;
 
 	if (inst->thread != 0)
@@ -169,7 +168,7 @@ void RB_Armadillo_LInB(struct Instance *inst)
 	armObj->velX = RB_ShiftRightS16(inst->matrix.m[0][2], FPS_RIGHTSHIFT(7));
 	armObj->velZ = RB_ShiftRightS16(inst->matrix.m[2][2], FPS_RIGHTSHIFT(7));
 
-	if (GAME_TRACKER->level1->ptrSpawnType1->count <= 0)
+	if (PSX_GET(GAME_TRACKER->level1->ptrSpawnType1)->count <= 0)
 	{
 		return;
 	}
@@ -177,8 +176,7 @@ void RB_Armadillo_LInB(struct Instance *inst)
 	// NOTE(aalhendi): The name's final digit selects a packed halfword delay to stagger instances.
 	{
 		s32 byteOffset = (inst->name[strlen(inst->name) - 1] - '0') * 2;
-		pointers = ST1_GETPOINTERS(GAME_TRACKER->level1->ptrSpawnType1);
-		delays = pointers[ST1_SPAWN];
+		delays = ST1_GETPOINTER(PSX_GET(GAME_TRACKER->level1->ptrSpawnType1), ST1_SPAWN);
 		armObj->timeAtEdge = FPS_DOUBLE(CTR_ReadU16AlignedLE(delays + byteOffset));
 	}
 }

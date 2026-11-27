@@ -2126,7 +2126,7 @@ static const char *ap_cs_statRankName(int rank)
 // icon 0x38 of gGT->iconGroup[4]), so its residency in the hub is proven.
 static void ap_cs_drawRowArrows(struct GameTracker *gGT, int leftX, int rightX, int y)
 {
-	struct Icon **icons = ICONGROUP_GETICONS(gGT->iconGroup[4]);
+	PsxIconPtr *icons = ICONGROUP_GETICONS(gGT->iconGroup[4]);
 	u32 *arrowColors = data.ptrColor[((FPS_HALF(sdata->frameCounter) & 4) == 0) ? RED : ORANGE];
 	int arrowX[2] = {leftX, rightX};
 	int arrowRot[2] = {0x800, 0};
@@ -2134,7 +2134,7 @@ static void ap_cs_drawRowArrows(struct GameTracker *gGT, int leftX, int rightX, 
 
 	for (a = 0; a < 2; a++)
 	{
-		DecalHUD_Arrow2D(icons[0x38], arrowX[a], y,
+		DecalHUD_Arrow2D(PSX_GET(icons[0x38]), arrowX[a], y,
 		                 &gGT->backBuffer->primMem, gGT->pushBuffer_UI.ptrOT,
 		                 ColorCode_Load(&arrowColors[0]), ColorCode_Load(&arrowColors[1]),
 		                 ColorCode_Load(&arrowColors[2]), ColorCode_Load(&arrowColors[3]),

@@ -98,18 +98,18 @@ static int AP_SanityEnsure(struct GameTracker *gt)
     ap_sanity_size = 0;
     for (i = 0; i < ap_sanity_defs_count; ++i) {
         struct InstDef *d = &ap_sanity_defs[i];
-        if (!d->model) continue;
-        f = d->model->id == PU_RANDOM_CRATE ? 0 : d->model->id == PU_FRUIT_CRATE ? 1 : d->model->id == PU_WUMPA_FRUIT ? 2 : -1;
+        if (!PSX_GET(d->model)) continue;
+        f = PSX_GET(d->model)->id == PU_RANDOM_CRATE ? 0 : PSX_GET(d->model)->id == PU_FRUIT_CRATE ? 1 : PSX_GET(d->model)->id == PU_WUMPA_FRUIT ? 2 : -1;
         if (f < 0) continue;
         ++counts[f];
-        if (counts[f] > (f == 0 ? 80 : f == 1 ? 16 : 32) || !d->ptrInstance) continue;
+        if (counts[f] > (f == 0 ? 80 : f == 1 ? 16 : 32) || !PSX_GET(d->ptrInstance)) continue;
         if (row->locations[f][counts[f] - 1] > 0) {
             int n = ap_sanity_size++;
-            ap_sanity_objects[n].inst = d->ptrInstance;
+            ap_sanity_objects[n].inst = PSX_GET(d->ptrInstance);
             ap_sanity_objects[n].code = (long)row->locations[f][counts[f] - 1];
             ap_sanity_objects[n].family = (unsigned char)f;
-            ap_sanity_objects[n].color = d->ptrInstance->colorRGBA;
-            ap_sanity_objects[n].alpha = d->ptrInstance->alphaScale;
+            ap_sanity_objects[n].color = PSX_GET(d->ptrInstance)->colorRGBA;
+            ap_sanity_objects[n].alpha = PSX_GET(d->ptrInstance)->alphaScale;
         }
     }
     if (memcmp(counts, row->counts, sizeof counts)) {

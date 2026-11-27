@@ -41,7 +41,7 @@ struct TexPatterns
 
 void ConvertedTrack_TexPatterns(struct Level *level, int timer)
 {
-	struct TexPatterns *table = level->texPatterns;
+	struct TexPatterns *table = PSX_GET(level->texPatterns);
 	u8 *at = (u8 *)(table + 1);
 	static int s_off = -1; // CTR_DEV_NO_TEX_PATTERNS: every surface keeps its own image, for A/B captures
 

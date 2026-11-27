@@ -70,12 +70,11 @@ void UI_Map_DrawMap(struct Icon *mapTop, struct Icon *mapBottom, s32 posX, s32 p
 	if (
 #ifdef CTR_NATIVE
 	    // NOTE(aalhendi): Native menu/loading states may lack level spawn data.
-	    gGT->level1 != NULL && gGT->level1->ptrSpawnType1 != NULL &&
+	    gGT->level1 != NULL && PSX_GET(gGT->level1->ptrSpawnType1) != NULL &&
 #endif
-	    gGT->level1->ptrSpawnType1->count != 0)
+	    PSX_GET(gGT->level1->ptrSpawnType1)->count != 0)
 	{
-		void **pointers = ST1_GETPOINTERS(gGT->level1->ptrSpawnType1);
-		mapMetadata = pointers[ST1_MAP];
+		mapMetadata = ST1_GETPOINTER(PSX_GET(gGT->level1->ptrSpawnType1), ST1_MAP);
 	}
 
 	// The supplied position is the map's bottom-right corner.
@@ -234,13 +233,11 @@ void UI_Map_DrawRawIcon(struct UIMap *map, const s32 worldPos[3], s32 iconID, s3
 
 	UI_Map_GetIconPos(map, &posX, &posY);
 
-	// NOTE(aalhendi): Narrow the retail indices before advancing the group's
-	// appended pointer array; retain the byte offset until the icon load.
-	iconID = (s16)iconID * sizeof(struct Icon *);
+	iconID = (s16)iconID;
 	colorID = (s16)colorID;
 	gGT = GAME_TRACKER;
 	colors = &UI_MAP_COLORS[colorID];
-	icon = *(struct Icon **)((u8 *)gGT->iconGroup[UI_MAP_ICON_GROUP] + iconID + sizeof(struct IconGroup));
+	icon = ICONGROUP_GETICON(gGT->iconGroup[UI_MAP_ICON_GROUP], iconID);
 	DecalHUD_DrawPolyGT4(icon, posX, posY, &gGT->backBuffer->primMem, gGT->pushBuffer_UI.ptrOT, ColorCode_Load(&(*colors)[0]), ColorCode_Load(&(*colors)[1]),
 	                     ColorCode_Load(&(*colors)[2]), ColorCode_Load(&(*colors)[3]), 0, (s32)scale);
 

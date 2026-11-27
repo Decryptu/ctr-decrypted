@@ -259,7 +259,7 @@ void DrawLevelOvr2P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspL
 	DrawLevelOvr1P_Scratch()->entry.clip.playerClipCursorPtr32[0] = (u32)(u32)clipCursors[0];
 	DrawLevelOvr1P_Scratch()->entry.clip.playerClipCursorPtr32[1] = (u32)(u32)clipCursors[1];
 
-	if (mesh->ptrQuadBlockArray == NULL)
+	if (PSX_GET(mesh->ptrQuadBlockArray) == NULL)
 	{
 		return;
 	}

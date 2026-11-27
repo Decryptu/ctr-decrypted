@@ -137,17 +137,17 @@ void AH_SaveObj_ThTick(struct Thread *t)
 				SVec3 desiredRot;
 
 				// desired transition position (x,y,z)
-				desiredPos.x = GAME_TRACKER->level1->ptrSpawnType2_PosRot->coords.posRot->pos.x +
+				desiredPos.x = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2_PosRot)->coords.posRot)->pos.x +
 				               (s16)((int)saveInst->matrix.m[0][0] * AH_SAVEOBJ_CAMERA_FORWARD_OFFSET >> 7);
-				desiredPos.y = GAME_TRACKER->level1->ptrSpawnType2_PosRot->coords.posRot->pos.y +
+				desiredPos.y = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2_PosRot)->coords.posRot)->pos.y +
 				               (s16)((int)saveInst->matrix.m[1][0] * AH_SAVEOBJ_CAMERA_FORWARD_OFFSET >> 7);
-				desiredPos.z = GAME_TRACKER->level1->ptrSpawnType2_PosRot->coords.posRot->pos.z +
+				desiredPos.z = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2_PosRot)->coords.posRot)->pos.z +
 				               (s16)((int)saveInst->matrix.m[2][0] * AH_SAVEOBJ_CAMERA_FORWARD_OFFSET >> 7);
 
 				// desired transition rotation (x,y,z)
-				desiredRot.x = GAME_TRACKER->level1->ptrSpawnType2_PosRot->coords.posRot->rot.x + AH_SAVE_CAMERA_ROT.x;
-				desiredRot.y = GAME_TRACKER->level1->ptrSpawnType2_PosRot->coords.posRot->rot.y + AH_SAVE_CAMERA_ROT.y;
-				desiredRot.z = GAME_TRACKER->level1->ptrSpawnType2_PosRot->coords.posRot->rot.z + AH_SAVE_CAMERA_ROT.z;
+				desiredRot.x = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2_PosRot)->coords.posRot)->rot.x + AH_SAVE_CAMERA_ROT.x;
+				desiredRot.y = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2_PosRot)->coords.posRot)->rot.y + AH_SAVE_CAMERA_ROT.y;
+				desiredRot.z = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2_PosRot)->coords.posRot)->rot.z + AH_SAVE_CAMERA_ROT.z;
 
 				// VehBirth_NullThread is an empty function that does nothing
 				GAME_TRACKER->drivers[0]->instSelf->thread->funcThTick = VehBirth_NullThread;
@@ -270,15 +270,15 @@ void AH_SaveObj_LInB(struct Instance *savInst)
 				// keep unpatched until a valid hub/save repro proves failure.
 				inst->matrix = savInst->matrix;
 
-				rot.x = GAME_TRACKER->level1->ptrSpawnType2_PosRot->coords.posRot->rot.x;
-				rot.y = GAME_TRACKER->level1->ptrSpawnType2_PosRot->coords.posRot->rot.y;
-				rot.z = GAME_TRACKER->level1->ptrSpawnType2_PosRot->coords.posRot->rot.z;
+				rot.x = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2_PosRot)->coords.posRot)->rot.x;
+				rot.y = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2_PosRot)->coords.posRot)->rot.y;
+				rot.z = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2_PosRot)->coords.posRot)->rot.z;
 
 				ConvertRotToMatrix(&save->inst->matrix, &rot);
 
-				save->inst->matrix.t[0] = GAME_TRACKER->level1->ptrSpawnType2_PosRot->coords.posRot->pos.x;
-				save->inst->matrix.t[1] = GAME_TRACKER->level1->ptrSpawnType2_PosRot->coords.posRot->pos.y;
-				save->inst->matrix.t[2] = GAME_TRACKER->level1->ptrSpawnType2_PosRot->coords.posRot->pos.z;
+				save->inst->matrix.t[0] = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2_PosRot)->coords.posRot)->pos.x;
+				save->inst->matrix.t[1] = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2_PosRot)->coords.posRot)->pos.y;
+				save->inst->matrix.t[2] = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2_PosRot)->coords.posRot)->pos.z;
 
 				save->inst->depthBiasNormal = AH_SAVEOBJ_SCAN_DEPTH_BIAS;
 			}

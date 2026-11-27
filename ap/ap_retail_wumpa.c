@@ -21,9 +21,9 @@
 // here. Nothing is rewritten: the copied graph is drawn by the ordinary retail
 // fruit path.
 //
-// A DIGRESSION ON POINTERS. The native build is 32-bit (asserted below) and the
-// DRAM fixup stores 32-bit pointers, so all of the pointer arithmetic is done on
-// 32-bit values in ap_wumpa_residency_logic.h. The production-specific work here
+// A DIGRESSION ON POINTERS. The DRAM fixup stores 32-bit PSX addresses
+// (include/ctr_psx_ptr.h), so all of the pointer arithmetic is done on 32-bit
+// values in ap_wumpa_residency_logic.h, with PSX addresses as the bases. The production-specific work here
 // is only: read the bytes, find the model, hand the fixup'd body to the
 // harness-pinned logic, and keep the result.
 
@@ -39,11 +39,7 @@
 #include "ap_retail_asset.h"          // AP_RetailAsset_ReadSubfile (shared with #256)
 #include "ap_hooks.h"                 // AP_LogLine
 #include "ap_wumpa_residency_logic.h" // the harness-pinned decisions
-
-// The native build is explicitly 32-bit (CMakeLists.txt:17-21) and the retail
-// pointer graph is 32-bit. Making this loader work in a 64-bit process is not a
-// goal; failing the compile here is better than silently mis-relocating.
-CTR_STATIC_ASSERT(sizeof(void *) == 4);
+#include <platform/native_psx_space.h>
 
 // Retail BIGFILE entry 117, the smallest verified fruit-bearing LEV (Coco Park
 // LOD3/4, 413,068 bytes, sector-rounded to 413,696). Its model table carries
@@ -60,8 +56,9 @@ CTR_STATIC_ASSERT(sizeof(void *) == 4);
 // without a compiler-specific attribute. Kept for the life of the process on
 // purpose: after relocation the model's internals point into it, and it is a
 // static buffer rather than the engine's bump allocator, which has no free.
-static unsigned int s_wumpaSpanStorage[AP_WUMPA_SPAN_BYTES / 4];
-#define s_wumpaSpan ((unsigned char *)s_wumpaSpanStorage)
+// The kept copy of the fruit's model span, in PSX space: its pointers are PSX
+// addresses (include/ctr_psx_ptr.h).
+static unsigned char *s_wumpaSpan;
 
 static int             s_wumpaState; // AP_WumpaResidency
 static unsigned int    s_wumpaModelOffset; // the model struct's offset in the span
@@ -72,14 +69,15 @@ static struct Model   *s_wumpaModel;
 // harness that includes this translation unit can inject allocation failure and
 // count every alloc/free on every path (tools/test-wumpa-residency.c).
 // Production leaves them at the C allocator.
+// The fixed-up level is disc-format data, so it is read into PSX space.
 static void *AP_WumpaAllocDefault(unsigned long n)
 {
-	return malloc((size_t)n);
+	return PsxSpace_Alloc((size_t)n);
 }
 
 static void AP_WumpaFreeDefault(void *p)
 {
-	free(p);
+	PsxSpace_Free(p);
 }
 
 static void *(*s_wumpaAlloc)(unsigned long) = AP_WumpaAllocDefault;
@@ -98,7 +96,7 @@ static void AP_WumpaFail(AP_WumpaFailReason reason)
 }
 
 // Walk the level model table for model 0x02, returning its offset in the body.
-// `bodyBase` is the 32-bit address the DRAM fixup added, so stored pointers are
+// `bodyBase` is the PSX address the DRAM fixup added, so stored pointers are
 // absolute and are converted back to offsets with the same base.
 static AP_WumpaFailReason AP_WumpaFindFruit(const unsigned char *body, unsigned int bodySize, unsigned int bodyBase,
                                             unsigned int *outFruitOffset)
@@ -154,9 +152,12 @@ static void AP_RetailWumpaHarvest(void)
 	AP_WumpaFailReason reason;
 	char              msg[160];
 
+	if (s_wumpaSpan == 0)
+		s_wumpaSpan = (unsigned char *)PsxSpace_Alloc(AP_WUMPA_SPAN_BYTES);
 	temp = (unsigned char *)s_wumpaAlloc(AP_WUMPA_TEMP_BYTES);
-	if (temp == 0)
+	if (temp == 0 || s_wumpaSpan == 0)
 	{
+		s_wumpaFree(temp);
 		AP_WumpaFail(AP_WUMPA_FAIL_ALLOCATION);
 		return;
 	}
@@ -169,7 +170,7 @@ static void AP_RetailWumpaHarvest(void)
 		return;
 	}
 
-	bodyBase = (unsigned int)(uintptr_t)body;
+	bodyBase = PsxSpace_FromHost(body);
 	reason = AP_WumpaFindFruit(body, (unsigned int)size, bodyBase, &fruitOffset);
 	if (reason == AP_WUMPA_FAIL_NONE)
 	{
@@ -177,8 +178,7 @@ static void AP_RetailWumpaHarvest(void)
 	}
 	if (reason == AP_WUMPA_FAIL_NONE)
 	{
-		reason = AP_WumpaRelocate(body + lo, bodyBase + lo, hi - lo, s_wumpaSpan,
-		                          (unsigned int)(uintptr_t)s_wumpaSpan);
+		reason = AP_WumpaRelocate(body + lo, bodyBase + lo, hi - lo, s_wumpaSpan, PsxSpace_FromHost(s_wumpaSpan));
 	}
 
 	// The temporary buffer is freed on every path, success included: once the

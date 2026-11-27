@@ -273,8 +273,8 @@ void INSTANCE_LevInitAll(struct InstDef *definitions, s32 count)
 		struct GameTracker *gGT;
 		s32 j;
 
-		levInstDef->ptrInstance = (struct Instance *)LIST_RemoveFront(&GAME_TRACKER->JitPools.instance.free);
-		inst = levInstDef->ptrInstance;
+		PSX_SET(levInstDef->ptrInstance, (struct Instance *)LIST_RemoveFront(&GAME_TRACKER->JitPools.instance.free));
+		inst = PSX_GET(levInstDef->ptrInstance);
 
 		if (inst == NULL)
 		{
@@ -283,7 +283,17 @@ void INSTANCE_LevInitAll(struct InstDef *definitions, s32 count)
 
 		// NOTE(aalhendi): Retail copies the 44-byte serialized prefix past the
 		// pool links. Its final two words are replaced by instDef and matrix.
+#if defined(CTR_NATIVE)
+		// Native copies the fields: only the InstDef keeps retail's layout.
+		memcpy(inst->name, levInstDef->name, sizeof(inst->name));
+		inst->model = PSX_GET(levInstDef->model);
+		inst->scale = levInstDef->scale;
+		inst->alphaScale = levInstDef->_pad_scale;
+		inst->colorRGBA = levInstDef->colorRGBA;
+		inst->flags = levInstDef->flags;
+#else
 		memcpy((u8 *)inst + offsetof(struct Instance, name), levInstDef, offsetof(struct InstDef, ptrInstance));
+#endif
 
 		inst->depthBiasNormal = levInstDef->unk24 - 2;
 		inst->depthBiasSecondary = levInstDef->unk24 + 12;
@@ -319,7 +329,7 @@ void INSTANCE_LevInitAll(struct InstDef *definitions, s32 count)
 		// The podium suppresses LEV callbacks; models without one stay static.
 		if ((GAME_TRACKER->gameMode2 & NO_LEV_INSTANCE) == 0)
 		{
-			meta = COLL_LevModelMeta(levInstDef->model->id);
+			meta = COLL_LevModelMeta(PSX_GET(levInstDef->model)->id);
 			if (meta != NULL && meta->LInB != NULL)
 			{
 				meta->LInB(inst);
@@ -336,14 +346,14 @@ void INSTANCE_LevInitAll(struct InstDef *definitions, s32 count)
 		// NOTE(aalhendi): Separate predicates preserve retail's signed loads
 		// and branch sharing; the callback above may also replace the model.
 		if ((GAME_TRACKER->gameMode1 & TIME_TRIAL) != 0 &&
-		    ((u32)((u16)levInstDef->model->id - PU_FRUIT_CRATE) < 2 || levInstDef->model->id == PU_WUMPA_FRUIT ||
-		     levInstDef->model->id == STATIC_TIME_CRATE_01 || levInstDef->model->id == STATIC_TIME_CRATE_02 || levInstDef->model->id == STATIC_TIME_CRATE_03))
+		    ((u32)((u16)PSX_GET(levInstDef->model)->id - PU_FRUIT_CRATE) < 2 || PSX_GET(levInstDef->model)->id == PU_WUMPA_FRUIT ||
+		     PSX_GET(levInstDef->model)->id == STATIC_TIME_CRATE_01 || PSX_GET(levInstDef->model)->id == STATIC_TIME_CRATE_02 || PSX_GET(levInstDef->model)->id == STATIC_TIME_CRATE_03))
 		{
 			inst->flags &= ~DRAW_COLLISION_MASK;
 		}
 		else if ((GAME_TRACKER->gameMode1 & RELIC_RACE) != 0)
 		{
-			if (levInstDef->model->id == STATIC_TIME_CRATE_01 || levInstDef->model->id == STATIC_TIME_CRATE_02 || levInstDef->model->id == STATIC_TIME_CRATE_03)
+			if (PSX_GET(levInstDef->model)->id == STATIC_TIME_CRATE_01 || PSX_GET(levInstDef->model)->id == STATIC_TIME_CRATE_02 || PSX_GET(levInstDef->model)->id == STATIC_TIME_CRATE_03)
 			{
 				GAME_TRACKER->timeCratesInLEV++;
 #if defined(CTR_NATIVE)
@@ -352,24 +362,24 @@ void INSTANCE_LevInitAll(struct InstDef *definitions, s32 count)
 				inst->flags |= 1;
 #endif
 			}
-			else if ((u16)(levInstDef->model->id - PU_FRUIT_CRATE) < 2 || levInstDef->model->id == PU_WUMPA_FRUIT)
+			else if ((u16)(PSX_GET(levInstDef->model)->id - PU_FRUIT_CRATE) < 2 || PSX_GET(levInstDef->model)->id == PU_WUMPA_FRUIT)
 			{
 				inst->flags &= ~DRAW_COLLISION_MASK;
 			}
 		}
-		else if (levInstDef->model->id == STATIC_TIME_CRATE_01 || levInstDef->model->id == STATIC_TIME_CRATE_02 ||
-		         levInstDef->model->id == STATIC_TIME_CRATE_03)
+		else if (PSX_GET(levInstDef->model)->id == STATIC_TIME_CRATE_01 || PSX_GET(levInstDef->model)->id == STATIC_TIME_CRATE_02 ||
+		         PSX_GET(levInstDef->model)->id == STATIC_TIME_CRATE_03)
 		{
 			inst->flags &= ~DRAW_COLLISION_MASK;
 		}
 
 		if ((GAME_TRACKER->gameMode1 & CRYSTAL_CHALLENGE) != 0)
 		{
-			if (levInstDef->model->id == STATIC_CRYSTAL)
+			if (PSX_GET(levInstDef->model)->id == STATIC_CRYSTAL)
 			{
 				GAME_TRACKER->numCrystalsInLEV++;
 			}
-			else if (levInstDef->model->id == PU_FRUIT_CRATE)
+			else if (PSX_GET(levInstDef->model)->id == PU_FRUIT_CRATE)
 			{
 				inst->flags &= ~DRAW_COLLISION_MASK;
 			}
@@ -378,7 +388,7 @@ void INSTANCE_LevInitAll(struct InstDef *definitions, s32 count)
 		else
 		{
 			// Crystals, TNT and nitro placements belong to crystal challenges.
-			if (levInstDef->model->id == STATIC_CRYSTAL || levInstDef->model->id == PU_EXPLOSIVE_CRATE || levInstDef->model->id == STATIC_CRATE_TNT)
+			if (PSX_GET(levInstDef->model)->id == STATIC_CRYSTAL || PSX_GET(levInstDef->model)->id == PU_EXPLOSIVE_CRATE || PSX_GET(levInstDef->model)->id == STATIC_CRATE_TNT)
 			{
 				inst->flags &= ~DRAW_COLLISION_MASK;
 			}
@@ -387,7 +397,7 @@ void INSTANCE_LevInitAll(struct InstDef *definitions, s32 count)
 		if ((GAME_TRACKER->gameMode1 & ADVENTURE_MODE) == 0 || (GAME_TRACKER->gameMode2 & TOKEN_RACE) == 0)
 		{
 			// C-T-R letters are only active in adventure token races.
-			if ((u32)((u16)levInstDef->model->id - STATIC_C) < 3)
+			if ((u32)((u16)PSX_GET(levInstDef->model)->id - STATIC_C) < 3)
 			{
 				inst->flags &= ~DRAW_COLLISION_MASK;
 			}
@@ -416,16 +426,16 @@ void INSTANCE_LevDelayedLInBs(struct InstDef *instDef, s32 numInstances)
 
 	for (i = 0; i < numInstances; i++)
 	{
-		struct MetaDataMODEL *meta = COLL_LevModelMeta(instDef->model->id);
+		struct MetaDataMODEL *meta = COLL_LevModelMeta(PSX_GET(instDef->model)->id);
 
 		if ((meta != NULL) && (meta->LInB != NULL))
 		{
-			meta->LInB(instDef->ptrInstance);
+			meta->LInB(PSX_GET(instDef->ptrInstance));
 		}
 #if defined(CTR_NATIVE)
 		if (instDef->modelID == CONVERTED_MOVER_ID)
 		{
-			ConvertedMover_LInB(instDef->ptrInstance);
+			ConvertedMover_LInB(PSX_GET(instDef->ptrInstance));
 		}
 #endif
 
@@ -438,12 +448,12 @@ b32 INSTANCE_Use60FpsAnimation(struct Instance *inst)
 {
 	struct GameTracker *gGT;
 
-	if (!CTR_NATIVE_60FPS_ACTIVE || (inst == NULL) || (inst->model == NULL) || (inst->model->numHeaders <= 0) || (inst->model->headers == NULL))
+	if (!CTR_NATIVE_60FPS_ACTIVE || (inst == NULL) || (inst->model == NULL) || (inst->model->numHeaders <= 0) || (PSX_GET(inst->model->headers) == NULL))
 	{
 		return false;
 	}
 
-	if (memcmp(inst->model->headers[0].name, "big1", 4) == 0)
+	if (memcmp(PSX_GET(inst->model->headers)[0].name, "big1", 4) == 0)
 	{
 		return false;
 	}
@@ -473,13 +483,13 @@ b32 INSTANCE_AnimHasDoubledFrames(struct Instance *inst, int animIndex)
 {
 	struct ModelAnim *anim;
 
-	if (!INSTANCE_Use60FpsAnimation(inst) || (animIndex < 0) || (animIndex >= (int)inst->model->headers[0].numAnimations) ||
-	    (inst->model->headers[0].ptrAnimations == NULL))
+	if (!INSTANCE_Use60FpsAnimation(inst) || (animIndex < 0) || (animIndex >= (int)PSX_GET(inst->model->headers)[0].numAnimations) ||
+	    (PSX_GET(PSX_GET(inst->model->headers)[0].ptrAnimations) == NULL))
 	{
 		return false;
 	}
 
-	anim = inst->model->headers[0].ptrAnimations[animIndex];
+	anim = PSX_GET(PSX_GET(PSX_GET(inst->model->headers)[0].ptrAnimations)[animIndex]);
 	return (anim != NULL) && ((anim->numFrames & 0x8000) == 0) && ((anim->numFrames & 0x7fff) != 0);
 }
 
@@ -491,16 +501,16 @@ s32 INSTANCE_GetNumAnimFrames(struct Instance *pInstance, s32 animIndex)
 #endif
 	struct Model *pModel;
 	struct ModelHeader *pHeader;
-	struct ModelAnim **animations;
+	PsxModelAnimPtr *animations;
 	struct ModelAnim *pAnim;
 
 	// Animations belong to the model's first LOD header.
 	pModel = pInstance->model;
-	if (pModel == NULL || pModel->numHeaders <= 0 || (pHeader = pModel->headers) == NULL || animIndex >= (s32)pHeader->numAnimations ||
-	    (animations = pHeader->ptrAnimations) == NULL)
+	if (pModel == NULL || pModel->numHeaders <= 0 || (pHeader = PSX_GET(pModel->headers)) == NULL || animIndex >= (s32)pHeader->numAnimations ||
+	    (animations = PSX_GET(pHeader->ptrAnimations)) == NULL)
 		return 0;
 
-	pAnim = animations[animIndex];
+	pAnim = PSX_GET(animations[animIndex]);
 	// The high bit selects interpolation, not an additional frame.
 #if CTR_NATIVE_60FPS
 	if (pAnim == NULL)

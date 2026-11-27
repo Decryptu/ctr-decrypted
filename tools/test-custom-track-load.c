@@ -1032,13 +1032,13 @@ static void test_absent_camera_path(void)
 	char *image = build_lev_image(7, babyTPark, &body);
 	struct Level *lev;
 	struct SpawnType1 *st1;
-	void **entries;
+	PsxVoidPtr *entries;
 
 	if (image == NULL)
 		return;
 
 	lev = (struct Level *)body;
-	st1 = lev->ptrSpawnType1;
+	st1 = PSX_GET(lev->ptrSpawnType1);
 
 	// The relocation did happen -- otherwise "everything is NULL" would pass
 	// the assertions below for the wrong reason.
@@ -1047,15 +1047,15 @@ static void test_absent_camera_path(void)
 	expect_int(st1->count, 7, "the table is full width");
 
 	entries = ST1_GETPOINTERS(st1);
-	expect_int(entries[ST1_SPAWN] != NULL, 1, "a listed entry relocated to a real address");
-	expect_int(entries[ST1_NTROPY] != NULL, 1, "and so did the N. Tropy ghost");
-	expect_int(entries[ST1_NOXIDE] != NULL, 1, "and the Oxide ghost");
+	expect_int(PSX_GET(entries[ST1_SPAWN]) != NULL, 1, "a listed entry relocated to a real address");
+	expect_int(PSX_GET(entries[ST1_NTROPY]) != NULL, 1, "and so did the N. Tropy ghost");
+	expect_int(PSX_GET(entries[ST1_NOXIDE]) != NULL, 1, "and the Oxide ghost");
 
 	// The omission is what produces the NULL. No zeroing, no sentinel.
-	expect_int(entries[ST1_CAMERA_PATH] == NULL, 1, "an unlisted entry arrives NULL");
-	expect_int(entries[ST1_CAMERA_EOR] == NULL, 1, "and so does the end-of-race one");
-	expect_int(entries[ST1_MAP] == NULL, 1, "and the minimap");
-	expect_int(entries[ST1_CREDITS] == NULL, 1, "and the credits camera");
+	expect_int(PSX_GET(entries[ST1_CAMERA_PATH]) == NULL, 1, "an unlisted entry arrives NULL");
+	expect_int(PSX_GET(entries[ST1_CAMERA_EOR]) == NULL, 1, "and so does the end-of-race one");
+	expect_int(PSX_GET(entries[ST1_MAP]) == NULL, 1, "and the minimap");
+	expect_int(PSX_GET(entries[ST1_CREDITS]) == NULL, 1, "and the credits camera");
 
 	// THE REGRESSION. Both count thresholds CAM.c used to guard its two cameras
 	// with pass on this table, which is why the fly-in dereferenced NULL + 0x354
@@ -1066,9 +1066,9 @@ static void test_absent_camera_path(void)
 
 	// What the guards ask now. Both refuse, so the fly-in reports itself done
 	// and the end-of-race camera is never armed.
-	expect_int(CustomTrackPolicy_St1EntryPresent(st1->count, ST1_CAMERA_PATH, (const void *const *)entries), 0,
+	expect_int(CustomTrackPolicy_St1EntryPresent(st1->count, ST1_CAMERA_PATH, (const uint32_t *)entries), 0,
 	           "the fly-in guard refuses a track with no camera path");
-	expect_int(CustomTrackPolicy_St1EntryPresent(st1->count, ST1_CAMERA_EOR, (const void *const *)entries), 0,
+	expect_int(CustomTrackPolicy_St1EntryPresent(st1->count, ST1_CAMERA_EOR, (const uint32_t *)entries), 0,
 	           "the end-of-race guard refuses a track with no EOR table");
 
 	free(image);
@@ -1079,18 +1079,18 @@ static void test_absent_camera_path(void)
 		return;
 
 	lev = (struct Level *)body;
-	st1 = lev->ptrSpawnType1;
+	st1 = PSX_GET(lev->ptrSpawnType1);
 	entries = ST1_GETPOINTERS(st1);
 
 	expect_int(st1->count, 4, "a retail arcade table is four entries");
-	expect_int(entries[ST1_CAMERA_PATH] != NULL, 1, "with an intro camera path");
-	expect_int(entries[ST1_CAMERA_EOR] != NULL, 1, "and end-of-race cameras");
+	expect_int(PSX_GET(entries[ST1_CAMERA_PATH]) != NULL, 1, "with an intro camera path");
+	expect_int(PSX_GET(entries[ST1_CAMERA_EOR]) != NULL, 1, "and end-of-race cameras");
 
 	// Old and new agree on retail content, in both directions. This is the
 	// safety argument for the swap, asserted rather than asserted-to.
-	expect_int(CustomTrackPolicy_St1EntryPresent(st1->count, ST1_CAMERA_PATH, (const void *const *)entries),
+	expect_int(CustomTrackPolicy_St1EntryPresent(st1->count, ST1_CAMERA_PATH, (const uint32_t *)entries),
 	           st1->count >= 4, "the fly-in guard matches the old threshold on retail");
-	expect_int(CustomTrackPolicy_St1EntryPresent(st1->count, ST1_CAMERA_EOR, (const void *const *)entries),
+	expect_int(CustomTrackPolicy_St1EntryPresent(st1->count, ST1_CAMERA_EOR, (const uint32_t *)entries),
 	           st1->count >= 3, "and the end-of-race guard matches its own");
 
 	free(image);
@@ -1251,7 +1251,7 @@ static void test_sky_primitive_budget(void)
 	}
 
 	lev = (struct Level *)body;
-	sky = lev->ptr_skybox;
+	sky = PSX_GET(lev->ptr_skybox);
 	expect_int(sky != NULL, 1, "the skybox pointer was relocated");
 	expect_int(sky->numVertex, 1, "and points at the skybox we built");
 	expect_int((u16)sky->numFaces[0], 2772, "the event track's first segment is 2,772 faces");
@@ -1285,7 +1285,7 @@ static void test_sky_primitive_budget(void)
 	}
 
 	lev = (struct Level *)body;
-	sky = lev->ptr_skybox;
+	sky = PSX_GET(lev->ptr_skybox);
 	worst = sky_worst_four(sky);
 	expect_int(worst == 192, 1, "retail slot 6's sky is 192 faces across four segments");
 
@@ -1306,7 +1306,7 @@ static void test_sky_primitive_budget(void)
 		if (image != NULL)
 		{
 			lev = (struct Level *)body;
-			expect_int(sky_worst_four(lev->ptr_skybox), 0, "an empty skybox demands nothing");
+			expect_int(sky_worst_four(PSX_GET(lev->ptr_skybox)), 0, "an empty skybox demands nothing");
 			emitted = sky_emit_clamped(arena, guard, 0, &cursor);
 			expect_int(emitted == 0, 1, "and emits nothing");
 			expect_int(cursor == arena, 1, "leaving the cursor where it started");

@@ -1,4 +1,5 @@
 #include <common.h>
+#include <platform/native_psx_space.h>
 
 #ifdef CTR_CUSTOM_TRACKS
 #include <platform/native_custom_tracks.h>
@@ -295,18 +296,18 @@ void AH_WarpPad_AllWarppadNum()
 
 		if ((wp->slots.inst[2] != 0) && (wp->digit1s != 0) && (wp->digit1s != 9))
 		{
-			INST_GETIDPP(wp->slots.inst[2])->ptrCommandList = wp->slots.inst[2]->model->headers[wp->digit1s - 1].ptrCommandList;
-			INST_GETIDPP(wp->slots.inst[2])->ptrColorLayout = (u32)wp->slots.inst[2]->model->headers[wp->digit1s - 1].ptrColors;
-			INST_GETIDPP(wp->slots.inst[2])->ptrTexLayout = wp->slots.inst[2]->model->headers[wp->digit1s - 1].ptrTexLayout;
-			INST_GETIDPP(wp->slots.inst[2])->ptrCurrFrame = wp->slots.inst[2]->model->headers[wp->digit1s - 1].ptrFrameData;
+			INST_GETIDPP(wp->slots.inst[2])->ptrCommandList = PSX_GET(PSX_GET(wp->slots.inst[2]->model->headers)[wp->digit1s - 1].ptrCommandList);
+			INST_GETIDPP(wp->slots.inst[2])->ptrColorLayout = PSX_GET(PSX_GET(wp->slots.inst[2]->model->headers)[wp->digit1s - 1].ptrColors);
+			INST_GETIDPP(wp->slots.inst[2])->ptrTexLayout = PSX_GET(PSX_GET(wp->slots.inst[2]->model->headers)[wp->digit1s - 1].ptrTexLayout);
+			INST_GETIDPP(wp->slots.inst[2])->ptrCurrFrame = PSX_GET(PSX_GET(wp->slots.inst[2]->model->headers)[wp->digit1s - 1].ptrFrameData);
 		}
 
 		if ((wp->slots.inst[3] != 0) && (wp->digit10s != 0))
 		{
-			INST_GETIDPP(wp->slots.inst[3])->ptrCommandList = wp->slots.inst[3]->model->headers[0].ptrCommandList;
-			INST_GETIDPP(wp->slots.inst[3])->ptrColorLayout = (u32)wp->slots.inst[3]->model->headers[0].ptrColors;
-			INST_GETIDPP(wp->slots.inst[3])->ptrTexLayout = wp->slots.inst[3]->model->headers[0].ptrTexLayout;
-			INST_GETIDPP(wp->slots.inst[3])->ptrCurrFrame = wp->slots.inst[3]->model->headers[0].ptrFrameData;
+			INST_GETIDPP(wp->slots.inst[3])->ptrCommandList = PSX_GET(PSX_GET(wp->slots.inst[3]->model->headers)[0].ptrCommandList);
+			INST_GETIDPP(wp->slots.inst[3])->ptrColorLayout = PSX_GET(PSX_GET(wp->slots.inst[3]->model->headers)[0].ptrColors);
+			INST_GETIDPP(wp->slots.inst[3])->ptrTexLayout = PSX_GET(PSX_GET(wp->slots.inst[3]->model->headers)[0].ptrTexLayout);
+			INST_GETIDPP(wp->slots.inst[3])->ptrCurrFrame = PSX_GET(PSX_GET(wp->slots.inst[3]->model->headers)[0].ptrFrameData);
 		}
 	}
 }
@@ -444,7 +445,7 @@ void AH_WarpPad_ThTick(struct Thread *t)
 
 	struct WarpPad *warppadObj;
 	struct Instance *warppadInst;
-	struct Instance **visInstSrc;
+	PsxInstancePtr *visInstSrc;
 
 	s32 modelID;
 	s32 x, y, z, dist;
@@ -514,9 +515,9 @@ void AH_WarpPad_ThTick(struct Thread *t)
 	if (visInstSrc != NULL)
 #endif
 	{
-		while (visInstSrc[0] != 0)
+		while (PSX_ADDR(visInstSrc[0]) != 0)
 		{
-			if (visInstSrc[0] == warppadInst)
+			if (PSX_GET(visInstSrc[0]) == warppadInst)
 			{
 				boolOpen = true;
 				break;
@@ -2061,13 +2062,26 @@ enum { AP_BEAM_USE_BEAM, AP_BEAM_USE_WISP, AP_BEAM_USE_FILTER, AP_BEAM_USES };
 #define AP_BEAM_HUE_TEXTURES 48
 // Free instances the filter leaves for the prizes born after it.
 #define AP_BEAM_FILTER_POOL_RESERVE 3
-static struct Model s_apBeamHueModel[AP_BEAM_COPIES];
-static struct ModelHeader s_apBeamHueHeaders[AP_BEAM_COPIES][AP_BEAM_HUE_HEADERS];
-static u32 s_apBeamHueColours[AP_BEAM_COPIES][AP_BEAM_HUE_HEADERS][AP_BEAM_HUE_COLOURS];
-// Both filters copy the same retail layouts with the same blend, so they share
-// one subtractive table.
-static struct TextureLayout *s_apBeamFilterTexPtrs[AP_BEAM_HUE_HEADERS][AP_BEAM_HUE_TEXTURES];
-static struct TextureLayout s_apBeamFilterTex[AP_BEAM_HUE_HEADERS][AP_BEAM_HUE_TEXTURES];
+// The copies are models, disc-format data whose pointers are PSX addresses
+// (include/ctr_psx_ptr.h), so they and what they point at live in PSX space.
+struct ApBeamStore
+{
+	struct Model model[AP_BEAM_COPIES];
+	struct ModelHeader headers[AP_BEAM_COPIES][AP_BEAM_HUE_HEADERS];
+	u32 colours[AP_BEAM_COPIES][AP_BEAM_HUE_HEADERS][AP_BEAM_HUE_COLOURS];
+	// Both filters copy the same retail layouts with the same blend, so they
+	// share one subtractive table.
+	PsxTextureLayoutPtr filterTexPtrs[AP_BEAM_HUE_HEADERS][AP_BEAM_HUE_TEXTURES];
+	struct TextureLayout filterTex[AP_BEAM_HUE_HEADERS][AP_BEAM_HUE_TEXTURES];
+};
+static struct ApBeamStore *s_apBeam;
+
+static struct ApBeamStore *AH_WarpPad_ApBeamStore(void)
+{
+	if (s_apBeam == 0)
+		s_apBeam = PsxSpace_Alloc(sizeof(*s_apBeam));
+	return s_apBeam;
+}
 // What each copy was built from. A savestate restore puts back the instance
 // pool, so a restored instance can point at a copy built later from another
 // hub's model (or never built, in a new process); AH_WarpPad_ApRefreshCopies
@@ -2088,27 +2102,27 @@ static struct Model *AH_WarpPad_ApHueModel(struct Model *retail, u32 rgb, int sl
 {
 	int h, i;
 
-	if (rgb == 0 || retail == 0 || retail->headers == 0 ||
-	    retail->numHeaders < 1 || retail->numHeaders > AP_BEAM_HUE_HEADERS)
+	if (rgb == 0 || retail == 0 || PSX_GET(retail->headers) == 0 ||
+	    retail->numHeaders < 1 || retail->numHeaders > AP_BEAM_HUE_HEADERS || AH_WarpPad_ApBeamStore() == 0)
 		return 0;
 	for (h = 0; h < retail->numHeaders; h++)
 	{
-		const struct ModelHeader *mh = &retail->headers[h];
-		const u32 *cmd = (const u32 *)mh->ptrCommandList;
+		const struct ModelHeader *mh = &PSX_GET(retail->headers)[h];
+		const u32 *cmd = (const u32 *)PSX_GET(mh->ptrCommandList);
 		u32 count;
-		if (mh->ptrColors == 0 || cmd == 0)
+		if (PSX_GET(mh->ptrColors) == 0 || cmd == 0)
 			return 0;
 		count = cmd[0];
 		if (count > AP_BEAM_HUE_COLOURS)
 			return 0;
-		s_apBeamHueHeaders[slot][h] = *mh;
+		s_apBeam->headers[slot][h] = *mh;
 		for (i = 0; i < (int)count; i++)
-			s_apBeamHueColours[slot][h][i] = AP_PadBeamHueWord(mh->ptrColors[i], rgb);
-		s_apBeamHueHeaders[slot][h].ptrColors = s_apBeamHueColours[slot][h];
+			s_apBeam->colours[slot][h][i] = AP_PadBeamHueWord(PSX_GET(mh->ptrColors)[i], rgb);
+		PSX_SET(s_apBeam->headers[slot][h].ptrColors, s_apBeam->colours[slot][h]);
 		if (subtract)
 		{
 			int textures = 0;
-			if (mh->ptrTexLayout == 0)
+			if (PSX_GET(mh->ptrTexLayout) == 0)
 				return 0;
 			for (i = 1; cmd[i] != 0xffffffffu; i++)
 				if ((cmd[i] >> 16) != 0 && (int)(cmd[i] & 0x1ffu) > textures) // not a colour-only command
@@ -2117,22 +2131,22 @@ static struct Model *AH_WarpPad_ApHueModel(struct Model *retail, u32 rgb, int sl
 				return 0;
 			for (i = 0; i < textures; i++)
 			{
-				s_apBeamFilterTexPtrs[h][i] = 0;
-				if (mh->ptrTexLayout[i] == 0)
+				PSX_SET(s_apBeam->filterTexPtrs[h][i], 0);
+				if (PSX_GET(PSX_GET(mh->ptrTexLayout)[i]) == 0)
 					continue;
-				s_apBeamFilterTex[h][i] = *mh->ptrTexLayout[i];
-				s_apBeamFilterTex[h][i].tpage = AP_PadTpageBlend(s_apBeamFilterTex[h][i].tpage, 2);
-				s_apBeamFilterTexPtrs[h][i] = &s_apBeamFilterTex[h][i];
+				s_apBeam->filterTex[h][i] = *PSX_GET(PSX_GET(mh->ptrTexLayout)[i]);
+				s_apBeam->filterTex[h][i].tpage = AP_PadTpageBlend(s_apBeam->filterTex[h][i].tpage, 2);
+				PSX_SET(s_apBeam->filterTexPtrs[h][i], &s_apBeam->filterTex[h][i]);
 			}
-			s_apBeamHueHeaders[slot][h].ptrTexLayout = s_apBeamFilterTexPtrs[h];
+			PSX_SET(s_apBeam->headers[slot][h].ptrTexLayout, s_apBeam->filterTexPtrs[h]);
 		}
 	}
-	s_apBeamHueModel[slot] = *retail;
-	s_apBeamHueModel[slot].headers = s_apBeamHueHeaders[slot];
+	s_apBeam->model[slot] = *retail;
+	PSX_SET(s_apBeam->model[slot].headers, s_apBeam->headers[slot]);
 	s_apBeamHueSource[slot][0] = (uintptr_t)retail;
-	s_apBeamHueSource[slot][1] = (uintptr_t)retail->headers[0].ptrCommandList;
-	s_apBeamHueSource[slot][2] = (uintptr_t)retail->headers[0].ptrColors;
-	return &s_apBeamHueModel[slot];
+	s_apBeamHueSource[slot][1] = (uintptr_t)PSX_GET(PSX_GET(retail->headers)[0].ptrCommandList);
+	s_apBeamHueSource[slot][2] = (uintptr_t)PSX_GET(PSX_GET(retail->headers)[0].ptrColors);
+	return &s_apBeam->model[slot];
 }
 
 // Rebuild every copy that no longer matches the loaded retail model. Called
@@ -2149,19 +2163,19 @@ static void AH_WarpPad_ApRefreshCopies(struct GameTracker *gGT)
 		u32 rgb = use == AP_BEAM_USE_FILTER ? AP_PadLookBeamFilter(look)
 		        : use == AP_BEAM_USE_WISP   ? AP_PadLookWispHue(look)
 		                                    : AP_PadLookBeamHue(look);
-		if (retail == 0 || retail->headers == 0)
+		if (retail == 0 || PSX_GET(retail->headers) == 0)
 			continue;
 		if (s_apBeamHueSource[slot][0] == (uintptr_t)retail &&
-		    s_apBeamHueSource[slot][1] == (uintptr_t)retail->headers[0].ptrCommandList &&
-		    s_apBeamHueSource[slot][2] == (uintptr_t)retail->headers[0].ptrColors)
+		    s_apBeamHueSource[slot][1] == (uintptr_t)PSX_GET(PSX_GET(retail->headers)[0].ptrCommandList) &&
+		    s_apBeamHueSource[slot][2] == (uintptr_t)PSX_GET(PSX_GET(retail->headers)[0].ptrColors))
 			continue;
-		if (AH_WarpPad_ApHueModel(retail, rgb, slot, use == AP_BEAM_USE_FILTER) == 0)
+		if ((AH_WarpPad_ApHueModel(retail, rgb, slot, use == AP_BEAM_USE_FILTER) == 0) && (s_apBeam != 0))
 		{
 			// does not fit: an instance still using the copy draws nothing
-			s_apBeamHueModel[slot].numHeaders = 0;
+			s_apBeam->model[slot].numHeaders = 0;
 			s_apBeamHueSource[slot][0] = (uintptr_t)retail;
-			s_apBeamHueSource[slot][1] = (uintptr_t)retail->headers[0].ptrCommandList;
-			s_apBeamHueSource[slot][2] = (uintptr_t)retail->headers[0].ptrColors;
+			s_apBeamHueSource[slot][1] = (uintptr_t)PSX_GET(PSX_GET(retail->headers)[0].ptrCommandList);
+			s_apBeamHueSource[slot][2] = (uintptr_t)PSX_GET(PSX_GET(retail->headers)[0].ptrColors);
 		}
 	}
 }
@@ -2354,7 +2368,7 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 		newInst->colorRGBA = 0x08080800;
 
 		// always face camera
-		newInst->model->headers[0].flags |= 1;
+		PSX_GET(newInst->model->headers)[0].flags |= 1;
 
 		warppadObj->slots.inst[WPIS_CLOSED_X] = newInst;
 
@@ -3219,7 +3233,7 @@ ContentPad_BuildGate:
 	newInst->scale.z = 0x2000;
 
 	// always face camera
-	newInst->model->headers[0].flags |= 1;
+	PSX_GET(newInst->model->headers)[0].flags |= 1;
 
 	warppadObj->slots.inst[WPIS_CLOSED_X] = newInst;
 
@@ -3247,7 +3261,7 @@ ContentPad_BuildGate:
 		// always face camera
 		for (i = 0; i < newInst->model->numHeaders; i++)
 		{
-			newInst->model->headers[i].flags |= 1;
+			PSX_GET(newInst->model->headers)[i].flags |= 1;
 		}
 
 		warppadObj->slots.inst[WPIS_CLOSED_10S] = newInst;
@@ -3286,7 +3300,7 @@ ContentPad_BuildGate:
 	// always face camera
 	for (i = 0; i < newInst->model->numHeaders; i++)
 	{
-		newInst->model->headers[i].flags |= 1;
+		PSX_GET(newInst->model->headers)[i].flags |= 1;
 	}
 
 	warppadObj->slots.inst[WPIS_CLOSED_1S] = newInst;

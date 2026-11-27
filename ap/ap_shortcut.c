@@ -205,10 +205,10 @@ static int AP_LastValidInMesh(struct GameTracker *gGT, struct QuadBlock *qb)
 
 	if (gGT == 0 || gGT->level1 == 0 || qb == 0)
 		return 0;
-	mesh = gGT->level1->ptr_mesh_info;
-	if (mesh == 0 || mesh->ptrQuadBlockArray == 0 || mesh->numQuadBlock <= 0)
+	mesh = PSX_GET(gGT->level1->ptr_mesh_info);
+	if (mesh == 0 || PSX_GET(mesh->ptrQuadBlockArray) == 0 || mesh->numQuadBlock <= 0)
 		return 0;
-	base = (unsigned char *)mesh->ptrQuadBlockArray;
+	base = (unsigned char *)PSX_GET(mesh->ptrQuadBlockArray);
 	p = (unsigned char *)qb;
 	if (p < base)
 		return 0;

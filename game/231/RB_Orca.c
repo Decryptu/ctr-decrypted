@@ -197,7 +197,6 @@ void RB_Orca_LInB(struct Instance *inst)
 {
 	struct Orca *orcaObj;
 	struct Thread *t;
-	void **pointers;
 	s16 *metaArray;
 	int orcaID;
 
@@ -241,8 +240,8 @@ void RB_Orca_LInB(struct Instance *inst)
 
 	if (GAME_TRACKER->level1->numSpawnType2 != 0)
 	{
-		orcaObj->startPos = GAME_TRACKER->level1->ptrSpawnType2[orcaID + 4].coords.positions[0];
-		orcaObj->endPos = GAME_TRACKER->level1->ptrSpawnType2[orcaObj->orcaID + 4].coords.positions[1];
+		orcaObj->startPos = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2)[orcaID + 4].coords.positions)[0];
+		orcaObj->endPos = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2)[orcaObj->orcaID + 4].coords.positions)[1];
 	}
 
 	orcaObj->pathDelta.x = orcaObj->startPos.x - orcaObj->endPos.x;
@@ -251,13 +250,12 @@ void RB_Orca_LInB(struct Instance *inst)
 
 	orcaObj->numFrames = INSTANCE_GetNumAnimFrames(inst, 0);
 
-	if (GAME_TRACKER->level1->ptrSpawnType1->count <= 0)
+	if (PSX_GET(GAME_TRACKER->level1->ptrSpawnType1)->count <= 0)
 	{
 		return;
 	}
 
-	pointers = ST1_GETPOINTERS(GAME_TRACKER->level1->ptrSpawnType1);
-	metaArray = (s16 *)pointers[ST1_SPAWN];
+	metaArray = (s16 *)ST1_GETPOINTER(PSX_GET(GAME_TRACKER->level1->ptrSpawnType1), ST1_SPAWN);
 	metaArray += orcaObj->orcaID;
 	orcaObj->cooldown = *metaArray;
 

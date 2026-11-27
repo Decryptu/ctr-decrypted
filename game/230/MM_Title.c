@@ -623,7 +623,6 @@ void MM_Title_Init(void)
 	struct Thread *t;
 	struct Title *title;
 	struct InstDrawPerPlayer *playerDraw;
-	void **pointers;
 	s16 instanceIndex;
 	s16 playerIndex;
 #if !defined(CTR_NATIVE)
@@ -645,17 +644,15 @@ void MM_Title_Init(void)
 	    (GAME_TRACKER->modelPtr[STATIC_RINGTOP] != 0) &&
 
 	    // IntroCam ptr exists
-	    (GAME_TRACKER->level1->ptrSpawnType1->count > 2))
+	    (PSX_GET(GAME_TRACKER->level1->ptrSpawnType1)->count > 2))
 	{
 		// freecam mode
 		GAME_TRACKER->cameraDC[0].cameraMode = CAMERA_MODE_FREECAM;
 
 		GAME_TRACKER->pushBuffer[0].distanceToScreen_CURR = TITLE_INTRO_DISTANCE_TO_SCREEN;
 
-		pointers = ST1_GETPOINTERS(GAME_TRACKER->level1->ptrSpawnType1);
-
 		// pointer to Intro Cam, to view Crash holding Trophy in main menu
-		MM_TITLE_CAMERA_PATH = pointers[ST1_CAMERA_PATH];
+		MM_TITLE_CAMERA_PATH = ST1_GETPOINTER(PSX_GET(GAME_TRACKER->level1->ptrSpawnType1), ST1_CAMERA_PATH);
 
 		t = PROC_BirthWithObject(SIZE_RELATIVE_POOL_BUCKET(sizeof(struct Title), NONE, MEDIUM, OTHER), MM_Title_ThTick, MM_TITLE_OBJECT_NAME, 0);
 

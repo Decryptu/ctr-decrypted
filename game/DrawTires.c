@@ -634,7 +634,7 @@ static struct DrawTiresSolidProjectedWheel DrawTiresSolid_SelectProjectedWheel(s
 		selected.jumpIndex += 4;
 	}
 
-	selected.wheelSprite = scratch->wheelSprites[spriteIndex];
+	selected.wheelSprite = PSX_GET(scratch->wheelSprites[spriteIndex]);
 
 	return selected;
 }
@@ -1221,7 +1221,7 @@ static struct DrawTiresReflectionProjectedWheel DrawTiresReflection_SelectProjec
 		selected.jumpIndex += 4;
 	}
 
-	selected.wheelSprite = scratch->wheelSprites[spriteIndex];
+	selected.wheelSprite = PSX_GET(scratch->wheelSprites[spriteIndex]);
 
 	return selected;
 }

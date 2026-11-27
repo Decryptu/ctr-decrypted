@@ -8,6 +8,7 @@
 #if defined(CTR_NATIVE)
 #include "../../platform/native_spawn_pools.h"
 #include <platform/native_memory.h>
+#include <platform/native_psx_space.h>
 
 // JitPool_Init with caller-owned storage instead of MEMPACK (issue #205).
 static void MainInit_NativePoolAt(struct JitPool *AP, int maxItems, int itemSize, void *storage)
@@ -64,8 +65,9 @@ static void *MainInit_NativeSpawnPools(struct GameTracker *gGT, const struct Nat
 #ifdef CTR_NATIVE
 // A level made with CrashTeamEditor (every custom track) carries VisMem lists
 // for player 1 only; retail LEVs carry all four. Give each missing player its
-// own lists from host memory, sized for this level, so split screen has
-// somewhere to put that player's visibility and render lists.
+// own lists, sized for this level, so split screen has somewhere to put that
+// player's visibility and render lists. They are in PSX space, since the
+// VisMem's list pointers are PSX addresses.
 // One player's list k, zeroed and at least bytes long; kept across levels.
 static void *MainInit_VisMemHostList(int player, int k, size_t bytes)
 {
@@ -74,9 +76,10 @@ static void *MainInit_VisMemHostList(int player, int k, size_t bytes)
 
 	if (s_sizes[player][k] < bytes)
 	{
-		void *grown = realloc(s_lists[player][k], bytes);
+		void *grown = PsxSpace_Alloc(bytes);
 		if (grown == NULL)
 			return NULL;
+		PsxSpace_Free(s_lists[player][k]);
 		s_lists[player][k] = grown;
 		s_sizes[player][k] = bytes;
 	}
@@ -95,25 +98,25 @@ static void MainInit_FillMissingVisMem(struct VisMem *visMem, const struct mesh_
 
 	for (int i = 1; i < numPlyr && i < 4; i++)
 	{
-		if (visMem->visLeafList[i] == NULL)
-			visMem->visLeafList[i] = MainInit_VisMemHostList(i, 0, leafBytes);
-		if (visMem->visFaceList[i] == NULL)
-			visMem->visFaceList[i] = MainInit_VisMemHostList(i, 1, faceBytes);
-		if (visMem->bspList[i] == NULL)
-			visMem->bspList[i] = MainInit_VisMemHostList(i, 2, bspBytes);
+		if (PSX_GET(visMem->visLeafList[i]) == NULL)
+			PSX_SET(visMem->visLeafList[i], MainInit_VisMemHostList(i, 0, leafBytes));
+		if (PSX_GET(visMem->visFaceList[i]) == NULL)
+			PSX_SET(visMem->visFaceList[i], MainInit_VisMemHostList(i, 1, faceBytes));
+		if (PSX_GET(visMem->bspList[i]) == NULL)
+			PSX_SET(visMem->bspList[i], MainInit_VisMemHostList(i, 2, bspBytes));
 	}
 }
 
 static void MainInit_InitVisMemBspListNodes(struct VisMem *visMem, struct mesh_info *mesh)
 {
-	if (mesh == NULL || mesh->bspRoot == NULL)
+	if (mesh == NULL || PSX_GET(mesh->bspRoot) == NULL)
 	{
 		return;
 	}
 
 	for (int playerIndex = 0; playerIndex < 4; playerIndex++)
 	{
-		struct VisMemBspListNode *bspList = visMem->bspList[playerIndex];
+		struct VisMemBspListNode *bspList = PSX_GET(visMem->bspList[playerIndex]);
 
 		if (bspList == NULL)
 		{
@@ -123,8 +126,8 @@ static void MainInit_InitVisMemBspListNodes(struct VisMem *visMem, struct mesh_i
 		for (int bspIndex = 0; bspIndex < mesh->numBspNodes; bspIndex++)
 		{
 			// NOTE(aalhendi): Native 226 reads the retained BSP pointer; RenderLists only rewrites the link word.
-			bspList[bspIndex].next = NULL;
-			bspList[bspIndex].bsp = &mesh->bspRoot[bspIndex];
+			PSX_SET(bspList[bspIndex].next, NULL);
+			PSX_SET(bspList[bspIndex].bsp, &PSX_GET(mesh->bspRoot)[bspIndex]);
 		}
 	}
 }
@@ -132,7 +135,7 @@ static void MainInit_InitVisMemBspListNodes(struct VisMem *visMem, struct mesh_i
 
 void MainInit_VisMem(struct GameTracker *gGT)
 {
-	struct VisMem *visMem = gGT->level1->visMem;
+	struct VisMem *visMem = PSX_GET(gGT->level1->visMem);
 	gGT->visMem1 = visMem;
 
 	if (visMem == NULL)
@@ -142,16 +145,16 @@ void MainInit_VisMem(struct GameTracker *gGT)
 
 	for (int i = 0; i < gGT->numPlyrCurrGame; i++)
 	{
-		visMem->visLeafSrc[i] = NULL;
-		visMem->visFaceSrc[i] = NULL;
-		visMem->visOVertSrc[i] = NULL;
-		visMem->visSCVertSrc[i] = NULL;
+		PSX_SET(visMem->visLeafSrc[i], NULL);
+		PSX_SET(visMem->visFaceSrc[i], NULL);
+		PSX_SET(visMem->visOVertSrc[i], NULL);
+		PSX_SET(visMem->visSCVertSrc[i], NULL);
 	}
 
 #ifdef CTR_NATIVE
-	MainInit_FillMissingVisMem(visMem, gGT->level1->ptr_mesh_info, gGT->numPlyrCurrGame);
-	MainInit_InitVisMemBspListNodes(visMem, gGT->level1->ptr_mesh_info);
-	MainFrame_BuildEverVisibleLeafs(gGT->level1->ptr_mesh_info);
+	MainInit_FillMissingVisMem(visMem, PSX_GET(gGT->level1->ptr_mesh_info), gGT->numPlyrCurrGame);
+	MainInit_InitVisMemBspListNodes(visMem, PSX_GET(gGT->level1->ptr_mesh_info));
+	MainFrame_BuildEverVisibleLeafs(PSX_GET(gGT->level1->ptr_mesh_info));
 #endif
 }
 
@@ -830,11 +833,11 @@ void MainInit_FinalizeInit(struct GameTracker *gGT)
 
 #if defined(CTR_NATIVE)
 	// NOTE(aalhendi): Native menu LEVs may publish no restart table.
-	if (lev1->ptr_restart_points != NULL)
+	if (PSX_GET(lev1->ptr_restart_points) != NULL)
 #endif
 	// 0x1d7c
 	{
-		gGT->trackLength_x_numLaps_x_8 = lev1->ptr_restart_points[0].distToFinish * gGT->numLaps * 8;
+		gGT->trackLength_x_numLaps_x_8 = PSX_GET(lev1->ptr_restart_points)[0].distToFinish * gGT->numLaps * 8;
 	}
 
 	MainInit_Drivers(gGT);
@@ -914,7 +917,7 @@ void MainInit_FinalizeInit(struct GameTracker *gGT)
 	}
 
 	// copy InstDef to InstancePool
-	INSTANCE_LevInitAll(lev1->ptrInstDefs, lev1->numInstances);
+	INSTANCE_LevInitAll(PSX_GET(lev1->ptrInstDefs), lev1->numInstances);
 #ifdef CTR_AP
 	AP_TrialLetters_Spawn(gGT);
 	AP_ArcadeCrystals_Spawn(gGT);
@@ -996,9 +999,9 @@ void MainInit_FinalizeInit(struct GameTracker *gGT)
 
 	if (lev1 != NULL)
 	{
-		if (lev1->ptr_mesh_info != NULL)
+		if (PSX_GET(lev1->ptr_mesh_info) != NULL)
 		{
-			LevInstDef_UnPack(lev1->ptr_mesh_info);
+			LevInstDef_UnPack(PSX_GET(lev1->ptr_mesh_info));
 		}
 	}
 
@@ -1012,7 +1015,7 @@ void MainInit_FinalizeInit(struct GameTracker *gGT)
 #endif
 
 	// animates water, 1P mode
-	AnimateWater1P(gGT->timer, lev1->numWaterVertices, lev1->ptr_water, lev1->ptr_tex_waterEnvMap, lev1->visOVertSrc);
+	AnimateWater1P(gGT->timer, lev1->numWaterVertices, PSX_GET(lev1->ptr_water), PSX_GET(lev1->ptr_tex_waterEnvMap), PSX_GET(lev1->visOVertSrc));
 
 	gGT->pushBuffer_UI.fadeFromBlack_desiredResult = 0x1000;
 	gGT->pushBuffer_UI.fade_step = 0x200;

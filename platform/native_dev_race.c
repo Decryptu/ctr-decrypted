@@ -936,7 +936,7 @@ static void NativeDevRace_CollProbe(struct GameTracker *gGT)
 	static int done;
 	const char *path = getenv("CTR_DEV_COLL_PROBE");
 	if (done || (path == NULL) || (gGT == NULL) || (gGT->level1 == NULL) || (sdata->Loading.stage != LOAD_IDLE) ||
-		(gGT->level1->ptr_mesh_info == NULL) || (gGT->level1->LevNavTable == NULL))
+		(PSX_GET(gGT->level1->ptr_mesh_info) == NULL) || (PSX_GET(gGT->level1->LevNavTable) == NULL))
 		return;
 	done = 1;
 	FILE *f = fopen(path, "w");
@@ -951,7 +951,7 @@ static void NativeDevRace_CollProbe(struct GameTracker *gGT)
 	FILE *in = getenv("CTR_DEV_COLL_PROBE_IN") ? fopen(getenv("CTR_DEV_COLL_PROBE_IN"), "r") : NULL;
 	for (int lane = (in != NULL) ? -1 : 0; lane < ((in != NULL) ? 0 : 3); lane++)
 	{
-		struct NavHeader *nh = (lane >= 0) ? gGT->level1->LevNavTable[lane] : NULL;
+		struct NavHeader *nh = (lane >= 0) ? PSX_GET(PSX_GET(gGT->level1->LevNavTable)[lane]) : NULL;
 		if ((lane >= 0) && ((nh == NULL) || (nh->magicNumber != (s16)-0x1303)))
 			continue;
 		struct NavFrame *fr = (nh != NULL) ? NAVHEADER_GETFRAME(nh) : NULL;
@@ -981,7 +981,7 @@ static void NativeDevRace_CollProbe(struct GameTracker *gGT)
 				const SVec3 top = {.x = x, .y = (s16)(py + COLL_FIXED_PLAYER_SEARCH_TOP_Y_OFFSET), .z = z};
 				sps->Union.QuadBlockColl.pos = top;
 				sps->Input1.pos = bottom;
-				sps->ptr_mesh_info = gGT->level1->ptr_mesh_info;
+				sps->ptr_mesh_info = PSX_GET(gGT->level1->ptr_mesh_info);
 				sps->Union.QuadBlockColl.quadFlagsIgnored = QUADBLOCK_FLAG_NO_COLLISION_RESPONSE;
 				sps->Union.QuadBlockColl.quadFlagsWanted = QUADBLOCK_FLAG_GROUND | QUADBLOCK_FLAG_COLLISION_SURFACE;
 				sps->Union.QuadBlockColl.searchFlags = COLL_SEARCH_HIGH_LOD;
@@ -993,7 +993,7 @@ static void NativeDevRace_CollProbe(struct GameTracker *gGT)
 				sps->bbox.max.y = top.y;
 				sps->bbox.min.z = sps->bbox.max.z = z;
 				sps->Union.QuadBlockColl.hitPos = bottom;
-				COLL_SearchBSP_CallbackPARAM(sps->ptr_mesh_info->bspRoot, &sps->bbox, COLL_FIXED_BSPLEAF_TestQuadblocks, sps);
+				COLL_SearchBSP_CallbackPARAM(PSX_GET(sps->ptr_mesh_info->bspRoot), &sps->bbox, COLL_FIXED_BSPLEAF_TestQuadblocks, sps);
 				const int hit = sps->boolDidTouchQuadblock != 0;
 				const struct QuadBlock *q = hit ? sps->hit.ptrQuadblock : NULL;
 				const int hitY = hit ? sps->Union.QuadBlockColl.hitPos.y : 0;
@@ -1184,7 +1184,7 @@ static int NativeDevRam_Hits(const struct GameTracker *gGT, int list)
 
 	if ((gGT->level1 == NULL) || (list >= gGT->level1->numSpawnType2))
 		return 0;
-	records = gGT->level1->ptrSpawnType2[list].coords.positions;
+	records = PSX_GET(PSX_GET(gGT->level1->ptrSpawnType2)[list].coords.positions);
 	return (records[1].x != 0) && (((u16)records[0].z & 0x10ff) != 0);
 }
 
@@ -1359,7 +1359,7 @@ static void NativeDevRam_Frame(NativeDevRaceState *dev, struct GameTracker *gGT,
 	s_ramRun.tries = 0;
 	s_ramRun.holdMS = RAM_HOLD_MS;
 	{
-		const SVec3 *half = &gGT->level1->ptrSpawnType2[next].coords.positions[1];
+		const SVec3 *half = &PSX_GET(PSX_GET(gGT->level1->ptrSpawnType2)[next].coords.positions)[1];
 		s_ramRun.back = RAM_BACK + ((half->x > half->z) ? half->x : half->z);
 	}
 	NativeDevRam_RoadWay(s_ram[next].pos, s_ramRun.dir);
@@ -1559,7 +1559,7 @@ void NativeDev_RaceFrame(void)
 		{
 			// distanceToFinish counts down from trackLength after the start line.
 			struct Level *lev = gGT->level1;
-			int trackLength = ((lev != NULL) && (lev->ptr_restart_points != NULL)) ? (int)lev->ptr_restart_points[0].distToFinish << 3 : 0;
+			int trackLength = ((lev != NULL) && (PSX_GET(lev->ptr_restart_points) != NULL)) ? (int)PSX_GET(lev->ptr_restart_points)[0].distToFinish << 3 : 0;
 			fprintf(f, "driver,raceMS,rank,lap,distanceToFinish,trackLength\n");
 			for (int i = 0; i < 8; i++)
 			{
@@ -1628,7 +1628,7 @@ static void NativeDev_QuadTexture(FILE *f, const void *slot)
 	{
 		const struct AnimTex *anim = (const struct AnimTex *)(p - 1);
 		frames = anim->numFrames;
-		t = (const struct TextureLayout *)(ANIMTEX_GETARRAY(anim))[0];
+		t = (const struct TextureLayout *)ANIMTEX_GETFRAME(anim, 0);
 	}
 	if (t == NULL)
 		fprintf(f, ",0,0,0,0");
@@ -1652,12 +1652,12 @@ void NativeDev_QuadDump(const struct mesh_info *mesh)
 	fprintf(f, "\n");
 	for (int i = 0; i < mesh->numQuadBlock; i++)
 	{
-		const struct QuadBlock *q = &mesh->ptrQuadBlockArray[i];
+		const struct QuadBlock *q = &PSX_GET(mesh->ptrQuadBlockArray)[i];
 		fprintf(f, "%d,%d,%u,%u,%d,%d,%d,%d,%d,%d", sdata->gGT->levelID, i, (unsigned)q->quadFlags, q->terrain_type,
 		        q->bbox.min.x, q->bbox.min.y, q->bbox.min.z, q->bbox.max.x, q->bbox.max.y, q->bbox.max.z);
-		NativeDev_QuadTexture(f, q->ptr_texture_low);
+		NativeDev_QuadTexture(f, PSX_GET(q->ptr_texture_low));
 		for (int face = 0; face < 4; face++)
-			NativeDev_QuadTexture(f, q->ptr_texture_mid[face]);
+			NativeDev_QuadTexture(f, PSX_GET(q->ptr_texture_mid[face]));
 		fprintf(f, "\n");
 	}
 	fclose(f);

@@ -94,11 +94,11 @@ struct CheckpointNode *RB_Warpball_NewPathNode(struct CheckpointNode *cn, struct
 		currNode = cn;
 		if (d->checkpoint.branchChoiceIndex == cn->nextIndex_left)
 		{
-			return &GAME_TRACKER->level1->ptr_restart_points[cn->nextIndex_left];
+			return &PSX_GET(GAME_TRACKER->level1->ptr_restart_points)[cn->nextIndex_left];
 		}
 		if (cn->nextIndex_left != 0xff)
 		{
-			nodes = GAME_TRACKER->level1->ptr_restart_points;
+			nodes = PSX_GET(GAME_TRACKER->level1->ptr_restart_points);
 			for (i = 0; i < 3; i++)
 			{
 				currNode = currNode->nextIndex_left == 0xff ? &nodes[currNode->nextIndex_forward] : &nodes[currNode->nextIndex_left];
@@ -111,10 +111,10 @@ struct CheckpointNode *RB_Warpball_NewPathNode(struct CheckpointNode *cn, struct
 		}
 		if (foundLeftPath)
 		{
-			return &GAME_TRACKER->level1->ptr_restart_points[cn->nextIndex_left];
+			return &PSX_GET(GAME_TRACKER->level1->ptr_restart_points)[cn->nextIndex_left];
 		}
 	}
-	return &GAME_TRACKER->level1->ptr_restart_points[cn->nextIndex_forward];
+	return &PSX_GET(GAME_TRACKER->level1->ptr_restart_points)[cn->nextIndex_forward];
 }
 
 void RB_Warpball_Start(struct TrackerWeapon *tw)
@@ -148,7 +148,7 @@ struct Driver *RB_Warpball_GetDriverTarget(struct TrackerWeapon *tw, struct Inst
 	bestDriver = NULL;
 	if (tw->flags & TRACKER_FLAG_POWERED_UP)
 	{
-		nodes = GAME_TRACKER->level1->ptr_restart_points;
+		nodes = PSX_GET(GAME_TRACKER->level1->ptr_restart_points);
 		node1 = &nodes[tw->ptrNodeCurr->nextIndex_forward];
 		node2 = &nodes[node1->nextIndex_forward];
 		trackDistance = nodes[0].distToFinish << 3;
@@ -224,12 +224,12 @@ void RB_Warpball_SetTargetDriver(struct TrackerWeapon *tw)
 		return;
 	}
 	targetDistance = target->distanceToFinish_curr;
-	targetNode = &GAME_TRACKER->level1->ptr_restart_points[target->checkpoint.currentIndex];
+	targetNode = &PSX_GET(GAME_TRACKER->level1->ptr_restart_points)[target->checkpoint.currentIndex];
 	prevNode = targetNode;
 	// Keep the last node before crossing the target's distance or reaching the finish.
 	while (1)
 	{
-		if ((targetNode->distToFinish << 3) < targetDistance || targetNode == GAME_TRACKER->level1->ptr_restart_points)
+		if ((targetNode->distToFinish << 3) < targetDistance || targetNode == PSX_GET(GAME_TRACKER->level1->ptr_restart_points))
 		{
 			targetNode = prevNode;
 			break;
@@ -256,9 +256,9 @@ void RB_Warpball_SetTargetDriver(struct TrackerWeapon *tw)
 				}
 				if (pathNode->nextIndex_right != 0xff)
 				{
-					pathStarts[1] = &GAME_TRACKER->level1->ptr_restart_points[pathNode->nextIndex_right];
+					pathStarts[1] = &PSX_GET(GAME_TRACKER->level1->ptr_restart_points)[pathNode->nextIndex_right];
 				}
-				pathNode = &GAME_TRACKER->level1->ptr_restart_points[pathNode->nextIndex_backward];
+				pathNode = &PSX_GET(GAME_TRACKER->level1->ptr_restart_points)[pathNode->nextIndex_backward];
 			}
 		}
 	}
@@ -290,12 +290,12 @@ void RB_Warpball_SeekDriver(struct TrackerWeapon *tw, u32 checkpointIndex, struc
 		return;
 	}
 
-	cn = &GAME_TRACKER->level1->ptr_restart_points[checkpointIndex];
+	cn = &PSX_GET(GAME_TRACKER->level1->ptr_restart_points)[checkpointIndex];
 	while (1)
 	{
-		if ((s32)d->distanceToFinish_curr > (cn->distToFinish << 3) || cn == GAME_TRACKER->level1->ptr_restart_points)
+		if ((s32)d->distanceToFinish_curr > (cn->distToFinish << 3) || cn == PSX_GET(GAME_TRACKER->level1->ptr_restart_points))
 		{
-			tw->nodeCurrIndex = cn - GAME_TRACKER->level1->ptr_restart_points;
+			tw->nodeCurrIndex = cn - PSX_GET(GAME_TRACKER->level1->ptr_restart_points);
 			return;
 		}
 		cn = RB_Warpball_NewPathNode(cn, tw->driverTarget);
@@ -361,7 +361,7 @@ void RB_Warpball_TurnAround(struct Thread *t)
 			struct CheckpointNode *first;
 			tw->ptrNodeNext = tw->ptrNodeCurr;
 
-			first = &GAME_TRACKER->level1->ptr_restart_points[0];
+			first = &PSX_GET(GAME_TRACKER->level1->ptr_restart_points)[0];
 
 			// The old current node becomes the next endpoint of the reversed segment.
 			tw->ptrNodeCurr = &first[tw->ptrNodeCurr->nextIndex_backward];
@@ -439,7 +439,7 @@ void RB_Warpball_ThTick(struct Thread *t)
 		if ((tw->driverTarget->kartState == KS_MASK_GRABBED) && ((tw->flags & TRACKER_FLAG_WARPBALL_TARGET_PATH) != 0))
 		{
 			tw->flags = (tw->flags & ~TRACKER_FLAG_WARPBALL_TARGET_PATH) | TRACKER_FLAG_WARPBALL_FALLBACK_PATH | TRACKER_FLAG_WARPBALL_MASK_REPATH;
-			tw->ptrNodeCurr = &GAME_TRACKER->level1->ptr_restart_points[tw->nodeNextIndex];
+			tw->ptrNodeCurr = &PSX_GET(GAME_TRACKER->level1->ptr_restart_points)[tw->nodeNextIndex];
 			tw->ptrNodeNext = RB_Warpball_NewPathNode(tw->ptrNodeCurr, tw->driverTarget);
 			tw->driverTarget = RB_Warpball_GetDriverTarget(tw, inst);
 			RB_Warpball_SetTargetDriver(tw);
@@ -629,7 +629,7 @@ void RB_Warpball_ThTick(struct Thread *t)
 		sps->Union.QuadBlockColl.searchFlags = COLL_SEARCH_TEST_INSTANCES | COLL_SEARCH_HIGH_LOD | COLL_SEARCH_FORCE_INSTANCE_HIT;
 	}
 
-	sps->ptr_mesh_info = GAME_TRACKER->level1->ptr_mesh_info;
+	sps->ptr_mesh_info = PSX_GET(GAME_TRACKER->level1->ptr_mesh_info);
 	COLL_SearchBSP_CallbackQUADBLK(&posTop, &posBottom, sps, 0);
 	RB_MakeInstanceReflective(sps, inst);
 
@@ -770,7 +770,7 @@ void RB_Warpball_ThTick(struct Thread *t)
 				{
 					if (tw->nodeCurrIndex != 0xff)
 					{
-						tw->ptrNodeCurr = &GAME_TRACKER->level1->ptr_restart_points[tw->nodeCurrIndex];
+						tw->ptrNodeCurr = &PSX_GET(GAME_TRACKER->level1->ptr_restart_points)[tw->nodeCurrIndex];
 						tw->ptrNodeNext = RB_Warpball_NewPathNode(tw->ptrNodeCurr, tw->driverTarget);
 					}
 

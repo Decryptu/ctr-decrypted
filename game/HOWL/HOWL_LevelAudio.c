@@ -359,7 +359,7 @@ void Level_AmbientSound(void)
 		CTR_PSX_KEEP_VALUE(spawnIndex);
 		if (spawnIndex < spawnCount)
 		{
-			struct SpawnType2 *spawn = &level->ptrSpawnType2[spawnIndex];
+			struct SpawnType2 *spawn = &PSX_GET(level->ptrSpawnType2)[spawnIndex];
 			if (spawn->numCoords > 9)
 			{
 				goto invalidSpawn;
@@ -369,7 +369,7 @@ void Level_AmbientSound(void)
 				for (playerIndex = 0; playerIndex < GAME_LEVEL_AUDIO_TRACKER->numPlyrCurrGame; playerIndex++)
 				{
 					s32 distance = GTE_GetSquaredDistance(CTR_VECTOR_DATA(&GAME_LEVEL_AUDIO_TRACKER->pushBuffer[playerIndex].pos),
-					                                      CTR_VECTOR_DATA(&level->ptrSpawnType2[spawnIndex].coords.positions[coordIndex]));
+					                                      CTR_VECTOR_DATA(&PSX_GET(PSX_GET(level->ptrSpawnType2)[spawnIndex].coords.positions)[coordIndex]));
 					if (distance < closestDistance[soundSlot])
 					{
 						closestDistance[soundSlot] = distance;

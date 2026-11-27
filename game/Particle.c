@@ -183,11 +183,11 @@ void Particle_FuncPtr_ExhaustUnderwater(struct Particle *p)
 
 		if (icon != NULL)
 		{
-			struct Icon **ptrIconArray = ICONGROUP_GETICONS(icon);
+			PsxIconPtr *ptrIconArray = ICONGROUP_GETICONS(icon);
 
 			// actually the first icon pointer in the array,
 			// not the pointer to the array itself
-			p->ptrIconArray = ptrIconArray[0];
+			p->ptrIconArray = PSX_GET(ptrIconArray[0]);
 		}
 
 		p->axis[PARTICLE_AXIS_ROT_Y_OR_LINE_PREV_Z].startVal = MixRNG_Scramble() & PARTICLE_EXHAUST_ROTATION_RANDOM_MASK;
@@ -635,8 +635,7 @@ void Particle_RenderList(struct PushBuffer *pb, void *particleList)
 				if (r11r12 < 0)
 					goto nextParticle;
 				{
-					u32 offset = r11r12 * sizeof(struct Icon *);
-					struct Icon *loaded = *(struct Icon **)((u8 *)iconGroup + offset + sizeof(*iconGroup));
+					struct Icon *loaded = ICONGROUP_GETICON(iconGroup, r11r12);
 					CTR_PSX_OBSERVE_VALUE(loaded);
 					icon = loaded;
 				}
@@ -1296,7 +1295,7 @@ struct Particle *Particle_Init(u32 unused, struct IconGroup *ig, struct Particle
 	GAME_TRACKER->numParticles++;
 	p->ptrIconGroup = ig;
 	if (ig && ig->numIcons != 0 && ig->numIcons > 0)
-		p->ptrIconArray = ((struct Icon **)ICONGROUP_GETICONS(ig))[0];
+		p->ptrIconArray = ICONGROUP_GETICON(ig, 0);
 	else
 	{
 		p->ptrIconGroup = NULL;

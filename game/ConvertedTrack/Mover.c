@@ -139,7 +139,7 @@ CTR_STATIC_ASSERT(sizeof(struct ConvertedMover) < THREAD_SMALL_STACK_SIZE - size
 
 static const SVec3 *Mover_Records(const struct ConvertedMover *mover)
 {
-	return GAME_TRACKER->level1->ptrSpawnType2[mover->list].coords.positions;
+	return PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2)[mover->list].coords.positions);
 }
 
 // Where each mover is, for a shot to start from the cannon that fires it.
@@ -149,7 +149,7 @@ static int Mover_NumPoints(const struct ConvertedMover *mover)
 {
 	const int sway = ((u16)Mover_Records(mover)[0].z & MOVER_FLAG_SWAY) != 0; // its last record is its sway's
 
-	return GAME_TRACKER->level1->ptrSpawnType2[mover->list].numCoords - MOVER_RECORD_POINTS - sway;
+	return PSX_GET(GAME_TRACKER->level1->ptrSpawnType2)[mover->list].numCoords - MOVER_RECORD_POINTS - sway;
 }
 
 static void Mover_Identity(s32 m[3][3])
@@ -732,7 +732,7 @@ static int Mover_FollowKeys(struct Instance *inst, struct ConvertedMover *mover,
 	const int numGates = records[MOVER_RECORD_POINTS].z;
 	const SVec3 *keys = &records[MOVER_RECORD_GATES + 2 * numGates];
 	const int flags = (u16)records[0].z;
-	const int count = (GAME_TRACKER->level1->ptrSpawnType2[mover->list].numCoords - MOVER_RECORD_GATES - 2 * numGates) / ((flags & MOVER_FLAG_ANIM_KEYS) ? 2 : 1);
+	const int count = (PSX_GET(GAME_TRACKER->level1->ptrSpawnType2)[mover->list].numCoords - MOVER_RECORD_GATES - 2 * numGates) / ((flags & MOVER_FLAG_ANIM_KEYS) ? 2 : 1);
 	const u32 step = records[0].y;
 	int held = 0;
 	const u32 clock = Mover_KeyClock(mover, records, count, &held);
@@ -1260,7 +1260,7 @@ static const struct MoverStruck *Mover_HeadsBody(const struct ConvertedMover *mo
 
 	for (int list = 0; (list < numLists) && (list < MOVER_MOST_LISTS); list++)
 	{
-		const SVec3 *records = GAME_TRACKER->level1->ptrSpawnType2[list].coords.positions;
+		const SVec3 *records = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2)[list].coords.positions);
 
 		if ((Mover_StrikeKind(records) == MOVER_STRUCK_BURST) && (s_moverAt[list][0] == mover->homeX) && (s_moverAt[list][2] == mover->homeZ))
 		{
@@ -1473,7 +1473,7 @@ static struct MoverSway s_moverSway[MOVER_MOST_LISTS];
 
 static const SVec3 *Mover_SwayRecord(const struct ConvertedMover *mover)
 {
-	return &Mover_Records(mover)[GAME_TRACKER->level1->ptrSpawnType2[mover->list].numCoords - 1];
+	return &Mover_Records(mover)[PSX_GET(GAME_TRACKER->level1->ptrSpawnType2)[mover->list].numCoords - 1];
 }
 
 static int Mover_SwayBottom(const struct ConvertedMover *mover)
@@ -2275,12 +2275,12 @@ static u32 Mover_AnimLoop(const struct Instance *inst)
 {
 	const struct Model *model = inst->model;
 
-	if ((model == NULL) || (model->numHeaders <= 0) || (model->headers[0].numAnimations == 0) || (model->headers[0].ptrAnimations == NULL) ||
-	    (model->headers[0].ptrAnimations[0] == NULL))
+	if ((model == NULL) || (model->numHeaders <= 0) || (PSX_GET(model->headers)[0].numAnimations == 0) || (PSX_GET(PSX_GET(model->headers)[0].ptrAnimations) == NULL) ||
+	    (PSX_GET(PSX_GET(PSX_GET(model->headers)[0].ptrAnimations)[0]) == NULL))
 	{
 		return 0;
 	}
-	return model->headers[0].ptrAnimations[0]->numFrames & 0x7fff;
+	return PSX_GET(PSX_GET(PSX_GET(model->headers)[0].ptrAnimations)[0])->numFrames & 0x7fff;
 }
 
 static void Mover_Animate(struct Instance *inst, const struct ConvertedMover *mover, const SVec3 *records)
@@ -2303,7 +2303,7 @@ static void Mover_Animate(struct Instance *inst, const struct ConvertedMover *mo
 
 // A model whose textures change (tools/tracks/mkds_movers.py, TIMED_PATTERNS and KEYED_PATTERNS) has
 // a table of texture layouts a step of its pattern, one after another from its header's, and this,
-// which its header's unk1 points to: nothing reads that word of a model. Not animtex: the level's
+// which its header's moverPattern points to: nothing else reads that word of a model. Not animtex: the level's
 // model list holds a mover's model, and CTR_CycleTex would run it. ticks: its loop, the step it shows each
 // tick on its mover's clock; 0: its keys say (Mover_FollowKeys).
 struct MoverPattern
@@ -2321,7 +2321,7 @@ static const struct MoverPattern *Mover_PatternOf(const struct Instance *inst)
 	{
 		return NULL;
 	}
-	return (const struct MoverPattern *)(uintptr_t)model->headers[0].unk1;
+	return PSX_GET(PSX_GET(model->headers)[0].moverPattern);
 }
 
 // tick: where its loop is, its mover's clock in ticks unless its motion says otherwise (a flipper's stroke)
@@ -2503,22 +2503,22 @@ static void ConvertedMover_ThTick(struct Thread *t)
 // The texture layouts an instance draws with this frame: its model's, or for a mover whose
 // textures change, its pattern step's table (struct MoverPattern). The renderer asks as it
 // queues the instance.
-struct TextureLayout **ConvertedMover_TexLayout(const struct Instance *inst, const struct ModelHeader *mh)
+PsxTextureLayoutPtr *ConvertedMover_TexLayout(const struct Instance *inst, const struct ModelHeader *mh)
 {
 	const struct MoverPattern *pattern;
 	const struct ConvertedMover *mover;
 
 	if ((inst->thread == NULL) || (inst->thread->funcThTick != ConvertedMover_ThTick))
 	{
-		return mh->ptrTexLayout; // and a retail model's unk1 is not ours to read
+		return PSX_GET(mh->ptrTexLayout); // and a retail model's moverPattern is not ours to read
 	}
-	pattern = (const struct MoverPattern *)(uintptr_t)mh->unk1;
+	pattern = PSX_GET(mh->moverPattern);
 	if (pattern == NULL)
 	{
-		return mh->ptrTexLayout;
+		return PSX_GET(mh->ptrTexLayout);
 	}
 	mover = inst->thread->object;
-	return mh->ptrTexLayout + mover->patternStep * pattern->layouts;
+	return PSX_GET(mh->ptrTexLayout) + mover->patternStep * pattern->layouts;
 }
 
 // An item box's own thread is the crate's, from its first break to its regrowth, so

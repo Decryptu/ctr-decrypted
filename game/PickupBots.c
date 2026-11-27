@@ -792,7 +792,7 @@ static inline void PickupBots_UpdateBoss(struct GameTracker *gGT)
 
 		if (nextMeta->throwFlag == 0)
 		{
-			int threshold = gGT->level1->ptr_restart_points[bossMeta->trackCheckpoint].distToFinish << PICKUPBOTS_BOSS_CHECKPOINT_DISTANCE_SHIFT;
+			int threshold = PSX_GET(gGT->level1->ptr_restart_points)[bossMeta->trackCheckpoint].distToFinish << PICKUPBOTS_BOSS_CHECKPOINT_DISTANCE_SHIFT;
 
 			if (threshold < (int)paceDriver->distanceToFinish_curr)
 			{
@@ -814,7 +814,7 @@ static inline void PickupBots_UpdateBoss(struct GameTracker *gGT)
 		}
 		else
 		{
-			int threshold = gGT->level1->ptr_restart_points[nextMeta->trackCheckpoint].distToFinish << PICKUPBOTS_BOSS_CHECKPOINT_DISTANCE_SHIFT;
+			int threshold = PSX_GET(gGT->level1->ptr_restart_points)[nextMeta->trackCheckpoint].distToFinish << PICKUPBOTS_BOSS_CHECKPOINT_DISTANCE_SHIFT;
 
 			if ((int)paceDriver->distanceToFinish_curr < threshold)
 			{

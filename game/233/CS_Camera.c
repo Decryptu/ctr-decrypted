@@ -64,7 +64,7 @@ b32 CS_Camera_BoolGotoBoss(void)
 	}
 
 	inst = gGT->drivers[0]->instSelf;
-	podiumPos = &gGT->level1->ptrSpawnType2_PosRot[1].coords.posRot->pos;
+	podiumPos = &PSX_GET(PSX_GET(gGT->level1->ptrSpawnType2_PosRot)[1].coords.posRot)->pos;
 
 	// TRUE if TeleportSelf did NOT spawn on podium (goto boss door)
 	if (inst->matrix.t[0] == podiumPos->x && inst->matrix.t[2] == podiumPos->z)

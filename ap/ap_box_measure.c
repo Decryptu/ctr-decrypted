@@ -29,11 +29,11 @@ static int AP_BoxModel_MeasureMesh(struct Model *m, AP_BoxMeshBounds *boundsOut,
 	const u32 *cmd;
 	int n;
 
-	if (m == 0 || m->headers == 0 || m->numHeaders <= 0)
+	if (m == 0 || PSX_GET(m->headers) == 0 || m->numHeaders <= 0)
 		return 0;
-	h = &m->headers[0];
-	frame = h->ptrFrameData;
-	cmd = (const u32 *)(uintptr_t)h->ptrCommandList;
+	h = &PSX_GET(m->headers)[0];
+	frame = PSX_GET(h->ptrFrameData);
+	cmd = (const u32 *)(uintptr_t)PSX_GET(h->ptrCommandList);
 	if (frame == 0 || cmd == 0 || h->scale.x <= 0)
 		return 0;
 

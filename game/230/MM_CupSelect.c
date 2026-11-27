@@ -449,7 +449,7 @@ void MM_CupSelect_MenuProc(struct RectMenu *menu)
 							CTR_PSX_ADD_SYMBOL_LOW_IN_PLACE(workV0, MM_COLOR_POINTERS_ASM_NAME, (u32)MM_COLOR_POINTERS);
 							{
 								MM_DECALHUD_DRAW_POLY_GT4(
-								    (ICONGROUP_GETICONS(iconGroup))[MM_CUP_SELECT_STAR_ICON_ID], starX, MM_CupSelect_GetStarY(starIndex, startY),
+								    ICONGROUP_GETICON(iconGroup, MM_CUP_SELECT_STAR_ICON_ID), starX, MM_CupSelect_GetStarY(starIndex, startY),
 								    &backBuffer->primMem, orderingTable, MM_CUP_SELECT_STAR_COLOR(workV0, starColorIndex)[0],
 								    MM_CUP_SELECT_STAR_COLOR(workV0, starColorIndex)[1], MM_CUP_SELECT_STAR_COLOR(workV0, starColorIndex)[2],
 								    MM_CUP_SELECT_STAR_COLOR(workV0, starColorIndex)[3], 0, FP(1.0));

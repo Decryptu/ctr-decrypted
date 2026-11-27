@@ -1177,7 +1177,7 @@ trackSelectionMenuDone:
 					{
 						register s32 starX CTR_PSX_REGISTER("$5");
 						register s32 starY CTR_PSX_REGISTER("$6");
-						struct Icon **iconPtrArray;
+						PsxIconPtr *iconPtrArray;
 						struct GameTracker *starTracker;
 						u32 *starOt;
 						struct IconGroup *starIconGroup;
@@ -1208,13 +1208,13 @@ trackSelectionMenuDone:
 						starOt = starTracker->pushBuffer_UI.ptrOT;
 						starIconGroup = starTracker->iconGroup[MM_TRACK_SELECT_TT_STAR_ICON_GROUP];
 						starBackBuffer = starTracker->backBuffer;
-						iconPtrArray = (struct Icon **)(((u32)starIconGroup) + (sizeof(struct IconGroup)));
+						iconPtrArray = ICONGROUP_GETICONS(starIconGroup);
 #ifdef CTR_NATIVE
 						colorPtr = &MM_COLOR_POINTERS[starColorIndex];
 #else
 						colorPtr = (u32 **)((starColorIndex * (sizeof(u32 *))) + colorPointerPage);
 #endif
-						MM_DECALHUD_DRAW_POLY_GT4(iconPtrArray[MM_TRACK_SELECT_TT_STAR_ICON], starX, ((s16)rowY) + starY, &starBackBuffer->primMem, starOt,
+						MM_DECALHUD_DRAW_POLY_GT4(PSX_GET(iconPtrArray[MM_TRACK_SELECT_TT_STAR_ICON]), starX, ((s16)rowY) + starY, &starBackBuffer->primMem, starOt,
 						                          ((Color *)(*colorPtr))[0], ((Color *)(*colorPtr))[1], ((Color *)(*colorPtr))[2], ((Color *)(*colorPtr))[3], 0,
 						                          (int)(((float)1.0) * (1 << 12)));
 					}

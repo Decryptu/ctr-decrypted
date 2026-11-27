@@ -28,12 +28,12 @@ enum
 
 static const struct SpawnPosRot *VehFlight_Records(const struct Level *level, int flight)
 {
-	return level->ptrSpawnType2_PosRot[flight].coords.posRot;
+	return PSX_GET(PSX_GET(level->ptrSpawnType2_PosRot)[flight].coords.posRot);
 }
 
 static int VehFlight_LastRecord(const struct Level *level, int flight)
 {
-	return level->ptrSpawnType2_PosRot[flight].numCoords - 1;
+	return PSX_GET(level->ptrSpawnType2_PosRot)[flight].numCoords - 1;
 }
 
 void VehFlight_CheckGates(struct Driver *d)

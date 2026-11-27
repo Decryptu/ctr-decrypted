@@ -162,7 +162,7 @@ int main(void)
         for(i=0;i<3;i++) {
             assert(s_trialModels[i]->id==STATIC_C+i&&s_trialModels[i]->numHeaders==1);
             for(j=0;j<(int)AP_TRIAL_LAYOUT_COUNT[i];j++) {
-                struct TextureLayout *t=s_trialModels[i]->headers[0].ptrTexLayout[j];
+                struct TextureLayout *t=PSX_GET(PSX_GET(PSX_GET(s_trialModels[i]->headers)[0].ptrTexLayout)[j]);
                 assert(t->v0<2&&t->v1<2&&t->v2<2&&t->v3<2);
                 assert((t->tpage&AP_TPAGE_SIDELOAD_MASK)==AP_TPAGE_TRIAL_LETTER_BIT);
             }

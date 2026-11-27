@@ -337,7 +337,7 @@ struct ModelAnim
 	// copied to instance -> 0xd4
 	// used for compressed animations,
 	// or nullptr if animation is uncompressed
-	u32 *ptrDeltaArray;
+	PSX_PTR(u32) ptrDeltaArray;
 
 	// 0x18
 	// struct ModelFrame firstFrame;
@@ -346,7 +346,7 @@ struct ModelAnim
 
 #define CONVERTED_MOVER_ID 0x766f4d43 // InstDef.modelID of a converted track's mover (game/ConvertedTrack/Mover.c)
 
-#define MODELANIM_GETFRAME(x) ((u32)x + sizeof(struct ModelAnim))
+#define MODELANIM_GETFRAME(x) ((struct ModelFrame *)((char *)(x) + sizeof(struct ModelAnim)))
 
 struct ModelHeader
 {
@@ -356,7 +356,8 @@ struct ModelHeader
 	char name[0x10];
 
 	// 0x10
-	int unk1;
+	// 0 in retail models; a converted track's mover pattern (game/ConvertedTrack/Mover.c)
+	PSX_PTR(struct MoverPattern) moverPattern;
 
 	// 0x14
 	s16 maxDistanceLOD;
@@ -372,30 +373,30 @@ struct ModelHeader
 	s16 _pad_scale;
 
 	// 0x20
-	u32 ptrCommandList;
+	PSX_PTR(u32) ptrCommandList;
 
 	// 0x24
 	// null if there are animations
-	struct ModelFrame *ptrFrameData;
+	PSX_PTR(struct ModelFrame) ptrFrameData;
 
 	// 0x28
-	struct TextureLayout **ptrTexLayout; // same as LEV
+	PSX_PTR(PsxTextureLayoutPtr) ptrTexLayout; // same as LEV
 
 	// 0x2C
-	u32 *ptrColors; // CLUT = color lookup table
+	PSX_PTR(u32) ptrColors; // CLUT = color lookup table
 
 	// 0x30
-	// same as anim->0x14
-	u32 unk3;
+	// the delta array (ModelAnim.ptrDeltaArray) when there are no animations
+	PSX_PTR(u32) unk3;
 
 	// 0x34
 	u32 numAnimations;
 
 	// 0x38
-	struct ModelAnim **ptrAnimations;
+	PSX_PTR(PsxModelAnimPtr) ptrAnimations;
 
 	// 0x3C
-	struct AnimTex *animtex;
+	PSX_PTR(struct AnimTex) animtex;
 };
 
 enum
@@ -427,7 +428,7 @@ struct Model
 	s16 numHeaders;
 
 	// 0x14
-	struct ModelHeader *headers;
+	PSX_PTR(struct ModelHeader) headers;
 };
 
 CTR_STATIC_ASSERT(sizeof(((struct Model *)0)->name) == MODEL_NAME_WORD_COUNT * sizeof(u32));
@@ -440,7 +441,7 @@ struct InstDef
 	char name[0x10];
 
 	// 0x10 (0x18 - 8)
-	struct Model *model;
+	PSX_PTR(struct Model) model;
 
 	// 0x14 (0x1c - 8)
 	SVec3 scale;
@@ -456,7 +457,7 @@ struct InstDef
 	int unk28;
 
 	// 0x2c
-	struct Instance *ptrInstance;
+	PSX_PTR(struct Instance) ptrInstance;
 
 	// 0x30
 	SVec3 pos;
@@ -497,16 +498,16 @@ struct InstDrawPerPlayer
 	struct ModelFrame *ptrNextFrame;
 
 	// 0xc8
-	u32 ptrCommandList;
+	u32 *ptrCommandList;
 
 	// 0xcc
-	struct TextureLayout **ptrTexLayout;
+	PsxTextureLayoutPtr *ptrTexLayout;
 
 	// 0xd0
-	u32 ptrColorLayout; // maybe should be `u32*`
+	u32 *ptrColorLayout;
 
 	// 0xd4
-	int ptrDeltaArray;
+	u32 *ptrDeltaArray;
 
 	// 0xd8 - LOD index (0,1,2,3)
 	int lodIndex;

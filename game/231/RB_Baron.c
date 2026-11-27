@@ -9,7 +9,7 @@ const struct
 
 static inline const struct SpawnPosRot *RB_Baron_GetFrame(s32 pointIndex)
 {
-	const struct SpawnPosRot *base = GAME_TRACKER->level1->ptrSpawnType2_PosRot[0].coords.posRot;
+	const struct SpawnPosRot *base = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2_PosRot)[0].coords.posRot);
 	// NOTE(aalhendi): Keep the byte stride before the base in this 32-bit address calculation.
 	return (const struct SpawnPosRot *)(pointIndex * sizeof(struct SpawnPosRot) + (u32)base);
 }
@@ -46,7 +46,7 @@ void RB_Baron_ThTick(struct Thread *t)
 		return;
 	}
 
-	numCoords = GAME_TRACKER->level1->ptrSpawnType2_PosRot[0].numCoords;
+	numCoords = PSX_GET(GAME_TRACKER->level1->ptrSpawnType2_PosRot)[0].numCoords;
 	baronObj->pointIndex = (baronObj->pointIndex + 1) % numCoords;
 
 	// NOTE(aalhendi): Sample each component through the live path and point index;
@@ -155,7 +155,7 @@ void RB_Baron_LInB(struct Instance *inst)
 	}
 	else
 	{
-		pointIndex = GAME_TRACKER->level1->ptrSpawnType2->numCoords / 2;
+		pointIndex = PSX_GET(GAME_TRACKER->level1->ptrSpawnType2)->numCoords / 2;
 	}
 
 	baronObj->pointIndex = pointIndex;

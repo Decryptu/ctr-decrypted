@@ -856,7 +856,7 @@ struct BotData
 struct Driver
 {
 	// 0x0
-	struct Icon **wheelSprites;
+	PsxIconPtr *wheelSprites;
 	// 0x4
 	u16 wheelSize;
 

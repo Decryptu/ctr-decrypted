@@ -5,6 +5,9 @@ Open work only: what is in progress, what is planned, what may come, and what is
 - How to work on the project: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 - What the upstream trackers say: [docs/UPSTREAM-ISSUES.md](docs/UPSTREAM-ISSUES.md).
 
+## In progress
+- 64-bit engine (x86_64, then arm64), so the game can later run natively on macOS and 64-bit Linux. Disc data already uses PSX pointers ([docs/64BIT.md](docs/64BIT.md)); next the runtime structs, the level renderer's 32-bit scratch slots and savestates have to hold native pointers, then a bit-exact x86_64 run against the 32-bit build, the x86 asm/SSE paths in portable C, and an arm64 build. `-DCTR_64BIT=ON` builds it with a 64-bit compiler; it does not compile yet.
+
 ## Maybe
 - CTR Native Expanded's two-player co-op Adventure. The Archipelago client would need to know about a second player.
 - More multiplayer from CTR Native Expanded: 3P/4P Arcade, eight racers in split screen, full-detail split screen, Oxide Station in multiplayer, race tracks in Battle, ending a race when one racer is left.
@@ -12,7 +15,7 @@ Open work only: what is in progress, what is planned, what may come, and what is
 - Racers from other games (low priority): Mario Kart DS karts and drivers, or other PS1 formats, as custom racers.
 - Better bots (low priority): smarter driving, item use, lines and shortcuts, with no stat advantage.
 - PAL disc support (low priority): the port boots and plays from a PAL dump, with High Octane's multilanguage text. This is not taking single PAL assets or fixes onto the NTSC-U disc. Upstream removed it on purpose (ctr-native #51, #54).
-- macOS (low priority). First a clean 64-bit/arm64 build (builds are 32-bit x86 MinGW32 today), then a macOS platform layer: window, GL context, audio, controllers. Until then the Windows exe runs under CrossOver/Wine with GL 3.x (ctr-native #20, #33).
+- macOS (low priority). After the 64-bit engine (In progress), a macOS platform layer: window, GL context, audio, controllers. Until then the Windows exe runs under CrossOver/Wine with GL 3.x (ctr-native #20, #33).
 
 ## Not planned
 - PS Vita and web builds, AdHoc netplay.

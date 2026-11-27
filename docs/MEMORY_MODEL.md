@@ -110,6 +110,8 @@ The split is intentional:
 | `0` | `0x800000` bytes | `0x0`-`0x800000` | Expanded native mode with extra low-address host memory |
 
 The pressure mode is useful for finding native paths that silently rely on more dynamic memory than retail had.
+
+The backing is the start of PSX space, and pointers inside disc data are PSX addresses into it ([64BIT.md](64BIT.md)).
 The PS1 path does not call the platform arena hook; it computes the allocator window from retail overlay symbols.
 
 ## Native VRAM

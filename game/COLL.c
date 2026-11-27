@@ -72,7 +72,7 @@ void COLL_SearchBSP_CallbackQUADBLK(const SVec3 *top, const SVec3 *bottom, struc
 	sps->bbox.min.z = min;
 	sps->bbox.max.z = max;
 
-	COLL_SearchBSP_CallbackPARAM(meshInfo->bspRoot, &sps->bbox, COLL_FIXED_BSPLEAF_TestQuadblocks, sps);
+	COLL_SearchBSP_CallbackPARAM(PSX_GET(meshInfo->bspRoot), &sps->bbox, COLL_FIXED_BSPLEAF_TestQuadblocks, sps);
 }
 
 internal b32 COLL_SearchBSP_CallbackPARAM_Overlaps(struct BSP *node, const struct BoundingBox *bounds)
@@ -465,7 +465,7 @@ internal void COLL_FIXED_QUADBLK_SetLoadScratchpadVertsContext(struct Scratchpad
 {
 	// NOTE(aalhendi): Retail passes these through implicit MIPS registers t8/t9.
 	// Native records that register state explicitly before calling the loader.
-	sCollFixedLoadScratchpadVertsVertexArray = sps->ptr_mesh_info->ptrVertexArray;
+	sCollFixedLoadScratchpadVertsVertexArray = PSX_GET(sps->ptr_mesh_info->ptrVertexArray);
 	sCollFixedLoadScratchpadVertsQuad = quad;
 }
 
@@ -618,7 +618,7 @@ void COLL_FIXED_BSPLEAF_TestQuadblocks(struct BSP *node, struct ScratchpadStruct
 	}
 
 	s32 numQuads = node->data.leaf.numQuads;
-	struct QuadBlock *ptrQuad = node->data.leaf.ptrQuadBlockArray;
+	struct QuadBlock *ptrQuad = PSX_GET(node->data.leaf.ptrQuadBlockArray);
 
 	// loop through all quadblocks
 	do
@@ -751,7 +751,7 @@ internal void COLL_FIXED_PlayerSearch_SetupSearch(struct ScratchpadStruct *sps, 
 	sps->Union.QuadBlockColl.pos = probeTop;
 	sps->Input1.pos = probeBottom;
 
-	sps->ptr_mesh_info = gGT->level1->ptr_mesh_info;
+	sps->ptr_mesh_info = PSX_GET(gGT->level1->ptr_mesh_info);
 	sps->Union.QuadBlockColl.quadFlagsIgnored = QUADBLOCK_FLAG_NO_COLLISION_RESPONSE;
 	sps->Union.QuadBlockColl.quadFlagsWanted = QUADBLOCK_FLAG_GROUND | QUADBLOCK_FLAG_COLLISION_SURFACE;
 
@@ -874,7 +874,7 @@ internal b32 COLL_FIXED_PlayerSearch_CheckMaskGrabProgress(struct Driver *d, str
 		return 0;
 	}
 
-	struct CheckpointNode *node = &level->ptr_restart_points[quad->checkpointIndex];
+	struct CheckpointNode *node = &PSX_GET(level->ptr_restart_points)[quad->checkpointIndex];
 
 #if defined(CTR_NATIVE)
 	// MKDS never lifts a kart off the road for a shortcut: where two parts of a lap
@@ -891,7 +891,7 @@ internal b32 COLL_FIXED_PlayerSearch_CheckMaskGrabProgress(struct Driver *d, str
 
 	if (!NativeLevel_MudAtWorldZero(level->configFlags) && ((d->actionsFlagSet & ACTION_BEHIND_START_LINE) == 0))
 	{
-		const s32 lap = level->ptr_restart_points[0].distToFinish << 3;
+		const s32 lap = PSX_GET(level->ptr_restart_points)[0].distToFinish << 3;
 		s32 apart = (s32)(d->distanceToFinish_checkpoint - CTR_MipsMulLo(node->distToFinish, 8));
 
 		apart = (apart < 0) ? -apart : apart;
@@ -907,12 +907,12 @@ internal b32 COLL_FIXED_PlayerSearch_CheckMaskGrabProgress(struct Driver *d, str
 #endif
 
 	if (((d->actionsFlagSet & ACTION_BEHIND_START_LINE) == 0) && (node->nextIndex_forward > 1) &&
-	    ((((level->ptr_restart_points[0].distToFinish >> 2) << 3) < (s32)(d->distanceToFinish_checkpoint - CTR_MipsMulLo(node->distToFinish, 8)))))
+	    ((((PSX_GET(level->ptr_restart_points)[0].distToFinish >> 2) << 3) < (s32)(d->distanceToFinish_checkpoint - CTR_MipsMulLo(node->distToFinish, 8)))))
 	{
 		return 1;
 	}
 
-	u16 trackLength = level->ptr_restart_points[0].distToFinish;
+	u16 trackLength = PSX_GET(level->ptr_restart_points)[0].distToFinish;
 
 #if defined(CTR_NATIVE)
 	// NOTE(aalhendi): Retail reaches directly through lastValid here. Native
@@ -929,7 +929,7 @@ internal b32 COLL_FIXED_PlayerSearch_CheckMaskGrabProgress(struct Driver *d, str
 #endif
 
 	if ((node->distToFinish < (CTR_MipsMulLo(trackLength, 0xf) >> 4)) && (d->lastValid->checkpointIndex != 0xff) &&
-	    ((level->ptr_restart_points[d->lastValid->checkpointIndex].distToFinish + (trackLength >> 2)) < node->distToFinish))
+	    ((PSX_GET(level->ptr_restart_points)[d->lastValid->checkpointIndex].distToFinish + (trackLength >> 2)) < node->distToFinish))
 	{
 		return 1;
 	}
@@ -963,9 +963,9 @@ void COLL_FIXED_PlayerSearch(struct Thread *t, struct Driver *d)
 		COLL_FIXED_QUADBLK_TestTriangles(d->underDriver, sps);
 	}
 
-	if ((sps->boolDidTouchQuadblock == 0) && (sps->ptr_mesh_info != NULL) && (sps->ptr_mesh_info->bspRoot != NULL))
+	if ((sps->boolDidTouchQuadblock == 0) && (sps->ptr_mesh_info != NULL) && (PSX_GET(sps->ptr_mesh_info->bspRoot) != NULL))
 	{
-		COLL_SearchBSP_CallbackPARAM(sps->ptr_mesh_info->bspRoot, &sps->bbox, COLL_FIXED_BSPLEAF_TestQuadblocks, sps);
+		COLL_SearchBSP_CallbackPARAM(PSX_GET(sps->ptr_mesh_info->bspRoot), &sps->bbox, COLL_FIXED_BSPLEAF_TestQuadblocks, sps);
 	}
 
 	struct Instance *inst = t->inst;
@@ -1046,7 +1046,7 @@ void COLL_FIXED_PlayerSearch(struct Thread *t, struct Driver *d)
 		d->terrainMeta2 = VehAfterColl_GetTerrain(TERRAIN_NONE);
 	}
 
-	if (d->posCurr.y < CTR_MipsSll(CTR_MipsSubLo(level->ptr_mesh_info->bspRoot->box.min.y, 0x40), 8))
+	if (d->posCurr.y < CTR_MipsSll(CTR_MipsSubLo(PSX_GET(PSX_GET(level->ptr_mesh_info)->bspRoot)->box.min.y, 0x40), 8))
 	{
 		d->collisionFlags |= DRIVER_COLL_FLAG_MASK_GRAB_REQUEST;
 	}
@@ -1748,7 +1748,7 @@ void COLL_MOVED_BSPLEAF_TestQuadblocks(struct BSP *node, struct ScratchpadStruct
 	}
 
 	s32 numQuads = node->data.leaf.numQuads;
-	struct QuadBlock *ptrQuad = node->data.leaf.ptrQuadBlockArray;
+	struct QuadBlock *ptrQuad = PSX_GET(node->data.leaf.ptrQuadBlockArray);
 
 	// loop through all quadblocks
 	do
@@ -1844,13 +1844,13 @@ internal int CollMoved_PlayerSearch_RunHitboxLInC(struct ScratchpadStruct *sps, 
 
 	if ((bsp->flag & BSP_HITBOX_COLLIDABLE) != 0)
 	{
-		struct InstDef *instDef = bsp->data.hitbox.instDef;
+		struct InstDef *instDef = PSX_GET(bsp->data.hitbox.instDef);
 		if (instDef == NULL)
 		{
 			return 1;
 		}
 
-		linCInstance = instDef->ptrInstance;
+		linCInstance = PSX_GET(instDef->ptrInstance);
 		if (linCInstance == NULL)
 		{
 			return 1;
@@ -1870,7 +1870,7 @@ internal int CollMoved_PlayerSearch_RunHitboxLInC(struct ScratchpadStruct *sps, 
 			return 1;
 		}
 
-		struct InstDef *instDef = bsp->data.hitbox.instDef;
+		struct InstDef *instDef = PSX_GET(bsp->data.hitbox.instDef);
 		if (instDef == NULL)
 		{
 			return 1;
@@ -1878,7 +1878,7 @@ internal int CollMoved_PlayerSearch_RunHitboxLInC(struct ScratchpadStruct *sps, 
 
 		// Retail passes the InstDef pointer for these hitboxes, not ptrInstance.
 		linCInstance = (struct Instance *)instDef;
-		modelID = instDef->model->id;
+		modelID = PSX_GET(instDef->model)->id;
 	}
 
 	struct MetaDataMODEL *meta = COLL_LevModelMeta(modelID);
@@ -1953,7 +1953,7 @@ void COLL_MOVED_PlayerSearch(struct Thread *t, struct Driver *d)
 	sps->Union.QuadBlockColl.quadFlagsWanted = QUADBLOCK_FLAG_GROUND | QUADBLOCK_FLAG_COLLISION_SURFACE;
 	sps->Union.QuadBlockColl.quadFlagsIgnored = 0;
 	sps->Union.QuadBlockColl.searchFlags = COLL_SEARCH_TEST_INSTANCES;
-	sps->ptr_mesh_info = gGT->level1->ptr_mesh_info;
+	sps->ptr_mesh_info = PSX_GET(gGT->level1->ptr_mesh_info);
 
 	if (gGT->numPlyrCurrGame < 3)
 	{
@@ -2010,9 +2010,9 @@ void COLL_MOVED_PlayerSearch(struct Thread *t, struct Driver *d)
 
 		sps->Union.QuadBlockColl.searchFlags = (sps->Union.QuadBlockColl.searchFlags | COLL_SEARCH_TEST_INSTANCES) & ~COLL_SEARCH_REUSE_NORMALS;
 
-		if ((gGT->level1 != NULL) && (gGT->level1->ptr_mesh_info != NULL) && (gGT->level1->ptr_mesh_info->bspRoot != NULL))
+		if ((gGT->level1 != NULL) && (PSX_GET(gGT->level1->ptr_mesh_info) != NULL) && (PSX_GET(PSX_GET(gGT->level1->ptr_mesh_info)->bspRoot) != NULL))
 		{
-			COLL_SearchBSP_CallbackPARAM(gGT->level1->ptr_mesh_info->bspRoot, &sps->bbox, COLL_MOVED_BSPLEAF_TestQuadblocks, sps);
+			COLL_SearchBSP_CallbackPARAM(PSX_GET(PSX_GET(gGT->level1->ptr_mesh_info)->bspRoot), &sps->bbox, COLL_MOVED_BSPLEAF_TestQuadblocks, sps);
 		}
 
 		if (sps->boolDidTouchQuadblock != 0)

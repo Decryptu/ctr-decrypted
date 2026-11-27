@@ -488,12 +488,11 @@ void RB_FlameJet_LInB(struct Instance *inst)
 	fjBounds.max.z = 0x140;
 	fjBounds.min.z = 0;
 
-	if (GAME_TRACKER->level1->ptrSpawnType1->count > 0)
+	if (PSX_GET(GAME_TRACKER->level1->ptrSpawnType1)->count > 0)
 	{
 		// NOTE(aalhendi): The name's final digit selects a packed halfword delay to stagger instances.
 		s32 byteOffset = (inst->name[strlen(inst->name) - 1] - '0') * 2;
-		void **pointers = ST1_GETPOINTERS(GAME_TRACKER->level1->ptrSpawnType1);
-		u8 *delays = pointers[ST1_SPAWN];
+		u8 *delays = ST1_GETPOINTER(PSX_GET(GAME_TRACKER->level1->ptrSpawnType1), ST1_SPAWN);
 		fjObj->cooldown = FPS_DOUBLE(CTR_ReadU16AlignedLE(delays + byteOffset));
 	}
 }

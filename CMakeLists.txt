@@ -70,7 +70,15 @@ if(CTR_CUSTOM_PACKAGES AND NOT CTR_CUSTOM_TRACKS)
     message(FATAL_ERROR "CTR_CUSTOM_PACKAGES needs CTR_CUSTOM_TRACKS=ON")
 endif()
 
-if(NOT CMAKE_C_COMPILER_TARGET MATCHES "i.86" AND NOT CMAKE_SYSTEM_PROCESSOR MATCHES "i.86")
+# 64-bit engine (x86_64, arm64): the compiler's native pointer size is used.
+# Off: the build is forced to 32-bit x86, whatever the host.
+option(CTR_64BIT "Build the 64-bit engine with the compiler's native target" OFF)
+
+if(CTR_64BIT)
+    if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
+        message(FATAL_ERROR "CTR_64BIT needs a 64-bit compiler (MSYS2 UCRT64 or CLANGARM64, or a 64-bit Linux gcc/clang)")
+    endif()
+elseif(NOT CMAKE_C_COMPILER_TARGET MATCHES "i.86" AND NOT CMAKE_SYSTEM_PROCESSOR MATCHES "i.86")
     set(CMAKE_C_FLAGS "-m32 ${CMAKE_C_FLAGS}")
     # C++ asset and network code has to match the 32-bit engine.
     set(CMAKE_CXX_FLAGS "-m32 ${CMAKE_CXX_FLAGS}")
@@ -471,8 +479,12 @@ if(CTR_NATIVE_MSVC_FRONTEND)
         /wd5287
     )
 else()
+    # 32-bit x86 needs -msse for the SSE intrinsics; x86_64 always has SSE2
+    # and arm64 has none.
+    if(NOT CTR_64BIT)
+        target_compile_options(ctr_native PRIVATE -msse)
+    endif()
     target_compile_options(ctr_native PRIVATE
-        -msse
         -Wenum-conversion
         -Wenum-compare
         -Wswitch-enum

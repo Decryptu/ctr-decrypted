@@ -202,7 +202,7 @@ static void RenderLists_LinkBsp(struct BSP *bspRoot, struct BSP *bsp, struct Vis
 
 	node = &bspList[bspIndex];
 
-	node->next = *head;
+	PSX_SET(node->next, *head);
 	*head = node;
 }
 

@@ -253,7 +253,7 @@ void RB_MovingExplosive_ThTick(struct Thread *t)
 		sps->Union.QuadBlockColl.searchFlags = COLL_SEARCH_TEST_INSTANCES | COLL_SEARCH_HIGH_LOD | COLL_SEARCH_FORCE_INSTANCE_HIT;
 	}
 
-	sps->ptr_mesh_info = GAME_TRACKER->level1->ptr_mesh_info;
+	sps->ptr_mesh_info = PSX_GET(GAME_TRACKER->level1->ptr_mesh_info);
 
 	COLL_SearchBSP_CallbackQUADBLK(&posA, &posB, sps, 0);
 
@@ -287,10 +287,10 @@ void RB_MovingExplosive_ThTick(struct Thread *t)
 			struct BSP *bspHitbox = sps->bspHitbox;
 
 			// Temple teeth open when a weapon hits their level instance.
-			if (((u8)bspHitbox->flag & 0x80) && (instDef = bspHitbox->data.hitbox.instDef) != NULL && instDef->ptrInstance != NULL &&
+			if (((u8)bspHitbox->flag & 0x80) && (instDef = PSX_GET(bspHitbox->data.hitbox.instDef)) != NULL && PSX_GET(instDef->ptrInstance) != NULL &&
 			    (s16)instDef->modelID == STATIC_TEETH)
 			{
-				RB_Teeth_OpenDoor(instDef->ptrInstance);
+				RB_Teeth_OpenDoor(PSX_GET(instDef->ptrInstance));
 			}
 			goto explode;
 		}

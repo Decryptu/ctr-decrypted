@@ -48,6 +48,7 @@
 #include "ap_box_texture_data.h"
 #include "ap_hooks.h" // AP_LogLine
 #include "ap_retail_asset.h" // AP_RetailAsset_ReadSubfile
+#include <platform/native_psx_space.h>
 #include "ap_box_colour_logic.h" // decode, recolour, logo compose and the colour atlas (harness-pinned)
 #include "ap_box_logo_mask_data.h" // which face pixels are the Archipelago logo (JurnthReinal art)
 
@@ -95,13 +96,13 @@ static int AP_BoxDisc_FindRect(const u8 *body, int size, int modelId, int wantWo
 	u32 i;
 
 	if (size < (int)sizeof(struct Level) || lev->numModels == 0 || lev->numModels > AP_BOX_DISC_MAX_MODELS ||
-	    (const u8 *)lev->ptrModelsPtrArray < body ||
-	    (const u8 *)(lev->ptrModelsPtrArray + lev->numModels) > body + size)
+	    (const u8 *)PSX_GET(lev->ptrModelsPtrArray) < body ||
+	    (const u8 *)(PSX_GET(lev->ptrModelsPtrArray) + lev->numModels) > body + size)
 		return 0;
 
 	for (i = 0; i < lev->numModels; i++)
 	{
-		const struct Model *m = lev->ptrModelsPtrArray[i];
+		const struct Model *m = PSX_GET(PSX_GET(lev->ptrModelsPtrArray)[i]);
 		int h;
 
 		if (m == 0)
@@ -110,19 +111,19 @@ static int AP_BoxDisc_FindRect(const u8 *body, int size, int modelId, int wantWo
 			return 0;
 		if (m->id != modelId)
 			continue;
-		if (m->numHeaders <= 0 || (const u8 *)m->headers < body ||
-		    (const u8 *)m->headers + (u32)m->numHeaders * AP_BOX_DISC_HEADER_STRIDE > body + size)
+		if (m->numHeaders <= 0 || (const u8 *)PSX_GET(m->headers) < body ||
+		    (const u8 *)PSX_GET(m->headers) + (u32)m->numHeaders * AP_BOX_DISC_HEADER_STRIDE > body + size)
 			return 0;
 
 		for (h = 0; h < m->numHeaders; h++)
 		{
 			const struct ModelHeader *mh =
-			    (const struct ModelHeader *)((const u8 *)m->headers + h * AP_BOX_DISC_HEADER_STRIDE);
-			const u32 *cmd = (const u32 *)(uintptr_t)mh->ptrCommandList;
+			    (const struct ModelHeader *)((const u8 *)PSX_GET(m->headers) + h * AP_BOX_DISC_HEADER_STRIDE);
+			const u32 *cmd = (const u32 *)(uintptr_t)PSX_GET(mh->ptrCommandList);
 			int n, maxCmd;
 
 			if ((const u8 *)cmd < body || (const u8 *)cmd + 8 > body + size ||
-			    (const u8 *)mh->ptrTexLayout < body || (const u8 *)mh->ptrTexLayout >= body + size)
+			    (const u8 *)PSX_GET(mh->ptrTexLayout) < body || (const u8 *)PSX_GET(mh->ptrTexLayout) >= body + size)
 				continue;
 			maxCmd = (int)(((const u32 *)(body + size)) - cmd);
 			if (maxCmd > AP_BOX_DISC_MAX_CMDS)
@@ -139,9 +140,9 @@ static int AP_BoxDisc_FindRect(const u8 *body, int size, int modelId, int wantWo
 
 				if ((cmd[n] >> 16) == 0 || ti == 0)
 					continue;
-				if ((const u8 *)&mh->ptrTexLayout[ti - 1] + sizeof(void *) > body + size)
+				if ((const u8 *)&PSX_GET(mh->ptrTexLayout)[ti - 1] + sizeof(PsxTextureLayoutPtr) > body + size)
 					continue;
-				tl = mh->ptrTexLayout[ti - 1];
+				tl = PSX_GET(PSX_GET(mh->ptrTexLayout)[ti - 1]);
 				if ((const u8 *)tl < body || (const u8 *)tl + sizeof(struct TextureLayout) > body + size)
 					continue;
 				uv[0] = tl->u0; uv[1] = tl->v0; uv[2] = tl->u1; uv[3] = tl->v1;
@@ -172,7 +173,8 @@ static void AP_BoxDisc_Read(void)
 
 	s_apBoxDiscState = 1;
 
-	buf = (u8 *)malloc(AP_BOX_DISC_LEV_BUF);
+	// The fixed-up level is disc-format data, so it is read into PSX space.
+	buf = (u8 *)PsxSpace_Alloc(AP_BOX_DISC_LEV_BUF);
 	if (buf != 0)
 	{
 		body = AP_RetailAsset_ReadSubfile(AP_BOX_DISC_SRC_LEV, 1, buf, AP_BOX_DISC_LEV_BUF, &size);
@@ -182,7 +184,7 @@ static void AP_BoxDisc_Read(void)
 			haveWoodRect = AP_BoxDisc_FindRect(body, size, PU_RANDOM_CRATE, 1, &wood);
 			haveCrateRect = AP_BoxDisc_FindRect(body, size, PU_FRUIT_CRATE, 0, &crate);
 		}
-		free(buf);
+		PsxSpace_Free(buf);
 	}
 
 	if (haveWoodRect || haveCrateRect)

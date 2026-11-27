@@ -105,14 +105,14 @@ void CS_Credits_AnimateCreditGhost(struct Instance *dst, struct Instance *src, s
 	dst->alphaScale = (index + 1) * CS_CREDITS_GHOST_ALPHA_STEP;
 	dst->model = &creditsBSS.creditsObj.creditGhostModelCopies[index];
 	*dst->model = *src->model;
-	dst->model->headers = creditsBSS.creditsObj.creditGhostHeaders[index];
+	PSX_SET(dst->model->headers, creditsBSS.creditsObj.creditGhostHeaders[index]);
 	count = src->model->numHeaders;
 	if (count > 0)
 	{
 		i = 0;
 		do
 		{
-			dst->model->headers[i] = src->model->headers[i];
+			PSX_GET(dst->model->headers)[i] = PSX_GET(src->model->headers)[i];
 			i++;
 		} while (i < count);
 	}
@@ -194,7 +194,7 @@ void CS_Credits_Init(void)
 	}
 	// NOTE(aalhendi): Walk the serialized size/count words before relocating
 	// the string offsets. Byte access keeps the shared path alias-safe.
-	creditsData = (u8 *)(ST1_GETPOINTERS(GAME_TRACKER->level1->ptrSpawnType1))[ST1_CREDITS];
+	creditsData = (u8 *)ST1_GETPOINTER(PSX_GET(GAME_TRACKER->level1->ptrSpawnType1), ST1_CREDITS);
 	CS_CREDITS_DANCER = NULL;
 	creditsDst = MEMPACK_AllocHighMem(CTR_ReadU32AlignedLE(creditsData), csCreditsNames.creditStrings);
 	memcpy(creditsDst, creditsData, ((struct CreditsLevHeader *)creditsData)->size);

@@ -571,8 +571,8 @@ void AH_Door_LInB(struct Instance *inst)
 	ratio = MATH_Sin(inst->instDef->rot.y) * AH_DOOR_PAIR_OFFSET;
 	door->otherDoor->matrix.t[2] = inst->matrix.t[2] + (ratio >> 12);
 
-	inst->model->headers->flags |= 2;
-	door->otherDoor->model->headers->flags |= 2;
+	PSX_GET(inst->model->headers)->flags |= 2;
+	PSX_GET(door->otherDoor->model->headers)->flags |= 2;
 
 #ifdef CTR_AP
 	if (AP_DoorHistoryEnabled())

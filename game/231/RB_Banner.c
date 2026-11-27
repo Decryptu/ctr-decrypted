@@ -25,7 +25,7 @@ CTR_STATIC_ASSERT(sizeof(union RBBannerScratchVertex) == 0x8);
 
 static inline u8 *RB_Banner_FirstVertex(struct ModelHeader *mh)
 {
-	return (u8 *)mh->ptrFrameData + mh->ptrFrameData->vertexOffset;
+	return (u8 *)PSX_GET(mh->ptrFrameData) + PSX_GET(mh->ptrFrameData)->vertexOffset;
 }
 
 static inline union RBBannerScratchVertex *RB_Banner_VertexSlot(u32 scratchOffset)
@@ -43,7 +43,7 @@ int RB_Banner_Animate_Init(struct ModelHeader *mh)
 	union RBBannerScratchVertex *temp = RB_Banner_TempVertex();
 	s16 count = 0;
 	u8 *vertex = RB_Banner_FirstVertex(mh);
-	u32 *cmd = (u32 *)mh->ptrCommandList;
+	u32 *cmd = (u32 *)PSX_GET(mh->ptrCommandList);
 	u16 numColors = CTR_ReadU16AlignedLE(cmd);
 
 	cmd++;
@@ -144,7 +144,7 @@ int RB_Banner_Animate_Init(struct ModelHeader *mh)
 void RB_Banner_Animate_Play(struct ModelHeader *mh, s16 numVertices)
 {
 	u32 *colors;
-	u32 *palette = mh->ptrColors;
+	u32 *palette = PSX_GET(mh->ptrColors);
 	s16 i;
 	u8 *cursor = (u8 *)(palette + 1);
 	u32 firstColor = palette[0];
@@ -159,7 +159,7 @@ void RB_Banner_Animate_Play(struct ModelHeader *mh, s16 numVertices)
 
 	// NOTE(aalhendi): Reuse the read cursor only after palette rotation has finished.
 	cursor = RB_Banner_FirstVertex(mh);
-	colors = mh->ptrColors;
+	colors = PSX_GET(mh->ptrColors);
 	end = (u32)cursor + (s32)numVertices * 3;
 	for (; (u32)cursor < end; cursor += 3)
 	{
@@ -208,7 +208,7 @@ void RB_Banner_ThTick(struct Thread *t)
 			return;
 		}
 #endif
-		RB_Banner_Animate_Play(inst->model->headers, numVertices);
+		RB_Banner_Animate_Play(PSX_GET(inst->model->headers), numVertices);
 	}
 }
 
@@ -249,7 +249,7 @@ void RB_Banner_LInB(struct Instance *inst)
 	}
 
 	inst->model = model;
-	banner->numVertices = RB_Banner_Animate_Init(model->headers);
+	banner->numVertices = RB_Banner_Animate_Init(PSX_GET(model->headers));
 	if (banner->numVertices == 0)
 	{
 		return;
@@ -257,7 +257,7 @@ void RB_Banner_LInB(struct Instance *inst)
 
 	{
 		s16 i;
-		u8 *color = (u8 *)inst->model->headers->ptrColors;
+		u8 *color = (u8 *)PSX_GET(PSX_GET(inst->model->headers)->ptrColors);
 
 		// The palette carries two sine cycles; animation rotates it one sample per tick.
 		for (i = 0; i < 0x40;)

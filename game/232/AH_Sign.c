@@ -29,7 +29,7 @@ void AH_Sign_LInB(struct Instance *inst)
 	scratch->sps.Union.QuadBlockColl.quadFlagsWanted = QUADBLOCK_FLAG_GROUND | QUADBLOCK_FLAG_COLLISION_SURFACE;
 	scratch->sps.Union.QuadBlockColl.searchFlags = COLL_SEARCH_HIGH_LOD;
 	scratch->sps.Union.QuadBlockColl.quadFlagsIgnored = 0;
-	scratch->sps.ptr_mesh_info = GAME_TRACKER->level1->ptr_mesh_info;
+	scratch->sps.ptr_mesh_info = PSX_GET(GAME_TRACKER->level1->ptr_mesh_info);
 
 	x = inst->matrix.t[0] + scratch->normal.x * 2;
 	scratch->probeTop.x = x;

@@ -11,6 +11,7 @@
 #include "ap_box_texture.h"
 #include "ap_box_model_framed_data.h" // the retail-crate-style box (face square + wood border ring)
 #include "ap_box_colour_logic.h"       // the colour slots of the box atlas
+#include <platform/native_psx_space.h>
 
 struct ApBoxModelFrame
 {
@@ -21,9 +22,6 @@ struct ApBoxModelFrame
 CTR_STATIC_ASSERT(sizeof(struct ModelFrame) == 0x1c);
 CTR_STATIC_ASSERT(offsetof(struct ApBoxModelFrame, verts) == 0x1c);
 
-static struct ApBoxModelFrame s_apBoxFrame;
-static struct ModelHeader s_apBoxHeader;
-static struct Model s_apBoxModel;
 // The textured box is built like the retail "?" crate: every side a face
 // square plus a border ring carrying the 16x16 wood rect, from generated
 // AP-owned data (tools/apbox-texture/gen_framed_model.py). Same 32..224 extent
@@ -34,17 +32,33 @@ struct ApBoxFramedFrame
 	struct ModelFrame frame;
 	u8 verts[AP_BOX_FRAMED_NUM_VERTS * 3];
 };
-static struct ApBoxFramedFrame s_apBoxFramedFrame;
-static struct TextureLayout *s_apBoxFramedLayoutPtrs[AP_BOX_FRAMED_NUM_TRIS];
 
 // The same box in the four Archipelago item colours (ap_box_colour_logic.h):
 // its own header and layouts, shifted to the colour's atlas slot, sharing the
 // pink box's frame, command list and shading. Index = colour - 1.
 #define AP_BOX_TINTS (AP_BOX_COLOUR_COUNT - 1)
-static struct Model s_apBoxTintModel[AP_BOX_TINTS];
-static struct ModelHeader s_apBoxTintHeader[AP_BOX_TINTS];
-static struct TextureLayout s_apBoxTintLayouts[AP_BOX_TINTS][AP_BOX_FRAMED_NUM_TRIS];
-static struct TextureLayout *s_apBoxTintLayoutPtrs[AP_BOX_TINTS][AP_BOX_FRAMED_NUM_TRIS];
+
+// A model is disc-format data whose pointers are PSX addresses
+// (include/ctr_psx_ptr.h), so everything the box models point at, the built-in
+// command lists and shading included, lives in one block of PSX space.
+struct ApBoxStore
+{
+	struct ApBoxModelFrame frame;
+	struct ModelHeader header;
+	struct Model model;
+	struct ApBoxFramedFrame framedFrame;
+	struct TextureLayout framedLayouts[AP_BOX_FRAMED_NUM_TRIS];
+	PsxTextureLayoutPtr framedLayoutPtrs[AP_BOX_FRAMED_NUM_TRIS];
+	struct Model tintModel[AP_BOX_TINTS];
+	struct ModelHeader tintHeader[AP_BOX_TINTS];
+	struct TextureLayout tintLayouts[AP_BOX_TINTS][AP_BOX_FRAMED_NUM_TRIS];
+	PsxTextureLayoutPtr tintLayoutPtrs[AP_BOX_TINTS][AP_BOX_FRAMED_NUM_TRIS];
+	u32 modelCommands[sizeof(s_apBoxModelCommands) / sizeof(u32)];
+	u32 modelColors[sizeof(s_apBoxModelColors) / sizeof(u32)];
+	u32 framedCommands[sizeof(s_apBoxFramedCommands) / sizeof(u32)];
+	u32 framedColors[sizeof(s_apBoxFramedColors) / sizeof(u32)];
+};
+static struct ApBoxStore *s_apBox;
 
 static int s_apBoxBuilt;
 static int s_apBoxTextured;
@@ -77,7 +91,7 @@ static s16 AP_BoxModel_DeriveScale(struct GameTracker *gGT)
 		return AP_BOX_FALLBACK_SCALE;
 
 	src = gGT->modelPtr[PU_RANDOM_CRATE];
-	if (src != 0 && src != &s_apBoxModel && AP_BoxModel_Measure(src, &scale, &extent))
+	if (src != 0 && src != &s_apBox->model && AP_BoxModel_Measure(src, &scale, &extent))
 		isItem = 1;
 	else
 	{
@@ -120,15 +134,18 @@ static void AP_BoxModel_ApplyTexture(void)
 {
 	int i, t;
 
-	s_apBoxFramedFrame.frame = s_apBoxFrame.frame;
+	s_apBox->framedFrame.frame = s_apBox->frame.frame;
 	for (i = 0; i < AP_BOX_FRAMED_NUM_VERTS * 3; i++)
-		s_apBoxFramedFrame.verts[i] = s_apBoxFramedVerts[i];
+		s_apBox->framedFrame.verts[i] = s_apBoxFramedVerts[i];
+	memcpy(s_apBox->framedLayouts, s_apBoxFramedLayouts, sizeof(s_apBox->framedLayouts));
+	memcpy(s_apBox->framedCommands, s_apBoxFramedCommands, sizeof(s_apBox->framedCommands));
+	memcpy(s_apBox->framedColors, s_apBoxFramedColors, sizeof(s_apBox->framedColors));
 	for (i = 0; i < AP_BOX_FRAMED_NUM_TRIS; i++)
-		s_apBoxFramedLayoutPtrs[i] = &s_apBoxFramedLayouts[i];
-	s_apBoxHeader.ptrFrameData = &s_apBoxFramedFrame.frame;
-	s_apBoxHeader.ptrTexLayout = s_apBoxFramedLayoutPtrs;
-	s_apBoxHeader.ptrCommandList = (u32)(uintptr_t)s_apBoxFramedCommands;
-	s_apBoxHeader.ptrColors = (u32 *)(uintptr_t)s_apBoxFramedColors;
+		PSX_SET(s_apBox->framedLayoutPtrs[i], &s_apBox->framedLayouts[i]);
+	PSX_SET(s_apBox->header.ptrFrameData, &s_apBox->framedFrame.frame);
+	PSX_SET(s_apBox->header.ptrTexLayout, s_apBox->framedLayoutPtrs);
+	PSX_SET(s_apBox->header.ptrCommandList, s_apBox->framedCommands);
+	PSX_SET(s_apBox->header.ptrColors, s_apBox->framedColors);
 
 	for (t = 0; t < AP_BOX_TINTS; t++)
 	{
@@ -137,19 +154,19 @@ static void AP_BoxModel_ApplyTexture(void)
 		AP_BoxColour_SlotOrigin(t + 1, &ox, &oy);
 		for (i = 0; i < AP_BOX_FRAMED_NUM_TRIS; i++)
 		{
-			struct TextureLayout *l = &s_apBoxTintLayouts[t][i];
+			struct TextureLayout *l = &s_apBox->tintLayouts[t][i];
 
-			*l = s_apBoxFramedLayouts[i];
+			*l = s_apBox->framedLayouts[i];
 			l->u0 = (u8)(l->u0 + ox); l->v0 = (u8)(l->v0 + oy);
 			l->u1 = (u8)(l->u1 + ox); l->v1 = (u8)(l->v1 + oy);
 			l->u2 = (u8)(l->u2 + ox); l->v2 = (u8)(l->v2 + oy);
 			l->u3 = (u8)(l->u3 + ox); l->v3 = (u8)(l->v3 + oy);
-			s_apBoxTintLayoutPtrs[t][i] = l;
+			PSX_SET(s_apBox->tintLayoutPtrs[t][i], l);
 		}
-		s_apBoxTintHeader[t] = s_apBoxHeader;
-		s_apBoxTintHeader[t].ptrTexLayout = s_apBoxTintLayoutPtrs[t];
-		s_apBoxTintModel[t] = s_apBoxModel;
-		s_apBoxTintModel[t].headers = &s_apBoxTintHeader[t];
+		s_apBox->tintHeader[t] = s_apBox->header;
+		PSX_SET(s_apBox->tintHeader[t].ptrTexLayout, s_apBox->tintLayoutPtrs[t]);
+		s_apBox->tintModel[t] = s_apBox->model;
+		PSX_SET(s_apBox->tintModel[t].headers, &s_apBox->tintHeader[t]);
 	}
 	s_apBoxTextured = 1;
 }
@@ -159,54 +176,61 @@ static void AP_BoxModel_SetScale(s16 scale)
 {
 	int t;
 
-	s_apBoxHeader.scale.x = s_apBoxHeader.scale.y = s_apBoxHeader.scale.z = scale;
+	s_apBox->header.scale.x = s_apBox->header.scale.y = s_apBox->header.scale.z = scale;
 	for (t = 0; t < AP_BOX_TINTS; t++)
-		s_apBoxTintHeader[t].scale = s_apBoxHeader.scale;
+		s_apBox->tintHeader[t].scale = s_apBox->header.scale;
 }
 
 static void AP_BoxModel_Build(struct GameTracker *gGT)
 {
-	s16 scale = AP_BoxModel_DeriveScale(gGT);
+	s16 scale;
 	int i;
 
-	s_apBoxFrame.frame.pos.x = -128;
-	s_apBoxFrame.frame.pos.y = -128;
-	s_apBoxFrame.frame.pos.z = -128;
-	s_apBoxFrame.frame.vertexOffset = 0x1c;
-	for (i = 0; i < AP_BOX_MODEL_NUM_VERTS * 3; i++)
-		s_apBoxFrame.verts[i] = s_apBoxModelVerts[i];
+	s_apBox = PsxSpace_Alloc(sizeof(*s_apBox));
+	if (s_apBox == 0)
+		Platform_Fatal("CTR Decrypted - Archipelago", "Could not allocate the Archipelago box model.");
+	memcpy(s_apBox->modelCommands, s_apBoxModelCommands, sizeof(s_apBox->modelCommands));
+	memcpy(s_apBox->modelColors, s_apBoxModelColors, sizeof(s_apBox->modelColors));
+	scale = AP_BoxModel_DeriveScale(gGT);
 
-	s_apBoxHeader.name[0] = 'a';
-	s_apBoxHeader.name[1] = 'p';
-	s_apBoxHeader.name[2] = 'b';
-	s_apBoxHeader.name[3] = 'o';
-	s_apBoxHeader.name[4] = 'x';
-	s_apBoxHeader.name[5] = '\0';
-	s_apBoxHeader.maxDistanceLOD = 0x7fff;
-	s_apBoxHeader.flags = 0;
+	s_apBox->frame.frame.pos.x = -128;
+	s_apBox->frame.frame.pos.y = -128;
+	s_apBox->frame.frame.pos.z = -128;
+	s_apBox->frame.frame.vertexOffset = 0x1c;
+	for (i = 0; i < AP_BOX_MODEL_NUM_VERTS * 3; i++)
+		s_apBox->frame.verts[i] = s_apBoxModelVerts[i];
+
+	s_apBox->header.name[0] = 'a';
+	s_apBox->header.name[1] = 'p';
+	s_apBox->header.name[2] = 'b';
+	s_apBox->header.name[3] = 'o';
+	s_apBox->header.name[4] = 'x';
+	s_apBox->header.name[5] = '\0';
+	s_apBox->header.maxDistanceLOD = 0x7fff;
+	s_apBox->header.flags = 0;
 	AP_BoxModel_SetScale(scale);
 	// Flat-shaded, untextured. This is the LAST RESORT, reached only when the
 	// box atlas could not be uploaded, so it deliberately stays the plain
 	// vertex-coloured cube rather than borrowing the sideload slot: a fallback
 	// should look like a stand-in, not like a broken texture.
-	s_apBoxHeader.ptrCommandList = (u32)(uintptr_t)s_apBoxModelCommands;
-	s_apBoxHeader.ptrTexLayout = 0;
-	s_apBoxHeader.ptrFrameData = &s_apBoxFrame.frame;
-	s_apBoxHeader.ptrColors = (u32 *)(uintptr_t)s_apBoxModelColors;
-	s_apBoxHeader.unk3 = 0;
-	s_apBoxHeader.numAnimations = 0;
-	s_apBoxHeader.ptrAnimations = 0;
-	s_apBoxHeader.animtex = 0;
+	PSX_SET(s_apBox->header.ptrCommandList, s_apBox->modelCommands);
+	PSX_SET(s_apBox->header.ptrTexLayout, 0);
+	PSX_SET(s_apBox->header.ptrFrameData, &s_apBox->frame.frame);
+	PSX_SET(s_apBox->header.ptrColors, s_apBox->modelColors);
+	PSX_SET(s_apBox->header.unk3, 0);
+	s_apBox->header.numAnimations = 0;
+	PSX_SET(s_apBox->header.ptrAnimations, 0);
+	PSX_SET(s_apBox->header.animtex, 0);
 
-	s_apBoxModel.name[0] = 'a';
-	s_apBoxModel.name[1] = 'p';
-	s_apBoxModel.name[2] = 'b';
-	s_apBoxModel.name[3] = 'o';
-	s_apBoxModel.name[4] = 'x';
-	s_apBoxModel.name[5] = '\0';
-	s_apBoxModel.id = PU_RANDOM_CRATE;
-	s_apBoxModel.numHeaders = 1;
-	s_apBoxModel.headers = &s_apBoxHeader;
+	s_apBox->model.name[0] = 'a';
+	s_apBox->model.name[1] = 'p';
+	s_apBox->model.name[2] = 'b';
+	s_apBox->model.name[3] = 'o';
+	s_apBox->model.name[4] = 'x';
+	s_apBox->model.name[5] = '\0';
+	s_apBox->model.id = PU_RANDOM_CRATE;
+	s_apBox->model.numHeaders = 1;
+	PSX_SET(s_apBox->model.headers, &s_apBox->header);
 	s_apBoxBuilt = 1;
 
 	// One line so a size report from the field names the number it argues about,
@@ -215,7 +239,7 @@ static void AP_BoxModel_Build(struct GameTracker *gGT)
 		char msg[192];
 		int base = 0, top = 0, height = 0;
 
-		if (!AP_BoxModel_MeasureVertical(&s_apBoxModel, &base, &top, &height))
+		if (!AP_BoxModel_MeasureVertical(&s_apBox->model, &base, &top, &height))
 			base = top = height = 0;
 		snprintf(msg, sizeof msg,
 		         "[AP BOX] model built, scale 0x%x, local Y [%d, %d] world units about its origin, "
@@ -240,7 +264,7 @@ int AP_BoxModel_Ensure(struct GameTracker *gGT)
 	// PU_RANDOM_CRATE is a normal per-level slot and LibraryOfModels_Clear
 	// clears it on every transition. Reassert only while it is absent, so a
 	// retail model always wins on levels that carry one.
-	gGT->modelPtr[PU_RANDOM_CRATE] = &s_apBoxModel;
+	gGT->modelPtr[PU_RANDOM_CRATE] = &s_apBox->model;
 	return PU_RANDOM_CRATE;
 }
 
@@ -256,7 +280,7 @@ int AP_BoxModel_EnsureOwned(struct GameTracker *gGT)
 	// from another LEV as resident here: its pointer graph and texture remap can
 	// pass registration while still producing no visible instance. The AP cube
 	// owns all of its geometry and commands and is valid for this level.
-	gGT->modelPtr[PU_RANDOM_CRATE] = &s_apBoxModel;
+	gGT->modelPtr[PU_RANDOM_CRATE] = &s_apBox->model;
 	return PU_RANDOM_CRATE;
 }
 
@@ -273,15 +297,15 @@ struct Model *AP_BoxModel_GetOwned(struct GameTracker *gGT)
 	AP_BoxModel_SetScale(AP_BoxModel_DeriveScale(gGT));
 	if (!s_apBoxTextured && AP_BoxTexture_Ensure())
 		AP_BoxModel_ApplyTexture();
-	return &s_apBoxModel;
+	return &s_apBox->model;
 }
 
 struct Model *AP_BoxModel_ForColour(struct Model *owned, int colour)
 {
-	if (owned != &s_apBoxModel || !s_apBoxTextured || colour <= AP_BOX_COLOUR_PINK ||
+	if (s_apBox == 0 || owned != &s_apBox->model || !s_apBoxTextured || colour <= AP_BOX_COLOUR_PINK ||
 	    colour >= AP_BOX_COLOUR_COUNT)
 		return owned;
-	return &s_apBoxTintModel[colour - 1];
+	return &s_apBox->tintModel[colour - 1];
 }
 
 #include "ap_box_spawn_pos.c" // the shared spawn transform

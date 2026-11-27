@@ -187,7 +187,7 @@ int AP_FastTravelSpawnAt(struct Level *level1, int levelID, SVec3 *posBottom, s1
 	}
 	if (level1 == NULL)
 		return 0;
-	for (i = 0, instDef = level1->ptrInstDefs; i < (int)level1->numInstances; i++, instDef++)
+	for (i = 0, instDef = PSX_GET(level1->ptrInstDefs); i < (int)level1->numInstances; i++, instDef++)
 		if (instDef->modelID == STATIC_SAVEOBJ)
 			break;
 	if (i >= (int)level1->numInstances)

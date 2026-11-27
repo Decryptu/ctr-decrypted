@@ -45,7 +45,7 @@ static int AP_ArcadeCrystalIndex(struct Instance *inst)
     int i;
     if(ap_arcade_failed || !ap_arcade_epoch || ap_arcade_epoch!=ap_content_plan_epoch() ||
        sdata->gGT->levelID!=ap_arcade_level || !inst)return -1;
-    for(i=0;i<20;++i)if(inst->instDef==&ap_arcade_defs[i] && ap_arcade_defs[i].ptrInstance==inst)return i;
+    for(i=0;i<20;++i)if(inst->instDef==&ap_arcade_defs[i] && PSX_GET(ap_arcade_defs[i].ptrInstance)==inst)return i;
     return -1;
 }
 
@@ -90,12 +90,12 @@ void AP_ArcadeCrystals_Spawn(struct GameTracker *g)
         struct InstDef *def=&ap_arcade_defs[i];
         struct Instance *inst;
         snprintf(def->name,sizeof def->name,"ap-crystal-%02d",i+1);
-        def->modelID=STATIC_CRYSTAL;def->model=g->modelPtr[STATIC_CRYSTAL];
+        def->modelID=STATIC_CRYSTAL;PSX_SET(def->model, g->modelPtr[STATIC_CRYSTAL]);
         def->pos.x=ap_arcade_anchors[a][i][0];def->pos.y=ap_arcade_anchors[a][i][1];def->pos.z=ap_arcade_anchors[a][i][2];
         def->scale.x=def->scale.y=def->scale.z=0x1000;
-        inst=INSTANCE_Birth3D(def->model,def->name,NULL);
+        inst=INSTANCE_Birth3D(PSX_GET(def->model),def->name,NULL);
         if(!inst)goto refused;
-        def->ptrInstance=inst;inst->instDef=def;inst->scale=def->scale;
+        PSX_SET(def->ptrInstance, inst);inst->instDef=def;inst->scale=def->scale;
         inst->matrix.t[0]=def->pos.x;inst->matrix.t[1]=def->pos.y;inst->matrix.t[2]=def->pos.z;
         RB_Crystal_LInB(inst);
         if(!inst->thread)goto refused;
@@ -109,8 +109,8 @@ void AP_ArcadeCrystals_Spawn(struct GameTracker *g)
     return;
 refused:
     ap_arcade_failed=1;
-    for(i=0;i<20;++i)if(ap_arcade_defs[i].ptrInstance) {
-        struct Instance *inst=ap_arcade_defs[i].ptrInstance;
+    for(i=0;i<20;++i)if(PSX_GET(ap_arcade_defs[i].ptrInstance)) {
+        struct Instance *inst=PSX_GET(ap_arcade_defs[i].ptrInstance);
         inst->scale=(SVec3){0,0,0};
         if(inst->thread)inst->thread->flags |= THREAD_FLAG_DEAD;
     }
@@ -138,9 +138,9 @@ void AP_NotifyContentCrystalPickup(struct Instance *inst,int driverID)
     long code;
     if(!p || p->crystal_count!=20 || driverID!=0 || !inst || !inst->instDef || !g->level1)return;
     if(AP_ArcadeArenaIndex(g->levelID)>=0)index=AP_ArcadeCrystalIndex(inst);
-    else if(g->level1->ptrInstDefs) {
+    else if(PSX_GET(g->level1->ptrInstDefs)) {
         int base=AP_CrystalInstanceBase(AP_CrystalArenaIndex(g->levelID),g->numPlyrCurrGame);
-        for(i=0;i<(int)g->level1->numInstances;++i)if(inst->instDef==&g->level1->ptrInstDefs[i]) {index=i-base;break;}
+        for(i=0;i<(int)g->level1->numInstances;++i)if(inst->instDef==&PSX_GET(g->level1->ptrInstDefs)[i]) {index=i-base;break;}
     }
     if(index<0 || index>=20)return;
     code=(long)p->crystal_locations[index];

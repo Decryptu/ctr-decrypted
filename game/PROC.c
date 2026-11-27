@@ -390,7 +390,7 @@ void PROC_PerBspLeaf_CheckInstances(struct BSP *bspLeaf, struct ScratchpadStruct
 	struct InstDef *instDef;
 	CollThBuckCallback callback;
 
-	bspHitbox = bspLeaf->data.leaf.bspHitboxArray;
+	bspHitbox = PSX_GET(bspLeaf->data.leaf.bspHitboxArray);
 	if (bspHitbox == NULL)
 	{
 		return;
@@ -413,8 +413,8 @@ void PROC_PerBspLeaf_CheckInstances(struct BSP *bspLeaf, struct ScratchpadStruct
 			continue;
 		}
 
-		instDef = bspHitbox->data.hitbox.instDef;
-		if ((instDef != NULL) && ((instDef->ptrInstance->flags & DRAW_COLLISION_MASK) == 0))
+		instDef = PSX_GET(bspHitbox->data.hitbox.instDef);
+		if ((instDef != NULL) && ((PSX_GET(instDef->ptrInstance)->flags & DRAW_COLLISION_MASK) == 0))
 		{
 			continue;
 		}
@@ -496,7 +496,7 @@ void PROC_StartSearch_Self(struct ScratchpadStruct *sps)
 	gGT = GAME_TRACKER;
 	posB += radiusOther;
 	sps->Union.ThBuckColl.bbox.max.z = (s16)posB;
-	root = gGT->level1->ptr_mesh_info->bspRoot;
+	root = PSX_GET(PSX_GET(gGT->level1->ptr_mesh_info)->bspRoot);
 	CTR_PSX_DEPEND_VALUE(sps, root);
 	COLL_SearchBSP_CallbackPARAM(root, &sps->Union.ThBuckColl.bbox, PROC_PerBspLeaf_CheckInstances, sps);
 }

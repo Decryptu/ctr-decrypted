@@ -131,7 +131,7 @@ struct AnimTex
 	// 0x0
 	// pointer to IconGroup4 struct to be animated
 	// cycles through the entirety of ptrarray
-	int *ptrActiveTex;
+	PSX_PTR(int) ptrActiveTex;
 
 	// 0x4
 	s16 numFrames;
@@ -151,16 +151,18 @@ struct AnimTex
 	// struct IconGroup4* ptrarray[0];
 };
 
-#define ANIMTEX_GETARRAY(x) (struct IconGroup4 **)((u32)x + sizeof(struct AnimTex))
+#define ANIMTEX_GETARRAY(x)    ((PsxIconGroup4Ptr *)((char *)(x) + sizeof(struct AnimTex)))
+#define ANIMTEX_GETFRAME(x, i) PSX_GET(ANIMTEX_GETARRAY(x)[i])
 
 struct PVS
 {
-	int *visLeafSrc;
-	int *visFaceSrc;
-	struct Instance **visInstSrc;
+	PSX_PTR(int) visLeafSrc;
+	PSX_PTR(int) visFaceSrc;
+	// InstDef pointers on disc; LEV loading turns them into Instance pointers.
+	PSX_PTR(PsxInstancePtr) visInstSrc;
 
 	// either OVert or SCVert
-	int *visExtraSrc;
+	PSX_PTR(int) visExtraSrc;
 };
 
 typedef s16 BspChildId;
@@ -236,7 +238,7 @@ struct QuadBlock
 	// used for the textures of all 4 quads in a medium-level quadblock
 	// usually points to IconGroup4, but can also point to AnimTex structs
 	// member 0 is 0,0 in xy, 1 is 1,0, 2 is 0,1, 3 is 1,1
-	void *ptr_texture_mid[4];
+	PSX_PTR(void) ptr_texture_mid[4];
 
 	// 0x2c
 	struct BoundingBox bbox;
@@ -260,10 +262,10 @@ struct QuadBlock
 	// 0x40
 	// used for the texture of a quad in low level of detail
 	// the same as ptr_texture_mid, just not as an array
-	void *ptr_texture_low;
+	PSX_PTR(void) ptr_texture_low;
 
 	// 0x44
-	struct PVS *pvs;
+	PSX_PTR(struct PVS) pvs;
 
 	// 0x48
 	// explained in FUN_8001f2dc
@@ -324,13 +326,13 @@ struct BSP
 			// the code keeps looping through the
 			// array until it finds a 4-byte 0x00000000
 			// to determine end of list
-			struct BSP *bspHitboxArray;
+			PSX_PTR(struct BSP) bspHitboxArray;
 
 			// 0x18
 			int numQuads;
 
 			// 0x1C
-			struct QuadBlock *ptrQuadBlockArray;
+			PSX_PTR(struct QuadBlock) ptrQuadBlockArray;
 		} leaf;
 
 		// 0x10
@@ -350,7 +352,7 @@ struct BSP
 
 			// 0x1C
 			// These are always InstDef, not converted to Instance
-			struct InstDef *instDef;
+			PSX_PTR(struct InstDef) instDef;
 		} hitbox;
 
 	} data;
@@ -418,8 +420,8 @@ CTR_STATIC_ASSERT(offsetof(struct BSP, data.hitbox.instDef) == 0x1C);
 
 struct VisMemBspListNode
 {
-	struct VisMemBspListNode *next;
-	struct BSP *bsp;
+	PSX_PTR(struct VisMemBspListNode) next;
+	PSX_PTR(struct BSP) bsp;
 };
 
 CTR_STATIC_ASSERT(sizeof(struct VisMemBspListNode) == 8);
@@ -445,7 +447,7 @@ struct LevVertex
 // scenery vertex
 struct SCVert
 {
-	struct LevVertex *v;
+	PSX_PTR(struct LevVertex) v;
 	int offset_pos_xy;
 	int offset_pos_zw;
 	int offset_color_rgba;
@@ -465,8 +467,8 @@ struct OVert
 
 struct WaterVert
 {
-	struct LevVertex *v;
-	struct OVert *w;
+	PSX_PTR(struct LevVertex) v;
+	PSX_PTR(struct OVert) w;
 };
 
 // used for rain and snow particles
@@ -507,6 +509,8 @@ struct RainBuffer
 	// 0x30 -- size of struct
 };
 
+// In the LEV file, with its lists (CrashTeamEditor levels carry player 1's
+// only; MainInit_FillMissingVisMem adds the others in PSX space).
 struct VisMem
 {
 	// 4 of each for number of players
@@ -521,38 +525,38 @@ struct VisMem
 	// 0x00-0x0F
 	// list of BSP leaf nodes
 	// size = numLeaf/32
-	int *visLeafList[4]; // real ND name
+	PSX_PTR(int) visLeafList[4]; // real ND name
 
 	// 0x10-0x1F
 	// bit index quadblock visibility
 	// size = numQuadBlock/32 bytes
-	int *visFaceList[4]; // real ND name
+	PSX_PTR(int) visFaceList[4]; // real ND name
 
 	// 0x20-0x2F
 	// bit index ocean visibility
-	int *visOVertList[4]; // real ND name
+	PSX_PTR(int) visOVertList[4]; // real ND name
 
 	// 0x30-0x3F
 	// bit index scenery visibility
-	int *visSCVertList[4]; // real ND name
+	PSX_PTR(int) visSCVertList[4]; // real ND name
 
 	// 0x40-0x4F
-	int *visLeafSrc[4]; // copies to other
+	PSX_PTR(int) visLeafSrc[4]; // copies to other
 
 	// 0x50-0x5F
-	int *visFaceSrc[4]; // copies to other
+	PSX_PTR(int) visFaceSrc[4]; // copies to other
 
 	// 0x60-0x6F
-	int *visOVertSrc[4]; // copies to other
+	PSX_PTR(int) visOVertSrc[4]; // copies to other
 
 	// 0x70-0x7F
-	int *visSCVertSrc[4]; // copies to other
+	PSX_PTR(int) visSCVertSrc[4]; // copies to other
 
 	// 0x80-0x8F
 	// size = 8 * numBspNodes,
 	// this is the memory where RenderLists exist,
 	// allows every BSP to link to another BSP
-	struct VisMemBspListNode *bspList[4];
+	PSX_PTR(struct VisMemBspListNode) bspList[4];
 };
 
 struct mesh_info
@@ -567,16 +571,16 @@ struct mesh_info
 	int unk1;
 
 	// 0xC
-	struct QuadBlock *ptrQuadBlockArray;
+	PSX_PTR(struct QuadBlock) ptrQuadBlockArray;
 
 	// 0x10
-	struct LevVertex *ptrVertexArray;
+	PSX_PTR(struct LevVertex) ptrVertexArray;
 
 	// 0x14
 	int unk2;
 
 	// 0x18
-	struct BSP *bspRoot;
+	PSX_PTR(struct BSP) bspRoot;
 
 	// 0x1C
 	int numBspNodes;
@@ -601,7 +605,8 @@ struct SpawnType1
 
 	// void* pointers[0];
 };
-#define ST1_GETPOINTERS(x) (void **)((u32)x + sizeof(struct SpawnType1))
+#define ST1_GETPOINTERS(x)    ((PsxVoidPtr *)((char *)(x) + sizeof(struct SpawnType1)))
+#define ST1_GETPOINTER(x, i)  PSX_GET(ST1_GETPOINTERS(x)[i])
 
 struct SpawnPosRot
 {
@@ -614,9 +619,9 @@ struct SpawnType2
 	int numCoords;
 	union
 	{
-		s16 *posCoords;
-		SVec3 *positions;
-		struct SpawnPosRot *posRot;
+		PSX_PTR(s16) posCoords;
+		PSX_PTR(SVec3) positions;
+		PSX_PTR(struct SpawnPosRot) posRot;
 	} coords;
 };
 
@@ -667,36 +672,36 @@ struct ShortVertex
 struct Skybox
 {
 	int numVertex;
-	struct ShortVertex *ptrVertex;
+	PSX_PTR(struct ShortVertex) ptrVertex;
 
 	s16 numFaces[NUM_SKYBOX_SEGMENTS];
-	struct SkyboxFace *ptrFaces[NUM_SKYBOX_SEGMENTS];
+	PSX_PTR(struct SkyboxFace) ptrFaces[NUM_SKYBOX_SEGMENTS];
 
 	// struct SkyboxFace allFaces[0];
 };
-#define SKY_GETFACES(x) ((u32)x + sizeof(struct Skybox))
+#define SKY_GETFACES(x) ((struct SkyboxFace *)((char *)(x) + sizeof(struct Skybox)))
 
 struct LevTexLookup
 {
 	int numIcon;
-	struct Icon *firstIcon;
+	PSX_PTR(struct Icon) firstIcon;
 	int numIconGroup;
-	struct IconGroup **firstIconGroupPtr;
+	PSX_PTR(PsxIconGroupPtr) firstIconGroupPtr;
 };
 
 struct Level
 {
 	// 0x0
 	// pointer to mesh info
-	struct mesh_info *ptr_mesh_info;
+	PSX_PTR(struct mesh_info) ptr_mesh_info;
 
 	// 0x4
 	// pointer to skybox (struct not yet known)
-	struct Skybox *ptr_skybox;
+	PSX_PTR(struct Skybox) ptr_skybox;
 
 	// 0x8
 	// pointer to array of animated texture structs
-	struct AnimTex *ptr_anim_tex;
+	PSX_PTR(struct AnimTex) ptr_anim_tex;
 
 	// 0xc
 	// number of model instances in the level
@@ -706,7 +711,7 @@ struct Level
 	// 0x10
 	// points to the 1st entry of the array of InstDefs
 	// (whatever they are)
-	struct InstDef *ptrInstDefs;
+	PSX_PTR(struct InstDef) ptrInstDefs;
 
 	// 0x14
 	// number of actual models
@@ -714,33 +719,33 @@ struct Level
 
 	// 0x18
 	// pointer to the array of pointers to models
-	struct Model **ptrModelsPtrArray;
+	PSX_PTR(PsxModelPtr) ptrModelsPtrArray;
 
 	// 0x1c
 	// unknown, extra bsp region
-	void *unk3;
+	PSX_PTR(void) unk3;
 
 	// 0x20
 	// unknown, extra bsp region
-	void *unk4;
+	PSX_PTR(void) unk4;
 
 	// 0x24
 	// pointer to the array of pointers to model instances (?)
 	// converts back and forth, Instance to InstDef
-	struct InstDef **ptrInstDefPtrArray;
+	PSX_PTR(PsxInstDefPtr) ptrInstDefPtrArray;
 
 	// 0x28
 	// default packed OVert visibility bitset
-	int *visOVertSrc;
+	PSX_PTR(int) visOVertSrc;
 
 	// 0x2c
 	// null in retail; a converted track's texture patterns
 	// (game/ConvertedTrack/TexPattern.c)
-	struct TexPatterns *texPatterns;
+	PSX_PTR(struct TexPatterns) texPatterns;
 
 	// 0x30
 	// assumed to be reserved
-	void *null2;
+	PSX_PTR(void) null2;
 
 	// 0x34
 	// number of vertices treated as water
@@ -748,19 +753,19 @@ struct Level
 
 	// 0x38
 	// pointer to array of water entries
-	struct WaterVert *ptr_water;
+	PSX_PTR(struct WaterVert) ptr_water;
 
 	// 0x3c
 	// leads to the icon pack header
-	struct LevTexLookup *levTexLookup;
+	PSX_PTR(struct LevTexLookup) levTexLookup;
 
 	// 0x40
 	// leads to the icon pack data
-	struct Icon *ptr_named_tex_array;
+	PSX_PTR(struct Icon) ptr_named_tex_array;
 
 	// 0x44
 	// pointer to environment map texture layout, used by water rendering
-	struct TextureLayout *ptr_tex_waterEnvMap;
+	PSX_PTR(struct TextureLayout) ptr_tex_waterEnvMap;
 
 	// 0x48
 	// used for additional skybox gradients (e.g. papu's pyramid)
@@ -782,12 +787,12 @@ struct Level
 
 	// 0xCC -- next
 	// unknown, extra bsp regions
-	void *unk_Lev_CC;
-	void *unk_Lev_D0;
+	PSX_PTR(void) unk_Lev_CC;
+	PSX_PTR(void) unk_Lev_D0;
 
 	// 0xD4
 	// assumed to be a pointer to low textures array, there is no number of entries though
-	void *ptrLowTexArray;
+	PSX_PTR(void) ptrLowTexArray;
 
 	// 0xD8
 	// Used in Coco Park, encoded as Blue
@@ -804,15 +809,15 @@ struct Level
 
 	// 0xE0
 	// pointer to string, date, assumed bsp compilation start
-	char *build_start;
+	PSX_PTR(char) build_start;
 
 	// 0xE4
 	// pointer to string, date, assumed bsp compilation end
-	char *build_end;
+	PSX_PTR(char) build_end;
 
 	// 0xE8
 	// pointer to string, assumed build type
-	char *build_type;
+	PSX_PTR(char) build_type;
 
 	// 0xEC
 	char unk_EC[0x18];
@@ -822,7 +827,7 @@ struct Level
 	struct RainBuffer rainBuffer;
 
 	// 0x134
-	struct SpawnType1 *ptrSpawnType1;
+	PSX_PTR(struct SpawnType1) ptrSpawnType1;
 
 	// spawn_arrays2 is for things
 	// like Seal, Minecart, etc,
@@ -832,7 +837,7 @@ struct Level
 	int numSpawnType2;
 
 	// 0x13C
-	struct SpawnType2 *ptrSpawnType2;
+	PSX_PTR(struct SpawnType2) ptrSpawnType2;
 
 	// spawn_arrays is for things
 	// N Gin Labs barrel, Snowball,
@@ -842,7 +847,7 @@ struct Level
 	int numSpawnType2_PosRot;
 
 	// 0x144
-	struct SpawnType2 *ptrSpawnType2_PosRot;
+	PSX_PTR(struct SpawnType2) ptrSpawnType2_PosRot;
 
 	// restart_points is for respawning
 	// driver on track after falling off
@@ -851,7 +856,7 @@ struct Level
 	int cnt_restart_points;
 
 	// 0x14C
-	struct CheckpointNode *ptr_restart_points;
+	PSX_PTR(struct CheckpointNode) ptr_restart_points;
 
 	// 0x150
 	char unk_150[0x10];
@@ -873,13 +878,13 @@ struct Level
 
 	// 0x170
 	// default packed SCVert visibility bitset
-	int *visSCVertSrc;
+	PSX_PTR(int) visSCVertSrc;
 
 	// 0x174
 	int numSCVert;
 
 	// 0x178
-	struct SCVert *ptrSCVert;
+	PSX_PTR(struct SCVert) ptrSCVert;
 
 	// 0x17c - 0x182
 	struct Stars stars;
@@ -892,7 +897,7 @@ struct Level
 	s16 splitLines[2];
 
 	// 0x188
-	struct NavHeader **LevNavTable;
+	PSX_PTR(PsxNavHeaderPtr) LevNavTable;
 
 	// 0x18C
 	u8 jumpVerticalSpeedCap;
@@ -901,7 +906,7 @@ struct Level
 	u8 unk_18F;
 
 	// 0x190
-	struct VisMem *visMem;
+	PSX_PTR(struct VisMem) visMem;
 
 	char footer[0x60];
 };

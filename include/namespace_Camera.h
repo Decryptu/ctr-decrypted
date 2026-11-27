@@ -220,7 +220,7 @@ struct CameraDC
 	// 0x28
 	// quadblock->0x44->0x8
 	// which instances are visible from quadblock
-	struct Instance **visInstSrc;
+	PsxInstancePtr *visInstSrc;
 
 	// 0x2c
 	// VisMem->0x60[player]

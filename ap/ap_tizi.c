@@ -107,11 +107,11 @@ static long AP_TiziProgressAt(struct Level *level, const SVec3 *pos)
 
 	for (i = 0; i < level->cnt_restart_points; i++)
 	{
-		long long dist = AP_TiziDistSq(pos, &level->ptr_restart_points[i].pos);
+		long long dist = AP_TiziDistSq(pos, &PSX_GET(level->ptr_restart_points)[i].pos);
 		if (best < 0 || dist < bestDist)
 		{
 			bestDist = dist;
-			best = (long)level->ptr_restart_points[i].distToFinish;
+			best = (long)PSX_GET(level->ptr_restart_points)[i].distToFinish;
 		}
 	}
 	return best;
@@ -141,27 +141,27 @@ static void AP_TiziResolve(void)
 		return; // silent: every other track is simply not this feature's business
 
 	level = gGT->level1;
-	if (level == NULL || level->ptr_restart_points == NULL ||
+	if (level == NULL || PSX_GET(level->ptr_restart_points) == NULL ||
 	    level->cnt_restart_points <= 0 || g_tizi_def_count <= 0)
 	{
 		AP_LogLine("[AP TIZI] refused: no checkpoint chain or no level instances\n");
 		return;
 	}
 
-	trackLength = (long)level->ptr_restart_points[0].distToFinish;
+	trackLength = (long)PSX_GET(level->ptr_restart_points)[0].distToFinish;
 
 	def = g_tizi_defs;
 	for (i = 0; i < g_tizi_def_count; i++, def++)
 	{
-		if (def->model == NULL ||
-		    (def->model->id & 0xffff) != AP_TIZI_WEAPON_CRATE_MODEL)
+		if (PSX_GET(def->model) == NULL ||
+		    (PSX_GET(def->model)->id & 0xffff) != AP_TIZI_WEAPON_CRATE_MODEL)
 			continue;
 		if (count >= AP_TIZI_MAX_CRATES)
 		{
 			overflow = 1;
 			break;
 		}
-		insts[count] = def->ptrInstance;
+		insts[count] = PSX_GET(def->ptrInstance);
 		progress[count] = AP_TiziProgressAt(level, &def->pos);
 		count++;
 	}

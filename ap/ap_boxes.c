@@ -612,7 +612,7 @@ static struct InstDef *AP_BoxesCrateDef(struct InstDef *defs, long count, long o
 
 	for (k = 0; k < count; k++)
 	{
-		if (defs[k].model == 0 || defs[k].model->id != PU_RANDOM_CRATE)
+		if (PSX_GET(defs[k].model) == 0 || PSX_GET(defs[k].model)->id != PU_RANDOM_CRATE)
 			continue;
 		if (seen++ == ordinal)
 			return &defs[k];
@@ -654,16 +654,16 @@ static void AP_BoxesSeatCustom(struct GameTracker *gGT, const struct CustomTrack
 		AP_BoxesStandSpots(gGT, pad);
 		return;
 	}
-	if (lev == 0 || lev->ptrInstDefs == 0 || lev->numInstances == 0 ||
+	if (lev == 0 || PSX_GET(lev->ptrInstDefs) == 0 || lev->numInstances == 0 ||
 	    lev->numInstances > (u32)AP_BOX_SEAT_CRATES_MAX)
 	{
 		AP_LogLine("[AP BOX] WARNING: custom track has no readable instance table -- no Item Box seats\n");
 		return;
 	}
-	defs = lev->ptrInstDefs;
+	defs = PSX_GET(lev->ptrInstDefs);
 	count = (long)lev->numInstances;
 	for (k = 0; k < count; k++)
-		if (defs[k].model != 0 && defs[k].model->id == PU_RANDOM_CRATE)
+		if (PSX_GET(defs[k].model) != 0 && PSX_GET(defs[k].model)->id == PU_RANDOM_CRATE)
 			crates++;
 	// Validate every original ordinal and position before hiding ANY crate.
 	for (i = 0; i < pad->box_excluded_count; ++i)
@@ -711,7 +711,7 @@ static void AP_BoxesSeatCustom(struct GameTracker *gGT, const struct CustomTrack
 		s_live[i].ghostTouched = 0;
 		s_live[i].seated = 1;
 		s_live[i].seatGen = AP_Spawn_Generation();
-		crate = def->ptrInstance;
+		crate = PSX_GET(def->ptrInstance);
 		// A table the engine did not finish initialising leaves raw LEV values
 		// here (INSTANCE_LevInitAll returns when its pool runs out): only an
 		// instance from the pool that points back at this crate is touched.

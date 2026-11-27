@@ -369,7 +369,6 @@ void RB_Plant_LInB(struct Instance *inst)
 {
 	struct Plant *plantObj;
 	s16 *metaArray;
-	void **pointers;
 	s32 plantID;
 	struct Thread *t;
 
@@ -404,12 +403,11 @@ void RB_Plant_LInB(struct Instance *inst)
 	plantBounds.max.z = 0x1e0;
 	plantBounds.min.z = 0;
 
-	if (GAME_TRACKER->level1->ptrSpawnType1->count > 0)
+	if (PSX_GET(GAME_TRACKER->level1->ptrSpawnType1)->count > 0)
 	{
 		// Level metadata supplies each plant's cycle delay and track side.
 		plantID = inst->name[strlen(inst->name) - 1] - '0';
-		pointers = ST1_GETPOINTERS(GAME_TRACKER->level1->ptrSpawnType1);
-		metaArray = (s16 *)pointers[ST1_SPAWN];
+		metaArray = (s16 *)ST1_GETPOINTER(PSX_GET(GAME_TRACKER->level1->ptrSpawnType1), ST1_SPAWN);
 		metaArray = (s16 *)((u32)metaArray + plantID * 4);
 
 		plantObj->cooldown = FPS_DOUBLE(metaArray[0]);

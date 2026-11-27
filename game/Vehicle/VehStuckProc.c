@@ -167,7 +167,7 @@ static inline void VehStuckProc_MaskGrab_SearchBsp(struct Driver *d, struct Scra
 		sps->Union.QuadBlockColl.hitPos.x = (s16)hitX;
 		sps->Union.QuadBlockColl.hitPos.y = (s16)hitY;
 		sps->Union.QuadBlockColl.hitPos.z = (s16)hitZ;
-		root = mesh->bspRoot;
+		root = PSX_GET(mesh->bspRoot);
 		CTR_PSX_OBSERVE_VALUE(root);
 		COLL_SearchBSP_CallbackPARAM(root, bbox, COLL_FIXED_BSPLEAF_TestQuadblocks, callSps);
 	}
@@ -199,7 +199,7 @@ void VehStuckProc_MaskGrab_FindDestPos(struct Driver *d, struct QuadBlock *quad)
 	{
 		goto fallback;
 	}
-	if (initialLevel->ptr_restart_points == NULL)
+	if (PSX_GET(initialLevel->ptr_restart_points) == NULL)
 	{
 		goto fallback;
 	}
@@ -215,7 +215,7 @@ void VehStuckProc_MaskGrab_FindDestPos(struct Driver *d, struct QuadBlock *quad)
 		sps->Input1.hitRadiusSquared = driver->instSelf->thread->driverHitRadiusSquared;
 		sps->Union.QuadBlockColl.hitRadius = driver->instSelf->thread->driverHitRadius;
 		sps->Union.QuadBlockColl.hitRadiusSquared = driver->instSelf->thread->driverHitRadiusSquared;
-		sps->ptr_mesh_info = gGT->level1->ptr_mesh_info;
+		sps->ptr_mesh_info = PSX_GET(gGT->level1->ptr_mesh_info);
 		sps->Union.QuadBlockColl.quadFlagsIgnored = QUADBLOCK_FLAG_NO_CAMERA_RESPAWN_PROBE | QUADBLOCK_FLAG_NO_COLLISION_RESPONSE;
 		sps->Union.QuadBlockColl.quadFlagsWanted = QUADBLOCK_FLAG_GROUND;
 		{
@@ -224,7 +224,7 @@ void VehStuckProc_MaskGrab_FindDestPos(struct Driver *d, struct QuadBlock *quad)
 			register u32 restartIndex CTR_PSX_REGISTER("$3") = sourceQuad->checkpointIndex;
 			register size_t restartOffset CTR_PSX_REGISTER("$2");
 
-			restartPoints = level->ptr_restart_points;
+			restartPoints = PSX_GET(level->ptr_restart_points);
 			restartOffset = CTR_MipsSll(CTR_MipsAddLo(CTR_MipsSll(restartIndex, 1), restartIndex), 2);
 			CTR_PSX_KEEP_VALUE(level);
 			CTR_PSX_KEEP_VALUE(restartPoints);
@@ -252,7 +252,7 @@ void VehStuckProc_MaskGrab_FindDestPos(struct Driver *d, struct QuadBlock *quad)
 			loopLevel = loopTracker->level1;
 			CTR_PSX_OBSERVE_VALUE(loopLevel);
 			restartOffset = CTR_MipsAddLo(restartOffset, restartIndex);
-			restartPoints = loopLevel->ptr_restart_points;
+			restartPoints = PSX_GET(loopLevel->ptr_restart_points);
 			CTR_PSX_OBSERVE_VALUE(restartPoints);
 			restartOffset = CTR_MipsSll(restartOffset, 2);
 			CTR_PSX_KEEP_VALUE(loopTracker);
@@ -274,7 +274,7 @@ void VehStuckProc_MaskGrab_FindDestPos(struct Driver *d, struct QuadBlock *quad)
 			loopLevel = loopTracker->level1;
 			CTR_PSX_OBSERVE_VALUE(loopLevel);
 			restartOffset = CTR_MipsAddLo(restartOffset, restartIndex);
-			restartPoints = loopLevel->ptr_restart_points;
+			restartPoints = PSX_GET(loopLevel->ptr_restart_points);
 			CTR_PSX_OBSERVE_VALUE(restartPoints);
 			restartOffset = CTR_MipsSll(restartOffset, 2);
 			CTR_PSX_KEEP_VALUE(loopTracker);
@@ -361,15 +361,15 @@ fallback:
 
 	fallbackTracker = GAME_TRACKER;
 	CTR_PSX_KEEP_VALUE(fallbackTracker);
-	driver->posCurr.x = CTR_MipsSll(CTR_MipsAddLo(fallbackTracker->level1->ptr_mesh_info->ptrVertexArray[(s16)sourceQuad->index[0]].pos.x,
-	                                              fallbackTracker->level1->ptr_mesh_info->ptrVertexArray[(s16)sourceQuad->index[3]].pos.x),
+	driver->posCurr.x = CTR_MipsSll(CTR_MipsAddLo(PSX_GET(PSX_GET(fallbackTracker->level1->ptr_mesh_info)->ptrVertexArray)[(s16)sourceQuad->index[0]].pos.x,
+	                                              PSX_GET(PSX_GET(fallbackTracker->level1->ptr_mesh_info)->ptrVertexArray)[(s16)sourceQuad->index[3]].pos.x),
 	                                7);
-	driver->posCurr.y = CTR_MipsSll(CTR_MipsAddLo(CTR_MipsAddLo(fallbackTracker->level1->ptr_mesh_info->ptrVertexArray[(s16)sourceQuad->index[0]].pos.y,
-	                                                            fallbackTracker->level1->ptr_mesh_info->ptrVertexArray[(s16)sourceQuad->index[3]].pos.y),
+	driver->posCurr.y = CTR_MipsSll(CTR_MipsAddLo(CTR_MipsAddLo(PSX_GET(PSX_GET(fallbackTracker->level1->ptr_mesh_info)->ptrVertexArray)[(s16)sourceQuad->index[0]].pos.y,
+	                                                            PSX_GET(PSX_GET(fallbackTracker->level1->ptr_mesh_info)->ptrVertexArray)[(s16)sourceQuad->index[3]].pos.y),
 	                                              VEH_STUCK_RESPAWN_Y_OFFSET),
 	                                7);
-	driver->posCurr.z = CTR_MipsSll(CTR_MipsAddLo(fallbackTracker->level1->ptr_mesh_info->ptrVertexArray[(s16)sourceQuad->index[0]].pos.z,
-	                                              fallbackTracker->level1->ptr_mesh_info->ptrVertexArray[(s16)sourceQuad->index[3]].pos.z),
+	driver->posCurr.z = CTR_MipsSll(CTR_MipsAddLo(PSX_GET(PSX_GET(fallbackTracker->level1->ptr_mesh_info)->ptrVertexArray)[(s16)sourceQuad->index[0]].pos.z,
+	                                              PSX_GET(PSX_GET(fallbackTracker->level1->ptr_mesh_info)->ptrVertexArray)[(s16)sourceQuad->index[3]].pos.z),
 	                                7);
 }
 

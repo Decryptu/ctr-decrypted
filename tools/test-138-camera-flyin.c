@@ -237,7 +237,7 @@ static void Probe_InitLevel(void)
 	// CAM_StartOfRace only checks cnt_restart_points > 2; the fly-in itself is
 	// driven by CAM_ThTick's fixed offsets.
 	probeLevel.cnt_restart_points = 4;
-	probeLevel.ptr_restart_points = (struct CheckpointNode *)(void *)cameraPath;
+	PSX_SET(probeLevel.ptr_restart_points, (struct CheckpointNode *)(void *)cameraPath);
 }
 
 // Mirror of the final-blend block in CAM_ThTick (game/CAM.c:1725-1753). The

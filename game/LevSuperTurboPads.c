@@ -74,22 +74,23 @@ static void LevSuperTurboPads_CyanLayout(struct TextureLayout *dst, const struct
 static struct AnimTex *LevSuperTurboPads_CopyAnim(const struct AnimTex *src)
 {
 	const int frames = src->numFrames;
-	struct AnimTex *copy = MEMPACK_AllocMem(sizeof(struct AnimTex) + frames * (int)sizeof(struct IconGroup4 *) +
+	struct AnimTex *copy = MEMPACK_AllocMem(sizeof(struct AnimTex) + frames * (int)sizeof(PsxIconGroup4Ptr) +
 	                                        frames * (int)sizeof(struct IconGroup4), "SuperTurboPadAnim");
-	struct IconGroup4 **dstFrames = (ANIMTEX_GETARRAY(copy));
+	PsxIconGroup4Ptr *dstFrames = ANIMTEX_GETARRAY(copy);
 	struct IconGroup4 *groups = (struct IconGroup4 *)&dstFrames[frames];
-	struct IconGroup4 **srcFrames = (ANIMTEX_GETARRAY(src));
+	const PsxIconGroup4Ptr *srcFrames = ANIMTEX_GETARRAY(src);
 
 	*copy = *src;
 	for (int f = 0; f < frames; f++)
 	{
-		LevSuperTurboPads_CyanLayout(&groups[f].far, &srcFrames[f]->far);
-		LevSuperTurboPads_CyanLayout(&groups[f].middle, &srcFrames[f]->middle);
-		LevSuperTurboPads_CyanLayout(&groups[f].near, &srcFrames[f]->near);
-		LevSuperTurboPads_CyanLayout(&groups[f].mosaic, &srcFrames[f]->mosaic);
-		dstFrames[f] = &groups[f];
+		const struct IconGroup4 *srcGroup = PSX_GET(srcFrames[f]);
+		LevSuperTurboPads_CyanLayout(&groups[f].far, &srcGroup->far);
+		LevSuperTurboPads_CyanLayout(&groups[f].middle, &srcGroup->middle);
+		LevSuperTurboPads_CyanLayout(&groups[f].near, &srcGroup->near);
+		LevSuperTurboPads_CyanLayout(&groups[f].mosaic, &srcGroup->mosaic);
+		PSX_SET(dstFrames[f], &groups[f]);
 	}
-	copy->ptrActiveTex = (int *)dstFrames[src->frameCurr % frames];
+	PSX_ADDR(copy->ptrActiveTex) = PSX_ADDR(dstFrames[src->frameCurr % frames]);
 	return copy;
 }
 
@@ -99,11 +100,11 @@ void LevSuperTurboPads_Mark(struct GameTracker *gGT)
 	s_superPads.numAnims = 0;
 
 	struct Level *level = gGT->level1;
-	if (!g_config.superPadColour || level == NULL || level->ptr_mesh_info == NULL)
+	if (!g_config.superPadColour || level == NULL || PSX_GET(level->ptr_mesh_info) == NULL)
 		return;
 
-	struct mesh_info *mesh = level->ptr_mesh_info;
-	struct QuadBlock *quads = mesh->ptrQuadBlockArray;
+	struct mesh_info *mesh = PSX_GET(level->ptr_mesh_info);
+	struct QuadBlock *quads = PSX_GET(mesh->ptrQuadBlockArray);
 	const int numQuads = mesh->numQuadBlock;
 	const int allPadsSuper = GameMode_SuperTurboPadsCheatActive(gGT->gameMode1, gGT->gameMode2);
 	const int superMask = allPadsSuper ? COLL_STEP_TRIGGER_TURBO_PAD_MASK : COLL_STEP_TRIGGER_SUPER_TURBO_PAD;
@@ -128,7 +129,7 @@ void LevSuperTurboPads_Mark(struct GameTracker *gGT)
 				continue;
 			for (int face = 0; face < 4; face++)
 			{
-				uintptr_t p = (uintptr_t)q->ptr_texture_mid[face];
+				uintptr_t p = (uintptr_t)PSX_GET(q->ptr_texture_mid[face]);
 				struct AnimTex *anim = (struct AnimTex *)(p - 1);
 				if ((p & 1) != 0 && numPadAnims < SUPER_PAD_MAX_ANIMS && LevSuperTurboPads_FindAnim(padAnims, numPadAnims, anim) < 0)
 					padAnims[numPadAnims++] = anim;
@@ -171,19 +172,19 @@ void LevSuperTurboPads_Mark(struct GameTracker *gGT)
 		int cyanFaces = 0;
 		for (int face = 0; face < 4; face++)
 		{
-			uintptr_t p = (uintptr_t)q->ptr_texture_mid[face];
+			uintptr_t p = (uintptr_t)PSX_GET(q->ptr_texture_mid[face]);
 			int a = (p & 1) != 0 ? LevSuperTurboPads_FindAnim(padAnims, numPadAnims, (struct AnimTex *)(p - 1)) : -1;
 			if (a < 0)
 				continue;
 			if (copies[a] == NULL)
 				copies[a] = LevSuperTurboPads_CopyAnim(padAnims[a]);
-			q->ptr_texture_mid[face] = (void *)((uintptr_t)copies[a] | 1);
+			PSX_SET(q->ptr_texture_mid[face], (void *)((uintptr_t)copies[a] | 1));
 			cyanFaces++;
 		}
 
 		// The low-detail texture is one picture of the whole quad, so it turns
 		// cyan only when the whole quad is pad.
-		const struct TextureLayout *low = q->ptr_texture_low;
+		const struct TextureLayout *low = PSX_GET(q->ptr_texture_low);
 		if (cyanFaces == 4 && low != NULL)
 		{
 			int l = 0;
@@ -197,7 +198,7 @@ void LevSuperTurboPads_Mark(struct GameTracker *gGT)
 				numLow++;
 			}
 			if (l < numLow)
-				q->ptr_texture_low = lowCopy[l];
+				PSX_SET(q->ptr_texture_low, lowCopy[l]);
 		}
 	}
 
@@ -227,7 +228,7 @@ void LevSuperTurboPads_Cycle(struct GameTracker *gGT)
 		const struct AnimTex *src = s_superPads.source[a];
 		struct AnimTex *copy = s_superPads.copy[a];
 		copy->frameCurr = src->frameCurr;
-		copy->ptrActiveTex = (int *)(ANIMTEX_GETARRAY(copy))[src->frameCurr];
+		PSX_ADDR(copy->ptrActiveTex) = PSX_ADDR(ANIMTEX_GETARRAY(copy)[src->frameCurr]);
 	}
 }
 

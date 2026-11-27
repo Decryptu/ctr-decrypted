@@ -84,10 +84,10 @@ static void AP_TitleRoo_TagLayouts(struct Model *model)
 {
 	for (int h = 0; h < model->numHeaders; h++)
 	{
-		struct ModelHeader *header = &model->headers[h];
-		const u32 *cmd = (const u32 *)header->ptrCommandList;
+		struct ModelHeader *header = &PSX_GET(model->headers)[h];
+		const u32 *cmd = (const u32 *)PSX_GET(header->ptrCommandList);
 
-		if (cmd == NULL || header->ptrTexLayout == NULL)
+		if (cmd == NULL || PSX_GET(header->ptrTexLayout) == NULL)
 			continue;
 
 		// The commands start after the list's first word (tools/racers/ctrmodel.py).
@@ -95,8 +95,8 @@ static void AP_TitleRoo_TagLayouts(struct Model *model)
 		{
 			const int index = *cmd & 0x1FF;
 
-			if ((*cmd & 0xFFFF0000) && index && header->ptrTexLayout[index - 1])
-				header->ptrTexLayout[index - 1]->tpage |= NATIVE_TPAGE_RACER_BANK;
+			if ((*cmd & 0xFFFF0000) && index && PSX_GET(PSX_GET(header->ptrTexLayout)[index - 1]))
+				PSX_GET(PSX_GET(header->ptrTexLayout)[index - 1])->tpage |= NATIVE_TPAGE_RACER_BANK;
 		}
 	}
 }

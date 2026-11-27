@@ -630,7 +630,7 @@ static void AH_Map_DrawPadIconRGB(struct UIMap *map, const s32 *pos, u32 vertex)
 	struct GameTracker *gGT = GAME_TRACKER;
 	s32 posX = pos[0];
 	s32 posY = pos[2];
-	struct Icon **iconPtrArray = ICONGROUP_GETICONS(gGT->iconGroup[5]);
+	PsxIconPtr *iconPtrArray = ICONGROUP_GETICONS(gGT->iconGroup[5]);
 
 	Color c = {0};
 
@@ -638,7 +638,7 @@ static void AH_Map_DrawPadIconRGB(struct UIMap *map, const s32 *pos, u32 vertex)
 	c.g = (u8)((vertex >> 8) & 0xFF);
 	c.b = (u8)((vertex >> 16) & 0xFF);
 	UI_Map_GetIconPos(map, &posX, &posY);
-	DecalHUD_DrawPolyGT4(iconPtrArray[AH_MAP_ICON_WARPPAD], posX, posY, &gGT->backBuffer->primMem, gGT->pushBuffer_UI.ptrOT,
+	DecalHUD_DrawPolyGT4(PSX_GET(iconPtrArray[AH_MAP_ICON_WARPPAD]), posX, posY, &gGT->backBuffer->primMem, gGT->pushBuffer_UI.ptrOT,
 	                     c, c, c, c, 0, 0x1000);
 }
 #endif
@@ -835,10 +835,9 @@ void AH_Map_Main(void)
 		AH_HUD_FLAGS = AH_MAP_HUD_AND_DEBUG_SPEEDOMETER;
 	}
 
-	if (GAME_TRACKER->level1->ptrSpawnType1->count != 0)
+	if (PSX_GET(GAME_TRACKER->level1->ptrSpawnType1)->count != 0)
 	{
-		void **pointers = ST1_GETPOINTERS(GAME_TRACKER->level1->ptrSpawnType1);
-		map = pointers[ST1_MAP];
+		map = ST1_GETPOINTER(PSX_GET(GAME_TRACKER->level1->ptrSpawnType1), ST1_MAP);
 	}
 
 	// if game is not paused

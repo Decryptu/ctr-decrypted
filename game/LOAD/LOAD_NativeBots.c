@@ -1,5 +1,6 @@
 #ifdef CTR_NATIVE
 #include <platform/native_racers.h>
+#include <platform/native_psx_space.h>
 
 static void *s_nativeBotBuffers[8];
 static struct Model *s_nativeBotModels[8];
@@ -23,7 +24,7 @@ static void LOAD_NativeBotsReset(void)
 {
 	for (int i = 0; i < 8; i++)
 	{
-		free(s_nativeBotBuffers[i]);
+		PsxSpace_Free(s_nativeBotBuffers[i]);
 		s_nativeBotBuffers[i] = NULL;
 		s_nativeBotModels[i] = NULL;
 		NativeRacers_SetBot(i, -1);
@@ -103,7 +104,8 @@ static void LOAD_NativeBots(struct BigHeader *bigfile, int first, int count)
 		NativeRacers_SetBot(i, s_nativeBotPicks[i]);
 		int file = BI_RACERMODELMED + GAME_CHARACTER_IDS[i];
 		u32 size = (entries[file].size + LOAD_CD_DATA_SECTOR_ROUND_MASK) & ~LOAD_CD_DATA_SECTOR_ROUND_MASK;
-		s_nativeBotBuffers[i] = malloc(size);
+		// in PSX space: the model's pointers are PSX addresses
+		s_nativeBotBuffers[i] = PsxSpace_Alloc(size);
 		if (!s_nativeBotBuffers[i])
 			Platform_Fatal("CTR Native - Opponent Roster", "Could not allocate an opponent model.");
 		LOAD_AppendQueue(bigfile, LT_DRAM, file, s_nativeBotBuffers[i], LOAD_NativeBotModelLoaded);

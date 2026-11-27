@@ -14,6 +14,7 @@
 #include "ap_navrec_lane_logic.h"
 #include "ap_navrec_playback_logic.h"
 #include "ap_hooks.h"               // AP_LogLine, ctr_cfg
+#include <platform/native_psx_space.h>
 #include "ap_version.h"             // CTR_AP_VERSION
 #include "platform/native_config.h" // g_config.navRecord / navUseRecorded / navDriverName
 #ifdef CTR_CUSTOM_PACKAGES
@@ -97,11 +98,12 @@ struct AP_NavRecScratch
 	unsigned int           stamps[AP_NAVREC_MAX_LAPS][AP_NAVREC_MAX_NODES];
 };
 
-// Playback storage. This one CANNOT be allocated on demand: the engine keeps the
-// pointers we hand it for as long as the race runs, and a free would pull the
-// nav data out from under the AI. It is static for the process lifetime, which
-// is also what lets the savestate relocation in native_checkpoint.c treat it as
-// an image pointer.
+// Playback storage. This one CANNOT be freed: the engine keeps the pointers we
+// hand it for as long as the race runs, and a free would pull the nav data out
+// from under the AI. It is allocated once and kept for the process lifetime, in
+// PSX space: a nav header's last frame is a PSX address (include/ctr_psx_ptr.h).
+// PSX space is a static block of the image, which is what lets the savestate
+// relocation in native_checkpoint.c treat it as an image pointer.
 //
 // The union is the whole reason both types exist. The engine wants NavFrame; the
 // freestanding format code wants its own mirror. Punning through a union is
@@ -113,10 +115,26 @@ union AP_NavRecLane
 	struct AP_NavRecNode wire[AP_NAVREC_MAX_NODES];
 };
 
-static union AP_NavRecLane s_navrecLane[AP_NAVREC_LANES];
+struct AP_NavRecPlayback
+{
+	union AP_NavRecLane lane[AP_NAVREC_LANES];
+	struct NavHeader    header[AP_NAVREC_LANES];
+};
+
+static struct AP_NavRecPlayback *s_navrecPlayback;
 static unsigned int        s_navrecLaneStamps[AP_NAVREC_LANES][AP_NAVREC_MAX_NODES];
-static struct NavHeader    s_navrecLaneHeader[AP_NAVREC_LANES];
 static unsigned int        s_navrecLaneNodes[AP_NAVREC_LANES];
+
+static struct AP_NavRecPlayback *AP_NavRec_Playback(void)
+{
+	if (s_navrecPlayback == NULL)
+	{
+		s_navrecPlayback = PsxSpace_Alloc(sizeof(*s_navrecPlayback));
+		if (s_navrecPlayback == NULL)
+			Platform_Fatal("CTR Decrypted - Archipelago", "Could not allocate the recorded AI lanes.");
+	}
+	return s_navrecPlayback;
+}
 
 // One candidate container, decoded. This CANNOT be the lane storage any more:
 // the loader now reads several files per level, and decoding the second one into
@@ -527,7 +545,7 @@ static void AP_NavRec_SyncArmed(void)
 // identity takes no snapshot at all.
 static void AP_NavRec_SnapshotCorridor(struct GameTracker *gGT, int levelID)
 {
-	struct NavHeader **table;
+	PsxNavHeaderPtr *table;
 	unsigned int       points = 0;
 	char               msg[192];
 	char               ident[80];
@@ -561,7 +579,7 @@ static void AP_NavRec_SnapshotCorridor(struct GameTracker *gGT, int levelID)
 	if ((s_navrecScratch == NULL) || (gGT->level1 == NULL))
 		return;
 
-	table = gGT->level1->LevNavTable;
+	table = PSX_GET(gGT->level1->LevNavTable);
 	if (table == NULL)
 	{
 		AP_LogLine("[AP NAVREC] this level ships no nav table, so laps record with shortcut=unknown\n");
@@ -570,7 +588,7 @@ static void AP_NavRec_SnapshotCorridor(struct GameTracker *gGT, int levelID)
 
 	for (lane = 0; lane < AP_NAVREC_LANES; lane++)
 	{
-		const struct NavHeader *nh = table[lane];
+		const struct NavHeader *nh = PSX_GET(table[lane]);
 		const struct NavFrame  *frames;
 		int                     n;
 
@@ -922,11 +940,11 @@ static void AP_NavRec_PublishLane(int lane, unsigned int nodes)
 {
 	s_navrecLaneNodes[lane] = nodes;
 
-	memset(&s_navrecLaneHeader[lane], 0, sizeof s_navrecLaneHeader[lane]);
-	s_navrecLaneHeader[lane].magicNumber = (s16)-0x1303; // what BOTS_InitNavPath validates
-	s_navrecLaneHeader[lane].numPoints = (s16)nodes;
-	s_navrecLaneHeader[lane].posY_firstNode = (int)s_navrecLane[lane].engine[0].pos.y;
-	s_navrecLaneHeader[lane].last = &s_navrecLane[lane].engine[nodes];
+	memset(&AP_NavRec_Playback()->header[lane], 0, sizeof AP_NavRec_Playback()->header[lane]);
+	AP_NavRec_Playback()->header[lane].magicNumber = (s16)-0x1303; // what BOTS_InitNavPath validates
+	AP_NavRec_Playback()->header[lane].numPoints = (s16)nodes;
+	AP_NavRec_Playback()->header[lane].posY_firstNode = (int)AP_NavRec_Playback()->lane[lane].engine[0].pos.y;
+	PSX_SET(AP_NavRec_Playback()->header[lane].last, &AP_NavRec_Playback()->lane[lane].engine[nodes]);
 }
 
 // Read and validate ONE container file into `into`. Returns 1 when the file is
@@ -1035,14 +1053,14 @@ static void AP_NavRec_CommitLane(int lane, const struct AP_NavRecLoadBuf *from, 
 	unsigned int                nodes = info->laps[lap].nodeCount;
 	int                         l;
 
-	memcpy(s_navrecLane[lane].wire, from->nodes[lap], sizeof(struct AP_NavRecNode) * nodes);
+	memcpy(AP_NavRec_Playback()->lane[lane].wire, from->nodes[lap], sizeof(struct AP_NavRecNode) * nodes);
 	memcpy(s_navrecLaneStamps[lane], from->stamps[lap], sizeof(unsigned int) * nodes);
 
-	AP_NavRecSeam_Process(s_navrecLane[lane].wire, nodes, 1, seam);
+	AP_NavRecSeam_Process(AP_NavRec_Playback()->lane[lane].wire, nodes, 1, seam);
 
 	for (l = 0; l < AP_NAVREC_LANES; l++)
 		refLanes[l] = from->levelLane[l].wire;
-	*crateNodes = AP_NavRecCrate_Annotate(s_navrecLane[lane].wire, nodes, refLanes, from->levelLaneNodes, AP_NAVREC_LANES);
+	*crateNodes = AP_NavRecCrate_Annotate(AP_NavRec_Playback()->lane[lane].wire, nodes, refLanes, from->levelLaneNodes, AP_NAVREC_LANES);
 
 	memset(s_navrecLaneDriverName[lane], 0, sizeof s_navrecLaneDriverName[lane]);
 	memcpy(s_navrecLaneDriverName[lane], info->driverName, strlen(info->driverName));
@@ -1074,13 +1092,13 @@ static int AP_NavRec_KeepLevelLane(int lane, const struct AP_NavRecLoadBuf *from
 		return 0;
 	}
 
-	memcpy(s_navrecLane[lane].wire, from->levelLane[lane].wire, sizeof(struct AP_NavRecNode) * nodes);
+	memcpy(AP_NavRec_Playback()->lane[lane].wire, from->levelLane[lane].wire, sizeof(struct AP_NavRecNode) * nodes);
 	memset(s_navrecLaneStamps[lane], 0, sizeof(unsigned int) * nodes);
-	*guarded = AP_NavRecLane_GuardOpcodes(s_navrecLane[lane].wire, nodes, recordedMask);
+	*guarded = AP_NavRecLane_GuardOpcodes(AP_NavRec_Playback()->lane[lane].wire, nodes, recordedMask);
 
 	s_navrecLaneNodes[lane] = nodes;
-	s_navrecLaneHeader[lane] = from->levelLaneHeader[lane];
-	s_navrecLaneHeader[lane].last = &s_navrecLane[lane].engine[nodes];
+	AP_NavRec_Playback()->header[lane] = from->levelLaneHeader[lane];
+	PSX_SET(AP_NavRec_Playback()->header[lane].last, &AP_NavRec_Playback()->lane[lane].engine[nodes]);
 
 	s_navrecLaneDriverName[lane][0] = '\0';
 	s_navrecLaneFileIndex[lane] = 0;
@@ -1096,17 +1114,17 @@ static int AP_NavRec_KeepLevelLane(int lane, const struct AP_NavRecLoadBuf *from
 // did would not fit the copy and is reported as too long.
 static int AP_NavRec_CaptureLevelLanes(struct AP_NavRecLoadBuf *into)
 {
-	struct NavHeader **table = NULL;
+	PsxNavHeaderPtr *table = NULL;
 	int                lane;
 
 	memset(into->levelLaneNodes, 0, sizeof into->levelLaneNodes);
 
 	if ((sdata->gGT->level1 != NULL))
-		table = sdata->gGT->level1->LevNavTable;
+		table = PSX_GET(sdata->gGT->level1->LevNavTable);
 
 	for (lane = 0; lane < AP_NAVREC_LANES; lane++)
 	{
-		struct NavHeader *nh = (table != NULL) ? table[lane] : NULL;
+		struct NavHeader *nh = (table != NULL) ? PSX_GET(table[lane]) : NULL;
 		int               points;
 
 		if ((nh == NULL) || (nh->magicNumber != -0x1303))
@@ -1481,8 +1499,8 @@ static void AP_NavRec_PointEngineAtLanes(int levelID)
 		s_navrecLaneOwner[lane] = -1;
 		if (!s_navrecLaneOwned[lane])
 			continue;
-		sdata->NavPath_ptrHeader[lane] = &s_navrecLaneHeader[lane];
-		sdata->NavPath_ptrNavFrameArray[lane] = &s_navrecLane[lane].engine[0];
+		sdata->NavPath_ptrHeader[lane] = &AP_NavRec_Playback()->header[lane];
+		sdata->NavPath_ptrNavFrameArray[lane] = &AP_NavRec_Playback()->lane[lane].engine[0];
 	}
 
 	// Re-derive nav_ptrFirstPoint / nav_ptrLastPoint / nav_NumPointsOnPath so
@@ -1727,7 +1745,7 @@ void AP_NavRec_AfterCheckpointRestore(void)
 	{
 		uintptr_t h = (uintptr_t)sdata->NavPath_ptrHeader[lane];
 
-		if ((h >= (uintptr_t)&s_navrecLaneHeader[0]) && (h < (uintptr_t)&s_navrecLaneHeader[AP_NAVREC_LANES]))
+		if ((h >= (uintptr_t)&AP_NavRec_Playback()->header[0]) && (h < (uintptr_t)&AP_NavRec_Playback()->header[AP_NAVREC_LANES]))
 			ours = 1;
 	}
 	if (!ours && !s_navrecLanesLive)

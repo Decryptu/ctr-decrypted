@@ -6,11 +6,11 @@ enum LibraryOfModelsConstants
 	LIBRARY_OF_MODELS_CLEAR_COUNT = 0xe2,
 };
 
-void LibraryOfModels_Store(struct GameTracker *gGT, u32 numModels, struct Model **ptrModelArray)
+void LibraryOfModels_Store(struct GameTracker *gGT, u32 numModels, PsxModelPtr *ptrModelArray)
 {
 	while (numModels != 0)
 	{
-		struct Model *m = *ptrModelArray;
+		struct Model *m = PSX_GET(*ptrModelArray);
 		if (m == NULL)
 		{
 			return;

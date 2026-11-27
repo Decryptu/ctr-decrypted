@@ -257,11 +257,11 @@ s32 RB_Hazard_CollLevInst(struct ScratchpadStruct *sps, struct Thread *th)
 {
 	struct InstDef *instdef;
 
-	if (((u8)sps->bspHitbox->flag & 0x80) && (instdef = sps->bspHitbox->data.hitbox.instDef) != NULL)
+	if (((u8)sps->bspHitbox->flag & 0x80) && (instdef = PSX_GET(sps->bspHitbox->data.hitbox.instDef)) != NULL)
 	{
 		s16 model;
 		struct MetaDataMODEL *meta;
-		struct Instance *inst = instdef->ptrInstance;
+		struct Instance *inst = PSX_GET(instdef->ptrInstance);
 		if (inst == NULL)
 		{
 			goto noCallback;

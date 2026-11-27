@@ -232,7 +232,7 @@ void MM_HighScore_Draw(s16 trackIndex, s32 rowIndex, s32 posX, s32 posY)
 		sharedS2 = posYShift << 0x10;
 		sharedS2 = (s32)sharedS2 >> 0x10;
 		leftArrowY = MM_HIGHSCORE_TRANSITIONS[MM_HIGHSCORE_TITLE_META_INDEX].currY + sharedS2 + MM_HIGHSCORE_ARROW_Y_OFFSET;
-		MM_DECALHUD_ARROW_2D((ICONGROUP_GETICONS(iconGroup))[MM_HIGHSCORE_ARROW_ICON_ID],
+		MM_DECALHUD_ARROW_2D(ICONGROUP_GETICON(iconGroup, MM_HIGHSCORE_ARROW_ICON_ID),
 		                     ((scoreRowIndex = (s16)draw.posX) - lineWidth) + MM_HIGHSCORE_TRANSITIONS[MM_HIGHSCORE_TITLE_META_INDEX].currX +
 		                         MM_HIGHSCORE_ARROW_LEFT_X_OFFSET,
 		                     leftArrowY, &backBuffer->primMem, orderingTable, MM_HIGHSCORE_COLOR((u32 **)sharedS1, 0), MM_HIGHSCORE_COLOR((u32 **)sharedS1, 1),
@@ -316,7 +316,7 @@ void MM_HighScore_Draw(s16 trackIndex, s32 rowIndex, s32 posX, s32 posY)
 	zeroValue = 0;
 
 	// Draw arrow pointing Right
-	MM_DECALHUD_ARROW_2D((ICONGROUP_GETICONS(GAME_TRACKER->iconGroup[MM_HIGHSCORE_ARROW_ICON_GROUP]))[MM_HIGHSCORE_ARROW_ICON_ID],
+	MM_DECALHUD_ARROW_2D(ICONGROUP_GETICON(GAME_TRACKER->iconGroup[MM_HIGHSCORE_ARROW_ICON_GROUP], MM_HIGHSCORE_ARROW_ICON_ID),
 	                     MM_HIGHSCORE_TRANSITIONS[MM_HIGHSCORE_TITLE_META_INDEX].currX + (lineWidth + scoreRowIndex) + MM_HIGHSCORE_ARROW_RIGHT_X_OFFSET,
 	                     trackOffsetWork + MM_HIGHSCORE_ARROW_Y_OFFSET, &GAME_TRACKER->backBuffer->primMem, GAME_TRACKER->pushBuffer_UI.ptrOT,
 	                     MM_HIGHSCORE_COLOR((u32 **)sharedS1, 0), MM_HIGHSCORE_COLOR((u32 **)sharedS1, 1), MM_HIGHSCORE_COLOR((u32 **)sharedS1, 2),
@@ -526,7 +526,7 @@ void MM_HighScore_Draw(s16 trackIndex, s32 rowIndex, s32 posX, s32 posY)
 				ghostX += ghostXBase;
 				ghostX += MM_HIGHSCORE_GHOST_STAR_X_OFFSET;
 
-				MM_DECALHUD_DRAW_POLY_GT4((ICONGROUP_GETICONS(ghostIconGroup))[MM_HIGHSCORE_GHOST_STAR_ICON_ID], ghostX,
+				MM_DECALHUD_DRAW_POLY_GT4(ICONGROUP_GETICON(ghostIconGroup, MM_HIGHSCORE_GHOST_STAR_ICON_ID), ghostX,
 				                          ghostY + MM_HIGHSCORE_GHOST_STAR_Y_OFFSET, &backBuffer->primMem, orderingTable, MM_HIGHSCORE_COLOR(ghostColorPtr, 0),
 				                          MM_HIGHSCORE_COLOR(ghostColorPtr, 1), MM_HIGHSCORE_COLOR(ghostColorPtr, 2), MM_HIGHSCORE_COLOR(ghostColorPtr, 3), 0,
 				                          MM_HIGHSCORE_GHOST_STAR_SCALE);

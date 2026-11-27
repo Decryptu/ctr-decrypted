@@ -381,7 +381,7 @@ UpdateTrackerState:
 
 		if (d->thTrackingMe->inst->model->id == DYNAMIC_WARPBALL)
 		{
-			struct CheckpointNode *firstNode = &gGT->level1->ptr_restart_points[0];
+			struct CheckpointNode *firstNode = &PSX_GET(gGT->level1->ptr_restart_points)[0];
 
 			warpballDist = ((tw->ptrNodeCurr->distToFinish - firstNode[d->checkpoint.currentIndex].distToFinish) * UI_TRACKER_WARPBALL_DISTANCE_SCALE);
 

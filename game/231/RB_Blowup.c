@@ -142,9 +142,9 @@ void RB_Blowup_Init(struct Instance *weaponInst)
 	effectInst->matrix.t[2] = weaponInst->matrix.t[2];
 
 	// Both shockwave model headers billboard toward each camera.
-	headers = effectInst->model->headers;
+	headers = PSX_GET(effectInst->model->headers);
 	headers[0].flags |= 2;
-	headers = effectInst->model->headers;
+	headers = PSX_GET(effectInst->model->headers);
 	headers[1].flags |= 2;
 	CTR_MatrixSetRotIdentity(&effectInst->matrix);
 

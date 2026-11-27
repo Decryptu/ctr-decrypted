@@ -593,7 +593,7 @@ static struct ModelAnim *RenderBucket_GetAnim(struct Instance *inst, struct Mode
 	}
 #endif
 
-	return mh->ptrAnimations[inst->animIndex];
+	return PSX_GET(PSX_GET(mh->ptrAnimations)[inst->animIndex]);
 }
 
 static u32 RenderBucket_PackXY(int x, int y)
@@ -1256,7 +1256,7 @@ static struct ModelHeader *RenderBucket_SelectModelHeader(struct Instance *inst,
 	if ((inst->flags & SCREENSPACE_INSTANCE) == 0)
 		projectedDistance = NativeDrawDistance_ModelLod(projectedDistance);
 #endif
-	mh = inst->model->headers;
+	mh = PSX_GET(inst->model->headers);
 	headersRemaining = inst->model->numHeaders;
 	lodIndex = 0;
 
@@ -1265,10 +1265,10 @@ static struct ModelHeader *RenderBucket_SelectModelHeader(struct Instance *inst,
 		if (RenderBucket_MipsSub(projectedDistance, 0x1000) < 0)
 		{
 			*lodIndexOut = 0;
-			return &inst->model->headers[0];
+			return &PSX_GET(inst->model->headers)[0];
 		}
 
-		mh = &inst->model->headers[3];
+		mh = &PSX_GET(inst->model->headers)[3];
 		if (RenderBucket_MipsSub(projectedDistance, (u16)mh->maxDistanceLOD) < 0)
 		{
 			*lodIndexOut = 3;
@@ -2109,7 +2109,7 @@ static void RenderBucket_AdvanceInstanceAnimWord(struct Instance *inst, int game
 	RenderBucket_StoreInstanceAnimWord(inst, frame);
 }
 
-static struct ModelFrame *RenderBucket_GetFrame(struct Instance *inst, struct ModelHeader *mh, struct ModelFrame **nextFrameOut, int *deltaArrayOut,
+static struct ModelFrame *RenderBucket_GetFrame(struct Instance *inst, struct ModelHeader *mh, struct ModelFrame **nextFrameOut, u32 **deltaArrayOut,
                                                 int *lastFrameAdvanceOut)
 {
 	struct ModelAnim *anim;
@@ -2124,10 +2124,10 @@ static struct ModelFrame *RenderBucket_GetFrame(struct Instance *inst, struct Mo
 	*deltaArrayOut = 0;
 	*lastFrameAdvanceOut = -1;
 
-	if (mh->ptrAnimations == 0)
+	if (PSX_GET(mh->ptrAnimations) == 0)
 	{
-		*deltaArrayOut = mh->unk3;
-		return mh->ptrFrameData;
+		*deltaArrayOut = PSX_GET(mh->unk3);
+		return PSX_GET(mh->ptrFrameData);
 	}
 
 	anim = RenderBucket_GetAnim(inst, mh);
@@ -2148,7 +2148,7 @@ static struct ModelFrame *RenderBucket_GetFrame(struct Instance *inst, struct Mo
 	// NOTE(aalhendi): Retail 0x80070ca0-0x80070dfc checks ptrAnimations first,
 	// then carries current/next frame through s6/s1 plus ptrDeltaArray through
 	// IDPP 0xd4. Native keeps those values as explicit return values.
-	*deltaArrayOut = (int)anim->ptrDeltaArray;
+	*deltaArrayOut = PSX_GET(anim->ptrDeltaArray);
 	frameIndex = (u16)inst->animFrame;
 	lastFrame = (anim->numFrames & 0x7fff) - 1;
 	hasNextFrame = 0;
@@ -2206,7 +2206,7 @@ static struct RenderBucketEntry *RenderBucket_QueueDraw(struct Instance *inst, s
 	struct RenderBucketSplitState split;
 	MATRIX projectionMvp;
 	u32 queuedFlags;
-	int deltaArray;
+	u32 *deltaArray;
 	int lastFrameAdvance;
 	int lodIndex;
 	int lodExhausted;
@@ -2234,7 +2234,7 @@ static struct RenderBucketEntry *RenderBucket_QueueDraw(struct Instance *inst, s
 		return rbi;
 	}
 
-	if (inst->model->headers == 0)
+	if (PSX_GET(inst->model->headers) == 0)
 	{
 		return rbi;
 	}
@@ -2347,14 +2347,14 @@ static struct RenderBucketEntry *RenderBucket_QueueDraw(struct Instance *inst, s
 	idpp->unkEC = drawFunc;
 	idpp->unkF0 = uncompressFunc;
 	RenderBucket_WriteInstanceCallbackLabels(inst, queuedFlags);
-	idpp->ptrCommandList = mh->ptrCommandList;
+	idpp->ptrCommandList = PSX_GET(mh->ptrCommandList);
 #ifdef CTR_NATIVE
 	// a converted track's mover may show another step of its texture pattern
 	idpp->ptrTexLayout = ConvertedMover_TexLayout(inst, mh);
 #else
-	idpp->ptrTexLayout = mh->ptrTexLayout;
+	idpp->ptrTexLayout = PSX_GET(mh->ptrTexLayout);
 #endif
-	idpp->ptrColorLayout = (u32)mh->ptrColors;
+	idpp->ptrColorLayout = PSX_GET(mh->ptrColors);
 	idpp->instFlags = queuedFlags;
 	return rbi + 1;
 }
@@ -2379,16 +2379,16 @@ void *RenderBucket_QueueLevInstances(struct CameraDC *cDC, struct OTMem *otState
 
 	for (int player = count - 1; player >= 0; player--)
 	{
-		struct Instance **visInstSrc = cDC[player].visInstSrc;
+		PsxInstancePtr *visInstSrc = cDC[player].visInstSrc;
 
 		if (visInstSrc == 0)
 		{
 			continue;
 		}
 
-		for (; *visInstSrc != 0; visInstSrc++)
+		for (; PSX_ADDR(*visInstSrc) != 0; visInstSrc++)
 		{
-			entry = RenderBucket_QueueDraw(*visInstSrc, entry, player, lodMask, gameMode1, &queueState);
+			entry = RenderBucket_QueueDraw(PSX_GET(*visInstSrc), entry, player, lodMask, gameMode1, &queueState);
 		}
 	}
 
@@ -3047,7 +3047,7 @@ static struct TextureLayout *RenderBucket_GetCommandTexture(struct RenderBucketD
 	// NOTE(aalhendi): Retail only uses texture index zero as the explicit G3
 	// path, but a null texture-table entry also reaches DrawInstPrim_Normal as
 	// `a2 == 0` and emits G3. Do not reject that case here.
-	return ctx->idpp->ptrTexLayout[texIndex - 1];
+	return PSX_GET(ctx->idpp->ptrTexLayout[texIndex - 1]);
 }
 
 static int RenderBucket_OTEntryPassesDpctGate(const u32 *otEntry)
@@ -5685,7 +5685,7 @@ static int RenderBucket_PrepareDrawContext(struct RenderBucketDrawContext *ctx, 
 		return 0;
 	}
 
-	if ((mh->ptrCommandList == 0) || (mh->ptrColors == 0))
+	if ((PSX_GET(mh->ptrCommandList) == 0) || (PSX_GET(mh->ptrColors) == 0))
 	{
 		return 0;
 	}

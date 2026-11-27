@@ -51,7 +51,7 @@ struct MetaDataMODEL *COLL_LevModelMeta(u32 id);
 void COLL_SearchBSP_CallbackQUADBLK(const SVec3 *top, const SVec3 *bottom, struct ScratchpadStruct *sps, s32 hitRadius);
 void COLL_SearchBSP_CallbackPARAM(struct BSP *root, struct BoundingBox *bbox, CollBspLeafCallback callback, struct ScratchpadStruct *sps);
 
-void CTR_CycleTex_AllModels(u32 numModels, struct Model **pModelArray, int timer);
+void CTR_CycleTex_AllModels(u32 numModels, PsxModelPtr *pModelArray, int timer);
 void CTR_CycleTex_LEV(struct AnimTex *animtex, int timer);
 void CTR_ErrorScreen(u8 r, u8 g, u8 b);
 void CTR_CycleTex_Model(struct AnimTex *animtex, int timer);
@@ -354,7 +354,7 @@ void *LIST_GetFirstItem(struct LinkedList *L);
 void *LIST_GetNextItem(struct Item *I);
 
 void LOAD_AppendQueue(struct BigHeader *bigfile, int type, int fileIndex, void *destinationPtr, void (*callback)(struct LoadQueueSlot *));
-int LOAD_DriverMPK(struct BigHeader *bigfile, int levelLOD, void (*callback)(struct LoadQueueSlot *));
+void *LOAD_DriverMPK(struct BigHeader *bigfile, int levelLOD, void (*callback)(struct LoadQueueSlot *));
 void LOAD_Hub_Main(struct BigHeader *bigfilePtr);
 void LOAD_Hub_ReadFile(struct BigHeader *bigfile, int levID, int packID);
 #ifdef CTR_AP
@@ -403,7 +403,10 @@ void MainLoadVLC_Callback(struct LoadQueueSlot *param_1);
 
 void LOAD_InitCD(void);
 int LOAD_InitCDvol(void);
-void LOAD_RunPtrMap(char *origin, int *patchArr, int numPtrs); // 1st param might be `struct Level*`, 2nd param might be `char*`
+void LOAD_RunPtrMap(char *origin, int *patchArr, int numPtrs);
+#if defined(CTR_NATIVE)
+void LOAD_LangFile_IndexStrings(void *lngFile);
+#endif // 1st param might be `struct Level*`, 2nd param might be `char*`
 void LOAD_LangFile(int bigfilePtr, int lang);
 
 void LOAD_NextQueuedFile(void);
@@ -873,7 +876,7 @@ void VehFlight_Init(struct Thread *t, struct Driver *d);
 void ConvertedMover_LInB(struct Instance *inst);
 void ConvertedTrack_TexPatterns(struct Level *level, int timer);
 void ConvertedMover_LevelStart(const struct InstDef *definitions, int count);
-struct TextureLayout **ConvertedMover_TexLayout(const struct Instance *inst, const struct ModelHeader *mh);
+PsxTextureLayoutPtr *ConvertedMover_TexLayout(const struct Instance *inst, const struct ModelHeader *mh);
 void COLL_MOVED_AddCarry(const struct Driver *d, s32 dx, s32 dy, s32 dz);
 
 void VehPhysProc_PowerSlide_PhysAngular(struct Thread *t, struct Driver *d);
@@ -1391,7 +1394,7 @@ void GAMEPROG_NewProfile_OutsideAdv(struct GameSave *save);
 int LOAD_FindFile(char *filename, CdlFILE *cdlFile);
 int LOAD_HowlHeaderSectors(CdlFILE *cdlFileHWL, void *ptrDestination, int firstSector, int numSector);
 int CDSYS_XASeek(b32 boolCdControl, int categoryID, int xaID);
-void LibraryOfModels_Store(struct GameTracker *gGT, u32 numModels, struct Model **ptrModelArray);
+void LibraryOfModels_Store(struct GameTracker *gGT, u32 numModels, PsxModelPtr *ptrModelArray);
 void LOAD_DramFileCallback(struct LoadQueueSlot *lqs);
 int LOAD_GetBigfileIndex(u32 levelID, int lod, int fileIndexInGroup);
 void LOAD_HubSwapPtrs(struct GameTracker *gGT, int unused);

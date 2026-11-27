@@ -178,8 +178,8 @@ void RB_Seal_LInB(struct Instance *inst)
 
 	if (GAME_TRACKER->level1->numSpawnType2 != 0)
 	{
-		sealObj->spawnPos = GAME_TRACKER->level1->ptrSpawnType2[sealID].coords.positions[0];
-		sealObj->endPos = GAME_TRACKER->level1->ptrSpawnType2[sealObj->sealID].coords.positions[1];
+		sealObj->spawnPos = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2)[sealID].coords.positions)[0];
+		sealObj->endPos = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2)[sealObj->sealID].coords.positions)[1];
 	}
 
 	// distance between points

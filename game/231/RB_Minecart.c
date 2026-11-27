@@ -54,7 +54,7 @@ void RB_Minecart_ThTick(struct Thread *t)
 		minecartObj->betweenPoints_currFrame = 1;
 
 		// if not at end of path
-		if (minecartObj->posIndex + 1 < GAME_TRACKER->level1->ptrSpawnType2->numCoords)
+		if (minecartObj->posIndex + 1 < PSX_GET(GAME_TRACKER->level1->ptrSpawnType2)->numCoords)
 		{
 			minecartObj->posIndex++;
 			minecartObj->posStart.x = minecartObj->posEnd.x;
@@ -66,14 +66,14 @@ void RB_Minecart_ThTick(struct Thread *t)
 		else
 		{
 			minecartObj->posIndex = 1;
-			minecartInst->matrix.t[0] = minecartObj->posStart.x = GAME_TRACKER->level1->ptrSpawnType2->coords.positions[0].x;
-			minecartInst->matrix.t[1] = minecartObj->posStart.y = GAME_TRACKER->level1->ptrSpawnType2->coords.positions[0].y;
-			minecartInst->matrix.t[2] = minecartObj->posStart.z = GAME_TRACKER->level1->ptrSpawnType2->coords.positions[0].z;
+			minecartInst->matrix.t[0] = minecartObj->posStart.x = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2)->coords.positions)[0].x;
+			minecartInst->matrix.t[1] = minecartObj->posStart.y = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2)->coords.positions)[0].y;
+			minecartInst->matrix.t[2] = minecartObj->posStart.z = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2)->coords.positions)[0].z;
 		}
 
-		minecartObj->posEnd.x = GAME_TRACKER->level1->ptrSpawnType2->coords.positions[minecartObj->posIndex].x;
-		minecartObj->posEnd.y = GAME_TRACKER->level1->ptrSpawnType2->coords.positions[minecartObj->posIndex].y;
-		minecartObj->posEnd.z = GAME_TRACKER->level1->ptrSpawnType2->coords.positions[minecartObj->posIndex].z;
+		minecartObj->posEnd.x = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2)->coords.positions)[minecartObj->posIndex].x;
+		minecartObj->posEnd.y = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2)->coords.positions)[minecartObj->posIndex].y;
+		minecartObj->posEnd.z = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2)->coords.positions)[minecartObj->posIndex].z;
 		RB_Minecart_SetDirection(minecartObj);
 
 		if ((minecartObj->posIndex == 1) && (minecartInst->model->id == DYNAMIC_MINE_CART))
@@ -144,11 +144,11 @@ void RB_Minecart_LInB(struct Instance *inst)
 	}
 	else if (inst->name[strlen(inst->name) - 1] - '0' == 1)
 	{
-		minecartObj->posIndex = GAME_TRACKER->level1->ptrSpawnType2->numCoords / 3;
+		minecartObj->posIndex = PSX_GET(GAME_TRACKER->level1->ptrSpawnType2)->numCoords / 3;
 	}
 	else
 	{
-		minecartObj->posIndex = (s32)((u32)GAME_TRACKER->level1->ptrSpawnType2->numCoords << 1) / 3;
+		minecartObj->posIndex = (s32)((u32)PSX_GET(GAME_TRACKER->level1->ptrSpawnType2)->numCoords << 1) / 3;
 	}
 
 	inst->scale.x = 0x1000;
@@ -176,12 +176,12 @@ void RB_Minecart_LInB(struct Instance *inst)
 	}
 
 	minecartObj->betweenPoints_currFrame = 0;
-	minecartObj->posStart.x = GAME_TRACKER->level1->ptrSpawnType2->coords.positions[minecartObj->posIndex - 1].x;
-	minecartObj->posStart.y = GAME_TRACKER->level1->ptrSpawnType2->coords.positions[minecartObj->posIndex - 1].y;
-	minecartObj->posStart.z = GAME_TRACKER->level1->ptrSpawnType2->coords.positions[minecartObj->posIndex - 1].z;
-	minecartObj->posEnd.x = GAME_TRACKER->level1->ptrSpawnType2->coords.positions[minecartObj->posIndex].x;
-	minecartObj->posEnd.y = GAME_TRACKER->level1->ptrSpawnType2->coords.positions[minecartObj->posIndex].y;
-	minecartObj->posEnd.z = GAME_TRACKER->level1->ptrSpawnType2->coords.positions[minecartObj->posIndex].z;
+	minecartObj->posStart.x = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2)->coords.positions)[minecartObj->posIndex - 1].x;
+	minecartObj->posStart.y = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2)->coords.positions)[minecartObj->posIndex - 1].y;
+	minecartObj->posStart.z = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2)->coords.positions)[minecartObj->posIndex - 1].z;
+	minecartObj->posEnd.x = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2)->coords.positions)[minecartObj->posIndex].x;
+	minecartObj->posEnd.y = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2)->coords.positions)[minecartObj->posIndex].y;
+	minecartObj->posEnd.z = PSX_GET(PSX_GET(GAME_TRACKER->level1->ptrSpawnType2)->coords.positions)[minecartObj->posIndex].z;
 	RB_Minecart_SetDirection(minecartObj);
 	minecartObj->rotDesired.z = 0;
 	minecartObj->soundIDCount = 0;

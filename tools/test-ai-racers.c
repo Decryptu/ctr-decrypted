@@ -50,6 +50,7 @@ static void LOAD_AppendQueue(struct BigHeader *b, int type, int file, void *dest
  callback(&slot);
 }
 #define Platform_Log(...) ((void)0)
+#include "../platform/native_psx_space.c"
 #include "../game/LOAD/LOAD_NativeBots.c"
 #undef Platform_Log
 

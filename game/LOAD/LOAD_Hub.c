@@ -95,7 +95,7 @@ void LOAD_Hub_SwapNow()
 		VSync(0);
 	}
 
-	LevInstDef_RePack(GAME_TRACKER->level1->ptr_mesh_info, 1);
+	LevInstDef_RePack(PSX_GET(GAME_TRACKER->level1->ptr_mesh_info), 1);
 
 	LOAD_HubSwapPtrs(GAME_TRACKER, 1);
 
@@ -116,13 +116,13 @@ void LOAD_Hub_SwapNow()
 
 	if (GAME_TRACKER->level1 != 0)
 	{
-		LibraryOfModels_Store(GAME_TRACKER, GAME_TRACKER->level1->numModels, GAME_TRACKER->level1->ptrModelsPtrArray);
+		LibraryOfModels_Store(GAME_TRACKER, GAME_TRACKER->level1->numModels, PSX_GET(GAME_TRACKER->level1->ptrModelsPtrArray));
 
-		INSTANCE_LevInitAll(GAME_TRACKER->level1->ptrInstDefs, GAME_TRACKER->level1->numInstances);
+		INSTANCE_LevInitAll(PSX_GET(GAME_TRACKER->level1->ptrInstDefs), GAME_TRACKER->level1->numInstances);
 
-		LevInstDef_UnPack(GAME_TRACKER->level1->ptr_mesh_info);
+		LevInstDef_UnPack(PSX_GET(GAME_TRACKER->level1->ptr_mesh_info));
 
-		DecalGlobal_Store(GAME_TRACKER, GAME_TRACKER->level1->levTexLookup);
+		DecalGlobal_Store(GAME_TRACKER, PSX_GET(GAME_TRACKER->level1->levTexLookup));
 	}
 
 	MEMPACK_SwapPacks(GAME_TRACKER->activeMempackIndex);
@@ -135,10 +135,10 @@ void LOAD_Hub_SwapNow()
 	GAME_TRACKER->cameraDC[0].visOVertSrc = 0;
 	GAME_TRACKER->cameraDC[0].visSCVertSrc = 0;
 
-	GAME_TRACKER->visMem1->visLeafSrc[0] = 0;
-	GAME_TRACKER->visMem1->visFaceSrc[0] = 0;
-	GAME_TRACKER->visMem1->visOVertSrc[0] = 0;
-	GAME_TRACKER->visMem1->visSCVertSrc[0] = 0;
+	PSX_SET(GAME_TRACKER->visMem1->visLeafSrc[0], 0);
+	PSX_SET(GAME_TRACKER->visMem1->visFaceSrc[0], 0);
+	PSX_SET(GAME_TRACKER->visMem1->visOVertSrc[0], 0);
+	PSX_SET(GAME_TRACKER->visMem1->visSCVertSrc[0], 0);
 
 	GAME_TRACKER->drivers[0]->underDriver = 0;
 

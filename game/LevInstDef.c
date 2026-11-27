@@ -1,15 +1,24 @@
 #include <common.h>
 
 // NOTE(aalhendi): These lists alternate between InstDef* and Instance* in place.
-// Both records keep their peer at 0x2c. Shared PVS lists therefore toggle once
-// per reference, just as retail does; do not deduplicate the traversal.
-// Alias-qualified slots and byte-safe peer reads support either declared type.
-typedef void *LevInstDefLink CTR_MAY_ALIAS;
-CTR_STATIC_ASSERT(offsetof(struct InstDef, ptrInstance) == offsetof(struct Instance, instDef));
+// Shared PVS lists therefore toggle once per reference, just as retail does; do
+// not deduplicate the traversal.
+// A slot is the PSX address of either record, and each knows the other. Retail
+// reads the peer at 0x2c of both; here an Instance is told apart by coming from
+// the instance pool, since only the InstDef keeps retail's layout.
+typedef PsxVoidPtr LevInstDefLink;
 
-static inline void *LevInstDef_Peer(const void *record)
+static u32 LevInstDef_Peer(u32 record)
 {
-	return (void *)CTR_ReadU32AlignedLE((const u8 *)record + offsetof(struct InstDef, ptrInstance));
+	const struct JitPool *pool = &GAME_TRACKER->JitPools.instance;
+	const u8 *host = PsxSpace_ToHost(record);
+	const u8 *poolData = pool->ptrPoolData;
+
+	if ((host >= poolData) && (host < poolData + pool->poolSize))
+	{
+		return PsxSpace_FromHost(((const struct Instance *)host)->instDef);
+	}
+	return PSX_ADDR(((const struct InstDef *)host)->ptrInstance);
 }
 
 
@@ -20,7 +29,7 @@ void LevInstDef_UnPack(struct mesh_info *ptr_mesh_info)
 	LevInstDefLink *visInstSrc;
 	struct Level *level1;
 
-	qbCurr = ptr_mesh_info->ptrQuadBlockArray;
+	qbCurr = PSX_GET(ptr_mesh_info->ptrQuadBlockArray);
 	qbEnd = qbCurr + ptr_mesh_info->numQuadBlock;
 
 #if defined(CTR_NATIVE) && defined(CTR_INTERNAL)
@@ -30,25 +39,25 @@ void LevInstDef_UnPack(struct mesh_info *ptr_mesh_info)
 	// loop through all quadblocks
 	for (; qbCurr < qbEnd; qbCurr++)
 	{
-		if ((qbCurr->pvs != 0) && (qbCurr->pvs->visInstSrc != 0))
+		if ((PSX_GET(qbCurr->pvs) != 0) && (PSX_GET(PSX_GET(qbCurr->pvs)->visInstSrc) != 0))
 		{
 			// loop through all instance pointers visible on quadblock
-			for (visInstSrc = (LevInstDefLink *)qbCurr->pvs->visInstSrc; visInstSrc[0] != NULL; visInstSrc++)
+			for (visInstSrc = (LevInstDefLink *)PSX_GET(PSX_GET(qbCurr->pvs)->visInstSrc); PSX_ADDR(visInstSrc[0]) != 0; visInstSrc++)
 			{
-				visInstSrc[0] = LevInstDef_Peer(visInstSrc[0]);
+				PSX_ADDR(visInstSrc[0]) = LevInstDef_Peer(PSX_ADDR(visInstSrc[0]));
 			}
 		}
 	}
 
 	level1 = GAME_TRACKER->level1;
-	visInstSrc = (LevInstDefLink *)level1->ptrInstDefPtrArray;
+	visInstSrc = (LevInstDefLink *)PSX_GET(level1->ptrInstDefPtrArray);
 
 	if (visInstSrc != NULL)
 	{
 		// loop through all instDef pointers in the LEV
-		for (; visInstSrc[0] != 0; visInstSrc++)
+		for (; PSX_ADDR(visInstSrc[0]) != 0; visInstSrc++)
 		{
-			visInstSrc[0] = LevInstDef_Peer(visInstSrc[0]);
+			PSX_ADDR(visInstSrc[0]) = LevInstDef_Peer(PSX_ADDR(visInstSrc[0]));
 		}
 	}
 }
@@ -62,31 +71,31 @@ void LevInstDef_RePack(struct mesh_info *ptr_mesh_info, b32 boolAdvHub)
 	struct Level *level1;
 	struct Thread *th;
 
-	qbCurr = ptr_mesh_info->ptrQuadBlockArray;
+	qbCurr = PSX_GET(ptr_mesh_info->ptrQuadBlockArray);
 	qbEnd = qbCurr + ptr_mesh_info->numQuadBlock;
 
 	// loop through all quadblocks
 	for (; qbCurr < qbEnd; qbCurr++)
 	{
-		if ((qbCurr->pvs != 0) && (qbCurr->pvs->visInstSrc != 0))
+		if ((PSX_GET(qbCurr->pvs) != 0) && (PSX_GET(PSX_GET(qbCurr->pvs)->visInstSrc) != 0))
 		{
 			// loop through all instance pointers visible on quadblock
-			for (visInstSrc = (LevInstDefLink *)qbCurr->pvs->visInstSrc; visInstSrc[0] != NULL; visInstSrc++)
+			for (visInstSrc = (LevInstDefLink *)PSX_GET(PSX_GET(qbCurr->pvs)->visInstSrc); PSX_ADDR(visInstSrc[0]) != 0; visInstSrc++)
 			{
-				visInstSrc[0] = LevInstDef_Peer(visInstSrc[0]);
+				PSX_ADDR(visInstSrc[0]) = LevInstDef_Peer(PSX_ADDR(visInstSrc[0]));
 			}
 		}
 	}
 
 	level1 = GAME_TRACKER->level1;
-	visInstSrc = (LevInstDefLink *)level1->ptrInstDefPtrArray;
+	visInstSrc = (LevInstDefLink *)PSX_GET(level1->ptrInstDefPtrArray);
 
 	if (visInstSrc != NULL)
 	{
 		// loop through all instDef pointers in the LEV
-		for (; visInstSrc[0] != NULL; visInstSrc++)
+		for (; PSX_ADDR(visInstSrc[0]) != 0; visInstSrc++)
 		{
-			struct Instance *inst = visInstSrc[0];
+			struct Instance *inst = PSX_GET(visInstSrc[0]);
 			struct InstDef *instDef = inst->instDef;
 
 			// if on adv hub
@@ -99,11 +108,11 @@ void LevInstDef_RePack(struct mesh_info *ptr_mesh_info, b32 boolAdvHub)
 				}
 
 				// Return the level-owned instance to the free pool.
-				LIST_AddFront(&GAME_TRACKER->JitPools.instance.free, (struct Item *)visInstSrc[0]);
+				LIST_AddFront(&GAME_TRACKER->JitPools.instance.free, (struct Item *)inst);
 			}
 
 			// go back to instDef
-			visInstSrc[0] = instDef;
+			PSX_SET(visInstSrc[0], instDef);
 		}
 	}
 

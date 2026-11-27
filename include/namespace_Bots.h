@@ -65,7 +65,7 @@ struct NavHeader
 	int posY_firstNode;
 
 	// 8
-	struct NavFrame *last;
+	PSX_PTR(struct NavFrame) last;
 
 	// 0xC
 	s16 rampPhys1[0x10]; // speedXZ? driver->0x5d4
@@ -74,7 +74,7 @@ struct NavHeader
 	// 0x4C
 	// struct NavFrame frame[0];
 };
-#define NAVHEADER_GETFRAME(x)    ((struct NavFrame *)((u32)x + sizeof(struct NavHeader)))
+#define NAVHEADER_GETFRAME(x)    ((struct NavFrame *)((char *)(x) + sizeof(struct NavHeader)))
 
 #define NAVFRAME_GETNEXTFRAME(x) (((struct NavFrame *)x) + 1)
 

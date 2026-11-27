@@ -368,6 +368,7 @@
 // storage is tied to this value by an assertion in the level renderer.
 #ifdef CTR_NATIVE
 #include <platform/native_rendered_list.h>
+#include <stdint.h>
 #define CTR_CT_RENDERED_QUADBLOCK_SLOTS CTR_NATIVE_RENDERED_LIST_SLOTS
 #else
 #define CTR_CT_RENDERED_QUADBLOCK_SLOTS 0x100uL
@@ -1118,7 +1119,7 @@ static int CustomTrackPolicy_BoxVerdict(const struct CustomTrackFeatureConfig *c
 //
 // Takes plain scalars rather than a struct SpawnType1 * so this header stays
 // engine-free. `count` is the table's own count field, `index` an ST1_* value,
-// and `entries` the pointer array that follows the count (ST1_GETPOINTERS at
+// and `entries` the PSX addresses that follow the count (ST1_GETPOINTERS at
 // the call site, which is address arithmetic and dereferences nothing). The
 // bounds test is evaluated BEFORE entries[index], so passing the array of a
 // short table is safe: this never reads past the count the caller reported.
@@ -1128,12 +1129,12 @@ static int CustomTrackPolicy_BoxVerdict(const struct CustomTrackFeatureConfig *c
 // `count >= 3` -- so a call site that swaps its threshold for this predicate
 // changes behaviour only on a table that is long enough AND has a hole in it,
 // which no retail level has.
-static int CustomTrackPolicy_St1EntryPresent(int count, int index, const void *const *entries)
+static int CustomTrackPolicy_St1EntryPresent(int count, int index, const uint32_t *entries)
 {
 	if (entries == NULL || index < 0 || index >= count)
 		return 0;
 
-	return (entries[index] != NULL) ? 1 : 0;
+	return (entries[index] != 0) ? 1 : 0;
 }
 
 // Is there room for one more primitive of `primSize` bytes before the frame's

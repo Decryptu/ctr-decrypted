@@ -2,6 +2,7 @@
 #define MACROS_H
 
 #include <ctr_types.h>
+#include <ctr_psx_ptr.h>
 
 #if defined(CTR_NATIVE)
 #include <stdbool.h>

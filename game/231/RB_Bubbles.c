@@ -44,8 +44,8 @@ void RB_Bubbles_RoosTubes(void)
 	}
 
 	// The first emitter is hidden by the level geometry; start at the second.
-	spawnType2 = &level1->ptrSpawnType2[1];
-	spawnPos = &spawnType2->coords.positions[1];
+	spawnType2 = &PSX_GET(level1->ptrSpawnType2)[1];
+	spawnPos = &PSX_GET(spawnType2->coords.positions)[1];
 	if (spawnPos == NULL)
 	{
 		return;
