@@ -2,9 +2,6 @@
 #include "ctr_scratchpad.h"
 #include "platform/native_memory.h"
 #include "platform/native_psx_space.h"
-#if defined(CTR_INTERNAL)
-#include "platform/native_checkpoint.h"
-#endif
 
 #include <common.h>
 #include <macros.h>
@@ -113,9 +110,6 @@ const struct PlatformMempackArena *Platform_InitMempackArena(void)
 {
 	memset(gPsxSpace, 0, CTR_NATIVE_MEMPACK_BUFFER_SIZE);
 	Platform_ConfigureMempackArena();
-#if defined(CTR_INTERNAL)
-	NativeCheckpoint_OnMempackArenaReset();
-#endif
 
 	return &s_mempackArena;
 }

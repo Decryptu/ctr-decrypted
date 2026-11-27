@@ -10,9 +10,5 @@ int NativeCheckpoint_Restore(const void *src, int srcSize);
 // A restore refused for another custom track, on the race HUD for a few seconds.
 void NativeCheckpoint_DrawCustomRefusal(void);
 #endif
-#if defined(CTR_INTERNAL)
-void NativeCheckpoint_OnMempackArenaReset(void);
-void NativeCheckpoint_RegisterPointerSlot(void *slot);
-#endif
 
 #endif

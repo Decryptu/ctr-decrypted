@@ -516,11 +516,9 @@ if(MINGW)
 endif()
 # Load the game at the same address every launch. Savestates and replays hold
 # raw host pointers into the game's static memory (the MEMPACK arena, sdata,
-# the primitive arenas, audio and GPU state, callbacks); the checkpoint code
-# relocates only a hand-kept subset of them, so with ASLR a state or replay
-# made in one launch crashed in the next (thousands of pointers stayed stale).
-# A fixed base makes every launch of the same build identical, as replays
-# require. MinGW turned ASLR on by default; modern GCC on Linux builds PIE.
+# the primitive arenas, audio and GPU state, callbacks) and restore them by
+# copying (platform/native_checkpoint.c), so they need every launch of a
+# build to put that memory at the same addresses, as replays also require. MinGW turned ASLR on by default; modern GCC on Linux builds PIE.
 if(MINGW)
     target_link_options(ctr_native PRIVATE -Wl,--disable-dynamicbase)
 elseif(UNIX AND NOT APPLE)
