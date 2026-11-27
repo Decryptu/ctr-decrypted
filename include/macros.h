@@ -34,7 +34,10 @@ CTR_STATIC_ASSERT(sizeof(u32) == 4);
 CTR_STATIC_ASSERT(sizeof(s32) == 4);
 CTR_STATIC_ASSERT(sizeof(u64) == 8);
 CTR_STATIC_ASSERT(sizeof(s64) == 8);
-CTR_STATIC_ASSERT(sizeof(void *) == 4);
+// A retail offset or size of a runtime struct (docs/64BIT.md). Native pointers
+// make those structs larger on a 64-bit host, so retail's layout is checked
+// where pointers are four bytes; disc-format structs use CTR_STATIC_ASSERT.
+#define CTR_RETAIL_LAYOUT_ASSERT(expr) CTR_STATIC_ASSERT((sizeof(void *) != 4) || (expr))
 
 #define SCREEN_HEIGHT                            216
 #define FPS                                      30

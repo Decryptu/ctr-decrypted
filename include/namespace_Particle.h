@@ -246,7 +246,7 @@ struct ParticleEmitter
 };
 
 CTR_STATIC_ASSERT(sizeof(struct ParticleAxis) == 8);
-CTR_STATIC_ASSERT(sizeof(struct ParticleOscillator) == 0x18);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct ParticleOscillator) == 0x18);
 CTR_STATIC_ASSERT(sizeof(struct ParticleOscillatorRandomRange) == 0x0c);
 CTR_STATIC_ASSERT(sizeof(struct ParticleOscillatorConfig) == 0x10);
 CTR_STATIC_ASSERT(offsetof(struct ParticleOscillatorConfig, flags) == 0x0);
@@ -257,18 +257,18 @@ CTR_STATIC_ASSERT(offsetof(struct ParticleOscillatorConfig, range.scale) == 0x8)
 CTR_STATIC_ASSERT(offsetof(struct ParticleOscillatorConfig, range.offset) == 0xa);
 CTR_STATIC_ASSERT(offsetof(struct ParticleOscillatorConfig, range.min) == 0xc);
 CTR_STATIC_ASSERT(offsetof(struct ParticleOscillatorConfig, range.max) == 0xe);
-CTR_STATIC_ASSERT(sizeof(struct Particle) == 0x7c);
-CTR_STATIC_ASSERT(offsetof(struct Particle, flagsAxis) == 0x14);
-CTR_STATIC_ASSERT(offsetof(struct Particle, flagsOscillatorAxis) == 0x16);
-CTR_STATIC_ASSERT(offsetof(struct Particle, otIndexOffset) == 0x18);
-CTR_STATIC_ASSERT(offsetof(struct Particle, driverID) == 0x19);
-CTR_STATIC_ASSERT(offsetof(struct Particle, renderDepthLimit) == 0x1a);
-CTR_STATIC_ASSERT(sizeof(struct ParticleEmitter) == 0x24);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct Particle) == 0x7c);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Particle, flagsAxis) == 0x14);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Particle, flagsOscillatorAxis) == 0x16);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Particle, otIndexOffset) == 0x18);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Particle, driverID) == 0x19);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Particle, renderDepthLimit) == 0x1a);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct ParticleEmitter) == 0x24);
 CTR_STATIC_ASSERT(offsetof(struct ParticleEmitter, flags) == 0x0);
 CTR_STATIC_ASSERT(offsetof(struct ParticleEmitter, initOffset) == 0x2);
-CTR_STATIC_ASSERT(offsetof(struct ParticleEmitter, InitTypes) == 0x4);
-CTR_STATIC_ASSERT(offsetof(struct ParticleEmitter, tail) == 0x14);
-CTR_STATIC_ASSERT(offsetof(struct ParticleEmitter, tail.data) == 0x14);
-CTR_STATIC_ASSERT(offsetof(struct ParticleEmitter, tail.oscillator) == 0x14);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct ParticleEmitter, InitTypes) == 0x4);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct ParticleEmitter, tail) == 0x14);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct ParticleEmitter, tail.data) == 0x14);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct ParticleEmitter, tail.oscillator) == 0x14);
 
 #endif

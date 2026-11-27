@@ -59,14 +59,14 @@ struct Mempack
 };
 
 CTR_STATIC_ASSERT(OFFSETOF(struct Mempack, packSize) == 0x0);
-CTR_STATIC_ASSERT(OFFSETOF(struct Mempack, start) == 0x4);
-CTR_STATIC_ASSERT(OFFSETOF(struct Mempack, lastFreeByte) == 0x8);
-CTR_STATIC_ASSERT(OFFSETOF(struct Mempack, endOfAllocator) == 0xc);
-CTR_STATIC_ASSERT(OFFSETOF(struct Mempack, endOfMemory) == 0x10);
-CTR_STATIC_ASSERT(OFFSETOF(struct Mempack, firstFreeByte) == 0x14);
-CTR_STATIC_ASSERT(OFFSETOF(struct Mempack, sizeOfPrevAllocation) == 0x18);
-CTR_STATIC_ASSERT(OFFSETOF(struct Mempack, numBookmarks) == 0x1c);
-CTR_STATIC_ASSERT(OFFSETOF(struct Mempack, bookmarks) == 0x20);
-CTR_STATIC_ASSERT(sizeof(struct Mempack) == 0x60);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF(struct Mempack, start) == 0x4);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF(struct Mempack, lastFreeByte) == 0x8);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF(struct Mempack, endOfAllocator) == 0xc);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF(struct Mempack, endOfMemory) == 0x10);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF(struct Mempack, firstFreeByte) == 0x14);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF(struct Mempack, sizeOfPrevAllocation) == 0x18);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF(struct Mempack, numBookmarks) == 0x1c);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF(struct Mempack, bookmarks) == 0x20);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct Mempack) == 0x60);
 
 #endif

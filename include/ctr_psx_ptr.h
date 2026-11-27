@@ -72,7 +72,9 @@ static inline int PsxSpace_IsAddr(u32 word)
 #endif
 
 // A zero-length array member carries the pointee type without taking space.
-#define PSX_PTR(T)    union { u32 addr; T *ptrType[0]; }
+// It would still give the union a host pointer's alignment (8 on 64-bit), so
+// the union is pinned to the four bytes of a PSX word.
+#define PSX_PTR(T)    union __attribute__((packed, aligned(4))) { u32 addr; T *ptrType[0]; }
 #define PSX_GET(p)    ((__typeof__((p).ptrType[0]))PsxSpace_ToHost((p).addr))
 #define PSX_SET(p, v) ((p).addr = PsxSpace_FromHost(1 ? (v) : (p).ptrType[0]))
 #define PSX_ADDR(p)   ((p).addr)

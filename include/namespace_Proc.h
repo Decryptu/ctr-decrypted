@@ -10,13 +10,16 @@ enum STACK_POOL
 	SMALL = 0x300
 };
 
-// Pool record capacities, including the intrusive list header.
-enum ThreadStackSize
-{
-	THREAD_SMALL_STACK_SIZE = 0x48,
-	THREAD_MEDIUM_STACK_SIZE = 0x88,
-	THREAD_LARGE_STACK_SIZE = 0x670,
-};
+// Pool record capacities, including the intrusive list header. Retail's
+// records hold 0x40, 0x80 and 0x668 bytes of object after an 8-byte header. A
+// runtime struct is at most twice its retail size on a 64-bit host (every
+// field at most doubles, and so does every offset; docs/64BIT.md), so a record
+// there holds twice retail's object after its own header. On a 32-bit host
+// these are retail's numbers.
+#define THREAD_STACK_SIZE(retailObjectBytes) ((int)sizeof(struct Item) + (retailObjectBytes) * (int)(sizeof(void *) / 4))
+#define THREAD_SMALL_STACK_SIZE              THREAD_STACK_SIZE(0x40)
+#define THREAD_MEDIUM_STACK_SIZE             THREAD_STACK_SIZE(0x80)
+#define THREAD_LARGE_STACK_SIZE              THREAD_STACK_SIZE(0x668)
 
 enum THREAD_RELATIVE
 {
@@ -199,18 +202,18 @@ struct DriverCollisionSearch
 
 CTR_STATIC_ASSERT(offsetof(struct DriverCollisionSearch, bucket) == 0);
 CTR_STATIC_ASSERT(offsetof(struct DriverCollisionSearch, hitDir) == sizeof(struct BucketSearchParams));
-CTR_STATIC_ASSERT(offsetof(struct Thread, driverHitRadiusSquared) == 0x38);
-CTR_STATIC_ASSERT(offsetof(struct Thread, driverCollisionReserved_0x3c) == 0x3c);
-CTR_STATIC_ASSERT(offsetof(struct Thread, driverCollisionReserved_0x3e) == 0x3e);
-CTR_STATIC_ASSERT(offsetof(struct Thread, driverCollisionReserved_0x40) == 0x40);
-CTR_STATIC_ASSERT(offsetof(struct Thread, driverHitRadius) == 0x42);
-CTR_STATIC_ASSERT(offsetof(struct Thread, modelIndex) == 0x44);
-CTR_STATIC_ASSERT(sizeof(struct Thread) == 0x48);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Thread, driverHitRadiusSquared) == 0x38);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Thread, driverCollisionReserved_0x3c) == 0x3c);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Thread, driverCollisionReserved_0x3e) == 0x3e);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Thread, driverCollisionReserved_0x40) == 0x40);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Thread, driverHitRadius) == 0x42);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Thread, modelIndex) == 0x44);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct Thread) == 0x48);
 CTR_STATIC_ASSERT(offsetof(struct BucketSearchParams, th) == 0x8);
-CTR_STATIC_ASSERT(offsetof(struct BucketSearchParams, bestDistSq) == 0xc);
-CTR_STATIC_ASSERT(offsetof(struct BucketSearchParams, dist) == 0x10);
-CTR_STATIC_ASSERT(sizeof(struct BucketSearchParams) == 0x18);
-CTR_STATIC_ASSERT(sizeof(struct DriverCollisionSearch) == 0x20);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct BucketSearchParams, bestDistSq) == 0xc);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct BucketSearchParams, dist) == 0x10);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct BucketSearchParams) == 0x18);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct DriverCollisionSearch) == 0x20);
 
 // These are used to recursively
 // search threads with unidirectional
@@ -243,6 +246,6 @@ struct ThreadBucket
 	// size is 0x14
 };
 
-CTR_STATIC_ASSERT(sizeof(struct ThreadBucket) == 0x14);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct ThreadBucket) == 0x14);
 
 #endif

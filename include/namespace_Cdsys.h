@@ -105,6 +105,6 @@ struct AudioMeta
 	char *name;
 };
 
-CTR_STATIC_ASSERT(sizeof(struct AudioMeta) == 8);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct AudioMeta) == 8);
 
 #endif

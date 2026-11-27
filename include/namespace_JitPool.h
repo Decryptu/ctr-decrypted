@@ -23,11 +23,11 @@ struct JitPool
 };
 
 CTR_STATIC_ASSERT(OFFSETOF(struct JitPool, free) == 0x0);
-CTR_STATIC_ASSERT(OFFSETOF(struct JitPool, taken) == 0xc);
-CTR_STATIC_ASSERT(OFFSETOF(struct JitPool, maxItems) == 0x18);
-CTR_STATIC_ASSERT(OFFSETOF(struct JitPool, itemSize) == 0x1c);
-CTR_STATIC_ASSERT(OFFSETOF(struct JitPool, poolSize) == 0x20);
-CTR_STATIC_ASSERT(OFFSETOF(struct JitPool, ptrPoolData) == 0x24);
-CTR_STATIC_ASSERT(sizeof(struct JitPool) == 0x28);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF(struct JitPool, taken) == 0xc);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF(struct JitPool, maxItems) == 0x18);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF(struct JitPool, itemSize) == 0x1c);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF(struct JitPool, poolSize) == 0x20);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF(struct JitPool, ptrPoolData) == 0x24);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct JitPool) == 0x28);
 
 #endif

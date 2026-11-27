@@ -5,9 +5,9 @@
 
 #define UI_VS_WAIT_RDATA_INITIALIZER {{{0x55, 0x35}, {0xaa, 0x35}, {0x55, 0x43}, {0xaa, 0x43}}, "p%d:%2.02d"}
 
-CTR_STATIC_ASSERT(offsetof(struct rData, uiVsWait) == 0x16ec);
-CTR_STATIC_ASSERT(offsetof(struct rData, uiVsQuipDispatchStorage) == 0x1718);
-CTR_STATIC_ASSERT(offsetof(struct rData, s_oxide) == 0x1740);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct rData, uiVsWait) == 0x16ec);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct rData, uiVsQuipDispatchStorage) == 0x1718);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct rData, s_oxide) == 0x1740);
 
 struct RdataModelStrings
 {
@@ -61,7 +61,7 @@ struct RdataVehicleStrings
 	CTR_STATIC_ASSERT(offsetof(struct RdataMisc##cluster, field) == offsetof(struct rData, field) - RdataMisc##cluster##Offset); \
 	CTR_STATIC_ASSERT(sizeof(text) <= sizeof(((struct rData *)0)->field));
 #define RDATA_MISC_END(cluster, nextField) \
-	CTR_STATIC_ASSERT(sizeof(struct RdataMisc##cluster) == offsetof(struct rData, nextField) - RdataMisc##cluster##Offset);
+	CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct RdataMisc##cluster) == offsetof(struct rData, nextField) - RdataMisc##cluster##Offset);
 #include "zGlobal_RDATA_misc.inc"
 #undef RDATA_MISC_BEGIN
 #undef RDATA_MISC_STRING

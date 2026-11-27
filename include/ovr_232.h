@@ -87,7 +87,7 @@ struct BossGarageDoor
 	// 0x14 bytes large
 };
 
-CTR_STATIC_ASSERT(sizeof(struct BossGarageDoor) == 0x14);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct BossGarageDoor) == 0x14);
 
 #if 0
 struct AdvPause {
@@ -153,7 +153,7 @@ struct WoodDoor
 	// 0x38 bytes large
 };
 
-CTR_STATIC_ASSERT(sizeof(struct WoodDoor) == 0x38);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct WoodDoor) == 0x38);
 
 enum WarpPadInstanceSet
 {
@@ -294,14 +294,14 @@ struct PauseObject
 	// 0xe4 -- size
 };
 
-CTR_STATIC_ASSERT(sizeof(struct AHPauseMember) == 0x10);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct AHPauseMember) == 0x10);
 CTR_STATIC_ASSERT(offsetof(struct AHPauseMember, iconIndex) == 0x0);
 CTR_STATIC_ASSERT(offsetof(struct AHPauseMember, unlockFlags) == 0x2);
 CTR_STATIC_ASSERT(offsetof(struct AHPauseMember, rot) == 0x4);
-CTR_STATIC_ASSERT(offsetof(struct AHPauseMember, inst) == 0xc);
-CTR_STATIC_ASSERT(sizeof(struct PauseObject) == 0xe4);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct AHPauseMember, inst) == 0xc);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct PauseObject) == 0xe4);
 CTR_STATIC_ASSERT(offsetof(struct PauseObject, members) == 0x0);
-CTR_STATIC_ASSERT(offsetof(struct PauseObject, t) == 0xe0);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct PauseObject, t) == 0xe0);
 
 struct AHPausePage
 {
@@ -452,7 +452,7 @@ struct SaveObj
 };
 
 CTR_STATIC_ASSERT(sizeof(AHSaveObjFlagSet) == 0x2);
-CTR_STATIC_ASSERT(sizeof(struct SaveObj) == 0xc);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct SaveObj) == 0xc);
 
 enum AHMaskHintOffsetSlot
 {
@@ -733,19 +733,19 @@ struct OverlayDATA_232
 
 #define OFFSETOF_D232(ELEMENT) ((u32)0x800b4ddc + OFFSETOF(struct OverlayDATA_232, ELEMENT))
 
-CTR_STATIC_ASSERT(OFFSETOF_D232(saveObjCameraOffset) == 0x800b4ea4);
-CTR_STATIC_ASSERT(OFFSETOF_D232(loadSavePrimOffset) == 0x800b4eac);
-CTR_STATIC_ASSERT(OFFSETOF_D232(hubArrowPrimOffset) == 0x800b4ec0);
-CTR_STATIC_ASSERT(OFFSETOF_D232(hubArrowInnerOffset) == 0x800b4fb0);
-CTR_STATIC_ASSERT(OFFSETOF_D232(hubArrowOuterOffset) == 0x800b4fbc);
-CTR_STATIC_ASSERT(OFFSETOF_D232(loadSavePos) == 0x800b4fcc);
-CTR_STATIC_ASSERT(OFFSETOF_D232(hubArrowPos) == 0x800b4fec);
-CTR_STATIC_ASSERT(OFFSETOF_D232(fiveArrowPos) == 0x800b51b8);
-CTR_STATIC_ASSERT(OFFSETOF_D232(maskHintOffsets) == 0x800b5200);
-CTR_STATIC_ASSERT(OFFSETOF_D232(maskWarppadDelayFrames) == 0x800b5570);
-CTR_STATIC_ASSERT(OFFSETOF_D232(maskWarppadBoolInterrupt) == 0x800b5574);
-CTR_STATIC_ASSERT(OFFSETOF_D232(ptrPauseObject) == 0x800b5578);
-CTR_STATIC_ASSERT(OFFSETOF_D232(pauseObject) == 0x800b557c);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF_D232(saveObjCameraOffset) == 0x800b4ea4);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF_D232(loadSavePrimOffset) == 0x800b4eac);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF_D232(hubArrowPrimOffset) == 0x800b4ec0);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF_D232(hubArrowInnerOffset) == 0x800b4fb0);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF_D232(hubArrowOuterOffset) == 0x800b4fbc);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF_D232(loadSavePos) == 0x800b4fcc);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF_D232(hubArrowPos) == 0x800b4fec);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF_D232(fiveArrowPos) == 0x800b51b8);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF_D232(maskHintOffsets) == 0x800b5200);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF_D232(maskWarppadDelayFrames) == 0x800b5570);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF_D232(maskWarppadBoolInterrupt) == 0x800b5574);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF_D232(ptrPauseObject) == 0x800b5578);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF_D232(pauseObject) == 0x800b557c);
 
 extern struct OverlayRDATA_232 R232;
 extern struct OverlayDATA_232 D232;

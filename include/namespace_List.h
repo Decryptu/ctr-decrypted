@@ -24,11 +24,11 @@ struct LinkedList
 };
 
 CTR_STATIC_ASSERT(OFFSETOF(struct Item, next) == 0x0);
-CTR_STATIC_ASSERT(OFFSETOF(struct Item, prev) == 0x4);
-CTR_STATIC_ASSERT(sizeof(struct Item) == 0x8);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF(struct Item, prev) == 0x4);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct Item) == 0x8);
 CTR_STATIC_ASSERT(OFFSETOF(struct LinkedList, first) == 0x0);
-CTR_STATIC_ASSERT(OFFSETOF(struct LinkedList, last) == 0x4);
-CTR_STATIC_ASSERT(OFFSETOF(struct LinkedList, count) == 0x8);
-CTR_STATIC_ASSERT(sizeof(struct LinkedList) == 0xC);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF(struct LinkedList, last) == 0x4);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF(struct LinkedList, count) == 0x8);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct LinkedList) == 0xC);
 
 #endif

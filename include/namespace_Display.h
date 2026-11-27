@@ -92,20 +92,20 @@ struct DB
 	struct OTMem otMem;
 };
 
-CTR_STATIC_ASSERT(sizeof(struct PrimMem) == 0x1C);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct PrimMem) == 0x1C);
 CTR_STATIC_ASSERT(offsetof(struct PrimMem, capacityBytes) == 0x0);
-CTR_STATIC_ASSERT(offsetof(struct PrimMem, start) == 0x4);
-CTR_STATIC_ASSERT(offsetof(struct PrimMem, end) == 0x8);
-CTR_STATIC_ASSERT(offsetof(struct PrimMem, cursor) == 0xC);
-CTR_STATIC_ASSERT(offsetof(struct PrimMem, guardEnd) == 0x10);
-CTR_STATIC_ASSERT(offsetof(struct PrimMem, primitiveCount) == 0x14);
-CTR_STATIC_ASSERT(offsetof(struct PrimMem, allocationStart) == 0x18);
-CTR_STATIC_ASSERT(sizeof(struct OTMem) == 0x14);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct PrimMem, start) == 0x4);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct PrimMem, end) == 0x8);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct PrimMem, cursor) == 0xC);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct PrimMem, guardEnd) == 0x10);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct PrimMem, primitiveCount) == 0x14);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct PrimMem, allocationStart) == 0x18);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct OTMem) == 0x14);
 CTR_STATIC_ASSERT(offsetof(struct OTMem, capacityBytes) == 0x0);
-CTR_STATIC_ASSERT(offsetof(struct OTMem, start) == 0x4);
-CTR_STATIC_ASSERT(offsetof(struct OTMem, end) == 0x8);
-CTR_STATIC_ASSERT(offsetof(struct OTMem, cursor) == 0xC);
-CTR_STATIC_ASSERT(offsetof(struct OTMem, uiOT) == 0x10);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct OTMem, start) == 0x4);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct OTMem, end) == 0x8);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct OTMem, cursor) == 0xC);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct OTMem, uiOT) == 0x10);
 CTR_STATIC_ASSERT(sizeof(struct DisplayBlurFlatPacket) == 0x28);
 CTR_STATIC_ASSERT(offsetof(struct DisplayBlurFlatPacket, tag) == 0x00);
 CTR_STATIC_ASSERT(offsetof(struct DisplayBlurFlatPacket, drawModeStart) == 0x04);
@@ -129,8 +129,8 @@ CTR_STATIC_ASSERT(offsetof(struct DisplayBlurTile, dstH) == 0x0E);
 CTR_STATIC_ASSERT(offsetof(struct DB, drawEnv) == 0x0);
 CTR_STATIC_ASSERT(offsetof(struct DB, dispEnv) == 0x5C);
 CTR_STATIC_ASSERT(offsetof(struct DB, blurCameraMask) == 0x70);
-CTR_STATIC_ASSERT(offsetof(struct DB, primMem) == 0x74);
-CTR_STATIC_ASSERT(offsetof(struct DB, otMem) == 0x90);
-CTR_STATIC_ASSERT(sizeof(struct DB) == 0xA4);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DB, primMem) == 0x74);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DB, otMem) == 0x90);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct DB) == 0xA4);
 
 #endif

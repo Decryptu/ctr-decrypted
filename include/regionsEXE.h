@@ -1368,6 +1368,13 @@ struct RaceWheelConfigOption
 	s16 inputValue;
 };
 
+// A character's voice lines for one event: the sample IDs and how many.
+struct VoiceSet
+{
+	void *ptr;
+	int num;
+};
+
 struct Data
 {
 	// 800809a0
@@ -1557,16 +1564,12 @@ struct Data
 	{
 		s16 index[0x16]; // contains 0x13 numbers
 
-		struct
-		{
-			void *ptr;
-			int num;
-		} voiceSet[0xb];
+		struct VoiceSet voiceSet[0xb];
 
 	} voiceData[0x10];
 
 	// 8008389c
-	int voiceSetPtr[0x10];
+	struct VoiceSet *voiceSetPtr[0x10];
 
 	// 800838dc
 	u8 voiceID[0x18];
@@ -2276,10 +2279,10 @@ struct Data
 CTR_STATIC_ASSERT(offsetof(struct Data, podiumModel_firstPlace) == offsetof(struct Data, driverModelExtras) + sizeof(((struct Data *)0)->driverModelExtras));
 CTR_STATIC_ASSERT(offsetof(struct Data, currSlot) == offsetof(struct Data, driverModelExtras) + 11 * sizeof(void *));
 CTR_STATIC_ASSERT(sizeof(((struct Data *)0)->characterIDs_2P_AIs) == 0x1c);
-CTR_STATIC_ASSERT(offsetof(struct Data, bakedGteMath) == 0x7554);
-CTR_STATIC_ASSERT(offsetof(struct Data, endRaceQuips) == 0x5b3c);
-CTR_STATIC_ASSERT(offsetof(struct Data, advCupStringIndex) == 0x638c);
-CTR_STATIC_ASSERT(sizeof(((struct Data *)0)->bakedGteMath) == BAKED_GTE_MATRIX_COUNT * 8);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Data, bakedGteMath) == 0x7554);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Data, endRaceQuips) == 0x5b3c);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Data, advCupStringIndex) == 0x638c);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(((struct Data *)0)->bakedGteMath) == BAKED_GTE_MATRIX_COUNT * 8);
 
 // NOTE(aalhendi): Grouping the resident block keeps its far-page base and
 // field offsets shared by native and PSX instead of duplicating raw addresses.
@@ -2313,9 +2316,9 @@ struct MemcardState
 	struct GhostProfile ghostProfile_current;
 };
 
-CTR_STATIC_ASSERT(sizeof(struct MemcardState) == 0x1d0);
-CTR_STATIC_ASSERT(offsetof(struct MemcardState, numGhostProfilesSaved) == 0x2c);
-CTR_STATIC_ASSERT(offsetof(struct MemcardState, ghostProfile_memcard) == 0x30);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct MemcardState) == 0x1d0);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct MemcardState, numGhostProfilesSaved) == 0x2c);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct MemcardState, ghostProfile_memcard) == 0x30);
 
 // 0x8008CF6C
 struct sData
@@ -4097,15 +4100,15 @@ register struct sData *sdata asm("gp");
 struct sData *sdata = &sdata_static;
 #endif
 
-CTR_STATIC_ASSERT(sizeof(struct MetaDataCHAR) == 0x10);
-CTR_STATIC_ASSERT(offsetof(struct MetaDataCHAR, iconID) == 0x8);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct MetaDataCHAR) == 0x10);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct MetaDataCHAR, iconID) == 0x8);
 CTR_STATIC_ASSERT(sizeof(((struct MetaDataCHAR *)0)->iconID) == 0x2);
-CTR_STATIC_ASSERT(offsetof(struct MetaDataCHAR, engineID) == 0xc);
-CTR_STATIC_ASSERT(offsetof(struct sData, multiplayerWumpaHudData) == 0x5e8);
-CTR_STATIC_ASSERT(offsetof(struct sData, Battle_EndOfRace) == 0x5f8);
-CTR_STATIC_ASSERT(offsetof(struct sData, numIconsEOR) == 0x604);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct MetaDataCHAR, engineID) == 0xc);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct sData, multiplayerWumpaHudData) == 0x5e8);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct sData, Battle_EndOfRace) == 0x5f8);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct sData, numIconsEOR) == 0x604);
 CTR_STATIC_ASSERT(sizeof(((struct sData *)0)->numIconsEOR) == 0x2);
-CTR_STATIC_ASSERT(offsetof(struct sData, s_additionInt) == 0x608);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct sData, s_additionInt) == 0x608);
 
 // OVR1
 // 8009f6fc - 800a0cb8
@@ -4122,33 +4125,33 @@ CTR_STATIC_ASSERT(offsetof(struct sData, s_additionInt) == 0x608);
 // SP
 // 801ff800 - 80200000
 
-CTR_STATIC_ASSERT(sizeof(struct Terrain) == 0x40);
-CTR_STATIC_ASSERT(offsetof(struct Terrain, speedMultiplier) == 0x8);
-CTR_STATIC_ASSERT(offsetof(struct Terrain, slowUntilSpeed) == 0xc);
-CTR_STATIC_ASSERT(offsetof(struct Terrain, counterSteerRatio) == 0x10);
-CTR_STATIC_ASSERT(offsetof(struct Terrain, turnLeanScale) == 0x14);
-CTR_STATIC_ASSERT(offsetof(struct Terrain, groundFrictionScale) == 0x20);
-CTR_STATIC_ASSERT(offsetof(struct Terrain, turnAngleScale) == 0x24);
-CTR_STATIC_ASSERT(offsetof(struct Terrain, turnResponseScale) == 0x28);
-CTR_STATIC_ASSERT(offsetof(struct Terrain, skidSound) == 0x30);
-CTR_STATIC_ASSERT(offsetof(struct Terrain, bot.fields.speedFlags) == 0x36);
-CTR_STATIC_ASSERT(offsetof(struct Terrain, bot.fields.targetSpeedScale) == 0x38);
-CTR_STATIC_ASSERT(offsetof(struct Terrain, bot.fields.accelerationScale) == 0x3a);
-CTR_STATIC_ASSERT(offsetof(struct Terrain, botFrictionScale) == 0x3c);
-CTR_STATIC_ASSERT(offsetof(struct Terrain, padding_0x3e) == 0x3e);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct Terrain) == 0x40);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Terrain, speedMultiplier) == 0x8);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Terrain, slowUntilSpeed) == 0xc);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Terrain, counterSteerRatio) == 0x10);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Terrain, turnLeanScale) == 0x14);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Terrain, groundFrictionScale) == 0x20);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Terrain, turnAngleScale) == 0x24);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Terrain, turnResponseScale) == 0x28);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Terrain, skidSound) == 0x30);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Terrain, bot.fields.speedFlags) == 0x36);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Terrain, bot.fields.targetSpeedScale) == 0x38);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Terrain, bot.fields.accelerationScale) == 0x3a);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Terrain, botFrictionScale) == 0x3c);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Terrain, padding_0x3e) == 0x3e);
 CTR_STATIC_ASSERT(sizeof(((struct Terrain *)0)->bot.fields.speedFlags) == 0x2);
 CTR_STATIC_ASSERT(sizeof(((struct Terrain *)0)->bot.fields.targetSpeedScale) == 0x2);
 CTR_STATIC_ASSERT(sizeof(((struct Terrain *)0)->bot.fields.accelerationScale) == 0x2);
 CTR_STATIC_ASSERT(sizeof(((struct Terrain *)0)->botFrictionScale) == 0x2);
-CTR_STATIC_ASSERT(sizeof(struct Scrub) == 0x10);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct Scrub) == 0x10);
 CTR_STATIC_ASSERT(sizeof(ScrubFlags) == 0x4);
 CTR_STATIC_ASSERT(sizeof(TerrainFlags) == 0x4);
 CTR_STATIC_ASSERT(sizeof(TerrainBotFlags) == 0x2);
-CTR_STATIC_ASSERT(offsetof(struct Scrub, flags) == 0x4);
-CTR_STATIC_ASSERT(offsetof(struct Scrub, speedLimit) == 0x8);
-CTR_STATIC_ASSERT(offsetof(struct Scrub, impactAngle) == 0xC);
-CTR_STATIC_ASSERT(sizeof(struct MetaDataLEV) == 0x18);
-CTR_STATIC_ASSERT(sizeof(struct MetaDataMODEL) == 0xC);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Scrub, flags) == 0x4);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Scrub, speedLimit) == 0x8);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Scrub, impactAngle) == 0xC);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct MetaDataLEV) == 0x18);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct MetaDataMODEL) == 0xC);
 
 #define OFFSETOF_SDATA(ELEMENT)           ((u32)0x8008cf6c + OFFSETOF(struct sData, ELEMENT))
 #define OFFSETOF_DATA(ELEMENT)            ((u32)0x800809a0 + OFFSETOF(struct Data, ELEMENT))
@@ -4168,27 +4171,27 @@ CTR_STATIC_ASSERT(sizeof(struct MetaDataMODEL) == 0xC);
 #define CTR_MEMCARD_GP_ICON_SIZE          2412
 #define CTR_MEMCARD_ICON_HAND_DATA_OFFSET 0x4e00
 
-CTR_STATIC_ASSERT(offsetof(struct sData, memcard_stage) == CTR_MEMCARD_GP_STAGE);
-CTR_STATIC_ASSERT(offsetof(struct sData, memcard_ptrStart) == CTR_MEMCARD_GP_BUFFER);
-CTR_STATIC_ASSERT(offsetof(struct sData, memcard_remainingAttempts) == CTR_MEMCARD_GP_RETRIES);
-CTR_STATIC_ASSERT(offsetof(struct sData, memcardFileSize) == CTR_MEMCARD_GP_FILE_SIZE);
-CTR_STATIC_ASSERT(offsetof(struct sData, memoryCard_SizeRemaining) == CTR_MEMCARD_GP_FREE_BYTES);
-CTR_STATIC_ASSERT(offsetof(struct sData, crc16_checkpoint_byteIndex) == CTR_MEMCARD_GP_CHECKSUM_INDEX);
-CTR_STATIC_ASSERT(offsetof(struct sData, memcardSlot) == CTR_MEMCARD_GP_SLOT);
-CTR_STATIC_ASSERT(offsetof(struct sData, memcardStatusFlags) == CTR_MEMCARD_GP_STATUS_FLAGS);
-CTR_STATIC_ASSERT(offsetof(struct sData, crc16_checkpoint_status) == CTR_MEMCARD_GP_CHECKSUM_STATUS);
-CTR_STATIC_ASSERT(offsetof(struct sData, memcardIconSize) == CTR_MEMCARD_GP_ICON_SIZE);
-CTR_STATIC_ASSERT(offsetof(struct Data, memcardIcon_PsyqHand) == CTR_MEMCARD_ICON_HAND_DATA_OFFSET);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct sData, memcard_stage) == CTR_MEMCARD_GP_STAGE);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct sData, memcard_ptrStart) == CTR_MEMCARD_GP_BUFFER);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct sData, memcard_remainingAttempts) == CTR_MEMCARD_GP_RETRIES);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct sData, memcardFileSize) == CTR_MEMCARD_GP_FILE_SIZE);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct sData, memoryCard_SizeRemaining) == CTR_MEMCARD_GP_FREE_BYTES);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct sData, crc16_checkpoint_byteIndex) == CTR_MEMCARD_GP_CHECKSUM_INDEX);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct sData, memcardSlot) == CTR_MEMCARD_GP_SLOT);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct sData, memcardStatusFlags) == CTR_MEMCARD_GP_STATUS_FLAGS);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct sData, crc16_checkpoint_status) == CTR_MEMCARD_GP_CHECKSUM_STATUS);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct sData, memcardIconSize) == CTR_MEMCARD_GP_ICON_SIZE);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Data, memcardIcon_PsyqHand) == CTR_MEMCARD_ICON_HAND_DATA_OFFSET);
 
-CTR_STATIC_ASSERT(OFFSETOF_SDATA(memcard) == 0x8009aa30);
-CTR_STATIC_ASSERT(OFFSETOF_DATA(rowsQuit) == 0x800841BC);
-CTR_STATIC_ASSERT(OFFSETOF_DATA(menuQuit) == 0x800841D0);
-CTR_STATIC_ASSERT(OFFSETOF_DATA(playerIconAdvMap) == 0x80086418);
-CTR_STATIC_ASSERT(OFFSETOF_SDATA(AkuAkuHintState) == 0x8008D874);
-CTR_STATIC_ASSERT(OFFSETOF_SDATA(lngStrings) == 0x8008D878);
-CTR_STATIC_ASSERT(OFFSETOF_SDATA(botCrashNavRot) == 0x8008D9EC);
-CTR_STATIC_ASSERT(OFFSETOF_SDATA(vehicleCollisionImpactStrength) == 0x8008D9F4);
-CTR_STATIC_ASSERT(OFFSETOF_SDATA(talkMaskXASamplePeak) == 0x8008D9F8);
-CTR_STATIC_ASSERT(OFFSETOF_SDATA(talkMaskMaxMouthFrame) == 0x8008D9FC);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF_SDATA(memcard) == 0x8009aa30);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF_DATA(rowsQuit) == 0x800841BC);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF_DATA(menuQuit) == 0x800841D0);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF_DATA(playerIconAdvMap) == 0x80086418);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF_SDATA(AkuAkuHintState) == 0x8008D874);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF_SDATA(lngStrings) == 0x8008D878);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF_SDATA(botCrashNavRot) == 0x8008D9EC);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF_SDATA(vehicleCollisionImpactStrength) == 0x8008D9F4);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF_SDATA(talkMaskXASamplePeak) == 0x8008D9F8);
+CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF_SDATA(talkMaskMaxMouthFrame) == 0x8008D9FC);
 
 #endif

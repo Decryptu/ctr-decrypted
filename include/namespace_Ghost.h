@@ -57,7 +57,7 @@ struct GhostPacket
 	// 0x10 -- size of packet
 };
 
-CTR_STATIC_ASSERT(sizeof(struct GhostPacket) == 0x10);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct GhostPacket) == 0x10);
 
 struct GhostTape
 {

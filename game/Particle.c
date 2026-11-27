@@ -504,8 +504,8 @@ struct ParticleRenderListScratch
 	s32 depth;
 };
 
-CTR_STATIC_ASSERT(offsetof(struct ParticleRenderListScratch, ot) == 0x20);
-CTR_STATIC_ASSERT(offsetof(struct ParticleRenderListScratch, depth) == 0x30);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct ParticleRenderListScratch, ot) == 0x20);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct ParticleRenderListScratch, depth) == 0x30);
 
 struct ParticleSpecialLineBody
 {

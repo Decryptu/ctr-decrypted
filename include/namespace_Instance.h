@@ -543,28 +543,28 @@ struct InstDrawPerPlayer
 };
 
 CTR_STATIC_ASSERT(offsetof(struct InstDrawPerPlayer, pushBuffer) == 0x0);
-CTR_STATIC_ASSERT(offsetof(struct InstDrawPerPlayer, mvp) == 0x4);
-CTR_STATIC_ASSERT(offsetof(struct InstDrawPerPlayer, mvp) + CTR_OFFSET_OF_ARRAY(MATRIX, t, 0) == 0x18);
-CTR_STATIC_ASSERT(offsetof(struct InstDrawPerPlayer, mvp) + CTR_OFFSET_OF_ARRAY(MATRIX, t, 1) == 0x1c);
-CTR_STATIC_ASSERT(offsetof(struct InstDrawPerPlayer, mvp) + CTR_OFFSET_OF_ARRAY(MATRIX, t, 2) == 0x20);
-CTR_STATIC_ASSERT(offsetof(struct InstDrawPerPlayer, m3x3) == 0x24);
-CTR_STATIC_ASSERT(offsetof(struct InstDrawPerPlayer, instFlags) == 0x44);
-CTR_STATIC_ASSERT(offsetof(struct InstDrawPerPlayer, alphaScale) == 0x48);
-CTR_STATIC_ASSERT(offsetof(struct InstDrawPerPlayer, splitLine) == 0x4a);
-CTR_STATIC_ASSERT(offsetof(struct InstDrawPerPlayer, ptrCurrFrame) == 0x4c);
-CTR_STATIC_ASSERT(offsetof(struct InstDrawPerPlayer, ptrNextFrame) == 0x50);
-CTR_STATIC_ASSERT(offsetof(struct InstDrawPerPlayer, ptrCommandList) == 0x54);
-CTR_STATIC_ASSERT(offsetof(struct InstDrawPerPlayer, ptrTexLayout) == 0x58);
-CTR_STATIC_ASSERT(offsetof(struct InstDrawPerPlayer, ptrColorLayout) == 0x5c);
-CTR_STATIC_ASSERT(offsetof(struct InstDrawPerPlayer, ptrDeltaArray) == 0x60);
-CTR_STATIC_ASSERT(offsetof(struct InstDrawPerPlayer, lodIndex) == 0x64);
-CTR_STATIC_ASSERT(offsetof(struct InstDrawPerPlayer, depthOffset) == 0x68);
-CTR_STATIC_ASSERT(offsetof(struct InstDrawPerPlayer, mh) == 0x6c);
-CTR_STATIC_ASSERT(offsetof(struct InstDrawPerPlayer, otRangeNormal) == 0x70);
-CTR_STATIC_ASSERT(offsetof(struct InstDrawPerPlayer, otRangeSecondary) == 0x74);
-CTR_STATIC_ASSERT(offsetof(struct InstDrawPerPlayer, unkEC) == 0x78);
-CTR_STATIC_ASSERT(offsetof(struct InstDrawPerPlayer, unkF0) == 0x7c);
-CTR_STATIC_ASSERT(sizeof(struct InstDrawPerPlayer) == 0x88);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct InstDrawPerPlayer, mvp) == 0x4);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct InstDrawPerPlayer, mvp) + CTR_OFFSET_OF_ARRAY(MATRIX, t, 0) == 0x18);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct InstDrawPerPlayer, mvp) + CTR_OFFSET_OF_ARRAY(MATRIX, t, 1) == 0x1c);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct InstDrawPerPlayer, mvp) + CTR_OFFSET_OF_ARRAY(MATRIX, t, 2) == 0x20);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct InstDrawPerPlayer, m3x3) == 0x24);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct InstDrawPerPlayer, instFlags) == 0x44);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct InstDrawPerPlayer, alphaScale) == 0x48);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct InstDrawPerPlayer, splitLine) == 0x4a);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct InstDrawPerPlayer, ptrCurrFrame) == 0x4c);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct InstDrawPerPlayer, ptrNextFrame) == 0x50);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct InstDrawPerPlayer, ptrCommandList) == 0x54);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct InstDrawPerPlayer, ptrTexLayout) == 0x58);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct InstDrawPerPlayer, ptrColorLayout) == 0x5c);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct InstDrawPerPlayer, ptrDeltaArray) == 0x60);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct InstDrawPerPlayer, lodIndex) == 0x64);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct InstDrawPerPlayer, depthOffset) == 0x68);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct InstDrawPerPlayer, mh) == 0x6c);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct InstDrawPerPlayer, otRangeNormal) == 0x70);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct InstDrawPerPlayer, otRangeSecondary) == 0x74);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct InstDrawPerPlayer, unkEC) == 0x78);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct InstDrawPerPlayer, unkF0) == 0x7c);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct InstDrawPerPlayer) == 0x88);
 
 // draws anything with a model
 struct Instance
@@ -659,31 +659,31 @@ struct Instance
 };
 
 CTR_STATIC_ASSERT(offsetof(struct Instance, next) == 0x0);
-CTR_STATIC_ASSERT(offsetof(struct Instance, prev) == 0x4);
-CTR_STATIC_ASSERT(offsetof(struct Instance, model) == 0x18);
-CTR_STATIC_ASSERT(offsetof(struct Instance, scale.x) == 0x1c);
-CTR_STATIC_ASSERT(offsetof(struct Instance, scale.y) == 0x1e);
-CTR_STATIC_ASSERT(offsetof(struct Instance, scale.z) == 0x20);
-CTR_STATIC_ASSERT(offsetof(struct Instance, alphaScale) == 0x22);
-CTR_STATIC_ASSERT(offsetof(struct Instance, flags) == 0x28);
-CTR_STATIC_ASSERT(offsetof(struct Instance, matrix) == 0x30);
-CTR_STATIC_ASSERT(offsetof(struct Instance, matrix) + CTR_OFFSET_OF_ARRAY(MATRIX, t, 0) == 0x44);
-CTR_STATIC_ASSERT(offsetof(struct Instance, matrix) + CTR_OFFSET_OF_ARRAY(MATRIX, t, 1) == 0x48);
-CTR_STATIC_ASSERT(offsetof(struct Instance, matrix) + CTR_OFFSET_OF_ARRAY(MATRIX, t, 2) == 0x4c);
-CTR_STATIC_ASSERT(offsetof(struct Instance, depthBiasNormal) == 0x50);
-CTR_STATIC_ASSERT(offsetof(struct Instance, depthBiasSecondary) == 0x51);
-CTR_STATIC_ASSERT(offsetof(struct Instance, animIndex) == 0x52);
-CTR_STATIC_ASSERT(offsetof(struct Instance, specLightX) == 0x53);
-CTR_STATIC_ASSERT(offsetof(struct Instance, animFrame) == 0x54);
-CTR_STATIC_ASSERT(offsetof(struct Instance, vertSplit) == 0x56);
-CTR_STATIC_ASSERT(offsetof(struct Instance, funcPtr) == 0x5c);
-CTR_STATIC_ASSERT(CTR_OFFSET_OF_ARRAY(struct Instance, funcPtr, 0) == 0x5c);
-CTR_STATIC_ASSERT(CTR_OFFSET_OF_ARRAY(struct Instance, funcPtr, 1) == 0x60);
-CTR_STATIC_ASSERT(CTR_OFFSET_OF_ARRAY(struct Instance, funcPtr, 2) == 0x64);
-CTR_STATIC_ASSERT(CTR_OFFSET_OF_ARRAY(struct Instance, funcPtr, 3) == 0x68);
-CTR_STATIC_ASSERT(offsetof(struct Instance, thread) == 0x6c);
-CTR_STATIC_ASSERT(offsetof(struct Instance, compressedNormalAndDriverIndex) == 0x70);
-CTR_STATIC_ASSERT(sizeof(struct Instance) == 0x74);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Instance, prev) == 0x4);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Instance, model) == 0x18);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Instance, scale.x) == 0x1c);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Instance, scale.y) == 0x1e);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Instance, scale.z) == 0x20);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Instance, alphaScale) == 0x22);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Instance, flags) == 0x28);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Instance, matrix) == 0x30);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Instance, matrix) + CTR_OFFSET_OF_ARRAY(MATRIX, t, 0) == 0x44);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Instance, matrix) + CTR_OFFSET_OF_ARRAY(MATRIX, t, 1) == 0x48);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Instance, matrix) + CTR_OFFSET_OF_ARRAY(MATRIX, t, 2) == 0x4c);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Instance, depthBiasNormal) == 0x50);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Instance, depthBiasSecondary) == 0x51);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Instance, animIndex) == 0x52);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Instance, specLightX) == 0x53);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Instance, animFrame) == 0x54);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Instance, vertSplit) == 0x56);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Instance, funcPtr) == 0x5c);
+CTR_RETAIL_LAYOUT_ASSERT(CTR_OFFSET_OF_ARRAY(struct Instance, funcPtr, 0) == 0x5c);
+CTR_RETAIL_LAYOUT_ASSERT(CTR_OFFSET_OF_ARRAY(struct Instance, funcPtr, 1) == 0x60);
+CTR_RETAIL_LAYOUT_ASSERT(CTR_OFFSET_OF_ARRAY(struct Instance, funcPtr, 2) == 0x64);
+CTR_RETAIL_LAYOUT_ASSERT(CTR_OFFSET_OF_ARRAY(struct Instance, funcPtr, 3) == 0x68);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Instance, thread) == 0x6c);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Instance, compressedNormalAndDriverIndex) == 0x70);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct Instance) == 0x74);
 
 enum InstanceCompressedNormalLayout
 {

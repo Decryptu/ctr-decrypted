@@ -109,7 +109,7 @@ struct CsParticleConfig
 
 CTR_STATIC_ASSERT(sizeof(struct CsParticleConfigMeta) == 0x4);
 CTR_STATIC_ASSERT(sizeof(struct CsParticleConfigSpawn) == 0x4);
-CTR_STATIC_ASSERT(sizeof(struct CsParticleConfig) == 0xc);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct CsParticleConfig) == 0xc);
 
 union CsOpcodeArg
 {
@@ -434,7 +434,7 @@ struct Ovr233InitMatrixTableEntry
 	int count;
 };
 
-CTR_STATIC_ASSERT(sizeof(struct Ovr233InitMatrixTableEntry) == 0x8);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct Ovr233InitMatrixTableEntry) == 0x8);
 
 struct CsThreadNames
 {
@@ -697,10 +697,9 @@ extern struct OverlayDATA_233 D233;
 
 // Cutscene data begins at retail 0x800b0b7c; code is linked separately.
 #define OVR233_LAYOUT_ASSERT(ELEMENT, OFFSET, SIZE)                                    \
-	CTR_STATIC_ASSERT(OFFSETOF(struct OverlayDATA_233, ELEMENT) == (OFFSET) - 0x518c); \
-	CTR_STATIC_ASSERT(sizeof(((struct OverlayDATA_233 *)0)->ELEMENT) == (SIZE))
+	CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF(struct OverlayDATA_233, ELEMENT) == (OFFSET) - 0x518c); \
+	CTR_RETAIL_LAYOUT_ASSERT(sizeof(((struct OverlayDATA_233 *)0)->ELEMENT) == (SIZE))
 
-CTR_STATIC_ASSERT(sizeof(void *) == 4);
 OVR233_LAYOUT_ASSERT(VertSplitLine, 0x518c, 0x4);
 OVR233_LAYOUT_ASSERT(boolLoadNextSwap, 0x5190, 0x4);
 OVR233_LAYOUT_ASSERT(boolStartToSkip, 0x5194, 0x4);
@@ -746,7 +745,7 @@ OVR233_LAYOUT_ASSERT(audioVolumeBackupPad, 0xbd7e, 0x2);
 OVR233_LAYOUT_ASSERT(podiumPrizeDropReady, 0xbd80, 0x4);
 OVR233_LAYOUT_ASSERT(cutsceneState, 0xbd84, 0x4);
 OVR233_LAYOUT_ASSERT(bossModels, 0xbd88, 0x8);
-CTR_STATIC_ASSERT(sizeof(struct OverlayDATA_233) == 0x6c04);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct OverlayDATA_233) == 0x6c04);
 
 #undef OVR233_LAYOUT_ASSERT
 
@@ -813,8 +812,8 @@ struct OVR233_Garage
 
 // Garage data starts at 0x800b8598.
 #define OVR233_GARAGE_ASSERT(ELEMENT, OFFSET, SIZE)                         \
-	CTR_STATIC_ASSERT(OFFSETOF(struct OVR233_Garage, ELEMENT) == (OFFSET)); \
-	CTR_STATIC_ASSERT(sizeof(((struct OVR233_Garage *)0)->ELEMENT) == (SIZE))
+	CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF(struct OVR233_Garage, ELEMENT) == (OFFSET)); \
+	CTR_RETAIL_LAYOUT_ASSERT(sizeof(((struct OVR233_Garage *)0)->ELEMENT) == (SIZE))
 
 OVR233_GARAGE_ASSERT(menuGarage, 0x0, 0x2c);
 OVR233_GARAGE_ASSERT(numFramesMax_GarageMove, 0x2c, 0x4);
@@ -834,7 +833,7 @@ OVR233_GARAGE_ASSERT(numFramesCurr_ZoomIn, 0xa2, 0x2);
 OVR233_GARAGE_ASSERT(numFramesCurr_ZoomOut, 0xa4, 0x2);
 OVR233_GARAGE_ASSERT(delayOneSecond, 0xa6, 0x2);
 OVR233_GARAGE_ASSERT(boolSelected, 0xa8, 0x2);
-CTR_STATIC_ASSERT(sizeof(struct OVR233_Garage) == 0xac);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct OVR233_Garage) == 0xac);
 
 #undef OVR233_GARAGE_ASSERT
 
@@ -971,8 +970,8 @@ struct Ovr233_Credits_BSS
 
 // Credits BSS starts at 0x800b9488.
 #define OVR233_CREDITS_OBJ_ASSERT(ELEMENT, OFFSET, SIZE)                 \
-	CTR_STATIC_ASSERT(OFFSETOF(struct CreditsObj, ELEMENT) == (OFFSET)); \
-	CTR_STATIC_ASSERT(sizeof(((struct CreditsObj *)0)->ELEMENT) == (SIZE))
+	CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF(struct CreditsObj, ELEMENT) == (OFFSET)); \
+	CTR_RETAIL_LAYOUT_ASSERT(sizeof(((struct CreditsObj *)0)->ELEMENT) == (SIZE))
 
 OVR233_CREDITS_OBJ_ASSERT(creditGhostModel, 0x0, 0x14);
 OVR233_CREDITS_OBJ_ASSERT(creditGhostInst, 0x14, 0x14);
@@ -987,13 +986,13 @@ OVR233_CREDITS_OBJ_ASSERT(epilogueTopString, 0x334, 0x4);
 OVR233_CREDITS_OBJ_ASSERT(epilogueNextString, 0x338, 0x4);
 OVR233_CREDITS_OBJ_ASSERT(epilogueFramesLeft, 0x33c, 0x2);
 OVR233_CREDITS_OBJ_ASSERT(epiloguePosX_unused, 0x33e, 0x2);
-CTR_STATIC_ASSERT(sizeof(struct CreditsObj) == 0x340);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct CreditsObj) == 0x340);
 
 #undef OVR233_CREDITS_OBJ_ASSERT
 
 #define OVR233_CREDITS_BSS_ASSERT(ELEMENT, OFFSET, SIZE)                         \
-	CTR_STATIC_ASSERT(OFFSETOF(struct Ovr233_Credits_BSS, ELEMENT) == (OFFSET)); \
-	CTR_STATIC_ASSERT(sizeof(((struct Ovr233_Credits_BSS *)0)->ELEMENT) == (SIZE))
+	CTR_RETAIL_LAYOUT_ASSERT(OFFSETOF(struct Ovr233_Credits_BSS, ELEMENT) == (OFFSET)); \
+	CTR_RETAIL_LAYOUT_ASSERT(sizeof(((struct Ovr233_Credits_BSS *)0)->ELEMENT) == (SIZE))
 
 OVR233_CREDITS_BSS_ASSERT(creditGhostPos, 0x0, 0x6);
 OVR233_CREDITS_BSS_ASSERT(_pad_creditGhostPos, 0x6, 0x2);
@@ -1008,7 +1007,7 @@ OVR233_CREDITS_BSS_ASSERT(ptrStrings, 0x24, 0x4);
 OVR233_CREDITS_BSS_ASSERT(boolAllBlue, 0x28, 0x2);
 OVR233_CREDITS_BSS_ASSERT(unused, 0x2c, 0x8);
 OVR233_CREDITS_BSS_ASSERT(creditsObj, 0x34, 0x340);
-CTR_STATIC_ASSERT(sizeof(struct Ovr233_Credits_BSS) == 0x374);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct Ovr233_Credits_BSS) == 0x374);
 
 #undef OVR233_CREDITS_BSS_ASSERT
 

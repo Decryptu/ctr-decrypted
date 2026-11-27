@@ -44,7 +44,7 @@ struct MaskHeadWeapon
 
 	// 0x14 bytes large
 };
-CTR_STATIC_ASSERT(sizeof(struct MaskHeadWeapon) == 0x14);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct MaskHeadWeapon) == 0x14);
 
 enum
 {
@@ -157,9 +157,9 @@ struct TrackerWeapon
 
 	// 0x58 bytes large
 };
-CTR_STATIC_ASSERT(offsetof(struct TrackerWeapon, pathProgress) == 0x2c);
-CTR_STATIC_ASSERT(offsetof(struct TrackerWeapon, savedPos) == 0x4c);
-CTR_STATIC_ASSERT(sizeof(struct TrackerWeapon) == 0x58);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct TrackerWeapon, pathProgress) == 0x2c);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct TrackerWeapon, savedPos) == 0x4c);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct TrackerWeapon) == 0x58);
 
 struct RainLocal
 {
@@ -187,10 +187,10 @@ struct RainLocal
 
 	// 0x28 -- size
 };
-CTR_STATIC_ASSERT(offsetof(struct RainLocal, scroll) == 0xc);
-CTR_STATIC_ASSERT(offsetof(struct RainLocal, vel) == 0x14);
-CTR_STATIC_ASSERT(offsetof(struct RainLocal, pos) == 0x1c);
-CTR_STATIC_ASSERT(sizeof(struct RainLocal) == 0x28);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct RainLocal, scroll) == 0xc);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct RainLocal, vel) == 0x14);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct RainLocal, pos) == 0x1c);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct RainLocal) == 0x28);
 
 struct RainCloud
 {
@@ -205,8 +205,8 @@ struct RainCloud
 
 	// size - 0x8
 };
-CTR_STATIC_ASSERT(offsetof(struct RainCloud, effect) == 0x6);
-CTR_STATIC_ASSERT(sizeof(struct RainCloud) == 0x8);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct RainCloud, effect) == 0x6);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct RainCloud) == 0x8);
 
 typedef u16 ShieldFlags;
 
@@ -242,7 +242,7 @@ struct Shield
 	// 0x18
 };
 CTR_STATIC_ASSERT(offsetof(struct Shield, flags) == 0x6);
-CTR_STATIC_ASSERT(sizeof(struct Shield) == 0x18);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct Shield) == 0x18);
 
 struct MineWeapon;
 
@@ -254,7 +254,7 @@ struct WeaponSlot231
 	// 0x8
 	struct MineWeapon *mineWeapon;
 };
-CTR_STATIC_ASSERT(sizeof(struct WeaponSlot231) == 0xc);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct WeaponSlot231) == 0xc);
 
 typedef u16 MineWeaponFlags;
 
@@ -317,8 +317,8 @@ struct MineWeapon
 	// 0x2a
 	s16 cooldown;
 };
-CTR_STATIC_ASSERT(offsetof(struct MineWeapon, flags) == 0x28);
-CTR_STATIC_ASSERT(sizeof(struct MineWeapon) == 0x2c);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct MineWeapon, flags) == 0x28);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct MineWeapon) == 0x2c);
 
 struct Baron
 {
@@ -355,8 +355,8 @@ struct Baron
 	// 0x30 bytes large
 };
 CTR_STATIC_ASSERT(offsetof(struct Baron, soundID_flags) == 0x24);
-CTR_STATIC_ASSERT(offsetof(struct Baron, pointIndex) == 0x2c);
-CTR_STATIC_ASSERT(sizeof(struct Baron) == 0x30);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Baron, pointIndex) == 0x2c);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct Baron) == 0x30);
 
 struct Blade
 {
@@ -517,13 +517,13 @@ struct Follower
 	SVec3 realPos;
 	s16 _pad_realPos;
 };
-CTR_STATIC_ASSERT(sizeof(struct Follower) == 0x18);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct Follower) == 0x18);
 
 struct Fruit
 {
 	struct Driver *driver;
 };
-CTR_STATIC_ASSERT(sizeof(struct Fruit) == 0x4);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct Fruit) == 0x4);
 
 struct Minecart
 {
@@ -708,8 +708,8 @@ struct Spider
 };
 CTR_STATIC_ASSERT(offsetof(struct Spider, isNearRoof) == 0x6);
 CTR_STATIC_ASSERT(offsetof(struct Spider, delay) == 0x4);
-CTR_STATIC_ASSERT(offsetof(struct Spider, shadowInst) == 0xc);
-CTR_STATIC_ASSERT(sizeof(struct Spider) == 0x10);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct Spider, shadowInst) == 0xc);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct Spider) == 0x10);
 
 typedef s32 TeethDirection;
 

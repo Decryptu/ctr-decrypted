@@ -317,9 +317,9 @@ struct DecalMPEntry
 	struct PushBuffer pb;
 };
 
-CTR_STATIC_ASSERT(sizeof(struct DecalMPEntry) == 0x128);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct DecalMPEntry) == 0x128);
 CTR_STATIC_ASSERT(offsetof(struct DecalMPEntry, inst) == 0x8);
-CTR_STATIC_ASSERT(offsetof(struct DecalMPEntry, pb) == 0x18);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DecalMPEntry, pb) == 0x18);
 
 struct GameTracker
 {

@@ -315,6 +315,6 @@ struct LoadQueueSlot
 
 #define LOAD_QUEUE_CALLBACK_SET_POINTER ((void (*)(struct LoadQueueSlot *)) - 2)
 
-CTR_STATIC_ASSERT(sizeof(struct LoadQueueSlot) == 0x18);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct LoadQueueSlot) == 0x18);
 
 #endif

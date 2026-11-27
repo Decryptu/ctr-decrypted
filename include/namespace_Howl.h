@@ -607,13 +607,13 @@ enum VoiceType_XAGAME2
 #endif
 
 CTR_STATIC_ASSERT(sizeof(SpuReverbAttr) == 0x14);
-CTR_STATIC_ASSERT(sizeof(struct VoicelineItem) == 0x10);
-CTR_STATIC_ASSERT(sizeof(struct ChannelAttr) == 0x10);
-CTR_STATIC_ASSERT(sizeof(struct ChannelStats) == 0x20);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct VoicelineItem) == 0x10);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct ChannelAttr) == 0x10);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct ChannelStats) == 0x20);
 CTR_STATIC_ASSERT(sizeof(struct GarageFX) == 0xC);
 CTR_STATIC_ASSERT(OFFSETOF(struct GarageFX, LR) == 0x4);
 CTR_STATIC_ASSERT(OFFSETOF(struct GarageFX, soundIDCount) == 0x8);
-CTR_STATIC_ASSERT(sizeof(struct SongSeq) == 0x1C);
-CTR_STATIC_ASSERT(sizeof(struct Song) == 0x7C);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct SongSeq) == 0x1C);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct Song) == 0x7C);
 
 #endif

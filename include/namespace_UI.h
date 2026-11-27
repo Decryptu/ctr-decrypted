@@ -166,11 +166,11 @@ CTR_STATIC_ASSERT(OFFSETOF(struct UIMap, mode) == 0x10);
 CTR_STATIC_ASSERT(offsetof(struct UIMapSpawnMetadata, topHalfMode) == 0x12);
 CTR_STATIC_ASSERT(sizeof(struct UIMapSpawnMetadata) == 0x14);
 CTR_STATIC_ASSERT(sizeof(struct QuipStr) == 0x8);
-CTR_STATIC_ASSERT(sizeof(struct QuipMeta) == 0x18);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct QuipMeta) == 0x18);
 CTR_STATIC_ASSERT(offsetof(struct EndRaceQuipData, vsMetadata) == 0x170);
-CTR_STATIC_ASSERT(offsetof(struct EndRaceQuipData, battleStrings) == 0x518);
-CTR_STATIC_ASSERT(offsetof(struct EndRaceQuipData, battleMetadata) == 0x730);
-CTR_STATIC_ASSERT(sizeof(struct EndRaceQuipData) == 0x850);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct EndRaceQuipData, battleStrings) == 0x518);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct EndRaceQuipData, battleMetadata) == 0x730);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct EndRaceQuipData) == 0x850);
 CTR_STATIC_ASSERT(offsetof(struct UI_VsWaitRdata, statFormat) == 0x10);
 CTR_STATIC_ASSERT(sizeof(struct UI_VsWaitRdata) == 0x1c);
 

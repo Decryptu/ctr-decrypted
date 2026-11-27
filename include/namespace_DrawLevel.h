@@ -70,13 +70,13 @@ struct DrawLevelOvr1PBucket
 	u8 lodMode;
 };
 
-CTR_STATIC_ASSERT(sizeof(struct DrawLevelOvr1PRenderListSlot) == 0x8);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct DrawLevelOvr1PRenderListSlot) == 0x8);
 CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PRenderListSlot, ptrQuadBlocksRendered) == 0x0);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PRenderListSlot, bspListStart) == 0x4);
-CTR_STATIC_ASSERT(sizeof(struct DrawLevelOvr1PRenderList) == 0x30);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DrawLevelOvr1PRenderListSlot, bspListStart) == 0x4);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct DrawLevelOvr1PRenderList) == 0x30);
 CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PRenderList, list) == 0x0);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PRenderList, bspListStart_FullDynamic) == 0x28);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PRenderList, ptrQuadBlocksRendered_FullDynamic) == 0x2c);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DrawLevelOvr1PRenderList, bspListStart_FullDynamic) == 0x28);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DrawLevelOvr1PRenderList, ptrQuadBlocksRendered_FullDynamic) == 0x2c);
 
 enum DrawLevelOvr1PUvScratchSlot
 {

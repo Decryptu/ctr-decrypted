@@ -5,7 +5,6 @@ static void OVR233_ResetGarage(void);
 static void OVR233_ResetCreditsBSS(void);
 #endif
 
-CTR_STATIC_ASSERT(sizeof(void *) == 4);
 
 
 #define OVR233_GARAGE_CLASS_STRING_IDS {LNG_BEGINNER, LNG_INTERMEDIATE, LNG_ADVANCED, 0}

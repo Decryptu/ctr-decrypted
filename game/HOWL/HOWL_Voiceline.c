@@ -382,7 +382,7 @@ void Voiceline_StartPlay(struct Item *voiceLine)
 	struct VoicelineItem *voiceLineItem = (struct VoicelineItem *)voiceLine;
 	struct GameTracker *gGT = GAME_TRACKER;
 	u32 voiceSetIndex;
-	__typeof__(data.voiceData[0].voiceSet[0]) *voiceSet;
+	struct VoiceSet *voiceSet;
 	u32 voiceIndex;
 	u32 numVoiceIDs;
 	*(struct VoicelineBackup *)HOWL_VOICE_BACKUP = *(struct VoicelineBackup *)voiceLine;
@@ -404,7 +404,7 @@ void Voiceline_StartPlay(struct Item *voiceLine)
 	}
 #endif
 	// NOTE(aalhendi): Keep this entry across XAPlay, then reread its sample pointer.
-	voiceSet = (__typeof__(voiceSet))HOWL_VOICE_SETS[voiceLineItem->characterID] + voiceSetIndex;
+	voiceSet = (struct VoiceSet *)HOWL_VOICE_SETS[voiceLineItem->characterID] + voiceSetIndex;
 	numVoiceIDs = (u16)voiceSet->num;
 	if (numVoiceIDs != 0)
 	{

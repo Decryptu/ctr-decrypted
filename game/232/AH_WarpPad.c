@@ -221,10 +221,10 @@ s16 *AH_WarpPad_GetSpawnPosRot(s16 *posData)
 	return NULL;
 }
 
-CTR_STATIC_ASSERT(sizeof(struct WarpPad) == 0x78);
-CTR_STATIC_ASSERT(offsetof(struct WarpPad, lightDirGem) == 0x50);
-CTR_STATIC_ASSERT(offsetof(struct WarpPad, digit10s) == 0x68);
-CTR_STATIC_ASSERT(offsetof(struct WarpPad, levelID) == 0x6c);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct WarpPad) == 0x78);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct WarpPad, lightDirGem) == 0x50);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct WarpPad, digit10s) == 0x68);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct WarpPad, levelID) == 0x6c);
 
 // Build (or rebuild) a warp pad's child instances for its current state. Factored
 // out of AH_WarpPad_LInB (the level-load birth) so the AP live-refresh path can
@@ -1508,7 +1508,7 @@ WarpPad_AnimateOpen:
 			warppadObj->spinRot_Wisp[i].y += FPS_HALF(AH_WP_SPIN_WISP_STEP);
 
 			ConvertRotToMatrix(&warppadObj->slots.visuals.rings[i]->matrix,
-			                   (SVec3 *)((u32)warppadObj + offsetof(struct WarpPad, spinRot_Wisp) + i * sizeof(SVec3Slot)));
+			                   (SVec3 *)&warppadObj->spinRot_Wisp[i]);
 
 			// if height hasn't reached max height
 			if (warppadObj->slots.visuals.rings[i]->matrix.t[1] < (warppadInst->matrix.t[1] + wispMaxHeight))
@@ -2348,11 +2348,7 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 		newInst = INSTANCE_Birth3D(gGT->modelPtr[STATIC_BIGX], "x", t);
 
 		// copy matrix (identity rotation, mirrors the vanilla X birth below)
-		*(int *)((int)&newInst->matrix + 0x0) = 0x1000;
-		*(int *)((int)&newInst->matrix + 0x4) = 0;
-		*(int *)((int)&newInst->matrix + 0x8) = 0x1000;
-		*(int *)((int)&newInst->matrix + 0xC) = 0;
-		*(s16 *)((int)&newInst->matrix + 0x10) = 0x1000;
+		CTR_MatrixSetRotIdentity(&newInst->matrix);
 		newInst->matrix.t[0] = inst->matrix.t[0];
 		newInst->matrix.t[1] = inst->matrix.t[1] + 0x100;
 		newInst->matrix.t[2] = inst->matrix.t[2];
@@ -2384,11 +2380,7 @@ static void AH_WarpPad_BuildInstances(struct Thread *t)
 			// the pool can be full after the X: no beam then, never a crash
 			if (newInst != 0)
 			{
-				*(int *)((int)&newInst->matrix + 0x0) = *(int *)((int)&inst->matrix + 0x0);
-				*(int *)((int)&newInst->matrix + 0x4) = *(int *)((int)&inst->matrix + 0x4);
-				*(int *)((int)&newInst->matrix + 0x8) = *(int *)((int)&inst->matrix + 0x8);
-				*(int *)((int)&newInst->matrix + 0xC) = *(int *)((int)&inst->matrix + 0xC);
-				*(s16 *)((int)&newInst->matrix + 0x10) = *(s16 *)((int)&inst->matrix + 0x10);
+				CTR_MatrixCopyRot(&newInst->matrix, &inst->matrix);
 				newInst->matrix.t[0] = inst->matrix.t[0];
 				newInst->matrix.t[1] = inst->matrix.t[1];
 				newInst->matrix.t[2] = inst->matrix.t[2];
@@ -2545,11 +2537,7 @@ ContentPad_BuildGate:
 			newInst = INSTANCE_Birth3D(beamModel, "beam", t);
 
 			// copy matrix
-			*(int *)((int)&newInst->matrix + 0x0) = *(int *)((int)&inst->matrix + 0x0);
-			*(int *)((int)&newInst->matrix + 0x4) = *(int *)((int)&inst->matrix + 0x4);
-			*(int *)((int)&newInst->matrix + 0x8) = *(int *)((int)&inst->matrix + 0x8);
-			*(int *)((int)&newInst->matrix + 0xC) = *(int *)((int)&inst->matrix + 0xC);
-			*(s16 *)((int)&newInst->matrix + 0x10) = *(s16 *)((int)&inst->matrix + 0x10);
+			CTR_MatrixCopyRot(&newInst->matrix, &inst->matrix);
 			newInst->matrix.t[0] = inst->matrix.t[0];
 			newInst->matrix.t[1] = inst->matrix.t[1];
 			newInst->matrix.t[2] = inst->matrix.t[2];
@@ -2584,11 +2572,7 @@ ContentPad_BuildGate:
 				newInst = INSTANCE_Birth3D(wispModel, "bottomRing", t);
 
 				// copy matrix
-				*(int *)((int)&newInst->matrix + 0x0) = *(int *)((int)&inst->matrix + 0x0);
-				*(int *)((int)&newInst->matrix + 0x4) = *(int *)((int)&inst->matrix + 0x4);
-				*(int *)((int)&newInst->matrix + 0x8) = *(int *)((int)&inst->matrix + 0x8);
-				*(int *)((int)&newInst->matrix + 0xC) = *(int *)((int)&inst->matrix + 0xC);
-				*(s16 *)((int)&newInst->matrix + 0x10) = *(s16 *)((int)&inst->matrix + 0x10);
+				CTR_MatrixCopyRot(&newInst->matrix, &inst->matrix);
 				newInst->matrix.t[0] = inst->matrix.t[0];
 				newInst->matrix.t[1] = inst->matrix.t[1] + i * 0x400;
 				newInst->matrix.t[2] = inst->matrix.t[2];
@@ -2694,11 +2678,7 @@ ContentPad_BuildGate:
 				warppadObj->slots.inst[WPIS_OPEN_PRIZE1 + i] = newInst;
 
 				// copy matrix (birth placeholder pose; SpinRewards recomputes it live)
-				*(int *)((int)&newInst->matrix + 0x0) = *(int *)((int)&inst->matrix + 0x0);
-				*(int *)((int)&newInst->matrix + 0x4) = *(int *)((int)&inst->matrix + 0x4);
-				*(int *)((int)&newInst->matrix + 0x8) = *(int *)((int)&inst->matrix + 0x8);
-				*(int *)((int)&newInst->matrix + 0xC) = *(int *)((int)&inst->matrix + 0xC);
-				*(s16 *)((int)&newInst->matrix + 0x10) = *(s16 *)((int)&inst->matrix + 0x10);
+				CTR_MatrixCopyRot(&newInst->matrix, &inst->matrix);
 				newInst->matrix.t[0] = inst->matrix.t[0] + ((MATH_Sin(rewardAngle) * 0xc0) >> 0xc);
 				newInst->matrix.t[1] = inst->matrix.t[1] + 0x100;
 				newInst->matrix.t[2] = inst->matrix.t[2] + ((MATH_Cos(rewardAngle) * 0xc0) >> 0xc);
@@ -2780,11 +2760,7 @@ ContentPad_BuildGate:
 					warppadObj->slots.inst[WPIS_OPEN_PRIZE1 + i] = newInst;
 
 					// copy matrix
-					*(int *)((int)&newInst->matrix + 0x0) = *(int *)((int)&inst->matrix + 0x0);
-					*(int *)((int)&newInst->matrix + 0x4) = *(int *)((int)&inst->matrix + 0x4);
-					*(int *)((int)&newInst->matrix + 0x8) = *(int *)((int)&inst->matrix + 0x8);
-					*(int *)((int)&newInst->matrix + 0xC) = *(int *)((int)&inst->matrix + 0xC);
-					*(s16 *)((int)&newInst->matrix + 0x10) = *(s16 *)((int)&inst->matrix + 0x10);
+					CTR_MatrixCopyRot(&newInst->matrix, &inst->matrix);
 					newInst->matrix.t[0] = inst->matrix.t[0] + ((MATH_Sin(rewardAngle) * 0xc0) >> 0xc);
 					newInst->matrix.t[1] = inst->matrix.t[1] + 0x100;
 					newInst->matrix.t[2] = inst->matrix.t[2] + ((MATH_Cos(rewardAngle) * 0xc0) >> 0xc);
@@ -2863,11 +2839,7 @@ ContentPad_BuildGate:
 				warppadObj->lightDirRelic = AH_WARP_LIGHT_RELIC[0];
 
 				// copy matrix
-				*(int *)((int)&newInst->matrix + 0x0) = *(int *)((int)&inst->matrix + 0x0);
-				*(int *)((int)&newInst->matrix + 0x4) = *(int *)((int)&inst->matrix + 0x4);
-				*(int *)((int)&newInst->matrix + 0x8) = *(int *)((int)&inst->matrix + 0x8);
-				*(int *)((int)&newInst->matrix + 0xC) = *(int *)((int)&inst->matrix + 0xC);
-				*(s16 *)((int)&newInst->matrix + 0x10) = *(s16 *)((int)&inst->matrix + 0x10);
+				CTR_MatrixCopyRot(&newInst->matrix, &inst->matrix);
 				newInst->matrix.t[0] = inst->matrix.t[0];
 				newInst->matrix.t[1] = inst->matrix.t[1] + 0x100;
 				newInst->matrix.t[2] = inst->matrix.t[2];
@@ -2910,11 +2882,7 @@ ContentPad_BuildGate:
 			warppadObj->lightDirToken = AH_WARP_LIGHT_TOKEN[tokenGroupID];
 
 			// copy matrix
-			*(int *)((int)&newInst->matrix + 0x0) = *(int *)((int)&inst->matrix + 0x0);
-			*(int *)((int)&newInst->matrix + 0x4) = *(int *)((int)&inst->matrix + 0x4);
-			*(int *)((int)&newInst->matrix + 0x8) = *(int *)((int)&inst->matrix + 0x8);
-			*(int *)((int)&newInst->matrix + 0xC) = *(int *)((int)&inst->matrix + 0xC);
-			*(s16 *)((int)&newInst->matrix + 0x10) = *(s16 *)((int)&inst->matrix + 0x10);
+			CTR_MatrixCopyRot(&newInst->matrix, &inst->matrix);
 			newInst->matrix.t[0] = inst->matrix.t[0];
 			newInst->matrix.t[1] = inst->matrix.t[1] + 0x100;
 			newInst->matrix.t[2] = inst->matrix.t[2];
@@ -2972,11 +2940,7 @@ ContentPad_BuildGate:
 				}
 
 				// copy matrix
-				*(int *)((int)&newInst->matrix + 0x0) = *(int *)((int)&inst->matrix + 0x0);
-				*(int *)((int)&newInst->matrix + 0x4) = *(int *)((int)&inst->matrix + 0x4);
-				*(int *)((int)&newInst->matrix + 0x8) = *(int *)((int)&inst->matrix + 0x8);
-				*(int *)((int)&newInst->matrix + 0xC) = *(int *)((int)&inst->matrix + 0xC);
-				*(s16 *)((int)&newInst->matrix + 0x10) = *(s16 *)((int)&inst->matrix + 0x10);
+				CTR_MatrixCopyRot(&newInst->matrix, &inst->matrix);
 				newInst->matrix.t[0] = inst->matrix.t[0];
 				newInst->matrix.t[1] = inst->matrix.t[1] + 0x100;
 				newInst->matrix.t[2] = inst->matrix.t[2];
@@ -3125,11 +3089,7 @@ ContentPad_BuildGate:
 #endif
 
 	// copy matrix
-	*(int *)((int)&newInst->matrix + 0x0) = *(int *)((int)&inst->matrix + 0x0);
-	*(int *)((int)&newInst->matrix + 0x4) = *(int *)((int)&inst->matrix + 0x4);
-	*(int *)((int)&newInst->matrix + 0x8) = *(int *)((int)&inst->matrix + 0x8);
-	*(int *)((int)&newInst->matrix + 0xC) = *(int *)((int)&inst->matrix + 0xC);
-	*(s16 *)((int)&newInst->matrix + 0x10) = *(s16 *)((int)&inst->matrix + 0x10);
+	CTR_MatrixCopyRot(&newInst->matrix, &inst->matrix);
 	newInst->matrix.t[0] = inst->matrix.t[0];
 	newInst->matrix.t[1] = inst->matrix.t[1] + 0x100;
 	newInst->matrix.t[2] = inst->matrix.t[2];
@@ -3219,11 +3179,7 @@ ContentPad_BuildGate:
 	newInst = INSTANCE_Birth3D(gGT->modelPtr[STATIC_BIGX], "x", t);
 
 	// copy matrix
-	*(int *)((int)&newInst->matrix + 0x0) = 0x1000;
-	*(int *)((int)&newInst->matrix + 0x4) = 0;
-	*(int *)((int)&newInst->matrix + 0x8) = 0x1000;
-	*(int *)((int)&newInst->matrix + 0xC) = 0;
-	*(s16 *)((int)&newInst->matrix + 0x10) = 0x1000;
+	CTR_MatrixSetRotIdentity(&newInst->matrix);
 	newInst->matrix.t[0] = inst->matrix.t[0];
 	newInst->matrix.t[1] = inst->matrix.t[1] + 0x100;
 	newInst->matrix.t[2] = inst->matrix.t[2];
@@ -3245,11 +3201,7 @@ ContentPad_BuildGate:
 		newInst = INSTANCE_Birth3D(gGT->modelPtr[STATIC_BIG1], "warpnum", t);
 
 		// copy matrix
-		*(int *)((int)&newInst->matrix + 0x0) = 0x1000;
-		*(int *)((int)&newInst->matrix + 0x4) = 0;
-		*(int *)((int)&newInst->matrix + 0x8) = 0x1000;
-		*(int *)((int)&newInst->matrix + 0xC) = 0;
-		*(s16 *)((int)&newInst->matrix + 0x10) = 0x1000;
+		CTR_MatrixSetRotIdentity(&newInst->matrix);
 		newInst->matrix.t[0] = inst->matrix.t[0];
 		newInst->matrix.t[1] = inst->matrix.t[1] + 0x100;
 		newInst->matrix.t[2] = inst->matrix.t[2];
@@ -3284,11 +3236,7 @@ ContentPad_BuildGate:
 	newInst = INSTANCE_Birth3D(gGT->modelPtr[i], "warpnum", t);
 
 	// copy matrix
-	*(int *)((int)&newInst->matrix + 0x0) = 0x1000;
-	*(int *)((int)&newInst->matrix + 0x4) = 0;
-	*(int *)((int)&newInst->matrix + 0x8) = 0x1000;
-	*(int *)((int)&newInst->matrix + 0xC) = 0;
-	*(s16 *)((int)&newInst->matrix + 0x10) = 0x1000;
+	CTR_MatrixSetRotIdentity(&newInst->matrix);
 	newInst->matrix.t[0] = inst->matrix.t[0];
 	newInst->matrix.t[1] = inst->matrix.t[1] + 0x100;
 	newInst->matrix.t[2] = inst->matrix.t[2];
