@@ -7,6 +7,7 @@ Open work only: what is in progress, what is planned, what may come, and what is
 
 ## In progress
 - 64-bit engine (x86_64, then arm64), so the game can later run natively on macOS and 64-bit Linux. Disc data already uses PSX pointers ([docs/64BIT.md](docs/64BIT.md)); next the runtime structs, the level renderer's 32-bit scratch slots and savestates have to hold native pointers, then a bit-exact x86_64 run against the 32-bit build, the x86 asm/SSE paths in portable C, and an arm64 build. `-DCTR_64BIT=ON` builds it with a 64-bit compiler; it does not compile yet.
+- Cortex Vortex (built-in custom track) draws 160 level faces with a pointer table read as a texture layout: in a `CTR_DEV_DUMP_FRAME=4000` dump of an autopilot `CTR_DEV_CUSTOM` race their `T` lines carry tpage/CLUT that are the halves of a relocated address (`027a`/`025a` on the 32-bit build, `8030`/`8010` with PSX pointers), and a wall left of the start line shows the garbage. Likely the hi-res (mosaic) table behind those faces' texture slot 0x24 is laid out differently in this original-format LEV than the renderer expects (`DrawLevelOvr1P_ReadMosaicWord`); find the face, compare with a retail LEV's table, and fix the data or the reader.
 
 ## Maybe
 - CTR Native Expanded's two-player co-op Adventure. The Archipelago client would need to know about a second player.

@@ -56,7 +56,7 @@ fixture = r"""
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
-typedef unsigned int u32;
+#include "tools/harness-psx-space.h"
 typedef int AP_SpawnHandle;
 #define AP_SPAWN_INVALID (-1)
 #define AP_BOX_SLOTS_PER_TRACK 15
@@ -67,8 +67,8 @@ struct Model { short id; };
 struct InstDef;
 struct Instance { unsigned int flags; struct InstDef *instDef; };
 typedef union { struct { short x, y, z; }; short v[3]; } SVec3;
-struct InstDef { struct Model *model; struct Instance *ptrInstance; SVec3 pos; SVec3 rot; };
-struct Level { u32 numInstances; struct InstDef *ptrInstDefs; };
+struct InstDef { PSX_PTR(struct Model) model; PSX_PTR(struct Instance) ptrInstance; SVec3 pos; SVec3 rot; };
+struct Level { u32 numInstances; PSX_PTR(struct InstDef) ptrInstDefs; };
 struct JitPool { int maxItems; u32 itemSize; void *ptrPoolData; };
 struct GameTracker { struct Level *level1; struct { struct JitPool instance; } JitPools; };
 struct CustomTrackRaceContext { int physicalPad; int retail; int leg; };
@@ -103,9 +103,10 @@ tests = r"""
 static int failures, checks;
 static void expect(int ok, const char *what) { ++checks; if (!ok) { ++failures; printf("FAIL %s\n", what); } }
 
-static struct Model crate_model = {PU_RANDOM_CRATE}, fruit_model = {7}, wumpa_model = {0x6f};
-static struct InstDef defs[200];
-static struct Instance insts[200];
+/* The LEV instance table, its models and the instance pool live in PSX space (main). */
+static struct Model *crate_model, *fruit_model, *wumpa_model;
+static struct InstDef *defs;
+static struct Instance *insts;
 static struct Level lev;
 static struct GameTracker gGT;
 static struct CustomTrackRaceContext race = {12, 0, 0};
@@ -113,26 +114,26 @@ static struct CustomTrackRaceContext race = {12, 0, 0};
 /* n instances; every third one is not a crate, one has no model. */
 static int table(int crates_wanted) {
     int n = 0, crates = 0;
-    memset(defs, 0, sizeof defs); memset(insts, 0, sizeof insts);
+    memset(defs, 0, 200 * sizeof *defs); memset(insts, 0, 200 * sizeof *insts);
     while (crates < crates_wanted) {
         struct InstDef *d = &defs[n];
-        d->ptrInstance = &insts[n];
+        PSX_SET(d->ptrInstance, &insts[n]);
         insts[n].instDef = d;
         insts[n].flags = 0x7 | 0x100;
         d->pos.x = (short)(100 + n); d->pos.y = (short)(-5 * n); d->pos.z = (short)(7 * n); d->rot.y = (short)(16 * n);
-        if (n % 3 == 1) d->model = (n % 2) ? &fruit_model : &wumpa_model;
-        else if (n == 5) d->model = 0;
-        else { d->model = &crate_model; crates++; }
+        if (n % 3 == 1) PSX_SET(d->model, (n % 2) ? fruit_model : wumpa_model);
+        else if (n == 5) PSX_SET(d->model, (struct Model *)0);
+        else { PSX_SET(d->model, crate_model); crates++; }
         n++;
     }
-    lev.numInstances = (u32)n; lev.ptrInstDefs = defs; gGT.level1 = &lev;
+    lev.numInstances = (u32)n; PSX_SET(lev.ptrInstDefs, defs); gGT.level1 = &lev;
     gGT.JitPools.instance.maxItems = 200; gGT.JitPools.instance.itemSize = sizeof(struct Instance);
     gGT.JitPools.instance.ptrPoolData = insts;
     return n;
 }
 static int crate_index(int ordinal, int n) {
     int k, seen = 0;
-    for (k = 0; k < n; k++) if (defs[k].model == &crate_model && seen++ == ordinal) return k;
+    for (k = 0; k < n; k++) if (PSX_GET(defs[k].model) == crate_model && seen++ == ordinal) return k;
     return -1;
 }
 static void reset(int crates, int boxes_in_plan) {
@@ -152,6 +153,11 @@ static int untouched(int n) {
 
 int main(void) {
     int n, i;
+    crate_model = PsxSpace_Alloc(sizeof *crate_model); crate_model->id = PU_RANDOM_CRATE;
+    fruit_model = PsxSpace_Alloc(sizeof *fruit_model); fruit_model->id = 7;
+    wumpa_model = PsxSpace_Alloc(sizeof *wumpa_model); wumpa_model->id = 0x6f;
+    defs = PsxSpace_Alloc(200 * sizeof *defs);
+    insts = PsxSpace_Alloc(201 * sizeof *insts); /* one past the pool stays in PSX space */
     n = table(30); reset(30, 1);
     AP_BoxesSeatCustom(&gGT, &race);
     expect(s_liveCount == 1 && s_live[0].seatInst == &insts[crate_index(0, n)], "count one seats one crate");
@@ -213,7 +219,7 @@ int main(void) {
         expect(g_spawned[i] == 1, "the box is spawned once");
     }
     for (i = 0; i < n; i++)
-        if (defs[i].model != &crate_model) expect(insts[i].flags == (0x7u | 0x100u), "other instances untouched");
+        if (PSX_GET(defs[i].model) != crate_model) expect(insts[i].flags == (0x7u | 0x100u), "other instances untouched");
     expect(strstr(g_log, "8 of 8 Item Box(es) standing") != 0, "one log line names the count");
 
     /* 5. Freeing a seat gives the bits back; after a pool reset it does not write. */
@@ -246,10 +252,10 @@ int main(void) {
 
     /* 6. Raw or foreign instance pointers are never written. */
     n = table(8); reset(8, 8);
-    defs[crate_index(0, n)].ptrInstance = (struct Instance *)(uintptr_t)1;
-    defs[crate_index(1, n)].ptrInstance = (struct Instance *)((char *)&insts[crate_index(1, n)] + 2);
-    defs[crate_index(2, n)].ptrInstance = &insts[199];
-    defs[crate_index(3, n)].ptrInstance = &insts[0] + 200;
+    PSX_ADDR(defs[crate_index(0, n)].ptrInstance) = 1; /* a raw LEV word, no PSX address */
+    PSX_SET(defs[crate_index(1, n)].ptrInstance, (struct Instance *)((char *)&insts[crate_index(1, n)] + 2));
+    PSX_SET(defs[crate_index(2, n)].ptrInstance, &insts[199]);
+    PSX_SET(defs[crate_index(3, n)].ptrInstance, &insts[0] + 200);
     AP_BoxesSeatCustom(&gGT, &race);
     expect(s_liveCount == 8, "every box still stands");
     for (i = 0; i < 4; i++)
@@ -292,7 +298,7 @@ int main(void) {
     n = table(8); reset(8, 8); gGT.level1 = 0;
     AP_BoxesSeatCustom(&gGT, &race);
     expect(s_liveCount == 0 && untouched(n), "no level stands nothing");
-    n = table(8); reset(8, 8); lev.ptrInstDefs = 0;
+    n = table(8); reset(8, 8); PSX_SET(lev.ptrInstDefs, (struct InstDef *)0);
     AP_BoxesSeatCustom(&gGT, &race);
     expect(s_liveCount == 0 && untouched(n), "no instance table stands nothing");
     /* 7. Hand-placed spots (A3-14): boxes at the spots, numbered by spot,
@@ -326,7 +332,8 @@ with tempfile.TemporaryDirectory() as tmp:
     src = Path(tmp) / "seat.c"
     src.write_text(fixture + record + after_record + units + tests)
     exe = Path(tmp) / "seat"
-    subprocess.run(["cc", "-Wall", "-Wextra", "-Werror", "-Wno-unused-function", "-I", str(root), "-o", str(exe), str(src)],
+    subprocess.run(["cc", "-Wall", "-Wextra", "-Werror", "-Wno-unused-function", "-DCTR_NATIVE", "-I", str(root),
+                    "-I", str(root / "include"), "-o", str(exe), str(src)],
                    check=True)
     run = subprocess.run([str(exe)], capture_output=True, text=True)
     print(run.stdout, end="")

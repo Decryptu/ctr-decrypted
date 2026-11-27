@@ -17,11 +17,12 @@ The game code is decompiled from the PS1, where a pointer is 4 bytes, and it rea
 - A pointer to an array of PSX pointers is `Psx<Type>Ptr *` (`PsxModelPtr`, `PsxIconPtr`...): each element needs its own `PSX_GET`. Accessors for the arrays that follow a header: `ST1_GETPOINTER`, `ANIMTEX_GETFRAME`, `ICONGROUP_GETICON`.
 
 ## Rules
-- **Disc-format data lives in PSX space.** A file read by the host and relocated (racer and bot models, Archipelago harvests, the Oxide menu model), or disc-format data the host builds (Archipelago box, marker and beam models, recorded nav lanes, the blank nav template, missing VisMem lists), is allocated with `PsxSpace_Alloc`, never `malloc` or a static array. Storing a pointer outside PSX space is a fatal error that names it.
+- **Disc-format data lives in PSX space.** A file read by the host and relocated (racer and bot models, Archipelago harvests, the Oxide menu model, the Archipelago title Roo), or disc-format data the host builds (Archipelago box, marker and beam models, recorded nav lanes, the blank nav template, missing VisMem lists), is allocated with `PsxSpace_Alloc`, never `malloc` or a static array. Storing a pointer outside PSX space is a fatal error that names it.
 - **No raw reads of pointer slots.** `*(struct X **)p`, `(struct X *)*(u32 *)p` or a `memcpy` between a disc struct and a runtime struct read a PSX address as a host pointer. Go through the typed field or the accessors above. A copy between the two kinds is field by field (`INSTANCE.c`, level instance birth).
 - **Records told apart by where they live.** The InstDef/Instance lists swap in place (`LevInstDef.c`); retail finds the peer at offset 0x2c of either, native knows an Instance by its pool.
 - **Tables the game builds are host tables.** The language strings (`LOAD_LangFile_IndexStrings`) point a host array at the file's strings; the file keeps its offsets.
 
 ## Checking
 - The 32-bit build must stay bit-exact through any change here: capture frames, `CTR_DEV_TRACE` and `CTR_DEV_RESULTS` with `tools/decrypted/devrun.ps1` (title menu, attract demos, autopilot races, the N. Sanity Beach hub, a Gem Cup) before and after, and compare the files byte for byte.
-- A battle arena exercises the blank nav template; a converted custom track exercises the host VisMem lists and mover patterns.
+- A battle arena exercises the blank nav template; a converted custom track exercises the host VisMem lists and mover patterns. The Archipelago build's title screen exercises its relocated Roo model.
+- Host harnesses link the real PSX space. One that includes engine code includes `platform/native_psx_space.c`; one whose fixture declares its own copies of disc-format structs includes `tools/harness-psx-space.h` (built with `-DCTR_NATIVE -I include`), declares their pointer fields with `PSX_PTR`, and allocates what they point at with `PsxSpace_Alloc`, so the production code under test runs on the same pointers as in the game.

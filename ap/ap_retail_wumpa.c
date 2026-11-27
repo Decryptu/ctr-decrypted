@@ -51,13 +51,9 @@
 // and its model-pointer array at Level+0x18.
 #define AP_WUMPA_MAX_MODELS 4096
 
-// Four-byte-aligned storage for the compact copy. 12,760 is a multiple of four,
-// so an unsigned-int array gives the alignment the relocated pointers need
-// without a compiler-specific attribute. Kept for the life of the process on
-// purpose: after relocation the model's internals point into it, and it is a
-// static buffer rather than the engine's bump allocator, which has no free.
 // The kept copy of the fruit's model span, in PSX space: its pointers are PSX
-// addresses (include/ctr_psx_ptr.h).
+// addresses (include/ctr_psx_ptr.h). Allocated once and kept for the life of
+// the process: after relocation the model's internals point into it.
 static unsigned char *s_wumpaSpan;
 
 static int             s_wumpaState; // AP_WumpaResidency
@@ -68,8 +64,7 @@ static struct Model   *s_wumpaModel;
 // The temporary read buffer is allocated through these pointers so a host
 // harness that includes this translation unit can inject allocation failure and
 // count every alloc/free on every path (tools/test-wumpa-residency.c).
-// Production leaves them at the C allocator.
-// The fixed-up level is disc-format data, so it is read into PSX space.
+// Production reads the fixed-up level, disc-format data, into PSX space.
 static void *AP_WumpaAllocDefault(unsigned long n)
 {
 	return PsxSpace_Alloc((size_t)n);
@@ -154,10 +149,9 @@ static void AP_RetailWumpaHarvest(void)
 
 	if (s_wumpaSpan == 0)
 		s_wumpaSpan = (unsigned char *)PsxSpace_Alloc(AP_WUMPA_SPAN_BYTES);
-	temp = (unsigned char *)s_wumpaAlloc(AP_WUMPA_TEMP_BYTES);
-	if (temp == 0 || s_wumpaSpan == 0)
+	temp = (s_wumpaSpan != 0) ? (unsigned char *)s_wumpaAlloc(AP_WUMPA_TEMP_BYTES) : 0;
+	if (temp == 0)
 	{
-		s_wumpaFree(temp);
 		AP_WumpaFail(AP_WUMPA_FAIL_ALLOCATION);
 		return;
 	}

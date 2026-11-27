@@ -29,8 +29,8 @@ fixture=r'''
 #include "ap_crystal_checks.h"
 #include "ap_arena_content.h"
 #include "ap_wumpa_shop.h"
+#include "tools/harness-psx-space.h"
 #define ADVENTURE_BOSS 0x80000000u
-typedef int16_t s16;
 #define CTR_AP 1
 #define CTR_CUSTOM_TRACKS 1
 #define TOKEN_RACE 1
@@ -47,11 +47,11 @@ typedef struct {short x,y,z;} SVec3; // the engine's shape (include/ctr_math.h)
 struct BoundingBox {SVec3 min,max;};
 struct Thread;
 struct Model {int id;};
-struct InstDef {char name[16];struct Model *model;int modelID;SVec3 pos,scale;struct Instance *ptrInstance;};
+struct InstDef {char name[16];PSX_PTR(struct Model) model;int modelID;SVec3 pos,scale;PSX_PTR(struct Instance) ptrInstance;};
 struct Instance {struct InstDef *instDef;struct Thread *thread;SVec3 scale;struct {int t[3];}matrix;};
 struct Thread {int flags;struct Instance *inst;void (*funcThTick)(struct Thread *);};
 struct Driver {struct Instance *instSelf;int actionsFlagSet,numCrystals;struct {int x,y,z;}posPrev,posCurr;SVec3 originToCenter;};
-struct Level {int numInstances;struct InstDef *ptrInstDefs;};
+struct Level {int numInstances;PSX_PTR(struct InstDef) ptrInstDefs;};
 struct GameTracker {unsigned gameMode1,gameMode2;int levelID,numPlyrCurrGame,numCrystalsInLEV;struct Driver *drivers[1];struct Model *modelPtr[97];struct Level *level1;};
 struct Small {struct GameTracker *gGT;struct {int stage;struct {unsigned RemBitsConfig0,AddBitsConfig0;}OnBegin;}Loading;} data,*sdata=&data;
 struct CustomTrackRaceContext {int physicalPad,hostLevelID,returnHub,laps,slot,retail,crystal,timeLimitTicks;uint64_t seedEpoch;int64_t trophyLocation;char entryID[65],trackID[65];}context;
@@ -60,7 +60,7 @@ static ctr_content_pad pad;
 static uint64_t epoch=5;
 static int active=1,bound=1,blocked,exists=1,checked[256],sent,perf,feed,ap_state_gen,loaded=-1,born,fail_at=-1,fail_thread_at=-1,ticks,collided;
 static long lastCode;
-static struct Instance instances[20];
+static struct Instance *instances; /* the instance pool lives in PSX space */
 static struct Thread threads[20];
 int ctr_cfg_active(void){return active;}
 int ap_content_plan_active(void){return bound;}
@@ -85,7 +85,7 @@ int RB_Crystal_LInC(struct Instance *i,struct Thread *d,struct ScratchpadStruct 
 '''
 tests=r'''
 static void setup(struct GameTracker *g,int level){
- memset(&pad,0,sizeof pad);memset(&context,0,sizeof context);memset(instances,0,sizeof instances);memset(threads,0,sizeof threads);memset(checked,0,sizeof checked);
+ memset(&pad,0,sizeof pad);memset(&context,0,sizeof context);memset(instances,0,20*sizeof *instances);memset(threads,0,sizeof threads);memset(checked,0,sizeof checked);
  pad.physical=100;pad.hub=25;pad.occupied=pad.crystal=1;pad.retail_id=level;pad.laps=1;pad.target=20;pad.crystal_count=20;
  pad.time_limit_ticks=AP_ArenaTimeLimit(level);pad.trophy_location=AP_ArenaCompletionCode(level);
  strcpy(pad.entry_id,"entry/arena:test");strcpy(pad.track_id,"arena:test");
@@ -96,8 +96,10 @@ static void setup(struct GameTracker *g,int level){
  active=bound=exists=1;born=0;fail_at=fail_thread_at=-1;loaded=-1;blocked=0;sdata->Loading.stage=LOAD_IDLE;
 }
 int main(void){
- struct Model model={96};struct Instance kart={0};struct Thread driverTh={0};struct Driver driver={0};struct GameTracker g={0};
- driver.instSelf=&kart;kart.thread=&driverTh;struct Level arcadeLev={0};g.level1=&arcadeLev;g.drivers[0]=&driver;g.modelPtr[96]=&model;sdata->gGT=&g;
+ /* Models and instances are what LEV slots point at: PSX space. */
+ struct Model *model=PsxSpace_Alloc(sizeof *model);model->id=96;instances=PsxSpace_Alloc(20*sizeof *instances);
+ struct Instance kart={0};struct Thread driverTh={0};struct Driver driver={0};struct GameTracker g={0};
+ driver.instSelf=&kart;kart.thread=&driverTh;struct Level arcadeLev={0};g.level1=&arcadeLev;g.drivers[0]=&driver;g.modelPtr[96]=model;sdata->gGT=&g;
  for(int a=0;a<3;a++){
   setup(&g,20+2*a);AP_ArcadeCrystals_Spawn(&g);assert(born==20&&g.numCrystalsInLEV==20);
   for(int n=0;n<20;n++){
@@ -127,7 +129,7 @@ int main(void){
   for(int n=0;n<born;n++)assert(instances[n].scale.x==0&&(!instances[n].thread || (threads[n].flags&THREAD_FLAG_DEAD)));
   AP_ArcadeCrystals_OnFrame(&g);assert(loaded==25);
  }
- setup(&g,20);g.modelPtr[96]=NULL;AP_ArcadeCrystals_Spawn(&g);assert(ap_arcade_failed&&born==0&&g.numCrystalsInLEV==20);AP_ArcadeCrystals_OnFrame(&g);assert(loaded==25);g.modelPtr[96]=&model;
+ setup(&g,20);g.modelPtr[96]=NULL;AP_ArcadeCrystals_Spawn(&g);assert(ap_arcade_failed&&born==0&&g.numCrystalsInLEV==20);AP_ArcadeCrystals_OnFrame(&g);assert(loaded==25);g.modelPtr[96]=model;
  setup(&g,20);AP_ArcadeCrystals_Spawn(&g);
  #define DENY(statement,restore) do{int before=sent;statement;AP_NotifyContentCrystalPickup(&instances[0],0);assert(sent==before);assert(!AP_ContentCrystalPad());restore;}while(0)
  DENY(context.seedEpoch++,context.seedEpoch--);
@@ -149,7 +151,7 @@ int main(void){
  DENY(bound=0,bound=1);
  {int before=sent;AP_NotifyContentCrystalPickup(&instances[0],1);assert(sent==before);}
  for(int a=0;a<4;a++){
-  int levels[]={21,19,23,18};struct InstDef defs[80]={0};struct Level lev={80,defs};struct Instance crystal={0};
+  int levels[]={21,19,23,18};struct InstDef *defs=PsxSpace_Alloc(80*sizeof *defs);struct Level lev={.numInstances=80};PSX_SET(lev.ptrInstDefs,defs);struct Instance crystal={0};
   setup(&g,levels[a]);g.level1=&lev;g.numCrystalsInLEV=20;
   for(int n=0;n<20;n++){int before=sent;crystal.instDef=&defs[AP_CrystalInstanceBase(a,1)+n];AP_NotifyContentCrystalPickup(&crystal,0);assert(sent==before+1&&lastCode==AP_ArenaPickupCode(levels[a],n));}
   driver.numCrystals=20;assert(AP_NotifyContentCrystalComplete());
@@ -166,6 +168,7 @@ int main(void){
 with tempfile.TemporaryDirectory() as tmp:
     src,exe=Path(tmp)/'arcade.c',Path(tmp)/'arcade'
     src.write_text(mode_enum+fixture+policy+source+tests)
-    subprocess.run(['cc','-std=c11','-Wall','-Wextra','-fsanitize=undefined','-I',str(root/'ap'),str(src),'-o',str(exe)],check=True)
+    subprocess.run(['cc','-std=c11','-Wall','-Wextra','-fsanitize=undefined','-DCTR_NATIVE','-I',str(root/'ap'),
+                    '-I',str(root),'-I',str(root/'include'),str(src),'-o',str(exe)],check=True)
     subprocess.run([str(exe)],check=True)
 print('Arcade production construction/collision/dispatch passed: 60 authored + 80 retail identities, 40 instance/thread allocation failure points and missing model, context guards')

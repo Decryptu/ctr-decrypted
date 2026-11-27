@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <common.h>
+#include "../platform/native_psx_space.c"
 #include "../ap/ap_hooks.h"
 #include "../game/231/RB_CtrLetter.c"
 #include "../ap/ap_trial_letters.c"

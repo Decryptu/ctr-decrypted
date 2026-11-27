@@ -333,14 +333,17 @@ void Platform_Init(const char *title, int width, int height)
 
 // Unrecoverable mid-load failure: leave a log line, a visible diagnostic, then
 // tear down cleanly and exit nonzero. Platform_Shutdown is idempotent and also
-// registered with atexit, so the later automatic call is a no-op.
+// registered with atexit, so the later automatic call is a no-op. A hidden dev
+// run (CTR_DEV_HIDDEN, tools/decrypted/devrun.ps1) shows no dialog: it would
+// block the run on someone's desktop, and the log line is its diagnostic.
 void Platform_Fatal(const char *title, const char *message)
 {
 	Platform_LogError("[CTR Native] FATAL: %s\n", message ? message : "(no message)");
 	Platform_LogFlush();
-	SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,
-	                         title ? title : "CTR Native",
-	                         message ? message : "", NULL);
+	if (!NativeDev_Hidden())
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,
+		                         title ? title : "CTR Native",
+		                         message ? message : "", NULL);
 	Platform_Shutdown();
 	exit(EXIT_FAILURE);
 }

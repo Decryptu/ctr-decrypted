@@ -711,10 +711,11 @@ static void AP_BoxesSeatCustom(struct GameTracker *gGT, const struct CustomTrack
 		s_live[i].ghostTouched = 0;
 		s_live[i].seated = 1;
 		s_live[i].seatGen = AP_Spawn_Generation();
-		crate = PSX_GET(def->ptrInstance);
 		// A table the engine did not finish initialising leaves raw LEV values
 		// here (INSTANCE_LevInitAll returns when its pool runs out): only an
-		// instance from the pool that points back at this crate is touched.
+		// instance from the pool that points back at this crate is touched, and
+		// a word that is no PSX address is not even decoded.
+		crate = PsxSpace_IsAddr(PSX_ADDR(def->ptrInstance)) ? PSX_GET(def->ptrInstance) : 0;
 		if (crate != 0 &&
 		    (!AP_BoxSeat_PoolItem((uintptr_t)crate, (uintptr_t)gGT->JitPools.instance.ptrPoolData,
 		                          (long)gGT->JitPools.instance.maxItems,

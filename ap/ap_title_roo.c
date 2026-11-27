@@ -24,6 +24,7 @@
 #include "ap_hooks.h" // AP_LogLine
 
 #include <platform/native_gpu.h>    // NATIVE_TPAGE_RACER_BANK
+#include <platform/native_psx_space.h> // PsxSpace_Alloc
 #include <platform/native_racers.h> // NativeRacers_UploadBank
 
 enum
@@ -111,7 +112,8 @@ struct Model *AP_TitleRoo_Model(void)
 	s_titleRooTried = 1;
 
 	vrm = (u8 *)malloc(AP_TITLE_ROO_VRM_BYTES);
-	model = (u8 *)malloc(AP_TITLE_ROO_MODEL_BYTES);
+	// The model is relocated in place, so it is read into PSX space (docs/64BIT.md).
+	model = (u8 *)PsxSpace_Alloc(AP_TITLE_ROO_MODEL_BYTES);
 	if (vrm == NULL || model == NULL)
 		goto fail;
 
@@ -133,7 +135,7 @@ fail:
 	AP_LogLine("[AP] Title Roo: podium files unreadable, keeping Crash\n");
 	s_titleRoo = NULL;
 	free(vrm);
-	free(model);
+	PsxSpace_Free(model);
 	return NULL;
 }
 

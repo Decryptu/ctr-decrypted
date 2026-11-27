@@ -39,7 +39,7 @@ check('AP_LapProgress_IndexUsable(nodes[checkpointIndex].nextIndex_forward, leve
       'the progress node is checked')
 check('AP_LapProgress_IndexUsable(nodes[nodes[checkpointIndex].nextIndex_forward].nextIndex_forward, level->cnt_restart_points)' in body,
       'the next node is checked')
-nodes_decl = body.index('nodes = level->ptr_restart_points;')
+nodes_decl = body.index('nodes = PSX_GET(level->ptr_restart_points);')
 first_read = body.index('checkpointNode = &nodes[checkpointIndex];')
 check(nodes_decl < guard < first_read, 'the guard sits between the array and its first use')
 

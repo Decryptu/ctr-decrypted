@@ -69,7 +69,7 @@ check("s_navrecSeedLevel != levelID" in restore and "AP_NavRec_LoadForLevel(leve
       "a restore reuses the race's seed when it has one")
 
 check(restore.count("AP_NavRec_RebindBots(1)") >= 2, "both lane-publishing restore branches rebind every bot")
-check("s_navrecLaneHeader[0]" in restore and "if (!ours && !s_navrecLanesLive)" in restore,
+check("AP_NavRec_Playback()->header[0]" in restore and "if (!ours && !s_navrecLanesLive)" in restore,
       "a restore detects this module's lanes from the restored slots, not only from the session flag")
 rebind = body("AP_NavRec_RebindBots")
 check("LIST_RemoveMember(&sdata->navBotList[from]" in rebind and "d->botData.botPath = (s16)to" in rebind,
@@ -96,7 +96,7 @@ seam_at = commit.find("AP_NavRecSeam_Process(")
 crate_at = commit.find("AP_NavRecCrate_Annotate(")
 publish_at = commit.find("AP_NavRec_PublishLane(")
 check(0 <= seam_at < crate_at < publish_at, "a recorded lane is blended, then annotated, then published")
-check("s_navrecLane[lane].wire" in commit[seam_at:crate_at + 80], "the blend runs on the lane copy, not the decode buffer")
+check("AP_NavRec_Playback()->lane[lane].wire" in commit[seam_at:crate_at + 80], "the blend runs on the lane copy, not the decode buffer")
 check("levelLane" in commit, "the crate bit is borrowed from the captured level lanes")
 
 # Labels: one bot per recorded lane.

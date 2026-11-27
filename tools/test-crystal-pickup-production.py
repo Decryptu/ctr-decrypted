@@ -18,9 +18,10 @@ fixture = r'''
 #include <stddef.h>
 #include "ap_crystal_checks.h"
 #include "ap_wumpa_shop.h"
+#include "tools/harness-psx-space.h"
 #define CTR_CUSTOM_TRACKS 1
 struct InstDef { int unused; };
-struct Level { struct InstDef *ptrInstDefs; int numInstances; };
+struct Level { PSX_PTR(struct InstDef) ptrInstDefs; int numInstances; };
 struct Instance { struct InstDef *instDef; };
 struct GameTracker { unsigned gameMode1; struct Level *level1; int levelID, numPlyrCurrGame; struct { int cupID; } cup; };
 struct Small { struct GameTracker *gGT; } data, *sdata=&data;
@@ -40,11 +41,13 @@ void AP_FeedOnLocationSent(long code){assert(code==sentCode);feed++;}
 '''
 tests = r'''
 int main(void){
- struct InstDef defs[80],foreign;
- struct Level lev={defs,80};
+ /* The LEV instance table lives in PSX space. */
+ struct InstDef *defs=PsxSpace_Alloc(80*sizeof *defs),foreign;
+ struct Level lev={.numInstances=80};
  struct GameTracker gt={ADVENTURE_MODE|CRYSTAL_CHALLENGE,&lev,21,1};
  struct Instance inst={&defs[8]};
  int levels[]={21,19,23,18},a,p,n;
+ PSX_SET(lev.ptrInstDefs,defs);
  sdata->gGT=&gt;ctr_crystal_checks.state=1;
  for(a=0;a<4;a++){
   ctr_crystal_checks.present[a]=1;
@@ -87,7 +90,7 @@ int main(void){
  NO_SEND(inst.instDef=&foreign);
  NO_SEND(inst.instDef=NULL);inst.instDef=&defs[8];
  NO_SEND(gt.level1=NULL);gt.level1=&lev;
- NO_SEND(lev.ptrInstDefs=NULL);lev.ptrInstDefs=defs;
+ NO_SEND(PSX_SET(lev.ptrInstDefs,(struct InstDef *)NULL));PSX_SET(lev.ptrInstDefs,defs);
  NO_SEND(sdata->gGT=NULL);sdata->gGT=&gt;
  {int before=sent;AP_NotifyCrystalPickup(&inst,1);AP_NotifyCrystalPickup(NULL,0);assert(sent==before);}
  return 0;
@@ -96,8 +99,8 @@ int main(void){
 with tempfile.TemporaryDirectory() as tmp:
     src, exe = Path(tmp)/'pickup.c', Path(tmp)/'pickup'
     src.write_text(mode_enum+fixture+policy+body+tests)
-    subprocess.run(['cc','-std=c11','-fsanitize=undefined','-I',str(root/'ap'),
-                    '-I',str(root/'include'),str(src),'-o',str(exe)],check=True)
+    subprocess.run(['cc','-std=c11','-fsanitize=undefined','-DCTR_NATIVE','-I',str(root/'ap'),
+                    '-I',str(root),'-I',str(root/'include'),str(src),'-o',str(exe)],check=True)
     subprocess.run([str(exe)],check=True)
 
 # Dispatch precedes the deferred HUD counter and belongs to the player branch.

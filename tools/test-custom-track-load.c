@@ -70,6 +70,7 @@
 // absent table entry, and a transcription of LOAD_RunPtrMap could drift from
 // the one the game runs. Pulling in the translation unit costs five stubs (see
 // below) and nothing else -- none of its other functions are called.
+#include "platform/native_psx_space.c"
 #include "game/LOAD/LOAD_Assets.c"
 
 // The engine's own RNG, compiled in for the same reason as the fixup above. The
@@ -957,7 +958,7 @@ static void test_serve_time_size_recheck(void)
 
 // Lay out a DRAM-file image whose Level::ptrSpawnType1 points at a table of
 // `count` entries, where `present` says which of them the pointer map lists.
-// Returns the malloc'd image; *outBody is the relocated body.
+// Returns the image, allocated in PSX space like a loaded LEV (docs/64BIT.md); *outBody is the relocated body.
 static char *build_lev_image(int count, const int *present, char **outBody)
 {
 	const int levelSize = ((int)sizeof(struct Level) + 3) & ~3;
@@ -975,7 +976,7 @@ static char *build_lev_image(int count, const int *present, char **outBody)
 	int i;
 
 	int imageSize = 4 + ptrMapOff + (int)sizeof(struct DramPointerMap) + (int)sizeof(offsets);
-	char *image = calloc(1, (size_t)imageSize);
+	char *image = PsxSpace_Alloc((size_t)imageSize); // a LEV lives in PSX space
 	char *body;
 
 	if (image == NULL)
@@ -1071,7 +1072,7 @@ static void test_absent_camera_path(void)
 	expect_int(CustomTrackPolicy_St1EntryPresent(st1->count, ST1_CAMERA_EOR, (const uint32_t *)entries), 0,
 	           "the end-of-race guard refuses a track with no EOR table");
 
-	free(image);
+	PsxSpace_Free(image);
 
 	// The same walk on a retail-shaped table, where the guards must be inert.
 	image = build_lev_image(4, retailArcade, &body);
@@ -1093,7 +1094,7 @@ static void test_absent_camera_path(void)
 	expect_int(CustomTrackPolicy_St1EntryPresent(st1->count, ST1_CAMERA_EOR, (const uint32_t *)entries),
 	           st1->count >= 3, "and the end-of-race guard matches its own");
 
-	free(image);
+	PsxSpace_Free(image);
 }
 
 // ---------------------------------------------------------------------------
@@ -1132,7 +1133,7 @@ static char *build_lev_image_with_sky(const int *facesPerSegment, char **outBody
 	int i;
 
 	int imageSize = 4 + ptrMapOff + (int)sizeof(struct DramPointerMap) + (int)sizeof(offsets);
-	char *image = calloc(1, (size_t)imageSize);
+	char *image = PsxSpace_Alloc((size_t)imageSize); // a LEV lives in PSX space
 	char *body;
 	struct Skybox *sky;
 
@@ -1274,7 +1275,7 @@ static void test_sky_primitive_budget(void)
 	expect_int(emitted > 0, 1, "but still drew as much sky as fits");
 	expect_int(emitted == usable / (long)sizeof(POLY_G3), 1, "filling the arena exactly");
 
-	free(image);
+	PsxSpace_Free(image);
 
 	// --- a retail-shaped sky must be untouched ------------------------------
 	image = build_lev_image_with_sky(retailSlot6, &body);
@@ -1293,7 +1294,7 @@ static void test_sky_primitive_budget(void)
 	expect_int(emitted == worst, 1, "every retail sky face is drawn, so the clamp is inert on retail");
 	expect_int(cursor <= guard, 1, "and the cursor stays well inside the arena");
 
-	free(image);
+	PsxSpace_Free(image);
 
 	// --- a level with no skybox at all --------------------------------------
 	// Four of the 18 retail arcade tracks have a NULL ptr_skybox, and
@@ -1310,7 +1311,7 @@ static void test_sky_primitive_budget(void)
 			emitted = sky_emit_clamped(arena, guard, 0, &cursor);
 			expect_int(emitted == 0, 1, "and emits nothing");
 			expect_int(cursor == arena, 1, "leaving the cursor where it started");
-			free(image);
+			PsxSpace_Free(image);
 		}
 	}
 

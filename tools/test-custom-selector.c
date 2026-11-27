@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <common.h>
+#include "../platform/native_psx_space.c"
 #include <platform/native_custom_track_library.h>
 #include <platform/native_custom_offline.h>
 #include <platform/native_assets.h>
@@ -80,9 +81,9 @@ void RECTMENU_DrawInnerRect(RECT *r, s16 x, u32 *ot) { (void)x; (void)ot; box_ch
 void CTR_Box_DrawClearBox(const RECT *r, const Color *c, s32 t, u32 *ot, struct PrimMem *primMem)
 { (void)c; (void)t; (void)ot; (void)primMem; box_check(r); }
 void CTR_Box_DrawSolidBox(RECT *r, const Color *c, u32 *ot, struct PrimMem *primMem) { (void)c; (void)ot; (void)primMem; box_check(r); }
-/* The page arrows: icon 0x38 of icon group 4, in orange. */
-static struct { struct IconGroup group; struct Icon *icons[0x39]; } arrowGroup;
-static struct Icon arrowIcon;
+/* The page arrows: icon 0x38 of icon group 4, in orange. An icon group is
+   disc-format data, so the group and its icon live in PSX space. */
+static struct ArrowGroup { struct IconGroup group; PsxIconPtr icons[0x39]; struct Icon icon; } *arrowGroup;
 static u32 orange[4];
 static int arrows;
 void DecalHUD_Arrow2D(struct Icon *icon, s32 posX, s32 posY, struct PrimMem *primMem, u32 *ot, Color color0, Color color1,
@@ -91,7 +92,7 @@ void DecalHUD_Arrow2D(struct Icon *icon, s32 posX, s32 posY, struct PrimMem *pri
     (void)posY; (void)primMem; (void)ot; (void)color0; (void)color1; (void)color2; (void)color3;
     (void)transparency; (void)scale; (void)rot;
     arrows++;
-    CHECK(icon == &arrowIcon);
+    CHECK(icon == &arrowGroup->icon);
     CHECK(posX >= 0 && posX <= 512);
 }
 int CustomOffline_StartPrepare(const char *assets, const char *pin)
@@ -344,8 +345,9 @@ int main(void)
     data.font_buttonPixWidth[FONT_BIG] = 16;
     sdata->gGT = &tracker;
     tracker.backBuffer = &buffer;
-    arrowGroup.icons[0x38] = &arrowIcon;
-    tracker.iconGroup[4] = &arrowGroup.group;
+    arrowGroup = PsxSpace_Alloc(sizeof *arrowGroup);
+    PSX_SET(arrowGroup->icons[0x38], &arrowGroup->icon);
+    tracker.iconGroup[4] = &arrowGroup->group;
     data.ptrColor[ORANGE] = orange;
     tracker.gameMode1 = ARCADE_MODE;
     tracker.numPlyrNextGame = 1;

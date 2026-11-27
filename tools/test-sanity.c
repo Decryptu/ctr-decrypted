@@ -1,10 +1,11 @@
-// cc -std=c11 -Wall -Wextra -DCTR_AP -Iap tools/test-sanity.c -o /tmp/test-sanity
+// cc -std=c11 -Wall -Wextra -DCTR_AP -DCTR_NATIVE -Iap -Iinclude tools/test-sanity.c -o /tmp/test-sanity
 // Exercises the production runtime against a synthetic LEV instance table.
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include "ap_content_plan.h"
+#include "../tools/harness-psx-space.h"
 #define CTR_CUSTOM_TRACKS
 #define PU_RANDOM_CRATE 8
 #define PU_FRUIT_CRATE 7
@@ -21,7 +22,7 @@
 #define IS_BOSS_RACE(m) ((m) & 128)
 struct Model { int id; };
 struct Instance { unsigned colorRGBA; short alphaScale; };
-struct InstDef { struct Model *model; struct Instance *ptrInstance; };
+struct InstDef { PSX_PTR(struct Model) model; PSX_PTR(struct Instance) ptrInstance; };
 struct Driver { int actionsFlagSet, driverID; };
 struct GameTracker { int levelID, gameMode1, boolDemoMode, bossID; struct Driver *drivers[2]; };
 struct CustomTrackRaceContext { uint64_t seedEpoch; int cup, leg, retail; char trackID[65]; };
@@ -54,16 +55,19 @@ static int AP_EmitClassCheck(long code, int ledger, int bit, int tag, int toast,
 }
 #include "ap_hooks_sanity.c"
 int main(void) {
-    struct Model models[] = {{8}, {8}, {7}, {2}};
-    struct Instance objects[4] = {{0}};
-    struct InstDef defs[4];
+    /* The LEV instance table and what it points at live in PSX space. */
+    struct Lev { struct Model models[4]; struct Instance objects[4]; struct InstDef defs[4]; } *lev = PsxSpace_Alloc(sizeof *lev);
+    struct Model *models = lev->models;
+    struct Instance *objects = lev->objects;
+    struct InstDef *defs = lev->defs;
+    static const int modelIds[4] = {8, 8, 7, 2};
     struct Driver player = {0, 0}, bot = {ACTION_BOT, 1}, second = {0, 1};
     int i;
     gt.gameMode1 = ADVENTURE_MODE; gt.drivers[0] = &player;
     context.seedEpoch = 1; context.retail = 1; strcpy(context.trackID, "retail:3");
     record.counts[0] = 2; record.counts[1] = record.counts[2] = 1;
     record.locations[0][1] = 101; record.locations[1][0] = 102; record.locations[2][0] = 103;
-    for (i = 0; i < 4; ++i) { defs[i].model = &models[i]; PSX_SET(defs[i].ptrInstance, &objects[i]); }
+    for (i = 0; i < 4; ++i) { models[i].id = modelIds[i]; PSX_SET(defs[i].model, &models[i]); PSX_SET(defs[i].ptrInstance, &objects[i]); }
     AP_SanityLevelInstances(defs, 4); AP_SanityTick(&gt);
     assert(objects[0].colorRGBA == 0 && objects[1].colorRGBA != 0);
     assert(AP_SanityPickup(&objects[3], &bot) == 0 && !sent);

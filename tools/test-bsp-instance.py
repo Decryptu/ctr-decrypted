@@ -11,8 +11,7 @@ function = source[start:end]
 fixture = r'''
 #include <assert.h>
 #include <stddef.h>
-typedef int s32;
-typedef unsigned char u8;
+#include "tools/harness-psx-space.h"
 /* The list ends at a record whose whole flag/id word is zero. */
 #define CTR_ReadU32AlignedLE(p) (*(const unsigned *)(const void *)(p))
 #define BSP_HITBOX_COLLIDABLE 128
@@ -20,37 +19,40 @@ typedef unsigned char u8;
 struct Vec { int x,y,z; };
 struct BoundingBox { struct Vec min,max; };
 struct Instance { int flags; };
-struct InstDef { struct Instance *ptrInstance; };
+struct InstDef { PSX_PTR(struct Instance) ptrInstance; };
 struct BSP { int flag; struct BoundingBox box; union {
- struct { struct BSP *bspHitboxArray; } leaf;
- struct { struct InstDef *instDef; } hitbox;
+ struct { PSX_PTR(struct BSP) bspHitboxArray; } leaf;
+ struct { PSX_PTR(struct InstDef) instDef; } hitbox;
 } data; };
 struct ScratchpadStruct { int numBspHitboxesHit; struct BSP *bspHitboxesHit[4]; struct BoundingBox bbox; };
 static int calls;
 void COLL_FIXED_INSTANC_TestPoint(struct ScratchpadStruct *s, struct BSP *b) { (void)s; (void)b; calls++; }
 '''
 tests = r'''
+/* The LEV's hitbox rows, instance definitions and instances live in PSX space. */
+struct Lev { struct Instance visible, hidden; struct InstDef absent, live, invisible; struct BSP rows[2]; };
 int main(void) {
- struct Instance visible={15}, hidden={0};
- struct InstDef absent={NULL}, live={&visible}, invisible={&hidden};
- struct BSP rows[2]={0}, leaf={0};
+ struct Lev *lev = PsxSpace_Alloc(sizeof *lev);
+ struct BSP *rows = lev->rows, leaf={0};
  struct ScratchpadStruct s={0};
- leaf.data.leaf.bspHitboxArray=rows;
- rows[0].flag=128; rows[0].data.hitbox.instDef=&absent;
+ lev->visible.flags=15;
+ PSX_SET(lev->live.ptrInstance,&lev->visible); PSX_SET(lev->invisible.ptrInstance,&lev->hidden);
+ PSX_SET(leaf.data.leaf.bspHitboxArray,rows);
+ rows[0].flag=128; PSX_SET(rows[0].data.hitbox.instDef,&lev->absent);
  COLL_FIXED_BSPLEAF_TestInstance(&leaf,&s); assert(calls==0);
- rows[0].data.hitbox.instDef=&live;
+ PSX_SET(rows[0].data.hitbox.instDef,&lev->live);
  COLL_FIXED_BSPLEAF_TestInstance(&leaf,&s); assert(calls==1);
- rows[0].data.hitbox.instDef=&invisible;
+ PSX_SET(rows[0].data.hitbox.instDef,&lev->invisible);
  COLL_FIXED_BSPLEAF_TestInstance(&leaf,&s); assert(calls==1);
- rows[0].data.hitbox.instDef=NULL;
+ PSX_SET(rows[0].data.hitbox.instDef,(struct InstDef *)NULL);
  COLL_FIXED_BSPLEAF_TestInstance(&leaf,&s); assert(calls==2);
- rows[0].flag=1; rows[0].data.hitbox.instDef=&absent;
+ rows[0].flag=1; PSX_SET(rows[0].data.hitbox.instDef,&lev->absent);
  COLL_FIXED_BSPLEAF_TestInstance(&leaf,&s); assert(calls==3);
  s.numBspHitboxesHit=1; s.bspHitboxesHit[0]=rows;
  COLL_FIXED_BSPLEAF_TestInstance(&leaf,&s); assert(calls==3);
  s.numBspHitboxesHit=0; rows[0].box.min.x=1;
  COLL_FIXED_BSPLEAF_TestInstance(&leaf,&s); assert(calls==3);
- leaf.data.leaf.bspHitboxArray=NULL;
+ PSX_SET(leaf.data.leaf.bspHitboxArray,(struct BSP *)NULL);
  COLL_FIXED_BSPLEAF_TestInstance(&leaf,&s); assert(calls==3);
  return 0;
 }
@@ -59,6 +61,7 @@ with tempfile.TemporaryDirectory() as tmp:
     src = Path(tmp) / 'fixture.c'
     exe = Path(tmp) / 'fixture'
     src.write_text(fixture + function + tests)
-    subprocess.run(['cc','-std=c99','-Wall','-Wextra','-Werror','-fsanitize=undefined',str(src),'-o',str(exe)],check=True)
+    subprocess.run(['cc','-std=c99','-Wall','-Wextra','-Werror','-fsanitize=undefined','-DCTR_NATIVE',
+                    '-I',str(root),'-I',str(root/'include'),str(src),'-o',str(exe)],check=True)
     subprocess.run([str(exe)],check=True)
 print('PASS: 8 production BSP collision cases, UBSan enabled')

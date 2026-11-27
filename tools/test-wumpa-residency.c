@@ -32,6 +32,7 @@
 #include <string.h>
 
 #include <common.h>
+#include "../platform/native_psx_space.c"
 #include "../ap/ap_hooks.h"
 #include "../ap/ap_dram_ptr_map_logic.h"
 #include "../ap/ap_retail_wumpa.c"
@@ -181,7 +182,7 @@ static int g_lastBodySize;
 unsigned char *AP_RetailAsset_ReadSubfile(int subfileIndex, int isDramFile, unsigned char *dst, int dstSize, int *outSize)
 {
 	unsigned char *body = dst + 4; // mimic the DRAM descriptor word at dst[0]
-	unsigned int base = (unsigned int)(unsigned long)body;
+	unsigned int base = PsxSpace_FromHost(body);
 	unsigned int fruit;
 
 	(void)subfileIndex;
@@ -221,13 +222,13 @@ static void *test_alloc(unsigned long n)
 	g_allocCount++;
 	if (g_allocFail)
 		return 0;
-	return malloc((size_t)n);
+	return PsxSpace_Alloc((size_t)n);
 }
 
 static void test_free(void *p)
 {
 	g_freeCount++;
-	free(p);
+	PsxSpace_Free(p);
 }
 
 static void reset_module(void)
@@ -235,7 +236,8 @@ static void reset_module(void)
 	s_wumpaState = AP_WUMPA_RESIDENCY_UNKNOWN;
 	s_wumpaModel = 0;
 	s_wumpaModelOffset = 0;
-	memset(s_wumpaSpan, 0, AP_WUMPA_SPAN_BYTES);
+	if (s_wumpaSpan)
+		memset(s_wumpaSpan, 0, AP_WUMPA_SPAN_BYTES);
 	g_allocCount = g_freeCount = 0;
 	g_allocFail = 0;
 	g_logCount = 0;

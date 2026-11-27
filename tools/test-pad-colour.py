@@ -145,9 +145,9 @@ assert 'AH_WarpPad_ApFilterOf(t)' in tick_spin and 'ConvertRotToMatrix(&apFilter
 # later from another hub's models: a pad with a state beam rebuilds stale copies.
 assert 'AH_WarpPad_ApRefreshCopies(GAME_TRACKER);' in tick_spin
 refresh = body(warp, 'static void AH_WarpPad_ApRefreshCopies(struct GameTracker *gGT)\n{')
-assert 's_apBeamHueSource[slot][0] == (uintptr_t)retail' in refresh and 'retail->headers[0].ptrCommandList' in refresh
+assert 's_apBeamHueSource[slot][0] == (uintptr_t)retail' in refresh and 'PSX_GET(PSX_GET(retail->headers)[0].ptrCommandList)' in refresh
 assert 'AH_WarpPad_ApHueModel(retail, rgb, slot, use == AP_BEAM_USE_FILTER)' in refresh
-assert 's_apBeamHueModel[slot].numHeaders = 0;' in refresh
+assert 's_apBeam->model[slot].numHeaders = 0;' in refresh
 destroy = body(warp, 'void AH_WarpPad_ThDestroy(struct Thread *t)')
 beam_death = destroy[destroy.index('INSTANCE_Death(instArr[WPIS_OPEN_BEAM]);'):]
 beam_death = beam_death[:beam_death.index('WPIS_OPEN_RING1')]
@@ -157,9 +157,9 @@ assert 'AH_WarpPad_ApWispModel(wispModel, AP_PadLook(levelID, warppadObj->levelI
 assert 'INSTANCE_Birth3D(wispModel, "bottomRing", t);' in build
 assert warp.count('"bottomRing", t);') == 1, 'one wisp birth'
 model = body(warp, 'static struct Model *AH_WarpPad_ApHueModel(struct Model *retail, u32 rgb, int slot, int subtract)')
-assert 'AP_PadBeamHueWord(mh->ptrColors[i], rgb)' in model
+assert 'AP_PadBeamHueWord(PSX_GET(mh->ptrColors)[i], rgb)' in model
 assert 'count = cmd[0];' in model
-assert 'AP_PadTpageBlend(s_apBeamFilterTex[h][i].tpage, 2)' in model
+assert 'AP_PadTpageBlend(s_apBeam->filterTex[h][i].tpage, 2)' in model
 assert '(cmd[i] >> 16) != 0 && (int)(cmd[i] & 0x1ffu) > textures' in model, 'colour-only commands carry no texture index'
 slot = body(warp, 'static int AH_WarpPad_ApCopySlot(int use, int look)')
 assert 'use * AP_BEAM_PALETTES + palette' in slot and '#define AP_BEAM_PALETTES 3' in warp
