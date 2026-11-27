@@ -158,6 +158,84 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  # The 64-bit engine (docs/64BIT.md) on each 64-bit target it is meant for.
+  # It is not released yet, so nothing is packaged; the job keeps every target
+  # compiling under -Werror pointer casts, and on Linux runs the CMake tests,
+  # which start the built executable.
+  engine-64bit:
+    name: 64-bit engine ${{ matrix.target }} ${{ matrix.variant }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [linux-x86_64, linux-arm64, windows-x86_64]
+        variant: [vanilla, ap]
+        include:
+          - target: linux-x86_64
+            runner: ubuntu-24.04
+          - target: linux-arm64
+            runner: ubuntu-24.04-arm
+          - target: windows-x86_64
+            runner: windows-2022
+    steps:
+      - name: Check out text files with LF, as on Linux
+        if: runner.os == 'Windows'
+        shell: bash
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install toolchain (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends \
+            cmake ninja-build pkg-config ccache libssl-dev zlib1g-dev \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
+            libxfixes-dev libgl1-mesa-dev libasound2-dev libudev-dev \
+            libdbus-1-dev libpulse-dev libwayland-dev libxkbcommon-dev
+      - uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
+        if: runner.os == 'Windows'
+        with:
+          msystem: UCRT64
+          update: true
+          cache: true
+          install: >-
+            git python mingw-w64-ucrt-x86_64-ccache
+            mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja mingw-w64-ucrt-x86_64-openssl
+            mingw-w64-ucrt-x86_64-zlib
+      - name: Restore compiler cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ccache-64-${{ matrix.target }}-${{ matrix.variant }}-${{ github.sha }}
+          restore-keys: ccache-64-${{ matrix.target }}-${{ matrix.variant }}-
+      - name: Build and test (Linux)
+        if: runner.os == 'Linux'
+        env:
+          CCACHE_DIR: ${{ runner.temp }}/ccache
+        run: |
+          ccache -z
+          bash tools/ci/build-engine64.sh linux ${{ matrix.variant }}
+          ccache -s
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        env:
+          CCACHE_DIR: ${{ runner.temp }}\ccache
+        run: |
+          ccache -z
+          bash tools/ci/build-engine64.sh windows ${{ matrix.variant }}
+          ccache -s
+      - name: Save compiler cache
+        if: ${{ github.event_name != 'pull_request' && startsWith(github.ref, 'refs/heads/') }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ccache-64-${{ matrix.target }}-${{ matrix.variant }}-${{ github.sha }}
+
   # Every build goes through the release assembler: the archives this run made,
   # the apworld packed from this commit, the solo runtimes, and the same script
   # release-prepare.yml uses (tools/release/ci-assemble.sh). A client archive the
