@@ -5,6 +5,7 @@
 #include <string.h>
 #include <common.h>
 #include "../game/231/RB_Snowball.c"
+#include "harness-psx-space.h"
 
 struct sData sdata_static;
 int gNative60FpsEnabled;
@@ -30,16 +31,17 @@ int RB_Hazard_HurtDriver(struct Driver *victim, int damage, struct Driver *attac
 
 int main(void)
 {
-    struct SpawnPosRot frames[3] = {0};
-    struct SpawnType2 path = {0};
+    // Disc-format fields point into PSX space (docs/64BIT.md).
+    struct SpawnPosRot *frames = PsxSpace_Alloc(3 * sizeof *frames);
+    struct SpawnType2 *path = PsxSpace_Alloc(sizeof *path);
     struct Model model = {0};
     struct Instance inst = {0};
     sdata->gGT = &tracker;
     tracker.level1 = &level;
     level.numSpawnType2_PosRot = 1;
-    PSX_SET(level.ptrSpawnType2_PosRot, &path);
-    path.numCoords = 3;
-    PSX_SET(path.coords.posRot, frames);
+    PSX_SET(level.ptrSpawnType2_PosRot, path);
+    path->numCoords = 3;
+    PSX_SET(path->coords.posRot, frames);
     frames[0].pos.x = 100;
     frames[1].pos.x = 200;
     frames[2].pos.x = 300;

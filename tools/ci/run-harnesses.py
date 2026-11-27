@@ -36,6 +36,9 @@ LIST = os.path.join(ROOT, "tools", "ci", "harnesses.txt")
 OUT = os.environ.get("HARNESS_OUT", "/tmp/ctr-harness")
 JSON_INC = os.environ.get("HARNESS_JSON_INCLUDE", "ap/vendor/json/include")
 JOBS = int(os.environ.get("HARNESS_JOBS", "0")) or os.cpu_count() or 1
+# Sources are UTF-8. Python steps open files in UTF-8 mode, as on Linux;
+# Windows would otherwise read them in its locale code page.
+os.environ["PYTHONUTF8"] = "1"
 
 DEFAULT_C = "cc -Wall -Wextra -DCTR_NATIVE -DCTR_AP -I ap -I . -I include -o {out} {src} -lm"
 # Harnesses without a header build line that compile a production unit name it
