@@ -162,7 +162,7 @@ void UI_BattleDrawHeadArrows(struct Driver *player)
 		struct PrimMem *primMem = &gGT->backBuffer->primMem;
 
 		arrow = primMem->cursor;
-		if ((int)arrow > (int)primMem->guardEnd)
+		if ((uintptr_t)arrow > (uintptr_t)primMem->guardEnd)
 		{
 			return;
 		}

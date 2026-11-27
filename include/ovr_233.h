@@ -1019,6 +1019,15 @@ extern struct Ovr233_Credits_BSS creditsBSS;
 #define CS_CREDITS_DANCER        (creditsBSS.dancerInst_invisible)
 #define CS_CREDITS_STRING_COUNT  (creditsBSS.numStrings)
 #define CS_CREDITS_STRINGS       (creditsBSS.ptrStrings)
+// The i-th credits string. Retail turns the copy's offsets into pointers in
+// place; native leaves them (a host pointer does not fit their words), so
+// CS_CREDITS_STRINGS points at the offsets, after the copy's two header words.
+#if defined(CTR_NATIVE)
+#define CS_CREDITS_STRING(i) \
+	((char *)CS_CREDITS_STRINGS - 2 * sizeof(u32) + CTR_ReadU32AlignedLE((const u8 *)CS_CREDITS_STRINGS + (i) * sizeof(u32)))
+#else
+#define CS_CREDITS_STRING(i) (CS_CREDITS_STRINGS[i])
+#endif
 #define CS_CREDITS_ALL_BLUE      (creditsBSS.boolAllBlue)
 #define CS_CREDITS_GHOST_POS     (creditsBSS.creditGhostPos)
 #define CS_CREDITS_TEXT_X        (creditsBSS.creditTextPosX)

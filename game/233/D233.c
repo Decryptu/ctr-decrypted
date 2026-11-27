@@ -96,7 +96,7 @@ struct Ovr233RetailPointerRange
 
 char *CS_OVR233_TranslateRetailOpcodePointer(char *opCodeAt)
 {
-	u32 ptr = (u32)opCodeAt;
+	uintptr_t ptr = (uintptr_t)opCodeAt;
 	static const struct Ovr233RetailPointerRange ranges[] = {
 	    OVR233_OPCODE_RANGE(bossOpcodeData, OVR233_BOSS_OPCODE_DATA, 0x2b4),
 	    OVR233_OPCODE_RANGE(script_tawnaNormal, OVR233_SCRIPT_TAWNA_NORMAL, 0x28),

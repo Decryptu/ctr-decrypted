@@ -79,7 +79,7 @@ void howl_ParseHeader(struct HowlHeader *hh)
 {
 	u32 numSpuAddrs = hh->numSpuAddrs;
 	u32 numOtherFX = hh->numOtherFX;
-	u32 addr = (u32)hh + sizeof(struct HowlHeader);
+	uintptr_t addr = (uintptr_t)hh + sizeof(struct HowlHeader);
 	u32 numEngineFX;
 	u32 numBanks;
 	u32 numSequences;
@@ -112,9 +112,9 @@ void howl_ParseHeader(struct HowlHeader *hh)
 
 void howl_ParseCseqHeader(struct CseqHeader *ch)
 {
-	u32 addr = (u32)ch;
+	uintptr_t addr = (uintptr_t)ch;
 	u32 numSongs;
-	u32 alignedAddr;
+	uintptr_t alignedAddr;
 
 	sdata->ptrCseqHeader = (struct CseqHeader *)addr;
 	addr += sizeof(struct CseqHeader);
@@ -135,7 +135,7 @@ void howl_ParseCseqHeader(struct CseqHeader *ch)
 	{
 		sdata->ptrCseqSongData = (char *)(addr + 1);
 	}
-	alignedAddr = (u32)sdata->ptrCseqSongData;
+	alignedAddr = (uintptr_t)sdata->ptrCseqSongData;
 	if (alignedAddr & 2)
 	{
 		sdata->ptrCseqSongData = (char *)(alignedAddr + 2);
@@ -186,7 +186,7 @@ int howl_LoadHeader(char *filename)
 			MEMPACK_ReallocMem(numSector << 0xb);
 
 			// One sector suffices, or the remaining sectors must load successfully.
-			if (numSector < 2 || LOAD_HowlHeaderSectors(&GAME_HOWL_CD_FILE, (void *)((int)header + 0x800), 1, numSector - 1) != 0)
+			if (numSector < 2 || LOAD_HowlHeaderSectors(&GAME_HOWL_CD_FILE, (void *)((u8 *)header + 0x800), 1, numSector - 1) != 0)
 				goto headerLoaded;
 		}
 	}

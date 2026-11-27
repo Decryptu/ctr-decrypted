@@ -1208,7 +1208,7 @@ void Particle_RenderList(struct PushBuffer *pb, void *particleList)
 					sinX = (u16)idpp->depthOffset[0];
 				if ((u16)idpp->depthOffset[1] < sinX)
 					sinX = (u16)idpp->depthOffset[1];
-				otBase = (u32 *)(u32)idpp->otRangeNormal;
+				otBase = (u32 *)PsxSpace_ToHost((u32)idpp->otRangeNormal);
 			}
 			else
 			{

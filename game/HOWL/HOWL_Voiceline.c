@@ -90,7 +90,7 @@ void Voiceline_PoolInit(void)
 
 		GAME_CHANNEL_UPDATE_FLAGS[index] = 0;
 
-		curr->spuStartAddr = (void *)-1;
+		curr->spuStartAddr = 0xffffffffu;
 
 		*(u16 *)&curr->ad = 0x80ff;
 		curr->sr = 0x1fc2;

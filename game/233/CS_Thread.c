@@ -1400,7 +1400,7 @@ void CS_Thread_InterpolateFramesMS(struct Thread *t)
 	packet = db->primMem.cursor;
 	end = db->primMem.guardEnd;
 
-	if ((u32)(packet + 1) >= (u32)end)
+	if ((uintptr_t)(packet + 1) >= (uintptr_t)end)
 	{
 		return;
 	}

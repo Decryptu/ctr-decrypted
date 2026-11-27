@@ -338,27 +338,27 @@ void DrawLevelOvr3P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspL
 	u8 *clipCursors[3];
 	u32 hostStackAnchor;
 
-	DrawLevelOvr1P_Scratch()->savedStackPtr32 = (u32)(u32)&hostStackAnchor;
-	DrawLevelOvr1P_Scratch()->visFaceListArgPtr32[0] = (u32)(u32)visFaceList0;
+	DrawLevelOvr1P_Scratch()->savedStack = &hostStackAnchor;
+	DrawLevelOvr1P_Scratch()->visFaceListArg[0] = visFaceList0;
 	if (visFaceList0 == NULL)
 	{
 		return;
 	}
 
-	DrawLevelOvr1P_Scratch()->visFaceListArgPtr32[1] = (u32)(u32)visFaceList1;
+	DrawLevelOvr1P_Scratch()->visFaceListArg[1] = visFaceList1;
 	if (visFaceList1 == NULL)
 	{
 		return;
 	}
 
-	DrawLevelOvr1P_Scratch()->visFaceListArgPtr32[2] = (u32)(u32)visFaceList2;
+	DrawLevelOvr1P_Scratch()->visFaceListArg[2] = visFaceList2;
 	if (visFaceList2 == NULL)
 	{
 		return;
 	}
 
-	DrawLevelOvr1P_Scratch()->waterEnvMapPtr32 = (u32)(u32)waterEnvMap;
-	DrawLevelOvr1P_Scratch()->primMemEndPtr32 = (u32)(u32)primMem->end;
+	DrawLevelOvr1P_Scratch()->waterEnvMap = waterEnvMap;
+	DrawLevelOvr1P_Scratch()->primMemEnd = primMem->end;
 
 	if (PSX_GET(mesh->ptrQuadBlockArray) == NULL)
 	{
@@ -369,27 +369,27 @@ void DrawLevelOvr3P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspL
 	clipCursors[1] = data.PtrClipBuffer[1];
 	clipCursors[2] = data.PtrClipBuffer[2];
 
-	DrawLevelOvr1P_Scratch()->pushBufferPtr32[0] = (u32)(u32)&pb[0];
-	DrawLevelOvr1P_Scratch()->pushBufferPtr32[1] = (u32)(u32)&pb[1];
-	DrawLevelOvr1P_Scratch()->pushBufferPtr32[2] = (u32)(u32)&pb[2];
-	DrawLevelOvr1P_Scratch()->entry.clip.playerClipCursorPtr32[0] = (u32)(u32)clipCursors[0];
-	DrawLevelOvr1P_Scratch()->entry.clip.playerClipCursorPtr32[1] = (u32)(u32)clipCursors[1];
-	DrawLevelOvr1P_Scratch()->entry.clip.playerClipCursorPtr32[2] = (u32)(u32)clipCursors[2];
+	DrawLevelOvr1P_Scratch()->pushBuffer[0] = &pb[0];
+	DrawLevelOvr1P_Scratch()->pushBuffer[1] = &pb[1];
+	DrawLevelOvr1P_Scratch()->pushBuffer[2] = &pb[2];
+	DrawLevelOvr1P_Scratch()->entry.clip.playerClipCursor[0] = clipCursors[0];
+	DrawLevelOvr1P_Scratch()->entry.clip.playerClipCursor[1] = clipCursors[1];
+	DrawLevelOvr1P_Scratch()->entry.clip.playerClipCursor[2] = clipCursors[2];
 
 	DrawLevelOvr1P_SetPrimReserveBias(0);
 	DrawLevelOvr1P_SetListHandlersSeedRenderedCursor(0);
 	Ovr226_800a0dc4_ClearProjectedScratch();
 	DrawLevelOvr3P_CopyScratchInitTable();
-	DrawLevelOvr1P_Scratch()->renderListPtr32 = (u32)(u32)LevRenderList;
+	DrawLevelOvr1P_Scratch()->renderList = LevRenderList;
 
 	if (!DrawLevelOvr3P_DispatchBucketTable(renderLists, pb, mesh, primMem, visFaceList0, visFaceList1, visFaceList2, clipCursors))
 	{
 		return;
 	}
 
-	DrawLevelOvr1P_Scratch()->entry.clip.playerClipCursorPtr32[0] = (u32)(u32)clipCursors[0];
-	DrawLevelOvr1P_Scratch()->entry.clip.playerClipCursorPtr32[1] = (u32)(u32)clipCursors[1];
-	DrawLevelOvr1P_Scratch()->entry.clip.playerClipCursorPtr32[2] = (u32)(u32)clipCursors[2];
+	DrawLevelOvr1P_Scratch()->entry.clip.playerClipCursor[0] = clipCursors[0];
+	DrawLevelOvr1P_Scratch()->entry.clip.playerClipCursor[1] = clipCursors[1];
+	DrawLevelOvr1P_Scratch()->entry.clip.playerClipCursor[2] = clipCursors[2];
 
 	DrawLevelOvr3P_CopyClipRecordJumpTable();
 	if (!DrawLevelOvr_ConsumeClipRecordsForViewport(&pb[0], primMem, clipCursors[0], 0, DrawLevelOvr3P_ConsumeClipRecords))

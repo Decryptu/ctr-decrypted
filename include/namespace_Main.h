@@ -442,19 +442,19 @@ struct GameTracker
 	struct Stars stars;
 
 	// 1b14
-	u32 ptrCircle;
+	struct IconGroup *ptrCircle;
 
 	// 1b18
-	u32 ptrClod;
+	struct IconGroup *ptrClod;
 
 	// 1b1c
-	u32 ptrDustpuff;
+	struct IconGroup *ptrDustpuff;
 
 	// 1b20
-	u32 ptrSmoking;
+	struct IconGroup *ptrSmoking;
 
 	// 1b24
-	u32 ptrSparkle;
+	struct IconGroup *ptrSparkle;
 
 	// 1b28
 	// handles character icons,

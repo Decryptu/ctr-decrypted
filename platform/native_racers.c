@@ -547,7 +547,7 @@ int NativeRacers_InitSampledVoiceChannelAttr(int racerIndex, int soundID, struct
 	attr->pitch = (u16)pitch;
 	attr->ad = 0x80ff;
 	attr->sr = 0x1fc2;
-	attr->spuStartAddr = (void *)(uintptr_t)racer->sampledVoiceSpuAddr[slot];
+	attr->spuStartAddr = racer->sampledVoiceSpuAddr[slot];
 	return 1;
 }
 

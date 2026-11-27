@@ -647,7 +647,7 @@ void MainFreeze_ConfigSetupEntry(void)
 			{
 				register s16 nextPoint CTR_PSX_REGISTER("$4");
 				register int pointWord CTR_PSX_REGISTER("$3");
-				triangle.points[point].x = ((const s16 *)((u32)(point * 4 + triangleOffset) + (u32)triangleOptions))[0] + ((triangleIndex != 0) ? 0xec : 0x114);
+				triangle.points[point].x = ((const s16 *)((u32)(point * 4 + triangleOffset) + (uintptr_t)triangleOptions))[0] + ((triangleIndex != 0) ? 0xec : 0x114);
 				CTR_PSX_KEEP_VALUE_RELAXED(point);
 				pointWord = (u32)point << 16;
 				CTR_PSX_DEPEND_VALUE(point, pointWord);
@@ -655,7 +655,7 @@ void MainFreeze_ConfigSetupEntry(void)
 				CTR_PSX_COPY_VALUE(point, nextPoint);
 				CTR_PSX_KEEP_VALUE_RELAXED(nextPoint);
 				((SVec2 *)((u8 *)triangle.points + (pointWord >> 14)))->y =
-				    triangleY + ((const s16 *)((u32)((pointWord >> 14) + triangleOffset) + (u32)triangleOptions))[1];
+				    triangleY + ((const s16 *)((u32)((pointWord >> 14) + triangleOffset) + (uintptr_t)triangleOptions))[1];
 				if (nextPoint >= 3)
 					break;
 			} while (1);
@@ -780,7 +780,7 @@ void MainFreeze_ConfigSetupEntry(void)
 				cosSign = cosRadius >> 31;
 				do
 				{
-					int colorOffset;
+					intptr_t colorOffset;
 					register const s16 *position CTR_PSX_REGISTER("$2");
 					register u8 *colorBase CTR_PSX_REGISTER("$2");
 					register u32 x CTR_PSX_REGISTER("$4");
@@ -798,7 +798,7 @@ void MainFreeze_ConfigSetupEntry(void)
 					centerX += 0x100;
 
 					colorOffset = (s16)point * 4;
-					position = (const s16 *)((u32)colorOffset + (u32)geometry);
+					position = (const s16 *)((u32)colorOffset + (uintptr_t)geometry);
 					CTR_PSX_KEEP_VALUE_RELAXED(position);
 					radius = 10;
 					CTR_PSX_DEPEND_VALUE(position, radius);
@@ -806,7 +806,7 @@ void MainFreeze_ConfigSetupEntry(void)
 					y = (u16)position[1];
 					colorBase = MAIN_FREEZE_NAMCO_TRIANGLE_COLORS;
 					CTR_PSX_DEPEND_VALUE(colorBase, y);
-					colorOffset += (u32)colorBase;
+					colorOffset += (uintptr_t)colorBase;
 					tracker = GAME_TRACKER;
 					centerY = MAIN_FREEZE_NAMCO_CENTER_Y;
 

@@ -51,7 +51,7 @@ void LOAD_Robots2P(struct BigHeader *bigfile, int p1, int p2, void (*callback)(s
 		do
 		{
 			// NOTE(aalhendi): The offset-first 32-bit address keeps retail's two-add order.
-			u8 racerID = *(u8 *)((u32)(racerIndex + setOffset) + (u32)robotSetBase);
+			u8 racerID = *(u8 *)((u32)(racerIndex + setOffset) + (uintptr_t)robotSetBase);
 			if ((p1 == racerID) || (p2 == racerID))
 			{
 				boolFoundRepeat = true;

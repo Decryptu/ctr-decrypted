@@ -174,7 +174,7 @@ void MM_Characters_AnimateColors(u8 *colorData, s16 playerID, s16 flag)
 	s32 scaledColorAdjustment;
 	register u8 *colorOutput CTR_PSX_REGISTER("$8");
 	register u8 *ptrColor CTR_PSX_REGISTER("$7");
-	register s32 trigApprox CTR_PSX_REGISTER("$4");
+	register CtrPsxSReg trigApprox CTR_PSX_REGISTER("$4");
 	u32 trigApproximationIndex;
 
 	colorOutput = colorData;
@@ -189,7 +189,7 @@ void MM_Characters_AnimateColors(u8 *colorData, s16 playerID, s16 flag)
 	// see MM_Characters_MenuProc
 	if (flag == 0)
 	{
-		trigApprox = (u32)MM_TRIG_APPROX;
+		trigApprox = (CtrPsxSReg)MM_TRIG_APPROX;
 		trigApproximationIndex = (s16)MM_FRAME_COUNTER * FPS_HALF(MM_CHARACTER_SELECT_COLOR_PHASE_FRAME_STEP) + playerID * MM_CHARACTER_SELECT_COLOR_PHASE_PLAYER_STEP;
 
 		// approximate trigonometry

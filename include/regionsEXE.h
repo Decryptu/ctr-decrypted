@@ -2862,10 +2862,10 @@ struct sData
 	int boolOpenTokenRelicMenu;
 
 	// 8008d4b4 -- ptr to 8009ad18 (pushBuffer) for multiplayer wumpa
-	int ptrPushBufferUI;
+	struct PushBuffer *ptrPushBufferUI;
 
 	// 8008d4b8
-	int ptrFruitDisp; // should maybe be `struct Instance*` instead of `int`?
+	struct Instance *ptrFruitDisp;
 
 	// 8008d4bc
 	int menuReadyToPass;
@@ -3400,7 +3400,13 @@ struct sData
 	// 8008d844
 	// save parameters so you can
 	// call the function over and over
-	int howlChainParams[4];
+	struct
+	{
+		CdlFILE *file;
+		void *dest;
+		int firstSector;
+		int numSector;
+	} howlChainParams;
 
 	// 8008d854
 	void *ptrHubAlloc;
@@ -3547,7 +3553,7 @@ struct sData
 	u16 typeTimer;
 
 	// 8008d8f4
-	int ptrLoadSaveObj;
+	struct SelectProfileLoadSaveObj *ptrLoadSaveObj;
 
 	// 8008d8f8
 

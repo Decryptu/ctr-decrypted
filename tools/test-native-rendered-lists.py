@@ -38,7 +38,7 @@ struct RenderList { struct Slot list[5]; void *bspListStart_FullDynamic; void *p
 struct GameTracker { struct RenderList LevRenderLists[4]; } gt;
 static struct { void *ptrRenderedQuadblockDestination_forEachPlayer[4], *ptrRenderedQuadblockDestination_again[4]; } data;
 static struct { struct QuadBlock *quadBlocksRendered[256]; } sdata_static;
-static struct { u32 renderedOverflowPtr32; } scratch;
+static struct { struct QuadBlock **renderedOverflow; } scratch;
 #define DrawLevelOvr1P_Scratch() (&scratch)
 static struct QuadBlock **sDrawLevelOvr1P_RenderedOverflowBase;
 static struct QuadBlock *sDrawLevelOvrNativeRendered[CTR_NATIVE_RENDERED_LIST_PLAYERS][CTR_NATIVE_RENDERED_LIST_SLOTS];

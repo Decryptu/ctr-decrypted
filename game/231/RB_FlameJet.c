@@ -328,7 +328,7 @@ void RB_FlameJet_Particles(struct Instance *inst, struct FlameJet *fjObj)
 	}
 #endif
 
-	particle2 = Particle_Init(0, (struct IconGroup *)GAME_TRACKER->ptrSparkle, &emSet_fjHeat[0]);
+	particle2 = Particle_Init(0, GAME_TRACKER->ptrSparkle, &emSet_fjHeat[0]);
 
 	// heat particle
 	if (particle2 != 0)

@@ -230,7 +230,7 @@ void MM_TrackSelect_Video_Draw(RECT *r, struct MainMenu_LevelRow *selectMenu, s1
 
 	bigfileHeader = MM_BIGFILE_HEADER;
 	bigfileEntries = BIG_GETENTRY(bigfileHeader);
-	selectedMenu = (struct MainMenu_LevelRow *)((u32)(trackIndex * sizeof(*selectedMenu)) + (u32)selectMenu);
+	selectedMenu = (struct MainMenu_LevelRow *)((u32)(trackIndex * sizeof(*selectedMenu)) + (uintptr_t)selectMenu);
 	videoFileIndex = selectedMenu->previewVideoFileIndex;
 
 	if ((bigfileEntries[videoFileIndex].size != 0) && (r->x >= 0) && (r->y >= 0) && ((r->x + r->w) < (MM_TRACK_VIDEO_SCREEN_W + 1)) &&
@@ -1075,7 +1075,7 @@ trackSelectionMenuDone:
 #ifndef CTR_NATIVE
 			asm volatile(".set $5,$3" : "+r"(trigTable), "+r"(trigIndex));
 #endif
-			packedTrig = CTR_ReadU32AlignedLE((u32 *)(trigIndex + ((u32)trigTable)));
+			packedTrig = CTR_ReadU32AlignedLE((u32 *)(trigIndex + ((uintptr_t)trigTable)));
 			if ((rowAngle & ((0x1000 / 2) / 2)) != 0)
 			{
 				register u32 signTest CTR_PSX_REGISTER("$2");
@@ -1146,7 +1146,7 @@ trackSelectionMenuDone:
 				starIndex = 0;
 				previousLevelID = rowTracker->levelID;
 				timeTrialTrackOffset = ((s16)currTrack) << 4;
-				timeTrialTrack = (struct MainMenu_LevelRow *)(timeTrialTrackOffset + ((u32)selectMenu));
+				timeTrialTrack = (struct MainMenu_LevelRow *)(timeTrialTrackOffset + ((uintptr_t)selectMenu));
 				CTR_PSX_KEEP_VALUE_RELAXED(timeTrialTrack);
 				for (; starIndex < MM_TRACK_SELECT_TT_STAR_COUNT; starIndex++)
 				{

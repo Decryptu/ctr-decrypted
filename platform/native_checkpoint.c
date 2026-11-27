@@ -24,7 +24,6 @@
 #define NATIVE_CHECKPOINT_VERSION            6u
 #define NATIVE_CHECKPOINT_ADDRESS_RANGE_CAP  19u
 #define NATIVE_CHECKPOINT_POINTER_SLOT_CAP   65536u
-#define NATIVE_CHECKPOINT_CREDITS_STRING_CAP 4096u
 
 enum NativeCheckpointRegionKind
 {
@@ -1607,8 +1606,8 @@ internal void NativeCheckpoint_RelocateSDataPointers(const struct NativeCheckpoi
 	NativeCheckpoint_RelocatePointerSlot(oldHeader, liveHeader, &sdata_static.howl_songOffsets);
 	NativeCheckpoint_RelocatePointerSlot(oldHeader, liveHeader, &sdata_static.howl_bankOffsets);
 	NativeCheckpoint_RelocatePointerSlot(oldHeader, liveHeader, &sdata_static.ptrCseqLongSamples);
-	NativeCheckpoint_RelocatePointerSlot(oldHeader, liveHeader, &sdata_static.howlChainParams[0]);
-	NativeCheckpoint_RelocatePointerSlot(oldHeader, liveHeader, &sdata_static.howlChainParams[1]);
+	NativeCheckpoint_RelocatePointerSlot(oldHeader, liveHeader, &sdata_static.howlChainParams.file);
+	NativeCheckpoint_RelocatePointerSlot(oldHeader, liveHeader, &sdata_static.howlChainParams.dest);
 	NativeCheckpoint_RelocatePointerSlot(oldHeader, liveHeader, &sdata_static.ptrHubAlloc);
 	NativeCheckpoint_RelocateLanguagePointers(oldHeader, liveHeader);
 	NativeCheckpoint_RelocateGhostRecording(oldHeader, liveHeader);
@@ -1833,16 +1832,8 @@ internal void NativeCheckpoint_RelocateCreditsPointers(const struct NativeCheckp
 	NativeCheckpoint_RelocatePointerSlot(oldHeader, liveHeader, &creditsBSS.creditThread);
 	NativeCheckpoint_RelocatePointerSlot(oldHeader, liveHeader, &creditsBSS.dancerThread);
 	NativeCheckpoint_RelocatePointerSlot(oldHeader, liveHeader, &creditsBSS.dancerInst_invisible);
+	// The copy keeps its string offsets (CS_CREDITS_STRING), so only the table moves.
 	NativeCheckpoint_RelocatePointerSlot(oldHeader, liveHeader, &creditsBSS.ptrStrings);
-
-	if ((creditsBSS.numStrings > 0) && ((u32)creditsBSS.numStrings <= NATIVE_CHECKPOINT_CREDITS_STRING_CAP) &&
-	    NativeCheckpoint_IsLivePointer(liveHeader, creditsBSS.ptrStrings))
-	{
-		for (s32 i = 0; i < creditsBSS.numStrings; i++)
-		{
-			NativeCheckpoint_RelocatePointerSlot(oldHeader, liveHeader, &creditsBSS.ptrStrings[i]);
-		}
-	}
 
 	NativeCheckpoint_RelocateCreditsObjPointers(oldHeader, liveHeader, &creditsBSS.creditsObj);
 }

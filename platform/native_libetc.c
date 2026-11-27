@@ -12,10 +12,8 @@ global_variable int s_videoMode = -1;
 
 int VSyncCallback(void (*func)(void))
 {
-	int old = (int)vsync_callback;
-
 	vsync_callback = func;
-	return old;
+	return 0; // PsyQ returns the old callback in an int; no caller reads it
 }
 
 int StopCallback(void)
@@ -25,10 +23,8 @@ int StopCallback(void)
 
 int ResetCallback(void)
 {
-	int old = (int)vsync_callback;
-
 	vsync_callback = NULL;
-	return old;
+	return 0;
 }
 
 int SetVideoMode(int mode)

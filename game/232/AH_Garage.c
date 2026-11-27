@@ -727,7 +727,7 @@ void AH_Garage_LInB(struct Instance *inst)
 		for (; i < AH_HUB_TRACK_COUNT; i++)
 		{
 			// if any trophy on this hub is not unlocked
-			if (!CHECK_ADV_BIT(rewards, *(s16 *)(trackOffset + (u32)tracks) + ADV_REWARD_FIRST_TROPHY))
+			if (!CHECK_ADV_BIT(rewards, *(s16 *)(trackOffset + (uintptr_t)tracks) + ADV_REWARD_FIRST_TROPHY))
 			{
 				// boss is not open
 				bossIsOpen = false;

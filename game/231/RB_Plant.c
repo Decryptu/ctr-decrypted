@@ -408,7 +408,7 @@ void RB_Plant_LInB(struct Instance *inst)
 		// Level metadata supplies each plant's cycle delay and track side.
 		plantID = inst->name[strlen(inst->name) - 1] - '0';
 		metaArray = (s16 *)ST1_GETPOINTER(PSX_GET(GAME_TRACKER->level1->ptrSpawnType1), ST1_SPAWN);
-		metaArray = (s16 *)((u32)metaArray + plantID * 4);
+		metaArray = (s16 *)((uintptr_t)metaArray + plantID * 4);
 
 		plantObj->cooldown = FPS_DOUBLE(metaArray[0]);
 		plantObj->side = FPS_DOUBLE(metaArray[1]);

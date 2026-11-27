@@ -775,7 +775,7 @@ void UI_RenderFrame_Racing()
 				primMemCurr = backBuffer->primMem.cursor;
 				TurboCounterBar = 0;
 
-				if ((int)primMemCurr <= (int)backBuffer->primMem.guardEnd)
+				if ((uintptr_t)primMemCurr <= (uintptr_t)backBuffer->primMem.guardEnd)
 				{
 					backBuffer->primMem.cursor = primMemCurr + 9;
 					TurboCounterBar = (POLY_G4 *)primMemCurr;
@@ -1247,7 +1247,7 @@ void UI_RenderFrame_Wumpa3D_2P3P4P(struct GameTracker *gGT)
 
 	// NOTE(aalhendi): Retail reads the gp slot populated by UI_INSTANCE_InitAll
 	// with ptrPushBufferUI, not the adjacent ptrFruitDisp instance slot.
-	wumpaPushBuffer = (struct PushBuffer *)(u32)sdata->ptrPushBufferUI;
+	wumpaPushBuffer = sdata->ptrPushBufferUI;
 #ifdef CTR_NATIVE
 	// Native draws a separate fruit model at each player's HUD coordinates.
 	if (wumpaPushBuffer == NULL) return;

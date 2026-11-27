@@ -152,7 +152,7 @@ stage1:
 			sampleIndex = sampleEntry[1];
 			count = sampleBlock->numSamples;
 			// NOTE(aalhendi): Both targets use 32-bit pointers; offset-first addition preserves retail operands.
-			entry = (struct SpuAddrEntry *)(((u32)sampleIndex << 2) + (u32)GAME_HOWL_SPU_ADDRS);
+			entry = (struct SpuAddrEntry *)(((u32)sampleIndex << 2) + (uintptr_t)GAME_HOWL_SPU_ADDRS);
 			count = i < count;
 			// NOTE(aalhendi): Retail compares the next index before reading the sample size.
 			CTR_PSX_DEPEND_VALUE(entry, count);
@@ -191,7 +191,7 @@ stage1:
 	MEMPACK_ReallocMem(roundedSize + 0x800);
 
 	ret = LOAD_HowlSectorChainStart(&GAME_HOWL_CD_FILE,                            // CdLoc of HOWL
-	                                (void *)((int)sdata->ptrSampleBlock2 + 0x800), // destination
+	                                (void *)((uintptr_t)sdata->ptrSampleBlock2 + 0x800), // destination
 	                                sdata->bankSectorOffset + 1,                   // offset of howl
 	                                sdata->numAudioSectors                         // number of sectors
 	);
@@ -263,7 +263,7 @@ stage2:
 		// start transfer
 		SpuSetTransferStartAddr(spuAddrStart);
 
-		SpuWrite((u8 *)((int)sdata->ptrSampleBlock2 + 0x800), (u32)sdata->audioAllocSize);
+		SpuWrite((u8 *)((uintptr_t)sdata->ptrSampleBlock2 + 0x800), (u32)sdata->audioAllocSize);
 	}
 
 	sdata->bankLoadStage = 3;

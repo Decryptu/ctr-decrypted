@@ -226,17 +226,17 @@ static __inline__ void SelectProfile_DrawAdvProfile_UpdateIcon(s16 index, int po
 {
 #if defined(CTR_NATIVE)
 	// NOTE(aalhendi): The native menu thread may outlive unavailable icon models.
-	if (((struct SelectProfileLoadSaveObj *)SELECT_PROFILE_LOAD_SAVE_OBJECT)->icons[index].inst == NULL)
+	if (SELECT_PROFILE_LOAD_SAVE_OBJECT->icons[index].inst == NULL)
 	{
 		return;
 	}
 #endif
-	((struct SelectProfileLoadSaveObj *)SELECT_PROFILE_LOAD_SAVE_OBJECT)->icons[index].inst->matrix.t[0] =
+	SELECT_PROFILE_LOAD_SAVE_OBJECT->icons[index].inst->matrix.t[0] =
 	    SelectProfile_UI_ConvertX(posX, SELECT_PROFILE_UI_SCALE);
-	((struct SelectProfileLoadSaveObj *)SELECT_PROFILE_LOAD_SAVE_OBJECT)->icons[index].inst->matrix.t[1] =
+	SELECT_PROFILE_LOAD_SAVE_OBJECT->icons[index].inst->matrix.t[1] =
 	    SelectProfile_UI_ConvertY(posY, SELECT_PROFILE_UI_SCALE);
-	((struct SelectProfileLoadSaveObj *)SELECT_PROFILE_LOAD_SAVE_OBJECT)->icons[index].inst->matrix.t[2] = SELECT_PROFILE_UI_DEPTH;
-	((struct SelectProfileLoadSaveObj *)SELECT_PROFILE_LOAD_SAVE_OBJECT)->icons[index].inst->flags &= ~HIDE_MODEL;
+	SELECT_PROFILE_LOAD_SAVE_OBJECT->icons[index].inst->matrix.t[2] = SELECT_PROFILE_UI_DEPTH;
+	SELECT_PROFILE_LOAD_SAVE_OBJECT->icons[index].inst->flags &= ~HIDE_MODEL;
 }
 
 void SelectProfile_DrawAdvProfile(struct AdvProgress *adv, int posX, int posY, s16 isHighlighted, s16 slotIndex, s16 menuFlag)
@@ -360,11 +360,11 @@ void SelectProfile_Init(s16 flags)
 		// through this allocation result before its later null check; keep
 		// unpatched until a valid menu repro proves the allocation can fail.
 		obj = (struct SelectProfileLoadSaveObj *)t->object;
-		SELECT_PROFILE_LOAD_SAVE_OBJECT = (int)obj;
+		SELECT_PROFILE_LOAD_SAVE_OBJECT = obj;
 		obj->icons = &SELECT_PROFILE_LOAD_SAVE_ICONS[0];
 		memset(obj->icons, 0, sizeof(SELECT_PROFILE_LOAD_SAVE_ICONS));
 
-		obj = (struct SelectProfileLoadSaveObj *)SELECT_PROFILE_LOAD_SAVE_OBJECT;
+		obj = SELECT_PROFILE_LOAD_SAVE_OBJECT;
 		obj->thread = t;
 		if (obj == NULL)
 		{
@@ -380,7 +380,7 @@ void SelectProfile_Init(s16 flags)
 	CTR_PSX_OBSERVE_VALUE(firstPlayer);
 	metaBase = meta;
 	CTR_PSX_OBSERVE_VALUE(metaBase);
-	setupObj = (struct SelectProfileLoadSaveObj *)SELECT_PROFILE_LOAD_SAVE_OBJECT;
+	setupObj = SELECT_PROFILE_LOAD_SAVE_OBJECT;
 	spinOffset = SELECT_PROFILE_SPIN_OFFSET;
 	icon = setupObj->icons;
 	for (; i < 12; i++, icon++, meta++)
@@ -402,7 +402,7 @@ void SelectProfile_Init(s16 flags)
 				char *instName = SELECT_PROFILE_INSTANCE_NAME;
 #endif
 
-				inst = INSTANCE_Birth3D(model, instName, ((struct SelectProfileLoadSaveObj *)SELECT_PROFILE_LOAD_SAVE_OBJECT)->thread);
+				inst = INSTANCE_Birth3D(model, instName, SELECT_PROFILE_LOAD_SAVE_OBJECT->thread);
 				icon->inst = inst;
 
 				if (inst != NULL)
@@ -471,7 +471,7 @@ void SelectProfile_Destroy(void)
 {
 	if (SELECT_PROFILE_LOAD_SAVE_OBJECT != 0)
 	{
-		struct SelectProfileLoadSaveIcon *icon = ((struct SelectProfileLoadSaveObj *)SELECT_PROFILE_LOAD_SAVE_OBJECT)->icons;
+		struct SelectProfileLoadSaveIcon *icon = SELECT_PROFILE_LOAD_SAVE_OBJECT->icons;
 		struct SelectProfileLoadSaveObj *obj;
 		u16 i;
 
@@ -486,7 +486,7 @@ void SelectProfile_Destroy(void)
 			}
 		}
 
-		obj = (struct SelectProfileLoadSaveObj *)SELECT_PROFILE_LOAD_SAVE_OBJECT;
+		obj = SELECT_PROFILE_LOAD_SAVE_OBJECT;
 #if defined(CTR_NATIVE)
 		obj->thread->funcThTick = NULL;
 #endif

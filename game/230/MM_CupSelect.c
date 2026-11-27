@@ -202,7 +202,7 @@ void MM_CupSelect_MenuProc(struct RectMenu *menu)
 
 	{
 		struct TransitionMeta *cupTransitions;
-		register u32 arcadeCupsAddress CTR_PSX_REGISTER("$17");
+		register CtrPsxReg arcadeCupsAddress CTR_PSX_REGISTER("$17");
 
 		{
 			register s32 titleFont CTR_PSX_REGISTER("$7");
@@ -221,7 +221,7 @@ void MM_CupSelect_MenuProc(struct RectMenu *menu)
 		{
 			register u32 arcadeCupsPage CTR_PSX_REGISTER("$2");
 			CTR_PSX_LOAD_SYMBOL_PAGE(arcadeCupsPage, MM_ARCADE_CUPS_ASM_NAME);
-			CTR_PSX_ADD_SYMBOL_LOW(arcadeCupsAddress, arcadeCupsPage, MM_ARCADE_CUPS_ASM_NAME, (u32)MM_ARCADE_CUPS);
+			CTR_PSX_ADD_SYMBOL_LOW(arcadeCupsAddress, arcadeCupsPage, MM_ARCADE_CUPS_ASM_NAME, (CtrPsxReg)MM_ARCADE_CUPS);
 		}
 
 		// Draw the four cup names before the cup contents.
@@ -229,10 +229,10 @@ void MM_CupSelect_MenuProc(struct RectMenu *menu)
 			register s16 nextCupIndex CTR_PSX_REGISTER("$2");
 			do
 			{
-				register s32 transitionAddressOrNameX CTR_PSX_REGISTER("$5");
+				register CtrPsxSReg transitionAddressOrNameX CTR_PSX_REGISTER("$5");
 				register s32 nameY CTR_PSX_REGISTER("$6");
 				register s32 cupOrNameYWork CTR_PSX_REGISTER("$4");
-				register u32 languageStringAddress CTR_PSX_REGISTER("$3");
+				register CtrPsxReg languageStringAddress CTR_PSX_REGISTER("$3");
 				register s32 signedCupIndex CTR_PSX_REGISTER("$7");
 
 				{
@@ -240,7 +240,7 @@ void MM_CupSelect_MenuProc(struct RectMenu *menu)
 					cupOrNameYWork = (u32)(u16)cupIndex << 16;
 					signedCupIndex = cupOrNameYWork >> 16;
 					CTR_PSX_KEEP_VALUE(signedCupIndex);
-					transitionAddressOrNameX = signedCupIndex * 10 + (u32)cupTransitions;
+					transitionAddressOrNameX = signedCupIndex * 10 + (CtrPsxReg)cupTransitions;
 					coordinateOffset = (cupIndex & 1) * MM_CUP_SELECT_COLUMN_WIDTH;
 					CTR_PSX_OBSERVE_VALUE(coordinateOffset);
 					cupOrNameYWork = signedCupIndex + ((u32)cupOrNameYWork >> 31);
@@ -248,7 +248,7 @@ void MM_CupSelect_MenuProc(struct RectMenu *menu)
 					CTR_PSX_LOAD_SYMBOL_PAGE(languageStringAddress, RETAIL_LANGUAGE_STRINGS_ASM_NAME);
 					nameY = (u16)((struct TransitionMeta *)transitionAddressOrNameX)->currX;
 					CTR_PSX_LOAD_WORD_FROM_PAGE_AFTER(languageStringAddress, languageStringAddress, RETAIL_LANGUAGE_STRINGS_ASM_NAME,
-					                                  (u32)GAME_LANGUAGE_STRINGS, nameY);
+					                                  (CtrPsxReg)GAME_LANGUAGE_STRINGS, nameY);
 					nameY += coordinateOffset;
 					CTR_PSX_OBSERVE_VALUE(nameY);
 					coordinateOffset = cupOrNameYWork << 2;
@@ -269,7 +269,7 @@ void MM_CupSelect_MenuProc(struct RectMenu *menu)
 					cupOrNameYWork += coordinateOffset;
 				}
 				{
-					register s32 workV0 CTR_PSX_REGISTER("$2");
+					register CtrPsxSReg workV0 CTR_PSX_REGISTER("$2");
 
 					workV0 = signedCupIndex << 3;
 					CTR_PSX_KEEP_VALUE(workV0);
@@ -322,15 +322,15 @@ void MM_CupSelect_MenuProc(struct RectMenu *menu)
 		register s32 startY CTR_PSX_REGISTER("$19");
 		register s32 signedStartX CTR_PSX_REGISTER("$20");
 		register s16 starIndex CTR_PSX_REGISTER("$17");
-		u32 gameUnlocksBase;
-		register u32 starWinBitsBase CTR_PSX_REGISTER("$22");
+		CtrPsxReg gameUnlocksBase;
+		register CtrPsxReg starWinBitsBase CTR_PSX_REGISTER("$22");
 		register u32 gameTrackerPage CTR_PSX_REGISTER("$16");
 
 		cupIndex = 0;
 		{
 			register u32 symbolPage CTR_PSX_REGISTER("$2");
 			CTR_PSX_LOAD_SYMBOL_PAGE(symbolPage, RETAIL_GAME_SAVE_ASM_NAME);
-			CTR_PSX_ADD_SYMBOL_LOW(gameUnlocksBase, symbolPage, RETAIL_GAME_SAVE_ASM_NAME, (u32)MM_GAME_UNLOCKS - sizeof(u32));
+			CTR_PSX_ADD_SYMBOL_LOW(gameUnlocksBase, symbolPage, RETAIL_GAME_SAVE_ASM_NAME, (CtrPsxReg)MM_GAME_UNLOCKS - sizeof(u32));
 			CTR_PSX_KEEP_VALUE(gameUnlocksBase);
 		}
 		CTR_PSX_ZERO_VALUE(starIndex);
@@ -342,16 +342,16 @@ void MM_CupSelect_MenuProc(struct RectMenu *menu)
 				{
 					register u32 symbolPage CTR_PSX_REGISTER("$2");
 					CTR_PSX_LOAD_SYMBOL_PAGE_AFTER(symbolPage, MM_CUP_STAR_WIN_BITS_ASM_NAME, cupIndex);
-					CTR_PSX_ADD_SYMBOL_LOW(starWinBitsBase, symbolPage, MM_CUP_STAR_WIN_BITS_ASM_NAME, (u32)MM_CUP_STAR_WIN_BITS);
+					CTR_PSX_ADD_SYMBOL_LOW(starWinBitsBase, symbolPage, MM_CUP_STAR_WIN_BITS_ASM_NAME, (CtrPsxReg)MM_CUP_STAR_WIN_BITS);
 				}
 				{
 					register s32 cupShift CTR_PSX_REGISTER("$4");
-					register u32 transitionAddress CTR_PSX_REGISTER("$5");
+					register CtrPsxReg transitionAddress CTR_PSX_REGISTER("$5");
 					register s32 xWork CTR_PSX_REGISTER("$6");
 					register s32 yWork CTR_PSX_REGISTER("$3");
 					register s32 coordinateOffset CTR_PSX_REGISTER("$2");
 					register s32 signedCupWork CTR_PSX_REGISTER("$2");
-					register u32 transitionPage CTR_PSX_REGISTER("$8");
+					register CtrPsxReg transitionPage CTR_PSX_REGISTER("$8");
 
 					cupShift = (u32)(u16)cupIndex << 16;
 					signedCupWork = cupShift >> 16;
@@ -359,7 +359,7 @@ void MM_CupSelect_MenuProc(struct RectMenu *menu)
 					signedCupIndex = signedCupWork;
 					transitionAddress = signedCupIndex * 10;
 					CTR_PSX_LOAD_SYMBOL_PAGE(transitionPage, MM_CUP_TRANSITIONS_ASM_NAME);
-					CTR_PSX_ADD_SYMBOL_LOW_IN_PLACE(transitionPage, MM_CUP_TRANSITIONS_ASM_NAME, (u32)MM_CUP_TRANSITIONS);
+					CTR_PSX_ADD_SYMBOL_LOW_IN_PLACE(transitionPage, MM_CUP_TRANSITIONS_ASM_NAME, (CtrPsxReg)MM_CUP_TRANSITIONS);
 					transitionAddress += transitionPage;
 					coordinateOffset = (cupIndex & 1) * MM_CUP_SELECT_COLUMN_WIDTH;
 					CTR_PSX_KEEP_VALUE(coordinateOffset);
@@ -394,7 +394,7 @@ void MM_CupSelect_MenuProc(struct RectMenu *menu)
 					{
 						register s32 starOffset CTR_PSX_REGISTER("$4");
 						register s32 cupWinBitIndex CTR_PSX_REGISTER("$3");
-						register s32 workV0 CTR_PSX_REGISTER("$2");
+						register CtrPsxSReg workV0 CTR_PSX_REGISTER("$2");
 
 						workV0 = (u32)(u16)starIndex << 16;
 						starOffset = workV0 >> 15;
@@ -419,10 +419,10 @@ void MM_CupSelect_MenuProc(struct RectMenu *menu)
 							register u32 *orderingTable CTR_PSX_REGISTER("$3");
 							register struct IconGroup *iconGroup CTR_PSX_REGISTER("$4");
 							register struct DB *backBuffer CTR_PSX_REGISTER("$7");
-							register u32 workV0 CTR_PSX_REGISTER("$2");
+							register CtrPsxReg workV0 CTR_PSX_REGISTER("$2");
 
 							CTR_PSX_LOAD_SYMBOL_PAGE(workV0, MM_CUP_STAR_COLORS_ASM_NAME);
-							CTR_PSX_ADD_SYMBOL_LOW_IN_PLACE(workV0, MM_CUP_STAR_COLORS_ASM_NAME, (u32)MM_CUP_STAR_COLORS);
+							CTR_PSX_ADD_SYMBOL_LOW_IN_PLACE(workV0, MM_CUP_STAR_COLORS_ASM_NAME, (CtrPsxReg)MM_CUP_STAR_COLORS);
 							workV0 = starOffset + workV0;
 							starColorIndex = *(u16 *)workV0;
 							CTR_PSX_KEEP_VALUE(starColorIndex);
@@ -446,7 +446,7 @@ void MM_CupSelect_MenuProc(struct RectMenu *menu)
 							backBuffer = gameTracker->backBuffer;
 							CTR_PSX_OBSERVE_VALUE(backBuffer);
 							CTR_PSX_LOAD_SYMBOL_PAGE(workV0, MM_COLOR_POINTERS_ASM_NAME);
-							CTR_PSX_ADD_SYMBOL_LOW_IN_PLACE(workV0, MM_COLOR_POINTERS_ASM_NAME, (u32)MM_COLOR_POINTERS);
+							CTR_PSX_ADD_SYMBOL_LOW_IN_PLACE(workV0, MM_COLOR_POINTERS_ASM_NAME, (CtrPsxReg)MM_COLOR_POINTERS);
 							{
 								MM_DECALHUD_DRAW_POLY_GT4(
 								    ICONGROUP_GETICON(iconGroup, MM_CUP_SELECT_STAR_ICON_ID), starX, MM_CupSelect_GetStarY(starIndex, startY),
@@ -463,7 +463,7 @@ void MM_CupSelect_MenuProc(struct RectMenu *menu)
 				// loop through all four track icons in one cup
 				{
 					register s16 trackIndex CTR_PSX_REGISTER("$17");
-					register u32 arcadeCupsBase CTR_PSX_REGISTER("$22");
+					register CtrPsxReg arcadeCupsBase CTR_PSX_REGISTER("$22");
 					register s32 cupTrackOffset CTR_PSX_REGISTER("$20");
 					register s16 nextTrackIndex CTR_PSX_REGISTER("$2");
 
@@ -471,7 +471,7 @@ void MM_CupSelect_MenuProc(struct RectMenu *menu)
 					{
 						register u32 symbolPage CTR_PSX_REGISTER("$2");
 						CTR_PSX_LOAD_SYMBOL_PAGE(symbolPage, MM_ARCADE_CUPS_ASM_NAME);
-						CTR_PSX_ADD_SYMBOL_LOW(arcadeCupsBase, symbolPage, MM_ARCADE_CUPS_ASM_NAME, (u32)MM_ARCADE_CUPS);
+						CTR_PSX_ADD_SYMBOL_LOW(arcadeCupsBase, symbolPage, MM_ARCADE_CUPS_ASM_NAME, (CtrPsxReg)MM_ARCADE_CUPS);
 					}
 					{
 						register s32 signedCupWork CTR_PSX_REGISTER("$3");
@@ -487,7 +487,7 @@ void MM_CupSelect_MenuProc(struct RectMenu *menu)
 						register s32 posX CTR_PSX_REGISTER("$5");
 						register s32 posY CTR_PSX_REGISTER("$6");
 						register s32 signedTrackIndex CTR_PSX_REGISTER("$3");
-						register u32 trackAddress CTR_PSX_REGISTER("$3");
+						register CtrPsxReg trackAddress CTR_PSX_REGISTER("$3");
 						register s32 iconID CTR_PSX_REGISTER("$3");
 						register struct GameTracker *gameTracker CTR_PSX_REGISTER("$4");
 						register struct DB *backBuffer CTR_PSX_REGISTER("$7");
@@ -509,7 +509,7 @@ void MM_CupSelect_MenuProc(struct RectMenu *menu)
 						iconID <<= 2;
 						backBuffer = gameTracker->backBuffer;
 						orderingTable = gameTracker->pushBuffer_UI.ptrOT;
-						gameTracker = (struct GameTracker *)((u32)gameTracker + iconID);
+						gameTracker = (struct GameTracker *)((u8 *)gameTracker + iconID);
 
 						// Draw Icon of each track
 						MM_CUP_SELECT_DRAW_TRACK(gameTracker->ptrIcons[0], posX, posY, &backBuffer->primMem, orderingTable, MM_CUP_COLOR);

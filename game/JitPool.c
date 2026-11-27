@@ -32,23 +32,17 @@ void JitPool_Init(struct JitPool *AP, int maxItems, int itemSize, char *name)
 }
 
 
-int JitPool_Add(struct JitPool *AP)
+void *JitPool_Add(struct JitPool *AP)
 {
 	struct Item *item = AP->free.first;
-	s32 result;
 
-	if (item == 0)
-	{
-		result = 0;
-	}
-	else
+	if (item != NULL)
 	{
 		LIST_RemoveMember(&AP->free, item);
 		LIST_AddFront(&AP->taken, item);
-		result = (s32)item;
 	}
 
-	return result;
+	return item;
 }
 
 

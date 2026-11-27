@@ -28,7 +28,7 @@ static void MEMPACK_ApExhausted(const char *who, s32 allocSize)
 
 void MEMPACK_Init(s32 ramSize)
 {
-	u32 startPtr;
+	uintptr_t startPtr;
 
 #if defined(CTR_NATIVE)
 	// NOTE(aalhendi): Native uses host-backed RAM; PSX reserves the arena after the largest overlay.
@@ -36,16 +36,16 @@ void MEMPACK_Init(s32 ramSize)
 	const struct PlatformMempackArena *arena = Platform_InitMempackArena();
 	(void)ramSize;
 
-	startPtr = (u32)arena->start;
+	startPtr = (uintptr_t)arena->start;
 	packSize = arena->size;
 
-	printf("[CTR] MEMPACK native backing: base=%08x\n", (u32)arena->base);
+	printf("[CTR] MEMPACK native backing: base=%p\n", (void *)arena->base);
 
 	MEMPACK_NewPack((void *)startPtr, packSize);
 	MEMPACK_ACTIVE->endOfAllocator = (void *)(startPtr + packSize);
 	MEMPACK_ACTIVE->endOfMemory = arena->endOfMemory;
 
-	printf("[CTR] MEMPACK native arena: start=%08x size=%08x end=%08x\n", startPtr, packSize, (u32)MEMPACK_ACTIVE->endOfAllocator);
+	printf("[CTR] MEMPACK native arena: start=%p size=%08x end=%p\n", (void *)startPtr, packSize, (void *)MEMPACK_ACTIVE->endOfAllocator);
 
 #else
 	u32 maxOverlayEnd;
@@ -128,7 +128,7 @@ inline s32 MEMPACK_GetFreeBytes(void)
 {
 	struct Mempack *ptrMempack = MEMPACK_ACTIVE;
 
-	return (u32)ptrMempack->lastFreeByte - (u32)ptrMempack->firstFreeByte;
+	return (u32)((u8 *)ptrMempack->lastFreeByte - (u8 *)ptrMempack->firstFreeByte);
 }
 
 

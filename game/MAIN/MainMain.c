@@ -693,7 +693,7 @@ void StateZero()
 #endif
 
 	// English=1
-	LOAD_LangFile((int)sdata->ptrBigfile1, 1);
+	LOAD_LangFile(sdata->ptrBigfile1, 1);
 	GAMEPROG_NewGame_OnBoot();
 	gGT->overlayIndex_null_notUsed = 0;
 

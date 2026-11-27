@@ -184,7 +184,7 @@ s32 MM_TransitionInOut(struct TransitionMeta *meta, s32 framesPassed, s32 numFra
 
 void MM_MenuProc_Main(struct RectMenu *menu)
 {
-	register u32 timeTrialSetupTracker CTR_PSX_REGISTER("$3");
+	register CtrPsxReg timeTrialSetupTracker CTR_PSX_REGISTER("$3");
 	register struct RectMenu *mainMenu CTR_PSX_REGISTER("$16");
 	struct Title *titleObj;
 	s16 choose;
@@ -408,7 +408,7 @@ void MM_MenuProc_Main(struct RectMenu *menu)
 
 	// Time Trial
 	case LNG_TIME_TRIAL:
-		timeTrialSetupTracker = (u32)GAME_TRACKER;
+		timeTrialSetupTracker = (CtrPsxReg)GAME_TRACKER;
 		{
 #ifndef CTR_NATIVE
 			// Leave main menu hierarchy
@@ -700,7 +700,7 @@ void MM_ToggleRows_Difficulty(void)
 	// check 3 modes (easy, medium, hard)
 	for (/**/; difficultyIndex < MM_DIFFICULTY_COUNT; difficultyIndex++)
 	{
-		firstUnlockBit = (s16 *)((u32)(difficultyIndex * sizeof(*firstUnlockBits)) + (u32)firstUnlockBits);
+		firstUnlockBit = (s16 *)((u32)(difficultyIndex * sizeof(*firstUnlockBits)) + (uintptr_t)firstUnlockBits);
 		firstUnlockBitCopy = firstUnlockBit;
 
 		// if negative (for EASY row), skip
@@ -726,7 +726,7 @@ void MM_ToggleRows_Difficulty(void)
 				unlockBit = (s32)*innerFirstUnlockBit + trackIndex;
 
 				// check what is unlocked
-				unlockWord = (u32 *)((u32)((unlockBit >> 5) * sizeof(*unlockWord)) + (u32)progress);
+				unlockWord = (u32 *)((u32)((unlockBit >> 5) * sizeof(*unlockWord)) + (uintptr_t)progress);
 				isUnlocked = (unlockWord[1] >> (unlockBit & 0x1f)) & 1;
 			}
 		}
@@ -741,9 +741,9 @@ void MM_ToggleRows_Difficulty(void)
 
 			CTR_PSX_LOAD_SYMBOL_PAGE_AFTER(stringIndices, MM_CUP_DIFFICULTY_STRING_INDEX_ASM_NAME, stringIndexOffset);
 			CTR_PSX_ADD_SYMBOL_LOW(stringIndices, stringIndices, MM_CUP_DIFFICULTY_STRING_INDEX_ASM_NAME, MM_CUP_DIFFICULTY_STRING_INDEX);
-			lngIndex = *(s16 *)((u32)stringIndexOffset + (u32)stringIndices);
+			lngIndex = *(s16 *)((u32)stringIndexOffset + (uintptr_t)stringIndices);
 		}
-		difficultyRow = (struct MenuRow *)((u32)(signedDifficultyIndex * sizeof(*difficultyRow)) + (u32)difficultyMenu->rows);
+		difficultyRow = (struct MenuRow *)((u32)(signedDifficultyIndex * sizeof(*difficultyRow)) + (uintptr_t)difficultyMenu->rows);
 		finalUnlockState = shouldCheckNextTrack;
 		isUnlocked = 0;
 

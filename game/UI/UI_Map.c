@@ -88,7 +88,7 @@ void UI_Map_DrawMap(struct Icon *mapTop, struct Icon *mapBottom, s32 posX, s32 p
 #ifdef CTR_NATIVE
 		// NOTE(aalhendi): Retail assumes HUD packet space remains. Native must
 		// respect the same guard used by the other primitive allocators.
-		if ((u32)p > (u32)primMem->guardEnd)
+		if ((uintptr_t)p > (uintptr_t)primMem->guardEnd)
 		{
 			return;
 		}
@@ -121,7 +121,7 @@ void UI_Map_DrawMap(struct Icon *mapTop, struct Icon *mapBottom, s32 posX, s32 p
 
 	p = (POLY_FT4 *)primMem->cursor;
 #ifdef CTR_NATIVE
-	if ((u32)p > (u32)primMem->guardEnd)
+	if ((uintptr_t)p > (uintptr_t)primMem->guardEnd)
 	{
 		return;
 	}

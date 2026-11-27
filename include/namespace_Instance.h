@@ -519,8 +519,10 @@ struct InstDrawPerPlayer
 	struct ModelHeader *mh;
 
 	// 0xe4
-	int otRangeNormal;    // ptrOT + depthOffset
-	int otRangeSecondary; // ptrOT + depthOffset
+	// The PSX address of ptrOT[-depthOffset] (OTs come from the mempack): retail
+	// adds depth bins to it in 32 bits; RenderBucket and DrawTires decode it.
+	int otRangeNormal;
+	int otRangeSecondary;
 	int unkEC;            // drawFunc1
 	int unkF0;            // drawFunc2
 
@@ -643,7 +645,8 @@ struct Instance
 
 	// 0x5c
 	// between 8006c6f0 and 8006d5b8
-	void *funcPtr[4];
+	// Retail draw-function addresses, used as labels: RenderBucket switches on them.
+	u32 funcPtr[4];
 
 	// 0x6c
 	// Thread and Instance are linked together
@@ -712,6 +715,6 @@ static inline u32 INST_CompressNormalVectorAndDriverIndex(s32 normalX, s32 norma
 	return INST_CompressNormalVector(normalX, normalY, normalZ) | (((u32)driverID + INST_COMPRESSED_DRIVER_INDEX_OFFSET) << INST_COMPRESSED_DRIVER_INDEX_SHIFT);
 }
 
-#define INST_GETIDPP(x) ((struct InstDrawPerPlayer *)((u32)x + sizeof(struct Instance)))
+#define INST_GETIDPP(x) ((struct InstDrawPerPlayer *)((u8 *)(x) + sizeof(struct Instance)))
 
 #endif

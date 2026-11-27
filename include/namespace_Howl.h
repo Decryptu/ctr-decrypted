@@ -151,7 +151,7 @@ enum CseqSong
 struct ChannelAttr
 {
 	// 0x0
-	void *spuStartAddr;
+	u32 spuStartAddr; // in SPU RAM
 
 	// as + dr = ASDR (envelope standard)
 
@@ -398,7 +398,7 @@ struct CseqSongHeader
 	// each seq is an array of SongNote
 	// s16 seqOffsetArr[0];
 };
-#define SONGHEADER_GETSEQOFFARR(x) ((u32)x + sizeof(struct CseqSongHeader))
+#define SONGHEADER_GETSEQOFFARR(x) ((u8 *)(x) + sizeof(struct CseqSongHeader))
 
 // right before first note
 struct SongNoteHeader
@@ -410,7 +410,7 @@ struct SongNoteHeader
 
 	// char notes[0];
 };
-#define NOTEHEADER_GETNOTES(x) ((u32)x + sizeof(struct SongNoteHeader))
+#define NOTEHEADER_GETNOTES(x) ((u8 *)(x) + sizeof(struct SongNoteHeader))
 
 struct SongSeq
 {
@@ -536,7 +536,7 @@ struct SampleBlockHeader
 
 	// u16 spuIndexArr[0];
 };
-#define SBHEADER_GETARR(x) (u16 *)((u32)x + sizeof(struct SampleBlockHeader))
+#define SBHEADER_GETARR(x) (u16 *)((u8 *)(x) + sizeof(struct SampleBlockHeader))
 
 struct SpuAddrEntry
 {

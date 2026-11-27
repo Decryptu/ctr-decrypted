@@ -99,7 +99,7 @@ union TorchUvPairScratch
 struct TorchScratch
 {
 	u8 pad_000[0x30];
-	u32 firstParticlePtr32;
+	PSX_PTR(struct Particle) firstParticle; // particles come from the mempack
 	u32 pad_034;
 	u32 swapchainIndex;
 	u8 pad_03c[0x08];
@@ -119,7 +119,7 @@ struct TorchScratch
 };
 
 CTR_STATIC_ASSERT(sizeof(struct TorchRingScratch) == 0x24);
-CTR_STATIC_ASSERT(offsetof(struct TorchScratch, firstParticlePtr32) == 0x30);
+CTR_STATIC_ASSERT(offsetof(struct TorchScratch, firstParticle) == 0x30);
 CTR_STATIC_ASSERT(offsetof(struct TorchScratch, swapchainIndex) == 0x38);
 CTR_STATIC_ASSERT(offsetof(struct TorchScratch, color) == 0x44);
 CTR_STATIC_ASSERT(offsetof(struct TorchScratch, screenWFP) == 0x48);
@@ -503,7 +503,7 @@ void Torch_Main(void *particleList_heatWarp, struct PushBuffer *pb, struct PrimM
 		int playerPassesLeft = (s32)(s8)numPlyr - 1;
 		int particlesLeft = 12;
 
-		scratch->firstParticlePtr32 = (u32)(u32)firstParticle;
+		PSX_SET(scratch->firstParticle, firstParticle);
 		scratch->swapchainIndex = (u32)swapchainIndex;
 		scratch->uv0.clut = 0;
 

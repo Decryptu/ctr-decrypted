@@ -320,7 +320,7 @@ void RefreshCard_GhostEncodeProfile(u32 slotIndex, s16 characterID, s16 levelID,
 				questionArg = &CTR_PSX_PAGE_LVALUE(char, questionPage, (s16)OFFSETOF_DATA(s_BASCUS_94426G_Question), *question);
 				// NOTE(aalhendi): Both targets use 32-bit addresses; offset-first addition
 				// preserves the retail pointer-add operand order.
-				if (strcmp(questionArg, (char *)(i * sizeof(struct GhostProfile) + (u32)ghostList)) == 0)
+				if (strcmp(questionArg, (char *)(i * sizeof(struct GhostProfile) + (uintptr_t)ghostList)) == 0)
 				{
 					isUnique = 0;
 					break;
@@ -360,7 +360,7 @@ void RefreshCard_GhostEncodeProfile(u32 slotIndex, s16 characterID, s16 levelID,
 	{
 		char *source = scrambledStorage.bytes;
 		char *end;
-		if ((u32)iconHeader & 3)
+		if ((uintptr_t)iconHeader & 3)
 		{
 			end = scrambledStorage.bytes + 48;
 			do
@@ -766,7 +766,7 @@ void RefreshCard_Unknown3(void)
 				char *profileName;
 				register char *finalName CTR_PSX_REGISTER("$16") = REFRESHCARD_GHOST_FILENAME;
 				profiles = card->ghostProfile_memcard;
-				profileName = (char *)(card->ghostProfile_rowSelect * sizeof(struct GhostProfile) + (u32)profiles);
+				profileName = (char *)(card->ghostProfile_rowSelect * sizeof(struct GhostProfile) + (uintptr_t)profiles);
 
 				memcpy(finalName, profileName, sizeof(card->ghostProfile_memcard[0].profile_name));
 				RefreshCard_SetScreenText(MC_SCREEN_SAVING);
@@ -780,11 +780,11 @@ void RefreshCard_Unknown3(void)
 				if (remaining != 0)
 				{
 					register char *nextProfiles CTR_PSX_REGISTER("$5");
-					char *destination = (char *)(row * sizeof(struct GhostProfile) + (u32)profiles);
+					char *destination = (char *)(row * sizeof(struct GhostProfile) + (uintptr_t)profiles);
 					CTR_PSX_OBSERVE_VALUE(destination);
 					CTR_PSX_ADD_POINTER_IMMEDIATE(nextProfiles, card, offsetof(struct MemcardState, ghostProfile_memcard) + sizeof(struct GhostProfile),
 					                              (char *)&card->ghostProfile_memcard[1]);
-					memmove(destination, (char *)(row * sizeof(struct GhostProfile) + (u32)nextProfiles), remaining * sizeof(struct GhostProfile));
+					memmove(destination, (char *)(row * sizeof(struct GhostProfile) + (uintptr_t)nextProfiles), remaining * sizeof(struct GhostProfile));
 				}
 				card->numGhostProfilesSaved--;
 				break;
@@ -975,10 +975,10 @@ void RefreshCard_Unknown3(void)
 					register char *destination CTR_PSX_REGISTER("$4") = (char *)&card->ghostProfile_memcard[1];
 					register char *source CTR_PSX_REGISTER("$5");
 					CTR_PSX_KEEP_VALUE_RELAXED(destination);
-					destination = (char *)(row * sizeof(struct GhostProfile) + (u32)destination);
+					destination = (char *)(row * sizeof(struct GhostProfile) + (uintptr_t)destination);
 					CTR_PSX_OBSERVE_VALUE(destination);
 					CTR_PSX_ADD_POINTER_IMMEDIATE(source, card, offsetof(struct MemcardState, ghostProfile_memcard), (char *)card->ghostProfile_memcard);
-					memmove(destination, (char *)(row * sizeof(struct GhostProfile) + (u32)source), remaining * sizeof(struct GhostProfile));
+					memmove(destination, (char *)(row * sizeof(struct GhostProfile) + (uintptr_t)source), remaining * sizeof(struct GhostProfile));
 				}
 
 				{
@@ -986,7 +986,7 @@ void RefreshCard_Unknown3(void)
 					u32 *source = (u32 *)&card->ghostProfile_current;
 					struct GhostProfile *profiles = card->ghostProfile_memcard;
 					register u32 *destination CTR_PSX_REGISTER("$2");
-					destination = (u32 *)(card->ghostProfile_indexSave * sizeof(struct GhostProfile) + (u32)profiles);
+					destination = (u32 *)(card->ghostProfile_indexSave * sizeof(struct GhostProfile) + (uintptr_t)profiles);
 					card->numGhostProfilesSaved++;
 					memcpy(destination, source, sizeof(struct GhostProfile));
 #if defined(CTR_NATIVE)

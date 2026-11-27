@@ -133,7 +133,7 @@ void howl_InitChannelAttr_EngineFX(struct EngineFX *engineFX, struct ChannelAttr
 		ad = 0x80ff;
 		output->ad = ad;
 		output->sr = 0x1fc2;
-		output->spuStartAddr = (void *)(sampleAddr << CTR_SPU_ADDR_SHIFT);
+		output->spuStartAddr = (u32)(sampleAddr << CTR_SPU_ADDR_SHIFT);
 	}
 }
 
@@ -194,7 +194,7 @@ void howl_InitChannelAttr_OtherFX(struct OtherFX *otherFX, struct ChannelAttr *a
 		ad = 0x80ff;
 		output->ad = ad;
 		output->sr = 0x1fc2;
-		output->spuStartAddr = (void *)(sampleAddr << CTR_SPU_ADDR_SHIFT);
+		output->spuStartAddr = (u32)(sampleAddr << CTR_SPU_ADDR_SHIFT);
 	}
 }
 

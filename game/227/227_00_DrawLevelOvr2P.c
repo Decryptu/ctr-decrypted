@@ -243,21 +243,21 @@ void DrawLevelOvr2P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspL
 
 	// NOTE(aalhendi): Native keeps explicit host pointers while preserving retail scratch
 	// ownership and two-viewport ordering.
-	DrawLevelOvr1P_Scratch()->savedStackPtr32 = (u32)(u32)&hostStackAnchor;
-	DrawLevelOvr1P_Scratch()->primMemEndPtr32 = (u32)(u32)primMem->end;
-	DrawLevelOvr1P_Scratch()->visFaceListArgPtr32[0] = (u32)(u32)visFaceList0;
-	DrawLevelOvr1P_Scratch()->visFaceListArgPtr32[1] = (u32)(u32)visFaceList1;
+	DrawLevelOvr1P_Scratch()->savedStack = &hostStackAnchor;
+	DrawLevelOvr1P_Scratch()->primMemEnd = primMem->end;
+	DrawLevelOvr1P_Scratch()->visFaceListArg[0] = visFaceList0;
+	DrawLevelOvr1P_Scratch()->visFaceListArg[1] = visFaceList1;
 
 	if ((visFaceList0 == NULL) || (visFaceList1 == NULL))
 	{
 		return;
 	}
 
-	DrawLevelOvr1P_Scratch()->waterEnvMapPtr32 = (u32)(u32)waterEnvMap;
-	DrawLevelOvr1P_Scratch()->pushBufferPtr32[0] = (u32)(u32)&pb[0];
-	DrawLevelOvr1P_Scratch()->pushBufferPtr32[1] = (u32)(u32)&pb[1];
-	DrawLevelOvr1P_Scratch()->entry.clip.playerClipCursorPtr32[0] = (u32)(u32)clipCursors[0];
-	DrawLevelOvr1P_Scratch()->entry.clip.playerClipCursorPtr32[1] = (u32)(u32)clipCursors[1];
+	DrawLevelOvr1P_Scratch()->waterEnvMap = waterEnvMap;
+	DrawLevelOvr1P_Scratch()->pushBuffer[0] = &pb[0];
+	DrawLevelOvr1P_Scratch()->pushBuffer[1] = &pb[1];
+	DrawLevelOvr1P_Scratch()->entry.clip.playerClipCursor[0] = clipCursors[0];
+	DrawLevelOvr1P_Scratch()->entry.clip.playerClipCursor[1] = clipCursors[1];
 
 	if (PSX_GET(mesh->ptrQuadBlockArray) == NULL)
 	{
@@ -275,8 +275,8 @@ void DrawLevelOvr2P(void *LevRenderList, struct PushBuffer *pb, struct BSP *bspL
 		return;
 	}
 
-	DrawLevelOvr1P_Scratch()->entry.clip.playerClipCursorPtr32[0] = (u32)(u32)clipCursors[0];
-	DrawLevelOvr1P_Scratch()->entry.clip.playerClipCursorPtr32[1] = (u32)(u32)clipCursors[1];
+	DrawLevelOvr1P_Scratch()->entry.clip.playerClipCursor[0] = clipCursors[0];
+	DrawLevelOvr1P_Scratch()->entry.clip.playerClipCursor[1] = clipCursors[1];
 
 	if (!DrawLevelOvr2P_ConsumeClipRecordsForViewport(&pb[0], primMem, clipCursors[0], 0))
 	{

@@ -515,11 +515,9 @@ void MainInit_JitPoolsNew(struct GameTracker *gGT)
 	for (int i = 0; i < 3; i++)
 	{
 		struct JitPool *pool = (struct JitPool *)((char *)&gGT->JitPools.smallStack + (sizeof(struct JitPool) * i));
-		int *pointer = (int *)pool->free.first;
-		while (pointer != (int *)0x0)
+		for (struct Item *item = pool->free.first; item != NULL; item = item->next)
 		{
-			*(int **)(pointer + 2) = pointer + 2;
-			pointer = (int *)*pointer;
+			*(void **)(item + 1) = item + 1;
 		}
 	}
 

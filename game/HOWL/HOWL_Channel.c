@@ -502,12 +502,12 @@ void Channel_UpdateChannels(void)
 			voiceBits |= 1u << vNum;
 		if ((updateFlags & HOWL_CHANNEL_UPDATE_SPU_ADDR) != 0)
 		{
-			void *oldAddr = cur->spuStartAddr;
-			void *startAddr = new->spuStartAddr;
+			u32 oldAddr = cur->spuStartAddr;
+			u32 startAddr = new->spuStartAddr;
 			if (oldAddr != startAddr)
 			{
 				cur->spuStartAddr = startAddr;
-				SpuSetVoiceStartAddr(vNum, (u32)startAddr);
+				SpuSetVoiceStartAddr(vNum, startAddr);
 			}
 		}
 		if ((updateFlags & HOWL_CHANNEL_UPDATE_ADSR) != 0)

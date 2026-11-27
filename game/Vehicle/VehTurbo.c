@@ -35,8 +35,6 @@ enum
 	TURBO_STOP_SFX_ID = -1,
 };
 
-#define VEH_TURBO_FIELD(cursor, type, offset) (*(type *)((cursor) + (offset)))
-
 // NOTE(aalhendi): Retail emits all three GTE result stores from one base; native reads the same emulated registers as ordinary C values.
 #if defined(CTR_NATIVE)
 #define VEH_TURBO_STORE_TRANSLATION(out) \
@@ -67,9 +65,9 @@ void VehTurbo_ProcessBucket(struct Thread *turboThread)
 	struct Turbo *turbo;
 	register struct Instance *primaryBase CTR_PSX_REGISTER("$5");
 	register struct Instance *driverBase CTR_PSX_REGISTER("$2");
-	register u32 primary CTR_PSX_REGISTER("$7");
-	register u32 secondary CTR_PSX_REGISTER("$6");
-	register u32 driver CTR_PSX_REGISTER("$5");
+	register struct InstDrawPerPlayer *primary CTR_PSX_REGISTER("$7");
+	register struct InstDrawPerPlayer *secondary CTR_PSX_REGISTER("$6");
+	register struct InstDrawPerPlayer *driver CTR_PSX_REGISTER("$5");
 	register u32 clearMask CTR_PSX_REGISTER("$10");
 	u32 range;
 	u16 depth;
@@ -86,18 +84,18 @@ void VehTurbo_ProcessBucket(struct Thread *turboThread)
 	{
 		turbo = turboThread->object;
 		primaryBase = turboThread->inst;
-		secondary = (u32)turbo->inst;
+		secondary = (turbo->inst != NULL) ? INST_GETIDPP(turbo->inst) : NULL;
 		driverBase = turbo->driver->instSelf;
 
 		i = 0;
 		if (initialGameTracker->numPlyrCurrGame != 0)
 		{
 			loopGameTracker = GAME_TRACKER;
-			primary = (u32)primaryBase;
-			driver = (u32)driverBase;
+			primary = INST_GETIDPP(primaryBase);
+			driver = INST_GETIDPP(driverBase);
 			do
 			{
-				if ((VEH_TURBO_FIELD(driver, u32, 0xb8) & PUSHBUFFER_EXISTS) == 0)
+				if ((driver->instFlags & PUSHBUFFER_EXISTS) == 0)
 				{
 #if defined(CTR_NATIVE)
 					// NOTE(dowlle): the second turbo flame is a retail-blind pool birth
@@ -108,43 +106,43 @@ void VehTurbo_ProcessBucket(struct Thread *turboThread)
 					// interleaving.
 					if (turbo->inst != NULL)
 					{
-						VEH_TURBO_FIELD(secondary, u32, 0xb8) &= VEH_TURBO_FIELD(driver, u32, 0xb8) | clearMask;
-						VEH_TURBO_FIELD(secondary, u32, 0xe4) = VEH_TURBO_FIELD(driver, u32, 0xe4);
-						VEH_TURBO_FIELD(secondary, u32, 0xe8) = VEH_TURBO_FIELD(driver, u32, 0xe8);
-						VEH_TURBO_FIELD(secondary, u16, 0xdc) = VEH_TURBO_FIELD(driver, u16, 0xdc);
-						VEH_TURBO_FIELD(secondary, u16, 0xde) = VEH_TURBO_FIELD(driver, u16, 0xde);
+						secondary->instFlags &= driver->instFlags | clearMask;
+						secondary->otRangeNormal = driver->otRangeNormal;
+						secondary->otRangeSecondary = driver->otRangeSecondary;
+						secondary->depthOffset[0] = driver->depthOffset[0];
+						secondary->depthOffset[1] = driver->depthOffset[1];
 					}
 
-					VEH_TURBO_FIELD(primary, u32, 0xb8) &= VEH_TURBO_FIELD(driver, u32, 0xb8) | clearMask;
-					VEH_TURBO_FIELD(primary, u32, 0xe4) = VEH_TURBO_FIELD(driver, u32, 0xe4);
-					VEH_TURBO_FIELD(primary, u32, 0xe8) = VEH_TURBO_FIELD(driver, u32, 0xe8);
-					VEH_TURBO_FIELD(primary, u16, 0xdc) = VEH_TURBO_FIELD(driver, u16, 0xdc);
-					VEH_TURBO_FIELD(primary, u16, 0xde) = VEH_TURBO_FIELD(driver, u16, 0xde);
+					primary->instFlags &= driver->instFlags | clearMask;
+					primary->otRangeNormal = driver->otRangeNormal;
+					primary->otRangeSecondary = driver->otRangeSecondary;
+					primary->depthOffset[0] = driver->depthOffset[0];
+					primary->depthOffset[1] = driver->depthOffset[1];
 					(void)range;
 					(void)depth;
 #else
-					VEH_TURBO_FIELD(secondary, u32, 0xb8) &= VEH_TURBO_FIELD(driver, u32, 0xb8) | clearMask;
-					VEH_TURBO_FIELD(primary, u32, 0xb8) &= VEH_TURBO_FIELD(driver, u32, 0xb8) | clearMask;
+					secondary->instFlags &= driver->instFlags | clearMask;
+					primary->instFlags &= driver->instFlags | clearMask;
 
-					range = VEH_TURBO_FIELD(driver, u32, 0xe4);
-					VEH_TURBO_FIELD(primary, u32, 0xe4) = range;
-					VEH_TURBO_FIELD(secondary, u32, 0xe4) = range;
-					range = VEH_TURBO_FIELD(driver, u32, 0xe8);
-					VEH_TURBO_FIELD(primary, u32, 0xe8) = range;
-					VEH_TURBO_FIELD(secondary, u32, 0xe8) = range;
+					range = driver->otRangeNormal;
+					primary->otRangeNormal = range;
+					secondary->otRangeNormal = range;
+					range = driver->otRangeSecondary;
+					primary->otRangeSecondary = range;
+					secondary->otRangeSecondary = range;
 
-					depth = VEH_TURBO_FIELD(driver, u16, 0xdc);
-					VEH_TURBO_FIELD(primary, u16, 0xdc) = depth;
-					VEH_TURBO_FIELD(secondary, u16, 0xdc) = depth;
-					depth = VEH_TURBO_FIELD(driver, u16, 0xde);
-					VEH_TURBO_FIELD(primary, u16, 0xde) = depth;
-					VEH_TURBO_FIELD(secondary, u16, 0xde) = depth;
+					depth = driver->depthOffset[0];
+					primary->depthOffset[0] = depth;
+					secondary->depthOffset[0] = depth;
+					depth = driver->depthOffset[1];
+					primary->depthOffset[1] = depth;
+					secondary->depthOffset[1] = depth;
 #endif
 				}
 
-				primary += sizeof(struct InstDrawPerPlayer);
-				secondary += sizeof(struct InstDrawPerPlayer);
-				driver += sizeof(struct InstDrawPerPlayer);
+				primary++;
+				secondary++;
+				driver++;
 				i++;
 			} while (i < loopGameTracker->numPlyrCurrGame);
 		}
@@ -152,8 +150,6 @@ void VehTurbo_ProcessBucket(struct Thread *turboThread)
 		turboThread = turboThread->siblingThread;
 	} while (turboThread != NULL);
 }
-
-#undef VEH_TURBO_FIELD
 
 void VehTurbo_ThDestroy(struct Thread *t)
 {

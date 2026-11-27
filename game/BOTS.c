@@ -4113,7 +4113,7 @@ struct Driver *BOTS_Driver_Init(int driverID)
 	register struct Driver *d CTR_PSX_REGISTER("$18");
 	register s32 navPathIndex CTR_PSX_REGISTER("$17");
 	register s16 initialNavPathIndex CTR_PSX_REGISTER("$6");
-	register int pathFound CTR_PSX_REGISTER("$5");
+	register CtrPsxSReg pathFound CTR_PSX_REGISTER("$5");
 	register int points CTR_PSX_REGISTER("$2");
 	register u32 rawPath CTR_PSX_REGISTER("$2");
 	register char *pathSlot CTR_PSX_REGISTER("$2");
@@ -4138,7 +4138,7 @@ struct Driver *BOTS_Driver_Init(int driverID)
 	}
 	CTR_PSX_LOAD_WORD_FROM_PAGE(header, headerSlot, "0", BOT_NAV_HEADERS[(s16)navPathIndex]);
 	CTR_PSX_DEPEND_VALUE(d, header);
-	CTR_PSX_COPY_VALUE(pathFound, (u32)d);
+	CTR_PSX_COPY_VALUE(pathFound, (CtrPsxSReg)d);
 	CTR_PSX_LOAD_SIGNED_HALF(points, header, 2, header->numPoints);
 	initialNavPathIndex = navPathIndex;
 	goto CheckInitNavCount;
@@ -4201,7 +4201,7 @@ void BOTS_Driver_Convert(struct Driver *driver)
 	register struct Driver *d CTR_PSX_REGISTER("$17");
 	register s32 navPathIndex CTR_PSX_REGISTER("$16");
 	register s16 initialNavPathIndex CTR_PSX_REGISTER("$6");
-	register int pathFound CTR_PSX_REGISTER("$5");
+	register CtrPsxSReg pathFound CTR_PSX_REGISTER("$5");
 	register int points CTR_PSX_REGISTER("$2");
 	register u32 rawPath CTR_PSX_REGISTER("$2");
 	register char *pathSlot CTR_PSX_REGISTER("$2");

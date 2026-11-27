@@ -43,7 +43,7 @@ void LOAD_LangFile_IndexStrings(void *file)
 #endif
 
 // Language index: 0 ja, 1 en, 2 en2, 3 fr, 4 de, 5 it, 6 es, 7 ne.
-void LOAD_LangFile(s32 bigfilePtr, s32 lang)
+void LOAD_LangFile(void *bigfilePtr, s32 lang)
 {
 	register struct LngFile *lngFile CTR_PSX_REGISTER("$6");
 	u32 size;

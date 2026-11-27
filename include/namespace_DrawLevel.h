@@ -126,22 +126,6 @@ CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvrBucketSetupRecord, copy0) == 0x1c)
 CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvrBucketSetupRecord, copy1) == 0x58);
 
 
-enum DrawLevelOvr1PScratchOffset
-{
-	DRAW_LEVEL_OVR1P_SCRATCH_INIT_TABLE_OFFSET = 0x0ec,
-	DRAW_LEVEL_OVR1P_DIRECT_NEAR_HANDLER_TABLE_OFFSET = 0x148,
-	DRAW_LEVEL_OVR1P_NEAR_SUBDIVISION_HANDLER_TABLE_OFFSET = 0x14c,
-	DRAW_LEVEL_OVR1P_DIRECT_HANDLER_TABLE_OFFSET = 0x184,
-	DRAW_LEVEL_OVR1P_PROJECTED_FRAME0_OFFSET = 0x1b4,
-	DRAW_LEVEL_OVR1P_TERMINAL_CLIP_VERTEX_OFFSET = 0x204,
-	DRAW_LEVEL_OVR1P_GT3_CLIP_RECORD_JUMP_TABLE_OFFSET = 0x240,
-	DRAW_LEVEL_OVR1P_GT4_CLIP_RECORD_JUMP_TABLE_OFFSET = 0x260,
-	DRAW_LEVEL_OVR1P_WATER_RENDERED_SENTINEL_OFFSET = 0x268,
-	DRAW_LEVEL_OVR1P_TERMINAL_RETURN_PC_OFFSET = 0x2a0,
-	DRAW_LEVEL_OVR1P_MOSAIC_SOURCE_INDEX_OFFSET = 0x320,
-	DRAW_LEVEL_OVR1P_DEEPEST_PROJECTED_FRAME_OFFSET = 0x324,
-	DRAW_LEVEL_OVR1P_MOSAIC_SOURCE_BIAS_OFFSET = 0x3d8,
-};
 
 struct DrawLevelOvr1PScratchVertex
 {
@@ -164,7 +148,7 @@ struct DrawLevelOvr1PClipRecordVertex
 struct DrawLevelOvr1PClipRecord
 {
 	u32 header;
-	u32 otEntry;
+	PSX_PTR(u32) otEntry; // an ordering table entry; OTs come from the mempack, so the record keeps retail's size
 	s16 tpage;
 	s16 clut;
 	struct DrawLevelOvr1PClipRecordVertex vertex[4];
@@ -196,17 +180,17 @@ struct DrawLevelOvr1PStableScratch
 		struct MainRenderLevelGeometryScratch render;
 		struct
 		{
-			u32 playerClipCursorPtr32[4];
-			u32 clipCursorPtr32;
+			u8 *playerClipCursor[4];
+			u8 *clipCursor;
 		} clip;
 	} entry;
-	u32 primMemEndPtr32;
+	void *primMemEnd;
 	u32 currentBucketOffset;
-	u32 savedStackPtr32;
+	void *savedStack;
 	u8 pad_03c[0x20];
 	s32 depthClipThreshold;
-	u32 renderListPtr32;
-	u32 renderedOverflowPtr32;
+	struct DrawLevelOvr1PRenderList *renderList;
+	struct QuadBlock **renderedOverflow;
 	s32 quadCount;
 	u32 clipWindowPacked;
 	u32 directMask;
@@ -215,16 +199,16 @@ struct DrawLevelOvr1PStableScratch
 	u32 drawOrderOrHeader;
 	u32 clipRecordHeader;
 	u32 mosaicTextureWord;
-	u32 waterEnvMapPtr32;
+	const struct TextureLayout *waterEnvMap;
 	u8 pad_08c[0x10];
 	u32 previousDirectHandlerAddress;
 	u8 pad_0a0[0x1c];
 	s32 visibilityBitIndex;
-	u32 visibilityWordPtr32;
+	u32 *visibilityWordAt;
 	u32 visibilityWord;
-	u32 visFaceListPtr32;
-	u32 visFaceListArgPtr32[4];
-	u32 pushBufferPtr32[4];
+	const int *visFaceList;
+	const int *visFaceListArg[4];
+	struct PushBuffer *pushBuffer[4];
 	u8 pad_0ec[0xa8];
 	u32 selected4x1TableWord;
 	SVec3 projectedCenter;
@@ -255,33 +239,58 @@ CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PUvScratch, uv2.halves.low) == 0x
 CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PUvScratch, uv2.halves.high) == 0x0a);
 CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PUvScratch, savedUv0) == 0x0c);
 CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PUvScratch, savedUv1) == 0x10);
-CTR_STATIC_ASSERT(sizeof(struct DrawLevelOvr1PStableScratch) == 0x1b4);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, entry.render) == 0x00);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, entry.clip.playerClipCursorPtr32) == 0x00);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, entry.clip.clipCursorPtr32) == 0x10);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, primMemEndPtr32) == 0x30);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, currentBucketOffset) == 0x34);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, savedStackPtr32) == 0x38);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, depthClipThreshold) == 0x5c);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, renderListPtr32) == 0x60);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, renderedOverflowPtr32) == 0x64);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, quadCount) == 0x68);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, clipWindowPacked) == 0x6c);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, directMask) == 0x70);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, currentHandlerAddress) == 0x74);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, drawOrderOrHeader) == 0x7c);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, clipRecordHeader) == 0x80);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, mosaicTextureWord) == 0x84);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, waterEnvMapPtr32) == 0x88);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, previousDirectHandlerAddress) == 0x9c);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, visibilityBitIndex) == 0xbc);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, visibilityWordPtr32) == 0xc0);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, visibilityWord) == 0xc4);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, visFaceListPtr32) == 0xc8);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, visFaceListArgPtr32) == 0xcc);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, pushBufferPtr32) == 0xdc);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, selected4x1TableWord) == 0x194);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, projectedCenter) == 0x198);
-CTR_STATIC_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, uv) == 0x1a0);
+CTR_RETAIL_LAYOUT_ASSERT(sizeof(struct DrawLevelOvr1PStableScratch) == 0x1b4);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, entry.render) == 0x00);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, entry.clip.playerClipCursor) == 0x00);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, entry.clip.clipCursor) == 0x10);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, primMemEnd) == 0x30);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, currentBucketOffset) == 0x34);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, savedStack) == 0x38);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, depthClipThreshold) == 0x5c);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, renderList) == 0x60);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, renderedOverflow) == 0x64);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, quadCount) == 0x68);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, clipWindowPacked) == 0x6c);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, directMask) == 0x70);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, currentHandlerAddress) == 0x74);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, drawOrderOrHeader) == 0x7c);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, clipRecordHeader) == 0x80);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, mosaicTextureWord) == 0x84);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, waterEnvMap) == 0x88);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, previousDirectHandlerAddress) == 0x9c);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, visibilityBitIndex) == 0xbc);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, visibilityWordAt) == 0xc0);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, visibilityWord) == 0xc4);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, visFaceList) == 0xc8);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, visFaceListArg) == 0xcc);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, pushBuffer) == 0xdc);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, selected4x1TableWord) == 0x194);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, projectedCenter) == 0x198);
+CTR_RETAIL_LAYOUT_ASSERT(offsetof(struct DrawLevelOvr1PStableScratch, uv) == 0x1a0);
+
+// Scratchpad slots the level renderer addresses by offset. The handler tables
+// sit in the stable scratch's gap at 0xec and the projected frames follow it,
+// so on a 64-bit host, where its pointers make it larger, they move with it.
+// The numbers in comments are retail's.
+enum DrawLevelOvr1PScratchOffset
+{
+	DRAW_LEVEL_OVR1P_SCRATCH_INIT_TABLE_OFFSET = offsetof(struct DrawLevelOvr1PStableScratch, pad_0ec), // 0x0ec
+	DRAW_LEVEL_OVR1P_DIRECT_NEAR_HANDLER_TABLE_OFFSET = DRAW_LEVEL_OVR1P_SCRATCH_INIT_TABLE_OFFSET + 0x5c, // 0x148
+	DRAW_LEVEL_OVR1P_NEAR_SUBDIVISION_HANDLER_TABLE_OFFSET = DRAW_LEVEL_OVR1P_SCRATCH_INIT_TABLE_OFFSET + 0x60, // 0x14c
+	DRAW_LEVEL_OVR1P_DIRECT_HANDLER_TABLE_OFFSET = DRAW_LEVEL_OVR1P_SCRATCH_INIT_TABLE_OFFSET + 0x98, // 0x184
+	DRAW_LEVEL_OVR1P_PROJECTED_FRAME0_OFFSET = sizeof(struct DrawLevelOvr1PStableScratch), // 0x1b4
+	DRAW_LEVEL_OVR1P_TERMINAL_CLIP_VERTEX_OFFSET = DRAW_LEVEL_OVR1P_PROJECTED_FRAME0_OFFSET + 0x50, // 0x204
+	DRAW_LEVEL_OVR1P_GT3_CLIP_RECORD_JUMP_TABLE_OFFSET = DRAW_LEVEL_OVR1P_PROJECTED_FRAME0_OFFSET + 0x8c, // 0x240
+	DRAW_LEVEL_OVR1P_GT4_CLIP_RECORD_JUMP_TABLE_OFFSET = DRAW_LEVEL_OVR1P_PROJECTED_FRAME0_OFFSET + 0xac, // 0x260
+	DRAW_LEVEL_OVR1P_WATER_RENDERED_SENTINEL_OFFSET = DRAW_LEVEL_OVR1P_PROJECTED_FRAME0_OFFSET + 0xb4, // 0x268
+	DRAW_LEVEL_OVR1P_TERMINAL_RETURN_PC_OFFSET = DRAW_LEVEL_OVR1P_PROJECTED_FRAME0_OFFSET + 0xec, // 0x2a0
+	DRAW_LEVEL_OVR1P_MOSAIC_SOURCE_INDEX_OFFSET = DRAW_LEVEL_OVR1P_PROJECTED_FRAME0_OFFSET + 0x16c, // 0x320
+	DRAW_LEVEL_OVR1P_DEEPEST_PROJECTED_FRAME_OFFSET = DRAW_LEVEL_OVR1P_PROJECTED_FRAME0_OFFSET + 0x170, // 0x324
+	DRAW_LEVEL_OVR1P_MOSAIC_SOURCE_BIAS_OFFSET = DRAW_LEVEL_OVR1P_PROJECTED_FRAME0_OFFSET + 0x224, // 0x3d8
+};
+
+CTR_RETAIL_LAYOUT_ASSERT(DRAW_LEVEL_OVR1P_SCRATCH_INIT_TABLE_OFFSET == 0x0ec);
+CTR_RETAIL_LAYOUT_ASSERT(DRAW_LEVEL_OVR1P_PROJECTED_FRAME0_OFFSET == 0x1b4);
+CTR_STATIC_ASSERT(DRAW_LEVEL_OVR1P_MOSAIC_SOURCE_BIAS_OFFSET + sizeof(u32) <= CTR_SCRATCHPAD_SIZE);
 
 #endif

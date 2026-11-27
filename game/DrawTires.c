@@ -733,7 +733,7 @@ static void DrawTiresSolid_LinkPrimitive(struct DrawTiresScratch *scratch, POLY_
 		selectedOTSlot = otRangeEnd;
 	}
 
-	u32 *otSlot = (u32 *)(u32)selectedOTSlot;
+	u32 *otSlot = (u32 *)PsxSpace_ToHost((u32)selectedOTSlot); // an OT range word (InstDrawPerPlayer)
 	p->tag = CtrGpu_PackOTTag(*otSlot, 0x09000000);
 	*otSlot = (u32)CtrGpu_PrimToOTLink24(p);
 }
@@ -1320,7 +1320,7 @@ static void DrawTiresReflection_LinkPrimitive(struct DrawTiresScratch *scratch, 
 		selectedOTSlot = otRangeEnd;
 	}
 
-	u32 *otSlot = (u32 *)(u32)selectedOTSlot;
+	u32 *otSlot = (u32 *)PsxSpace_ToHost((u32)selectedOTSlot); // an OT range word (InstDrawPerPlayer)
 	p->tag = CtrGpu_PackOTTag(*otSlot, 0x09000000);
 	*otSlot = (u32)CtrGpu_PrimToOTLink24(p);
 }

@@ -2,7 +2,22 @@
 #define CTR_COMPILER_H
 
 #if defined(CTR_NATIVE)
+#include <stdint.h>
 #include <stdlib.h>
+#endif
+
+// A MIPS register that a register-matched function keeps pointers in as well
+// as numbers: 32 bits on the PS1, a host pointer's width natively
+// (docs/64BIT.md). A register that only ever holds numbers stays u32 or s32.
+#if defined(CTR_NATIVE)
+typedef uintptr_t CtrPsxReg;
+typedef intptr_t CtrPsxSReg; // one the function also compares as signed
+#else
+typedef unsigned int CtrPsxReg;
+typedef int CtrPsxSReg;
+// The PS1 SDK has no <stdint.h>; an address as an integer is four bytes there.
+typedef unsigned int uintptr_t;
+typedef int intptr_t;
 #endif
 
 // NOTE(aalhendi): The MSVC C runtime exposes non-standard min/max macros in C mode. They collide with the project's typed helpers even when NOMINMAX is set.

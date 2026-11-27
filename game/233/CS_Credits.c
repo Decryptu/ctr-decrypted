@@ -203,13 +203,15 @@ void CS_Credits_Init(void)
 	CS_CREDITS_STRING_COUNT = CTR_ReadU16AlignedLE(creditsData);
 	creditsData += sizeof(u32);
 	CS_CREDITS_STRINGS = (char **)creditsData;
+#if !defined(CTR_NATIVE)
 	for (i = 0; i < CS_CREDITS_STRING_COUNT; i++)
 	{
 		CTR_WriteU32AlignedLE(creditsData, (u32)creditsDst + CTR_ReadU32AlignedLE(creditsData));
 		creditsData += sizeof(u32);
 	}
+#endif
 	creditsObj->creditsPosY = CS_CREDITS_NAME_START_Y;
-	creditsObj->creditsTopString = CS_CREDITS_STRINGS[CS_CREDITS_TEXT_START_STRING_INDEX];
+	creditsObj->creditsTopString = CS_CREDITS_STRING(CS_CREDITS_TEXT_START_STRING_INDEX);
 
 #ifdef CTR_AP
 	// Issue #117: prepend the AP credits section to the relocated main scroll.
@@ -256,11 +258,11 @@ void CS_Credits_NewDancer(struct Thread *dancerTh, s16 dancerModelID)
 
 	if (dancerModelID >= STATIC_TAWNA1)
 	{
-		creditsObj->epilogueTopString = CS_CREDITS_STRINGS[dancerModelID - STATIC_CRASHDANCE - 1];
+		creditsObj->epilogueTopString = CS_CREDITS_STRING(dancerModelID - STATIC_CRASHDANCE - 1);
 	}
 	else
 	{
-		creditsObj->epilogueTopString = CS_CREDITS_STRINGS[dancerModelID - STATIC_CRASHDANCE];
+		creditsObj->epilogueTopString = CS_CREDITS_STRING(dancerModelID - STATIC_CRASHDANCE);
 	}
 
 	creditsObj->epilogueFramesLeft = CS_CREDITS_EPILOGUE_DURATION_FRAMES;
@@ -521,7 +523,7 @@ void CS_Credits_DrawEpilogue(struct CreditsObj *co)
 		if (co->epilogueNextString == NULL)
 			strLen = -1;
 		else
-			strLen = (s16)((s16)(u32)co->epilogueNextString - (s16)(u32)co->epilogueTopString - 1);
+			strLen = (s16)(co->epilogueNextString - co->epilogueTopString - 1);
 		DecalFont_DrawMultiLineStrlen(co->epilogueTopString, strLen, CS_CREDITS_EPILOGUE_CENTER_X, CS_CREDITS_EPILOGUE_Y, CS_CREDITS_EPILOGUE_WIDTH, FONT_SMALL,
 		                              colorSlot | JUSTIFY_CENTER);
 	}

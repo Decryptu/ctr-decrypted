@@ -82,8 +82,10 @@ global_variable u8 s_primArena[2][CTR_NATIVE_PRIM_ARENA_BYTES];
 // models. A converted track's turning floors, cogs and clock hands span
 // thousands of units each; once the table is full no later instance is drawn,
 // the karts among them, as they are queued after the level's own instances.
+// They are in PSX space: instances keep their ranges as 32-bit PSX addresses
+// (InstDrawPerPlayer.otRangeNormal, docs/64BIT.md).
 #define CTR_NATIVE_OT_ARENA_BYTES 0x40000u
-global_variable u32 s_otArena[2][CTR_NATIVE_OT_ARENA_BYTES / sizeof(u32)];
+global_variable u32 *s_otArena[2];
 global_variable union NativeScratchpadStorage s_scratchpadMemory;
 u8 *gCTRNativeScratchpadBase;
 
@@ -142,7 +144,15 @@ u32 Platform_GetPrimArenaSize(void)
 
 void *Platform_GetOTArena(int index)
 {
-	return &s_otArena[index & 1][0];
+	u32 **arena = &s_otArena[index & 1];
+
+	if (*arena == NULL)
+	{
+		*arena = PsxSpace_Alloc(CTR_NATIVE_OT_ARENA_BYTES);
+		if (*arena == NULL)
+			Platform_Fatal("CTR Native - Memory", "Could not allocate the instance ordering tables.");
+	}
+	return *arena;
 }
 
 u32 Platform_GetOTArenaSize(void)

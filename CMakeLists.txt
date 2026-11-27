@@ -485,7 +485,7 @@ else()
         target_compile_options(ctr_native PRIVATE -msse)
     else()
         # A pointer kept in a 32-bit integer loses its top half (docs/64BIT.md).
-        target_compile_options(ctr_native PRIVATE -Werror=pointer-to-int-cast -Werror=int-to-pointer-cast)
+        target_compile_options(ctr_native PRIVATE $<$<COMPILE_LANGUAGE:C>:-Werror=pointer-to-int-cast -Werror=int-to-pointer-cast>)
     endif()
     target_compile_options(ctr_native PRIVATE
         -Wenum-conversion

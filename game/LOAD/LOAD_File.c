@@ -470,7 +470,7 @@ void *LOAD_ReadFile_ex(struct BigHeader *bigfile, u32 loadType, int subfileIndex
 		ptrDst = (void *)MEMPACK_AllocMem(sectorSize, GAME_LOAD_FILE_LABEL);
 		if (ptrDst == NULL)
 		{
-			return (void *)commandSuccess;
+			return NULL;
 		}
 	}
 	else

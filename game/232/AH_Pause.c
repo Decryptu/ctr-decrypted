@@ -116,7 +116,7 @@ void AH_Pause_Destroy(void)
 {
 	s16 i;
 	struct Thread *t;
-	u32 memberAddress;
+	uintptr_t memberAddress;
 
 	// global -> register
 	struct PauseObject *ptrPauseObject = AH_PAUSE_OBJECT;
@@ -129,7 +129,7 @@ void AH_Pause_Destroy(void)
 
 	// NOTE(aalhendi): Both targets use 32-bit addresses. An integer cursor
 	// preserves retail's reverse walk without forming a pointer before the array.
-	memberAddress = (u32)&ptrPauseObject->members[AH_PAUSE_MEMBER_COUNT - 1];
+	memberAddress = (uintptr_t)&ptrPauseObject->members[AH_PAUSE_MEMBER_COUNT - 1];
 	i = 0;
 	do
 	{
@@ -619,7 +619,7 @@ void AH_Pause_Update(void)
 					for (j = 1; j < GAME_TRACKER->numPlyrCurrGame; j++)
 					{
 						u32 offset = j * sizeof(struct InstDrawPerPlayer);
-						((struct InstDrawPerPlayer *)((u32)inst + offset + sizeof(struct Instance)))->pushBuffer = 0;
+						((struct InstDrawPerPlayer *)((uintptr_t)inst + offset + sizeof(struct Instance)))->pushBuffer = 0;
 					}
 				}
 
