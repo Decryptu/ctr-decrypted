@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Assemble the solo runtime folder for one client archive (#89).
 
-    build-runtime.py --platform windows-x86|linux-x86_64|linux-arm64 --apworld ctr.apworld --out DIR [--cache DIR]
+    build-runtime.py --platform windows-x86|linux-x86_64|linux-arm64|macos-arm64 --apworld ctr.apworld --out DIR [--cache DIR]
 
 --platform names the client archive (tools/release/release_policy.py TARGETS).
 The result is the `solo-runtime/` folder that goes into that archive beside
 ctr_native_ap and ctr.apworld:
 
     python/          the pinned interpreter (python.org embeddable on Windows,
-                     python-build-standalone on Linux), trimmed
+                     python-build-standalone on Linux and macOS), trimmed
     site-packages/   the pinned dependency wheels, unpacked
     archipelago/     the trimmed Archipelago core at the pinned commit
     ctr_solo.py      the wrapper, presets/ and options-overlay.json, taken
@@ -41,10 +41,12 @@ HERE = Path(__file__).resolve().parent
 LOCK = HERE / "runtime-lock.json"
 # Client archive -> the interpreter build in runtime-lock.json it bundles. The
 # 32-bit Windows client runs the 64-bit embeddable Python as its own process.
-RUNTIME_PLATFORM = {"windows-x86": "windows-x86_64", "linux-x86_64": "linux-x86_64", "linux-arm64": "linux-arm64"}
+RUNTIME_PLATFORM = {"windows-x86": "windows-x86_64", "linux-x86_64": "linux-x86_64", "linux-arm64": "linux-arm64",
+                    "macos-arm64": "macos-arm64"}
 INTERPRETER = {"windows-x86": "python/python.exe", "linux-x86_64": "python/bin/python3.12",
-               "linux-arm64": "python/bin/python3.12"}
-# Parts of the Linux interpreter the runtime never uses.
+               "linux-arm64": "python/bin/python3.12", "macos-arm64": "python/bin/python3.12"}
+# Parts of the python-build-standalone interpreter (Linux and macOS share its
+# layout) the runtime never uses.
 LINUX_DROP = ("include", "share", "bin/2to3", "bin/2to3-3.12", "bin/idle3", "bin/idle3.12", "bin/pydoc3",
               "bin/pydoc3.12", "bin/python3-config", "bin/python3.12-config", "lib/pkgconfig")
 # Tcl/Tk support folders (tkinter is not shipped).
@@ -135,7 +137,8 @@ def build_python(platform: str, entry: dict, cache: Path, runtime: Path, license
             remove(lib)
         shutil.copyfile(stdlib / "LICENSE.txt", licenses / "CPython-LICENSE.txt")
         # Release archives carry regular files only. The interpreter is
-        # python3.12 and loads libpython3.12.so.1.0; the aliases are links.
+        # python3.12 and loads libpython3.12.so.1.0 (macOS: libpython3.12.dylib);
+        # the aliases are links.
         for link in [p for p in target.rglob("*") if p.is_symlink()]:
             link.unlink()
     if not (runtime / INTERPRETER[platform]).is_file():
@@ -200,7 +203,7 @@ def precompile(runtime: Path) -> int:
     count = 0
     folders = [("archipelago", True), ("site-packages", True)]
     if (runtime / "python" / "lib" / "python3.12").is_dir():
-        # Linux stdlib. Windows ships python312.zip with its bytecode.
+        # Linux and macOS stdlib. Windows ships python312.zip with its bytecode.
         folders.append(("python/lib/python3.12", False))
     for folder, strict in folders:
         for path in sorted((runtime / folder).rglob("*.py")):

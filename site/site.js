@@ -87,6 +87,7 @@
     windows: (n) => /-windows-x86\.zip$/.test(n) && !/box-authoring/.test(n),
     linux: (n) => /-linux-x86_64\.tar\.gz$/.test(n) && !/box-authoring/.test(n),
     "linux-arm64": (n) => /-linux-arm64\.tar\.gz$/.test(n) && !/box-authoring/.test(n),
+    macos: (n) => /-macos-arm64\.tar\.gz$/.test(n) && !/box-authoring/.test(n),
     apworld: (n) => n === "ctr.apworld",
   };
   window.ctrRelease = latest().then((rel) => {

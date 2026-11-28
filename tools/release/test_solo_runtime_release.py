@@ -12,6 +12,7 @@ import os
 import tarfile
 import tempfile
 import unittest
+from unittest import mock
 import zipfile
 from pathlib import Path
 
@@ -40,8 +41,17 @@ ASSEMBLER = load("assemble_release_solo", HERE / "assemble-release.py")
 VERIFIER = load("verify_release_solo", HERE.parent / "verify-release.py")
 BUILDER = load("build_runtime_solo", HERE.parent / "solo" / "build-runtime.py")
 INTERPRETER = {"windows-x86": "python/python.exe", "linux-x86_64": "python/bin/python3.12",
-               "linux-arm64": "python/bin/python3.12"}
+               "linux-arm64": "python/bin/python3.12", "macos-arm64": "python/bin/python3.12"}
 TARGETS = tuple(INTERPRETER)
+
+
+def macos_bundle(folder: Path) -> Path:
+    """The app bundle a macOS CI archive carries around its release folder."""
+    app = folder / "CTR Decrypted.app"
+    for rel in ("Contents/Info.plist", "Contents/MacOS/CTR Decrypted", "Contents/Resources/AppIcon.icns"):
+        (app / rel).parent.mkdir(parents=True, exist_ok=True)
+        (app / rel).write_bytes(rel.encode())
+    return app
 
 
 def sha(data: bytes) -> str:
@@ -54,6 +64,11 @@ class SoloRuntimeReleaseTests(unittest.TestCase):
         self.root = Path(self.tmp.name)
         self.apworld = self.root / "ctr.apworld"
         self.apworld.write_bytes(b"apworld-bytes")
+        # Apple's codesign seals the macOS bundle in a real assembly (on macOS).
+        sealing = mock.patch.object(ASSEMBLER, "seal_macos_app", lambda app: None)
+        sealing.start()
+        self.addCleanup(sealing.stop)
+        self.bundle = macos_bundle(self.root / "bundle")
 
     def tearDown(self) -> None:
         self.tmp.cleanup()
@@ -123,7 +138,7 @@ class SoloRuntimeReleaseTests(unittest.TestCase):
     def test_linux_interpreter_is_executable_in_the_tarball(self) -> None:
         entries = ASSEMBLER.solo_runtime_entries(self.runtime("linux-x86_64"), "linux-x86_64", self.apworld)
         tarball = self.root / "client.tar.gz"
-        ASSEMBLER.create_archive(tarball, "root", entries, linux=True)
+        ASSEMBLER.create_archive(tarball, "root", entries, "linux")
         with tarfile.open(tarball) as bundle:
             modes = {m.name: m.mode for m in bundle.getmembers()}
         self.assertEqual(modes["root/solo-runtime/python/bin/python3.12"], 0o755)
@@ -148,9 +163,9 @@ class SoloRuntimeReleaseTests(unittest.TestCase):
             if runtime is not None:
                 entries += [(p, f"solo-runtime/{p.relative_to(runtime).as_posix()}")
                             for p in sorted(runtime.rglob("*")) if p.is_file()]
-            linux = target != "windows-x86"
-            ASSEMBLER.create_archive(release / f"ctr-decrypted-{tag}-{target}{'.tar.gz' if linux else '.zip'}",
-                                     f"ctr-decrypted-{tag}", entries, linux=linux)
+            platform = ASSEMBLER.target_os(target)
+            ASSEMBLER.create_archive(release / f"ctr-decrypted-{tag}-{target}{'.zip' if platform == 'windows' else '.tar.gz'}",
+                                     f"ctr-decrypted-{tag}", entries, platform, self.bundle)
         return release
 
     def test_verifier_accepts_matching_runtimes(self) -> None:
@@ -221,6 +236,16 @@ class SoloRuntimeReleaseTests(unittest.TestCase):
                                      linux_x86_64=self.runtime("windows-x86", name="b"))
         with self.assertRaises(VERIFIER.PolicyError):
             VERIFIER.verify_solo_runtime(release, "v0.3.0")
+
+    def test_macos_runtime_is_inside_the_app_and_its_interpreter_executable(self) -> None:
+        release = self.write_release("v0.3.0")
+        with tarfile.open(release / "ctr-decrypted-v0.3.0-macos-arm64.tar.gz") as bundle:
+            modes = {m.name: m.mode for m in bundle.getmembers()}
+        game = "ctr-decrypted-v0.3.0/CTR Decrypted.app/Contents/Resources/game/"
+        self.assertEqual(modes[game + "solo-runtime/python/bin/python3.12"], 0o755)
+        self.assertEqual(modes[game + "ctr.apworld"], 0o644)
+        self.assertEqual(modes["ctr-decrypted-v0.3.0/CTR Decrypted.app/Contents/MacOS/CTR Decrypted"], 0o755)
+        self.assertFalse(any(name.startswith("ctr-decrypted-v0.3.0/solo-runtime") for name in modes))
 
     def test_verifier_refuses_swapped_linux_architectures(self) -> None:
         release = self.write_release("v0.3.0", linux_x86_64=self.runtime("linux-arm64", name="a"),

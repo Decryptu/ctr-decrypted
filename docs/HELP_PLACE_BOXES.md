@@ -19,7 +19,11 @@ folder. The release page has it as
 `ctr-decrypted-vX.Y.Z-box-authoring-linux-x86_64.tar.gz` (Linux and Steam Deck)
 or `ctr-decrypted-vX.Y.Z-box-authoring-linux-arm64.tar.gz` (ARM Linux).
 Unzip it into a **new, empty folder**, add your disc image to its `assets`
-folder (see `SETUP.md`, step 2) and start `ctr_native_ap_authoring`. The window
+folder (see `SETUP.md`, step 2) and start `ctr_native_ap_authoring`. On a Mac,
+`ctr-decrypted-vX.Y.Z-box-authoring-macos-arm64.tar.gz` holds
+**CTR Decrypted Box Authoring.app**, which keeps its own game folder,
+`~/Library/Application Support/CTR Decrypted Box Authoring`, apart from the
+player's. The window
 title says `BOX AUTHORING BUILD`. It never connects to Archipelago and keeps
 Box Author Mode on between starts. Everything below works the same in it.
 

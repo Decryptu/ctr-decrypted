@@ -31,7 +31,7 @@ permissions:
 
 jobs:
   prepare:
-    runs-on: ubuntu-24.04
+    runs-on: macos-15
     timeout-minutes: 30
     steps:
       - name: Check out the exact native source
@@ -40,6 +40,12 @@ jobs:
           ref: ${{ inputs.native_source_commit }}
           fetch-depth: 1
           persist-credentials: false
+      # The assembler seals the macOS app with Apple's codesign, so it runs on
+      # macOS; GNU binutils (all targets) read the Windows and Linux builds.
+      - name: Release tools
+        run: |
+          brew install binutils
+          echo "$(brew --prefix binutils)/bin" >> "$GITHUB_PATH"
 
       - name: Verify successful run identities
         env:

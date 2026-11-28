@@ -54,8 +54,26 @@ AUTHORING_ARCHIVE = {
     for target in TARGETS
 }
 # Executable names, by operating system.
-CLIENT_BINARY = {"windows": "ctr_native_ap.exe", "linux": "ctr_native_ap"}
-AUTHORING_BINARY = {"windows": "ctr_native_ap_authoring.exe", "linux": "ctr_native_ap_authoring"}
+CLIENT_BINARY = {"windows": "ctr_native_ap.exe", "linux": "ctr_native_ap", "macos": "ctr_native_ap"}
+AUTHORING_BINARY = {"windows": "ctr_native_ap_authoring.exe", "linux": "ctr_native_ap_authoring",
+                    "macos": "ctr_native_ap_authoring"}
+# The macOS app bundle around the release folder (docs/MACOS.md): what a CI
+# bundle may hold besides Contents/Resources/game/. The assembler keeps the
+# launcher, Info.plist and icon, puts the release folder in, and seals it again.
+MACOS_APP = {False: release_policy.MACOS_APP, True: release_policy.MACOS_AUTHORING_APP}
+MACOS_GAME_PREFIX = "Contents/Resources/game/"
+MACOS_SIGNATURE = "Contents/_CodeSignature/CodeResources"
+
+
+def macos_skeleton(app: str) -> set[str]:
+    return {"Contents/Info.plist", f"Contents/MacOS/{app.removesuffix('.app')}", "Contents/Resources/AppIcon.icns",
+            MACOS_SIGNATURE}
+
+
+def debug_file_name(binary_name: str, target: str) -> str:
+    """The debug sidecar a build leaves beside its executable
+    (tools/ci/package-client.py, debug_sidecar)."""
+    return binary_name + (".dSYM.zip" if target_os(target) == "macos" else ".debug")
 NATIVE_COMPANIONS = (
     "ap/ap_version.h",
     "tools/release-versions.sh",
@@ -171,13 +189,17 @@ def find_one(root: Path, predicate, label: str) -> Path:
 
 def unpack_artifact(
     archive: Path, target: str, destination: Path, authoring: bool = False
-) -> tuple[Path, dict, list[tuple[Path, str]]]:
+) -> tuple[Path, dict, list[tuple[Path, str]], Path | None]:
     """Extract a package-client archive after checking its complete shape.
 
-    Returns the extracted native binary, its BUILD.json metadata, and the
-    bundled ``assets/`` tree as ``(path, relative posix name)`` pairs.
+    Returns the extracted native binary, its BUILD.json metadata, the bundled
+    ``assets/`` tree as ``(path, relative posix name)`` pairs, and for macOS
+    the app bundle's own files (launcher, Info.plist, icon) extracted beside
+    the release folder, else None.
     """
     platform = target_os(target)
+    app = MACOS_APP[authoring] if platform == "macos" else None
+    skeleton: list[tuple[str, bytes]] = []
     binary_name = (AUTHORING_BINARY if authoring else CLIENT_BINARY)[platform]
     helper_names = {"support-bundle.bat", "support-bundle.ps1"} if platform == "windows" else {"support-bundle.sh"}
     variant_names = {"HELP-PLACE-BOXES.md", "AUTHORING-BUILD.txt"} if authoring else {"ap-config.example.txt"}
@@ -213,6 +235,14 @@ def unpack_artifact(
         if root_name != path.parts[0]:
             fail(f"build archive has more than one root directory: {name!r}")
         relative = PurePosixPath(*path.parts[1:])
+        if app is not None:
+            inside = str(relative)
+            prefix = f"{app}/{MACOS_GAME_PREFIX}"
+            if not inside.startswith(prefix):
+                if inside.removeprefix(f"{app}/") not in macos_skeleton(app) or not inside.startswith(f"{app}/"):
+                    fail(f"unexpected macOS build archive member: {name!r}")
+                return "\0" + inside.removeprefix(f"{app}/")
+            relative = PurePosixPath(inside.removeprefix(prefix))
         if len(relative.parts) == 1:
             if relative.parts[0] not in allowed:
                 fail(f"unexpected build archive member: {name!r}")
@@ -229,7 +259,7 @@ def unpack_artifact(
                 if (info.external_attr >> 16) & 0o170000 == 0o120000:
                     fail(f"symlink in build archive: {info.filename!r}")
                 relative = classify(info.filename)
-                members.append((relative, bundle.read(info)))
+                (skeleton if relative.startswith("\0") else members).append((relative.lstrip("\0"), bundle.read(info)))
     else:
         with tarfile.open(archive, "r:gz") as bundle:
             for info in bundle.getmembers():
@@ -242,7 +272,7 @@ def unpack_artifact(
                 stream = bundle.extractfile(info)
                 if stream is None:
                     fail(f"cannot read build archive member: {info.name!r}")
-                members.append((relative, stream.read()))
+                (skeleton if relative.startswith("\0") else members).append((relative.lstrip("\0"), stream.read()))
     if root_name is None:
         fail(f"empty build archive: {archive}")
     names = [name for name, _ in members]
@@ -254,6 +284,8 @@ def unpack_artifact(
     missing = sorted(required - set(names))
     if missing:
         fail(f"build archive lacks required member(s): {', '.join(missing)}")
+    if app is not None and {name for name, _ in skeleton} != macos_skeleton(app):
+        fail(f"{archive.name} is not a complete {app}: {sorted(name for name, _ in skeleton)}")
     destination.mkdir(parents=True)
     assets: list[tuple[Path, str]] = []
     for name, data in members:
@@ -265,8 +297,19 @@ def unpack_artifact(
         os.chmod(target, 0o644)
         if PurePosixPath(name).parts[0] == ASSET_DIR:
             assets.append((target, name))
-    if platform == "linux":
+    if platform != "windows":
         os.chmod(destination / binary_name, 0o755)
+    bundle_dir = None
+    if app is not None:
+        # The old seal is dropped: the release bundle is sealed again.
+        bundle_dir = destination.with_name(destination.name + "-app") / app
+        for name, data in skeleton:
+            if name == MACOS_SIGNATURE:
+                continue
+            path = bundle_dir / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+            os.chmod(path, 0o755 if name.startswith("Contents/MacOS/") else 0o644)
     try:
         metadata = json.loads((destination / "BUILD.json").read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
@@ -274,7 +317,7 @@ def unpack_artifact(
     if not isinstance(metadata, dict):
         fail(f"BUILD.json must contain an object: {archive.name}")
     assets.sort(key=lambda item: item[1])
-    return destination / binary_name, metadata, assets
+    return destination / binary_name, metadata, assets, bundle_dir
 
 
 def load_package_client(source: Path):
@@ -398,7 +441,8 @@ def write_checksum(path: Path) -> None:
 
 
 SOLO_RUNTIME_DIR = "solo-runtime"
-SOLO_INTERPRETER = {"windows": "python/python.exe", "linux": "python/bin/python3.12"}  # by operating system
+SOLO_INTERPRETER = {"windows": "python/python.exe", "linux": "python/bin/python3.12",
+                    "macos": "python/bin/python3.12"}  # by operating system
 
 
 def read_runtime_manifest(text: str) -> dict[str, str]:
@@ -462,42 +506,88 @@ def solo_runtime_entries(runtime: Path, target: str, apworld: Path) -> list[tupl
     return entries
 
 
-def create_archive(destination: Path, root_name: str, entries: list[tuple[Path, str]], linux: bool) -> None:
-    """Write one release bundle from ``(source path, relative posix name)`` pairs."""
+def seal_macos_app(app: Path) -> None:
+    """Ad-hoc sign the bundle. A quarantined app that is not notarized must be
+    signed and sealed for macOS to offer Open Anyway rather than call it
+    damaged, and the seal covers every file in the bundle, so the macOS
+    archive is assembled on macOS (RELEASING.md)."""
+    if shutil.which("codesign") is None:
+        fail("the macOS archive is sealed with Apple's codesign: assemble the release on macOS")
+    subprocess.run(["codesign", "--force", "--sign", "-", "--timestamp=none", str(app)], check=True)
+    subprocess.run(["codesign", "--verify", "--strict", str(app)], check=True)
+
+
+def macos_entries(entries: list[tuple[Path, str]], bundle: Path, staging: Path) -> list[tuple[Path, str]]:
+    """Put the release folder into a copy of the app bundle at ``staging``,
+    seal it, and return the sealed bundle's files as archive entries."""
+    app = staging / bundle.name
+    shutil.copytree(bundle, app)
+    game = app / MACOS_GAME_PREFIX
+    for path, relative in entries:
+        target = game / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(path, target)
+    seal_macos_app(app)
+    return [(path, f"{bundle.name}/{path.relative_to(app).as_posix()}")
+            for path in sorted(app.rglob("*")) if path.is_file()]
+
+
+def create_archive(destination: Path, root_name: str, entries: list[tuple[Path, str]], platform: str,
+                   bundle: Path | None = None) -> None:
+    """Write one release bundle from ``(source path, relative posix name)`` pairs.
+    macOS: ``bundle`` is the app around them (unpack_artifact)."""
     ordered = sorted(entries, key=lambda item: item[1])
     seen = [name for _, name in ordered]
     if len(seen) != len(set(seen)):
         fail("duplicate member in release bundle")
-    if linux:
-        executables = {"ctr_native_ap", AUTHORING_BINARY["linux"], "support-bundle.sh",
-                       f"{SOLO_RUNTIME_DIR}/{SOLO_INTERPRETER['linux']}"}
-        with tarfile.open(destination, "w:gz") as bundle:
-            written: set[str] = set()
-
-            def add_directory(name: str) -> None:
-                if name in written:
-                    return
-                written.add(name)
-                info = tarfile.TarInfo(name)
-                info.type = tarfile.DIRTYPE
-                info.mode = 0o755
-                bundle.addfile(info)
-
-            add_directory(root_name)
-            for path, relative in ordered:
-                parts = PurePosixPath(relative).parts
-                for depth in range(1, len(parts)):
-                    add_directory(f"{root_name}/" + "/".join(parts[:depth]))
-                info = bundle.gettarinfo(str(path), arcname=f"{root_name}/{relative}")
-                if not info.isfile():
-                    fail(f"release input is not a regular file: {path}")
-                info.mode = 0o755 if relative in executables else 0o644
-                with path.open("rb") as stream:
-                    bundle.addfile(info, stream)
+    if platform == "macos":
+        if bundle is None:
+            fail("a macOS release archive needs its app bundle")
+        staging = Path(tempfile.mkdtemp(prefix="ctr-app-"))
+        try:
+            create_archive_tar(destination, root_name, macos_entries(ordered, bundle, staging),
+                               {f"{bundle.name}/{MACOS_GAME_PREFIX}{name}" for name in TAR_EXECUTABLES}
+                               | {f"{bundle.name}/Contents/MacOS/{bundle.name.removesuffix('.app')}"})
+        finally:
+            shutil.rmtree(staging)
+    elif platform == "linux":
+        create_archive_tar(destination, root_name, ordered, TAR_EXECUTABLES)
     else:
-        with zipfile.ZipFile(destination, "w", zipfile.ZIP_DEFLATED) as bundle:
+        with zipfile.ZipFile(destination, "w", zipfile.ZIP_DEFLATED) as bundle_zip:
             for path, relative in ordered:
-                bundle.write(path, f"{root_name}/{relative}")
+                bundle_zip.write(path, f"{root_name}/{relative}")
+
+
+# Release folder members that are programs (mode 0755 in a tar archive).
+TAR_EXECUTABLES = {"ctr_native_ap", AUTHORING_BINARY["linux"], "support-bundle.sh",
+                   f"{SOLO_RUNTIME_DIR}/{SOLO_INTERPRETER['linux']}"}
+
+
+def create_archive_tar(destination: Path, root_name: str, ordered: list[tuple[Path, str]], executables: set[str]) -> None:
+    """A tar.gz release bundle; `executables` get mode 0755."""
+    with tarfile.open(destination, "w:gz") as bundle:
+        written: set[str] = set()
+
+        def add_directory(name: str) -> None:
+            if name in written:
+                return
+            written.add(name)
+            info = tarfile.TarInfo(name)
+            info.type = tarfile.DIRTYPE
+            info.mode = 0o755
+            bundle.addfile(info)
+
+        add_directory(root_name)
+        for path, relative in ordered:
+            parts = PurePosixPath(relative).parts
+            for depth in range(1, len(parts)):
+                add_directory(f"{root_name}/" + "/".join(parts[:depth]))
+            info = bundle.gettarinfo(str(path), arcname=f"{root_name}/{relative}")
+            if not info.isfile():
+                fail(f"release input is not a regular file: {path}")
+            info.mode = 0o755 if relative in executables else 0o644
+            with path.open("rb") as stream:
+                bundle.addfile(info, stream)
 
 
 def assemble_authoring(source: Path, version: str, target: str, artifact_dir: Path,
@@ -514,11 +604,11 @@ def assemble_authoring(source: Path, version: str, target: str, artifact_dir: Pa
         f"{target} box authoring archive",
     )
     check_checksum(archive)
-    debug_name = AUTHORING_BINARY[target_os(target)] + ".debug"
+    debug_name = debug_file_name(AUTHORING_BINARY[target_os(target)], target)
     debug = find_one(archive.parent, lambda p: p.name == debug_name, f"{target} box authoring debug sidecar")
     check_checksum(debug)
     staging = temp / f"authoring-{target}"
-    binary, metadata, _ = unpack_artifact(archive, target, staging, authoring=True)
+    binary, metadata, _, bundle = unpack_artifact(archive, target, staging, authoring=True)
     shutil.copy2(debug, staging / debug_name)
     validate_build(source, target, archive, debug, binary, metadata, authoring=True)
     entries = []
@@ -530,7 +620,7 @@ def assemble_authoring(source: Path, version: str, target: str, artifact_dir: Pa
     tag = f"v{version}"
     name = release_policy.authoring_asset_name(tag, target)
     destination = output / name
-    create_archive(destination, f"ctr-decrypted-{tag}-box-authoring", entries, linux=target_os(target) == "linux")
+    create_archive(destination, f"ctr-decrypted-{tag}-box-authoring", entries, target_os(target), bundle)
     write_checksum(destination)
     return destination
 
@@ -566,7 +656,7 @@ def assemble(args: argparse.Namespace) -> list[Path]:
     artifact_dir = args.artifacts.resolve()
     with tempfile.TemporaryDirectory(prefix="ctr-release-") as temporary:
         temp = Path(temporary)
-        staged: dict[str, tuple[Path, dict, list[tuple[Path, str]]]] = {}
+        staged: dict[str, tuple[Path, dict, list[tuple[Path, str]], Path | None]] = {}
         for target in TARGETS:
             archive = find_one(
                 artifact_dir,
@@ -576,16 +666,16 @@ def assemble(args: argparse.Namespace) -> list[Path]:
             check_checksum(archive)
             # Every Linux build names its sidecar ctr_native_ap.debug: the one
             # beside this archive (same CI artifact folder) is this target's.
-            debug_name = CLIENT_BINARY[target_os(target)] + ".debug"
+            debug_name = debug_file_name(CLIENT_BINARY[target_os(target)], target)
             debug = find_one(
                 archive.parent,
                 lambda p, debug_name=debug_name: p.name == debug_name,
                 f"{target} debug sidecar",
             )
             check_checksum(debug)
-            unpacked, metadata, assets = unpack_artifact(archive, target, temp / target)
-            staged[target] = (unpacked, metadata, assets)
-            # package-client.verify resolves the sidecar as <binary>.debug.
+            unpacked, metadata, assets, bundle = unpack_artifact(archive, target, temp / target)
+            staged[target] = (unpacked, metadata, assets, bundle)
+            # package-client.verify finds the sidecar beside the binary.
             shutil.copy2(debug, temp / target / debug_name)
             validate_build(source, target, archive, debug, unpacked, metadata)
         root_name = f"ctr-decrypted-v{version}"
@@ -626,7 +716,7 @@ def assemble(args: argparse.Namespace) -> list[Path]:
                     fail(f"{reference} and {target} build archives disagree on asset bytes: {name}")
         files: dict[str, list[tuple[Path, str]]] = {}
         for target in TARGETS:
-            binary, _, assets = staged[target]
+            binary, _, assets, _ = staged[target]
             if target_os(target) == "windows":
                 helpers = [(path, path.name) for path in helper]
             else:
@@ -648,8 +738,8 @@ def assemble(args: argparse.Namespace) -> list[Path]:
                 files[target] += solo_runtime_entries((runtimes / target).resolve(), target, args.apworld.resolve())
         for target in TARGETS:
             create_archive(output / client_asset_name(version, target), root_name, files[target],
-                           linux=target_os(target) == "linux")
-            debug_name = CLIENT_BINARY[target_os(target)] + ".debug"
+                           target_os(target), staged[target][3])
+            debug_name = debug_file_name(CLIENT_BINARY[target_os(target)], target)
             shutil.copy2(temp / target / debug_name, output / debug_asset_name(target))
         authoring_outputs = []
         if authoring_assets:

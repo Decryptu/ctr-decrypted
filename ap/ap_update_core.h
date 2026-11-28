@@ -63,11 +63,14 @@ namespace ap_update
 
 typedef std::vector<unsigned char> Bytes;
 
-// The operating system: archive format (zip or tar.gz) and executable name.
+// The operating system: archive format (zip or tar.gz), layout and executable
+// name. A macOS archive holds the app bundle with the release folder inside it
+// (kMacGameDir, docs/MACOS.md).
 enum Platform
 {
 	PLATFORM_WINDOWS = 0,
-	PLATFORM_LINUX = 1
+	PLATFORM_LINUX = 1,
+	PLATFORM_MACOS = 2
 };
 
 // The client archives a release carries, one per build target. A build
@@ -77,6 +80,7 @@ enum Target
 	TARGET_WINDOWS_X86 = 0,
 	TARGET_LINUX_X86_64,
 	TARGET_LINUX_ARM64,
+	TARGET_MACOS_ARM64,
 	TARGET_COUNT
 };
 Platform TargetPlatform(Target target);
@@ -175,7 +179,10 @@ Result VerifyRelease(const std::string &publicKeyBase64, const Bytes &manifest,
 // directories, have no "..", absolute, drive or backslash paths, no
 // duplicates (also by case), and stay inside the size limits. ZIP: stored or
 // deflated, no encryption, CRC-32 checked. tar.gz: ustar with pax path
-// records; links, devices and sparse files are refused.
+// records; links, devices and sparse files are refused. macOS: the release
+// folder is "ctr-decrypted-<tag>/" + kMacGameDir; the app bundle's own files
+// around it are validated like the rest and never installed (the installed
+// game folder is the release folder, docs/MACOS.md).
 struct InstallFile
 {
 	std::string rel;    // path inside the release folder, '/' separated
@@ -183,6 +190,8 @@ struct InstallFile
 	std::string sha256; // of `data`, taken from the verified archive
 	bool executable = false; // the executable, or a tar member with an x bit
 };
+// Where the release folder sits inside a macOS archive's root.
+extern const char kMacGameDir[]; // "CTR Decrypted.app/Contents/Resources/game/"
 // The bundled solo runtime folder (#89) and its identity file.
 extern const char kRuntimeDir[];   // "solo-runtime"
 extern const char kRuntimeIdRel[]; // "solo-runtime/RUNTIME.txt"

@@ -209,43 +209,56 @@ jobs:
           path: ${{ runner.temp }}\ccache
           key: ccache-windows-x86_64-${{ matrix.variant }}-${{ github.sha }}
 
-  # The 64-bit engine on macOS (Apple Silicon, Apple clang, Homebrew's OpenSSL).
-  # No release yet (ROADMAP.md, macOS): this keeps the port compiling and its
-  # tests passing while it is built up.
+  # macOS releases are the 64-bit engine for Apple Silicon as an app bundle
+  # (docs/MACOS.md), built for macOS 11 with a pinned OpenSSL
+  # (tools/ci/build-openssl-macos.sh).
   macos:
-    name: macOS arm64 ${{ matrix.variant }} (64-bit engine, not released)
+    name: macOS arm64 ${{ matrix.variant }}
     runs-on: macos-15
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        variant: [vanilla, ap]
+        variant: [ap, vanilla, authoring, authoring-client]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Toolchain
-        run: brew install ninja ccache openssl@3
+        run: brew install ninja ccache
+      - name: Restore OpenSSL
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ctr-openssl-macos
+          key: openssl-macos-arm64-${{ hashFiles('tools/ci/build-openssl-macos.sh') }}
       - name: Restore compiler cache
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ccache
           key: ccache-macos-arm64-${{ matrix.variant }}-${{ github.sha }}
           restore-keys: ccache-macos-arm64-${{ matrix.variant }}-
-      - name: Build and test
+      - name: Build and verify
         env:
           CCACHE_DIR: ${{ runner.temp }}/ccache
         run: |
-          export OPENSSL_ROOT_DIR="$(brew --prefix openssl@3)"
           ccache -z
-          bash tools/ci/build-engine64.sh macos ${{ matrix.variant }}
+          bash tools/ci/build-clients.sh macos ${{ matrix.variant }}
           ccache -s
+      - name: Install and start the app as a player would
+        run: bash tools/ci/smoke-macos-app.sh client-artifacts
       - name: Save compiler cache
         if: ${{ github.event_name != 'pull_request' && startsWith(github.ref, 'refs/heads/') }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ccache
           key: ccache-macos-arm64-${{ matrix.variant }}-${{ github.sha }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ctr-decrypted-macos-arm64-${{ matrix.variant }}-${{ github.sha }}
+          path: client-artifacts/*
+          if-no-files-found: error
+          retention-days: 30
 
   # Every build goes through the release assembler: the archives this run made,
   # the apworld packed from this commit, the solo runtimes, and the same script
@@ -254,13 +267,19 @@ jobs:
   # of at release time. Nothing is signed or uploaded.
   release-check:
     name: Release assembly check
-    needs: [linux, windows]
-    runs-on: ubuntu-24.04
+    needs: [linux, windows, macos]
+    runs-on: macos-15
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # The assembler seals the macOS app with Apple's codesign, so it runs on
+      # macOS; GNU binutils (all targets) read the Windows and Linux builds.
+      - name: Release tools
+        run: |
+          brew install binutils
+          echo "$(brew --prefix binutils)/bin" >> "$GITHUB_PATH"
       - name: Download this run's client archives
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:

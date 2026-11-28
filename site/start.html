@@ -53,6 +53,7 @@
     <label class="choice"><input type="radio" name="platform" value="windows"><span><b>Windows</b><small>10 or 11</small></span></label>
     <label class="choice"><input type="radio" name="platform" value="linux"><span><b>Linux</b><small>Desktop PC</small></span></label>
     <label class="choice"><input type="radio" name="platform" value="deck"><span><b>Steam Deck</b><small>SteamOS</small></span></label>
+    <label class="choice"><input type="radio" name="platform" value="mac"><span><b>Mac</b><small>Apple Silicon</small></span></label>
   </div>
 </section>
 
@@ -113,6 +114,11 @@
           <div class="dl-row"><a class="btn btn-go" href="https://github.com/Decryptu/ctr-decrypted/releases/latest" data-download="linux"><svg class="ps"><use href="#i-x"/></svg>Download for Steam Deck <small data-size></small></a></div>
           <p>Open the downloaded <code>.tar.gz</code> in the Dolphin file manager and extract it into a folder of its own, for example <code>Games/CTR</code> in your home folder.</p>
         </div>
+        <div data-platform="mac">
+          <div class="dl-row"><a class="btn btn-go" href="https://github.com/Decryptu/ctr-decrypted/releases/latest" data-download="macos"><svg class="ps"><use href="#i-x"/></svg>Download for Mac <small data-size></small></a></div>
+          <p>For Macs with Apple Silicon (M1 or later) on macOS 11 or later. Open the downloaded <code>.tar.gz</code> and drag <strong>CTR Decrypted.app</strong> into <strong>Applications</strong>.</p>
+          <p>Apple has not notarized the app, so macOS refuses to open it the first time. Open <strong>System Settings</strong>, <strong>Privacy &amp; Security</strong>, scroll down to the message about CTR Decrypted, click <strong>Open Anyway</strong> and confirm. This is needed once; updates the game installs itself do not ask again.</p>
+        </div>
         <p class="note">You only do this once. From then on the game updates itself: the main menu offers each new version, and your settings and saves stay.</p>
       </div>
     </li>
@@ -161,9 +167,9 @@
     ctr-u.bin</code></pre>
           <p>Then right-click <code>ctr_native_ap</code> and choose <strong>Add to Steam</strong>. Go back to <strong>Gaming Mode</strong> and start <em>ctr_native_ap</em> from your library (under Non-Steam). The first start on a Deck is fullscreen at 16:10, with the built-in controls as the controller.</p>
         </div>
-        <div data-platform="windows linux">
-          <p>Start <code data-platform="windows">ctr_native_ap.exe</code><code data-platform="linux">./ctr_native_ap</code>. The first time, it searches the game folder, your Downloads, Desktop, Documents and Games folders for your disc. If it finds it, it asks whether to use it; if not, a file picker opens. It then offers to copy the image into the game folder, or to remember where it is.</p>
-          <p class="more">Or put it in place yourself: an <code>assets</code> folder next to the game, holding the <code>.bin</code> under any name.</p>
+        <div data-platform="windows linux mac">
+          <p>Start <code data-platform="windows">ctr_native_ap.exe</code><code data-platform="linux">./ctr_native_ap</code><span data-platform="mac"><strong>CTR Decrypted</strong> from Applications (macOS asks once whether it may read your Downloads, Desktop and Documents folders)</span>. The first time, it searches the game folder, your Downloads, Desktop, Documents and Games folders for your disc. If it finds it, it asks whether to use it; if not, a file picker opens. It then offers to copy the image into the game folder, or to remember where it is.</p>
+          <p class="more">Or put it in place yourself: an <code>assets</code> folder next to the game, holding the <code>.bin</code> under any name.<span data-platform="mac"> On a Mac the game folder is <code>~/Library/Application Support/CTR Decrypted</code> (in Finder: <strong>Go</strong>, <strong>Go to Folder</strong>).</span></p>
         </div>
         <p>A short <strong>setup screen</strong> then opens on the title screen. <span data-mode="join host">Its first page asks for your room: keep it open for the connect step.</span><span data-mode="solo race">Its first page asks for an Archipelago room: you can skip it.</span> The next pages pick fullscreen, aspect ratio, render scale, 60 FPS, skipping the intros and Discord status. Everything there can be changed later in <strong>OPTIONS</strong>.</p>
       </div>

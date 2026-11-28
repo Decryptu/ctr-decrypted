@@ -26,8 +26,8 @@ extern char **environ;
 // (NativeRelaunch_Startup, platform/native_relaunch.c).
 #define CTR_FIXED_BASE_ENV "CTR_FIXED_BASE_EXEC"
 
-#ifndef CTR_LAUNCHER_GAME
-#error "CTR_LAUNCHER_GAME names the game executable (CMakeLists.txt)"
+#if !defined(CTR_LAUNCHER_GAME) || !defined(CTR_LAUNCHER_FOLDER)
+#error "CTR_LAUNCHER_GAME names the game executable, CTR_LAUNCHER_FOLDER its folder (CMakeLists.txt)"
 #endif
 
 static void Launcher_Alert(const char *message)
@@ -35,7 +35,7 @@ static void Launcher_Alert(const char *message)
 	CFStringRef text = CFStringCreateWithCString(NULL, message, kCFStringEncodingUTF8);
 
 	fprintf(stderr, "[CTR] %s\n", message);
-	CFUserNotificationDisplayAlert(0, kCFUserNotificationStopAlertLevel, NULL, NULL, NULL, CFSTR("CTR Decrypted"), text, NULL, NULL,
+	CFUserNotificationDisplayAlert(0, kCFUserNotificationStopAlertLevel, NULL, NULL, NULL, CFSTR(CTR_LAUNCHER_FOLDER), text, NULL, NULL,
 	                               NULL, NULL);
 	if (text != NULL)
 		CFRelease(text);
@@ -53,15 +53,15 @@ int main(int argc, char **argv)
 	(void)argc;
 	if (_NSGetExecutablePath(self, &size) != 0 || realpath(self, launcher) == NULL)
 	{
-		Launcher_Alert("Could not find where CTR Decrypted.app is.");
+		Launcher_Alert("Could not find where " CTR_LAUNCHER_FOLDER ".app is.");
 		return 1;
 	}
-	switch (NativeMacInstall_Prepare(launcher, CTR_LAUNCHER_GAME, exe, (int)sizeof exe, error, (int)sizeof error))
+	switch (NativeMacInstall_Prepare(launcher, CTR_LAUNCHER_FOLDER, CTR_LAUNCHER_GAME, exe, (int)sizeof exe, error, (int)sizeof error))
 	{
 	case 1:
 		break;
 	case 0:
-		Launcher_Alert("This copy of CTR Decrypted.app is incomplete: it has no game folder. Download it again.");
+		Launcher_Alert("This copy of " CTR_LAUNCHER_FOLDER ".app is incomplete: it has no game folder. Download it again.");
 		return 1;
 	default:
 		snprintf(exe, sizeof exe, "Could not install the game into your Application Support folder: %s.", error);

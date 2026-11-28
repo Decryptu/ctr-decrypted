@@ -247,6 +247,37 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+### OpenSSL
+
+Source: <https://github.com/openssl/openssl>
+
+The Archipelago client, the box authoring build and the authoring client link
+OpenSSL statically for TLS and hashing: MSYS2's package on Windows, Debian 12's
+on Linux, and release 3.5.9 built by `tools/ci/build-openssl-macos.sh` on
+macOS.
+
+License: Apache License 2.0 (OpenSSL 3), <https://www.openssl.org/source/license.html>
+
+### zlib
+
+Source: <https://zlib.net>
+
+The same builds link zlib: statically on Windows and Linux, and the copy macOS
+ships with the system on macOS.
+
+License: zlib License. Copyright (C) 1995-2024 Jean-loup Gailly and Mark Adler.
+This software is provided 'as-is', without any express or implied warranty. In
+no event will the authors be held liable for any damages arising from the use of
+this software. Permission is granted to anyone to use this software for any
+purpose, including commercial applications, and to alter it and redistribute it
+freely, subject to the following restrictions: 1. The origin of this software
+must not be misrepresented; you must not claim that you wrote the original
+software. If you use this software in a product, an acknowledgment in the
+product documentation would be appreciated but is not required. 2. Altered
+source versions must be plainly marked as such, and must not be misrepresented
+as being the original software. 3. This notice may not be removed or altered
+from any source distribution.
+
 ## Archipelago Logo Marker (AP build and authoring client)
 
 Paths: `tools/aplogo/aplogo.h` (vendored source mesh), `ap/ap_marker_model_data.h` (generated)
@@ -384,7 +415,8 @@ License: GPL-3.0, the same license as this project.
 
 ## Solo runtime (AP release archives only)
 
-Path in the client archive: `solo-runtime/`. Built by
+Path in the client archive: `solo-runtime/` (on macOS inside the app,
+`CTR Decrypted.app/Contents/Resources/game/solo-runtime/`). Built by
 `tools/solo/build-runtime.py` from the pins in `tools/solo/runtime-lock.json`;
 `solo-runtime/RUNTIME.txt` lists every pinned part with its SHA-256. The client
 starts it as a separate program for solo play (#89); it is not linked into
@@ -393,8 +425,9 @@ starts it as a separate program for solo play (#89); it is not linked into
 Python parts ship as unmodified source files (plus precompiled bytecode).
 
 - CPython 3.12.10, PSF License Agreement. Windows: the python.org embeddable
-  package (x86_64). Linux: python-build-standalone (`install_only_stripped`,
-  x86_64 or aarch64 to match the archive), which
+  package (x86_64). Linux and macOS: python-build-standalone
+  (`install_only_stripped`, x86_64 or aarch64 Linux, or aarch64 macOS, to match
+  the archive), which
   also bundles OpenSSL, zlib, xz, bzip2, libffi, SQLite and other libraries
   under their own licenses; see
   https://github.com/astral-sh/python-build-standalone and the CPython

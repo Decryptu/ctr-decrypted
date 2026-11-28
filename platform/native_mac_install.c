@@ -21,7 +21,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define NATIVE_MAC_INSTALL_FOLDER "/Library/Application Support/CTR Decrypted"
+#define NATIVE_MAC_INSTALL_PARENT "/Library/Application Support/"
 // Names the build of the app that last installed the game folder.
 #define NATIVE_MAC_INSTALL_MARKER ".installed-by-app"
 #define NATIVE_MAC_INSTALL_LOCK   ".install.lock"
@@ -177,7 +177,8 @@ static int NativeMacInstall_Copy(const char *bundleGame, const char *folder, cha
 	return 1;
 }
 
-int NativeMacInstall_Prepare(const char *launcher, const char *game, char *exe, int size, char *error, int errorSize)
+int NativeMacInstall_Prepare(const char *launcher, const char *folderName, const char *game, char *exe, int size, char *error,
+                             int errorSize)
 {
 	char bundleGame[PATH_MAX];
 	char folder[PATH_MAX];
@@ -194,7 +195,8 @@ int NativeMacInstall_Prepare(const char *launcher, const char *game, char *exe, 
 	if (snprintf(bundleGame, sizeof bundleGame, "%.*s/Contents/Resources/game", (int)(name - 15 - launcher), launcher) >= (int)sizeof bundleGame ||
 	    stat(bundleGame, &info) != 0 || !S_ISDIR(info.st_mode))
 		return 0;
-	if (home == NULL || home[0] != '/' || snprintf(folder, sizeof folder, "%s%s", home, NATIVE_MAC_INSTALL_FOLDER) >= (int)sizeof folder)
+	if (home == NULL || home[0] != '/' ||
+	    snprintf(folder, sizeof folder, "%s%s%s", home, NATIVE_MAC_INSTALL_PARENT, folderName) >= (int)sizeof folder)
 	{
 		errno = ENOENT;
 		return NativeMacInstall_Fail(error, errorSize, "no home folder");

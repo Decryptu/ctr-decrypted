@@ -4,10 +4,12 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 # With no variant named, every variant is built in turn. CI builds each in its
 # own job, in parallel.
-platform=${1:?usage: build-clients.sh linux|windows [ap|vanilla|authoring|authoring-client ...]}
+platform=${1:?usage: build-clients.sh linux|macos|windows [ap|vanilla|authoring|authoring-client ...]}
 shift
 # Windows releases are the 32-bit x86 build (MSYS2 MINGW32). Linux releases are
 # the 64-bit build for the host's architecture (docs/64BIT.md): x86_64 or arm64.
+# macOS releases are the 64-bit build for Apple Silicon, as an app bundle
+# (docs/MACOS.md).
 case "$platform" in
   linux)
     suffix=
@@ -18,12 +20,21 @@ case "$platform" in
     esac
     arch_flags=(-DCTR_64BIT=ON)
     ;;
+  macos)
+    suffix=
+    [ "$(uname -m)" = arm64 ] || { echo "No macOS release target for $(uname -m)" >&2; exit 2; }
+    target=macos-arm64
+    # OpenSSL built for the game's minimum macOS, outside the checkout.
+    openssl=${CTR_OPENSSL_PREFIX:-${RUNNER_TEMP:-$HOME/.cache}/ctr-openssl-macos}
+    bash tools/ci/build-openssl-macos.sh "$openssl"
+    arch_flags=(-DCTR_64BIT=ON "-DOPENSSL_ROOT_DIR=$openssl")
+    ;;
   windows)
     suffix=.exe
     target=windows-x86
     arch_flags=(-DCMAKE_C_FLAGS='-m32 -msse' -DCMAKE_CXX_FLAGS=-m32)
     ;;
-  *) echo 'Expected linux or windows' >&2; exit 2 ;;
+  *) echo 'Expected linux, macos or windows' >&2; exit 2 ;;
 esac
 for requested in "$@"; do
   case "$requested" in
@@ -83,10 +94,10 @@ for variant in ap vanilla authoring authoring-client; do
     -DCTR_AP="$ap" -DCTR_CUSTOM_TRACKS="$custom" -DCTR_AP_AUTHORING="$authoring" \
     -DCTR_AUTHORING_CLIENT="$client" \
     -DCTR_AP_VERIFY_VENDOR=ON
-  cmake --build "$build" --parallel "${CTR_BUILD_JOBS:-$(nproc)}"
+  cmake --build "$build" --parallel "${CTR_BUILD_JOBS:-$(getconf _NPROCESSORS_ONLN)}"
   # The CMake tests (upstream's unit and regression tests) build with the game;
   # run them where they can run, so they cannot break unnoticed.
-  if [ "$platform" = linux ]; then
+  if [ "$platform" != windows ]; then
     ctest --test-dir "$build" --output-on-failure
   fi
   exe="$build/$binary$suffix"

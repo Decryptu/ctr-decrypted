@@ -19,12 +19,18 @@ Disc search already looks in Downloads, Desktop and Documents, so a player never
 Savestates and replays hold raw pointers into the game's static memory and need every launch of a build at the same address ([DEV-TOOLS.md](DEV-TOOLS.md#determinism-and-load-addresses)). arm64 macOS has no non-PIE executables (the linker ignores `-no_pie`), so the game is started with `_POSIX_SPAWN_DISABLE_ASLR`, the flag Apple's debugger uses, which loads it at the linked address, also under the hardened runtime. The launcher starts it that way; a game started any other way that finds itself slid replaces itself with such a launch (`NativeRelaunch_Startup`). `CTR_FIXED_BASE_EXEC` in the environment tells the game it was started so; if the exec fails, the game runs where it was loaded and a state then loads only in that launch.
 
 ## Platform notes
+- **Minimum macOS 11**, the first release on Apple Silicon (`CMAKE_OSX_DEPLOYMENT_TARGET` in `CMakeLists.txt`), so every arm64 Mac runs it. `tools/ci/package-client.py` refuses an executable built for anything else.
 - **OpenGL.** The core context is created forward-compatible, which macOS requires; it gives OpenGL 4.1.
-- **zlib** links as the system library (the SDK has no static archive). OpenSSL, which macOS does not ship, links statically from Homebrew's `openssl@3`.
-- **Debug symbols** are not split by `objcopy` (Linux only); the packaged app keeps them in a dSYM.
+- **zlib** links as the system library (the SDK has no static archive). **OpenSSL**, which macOS does not ship, links statically from a pinned release built for macOS 11 (`tools/ci/build-openssl-macos.sh`; Homebrew's is built for the runner's own macOS and moves with every update).
+- **Debug symbols.** After linking, `dsymutil` writes `<exe>.dSYM`, `strip -S` removes the debug map, and the executable is signed again ad hoc (stripping invalidates the linker's signature, and arm64 macOS runs no unsigned code). The dSYM ships zipped as its own asset and matches the executable by UUID.
 - **Signing.** The release is ad-hoc signed and not notarized. A player opens it once through System Settings > Privacy & Security > Open Anyway. The in-game updater downloads without the quarantine flag.
 
+## Building and releasing
+- `tools/ci/build-clients.sh macos <variant>` builds on an Apple Silicon Mac (the `macos` jobs in `build.yml`, `macos-15`) and `package-client.py` makes the app: the release folder as `Contents/Resources/game/`, the launcher, `Info.plist`, an icon from `platform/icon/icon-256.png`, then an ad-hoc `codesign` that seals the bundle. Each variant is its own app with its own Application Support folder ("CTR Decrypted", "CTR Decrypted Vanilla", "CTR Decrypted Box Authoring", "CTR Decrypted Authoring Client"; `CTR_MACOS_APP_NAME` in `CMakeLists.txt`), so an authoring app never installs over a player's game. `tools/ci/smoke-macos-app.sh` then installs the app into a scratch home as a player would and starts the installed game with `--version`.
+- The release archive `ctr-decrypted-vX.Y.Z-macos-arm64.tar.gz` holds `ctr-decrypted-vX.Y.Z/CTR Decrypted.app`. The release assembler puts the release folder (solo runtime and `ctr.apworld` included) into the CI app and seals it again, so the assembly runs on macOS ([RELEASING.md](../RELEASING.md)).
+- The in-game updater (`TARGET_MACOS_ARM64`) installs from that archive's `CTR Decrypted.app/Contents/Resources/game/` only, into the installed game folder. The next launch of the same app keeps it.
+
 ## Checking
-- CI builds vanilla and ap and runs `ctest` on `macos-15` (`build.yml`, `macos`).
+- CI builds every variant, runs `ctest` and the install smoke test on `macos-15` (`build.yml`, `macos`).
 - A 64-bit Linux build with `-DCTR_FIXED_BASE=OFF` places every static above 4 GB at a new address every launch, as macOS does: its runs must match the fixed-base build's ([64BIT.md](64BIT.md#checking)).
 - On a Mac, `tools/decrypted/devrun.sh` runs the game hidden and fast-forwarded as on Linux; its traces and results must match the Windows build's.

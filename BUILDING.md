@@ -5,7 +5,7 @@ Developer documentation for CTR Native and its Archipelago build. For playing, s
 ## Philosophy
 
 - **No byte budget.** Game source lives in `game/` as our own copies. Edit freely.
-- **No PSX toolchain.** Targets Windows and Linux with SDL3. No MIPS compiler needed.
+- **No PSX toolchain.** Targets Windows, Linux and macOS with SDL3. No MIPS compiler needed.
 - **Clean platform layer.** `main.c` owns process startup; host details stay in `platform/native_*`.
 - **No build system nonsense.** Just `build.bat` / `build.sh`.
 - **Fully static build.** Single executable, zero dependencies. SDL3 is compiled from vendored source and linked statically.
@@ -65,6 +65,23 @@ and `zlib1g-dev`. The vanilla port does not need them.
 > producing release binaries; building locally for your own machine has no such
 > constraint.
 
+### macOS (Apple Silicon)
+
+```
+xcode-select --install
+brew install cmake ninja
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+```
+
+macOS builds the 64-bit engine for arm64, for macOS 11 and later. The AP build
+also needs a static OpenSSL built for that minimum:
+`bash tools/ci/build-openssl-macos.sh ~/.cache/ctr-openssl-macos`, then
+configure with `-DOPENSSL_ROOT_DIR=$HOME/.cache/ctr-openssl-macos`. The build
+leaves a plain executable (run it from the build folder, or with
+`tools/decrypted/devrun.sh`); `tools/ci/build-clients.sh macos <variant>`
+packages the app bundle players get ([docs/MACOS.md](docs/MACOS.md)).
+
 ### Debug sidecar (Linux)
 
 Linux builds are stripped at build time: the CMake build splits the symbols out
@@ -76,7 +93,8 @@ binary. Keep the pair together for any debugging work. Anyone who copies the
 binary WITHOUT its `.debug` sidecar loses symbol names; the Deck gdb workflow
 that previously relied on an unstripped binary now depends on the sidecar being
 present. To turn the split off for a local build, configure with
-`-DCTR_SPLIT_DEBUG=OFF`.
+`-DCTR_SPLIT_DEBUG=OFF`. macOS splits the symbols into `<binary>.dSYM` the same
+way ([docs/MACOS.md](docs/MACOS.md)).
 
 ## Building the vanilla port
 
@@ -122,7 +140,7 @@ Output: `ctr_native_ap.exe` (Windows) or `ctr_native_ap` (Linux). It reads its s
 
 ## GitHub build artifacts
 
-The **Build clients** workflow builds Windows x86, Linux x86_64 and Linux arm64 on pull requests,
+The **Build clients** workflow builds Windows x86, Linux x86_64, Linux arm64 and macOS arm64 on pull requests,
 main/release/CI branch pushes, version tags, and manual dispatch. Each platform
 builds the AP client with custom tracks enabled and the vanilla client with AP
 and custom tracks disabled. Authoring tools are disabled in both configurations.
@@ -142,8 +160,10 @@ signs executables, submits samples externally, or runs gameplay.
 Linux uses a digest-pinned Debian Bookworm container and rejects ELF binaries
 requiring glibc newer than 2.38. Windows uses the existing MinGW32/MSYS2
 toolchain and rejects unexpected non-system DLL imports. Every target verifies
-its architecture (32-bit x86 PE, x86-64 or AArch64 ELF), stripped output, and
-the exact debuglink CRC before upload.
+its architecture (32-bit x86 PE, x86-64 or AArch64 ELF, arm64 Mach-O), stripped
+output, and the exact debuglink CRC (macOS: the dSYM's UUID) before upload.
+macOS also requires macOS 11 as the minimum, system libraries only and a code
+signature, and installs and starts the packaged app in a scratch home.
 Windows additionally checks ASLR/NX flags; Linux rejects an executable stack and
 embedded runtime search paths. BUILD.json records the source commit, toolchain,
 installed package versions, vendor lock hash, executable hash and sidecar hash.

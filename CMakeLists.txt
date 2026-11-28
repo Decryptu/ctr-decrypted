@@ -1,4 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
+# macOS 11 is the first release on Apple Silicon, so every arm64 Mac runs the
+# game. Set before project(), which reads it. OpenSSL is built for the same
+# minimum (tools/ci/build-openssl-macos.sh).
+set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS version")
 project(CTR-Native C)
 include(CheckCCompilerFlag)
 
@@ -555,21 +559,42 @@ if(CTR_FIXED_BASE)
     endif()
 endif()
 
-# macOS: the executable of CTR Decrypted.app, which installs the game folder
-# the bundle carries and starts the game there (docs/MACOS.md).
+# macOS: the executable of the app bundle, which installs the game folder the
+# bundle carries and starts the game there (docs/MACOS.md). Each variant is its
+# own app with its own game folder, so a box authoring or authoring client app
+# never installs over a player's game; tools/ci/package-client.py names the
+# bundles the same way and checks the launcher carries the name.
 if(APPLE)
+    if(CTR_AP AND CTR_AP_AUTHORING)
+        set(CTR_MACOS_APP_NAME "CTR Decrypted Box Authoring")
+    elseif(CTR_AP)
+        set(CTR_MACOS_APP_NAME "CTR Decrypted")
+    elseif(CTR_AUTHORING_CLIENT)
+        set(CTR_MACOS_APP_NAME "CTR Decrypted Authoring Client")
+    else()
+        set(CTR_MACOS_APP_NAME "CTR Decrypted Vanilla")
+    endif()
     add_executable(ctr_macos_launcher platform/macos/ctr_launcher.c platform/native_mac_install.c platform/native_build_id.c)
     target_include_directories(ctr_macos_launcher PRIVATE include)
-    target_compile_definitions(ctr_macos_launcher PRIVATE CTR_LAUNCHER_GAME="$<TARGET_FILE_NAME:ctr_native>")
+    target_compile_definitions(ctr_macos_launcher PRIVATE CTR_LAUNCHER_GAME="$<TARGET_FILE_NAME:ctr_native>"
+        CTR_LAUNCHER_FOLDER="${CTR_MACOS_APP_NAME}")
     target_link_libraries(ctr_macos_launcher PRIVATE "-framework CoreFoundation")
 endif()
 
-# Release hygiene (Linux): split debug info into a .debug sidecar so the
-# binary that goes through the gate is byte-identical to what players download.
-# Not on macOS, which has no objcopy: its packaging will keep the symbols in a
-# dSYM bundle (ROADMAP.md, macOS).
+# Release hygiene: split debug info into a sidecar so the binary that goes
+# through the gate is byte-identical to what players download. Linux: a .debug
+# file named by the executable's debuglink. macOS: a .dSYM bundle, tied to the
+# executable by its UUID; stripping rewrites the executable, so it is signed
+# again (ad hoc, as the linker signed it: arm64 macOS runs no unsigned code).
+option(CTR_SPLIT_DEBUG "Strip the binary, keeping symbols in a sidecar" ON)
+if(APPLE AND CTR_SPLIT_DEBUG)
+    add_custom_command(TARGET ctr_native POST_BUILD
+        COMMAND dsymutil "$<TARGET_FILE:ctr_native>" -o "$<TARGET_FILE:ctr_native>.dSYM"
+        COMMAND strip -S "$<TARGET_FILE:ctr_native>"
+        COMMAND codesign --force --sign - "$<TARGET_FILE:ctr_native>"
+        COMMENT "Split debug info -> $<TARGET_FILE_NAME:ctr_native>.dSYM")
+endif()
 if(UNIX AND NOT APPLE)
-    option(CTR_SPLIT_DEBUG "Strip the binary, keeping symbols in a .debug sidecar" ON)
     set(CTR_STRIP_FLAG "--strip-all" CACHE STRING
         "objcopy strip flavour: --strip-all or --strip-debug (see issue #92 acceptance test)")
     if(CTR_SPLIT_DEBUG)

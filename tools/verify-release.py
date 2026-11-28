@@ -135,13 +135,19 @@ def solo_runtime_required(tag: str) -> bool:
     return bool(numbers) and tuple(int(n) for n in numbers.groups()) >= SOLO_RUNTIME_FROM
 
 
-def runtime_tree_from_archive(archive: Path) -> tuple[str, dict[str, str]]:
+def release_folder(target: str) -> str:
+    """Where the release folder sits under an archive's root: the root itself,
+    or on macOS inside the app bundle (docs/MACOS.md)."""
+    return release_policy.MACOS_GAME + "/" if release_policy.target_os(target) == "macos" else ""
+
+
+def runtime_tree_from_archive(archive: Path, folder: str = "") -> tuple[str, dict[str, str]]:
     """Recompute RUNTIME.txt's tree sha256 from the archive's solo-runtime/
-    members. Refuses links, special files, duplicate paths and (Linux) an
-    interpreter without execute permission. Returns the digest and the
-    per-file hashes."""
+    members (under `folder`, release_folder). Refuses links, special files,
+    duplicate paths and (tar) an interpreter without execute permission.
+    Returns the digest and the per-file hashes."""
     files: dict[str, str] = {}
-    prefix = "solo-runtime/"
+    prefix = folder + "solo-runtime/"
 
     def add(rel: str, data: bytes) -> None:
         if rel in files:
@@ -202,7 +208,8 @@ def verify_solo_runtime(release: Path, tag: str) -> None:
         windows = release_policy.target_os(platform) == "windows"
         interpreter = "python/python.exe" if windows else "python/bin/python3.12"
         archive = release / release_policy.client_asset_name(tag, platform)
-        text = read_archive_member(archive, SOLO_RUNTIME_MANIFEST)
+        folder = release_folder(platform)
+        text = read_archive_member(archive, folder + SOLO_RUNTIME_MANIFEST)
         if text is None:
             fail(f"{archive.name} has no {SOLO_RUNTIME_MANIFEST}")
         manifest = text.decode("utf-8")
@@ -210,14 +217,14 @@ def verify_solo_runtime(release: Path, tag: str) -> None:
             fail(f"{archive.name}: solo runtime is not the {platform} runtime")
         if _runtime_value(manifest, "ctr.apworld sha256") != apworld:
             fail(f"{archive.name}: solo runtime ctr.apworld hash differs from the ctr.apworld asset")
-        if read_archive_member(archive, f"solo-runtime/{interpreter}") is None:
+        if read_archive_member(archive, f"{folder}solo-runtime/{interpreter}") is None:
             fail(f"{archive.name}: solo runtime has no {interpreter}")
-        tree, files = runtime_tree_from_archive(archive)
+        tree, files = runtime_tree_from_archive(archive, folder)
         if _runtime_value(manifest, "tree sha256") != tree:
             fail(f"{archive.name}: solo runtime files differ from its RUNTIME.txt (tree sha256)")
         if _runtime_value(manifest, "ctr_solo.py sha256") != files.get("ctr_solo.py"):
             fail(f"{archive.name}: solo runtime ctr_solo.py differs from its RUNTIME.txt")
-        bundled = read_archive_member(archive, "ctr.apworld")
+        bundled = read_archive_member(archive, folder + "ctr.apworld")
         if bundled is None or hashlib.sha256(bundled).hexdigest() != apworld:
             fail(f"{archive.name}: bundled ctr.apworld differs from the ctr.apworld asset")
 

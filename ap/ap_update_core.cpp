@@ -153,13 +153,18 @@ bool IsStableTag(const std::string &tag)
 
 Platform TargetPlatform(Target target)
 {
-	return target == TARGET_WINDOWS_X86 ? PLATFORM_WINDOWS : PLATFORM_LINUX;
+	switch (target)
+	{
+	case TARGET_WINDOWS_X86: return PLATFORM_WINDOWS;
+	case TARGET_MACOS_ARM64: return PLATFORM_MACOS;
+	default: return PLATFORM_LINUX;
+	}
 }
 
 std::string ArchiveName(const std::string &tag, Target target)
 {
 	static const char *const kSuffix[TARGET_COUNT] = {
-	    "-windows-x86.zip", "-linux-x86_64.tar.gz", "-linux-arm64.tar.gz"};
+	    "-windows-x86.zip", "-linux-x86_64.tar.gz", "-linux-arm64.tar.gz", "-macos-arm64.tar.gz"};
 	return "ctr-decrypted-" + tag + kSuffix[target];
 }
 
@@ -509,6 +514,19 @@ static bool Inflate(const unsigned char *data, size_t size, int windowBits, size
 }
 
 static const char kCortexDir[] = "assets/tracks/cortex-vortex/";
+const char kMacGameDir[] = "CTR Decrypted.app/Contents/Resources/game/";
+
+// macOS: a member's path inside the release folder. Members outside it (the
+// app bundle's launcher, Info.plist, icon, signature) are not release folder
+// files and are never installed, whatever their name.
+static bool MacReleaseRel(std::string &rel)
+{
+	const size_t n = sizeof kMacGameDir - 1;
+	if (rel.size() <= n || rel.compare(0, n, kMacGameDir) != 0)
+		return false;
+	rel = rel.substr(n);
+	return true;
+}
 const char kRuntimeDir[] = "solo-runtime";
 const char kRuntimeIdRel[] = "solo-runtime/RUNTIME.txt";
 // The runtime as one journal and marker entry (a folder, not a file).
@@ -830,7 +848,8 @@ static Result ExtractTarGz(const Bytes &a, const std::string &root, Platform pla
 			key.pop_back();
 		if (!seen.insert(LowerAscii(key)).second)
 			return ERR_ARCHIVE;
-		if (!isDir && IsInstallPath(rel, platform))
+		const bool inRelease = platform != PLATFORM_MACOS || MacReleaseRel(rel);
+		if (!isDir && inRelease && IsInstallPath(rel, platform))
 		{
 			if (size > kMaxExecutable)
 				return ERR_SIZE;

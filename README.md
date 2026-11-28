@@ -44,7 +44,7 @@ And in OPTIONS:
 
 ## Getting started
 
-**1. Download** `ctr-decrypted-vX.Y.Z-windows-x86.zip` from the [latest release](https://github.com/Decryptu/ctr-decrypted/releases/latest) and extract it (Linux and Steam Deck: the `-linux-x86_64.tar.gz`, or `-linux-arm64.tar.gz` on an ARM computer; see [docs/STEAM-DECK.md](docs/STEAM-DECK.md)). After that the game updates itself: the main menu offers each new version, and your settings and saves stay.
+**1. Download** `ctr-decrypted-vX.Y.Z-windows-x86.zip` from the [latest release](https://github.com/Decryptu/ctr-decrypted/releases/latest) and extract it (Linux and Steam Deck: the `-linux-x86_64.tar.gz`, or `-linux-arm64.tar.gz` on an ARM computer; see [docs/STEAM-DECK.md](docs/STEAM-DECK.md). Mac: the `-macos-arm64.tar.gz`, then open the app once from System Settings > Privacy & Security > Open Anyway; see [SETUP.md](SETUP.md)). After that the game updates itself: the main menu offers each new version, and your settings and saves stay.
 
 **2. Add your disc image.** This project contains no game assets. You need a retail **NTSC-U** copy of Crash Team Racing, dumped as a raw single-track `.bin` (MODE2/2352). A 2048-byte `.iso` won't work: it loses the audio and video sectors. On the first launch the game looks in the game folder, Downloads, Desktop, Documents and Games, and otherwise opens a file picker. You can also put it in an `assets` folder next to the executable:
 

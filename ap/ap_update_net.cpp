@@ -53,6 +53,8 @@ namespace
 #define AP_UPDATE_TARGET TARGET_LINUX_X86_64
 #elif defined(__linux__) && defined(__aarch64__)
 #define AP_UPDATE_TARGET TARGET_LINUX_ARM64
+#elif defined(__APPLE__) && defined(__aarch64__)
+#define AP_UPDATE_TARGET TARGET_MACOS_ARM64
 #endif
 #ifdef AP_UPDATE_TARGET
 const Target kTarget = AP_UPDATE_TARGET;

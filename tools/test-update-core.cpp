@@ -222,10 +222,11 @@ static std::string Sign(const TestKey &k, const Bytes &msg, bool prehashed = tru
 
 // A manifest as tools/release/assemble-release.py writes it (sorted keys).
 static std::string ManifestText(const std::string &tag, const std::string &winSha, const std::string &x64Sha,
-                                const std::string &armSha)
+                                const std::string &armSha, const std::string &macSha)
 {
 	return "{\n  \"artifacts\": {\n    \"ctr-decrypted-" + tag + "-linux-arm64.tar.gz\": \"" + armSha +
 	       "\",\n    \"ctr-decrypted-" + tag + "-linux-x86_64.tar.gz\": \"" + x64Sha +
+	       "\",\n    \"ctr-decrypted-" + tag + "-macos-arm64.tar.gz\": \"" + macSha +
 	       "\",\n    \"ctr-decrypted-" + tag + "-windows-x86.zip\": \"" + winSha + "\"\n  },\n  \"version\": \"" +
 	       tag + "\"\n}\n";
 }
@@ -320,15 +321,20 @@ static void TarData(Bytes &out, const Bytes &d)
 	out.resize((out.size() + 511) / 512 * 512, 0);
 }
 
+static std::string PaxRecord(const std::string &key, const std::string &value);
+
+// A name longer than the ustar field gets a pax path record, as Python's
+// tarfile writes it (the macOS release folder sits deep in the app bundle).
 static Bytes TarGz(const std::vector<Member> &members)
 {
 	Bytes tar;
 	for (const Member &m : members)
 	{
-		if (!m.pax.empty())
+		const std::string pax = m.pax.empty() && m.name.size() > 100 ? PaxRecord("path", m.name) : m.pax;
+		if (!pax.empty())
 		{
-			TarHeader(tar, "././@PaxHeader", m.pax.size(), 'x');
-			TarData(tar, B(m.pax));
+			TarHeader(tar, "././@PaxHeader", pax.size(), 'x');
+			TarData(tar, B(pax));
 		}
 		TarHeader(tar, m.name, m.type == '0' ? m.data.size() : 0, m.type, m.unixMode ? m.unixMode : 0644);
 		if (m.type == '0')
@@ -351,14 +357,34 @@ static const std::string kTag = "v0.3.1";
 static const std::string kRoot = "ctr-decrypted-v0.3.1/";
 static const std::string kExeBytes = "NEW-CLIENT-BINARY-\x01\x02\x03-v0.3.1";
 
+// Where the release folder sits in an archive: its root, or on macOS inside
+// the app bundle.
+static std::string ReleaseDir(Platform p)
+{
+	return p == PLATFORM_MACOS ? kRoot + kMacGameDir : kRoot;
+}
+
+static std::string ExePath(Platform p)
+{
+	return ReleaseDir(p) + ExecutableName(p);
+}
+
+// The executable is always member 3.
 static std::vector<Member> GoodMembers(Platform p)
 {
+	const std::string dir = ReleaseDir(p);
 	std::vector<Member> m;
-	m.push_back(File(kRoot + "LICENSE", "license text"));
-	m.push_back(File(kRoot + "ctr.apworld", "world"));
-	m.push_back(File(kRoot + "assets/tracks/cortex-vortex/CVortex Arcade All.lev", "lev"));
-	m.push_back(File(kRoot + ExecutableName(p), kExeBytes));
-	m.push_back(File(kRoot + "versions.txt", "v0.3.1"));
+	m.push_back(File(dir + "LICENSE", "license text"));
+	m.push_back(File(dir + "ctr.apworld", "world"));
+	m.push_back(File(dir + "assets/tracks/cortex-vortex/CVortex Arcade All.lev", "lev"));
+	m.push_back(File(ExePath(p), kExeBytes));
+	m.push_back(File(dir + "versions.txt", "v0.3.1"));
+	if (p == PLATFORM_MACOS)
+	{
+		m.push_back(File(kRoot + "CTR Decrypted.app/Contents/Info.plist", "plist"));
+		m.push_back(File(kRoot + "CTR Decrypted.app/Contents/MacOS/CTR Decrypted", "launcher"));
+		m.push_back(File(kRoot + "CTR Decrypted.app/Contents/_CodeSignature/CodeResources", "seal"));
+	}
 	return m;
 }
 
@@ -456,7 +482,8 @@ static void TestSignatureFailures()
 	         ERR_SIG_FORMAT);
 
 	// The pinned key does not verify a release signed by any other key.
-	const Bytes manifest = B(ManifestText(kTag, std::string(64, 'a'), std::string(64, 'b'), std::string(64, 'c')));
+	const Bytes manifest =
+	    B(ManifestText(kTag, std::string(64, 'a'), std::string(64, 'b'), std::string(64, 'c'), std::string(64, 'd')));
 	CHECK_EQ(VerifyRelease(AP_UPDATE_PUBLIC_KEY, manifest, Sign(good, manifest), kTag, "v0.3.0", TARGET_LINUX_X86_64,
 	                       B("x")),
 	         ERR_SIG_KEY_ID);
@@ -484,7 +511,7 @@ struct Release
 	TestKey key;
 	Bytes manifest;
 	std::string signature;
-	Bytes zip, tgz, tgzArm; // windows-x86, linux-x86_64, linux-arm64
+	Bytes zip, tgz, tgzArm, tgzMac; // windows-x86, linux-x86_64, linux-arm64, macos-arm64
 };
 
 static Release MakeRelease(const std::string &tag = kTag)
@@ -497,7 +524,8 @@ static Release MakeRelease(const std::string &tag = kTag)
 	std::vector<Member> arm = GoodMembers(PLATFORM_LINUX);
 	arm.back() = File(kRoot + "versions.txt", "v0.3.1 arm64");
 	r.tgzArm = TarGz(arm);
-	r.manifest = B(ManifestText(kTag, Sha256Hex(r.zip), Sha256Hex(r.tgz), Sha256Hex(r.tgzArm)));
+	r.tgzMac = TarGz(GoodMembers(PLATFORM_MACOS));
+	r.manifest = B(ManifestText(kTag, Sha256Hex(r.zip), Sha256Hex(r.tgz), Sha256Hex(r.tgzArm), Sha256Hex(r.tgzMac)));
 	r.signature = Sign(r.key, r.manifest);
 	return r;
 }
@@ -508,7 +536,10 @@ static void TestHashAndPartial()
 	CHECK_EQ(VerifyRelease(r.key.pubB64, r.manifest, r.signature, kTag, "v0.3.0", TARGET_WINDOWS_X86, r.zip), OK);
 	CHECK_EQ(VerifyRelease(r.key.pubB64, r.manifest, r.signature, kTag, "v0.3.0", TARGET_LINUX_X86_64, r.tgz), OK);
 	CHECK_EQ(VerifyRelease(r.key.pubB64, r.manifest, r.signature, kTag, "v0.3.0", TARGET_LINUX_ARM64, r.tgzArm), OK);
+	CHECK_EQ(VerifyRelease(r.key.pubB64, r.manifest, r.signature, kTag, "v0.3.0", TARGET_MACOS_ARM64, r.tgzMac), OK);
 	// Another target's archive does not pass for this target.
+	CHECK_EQ(VerifyRelease(r.key.pubB64, r.manifest, r.signature, kTag, "v0.3.0", TARGET_MACOS_ARM64, r.tgzArm),
+	         ERR_HASH);
 	CHECK_EQ(VerifyRelease(r.key.pubB64, r.manifest, r.signature, kTag, "v0.3.0", TARGET_WINDOWS_X86, r.tgz), ERR_HASH);
 	CHECK_EQ(VerifyRelease(r.key.pubB64, r.manifest, r.signature, kTag, "v0.3.0", TARGET_LINUX_ARM64, r.tgz),
 	         ERR_HASH);
@@ -567,7 +598,8 @@ static void TestDowngradeAndReplay()
 	CHECK_EQ(VerifyRelease(r.key.pubB64, r.manifest, r.signature, "v0.3.2", "v0.3.0", TARGET_WINDOWS_X86, r.zip),
 	         ERR_TAG_MISMATCH);
 	// A signed prerelease manifest is not installable.
-	const Bytes pre = B(ManifestText("v0.3.2-rc1", Sha256Hex(r.zip), Sha256Hex(r.tgz), Sha256Hex(r.tgzArm)));
+	const Bytes pre =
+	    B(ManifestText("v0.3.2-rc1", Sha256Hex(r.zip), Sha256Hex(r.tgz), Sha256Hex(r.tgzArm), Sha256Hex(r.tgzMac)));
 	CHECK_EQ(VerifyRelease(r.key.pubB64, pre, Sign(r.key, pre), "v0.3.2-rc1", "v0.3.0", TARGET_WINDOWS_X86, r.zip),
 	         ERR_MANIFEST);
 
@@ -599,13 +631,14 @@ static void TestOfferVisibility()
 {
 	const std::vector<std::string> all = {"manifest.json", "manifest.json.minisig",
 	                                      ArchiveName(kTag, TARGET_WINDOWS_X86), ArchiveName(kTag, TARGET_LINUX_X86_64),
-	                                      ArchiveName(kTag, TARGET_LINUX_ARM64), "ctr.apworld"};
+	                                      ArchiveName(kTag, TARGET_LINUX_ARM64), ArchiveName(kTag, TARGET_MACOS_ARM64),
+	                                      "ctr.apworld"};
 	ReleaseInfo info;
 	CHECK(ParseLatestRelease(B(ReleaseJson(kTag, false, false, all)), info) && info.tag == kTag);
 	CHECK(!ParseLatestRelease(B(ReleaseJson(kTag, true, false, all)), info));
 	CHECK(!ParseLatestRelease(B(ReleaseJson(kTag, false, true, all)), info));
 	CHECK(!ParseLatestRelease(B(ReleaseJson("v0.3.1-rc1", false, false, all)), info));
-	for (size_t drop = 0; drop < 5; drop++)
+	for (size_t drop = 0; drop < 6; drop++)
 	{
 		std::vector<std::string> less = all;
 		less.erase(less.begin() + (long)drop);
@@ -629,12 +662,18 @@ static void TestManifestStrictness()
 	const std::string win = "\"ctr-decrypted-v0.3.1-windows-x86.zip\":\"" + a + "\"";
 	const std::string x64 = "\"ctr-decrypted-v0.3.1-linux-x86_64.tar.gz\":\"" + b + "\"";
 	const std::string arm = "\"ctr-decrypted-v0.3.1-linux-arm64.tar.gz\":\"" + c + "\"";
+	const std::string d(64, 'd');
+	const std::string mac = "\"ctr-decrypted-v0.3.1-macos-arm64.tar.gz\":\"" + d + "\"";
 	Manifest m;
-	CHECK_EQ(ParseManifest(B(ManifestText(kTag, a, b, c)), m), OK);
+	CHECK_EQ(ParseManifest(B(ManifestText(kTag, a, b, c, d)), m), OK);
 	CHECK(m.sha256[TARGET_WINDOWS_X86] == a && m.sha256[TARGET_LINUX_X86_64] == b &&
-	      m.sha256[TARGET_LINUX_ARM64] == c);
+	      m.sha256[TARGET_LINUX_ARM64] == c && m.sha256[TARGET_MACOS_ARM64] == d);
 	// Compact formatting, in any key order, is still the same JSON.
-	CHECK_EQ(ParseManifest(B("{\"version\":\"v0.3.1\",\"artifacts\":{" + win + "," + arm + "," + x64 + "}}"), m), OK);
+	CHECK_EQ(ParseManifest(B("{\"version\":\"v0.3.1\",\"artifacts\":{" + win + "," + mac + "," + arm + "," + x64 + "}}"), m),
+	         OK);
+	// A manifest without the macOS archive is refused.
+	CHECK_EQ(ParseManifest(B("{\"version\":\"v0.3.1\",\"artifacts\":{" + win + "," + arm + "," + x64 + "}}"), m),
+	         ERR_MANIFEST);
 	CHECK_EQ(ParseManifest(B("{\"version\":\"v0.3.1\",\"version\":\"v0.3.1\",\"artifacts\":{}}"), m), ERR_MANIFEST);
 	CHECK_EQ(ParseManifest(B("{\"version\":\"v0.3.1\",\"extra\":1,\"artifacts\":{" + win + "," + x64 + "," + arm + "}}"),
 	                       m),
@@ -653,20 +692,48 @@ static void TestManifestStrictness()
 	         ERR_MANIFEST);
 	CHECK_EQ(ParseManifest(B("{\"version\":\"v0.3.1\",\"artifacts\":{" + win + "," + x64 + "," + x64 + "}}"), m),
 	         ERR_MANIFEST);
-	CHECK_EQ(ParseManifest(B(ManifestText(kTag, std::string(64, 'A'), b, c)), m), ERR_MANIFEST);
-	CHECK_EQ(ParseManifest(B(ManifestText(kTag, a, b.substr(1), c)), m), ERR_MANIFEST);
-	CHECK_EQ(ParseManifest(B(ManifestText(kTag, a, b, c + "0")), m), ERR_MANIFEST);
-	CHECK_EQ(ParseManifest(B(ManifestText("v0.3.1-rc1", a, b, c)), m), ERR_MANIFEST);
+	CHECK_EQ(ParseManifest(B(ManifestText(kTag, std::string(64, 'A'), b, c, d)), m), ERR_MANIFEST);
+	CHECK_EQ(ParseManifest(B(ManifestText(kTag, a, b.substr(1), c, d)), m), ERR_MANIFEST);
+	CHECK_EQ(ParseManifest(B(ManifestText(kTag, a, b, c + "0", d)), m), ERR_MANIFEST);
+	CHECK_EQ(ParseManifest(B(ManifestText("v0.3.1-rc1", a, b, c, d)), m), ERR_MANIFEST);
 	CHECK_EQ(ParseManifest(B("[]"), m), ERR_MANIFEST);
 	CHECK_EQ(ParseManifest(Bytes(), m), ERR_MANIFEST);
 }
 
+// macOS: only the release folder inside the app bundle is installed. A file
+// named like the executable anywhere else in the archive (its root, the
+// bundle's launcher folder) is never taken, and without the real one there is
+// no executable at all.
+static void TestMacLayout()
+{
+	std::vector<InstallFile> set;
+	std::vector<Member> m = GoodMembers(PLATFORM_MACOS);
+	m.push_back(File(kRoot + "ctr_native_ap.decoy", "x"));
+	m.push_back(File(kRoot + "CTR Decrypted.app/Contents/MacOS/ctr_native_ap", "decoy"));
+	m.push_back(File(kRoot + "CTR Decrypted.app/ctr.apworld", "decoy"));
+	CHECK_EQ(ExtractInstallSet(TarGz(m), PLATFORM_MACOS, kTag, set), OK);
+	CHECK_EQ(set.size(), (size_t)3);
+	CHECK(set[0].rel == "ctr_native_ap" && set[0].data == B(kExeBytes) && set[0].executable);
+	for (const InstallFile &f : set)
+		CHECK(f.rel == "ctr_native_ap" || f.rel == "ctr.apworld" || f.rel == "assets/tracks/cortex-vortex/CVortex Arcade All.lev");
+	for (const InstallFile &f : set)
+		if (f.rel == "ctr.apworld")
+			CHECK(f.data == B("world"));
+
+	m = GoodMembers(PLATFORM_MACOS);
+	m.erase(m.begin() + 3);
+	m.push_back(File(kRoot + "ctr_native_ap", "outside the app"));
+	CHECK_EQ(ExtractInstallSet(TarGz(m), PLATFORM_MACOS, kTag, set), ERR_ARCHIVE);
+	// A Linux archive is not a macOS one: its executable is outside any app.
+	CHECK_EQ(ExtractInstallSet(TarGz(GoodMembers(PLATFORM_LINUX)), PLATFORM_MACOS, kTag, set), ERR_ARCHIVE);
+}
+
 static void TestArchives()
 {
-	for (int pi = 0; pi < 2; pi++)
+	for (int pi = 0; pi < 3; pi++)
 	{
 		const Platform p = (Platform)pi;
-		const std::string exe = kRoot + ExecutableName(p);
+		const std::string exe = ExePath(p);
 		Bytes out;
 		CHECK_EQ(ExtractExecutable(Archive(p, GoodMembers(p)), p, kTag, out), OK);
 		CHECK(out == B(kExeBytes));
@@ -693,8 +760,8 @@ static void TestArchives()
 			m.push_back(File(exe, "second"));
 			CHECK_EQ(ExtractExecutable(Archive(p, m), p, kTag, out), ERR_ARCHIVE);
 			m = GoodMembers(p);
-			std::string upper = kRoot + ExecutableName(p);
-			upper[kRoot.size()] = 'C';
+			std::string upper = ExePath(p);
+			upper[ReleaseDir(p).size()] = 'C';
 			m.push_back(File(upper, "second"));
 			CHECK_EQ(ExtractExecutable(Archive(p, m), p, kTag, out), ERR_ARCHIVE);
 		}
@@ -2238,6 +2305,7 @@ int main()
 	TestOfferVisibility();
 	TestManifestStrictness();
 	TestArchives();
+	TestMacLayout();
 	TestInstallSet();
 	TestInstall();
 	TestCrashRecovery();

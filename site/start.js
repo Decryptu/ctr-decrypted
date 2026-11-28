@@ -37,7 +37,10 @@
     }
     return Object.keys(sel).length > 0;
   }
-  if (!state.sel.platform) state.sel.platform = /Linux/.test(navigator.userAgent) && !/Android/.test(navigator.userAgent) ? "linux" : "windows";
+  if (!state.sel.platform) {
+    const agent = navigator.userAgent;
+    state.sel.platform = /Macintosh/.test(agent) ? "mac" : /Linux/.test(agent) && !/Android/.test(agent) ? "linux" : "windows";
+  }
   const hashSel = readHash();
 
   const shown = (el) => GROUPS.every((g) => {

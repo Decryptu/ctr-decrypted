@@ -17,13 +17,13 @@ from pathlib import Path
 
 # The build targets a release carries a client archive for, in the updater's
 # order (ap/ap_update_core.h, Target). Windows ships the 32-bit x86 build, Linux
-# the 64-bit builds.
-TARGETS = ("windows-x86", "linux-x86_64", "linux-arm64")
+# and macOS the 64-bit builds.
+TARGETS = ("windows-x86", "linux-x86_64", "linux-arm64", "macos-arm64")
 
 
 def target_os(target: str) -> str:
-    """"windows" or "linux": the archive format and executable name."""
-    return "windows" if target.startswith("windows-") else "linux"
+    """"windows", "linux" or "macos": the archive format, layout and executable name."""
+    return target.split("-", 1)[0]
 
 
 def archive_suffix(target: str) -> str:
@@ -37,8 +37,16 @@ def client_asset_template(target: str) -> str:
 def debug_asset_name(target: str) -> str:
     """The player client's debug sidecar as a release asset. The Linux ones
     carry their target, since both are named ctr_native_ap.debug by the build
-    (and inside each executable's .gnu_debuglink)."""
-    return "ctr_native_ap.exe.debug" if target_os(target) == "windows" else f"ctr_native_ap-{target}.debug"
+    (and inside each executable's .gnu_debuglink). macOS: the zipped dSYM."""
+    return {"windows": "ctr_native_ap.exe.debug", "linux": f"ctr_native_ap-{target}.debug",
+            "macos": f"ctr_native_ap-{target}.dSYM.zip"}[target_os(target)]
+
+
+# The macOS archive holds the app bundle; the release folder is inside it
+# (docs/MACOS.md, tools/ci/package-client.py).
+MACOS_APP = "CTR Decrypted.app"
+MACOS_GAME = MACOS_APP + "/Contents/Resources/game"
+MACOS_AUTHORING_APP = "CTR Decrypted Box Authoring.app"
 
 
 STANDARD_ASSET_NAMES = (

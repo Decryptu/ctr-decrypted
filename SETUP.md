@@ -62,6 +62,18 @@ Download and extract the archive for your platform from the
 extracted files together in their own folder. The rest of these steps add the
 game data and your server settings there.
 
+**Mac** (Apple Silicon, macOS 11 or later): download
+`ctr-decrypted-vX.Y.Z-macos-arm64.tar.gz`, open it, and drag
+**CTR Decrypted.app** into Applications. The app is not notarized by Apple, so
+the first time macOS refuses to open it: open **System Settings > Privacy &
+Security**, scroll down to the message about CTR Decrypted, click **Open
+Anyway** and confirm. You do this once; updates the game installs itself do not
+ask again. On its first launch the app puts its game folder in
+`~/Library/Application Support/CTR Decrypted` (in Finder: **Go > Go to
+Folder**, then paste that path). That folder is the game folder these steps
+mean: your disc image, settings and saves live there, and the app can be moved
+or replaced without touching them.
+
 ## Step 2: your disc image
 
 The game reads the raw disc image directly. On the first launch without one, it

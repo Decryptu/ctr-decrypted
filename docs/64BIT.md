@@ -4,7 +4,8 @@ The game code is decompiled from the PS1, where a pointer is 4 bytes, and it rea
 
 ## Releases
 - **Linux** ships the 64-bit engine for x86_64 and arm64 (`build.yml`), so players need no 32-bit libraries and ARM computers run it natively. The 32-bit Linux build (`-DCTR_64BIT=OFF`) is not released; it stays the reference for the bit-exact comparisons below.
-- **Windows** ships the 32-bit build: it runs on every Windows PC, ARM ones included through their x86 emulation, and a 64-bit build would gain players nothing. CI keeps the 64-bit Windows build compiling (`windows-64bit` in `build.yml`), and macOS will need the 64-bit engine.
+- **Windows** ships the 32-bit build: it runs on every Windows PC, ARM ones included through their x86 emulation, and a 64-bit build would gain players nothing. CI keeps the 64-bit Windows build compiling (`windows-64bit` in `build.yml`).
+- **macOS** ships the 64-bit build for Apple Silicon as an app bundle ([MACOS.md](MACOS.md)).
 - Each client archive is a target of the in-game updater (`Target` in `ap/ap_update_core.h`; `TARGETS` in `tools/release/release_policy.py`), so adding one changes the signed manifest every client reads ([RELEASING.md](../RELEASING.md#signed-client-manifest)).
 
 ## Two kinds of struct

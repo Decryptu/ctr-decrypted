@@ -128,12 +128,21 @@ as a development base.
       containing the STRIPPED `ctr_native_ap` plus the same companion files as
       the Windows bundle (`ctr.apworld`, `extract_assets.py`, `SETUP.md`,
       `ap-config.example.txt`, `LICENSE`, `THIRD_PARTY_NOTICES.md`,
-      `default_controls.ini`, `support-bundle.sh`). A tarball NEVER contains the `.debug` sidecar. As
+      default_controls.ini`, `support-bundle.sh`). A tarball NEVER contains the `.debug` sidecar. As
       with the zip, the folder inside each tarball carries the release name. Write
       each tarball's `.sha256` sidecar.
-- [ ] EVERY `.debug` sidecar ships as its OWN public release asset: the Windows
-      `ctr_native_ap.exe.debug` and the Linux `ctr_native_ap-linux-x86_64.debug`
-      and `ctr_native_ap-linux-arm64.debug`, each with a `.sha256` sidecar
+- [ ] macOS tarball `ctr-decrypted-vX.Y.Z-macos-arm64.tar.gz`: its
+      `ctr-decrypted-vX.Y.Z/` folder holds only `CTR Decrypted.app`, whose
+      `Contents/Resources/game/` is the same release folder as a Linux tarball
+      (`docs/MACOS.md`). The assembler takes the launcher, `Info.plist` and icon
+      from the CI app, puts the release folder in and seals the app again with
+      Apple's `codesign` (ad hoc, not notarized), so the assembly runs on macOS.
+      Any change inside the app after that breaks its seal.
+- [ ] EVERY debug sidecar ships as its OWN public release asset: the Windows
+      `ctr_native_ap.exe.debug`, the Linux `ctr_native_ap-linux-x86_64.debug`
+      and `ctr_native_ap-linux-arm64.debug`, and the macOS
+      `ctr_native_ap-macos-arm64.dSYM.zip` (the zipped dSYM, tied to the
+      executable by its UUID), each with a `.sha256` sidecar
       alongside it in the GitHub release (this lets community members symbolize
       their own crash reports). Both Linux builds name theirs
       `ctr_native_ap.debug`, which is also the name inside each executable's
@@ -173,8 +182,11 @@ archive, and its contents never change the player client.
 - [ ] `tools/release/assemble-release.py --authoring` (the `Prepare release
       assets` workflow passes it) repackages it under the release name:
       `ctr-decrypted-vX.Y.Z-box-authoring-windows-x86.zip`,
-      `ctr-decrypted-vX.Y.Z-box-authoring-linux-x86_64.tar.gz` and
-      `ctr-decrypted-vX.Y.Z-box-authoring-linux-arm64.tar.gz`, each with a
+      `ctr-decrypted-vX.Y.Z-box-authoring-linux-x86_64.tar.gz`,
+      `ctr-decrypted-vX.Y.Z-box-authoring-linux-arm64.tar.gz` and
+      `ctr-decrypted-vX.Y.Z-box-authoring-macos-arm64.tar.gz` (the folder as
+      `CTR Decrypted Box Authoring.app`, which installs into its own
+      Application Support folder), each with a
       `.sha256`. The folder inside is `ctr-decrypted-vX.Y.Z-box-authoring/`.
       It holds `ctr_native_ap_authoring(.exe)`, `HELP-PLACE-BOXES.md`,
       `AUTHORING-BUILD.txt`, `SETUP.md`, `extract_assets.py`, `versions.txt`,
@@ -188,7 +200,7 @@ archive, and its contents never change the player client.
 
 ### Signed client manifest
 
-The `Prepare release assets` workflow assembles the fifteen standard assets and
+The `Prepare release assets` workflow assembles the nineteen standard assets and
 then writes `manifest.json` from the final archive bytes. The manifest has this
 exact shape, with sorted keys and a single trailing newline:
 
@@ -197,6 +209,7 @@ exact shape, with sorted keys and a single trailing newline:
   "artifacts": {
     "ctr-decrypted-vX.Y.Z-linux-arm64.tar.gz": "<sha256 hex>",
     "ctr-decrypted-vX.Y.Z-linux-x86_64.tar.gz": "<sha256 hex>",
+    "ctr-decrypted-vX.Y.Z-macos-arm64.tar.gz": "<sha256 hex>",
     "ctr-decrypted-vX.Y.Z-windows-x86.zip": "<sha256 hex>"
   },
   "version": "vX.Y.Z"
@@ -208,8 +221,10 @@ released clients: it offers only a stable `vX.Y.Z` release whose assets include
 `manifest.json`, `manifest.json.minisig` and every client archive, verifies the
 signature with the public key compiled into the client, and installs from the
 archive of the target it was built for (`ap/ap_update_net.cpp`: Windows x86,
-Linux x86_64 or Linux arm64) and that archive's `ctr-decrypted-vX.Y.Z/` folder
-only `ctr_native_ap(.exe)`,
+Linux x86_64, Linux arm64 or macOS arm64) and that archive's release folder
+(`ctr-decrypted-vX.Y.Z/`, on macOS
+`ctr-decrypted-vX.Y.Z/CTR Decrypted.app/Contents/Resources/game/`) only
+`ctr_native_ap(.exe)`,
 `ctr.apworld`, the files directly in `assets/tracks/cortex-vortex/` and the whole
 `solo-runtime/` folder (#89), which replaces the installed runtime folder as one
 unit and must carry `solo-runtime/RUNTIME.txt`. The player's `solo/` folder is
@@ -220,17 +235,17 @@ reviewed change. A file placed in that Cortex Vortex folder or in the runtime
 reaches every updated install, so it needs the same redistribution permission
 as the archive itself.
 
-It covers **only the three client archives**. `ctr.apworld`, the player YAML,
+It covers **only the four client archives**. `ctr.apworld`, the player YAML,
 debug files and checksum sidecars stay outside it: the manifest is the client
 download contract, while the standard asset gate below still requires them. A
 Windows-only prerelease ships the seven-asset set with no manifest; the signing
 and upload steps are scoped to a complete release of every target in section 7.
 
 - [ ] Confirm the assembly output contains `manifest.json` with a trailing
-      newline and exactly the three client archive names above.
+      newline and exactly the four client archive names above.
 - [ ] The preparation workflow already ran
       `python3 tools/verify-release.py release --version vX.Y.Z --pre-sign --require-solo-runtime` on
-      the sixteen-file unsigned assembly. Run it again yourself if you assembled
+      the twenty-file unsigned assembly. Run it again yourself if you assembled
       by hand. `--pre-sign` verifies the archive hashes and the standard
       sidecars without a signature and prints that it is not a signed release.
       `--require-solo-runtime` checks that every client archive carries
@@ -291,14 +306,14 @@ the previous release's published notes. House style:
       no signing key.
 - [ ] If this release offers the box authoring download (§4), upload
       `ctr-decrypted-vX.Y.Z-box-authoring-windows-x86.zip` and its `.sha256`
-      as two more assets, plus the two Linux `.tar.gz` pairs on a complete
-      release. Name it in the release notes as a separate download for helping
+      as two more assets, plus the two Linux and the macOS `.tar.gz` pairs on
+      a complete release. Name it in the release notes as a separate download for helping
       place boxes, not for playing.
 
-### Complete release: Linux assets and signed manifest
+### Complete release: Linux and macOS assets and signed manifest
 
-Run this section only when the release carries all fifteen standard assets, Linux
-included. The signed manifest covers exactly the three client archives, so only a
+Run this section only when the release carries all nineteen standard assets, Linux
+and macOS included. The signed manifest covers exactly the four client archives, so only a
 complete release of every target can produce one. Do not generate, commit or upload
 a manifest, and do not require a signing key, for an ordinary Windows-only
 prerelease.
@@ -307,10 +322,12 @@ prerelease.
       and `linux-arm64`, the `.tar.gz` and its `.sha256`, plus the
       `ctr_native_ap-<target>.debug` sidecar and its `.sha256` (see §4; every
       `.debug` file is a public asset so players can symbolize their own
-      crashes). Every client archive must be final before the manifest is
-      generated.
+      crashes). Add the macOS assets the same way: the
+      `-macos-arm64.tar.gz` and its `.sha256`, and
+      `ctr_native_ap-macos-arm64.dSYM.zip` and its `.sha256`. Every client
+      archive must be final before the manifest is generated.
 - [ ] Upload the prepared `manifest.json` from section 4 to the same release
-      after confirming that its three hashes match the final uploaded client
+      after confirming that its four hashes match the final uploaded client
       archives. The following signing steps use those exact manifest bytes.
 - [ ] Generate the signing key ONCE on the owner's own machine, outside CI and
       outside this repository:
@@ -328,14 +345,14 @@ prerelease.
       `minisign -S -s ctr-release-minisign.key -m manifest.json`.
 - [ ] Verify the local signature before uploading:
       `minisign -Vm manifest.json -p ctr-release-minisign.pub`.
-- [ ] Upload `manifest.json.minisig` only after the three covered archives and
+- [ ] Upload `manifest.json.minisig` only after the four covered archives and
       `manifest.json` are final. If any archive changes, regenerate and
       re-sign the manifest.
 - [ ] Download the complete release into a clean directory and run
       `python3 tools/verify-release.py <download-directory> --version vX.Y.Z`.
       Default mode requires the signature, the committed public key and
       minisign, verifies the signature over the exact manifest bytes, checks the
-      three archive hashes and validates every standard checksum sidecar. It must
+      four archive hashes and validates every standard checksum sidecar. It must
       report "verified signed release vX.Y.Z".
 
 ### Asset completeness
@@ -346,20 +363,22 @@ prerelease.
       every asset (the Windows zip + sha256, `ctr_native_ap.exe.debug` + sha256,
       `ctr.apworld` + sha256, `Crash.Team.Racing.yaml`, the two Linux tarballs +
       sha256, `ctr_native_ap-linux-x86_64.debug` and
-      `ctr_native_ap-linux-arm64.debug` + sha256, `manifest.json`, and
+      `ctr_native_ap-linux-arm64.debug` + sha256, the macOS tarball + sha256,
+      `ctr_native_ap-macos-arm64.dSYM.zip` + sha256, `manifest.json`, and
       `manifest.json.minisig`).
 - [ ] The box authoring download is optional and outside the standard set: it
-      does not count toward the seven or fifteen, and `manifest.json` never
+      does not count toward the seven or nineteen, and `manifest.json` never
       covers it. When present, each authoring archive must have its `.sha256`;
       `tools/verify-release.py` checks that pair and accepts a release without
       it.
 - [ ] **Asset-completeness gate: all assets or pre-release.** Seven standard
       assets are permitted for a Windows-only prerelease. A complete
-      cross-platform release requires all FIFTEEN standard assets
+      cross-platform release requires all NINETEEN standard assets
       (`tools/release/release_policy.py`). A signed
       complete release additionally requires `manifest.json` and
-      `manifest.json.minisig`, for SEVENTEEN uploaded assets total. The manifest
-      covers exactly the Windows client ZIP and the two Linux client tarballs; a
+      `manifest.json.minisig`, for TWENTY-ONE uploaded assets total. The manifest
+      covers exactly the Windows client ZIP, the two Linux client tarballs and
+      the macOS client tarball; a
       Windows-only prerelease cannot satisfy this signed manifest
       and is not eligible for updater visibility. A release without
       `manifest.json.minisig` is not a signed release. If anything is missing,
