@@ -38,3 +38,7 @@ python3 tools/release/assemble-release.py \
 python3 tools/verify-release.py "$output" \
 	--version "v${version#v}" \
 	--pre-sign --require-solo-runtime
+
+# The macOS app was sealed again with the release folder inside: install and
+# start it as a player would.
+bash tools/ci/smoke-macos-app.sh "$output"

@@ -31,6 +31,6 @@ Savestates and replays hold raw pointers into the game's static memory and need 
 - The in-game updater (`TARGET_MACOS_ARM64`) installs from that archive's `CTR Decrypted.app/Contents/Resources/game/` only, into the installed game folder. The next launch of the same app keeps it.
 
 ## Checking
-- CI builds every variant, runs `ctest` and the install smoke test on `macos-15` (`build.yml`, `macos`).
+- CI builds every variant, runs `ctest` and the install smoke test on `macos-15` (`build.yml`, `macos`). The release assembly runs the smoke test again on the release app it sealed, solo runtime inside (`tools/release/ci-assemble.sh`).
 - A 64-bit Linux build with `-DCTR_FIXED_BASE=OFF` places every static above 4 GB at a new address every launch, as macOS does: its runs must match the fixed-base build's ([64BIT.md](64BIT.md#checking)).
 - On a Mac, `tools/decrypted/devrun.sh` runs the game hidden and fast-forwarded as on Linux; its traces and results must match the Windows build's.

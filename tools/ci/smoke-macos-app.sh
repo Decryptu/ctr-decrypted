@@ -4,9 +4,18 @@
 # into a scratch home's Application Support and starts the game there with
 # --version, which prints and exits before anything else.
 #
-#   tools/ci/smoke-macos-app.sh <folder with one ctr-decrypted*-macos-arm64-*.tar.gz>
+#   tools/ci/smoke-macos-app.sh <folder with one player or CI macOS archive>
+#
+# Runs on a CI build's archive (build.yml) and on the assembled release
+# archive, sealed again with the solo runtime inside (tools/release/ci-assemble.sh).
 set -euo pipefail
-archive=$(ls "${1:?usage: smoke-macos-app.sh <artifact folder>}"/ctr-decrypted*-macos-arm64-*.tar.gz)
+folder=${1:?usage: smoke-macos-app.sh <archive folder>}
+# A release folder also holds the box authoring archive: test the player's.
+archives=$(ls "$folder"/ctr-decrypted*-macos-arm64*.tar.gz)
+if [ "$(echo "$archives" | wc -l)" -gt 1 ]; then
+	archives=$(echo "$archives" | grep -v box-authoring)
+fi
+archive=$archives
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 tar -xzf "$archive" -C "$work"
