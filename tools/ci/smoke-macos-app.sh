@@ -44,6 +44,13 @@ if xattr -r "$folder" | grep -q com.apple.quarantine; then
 	echo 'smoke: the installed files carry the quarantine flag' >&2
 	exit 1
 fi
+# The support bundle runs from the installed folder with macOS's own tools.
+if [ -f "$folder/support-bundle.sh" ]; then
+	"$folder/support-bundle.sh" >/dev/null
+	bundle=$(ls "$folder"/ctr-ap-support-*.tar.gz)
+	tar -xzOf "$bundle" ./bundle-info.txt | grep -q "$game" || { echo 'smoke: the support bundle has no executable hash' >&2; exit 1; }
+	rm -f "$bundle"
+fi
 
 # Second launch of the same app: the folder stays as it is (an update the
 # in-game updater installed would be kept).

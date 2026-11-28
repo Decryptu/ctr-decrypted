@@ -561,7 +561,9 @@ works from the pad: X or START saves the field, TRIANGLE cancels it.
 
 If the game crashes, or a seed seems impossible to progress, run
 `support-bundle.bat` (Windows) or `./support-bundle.sh` (Linux/Steam Deck) from
-the game folder. It creates one small archive (`ctr-ap-support-<date>.zip` /
+the game folder. On a Mac, paste this into Terminal:
+`"$HOME/Library/Application Support/CTR Decrypted/support-bundle.sh"`; the
+archive appears in that folder. It creates one small archive (`ctr-ap-support-<date>.zip` /
 `.tar.gz`) containing the game log, the AP log, the crash report if there was
 one, and your connection settings with the password removed. No game data is
 included. Attach that archive to a [GitHub issue](https://github.com/Decryptu/ctr-decrypted/issues/new/choose),

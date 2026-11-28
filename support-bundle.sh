@@ -1,7 +1,8 @@
 #!/bin/bash
-# CTR-AP support bundle (Linux / Steam Deck).
+# CTR-AP support bundle (Linux, Steam Deck and macOS).
 #
-# Run this from the game folder (double-click or `./support-bundle.sh`) after a
+# Run this from the game folder (double-click or `./support-bundle.sh`; on a Mac,
+# the game folder is ~/Library/Application Support/<app name>) after a
 # crash or a stuck seed. It packs the logs + state needed for a bug report into
 # one archive you can drag into Discord. No game data and no passwords are
 # included: the config copies have their password lines stripped.
@@ -28,7 +29,11 @@ done
 {
 	echo "CTR-AP support bundle $stamp"
 	uname -a
-	[ -f ctr_native_ap ] && md5sum ctr_native_ap
+	# md5sum on Linux, md5 on macOS: the same hash support-bundle.ps1 writes.
+	for exe in ctr_native_ap ctr_native_ap_authoring ctr_native ctr_native_authoring; do
+		[ -f "$exe" ] || continue
+		if command -v md5sum >/dev/null; then md5sum "$exe"; else md5 -r "$exe"; fi
+	done
 } > "$tmp/bundle-info.txt"
 
 tar -czf "$out" -C "$tmp" .
