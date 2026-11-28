@@ -133,8 +133,11 @@ either mode are identical and work in both:
     the normal of the frame before that (`VehPhysGeneral_JumpNormalOlder`), so
     the window stays 32 ms. Check: `fps-drive.ps1 -Track 13` with
     `CTR_DEV_WARP=16194,13,18306,3372`, `CTR_DEV_BOOST=200:4800:0x800` and a
-    hop swept in 16 ms steps around 1050 ms: two hop times reach an apex near
-    950 at each rate.
+    hop (`H`) swept in 16 ms steps from 986 to 1114 ms: at each rate two hop
+    times peak near 950 (trace `y`; about 810 above the takeoff), the rest
+    600 to 860. They are 1002–1018 ms at 30 and 1066–1082 ms at 60: a press
+    reaches the physics two frames later (64 ms at 30, 32 at 60), and the
+    scripted start leaves the 60 FPS kart about 16 ms later on the lip.
   - All of these do nothing in a 32 ms frame: 30 FPS stays retail bit for bit.
 - The checkered flag's "LOADING..." letters move every frame, each odd frame
   halfway between two 30 FPS positions.

@@ -186,6 +186,7 @@ JUDDER_CHANNELS = [
     ("pcrx", 4096, 1, "drawn"), ("pcry", 4096, 1, "drawn"), ("pcrz", 4096, 1, "drawn"),
     ("kx", 0, 1, "kart"), ("ky", 0, 1, "kart"), ("kz", 0, 1, "kart"), ("angle", 4096, 1, "kart"),
     ("speed", 0, 16, "kart"), ("turn", 0, 1, "kart"), ("rotW", 0, 1, "kart"), ("wobble", 0, 1, "kart"),
+    ("tilt", 0, 1, "kart"),
     ("camSpeed", 0, 16, "camera"), ("rollIn", 0, 1, "camera"), ("roll", 0, 1, "camera"), ("zoomOff", 0, 256, "camera"),
     ("cx", 0, 1, "int cam"), ("cy", 0, 1, "int cam"), ("cz", 0, 1, "int cam"),
     ("crx", 4096, 1, "int cam"), ("cry", 4096, 1, "int cam"), ("crz", 4096, 1, "int cam"),

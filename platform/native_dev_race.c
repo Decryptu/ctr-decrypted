@@ -13,6 +13,7 @@
 #include "platform/native_custom_package.h"
 #endif
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1510,7 +1511,7 @@ void NativeDev_RaceFrame(void)
 	{
 		dev->trace = fopen(dev->tracePath, "w");
 		if (dev->trace != NULL)
-			fprintf(dev->trace, "frame,fps60,level,lights,end,raceMS,x,y,z,angle,speed,air,kart,lap,reserves,anim,animFrame,gx,gy,gz,gvis,nav,navTarget,want,steer,vx,vy,vz,coll,timer,fireCap,cx,cy,cz,crx,cry,crz,turn,rotW,camSpeed,pcx,pcy,pcz,pcrx,pcry,pcrz,spin,wobble,lerpVel,rotPrevW,drift,clock,base,fire,kx,ky,kz,rollIn,roll,zoomOff\n");
+			fprintf(dev->trace, "frame,fps60,level,lights,end,raceMS,x,y,z,angle,speed,air,kart,lap,reserves,anim,animFrame,gx,gy,gz,gvis,nav,navTarget,want,steer,vx,vy,vz,coll,timer,fireCap,cx,cy,cz,crx,cry,crz,turn,rotW,camSpeed,pcx,pcy,pcz,pcrx,pcry,pcrz,spin,wobble,lerpVel,rotPrevW,drift,clock,base,fire,kx,ky,kz,rollIn,roll,zoomOff,tilt\n");
 	}
 
 	if (dev->trace != NULL)
@@ -1547,7 +1548,13 @@ void NativeDev_RaceFrame(void)
 		// The kart's position with its 8 fractional bits.
 		fprintf(dev->trace, ",%.3f,%.3f,%.3f", d->posCurr.x / 256.0, d->posCurr.y / 256.0, d->posCurr.z / 256.0);
 		// The camera's roll filter (input, output) and its fire-speed zoom, for race_trace.py judder.
-		fprintf(dev->trace, ",%d,%d,%d\n", d->rotCurr.z, gGT->cameraDC[0].desiredRot.x, gGT->cameraDC[0].fireSpeedZoom.distanceOffset);
+		fprintf(dev->trace, ",%d,%d,%d", d->rotCurr.z, gGT->cameraDC[0].desiredRot.x, gGT->cameraDC[0].fireSpeedZoom.distanceOffset);
+		// The kart's pitch on its surface normal (AxisAngle2_normalVec tilts the drawn kart; rollIn is its roll), in angle units.
+		{
+			const double heading = d->angle * (6.283185307179586 / 4096.0);
+			const double forward = d->AxisAngle2_normalVec.x * sin(heading) + d->AxisAngle2_normalVec.z * cos(heading);
+			fprintf(dev->trace, ",%.2f\n", atan2(forward, d->AxisAngle2_normalVec.y) * (4096.0 / 6.283185307179586));
+		}
 	}
 	dev->raceFrame++;
 
