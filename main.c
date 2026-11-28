@@ -53,7 +53,6 @@
 #include "platform/native_fs_utf8.c"
 #include "platform/native_backup.c"
 #include "platform/native_relaunch.c"
-#include "platform/native_mac_install.c"
 #include "platform/native_dev.c"
 #include "platform/native_dev_race.c"
 #include "platform/native_disc_copy.c"

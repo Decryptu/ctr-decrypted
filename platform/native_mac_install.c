@@ -11,7 +11,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
-#include <mach-o/dyld.h>
+
 #include <removefile.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -160,48 +160,39 @@ static int NativeMacInstall_CopyTree(const char *from, const char *to)
 	return ok;
 }
 
+
 // Copies the bundle's game folder over `folder`. Files only the player has
 // (settings, saves, the disc, downloaded tracks) are not in it and stay.
 // solo-runtime/ is replaced whole, as the updater replaces it.
-static int NativeMacInstall_Copy(const char *resources, const char *bundleExe, const char *folder, const char *exeName,
-                                 char *error, int errorSize)
+static int NativeMacInstall_Copy(const char *bundleGame, const char *folder, char *error, int errorSize)
 {
 	char path[PATH_MAX];
-	char target[PATH_MAX];
 
 	if (!NativeMacInstall_Join(path, sizeof path, folder, "solo-runtime"))
 		return NativeMacInstall_Fail(error, errorSize, "game folder path too long");
 	if (removefile(path, NULL, REMOVEFILE_RECURSIVE) != 0 && errno != ENOENT)
 		return NativeMacInstall_Fail(error, errorSize, "could not remove the old solo-runtime");
-	if (!NativeMacInstall_Join(path, sizeof path, resources, "game") || !NativeMacInstall_CopyTree(path, folder))
+	if (!NativeMacInstall_CopyTree(bundleGame, folder))
 		return NativeMacInstall_Fail(error, errorSize, "could not copy the game files");
-	if (!NativeMacInstall_Join(target, sizeof target, folder, exeName) || !NativeMacInstall_CopyFile(bundleExe, target))
-		return NativeMacInstall_Fail(error, errorSize, "could not install the game executable");
 	return 1;
 }
 
-int NativeMacInstall_Prepare(char *exe, int size, char *error, int errorSize)
+int NativeMacInstall_Prepare(const char *launcher, const char *game, char *exe, int size, char *error, int errorSize)
 {
-	char self[PATH_MAX];
-	char bundleExe[PATH_MAX];
-	char resources[PATH_MAX];
+	char bundleGame[PATH_MAX];
 	char folder[PATH_MAX];
 	char lock[PATH_MAX];
 	char installed[128];
-	uint32_t selfSize = sizeof self;
 	struct stat info;
 	const char *home = getenv("HOME");
 
-	if (_NSGetExecutablePath(self, &selfSize) != 0 || realpath(self, bundleExe) == NULL)
-		return 0;
-	// <bundle>.app/Contents/MacOS/<exe>: the game folder is
+	// <bundle>.app/Contents/MacOS/<launcher>: the game folder is
 	// <bundle>.app/Contents/Resources/game.
-	char *name = strrchr(bundleExe, '/');
-	if (name == NULL || name - bundleExe < 15 || strncmp(name - 15, "/Contents/MacOS", 15) != 0)
+	const char *name = strrchr(launcher, '/');
+	if (name == NULL || name - launcher < 15 || strncmp(name - 15, "/Contents/MacOS", 15) != 0)
 		return 0;
-	if (snprintf(resources, sizeof resources, "%.*s/Contents/Resources", (int)(name - 15 - bundleExe), bundleExe) >= (int)sizeof resources)
-		return 0;
-	if (!NativeMacInstall_Join(folder, sizeof folder, resources, "game") || stat(folder, &info) != 0 || !S_ISDIR(info.st_mode))
+	if (snprintf(bundleGame, sizeof bundleGame, "%.*s/Contents/Resources/game", (int)(name - 15 - launcher), launcher) >= (int)sizeof bundleGame ||
+	    stat(bundleGame, &info) != 0 || !S_ISDIR(info.st_mode))
 		return 0;
 	if (home == NULL || home[0] != '/' || snprintf(folder, sizeof folder, "%s%s", home, NATIVE_MAC_INSTALL_FOLDER) >= (int)sizeof folder)
 	{
@@ -210,7 +201,7 @@ int NativeMacInstall_Prepare(char *exe, int size, char *error, int errorSize)
 	}
 	if (!NativeMacInstall_MakeDirs(folder))
 		return NativeMacInstall_Fail(error, errorSize, "could not create the game folder");
-	if (!NativeMacInstall_Join(lock, sizeof lock, folder, NATIVE_MAC_INSTALL_LOCK) || !NativeMacInstall_Join(exe, (size_t)size, folder, name + 1))
+	if (!NativeMacInstall_Join(lock, sizeof lock, folder, NATIVE_MAC_INSTALL_LOCK) || !NativeMacInstall_Join(exe, (size_t)size, folder, game))
 		return NativeMacInstall_Fail(error, errorSize, "game folder path too long");
 
 	// One launch installs at a time; a second waits, then finds it done. The
@@ -225,7 +216,7 @@ int NativeMacInstall_Prepare(char *exe, int size, char *error, int errorSize)
 	int result = 1;
 	if (strcmp(installed, gNativeBuildId) != 0 || access(exe, X_OK) != 0)
 	{
-		result = NativeMacInstall_Copy(resources, bundleExe, folder, name + 1, error, errorSize);
+		result = NativeMacInstall_Copy(bundleGame, folder, error, errorSize);
 		if (result == 1 && !NativeMacInstall_WriteMarker(folder))
 			result = NativeMacInstall_Fail(error, errorSize, "could not record the install");
 	}

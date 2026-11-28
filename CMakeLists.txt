@@ -555,6 +555,15 @@ if(CTR_FIXED_BASE)
     endif()
 endif()
 
+# macOS: the executable of CTR Decrypted.app, which installs the game folder
+# the bundle carries and starts the game there (docs/MACOS.md).
+if(APPLE)
+    add_executable(ctr_macos_launcher platform/macos/ctr_launcher.c platform/native_mac_install.c platform/native_build_id.c)
+    target_include_directories(ctr_macos_launcher PRIVATE include)
+    target_compile_definitions(ctr_macos_launcher PRIVATE CTR_LAUNCHER_GAME="$<TARGET_FILE_NAME:ctr_native>")
+    target_link_libraries(ctr_macos_launcher PRIVATE "-framework CoreFoundation")
+endif()
+
 # Release hygiene (Linux): split debug info into a .debug sidecar so the
 # binary that goes through the gate is byte-identical to what players download.
 # Not on macOS, which has no objcopy: its packaging will keep the symbols in a

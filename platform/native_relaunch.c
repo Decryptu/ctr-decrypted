@@ -54,9 +54,6 @@ int NativeRelaunch_Self(void)
 
 #elif defined(__APPLE__)
 
-#include "platform/native_mac_install.h"
-
-#include <SDL3/SDL_messagebox.h>
 #include <limits.h>
 #include <mach-o/dyld.h>
 #include <spawn.h>
@@ -109,29 +106,16 @@ static void NativeRelaunch_ExecFixedBase(const char *exe, char **argv)
 void NativeRelaunch_Startup(int argc, char **argv)
 {
 	char exe[PATH_MAX];
-	char error[PATH_MAX + 128];
 	uint32_t size = sizeof exe;
 
 	(void)argc;
+	// Set by this function's exec and by the app's launcher
+	// (platform/macos/ctr_launcher.c), which both start the game at its linked
+	// address.
 	if (getenv(NATIVE_RELAUNCH_FIXED_BASE_ENV) != NULL)
 	{
 		unsetenv(NATIVE_RELAUNCH_FIXED_BASE_ENV);
 		return;
-	}
-	switch (NativeMacInstall_Prepare(exe, (int)sizeof exe, error, (int)sizeof error))
-	{
-	case 1:
-		NativeRelaunch_ExecFixedBase(exe, argv);
-		snprintf(error, sizeof error, "Could not start the game in %s.", exe);
-		/* fallthrough */
-	case -1:
-		// The bundle itself is no game folder (its files are read-only and
-		// may sit in a random read-only location until the app is moved).
-		fprintf(stderr, "[CTR] %s\n", error);
-		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "CTR Decrypted", error, NULL);
-		exit(1);
-	default:
-		break;
 	}
 	if (_dyld_get_image_vmaddr_slide(0) == 0 || _NSGetExecutablePath(exe, &size) != 0)
 		return;
