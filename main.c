@@ -230,6 +230,8 @@ static int NativeArg_IsVersion(const char *arg)
 
 int main(int argc, char *argv[])
 {
+	NativeRelaunch_FixedBase(argc, argv);
+
 	for (int argIndex = 1; argIndex < argc; argIndex++)
 	{
 		if (NativeArg_IsVersion(argv[argIndex]))

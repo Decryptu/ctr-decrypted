@@ -283,7 +283,9 @@ if(NOT CTR_AP)
         # SHA-1/SHA-256 (OpenSSL EVP) and zlib on both, and standalone asio on
         # Linux. Static archives, as in the AP build.
         set(OPENSSL_USE_STATIC_LIBS TRUE)
-        set(ZLIB_USE_STATIC_LIBS TRUE)
+        if(NOT APPLE)
+            set(ZLIB_USE_STATIC_LIBS TRUE)
+        endif()
         find_package(OpenSSL REQUIRED)
     if(WIN32 AND TARGET OpenSSL::Crypto)
         # OpenSSL 4's static libcrypto draws its random numbers from BCryptGenRandom:
@@ -378,9 +380,13 @@ if(CTR_AP)
     include(${CMAKE_SOURCE_DIR}/cmake/APVendorCheck.cmake)
 
     # TLS + compression backends. Static archives are preferred to match the
-    # -static-libstdc++ / -static-libgcc posture of the shipped exe.
+    # -static-libstdc++ / -static-libgcc posture of the shipped exe. macOS
+    # ships zlib as a system library (no static archive in its SDK) and links
+    # it like the rest of the system; OpenSSL it does not ship.
     set(OPENSSL_USE_STATIC_LIBS TRUE)
-    set(ZLIB_USE_STATIC_LIBS TRUE)
+    if(NOT APPLE)
+        set(ZLIB_USE_STATIC_LIBS TRUE)
+    endif()
     find_package(OpenSSL REQUIRED)
     if(WIN32 AND TARGET OpenSSL::Crypto)
         # OpenSSL 4's static libcrypto draws its random numbers from BCryptGenRandom:
