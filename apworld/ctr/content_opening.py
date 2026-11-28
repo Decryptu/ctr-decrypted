@@ -52,6 +52,8 @@ def search(pool, room, target, reached=None, probes=PROBES, bundles=(), goals=()
         return memo[key]
 
     def done(held):
+        # Not memoized: the start bootstrap's `reached` collects state, and
+        # skipping a call changes the order its starting items come in.
         return reached is None or reached(tuple(sorted(held)))
 
     start = free(())
@@ -285,6 +287,9 @@ class PlanReach:
         self.base = {row.item: row.start_from_pool + row.start_additional for row in rows}
         self.pool = {row.name: row.remaining for row in rows if row.remaining > 0}
         self.letters = letter_requirements(plan)
+        self.letter_codes = {code: tuple(self.code.get(name) for name in names)
+                             for code, names in self.letters.items() if names}
+        self._sweeps = {}
         self.pins = {code: self.code[name] for code, name in content_fixed.plan_placements(plan).items()
                      if name in self.code}
         pins = content_fixed.plan_placements(plan)
@@ -362,6 +367,18 @@ class PlanReach:
             else:
                 self.checks.append((code, spot, None, [(region(route), later(route), route, rank(check, route), boost_of(route))
                                                        for route in check["routes"]]))
+        self.spot_codes = {code for code, spot, _floor, _routes in self.checks if spot}
+        # Checks with the same letters and routes open together, so a sweep tests
+        # each such group once (most checks of a race share its routes).
+        groups = {}
+        for code, _spot, _floor, routes in self.checks:
+            if routes is None:
+                continue
+            key = (self.letter_codes.get(code, ()),
+                   tuple((own, later, need, boost, route["own_pad_id"], route["mode"])
+                         for own, later, route, need, boost in routes))
+            groups.setdefault(key, []).append(code)
+        self.route_groups = [(letters, routes, codes) for (letters, routes), codes in groups.items()]
         self.income = [dict(own_pad_id=pad_id, mode=mode, later=later(dict(own_pad_id=pad_id, mode=mode)),
                             boost=boost_of(dict(own_pad_id=pad_id)),
                             need=content_capability.finish_boost(track, capability, content_wumpa.income_package(plan, track))
@@ -386,8 +403,24 @@ class PlanReach:
         return all(self._met(gate["requirement_id"], held) for gate in pad["mode_gates"][:1])
 
     def _sweep(self, held, fixed=None):
-        """The open check codes, with the fixed items on them collected."""
-        waiting = dict(self.pins if fixed is None else fixed)
+        """The open check codes, with the fixed items on them collected. A sweep
+        depends only on the counts and the fixed items, and the opening searches
+        ask the same counts many times (one Gem Cup seed swept 300,000 times and
+        took eight minutes), so the result is kept per fixed-item table."""
+        pins = self.pins if fixed is None else fixed
+        table = self._sweeps.get(id(pins))
+        if table is None or table[0] is not pins:
+            table = self._sweeps[id(pins)] = (pins, {})
+        key = tuple(sorted(held.items()))
+        if key not in table[1]:
+            opened = self._sweep_once(held, pins)
+            table[1][key] = (opened, dict(held))
+        opened, after = table[1][key]
+        held.update(after)
+        return opened
+
+    def _sweep_once(self, held, pins):
+        waiting = dict(pins)
         while True:
             opened = self._open(held)
             gained = [code for code in waiting if code in opened]
@@ -404,30 +437,32 @@ class PlanReach:
             region_open[encounter["id"]] = (self._met(self.pads[encounter["pad_id"]]["entrance_req"], held)
                                             and self._met(encounter["requirement_id"], held))
 
-        def stage_met(route, opened):
-            pad = self.pads[route["own_pad_id"]]
-            if any(g["mode"] == route["mode"] and g["stage"] == 2 and not self._met(g["requirement_id"], held)
+        def stage_open(pad_id, mode, opened):
+            pad = self.pads[pad_id]
+            if any(g["mode"] == mode and g["stage"] == 2 and not self._met(g["requirement_id"], held)
                    for g in pad["mode_gates"]):
                 return False
             won = self.first.get(pad["id"], ())
             return not won or any(code in opened for code in won)
 
-        def letters_held(code):
-            return all(held.get(self.code.get(name), 0) for name in self.letters.get(code, ()))
+        def stage_met(route, opened):
+            return stage_open(route["own_pad_id"], route["mode"], opened)
 
         opened = set()
         waiting = []
-        for code, _spot, _floor, routes in self.checks:
-            if routes is None or not letters_held(code):
+        for letters, routes, codes in self.route_groups:
+            if letters and not all(held.get(item, 0) for item in letters):
                 continue
-            usable = [(later, route) for own, later, route, need, boost in routes
+            usable = [(later, pad_id, mode) for own, later, need, boost, pad_id, mode in routes
                       if need <= held.get(boost, 0) and region_open[own]]
-            if any(not later for later, _route in usable):
-                opened.add(code)
+            if any(not later for later, _pad, _mode in usable):
+                opened.update(codes)
             elif usable:
-                waiting.append((code, usable))
+                waiting.append((codes, usable))
         first = set(opened)
-        opened.update(code for code, usable in waiting if any(stage_met(route, first) for _later, route in usable))
+        for codes, usable in waiting:
+            if any(stage_open(pad_id, mode, first) for _later, pad_id, mode in usable):
+                opened.update(codes)
         opened -= {code for code, trophy in self.merged.items() if trophy not in opened}
         income = any(route["need"] <= held.get(route["boost"], 0) and region_open[route["own_pad_id"]]
                      and (not route["later"] or stage_met(route, first)) for route in self.income)
@@ -444,8 +479,7 @@ class PlanReach:
 
     def room(self, held):
         """Spots open with the sorted tuple of names `held`."""
-        opened = self._sweep(self._held(held))
-        return sum(spot and code in opened for code, spot, _floor, _routes in self.checks)
+        return len(self.spot_codes.intersection(self._sweep(self._held(held))))
 
     def encounter_reached(self, encounter, held):
         """The garage can actually be won, including its check capability."""
