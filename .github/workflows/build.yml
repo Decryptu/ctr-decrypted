@@ -209,6 +209,44 @@ jobs:
           path: ${{ runner.temp }}\ccache
           key: ccache-windows-x86_64-${{ matrix.variant }}-${{ github.sha }}
 
+  # The 64-bit engine on macOS (Apple Silicon, Apple clang, Homebrew's OpenSSL).
+  # No release yet (ROADMAP.md, macOS): this keeps the port compiling and its
+  # tests passing while it is built up.
+  macos:
+    name: macOS arm64 ${{ matrix.variant }} (64-bit engine, not released)
+    runs-on: macos-15
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [vanilla, ap]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Toolchain
+        run: brew install ninja ccache openssl@3
+      - name: Restore compiler cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ccache-macos-arm64-${{ matrix.variant }}-${{ github.sha }}
+          restore-keys: ccache-macos-arm64-${{ matrix.variant }}-
+      - name: Build and test
+        env:
+          CCACHE_DIR: ${{ runner.temp }}/ccache
+        run: |
+          export OPENSSL_ROOT_DIR="$(brew --prefix openssl@3)"
+          ccache -z
+          bash tools/ci/build-engine64.sh macos ${{ matrix.variant }}
+          ccache -s
+      - name: Save compiler cache
+        if: ${{ github.event_name != 'pull_request' && startsWith(github.ref, 'refs/heads/') }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ccache-macos-arm64-${{ matrix.variant }}-${{ github.sha }}
+
   # Every build goes through the release assembler: the archives this run made,
   # the apworld packed from this commit, the solo runtimes, and the same script
   # release-prepare.yml uses (tools/release/ci-assemble.sh). A client archive the

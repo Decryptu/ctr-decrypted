@@ -326,6 +326,10 @@ internal int NativeRenderer_InitialiseGLContext(char *windowName, int fullscreen
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, major_version);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, minor_version);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, profile);
+#ifdef __APPLE__
+		// macOS creates a 3.2+ core context only when it is forward-compatible.
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
+#endif
 
 		if (SDL_GL_CreateContext(g_window))
 		{

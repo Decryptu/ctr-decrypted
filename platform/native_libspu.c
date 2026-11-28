@@ -69,11 +69,6 @@ void SpuInit(void)
 		{
 			s_reportedAudioInitFailure = 1;
 			Platform_LogError("[CTR Audio] No audio device could be opened. The game will continue without sound.\n");
-#if defined(__linux__)
-			Platform_LogError("[CTR Audio] On 64-bit Linux outside Steam this usually means the 32-bit PipeWire ALSA bridge is missing. "
-			                  "Install your distribution's i386/32-bit PipeWire ALSA plugin, or run the game through the Steam Linux Runtime. "
-			                  "See SETUP.md, Troubleshooting.\n");
-#endif
 		}
 	}
 }

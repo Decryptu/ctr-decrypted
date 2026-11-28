@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 # Build the 64-bit engine (docs/64BIT.md) with the host's own 64-bit compiler:
-# Linux x86_64, Linux arm64, or MSYS2 UCRT64 on Windows, unpackaged. CI runs it
-# for Windows x86_64, whose releases stay 32-bit; Linux releases are built and
-# packaged by build-clients.sh. On Linux the CMake tests run too, which starts
-# the built executable once (--version). Never runs the game or fetches disc
-# assets.
+# Linux x86_64, Linux arm64, macOS arm64, or MSYS2 UCRT64 on Windows,
+# unpackaged. CI runs it for Windows x86_64, whose releases stay 32-bit, and
+# for macOS, which has no release yet; Linux releases are built and packaged by
+# build-clients.sh. On Linux and macOS the CMake tests run too, which starts the
+# built executable once (--version). Never runs the game or fetches disc assets.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-usage='usage: build-engine64.sh linux|windows [vanilla|ap ...]'
+usage='usage: build-engine64.sh linux|macos|windows [vanilla|ap ...]'
 platform=${1:?$usage}
 shift
 case "$platform" in
-  linux|windows) ;;
+  linux|macos|windows) ;;
   *) echo "$usage" >&2; exit 2 ;;
 esac
 variants=("$@")
@@ -40,8 +40,8 @@ for variant in "${variants[@]}"; do
     -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON \
     -DCTR_64BIT=ON -DCTR_AP="$ap" -DCTR_CUSTOM_TRACKS="$custom" \
     -DCTR_AP_VERIFY_VENDOR=ON
-  cmake --build "$build" --parallel "${CTR_BUILD_JOBS:-$(nproc)}"
-  if [ "$platform" = linux ]; then
+  cmake --build "$build" --parallel "${CTR_BUILD_JOBS:-$(getconf _NPROCESSORS_ONLN)}"
+  if [ "$platform" != windows ]; then
     ctest --test-dir "$build" --output-on-failure
   fi
 done

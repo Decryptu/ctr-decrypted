@@ -536,15 +536,24 @@ endif()
 # the primitive arenas, audio and GPU state, callbacks) and restore them by
 # copying (platform/native_checkpoint.c), so they need every launch of a
 # build to put that memory at the same addresses, as replays also require. MinGW turned ASLR on by default; modern GCC on Linux builds PIE.
-if(MINGW)
-    target_link_options(ctr_native PRIVATE -Wl,--disable-dynamicbase)
-elseif(UNIX AND NOT APPLE)
-    target_link_options(ctr_native PRIVATE -no-pie)
+# CTR_FIXED_BASE=OFF keeps the toolchain's position-independent default: a
+# state then loads only in the launch that made it. macOS on arm64 has no
+# other choice, and a 64-bit Linux PIE run places every static above 4 GB as
+# macOS does (docs/64BIT.md, Checking).
+option(CTR_FIXED_BASE "Load the game at the same address every launch" ON)
+if(CTR_FIXED_BASE)
+    if(MINGW)
+        target_link_options(ctr_native PRIVATE -Wl,--disable-dynamicbase)
+    elseif(UNIX AND NOT APPLE)
+        target_link_options(ctr_native PRIVATE -no-pie)
+    endif()
 endif()
 
 # Release hygiene (Linux): split debug info into a .debug sidecar so the
 # binary that goes through the gate is byte-identical to what players download.
-if(UNIX)
+# Not on macOS, which has no objcopy: its packaging will keep the symbols in a
+# dSYM bundle (ROADMAP.md, macOS).
+if(UNIX AND NOT APPLE)
     option(CTR_SPLIT_DEBUG "Strip the binary, keeping symbols in a .debug sidecar" ON)
     set(CTR_STRIP_FLAG "--strip-all" CACHE STRING
         "objcopy strip flavour: --strip-all or --strip-debug (see issue #92 acceptance test)")

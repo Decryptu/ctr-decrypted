@@ -57,13 +57,13 @@ Linux, from a checkout:
 
 ```
 bash ap/vendor/fetch-deps.sh
-cmake -S . -B build-authoring -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_C_FLAGS='-m32 -msse' -DCMAKE_CXX_FLAGS=-m32 -DCTR_AUTHORING_CLIENT=ON
+cmake -S . -B build-authoring -DCMAKE_BUILD_TYPE=Release -DCTR_AUTHORING_CLIENT=ON
 cmake --build build-authoring --parallel 2
 ```
 
-The package code is C++17 and needs 32-bit OpenSSL and zlib (static
-archives are preferred) and, on Linux, standalone asio. JSON is the pinned
+The package code is C++17 and needs OpenSSL and zlib for the engine's
+architecture (static archives are preferred; 32-bit ones for the 32-bit
+Windows build) and, on Linux, standalone asio. JSON is the pinned
 nlohmann/json under `ap/vendor/json`, and Unicode handling is the vendored
 utf8proc under `vendor/utf8proc`; `cmake/CustomPackageDeps.cmake` refuses to
 configure if either differs from its pin. `fetch-deps.sh` fetches the pinned
