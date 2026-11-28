@@ -324,8 +324,13 @@ std::string file_stamp(FILE *file)
 #else
     struct stat info;
     if (fstat(fileno(file), &info)) return "?";
-    return std::to_string((long long)info.st_size) + "|" + std::to_string((long long)info.st_mtim.tv_sec) + "|" +
-           std::to_string((long long)info.st_mtim.tv_nsec);
+#ifdef __APPLE__
+    const struct timespec &modified = info.st_mtimespec;
+#else
+    const struct timespec &modified = info.st_mtim;
+#endif
+    return std::to_string((long long)info.st_size) + "|" + std::to_string((long long)modified.tv_sec) + "|" +
+           std::to_string((long long)modified.tv_nsec);
 #endif
 }
 
