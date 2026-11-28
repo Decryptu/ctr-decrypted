@@ -1510,7 +1510,7 @@ void NativeDev_RaceFrame(void)
 	{
 		dev->trace = fopen(dev->tracePath, "w");
 		if (dev->trace != NULL)
-			fprintf(dev->trace, "frame,fps60,level,lights,end,raceMS,x,y,z,angle,speed,air,kart,lap,reserves,anim,animFrame,gx,gy,gz,gvis,nav,navTarget,want,steer,vx,vy,vz,coll,timer,fireCap,cx,cy,cz,crx,cry,crz,turn,rotW,camSpeed,pcx,pcy,pcz,pcrx,pcry,pcrz,spin,wobble,lerpVel,rotPrevW,drift,clock,base,fire,kx,ky,kz\n");
+			fprintf(dev->trace, "frame,fps60,level,lights,end,raceMS,x,y,z,angle,speed,air,kart,lap,reserves,anim,animFrame,gx,gy,gz,gvis,nav,navTarget,want,steer,vx,vy,vz,coll,timer,fireCap,cx,cy,cz,crx,cry,crz,turn,rotW,camSpeed,pcx,pcy,pcz,pcrx,pcry,pcrz,spin,wobble,lerpVel,rotPrevW,drift,clock,base,fire,kx,ky,kz,rollIn,roll,zoomOff\n");
 	}
 
 	if (dev->trace != NULL)
@@ -1545,7 +1545,9 @@ void NativeDev_RaceFrame(void)
 		fprintf(dev->trace, ",%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%d,%d,%d,%d,%d,%d,%d,%d", ppos[0], ppos[1], ppos[2], prot[0], prot[1], prot[2], d->rotationSpinRate,
 		        d->turnWobbleAngle, d->turnAngleLerpVel, d->rotPrev.w, d->KartStates.Drifting.numFramesDrifting, dev->raceClock, d->baseSpeed, d->fireSpeed);
 		// The kart's position with its 8 fractional bits.
-		fprintf(dev->trace, ",%.3f,%.3f,%.3f\n", d->posCurr.x / 256.0, d->posCurr.y / 256.0, d->posCurr.z / 256.0);
+		fprintf(dev->trace, ",%.3f,%.3f,%.3f", d->posCurr.x / 256.0, d->posCurr.y / 256.0, d->posCurr.z / 256.0);
+		// The camera's roll filter (input, output) and its fire-speed zoom, for race_trace.py judder.
+		fprintf(dev->trace, ",%d,%d,%d\n", d->rotCurr.z, gGT->cameraDC[0].desiredRot.x, gGT->cameraDC[0].fireSpeedZoom.distanceOffset);
 	}
 	dev->raceFrame++;
 
