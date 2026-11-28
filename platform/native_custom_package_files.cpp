@@ -1,6 +1,10 @@
 #ifndef _WIN32
 #define _POSIX_C_SOURCE 200809L
 #endif
+#ifdef __APPLE__
+// macOS hides O_NOFOLLOW and renameatx_np under a strict _POSIX_C_SOURCE.
+#define _DARWIN_C_SOURCE
+#endif
 #include <platform/native_custom_package.h>
 #include <platform/native_fs_link.hpp>
 #include <platform/native_custom_offline.h>
@@ -327,8 +331,13 @@ struct Directory
     void publish(Directory &stage, const std::string &stageName, const std::string &name)
     {
         if (fsync(stage.root.value)) throw std::runtime_error("Package staging sync failed");
-        // Linux RENAME_NOREPLACE. Never fall back to overwriting rename().
+        // A rename that fails when the name exists (Linux RENAME_NOREPLACE,
+        // macOS RENAME_EXCL). Never fall back to overwriting rename().
+#ifdef __APPLE__
+        if (renameatx_np(root.value, stageName.c_str(), root.value, name.c_str(), RENAME_EXCL))
+#else
         if (syscall(SYS_renameat2, root.value, stageName.c_str(), root.value, name.c_str(), 1u))
+#endif
             throw std::runtime_error("Cannot publish package without replacement");
     }
     void sync_publication()

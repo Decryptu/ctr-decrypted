@@ -33,6 +33,10 @@
 #include <openssl/x509.h>
 #include <spawn.h>
 #include <unistd.h>
+#include <climits>
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
 extern char **environ;
 #endif
 
@@ -129,6 +133,13 @@ std::string ExecutablePath()
 	std::string out((size_t)len, '\0');
 	WideCharToMultiByte(CP_UTF8, 0, wide, (int)n, &out[0], len, nullptr, nullptr);
 	return out;
+#elif defined(__APPLE__)
+	char path[4096];
+	char real[PATH_MAX];
+	uint32_t size = sizeof path;
+	if (_NSGetExecutablePath(path, &size) != 0 || realpath(path, real) == nullptr)
+		return std::string();
+	return std::string(real);
 #else
 	char buf[4096];
 	const ssize_t n = readlink("/proc/self/exe", buf, sizeof buf - 1);
