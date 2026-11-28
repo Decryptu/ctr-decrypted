@@ -13,6 +13,8 @@ The script prints the capture folder (`%TEMP%\ctrdev\shots-HHmmss` unless `-Out`
 
 `devrun.ps1` runs from its own folder (`%TEMP%\ctrdev\run`) with a baseline `config.ini` (60 FPS, PGXP FULL, 16:9, render scale ORIGINAL), so the owner's install and saves are never touched.
 
+On Linux and macOS, `tools/decrypted/devrun.sh` does the same run, with short options in place of the parameters (`-t` track, `-n` frames, `-f` from, `-e` every, `-x` exe, `-b` disc image or `$CTR_DISC`, `-o` out, `-r` run folder, `-c Key=value` config, `-E KEY=value` environment, `-s` save; `-h` lists them). With no display it runs the game under `xvfb-run`, so it works in WSL, over SSH and in containers. `-w qemu-aarch64` runs an arm64 build on an x86_64 machine slowly (300 game frames took about 11 minutes with eight runs side by side on 16 cores), so keep such runs short. Pillow turns the captures into PNG and a contact sheet; without it they stay BMP.
+
 For an unattended intro smoke test, use `-Track -1 -Frames 16000 -From 15000 -Every 500 -Config @{skip_intro='true'}` with no `CTR_DEV_PAD` input; repeat with `fps60='false'`. The intro must swap its cutscene packs and return to the title menu. Adventure mask-hint streaming guards must allow these non-hub swaps.
 
 | Parameter | Meaning |
