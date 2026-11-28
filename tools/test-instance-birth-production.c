@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include <common.h>
+#include "harness-psx-space.h"
 
 struct sData sdata_static;
 int gNative60FpsEnabled;

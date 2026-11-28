@@ -32,7 +32,7 @@
 #include <string.h>
 
 #include <common.h>
-#include "../platform/native_psx_space.c"
+#include "harness-psx-space.h"
 #include "../ap/ap_hooks.h"
 #include "../ap/ap_dram_ptr_map_logic.h"
 #include "../ap/ap_retail_wumpa.c"

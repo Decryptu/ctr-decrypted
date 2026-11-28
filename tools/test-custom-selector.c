@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <common.h>
-#include "../platform/native_psx_space.c"
+#include "harness-psx-space.h"
 #include <platform/native_custom_track_library.h>
 #include <platform/native_custom_offline.h>
 #include <platform/native_assets.h>

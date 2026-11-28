@@ -35,6 +35,7 @@
 
 // CAM.c calls the demo camera; the unity build declares it through game_unity.h.
 #include "ap/ap_democam.h"
+#include "harness-psx-space.h"
 #include "game/CAM.c"
 #include "game/MATH/MATH_7_MatrixStubs.c"
 #include "game/MATH/MATH_0_Sin.c"
@@ -143,8 +144,9 @@ int NativePgxp_GteGetTranslation(const s32 t[3], double out[3]) { (void)t, (void
 #define PATH_RECORDS 0x98
 #define PATH_GUARD 0x20
 #define PATH_S16 (PATH_END_OFFSET / 2 + PATH_RECORDS * 3 + PATH_GUARD * 2)
-static s16 cameraPathStore[PATH_S16];
-static s16 *const cameraPath = cameraPathStore + PATH_GUARD;
+// Disc-format data (the level's restart points point at it): PSX space.
+static s16 *cameraPathStore;
+static s16 *cameraPath;
 static struct Level probeLevel;
 
 static s16 Probe_Mix(s32 i, s32 k)
@@ -289,6 +291,10 @@ int main(void)
 
 	memset(&pushPos, 0, sizeof pushPos);
 	memset(&pushRot, 0, sizeof pushRot);
+
+	cameraPathStore = PsxSpace_Alloc(PATH_S16 * sizeof *cameraPathStore);
+	memset(cameraPathStore, 0, PATH_S16 * sizeof *cameraPathStore);
+	cameraPath = cameraPathStore + PATH_GUARD;
 
 	Probe_FillPath();
 	Probe_FillTrig();

@@ -1,5 +1,6 @@
 // cc -m32 -std=gnu11 -DCTR_NATIVE -DCTR_AP -I include -I . -I ap -ffunction-sections -fdata-sections -Wl,--gc-sections tools/test-widescreen-ui.c -o /tmp/test-widescreen-ui -lm
 #include <common.h>
+#include "harness-psx-space.h"
 #include <platform/native_config.h>
 #include <assert.h>
 NativeConfig g_config;

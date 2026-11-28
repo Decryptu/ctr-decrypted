@@ -3,6 +3,7 @@
 // package identity seams. No third-party bytes are included.
 #include <assert.h>
 #include <common.h>
+#include "harness-psx-space.h"
 #include <platform/native_custom_finish.h>
 void AP_LapOnCrossing(struct GameTracker *, struct Driver *, int);
 #include "../game/PlayLevel.c"
@@ -13,7 +14,7 @@ static struct GameTracker gt;
 static struct Driver driver;
 static struct QuadBlock quad;
 static struct Level level;
-static struct CheckpointNode node;
+static struct CheckpointNode *node;
 static struct Instance instance;
 static struct Thread thread;
 static int terrain, nextProgress, laps, finishes, ends;
@@ -38,7 +39,9 @@ static void reset(void)
     memset(&gt, 0, sizeof gt); memset(&driver, 0, sizeof driver); memset(&quad, 0, sizeof quad);
     sdata->gGT = &gt; sdata->numPlayersFinishedRace = 0;
     gt.drivers[0] = gt.driversInRaceOrder[0] = &driver; gt.numPlyrCurrGame = 1;
-    PSX_SET(level.ptr_restart_points, &node); node.distToFinish = 17000; gt.level1 = &level;
+    if (node == NULL) node = PsxSpace_Alloc(sizeof *node);
+    memset(node, 0, sizeof *node);
+    PSX_SET(level.ptr_restart_points, node); node->distToFinish = 17000; gt.level1 = &level;
     driver.instSelf = &instance; instance.thread = &thread; thread.modelIndex = DYNAMIC_PLAYER;
     gt.numLaps = 3; driver.driverRank = -1; terrain = 4; laps = finishes = ends = 0;
     nextProgress = 500;
