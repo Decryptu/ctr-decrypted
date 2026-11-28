@@ -53,6 +53,7 @@
 #include "platform/native_fs_utf8.c"
 #include "platform/native_backup.c"
 #include "platform/native_relaunch.c"
+#include "platform/native_mac_install.c"
 #include "platform/native_dev.c"
 #include "platform/native_dev_race.c"
 #include "platform/native_disc_copy.c"
@@ -230,7 +231,7 @@ static int NativeArg_IsVersion(const char *arg)
 
 int main(int argc, char *argv[])
 {
-	NativeRelaunch_FixedBase(argc, argv);
+	NativeRelaunch_Startup(argc, argv);
 
 	for (int argIndex = 1; argIndex < argc; argIndex++)
 	{
