@@ -84,7 +84,18 @@ either mode are identical and work in both:
   - Steering: the spin rate rises toward the stick by half a step a frame
     (`VehPhysGeneral.c`, as the decay already did), the normal-driving turn
     wobble uses the drift wobble's frame counts, and the drift turn-angle lerp
-    closes 1/16 then 1/15 of the gap.
+    closes 1/16 then 1/15 of the gap. The lerp of the turn angle back to
+    forwards (`VehPhysGeneral_LerpToForwards`) runs every frame, each taking
+    half of its velocity step (`VehCalc_RetailStep`); run on odd frames only,
+    the turn velocity changed in pairs and the camera's heading and the kart's
+    yaw moved in 30 Hz steps.
+  - The kart's surface normal (`COLL.c`, `COLL_FIXED_PlayerSearch_BlendNormal60`)
+    eases toward the ground's every frame, keeping the square root of the
+    30 FPS share (3547 and 3831 of 4096 for 6/8 on the ground and 7/8 in the
+    air), with the hazard wobble scaled to settle at the same offset. Blended
+    on odd frames only, it held the kart's tilt and the camera's roll input
+    (`rotCurr.z`) for two frames. Jumps off it are unchanged: the Oxide
+    Station hop sweep below lands the same apexes as with the odd-frame blend.
   - `PhysLerpRot`: the camera spin speed it ramps toward is already per
     32 ms, so it is not halved on odd frames; only the ramp of 8 a frame is.
   - `VehCalc_FrameStep` replaces `rate * elapsedTimeMS >> 5` where a slow

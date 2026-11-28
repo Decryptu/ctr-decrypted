@@ -34,6 +34,18 @@ int VehCalc_InterpBySpeed(int val, int speed, int desired)
 }
 
 #if CTR_NATIVE_60FPS
+// A step a 30 FPS frame takes whole, split over the two 60 FPS frames that
+// replace it: the even frame takes half, the odd frame the rest.
+int VehCalc_RetailStep(int step)
+{
+	if (!CTR_NATIVE_60FPS_ACTIVE)
+	{
+		return step;
+	}
+	const int firstHalf = step / 2;
+	return ((sdata->gGT->timer & 1) != 0) ? step - firstHalf : firstHalf;
+}
+
 // rate * elapsedTimeMS >> 5, the per-frame step of a value moving at `rate`
 // units per 32 ms. At 60 FPS the shift drops up to a unit every frame, which
 // stalls a slow lerp (1 * 16 >> 5 is 0); the even frame adds what the odd one

@@ -252,9 +252,8 @@ def judder_stats(res, d1, floor):
     """Size: mean |residual| over mean motion (per-frame motion, at least
     floor), the top 1% dropped (a wall, a bump). Signatures: 'steps' when the
     second differences are whole or half units (a rounded value, or one
-    halved after rounding), 'alt' when the residual repeats every second
-    frame (a value updated at 30 Hz holds for two frames; the residual's
-    correlation two frames apart is near 1 then, about 1/6 for noise), 'saw'
+    halved after rounding), 'alt' when the residual flips sign every frame
+    (a value updated at 30 Hz holds for two frames), 'saw'
     when it is lopsided (small pushes one way, a large snap back: a filter
     overshooting)."""
     pairs = sorted(zip(res, d1), key=lambda p: abs(p[0][1]))
@@ -265,10 +264,20 @@ def judder_stats(res, d1, floor):
     d2 = [-2 * r for (_, r), _ in pairs]
     big = [x for x in d2 if abs(x) >= 0.25]
     whole = sum(1 for x in big if abs(2 * x - round(2 * x)) < 0.16) / len(big) if len(big) >= 10 else 0
+    # The residual's two-frame component, summed within each run of
+    # consecutive frames (the odd/even phase of a 30 Hz step can change
+    # between runs) over its total size: near 1 for a value held two frames,
+    # small for noise and for slower oscillations (steering corrections).
     at = {i: r for (i, r), _ in pairs}
-    lag2 = [(r, at[i + 2]) for i, r in at.items() if i + 2 in at]
-    sq = sum(r * r for r, _ in lag2)
-    alt = sum(a * b for a, b in lag2) / sq if sq > 1e-9 and len(lag2) >= 20 else 0
+    runs, total = [], 0.0
+    for i in sorted(at):
+        if not runs or i != runs[-1][0] + 1:
+            runs.append([i, 0.0, 0])
+        runs[-1][0] = i
+        runs[-1][1] += at[i] * (1 if i & 1 else -1)
+        runs[-1][2] += 1
+        total += abs(at[i])
+    alt = sum(abs(s) for _, s, n in runs if n >= 8) / total if total > 1e-9 and len(at) >= 20 else 0
     mean = sum(d2) / len(d2)
     var = sum((x - mean) ** 2 for x in d2) / len(d2)
     skew = (sum((x - mean) ** 3 for x in d2) / len(d2)) / var ** 1.5 if var > 1e-9 else 0

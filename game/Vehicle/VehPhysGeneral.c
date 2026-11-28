@@ -584,15 +584,6 @@ void VehPhysGeneral_PhysAngular(struct Thread *thread, struct Driver *driverArg)
 			CTR_PSX_COPY_VALUE(lerpDriver, driver);
 			CTR_PSX_LOAD_SIGNED_HALF(driftAngleValue, driver, offsetof(struct Driver, turnAngleCurr), driver->turnAngleCurr);
 			CTR_PSX_COPY_VALUE(lerpTurn, turnAngleValue);
-#if CTR_NATIVE_60FPS
-			// At 60 FPS the lerp to forwards runs every other frame and the
-			// skipped frame keeps the last velocity.
-			if (CTR_NATIVE_60FPS_ACTIVE && ((GAME_TRACKER->timer & 1) == 0))
-			{
-				lerpResult = driver->turnAngleLerpVel;
-			}
-			else
-#endif
 			lerpResult = VehPhysGeneral_LerpToForwards(lerpDriver, driftAngleValue, lerpTurn, lerpTarget);
 
 #if defined(CTR_NATIVE)
@@ -1032,8 +1023,10 @@ int VehPhysGeneral_LerpToForwards(struct Driver *d, int currentAngle, int curren
 		}
 	}
 
-	// Interpolate rotation by speed
-	velocity = VehCalc_InterpBySpeed(velocity, driver->const_ModelTurnVelocityLerp, desiredVelocity);
+	// Interpolate rotation by speed. At 60 FPS each frame takes half the step
+	// (VehCalc_RetailStep), so the turn velocity changes every frame, not in
+	// pairs, and two frames move it as far as one 30 FPS frame.
+	velocity = VehCalc_InterpBySpeed(velocity, VehCalc_RetailStep(driver->const_ModelTurnVelocityLerp), desiredVelocity);
 	if (mirrored)
 	{
 		CTR_PSX_FORGET_VALUE(velocity);
