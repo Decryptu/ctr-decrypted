@@ -84,7 +84,18 @@ either mode are identical and work in both:
   - Steering: the spin rate rises toward the stick by half a step a frame
     (`VehPhysGeneral.c`, as the decay already did), the normal-driving turn
     wobble uses the drift wobble's frame counts, and the drift turn-angle lerp
-    closes 1/16 then 1/15 of the gap.
+    closes 1/16 then 1/15 of the gap. The lerp of the turn angle back to
+    forwards (`VehPhysGeneral_LerpToForwards`) runs every frame, each taking
+    half of its velocity step (`VehCalc_RetailStep`); run on odd frames only,
+    the turn velocity changed in pairs and the camera's heading and the kart's
+    yaw moved in 30 Hz steps.
+  - The kart's surface normal (`COLL.c`, `COLL_FIXED_PlayerSearch_BlendNormal60`)
+    eases toward the ground's every frame, keeping the square root of the
+    30 FPS share (3547 and 3831 of 4096 for 6/8 on the ground and 7/8 in the
+    air), with the hazard wobble scaled to settle at the same offset. Blended
+    on odd frames only, it held the kart's tilt and the camera's roll input
+    (`rotCurr.z`) for two frames. Jumps off it are unchanged: the Oxide
+    Station hop sweep below lands the same apexes as with the odd-frame blend.
   - `PhysLerpRot`: the camera spin speed it ramps toward is already per
     32 ms, so it is not halved on odd frames; only the ramp of 8 a frame is.
   - `VehCalc_FrameStep` replaces `rate * elapsedTimeMS >> 5` where a slow
@@ -122,8 +133,11 @@ either mode are identical and work in both:
     the normal of the frame before that (`VehPhysGeneral_JumpNormalOlder`), so
     the window stays 32 ms. Check: `fps-drive.ps1 -Track 13` with
     `CTR_DEV_WARP=16194,13,18306,3372`, `CTR_DEV_BOOST=200:4800:0x800` and a
-    hop swept in 16 ms steps around 1050 ms: two hop times reach an apex near
-    950 at each rate.
+    hop (`H`) swept in 16 ms steps from 986 to 1114 ms: at each rate two hop
+    times peak near 950 (trace `y`; about 810 above the takeoff), the rest
+    600 to 860. They are 1002–1018 ms at 30 and 1066–1082 ms at 60: a press
+    reaches the physics two frames later (64 ms at 30, 32 at 60), and the
+    scripted start leaves the 60 FPS kart about 16 ms later on the lip.
   - All of these do nothing in a 32 ms frame: 30 FPS stays retail bit for bit.
 - The checkered flag's "LOADING..." letters move every frame, each odd frame
   halfway between two 30 FPS positions.

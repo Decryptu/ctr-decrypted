@@ -186,9 +186,14 @@ void NativePgxp_ViewFollowDriver(int cameraID, const struct NativePgxpFollowCame
 	cam->followInst = NULL;
 
 	// The orbit offset and side offset, as the GTE computes them but unrounded.
-	double orbit[9];
+	// The orbit's roll comes from the unrounded roll filter; what that moves
+	// the camera is added after the check against the game's points, which
+	// used the rounded roll.
+	double orbit[9], orbitExact[9];
 	const double orbitRot[3] = {in->orbitRot.x, in->orbitRot.y, in->orbitRot.z};
+	const double orbitRotExact[3] = {in->orbitRot.x, in->orbitRot.y, in->orbitRoll};
 	NativePgxpView_RotToMatrix(orbitRot, orbit);
+	NativePgxpView_RotToMatrix(orbitRotExact, orbitExact);
 
 	double distance = in->distMax;
 	if (in->moveSpeed <= in->speedMin)
@@ -197,12 +202,15 @@ void NativePgxp_ViewFollowDriver(int cameraID, const struct NativePgxpFollowCame
 		distance = in->distMin + (double)(in->moveSpeed - in->speedMin) * (in->distMax - in->distMin) / (double)(in->speedMax - in->speedMin);
 	distance += in->distanceOffset / 256.0;
 
-	double pos[3], delta[3];
+	double pos[3], delta[3], posShift[3], sideShift[3];
 	for (int i = 0; i < 3; i++)
 	{
 		const double side = (i == 1) ? 0.0 : orbit[i * 3 + 1] * 64.0;
+		const double sideExact = (i == 1) ? 0.0 : orbitExact[i * 3 + 1] * 64.0;
 		delta[i] = in->driverPos[i] + in->driverFrac[i] + side;
 		pos[i] = orbit[i * 3 + 2] * distance + in->driverPos[i] + in->driverFrac[i] + side;
+		sideShift[i] = sideExact - side;
+		posShift[i] = (orbitExact[i * 3 + 2] - orbit[i * 3 + 2]) * distance + sideShift[i];
 	}
 	pos[1] = in->maskGrabY ? in->basePos.y : pos[1] + in->vertDistance;
 
@@ -230,10 +238,30 @@ void NativePgxp_ViewFollowDriver(int cameraID, const struct NativePgxpFollowCame
 		// disagree.
 		if ((fabs(posResidual) > 4.0) || (fabs(deltaResidual) > 4.0))
 			return;
-		camPos[i] = finalPos[i] + posResidual;
-		lookAt[i] = finalDelta[i] + deltaResidual;
-		dir[i] = camPos[i] - lookAt[i];
+		camPos[i] = finalPos[i] + posResidual + posShift[i];
+		lookAt[i] = finalDelta[i] + deltaResidual + sideShift[i];
 	}
+
+	// The game keeps the camera vertDistance above the ground under it, both
+	// heights rounded (CAM_FollowDriver_Normal): redo that max unrounded, with
+	// the ground triangle's plane at this camera's position.
+	if (in->groundHeld && (in->finalPos.y == in->groundY))
+	{
+		const double *g = in->ground;
+		const double ax = g[3] - g[0], ay = g[4] - g[1], az = g[5] - g[2];
+		const double bx = g[6] - g[0], by = g[7] - g[1], bz = g[8] - g[2];
+		const double nx = ay * bz - az * by, ny = az * bx - ax * bz, nz = ax * by - ay * bx;
+		if (fabs(ny) > 0.1 * sqrt(nx * nx + ny * ny + nz * nz))
+		{
+			const double ground = g[1] - (nx * (camPos[0] - g[0]) + nz * (camPos[2] - g[2])) / ny + in->vertDistance;
+			const double free = in->groundFreeY + (pos[1] - in->basePos.y) + posShift[1];
+			const double y = (ground > free) ? ground : free;
+			if (fabs(y - in->groundY) <= 3.0)
+				camPos[1] = y;
+		}
+	}
+	for (int i = 0; i < 3; i++)
+		dir[i] = camPos[i] - lookAt[i];
 
 	double rot[3];
 	rot[1] = atan2(dir[0], dir[2]) / NATIVE_PGXP_VIEW_ANGLE;

@@ -9,6 +9,8 @@
                                            launched from the same spot in both
   race_trace.py smooth A.csv [B.csv ...]   how unevenly player 1's camera and
                                            kart angles move from frame to frame
+  race_trace.py judder A.csv [B.csv ...]   rounding judder per channel and driving
+                                           phase, ranked (judder_sweep.ps1)
   race_trace.py fps A.csv B.csv [--until MS]
                                            the same scripted drive (CTR_DEV_DRIVE)
                                            at two frame rates, field by field
@@ -174,6 +176,212 @@ def smooth(paths):
         print(f"{path}: {fps} FPS, {len(rows)} frames: " + ", ".join(parts))
 
 
+# Channels judder reads: (name, wrap, floor, group). A residual is measured
+# against the channel's own per-frame motion, never less than `floor`, so a
+# still channel's noise is not divided by zero. 'drawn' is what the screen
+# follows under the precise camera; 'int cam' is the game's integer camera,
+# which steps by design and is not drawn while the precise camera is on.
+JUDDER_CHANNELS = [
+    ("pcx", 0, 1, "drawn"), ("pcy", 0, 1, "drawn"), ("pcz", 0, 1, "drawn"),
+    ("pcrx", 4096, 1, "drawn"), ("pcry", 4096, 1, "drawn"), ("pcrz", 4096, 1, "drawn"),
+    ("kx", 0, 1, "kart"), ("ky", 0, 1, "kart"), ("kz", 0, 1, "kart"), ("angle", 4096, 1, "kart"),
+    ("speed", 0, 16, "kart"), ("turn", 0, 1, "kart"), ("rotW", 0, 1, "kart"), ("wobble", 0, 1, "kart"),
+    ("tilt", 0, 1, "kart"),
+    ("camSpeed", 0, 16, "camera"), ("rollIn", 0, 1, "camera"), ("roll", 0, 1, "camera"), ("zoomOff", 0, 256, "camera"),
+    ("cx", 0, 1, "int cam"), ("cy", 0, 1, "int cam"), ("cz", 0, 1, "int cam"),
+    ("crx", 4096, 1, "int cam"), ("cry", 4096, 1, "int cam"), ("crz", 4096, 1, "int cam"),
+]
+
+TRACK_NAMES = {0: "Dingo Canyon", 1: "Dragon Mines", 2: "Blizzard Bluff", 3: "Crash Cove", 4: "Tiger Temple",
+               5: "Papu's Pyramid", 6: "Roo's Tubes", 7: "Hot Air Skyway", 8: "Sewer Speedway", 9: "Mystery Caves",
+               10: "Cortex Castle", 11: "N. Gin Labs", 12: "Polar Pass", 13: "Oxide Station", 14: "Coco Park",
+               15: "Tiny Arena", 16: "Slide Coliseum", 17: "Turbo Track", 26: "N. Sanity Beach"}
+
+PHASES = ("steady", "rising", "falling", "turning")
+
+
+def unwrap(v, wrap):
+    if not wrap:
+        return list(v)
+    out = [v[0]]
+    for x in v[1:]:
+        out.append(out[-1] + ((x - out[-1] + wrap / 2) % wrap - wrap / 2))
+    return out
+
+
+def judder_phases(rows, fps):
+    """Each frame's phase, or None where it is not measured: airborne and just
+    after landing, a respawn, frames near a phase change (the input changed, a
+    real jerk), the lights and the end of the race."""
+    n, w = len(rows), max(2, fps // 8)
+    speed = [r["speed"] for r in rows]
+    ang = unwrap([r["angle"] for r in rows], 4096)
+    top = max(1, sorted(speed)[len(speed) * 95 // 100])
+    phase = [None] * n
+    for i in range(w, n - w):
+        ds = (speed[i + w] - speed[i - w]) / (2 * w)
+        da = abs(ang[i + w] - ang[i - w]) / (2 * w)
+        # Per frame at 60 FPS: 0.1% of top speed, 1/4096 of a turn.
+        k = 60 / fps
+        if ds > top * 0.001 * k:
+            phase[i] = "rising"
+        elif ds < -top * 0.001 * k:
+            phase[i] = "falling"
+        elif da > 1.0 * k:
+            phase[i] = "turning"
+        elif speed[i] > top * 0.3:
+            phase[i] = "steady"
+    land = fps // 6
+    bad = [False] * n
+    for i, r in enumerate(rows):
+        if r["air"] or r["lights"] > 0 or r["end"]:
+            for j in range(max(0, i - 2), min(n, i + land)):
+                bad[j] = True
+        if i > 0 and abs(r["kx"] - rows[i - 1]["kx"]) + abs(r["kz"] - rows[i - 1]["kz"]) > 200:
+            for j in range(max(0, i - fps), min(n, i + fps)):
+                bad[j] = True
+    m = fps // 10
+    out = [None] * n
+    for i in range(m, n - m):
+        p = phase[i]
+        if p and not bad[i] and all(phase[j] == p for j in range(i - m, i + m + 1)):
+            out[i] = p
+    return out
+
+
+def judder_stats(res, d1, floor):
+    """Size: mean |residual| over mean motion (per-frame motion, at least
+    floor), the top 1% dropped (a wall, a bump). Signatures: 'steps' when the
+    second differences are whole or half units (a rounded value, or one
+    halved after rounding), 'alt' when the residual flips sign every frame
+    (a value updated at 30 Hz holds for two frames), 'saw'
+    when it is lopsided (small pushes one way, a large snap back: a filter
+    overshooting)."""
+    pairs = sorted(zip(res, d1), key=lambda p: abs(p[0][1]))
+    pairs = pairs[: max(1, len(pairs) * 99 // 100)]
+    num = sum(abs(r) for (_, r), _ in pairs)
+    den = sum(max(abs(d), floor) for _, d in pairs)
+    size = num / max(den, 1e-9)
+    d2 = [-2 * r for (_, r), _ in pairs]
+    big = [x for x in d2 if abs(x) >= 0.25]
+    whole = sum(1 for x in big if abs(2 * x - round(2 * x)) < 0.16) / len(big) if len(big) >= 10 else 0
+    # The residual's two-frame component, summed within each run of
+    # consecutive frames (the odd/even phase of a 30 Hz step can change
+    # between runs) over its total size: near 1 for a value held two frames,
+    # small for noise and for slower oscillations (steering corrections).
+    at = {i: r for (i, r), _ in pairs}
+    runs, total = [], 0.0
+    for i in sorted(at):
+        if not runs or i != runs[-1][0] + 1:
+            runs.append([i, 0.0, 0])
+        runs[-1][0] = i
+        runs[-1][1] += at[i] * (1 if i & 1 else -1)
+        runs[-1][2] += 1
+        total += abs(at[i])
+    alt = sum(abs(s) for _, s, n in runs if n >= 8) / total if total > 1e-9 and len(at) >= 20 else 0
+    mean = sum(d2) / len(d2)
+    var = sum((x - mean) ** 2 for x in d2) / len(d2)
+    skew = (sum((x - mean) ** 3 for x in d2) / len(d2)) / var ** 1.5 if var > 1e-9 else 0
+    tags = []
+    if whole > 0.6:
+        tags.append("steps")
+    if alt > 0.5:
+        tags.append(f"alt {alt:.2f}")
+    if abs(skew) > 1.5:
+        tags.append(f"saw {skew:+.1f}")
+    motion = den / len(pairs)
+    return size, motion, " ".join(tags) or "-"
+
+
+def judder(paths, top_n=25):
+    """Frame-to-frame judder per channel and driving phase, ranked; see
+    JUDDER_CHANNELS and docs/DEV-TOOLS.md."""
+    cells = []  # (channel, group, phase, track, frames, size, motion, signature)
+    for path in paths:
+        every = load(path)
+        if not every or "pcx" not in every[0]:
+            print(f"{path}: no camera columns, skipped")
+            continue
+        fps = 60 if any(r["fps60"] for r in every) else 30
+        # A run can change level (a hub drive through a warp pad): each level on its own.
+        segments = []
+        for r in every:
+            if not segments or segments[-1][-1]["level"] != r["level"]:
+                segments.append([])
+            segments[-1].append(r)
+        for rows in segments:
+            if len(rows) < fps * 2:
+                continue
+            judder_segment(path, rows, fps, cells)
+    if not cells:
+        return
+    judder_report(cells, top_n)
+
+
+def judder_segment(path, rows, fps, cells):
+    """One level of one trace: a cell per channel and phase."""
+    phase = judder_phases(rows, fps)
+    track = TRACK_NAMES.get(rows[0]["level"], f"level {rows[0]['level']}")
+    counts = {p: phase.count(p) for p in PHASES}
+    print(f"{path}: {track}, {fps} FPS, {len(rows)} frames: " + ", ".join(f"{p} {c}" for p, c in counts.items()))
+    for name, wrap, floor, group in JUDDER_CHANNELS:
+        if name not in rows[0]:
+            continue
+        v = unwrap([r[name] for r in rows], wrap)
+        for p in PHASES:
+            idx = [i for i in range(1, len(v) - 1) if phase[i] == p]
+            if len(idx) < 30:
+                continue
+            res = [(i, v[i] - (v[i - 1] + v[i + 1]) / 2) for i in idx]
+            d1 = [(v[i + 1] - v[i - 1]) / 2 for i in idx]
+            size, motion, sig = judder_stats(res, d1, floor)
+            cells.append((name, group, p, track, len(idx), size, motion, sig))
+
+
+def judder_report(cells, top_n):
+    # Steady driving is the reference: per channel, the median size there.
+    base = {}
+    for name, *_ in JUDDER_CHANNELS:
+        s = sorted(c[5] for c in cells if c[0] == name and c[2] == "steady")
+        if s:
+            base[name] = s[len(s) // 2]
+
+    print("\nWorse than steady driving (size: mean residual over per-frame motion; x: times the steady median):")
+    print(f"{'channel':9} {'group':7} {'phase':8} {'tracks':>6} {'median':>7} {'worst':>7} {'x':>5}  {'motion':>7}  signature, worst track")
+    groups = {}
+    for c in cells:
+        if c[2] == "steady" or c[0] not in base:
+            continue
+        x = c[5] / max(base[c[0]], 0.01)
+        if x >= 2 and c[5] >= 0.02:
+            groups.setdefault((c[0], c[1], c[2]), []).append((c, x))
+    ranked = []
+    for (name, group, p), hits in groups.items():
+        sizes = sorted(h[0][5] for h in hits)
+        worst, wx = max(hits, key=lambda h: h[0][5])
+        ranked.append((len(hits) * sizes[len(sizes) // 2], name, group, p, len(hits), sizes[len(sizes) // 2], worst, wx))
+    ranked.sort(key=lambda r: (r[2] == "int cam", -r[0]))
+    for _, name, group, p, k, med, worst, wx in ranked[:top_n]:
+        print(f"{name:9} {group:7} {p:8} {k:>6} {med:>7.1%} {worst[5]:>7.1%} {wx:>5.1f}  {worst[6]:>7.2f}  {worst[7]}, {worst[3]}")
+
+    print("\n30 Hz and filter signatures, per channel (tracks showing it in any phase, of tracks traced):")
+    tracks = len({c[3] for c in cells})
+    for name, wrap, floor, group in JUDDER_CHANNELS:
+        alt = {c[3] for c in cells if c[0] == name and "alt" in c[7]}
+        saw = {c[3] for c in cells if c[0] == name and "saw" in c[7]}
+        if len(alt) >= 3 or len(saw) >= 3:
+            print(f"{name:9} {group:7} alt {len(alt):>2}/{tracks}  saw {len(saw):>2}/{tracks}")
+
+    print("\nSteady driving, per channel (median and worst track):")
+    print(f"{'channel':9} {'group':7} {'median':>7} {'worst':>7}  {'motion':>7}  signature, worst track")
+    for name, wrap, floor, group in JUDDER_CHANNELS:
+        s = [c for c in cells if c[0] == name and c[2] == "steady"]
+        if not s:
+            continue
+        worst = max(s, key=lambda c: c[5])
+        print(f"{name:9} {group:7} {base[name]:>7.1%} {worst[5]:>7.1%}  {worst[6]:>7.2f}  {worst[7]}, {worst[3]}")
+
+
 # Kart state that must follow the same course in time at any frame rate
 # (vertical velocity left out: on the ground it is contact noise at both).
 FPS_FIELDS = [("x", 0), ("z", 0), ("y", 0), ("angle", 4096), ("speed", 0), ("vx", 0), ("vz", 0),
@@ -241,6 +449,8 @@ if __name__ == "__main__":
         ghost(*args)
     elif cmd == "smooth":
         smooth(args)
+    elif cmd == "judder":
+        judder(args)
     elif cmd == "fps" and len(args) in (2, 4) and (len(args) == 2 or args[2] == "--until"):
         fps(args[0], args[1], int(args[3]) if len(args) == 4 else None)
     elif cmd == "parity" and len(args) == 2:

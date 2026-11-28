@@ -104,12 +104,17 @@ struct NativePgxpFollowCamera
 	int damagePitch;
 	int lookAtHeight;
 	double roll;
+	double orbitRoll;   // orbitRot.z as the unrounded roll filter has it
 	Vec3 basePos;       // camera and look-at points before the game's adjustments
 	Vec3 baseDelta;
 	Vec3 finalPos;      // and after them
 	Vec3 finalDelta;
 	Vec3 prevPos;       // cameraPos before this frame
 	Vec3 correction;    // pushBufferPosCorrection after this frame
+	b32 groundHeld;     // the camera is kept vertDistance above the ground under it
+	int groundFreeY;    // the camera's height before that limit
+	int groundY;        // and after it, as the game rounded both
+	double ground[9];   // the triangle under the camera, three world-space vertices
 };
 
 void NativePgxp_ViewFollowDriver(int cameraID, const struct NativePgxpFollowCamera *in, const SVec3 *pbPos, const SVec3 *pbRot);

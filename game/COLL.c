@@ -849,6 +849,46 @@ internal void COLL_FIXED_PlayerSearch_NormalizeAxis2(struct Driver *d, s32 x, s3
 	d->AxisAngle2_normalVec.z = (s16)CTR_MipsDiv(CTR_MipsSll(z, 12), (s32)len);
 }
 
+#if CTR_NATIVE_60FPS
+// The kart's surface normal eases toward the ground's (or the up vector in the
+// air): each 30 FPS frame keeps weight/8 of the old one. At 60 FPS it runs
+// every frame keeping sqrt(weight/8) (out of 4096), so two frames keep what
+// one 30 FPS frame does. Stepping it on odd frames only held the kart's tilt
+// and the camera's roll input (rotCurr.z, read from this normal) for two
+// frames. The hazard wobble added each step is scaled by the new give over
+// the old, so it settles at the same offset.
+internal void COLL_FIXED_PlayerSearch_BlendNormal60(struct Driver *d, s32 weight)
+{
+	// sqrt(6/8) and sqrt(7/8) out of 4096: ground and airborne.
+	const s32 keep = (weight == COLL_FIXED_PLAYER_SEARCH_NORMAL_BLEND_GROUND_WEIGHT) ? 3547 : 3831;
+	const s32 give = 4096 - keep;
+	s32 normalX = (keep * d->AxisAngle2_normalVec.x + give * d->normalVecUP.x) >> 12;
+	s32 normalY = (keep * d->AxisAngle2_normalVec.y + give * d->normalVecUP.y) >> 12;
+	s32 normalZ = (keep * d->AxisAngle2_normalVec.z + give * d->normalVecUP.z) >> 12;
+
+	if (d->hazardTimer > 0)
+	{
+		struct CollFixedPlayerTrig trig = COLL_FIXED_PlayerSearch_Trig(CTR_MipsMulLo(d->hazardTimer, COLL_FIXED_PLAYER_SEARCH_HAZARD_WOBBLE_ANGLE_STEP));
+		s16 input[4] = {
+		    (s16)CTR_MipsSra(CTR_MipsMulLo(trig.x, COLL_FIXED_PLAYER_SEARCH_HAZARD_WOBBLE_AMPLITUDE), COLL_FIXED_PLAYER_SEARCH_HAZARD_WOBBLE_SHIFT), 0,
+		    (s16)CTR_MipsSra(CTR_MipsMulLo(trig.z, COLL_FIXED_PLAYER_SEARCH_HAZARD_WOBBLE_AMPLITUDE), COLL_FIXED_PLAYER_SEARCH_HAZARD_WOBBLE_SHIFT), 0};
+		s32 output[3];
+
+		CTR_GteLoadS16TripletV0(input);
+		gte_rtv0();
+		CTR_GteStoreMAC(output);
+
+		const s64 scale = (s64)give * COLL_FIXED_PLAYER_SEARCH_NORMAL_BLEND_TOTAL_WEIGHT;
+		const s64 per = (s64)(COLL_FIXED_PLAYER_SEARCH_NORMAL_BLEND_TOTAL_WEIGHT - weight) * 4096;
+		normalX += (s32)(output[0] * scale / per);
+		normalY += (s32)(output[1] * scale / per);
+		normalZ += (s32)(output[2] * scale / per);
+	}
+
+	COLL_FIXED_PlayerSearch_NormalizeAxis2(d, normalX, normalY, normalZ);
+}
+#endif
+
 internal b32 COLL_FIXED_PlayerSearch_CheckMaskGrabProgress(struct Driver *d, struct QuadBlock *quad)
 {
 	struct GameTracker *gGT = sdata->gGT;
@@ -1184,7 +1224,13 @@ DriverAirborne:
 	}
 
 BlendNormal:
-if (!CTR_NATIVE_60FPS_ACTIVE || ((gGT->timer & 1) != 0))
+#if CTR_NATIVE_60FPS
+if (CTR_NATIVE_60FPS_ACTIVE)
+{
+	COLL_FIXED_PlayerSearch_BlendNormal60(d, normalBlendWeight);
+}
+else
+#endif
 {
 	s32 invWeight = COLL_FIXED_PLAYER_SEARCH_NORMAL_BLEND_TOTAL_WEIGHT - normalBlendWeight;
 	s32 normalX = CTR_MipsSra(CTR_MipsAddLo(CTR_MipsMulLo(normalBlendWeight, d->AxisAngle2_normalVec.x), CTR_MipsMulLo(invWeight, d->normalVecUP.x)),

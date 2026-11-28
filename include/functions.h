@@ -1335,11 +1335,13 @@ void RB_Teeth_OpenDoor(struct Instance *teethInst);
 int VehCalc_InterpBySpeed(int val, int speed, int desired);
 #if CTR_NATIVE_60FPS
 int VehCalc_FrameStep(int rate, int elapsedMS);
+int VehCalc_RetailStep(int step);
 int VehCalc_Length8(int x, int y, int z);
 void VehCalc_KeepLossPerFrameTime(Vec3 *v, int lengthBefore8);
 void COLL_MOVED_SetStepLead(const struct Driver *d, const Vec3 *lead);
 #else
 #define VehCalc_FrameStep(rate, elapsedMS) CTR_MipsSra(CTR_MipsMulLo((rate), (elapsedMS)), 5)
+#define VehCalc_RetailStep(step) (step)
 #endif
 int VehCalc_MapToRange(int val, int oldMin, int oldMax, int newMin, int newMax);
 // void VehStuckProc_Tumble_Animate(struct Thread* thread, struct Driver* driver);

@@ -796,6 +796,55 @@ void CAM_ProcessTransition(SVec3 *currPos, SVec3 *currRot, SVec3 *startPos, SVec
 }
 
 
+#ifdef CTR_NATIVE
+// The ground triangle under the camera, three world-space vertices, for the
+// precise camera's ground height. The camera's search is low detail (its
+// searchFlags are 0): a quadblock is its two corner triangles 0,1,2 and
+// 1,3,2 (COLL_FIXED_QUADBLK_TestTriangles), and the search does not record
+// which one it hit, so take the one whose x/z holds the camera's.
+static b32 CAM_PreciseGroundTriangle(const struct ScratchpadStruct *sps, const struct QuadBlock *quad, s32 x, s32 z, double out[9])
+{
+	static const u8 corners[2][3] = {{0, 1, 2}, {1, 3, 2}};
+	if ((quad == NULL) || (sps->ptr_mesh_info == NULL))
+		return false;
+	const struct LevVertex *verts = PSX_GET(sps->ptr_mesh_info->ptrVertexArray);
+	if (verts == NULL)
+		return false;
+	const int triangles = (quad->index[2] != quad->index[3]) ? 2 : 1;
+	double best = -1e30;
+	for (int t = 0; t < triangles; t++)
+	{
+		double p[9];
+		for (int i = 0; i < 3; i++)
+		{
+			const struct LevVertex *v = &verts[quad->index[corners[t][i]]];
+			p[i * 3 + 0] = v->pos.x;
+			p[i * 3 + 1] = v->pos.y;
+			p[i * 3 + 2] = v->pos.z;
+		}
+		// How far inside all three edges (x/z), as a share of the area:
+		// positive inside, the triangle with the largest wins.
+		const double area = (p[3] - p[0]) * (p[8] - p[2]) - (p[5] - p[2]) * (p[6] - p[0]);
+		if (fabs(area) < 1.0)
+			continue;
+		double inside = 1e30;
+		for (int e = 0; e < 3; e++)
+		{
+			const double *a = &p[e * 3], *b = &p[((e + 1) % 3) * 3];
+			const double side = ((b[0] - a[0]) * (z - a[2]) - (b[2] - a[2]) * (x - a[0])) / area;
+			if (side < inside)
+				inside = side;
+		}
+		if (inside > best)
+		{
+			best = inside;
+			memcpy(out, p, sizeof(p));
+		}
+	}
+	return best > -0.05;
+}
+#endif
+
 void CAM_FindClosestQuadblock(struct ScratchpadStruct *sps, struct CameraDC *cDC, struct Driver *d, const Vec3 *pos)
 {
 	struct QuadBlock *quad;
@@ -1159,6 +1208,49 @@ static s32 CAM_SmoothFrame(s32 old, s32 target, s32 keep, s32 give)
 	return (keep * old + give * target) >> 8;
 }
 
+#ifdef CTR_NATIVE
+// The roll filter (desiredRot.x) run again without rounding, for the precise
+// camera. The game's filter floors every frame, so while the kart's roll
+// changes slowly it moves a whole unit every few frames; the camera's roll
+// and its orbit position (the orbit is taken in a rotation that includes the
+// roll) followed those steps. A rising target can leave the floored filter up
+// to 1 / (1 - keep) units behind (the floor eats each smaller step); further
+// apart, or after a frame this camera mode did not run, follow the game's.
+static double s_preciseRoll[4];
+static int s_preciseRollTimer[4];
+static b32 s_preciseRollValid[4];
+
+static double CAM_PreciseRollFrame(int cameraID, s32 rounded, s32 target, s32 keep)
+{
+	if ((cameraID < 0) || (cameraID >= 4))
+		return rounded;
+	double k = keep / 256.0;
+	if (CTR_NATIVE_60FPS_ACTIVE)
+		k = sqrt(k);
+	const int timer = sdata->gGT->timer;
+	double r = s_preciseRoll[cameraID];
+	if (s_preciseRollValid[cameraID] && (s_preciseRollTimer[cameraID] + 1 == timer))
+		r = k * r + (1.0 - k) * target;
+	else
+		r = rounded;
+	if ((k >= 1.0) || (fabs(r - rounded) > 1.0 / (1.0 - k) + 1.0))
+		r = rounded;
+	s_preciseRoll[cameraID] = r;
+	s_preciseRollTimer[cameraID] = timer;
+	s_preciseRollValid[cameraID] = true;
+	return r;
+}
+
+// The value CAM_PreciseRollFrame gave last frame (the orbit is taken in the
+// roll from before this frame's filter step), or the game's if there is none.
+static double CAM_PreciseRollLast(int cameraID, s32 rounded)
+{
+	if ((cameraID < 0) || (cameraID >= 4) || !s_preciseRollValid[cameraID] || (s_preciseRollTimer[cameraID] + 1 != sdata->gGT->timer))
+		return rounded;
+	return s_preciseRoll[cameraID];
+}
+#endif
+
 static struct CheckpointNode *CAM_FollowDriver_TrackPath_GetNode(struct CameraDC *cDC, struct CheckpointNode *node, s32 speed)
 {
 	struct CheckpointNode *nodes = PSX_GET(sdata->gGT->level1->ptr_restart_points);
@@ -1473,6 +1565,7 @@ void CAM_FollowDriver_Normal(struct CameraDC *cDC, struct Driver *d, SVec3 *push
 	cam->rot.z = cDC->desiredRot.x * -2;
 #ifdef CTR_NATIVE
 	precise.orbitRot = cam->rot;
+	precise.orbitRoll = -2.0 * CAM_PreciseRollLast(cDC->cameraID, cDC->desiredRot.x);
 #endif
 
 	// convert 3 rotation shorts into rotation matrix
@@ -1636,6 +1729,9 @@ void CAM_FollowDriver_Normal(struct CameraDC *cDC, struct Driver *d, SVec3 *push
 #endif
 
 	cDC->desiredRot.x = CAM_SmoothFrame((s32)cDC->desiredRot.x, (s32)d->rotCurr.z, (s32)zoom->angle[1], 0x100 - (s32)zoom->angle[1]);
+#ifdef CTR_NATIVE
+	const double preciseRoll = CAM_PreciseRollFrame(cDC->cameraID, cDC->desiredRot.x, d->rotCurr.z, zoom->angle[1]);
+#endif
 
 
 	state = d->kartState;
@@ -1742,6 +1838,9 @@ void CAM_FollowDriver_Normal(struct CameraDC *cDC, struct Driver *d, SVec3 *push
 	}
 
 	CAM_FindClosestQuadblock(sps, cDC, d, &cam->pos);
+#ifdef CTR_NATIVE
+	precise.groundHeld = false;
+#endif
 
 	{
 		struct QuadBlock *quad = sps->hit.ptrQuadblock;
@@ -1771,10 +1870,26 @@ void CAM_FollowDriver_Normal(struct CameraDC *cDC, struct Driver *d, SVec3 *push
 			}
 
 			x = (s32)scratchWork->collision.sps.Union.QuadBlockColl.hitPos.y + (s32)zoom->vertDistance;
+#ifdef CTR_NATIVE
+			const s32 freeY = cam->pos.y;
+#endif
 			if (cam->pos.y < x)
 			{
 				cam->pos.y = x;
 			}
+#ifdef CTR_NATIVE
+			// The camera stays vertDistance above the ground under it. hitPos
+			// is that ground at the camera's whole-unit x and z, rounded, so
+			// on a slope the camera rides the limit in whole-unit steps and
+			// flips between held and free from frame to frame. The precise
+			// camera redoes the max of the two heights unrounded, with the plane
+			// of the ground triangle under it at its own position (not for mud and water,
+			// flat at height 0, nor while the height smoothing blends).
+			precise.groundHeld = (cDC->heightSmoothing.framesRemaining == 0) && (scratchWork->collision.sps.Union.QuadBlockColl.hitPos.y != 0) &&
+			                     CAM_PreciseGroundTriangle(sps, quad, cam->pos.x, cam->pos.z, precise.ground);
+			precise.groundFreeY = freeY;
+			precise.groundY = cam->pos.y;
+#endif
 
 			x = cDC->heightSmoothing.framesRemaining;
 			if (x != 0)
@@ -1902,7 +2017,7 @@ void CAM_FollowDriver_Normal(struct CameraDC *cDC, struct Driver *d, SVec3 *push
 		}
 		else if (d->kartState != KS_MASK_GRABBED)
 		{
-			precise.roll = (double)zoom->angle[0] * cDC->desiredRot.x / 256.0;
+			precise.roll = (double)zoom->angle[0] * preciseRoll / 256.0;
 			precise.finalPos = cam->pos;
 			precise.finalDelta = cam->delta;
 			precise.correction = cDC->pushBufferPosCorrection;
