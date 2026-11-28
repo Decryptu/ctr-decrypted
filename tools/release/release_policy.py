@@ -15,32 +15,54 @@ import re
 from pathlib import Path
 
 
+# The build targets a release carries a client archive for, in the updater's
+# order (ap/ap_update_core.h, Target). Windows ships the 32-bit x86 build, Linux
+# the 64-bit builds.
+TARGETS = ("windows-x86", "linux-x86_64", "linux-arm64")
+
+
+def target_os(target: str) -> str:
+    """"windows" or "linux": the archive format and executable name."""
+    return "windows" if target.startswith("windows-") else "linux"
+
+
+def archive_suffix(target: str) -> str:
+    return ".zip" if target_os(target) == "windows" else ".tar.gz"
+
+
+def client_asset_template(target: str) -> str:
+    return "ctr-decrypted-{version}-" + target + archive_suffix(target)
+
+
+def debug_asset_name(target: str) -> str:
+    """The player client's debug sidecar as a release asset. The Linux ones
+    carry their target, since both are named ctr_native_ap.debug by the build
+    (and inside each executable's .gnu_debuglink)."""
+    return "ctr_native_ap.exe.debug" if target_os(target) == "windows" else f"ctr_native_ap-{target}.debug"
+
+
 STANDARD_ASSET_NAMES = (
-    "ctr-decrypted-{version}-windows-x86.zip",
-    "ctr-decrypted-{version}-windows-x86.zip.sha256",
-    "ctr_native_ap.exe.debug",
-    "ctr_native_ap.exe.debug.sha256",
+    *(name for target in TARGETS for name in (
+        client_asset_template(target),
+        client_asset_template(target) + ".sha256",
+        debug_asset_name(target),
+        debug_asset_name(target) + ".sha256",
+    )),
     "ctr.apworld",
     "ctr.apworld.sha256",
     "Crash.Team.Racing.yaml",
-    "ctr-decrypted-{version}-linux-x86.tar.gz",
-    "ctr-decrypted-{version}-linux-x86.tar.gz.sha256",
-    "ctr_native_ap.debug",
-    "ctr_native_ap.debug.sha256",
 )
 
 # The separate box authoring download (a CTR_AP_AUTHORING client that never
-# connects to a room). Optional: a release may carry it or not, it is not one of
-# the eleven standard assets and the signed manifest never covers it. When an
-# archive is present its .sha256 sidecar must be present and correct.
+# connects to a room), one archive per target. Optional: a release may carry it
+# or not, it is not one of the standard assets and the signed manifest never
+# covers it. When an archive is present its .sha256 sidecar must be present and
+# correct.
 AUTHORING_ASSET_NAMES = {
-    "windows": "ctr-decrypted-{version}-box-authoring-windows-x86.zip",
-    "linux": "ctr-decrypted-{version}-box-authoring-linux-x86.tar.gz",
+    target: "ctr-decrypted-{version}-box-authoring-" + target + archive_suffix(target) for target in TARGETS
 }
 
-WINDOWS_CLIENT_ASSET = "ctr-decrypted-{version}-windows-x86.zip"
-LINUX_CLIENT_ASSET = "ctr-decrypted-{version}-linux-x86.tar.gz"
-SIGNED_ASSET_NAMES = (WINDOWS_CLIENT_ASSET, LINUX_CLIENT_ASSET)
+SIGNED_ASSET_NAMES = tuple(client_asset_template(target) for target in TARGETS)
 
 MANIFEST_NAME = "manifest.json"
 SIGNATURE_NAME = "manifest.json.minisig"
@@ -70,29 +92,34 @@ def sha256(path: Path) -> str:
 
 
 def standard_asset_names(version: str) -> list[str]:
-    """The eleven standard release assets, with the tag-style version filled in."""
+    """The standard release assets, with the tag-style version filled in."""
     tag = version if version.startswith("v") else f"v{version}"
     return [name.format(version=tag) for name in STANDARD_ASSET_NAMES]
 
 
-def authoring_asset_name(version: str, platform: str) -> str:
+def client_asset_name(version: str, target: str) -> str:
     tag = version if version.startswith("v") else f"v{version}"
-    return AUTHORING_ASSET_NAMES[platform].format(version=tag)
+    return client_asset_template(target).format(version=tag)
+
+
+def authoring_asset_name(version: str, target: str) -> str:
+    tag = version if version.startswith("v") else f"v{version}"
+    return AUTHORING_ASSET_NAMES[target].format(version=tag)
 
 
 def authoring_asset_names(version: str) -> list[str]:
     """The optional box authoring archives and their checksum sidecars."""
     names = []
-    for platform in ("windows", "linux"):
-        archive = authoring_asset_name(version, platform)
+    for target in TARGETS:
+        archive = authoring_asset_name(version, target)
         names += [archive, archive + ".sha256"]
     return names
 
 
 def verify_authoring_sidecars(release: Path, version: str) -> None:
     """An optional authoring archive, if present, needs its own valid sidecar."""
-    for platform in ("windows", "linux"):
-        archive = authoring_asset_name(version, platform)
+    for target in TARGETS:
+        archive = authoring_asset_name(version, target)
         sidecar = archive + ".sha256"
         has_archive = (release / archive).exists()
         has_sidecar = (release / sidecar).exists()
@@ -112,13 +139,13 @@ def verify_authoring_sidecars(release: Path, version: str) -> None:
 
 
 def signed_asset_names(version: str) -> list[str]:
-    """The exact two client archives the signed manifest covers."""
+    """The exact client archives the signed manifest covers, one per target."""
     tag = version if version.startswith("v") else f"v{version}"
     return sorted(name.format(version=tag) for name in SIGNED_ASSET_NAMES)
 
 
 def prepared_release_files(version: str) -> set[str]:
-    """Permitted files in a pre-sign assembly: eleven standard assets plus manifest."""
+    """Permitted files in a pre-sign assembly: the standard assets plus manifest."""
     return {*standard_asset_names(version), MANIFEST_NAME}
 
 

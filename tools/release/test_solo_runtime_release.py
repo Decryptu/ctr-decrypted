@@ -39,7 +39,9 @@ def load(name: str, path: Path):
 ASSEMBLER = load("assemble_release_solo", HERE / "assemble-release.py")
 VERIFIER = load("verify_release_solo", HERE.parent / "verify-release.py")
 BUILDER = load("build_runtime_solo", HERE.parent / "solo" / "build-runtime.py")
-INTERPRETER = {"windows": "python/python.exe", "linux": "python/bin/python3.12"}
+INTERPRETER = {"windows-x86": "python/python.exe", "linux-x86_64": "python/bin/python3.12",
+               "linux-arm64": "python/bin/python3.12"}
+TARGETS = tuple(INTERPRETER)
 
 
 def sha(data: bytes) -> str:
@@ -74,7 +76,7 @@ class SoloRuntimeReleaseTests(unittest.TestCase):
         return folder
 
     def test_entries_accept_a_matching_runtime(self) -> None:
-        entries = ASSEMBLER.solo_runtime_entries(self.runtime("linux"), "linux", self.apworld)
+        entries = ASSEMBLER.solo_runtime_entries(self.runtime("linux-x86_64"), "linux-x86_64", self.apworld)
         names = {name for _, name in entries}
         self.assertIn("solo-runtime/RUNTIME.txt", names)
         self.assertIn("solo-runtime/python/bin/python3.12", names)
@@ -82,32 +84,32 @@ class SoloRuntimeReleaseTests(unittest.TestCase):
 
     def test_entries_refuse_another_apworld(self) -> None:
         with self.assertRaises(ASSEMBLER.AssemblyError):
-            ASSEMBLER.solo_runtime_entries(self.runtime("windows", apworld_sha="0" * 64), "windows", self.apworld)
+            ASSEMBLER.solo_runtime_entries(self.runtime("windows-x86", apworld_sha="0" * 64), "windows-x86", self.apworld)
 
     def test_entries_refuse_the_wrong_platform(self) -> None:
         with self.assertRaises(ASSEMBLER.AssemblyError):
-            ASSEMBLER.solo_runtime_entries(self.runtime("linux"), "windows", self.apworld)
+            ASSEMBLER.solo_runtime_entries(self.runtime("linux-x86_64"), "windows-x86", self.apworld)
 
     def test_entries_refuse_a_symlink(self) -> None:
-        runtime = self.runtime("linux")
+        runtime = self.runtime("linux-x86_64")
         symlink_or_skip(self, "python3.12", runtime / "python" / "bin" / "python3")
         with self.assertRaises(ASSEMBLER.AssemblyError):
-            ASSEMBLER.solo_runtime_entries(runtime, "linux", self.apworld)
+            ASSEMBLER.solo_runtime_entries(runtime, "linux-x86_64", self.apworld)
 
     def test_entries_refuse_a_missing_interpreter(self) -> None:
-        runtime = self.runtime("windows")
-        (runtime / INTERPRETER["windows"]).unlink()
+        runtime = self.runtime("windows-x86")
+        (runtime / INTERPRETER["windows-x86"]).unlink()
         with self.assertRaises(ASSEMBLER.AssemblyError):
-            ASSEMBLER.solo_runtime_entries(runtime, "windows", self.apworld)
+            ASSEMBLER.solo_runtime_entries(runtime, "windows-x86", self.apworld)
 
     def test_entries_refuse_a_changed_file(self) -> None:
-        runtime = self.runtime("windows")
+        runtime = self.runtime("windows-x86")
         (runtime / "archipelago" / "MultiServer.py").write_text("changed")
         with self.assertRaises(ASSEMBLER.AssemblyError):
-            ASSEMBLER.solo_runtime_entries(runtime, "windows", self.apworld)
+            ASSEMBLER.solo_runtime_entries(runtime, "windows-x86", self.apworld)
 
     def test_tree_digest_matches_the_builder(self) -> None:
-        runtime = self.runtime("linux")
+        runtime = self.runtime("linux-x86_64")
         self.assertEqual(BUILDER.manifest_hashes(runtime),
                          ASSEMBLER.read_runtime_manifest((runtime / "RUNTIME.txt").read_text())["tree sha256"])
 
@@ -119,7 +121,7 @@ class SoloRuntimeReleaseTests(unittest.TestCase):
         self.assertFalse(VERIFIER.solo_runtime_required("v0.2.9-alpha1"))
 
     def test_linux_interpreter_is_executable_in_the_tarball(self) -> None:
-        entries = ASSEMBLER.solo_runtime_entries(self.runtime("linux"), "linux", self.apworld)
+        entries = ASSEMBLER.solo_runtime_entries(self.runtime("linux-x86_64"), "linux-x86_64", self.apworld)
         tarball = self.root / "client.tar.gz"
         ASSEMBLER.create_archive(tarball, "root", entries, linux=True)
         with tarfile.open(tarball) as bundle:
@@ -127,50 +129,58 @@ class SoloRuntimeReleaseTests(unittest.TestCase):
         self.assertEqual(modes["root/solo-runtime/python/bin/python3.12"], 0o755)
         self.assertEqual(modes["root/solo-runtime/ctr_solo.py"], 0o644)
 
-    def write_release(self, tag: str, windows_runtime: Path | None, linux_runtime: Path | None,
-                      bundled_apworld: bytes | None = None) -> Path:
+    def write_release(self, tag: str, runtimes: dict[str, Path | None] | None = None,
+                      bundled_apworld: bytes | None = None, **override: Path | None) -> Path:
+        """A release with one client archive per target. `runtimes` defaults to
+        a matching runtime for each; keyword overrides use the target with
+        "_" for "-" (linux_arm64=None)."""
         release = self.root / "release"
         release.mkdir()
         (release / "ctr.apworld").write_bytes(self.apworld.read_bytes())
         apworld_entry = self.root / "bundled.apworld"
         apworld_entry.write_bytes(bundled_apworld if bundled_apworld is not None else self.apworld.read_bytes())
-        for platform, runtime in (("windows", windows_runtime), ("linux", linux_runtime)):
+        given = {key.replace("_", "-").replace("x86-64", "x86_64"): runtime for key, runtime in override.items()}
+        if runtimes is None:
+            runtimes = {target: given[target] if target in given else self.runtime(target) for target in TARGETS}
+        for target in TARGETS:
+            runtime = runtimes[target]
             entries = [(apworld_entry, "ctr.apworld")]
             if runtime is not None:
                 entries += [(p, f"solo-runtime/{p.relative_to(runtime).as_posix()}")
                             for p in sorted(runtime.rglob("*")) if p.is_file()]
-            suffix = ".zip" if platform == "windows" else ".tar.gz"
-            ASSEMBLER.create_archive(release / f"ctr-decrypted-{tag}-{platform}-x86{suffix}",
-                                     f"ctr-decrypted-{tag}", entries, linux=platform == "linux")
+            linux = target != "windows-x86"
+            ASSEMBLER.create_archive(release / f"ctr-decrypted-{tag}-{target}{'.tar.gz' if linux else '.zip'}",
+                                     f"ctr-decrypted-{tag}", entries, linux=linux)
         return release
 
     def test_verifier_accepts_matching_runtimes(self) -> None:
-        release = self.write_release("v0.3.0", self.runtime("windows"), self.runtime("linux"))
+        release = self.write_release("v0.3.0")
         VERIFIER.verify_solo_runtime(release, "v0.3.0")
 
     def test_verifier_requires_the_runtime(self) -> None:
-        release = self.write_release("v0.3.0", self.runtime("windows"), None)
-        with self.assertRaises(VERIFIER.PolicyError):
-            VERIFIER.verify_solo_runtime(release, "v0.3.0")
+        for target in TARGETS:
+            with self.subTest(target=target):
+                release = self.write_release("v0.3.0", **{target.replace("-", "_"): None})
+                with self.assertRaises(VERIFIER.PolicyError):
+                    VERIFIER.verify_solo_runtime(release, "v0.3.0")
+                self.root.joinpath("release").rename(self.root / f"release-{target}")
 
     def test_verifier_refuses_a_runtime_for_another_apworld(self) -> None:
-        release = self.write_release("v0.3.0", self.runtime("windows"),
-                                     self.runtime("linux", apworld_sha="1" * 64))
+        release = self.write_release("v0.3.0", linux_arm64=self.runtime("linux-arm64", apworld_sha="1" * 64))
         with self.assertRaises(VERIFIER.PolicyError):
             VERIFIER.verify_solo_runtime(release, "v0.3.0")
 
     def test_verifier_refuses_a_changed_runtime_file(self) -> None:
-        windows = self.runtime("windows")
-        linux = self.runtime("linux")
+        linux = self.runtime("linux-x86_64")
         (linux / "ctr_solo.py").write_text("tampered")
-        release = self.write_release("v0.3.0", windows, linux)
+        release = self.write_release("v0.3.0", linux_x86_64=linux)
         with self.assertRaises(VERIFIER.PolicyError):
             VERIFIER.verify_solo_runtime(release, "v0.3.0")
 
     def test_verifier_refuses_a_non_executable_interpreter_and_links(self) -> None:
         import tarfile
-        release = self.write_release("v0.3.0", self.runtime("windows"), self.runtime("linux"))
-        tarball = release / "ctr-decrypted-v0.3.0-linux-x86.tar.gz"
+        release = self.write_release("v0.3.0")
+        tarball = release / "ctr-decrypted-v0.3.0-linux-x86_64.tar.gz"
         repacked = self.root / "repacked.tar.gz"
         with tarfile.open(tarball) as src, tarfile.open(repacked, "w:gz") as out:
             for member in src.getmembers():
@@ -197,7 +207,7 @@ class SoloRuntimeReleaseTests(unittest.TestCase):
             VERIFIER.verify_solo_runtime(release, "v0.3.0")
 
     def test_verifier_refuses_special_zip_members(self) -> None:
-        release = self.write_release("v0.3.0", self.runtime("windows"), self.runtime("linux"))
+        release = self.write_release("v0.3.0")
         archive = release / "ctr-decrypted-v0.3.0-windows-x86.zip"
         with zipfile.ZipFile(archive, "a") as bundle:
             fifo = zipfile.ZipInfo("ctr-decrypted-v0.3.0/solo-runtime/pipe")
@@ -207,13 +217,19 @@ class SoloRuntimeReleaseTests(unittest.TestCase):
             VERIFIER.verify_solo_runtime(release, "v0.3.0")
 
     def test_verifier_refuses_swapped_platforms(self) -> None:
-        release = self.write_release("v0.3.0", self.runtime("linux", name="a"), self.runtime("windows", name="b"))
+        release = self.write_release("v0.3.0", windows_x86=self.runtime("linux-x86_64", name="a"),
+                                     linux_x86_64=self.runtime("windows-x86", name="b"))
+        with self.assertRaises(VERIFIER.PolicyError):
+            VERIFIER.verify_solo_runtime(release, "v0.3.0")
+
+    def test_verifier_refuses_swapped_linux_architectures(self) -> None:
+        release = self.write_release("v0.3.0", linux_x86_64=self.runtime("linux-arm64", name="a"),
+                                     linux_arm64=self.runtime("linux-x86_64", name="b"))
         with self.assertRaises(VERIFIER.PolicyError):
             VERIFIER.verify_solo_runtime(release, "v0.3.0")
 
     def test_verifier_refuses_a_different_bundled_apworld(self) -> None:
-        release = self.write_release("v0.3.0", self.runtime("windows"), self.runtime("linux"),
-                                     bundled_apworld=b"other")
+        release = self.write_release("v0.3.0", bundled_apworld=b"other")
         with self.assertRaises(VERIFIER.PolicyError):
             VERIFIER.verify_solo_runtime(release, "v0.3.0")
 
@@ -236,15 +252,17 @@ class SoloRuntimeReleaseTests(unittest.TestCase):
         self.assertTrue((self.root / "solo" / "presets" / "standard.yaml").is_file())
         self.assertEqual((self.root / "solo" / "LICENSE").read_text(), "MIT")
 
-    def test_lock_pins_every_dependency_for_both_platforms(self) -> None:
+    def test_lock_pins_every_dependency_for_every_target(self) -> None:
         import json
         lock = json.loads((HERE.parent / "solo" / "runtime-lock.json").read_text(encoding="utf-8"))
-        for platform in ("windows", "linux"):
+        self.assertEqual(set(BUILDER.RUNTIME_PLATFORM), set(TARGETS))
+        platforms = sorted(set(BUILDER.RUNTIME_PLATFORM.values()))
+        for platform in platforms:
             self.assertRegex(lock["python"][platform]["sha256"], r"^[0-9a-f]{64}$")
         self.assertRegex(lock["archipelago"]["commit"], r"^[0-9a-f]{40}$")
         for name, entry in lock["wheels"].items():
             self.assertTrue(entry.get("license"), name)
-            for platform in ("windows", "linux"):
+            for platform in platforms:
                 pin = entry.get("any") or entry.get(platform)
                 self.assertIsNotNone(pin, f"{name} {platform}")
                 self.assertRegex(pin["sha256"], r"^[0-9a-f]{64}$")

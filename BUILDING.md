@@ -44,14 +44,16 @@ SDL3 is compiled from vendored source, so no separate install is needed.
 ### Linux (Debian/Ubuntu)
 
 ```
-sudo apt install gcc-multilib g++-multilib
+sudo apt install gcc g++ cmake ninja-build pkg-config
 sudo apt install libx11-dev libxext-dev libgl1-mesa-dev libasound2-dev libudev-dev libdbus-1-dev
 ```
 
-The AP build additionally links a static, 32-bit OpenSSL and zlib for the `wss://`
-transport, so the AP build also needs the 32-bit development packages for those
-(`libssl-dev` and `zlib1g-dev` for the `i386` multiarch, or your distro's
-equivalent). The vanilla port does not need them.
+Linux builds the 64-bit engine ([docs/64BIT.md](docs/64BIT.md)) on x86_64 and
+arm64 alike, as the Linux releases ship; `-DCTR_64BIT=OFF` builds the 32-bit x86
+engine instead (with `gcc-multilib`, `g++-multilib` and the `:i386` libraries),
+which is the reference for bit-exact comparisons. The AP build additionally
+links OpenSSL and zlib for the `wss://` transport, so it also needs `libssl-dev`
+and `zlib1g-dev`. The vanilla port does not need them.
 
 > **Shipping Linux binaries: target glibc 2.38, not the newest available.**
 > A binary built against a bleeding-edge glibc will refuse to start on
@@ -120,7 +122,7 @@ Output: `ctr_native_ap.exe` (Windows) or `ctr_native_ap` (Linux). It reads its s
 
 ## GitHub build artifacts
 
-The **Build clients** workflow builds Windows x86 and Linux x86 on pull requests,
+The **Build clients** workflow builds Windows x86, Linux x86_64 and Linux arm64 on pull requests,
 main/release/CI branch pushes, version tags, and manual dispatch. Each platform
 builds the AP client with custom tracks enabled and the vanilla client with AP
 and custom tracks disabled. Authoring tools are disabled in both configurations.
@@ -139,8 +141,9 @@ signs executables, submits samples externally, or runs gameplay.
 
 Linux uses a digest-pinned Debian Bookworm container and rejects ELF binaries
 requiring glibc newer than 2.38. Windows uses the existing MinGW32/MSYS2
-toolchain and rejects unexpected non-system DLL imports. Both platforms verify
-32-bit architecture, stripped output, and the exact debuglink CRC before upload.
+toolchain and rejects unexpected non-system DLL imports. Every target verifies
+its architecture (32-bit x86 PE, x86-64 or AArch64 ELF), stripped output, and
+the exact debuglink CRC before upload.
 Windows additionally checks ASLR/NX flags; Linux rejects an executable stack and
 embedded runtime search paths. BUILD.json records the source commit, toolchain,
 installed package versions, vendor lock hash, executable hash and sidecar hash.

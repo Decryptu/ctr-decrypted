@@ -18,21 +18,20 @@ template="$3"
 version="$4"
 output="$5"
 
-for platform in windows linux; do
-	python tools/solo/build-runtime.py --platform "$platform" \
-		--apworld "$apworld" --out "solo-runtime-$platform" --cache solo-runtime-cache
+# One solo runtime per client archive (tools/release/release_policy.py TARGETS).
+for target in windows-x86 linux-x86_64 linux-arm64; do
+	python tools/solo/build-runtime.py --platform "$target" \
+		--apworld "$apworld" --out "solo-runtimes/$target" --cache solo-runtime-cache
 done
 
 python3 tools/release/assemble-release.py \
 	--native-source . \
-	--windows-artifacts "$artifacts" \
-	--linux-artifacts "$artifacts" \
+	--artifacts "$artifacts" \
 	--apworld "$apworld" \
 	--template "$template" \
 	--version "$version" \
 	--output-dir "$output" \
-	--solo-runtime-windows solo-runtime-windows \
-	--solo-runtime-linux solo-runtime-linux \
+	--solo-runtimes solo-runtimes \
 	--authoring
 
 python3 tools/verify-release.py "$output" \

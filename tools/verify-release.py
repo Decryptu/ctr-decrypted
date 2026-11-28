@@ -4,7 +4,7 @@
 Default (published) mode fails closed: it requires the exact published release
 file set, a real committed public key and minisign, and a valid signature over
 the exact manifest bytes.  ``--pre-sign`` is a distinct mode that verifies a
-complete pre-sign assembly (the eleven standard assets plus ``manifest.json``)
+complete pre-sign assembly (the standard assets plus ``manifest.json``)
 without requiring a signature; it never claims a signed release.
 
 Usage:
@@ -198,9 +198,10 @@ def verify_solo_runtime(release: Path, tag: str) -> None:
     """Each client archive carries solo-runtime/RUNTIME.txt (#89), built for the
     exact ctr.apworld asset of this release, with its interpreter inside."""
     apworld = sha256(release / "ctr.apworld")
-    for platform, interpreter in (("windows", "python/python.exe"), ("linux", "python/bin/python3.12")):
-        suffix = ".zip" if platform == "windows" else ".tar.gz"
-        archive = release / f"ctr-decrypted-{tag}-{platform}-x86{suffix}"
+    for platform in release_policy.TARGETS:
+        windows = release_policy.target_os(platform) == "windows"
+        interpreter = "python/python.exe" if windows else "python/bin/python3.12"
+        archive = release / release_policy.client_asset_name(tag, platform)
         text = read_archive_member(archive, SOLO_RUNTIME_MANIFEST)
         if text is None:
             fail(f"{archive.name} has no {SOLO_RUNTIME_MANIFEST}")

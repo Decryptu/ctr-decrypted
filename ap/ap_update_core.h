@@ -14,12 +14,13 @@
 //   1. the minisign signature over the exact manifest bytes verifies against
 //      the public key compiled into this executable (key id and both the file
 //      signature and the trusted-comment signature);
-//   2. only then is the manifest parsed: exactly {version, artifacts}, the two
-//      client archive names for that version, lowercase SHA-256 values;
+//   2. only then is the manifest parsed: exactly {version, artifacts}, the
+//      client archive names for that version (one per Target), lowercase
+//      SHA-256 values;
 //   3. the signed version equals the release tag that was offered, and is a
 //      plain vX.Y.Z strictly newer than the running build (no downgrade, no
 //      replay of an older signed release, no prerelease);
-//   4. the platform archive's SHA-256 equals the signed value.
+//   4. this build's archive's SHA-256 equals the signed value.
 // The archive is then validated member by member, and the install set is
 // taken out of it: the client executable, ctr.apworld, the files under
 // assets/tracks/cortex-vortex/ (the custom track the release ships, whose
@@ -29,7 +30,7 @@
 // the archive is installed: config.ini, ap-config.txt, the rest of assets/,
 // memory cards, AP state and the player's solo/ folder are never touched.
 //
-// The signed manifest covers the two archives, not single files. Each
+// The signed manifest covers the client archives, not single files. Each
 // installed file is therefore trusted through the archive hash: its SHA-256
 // is taken from the verified archive bytes at extraction, and every staged
 // file is read back and checked against that value before it is written into
@@ -62,11 +63,23 @@ namespace ap_update
 
 typedef std::vector<unsigned char> Bytes;
 
+// The operating system: archive format (zip or tar.gz) and executable name.
 enum Platform
 {
 	PLATFORM_WINDOWS = 0,
 	PLATFORM_LINUX = 1
 };
+
+// The client archives a release carries, one per build target. A build
+// installs only its own target's archive.
+enum Target
+{
+	TARGET_WINDOWS_X86 = 0,
+	TARGET_LINUX_X86_64,
+	TARGET_LINUX_ARM64,
+	TARGET_COUNT
+};
+Platform TargetPlatform(Target target);
 
 enum Result
 {
@@ -108,8 +121,8 @@ inline std::string Sha256Hex(const Bytes &b) { return Sha256Hex(b.data(), b.size
 // A strict stable tag: "v" + three dot-separated decimal numbers, nothing else.
 bool IsStableTag(const std::string &tag);
 
-// The two client archive names a manifest for `tag` must list.
-std::string ArchiveName(const std::string &tag, Platform platform);
+// The client archive name of `target` that a manifest for `tag` lists.
+std::string ArchiveName(const std::string &tag, Target target);
 // The executable inside the client archive.
 const char *ExecutableName(Platform platform);
 
@@ -131,12 +144,11 @@ Result VerifyMinisign(const PublicKey &key, const Bytes &message, const std::str
 struct Manifest
 {
 	std::string version;
-	std::string windowsSha256;
-	std::string linuxSha256;
+	std::string sha256[TARGET_COUNT]; // by Target
 };
 // Strict reader: valid UTF-8 JSON object with exactly "version" and
-// "artifacts", no duplicate keys, the two archive entries for that version
-// and nothing else, lowercase 64-hex digests. Call only on signed bytes.
+// "artifacts", no duplicate keys, one archive entry per Target for that
+// version and nothing else, lowercase 64-hex digests. Call only on signed bytes.
 Result ParseManifest(const Bytes &raw, Manifest &out);
 
 // ── Release check (the offer) ──
@@ -146,7 +158,7 @@ struct ReleaseInfo
 };
 // Reads the GitHub releases/latest JSON. Offer-visible only when: not a draft,
 // not a prerelease, a stable tag, and the asset list names manifest.json,
-// manifest.json.minisig and BOTH client archives for that tag. Returns false
+// manifest.json.minisig and every Target's client archive for that tag. Returns false
 // otherwise (a silent "no update").
 bool ParseLatestRelease(const Bytes &json, ReleaseInfo &out);
 // 1 when `tag` should be offered to a build whose compatibility version is
@@ -156,7 +168,7 @@ bool ShouldOffer(const std::string &tag, const std::string &running, const std::
 // ── Full verification of a downloaded release ──
 Result VerifyRelease(const std::string &publicKeyBase64, const Bytes &manifest,
                      const std::string &signature, const std::string &offeredTag,
-                     const std::string &runningVersion, Platform platform, const Bytes &archive);
+                     const std::string &runningVersion, Target target, const Bytes &archive);
 
 // ── Archive ──
 // Members must all live under "ctr-decrypted-<tag>/", be regular files or

@@ -220,9 +220,12 @@ static std::string Sign(const TestKey &k, const Bytes &msg, bool prehashed = tru
 	return "untrusted comment: test\n" + B64(block) + "\ntrusted comment: " + comment + "\n" + B64(global) + "\n";
 }
 
-static std::string ManifestText(const std::string &tag, const std::string &linSha, const std::string &winSha)
+// A manifest as tools/release/assemble-release.py writes it (sorted keys).
+static std::string ManifestText(const std::string &tag, const std::string &winSha, const std::string &x64Sha,
+                                const std::string &armSha)
 {
-	return "{\n  \"artifacts\": {\n    \"ctr-decrypted-" + tag + "-linux-x86.tar.gz\": \"" + linSha +
+	return "{\n  \"artifacts\": {\n    \"ctr-decrypted-" + tag + "-linux-arm64.tar.gz\": \"" + armSha +
+	       "\",\n    \"ctr-decrypted-" + tag + "-linux-x86_64.tar.gz\": \"" + x64Sha +
 	       "\",\n    \"ctr-decrypted-" + tag + "-windows-x86.zip\": \"" + winSha + "\"\n  },\n  \"version\": \"" +
 	       tag + "\"\n}\n";
 }
@@ -396,18 +399,15 @@ static void TestInterop()
 	std::string sig = kSig120;
 	sig.replace(sig.find("1793597133"), 10, "1793597134");
 	CHECK_EQ(VerifyMinisign(key, m, sig, nullptr), ERR_COMMENT_SIGNATURE);
-	// The manifest is one this client installs: offered to v1.1.0 it passes
-	// signature, shape and version and stops only at the archive hash; v1.2.0
-	// itself is not offered its own release.
+	// Its manifest lists one Linux archive (32-bit x86), not the per-target
+	// set: the signature passes and the shape is refused.
 	Manifest parsed;
-	CHECK_EQ(ParseManifest(m, parsed), OK);
-	CHECK(parsed.version == "v1.2.0");
-	CHECK_EQ(VerifyRelease(AP_UPDATE_PUBLIC_KEY, m, kSig120, "v1.2.0", "v1.1.0", PLATFORM_WINDOWS, B("x")), ERR_HASH);
-	CHECK_EQ(VerifyRelease(AP_UPDATE_PUBLIC_KEY, m, kSig120, "v1.2.0", "v1.2.0", PLATFORM_WINDOWS, B("x")),
-	         ERR_NOT_NEWER);
+	CHECK_EQ(ParseManifest(m, parsed), ERR_MANIFEST);
+	CHECK_EQ(VerifyRelease(AP_UPDATE_PUBLIC_KEY, m, kSig120, "v1.2.0", "v1.1.0", TARGET_WINDOWS_X86, B("x")),
+	         ERR_MANIFEST);
 	// dowlle's releases are signed by dowlle's key: never installed here.
 	CHECK_EQ(VerifyMinisign(key, B(kManifest024), kSig024, nullptr), ERR_SIG_KEY_ID);
-	CHECK_EQ(VerifyRelease(AP_UPDATE_PUBLIC_KEY, B(kManifest024), kSig024, "v0.2.4", "v0.2.3", PLATFORM_WINDOWS,
+	CHECK_EQ(VerifyRelease(AP_UPDATE_PUBLIC_KEY, B(kManifest024), kSig024, "v0.2.4", "v0.2.3", TARGET_WINDOWS_X86,
 	                       B("x")),
 	         ERR_SIG_KEY_ID);
 }
@@ -456,12 +456,12 @@ static void TestSignatureFailures()
 	         ERR_SIG_FORMAT);
 
 	// The pinned key does not verify a release signed by any other key.
-	const Bytes manifest = B(ManifestText(kTag, std::string(64, 'a'), std::string(64, 'b')));
-	CHECK_EQ(VerifyRelease(AP_UPDATE_PUBLIC_KEY, manifest, Sign(good, manifest), kTag, "v0.3.0", PLATFORM_LINUX,
+	const Bytes manifest = B(ManifestText(kTag, std::string(64, 'a'), std::string(64, 'b'), std::string(64, 'c')));
+	CHECK_EQ(VerifyRelease(AP_UPDATE_PUBLIC_KEY, manifest, Sign(good, manifest), kTag, "v0.3.0", TARGET_LINUX_X86_64,
 	                       B("x")),
 	         ERR_SIG_KEY_ID);
 	// A broken built-in key refuses everything.
-	CHECK_EQ(VerifyRelease("RWQ", manifest, Sign(good, manifest), kTag, "v0.3.0", PLATFORM_LINUX, B("x")), ERR_KEY);
+	CHECK_EQ(VerifyRelease("RWQ", manifest, Sign(good, manifest), kTag, "v0.3.0", TARGET_LINUX_X86_64, B("x")), ERR_KEY);
 
 	EVP_PKEY_free(good.pkey);
 	EVP_PKEY_free(other.pkey);
@@ -484,7 +484,7 @@ struct Release
 	TestKey key;
 	Bytes manifest;
 	std::string signature;
-	Bytes zip, tgz;
+	Bytes zip, tgz, tgzArm; // windows-x86, linux-x86_64, linux-arm64
 };
 
 static Release MakeRelease(const std::string &tag = kTag)
@@ -494,7 +494,10 @@ static Release MakeRelease(const std::string &tag = kTag)
 	(void)tag;
 	r.zip = Zip(GoodMembers(PLATFORM_WINDOWS));
 	r.tgz = TarGz(GoodMembers(PLATFORM_LINUX));
-	r.manifest = B(ManifestText(kTag, Sha256Hex(r.tgz), Sha256Hex(r.zip)));
+	std::vector<Member> arm = GoodMembers(PLATFORM_LINUX);
+	arm.back() = File(kRoot + "versions.txt", "v0.3.1 arm64");
+	r.tgzArm = TarGz(arm);
+	r.manifest = B(ManifestText(kTag, Sha256Hex(r.zip), Sha256Hex(r.tgz), Sha256Hex(r.tgzArm)));
 	r.signature = Sign(r.key, r.manifest);
 	return r;
 }
@@ -502,22 +505,27 @@ static Release MakeRelease(const std::string &tag = kTag)
 static void TestHashAndPartial()
 {
 	Release r = MakeRelease();
-	CHECK_EQ(VerifyRelease(r.key.pubB64, r.manifest, r.signature, kTag, "v0.3.0", PLATFORM_WINDOWS, r.zip), OK);
-	CHECK_EQ(VerifyRelease(r.key.pubB64, r.manifest, r.signature, kTag, "v0.3.0", PLATFORM_LINUX, r.tgz), OK);
-	// The other platform's archive does not pass for this platform.
-	CHECK_EQ(VerifyRelease(r.key.pubB64, r.manifest, r.signature, kTag, "v0.3.0", PLATFORM_WINDOWS, r.tgz), ERR_HASH);
+	CHECK_EQ(VerifyRelease(r.key.pubB64, r.manifest, r.signature, kTag, "v0.3.0", TARGET_WINDOWS_X86, r.zip), OK);
+	CHECK_EQ(VerifyRelease(r.key.pubB64, r.manifest, r.signature, kTag, "v0.3.0", TARGET_LINUX_X86_64, r.tgz), OK);
+	CHECK_EQ(VerifyRelease(r.key.pubB64, r.manifest, r.signature, kTag, "v0.3.0", TARGET_LINUX_ARM64, r.tgzArm), OK);
+	// Another target's archive does not pass for this target.
+	CHECK_EQ(VerifyRelease(r.key.pubB64, r.manifest, r.signature, kTag, "v0.3.0", TARGET_WINDOWS_X86, r.tgz), ERR_HASH);
+	CHECK_EQ(VerifyRelease(r.key.pubB64, r.manifest, r.signature, kTag, "v0.3.0", TARGET_LINUX_ARM64, r.tgz),
+	         ERR_HASH);
+	CHECK_EQ(VerifyRelease(r.key.pubB64, r.manifest, r.signature, kTag, "v0.3.0", TARGET_LINUX_X86_64, r.tgzArm),
+	         ERR_HASH);
 
 	Bytes flipped = r.zip;
 	flipped[flipped.size() / 2] ^= 0x80;
-	CHECK_EQ(VerifyRelease(r.key.pubB64, r.manifest, r.signature, kTag, "v0.3.0", PLATFORM_WINDOWS, flipped), ERR_HASH);
+	CHECK_EQ(VerifyRelease(r.key.pubB64, r.manifest, r.signature, kTag, "v0.3.0", TARGET_WINDOWS_X86, flipped), ERR_HASH);
 	Bytes partial(r.tgz.begin(), r.tgz.begin() + r.tgz.size() - 1);
-	CHECK_EQ(VerifyRelease(r.key.pubB64, r.manifest, r.signature, kTag, "v0.3.0", PLATFORM_LINUX, partial), ERR_HASH);
-	CHECK_EQ(VerifyRelease(r.key.pubB64, r.manifest, r.signature, kTag, "v0.3.0", PLATFORM_LINUX, Bytes()), ERR_HASH);
+	CHECK_EQ(VerifyRelease(r.key.pubB64, r.manifest, r.signature, kTag, "v0.3.0", TARGET_LINUX_X86_64, partial), ERR_HASH);
+	CHECK_EQ(VerifyRelease(r.key.pubB64, r.manifest, r.signature, kTag, "v0.3.0", TARGET_LINUX_X86_64, Bytes()), ERR_HASH);
 
 	// A flipped manifest byte fails at the signature, before any field is read.
 	Bytes m = r.manifest;
 	m[m.size() - 4] ^= 0x01;
-	CHECK_EQ(VerifyRelease(r.key.pubB64, m, r.signature, kTag, "v0.3.0", PLATFORM_WINDOWS, r.zip), ERR_SIGNATURE);
+	CHECK_EQ(VerifyRelease(r.key.pubB64, m, r.signature, kTag, "v0.3.0", TARGET_WINDOWS_X86, r.zip), ERR_SIGNATURE);
 
 	// HTTP framing: partial bodies are never complete.
 	HttpResponse resp;
@@ -549,18 +557,18 @@ static void TestDowngradeAndReplay()
 {
 	Release r = MakeRelease();
 	// Equal and newer running builds refuse the signed v0.3.1.
-	CHECK_EQ(VerifyRelease(r.key.pubB64, r.manifest, r.signature, kTag, "v0.3.1", PLATFORM_WINDOWS, r.zip),
+	CHECK_EQ(VerifyRelease(r.key.pubB64, r.manifest, r.signature, kTag, "v0.3.1", TARGET_WINDOWS_X86, r.zip),
 	         ERR_NOT_NEWER);
-	CHECK_EQ(VerifyRelease(r.key.pubB64, r.manifest, r.signature, kTag, "v0.4.0", PLATFORM_WINDOWS, r.zip),
+	CHECK_EQ(VerifyRelease(r.key.pubB64, r.manifest, r.signature, kTag, "v0.4.0", TARGET_WINDOWS_X86, r.zip),
 	         ERR_NOT_NEWER);
-	CHECK_EQ(VerifyRelease(r.key.pubB64, r.manifest, r.signature, kTag, "garbage", PLATFORM_WINDOWS, r.zip),
+	CHECK_EQ(VerifyRelease(r.key.pubB64, r.manifest, r.signature, kTag, "garbage", TARGET_WINDOWS_X86, r.zip),
 	         ERR_NOT_NEWER);
 	// Replay: a validly signed older release served for a newer offer.
-	CHECK_EQ(VerifyRelease(r.key.pubB64, r.manifest, r.signature, "v0.3.2", "v0.3.0", PLATFORM_WINDOWS, r.zip),
+	CHECK_EQ(VerifyRelease(r.key.pubB64, r.manifest, r.signature, "v0.3.2", "v0.3.0", TARGET_WINDOWS_X86, r.zip),
 	         ERR_TAG_MISMATCH);
 	// A signed prerelease manifest is not installable.
-	const Bytes pre = B(ManifestText("v0.3.2-rc1", Sha256Hex(r.tgz), Sha256Hex(r.zip)));
-	CHECK_EQ(VerifyRelease(r.key.pubB64, pre, Sign(r.key, pre), "v0.3.2-rc1", "v0.3.0", PLATFORM_WINDOWS, r.zip),
+	const Bytes pre = B(ManifestText("v0.3.2-rc1", Sha256Hex(r.zip), Sha256Hex(r.tgz), Sha256Hex(r.tgzArm)));
+	CHECK_EQ(VerifyRelease(r.key.pubB64, pre, Sign(r.key, pre), "v0.3.2-rc1", "v0.3.0", TARGET_WINDOWS_X86, r.zip),
 	         ERR_MANIFEST);
 
 	CHECK(ShouldOffer("v0.3.1", "v0.3.0", ""));
@@ -590,19 +598,24 @@ static std::string ReleaseJson(const std::string &tag, bool draft, bool pre, con
 static void TestOfferVisibility()
 {
 	const std::vector<std::string> all = {"manifest.json", "manifest.json.minisig",
-	                                      ArchiveName(kTag, PLATFORM_WINDOWS), ArchiveName(kTag, PLATFORM_LINUX),
-	                                      "ctr.apworld"};
+	                                      ArchiveName(kTag, TARGET_WINDOWS_X86), ArchiveName(kTag, TARGET_LINUX_X86_64),
+	                                      ArchiveName(kTag, TARGET_LINUX_ARM64), "ctr.apworld"};
 	ReleaseInfo info;
 	CHECK(ParseLatestRelease(B(ReleaseJson(kTag, false, false, all)), info) && info.tag == kTag);
 	CHECK(!ParseLatestRelease(B(ReleaseJson(kTag, true, false, all)), info));
 	CHECK(!ParseLatestRelease(B(ReleaseJson(kTag, false, true, all)), info));
 	CHECK(!ParseLatestRelease(B(ReleaseJson("v0.3.1-rc1", false, false, all)), info));
-	for (size_t drop = 0; drop < 4; drop++)
+	for (size_t drop = 0; drop < 5; drop++)
 	{
 		std::vector<std::string> less = all;
 		less.erase(less.begin() + (long)drop);
 		CHECK(!ParseLatestRelease(B(ReleaseJson(kTag, false, false, less)), info));
 	}
+	// A release that still names the 32-bit Linux archive is not offered.
+	std::vector<std::string> old = all;
+	old[3] = "ctr-decrypted-" + std::string(kTag) + "-linux-x86.tar.gz";
+	old.erase(old.begin() + 4);
+	CHECK(!ParseLatestRelease(B(ReleaseJson(kTag, false, false, old)), info));
 	CHECK(!ParseLatestRelease(B("{\"tag_name\":\"v0.3.1\",\"tag_name\":\"v9.9.9\",\"draft\":false,"
 	                            "\"prerelease\":false,\"assets\":[]}"),
 	                          info));
@@ -612,31 +625,38 @@ static void TestOfferVisibility()
 
 static void TestManifestStrictness()
 {
-	const std::string a(64, 'a'), b(64, 'b');
+	const std::string a(64, 'a'), b(64, 'b'), c(64, 'c');
+	const std::string win = "\"ctr-decrypted-v0.3.1-windows-x86.zip\":\"" + a + "\"";
+	const std::string x64 = "\"ctr-decrypted-v0.3.1-linux-x86_64.tar.gz\":\"" + b + "\"";
+	const std::string arm = "\"ctr-decrypted-v0.3.1-linux-arm64.tar.gz\":\"" + c + "\"";
 	Manifest m;
-	CHECK_EQ(ParseManifest(B(ManifestText(kTag, a, b)), m), OK);
-	CHECK(m.linuxSha256 == a && m.windowsSha256 == b);
-	// Compact formatting is still the same JSON.
-	CHECK_EQ(ParseManifest(B("{\"version\":\"v0.3.1\",\"artifacts\":{\"ctr-decrypted-v0.3.1-linux-x86.tar.gz\":\"" + a +
-	                         "\",\"ctr-decrypted-v0.3.1-windows-x86.zip\":\"" + b + "\"}}"),
-	                       m),
-	         OK);
+	CHECK_EQ(ParseManifest(B(ManifestText(kTag, a, b, c)), m), OK);
+	CHECK(m.sha256[TARGET_WINDOWS_X86] == a && m.sha256[TARGET_LINUX_X86_64] == b &&
+	      m.sha256[TARGET_LINUX_ARM64] == c);
+	// Compact formatting, in any key order, is still the same JSON.
+	CHECK_EQ(ParseManifest(B("{\"version\":\"v0.3.1\",\"artifacts\":{" + win + "," + arm + "," + x64 + "}}"), m), OK);
 	CHECK_EQ(ParseManifest(B("{\"version\":\"v0.3.1\",\"version\":\"v0.3.1\",\"artifacts\":{}}"), m), ERR_MANIFEST);
-	CHECK_EQ(ParseManifest(B("{\"version\":\"v0.3.1\",\"extra\":1,\"artifacts\":{\"ctr-decrypted-v0.3.1-linux-x86.tar.gz\":\"" +
-	                         a + "\",\"ctr-decrypted-v0.3.1-windows-x86.zip\":\"" + b + "\"}}"),
+	CHECK_EQ(ParseManifest(B("{\"version\":\"v0.3.1\",\"extra\":1,\"artifacts\":{" + win + "," + x64 + "," + arm + "}}"),
 	                       m),
 	         ERR_MANIFEST);
-	CHECK_EQ(ParseManifest(B("{\"version\":\"v0.3.1\",\"artifacts\":{\"ctr-decrypted-v0.3.1-linux-x86.tar.gz\":\"" + a +
-	                         "\",\"ctr-decrypted-v0.3.1-windows-x86.zip\":\"" + b + "\",\"x.zip\":\"" + a + "\"}}"),
+	CHECK_EQ(ParseManifest(B("{\"version\":\"v0.3.1\",\"artifacts\":{" + win + "," + x64 + "," + arm +
+	                         ",\"x.zip\":\"" + a + "\"}}"),
 	                       m),
 	         ERR_MANIFEST);
-	CHECK_EQ(ParseManifest(B("{\"version\":\"v0.3.1\",\"artifacts\":{\"ctr-decrypted-v0.3.1-linux-x86.tar.gz\":\"" + a +
-	                         "\",\"ctr-decrypted-v0.3.1-linux-x86.tar.gz\":\"" + b + "\"}}"),
+	// Every target's archive is required.
+	CHECK_EQ(ParseManifest(B("{\"version\":\"v0.3.1\",\"artifacts\":{" + win + "," + x64 + "}}"), m), ERR_MANIFEST);
+	CHECK_EQ(ParseManifest(B("{\"version\":\"v0.3.1\",\"artifacts\":{" + win + "," + arm + "}}"), m), ERR_MANIFEST);
+	// The 32-bit Linux archive name is not one of them.
+	CHECK_EQ(ParseManifest(B("{\"version\":\"v0.3.1\",\"artifacts\":{" + win + "," + x64 +
+	                         ",\"ctr-decrypted-v0.3.1-linux-x86.tar.gz\":\"" + c + "\"}}"),
 	                       m),
 	         ERR_MANIFEST);
-	CHECK_EQ(ParseManifest(B(ManifestText(kTag, std::string(64, 'A'), b)), m), ERR_MANIFEST);
-	CHECK_EQ(ParseManifest(B(ManifestText(kTag, a.substr(1), b)), m), ERR_MANIFEST);
-	CHECK_EQ(ParseManifest(B(ManifestText("v0.3.1-rc1", a, b)), m), ERR_MANIFEST);
+	CHECK_EQ(ParseManifest(B("{\"version\":\"v0.3.1\",\"artifacts\":{" + win + "," + x64 + "," + x64 + "}}"), m),
+	         ERR_MANIFEST);
+	CHECK_EQ(ParseManifest(B(ManifestText(kTag, std::string(64, 'A'), b, c)), m), ERR_MANIFEST);
+	CHECK_EQ(ParseManifest(B(ManifestText(kTag, a, b.substr(1), c)), m), ERR_MANIFEST);
+	CHECK_EQ(ParseManifest(B(ManifestText(kTag, a, b, c + "0")), m), ERR_MANIFEST);
+	CHECK_EQ(ParseManifest(B(ManifestText("v0.3.1-rc1", a, b, c)), m), ERR_MANIFEST);
 	CHECK_EQ(ParseManifest(B("[]"), m), ERR_MANIFEST);
 	CHECK_EQ(ParseManifest(Bytes(), m), ERR_MANIFEST);
 }

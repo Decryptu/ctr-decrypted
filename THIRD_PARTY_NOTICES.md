@@ -393,7 +393,8 @@ starts it as a separate program for solo play (#89); it is not linked into
 Python parts ship as unmodified source files (plus precompiled bytecode).
 
 - CPython 3.12.10, PSF License Agreement. Windows: the python.org embeddable
-  package. Linux: python-build-standalone (`install_only_stripped`), which
+  package (x86_64). Linux: python-build-standalone (`install_only_stripped`,
+  x86_64 or aarch64 to match the archive), which
   also bundles OpenSSL, zlib, xz, bzip2, libffi, SQLite and other libraries
   under their own licenses; see
   https://github.com/astral-sh/python-build-standalone and the CPython

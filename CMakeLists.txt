@@ -71,8 +71,15 @@ if(CTR_CUSTOM_PACKAGES AND NOT CTR_CUSTOM_TRACKS)
 endif()
 
 # 64-bit engine (x86_64, arm64): the compiler's native pointer size is used.
-# Off: the build is forced to 32-bit x86, whatever the host.
-option(CTR_64BIT "Build the 64-bit engine with the compiler's native target" OFF)
+# Off: the build is forced to 32-bit x86, whatever the host. Windows releases
+# are 32-bit and Linux releases 64-bit, so that is each host's default; the
+# 32-bit Linux build (-DCTR_64BIT=OFF) stays the reference for bit-exact runs.
+if(NOT WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set(CTR_64BIT_DEFAULT ON)
+else()
+    set(CTR_64BIT_DEFAULT OFF)
+endif()
+option(CTR_64BIT "Build the 64-bit engine with the compiler's native target" ${CTR_64BIT_DEFAULT})
 
 if(CTR_64BIT)
     if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)

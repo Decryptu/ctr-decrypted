@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Build the 64-bit engine (docs/64BIT.md) with the host's own 64-bit compiler:
-# Linux x86_64, Linux arm64, or MSYS2 UCRT64 on Windows. Same recipe locally
-# and in Actions. Nothing is packaged: the 64-bit engine is not released yet.
-# On Linux the CMake tests run too, which starts the built executable once
-# (--version). Never runs the game or fetches disc assets.
+# Linux x86_64, Linux arm64, or MSYS2 UCRT64 on Windows, unpackaged. CI runs it
+# for Windows x86_64, whose releases stay 32-bit; Linux releases are built and
+# packaged by build-clients.sh. On Linux the CMake tests run too, which starts
+# the built executable once (--version). Never runs the game or fetches disc
+# assets.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 usage='usage: build-engine64.sh linux|windows [vanilla|ap ...]'

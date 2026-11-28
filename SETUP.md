@@ -56,8 +56,9 @@ relic, a token, an item box) sends the **item** it holds to whoever owns it.
 
 Download and extract the archive for your platform from the
 [releases page](https://github.com/Decryptu/ctr-decrypted/releases):
-`ctr-decrypted-vX.Y.Z-windows-x86.zip` on Windows, or
-`ctr-decrypted-vX.Y.Z-linux-x86.tar.gz` on Linux and Steam Deck. Keep the
+`ctr-decrypted-vX.Y.Z-windows-x86.zip` on Windows,
+`ctr-decrypted-vX.Y.Z-linux-x86_64.tar.gz` on Linux and Steam Deck, or
+`ctr-decrypted-vX.Y.Z-linux-arm64.tar.gz` on an ARM Linux computer. Keep the
 extracted files together in their own folder. The rest of these steps add the
 game data and your server settings there.
 

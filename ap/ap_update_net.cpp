@@ -41,11 +41,21 @@ using namespace ap_update;
 namespace
 {
 
-#ifdef _WIN32
-const Platform kPlatform = PLATFORM_WINDOWS;
-#else
-const Platform kPlatform = PLATFORM_LINUX;
+// The release archive this build installs. A build with none (32-bit Linux,
+// which is not released) never checks for updates.
+#if defined(_WIN32)
+#define AP_UPDATE_TARGET TARGET_WINDOWS_X86
+#elif defined(__linux__) && defined(__x86_64__)
+#define AP_UPDATE_TARGET TARGET_LINUX_X86_64
+#elif defined(__linux__) && defined(__aarch64__)
+#define AP_UPDATE_TARGET TARGET_LINUX_ARM64
 #endif
+#ifdef AP_UPDATE_TARGET
+const Target kTarget = AP_UPDATE_TARGET;
+#else
+const Target kTarget = TARGET_COUNT;
+#endif
+const Platform kPlatform = TargetPlatform(kTarget);
 
 const char kUserAgent[] = "ctr-decrypted-updater";
 
@@ -576,14 +586,14 @@ void DownloadWorkerImpl(unsigned gen, std::string tag, std::string running, std:
 	SetStatus(gen, AP_UPD_DOWNLOADING, "", 0);
 	if (!Fetch(AssetUrl(tag, "manifest.json"), kMaxManifest, gen, nullptr, manifest, error) ||
 	    !Fetch(AssetUrl(tag, "manifest.json.minisig"), kMaxSignature, gen, nullptr, signature, error) ||
-	    !Fetch(AssetUrl(tag, ArchiveName(tag, kPlatform)), kMaxArchive, gen, ArchiveProgress, archive, error))
+	    !Fetch(AssetUrl(tag, ArchiveName(tag, kTarget)), kMaxArchive, gen, ArchiveProgress, archive, error))
 	{
 		SetStatus(gen, AP_UPD_FAILED_DOWNLOAD, "download failed: " + error);
 		return;
 	}
 	SetStatus(gen, AP_UPD_VERIFYING, "");
 	const std::string sigText(signature.begin(), signature.end());
-	Result r = VerifyRelease(AP_UPDATE_PUBLIC_KEY, manifest, sigText, tag, running, kPlatform, archive);
+	Result r = VerifyRelease(AP_UPDATE_PUBLIC_KEY, manifest, sigText, tag, running, kTarget, archive);
 	if (r == OK)
 		r = ExtractInstallSet(archive, kPlatform, tag, files);
 	// Nothing downloaded was written to disk; dropping the buffers deletes it.
@@ -724,8 +734,8 @@ extern "C" void ap_update_check_start(const char *running_tag, const char *decli
 	unsigned gen;
 	{
 		std::lock_guard<std::mutex> lock(s.mutex);
-		if (s.status != AP_UPD_IDLE || s.exe.empty())
-			return; // one check per launch; no install path means no updater
+		if (s.status != AP_UPD_IDLE || s.exe.empty() || kTarget == TARGET_COUNT)
+			return; // one check per launch; no install path or release archive means no updater
 		s.running = running_tag ? running_tag : "";
 		s.status = AP_UPD_CHECKING;
 		gen = ++s.generation;

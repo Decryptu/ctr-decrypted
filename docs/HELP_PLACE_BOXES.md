@@ -15,8 +15,9 @@ your rooms connect as before.
 
 **The box authoring download** still exists for players who want a separate
 folder. The release page has it as
-`ctr-decrypted-vX.Y.Z-box-authoring-windows-x86.zip` (Windows) or
-`ctr-decrypted-vX.Y.Z-box-authoring-linux-x86.tar.gz` (Linux and Steam Deck).
+`ctr-decrypted-vX.Y.Z-box-authoring-windows-x86.zip` (Windows),
+`ctr-decrypted-vX.Y.Z-box-authoring-linux-x86_64.tar.gz` (Linux and Steam Deck)
+or `ctr-decrypted-vX.Y.Z-box-authoring-linux-arm64.tar.gz` (ARM Linux).
 Unzip it into a **new, empty folder**, add your disc image to its `assets`
 folder (see `SETUP.md`, step 2) and start `ctr_native_ap_authoring`. The window
 title says `BOX AUTHORING BUILD`. It never connects to Archipelago and keeps

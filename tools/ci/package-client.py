@@ -92,7 +92,16 @@ def require_release_title(binary):
         raise ValueError('Release build window title still contains the Internal dev marker')
 
 
-def verify(platform, exe, variant):
+# Build targets (tools/release/release_policy.py TARGETS) and the ELF machine
+# of each Linux one.
+TARGETS = ('windows-x86', 'linux-x86_64', 'linux-arm64')
+ELF_MACHINE = {'linux-x86_64': (62, 'x86-64'), 'linux-arm64': (183, 'AArch64')}
+
+
+def verify(target, exe, variant):
+    platform = 'windows' if target == 'windows-x86' else 'linux'
+    if target not in TARGETS:
+        raise ValueError(f'Unknown build target: {target}')
     debug = Path(str(exe) + '.debug')
     if not exe.is_file() or not debug.is_file():
         raise ValueError('Missing executable or exact debug sidecar')
@@ -143,8 +152,9 @@ def verify(platform, exe, variant):
         result['aslr_nx'] = True
     else:
         elf = exe.read_bytes()[:20]
-        if elf[:6] != b'\x7fELF\x01\x01' or struct.unpack_from('<H', elf, 18)[0] != 3:
-            raise ValueError('Expected little-endian ELF32 i386 client')
+        machine, label = ELF_MACHINE[target]
+        if elf[:6] != b'\x7fELF\x02\x01' or struct.unpack_from('<H', elf, 18)[0] != machine:
+            raise ValueError(f'Expected little-endian ELF64 {label} client')
         versions = re.findall(r'\bGLIBC_(\d+(?:\.\d+)+)', output('readelf', '-V', str(exe)))
         highest = max((tuple(map(int, v.split('.'))) for v in versions), default=(0,))
         if highest > (2, 38):
@@ -161,18 +171,19 @@ def verify(platform, exe, variant):
 
 
 def main():
-    platform, variant, executable, destination = sys.argv[1:]
-    if platform not in ('windows', 'linux') or variant not in ('ap', 'vanilla', 'authoring', 'authoring-client'):
-        raise ValueError('Invalid platform/configuration')
+    target, variant, executable, destination = sys.argv[1:]
+    if target not in TARGETS or variant not in ('ap', 'vanilla', 'authoring', 'authoring-client'):
+        raise ValueError('Invalid target/configuration')
+    platform = 'windows' if target == 'windows-x86' else 'linux'
     exe, out = Path(executable), Path(destination)
-    checks = verify(platform, exe, variant)
+    checks = verify(target, exe, variant)
     commit = output('git', 'rev-parse', 'HEAD').strip()
     if output('git', 'diff', '--name-only', 'HEAD').strip():
         raise ValueError('Tracked source differs from the recorded commit')
     # ctr-decrypted (the player client), ctr-decrypted-box-authoring,
     # ctr-decrypted-vanilla, ctr-decrypted-authoring-client.
     label = {'ap': '', 'authoring': '-box-authoring'}.get(variant, '-' + variant)
-    name = f'ctr-decrypted{label}-{platform}-x86-{commit[:12]}'
+    name = f'ctr-decrypted{label}-{target}-{commit[:12]}'
     with tempfile.TemporaryDirectory() as temporary:
         root = Path(temporary) / name
         root.mkdir()
@@ -213,7 +224,7 @@ def main():
         for file in (('support-bundle.bat', 'support-bundle.ps1') if platform == 'windows' else ('support-bundle.sh',)):
             shutil.copy2(file, root / file)
         (root / 'versions.txt').write_text(output('bash', 'tools/release-versions.sh'))
-        evidence = {'source_commit': commit, 'platform': platform, 'variant': variant,
+        evidence = {'source_commit': commit, 'platform': target, 'variant': variant,
                     'custom_tracks': variant in ('ap', 'authoring', 'authoring-client'),
                     'authoring': variant == 'authoring',
                     'authoring_client': variant == 'authoring-client',

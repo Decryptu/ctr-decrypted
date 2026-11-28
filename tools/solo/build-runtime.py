@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Assemble the solo runtime folder for one platform (#89).
+"""Assemble the solo runtime folder for one client archive (#89).
 
-    build-runtime.py --platform windows|linux --apworld ctr.apworld --out DIR [--cache DIR]
+    build-runtime.py --platform windows-x86|linux-x86_64|linux-arm64 --apworld ctr.apworld --out DIR [--cache DIR]
 
-The result is the `solo-runtime/` folder that goes into the client archive
-beside ctr_native_ap and ctr.apworld:
+--platform names the client archive (tools/release/release_policy.py TARGETS).
+The result is the `solo-runtime/` folder that goes into that archive beside
+ctr_native_ap and ctr.apworld:
 
     python/          the pinned interpreter (python.org embeddable on Windows,
                      python-build-standalone on Linux), trimmed
@@ -38,14 +39,18 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 LOCK = HERE / "runtime-lock.json"
-INTERPRETER = {"windows": "python/python.exe", "linux": "python/bin/python3.12"}
+# Client archive -> the interpreter build in runtime-lock.json it bundles. The
+# 32-bit Windows client runs the 64-bit embeddable Python as its own process.
+RUNTIME_PLATFORM = {"windows-x86": "windows-x86_64", "linux-x86_64": "linux-x86_64", "linux-arm64": "linux-arm64"}
+INTERPRETER = {"windows-x86": "python/python.exe", "linux-x86_64": "python/bin/python3.12",
+               "linux-arm64": "python/bin/python3.12"}
 # Parts of the Linux interpreter the runtime never uses.
 LINUX_DROP = ("include", "share", "bin/2to3", "bin/2to3-3.12", "bin/idle3", "bin/idle3.12", "bin/pydoc3",
               "bin/pydoc3.12", "bin/python3-config", "bin/python3.12-config", "lib/pkgconfig")
 # Tcl/Tk support folders (tkinter is not shipped).
 LINUX_DROP_GLOBS = ("lib/itcl*", "lib/tcl*", "lib/tk*", "lib/Tix*", "lib/thread*")
 STDLIB_DROP = ("test", "idlelib", "tkinter", "turtledemo", "ensurepip", "lib2to3", "pydoc_data",
-               "site-packages", "venv", "config-3.12-x86_64-linux-gnu", "__phello__", "turtle.py")
+               "site-packages", "venv", "__phello__", "turtle.py")
 SOLO_MEMBERS = ("ctr_solo.py", "trim_core.py", "options-overlay.json")
 
 
@@ -100,7 +105,7 @@ def remove(path: Path) -> None:
 def build_python(platform: str, entry: dict, cache: Path, runtime: Path, licenses: Path) -> None:
     archive = fetch(entry["url"], entry["sha256"], cache)
     target = runtime / "python"
-    if platform == "windows":
+    if platform == "windows-x86":
         target.mkdir()
         safe_extract_zip(archive, target)
         # The embeddable package reads sys.path from python312._pth. Keep the
@@ -119,6 +124,8 @@ def build_python(platform: str, entry: dict, cache: Path, runtime: Path, license
         stdlib = target / "lib" / "python3.12"
         for rel in STDLIB_DROP:
             remove(stdlib / rel)
+        for config in stdlib.glob("config-3.12-*"):
+            remove(config)
         for dynload in (stdlib / "lib-dynload").glob("_tkinter*"):
             dynload.unlink()
         for pattern in LINUX_DROP_GLOBS:
@@ -140,7 +147,7 @@ def install_wheels(platform: str, wheels: dict, cache: Path, runtime: Path, lice
     site.mkdir()
     lines = []
     for name, entry in sorted(wheels.items()):
-        pin = entry.get("any") or entry.get(platform)
+        pin = entry.get("any") or entry.get(RUNTIME_PLATFORM[platform])
         if not pin:
             raise BuildError(f"no {platform} wheel pinned for {name}")
         wheel = fetch(pin["url"], pin["sha256"], cache)
@@ -237,7 +244,7 @@ def build(platform: str, apworld: Path, out: Path, cache: Path) -> Path:
         if (solo / "LICENSE").is_file():
             shutil.copyfile(solo / "LICENSE", licenses / "ctr-apworld-LICENSE.txt")
         python = lock["python"]
-        build_python(platform, python[platform], cache, runtime, licenses)
+        build_python(platform, python[RUNTIME_PLATFORM[platform]], cache, runtime, licenses)
         wheel_lines = install_wheels(platform, lock["wheels"], cache, runtime, licenses)
         core = lock["archipelago"]
         build_core(core["commit"], core["repository"], runtime, solo, licenses)
@@ -248,7 +255,8 @@ def build(platform: str, apworld: Path, out: Path, cache: Path) -> Path:
         "schema: 1",
         f"platform: {platform}",
         f"interpreter: {INTERPRETER[platform]}",
-        f"python: {python['version']} {python[platform]['kind']} sha256 {python[platform]['sha256']}",
+        f"python: {python['version']} {python[RUNTIME_PLATFORM[platform]]['kind']} "
+        f"sha256 {python[RUNTIME_PLATFORM[platform]]['sha256']}",
         f"archipelago: {core['version']} {core['commit']}",
         f"ctr.apworld sha256: {apworld_sha}",
         f"ctr_solo.py sha256: {sha256(runtime / 'ctr_solo.py')}",
@@ -263,7 +271,7 @@ def build(platform: str, apworld: Path, out: Path, cache: Path) -> Path:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--platform", choices=("windows", "linux"), required=True)
+    parser.add_argument("--platform", choices=tuple(RUNTIME_PLATFORM), required=True)
     parser.add_argument("--apworld", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--cache", type=Path, default=Path(tempfile.gettempdir()) / "ctr-solo-runtime-cache")

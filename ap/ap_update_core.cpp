@@ -151,9 +151,16 @@ bool IsStableTag(const std::string &tag)
 	return parts == 3;
 }
 
-std::string ArchiveName(const std::string &tag, Platform platform)
+Platform TargetPlatform(Target target)
 {
-	return "ctr-decrypted-" + tag + (platform == PLATFORM_WINDOWS ? "-windows-x86.zip" : "-linux-x86.tar.gz");
+	return target == TARGET_WINDOWS_X86 ? PLATFORM_WINDOWS : PLATFORM_LINUX;
+}
+
+std::string ArchiveName(const std::string &tag, Target target)
+{
+	static const char *const kSuffix[TARGET_COUNT] = {
+	    "-windows-x86.zip", "-linux-x86_64.tar.gz", "-linux-arm64.tar.gz"};
+	return "ctr-decrypted-" + tag + kSuffix[target];
 }
 
 const char *ExecutableName(Platform platform)
@@ -317,23 +324,23 @@ Result ParseManifest(const Bytes &raw, Manifest &out)
 		return ERR_MANIFEST;
 	const nlohmann::json &version = j["version"];
 	const nlohmann::json &artifacts = j["artifacts"];
-	if (!version.is_string() || !artifacts.is_object() || artifacts.size() != 2)
+	if (!version.is_string() || !artifacts.is_object() || artifacts.size() != TARGET_COUNT)
 		return ERR_MANIFEST;
 	const std::string tag = version.get<std::string>();
 	// The manifest contract allows prerelease tails; the updater only ever
 	// installs a plain stable version, so anything else is not for us.
 	if (!IsStableTag(tag))
 		return ERR_MANIFEST;
-	const std::string win = ArchiveName(tag, PLATFORM_WINDOWS);
-	const std::string lin = ArchiveName(tag, PLATFORM_LINUX);
-	if (!artifacts.contains(win) || !artifacts.contains(lin) || !artifacts[win].is_string() ||
-	    !artifacts[lin].is_string())
-		return ERR_MANIFEST;
+	for (int t = 0; t < TARGET_COUNT; t++)
+	{
+		const std::string name = ArchiveName(tag, (Target)t);
+		if (!artifacts.contains(name) || !artifacts[name].is_string())
+			return ERR_MANIFEST;
+		out.sha256[t] = artifacts[name].get<std::string>();
+		if (!IsLowerHex64(out.sha256[t]))
+			return ERR_MANIFEST;
+	}
 	out.version = tag;
-	out.windowsSha256 = artifacts[win].get<std::string>();
-	out.linuxSha256 = artifacts[lin].get<std::string>();
-	if (!IsLowerHex64(out.windowsSha256) || !IsLowerHex64(out.linuxSha256))
-		return ERR_MANIFEST;
 	return OK;
 }
 
@@ -357,9 +364,11 @@ bool ParseLatestRelease(const Bytes &json, ReleaseInfo &out)
 		for (const auto &asset : j["assets"])
 			if (asset.is_object() && asset.contains("name") && asset["name"].is_string())
 				names.insert(asset["name"].get<std::string>());
-		if (!names.count("manifest.json") || !names.count("manifest.json.minisig") ||
-		    !names.count(ArchiveName(tag, PLATFORM_WINDOWS)) || !names.count(ArchiveName(tag, PLATFORM_LINUX)))
+		if (!names.count("manifest.json") || !names.count("manifest.json.minisig"))
 			return false;
+		for (int t = 0; t < TARGET_COUNT; t++)
+			if (!names.count(ArchiveName(tag, (Target)t)))
+				return false;
 		out.tag = tag;
 		return true;
 	}
@@ -382,7 +391,7 @@ bool ShouldOffer(const std::string &tag, const std::string &running, const std::
 
 Result VerifyRelease(const std::string &publicKeyBase64, const Bytes &manifest,
                      const std::string &signature, const std::string &offeredTag,
-                     const std::string &runningVersion, Platform platform, const Bytes &archive)
+                     const std::string &runningVersion, Target target, const Bytes &archive)
 {
 	PublicKey key;
 	if (!ParsePublicKey(publicKeyBase64, key))
@@ -406,8 +415,7 @@ Result VerifyRelease(const std::string &publicKeyBase64, const Bytes &manifest,
 	// 4. Archive bytes.
 	if (archive.size() > kMaxArchive)
 		return ERR_SIZE;
-	const std::string &want = platform == PLATFORM_WINDOWS ? m.windowsSha256 : m.linuxSha256;
-	if (Sha256Hex(archive) != want)
+	if (Sha256Hex(archive) != m.sha256[target])
 		return ERR_HASH;
 	return OK;
 }

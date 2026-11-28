@@ -78,7 +78,7 @@ def _minisign_gate() -> bool:
 
 
 class ReleaseFixture:
-    """Build a complete twelve-file pre-sign assembly plus a signed variant."""
+    """Build a complete pre-sign assembly plus a signed variant."""
 
     VERSION = "v0.2.0-rc-prep1"
 
@@ -102,14 +102,15 @@ class ReleaseFixture:
         # Client archives get real, distinct bytes so tampering is meaningful.
         archives = {
             f"ctr-decrypted-{version}-windows-x86.zip": b"windows-client-bytes",
-            f"ctr-decrypted-{version}-linux-x86.tar.gz": b"linux-client-bytes",
+            f"ctr-decrypted-{version}-linux-x86_64.tar.gz": b"linux-x86_64-client-bytes",
+            f"ctr-decrypted-{version}-linux-arm64.tar.gz": b"linux-arm64-client-bytes",
         }
         for name in names:
             if name.endswith(".sha256"):
                 continue
             path = self.assembly / name
             path.write_bytes(archives.get(name, f"content of {name}".encode()))
-        # Only the five checksummed assets get a sidecar; the template does not.
+        # Every checksummed asset gets a sidecar; the template does not.
         for name in names:
             if name.endswith(".sha256"):
                 asset = self.assembly / name[: -len(".sha256")]
@@ -204,7 +205,7 @@ class ProductionBoundaryTests(unittest.TestCase):
 
     # ---- pre-sign mode ----------------------------------------------------
 
-    def test_pre_sign_mode_accepts_twelve_file_assembly(self) -> None:
+    def test_pre_sign_mode_accepts_complete_assembly(self) -> None:
         result = self.fixture.run_verifier("--pre-sign")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("not a signed release", result.stdout)
@@ -245,7 +246,7 @@ class ProductionBoundaryTests(unittest.TestCase):
         self.fixture.sign()
         target = (
             self.fixture.assembly
-            / f"ctr-decrypted-{self.fixture.VERSION}-linux-x86.tar.gz"
+            / f"ctr-decrypted-{self.fixture.VERSION}-linux-arm64.tar.gz"
         )
         target.write_bytes(b"replaced")
         (self.fixture.assembly / (target.name + ".sha256")).write_text(
@@ -259,11 +260,11 @@ class ProductionBoundaryTests(unittest.TestCase):
         self.fixture.sign()
         (
             self.fixture.assembly
-            / f"ctr-decrypted-{self.fixture.VERSION}-linux-x86.tar.gz"
+            / f"ctr-decrypted-{self.fixture.VERSION}-linux-arm64.tar.gz"
         ).unlink()
         (
             self.fixture.assembly
-            / f"ctr-decrypted-{self.fixture.VERSION}-linux-x86.tar.gz.sha256"
+            / f"ctr-decrypted-{self.fixture.VERSION}-linux-arm64.tar.gz.sha256"
         ).unlink()
         result = self.fixture.run_verifier("--public-key", str(self.fixture.public_key))
         self.assertNotEqual(result.returncode, 0)
@@ -392,7 +393,8 @@ class MalformedManifestTests(unittest.TestCase):
                 "version": self.VERSION,
                 "artifacts": {
                     f"ctr-decrypted-{self.VERSION}-windows-x86.zip": "a" * 64,
-                    f"ctr-decrypted-{self.VERSION}-linux-x86.tar.gz": "b" * 64,
+                    f"ctr-decrypted-{self.VERSION}-linux-x86_64.tar.gz": "b" * 64,
+                    f"ctr-decrypted-{self.VERSION}-linux-arm64.tar.gz": "c" * 64,
                 },
             }
         )
@@ -468,8 +470,22 @@ class MalformedManifestTests(unittest.TestCase):
         data = json.loads(self.good())
         data["artifacts"] = {
             f"ctr-decrypted-{self.VERSION}-macos-x86.zip": "a" * 64,
-            f"ctr-decrypted-{self.VERSION}-linux-x86.tar.gz": "b" * 64,
+            f"ctr-decrypted-{self.VERSION}-linux-x86_64.tar.gz": "b" * 64,
+            f"ctr-decrypted-{self.VERSION}-linux-arm64.tar.gz": "c" * 64,
         }
+        with self.assertRaises(release_policy.PolicyError):
+            self.parse(json.dumps(data))
+
+    def test_32_bit_linux_archive_rejected(self) -> None:
+        data = json.loads(self.good())
+        del data["artifacts"][f"ctr-decrypted-{self.VERSION}-linux-x86_64.tar.gz"]
+        data["artifacts"][f"ctr-decrypted-{self.VERSION}-linux-x86.tar.gz"] = "b" * 64
+        with self.assertRaises(release_policy.PolicyError):
+            self.parse(json.dumps(data))
+
+    def test_missing_arm64_archive_rejected(self) -> None:
+        data = json.loads(self.good())
+        del data["artifacts"][f"ctr-decrypted-{self.VERSION}-linux-arm64.tar.gz"]
         with self.assertRaises(release_policy.PolicyError):
             self.parse(json.dumps(data))
 
@@ -482,7 +498,7 @@ class AuthoringDownloadVerifierTests(unittest.TestCase):
         self.fixture = ReleaseFixture(Path(self.tmp.name))
         self.fixture.write_manifest()
         self.archive = self.fixture.assembly / release_policy.authoring_asset_name(
-            self.fixture.VERSION, "windows"
+            self.fixture.VERSION, "windows-x86"
         )
 
     def tearDown(self) -> None:
@@ -523,7 +539,7 @@ class UpdaterArchiveLimitTests(unittest.TestCase):
     def test_archive_over_updater_limit_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             release = Path(tmp)
-            name = "ctr-decrypted-v0.3.1-linux-x86.tar.gz"
+            name = "ctr-decrypted-v0.3.1-linux-x86_64.tar.gz"
             with (release / name).open("wb") as out:
                 out.truncate(VERIFIER.UPDATER_MAX_ARCHIVE + 1)
             with self.assertRaises(VERIFIER.PolicyError) as raised:
@@ -533,7 +549,7 @@ class UpdaterArchiveLimitTests(unittest.TestCase):
     def test_archive_at_updater_limit_reaches_hash_check(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             release = Path(tmp)
-            name = "ctr-decrypted-v0.3.1-linux-x86.tar.gz"
+            name = "ctr-decrypted-v0.3.1-linux-x86_64.tar.gz"
             with (release / name).open("wb") as out:
                 out.truncate(VERIFIER.UPDATER_MAX_ARCHIVE)
             with self.assertRaises(VERIFIER.PolicyError) as raised:

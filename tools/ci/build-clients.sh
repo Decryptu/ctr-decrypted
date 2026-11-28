@@ -6,9 +6,23 @@ cd "$(dirname "$0")/../.."
 # own job, in parallel.
 platform=${1:?usage: build-clients.sh linux|windows [ap|vanilla|authoring|authoring-client ...]}
 shift
+# Windows releases are the 32-bit x86 build (MSYS2 MINGW32). Linux releases are
+# the 64-bit build for the host's architecture (docs/64BIT.md): x86_64 or arm64.
 case "$platform" in
-  linux) suffix= ;;
-  windows) suffix=.exe ;;
+  linux)
+    suffix=
+    case "$(uname -m)" in
+      x86_64) target=linux-x86_64 ;;
+      aarch64|arm64) target=linux-arm64 ;;
+      *) echo "No Linux release target for $(uname -m)" >&2; exit 2 ;;
+    esac
+    arch_flags=(-DCTR_64BIT=ON)
+    ;;
+  windows)
+    suffix=.exe
+    target=windows-x86
+    arch_flags=(-DCMAKE_C_FLAGS='-m32 -msse' -DCMAKE_CXX_FLAGS=-m32)
+    ;;
   *) echo 'Expected linux or windows' >&2; exit 2 ;;
 esac
 for requested in "$@"; do
@@ -65,7 +79,7 @@ for variant in ap vanilla authoring authoring-client; do
   cmake -S . -B "$build" -G Ninja \
     -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
     -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON \
-    -DCMAKE_C_FLAGS='-m32 -msse' -DCMAKE_CXX_FLAGS=-m32 \
+    "${arch_flags[@]}" \
     -DCTR_AP="$ap" -DCTR_CUSTOM_TRACKS="$custom" -DCTR_AP_AUTHORING="$authoring" \
     -DCTR_AUTHORING_CLIENT="$client" \
     -DCTR_AP_VERIFY_VENDOR=ON
@@ -81,5 +95,5 @@ for variant in ap vanilla authoring authoring-client; do
     objcopy --strip-all "$exe"
     objcopy --add-gnu-debuglink="$exe.debug" "$exe"
   fi
-  python3 tools/ci/package-client.py "$platform" "$variant" "$exe" client-artifacts
+  python3 tools/ci/package-client.py "$target" "$variant" "$exe" client-artifacts
 done

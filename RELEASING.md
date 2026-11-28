@@ -92,8 +92,11 @@ as a development base.
 - [ ] `ctr.apworld` is the artifact of that CTR world run. `release-prepare.yml`
       checks the run is on the same commit as the client, repacks `apworld/ctr`
       and refuses any difference from the artifact.
-- [ ] Linux/Steam Deck binary: build on the multiarch rig at the glibc-2.38
-      floor (`-DCTR_AP=ON`; see BUILDING.md). The build strips the binary and
+- [ ] Linux binaries: the `Build clients` workflow builds the 64-bit engine
+      (`-DCTR_64BIT=ON -DCTR_AP=ON`) in Debian 12 at the glibc-2.38 floor, once
+      on an x86_64 runner and once on an arm64 runner
+      (`tools/ci/build-clients.sh linux` builds for the host's architecture).
+      The build strips each binary and
       writes a `ctr_native_ap.debug` sidecar next to it (CTR_SPLIT_DEBUG,
       default ON). Confirm the debuglink is present with
       `readelf --string-dump=.gnu_debuglink ctr_native_ap` and confirm the
@@ -119,19 +122,25 @@ as a development base.
       the zip must carry the release name too (players see it when unzipping).
 - [ ] Write the `.sha256` file for the zip; quote the hash in the release
       notes.
-- [ ] Linux tarball: assemble `ctr-decrypted-vX.Y.Z-linux-x86.tar.gz`
+- [ ] Linux tarballs, one per architecture: assemble
+      `ctr-decrypted-vX.Y.Z-linux-x86_64.tar.gz` and
+      `ctr-decrypted-vX.Y.Z-linux-arm64.tar.gz`, each
       containing the STRIPPED `ctr_native_ap` plus the same companion files as
       the Windows bundle (`ctr.apworld`, `extract_assets.py`, `SETUP.md`,
       `ap-config.example.txt`, `LICENSE`, `THIRD_PARTY_NOTICES.md`,
-      `default_controls.ini`, `support-bundle.sh`). The tarball NEVER contains the `.debug` sidecar. As
-      with the zip, the folder inside the tarball carries the release name. Write
-      the tarball's `.sha256` sidecar.
-- [ ] BOTH `.debug` sidecars ship as their OWN public release assets: the Linux
-      `ctr_native_ap.debug` and the Windows `ctr_native_ap.exe.debug`, each with
-      a `.sha256` sidecar alongside it in the GitHub release (this lets
-      community members symbolize their own crash reports). Neither tarball nor
-      zip contains a sidecar. Each must be the `.debug` from the EXACT release
-      build; a rebuilt one fails the debuglink CRC32 check and is useless.
+      `default_controls.ini`, `support-bundle.sh`). A tarball NEVER contains the `.debug` sidecar. As
+      with the zip, the folder inside each tarball carries the release name. Write
+      each tarball's `.sha256` sidecar.
+- [ ] EVERY `.debug` sidecar ships as its OWN public release asset: the Windows
+      `ctr_native_ap.exe.debug` and the Linux `ctr_native_ap-linux-x86_64.debug`
+      and `ctr_native_ap-linux-arm64.debug`, each with a `.sha256` sidecar
+      alongside it in the GitHub release (this lets community members symbolize
+      their own crash reports). Both Linux builds name theirs
+      `ctr_native_ap.debug`, which is also the name inside each executable's
+      debuglink, so the assembler adds the target to the asset name; rename it
+      back to `ctr_native_ap.debug` beside the executable to use it. No tarball
+      or zip contains a sidecar. Each must be the `.debug` from the EXACT
+      release build; a rebuilt one fails the debuglink CRC32 check and is useless.
 - [ ] Regenerate the player template YAML from the RELEASE apworld using AP's
       template creator, and ship it as `Crash.Team.Racing.yaml` (a public release
       asset). Install the shipped `ctr.apworld` into an AP source checkout's
@@ -144,8 +153,8 @@ as a development base.
       `two_stage_density: full`, `one_lap_cups: on`) and that the docstring-diet
       text is present. The `warp_pad_shuffle_categories` set order varies per run,
       so the template is not byte-reproducible and is not sha-pinned.
-- [ ] Record in the release evidence the sha256 of BOTH the stripped
-      `ctr_native_ap` and the `ctr_native_ap.debug`: add them to the devlog
+- [ ] Record in the release evidence the sha256 of each stripped Linux
+      `ctr_native_ap` and its `.debug`: add them to the devlog
       artifact table, and archive a copy of the `.debug` and its checksums under
       `ctr-artifacts/<version>/` (the existing evidence home). Because the
       debuglink CRC rejects any rebuild, the `.debug` archived here must be the
@@ -157,14 +166,15 @@ The box authoring client is a separate download for players who help place item
 boxes (`docs/HELP_PLACE_BOXES.md`). It is never part of the player client
 archive, and its contents never change the player client.
 
-- [ ] The `Build clients` workflow builds it next to the player client on both
-      platforms (`-DCTR_AP=ON -DCTR_CUSTOM_TRACKS=ON -DCTR_AP_AUTHORING=ON`) as
-      its own artifact archive, `ctr-decrypted-box-authoring-<platform>-x86-<commit>`,
+- [ ] The `Build clients` workflow builds it next to the player client for
+      every target (`-DCTR_AP=ON -DCTR_CUSTOM_TRACKS=ON -DCTR_AP_AUTHORING=ON`) as
+      its own artifact archive, `ctr-decrypted-box-authoring-<target>-<commit>`,
       with its own `ctr_native_ap_authoring(.exe).debug` sidecar.
 - [ ] `tools/release/assemble-release.py --authoring` (the `Prepare release
       assets` workflow passes it) repackages it under the release name:
-      `ctr-decrypted-vX.Y.Z-box-authoring-windows-x86.zip` and
-      `ctr-decrypted-vX.Y.Z-box-authoring-linux-x86.tar.gz`, each with a
+      `ctr-decrypted-vX.Y.Z-box-authoring-windows-x86.zip`,
+      `ctr-decrypted-vX.Y.Z-box-authoring-linux-x86_64.tar.gz` and
+      `ctr-decrypted-vX.Y.Z-box-authoring-linux-arm64.tar.gz`, each with a
       `.sha256`. The folder inside is `ctr-decrypted-vX.Y.Z-box-authoring/`.
       It holds `ctr_native_ap_authoring(.exe)`, `HELP-PLACE-BOXES.md`,
       `AUTHORING-BUILD.txt`, `SETUP.md`, `extract_assets.py`, `versions.txt`,
@@ -178,14 +188,15 @@ archive, and its contents never change the player client.
 
 ### Signed client manifest
 
-The `Prepare release assets` workflow assembles the eleven standard assets and
+The `Prepare release assets` workflow assembles the fifteen standard assets and
 then writes `manifest.json` from the final archive bytes. The manifest has this
 exact shape, with sorted keys and a single trailing newline:
 
 ```json
 {
   "artifacts": {
-    "ctr-decrypted-vX.Y.Z-linux-x86.tar.gz": "<sha256 hex>",
+    "ctr-decrypted-vX.Y.Z-linux-arm64.tar.gz": "<sha256 hex>",
+    "ctr-decrypted-vX.Y.Z-linux-x86_64.tar.gz": "<sha256 hex>",
     "ctr-decrypted-vX.Y.Z-windows-x86.zip": "<sha256 hex>"
   },
   "version": "vX.Y.Z"
@@ -194,9 +205,11 @@ exact shape, with sorted keys and a single trailing newline:
 
 The in-game updater (#301, `ap/ap_update_core.cpp`) reads this contract in
 released clients: it offers only a stable `vX.Y.Z` release whose assets include
-`manifest.json`, `manifest.json.minisig` and both client archives, verifies the
+`manifest.json`, `manifest.json.minisig` and every client archive, verifies the
 signature with the public key compiled into the client, and installs from the
-platform archive's `ctr-decrypted-vX.Y.Z/` folder only `ctr_native_ap(.exe)`,
+archive of the target it was built for (`ap/ap_update_net.cpp`: Windows x86,
+Linux x86_64 or Linux arm64) and that archive's `ctr-decrypted-vX.Y.Z/` folder
+only `ctr_native_ap(.exe)`,
 `ctr.apworld`, the files directly in `assets/tracks/cortex-vortex/` and the whole
 `solo-runtime/` folder (#89), which replaces the installed runtime folder as one
 unit and must carry `solo-runtime/RUNTIME.txt`. The player's `solo/` folder is
@@ -207,27 +220,27 @@ reviewed change. A file placed in that Cortex Vortex folder or in the runtime
 reaches every updated install, so it needs the same redistribution permission
 as the archive itself.
 
-It covers **only the two client archives**. `ctr.apworld`, the player YAML,
+It covers **only the three client archives**. `ctr.apworld`, the player YAML,
 debug files and checksum sidecars stay outside it: the manifest is the client
 download contract, while the standard asset gate below still requires them. A
 Windows-only prerelease ships the seven-asset set with no manifest; the signing
-and upload steps are scoped to a complete two-platform release in section 7.
+and upload steps are scoped to a complete release of every target in section 7.
 
 - [ ] Confirm the assembly output contains `manifest.json` with a trailing
-      newline and exactly the two client archive names above.
+      newline and exactly the three client archive names above.
 - [ ] The preparation workflow already ran
       `python3 tools/verify-release.py release --version vX.Y.Z --pre-sign --require-solo-runtime` on
-      the twelve-file unsigned assembly. Run it again yourself if you assembled
+      the sixteen-file unsigned assembly. Run it again yourself if you assembled
       by hand. `--pre-sign` verifies the archive hashes and the standard
       sidecars without a signature and prints that it is not a signed release.
-      `--require-solo-runtime` checks that both client archives carry
+      `--require-solo-runtime` checks that every client archive carries
       `solo-runtime/RUNTIME.txt`, the interpreter, and a `ctr.apworld` equal to
       the standalone asset.
 - [ ] Solo runtime (#89): the preparation workflow builds `solo-runtime/` for
-      each platform with `tools/solo/build-runtime.py` from the exact
+      each target with `tools/solo/build-runtime.py` from the exact
       `ctr.apworld` and the pins in `tools/solo/runtime-lock.json`, and the
-      assembler puts it inside both client archives, so the signed manifest
-      covers it. Before the tag, add both new archives to the VirusTotal and
+      assembler puts it inside every client archive, so the signed manifest
+      covers it. Before the tag, add the new archives to the VirusTotal and
       Microsoft false-positive routine. Change the Archipelago core or the
       interpreter pin only in its own PR, with a full fuzz run on that core.
 
@@ -278,25 +291,26 @@ the previous release's published notes. House style:
       no signing key.
 - [ ] If this release offers the box authoring download (§4), upload
       `ctr-decrypted-vX.Y.Z-box-authoring-windows-x86.zip` and its `.sha256`
-      as two more assets, plus the Linux `.tar.gz` pair on a two-platform
+      as two more assets, plus the two Linux `.tar.gz` pairs on a complete
       release. Name it in the release notes as a separate download for helping
       place boxes, not for playing.
 
-### Complete two-platform release: Linux assets and signed manifest
+### Complete release: Linux assets and signed manifest
 
-Run this section only when the release carries all eleven standard assets, Linux
-included. The signed manifest covers exactly the two client archives, so only a
-complete two-platform release can produce one. Do not generate, commit or upload
+Run this section only when the release carries all fifteen standard assets, Linux
+included. The signed manifest covers exactly the three client archives, so only a
+complete release of every target can produce one. Do not generate, commit or upload
 a manifest, and do not require a signing key, for an ordinary Windows-only
 prerelease.
 
-- [ ] Add the Linux assets to the same release: the `.tar.gz` and its
-      `.sha256`, plus the `ctr_native_ap.debug` sidecar and its
-      `ctr_native_ap.debug.sha256` (see §4; both `.debug` files are public
-      assets so players can symbolize their own crashes). Both client archives
-      must be final before the manifest is generated.
+- [ ] Add the Linux assets to the same release: for each of `linux-x86_64`
+      and `linux-arm64`, the `.tar.gz` and its `.sha256`, plus the
+      `ctr_native_ap-<target>.debug` sidecar and its `.sha256` (see §4; every
+      `.debug` file is a public asset so players can symbolize their own
+      crashes). Every client archive must be final before the manifest is
+      generated.
 - [ ] Upload the prepared `manifest.json` from section 4 to the same release
-      after confirming that its two hashes match the final uploaded client
+      after confirming that its three hashes match the final uploaded client
       archives. The following signing steps use those exact manifest bytes.
 - [ ] Generate the signing key ONCE on the owner's own machine, outside CI and
       outside this repository:
@@ -314,38 +328,39 @@ prerelease.
       `minisign -S -s ctr-release-minisign.key -m manifest.json`.
 - [ ] Verify the local signature before uploading:
       `minisign -Vm manifest.json -p ctr-release-minisign.pub`.
-- [ ] Upload `manifest.json.minisig` only after the two covered archives and
-      `manifest.json` are final. If either archive changes, regenerate and
+- [ ] Upload `manifest.json.minisig` only after the three covered archives and
+      `manifest.json` are final. If any archive changes, regenerate and
       re-sign the manifest.
 - [ ] Download the complete release into a clean directory and run
       `python3 tools/verify-release.py <download-directory> --version vX.Y.Z`.
       Default mode requires the signature, the committed public key and
       minisign, verifies the signature over the exact manifest bytes, checks the
-      two archive hashes and validates every standard checksum sidecar. It must
+      three archive hashes and validates every standard checksum sidecar. It must
       report "verified signed release vX.Y.Z".
 
 ### Asset completeness
 
 - [ ] Verify with `gh release view`: title, tag, and the asset set for the
       release type. A Windows-only prerelease must show its seven standard
-      assets and no manifest; a complete signed two-platform release must show
+      assets and no manifest; a complete signed release must show
       every asset (the Windows zip + sha256, `ctr_native_ap.exe.debug` + sha256,
-      `ctr.apworld` + sha256, `Crash.Team.Racing.yaml`, the Linux tarball +
-      sha256, `ctr_native_ap.debug` + sha256, `manifest.json`, and
+      `ctr.apworld` + sha256, `Crash.Team.Racing.yaml`, the two Linux tarballs +
+      sha256, `ctr_native_ap-linux-x86_64.debug` and
+      `ctr_native_ap-linux-arm64.debug` + sha256, `manifest.json`, and
       `manifest.json.minisig`).
 - [ ] The box authoring download is optional and outside the standard set: it
-      does not count toward the seven or eleven, and `manifest.json` never
+      does not count toward the seven or fifteen, and `manifest.json` never
       covers it. When present, each authoring archive must have its `.sha256`;
       `tools/verify-release.py` checks that pair and accepts a release without
       it.
 - [ ] **Asset-completeness gate: all assets or pre-release.** Seven standard
       assets are permitted for a Windows-only prerelease. A complete
-      cross-platform release requires all ELEVEN standard assets (nine through
-      v0.1.4, plus the two Windows `.debug` assets added in v0.1.5). A signed
+      cross-platform release requires all FIFTEEN standard assets
+      (`tools/release/release_policy.py`). A signed
       complete release additionally requires `manifest.json` and
-      `manifest.json.minisig`, for THIRTEEN uploaded assets total. The manifest
-      covers exactly the Windows client ZIP and Linux client tarball; a
-      Windows-only prerelease cannot satisfy this signed two-platform manifest
+      `manifest.json.minisig`, for SEVENTEEN uploaded assets total. The manifest
+      covers exactly the Windows client ZIP and the two Linux client tarballs; a
+      Windows-only prerelease cannot satisfy this signed manifest
       and is not eligible for updater visibility. A release without
       `manifest.json.minisig` is not a signed release. If anything is missing,
       the release stays flagged pre-release until the missing assets are

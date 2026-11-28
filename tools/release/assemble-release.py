@@ -25,27 +25,36 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import release_policy
 from release_policy import (
     MANIFEST_NAME,
+    TARGETS,
     VERSION,
+    client_asset_name,
+    debug_asset_name,
     sha256,
     signed_asset_names,
     standard_asset_names,
+    target_os,
 )
 
 
 ASSET_NAMES = release_policy.STANDARD_ASSET_NAMES
 ASSET_DIR = "assets"
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
+# CI archive names (tools/ci/package-client.py), by build target.
 ARTIFACT_ARCHIVE = {
-    "windows": re.compile(r"^ctr-decrypted-windows-x86-([0-9a-f]{12,40})\.zip$"),
-    "linux": re.compile(r"^ctr-decrypted-linux-x86-([0-9a-f]{12,40})\.tar\.gz$"),
+    target: re.compile(rf"^ctr-decrypted-{re.escape(target)}-([0-9a-f]{{12,40}}){re.escape(release_policy.archive_suffix(target))}$")
+    for target in TARGETS
 }
 # The separate box authoring download (CTR_AP_AUTHORING). Its own CI archive,
 # its own release asset; it never enters the player client archive or the
 # signed manifest.
 AUTHORING_ARCHIVE = {
-    "windows": re.compile(r"^ctr-decrypted-box-authoring-windows-x86-([0-9a-f]{12,40})\.zip$"),
-    "linux": re.compile(r"^ctr-decrypted-box-authoring-linux-x86-([0-9a-f]{12,40})\.tar\.gz$"),
+    target: re.compile(
+        rf"^ctr-decrypted-box-authoring-{re.escape(target)}-([0-9a-f]{{12,40}}){re.escape(release_policy.archive_suffix(target))}$"
+    )
+    for target in TARGETS
 }
+# Executable names, by operating system.
+CLIENT_BINARY = {"windows": "ctr_native_ap.exe", "linux": "ctr_native_ap"}
 AUTHORING_BINARY = {"windows": "ctr_native_ap_authoring.exe", "linux": "ctr_native_ap_authoring"}
 NATIVE_COMPANIONS = (
     "ap/ap_version.h",
@@ -99,7 +108,7 @@ def refuse_existing_entries(output: Path, names: list[str]) -> None:
 def write_manifest(output: Path, version: str) -> Path:
     """Write the signed client manifest from the final archive bytes.
 
-    Called only after both client archives are final.  Sorted keys, UTF-8 and a
+    Called only after every client archive is final.  Sorted keys, UTF-8 and a
     single trailing LF keep the bytes deterministic for the out-of-CI signature.
     ``O_CREAT | O_EXCL`` refuses any existing directory entry, including a
     dangling symlink, and never follows one, so a check-then-write race cannot
@@ -161,17 +170,15 @@ def find_one(root: Path, predicate, label: str) -> Path:
 
 
 def unpack_artifact(
-    archive: Path, platform: str, destination: Path, authoring: bool = False
+    archive: Path, target: str, destination: Path, authoring: bool = False
 ) -> tuple[Path, dict, list[tuple[Path, str]]]:
     """Extract a package-client archive after checking its complete shape.
 
     Returns the extracted native binary, its BUILD.json metadata, and the
     bundled ``assets/`` tree as ``(path, relative posix name)`` pairs.
     """
-    if authoring:
-        binary_name = AUTHORING_BINARY[platform]
-    else:
-        binary_name = "ctr_native_ap.exe" if platform == "windows" else "ctr_native_ap"
+    platform = target_os(target)
+    binary_name = (AUTHORING_BINARY if authoring else CLIENT_BINARY)[platform]
     helper_names = {"support-bundle.bat", "support-bundle.ps1"} if platform == "windows" else {"support-bundle.sh"}
     variant_names = {"HELP-PLACE-BOXES.md", "AUTHORING-BUILD.txt"} if authoring else {"ap-config.example.txt"}
     allowed = {
@@ -283,7 +290,7 @@ def load_package_client(source: Path):
 
 
 def validate_build(
-    source: Path, platform: str, archive: Path, debug: Path, binary: Path, metadata: dict,
+    source: Path, target: str, archive: Path, debug: Path, binary: Path, metadata: dict,
     authoring: bool = False,
 ) -> None:
     expected_commit = subprocess.check_output(
@@ -292,28 +299,28 @@ def validate_build(
     if not HEX40.fullmatch(expected_commit):
         fail(f"native source HEAD is not a full commit id: {expected_commit!r}")
     if metadata.get("source_commit") != expected_commit:
-        fail(f"{platform} artifact source_commit does not match native source HEAD")
+        fail(f"{target} artifact source_commit does not match native source HEAD")
     variant = "authoring" if authoring else "ap"
-    if metadata.get("platform") != platform or metadata.get("variant") != variant:
-        fail(f"{platform} artifact is not an {variant} {platform} build")
+    if metadata.get("platform") != target or metadata.get("variant") != variant:
+        fail(f"{target} artifact is not an {variant} {target} build")
     if bool(metadata.get("authoring")) != authoring:
-        fail(f"{platform} artifact authoring flag does not match its variant")
+        fail(f"{target} artifact authoring flag does not match its variant")
     if metadata.get("executable_sha256") != sha256(binary):
-        fail(f"{platform} BUILD.json executable hash does not match archive bytes")
+        fail(f"{target} BUILD.json executable hash does not match archive bytes")
     if metadata.get("debug_sha256") != sha256(debug):
-        fail(f"{platform} BUILD.json debug hash does not match sidecar bytes")
-    match = (AUTHORING_ARCHIVE if authoring else ARTIFACT_ARCHIVE)[platform].match(archive.name)
+        fail(f"{target} BUILD.json debug hash does not match sidecar bytes")
+    match = (AUTHORING_ARCHIVE if authoring else ARTIFACT_ARCHIVE)[target].match(archive.name)
     if match is None or not expected_commit.startswith(match.group(1)):
-        fail(f"{platform} archive name does not identify native source commit")
+        fail(f"{target} archive name does not identify native source commit")
     # package-client performed the platform ABI, split-debug and debuglink gates
     # while creating this artifact. Repeat them here whenever the required host
     # inspection tools can parse the extracted native binary.
     package_client = load_package_client(source)
     if package_client is not None:
         try:
-            package_client.verify(platform, binary, variant)
+            package_client.verify(target, binary, variant)
         except Exception as error:
-            fail(f"{platform} package-client validation failed: {error}")
+            fail(f"{target} package-client validation failed: {error}")
 
 
 def read_source_identity(source: Path) -> tuple[str, str]:
@@ -391,7 +398,7 @@ def write_checksum(path: Path) -> None:
 
 
 SOLO_RUNTIME_DIR = "solo-runtime"
-SOLO_INTERPRETER = {"windows": "python/python.exe", "linux": "python/bin/python3.12"}
+SOLO_INTERPRETER = {"windows": "python/python.exe", "linux": "python/bin/python3.12"}  # by operating system
 
 
 def read_runtime_manifest(text: str) -> dict[str, str]:
@@ -424,18 +431,18 @@ def runtime_tree_sha256(files: list[tuple[str, str]]) -> str:
     return digest.hexdigest()
 
 
-def solo_runtime_entries(runtime: Path, platform: str, apworld: Path) -> list[tuple[Path, str]]:
+def solo_runtime_entries(runtime: Path, target: str, apworld: Path) -> list[tuple[Path, str]]:
     """Check a built solo runtime (#89) and return its archive entries."""
     manifest_path = runtime / "RUNTIME.txt"
     if not manifest_path.is_file():
-        fail(f"{platform} solo runtime has no RUNTIME.txt: {runtime}")
+        fail(f"{target} solo runtime has no RUNTIME.txt: {runtime}")
     manifest = read_runtime_manifest(manifest_path.read_text(encoding="utf-8"))
-    if manifest.get("platform") != platform:
-        fail(f"solo runtime platform is {manifest.get('platform')!r}, expected {platform}")
-    if manifest.get("interpreter") != SOLO_INTERPRETER[platform]:
-        fail(f"{platform} solo runtime names interpreter {manifest.get('interpreter')!r}")
+    if manifest.get("platform") != target:
+        fail(f"solo runtime platform is {manifest.get('platform')!r}, expected {target}")
+    if manifest.get("interpreter") != SOLO_INTERPRETER[target_os(target)]:
+        fail(f"{target} solo runtime names interpreter {manifest.get('interpreter')!r}")
     if manifest.get("ctr.apworld sha256") != sha256(apworld):
-        fail(f"{platform} solo runtime was built for another ctr.apworld")
+        fail(f"{target} solo runtime was built for another ctr.apworld")
     entries = []
     for path in sorted(runtime.rglob("*")):
         if path.is_symlink():
@@ -443,15 +450,15 @@ def solo_runtime_entries(runtime: Path, platform: str, apworld: Path) -> list[tu
         if path.is_file():
             entries.append((path, f"{SOLO_RUNTIME_DIR}/{path.relative_to(runtime).as_posix()}"))
     names = {name for _, name in entries}
-    for needed in (SOLO_INTERPRETER[platform], "ctr_solo.py", "archipelago/MultiServer.py"):
+    for needed in (SOLO_INTERPRETER[target_os(target)], "ctr_solo.py", "archipelago/MultiServer.py"):
         if f"{SOLO_RUNTIME_DIR}/{needed}" not in names:
-            fail(f"{platform} solo runtime lacks {needed}")
+            fail(f"{target} solo runtime lacks {needed}")
     # The files must be the ones RUNTIME.txt describes.
     tree = runtime_tree_sha256([(path.relative_to(runtime).as_posix(), sha256(path)) for path, _ in entries])
     if manifest.get("tree sha256") != tree:
-        fail(f"{platform} solo runtime files differ from its RUNTIME.txt (tree sha256)")
+        fail(f"{target} solo runtime files differ from its RUNTIME.txt (tree sha256)")
     if manifest.get("ctr_solo.py sha256") != sha256(runtime / "ctr_solo.py"):
-        fail(f"{platform} solo runtime ctr_solo.py differs from its RUNTIME.txt")
+        fail(f"{target} solo runtime ctr_solo.py differs from its RUNTIME.txt")
     return entries
 
 
@@ -493,7 +500,7 @@ def create_archive(destination: Path, root_name: str, entries: list[tuple[Path, 
                 bundle.write(path, f"{root_name}/{relative}")
 
 
-def assemble_authoring(source: Path, version: str, platform: str, artifact_dir: Path,
+def assemble_authoring(source: Path, version: str, target: str, artifact_dir: Path,
                        output: Path, temp: Path) -> Path:
     """Repackage the box authoring CI archive as its own release download.
 
@@ -503,17 +510,17 @@ def assemble_authoring(source: Path, version: str, platform: str, artifact_dir: 
     """
     archive = find_one(
         artifact_dir,
-        lambda p: AUTHORING_ARCHIVE[platform].fullmatch(p.name) is not None,
-        f"{platform} box authoring archive",
+        lambda p: AUTHORING_ARCHIVE[target].fullmatch(p.name) is not None,
+        f"{target} box authoring archive",
     )
     check_checksum(archive)
-    debug_name = AUTHORING_BINARY[platform] + ".debug"
-    debug = find_one(artifact_dir, lambda p: p.name == debug_name, f"{platform} box authoring debug sidecar")
+    debug_name = AUTHORING_BINARY[target_os(target)] + ".debug"
+    debug = find_one(archive.parent, lambda p: p.name == debug_name, f"{target} box authoring debug sidecar")
     check_checksum(debug)
-    staging = temp / f"authoring-{platform}"
-    binary, metadata, _ = unpack_artifact(archive, platform, staging, authoring=True)
+    staging = temp / f"authoring-{target}"
+    binary, metadata, _ = unpack_artifact(archive, target, staging, authoring=True)
     shutil.copy2(debug, staging / debug_name)
-    validate_build(source, platform, archive, debug, binary, metadata, authoring=True)
+    validate_build(source, target, archive, debug, binary, metadata, authoring=True)
     entries = []
     for path in sorted(p for p in staging.rglob("*") if p.is_file()):
         relative = path.relative_to(staging).as_posix()
@@ -521,9 +528,9 @@ def assemble_authoring(source: Path, version: str, platform: str, artifact_dir: 
             continue
         entries.append((path, relative))
     tag = f"v{version}"
-    name = release_policy.authoring_asset_name(tag, platform)
+    name = release_policy.authoring_asset_name(tag, target)
     destination = output / name
-    create_archive(destination, f"ctr-decrypted-{tag}-box-authoring", entries, linux=platform == "linux")
+    create_archive(destination, f"ctr-decrypted-{tag}-box-authoring", entries, linux=target_os(target) == "linux")
     write_checksum(destination)
     return destination
 
@@ -556,32 +563,31 @@ def assemble(args: argparse.Namespace) -> list[Path]:
     expected_assets = standard_asset_names(version)
     authoring_assets = release_policy.authoring_asset_names(version) if getattr(args, "authoring", False) else []
     refuse_existing_entries(output, [*expected_assets, *authoring_assets, MANIFEST_NAME])
+    artifact_dir = args.artifacts.resolve()
     with tempfile.TemporaryDirectory(prefix="ctr-release-") as temporary:
         temp = Path(temporary)
         staged: dict[str, tuple[Path, dict, list[tuple[Path, str]]]] = {}
-        artifact_inputs = (
-            ("windows", args.windows_artifacts.resolve()),
-            ("linux", args.linux_artifacts.resolve()),
-        )
-        for platform, artifact_dir in artifact_inputs:
+        for target in TARGETS:
             archive = find_one(
                 artifact_dir,
-                lambda p, platform=platform: ARTIFACT_ARCHIVE[platform].fullmatch(p.name) is not None,
-                f"{platform} AP archive",
+                lambda p, target=target: ARTIFACT_ARCHIVE[target].fullmatch(p.name) is not None,
+                f"{target} AP archive",
             )
             check_checksum(archive)
-            debug_name = "ctr_native_ap.exe.debug" if platform == "windows" else "ctr_native_ap.debug"
+            # Every Linux build names its sidecar ctr_native_ap.debug: the one
+            # beside this archive (same CI artifact folder) is this target's.
+            debug_name = CLIENT_BINARY[target_os(target)] + ".debug"
             debug = find_one(
-                artifact_dir,
+                archive.parent,
                 lambda p, debug_name=debug_name: p.name == debug_name,
-                f"{platform} debug sidecar",
+                f"{target} debug sidecar",
             )
             check_checksum(debug)
-            unpacked, metadata, assets = unpack_artifact(archive, platform, temp / platform)
-            staged[platform] = (unpacked, metadata, assets)
+            unpacked, metadata, assets = unpack_artifact(archive, target, temp / target)
+            staged[target] = (unpacked, metadata, assets)
             # package-client.verify resolves the sidecar as <binary>.debug.
-            shutil.copy2(debug, temp / platform / debug_name)
-            validate_build(source, platform, archive, debug, unpacked, metadata)
+            shutil.copy2(debug, temp / target / debug_name)
+            validate_build(source, target, archive, debug, unpacked, metadata)
         root_name = f"ctr-decrypted-v{version}"
         common = [
             source / "tools" / "extract-assets" / "extract_assets.py",
@@ -610,62 +616,58 @@ def assemble(args: argparse.Namespace) -> list[Path]:
                 fail(f"missing release companion file: {path}")
         if not (source / "support-bundle.sh").is_file():
             fail("missing release companion file: support-bundle.sh")
-        windows_assets = staged["windows"][2]
-        linux_assets = staged["linux"][2]
-        if [name for _, name in windows_assets] != [name for _, name in linux_assets]:
-            fail("windows and linux build archives carry different asset trees")
-        for (windows_path, name), (linux_path, _) in zip(windows_assets, linux_assets):
-            if sha256(windows_path) != sha256(linux_path):
-                fail(f"windows and linux build archives disagree on asset bytes: {name}")
-        windows_files = [
-            (staged["windows"][0], "ctr_native_ap.exe"),
-            *((path, path.name) for path in [*bundle_common, *helper]),
-            *licenses,
-            *windows_assets,
-        ]
-        linux_files = [
-            (staged["linux"][0], "ctr_native_ap"),
-            *((path, path.name) for path in bundle_common),
-            (source / "support-bundle.sh", "support-bundle.sh"),
-            *licenses,
-            *linux_assets,
-        ]
-        # The solo runtime (#89) ships inside both client archives, so the
-        # signed manifest covers it. Both or neither.
-        solo_windows = getattr(args, "solo_runtime_windows", None)
-        solo_linux = getattr(args, "solo_runtime_linux", None)
-        if (solo_windows is None) != (solo_linux is None):
-            fail("give both --solo-runtime-windows and --solo-runtime-linux, or neither")
-        if solo_windows is None and solo_runtime_required(version):
-            fail(f"release {version} needs the solo runtime: give --solo-runtime-windows and --solo-runtime-linux")
-        if solo_windows is not None:
-            windows_files += solo_runtime_entries(solo_windows.resolve(), "windows", args.apworld.resolve())
-            linux_files += solo_runtime_entries(solo_linux.resolve(), "linux", args.apworld.resolve())
-        windows_archive = output / f"ctr-decrypted-v{version}-windows-x86.zip"
-        linux_archive = output / f"ctr-decrypted-v{version}-linux-x86.tar.gz"
-        create_archive(windows_archive, root_name, windows_files, linux=False)
-        create_archive(linux_archive, root_name, linux_files, linux=True)
-        shutil.copy2(temp / "windows" / "ctr_native_ap.exe.debug", output / "ctr_native_ap.exe.debug")
-        shutil.copy2(temp / "linux" / "ctr_native_ap.debug", output / "ctr_native_ap.debug")
+        reference = TARGETS[0]
+        for target in TARGETS[1:]:
+            ours, theirs = staged[reference][2], staged[target][2]
+            if [name for _, name in ours] != [name for _, name in theirs]:
+                fail(f"{reference} and {target} build archives carry different asset trees")
+            for (our_path, name), (their_path, _) in zip(ours, theirs):
+                if sha256(our_path) != sha256(their_path):
+                    fail(f"{reference} and {target} build archives disagree on asset bytes: {name}")
+        files: dict[str, list[tuple[Path, str]]] = {}
+        for target in TARGETS:
+            binary, _, assets = staged[target]
+            if target_os(target) == "windows":
+                helpers = [(path, path.name) for path in helper]
+            else:
+                helpers = [(source / "support-bundle.sh", "support-bundle.sh")]
+            files[target] = [
+                (binary, CLIENT_BINARY[target_os(target)]),
+                *((path, path.name) for path in bundle_common),
+                *helpers,
+                *licenses,
+                *assets,
+            ]
+        # The solo runtime (#89) ships inside every client archive, so the
+        # signed manifest covers it. One per target, or none.
+        runtimes = getattr(args, "solo_runtimes", None)
+        if runtimes is None and solo_runtime_required(version):
+            fail(f"release {version} needs the solo runtime: give --solo-runtimes")
+        if runtimes is not None:
+            for target in TARGETS:
+                files[target] += solo_runtime_entries((runtimes / target).resolve(), target, args.apworld.resolve())
+        for target in TARGETS:
+            create_archive(output / client_asset_name(version, target), root_name, files[target],
+                           linux=target_os(target) == "linux")
+            debug_name = CLIENT_BINARY[target_os(target)] + ".debug"
+            shutil.copy2(temp / target / debug_name, output / debug_asset_name(target))
         authoring_outputs = []
         if authoring_assets:
-            for platform, artifact_dir in artifact_inputs:
+            for target in TARGETS:
                 authoring_outputs.append(
-                    assemble_authoring(source, version, platform, artifact_dir, output, temp)
+                    assemble_authoring(source, version, target, artifact_dir, output, temp)
                 )
     shutil.copy2(args.apworld, output / "ctr.apworld")
     shutil.copy2(args.template, output / "Crash.Team.Racing.yaml")
     for name in (
-        f"ctr-decrypted-v{version}-windows-x86.zip",
-        "ctr_native_ap.exe.debug",
+        *(client_asset_name(version, target) for target in TARGETS),
+        *(debug_asset_name(target) for target in TARGETS),
         "ctr.apworld",
-        f"ctr-decrypted-v{version}-linux-x86.tar.gz",
-        "ctr_native_ap.debug",
     ):
         write_checksum(output / name)
     assets = [output / name for name in expected_assets]
     if any(not path.is_file() for path in assets):
-        fail("assembly did not produce the complete eleven-asset set")
+        fail("assembly did not produce the complete standard asset set")
     manifest = write_manifest(output, version)
     extras = [output / name for name in authoring_assets]
     if any(not path.is_file() for path in extras):
@@ -676,8 +678,8 @@ def assemble(args: argparse.Namespace) -> list[Path]:
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(description=__doc__)
     result.add_argument("--native-source", type=Path, required=True)
-    result.add_argument("--windows-artifacts", type=Path, required=True)
-    result.add_argument("--linux-artifacts", type=Path, required=True)
+    result.add_argument("--artifacts", type=Path, required=True,
+                        help="the Build clients run's archives and debug sidecars, every target")
     result.add_argument("--apworld", type=Path, required=True)
     result.add_argument("--template", type=Path, required=True)
     result.add_argument(
@@ -686,14 +688,13 @@ def parser() -> argparse.ArgumentParser:
         help="numeric semver, with optional prerelease and optional leading v",
     )
     result.add_argument("--output-dir", type=Path, required=True)
-    result.add_argument("--solo-runtime-windows", type=Path, default=None,
-                        help="solo-runtime folder from tools/solo/build-runtime.py --platform windows")
-    result.add_argument("--solo-runtime-linux", type=Path, default=None,
-                        help="solo-runtime folder from tools/solo/build-runtime.py --platform linux")
+    result.add_argument("--solo-runtimes", type=Path, default=None,
+                        help="folder with one solo runtime per target (<target>/, from "
+                        "tools/solo/build-runtime.py --platform <target>)")
     result.add_argument(
         "--authoring",
         action="store_true",
-        help="also emit the separate box authoring download (both platforms)",
+        help="also emit the separate box authoring download (every target)",
     )
     result.add_argument(
         "--rehearsal", action="store_true",

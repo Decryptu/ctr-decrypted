@@ -103,10 +103,10 @@
           <p>Right-click the <code>.zip</code>, choose <strong>Extract All</strong>, and extract it into a folder of its own, for example <code>Documents\CTR Decrypted</code>. Do not run the game from inside the zip, and avoid <code>Program Files</code>: the game writes its settings and saves next to itself.</p>
         </div>
         <div data-platform="linux">
-          <div class="dl-row"><a class="btn btn-go" href="https://github.com/Decryptu/ctr-decrypted/releases/latest" data-download="linux"><svg class="ps"><use href="#i-x"/></svg>Download for Linux <small data-size></small></a></div>
-          <p>Extract it into a folder of its own, for example <code>~/Games/CTR</code>:</p>
-          <pre><code>mkdir -p ~/Games/CTR &amp;&amp; tar -xzf ctr-decrypted-*-linux-x86.tar.gz -C ~/Games/CTR</code></pre>
-          <p class="more">The game is a 32-bit program. If it starts with no sound, see <a href="guide.html#troubleshooting">Troubleshooting</a>; <a href="steam-deck.html">Linux and Steam Deck</a> lists what it needs.</p>
+          <div class="dl-row"><a class="btn btn-go" href="https://github.com/Decryptu/ctr-decrypted/releases/latest" data-download="linux"><svg class="ps"><use href="#i-x"/></svg>Download for Linux <small data-size></small></a> <a class="btn" href="https://github.com/Decryptu/ctr-decrypted/releases/latest" data-download="linux-arm64">ARM64 <small data-size></small></a></div>
+          <p>Most PCs need the main download (x86_64). Take ARM64 for an ARM computer, such as a Raspberry Pi 5 or an ARM laptop; <code>uname -m</code> prints <code>aarch64</code> on one. Extract it into a folder of its own, for example <code>~/Games/CTR</code>:</p>
+          <pre><code>mkdir -p ~/Games/CTR &amp;&amp; tar -xzf ctr-decrypted-*-linux-*.tar.gz -C ~/Games/CTR</code></pre>
+          <p class="more">If it starts with no sound, see <a href="guide.html#troubleshooting">Troubleshooting</a>; <a href="steam-deck.html">Linux and Steam Deck</a> lists what it needs.</p>
         </div>
         <div data-platform="deck">
           <p>Switch to <strong>Desktop Mode</strong> (Steam button, <strong>Power</strong>, <strong>Switch to Desktop</strong>) and open this page in the browser there.</p>

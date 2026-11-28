@@ -97,8 +97,7 @@ class AssemblerFixtureTests(unittest.TestCase):
         return type("Args", (), {
             "version": "0.2.0-rc-prep1",
             "native_source": self.source,
-            "windows_artifacts": self.root / "windows",
-            "linux_artifacts": self.root / "linux",
+            "artifacts": self.root,
             "apworld": apworld,
             "template": template,
             "output_dir": output,
@@ -125,7 +124,7 @@ class AssemblerFixtureTests(unittest.TestCase):
     ) -> tuple[Path, Path]:
         artifact = self.root / platform
         artifact.mkdir()
-        binary_name = "ctr_native_ap.exe" if platform == "windows" else "ctr_native_ap"
+        binary_name = "ctr_native_ap.exe" if platform == "windows-x86" else "ctr_native_ap"
         debug_name = binary_name + ".debug"
         binary = (
             b"CTR Decrypted v0.2.0-rc-prep1\0"
@@ -140,9 +139,9 @@ class AssemblerFixtureTests(unittest.TestCase):
             "executable_sha256": hashlib.sha256(binary).hexdigest(),
             "debug_sha256": hashlib.sha256(debug).hexdigest(),
         }
-        archive = artifact / f"ctr-decrypted-{platform}-x86-{self.commit[:12]}.zip"
+        archive = artifact / f"ctr-decrypted-{platform}-{self.commit[:12]}.zip"
         with zipfile.ZipFile(archive, "w") as bundle:
-            root = f"ctr-decrypted-{platform}-x86-{self.commit[:12]}"
+            root = f"ctr-decrypted-{platform}-{self.commit[:12]}"
             bundle.writestr(f"{root}/{binary_name}", binary)
             bundle.writestr(f"{root}/BUILD.json", json.dumps(metadata))
             if assets:
@@ -158,12 +157,12 @@ class AssemblerFixtureTests(unittest.TestCase):
         return artifact, debug_path
 
 
-    def write_build_tarball(self, platform: str = "linux") -> Path:
+    def write_build_tarball(self, platform: str = "linux-x86_64") -> Path:
         """Mirror write_build_archive as a tar.gz, the real Linux CI shape."""
         artifact, _ = self.write_build_archive(platform, assets=True)
-        source_zip = next(artifact.glob(f"ctr-decrypted-{platform}-x86-*.zip"))
-        tarball = artifact / f"ctr-decrypted-{platform}-x86-{self.commit[:12]}.tar.gz"
-        root = f"ctr-decrypted-{platform}-x86-{self.commit[:12]}"
+        source_zip = next(artifact.glob(f"ctr-decrypted-{platform}-*.zip"))
+        tarball = artifact / f"ctr-decrypted-{platform}-{self.commit[:12]}.tar.gz"
+        root = f"ctr-decrypted-{platform}-{self.commit[:12]}"
         with zipfile.ZipFile(source_zip) as bundle, tarfile.open(tarball, "w:gz") as out:
             directory = tarfile.TarInfo(root)
             directory.type = tarfile.DIRTYPE
@@ -181,10 +180,10 @@ class AssemblerFixtureTests(unittest.TestCase):
         return tarball
 
     def test_nested_assets_are_carried_and_build_notice_is_dropped(self) -> None:
-        artifact, _ = self.write_build_archive("windows", assets=True)
+        artifact, _ = self.write_build_archive("windows-x86", assets=True)
         archive = next(artifact.glob("ctr-decrypted-windows-x86-*.zip"))
         unpacked = self.root / "unpacked-windows"
-        binary, _, assets = ASSEMBLER.unpack_artifact(archive, "windows", unpacked)
+        binary, _, assets = ASSEMBLER.unpack_artifact(archive, "windows-x86", unpacked)
         self.assertEqual([name for _, name in assets], list(self.ASSET_MEMBERS))
         for path, name in assets:
             self.assertTrue(path.is_file())
@@ -195,7 +194,7 @@ class AssemblerFixtureTests(unittest.TestCase):
     def test_nested_assets_in_tarball_are_carried(self) -> None:
         tarball = self.write_build_tarball()
         unpacked = self.root / "unpacked-linux"
-        binary, _, assets = ASSEMBLER.unpack_artifact(tarball, "linux", unpacked)
+        binary, _, assets = ASSEMBLER.unpack_artifact(tarball, "linux-x86_64", unpacked)
         self.assertEqual([name for _, name in assets], list(self.ASSET_MEMBERS))
         self.assertFalse((unpacked / "BUILD-NOTICE.txt").exists())
         # Windows files have no executable bit; the release is assembled on Linux.
@@ -205,38 +204,38 @@ class AssemblerFixtureTests(unittest.TestCase):
 
     def test_vendor_license_members_are_accepted(self) -> None:
         artifact, _ = self.write_build_archive(
-            "windows", extra={"LICENSE-xdelta3.txt": b"apache", "LICENSE-utf8proc.md": b"mit"}
+            "windows-x86", extra={"LICENSE-xdelta3.txt": b"apache", "LICENSE-utf8proc.md": b"mit"}
         )
         archive = next(artifact.glob("ctr-decrypted-windows-x86-*.zip"))
-        binary, _, _ = ASSEMBLER.unpack_artifact(archive, "windows", self.root / "unpacked-licenses")
+        binary, _, _ = ASSEMBLER.unpack_artifact(archive, "windows-x86", self.root / "unpacked-licenses")
         self.assertTrue(binary.is_file())
 
     def test_unexpected_nested_directory_is_rejected(self) -> None:
-        artifact, _ = self.write_build_archive("windows", extra={"secrets/key.txt": b"nope"})
+        artifact, _ = self.write_build_archive("windows-x86", extra={"secrets/key.txt": b"nope"})
         archive = next(artifact.glob("ctr-decrypted-windows-x86-*.zip"))
         with self.assertRaises(ASSEMBLER.AssemblyError):
-            ASSEMBLER.unpack_artifact(archive, "windows", self.root / "out-nested")
+            ASSEMBLER.unpack_artifact(archive, "windows-x86", self.root / "out-nested")
 
     def test_vendored_library_licenses_are_accepted(self) -> None:
         extra = {name: name.encode() for name in ASSEMBLER.VENDOR_LICENSES}
-        artifact, _ = self.write_build_archive("windows", extra=extra)
+        artifact, _ = self.write_build_archive("windows-x86", extra=extra)
         archive = next(artifact.glob("ctr-decrypted-windows-x86-*.zip"))
         unpacked = self.root / "unpacked-licenses"
-        ASSEMBLER.unpack_artifact(archive, "windows", unpacked)
+        ASSEMBLER.unpack_artifact(archive, "windows-x86", unpacked)
         for name in ASSEMBLER.VENDOR_LICENSES:
             self.assertEqual((unpacked / name).read_bytes(), name.encode())
 
     def test_unexpected_root_member_is_still_rejected(self) -> None:
-        artifact, _ = self.write_build_archive("windows", extra={"surprise.txt": b"nope"})
+        artifact, _ = self.write_build_archive("windows-x86", extra={"surprise.txt": b"nope"})
         archive = next(artifact.glob("ctr-decrypted-windows-x86-*.zip"))
         with self.assertRaises(ASSEMBLER.AssemblyError):
-            ASSEMBLER.unpack_artifact(archive, "windows", self.root / "out-root")
+            ASSEMBLER.unpack_artifact(archive, "windows-x86", self.root / "out-root")
 
     def test_bundles_carry_assets_with_relative_paths_and_modes(self) -> None:
-        artifact, _ = self.write_build_archive("linux", assets=True)
-        archive = next(artifact.glob("ctr-decrypted-linux-x86-*.zip"))
+        artifact, _ = self.write_build_archive("linux-x86_64", assets=True)
+        archive = next(artifact.glob("ctr-decrypted-linux-x86_64-*.zip"))
         unpacked = self.root / "bundle-src"
-        binary, _, assets = ASSEMBLER.unpack_artifact(archive, "linux", unpacked)
+        binary, _, assets = ASSEMBLER.unpack_artifact(archive, "linux-x86_64", unpacked)
         helper = self.root / "support-bundle.sh"
         helper.write_text("#!/bin/sh\n")
         helper.chmod(0o755)
@@ -263,22 +262,37 @@ class AssemblerFixtureTests(unittest.TestCase):
                 self.assertIn(f"{root_name}/{member}", names)
                 self.assertEqual(bundle.read(f"{root_name}/{member}"), member.encode())
 
+    def write_client_archives(self, output: Path) -> dict[str, Path]:
+        archives = {}
+        for target in release_policy.TARGETS:
+            archive = output / release_policy.client_asset_name("1.2.3", target)
+            archive.write_bytes(f"{target}-final".encode())
+            archives[target] = archive
+        return archives
+
     def test_manifest_uses_final_archive_bytes_and_stable_format(self) -> None:
         output = self.root / "release"
         output.mkdir()
-        windows = output / "ctr-decrypted-v1.2.3-windows-x86.zip"
-        linux = output / "ctr-decrypted-v1.2.3-linux-x86.tar.gz"
-        windows.write_bytes(b"windows-final")
-        linux.write_bytes(b"linux-final")
+        archives = self.write_client_archives(output)
+        self.assertEqual(
+            [path.name for path in archives.values()],
+            ["ctr-decrypted-v1.2.3-windows-x86.zip", "ctr-decrypted-v1.2.3-linux-x86_64.tar.gz",
+             "ctr-decrypted-v1.2.3-linux-arm64.tar.gz"],
+        )
 
         manifest = ASSEMBLER.write_manifest(output, "1.2.3")
+
+        def line(target: str) -> str:
+            path = archives[target]
+            return f'    "{path.name}": "{hashlib.sha256(path.read_bytes()).hexdigest()}"'
 
         self.assertEqual(
             manifest.read_text(encoding="utf-8"),
             "{\n"
             '  "artifacts": {\n'
-            f'    "{linux.name}": "{hashlib.sha256(linux.read_bytes()).hexdigest()}",\n'
-            f'    "{windows.name}": "{hashlib.sha256(windows.read_bytes()).hexdigest()}"\n'
+            f"{line('linux-arm64')},\n"
+            f"{line('linux-x86_64')},\n"
+            f"{line('windows-x86')}\n"
             "  },\n"
             '  "version": "v1.2.3"\n'
             "}\n",
@@ -289,26 +303,22 @@ class AssemblerFixtureTests(unittest.TestCase):
     def test_manifest_tracks_replaced_archive_bytes(self) -> None:
         output = self.root / "release"
         output.mkdir()
-        windows = output / "ctr-decrypted-v1.2.3-windows-x86.zip"
-        linux = output / "ctr-decrypted-v1.2.3-linux-x86.tar.gz"
-        windows.write_bytes(b"windows-final")
-        linux.write_bytes(b"linux-final")
+        archives = self.write_client_archives(output)
         manifest = ASSEMBLER.write_manifest(output, "1.2.3")
         original = manifest.read_text(encoding="utf-8")
 
-        windows.write_bytes(b"windows-replaced")
+        archives["linux-arm64"].write_bytes(b"arm64-replaced")
         manifest.unlink()
         changed = ASSEMBLER.write_manifest(output, "1.2.3").read_text(encoding="utf-8")
 
         self.assertNotEqual(original, changed)
-        self.assertIn(hashlib.sha256(b"windows-replaced").hexdigest(), changed)
-        self.assertNotIn(hashlib.sha256(b"windows-final").hexdigest(), changed)
+        self.assertIn(hashlib.sha256(b"arm64-replaced").hexdigest(), changed)
+        self.assertNotIn(hashlib.sha256(b"linux-arm64-final").hexdigest(), changed)
 
     def test_manifest_refuses_to_overwrite(self) -> None:
         output = self.root / "release"
         output.mkdir()
-        (output / "ctr-decrypted-v1.2.3-windows-x86.zip").write_bytes(b"w")
-        (output / "ctr-decrypted-v1.2.3-linux-x86.tar.gz").write_bytes(b"l")
+        self.write_client_archives(output)
         ASSEMBLER.write_manifest(output, "1.2.3")
         with self.assertRaises(ASSEMBLER.AssemblyError):
             ASSEMBLER.write_manifest(output, "1.2.3")
@@ -318,8 +328,7 @@ class AssemblerFixtureTests(unittest.TestCase):
         # old writer followed the link and created the file outside the release.
         output = self.root / "release"
         output.mkdir()
-        (output / "ctr-decrypted-v1.2.3-windows-x86.zip").write_bytes(b"w")
-        (output / "ctr-decrypted-v1.2.3-linux-x86.tar.gz").write_bytes(b"l")
+        self.write_client_archives(output)
         outside = self.root / "outside" / "escaped.json"
         outside.parent.mkdir()
         symlink_or_skip(self, outside, output / "manifest.json")
@@ -349,8 +358,7 @@ class AssemblerFixtureTests(unittest.TestCase):
     def test_manifest_refuses_existing_directory(self) -> None:
         output = self.root / "release"
         output.mkdir()
-        (output / "ctr-decrypted-v1.2.3-windows-x86.zip").write_bytes(b"w")
-        (output / "ctr-decrypted-v1.2.3-linux-x86.tar.gz").write_bytes(b"l")
+        self.write_client_archives(output)
         (output / "manifest.json").mkdir()
         with self.assertRaises(ASSEMBLER.AssemblyError):
             ASSEMBLER.write_manifest(output, "1.2.3")
@@ -399,19 +407,51 @@ class AssemblerFixtureTests(unittest.TestCase):
             release_policy.standard_asset_names("1.2.3"),
         )
 
+    def test_each_target_takes_the_debug_sidecar_beside_its_archive(self) -> None:
+        """Both Linux builds name their sidecar ctr_native_ap.debug; each
+        release asset must come from its own target's artifact folder."""
+        debugs = {}
+        for target in release_policy.TARGETS:
+            artifact, debug = self.write_build_archive(target, assets=True)
+            if target != "windows-x86":
+                zipped = next(artifact.glob("*.zip"))
+                zipped.unlink()
+                (artifact / (zipped.name + ".sha256")).unlink()
+                self.write_tarball_from(artifact, target)
+            debug.write_bytes(f"{target} debug".encode())
+            self.write_sidecar(debug)
+            debugs[target] = debug
+        found = {}
+        for target in release_policy.TARGETS:
+            archive = ASSEMBLER.find_one(
+                self.root, lambda p, target=target: ASSEMBLER.ARTIFACT_ARCHIVE[target].fullmatch(p.name) is not None,
+                target)
+            name = ASSEMBLER.CLIENT_BINARY[release_policy.target_os(target)] + ".debug"
+            found[target] = ASSEMBLER.find_one(archive.parent, lambda p, name=name: p.name == name, target)
+        self.assertEqual(found, debugs)
+
+    def write_tarball_from(self, artifact: Path, target: str) -> None:
+        root = f"ctr-decrypted-{target}-{self.commit[:12]}"
+        tarball = artifact / f"{root}.tar.gz"
+        with tarfile.open(tarball, "w:gz") as out:
+            info = tarfile.TarInfo(f"{root}/ctr_native_ap")
+            info.size = 1
+            out.addfile(info, io.BytesIO(b"x"))
+        self.write_sidecar(tarball)
+
     def test_tampered_artifact_sidecar_is_rejected(self) -> None:
-        artifact, _ = self.write_build_archive("windows")
+        artifact, _ = self.write_build_archive("windows-x86")
         (artifact / "ctr_native_ap.exe.debug.sha256").write_text("0" * 64 + "  ctr_native_ap.exe.debug\n")
         with self.assertRaises(ASSEMBLER.AssemblyError):
             ASSEMBLER.check_checksum(artifact / "ctr_native_ap.exe.debug")
 
     def test_provenance_mismatch_is_rejected(self) -> None:
-        artifact, debug = self.write_build_archive("linux", source_commit="b" * 40)
-        archive = next(artifact.glob("ctr-decrypted-linux-x86-*.zip"))
+        artifact, debug = self.write_build_archive("linux-x86_64", source_commit="b" * 40)
+        archive = next(artifact.glob("ctr-decrypted-linux-x86_64-*.zip"))
         unpacked = self.root / "unpacked"
-        binary, metadata, _ = ASSEMBLER.unpack_artifact(archive, "linux", unpacked)
+        binary, metadata, _ = ASSEMBLER.unpack_artifact(archive, "linux-x86_64", unpacked)
         with self.assertRaises(ASSEMBLER.AssemblyError):
-            ASSEMBLER.validate_build(self.source, "linux", archive, debug, binary, metadata)
+            ASSEMBLER.validate_build(self.source, "linux-x86_64", archive, debug, binary, metadata)
 
     def test_validate_build_calls_real_package_client_verify(self) -> None:
         """A changed verify signature must fail at the assembler call site."""
@@ -420,9 +460,9 @@ class AssemblerFixtureTests(unittest.TestCase):
         shutil.copy2(SCRIPT.parent.parent / "ci" / "package-client.py", package_script)
         package_client = ASSEMBLER.load_package_client(self.source)
         self.assertIsNotNone(package_client)
-        artifact, debug = self.write_build_archive("windows")
+        artifact, debug = self.write_build_archive("windows-x86")
         archive = next(artifact.glob("ctr-decrypted-windows-x86-*.zip"))
-        binary, metadata, _ = ASSEMBLER.unpack_artifact(archive, "windows", self.root / "unpacked")
+        binary, metadata, _ = ASSEMBLER.unpack_artifact(archive, "windows-x86", self.root / "unpacked")
         shutil.copy2(debug, binary.with_name(binary.name + ".debug"))
         # The tiny fixture binary is intentionally invalid. Stop inside the
         # real verify() at its first ABI check after validating the call shape.
@@ -433,15 +473,15 @@ class AssemblerFixtureTests(unittest.TestCase):
                 ASSEMBLER.AssemblyError,
                 "package-client validation failed: Shipped executable still contains debug sections",
             ):
-                ASSEMBLER.validate_build(self.source, "windows", archive, debug, binary, metadata)
-            verify.assert_called_once_with("windows", binary, "ap")
+                ASSEMBLER.validate_build(self.source, "windows-x86", archive, debug, binary, metadata)
+            verify.assert_called_once_with("windows-x86", binary, "ap")
 
     def test_rehearsal_label_keeps_real_source_identity_checks(self) -> None:
         apworld, template = self.prepare_assemble_inputs()
         args = self.assemble_args(self.root / "release", apworld, template)
         args.version = "0.0.0-rehearsal"
         args.rehearsal = True
-        with self.assertRaisesRegex(ASSEMBLER.AssemblyError, "windows AP archive"):
+        with self.assertRaisesRegex(ASSEMBLER.AssemblyError, "windows-x86 AP archive"):
             ASSEMBLER.assemble(args)
         args.rehearsal = False
         with self.assertRaisesRegex(ASSEMBLER.AssemblyError, "requested '0.0.0-rehearsal'"):
@@ -452,7 +492,7 @@ class AssemblerFixtureTests(unittest.TestCase):
         with zipfile.ZipFile(archive, "w") as bundle:
             bundle.writestr("root/../../outside", b"x")
         with self.assertRaises(ASSEMBLER.AssemblyError):
-            ASSEMBLER.unpack_artifact(archive, "windows", self.root / "out")
+            ASSEMBLER.unpack_artifact(archive, "windows-x86", self.root / "out")
 
     def test_tracked_source_change_is_rejected_before_packaging(self) -> None:
         header = self.source / "ap" / "ap_version.h"
@@ -460,8 +500,7 @@ class AssemblerFixtureTests(unittest.TestCase):
         args = type("Args", (), {
             "version": "0.2.0-rc-prep1",
             "native_source": self.source,
-            "windows_artifacts": self.root / "windows",
-            "linux_artifacts": self.root / "linux",
+            "artifacts": self.root,
             "apworld": self.root / "ctr.apworld",
             "template": self.root / "Crash.Team.Racing.yaml",
             "output_dir": self.root / "release",
@@ -485,7 +524,7 @@ class AuthoringDownloadTests(unittest.TestCase):
         debug = b"authoring debug"
         metadata = {
             "source_commit": self.commit,
-            "platform": "windows",
+            "platform": "windows-x86",
             "variant": variant,
             "authoring": authoring,
             "executable_sha256": hashlib.sha256(binary).hexdigest(),
@@ -513,7 +552,7 @@ class AuthoringDownloadTests(unittest.TestCase):
         staging = self.root / "staging"
         staging.mkdir()
         archive = ASSEMBLER.assemble_authoring(
-            self.source, "0.2.0-rc-prep1", "windows", artifact, output, staging
+            self.source, "0.2.0-rc-prep1", "windows-x86", artifact, output, staging
         )
         self.assertEqual(archive.name, "ctr-decrypted-v0.2.0-rc-prep1-box-authoring-windows-x86.zip")
         self.assertTrue(Path(str(archive) + ".sha256").is_file())
@@ -535,12 +574,12 @@ class AuthoringDownloadTests(unittest.TestCase):
         staging.mkdir()
         with self.assertRaises(ASSEMBLER.AssemblyError):
             ASSEMBLER.assemble_authoring(
-                self.source, "0.2.0-rc-prep1", "windows", artifact, output, staging
+                self.source, "0.2.0-rc-prep1", "windows-x86", artifact, output, staging
             )
 
     def test_authoring_names_are_outside_the_standard_set_and_manifest(self) -> None:
         names = release_policy.authoring_asset_names("0.2.0")
-        self.assertEqual(len(names), 4)
+        self.assertEqual(len(names), 2 * len(release_policy.TARGETS))
         self.assertFalse(set(names) & set(release_policy.standard_asset_names("0.2.0")))
         self.assertFalse(set(names) & set(release_policy.signed_asset_names("0.2.0")))
 
