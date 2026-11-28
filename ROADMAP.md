@@ -6,7 +6,6 @@ Open work only: what is in progress, what is planned, what may come, and what is
 - What the upstream trackers say: [docs/UPSTREAM-ISSUES.md](docs/UPSTREAM-ISSUES.md).
 
 ## In progress
-- First release with 64-bit Linux builds: its notes must tell Linux players to download `-linux-x86_64.tar.gz` (or `-linux-arm64.tar.gz`) by hand once. Their installed 32-bit build looks for `-linux-x86.tar.gz`, so its updater never offers the new release ([docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#releases-and-updates)). Delete this row once that release is out.
 - macOS on Apple Silicon ([docs/MACOS.md](docs/MACOS.md)): built, packaged as an app, assembled into releases and updated like the other targets. Not yet checked: the in-game update on a Mac, which needs two releases that carry macOS; check it on the first update after the first release with macOS. Until that release, the Windows exe runs under CrossOver/Wine with GL 3.x (ctr-native #20, #33).
 
 ## Maybe
