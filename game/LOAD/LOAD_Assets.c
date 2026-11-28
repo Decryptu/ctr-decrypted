@@ -27,6 +27,13 @@ void LOAD_RunPtrMap(char *origin, int *patchArr, int numPtrs)
 		// A slot holds an offset into this file; adding the file's PSX address
 		// makes it a PSX_PTR (include/ctr_psx_ptr.h).
 		u32 *location = (u32 *)&origin[offset];
+#ifdef CTR_NATIVE
+		// A null slot stays null. No retail file lists one, but custom LEVs
+		// list every pointer field, so an invisible quad's missing textures
+		// would become the file's own header and draw as garbage walls.
+		if (*location == 0)
+			continue;
+#endif
 		*location = *location + PsxSpace_FromHost(origin);
 	}
 }

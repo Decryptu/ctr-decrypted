@@ -53,6 +53,9 @@ void NativeLevelPointers_Note(const char *origin, const int *offsets, int count)
 	for (int i = 0; i < count; i++)
 	{
 		uint32_t word = (uint32_t)offsets[i] >> 2;
+		// LOAD_RunPtrMap leaves a null slot unrelocated: it is not a pointer.
+		if (((const uint32_t *)origin)[word] == 0)
+			continue;
 		bits[word >> 5] |= 1u << (word & 31);
 	}
 

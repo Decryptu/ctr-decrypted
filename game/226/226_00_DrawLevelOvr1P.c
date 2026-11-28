@@ -5060,10 +5060,12 @@ static int Ovr226_800a3c70_Ground4x1SelectorNearGate(struct PushBuffer *pb, stru
 	u32 maxDepth = DrawLevelOvr1P_GetProjectedMaxDepth(projected, indices);
 	int inheritedOtIndex = Ovr226_800a3d98_ResolveGround4x1SelectorOtIndex(block, projected, maxDepth, faceIndex);
 	struct TextureLayout *texture = Ovr226_800a3e00_SelectGround4x1SelectorTexture(block, projected, maxDepth);
-	if (texture != NULL)
+	// A face with no texture draws nothing (see DrawLevelOvr1P_HasLowTexture).
+	if (texture == NULL)
 	{
-		Ovr226_800a3e44_WriteGround4x1SelectorUv(projected, indices, texture, tableWord);
+		return 1;
 	}
+	Ovr226_800a3e44_WriteGround4x1SelectorUv(projected, indices, texture, tableWord);
 
 	return Ovr226_800a3eb0_Ground4x1NearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, 0, DRAW_LEVEL_OVR1P_TOP_LEVEL_NEAR_THRESHOLD_OFFSET, inheritedOtIndex);
 }
@@ -5406,10 +5408,12 @@ static int Ovr226_800a47f4_Ground4x1RenderedSelectorNearGate(struct PushBuffer *
 	u32 maxDepth = DrawLevelOvr1P_GetProjectedMaxDepth(projected, indices);
 	u32 *inheritedOtEntry = Ovr226_800a4978_ResolveGround4x1RenderedOtEntry(pb, block, projected, maxDepth, faceIndex);
 	struct TextureLayout *texture = Ovr226_800a49e0_SelectGround4x1RenderedTexture(block, projected, maxDepth);
-	if (texture != NULL)
+	// A face with no texture draws nothing (see DrawLevelOvr1P_HasLowTexture).
+	if (texture == NULL)
 	{
-		Ovr226_800a4a28_WriteGround4x1RenderedUv(projected, indices, texture, tableWord);
+		return 1;
 	}
+	Ovr226_800a4a28_WriteGround4x1RenderedUv(projected, indices, texture, tableWord);
 
 	return Ovr226_800a4ad0_Ground4x1RenderedNearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, 0, DRAW_LEVEL_OVR1P_TOP_LEVEL_NEAR_THRESHOLD_OFFSET, inheritedOtEntry);
 }
@@ -5776,10 +5780,12 @@ static int Ovr226_800a58ec_Ground4x2SelectorNearGate(struct PushBuffer *pb, stru
 	u32 maxDepth = DrawLevelOvr1P_GetProjectedMaxDepth(projected, indices);
 	int inheritedOtIndex = Ovr226_800a3d98_ResolveGround4x1SelectorOtIndex(block, projected, maxDepth, faceIndex);
 	struct TextureLayout *texture = Ovr226_800a3e00_SelectGround4x1SelectorTexture(block, projected, maxDepth);
-	if (texture != NULL)
+	// A face with no texture draws nothing (see DrawLevelOvr1P_HasLowTexture).
+	if (texture == NULL)
 	{
-		DrawLevelOvr1P_WriteProjectedUv(projected, indices, texture, tableWord);
+		return 1;
 	}
+	DrawLevelOvr1P_WriteProjectedUv(projected, indices, texture, tableWord);
 
 	return Ovr226_800a5b2c_Ground4x2NearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, 0, DRAW_LEVEL_OVR1P_TOP_LEVEL_NEAR_THRESHOLD_OFFSET, inheritedOtIndex);
 }
@@ -6074,10 +6080,12 @@ static int Ovr226_800a7668_DynamicListSelectorNearGate(struct PushBuffer *pb, st
 	u32 maxDepth = DrawLevelOvr1P_GetProjectedMaxDepth(projected, indices);
 	int inheritedOtIndex = Ovr226_800a3d98_ResolveGround4x1SelectorOtIndex(block, projected, maxDepth, faceIndex);
 	struct TextureLayout *texture = Ovr226_800a3e00_SelectGround4x1SelectorTexture(block, projected, maxDepth);
-	if (texture != NULL)
+	// A face with no texture draws nothing (see DrawLevelOvr1P_HasLowTexture).
+	if (texture == NULL)
 	{
-		DrawLevelOvr1P_WriteProjectedUv(projected, indices, texture, tableWord);
+		return 1;
 	}
+	DrawLevelOvr1P_WriteProjectedUv(projected, indices, texture, tableWord);
 
 	return Ovr226_800a78a8_DynamicListNearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, 0, DRAW_LEVEL_OVR1P_TOP_LEVEL_NEAR_THRESHOLD_OFFSET, inheritedOtIndex);
 }
@@ -6372,10 +6380,12 @@ static int Ovr226_800a9288_WideDynamicSelectorNearGate(struct PushBuffer *pb, st
 	u32 maxDepth = DrawLevelOvr1P_GetProjectedMaxDepth(projected, indices);
 	int inheritedOtIndex = Ovr226_800a3d98_ResolveGround4x1SelectorOtIndex(block, projected, maxDepth, faceIndex);
 	struct TextureLayout *texture = Ovr226_800a3e00_SelectGround4x1SelectorTexture(block, projected, maxDepth);
-	if (texture != NULL)
+	// A face with no texture draws nothing (see DrawLevelOvr1P_HasLowTexture).
+	if (texture == NULL)
 	{
-		DrawLevelOvr1P_WriteProjectedUv(projected, indices, texture, tableWord);
+		return 1;
 	}
+	DrawLevelOvr1P_WriteProjectedUv(projected, indices, texture, tableWord);
 
 	return Ovr226_800a94c8_WideDynamicNearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, 0, DRAW_LEVEL_OVR1P_TOP_LEVEL_NEAR_THRESHOLD_OFFSET, inheritedOtIndex);
 }
@@ -6841,10 +6851,12 @@ static int Ovr226_800a6740_Ground4x2RenderedSelectorNearGate(struct PushBuffer *
 	u32 maxDepth = DrawLevelOvr1P_GetProjectedMaxDepth(projected, indices);
 	u32 *inheritedOtEntry = Ovr226_800a68c8_ResolveGround4x2RenderedOtEntry(pb, block, projected, maxDepth, faceIndex);
 	struct TextureLayout *texture = Ovr226_800a6930_SelectGround4x2RenderedTexture(block, projected, maxDepth);
-	if (texture != NULL)
+	// A face with no texture draws nothing (see DrawLevelOvr1P_HasLowTexture).
+	if (texture == NULL)
 	{
-		Ovr226_800a6970_WriteGround4x2RenderedUv(projected, indices, texture, tableWord);
+		return 1;
 	}
+	Ovr226_800a6970_WriteGround4x2RenderedUv(projected, indices, texture, tableWord);
 
 	return Ovr226_800a69dc_Ground4x2RenderedNearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, 0, DRAW_LEVEL_OVR1P_TOP_LEVEL_NEAR_THRESHOLD_OFFSET, inheritedOtEntry);
 }
@@ -7278,10 +7290,12 @@ static int Ovr226_800a8380_DynamicRenderedSelectorNearGate(struct PushBuffer *pb
 	u32 maxDepth = DrawLevelOvr1P_GetProjectedMaxDepth(projected, indices);
 	u32 *inheritedOtEntry = Ovr226_800a8504_ResolveDynamicRenderedOtEntry(pb, block, projected, maxDepth, faceIndex);
 	struct TextureLayout *texture = Ovr226_800a856c_SelectDynamicRenderedTexture(block, projected, maxDepth);
-	if (texture != NULL)
+	// A face with no texture draws nothing (see DrawLevelOvr1P_HasLowTexture).
+	if (texture == NULL)
 	{
-		Ovr226_800a85b0_WriteDynamicRenderedUv(projected, indices, texture, tableWord);
+		return 1;
 	}
+	Ovr226_800a85b0_WriteDynamicRenderedUv(projected, indices, texture, tableWord);
 
 	return Ovr226_800a861c_DynamicRenderedNearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, 0, DRAW_LEVEL_OVR1P_TOP_LEVEL_NEAR_THRESHOLD_OFFSET, inheritedOtEntry);
 }
@@ -7714,10 +7728,12 @@ static int Ovr226_800a9fa0_Quad4x4RenderedSelectorNearGate(struct PushBuffer *pb
 	u32 maxDepth = DrawLevelOvr1P_GetProjectedMaxDepth(projected, indices);
 	u32 *inheritedOtEntry = Ovr226_800aa124_ResolveQuad4x4RenderedOtEntry(pb, block, projected, maxDepth, faceIndex);
 	struct TextureLayout *texture = Ovr226_800aa18c_SelectQuad4x4RenderedTexture(block, projected, maxDepth);
-	if (texture != NULL)
+	// A face with no texture draws nothing (see DrawLevelOvr1P_HasLowTexture).
+	if (texture == NULL)
 	{
-		Ovr226_800aa1d0_WriteQuad4x4RenderedUv(projected, indices, texture, tableWord);
+		return 1;
 	}
+	Ovr226_800aa1d0_WriteQuad4x4RenderedUv(projected, indices, texture, tableWord);
 
 	return Ovr226_800aa23c_Quad4x4RenderedNearOrDirect(pb, primMem, block, projected, indices, faceIndex, texture, 0, DRAW_LEVEL_OVR1P_TOP_LEVEL_NEAR_THRESHOLD_OFFSET, inheritedOtEntry);
 }
@@ -7863,8 +7879,11 @@ static void DrawLevelOvr1P_TerminateRenderedListCursor(void)
 }
 
 // A quadblock with no low-LOD texture is an untextured surface (Mystery Caves
-// has invisible camera and collision walls like this). The other draw paths
-// already skip a quad whose texture is missing. Retail reads the low UVs
+// has invisible camera and collision walls like this; custom LEVs have their
+// trigger and kill-plane quads). Every draw path skips a face whose texture is
+// missing: the mid-LOD selectors return before writing UVs, which would
+// otherwise draw the face with the last face's palette and zero UVs, a
+// one-texel wall. Retail reads the low UVs
 // through the null pointer, which on a PS1 is kernel RAM; here it crashed, so
 // 3 and 4 player races on Mystery Caves closed the game on the left path
 // (ctr-native #58).
@@ -8101,10 +8120,12 @@ static int Ovr226_800a19a8_SelectFullDynamicDirectSlot(struct QuadBlock *block, 
 	DrawLevelOvr1P_SetFullDynamicInheritedOtIndex(block, projected, maxDepth, faceIndex);
 	*texture = DrawLevelOvr1P_GetProjectedMidTexture(block, projected, faceIndex, maxDepth);
 
-	if (*texture != NULL)
+	// A face with no texture draws nothing (see DrawLevelOvr1P_HasLowTexture).
+	if (*texture == NULL)
 	{
-		DrawLevelOvr1P_WriteProjectedUv(projected, indices, *texture, tableWord);
+		return 0;
 	}
+	DrawLevelOvr1P_WriteProjectedUv(projected, indices, *texture, tableWord);
 
 	return 1;
 }

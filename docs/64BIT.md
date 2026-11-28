@@ -19,7 +19,7 @@ The game code is decompiled from the PS1, where a pointer is 4 bytes, and it rea
 - PSX space (`gPsxSpace`) is one static host block: the mempack backing first (`platform/native_memory.c`), then a heap (`PsxSpace_Alloc`, `PsxSpace_Free`).
 - A `PSX_PTR` holds a PSX address: `0x80000000` plus the target's offset in PSX space, or 0 for NULL. Under retail memory pressure the mempack backing is the 2 MiB PS1 RAM image, so stored values are the addresses retail keeps in RAM: compare level data with PCSX-Redux directly, and retail's sign tests on pointer words work unchanged.
 - `PSX_GET(p)` gives the typed host pointer, `PSX_SET(p, v)` stores one (type-checked), `PSX_ADDR(p)` is the raw word. `PSX_PTR` is a union, so using a field without them does not compile: the compiler lists every site. The union is pinned to 4-byte alignment; its type-carrying member would otherwise give it a host pointer's 8 and pad every disc struct.
-- `LOAD_RunPtrMap` adds the file's PSX address to each slot its pointer map names.
+- `LOAD_RunPtrMap` adds the file's PSX address to each slot its pointer map names, except a slot that holds 0: that stays NULL, and `NativeLevelPointers_Note` does not record it as a pointer. No retail file maps a null slot (all 336 disc files with a pointer map checked); custom LEVs map every pointer field, and relocated, an invisible quad's missing texture pointed at the LEV header ([CUSTOM_TRACKS.md](CUSTOM_TRACKS.md)).
 - A pointer to an array of PSX pointers is `Psx<Type>Ptr *` (`PsxModelPtr`, `PsxIconPtr`...): each element needs its own `PSX_GET`. Accessors for the arrays that follow a header: `ST1_GETPOINTER`, `ANIMTEX_GETFRAME`, `ICONGROUP_GETICON`.
 
 ## Rules

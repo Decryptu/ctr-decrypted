@@ -449,7 +449,16 @@ In order:
    served for all four mode pairs of the group
    (`include/platform/native_custom_tracks_policy.h`, decision 1). There is no
    LEV parsing: the file's own pointer map goes through the normal
-   `LOAD_RunPtrMap` fixup.
+   `LOAD_RunPtrMap` fixup. Custom LEV tools put every pointer field in the
+   map, null ones included; the fixup leaves those null
+   ([64BIT.md](64BIT.md#psx-space-and-psx-addresses)). Their trigger and
+   kill-plane quads have no textures, and only the LEV's own visibility lists
+   hide them, which native ignores for level geometry
+   ([LEVEL-VISIBILITY.md](LEVEL-VISIBILITY.md)), so the renderer must skip a
+   face with no texture. Check: on Cortex Vortex, `CTR_DEV_DUMP_FRAME` shows
+   no `T` line with a page above `01ff` and no all-zero UVs except the LEV's
+   own zero-UV layouts (page/CLUT `002a 0228`, `000c 2cb7`, `000a 0228`,
+   `006b 2c77`, `006d 2cf6`, `0068 2a26`).
 7. **Level setup.** `game/LOAD/LOAD_TenStages.c: LOAD_TenStages` names the
    level `custom` instead of the host slot's debug name.
    `game/MAIN/MainInit.c: MainInit_PrimMem` raises the per-frame primitive
