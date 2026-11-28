@@ -98,6 +98,27 @@ TARGETS = ('windows-x86', 'linux-x86_64', 'linux-arm64')
 ELF_MACHINE = {'linux-x86_64': (62, 'x86-64'), 'linux-arm64': (183, 'AArch64')}
 
 
+def elf_sections(path):
+    """Section name -> contents of a little-endian ELF64 file.
+
+    Read here rather than with objdump/objcopy, which only understand the
+    host's own architecture: the release check validates the arm64 client on
+    an x86_64 runner."""
+    data = path.read_bytes()
+    if data[:6] != b'\x7fELF\x02\x01':
+        raise ValueError(f'Not a little-endian ELF64 file: {path.name}')
+    shoff, = struct.unpack_from('<Q', data, 0x28)
+    shentsize, shnum, shstrndx = struct.unpack_from('<HHH', data, 0x3a)
+    headers = [struct.unpack_from('<IIQQQQ', data, shoff + i * shentsize) for i in range(shnum)]
+    names = headers[shstrndx][4]
+    sections = {}
+    for name, kind, _flags, _addr, offset, size in headers:
+        label = data[names + name:data.index(b'\0', names + name)].decode()
+        # SHT_NOBITS (8) occupies no file bytes.
+        sections[label] = b'' if kind == 8 else data[offset:offset + size]
+    return sections
+
+
 def verify(target, exe, variant):
     platform = 'windows' if target == 'windows-x86' else 'linux'
     if target not in TARGETS:
@@ -105,17 +126,26 @@ def verify(target, exe, variant):
     debug = Path(str(exe) + '.debug')
     if not exe.is_file() or not debug.is_file():
         raise ValueError('Missing executable or exact debug sidecar')
-    sections = output('objdump', '-h', str(exe))
-    if re.search(r'\s\.debug_\S+', sections):
-        raise ValueError('Shipped executable still contains debug sections')
-    if '.debug_info' not in output('objdump', '-h', str(debug)):
-        raise ValueError('Sidecar has no DWARF debug information')
-    with tempfile.TemporaryDirectory() as tmp:
-        section = Path(tmp) / 'debuglink'
-        # A scratch output prevents objcopy from modifying the gated binary.
-        subprocess.run(['objcopy', '--dump-section', f'.gnu_debuglink={section}',
-                        str(exe), str(Path(tmp) / 'copy')], check=True)
-        data = section.read_bytes()
+    if platform == 'windows':
+        if re.search(r'\s\.debug_\S+', output('objdump', '-h', str(exe))):
+            raise ValueError('Shipped executable still contains debug sections')
+        if '.debug_info' not in output('objdump', '-h', str(debug)):
+            raise ValueError('Sidecar has no DWARF debug information')
+        with tempfile.TemporaryDirectory() as tmp:
+            section = Path(tmp) / 'debuglink'
+            # A scratch output prevents objcopy from modifying the gated binary.
+            subprocess.run(['objcopy', '--dump-section', f'.gnu_debuglink={section}',
+                            str(exe), str(Path(tmp) / 'copy')], check=True)
+            data = section.read_bytes()
+    else:
+        sections = elf_sections(exe)
+        if any(name.startswith('.debug_') for name in sections):
+            raise ValueError('Shipped executable still contains debug sections')
+        if '.debug_info' not in elf_sections(debug):
+            raise ValueError('Sidecar has no DWARF debug information')
+        if '.gnu_debuglink' not in sections:
+            raise ValueError('Shipped executable has no .gnu_debuglink')
+        data = sections['.gnu_debuglink']
     end = data.index(b'\0')
     crc_at = (end + 1 + 3) & ~3
     if data[:end].decode() != debug.name or len(data) != crc_at + 4:
