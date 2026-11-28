@@ -92,9 +92,13 @@ def safe_extract_zip(archive: Path, dest: Path) -> None:
         bundle.extractall(dest)
 
 
-def safe_extract_tar(archive: Path, dest: Path) -> None:
+def safe_extract_tar(archive: Path, dest: Path, skip: tuple[str, ...] = ()) -> None:
+    """Extract, leaving out members under the `skip` prefixes. Parts the runtime
+    drops are never written: Linux's share/terminfo holds names that differ
+    only by case, which collide on a case-insensitive disk (a macOS host)."""
     with tarfile.open(archive) as bundle:
-        bundle.extractall(dest, filter="data")
+        members = [m for m in bundle.getmembers() if not m.name.startswith(skip)]
+        bundle.extractall(dest, members=members, filter="data")
 
 
 def remove(path: Path) -> None:
@@ -119,7 +123,8 @@ def build_python(platform: str, entry: dict, cache: Path, runtime: Path, license
         shutil.copyfile(target / "LICENSE.txt", licenses / "CPython-LICENSE.txt")
     else:
         with tempfile.TemporaryDirectory() as tmp:
-            safe_extract_tar(archive, Path(tmp))
+            safe_extract_tar(archive, Path(tmp), tuple(f"python/{rel}/" for rel in LINUX_DROP) +
+                             tuple(f"python/{rel}" for rel in LINUX_DROP if "/" in rel))
             shutil.move(str(Path(tmp) / "python"), target)
         for rel in LINUX_DROP:
             remove(target / rel)
