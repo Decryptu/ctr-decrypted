@@ -494,8 +494,10 @@ else()
     else()
         # A pointer kept in a 32-bit integer loses its top half, and a 64-bit
         # value passed to a 32-bit format shifts every later argument
-        # (docs/64BIT.md).
-        target_compile_options(ctr_native PRIVATE $<$<COMPILE_LANGUAGE:C>:-Werror=pointer-to-int-cast -Werror=int-to-pointer-cast -Werror=format -Wno-error=format-truncation>)
+        # (docs/64BIT.md). Only argument mismatches are errors: the format
+        # checks that do not depend on pointer size (buffer length guesses,
+        # retail's non-literal formats) stay warnings.
+        target_compile_options(ctr_native PRIVATE $<$<COMPILE_LANGUAGE:C>:-Werror=pointer-to-int-cast -Werror=int-to-pointer-cast -Werror=format -Wno-error=format-truncation -Wno-error=format-overflow -Wno-error=format-security>)
     endif()
     target_compile_options(ctr_native PRIVATE
         -Wenum-conversion
@@ -568,6 +570,7 @@ if(BUILD_TESTING)
         add_executable(ctr_particle_renderer_smoke
             tests/particle_renderer_smoke.c
             platform/native_gpu_links.c
+            platform/native_psx_space.c
             platform/native_pgxp.c
             platform/native_pgxp_view.c
             tests/pgxp_test_config.c
